@@ -7,13 +7,10 @@ import NewAnnuity from './NewAnnuity';
 import GraphAnnuities from './GraphAnnuities';
 import Footer from './../Footer/Footer';
 
-// Initalize strings used for input collection and output
-var inputString;
-var tense = "";
-var answer;
-
 
 function Annuities() {
+
+    var crntAnswer=0;
 
     const [answer, setAnswer] = useState(0);
     const [showNewAnnuity, setShowNewAnnuity] = useState(0);
@@ -29,6 +26,7 @@ function Annuities() {
 
     // Parse input data + incorporate conversions into output variable(answer) -- do this every time a new annuity is submitted.
     useEffect(() => {
+        // crntAnswer = answer;
         let inputPresent=annuityCall[0];
         let inputAnnual=annuityCall[1];
         let inputFuture=annuityCall[2];
@@ -38,56 +36,56 @@ function Annuities() {
 
         //PTOF
         if(inputPresent&&(time==="$Future")){
-            let ansr = (answer + (inputPresent * (Math.pow(1+inputInterest,inputPeriods))));
-            setAnswer(ansr);
+            let ansr = (crntAnswer + (inputPresent * (Math.pow(1+inputInterest,inputPeriods))));
+            crntAnswer= ansr;
         }
         //ATOF
         if(inputAnnual&&(time==="$Future")){
-            let ansr = (answer + (inputAnnual * (((Math.pow((1+inputInterest), inputPeriods))-1)/inputInterest)));
-            setAnswer(ansr);
+            let ansr = (crntAnswer + (inputAnnual * (((Math.pow((1+inputInterest), inputPeriods))-1)/inputInterest)));
+            crntAnswer= ansr;
         }
         //GTOF
         if(inputGradient&&(time==="$Future")){
             let innL = (((Math.pow((1+inputInterest),inputPeriods)-1))/(inputInterest*inputInterest));
             let innR = (inputPeriods/inputInterest);
-            let ansr = (answer + inputGradient*(innL-innR));
-            setAnswer(ansr);
+            let ansr = (crntAnswer + inputGradient*(innL-innR));
+            crntAnswer= ansr;
         }
         //FTOP
         if(inputFuture&&(time==="$Present")){
-            let ansr = (answer + (inputFuture*(Math.pow(1/(1+inputInterest), inputPeriods))));
-            setAnswer(ansr);
+            let ansr = (crntAnswer + (inputFuture*(Math.pow(1/(1+inputInterest), inputPeriods))));
+            crntAnswer= ansr;
         }
         //ATOP
         if(inputAnnual&&(time==="$Present")){
-            let ansr = (answer + (inputAnnual * (((Math.pow((1+inputInterest),inputPeriods))-1)/(inputInterest*(Math.pow((1+inputInterest),inputPeriods))))));
-            setAnswer(ansr);
+            let ansr = (crntAnswer + (inputAnnual * (((Math.pow((1+inputInterest),inputPeriods))-1)/(inputInterest*(Math.pow((1+inputInterest),inputPeriods))))));
+            crntAnswer= ansr;
         }
         //GTOP
         if(inputGradient&&(time==="$Present")){
             let inL = ((Math.pow((1+inputInterest),inputPeriods)-1)/(inputInterest*(Math.pow((1+inputInterest),inputPeriods))));
             let inR = inputPeriods/(Math.pow((1+inputInterest),inputPeriods));
-            let ansr = (inputGradient * (1/inputInterest)*(inL - inR));
-            setAnswer(ansr);
+            let ansr = (crntAnswer + (inputGradient * (1/inputInterest)*(inL - inR)));
+            crntAnswer= ansr;
         }
         //FTOA
         if(inputFuture&&(time==="$Periodic")){
-            let ansr = (answer + (inputFuture * ((inputInterest)/(Math.pow((1+inputInterest),inputPeriods)-1))));
-            setAnswer(ansr);
+            let ansr = (crntAnswer + (inputFuture * ((inputInterest)/(Math.pow((1+inputInterest),inputPeriods)-1))));
+            crntAnswer= ansr;
         }
         //PTOA
         if(inputPresent&&(time==="$Periodic")){
             let upr = inputPresent*(inputInterest*(Math.pow((1+inputInterest),inputPeriods)));
             let lwr = (Math.pow((1+inputInterest), inputPeriods)-1);
-            let ansr = (answer + (upr/lwr));
-            setAnswer(ansr);
+            let ansr = (crntAnswer + (upr/lwr));
+            crntAnswer= ansr;
         }
         //GTOA
         if(inputGradient&&(time==="$Periodic")){
-            let ansr = (answer + (inputGradient * ((1/inputInterest)-(inputPeriods/(Math.pow((1+inputInterest),inputPeriods)-1)))));
-            setAnswer(ansr);
+            let ansr = (crntAnswer + (inputGradient * ((1/inputInterest)-(inputPeriods/(Math.pow((1+inputInterest),inputPeriods)-1)))));
+            crntAnswer= ansr;
         }
-
+        setAnswer(crntAnswer);
     }, [annuityCall]);
 
     const options = [
@@ -133,13 +131,13 @@ function Annuities() {
             }
         </div>
 
-        <div className='annuities-output'>
+        {/* <div className='annuities-output'>
             <span className='annuities-output-span'>
                 graph of money over time - broken atm
                 <GraphAnnuities chartData={annuityCall}   />
             </span>
             
-        </div>
+        </div> */}
 
         <div className='annuities-resulttime'>
             <div className='annuities-resulttime-text'>
@@ -149,6 +147,10 @@ function Annuities() {
 
 
         <div className='annuities-description'>
+            Example: If you have $500 and save $10 at 10% interest for 10 periods, you'd enter 500 (present), 10 (periodic), 0.10 (interest), and 10 (periods).
+            <br></br>
+            <br></br> 
+            <br></br> 
             This calculator supports the following annuity conversions:
             <br></br> 
             <br></br>
