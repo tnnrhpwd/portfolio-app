@@ -13,7 +13,7 @@ function Annuities() {
     var crntAnswer=0;
 
     const [answer, setAnswer] = useState(0);
-    const [showNewAnnuity, setShowNewAnnuity] = useState(0);
+    const [showNewAnnuity, setShowNewAnnuity] = useState(1);
 
     const [time, setTime] = useState('$Present');       // holds the chosen return tense
     const [annuityCall, setAnnuityCall] = useState([]); // holds the input variables from the input fields
@@ -147,30 +147,30 @@ function Annuities() {
 
 
         <div className='annuities-description'>
-            Example: If you have $500 and save $10 at 10% interest for 10 periods, you'd enter 500 (present), 10 (periodic), 0.10 (interest), and 10 (periods).
+            Example: If you have $500 and save $10 at 10% interest for 10 periods: Select $Future then enter 500 (present), 10 (periodic), 0.10 (interest), and 10 (periods).
             <br></br>
             <br></br> 
             <br></br> 
             This calculator supports the following annuity conversions:
             <br></br> 
             <br></br>
-            (PtoA) - (CR) Capital Recovery (present to periodic value)
+            (PtoA) - (CR) Capital Recovery
             <br></br>
-            (PtoF) - (SPCA) Single Payment Compound Amount (present to future value)
+            (PtoF) - (SPCA) Single Payment Compound Amount
             <br></br>
-            (FtoP) - (SPPW) Single payment present worth (future to present value)
+            (FtoP) - (SPPW) Single payment present worth
             <br></br>
-            (GtoF) - (UGFW) Uniform gradient future worth (gradient to future value)
+            (GtoF) - (UGFW) Uniform gradient future worth
             <br></br>
-            (GtoP) - (UGPW) Uniform gradient present worth (gradient to present value)
+            (GtoP) - (UGPW) Uniform gradient present worth
             <br></br>
-            (GtoA) - (UGUS) Uniform gradient uniform series (gradient to periodic value)
+            (GtoA) - (UGUS) Uniform gradient uniform series
             <br></br>
-            (AtoF) - (USCA) Uniform series compound Amount (periodic to future value)
+            (AtoF) - (USCA) Uniform series compound Amount
             <br></br>
-            (AtoP) - (USPW) Uniform series present worth (periodic to present value)
+            (AtoP) - (USPW) Uniform series present worth
             <br></br>
-            (FtoA) - (USSF) Uniform series sinking fund (future to periodic value)
+            (FtoA) - (USSF) Uniform series sinking fund
             <br></br>
 
         </div>

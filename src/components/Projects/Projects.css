@@ -21,7 +21,7 @@
 
 
 .projects-resume{
-    margin-bottom: calc(var(--nav-size)*.4);
+    /* margin-bottom: calc(var(--nav-size)*.4); */
     display: inline-block;
 }
 .projects-resume-inside{
@@ -42,6 +42,31 @@
   box-shadow: 0 4px #666;
   transform: translateY(calc(var(--nav-size)*.04));
 }
+
+
+.projects-source{
+    margin-bottom: calc(var(--nav-size)*.4);
+    display: inline-block;
+}
+.projects-resume-inside{
+
+}
+#projects-source-button{
+    border-radius: calc(var(--nav-size)*.05);
+    color: rgb(0, 0, 0);
+    cursor: pointer;
+    box-shadow: 0 calc(var(--nav-size)*.1) #999;
+    /* width: calc(var(--nav-size)*3); */
+    font-size: calc(var(--nav-size)*.3);
+    padding: calc(var(--nav-size)*.05);
+}
+#projects-source-button:hover {background-color: #f5dcc8}
+#projects-source-button:active {              /* ADD NEW POLL toggle button */
+  background-color: #f5dcc8;
+  box-shadow: 0 4px #666;
+  transform: translateY(calc(var(--nav-size)*.04));
+}
+
 
 
 
