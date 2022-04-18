@@ -1,0 +1,85 @@
+.login-form{
+    width: calc(var(--nav-size)*5);
+    display: inline-block;
+    justify-content: center;
+    align-items: center;
+    padding-top: calc(var(--nav-size)*1.5);
+ 
+}
+.form-box{
+    opacity:95%;
+    background: black;
+    padding-right: calc(var(--nav-size)*.7);
+    padding-left: calc(var(--nav-size)*.7);
+    border-radius: calc(var(--nav-size)*.25);
+    box-shadow: 10px 10px 10px 1px rgba(0, 0, 0, 0.2);
+    
+}
+.login-text{
+    width: 100%;
+    color: white;
+    border-bottom: calc(var(--nav-size)*.05) solid white;
+    line-height: calc(var(--nav-size)*.8);
+    width: 100%;
+    font-weight: bolder;
+    text-align: center;
+    justify-content: center;
+    align-items: center;
+    padding-top: calc(var(--nav-size)*.2);
+    font-size: calc(var(--nav-size)*.4);
+}
+label {
+    font-size: calc(var(--nav-size)*.35);
+    color:white;
+    text-align: center;
+}
+.login-box{
+    border: calc(var(--nav-size)*.025) solid lightgrey;
+    justify-content: center;
+    align-items: center;
+    border-radius: calc(var(--nav-size)*.15);
+    padding: calc(var(--nav-size)*.075);
+    letter-spacing: calc(var(--nav-size)*.025);
+    font-size: calc(var(--nav-size)*.2);
+    background: transparent;
+    transition: 1s;
+    outline: none;
+    color: white;
+    
+}
+.login-btn{
+    width: 75%;
+    justify-content: center;
+    align-items: center;
+    background-color: rgb(48,172,251);
+    color: white;
+    border-radius: 20px;
+    border: none;
+    font-size: calc(var(--nav-size)*.225);
+    transition: 1s;
+    outline: none;
+    cursor: pointer;
+    height: calc(var(--nav-size)*.4);
+}
+.login-btn:hover{
+    transform: scale(1.03);
+    letter-spacing: 4px;
+    background-color: #7FFFD4;
+    color: #1E90FF;
+}
+.show {
+    transition: 800ms;
+    opacity: 1;
+    text-align: center;
+    height: 0;
+}
+.show.active {
+    height: 0;
+    transform: translateY(calc(var(--nav-size)*-8)) scale(0) rotateY(180deg);
+    opacity: 0;
+}
+#login-connect{
+}
+#login-out{
+    margin-bottom: calc(var(--nav-size)*.5);
+}

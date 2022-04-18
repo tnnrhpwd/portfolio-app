@@ -1,0 +1,172 @@
+.annuities{
+    background-color: var(--bg);
+    color: white;
+    padding: calc(var(--nav-size)*.4);
+    text-align: center;
+}
+.annuities-title{
+    text-align: center;
+    margin-top: calc(var(--nav-size)*.4);
+    font-size: calc(var(--nav-size)*.7);
+    font-weight: bold;
+}
+.annuities-subtitle{
+    text-align: center;
+    font-size: calc(var(--nav-size)*.25);
+    height: calc(var(--nav-size)*.1);
+}
+.annuities-inputs{
+    height: calc(var(--nav-size)*1);
+    display: inline;
+
+    text-align: center;
+}
+.annuities-find-text{
+    vertical-align: center;
+    text-align: center;    
+    display: inline-block;
+    width: calc(var(--nav-size)*1);
+    font-size: calc(var(--nav-size)*.4);
+    margin-right: min(500px,3vw);
+}
+.annuities-find-dropdown{
+    display: inline-block;
+    width: calc(var(--nav-size)*1.6);
+    text-align: center;
+    font-size: calc(var(--nav-size)*.25);
+    vertical-align: bottom;
+}
+.Dropdown-root{
+
+}
+.Dropdown-control{
+    height: calc(var(--nav-size)*.58);
+    font-weight: bold;
+    padding-bottom: calc(var(--nav-size)*.4);
+    background-color: rgb(78, 78, 78);
+    color: white;
+    border: calc(var(--nav-size)*.0001) solid rgba(255, 255, 255, 0.885);
+    border-radius: 5%;
+    cursor: pointer;
+}
+#newAnnuity{
+    margin-left:min(500px,3vw);
+    vertical-align: bottom;
+    height: calc(var(--nav-size)*.58);
+    font-size: calc(var(--nav-size)*.19);
+    width: calc(var(--nav-size)*1.4);
+    font-weight: bold;
+    background-color: rgb(78, 78, 78);
+    color: white;
+    border: calc(var(--nav-size)*.0001) solid rgba(255, 255, 255, 0.885);
+    border-radius: 5%;
+    cursor: pointer;
+}
+#newAnnuity:active{
+    height: calc(var(--nav-size)*.55);
+    transform: rotate(360deg);
+    transition-duration: .1s;
+}
+.annuities-description{
+    text-align: left;
+    margin-top: calc(var(--nav-size)*1);
+    font-size: calc(var(--nav-size)*.2);
+    margin-bottom: calc(var(--nav-size)*1);
+}
+.annuities-result time{
+    margin-top: calc(var(--nav-size)*.3);
+    font-size: calc(var(--nav-size)*.3);
+
+}
+.annuities-output{
+    padding-top: calc(var(--nav-size)*1);
+    margin-top: calc(var(--nav-size)*.3);
+    font-size: calc(var(--nav-size)*.3);
+    height: calc(var(--nav-size)*2);
+    background-color: rgb(78, 78, 78);
+}
+/* .annuities-output-span{
+
+    
+    
+} */
+/* .annuities-resulttime{
+
+} */
+.annuities-resulttime-text{
+    margin-top: calc(var(--nav-size)*.3);
+    font-size: calc(var(--nav-size)*.3);
+}
+.annuities-newannuity{
+    margin-top: calc(var(--nav-size)*.2);
+    border: calc(var(--nav-size)*.0001) solid rgba(255, 255, 255, 0.885);
+    border-radius: 5%;
+    padding-bottom: calc(var(--nav-size)*.2);
+    text-align: center;
+    
+}
+
+.inputNewAnnuity{
+    text-align: center;
+    font-size: calc(var(--nav-size)*.5);
+}
+.inputNewAnnuity-present{
+    /* margin: calc(var(--nav-size)*.05); */
+    height: calc(var(--nav-size)*.4);
+    width: calc(var(--nav-size)*3);
+    text-align: center;
+    font-size: calc(var(--nav-size)*.3);
+}
+.inputNewAnnuity-annual{
+    /* margin: calc(var(--nav-size)*.05); */
+    height: calc(var(--nav-size)*.4);
+    width: calc(var(--nav-size)*3);
+    text-align: center;
+    font-size: calc(var(--nav-size)*.3);
+}   
+.inputNewAnnuity-future{
+    /* margin: calc(var(--nav-size)*.05); */
+    height: calc(var(--nav-size)*.4);
+    width: calc(var(--nav-size)*3);
+    text-align: center;
+    font-size: calc(var(--nav-size)*.3);
+}
+.inputNewAnnuity-gradient{
+    /* margin: calc(var(--nav-size)*.05); */
+    height: calc(var(--nav-size)*.4);
+    width: calc(var(--nav-size)*3);
+    text-align: center;
+    font-size: calc(var(--nav-size)*.3);
+}
+.inputNewAnnuity-interest{
+    /* margin: calc(var(--nav-size)*.05); */
+    height: calc(var(--nav-size)*.4);
+    width: calc(var(--nav-size)*3);
+    text-align: center;
+    font-size: calc(var(--nav-size)*.3);
+}
+.inputNewAnnuity-periods{
+    /* margin: calc(var(--nav-size)*.05); */
+    height: calc(var(--nav-size)*.4);
+    width: calc(var(--nav-size)*3);
+    text-align: center;
+    font-size: calc(var(--nav-size)*.3);
+}
+
+#submitNewAnnuity{
+    word-wrap: normal;
+    height: calc(var(--nav-size)*.5);
+    font-size: calc(var(--nav-size)*.19);
+    width: calc(var(--nav-size)*2);
+    font-weight: bold;
+    background-color: rgb(78, 78, 78);
+    color: white;
+    border: calc(var(--nav-size)*.0001) solid rgba(255, 255, 255, 0.885);
+    border-radius: 5%;
+    cursor: pointer;
+}
+#submitNewAnnuity:active{
+    height: calc(var(--nav-size)*.55);
+    transform: rotate(360deg);
+    transition-duration: .1s;
+}

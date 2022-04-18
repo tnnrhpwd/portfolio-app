@@ -1,0 +1,17 @@
+.footer-space{
+    z-index: -500000000;
+    color: white;
+    font-size: calc(var(--nav-size)*0.21);
+    text-align: center;
+    padding-bottom: calc(var(--nav-size)*.5);
+    background-color: var(--bg);
+    height: calc(var(--nav-size)*7);
+}
+.footer-space-transparent{
+    z-index: -500000000;
+    color: rgb(0, 0, 0);
+    font-size: calc(var(--nav-size)*0.21);
+    text-align: center;
+    padding-bottom: calc(var(--nav-size)*.5);
+    background-color: transparent;
+}

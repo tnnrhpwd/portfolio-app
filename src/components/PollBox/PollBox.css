@@ -1,0 +1,259 @@
+.pollbox-app {
+    text-align: center;
+}
+  
+.pollbox-titles{                              
+    font-weight: bold;
+    font-size: calc(var(--nav-size)*.6);
+    margin-top: calc(var(--nav-size)*1.1);
+    text-align: center;
+}
+  
+.pollbox-descriptions{
+    font-size: calc(var(--nav-size)*.25);
+    display: block;
+}
+  
+#questions{                             /* ACTIVE POLL */
+  margin-top: calc(var(--nav-size)*.1);
+  font-size: calc(var(--nav-size)*.3);
+  margin-bottom: calc(var(--nav-size)*.05);
+}
+  
+  #expirations{                           /* ACTIVE POLL */
+    font-size: calc(var(--nav-size)*.22);
+  }
+  
+  .pollButton{                            /* ACTIVE POLL */
+    display: inline-block;
+    background-color: rgb(228, 228, 228);
+    border-radius: calc(var(--nav-size)*.10);
+    color: black;
+    cursor: pointer;
+    text-align: center;
+    outline: none;
+    border: none;
+    box-shadow: 0 calc(var(--nav-size)*.075) #999;
+    margin-left: calc(var(--nav-size)*.10);
+    margin-right: calc(var(--nav-size)*.10);
+    font-size: calc(var(--nav-size)*.3);
+    margin-bottom: calc(var(--nav-size)*.1);
+    padding: calc(var(--nav-size)*.1);
+  }
+  .pollButton:hover {background-color: #3e8e41}
+  .pollButton:active {                    /* ACTIVE POLL */
+    background-color: #3e8e41;
+    box-shadow:  calc(var(--nav-size)*.075) #666;
+    transform: translateY(calc(var(--nav-size)*.075));
+  }
+  .endPollButton{                      /* ACTIVE POLL */
+    display: inline-block;
+    background-color: rgb(161, 7, 7, 0.36);
+    border-radius: calc(var(--nav-size)*.10);
+    color: aliceblue;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 calc(var(--nav-size)*.05) #999;
+    font-size: calc(var(--nav-size)*.25);
+    padding: calc(var(--nav-size)*.1);
+  }
+  .endPollButton:hover {background-color: #ff0606}
+  .endPollButton:active {              /* ACTIVE POLL */
+    background-color: #ff0606;
+    box-shadow: 0 4px #666;
+    transform: translateY(calc(var(--nav-size)*.025));
+  }
+  
+  .pollSpace{                             /* ACTIVE POLL */
+    width: 80%;
+    margin: min(15px, 3vw) 0;
+    display: inline-block;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+  }
+  .postPollSpace{                             /* ACTIVE POLL */
+    width: 80%;
+    padding: min(50px,2vw);
+    font-size: min(20px,4vw);
+    margin: min(15px, 3vw) 0;
+    display: inline-block;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+  }
+  
+  
+  
+  
+  
+  
+  
+  
+  
+.pollbox-app-closedpoll{
+  text-align: center;
+}
+  .deletePollButton{                      /* RECENT POLL */
+    display: block;
+    background-color: rgba(161, 7, 7, 0.36);
+    border-radius: 5px;
+    color: aliceblue;
+    cursor: pointer;
+    border: none;
+    box-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.1) #999;
+    font-size: calc(var(--nav-size)*.25);
+    margin-left: calc(var(--nav-size)*1);
+    padding: calc(var(--nav-size)*.1);
+  }
+  .deletePollButton:hover {background-color: #ff0606}
+  .deletePollButton:active {              /* RECENT POLL */
+    background-color: #ff0606;
+    box-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.1) #666;
+    transform: translateY(calc(var(--nav-size)*.04));
+  }
+  
+  .recentBox{                             /* RECENT POLL */
+    text-align:left;
+    padding: calc(var(--nav-size)*.6);
+    padding-left: calc(var(--nav-size)*.25);
+    width: 80%;
+    margin:  calc(var(--nav-size)*.3) 0;
+    display: inline-block;
+    border: calc(var(--nav-size)*.015) solid #ccc;
+    border-radius: calc(var(--nav-size)*.2);
+    box-sizing: border-box;
+  }
+  
+  #recentQuestion{                    /* RECENT POLL */
+    margin-top: calc(var(--nav-size)*.2);
+    overflow-wrap: break-word;
+    display: inline-block;
+    font-size: calc(var(--nav-size)*.4);
+    width: 100%;
+  }
+  #recentResults{                     /* RECENT POLL */
+    font-size: calc(var(--nav-size)*.25);
+    font-weight: bold;
+  }
+  #recentData{                      /* RECENT POLL */
+    font-size: calc(var(--nav-size)*.29);
+   
+  }
+  
+  #recentDataQ{                     /* RECENT POLL */
+    display: inline-block;
+    overflow-wrap: break-word;
+    width:min(1192px, 45vw);
+  }
+  
+  #recentDataV{                      /* RECENT POLL */
+    display: inline-block;
+    margin-left: min(22px, 4.5vw);
+  }
+  #recentDataP{                      /* RECENT POLL */
+    display: inline-block;
+    margin-left: calc(var(--nav-size)*.5);
+    font-size: calc(var(--nav-size)*.2);
+    margin-bottom: calc(var(--nav-size)*.2);
+  }
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  #newTitle{
+    margin-bottom: calc(var(--nav-size)*1);
+  }
+  #questionID{                      /* ADD NEW POLL */
+    font-size: calc(var(--nav-size)*.3);
+    text-align: center;
+    width: 75%;
+    padding: calc(var(--nav-size)*.025) calc(var(--nav-size)*.025);
+    display: inline-block;
+    border: calc(var(--nav-size)*.015) solid #ccc;
+    border-radius: calc(var(--nav-size)*.1);
+    box-sizing: border-box;
+  }
+  #durationID{                      /* ADD NEW POLL */
+    font-size: calc(var(--nav-size)*.25);
+    text-align: center;
+    padding: 6px 20px;
+    margin-bottom: 8px;
+    display: inline-block;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+    width: calc(var(--nav-size)*3)
+  }
+  .newPollSpace{                  /* ADD NEW POLL groups the answers input */
+    text-align: center;
+    width: 80%;
+    margin: min(10px, 1vw) 0;
+    display: inline-block;
+    box-sizing: border-box;
+  }
+  #newPollEntry{                    /* ADD NEW POLL */
+    font-size: calc(var(--nav-size)*.3);
+    padding: calc(var(--nav-size)*.025) calc(var(--nav-size)*.025);
+    width: 100%;
+  }
+  #buttonNewPollID{                  /* ADD NEW POLL submit button */
+    border-radius: 5px;
+    color: rgb(0, 0, 0);
+    cursor: pointer;
+    box-shadow: 0 calc(var(--nav-size)*.1) #999;
+    font-size: calc(var(--nav-size)*.25);
+    /* margin-bottom: calc(var(--nav-size)*.05); */
+    padding: calc(var(--nav-size)*.1);
+  }
+  #buttonNewPollID:hover {background-color: #f5dcc8}
+  #buttonNewPollID:active {              /* ADD NEW POLL submit button */
+    background-color: #f5dcc8;
+    box-shadow: 0 4px #666;
+    transform: translateY(calc(var(--nav-size)*.04));
+  }
+  #newTitle{                  /* ADD NEW POLL toggle button */
+    border-radius: calc(var(--nav-size)*.05);
+    color: rgb(0, 0, 0);
+    cursor: pointer;
+    box-shadow: 0 calc(var(--nav-size)*.1) #999;
+    font-size: calc(var(--nav-size)*.25);
+    /* margin-bottom: 15px; */
+    display: inline-block;
+    padding: calc(var(--nav-size)*.1);
+  }
+  #newTitle:hover {background-color: #f5dcc8}
+  #newTitle:active {              /* ADD NEW POLL toggle button */
+    background-color: #f5dcc8;
+    box-shadow: 0 4px #666;
+    transform: translateY(calc(var(--nav-size)*.04));
+  }
+.newFormSpace{                                      /* ADD NEW POLL groups the entire entry components*/
+  padding: calc(var(--nav-size)*.2);
+  width: 80%;
+  /* margin: calc(var(--nav-size)*.04) 0; */
+  display:inline-block;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+  text-align: center;
+}
+.newFormSpace-title{                                      /* ADD NEW POLL groups the entire entry components*/
+  font-weight: bold;
+  font-size: calc(var(--nav-size)*.6);
+  margin-top: calc(var(--nav-size)*.2);
+  text-align: center;
+}
+.pollbox-app-newpoll{
+  text-align: center;
+}
+.pollbox-app-newpoll-div{
+  height: calc(var(--nav-size)*1.35);
+}

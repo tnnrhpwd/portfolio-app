@@ -1,0 +1,21 @@
+.newannuity{
+    border: calc(var(--nav-size)*.0001) solid rgba(255, 255, 255, 0.885);
+    border-radius: 5%;
+}
+#submitNewAnnuity{
+    margin-left:min(500px,3vw);
+    vertical-align: bottom;
+    height: calc(var(--nav-size)*.58);
+    font-size: calc(var(--nav-size)*.19);
+    width: calc(var(--nav-size)*1.4);
+    font-weight: bold;
+    background-color: rgb(78, 78, 78);
+    color: white;
+    border: calc(var(--nav-size)*.0001) solid rgba(255, 255, 255, 0.885);
+    border-radius: 5%;
+}
+#submitNewAnnuity:active{
+    height: calc(var(--nav-size)*.55);
+    transform: rotate(360deg);
+    transition-duration: .1s;
+}

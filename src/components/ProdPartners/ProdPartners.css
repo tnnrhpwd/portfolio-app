@@ -1,0 +1,70 @@
+.prodpartners-space{
+    padding-top: calc(var(--nav-size)*1.2);
+    padding-left: calc(var(--nav-size)*.6);
+    padding-right: calc(var(--nav-size)*.5);
+    color: white;
+    text-align: center;
+}
+.prodpartners-title{
+    font-size: calc(var(--nav-size)*.5);
+    text-align: left;
+    padding-bottom: calc(var(--nav-size)*.7);
+}
+.prodpartners-body{
+    font-size: calc(var(--nav-size)*.3);
+    text-align: left;
+    padding-bottom: calc(var(--nav-size)*.7);
+}
+.prodpartners-get{
+    text-align: center;
+    display: inline-block;
+    background-color: var(--bg-accent);
+    border-radius: 5%;
+}
+.prodpartners-get-box{
+    width: calc(var(--nav-size)*5);
+    vertical-align: middle;
+    height: calc(var(--nav-size)*2.5);
+    cursor: pointer;
+}
+.prodpartners-get-box-left{
+    margin-top: calc(var(--nav-size)*.3);
+    padding: calc(var(--nav-size)*.4);
+    float: left;
+    width: 20%;
+    text-align: left;
+}
+#prodpartners-get-box-left-img{
+    width: calc(var(--nav-size)*1);
+    background-color: var(--bg);
+    box-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.025)  var(--bg);
+    -moz-box-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.025)  var(--bg);
+    -webkit-box-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.025)  var(--bg);
+    -o-box-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.025)  var(--bg);
+    border-radius:50%;
+}
+.prodpartners-get-box-right{
+    padding: calc(var(--nav-size)*.2);
+    font-size: calc(var(--nav-size)*.26);
+    width: 50%;
+    text-align: center;
+    float: right;
+    text-shadow: calc(var(--nav-size)*-.025) calc(var(--nav-size)*.025) var(--bg);;
+}
+#prodpartners-get-box-right-text{
+    margin-top: 25%;
+    font-weight: bold;
+}
+#prodpartners-get-box-right-button{
+    width: calc(var(--nav-size)*1.5);
+    border-style: double;
+    border-radius: 5%;
+}
+#prodpartners-get-box-right-cost{
+    font-weight: bolder;
+}
+.prodpartners-description{
+    margin-top: calc(var(--nav-size)*.3);
+    font-size: calc(var(--nav-size)*.2);
+    margin-bottom: calc(var(--nav-size)*1);
+}
