@@ -88,7 +88,9 @@ function Home() {
 
         <section className="section-tile">
           <div id="content-p1">
-            <div id="text-body">Industrial Engineer + Web Developer</div>
+            <div id="text-body">Industrial Engineer 
+            <br></br>
+            + Web Developer</div>
           </div>
         </section>
 
