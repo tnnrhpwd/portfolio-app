@@ -47,7 +47,7 @@ function PollBox(){
     const pollQ = pollsData.orderBy('date').limit(25); // get list of polls
     const [polls] = useCollectionData(pollQ, { idField: 'id' }); // create array of polls using their id as the key
     
-    // console.log(pollQ)
+
 
         return <>
             <div className='pollbox-app'>
