@@ -14,7 +14,14 @@
     transform: translateX(calc((100% - 100vw) / 2));
     background-color: var(--bg);
 }
+@font-face {
+    font-family: 'CutiveMono-Regular';
+    src: url(./../../fonts/CutiveMono-Regular.ttf) format('truetype'),
+    url(./../../fonts/CutiveMono-Regular.woff) format('woff');
+}
 .section-tile{
+    font-family: 'CutiveMono-Regular';
+    font-weight: calc(var(--nav-size)*5);
     z-index: 0;
     position: relative;
     background-color: rgba(0, 0, 0, 0.507);
@@ -30,8 +37,6 @@
     padding-top: calc(var(--nav-size)*3);
     color: white;
     font-weight: bold;
-    -webkit-text-stroke-width: calc(var(--nav-size)*.005);
-    -webkit-text-stroke-color: var(--bg);
 }
 #text-title{
     text-align: center;
@@ -60,8 +65,7 @@
     padding-right: calc(var(--nav-size)*.6);
     color: white;
     font-weight: bold;
-    -webkit-text-stroke-width: calc(var(--nav-size)*.005);
-    -webkit-text-stroke-color: var(--bg);
+
 }
 #content-p2{
     padding-top: calc(var(--nav-size)*2);
@@ -71,8 +75,6 @@
     color: white;
     font-weight: bold;
     word-wrap: break-word;
-    -webkit-text-stroke-width: calc(var(--nav-size)*.005);
-    -webkit-text-stroke-color: var(--bg);
 }
 #content-p3{
     text-align: center;
@@ -82,8 +84,6 @@
     font-size: calc(var(--nav-size)*.4);
     color: white;
     font-weight: bold;
-    -webkit-text-stroke-width: calc(var(--nav-size)*.005);
-    -webkit-text-stroke-color: var(--bg);
 }
 #content-p4{
     text-align: center;
@@ -93,8 +93,6 @@
     font-size: calc(var(--nav-size)*.4);
     color: white;
     font-weight: bold;
-    -webkit-text-stroke-width: calc(var(--nav-size)*.005);
-    -webkit-text-stroke-color: var(--bg);
 }
 #content-p5{
     padding-top: calc(var(--nav-size)*.5);
@@ -104,8 +102,6 @@
     font-size: calc(var(--nav-size)*.4);
     color: white;
     font-weight: bold;
-    -webkit-text-stroke-width: calc(var(--nav-size)*.005);
-    -webkit-text-stroke-color: var(--bg);
 }
 .fade-in{
     transition: opacity .5s ease;
@@ -118,10 +114,9 @@
     text-align: center;
     color: white;
     font-weight: bold;
-    -webkit-text-stroke-width: calc(var(--nav-size)*.005);
-    -webkit-text-stroke-color: var(--bg);
 }
 #content-button{
+    font-family: 'CutiveMono-Regular';
     color: white;
     font-size: calc(var(--nav-size)*.3);
     padding: calc(var(--nav-size)*.06);

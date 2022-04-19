@@ -98,8 +98,8 @@ function Home() {
           <div id="content-p2">
           <div id="text-body"></div>
             <div id="text-body"> Let's build a brighter tomorrow! </div>
-            <div id="text-body"></div>
-            <div id="text-body"></div>
+            <br></br>
+            <br></br>
             <div id="text-body"> Production </div>
             <div id="text-subtext"> Process design, Analysis, and Improvement </div>
             <div id="text-body"></div>
@@ -116,7 +116,7 @@ function Home() {
             {/* <div id="text-body">Y Offset={offsetY}</div> */
             /* <div id="text-body">Scroll Renders={rendNum}</div>
             <div id="text-body">Video Frame Num={frameNum}</div> */}
-            <div id="text-body">Check out some of my projects</div>
+            <div id="text-body">Check out some of my projects.</div>
             <a className="content-button" href="/projects">
                 <button id="content-button">My Projects</button>
               </a>
