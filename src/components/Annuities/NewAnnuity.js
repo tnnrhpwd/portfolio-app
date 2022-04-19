@@ -2,8 +2,8 @@ import React, { useEffect, useState } from "react";
 
 function NewAnnuity(props) {
 
-    // output value array
-    var annuit = [];
+   // output value array
+    var annuit=[];
 
     // store chosen tense from parent component
     var chosenTense = props.tenseAnnuity;
@@ -19,13 +19,14 @@ function NewAnnuity(props) {
 
     // builds output value to output
     useEffect(() => {
-        annuit[0]=presentVal;
-        annuit[1]=annualVal;
-        annuit[2]=futureVal;
-        annuit[3]=gradientVal;
-        annuit[4]=intVal;
-        annuit[5]=nVal;
-    }, [presentVal+annualVal+futureVal+gradientVal+intVal+nVal]);
+
+        annuit[0]=parseFloat(presentVal);
+        annuit[1]=parseFloat(annualVal);
+        annuit[2]=parseFloat(futureVal);
+        annuit[3]=parseFloat(gradientVal);
+        annuit[4]=parseFloat(intVal);
+        annuit[5]=parseFloat(nVal);
+    }, [presentVal,annualVal,futureVal,gradientVal,intVal,nVal,annuit]);
 
 
     // sends a value to parent
@@ -39,20 +40,26 @@ function NewAnnuity(props) {
         setNValValue("");
     }
 
+    const handleKeyDown = (event) =>{
+        if (event.key === 'Enter') {
+            handleAnnuityCall();
+        }
+    }
+
 
     return(<>
         <div className="inputNewAnnuity">
-            {(!(chosenTense=='$Present'))? <input value={presentVal} placeholder="Present Value" onChange={e => setPresentValue(e.target.value)} className="inputNewAnnuity-present" /> :null}
+            {(!(chosenTense==='$Present')) && <input value={presentVal} placeholder="Present Value" onChange={e => setPresentValue(e.target.value)} onKeyDown={handleKeyDown} className="inputNewAnnuity-present" />}
             <div></div>
-            {(!(chosenTense=='$Periodic'))? <input value={annualVal} placeholder="Periodic Value" onChange={e => setAnnualValue(e.target.value)} className="inputNewAnnuity-annual" /> :null}
+            {(!(chosenTense==='$Periodic')) && <input value={annualVal} placeholder="Periodic Value" onChange={e => setAnnualValue(e.target.value)} onKeyDown={handleKeyDown} className="inputNewAnnuity-annual" />}
             <div></div>
-            {(!(chosenTense=='$Future'))? <input value={futureVal} placeholder="Future Value" onChange={e => setFutureValue(e.target.value)} className="inputNewAnnuity-future" /> :null}
+            {(!(chosenTense==='$Future')) && <input value={futureVal} placeholder="Future Value" onChange={e => setFutureValue(e.target.value)} onKeyDown={handleKeyDown} className="inputNewAnnuity-future" />}
             <div></div>
-            <input value={gradientVal} placeholder="Gradient Value" onChange={e => setGradientValue(e.target.value)} className="inputNewAnnuity-gradient" />
+            <input value={gradientVal} placeholder="Gradient Value" onChange={e => setGradientValue(e.target.value)} onKeyDown={handleKeyDown} className="inputNewAnnuity-gradient" />
             <div></div>
-            <input value={intVal} placeholder="Interest Rate" onChange={e => setIntValue(e.target.value)} className="inputNewAnnuity-interest" />
+            <input value={intVal} placeholder="Interest Rate" onChange={e => setIntValue(e.target.value)} onKeyDown={handleKeyDown} className="inputNewAnnuity-interest" />
             <div></div>
-            <input value={nVal} placeholder="Number of Periods" onChange={e => setNValValue(e.target.value)} className="inputNewAnnuity-periods" />
+            <input value={nVal} placeholder="Number of Periods" onChange={e => setNValValue(e.target.value)} onKeyDown={handleKeyDown} className="inputNewAnnuity-periods" />
         </div>
         <button onClick={handleAnnuityCall} id="submitNewAnnuity" >
             Submit Annuity

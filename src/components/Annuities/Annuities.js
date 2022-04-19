@@ -123,11 +123,11 @@ function Annuities() {
         </div>
 
         <div className='annuities-newannuity'>
-            {(showNewAnnuity%2)?
+            {(showNewAnnuity%2) &&
                 <NewAnnuity 
                 tenseAnnuity={time} 
                 onNewAnnuity={setAnnuityCall}  
-                />:null
+                />
             }
         </div>
 
