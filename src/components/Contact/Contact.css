@@ -1,9 +1,16 @@
+@font-face {
+    font-family: 'CutiveMono-Regular';
+    src: url(./../../fonts/CutiveMono-Regular.ttf) format('truetype'),
+    url(./../../fonts/CutiveMono-Regular.woff) format('woff');
+}
 .contact-space{
+    font-family: 'CutiveMono-Regular';
     padding-left: calc(var(--nav-size)*0.81);
     padding-right: calc(var(--nav-size)*0.81);
     padding-top: calc(var(--nav-size)*1);
     background-color: var(--bg);
     color: white;
+    font-weight: bold;
     /* height: calc(var(--nav-size)*11); */
 }
 
@@ -14,7 +21,7 @@
     font-size: calc(var(--nav-size)*.32);
 }
 .contact-email{
-    font-size: calc(var(--nav-size)*.30);
+    font-size: calc(var(--nav-size)*.26);
 }
 .contact-body{
     font-size: calc(var(--nav-size)*.4);
@@ -41,6 +48,8 @@
     margin-bottom: calc(var(--nav-size)*2.15);
 }
 #contact-link{
+    font-family: 'CutiveMono-Regular';
+    font-weight: bold;
     font-size: calc(var(--nav-size)*.36);
     color: white;
     background-color: #222629;
@@ -58,6 +67,8 @@
     background-color: #910b0b;
 }
 .contact-input{
+    font-family: 'CutiveMono-Regular';
+    font-weight: bold;
     display: block;
     width: 70%;
     height: calc(var(--nav-size)*.7);

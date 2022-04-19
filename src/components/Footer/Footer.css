@@ -1,4 +1,11 @@
+@font-face {
+    font-family: 'CutiveMono-Regular';
+    src: url(./../../fonts/CutiveMono-Regular.ttf) format('truetype'),
+    url(./../../fonts/CutiveMono-Regular.woff) format('woff');
+}
 .footer-space{
+    font-family: 'CutiveMono-Regular';
+    font-weight: bold;
     z-index: -500000000;
     color: white;
     font-size: calc(var(--nav-size)*0.21);
@@ -8,6 +15,8 @@
     height: calc(var(--nav-size)*7);
 }
 .footer-space-transparent{
+    font-family: 'CutiveMono-Regular';
+    font-weight: bold;
     z-index: -500000000;
     color: rgb(0, 0, 0);
     font-size: calc(var(--nav-size)*0.21);

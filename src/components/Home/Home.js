@@ -101,10 +101,10 @@ function Home() {
             <br></br>
             <br></br>
             <div id="text-body"> Production </div>
-            <div id="text-subtext"> Process design, Analysis, and Improvement </div>
+            <div id="text-subtext"> Process Design, Analysis, and Improvement </div>
             <div id="text-body"></div>
             <div id="text-body"> Development </div>
-            <div id="text-subtext"> Programming, Computer aided-drafting, and Automation </div>
+            <div id="text-subtext"> Programming, Computer Aided-Drafting, and Automation </div>
             <div id="text-body"></div>
             <div id="text-subtext">Increasing conforming production and decreasing waste.</div>
             <div id="text-body"></div>

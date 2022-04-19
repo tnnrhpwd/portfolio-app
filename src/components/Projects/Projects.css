@@ -1,4 +1,11 @@
+@font-face {
+    font-family: 'CutiveMono-Regular';
+    src: url(./../../fonts/CutiveMono-Regular.ttf) format('truetype'),
+    url(./../../fonts/CutiveMono-Regular.woff) format('woff');
+}
 .projects-space{
+    font-family: 'CutiveMono-Regular';
+    font-weight: bold;
     padding-top: calc(var(--nav-size)*1.2);
     padding-left: calc(var(--nav-size)*.6);
     padding-right: calc(var(--nav-size)*.5);
@@ -8,15 +15,12 @@
 
 }
 .projects-title{
+    font-family: 'CutiveMono-Regular';
     font-size: calc(var(--nav-size)*.7);
     text-align: left;
     padding-bottom: calc(var(--nav-size)*.2);
 }
-.projects-description{
-    font-size: calc(var(--nav-size)*.25);
-    text-align: center;
-    /* padding-bottom: calc(var(--nav-size)*.2); */
-}
+
 
 
 
@@ -28,6 +32,8 @@
 
 }
 #projects-resume-button{
+    font-family: 'CutiveMono-Regular';
+    font-weight: bold;
     border-radius: calc(var(--nav-size)*.05);
     color: rgb(0, 0, 0);
     cursor: pointer;
@@ -45,19 +51,21 @@
 
 
 .projects-source{
-    margin-bottom: calc(var(--nav-size)*.4);
+    margin-bottom: calc(var(--nav-size)*.9);
     display: inline-block;
 }
 .projects-resume-inside{
 
 }
 #projects-source-button{
+    font-family: 'CutiveMono-Regular';
+    font-weight: bold;
     border-radius: calc(var(--nav-size)*.05);
     color: rgb(0, 0, 0);
     cursor: pointer;
     box-shadow: 0 calc(var(--nav-size)*.1) #999;
     /* width: calc(var(--nav-size)*3); */
-    font-size: calc(var(--nav-size)*.3);
+    font-size: calc(var(--nav-size)*.27);
     padding: calc(var(--nav-size)*.05);
 }
 #projects-source-button:hover {background-color: #f5dcc8}
@@ -66,7 +74,13 @@
   box-shadow: 0 4px #666;
   transform: translateY(calc(var(--nav-size)*.04));
 }
-
+.projects-description{
+    margin-top: calc(var(--nav-size)*.1);
+    margin-bottom: calc(var(--nav-size)*.3);
+    font-size: calc(var(--nav-size)*.21);
+    text-align: center;
+    /* padding-bottom: calc(var(--nav-size)*.2); */
+}
 
 
 

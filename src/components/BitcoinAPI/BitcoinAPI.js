@@ -30,16 +30,17 @@ function BitcoinAPI(){
     return(<>
         <div className='bitcoinapi-space'>
             <div className='bitcoinapi-space-title'>
-                USD to Bitcoin Canversion Rate
+                USD to Bitcoin Rate
             </div>
-            <div className='bitcoinapi-space-description'>
-                click the number to refresh each minute
-            </div>
+           
             <button className='bitcoinapi-space-button' onClick={() => callReloadButton(reloadButton+1)}>
                 <div className='bitcoinapi-space-button-price'>
                     <span>{price}</span>
                 </div>
             </button>
+            <div className='bitcoinapi-space-description'>
+                Click number to refresh each minute.
+            </div>
         </div>
     </>)
 }

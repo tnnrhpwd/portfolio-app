@@ -7,6 +7,7 @@
 .bitcoinapi-space-title{
     font-size: calc(var(--nav-size)*.3);
     font-weight: bold;
+    margin-bottom: calc(var(--nav-size)*.15);
 }
 .bitcoinapi-space-description{
     font-size: calc(var(--nav-size)*.2);
@@ -27,6 +28,7 @@
     font-style: italic;
     background-color: transparent;
     border: none;
+    margin-bottom: calc(var(--nav-size)*.25);
 }
 .bitcoinapi-space-button:hover {
     box-shadow: inset calc(var(--nav-size)*3) 0 0 0 #54b3d6;
