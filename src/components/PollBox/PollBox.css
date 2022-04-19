@@ -178,34 +178,33 @@
     padding: calc(var(--nav-size)*.025) calc(var(--nav-size)*.025);
     display: inline-block;
     border: calc(var(--nav-size)*.015) solid #ccc;
-    border-radius: calc(var(--nav-size)*.1);
+    border-radius: calc(var(--nav-size)*.05);
     box-sizing: border-box;
   }
   #durationID{                      /* ADD NEW POLL */
     font-size: calc(var(--nav-size)*.25);
     text-align: center;
-    padding: 6px 20px;
-    margin-bottom: 8px;
+    padding: calc(var(--nav-size)*.025) calc(var(--nav-size)*.025);
     display: inline-block;
-    border: 1px solid #ccc;
-    border-radius: 4px;
+    border: calc(var(--nav-size)*.025) solid #ccc;
+    border-radius: calc(var(--nav-size)*.05);
     box-sizing: border-box;
-    width: calc(var(--nav-size)*3)
+    width: calc(var(--nav-size)*3);
   }
   .newPollSpace{                  /* ADD NEW POLL groups the answers input */
     text-align: center;
     width: 80%;
-    margin: min(10px, 1vw) 0;
     display: inline-block;
-    box-sizing: border-box;
   }
   #newPollEntry{                    /* ADD NEW POLL */
+    border: calc(var(--nav-size)*.015) solid #ccc;
+    border-radius: calc(var(--nav-size)*.05);
     font-size: calc(var(--nav-size)*.3);
     padding: calc(var(--nav-size)*.025) calc(var(--nav-size)*.025);
     width: 100%;
   }
   #buttonNewPollID{                  /* ADD NEW POLL submit button */
-    border-radius: 5px;
+    border-radius: calc(var(--nav-size)*.05);
     color: rgb(0, 0, 0);
     cursor: pointer;
     box-shadow: 0 calc(var(--nav-size)*.1) #999;
@@ -216,7 +215,7 @@
   #buttonNewPollID:hover {background-color: #f5dcc8}
   #buttonNewPollID:active {              /* ADD NEW POLL submit button */
     background-color: #f5dcc8;
-    box-shadow: 0 4px #666;
+    box-shadow: 0 calc(var(--nav-size)*.025) #666;
     transform: translateY(calc(var(--nav-size)*.04));
   }
   #newTitle{                  /* ADD NEW POLL toggle button */
