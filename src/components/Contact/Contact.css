@@ -15,17 +15,20 @@
 }
 
 .contact-title{
+    padding-top: calc(var(--nav-size)*.2);
     font-size: calc(var(--nav-size)*.8);
 }
 .contact-name{
+    padding-top: calc(var(--nav-size)*.2);
     font-size: calc(var(--nav-size)*.32);
 }
 .contact-email{
+    padding-top: calc(var(--nav-size)*.2);
     font-size: calc(var(--nav-size)*.26);
 }
 .contact-body{
     font-size: calc(var(--nav-size)*.4);
-    margin-top: calc(var(--nav-size)*.2);
+    margin-top: calc(var(--nav-size)*.4);
 }
 .contact-social{
     display: inline-block;
