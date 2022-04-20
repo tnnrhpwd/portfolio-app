@@ -71,8 +71,8 @@ function WordleSolver() {
         // Clear the textbox
         setInputText("");
         // setOutput(wordNum)
-        // console.log("wordNum="+wordNum)
-        // console.log("buttonPressNum="+buttonPressNum)
+        console.log("wordNum="+wordNum)
+        console.log("buttonPressNum="+buttonPressNum)
         
         // Guard clause - Empty
         if(inputString===""){
@@ -131,7 +131,7 @@ function WordleSolver() {
 
             // Removes bad words from returned array
             filterArr(wordArray,guessWord,guessResult); 
-            // console.log(wordArray);
+            console.log(wordArray);
 
             // Display text for odd button press input
             setInstruction("Enter the #"+wordNum+" word."); // instruction
