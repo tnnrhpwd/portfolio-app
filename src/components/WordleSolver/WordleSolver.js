@@ -106,8 +106,8 @@ function WordleSolver() {
             if((buttonPressNum===1)){   
                 //collect word length                                                 
                 wordLength=inputString.length;
-                // console.log(Dictionary)
-                // setOutput(Dictionary[1]);
+                console.log("dictionary="+Dictionary);
+                setOutput(Dictionary[1]);
                 Dictionary.forEach(wrd => { // fills array with length fitting words.
                     if(wrd.length===wordLength){
                         wordArray.push(wrd);    // once words are added, the rest of the program will remove non-conforming words.
