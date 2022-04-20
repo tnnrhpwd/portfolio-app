@@ -25,9 +25,10 @@ function fetchDectionary() {
     fetch(url)
     .then(response => response.text())
     .then(data => {
-        // console.log(data.toUpperCase());
+        console.log("data="+data.toUpperCase());
         Dictionary=data.toUpperCase();
         Dictionary=Dictionary.split('\r\n')
+        console.log("Dictionary="+Dictionary);
     })
     .catch(err => console.log(err));
 }
@@ -128,10 +129,10 @@ function WordleSolver() {
 
             // Stores the numbers from the textbox
             guessResult=inputString; 
-
+            console.log('wordArray='+wordArray);
             // Removes bad words from returned array
             filterArr(wordArray,guessWord,guessResult); 
-            console.log(wordArray);
+            console.log('wordArray='+wordArray);
 
             // Display text for odd button press input
             setInstruction("Enter the #"+wordNum+" word."); // instruction
