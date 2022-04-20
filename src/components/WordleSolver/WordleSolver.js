@@ -107,6 +107,7 @@ function WordleSolver() {
                 //collect word length                                                 
                 wordLength=inputString.length;
                 console.log("dictionary="+Dictionary);
+                console.log("dictionary="+Dictionary[1]);
                 setOutput(Dictionary[1]);
                 Dictionary.forEach(wrd => { // fills array with length fitting words.
                     if(wrd.length===wordLength){
