@@ -5,7 +5,7 @@ import "./WordleSolver.css";
 import Footer from './../Footer/Footer';
 // const url = "https://content-na.drive.amazonaws.com/cdproxy/templink/I6PcBtI5fx_kRQlY-0k3Kc8hoKsgQEfPR50WjzTkWewpX92IB/alt/pdf?";
 
-var Dictionary;
+var Dictionary=[];
 
 // Declare and Initiate variables
 var inputString; // variable used to catch inputstring
@@ -27,6 +27,7 @@ function fetchDectionary() {
     .then(data => {
         console.log(data.toUpperCase());
         Dictionary=data.toUpperCase();
+        Dictionary=Dictionary.split('\r\n')
     })
     .catch(err => console.log(err));
 }
@@ -56,7 +57,7 @@ function WordleSolver() {
         inputString =inputText;
         // Clear the textbox
         setInputText("");
-        setOutput(wordNum)
+        // setOutput(wordNum)
         console.log(wordNum)
         // Guard clause
         if(inputString===""){
@@ -71,10 +72,12 @@ function WordleSolver() {
             if((buttonPressNum===1)){   
                 //collect word length                                                 
                 wordLength=inputString.length;
+                // console.log(Dictionary)
+                // setOutput(Dictionary[1]);
                 Dictionary.forEach(wrd => { // fills array with length fitting words.
-                if(wrd.length===wordLength){
-                    wordArray.push(wrd);    // once words are added, the rest of the program will remove non-conforming words.
-                }
+                    if(wrd.length===wordLength){
+                        wordArray.push(wrd);    // once words are added, the rest of the program will remove non-conforming words.
+                    }
                 });
             }
 
@@ -95,6 +98,7 @@ function WordleSolver() {
 
             // Removes bad words from returned array
             filterArr(wordArray,guessWord,guessResult); 
+            console.log(wordArray);
 
             // Display text for odd button press input
             setInstruction("Enter the #"+wordNum+" word."); // instruction
@@ -197,7 +201,7 @@ function WordleSolver() {
         wordArray=[]; // wipe old list of words
         // Move the words from the temporary array to wordArray
         words254.forEach(wdee => {
-                wordArray.push(wdee); 
+            wordArray.push(wdee); 
         });
 
         //output the results
@@ -228,7 +232,7 @@ function WordleSolver() {
                     <input type="text" id="inputTEXT" onChange={e => setInputText(e.target.value)} value={inputText} onKeyDown={submitForm}/>
                 </div>
                 <div id="output">
-                    <button id="button" onClick={pressButton} >Run</button>
+                    <button id="button" onClick={pressButton} >📕</button>
                     {output}
                 </div>
             </body>
