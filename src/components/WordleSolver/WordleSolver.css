@@ -1,4 +1,5 @@
 .containerq{ /* Container CLASS */
+
   color: rgb(255, 255, 255);
   display: flex;
   align-items: center;
@@ -12,32 +13,37 @@
 }
     
 #title{  /* Title ID */
-  font-size: calc(var(--nav-size)*.4);
+  font-family: 'Times New Roman', Times, serif;
+  font-size: calc(var(--nav-size)*.45);
   font-weight: bold;
   text-align: center;
 }
     
 #description{  /*description ID*/
-  font-size: calc(var(--nav-size)*.25);
+  font-family: 'Times New Roman', Times, serif;
+  font-size: calc(var(--nav-size)*.3);
   margin-top: calc(var(--nav-size)*1);
   margin-bottom: calc(var(--nav-size)*.5);
 }
   
 #instruction{  /*instruction ID*/
-
-  font-size: calc(var(--nav-size)*.25);
-  margin-top: calc(var(--nav-size)*.15);
+  font-family: 'Times New Roman', Times, serif;
+  font-size: calc(var(--nav-size)*.3);
+  margin: calc(var(--nav-size)*.35);
 }
     
 #inputs{  /*input ID*/
+  font-family: 'Times New Roman', Times, serif;
   background-color: var(--bg);     
   text-align: center;
   padding-bottom: calc(var(--nav-size)*.5);
 }
     
 #inputTEXT{  /* This is the textbox ID */
+  font-family: 'Times New Roman', Times, serif;
   text-align: center;
-  font-size: calc(var(--nav-size)*.25);
+  font-size: calc(var(--nav-size)*.5);
+  padding: calc(var(--nav-size)*.1);
   color: rgb(0, 0, 0);
   width: calc(var(--nav-size)*3);
   height: calc(var(--nav-size)*.4);
@@ -45,22 +51,33 @@
     
 #button{  /*button ID*/  
   text-align: center;
+  margin-left: calc(var(--nav-size)*.1);
   padding: calc(var(--nav-size)*.05);
-  padding-left: calc(var(--nav-size)*.2);
-  padding-right: calc(var(--nav-size)*.2);
+  padding-left: calc(var(--nav-size)*.3);
+  padding-right: calc(var(--nav-size)*.3);
   box-shadow: 0 calc(var(--nav-size)*.1) #999;
-  font-size: calc(var(--nav-size)*.45);
+  font-size: calc(var(--nav-size)*.35);
   border-radius: calc(var(--nav-size)*.1);  
   cursor: pointer;
 }
 #button:hover {background-color: #f5dcc8}
-#button:active {              /* ADD NEW POLL toggle button */
+#button:active {              /* submit wordle solver button */
   background-color: #f5dcc8;
   box-shadow: 0 calc(var(--nav-size)*.1) #666;
   transform: translateY(calc(var(--nav-size)*.04));
 }
+
+#postInstruction{
+  font-family: 'Times New Roman', Times, serif;
+  font-size: calc(var(--nav-size)*.25);
+  margin-top: calc(var(--nav-size)*.15);
+  width: calc(var(--nav-size)*5);
+  text-align: center;
+  word-wrap: break-word;
+}
     
 #output{  /*output ID*/
+  font-family: 'Times New Roman', Times, serif;
   font-size: calc(var(--nav-size)*.25);
   margin-top: calc(var(--nav-size)*.15);
   width: calc(var(--nav-size)*5);

@@ -25,7 +25,7 @@ function fetchDectionary() {
     fetch(url)
     .then(response => response.text())
     .then(data => {
-        console.log(data.toUpperCase());
+        // console.log(data.toUpperCase());
         Dictionary=data.toUpperCase();
         Dictionary=Dictionary.split('\r\n')
     })
@@ -37,6 +37,7 @@ function WordleSolver() {
     const [output, setOutput] = useState(null);
     const [instruction, setInstruction] = useState("Enter your first word.");
     const [inputText, setInputText] = useState("");
+    const [postInstruction, setPostInstruction] = useState("");
 
     useEffect(() => {
         fetchDectionary();
@@ -49,27 +50,54 @@ function WordleSolver() {
         }
     }    
 
+    // This function resets the program without reloading it.
+    function resetData() {
+        buttonPressNum=0; // what number button press - incremented 
+        wordNum=1;  // how many words have been guessed
+        wordArray=[]; // array of possible answers - filled on first button press - filtered every EVEN button press.
+        neededChars =[]; // characters that are definitely in the answer
+        setOutput(null);
+        setInstruction("Enter your first word.");
+        setInputText("");
+        setPostInstruction("");
+    }
+
     //This function is called on each button press or ENTER press => filters array on every even# execution
     function pressButton() {
-        // increment counter to record # of guesses
-        buttonPressNum++;  
+        setPostInstruction('');
+
         // initiate variable with textbox data
         inputString =inputText;
         // Clear the textbox
         setInputText("");
         // setOutput(wordNum)
-        console.log(wordNum)
-        // Guard clause
+        // console.log("wordNum="+wordNum)
+        // console.log("buttonPressNum="+buttonPressNum)
+        
+        // Guard clause - Empty
         if(inputString===""){
             // output the error
-            setOutput("Enter characters into the text box."); // output
+            setPostInstruction("Enter characters into the text box."); // output
             return
         }
-        if(inputString===""){
+        // Guard clause - numbers
+        var hasNumber = /\d/;
+        if(hasNumber.test(inputString)&&(buttonPressNum%2===0)){
             // output the error
-            setOutput("Enter characters into the text box."); // output
+            setPostInstruction("Enter only letters in the field. An example is: house"); // output
             return
         }
+        // Guard clause - letters
+        var hasLetter = /[a-zA-Z]/g;
+        if(hasLetter.test(inputString)&&(buttonPressNum%2===1)){
+            // output the error
+            setPostInstruction("Enter only numbers in the field. An example is: 31223"); // output
+            return
+        }
+
+        // increment counter to record # of guesses
+        buttonPressNum++;  
+
         // ODD PRESSES
         if((buttonPressNum%2===1)){     
 
@@ -103,7 +131,7 @@ function WordleSolver() {
 
             // Removes bad words from returned array
             filterArr(wordArray,guessWord,guessResult); 
-            console.log(wordArray);
+            // console.log(wordArray);
 
             // Display text for odd button press input
             setInstruction("Enter the #"+wordNum+" word."); // instruction
@@ -111,7 +139,7 @@ function WordleSolver() {
         // END OF GAME
         if(wordNum>9){
             // instruction GAME OVER text assignment
-            setInstruction("Game Over."); 
+            setOutput("Game Over."); 
             // setTimeout(function(){
                 // window.location.reload(); // reload the page after 3 seconds
             // }, 3000);
@@ -237,6 +265,10 @@ function WordleSolver() {
                     <input type="text" id="inputTEXT" onChange={e => setInputText(e.target.value)} value={inputText} onKeyDown={submitForm}/>
                     <br></br>
                     <button id="button" onClick={pressButton} >📕</button>
+                    <button id="button" onClick={resetData} >Reset</button>
+                </div>
+                <div id="postInstruction">
+                    {postInstruction}
                 </div>
                 <div id="output">
                     {output}
