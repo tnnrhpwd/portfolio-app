@@ -66,20 +66,20 @@
   
   .pollSpace{                             /* ACTIVE POLL */
     width: 80%;
-    margin: min(15px, 3vw) 0;
+    margin: calc(var(--nav-size)*.05);
     display: inline-block;
-    border: 1px solid #ccc;
+    border: calc(var(--nav-size)*.015) solid #ccc;
     border-radius: 4px;
     box-sizing: border-box;
   }
   .postPollSpace{                             /* ACTIVE POLL */
     width: 80%;
-    padding: min(50px,2vw);
-    font-size: min(20px,4vw);
-    margin: min(15px, 3vw) 0;
+    padding: calc(var(--nav-size)*.25);
+    font-size: calc(var(--nav-size)*.25);
+    margin: calc(var(--nav-size)*.05);
     display: inline-block;
-    border: 1px solid #ccc;
-    border-radius: 4px;
+    border: calc(var(--nav-size)*.015) solid #ccc;
+    border-radius: calc(var(--nav-size)*.1);
     box-sizing: border-box;
   }
   
@@ -239,8 +239,8 @@
   width: 80%;
   /* margin: calc(var(--nav-size)*.04) 0; */
   display:inline-block;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  border: calc(var(--nav-size)*.015) solid #ccc;
+  border-radius: calc(var(--nav-size)*.1);
   box-sizing: border-box;
   text-align: center;
 }

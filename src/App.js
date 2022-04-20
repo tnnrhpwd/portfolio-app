@@ -10,8 +10,8 @@ import ProdPartners from './components/ProdPartners/ProdPartners';
 import PollBox from './components/PollBox/PollBox';
 import Drafting from "./components/Drafting/Drafting";
 import Annuities from './components/Annuities/Annuities';
-
-
+import Wordle from './components/Wordle/Wordle';
+import WordleSolver from './components/WordleSolver/WordleSolver';
 
 function App() {
   const [isShowLogin, setIsShowLogin] = useState(false);
@@ -31,6 +31,8 @@ function App() {
         <Route path="/pollbox" element={<PollBox/>} />
         <Route path="/drafting" element={<Drafting/>} />
         <Route path="/annuities" element={<Annuities/>} />
+        <Route path="/wordlesolver" element={<WordleSolver/>} />
+        <Route path="/wordle" element={<Wordle/>} />
       </Routes>
     </div>
   );
