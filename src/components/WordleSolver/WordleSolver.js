@@ -65,6 +65,11 @@ function WordleSolver() {
             setOutput("Enter characters into the text box."); // output
             return
         }
+        if(inputString===""){
+            // output the error
+            setOutput("Enter characters into the text box."); // output
+            return
+        }
         // ODD PRESSES
         if((buttonPressNum%2===1)){     
 
@@ -230,9 +235,10 @@ function WordleSolver() {
                 </div>
                 <div id="inputs">
                     <input type="text" id="inputTEXT" onChange={e => setInputText(e.target.value)} value={inputText} onKeyDown={submitForm}/>
+                    <br></br>
+                    <button id="button" onClick={pressButton} >📕</button>
                 </div>
                 <div id="output">
-                    <button id="button" onClick={pressButton} >📕</button>
                     {output}
                 </div>
             </body>

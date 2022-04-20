@@ -24,12 +24,15 @@
 }
   
 #instruction{  /*instruction ID*/
+
   font-size: calc(var(--nav-size)*.25);
   margin-top: calc(var(--nav-size)*.15);
 }
     
 #inputs{  /*input ID*/
   background-color: var(--bg);     
+  text-align: center;
+  padding-bottom: calc(var(--nav-size)*.5);
 }
     
 #inputTEXT{  /* This is the textbox ID */
@@ -45,12 +48,23 @@
   padding: calc(var(--nav-size)*.05);
   padding-left: calc(var(--nav-size)*.2);
   padding-right: calc(var(--nav-size)*.2);
+  box-shadow: 0 calc(var(--nav-size)*.1) #999;
   font-size: calc(var(--nav-size)*.45);
   border-radius: calc(var(--nav-size)*.1);  
+  cursor: pointer;
+}
+#button:hover {background-color: #f5dcc8}
+#button:active {              /* ADD NEW POLL toggle button */
+  background-color: #f5dcc8;
+  box-shadow: 0 calc(var(--nav-size)*.1) #666;
+  transform: translateY(calc(var(--nav-size)*.04));
 }
     
 #output{  /*output ID*/
+  font-size: calc(var(--nav-size)*.25);
   margin-top: calc(var(--nav-size)*.15);
+  width: calc(var(--nav-size)*5);
   text-align: center;
-  inline-size: min(1450px,80vw);
+  word-wrap: break-word;
+
 }
