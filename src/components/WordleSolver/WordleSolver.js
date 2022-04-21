@@ -27,7 +27,8 @@ function fetchDectionary() {
     .then(data => {
         console.log("data="+data.toUpperCase());
         Dictionary=data.toUpperCase();
-        Dictionary=Dictionary.split('\r\n')
+        Dictionary=Dictionary.split('\r\n');
+        Dictionary=Dictionary.split(' ');
         console.log("Dictionary="+Dictionary);
     })
     .catch(err => console.log(err));
@@ -108,7 +109,7 @@ function WordleSolver() {
                 wordLength=inputString.length;
                 console.log("dictionary="+Dictionary);
                 console.log("dictionary="+Dictionary[1]);
-                setOutput(Dictionary[1]);
+                setOutput(Dictionary[0]);
                 Dictionary.forEach(wrd => { // fills array with length fitting words.
                     if(wrd.length===wordLength){
                         wordArray.push(wrd);    // once words are added, the rest of the program will remove non-conforming words.
