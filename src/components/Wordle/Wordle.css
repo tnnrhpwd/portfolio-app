@@ -10,14 +10,14 @@
     padding-right: calc(var(--nav-size)*.2);
     background-color: var(--bg);
 }
-.title { /* ID for the region containing the Title */
+.title { /* CLASS for the region containing the Title */
     color: #FFFFFF;
     font-size: calc(var(--nav-size)*.5);
     border-bottom: solid min(3px,5vw) var(--bg-accent); 
     height: calc(var(--nav-size)*.6);
     max-height: 90px;
 }
-.guessGrid { /* ID for the region containing the guessGrid cells. thinly encapsulates the grid region */
+.guessGrid { /* CLASS for the region containing the guessGrid cells. thinly encapsulates the grid region */
     justify-content: center;
     align-items: center;
     margin-top: max(10px,min(15px,2vw));
@@ -25,18 +25,47 @@
     height: min(400px,avg(300px,90vw));
     text-align: center;
   }
-.keyboard { /* ID for the region containing the keyboard */
+.keyboard { /* CLASS for the region containing the keyboard */
     display: block;
     text-align: center;
     width: min(700px,96vw);
 }
-.credits { /* ID for the region containing the Thank you for visiting */
+.credits { /* CLASS for the region containing the Thank you for visiting */
     margin-top: min(20px,4vw);
     color: #dfdfe2;
     font-size: min(4.5vw,20px);
 }
-.automate { /* ID for the region containing the REVEAL SOLUTION button */
+.automate { /* CLASS for the region containing the REVEAL SOLUTION button */
     margin-top: min(10px,4vw);
     color: #d3d6da;
-    font-size: min(4.5vw,20px);
+    font-size: calc(var(--nav-size)*.26);
+    text-align: center;
+}
+#automate-newBut{
+    width: calc(var(--nav-size)*2);
+    font-size: calc(var(--nav-size)*.26);
+    vertical-align: middle;
+}
+#automate-solutionBut{
+    width: calc(var(--nav-size)*2);
+    font-size: calc(var(--nav-size)*.26);
+    vertical-align: bottom;
+}
+#automate-settingBut{
+    font-size: calc(var(--nav-size)*.36);
+    vertical-align: bottom;
+}
+.settingMenu{ /* CLASS for the region containing the settings */
+    padding: min(10px,4vw);
+    text-align: center;
+    font-size: calc(var(--nav-size)*.3);
+
+}
+#settingMenu-text{  /* CLASS for the region containing the settings input */
+    padding: calc(var(--nav-size)*.05);
+    text-align: center;
+    width: calc(var(--nav-size)*.2);
+    height: calc(var(--nav-size)*.2);
+    margin-left: calc(var(--nav-size)*.1);
+    vertical-align: bottom;
 }

@@ -19,6 +19,8 @@ var buttonPressNum=0;
 
 function Wordle() {
   const [inGameState, setInGameState] = useState(0);
+  const [settingMenu, setSettingMenu] = useState(0);
+  const [settingMenuText, setSettingMenuText] = useState("");
 
   // fills the dictionary with words
   function fetchDictionary() {
@@ -50,6 +52,9 @@ function Wordle() {
 
   const newGameButton = () => {
     buttonPressNum++;
+    if (/^\d+(settingMenuText)) {
+
+    }
     setInGameState(inGameState+1);
     secretWord = Dictionary[(((Math.random()*Dictionary.length+1)) | 0)]; // random word in list
     wordLength = secretWord.length;
@@ -61,8 +66,9 @@ function Wordle() {
     setInGameState(inGameState+1);
   }
   const toggleSettings = () => {
-
+    setSettingMenu(settingMenu+1);
   }
+
 
   return (
     <div>
@@ -78,16 +84,27 @@ function Wordle() {
         </div>
         <div className="automate">
           {(inGameState%2===0)?
-            <button onClick={newGameButton} >
+            <button id="automate-newBut" onClick={newGameButton} >
             New Game
             </button>:
-            <button onClick={revealSolutionButton} >
+            <button id="automate-solutionBut" onClick={revealSolutionButton} >
             Reveal Solution
             </button>
-            }
-            <button onClick={toggleSettings}>
+          }
+          <button id="automate-settingBut" onClick={toggleSettings}>
             ⚙
-            </button>
+          </button>
+
+          <br></br>
+
+          {(settingMenu%2===1)&&
+            <div className='settingMenu'>
+              Desired Word Length
+              <input type="text" id="settingMenu-text" onChange={e => setSettingMenuText(e.target.value)} value={settingMenuText} />
+            </div>
+          }  
+
+
         </div>
         <div className="credits">
 
