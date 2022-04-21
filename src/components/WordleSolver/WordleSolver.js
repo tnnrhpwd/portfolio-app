@@ -25,18 +25,11 @@ function fetchDectionary() {
     fetch(url)
     .then(response => response.text())
     .then(data => {
-        console.log("data="+data.toUpperCase());
         Dictionary=data.toUpperCase();
-        Dictionary=Dictionary.split('\r\n');
-        if(!(Dictionary[0]==="AA")){
-            Dictionary=Dictionary[0].split(" ");
-            console.log("Dictionary="+Dictionary);
-            if(!(Dictionary[0]==="AA")){
-                Dictionary=Dictionary[0].split("\n");
-                console.log("Dictionary="+Dictionary);
-            }
+        Dictionary=Dictionary.split('\r\n');            // this works local but not in-build
+        if(!(Dictionary[0]==="AA")){                    // backup splitter
+            Dictionary=Dictionary[0].split("\n");
         }
-        console.log("Dictionary="+Dictionary);
     })
     .catch(err => console.log(err));
 }
@@ -79,9 +72,6 @@ function WordleSolver() {
         inputString =inputText;
         // Clear the textbox
         setInputText("");
-        // setOutput(wordNum)
-        console.log("wordNum="+wordNum)
-        console.log("buttonPressNum="+buttonPressNum)
         
         // Guard clause - Empty
         if(inputString===""){
@@ -114,8 +104,6 @@ function WordleSolver() {
             if((buttonPressNum===1)){   
                 //collect word length                                                 
                 wordLength=inputString.length;
-                console.log("dictionary="+Dictionary);
-                console.log("dictionary="+Dictionary[0]);
                 setOutput(Dictionary[0]);
                 Dictionary.forEach(wrd => { // fills array with length fitting words.
                     if(wrd.length===wordLength){
@@ -138,10 +126,9 @@ function WordleSolver() {
 
             // Stores the numbers from the textbox
             guessResult=inputString; 
-            console.log('wordArray='+wordArray);
+
             // Removes bad words from returned array
             filterArr(wordArray,guessWord,guessResult); 
-            console.log('wordArray='+wordArray);
 
             // Display text for odd button press input
             setInstruction("Enter the #"+wordNum+" word."); // instruction

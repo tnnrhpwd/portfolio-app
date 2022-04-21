@@ -50,12 +50,12 @@ function Projects() {
         <div></div>
 
         <div className="projects-p2">
-          <td onClick={()=> window.open("https://sthopwood.weebly.com/wordlesolver.html")}>
+          {/* <td onClick={()=> window.open("https://sthopwood.weebly.com/wordlesolver.html")}>
             <img id="projects-p2-img" src={wordleSimg} alt="the display for wordle solver website"/>
-          </td>
-          {/* <a href="/wordlesolver">
+          </td> */}
+          <a href="/wordlesolver">
             <img id="projects-p2-img" src={wordleSimg} alt="the display for wordle solver website"/>
-          </a> */}
+          </a>
         </div>
         <div></div>
         <div className="projects-p3">
