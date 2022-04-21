@@ -28,7 +28,9 @@ function fetchDectionary() {
         console.log("data="+data.toUpperCase());
         Dictionary=data.toUpperCase();
         Dictionary=Dictionary.split('\r\n');
-        Dictionary=Dictionary.split('\\r\\n ');
+        if(!(Dictionary[0]==="AA")){
+            Dictionary=Dictionary[0].split(' ')
+        }
         console.log("Dictionary="+Dictionary);
     })
     .catch(err => console.log(err));
