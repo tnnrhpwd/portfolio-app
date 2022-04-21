@@ -1,10 +1,13 @@
 import React, { useState } from 'react'
 import { useEffect } from 'react';
 import url from "./Dictionary.txt";
+// import url from "https://drive.google.com/uc?export=download&id=1-sEDU_ookViibMB7-SwgshnXDtCE6fVv";
 import "./WordleSolver.css";
 import Footer from './../Footer/Footer';
 // const url = "https://content-na.drive.amazonaws.com/cdproxy/templink/I6PcBtI5fx_kRQlY-0k3Kc8hoKsgQEfPR50WjzTkWewpX92IB/alt/pdf?";
-
+// https://drive.google.com/comments/u/0/d/AAHRpnXv1Ss1BbQBd86pWaMJQUH65547S3SZa1DyviclPQ29tjWOtIxuyzy3xJQL0gfieWIR5p4lx_HaudfhjpJNslmE-VdF9Yw/docos/p/sync?id=AAHRpnXv1Ss1BbQBd86pWaMJQUH65547S3SZa1DyviclPQ29tjWOtIxuyzy3xJQL0gfieWIR5p4lx_HaudfhjpJNslmE-VdF9Yw&reqid=0&sid=3911de615435e559&c=0&w=0&flr=0&token=AGNctVZ-AzBPC0-3N4_omAt2Cog1MV-TAw:1650554956706
+// https://drive.google.com/viewerng/text?id=ACFrOgAAR09VZb_hIPZ_LGT3sG8pA_mvxBpwcTiVTQR4moGbX4Sqh9UgUk9bsgcWS9XbosSvSm5vNAH-6DpS_itUocvy_rJ-y28PM3NQjzBEcQnN4kGBpFZKzWiAY1RKTU4EGQpfhVy2mE1PAJtm&authuser=0&page=0
+// https://drive.google.com/uc?export=download&id=1-sEDU_ookViibMB7-SwgshnXDtCE6fVv
 var Dictionary=[];
 
 // Declare and Initiate variables
@@ -25,6 +28,7 @@ function fetchDectionary() {
     fetch(url)
     .then(response => response.text())
     .then(data => {
+        console.log(data);
         Dictionary=data.toUpperCase();
         Dictionary=Dictionary.split('\r\n');            // this works local but not in-build
         if(!(Dictionary[0]==="AA")){                    // backup splitter
@@ -41,6 +45,7 @@ function WordleSolver() {
     const [inputText, setInputText] = useState("");
     const [postInstruction, setPostInstruction] = useState("");
 
+    // fills the dictionary array with words on the intial load.
     useEffect(() => {
         fetchDectionary();
     }, []);
