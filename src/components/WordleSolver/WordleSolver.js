@@ -29,7 +29,12 @@ function fetchDectionary() {
         Dictionary=data.toUpperCase();
         Dictionary=Dictionary.split('\r\n');
         if(!(Dictionary[0]==="AA")){
-            Dictionary=Dictionary[0].split(' ')
+            Dictionary=Dictionary[0].split(" ");
+            console.log("Dictionary="+Dictionary);
+            if(!(Dictionary[0]==="AA")){
+                Dictionary=Dictionary[0].split("\n");
+                console.log("Dictionary="+Dictionary);
+            }
         }
         console.log("Dictionary="+Dictionary);
     })
