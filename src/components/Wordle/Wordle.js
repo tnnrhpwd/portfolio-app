@@ -10,7 +10,7 @@ let keys = { //create dictionary object to store pairs of keys and result(correc
   'enter': '', 'Z': '', 'X': '', 'C': '', 'V': '', 'B': '', 'N': '', 'M': '', '⌫': ''
 };
 
-const looosss = ['house','car','frog']
+
 
 var Dictionary=[];
 var guesses = []; // array full of user previous guesses
@@ -92,7 +92,7 @@ function Wordle() {
     let grid= [];
     for(let i = 0; i < 6; i++){     // number of guesses
       for(let j = 0; j < wordLength; j++){   // word length
-        grid.push(<div id={i+'-'+j} className="key-guess" key={i+'-'+j}>Q</div>)
+        grid.push(<div id={i+'-'+j} className="key-guess" key={i+'-'+j}></div>)
       }
       grid.push(<br/>)
     }
@@ -108,16 +108,17 @@ function Wordle() {
         </div>
         <div className="guessGrid">
           <GetGuessGrid/>
-          <br/>
+          <div/>
+          {(buttonPressNum===0)&&"Press New Game to begin!"}
           {(buttonPressNum%2===0)&&secretWord}
         </div>
-        <ul className="keyboard">
+        <div className="keyboard">
           {Object.keys(keys).map((key,index) => (
             <>
             {(key.includes("break"))?<br/>:<button id={key} className='key' key={index} >{key}</button>}
             </>
           ))}
-        </ul>
+        </div>
         <div className="automate">
           {(inGameState%2===0)?
             <button id="automate-newBut" onClick={newGameButton} >
