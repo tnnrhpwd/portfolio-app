@@ -2,12 +2,15 @@ import React, { useEffect, useState } from 'react';
 import Footer from './../Footer/Footer';
 import url from "./../WordleSolver/Dictionary.txt";
 import "./Wordle.css";
+import _ from "lodash";
 
 let keys = { //create dictionary object to store pairs of keys and result(correct, found, wrong).
   'Q': '', 'W': '', 'E': '', 'R': '', 'T': '', 'Y': '', 'U': '', 'I': '', 'O': '', 'P': '', 'break': '',
   'A': '', 'S': '', 'D': '', 'F': '', 'G': '', 'H': '', 'J': '', 'K': '', 'L': '', 'break2': '',
   'enter': '', 'Z': '', 'X': '', 'C': '', 'V': '', 'B': '', 'N': '', 'M': '', '⌫': ''
 };
+
+const looosss = ['house','car','frog']
 
 var Dictionary=[];
 var guesses = []; // array full of user previous guesses
@@ -21,6 +24,7 @@ function Wordle() {
   const [inGameState, setInGameState] = useState(0);
   const [settingMenu, setSettingMenu] = useState(0);
   const [settingMenuText, setSettingMenuText] = useState("");
+  const [outputMessage, setOutputMessage] = useState("");
 
   // fills the dictionary with words
   function fetchDictionary() {
@@ -40,25 +44,40 @@ function Wordle() {
   useEffect(() => {
     fetchDictionary();
   }, []);
-  // useEffect(() => {
-  //   if(!(buttonPressNum===0)){
-  //     secretWord = Dictionary[(((Math.random()*Dictionary.length+1)) | 0)]; // random word in list
-  //     wordLength = secretWord.length;
-  //     console.log(secretWord);
-  //     console.log(wordLength);
-  //   }
-  // }, [inGameState]);
 
 
   const newGameButton = () => {
+    setOutputMessage("");
     buttonPressNum++;
-    if (/^\d+(settingMenuText)) {
-
+    // GUARD CLAUSE - only numbers OR empty
+    if (!(/^\d+$/.test(settingMenuText))) {
+      if (!(settingMenuText==="")){
+        setOutputMessage("Please enter a number in the text field.");
+        return;
+      }
     }
+    // GUARD CLAUSE - wordlength over 15 letters
+    if (parseFloat(settingMenuText)>15){
+      setOutputMessage("Please reduce the wordlength.");
+        return;
+    }
+
     setInGameState(inGameState+1);
-    secretWord = Dictionary[(((Math.random()*Dictionary.length+1)) | 0)]; // random word in list
-    wordLength = secretWord.length;
-    console.log(secretWord);
+
+    let wordSet=false;
+    // let loopNum=0;
+    // stop guessing random words when a word matches the settings.
+    while(!wordSet){
+      // loopNum++; console.log("#"+loopNum+" loop");
+      secretWord = Dictionary[(((Math.random()*Dictionary.length+1)) | 0)]; // random word in list
+      if((settingMenuText==="")||(parseFloat(settingMenuText)===secretWord.length)){    // if no desired wordlength or secretword length equals desired word length
+        wordLength = secretWord.length;
+        wordSet=true;
+      }
+      // console.log(parseFloat(settingMenuText));
+      // console.log(secretWord.length);
+      // console.log(secretWord);
+    }
   }
 
   const revealSolutionButton = () => {
@@ -69,6 +88,17 @@ function Wordle() {
     setSettingMenu(settingMenu+1);
   }
 
+  function GetGuessGrid(){
+    let grid= [];
+    for(let i = 0; i < 6; i++){     // number of guesses
+      for(let j = 0; j < wordLength; j++){   // word length
+        grid.push(<div id={i+'-'+j} className="key-guess" key={i+'-'+j}>Q</div>)
+      }
+      grid.push(<br/>)
+    }
+    return grid;
+  }
+
 
   return (
     <div>
@@ -77,11 +107,17 @@ function Wordle() {
           Wordle
         </div>
         <div className="guessGrid">
-
+          <GetGuessGrid/>
+          <br/>
+          {(buttonPressNum%2===0)&&secretWord}
         </div>
-        <div className="keyboard">
-        {secretWord}
-        </div>
+        <ul className="keyboard">
+          {Object.keys(keys).map((key,index) => (
+            <>
+            {(key.includes("break"))?<br/>:<button id={key} className='key' key={index} >{key}</button>}
+            </>
+          ))}
+        </ul>
         <div className="automate">
           {(inGameState%2===0)?
             <button id="automate-newBut" onClick={newGameButton} >
@@ -107,7 +143,7 @@ function Wordle() {
 
         </div>
         <div className="credits">
-
+        {outputMessage}
         </div>
       </div>
       <Footer/>

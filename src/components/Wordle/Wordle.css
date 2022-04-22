@@ -18,14 +18,48 @@
     max-height: 90px;
 }
 .guessGrid { /* CLASS for the region containing the guessGrid cells. thinly encapsulates the grid region */
+    font-size: calc(var(--nav-size)*.4); 
     justify-content: center;
     align-items: center;
     margin-top: max(10px,min(15px,2vw));
-    width: min(400px,avg(300px,90vw));
+
     height: min(400px,avg(300px,90vw));
     text-align: center;
   }
+.key-guess {   /* CLASS for the text letters that are placed on the guess grid*/
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    text-transform: uppercase;
+    border: min(3px,.5vw) solid #3A3A3C;
+    height: 8vw;
+    max-height: 50px;
+    width: 7vw;
+    max-width: 40px;
+    vertical-align: baseline;
+    color: #FFFFFF;
+    margin: min(3px,.75vw);
+    font-size:min(45px,8vw);
+}
+.key { /* CLASS for the keyboard buttons */
+    white-space: nowrap;
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: calc(var(--nav-size)*.7);
+    border-radius: calc(var(--nav-size)*.1);
+    background-color: #d3d6da;
+    border: 0;
+    height: 9vw;
+    max-height: 60px;
+    width: 9vw;
+    max-width: 60px;
+    margin: min(1px,.3vw);
+    cursor: pointer;
+    color: #1a1a1b;
+    vertical-align: bottom;
+  }
 .keyboard { /* CLASS for the region containing the keyboard */
+
     display: block;
     text-align: center;
     width: min(700px,96vw);
