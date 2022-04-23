@@ -25,6 +25,7 @@ function Wordle() {
   const [settingMenu, setSettingMenu] = useState(0);
   const [settingMenuText, setSettingMenuText] = useState("");
   const [outputMessage, setOutputMessage] = useState("");
+  // const [currentGuess] 
 
   // fills the dictionary with words
   function fetchDictionary() {
@@ -99,6 +100,22 @@ function Wordle() {
     return grid;
   }
 
+  function keyClick(key){
+    switch(key){
+      case '⌫': // if typed button was backspace
+        backspace(); 
+        break; 
+      case 'enter': // if typed button was enter
+        enter();
+        break;
+      default:
+        if (currentGuess.length < wordLength 
+          && guesses.length < NumberOfGuesses) { //enough letters typed && game still active
+          currentGuess.push({ key: key, result: '' }); //adds letter object to currentGuess array
+          updateCurrentGuess(); // places the letter on the game grid
+        }
+    }
+  }
 
   return (
     <div>
@@ -115,7 +132,7 @@ function Wordle() {
         <div className="keyboard">
           {Object.keys(keys).map((key,index) => (
             <>
-            {(key.includes("break"))?<br/>:<button id={key} className='key' key={index} >{key}</button>}
+            {(key.includes("break"))?<br/>:<button id={key} onClick={keyClick(key)} className='key' key={index} >{key}</button>}
             </>
           ))}
         </div>
