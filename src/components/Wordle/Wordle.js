@@ -69,6 +69,8 @@ function Wordle() {
   }
   
   const newGameButton = () => {
+    currentGuess=[];
+    guesses=[];
     setAnswerVisibility(false);
 
     setOutputMessage("");

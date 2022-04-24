@@ -54,6 +54,7 @@
     color: #FFFFFF;
     margin: calc(var(--nav-size)*.02);
 }
+
 .wordle-answer{
     margin-top: calc(var(--nav-size)*.2);
     font-size: calc(var(--nav-size)*.27);
@@ -73,7 +74,7 @@
     min-width: 7%;
 }
 .keyboard { /* CLASS for the region containing the keyboard */
-
+    font-size: calc(var(--nav-size)*.6);
     display: block;
     text-align: center;
     width: 100%;
