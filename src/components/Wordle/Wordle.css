@@ -4,12 +4,27 @@
     align-items: center;
     height: max(calc(var(--nav-size)*7),100%);
     flex-direction: column;
-    padding-top: calc(var(--nav-size)*2);
+    padding-top: calc(var(--nav-size)*1.5);
     font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
     padding-left: calc(var(--nav-size)*.2);
     padding-right: calc(var(--nav-size)*.2);
     background-color: var(--bg);
 }
+.wordle-space .found{
+    background-color: #c9b458;
+    border-color: #c9b458;
+    color: white;
+}
+.wordle-space .correct{
+    background-color: #538D4E;
+    border-color: #538D4E;
+    color: white;
+}
+.wordle-space .wrong {   /* CLASS for wrong letters*/
+    background-color: var(--bg-accent);
+    border-color: #3A3A3C;
+    color: white;
+  }
 .title { /* CLASS for the region containing the Title */
     color: #FFFFFF;
     font-size: calc(var(--nav-size)*.5);
@@ -29,14 +44,14 @@
     justify-content: center;
     align-items: center;
     text-transform: uppercase;
-    border: calc(var(--nav-size)*.05) solid var(--bg-accent);
+    border: calc(var(--nav-size)*.04) solid var(--bg-accent);
     height: calc(var(--nav-size)*.5);
 
-    width: calc(var(--nav-size)*.3);
+    width: calc(var(--nav-size)*.25);
 
     vertical-align: baseline;
     color: #FFFFFF;
-    margin: calc(var(--nav-size)*.04);
+    margin: calc(var(--nav-size)*.02);
 }
 .key { /* CLASS for the keyboard buttons */
     font-weight: bold;
@@ -55,7 +70,7 @@
 
     display: block;
     text-align: center;
-    width: min(700px,96vw);
+    width: 100%;
 }
 .credits { /* CLASS for the region containing the Thank you for visiting */
     margin-top: min(20px,4vw);
