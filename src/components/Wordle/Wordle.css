@@ -24,6 +24,7 @@
     background-color: var(--bg-accent);
     border-color: #3A3A3C;
     color: white;
+    
   }
 .title { /* CLASS for the region containing the Title */
     color: #FFFFFF;
@@ -49,14 +50,18 @@
 
     width: calc(var(--nav-size)*.25);
 
-    vertical-align: baseline;
+    vertical-align: middle;
     color: #FFFFFF;
     margin: calc(var(--nav-size)*.02);
+}
+.wordle-answer{
+    margin-top: calc(var(--nav-size)*.2);
+    font-size: calc(var(--nav-size)*.27);
 }
 .key { /* CLASS for the keyboard buttons */
     font-weight: bold;
     text-transform: uppercase;
-    font-size: calc(var(--nav-size)*.3);
+    font-size: calc(var(--nav-size)*.27);
     border-radius: calc(var(--nav-size)*.1);
     background-color: #d3d6da;
     border: 0;
@@ -65,12 +70,16 @@
     cursor: pointer;
     color: #1a1a1b;
     vertical-align: middle;
-  }
+    min-width: 7%;
+}
 .keyboard { /* CLASS for the region containing the keyboard */
 
     display: block;
     text-align: center;
     width: 100%;
+}
+.keyboard-div2{
+    display:inline;
 }
 .credits { /* CLASS for the region containing the Thank you for visiting */
     margin-top: min(20px,4vw);
@@ -84,18 +93,25 @@
     text-align: center;
 }
 #automate-newBut{
-    width: calc(var(--nav-size)*2);
     font-size: calc(var(--nav-size)*.26);
     vertical-align: middle;
+    cursor: pointer;
+    width: calc(var(--nav-size)*2);
+    height: calc(var(--nav-size)*.6);
 }
 #automate-solutionBut{
-    width: calc(var(--nav-size)*2);
+    width: calc(var(--nav-size)*2.5);
+    height: calc(var(--nav-size)*.6);
     font-size: calc(var(--nav-size)*.26);
     vertical-align: bottom;
+    cursor: pointer;
 }
 #automate-settingBut{
     font-size: calc(var(--nav-size)*.36);
-    vertical-align: bottom;
+    vertical-align: middle;
+    cursor: pointer;
+    height: calc(var(--nav-size)*.6);
+    width: calc(var(--nav-size)*.6);
 }
 .settingMenu{ /* CLASS for the region containing the settings */
     padding: min(10px,4vw);
@@ -106,7 +122,8 @@
 #settingMenu-text{  /* CLASS for the region containing the settings input */
     padding: calc(var(--nav-size)*.05);
     text-align: center;
-    width: calc(var(--nav-size)*.2);
+    font-weight: bolder;
+    width: calc(var(--nav-size)*.3);
     height: calc(var(--nav-size)*.2);
     margin-left: calc(var(--nav-size)*.1);
     vertical-align: bottom;

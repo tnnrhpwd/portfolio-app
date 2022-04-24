@@ -27,6 +27,7 @@ function Wordle() {
   const [settingMenu, setSettingMenu] = useState(0);
   const [settingMenuText, setSettingMenuText] = useState("");
   const [outputMessage, setOutputMessage] = useState("");
+  const [answerVisibility,setAnswerVisibility ]= useState(false);
   // const [currentGuess] 
 
   // fills the dictionary with words
@@ -46,40 +47,29 @@ function Wordle() {
   // fills the dictionary array with words on the intial load.
   useEffect(() => {
     fetchDictionary();
+    startKeyListen();
   }, []);
 
+  function keyListener(event){
+    if(event.code.length===4){ //if key was a letter
+      keyPress(event.code.substring(3,4));
+      // setOutputMessage(event.code.substring(3,4));
+    }
+    switch(event.code){ //if key was not a letter
+      case 'Backspace': backspace(); break;
+      case 'Enter': enter(); break;
+      //case 'Space': revealSolution(); 
+      default:break;
+    }
+  }
 
   const startKeyListen = () => {
-    document.addEventListener('keydown', (event) => { //event listener on keydown - listens for user keyboard
-      if(event.code.length===4){ //if key was a letter
-        keyPress(event.code.substring(3,4));
-        // setOutputMessage(event.code.substring(3,4));
-      }
-      switch(event.code){ //if key was not a letter
-        case 'Backspace': backspace(); break;
-        case 'Enter': enter(); break;
-        //case 'Space': revealSolution(); 
-        default:break;
-      }
-    }, false);
-  }
-  const stopKeyListen = () => {
-    document.removeEventListener('keydown', (event) => { //event listener on keydown - listens for user keyboard
-      if(event.code.length===4){ //if key was a letter
-        keyPress(event.code.substring(3,4));
-        // setOutputMessage(event.code.substring(3,4));
-      }
-      switch(event.code){ //if key was not a letter
-        //case 'Backspace': backspace(); 
-        //case 'Enter': enter(); 
-        //case 'Space': revealSolution(); 
-      }
-    }, false);
+    console.log("start listening")
+    document.addEventListener('keydown', keyListener, false);
   }
   
-
   const newGameButton = () => {
-    startKeyListen();
+    setAnswerVisibility(false);
 
     setOutputMessage("");
     buttonPressNum++;
@@ -96,7 +86,7 @@ function Wordle() {
         return;
     }
 
-    setInGameState(inGameState+1);
+    setInGameState(1);
 
     let wordSet=false;
     // stop guessing random words when a word matches the settings.
@@ -109,18 +99,17 @@ function Wordle() {
     }
   }
 
-  const revealSolutionButton = () => {
-    buttonPressNum++;
-    setInGameState(inGameState+1);
-    endOfGame();
-  }
   const toggleSettings = () => {
     setSettingMenu(settingMenu+1);
   }
 
   const endOfGame = () => {
-    stopKeyListen();
+    setAnswerVisibility(true);
   }
+
+  useEffect(() => {
+    console.log("game state="+inGameState)
+  },[inGameState])
 
   function GetGuessGrid(){
     let grid= [];
@@ -128,7 +117,7 @@ function Wordle() {
       for(let j = 0; j < wordLength; j++){   // word length
         grid.push(<div id={i+'-'+j} className="key-guess" key={i+'-'+j}></div>)
       }
-      grid.push(<br/>)
+      grid.push(<br key={i}/>)
     }
     return grid;
   }
@@ -143,9 +132,9 @@ function Wordle() {
         break;
       default:
         console.log(key);
-        console.log(currentGuess.length);
-        console.log(guesses.length);
-        console.log(wordLength);
+        // console.log(currentGuess.length);
+        // console.log(guesses.length);
+        // console.log(wordLength);
         if (currentGuess.length < wordLength 
           && guesses.length < maxGuesses) { //enough letters typed && game still active
             currentGuess.push({ key: key, result: '' }); //adds letter object to currentGuess array
@@ -200,7 +189,7 @@ function Wordle() {
         if((countLetters(keyGuess.key,secretWord)>CRTappearances) // if not correctly used later && not too many used already
         &&(countLetters(keyGuess.key,secretWord)>countLetters(keyGuess.key,guessString.substring(0,index)))){
           
-          keyGuess.result = Found; // assigns result to the letter object in the keys array
+          keyGuess.result = Found; // assigns result to the letter object in the keys dictionary
           
         }else{keyGuess.result = Wrong;} // assigns result to the letter object in the keys array
         
@@ -212,9 +201,10 @@ function Wordle() {
 
     if((guessString===secretWord)||(guesses.length>(maxGuesses-2))){ //if WON or LOST, clear the board, print the answer, and reset the board
       setOutputMessage("Thanks for playing!"); // print the answer
+      endOfGame();
       // resetGameBoard(); // reset game
     }
-  
+    
     publishCurrentGuess(true); // outputs the found/correct tags to letters in guessgrid + executes updatekeyboard()
     guesses.push(currentGuess); // add guess to previous guesses array
     currentGuess = []; // clear the current guess
@@ -259,21 +249,31 @@ function Wordle() {
           <GetGuessGrid/>
           <div/>
           {(buttonPressNum===0)&&"Press New Game to begin!"}
-          {(buttonPressNum%2===0)&&secretWord}
         </div>
+        {(answerVisibility===true)&&
+          <div className='wordle-answer'>
+            The answer is {secretWord}.
+          </div>
+        }  
         <div className="keyboard">
-          {Object.keys(keys).map((key,index) => (
-            <>
-            {(key.includes("break"))?<br/>:<button id={key} onClick={() => keyPress(key)} className='key' key={index} >{key}</button>}
-            </>
-          ))}
+          {(inGameState%2===1)&&
+            <div key="keyboard-div1">
+              {Object.keys(keys).map((key,index) => (
+                <div className='keyboard-div2' key={"keyboard-div2"+key}>
+                  {(key.includes("break"))?<br key={index} />:
+                    <button id={key} onClick={() => keyPress(key)} className='key' key={key} >{key}</button>
+                  }
+                </div>
+              ))}
+            </div>
+          }
         </div>
         <div className="automate">
-          {(inGameState%2===0)?
+          {(inGameState%2===0||answerVisibility)?
             <button id="automate-newBut" onClick={newGameButton} >
             New Game
             </button>:
-            <button id="automate-solutionBut" onClick={revealSolutionButton} >
+            <button id="automate-solutionBut" onClick={endOfGame} >
             Reveal Solution
             </button>
           }
