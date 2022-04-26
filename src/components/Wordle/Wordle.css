@@ -22,7 +22,7 @@
 }
 .wordle-space .wrong {   /* CLASS for wrong letters*/
     background-color: var(--bg-accent);
-    border-color: #3A3A3C;
+    border-color: var(--bg-accent);
     color: white;
     
   }
