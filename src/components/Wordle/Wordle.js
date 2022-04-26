@@ -1,9 +1,9 @@
-import React, { Component, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Footer from './../Footer/Footer';
 import url from "./../WordleSolver/Dictionary.txt";
 import "./Wordle.css";
 
-let keys = { //create dictionary object to store pairs of keys and result(correct, found, wrong).
+var keys = { //create dictionary object to store pairs of keys and result(correct, found, wrong).
   'Q': '', 'W': '', 'E': '', 'R': '', 'T': '', 'Y': '', 'U': '', 'I': '', 'O': '', 'P': '', 'break': '',
   'A': '', 'S': '', 'D': '', 'F': '', 'G': '', 'H': '', 'J': '', 'K': '', 'L': '', 'break2': '',
   'enter': '', 'Z': '', 'X': '', 'C': '', 'V': '', 'B': '', 'N': '', 'M': '', '⌫': ''
@@ -15,20 +15,42 @@ var Dictionary=[];
 var guesses = []; // array full of user previous guesses
 var currentGuess = []; // array full of chars of current guess
 var wordLength=0;
-var secretWord;
+var secretWord="";
 var buttonPressNum=0;
 var maxGuesses = 6;
 const Correct = 'correct'; 
 const Found = 'found';
 const Wrong = 'wrong';
 
+// Main function component
 function Wordle() {
   const [inGameState, setInGameState] = useState(0);
   const [settingMenu, setSettingMenu] = useState(0);
   const [settingMenuText, setSettingMenuText] = useState("");
   const [outputMessage, setOutputMessage] = useState("");
   const [answerVisibility,setAnswerVisibility ]= useState(false);
-  // const [currentGuess] 
+
+  function setInitialValues(){
+    keys = { 
+      'Q': '', 'W': '', 'E': '', 'R': '', 'T': '', 'Y': '', 'U': '', 'I': '', 'O': '', 'P': '', 'break': '',
+      'A': '', 'S': '', 'D': '', 'F': '', 'G': '', 'H': '', 'J': '', 'K': '', 'L': '', 'break2': '',
+      'enter': '', 'Z': '', 'X': '', 'C': '', 'V': '', 'B': '', 'N': '', 'M': '', '⌫': ''
+    };
+    guesses = []; // array full of user previous guesses
+    currentGuess = []; // array full of chars of current guess
+    wordLength=0;
+    secretWord="";
+    buttonPressNum=0;
+    setAnswerVisibility(false);
+
+    for (const key in keys) { // for each key object
+      let keyElement = document.getElementById(key); //assigns key ID of each key in loop
+      if(keyElement != null){
+        keyElement.className = ''; // removes all classes  from the key
+        keyElement.classList.add('key'); // re-adds the key CLASS - makes key square, sets pixels, etc.
+      }
+    }
+  }
 
   // fills the dictionary with words
   function fetchDictionary() {
@@ -69,9 +91,7 @@ function Wordle() {
   }
   
   const newGameButton = () => {
-    currentGuess=[];
-    guesses=[];
-    setAnswerVisibility(false);
+    setInitialValues();
 
     setOutputMessage("");
     buttonPressNum++;
