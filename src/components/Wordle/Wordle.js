@@ -30,7 +30,7 @@ function Wordle() {
   const [outputMessage, setOutputMessage] = useState("");
   const [answerVisibility,setAnswerVisibility ]= useState(false);
 
-  function setInitialValues(){
+  function resetInitialValues(){
     keys = { 
       'Q': '', 'W': '', 'E': '', 'R': '', 'T': '', 'Y': '', 'U': '', 'I': '', 'O': '', 'P': '', 'break': '',
       'A': '', 'S': '', 'D': '', 'F': '', 'G': '', 'H': '', 'J': '', 'K': '', 'L': '', 'break2': '',
@@ -73,7 +73,9 @@ function Wordle() {
   }, []);
 
   function keyListener(event){
-    if(event.code.length===4){ //if key was a letter
+    //GUARD CLAUSE - paste number into settings input
+    if(event.code===undefined){}
+    else if(event.code.length===4){ //if key was a letter
       keyPress(event.code.substring(3,4));
       // setOutputMessage(event.code.substring(3,4));
     }
@@ -91,7 +93,7 @@ function Wordle() {
   }
   
   const newGameButton = () => {
-    setInitialValues();
+    resetInitialValues();
 
     setOutputMessage("");
     buttonPressNum++;
@@ -126,7 +128,17 @@ function Wordle() {
   }
 
   const endOfGame = () => {
+    
     setAnswerVisibility(true);
+    for(let i = 0; i < maxGuesses; i++){     // number of guesses
+      for(let j = 0; j < wordLength; j++){   // word length
+        let keyID = document.getElementById(i+"-"+j);
+        keyID.innerHTML = "L";
+        // console.log(guesses[i]);
+
+      }
+
+    }
   }
 
   useEffect(() => {
@@ -240,7 +252,7 @@ function Wordle() {
       // console.log(`${row}${i}`);
       if (currentGuess[i]) { // if letter in currentGuess exist, put it on the board
         keyID.innerHTML = currentGuess[i].key;
-      } else { // if no letter in current guess, fill guess grid with ''
+      }else { // if no letter in current guess, fill guess grid with ''
         keyID.innerHTML = '';
       }
       if (guessed) {   //GUESS == TRUE
