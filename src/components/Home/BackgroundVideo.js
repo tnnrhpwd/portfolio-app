@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from "react";
-let bgVideo;
+import React from "react";
+
 
 // https://www.amazon.com/drive/v1/nodes/7zdVKb3AQU6FiBAyESKxvw/contentRedirection?querySuffix=%3FvideoTranscodeView%3Dtrue%26y%3D720&ownerId=A2ED9145G3H0AN&cb=1649615247945&groupShareToken=xLbJljPqTCy3dJzMbd9VxA.7873MSVWGwCNWq9bhReGhp
 
