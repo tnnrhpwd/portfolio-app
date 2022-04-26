@@ -2,6 +2,7 @@ import React from "react";
 import "./Projects.css";
 import pollsimg from "./polls.jpg";
 import wordleSimg from "./wordle-solver.PNG";
+import wordleimg from "./wordle.PNG";
 import annuitiesimg from "./Annuities.jpeg";
 import draftingimg from "./drafting.jpg";
 
@@ -49,15 +50,20 @@ function Projects() {
         </div>
         <div></div>
 
+        <div className="projects-p6">
+          <a href="/wordle">
+            <img id="projects-p6-img" src={wordleimg} alt="the display for wordle "/>
+          </a>
+        </div>
+        <div></div>
+
         <div className="projects-p2">
-          {/* <td onClick={()=> window.open("https://sthopwood.weebly.com/wordlesolver.html")}>
-            <img id="projects-p2-img" src={wordleSimg} alt="the display for wordle solver website"/>
-          </td> */}
           <a href="/wordlesolver">
             <img id="projects-p2-img" src={wordleSimg} alt="the display for wordle solver website"/>
           </a>
         </div>
         <div></div>
+
         <div className="projects-p3">
           <BitcoinAPI/>
         </div>
