@@ -9,7 +9,9 @@ var keys = { //create dictionary object to store pairs of keys and result(correc
   'enter': '', 'Z': '', 'X': '', 'C': '', 'V': '', 'B': '', 'N': '', 'M': '', '⌫': ''
 };
 
-
+// bugs to fix
+// 1 keyboard letters greyed out when should be yellow.
+// 2 guesses hidden from board on end of game or reveal solution.
 
 var Dictionary=[];
 var guesses = []; // array full of user previous guesses
@@ -130,15 +132,7 @@ function Wordle() {
   const endOfGame = () => {
     
     setAnswerVisibility(true);
-    for(let i = 0; i < maxGuesses; i++){     // number of guesses
-      for(let j = 0; j < wordLength; j++){   // word length
-        let keyID = document.getElementById(i+"-"+j);
-        keyID.innerHTML = "L";
-        // console.log(guesses[i]);
 
-      }
-
-    }
   }
 
   useEffect(() => {
@@ -146,10 +140,16 @@ function Wordle() {
   },[inGameState])
 
   function GetGuessGrid(){
-    let grid= [];
+    let grid = [];
     for(let i = 0; i < maxGuesses; i++){     // number of guesses
       for(let j = 0; j < wordLength; j++){   // word length
-        grid.push(<div id={i+'-'+j} className="key-guess" key={i+'-'+j}></div>)
+        let lett = "";
+        let lettClass = "key-guess";
+        if(guesses[i]){ // if guess exists, place letters on the grid
+          lett = guesses[i][j].key;
+          lettClass = "key-guess "+guesses[i][j].result;
+        }
+        grid.push(<div id={i+'-'+j} className={lettClass} key={i+'-'+j}>{lett}</div>)
       }
       grid.push(<br key={i}/>)
     }
