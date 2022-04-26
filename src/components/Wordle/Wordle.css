@@ -1,14 +1,27 @@
-.wordle-space{                              
+#video1{
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    min-width: 100%;
+    min-height: 100%;
+    transform: translateX(calc((100% - 100vw) / 2));
+    background-color: var(--bg);
+    z-index: -1000000000;
+}
+.footer-space{
+    background-color: #353535d5;
+}
+.wordle-space{                          
     color: rgb(255, 255, 255);
     display: flex;
     align-items: center;
     height: max(calc(var(--nav-size)*7),100%);
     flex-direction: column;
-    padding-top: calc(var(--nav-size)*1.5);
+    padding-top: calc(var(--nav-size)*1);
     font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
     padding-left: calc(var(--nav-size)*.2);
     padding-right: calc(var(--nav-size)*.2);
-    background-color: var(--bg);
+    background-color: #353535d5;
 }
 .wordle-space .found{
     background-color: #c9b458;
@@ -39,6 +52,7 @@
     margin-top: max(10px,min(15px,2vw));
     height: min(400px,avg(300px,90vw));
     text-align: center;
+    width: 100%;
   }
 .key-guess {   /* CLASS for the text letters that are placed on the guess grid*/
     display: inline-flex;
@@ -52,7 +66,7 @@
 
     vertical-align: middle;
     color: #FFFFFF;
-    margin: calc(var(--nav-size)*.02);
+    margin: calc(max(var(--nav-size)*.01,.25%));
 }
 
 .wordle-answer{
@@ -62,16 +76,19 @@
 .key { /* CLASS for the keyboard buttons */
     font-weight: bold;
     text-transform: uppercase;
-    font-size: calc(var(--nav-size)*.27);
+    font-size: calc(max(var(--nav-size)*.2,1%));
     border-radius: calc(var(--nav-size)*.1);
     background-color: #d3d6da;
     border: 0;
-    padding: calc(var(--nav-size)*.12);
-    margin: calc(var(--nav-size)*.02);
+    padding: calc(max(var(--nav-size)*.175,1%));
+    margin: calc(var(--nav-size)*.01);
     cursor: pointer;
     color: #1a1a1b;
     vertical-align: middle;
-    min-width: 7%;
+    min-width: calc(max(var(--nav-size)*.50,4%));
+}
+.key:hover{
+    filter: brightness(1.2);
 }
 .keyboard { /* CLASS for the region containing the keyboard */
     font-size: calc(var(--nav-size)*.6);
@@ -98,29 +115,50 @@
     vertical-align: middle;
     cursor: pointer;
     width: calc(var(--nav-size)*2);
-    height: calc(var(--nav-size)*.6);
+    height: calc(var(--nav-size)*.55);
+}
+#automate-newBut:hover{
+    filter: brightness(1.2);
 }
 #automate-solutionBut{
     width: calc(var(--nav-size)*2.5);
-    height: calc(var(--nav-size)*.6);
+    height: calc(var(--nav-size)*.55);
     font-size: calc(var(--nav-size)*.26);
     vertical-align: bottom;
     cursor: pointer;
+}
+#automate-solutionBut:hover{
+    filter: brightness(1.2);
 }
 #automate-settingBut{
     font-size: calc(var(--nav-size)*.36);
     vertical-align: middle;
     cursor: pointer;
-    height: calc(var(--nav-size)*.6);
+    height: calc(var(--nav-size)*.55);
     width: calc(var(--nav-size)*.6);
 }
+#automate-settingBut:hover{
+    filter: brightness(1.2);
+}
+#automate-solverbut{
+    margin-top: calc(var(--nav-size)*.2);
+    font-size: calc(var(--nav-size)*.25);
+    vertical-align: middle;
+    cursor: pointer;
+    height: calc(var(--nav-size)*.4);
+}
+#automate-solverbut:hover{
+    filter: brightness(1.2);
+}
 .settingMenu{ /* CLASS for the region containing the settings */
+    margin-top: calc(var(--nav-size)*.1);
     padding: min(10px,4vw);
     text-align: center;
     font-size: calc(var(--nav-size)*.3);
-
+    border-style: dashed;
 }
 #settingMenu-text{  /* CLASS for the region containing the settings input */
+    font-size: calc(var(--nav-size)*.26);
     padding: calc(var(--nav-size)*.05);
     text-align: center;
     font-weight: bolder;

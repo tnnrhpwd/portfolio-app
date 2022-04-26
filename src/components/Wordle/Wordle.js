@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import Footer from './../Footer/Footer';
 import url from "./../WordleSolver/Dictionary.txt";
+import BackgroundVideo from "./../Home/BackgroundVideo.js";
+import WordleSolver from "./../WordleSolver/WordleSolver.js";
 import "./Wordle.css";
 
 var keys = { //create dictionary object to store pairs of keys and result(correct, found, wrong).
@@ -11,7 +13,6 @@ var keys = { //create dictionary object to store pairs of keys and result(correc
 
 // bugs to fix
 // 1 keyboard letters greyed out when should be yellow.
-// 2 guesses hidden from board on end of game or reveal solution.
 
 var Dictionary=[];
 var guesses = []; // array full of user previous guesses
@@ -275,6 +276,10 @@ function Wordle() {
 
   return (
     <div>
+      <div className="container-background">
+        <BackgroundVideo/>
+      </div>
+
       <div className='wordle-space' id='wordle-space'>
         <div className="title">
           Wordle
@@ -321,6 +326,10 @@ function Wordle() {
             <div className='settingMenu'>
               Desired Word Length
               <input type="text" id="settingMenu-text" onChange={e => setSettingMenuText(e.target.value)} value={settingMenuText} />
+              <br/>
+              <a href="/wordlesolver" target="_blank">
+                <button id="automate-solverbut">Open Wordle Solver</button>
+              </a>
             </div>
           }  
 
