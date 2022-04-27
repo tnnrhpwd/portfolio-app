@@ -267,6 +267,9 @@ function WordleSolver() {
                     <br></br>
                     <button id="button" onClick={pressButton} >📕</button>
                     <button id="button" onClick={resetData} >Reset</button>
+                    <a href="/wordle" target="_blank">
+                        <button id="button">Open Wordle</button>
+                    </a>
                 </div>
                 <div id="postInstruction">
                     {postInstruction}
