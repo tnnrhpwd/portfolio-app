@@ -339,7 +339,6 @@ function Wordle() {
         {outputMessage}
         </div>
       </div>
-      <Footer/>
     </div>
     
   );

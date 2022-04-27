@@ -9,13 +9,13 @@
     z-index: -1000000000;
 }
 .footer-space{
-    background-color: #353535d5;
+    /* background-color: #353535d5; */
 }
 .wordle-space{                          
     color: rgb(255, 255, 255);
     display: flex;
     align-items: center;
-    height: max(calc(var(--nav-size)*7),100%);
+    height: calc(var(--nav-size)*15);
     flex-direction: column;
     padding-top: calc(var(--nav-size)*1);
     font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
