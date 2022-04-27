@@ -86,13 +86,13 @@ function Home() {
           </div>
         </section>
 
-        <section className="section-tile">
+        {/* <section className="section-tile">
           <div id="content-p1">
             <div id="text-body">Industrial Engineer 
             <br></br>
             + Software Developer</div>
           </div>
-        </section>
+        </section> */}
 
         <section className="section-tile">
           <div id="content-p2">
@@ -113,7 +113,7 @@ function Home() {
             {/* <div id="text-body">Y Offset={offsetY}</div> */
             /* <div id="text-body">Scroll Renders={rendNum}</div>
             <div id="text-body">Video Frame Num={frameNum}</div> */}
-            <div id="text-body">Check out some of my projects.</div>
+            {/* <div id="text-body">Check out some of my projects.</div> */}
             <a className="content-button" href="/projects">
                 <button id="content-button">My Projects</button>
               </a>
@@ -123,7 +123,7 @@ function Home() {
 
         <section className="section-tile">
           <div id="content-p4">
-            <div id="text-body"> Already have a project in mind?  </div>
+            {/* <div id="text-body"> Already have a project in mind?  </div> */}
               <a className="content-button" href="/contact">
                 <button id="content-button">Contact Me</button>
               </a>

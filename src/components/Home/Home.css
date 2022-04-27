@@ -34,7 +34,7 @@
 #content-title{
     padding-left: calc(var(--nav-size)*.8);
     padding-right: calc(var(--nav-size)*.6);
-    padding-top: calc(var(--nav-size)*3);
+    padding-top: calc(var(--nav-size)*4);
     color: white;
     font-weight: bold;
 }
@@ -127,4 +127,5 @@
     background-color: rgba(0, 0, 0, 0.6);
     cursor: pointer;
     border-radius: 3%;
+    font-weight: bold;
 }#content-button:hover{filter: brightness(1.2);}
