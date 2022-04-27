@@ -98,6 +98,12 @@ function WordleSolver() {
             setPostInstruction("Enter only numbers in the field. An example is: 31223"); // output
             return
         }
+        // Guard clause - correct word length
+        if(!(inputString.length===wordLength)&&(buttonPressNum>0)){
+            // output the error
+            setPostInstruction("Error: Please enter "+wordLength+" characters. This number was set on your first input."); // output
+            return
+        }
 
         // increment counter to record # of guesses
         buttonPressNum++;  
