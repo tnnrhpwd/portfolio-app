@@ -115,6 +115,12 @@ function ActivePoll(props) {
     const expString = (new Date(expTime*60000)).toLocaleString();
     console.log(expString);
   
+    // Data calculations
+    let voteSum=a1v+a2v+a3v+a4v;
+    let a1vPcnt=(100*a1v/voteSum).toFixed(2);
+    let a2vPcnt=(100*a2v/voteSum).toFixed(2);
+    let a3vPcnt=(100*a3v/voteSum).toFixed(2);
+    let a4vPcnt=(100*a4v/voteSum).toFixed(2);
   
   
     
@@ -124,7 +130,15 @@ function ActivePoll(props) {
         console.log('voted')
         return(
           <div className='postPollSpace'>
-            Thank you for your feedback!
+            <button onClick={endPoll} className='endPollButton' type='button'>End Poll</button>
+            <div id='recentQuestion'>{question}</div>
+            <div id='recentResults'>Voting Results:</div>
+            <div id='recentData'>
+              <div><div id='recentDataQ'>•{a1}:</div>  <div id='recentDataV'>{a1v} votes</div> <span id='recentDataP' >{`${a1vPcnt}%`}</span> </div> 
+              <div><div id='recentDataQ'>•{a2}:</div>  <div id='recentDataV'>{a2v} votes</div> <span id='recentDataP' >{`${a2vPcnt}%`}</span> </div>
+              <div><div id='recentDataQ'>•{a3}:</div>  <div id='recentDataV'>{a3v} votes</div> <span id='recentDataP' >{`${a3vPcnt}%`}</span> </div> 
+              <div><div id='recentDataQ'>•{a4}:</div>  <div id='recentDataV'>{a4v} votes</div> <span id='recentDataP' >{`${a4vPcnt}%`}</span> </div>
+            </div>
           </div>
         )
     
