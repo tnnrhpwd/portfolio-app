@@ -229,9 +229,19 @@ function Wordle() {
         }else{keyGuess.result = Wrong;} // assigns result to the letter object in the keys array
         
       } else {keyGuess.result = Wrong;} // else is wrong
-      if (keys[keyGuess.key] !== Correct) {  // once key in dictionary assigned correct, it is not changed. prevents green keyboard keys from changing to orange.
+
+
+      // if (keys[keyGuess.key] !== Correct) {  // if key is BLACK, update it every guess.
+      //   keys[keyGuess.key] = keyGuess.result;  // updates the keys dictionary with results from currentGuess
+      // }
+      // update keys | BLACK -> GREEN + ORANGE | ORANGE -> GREEN
+      if ((keys[keyGuess.key] === Wrong)||(keys[keyGuess.key] === "")) {  // if key is BLACK || if key is unassigned, update it every guess.
         keys[keyGuess.key] = keyGuess.result;  // updates the keys dictionary with results from currentGuess
       }
+      if ((keys[keyGuess.key] === Found) && (keyGuess.result === Correct)) {  // if key is ORANGE && if key is being updated to GREEN, update it.
+        keys[keyGuess.key] = keyGuess.result;  // updates the keys dictionary with results from currentGuess
+      } 
+      
     });
 
     if((guessString===secretWord)||(guesses.length>(maxGuesses-2))){ //if WON or LOST, clear the board, print the answer, and reset the board
