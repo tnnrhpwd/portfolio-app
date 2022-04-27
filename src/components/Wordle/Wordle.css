@@ -1,27 +1,14 @@
-#video1{
-    position: fixed;
-    right: 0;
-    bottom: 0;
-    min-width: 100%;
-    min-height: 100%;
-    transform: translateX(calc((100% - 100vw) / 2));
-    background-color: var(--bg);
-    z-index: -1000000000;
-}
-.footer-space{
-    /* background-color: #353535d5; */
-}
 .wordle-space{                          
     color: rgb(255, 255, 255);
     display: flex;
     align-items: center;
-    height: calc(var(--nav-size)*15);
+    height: calc(var(--nav-size)*8);
     flex-direction: column;
     padding-top: calc(var(--nav-size)*1);
     font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
     padding-left: calc(var(--nav-size)*.2);
     padding-right: calc(var(--nav-size)*.2);
-    background-color: #353535d5;
+    background-color: var(--bg);
 }
 .wordle-space .found{
     background-color: #c9b458;

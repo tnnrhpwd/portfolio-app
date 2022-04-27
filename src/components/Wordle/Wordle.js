@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Footer from './../Footer/Footer';
 import url from "./../WordleSolver/Dictionary.txt";
-import BackgroundVideo from "./../Home/BackgroundVideo.js";
-import WordleSolver from "./../WordleSolver/WordleSolver.js";
 import "./Wordle.css";
 
 var keys = { //create dictionary object to store pairs of keys and result(correct, found, wrong).
@@ -286,10 +284,6 @@ function Wordle() {
 
   return (
     <div>
-      <div className="container-background">
-        <BackgroundVideo/>
-      </div>
-
       <div className='wordle-space' id='wordle-space'>
         <div className="title">
           Wordle
@@ -349,6 +343,7 @@ function Wordle() {
         {outputMessage}
         </div>
       </div>
+      <Footer/>
     </div>
     
   );
