@@ -134,7 +134,6 @@ function Home() {
         <section className="section-tile">
           <div id="content-p5">
             <div id="text-body">Thank you for visiting. </div>
-            <div id="text-subtext"> -- Steven Tanner Hopwood </div>
           </div>
         </section>
     
