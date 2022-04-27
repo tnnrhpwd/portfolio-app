@@ -283,6 +283,9 @@ function WordleSolver() {
                 <div id="output">
                     {output}
                 </div>
+                <a href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/WordleSolver" target="_blank">
+                    <button id="button">View Source Code</button>
+                </a>
             </body>
             <Footer/>
         </div>
