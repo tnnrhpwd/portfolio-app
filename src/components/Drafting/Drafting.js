@@ -37,6 +37,9 @@ function Drafting() {
                 ))}
             </Zoom>
             </div>
+            <a href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Drafting" target="_blank">
+                <button id="newAnnuity">View Source Code</button>
+            </a>
             <Footer transparent="1" />
         </div>
     );
