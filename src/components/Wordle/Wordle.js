@@ -334,6 +334,10 @@ function Wordle() {
               <a href="/wordlesolver" target="_blank">
                 <button id="automate-solverbut">Open Wordle Solver</button>
               </a>
+              <br/>
+              <a href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Wordle" target="_blank">
+                <button id="automate-solverbut">View Source Code</button>
+              </a>
             </div>
           }  
 
