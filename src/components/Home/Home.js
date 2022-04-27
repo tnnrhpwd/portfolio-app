@@ -90,7 +90,7 @@ function Home() {
           <div id="content-p1">
             <div id="text-body">Industrial Engineer 
             <br></br>
-            + Web Developer</div>
+            + Software Developer</div>
           </div>
         </section>
 
@@ -100,11 +100,8 @@ function Home() {
             <div id="text-body"> Let's build a brighter tomorrow! </div>
             <br></br>
             <br></br>
-            <div id="text-body"> Production </div>
-            <div id="text-subtext"> Process Design, Analysis, and Improvement </div>
-            <div id="text-body"></div>
-            <div id="text-body"> Development </div>
-            <div id="text-subtext"> Programming, Computer Aided-Drafting, and Automation </div>
+            <div id="text-body"> Skills: </div>
+            <div id="text-subtext"> Programming, Process Improvement, and Automation </div>
             <div id="text-body"></div>
             <div id="text-subtext">Increasing conforming production and decreasing waste.</div>
             <div id="text-body"></div>
