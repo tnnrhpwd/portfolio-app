@@ -16,18 +16,6 @@ function Projects() {
           Projects
         </div>
         
-        <div className="projects-resume">
-          <a className="projects-resume-inside" href="https://docs.google.com/document/d/1l8yCRlom5hw-SwOfZtpria_AUuXwcXpC/edit?usp=sharing&ouid=106668374323360993837&rtpof=true&sd=true">
-                  <button id="projects-resume-button">⚡ STH RESUME ⚡</button>
-          </a>
-        </div>
-        <div></div>
-        <div className="projects-source">
-          <a className="projects-source-inside" href="https://github.com/tnnrhpwd/portfolio-app">
-                  <button id="projects-source-button">This Website's Github Repo</button>
-          </a>
-        </div>
-        <div></div>
         <div className="projects-description">
           Click each project for more information.
         </div>
@@ -71,6 +59,18 @@ function Projects() {
         <div className="projects-p4">
           <a href="/drafting">
             <img id="projects-p4-img" src={draftingimg} alt="the display for my cad projects"/>
+          </a>
+        </div>
+        <div></div>
+        <div className="projects-resume">
+          <a className="projects-resume-inside" href="https://docs.google.com/document/d/1l8yCRlom5hw-SwOfZtpria_AUuXwcXpC/edit?usp=sharing&ouid=106668374323360993837&rtpof=true&sd=true">
+                  <button id="projects-resume-button">⚡ STH RESUME ⚡</button>
+          </a>
+        </div>
+        <div></div>
+        <div className="projects-source">
+          <a className="projects-source-inside" href="https://github.com/tnnrhpwd/portfolio-app">
+                  <button id="projects-source-button">This Website's Github Repo</button>
           </a>
         </div>
         <div></div>
