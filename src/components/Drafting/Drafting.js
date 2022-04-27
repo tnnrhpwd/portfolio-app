@@ -33,11 +33,11 @@ function Drafting() {
             <div className="drafting-space">
             <Zoom {...zoomOutProperties}>
                 {reel.map((each, index) =>(
-                    <img key={index} style={{width: "min(100vw, 2400px)"}} src={each} />
+                    <img key={index} style={{width: "min(100vw, 2400px)"}} alt="slideshow for CAD drafting pace" src={each} />
                 ))}
             </Zoom>
             </div>
-            <a href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Drafting" target="_blank">
+            <a href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Drafting" rel="noreferrer" target="_blank">
                 <button id="newAnnuity">View Source Code</button>
             </a>
             <Footer transparent="1" />
