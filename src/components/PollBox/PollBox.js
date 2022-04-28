@@ -20,7 +20,7 @@ import { useCollectionData } from 'react-firebase-hooks/firestore';
 const activeTitle="Active Polls";   // active polls text
 const description="No sign in required. Send the link to your friends!";
 const newTitle="Toggle New Poll Visability";      // add new poll text
-const recentTitle="Recent Polls";    // recent polls text
+const recentTitle="Closed Polls";    // recent polls text
 
 
 
@@ -55,13 +55,13 @@ function PollBox(){
                     <div className='pollbox-titles'>{activeTitle}</div>
                     <div className='pollbox-descriptions'>{description}</div>
                     {polls && polls.map(pl => <ActivePoll key={pl.id} ActivePoll={pl}/>)}
-                    </div>
+                </div>
                     
-                    <div className='pollbox-app-newpoll'>
+                <div className='pollbox-app-newpoll'>
                     <div  className='pollbox-app-newpoll-div'><button onClick={()=>setShowNewPoll(showNewPoll+1)} id='newTitle' type='button'>{newTitle}</button></div>
                     <div className='newFormSpace'>{(showNewPoll%2)?<NewPoll />:null}</div>
-                    </div>
-                    <div className='pollbox-app-closedpoll'>
+                </div>
+                <div className='pollbox-app-closedpoll'>
                     <div className='newFormSpace-title'>{recentTitle}</div>
                     {polls && polls.map(pl => <ClosedPoll key={pl.id} ClosedPoll={pl}/>)}
                 </div>
