@@ -1,29 +1,40 @@
+@font-face {
+    font-family: 'CutiveMono-Regular';
+    src: url(./../../fonts/CutiveMono-Regular.ttf) format('truetype'),
+    url(./../../fonts/CutiveMono-Regular.woff) format('woff');
+}
 #tooltip-home{
-    font-size: calc(var(--nav-size)*.5);
+    font-family: 'CutiveMono-Regular';
+    font-size: calc(var(--nav-size)*.45);
+    font-weight: bold;
     color: white;
     border-radius: 20%;
     text-align: center;
-    -webkit-text-stroke-width: calc(var(--nav-size)*.005);
-    -webkit-text-stroke-color: rgb(255, 255, 255);
-    height: calc(var(--nav-size)*0.7);
+    -webkit-text-stroke-width: calc(var(--nav-size)*.003);
+    -webkit-text-stroke-color: white;
+    height: calc(var(--nav-size)*0.45);
 }
 #tooltip-projects{
-    font-size: calc(var(--nav-size)*.5);
+    font-family: 'CutiveMono-Regular';
+    font-size: calc(var(--nav-size)*.4);
+    font-weight: bold;
     color: white;
     border-radius: 20%;
     text-align: center;
-    -webkit-text-stroke-width: calc(var(--nav-size)*.005);
-    -webkit-text-stroke-color: rgb(255, 255, 255);
-    height: calc(var(--nav-size)*0.7);
+    -webkit-text-stroke-width: calc(var(--nav-size)*.003);
+    -webkit-text-stroke-color: white;
+    height: calc(var(--nav-size)*0.45);
 }
 #tooltip-contact{
-    font-size: calc(var(--nav-size)*.5);
+    font-family: 'CutiveMono-Regular';
+    font-size: calc(var(--nav-size)*.4);
+    font-weight: bold;
     color: white;
     border-radius: 20%;
     text-align: center;
-    -webkit-text-stroke-width: calc(var(--nav-size)*.005);
-    -webkit-text-stroke-color: rgb(255, 255, 255);
-    height: calc(var(--nav-size)*0.7);
+    -webkit-text-stroke-width: calc(var(--nav-size)*.003);
+    -webkit-text-stroke-color: white;
+    height: calc(var(--nav-size)*0.45);
 }
 .tooltip-space{
     text-align: center;

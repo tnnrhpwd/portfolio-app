@@ -24,6 +24,7 @@ function NavBar({handleLoginClick}) {
             <NavLogo icon={STHlogo}/>
           </span>
           <ul className="navbar-nav"> 
+
             <div className="tooltip-space" data-tip="" data-for="tooltip-home" >
               <NavItem  icon={homeLogo} page="/"/>
             </div>
@@ -31,12 +32,14 @@ function NavBar({handleLoginClick}) {
               Home
             </ReactTooltip>
 
+
             <div className="tooltip-space" data-tip="" data-for="tooltip-projects" >
               <NavItem icon={projectsLogo} page="/projects"/>
             </div>
             <ReactTooltip id="tooltip-projects" place="bottom" effect="solid">
               Projects
             </ReactTooltip>
+
 
             <div className="tooltip-space" data-tip="" data-for="tooltip-contact" >
               <NavItem icon={contactLogo} page="/contact"/>
