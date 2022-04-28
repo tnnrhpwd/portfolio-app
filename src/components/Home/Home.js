@@ -103,7 +103,7 @@ function Home() {
             <div id="text-body"> Skills: </div>
             <div id="text-subtext"> Programming, Process Improvement, and Automation </div>
             <div id="text-body"></div>
-            <div id="text-subtext">Increasing conforming production and decreasing waste.</div>
+            <div id="text-subtext">Increasing conforming output and decreasing waste.</div>
             <div id="text-body"></div>
           </div>
         </section>
