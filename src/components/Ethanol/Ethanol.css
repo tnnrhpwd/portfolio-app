@@ -16,15 +16,17 @@
     text-align: left;
     vertical-align: top;
     display: inline-block;
-    width: calc(var(--nav-size)*6);
+    width: 45%;
+    padding: calc(var(--nav-size)*.5);
 }
 .ethanol-col2{
 
     text-align: left;
     vertical-align: top;
     display: inline-block;
-    width: calc(var(--nav-size)*6);
+    width: 35%;
     border-style: groove;
+    margin: calc(var(--nav-size)*.75);
 }
 
 .ethanol-niaaa{
@@ -48,15 +50,18 @@
     vertical-align: top;
 }
 #ethanol-calculator-input{
+    max-width: 30%;
     margin-left: calc(var(--nav-size)*.2);
     vertical-align: middle;
+    font-size: calc(var(--nav-size)*.2);
 }
 
 .ethanol-calculator-dropdown{
     display: inline-block;
     text-align: center;
-    font-size: calc(var(--nav-size)*.1);
+    font-size: calc(var(--nav-size)*.15);
     vertical-align: middle;
+    width: 20%;
 }
 
 #ethanol-calculator-submit{
@@ -81,4 +86,10 @@
     border-radius: 50%;
     display: inline-block;
     word-wrap: break-word;
+}
+.CircularProgressbar .CircularProgressbar-trail{
+    stroke: red;
+}
+.CircularProgressbar .CircularProgressbar-path{
+    stroke: red;
 }
