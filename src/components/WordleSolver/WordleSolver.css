@@ -24,10 +24,9 @@
 }
     
 #description{  /*description ID*/
+  padding: calc(var(--nav-size)*.45);
   font-family: 'CutiveMono-Regular';
   font-size: calc(var(--nav-size)*.2);
-  margin-top: calc(var(--nav-size)*.5);
-  margin-bottom: calc(var(--nav-size)*.5);
 }
   
 #instruction{  /*instruction ID*/
