@@ -10,7 +10,7 @@ function EthanolVisual(props) {
         // add input integer number of circles.
         for(let i = 0; i < Math.floor(props.out); i++){
             circleArray.push(<div className='ethanolvisual-circles' key={i} ><CircularProgressbar key={i} value={100}/></div>)
-            if( i%10===0 && i!==0 ){circleArray.push(<br/>)}
+            if( (i+1)%10===0 && i!==0 ){circleArray.push(<br/>)}
         }
 
         let decimal;

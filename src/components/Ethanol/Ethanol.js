@@ -58,7 +58,7 @@ function Ethanol(){
                     <br/>
                     To learn more, visit the
                     <a className="ethanol-niaaa-inside" href="https://www.niaaa.nih.gov/alcohols-effects-health/overview-alcohol-consumption/what-standard-drink">
-                        <button id="ethanol-niaaa-button">NIAAA (National institute on Alcohol Abuse and Alcoholism)</button>
+                        <button id="ethanol-niaaa-button">NIAAA (National Institute on Alcohol Abuse and Alcoholism)</button>
                     </a>
                 </div>
             </div>
@@ -70,7 +70,7 @@ function Ethanol(){
                     </div>
                     <div className="ethanol-calculator-volume">
                         <div className="ethanol-calculator-input-title">
-                            Beverage Volume
+                            Beverage Volume:
                         </div>
                         <input id="ethanol-calculator-input" placeholder="Enter Volume" onChange={e => setVolumeInput(e.target.value)} type="text"/>
                         <div className='ethanol-calculator-dropdown'>
@@ -85,14 +85,14 @@ function Ethanol(){
                     
                     <div className="ethanol-calculator-standard">
                         <div className="ethanol-calculator-input-title">
-                            Standard Ethanol Grams / Drink
+                            Standard Ethanol Grams / Drink:
                         </div>
                         <input id="ethanol-calculator-input" placeholder="Enter Grams" onChange={e => setStandardGrams(e.target.value)} type="text"/>
                     </div>
 
                     <div className="ethanol-calculator-percent">
                         <div className="ethanol-calculator-input-title">
-                            Ethanol Content Percentage
+                            Ethanol Content Percentage:
                         </div>
                         <input id="ethanol-calculator-input" placeholder="Enter Percentage" onChange={e => setPercentInput(e.target.value)} type="text"/>
                     </div>
@@ -105,9 +105,8 @@ function Ethanol(){
             {(output>0) && 
                 <div className="ethanol-col3">
                     <div className="ethanol-output">
-                        {output}
+                        {output} Standard Drinks
                     </div>
-                    <br/>
                     <div className="ethanol-ethanolvisual">
                         <EthanolVisual out={output}/>
                     </div>
