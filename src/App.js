@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import './App.css';
 
-import Alcohol from './components/Alcohol/Alcohol';
 import Annuities from './components/Annuities/Annuities';
 import Contact from './components/Contact/Contact';
 import Drafting from "./components/Drafting/Drafting";
+import Ethanol from './components/Ethanol/Ethanol';
 import Home from './components/Home/Home';
 import LoginForm from './components/LoginForm/LoginForm';
 import NavBar from './components/NavBar/NavBar';
@@ -27,7 +27,7 @@ function App() {
       <LoginForm isShowLogin={isShowLogin} />
       <Routes>
         <Route path="/" element={<Home/>} />
-        <Route path="/alcohol" element={<Alcohol/>} />
+        <Route path="/ethanol" element={<Ethanol/>} />
         <Route path="/annuities" element={<Annuities/>} />
         <Route path="/contact" element={<Contact/>} />
         <Route path="/drafting" element={<Drafting/>} />
