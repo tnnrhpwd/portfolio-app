@@ -2,6 +2,7 @@
     padding-top: calc(var(--nav-size)*1);
     background-color: var(--bg);
     color: white;
+    text-align: center;
 }
 .ethanol-title{
     padding-left: calc(var(--nav-size)*.75);
@@ -10,48 +11,56 @@
 .ethanol-description{
     padding-left: calc(var(--nav-size)*.75);
     padding-right: calc(var(--nav-size)*.75);
+    margin-bottom: calc(var(--nav-size)*.5);
     font-size: calc(var(--nav-size)*.2);
 }
 .ethanol-col1{
     text-align: left;
     vertical-align: top;
     display: inline-block;
-    width: 45%;
-    padding: calc(var(--nav-size)*.5);
+    width: min(calc(var(--nav-size)*7),100%);
+    margin: calc(var(--nav-size)*.25);
+    /* padding: calc(var(--nav-size)*.5); */
 }
 .ethanol-col2{
-
     text-align: left;
     vertical-align: top;
     display: inline-block;
-    width: 35%;
+    width: min(calc(var(--nav-size)*7),98%);
+    margin: calc(var(--nav-size)*.25);
     border-style: groove;
-    margin: calc(var(--nav-size)*.75);
 }
 
 .ethanol-niaaa{
-    margin-top: calc(var(--nav-size)*.5);
-    margin-left: calc(var(--nav-size)*.75);
+    padding-bottom: calc(var(--nav-size)*.75);
     font-size: calc(var(--nav-size)*.2);
 }
 #ethanol-niaaa-img{
-    width: 95%;
+    width: 100%;
 }
+.ethanol-niaaa-inside{
+    
+}
+#ethanol-niaaa-button{
+    font-size: calc(var(--nav-size)*.2);
+}
+.ethanol-calculator{
+    padding: calc(var(--nav-size)*.75);
+
+}
+
+
 .ethanol-calculator-title{
-    margin-top: calc(var(--nav-size)*.5);
-    margin-left: calc(var(--nav-size)*.75);
     font-size: calc(var(--nav-size)*.5);
 }
 .ethanol-calculator-input-title{
-    margin-top: calc(var(--nav-size)*.5);
-    margin-left: calc(var(--nav-size)*.75);
+
     font-size: calc(var(--nav-size)*.2);
     display: inline-block;
     vertical-align: top;
 }
 #ethanol-calculator-input{
     max-width: 30%;
-    margin-left: calc(var(--nav-size)*.2);
     vertical-align: middle;
     font-size: calc(var(--nav-size)*.2);
 }
