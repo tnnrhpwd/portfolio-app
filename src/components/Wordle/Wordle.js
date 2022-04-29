@@ -94,10 +94,7 @@ function Wordle() {
   }
   
   const newGameButton = () => {
-    resetInitialValues();
 
-    setOutputMessage("");
-    buttonPressNum++;
     // GUARD CLAUSE - only numbers OR empty
     if (!(/^\d+$/.test(settingMenuText))) {
       if (!(settingMenuText==="")){
@@ -110,6 +107,15 @@ function Wordle() {
       setOutputMessage("Please reduce the wordlength.");
         return;
     }
+    // GUARD CLAUSE - wordlength under 3 letters
+    if (parseFloat(settingMenuText)<3){
+      setOutputMessage("Please increase the wordlength.");
+        return;
+    }
+    resetInitialValues();
+
+    setOutputMessage("");
+    buttonPressNum++;
 
     setInGameState(1);
 
