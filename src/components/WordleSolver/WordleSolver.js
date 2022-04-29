@@ -271,7 +271,7 @@ function WordleSolver() {
                 <div id="inputs">
                     <input type="text" id="inputTEXT" onChange={e => setInputText(e.target.value)} value={inputText} onKeyDown={submitForm}/>
                     <br></br>
-                    <button id="button" onClick={pressButton} >📕</button>
+                    <button id="button" onClick={pressButton} >📕Enter</button>
                     <button id="button" onClick={resetData} >Reset</button>
                     <a href="/wordle" target="_blank">
                         <button id="button">Open Wordle</button>
@@ -284,7 +284,7 @@ function WordleSolver() {
                     {output}
                 </div>
                 <a href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/WordleSolver" rel="noreferrer" target="_blank">
-                    <button id="button">View Source Code</button>
+                    <button id="button">⚙ View Source Code ⚙</button>
                 </a>
             </body>
             <Footer/>

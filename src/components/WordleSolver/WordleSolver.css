@@ -1,3 +1,8 @@
+@font-face {
+  font-family: 'CutiveMono-Regular';
+  src: url(./../../fonts/CutiveMono-Regular.ttf) format('truetype'),
+  url(./../../fonts/CutiveMono-Regular.woff) format('woff');
+}
 .containerq{ /* Container CLASS */
   color: rgb(255, 255, 255);
   display: flex;
@@ -12,50 +17,52 @@
 }
     
 #title{  /* Title ID */
-  font-family: 'Times New Roman', Times, serif;
+  font-family: 'CutiveMono-Regular';
   font-size: calc(var(--nav-size)*.45);
   font-weight: bold;
   text-align: center;
 }
     
 #description{  /*description ID*/
-  font-family: 'Times New Roman', Times, serif;
-  font-size: calc(var(--nav-size)*.3);
-  margin-top: calc(var(--nav-size)*1);
+  font-family: 'CutiveMono-Regular';
+  font-size: calc(var(--nav-size)*.2);
+  margin-top: calc(var(--nav-size)*.5);
   margin-bottom: calc(var(--nav-size)*.5);
 }
   
 #instruction{  /*instruction ID*/
-  font-family: 'Times New Roman', Times, serif;
-  font-size: calc(var(--nav-size)*.3);
+  font-family: 'CutiveMono-Regular';
+  font-size: calc(var(--nav-size)*.2);
   margin: calc(var(--nav-size)*.35);
 }
     
 #inputs{  /*input ID*/
-  font-family: 'Times New Roman', Times, serif;
   background-color: var(--bg);     
   text-align: center;
   padding-bottom: calc(var(--nav-size)*.5);
 }
     
 #inputTEXT{  /* This is the textbox ID */
-  font-family: 'Times New Roman', Times, serif;
+  font-family: 'CutiveMono-Regular';
+  font-weight: bold;
   text-align: center;
-  font-size: calc(var(--nav-size)*.5);
+  font-size: calc(var(--nav-size)*.35);
   padding: calc(var(--nav-size)*.1);
   color: rgb(0, 0, 0);
   width: calc(var(--nav-size)*3);
-  height: calc(var(--nav-size)*.4);
+  height: calc(var(--nav-size)*.3);
 }
     
 #button{  /*button ID*/  
+  font-family: 'CutiveMono-Regular';
+  font-weight: bold;
   text-align: center;
   margin-left: calc(var(--nav-size)*.1);
   padding: calc(var(--nav-size)*.05);
   padding-left: calc(var(--nav-size)*.3);
   padding-right: calc(var(--nav-size)*.3);
   box-shadow: 0 calc(var(--nav-size)*.1) #999;
-  font-size: calc(var(--nav-size)*.35);
+  font-size: calc(var(--nav-size)*.2);
   border-radius: calc(var(--nav-size)*.1);  
   cursor: pointer;
 }
