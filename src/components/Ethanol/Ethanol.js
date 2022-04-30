@@ -47,10 +47,10 @@ function Ethanol(){
     return(<>
         <div className='ethanol'>
             <div className="ethanol-title">
-                Ethanol Volume Calculator
+                Ethanol Content Calculator
             </div>
             <div className="ethanol-description">
-                This page is intended for educational and harm-prevention purposes only. This calculator estimates the standard alcoholic volume of any liquid. 
+                This calculator estimates standard alcoholic drinks.  This page is intended for educational and harm-prevention purposes only.
             </div>
 
             <div className="ethanol-col1">
