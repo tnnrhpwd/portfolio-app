@@ -1,8 +1,9 @@
 .Drafting{
 
+    text-align: center;
 }
 .Drafting-space{
-    height: auto;
+
     text-align: center;
     align-items: center;
     align-self: center;
@@ -11,11 +12,20 @@
 }
 .react-slideshow-container{
     text-align: center;
-    margin-top: calc(var(--nav-size)*1.2);
+    margin-top: min(calc(var(--nav-size)*1),20%);
+    padding-left: min(calc(var(--nav-size)*4),20%);
+    padding-right: min(calc(var(--nav-size)*4),20%);
 }
 .zoom-wrapper{
+
     text-align: center;
     height: auto;
     display: block;
-    margin-bottom: calc(var(--nav-size)*1.2);
+    /* margin-bottom: calc(var(--nav-size)*1.2); */
+}
+.nav default-nav {
+    /* margin: calc(var(--nav-size)*2); */
+}
+.slide-button{
+    text-align: center;
 }

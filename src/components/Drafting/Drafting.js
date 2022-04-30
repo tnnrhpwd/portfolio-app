@@ -1,8 +1,9 @@
 import React from "react";
 import { Zoom } from "react-slideshow-image";
-import "./Drafting.css";
+
 import 'react-slideshow-image/dist/styles.css'
 import Footer from './../Footer/Footer';
+import "./Drafting.css";
 
 const reel = [
     'https://sthopwood.weebly.com/uploads/1/3/3/6/133614175/draftcapture_orig.png',
@@ -31,15 +32,17 @@ function Drafting() {
     return (
         <div className="drafting">
             <div className="drafting-space">
-            <Zoom {...zoomOutProperties}>
-                {reel.map((each, index) =>(
-                    <img key={index} style={{width: "min(100vw, 2400px)"}} alt="slideshow for CAD drafting pace" src={each} />
-                ))}
-            </Zoom>
+                <Zoom {...zoomOutProperties}>
+                    {reel.map((each, index) =>(
+                        <img key={index} style={{width: "100%"}} alt="slideshow for CAD drafting pace" src={each} />
+                    ))}
+                </Zoom>
             </div>
-            <a href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Drafting" rel="noreferrer" target="_blank">
-                <button id="newAnnuity">View Source Code</button>
-            </a>
+            <div className="slide-button">
+                <a href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Drafting" rel="noreferrer" target="_blank">
+                    <button id="newAnnuity">View Source Code</button>
+                </a>
+            </div>
             <Footer transparent="1" />
         </div>
     );
