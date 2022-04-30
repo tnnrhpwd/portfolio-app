@@ -78,11 +78,20 @@ function Home() {
         <BackgroundVideo yOff={offsetY}/>
       </div>
       
+      <div className="content-shadow">
+
+      </div>
+
       <div className="container-scroll">
         <section className="section-tile">
           <div id="content-title">
-            <div id="text-title">Steven Tanner Hopwood</div>
-            {/* <Faderz text="fadetext" yOff={offsetY} tIn={10} tOut={200}/> */}
+          <div id="content-p1">
+              <div id="text-title">Steven Tanner Hopwood</div>
+              <br></br>
+              <br></br>
+              <br></br>
+              <div id="text-body"> Let's build a brighter tomorrow! </div>
+            </div>
           </div>
         </section>
 
@@ -97,9 +106,6 @@ function Home() {
         <section className="section-tile">
           <div id="content-p2">
           <div id="text-body"></div>
-            <div id="text-body"> Let's build a brighter tomorrow! </div>
-            <br></br>
-            <br></br>
             <div id="text-body"> Skills: </div>
             <div id="text-subtext"> Programming, Process Improvement, and Automation </div>
             <div id="text-body"></div>
