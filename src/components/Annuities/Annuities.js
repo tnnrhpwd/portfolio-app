@@ -105,6 +105,7 @@ function Annuities() {
             </div>
             <div className='annuities-find-dropdown'>
                 <Dropdown 
+                    id="annuities-find-dropdown-id"
                     options={options} 
                     onChange={(e) => setTime(e.value)} 
                     value={defaultOption} 

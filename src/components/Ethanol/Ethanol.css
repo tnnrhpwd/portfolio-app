@@ -100,7 +100,8 @@
     margin-left: calc(var(--nav-size)*.15);
 }
 .Dropdown-control{
-    height: calc(var(--nav-size)*.3);
+    /* height: calc(var(--nav-size)*.3); */
+    vertical-align: middle;
     font-weight: bold;
     padding: 0;
     padding-top: calc(var(--nav-size)*.05);
