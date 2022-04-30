@@ -22,13 +22,16 @@
     text-align: center;
 }
 .annuities-find-text{
-    vertical-align: center;
+    vertical-align: bottom;
     text-align: center;    
     display: inline-block;
     width: calc(var(--nav-size)*1);
     font-size: calc(var(--nav-size)*.4);
     margin-right: min(500px,3vw);
+
 }
+
+
 .annuities-find-dropdown{
     display: inline-block;
     width: calc(var(--nav-size)*1.6);
@@ -40,7 +43,7 @@
 
 }
 .Dropdown-control{
-    height: calc(var(--nav-size)*.58);
+    /* height: calc(var(--nav-size)*.58); */
     font-weight: bold;
     padding-bottom: calc(var(--nav-size)*.4);
     background-color: rgb(78, 78, 78);
@@ -49,6 +52,9 @@
     border-radius: 5%;
     cursor: pointer;
 }
+
+
+
 #newAnnuity{
     margin-left:min(500px,3vw);
     vertical-align: bottom;
