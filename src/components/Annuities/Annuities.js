@@ -1,12 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import Dropdown from "react-dropdown";
 import "react-dropdown/style.css";
-
-import "./Annuities.css";
 import NewAnnuity from './NewAnnuity';
 import GraphAnnuities from './GraphAnnuities';
 import Footer from './../Footer/Footer';
-
+import "./Annuities.css";
 
 function Annuities() {
 
