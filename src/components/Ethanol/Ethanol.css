@@ -96,7 +96,8 @@
     text-align: center;
     font-size: calc(var(--nav-size)*.17);
     vertical-align: middle;
-    width: calc(var(--nav-size)*1.4);
+    /* width: calc(var(--nav-size)*1.4); */
+    
     margin-left: calc(var(--nav-size)*.15);
     vertical-align: bottom;
 }
@@ -106,6 +107,8 @@
     font-weight: bold;
     padding: 0;
     padding-top: calc(var(--nav-size)*.05);
+    padding-left: calc(var(--nav-size)*.17);
+    padding-right: calc(var(--nav-size)*.4);
     padding-bottom: calc(var(--nav-size)*.05);
     background-color: rgb(78, 78, 78);
     color: white;
