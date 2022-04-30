@@ -151,7 +151,9 @@
     height: calc(var(--nav-size)*1.65);
     margin-bottom: calc(var(--nav-size)*.2);
     vertical-align: top;
-    margin: calc(var(--nav-size)*.1);
+    margin-left: calc(var(--nav-size)*.1);
+    margin-right: calc(var(--nav-size)*.1);
+    margin-bottom: calc(var(--nav-size)*.1);
 }
 
 .projects-p4{
