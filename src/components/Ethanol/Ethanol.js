@@ -1,13 +1,14 @@
 import React, { useState } from "react";
-import "./Ethanol.css";
 import Footer from '../Footer/Footer';
 import Dropdown from "react-dropdown";
 import EthanolVisual from "./EthanolVisual.js";
+import "./Ethanol.css";
 
 
 const ETHANOL_DENSITY = 0.78945 ; // grams / cubic centimeter
 const FLOZ_TO_MILLILITERS = 29.57353;
 const drinksImg = "https://www.niaaa.nih.gov/sites/default/files/What_Is_a_Standard_Drink_grayscale_508_Release_Web.jpg";
+const NIAAA_LINK = "https://www.niaaa.nih.gov/alcohols-effects-health/overview-alcohol-consumption/what-standard-drink";
 const STANDARD_LINK = "https://en.wikipedia.org/wiki/Standard_drink";
 
 function Ethanol(){
@@ -49,7 +50,7 @@ function Ethanol(){
                 Ethanol Volume Calculator
             </div>
             <div className="ethanol-description">
-                This page is intended for educational and harm-prevention purposes only. This calculator estimates the number of standard alcoholic drinks. 
+                This page is intended for educational and harm-prevention purposes only. This calculator estimates the standard alcoholic volume of any liquid. 
             </div>
 
             <div className="ethanol-col1">
@@ -57,7 +58,7 @@ function Ethanol(){
                     <img id="ethanol-niaaa-img" src={drinksImg} alt="standard drinks from NIAAA" />
                     <br/>
                     To learn more, visit the
-                    <a className="ethanol-niaaa-inside" href="https://www.niaaa.nih.gov/alcohols-effects-health/overview-alcohol-consumption/what-standard-drink">
+                    <a className="ethanol-niaaa-inside" href={NIAAA_LINK} rel="noreferrer" target="_blank">
                         <button id="ethanol-niaaa-button">NIAAA (National Institute on Alcohol Abuse and Alcoholism)</button>
                     </a>
                 </div>
@@ -72,7 +73,7 @@ function Ethanol(){
                         <div className="ethanol-calculator-input-title">
                             Beverage Volume:
                         </div>
-                        <input id="ethanol-calculator-input" placeholder="Enter Volume" onChange={e => setVolumeInput(e.target.value)} type="text"/>
+                        <input id="ethanol-calculator-input" placeholder="Volume" onChange={e => setVolumeInput(e.target.value)} type="text"/>
                         <div className='ethanol-calculator-dropdown'>
                             <Dropdown 
                                 options={volumeOptions}
@@ -87,14 +88,21 @@ function Ethanol(){
                         <div className="ethanol-calculator-input-title">
                             Standard Ethanol Grams / Drink:
                         </div>
-                        <input id="ethanol-calculator-input" placeholder="Enter Grams" onChange={e => setStandardGrams(e.target.value)} type="text"/>
+                        <input id="ethanol-calculator-input" placeholder="Grams" onChange={e => setStandardGrams(e.target.value)} type="text"/>
+                        <div className="ethanol-calculator-standard-description">
+                            The standard is 14 grams in the United States.
+                        </div>
+                        <a className="ethanol-calculator-standard-inside" href={STANDARD_LINK} rel="noreferrer" target="_blank">
+                            <button className="ethanol-calculator-standard-button">Click here to learn more!</button>
+                        </a>
+                        
                     </div>
 
                     <div className="ethanol-calculator-percent">
                         <div className="ethanol-calculator-input-title">
-                            Ethanol Content Percentage:
+                            Ethanol (Alcohol) Content Percentage:
                         </div>
-                        <input id="ethanol-calculator-input" placeholder="Enter Percentage" onChange={e => setPercentInput(e.target.value)} type="text"/>
+                        <input id="ethanol-calculator-input" placeholder="Percent" onChange={e => setPercentInput(e.target.value)} type="text"/>
                     </div>
 
                     <button id="ethanol-calculator-submit" onClick={handleSubmit}>Submit</button>

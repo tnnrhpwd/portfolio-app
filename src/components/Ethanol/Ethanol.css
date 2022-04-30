@@ -67,41 +67,91 @@
 
 }
 
-
+.ethanol-calculator-volume{
+    padding-top: calc(var(--nav-size)*.1);
+    padding-bottom: calc(var(--nav-size)*.2);
+    font-size: calc(var(--nav-size)*.3);
+    border-bottom: calc(var(--nav-size)*.0001) dashed var(--bg-accent);
+}
 .ethanol-calculator-title{
     font-size: calc(var(--nav-size)*.35);
 }
 .ethanol-calculator-input-title{
-    margin-top: calc(var(--nav-size)*.1);
+    /* margin-top: calc(var(--nav-size)*.1); */
     font-size: calc(var(--nav-size)*.19);
     display: inline-block;
     vertical-align: middle;
 }
 #ethanol-calculator-input{
     margin-left: calc(var(--nav-size)*.2);
-    max-width: 30%;
+    max-width: 15%;
     vertical-align: middle;
-    font-size: calc(var(--nav-size)*.15);
+    text-align: center;
+    font-size: calc(var(--nav-size)*.17);
+    font-family: 'Times New Roman', Times, serif;
+    font-weight: bold;
 }
 
 .ethanol-calculator-dropdown{
     display: inline-block;
     text-align: center;
-    font-size: calc(var(--nav-size)*.15);
+    font-size: calc(var(--nav-size)*.17);
     vertical-align: middle;
-    width: 20%;
+    width: calc(var(--nav-size)*1.4);
+    margin-left: calc(var(--nav-size)*.15);
 }
 .Dropdown-control{
     height: calc(var(--nav-size)*.3);
     font-weight: bold;
-    padding-bottom: 0;
+    padding: 0;
+    padding-top: calc(var(--nav-size)*.05);
+    /* padding-bottom: calc(var(--nav-size)*.25); */
     background-color: rgb(78, 78, 78);
     color: white;
     border: calc(var(--nav-size)*.0001) solid rgba(255, 255, 255, 0.885);
     border-radius: 5%;
     cursor: pointer;
 }
+.Dropdown-arrow{
+    top: calc(var(--nav-size)*.075);
+    
+    right: calc(var(--nav-size)*.075);
+    border-width: calc(var(--nav-size)*.1) calc(var(--nav-size)*.1) 0;
+}
+.is-open .Dropdown-arrow{
+    border-width: 0 calc(var(--nav-size)*.1) calc(var(--nav-size)*.1);
+}
 
+
+
+
+.ethanol-calculator-standard{
+    padding-top: calc(var(--nav-size)*.1);
+    padding-bottom: calc(var(--nav-size)*.3);
+    font-size: calc(var(--nav-size)*.3);
+    border-bottom: calc(var(--nav-size)*.0001) dashed var(--bg-accent);
+}
+.ethanol-calculator-standard-description{
+    font-size: calc(var(--nav-size)*.15);
+    display: inline-block;
+}
+.ethanol-calculator-standard-button{
+    word-wrap: normal;
+    color: white;
+    border: calc(var(--nav-size)*.0001) solid white;
+    border-radius: 5%;
+    cursor: pointer;
+    margin-left: calc(var(--nav-size)*.15);
+    font-size: calc(var(--nav-size)*.15);
+    display: inline-block;
+    background-color: var(--bg);
+    color: white;
+    padding: calc(var(--nav-size)*.03);
+}
+.ethanol-calculator-percent{
+    padding-top: calc(var(--nav-size)*.1);
+    font-size: calc(var(--nav-size)*.3);
+}
 #ethanol-calculator-submit{
     font-family: 'Times New Roman', Times, serif;
     font-weight: bold;
@@ -112,6 +162,7 @@
     /* width: calc(var(--nav-size)*3); */
     font-size: calc(var(--nav-size)*.2);
     padding: calc(var(--nav-size)*.05);
+    vertical-align: middle;
 }
 #ethanol-calculator-submit:hover {background-color: #f5dcc8}
 #ethanol-calculator-submit:active {              /* ADD NEW POLL toggle button */
@@ -143,10 +194,10 @@
     word-wrap: break-word;
 }
 .CircularProgressbar .CircularProgressbar-trail{
-    stroke: red;
+    stroke: var(--bg);
 }
 .CircularProgressbar .CircularProgressbar-path{
-    stroke: red;
+    stroke: white;
 }
 
 
