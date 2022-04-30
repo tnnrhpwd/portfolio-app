@@ -5,6 +5,7 @@ import wordleSimg from "./wordle-solver.PNG";
 import wordleimg from "./wordle.PNG";
 import annuitiesimg from "./Annuities.jpeg";
 import draftingimg from "./drafting.jpg";
+import ethanolimg from "./ethanol.PNG";
 
 import Footer from './../Footer/Footer';
 import BitcoinAPI from "./../BitcoinAPI/BitcoinAPI.js";
@@ -48,6 +49,13 @@ function Projects() {
         <div className="projects-p2">
           <a href="/wordlesolver">
             <img id="projects-p2-img" src={wordleSimg} alt="the display for wordle solver website"/>
+          </a>
+        </div>
+        <div></div>
+
+        <div className="projects-p7">
+          <a href="/ethanol">
+            <img id="projects-p7-img" src={ethanolimg} alt="the display for ethanol calculator"/>
           </a>
         </div>
         <div></div>

@@ -208,3 +208,22 @@
     width: calc(var(--nav-size)*4.8);
     filter: brightness(1.2);
 }
+
+
+
+.projects-p7{
+    font-size: calc(var(--nav-size)*.5);
+    width: 100%;
+    display: inline;
+    text-align: center;
+}
+#projects-p7-img{
+    text-align: center;
+    width: calc(var(--nav-size)*5);
+    display: inline-block;
+    cursor: pointer;
+}
+#projects-p7-img:hover{
+    width: calc(var(--nav-size)*4.8);
+    filter: brightness(1.2);
+}
