@@ -7,7 +7,6 @@
 
 }
 .ethanol-title{
-    padding-left: calc(var(--nav-size)*.75);
     font-size: calc(var(--nav-size)*.5);
 }
 .ethanol-description{
