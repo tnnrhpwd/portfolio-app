@@ -73,13 +73,13 @@ function Projects() {
 
         <div></div>
         <div className="projects-resume">
-          <a className="projects-resume-inside" href="https://docs.google.com/document/d/1l8yCRlom5hw-SwOfZtpria_AUuXwcXpC/edit?usp=sharing&ouid=106668374323360993837&rtpof=true&sd=true">
+          <a className="projects-resume-inside" href="https://docs.google.com/document/d/1l8yCRlom5hw-SwOfZtpria_AUuXwcXpC/edit?usp=sharing&ouid=106668374323360993837&rtpof=true&sd=true" rel="noreferrer" target="_blank">
                   <button id="projects-resume-button">⚡ STH RESUME ⚡</button>
           </a>
         </div>
         <div></div>
         <div className="projects-source">
-          <a className="projects-source-inside" href="https://github.com/tnnrhpwd/portfolio-app">
+          <a className="projects-source-inside" href="https://github.com/tnnrhpwd/portfolio-app" rel="noreferrer" target="_blank">
                   <button id="projects-source-button">This Website's Github Repo</button>
           </a>
         </div>
