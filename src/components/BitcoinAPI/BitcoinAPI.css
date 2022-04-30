@@ -5,30 +5,32 @@
 
 }
 .bitcoinapi-space-title{
-    font-size: calc(var(--nav-size)*.3);
+  padding-top: calc(var(--nav-size)*.3);
+    font-size: calc(var(--nav-size)*.15);
     font-weight: bold;
-    margin-bottom: calc(var(--nav-size)*.15);
+    margin-bottom: calc(var(--nav-size)*.05);
 }
 .bitcoinapi-space-description{
-    font-size: calc(var(--nav-size)*.2);
+    font-size: calc(var(--nav-size)*.12);
 }
 .bitcoinapi-space-price{
     display: block;
 
 }
 .bitcoinapi-space-button{
-    color: white;
-    text-align: center;
-    display: inline-block;
-    font-size: calc(var(--nav-size)*.5);
-    cursor: pointer;
-    text-shadow: 0.05em 0 0 #00fffc, -0.03em -0.04em 0 #fc00ff,
-      0.025em 0.04em 0 #5C2D26;
-    animation: glitch 725ms infinite;
-    font-style: italic;
-    background-color: transparent;
-    border: none;
-    margin-bottom: calc(var(--nav-size)*.25);
+  color: white;
+  text-align: center;
+  display: inline-block;
+  font-size: calc(var(--nav-size)*.5);
+  cursor: pointer;
+  text-shadow: 0.05em 0 0 #00fffc, -0.03em -0.04em 0 #fc00ff,
+    0.025em 0.04em 0 #5C2D26;
+  animation: glitch 725ms infinite;
+  font-style: italic;
+  background-color: transparent;
+  border: none;
+  margin-top: calc(var(--nav-size)*.125);
+  margin-bottom: calc(var(--nav-size)*.175);
 }
 .bitcoinapi-space-button:hover {
     box-shadow: inset calc(var(--nav-size)*3) 0 0 0 #54b3d6;

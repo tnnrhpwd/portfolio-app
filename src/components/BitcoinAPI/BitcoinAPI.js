@@ -38,9 +38,6 @@ function BitcoinAPI(){
                     <span>{price}</span>
                 </div>
             </button>
-            <div className='bitcoinapi-space-description'>
-                Click number to refresh each minute.
-            </div>
         </div>
     </>)
 }
