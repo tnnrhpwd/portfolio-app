@@ -17,10 +17,10 @@ function Contact() {
       </div>
       <div className="contact-body">
         <td className="contact-social" onClick={()=> window.open("https://www.linkedin.com/in/sthopwood/", "_blank")}>
-          <img className="contact-linkedin" src={linkedinimg} />
+          <img className="contact-linkedin" src={linkedinimg} alt=" linkedin logo" />
         </td>
         <td className="contact-social" onClick={()=> window.open("https://github.com/tnnrhpwd", "_blank")}>
-          <img className="contact-github" src={githubimg} />
+          <img className="contact-github" src={githubimg} alt="github logo" />
         </td>
       </div>
       <div className="contact-body">
@@ -28,15 +28,15 @@ function Contact() {
       <input type="hidden" name="form-name" value="contact" />  
         <div>
           <label className="contact-input-text">Name </label>
-          <input className="contact-input" type="text" name="name" />
+          <input className="contact-input-contact" type="text" name="name" />
         </div>
         <div>
-          <label className="contact-input-text">Email </label>
-          <input className="contact-input" type="text" name="email" />
+          <label className="contact-input-text">Email (not required) </label>
+          <input className="contact-input-contact" type="text" name="email" />
         </div>
         <div>
           <label className="contact-input-text">Message </label>
-          <textarea className="contact-input" name="message"></textarea>
+          <textarea className="contact-input-message" name="message"></textarea>
         </div>
         <div className="contact-link-div">
           <button id="contact-link" type="submit">Submit</button>

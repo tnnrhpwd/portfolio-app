@@ -16,15 +16,15 @@
 
 .contact-title{
     padding-top: calc(var(--nav-size)*.1);
-    font-size: calc(var(--nav-size)*.8);
+    font-size: calc(var(--nav-size)*.55);
 }
 .contact-name{
     padding-top: calc(var(--nav-size)*.05);
-    font-size: calc(var(--nav-size)*.32);
+    font-size: calc(var(--nav-size)*.25);
 }
 .contact-email{
     padding-top: calc(var(--nav-size)*.05);
-    font-size: calc(var(--nav-size)*.26);
+    font-size: calc(var(--nav-size)*.2);
 }
 .contact-body{
     font-size: calc(var(--nav-size)*.1);
@@ -39,13 +39,19 @@
     border-radius: 5%;
     cursor: pointer;
 }
+.contact-linkedin:hover{
+    border:  calc(var(--nav-size)*.025) solid white;
+}
 .contact-github{
     width: calc(var(--nav-size)*1.8);
     border-radius: 5%;
     cursor: pointer;
 }
+.contact-github:hover{
+    border:  calc(var(--nav-size)*.025) solid white;
+}
 .contact-input-text{
-
+font-size: calc(var(--nav-size)*.25);
     margin-left: calc(var(--nav-size)*.3);
 }
 .contact-link-div{
@@ -54,31 +60,53 @@
 #contact-link{
     font-family: 'CutiveMono-Regular';
     font-weight: bold;
-    font-size: calc(var(--nav-size)*.36);
+    font-size: calc(var(--nav-size)*.25);
     color: white;
-    background-color: var(--bg-accent);
+    background-color: var(--bg);
     padding: calc(var(--nav-size)*.06);
     border-radius: 10%;
     display: inline;
     cursor: pointer;
     margin-left: calc(var(--nav-size)*.6);
     margin-top: calc(var(--nav-size)*.2);
+    border:  calc(var(--nav-size)*.025) solid var(--bg-accent);
 }
 #contact-link:hover{
+    border:  calc(var(--nav-size)*.025) solid white;
     filter: brightness(1.2);
 }
 #contact-link:active{
     background-color: #910b0b;
 }
-.contact-input{
+.contact-input-contact{
     color: white;
-    background-color: var(--bg-accent);
+    background-color: var(--bg);
     font-family: 'CutiveMono-Regular';
     font-weight: bold;
     display: block;
     width: 60%;
-    height: calc(var(--nav-size)*.6);
-    border-style: groove;
+    height: calc(var(--nav-size)*.4);
+    border:  calc(var(--nav-size)*.01) solid var(--bg-accent);
     font-size: calc(var(--nav-size)*.3);
     margin: calc(var(--nav-size)*.1);
+}
+.contact-input-contact:hover{
+    filter: brightness(1.2);
+    border:  calc(var(--nav-size)*.025) solid white;
+}
+.contact-input-message{
+    color: white;
+    background-color: var(--bg);
+    font-family: 'CutiveMono-Regular';
+    font-weight: bold;
+    display: block;
+    width: 60%;
+    height: calc(var(--nav-size)*1);
+    border:  calc(var(--nav-size)*.01) solid var(--bg-accent);
+    font-size: calc(var(--nav-size)*.3);
+    margin: calc(var(--nav-size)*.1);
+}
+.contact-input-message:hover{
+    filter: brightness(1.2);
+    border:  calc(var(--nav-size)*.025) solid white;
 }
