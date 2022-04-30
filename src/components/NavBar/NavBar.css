@@ -5,36 +5,36 @@
 }
 #tooltip-home{
     font-family: 'CutiveMono-Regular';
-    font-size: calc(var(--nav-size)*.45);
+    font-size: calc(var(--nav-size)*.25);
     font-weight: bold;
     color: white;
     border-radius: 20%;
     text-align: center;
     -webkit-text-stroke-width: calc(var(--nav-size)*.003);
     -webkit-text-stroke-color: white;
-    height: calc(var(--nav-size)*0.45);
+    height: calc(var(--nav-size)*0.3);
 }
 #tooltip-projects{
     font-family: 'CutiveMono-Regular';
-    font-size: calc(var(--nav-size)*.4);
+    font-size: calc(var(--nav-size)*.25);
     font-weight: bold;
     color: white;
     border-radius: 20%;
     text-align: center;
     -webkit-text-stroke-width: calc(var(--nav-size)*.003);
     -webkit-text-stroke-color: white;
-    height: calc(var(--nav-size)*0.45);
+    height: calc(var(--nav-size)*0.3);
 }
 #tooltip-contact{
     font-family: 'CutiveMono-Regular';
-    font-size: calc(var(--nav-size)*.4);
+    font-size: calc(var(--nav-size)*.25);
     font-weight: bold;
     color: white;
     border-radius: 20%;
     text-align: center;
     -webkit-text-stroke-width: calc(var(--nav-size)*.003);
     -webkit-text-stroke-color: white;
-    height: calc(var(--nav-size)*0.45);
+    height: calc(var(--nav-size)*0.3);
 }
 .tooltip-space{
     text-align: center;
@@ -50,7 +50,7 @@
     position:fixed;
 }
 #STHlogo{
-    width: calc(var(--nav-size)*0.9);
+    width: calc(var(--nav-size)*0.7);
     margin-top: calc(var(--nav-size)*0.1);
     transition: transform 2s ease-in-out;
     z-index: 1005;
@@ -142,7 +142,7 @@
 
 }
 .icon-button{
-    --button-size: calc(var(--nav-size)*0.5);
+    --button-size: calc(var(--nav-size)*0.4);
     width: var(--button-size);
     height: var(--button-size);
     background-color: rgb(133, 133, 133);
