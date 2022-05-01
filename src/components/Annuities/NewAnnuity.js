@@ -50,15 +50,15 @@ function NewAnnuity(props) {
     return(<>
         <div className="inputNewAnnuity">
             {(!(chosenTense==='$Present')) && <input value={presentVal} placeholder="Present Value" onChange={e => setPresentValue(e.target.value)} onKeyDown={handleKeyDown} className="inputNewAnnuity-present" />}
-            <div></div>
+
             {(!(chosenTense==='$Periodic')) && <input value={annualVal} placeholder="Periodic Value" onChange={e => setAnnualValue(e.target.value)} onKeyDown={handleKeyDown} className="inputNewAnnuity-annual" />}
-            <div></div>
+
             {(!(chosenTense==='$Future')) && <input value={futureVal} placeholder="Future Value" onChange={e => setFutureValue(e.target.value)} onKeyDown={handleKeyDown} className="inputNewAnnuity-future" />}
-            <div></div>
+
             <input value={gradientVal} placeholder="Gradient Value" onChange={e => setGradientValue(e.target.value)} onKeyDown={handleKeyDown} className="inputNewAnnuity-gradient" />
-            <div></div>
+
             <input value={intVal} placeholder="Interest Rate" onChange={e => setIntValue(e.target.value)} onKeyDown={handleKeyDown} className="inputNewAnnuity-interest" />
-            <div></div>
+
             <input value={nVal} placeholder="Number of Periods" onChange={e => setNValValue(e.target.value)} onKeyDown={handleKeyDown} className="inputNewAnnuity-periods" />
         </div>
         <button onClick={handleAnnuityCall} id="submitNewAnnuity" >

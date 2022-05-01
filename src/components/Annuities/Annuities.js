@@ -11,7 +11,7 @@ function Annuities() {
     var crntAnswer=0;
 
     const [answer, setAnswer] = useState(0);
-    const [showNewAnnuity, setShowNewAnnuity] = useState(1);
+    const [showNewAnnuity, setShowNewAnnuity] = useState(0);
 
     const [time, setTime] = useState('$Present');       // holds the chosen return tense
     const [annuityCall, setAnnuityCall] = useState([]); // holds the input variables from the input fields
