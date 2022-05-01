@@ -19,43 +19,42 @@ function NavBar() {
     setIsShowLogin((isShowLogin) => !isShowLogin)
   }
 
-    return (
+    return (<>
       <nav className="navbar">
 
-          <span className='navbar-title' onClick={handleLoginClick} >
-            <NavLogo icon={STHlogo}/>
-          </span>
-          <LoginForm isShowLogin={isShowLogin} />
-          <ul className="navbar-nav"> 
+        <span className='navbar-title' onClick={handleLoginClick} >
+          <NavLogo icon={STHlogo}/>
+        </span>
+        <ul className="navbar-nav"> 
+          <div className="tooltip-space" data-tip="" data-for="tooltip-home" >
+            <NavItem  icon={homeLogo} page="/"/>
+          </div>
+          <ReactTooltip id="tooltip-home" place="bottom" effect="solid">
+            Home
+          </ReactTooltip>
+          <div className="tooltip-space" data-tip="" data-for="tooltip-projects" >
+            <NavItem icon={projectsLogo} page="/projects"/>
+          </div>
+          <ReactTooltip id="tooltip-projects" place="bottom" effect="solid">
+            Projects
+          </ReactTooltip>
+          <div className="tooltip-space" data-tip="" data-for="tooltip-contact" >
+            <NavItem icon={contactLogo} page="/contact"/>
+          </div>
+          <ReactTooltip id="tooltip-contact" place="bottom" effect="solid">
+            Contact
+          </ReactTooltip>
+          
+          
+        </ul>
+        
 
-
-            <div className="tooltip-space" data-tip="" data-for="tooltip-home" >
-              <NavItem  icon={homeLogo} page="/"/>
-            </div>
-            <ReactTooltip id="tooltip-home" place="bottom" effect="solid">
-              Home
-            </ReactTooltip>
-
-
-            <div className="tooltip-space" data-tip="" data-for="tooltip-projects" >
-              <NavItem icon={projectsLogo} page="/projects"/>
-            </div>
-            <ReactTooltip id="tooltip-projects" place="bottom" effect="solid">
-              Projects
-            </ReactTooltip>
-
-
-            <div className="tooltip-space" data-tip="" data-for="tooltip-contact" >
-              <NavItem icon={contactLogo} page="/contact"/>
-            </div>
-            <ReactTooltip id="tooltip-contact" place="bottom" effect="solid">
-              Contact
-            </ReactTooltip>
-            
-            
-          </ul>
       </nav>
-    );
+      <div className="login-space">
+        <LoginForm isShowLogin={isShowLogin} />
+      </div>
+
+    </>);
   }
   
   export default NavBar;
