@@ -54,15 +54,17 @@ function ClosedPoll(props) {
   if(!pollActivity){
     return(<>
         <div className='recentBox'>
-        <button onClick={deletePoll} className='deletePollButton' type='button'>Delete Poll</button>
-        <div id='recentQuestion'>{question}</div>
-        <div id='recentResults'>Voting Results:</div>
-        <div id='recentData'>
-          <div><div id='recentDataQ'>•{a1}:</div>  <div id='recentDataV'>{a1v} votes</div> <span id='recentDataP' >{`${a1vPcnt}%`}</span> </div> 
-          <div><div id='recentDataQ'>•{a2}:</div>  <div id='recentDataV'>{a2v} votes</div> <span id='recentDataP' >{`${a2vPcnt}%`}</span> </div>
-          <div><div id='recentDataQ'>•{a3}:</div>  <div id='recentDataV'>{a3v} votes</div> <span id='recentDataP' >{`${a3vPcnt}%`}</span> </div> 
-          <div><div id='recentDataQ'>•{a4}:</div>  <div id='recentDataV'>{a4v} votes</div> <span id='recentDataP' >{`${a4vPcnt}%`}</span> </div>
-        </div>
+          <div id='recentQuestion'>{question}</div>
+          <div className='deletePollButton-space'>
+            <button onClick={deletePoll} className='deletePollButton' type='button'>Delete Poll</button>
+          </div>
+          <div id='recentResults'>Voting Results:</div>
+          <div id='recentData'>
+            <div><div id='recentDataQ'>•{a1}:</div>  <div id='recentDataV'>{a1v} votes</div> <span id='recentDataP' >{`${a1vPcnt}%`}</span> </div> 
+            <div><div id='recentDataQ'>•{a2}:</div>  <div id='recentDataV'>{a2v} votes</div> <span id='recentDataP' >{`${a2vPcnt}%`}</span> </div>
+            <div><div id='recentDataQ'>•{a3}:</div>  <div id='recentDataV'>{a3v} votes</div> <span id='recentDataP' >{`${a3vPcnt}%`}</span> </div> 
+            <div><div id='recentDataQ'>•{a4}:</div>  <div id='recentDataV'>{a4v} votes</div> <span id='recentDataP' >{`${a4vPcnt}%`}</span> </div>
+          </div>
       </div>
     </>)
   } else {return <></>}

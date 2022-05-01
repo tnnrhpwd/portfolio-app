@@ -4,19 +4,19 @@
   
 .pollbox-titles{                              
   font-weight: bold;
-  font-size: calc(var(--nav-size)*.6);
+  font-size: calc(var(--nav-size)*.4);
   margin-top: calc(var(--nav-size)*1.1);
   text-align: center;
 }
   
 .pollbox-descriptions{
-  font-size: calc(var(--nav-size)*.25);
+  font-size: calc(var(--nav-size)*.22);
   display: block;
 }
   
 #questions{                             /* ACTIVE POLL */
   margin-top: calc(var(--nav-size)*.1);
-  font-size: calc(var(--nav-size)*.3);
+  font-size: calc(var(--nav-size)*.25);
   margin-bottom: calc(var(--nav-size)*.05);
 }
   
@@ -36,7 +36,7 @@
   box-shadow: 0 calc(var(--nav-size)*.075) #999;
   margin-left: calc(var(--nav-size)*.10);
   margin-right: calc(var(--nav-size)*.10);
-  font-size: calc(var(--nav-size)*.3);
+  font-size: calc(var(--nav-size)*.22);
   margin-bottom: calc(var(--nav-size)*.1);
   padding: calc(var(--nav-size)*.1);
 }
@@ -54,7 +54,7 @@
   cursor: pointer;
   border: none;
   box-shadow: 0 calc(var(--nav-size)*.05) #999;
-  font-size: calc(var(--nav-size)*.25);
+  font-size: calc(var(--nav-size)*.22);
   padding: calc(var(--nav-size)*.1);
 }
 .endPollButton:hover {background-color: #ff0606}
@@ -71,6 +71,7 @@
   border: calc(var(--nav-size)*.015) solid #ccc;
   border-radius: 4px;
   box-sizing: border-box;
+  font-size: calc(var(--nav-size)*.4);
 }
 .postPollSpace{                             /* ACTIVE POLL */
   width: 80%;
@@ -95,17 +96,22 @@
 .pollbox-app-closedpoll{
   text-align: center;
 }
+.deletePollButton-space{
+  display: inline-block;
+  width: 20%;
+  text-align: right;
+}
 .deletePollButton{                      /* RECENT POLL */
-  display: block;
+  display: inline-block;
   background-color: rgba(161, 7, 7, 0.36);
   border-radius: 5px;
   color: aliceblue;
   cursor: pointer;
   border: none;
   box-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.1) #999;
-  font-size: calc(var(--nav-size)*.25);
-  margin-left: calc(var(--nav-size)*1);
-  padding: calc(var(--nav-size)*.1);
+  font-size: calc(var(--nav-size)*.23);
+  right: 0;
+  padding: calc(var(--nav-size)*.07);
 }
 .deletePollButton:hover {background-color: #ff0606}
 .deletePollButton:active {              /* RECENT POLL */
@@ -115,11 +121,12 @@
 }
   
 .recentBox{                             /* RECENT POLL */
+  font-size: calc(var(--nav-size)*.5);
   text-align:left;
-  padding: calc(var(--nav-size)*.6);
+  padding: calc(var(--nav-size)*.1);
   padding-left: calc(var(--nav-size)*.25);
   width: 80%;
-  margin:  calc(var(--nav-size)*.3) 0;
+  margin:  calc(var(--nav-size)*.2) 0;
   display: inline-block;
   border: calc(var(--nav-size)*.015) solid #ccc;
   border-radius: calc(var(--nav-size)*.2);
@@ -127,18 +134,19 @@
 }
 
 #recentQuestion{                    /* RECENT POLL */
-  margin-top: calc(var(--nav-size)*.2);
+  /* margin-top: calc(var(--nav-size)*.2); */
   overflow-wrap: break-word;
   display: inline-block;
-  font-size: calc(var(--nav-size)*.4);
-  width: 100%;
+  font-size: calc(var(--nav-size)*.25);
+  width: 75%;
+  margin-bottom: calc(var(--nav-size)*.25);
 }
 #recentResults{                     /* RECENT POLL */
-  font-size: calc(var(--nav-size)*.25);
+  font-size: calc(var(--nav-size)*.22);
   font-weight: bold;
 }
 #recentData{                      /* RECENT POLL */
-  font-size: calc(var(--nav-size)*.29);
+  font-size: calc(var(--nav-size)*.22);
  
 }
 
@@ -173,7 +181,7 @@
   margin-bottom: calc(var(--nav-size)*1);
 }
 #questionID{                      /* ADD NEW POLL */
-  font-size: calc(var(--nav-size)*.3);
+  font-size: calc(var(--nav-size)*.25);
   text-align: center;
   width: 75%;
   padding: calc(var(--nav-size)*.025) calc(var(--nav-size)*.025);
@@ -190,17 +198,18 @@
   border: calc(var(--nav-size)*.025) solid #ccc;
   border-radius: calc(var(--nav-size)*.05);
   box-sizing: border-box;
-  width: calc(var(--nav-size)*3);
+  width: calc(var(--nav-size)*2);
 }
 .newPollSpace{                  /* ADD NEW POLL groups the answers input */
   text-align: center;
   width: 80%;
   display: inline-block;
+  font-size: calc(var(--nav-size)*.4);
 }
 #newPollEntry{                    /* ADD NEW POLL */
   border: calc(var(--nav-size)*.015) solid #ccc;
   border-radius: calc(var(--nav-size)*.05);
-  font-size: calc(var(--nav-size)*.3);
+  font-size: calc(var(--nav-size)*.25);
   padding: calc(var(--nav-size)*.025) calc(var(--nav-size)*.025);
   width: 100%;
 }
@@ -209,9 +218,11 @@
   color: rgb(0, 0, 0);
   cursor: pointer;
   box-shadow: 0 calc(var(--nav-size)*.1) #999;
-  font-size: calc(var(--nav-size)*.25);
+  font-size: calc(var(--nav-size)*.23);
   /* margin-bottom: calc(var(--nav-size)*.05); */
   padding: calc(var(--nav-size)*.1);
+  display: inline-block;
+  margin-left: calc(var(--nav-size)*.1);
 }
 #buttonNewPollID:hover {background-color: #f5dcc8}
 #buttonNewPollID:active {              /* ADD NEW POLL submit button */
@@ -224,7 +235,7 @@
   color: rgb(0, 0, 0);
   cursor: pointer;
   box-shadow: 0 calc(var(--nav-size)*.1) #999;
-  font-size: calc(var(--nav-size)*.25);
+  font-size: calc(var(--nav-size)*.2);
   /* margin-bottom: 15px; */
   display: inline-block;
   padding: calc(var(--nav-size)*.1);
@@ -248,13 +259,14 @@
 }
 .newFormSpace-title{                                      /* ADD NEW POLL groups the entire entry components*/
   font-weight: bold;
-  font-size: calc(var(--nav-size)*.6);
+  font-size: calc(var(--nav-size)*.4);
   margin-top: calc(var(--nav-size)*.2);
   text-align: center;
 }
 .pollbox-app-newpoll{
   text-align: center;
+  font-size: calc(var(--nav-size)*.5);
 }
 .pollbox-app-newpoll-div{
-  height: calc(var(--nav-size)*1.35);
+  height: calc(var(--nav-size)*1);
 }

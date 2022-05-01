@@ -83,8 +83,8 @@ function NewPoll(){
       </div>
       <div>
         <input id="durationID" name='durationForm' value={allValues.durationForm} onChange={changeHandler} placeholder="Duration (min)" />
+        <button id="buttonNewPollID" type='submit' disabled={!allValues.questionForm}>Submit Poll</button>
       </div>
-      <button id="buttonNewPollID" type='submit' disabled={!allValues.questionForm}>Submit Poll</button>
     </form>
   </>
 }
