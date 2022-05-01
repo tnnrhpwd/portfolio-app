@@ -6,7 +6,7 @@
 }
 .annuities-title{
     text-align: center;
-    margin-top: calc(var(--nav-size)*.4);
+    margin-top: calc(var(--nav-size)*.5);
     font-size: calc(var(--nav-size)*.4);
     font-weight: bold;
 }
@@ -39,6 +39,10 @@
     font-size: calc(var(--nav-size)*.25);
     vertical-align: bottom;
 }
+.annuities-find-dropdown:hover{
+    filter: brightness(1.2);
+    border: calc(var(--nav-size)*.001) solid white;
+}
 .Dropdown-root{
 
 }
@@ -67,6 +71,10 @@
     border: calc(var(--nav-size)*.0001) solid rgba(255, 255, 255, 0.885);
     border-radius: 5%;
     cursor: pointer;
+}
+#newAnnuity:hover{
+    filter: brightness(1.2);
+    border: calc(var(--nav-size)*.001) solid white;
 }
 #newAnnuity:active{
     height: calc(var(--nav-size)*.55);
@@ -119,15 +127,19 @@
     font-size: calc(var(--nav-size)*.35);
 }
 .inputNewAnnuity-present{
-    margin: calc(var(--nav-size)*.1);
+    margin: calc(var(--nav-size)*.025);
     height: calc(var(--nav-size)*.3);
     width: calc(var(--nav-size)*3);
     text-align: center;
     font-size: calc(var(--nav-size)*.2);
     display: inline-block;
 }
+.inputNewAnnuity-present:hover{
+    filter: brightness(1.2);
+    border: calc(var(--nav-size)*.01) solid rgb(148, 0, 0);
+}
 .inputNewAnnuity-annual{
-    margin: calc(var(--nav-size)*.1);
+    margin: calc(var(--nav-size)*.025);
     height: calc(var(--nav-size)*.3);
     width: calc(var(--nav-size)*3);
     text-align: center;
@@ -135,7 +147,7 @@
     display: inline-block;
 }   
 .inputNewAnnuity-future{
-    margin: calc(var(--nav-size)*.1);
+    margin: calc(var(--nav-size)*.025);
     height: calc(var(--nav-size)*.3);
     width: calc(var(--nav-size)*3);
     text-align: center;
@@ -143,7 +155,7 @@
     display: inline-block;
 }
 .inputNewAnnuity-gradient{
-    margin: calc(var(--nav-size)*.1);
+    margin: calc(var(--nav-size)*.025);
     height: calc(var(--nav-size)*.3);
     width: calc(var(--nav-size)*3);
     text-align: center;
@@ -151,7 +163,7 @@
     display: inline-block;
 }
 .inputNewAnnuity-interest{
-    margin: calc(var(--nav-size)*.1);
+    margin: calc(var(--nav-size)*.025);
     height: calc(var(--nav-size)*.3);
     width: calc(var(--nav-size)*3);
     text-align: center;
@@ -159,7 +171,7 @@
     display: inline-block;
 }
 .inputNewAnnuity-periods{
-    margin: calc(var(--nav-size)*.1);
+    margin: calc(var(--nav-size)*.025);
     height: calc(var(--nav-size)*.3);
     width: calc(var(--nav-size)*3);
     text-align: center;
