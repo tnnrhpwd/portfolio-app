@@ -7,8 +7,7 @@ import Contact from './components/Contact/Contact';
 import Drafting from "./components/Drafting/Drafting";
 import Ethanol from './components/Ethanol/Ethanol';
 import Home from './components/Home/Home';
-import LoginForm from './components/LoginForm/LoginForm';
-import NavBar from './components/NavBar/NavBar';
+
 import PollBox from './components/PollBox/PollBox';
 import ProdPartners from './components/ProdPartners/ProdPartners';
 import Projects from './components/Projects/Projects';
@@ -16,15 +15,11 @@ import Wordle from './components/Wordle/Wordle';
 import WordleSolver from './components/WordleSolver/WordleSolver';
 
 function App() {
-  const [isShowLogin, setIsShowLogin] = useState(false);
-  const handleLoginClick = () => {
-    setIsShowLogin((isShowLogin) => !isShowLogin)
-  }
+
 
   return (
     <div className="App">
-      <NavBar handleLoginClick={handleLoginClick} />
-      <LoginForm isShowLogin={isShowLogin} />
+      
       <Routes>
         <Route path="/" element={<Home/>} />
         <Route path="/ethanol" element={<Ethanol/>} />
