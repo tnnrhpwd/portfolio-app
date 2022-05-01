@@ -1,17 +1,19 @@
 import React from "react";
-import "./Projects.css";
 import pollsimg from "./polls.jpg";
 import wordleSimg from "./wordle-solver.PNG";
 import wordleimg from "./wordle.PNG";
 import annuitiesimg from "./Annuities.jpeg";
 import draftingimg from "./drafting.jpg";
 import ethanolimg from "./ethanol.PNG";
-
 import Footer from './../Footer/Footer';
 import BitcoinAPI from "./../BitcoinAPI/BitcoinAPI.js";
+import NavBar from './../NavBar/NavBar';
+import "./Projects.css";
 
 function Projects() {
+
     return (<>
+    <NavBar />
       <div className="projects-space">
         <div className="projects-title">
           Projects
