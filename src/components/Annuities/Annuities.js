@@ -4,6 +4,7 @@ import "react-dropdown/style.css";
 import NewAnnuity from './NewAnnuity';
 import GraphAnnuities from './GraphAnnuities';
 import Footer from './../Footer/Footer';
+import NavBar from './../NavBar/NavBar';
 import "./Annuities.css";
 
 function Annuities() {
@@ -92,92 +93,96 @@ function Annuities() {
 
     const defaultOption = options[0];
 
-    return (<div className='annuities'>
-        <div className='annuities-title'>
-            Annuities
-        </div>
-        <div className='annuities-subtitle'>
-            Financial Annuity Calculator
-        </div>
-        <div className='annuities-inputs'>
-            <div className='annuities-find-text'>
-                Find:
+    return (
+    <>  
+        <NavBar/>
+        <div className='annuities'>
+            <div className='annuities-title'>
+                Annuities
             </div>
-            <div className='annuities-find-dropdown'>
-                <Dropdown 
-                    id="annuities-find-dropdown-id"
-                    options={options} 
-                    onChange={(e) => setTime(e.value)} 
-                    value={defaultOption} 
-                    placeholder="Select an option" 
-                />
+            <div className='annuities-subtitle'>
+                Financial Annuity Calculator
             </div>
-            <button 
-                onClick={()=>setShowNewAnnuity(showNewAnnuity+1)} 
-                id='newAnnuity' 
-                type='button'
-                >
-                Toggle New Visability
-            </button>
-        </div>
-
-        <div className='annuities-newannuity'>
-            {(showNewAnnuity%2===0) &&
-                <NewAnnuity 
-                tenseAnnuity={time} 
-                onNewAnnuity={setAnnuityCall}  
-                />
-            }
-        </div>
-
-        {/* <div className='annuities-output'>
-            <span className='annuities-output-span'>
-                graph of money over time - broken atm
-                <GraphAnnuities chartData={annuityCall}   />
-            </span>
-            
-        </div> */}
-
-        <div className='annuities-resulttime'>
-            <div className='annuities-resulttime-text'>
-                The {time.substring(1)} Value would be ${answer.toFixed(2)}.
+            <div className='annuities-inputs'>
+                <div className='annuities-find-text'>
+                    Find:
+                </div>
+                <div className='annuities-find-dropdown'>
+                    <Dropdown 
+                        id="annuities-find-dropdown-id"
+                        options={options} 
+                        onChange={(e) => setTime(e.value)} 
+                        value={defaultOption} 
+                        placeholder="Select an option" 
+                    />
+                </div>
+                <button 
+                    onClick={()=>setShowNewAnnuity(showNewAnnuity+1)} 
+                    id='newAnnuity' 
+                    type='button'
+                    >
+                    Toggle New Visability
+                </button>
             </div>
+
+            <div className='annuities-newannuity'>
+                {(showNewAnnuity%2===0) &&
+                    <NewAnnuity 
+                    tenseAnnuity={time} 
+                    onNewAnnuity={setAnnuityCall}  
+                    />
+                }
+            </div>
+
+            {/* <div className='annuities-output'>
+                <span className='annuities-output-span'>
+                    graph of money over time - broken atm
+                    <GraphAnnuities chartData={annuityCall}   />
+                </span>
+                
+            </div> */}
+
+            <div className='annuities-resulttime'>
+                <div className='annuities-resulttime-text'>
+                    The {time.substring(1)} Value would be ${answer.toFixed(2)}.
+                </div>
+            </div>
+
+
+            <div className='annuities-description'>
+                Example: If you have $500 and save $10 at 10% interest for 10 periods: Select $Future then enter 500 (present), 10 (periodic), 0.10 (interest), and 10 (periods).
+                <br></br>
+                <br></br> 
+                <br></br> 
+                This calculator supports the following annuity conversions:
+                <br></br> 
+                <br></br>
+                (PtoA) - (CR) Capital Recovery
+                <br></br>
+                (PtoF) - (SPCA) Single Payment Compound Amount
+                <br></br>
+                (FtoP) - (SPPW) Single payment present worth
+                <br></br>
+                (GtoF) - (UGFW) Uniform gradient future worth
+                <br></br>
+                (GtoP) - (UGPW) Uniform gradient present worth
+                <br></br>
+                (GtoA) - (UGUS) Uniform gradient uniform series
+                <br></br>
+                (AtoF) - (USCA) Uniform series compound Amount
+                <br></br>
+                (AtoP) - (USPW) Uniform series present worth
+                <br></br>
+                (FtoA) - (USSF) Uniform series sinking fund
+                <br></br>
+
+            </div>
+            <a href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Annuities" target="_blank">
+                <button id="newAnnuity">View Source Code</button>
+            </a>
+            <Footer/>
         </div>
-
-
-        <div className='annuities-description'>
-            Example: If you have $500 and save $10 at 10% interest for 10 periods: Select $Future then enter 500 (present), 10 (periodic), 0.10 (interest), and 10 (periods).
-            <br></br>
-            <br></br> 
-            <br></br> 
-            This calculator supports the following annuity conversions:
-            <br></br> 
-            <br></br>
-            (PtoA) - (CR) Capital Recovery
-            <br></br>
-            (PtoF) - (SPCA) Single Payment Compound Amount
-            <br></br>
-            (FtoP) - (SPPW) Single payment present worth
-            <br></br>
-            (GtoF) - (UGFW) Uniform gradient future worth
-            <br></br>
-            (GtoP) - (UGPW) Uniform gradient present worth
-            <br></br>
-            (GtoA) - (UGUS) Uniform gradient uniform series
-            <br></br>
-            (AtoF) - (USCA) Uniform series compound Amount
-            <br></br>
-            (AtoP) - (USPW) Uniform series present worth
-            <br></br>
-            (FtoA) - (USSF) Uniform series sinking fund
-            <br></br>
-
-        </div>
-        <a href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Annuities" target="_blank">
-            <button id="newAnnuity">View Source Code</button>
-        </a>
-        <Footer/>
-    </div>);
+    </>);
 };
 
 export default Annuities;
