@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import NavBar from './../NavBar/NavBar';
 import Footer from './../Footer/Footer';
 import url from "./../WordleSolver/Dictionary.txt";
 import "./Wordle.css";
@@ -290,6 +291,7 @@ function Wordle() {
 
   return (
     <div>
+      <NavBar/>
       <div className='wordle-space' id='wordle-space'>
         <div className="title">
           Wordle
