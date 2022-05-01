@@ -1,10 +1,15 @@
+.login-space{
+    width: 100%;
+    text-align: center;
+    z-index: 96999999999999999;
+}
 .login-form{
     width: calc(var(--nav-size)*5);
     display: inline-block;
     justify-content: center;
     align-items: center;
     padding-top: calc(var(--nav-size)*1.5);
-    margin-left: calc(var(--nav-size)*1.7);
+    /* margin-left: min(calc(var(--nav-size)*.65), 35%); */
 }
 .form-box{
     opacity:95%;
@@ -18,7 +23,7 @@
 .login-text{
     width: 100%;
     color: white;
-    border-bottom: calc(var(--nav-size)*.05) solid white;
+    border-bottom: calc(var(--nav-size)*.03) solid white;
     line-height: calc(var(--nav-size)*.8);
     width: 100%;
     font-weight: bolder;
@@ -26,12 +31,15 @@
     justify-content: center;
     align-items: center;
     padding-top: calc(var(--nav-size)*.2);
-    font-size: calc(var(--nav-size)*.4);
+    font-size: calc(var(--nav-size)*.3);
 }
 label {
     font-size: calc(var(--nav-size)*.35);
     color:white;
     text-align: center;
+}
+form{
+    font-size: calc(var(--nav-size)*.7);
 }
 .login-box{
     border: calc(var(--nav-size)*.025) solid lightgrey;
@@ -53,9 +61,9 @@ label {
     align-items: center;
     background-color: rgb(48,172,251);
     color: white;
-    border-radius: 20px;
+    border-radius: calc(var(--nav-size)*.15);
     border: none;
-    font-size: calc(var(--nav-size)*.225);
+    font-size: calc(var(--nav-size)*.16);
     transition: 1s;
     outline: none;
     cursor: pointer;
@@ -79,6 +87,7 @@ label {
     opacity: 0;
 }
 #login-connect{
+
 }
 #login-out{
     margin-bottom: calc(var(--nav-size)*.5);

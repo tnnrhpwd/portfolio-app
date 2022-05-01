@@ -11,7 +11,7 @@ const LoginForm = ({ isShowLogin }) => {
                     <form>
                         <div 
                             className="login-text">
-                            (Coming Soon!)
+                            Coming Soon!
                         </div>
                         <input 
                             id="login-connect"
