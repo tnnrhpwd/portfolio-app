@@ -27,7 +27,7 @@
     font-size: calc(var(--nav-size)*.2);
 }
 .contact-body{
-    font-size: calc(var(--nav-size)*.1);
+    font-size: 0;
     margin-top: calc(var(--nav-size)*.05);
 }
 .contact-social{
@@ -49,6 +49,9 @@
 }
 .contact-github:hover{
     border:  calc(var(--nav-size)*.025) solid white;
+}
+.contact-input-space{
+    font-size: calc(var(--nav-size)*.3);
 }
 .contact-input-text{
 font-size: calc(var(--nav-size)*.25);
@@ -84,7 +87,7 @@ font-size: calc(var(--nav-size)*.25);
     font-family: 'CutiveMono-Regular';
     font-weight: bold;
     display: block;
-    width: 60%;
+    width: min(calc(var(--nav-size)*8),80%);
     height: calc(var(--nav-size)*.4);
     border:  calc(var(--nav-size)*.01) solid var(--bg-accent);
     font-size: calc(var(--nav-size)*.3);
@@ -100,7 +103,7 @@ font-size: calc(var(--nav-size)*.25);
     font-family: 'CutiveMono-Regular';
     font-weight: bold;
     display: block;
-    width: 60%;
+    width: min(calc(var(--nav-size)*10),85%);
     height: calc(var(--nav-size)*1);
     border:  calc(var(--nav-size)*.01) solid var(--bg-accent);
     font-size: calc(var(--nav-size)*.3);

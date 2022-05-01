@@ -28,24 +28,24 @@ function Contact() {
           </td>
         </div>
         <div className="contact-body">
-        <form name="contact" method="post" data-netlify="true" data-netlify-honeypot="bot-field" netlify>
-        <input type="hidden" name="form-name" value="contact" />  
-          <div>
-            <label className="contact-input-text">Name </label>
-            <input className="contact-input-contact" type="text" name="name" />
-          </div>
-          <div>
-            <label className="contact-input-text">Email (not required) </label>
-            <input className="contact-input-contact" type="text" name="email" />
-          </div>
-          <div>
-            <label className="contact-input-text">Message </label>
-            <textarea className="contact-input-message" name="message"></textarea>
-          </div>
-          <div className="contact-link-div">
-            <button id="contact-link" type="submit">Submit</button>
-          </div>
-        </form>
+          <form name="contact" method="post" data-netlify="true" data-netlify-honeypot="bot-field" netlify>
+          <input type="hidden" name="form-name" value="contact" />  
+            <div className="contact-input-space">
+              <label className="contact-input-text">Name </label>
+              <input className="contact-input-contact" type="text" name="name" />
+            </div>
+            <div className="contact-input-space">
+              <label className="contact-input-text">Email (not required) </label>
+              <input className="contact-input-contact" type="text" name="email" />
+            </div>
+            <div className="contact-input-space">
+              <label className="contact-input-text">Message </label>
+              <textarea className="contact-input-message" name="message"></textarea>
+            </div>
+            <div className="contact-link-div">
+              <button id="contact-link" type="submit">Submit</button>
+            </div>
+          </form>
         </div>
         <Footer/>
       </div>
