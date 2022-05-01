@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import Footer from '../Footer/Footer';
 import Dropdown from "react-dropdown";
 import EthanolVisual from "./EthanolVisual.js";
+import NavBar from './../NavBar/NavBar';
 import "./Ethanol.css";
 
 
@@ -45,6 +46,7 @@ function Ethanol(){
 
 
     return(<>
+        <NavBar/>
         <div className='ethanol'>
             <div className="ethanol-title">
                 Ethanol Content Calculator
