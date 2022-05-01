@@ -1,8 +1,11 @@
 import React from "react";
 import { Zoom } from "react-slideshow-image";
 
-import 'react-slideshow-image/dist/styles.css'
+
 import Footer from './../Footer/Footer';
+import NavBar from './../NavBar/NavBar';
+
+import 'react-slideshow-image/dist/styles.css'
 import "./Drafting.css";
 
 const reel = [
@@ -29,7 +32,8 @@ const zoomOutProperties = {
 
 function Drafting() {
 
-    return (
+    return (<>
+        <NavBar/>
         <div className="drafting">
             <div className="drafting-space">
                 <Zoom {...zoomOutProperties}>
@@ -45,7 +49,7 @@ function Drafting() {
             </div>
             <Footer transparent="1" />
         </div>
-    );
+    </>);
 };
 
 export default Drafting;

@@ -12,7 +12,7 @@
 }
 .react-slideshow-container{
     text-align: center;
-    margin-top: min(calc(var(--nav-size)*1),20%);
+    padding-top: min(calc(var(--nav-size)*1),20%);
     padding-left: min(calc(var(--nav-size)*4),20%);
     padding-right: min(calc(var(--nav-size)*4),20%);
 }
