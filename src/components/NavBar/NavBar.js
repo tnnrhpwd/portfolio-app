@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import NavItem from "./NavItem";
 import NavLogo from "./NavLogo";
 import ReactTooltip from "react-tooltip";
@@ -7,23 +7,27 @@ import homeLogo from './home.png';
 import projectsLogo from './projects.png';
 import contactLogo from './contact.png';
 import STHlogo from './STHlogo192.png';
+
+import LoginForm from './../LoginForm/LoginForm';
 import './NavBar.css';
 
+function NavBar() { 
+  const [isShowLogin, setIsShowLogin] = useState(false);
 
-function NavBar({handleLoginClick}) { 
-
-  const handleClick = () => {
-    console.log("click");
+  const handleLoginClick = () => {
     window.scrollTo(0,0);
-    handleLoginClick();
+    setIsShowLogin((isShowLogin) => !isShowLogin)
   }
 
     return (
       <nav className="navbar">
-          <span className='navbar-title' onClick={handleClick} >
+
+          <span className='navbar-title' onClick={handleLoginClick} >
             <NavLogo icon={STHlogo}/>
           </span>
+          <LoginForm isShowLogin={isShowLogin} />
           <ul className="navbar-nav"> 
+
 
             <div className="tooltip-space" data-tip="" data-for="tooltip-home" >
               <NavItem  icon={homeLogo} page="/"/>
