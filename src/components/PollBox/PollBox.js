@@ -1,15 +1,15 @@
 // import react variables
 import React, { useState } from 'react';
 
-// import axios from 'axios';
-
-
-// import poll js components
+// import components
+import NavBar from './../NavBar/NavBar';
 import ActivePoll from "./ActivePoll";
 import NewPoll from "./NewPoll";
 import ClosedPoll from "./ClosedPoll";
+
 // import styling
 import './PollBox.css';
+
 //import firebase utilities
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
@@ -49,7 +49,8 @@ function PollBox(){
     
 
 
-        return <>
+        return (<>
+            <NavBar/>
             <div className='pollbox-app'>
                 <div>
                     <div className='pollbox-titles'>{activeTitle}</div>
@@ -69,7 +70,7 @@ function PollBox(){
                     <button id="button">View Source Code</button>
                 </a>
             </div>
-        </>
+        </>)
 
 }
 

@@ -1,11 +1,11 @@
 .pollbox-app {
   text-align: center;
+  padding-top: calc(var(--nav-size)*1.1);
 }
   
 .pollbox-titles{                              
   font-weight: bold;
   font-size: calc(var(--nav-size)*.4);
-  margin-top: calc(var(--nav-size)*1.1);
   text-align: center;
 }
   
