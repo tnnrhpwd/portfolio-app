@@ -13,7 +13,7 @@ import "./Projects.css";
 function Projects() {
 
     return (<>
-    <NavBar />
+      <NavBar />
       <div className="projects-space">
         <div className="projects-title">
           Projects
