@@ -3,42 +3,174 @@
     src: url(./../../fonts/CutiveMono-Regular.ttf) format('truetype'),
     url(./../../fonts/CutiveMono-Regular.woff) format('woff');
 }
-#tooltip-home{
-    font-family: 'CutiveMono-Regular';
-    font-size: calc(var(--nav-size)*.25);
-    font-weight: bold;
-    color: white;
-    border-radius: 20%;
-    text-align: center;
-    -webkit-text-stroke-width: calc(var(--nav-size)*.003);
-    -webkit-text-stroke-color: white;
-    height: calc(var(--nav-size)*0.3);
+@media (orientation: portrait) {
+    #tooltip-home{
+        font-family: 'CutiveMono-Regular';
+        font-size: calc(var(--nav-size)*.25);
+        font-weight: bold;
+        color: white;
+        border-radius: 20%;
+        text-align: center;
+        -webkit-text-stroke-width: calc(var(--nav-size)*.003);
+        -webkit-text-stroke-color: white;
+        height: calc(var(--nav-size)*0.3);
+    }
+    #tooltip-projects{
+        font-family: 'CutiveMono-Regular';
+        font-size: calc(var(--nav-size)*.25);
+        font-weight: bold;
+        color: white;
+        border-radius: 20%;
+        text-align: center;
+        -webkit-text-stroke-width: calc(var(--nav-size)*.003);
+        -webkit-text-stroke-color: white;
+        height: calc(var(--nav-size)*0.3);
+    }
+    #tooltip-contact{
+        font-family: 'CutiveMono-Regular';
+        font-size: calc(var(--nav-size)*.25);
+        font-weight: bold;
+        color: white;
+        border-radius: 20%;
+        text-align: center;
+        -webkit-text-stroke-width: calc(var(--nav-size)*.003);
+        -webkit-text-stroke-color: white;
+        height: calc(var(--nav-size)*0.3);
+    }
+    .icon-button{
+        --button-size: calc(var(--nav-size)*0.4);
+        width: var(--button-size);
+        height: var(--button-size);
+        background-color: rgb(133, 133, 133);
+        border-radius: 50%;
+        padding: calc(var(--nav-size)*0.11);
+        margin: calc(var(--nav-size)*0.11);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: filter 100ms;
+        
+    }
+    .icon-button:hover{
+        filter: brightness(1.2);
+    }
+    .icon-button:active{
+        --width: calc(var(--nav-size)*0.5);
+        height: calc(var(--nav-size)*0.5);
+        background-color: #910b0b;
+        box-shadow: -1px 5px #666;
+        transform: translateY(calc(var(--nav-size)*-0.1)); 
+    }
+    #nav-icon-text{
+        color: transparent;
+        color: transparent;
+        -webkit-text-stroke-color: transparent;
+        background: transparent;
+        font-size: 0;
+    }
+    .nav-item{
+        width: calc(var(--nav-size)*0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    
+        -webkit-animation: fadein 2s; /* Safari, Chrome and Opera > 12.1 */
+        -moz-animation: fadein 1s; /* Firefox < 16 */
+         -ms-animation: fadein 1s; /* Internet Explorer */
+          -o-animation: fadein 1s; /* Opera < 12.1 */
+             animation: fadein 1s;
+             
+    }
+    .nav-icon{
+        width: calc(var(--nav-size)*0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    
+    }
 }
-#tooltip-projects{
-    font-family: 'CutiveMono-Regular';
-    font-size: calc(var(--nav-size)*.25);
-    font-weight: bold;
-    color: white;
-    border-radius: 20%;
-    text-align: center;
-    -webkit-text-stroke-width: calc(var(--nav-size)*.003);
-    -webkit-text-stroke-color: white;
-    height: calc(var(--nav-size)*0.3);
-}
-#tooltip-contact{
-    font-family: 'CutiveMono-Regular';
-    font-size: calc(var(--nav-size)*.25);
-    font-weight: bold;
-    color: white;
-    border-radius: 20%;
-    text-align: center;
-    -webkit-text-stroke-width: calc(var(--nav-size)*.003);
-    -webkit-text-stroke-color: white;
-    height: calc(var(--nav-size)*0.3);
+
+
+
+
+
+
+
+
+@media (orientation: landscape) {
+    #tooltip-home{
+        color: transparent;
+        -webkit-text-stroke-color: transparent;
+        background: transparent;
+    }
+    #tooltip-projects{
+        color: transparent;
+        -webkit-text-stroke-color: transparent;
+        background: transparent;
+    }
+    #tooltip-contact{
+        color: transparent;
+        -webkit-text-stroke-color: transparent;
+        background: transparent;
+    }
+    .icon-button{
+        height: calc(var(--nav-size)*0.4);
+        background-color: rgb(133, 133, 133);
+        border-radius: 5%;
+        padding: calc(var(--nav-size)*0.05);
+        padding-left: calc(var(--nav-size)*0.2);
+        padding-right: calc(var(--nav-size)*0.2);
+        margin: calc(var(--nav-size)*0.11);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: filter 100ms;
+        
+    }
+    .icon-button:hover{
+        filter: brightness(1.2);
+        border: calc(var(--nav-size)*0.01) solid white;
+    }
+    .icon-button:active{
+        --width: calc(var(--nav-size)*0.5);
+        height: calc(var(--nav-size)*0.5);
+        background-color: #910b0b;
+        box-shadow: -1px 5px #666;
+        transform: translateY(calc(var(--nav-size)*-0.1)); 
+    }
+    #nav-icon-text{
+        font-family: 'CutiveMono-Regular';
+        font-weight: bold;
+        color: white;
+        -webkit-text-stroke-color: transparent;
+        background: transparent;
+        font-size: calc(var(--nav-size)*0.15);
+    }
+    .nav-item{
+        /* width: calc(var(--nav-size)*0.8); */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    
+        -webkit-animation: fadein 2s; /* Safari, Chrome and Opera > 12.1 */
+        -moz-animation: fadein 1s; /* Firefox < 16 */
+         -ms-animation: fadein 1s; /* Internet Explorer */
+          -o-animation: fadein 1s; /* Opera < 12.1 */
+             animation: fadein 1s;
+             
+    }
+    .nav-icon{
+        width: calc(var(--nav-size)*0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: calc(var(--nav-size)*0.1);
+    }
 }
 .tooltip-space{
     text-align: center;
     padding: calc(var(--nav-size)*0.1);
+    background-color: transparent;
 }
 
 .navbar{
@@ -121,47 +253,5 @@
     -webkit-text-stroke-width: calc(var(--nav-size)*.2);
     -webkit-text-stroke-color: rgb(41, 0, 0);
 }
-.nav-item{
-    width: calc(var(--nav-size)*0.8);
-    display: flex;
-    align-items: center;
-    justify-content: center;
 
-    -webkit-animation: fadein 2s; /* Safari, Chrome and Opera > 12.1 */
-    -moz-animation: fadein 1s; /* Firefox < 16 */
-     -ms-animation: fadein 1s; /* Internet Explorer */
-      -o-animation: fadein 1s; /* Opera < 12.1 */
-         animation: fadein 1s;
-         
-}
-.nav-icon{
-    width: calc(var(--nav-size)*0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
 
-}
-.icon-button{
-    --button-size: calc(var(--nav-size)*0.4);
-    width: var(--button-size);
-    height: var(--button-size);
-    background-color: rgb(133, 133, 133);
-    border-radius: 50%;
-    padding: calc(var(--nav-size)*0.11);
-    margin: calc(var(--nav-size)*0.11);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: filter 100ms;
-    
-}
-.icon-button:hover{
-    filter: brightness(1.2);
-}
-.icon-button:active{
-    --width: calc(var(--nav-size)*0.5);
-    height: calc(var(--nav-size)*0.5);
-    background-color: #910b0b;
-    box-shadow: -1px 5px #666;
-    transform: translateY(calc(var(--nav-size)*-0.1)); 
-}

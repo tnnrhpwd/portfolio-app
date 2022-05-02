@@ -27,19 +27,19 @@ function NavBar() {
         </span>
         <ul className="navbar-nav"> 
           <div className="tooltip-space" data-tip="" data-for="tooltip-home" >
-            <NavItem  icon={homeLogo} page="/"/>
+            <NavItem text="Home" icon={homeLogo} page="/"/>
           </div>
           <ReactTooltip id="tooltip-home" place="bottom" effect="solid">
             Home
           </ReactTooltip>
           <div className="tooltip-space" data-tip="" data-for="tooltip-projects" >
-            <NavItem icon={projectsLogo} page="/projects"/>
+            <NavItem text="Projects" icon={projectsLogo} page="/projects"/>
           </div>
           <ReactTooltip id="tooltip-projects" place="bottom" effect="solid">
             Projects
           </ReactTooltip>
           <div className="tooltip-space" data-tip="" data-for="tooltip-contact" >
-            <NavItem icon={contactLogo} page="/contact"/>
+            <NavItem  text="Contact" icon={contactLogo} page="/contact"/>
           </div>
           <ReactTooltip id="tooltip-contact" place="bottom" effect="solid">
             Contact
