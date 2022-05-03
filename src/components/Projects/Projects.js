@@ -4,7 +4,7 @@ import wordleSimg from "./wordle-solver.PNG";
 import wordleimg from "./wordle.PNG";
 import annuitiesimg from "./Annuities.jpeg";
 import draftingimg from "./drafting.jpg";
-import ethanolimg from "./ethanol.png";
+import ethanolimg from "./ethanol.PNG";
 import Footer from './../Footer/Footer';
 import BitcoinAPI from "./../BitcoinAPI/BitcoinAPI.js";
 import NavBar from './../NavBar/NavBar';
