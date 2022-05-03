@@ -130,8 +130,10 @@ function ActivePoll(props) {
         console.log('voted')
         return(
           <div className='postPollSpace'>
-            <button onClick={endPoll} className='endPollButton' type='button'>End Poll</button>
             <div id='recentQuestion'>{question}</div>
+            <div className='endPollButton-space'>
+              <button onClick={endPoll} className='endPollButton' type='button'>End Poll</button>
+            </div>
             <div id='recentResults'>Voting Results:</div>
             <div id='recentData'>
               <div><div id='recentDataQ'>•{a1}:</div>  <div id='recentDataV'>{a1v} votes</div> <span id='recentDataP' >{`${a1vPcnt}%`}</span> </div> 

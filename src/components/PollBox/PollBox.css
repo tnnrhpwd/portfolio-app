@@ -46,6 +46,11 @@
   box-shadow:  calc(var(--nav-size)*.075) #666;
   transform: translateY(calc(var(--nav-size)*.075));
 }
+.endPollButton-space{
+  display: inline-block;
+  width: 20%;
+  text-align: right;
+}
 .endPollButton{                      /* ACTIVE POLL */
   display: inline-block;
   background-color: rgb(161, 7, 7, 0.36);
