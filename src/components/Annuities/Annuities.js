@@ -177,7 +177,7 @@ function Annuities() {
                 <br></br>
 
             </div>
-            <a href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Annuities" target="_blank">
+            <a href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Annuities" rel="noreferrer"  target="_blank">
                 <button id="newAnnuity">View Source Code</button>
             </a>
             <Footer/>

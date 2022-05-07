@@ -4,7 +4,7 @@
     background-color: var(--bg);
     color: white;
     text-align: center;
-
+    min-height: 100vh;
 }
 .ethanol-title{
     font-size: calc(var(--nav-size)*.5);
@@ -204,5 +204,27 @@
     stroke: white;
 }
 
+#ethanol-sourcecode{
+    margin-top: calc(var(--nav-size)*.45);
+    margin-bottom: calc(var(--nav-size)*.45);
+    vertical-align: bottom;
+    height: calc(var(--nav-size)*.45);
+    font-size: calc(var(--nav-size)*.19);
+    width: calc(var(--nav-size)*2.5);
+    font-weight: bold;
+    background-color: rgb(78, 78, 78);
+    color: white;
+    border: calc(var(--nav-size)*.0001) solid rgba(255, 255, 255, 0.885);
+    border-radius: 5%;
+    cursor: pointer;
 
-
+}
+#ethanol-sourcecode:hover{
+    filter: brightness(1.2);
+    border: calc(var(--nav-size)*.001) solid white;
+}
+#ethanol-sourcecode:active{
+    height: calc(var(--nav-size)*.55);
+    transform: rotate(360deg);
+    transition-duration: .1s;
+}
