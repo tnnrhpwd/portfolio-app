@@ -5,13 +5,14 @@
   
 .pollbox-titles{                              
   font-weight: bold;
-  font-size: calc(var(--nav-size)*.4);
+  font-size: calc(var(--nav-size)*.35);
   text-align: center;
 }
   
 .pollbox-descriptions{
-  font-size: calc(var(--nav-size)*.22);
+  font-size: calc(var(--nav-size)*.2);
   display: block;
+  margin-bottom: calc(var(--nav-size)*.2);
 }
   
 #questions{                             /* ACTIVE POLL */
@@ -33,7 +34,7 @@
   text-align: center;
   outline: none;
   border: none;
-  box-shadow: 0 calc(var(--nav-size)*.075) #999;
+  box-shadow: 0 calc(var(--nav-size)*.05) #999;
   margin-left: calc(var(--nav-size)*.10);
   margin-right: calc(var(--nav-size)*.10);
   font-size: calc(var(--nav-size)*.22);
@@ -43,8 +44,8 @@
 .pollButton:hover {background-color: #3e8e41}
 .pollButton:active {                    /* ACTIVE POLL */
   background-color: #3e8e41;
-  box-shadow:  calc(var(--nav-size)*.075) #666;
-  transform: translateY(calc(var(--nav-size)*.075));
+  box-shadow: 0 calc(var(--nav-size)*.025) #666;
+  transform: translateY(calc(var(--nav-size)*.025));
 }
 .endPollButton-space{
   display: inline-block;
@@ -65,7 +66,7 @@
 .endPollButton:hover {background-color: #ff0606}
 .endPollButton:active {              /* ACTIVE POLL */
   background-color: #ff0606;
-  box-shadow: 0 4px #666;
+  box-shadow: 0 calc(var(--nav-size)*.025) #666;
   transform: translateY(calc(var(--nav-size)*.025));
 }
 
@@ -89,6 +90,7 @@
   border-radius: calc(var(--nav-size)*.1);
   box-sizing: border-box;
 }
+/* @media (orientation: landscape) { */
   
   
   
@@ -113,7 +115,7 @@
   color: aliceblue;
   cursor: pointer;
   border: none;
-  box-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.1) #999;
+  box-shadow: calc(var(--nav-size)*-.025) calc(var(--nav-size)*.05) #999;
   font-size: calc(var(--nav-size)*.23);
   right: 0;
   padding: calc(var(--nav-size)*.07);
@@ -121,8 +123,8 @@
 .deletePollButton:hover {background-color: #ff0606}
 .deletePollButton:active {              /* RECENT POLL */
   background-color: #ff0606;
-  box-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.1) #666;
-  transform: translateY(calc(var(--nav-size)*.04));
+  box-shadow: calc(var(--nav-size)*-.025) calc(var(--nav-size)*.025) #666;
+  transform: translateY(calc(var(--nav-size)*.025));
 }
   
 .recentBox{                             /* RECENT POLL */
@@ -222,7 +224,7 @@
   border-radius: calc(var(--nav-size)*.05);
   color: rgb(0, 0, 0);
   cursor: pointer;
-  box-shadow: 0 calc(var(--nav-size)*.1) #999;
+  box-shadow: 0 calc(var(--nav-size)*.05) #999;
   font-size: calc(var(--nav-size)*.23);
   /* margin-bottom: calc(var(--nav-size)*.05); */
   padding: calc(var(--nav-size)*.1);
@@ -233,13 +235,13 @@
 #buttonNewPollID:active {              /* ADD NEW POLL submit button */
   background-color: #f5dcc8;
   box-shadow: 0 calc(var(--nav-size)*.025) #666;
-  transform: translateY(calc(var(--nav-size)*.04));
+  transform: translateY(calc(var(--nav-size)*.025));
 }
 #newTitle{                  /* ADD NEW POLL toggle button */
   border-radius: calc(var(--nav-size)*.05);
   color: rgb(0, 0, 0);
   cursor: pointer;
-  box-shadow: 0 calc(var(--nav-size)*.1) #999;
+  box-shadow: 0 calc(var(--nav-size)*.05) #999;
   font-size: calc(var(--nav-size)*.2);
   /* margin-bottom: 15px; */
   display: inline-block;
@@ -248,8 +250,8 @@
 #newTitle:hover {background-color: #f5dcc8}
 #newTitle:active {              /* ADD NEW POLL toggle button */
   background-color: #f5dcc8;
-  box-shadow: 0 4px #666;
-  transform: translateY(calc(var(--nav-size)*.04));
+  box-shadow: 0 calc(var(--nav-size)*.025) #666;
+  transform: translateY(calc(var(--nav-size)*.025));
 }
 .newFormSpace{                                      /* ADD NEW POLL groups the entire entry components*/
   padding: calc(var(--nav-size)*.2);
@@ -264,7 +266,7 @@
 }
 .newFormSpace-title{                                      /* ADD NEW POLL groups the entire entry components*/
   font-weight: bold;
-  font-size: calc(var(--nav-size)*.4);
+  font-size: calc(var(--nav-size)*.35);
   margin-top: calc(var(--nav-size)*.2);
   text-align: center;
 }
