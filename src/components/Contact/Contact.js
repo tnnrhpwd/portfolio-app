@@ -26,6 +26,9 @@ function Contact() {
           <td className="contact-social" onClick={()=> window.open("https://github.com/tnnrhpwd", "_blank")}>
             <img className="contact-github" src={githubimg} alt="github logo" />
           </td>
+          <td className="contact-social" onClick={()=> window.open("https://github.com/tnnrhpwd", "_blank")}>
+            Resume
+          </td>
         </div>
         <div className="contact-body">
           <form name="contact" method="post" data-netlify="true" data-netlify-honeypot="bot-field" netlify>

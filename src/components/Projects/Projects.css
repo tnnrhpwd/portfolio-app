@@ -12,7 +12,7 @@
     color: white;
     text-align: center;
     background-color: var(--bg);
-
+    min-height: 100vh;
 }
 .projects-title{
     font-family: 'CutiveMono-Regular';

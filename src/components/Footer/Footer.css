@@ -16,7 +16,7 @@
     /* height: calc(var(--nav-size)*7); */
 }
 .footer-space-transparent{
-    padding-top: calc(var(--nav-size)*5.5);
+    padding-top: calc(var(--nav-size)*0.5);
     font-family: 'CutiveMono-Regular';
     font-weight: bold;
     z-index: -500000000;

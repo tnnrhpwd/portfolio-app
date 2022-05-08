@@ -19,6 +19,13 @@
     src: url(./../../fonts/CutiveMono-Regular.ttf) format('truetype'),
     url(./../../fonts/CutiveMono-Regular.woff) format('woff');
 }
+.content{
+    position: sticky;
+    height: calc(var(--nav-size)*2.5);
+    z-index: -1;
+
+}
+
 .section-tile{
     font-family: 'CutiveMono-Regular';
     font-weight: calc(var(--nav-size)*5);
@@ -26,10 +33,9 @@
     position: relative;
     background-color: rgba(0, 0, 0, 0.72);
 }
-.content{
-    position: sticky;
-    height: calc(var(--nav-size)*2.5);
-    z-index: -1;
+
+.container-scroll{
+    min-height: 100vh;
 }
 #content-title{
     padding-left: calc(var(--nav-size)*.8);

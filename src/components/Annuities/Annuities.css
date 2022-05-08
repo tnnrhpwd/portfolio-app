@@ -3,6 +3,7 @@
     color: white;
     padding: calc(var(--nav-size)*.4);
     text-align: center;
+    min-height: 100vh;
 }
 .annuities-title{
     text-align: center;

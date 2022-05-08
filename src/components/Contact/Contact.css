@@ -11,6 +11,7 @@
     background-color: var(--bg);
     color: white;
     font-weight: bold;
+    min-height: 100vh;
     /* height: calc(var(--nav-size)*11); */
 }
 
@@ -33,6 +34,7 @@
 .contact-social{
     display: inline-block;
     border-radius: 5%;
+    color: white;
 }
 .contact-linkedin{
     width: calc(var(--nav-size)*1.2);
