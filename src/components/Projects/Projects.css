@@ -20,7 +20,11 @@
     text-align: left;
     padding-bottom: calc(var(--nav-size)*.2);
 }
-
+.projects-div{
+    display: inline;
+    height: calc(var(--nav-size)*1.75);
+    width: calc(var(--nav-size)*3.1);
+}
 
 
 
@@ -112,7 +116,7 @@
     cursor: pointer;
 }
 #projects-p1-img:hover{
-    width: calc(var(--nav-size)*2.8);
+    border: calc(var(--nav-size)*0.001) solid white;
     filter: brightness(1.2);
 }
 
@@ -136,7 +140,7 @@
     cursor: pointer;
 }
 #projects-p2-img:hover{
-    width: calc(var(--nav-size)*2.8);
+    border: calc(var(--nav-size)*0.001) solid white;
     filter: brightness(1.2);
 }
 
@@ -172,7 +176,7 @@
     cursor: pointer;
 }
 #projects-p4-img:hover{
-    width: calc(var(--nav-size)*2.8);
+    border: calc(var(--nav-size)*0.001) solid white;
     filter: brightness(1.2);
 }
 
@@ -192,7 +196,7 @@
     cursor: pointer;
 }
 #projects-p5-img:hover{
-    width: calc(var(--nav-size)*2.8);
+    border: calc(var(--nav-size)*0.001) solid white;
     filter: brightness(1.2);
 }
 
@@ -211,7 +215,7 @@
     cursor: pointer;
 }
 #projects-p6-img:hover{
-    width: calc(var(--nav-size)*2.8);
+    border: calc(var(--nav-size)*0.001) solid white;
     filter: brightness(1.2);
 }
 
@@ -231,6 +235,6 @@
     cursor: pointer;
 }
 #projects-p7-img:hover{
-    width: calc(var(--nav-size)*2.8);
+    border: calc(var(--nav-size)*0.001) solid white;
     filter: brightness(1.2);
 }

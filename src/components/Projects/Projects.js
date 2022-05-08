@@ -25,52 +25,57 @@ function Projects() {
         <div></div>
         <div className="projects-holder">
 
-          <div className="projects-p1">
-            <a href="/pollbox">
-              <img id="projects-p1-img" src={pollsimg} alt="the display for polling website"/>
-            </a>
+          <div className="projects-div">
+            <div className="projects-p1">
+              <a href="/pollbox">
+                <img id="projects-p1-img" src={pollsimg} alt="the display for polling website"/>
+              </a>
+            </div>
           </div>
 
-
-          <div className="projects-p5">
-            <a href="/annuities">
-              <img id="projects-p5-img" src={annuitiesimg} alt="the display for my cad projects"/>
-            </a>
+          <div className="projects-div">
+            <div className="projects-p5">
+              <a href="/annuities">
+                <img id="projects-p5-img" src={annuitiesimg} alt="the display for my cad projects"/>
+              </a>
+            </div>
           </div>
 
-
-          <div className="projects-p6">
-            <a href="/wordle">
-              <img id="projects-p6-img" src={wordleimg} alt="the display for wordle "/>
-            </a>
+          <div className="projects-div">
+            <div className="projects-p6">
+              <a href="/wordle">
+                <img id="projects-p6-img" src={wordleimg} alt="the display for wordle "/>
+              </a>
+            </div>
           </div>
 
-
-          <div className="projects-p2">
-            <a href="/wordlesolver">
-              <img id="projects-p2-img" src={wordleSimg} alt="the display for wordle solver website"/>
-            </a>
+          <div className="projects-div">
+            <div className="projects-p2">
+              <a href="/wordlesolver">
+                <img id="projects-p2-img" src={wordleSimg} alt="the display for wordle solver website"/>
+              </a>
+            </div>
+          </div>
+          <div className="projects-div">
+            <div className="projects-p7">
+              <a href="/ethanol">
+                <img id="projects-p7-img" src={ethanolimg} alt="the display for ethanol calculator"/>
+              </a>
+            </div>
+          </div>
+          <div className="projects-div">
+            <div className="projects-p3">
+              <BitcoinAPI/>
+            </div>
           </div>
 
-
-          <div className="projects-p7">
-            <a href="/ethanol">
-              <img id="projects-p7-img" src={ethanolimg} alt="the display for ethanol calculator"/>
-            </a>
+          <div className="projects-div">
+            <div className="projects-p4">
+              <a href="/drafting">
+                <img id="projects-p4-img" src={draftingimg} alt="the display for my cad projects"/>
+              </a>
+            </div>
           </div>
-
-
-          <div className="projects-p3">
-            <BitcoinAPI/>
-          </div>
-
-          <div className="projects-p4">
-            <a href="/drafting">
-              <img id="projects-p4-img" src={draftingimg} alt="the display for my cad projects"/>
-            </a>
-          </div>
-
-          
         </div>
 
         <div></div>

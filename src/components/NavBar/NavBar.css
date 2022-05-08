@@ -107,7 +107,15 @@
         color: transparent;
         -webkit-text-stroke-color: transparent;
         background: transparent;
+        border: none;
     }
+    .t618f1cb4-da54-4bac-be51-2f394929eb84.place-bottom::after{
+        color: transparent;
+        -webkit-text-stroke-color: transparent;
+        background: transparent;
+        border: none;
+    }
+
     #tooltip-contact{
         color: transparent;
         -webkit-text-stroke-color: transparent;
