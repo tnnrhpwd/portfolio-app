@@ -1,8 +1,8 @@
 import React from "react";
-import "./LoginForm.css";
+import "./SettingsPopup.css";
 
 
-const LoginForm = ({ isShowLogin }) => {
+const SettingsPopup = ({ isShowLogin }) => {
 
     return(
         <div className={`${!isShowLogin ? "active" : ""} show`}>
@@ -11,9 +11,15 @@ const LoginForm = ({ isShowLogin }) => {
                     <form>
                         <div 
                             className="login-text">
-                            Coming Soon!
+                            
                         </div>
                         <input 
+                            id="login-out"
+                            type="submit" 
+                            value="Dark Mode" 
+                            className="login-btn" 
+                        />
+                        {/* <input 
                             id="login-connect"
                             type="submit" 
                             value="Connect Wallet" 
@@ -24,7 +30,7 @@ const LoginForm = ({ isShowLogin }) => {
                             type="submit" 
                             value="Log Out" 
                             className="login-btn" 
-                        />
+                        /> */}
                     </form>
                 </div>
             </div>
@@ -32,4 +38,4 @@ const LoginForm = ({ isShowLogin }) => {
     );
 }
 
-export default LoginForm;
+export default SettingsPopup;

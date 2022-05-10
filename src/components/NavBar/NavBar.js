@@ -8,15 +8,15 @@ import projectsLogo from './projects.png';
 import contactLogo from './contact.png';
 import STHlogo from './STHlogo192.png';
 
-import LoginForm from './../LoginForm/LoginForm';
+// import SettingsPopup from '../SettingsPopup/SettingsPopup';
 import './NavBar.css';
 
 function NavBar() { 
-  const [isShowLogin, setIsShowLogin] = useState(false);
+  // const [isShowLogin, setIsShowLogin] = useState(false);
 
   const handleLoginClick = () => {
     window.scrollTo(0,0);
-    setIsShowLogin((isShowLogin) => !isShowLogin)
+    // setIsShowLogin((isShowLogin) => !isShowLogin)
   }
 
     return (<>
@@ -50,9 +50,9 @@ function NavBar() {
         
 
       </nav>
-      <div className="login-space">
-        <LoginForm isShowLogin={isShowLogin} />
-      </div>
+      {/* <div className="login-space">
+        <SettingsPopup isShowLogin={isShowLogin} />
+      </div> */}
 
     </>);
   }
