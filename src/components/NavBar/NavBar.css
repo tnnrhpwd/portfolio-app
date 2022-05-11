@@ -88,6 +88,11 @@
         justify-content: center;
     
     }
+    .tooltip-space{
+        text-align: center;
+        padding: calc(var(--nav-size)*0.1);
+        background-color: transparent;
+    }
 }
 
 
@@ -169,12 +174,14 @@
         justify-content: center;
         margin-right: calc(var(--nav-size)*0.1);
     }
+    .tooltip-space{
+        text-align: center;
+        padding: calc(var(--nav-size)*0.1);
+        background-color: transparent;
+        width: calc(var(--nav-size)*1.7);
+    }
 }
-.tooltip-space{
-    text-align: center;
-    padding: calc(var(--nav-size)*0.1);
-    background-color: transparent;
-}
+
 
 .navbar{
     height: var(--nav-size);
