@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 
 // import components
 import NavBar from './../NavBar/NavBar';
+import Footer from './../Footer/Footer';
 import ActivePoll from "./ActivePoll";
 import NewPoll from "./NewPoll";
 import ClosedPoll from "./ClosedPoll";
@@ -66,10 +67,11 @@ function PollBox(){
                     <div className='newFormSpace-title'>{recentTitle}</div>
                     {polls && polls.map(pl => <ClosedPoll key={pl.id} ClosedPoll={pl}/>)}
                 </div>
-                <a href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/PollBox" rel="noreferrer" target="_blank">
+                <a className='poll-source-but' href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/PollBox" rel="noreferrer" target="_blank">
                     <button id="button">View Source Code</button>
                 </a>
             </div>
+            <Footer transparent="1" />
         </>)
 
 }

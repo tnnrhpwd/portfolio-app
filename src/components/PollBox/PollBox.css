@@ -1,9 +1,13 @@
 .pollbox-app {
+  color: var(--text-color); 
   text-align: center;
   padding-top: calc(var(--nav-size)*1.1);
 }
+.poll-source-but{
+  margin-bottom: calc(var(--nav-size)*1.1);
+}
   
-.pollbox-titles{                              
+.pollbox-titles{                             
   font-weight: bold;
   font-size: calc(var(--nav-size)*.35);
   text-align: center;
@@ -27,9 +31,9 @@
   
 .pollButton{                            /* ACTIVE POLL */
   display: inline-block;
-  background-color: rgb(228, 228, 228);
+  background-color: var(--text-color);
   border-radius: calc(var(--nav-size)*.10);
-  color: black;
+  color: var(--text-color-inv);
   cursor: pointer;
   text-align: center;
   outline: none;
@@ -222,7 +226,7 @@
 }
 #buttonNewPollID{                  /* ADD NEW POLL submit button */
   border-radius: calc(var(--nav-size)*.05);
-  color: rgb(0, 0, 0);
+  color: var(--text-color);
   cursor: pointer;
   box-shadow: 0 calc(var(--nav-size)*.05) #999;
   font-size: calc(var(--nav-size)*.23);
