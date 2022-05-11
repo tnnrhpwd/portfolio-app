@@ -1,5 +1,5 @@
 .bitcoinapi-space{
-    color: white;
+    color: var(--text-color);
     text-align: center;
     background-color: var(--bg);
 
@@ -18,7 +18,7 @@
 
 }
 .bitcoinapi-space-button{
-  color: white;
+  color: var(--text-color);
   text-align: center;
   display: inline-block;
   font-size: calc(var(--nav-size)*.5);

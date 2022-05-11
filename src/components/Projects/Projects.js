@@ -47,7 +47,7 @@ function Projects() {
               </a>
             </div>
             <div className="projects-div-text">
-              Calculate the compound effect on your investments.
+              Calculate the effect of compound interest on your investment.
               <br/><br/>
               ReactJS, HTML, CSS, Netlify
             </div>
@@ -96,7 +96,7 @@ function Projects() {
             </div>
             <div className="projects-div-text">
             <br/>
-              This displays current bitcoin price using CoinDesk API. Source code on main site's GitHub.
+              This displays the current bitcoin price using the CoinDesk API. Source code on main site's GitHub. Click the price to call an update.
               <br/><br/>
               ReactJS, HTML, CSS, Netlify
             </div>
@@ -109,7 +109,7 @@ function Projects() {
               </a>
             </div>
             <div className="projects-div-text">
-              This displays my previous drafting work in a slideshow.
+              This displays my previous drafting work in an image slideshow.
               <br/><br/>
               ReactJS, HTML, CSS, Netlify
             </div>

@@ -9,7 +9,7 @@
     padding-top: calc(var(--nav-size)*1.2);
     /* padding-left: calc(var(--nav-size)*.6); */
     /* padding-right: calc(var(--nav-size)*.5); */
-    color: white;
+    color: var(--text-color);
     text-align: center;
     background-color: var(--bg);
     min-height: 100vh;
@@ -42,7 +42,7 @@
     display: block;
     /* height: calc(var(--nav-size)*1.75); */
     width: 85vw;
-    border-bottom: calc(var(--nav-size)*.01) dashed black;
+    border-bottom: calc(var(--nav-size)*.01) dashed var(--bg-accent);
     margin-left: auto;
     margin-right: auto;
     margin-bottom: calc(var(--nav-size)*.2);
@@ -62,7 +62,7 @@
     font-family: 'CutiveMono-Regular';
     font-weight: bold;
     border-radius: calc(var(--nav-size)*.05);
-    color: rgb(0, 0, 0);
+    color: black;
     cursor: pointer;
     box-shadow: 0 calc(var(--nav-size)*.1) #999;
     /* width: calc(var(--nav-size)*3); */

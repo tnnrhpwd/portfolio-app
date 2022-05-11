@@ -8,7 +8,7 @@
     font-family: 'CutiveMono-Regular';
     font-weight: bold;
     z-index: -500000000;
-    color: white;
+    color: var(--text-color);
     font-size: calc(var(--nav-size)*0.21);
     text-align: center;
     padding-bottom: calc(var(--nav-size)*.5);

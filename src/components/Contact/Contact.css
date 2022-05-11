@@ -9,7 +9,7 @@
     padding-right: calc(var(--nav-size)*0.81);
     padding-top: calc(var(--nav-size)*1);
     background-color: var(--bg);
-    color: white;
+    color: var(--text-color);
     font-weight: bold;
     min-height: 100vh;
     /* height: calc(var(--nav-size)*11); */
@@ -34,24 +34,28 @@
 .contact-social{
     display: inline-block;
     border-radius: 5%;
-    color: white;
+    color: var(--text-color);
 }
 .contact-linkedin{
     width: calc(var(--nav-size)*1.2);
     border-radius: 5%;
     cursor: pointer;
 }
-.contact-linkedin:hover{
-    border:  calc(var(--nav-size)*.025) solid white;
-}
+/* .contact-linkedin:hover{
+    filter: brightness(.2);
+    border:  calc(var(--nav-size)*.025) solid var(--text-color);
+} */
 .contact-github{
     width: calc(var(--nav-size)*1.8);
+    /* height: calc(var(--nav-size)*1); */
     border-radius: 5%;
     cursor: pointer;
+    background-color: transparent;
 }
-.contact-github:hover{
-    border:  calc(var(--nav-size)*.025) solid white;
-}
+/* .contact-github:hover{
+    border:  calc(var(--nav-size)*.025) solid var(--text-color);
+    filter: brightness(.2);
+} */
 .contact-input-space{
     font-size: calc(var(--nav-size)*.3);
 }
@@ -66,7 +70,7 @@ font-size: calc(var(--nav-size)*.25);
     font-family: 'CutiveMono-Regular';
     font-weight: bold;
     font-size: calc(var(--nav-size)*.25);
-    color: white;
+    color: var(--text-color);
     background-color: var(--bg);
     padding: calc(var(--nav-size)*.06);
     border-radius: 10%;
@@ -77,14 +81,14 @@ font-size: calc(var(--nav-size)*.25);
     border:  calc(var(--nav-size)*.025) solid var(--bg-accent);
 }
 #contact-link:hover{
-    border:  calc(var(--nav-size)*.025) solid white;
+    border:  calc(var(--nav-size)*.025) solid var(--text-color);
     filter: brightness(1.2);
 }
 #contact-link:active{
     background-color: #910b0b;
 }
 .contact-input-contact{
-    color: white;
+    color: var(--text-color);
     background-color: var(--bg);
     font-family: 'CutiveMono-Regular';
     font-weight: bold;
@@ -97,10 +101,10 @@ font-size: calc(var(--nav-size)*.25);
 }
 .contact-input-contact:hover{
     filter: brightness(1.2);
-    border:  calc(var(--nav-size)*.025) solid white;
+    border:  calc(var(--nav-size)*.025) solid var(--text-color);
 }
 .contact-input-message{
-    color: white;
+    color: var(--text-color);
     background-color: var(--bg);
     font-family: 'CutiveMono-Regular';
     font-weight: bold;
@@ -113,5 +117,5 @@ font-size: calc(var(--nav-size)*.25);
 }
 .contact-input-message:hover{
     filter: brightness(1.2);
-    border:  calc(var(--nav-size)*.025) solid white;
+    border:  calc(var(--nav-size)*.025) solid var(--text-color);
 }
