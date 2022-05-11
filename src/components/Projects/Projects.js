@@ -20,7 +20,9 @@ function Projects() {
         </div>
         
         <div className="projects-description">
-          Click each project for more information.
+          Click each image to visit the project. 
+          <br/>
+          (Github linked inside)
         </div>
         <div></div>
         <div className="projects-holder">
@@ -31,6 +33,11 @@ function Projects() {
                 <img id="projects-p1-img" src={pollsimg} alt="the display for polling website"/>
               </a>
             </div>
+            <div className="projects-div-text">
+              Create your own survey for other site viewers. No sign-in required!
+              <br/><br/>
+              ReactJS, Google Firebase, HTML, CSS, Netlify
+            </div>
           </div>
 
           <div className="projects-div">
@@ -38,6 +45,11 @@ function Projects() {
               <a href="/annuities">
                 <img id="projects-p5-img" src={annuitiesimg} alt="the display for my cad projects"/>
               </a>
+            </div>
+            <div className="projects-div-text">
+              Calculate the compound effect on your investments.
+              <br/><br/>
+              ReactJS, HTML, CSS, Netlify
             </div>
           </div>
 
@@ -47,6 +59,11 @@ function Projects() {
                 <img id="projects-p6-img" src={wordleimg} alt="the display for wordle "/>
               </a>
             </div>
+            <div className="projects-div-text">
+              Try to guess the answer! You can also choose the word length.
+              <br/><br/>
+              ReactJS, HTML, CSS, Netlify
+            </div>
           </div>
 
           <div className="projects-div">
@@ -55,6 +72,11 @@ function Projects() {
                 <img id="projects-p2-img" src={wordleSimg} alt="the display for wordle solver website"/>
               </a>
             </div>
+            <div className="projects-div-text">
+              Find the answer to any Wordle puzzle.
+              <br/><br/>
+              ReactJS, HTML, CSS, Netlify
+            </div>
           </div>
           <div className="projects-div">
             <div className="projects-p7">
@@ -62,10 +84,21 @@ function Projects() {
                 <img id="projects-p7-img" src={ethanolimg} alt="the display for ethanol calculator"/>
               </a>
             </div>
+            <div className="projects-div-text">
+              Calculates the standard drinks in any alcoholic volume.
+              <br/><br/>
+              ReactJS, HTML, CSS, Netlify
+            </div>
           </div>
           <div className="projects-div">
             <div className="projects-p3">
               <BitcoinAPI/>
+            </div>
+            <div className="projects-div-text">
+            <br/>
+              This displays current bitcoin price using CoinDesk API. Source code on main site's GitHub.
+              <br/><br/>
+              ReactJS, HTML, CSS, Netlify
             </div>
           </div>
 
@@ -74,6 +107,11 @@ function Projects() {
               <a href="/drafting">
                 <img id="projects-p4-img" src={draftingimg} alt="the display for my cad projects"/>
               </a>
+            </div>
+            <div className="projects-div-text">
+              This displays my previous drafting work in a slideshow.
+              <br/><br/>
+              ReactJS, HTML, CSS, Netlify
             </div>
           </div>
         </div>
