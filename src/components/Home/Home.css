@@ -31,7 +31,7 @@
     font-weight: calc(var(--nav-size)*5);
     z-index: 0;
     position: relative;
-    background-color: rgba(0, 0, 0, 0.72);
+    background-color: var(--bg-video);
 }
 
 .container-scroll{
@@ -41,7 +41,7 @@
     padding-left: calc(var(--nav-size)*.8);
     padding-right: calc(var(--nav-size)*.6);
     padding-top: calc(var(--nav-size)*4);
-    color: white;
+    color: var(--text-color);
     font-weight: bold;
 }
 #text-title{
@@ -49,20 +49,20 @@
     font-size: calc(var(--nav-size)*.4);
     border-radius: 1%;
     padding: calc(var(--nav-size)*.1);
-    text-shadow: calc(var(--nav-size)*.045) calc(var(--nav-size)*.04) black;
+    text-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.02) var(--border);
 }
 #text-body{
     font-size: calc(var(--nav-size)*.28);
     border-radius: 1%;
     padding: calc(var(--nav-size)*.15);
-    text-shadow: calc(var(--nav-size)*.045) calc(var(--nav-size)*.04) black;
+    text-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.02) var(--border);
 }
 #text-subtext{
-    font-weight:normal;
+    /* font-weight:normal; */
     font-size: calc(var(--nav-size)*.25);
     border-radius: 1%;
     padding: calc(var(--nav-size)*.15);
-    text-shadow: calc(var(--nav-size)*.045) calc(var(--nav-size)*.04) black;
+    text-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.02) var(--border);
 }
 .content-shadow{
     background-color: rgba(0, 0, 0, 0.6);
@@ -75,10 +75,10 @@ padding-bottom: calc(var(--nav-size)*.6);
     padding-left: calc(var(--nav-size)*.8);
     padding-right: calc(var(--nav-size)*.6);
     font-size: calc(var(--nav-size)*.4);
-    color: white;
+    color: var(--text-color);
     font-weight: bold;
     word-wrap: break-word;
-    background-color: rgba(0, 0, 0, 0.6);
+    background-color: var(--bg-video);
 }
 #content-p3{
     text-align: center;
@@ -86,9 +86,9 @@ padding-bottom: calc(var(--nav-size)*.6);
     padding-left: calc(var(--nav-size)*.8);
     padding-right: calc(var(--nav-size)*.6);
     font-size: calc(var(--nav-size)*.4);
-    color: white;
+    color: var(--text-color);
     font-weight: bold;
-    background-color: rgba(0, 0, 0, 0.6);
+    background-color: var(--bg-video);
 }
 #content-p4{
     text-align: center;
@@ -96,9 +96,9 @@ padding-bottom: calc(var(--nav-size)*.6);
     padding-left: calc(var(--nav-size)*.8);
     padding-right: calc(var(--nav-size)*.6);
     font-size: calc(var(--nav-size)*.4);
-    color: white;
+    color: var(--text-color);
     font-weight: bold;
-    background-color: rgba(0, 0, 0, 0.6);
+    background-color: var(--bg-video);
 }
 #content-p5{
     padding-top: calc(var(--nav-size)*.5);
@@ -106,9 +106,9 @@ padding-bottom: calc(var(--nav-size)*.6);
     padding-left: calc(var(--nav-size)*.8);
     padding-right: calc(var(--nav-size)*.6);
     font-size: calc(var(--nav-size)*.4);
-    color: white;
+    color: var(--text-color);
     font-weight: bold;
-    background-color: rgba(0, 0, 0, 0.6);
+    background-color: var(--bg-video);
 }
 .fade-in{
     transition: opacity .5s ease;
@@ -119,19 +119,19 @@ padding-bottom: calc(var(--nav-size)*.6);
 }
 .content-button{
     text-align: center;
-    color: white;
+    color: var(--text-color);
     font-weight: bold;
 }
 #content-button{
     font-family: 'CutiveMono-Regular';
-    color: white;
+    color: var(--text-color);
     font-size: calc(var(--nav-size)*.28);
     padding: calc(var(--nav-size)*.06);
     width: calc(var(--nav-size)*4);
     margin-top: calc(var(--nav-size)*.1);
     text-align: center;
     display: inline-block;
-    background-color: rgba(0, 0, 0, 0.6);
+    background-color: var(--bg-video);
     cursor: pointer;
     border-radius: 3%;
     font-weight: bold;

@@ -18,15 +18,28 @@ body, html {
 }
 
 :root{
-  --bg:rgb(53, 53, 53);
-  --bg-accent:rgb(126, 126, 126);
-  --text-color:white;
   --nav-size:max(6vw,min(70px,16vw));
   --border:1px solid rgb(53, 53, 53);
   --border-radius: 8px;
   --speed:500ms;
   font-size: calc(var(--nav-size)*0.81);
 }
+
+.light-theme{
+  --bg:rgb(246, 246, 246);
+  --bg-video:rgba(255, 255, 255, 0.25);
+  --bg-accent:rgb(126, 126, 126);
+  --text-color:rgb(0, 0, 0);
+  --text-color-inv: rgb(246, 246, 246);
+}
+.dark-theme{
+  --bg:rgb(53, 53, 53);
+  --bg-video:rgba(24, 24, 24, 0.75);
+  --bg-accent:rgb(126, 126, 126);
+  --text-color:white;
+  --text-color-inv: rgb(0, 0, 0);
+}
+
 ul{
   list-style: none;
   margin: 0;
