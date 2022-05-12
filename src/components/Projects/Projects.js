@@ -5,6 +5,9 @@ import wordleimg from "./wordle.PNG";
 import annuitiesimg from "./Annuities.jpeg";
 import draftingimg from "./drafting.jpg";
 import ethanolimg from "./ethanol.PNG";
+import Utility from "./Utility";
+
+import ReactTooltip from "react-tooltip";
 import Footer from './../Footer/Footer';
 import BitcoinAPI from "./../BitcoinAPI/BitcoinAPI.js";
 import NavBar from './../NavBar/NavBar';
@@ -36,20 +39,13 @@ function Projects() {
             <div className="projects-div-text">
               Create your own survey for other site viewers. No sign-in required!
               <br/><br/>
-              ReactJS, Google Firebase, HTML, CSS, Netlify
-            </div>
-          </div>
-
-          <div className="projects-div">
-            <div className="projects-p5">
-              <a href="/annuities">
-                <img id="projects-p5-img" src={annuitiesimg} alt="the display for my cad projects"/>
-              </a>
-            </div>
-            <div className="projects-div-text">
-              Calculate the effect of compound interest on your investment.
-              <br/><br/>
-              ReactJS, HTML, CSS, Netlify
+              <div className="utility-space">
+                <Utility type="html"/>
+                <Utility type="react"/>
+                <Utility type="css"/>
+                <Utility type="firebase"/>
+                <Utility type="netlify"/>
+              </div>
             </div>
           </div>
 
@@ -62,7 +58,30 @@ function Projects() {
             <div className="projects-div-text">
               Try to guess the answer! You can also choose the word length.
               <br/><br/>
-              ReactJS, HTML, CSS, Netlify
+              <div className="utility-space">
+                <Utility type="html"/>
+                <Utility type="react"/>
+                <Utility type="css"/>
+                <Utility type="netlify"/>
+              </div>
+            </div>
+          </div>
+
+          <div className="projects-div">
+            <div className="projects-p5">
+              <a href="/annuities">
+                <img id="projects-p5-img" src={annuitiesimg} alt="the display for my cad projects"/>
+              </a>
+            </div>
+            <div className="projects-div-text">
+              Calculate the effect of compound interest on your investment.
+              <br/><br/>
+              <div className="utility-space">
+                <Utility type="html"/>
+                <Utility type="react"/>
+                <Utility type="css"/>
+                <Utility type="netlify"/>
+              </div>
             </div>
           </div>
 
@@ -75,7 +94,12 @@ function Projects() {
             <div className="projects-div-text">
               Find the answer to any Wordle puzzle.
               <br/><br/>
-              ReactJS, HTML, CSS, Netlify
+              <div className="utility-space">
+                <Utility type="html"/>
+                <Utility type="react"/>
+                <Utility type="css"/>
+                <Utility type="netlify"/>
+              </div>
             </div>
           </div>
           <div className="projects-div">
@@ -87,7 +111,12 @@ function Projects() {
             <div className="projects-div-text">
               Calculates the standard drinks in any alcoholic volume.
               <br/><br/>
-              ReactJS, HTML, CSS, Netlify
+              <div className="utility-space">
+                <Utility type="html"/>
+                <Utility type="react"/>
+                <Utility type="css"/>
+                <Utility type="netlify"/>
+              </div>
             </div>
           </div>
           <div className="projects-div">
@@ -98,7 +127,12 @@ function Projects() {
             <br/>
               This displays the current bitcoin price using the CoinDesk API. Source code on main site's GitHub. Click the price to call an update.
               <br/><br/>
-              ReactJS, HTML, CSS, Netlify
+              <div className="utility-space">
+                <Utility type="html"/>
+                <Utility type="react"/>
+                <Utility type="css"/>
+                <Utility type="netlify"/>
+              </div>
             </div>
           </div>
 
@@ -111,7 +145,12 @@ function Projects() {
             <div className="projects-div-text">
               This displays my previous drafting work in an image slideshow.
               <br/><br/>
-              ReactJS, HTML, CSS, Netlify
+              <div className="utility-space">
+                <Utility type="html"/>
+                <Utility type="react"/>
+                <Utility type="css"/>
+                <Utility type="netlify"/>
+              </div>
             </div>
           </div>
         </div>
