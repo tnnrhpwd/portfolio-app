@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from "react";
 import BackgroundVideo from "./BackgroundVideo.js";
 import NavBar from "./../NavBar/NavBar";
+import Utility from "./../Projects/Utility";
 import './Home.css';
 
 function Home() {
@@ -46,6 +47,13 @@ function Home() {
               <div id="text-body"></div>
               <div id="text-subtext">Increasing conforming output and decreasing waste.</div>
               <div id="text-body"></div>
+              <a className="utility-home-space" href="/projects">
+                <Utility type="html" tips={false}/>
+                <Utility type="react" tips={false}/>
+                <Utility type="css" tips={false}/>
+                <Utility type="firebase" tips={false}/>
+                <Utility type="netlify" tips={false}/>
+              </a>
             </div>
           </section>
 

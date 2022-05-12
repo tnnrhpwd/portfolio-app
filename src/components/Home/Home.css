@@ -25,6 +25,9 @@
     z-index: -1;
 
 }
+.utility-home-space{
+    cursor: pointer;
+}
 
 .section-tile{
     font-family: 'CutiveMono-Regular';

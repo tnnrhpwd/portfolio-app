@@ -34,6 +34,7 @@
     }
     .projects-tip-words{
         font-size: calc(var(--nav-size)*.175);
+        /* z-index: 9999999999999; */
     }
 }
 @media (orientation: portrait) {

@@ -7,7 +7,6 @@ import draftingimg from "./drafting.jpg";
 import ethanolimg from "./ethanol.PNG";
 import Utility from "./Utility";
 
-import ReactTooltip from "react-tooltip";
 import Footer from './../Footer/Footer';
 import BitcoinAPI from "./../BitcoinAPI/BitcoinAPI.js";
 import NavBar from './../NavBar/NavBar';
