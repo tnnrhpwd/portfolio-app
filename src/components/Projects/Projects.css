@@ -21,6 +21,9 @@
         --project-brightness: brightness(1.2);
         --project-text-width: calc(var(--nav-size)*8);
     }
+    .projects-div{
+        height: calc(var(--nav-size)*2);
+    }
 }
 @media (orientation: portrait) {
     .projects-space{
@@ -28,6 +31,9 @@
         --project-height: calc(var(--nav-size)*1.65);
         --project-brightness: brightness(1.2);
         --project-text-width: calc(var(--nav-size)*5);
+    }
+    .projects-div{
+        height: auto;
     }
 }
 .projects-title{
