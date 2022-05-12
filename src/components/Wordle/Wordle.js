@@ -90,8 +90,8 @@ function Wordle() {
   }
 
   const startKeyListen = () => {
-    console.log("start listening")
     document.addEventListener('keydown', keyListener, false);
+    console.log("Now listening for keyboard inputs")
   }
   
   const newGameButton = () => {
@@ -141,9 +141,9 @@ function Wordle() {
 
   }
 
-  useEffect(() => {
-    console.log("game state="+inGameState)
-  },[inGameState])
+  // useEffect(() => {
+  //   console.log("game state="+inGameState)
+  // },[inGameState])
 
   function GetGuessGrid(){
     let grid = [];
@@ -171,7 +171,7 @@ function Wordle() {
         enter();
         break;
       default:
-        console.log(key);
+        // console.log(key);
         // console.log(currentGuess.length);
         // console.log(guesses.length);
         // console.log(wordLength);

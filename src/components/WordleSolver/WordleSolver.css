@@ -4,7 +4,8 @@
   url(./../../fonts/CutiveMono-Regular.woff) format('woff');
 }
 .containerq{ /* Container CLASS */
-  color: rgb(255, 255, 255);
+  color: var(--text-color);
+  font-weight: bold;
   display: flex;
   align-items: center;
   height: 100vh;

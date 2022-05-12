@@ -36,6 +36,7 @@
 
 .container-scroll{
     min-height: 100vh;
+    background-color: transparent !important;
 }
 #content-title{
     padding-left: calc(var(--nav-size)*.8);

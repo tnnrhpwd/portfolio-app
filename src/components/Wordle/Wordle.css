@@ -1,8 +1,8 @@
 .wordle-space{                          
-    color: rgb(255, 255, 255);
+    color: var(--text-color);
     display: flex;
     align-items: center;
-    height: 100vh;
+    min-height: 100vh;
     flex-direction: column;
     padding-top: calc(var(--nav-size)*1);
     font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
@@ -13,21 +13,21 @@
 .wordle-space .found{
     background-color: #c9b458;
     border-color: #c9b458;
-    color: white;
+    color: var(--text-color);
 }
 .wordle-space .correct{
     background-color: #538D4E;
     border-color: #538D4E;
-    color: white;
+    color: var(--text-color);
 }
 .wordle-space .wrong {   /* CLASS for wrong letters*/
     background-color: var(--bg-accent);
     border-color: var(--bg-accent);
-    color: white;
+    color: var(--text-color);
     
   }
 .title { /* CLASS for the region containing the Title */
-    color: #FFFFFF;
+    color: var(--text-color);
     font-size: calc(var(--nav-size)*.5);
     border-bottom: solid min(3px,5vw) var(--bg-accent); 
     height: calc(var(--nav-size)*.6);
@@ -52,7 +52,7 @@
     width: calc(var(--nav-size)*.25);
 
     vertical-align: middle;
-    color: #FFFFFF;
+    color: var(--text-color);
     margin: calc(max(var(--nav-size)*.01,.25%));
 }
 
@@ -65,14 +65,15 @@
     text-transform: uppercase;
     font-size: calc(max(var(--nav-size)*.2,1%));
     border-radius: calc(var(--nav-size)*.1);
-    background-color: #d3d6da;
+    background-color: var(--text-color-inv);
+    color: var(--text-color);
     border: 0;
     padding: calc(max(var(--nav-size)*.175,1%));
     margin: calc(var(--nav-size)*.01);
     cursor: pointer;
-    color: #1a1a1b;
     vertical-align: middle;
     min-width: calc(max(var(--nav-size)*.50,4%));
+    border: calc(var(--nav-size)*.001) solid var(--bg-accent);
 }
 .key:hover{
     filter: brightness(1.2);
@@ -88,12 +89,12 @@
 }
 .credits { /* CLASS for the region containing the Thank you for visiting */
     margin-top: min(20px,4vw);
-    color: #dfdfe2;
+    color: var(--text-color);
     font-size: min(4.5vw,20px);
 }
 .automate { /* CLASS for the region containing the REVEAL SOLUTION button */
     margin-top: min(10px,4vw);
-    color: #d3d6da;
+    color: var(--text-color);
     font-size: calc(var(--nav-size)*.26);
     text-align: center;
 }
@@ -103,6 +104,9 @@
     cursor: pointer;
     width: calc(var(--nav-size)*2);
     height: calc(var(--nav-size)*.55);
+    color: var(--text-color);
+    background-color: var(--text-color-inv);
+    border: calc(var(--nav-size)*.001) solid var(--bg-accent);
 }
 #automate-newBut:hover{
     filter: brightness(1.2);
@@ -113,6 +117,9 @@
     font-size: calc(var(--nav-size)*.26);
     vertical-align: bottom;
     cursor: pointer;
+    color: var(--text-color);
+    background-color: var(--text-color-inv);
+    border: calc(var(--nav-size)*.001) solid var(--bg-accent);
 }
 #automate-solutionBut:hover{
     filter: brightness(1.2);
@@ -123,6 +130,9 @@
     cursor: pointer;
     height: calc(var(--nav-size)*.55);
     width: calc(var(--nav-size)*.6);
+    color: var(--text-color);
+    background-color: var(--text-color-inv);
+    border: calc(var(--nav-size)*.001) solid var(--bg-accent);
 }
 #automate-settingBut:hover{
     filter: brightness(1.2);
@@ -133,6 +143,9 @@
     vertical-align: middle;
     cursor: pointer;
     height: calc(var(--nav-size)*.4);
+    color: var(--text-color);
+    background-color: var(--text-color-inv);
+    border: calc(var(--nav-size)*.001) solid var(--bg-accent);
 }
 #automate-solverbut:hover{
     filter: brightness(1.2);
@@ -142,7 +155,7 @@
     padding: min(10px,4vw);
     text-align: center;
     font-size: calc(var(--nav-size)*.3);
-    border-style: dashed;
+    border: calc(var(--nav-size)*.001) dashed var(--text-color);
 }
 #settingMenu-text{  /* CLASS for the region containing the settings input */
     font-size: calc(var(--nav-size)*.26);

@@ -2,6 +2,7 @@
   color: var(--text-color); 
   text-align: center;
   padding-top: calc(var(--nav-size)*1.1);
+  background-color: var(--bg);
 }
 .poll-source-but{
   margin-bottom: calc(var(--nav-size)*1.1);

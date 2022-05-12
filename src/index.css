@@ -26,7 +26,7 @@ body, html {
 }
 
 .light-theme{
-  --bg:rgb(246, 246, 246);
+  --bg:rgba(246, 246, 246, 0.5);
   --bg-video:rgba(255, 255, 255, 0.45);
   --bg-accent:rgb(126, 126, 126);
   --text-color:rgb(0, 0, 0);

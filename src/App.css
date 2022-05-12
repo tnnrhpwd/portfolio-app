@@ -1,4 +1,5 @@
 .App{
     min-height: 100vh;
-    background-color: var(--bg);
+    /* background-color: var(--bg); */
+    /* z-index: -999999999999999999999999999; */
 }
