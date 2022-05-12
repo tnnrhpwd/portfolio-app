@@ -27,6 +27,8 @@
 }
 .utility-home-space{
     cursor: pointer;
+    height: auto;
+    width: auto;
 }
 
 .section-tile{
@@ -139,6 +141,7 @@ padding-bottom: calc(var(--nav-size)*.6);
     cursor: pointer;
     border-radius: 3%;
     font-weight: bold;
+    border: calc(var(--nav-size)*0.001) solid var(--text-color);
 }#content-button:hover{
     background-color: var(--bg);
     border-radius: 3%;

@@ -30,27 +30,31 @@
 .contact-body{
     font-size: 0;
     margin-top: calc(var(--nav-size)*.05);
+
 }
 .contact-social{
     display: inline-block;
     border-radius: 5%;
     color: var(--text-color);
+    /* background-image: radial-gradient(rgb(53, 53, 53) 80%, transparent ); */
+    background-color: rgb(53, 53, 53);
 }
 .contact-linkedin{
     width: calc(var(--nav-size)*1.2);
     border-radius: 5%;
     cursor: pointer;
+    height: calc(var(--nav-size)*.63);
 }
 /* .contact-linkedin:hover{
     filter: brightness(.2);
     border:  calc(var(--nav-size)*.025) solid var(--text-color);
 } */
 .contact-github{
-    width: calc(var(--nav-size)*1.8);
-    /* height: calc(var(--nav-size)*1); */
+    width: calc(var(--nav-size)*1.7);
+    height: calc(var(--nav-size)*.63);
     border-radius: 5%;
     cursor: pointer;
-    background-color: transparent;
+
 }
 /* .contact-github:hover{
     border:  calc(var(--nav-size)*.025) solid var(--text-color);
