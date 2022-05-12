@@ -2,7 +2,7 @@
     font-family: 'Times New Roman', Times, serif;
     padding-top: calc(var(--nav-size)*1);
     background-color: var(--bg);
-    color: white;
+    color: var(--text-color);
     text-align: center;
     min-height: 100vh;
 }
@@ -110,8 +110,8 @@
     padding-left: calc(var(--nav-size)*.17);
     padding-right: calc(var(--nav-size)*.4);
     padding-bottom: calc(var(--nav-size)*.05);
-    background-color: rgb(78, 78, 78);
-    color: white;
+    background-color: var(--text-color);
+    color: var(--text-color-inv);
     border: calc(var(--nav-size)*.0001) solid rgba(255, 255, 255, 0.885);
     border-radius: 5%;
     cursor: pointer;
@@ -142,14 +142,14 @@
 .ethanol-calculator-standard-button{
     word-wrap: normal;
     color: white;
-    border: calc(var(--nav-size)*.0001) solid white;
+    border: calc(var(--nav-size)*.0001) solid var(--text-color);
     border-radius: 5%;
     cursor: pointer;
     margin-left: calc(var(--nav-size)*.15);
     font-size: calc(var(--nav-size)*.15);
     display: inline-block;
     background-color: var(--bg);
-    color: white;
+    color: var(--text-color);
     padding: calc(var(--nav-size)*.03);
 }
 .ethanol-calculator-percent{
@@ -186,7 +186,7 @@
 
 .ethanolvisual{
 
-    color: white;
+    color: var(--text-color);
     font-size: calc(var(--nav-size)*.3);
 }
 .ethanolvisual-circles{
@@ -201,7 +201,7 @@
     stroke: var(--bg);
 }
 .CircularProgressbar .CircularProgressbar-path{
-    stroke: white;
+    stroke: var(--text-color);
 }
 
 #ethanol-sourcecode{
@@ -212,8 +212,8 @@
     font-size: calc(var(--nav-size)*.19);
     width: calc(var(--nav-size)*2.5);
     font-weight: bold;
-    background-color: rgb(78, 78, 78);
-    color: white;
+    background-color: var(--text-color);
+    color:  var(--text-color-inv);
     border: calc(var(--nav-size)*.0001) solid rgba(255, 255, 255, 0.885);
     border-radius: 5%;
     cursor: pointer;

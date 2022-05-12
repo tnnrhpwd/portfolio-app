@@ -1,6 +1,6 @@
 .annuities{
     background-color: var(--bg);
-    color: white;
+    color: var(--text-color);
     padding: calc(var(--nav-size)*.4);
     text-align: center;
     min-height: 100vh;
@@ -34,6 +34,7 @@
 
 
 .annuities-find-dropdown{
+    background-color: var(--text-color);
     display: inline-block;
     width: calc(var(--nav-size)*1.6);
     text-align: center;
@@ -42,7 +43,7 @@
 }
 .annuities-find-dropdown:hover{
     filter: brightness(1.2);
-    border: calc(var(--nav-size)*.001) solid white;
+    border: calc(var(--nav-size)*.001) solid var(--text-color);
 }
 .Dropdown-root{
 
@@ -51,9 +52,9 @@
     /* height: calc(var(--nav-size)*.58); */
     font-weight: bold;
     padding-bottom: calc(var(--nav-size)*.4);
-    background-color: rgb(78, 78, 78);
-    color: white;
-    border: calc(var(--nav-size)*.0001) solid rgba(255, 255, 255, 0.885);
+    background-color: var(--text-color);
+    color: var(--text-color-inv);
+    border: calc(var(--nav-size)*.0001) solid var(--text-color);
     border-radius: 5%;
     cursor: pointer;
 }
@@ -67,15 +68,15 @@
     font-size: calc(var(--nav-size)*.19);
     width: calc(var(--nav-size)*2.5);
     font-weight: bold;
-    background-color: rgb(78, 78, 78);
-    color: white;
-    border: calc(var(--nav-size)*.0001) solid rgba(255, 255, 255, 0.885);
+    background-color: var(--text-color);
+    color: var(--text-color-inv);
+    border: calc(var(--nav-size)*.0001) solid var(--text-color-inv);
     border-radius: 5%;
     cursor: pointer;
 }
 #newAnnuity:hover{
     filter: brightness(1.2);
-    border: calc(var(--nav-size)*.001) solid white;
+    border: calc(var(--nav-size)*.001) solid var(--text-color);
 }
 #newAnnuity:active{
     height: calc(var(--nav-size)*.55);
@@ -98,7 +99,7 @@
     margin-top: calc(var(--nav-size)*.3);
     font-size: calc(var(--nav-size)*.3);
     height: calc(var(--nav-size)*2);
-    background-color: rgb(78, 78, 78);
+    background-color: var(--text-color);
 }
 /* .annuities-output-span{
 
@@ -114,7 +115,7 @@
 }
 .annuities-newannuity{
     margin-top: calc(var(--nav-size)*.2);
-    border: calc(var(--nav-size)*.0001) solid rgba(255, 255, 255, 0.885);
+    border: calc(var(--nav-size)*.0001) solid var(--text-color);
     border-radius: 5%;
     padding-bottom: calc(var(--nav-size)*.2);
     text-align: center;
@@ -186,9 +187,9 @@
     font-size: calc(var(--nav-size)*.19);
     width: calc(var(--nav-size)*2);
     font-weight: bold;
-    background-color: rgb(78, 78, 78);
-    color: white;
-    border: calc(var(--nav-size)*.0001) solid rgba(255, 255, 255, 0.885);
+    background-color: var(--text-color);
+    color: var(--text-color-inv);
+    border: calc(var(--nav-size)*.0001) solid var(--text-color);
     border-radius: 5%;
     cursor: pointer;
 }
