@@ -4,7 +4,7 @@
     url(./../../fonts/CutiveMono-Regular.woff) format('woff');
 }
 .footer-space{
-    /* padding-top: calc(var(--nav-size)*5.5); */
+    padding-top: calc(var(--nav-size)*.5);
     font-family: 'CutiveMono-Regular';
     font-weight: bold;
     z-index: -500000000;

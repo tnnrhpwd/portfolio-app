@@ -71,7 +71,7 @@ function PollBox(){
                     <button id="button">View Source Code</button>
                 </a>
             </div>
-            <Footer transparent="1" />
+            <Footer />
         </>)
 
 }
