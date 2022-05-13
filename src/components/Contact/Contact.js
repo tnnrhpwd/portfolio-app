@@ -41,7 +41,7 @@ function Contact() {
               <label className="contact-input-text">Email (optional) </label>
               <input className="contact-input-contact" type="text" name="email" />
             </div>
-            <div className="contact-input-space">
+            <div className="contact-input-message-space">
               <label className="contact-input-text">Message </label>
               <textarea className="contact-input-message" name="message"></textarea>
             </div>

@@ -34,16 +34,20 @@
 }
 .contact-social{
     display: inline-block;
-    border-radius: 5%;
+    border-radius: calc(var(--nav-size)*.075);
     color: var(--text-color);
-    /* background-image: radial-gradient(rgb(53, 53, 53) 80%, transparent ); */
+
     background-color: rgb(53, 53, 53);
 }
 .contact-linkedin{
     width: calc(var(--nav-size)*1.2);
-    border-radius: 5%;
+    border-radius: calc(var(--nav-size)*.075);
     cursor: pointer;
     height: calc(var(--nav-size)*.63);
+}
+.contact-linkedin:hover {
+    filter: brightness(1.2);
+
 }
 /* .contact-linkedin:hover{
     filter: brightness(.2);
@@ -54,7 +58,11 @@
     height: calc(var(--nav-size)*.63);
     border-radius: 5%;
     cursor: pointer;
-
+    background-image: radial-gradient(rgb(13, 17, 23) 50%, rgb(53, 53, 53) );
+}
+.contact-github:hover {
+    filter: brightness(1.5);
+    /* background-color: #910b0b; */
 }
 /* .contact-github:hover{
     border:  calc(var(--nav-size)*.025) solid var(--text-color);
@@ -62,6 +70,11 @@
 } */
 .contact-input-space{
     font-size: calc(var(--nav-size)*.3);
+    min-height: calc(var(--nav-size)*1);
+}
+.contact-input-message-space{
+    font-size: calc(var(--nav-size)*.3);
+    min-height: calc(var(--nav-size)*1.6);
 }
 .contact-input-text{
 font-size: calc(var(--nav-size)*.25);
