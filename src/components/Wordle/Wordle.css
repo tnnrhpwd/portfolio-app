@@ -10,6 +10,8 @@
     padding-right: calc(var(--nav-size)*.2);
     background-color: var(--bg);
 }
+
+
 .wordle-space .found{
     background-color: #c9b458;
     border-color: #c9b458;
@@ -57,7 +59,7 @@
 }
 
 .wordle-answer{
-    margin-top: calc(var(--nav-size)*.2);
+    margin-bottom: calc(var(--nav-size)*.2);
     font-size: calc(var(--nav-size)*.27);
 }
 .key { /* CLASS for the keyboard buttons */
@@ -67,7 +69,6 @@
     border-radius: calc(var(--nav-size)*.1);
     background-color: var(--text-color-inv);
     color: var(--text-color);
-    border: 0;
     padding: calc(max(var(--nav-size)*.175,1%));
     margin: calc(var(--nav-size)*.01);
     cursor: pointer;
@@ -76,7 +77,7 @@
     border: calc(var(--nav-size)*.001) solid var(--bg-accent);
 }
 .key:hover{
-    filter: brightness(1.2);
+    background-image: radial-gradient( rgb(100, 100, 100) .1%, transparent );
 }
 .keyboard { /* CLASS for the region containing the keyboard */
     font-size: calc(var(--nav-size)*.6);
@@ -90,7 +91,7 @@
 .credits { /* CLASS for the region containing the Thank you for visiting */
     margin-top: min(20px,4vw);
     color: var(--text-color);
-    font-size: min(4.5vw,20px);
+    font-size: calc(var(--nav-size)*.2);
 }
 .automate { /* CLASS for the region containing the REVEAL SOLUTION button */
     margin-top: min(10px,4vw);
@@ -109,7 +110,7 @@
     border: calc(var(--nav-size)*.001) solid var(--bg-accent);
 }
 #automate-newBut:hover{
-    filter: brightness(1.2);
+    background-image: radial-gradient( rgb(100, 100, 100) .1%, transparent );
 }
 #automate-solutionBut{
     width: calc(var(--nav-size)*2.5);
@@ -122,7 +123,7 @@
     border: calc(var(--nav-size)*.001) solid var(--bg-accent);
 }
 #automate-solutionBut:hover{
-    filter: brightness(1.2);
+    background-image: radial-gradient( rgb(100, 100, 100) .1%, transparent );
 }
 #automate-settingBut{
     font-size: calc(var(--nav-size)*.36);
@@ -135,7 +136,7 @@
     border: calc(var(--nav-size)*.001) solid var(--bg-accent);
 }
 #automate-settingBut:hover{
-    filter: brightness(1.2);
+    background-image: radial-gradient( rgb(100, 100, 100) .1%, transparent );
 }
 #automate-solverbut{
     margin-top: calc(var(--nav-size)*.2);
@@ -154,16 +155,76 @@
     margin-top: calc(var(--nav-size)*.1);
     padding: min(10px,4vw);
     text-align: center;
-    font-size: calc(var(--nav-size)*.3);
+    font-size: calc(var(--nav-size)*.2);
     border: calc(var(--nav-size)*.001) dashed var(--text-color);
 }
 #settingMenu-text{  /* CLASS for the region containing the settings input */
-    font-size: calc(var(--nav-size)*.26);
+    font-size: calc(var(--nav-size)*.2);
     padding: calc(var(--nav-size)*.05);
     text-align: center;
     font-weight: bolder;
     width: calc(var(--nav-size)*.3);
-    height: calc(var(--nav-size)*.2);
+    height: calc(var(--nav-size)*.15);
     margin-left: calc(var(--nav-size)*.1);
     vertical-align: bottom;
+}
+@media (orientation: landscape) {
+    .wordle-space{                          
+        padding-top: calc(var(--nav-size)*.45);
+    }
+    .title { /* CLASS for the region containing the Title */
+        font-size: calc(var(--nav-size)*.4);
+        height: calc(var(--nav-size)*.5);
+    }
+    .keyboard { /* CLASS for the region containing the keyboard */
+        font-size: calc(var(--nav-size)*.2);
+    }
+    .key { /* CLASS for the keyboard buttons */
+        font-size: calc(var(--nav-size)*.2);
+        padding: calc(var(--nav-size)*.1);
+        margin: calc(var(--nav-size)*.005);
+        min-width: calc(var(--nav-size)*.50);
+    }
+    .guessGrid { /* CLASS for the region containing the guessGrid cells. thinly encapsulates the grid region */
+        font-size: calc(var(--nav-size)*.2); 
+        margin-top: calc(var(--nav-size)*.05); 
+        margin-bottom: calc(var(--nav-size)*0.25); 
+      }
+    .key-guess {   /* CLASS for the text letters that are placed on the guess grid*/
+        border: calc(var(--nav-size)*.02) solid var(--bg-accent);
+        height: calc(var(--nav-size)*.4);
+        font-size: calc(var(--nav-size)*.25); 
+        width: calc(var(--nav-size)*.3);
+    
+        vertical-align: middle;
+        color: var(--text-color);
+        margin: calc(max(var(--nav-size)*.01,.25%));
+    }
+    .wordle-answer{
+        font-size: calc(var(--nav-size)*.2);
+    }
+    #automate-newBut{
+        font-size: calc(var(--nav-size)*.2);
+        width: calc(var(--nav-size)*2);
+        height: calc(var(--nav-size)*.45);
+    }
+
+    #automate-solutionBut{
+        font-size: calc(var(--nav-size)*.2);
+        width: calc(var(--nav-size)*2);
+        height: calc(var(--nav-size)*.45);
+    }
+    #automate-settingBut{
+        font-size: calc(var(--nav-size)*.3);
+        height: calc(var(--nav-size)*.45);
+    }
+    #automate-solverbut{
+        margin-top: calc(var(--nav-size)*.05);
+        font-size: calc(var(--nav-size)*.2);
+        /* width: calc(var(--nav-size)*2); */
+        height: calc(var(--nav-size)*.45);
+    }
+}
+@media (orientation: portrait) {
+
 }
