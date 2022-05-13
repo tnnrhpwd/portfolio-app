@@ -61,7 +61,7 @@ function Home() {
             <div id="content-p3">
               
               <a className="content-button" href="/projects">
-                  <button id="content-button">My Projects</button>
+                  <button id="content-button">Projects</button>
                 </a>
                 <div id="text-body"></div>
             </div>
@@ -70,7 +70,7 @@ function Home() {
           <section className="section-tile">
             <div id="content-p4">
                 <a className="content-button" href="/contact">
-                  <button id="content-button">Contact Me</button>
+                  <button id="content-button">Contact</button>
                 </a>
                 <div id="text-body"></div>
             </div>
