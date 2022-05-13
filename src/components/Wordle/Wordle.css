@@ -170,7 +170,7 @@
 }
 @media (orientation: landscape) {
     .wordle-space{                          
-        padding-top: calc(var(--nav-size)*.45);
+        /* padding-top: calc(var(--nav-size)*.45); */
     }
     .title { /* CLASS for the region containing the Title */
         font-size: calc(var(--nav-size)*.4);
