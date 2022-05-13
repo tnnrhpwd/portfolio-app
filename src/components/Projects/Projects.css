@@ -22,7 +22,7 @@
         --project-text-width: calc(var(--nav-size)*8);
     }
     .projects-div{
-        height: calc(var(--nav-size)*2);
+        min-height: calc(var(--nav-size)*2);
     }
     .projects-logos-div{
         display: inline;
@@ -48,7 +48,7 @@
         height: auto;
     }
     .projects-logos-div{
-        display: inline;
+        display: inline-block;
     }
     .utility-space{
         text-align: center;
@@ -201,7 +201,8 @@
 .projects-p2{
     font-size: calc(var(--nav-size)*.5);
     width: calc(var(--nav-size)*3);
-    display: inline;
+    height: calc(var(--nav-size)*1.65);
+    display: inline-block;
     text-align: center;
     margin: calc(var(--nav-size)*.1);
     
