@@ -5,6 +5,8 @@ import wordleimg from "./wordle.PNG";
 import annuitiesimg from "./Annuities.jpeg";
 import draftingimg from "./drafting.jpg";
 import ethanolimg from "./ethanol.PNG";
+import saloncwimg from "./saloncw.png";
+
 import Utility from "./Utility";
 
 import Footer from './../Footer/Footer';
@@ -23,8 +25,6 @@ function Projects() {
         
         <div className="projects-description">
           Click each image to visit the project. 
-          <br/>
-          (Github linked inside)
         </div>
         <div></div>
         <div className="projects-holder">
@@ -39,6 +39,7 @@ function Projects() {
               Create your own survey for other site viewers. No sign-in required!
               <br/><br/>
               <div className="utility-space">
+              <Utility type="code" url="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/PollBox"/>
                 <Utility type="html"/>
                 <Utility type="react"/>
                 <Utility type="css"/>
@@ -47,7 +48,7 @@ function Projects() {
               </div>
             </div>
           </div>
-
+          
           <div className="projects-div">
             <div className="projects-p6">
               <a href="/wordle">
@@ -58,6 +59,27 @@ function Projects() {
               Try to guess the answer! You can also choose the word length.
               <br/><br/>
               <div className="utility-space">
+                <Utility type="code" url="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Wordle"/>
+                <Utility type="html"/>
+                <Utility type="react"/>
+                <Utility type="css"/>
+                <Utility type="netlify"/>
+              </div>
+            </div>
+          </div>
+
+          <div className="projects-div">
+            <div className="projects-p8">
+              <a href="https://saloncw.netlify.app/"  rel="noreferrer" target="_blank">
+                <img id="projects-p8-img" src={saloncwimg} alt="the display for saloncw "/>
+              </a>
+            </div>
+            <div className="projects-div-text">
+              This was designed for a local salon to provide information to potential customers.
+              <br/><br/>
+              <div className="utility-space">
+
+                <Utility type="code" url="https://github.com/tnnrhpwd/saloncw"/>
                 <Utility type="html"/>
                 <Utility type="react"/>
                 <Utility type="css"/>
@@ -76,6 +98,7 @@ function Projects() {
               Calculate the effect of compound interest on your investment.
               <br/><br/>
               <div className="utility-space">
+                <Utility type="code" url="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Annuities"/>
                 <Utility type="html"/>
                 <Utility type="react"/>
                 <Utility type="css"/>
@@ -94,6 +117,7 @@ function Projects() {
               Find the answer to any Wordle puzzle.
               <br/><br/>
               <div className="utility-space">
+                <Utility type="code" url="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/WordleSolver"/>
                 <Utility type="html"/>
                 <Utility type="react"/>
                 <Utility type="css"/>
@@ -101,6 +125,9 @@ function Projects() {
               </div>
             </div>
           </div>
+
+
+          
           <div className="projects-div">
             <div className="projects-p7">
               <a href="/ethanol">
@@ -111,6 +138,7 @@ function Projects() {
               Calculates the standard drinks in any alcoholic volume.
               <br/><br/>
               <div className="utility-space">
+                <Utility type="code" url="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Ethanol"/>
                 <Utility type="html"/>
                 <Utility type="react"/>
                 <Utility type="css"/>
@@ -127,6 +155,7 @@ function Projects() {
               This displays the current bitcoin price using the CoinDesk API. Source code on main site's GitHub. Click the price to call an update.
               <br/><br/>
               <div className="utility-space">
+                <Utility type="code" url="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/BitcoinAPI"/>
                 <Utility type="html"/>
                 <Utility type="react"/>
                 <Utility type="css"/>
@@ -145,6 +174,7 @@ function Projects() {
               This displays my previous drafting work in an image slideshow.
               <br/><br/>
               <div className="utility-space">
+                <Utility type="code" url="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Drafting"/>
                 <Utility type="html"/>
                 <Utility type="react"/>
                 <Utility type="css"/>

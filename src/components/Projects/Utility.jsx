@@ -1,5 +1,6 @@
 import ReactTooltip from "react-tooltip";
 
+import codeimg from "./github.png";
 import htmlimg from "./html.png";
 import reactimg from "./react.png";
 import firebaseimg from "./firebase.png";
@@ -19,6 +20,19 @@ function Utility(props) {
     }
 
     switch(props.type) {
+        case "code":
+            return (<>
+                <div className="projects-logos-div" data-tip="" data-for="projects-code-tip">
+                    <a href={props.url}  rel="noreferrer" target="_blank">
+                        <img className="projects-logos" id="projects-code" src={codeimg} alt="source code logo"/>
+                    </a>
+                </div>
+                {showTips && 
+                    <ReactTooltip id="projects-code-tip" place="bottom" effect="solid">
+                        <div className="projects-tip-words"> Source Code</div>
+                    </ReactTooltip>
+                }
+            </>);
         case "html":
             return (<>
                 <div className="projects-logos-div" data-tip="" data-for="projects-html-tip">
