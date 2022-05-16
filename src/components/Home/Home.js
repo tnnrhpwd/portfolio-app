@@ -2,7 +2,19 @@ import React, {useEffect, useState} from "react";
 import BackgroundVideo from "./BackgroundVideo.js";
 import NavBar from "./../NavBar/NavBar";
 import Utility from "./../Projects/Utility";
+
+import lwwimg from './lww.png';
+import marelliimg from './marelli.png';
+import rcmimg from './rcm.png';
+import shawimg from './shaw.png';
+
 import './Home.css';
+
+const lwwlink = "https://www.lewisburgwater.org";
+const marellilink = "https://www.marelli.com";
+const rcmlink = "https://www.rcmindustries.com/";
+const shawlink = "https://www.shawinc.com/";
+
 
 function Home() {
 
@@ -41,19 +53,33 @@ function Home() {
 
           <section className="section-tile">
             <div id="content-p2">
-            <div id="text-body"></div>
               <div id="text-body"> Skills: </div>
-              <div id="text-subtext"> Programming, Process Improvement, and Automation </div>
+              <div id="text-subtext"> Web Development, Process Improvement, and Automation </div>
               <div id="text-body"></div>
               <div id="text-subtext">Increasing conforming output and decreasing waste.</div>
               <div id="text-body"></div>
-              <a className="utility-home-space" href="/projects">
-                <Utility type="html" tips={false}/>
-                <Utility type="react" tips={false}/>
-                <Utility type="css" tips={false}/>
-                <Utility type="firebase" tips={false}/>
-                <Utility type="netlify" tips={false}/>
-              </a>
+              <div className="utility-spc">
+                <a className="utility-home-space" href="/projects">
+                  <Utility type="html" tips={false}/>
+                  <Utility type="react" tips={false}/>
+                  <Utility type="css" tips={false}/>
+                  <Utility type="firebase" tips={false}/>
+                  <Utility type="netlify" tips={false}/>
+                </a>
+              </div>
+
+            </div>
+          </section>
+
+          <section className="section-tile">
+            <div id="content-p2">
+              <div id="text-body"> Previous Employers: </div>
+              <div className="home-spc">
+                <a   rel="noreferrer" target="_blank" href={lwwlink} ><img className="home-spc-logos" src={lwwimg} alt="lewisburg wastewater logo" /></a> 
+                <a   rel="noreferrer" target="_blank" href={marellilink} ><img className="home-spc-logos" src={marelliimg} alt="marelli logo" /></a> 
+                <a   rel="noreferrer" target="_blank" href={rcmlink} ><img className="home-spc-logos" src={rcmimg} alt="rcm logo" /></a> 
+                <a   rel="noreferrer" target="_blank" href={shawlink} ><img className="home-spc-logos" src={shawimg} alt="shaw logo" /></a> 
+              </div>
             </div>
           </section>
 

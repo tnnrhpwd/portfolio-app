@@ -25,12 +25,16 @@
     z-index: -1;
 
 }
+.utility-spc{
+    text-align: center;
+}
 .utility-home-space{
     cursor: pointer;
     bottom: 0;
     /* height: calc(var(--nav-size)*1.5); */
-    width: auto;
+    width: 100%;
     background-color: transparent;
+
 }
 
 .section-tile{
@@ -148,4 +152,15 @@ padding-bottom: calc(var(--nav-size)*.6);
 #content-button:hover{
     background-color: rgb(53, 53, 53);
     color: white;
+}
+
+.home-spc{
+    text-align: center;
+    display: block;
+    width: 100%;
+}
+.home-spc-logos{
+    width: 15vw;
+    display: inline-block;
+    margin: calc(var(--nav-size)*0.1);
 }
