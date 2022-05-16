@@ -160,7 +160,7 @@ padding-bottom: calc(var(--nav-size)*.6);
     width: 100%;
 }
 .home-spc-logos{
-    width: 15vw;
+    width: calc(var(--nav-size)*1.75);
     display: inline-block;
     margin: calc(var(--nav-size)*0.1);
 }
