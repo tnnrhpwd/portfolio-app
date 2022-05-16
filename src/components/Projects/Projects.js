@@ -152,7 +152,7 @@ function Projects() {
             </div>
             <div className="projects-div-text">
             <br/>
-              This displays the current bitcoin price using the CoinDesk API. Source code on main site's GitHub. Click the price to call an update.
+              This displays the current bitcoin price using the CoinDesk API. Click the price to call an update.
               <br/><br/>
               <div className="utility-space">
                 <Utility type="code" url="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/BitcoinAPI"/>
