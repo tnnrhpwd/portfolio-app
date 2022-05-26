@@ -6,12 +6,13 @@ import annuitiesimg from "./Annuities.jpeg";
 import draftingimg from "./drafting.jpg";
 import ethanolimg from "./ethanol.PNG";
 import saloncwimg from "./saloncw.png";
+import planitimg from './planit.png';
 
 import Utility from "./Utility";
 
-import Footer from './../Footer/Footer';
-import BitcoinAPI from "./../BitcoinAPI/BitcoinAPI.js";
-import NavBar from './../NavBar/NavBar';
+import Footer from '../Footer/Footer';
+import BitcoinAPI from "../BitcoinAPI/BitcoinAPI.js";
+import NavBar from '../NavBar/NavBar';
 import "./Projects.css";
 
 function Projects() {
@@ -84,6 +85,28 @@ function Projects() {
                 <Utility type="react"/>
                 <Utility type="css"/>
                 <Utility type="netlify"/>
+              </div>
+            </div>
+          </div>
+
+          <div className="projects-div">
+            <div className="projects-p9">
+              <a href="https://mern-planit-app.herokuapp.com/"  rel="noreferrer" target="_blank">
+                <img id="projects-p9-img" src={planitimg} alt="the display for my planit project"/>
+              </a>
+            </div>
+            <div className="projects-div-text">
+              Do you have a plan you want to share with the world?
+              <br/><br/> (Work-in-Progress) ( Please wait for Heroku initial load )
+              <br/><br/>
+              <div className="utility-space">
+                <Utility type="code" url="https://github.com/tnnrhpwd/mern-planit-app"/>
+                <Utility type="html"/>
+                <Utility type="react"/>
+                <Utility type="css"/>
+                <Utility type="heroku"/>
+                <Utility type="mongo"/>
+                <Utility type="node"/>
               </div>
             </div>
           </div>

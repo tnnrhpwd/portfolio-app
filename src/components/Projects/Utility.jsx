@@ -6,6 +6,9 @@ import reactimg from "./react.png";
 import firebaseimg from "./firebase.png";
 import cssimg from "./css.png";
 import netlifyimg from "./netlify.png";
+import herokuimg from "./heroku.png";
+import mongoimg from "./mongo.png";
+import nodeimg from "./node.png";
 
 function Utility(props) {
     var showTips;
@@ -74,6 +77,39 @@ function Utility(props) {
                 {showTips &&
                     <ReactTooltip id="projects-firebase-tip" place="bottom" effect="solid">
                         <div className="projects-tip-words"> Google Firebase</div>
+                    </ReactTooltip>
+                }
+            </>);        
+        case "heroku":
+            return (<>
+                <div className="projects-logos-div" data-tip="" data-for="projects-heroku-tip">
+                    <img className="projects-logos" src={herokuimg} alt="heroku logo"/>
+                </div>
+                {showTips &&
+                    <ReactTooltip id="projects-heroku-tip" place="bottom" effect="solid">
+                        <div className="projects-tip-words"> Heroku</div>
+                    </ReactTooltip>
+                }
+            </>);
+        case "mongo":
+            return (<>
+                <div className="projects-logos-div" data-tip="" data-for="projects-mongo-tip">
+                    <img className="projects-logos" src={mongoimg} alt="mongo logo"/>
+                </div>
+                {showTips &&
+                    <ReactTooltip id="projects-mongo-tip" place="bottom" effect="solid">
+                        <div className="projects-tip-words"> MongoDB</div>
+                    </ReactTooltip>
+                }
+            </>);
+        case "node":
+            return (<>
+                <div className="projects-logos-div" data-tip="" data-for="projects-node-tip">
+                    <img className="projects-logos" src={nodeimg} alt="node logo"/>
+                </div>
+                {showTips &&
+                    <ReactTooltip id="projects-node-tip" place="bottom" effect="solid">
+                        <div className="projects-tip-words"> NodeJS</div>
                     </ReactTooltip>
                 }
             </>);
