@@ -97,7 +97,7 @@ function Projects() {
             </div>
             <div className="projects-div-text">
               Do you have a plan you want to share with the world?
-              <br/><br/> (Work-in-Progress) ( Please wait for Heroku initial load )
+              <br/><br/> ( Work-in-Progress ) <br/>( Please wait for Heroku initial load )
               <br/><br/>
               <div className="utility-space">
                 <Utility type="code" url="https://github.com/tnnrhpwd/mern-planit-app"/>
