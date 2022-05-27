@@ -56,9 +56,9 @@ function Home() {
               <div id="text-body"> Skills: </div>
               <div id="text-subtext"> Web Development, Process Improvement, and Automation </div>
               <div id="text-body"></div>
-              <div id="text-subtext">Increasing conforming output and decreasing waste.</div>
-              <div id="text-body"></div>
-              <div className="utility-spc">
+              {/* <div id="text-subtext">Increasing conforming output and decreasing waste.</div> */}
+              {/* <div id="text-body"></div> */}
+              {/* <div className="utility-spc">
                 <a className="utility-home-space" href="/projects">
                   <Utility type="html" tips={false}/>
                   <Utility type="react" tips={false}/>
@@ -66,7 +66,7 @@ function Home() {
                   <Utility type="firebase" tips={false}/>
                   <Utility type="netlify" tips={false}/>
                 </a>
-              </div>
+              </div> */}
 
             </div>
           </section>
