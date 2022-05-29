@@ -1,0 +1,8 @@
+.bogglebox{
+    background-color: var(--bg);
+}
+.bogglebox-spc{
+    padding: calc(var(--nav-size)*0.81);
+    min-height: 100vh;
+    color: var(--text-color);
+}
