@@ -4,7 +4,7 @@
     background-color: var(--bg);
     color: var(--text-color);
     text-align: center;
-    min-height: 100vh;
+    min-height: 140vh;
 }
 .ethanol-title{
     font-size: calc(var(--nav-size)*.5);
@@ -228,4 +228,9 @@
 #ethanol-sourcecode:active{
     height: calc(var(--nav-size)*.55);
     transition-duration: .1s;
+}
+@media (orientation: landscape) {
+    .ethanol{
+        min-height: 100vh;
+    }
 }
