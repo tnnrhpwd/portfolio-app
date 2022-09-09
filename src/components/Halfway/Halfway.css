@@ -1,12 +1,48 @@
-.halfway-space{
+.halfway{
+    font-family: 'Times New Roman', Times, serif;
+    padding-top: calc(var(--nav-size)*1);
     background-color: var(--bg);
-}
-.halfway-navbar{
-    display: block;
-}
-#halfway-navbar-logo{
-    width: calc(var(--nav-size)*1.5);
+    color: var(--text-color);
+    text-align: center;
+    min-height: 140vh;
 }
 .halfway-title{
     font-size: calc(var(--nav-size)*.5);
+}
+.halfway-description{
+    padding-left: calc(var(--nav-size)*.75);
+    padding-right: calc(var(--nav-size)*.75);
+    margin-bottom: calc(var(--nav-size)*.5);
+    font-size: calc(var(--nav-size)*.2);
+}
+
+#ethanol-sourcecode{
+    margin-top: calc(var(--nav-size)*.45);
+    margin-bottom: calc(var(--nav-size)*.45);
+    vertical-align: bottom;
+    height: calc(var(--nav-size)*.45);
+    font-size: calc(var(--nav-size)*.19);
+    width: calc(var(--nav-size)*2.5);
+    font-weight: bold;
+    background-color: var(--text-color);
+    color:  var(--text-color-inv);
+    border: calc(var(--nav-size)*.0001) solid rgba(255, 255, 255, 0.885);
+    border-radius: 5%;
+    cursor: pointer;
+    /* display: block; */
+    /* text-align: center; */
+}
+#ethanol-sourcecode:hover{
+
+    filter: brightness(1.2);
+    border: calc(var(--nav-size)*.001) solid white;
+}
+#ethanol-sourcecode:active{
+    height: calc(var(--nav-size)*.55);
+    transition-duration: .1s;
+}
+@media (orientation: landscape) {
+    .ethanol{
+        min-height: 100vh;
+    }
 }
