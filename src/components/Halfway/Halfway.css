@@ -15,8 +15,45 @@
     margin-bottom: calc(var(--nav-size)*.5);
     font-size: calc(var(--nav-size)*.2);
 }
+.halfway-col1{
+    text-align: left;
+    vertical-align: top;
+    display: inline-block;
+    width: min(calc(var(--nav-size)*7),100%);
+    margin-bottom: calc(var(--nav-size)*.2);
+    /* padding: calc(var(--nav-size)*.5); */
+}
+.halfway-calculator{
+    padding: calc(var(--nav-size)*.75);
 
-#ethanol-sourcecode{
+}
+.halfway-calculator-start{
+    padding-top: calc(var(--nav-size)*.1);
+    padding-bottom: calc(var(--nav-size)*.2);
+    font-size: calc(var(--nav-size)*.3);
+    border-bottom: calc(var(--nav-size)*.0001) dashed var(--bg-accent);
+}
+.halfway-calculator-title{
+    font-size: calc(var(--nav-size)*.35);
+}
+.halfway-calculator-input-title{
+    /* margin-top: calc(var(--nav-size)*.1); */
+    font-size: calc(var(--nav-size)*.19);
+    display: inline-block;
+    vertical-align: middle;
+}
+#halfway-calculator-input{
+    margin-left: calc(var(--nav-size)*.2);
+    max-width: 15%;
+    vertical-align: middle;
+    text-align: center;
+    font-size: calc(var(--nav-size)*.17);
+    font-family: 'Times New Roman', Times, serif;
+    font-weight: bolder;
+}
+
+
+#halfway-sourcecode{
     margin-top: calc(var(--nav-size)*.45);
     margin-bottom: calc(var(--nav-size)*.45);
     vertical-align: bottom;
@@ -32,17 +69,17 @@
     /* display: block; */
     /* text-align: center; */
 }
-#ethanol-sourcecode:hover{
+#halfway-sourcecode:hover{
 
     filter: brightness(1.2);
     border: calc(var(--nav-size)*.001) solid white;
 }
-#ethanol-sourcecode:active{
+#halfway-sourcecode:active{
     height: calc(var(--nav-size)*.55);
     transition-duration: .1s;
 }
 @media (orientation: landscape) {
-    .ethanol{
+    .halfway{
         min-height: 100vh;
     }
 }
