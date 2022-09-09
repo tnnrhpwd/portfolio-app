@@ -1,0 +1,12 @@
+.halfway-space{
+    background-color: var(--bg);
+}
+.halfway-navbar{
+    display: block;
+}
+#halfway-navbar-logo{
+    width: calc(var(--nav-size)*1.5);
+}
+.halfway-title{
+    font-size: calc(var(--nav-size)*.5);
+}
