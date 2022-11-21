@@ -7,6 +7,7 @@ import lwwimg from './lww.png';
 import marelliimg from './marelli.png';
 import rcmimg from './rcm.png';
 import shawimg from './shaw.png';
+import fauimg from './fau.png';
 
 import './Home.css';
 
@@ -14,7 +15,7 @@ const lwwlink = "https://www.lewisburgwater.org";
 const marellilink = "https://www.marelli.com";
 const rcmlink = "https://www.rcmindustries.com/";
 const shawlink = "https://www.shawinc.com/";
-
+const faulink = "https://www.faurecia.com/en";
 
 function Home() {
 
@@ -56,9 +57,9 @@ function Home() {
               <div id="text-body"> Skills: </div>
               <div id="text-subtext"> Web Development, Process Improvement, and Automation </div>
               <div id="text-body"></div>
-              <div id="text-subtext">Increasing conforming output and decreasing waste.</div>
-              <div id="text-body"></div>
-              <div className="utility-spc">
+              {/* <div id="text-subtext">Increasing conforming output and decreasing waste.</div> */}
+              {/* <div id="text-body"></div> */}
+              {/* <div className="utility-spc">
                 <a className="utility-home-space" href="/projects">
                   <Utility type="html" tips={false}/>
                   <Utility type="react" tips={false}/>
@@ -66,7 +67,7 @@ function Home() {
                   <Utility type="firebase" tips={false}/>
                   <Utility type="netlify" tips={false}/>
                 </a>
-              </div>
+              </div> */}
 
             </div>
           </section>
@@ -79,6 +80,7 @@ function Home() {
                 <a   rel="noreferrer" target="_blank" href={marellilink} ><img className="home-spc-logos" src={marelliimg} alt="marelli logo" /></a> 
                 <a   rel="noreferrer" target="_blank" href={rcmlink} ><img className="home-spc-logos" src={rcmimg} alt="rcm logo" /></a> 
                 <a   rel="noreferrer" target="_blank" href={shawlink} ><img className="home-spc-logos" src={shawimg} alt="shaw logo" /></a> 
+                <a   rel="noreferrer" target="_blank" href={faulink} ><img className="home-spc-logos" src={fauimg} alt="faurecia logo" /></a> 
               </div>
             </div>
           </section>
