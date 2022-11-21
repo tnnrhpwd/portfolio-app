@@ -27,7 +27,19 @@ function BoggleBox() {
   const die15 = ["P","A","C","E","M","D"]
   var dieConfig = [die0,die1,die2,die3,die4,die5,die6,die7,die8,die9,die10,die11,die12,die13,die14,die15]
 
-
+  // fills the dictionary with words
+  function fetchDictionary() {
+    fetch(Dictionary)
+    .then(response => response.text())
+    .then(data => {
+        Dictionary=data.toUpperCase();
+        Dictionary=Dictionary.split('\r\n');            // this works local but not in-build
+        if(!(Dictionary[0]==="AA")){                    
+            Dictionary=Dictionary[0].split("\n");       // backup splitter for in-build
+        }
+    })
+    .catch(err => console.log(err));
+  }
 
   function shuffleArray(array) {
     let currentIndex = array.length,  randomIndex;
@@ -64,33 +76,35 @@ function BoggleBox() {
     <div className="bogglebox">
       <NavBar/>
       <div className="bogglebox-spc">
+      Boggle
+
         <div className='bogglebox-spc-board'>
           <div className='bogglebox-spc-board-ltrs'>
             <div className='bogglebox-spc-board-ltrs-1'>
-              {shuffledLetters[0]}
-              {shuffledLetters[1]}
-              {shuffledLetters[2]}
-              {shuffledLetters[3]}
+              <div className='bogglebox-spc-board-ltrs-letter'>{shuffledLetters[0]}</div>
+              <div className='bogglebox-spc-board-ltrs-letter'>{shuffledLetters[1]}</div>
+              <div className='bogglebox-spc-board-ltrs-letter'>{shuffledLetters[2]}</div>
+              <div className='bogglebox-spc-board-ltrs-letter'>{shuffledLetters[3]}</div>
             </div> 
             <div className='bogglebox-spc-board-ltrs-2'>
-            {shuffledLetters[4]}
-            {shuffledLetters[5]}
-            {shuffledLetters[6]}
-            {shuffledLetters[7]}
+              <div className='bogglebox-spc-board-ltrs-letter'>{shuffledLetters[4]}</div>
+              <div className='bogglebox-spc-board-ltrs-letter'>{shuffledLetters[5]}</div>
+              <div className='bogglebox-spc-board-ltrs-letter'>{shuffledLetters[6]}</div>
+              <div className='bogglebox-spc-board-ltrs-letter'>{shuffledLetters[7]}</div>
 
             </div> 
             <div className='bogglebox-spc-board-ltrs-3'>
-            {shuffledLetters[8]}
-            {shuffledLetters[9]}
-            {shuffledLetters[10]}
-            {shuffledLetters[11]}
+              <div className='bogglebox-spc-board-ltrs-letter'>{shuffledLetters[8]}</div>
+              <div className='bogglebox-spc-board-ltrs-letter'>{shuffledLetters[9]}</div>
+              <div className='bogglebox-spc-board-ltrs-letter'>{shuffledLetters[10]}</div>
+              <div className='bogglebox-spc-board-ltrs-letter'>{shuffledLetters[11]}</div>
 
             </div> 
             <div className='bogglebox-spc-board-ltrs-4'>
-            {shuffledLetters[12]}
-            {shuffledLetters[13]}
-            {shuffledLetters[14]}
-            {shuffledLetters[15]}
+              <div className='bogglebox-spc-board-ltrs-letter'>{shuffledLetters[12]}</div>
+              <div className='bogglebox-spc-board-ltrs-letter'>{shuffledLetters[13]}</div>
+              <div className='bogglebox-spc-board-ltrs-letter'>{shuffledLetters[14]}</div>
+              <div className='bogglebox-spc-board-ltrs-letter'>{shuffledLetters[15]}</div>
 
             </div> 
           </div> 
@@ -102,12 +116,11 @@ function BoggleBox() {
 
         </div>
         <div className='bogglebox-spc-input'>
-          
+          <input/>
         </div>
         <div className='bogglebox-spc-answer'>
           
         </div>
-        BoggleBox
 
       </div>
       <Footer/>
