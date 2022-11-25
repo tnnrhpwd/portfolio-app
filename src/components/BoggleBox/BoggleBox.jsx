@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState } from 'react';
 import NavBar from '../NavBar/NavBar';
 import Footer from '../Footer/Footer';
