@@ -1,5 +1,5 @@
 import ReactTooltip from "react-tooltip";
-
+import React from 'react';
 import codeimg from "./github.png";
 import htmlimg from "./html.png";
 import reactimg from "./react.png";
