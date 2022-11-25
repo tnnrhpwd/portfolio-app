@@ -29,18 +29,18 @@ function BoggleBox() {
   var dieConfig = [die0,die1,die2,die3,die4,die5,die6,die7,die8,die9,die10,die11,die12,die13,die14,die15]
 
   // fills the dictionary with words
-  function fetchDictionary() {
-    fetch(Dictionary)
-    .then(response => response.text())
-    .then(data => {
-        Dictionary=data.toUpperCase();
-        Dictionary=Dictionary.split('\r\n');            // this works local but not in-build
-        if(!(Dictionary[0]==="AA")){                    
-            Dictionary=Dictionary[0].split("\n");       // backup splitter for in-build
-        }
-    })
-    .catch(err => console.log(err));
-  }
+  // function fetchDictionary() {
+  //   fetch(Dictionary)
+  //   .then(response => response.text())
+  //   .then(data => {
+  //       Dictionary=data.toUpperCase();
+  //       Dictionary=Dictionary.split('\r\n');            // this works local but not in-build
+  //       if(!(Dictionary[0]==="AA")){                    
+  //           Dictionary=Dictionary[0].split("\n");       // backup splitter for in-build
+  //       }
+  //   })
+  //   .catch(err => console.log(err));
+  // }
 
   function shuffleArray(array) {
     let currentIndex = array.length,  randomIndex;
