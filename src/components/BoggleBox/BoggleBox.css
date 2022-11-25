@@ -1,0 +1,29 @@
+.bogglebox{
+    background-color: var(--bg);
+}
+.bogglebox-spc{
+    padding: calc(var(--nav-size)*0.1);
+    padding-top: calc(var(--nav-size)*1);
+    text-align: center;
+    min-height: 100vh;
+    color: var(--text-color);
+}
+/* .bogglebox-spc-board{
+
+}
+.bogglebox-spc-board-ltrs{
+
+} */
+.bogglebox-spc-board-ltrs-letter{
+    display: inline-block;
+    outline: calc(var(--nav-size)*0.001) solid var(--text-color);
+    width: calc(var(--nav-size)*1.0);
+    text-align: center;
+    vertical-align: middle;
+    margin: calc(var(--nav-size)*0.1);
+    font-size: calc(var(--nav-size)*0.5);
+}
+.bogglebox-spc-board-ltrs-1{
+    margin-top: 0;
+
+}

@@ -2,6 +2,7 @@ import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 
 import Annuities from './components/Annuities/Annuities';
+import BoggleBox from './components/BoggleBox/BoggleBox';
 import Contact from './components/Contact/Contact';
 import Drafting from "./components/Drafting/Drafting";
 import Ethanol from './components/Ethanol/Ethanol';
@@ -32,6 +33,7 @@ function App() {
         <Route path="/projects" element={<Projects/>} />
         <Route path="/wordle" element={<Wordle/>} />
         <Route path="/wordlesolver" element={<WordleSolver/>} />
+        {/* <Route path="/boggle" element={<BoggleBox/>} /> */}
       </Routes>
     </div>
   );
