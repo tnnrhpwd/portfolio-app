@@ -9,7 +9,7 @@ import NewPoll from "./NewPoll";
 import ClosedPoll from "./ClosedPoll";
 
 // import styling
-// import './PollBox.css';
+import './PollBox.css';
 
 //import firebase utilities
 import firebase from 'firebase/compat/app';

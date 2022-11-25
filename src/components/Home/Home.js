@@ -54,8 +54,7 @@ function Home() {
 
           <section className="section-tile">
             <div id="content-p2">
-              <div id="text-body"> Skills: </div>
-              <div id="text-subtext"> Web Development, Process Improvement, and Automation </div>
+              <div id="text-subtext"> Lean Manufacturing, Process Development, and Industrial Engineering </div>
               <div id="text-body"></div>
               {/* <div id="text-subtext">Increasing conforming output and decreasing waste.</div> */}
               {/* <div id="text-body"></div> */}

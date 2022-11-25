@@ -59,7 +59,7 @@
         height: calc(var(--nav-size)*0.5);
         background-color: #910b0b;
         box-shadow: -1px 5px #666;
-        transform: translateY(calc(var(--nav-size)*-0.1)); 
+        transform: translateY(calc(var(--nav-size) * (-0.1))); 
     }
     #nav-icon-text{
         color: transparent;
@@ -144,7 +144,7 @@
         height: calc(var(--nav-size)*0.5);
         background-color: #910b0b;
         box-shadow: -1px 5px #666;
-        transform: translateY(calc(var(--nav-size)*-0.1)); 
+        transform: translateY(calc(var(--nav-size) * (-0.1))); 
     }
     #nav-icon-text{
         font-family: 'CutiveMono-Regular';
