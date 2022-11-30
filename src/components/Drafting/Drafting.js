@@ -43,7 +43,7 @@ function Drafting() {
                 </Zoom>
             </div>
             <div className="slide-button">
-                <a href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Drafting" rel="noreferrer" target="_blank">
+                <a href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Drafting" rel="noopener noreferrer" target="_blank">
                     <button id="newAnnuity">View Source Code</button>
                 </a>
             </div>

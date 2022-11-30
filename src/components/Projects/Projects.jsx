@@ -71,7 +71,7 @@ function Projects() {
 
           <div className="projects-div">
             <div className="projects-p8">
-              <a href="https://saloncw.netlify.app/"  rel="noreferrer" target="_blank">
+              <a href="https://saloncw.netlify.app/"  rel="noopener noreferrer" target="_blank">
                 <img id="projects-p8-img" src={saloncwimg} alt="the display for saloncw "/>
               </a>
             </div>
@@ -91,7 +91,7 @@ function Projects() {
 
           <div className="projects-div">
             <div className="projects-p9">
-              <a href="https://mern-planit-app.herokuapp.com/"  rel="noreferrer" target="_blank">
+              <a href="https://mern-planit-app.herokuapp.com/"  rel="noopener noreferrer" target="_blank">
                 <img id="projects-p9-img" src={planitimg} alt="the display for my planit project"/>
               </a>
             </div>
@@ -209,13 +209,13 @@ function Projects() {
 
         <div></div>
         <div className="projects-resume">
-          <a className="projects-resume-inside" href="https://docs.google.com/document/d/1l8yCRlom5hw-SwOfZtpria_AUuXwcXpC/edit?usp=sharing&ouid=106668374323360993837&rtpof=true&sd=true" rel="noreferrer" target="_blank">
-                  <button id="projects-resume-button">⚡ STH RESUME ⚡</button>
+          <a className="projects-resume-inside" href="https://docs.google.com/document/d/1l8yCRlom5hw-SwOfZtpria_AUuXwcXpC/edit?usp=sharing&ouid=106668374323360993837&rtpof=true&sd=true" rel="noopener noreferrer" target="_blank">
+                  <button id="projects-resume-button">STH RESUME</button>
           </a>
         </div>
         <div></div>
         <div className="projects-source">
-          <a className="projects-source-inside" href="https://github.com/tnnrhpwd/portfolio-app" rel="noreferrer" target="_blank">
+          <a className="projects-source-inside" href="https://github.com/tnnrhpwd/portfolio-app" rel="noopener noreferrer" target="_blank">
                   <button id="projects-source-button">This Website's Github Repo</button>
           </a>
         </div>

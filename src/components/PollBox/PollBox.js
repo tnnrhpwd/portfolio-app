@@ -67,7 +67,7 @@ function PollBox(){
                     <div className='newFormSpace-title'>{recentTitle}</div>
                     {polls && polls.map(pl => <ClosedPoll key={pl.id} ClosedPoll={pl}/>)}
                 </div>
-                <a className='poll-source-but' href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/PollBox" rel="noreferrer" target="_blank">
+                <a className='poll-source-but' href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/PollBox" rel="noopener noreferrer" target="_blank">
                     <button id="button">View Source Code</button>
                 </a>
             </div>

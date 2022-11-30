@@ -60,7 +60,7 @@ function Ethanol(){
                     <img id="ethanol-niaaa-img" src={drinksImg} alt="standard drinks from NIAAA" />
                     <br/>
                     To learn more, visit the
-                    <a className="ethanol-niaaa-inside" href={NIAAA_LINK} rel="noreferrer" target="_blank">
+                    <a className="ethanol-niaaa-inside" href={NIAAA_LINK} rel="noopener noreferrer" target="_blank">
                         <button id="ethanol-niaaa-button">NIAAA (National Institute on Alcohol Abuse and Alcoholism)</button>
                     </a>
                 </div>
@@ -94,7 +94,7 @@ function Ethanol(){
                         <div className="ethanol-calculator-standard-description">
                             The standard is 14 grams in the United States.
                         </div>
-                        <a className="ethanol-calculator-standard-inside" href={STANDARD_LINK} rel="noreferrer" target="_blank">
+                        <a className="ethanol-calculator-standard-inside" href={STANDARD_LINK} rel="noopener noreferrer" target="_blank">
                             <button className="ethanol-calculator-standard-button">Click here to learn more!</button>
                         </a>
                         
@@ -123,7 +123,7 @@ function Ethanol(){
                 </div>
             }
             <br/>
-            <a href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Ethanol" rel="noreferrer"  target="_blank">
+            <a href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Ethanol" rel="noopener noreferrer"  target="_blank">
                 <button id="ethanol-sourcecode">View Source Code</button>
             </a>
 

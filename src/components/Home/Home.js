@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from "react";
 import BackgroundVideo from "./BackgroundVideo.js";
 import NavBar from "./../NavBar/NavBar";
-import Utility from "./../Projects/Utility";
+// import Utility from "./../Projects/Utility";
 
 import lwwimg from './lww.png';
 import marelliimg from './marelli.png';
@@ -75,11 +75,11 @@ function Home() {
             <div id="content-p2">
               <div id="text-body"> Previous Employers: </div>
               <div className="home-spc">
-                <a   rel="noreferrer" target="_blank" href={lwwlink} ><img className="home-spc-logos" src={lwwimg} alt="lewisburg wastewater logo" /></a> 
-                <a   rel="noreferrer" target="_blank" href={marellilink} ><img className="home-spc-logos" src={marelliimg} alt="marelli logo" /></a> 
-                <a   rel="noreferrer" target="_blank" href={rcmlink} ><img className="home-spc-logos" src={rcmimg} alt="rcm logo" /></a> 
-                <a   rel="noreferrer" target="_blank" href={shawlink} ><img className="home-spc-logos" src={shawimg} alt="shaw logo" /></a> 
-                <a   rel="noreferrer" target="_blank" href={faulink} ><img className="home-spc-logos" src={fauimg} alt="faurecia logo" /></a> 
+                <a   rel="noopener noreferrer" target="_blank" href={marellilink} ><img className="home-spc-logos" src={marelliimg} alt="marelli logo" /></a> 
+                <a   rel="noopener noreferrer" target="_blank" href={rcmlink} ><img className="home-spc-logos" src={rcmimg} alt="rcm logo" /></a> 
+                <a   rel="noopener noreferrer" target="_blank" href={shawlink} ><img className="home-spc-logos" src={shawimg} alt="shaw logo" /></a> 
+                <a   rel="noopener noreferrer" target="_blank" href={lwwlink} ><img className="home-spc-logos" src={lwwimg} alt="lewisburg wastewater logo" /></a> 
+                <a   rel="noopener noreferrer" target="_blank" href={faulink} ><img className="home-spc-logos" src={fauimg} alt="faurecia logo" /></a> 
               </div>
             </div>
           </section>

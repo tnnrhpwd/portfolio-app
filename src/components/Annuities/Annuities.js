@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Dropdown from "react-dropdown";
 import "react-dropdown/style.css";
 import NewAnnuity from './NewAnnuity';
-import GraphAnnuities from './GraphAnnuities';
+// import GraphAnnuities from './GraphAnnuities';
 import Footer from './../Footer/Footer';
 import NavBar from './../NavBar/NavBar';
 import "./Annuities.css";
@@ -177,7 +177,7 @@ function Annuities() {
                 <br></br>
 
             </div>
-            <a href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Annuities" rel="noreferrer"  target="_blank">
+            <a href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Annuities" rel="noopener noreferrer"  target="_blank">
                 <button id="newAnnuity">View Source Code</button>
             </a>
             <Footer/>

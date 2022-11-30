@@ -33,7 +33,7 @@ function App() {
         <Route path="/projects" element={<Projects/>} />
         <Route path="/wordle" element={<Wordle/>} />
         <Route path="/wordlesolver" element={<WordleSolver/>} />
-        {/* <Route path="/boggle" element={<BoggleBox/>} /> */}
+        <Route path="/boggle" element={<BoggleBox/>} />
       </Routes>
     </div>
   );

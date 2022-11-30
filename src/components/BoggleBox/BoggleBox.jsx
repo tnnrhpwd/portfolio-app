@@ -1,14 +1,14 @@
 import React from 'react';
-import { useState } from 'react';
+// import { useState } from 'react';
 import NavBar from '../NavBar/NavBar';
 import Footer from '../Footer/Footer';
-import Dictionary from "./../WordleSolver/Dictionary.txt";
+// import Dictionary from "./../WordleSolver/Dictionary.txt";
 
 import './BoggleBox.css';
 
 
 function BoggleBox() {
-  const [activeGame, setActiveGame] = useState(false)
+  // const [activeGame, setActiveGame] = useState(false)
 
   const die0 = ["R","I","F","O","B","X"]
   const die1 = ["I","F","E","H","E","Y"]
@@ -46,7 +46,7 @@ function BoggleBox() {
     let currentIndex = array.length,  randomIndex;
   
     // While there remain elements to shuffle.
-    while (currentIndex != 0) {
+    while (currentIndex !== 0) {
   
       // Pick a remaining element.
       randomIndex = Math.floor(Math.random() * currentIndex);
