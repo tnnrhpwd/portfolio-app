@@ -66,6 +66,7 @@ function Wordle() {
         }
     })
     .catch(err => console.log(err));
+    console.log(Dictionary)
   }
 
   // fills the dictionary array with words on the intial load.

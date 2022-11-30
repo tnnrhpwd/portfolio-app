@@ -1,22 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Footer from '../Footer/Footer';
 import NavBar from './../NavBar/NavBar';
+import { getSunrise, getSunset } from 'sunrise-sunset-js';
 import './Halfway.css';
+import { containerRegistryDomain } from 'firebase-tools/lib/api';
 
 function Halfway() {
     const [endTime, setEndTime] = useState(0);
     const [startTime, setStartTime] = useState(0);
     const [halfwayTime, setHalfwayTime] = useState(0);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [sunsetTime, setSunsetTime] = useState("");
 
     function handleSubmit(){
         // GUARD CLAUSE --
         if((endTime===startTime)){ return; }
-
-        let answer = parseInt((endTime-startTime)/2)+parseFloat(startTime)
-
+        let answer = parseInt((endTime-startTime)/2)+parseFloat(startTime) // calculate halfway point
         setHalfwayTime(answer);
     }
+    function getSunsetTimeFromLocation(){
+        // Combined with geolocation. Sunset tonight at your location.
+        navigator.geolocation.getCurrentPosition(function(position) {
+            console.log( getSunset(position.coords.latitude, position.coords.longitude) );
+        });
+    }
+    function getAllTimes(){
+        setCurrentTime(new Date())
+        getSunsetTimeFromLocation()
+    }
 
+    useEffect(() => {
+        getAllTimes()
+    }, [])
+    
     return (<>
         <NavBar/>
         <div className='halfway'>
@@ -32,13 +48,22 @@ function Halfway() {
                     <div className='halfway-calculator-title'>
                         Time Calculator
                     </div>
+
+
+
                     <div className='halfway-calculator-start'>
+                        <div className='halfway-calculator-input-title'>
+                            { currentTime.toString() }
+                        </div>
                         <div className="halfway-calculator-input-title">
                             Start Time:
                         </div>
                         <input id="halfway-calculator-input" placeholder="1400" onChange={e => setStartTime(e.target.value)} type="text"/>
                     </div>
                     <div className='halfway-calculator-end'>
+                        <div className='halfway-calculator-input-title'>
+                            { sunsetTime }
+                        </div>
                         <div className="halfway-calculator-input-title">
                             End Time:
                         </div>
@@ -47,12 +72,12 @@ function Halfway() {
 
                     <button id="ethanol-calculator-submit" onClick={handleSubmit}>Submit</button>
                     { halfwayTime }
+                    
                 </div>
             </div>
 
-
             <br/>
-            <a href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Halfway" rel="noreferrer"  target="_blank">
+            <a href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Halfway" rel="noopener noreferrer"  target="_blank">
                 <button id="halfway-sourcecode">View Source Code</button>
             </a>
 
