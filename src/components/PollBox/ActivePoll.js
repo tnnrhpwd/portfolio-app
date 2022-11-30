@@ -1,5 +1,5 @@
 // import react variables
-import React, { doc, updateDoc, useRef, useState, useEffect } from 'react';
+import React from 'react';
 //import firebase utilities
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';

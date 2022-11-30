@@ -26,7 +26,7 @@ function Utility(props) {
         case "code":
             return (<>
                 <div className="projects-logos-div" data-tip="" data-for="projects-code-tip">
-                    <a href={props.url}  rel="noreferrer" target="_blank">
+                    <a href={props.url}  rel="noopener noreferrer" target="_blank">
                         <img className="projects-logos" id="projects-code" src={codeimg} alt="source code logo"/>
                     </a>
                 </div>
