@@ -1,5 +1,9 @@
 .App{
+<<<<<<< Updated upstream
     /* min-height: 100vh; */
+=======
+    min-height: 80vh;
+>>>>>>> Stashed changes
     /* background-color: var(--bg); */
     /* z-index: -999999999999999999999999999; */
 }
