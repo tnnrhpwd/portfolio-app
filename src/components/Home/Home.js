@@ -54,12 +54,9 @@ function Home() {
 
           <section className="section-tile">
             <div id="content-p2">
-<<<<<<< Updated upstream
               <div id="text-subtext"> Lean Manufacturing, Process Development, and Industrial Engineering </div>
-=======
               {/* <div id="text-body"> Skills: </div> */}
               <div id="text-subtext"> Lean Manufacturing, Process Improvement, and Project Management </div>
->>>>>>> Stashed changes
               <div id="text-body"></div>
               {/* <div id="text-subtext">Increasing conforming output and decreasing waste.</div> */}
               {/* <div id="text-body"></div> */}
