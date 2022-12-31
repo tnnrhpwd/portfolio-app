@@ -5,7 +5,7 @@ import React from "react";
 import Footer from './../Footer/Footer';
 import NavBar from './../NavBar/NavBar';
 
-import 'react-slideshow-image/dist/styles.css'
+// import 'react-slideshow-image/dist/styles.css'
 import "./Drafting.css";
 
 const reel = [
