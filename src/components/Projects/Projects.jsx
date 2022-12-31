@@ -30,7 +30,7 @@ function Projects() {
         <div></div>
         <div className="projects-holder">
 
-          <div className="projects-div">
+          {/* <div className="projects-div">
             <div className="projects-p1">
               <a href="/pollbox">
                 <img id="projects-p1-img" src={pollsimg} alt="the display for polling website"/>
@@ -48,7 +48,7 @@ function Projects() {
                 <Utility type="netlify"/>
               </div>
             </div>
-          </div>
+          </div> */}
           
           <div className="projects-div">
             <div className="projects-p6">
@@ -69,7 +69,7 @@ function Projects() {
             </div>
           </div>
 
-          <div className="projects-div">
+          {/* <div className="projects-div">
             <div className="projects-p8">
               <a href="https://saloncw.netlify.app/"  rel="noopener noreferrer" target="_blank">
                 <img id="projects-p8-img" src={saloncwimg} alt="the display for saloncw "/>
@@ -87,7 +87,7 @@ function Projects() {
                 <Utility type="netlify"/>
               </div>
             </div>
-          </div>
+          </div> */}
 
           <div className="projects-div">
             <div className="projects-p9">
@@ -187,7 +187,7 @@ function Projects() {
             </div>
           </div>
 
-          <div className="projects-div">
+          {/* <div className="projects-div">
             <div className="projects-p4">
               <a href="/drafting">
                 <img id="projects-p4-img" src={draftingimg} alt="the display for my cad projects"/>
@@ -204,7 +204,7 @@ function Projects() {
                 <Utility type="netlify"/>
               </div>
             </div>
-          </div>
+          </div> */}
         </div>
 
         <div></div>
