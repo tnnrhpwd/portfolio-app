@@ -9,7 +9,7 @@ import Ethanol from './components/Ethanol/Ethanol';
 import Halfway from './components/Halfway/Halfway';
 import Home from './components/Home/Home';
 import Planit from './components/Planit/Planit';
-import PollBox from './components/PollBox/PollBox';
+// import PollBox from './components/PollBox/PollBox';
 import ProdPartners from './components/ProdPartners/ProdPartners';
 import Projects from './components/Projects/Projects';
 import Wordle from './components/Wordle/Wordle';
@@ -28,7 +28,7 @@ function App() {
         <Route path="/ethanol" element={<Ethanol/>} />
         <Route path="/halfway" element={<Halfway/>} />
         <Route path="/planit" element={<Planit/>} />
-        <Route path="/pollbox" element={<PollBox/>} />
+        {/* <Route path="/pollbox" element={<PollBox/>} /> */}
         <Route path="/prodpartners" element={<ProdPartners/>} />
         <Route path="/projects" element={<Projects/>} />
         <Route path="/wordle" element={<Wordle/>} />

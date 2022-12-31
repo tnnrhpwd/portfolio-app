@@ -3,7 +3,6 @@ import Footer from '../Footer/Footer';
 import NavBar from './../NavBar/NavBar';
 import { getSunrise, getSunset } from 'sunrise-sunset-js';
 import './Halfway.css';
-import { containerRegistryDomain } from 'firebase-tools/lib/api';
 
 function Halfway() {
     const [endTime, setEndTime] = useState(0);
