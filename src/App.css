@@ -1,6 +1,7 @@
 .App{
     /* min-height: 100vh; */
-    min-height: 80vh;
     /* background-color: var(--bg); */
     /* z-index: -999999999999999999999999999; */
+    pointer-events:all; /* Disables clicks on its child elements by default */
+
 }

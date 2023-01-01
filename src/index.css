@@ -31,6 +31,8 @@ body, html {
   --bg-accent:rgb(126, 126, 126);
   --text-color:rgb(0, 0, 0);
   --text-color-inv: rgb(246, 246, 246);
+  pointer-events:none; /* Disables clicks on its child elements by default */
+
 }
 .dark-theme{
   --bg:rgb(53, 53, 53);
@@ -38,7 +40,10 @@ body, html {
   --bg-accent:rgb(126, 126, 126);
   --text-color:white;
   --text-color-inv: rgb(0, 0, 0);
+  pointer-events:none; /* Disables clicks on its child elements by default */
+
 }
+
 
 ul{
   list-style: none;

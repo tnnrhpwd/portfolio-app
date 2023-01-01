@@ -64,7 +64,7 @@ function NavBar() {
       <span className='navbar-title' onClick={handleThemeToggle} >
         <NavLogo icon={STHlogo}/>
       </span>
-      <ul className="navbar-nav"> 
+      <div className="navbar-nav"> 
         <div className="tooltip-space" data-tip="" data-for="tooltip-home" >
           <NavItem text="Home" icon={homeLogo} page="/"/>
         </div>
@@ -90,7 +90,7 @@ function NavBar() {
           </ReactTooltip>
         }
         
-      </ul>
+      </div>
       
     </nav>
     {/* <div className="login-space">

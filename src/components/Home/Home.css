@@ -13,6 +13,7 @@
     min-height: 100%;
     transform: translateX(calc((100% - 100vw) / 2));
     background-color: var(--bg);
+    pointer-events: none; /* Disables clicks on its child elements by default */
 }
 @font-face {
     font-family: 'CutiveMono-Regular';
@@ -48,6 +49,7 @@
 .container-scroll{
     min-height: 100vh;
     background-color: transparent !important;
+    pointer-events: all; /* Re-enables clicks on its child elements by default */
 }
 #content-title{
     padding-left: calc(var(--nav-size)*.8);
@@ -78,6 +80,9 @@
 }
 .content-shadow{
     background-color: rgba(0, 0, 0, 0.6);
+}
+.container-background{
+    pointer-events: none; /* Disables clicks on its child elements by default */
 }
 #content-p1{
 padding-bottom: calc(var(--nav-size)*.6);
