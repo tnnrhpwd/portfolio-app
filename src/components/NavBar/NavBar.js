@@ -14,6 +14,7 @@ import './NavBar.css';
 function NavBar() { 
   // const [isShowLogin, setIsShowLogin] = useState(false);
   const [ colTheme, setColTheme ] = useState(null);
+  const [ portraitState, setPortraitState ] = useState(false);
 
   useEffect(() => {     // RUNS ON START -- Checks browser for color theme preference. Sets dark mode otherwise.
     const theme = localStorage.getItem('theme');
@@ -24,7 +25,9 @@ function NavBar() {
     } else {
       setDarkMode();
     }
-
+    if(window.innerHeight > window.innerWidth){
+      setPortraitState(true);
+    }
   }, []);
 
   function setDarkMode(){
@@ -65,22 +68,27 @@ function NavBar() {
         <div className="tooltip-space" data-tip="" data-for="tooltip-home" >
           <NavItem text="Home" icon={homeLogo} page="/"/>
         </div>
-        <ReactTooltip id="tooltip-home" place="bottom" effect="solid">
+        { (portraitState) &&
+          <ReactTooltip id="tooltip-home" place="bottom" effect="solid">
           Home
-        </ReactTooltip>
+          </ReactTooltip>
+        }
         <div className="tooltip-space" data-tip="" data-for="tooltip-projects" >
           <NavItem text="Projects" icon={projectsLogo} page="/projects"/>
         </div>
-        <ReactTooltip id="tooltip-projects" place="bottom" effect="solid">
-          Projects
-        </ReactTooltip>
+        { (portraitState) &&
+          <ReactTooltip id="tooltip-projects" place="bottom" effect="solid">
+            Projects
+          </ReactTooltip>
+        }
         <div className="tooltip-space" data-tip="" data-for="tooltip-contact" >
           <NavItem  text="Contact" icon={contactLogo} page="/contact"/>
         </div>
-        <ReactTooltip id="tooltip-contact" place="bottom" effect="solid">
-          Contact
-        </ReactTooltip>
-        
+        { (portraitState) &&  
+          <ReactTooltip id="tooltip-contact" place="bottom" effect="solid">
+            Contact
+          </ReactTooltip>
+        }
         
       </ul>
       

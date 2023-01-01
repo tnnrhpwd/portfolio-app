@@ -107,19 +107,23 @@
         color: transparent;
         -webkit-text-stroke-color: transparent;
         background: transparent;
+        background-color: transparent;
+        border: none;
     }
     #tooltip-projects{
         color: transparent;
         -webkit-text-stroke-color: transparent;
         background: transparent;
+        background-color: transparent;
         border: none;
-
     }
 
     #tooltip-contact{
         color: transparent;
         -webkit-text-stroke-color: transparent;
         background: transparent;
+        background-color: transparent;
+        border: none;
     }
     .icon-button{
         height: calc(var(--nav-size)*0.4);
