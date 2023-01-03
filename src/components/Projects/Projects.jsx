@@ -1,11 +1,11 @@
 import React from "react";
-import pollsimg from "./polls.jpg";
+// import pollsimg from "./polls.jpg";
 import wordleSimg from "./wordle-solver.PNG";
 import wordleimg from "./wordle.PNG";
 import annuitiesimg from "./Annuities.jpeg";
-import draftingimg from "./drafting.jpg";
+// import draftingimg from "./drafting.jpg";
 import ethanolimg from "./ethanol.PNG";
-import saloncwimg from "./saloncw.png";
+// import saloncwimg from "./saloncw.png";
 import planitimg from './planit.png';
 
 import Utility from "./Utility";
