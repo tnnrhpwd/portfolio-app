@@ -9,6 +9,7 @@ function Halfway() {
     const [startTime, setStartTime] = useState(0);
     const [halfwayTime, setHalfwayTime] = useState(0);
     const [currentTime, setCurrentTime] = useState(0);
+    const [sunriseTime, setSunriseTime] = useState("");
     const [sunsetTime, setSunsetTime] = useState("");
 
     function handleSubmit(){
@@ -17,15 +18,16 @@ function Halfway() {
         let answer = parseInt((endTime-startTime)/2)+parseFloat(startTime) // calculate halfway point
         setHalfwayTime(answer);
     }
-    function getSunsetTimeFromLocation(){
+    function getSunTimesFromLocation(){
         // Combined with geolocation. Sunset tonight at your location.
         navigator.geolocation.getCurrentPosition(function(position) {
-            console.log( getSunset(position.coords.latitude, position.coords.longitude) );
+            setSunriseTime( getSunrise(position.coords.latitude, position.coords.longitude) );
+            setSunsetTime( getSunset(position.coords.latitude, position.coords.longitude) );
         });
     }
     function getAllTimes(){
         setCurrentTime(new Date())
-        getSunsetTimeFromLocation()
+        getSunTimesFromLocation()
     }
 
     useEffect(() => {
@@ -52,7 +54,13 @@ function Halfway() {
 
                     <div className='halfway-calculator-start'>
                         <div className='halfway-calculator-input-title'>
+                            <div>Currently:</div>
                             { currentTime.toString() }
+                            <div>Sunrise</div>
+                            { sunriseTime.toString() }
+                            <div>Sunset</div>
+                            { sunsetTime.toString() }
+                            
                         </div>
                         <div className="halfway-calculator-input-title">
                             Start Time:
@@ -61,7 +69,7 @@ function Halfway() {
                     </div>
                     <div className='halfway-calculator-end'>
                         <div className='halfway-calculator-input-title'>
-                            { sunsetTime }
+                            { sunsetTime.toString() }
                         </div>
                         <div className="halfway-calculator-input-title">
                             End Time:
