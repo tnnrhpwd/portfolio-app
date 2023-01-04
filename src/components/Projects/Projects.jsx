@@ -90,28 +90,6 @@ function Projects() {
           </div> */}
 
           <div className="projects-div">
-            <div className="projects-p9">
-              <a href="https://mern-planit-app.herokuapp.com/"  rel="noopener noreferrer" target="_blank">
-                <img id="projects-p9-img" src={planitimg} alt="the display for my planit project"/>
-              </a>
-            </div>
-            <div className="projects-div-text">
-              Do you have a plan you want to share with the world?
-              <br/><br/> ( Work-in-Progress ) <br/>( Please wait for Heroku initial load )
-              <br/><br/>
-              <div className="utility-space">
-                <Utility type="code" url="https://github.com/tnnrhpwd/mern-planit-app"/>
-                <Utility type="html"/>
-                <Utility type="react"/>
-                <Utility type="css"/>
-                <Utility type="heroku"/>
-                <Utility type="mongo"/>
-                <Utility type="node"/>
-              </div>
-            </div>
-          </div>
-
-          <div className="projects-div">
             <div className="projects-p5">
               <a href="/annuities">
                 <img id="projects-p5-img" src={annuitiesimg} alt="the display for my cad projects"/>
@@ -149,7 +127,27 @@ function Projects() {
             </div>
           </div>
 
-
+          <div className="projects-div">
+            <div className="projects-p9">
+              <a href="https://mern-planit-app.herokuapp.com/"  rel="noopener noreferrer" target="_blank">
+                <img id="projects-p9-img" src={planitimg} alt="the display for my planit project"/>
+              </a>
+            </div>
+            <div className="projects-div-text">
+              Do you have a plan you want to share with the world?
+              <br/><br/> ( Work-in-Progress ) <br/>( Please wait for Heroku initial load )
+              <br/><br/>
+              <div className="utility-space">
+                <Utility type="code" url="https://github.com/tnnrhpwd/mern-planit-app"/>
+                <Utility type="html"/>
+                <Utility type="react"/>
+                <Utility type="css"/>
+                <Utility type="heroku"/>
+                <Utility type="mongo"/>
+                <Utility type="node"/>
+              </div>
+            </div>
+          </div>
           
           <div className="projects-div">
             <div className="projects-p7">

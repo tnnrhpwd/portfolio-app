@@ -45,7 +45,7 @@
         --project-text-width: calc(var(--nav-size)*5);
     }
     .projects-div{
-        height: auto;
+        height: auto;        
     }
     .projects-logos-div{
         display: inline-block;
