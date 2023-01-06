@@ -7,7 +7,7 @@ import lwwimg from './lww.png';
 import marelliimg from './marelli.png';
 import rcmimg from './rcm.png';
 import shawimg from './shaw.png';
-import fauimg from './fau5.png';
+import fauimg from './fau.png';
 
 import './Home.css';
 
