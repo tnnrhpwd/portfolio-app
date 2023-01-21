@@ -60,6 +60,9 @@ function Halfway() {
                             { sunriseTime.toString() }
                             <div>Sunset</div>
                             { sunsetTime.toString() }
+                            <button id="ethanol-calculator-submit" onClick={setStartTime(currentTime)}>current</button>
+                            {/* <button id="ethanol-calculator-submit" onClick={}>sunrise</button>
+                            <button id="ethanol-calculator-submit" onClick={}>sunset</button> */}
                             
                         </div>
                         <div className="halfway-calculator-input-title">
