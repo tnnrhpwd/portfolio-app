@@ -12,6 +12,7 @@ import Planit from './components/Planit/Planit';
 // import PollBox from './components/PollBox/PollBox';
 import ProdPartners from './components/ProdPartners/ProdPartners';
 import Projects from './components/Projects/Projects';
+import SleepAssist from './components/SleepAssist/SleepAssist';
 import Wordle from './components/Wordle/Wordle';
 import WordleSolver from './components/WordleSolver/WordleSolver';
 
@@ -29,6 +30,7 @@ function App() {
         <Route path="/halfway" element={<Halfway/>} />
         <Route path="/planit" element={<Planit/>} />
         {/* <Route path="/pollbox" element={<PollBox/>} /> */}
+        <Route path="/sleepassist" element={<SleepAssist/>} />
         <Route path="/prodpartners" element={<ProdPartners/>} />
         <Route path="/projects" element={<Projects/>} />
         <Route path="/wordle" element={<Wordle/>} />
