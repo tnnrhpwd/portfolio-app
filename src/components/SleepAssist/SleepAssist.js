@@ -8,14 +8,22 @@ function SleepAssist() {
     const [wakeTime, setWakeTime] = useState(0);
     const [bedTime, setBedTime] = useState(0);
     const [currentTime, setCurrentTime] = useState(0);
+    const [addTime, setAddTime] = useState(0);
 
     function handleSubmit(){
-        // GUARD CLAUSE --
-        if((wakeTime===bedTime)){ return; }
-
+        calcBedTime(wakeTime, addTime)
     }
     function getAllTimes(){
         setCurrentTime(new Date())
+    }
+    function calcBedTime(wt, at) {
+        // GUARD CLAUSE --
+        if( wt===at || wt > 2359 || wt < 0 || at > 2359 || at < 0  || wt[3] > 5){ return; }
+        var liqBed = parseInt(wt)-parseInt(at)
+        if(liqBed < 0){
+            liqBed = 2400 + liqBed
+        }
+        setBedTime(liqBed)
     }
 
     useEffect(() => {
@@ -33,10 +41,15 @@ function SleepAssist() {
             </div>
 
             <div className='sleepassist-col1'>
-               <input placeholder='alarm time ex. 500'></input>
-               <input placeholder='sleep duration ex. 800'></input>
+                <div className='sleepassist-calculator'>
+                    {/* <input id="sleepassist-calculator-input" placeholder='current time (optional)' onChange={e => setWakeTime(e.target.value)} type="text"/> */}
+                    <input id="sleepassist-calculator-input" placeholder='alarm time ex. 500' onChange={e => setWakeTime(e.target.value)} type="text"/>
+                    <input id="sleepassist-calculator-input" placeholder='sleep duration ex. 800' onChange={e => setAddTime(e.target.value)} type="text"/>
 
-                <div>the output</div>
+                    <button id="sleepassist-calculator-submit" onClick={handleSubmit}>Calculate Wake-up Time</button>
+
+                    <div>{bedTime}</div>
+                </div>
             </div>
 
             <br/>
