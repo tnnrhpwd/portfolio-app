@@ -7,6 +7,7 @@ import annuitiesimg from "./Annuities.jpeg";
 import ethanolimg from "./ethanol.PNG";
 // import saloncwimg from "./saloncw.png";
 import planitimg from './planit.png';
+import sleepassistimg from './sleepassist.png';
 
 import Utility from "./Utility";
 
@@ -61,6 +62,25 @@ function Projects() {
               <br/><br/>
               <div className="utility-space">
                 <Utility type="code" url="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Wordle"/>
+                <Utility type="html"/>
+                <Utility type="react"/>
+                <Utility type="css"/>
+                <Utility type="netlify"/>
+              </div>
+            </div>
+          </div>
+
+          <div className="projects-div">
+            <div className="projects-p10">
+              <a href="/sleepassist">
+                <img id="projects-p10-img" src={sleepassistimg} alt="the display for sleepassist "/>
+              </a>
+            </div>
+            <div className="projects-div-text">
+              Unsure what time to go to sleep?
+              <br/><br/>
+              <div className="utility-space">
+                <Utility type="code" url="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/SleepAssist"/>
                 <Utility type="html"/>
                 <Utility type="react"/>
                 <Utility type="css"/>
