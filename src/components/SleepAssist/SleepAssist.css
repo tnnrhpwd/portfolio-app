@@ -23,22 +23,25 @@
     margin-bottom: calc(var(--nav-size)*.2);
     /* padding: calc(var(--nav-size)*.5); */
 }
-input[type="text"] {
+#sleepassist-calculator-input{
     padding: calc(var(--nav-size)*.125);
     border-radius: calc(var(--nav-size)*.07);
     border: none;
     font-size: calc(var(--nav-size)*.2);
     margin-bottom: calc(var(--nav-size)*.1);
-}
-  
-button {
-    padding: 10px 20px;
-    border-radius: 5px;
+} 
+#sleepassist-calculator-submit{
+    padding: calc(var(--nav-size)*.15) calc(var(--nav-size)*.3);
+    border-radius: calc(var(--nav-size)*.1);
     background-color: #3498db;
     color: white;
     border: none;
     font-size: calc(var(--nav-size)*.2);
     cursor: pointer;
+}
+#sleepassist-calculator-output{
+    padding: calc(var(--nav-size)*.5);
+    font-size: calc(var(--nav-size)*.3);
 }
 #sleepassist-sourcecode{
     margin-top: calc(var(--nav-size)*.45);

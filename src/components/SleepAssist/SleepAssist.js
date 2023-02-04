@@ -1,24 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import Footer from '../Footer/Footer';
 import NavBar from '../NavBar/NavBar';
-// import { getSunrise, getSunset } from 'sunrise-sunset-js';
 import './SleepAssist.css';
 
 function SleepAssist() {
     const [wakeTime, setWakeTime] = useState(0);
     const [bedTime, setBedTime] = useState('');
-    const [currentTime, setCurrentTime] = useState(0);
     const [addTime, setAddTime] = useState(0);
 
     function handleSubmit(){
         calculateBedtime(wakeTime, addTime)
     }
-    function getAllTimes(){
-        setCurrentTime(new Date())
-    }
+    // This Javascript function returns true if the two input strings 
+
+
 
     /* This javascript function takes two inputs (wakeup time, sleep duration) in standard army time and outputs the bedtime*/
     function calculateBedtime(wakeup, duration) {
+        if (!/^\d{1,4}(?::\d{2})?$/.test(wakeup) || !/^\d{1,4}(?::\d{2})?$/.test(duration)) {
+            setBedTime("Invalid time format.");
+            return;
+        }
         let wakeupHours, wakeupMinutes, durationHours, durationMinutes;
     
         if (wakeup.indexOf(":") !== -1) {
@@ -80,11 +82,13 @@ function SleepAssist() {
     
         setBedTime(`${bedtime} ( ${bedtime12} )`);
     }
-
-    useEffect(() => {
-        getAllTimes()
-    }, [])
     
+    const handleKeyPress = event => {
+        if (event.key === "Enter") {
+            handleSubmit();
+        }
+    };
+
     return (<>
         <NavBar/>
         <div className='sleepassist'>
@@ -98,14 +102,14 @@ function SleepAssist() {
             <div className='sleepassist-col1'>
                 <div className='sleepassist-calculator'>
                     {/* <input id="sleepassist-calculator-input" placeholder='current time (optional)' onChange={e => setWakeTime(e.target.value)} type="text"/> */}
-                    <input id="sleepassist-calculator-input" placeholder='alarm time ex. 545' onChange={e => setWakeTime(e.target.value)} type="text"/>
+                    <input id="sleepassist-calculator-input" placeholder='alarm time ex. 545' onChange={e => setWakeTime(e.target.value)} onKeyDown={handleKeyPress} type="text"/>
                     <br></br>
-                    <input id="sleepassist-calculator-input" placeholder='sleep duration ex. 816' onChange={e => setAddTime(e.target.value)} type="text"/>
+                    <input id="sleepassist-calculator-input" placeholder='sleep duration ex. 816' onChange={e => setAddTime(e.target.value)} onKeyDown={handleKeyPress} type="text"/>
                     <br></br>
 
                     <button id="sleepassist-calculator-submit" onClick={handleSubmit}>Calculate Bedtime</button>
 
-                    <div>{bedTime}</div>
+                    <div id="sleepassist-calculator-output">{bedTime}</div>
                 </div>
             </div>
 
