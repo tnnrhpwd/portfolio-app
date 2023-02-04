@@ -1,29 +1,84 @@
 import React, { useState, useEffect } from 'react';
 import Footer from '../Footer/Footer';
 import NavBar from '../NavBar/NavBar';
-import { getSunrise, getSunset } from 'sunrise-sunset-js';
+// import { getSunrise, getSunset } from 'sunrise-sunset-js';
 import './SleepAssist.css';
 
 function SleepAssist() {
     const [wakeTime, setWakeTime] = useState(0);
-    const [bedTime, setBedTime] = useState(0);
+    const [bedTime, setBedTime] = useState('');
     const [currentTime, setCurrentTime] = useState(0);
     const [addTime, setAddTime] = useState(0);
 
     function handleSubmit(){
-        calcBedTime(wakeTime, addTime)
+        calculateBedtime(wakeTime, addTime)
     }
     function getAllTimes(){
         setCurrentTime(new Date())
     }
-    function calcBedTime(wt, at) {
-        // GUARD CLAUSE --
-        if( wt===at || wt > 2359 || wt < 0 || at > 2359 || at < 0  || wt[3] > 5){ return; }
-        var liqBed = parseInt(wt)-parseInt(at)
-        if(liqBed < 0){
-            liqBed = 2400 + liqBed
+
+    /* This javascript function takes two inputs (wakeup time, sleep duration) in standard army time and outputs the bedtime*/
+    function calculateBedtime(wakeup, duration) {
+        let wakeupHours, wakeupMinutes, durationHours, durationMinutes;
+    
+        if (wakeup.indexOf(":") !== -1) {
+            [wakeupHours, wakeupMinutes] = wakeup.split(":");
+        } else if (wakeup.length === 4) {
+            wakeupHours = wakeup.slice(0, 2);
+            wakeupMinutes = wakeup.slice(2);
+        } else if (wakeup.length === 3) {
+            wakeupHours = wakeup[0];
+            wakeupMinutes = wakeup.slice(1);
+        } else if (wakeup.length === 2) {
+            wakeupHours = 0;
+            wakeupMinutes = wakeup;
+        } else if (wakeup.length === 1) {
+            wakeupHours = 0;
+            wakeupMinutes = `0${wakeup}`;
         }
-        setBedTime(liqBed)
+    
+        wakeupHours = parseInt(wakeupHours);
+        wakeupMinutes = parseInt(wakeupMinutes);
+    
+        if (duration.indexOf(":") !== -1) {
+            [durationHours, durationMinutes] = duration.split(":");
+        } else if (duration.length === 4) {
+            durationHours = duration.slice(0, 2);
+            durationMinutes = duration.slice(2);
+        } else if (duration.length === 3) {
+            durationHours = duration[0];
+            durationMinutes = duration.slice(1);
+        } else if (duration.length === 2) {
+            durationHours = 0;
+            durationMinutes = duration;
+        } else if (duration.length === 1) {
+            durationHours = 0;
+            durationMinutes = `0${duration}`;
+        }
+    
+        durationHours = parseInt(durationHours);
+        durationMinutes = parseInt(durationMinutes);
+    
+        let bedtimeMinutes = (wakeupHours * 60 + wakeupMinutes) - (durationHours * 60 + durationMinutes);
+        let bedtimeHours = Math.floor(bedtimeMinutes / 60);
+        bedtimeMinutes = bedtimeMinutes % 60;
+    
+        // Adjust for negative values
+        if (bedtimeMinutes < 0) {
+            bedtimeMinutes += 60;
+            bedtimeHours -= 1;
+        }
+        if (bedtimeHours < 0) {
+            bedtimeHours += 24;
+        }
+    
+        // Adjust for values greater than or equal to 24
+        bedtimeHours = bedtimeHours % 24;
+    
+        let bedtime = `${("0" + bedtimeHours).slice(-2)}:${("0" + bedtimeMinutes).slice(-2)}`;
+        let bedtime12 = `${bedtimeHours % 12 || 12}:${("0" + bedtimeMinutes).slice(-2)} ${bedtimeHours >= 12 ? "PM" : "AM"}`;
+    
+        setBedTime(`${bedtime} ( ${bedtime12} )`);
     }
 
     useEffect(() => {
@@ -37,16 +92,18 @@ function SleepAssist() {
                 SleepAssist
             </div>
             <div className="sleepassist-description">
-                This calculator inputs alarm time & sleep duration, and it outputs the time to go to sleep. 
+                This calculator inputs alarm time & sleep duration, and it outputs the time to go to sleep. Use the 24 hour time format.
             </div>
 
             <div className='sleepassist-col1'>
                 <div className='sleepassist-calculator'>
                     {/* <input id="sleepassist-calculator-input" placeholder='current time (optional)' onChange={e => setWakeTime(e.target.value)} type="text"/> */}
-                    <input id="sleepassist-calculator-input" placeholder='alarm time ex. 500' onChange={e => setWakeTime(e.target.value)} type="text"/>
-                    <input id="sleepassist-calculator-input" placeholder='sleep duration ex. 800' onChange={e => setAddTime(e.target.value)} type="text"/>
+                    <input id="sleepassist-calculator-input" placeholder='alarm time ex. 545' onChange={e => setWakeTime(e.target.value)} type="text"/>
+                    <br></br>
+                    <input id="sleepassist-calculator-input" placeholder='sleep duration ex. 816' onChange={e => setAddTime(e.target.value)} type="text"/>
+                    <br></br>
 
-                    <button id="sleepassist-calculator-submit" onClick={handleSubmit}>Calculate Wake-up Time</button>
+                    <button id="sleepassist-calculator-submit" onClick={handleSubmit}>Calculate Bedtime</button>
 
                     <div>{bedTime}</div>
                 </div>

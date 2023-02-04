@@ -16,14 +16,30 @@
     font-size: calc(var(--nav-size)*.2);
 }
 .sleepassist-col1{
-    text-align: left;
+    text-align: center;
     vertical-align: top;
     display: inline-block;
     width: min(calc(var(--nav-size)*7),100%);
     margin-bottom: calc(var(--nav-size)*.2);
     /* padding: calc(var(--nav-size)*.5); */
 }
-
+input[type="text"] {
+    padding: calc(var(--nav-size)*.125);
+    border-radius: calc(var(--nav-size)*.07);
+    border: none;
+    font-size: calc(var(--nav-size)*.2);
+    margin-bottom: calc(var(--nav-size)*.1);
+}
+  
+button {
+    padding: 10px 20px;
+    border-radius: 5px;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    font-size: calc(var(--nav-size)*.2);
+    cursor: pointer;
+}
 #sleepassist-sourcecode{
     margin-top: calc(var(--nav-size)*.45);
     margin-bottom: calc(var(--nav-size)*.45);
