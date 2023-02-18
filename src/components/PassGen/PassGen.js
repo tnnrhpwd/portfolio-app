@@ -37,6 +37,13 @@ function PassGen() {
 
     /* This javascript function takes two inputs (wakeup time, sleep duration) in standard army time and outputs the bedtime*/
     function calculatePassword(pwLength, pwHasUppercase, pwHasLowercase, pwHasNumbers, pwHasSymbols) {
+        if(!pwHasUppercase && !pwHasLowercase && !pwHasNumbers && !pwHasSymbols){
+            setOutcome("Please select any of the checkboxes.");
+            setOutputPassword("");
+            return
+        } else{
+            setOutcome("");
+        }
         var uppercaseChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         var lowercaseChars = "abcdefghijklmnopqrstuvwxyz";
         var numberChars = "0123456789";
@@ -65,7 +72,6 @@ function PassGen() {
           var randomChar = allChars[Math.floor(Math.random() * allChars.length)];
           password += randomChar;
         }
-        setOutcome("")
         setOutputPassword(password);
     }
 
@@ -87,19 +93,19 @@ function PassGen() {
                         <input type="range" id="passgen-calculator-slider" min="3" max="512" value={length} onChange={handleSetLength} />
                     </div>
                     <div className='passgen-calculator-uppercase'>
-                        <label id='passgen-calculator-label' htmlFor="passgen-calculator-checkbox">HasUppercase:</label>
+                        <label id='passgen-calculator-label' htmlFor="passgen-calculator-checkbox">Has Uppercase:</label>
                         <input type="checkbox" id="passgen-calculator-checkbox" checked={hasUppercase} onChange={handleSetHasUppercase} />
                     </div>
                     <div className='passgen-calculator-lowercase'>
-                        <label id='passgen-calculator-label' htmlFor="passgen-calculator-checkbox">HasLowercase:</label>
+                        <label id='passgen-calculator-label' htmlFor="passgen-calculator-checkbox">Has Lowercase:</label>
                         <input type="checkbox" id="passgen-calculator-checkbox" checked={hasLowercase} onChange={handleSetHasLowercase} />
                     </div>
                     <div className='passgen-calculator-numbers'>
-                        <label id='passgen-calculator-label' htmlFor="passgen-calculator-checkbox">HasNumbers:</label>
+                        <label id='passgen-calculator-label' htmlFor="passgen-calculator-checkbox">Has Numbers:</label>
                         <input type="checkbox" id="passgen-calculator-checkbox" checked={hasNumbers} onChange={handleSetHasNumbers} />
                     </div>
                     <div className='passgen-calculator-symbols'>
-                        <label id='passgen-calculator-label' htmlFor="passgen-calculator-checkbox">HasSymbols:</label>
+                        <label id='passgen-calculator-label' htmlFor="passgen-calculator-checkbox">Has Symbols:</label>
                         <input type="checkbox" id="passgen-calculator-checkbox" checked={hasSymbols} onChange={handleSetHasSymbols} />
                     </div>
 

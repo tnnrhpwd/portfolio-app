@@ -72,14 +72,15 @@
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
-    width: 20px;
-    height: 20px;
+    width: calc(var(--nav-size)*.3);
+    height: calc(var(--nav-size)*.3);
     background-color: var(--bg);
     border: 2px solid #007bff;
     border-radius: 3px;
     display: inline-block;
     vertical-align: middle;
     position: relative;
+    cursor: pointer;
 }
 #passgen-calculator-checkbox::after {
     content: '';
@@ -87,10 +88,10 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 20px;
-    height: 20px;
+    width: calc(var(--nav-size)*.1);
+    height: calc(var(--nav-size)*.1);
     /* border: solid white;     */
-    background-color: #007bff;
+    background-color: var(--text-color);
 
     /* border-width: 0 2px 2px 0; */
     /* transform-origin: bottom left; */
@@ -114,9 +115,9 @@
     height: calc(var(--nav-size)*2);
     padding: calc(var(--nav-size)*.15);
     font-family: 'Helvetica Neue', sans-serif;
-    font-size: 16px;
+    font-size: calc(var(--nav-size)*.2);
     line-height: 1.0;
-    border: 1px solid #ccc;
+    border: calc(var(--nav-size)*.02) solid var(--text-color);
     border-radius: 5px;
     resize: none;
 }
@@ -125,7 +126,6 @@
     font-size: calc(var(--nav-size)*.3);
     vertical-align: middle;
 }
-
 #passgen-sourcecode{
     margin-top: calc(var(--nav-size)*.45);
     margin-bottom: calc(var(--nav-size)*.45);
