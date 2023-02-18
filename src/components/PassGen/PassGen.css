@@ -23,7 +23,55 @@
     margin-bottom: calc(var(--nav-size)*.2);
     /* padding: calc(var(--nav-size)*.5); */
 }
+#passgen-calculator-label{
+    /* padding-left: calc(var(--nav-size)*.75);
+    padding-right: calc(var(--nav-size)*.75); */
+    /* margin-bottom: calc(var(--nav-size)*.5); */
+    font-size: calc(var(--nav-size)*.3);
+    vertical-align: middle;
+}
+#passgen-calculator-checkbox {
+    color: #007bff;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    width: 20px;
+    height: 20px;
+    background-color: var(--bg);
+    border: 2px solid #007bff;
+    border-radius: 3px;
+    display: inline-block;
+    vertical-align: middle;
+    position: relative;
+}
+#passgen-calculator-checkbox::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 20px;
+    height: 20px;
+    /* border: solid white;     */
+    background-color: #007bff;
 
+    /* border-width: 0 2px 2px 0; */
+    /* transform-origin: bottom left; */
+    display: none;
+}
+#passgen-calculator-checkbox:checked::after {
+    display: block;
+}
+  
+#passgen-calculator-submit{
+    padding: calc(var(--nav-size)*.15) calc(var(--nav-size)*.3);
+    border-radius: calc(var(--nav-size)*.1);
+    background-color: #3498db;
+    color: white;
+    border: none;
+    font-size: calc(var(--nav-size)*.2);
+    cursor: pointer;
+}
 #passgen-sourcecode{
     margin-top: calc(var(--nav-size)*.45);
     margin-bottom: calc(var(--nav-size)*.45);

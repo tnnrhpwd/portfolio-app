@@ -8,16 +8,17 @@ function PassGen() {
     const [hasUppercase, setHasUppercase] = useState(true);
     const [hasLowercase, setHasLowercase] = useState(true);
     const [hasNumbers, setHasNumbers] = useState(true);
-    const [hasSymbols, setHasSymbols] = useState(false);
+    const [hasSymbols, setHasSymbols] = useState(true);
     const [length, setLength] = useState(15);
     const [outcome, setOutcome] = useState("");
 
     function handleSubmit(){
         calculatePassword(length, hasUppercase, hasLowercase, hasNumbers, hasSymbols)
     }
-    function handleCopyToClipboard(){
-        setOutcome("length, hasUppercase, hasLowercase, hasNumbers, hasSymbols")
-    }
+    const handleCopyToClipboard = () => {
+        navigator.clipboard.writeText(outputPassword);
+        setOutcome('Copied to clipboard!');
+      };
     const handleSetLength = (event) => {
         setLength(event.target.value);
     }
@@ -31,7 +32,7 @@ function PassGen() {
         setHasNumbers(!hasNumbers);
     }
     const handleSetHasSymbols = () => {
-        setHasSymbols(!hasNumbers);
+        setHasSymbols(!hasSymbols);
     }
 
     /* This javascript function takes two inputs (wakeup time, sleep duration) in standard army time and outputs the bedtime*/
@@ -82,28 +83,28 @@ function PassGen() {
             <div className='passgen-col1'>
                 <div className='passgen-calculator'>
                     <div className='passgen-calculator-slider'>
-                        <label htmlFor="passgen-calculator-slider">Slider:</label>
+                        <label id='passgen-calculator-label' htmlFor="passgen-calculator-slider">Slider:</label>
                         <input type="range" id="passgen-calculator-slider" min="0" max="100" value={length} onChange={handleSetLength} />
                         <div id='passgen-calculator-slider-length'>{length}</div>
                     </div>
                     <div className='passgen-calculator-uppercase'>
-                        <label htmlFor="passgen-calculator-uppercase">HasUppercase:</label>
-                        <input type="checkbox" id="passgen-calculator-uppercase" checked={hasUppercase} onChange={handleSetHasUppercase} />
+                        <label id='passgen-calculator-label' htmlFor="passgen-calculator-checkbox">HasUppercase:</label>
+                        <input type="checkbox" id="passgen-calculator-checkbox" checked={hasUppercase} onChange={handleSetHasUppercase} />
                     </div>
                     <div className='passgen-calculator-lowercase'>
-                        <label htmlFor="passgen-calculator-lowercase">HasLowercase:</label>
-                        <input type="checkbox" id="passgen-calculator-lowercase" checked={hasLowercase} onChange={handleSetHasLowercase} />
+                        <label id='passgen-calculator-label' htmlFor="passgen-calculator-checkbox">HasLowercase:</label>
+                        <input type="checkbox" id="passgen-calculator-checkbox" checked={hasLowercase} onChange={handleSetHasLowercase} />
                     </div>
                     <div className='passgen-calculator-numbers'>
-                        <label htmlFor="passgen-calculator-numbers">HasNumbers:</label>
-                        <input type="checkbox" id="passgen-calculator-numbers" checked={hasNumbers} onChange={handleSetHasNumbers} />
+                        <label id='passgen-calculator-label' htmlFor="passgen-calculator-checkbox">HasNumbers:</label>
+                        <input type="checkbox" id="passgen-calculator-checkbox" checked={hasNumbers} onChange={handleSetHasNumbers} />
                     </div>
                     <div className='passgen-calculator-symbols'>
-                        <label htmlFor="passgen-calculator-symbols">HasSymbols:</label>
-                        <input type="checkbox" id="passgen-calculator-symbols" checked={hasSymbols} onChange={handleSetHasSymbols} />
+                        <label id='passgen-calculator-label' htmlFor="passgen-calculator-checkbox">HasSymbols:</label>
+                        <input type="checkbox" id="passgen-calculator-checkbox" checked={hasSymbols} onChange={handleSetHasSymbols} />
                     </div>
 
-                    <button id="passgen-calculator-clipboard" onClick={handleCopyToClipboard}>Copy to Clipboard</button>
+                    <button id="passgen-calculator-submit" onClick={handleCopyToClipboard}>Copy to Clipboard</button>
                     <button id="passgen-calculator-submit" onClick={handleSubmit}>Regenerate</button>
                     <br></br>
                     <br></br>
