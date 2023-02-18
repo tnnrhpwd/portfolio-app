@@ -392,3 +392,23 @@
     border: calc(var(--nav-size)*0.001) solid white;
     filter: brightness(1.2);
 }
+.projects-p11{
+    font-size: calc(var(--nav-size)*.5);
+    width: calc(var(--nav-size)*3);
+    display: inline;
+    text-align: center;
+    margin: calc(var(--nav-size)*.1);
+}
+#projects-p11-img{
+    text-align: center;
+    height: calc(var(--nav-size)*1.65);
+    width: calc(var(--nav-size)*3);
+    display: inline-block;
+    cursor: pointer;
+}
+#projects-p11-img:hover{
+    width: calc(var(--nav-size)*2.999);
+    height: calc(var(--nav-size)*1.649);
+    border: calc(var(--nav-size)*0.001) solid white;
+    filter: brightness(1.2);
+}

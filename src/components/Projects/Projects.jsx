@@ -8,6 +8,7 @@ import ethanolimg from "./ethanol.PNG";
 // import saloncwimg from "./saloncw.png";
 import planitimg from './planit.png';
 import sleepassistimg from './sleepassist.png';
+import passgenimg from './passgen.png';
 
 import Utility from "./Utility";
 
@@ -81,6 +82,25 @@ function Projects() {
               <br/><br/>
               <div className="utility-space">
                 <Utility type="code" url="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/SleepAssist"/>
+                <Utility type="html"/>
+                <Utility type="react"/>
+                <Utility type="css"/>
+                <Utility type="netlify"/>
+              </div>
+            </div>
+          </div>          
+          
+          <div className="projects-div">
+            <div className="projects-p11">
+              <a href="/passgen">
+                <img id="projects-p11-img" src={passgenimg} alt="the display for passgen "/>
+              </a>
+            </div>
+            <div className="projects-div-text">
+              Want a random password?
+              <br/><br/>
+              <div className="utility-space">
+                <Utility type="code" url="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/PassGen"/>
                 <Utility type="html"/>
                 <Utility type="react"/>
                 <Utility type="css"/>
