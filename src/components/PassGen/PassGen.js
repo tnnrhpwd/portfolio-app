@@ -89,28 +89,28 @@ function PassGen() {
                 <div className='passgen-calculator'>
                     <div className='passgen-calculator-slider'>
                         <label id='passgen-calculator-label' htmlFor="passgen-calculator-slider">Password Length: {length}</label>
-                        <br></br>
+                        
                         <input type="range" id="passgen-calculator-slider" min="3" max="512" value={length} onChange={handleSetLength} />
                     </div>
-                    <div className='passgen-calculator-uppercase'>
+                    <div className='passgen-calculator-checkholder'>
                         <label id='passgen-calculator-label' htmlFor="passgen-calculator-checkbox">Has Uppercase:</label>
                         <input type="checkbox" id="passgen-calculator-checkbox" checked={hasUppercase} onChange={handleSetHasUppercase} />
                     </div>
-                    <div className='passgen-calculator-lowercase'>
+                    <div className='passgen-calculator-checkholder'>
                         <label id='passgen-calculator-label' htmlFor="passgen-calculator-checkbox">Has Lowercase:</label>
                         <input type="checkbox" id="passgen-calculator-checkbox" checked={hasLowercase} onChange={handleSetHasLowercase} />
                     </div>
-                    <div className='passgen-calculator-numbers'>
+                    <div className='passgen-calculator-checkholder'>
                         <label id='passgen-calculator-label' htmlFor="passgen-calculator-checkbox">Has Numbers:</label>
                         <input type="checkbox" id="passgen-calculator-checkbox" checked={hasNumbers} onChange={handleSetHasNumbers} />
                     </div>
-                    <div className='passgen-calculator-symbols'>
+                    <div className='passgen-calculator-checkholder'>
                         <label id='passgen-calculator-label' htmlFor="passgen-calculator-checkbox">Has Symbols:</label>
                         <input type="checkbox" id="passgen-calculator-checkbox" checked={hasSymbols} onChange={handleSetHasSymbols} />
                     </div>
 
                     <button id="passgen-calculator-submit" onClick={handleCopyToClipboard}>Copy to Clipboard</button>
-                    <button id="passgen-calculator-submit" onClick={handleSubmit}>Regenerate</button>
+                    <button id="passgen-calculator-submit" onClick={handleSubmit}>Generate</button>
                     <br></br>
                     <br></br>
 
