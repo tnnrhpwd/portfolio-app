@@ -17,10 +17,11 @@ function SleepAssist() {
 
     /* This javascript function takes two inputs (wakeup time, sleep duration) in standard army time and outputs the bedtime*/
     function calculateBedtime(wakeup, duration) {
+
         if (!/^\d{1,4}(?::\d{2})?$/.test(wakeup) || !/^\d{1,4}(?::\d{2})?$/.test(duration)) {
-            setBedTime("Invalid time format.");
-            return;
+            return "Invalid time format.";
         }
+    
         let wakeupHours, wakeupMinutes, durationHours, durationMinutes;
     
         if (wakeup.indexOf(":") !== -1) {
@@ -61,7 +62,7 @@ function SleepAssist() {
         durationHours = parseInt(durationHours);
         durationMinutes = parseInt(durationMinutes);
     
-        let bedtimeMinutes = (wakeupHours * 60 + wakeupMinutes) - (durationHours * 60 + durationMinutes);
+        let bedtimeMinutes = (wakeupHours * 60 + wakeupMinutes) - (durationHours * 60 + durationMinutes) + 60;
         let bedtimeHours = Math.floor(bedtimeMinutes / 60);
         bedtimeMinutes = bedtimeMinutes % 60;
     
@@ -78,8 +79,8 @@ function SleepAssist() {
         bedtimeHours = bedtimeHours % 24;
     
         let bedtime = `${("0" + bedtimeHours).slice(-2)}:${("0" + bedtimeMinutes).slice(-2)}`;
-        let bedtime12 = `${bedtimeHours % 12 || 12}:${("0" + bedtimeMinutes).slice(-2)} ${bedtimeHours >= 12 ? "PM" : "AM"}`;
-    
+        let bedtime12 = `${bedtimeHours % 12 || 12}:${("0" + bedtimeMinutes).slice(-2)} ${bedtimeHours >= 12 ? "PM" : "AM"}`;    
+
         setBedTime(`${bedtime} ( ${bedtime12} )`);
     }
     
