@@ -23,6 +23,43 @@
     margin-bottom: calc(var(--nav-size)*.2);
     /* padding: calc(var(--nav-size)*.5); */
 }
+#passgen-calculator-slider {
+    width: 70%;
+    height: calc(var(--nav-size)*.9);
+    margin: calc(var(--nav-size)*.2) 0;
+    background-color: var(--text-color);
+    vertical-align: middle;
+}  
+#passgen-calculator-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: calc(var(--nav-size)*.9);
+    height: calc(var(--nav-size)*.9);
+    background-color: #007bff;
+    border-radius: 50%;
+    cursor: pointer;
+} 
+#passgen-calculator-slider::-moz-range-thumb {
+    width: calc(var(--nav-size)*.9);
+    height: calc(var(--nav-size)*.1);
+    background-color: #007bff;
+    border-radius: 50%;
+    cursor: pointer;
+} 
+#passgen-calculator-slider::-webkit-slider-runnable-track {
+    height: calc(var(--nav-size)*.05);
+    background-color: #007bff;
+}
+#passgen-calculator-slider::-moz-range-track {
+    height: calc(var(--nav-size)*.05);
+    background-color: #007bff;
+} 
+#passgen-calculator-slider::-ms-track {
+    height: calc(var(--nav-size)*.05);
+    background-color: #007bff;
+    border-color: transparent;
+    color: transparent;
+}  
 #passgen-calculator-label{
     /* padding-left: calc(var(--nav-size)*.75);
     padding-right: calc(var(--nav-size)*.75); */
@@ -72,6 +109,23 @@
     font-size: calc(var(--nav-size)*.2);
     cursor: pointer;
 }
+#passgen-calculator-output {
+    width: 80%;
+    height: calc(var(--nav-size)*2);
+    padding: calc(var(--nav-size)*.15);
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 16px;
+    line-height: 1.0;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    resize: none;
+}
+  
+#passgen-calculator-outcome {
+    font-size: calc(var(--nav-size)*.3);
+    vertical-align: middle;
+}
+
 #passgen-sourcecode{
     margin-top: calc(var(--nav-size)*.45);
     margin-bottom: calc(var(--nav-size)*.45);

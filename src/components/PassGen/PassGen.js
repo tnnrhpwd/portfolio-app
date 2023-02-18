@@ -37,7 +37,6 @@ function PassGen() {
 
     /* This javascript function takes two inputs (wakeup time, sleep duration) in standard army time and outputs the bedtime*/
     function calculatePassword(pwLength, pwHasUppercase, pwHasLowercase, pwHasNumbers, pwHasSymbols) {
-        if(pwLength === '0'){setOutcome("Increase the password length.")} else {setOutcome("");}
         var uppercaseChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         var lowercaseChars = "abcdefghijklmnopqrstuvwxyz";
         var numberChars = "0123456789";
@@ -66,7 +65,7 @@ function PassGen() {
           var randomChar = allChars[Math.floor(Math.random() * allChars.length)];
           password += randomChar;
         }
-      
+        setOutcome("")
         setOutputPassword(password);
     }
 
@@ -77,15 +76,15 @@ function PassGen() {
                 PassGen
             </div>
             <div className="passgen-description">
-                This calculator inputs alarm time & sleep duration, and it outputs the time to go to sleep. Use the 24 hour time format.
+                This calculator generates a random password for you using your criteria. 
             </div>
 
             <div className='passgen-col1'>
                 <div className='passgen-calculator'>
                     <div className='passgen-calculator-slider'>
-                        <label id='passgen-calculator-label' htmlFor="passgen-calculator-slider">Slider:</label>
-                        <input type="range" id="passgen-calculator-slider" min="0" max="100" value={length} onChange={handleSetLength} />
-                        <div id='passgen-calculator-slider-length'>{length}</div>
+                        <label id='passgen-calculator-label' htmlFor="passgen-calculator-slider">Password Length: {length}</label>
+                        <br></br>
+                        <input type="range" id="passgen-calculator-slider" min="3" max="512" value={length} onChange={handleSetLength} />
                     </div>
                     <div className='passgen-calculator-uppercase'>
                         <label id='passgen-calculator-label' htmlFor="passgen-calculator-checkbox">HasUppercase:</label>
