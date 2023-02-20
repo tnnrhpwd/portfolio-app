@@ -26,7 +26,8 @@
 #sleepassist-calculator-input{
     padding: calc(var(--nav-size)*.125);
     border-radius: calc(var(--nav-size)*.07);
-    border: none;
+    border:  calc(var(--nav-size)*.1) var(--text-color);
+    text-align: center;;
     font-size: calc(var(--nav-size)*.2);
     margin-bottom: calc(var(--nav-size)*.1);
 } 
