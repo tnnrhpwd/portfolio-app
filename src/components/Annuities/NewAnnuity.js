@@ -32,6 +32,10 @@ function NewAnnuity(props) {
     // sends a value to parent
     var handleAnnuityCall = () => {
         props.onNewAnnuity(annuit);
+    }
+
+    // resets the input fields
+    var handleAnnuityReset = () => {
         setPresentValue("");
         setAnnualValue("");
         setFutureValue("");
@@ -44,6 +48,7 @@ function NewAnnuity(props) {
         if (event.key === 'Enter') {
             handleAnnuityCall();
         }
+
     }
 
 
@@ -63,6 +68,9 @@ function NewAnnuity(props) {
         </div>
         <button onClick={handleAnnuityCall} id="submitNewAnnuity" >
             Submit Annuity
+        </button>
+        <button onClick={handleAnnuityReset} id="submitNewAnnuity" >
+            Reset
         </button>
     </>);
 }
