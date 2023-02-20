@@ -167,7 +167,7 @@ function Projects() {
             </div>
           </div>
 
-          <div className="projects-div">
+          {/* <div className="projects-div">
             <div className="projects-p9">
               <a href="https://mern-planit-app.herokuapp.com/"  rel="noopener noreferrer" target="_blank">
                 <img id="projects-p9-img" src={planitimg} alt="the display for my planit project"/>
@@ -187,7 +187,7 @@ function Projects() {
                 <Utility type="node"/>
               </div>
             </div>
-          </div>
+          </div> */}
           
           <div className="projects-div">
             <div className="projects-p7">
