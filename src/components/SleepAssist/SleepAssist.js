@@ -9,79 +9,36 @@ function SleepAssist() {
     const [addTime, setAddTime] = useState(0);
 
     function handleSubmit(){
-        calculateBedtime(wakeTime, addTime)
+        setBedTime(calculateBedtime(wakeTime, addTime))
     }
     // This Javascript function returns true if the two input strings 
 
 
-
-    /* This javascript function takes two inputs (wakeup time, sleep duration) in standard army time and outputs the bedtime*/
     function calculateBedtime(wakeup, duration) {
-
         if (!/^\d{1,4}(?::\d{2})?$/.test(wakeup) || !/^\d{1,4}(?::\d{2})?$/.test(duration)) {
             return "Invalid time format.";
         }
     
-        let wakeupHours, wakeupMinutes, durationHours, durationMinutes;
+        let [wakeupHours, wakeupMinutes] = wakeup.padStart(4, "0").match(/\d{2}/g).map(Number);
+        let [durationHours, durationMinutes] = duration.padStart(4, "0").match(/\d{2}/g).map(Number);
     
-        if (wakeup.indexOf(":") !== -1) {
-            [wakeupHours, wakeupMinutes] = wakeup.split(":");
-        } else if (wakeup.length === 4) {
-            wakeupHours = wakeup.slice(0, 2);
-            wakeupMinutes = wakeup.slice(2);
-        } else if (wakeup.length === 3) {
-            wakeupHours = wakeup[0];
-            wakeupMinutes = wakeup.slice(1);
-        } else if (wakeup.length === 2) {
-            wakeupHours = 0;
-            wakeupMinutes = wakeup;
-        } else if (wakeup.length === 1) {
-            wakeupHours = 0;
-            wakeupMinutes = `0${wakeup}`;
-        }
-    
-        wakeupHours = parseInt(wakeupHours);
-        wakeupMinutes = parseInt(wakeupMinutes);
-    
-        if (duration.indexOf(":") !== -1) {
-            [durationHours, durationMinutes] = duration.split(":");
-        } else if (duration.length === 4) {
-            durationHours = duration.slice(0, 2);
-            durationMinutes = duration.slice(2);
-        } else if (duration.length === 3) {
-            durationHours = duration[0];
-            durationMinutes = duration.slice(1);
-        } else if (duration.length === 2) {
-            durationHours = 0;
-            durationMinutes = duration;
-        } else if (duration.length === 1) {
-            durationHours = 0;
-            durationMinutes = `0${duration}`;
-        }
-    
-        durationHours = parseInt(durationHours);
-        durationMinutes = parseInt(durationMinutes);
-    
-        let bedtimeMinutes = (wakeupHours * 60 + wakeupMinutes) - (durationHours * 60 + durationMinutes) + 60;
-        let bedtimeHours = Math.floor(bedtimeMinutes / 60);
-        bedtimeMinutes = bedtimeMinutes % 60;
-    
-        // Adjust for negative values
+        let bedtimeMinutes = wakeupMinutes - durationMinutes;
+        let bedtimeHours = wakeupHours - durationHours;
         if (bedtimeMinutes < 0) {
             bedtimeMinutes += 60;
-            bedtimeHours -= 1;
+            bedtimeHours--;
         }
         if (bedtimeHours < 0) {
             bedtimeHours += 24;
         }
     
-        // Adjust for values greater than or equal to 24
-        bedtimeHours = bedtimeHours % 24;
+        let bedtimePeriod = bedtimeHours >= 12 ? "PM" : "AM";
+        let bedtimeHours12 = (bedtimeHours % 12) || 12;
+        let bedtimeMinutesFormatted = ("0" + bedtimeMinutes).slice(-2);
+        let bedtime = `${("0" + bedtimeHours).slice(-2)}:${bedtimeMinutesFormatted}`;
+        let bedtime12 = `${bedtimeHours12}:${bedtimeMinutesFormatted} ${bedtimePeriod}`;
     
-        let bedtime = `${("0" + bedtimeHours).slice(-2)}:${("0" + bedtimeMinutes).slice(-2)}`;
-        let bedtime12 = `${bedtimeHours % 12 || 12}:${("0" + bedtimeMinutes).slice(-2)} ${bedtimeHours >= 12 ? "PM" : "AM"}`;    
-
-        setBedTime(`${bedtime} ( ${bedtime12} )`);
+        return(`${bedtime} ( ${bedtime12} )`);
     }
     
     const handleKeyPress = event => {
