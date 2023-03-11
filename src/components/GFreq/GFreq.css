@@ -31,15 +31,15 @@
     font-size: calc(var(--nav-size)*.35);
 }
 
-.gfreq-calculator-oscilloscope {
+.gfreq-calculator-history {
     height: calc(var(--nav-size)*7);
 }
-.gfreq-calculator-oscilloscope-details {
+.gfreq-calculator-history-details {
     font-size: calc(var(--nav-size)*.4);
 
     height: calc(var(--nav-size)*3.5);
 }
-.gfreq-calculator-oscilloscope-chart {
+.gfreq-calculator-history-chart {
 
     /* white-space: nowrap; */
     width: max(calc(var(--nav-size)*8),100%);
@@ -51,7 +51,17 @@
     margin: calc(var(--nav-size)*0.1);
 }
 
-.gfreq-calculator-oscilloscope-bars {
+.gfreq-calculator-history-bars {
+    display: inline-block;
+    width: calc(var(--nav-size)*.4);
+    background-color: pink;
+    margin: 1px;
+    font-size: calc(var(--nav-size)*.19);
+    writing-mode: vertical-lr;
+    color: black;
+    font-weight: bold;
+}
+.spectrum-bar {
     display: inline-block;
     width: calc(var(--nav-size)*.4);
     background-color: black;

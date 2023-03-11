@@ -32,9 +32,10 @@ function GFreq() {
     const [audioNoteName, setAudioNoteName] = useState("0");
     const [audioOctave, setAudioOctave] = useState(0);
     const [frequencyData, setFrequencyData] = useState([])
+    const [frequencyCurrentArray, setFrequencyCurrentArray] = useState([])
 
-    const activateOscilloscope = () => {
-        getFrequency()
+    const toggleOscilloscope = () => {
+        if(oscilActive){setOscilActive(false)}else{getFrequency()}
     }
 
     useEffect(() => {
@@ -54,17 +55,22 @@ function GFreq() {
             const audioContext = new AudioContext();
             const analyser = audioContext.createAnalyser();
             const microphone = audioContext.createMediaStreamSource(stream);
-      
+            analyser.fftSize = 2048;
+
             microphone.connect(analyser);
             analyser.connect(audioContext.destination);
       
-            const data = new Uint8Array(analyser.frequencyBinCount);
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            const freqArray = new Float32Array(analyser.frequencyBinCount)
       
             const updateFrequency = () => {
-              analyser.getByteFrequencyData(data);
-              const maxIndex = data.indexOf(Math.max(...data));
+              analyser.getByteFrequencyData(dataArray);
+              analyser.getFloatFrequencyData(freqArray)
+              const maxIndex = dataArray.indexOf(Math.max(...dataArray));
               const frequency = audioContext.sampleRate / analyser.fftSize * maxIndex;
               setNote(frequency)
+              setFrequencyCurrentArray(freqArray.slice(100, 1000))
+              console.log(freqArray.slice(100, 1000))
             };
       
             const intervalId = setInterval(updateFrequency, 100);
@@ -84,6 +90,7 @@ function GFreq() {
             .then(handleSuccess)
             .catch(handleError);
     }
+    
 
     function setNote(freq){
         const getNote = freq => {
@@ -126,11 +133,11 @@ function GFreq() {
                     <div className='gfreq-calculator-title'>
                         Frequency Calculator
                     </div>
-                    <button id="gfreq-sourcecode" onClick={activateOscilloscope}>Toggle Oscilloscope</button>
+                    <button id="gfreq-sourcecode" onClick={toggleOscilloscope}>Toggle Oscilloscope</button>
                     <br></br>
 
-                    {(oscilActive) && (<div className='gfreq-calculator-oscilloscope'>
-                        <div className='gfreq-calculator-oscilloscope-details'>
+                    {(oscilActive) && (<div className='gfreq-calculator-history'>
+                        <div className='gfreq-calculator-history-details'>
                             {!isNaN(audioNote) && "audioNote:"+(audioNote)+"("+(noteStrings[audioNote % 12])+")"}
                             <br></br>
                             {!isNaN(audioCents) && "audioCents:"+(audioCents)}
@@ -140,13 +147,24 @@ function GFreq() {
                             {!(audioFrequency === 0 ) && "audioFrequency:"+(audioFrequency)}
                         </div>
                         <br></br>
-                        <div className='gfreq-calculator-oscilloscope-chart'>
-                            {frequencyData.map((value, index) => (
+                        <div className="spectrum">
+                            {frequencyCurrentArray.map((value, index) => (
                                 <div
-                                className='gfreq-calculator-oscilloscope-bars'
+                                className="spectrum-bar"
                                 key={index}
                                 style={{
-                                    // height: `calc(${value}/100)%`,
+                                    height: `calc(var(--nav-size)*${value}*.0037)`
+                                }}
+                                />
+                            ))}
+                        </div>
+                        <br></br>
+                        <div className='gfreq-calculator-history-chart'>
+                            {frequencyData.map((value, index) => (
+                                <div
+                                className='gfreq-calculator-history-bars'
+                                key={index}
+                                style={{
                                     height: `calc(var(--nav-size)*${value}*.0037)`,
                                 }}
                                 >{value}</div>
