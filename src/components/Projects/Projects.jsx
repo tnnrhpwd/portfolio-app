@@ -5,6 +5,7 @@ import wordleimg from "./wordle.PNG";
 import annuitiesimg from "./Annuities.jpeg";
 // import draftingimg from "./drafting.jpg";
 import ethanolimg from "./ethanol.PNG";
+import gfreqimg from "./Gfreq.png";
 // import saloncwimg from "./saloncw.png";
 import planitimg from './planit.png';
 import sleepassistimg from './sleepassist.png';
@@ -18,6 +19,8 @@ import NavBar from '../NavBar/NavBar';
 import "./Projects.css";
 
 function Projects() {
+
+  
 
     return (<>
       <NavBar />
@@ -63,6 +66,25 @@ function Projects() {
               <br/><br/>
               <div className="utility-space">
                 <Utility type="code" url="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Wordle"/>
+                <Utility type="html"/>
+                <Utility type="react"/>
+                <Utility type="css"/>
+                <Utility type="netlify"/>
+              </div>
+            </div>
+          </div>
+
+          <div className="projects-div">
+            <div className="projects-p6">
+              <a href="/gfreq">
+                <img id="projects-p6-img" src={gfreqimg} alt="the display for gfreq "/>
+              </a>
+            </div>
+            <div className="projects-div-text">
+              Analyze any audio from the microphone on your device. 
+              <br/><br/>
+              <div className="utility-space">
+                <Utility type="code" url="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Gfreq"/>
                 <Utility type="html"/>
                 <Utility type="react"/>
                 <Utility type="css"/>
