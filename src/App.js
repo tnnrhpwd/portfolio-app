@@ -15,6 +15,7 @@ import PassGen from './components/PassGen/PassGen';
 import ProdPartners from './components/ProdPartners/ProdPartners';
 import Projects from './components/Projects/Projects';
 import SleepAssist from './components/SleepAssist/SleepAssist';
+import Sountrix from './components/Sountrix/Sountrix';
 import Wordle from './components/Wordle/Wordle';
 import WordleSolver from './components/WordleSolver/WordleSolver';
 
@@ -34,6 +35,7 @@ function App() {
         <Route path="/planit" element={<Planit/>} />
         {/* <Route path="/pollbox" element={<PollBox/>} /> */}
         <Route path="/sleepassist" element={<SleepAssist/>} />
+        <Route path="/sountrix" element={<Sountrix/>} />
         <Route path="/passgen" element={<PassGen/>} />
         <Route path="/prodpartners" element={<ProdPartners/>} />
         <Route path="/projects" element={<Projects/>} />
