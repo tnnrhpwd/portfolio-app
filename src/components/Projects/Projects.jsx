@@ -7,7 +7,7 @@ import annuitiesimg from "./Annuities.jpeg";
 import ethanolimg from "./ethanol.PNG";
 import gfreqimg from "./Gfreq.png";
 // import saloncwimg from "./saloncw.png";
-import planitimg from './planit.png';
+// import planitimg from './planit.png';
 import sleepassistimg from './sleepassist.png';
 import passgenimg from './passgen.png';
 

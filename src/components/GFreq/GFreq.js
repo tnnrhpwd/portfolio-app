@@ -29,7 +29,7 @@ function GFreq() {
     const [audioFrequency, setAudioFrequency] = useState(0);
     const [audioNote, setAudioNote] = useState(0);
     const [audioCents, setAudioCents] = useState(0);
-    const [audioNoteName, setAudioNoteName] = useState("0");
+    // const [audioNoteName, setAudioNoteName] = useState("0");
     const [audioOctave, setAudioOctave] = useState(0);
     const [frequencyData, setFrequencyData] = useState([])
     const [frequencyCurrentArray, setFrequencyCurrentArray] = useState([])
@@ -108,11 +108,11 @@ function GFreq() {
         };
         const note = getNote(freq);
         const cents = getCents(freq, note);
-        const noteName = noteStrings[note % 12];
+        // const noteName = noteStrings[note % 12];
         const octave = parseInt(note / 12) - 1;
         setAudioNote(note)
         setAudioCents(cents)
-        setAudioNoteName(noteName) // for some reason this function does not work. after 30 min troubleshooting, no idea why.
+        // setAudioNoteName(noteName) // for some reason this function does not work. after 30 min troubleshooting, no idea why.
         setAudioOctave(octave)
         setAudioFrequency(freq);
         setFrequencyArray(freq);
