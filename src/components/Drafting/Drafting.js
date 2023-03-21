@@ -1,11 +1,11 @@
 import React from "react";
-// import { Zoom } from "react-slideshow-image";
+import { Zoom } from "react-slideshow-image";
 
 
 import Footer from './../Footer/Footer';
 import NavBar from './../NavBar/NavBar';
 
-// import 'react-slideshow-image/dist/styles.css'
+import 'react-slideshow-image/dist/styles.css'
 import "./Drafting.css";
 
 const reel = [
@@ -36,11 +36,11 @@ function Drafting() {
         <NavBar/>
         <div className="drafting">
             <div className="drafting-space">
-                {/* <Zoom {...zoomOutProperties}>
+                <Zoom {...zoomOutProperties}>
                     {reel.map((each, index) =>(
                         <img key={index} style={{width: "100%"}} alt="slideshow for CAD drafting pace" src={each} />
                     ))}
-                </Zoom> */}
+                </Zoom>
             </div>
             <div className="slide-button">
                 <a href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Drafting" rel="noopener noreferrer" target="_blank">
