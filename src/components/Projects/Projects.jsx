@@ -7,7 +7,7 @@ import annuitiesimg from "./Annuities.jpeg";
 import ethanolimg from "./ethanol.PNG";
 import gfreqimg from "./Gfreq.png";
 // import saloncwimg from "./saloncw.png";
-// import planitimg from './planit.png';
+import planitimg from './planit.png';
 import sleepassistimg from './sleepassist.png';
 import passgenimg from './passgen.png';
 
@@ -197,14 +197,14 @@ function Projects() {
             </div>
             <div className="projects-div-text">
               Do you have a plan you want to share with the world?
-              <br/><br/> ( Work-in-Progress ) <br/>( Please wait for Heroku initial load )
+              <br/><br/>( Please wait for Render initial load )
               <br/><br/>
               <div className="utility-space">
                 <Utility type="code" url="https://github.com/tnnrhpwd/mern-planit-app"/>
                 <Utility type="html"/>
                 <Utility type="react"/>
                 <Utility type="css"/>
-                <Utility type="heroku"/>
+                {/* <Utility type="heroku"/> */}
                 <Utility type="mongo"/>
                 <Utility type="node"/>
               </div>
