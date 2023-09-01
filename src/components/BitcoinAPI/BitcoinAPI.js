@@ -17,14 +17,14 @@ function BitcoinAPI(){
             const data = await response.json();                                 // assign json to variable
             setPrice("$ "+data.bpi.USD.rate_float.toFixed(2));                                        // assign the price string to variable
         }
-        getPrice();
+            getPrice();
         // console.log(reloadButton);
     }, [reloadButton])
 
     // on first load, call the get price function
     useEffect(() => {
         callReloadButton(reloadButton+1);
-    },[])
+    },[reloadButton])
 
 
     return(<>
@@ -35,7 +35,7 @@ function BitcoinAPI(){
            
             <button className='bitcoinapi-space-button' onClick={() => callReloadButton(reloadButton+1)}>
                 <div className='bitcoinapi-space-button-price'>
-                    <span>{price}</span>
+                    {price&&<span>{price}</span>}
                 </div>
             </button>
         </div>
