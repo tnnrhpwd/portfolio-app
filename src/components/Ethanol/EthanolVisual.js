@@ -3,10 +3,10 @@ import {CircularProgressbar} from "react-circular-progressbar";
 import 'react-circular-progressbar/dist/styles.css';
 
 function EthanolVisual(props) {
-    var circleArray = [];    // temporary array
     const [stateArray, setStateArray] = useState([]);    // output array
 
     useEffect(() => {   // RUN on EACH INPUT
+        var circleArray = [];    // temporary array
         // add input integer number of circles.
         for(let i = 0; i < Math.floor(props.out); i++){
             circleArray.push(<div className='ethanolvisual-circles' key={i} ><CircularProgressbar key={i} value={100}/></div>)
