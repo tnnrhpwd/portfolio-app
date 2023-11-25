@@ -229,7 +229,7 @@ function Projects() {
               </div>
             </div>
           </div>
-          <div className="projects-div">
+          {/* <div className="projects-div">
             <div className="projects-p3">
               <BitcoinAPI/>
             </div>
@@ -245,7 +245,7 @@ function Projects() {
                 <Utility type="netlify"/>
               </div>
             </div>
-          </div>
+          </div> */}
 
           {/* <div className="projects-div">
             <div className="projects-p4">
