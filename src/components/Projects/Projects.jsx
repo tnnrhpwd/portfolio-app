@@ -6,20 +6,12 @@ import "./Projects.css";
 
 const projectData = [
   {
-    id: 1,
-    imgSrc: require("../../assets/wordle.png"),
-    alt: "the display for wordle",
-    url: "/wordle",
-    description: "Wordle game clone with custom word length. Wordle Solver included.",
-    utilities: ["code", "html", "react", "css", "netlify"],
-  },
-  {
-    id: 2,
-    imgSrc: require("../../assets/Gfreq.png"),
-    alt: "the display for gfreq",
-    url: "/gfreq",
-    description: "Analyze any audio from the microphone on your device.",
-    utilities: ["code", "html", "react", "css", "netlify"],
+    id: 7,
+    imgSrc: require("../../assets/planit.png"),
+    alt: "the display for my planit project",
+    url: "https://mern-planit.netlify.app/",
+    description: "Do you have a plan you want to share with the world?",
+    utilities: ["code", "html", "react", "css", "mongo", "node", "netlify"],
   },
   {
     id: 4,
@@ -38,12 +30,20 @@ const projectData = [
     utilities: ["code", "html", "react", "css", "netlify"],
   },
   {
-    id: 7,
-    imgSrc: require("../../assets/planit.png"),
-    alt: "the display for my planit project",
-    url: "https://mern-planit.netlify.app/",
-    description: "Do you have a plan you want to share with the world?",
-    utilities: ["code", "html", "react", "css", "mongo", "node", "netlify"],
+    id: 2,
+    imgSrc: require("../../assets/Gfreq.png"),
+    alt: "the display for gfreq",
+    url: "/gfreq",
+    description: "Analyze any audio from the microphone on your device.",
+    utilities: ["code", "html", "react", "css", "netlify"],
+  },
+  {
+    id: 1,
+    imgSrc: require("../../assets/wordle.png"),
+    alt: "the display for wordle",
+    url: "/wordle",
+    description: "Wordle game clone with custom word length. Wordle Solver included.",
+    utilities: ["code", "html", "react", "css", "netlify"],
   },
 ];
 
@@ -67,7 +67,7 @@ function Projects() {
                 <br /><br />
                 <div className="utility-space">
                   {project.utilities.map((utility) => (
-                    <Utility key={utility} type={utility} url={project.url} />
+                    <Utility key={utility} type={utility} />
                   ))}
                 </div>
               </div>
