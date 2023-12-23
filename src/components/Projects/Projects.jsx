@@ -67,7 +67,7 @@ function Projects() {
                 <br /><br />
                 <div className="utility-space">
                   {project.utilities.map((utility) => (
-                    <Utility key={utility} type={utility} />
+                    <Utility key={utility} type={utility} downurl={project.url} />
                   ))}
                 </div>
               </div>
