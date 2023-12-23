@@ -3,12 +3,12 @@ import BackgroundVideo from "./BackgroundVideo.js";
 import NavBar from "./../NavBar/NavBar";
 // import Utility from "./../Projects/Utility";
 
-import lwwimg from './lww.png';
-import marelliimg from './marelli.png';
-import rcmimg from './rcm.png';
-import shawimg from './shaw.png';
-import fauimg from './fau.png';
-import yfimg from './yf.png';
+import lwwimg from '../../assets/lww.png';
+import marelliimg from '../../assets/marelli.png';
+import rcmimg from '../../assets/rcm.png';
+import shawimg from '../../assets/shaw.png';
+import fauimg from '../../assets/fau.png';
+import yfimg from '../../assets/yf.png';
 
 import './Home.css';
 
