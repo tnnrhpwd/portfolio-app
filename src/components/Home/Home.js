@@ -8,6 +8,7 @@ import marelliimg from './marelli.png';
 import rcmimg from './rcm.png';
 import shawimg from './shaw.png';
 import fauimg from './fau.png';
+import yfimg from './yf.png';
 
 import './Home.css';
 
@@ -16,6 +17,7 @@ const marellilink = "https://www.marelli.com";
 const rcmlink = "https://www.rcmindustries.com/";
 const shawlink = "https://www.shawinc.com/";
 const faulink = "https://www.faurecia.com/en";
+const yflink = "https://www.yanfeng.com/en";
 
 function Home() {
 
@@ -82,6 +84,7 @@ function Home() {
                 <a   rel="noopener noreferrer" target="_blank" href={shawlink} ><img className="home-spc-logos" src={shawimg} alt="shaw logo" /></a> 
                 <a   rel="noopener noreferrer" target="_blank" href={lwwlink} ><img className="home-spc-logos" src={lwwimg} alt="lewisburg wastewater logo" /></a> 
                 <a   rel="noopener noreferrer" target="_blank" href={faulink} ><img className="home-spc-logos" src={fauimg} alt="faurecia logo" /></a> 
+                <a   rel="noopener noreferrer" target="_blank" href={yflink} ><img className="home-spc-logos" src={yfimg} alt="yanfeng logo" /></a> 
               </div>
             </div>
           </section>
