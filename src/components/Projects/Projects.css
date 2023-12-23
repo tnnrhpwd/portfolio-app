@@ -19,7 +19,7 @@
         --project-width: calc(var(--nav-size) * 3);
         --project-height: calc(var(--nav-size) * 1.65);
         --project-brightness: brightness(1.2);
-        --project-text-width: calc(var(--nav-size) * 8);    
+        --project-text-width: 100%;    
     }
 }
 
