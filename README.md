@@ -61,5 +61,3 @@ While this project is primarily a personal portfolio, contributions are welcome.
 
 License
 This project is open source and available under the MIT License.
-
-This version of the README includes sections for the technologies used, getting started instructions, a note about contributions, and a mention of the license. It provides a more comprehensive overview of your project.
