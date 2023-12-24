@@ -168,5 +168,8 @@ padding-bottom: calc(var(--nav-size)*.6);
     width: calc(var(--nav-size)*1.75);
     display: inline-block;
     margin: calc(var(--nav-size)*0.1);
-    background-color: #ffffff10;
+    background-color: var(--bg);
+}
+.home-spc-logos:hover{
+    background-image: radial-gradient( var(--text-color) 20%, transparent );
 }

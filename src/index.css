@@ -5,9 +5,7 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* background-color: var(--bg); */
 }
-
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
@@ -16,13 +14,24 @@ body, html {
   height: 100%;
   margin: 0;
 }
-
-:root{
-  --nav-size:max(6vw,min(70px,16vw));
-  --border:1px solid rgb(53, 53, 53);
+:root {
+  --border: 1px solid rgb(53, 53, 53);
   --border-radius: 8px;
-  --speed:500ms;
-  font-size: calc(var(--nav-size)*0.81);
+  --speed: 500ms;
+  font-size: calc(var(--nav-size) * 0.81);
+}
+@media (orientation: landscape) {
+  :root{
+  --nav-size: min(6.5vw,7.5vh);
+  }
+}
+@media (orientation: portrait) {
+  :root{
+    --nav-size: calc( min( 18vw, 9vh ) * 0.775 );
+    --toastify-toast-width: 99% !important;
+    --toastify-toast-max-height: calc(var(--nav-size)*10) !important;
+    --toastify-toast-min-height: calc(var(--nav-size)*1) !important;
+  }
 }
 
 .light-theme{
@@ -31,8 +40,7 @@ body, html {
   --bg-accent:rgb(126, 126, 126);
   --text-color:rgb(0, 0, 0);
   --text-color-inv: rgb(246, 246, 246);
-  pointer-events:none; /* Disables clicks on its child elements by default */
-
+  pointer-events:none; 
 }
 .dark-theme{
   --bg:rgb(53, 53, 53);
@@ -40,11 +48,8 @@ body, html {
   --bg-accent:rgb(126, 126, 126);
   --text-color:white;
   --text-color-inv: rgb(0, 0, 0);
-  pointer-events:none; /* Disables clicks on its child elements by default */
-
+  pointer-events:none; 
 }
-
-
 ul{
   list-style: none;
   margin: 0;

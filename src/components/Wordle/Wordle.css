@@ -26,9 +26,9 @@
 }
 .title { /* CLASS for the region containing the Title */
     color: var(--text-color);
-    font-size: calc(var(--nav-size)*.5);
+    font-size: 5vw;
     border-bottom: solid min(3px,5vw) var(--bg-accent); 
-    height: calc(var(--nav-size)*.6);
+    height: 5.5vw;
 }
 .guessGrid {
     margin-top: calc(var(--nav-size)*0.2);
@@ -44,37 +44,49 @@
     justify-content: center;
     align-items: center;
     text-transform: uppercase;
-    border: calc(var(--nav-size) * 0.001) solid var(--bg-accent);
-    height: calc(var(--nav-size) * 1.0);
-    width: calc(88.2vw / var(--key-guess-count));
+    border: calc(var(--nav-size) * 0.001) solid var(--text-color);
+    box-shadow: 0 0 0 calc(var(--nav-size) * 0.001) var(--bg-accent); /* Adjust the 3px to the width you want for the second border */
+    height: calc(var(--nav-size) * 1.2);
+    width: calc(calc(var(--nav-size) * 6) / var(--key-guess-count));
     vertical-align: middle;
     color: var(--text-color);
     margin: calc(var(--nav-size) * 0.001);
 }
+@media (max-width: 280px) {
+    .key-guess {
+        width: calc(62vw / var(--key-guess-count)); /* Adjust the 100vw to the value you want */
+    }
+}
 .wordle-answer{
+    top: calc(var(--nav-size)*4);
+    position: absolute;
     margin-bottom: calc(var(--nav-size)*.2);
     font-size: calc(var(--nav-size)*.27);
+    background-color: var(--text-color-inv);
+    padding: calc(var(--nav-size)*.3);
+    border-radius: calc(var(--nav-size)*.1);
 }
 .key { /* CLASS for the keyboard buttons */
     font-weight: bold;
     text-transform: uppercase;
-    font-size: 2.0vw;
+    font-size: calc(var(--nav-size)*.2);
     border-radius: calc(var(--nav-size)*.1);
     background-color: var(--text-color-inv);
     color: var(--text-color);
-    padding: 2.1vw;
+    padding: calc(var(--nav-size)*.2);
     margin: calc(var(--nav-size)*.01);
     cursor: pointer;
     vertical-align: middle;
-    min-width: 9.5vw;
-    height: calc(var(--nav-size) * 0.9);
+    min-width: calc(var(--nav-size)*.65);
+    height: calc(var(--nav-size) * 1.05);
     border: calc(var(--nav-size)*.001) solid var(--bg-accent);
 }
 .key:hover{
-    background-image: radial-gradient( rgb(100, 100, 100) .1%, transparent );
+    background-image: radial-gradient( var(--text-color) 20%, transparent );
+    color: var(--text-color-inv);
 }
 .keyboard { /* CLASS for the region containing the keyboard */
-    margin-top: calc(var(--nav-size)*.1);
+    margin-top: calc(var(--nav-size)*0.4);
     font-size: calc(var(--nav-size)*.6);
     display: block;
     text-align: center;
@@ -95,7 +107,11 @@
     text-align: center;
 }
 #automate-newBut{
-    font-size: calc(var(--nav-size)*.26);
+    font-size: calc(var(--nav-size)*.2);
+    padding: calc(var(--nav-size)*.1);
+    margin: calc(var(--nav-size)*.001);
+    height: calc(var(--nav-size) * 0.8);
+    border-radius: calc(var(--nav-size)*.1);font-size: calc(var(--nav-size)*.26);
     vertical-align: middle;
     cursor: pointer;
     width: calc(var(--nav-size)*2);
@@ -105,10 +121,15 @@
     border: calc(var(--nav-size)*.001) solid var(--bg-accent);
 }
 #automate-newBut:hover{
-    background-image: radial-gradient( rgb(100, 100, 100) .1%, transparent );
+    background-image: radial-gradient( var(--text-color) 20%, transparent );
+    color: var(--text-color-inv);
 }
 #automate-solutionBut{
-    width: calc(var(--nav-size)*2.5);
+    font-size: calc(var(--nav-size)*.2);
+    padding: calc(var(--nav-size)*.1);
+    margin: calc(var(--nav-size)*.001);
+    height: calc(var(--nav-size) * 0.8);
+    border-radius: calc(var(--nav-size)*.1);width: calc(var(--nav-size)*2.5);
     height: calc(var(--nav-size)*.55);
     font-size: calc(var(--nav-size)*.26);
     vertical-align: bottom;
@@ -118,10 +139,15 @@
     border: calc(var(--nav-size)*.001) solid var(--bg-accent);
 }
 #automate-solutionBut:hover{
-    background-image: radial-gradient( rgb(100, 100, 100) .1%, transparent );
+    background-image: radial-gradient( var(--text-color) 20%, transparent );
+    color: var(--text-color-inv);
 }
 #automate-settingBut{
-    font-size: calc(var(--nav-size)*.36);
+    font-size: calc(var(--nav-size)*.4);
+    margin: calc(var(--nav-size)*.001);
+    height: calc(var(--nav-size) * 0.8);
+    min-width: calc(var(--nav-size)*0.8);
+    border-radius: calc(var(--nav-size)*.1);font-size: calc(var(--nav-size)*.36);
     vertical-align: middle;
     cursor: pointer;
     height: calc(var(--nav-size)*.55);
@@ -131,10 +157,15 @@
     border: calc(var(--nav-size)*.001) solid var(--bg-accent);
 }
 #automate-settingBut:hover{
-    background-image: radial-gradient( rgb(100, 100, 100) .1%, transparent );
+    background-image: radial-gradient( var(--text-color) 20%, transparent );
+    color: var(--text-color-inv);
 }
 #automate-solverbut{
-    margin-top: calc(var(--nav-size)*.2);
+    margin-top: calc(var(--nav-size)*.05);
+    font-size: calc(var(--nav-size)*.2);
+    /* width: calc(var(--nav-size)*2); */
+    height: calc(var(--nav-size)*.45);
+    border-radius: calc(var(--nav-size)*.1);margin-top: calc(var(--nav-size)*.2);
     font-size: calc(var(--nav-size)*.25);
     vertical-align: middle;
     cursor: pointer;
@@ -173,37 +204,47 @@
     }
     .key { /* CLASS for the keyboard buttons */
         font-size: calc(var(--nav-size)*.2);
-        padding: calc(var(--nav-size)*.19);
+        padding: calc(var(--nav-size)*.1);
         margin: calc(var(--nav-size)*.001);
-        min-width: calc(var(--nav-size)*.50);
+        height: calc(var(--nav-size) * 0.9);
+        min-width: calc(var(--nav-size)*1.20);
     }
     .guessGrid {
-        width: 50%;
+        width: 40%;
     }
     .key-guess {
-        width: calc(44.2vw / var(--key-guess-count));
+        height: calc(var(--nav-size) * 1.0);
+        width: calc(32.2vw / var(--key-guess-count));
     }
     .wordle-answer{
-        font-size: calc(var(--nav-size)*.2);
+        font-size: calc(var(--nav-size)*.3);
     }
     #automate-newBut{
         font-size: calc(var(--nav-size)*.2);
-        width: calc(var(--nav-size)*2);
-        height: calc(var(--nav-size)*.45);
+        padding: calc(var(--nav-size)*.1);
+        margin: calc(var(--nav-size)*.001);
+        height: calc(var(--nav-size) * 0.8);
+        border-radius: calc(var(--nav-size)*.1);
     }
     #automate-solutionBut{
         font-size: calc(var(--nav-size)*.2);
-        width: calc(var(--nav-size)*2);
-        height: calc(var(--nav-size)*.45);
+        padding: calc(var(--nav-size)*.1);
+        margin: calc(var(--nav-size)*.001);
+        height: calc(var(--nav-size) * 0.8);
+        border-radius: calc(var(--nav-size)*.1);
     }
     #automate-settingBut{
-        font-size: calc(var(--nav-size)*.3);
-        height: calc(var(--nav-size)*.45);
+        font-size: calc(var(--nav-size)*.4);
+        margin: calc(var(--nav-size)*.001);
+        height: calc(var(--nav-size) * 0.8);
+        min-width: calc(var(--nav-size)*0.8);
+        border-radius: calc(var(--nav-size)*.1);
     }
     #automate-solverbut{
         margin-top: calc(var(--nav-size)*.05);
         font-size: calc(var(--nav-size)*.2);
         /* width: calc(var(--nav-size)*2); */
         height: calc(var(--nav-size)*.45);
+        border-radius: calc(var(--nav-size)*.1);
     }
 }
