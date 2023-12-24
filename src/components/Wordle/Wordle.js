@@ -10,9 +10,6 @@ var keys = { //create dictionary object to store pairs of keys and result(correc
   'enter': '', 'Z': '', 'X': '', 'C': '', 'V': '', 'B': '', 'N': '', 'M': '', '⌫': ''
 };
 
-// bugs to fix
-// 1 keyboard letters greyed out when should be yellow.
-
 var Dictionary=[];
 var guesses = []; // array full of user previous guesses
 var currentGuess = []; // array full of chars of current guess
@@ -66,7 +63,6 @@ function Wordle() {
         }
     })
     .catch(err => console.log(err));
-    console.log(Dictionary)
   }
 
   // fills the dictionary array with words on the intial load.
@@ -76,16 +72,13 @@ function Wordle() {
   }, []);
 
   function keyListener(event){
-    //GUARD CLAUSE - paste number into settings input
-    if(event.code===undefined){}
+    if(event.code===undefined){}    //GUARD CLAUSE - paste number into settings input
     else if(event.code.length===4){ //if key was a letter
       keyPress(event.code.substring(3,4));
-      // setOutputMessage(event.code.substring(3,4));
     }
     switch(event.code){ //if key was not a letter
       case 'Backspace': backspace(); break;
       case 'Enter': enter(); break;
-      //case 'Space': revealSolution(); 
       default:break;
     }
   }
@@ -137,15 +130,18 @@ function Wordle() {
   }
 
   const endOfGame = () => {
-    
     setAnswerVisibility(true);
-
   }
 
-  // useEffect(() => {
-  //   console.log("game state="+inGameState)
-  // },[inGameState])
-
+  function updateKeyGuessCount(numCharacters) {
+    numCharacters = parseInt(numCharacters);
+    if (isNaN(numCharacters)) {
+        console.error('Invalid number of characters');
+        return;
+    }
+    console.log("updateKeyGuessCount: " + numCharacters);
+    document.documentElement.style.setProperty('--key-guess-count', `${numCharacters}`);
+}
   function GetGuessGrid(){
     let grid = [];
     for(let i = 0; i < maxGuesses; i++){     // number of guesses
@@ -160,6 +156,7 @@ function Wordle() {
       }
       grid.push(<br key={i}/>)
     }
+    updateKeyGuessCount(wordLength);    // Call this function with the number of letters in the word
     return grid;
   }
 
@@ -172,10 +169,6 @@ function Wordle() {
         enter();
         break;
       default:
-        // console.log(key);
-        // console.log(currentGuess.length);
-        // console.log(guesses.length);
-        // console.log(wordLength);
         if (currentGuess.length < wordLength 
           && guesses.length < maxGuesses) { //enough letters typed && game still active
             currentGuess.push({ key: key, result: '' }); //adds letter object to currentGuess array
@@ -185,8 +178,7 @@ function Wordle() {
   }
 
   function backspace() {
-    //GUARD CLAUSE - empty
-    if(currentGuess.length===0){return}
+    if(currentGuess.length===0){return}    //GUARD CLAUSE - empty
     currentGuess.pop();
     publishCurrentGuess();
   }
@@ -197,7 +189,6 @@ function Wordle() {
       if (strng2.charAt(xf)===strng1){
         appearances++;
       }
-  
     };
     return appearances;
   };
@@ -229,17 +220,10 @@ function Wordle() {
         };
         if((countLetters(keyGuess.key,secretWord)>CRTappearances) // if not correctly used later && not too many used already
         &&(countLetters(keyGuess.key,secretWord)>countLetters(keyGuess.key,guessString.substring(0,index)))){
-          
           keyGuess.result = Found; // assigns result to the letter object in the keys dictionary
-          
         }else{keyGuess.result = Wrong;} // assigns result to the letter object in the keys array
-        
       } else {keyGuess.result = Wrong;} // else is wrong
 
-
-      // if (keys[keyGuess.key] !== Correct) {  // if key is BLACK, update it every guess.
-      //   keys[keyGuess.key] = keyGuess.result;  // updates the keys dictionary with results from currentGuess
-      // }
       // update keys | BLACK -> GREEN + ORANGE | ORANGE -> GREEN
       if ((keys[keyGuess.key] === Wrong)||(keys[keyGuess.key] === "")) {  // if key is BLACK || if key is unassigned, update it every guess.
         keys[keyGuess.key] = keyGuess.result;  // updates the keys dictionary with results from currentGuess
@@ -253,20 +237,17 @@ function Wordle() {
     if((guessString===secretWord)||(guesses.length>(maxGuesses-2))){ //if WON or LOST, clear the board, print the answer, and reset the board
       setOutputMessage("Thanks for playing!"); // print the answer
       endOfGame();
-      // resetGameBoard(); // reset game
     }
     
     publishCurrentGuess(true); // outputs the found/correct tags to letters in guessgrid + executes updatekeyboard()
     guesses.push(currentGuess); // add guess to previous guesses array
     currentGuess = []; // clear the current guess
-
   }
 
   function publishCurrentGuess(guessed = false){
     let row = guesses.length;
     for (let i = 0; i<wordLength; i++){
       let keyID = document.getElementById(row+"-"+i);
-      // console.log(`${row}${i}`);
       if (currentGuess[i]) { // if letter in currentGuess exist, put it on the board
         keyID.innerHTML = currentGuess[i].key;
       }else { // if no letter in current guess, fill guess grid with ''
@@ -349,8 +330,6 @@ function Wordle() {
               </a>
             </div>
           }  
-
-
         </div>
         <div className="credits">
         {outputMessage}
@@ -358,7 +337,6 @@ function Wordle() {
       </div>
       <Footer/>
     </div>
-    
   );
 }
 
