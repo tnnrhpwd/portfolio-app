@@ -33,7 +33,7 @@ To run this project locally:
 1. Clone the repository:
 
     ```bash
-    git clone https://github.com/yourusername/portfolio-app.git
+    git clone https://github.com/tnnrhpwd/portfolio-app.git
     ```
 
 2. Navigate into the project directory:
@@ -61,5 +61,3 @@ While this project is primarily a personal portfolio, contributions are welcome.
 
 License
 This project is open source and available under the MIT License.
-
-This version of the README includes sections for the technologies used, getting started instructions, a note about contributions, and a mention of the license. It provides a more comprehensive overview of your project.
