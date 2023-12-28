@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom'              // redirect the user
 import { useSelector, useDispatch } from 'react-redux'      // access state variables
-import ActionInput from '../../../components/SimpleAction/ActionInput/ActionInput';
-import ActionResult from '../../../components/SimpleAction/ActionResult/ActionResult';
+import ActionInput from '../../../components/Simple/ActionInput/ActionInput';
+import ActionResult from '../../../components/Simple/ActionResult/ActionResult';
 import { toast } from 'react-toastify'                        // visible error notifications
 // import Spinner from './../../components/Spinner/Spinner.jsx'
 import { getData, resetDataSlice } from '../../../features/data/dataSlice.js'
 // import BuildPlanObjectArray from '../../components/BuildPlanitObjectArray.js';
 import './Agenda.css';
+import Header from '../../../components/Header/Header.jsx';
 
 function Agenda() {
   const [ showCreateAction, setShowCreateAction ] = useState(false)
@@ -79,6 +80,7 @@ function Agenda() {
   }
 
   return (<>
+    <Header/>
     <div className='agenda'>
         <div className='agenda-title'>
           Agenda

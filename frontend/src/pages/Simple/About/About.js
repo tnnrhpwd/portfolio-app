@@ -1,10 +1,12 @@
+import Header from '../../../components/Header/Header'
 import './About.css'
 
 const portfolioLink = "https://sthopwood.com/"
 
 function About() {
 
-  return (
+  return (<>
+    <Header />
     <div className='about'>
       <div className='about-title'>
         About Planit
@@ -46,6 +48,7 @@ function About() {
         </div>
       </>
     </div>
+  </>
   )
 }
 

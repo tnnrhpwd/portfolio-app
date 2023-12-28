@@ -1,4 +1,4 @@
-import NNetChatView from '../../../components/SimpleAction/NNetChatView/NNetChatView.jsx';
+import NNetChatView from '../../../components/Simple/NNetChatView/NNetChatView.jsx';
 
 function MiddleDashboard() {
   return (

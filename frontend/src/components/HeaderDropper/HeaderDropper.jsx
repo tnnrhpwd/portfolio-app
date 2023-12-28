@@ -50,6 +50,7 @@ function HeaderDropper(props) {
           :null
         }
         <a className='planit-header-dropper-pagelink' href='/about'>About Planit</a>
+        <a className='planit-header-dropper-pagelink' href='/home'>Back to STHopwood</a>
         {/* <a className='planit-header-dropper-pagelink' href='/legal'>Legal Terms</a> */}
         
       </ul>

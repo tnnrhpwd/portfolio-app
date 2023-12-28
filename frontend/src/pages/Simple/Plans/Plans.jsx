@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'              // redirect the user
 import { useSelector, useDispatch } from 'react-redux'      // access state variables
-import PlanInput from '../../../components/SimpleAction/PlanInput/PlanInput.jsx';
-import PlanResult from '../../../components/SimpleAction/PlanResult/PlanResult.jsx';
+import PlanInput from '../../../components/Simple/PlanInput/PlanInput.jsx';
+import PlanResult from '../../../components/Simple/PlanResult/PlanResult.jsx';
 import { toast } from 'react-toastify'                        // visible error notifications
 import Spinner from '../../../components/Spinner/Spinner.jsx'
 import { getData, resetDataSlice } from '../../../features/data/dataSlice.js'
 import './Plans.css';
+import Header from '../../../components/Header/Header.jsx';
 
 function Plans() {
   const [ showNewData, setShowNewData] = useState(false);
@@ -95,7 +96,8 @@ function Plans() {
   }
 
   // if(dataObjectArray.length > 0){
-    return (
+    return (<>
+      <Header/>
       <div className='planit-plans'>
         Plans
         <div className='planit-plans-text'>
@@ -153,6 +155,7 @@ function Plans() {
           }
         </div>
       </div>
+    </>
     )
   // }else{return <Spinner/>}
 }

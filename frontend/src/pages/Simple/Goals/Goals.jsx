@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'              // redirect the user
 import { useSelector, useDispatch } from 'react-redux'      // access state variables
-import GoalInput from '../../../components/SimpleAction/GoalInput/GoalInput.jsx';
-import GoalResult from '../../../components/SimpleAction/GoalResult/GoalResult.jsx';
+import GoalInput from '../../../components/Simple/GoalInput/GoalInput.jsx';
+import GoalResult from '../../../components/Simple/GoalResult/GoalResult.jsx';
 // import Spinner from './../../components/Spinner/Spinner.jsx'
 import { getData, resetDataSlice } from '../../../features/data/dataSlice.js'
 import { toast } from 'react-toastify'                        // visible error notifications
 import './Goals.css';
+import Header from '../../../components/Header/Header.jsx';
 
 function Goals() {
   const [ showNewGoal, setShowNewGoal] = useState(true);
@@ -54,27 +55,27 @@ function Goals() {
     function handleAllOutputGoals(ObjectArray){ 
       var outputMyGoalsArray = []; var outputSavedGoalsArray = [];
 
-      ObjectArray.forEach( goal => {
-        let freqNumPlanGoals = 0; // stores number of goals that include the action
-        let freqNumGoalPlans = 0; // stores number of goals on how to complete this goal.
+      // ObjectArray.forEach( goal => {
+        // let freqNumPlanGoals = 0; // stores number of goals that include the action
+        // let freqNumGoalPlans = 0; // stores number of goals on how to complete this goal.
  
 
         // const numPlanIncluded = freqNumPlanGoals + freqNumGoalPlans
-        if( ( goal[2] === user._id  ) ){
-          outputMyGoalsArray.push(<GoalResult 
-            key={"MyGoalResult"+goal[0]}
-            freqNumPlanGoals = {freqNumPlanGoals}
-            freqNumGoalPlans = {freqNumGoalPlans}
-            importGoalArray = {goal}
-          />)
-        }
+        // if( ( goal[2] === user._id  ) ){
+          // outputMyGoalsArray.push(<GoalResult 
+          //   key={"MyGoalResult"+goal[0]}
+          //   freqNumPlanGoals = {freqNumPlanGoals}
+          //   freqNumGoalPlans = {freqNumGoalPlans}
+          //   importGoalArray = {goal}
+          // />)
+        // }
         // if( ( goal[7].includes(user._id) ) ){
         //   outputMyGoalsArray.push(<GoalResult 
         //     key={"SavedGoalResult"+goal[0]}
         //     importPlanArray = {goal}
         //   />)
         // }
-      });
+      // });
 
       setMyGoals(outputMyGoalsArray); setSavedGoals(outputSavedGoalsArray); 
     }
@@ -92,52 +93,54 @@ function Goals() {
   }
 
 
-  return (
-    <div className='planit-goals'>
-      Goals
-      <div className='planit-goals-text'>
-        Every journey begins with a step.
-        <br/><br/> Plan future goals, analyze prior goals, and follow process flows.
-        <br/> 
-      </div>
-      <div className='planit-plans-create'>
-        <div className='planit-plans-create-text'>
-          {
-            <div onClick={handleCreateGoalToggle}>{showNewGoal ? "Cancel Goal":"Create Goal"}</div> 
-          }
-          { ( user ) &&
-            <div className='planit-plans-in'>
-              {(showNewGoal) &&
-                <GoalInput />
-              }
-            </div>
-          }
+  return (<>
+    <Header/>
+      <div className='planit-goals'>
+        Goals
+        <div className='planit-goals-text'>
+          Every journey begins with a step.
+          <br/><br/> Plan future goals, analyze prior goals, and follow process flows.
+          <br/> 
         </div>
-      </div>
-
-      <div className='planit-plans-my'>
-          <div className="planit-plans-my-text">
-            <div onClick={handleMyGoalsToggle}>{showMyGoals ? "Hide Goals":"My Goals"}</div> 
+        <div className='planit-plans-create'>
+          <div className='planit-plans-create-text'>
+            {
+              <div onClick={handleCreateGoalToggle}>{showNewGoal ? "Cancel Goal":"Create Goal"}</div> 
+            }
+            { ( user ) &&
+              <div className='planit-plans-in'>
+                {(showNewGoal) &&
+                  <GoalInput />
+                }
+              </div>
+            }
           </div>
-        
-          { showMyGoals &&
-            <div className='planit-plans-my-out'>
-              { ( myGoals.length > 0 ) ? (
-                <div className='planit-plans-my-out-result'>
-                  { myGoals }
-                </div>
-               ) : ( 
-                <h3>You have not recorded any goals.</h3>
-              )} 
-            </div>
-          }
         </div>
 
-      All Goals
-      <div className='planit-goals-out'>
+        <div className='planit-plans-my'>
+            <div className="planit-plans-my-text">
+              <div onClick={handleMyGoalsToggle}>{showMyGoals ? "Hide Goals":"My Goals"}</div> 
+            </div>
+          
+            { showMyGoals &&
+              <div className='planit-plans-my-out'>
+                { ( myGoals.length > 0 ) ? (
+                  <div className='planit-plans-my-out-result'>
+                    { myGoals }
+                  </div>
+                ) : ( 
+                  <h3>You have not recorded any goals.</h3>
+                )} 
+              </div>
+            }
+          </div>
 
-      </div>
+        All Goals
+        <div className='planit-goals-out'>
+
+        </div>
     </div>
+  </>
   )
 }
 

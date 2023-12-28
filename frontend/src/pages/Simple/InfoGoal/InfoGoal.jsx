@@ -5,7 +5,7 @@ import { toast } from 'react-toastify'                        // visible error n
 // import { deletePlan, getPlans, resetPlanSlice } from './../../features/plans/planSlice'
 // import { deleteGoal, getGoals, resetGoalSlice } from './../../features/goals/goalSlice'
 import { createData, deleteData, getData, resetDataSlice } from '../../../features/data/dataSlice'
-import DeleteView from '../../../components/SimpleAction/DeleteView/DeleteView'
+import DeleteView from '../../../components/Simple/DeleteView/DeleteView'
 import Spinner from '../../../components/Spinner/Spinner';
 // import CommentResult from '../../components/CommentResult/CommentResult'
 import './InfoGoal.css';

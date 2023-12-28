@@ -3,9 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom'              // page r
 import { useSelector, useDispatch } from 'react-redux'      // access state variables
 import { toast } from 'react-toastify'                        // visible error notifications
 import { createData, deleteData, getData, resetDataSlice } from '../../../features/data/dataSlice'
-import DeleteView from '../../../components/SimpleAction/DeleteView/DeleteView'
+import DeleteView from '../../../components/Simple/DeleteView/DeleteView'
 import Spinner from '../../../components/Spinner/Spinner';
-import PlanResult from '../../../components/SimpleAction/PlanResult/PlanResult'
+import PlanResult from '../../../components/Simple/PlanResult/PlanResult'
 import './InfoPlan.css';
 
 function InfoData() {

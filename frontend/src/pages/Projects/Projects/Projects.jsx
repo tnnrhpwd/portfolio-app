@@ -9,7 +9,7 @@ const projectData = [
     id: 7,
     imgSrc: require("../../../assets/planit.png"),
     alt: "the display for my planit project",
-    url: "/dashboard",
+    url: "/simple",
     description: "Do you have a plan you want to share with the world?",
     utilities: ["code", "html", "react", "css", "mongo", "node", "netlify"],
   },
@@ -58,7 +58,7 @@ function Projects() {
           {projectData.map((project) => (
             <div className="projects-div" key={project.id}>
               <div className={`projects-p`}>
-                <a href={project.url} rel="noopener noreferrer" target="_blank">
+                <a href={project.url}>
                   <img id={`projects-p-img`} src={project.imgSrc} alt={project.alt} />
                 </a>
               </div>

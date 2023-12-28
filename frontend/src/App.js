@@ -17,21 +17,21 @@ import SleepAssist from './pages/Projects/SleepAssist/SleepAssist';
 import Sountrix from './pages/Projects/Sountrix/Sountrix';
 import Wordle from './pages/Projects/Wordle/Wordle';
 import WordleSolver from './pages/Projects/WordleSolver/WordleSolver';
-import InfoGoal from './pages/SimpleAction/InfoGoal/InfoGoal.jsx';
-import InfoPlan from './pages/SimpleAction/InfoPlan/InfoPlan.jsx';
-import InfoAction from './pages/SimpleAction/InfoAction/InfoAction.jsx';
+import InfoGoal from './pages/Simple/InfoGoal/InfoGoal.jsx';
+import InfoPlan from './pages/Simple/InfoPlan/InfoPlan.jsx';
+import InfoAction from './pages/Simple/InfoAction/InfoAction.jsx';
 import LegalTerms from './pages/LegalTerms.jsx'
-import Goals from './pages/SimpleAction/Goals/Goals.jsx'
+import Goals from './pages/Simple/Goals/Goals.jsx'
 import Login from './pages/Login/Login.jsx'
-import Plans from './pages/SimpleAction/Plans/Plans.jsx'
+import Plans from './pages/Simple/Plans/Plans.jsx'
 import Profile from './pages/Profile/Profile.jsx'
 import Register from './pages/Register/Register.jsx'
 import Settings from './pages/Settings.jsx'
-import Net from './pages/SimpleAction/Net/Net.jsx';
-import About from './pages/About/About.js'
-import Agenda from './pages/SimpleAction/Agenda/Agenda.jsx';
+import Net from './pages/Simple/Net/Net.jsx';
+import About from './pages/Simple/About/About.js'
+import Agenda from './pages/Simple/Agenda/Agenda.jsx';
 import './App.css';
-import Simple from './pages/SimpleAction/Simple/Simple.jsx';
+import Simple from './pages/Simple/Simple/Simple.jsx';
 
 function App() {
   return (<>
@@ -49,6 +49,7 @@ function App() {
         <Route path='/goals' element={<Goals />} />
         <Route path="/halfway" element={<Halfway/>} />
         <Route path="/" element={<Home/>} />
+        <Route path="/home" element={<Home/>} />
         <Route path='/InfoAction' element={<InfoAction />} />
         <Route path='/InfoGoal' element={<InfoGoal />} />
         <Route path='/InfoPlan' element={<InfoPlan />} />
@@ -63,7 +64,7 @@ function App() {
         <Route path="/projects" element={<Projects/>} />
         <Route path='/register' element={<Register />} />
         <Route path='/settings' element={<Settings />} />
-        <Route path='simple' element={<Simple />} />
+        <Route path='/Simple' element={<Simple />} />
         <Route path="/sleepassist" element={<SleepAssist/>} />
         <Route path="/sountrix" element={<Sountrix/>} />
         <Route path="/wordle" element={<Wordle/>} />

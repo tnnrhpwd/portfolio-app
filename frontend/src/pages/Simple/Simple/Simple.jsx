@@ -2,10 +2,10 @@
 // import { getPlans, resetPlanSlice } from './../../features/plans/planSlice'
 // import LeftDashboard from './LeftDashboard.jsx';
 import MiddleDashboard from './MiddleDashboard.jsx';
-import Start from './../../components/Start/Start';
-import Header from './../../components/Header/Header';
+import Start from './../../../components/Simple/Start/Start.jsx';
+import Header from './../../../components/Header/Header';
 import React from 'react';
-import './Dashboard.css';
+import './Simple.css';
 
 function Simple() {
   return (<>
