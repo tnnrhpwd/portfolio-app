@@ -11,7 +11,7 @@
   }
   
   #planit-header-bell__toggle:checked ~ .planit-header-bell__box {
-    top: calc(var(--nav-size) * 0.3);
+    top: calc(var(--nav-size) * 0.8);
   }
   
   .planit-header-bell__btn {

@@ -17,22 +17,21 @@ function HeaderBell(props) {
 
   return (
     <div className="planit-header-bell-space">
-  <input id="planit-header-bell__toggle" type="checkbox" />
-  <label className="planit-header-bell__btn" htmlFor="planit-header-bell__toggle" ref={toggleButtonRef}>
-    <span>
-        🔔
-    </span>
-  </label>
-  <ul ref={isideComponentRef} className="planit-header-bell__box">
-    <div className='planit-header-bell-box-header'>
-      Notifications
+      <input id="planit-header-bell__toggle" type="checkbox" />
+      <label className="planit-header-bell__btn" htmlFor="planit-header-bell__toggle" ref={toggleButtonRef}>
+        <span>
+            🔔
+        </span>
+      </label>
+      <ul ref={isideComponentRef} className="planit-header-bell__box">
+        <div className='planit-header-bell-box-header'>
+          Notifications
+        </div>
+        <div className='planit-header-bell-box-body'>
+          All clear Captain!
+        </div>
+      </ul>
     </div>
-    <div className='planit-header-bell-box-body'>
-      All clear Captain!
-    </div>
-  </ul>
-</div>
-
   )
 }
 

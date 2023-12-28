@@ -2,7 +2,11 @@ import React, { useEffect, useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux'    
 import { logout, resetDataSlice } from './../../features/data/dataSlice.js'
-import HeaderDropper from '../HeaderDropper/HeaderDropper.jsx';
+import NavItem from "./../NavBar/NavItem.jsx";
+import HeaderDropper from './../HeaderDropper/HeaderDropper.jsx';
+import ReactTooltip from "react-tooltip";
+import projectsLogo from './../NavBar/projects.png';
+import contactLogo from './../NavBar/contact.png';
 import HeaderLogo from '../../../src/assets/planit192.png';
 import HeaderBell from '../HeaderBell/HeaderBell.jsx';
 import './Header.css';
@@ -12,6 +16,7 @@ function Header() {
   const dispatch = useDispatch() // initialization
   const { user } = useSelector((state) => state.data)   // select values from state
   const [ colTheme, setColTheme ] = useState(null);
+  const [ portraitState, setPortraitState ] = useState(false);
   useEffect(() => {     // RUNS ON START -- Checks browser for color theme preference. Sets dark mode otherwise.
     const theme = localStorage.getItem('theme');
     if(theme==='light-theme') {
@@ -20,6 +25,9 @@ function Header() {
       setDarkMode();
     } else {
       setDarkMode();
+    }
+    if(window.innerHeight > window.innerWidth){
+      setPortraitState(true);
     }
   }, []);
   function setDarkMode(){
@@ -40,7 +48,12 @@ function Header() {
       document.body.classList.add('light-theme');
     }
   }
-  // declare method to remove user item from local storage)
+
+  function handleThemeToggle() {
+    if(colTheme==='light-theme') {setDarkMode();}
+    if(colTheme==='dark-theme') {setLightMode();}
+  }
+  
   const onLogout = () => {
     dispatch(logout())  // dispatch connects to the store, then remove user item from local storage
     dispatch(resetDataSlice())  // dispatch connects to the store, then reset state values( message, isloading, iserror, and issuccess )
@@ -50,38 +63,25 @@ function Header() {
     <>
       <div className="planit-header">
         <div className="planit-header-logo">
-          <a
+          <img
+            id="planit-header-logo-img"
+            src={HeaderLogo}
+            onClick={handleThemeToggle}
+            alt="website logo"
+          />
+          <div
             className='planit-header-logo-format'
-            href="/"
+            href="/" 
             onClick={() => {
-            window.scrollTo(0, 0);
-          }}
-          >
-            Simple
-            <img
-              id="planit-header-logo-img"
-              src={HeaderLogo}
-              alt="website logo"
-            />
-            Action
-          </a>
-        </div>
-        {/* <a href='/'> // deleted for now
-          <div className='planit-header-title'>
-            Planit
+              window.scrollTo(0, 0);
+            }}
+            >
+            <div className="planit-header-logo-format-simple">Simple</div>
+            <div className="planit-header-logo-format-sth"> by STHopwood</div>
           </div>
-        </a> */}
-        {/* <a href='/plans'>
-          <button className="planit-header-plan-portrait">
-            +
-          </button>
-        </a> */}
+        </div>
 
-        {/* <a href="/settings">
-          <button className="planit-header-link-landscape">Settings</button>
-        </a> */}
-        {
-          user ? (
+        {user ? (
             <>             
               <a href="/text">
                 <button className="planit-header-link-landscape">Text</button>
@@ -99,14 +99,7 @@ function Header() {
                 <button className="planit-header-link-landscape">Profile</button>
               </a>
             </>
-          ) : null
-          // <a href='/profile'> // deleted for now
-          //   <button className="planit-header-link-landscape">
-          //     Log in
-          //   </button>
-          // </a>
-        }
-
+        ) : null}
         {/* <a href="/about">
           <button className="planit-header-link-landscape">About</button>
         </a> */}
@@ -140,12 +133,28 @@ function Header() {
         {/* <button className="planit-header-profile-auth" onClick={user ? onLogout : undefined}>
           {user ? "Log out" : <a href="/login">Log in</a>}
         </button> */}
-        <HeaderDropper
+        <HeaderBell
           colTheme={colTheme}
           setLightMode={setLightMode}
           setDarkMode={setDarkMode}
         />
-        <HeaderBell
+        <div className="tooltip-space-projects" data-tip="" data-for="tooltip-projects" >
+          <NavItem text="Projects" icon={projectsLogo} page="/projects"/>
+        </div>
+        { (portraitState) &&
+          <ReactTooltip id="tooltip-projects" place="bottom" effect="solid">
+            Projects
+          </ReactTooltip>
+        }
+        <div className="tooltip-space-contact" data-tip="" data-for="tooltip-contact" >
+          <NavItem  text="Contact" icon={contactLogo} page="/contact"/>
+        </div>
+        { (portraitState) &&  
+          <ReactTooltip id="tooltip-contact" place="bottom" effect="solid">
+            Contact
+          </ReactTooltip>
+        }
+        <HeaderDropper
           colTheme={colTheme}
           setLightMode={setLightMode}
           setDarkMode={setDarkMode}

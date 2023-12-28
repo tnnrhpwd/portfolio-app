@@ -2,13 +2,10 @@ import React, { useState, useEffect } from "react";
 import NavItem from "./NavItem";
 import NavLogo from "./NavLogo";
 import ReactTooltip from "react-tooltip";
-// import icons  --may change to SVGs in the future
 import homeLogo from './home.png';
 import projectsLogo from './projects.png';
 import contactLogo from './contact.png';
 import STHlogo from './STHlogo192.png';
-
-// import SettingsPopup from '../SettingsPopup/SettingsPopup';
 import './NavBar.css';
 
 function NavBar() { 
@@ -89,9 +86,7 @@ function NavBar() {
             Contact
           </ReactTooltip>
         }
-        
       </div>
-      
     </nav>
     {/* <div className="login-space">
       <SettingsPopup isShowLogin={isShowLogin} />

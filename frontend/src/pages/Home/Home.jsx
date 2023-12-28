@@ -1,7 +1,6 @@
 import React, {useEffect, useState} from "react";
 import BackgroundVideo from "./BackgroundVideo.js";
-import NavBar from '../../components/NavBar/NavBar';
-// import Utility from "./../Projects/Utility";
+import Header from "../../components/Header/Header.jsx";
 
 import lwwimg from '../../assets/lww.png';
 import marelliimg from '../../assets/marelli.png';
@@ -34,7 +33,7 @@ function Home() {
 
   return (
     <>
-      <NavBar />
+      <Header />
       <div className="content">
   
         <div className="container-background">
