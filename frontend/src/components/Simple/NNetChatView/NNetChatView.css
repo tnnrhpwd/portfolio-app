@@ -1,0 +1,167 @@
+@media (orientation: landscape), (orientation: portrait) {
+  .planit-dashboard-popular-mid-chat {
+    margin-top: calc(var(--nav-size) * 1.2);
+    width: 100%;
+    display: flex; /* Add flex display */
+    flex-direction: column; /* Arrange children in a column */
+    align-items: center; /* Center align children horizontally */
+  }
+  .planit-dashboard-popular-mid-chat-area {
+    width: calc(100% - var(--nav-size) * 2.4); /* Adjust the subtraction based on the gobutton size */
+    position:fixed;
+    bottom: calc(var(--nav-size) * 0.2);
+    left: calc(var(--nav-size) * 1.0);
+    color: var(--text-color);
+    padding: calc(var(--nav-size) * 0.2);
+    font-size: calc(var(--nav-size) * 0.3);
+    background-color: var(--bg-page);
+    border: none;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  }
+  .planit-nnet-input {
+    text-align: center;
+    width: 100%; /* Make it full width */
+  }
+  .planit-nnet-chat-history {
+    color: var(--text-color);
+    margin-bottom: calc(var(--nav-size) * 1);
+    width: 100%;
+    display: flex; /* Add flex display */
+    flex-direction: column; /* Arrange children in a column */
+    align-items: left; /* Center align children horizontally */
+  }
+  .planit-nnet-chat-history-message {
+    position: relative;
+    margin-left: calc(var(--nav-size) * 0.2);
+    margin-right: calc(var(--nav-size) * 0.2);
+    text-align: left;
+    margin-bottom: calc(var(--nav-size) * 0.1);
+    white-space: pre-line;
+  }
+  .planit-nnet-chat-history-message:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: calc(var(--nav-size) * -0.1);
+    height: 100%;
+    width: calc(var(--nav-size) * 0.05); /* Adjust the width of the green bar as needed */
+    background-color: #4caf50; /* Green color */
+  }
+  .planit-nnet-chat-history-edit {
+    border: none;
+    font-size: calc(var(--nav-size) * 0.3);
+    background-color: transparent;
+    width: 97%;
+    color: var(--text-color);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  }
+  .planit-nnet-chat-history-buttons {
+    display: flex;
+    gap: 10px; /* Adjust the spacing between buttons */
+  }
+  .planit-nnet-chat-history-edit-buttons {
+    background-color: #4caf50;
+    color: var(--bg-page);
+    padding: calc(var(--nav-size) * 0.05) calc(var(--nav-size) * 0.1);
+    border: none;
+    border-radius: 5px; /* Adjust the border-radius for rounded corners */
+    cursor: pointer;
+    font-size: 14px; /* Adjust the font size */
+    transition: background-color 0.3s ease; /* Add a smooth transition effect */
+  }
+  .planit-nnet-chat-history-buttons button {
+    background-color: #4caf50;
+    color: var(--bg-page);
+    padding: calc(var(--nav-size) * 0.05) calc(var(--nav-size) * 0.1);
+    border: none;
+    border-radius: 5px; /* Adjust the border-radius for rounded corners */
+    cursor: pointer;
+    font-size: 14px; /* Adjust the font size */
+    transition: background-color 0.3s ease; /* Add a smooth transition effect */
+  }    
+  .planit-nnet-chat-history-buttons button:hover {
+    background-color: #45a049;
+  }
+  #planit-dashboard-popular-mid-chat-gobutton {
+    width: calc(var(--nav-size) * 0.8);
+    position:fixed;
+    bottom: calc(var(--nav-size) * 0.2);
+    background-color: #4caf50;
+    color: var(--bg-page);
+    padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.2);
+    border: calc(var(--nav-size) * 0.001) solid var(--border-nav);
+    border: none;
+    border-radius: calc(var(--nav-size) * 0.1);
+    cursor: pointer;
+    font-size: calc(var(--nav-size) * 0.3);
+    right: calc(var(--nav-size) * 0.1);
+  }
+  #planit-dashboard-popular-mid-chat-gobutton:hover {
+      background-color: #45a049;
+    }
+  .planit-NNetBookView-space {
+    color: var(--text-color);
+  }
+  #planit-NNetBookView__toggle {
+    opacity: 0;
+  }
+  #planit-NNetBookView__toggle:checked + .planit-NNetBookView__btn > span {
+    transform: rotate(45deg);
+  }
+  #planit-NNetBookView__toggle:checked ~ .planit-NNetBookView__box {
+    top: calc(var(--nav-size) * 2);
+  }
+  .planit-NNetBookView__btn {
+    width: calc(var(--nav-size) * 0.4);
+    height: calc(var(--nav-size) * 0.4);
+    position:fixed;
+    bottom: calc(var(--nav-size) * 0.2);
+    background-color: var(--dark-blue1);
+    color: var(--bg-page);
+    padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.2);
+    border: calc(var(--nav-size) * 0.001) solid var(--border-nav);
+    border-radius: calc(var(--nav-size) * 0.1);
+    cursor: pointer;
+    font-size: calc(var(--nav-size) * 0.3);
+    left: calc(var(--nav-size) * 0.1);
+  }
+  .planit-NNetBookView__btn:hover {
+    background-color: var(--dark-blue0);
+  }
+  .planit-NNetBookView__btn > span {
+    display: block;
+    position: absolute;
+    width: calc(var(--nav-size) * 0.6);
+    height: calc(var(--nav-size) * 0.1);
+    transition-duration: 0.25s;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  .planit-NNetBookView__box {
+    display: block;
+    position: fixed;
+    top: calc(var(--nav-size) * -2.5);
+    left: calc(var(--nav-size) * 0.3);
+    width: calc(var(--nav-size) * 5);
+    padding: calc(var(--nav-size) * 0.08) 0;
+    list-style: none;
+    background-color: var(--bg-nav1);
+    box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.4);
+    border: calc(var(--nav-size)*0.001) solid var(--border-nav);
+    transform: translateY(calc(var(--nav-size) * 0.15)); /* Initially hidden above the screen */
+    transition-duration: 0.25s;
+    text-align: left;
+  }
+  .planit-NNetBookView-box-header {
+    font-size: calc(var(--nav-size) * 0.35);
+    margin: calc(var(--nav-size) * 0.1);
+  }
+  .planit-NNetBookView-box-body {
+    font-size: calc(var(--nav-size) * 0.3);
+    margin: calc(var(--nav-size) * 0.1);
+  }
+}

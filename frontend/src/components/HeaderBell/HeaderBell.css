@@ -1,0 +1,108 @@
+.planit-header-bell-space {
+    /* Add any additional styles for the container here */
+  }
+  
+  #planit-header-bell__toggle {
+    opacity: 0;
+  }
+  
+  #planit-header-bell__toggle:checked + .planit-header-bell__btn > span {
+    transform: rotate(45deg);
+  }
+  
+  #planit-header-bell__toggle:checked ~ .planit-header-bell__box {
+    top: calc(var(--nav-size) * 0.3);
+  }
+  
+  .planit-header-bell__btn {
+    position: fixed;
+    top: calc(var(--nav-size) * -0.1);
+    left: calc(var(--nav-size) * 0.3);
+    width: calc(var(--nav-size) * 0.6);
+    height: calc(var(--nav-size) * 0.6);
+    cursor: pointer;
+    z-index: 1;
+  }
+  
+  .planit-header-bell__btn > span {
+    display: block;
+    position: absolute;
+    width: calc(var(--nav-size) * 0.6);
+    height: calc(var(--nav-size) * 0.1);
+    transition-duration: 0.25s;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  
+  .planit-header-bell__box {
+    display: block;
+    position: fixed;
+    top: calc(var(--nav-size) * -2.5);
+    left: calc(var(--nav-size) * 0.3);
+    width: calc(var(--nav-size) * 5);
+    padding: calc(var(--nav-size) * 0.08) 0;
+    list-style: none;
+    background-color: var(--bg-nav1);
+    box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.4);
+    border: calc(var(--nav-size)*0.001) solid var(--border-nav);
+    transform: translateY(calc(var(--nav-size) * 0.15)); /* Initially hidden above the screen */
+    transition-duration: 0.25s;
+    text-align: left;
+  }
+  
+  .planit-header-bell-box-header {
+    font-size: calc(var(--nav-size) * 0.35);
+    margin: calc(var(--nav-size) * 0.1);
+  }
+  
+  .planit-header-bell-box-body {
+    font-size: calc(var(--nav-size) * 0.3);
+    margin: calc(var(--nav-size) * 0.1);
+  }
+  
+  
+  
+
+/* .planit-header-dropper-pagelink {
+    display: block;
+    padding: calc(var(--nav-size)*0.2) calc(var(--nav-size)*0.2);
+    color: var(--text-color);
+    font-family: 'Roboto', sans-serif;
+    font-size: calc(var(--nav-size)*0.45);
+    text-decoration: none;
+    transition-duration: .25s;
+}
+.planit-header-dropper-pagelink:hover {
+    background-color: var(--bg-pagelink);
+    font-weight: bold;
+}
+.planit-header-dropper-profile {
+    display: inline-block;
+    padding: calc(var(--nav-size)*0.2) calc(var(--nav-size)*0.2);
+    color: var(--text-color);
+    font-family: 'Roboto', sans-serif;
+    font-size: calc(var(--nav-size)*0.45);
+    text-decoration: none;
+    transition-duration: .25s;
+    width: 100%;
+    margin-top: calc(var(--nav-size)*0.1);
+}
+.planit-header-dropper-profile:hover {
+    background-color: var(--bg-pagelink);
+    font-weight: bold;
+}
+.planit-header-dropper-user{
+    padding: calc(var(--nav-size)*0.1) calc(var(--nav-size)*0.4);
+    vertical-align: calc(var(--nav-size)*0.05);
+    font-size: calc(var(--nav-size)*0.3);
+    background-color: var(--bg-accent);
+    cursor: pointer;
+    margin-left: calc(var(--nav-size)*0.5);
+    /* margin-bottom: calc(var(--nav-size)*0.4); */
+    /* border: calc(var(--nav-size)*0.001) solid black;
+}
+.planit-header-dropper-user:hover {
+    background-color: var(--bg-pagelink);
+    color: var(--text-color);
+    border: calc(var(--nav-size)*0.001) solid var(--text-color);
+}  */

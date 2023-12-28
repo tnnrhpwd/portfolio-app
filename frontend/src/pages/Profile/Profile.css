@@ -1,0 +1,40 @@
+.planit-profile{
+    padding-top: calc(var(--nav-size)*1);
+}
+.planit-profile:hover{
+
+}
+.planit-profile-title{
+    color: var(--text-color);
+    font-size: calc(var(--nav-size)*0.5);
+    padding-top: calc(var(--nav-size)*0.3);
+    text-align: center;
+}
+.planit-profile-welcome{
+    color: var(--text-color);
+    font-size: calc(var(--nav-size)*0.3);
+    padding-top: calc(var(--nav-size)*2);
+    
+    width: calc(var(--nav-size)*3);
+    text-align: center;
+}
+.planit-profile-auth{
+    padding-top: calc(var(--nav-size)*2);
+    text-align: center;
+    display: block;
+}
+.planit-profile-auth-button{
+    padding: calc(var(--nav-size)*.2) calc(var(--nav-size)*.4);
+    border: none;
+    font-size: calc(var(--nav-size)*0.3);
+
+    cursor: pointer;
+    color: var(--text-color-inv);
+    background-color: var(--text-color);
+    width: calc(var(--nav-size)*3);
+}
+.planit-profile-auth-button:hover{
+    filter: brightness(1.2);
+    font-weight: bold;
+
+}

@@ -1,0 +1,88 @@
+.planpreview{
+    position:absolute;
+    background-color: var(--bg-page-transp);
+    z-index: 10;
+    width: 100%;
+    min-height: 100%;
+    /* overflow: scroll;
+    white-space: nowrap; Need to fix the weird scroll location on popup*/
+}
+.planpreview-window{
+    margin: calc(var(--std-unit)*3);
+    padding: calc(var(--std-unit)*1);
+    text-align: center;
+    vertical-align: middle;
+    background-color: var(--bg-planpreview);
+}
+.planpreview-window-goal{
+    display: inline-block;
+    font-weight: bold;
+    font-size: calc(var(--std-unit)*.3);
+}
+.planpreview-window-close{
+    position: relative;
+    left: calc(var(--std-unit)*7);
+    bottom: calc(var(--std-unit)*1);
+}
+.planpreview-window-plan{
+    font-size: calc(var(--std-unit)*.3);
+    white-space: pre-line;
+}
+.planpreview-window-addcomment{
+    font-size: calc(var(--std-unit)*.3);
+    white-space: pre-line;
+}
+.planpreview-window-addcomment-input{
+    margin-top: calc(var(--std-unit)*1);
+    font-size: calc(var(--std-unit)*.3);
+    width: 100%;
+    min-height: 100%;
+    background-color: var(--bg);
+    color: var(--text-color);
+}
+.planpreview-window-addcomment-submit{
+    margin-top: calc(var(--std-unit)*.3);
+    font-size: calc(var(--std-unit)*.3);
+    width: 50%;
+}
+.planpreview-window-comments{
+    font-size: calc(var(--std-unit)*.3);
+    white-space: pre-line;
+}
+.planpreview-window-comments-result{
+    font-size: calc(var(--std-unit)*.3);
+    white-space: pre-line;
+    border: calc(var(--std-unit)*0.001) solid black;
+    margin: calc(var(--std-unit)*0.1);
+}
+.planpreview-window-comments-result-comment{
+    font-size: calc(var(--std-unit)*.3);
+    white-space: pre-line;
+    font-weight: bold;
+}
+.planpreview-window-comments-result-time{
+    font-weight: normal;
+
+}
+
+@media (orientation: portrait) {
+    .planpreview-window{
+        margin: calc(var(--std-unit)*.5);
+        padding: calc(var(--std-unit)*.3);
+        text-align: center;
+        vertical-align: middle;
+        background-color: var(--bg-planpreview);
+    }
+    .planpreview-window-close{
+        position: relative;
+        left: calc(var(--std-unit)*4);
+        bottom: calc(var(--std-unit)*.1);
+        width: calc(var(--std-unit)*.2);
+    }
+    .planpreview-window-goal{
+        padding-top: calc(var(--std-unit)*.1);
+        display: inline-block;
+        font-weight: bold;
+        font-size: calc(var(--std-unit)*.3);
+    }
+}

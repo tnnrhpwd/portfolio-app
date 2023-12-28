@@ -1,0 +1,99 @@
+.planit-plans{
+    text-align: left;
+    padding: calc(var(--nav-size)*0.5);
+    font-size: calc(var(--nav-size)*0.5);
+    color: var(--text-color);
+    padding-top: calc(var(--nav-size)*1);
+}
+.planit-plans-text{
+    font-size: calc(var(--nav-size)*0.3);
+}
+.planit-plans-in{
+
+}
+.planit-plans-out{
+    
+}
+.planit-plans-create{
+    margin-top: calc(var(--nav-size)*1);
+    padding-top: calc(var(--nav-size)*.3);
+    text-align: center;
+    font-size: calc(var(--nav-size)*0.3);
+    border: calc(var(--nav-size)*0.001) solid var(--border-nav);
+    vertical-align: middle;
+    min-height: calc(var(--nav-size)*0.8);
+    border-radius: calc(var(--nav-size)*.15);
+    background-color: var(--bg-nav2);
+
+}
+.planit-plans-create-text{
+    border: none;
+    background-color: transparent;
+    color: var(--text-color);
+    cursor: pointer;
+}
+/* .planit-plans-create:hover {
+    border: calc(var(--nav-size)*0.001) solid var(--text-color);
+    filter: brightness(1.2);
+    font-weight: bold;
+} */
+.planit-plans-my{
+    margin-top: calc(var(--nav-size)*0.5);
+    padding-top: calc(var(--nav-size)*.3);
+    text-align: center;
+    font-size: calc(var(--nav-size)*0.3);
+    border: calc(var(--nav-size)*0.001) solid var(--border-nav);
+    vertical-align: middle;
+    min-height: calc(var(--nav-size)*0.8);
+    border-radius: calc(var(--nav-size)*.15);
+    background-color: var(--bg-nav2);
+
+}
+.planit-plans-my-text{
+    padding-bottom: calc(var(--nav-size)*.3);
+    border: none;
+    background-color: transparent;
+    color: var(--text-color);
+    cursor: pointer;
+}
+/* .planit-plans-my:active {
+    border: calc(var(--nav-size)*0.001) solid var(--text-color);
+    filter: brightness(1.2);
+} */
+.planit-plans-saved{
+    margin-top: calc(var(--nav-size)*0.5);
+    padding-top: calc(var(--nav-size)*.3);
+    text-align: center;
+    font-size: calc(var(--nav-size)*0.3);
+    border: calc(var(--nav-size)*0.001) solid var(--border-nav);
+    vertical-align: middle;
+    min-height: calc(var(--nav-size)*0.8);
+    border-radius: calc(var(--nav-size)*.15);
+    background-color: var(--bg-nav2);
+}
+.planit-plans-saved-text{
+    padding-bottom: calc(var(--nav-size)*.3);
+    border: none;
+    background-color: transparent;
+    color: var(--text-color);
+    cursor: pointer;
+}
+/* .planit-plans-saved:active {
+    border: calc(var(--nav-size)*0.001) solid var(--text-color);
+    filter: brightness(1.2);
+} */
+@media (orientation: landscape) {
+    .planit-plans{
+        text-align: left;
+        padding: calc(var(--nav-size)*1);
+        font-size: calc(var(--nav-size)*1);
+        padding-left: calc(var(--nav-size)*8);
+        padding-right: calc(var(--nav-size)*8);
+    }
+    .planit-plans-text{
+        font-size: calc(var(--nav-size)*0.5);
+    }
+}
+
+
+

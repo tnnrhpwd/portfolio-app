@@ -1,0 +1,83 @@
+.planit-login{
+    padding: calc(var(--nav-size)*.25);
+    font-size: calc(var(--nav-size)*.5);
+    text-align: center;
+    padding-top: calc(var(--nav-size)*1);
+}
+
+
+.planit-login-heading{
+    text-align: center;
+    color: var(--text-color);
+}
+.planit-login-heading-title{
+    font-size: calc(var(--nav-size)*.5);
+}
+.planit-login-heading-description{
+    font-size: calc(var(--nav-size)*.25);
+}
+
+.planit-login-form{
+    text-align: center;
+    margin-top: calc(var(--nav-size)*.5);
+    /* margin-left: calc(var(--nav-size)*.6); */
+}
+.planit-login-form-group{
+
+}
+.planit-login-form-control{
+    font-size: calc(var(--nav-size)*.4);
+    background-color: var(--text-color);
+    color: var(--text-color-inv);
+    min-width: 40%;
+    max-width: 80%;
+}
+
+#planit-password{
+    font-size: calc(var(--nav-size)*.4);
+    
+}
+#planit-email{
+    font-size: calc(var(--nav-size)*.4);
+    
+}
+
+.planit-login-form-submit{
+    width: calc(var(--nav-size)*1.5);
+    margin: calc(var(--nav-size)*.1);
+    padding: calc(var(--nav-size)*.1);
+    font-size: calc(var(--nav-size)*.3);
+    background-color: var(--text-color);
+    color: var(--text-color-inv);
+    cursor: pointer;
+}
+.planit-login-form-submit:hover{
+    filter: brightness(1.2);
+    font-weight: bold;
+}
+.planit-login-register{
+    width: calc(var(--nav-size)*2);
+    margin: calc(var(--nav-size)*.1);
+    padding: calc(var(--nav-size)*.1);
+    font-size: calc(var(--nav-size)*.3);
+    background-color: var(--text-color);
+    color: var(--text-color-inv);
+    cursor: pointer;
+}
+.planit-login-register:hover{
+    filter: brightness(1.2);
+    font-weight: bold;
+}
+.planit-login-guest{
+    width: calc(var(--nav-size)*3);
+    margin: calc(var(--nav-size)*.1);
+    padding: calc(var(--nav-size)*.1);
+    font-size: calc(var(--nav-size)*.3);
+    background-color: var(--text-color);
+    color: var(--text-color-inv);
+    cursor: pointer;
+}
+.planit-login-guest:hover{
+    filter: brightness(1.2);
+    font-weight: bold;
+}

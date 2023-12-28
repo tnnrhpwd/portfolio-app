@@ -1,0 +1,49 @@
+.planit-register{
+    padding: calc(var(--nav-size)*.25);
+    font-size: calc(var(--nav-size)*.5);
+    text-align: center;
+}
+
+
+.planit-register-heading{
+    text-align: center;
+    color: var(--text-color);
+}
+.planit-register-heading-title{
+    font-size: calc(var(--nav-size)*.5);
+}
+.planit-register-heading-description{
+    font-size: calc(var(--nav-size)*.25);
+}
+
+.planit-register-form{
+    text-align: center;
+    margin-top: calc(var(--nav-size)*.5);
+    /* margin-left: calc(var(--nav-size)*.6); */
+}
+.planit-register-form-group{
+
+}
+.planit-register-form-control{
+    font-size: calc(var(--nav-size)*.4);
+    background-color: var(--text-color);
+    color: var(--text-color-inv);
+    min-width: 40%;
+    max-width: 80%;
+}
+
+.planit-register-form-submit{
+    margin: calc(var(--nav-size)*.1);
+    padding: calc(var(--nav-size)*.1);
+    font-size: calc(var(--nav-size)*.3);
+    background-color: var(--text-color);
+    color: var(--text-color-inv);
+}
+
+.planit-register-login{
+    margin: calc(var(--nav-size)*.1);
+    padding: calc(var(--nav-size)*.1);
+    font-size: calc(var(--nav-size)*.3);
+    background-color: var(--text-color);
+    color: var(--text-color-inv);
+}

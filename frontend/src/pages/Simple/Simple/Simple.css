@@ -1,0 +1,51 @@
+.planit-dashboard-upper {
+  padding-top: calc(var(--nav-size) * 1);
+  min-height: 100vh;
+  min-height: calc(var(--nav-size) * 2);
+}
+.planit-dashboard-upper-header {
+  padding: calc(var(--nav-size) * 0.5);
+}
+.planit-dashboard-popular {
+  padding: calc(var(--nav-size) * 0.5);
+  padding-right: calc(var(--nav-size) * 2);
+  padding-left: calc(var(--nav-size) * 2);
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+}
+.planit-dashboard-popular-left {
+  min-height: 100%;
+  display: block;
+  overflow: hidden;
+}
+.planit-dashboard-popular-right {
+  display: block;
+  min-height: 100%;
+}
+.planit-dashboard-popular-mid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  min-height: 100%;
+}
+@media (orientation: landscape) {
+  /* Add landscape-specific styles here */
+}
+@media (orientation: portrait) {
+  .planit-dashboard-upper {
+    min-height: calc(var(--nav-size) * 1);
+  }
+  .planit-dashboard-popular {
+    columns: 3;
+    height: calc(var(--nav-size) * 15);
+  }
+  .planit-dashboard-popular-right {
+    display: block;
+  }
+  #planit-dashboard-popular-left-plans-middledashboard-button {
+    font-size: large;
+    display: block;
+  }
+}

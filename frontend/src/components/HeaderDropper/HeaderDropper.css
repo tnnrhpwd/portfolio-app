@@ -1,0 +1,147 @@
+.planit-header-dropper-themebutton{
+    font-size: calc(var(--nav-size)*0.32);
+    background-color: var(--bg-accent);
+    cursor: pointer;
+    position: fixed;
+    padding: calc(var(--nav-size)*0.1);
+    margin-left: calc(var(--nav-size)*2.0);
+    top: calc(var(--nav-size)*0.27);
+    border: calc(var(--nav-size)*0.001) solid black;
+}
+.planit-header-dropper-themebutton:hover {
+    background-color: var(--bg-pagelink);
+    color: var(--text-color);
+    border: calc(var(--nav-size)*0.001) solid var(--text-color);
+}
+.planit-header-dropper-space{
+}
+/* .planit-header-dropper-pagelink{
+  display: block;
+  color: var(--text-color);
+  text-align: left;
+  padding: calc(var(--nav-size)*0.15);
+} */
+#planit-header-dropper__toggle {
+    opacity: 0;
+}
+#planit-header-dropper__toggle:checked + .planit-header-dropper__btn > span {
+    transform: rotate(45deg);
+}
+#planit-header-dropper__toggle:checked + .planit-header-dropper__btn > span::before {
+    top: 0;
+    transform: rotate(0deg);
+}
+#planit-header-dropper__toggle:checked + .planit-header-dropper__btn > span::after {
+    top: 0;
+    transform: rotate(90deg);
+}
+#planit-header-dropper__toggle:checked ~ .planit-header-dropper__box {
+    right: 0 !important;
+}
+.planit-header-dropper__btn {
+    position: fixed;
+    /* margin-top: calc(var(--nav-size)*0.13); */
+    top: calc(var(--nav-size)*0.3);
+    right: calc(var(--nav-size)*0.3);
+    width: calc(var(--nav-size)*0.45);
+    padding-top: calc(var(--nav-size)*0.2);
+    padding-bottom: calc(var(--nav-size)*0.3);
+    cursor: pointer;
+    z-index: 1;
+}
+.planit-header-dropper__btn > span,
+.planit-header-dropper__btn > span::before,
+.planit-header-dropper__btn > span::after {
+    display: block;
+    position: absolute;
+    width: 100%;
+    height: calc(var(--nav-size)*0.05);
+    background-color: var(--text-color);
+    transition-duration: .25s;
+}
+.planit-header-dropper__btn > span::before {
+    content: '';
+    top: calc(var(--nav-size)*-.12);
+}
+.planit-header-dropper__btn > span::after {
+    content: '';
+    top: calc(var(--nav-size)*.13);
+}
+.planit-header-dropper__box {
+    display: block;
+    position: fixed;
+    top: calc(var(--nav-size)*0);
+    right: -100%;
+    width: calc(var(--nav-size)*5);
+    height: 100%;
+    margin: 0;
+    padding: calc(var(--nav-size)*0.08) 0;
+    list-style: none;
+    background-color: var(--bg-nav1);
+    box-shadow: 2px 2px 6px rgba(0, 0, 0, .4);
+    transition-duration: .25s;
+    text-align: left;
+}
+.planit-header-dropper-pagelink {
+    display: block;
+    padding: calc(var(--nav-size)*0.2) calc(var(--nav-size)*0.2);
+    color: var(--text-color);
+    font-family: 'Roboto', sans-serif;
+    font-size: calc(var(--nav-size)*0.45);
+    text-decoration: none;
+    transition-duration: .25s;
+}
+.planit-header-dropper-pagelink:hover {
+    background-color: var(--bg-pagelink);
+    font-weight: bold;
+}
+.planit-header-dropper-profile {
+    display: inline-block;
+    padding: calc(var(--nav-size)*0.2) calc(var(--nav-size)*0.2);
+    color: var(--text-color);
+    font-family: 'Roboto', sans-serif;
+    font-size: calc(var(--nav-size)*0.45);
+    text-decoration: none;
+    transition-duration: .25s;
+    width: 100%;
+    margin-top: calc(var(--nav-size)*0.1);
+}
+.planit-header-dropper-profile:hover {
+    background-color: var(--bg-pagelink);
+    font-weight: bold;
+}
+.planit-header-dropper-user{
+    padding: calc(var(--nav-size)*0.1) calc(var(--nav-size)*0.4);
+    vertical-align: calc(var(--nav-size)*0.05);
+    font-size: calc(var(--nav-size)*0.3);
+    background-color: var(--bg-accent);
+    cursor: pointer;
+    margin-left: calc(var(--nav-size)*0.5);
+    /* margin-bottom: calc(var(--nav-size)*0.4); */
+    border: calc(var(--nav-size)*0.001) solid black;
+}
+.planit-header-dropper-user:hover {
+    background-color: var(--bg-pagelink);
+    color: var(--text-color);
+    border: calc(var(--nav-size)*0.001) solid var(--text-color);
+}
+
+.planit-header-dropper-login{
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+@media (orientation: landscape) {
+
+}

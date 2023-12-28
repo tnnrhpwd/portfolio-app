@@ -1,0 +1,56 @@
+.loginview{
+    position: absolute;
+    width: 100%;
+    text-align: center;
+    z-index: 5;
+}
+.loginview-spc{
+    margin-top: calc(var(--nav-size)*0.8);
+    display: inline-block;
+    font-size: calc(var(--nav-size)*0.3);
+    padding: calc(var(--nav-size)*0.5);
+    padding-top: calc(var(--nav-size)*0.8);
+    padding-bottom: calc(var(--nav-size)*0.8);
+    border: calc(var(--nav-size)*0.001) solid var(--text-color);
+    background-color: var(--bg-nav2);
+    color: var(--text-color);
+    width: 80%;
+
+}
+.loginview-spc-close{
+    background-color: transparent;
+    border: calc(var(--nav-size)*0.001) solid var(--text-color);
+    position: absolute;
+    top: calc(var(--nav-size)*1.0);
+    padding: calc(var(--nav-size)*0.1);
+    right: calc(var(--nav-size)*0.4);
+    font-size: calc(var(--nav-size)*0.3);
+    color: var(--text-color);
+}
+.loginview-spc-close:active {
+    font-weight: bold;
+}
+.loginview-spc-welcome{
+    font-size: calc(var(--nav-size)*0.3);
+    color: var(--text-color);
+
+}
+.loginview-spc-account{
+    font-size: calc(var(--nav-size)*0.3);
+    color: var(--text-color);
+    margin-top: calc(var(--nav-size)*0.2);
+
+}
+.loginview-spc-account-btn{
+    font-size: calc(var(--nav-size)*0.3);
+    margin: calc(var(--nav-size)*0.1);
+    color: var(--text-color);
+    padding: calc(var(--nav-size)*0.15);
+    margin-top: calc(var(--nav-size)*0.1);
+    border: calc(var(--nav-size)*0.001) solid var(--text-color);
+    background-color: transparent;
+
+}
+.loginview-spc-account-btn:active {
+    font-weight: bold;
+}

@@ -1,0 +1,28 @@
+.infogoal{
+    max-width: 100%;
+    text-align: left;
+    padding: calc(var(--nav-size)*0.5);
+    font-size: calc(var(--nav-size)*0.5);
+    color: var(--text-color);
+    padding-top: calc(var(--nav-size)*1.2);
+    word-wrap: break-word;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+.infogoal-potentialplans{
+
+}
+.infogoal-potentialplans{
+
+}

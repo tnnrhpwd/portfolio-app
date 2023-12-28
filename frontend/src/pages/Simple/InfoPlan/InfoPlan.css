@@ -1,0 +1,105 @@
+.infoplan{    
+    max-width: 100%;
+    text-align: left;
+    padding: calc(var(--nav-size)*0.5);
+    font-size: calc(var(--nav-size)*0.5);
+    color: var(--text-color);
+    padding-top: calc(var(--nav-size)*1.2);
+    word-wrap: break-word;
+}
+.infoplan-delete{    
+    padding-top: calc(var(--nav-size)*0.2);
+    display: block;
+
+}
+.infoplan-delete-button{    
+    font-size: calc(var(--nav-size)*0.3);
+    padding: calc(var(--nav-size)*0.1);
+    background-color: transparent;
+    color: var(--text-color);
+    border: calc(var(--nav-size)*0.001) solid var(--text-color);
+    border-radius: calc(var(--nav-size)*0.05);
+}
+
+.infoplan-goal{    
+    width: 100%;
+    white-space: pre-line;
+    text-align: center;
+}
+.infoplan-goal-text{    
+    
+}
+.infoplan-goal-text-goal{    
+    background-color: transparent;
+    border: none;
+    display: block;
+    font-weight: bold;
+    font-size: calc(var(--nav-size)*0.4);
+    cursor: pointer;
+    width: 100%;
+    color: var(--text-color);
+    margin: calc(var(--nav-size)*0.15) 0;
+}
+.infoplan-goal-text-goal:active {    
+    font-size: calc(var(--nav-size)*0.39);
+
+}
+.infoplan-plan{    
+    padding-top: calc(var(--nav-size)*0.2);
+
+    width: 100%;
+    text-align: center;
+}
+.infoplan-plan-text{    
+    white-space: pre-line;
+    font-size: calc(var(--nav-size)*0.3);
+    padding-bottom: calc(var(--nav-size)*0.4);
+    
+}
+.infoplan-plan-text-goal{    
+    background-color: transparent;
+    border: none;
+    display: block;
+    cursor: pointer;
+    width: 100%;
+    color: var(--text-color);
+    margin: calc(var(--nav-size)*0.15) 0;
+}
+.infoplan-plan-text-goal:active {    
+    font-size: calc(var(--nav-size)*0.29);
+
+}
+.infoplan-newcomment{
+    text-align: center;
+}
+.infoplan-newcomment-textarea{
+    height: calc(var(--nav-size)*0.6);
+    vertical-align: top;
+    font-size: calc(var(--nav-size)*0.3);
+    width: 60%;    
+    margin-right: 5%;
+
+}
+.infoplan-newcomment-textarea:focus{
+    height: calc(var(--nav-size)*3);
+    /* width: 100%; */
+    /* margin: 0; */
+    /* display: block; */
+}
+.infoplan-newcomment-submit{
+
+
+
+    vertical-align: top;
+    color: var(--text-color-inv);
+    background-color: transparent;
+    font-size: calc(var(--nav-size)*0.3);
+    padding: calc(var(--nav-size)*0.15);
+    background-color: transparent;
+    color: var(--text-color);
+    border: calc(var(--nav-size)*0.001) solid var(--text-color);
+    border-radius: calc(var(--nav-size)*0.05);
+}
+.infoplan-comments{
+
+}

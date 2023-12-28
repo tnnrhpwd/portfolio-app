@@ -1,0 +1,35 @@
+.planit-planinput{
+    display: block;
+    text-align: center;
+}
+.planit-planinput-group{
+    font-size: calc(var(--nav-size)*0.75);
+}
+#planit-planinput-input {
+    font-family: Cambria, Cochin, Georgia, Times, 'Times New Roman', serif;
+    font-size: calc(var(--nav-size) * 0.35);
+    width: 95%;
+    max-width: 100%; /* Ensure it doesn't exceed its container */
+    text-align: center;
+    background-color: transparent;
+    color: var(--text-color);
+    border: calc(var(--nav-size) * 0.001) solid var(--grey3-transp);
+    padding: calc(var(--nav-size) * 0.1);
+    resize: vertical;
+    min-height: calc(var(--nav-size) * 1.5);
+    overflow-y: auto;
+    word-wrap: break-word; /* Enable word wrapping */
+    white-space: pre-wrap; /* Preserve newline characters */
+    margin-top: calc(var(--nav-size) * 0.3);
+  }
+.planit-planinput-submit{
+    display: inline-block;
+    font-size: calc(var(--nav-size)*0.25);
+    padding: calc(var(--nav-size)*0.3);
+    margin: calc(var(--nav-size)*0.15);
+    cursor: pointer;
+    background-color: transparent;
+    color: var(--text-color);
+    border: calc(var(--nav-size)*0.001) solid var(--grey3-transp);
+    border-radius: calc(var(--nav-size)*.15);
+}

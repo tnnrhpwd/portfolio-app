@@ -1,0 +1,32 @@
+.about{
+    padding-top: calc(var(--nav-size)*1);
+    color: var(--text-color);
+    text-align: center;
+}
+.about-title{
+    margin-top: calc(var(--nav-size)*1);
+    font-size: calc(var(--nav-size)*0.5);
+}
+.about-description{
+    display: inline-block;
+    text-align: left;   
+    font-size: calc(var(--nav-size)*0.3);
+    padding: calc(var(--nav-size)*0.1);
+    width: 85%;
+}
+
+.about-portfolio{
+    margin-top: calc(var(--nav-size)*0.5);
+}
+.about-portfolio-link{
+    text-decoration: none;
+    color: var(--text-color);
+}
+.about-portfolio-link:hover{
+    text-decoration: underline;
+}
+
+
+@media (orientation: landscape) {
+
+}

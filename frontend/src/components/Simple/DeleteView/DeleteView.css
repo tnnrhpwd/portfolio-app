@@ -1,0 +1,25 @@
+.planit-deleteview{
+    position: absolute;
+    /* top: calc(var(--nav-size)*0.3); */
+    /* left: calc(var(--nav-size)*0.3); */
+    width: 90%;
+    text-align: center;
+    z-index: 10;
+}
+.planit-deleteview-spc{
+    display: inline-block;
+    font-size: calc(var(--nav-size)*0.3);
+    padding: calc(var(--nav-size)*0.5);
+    padding-top: calc(var(--nav-size)*0.8);
+    padding-bottom: calc(var(--nav-size)*0.8);
+    border: calc(var(--nav-size)*0.001) solid var(--text-color);
+    background-color: var(--text-color-inv);
+    color: var(--text-color);
+    width: 80%;
+}
+.planit-deleteview-spc-btn{
+    font-size: calc(var(--nav-size)*0.25);
+    padding: calc(var(--nav-size)*0.1);
+    margin: calc(var(--nav-size)*0.15);
+    margin-top: calc(var(--nav-size)*0.8);
+}

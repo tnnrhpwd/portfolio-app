@@ -1,0 +1,50 @@
+.planit-manageview{
+    position: absolute;
+    width: 100%;
+    left: 0;
+    text-align: center;
+    z-index: 5;
+}
+.planit-manageview-spc{
+    display: inline-block;
+    z-index: 10;
+    font-size: calc(var(--nav-size)*0.3);
+    padding: calc(var(--nav-size)*0.5);
+    padding-top: calc(var(--nav-size)*0.8);
+    padding-bottom: calc(var(--nav-size)*0.8);
+    border: calc(var(--nav-size)*0.001) solid var(--text-color);
+    background-image: linear-gradient(var(--bg-nav1),var(--bg-nav1)) ;
+    color: var(--text-color);
+    width: 80%;
+
+}
+.planit-manageview-spc-close{
+    background-color: transparent;
+    border: calc(var(--nav-size)*0.001) solid var(--text-color);
+    position: absolute;
+    bottom: calc(var(--nav-size)*1.3);
+    padding: calc(var(--nav-size)*0.1);
+    margin: calc(var(--nav-size)*0.1);
+    right: calc(var(--nav-size)*0.4);
+    font-size: calc(var(--nav-size)*0.3);
+    color: var(--text-color);
+
+}
+.planit-manageview-spc-title{
+    font-size: calc(var(--nav-size)*0.3);
+
+}
+.planit-manageview-spc-delete{
+    
+}
+.planit-manageview-spc-delete-btn{
+    background-color: transparent;
+    border: calc(var(--nav-size)*0.001) solid var(--text-color);
+    position: absolute;
+    bottom: calc(var(--nav-size)*1.3);
+    margin: calc(var(--nav-size)*0.1);
+    padding: calc(var(--nav-size)*0.1);
+    left: calc(var(--nav-size)*0.4);
+    font-size: calc(var(--nav-size)*0.3);
+    color: var(--text-color);
+}

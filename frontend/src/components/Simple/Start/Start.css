@@ -1,0 +1,407 @@
+.planit-dashboard-start{
+    text-align: center;
+    padding-top: calc(var(--nav-size)*1);
+}
+.planit-dashboard-start-find{
+    font-size: calc(var(--nav-size)*.5);
+}
+.planit-dashboard-start-find-text{
+    display: inline;
+    /* margin-left: calc(var(--nav-size)*2); */
+    font-size: calc(var(--nav-size)*.4);
+    font-weight: bold;
+}
+.planit-dashboard-start-find-space{
+    text-align: center;
+}
+.planit-dashboard-start-find-input{
+    margin-top: calc(var(--nav-size)*.4); 
+    text-align: center;
+    font-weight: normal;
+    width: 80vw;
+    /* margin-right: calc(var(--nav-size)*.5);  */
+    height: calc(var(--nav-size)*.9); 
+    font-size: calc(var(--nav-size)*.3);
+    background-color: transparent;
+    color: var(--text-color);
+    border: calc(var(--nav-size)*.001) solid var(--border-nav);
+    border-radius: calc(var(--nav-size)*1);
+}
+.planit-dashboard-start-find-input:focus {
+    outline: none;
+}
+.planit-dashboard-start-find-but{
+    margin-top: calc(var(--nav-size)*2); 
+    display: inline;
+    /* width: 100vw; */
+    text-align: center;
+}
+.planit-dashboard-start-find-but-button{
+    cursor: pointer;
+    /* margin-left: calc(var(--nav-size)*15); */
+    vertical-align: bottom;
+    background-image: linear-gradient(to right,var(--bg-nav1),var(--bg-nav2));
+    border: calc(var(--nav-size)*.001) solid var(--border-nav);
+    width: calc(var(--nav-size)*2); 
+    height: calc(var(--nav-size)*1); 
+    color: var(--text-color);
+    font-weight: bold;
+    font-size: calc(var(--nav-size)*.3);
+    border-radius: calc(var(--nav-size)*.2);
+}
+.planit-dashboard-start-find-but-button:hover{
+    border: calc(var(--nav-size)*.001) solid var(--text-color);
+    font-size: calc(var(--nav-size)*.33);
+    filter: brightness(1.2);
+    font-weight: bolder;
+}
+/* #planit-dashboard-start-find-logo-but-img{
+    width: calc(var(--nav-size)*.5); 
+    display: inline-block;
+} */
+.planit-dashboard-start-goals{
+    text-align: center;
+    /* margin-left: calc(var(--nav-size)*6); */
+    margin-top: calc(var(--nav-size)*0.5);
+    display: block;
+}
+.planit-dashboard-start-goals-result{
+    border: calc(var(--nav-size)*0.001) solid var(--text-color);
+    margin-top: calc(var(--nav-size)*.1);
+    background-color: transparent;
+    color: var(--text-color);
+    display:inline-block;
+    font-size: calc(var(--nav-size)*.3);
+    text-align: center;
+    width: 90vw;
+    min-height: 10vh;
+    /* padding-top: calc(var(--nav-size)*.2); */
+}
+.planit-dashboard-start-goals-result-1{
+    
+}.planit-dashboard-start-goals-result-2{
+    margin-top: calc(var(--nav-size)*.3);
+    margin-bottom: calc(var(--nav-size)*.3);
+}.planit-dashboard-start-goals-result-3{
+    text-align: right;
+}
+.planit-dashboard-start-goals-result-votecomment-holder{
+    width: 100%;
+    text-align: center;
+
+}
+.planit-dashboard-start-goals-result-votecomment-link{
+    width: 2%;
+    text-align: center;
+    text-decoration: none;
+    color: var(--text-color);
+
+}
+.planit-dashboard-start-goals-result-votecomment{
+    display: inline-block;
+    text-align: center;
+    width: 50%;
+    /* display: inline-block; */
+    z-index: -1;
+    font-size: calc(var(--nav-size)*.25);
+    padding-bottom: calc(var(--nav-size)*.2);
+    padding-top: calc(var(--nav-size)*.1);
+}
+.planit-dashboard-start-goals-result-date{
+    font-size: calc(var(--nav-size)*.25);
+    display: inline-block;
+    width: 55vw;
+    text-align: left;
+}
+.planit-dashboard-start-goals-result-share{
+    width: 15vw;
+    font-size: calc(var(--nav-size)*.25);
+    display: inline-block;
+}
+.planit-dashboard-start-goals-result-share-btn{
+    background-color: transparent;
+    color: var(--text-color);
+    border: none;
+}
+.planit-dashboard-start-goals-result-fav{
+    /* background-image: radial-gradient( var(--text-color) , transparent 50%); */
+
+    font-size: calc(var(--nav-size)*.25);
+    display: inline-block;
+}
+.planit-dashboard-start-goals-result-fav-btn{
+    background-color: transparent;
+    border: none;
+    color: var(--color-favorite);
+}
+.planit-dashboard-start-goals-result-unfav-btn{
+    background-color: transparent;
+    border: none;
+    color: var(--color-unfavorite);
+}
+
+.planit-dashboard-start-goals-result-goal{
+    display: inline-block;
+    font-weight: bold;
+}
+.planit-dashboard-start-goals-result-disagree-div{
+    position: absolute;
+    left: calc(var(--nav-size)*1);
+}.planit-dashboard-start-goals-result-agree-div{
+    position: absolute;
+    right: calc(var(--nav-size)*1);
+}
+.planit-dashboard-start-goals-result-agree{
+    display: inline-block;
+    /* position: absolute; */
+    /* right: calc(var(--nav-size)*5); */
+    border: none;
+    width: calc(var(--nav-size)*0.6);
+    height: calc(var(--nav-size)*0.6);
+    background-color: var(--white1-transp);
+
+    border-radius: 50%;
+    color: var(--text-color);
+    cursor: pointer;
+}
+.planit-dashboard-start-goals-result-agreeACT{
+    display: inline-block;
+    /* position: absolute; */
+    /* right: calc(var(--nav-size)*5); */
+    background-color: var(--green0);
+    border: calc(var(--nav-size)*0.001) solid var(--text-color);
+    width: calc(var(--nav-size)*0.6);
+    height: calc(var(--nav-size)*0.6);
+    color: var(--dark-blue0);
+    cursor: pointer;
+    border-radius: 50%;
+}
+.planit-dashboard-start-goals-result-disagree{
+    display: inline-block;
+    /* position: absolute; */
+    /* left: calc(var(--nav-size)*1); */
+    border: none;
+
+    width: calc(var(--nav-size)*0.6);
+    height: calc(var(--nav-size)*0.6);
+    background-color: var(--white1-transp);
+    color: var(--text-color);
+    cursor: pointer;
+    border-radius: 50%;
+
+}
+.planit-dashboard-start-goals-result-disagreeACT{
+    display: inline-block;
+    /* position: absolute; */
+    /* left: calc(var(--nav-size)*5); */
+    background-color: var(--red1);    
+    border: calc(var(--nav-size)*0.001) solid var(--text-color);
+
+    width: calc(var(--nav-size)*0.6);
+    height: calc(var(--nav-size)*0.6);
+    border-radius: 50%;
+    cursor: pointer;
+    color: var(--text-color);
+
+}
+.planit-dashboard-start-goals-result-thumb{
+    width: calc(var(--nav-size)*0.35);
+    vertical-align: middle;
+    text-align: center;
+}
+.planit-dashboard-start-goals-result-plan{
+    margin-top: calc(var(--nav-size)*.5);
+    white-space: pre-line;
+}
+.planit-dashboard-start-goals-result-goalbutton{
+    border: none;
+    background-color: transparent;
+    color: var(--text-color);
+    cursor: pointer;
+    font-weight: bold;
+}
+.planit-dashboard-start-goals-result-planbutton{
+    border: none;
+    background-color: transparent;
+    color: var(--text-color);
+    cursor: pointer;
+}
+.planit-dashboard-start-goals-plan{
+    border: calc(var(--nav-size)*0.001) solid var(--text-color);
+    margin: calc(var(--nav-size)*.1);
+    background-color: transparent;
+    color: var(--text-color);
+    display:block;
+    font-size: calc(var(--nav-size)*.3);
+    text-align: center;
+    width: 50vw;
+    min-height: 10vh;
+}
+.planit-dashboard-start-goals-sp{
+}
+.planit-dashboard-start-goals-plan-sp-input{
+    display: inline-block;
+    text-align: center;
+    border: none;
+    padding: calc(var(--nav-size)*0.1);
+    margin: calc(var(--nav-size)*0.1);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@media (orientation: landscape) {
+    .planit-dashboard-start{
+        text-align: center;
+        padding-top: calc(var(--nav-size)*2);
+    }
+    .planit-dashboard-start-find{
+        font-size: calc(var(--nav-size)*.35);
+
+    }
+    .planit-dashboard-start-find-text{
+        display: inline;
+        /* margin-left: calc(var(--nav-size)*2); */
+        font-size: calc(var(--nav-size)*.5);
+        font-weight: bold;
+
+    }
+    .planit-dashboard-start-find-space{
+        text-align: center;
+    }
+    .planit-dashboard-start-find-input{
+        margin-top: calc(var(--nav-size)*.5); 
+        text-align: center;
+        font-weight: normal;
+        width: 80vw;
+        height: calc(var(--nav-size)*.6); 
+        font-size: calc(var(--nav-size)*.3);
+        background-color: transparent;
+        color: var(--text-color);
+        border: calc(var(--nav-size)*.001) solid var(--border-nav);
+        border-radius: calc(var(--nav-size)*1);
+    }
+    .planit-dashboard-start-find-input:focus {
+        outline: none;
+        filter: brightness(1.2);
+    }
+    .planit-dashboard-start-find-but{
+        margin-top: calc(var(--nav-size)*1); 
+        /* display: inline; */
+        /* width: 100vw; */
+        text-align: center;
+
+    }
+    .planit-dashboard-start-find-but-button{
+        cursor: pointer;
+        /* margin-left: calc(var(--nav-size)*15); */
+        vertical-align: bottom;
+        background-image: linear-gradient(to right,var(--bg-nav1),var(--bg-nav2));
+        border: calc(var(--nav-size)*.001) solid var(--border-nav);
+        width: calc(var(--nav-size)*2); 
+        height: calc(var(--nav-size)*1); 
+        color: var(--text-color);
+        font-weight: bold;
+        font-size: calc(var(--nav-size)*.3);
+        border-radius: calc(var(--nav-size)*.2);
+    }
+    .planit-dashboard-start-find-but-button:hover{
+        border: calc(var(--nav-size)*.001) solid var(--text-color);
+        font-size: calc(var(--nav-size)*.33);
+        filter: brightness(1.2);
+        font-weight: bolder;
+    }
+
+
+
+
+
+
+    .planit-dashboard-start-goals{
+        text-align: center;
+        /* margin-left: calc(var(--nav-size)*6); */
+        margin-top: calc(var(--nav-size)*1);
+        display: block;
+    }
+    .planit-dashboard-start-goals-result{
+        margin: calc(var(--nav-size)*.1);
+        width: 65%;
+        min-height: 10vh;
+    }
+    .planit-dashboard-start-goals-result-goal{
+        display: inline-block;
+        font-weight: bold;
+        padding-top: calc(var(--nav-size)*.4);
+    }.planit-dashboard-start-goals-result-disagree-div{
+        position: absolute;
+        left: calc(var(--nav-size)*6);
+    }.planit-dashboard-start-goals-result-agree-div{
+        position: absolute;
+        right: calc(var(--nav-size)*6);
+    }
+    .planit-dashboard-start-goals-result-agree{
+        right: calc(var(--nav-size)*0.1);
+    }
+    .planit-dashboard-start-goals-result-agreeACT{
+        right: calc(var(--nav-size)*0.1);
+    }
+    .planit-dashboard-start-goals-result-disagree{
+        left: calc(var(--nav-size)*0.1);
+    }
+    .planit-dashboard-start-goals-result-disagreeACT{
+        left: calc(var(--nav-size)*0.1);
+    }
+    .planit-dashboard-start-goals-result-plan{
+        white-space: pre-line;
+        padding: calc(var(--nav-size)*.1);
+        margin-top: calc(var(--nav-size)*.5);
+        padding-bottom: calc(var(--nav-size)*.4);
+    }
+    .planit-dashboard-start-goals-result-planbutton{
+        border: none;
+        background-color: transparent;
+        color: var(--text-color);
+        cursor: pointer;
+    }
+    .planit-dashboard-start-goals-plan{
+        border: calc(var(--nav-size)*0.001) solid var(--text-color);
+        margin: calc(var(--nav-size)*.1);
+        background-color: transparent;
+        color: var(--text-color);
+        display:block;
+        font-size: calc(var(--nav-size)*.3);
+        text-align: center;
+        width: 50vw;
+        min-height: 10vh;
+
+    }
+    .planit-dashboard-start-goals-sp{
+
+    }
+    .planit-dashboard-start-goals-plan-sp-input{
+        display: inline-block;
+        text-align: center;
+        border: none;
+        padding: calc(var(--nav-size)*0.1);
+        margin: calc(var(--nav-size)*0.1);
+    }
+}

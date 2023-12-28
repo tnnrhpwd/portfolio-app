@@ -1,0 +1,5 @@
+NODE_ENV = development
+PORT = 5000
+MONGO_URI = mongodb+srv://MONGO_USER:MONGO_PASS@YOURMONGOURI(cluster...)
+JWT_SECRET = abc123
+OPENAI_KEY = 
