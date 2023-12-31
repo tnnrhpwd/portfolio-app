@@ -2,14 +2,14 @@ import React from "react";
 import linkedinimg from "./linkedin.png";
 import githubimg from "./githubW.png";
 import Footer from '../../components/Footer/Footer';
-import NavBar from '../../components/NavBar/NavBar';
+import Header from "../../components/Header/Header";
 import "./Contact.css";
 
 function Contact() {
     return (
     <>
-      <NavBar/>
-      <div className="contact-space">
+        <Header />
+        <div className="contact-space">
         <div className="contact-title">
             Contact
         </div>

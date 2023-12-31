@@ -3,6 +3,7 @@ import Utility from "./Utility";
 import Footer from '../../../components/Footer/Footer';
 import NavBar from '../../../components/NavBar/NavBar';
 import "./Projects.css";
+import Header from '../../../components/Header/Header';
 
 const projectData = [
   {
@@ -50,7 +51,7 @@ const projectData = [
 function Projects() {
   return (
     <>
-      <NavBar />
+      <Header />
       <div className="projects-space">
         <div className="projects-title">Projects</div>
         <div className="projects-description">Click each image to visit the project.</div>
