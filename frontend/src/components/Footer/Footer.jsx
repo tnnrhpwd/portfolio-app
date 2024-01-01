@@ -15,11 +15,9 @@ function Footer(props) {
               Copyright © 2022-2024 Simple Inc. Developed by Steven Tanner Hopwood
           </div>
           <div className="footer-space-links">
-              <a href="mailto:info@example.com">Contact Us</a> | 
-              <a href="/privacy-policy">Privacy Policy</a> | 
-              <a href="/terms-of-service">Terms of Service</a> | 
-              <a href="/faq">FAQ</a> | 
-              <a href="https://twitter.com/example" target="_blank" rel="noopener noreferrer">Follow us on Twitter</a>
+              <a className="footer-space-link" href="/about">About Us</a> | 
+              <a className="footer-space-link" href="/privacy">Privacy Policy</a> | 
+              <a className="footer-space-link" href="/terms">Terms of Service</a>
           </div>
       </div>
     );

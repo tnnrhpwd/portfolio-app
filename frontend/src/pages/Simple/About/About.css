@@ -2,10 +2,12 @@
     padding-top: calc(var(--nav-size)*1);
     color: var(--text-color);
     text-align: center;
+    min-height: 87svh;
 }
 .about-title{
     margin-top: calc(var(--nav-size)*1);
     font-size: calc(var(--nav-size)*0.5);
+    min-height: 10svh;
 }
 .about-description{
     display: inline-block;
@@ -25,8 +27,61 @@
 .about-portfolio-link:hover{
     text-decoration: underline;
 }
-
-
+.about-name{
+    padding-top: calc(var(--nav-size)*.05);
+    font-size: calc(var(--nav-size)*.4);
+}
+.about-email{
+    padding-top: calc(var(--nav-size)*.05);
+    font-size: calc(var(--nav-size)*.35);
+}
+.about-body{
+    margin-top: calc(var(--nav-size)*.05);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.about-social{
+    display: inline-block;
+    border-radius: calc(var(--nav-size)*.075);
+    color: var(--text-color);
+    min-height: 10svh;
+    margin: calc(var(--nav-size)*0.1);
+}
+.about-linkedin{
+    border-radius: calc(var(--nav-size)*.075);
+    cursor: pointer;
+    height: calc(var(--nav-size)*1);
+}
+.about-linkedin:hover {
+    filter: brightness(1.2);
+    scale: 1.1;
+}
+.about-github{
+    height: calc(var(--nav-size)*1);
+    border-radius: 5%;
+    cursor: pointer;
+    background-image: radial-gradient(rgb(13, 17, 23) 50%, rgb(53, 53, 53) );
+}
+.about-github:hover {
+    filter: brightness(1.5);
+    scale: 1.1;
+}
+.about-resume{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0 calc(var(--nav-size)*0.05);
+    height: calc(var(--nav-size)*0.97);
+    border-radius: 5%;
+    cursor: pointer;
+    border: 1px solid var(--text-color);
+    font-weight: bolder;
+}
+.about-resume:hover {
+    filter: brightness(1.5);
+    scale: 1.1;
+}
 @media (orientation: landscape) {
 
 }

@@ -1,7 +1,9 @@
-import Header from '../../../components/Header/Header'
-import './About.css'
-
-const portfolioLink = "https://sthopwood.com/"
+import React from 'react';
+import Header from '../../../components/Header/Header';
+import './About.css';
+import linkedinimg from "../../Contact/linkedin.png";
+import githubimg from "../../Contact/githubW.png";
+import Footer from '../../../components/Footer/Footer';
 
 function About() {
 
@@ -9,47 +11,32 @@ function About() {
     <Header />
     <div className='about'>
       <div className='about-title'>
-        About Planit
+        About Simple by STHopwood
       </div>
       <>
         <div className='about-description'>
-          The goal of this website is to help users build and decide upon plans to achieve their goals. 
-          <br/>
-          <br/> Orient to the current state. 
-          <br/> Envision a future goal state. 
-          <br/> Make a plan to meet your measurable success criteria. 
-          <br/> Follow your plan, correcting for abnormalities along the way.
-
-          <br/><br/> State = system observed understanding of environment
-
-          <br/><br/> Goal = non-current system-envisioned state
-          <br/> Examples: Get job, food, or ability.
-          
-
-          <br/><br/> Plan = a path of smaller goals to a larger goal.
-
-
-
-          <div className='about-portfolio'>
-          To see more of my projects, <br/>
-            <a className='about-portfolio-link' href={portfolioLink} rel="noreferrer" target="_blank" >visit my portfolio at www.STHopwood.com</a>
+          <div className="about-name">
+            Developed by Steven Tanner Hopwood
           </div>
-
-          {/* Turn goals(direction) into objectives(path w/ measurable criteria) */}
-
-
-          {/* OODA ( Observe, Orient, Decide, Act ) is a famous operations process used to effectively take strategic actions, 
-          and all humans may utilize this cycle without realizing it. Although humans are evolutionarily excellent at observing, orienting, and acting,
-          it is more beneficial to */}
-
-        </div>
-        <div className='about-div-right'>
-          
+          <div className="about-email">
+            Business Inquiries: Steven.T.Hopwood@gmail.com
+          </div>
+          <div className="about-body">
+            <td className="about-social" onClick={()=> window.open("https://www.linkedin.com/in/sthopwood/", "_blank")}>
+              <img className="about-linkedin" src={linkedinimg} alt=" linkedin logo" />
+            </td>
+            <td className="about-social" onClick={()=> window.open("https://github.com/tnnrhpwd", "_blank")}>
+              <img className="about-github" src={githubimg} alt="github logo" />
+            </td>
+            <td className="about-social" onClick={()=> window.open("https://docs.google.com/document/d/1l8yCRlom5hw-SwOfZtpria_AUuXwcXpC/edit?usp=sharing&ouid=106668374323360993837&rtpof=true&sd=true", "_blank")}>
+              <div className="about-resume">STH Resume</div>
+            </td>
+          </div>
         </div>
       </>
     </div>
-  </>
-  )
+    <Footer/>
+</>)
 }
 
 export default About

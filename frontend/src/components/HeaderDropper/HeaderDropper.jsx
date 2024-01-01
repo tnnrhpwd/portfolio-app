@@ -25,35 +25,28 @@ function HeaderDropper(props) {
       <ul ref={insideComponentRef} className="planit-header-dropper__box">
         
         <div className='planit-header-logo-nav'>
-          <Link to='/' onClick={() => {window.scrollTo(0,0); document.getElementById("planit-header-dropper__toggle").checked = false;}}>
-            {/* <img id='planit-header-logo-img' src={HeaderLogo} alt='website logo'/> */}
-          </Link>
+          <Link to='/' onClick={() => {window.scrollTo(0,0); document.getElementById("planit-header-dropper__toggle").checked = false;}}></Link>
         </div>
         {(props.colTheme==="dark-theme") && <button className='planit-header-dropper-themebutton' onClick={props.setLightMode}>Light Mode</button>}
         {(props.colTheme==="light-theme") && <button className='planit-header-dropper-themebutton' onClick={props.setDarkMode}>Dark Mode</button>}
           {user ? (<>
             <a className='planit-header-dropper-profile' href='/profile'>Profile</a>
-            {/* <button className='planit-header-dropper-user' >Log out</button> */}
             </>) : (
             <a className='planit-header-dropper-profile' href='/login' >Log in</a>
           )}
-        {/* <a className='planit-header-dropper-profile' href='/profile'>Profile</a> */}
-        {/* <a className='planit-header-dropper-pagelink' href='/goals'>Popular</a> */}
+        <a className='planit-header-dropper-pagelink' href='/about'>About</a>        
         {( user ) 
           ?(<>   
-            <a className='planit-header-dropper-pagelink' href='/net'>Net</a>
-            <a className='planit-header-dropper-pagelink' href='/agenda'>Agenda</a>
-            <a className='planit-header-dropper-pagelink' href='/passgen'>Passwords</a>
-            <a className='planit-header-dropper-pagelink' href='/annuities'>Annuities</a>
-            <a className='planit-header-dropper-pagelink' href='/sonic'>Sonic</a>
-            <a className='planit-header-dropper-pagelink' href='/agenda'>Wordle</a>
             <a className='planit-header-dropper-pagelink' href='/settings'>Settings</a>
+            <a className='planit-header-dropper-pagelink' href='/net'>◽Net</a>
+            <a className='planit-header-dropper-pagelink' href='/agenda'>◽Agenda</a>
+            <a className='planit-header-dropper-pagelink' href='/passgen'>◽Passwords</a>
+            <a className='planit-header-dropper-pagelink' href='/annuities'>◽Annuities</a>
+            <a className='planit-header-dropper-pagelink' href='/sonic'>◽Sonic</a>
+            <a className='planit-header-dropper-pagelink' href='/agenda'>◽Wordle</a>
           </>)
           :null
         }
-        <a className='planit-header-dropper-pagelink' href='/about'>About</a>
-        {/* <a className='planit-header-dropper-pagelink' href='/legal'>Legal Terms</a> */}
-        
       </ul>
     </div>
   )

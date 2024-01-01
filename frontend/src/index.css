@@ -61,7 +61,7 @@ code {
 }
 .light-theme{
   --bg:var(--white2-transp);
-  --bg-video:rgba(255, 255, 255, 0.45);
+  --bg-1:rgba(255, 255, 255, 0.45);
   pointer-events:none; 
   --bg-pagelink: var(--green0);
   --bg-nav1: var(--white0);

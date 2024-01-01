@@ -30,47 +30,51 @@ import Settings from './pages/Settings.jsx'
 import Net from './pages/Simple/Net/Net.jsx';
 import About from './pages/Simple/About/About.js'
 import Agenda from './pages/Simple/Agenda/Agenda.jsx';
-import './App.css';
 import Simple from './pages/Simple/Simple/Simple.jsx';
+import Privacy from './pages/Privacy/Privacy.jsx';
+import Terms from './pages/Terms/Terms.jsx';
+import './App.css';
 
 function App() {
   return (<>
     <Router>
-    <div className="App">
-      <Routes>
-        <Route path='/about' element={<About />} />
-        <Route path='/agenda' element={<Agenda />} />
-        <Route path="/annuities" element={<Annuities/>} />
-        <Route path="/boggle" element={<BoggleBox/>} />
-        <Route path="/contact" element={<Contact/>} />
-        <Route path="/drafting" element={<Drafting/>} />
-        <Route path="/ethanol" element={<Ethanol/>} />
-        <Route path="/GFreq" element={<GFreq/>} />
-        <Route path='/goals' element={<Goals />} />
-        <Route path="/halfway" element={<Halfway/>} />
-        <Route path="/" element={<Home/>} />
-        <Route path="/home" element={<Home/>} />
-        <Route path='/InfoAction' element={<InfoAction />} />
-        <Route path='/InfoGoal' element={<InfoGoal />} />
-        <Route path='/InfoPlan' element={<InfoPlan />} />
-        <Route path='/LegalTerms' element={<LegalTerms />} />
-        <Route path='/login' element={<Login />} />
-        <Route path='/net' element={<Net />} />
-        <Route path="/passgen" element={<PassGen/>} />
-        <Route path='/plans' element={<Plans />} />
-        <Route path='/PollBox' element={<PollBox />} />
-        <Route path="/prodpartners" element={<ProdPartners/>} />
-        <Route path='/profile' element={<Profile />} />
-        <Route path="/projects" element={<Projects/>} />
-        <Route path='/register' element={<Register />} />
-        <Route path='/settings' element={<Settings />} />
-        <Route path='/Simple' element={<Simple />} />
-        <Route path="/sleepassist" element={<SleepAssist/>} />
-        <Route path="/sonic" element={<Sonic/>} />
-        <Route path="/wordle" element={<Wordle/>} />
-        <Route path="/wordlesolver" element={<WordleSolver/>} />
-        </Routes>
-    </div>
+      <div className="App">
+        <Routes>
+          <Route path='/about' element={<About />} />
+          <Route path='/agenda' element={<Agenda />} />
+          <Route path="/annuities" element={<Annuities/>} />
+          <Route path="/boggle" element={<BoggleBox/>} />
+          <Route path="/contact" element={<Contact/>} />
+          <Route path="/drafting" element={<Drafting/>} />
+          <Route path="/ethanol" element={<Ethanol/>} />
+          <Route path="/GFreq" element={<GFreq/>} />
+          <Route path='/goals' element={<Goals />} />
+          <Route path="/halfway" element={<Halfway/>} />
+          <Route path="/" element={<Home/>} />
+          <Route path="/home" element={<Home/>} />
+          <Route path='/InfoAction' element={<InfoAction />} />
+          <Route path='/InfoGoal' element={<InfoGoal />} />
+          <Route path='/InfoPlan' element={<InfoPlan />} />
+          <Route path='/LegalTerms' element={<LegalTerms />} />
+          <Route path='/login' element={<Login />} />
+          <Route path='/net' element={<Net />} />
+          <Route path="/passgen" element={<PassGen/>} />
+          <Route path='/plans' element={<Plans />} />
+          <Route path='/PollBox' element={<PollBox />} />
+          <Route path='/privacy' element={<Privacy />} />
+          <Route path="/prodpartners" element={<ProdPartners/>} />
+          <Route path='/profile' element={<Profile />} />
+          <Route path="/projects" element={<Projects/>} />
+          <Route path='/register' element={<Register />} />
+          <Route path='/settings' element={<Settings />} />
+          <Route path='/Simple' element={<Simple />} />
+          <Route path="/sleepassist" element={<SleepAssist/>} />
+          <Route path="/sonic" element={<Sonic/>} />
+          <Route path='/terms' element={<Terms />} />
+          <Route path="/wordle" element={<Wordle/>} />
+          <Route path="/wordlesolver" element={<WordleSolver/>} />
+          </Routes>
+      </div>
     </Router>
     <ToastContainer/>
   </>

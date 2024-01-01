@@ -1,0 +1,25 @@
+.privacy {
+    min-height: 80svh;
+    padding: 0 calc(var(--nav-size)*0.5);
+    padding-top: calc(var(--nav-size)*1.5);
+    font-family: 'Arial', sans-serif;
+    color: var(--text-color);
+}
+.privacy-title {
+    font-size: calc(var(--nav-size)*.25);
+    font-weight: bold;
+    margin-bottom: calc(var(--nav-size)*.1);
+}
+.privacy-body {
+    margin-top: calc(var(--nav-size)*.1);
+}
+.privacy-body-title {
+    font-size: calc(var(--nav-size)*.25);
+    font-weight: bold;
+    margin-top: calc(var(--nav-size)*.1);
+}
+.privacy-body-text {
+    margin-bottom: calc(var(--nav-size)*.1);
+    font-size: calc(var(--nav-size)*.25);
+    padding-left: calc(var(--nav-size)*.2);
+}  

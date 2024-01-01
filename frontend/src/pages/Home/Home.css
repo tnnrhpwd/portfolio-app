@@ -37,7 +37,7 @@
     font-weight: calc(var(--nav-size)*5);
     z-index: 0;
     position: relative;
-    background-color: var(--bg-video);
+    background-color: var(--bg-1);
     text-align: center;
 }
 .container-scroll{
