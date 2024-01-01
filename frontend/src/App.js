@@ -14,7 +14,7 @@ import PassGen from './pages/Projects/PassGen/PassGen';
 import ProdPartners from './pages/Projects/ProdPartners/ProdPartners';
 import Projects from './pages/Projects/Projects/Projects';
 import SleepAssist from './pages/Projects/SleepAssist/SleepAssist';
-import Sountrix from './pages/Projects/Sountrix/Sountrix';
+import Sonic from './pages/Projects/Sonic/Sonic';
 import Wordle from './pages/Projects/Wordle/Wordle';
 import WordleSolver from './pages/Projects/WordleSolver/WordleSolver';
 import InfoGoal from './pages/Simple/InfoGoal/InfoGoal.jsx';
@@ -66,9 +66,10 @@ function App() {
         <Route path='/settings' element={<Settings />} />
         <Route path='/Simple' element={<Simple />} />
         <Route path="/sleepassist" element={<SleepAssist/>} />
-        <Route path="/sountrix" element={<Sountrix/>} />
+        <Route path="/sonic" element={<Sonic/>} />
         <Route path="/wordle" element={<Wordle/>} />
-        <Route path="/wordlesolver" element={<WordleSolver/>} /></Routes>
+        <Route path="/wordlesolver" element={<WordleSolver/>} />
+        </Routes>
     </div>
     </Router>
     <ToastContainer/>

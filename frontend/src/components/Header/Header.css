@@ -8,26 +8,34 @@
   border-bottom: calc(var(--nav-size)*0.01) solid var(--border-nav);
   text-decoration: none;
   width: 100vw;
-  text-align: center;
+  text-align: left;
   z-index: 10;
 }
+/* Fixes the weird triangles hovering in landscape */
+.__react_component_tooltip::before, .__react_component_tooltip::after{
+  border-bottom: none !important;
+  border-bottom-color: transparent !important;
+}
 .planit-header-logo{
+  height: var(--nav-size);
   display:inline-flex;
   margin-left: calc(var(--nav-size)*0.5);
   padding-left: calc(var(--nav-size)*0.75);
   margin-right: 5vw;
   text-align: left;
+  text-wrap:wrap;
 }
-
 .planit-header-logo-format{
   text-wrap:wrap;
-  width: calc(var(--nav-size)*0.75);
+}
+.planit-header-logo-format:hover{
+  text-decoration: underline;
 }
 .planit-header-logo-format-simple{
-  font-size: calc(var(--nav-size)*0.1);
+  font-size: calc(var(--nav-size)*0.5);
 }
 .planit-header-logo-format-sth{
-  font-size: calc(var(--nav-size)*0.1);
+  font-size: calc(var(--nav-size)*0.2);
 }
 .planit-header-title{
   font-size: calc(var(--nav-size)*0.5);
@@ -49,138 +57,132 @@
   vertical-align: middle;
   cursor: pointer;
 }
+#planit-header-logo-img:hover {
+  filter: brightness(1.2);
+  transform: scale(1.1);
+}
 a{
   text-decoration: none;
 }
 
-@media (orientation: portrait) {
-  .planit-header-logo{
-    display: block;
-    font-size: calc(var(--nav-size)*.1);
-    /* right: calc(var(--nav-size)*2); */
-  }
-  .planit-header-logo-nav{
-    display: block;
-    font-size: calc(var(--nav-size)*.1);
-    right: calc(var(--nav-size)*2);
-  }
-  .planit-header-title{
-    position: fixed;
-    margin-left: calc(var(--nav-size)*1.1);
-    top: calc(var(--nav-size)*0.001);
-    /* position: fixed; */
-    /* font-size: calc(var(--nav-size)*.1); */
-  }
-  .planit-header-link-landscape{
-    display: none;
-  }
-  .planit-header-plan-portrait{
-    position: fixed;
-    right: calc(var(--nav-size)*0.3);
-    background-color: transparent;
-    border: none;
-    margin-top: calc(var(--nav-size)*0.07);
-    font-size: calc(var(--nav-size)*.8);
-    cursor: pointer;
-    margin-right: calc(var(--nav-size)*0.7);
-    color: var(--text-color);
-    transition-duration: .25s;
-  }
-  .planit-header-plan-portrait:hover{
-    transform: rotate(180deg);
-  }
-  .planit-header-themebutton-landscape{
-    display: none;
-  }
-  .planit-header-profile-landscape{
-    display: none;
-  }
-  #tooltip-projects{
-      font-family: 'CutiveMono-Regular';
-      font-size: calc(var(--nav-size)*.25);
-      font-weight: bold;
-      color: white;
-      border-radius: 20%;
-      text-align: center;
-      -webkit-text-stroke-width: calc(var(--nav-size)*.003);
-      -webkit-text-stroke-color: white;
-      height: calc(var(--nav-size)*0.3);
-  }
-  #tooltip-contact{
-      font-family: 'CutiveMono-Regular';
-      font-size: calc(var(--nav-size)*.25);
-      font-weight: bold;
-      color: white;
-      border-radius: 20%;
-      text-align: center;
-      -webkit-text-stroke-width: calc(var(--nav-size)*.003);
-      -webkit-text-stroke-color: white;
-      height: calc(var(--nav-size)*0.3);
-  }
-  .icon-button{
-      --button-size: calc(var(--nav-size)*0.4);
-      width: var(--button-size);
-      height: var(--button-size);
-      background-color: rgb(133, 133, 133);
-      border-radius: 50%;
-      padding: calc(var(--nav-size)*0.11);
-      margin: calc(var(--nav-size)*0.11);
-      align-items: center;
-      justify-content: center;
-      transition: filter 100ms;
-      pointer-events: all; /* Re-enables clicks on its child elements by default */
-
-  }
-  .icon-button:hover{
-      filter: brightness(1.2);
-  }
-  .icon-button:active{
-      --width: calc(var(--nav-size)*0.5);
-      height: calc(var(--nav-size)*0.5);
-      background-color: #910b0b;
-      box-shadow: -1px 5px #666;
-      transform: translateY(calc(var(--nav-size) * (-0.1))); 
-  }
-  #nav-icon-text{
-      color: transparent;
-      color: transparent;
-      -webkit-text-stroke-color: transparent;
-      background: transparent;
-      font-size: 0;
-  }
-  .nav-item{
-      width: calc(var(--nav-size)*0.8);
-      justify-content: center;
-      -webkit-animation: fadein 2s; /* Safari, Chrome and Opera > 12.1 */
-      -moz-animation: fadein 1s; /* Firefox < 16 */
-      -ms-animation: fadein 1s; /* Internet Explorer */
-        -o-animation: fadein 1s; /* Opera < 12.1 */
-          animation: fadein 1s;
-          
-  }
-  .nav-icon{
-      width: calc(var(--nav-size)*0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-
-  }
-  .tooltip-space-projects{
-    text-align: center;
-    top: 0;
-    right: calc(var(--nav-size)*1.65);position: fixed;
-    position: fixed;
-    z-index: 0.5;padding: calc(var(--nav-size)*0.1);
-    background-color: transparent;
-  }
-  .tooltip-space-contact{
-    text-align: center;
-    top: 0;
-    right: calc(var(--nav-size)*0.8);position: fixed;
-    position: fixed;
-    z-index: 0.5;padding: calc(var(--nav-size)*0.1);
-    background-color: transparent;
-  }
+.planit-header-logo-nav{
+  display: block;
+  font-size: calc(var(--nav-size)*.1);
+  right: calc(var(--nav-size)*2);
+}
+.planit-header-title{
+  position: fixed;
+  margin-left: calc(var(--nav-size)*1.1);
+  top: calc(var(--nav-size)*0.001);
+  /* position: fixed; */
+  /* font-size: calc(var(--nav-size)*.1); */
+}
+.planit-header-link-landscape{
+  display: none;
+}
+.planit-header-plan-portrait{
+  position: fixed;
+  right: calc(var(--nav-size)*0.3);
+  background-color: transparent;
+  border: none;
+  margin-top: calc(var(--nav-size)*0.07);
+  font-size: calc(var(--nav-size)*.8);
+  cursor: pointer;
+  margin-right: calc(var(--nav-size)*0.7);
+  color: var(--text-color);
+  transition-duration: .25s;
+}
+.planit-header-plan-portrait:hover{
+  transform: rotate(180deg);
+}
+.planit-header-themebutton-landscape{
+  display: none;
+}
+.planit-header-profile-landscape{
+  display: none;
+}
+#tooltip-projects{
+  font-family: 'CutiveMono-Regular';
+  font-size: calc(var(--nav-size)*.25);
+  font-weight: bold;
+  color: white;
+  border-radius: 20%;
+  text-align: center;
+  -webkit-text-stroke-width: calc(var(--nav-size)*.003);
+  -webkit-text-stroke-color: white;
+  height: calc(var(--nav-size)*0.3);
+}
+#tooltip-contact{
+  font-family: 'CutiveMono-Regular';
+  font-size: calc(var(--nav-size)*.25);
+  font-weight: bold;
+  color: white;
+  border-radius: 20%;
+  text-align: center;
+  -webkit-text-stroke-width: calc(var(--nav-size)*.003);
+  -webkit-text-stroke-color: white;
+  height: calc(var(--nav-size)*0.3);
+}
+.icon-button{
+  --button-size: calc(var(--nav-size)*0.4);
+  width: var(--button-size);
+  height: var(--button-size);
+  background-color: rgb(133, 133, 133);
+  border-radius: 50%;
+  padding: calc(var(--nav-size)*0.11);
+  margin: calc(var(--nav-size)*0.11);
+  align-items: center;
+  justify-content: center;
+  transition: filter 100ms;
+  pointer-events: all; /* Re-enables clicks on its child elements by default */
+}
+.icon-button:hover{
+  filter: brightness(1.2);
+}
+.icon-button:active{
+  --width: calc(var(--nav-size)*0.5);
+  height: calc(var(--nav-size)*0.5);
+  background-color: #910b0b;
+  box-shadow: -1px 5px #666;
+  transform: translateY(calc(var(--nav-size) * (-0.1))); 
+}
+#nav-icon-text{
+  color: transparent;
+  color: transparent;
+  -webkit-text-stroke-color: transparent;
+  background: transparent;
+  font-size: 0;
+}
+.nav-item{
+  width: calc(var(--nav-size)*0.8);
+  justify-content: center;
+  -webkit-animation: fadein 2s; /* Safari, Chrome and Opera > 12.1 */
+  -moz-animation: fadein 1s; /* Firefox < 16 */
+  -ms-animation: fadein 1s; /* Internet Explorer */
+  -o-animation: fadein 1s; /* Opera < 12.1 */
+  animation: fadein 1s;  
+}
+.nav-icon{
+  width: calc(var(--nav-size)*0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tooltip-space-projects{
+  text-align: center;
+  top: 0;
+  right: calc(var(--nav-size)*1.65);position: fixed;
+  position: fixed;
+  z-index: 0.5;padding: calc(var(--nav-size)*0.1);
+  background-color: transparent;
+}
+.tooltip-space-contact{
+  text-align: center;
+  top: 0;
+  right: calc(var(--nav-size)*0.8);position: fixed;
+  position: fixed;
+  z-index: 0.5;padding: calc(var(--nav-size)*0.1);
+  background-color: transparent;
 }
 
 @media (orientation: landscape) {
@@ -335,9 +337,4 @@ a{
     background-color: transparent;
     width: calc(var(--nav-size)*1.7);
   }
-}
-/* Fixes the weird triangles hovering in landscape */
-.__react_component_tooltip::before, .__react_component_tooltip::after{
-  border-bottom: none !important;
-  border-bottom-color: transparent !important;
 }

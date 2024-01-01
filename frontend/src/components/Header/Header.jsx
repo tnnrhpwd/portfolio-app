@@ -69,7 +69,7 @@ function Header() {
             onClick={handleThemeToggle}
             alt="website logo"
           />
-          <div
+          <a
             className='planit-header-logo-format'
             href="/" 
             onClick={() => {
@@ -78,7 +78,7 @@ function Header() {
             >
             <div className="planit-header-logo-format-simple">Simple</div>
             <div className="planit-header-logo-format-sth"> by STHopwood</div>
-          </div>
+          </a>
         </div>
 
         {user ? (
@@ -138,22 +138,6 @@ function Header() {
           setLightMode={setLightMode}
           setDarkMode={setDarkMode}
         />
-        <div className="tooltip-space-projects" data-tip="" data-for="tooltip-projects" >
-          <NavItem text="Projects" icon={projectsLogo} page="/projects"/>
-        </div>
-        { (portraitState) &&
-          <ReactTooltip id="tooltip-projects" place="bottom" effect="solid">
-            Projects
-          </ReactTooltip>
-        }
-        <div className="tooltip-space-contact" data-tip="" data-for="tooltip-contact" >
-          <NavItem  text="Contact" icon={contactLogo} page="/contact"/>
-        </div>
-        { (portraitState) &&  
-          <ReactTooltip id="tooltip-contact" place="bottom" effect="solid">
-            Contact
-          </ReactTooltip>
-        }
         <HeaderDropper
           colTheme={colTheme}
           setLightMode={setLightMode}

@@ -13,7 +13,6 @@
     text-align: center;
     padding-bottom: calc(var(--nav-size)*.5);
     background-color: var(--bg);
-    /* height: calc(var(--nav-size)*7); */
 }
 .footer-space-transparent{
     padding-top: calc(var(--nav-size)*0.5);

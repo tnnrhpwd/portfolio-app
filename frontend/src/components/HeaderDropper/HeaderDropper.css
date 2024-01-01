@@ -49,6 +49,9 @@
     cursor: pointer;
     z-index: 1;
 }
+.planit-header-dropper__btn:hover {
+    transform: scale(1.1);
+}
 .planit-header-dropper__btn > span,
 .planit-header-dropper__btn > span::before,
 .planit-header-dropper__btn > span::after {

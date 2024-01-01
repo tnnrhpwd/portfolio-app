@@ -23,6 +23,10 @@
     cursor: pointer;
     z-index: 1;
   }
+  .planit-header-bell__btn:hover {
+    filter: brightness(1.2);
+    transform: scale(1.1);
+  }
   
   .planit-header-bell__btn > span {
     display: block;
