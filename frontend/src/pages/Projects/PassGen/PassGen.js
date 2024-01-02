@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Footer from '../../../components/Footer/Footer';
-import NavBar from '../../../components/NavBar/NavBar';
 import './PassGen.css';
+import Header from '../../../components/Header/Header';
 
 function PassGen() {
     const [outputPassword, setOutputPassword] = useState("");
@@ -76,7 +76,7 @@ function PassGen() {
     }
 
     return (<>
-        <NavBar/>
+        <Header/>
         <div className='passgen'>
             <div className="passgen-title">
                 PassGen

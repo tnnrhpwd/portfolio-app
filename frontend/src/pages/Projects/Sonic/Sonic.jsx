@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import Footer from '../../../components/Footer/Footer';
-import NavBar from '../../../components/NavBar/NavBar';
 import FrequencyAnalyzer from './FrequencyAnalyzer';
 import './Sonic.css';
+import Header from '../../../components/Header/Header';
 
 function Sonic() {
   const [noteData, setNoteData] = useState({});
@@ -13,8 +13,8 @@ function Sonic() {
 
   return (
     <>
-      <NavBar />
-      <div className="Sonic">
+      <Header />
+        <div className="Sonic">
         <div className="Sonic-title">Sonic</div>
         <div className="Sonic-description">
           Audio Frequency and Note Analyzer

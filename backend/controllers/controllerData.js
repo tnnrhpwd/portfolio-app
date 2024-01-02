@@ -87,7 +87,7 @@ const updateData = asyncHandler(async (req, res) => {
     // Check for user
     if (!req.user.data.includes("tannerh@engineer.com")) {
       res.status(401)
-      throw new Error('User is not authorized.')
+      throw new Error('Only admin are authorized to utilize the API at this time.')
     }
 
     const userInput = req.body.data; // Get user's input from the query string

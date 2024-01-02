@@ -6,8 +6,10 @@ import Spinner from '../../Spinner/Spinner.jsx';
 import NNetBookView from './NNetBookView.jsx';
 import TextareaAutosize from 'react-textarea-autosize';
 import './NNetChatView.css';
+import { useNavigate } from 'react-router-dom'              // page redirects
 
 const NNetChatView = () => {
+  const navigate = useNavigate() // initialization
   const dispatch = useDispatch();
   const [inputText, setInputText] = useState('');
   const [editedText, setEditedText] = useState(''); // New state for edited content
@@ -16,7 +18,7 @@ const NNetChatView = () => {
   const [bookIsOpen, setBookIsOpen] = useState(false);
 
   // Get the relevant data from the state
-  const { data, dataIsSuccess, dataIsLoading, dataIsError, dataMessage } = useSelector(
+  const { user, data, dataIsSuccess, dataIsLoading, dataIsError, dataMessage } = useSelector(
     (state) => state.data
   );
 
@@ -24,7 +26,7 @@ const NNetChatView = () => {
   useEffect(() => {
     // If there is a new successful response, update the chat history
     if (dataIsSuccess) {
-      console.log(data)
+      console.log(data);
       if (inputText === '') {
         setChatHistory([...chatHistory, { content: data }]);
       } else {
@@ -42,10 +44,14 @@ const NNetChatView = () => {
     return () => {
       dispatch(resetDataSlice());
     };
-  }, [dispatch, dataIsSuccess, dataIsError, dataMessage, data, inputText, chatHistory]);
+  }, [dispatch, dataIsSuccess, dataIsError, dataMessage, data, inputText, chatHistory, user, navigate]);
 
   const handleSend = async () => {
     try {
+      if (!user || user === null) {
+        toast.error('Please log in to utilize this API.');
+        return;
+      }
       // Concatenate prior messages with the current inputText
       const combinedData = chatHistory.map((item) => item.content).concat(inputText).join('\n');
 
@@ -55,16 +61,6 @@ const NNetChatView = () => {
       // Handle any errors here
       console.error(error);
       toast.error('An error occurred while fetching data from OpenAI.');
-    }
-  };
-
-  const handleBook = async () => {
-    try {
-      if(bookIsOpen){setBookIsOpen(false)}else{setBookIsOpen(true)}
-      console.log(bookIsOpen)
-    } catch (error) {
-      // Handle any errors here
-
     }
   };
 

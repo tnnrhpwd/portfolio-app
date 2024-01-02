@@ -25,8 +25,8 @@ function Agenda() {
 
   // called on state changes
   useEffect(() => {
-    if (!user) {            // if no user, redirect to login
-      navigate('/login') 
+    if (!user || user === null) {            // if no user, redirect to login
+      toast.error("Please log in in to save data.")
     }
 
     if (dataIsError) {
@@ -49,7 +49,7 @@ function Agenda() {
     return () => {    // reset the plans when state changes
       dispatch(resetDataSlice()) // dispatch connects to the store, then reset state values( dataMessage, isloading, iserror, and issuccess )
     }
-  }, [dataIsError, dataMessage, dispatch, navigate, user])
+  }, [])
 
   useEffect(() => {
     function handleAllOutputActions(){ 

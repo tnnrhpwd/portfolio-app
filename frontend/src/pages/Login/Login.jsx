@@ -6,6 +6,8 @@ import { login, logout, resetDataSlice } from '../../features/data/dataSlice'   
 import Spinner from '../../components/Spinner/Spinner.jsx';
 import React from 'react';
 import './Login.css';
+import Header from '../../components/Header/Header.jsx';
+import Footer from '../../components/Footer/Footer.jsx';
 
 function Login() {
     // useState variables of input fields
@@ -79,58 +81,59 @@ function Login() {
         return <Spinner />
     }
 
-  return (
-    <div className='planit-login'>
-        <section className="planit-login-heading">
-            <div className="planit-login-heading-title">
-                Log in!
-            </div>
-            <div className="planit-login-heading-description">
-                Log in to save, create, and share goals and plans!
-            </div>
-        </section>
-        <section className="planit-login-form">
-            <form onSubmit={onSubmit}>
-                <div className="planit-login-form-group">
-                    <input
-                        type='email'
-                        className='planit-login-form-control'
-                        id='planit-email'
-                        name='email'
-                        value={email}
-                        placeholder='Enter your email'
-                        onChange={onChange}
-                    />
+    return (<>
+    <Header />
+        <div className='planit-login'>
+            <section className="planit-login-heading">
+                <div className="planit-login-heading-title">
+                    Log in!
                 </div>
-                <div className="planit-login-form-group">
-                    <input
-                        type='password'
-                        className='planit-login-form-control'
-                        id='planit-password'
-                        name='password'
-                        value={password}
-                        placeholder='Enter password'
-                        onChange={onChange}
-                    />
+                <div className="planit-login-heading-description">
+                    Log in to save, create, and share goals and plans!
                 </div>
-                <div className='planit-login-form-group'>
-                    <button type='submit' className='planit-login-form-submit'>
-                        Submit
-                    </button>
-                </div>
-            </form>
-        </section>
-        <a href='/register'>
-            <button className='planit-login-register'>
-                Register
+            </section>
+            <section className="planit-login-form">
+                <form onSubmit={onSubmit}>
+                    <div className="planit-login-form-group">
+                        <input
+                            type='email'
+                            className='planit-login-form-control'
+                            id='planit-email'
+                            name='email'
+                            value={email}
+                            placeholder='Enter your email'
+                            onChange={onChange}
+                        />
+                    </div>
+                    <div className="planit-login-form-group">
+                        <input
+                            type='password'
+                            className='planit-login-form-control'
+                            id='planit-password'
+                            name='password'
+                            value={password}
+                            placeholder='Enter password'
+                            onChange={onChange}
+                        />
+                    </div>
+                    <div className='planit-login-form-group'>
+                        <button type='submit' className='planit-login-form-submit'>
+                            Submit
+                        </button>
+                    </div>
+                </form>
+            </section>
+            <a href='/register'>
+                <button className='planit-login-register'>
+                    Register
+                </button>
+            </a>
+            <button onClick={handleGuestLogin} className='planit-login-guest'>
+                Login as Guest
             </button>
-        </a>
-        <button onClick={handleGuestLogin} className='planit-login-guest'>
-            Login as Guest
-        </button>
-        
-    </div>
-  )
+        </div>
+        <Footer />
+    </>)
 }
 
 export default Login

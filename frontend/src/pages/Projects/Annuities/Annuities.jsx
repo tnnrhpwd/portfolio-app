@@ -3,9 +3,9 @@ import Dropdown from "react-dropdown";
 import "react-dropdown/style.css";
 import NewAnnuity from './NewAnnuity';
 // import GraphAnnuities from './GraphAnnuities';
-import Footer from './../../../components/Footer/Footer';
-import NavBar from './../../../components/NavBar/NavBar';
+import Footer from '../../../components/Footer/Footer';
 import "./Annuities.css";
+import Header from '../../../components/Header/Header';
 
 function Annuities() {
 
@@ -95,8 +95,8 @@ function Annuities() {
 
     return (
     <>  
-        <NavBar/>
-        <div className='annuities'>
+        <Header/>
+            <div className='annuities'>
             <div className='annuities-title'>
                 Annuities
             </div>
