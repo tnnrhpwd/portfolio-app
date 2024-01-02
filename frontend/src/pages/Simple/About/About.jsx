@@ -19,7 +19,7 @@ function About() {
             Developed by Steven Tanner Hopwood
           </div>
           <div className="about-email">
-            Business Inquiries: Steven.T.Hopwood@gmail.com
+            Business Inquiries: <a className="about-email-link" href="mailto:Steven.T.Hopwood@gmail.com">Steven.T.Hopwood@gmail.com</a>
           </div>
           <div className="about-body">
             <td className="about-social" onClick={()=> window.open("https://www.linkedin.com/in/sthopwood/", "_blank")}>

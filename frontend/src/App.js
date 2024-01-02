@@ -28,7 +28,7 @@ import Profile from './pages/Profile/Profile.jsx'
 import Register from './pages/Register/Register.jsx'
 import Settings from './pages/Settings.jsx'
 import Net from './pages/Simple/Net/Net.jsx';
-import About from './pages/Simple/About/About.js'
+import About from './pages/Simple/About/About.jsx'
 import Agenda from './pages/Simple/Agenda/Agenda.jsx';
 import Simple from './pages/Simple/Simple/Simple.jsx';
 import Privacy from './pages/Privacy/Privacy.jsx';

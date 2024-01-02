@@ -37,7 +37,8 @@ function Home() {
                 <div id="text-title">It's simple.</div>
                 <div id="text-body"> Let's build a brighter tomorrow! </div>
                 <div id="text-subtext"> Manufacturing, Engineering, and Process Development </div>
-              </div>
+                <div id="text-about"><a href="/about">Learn more about us.</a></div>
+                </div>
           </section>
 
           <section className="section-tile">
@@ -73,7 +74,7 @@ function Home() {
 
         </div>
         <Footer />
-        </div>
+      </div>
     </>
   );
 }

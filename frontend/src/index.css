@@ -62,7 +62,10 @@ code {
 .light-theme{
   --bg:var(--white2-transp);
   --bg-1:rgba(255, 255, 255, 0.45);
-  pointer-events:none; 
+  --bg-orange:rgb(255, 244, 225);
+  --bg-pink:rgb(255, 233, 255);
+  --bg-blue:rgb(224, 224, 255);
+  --bg-mint:rgb(219, 255, 255);
   --bg-pagelink: var(--green0);
   --bg-nav1: var(--white0);
   --bg-nav2: var(--grey0);
@@ -82,7 +85,11 @@ code {
 }
 .dark-theme{
   --bg:var(--grey6);
-  --bg-video:rgba(4, 4, 4, 0.8);
+  --bg-1:rgba(4, 4, 4, 0.8);
+  --bg-orange:rgb(98, 63, 0);
+  --bg-pink:rgb(81, 0, 81);
+  --bg-blue:rgb(0, 0, 67);
+  --bg-mint:rgb(0, 62, 62);
   --bg-accent:rgb(126, 126, 126);
   --text-color:white;
   --text-color-inv: rgb(0, 0, 0);
