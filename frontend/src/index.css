@@ -139,3 +139,10 @@ a{
 .Toastify__toast-icon {
   width: calc(var(--nav-size)*0.5);
 }
+.unclickable-background {
+  pointer-events: none;
+}
+
+.unclickable-background * {
+  pointer-events: all;
+}

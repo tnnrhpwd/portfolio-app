@@ -8,8 +8,8 @@ import Footer from '../../../components/Footer/Footer';
 function About() {
 
   return (<>
-    <Header />
     <div className='about'>
+      <Header />
       <div className='about-title'>
         About Simple by STHopwood
       </div>
@@ -34,8 +34,8 @@ function About() {
           </div>
         </div>
       </>
+      <Footer/>
     </div>
-    <Footer/>
 </>)
 }
 

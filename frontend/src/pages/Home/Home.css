@@ -16,8 +16,6 @@
     src: url(./../../fonts/CutiveMono-Regular.ttf) format('truetype'),
     url(./../../fonts/CutiveMono-Regular.woff) format('woff');
 }
-.content{
-}
 .utility-spc{
     text-align: center;
 }
@@ -33,19 +31,23 @@
     font-weight: calc(var(--nav-size)*5);
     position: relative;
     text-align: center;
+    flex-grow: 1;
 }
 @keyframes gradient {
     0% {background-position: 0% 50%;}
     50% {background-position: 100% 50%;}
     100% {background-position: 0% 50%;}
 }
-.container-scroll {
+.container {
     min-height: 100svh;
     min-height: 100vh;
     background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
     background-size: 400% 400%;
     animation: gradient 15s ease infinite;
     pointer-events: all;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
 }
 #content-title{
     color: var(--text-color);

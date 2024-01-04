@@ -1,27 +1,29 @@
 .passgen{
     font-family: 'Times New Roman', Times, serif;
-    padding-top: calc(var(--nav-size)*1);
     background-color: var(--bg);
     color: var(--text-color);
     text-align: center;
-    min-height: 140vh;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
 }
 .passgen-title{
+    padding-top: calc(var(--nav-size)*1.2);
     font-size: calc(var(--nav-size)*.5);
 }
 .passgen-description{
     padding-left: calc(var(--nav-size)*.75);
     padding-right: calc(var(--nav-size)*.75);
     margin-bottom: calc(var(--nav-size)*.5);
-    font-size: calc(var(--nav-size)*.2);
+    font-size: calc(var(--nav-size)*.25);
 }
 .passgen-col1{
     text-align: center;
     vertical-align: top;
     display: inline-block;
-    width: min(calc(var(--nav-size)*7),100%);
+    /* width: 100%; */
     margin-bottom: calc(var(--nav-size)*.2);
-    /* padding: calc(var(--nav-size)*.5); */
+    padding: 0 15%;
 }
 #passgen-calculator-slider {
     width: 70%;

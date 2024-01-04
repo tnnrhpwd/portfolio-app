@@ -272,68 +272,64 @@ function Wordle() {
   }
 
   return (
-    <div>
+    <div className='wordle-space' id='wordle-space'>
       <Header/>
-      <div className='wordle-space' id='wordle-space'>
-        <div className="title">
-          Wordle
+      <div className="title">
+        Wordle
+      </div>
+      <div className="guessGrid">
+        <GetGuessGrid/>
+        <div/>
+        {(buttonPressNum===0)&&"Press New Game to begin!"}
+      </div>
+      {(answerVisibility===true)&&
+        <div className='wordle-answer'>
+          The answer is {secretWord}.
         </div>
-        <div className="guessGrid">
-          <GetGuessGrid/>
-          <div/>
-          {(buttonPressNum===0)&&"Press New Game to begin!"}
-        </div>
-        {(answerVisibility===true)&&
-          <div className='wordle-answer'>
-            The answer is {secretWord}.
+      }  
+      <div className="keyboard">
+        {(inGameState%2===1)&&
+          <div key="keyboard-div1">
+            {Object.keys(keys).map((key,index) => (
+              <div className='keyboard-div2' key={"keyboard-div2"+key}>
+                {(key.includes("break"))?<br key={index} />:
+                  <button id={key} onClick={() => keyPress(key)} className='key' key={key} >{key}</button>
+                }
+              </div>
+            ))}
+          </div>
+        }
+      </div>
+      <div className="automate">
+        {(inGameState%2===0||answerVisibility)?
+          <button id="automate-newBut" onClick={newGameButton} >
+          New Game
+          </button>:
+          <button id="automate-solutionBut" onClick={endOfGame} >
+          Reveal Solution
+          </button>
+        }
+        <button id="automate-settingBut" onClick={toggleSettings}>
+          ⚙
+        </button>
+        <br></br>
+        {(settingMenu%2===1)&&
+          <div className='settingMenu'>
+            Desired Word Length
+            <input type="text" id="settingMenu-text" onChange={e => setSettingMenuText(e.target.value)} value={settingMenuText} />
+            <br/>
+            <a href="/wordlesolver" target="_blank">
+              <button id="automate-solverbut">Open Wordle Solver</button>
+            </a>
+            <br/>
+            <a href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Wordle" rel="noopener noreferrer" target="_blank">
+              <button id="automate-solverbut">View Source Code</button>
+            </a>
           </div>
         }  
-        <div className="keyboard">
-          {(inGameState%2===1)&&
-            <div key="keyboard-div1">
-              {Object.keys(keys).map((key,index) => (
-                <div className='keyboard-div2' key={"keyboard-div2"+key}>
-                  {(key.includes("break"))?<br key={index} />:
-                    <button id={key} onClick={() => keyPress(key)} className='key' key={key} >{key}</button>
-                  }
-                </div>
-              ))}
-            </div>
-          }
-        </div>
-        <div className="automate">
-          {(inGameState%2===0||answerVisibility)?
-            <button id="automate-newBut" onClick={newGameButton} >
-            New Game
-            </button>:
-            <button id="automate-solutionBut" onClick={endOfGame} >
-            Reveal Solution
-            </button>
-          }
-          <button id="automate-settingBut" onClick={toggleSettings}>
-            ⚙
-          </button>
-
-          <br></br>
-
-          {(settingMenu%2===1)&&
-            <div className='settingMenu'>
-              Desired Word Length
-              <input type="text" id="settingMenu-text" onChange={e => setSettingMenuText(e.target.value)} value={settingMenuText} />
-              <br/>
-              <a href="/wordlesolver" target="_blank">
-                <button id="automate-solverbut">Open Wordle Solver</button>
-              </a>
-              <br/>
-              <a href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Wordle" rel="noopener noreferrer" target="_blank">
-                <button id="automate-solverbut">View Source Code</button>
-              </a>
-            </div>
-          }  
-        </div>
-        <div className="credits">
-        {outputMessage}
-        </div>
+      </div>
+      <div className="credits">
+      {outputMessage}
       </div>
       <Footer/>
     </div>

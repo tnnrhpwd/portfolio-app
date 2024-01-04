@@ -30,8 +30,7 @@ function Home() {
   return (
     <>
       <Header />
-      <div className="content">
-        <div className="container-scroll">
+        <div className="container">
           <section className="section-tile">
               <div id="content-tile">
                 <div id="text-title">It's simple.</div>
@@ -70,10 +69,8 @@ function Home() {
               <div id="text-body">Thank you for visiting. </div>
             </div>
           </section>
-
+          <Footer />
         </div>
-        <Footer />
-      </div>
     </>
   );
 }

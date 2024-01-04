@@ -61,8 +61,8 @@ function Header() {
   }
   return (
     <>
-      <div className="planit-header">
-        <div className="planit-header-logo">
+      <div className="planit-header unclickable-background">
+        <div className="planit-header-logo unclickable-background">
           <img
             id="planit-header-logo-img"
             src={HeaderLogo}

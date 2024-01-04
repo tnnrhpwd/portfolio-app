@@ -4,9 +4,11 @@
     align-items: center;
     min-height: 100vh;
     flex-direction: column;
-    padding-top: calc(var(--nav-size)*1);
     font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
     background-color: var(--bg);
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
 }
 .wordle-space .found{
     background-color: #c9b458;
@@ -25,6 +27,7 @@
     
 }
 .title { /* CLASS for the region containing the Title */
+    padding-top: calc(var(--nav-size)*1);
     color: var(--text-color);
     font-size: 5vw;
     border-bottom: solid min(3px,5vw) var(--bg-accent); 
@@ -38,6 +41,7 @@
     height: min(400px, avg(300px, 90vw));
     text-align: center;
     width: 100%;
+    flex-grow: 1;
 }
 .key-guess {
     display: inline-flex;
@@ -91,6 +95,7 @@
     display: block;
     text-align: center;
     width: 100%;
+    flex-grow: 1;
 }
 .keyboard-div2{
     display:inline;
@@ -105,6 +110,7 @@
     color: var(--text-color);
     font-size: calc(var(--nav-size)*.26);
     text-align: center;
+    flex-grow: 1;
 }
 #automate-newBut{
     font-size: calc(var(--nav-size)*.2);

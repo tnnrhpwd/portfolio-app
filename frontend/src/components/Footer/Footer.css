@@ -7,18 +7,7 @@
     padding-top: calc(var(--nav-size)*.5);
     font-family: 'CutiveMono-Regular';
     font-weight: bold;
-    z-index: -500000000;
-    color: var(--text-color);
-    font-size: calc(var(--nav-size)*0.25);
-    text-align: center;
-    padding-bottom: calc(var(--nav-size)*.5);
-    background-color: var(--bg);
-}
-.footer-space-transparent{
-    padding-top: calc(var(--nav-size)*0.5);
-    font-family: 'CutiveMono-Regular';
-    font-weight: bold;
-    z-index: -500000000;
+    z-index: 500000000;
     color: var(--text-color);
     font-size: calc(var(--nav-size)*0.25);
     text-align: center;

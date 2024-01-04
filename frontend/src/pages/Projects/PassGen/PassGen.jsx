@@ -76,8 +76,8 @@ function PassGen() {
     }
 
     return (<>
-        <Header/>
         <div className='passgen'>
+        <Header/>
             <div className="passgen-title">
                 PassGen
             </div>
@@ -125,9 +125,8 @@ function PassGen() {
             <a href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/PassGen" rel="noopener noreferrer"  target="_blank">
                 <button id="passgen-sourcecode">View Source Code</button>
             </a>
-
+            <Footer/>
         </div>
-        <Footer/>
     </>)
 }
 

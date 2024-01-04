@@ -16,7 +16,7 @@ function HeaderBell(props) {
   useOutsideAlerter( "menu", isideComponentRef, toggleButtonRef, ComponentVisibility, hideComponentVisibility ); // listen for clicks outside dropper container && handle the effects
 
   return (
-    <div className="planit-header-bell-space">
+    <div className="planit-header-bell-space unclickable-background">
       <input id="planit-header-bell__toggle" type="checkbox" />
       <label className="planit-header-bell__btn" htmlFor="planit-header-bell__toggle" ref={toggleButtonRef}>
         <span>

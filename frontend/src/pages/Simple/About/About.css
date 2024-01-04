@@ -1,11 +1,18 @@
+@keyframes gradient {
+    0% {background-position: 0% 50%;}
+    50% {background-position: 100% 50%;}
+    100% {background-position: 0% 50%;}
+}
 .about{
-    padding-top: calc(var(--nav-size)*1);
     color: var(--text-color);
     text-align: center;
-    min-height: 87svh;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
 }
 .about-title{
-    margin-top: calc(var(--nav-size)*1);
+    margin-top: calc(var(--nav-size)*1.2);
     font-size: calc(var(--nav-size)*0.5);
     min-height: 10svh;
 }
@@ -13,8 +20,8 @@
     display: inline-block;
     text-align: left;   
     font-size: calc(var(--nav-size)*0.3);
-    padding: calc(var(--nav-size)*0.1);
-    width: 85%;
+    padding: 0 15%;
+    flex-grow: 1;
 }
 
 .about-portfolio{
@@ -41,8 +48,8 @@
 .about-body{
     margin-top: calc(var(--nav-size)*.05);
     display: flex;
-    justify-content: center;
-    align-items: center;
+    justify-content: left;
+    flex-wrap: wrap;
 }
 .about-social{
     display: inline-block;
@@ -86,10 +93,5 @@
     scale: 1.1;
 }
 @media (orientation: landscape) {
-    .about-name{
-        padding-left: calc(var(--nav-size)*5) ;
-    }
-    .about-email{
-        padding-left: calc(var(--nav-size)*5) ;
-    }
+
 }

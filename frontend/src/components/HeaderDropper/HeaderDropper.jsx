@@ -17,7 +17,7 @@ function HeaderDropper(props) {
   useOutsideAlerter( "nav", insideComponentRef, toggleButtonRef, ComponentVisibility, hideComponentVisibility ); // listen for clicks outside dropper container && handle the effects
 
   return (
-    <div className="planit-header-dropper-space">
+    <div className="planit-header-dropper-space unclickable-background">
       <input id="planit-header-dropper__toggle" type="checkbox" />
       <label className="planit-header-dropper__btn" htmlFor="planit-header-dropper__toggle" ref={toggleButtonRef}>
         <span></span>
