@@ -21,6 +21,7 @@ code {
   --white0-transp: rgb(244, 247, 253, 0.9);
   --white1-transp: rgb(244, 247, 253, 0.2);
   --white2-transp: rgba(246, 246, 246, 0.5);
+  --white3-transp: rgba(246, 246, 246, 0.8);
   --white1: #faf7fb;
   --grey0: #e0e2e8;
   --grey1: #bbbdc2;

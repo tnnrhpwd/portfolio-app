@@ -38,6 +38,10 @@
     50% {background-position: 100% 50%;}
     100% {background-position: 0% 50%;}
 }
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
 .container {
     min-height: 100svh;
     min-height: 100vh;
@@ -147,6 +151,10 @@
     align-items: center;
     margin: calc(var(--nav-size)*0.1);
     border: 1px solid var(--text-color);
+    background: linear-gradient(to right, transparent 25%, var(--white1-transp) 50%, transparent 75%);
+    background-size: 200% auto;
+    animation: shimmer 8s linear infinite;
+    filter: drop-shadow(30px 30px 30px #000);
 }
 .home-spc-logo{
     display: inline-block;
@@ -154,15 +162,19 @@
 }
 .home-spc-logo:hover{
     transform: scale(1.1);
-    background-color: var(--white0);
 }
 .home-spc-logo-img{
     width: calc(var(--nav-size)*2.25);
     display: inline-block;
     margin: calc(var(--nav-size)*0.1);
-    background-color: var(--white1);
+    background-color: transparent;
     border: 1px solid var(--text-color);
+    background: linear-gradient(to right, var(--white3-transp) 25%, var(--grey2) 50%, var(--white3-transp) 75%);
+    background-size: 200% auto;
+    animation: shimmer 8s linear infinite;
+    filter: drop-shadow(30px 30px 30px #000);
 }
+
 @media (orientation: landscape) {
     #content-tile{
         text-align: left;
