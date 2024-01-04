@@ -153,7 +153,7 @@
     border: 1px solid var(--text-color);
     background: linear-gradient(to right, transparent 25%, var(--white1-transp) 50%, transparent 75%);
     background-size: 200% auto;
-    animation: shimmer 8s linear infinite;
+    animation: shimmer 12s ease infinite;
     filter: drop-shadow(30px 30px 30px #000);
 }
 .home-spc-logo{
@@ -171,7 +171,7 @@
     border: 1px solid var(--text-color);
     background: linear-gradient(to right, var(--white3-transp) 25%, var(--grey2) 50%, var(--white3-transp) 75%);
     background-size: 200% auto;
-    animation: shimmer 8s linear infinite;
+    animation: shimmer 12s ease infinite;
     filter: drop-shadow(30px 30px 30px #000);
 }
 
