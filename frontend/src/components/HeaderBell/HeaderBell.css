@@ -31,7 +31,7 @@
   .planit-header-bell__btn > span {
     display: block;
     position: absolute;
-    width: calc(var(--nav-size) * 0.6);
+    width: calc(var(--nav-size) * 0.5);
     height: calc(var(--nav-size) * 0.1);
     transition-duration: 0.25s;
     top: 50%;
@@ -64,7 +64,14 @@
     margin: calc(var(--nav-size) * 0.1);
   }
   
-  
+  .bell-icon {
+    position: absolute;
+    top: calc(var(--nav-size) * -0.055);
+    left: calc(var(--nav-size) * -0.2);
+    width: calc(var(--nav-size) * 0.9);;
+    height: calc(var(--nav-size) * 0.8);;
+    fill: #333; /* Change the color of the SVG */
+}
   
 
 /* .planit-header-dropper-pagelink {

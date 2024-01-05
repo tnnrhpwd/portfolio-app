@@ -1,9 +1,9 @@
 import { useRef } from 'react'
 import useOutsideAlerter from '../useOutsideAlerter.js';
-// import HeaderLogo from './../../assets/planit192.png';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux'    
 import React from 'react';
+import { ReactComponent as BellIcon } from './bell.svg'; // Import the SVG
 
 import './HeaderBell.css'
 
@@ -20,7 +20,7 @@ function HeaderBell(props) {
       <input id="planit-header-bell__toggle" type="checkbox" />
       <label className="planit-header-bell__btn" htmlFor="planit-header-bell__toggle" ref={toggleButtonRef}>
         <span>
-            🔔
+          <BellIcon className="bell-icon" />        
         </span>
       </label>
       <ul ref={isideComponentRef} className="planit-header-bell__box">
