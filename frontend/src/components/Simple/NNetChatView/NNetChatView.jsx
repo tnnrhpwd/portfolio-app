@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { updateData, resetDataSlice } from '../../../features/data/dataSlice.js';
+import { updateData, getData, resetDataSlice } from '../../../features/data/dataSlice.js';
 import { toast } from 'react-toastify';
 import Spinner from '../../Spinner/Spinner.jsx';
 import NNetBookView from './NNetBookView.jsx';
@@ -57,6 +57,8 @@ const NNetChatView = () => {
 
       // Dispatch the updateData action with the inputText
       dispatch(updateData({ id: 'u', data: combinedData }));
+      dispatch(getData({ data: 'Net:' })); // Fetch Goal data
+
     } catch (error) {
       // Handle any errors here
       console.error(error);
@@ -102,10 +104,14 @@ const NNetChatView = () => {
     }
   };
   
+  const handleChatClick = (clickedChat) => {    // Replace the entire chat history with the clicked chat
+    setChatHistory([{ content: clickedChat.content }]);
+  };
+
   return (
     <div className='planit-dashboard-popular-mid-chat'>
       <div className='planit-nnet-chat-history'>
-        {chatHistory.map((item, index) => (
+        {/* {chatHistory.map((item, index) => (
           <div key={index} className='planit-nnet-chat-history-message'>
             {editingIndex === index ? (
               <>
@@ -130,7 +136,7 @@ const NNetChatView = () => {
               </>
             )}
           </div>
-        ))}
+        ))} */}
       </div>
       <div className='planit-nnet-input'>
         <TextareaAutosize
@@ -148,7 +154,7 @@ const NNetChatView = () => {
           ⚡
         </button>
       </div>
-      <NNetBookView/>
+      <NNetBookView onChatClick={handleChatClick} />
       {dataIsLoading && <Spinner />}
       </div>
   );

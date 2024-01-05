@@ -60,12 +60,12 @@ const setData = asyncHandler(async (req, res) => {
 // @access  Private
 const updateData = asyncHandler(async (req, res) => {
   if (req.params.id === "u") {}else{
-  const dataHolder = await Data.findById(req.params.id)
+    const dataHolder = await Data.findById(req.params.id)
 
-  if (!dataHolder) {
-    res.status(400)
-    throw new Error('Data input not found')
-  }
+    if (!dataHolder) {
+      res.status(400)
+      throw new Error('Data input not found')
+    }
   }
 
   // Check for user

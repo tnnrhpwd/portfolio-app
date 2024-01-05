@@ -164,6 +164,10 @@
     font-size: calc(var(--nav-size) * 0.3);
     margin: calc(var(--nav-size) * 0.1);
   }
+
+
+
+  
 }
 .Toastify{
   color: var(--text-color);
