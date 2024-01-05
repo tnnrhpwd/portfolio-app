@@ -44,9 +44,9 @@ function NNetBookView({ onChatClick }) {
         </div>
         <div className='planit-NNetBookView-box-body'>
           {sampleChats.map((chat) => (
-            <div key={chat.id} onClick={() => handleChatClick(chat)}>
+            <button key={chat.id} onClick={() => handleChatClick(chat)}>
               {chat.content.substring(0, 10)}...
-            </div>
+            </button>
           ))}
         </div>
       </ul>
