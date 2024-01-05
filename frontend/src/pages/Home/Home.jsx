@@ -42,7 +42,7 @@ function Home() {
 
           <section className="section-tile">
           <div id="content-tile">
-            <div id="text-body"> Previous Employers: </div>
+            {/* <div id="text-body"> Previous Employers: </div>
               <div className="home-spc">
                 <a className="home-spc-logo" rel="noopener noreferrer" target="_blank" href={marellilink} ><img className="home-spc-logo-img" src={marelliimg} alt="marelli logo" /></a> 
                 <a className="home-spc-logo" rel="noopener noreferrer" target="_blank" href={rcmlink} ><img className="home-spc-logo-img" src={rcmimg} alt="rcm logo" /></a> 
@@ -50,7 +50,7 @@ function Home() {
                 <a className="home-spc-logo" rel="noopener noreferrer" target="_blank" href={lwwlink} ><img className="home-spc-logo-img" src={lwwimg} alt="lewisburg wastewater logo" /></a> 
                 <a className="home-spc-logo" rel="noopener noreferrer" target="_blank" href={faulink} ><img className="home-spc-logo-img" src={fauimg} alt="faurecia logo" /></a> 
                 <a className="home-spc-logo" rel="noopener noreferrer" target="_blank" href={yflink} ><img className="home-spc-logo-img" src={yfimg} alt="yanfeng logo" /></a> 
-              </div>
+              </div> */}
             </div>
             <div id="content-tile">
               <div id="text-body"> Tools: </div>
