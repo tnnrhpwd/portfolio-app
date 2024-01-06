@@ -26,6 +26,11 @@
 .planit-header-logo-format{
   margin-left: calc(var(--nav-size)*0.1);
   text-wrap:wrap;
+text-shadow:
+    3px 3px 0 var(--text-color-inv),
+    -3px 3px 0 var(--text-color-inv),
+    -3px -3px 0 var(--text-color-inv),
+    3px -3px 0 var(--text-color-inv);
 }
 .planit-header-logo-format:hover{
   text-decoration: underline;
