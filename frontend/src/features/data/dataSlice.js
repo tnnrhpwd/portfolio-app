@@ -12,6 +12,7 @@ const initialState = {  // default values for each state change
   dataIsSuccess: false,
   dataIsLoading: false,
   dataMessage: '',
+  operation: null,
 }
 
 // Create new data  -- Async functional object -- called from pages using dispatch --CREATE
@@ -139,47 +140,57 @@ export const dataSlice = createSlice({
     builder
       .addCase(createData.pending, (state) => {             // create
         state.dataIsLoading = true
+        state.operation = null;
       })
       .addCase(createData.fulfilled, (state, action) => {   // create
         state.dataIsLoading = false
         state.dataIsSuccess = true
         state.dataMessage = 'Data was successfully saved.'
         state.data.data.push(action.payload)
+        state.operation = 'create';
       })
       .addCase(createData.rejected, (state, action) => {    // create
         state.dataIsLoading = false
         state.dataIsError = true
         state.dataMessage = action.payload
+        state.operation = null;
       })
       .addCase(getData.pending, (state) => {               // get
         state.dataIsLoading = true
+        state.operation = null;
       })
       .addCase(getData.fulfilled, (state, action) => {     // get
         state.dataIsLoading = false
         state.dataIsSuccess = true
         state.data = action.payload
+        state.operation = 'get';
       })
       .addCase(getData.rejected, (state, action) => {      // get
         state.dataIsLoading = false
         state.dataIsError = true
         state.dataMessage = action.payload
+        state.operation = null;
       })
       .addCase(updateData.pending, (state) => {             // update
         state.dataIsLoading = true
+        state.operation = null;
       })
       .addCase(updateData.fulfilled, (state, action) => {   // update
         state.dataIsLoading = false
         state.dataIsSuccess = true
         state.data = action.payload        
         state.dataMessage = action.payload.text
+        state.operation = 'update';
       })
       .addCase(updateData.rejected, (state, action) => {    // update
         state.dataIsLoading = false
         state.dataIsError = true
         state.dataMessage = action.payload
+        state.operation = null;
       })
       .addCase(deleteData.pending, (state) => {             // delete
         state.dataIsLoading = true
+        state.operation = null;
       })
       .addCase(deleteData.fulfilled, (state, action) => {   // delete
         state.dataIsLoading = false
@@ -187,42 +198,51 @@ export const dataSlice = createSlice({
         state.data = state.data.filter(               // hides the deleted data from UI when you click delete. Otherwise, It wouldnt disapear until refresh
           (data) => data._id !== action.payload.id
         )
+        state.operation = 'update';
       })
       .addCase(deleteData.rejected, (state, action) => {    // delete
         state.dataIsLoading = false
         state.dataIsError = true
         state.dataMessage = action.payload
+        state.operation = null;
       })
       .addCase(register.pending, (state) => {
         state.dataIsLoading = true
+        state.operation = null;
       })
       .addCase(register.fulfilled, (state, action) => {
         state.dataIsLoading = false
         state.dataIsSuccess = true
         state.user = action.payload
+        state.operation = 'register';
       })
       .addCase(register.rejected, (state, action) => {
         state.dataIsLoading = false
         state.dataIsError = true
         state.dataMessage = action.payload        // deals with thunkAPI.rejectWithValue(dataMessage)
         state.user = null
+        state.operation = null;
       })
       .addCase(login.pending, (state) => {
         state.dataIsLoading = true
+        state.operation = null;
       })
       .addCase(login.fulfilled, (state, action) => {
         state.dataIsLoading = false
         state.dataIsSuccess = true
         state.user = action.payload
+        state.operation = 'login';
       })
       .addCase(login.rejected, (state, action) => {
         state.dataIsLoading = false
         state.dataIsError = true
         state.dataMessage = action.payload          // deals with thunkAPI.rejectWithValue(dataMessage)
         state.user = null
+        state.operation = null;
       })
       .addCase(logout.fulfilled, (state) => {
         state.user = null
+        state.operation = 'logout';
       })
   },
 })

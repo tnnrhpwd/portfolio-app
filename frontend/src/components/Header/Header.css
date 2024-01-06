@@ -32,9 +32,11 @@
 }
 .planit-header-logo-format-simple{
   font-size: calc(var(--nav-size)*0.5);
+  text-shadow: 0px 0px 2px var(--text-color-inv);
 }
 .planit-header-logo-format-sth{
   font-size: calc(var(--nav-size)*0.2);
+  text-shadow: 0px 0px 2px var(--text-color-inv);
 }
 .planit-header-title{
   font-size: calc(var(--nav-size)*0.5);

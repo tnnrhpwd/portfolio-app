@@ -7,73 +7,71 @@ import NNetBookView from './NNetBookView.jsx';
 import TextareaAutosize from 'react-textarea-autosize';
 import { ReactComponent as Lightning } from './lightning.svg'; // Adjust the path to match the location of lightning.svg
 import './NNetChatView.css';
-import { useNavigate } from 'react-router-dom'              // page redirects
 
 const NNetChatView = () => {
-  const navigate = useNavigate() // initialization
   const dispatch = useDispatch();
   const [inputText, setInputText] = useState('');
   const [editedText, setEditedText] = useState(''); // New state for edited content
   const [chatHistory, setChatHistory] = useState([]);
   const [editingIndex, setEditingIndex] = useState(null);
-  const [bookIsOpen, setBookIsOpen] = useState(false);
   const [priorChats, setPriorChats] = useState([]); // New state for prior chats
 
   // Get the relevant data from the state
-  const { user, data, dataIsSuccess, dataIsLoading, dataIsError, dataMessage } = useSelector(
+  const { user, data, dataIsSuccess, dataIsLoading, dataIsError, dataMessage, operation } = useSelector(
     (state) => state.data
   );
 
   // Handle data updates
-  useEffect(() => {
-    // If there is a new successful response, update the chat history
-    if (dataIsSuccess) {
-      const originalString = data.data[0];
-      const dataString = originalString.includes("|Net:") ? originalString.split("|Net:")[1] : originalString;
+useEffect(() => {
+  console.log("useEffect Triggered in NNetChatView");
+  // If there is a new successful response from updateData, update the chat history
+  if (operation === 'update' && dataIsSuccess) {
+    console.log(data);
+    const originalString = data.data[0];
+    const dataString = originalString.includes("|Net:") ? originalString.split("|Net:")[1] : originalString;
 
-      if(originalString.includes("|Net:")){
-        setPriorChats(originalString.split("|Net:")[1])
-      }
-
-      if (inputText === '') {
-        setChatHistory((prevChatHistory) => [...prevChatHistory, { content: dataString }]);
-      } else {
-        setChatHistory((prevChatHistory) => [...prevChatHistory, { content: inputText }, { content: dataString }]);
-      }
-      setInputText('');
+    if (inputText === '') {
+      setChatHistory((prevChatHistory) => [...prevChatHistory, { content: dataString }]);
+    } else {
+      setChatHistory((prevChatHistory) => [...prevChatHistory, { content: inputText }, { content: dataString }]);
     }
-  }, [dataIsSuccess, data, inputText]);
+    setInputText('');
+    console.log(priorChats);
+  }
 
+  // If there is a new successful response from getData, update priorChats
+  if (operation === 'get' && dataIsSuccess) {
+    setPriorChats(data.data); // Ensure that dataIsSuccess is true before updating priorChats
+  }
 
+  // Handle errors
+  if (dataIsError) {
+    toast.error(dataMessage);
+  }
 
-  useEffect(() => {
-    // Handle errors
-    if (dataIsError) {
-      toast.error(dataMessage);
+  // Reset the data slice when unmounting or when there's an error
+  return () => {
+    if (dataIsSuccess || dataIsError) { dispatch(resetDataSlice()); }
+  };
+}, [dataIsSuccess, dataIsError, dataMessage, operation, dispatch]);
+
+// Additional useEffect for fetching data on component mount
+useEffect(() => {
+  async function getMyData() {
+    try {
+      await dispatch(getData({ data: "Net:" }));
+    } catch (error) {
+      console.error(error);
+      toast.error(error);
     }
+  }
+  getMyData();
 
-    // Reset the data slice when unmounting or when there's an error
-    return () => {
-      dispatch(resetDataSlice());
-    };
-  }, [dataIsError, dispatch, dataMessage]);
-
-  useEffect(() => {
-    async function getMyData(){
-      try {
-        dispatch(getData({ 
-          data: "Net:", 
-        })); // dispatch connects to the store, then retrieves the datas.
-      } catch (error) {
-        console.error(error);
-        toast.error(error);
-      }
-    }
-    getMyData()
-    return () => {    // reset the goals when state changes
-      // dispatch(resetDataSlice()) // dispatch connects to the store, then reset state values( goalMessage, isloading, iserror, and issuccess )
-    }  
-  }, [dispatch])
+  // Reset the data slice when the component unmounts
+  return () => {
+    dispatch(resetDataSlice());
+  };
+}, [dispatch]);
   
   const handleSend = async () => {
     try {
@@ -132,11 +130,13 @@ const NNetChatView = () => {
   };
   
   const handleChatClick = (clickedChat) => {    // Replace the entire chat history with the clicked chat
-    setChatHistory([{ content: clickedChat.content }]);
-  };
+    console.log(chatHistory);
+    console.log(clickedChat);
+    const chatContent = clickedChat.split("|Net:")[1];
+    setChatHistory((prevChatHistory) => [{ content: chatContent }]);  };
 
   return (
-    <div className='planit-dashboard-popular-mid-chat'>
+    <div className='planit-nnet-chat'>
       <div className='planit-nnet-chat-history'>
         {chatHistory.map((item, index) => (
           <div key={index} className='planit-nnet-chat-history-message'>
@@ -171,19 +171,19 @@ const NNetChatView = () => {
           placeholder='Input text.'
           onChange={(e) => setInputText(e.target.value)}
           onKeyDown={handleMainKeyDown} // Add the keydown event handler
-          className='planit-dashboard-popular-mid-chat-area'
+          className='planit-nnet-chat-area'
         />
         <button
           onClick={handleSend}
           disabled={dataIsLoading}
-          id='planit-dashboard-popular-mid-chat-gobutton'
+          id='planit-nnet-chat-gobutton'
         >
-          <Lightning className="planit-dashboard-popular-mid-chat-gobutton-light" />
+          <Lightning className="planit-nnet-chat-gobutton-light" />
         </button>
       </div>
-      <NNetBookView mychats={priorChats} onChatClick={handleChatClick} />
+      <NNetBookView myChats={priorChats} onChatClick={handleChatClick} />
       {dataIsLoading && <Spinner />}
-      </div>
+    </div>
   );
 };
 

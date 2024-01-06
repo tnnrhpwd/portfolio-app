@@ -23,13 +23,7 @@
   display: block;
   min-height: 100%;
 }
-.planit-dashboard-popular-mid {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  min-height: 100%;
-}
+
 @media (orientation: landscape) {
   /* Add landscape-specific styles here */
 }

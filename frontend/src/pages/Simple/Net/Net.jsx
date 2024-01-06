@@ -9,7 +9,7 @@ import Header from '../../../components/Header/Header.jsx';
 function Net() {
   return (<>
     <Header />
-    <div className='planit-dashboard-popular-mid'>
+    <div className='planit-nnet'>
         <NNetChatView />
     </div>
   </>
