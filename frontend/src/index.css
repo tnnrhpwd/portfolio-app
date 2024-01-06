@@ -91,7 +91,6 @@ code {
   --bg-pink:rgb(81, 0, 81);
   --bg-blue:rgb(0, 0, 67);
   --bg-mint:rgb(0, 62, 62);
-  --bg-accent:rgb(126, 126, 126);
   --text-color:white;
   --text-color-inv: rgb(0, 0, 0);
   pointer-events:none; 

@@ -16,6 +16,8 @@
     border: calc(var(--nav-size)*0.001) solid var(--text-color);
 }
 .planit-header-dropper-space{
+    width: 0;
+    height: 0;
 }
 /* .planit-header-dropper-pagelink{
   display: block;

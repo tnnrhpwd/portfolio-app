@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import Spinner from '../../Spinner/Spinner.jsx';
 import NNetBookView from './NNetBookView.jsx';
 import TextareaAutosize from 'react-textarea-autosize';
+import { ReactComponent as Lightning } from './lightning.svg'; // Adjust the path to match the location of lightning.svg
 import './NNetChatView.css';
 import { useNavigate } from 'react-router-dom'              // page redirects
 
@@ -16,6 +17,7 @@ const NNetChatView = () => {
   const [chatHistory, setChatHistory] = useState([]);
   const [editingIndex, setEditingIndex] = useState(null);
   const [bookIsOpen, setBookIsOpen] = useState(false);
+  const [priorChats, setPriorChats] = useState([]); // New state for prior chats
 
   // Get the relevant data from the state
   const { user, data, dataIsSuccess, dataIsLoading, dataIsError, dataMessage } = useSelector(
@@ -26,15 +28,25 @@ const NNetChatView = () => {
   useEffect(() => {
     // If there is a new successful response, update the chat history
     if (dataIsSuccess) {
-      console.log(data);
+      const originalString = data.data[0];
+      const dataString = originalString.includes("|Net:") ? originalString.split("|Net:")[1] : originalString;
+
+      if(originalString.includes("|Net:")){
+        setPriorChats(originalString.split("|Net:")[1])
+      }
+
       if (inputText === '') {
-        setChatHistory([...chatHistory, { content: data }]);
+        setChatHistory((prevChatHistory) => [...prevChatHistory, { content: dataString }]);
       } else {
-        setChatHistory([...chatHistory, { content: inputText }, { content: data }]);
+        setChatHistory((prevChatHistory) => [...prevChatHistory, { content: inputText }, { content: dataString }]);
       }
       setInputText('');
     }
+  }, [dataIsSuccess, data, inputText]);
 
+
+
+  useEffect(() => {
     // Handle errors
     if (dataIsError) {
       toast.error(dataMessage);
@@ -44,8 +56,25 @@ const NNetChatView = () => {
     return () => {
       dispatch(resetDataSlice());
     };
-  }, [dispatch, dataIsSuccess, dataIsError, dataMessage, data, inputText, chatHistory, user, navigate]);
+  }, [dataIsError, dispatch, dataMessage]);
 
+  useEffect(() => {
+    async function getMyData(){
+      try {
+        dispatch(getData({ 
+          data: "Net:", 
+        })); // dispatch connects to the store, then retrieves the datas.
+      } catch (error) {
+        console.error(error);
+        toast.error(error);
+      }
+    }
+    getMyData()
+    return () => {    // reset the goals when state changes
+      // dispatch(resetDataSlice()) // dispatch connects to the store, then reset state values( goalMessage, isloading, iserror, and issuccess )
+    }  
+  }, [dispatch])
+  
   const handleSend = async () => {
     try {
       if (!user || user === null) {
@@ -57,8 +86,6 @@ const NNetChatView = () => {
 
       // Dispatch the updateData action with the inputText
       dispatch(updateData({ id: 'u', data: combinedData }));
-      dispatch(getData({ data: 'Net:' })); // Fetch Goal data
-
     } catch (error) {
       // Handle any errors here
       console.error(error);
@@ -111,7 +138,7 @@ const NNetChatView = () => {
   return (
     <div className='planit-dashboard-popular-mid-chat'>
       <div className='planit-nnet-chat-history'>
-        {/* {chatHistory.map((item, index) => (
+        {chatHistory.map((item, index) => (
           <div key={index} className='planit-nnet-chat-history-message'>
             {editingIndex === index ? (
               <>
@@ -128,7 +155,7 @@ const NNetChatView = () => {
               </>
             ) : (
               <>
-                <div>{item.content}</div>
+                <div className='planit-nnet-chat-history-message-content'>{item.content}</div>
                 <div className='planit-nnet-chat-history-buttons'>
                   <button onClick={() => handleEdit(index)}>Edit</button>
                   <button onClick={() => handleDelete(index)}>Delete</button>
@@ -136,7 +163,7 @@ const NNetChatView = () => {
               </>
             )}
           </div>
-        ))} */}
+        ))}
       </div>
       <div className='planit-nnet-input'>
         <TextareaAutosize
@@ -151,10 +178,10 @@ const NNetChatView = () => {
           disabled={dataIsLoading}
           id='planit-dashboard-popular-mid-chat-gobutton'
         >
-          ⚡
+          <Lightning className="planit-dashboard-popular-mid-chat-gobutton-light" />
         </button>
       </div>
-      <NNetBookView onChatClick={handleChatClick} />
+      <NNetBookView mychats={priorChats} onChatClick={handleChatClick} />
       {dataIsLoading && <Spinner />}
       </div>
   );

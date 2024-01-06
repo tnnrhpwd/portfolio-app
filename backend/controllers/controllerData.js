@@ -21,18 +21,26 @@ const getData = asyncHandler(async (req, res) => {
     res.status(400)
     throw new Error('Please add a text field')
   }
-  const dataSearchString = req.query.data.toLowerCase(); // Convert to lowercase
-  const userSearchString = req.user.id.toLowerCase(); // Convert to lowercase
-  
-  const datas = await Data.find({
-    $and: [
-      { data: { $regex: dataSearchString, $options: 'i' } },
-      { user: userSearchString }, // Assuming 'user' is the field that stores user IDs
-    ],
-  });
-  
-  res.status(200).json({ data: datas.map((data) => data.data) });
-  
+  try {
+    const dataSearchString = req.query.data.toLowerCase(); // Convert to lowercase
+    const userSearchString = req.user.id.toLowerCase(); // Convert to lowercase
+    
+    const datas = await Data.find({
+      $and: [
+        { data: { $regex: dataSearchString, $options: 'i' } },
+        { user: userSearchString }, // Assuming 'user' is the field that stores user IDs
+      ],
+    });
+    
+    if (dataSearchString==="net:") {
+      res.status(200).json({ data: datas.map((data) => data.data) });
+      return;
+    }
+    res.status(200).json({ data: datas.map((data) => data.data) });
+
+  } catch (error) {
+    res.status(500).json({ error: req.query.data });
+  }
 });
 
 // @desc    Set data
@@ -106,8 +114,8 @@ const updateData = asyncHandler(async (req, res) => {
         // const updatedData = await Data.findByIdAndUpdate(req.params.id, { data: compressedData }, {
         //   new: true,
         // });
-    
-        res.status(200).json(compressedData);
+
+        res.status(200).json({ data: [compressedData] });
       } else {
         res.status(500).json({ error: 'No compressed data found in the OpenAI response' });
       }

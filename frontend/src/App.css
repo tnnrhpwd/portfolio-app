@@ -3,5 +3,4 @@
     /* background-color: var(--bg); */
     z-index: -999999999999999999999999999;
     pointer-events:all; /* Enables clicks on its child elements by default */
-
 }

@@ -3,8 +3,9 @@ import useOutsideAlerter from '../../useOutsideAlerter.js';
 import React from 'react';
 import { useDispatch } from 'react-redux';
 import { getData } from '../../../features/data/dataSlice.js'; // Import the action
+import { ReactComponent as Book } from './book.svg'; // Adjust the path to match the location of book.svg
 
-function NNetBookView({ onChatClick }) {
+function NNetBookView({ mychats, onChatClick }) {
   const dispatch = useDispatch(); // Initialize dispatch
   const hideComponentVisibility = () => {
     document.getElementById("planit-NNetBookView__toggle").checked = false;
@@ -18,8 +19,10 @@ function NNetBookView({ onChatClick }) {
   const isideComponentRef = useRef(null); // reference to the dropper container
   useOutsideAlerter("book", isideComponentRef, toggleButtonRef, ComponentVisibility, hideComponentVisibility); // listen for clicks outside dropper container && handle the effects
 
+  console.log(mychats);
+
   const sampleChats = [
-    { id: 1, content: "Sample Chat 1..." },
+    { id: 1, content: mychats },
     { id: 2, content: "Sample Chat 2..." },
     // Add more sample chats as needed
   ];
@@ -35,7 +38,7 @@ function NNetBookView({ onChatClick }) {
       <input id="planit-NNetBookView__toggle" type="checkbox" />
       <label className="planit-NNetBookView__btn" htmlFor="planit-NNetBookView__toggle" ref={toggleButtonRef}>
         <span>
-          📕
+          <Book className="planit-NNetBookView-book" />
         </span>
       </label>
       <ul ref={isideComponentRef} className="planit-NNetBookView__box">
@@ -43,11 +46,11 @@ function NNetBookView({ onChatClick }) {
           Prior Chats
         </div>
         <div className='planit-NNetBookView-box-body'>
-          {sampleChats.map((chat) => (
+          {/* {sampleChats.map((chat) => (
             <div key={chat.id} onClick={() => handleChatClick(chat)}>
               {chat.content.substring(0, 10)}...
             </div>
-          ))}
+          ))} */}
         </div>
       </ul>
     </div>
