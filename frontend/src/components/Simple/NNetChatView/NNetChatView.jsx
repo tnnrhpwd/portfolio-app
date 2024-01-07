@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import Spinner from '../../Spinner/Spinner.jsx';
 import NNetBookView from './NNetBookView.jsx';
 import TextareaAutosize from 'react-textarea-autosize';
-import { ReactComponent as Lightning } from './lightning.svg'; // Adjust the path to match the location of lightning.svg
+import { ReactComponent as Lightning } from '../../../assets/lightning.svg'; // Adjust the path to match the location of lightning.svg
 import './NNetChatView.css';
 
 const NNetChatView = () => {
@@ -148,7 +148,7 @@ useEffect(() => {
                   onKeyDown={(e) => handleEditKeyDown(e, index)} // Pass the index
                   className='planit-nnet-chat-history-edit'
                 />
-                <div>
+                <div className='planit-nnet-chat-history-edit-div'>
                   <button className='planit-nnet-chat-history-edit-buttons' onClick={() => handleSaveEdit(index)}>Save</button>
                   <button className='planit-nnet-chat-history-edit-buttons' onClick={handleCancelEdit}>Cancel</button>
                 </div>

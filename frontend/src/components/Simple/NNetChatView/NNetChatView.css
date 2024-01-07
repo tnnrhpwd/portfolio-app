@@ -55,15 +55,20 @@
   }
   .planit-nnet-chat-history-edit {
     border: none;
-    font-size: calc(var(--nav-size) * 0.2);
+    font-size: calc(var(--nav-size) * 0.25);
     background-color: transparent;
     width: 97%;
+    height: auto;
     color: var(--text-color);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   }
   .planit-nnet-chat-history-buttons {
+    display: flex;
+    gap: 10px; /* Adjust the spacing between buttons */
+  }
+  .planit-nnet-chat-history-edit-div {
     display: flex;
     gap: 10px; /* Adjust the spacing between buttons */
   }
@@ -74,7 +79,7 @@
     border: none;
     border-radius: 5px; 
     cursor: pointer;
-    font-size: calc(var(--nav-size) * 0.5); 
+    font-size: calc(var(--nav-size) * 0.25); 
     transition: background-color 0.3s ease; 
   }
   .planit-nnet-chat-history-buttons button {

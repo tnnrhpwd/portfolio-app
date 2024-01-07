@@ -1,8 +1,8 @@
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import useOutsideAlerter from '../../useOutsideAlerter.js';
 import React from 'react';
 import { useDispatch } from 'react-redux';
-import { ReactComponent as Book } from './book.svg'; // Adjust the path to match the location of book.svg
+import { ReactComponent as Book } from '../../../assets/book.svg';
 
 function NNetBookView({ myChats, onChatClick }) {
   const dispatch = useDispatch(); // Initialize dispatch
