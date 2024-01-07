@@ -7,7 +7,7 @@ import HeaderDropper from './../HeaderDropper/HeaderDropper.jsx';
 import ReactTooltip from "react-tooltip";
 import projectsLogo from './../NavBar/projects.png';
 import contactLogo from './../NavBar/contact.png';
-import HeaderLogo from '../../../src/assets/planit192.png';
+import HeaderLogo from '../../../src/assets/Checkmark512.png';
 import HeaderBell from '../HeaderBell/HeaderBell.jsx';
 import './Header.css';
 

@@ -58,8 +58,9 @@ text-shadow:
 
 }
 #planit-header-logo-img{
-  width: calc(var(--nav-size)*0.75);
-  margin: calc(var(--nav-size)*0.15);
+  height: calc(var(--nav-size)*0.8);
+  width: calc(var(--nav-size)*0.8);
+  margin: calc(var(--nav-size)*0.1);
   vertical-align: middle;
   cursor: pointer;
 }
@@ -205,9 +206,6 @@ a{
     transition-duration: .25s;
   }
   #planit-header-logo-img{
-    width: calc(var(--nav-size)*0.65);
-    margin: calc(var(--nav-size)*0.2);
-    vertical-align: middle;
   }
   .planit-header-link-landscape{
     border-radius: 5%;
