@@ -3,8 +3,12 @@ import useOutsideAlerter from '../../useOutsideAlerter.js';
 import React from 'react';
 import { useDispatch } from 'react-redux';
 import { ReactComponent as Book } from '../../../assets/book.svg';
+import { ReactComponent as Delete } from '../../../assets/delete.png';
+import { ReactComponent as Archive } from '../../../assets/archive.png';
+import { ReactComponent as Copy } from '../../../assets/copy.png';
 
-function NNetBookView({ myChats, onChatClick }) {
+
+function NNetBookView({ myChats, onChatClick, onDeleteData, onUpdateData, onCopyToClipboard }) {
   const dispatch = useDispatch(); // Initialize dispatch
   const hideComponentVisibility = () => {
     document.getElementById("planit-NNetBookView__toggle").checked = false;
@@ -39,8 +43,19 @@ function NNetBookView({ myChats, onChatClick }) {
         </div>
         <div className='planit-NNetBookView-box-body'>
           {myChats.map((chat, index) => (
-            <div key={index} className="planit-NNetBookView-box-body-chat" onClick={() => handleChatClick(chat)}>
-              {chat.split("|Net:")[1].substring(0, 15)}...
+            <div key={index} className="planit-NNetBookView-box-body-chat">
+              <span onClick={() => handleChatClick(chat)}>
+                {chat.split("|Net:")[1].substring(0, 15)}...
+              </span>
+              <button className='planit-NNetBookView-box-body-chat-btn' onClick={() => onDeleteData(index)}>
+                Delete{/* <Delete className='planit-NNetBookView-box-body-chat-btn-img'/> */}
+              </button>
+              <button className='planit-NNetBookView-box-body-chat-btn' onClick={() => onUpdateData(index, chat)}>
+                Archive{/* <Archive className='planit-NNetBookView-box-body-chat-btn-img'/> */}
+              </button>
+              <button className='planit-NNetBookView-box-body-chat-btn' onClick={() => onCopyToClipboard(chat)}>
+                Copy{/* <Copy className='planit-NNetBookView-box-body-chat-btn-img'/> */}
+              </button>
             </div>
           ))}
         </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { updateData, getData, resetDataSlice } from '../../../features/data/dataSlice.js';
+import { updateData, getData, resetDataSlice, deleteData } from '../../../features/data/dataSlice.js';
 import { toast } from 'react-toastify';
 import Spinner from '../../Spinner/Spinner.jsx';
 import NNetBookView from './NNetBookView.jsx';
@@ -133,8 +133,39 @@ useEffect(() => {
     console.log(chatHistory);
     console.log(clickedChat);
     const chatContent = clickedChat.split("|Net:")[1];
-    setChatHistory((prevChatHistory) => [{ content: chatContent }]);  };
+    setChatHistory((prevChatHistory) => [{ content: chatContent }]);  
+  };
 
+  const handleDeleteData = async (id) => {
+    try {
+      await dispatch(deleteData(id)); // Assuming you have the deleteData action in your dataSlice
+    } catch (error) {
+      console.error(error);
+      toast.error('An error occurred while deleting data.');
+    }
+  };
+  
+  const handleUpdateData = async (id, originalContent) => {
+    try {
+      const updatedContent = `${originalContent} [Archived]`;
+      await dispatch(updateData({ id, data: updatedContent })); // Assuming you have the updateData action in your dataSlice
+    } catch (error) {
+      console.error(error);
+      toast.error('An error occurred while updating data.');
+    }
+  };
+  
+  const handleCopyToClipboard = (content) => {
+    try {
+      // Use the Clipboard API to copy content to the clipboard
+      navigator.clipboard.writeText(content);
+      toast.success('Content copied to clipboard!');
+    } catch (error) {
+      console.error(error);
+      toast.error('An error occurred while copying to clipboard.');
+    }
+  };
+  
   return (
     <div className='planit-nnet-chat'>
       <div className='planit-nnet-chat-history'>
@@ -181,7 +212,13 @@ useEffect(() => {
           <Lightning className="planit-nnet-chat-gobutton-light" />
         </button>
       </div>
-      <NNetBookView myChats={priorChats} onChatClick={handleChatClick} />
+      <NNetBookView
+        myChats={priorChats}
+        onChatClick={handleChatClick}
+        onDeleteData={handleDeleteData}
+        onUpdateData={handleUpdateData}
+        onCopyToClipboard={handleCopyToClipboard}
+      />
       {dataIsLoading && <Spinner />}
     </div>
   );

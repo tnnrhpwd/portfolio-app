@@ -194,8 +194,14 @@
     padding: calc(var(--nav-size) * 0.01);
     border: calc(var(--nav-size)*0.001) solid var(--border-nav);
   }
+  .planit-NNetBookView-box-body-chat-btn {
+    font-size: calc(var(--nav-size) * 0.2);
 
-
+  }
+  .planit-NNetBookView-box-body-chat-btn-img {
+    width: calc(var(--nav-size) * 0.2);
+    height: calc(var(--nav-size) * 0.2);
+  }
   
 }
 .Toastify{
