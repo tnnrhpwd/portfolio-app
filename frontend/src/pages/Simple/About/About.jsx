@@ -11,7 +11,7 @@ function About() {
     <div className='about'>
       <Header />
       <div className='about-title'>
-        About Simple by STHopwood
+        About this App
       </div>
       <>
         <div className='about-description'>

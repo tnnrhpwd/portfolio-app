@@ -8,7 +8,7 @@
     background-size: 400% 400%;
 }
 .about-title{
-    margin-top: calc(var(--nav-size)*1.2);
+    margin-top: calc(var(--nav-size)*1.8);
     font-size: calc(var(--nav-size)*0.5);
     min-height: 10svh;
 }
