@@ -193,16 +193,24 @@
     margin: calc(var(--nav-size) * 0.1);
     padding: calc(var(--nav-size) * 0.01);
     border: calc(var(--nav-size)*0.001) solid var(--border-nav);
+    width: 95%;
+    cursor: pointer;
   }
-  .planit-NNetBookView-box-body-chat-btn {
-    font-size: calc(var(--nav-size) * 0.2);
-
+  .planit-NNetBookView-box-body-chat-txt {
+    display: inline;
+    width: 80%;
   }
-  .planit-NNetBookView-box-body-chat-btn-img {
-    width: calc(var(--nav-size) * 0.2);
-    height: calc(var(--nav-size) * 0.2);
+  .planit-NNetBookView-box-body-chat-mng {
+    text-wrap: wrap;
+    display: inline;
+    width: 20%;
   }
-  
+  .planit-NNetBookView-box-body-chat-mng-btn {
+    height: calc(var(--nav-size) * 0.4);
+    width: calc(var(--nav-size) * 0.4);
+    margin-right: calc(var(--nav-size) * 0.1);
+    display: inline-block;
+  }
 }
 .Toastify{
   color: var(--text-color);

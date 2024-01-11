@@ -3,9 +3,9 @@ import useOutsideAlerter from '../../useOutsideAlerter.js';
 import React from 'react';
 import { useDispatch } from 'react-redux';
 import { ReactComponent as Book } from '../../../assets/book.svg';
-import { ReactComponent as Delete } from '../../../assets/delete.png';
-import { ReactComponent as Archive } from '../../../assets/archive.png';
-import { ReactComponent as Copy } from '../../../assets/copy.png';
+import { ReactComponent as Delete } from '../../../assets/delete.svg';
+import { ReactComponent as Archive } from '../../../assets/archive.svg';
+import { ReactComponent as Copy } from '../../../assets/copy.svg';
 
 
 function NNetBookView({ myChats, onChatClick, onDeleteData, onUpdateData, onCopyToClipboard }) {
@@ -44,18 +44,14 @@ function NNetBookView({ myChats, onChatClick, onDeleteData, onUpdateData, onCopy
         <div className='planit-NNetBookView-box-body'>
           {myChats.map((chat, index) => (
             <div key={index} className="planit-NNetBookView-box-body-chat">
-              <span onClick={() => handleChatClick(chat)}>
+              <div className='planit-NNetBookView-box-body-chat-mng'>
+                <Delete className='planit-NNetBookView-box-body-chat-mng-btn' onClick={() => onDeleteData(index)}/>
+                <Archive className='planit-NNetBookView-box-body-chat-mng-btn' onClick={() => onUpdateData(index, chat)}/>
+                <Copy className='planit-NNetBookView-box-body-chat-mng-btn' onClick={() => onCopyToClipboard(chat)}/>
+              </div>
+              <span onClick={() => handleChatClick(chat)} className='planit-NNetBookView-box-body-chat-text'>
                 {chat.split("|Net:")[1].substring(0, 15)}...
               </span>
-              <button className='planit-NNetBookView-box-body-chat-btn' onClick={() => onDeleteData(index)}>
-                Delete{/* <Delete className='planit-NNetBookView-box-body-chat-btn-img'/> */}
-              </button>
-              <button className='planit-NNetBookView-box-body-chat-btn' onClick={() => onUpdateData(index, chat)}>
-                Archive{/* <Archive className='planit-NNetBookView-box-body-chat-btn-img'/> */}
-              </button>
-              <button className='planit-NNetBookView-box-body-chat-btn' onClick={() => onCopyToClipboard(chat)}>
-                Copy{/* <Copy className='planit-NNetBookView-box-body-chat-btn-img'/> */}
-              </button>
             </div>
           ))}
         </div>
