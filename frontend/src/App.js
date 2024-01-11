@@ -33,6 +33,7 @@ import Agenda from './pages/Simple/Agenda/Agenda.jsx';
 import Simple from './pages/Simple/Simple/Simple.jsx';
 import Privacy from './pages/Privacy/Privacy.jsx';
 import Terms from './pages/Terms/Terms.jsx';
+import 'react-toastify/dist/ReactToastify.css'                                // styling
 import './App.css';
 
 function App() {
