@@ -47,18 +47,27 @@ code {
 }
 @media (orientation: landscape) {
   :root{
+    --nav-size: 48px;
+  }
+}
+@media (orientation: landscape) and (max-height: 200px) {
+  :root {
     --nav-size: min(5vw,5vh);
     --nav-size: min(5vw,5svh);
-    }
+  }
 }
 @media (orientation: portrait) {
   :root{
-    --nav-size: calc( min( 18vw, 9vh ) * 0.775 );
-    --nav-size: calc( min( 18vw, 9svh ) * 0.775 );
+    --nav-size: 48px;
     --toastify-toast-width: 99% !important;
     --toastify-toast-max-height: calc(var(--nav-size)*10) !important;
     --toastify-toast-min-height: calc(var(--nav-size)*1) !important;
   }
+}
+@media (orientation: portrait) and (max-width: 250px) {
+  :root {
+    --nav-size: calc( min( 18vw, 9vh ) * 0.775 );
+    --nav-size: calc( min( 18vw, 9svh ) * 0.775 );  }
 }
 .light-theme{
   --bg:var(--white2-transp);
