@@ -13,6 +13,7 @@ code {
     monospace;
 }
 :root {
+  --toast-duration: 1500; /* Duration in milliseconds */
   --light-blue0: #009dff;
   --dark-blue0: #101B22;
   --dark-blue0-grey: #0c141a;

@@ -8,13 +8,18 @@ import TextareaAutosize from 'react-textarea-autosize';
 import { ReactComponent as Lightning } from '../../../assets/lightning.svg'; // Adjust the path to match the location of lightning.svg
 import './NNetChatView.css';
 
+
 const NNetChatView = () => {
+  const rootStyle = window.getComputedStyle(document.body);
+  const toastDuration = parseInt(rootStyle.getPropertyValue('--toast-duration'), 10);
+
   const dispatch = useDispatch();
   const [inputText, setInputText] = useState('');
   const [editedText, setEditedText] = useState(''); // New state for edited content
   const [chatHistory, setChatHistory] = useState([]);
   const [editingIndex, setEditingIndex] = useState(null);
   const [priorChats, setPriorChats] = useState([]); // New state for prior chats
+  const [activeChat, setActiveChat] = useState(null);
 
   // Get the relevant data from the state
   const { user, data, dataIsSuccess, dataIsLoading, dataIsError, dataMessage, operation } = useSelector(
@@ -23,7 +28,6 @@ const NNetChatView = () => {
 
   // Handle data updates
 useEffect(() => {
-  console.log("useEffect Triggered in NNetChatView");
   // If there is a new successful response from updateData, update the chat history
   if (operation === 'update' && dataIsSuccess) {
     console.log(data);
@@ -59,10 +63,14 @@ useEffect(() => {
 useEffect(() => {
   async function getMyData() {
     try {
+      if (!user || user === null) {
+        toast.error('Please log in to utilize this API.', { autoClose: toastDuration });
+        return;
+      }
       await dispatch(getData({ data: "Net:" }));
     } catch (error) {
       console.error(error);
-      toast.error(error);
+      toast.error(error, { autoClose: toastDuration });    
     }
   }
   getMyData();
@@ -76,18 +84,18 @@ useEffect(() => {
   const handleSend = async () => {
     try {
       if (!user || user === null) {
-        toast.error('Please log in to utilize this API.');
+        toast.error('Please log in to utilize this API.', { autoClose: toastDuration });
         return;
       }
       // Concatenate prior messages with the current inputText
       const combinedData = chatHistory.map((item) => item.content).concat(inputText).join('\n');
 
       // Dispatch the updateData action with the inputText
-      dispatch(updateData({ id: 'u', data: combinedData }));
+      dispatch(updateData({ id: 'compress', data: combinedData }));
     } catch (error) {
       // Handle any errors here
       console.error(error);
-      toast.error('An error occurred while fetching data from OpenAI.');
+      toast.error('An error occurred while fetching data from OpenAI.', { autoClose: toastDuration });
     }
   };
 
@@ -130,8 +138,7 @@ useEffect(() => {
   };
   
   const handleChatClick = (clickedChat) => {    // Replace the entire chat history with the clicked chat
-    console.log(chatHistory);
-    console.log(clickedChat);
+    setActiveChat(clickedChat);
     const chatContent = clickedChat.split("|Net:")[1];
     setChatHistory((prevChatHistory) => [{ content: chatContent }]);  
   };
@@ -141,7 +148,7 @@ useEffect(() => {
       await dispatch(deleteData(id)); // Assuming you have the deleteData action in your dataSlice
     } catch (error) {
       console.error(error);
-      toast.error('An error occurred while deleting data.');
+      toast.error('An error occurred while deleting data.', { autoClose: toastDuration });
     }
   };
   
@@ -151,7 +158,7 @@ useEffect(() => {
       await dispatch(updateData({ id, data: updatedContent })); // Assuming you have the updateData action in your dataSlice
     } catch (error) {
       console.error(error);
-      toast.error('An error occurred while updating data.');
+      toast.error('An error occurred while updating data.', { autoClose: toastDuration });
     }
   };
   
@@ -159,10 +166,10 @@ useEffect(() => {
     try {
       // Use the Clipboard API to copy content to the clipboard
       navigator.clipboard.writeText(content);
-      toast.success('Content copied to clipboard!');
+      toast.success('Content copied to clipboard!', {autoClose: toastDuration});
     } catch (error) {
       console.error(error);
-      toast.error('An error occurred while copying to clipboard.');
+      toast.error('An error occurred while copying to clipboard.', { autoClose: toastDuration });
     }
   };
   

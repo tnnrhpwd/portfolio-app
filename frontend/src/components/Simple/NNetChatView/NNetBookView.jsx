@@ -21,10 +21,8 @@ function NNetBookView({ myChats, onChatClick, onDeleteData, onUpdateData, onCopy
   const toggleButtonRef = useRef(null); // reference to the dropper toggle button
   const isideComponentRef = useRef(null); // reference to the dropper container
   useOutsideAlerter("book", isideComponentRef, toggleButtonRef, ComponentVisibility, hideComponentVisibility); // listen for clicks outside dropper container && handle the effects
-
-  console.log(myChats);
-
-  const handleChatClick = (clickedChat) => {
+  
+  const handleChatClick = (clickedChat) => { // input ex. '659887fa192e6e8a77e5d9c5 Creator:65673ec1fcacdd019a167520|Net:Steven:Wassaup, Baby!'
     // Fetch data for the clicked chat
     onChatClick(clickedChat); // Propagate the click event
   };
