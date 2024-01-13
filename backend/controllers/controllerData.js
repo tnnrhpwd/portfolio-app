@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken') //import json web tokens to send to user on 
 const bcrypt = require('bcryptjs')  // used to hash passwords
 const openai = require('openai')
 const asyncHandler = require('express-async-handler') // sends the errors to the errorhandler
+// const getData = require('./getData');
 
 const Data = require('../models/dataModel')
 const openaikey = process.env.OPENAI_KEY
@@ -84,7 +85,7 @@ const updateData = asyncHandler(async (req, res) => {
       throw new Error('Only admin are authorized to utilize the API at this time.')
     }
 
-    const userInput = req.body.data; // Get user's input from the query string. ex. 659887fa192e6e8a77e5d9c5Creator:65673ec1fcacdd019a167520|Net:Steven:Wassaup, Baby!
+    const userInput = req.body.data; // Get user's input from the query string. ex. 659887fa192e6e8a77e5d9c5 Creator:65673ec1fcacdd019a167520|Net:Steven:Wassaup, Baby!
 
     try {
       const response = await client.completions.create({
@@ -95,8 +96,33 @@ const updateData = asyncHandler(async (req, res) => {
     
       if (response.choices && response.choices.length > 0) {
         const compressedData = response.choices[0].text; // Extract the compressed data from the OpenAI response.
+
+        // Extract the ID from the userInput string.
+        const id = userInput.split(' ')[0]; // Assuming the ID is the first part of the string, separated by a space.
     
-        res.status(200).json({ data: [compressedData] });
+        // Check if the ID is a valid ObjectID
+        if (typeof id !== 'string') {
+          // If not a valid ObjectID, call setData
+          const newData = await setData({ body: { data: userInput } });
+
+          res.status(200).json({ data: [compressedData] });
+          return;
+        }
+
+        // Check if the ID exists in the database
+        const existingData = await Data.findById(id);
+
+        if (existingData) {
+          // Update the existing `Data` object in the database with the compressed data.
+          const updatedData = await Data.findByIdAndUpdate(id, { data: compressedData }, { new: true });
+
+          res.status(200).json({ data: [compressedData] });
+        } else {
+          // If the ID doesn't exist, create a new entry using setData
+          const newData = await setData({ body: { data: userInput } });
+
+          res.status(200).json({ data: [compressedData] });
+        }
       } else {
         res.status(500).json({ error: 'No compressed data found in the OpenAI response' });
       }

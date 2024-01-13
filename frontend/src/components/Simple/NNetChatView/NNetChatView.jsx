@@ -40,7 +40,6 @@ useEffect(() => {
       setChatHistory((prevChatHistory) => [...prevChatHistory, { content: inputText }, { content: dataString }]);
     }
     setInputText('');
-    console.log(priorChats);
   }
 
   // If there is a new successful response from getData, update priorChats
@@ -88,10 +87,17 @@ useEffect(() => {
         return;
       }
       // Concatenate prior messages with the current inputText
-      const combinedData = chatHistory.map((item) => item.content).concat(inputText).join('\n');
+      const combinedData = activeChat + chatHistory.map((item) => item.content).join('\n') + '\n' + inputText;
+      console.log(combinedData);
+
+      // Check if the combinedData contains only '\n' or is an empty string
+      if (/^\s*$/.test(combinedData)) {
+        toast.error('Please enter some text before sending.', { autoClose: toastDuration });
+        return;
+      }
 
       // Dispatch the updateData action with the inputText
-      dispatch(updateData({ id: 'compress', data: combinedData }));
+      dispatch(updateData({ data: combinedData }));
     } catch (error) {
       // Handle any errors here
       console.error(error);
@@ -137,10 +143,11 @@ useEffect(() => {
     }
   };
   
-  const handleChatClick = (clickedChat) => {    // Replace the entire chat history with the clicked chat
-    setActiveChat(clickedChat);
+  const handleChatClick = (clickedChat) => {
+    setActiveChat(clickedChat); // Assuming that each chat object has an 'id' property
+    console.log(clickedChat);
     const chatContent = clickedChat.split("|Net:")[1];
-    setChatHistory((prevChatHistory) => [{ content: chatContent }]);  
+    setChatHistory((prevChatHistory) => [{ content: chatContent }]);
   };
 
   const handleDeleteData = async (id) => {
@@ -152,10 +159,10 @@ useEffect(() => {
     }
   };
   
-  const handleUpdateData = async (id, originalContent) => {
+  const handleUpdateData = async (index, originalContent) => {
     try {
-      const updatedContent = `${originalContent} [Archived]`;
-      await dispatch(updateData({ id, data: updatedContent })); // Assuming you have the updateData action in your dataSlice
+      const updatedContent = `${originalContent.content} [Archived]`;
+      await dispatch(updateData({ id: originalContent.id, data: updatedContent }));
     } catch (error) {
       console.error(error);
       toast.error('An error occurred while updating data.', { autoClose: toastDuration });
@@ -225,6 +232,7 @@ useEffect(() => {
         onDeleteData={handleDeleteData}
         onUpdateData={handleUpdateData}
         onCopyToClipboard={handleCopyToClipboard}
+        activeChatId={activeChat} // Pass down the active chat ID
       />
       {dataIsLoading && <Spinner />}
     </div>
