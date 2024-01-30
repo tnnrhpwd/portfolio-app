@@ -25,6 +25,20 @@ const NNetChatView = () => {
   const { user, data, dataIsSuccess, dataIsLoading, dataIsError, dataMessage, operation } = useSelector(
     (state) => state.data
   );
+  // Handle data updates
+  useEffect(() => {
+    // if data is loading for longer than 5 seconds, show a toast
+    if (dataIsLoading) {
+      setTimeout(() => {
+        if (dataIsLoading) {
+          toast.info('Fetching data from OpenAI...', { autoClose: toastDuration });
+        }
+      }, 5000);
+    } 
+    // Reset the data slice when unmounting or when there's an error
+    return () => {
+    };
+  }, [dataIsLoading]);
 
   // Handle data updates
 useEffect(() => {
