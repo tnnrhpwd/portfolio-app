@@ -73,17 +73,18 @@
 .key { /* CLASS for the keyboard buttons */
     font-weight: bold;
     text-transform: uppercase;
-    font-size: calc(var(--nav-size)*.2);
+    font-size: calc(1vw * 4.2);
     border-radius: calc(var(--nav-size)*.1);
     background-color: var(--text-color-inv);
     color: var(--text-color);
     padding: calc(var(--nav-size)*.2);
-    margin: calc(var(--nav-size)*.01);
+    margin: calc(var(--nav-size)*.00);
     cursor: pointer;
     vertical-align: middle;
-    min-width: calc(var(--nav-size)*.65);
+    min-width: calc(1vw * 9.65);
     height: calc(var(--nav-size) * 1.05);
     border: calc(var(--nav-size)*.001) solid var(--bg-accent);
+    display: inline;
 }
 .key:hover{
     background-image: radial-gradient( var(--text-color) 20%, transparent );
@@ -96,6 +97,10 @@
     text-align: center;
     width: 100%;
     flex-grow: 1;
+}
+.keyboard-div1 { /* CLASS for the region containing the keyboard */
+    display:inline;
+    width: 1vw;
 }
 .keyboard-div2{
     display:inline;

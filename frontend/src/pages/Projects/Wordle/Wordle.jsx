@@ -7,7 +7,7 @@ import "./Wordle.css";
 var keys = { //create dictionary object to store pairs of keys and result(correct, found, wrong).
   'Q': '', 'W': '', 'E': '', 'R': '', 'T': '', 'Y': '', 'U': '', 'I': '', 'O': '', 'P': '', 'break': '',
   'A': '', 'S': '', 'D': '', 'F': '', 'G': '', 'H': '', 'J': '', 'K': '', 'L': '', 'break2': '',
-  'enter': '', 'Z': '', 'X': '', 'C': '', 'V': '', 'B': '', 'N': '', 'M': '', '⌫': ''
+  '⏎': '', 'Z': '', 'X': '', 'C': '', 'V': '', 'B': '', 'N': '', 'M': '', '⌫': ''
 };
 
 var Dictionary=[];
@@ -33,7 +33,7 @@ function Wordle() {
     keys = { 
       'Q': '', 'W': '', 'E': '', 'R': '', 'T': '', 'Y': '', 'U': '', 'I': '', 'O': '', 'P': '', 'break': '',
       'A': '', 'S': '', 'D': '', 'F': '', 'G': '', 'H': '', 'J': '', 'K': '', 'L': '', 'break2': '',
-      '⌫': '', 'Z': '', 'X': '', 'C': '', 'V': '', 'B': '', 'N': '', 'M': '', 'enter': ''
+      '⌫': '', 'Z': '', 'X': '', 'C': '', 'V': '', 'B': '', 'N': '', 'M': '', '⏎': ''
     };
     guesses = []; // array full of user previous guesses
     currentGuess = []; // array full of chars of current guess
@@ -78,7 +78,7 @@ function Wordle() {
     }
     switch(event.code){ //if key was not a letter
       case 'Backspace': backspace(); break;
-      case 'Enter': enter(); break;
+      case '⏎': enter(); break;
       default:break;
     }
   }
@@ -165,7 +165,7 @@ function Wordle() {
       case '⌫': // if typed button was backspace
         backspace(); 
         break; 
-      case 'enter': // if typed button was enter
+      case '⏎': // if typed button was enter
         enter();
         break;
       default:
@@ -289,7 +289,7 @@ function Wordle() {
       }  
       <div className="keyboard">
         {(inGameState%2===1)&&
-          <div key="keyboard-div1">
+          <div className="keyboard-div1" key="keyboard-div1">
             {Object.keys(keys).map((key,index) => (
               <div className='keyboard-div2' key={"keyboard-div2"+key}>
                 {(key.includes("break"))?<br key={index} />:
