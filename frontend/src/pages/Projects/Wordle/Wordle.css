@@ -48,18 +48,12 @@
     justify-content: center;
     align-items: center;
     text-transform: uppercase;
-    border: calc(var(--nav-size) * 0.001) solid var(--text-color);
+    border: calc(1vw * 0.1) solid var(--text-color);
     box-shadow: 0 0 0 calc(var(--nav-size) * 0.001) var(--bg-accent); /* Adjust the 3px to the width you want for the second border */
     height: calc(var(--nav-size) * 1.2);
-    width: calc(calc(var(--nav-size) * 6) / var(--key-guess-count));
+    width: calc(calc(1vw * 82) / var(--key-guess-count));
     vertical-align: middle;
     color: var(--text-color);
-    margin: calc(var(--nav-size) * 0.001);
-}
-@media (max-width: 280px) {
-    .key-guess {
-        width: calc(62vw / var(--key-guess-count)); /* Adjust the 100vw to the value you want */
-    }
 }
 .wordle-answer{
     top: calc(var(--nav-size)*4);
@@ -73,7 +67,7 @@
 .key { /* CLASS for the keyboard buttons */
     font-weight: bold;
     text-transform: uppercase;
-    font-size: calc(1vw * 4.2);
+    font-size: calc(1vw * 3.2);
     border-radius: calc(var(--nav-size)*.1);
     background-color: var(--text-color-inv);
     color: var(--text-color);

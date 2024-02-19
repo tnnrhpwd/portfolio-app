@@ -9,7 +9,7 @@ var keys = { //create dictionary object to store pairs of keys and result(correc
   'A': '', 'S': '', 'D': '', 'F': '', 'G': '', 'H': '', 'J': '', 'K': '', 'L': '', 'break2': '',
   '⏎': '', 'Z': '', 'X': '', 'C': '', 'V': '', 'B': '', 'N': '', 'M': '', '⌫': ''
 };
-
+// ⏎⌫
 var Dictionary=[];
 var guesses = []; // array full of user previous guesses
 var currentGuess = []; // array full of chars of current guess
@@ -25,7 +25,7 @@ const Wrong = 'wrong';
 function Wordle() {
   const [inGameState, setInGameState] = useState(0);
   const [settingMenu, setSettingMenu] = useState(0);
-  const [settingMenuText, setSettingMenuText] = useState("");
+  const [settingMenuText, setSettingMenuText] = useState("5");
   const [outputMessage, setOutputMessage] = useState("");
   const [answerVisibility,setAnswerVisibility ]= useState(false);
 
@@ -142,6 +142,7 @@ function Wordle() {
     console.log("updateKeyGuessCount: " + numCharacters);
     document.documentElement.style.setProperty('--key-guess-count', `${numCharacters}`);
 }
+
   function GetGuessGrid(){
     let grid = [];
     for(let i = 0; i < maxGuesses; i++){     // number of guesses
