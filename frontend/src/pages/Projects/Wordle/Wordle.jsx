@@ -88,7 +88,45 @@ function Wordle() {
     console.log("Now listening for keyboard inputs")
   }
   
-  const newGameButton = () => {
+  async function fetchRandomWord(wordLength) {
+    const apiKey = 'YOUR_WORDNIK_API_KEY'; // Replace with your actual Wordnik API key
+    const url = `https://api.wordnik.com/v4/words.json/randomWords?hasDictionaryDef=true&minCorpusCount=0&minLength=${wordLength}&maxLength=${wordLength}&limit=1&api_key=${apiKey}`;
+  
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('Failed to fetch random word');
+      }
+      const data = await response.json();
+      if (data.length === 0) {
+        throw new Error('No word found with the specified length');
+      }
+      return data[0].word.toUpperCase();
+    } catch (error) {
+      console.error('Error fetching random word:', error.message);
+      throw error;
+    }
+  }
+  
+  // Function to fetch the definition of the secret word
+  async function fetchDefinition(word) {
+    const apiKey = 'YOUR_DICTIONARY_API_KEY'; // Replace with your actual dictionary API key
+    const url = `https://api.dictionary.com/api/v3/references/collegiate/json/${word}?key=${apiKey}`;
+
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('Failed to fetch definition');
+      }
+      const data = await response.json();
+      return data[0].shortdef[0];
+    } catch (error) {
+      console.error('Error fetching definition:', error.message);
+      throw error;
+    }
+  }
+
+  async function newGameButton() {
 
     // GUARD CLAUSE - only numbers OR empty
     if (!(/^\d+$/.test(settingMenuText))) {
@@ -114,24 +152,44 @@ function Wordle() {
 
     setInGameState(1);
 
-    let wordSet=false;
-    // stop guessing random words when a word matches the settings.
-    while(!wordSet){
-      secretWord = Dictionary[(((Math.random()*Dictionary.length+1)) | 0)]; // random word in list
-      if((settingMenuText==="")||(parseFloat(settingMenuText)===secretWord.length)){    // if no desired wordlength or secretword length equals desired word length
-        wordLength = secretWord.length;
-        wordSet=true;
+    try {
+      // const wordLength = parseFloat(settingMenuText);
+      // const randomWord = await fetchRandomWord(wordLength);
+      // console.log('Random word:', randomWord);
+
+      let wordSet=false;
+      while(!wordSet){
+        secretWord = Dictionary[(((Math.random()*Dictionary.length+1)) | 0)]; // random word in list
+        if((settingMenuText==="")||(parseFloat(settingMenuText)===secretWord.length)){    // if no desired wordlength or secretword length equals desired word length
+          wordLength = secretWord.length;
+          wordSet=true;
+        }
       }
+    } catch (error) {
+      console.error('Error fetching random word:', error.message);
+      setOutputMessage('Error fetching random word. Please try again later.');
     }
+
+
   }
 
   const toggleSettings = () => {
     setSettingMenu(settingMenu+1);
   }
 
-  const endOfGame = () => {
+  // Function to handle end of game
+  const endOfGame = async () => {
+    // Other code...
     setAnswerVisibility(true);
-  }
+
+    try {
+      const definition = await fetchDefinition(secretWord);
+      setOutputMessage(`The answer is ${secretWord}. Definition: ${definition}`);
+    } catch (error) {
+      console.error('Error fetching definition:', error.message);
+      setOutputMessage(`The answer is ${secretWord}. Definition not available.`);
+    }
+  };
 
   function updateKeyGuessCount(numCharacters) {
     numCharacters = parseInt(numCharacters);
@@ -285,7 +343,7 @@ function Wordle() {
       </div>
       {(answerVisibility===true)&&
         <div className='wordle-answer'>
-          The answer is {secretWord}.
+          {outputMessage}
         </div>
       }  
       <div className="keyboard">
