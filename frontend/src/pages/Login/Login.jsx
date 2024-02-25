@@ -21,7 +21,9 @@ function Login() {
 
     const navigate = useNavigate() // initialization
     const dispatch = useDispatch() // initialization
-
+    const rootStyle = window.getComputedStyle(document.body);
+    const toastDuration = parseInt(rootStyle.getPropertyValue('--toast-duration'), 10);
+    
     // select values from state
     const { user, dataIsLoading, dataIsError, dataIsSuccess, dataMessage } = useSelector(
         (state) => state.data
@@ -34,8 +36,9 @@ function Login() {
             dispatch(logout())  // dispatch connects to the store, then remove user item from local storage
         }
         if (dataIsError) {
-            toast.error(dataMessage) // print error to toast errors
-            // dispatch(logout())  // dispatch connects to the store, then remove user item from local storage
+            if (dataMessage && !dataMessage.includes('token')) {
+                toast.error(dataMessage, { autoClose: toastDuration });
+              }
         }
         if (user) {  // if registered or logged in, 
             toast.success("Successfully logged in as "+user.nickname, { autoClose: 2000 }) // print error to toast errors

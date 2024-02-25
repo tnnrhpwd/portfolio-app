@@ -4,6 +4,7 @@ import Header from '../../../components/Header/Header';
 import Footer from '../../../components/Footer/Footer';
 import url from "./../WordleSolver/Dictionary.txt";
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom'              // page redirects
 import { updateData, getData, resetDataSlice, deleteData } from '../../../features/data/dataSlice.js';
 import "./Wordle.css";
 
@@ -24,6 +25,7 @@ const Found = 'found';
 const Wrong = 'wrong';
 
 function Wordle() {// Main function component
+  const navigate = useNavigate() // initialization
   const dispatch = useDispatch();
   const [secretWord, setSecretWord] = useState("");
   const [definition, setDefinition] = useState("");
@@ -91,7 +93,7 @@ function Wordle() {// Main function component
     if (user) {
       toast.success(`Welcome back, ${user.nickname}!`, { autoClose: toastDuration });
     } else {
-      toast.info('Welcome! Login to track your progress.', { autoClose: toastDuration });
+      toast.info('Welcome! Please login to play. This page uses an api with tracked usage.', { autoClose: 4000 });
     }
   }
 
@@ -110,8 +112,8 @@ function Wordle() {// Main function component
   }, []);
 
   useEffect(()=>{
-    if(dataMessage){
-      toast.error(dataMessage, { autoClose: toastDuration })
+    if (dataMessage && !dataMessage.includes('token')) {
+      toast.error(dataMessage, { autoClose: toastDuration });
     }
     // return () => {
     // resetDataSlice()
@@ -157,8 +159,7 @@ function Wordle() {// Main function component
         setSecretWord(data.word);
         fetchDefinition(data.word);
         
-      }, 500); // 2 second delay
-      
+      }, 50); // 0.05 second delay
       return () => {
         clearTimeout(timer); // Cleanup: Cancel the timer if the component unmounts
       };
@@ -169,7 +170,7 @@ function Wordle() {// Main function component
         console.log(data.worddef);
         setDefinition(data.worddef);
         
-      }, 500); // 2 second delay
+      }, 50); // 0.05 second delay
       
       return () => {
         clearTimeout(timer); // Cleanup: Cancel the timer if the component unmounts
@@ -415,14 +416,22 @@ function Wordle() {// Main function component
         }
       </div>
       <div className="automate">
-        {(inGameState%2===0||answerVisibility)?
-          <button id="automate-newBut" onClick={newGameButton} >
-          New Game
-          </button>:
-          <button id="automate-solutionBut" onClick={endOfGame} >
-          Reveal Solution
+      {user ? (
+        (inGameState % 2 === 0 || answerVisibility) ? (
+          <button id="automate-newBut" onClick={newGameButton}>
+            New Game
           </button>
-        }
+        ) : (
+          <button id="automate-solutionBut" onClick={endOfGame}>
+            Reveal Solution
+          </button>
+        )
+      ) : (
+        <button id="automate-newBut" onClick={() => navigate('/login')}>
+          New Game
+        </button>
+      )}
+
         <button id="automate-settingBut" onClick={toggleSettings}>
           ⚙
         </button>
