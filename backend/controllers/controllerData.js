@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken') //import json web tokens to send to user on 
 const bcrypt = require('bcryptjs')  // used to hash passwords
 const openai = require('openai')
 const asyncHandler = require('express-async-handler') // sends the errors to the errorhandler
+const fetch = require('node-fetch');
 // const getData = require('./getData');
 
 const Data = require('../models/dataModel')
@@ -18,11 +19,22 @@ const getData = asyncHandler(async (req, res) => {
     throw new Error('User not found')
   }
 
-  if (!req.query) {
+  if (!req.query || !req.query.data) {
     res.status(400)
     throw new Error('Please add a text field')
   }
   try {
+    const wordLength = req.query.data.length; // Assuming the length of the text is the word length
+    const apiKey = 'YOUR_WORDNIK_API_KEY'; // Replace with your Wordnik API key
+    const url = `https://api.wordnik.com/v4/words.json/randomWord?hasDictionaryDef=true&minCorpusCount=0&minLength=${wordLength}&maxLength=${wordLength}&api_key=${apiKey}`;
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error('Failed to fetch random word from Wordnik API');
+    }
+    
+    const data = await response.json();
+    const randomWord = data.word.toLowerCase(); // Convert to lowercase
     const dataSearchString = req.query.data.toLowerCase(); // Convert to lowercase
     const userSearchString = req.user.id.toLowerCase(); // Convert to lowercase
     
@@ -40,8 +52,8 @@ const getData = asyncHandler(async (req, res) => {
       return;
     }
     res.status(200).json({ data: datas.map((data) => data.data) });
-
   } catch (error) {
+    console.error('Error fetching data:', error.message);
     res.status(500).json({ error: req.query.data });
   }
 });

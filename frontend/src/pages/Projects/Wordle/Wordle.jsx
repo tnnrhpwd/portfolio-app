@@ -88,22 +88,16 @@ function Wordle() {
     console.log("Now listening for keyboard inputs")
   }
   
-  async function fetchRandomWord(wordLength) {
-    const apiKey = 'YOUR_WORDNIK_API_KEY'; // Replace with your actual Wordnik API key
-    const url = `https://api.wordnik.com/v4/words.json/randomWords?hasDictionaryDef=true&minCorpusCount=0&minLength=${wordLength}&maxLength=${wordLength}&limit=1&api_key=${apiKey}`;
-  
+  async function fetchRandomWordFromBackend(wordLength) {
     try {
-      const response = await fetch(url);
+      const response = await fetch(`/api/wordle/randomWord?wordLength=${wordLength}`);
       if (!response.ok) {
-        throw new Error('Failed to fetch random word');
+        throw new Error('Failed to fetch random word from backend');
       }
       const data = await response.json();
-      if (data.length === 0) {
-        throw new Error('No word found with the specified length');
-      }
-      return data[0].word.toUpperCase();
+      return data.word;
     } catch (error) {
-      console.error('Error fetching random word:', error.message);
+      console.error('Error fetching random word from backend:', error.message);
       throw error;
     }
   }
@@ -153,18 +147,22 @@ function Wordle() {
     setInGameState(1);
 
     try {
-      // const wordLength = parseFloat(settingMenuText);
-      // const randomWord = await fetchRandomWord(wordLength);
-      // console.log('Random word:', randomWord);
+      // Call the backend endpoint to fetch the random word
+      wordLength = parseFloat(settingMenuText);
+      const randomWord = await fetchRandomWordFromBackend(wordLength);
+      console.log('Random word:', randomWord);
+      // Use the random word fetched from the backend
+      secretWord = randomWord;
+      wordLength = secretWord.length
 
-      let wordSet=false;
-      while(!wordSet){
-        secretWord = Dictionary[(((Math.random()*Dictionary.length+1)) | 0)]; // random word in list
-        if((settingMenuText==="")||(parseFloat(settingMenuText)===secretWord.length)){    // if no desired wordlength or secretword length equals desired word length
-          wordLength = secretWord.length;
-          wordSet=true;
-        }
-      }
+      // let wordSet=false;
+      // while(!wordSet){
+      //   secretWord = Dictionary[(((Math.random()*Dictionary.length+1)) | 0)]; // random word in list
+      //   if((settingMenuText==="")||(parseFloat(settingMenuText)===secretWord.length)){    // if no desired wordlength or secretword length equals desired word length
+      //     wordLength = secretWord.length;
+      //     wordSet=true;
+      //   }
+      // }
     } catch (error) {
       console.error('Error fetching random word:', error.message);
       setOutputMessage('Error fetching random word. Please try again later.');
