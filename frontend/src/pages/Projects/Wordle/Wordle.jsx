@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { toast } from 'react-toastify';
 import Header from '../../../components/Header/Header';
 import Footer from '../../../components/Footer/Footer';
 import url from "./../WordleSolver/Dictionary.txt";
+import { useDispatch, useSelector } from 'react-redux';
+import { updateData, getData, resetDataSlice, deleteData } from '../../../features/data/dataSlice.js';
 import "./Wordle.css";
 
 var keys = { //create dictionary object to store pairs of keys and result(correct, found, wrong).
@@ -14,20 +17,28 @@ var Dictionary=[];
 var guesses = []; // array full of user previous guesses
 var currentGuess = []; // array full of chars of current guess
 var wordLength=0;
-var secretWord="";
 var buttonPressNum=0;
 var maxGuesses = 6;
 const Correct = 'correct'; 
 const Found = 'found';
 const Wrong = 'wrong';
 
-// Main function component
-function Wordle() {
+function Wordle() {// Main function component
+  const dispatch = useDispatch();
+  const [secretWord, setSecretWord] = useState("");
+  const [definition, setDefinition] = useState("");
   const [inGameState, setInGameState] = useState(0);
   const [settingMenu, setSettingMenu] = useState(0);
   const [settingMenuText, setSettingMenuText] = useState("5");
   const [outputMessage, setOutputMessage] = useState("");
   const [answerVisibility,setAnswerVisibility ]= useState(false);
+  const rootStyle = window.getComputedStyle(document.body);
+  const toastDuration = parseInt(rootStyle.getPropertyValue('--toast-duration'), 10);
+
+  // Get the relevant data from the state
+  const { user, data, dataIsSuccess, dataIsLoading, dataIsError, dataMessage, operation } = useSelector(
+    (state) => state.data
+  );
 
   function resetInitialValues(){
     keys = { 
@@ -38,7 +49,7 @@ function Wordle() {
     guesses = []; // array full of user previous guesses
     currentGuess = []; // array full of chars of current guess
     wordLength=0;
-    secretWord="";
+    setSecretWord("");
     buttonPressNum=0;
     setAnswerVisibility(false);
 
@@ -51,8 +62,7 @@ function Wordle() {
     }
   }
 
-  // fills the dictionary with words
-  function fetchDictionary() {
+  function fetchDictionary() {  // fills the dictionary with words
     fetch(url)
     .then(response => response.text())
     .then(data => {
@@ -65,11 +75,49 @@ function Wordle() {
     .catch(err => console.log(err));
   }
 
-  // fills the dictionary array with words on the intial load.
+  // Function to handle fetching data from the backend
+  async function getMyData() {
+    try {
+      // Call the getData action to fetch data
+      console.log("Call the getData action to fetch your experience");
+      await dispatch(getData({ data: "Word:" }));
+    } catch (error) {
+      console.error(error);
+      toast.error(error, { autoClose: toastDuration });
+    }
+  }
+
+  function loginWelcome() {
+    if (user) {
+      toast.success(`Welcome back, ${user.nickname}!`, { autoClose: toastDuration });
+    } else {
+      toast.info('Welcome! Login to track your progress.', { autoClose: toastDuration });
+    }
+  }
+
   useEffect(() => {
-    fetchDictionary();
-    startKeyListen();
+    const timer = setTimeout(() => {
+      // Your initialization logic (e.g., fetchDictionary, startKeyListen, etc.)
+      fetchDictionary();
+      startKeyListen();
+      getMyData();
+      loginWelcome();
+    }, 50); // 0.05 second delay
+  
+    return () => {
+      clearTimeout(timer); // Cleanup: Cancel the timer if the component unmounts
+    };
   }, []);
+
+  useEffect(()=>{
+    if(dataMessage){
+      toast.error(dataMessage, { autoClose: toastDuration })
+    }
+    // return () => {
+    // resetDataSlice()
+    // };
+  },[dataIsError]
+  )
 
   function keyListener(event){
     if(event.code===undefined){}    //GUARD CLAUSE - paste number into settings input
@@ -88,32 +136,52 @@ function Wordle() {
     console.log("Now listening for keyboard inputs")
   }
   
-  async function fetchRandomWordFromBackend(wordLength) {
+  async function fetchRandomWordFromBackend(wordLength) {  // Function to fetch random word from backend using getData
     try {
-      const response = await fetch(`/api/wordle/randomWord?wordLength=${wordLength}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch random word from backend');
-      }
-      const data = await response.json();
-      return data.word;
+      console.log("Calling Word API...")
+      await dispatch(getData({ data: `getword:${wordLength}` })); // Dispatch the getData action
     } catch (error) {
-      console.error('Error fetching random word from backend:', error.message);
+      console.error('Error Calling Word API:', error.message);
       throw error;
     }
   }
   
-  // Function to fetch the definition of the secret word
-  async function fetchDefinition(word) {
-    const apiKey = 'YOUR_DICTIONARY_API_KEY'; // Replace with your actual dictionary API key
-    const url = `https://api.dictionary.com/api/v3/references/collegiate/json/${word}?key=${apiKey}`;
+  useEffect(() => {// Run the effect whenever `data` changes
 
+    console.log("State data has been updated:")
+    console.log(data)
+    if(data && data.word){
+      const timer = setTimeout(() => {
+        console.log("XXXXXXXXX Secret Word updated.");
+        console.log(data.word);
+        setSecretWord(data.word);
+        fetchDefinition(data.word);
+        
+      }, 500); // 2 second delay
+      
+      return () => {
+        clearTimeout(timer); // Cleanup: Cancel the timer if the component unmounts
+      };
+    }
+    if(data && data.worddef){
+      const timer = setTimeout(() => {
+        console.log("XXXXXXXXX Definition updated.");
+        console.log(data.worddef);
+        setDefinition(data.worddef);
+        
+      }, 500); // 2 second delay
+      
+      return () => {
+        clearTimeout(timer); // Cleanup: Cancel the timer if the component unmounts
+      };
+    }
+  }, [data]
+  )
+
+  async function fetchDefinition(word) {
     try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error('Failed to fetch definition');
-      }
-      const data = await response.json();
-      return data[0].shortdef[0];
+      console.log(`Fetching definition for ${word}...`);
+      await dispatch(getData({ data: `getdef:${word}` }));
     } catch (error) {
       console.error('Error fetching definition:', error.message);
       throw error;
@@ -121,7 +189,6 @@ function Wordle() {
   }
 
   async function newGameButton() {
-
     // GUARD CLAUSE - only numbers OR empty
     if (!(/^\d+$/.test(settingMenuText))) {
       if (!(settingMenuText==="")){
@@ -148,21 +215,9 @@ function Wordle() {
 
     try {
       // Call the backend endpoint to fetch the random word
+      console.log(settingMenuText);
       wordLength = parseFloat(settingMenuText);
-      const randomWord = await fetchRandomWordFromBackend(wordLength);
-      console.log('Random word:', randomWord);
-      // Use the random word fetched from the backend
-      secretWord = randomWord;
-      wordLength = secretWord.length
-
-      // let wordSet=false;
-      // while(!wordSet){
-      //   secretWord = Dictionary[(((Math.random()*Dictionary.length+1)) | 0)]; // random word in list
-      //   if((settingMenuText==="")||(parseFloat(settingMenuText)===secretWord.length)){    // if no desired wordlength or secretword length equals desired word length
-      //     wordLength = secretWord.length;
-      //     wordSet=true;
-      //   }
-      // }
+      await fetchRandomWordFromBackend(wordLength);
     } catch (error) {
       console.error('Error fetching random word:', error.message);
       setOutputMessage('Error fetching random word. Please try again later.');
@@ -175,13 +230,11 @@ function Wordle() {
     setSettingMenu(settingMenu+1);
   }
 
-  // Function to handle end of game
-  const endOfGame = async () => {
+  const endOfGame = async () => {  // Function to handle end of game
     // Other code...
     setAnswerVisibility(true);
 
     try {
-      const definition = await fetchDefinition(secretWord);
       setOutputMessage(`The answer is ${secretWord}. Definition: ${definition}`);
     } catch (error) {
       console.error('Error fetching definition:', error.message);
@@ -195,7 +248,6 @@ function Wordle() {
         console.error('Invalid number of characters');
         return;
     }
-    console.log("updateKeyGuessCount: " + numCharacters);
     document.documentElement.style.setProperty('--key-guess-count', `${numCharacters}`);
 }
 
@@ -260,26 +312,31 @@ function Wordle() {
       guessString =guessString + keyGuess.key
     });
     // GUARD CLAUSE - not a word
-    if (!(Dictionary.includes(guessString))){ // if guess is not a word, enter button wont work
+    if (!(Dictionary.includes(guessString) || guessString.toLowerCase() === secretWord)) { // if guess is not a word, enter button wont work
+      toast.info('That is not a word. Please try again.', { autoClose: toastDuration });
       return // ends the method execution before results can be assigned.
     }
 
     currentGuess.forEach((keyGuess, index) => { //   FOR EACH LETTER    -assigns the outcomes of each guess letter to the respective key then outputs to keys dictionary
-      if (secretWord.charAt(index) === keyGuess.key) { //if input key matches letter of answer
+      console.log("Secret Word:", secretWord, typeof secretWord);
+      console.log("Key Guess:", keyGuess.key);
+      const lowKeyGuess = keyGuess.key.toLowerCase()
+      if (secretWord.charAt(index).toLowerCase() === lowKeyGuess) { // Convert secretWord character to lowercase for comparison
         keyGuess.result = Correct;
-      } 
-      else if (secretWord.includes(keyGuess.key)) { // if input key is in the answer at all
-        let CRTappearances=0;                                  //how many of that letter is correct
-        for(let xf=0;xf<guessString.length;xf++){    // counts how many of that letter are correctly placed in the word
-          if (guessString.charAt(xf)===keyGuess.key&&secretWord.charAt(xf)===keyGuess.key){
-            CRTappearances++; // It needed to be able to see future letters before assigning yellow
+      } else if (secretWord.toLowerCase().includes(lowKeyGuess)) { // Convert secretWord to lowercase for checking inclusion
+        let CRTappearances = 0;
+        for (let xf = 0; xf < guessString.length; xf++) {
+          if (guessString.charAt(xf).toLowerCase() === lowKeyGuess && secretWord.charAt(xf).toLowerCase() === lowKeyGuess) {
+              CRTappearances++;
           }
-        };
-        if((countLetters(keyGuess.key,secretWord)>CRTappearances) // if not correctly used later && not too many used already
-        &&(countLetters(keyGuess.key,secretWord)>countLetters(keyGuess.key,guessString.substring(0,index)))){
-          keyGuess.result = Found; // assigns result to the letter object in the keys dictionary
-        }else{keyGuess.result = Wrong;} // assigns result to the letter object in the keys array
-      } else {keyGuess.result = Wrong;} // else is wrong
+        } if (countLetters(lowKeyGuess, secretWord) > CRTappearances && countLetters(lowKeyGuess, secretWord) > countLetters(lowKeyGuess, guessString.substring(0, index))) {
+          keyGuess.result = Found;
+        } else {
+          keyGuess.result = Wrong;
+        }
+      } else {
+        keyGuess.result = Wrong;
+      }
 
       // update keys | BLACK -> GREEN + ORANGE | ORANGE -> GREEN
       if ((keys[keyGuess.key] === Wrong)||(keys[keyGuess.key] === "")) {  // if key is BLACK || if key is unassigned, update it every guess.
@@ -291,7 +348,7 @@ function Wordle() {
       
     });
 
-    if((guessString===secretWord)||(guesses.length>(maxGuesses-2))){ //if WON or LOST, clear the board, print the answer, and reset the board
+    if((guessString.toLowerCase()===secretWord)||(guesses.length>(maxGuesses-2))){ //if WON or LOST, clear the board, print the answer, and reset the board
       setOutputMessage("Thanks for playing!"); // print the answer
       endOfGame();
     }
