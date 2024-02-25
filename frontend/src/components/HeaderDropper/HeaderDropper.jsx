@@ -43,7 +43,7 @@ function HeaderDropper(props) {
             <a className='planit-header-dropper-pagelink' href='/passgen'>◽Passwords</a>
             <a className='planit-header-dropper-pagelink' href='/annuities'>◽Annuities</a>
             <a className='planit-header-dropper-pagelink' href='/sonic'>◽Sonic</a>
-            <a className='planit-header-dropper-pagelink' href='/agenda'>◽Wordle</a>
+            <a className='planit-header-dropper-pagelink' href='/wordle'>◽Wordle</a>
           </>)
           :null
         }
