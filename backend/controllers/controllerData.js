@@ -64,9 +64,9 @@ const getData = asyncHandler(async (req, res) => {
 
       const response = await fetch(defUrl, rapidapidefoptions);
       // if (response) {
-      // if (!response.ok) {
-      //   throw new Error('Failed to fetch definition from rapidapi');
-      // }
+      if (!response.ok) {
+        throw new Error('Failed to fetch definition from rapidapi');
+      }
       const data = await response.json();
       const definition = data.list[0].definition + data.list[1].definition + data.list[2].definition;
       // const dataString = JSON.stringify(data);

@@ -37,8 +37,7 @@ function Wordle() {// Main function component
   const rootStyle = window.getComputedStyle(document.body);
   const toastDuration = parseInt(rootStyle.getPropertyValue('--toast-duration'), 10);
 
-  // Get the relevant data from the state
-  const { user, data, dataIsSuccess, dataIsLoading, dataIsError, dataMessage, operation } = useSelector(
+  const { user, data, dataIsSuccess, dataIsLoading, dataIsError, dataMessage, operation } = useSelector(  // Get the relevant data from the state
     (state) => state.data
   );
 
@@ -77,8 +76,7 @@ function Wordle() {// Main function component
     .catch(err => console.log(err));
   }
 
-  // Function to handle fetching data from the backend
-  async function getMyData() {
+  async function getMyData() {  // Function to handle fetching data from the backend
     try {
       // Call the getData action to fetch data
       console.log("Call the getData action to fetch your experience");
@@ -98,7 +96,7 @@ function Wordle() {// Main function component
   }
 
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const launchTimer = setTimeout(() => {
       // Your initialization logic (e.g., fetchDictionary, startKeyListen, etc.)
       fetchDictionary();
       startKeyListen();
@@ -107,7 +105,8 @@ function Wordle() {// Main function component
     }, 50); // 0.05 second delay
   
     return () => {
-      clearTimeout(timer); // Cleanup: Cancel the timer if the component unmounts
+      document.body.removeEventListener('keydown', keyListener);
+      clearTimeout(launchTimer); // Cleanup: Cancel the timer if the component unmounts
     };
   }, []);
 
@@ -128,6 +127,7 @@ function Wordle() {// Main function component
     }
     switch(event.code){ //if key was not a letter
       case 'Backspace': backspace(); break;
+      case 'Enter': enter(); break;
       case '⏎': enter(); break;
       default:break;
     }
@@ -149,11 +149,10 @@ function Wordle() {// Main function component
   }
   
   useEffect(() => {// Run the effect whenever `data` changes
-
     console.log("State data has been updated:")
     console.log(data)
     if(data && data.word){
-      const timer = setTimeout(() => {
+      const secretTimer = setTimeout(() => {
         console.log("XXXXXXXXX Secret Word updated.");
         console.log(data.word);
         setSecretWord(data.word);
@@ -161,11 +160,11 @@ function Wordle() {// Main function component
         
       }, 50); // 0.05 second delay
       return () => {
-        clearTimeout(timer); // Cleanup: Cancel the timer if the component unmounts
+        clearTimeout(secretTimer); // Cleanup: Cancel the timer if the component unmounts
       };
     }
     if(data && data.worddef){
-      const timer = setTimeout(() => {
+      const defTimer = setTimeout(() => {
         console.log("XXXXXXXXX Definition updated.");
         console.log(data.worddef);
         setDefinition(data.worddef);
@@ -173,7 +172,7 @@ function Wordle() {// Main function component
       }, 50); // 0.05 second delay
       
       return () => {
-        clearTimeout(timer); // Cleanup: Cancel the timer if the component unmounts
+        clearTimeout(defTimer); // Cleanup: Cancel the timer if the component unmounts
       };
     }
   }, [data]
@@ -219,6 +218,20 @@ function Wordle() {// Main function component
       console.log(settingMenuText);
       wordLength = parseFloat(settingMenuText);
       await fetchRandomWordFromBackend(wordLength);
+
+      // the code below is the intermediate code before i can get a good wordAPI
+      // let tempSecretWord;
+      // let wordSet=false;
+      // while(!wordSet){
+      //   tempSecretWord = Dictionary[(((Math.random()*Dictionary.length+1)) | 0)]; // random word in list
+      //   if((settingMenuText==="")||(parseFloat(settingMenuText)===secretWord.length)){    // if no desired wordlength or secretword length equals desired word length
+      //     wordLength = secretWord.length;
+      //     wordSet=true;
+      //   }
+      // }
+      // setSecretWord(tempSecretWord)
+      // fetchDefinition(tempSecretWord);
+
     } catch (error) {
       console.error('Error fetching random word:', error.message);
       setOutputMessage('Error fetching random word. Please try again later.');
