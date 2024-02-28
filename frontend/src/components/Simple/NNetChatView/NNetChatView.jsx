@@ -63,8 +63,10 @@ useEffect(() => {
 
   // Handle errors
   if (dataIsError) {
-    toast.error(dataMessage);
-  }
+    if (dataMessage && !dataMessage.includes('token')) {
+        toast.error(dataMessage, { autoClose: toastDuration });
+      }
+}
 
   // Reset the data slice when unmounting or when there's an error
   return () => {

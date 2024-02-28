@@ -18,7 +18,9 @@ function Agenda() {
   const [ myActions, setMyActions ] = useState([])
   const navigate = useNavigate() // initialization
   const dispatch = useDispatch() // initialization
-
+  const rootStyle = window.getComputedStyle(document.body);
+  const toastDuration = parseInt(rootStyle.getPropertyValue('--toast-duration'), 10);
+  
   const { user, data, dataIsLoading, dataIsSuccess, dataIsError, dataMessage } = useSelector(     // select values from state
   (state) => state.data
 )
@@ -30,9 +32,10 @@ function Agenda() {
     }
 
     if (dataIsError) {
-      toast.error(dataMessage) // print error to toast errors      
-      console.error(dataMessage);
-    }
+      if (dataMessage && !dataMessage.includes('token')) {
+          toast.error(dataMessage, { autoClose: toastDuration });
+        }
+  }
 
     async function getMyData(){
       try {

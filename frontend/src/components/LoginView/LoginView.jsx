@@ -11,7 +11,8 @@ function LoginView(props) {
 
     const navigate = useNavigate() // initialization
     const dispatch = useDispatch() // initialization
-
+    const rootStyle = window.getComputedStyle(document.body);
+    const toastDuration = parseInt(rootStyle.getPropertyValue('--toast-duration'), 10);
 
     // select values from state
     const { user, dataIsLoading, dataIsError, dataIsSuccess, dataMessage } = useSelector(
@@ -35,7 +36,9 @@ function LoginView(props) {
     // called on state changes
     useEffect(() => {
         if (dataIsError) {
-            toast.error(dataMessage) // print error to toast errors
+            if (dataMessage && !dataMessage.includes('token')) {
+                toast.error(dataMessage, { autoClose: toastDuration });
+              }
         }
 
         if (dataIsSuccess || user) {  // if registered or logged in, 

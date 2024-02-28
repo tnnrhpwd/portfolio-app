@@ -30,7 +30,9 @@ function Start() {
 
     // const navigate = useNavigate() // initialization
     const dispatch = useDispatch() // initialization
-  
+    const rootStyle = window.getComputedStyle(document.body);
+    const toastDuration = parseInt(rootStyle.getPropertyValue('--toast-duration'), 10);
+    
     // const { user } = useSelector((state) => state.auth)      // select user values from user state
     const { data, user, dataIsLoading, dataIsError, dataMessage } = useSelector(     // select data values from data state
         (state) => state.plans
@@ -44,7 +46,9 @@ function Start() {
     // called on state changes
     useEffect(() => {
         if (dataIsError) {
-            toast.error(dataMessage) // print error to toast errors
+            if (dataMessage && !dataMessage.includes('token')) {
+                toast.error(dataMessage, { autoClose: toastDuration });
+              }
         }
 
         // if( ( !user ) && ( renders === 0 ) ){

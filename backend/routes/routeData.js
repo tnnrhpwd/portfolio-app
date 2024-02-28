@@ -1,22 +1,21 @@
-// This file imports the data object schema + functions | Routers listen for requests then execute callback functions 
-const express = require('express')
-const router = express.Router()
-const {
-  getData,
-  setData,
-  updateData,
-  deleteData,
-  registerUser,
-  loginUser,
-} = require('../controllers/controllerData')
+// Import necessary dependencies
+const express = require('express');
+const router = express.Router();
+const { protect } = require('../middleware/authMiddleware');
 
-// Declare authentication variable
-const { protect } = require('../middleware/authMiddleware')
+// Import controller functions
+const { setData, getData, updateData, deleteData, registerUser, loginUser } = require('../controllers/index.js');
 
-// listens for HTTP requests on /api/data/
-router.route('/').get(protect, getData).post(protect, setData) // GET + POST -- The lack of middleware here allows anyone to get or post data without being authorized. this must be resolved prior to launch.
-router.route('/:id').delete(protect, deleteData).put(protect, updateData) // DELETE + UPDATE -- The protect middleware here prevents access from users without JWT
-router.post('/register', registerUser)
-router.post('/login', loginUser)
+// Routes
+router.route('/')
+  .get(protect, getData) // GET request for fetching data
+  .post(protect, setData); // POST request for setting data
 
-module.exports = router
+router.route('/:id')
+  .delete(protect, deleteData) // DELETE request for deleting data
+  .put(protect, updateData); // PUT request for updating data
+
+router.post('/register', registerUser); // Route to handle user registration
+router.post('/login', loginUser); // Route to handle user login
+
+module.exports = router; // Export the router

@@ -32,7 +32,7 @@ function Login() {
     // called on state changes
     useEffect(() => {
         if (user && !user._id) {
-            toast.error(dataMessage) // print error to toast errors
+            toast.error("We're sorry. We are having issues finding your account ID.", { autoClose: 2000 }) // print error to toast errors
             dispatch(logout())  // dispatch connects to the store, then remove user item from local storage
         }
         if (dataIsError) {
@@ -40,7 +40,7 @@ function Login() {
                 toast.error(dataMessage, { autoClose: toastDuration });
               }
         }
-        if (user) {  // if registered or logged in, 
+        if (user && user._id) {  // if registered or logged in, 
             toast.success("Successfully logged in as "+user.nickname, { autoClose: 2000 }) // print error to toast errors
             navigate('/')           // send user to dashboard
         }else{
