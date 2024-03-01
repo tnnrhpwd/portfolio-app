@@ -54,6 +54,8 @@ To run this project locally:
     npm start
     ```
 
+    ![alt text](image.png)
+
 The application will start on http://localhost:3000.
 
 Contributing
