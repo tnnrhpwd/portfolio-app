@@ -112,7 +112,8 @@ function Wordle() {// Main function component
 
   useEffect(()=>{
     if (dataMessage && !dataMessage.includes('token')) {
-      toast.error(dataMessage, { autoClose: toastDuration });
+      if(dataMessage.includes('getdef'))
+      toast.error("We're sorry. Connection to the definition API has failed", { autoClose: toastDuration });
     }
     // return () => {
     // resetDataSlice()
