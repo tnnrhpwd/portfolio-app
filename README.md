@@ -55,6 +55,8 @@ To run this project locally:
     ```
 
     ![alt text](image.png)
+    
+    ![alt text](image-1.png)
 
 The application will start on http://localhost:3000.
 
