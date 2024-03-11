@@ -1,7 +1,6 @@
-import { useRef, useEffect } from 'react';
+import { useRef } from 'react';
 import useOutsideAlerter from '../../useOutsideAlerter.js';
 import React from 'react';
-import { useDispatch } from 'react-redux';
 import { ReactComponent as Book } from '../../../assets/book.svg';
 import { ReactComponent as Delete } from '../../../assets/delete.svg';
 import { ReactComponent as Archive } from '../../../assets/archive.svg';
@@ -9,7 +8,7 @@ import { ReactComponent as Copy } from '../../../assets/copy.svg';
 
 
 function NNetBookView({ myChats, onChatClick, onDeleteData, onUpdateData, onCopyToClipboard }) {
-  const dispatch = useDispatch(); // Initialize dispatch
+  // const dispatch = useDispatch(); // Initialize dispatch
   const hideComponentVisibility = () => {
     document.getElementById("planit-NNetBookView__toggle").checked = false;
   };

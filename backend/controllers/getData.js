@@ -68,17 +68,23 @@ const getData = asyncHandler(async (req, res) => {
       res.status(200).json({ worddef: definition }); // Return the definition
 
     } else {      // Handle database search requests
-      const datas = await Data.find({
-        $and: [
-          { data: { $regex: dataSearchString, $options: 'i' } },
-          { user: userSearchString },
-        ],
-      });
-
-      if (dataSearchString === "net:") {
-        res.status(200).json({ data: datas.map((data) => `${data._id} ${data.data}`) });
-      } else {
-        res.status(200).json({ data: datas.map((data) => data.data) });
+      try {
+        const datas = await Data.find({
+          $and: [
+            { data: { $regex: dataSearchString, $options: 'i' } },
+            { user: userSearchString },
+          ],
+        });
+    
+        if (dataSearchString === "net:") {
+          res.status(200).json({ data: datas.map((data) => `${data._id} ${data.data}`) });
+        } else {
+          res.status(200).json({ data: datas.map((data) => data.data) });
+        }
+      } catch (error) {
+        // Handle the error appropriately (e.g., log it, send an error response, etc.)
+        console.error("Error fetching data:", error);
+        res.status(500).json({ error: "Internal server error" });
       }
     }
   } catch (error) {

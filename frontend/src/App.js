@@ -44,7 +44,7 @@ function App() {
           <Route path='/about' element={<About />} />
           <Route path='/agenda' element={<Agenda />} />
           <Route path="/annuities" element={<Annuities/>} />
-          <Route path="/boggle" element={<BoggleBox/>} />
+          {/* <Route path="/boggle" element={<BoggleBox/>} /> */}
           <Route path="/contact" element={<Contact/>} />
           <Route path="/drafting" element={<Drafting/>} />
           <Route path="/ethanol" element={<Ethanol/>} />

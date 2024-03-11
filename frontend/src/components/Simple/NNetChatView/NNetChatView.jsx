@@ -25,76 +25,88 @@ const NNetChatView = () => {
   const { user, data, dataIsSuccess, dataIsLoading, dataIsError, dataMessage, operation } = useSelector(
     (state) => state.data
   );
-  // Handle data updates
-  useEffect(() => {
+  useEffect(() => {  // Handle loading updates
     // if data is loading for longer than 5 seconds, show a toast
     if (dataIsLoading) {
-      setTimeout(() => {
-        if (dataIsLoading) {
-          toast.info('Fetching data from OpenAI...', { autoClose: toastDuration });
-        }
-      }, 5000);
+      // setTimeout(() => {
+      //   if (dataIsLoading) {
+      //     toast.info('Connecting to database...', { autoClose: toastDuration });
+      //   }
+      // }, 500);
+        toast.info('Connecting to database...', { autoClose: toastDuration });
     } 
     // Reset the data slice when unmounting or when there's an error
     return () => {
     };
   }, [dataIsLoading]);
 
-  // Handle data updates
-useEffect(() => {
-  // If there is a new successful response from updateData, update the chat history
-  if (operation === 'update' && dataIsSuccess) {
-    console.log(data);
-    const originalString = data.data[0];
-    const dataString = originalString.includes("|Net:") ? originalString.split("|Net:")[1] : originalString;
-
-    if (inputText === '') {
-      setChatHistory((prevChatHistory) => [...prevChatHistory, { content: dataString }]);
-    } else {
-      setChatHistory((prevChatHistory) => [...prevChatHistory, { content: inputText }, { content: dataString }]);
-    }
-    setInputText('');
-  }
-
-  // If there is a new successful response from getData, update priorChats
-  if (operation === 'get' && dataIsSuccess) {
-    setPriorChats(data.data); // Ensure that dataIsSuccess is true before updating priorChats
-  }
-
-  // Handle errors
-  if (dataIsError) {
-    if (dataMessage && !dataMessage.includes('token')) {
-        toast.error(dataMessage, { autoClose: toastDuration });
+  useEffect(() => {  // Handle updatedata updates
+    // If there is a new successful response from updateData, update the chat history
+    if (operation === 'update' && dataIsSuccess && data.data) {
+      console.log(data);
+      const originalString = data.data[0];
+      const dataString = originalString.includes("|Net:") ? originalString.split("|Net:")[1] : originalString;
+  
+      if (inputText === '') {
+        setChatHistory((prevChatHistory) => [...prevChatHistory, { content: dataString }]);
+      } else {
+        setChatHistory((prevChatHistory) => [...prevChatHistory, { content: inputText }, { content: dataString }]);
       }
-}
-
-  // Reset the data slice when unmounting or when there's an error
-  return () => {
-    if (dataIsSuccess || dataIsError) { dispatch(resetDataSlice()); }
-  };
-}, [dataIsSuccess, dataIsError, dataMessage, operation, dispatch]);
-
-// Additional useEffect for fetching data on component mount
-useEffect(() => {
-  async function getMyData() {
-    try {
-      if (!user || user === null) {
-        toast.error('Please log in to utilize this API.', { autoClose: toastDuration });
-        return;
-      }
-      await dispatch(getData({ data: "Net:" }));
-    } catch (error) {
-      console.error(error);
-      toast.error(error, { autoClose: toastDuration });    
+      setInputText('');
     }
-  }
-  getMyData();
+  
+    // Handle errors
+    if (dataIsError) {
+      if (dataMessage && !dataMessage.includes('token')) {
+          toast.error(dataMessage, { autoClose: toastDuration });
+        }
+    }
+  
+    // Reset the data slice when unmounting or when there's an error
+    return () => {
+      if (dataIsSuccess || dataIsError) { dispatch(resetDataSlice()); }
+    };
+  }, [dataIsSuccess, dataIsError, dataMessage, operation, dispatch]);
 
-  // Reset the data slice when the component unmounts
-  return () => {
-    dispatch(resetDataSlice());
-  };
-}, [dispatch]);
+  useEffect(() => {  // Handle getdata updates
+    // If there is a new successful response from getData, update priorChats
+    if (operation === 'get' && dataIsSuccess) {
+      setPriorChats(data.data); // Ensure that dataIsSuccess is true before updating priorChats
+    }
+
+    // Handle errors
+    if (dataIsError) {
+      if (dataMessage && !dataMessage.includes('token')) {
+          toast.error(dataMessage, { autoClose: toastDuration });
+        }
+    }
+
+    // Reset the data slice when unmounting or when there's an error
+    return () => {
+      if (dataIsSuccess || dataIsError) { dispatch(resetDataSlice()); }
+    };
+  }, [dataIsSuccess, dataIsError, dataMessage, operation, dispatch]);
+
+  useEffect(() => {  // Additional useEffect for fetching data on component mount
+    async function getMyData() {
+      try {
+        if (!user || user === null) {
+          toast.error('Please log in to utilize this API.', { autoClose: toastDuration });
+          return;
+        }
+        await dispatch(getData({ data: "Net:" }));
+      } catch (error) {
+        console.error(error);
+        toast.error(error, { autoClose: toastDuration });    
+      }
+    }
+    getMyData();
+
+    // Reset the data slice when the component unmounts
+    return () => {
+      dispatch(resetDataSlice());
+    };
+  }, [dispatch]);
   
   const handleSend = async () => {
     try {
