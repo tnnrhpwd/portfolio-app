@@ -6,9 +6,13 @@ import Header from '../../../components/Header/Header';
 
 function Sonic() {
   const [noteData, setNoteData] = useState({});
-  
+  const [soundCheck, setSoundCheck] = useState(false);
+
   const handleNewNoteData = (newData) => {
     setNoteData(newData);
+  };
+  const handleRunButtonClick = () => {
+    setSoundCheck(true);
   };
 
   return (
@@ -25,6 +29,12 @@ function Sonic() {
             <div className="Sonic-calculator-title">
               Frequency Calculator
             </div>
+            <button id="Sonic-sourcecode" onClick={handleRunButtonClick}>
+              Run
+            </button>
+            {soundCheck && (
+              <FrequencyAnalyzer onNewNoteData={handleNewNoteData} />
+            )}
             <div className="Sonic-note-data">
               <div>Note: {noteData.noteName}</div>
               <div>Octave: {noteData.octave}</div>
@@ -43,7 +53,6 @@ function Sonic() {
         </a>
       </div>
       <Footer />
-      <FrequencyAnalyzer onNewNoteData={handleNewNoteData} />
     </>
   );
 }
