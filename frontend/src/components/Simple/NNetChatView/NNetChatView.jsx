@@ -125,7 +125,7 @@ const NNetChatView = () => {
       }
 
       // Dispatch the updateData action with the inputText
-      dispatch(updateData({ data: combinedData }));
+      dispatch(updateData({ id: 'compress', data: combinedData }));
     } catch (error) {
       // Handle any errors here
       console.error(error);
