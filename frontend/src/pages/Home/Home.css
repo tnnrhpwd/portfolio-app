@@ -144,6 +144,7 @@
     background: linear-gradient(to right, transparent 25%, var(--white1-transp) 50%, transparent 75%);
     background-size: 200% auto;
     filter: drop-shadow(30px 30px 30px #000);
+    text-wrap:wrap;
 }
 .home-spc-logo{
     display: inline-block;

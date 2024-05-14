@@ -53,14 +53,10 @@ function Home() {
               </div> */}
             </div>
             <div id="content-tile">
-              <div id="text-body"> Tools: </div>
+              <div id="text-body"> Updated Tools: </div>
               <div className="home-spc">
-                <a className="home-spc-tool" href={netlink} ><div className="home-spc-tool-text">{netlink}</div></a> 
-                <a className="home-spc-tool" href={agendalink} ><div className="home-spc-tool-text">{agendalink}</div></a> 
                 <a className="home-spc-tool" href={passlink} ><div className="home-spc-tool-text">{passlink}</div></a> 
                 <a className="home-spc-tool" href={annuitylink} ><div className="home-spc-tool-text">{annuitylink}</div></a> 
-                <a className="home-spc-tool" href={soniclink} ><div className="home-spc-tool-text">{soniclink}</div></a> 
-                <a className="home-spc-tool" href={wordlelink} ><div className="home-spc-tool-text">{wordlelink}</div></a> 
               </div>
             </div>
           </section>
