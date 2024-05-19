@@ -1,8 +1,12 @@
 // updateData.js
 
 const asyncHandler = require('express-async-handler');
+const openai = require('openai')
+require('dotenv').config();
 const Data = require('../models/dataModel');
 const { setData } = require('../controllers/setData.js');
+const openaikey = process.env.OPENAI_KEY
+const client = new openai({ apiKey: openaikey })
 
 // @desc    Update Data
 // @route   PUT /api/data/:id
@@ -18,7 +22,7 @@ const updateData = asyncHandler(async (req, res) => {
   
     if (updateType === "compress") {
       // Check for user
-      if (!req.user.data.includes("tannerh@engineer.com")) {
+      if (!req.user.data.includes("tnnrhpwd@gmail.com")) {
         res.status(401)
         throw new Error('Only admin are authorized to utilize the API at this time.')
       }
@@ -36,15 +40,19 @@ const updateData = asyncHandler(async (req, res) => {
           const compressedData = response.choices[0].text; // Extract the compressed data from the OpenAI response.
   
           // Extract the ID from the userInput string.
-          const id = userInput.split(' ')[0]; // Assuming the ID is the first part of the string, separated by a space.
-      
+          // const id = userInput.split(' ')[0]; // Assuming the ID is the first part of the string, separated by a space.
+
           // Check if the ID is a valid ObjectID
-          if (typeof id !== 'string') {
+          // if (typeof id !== 'string') {
             // If not a valid ObjectID, call setData
-            const newData = await setData({ body: { data: userInput } });
-  
+          try{
+            // const newData = await setData({ body: { data: userInput } });
+
             res.status(200).json({ data: [compressedData] });
             return;
+          }catch (error){
+            console.error(error);
+            res.status(400).json({ data: 'No compressed data found in the OpenAI response' });
           }
   
           // Check if the ID exists in the database
