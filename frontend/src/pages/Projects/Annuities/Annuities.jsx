@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { updateData, getData, resetDataSlice, deleteData } from '../../../features/data/dataSlice.js';
+import { toast } from 'react-toastify';
 import Dropdown from "react-dropdown";
 import "react-dropdown/style.css";
 import NewAnnuity from './NewAnnuity';
@@ -8,6 +11,44 @@ import "./Annuities.css";
 import Header from '../../../components/Header/Header';
 
 function Annuities() {
+    const rootStyle = window.getComputedStyle(document.body);
+    const toastDuration = parseInt(rootStyle.getPropertyValue('--toast-duration'), 10);
+
+    const dispatch = useDispatch();
+    const [powerMode, setPowerMode] = useState(false);
+
+    // Get the relevant data from the state
+    const { user, data, dataIsSuccess, dataIsLoading, dataIsError, dataMessage, operation } = useSelector(
+        (state) => state.data
+    );
+
+    useEffect(() => {  // Additional useEffect for fetching data on component mount
+        async function getMyData() {
+          try {
+            if (!user || user === null) { //guard clause: no user
+                setPowerMode(false)
+                return;
+            }
+            if (!user._id || user._id === '64efe9e2c42368e193ee6977') { // guard clause: guest user
+                setPowerMode(false);
+                return;
+            }setPowerMode(true)
+            toast.success('Power user active.', {autoClose: toastDuration});
+            await dispatch(getData({ data: "Net:" }));
+          } catch (error) {
+            console.error(error);
+            toast.error(error, { autoClose: toastDuration });    
+          }
+        }
+        if (!dataIsSuccess){
+            getMyData();
+        }
+    
+        // Reset the data slice when the component unmounts
+        return () => {
+          dispatch(resetDataSlice());
+        };
+    }, [dispatch]);
 
     var crntAnswer=0;
 
