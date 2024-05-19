@@ -33,7 +33,7 @@ const NNetChatView = () => {
       //     toast.info('Connecting to database...', { autoClose: toastDuration });
       //   }
       // }, 500);
-        toast.info('Connecting to database...', { autoClose: toastDuration });
+        // toast.info('Connecting to database...', { autoClose: toastDuration });
     } 
     // Reset the data slice when unmounting or when there's an error
     return () => {
