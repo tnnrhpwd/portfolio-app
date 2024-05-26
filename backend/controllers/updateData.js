@@ -26,8 +26,14 @@ const updateData = asyncHandler(async (req, res) => {
         res.status(401)
         throw new Error('Only admin are authorized to utilize the API at this time.')
       }
-  
-      const userInput = req.body.data; // Get user's input from the query string. ex. 659887fa192e6e8a77e5d9c5 Creator:65673ec1fcacdd019a167520|Net:Steven:Wassaup, Baby!
+      
+      if (!req.body.data.includes("Net:")) {
+        res.status(401)
+        throw new Error('Net: not included.')
+      }
+      const contextInput = req.body.data // Get context input from the query string. ex. 659887fa192e6e8a77e5d9c5 Creator:65673ec1fcacdd019a167520|Net:Steven:Wassaup, Baby! 
+      const netIndex = contextInput.indexOf('Net:'); 
+      const userInput = contextInput.substring(netIndex + 4); // Get user's input from the query string. ex. Steven:Wassaup, Baby! 
   
       try {
         const response = await client.completions.create({
@@ -39,15 +45,17 @@ const updateData = asyncHandler(async (req, res) => {
         if (response.choices && response.choices.length > 0) {
           const compressedData = response.choices[0].text; // Extract the compressed data from the OpenAI response.
   
-          // Extract the ID from the userInput string.
-          // const id = userInput.split(' ')[0]; // Assuming the ID is the first part of the string, separated by a space.
+          // Extract the ID from the contextInput string.
+          const id = contextInput.split(' ')[0]; // Assuming the ID is the first part of the string, separated by a space.
 
           // Check if the ID is a valid ObjectID
-          // if (typeof id !== 'string') {
-            // If not a valid ObjectID, call setData
-          try{
-            // const newData = await setData({ body: { data: userInput } });
+          if (typeof id !== 'string') {
+            throw new Error('Data input invalid')
+          }
 
+          // If not a valid ObjectID, call setData
+          try{
+            const newData = await setData({ body: { data: "contextInput+compressedData" } });
             res.status(200).json({ data: [compressedData] });
             return;
           }catch (error){
