@@ -1,0 +1,35 @@
+.graph-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    background-color: var(--bg);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    color: var(--text-color);
+}
+
+.graph-title {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.graph-description {
+    font-size: 16px;
+    color: var(--text-color);
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.chart-wrapper {
+    width: 100%;
+    max-width: 800px;
+    height: auto;
+}
+
+.chartjs-render-monitor {
+    height: 100% !important;
+    width: 100% !important;
+}

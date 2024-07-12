@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import Dropdown from "react-dropdown";
 import "react-dropdown/style.css";
 import NewAnnuity from './NewAnnuity';
-// import GraphAnnuities from './GraphAnnuities';
+import GraphAnnuities from './GraphAnnuities';
 import Footer from '../../../components/Footer/Footer';
 import "./Annuities.css";
 import Header from '../../../components/Header/Header';
@@ -175,13 +175,13 @@ function Annuities() {
                 }
             </div>
 
-            {/* <div className='annuities-output'>
-                <span className='annuities-output-span'>
-                    graph of money over time - broken atm
-                    <GraphAnnuities chartData={annuityCall}   />
-                </span>
-                
-            </div> */}
+            {/* {!(answer===0)&&
+                <div className='annuities-output'>
+                    <span className='annuities-output-span'>
+                        <GraphAnnuities chartValue={answer} chartData={annuityCall}   />
+                    </span>
+                </div>
+            }   */}
 
             <div className='annuities-resulttime'>
                 <div className='annuities-resulttime-text'>
