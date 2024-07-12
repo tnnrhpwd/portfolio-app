@@ -1,25 +1,56 @@
-import React from 'react'
-// import { Bar, Doughnut, Line } from 'react-chartjs-2';
-import "./GraphAnnuities.css";
+import React from 'react';
+import { Line } from 'react-chartjs-2';
+import 'chartjs-adapter-moment';
+import { Chart, registerables } from 'chart.js';
+import './GraphAnnuities.css';
 
+Chart.register(...registerables);
 
-function GraphAnnuities(props) {
+const GraphAnnuities = ({ chartData, chartValue }) => {
+  const data = {
+    labels: chartData.map((dataPoint, index) => `Period ${index + 1}`),
+    datasets: [
+      {
+        label: 'Annuity Value',
+        data: chartData,
+        fill: false,
+        backgroundColor: 'rgba(75,192,192,0.4)',
+        borderColor: 'rgba(75,192,192,1)',
+        tension: 0.1
+      }
+    ]
+  };
 
-  let temp = props.chartData;
-
-  // const chartData = {
-  //   labels: ['Red', 'Blue', 'Yellow', 'Green', 'Purple', 'Orange'],
-  //   datasets: [{
-  //     data: [12,26,45,56,1,5],
-  //   }]
-  // };
+  const options = {
+    scales: {
+      x: {
+        beginAtZero: true
+      },
+      y: {
+        beginAtZero: true
+      }
+    },
+    plugins: {
+      legend: {
+        display: true,
+        position: 'top'
+      }
+    }
+  };
 
   return (
-    <div>
-      {temp}
-      {/* <Bar data={chartData} /> */}
+    <div className="graph-container">
+      <div className="graph-title">Annuity Value Over Time</div>
+      <div className="graph-description">
+        This graph shows the value of the annuity over the specified periods.
+        {chartData}
+        {chartValue}
+      </div>
+      <div className="chart-wrapper">
+        <Line data={data} options={options} />
+      </div>
     </div>
-  )
-}
+  );
+};
 
 export default GraphAnnuities;
