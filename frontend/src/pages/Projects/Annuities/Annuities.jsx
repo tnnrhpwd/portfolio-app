@@ -131,9 +131,11 @@ function Annuities() {
             }  
 
             <div className='annuities-resulttime'>
-                <div className='annuities-resulttime-text'>
-                    The {time.substring(1)} Value would be ${answer.toFixed(2)}.
-                </div>
+                {!(answer===0)&&
+                    <div className='annuities-resulttime-text'>
+                        The {time.substring(1)} Value would be ${answer.toFixed(2)}.
+                    </div>
+                }  
             </div>
 
             <div className='annuities-description'>
