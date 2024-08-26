@@ -18,7 +18,7 @@ const rcmlink = "https://www.rcmindustries.com/";
 const shawlink = "https://www.shawinc.com/";
 const faulink = "https://www.faurecia.com/en";
 const yflink = "https://www.yanfeng.com/en";
-const simplelink = "https://drive.google.com/drive/folders/1lKQeLUHYwlrqO8P7LkMztHxSd_CpTvrx?usp=sharing";
+const simplelink = "https://drive.google.com/file/d/1dgROR6QlmSmjvCIUC-cd5jZlktB8DxUF/view?usp=sharing";
 
 const netlink = "/net";
 const agendalink = "/agenda";
@@ -60,14 +60,14 @@ function Home() {
                 <a className="home-spc-tool" href={annuitylink} ><div className="home-spc-tool-text">{annuitylink}</div></a> 
               </div>
             </div>
-            {/* <div id="content-tile">
+            <div id="content-tile">
               <div id="text-body"> Apps: </div>
               <div className="home-spc">
                 <a className="home-spc-tool" href={simplelink} target="_blank" rel="noreferrer">
-                  <div className="home-spc-tool-text">Simple (Windows 64x)</div>
+                  <div className="home-spc-tool-text">Simple (Windows)</div>
                 </a> 
               </div>
-            </div> */}
+            </div>
           </section>
           <section className="section-tile">
             <div id="content-tile">
