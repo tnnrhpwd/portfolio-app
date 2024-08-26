@@ -18,7 +18,7 @@ const rcmlink = "https://www.rcmindustries.com/";
 const shawlink = "https://www.shawinc.com/";
 const faulink = "https://www.faurecia.com/en";
 const yflink = "https://www.yanfeng.com/en";
-const simplelink = "https://drive.google.com/file/d/1dgROR6QlmSmjvCIUC-cd5jZlktB8DxUF/view?usp=sharing";
+const simplelink = "https://github.com/tnnrhpwd/C-Simple";
 
 const netlink = "/net";
 const agendalink = "/agenda";
