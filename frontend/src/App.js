@@ -74,6 +74,7 @@ function App() {
           <Route path='/terms' element={<Terms />} />
           <Route path="/wordle" element={<Wordle/>} />
           <Route path="/wordlesolver" element={<WordleSolver/>} />
+          <Route path="/Simple" element={<Simple/>} />
           </Routes>
       </div>
     </Router>

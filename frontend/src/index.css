@@ -74,6 +74,7 @@ code {
   --bg:var(--white2-transp);
   --bg-1:rgba(255, 255, 255, 0.45);
   --bg-orange:rgb(255, 244, 225);
+  --bg-orange1:rgb(252, 193, 189);
   --bg-pink:rgb(255, 233, 255);
   --bg-blue:rgb(224, 224, 255);
   --bg-mint:rgb(219, 255, 255);
@@ -98,6 +99,7 @@ code {
   --bg:var(--grey6);
   --bg-1:rgba(4, 4, 4, 0.8);
   --bg-orange:rgb(98, 63, 0);
+  --bg-orange1:rgb(255, 111, 97);
   --bg-pink:rgb(81, 0, 81);
   --bg-blue:rgb(0, 0, 67);
   --bg-mint:rgb(0, 62, 62);

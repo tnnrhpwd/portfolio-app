@@ -1,20 +1,20 @@
-.planit-dashboard-upper {
+/* .planit-dashboard-upper {
   padding-top: calc(var(--nav-size) * 1);
   min-height: 100vh;
   min-height: calc(var(--nav-size) * 2);
-}
-.planit-dashboard-upper-header {
+} */
+/* .planit-dashboard-upper-header {
   padding: calc(var(--nav-size) * 0.5);
-}
-.planit-dashboard-popular {
+} */
+/* .planit-dashboard-popular {
   padding: calc(var(--nav-size) * 0.5);
   padding-right: calc(var(--nav-size) * 2);
   padding-left: calc(var(--nav-size) * 2);
   height: 100vh;
   overflow: hidden;
   display: flex;
-}
-.planit-dashboard-popular-left {
+} */
+/* .planit-dashboard-popular-left {
   min-height: 100%;
   display: block;
   overflow: hidden;
@@ -22,13 +22,80 @@
 .planit-dashboard-popular-right {
   display: block;
   min-height: 100%;
+} */
+.planit-dashboard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* padding: 1rem; */
+  background: linear-gradient(135deg, #f0f0f0 0%, #d9e8fc 100%);
+  min-height: 100vh;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+.planit-dashboard-upper {
+  background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
+  /* border-radius: 8px; */
+  /* padding: 1.5rem; */
+  width: 100%;
+  /* width: 90%; */
+  text-align: center;
+  min-height: 50vh;
+  /* border-top: 4px solid #0078d7; */
+}
+.planit-dashboard-upper-header {
+  font-size: calc(var(--nav-size)*.8);
+  font-weight: 600;
+  color: var(--text-color);
+  margin-bottom: 0.75rem;
+  margin-top: calc(var(--nav-size)*2);
+}
+.planit-dashboard-upper-description {
+  font-size: calc(var(--nav-size)*.4);
+  color: var(--text-color);
+  margin-top: calc(var(--nav-size)*2);
+  margin-bottom: calc(var(--nav-size)*2);
+  line-height: calc(var(--nav-size)*1.1);
+  padding: calc(var(--nav-size)*0.6) calc(var(--nav-size)*0.6);
+}
+.planit-dashboard-download {
+  margin: calc(var(--nav-size)*1) calc(var(--nav-size)*1);
+
+}
+.download-link {
+  display: inline-block;
+  padding: 0.5rem 1.5rem;
+  font-size: calc(var(--nav-size)*0.5);
+  font-weight: 500;
+  color: var(--text-color);
+  background-color: var(--bg-orange1);
+  border-radius: 4px;
+  text-decoration: none;
+  transition: background-color 0.3s ease;
+  box-shadow: 0 calc(var(--nav-size)*.2) calc(var(--nav-size)*.4) var(--text-color);
+}
+.download-link:hover {
+  background-color: #e65c4f;
+}
+.planit-dashboard-lower {
+  font-size: calc(var(--nav-size)*0.4);
+  /* padding-left: calc(var(--nav-size)*1); */
+  /* padding-right: calc(var(--nav-size)*1); */
+  background-color: var(--bg-1);
+  width: 100vw;
+  color: var(--text-color);
+  min-height: 50vh;
+}
+.planit-dashboard-features {
+  font-size: calc(var(--nav-size)*0.4);
+  padding: calc(var(--nav-size)*0.6) calc(var(--nav-size)*0.6);
+}
+.planit-dashboard-feedback {
+  font-size: calc(var(--nav-size)*0.4);
+  padding: calc(var(--nav-size)*0.6) calc(var(--nav-size)*0.6);
 }
 
-@media (orientation: landscape) {
-  /* Add landscape-specific styles here */
-}
 @media (orientation: portrait) {
-  .planit-dashboard-upper {
+  /* .planit-dashboard-upper {
     min-height: calc(var(--nav-size) * 1);
   }
   .planit-dashboard-popular {
@@ -41,5 +108,5 @@
   #planit-dashboard-popular-left-plans-middledashboard-button {
     font-size: large;
     display: block;
-  }
+  } */
 }

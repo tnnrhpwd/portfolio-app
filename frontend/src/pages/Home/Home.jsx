@@ -18,7 +18,6 @@ const rcmlink = "https://www.rcmindustries.com/";
 const shawlink = "https://www.shawinc.com/";
 const faulink = "https://www.faurecia.com/en";
 const yflink = "https://www.yanfeng.com/en";
-// const simplelink = "https://github.com/tnnrhpwd/C-Simple";
 
 const netlink = "/net";
 const agendalink = "/agenda";
@@ -26,6 +25,7 @@ const passlink = "/passgen";
 const annuitylink = "/annuities";
 const soniclink = "/sonic";
 const wordlelink = "/wordle";
+const simplelink = "/simple";
 
 function Home() {
   return (
@@ -60,14 +60,14 @@ function Home() {
                 <a className="home-spc-tool" href={annuitylink} ><div className="home-spc-tool-text">{annuitylink}</div></a> 
               </div>
             </div>
-         {/*     <div id="content-tile">
+             <div id="content-tile">
               <div id="text-body"> Apps: </div>
               <div className="home-spc">
-                <a className="home-spc-tool" href={simplelink} target="_blank" rel="noreferrer">
+                <a className="home-spc-tool" href={simplelink}>
                   <div className="home-spc-tool-text">Simple (Windows)</div>
                 </a> 
               </div>
-            </div>*/}
+            </div>
           </section>
           <section className="section-tile">
             <div id="content-tile">
