@@ -78,7 +78,7 @@
 }
 .planit-dashboard-lower {
   font-size: calc(var(--nav-size)*0.4);
-  background-color: var(--bg-1);
+  /* background-color: var(--bg-1); */
   width: 100vw;
   color: var(--text-color);
   min-height: 50vh;

@@ -1,6 +1,8 @@
 import React from 'react';
 import Header from './../../../components/Header/Header';
 import './Simple.css';
+import Footer from './../../../components/Footer/Footer';
+
 const simplelink = "https://github.com/tnnrhpwd/C-Simple";
 
 function Simple() {
@@ -36,6 +38,7 @@ function Simple() {
             <p>"Incredibly intuitive and helpful."</p>
           </section>
         </div>
+        <Footer />
       </div>
     </>
   );
