@@ -28,7 +28,7 @@
   flex-direction: column;
   align-items: center;
   /* padding: 1rem; */
-  background: linear-gradient(135deg, #f0f0f0 0%, #d9e8fc 100%);
+  background: linear-gradient(135deg, var(--bg-1) 0%, var(--bg-page-transp) 100%);
   min-height: 100vh;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
@@ -83,12 +83,46 @@
   color: var(--text-color);
   min-height: 50vh;
 }
+.planit-dashboard-preview {
+  font-size: calc(var(--nav-size) * 0.4);
+  padding: calc(var(--nav-size) * 0.4);
+  border-radius: 8%;
+  text-align: center;
+}
+.planit-dashboard-preview h2 {
+  margin-top: calc(var(--nav-size) * 0);
+  margin-bottom: calc(var(--nav-size) * 0.6);
+  height: calc(var(--nav-size) * 0.55);
+}
+.planit-dashboard-preview ul {
+  list-style-type: none;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  gap: 2%;
+}
+.planit-dashboard-preview li {
+  flex: 1;
+}
+.planit-dashboard-preview-img {
+  max-width: 100%; /* Reduced max width for smaller images */
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease;
+}
+.planit-dashboard-preview-img:hover {
+  transform: scale(1.05);
+}
 .planit-dashboard-features {
-  font-size: calc(var(--nav-size)*0.4);
+  font-size: calc(var(--nav-size)*0.35);
   padding: calc(var(--nav-size)*0.6) calc(var(--nav-size)*0.6);
 }
+.planit-dashboard-features h2 {
+
+}
 .planit-dashboard-feedback {
-  font-size: calc(var(--nav-size)*0.4);
+  font-size: calc(var(--nav-size)*0.35);
   padding: calc(var(--nav-size)*0.6) calc(var(--nav-size)*0.6);
 }
 

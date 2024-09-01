@@ -2,6 +2,9 @@ import React from 'react';
 import Header from './../../../components/Header/Header';
 import './Simple.css';
 import Footer from './../../../components/Footer/Footer';
+import simplenetimg from './SimpleNET.png';
+import simplenetactionimg from './SimpleNETAction.png'; // Import the second image
+import simplenetobserveimg from './SimpleNETObserve.png';   // Import the third image
 
 const simplelink = "https://github.com/tnnrhpwd/C-Simple";
 
@@ -24,6 +27,20 @@ function Simple() {
           </div>
         </div>
         <div className='planit-dashboard-lower'>
+          <section className='planit-dashboard-preview'>
+            <h2>Key Features</h2>
+            <ul>
+              <li>
+                <img className="planit-dashboard-preview-img" src={simplenetimg} alt="app home 1" />
+              </li>
+              <li>
+                <img className="planit-dashboard-preview-img" src={simplenetactionimg} alt="app home 2" /> {/* Second image */}
+              </li>
+              <li>
+                <img className="planit-dashboard-preview-img" src={simplenetobserveimg} alt="app home 3" /> {/* Third image */}
+              </li>
+            </ul>
+          </section>
           <section className='planit-dashboard-features'>
             <h2>Key Features</h2>
             <ul>
