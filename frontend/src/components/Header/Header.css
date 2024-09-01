@@ -22,26 +22,25 @@
   margin-right: 5vw;
   text-align: left;
   text-wrap:wrap;
+  text-shadow: 0 0 calc(var(--nav-size)*0.1) var(--text-color-inv);
 }
 .planit-header-logo-format{
   margin-left: calc(var(--nav-size)*0.1);
   text-wrap:wrap;
-text-shadow:
-    3px 3px 0 var(--text-color-inv),
+/* text-shadow:
+    calc(var(--nav-size)*5) calc(var(--nav-size)*5) 0 var(--text-color-inv),
     -3px 3px 0 var(--text-color-inv),
     -3px -3px 0 var(--text-color-inv),
-    3px -3px 0 var(--text-color-inv);
+    3px -3px 0 var(--text-color-inv); */
 }
 .planit-header-logo-format:hover{
   text-decoration: underline;
 }
 .planit-header-logo-format-simple{
   font-size: calc(var(--nav-size)*0.5);
-  text-shadow: 0px 0px 2px var(--text-color-inv);
 }
 .planit-header-logo-format-sth{
   font-size: calc(var(--nav-size)*0.2);
-  text-shadow: 0px 0px 2px var(--text-color-inv);
 }
 .planit-header-title{
   font-size: calc(var(--nav-size)*0.5);
