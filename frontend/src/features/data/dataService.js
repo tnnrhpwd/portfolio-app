@@ -3,7 +3,8 @@
 import axios from 'axios';  // import ability to make http request
 const devMode = (process.env.NODE_ENV === 'development')
 
-const API_URL = devMode? '/api/data/': 'https://mern-plan-web-service.onrender.com/api/data/';  // sends base http request here
+const API_URL = 'https://mern-plan-web-service.onrender.com/api/data/';  // sends base http request here
+// const API_URL = devMode? '/api/data/': 'https://mern-plan-web-service.onrender.com/api/data/';
 if (devMode) {console.log("Warning: Running in development mode. Remember to start backend.")}
 
 // Create new data
