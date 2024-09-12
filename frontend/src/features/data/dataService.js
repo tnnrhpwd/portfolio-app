@@ -43,7 +43,7 @@ const updateData = async ( dataData, token ) => {
     }
 
     const response = await axios.put( API_URL + dataData.id, dataData, config )
-
+    console.log(API_URL + dataData.id, dataData)
     return response.data
 }
 
