@@ -55,37 +55,30 @@ const updateData = asyncHandler(async (req, res) => {
 
         if (response.data.choices[0].text && response.data.choices[0].text.length > 0) {
           const compressedData = response.data.choices[0].text; // Extract the compressed data from the OpenAI response.
+          const newData = "Creator:"+req.user._id+"|Net:"+userInput+compressedData;
 
-          // Extract the ID from the contextInput string.
-          const id = contextInput.split(' ')[0]; // Assuming the ID is the first part of the string, separated by a space.
+          // Check if the string "Creator" is in contextInput
+          if (contextInput.includes("Creator")) {
+            // Extract the ID from the contextInput string.
+            const id = contextInput.split(' ')[0]; // Assuming the ID is the first part of the string, separated by a space.
 
-          // Check if the ID is a valid ObjectID
-          if (typeof id !== 'string') {
-            throw new Error('Data input invalid')
-          }
-
-          // // If not a valid ObjectID, call setData
-          // try{
-          //   const newData = await setData({ body: { data: "contextInput+compressedData" } });
-          //   res.status(200).json({ data: [compressedData] });
-          //   return;
-          // }catch (error){
-          //   console.error(error);
-          //   res.status(400).json({ data: 'No compressed data found in the OpenAI response' });
-          // }
-  
-          // Check if the ID exists in the database
-          const existingData = await Data.findById(id);
-          // res.status(500).json({ data: [existingData] });
-          const newData = contextInput.split('|Net:')[0].split(' ')[1]+"|Net:"+userInput+compressedData;
-
-          if (existingData) {
+            // Check if the ID is a valid ObjectID
+            if (typeof id !== 'string') {
+              throw new Error('Data input invalid')
+            }
+            // Check if the ID exists in the database
+            const existingData = await Data.findById(id);
             const updatedData = await Data.findByIdAndUpdate(id, { data: newData }, { new: true });
   
             res.status(200).json({ data: [compressedData] });
           } else {
             // If the ID doesn't exist, create a new entry using setData
-            const updatedData = await setData({ body: { data: newData } });
+            // Call setData to update the new data
+            const modifiedReq = {
+              ...req, // Spread the existing req object
+              body: { data: newData }, // Modify the body to pass the new data
+            };
+            setData(modifiedReq, res);
   
             // res.status(200).json({ data: [compressedData] });
           }
