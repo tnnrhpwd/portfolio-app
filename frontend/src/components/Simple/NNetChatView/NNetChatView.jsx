@@ -115,7 +115,7 @@ const NNetChatView = () => {
         return;
       }
       // Concatenate prior messages with the current inputText
-      const combinedData = "Net:" + (activeChat || '') + chatHistory.map((item) => item.content).join('\n') + (activeChat ? '\n' : '') + inputText;      
+      const combinedData = ((activeChat&&chatHistory.length()>0)?(activeChat.split('|Net:')[0] || ''):"") + "|Net:" + chatHistory.map((item) => item.content).join('\n') + (activeChat ? '\n' : '') + inputText;      
       console.log(combinedData);
 
       // Check if the combinedData contains only '\n' or is an empty string

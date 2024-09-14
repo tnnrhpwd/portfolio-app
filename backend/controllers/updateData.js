@@ -32,19 +32,30 @@ const updateData = asyncHandler(async (req, res) => {
         throw new Error('Net: not included.')
       }
       const contextInput = req.body.data // Get context input from the query string. ex. 659887fa192e6e8a77e5d9c5 Creator:65673ec1fcacdd019a167520|Net:Steven:Wassaup, Baby! 
+
       const netIndex = contextInput.indexOf('Net:'); 
       const userInput = contextInput.substring(netIndex + 4); // Get user's input from the query string. ex. Steven:Wassaup, Baby! 
-  
+
       try {
-        const response = await client.completions.create({
-          model: 'gpt-3.5-turbo-instruct', // Choose the appropriate engine
-          prompt: userInput,
-          max_tokens: 50, // Adjust as needed
-        });
-      
-        if (response.choices && response.choices.length > 0) {
-          const compressedData = response.choices[0].text; // Extract the compressed data from the OpenAI response.
-  
+        // const response = await client.completions.create({
+        //   model: 'gpt-3.5-turbo-instruct', // Choose the appropriate engine
+        //   prompt: userInput,
+        //   max_tokens: 30, // Adjust as needed
+        // });
+
+        const response = {
+          data: {
+              choices: [
+                  {
+                      text: "This is a simulated response for debugging purposes."
+                  }
+              ]
+          }
+        };
+
+        if (response.data.choices[0].text && response.data.choices[0].text.length > 0) {
+          const compressedData = response.data.choices[0].text; // Extract the compressed data from the OpenAI response.
+
           // Extract the ID from the contextInput string.
           const id = contextInput.split(' ')[0]; // Assuming the ID is the first part of the string, separated by a space.
 
@@ -53,29 +64,30 @@ const updateData = asyncHandler(async (req, res) => {
             throw new Error('Data input invalid')
           }
 
-          // If not a valid ObjectID, call setData
-          try{
-            const newData = await setData({ body: { data: "contextInput+compressedData" } });
-            res.status(200).json({ data: [compressedData] });
-            return;
-          }catch (error){
-            console.error(error);
-            res.status(400).json({ data: 'No compressed data found in the OpenAI response' });
-          }
+          // // If not a valid ObjectID, call setData
+          // try{
+          //   const newData = await setData({ body: { data: "contextInput+compressedData" } });
+          //   res.status(200).json({ data: [compressedData] });
+          //   return;
+          // }catch (error){
+          //   console.error(error);
+          //   res.status(400).json({ data: 'No compressed data found in the OpenAI response' });
+          // }
   
           // Check if the ID exists in the database
           const existingData = await Data.findById(id);
-  
+          // res.status(500).json({ data: [existingData] });
+          const newData = contextInput.split('|Net:')[0].split(' ')[1]+"|Net:"+userInput+compressedData;
+
           if (existingData) {
-            // Update the existing `Data` object in the database with the compressed data.
-            const updatedData = await Data.findByIdAndUpdate(id, { data: compressedData }, { new: true });
+            const updatedData = await Data.findByIdAndUpdate(id, { data: newData }, { new: true });
   
             res.status(200).json({ data: [compressedData] });
           } else {
             // If the ID doesn't exist, create a new entry using setData
-            const newData = await setData({ body: { data: userInput } });
+            const updatedData = await setData({ body: { data: newData } });
   
-            res.status(200).json({ data: [compressedData] });
+            // res.status(200).json({ data: [compressedData] });
           }
         } else {
           res.status(500).json({ error: 'No compressed data found in the OpenAI response' });
