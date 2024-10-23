@@ -57,7 +57,7 @@ const updateData = asyncHandler(async (req, res) => {
           const compressedData = response.data.choices[0].text; // Extract the compressed data from the OpenAI response.
           const newData = "Creator:"+req.user._id+"|Net:"+userInput+compressedData;
 
-          // Check if the string "Creator" is in contextInput
+          // Check if the item is in the database
           if (contextInput.includes("Creator")) {
             // Extract the ID from the contextInput string.
             const id = contextInput.split(' ')[0]; // Assuming the ID is the first part of the string, separated by a space.
