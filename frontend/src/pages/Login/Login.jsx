@@ -23,7 +23,8 @@ function Login() {
     const dispatch = useDispatch() // initialization
     const rootStyle = window.getComputedStyle(document.body);
     const toastDuration = parseInt(rootStyle.getPropertyValue('--toast-duration'), 10);
-    
+    let loadingStartTime = null;
+
     // select values from state
     const { user, dataIsLoading, dataIsError, dataIsSuccess, dataMessage } = useSelector(
         (state) => state.data
@@ -48,6 +49,18 @@ function Login() {
         }
     }, [user, dataIsError, dataIsSuccess, dataMessage, navigate, dispatch])
 
+    useEffect(() => {
+        if (dataIsLoading) {
+            loadingStartTime = Date.now();
+        }
+    }, [dataIsLoading]);
+
+    useEffect(() => {
+        if (dataIsLoading && loadingStartTime && Date.now() - loadingStartTime > 5000) {
+            toast.info("The server service takes about a minute to spin up. Please try again in a moment.", { autoClose: 3000 });
+        }
+    },  [dataIsLoading]);
+    
     // called on each letter typed into input field
     const onChange = (e) => {
         setFormData((prevState) => ({
