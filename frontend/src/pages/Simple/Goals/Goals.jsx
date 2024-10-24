@@ -45,7 +45,7 @@ function Goals() {
       }
     }
 
-    getMyData()
+    // getMyData()
     return () => {    // reset the goals when state changes
       dispatch(resetDataSlice()) // dispatch connects to the store, then reset state values( goalMessage, isloading, iserror, and issuccess )
     }
