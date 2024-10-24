@@ -5,7 +5,7 @@ import PlanInput from '../../../components/Simple/PlanInput/PlanInput.jsx';
 import PlanResult from '../../../components/Simple/PlanResult/PlanResult.jsx';
 import { toast } from 'react-toastify'                        // visible error notifications
 import Spinner from '../../../components/Spinner/Spinner.jsx'
-import { getData, resetDataSlice } from '../../../features/data/dataSlice.js'
+import { logout, getData, resetDataSlice } from '../../../features/data/dataSlice.js'
 import './Plans.css';
 import Header from '../../../components/Header/Header.jsx';
 
@@ -30,8 +30,14 @@ function Plans() {
       navigate('/login') 
     }
     if (dataIsError) {
-      toast.error(dataMessage) // print error to toast errors
-
+      if (dataMessage && dataMessage.includes('TokenExpiredError')) {
+        toast.error("Session expired. Please log in again.", { autoClose: 3000 });
+        dispatch(logout());
+        navigate('/login');
+      } else {
+      toast.error(dataMessage, { autoClose: 1000 });
+      console.error(dataMessage);
+      }
     }
 
     async function getMyData(){

@@ -4,7 +4,7 @@ import { useSelector, useDispatch } from 'react-redux'      // access state vari
 import GoalInput from '../../../components/Simple/GoalInput/GoalInput.jsx';
 import GoalResult from '../../../components/Simple/GoalResult/GoalResult.jsx';
 // import Spinner from './../../components/Spinner/Spinner.jsx'
-import { getData, resetDataSlice } from '../../../features/data/dataSlice.js'
+import { logout, getData, resetDataSlice } from '../../../features/data/dataSlice.js'
 import { toast } from 'react-toastify'                        // visible error notifications
 import './Goals.css';
 import Header from '../../../components/Header/Header.jsx';
@@ -30,8 +30,14 @@ function Goals() {
       navigate('/login') 
     }
     if (dataIsError) {
+      if (dataMessage && dataMessage.includes('TokenExpiredError')) {
+        toast.error("Session expired. Please log in again.", { autoClose: 3000 });
+        dispatch(logout());
+        navigate('/login');
+      } else {
       toast.error(dataMessage, { autoClose: 1000 });
       console.error(dataMessage);
+      }
     }
 
     async function getMyData(){
@@ -45,7 +51,7 @@ function Goals() {
       }
     }
 
-    // getMyData()
+    getMyData()
     return () => {    // reset the goals when state changes
       dispatch(resetDataSlice()) // dispatch connects to the store, then reset state values( goalMessage, isloading, iserror, and issuccess )
     }
