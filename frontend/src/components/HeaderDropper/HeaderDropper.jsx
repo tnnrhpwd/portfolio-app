@@ -30,6 +30,7 @@ function HeaderDropper(props) {
         {(props.colTheme==="dark-theme") && <button className='planit-header-dropper-themebutton' onClick={props.setLightMode}>Light Mode</button>}
         {(props.colTheme==="light-theme") && <button className='planit-header-dropper-themebutton' onClick={props.setDarkMode}>Dark Mode</button>}
           {user ? (<>
+            {(user) && <div className='planit-header-dropper-signer'>Signed in as {user.nickname}</div>}
             <a className='planit-header-dropper-profile' href='/profile'>Profile</a>
             </>) : (
             <a className='planit-header-dropper-profile' href='/login' >Log in</a>

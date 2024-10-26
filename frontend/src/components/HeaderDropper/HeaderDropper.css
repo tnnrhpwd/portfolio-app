@@ -1,7 +1,6 @@
 .planit-header-dropper-themebutton{
     color: var(--text-color);
     font-size: calc(var(--nav-size)*0.32);
-    background-color: var(--bg-accent);
     cursor: pointer;
     position: fixed;
     padding: calc(var(--nav-size)*0.1);
@@ -14,6 +13,15 @@
     background-color: var(--bg-pagelink);
     color: var(--text-color);
     border: calc(var(--nav-size)*0.001) solid var(--text-color);
+}
+.planit-header-dropper-signer{
+    color: var(--text-color);
+    font-size: calc(var(--nav-size)*0.32);
+    cursor: pointer;
+    position: fixed;
+    padding: calc(var(--nav-size)*0.1);
+    margin-left: calc(var(--nav-size)*0.4);
+    bottom: calc(var(--nav-size)*0.27);
 }
 .planit-header-dropper-space{
     width: 0;

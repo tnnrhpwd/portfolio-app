@@ -80,59 +80,6 @@ function Header() {
             <div className="planit-header-logo-format-sth"> by STHopwood</div>
           </a>
         </div>
-
-        {user ? (
-            <>             
-              <a href="/text">
-                <button className="planit-header-link-landscape">Text</button>
-              </a>       
-              <a href="/goals">
-                <button className="planit-header-link-landscape">Goals</button>
-              </a>
-              <a href="/plans">
-                <button className="planit-header-link-landscape">Plans</button>
-              </a>
-              <a href="/agenda">
-                <button className="planit-header-link-landscape">Agenda</button>
-              </a>
-              <a href="/profile">
-                <button className="planit-header-link-landscape">Profile</button>
-              </a>
-            </>
-        ) : null}
-        {/* <a href="/about">
-          <button className="planit-header-link-landscape">About</button>
-        </a> */}
-        {/* {colTheme === "dark-theme" && (
-          <button
-            className="planit-header-themebutton-landscape"
-            onClick={setLightMode}
-          >
-            Light Mode
-          </button>
-        )} */}
-        {/* {colTheme === "light-theme" && (
-          <button
-            className="planit-header-themebutton-landscape"
-            onClick={setDarkMode}
-          >
-            Dark Mode
-          </button>
-        )} */}
-        {/* <button className="planit-header-profile-landscape">
-          {user ? (
-            <button className="planit-header-profile-auth" onClick={onLogout}>
-              Log out
-            </button>
-          ) : (
-            <a href="/login">
-              <button className="planit-header-profile-auth">Log in</button>
-            </a>
-          )}
-        </button> */}
-        {/* <button className="planit-header-profile-auth" onClick={user ? onLogout : undefined}>
-          {user ? "Log out" : <a href="/login">Log in</a>}
-        </button> */}
         <HeaderBell
           colTheme={colTheme}
           setLightMode={setLightMode}
