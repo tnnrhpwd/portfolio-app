@@ -87,8 +87,8 @@
         text-align: left;
         padding: calc(var(--nav-size)*1);
         font-size: calc(var(--nav-size)*1);
-        padding-left: calc(var(--nav-size)*8);
-        padding-right: calc(var(--nav-size)*8);
+        padding-left: 5%;
+        padding-right: 5%;
     }
     .planit-plans-text{
         font-size: calc(var(--nav-size)*0.5);

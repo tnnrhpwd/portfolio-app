@@ -58,34 +58,34 @@ function Plans() {
   }, [dataIsError, dataMessage, dispatch, navigate, user])
 
   useEffect(() => {
-    function handleAllOutputData(PlanStringArray){ 
-      var outputMyPlanArray = []; var outputSavedPlanArray = [];
-
-      PlanStringArray.forEach((itemarino) => {
-        if (itemarino.includes(user._id) && !itemarino.includes('Like:')) {
-          outputMyPlanArray.push(
-            <PlanResult
-              key={"MyDataResult" + user.nickname}
-              importPlanString={itemarino}
-            />
-          );
-        }
-      
-        if (itemarino.includes(user._id) && itemarino.includes('Like:')) {
-          outputSavedPlanArray.push(
-            <PlanResult
-              key={"SavedDataResult" + user.nickname}
-              importPlanString={itemarino}
-            />
-          );
-        }
-      });
-
-      setMyPlans(outputMyPlanArray); setSavedPlans(outputSavedPlanArray); 
+    function handleAllOutputData(PlanStringArray){
+        var outputMyPlanArray = [];
+        var outputSavedPlanArray = [];
+        console.log(PlanStringArray);
+        PlanStringArray.forEach((itemarino) => {
+            let itemString = typeof itemarino === 'object' ? itemarino.data : itemarino;
+            if (itemString.includes(user._id) && !itemString.includes('Like:')) {
+                outputMyPlanArray.push(
+                    <PlanResult
+                        key={"MyDataResult" + user.nickname}
+                        importPlanString={itemString}
+                    />
+                );
+            }
+            if (itemString.includes(user._id) && itemString.includes('Like:')) {
+                outputSavedPlanArray.push(
+                    <PlanResult
+                        key={"SavedDataResult" + user.nickname}
+                        importPlanString={itemString}
+                    />
+                );
+            }
+        });
+        setMyPlans(outputMyPlanArray); 
+        setSavedPlans(outputSavedPlanArray); 
     }
-
-    if(data.data){handleAllOutputData(data.data);}
-  }, [data, user])
+    if(data.data){ handleAllOutputData(data.data); }
+  }, [data, user]);
 
   function handleCreateDataToggle(){
     if(showNewData){setShowNewData(false)}

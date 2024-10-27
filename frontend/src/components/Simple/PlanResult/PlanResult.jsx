@@ -100,7 +100,19 @@ function DataResult(props) {
                     </div>
                 </div>
                 <div key={planString+"0.2"} className='planit-planresult-2'>
-                    <div key={planString+"2"} className='planit-planresult-goal'><a href={'plan/'+planString}><button key={planString+"2button"} className='planit-planresult-goalbutton'>{planString}</button></a></div>
+                    <div 
+                        key={planString + "2"} 
+                        className='planit-planresult-goal'
+                        >
+                        <a href={'plan/' + planString}>
+                            <button 
+                            key={planString + "2button"} 
+                            className='planit-planresult-goalbutton'
+                            >
+                            {planString.replace(/Creator:.*?\|/, '')}
+                            </button>
+                        </a>
+                    </div>
                     {/* <div key={planString+"4"} className='planit-planresult-plan'><a href={'plan/'+planString}><button key={planString+"4button"} className='planit-planresult-planbutton'>{planString.map(( planElement, planElementIndex ) => (<div key={planString+"element"+planElement}>{planElement}</div>))}</button></a></div> */}
                 </div>
                 <div key={planString+"0.3"} className='planit-planresult-3'>

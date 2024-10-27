@@ -15,8 +15,8 @@
 .planit-planresult-1{
     
 }.planit-planresult-2{
-    margin-top: calc(var(--nav-size)*.3);
-    margin-bottom: calc(var(--nav-size)*.3);
+    margin-top: calc(var(--nav-size)*.1);
+    margin-bottom: calc(var(--nav-size)*.1);
 }.planit-planresult-3{
     text-align: right;
 }
@@ -196,5 +196,11 @@
 }
 
 @media (orientation: landscape) {
-
+    .planit-planresult-disagree-div{
+        position: absolute;
+        left: 10%;
+    }.planit-planresult-agree-div{
+        position: absolute;
+        right: 10%;
+    }
 }
