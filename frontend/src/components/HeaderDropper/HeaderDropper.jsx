@@ -46,7 +46,6 @@ function HeaderDropper(props) {
             {/* <a className='planit-header-dropper-pagelink' href='/sonic'>◽Sonic</a> */}
             {/* <a className='planit-header-dropper-pagelink' href='/wordle'>◽Wordle</a> */}
             <a className='planit-header-dropper-pagelink' href='/net'>◽Net</a>
-            <a className='planit-header-dropper-pagelink' href='/goals'>◽Goals</a>
             <a className='planit-header-dropper-pagelink' href='/plans'>◽Plans</a>
           </>)
           :null

@@ -40,11 +40,12 @@ function Plans() {
       }
     }
 
-    async function getMyData(){
+    async function getMyData() {
       try {
-        dispatch(getData({ 
-          data: "Plan:", 
-        })); // dispatch connects to the store, then retrieves the datas.
+        const searchStrings = ["|Plan:", "|Goal:", "|Action:"];
+        searchStrings.forEach(searchString => {
+          dispatch(getData({ data: searchString })); // dispatch connects to the store, then retrieves the data.
+        });
       } catch (error) {
         console.error(error);
         toast.error(error);
@@ -58,12 +59,15 @@ function Plans() {
   }, [dataIsError, dataMessage, dispatch, navigate, user])
 
   useEffect(() => {
-    function handleAllOutputData(PlanStringArray){
+    function handleAllOutputData(PlanStringArray) {
         var outputMyPlanArray = [];
         var outputSavedPlanArray = [];
         console.log(PlanStringArray);
         PlanStringArray.forEach((itemarino) => {
             let itemString = typeof itemarino === 'object' ? itemarino.data : itemarino;
+            if (itemString.length > 500) {
+                itemString = itemString.substring(0, 500) + '...';
+            }
             if (itemString.includes(user._id) && !itemString.includes('Like:')) {
                 outputMyPlanArray.push(
                     <PlanResult
