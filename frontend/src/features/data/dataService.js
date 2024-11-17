@@ -4,24 +4,27 @@ import axios from 'axios';  // import ability to make http request
 const devMode = (process.env.NODE_ENV === 'development')
 
 // const API_URL = 'https://mern-plan-web-service.onrender.com/api/data/';  // sends base http request here
-const API_URL = devMode? '/api/data/': 'https://mern-plan-web-service.onrender.com/api/data/';
-if (devMode) {console.log("Warning: Running in development mode. Remember to start backend.")}
+const API_URL = devMode ? '/api/data/' : 'https://mern-plan-web-service.onrender.com/api/data/';
+if (devMode) { console.log("Warning: Running in development mode. Remember to start backend.") }
 
 // Create new data
-const createData = async ( dataData, token ) => {
+const createData = async (dataData, token) => {
     const config = {
         headers: {
             Authorization: `Bearer ${token}`,
         },
     }
-    
-    const response = await axios.post( API_URL, dataData, config )
+
+    console.log('POST URL:', API_URL);
+    console.log('POST Data:', dataData);
+
+    const response = await axios.post(API_URL, dataData, config)
 
     return response.data
 }
 
 // Get all data
-const getData = async ( dataData, token ) => {
+const getData = async (dataData, token) => {
     const config = {
         headers: {
             Authorization: `Bearer ${token}`,
@@ -29,38 +32,49 @@ const getData = async ( dataData, token ) => {
         params: dataData, // Include dataData as query parameters
     }
 
-    const response = await axios.get( API_URL, config )
+    console.log('GET URL:', API_URL);
+    console.log('GET Params:', dataData);
+
+    const response = await axios.get(API_URL, config)
 
     return response.data
 }
 
 // Update user data
-const updateData = async ( dataData, token ) => {
+const updateData = async (dataData, token) => {
     const config = {
         headers: {
             Authorization: `Bearer ${token}`,
         },
     }
-    console.log(API_URL + dataData.id, dataData)
-    const response = await axios.put( API_URL + dataData.id, dataData, config )
+
+    console.log('PUT URL:', API_URL + dataData.id);
+    console.log('PUT Data:', dataData);
+
+    const response = await axios.put(API_URL + dataData.id, dataData, config)
     return response.data
 }
 
 // Delete user data
-const deleteData = async ( dataId, token ) => {
+const deleteData = async (dataId, token) => {
     const config = {
         headers: {
             Authorization: `Bearer ${token}`,
         },
     }
 
-    const response = await axios.delete( API_URL + dataId, config )
+    console.log('DELETE URL:', API_URL + dataId);
+
+    const response = await axios.delete(API_URL + dataId, config)
 
     return response.data
 }
 
 // Register user
 const register = async (userData) => {
+    console.log('POST URL:', API_URL + 'register');
+    console.log('POST Data:', userData);
+
     const response = await axios.post(API_URL + 'register', userData)  // send user data to /api/data/ -- creates a new user
   
     if (response.data) {
@@ -72,6 +86,9 @@ const register = async (userData) => {
   
 // Login user
 const login = async (userData) => {
+    console.log('POST URL:', API_URL + 'login');
+    console.log('POST Data:', userData);
+
     const response = await axios.post(API_URL + 'login', userData)    // send user data to /api/data/login/
   
     if (response.data) {
