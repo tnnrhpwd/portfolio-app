@@ -7,6 +7,7 @@ const connectDB = require('./config/db');    // connect to MongoDB using Mongooo
 const { default: mongoose } = require('mongoose');
 const port = process.env.PORT || 5000;  //set port to hold api server
 var cors = require('cors')
+const bodyParser = require('body-parser'); // import body-parser
 
 connectDB()// this async function connects to Mongo database using Mongoose | RAN ON SERVER INITIALIZATION
 
@@ -14,10 +15,10 @@ const app = express() // Calls the express function "express()" and puts new Exp
 
 // app.use adds middleware to the data routes
 app.use(cors())
-app.use(express.json()) // adds middleware that parses json requests and moves data into the request body (regardless of hit url)
-app.use(express.urlencoded({ extended: false }))  // parses data using query-string library rather than qs library (regardless of hit url)
+app.use(bodyParser.json({ limit: "50mb" })) // adds middleware that parses json requests and moves data into the request body (regardless of hit url)
+app.use(bodyParser.urlencoded({ limit: "50mb", extended: true, parameterLimit: 50000 })) // parses data using query-string library rather than qs library (regardless of hit url)
 
-app.use('/api/data', require('./routes/routeData'))       // serve all data at /api/data (regardless of hit url)
+app.use('/api/data', require('./routes/routeData')) // serve all data at /api/data (regardless of hit url)
 
 // If production, serve frontend. Else, 
 // if (process.env.NODE_ENV === 'production') {                                  // IF PRODUCTION
