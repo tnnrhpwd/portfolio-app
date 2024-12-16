@@ -4,8 +4,8 @@ const mongoose = require('mongoose') // MVC library - used to communicate with M
 const dataSchema = mongoose.Schema(
   {
     data: {
-      type: String,
-      required: [true, 'Please add a text value'],
+      type: mongoose.Schema.Types.Mixed,
+      required: [true, 'Please add a value'],
     },
   },
   {
