@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom'              // page redirects
 import { toast } from 'react-toastify'                        // visible error notifications
 import { register, resetDataSlice } from '../../features/data/dataSlice'     // import functions from authslice
 import Spinner from '../../components/Spinner/Spinner.jsx';
+import Header from '../../components/Header/Header.jsx';
+import Footer from '../../components/Footer/Footer.jsx';
 import './Register.css';
 
 function Register() {
@@ -73,7 +75,8 @@ function Register() {
         return <Spinner />
     }
 
-  return (
+  return (<>
+    <Header />
     <div className='planit-register'>
         <section className="planit-register-heading">
             <div className="planit-register-heading-title">
@@ -131,7 +134,8 @@ function Register() {
             </button>
         </a>
     </div>
-  )
+    <Footer />
+  </>)
 }
 
 export default Register

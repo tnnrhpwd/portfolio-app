@@ -87,10 +87,6 @@ function LoginView(props) {
 
 
                 <br/>
-                
-                <button className='loginview-spc-account-btn' onClick={handleGuestLogin}>
-                    Login as Guest
-                </button>
                 <button className='loginview-spc-account-btn' onClick={hideComponentVisibility}>
                     Skip...
                 </button>
