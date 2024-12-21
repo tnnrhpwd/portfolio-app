@@ -18,17 +18,17 @@ function Simple() {
             Empower Your Windows System with Intelligence
           </header>
           <p className='planit-dashboard-upper-description'>
-            Our application is designed to enhance your Windows system by giving it the intelligence to assist you effectively. Based on your previous interactions, the system will make informed decisions aimed at accurately predicting your actions, streamlining your workflow, and helping you achieve your goals with precision.
+            Our goal is to enhance your systems by giving them the intelligence to assist you effectively. Based on your previous interactions, each system would make informed decisions aimed at accurately predicting your actions, streamlining your workflow, and helping you achieve your goals.
           </p>
           <div className='planit-dashboard-download'>
             <a rel="noopener noreferrer" target="_blank"  href={simplelink} className='download-link'>
-              Download Now
+              Github Repository
             </a>
           </div>
         </div>
         <div className='planit-dashboard-lower'>
           <section className='planit-dashboard-preview'>
-            <h2>Key Features</h2>
+            <h2>Preview</h2>
             <ul>
               <li>
                 <img className="planit-dashboard-preview-img" src={simplenetimg} alt="app home 1" />
@@ -40,19 +40,6 @@ function Simple() {
                 <img className="planit-dashboard-preview-img" src={simplenetobserveimg} alt="app home 3" /> {/* Third image */}
               </li>
             </ul>
-          </section>
-          <section className='planit-dashboard-features'>
-            <h2>Key Features</h2>
-            <ul>
-              <li>Intelligent Predictions</li>
-              <li>Streamlined Workflow</li>
-              <li>Goal-Oriented Assistance</li>
-            </ul>
-          </section>
-          <section className='planit-dashboard-feedback'>
-            <h2>User Feedback</h2>
-            <p>"This app has transformed the way I work on my Windows system!"</p>
-            <p>"Incredibly intuitive and helpful."</p>
           </section>
         </div>
         <Footer />
