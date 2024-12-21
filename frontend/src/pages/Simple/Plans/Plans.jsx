@@ -15,8 +15,6 @@ function Plans() {
   const [ myPlans, setMyPlans ] = useState([])
   const [ showSavedPlans, setShowSavedPlans ] = useState(false)
   const [ savedPlans, setSavedPlans ] = useState([])
-  // const [ dataObjectArray, setDataObjectArray ] = useState([]);
-
   const navigate = useNavigate() // initialization
   const dispatch = useDispatch() // initialization
 
@@ -35,11 +33,13 @@ function Plans() {
         dispatch(logout());
         navigate('/login');
       } else {
-      toast.error(dataMessage, { autoClose: 1000 });
-      console.error(dataMessage);
+        toast.error(dataMessage, { autoClose: 1000 });
+        console.error(dataMessage);
       }
     }
+  }, [dataIsError, dataMessage, dispatch, navigate, user])
 
+  useEffect(() => {
     async function getMyData() {
       try {
         const searchStrings = ["|Plan:", "|Goal:", "|Action:"];
@@ -56,7 +56,7 @@ function Plans() {
     return () => {    // reset the data when state changes
       dispatch(resetDataSlice()) // dispatch connects to the store, then reset state values( dataMessage, isloading, iserror, and issuccess )
     }
-  }, [dataIsError, dataMessage, dispatch, navigate, user])
+  }, [dispatch])
 
   useEffect(() => {
     function handleAllOutputData(PlanStringArray) {
@@ -105,69 +105,67 @@ function Plans() {
     console.log(showSavedPlans)
   }
 
-  // if(dataObjectArray.length > 0){
-    return (<>
-      <Header/>
-      <div className='planit-plans'>
-        Plans
-        <div className='planit-plans-text'>
-          Every journey begins with a step.
-        </div>
-        <div  className='planit-plans-create' >
-          
-          <div onClick={handleCreateDataToggle} className='planit-plans-create-text'>
-            {
-              showNewData ? "Cancel Plan":"Create Plan"
-            }
-          
-          </div>
-          { ( user ) &&
-            <div className='planit-plans-in'>
-              {(showNewData) &&
-                <PlanInput />
-              }
-  
-            </div>
-          }
-        </div>
-  
-        <div className='planit-plans-my'>
-          <div onClick={handleMyPlansToggle} className="planit-plans-my-text">
-            My Plans
-          </div>
-        
-          { showMyPlans &&
-            <div className='planit-plans-my-out'>
-              { ( myPlans.length > 0 ) ? (
-                <div className='planit-plans-my-out-result'>
-                  { myPlans }
-                </div>
-               ) : ( 
-                <h3>You have not set any plans</h3>
-              )} 
-            </div>
-          }
-        </div>
-        <div className='planit-plans-saved'>
-          <div onClick={handleSavedPlansToggle} className="planit-plans-saved-text">
-            Saved Plans
-          </div>
-          { showSavedPlans &&
-            <div className='planit-plans-saved-out'>
-              { ( savedPlans.length > 0 ) ? (
-                <div className='planit-plans-saved-out-result'>
-                  { savedPlans }
-                </div>
-              ) : (
-                <h3>You have not set any plans</h3>
-              )}
-            </div>
-          }
-        </div>
+  return (<>
+    <Header/>
+    <div className='planit-plans'>
+      Plans
+      <div className='planit-plans-text'>
+        Every journey begins with a step.
       </div>
-    </>
-    )
-  // }else{return <Spinner/>}
+      <div  className='planit-plans-create' >
+        
+        <div onClick={handleCreateDataToggle} className='planit-plans-create-text'>
+          {
+            showNewData ? "Cancel Plan":"Create Plan"
+          }
+        
+        </div>
+        { ( user ) &&
+          <div className='planit-plans-in'>
+            {(showNewData) &&
+              <PlanInput />
+            }
+
+          </div>
+        }
+      </div>
+
+      <div className='planit-plans-my'>
+        <div onClick={handleMyPlansToggle} className="planit-plans-my-text">
+          My Plans
+        </div>
+      
+        { showMyPlans &&
+          <div className='planit-plans-my-out'>
+            { ( myPlans.length > 0 ) ? (
+              <div className='planit-plans-my-out-result'>
+                { myPlans }
+              </div>
+             ) : ( 
+              <h3>You have not set any plans</h3>
+            )} 
+          </div>
+        }
+      </div>
+      <div className='planit-plans-saved'>
+        <div onClick={handleSavedPlansToggle} className="planit-plans-saved-text">
+          Saved Plans
+        </div>
+        { showSavedPlans &&
+          <div className='planit-plans-saved-out'>
+            { ( savedPlans.length > 0 ) ? (
+              <div className='planit-plans-saved-out-result'>
+                { savedPlans }
+              </div>
+            ) : (
+              <h3>You have not set any plans</h3>
+            )}
+          </div>
+        }
+      </div>
+    </div>
+  </>
+  )
 }
 
 export default Plans
