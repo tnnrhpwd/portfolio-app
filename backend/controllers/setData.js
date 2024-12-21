@@ -13,7 +13,7 @@ const setData = asyncHandler(async (req, res) => {
     }
     if (!req.body.data) {
       res.status(400)
-      throw new Error('Please add a text field')
+      throw new Error('Please add a data field')
     }
   
     const datas = await Data.create({

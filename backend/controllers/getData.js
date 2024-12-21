@@ -34,7 +34,7 @@ const getData = asyncHandler(async (req, res) => {
 
   if (!req.query || !req.query.data) {
     res.status(400)
-    throw new Error('Please add a text field')
+    throw new Error('Please add a data field')
   }
 
   try {
