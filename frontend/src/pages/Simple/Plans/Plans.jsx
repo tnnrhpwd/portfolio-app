@@ -62,7 +62,11 @@ function Plans() {
     function handleAllOutputData(PlanStringArray) {
         var outputMyPlanArray = [];
         var outputSavedPlanArray = [];
-        console.log(PlanStringArray);
+        if (PlanStringArray.length === 0) {
+            console.log("PlanStringArray is empty");
+        } else {
+            console.log(PlanStringArray);
+        }
         PlanStringArray.forEach((itemarino) => {
             let itemString = typeof itemarino === 'object' ? itemarino.data : itemarino;
             if (itemString.length > 500) {

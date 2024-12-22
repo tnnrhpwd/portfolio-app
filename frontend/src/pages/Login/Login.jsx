@@ -144,6 +144,9 @@ function Login() {
                     Register
                 </button>
             </a>
+            <button onClick={handleGuestLogin} className='planit-login-guest'>
+                Login as Guest
+            </button>
         </div>
         <Footer />
     </>)

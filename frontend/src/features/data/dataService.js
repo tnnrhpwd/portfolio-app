@@ -15,8 +15,8 @@ const createData = async (dataData, token) => {
         },
     }
 
-    console.log('POST URL:', API_URL);
-    console.log('POST Data:', dataData);
+    console.log('Calling POST URL:', API_URL);
+    console.log('Calling POST Data:', dataData);
 
     const response = await axios.post(API_URL, dataData, config)
 
@@ -32,8 +32,8 @@ const getData = async (dataData, token) => {
         params: dataData, // Include dataData as query parameters
     }
 
-    console.log('GET URL:', API_URL);
-    console.log('GET Params:', dataData);
+    console.log('Calling GET URL:', API_URL);
+    console.log('Calling GET Params:', dataData);
 
     const response = await axios.get(API_URL, config)
 
@@ -48,8 +48,8 @@ const updateData = async (dataData, token) => {
         },
     }
 
-    console.log('PUT URL:', API_URL + dataData.id);
-    console.log('PUT Data:', dataData);
+    console.log('Calling PUT URL:', API_URL + dataData.id);
+    console.log('Calling PUT Data:', dataData);
 
     const response = await axios.put(API_URL + dataData.id, dataData, config)
     return response.data
@@ -63,7 +63,7 @@ const deleteData = async (dataId, token) => {
         },
     }
 
-    console.log('DELETE URL:', API_URL + dataId);
+    console.log('Calling DELETE URL:', API_URL + dataId);
 
     const response = await axios.delete(API_URL + dataId, config)
 
@@ -72,8 +72,8 @@ const deleteData = async (dataId, token) => {
 
 // Register user
 const register = async (userData) => {
-    console.log('POST URL:', API_URL + 'register');
-    console.log('POST Data:', userData);
+    console.log('Calling POST URL:', API_URL + 'register');
+    console.log('Calling POST Data:', userData);
 
     const response = await axios.post(API_URL + 'register', userData)  // send user data to /api/data/ -- creates a new user
   
@@ -86,8 +86,8 @@ const register = async (userData) => {
   
 // Login user
 const login = async (userData) => {
-    console.log('POST URL:', API_URL + 'login');
-    console.log('POST Data:', userData);
+    console.log('Calling POST URL:', API_URL + 'login');
+    console.log('Calling POST Data:', userData);
 
     const response = await axios.post(API_URL + 'login', userData)    // send user data to /api/data/login/
   
