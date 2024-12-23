@@ -15,8 +15,11 @@ function Plans() {
   const [ myPlans, setMyPlans ] = useState([])
   const [ showSavedPlans, setShowSavedPlans ] = useState(false)
   const [ savedPlans, setSavedPlans ] = useState([])
-  const navigate = useNavigate() // initialization
-  const dispatch = useDispatch() // initialization
+  const navigate = useNavigate()
+  const dispatch = useDispatch()
+  const rootStyle = window.getComputedStyle(document.body);
+  const toastDuration = parseInt(rootStyle.getPropertyValue('--toast-duration'), 10);
+  let loadingStartTime = null;
 
   const { user, data, dataIsLoading, dataIsSuccess, dataIsError, dataMessage } = useSelector(     // select values from state
   (state) => state.data
@@ -26,6 +29,9 @@ function Plans() {
   useEffect(() => {
     if (!user) {            // if no user, redirect to login
       navigate('/login') 
+    }
+    if (dataIsSuccess) {    // if data is successfully loaded, print success message
+      toast.success(dataMessage, { autoClose: toastDuration });
     }
     if (dataIsError) {
       if (dataMessage && dataMessage.includes('TokenExpiredError')) {
@@ -38,6 +44,19 @@ function Plans() {
       }
     }
   }, [dataIsError, dataMessage, dispatch, navigate, user])
+
+      useEffect(() => {
+          if (dataIsLoading) {
+              loadingStartTime = Date.now();
+          }
+      }, [dataIsLoading]);
+  
+      useEffect(() => {
+          if (dataIsLoading && loadingStartTime && Date.now() - loadingStartTime > 5000) {
+              toast.info("The server service takes about a minute to spin up. Please try again in a moment.", { autoClose: 3000 });
+          }
+      },  [dataIsLoading, loadingStartTime]);
+      
 
   useEffect(() => {
     async function getMyData() {
@@ -69,22 +88,25 @@ function Plans() {
         }
         PlanStringArray.forEach((itemarino) => {
             let itemString = typeof itemarino === 'object' ? itemarino.data : itemarino;
+            let displayString = typeof itemarino === 'object' ? itemarino.fileName : itemarino;
             if (itemString.length > 500) {
                 itemString = itemString.substring(0, 500) + '...';
             }
-            if (itemString.includes(user._id) && !itemString.includes('Like:')) {
+            if (typeof itemString === 'string' && itemString.includes(user._id) && !itemString.includes('Like:')) {
                 outputMyPlanArray.push(
                     <PlanResult
                         key={"MyDataResult" + user.nickname}
                         importPlanString={itemString}
+                        displayString={displayString}
                     />
                 );
             }
-            if (itemString.includes(user._id) && itemString.includes('Like:')) {
+            if (typeof itemString === 'string' && itemString.includes(user._id) && itemString.includes('Like:')) {
                 outputSavedPlanArray.push(
                     <PlanResult
                         key={"SavedDataResult" + user.nickname}
                         importPlanString={itemString}
+                        displayString={displayString}
                     />
                 );
             }

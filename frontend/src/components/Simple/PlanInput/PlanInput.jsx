@@ -7,6 +7,7 @@ function PlanInput() {
   const [planText, setPlanText] = useState('')
   const [goalText, setGoalText] = useState('')
   const [actionText, setActionText] = useState('')
+  const [files, setFiles] = useState([])
 
   const dispatch = useDispatch() // initialization
 
@@ -17,13 +18,27 @@ function PlanInput() {
 
   const onSubmit = (e) => {
     e.preventDefault()
-    const text = `Creator:${user._id}|Plan:${planText}|Goal:${goalText}|Action:${actionText}`
-    console.log({ data: text })
-    dispatch(createData({ data: text })) // dispatch connects to the store, then creates a plan with text input
+    let text = `Creator:${user._id}`;
+    if (planText) text += `|Plan:${planText}`;
+    if (goalText) text += `|Goal:${goalText}`;
+    if (actionText || files.length>0) text += `|Action:${actionText}`;
+    const dataPayload = {
+      text,
+      files,
+      // Add other data types here if needed
+    }
+    console.log({ data: dataPayload })
+    dispatch(createData({ data: dataPayload })) // dispatch connects to the store, then creates a plan with combined data
+
     setPlanText('') // empty text field
     setGoalText('') // empty text field
     setActionText('') // empty text field
+    setFiles([]) // empty photos field
     // toast.success("Plan successfully created!", { autoClose: 1000 })
+  }
+
+  const onFilesChange = (e) => {
+    setFiles([...e.target.files])
   }
 
   return (
@@ -54,6 +69,13 @@ function PlanInput() {
             placeholder='Enter action description, detailing the completed steps to achieve the goal metric from the current delta state.'
             value={actionText}
             onChange={(e) => setActionText(e.target.value)} // change text field value
+          />
+        </div>
+        <div className='planit-planinput-group'>
+          <input
+            type='file'
+            multiple
+            onChange={onFilesChange}
           />
         </div>
         <div className='planit-planinput-group'>
