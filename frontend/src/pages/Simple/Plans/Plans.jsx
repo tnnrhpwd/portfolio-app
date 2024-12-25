@@ -63,7 +63,7 @@ function Plans() {
       try {
         const searchStrings = ["|Plan:", "|Goal:", "|Action:"];
         searchStrings.forEach(searchString => {
-          dispatch(getData({ data: searchString })); // dispatch connects to the store, then retrieves the data.
+            dispatch(getData({ data: { text: searchString } })); // dispatch connects to the store, then retrieves the data.
         });
       } catch (error) {
         console.error(error);
@@ -87,7 +87,7 @@ function Plans() {
             console.log(PlanStringArray);
         }
         PlanStringArray.forEach((itemarino) => {
-            let itemString = typeof itemarino === 'object' ? itemarino.data : itemarino;
+            let itemString = typeof itemarino === 'object' ? itemarino.text : itemarino;
             let displayString = typeof itemarino === 'object' ? itemarino.fileName : itemarino;
             if (itemString.length > 500) {
                 itemString = itemString.substring(0, 500) + '...';

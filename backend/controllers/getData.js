@@ -32,11 +32,24 @@ const getData = asyncHandler(async (req, res) => {
 
     if (!req.query || !req.query.data) {
         res.status(400);
-        throw new Error('Please add a data field');
+        throw new Error('Invalid query parameter');
+    }
+
+    let data;
+    try {
+        data = JSON.parse(req.query.data);
+    } catch (error) {
+        res.status(400);
+        throw new Error('Invalid query parameter format');
+    }
+
+    if (!data.text) {
+        res.status(400);
+        throw new Error('Invalid query parameter');
     }
 
     try {
-        const dataSearchString = req.query.data.toLowerCase();
+        const dataSearchString = data.text.toLowerCase();
         const userSearchString = `Creator:${req.user.id.toLowerCase()}`;
         var randomWord = "";
 
@@ -67,8 +80,8 @@ const getData = asyncHandler(async (req, res) => {
             try {
                 const datas = await Data.find({
                     $and: [
-                        { data: { $regex: dataSearchString, $options: 'i' } },
-                        { data: { $regex: userSearchString, $options: 'i' } },
+                        { 'data.text': { $regex: dataSearchString, $options: 'i' } },
+                        { 'data.text': { $regex: userSearchString, $options: 'i' } },
                     ],
                 });
 
