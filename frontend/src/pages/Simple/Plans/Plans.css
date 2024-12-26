@@ -1,18 +1,16 @@
 .planit-plans{
+    min-height: 85svh;
+    min-height: 85vh;
     text-align: left;
     padding: calc(var(--nav-size)*0.5);
     font-size: calc(var(--nav-size)*0.5);
     color: var(--text-color);
     padding-top: calc(var(--nav-size)*1);
+    display: flex;
+    flex-direction: column;
 }
 .planit-plans-text{
     font-size: calc(var(--nav-size)*0.3);
-}
-.planit-plans-in{
-
-}
-.planit-plans-out{
-    
 }
 .planit-plans-create{
     margin-top: calc(var(--nav-size)*1);
@@ -32,11 +30,6 @@
     color: var(--text-color);
     cursor: pointer;
 }
-/* .planit-plans-create:hover {
-    border: calc(var(--nav-size)*0.001) solid var(--text-color);
-    filter: brightness(1.2);
-    font-weight: bold;
-} */
 .planit-plans-my{
     margin-top: calc(var(--nav-size)*0.5);
     padding-top: calc(var(--nav-size)*.3);
@@ -47,7 +40,6 @@
     min-height: calc(var(--nav-size)*0.8);
     border-radius: calc(var(--nav-size)*.15);
     background-color: var(--bg-nav2);
-
 }
 .planit-plans-my-text{
     padding-bottom: calc(var(--nav-size)*.3);
@@ -56,10 +48,32 @@
     color: var(--text-color);
     cursor: pointer;
 }
-/* .planit-plans-my:active {
-    border: calc(var(--nav-size)*0.001) solid var(--text-color);
-    filter: brightness(1.2);
-} */
+.planit-plans-my-out-sort {
+    color: var(--text-color);
+    margin-bottom: calc(var(--nav-size)*.1);
+}
+.planit-plans-my-out-sort label {
+    color: var(--text-color);
+    font-size: calc(var(--nav-size)*.3);
+    font-weight: bold;
+    margin-right: calc(var(--nav-size)*.1);
+}
+.planit-plans-my-out-sort select {
+    color: var(--text-color);
+    padding: calc(var(--nav-size)*.1) calc(var(--nav-size)*.1);
+    font-size: calc(var(--nav-size)*.3);
+    border: calc(var(--nav-size)*.01) solid var(--text-color);
+    border-radius: calc(var(--nav-size)*.1);
+    background-color: var(--bg-nav2);
+    transition: border-color 0.3s ease;
+}
+.planit-plans-my-out-sort select:focus {
+    border-color: var(--light-blue0);
+    outline: none;
+}
+.planit-plans-my-out-sort select option {
+    padding: calc(var(--nav-size)*0.5);
+}
 .planit-plans-saved{
     margin-top: calc(var(--nav-size)*0.5);
     padding-top: calc(var(--nav-size)*.3);
@@ -78,10 +92,6 @@
     color: var(--text-color);
     cursor: pointer;
 }
-/* .planit-plans-saved:active {
-    border: calc(var(--nav-size)*0.001) solid var(--text-color);
-    filter: brightness(1.2);
-} */
 @media (orientation: landscape) {
     .planit-plans{
         text-align: left;
@@ -94,6 +104,3 @@
         font-size: calc(var(--nav-size)*0.5);
     }
 }
-
-
-
