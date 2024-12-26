@@ -4,7 +4,8 @@
   "author": "Steven Tanner Hopwood <steven.t.hopwood@gmail.com>",
   "scripts": {
     "start": "concurrently \"npm start --prefix frontend\" \"npm run server --prefix backend\"",
-    "test": "jest --watchAll --verbose"
+    "test": "jest --watchAll --verbose",
+    "install-all": "npm install && concurrently \"npm install --prefix frontend\" \"npm install --prefix backend\""
   },
   "devDependencies": {
     "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
@@ -32,6 +33,7 @@
     "identity-obj-proxy": "^3.0.0",
     "jest": "^29.7.0",
     "jest-localstorage-mock": "^2.4.26",
+    "multer": "^1.4.5-lts.1",
     "text-encoding": "^0.7.0"
   }
 }

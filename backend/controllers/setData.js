@@ -1,7 +1,21 @@
 // setData.js
 
 const asyncHandler = require('express-async-handler');
+const multer = require('multer');
+const path = require('path');
 const Data = require('../models/dataModel');
+
+// Set up multer for file storage
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'uploads/');
+    },
+    filename: (req, file, cb) => {
+        cb(null, `${Date.now()}-${file.originalname}`);
+    }
+});
+
+const upload = multer({ storage: storage });
 
 // @desc    Set data
 // @route   POST /api/data
@@ -16,11 +30,17 @@ const setData = asyncHandler(async (req, res) => {
       throw new Error('Please add a data field')
     }
   
+    const files = req.files.map(file => ({
+        filename: file.filename,
+        path: file.path
+    }));
+
     const datas = await Data.create({
-      data: req.body.data,
-    })
+        data: req.body.data,
+        files: files
+    });
     
     res.status(200).json(datas)
 })
 
-module.exports = { setData };
+module.exports = { setData, upload };
