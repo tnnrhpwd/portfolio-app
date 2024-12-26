@@ -41,7 +41,6 @@
     pointer-events: all;
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
 }
 #content-title{
     color: var(--text-color);

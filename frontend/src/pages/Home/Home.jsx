@@ -1,15 +1,9 @@
 import React, {useEffect, useState} from "react";
 import BackgroundVideo from "./BackgroundVideo.js";
 import Header from "../../components/Header/Header.jsx";
-import { useSelector, useDispatch } from 'react-redux'      // access state variables
-// import lwwimg from '../../assets/lww.png';
-// import marelliimg from '../../assets/marelli.png';
-// import rcmimg from '../../assets/rcm.png';
-// import shawimg from '../../assets/shaw.png';
-// import fauimg from '../../assets/fau.png';
-// import yfimg from '../../assets/yf.png';
-import './Home.css';
 import Footer from "../../components/Footer/Footer.jsx";
+import { useSelector, useDispatch } from 'react-redux'      // access state variables
+import './Home.css';
 const lwwlink = "https://www.lewisburgwater.org";
 const marellilink = "https://www.marelli.com";
 const rcmlink = "https://www.rcmindustries.com/";
@@ -17,14 +11,16 @@ const shawlink = "https://www.shawinc.com/";
 const faulink = "https://www.faurecia.com/en";
 const yflink = "https://www.yanfeng.com/en";
 
-const netlink = "/net";
-const agendalink = "/agenda";
-const passlink = "/passgen";
-const annuitylink = "/annuities";
-const soniclink = "/sonic";
-const wordlelink = "/wordle";
-const simplelink = "/simple";
-const planlink = "/plans";
+const links = {
+  net: "/net",
+  agenda: "/agenda",
+  passgen: "/passgen",
+  annuities: "/annuities",
+  sonic: "/sonic",
+  wordle: "/wordle",
+  simple: "/simple",
+  plans: "/plans"
+};
 
 function Home() {
 
@@ -44,32 +40,20 @@ function Home() {
                 <div id="text-about"><a href="/about">Learn more about us.</a></div>
                 </div>
           </section>
-
           <section className="section-tile">
-          <div id="content-tile">
-            {/* <div id="text-body"> Previous Employers: </div>
-              <div className="home-spc">
-                <a className="home-spc-logo" rel="noopener noreferrer" target="_blank" href={marellilink} ><img className="home-spc-logo-img" src={marelliimg} alt="marelli logo" /></a> 
-                <a className="home-spc-logo" rel="noopener noreferrer" target="_blank" href={rcmlink} ><img className="home-spc-logo-img" src={rcmimg} alt="rcm logo" /></a> 
-                <a className="home-spc-logo" rel="noopener noreferrer" target="_blank" href={shawlink} ><img className="home-spc-logo-img" src={shawimg} alt="shaw logo" /></a> 
-                <a className="home-spc-logo" rel="noopener noreferrer" target="_blank" href={lwwlink} ><img className="home-spc-logo-img" src={lwwimg} alt="lewisburg wastewater logo" /></a> 
-                <a className="home-spc-logo" rel="noopener noreferrer" target="_blank" href={faulink} ><img className="home-spc-logo-img" src={fauimg} alt="faurecia logo" /></a> 
-                <a className="home-spc-logo" rel="noopener noreferrer" target="_blank" href={yflink} ><img className="home-spc-logo-img" src={yfimg} alt="yanfeng logo" /></a> 
-              </div> */}
-            </div>
             <div id="content-tile">
               <div id="text-body"> Pages: </div>
               <div className="home-spc">
-                <a className="home-spc-tool" href={passlink} ><div className="home-spc-tool-text">{passlink}</div></a> 
-                <a className="home-spc-tool" href={annuitylink} ><div className="home-spc-tool-text">{annuitylink}</div></a> 
-                {user && <a className="home-spc-tool" href={netlink} ><div className="home-spc-tool-text">{netlink}</div></a>}
-                {user && <a className="home-spc-tool" href={planlink} ><div className="home-spc-tool-text">{planlink}</div></a>}
+                <a className="home-spc-tool" href={links.passgen} ><div className="home-spc-tool-text">{links.passgen}</div></a> 
+                <a className="home-spc-tool" href={links.annuities} ><div className="home-spc-tool-text">{links.annuities}</div></a> 
+                {user && <a className="home-spc-tool" href={links.net} ><div className="home-spc-tool-text">{links.net}</div></a>}
+                {user && <a className="home-spc-tool" href={links.plans} ><div className="home-spc-tool-text">{links.plans}</div></a>}
               </div>
             </div>
              <div id="content-tile">
               <div id="text-body"> Apps: </div>
               <div className="home-spc">
-                <a className="home-spc-tool" href={simplelink}>
+                <a className="home-spc-tool" href={links.simple}>
                   <div className="home-spc-tool-text">Simple (Windows)</div>
                 </a> 
               </div>
