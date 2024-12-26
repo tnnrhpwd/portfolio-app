@@ -79,9 +79,11 @@ const getData = asyncHandler(async (req, res) => {
         } else { // Handle database search requests
             try {
                 const datas = await Data.find({
-                    $and: [
+                    $or: [
+                        { 'data': { $regex: dataSearchString, $options: 'i' } },
+                        { 'data': { $regex: userSearchString, $options: 'i' } },
                         { 'data.text': { $regex: dataSearchString, $options: 'i' } },
-                        { 'data.text': { $regex: userSearchString, $options: 'i' } },
+                        { 'data.text': { $regex: userSearchString, $options: 'i' } }
                     ],
                 });
 

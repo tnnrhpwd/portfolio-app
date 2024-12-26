@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'              // redirect the user
 import { useSelector, useDispatch } from 'react-redux'      // access state variables
 import PlanInput from '../../../components/Simple/PlanInput/PlanInput.jsx';
 import PlanResult from '../../../components/Simple/PlanResult/PlanResult.jsx';
 import { toast } from 'react-toastify'                        // visible error notifications
-import Spinner from '../../../components/Spinner/Spinner.jsx'
 import { logout, getData, resetDataSlice } from '../../../features/data/dataSlice.js'
 import './Plans.css';
 import Header from '../../../components/Header/Header.jsx';
@@ -19,7 +18,7 @@ function Plans() {
   const dispatch = useDispatch()
   const rootStyle = window.getComputedStyle(document.body);
   const toastDuration = parseInt(rootStyle.getPropertyValue('--toast-duration'), 10);
-  let loadingStartTime = null;
+  const loadingStartTime = useRef(null);
 
   const { user, data, dataIsLoading, dataIsSuccess, dataIsError, dataMessage } = useSelector(     // select values from state
   (state) => state.data
@@ -31,51 +30,46 @@ function Plans() {
       navigate('/login') 
     }
     if (dataIsSuccess) {    // if data is successfully loaded, print success message
-      toast.success(dataMessage, { autoClose: toastDuration });
+      toast.success("Successfully received plans.", { autoClose: toastDuration });
     }
     if (dataIsError) {
-      if (dataMessage && dataMessage.includes('TokenExpiredError')) {
-        toast.error("Session expired. Please log in again.", { autoClose: 3000 });
-        dispatch(logout());
-        navigate('/login');
-      } else {
-        toast.error(dataMessage, { autoClose: 1000 });
-        console.error(dataMessage);
-      }
+        if (dataMessage && dataMessage.includes('TokenExpiredError')) {
+            toast.error("Session expired. Please log in again.", { autoClose: toastDuration });
+            dispatch(logout());
+            navigate('/login');
+        } else {
+            toast.error(dataMessage, { autoClose: 1000 });
+            console.error(dataMessage);
+        }
     }
-  }, [dataIsError, dataMessage, dispatch, navigate, user])
+  }, [dataIsError, dataIsSuccess, dataMessage, dispatch, navigate, toastDuration, user]);
 
-      useEffect(() => {
-          if (dataIsLoading) {
-              loadingStartTime = Date.now();
-          }
-      }, [dataIsLoading]);
+    useEffect(() => {
+      if (dataIsLoading) {
+          loadingStartTime.current = Date.now();
+      } else if (loadingStartTime.current && Date.now() - loadingStartTime.current > 5000) {
+          toast.info("The server service takes about a minute to spin up. Please try again in a moment.", { autoClose: 3000 });
+      }
+    }, [dataIsLoading]);
   
-      useEffect(() => {
-          if (dataIsLoading && loadingStartTime && Date.now() - loadingStartTime > 5000) {
-              toast.info("The server service takes about a minute to spin up. Please try again in a moment.", { autoClose: 3000 });
+    useEffect(() => {
+      async function getMyData() {
+          try {
+              const searchStrings = ["|Plan:", "|Goal:", "|Action:"];
+              await Promise.all(searchStrings.map(searchString => 
+                  dispatch(getData({ data: { text: searchString } }))
+              ));
+          } catch (error) {
+              console.error(error);
+              toast.error(error.message);
           }
-      },  [dataIsLoading, loadingStartTime]);
-      
-
-  useEffect(() => {
-    async function getMyData() {
-      try {
-        const searchStrings = ["|Plan:", "|Goal:", "|Action:"];
-        searchStrings.forEach(searchString => {
-            dispatch(getData({ data: { text: searchString } })); // dispatch connects to the store, then retrieves the data.
-        });
-      } catch (error) {
-        console.error(error);
-        toast.error(error);
       }
-    }
-
-    getMyData()
-    return () => {    // reset the data when state changes
-      dispatch(resetDataSlice()) // dispatch connects to the store, then reset state values( dataMessage, isloading, iserror, and issuccess )
-    }
-  }, [dispatch])
+  
+      getMyData();
+      return () => {
+          dispatch(resetDataSlice());
+      };
+    }, [dispatch]);
 
   useEffect(() => {
     function handleAllOutputData(PlanStringArray) {
@@ -86,7 +80,7 @@ function Plans() {
         } else {
             console.log(PlanStringArray);
         }
-        PlanStringArray.forEach((itemarino) => {
+        PlanStringArray.forEach((itemarino, index) => {
             let itemString = typeof itemarino === 'object' ? itemarino.text : itemarino;
             let displayString = typeof itemarino === 'object' ? itemarino.fileName : itemarino;
             if (itemString.length > 500) {
@@ -95,7 +89,7 @@ function Plans() {
             if (typeof itemString === 'string' && itemString.includes(user._id) && !itemString.includes('Like:')) {
                 outputMyPlanArray.push(
                     <PlanResult
-                        key={"MyDataResult" + user.nickname}
+                        key={"MyDataResult" + user.nickname + index}
                         importPlanString={itemString}
                         displayString={displayString}
                     />
@@ -104,7 +98,7 @@ function Plans() {
             if (typeof itemString === 'string' && itemString.includes(user._id) && itemString.includes('Like:')) {
                 outputSavedPlanArray.push(
                     <PlanResult
-                        key={"SavedDataResult" + user.nickname}
+                        key={"SavedDataResult" + user.nickname + index}
                         importPlanString={itemString}
                         displayString={displayString}
                     />
@@ -194,4 +188,4 @@ function Plans() {
   )
 }
 
-export default Plans
+export default Plans;
