@@ -1,17 +1,15 @@
 import React, {useEffect, useState} from "react";
 import BackgroundVideo from "./BackgroundVideo.js";
 import Header from "../../components/Header/Header.jsx";
-
-import lwwimg from '../../assets/lww.png';
-import marelliimg from '../../assets/marelli.png';
-import rcmimg from '../../assets/rcm.png';
-import shawimg from '../../assets/shaw.png';
-import fauimg from '../../assets/fau.png';
-import yfimg from '../../assets/yf.png';
-
+import { useSelector, useDispatch } from 'react-redux'      // access state variables
+// import lwwimg from '../../assets/lww.png';
+// import marelliimg from '../../assets/marelli.png';
+// import rcmimg from '../../assets/rcm.png';
+// import shawimg from '../../assets/shaw.png';
+// import fauimg from '../../assets/fau.png';
+// import yfimg from '../../assets/yf.png';
 import './Home.css';
 import Footer from "../../components/Footer/Footer.jsx";
-
 const lwwlink = "https://www.lewisburgwater.org";
 const marellilink = "https://www.marelli.com";
 const rcmlink = "https://www.rcmindustries.com/";
@@ -26,8 +24,14 @@ const annuitylink = "/annuities";
 const soniclink = "/sonic";
 const wordlelink = "/wordle";
 const simplelink = "/simple";
+const planlink = "/plans";
 
 function Home() {
+
+  const { user, data, dataIsLoading, dataIsSuccess, dataIsError, dataMessage } = useSelector(     // select values from state
+  (state) => state.data
+  )
+
   return (
     <>
       <Header />
@@ -58,6 +62,8 @@ function Home() {
               <div className="home-spc">
                 <a className="home-spc-tool" href={passlink} ><div className="home-spc-tool-text">{passlink}</div></a> 
                 <a className="home-spc-tool" href={annuitylink} ><div className="home-spc-tool-text">{annuitylink}</div></a> 
+                {user && <a className="home-spc-tool" href={netlink} ><div className="home-spc-tool-text">{netlink}</div></a>}
+                {user && <a className="home-spc-tool" href={planlink} ><div className="home-spc-tool-text">{planlink}</div></a>}
               </div>
             </div>
              <div id="content-tile">
