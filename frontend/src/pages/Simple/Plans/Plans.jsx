@@ -42,7 +42,7 @@ function Plans() {
         dispatch(logout());
         navigate('/login');
       } else {
-        toast.error(dataMessage, { autoClose: 1000 });
+        toast.error(dataMessage, { autoClose: 8000 });
         console.error(dataMessage);
       }
     }
@@ -92,7 +92,7 @@ function Plans() {
         console.log(PlanStringArray);
       }
       PlanStringArray.forEach((itemarino, index) => {
-        let itemString = typeof itemarino.data === 'string' ? itemarino.data : itemarino.data.text;
+        let itemString = typeof itemarino.data === 'string' ? itemarino.data : "itemarino.data.text";
         let displayString = typeof itemarino === 'object' ? itemarino.fileName : itemarino;
         if (itemString.length > 500) {
           itemString = itemString.substring(0, 500) + '...';

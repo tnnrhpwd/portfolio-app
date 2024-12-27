@@ -1,19 +1,17 @@
-// setData.js
-
-const asyncHandler = require('express-async-handler');
-const multer = require('multer');
+const fs = require('fs');
 const path = require('path');
+const multer = require('multer');
+const asyncHandler = require('express-async-handler');
 const Data = require('../models/dataModel');
 
-// Set up multer for file storage
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/');
-    },
-    filename: (req, file, cb) => {
-        cb(null, `${Date.now()}-${file.originalname}`);
-    }
-});
+// Ensure the uploads directory exists
+const uploadDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Set up multer for memory storage
+const storage = multer.memoryStorage();
 
 const upload = multer({ storage: storage });
 
@@ -25,19 +23,26 @@ const setData = asyncHandler(async (req, res) => {
       res.status(401)
       throw new Error('User not found')
     }
-    if (!req.body.data) {
+    if (!req.body) {
       res.status(400)
-      throw new Error('Please add a data field')
+      throw new Error('Please add a data field. req: ' + JSON.stringify(req.body.data))
     }
   
-    const files = req.files.map(file => ({
-        filename: file.filename,
-        path: file.path
-    }));
+    let files = [];
+    if (req.files && req.files.length > 0) {
+        files = req.files.map(file => ({
+            filename: file.originalname,
+            contentType: file.mimetype,
+            data: file.buffer.toString('base64')
+        }));
+        // throw new Error('Please add a data field. req: ' + JSON.stringify(req.files[0].originalname))
+    }
 
     const datas = await Data.create({
-        data: req.body.data,
-        files: files
+        data: {
+            text: req.body.data,
+            files: files
+        }
     });
     
     res.status(200).json(datas)

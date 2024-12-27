@@ -9,8 +9,7 @@ const { setData, upload, getData, updateData, deleteData, registerUser, loginUse
 // Routes
 router.route('/')
   .get(protect, getData) // GET request for fetching data
-  .post(protect, setData) // POST request for setting data
-  .post(protect, upload.array('files'), setData);
+  .post(protect, upload.array('files'), setData); // POST request for setting data with file upload
 
 router.route('/:id')
   .delete(protect, deleteData) // DELETE request for deleting data
