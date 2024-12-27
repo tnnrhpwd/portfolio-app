@@ -32,7 +32,7 @@ const getData = asyncHandler(async (req, res) => {
 
     if (!req.query || !req.query.data) {
         res.status(400);
-        throw new Error('Invalid query parameter');
+        throw new Error('Invalid request query parameter');
     }
 
     let data;
@@ -40,12 +40,12 @@ const getData = asyncHandler(async (req, res) => {
         data = JSON.parse(req.query.data);
     } catch (error) {
         res.status(400);
-        throw new Error('Invalid query parameter format');
+        throw new Error('Invalid request query parameter parsing');
     }
 
     if (!data.text) {
         res.status(400);
-        throw new Error('Invalid query parameter');
+        throw new Error('Invalid request query parameter parsed data');
     }
 
     try {
