@@ -1,23 +1,20 @@
-import { useState } from 'react'
-import { useSelector, useDispatch } from 'react-redux' // access state variables
-import { createData } from './../../../features/data/dataSlice'
+import { useState, useRef } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { createData } from '../../../features/data/dataSlice';
 import './PlanInput.css';
-import { toast } from 'react-toastify'                        // visible error notifications
-
+import { toast } from 'react-toastify';
 
 function PlanInput() {
-  const [planText, setPlanText] = useState('')
-  const [goalText, setGoalText] = useState('')
-  const [actionText, setActionText] = useState('')
-  const [files, setFiles] = useState([])
+  const [planText, setPlanText] = useState('');
+  const [goalText, setGoalText] = useState('');
+  const [actionText, setActionText] = useState('');
+  const [files, setFiles] = useState([]);
+  const fileInputRef = useRef(null);
   const rootStyle = window.getComputedStyle(document.body);
   const toastDuration = parseInt(rootStyle.getPropertyValue('--toast-duration'), 10);
-  const dispatch = useDispatch()
+  const dispatch = useDispatch();
 
-  const { user, dataIsError, dataIsSuccess, dataMessage } = useSelector(
-    // select plan values from data state
-    (state) => state.data
-  )
+  const { user } = useSelector((state) => state.data);
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -32,20 +29,21 @@ function PlanInput() {
       formData.append('files', file);
     });
 
-    console.log({ data: text, files });
-
     dispatch(createData(formData));
 
     setPlanText('');
     setGoalText('');
     setActionText('');
     setFiles([]);
-    toast.success("Plan successfully created!", { autoClose: toastDuration })
-  }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    toast.success("Plan successfully created!", { autoClose: toastDuration });
+  };
 
   const onFilesChange = (e) => {
-    setFiles([...e.target.files])
-  }
+    setFiles([...e.target.files]);
+  };
 
   return (
     <div className='planit-planinput'>
@@ -54,34 +52,36 @@ function PlanInput() {
           <textarea
             name='goal'
             id='planit-planinput-input'
-            placeholder='Enter goal description, including the delta in the current state and potential financial or other fixed variables for comparison.'
+            placeholder='Enter goal description...'
             value={goalText}
-            onChange={(e) => setGoalText(e.target.value)} // change text field value
+            onChange={(e) => setGoalText(e.target.value)}
           />
         </div>
         <div className='planit-planinput-group'>
           <textarea
             name='plan'
             id='planit-planinput-input'
-            placeholder='Enter plan description including stakeholders, milestones, and other project charter information to meet the project metric.'
+            placeholder='Enter plan description...'
             value={planText}
-            onChange={(e) => setPlanText(e.target.value)} // change text field value
+            onChange={(e) => setPlanText(e.target.value)}
           />
         </div>
         <div className='planit-planinput-group'>
           <textarea
             name='action'
             id='planit-planinput-input'
-            placeholder='Enter action description, detailing the completed steps to achieve the goal metric from the current delta state.'
+            placeholder='Enter action description...'
             value={actionText}
-            onChange={(e) => setActionText(e.target.value)} // change text field value
+            onChange={(e) => setActionText(e.target.value)}
           />
         </div>
         <div className='planit-planinput-group'>
           <input
             type='file'
+            id='file-input'
             multiple
             onChange={onFilesChange}
+            ref={fileInputRef}
           />
         </div>
         <div className='planit-planinput-group'>
@@ -91,7 +91,7 @@ function PlanInput() {
         </div>
       </form>
     </div>
-  )
+  );
 }
 
-export default PlanInput
+export default PlanInput;

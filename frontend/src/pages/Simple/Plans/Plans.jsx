@@ -9,7 +9,6 @@ import { toast } from 'react-toastify'; // visible error notifications
 import { logout, getData, resetDataSlice } from '../../../features/data/dataSlice.js';
 import './Plans.css';
 
-
 function Plans() {
   const [showNewData, setShowNewData] = useState(false);
   const [showMyPlans, setShowMyPlans] = useState(false);
@@ -80,6 +79,11 @@ function Plans() {
 
   useEffect(() => {
     function handleAllOutputData(PlanStringArray) {
+      if (!PlanStringArray) {
+        console.log('PlanStringArray is undefined');
+        return;
+      }
+
       var outputMyPlanArray = [];
       var outputSavedPlanArray = [];
       if (PlanStringArray.length === 0) {
@@ -88,7 +92,7 @@ function Plans() {
         console.log(PlanStringArray);
       }
       PlanStringArray.forEach((itemarino, index) => {
-        let itemString = typeof itemarino === 'object' ? itemarino.text : itemarino;
+        let itemString = typeof itemarino.data === 'string' ? itemarino.data : itemarino.data.text;
         let displayString = typeof itemarino === 'object' ? itemarino.fileName : itemarino;
         if (itemString.length > 500) {
           itemString = itemString.substring(0, 500) + '...';

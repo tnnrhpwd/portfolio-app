@@ -20,19 +20,6 @@ app.use(bodyParser.urlencoded({ limit: "50mb", extended: true, parameterLimit: 5
 
 app.use('/api/data', require('./routes/routeData')) // serve all data at /api/data (regardless of hit url)
 
-// If production, serve frontend. Else, 
-// if (process.env.NODE_ENV === 'production') {                                  // IF PRODUCTION
-//   app.use(express.static(path.join(__dirname, '../frontend/build')))          //get the directory of the build folder
-
-//   app.get('*', (req, res) =>
-//     res.sendFile(
-//       path.resolve(__dirname, '../', 'frontend', 'build', 'index.html')       // output index.html from the build folder
-//     )
-//   )
-// } else {                                                                      // ELSE
-//   app.get('/', (req, res) => res.send('Please set to production'))            // send production error
-// }
-
 app.use(errorHandler) // adds middleware that returns errors in json format (regardless of hit url)
 
 // IF MongoDB connected, 
