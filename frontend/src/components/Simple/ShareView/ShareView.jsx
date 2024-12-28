@@ -4,9 +4,9 @@ import useOutsideAlerter from '../../useOutsideAlerter.js'
 import './ShareView.css'
 
 function ShareView(props) {
-    const type = props.type.toLowerCase();
+    const type = "InfoData";
     const id = props.id;
-    const link = "https://mern-planit-app.herokuapp.com/"+type+"/"+id;
+    const link = "https://www.STHopwood.com/"+type+"/"+id;
 
     const hideComponentVisibility = () => {props.click(null);}
     const ComponentVisibility = () => { return( true ) }  
@@ -26,7 +26,7 @@ function ShareView(props) {
                     Close
                 </button>
             </div>
-                This is a shareable link to the {type}.
+                This is a shareable link.
             <br/>
             <textarea readOnly className='shareview-textarea' value={link}/>
             <button className='shareview-copy' onClick={() => {navigator.clipboard.writeText(link);toast.success("Link Copied!")}}>

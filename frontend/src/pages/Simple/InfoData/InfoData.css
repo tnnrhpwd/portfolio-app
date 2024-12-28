@@ -99,6 +99,26 @@
     border: calc(var(--nav-size)*0.001) solid var(--text-color);
     border-radius: calc(var(--nav-size)*0.05);
 }
-.infodata-comments{
+.infodata-data-attachments{
+    display: block;
+    width: 100%;
+    padding-top: calc(var(--nav-size)*0.2);
+}
+.infodata-data-attachments-img{
+    width: 100%;
+}
+.infodata-back-button {
+    display: inline-block;
+    margin: 10px 0;
+    padding: 10px 20px;
+    font-size: 16px;
+    color: var(--text-color);
+    background-color: var(--button-background-color);
+    border: calc(var(--nav-size)*0.001) solid var(--text-color);
+    border-radius: 5px;
+    cursor: pointer;
+}
 
+.infodata-back-button:hover {
+    background-color: var(--button-hover-background-color);
 }

@@ -28,22 +28,26 @@ function DataResult(props) {
     const [ manageView, setManageView ] = useState(null);
 
     function handleAgree(id){
+        if(!user){ navigate('/login') }
         const type = ("agree");
         dispatch( updateData( {  id ,type } ) )
     }
 
     function handleDisagree(id){
+        if(!user){ navigate('/login') }
         const type = ("disagree");
         dispatch( updateData( {  id ,type } ) )
     }
 
     function handleFavorite(id){
+        if(!user){ navigate('/login') }
         const type = ("favorite");
         dispatch( updateData( {  id ,type } ) )
         toast.success("Data added to your favorites!", { autoClose: 1000 })
     }
 
     function handleUnfavorite(id){
+        if(!user){ navigate('/login') }
         const type = ("unfavorite");
         dispatch( updateData( {  id ,type } ) )
         toast.success("Data removed from your favorites!", { autoClose: 1000 })

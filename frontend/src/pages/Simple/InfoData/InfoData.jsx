@@ -47,91 +47,65 @@ function InfoData() {
     }
   }, [dataIsLoading]);
 
-useEffect(() => {
+  useEffect(() => {
     const fetchData = async () => {
-        try {
-            if (!user) {
-                await dispatch(getPublicData({ data: { text: id } })).unwrap();
-            }else{  
-                await dispatch(getData({ data: { text: id } })).unwrap();
-            }
-        } catch (error) {
-            console.error(error);
-            toast.error(error.message);
+      try {
+        if (!user) {
+          await dispatch(getPublicData({ data: { text: id } })).unwrap();
+        } else {
+          await dispatch(getData({ data: { text: id } })).unwrap();
         }
+      } catch (error) {
+        console.error(error);
+        toast.error(error.message);
+      }
     };
 
     fetchData();
 
     return () => {
-        dispatch(resetDataSlice());
+      dispatch(resetDataSlice());
     };
-}, [dispatch, id]);
+  }, [dispatch, id]);
 
-useEffect(() => {
+  useEffect(() => {
     function handleAllOutputData(PlanObject) {
-        if (!PlanObject) {
-            console.log('PlanObject is undefined');
-            return;
-        }
-        if (PlanObject.length === 0) {
-            console.log('PlanObject is empty');
-          } else {
-            console.log(PlanObject);
-          }
-        let itemString = typeof PlanObject[0].data === 'string' ? PlanObject[0].data : PlanObject[0].data.text;
-        let itemCreatedAt = PlanObject[0].createdAt;
-        let itemUpdatedAt = PlanObject[0].updatedAt;
-        console.log(PlanObject[0]);
-        let itemID = PlanObject[0]._id;
-        if (itemString.length > 500) {
-          itemString = itemString.substring(0, 500) + '...';
-        }
-        const files = PlanObject[0].data.files || [];
+      if (!PlanObject) {
+        console.log('PlanObject is undefined');
+        return;
+      }
+      if (PlanObject.length === 0) {
+        console.log('PlanObject is empty');
+      } else {
+        console.log(PlanObject);
+      }
+      let itemString = typeof PlanObject[0].data === 'string' ? PlanObject[0].data : PlanObject[0].data.text;
+      let itemCreatedAt = PlanObject[0].createdAt;
+      let itemUpdatedAt = PlanObject[0].updatedAt;
+      console.log(PlanObject[0]);
+      let itemID = PlanObject[0]._id;
+      if (itemString.length > 500) {
+        itemString = itemString.substring(0, 500) + '...';
+      }
+      let itemFileContentType = PlanObject[0].data.files[0].contentType || '';
+      let itemFileData = PlanObject[0].data.files[0].data || '';
+      let itemFileName = PlanObject[0].data.files[0].filename || '';
 
-        setChosenData({
-            data: itemString,
-            createdAt: itemCreatedAt,
-            updatedAt: itemUpdatedAt,
-            _id: itemID,
-        });
-
+      const files = PlanObject[0].data.files || [];
+      setChosenData({
+        data: itemString,
+        createdAt: itemCreatedAt,
+        updatedAt: itemUpdatedAt,
+        _id: itemID,
+        fileContentType: itemFileContentType,
+        fileData: itemFileData,
+        fileName: itemFileName,
+      });
     }
     if (data.data) {
       handleAllOutputData(data.data);
     }
   }, [data]);
-
-//   useEffect(() => {
-//     if (chosenData) {
-//       const outputDataComponentArray = chosenData.data.map((selData, selDataIndex) => (
-//         <DataResult key={"DataResult" + id + " " + selDataIndex} data={selData} />
-//       ));
-//       setImportedDatas(outputDataComponentArray);
-//     }
-//   }, [chosenData, id]);
-
-  const handleSubmitNewData = (e) => {
-    e.preventDefault();
-
-    if (newData === '') {
-      toast.error('Please enter your data first.', { autoClose: 1000 });
-      return;
-    }
-    if (newData.length > 280) {
-      toast.error('Please shorten your data to 280 characters.', { autoClose: 1000 });
-      return;
-    }
-
-    const topic = chosenData._id;
-    const data = newData;
-
-    dispatch(createData({ topic, data }));
-
-    setNewData('');
-
-    toast.success('Data Submitted!', { autoClose: 1000 });
-  };
 
   const handleDeleteData = () => {
     dispatch(deleteData(chosenData._id));
@@ -144,33 +118,53 @@ useEffect(() => {
     setShowDeleteDataConfirmation(!showDeleteDataConfirmation);
   };
 
-    return (
-        <>
-            <Header />
-            <div className="infodata">
-                {user && (
-                <div className='infodata-delete'>
-                    {/* {user._id === chosenData.user && (
-                    <button className='infodata-delete-button' onClick={handleShowDeleteData}>
-                        Delete Data
-                    </button>
-                    )} */}
+  return (
+    <>
+      <Header />
+      <div className="infodata">
+        <button className='infodata-back-button' onClick={() => navigate('/plans')}>Back to /plans</button>
+        {user && (
+          <div className='infodata-delete'>
+            {user._id === chosenData.user && (
+            <button className='infodata-delete-button' onClick={handleShowDeleteData}>
+                Delete Data
+            </button>
+            )}
+          </div>
+        )}
+        {showDeleteDataConfirmation && (
+          <DeleteView view={true} delFunction={handleDeleteData} click={setShowDeleteDataConfirmation} type="data" id={chosenData._id} />
+        )}
+        <div className='infodata-data'>
+          <div className='infodata-data-text'>
+            {chosenData && (<div>
+                <div className='infodata-data-button-text'>
+                    {chosenData.data}
                 </div>
-                )}
-                {showDeleteDataConfirmation && (
-                <DeleteView view={true} delFunction={handleDeleteData} click={setShowDeleteDataConfirmation} type="data" id={chosenData._id} />
-                )}
-                <div className='infodata-data'>
-                <div className='infodata-data-text'>
-                    {chosenData &&
-                        <div className='infodata-data-button-text'>{chosenData.data}</div>
-                    }
+                <div key={chosenData._id + "attachments1"} className='infodata-data-attachments'>
+                    {chosenData.fileContentType.startsWith('image/') && (
+                        <img src={`data:${chosenData.fileContentType};base64,${chosenData.fileData}`} alt={chosenData.fileName} className='infodata-data-attachments-img'/>
+                    )}
+                    {chosenData.fileContentType.startsWith('video/') && (
+                        <video controls >
+                        <source src={`data:${chosenData.fileContentType};base64,${chosenData.fileData}`} type={chosenData.fileContentType} className='infodata-data-attachments-vid'/>
+                        Your browser does not support the video tag.
+                        </video>
+                    )}
+                    {!chosenData.fileContentType.startsWith('image/') && !chosenData.fileContentType.startsWith('video/') && (
+                        <div className='infodata-data-attachments-other'>
+                        <p>Attachment: {chosenData.fileName}</p>
+                        <p>Type: {chosenData.fileContentType}</p>
+                        </div>
+                    )}
                 </div>
-                </div>
-            </div>      
-            <Footer />
-        </>
-    );
+            </div>)}
+          </div>
+        </div>
+      </div>
+      <Footer />
+    </>
+  );
 }
 
 export default InfoData;
