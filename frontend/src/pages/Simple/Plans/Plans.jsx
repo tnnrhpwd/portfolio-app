@@ -37,7 +37,7 @@ function Plans() {
       toast.success('Successfully received plans.', { autoClose: toastDuration });
     }
     if (dataIsError) {
-      if (dataMessage && dataMessage.includes('TokenExpiredError')) {
+      if (dataMessage && (dataMessage.includes('TokenExpiredError') || dataMessage.includes('Not authorized'))) {
         toast.error('Session expired. Please log in again.', { autoClose: toastDuration });
         dispatch(logout());
         navigate('/login');
