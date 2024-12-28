@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom'; // redirect the user
 import { useSelector, useDispatch } from 'react-redux'; // access state variables
 import PlanInput from '../../../components/Simple/PlanInput/PlanInput.jsx';
-import PlanResult from '../../../components/Simple/PlanResult/PlanResult.jsx';
+import DataResult from '../../../components/Simple/DataResult/DataResult.jsx';
 import Header from '../../../components/Header/Header.jsx';
 import Footer from "../../../components/Footer/Footer.jsx";
 import { toast } from 'react-toastify'; // visible error notifications
@@ -86,34 +86,45 @@ function Plans() {
 
       var outputMyPlanArray = [];
       var outputSavedPlanArray = [];
+
       if (PlanStringArray.length === 0) {
         console.log('PlanStringArray is empty');
       } else {
         console.log(PlanStringArray);
       }
+
+      const processPlanArray = (itemString, files, index, array) => {
+
+        const fileType = files[0] ? files[0].contentType : '';
+        const fileName = files[0] ? files[0].filename : '';
+        const fileData = files[0] ? files[0].data : '';
+        array.push(
+          <DataResult
+            key={`${array === outputMyPlanArray ? 'MyDataResult' : 'SavedDataResult'}${user.nickname}${index}${1}`}
+            importPlanString={itemString}
+            fileName={fileName}
+            fileType={fileType}
+            fileData={fileData}
+          />
+        );
+
+      };
+
       PlanStringArray.forEach((itemarino, index) => {
-        let itemString = typeof itemarino.data === 'string' ? itemarino.data : "itemarino.data.text";
-        let displayString = typeof itemarino === 'object' ? itemarino.fileName : itemarino;
+        let itemString = typeof itemarino.data === 'string' ? itemarino.data : itemarino.data.text;
+
         if (itemString.length > 500) {
           itemString = itemString.substring(0, 500) + '...';
         }
-        if (typeof itemString === 'string' && itemString.includes(user._id) && !itemString.includes('Like:')) {
-          outputMyPlanArray.push(
-            <PlanResult
-              key={'MyDataResult' + user.nickname + index}
-              importPlanString={itemString}
-              displayString={displayString}
-            />
-          );
-        }
-        if (typeof itemString === 'string' && itemString.includes(user._id) && itemString.includes('Like:')) {
-          outputSavedPlanArray.push(
-            <PlanResult
-              key={'SavedDataResult' + user.nickname + index}
-              importPlanString={itemString}
-              displayString={displayString}
-            />
-          );
+
+        const files = itemarino.data.files || [];
+
+        if (typeof itemString === 'string' && itemString.includes(user._id)) {
+          if (!itemString.includes('Like:')) {
+            processPlanArray(itemString, files, index, outputMyPlanArray);
+          } else {
+            processPlanArray(itemString, files, index, outputSavedPlanArray);
+          }
         }
       });
 

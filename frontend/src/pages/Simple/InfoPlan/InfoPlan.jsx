@@ -5,7 +5,7 @@ import { toast } from 'react-toastify'                        // visible error n
 import { createData, deleteData, getData, resetDataSlice } from '../../../features/data/dataSlice'
 import DeleteView from '../../../components/Simple/DeleteView/DeleteView'
 import Spinner from '../../../components/Spinner/Spinner';
-import PlanResult from '../../../components/Simple/PlanResult/PlanResult'
+import DataResult from '../../../components/Simple/DataResult/DataResult'
 import './InfoPlan.css';
 
 function InfoData() {
@@ -48,7 +48,7 @@ function InfoData() {
             setChosenData(selectedData)
             if( ( selectedData ) ){
                 selectedData[4].forEach(( selData, selDataIndex ) => {
-                    outputDataComponentArray.push(<PlanResult key={"PlanResult"+IDString+" "+selDataIndex} data={selData}/>)
+                    outputDataComponentArray.push(<DataResult key={"DataResult"+IDString+" "+selDataIndex} data={selData}/>)
                 })
             }
             setImportedDatas( outputDataComponentArray );

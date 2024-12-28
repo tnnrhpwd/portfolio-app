@@ -6,7 +6,7 @@ import Spinner from '../../Spinner/Spinner.jsx'
 import { getData, resetDataSlice, createData } from '../../../features/data/dataSlice.js'
 // import { getComments, resetCommentSlice, createComment, updateComment } from '../../features/comments/commentSlice'
 // import { getMyData, resetAuthSlice } from '../../features/auth/authSlice'
-import PlanResult from '../PlanResult/PlanResult.jsx'
+import dataresult from '../dataresult/dataresult.jsx'
 import LoginView from '../../LoginView/LoginView.jsx'
 // import BuildPlanObjectArray from '../BuildPlanitObjectArray.js'
 
@@ -88,8 +88,8 @@ function Start() {
                 })
                 if((findPlan!=="") && ( (includedInPlan) || planObjectArray[2][1].toUpperCase().includes(findPlan.toUpperCase()) )){ // check if the search input is in the plan plan
                     console.log(planObjectArray[planIndex])
-                    const outputElement = <PlanResult 
-                        key = {"planresult"+plan[0]} 
+                    const outputElement = <dataresult 
+                        key = {"dataresult"+plan[0]} 
                         importPlanArray = {plan}
                     />
                     outputArray.push( outputElement )

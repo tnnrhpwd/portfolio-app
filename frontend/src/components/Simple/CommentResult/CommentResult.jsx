@@ -1,4 +1,4 @@
-import CreatedAt from "../PlanResult/CreatedAt"
+import CreatedAt from "../dataresult/CreatedAt"
 import './CommentResult.css';
 
 function CommentResult(props) {

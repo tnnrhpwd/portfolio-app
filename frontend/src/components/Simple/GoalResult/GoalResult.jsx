@@ -3,7 +3,7 @@ import { useSelector, useDispatch } from 'react-redux'      // access state vari
 // import { updateData } from './../../features/goals/goalSlice'
 import ShareView from '../ShareView/ShareView.jsx'
 // import { toast } from 'react-toastify'                        // visible error notifications
-import CreatedAt from '../PlanResult/CreatedAt';
+import CreatedAt from '../DataResult/CreatedAt';
 import { useNavigate } from 'react-router-dom';
 // import ThumbsUp from './../../assets/thumbs-up.svg';
 // import ThumbsDown from './../../assets/thumbs-down.svg';
@@ -46,23 +46,23 @@ function GoalResult( props ) {
     { manageView }
 
     <div className='planit-goalresult'>
-      <div key={goalObjectArray[0]+"0.1"} className='planit-planresult-1'>
-        <div key={goalObjectArray[0]+"0.11"} className='planit-planresult-date'>
+      <div key={goalObjectArray[0]+"0.1"} className='planit-dataresult-1'>
+        <div key={goalObjectArray[0]+"0.11"} className='planit-dataresult-date'>
             <CreatedAt key={goalObjectArray[0]+"0.12"} createdAt={goalObjectArray[3]}/>
         </div>
-        <div key={goalObjectArray[0]+"0.13"} className='planit-planresult-share'>
-            <button key={goalObjectArray[0]+"0.14"} className='planit-planresult-share-btn' onClick={() => handleShareView("goal",goalObjectArray[0])}>Share</button>
+        <div key={goalObjectArray[0]+"0.13"} className='planit-dataresult-share'>
+            <button key={goalObjectArray[0]+"0.14"} className='planit-dataresult-share-btn' onClick={() => handleShareView("goal",goalObjectArray[0])}>Share</button>
         </div>
-        <div className='planit-planresult-manageplan' key={goalObjectArray[0]+"0.16"}>
+        <div className='planit-dataresult-manageplan' key={goalObjectArray[0]+"0.16"}>
             { (user) ? <>{
-              <button key={goalObjectArray[0]+"0.17"} className='planit-planresult-manageplan-btn' onClick={() => handleManageView("goal",goalObjectArray[0])} >☸</button>
+              <button key={goalObjectArray[0]+"0.17"} className='planit-dataresult-manageplan-btn' onClick={() => handleManageView("goal",goalObjectArray[0])} >☸</button>
             }</>:null}
         </div>
       </div>
-      <div key={goalObjectArray[0]+"0.2"} className='planit-planresult-2'>
-        <div key={goalObjectArray[0]+"2"} className='planit-planresult-goal'><a href={'goal/'+goalObjectArray[0]}><button key={goalObjectArray[0]+"2button"} className='planit-planresult-goalbutton'>{goalObjectArray[1]}</button></a></div>
+      <div key={goalObjectArray[0]+"0.2"} className='planit-dataresult-2'>
+        <div key={goalObjectArray[0]+"2"} className='planit-dataresult-goal'><a href={'goal/'+goalObjectArray[0]}><button key={goalObjectArray[0]+"2button"} className='planit-dataresult-goalbutton'>{goalObjectArray[1]}</button></a></div>
       </div>
-      <div key={goalObjectArray[0]+"0.3"} className='planit-planresult-3'>
+      <div key={goalObjectArray[0]+"0.3"} className='planit-dataresult-3'>
         { ( props.freqNumGoalPlans ) } plans | 
         {" " + ( props.freqNumPlanGoals ) } actions
       </div>

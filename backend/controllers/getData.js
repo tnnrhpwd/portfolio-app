@@ -80,11 +80,19 @@ const getData = asyncHandler(async (req, res) => {
             try {
                 const datas = await Data.find({
                     $or: [
-                        { 'data': { $regex: dataSearchString, $options: 'i' } },
-                        { 'data': { $regex: userSearchString, $options: 'i' } },
-                        { 'data.text': { $regex: dataSearchString, $options: 'i' } },
-                        { 'data.text': { $regex: userSearchString, $options: 'i' } }
-                    ],
+                        {
+                            $and: [
+                                { 'data.text': { $regex: userSearchString, $options: 'i' } },
+                                { 'data.text': { $regex: dataSearchString, $options: 'i' } }
+                            ]
+                        },
+                        {
+                            $and: [
+                                { 'data': { $regex: dataSearchString, $options: 'i' } },
+                                { 'data': { $regex: userSearchString, $options: 'i' } }
+                            ]
+                        }
+                    ]
                 });
 
                 res.status(200).json({ data: datas.map((data) => ({ data: data.data, files: data.files })) });
