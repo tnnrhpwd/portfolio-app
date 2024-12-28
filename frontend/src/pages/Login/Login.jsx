@@ -8,6 +8,7 @@ import React from 'react';
 import './Login.css';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
+const devMode = (process.env.NODE_ENV === 'development')
 
 function Login() {
     // useState variables of input fields
@@ -144,9 +145,11 @@ function Login() {
                     Register
                 </button>
             </a>
-            <button onClick={handleGuestLogin} className='planit-login-guest'>
-                Login as Guest
-            </button>
+            {devMode &&
+                <button onClick={handleGuestLogin} className='planit-login-guest'>
+                    Login as Guest
+                </button>
+            }
         </div>
         <Footer />
     </>)
