@@ -4,6 +4,7 @@ const fetch = require('node-fetch');
 const Data = require('../models/dataModel');
 const wordBaseUrl = 'https://random-word-api.p.rapidapi.com/L/';
 const defBaseUrl = 'https://mashape-community-urban-dictionary.p.rapidapi.com/define?term=';
+const { ObjectId } = require('mongoose').Types;
 const rapidapiwordoptions = {
     method: 'GET',
     headers: {
@@ -76,34 +77,30 @@ const getData = asyncHandler(async (req, res) => {
 
         } else { // Handle database search requests
             try {
-                const dataList = await Data.find({
-                    $or: [
-                        {
-                            $and: [
-                                { 'data.text': { $regex: "|Public:true", $options: 'i' } },
-                                { 'data.text': { $regex: dataSearchString, $options: 'i' } }
-                            ]
-                        },
-                        {
-                            $and: [
-                                { 'data.text': { $regex: userSearchString, $options: 'i' } },
-                                { 'data.text': { $regex: dataSearchString, $options: 'i' } }
-                            ]
-                        },                        
-                        {
-                            $and: [
-                                { 'data': { $regex: "|Public:true", $options: 'i' } },
-                                { 'data': { $regex: dataSearchString, $options: 'i' } }
-                            ]
-                        },
-                        {
-                            $and: [
-                                { 'data': { $regex: userSearchString, $options: 'i' } },
-                                { 'data': { $regex: dataSearchString, $options: 'i' } }
-                            ]
-                        },
-                    ]
-                });
+
+                const searchConditions = [
+                    {
+                        $or: [
+                            { 'data.text': { $regex: "\\|Public:true", $options: 'i' } },
+                            { 'data': { $regex: "\\|Public:true", $options: 'i' } },
+                            { 'data.text': { $regex: userSearchString, $options: 'i' } },
+                            { 'data': { $regex: userSearchString, $options: 'i' } }
+                        ]
+                    },
+                    {
+                        $or: [
+                            { 'data.text': { $regex: dataSearchString, $options: 'i' } },
+                            { 'data': { $regex: dataSearchString, $options: 'i' } },
+                        ]
+                    }
+                ];
+                
+                if (ObjectId.isValid(dataSearchString)) {
+                    searchConditions[1].$or.push({ _id: ObjectId(dataSearchString) });
+                }
+
+                const dataList = await Data.find({ $and: searchConditions });
+
                 res.status(200).json({
                     data: dataList.map((data) => ({
                         data: data.data,
@@ -155,12 +152,26 @@ const getPublicData = asyncHandler(async (req, res) => {
     try {
         const dataSearchString = data.text.toLowerCase();
 
-        const dataList = await Data.find({
-            $and: [
-                { 'data.text': { $regex: "|Public:true", $options: 'i' } },
-                { 'data.text': { $regex: dataSearchString, $options: 'i' } }
-            ]
-        });
+        const searchConditions = [
+            {
+                $or: [
+                    { 'data.text': { $regex: "\\|Public:true", $options: 'i' } },
+                    { 'data': { $regex: "\\|Public:true", $options: 'i' } },
+                ]
+            },
+            {
+                $or: [
+                    { 'data.text': { $regex: dataSearchString, $options: 'i' } },
+                    { 'data': { $regex: dataSearchString, $options: 'i' } },
+                ]
+            }
+        ];
+        
+        if (ObjectId.isValid(dataSearchString)) {
+            searchConditions[1].$or.push({ _id: ObjectId(dataSearchString) });
+        }
+        
+        const dataList = await Data.find({ $and: searchConditions });
 
         res.status(200).json({
             data: dataList.map((data) => ({

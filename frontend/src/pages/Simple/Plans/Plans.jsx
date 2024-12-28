@@ -112,12 +112,10 @@ function Plans() {
         console.log(PlanStringArray);
       }
 
-      const processPlanArray = (itemCreatedAtData, itemUpdatedAtData, itemString, files, index, array) => {
+      const processPlanArray = (itemIDData, itemCreatedAtData, itemUpdatedAtData, itemString, files, index, array) => {
         const fileType = files[0] ? files[0].contentType : '';
         const fileName = files[0] ? files[0].filename : '';
         const fileData = files[0] ? files[0].data : '';
-        const updatedAtData = files[0] ? files[0].data : '';
-        const createdAtData = files[0] ? files[0].data : '';
 
         array.push(
           <DataResult
@@ -128,6 +126,7 @@ function Plans() {
             fileData={fileData}
             updatedAtData={itemUpdatedAtData}
             createdAtData={itemCreatedAtData}
+            itemID={itemIDData}
           />
         );
       };
@@ -136,6 +135,7 @@ function Plans() {
         let itemString = typeof itemarino.data === 'string' ? itemarino.data : itemarino.data.text;
         let itemCreatedAt = itemarino.createdAt;
         let itemUpdatedAt = itemarino.updatedAt;
+        let itemID = itemarino._id;
         if (itemString.length > 500) {
           itemString = itemString.substring(0, 500) + '...';
         }
@@ -143,9 +143,9 @@ function Plans() {
         const files = itemarino.data.files || [];
 
         if (typeof itemString === 'string') {
-          if ((user) && itemString.includes(user._id)) processPlanArray(itemCreatedAt, itemUpdatedAt, itemString, files, index, outputMyPlanArray);
-          if (itemString.includes('Like:')) processPlanArray(itemCreatedAt, itemUpdatedAt, itemString, files, index, outputSavedPlanArray);
-          if (itemString.includes('|Public:true')) processPlanArray(itemCreatedAt, itemUpdatedAt, itemString, files, index, outputPublicPlanArray);
+          if ((user) && itemString.includes(user._id)) processPlanArray(itemID, itemCreatedAt, itemUpdatedAt, itemString, files, index, outputMyPlanArray);
+          if (itemString.includes('Like:')) processPlanArray(itemID, itemCreatedAt, itemUpdatedAt, itemString, files, index, outputSavedPlanArray);
+          if (itemString.includes('|Public:true')) processPlanArray(itemID, itemCreatedAt, itemUpdatedAt, itemString, files, index, outputPublicPlanArray);
         }
       });
 

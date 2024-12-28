@@ -81,12 +81,12 @@ function InfoGoal() {
     // }
 
     if(chosenGoal){
-        return (<div className="infoplan">
-            <div className='infoplan-delete'>
+        return (<div className="infodata">
+            <div className='infodata-delete'>
                 {/* { (user) &&
                     <>{ ( user._id === chosenGoal[2]) &&
                         <button 
-                            className = 'infoplan-delete-button'
+                            className = 'infodata-delete-button'
                             onClick = {handleShowDeleteGoal}
                             >
                             Delete Plan
@@ -97,12 +97,12 @@ function InfoGoal() {
             {   ( showDeleteGoalConfirmation ) &&
                 < DeleteView view={true} delFunction={handleDeleteGoal} click={setShowDeleteGoalConfirmation} type="goal" id={chosenGoal[0]}/>
             }
-            <div className='infoplan-goal'>
-                <div className='infoplan-goal-text'>
+            <div className='infodata-goal'>
+                <div className='infodata-goal-text'>
                     <a href = { '/goal/' + chosenGoal[0] }>
                         <button 
                             key = { "goal-text-" + chosenGoal[0] } 
-                            className = 'infoplan-goal-text-goal'
+                            className = 'infodata-goal-text-goal'
                             >
                             { chosenGoal[1] }
                         </button>
@@ -148,20 +148,20 @@ function InfoGoal() {
             </div>
             <br/>
 
-            <div className='infoplan-newcomment'>
+            <div className='infodata-newcomment'>
                 <textarea 
                     value={newComment}
                     name='plan'
                     placeholder='Enter comment here.'
                     onChange={(e) => setNewComment(e.target.value)}   // change text field value
-                    className='infoplan-newcomment-textarea'
+                    className='infodata-newcomment-textarea'
                 />
-                <button className='infoplan-newcomment-submit' onClick={handleSubmitNewComment}>
+                <button className='infodata-newcomment-submit' onClick={handleSubmitNewComment}>
                     Submit
                 </button>
             </div>
 
-            <div className='infoplan-comments'>
+            <div className='infodata-comments'>
                 { ( importedComments ) 
                 ?   ( importedComments ) 
                 : "No Comments"                  

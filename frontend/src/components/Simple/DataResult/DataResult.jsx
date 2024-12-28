@@ -17,6 +17,7 @@ function DataResult(props) {
     const fileData = props.fileData;
     const updatedAt = props.updatedAtData;
     const createdAt = props.createdAtData;
+    const itemID = props.itemID;
 
     const dispatch = useDispatch();
     const navigate = useNavigate();
@@ -78,64 +79,64 @@ function DataResult(props) {
                         <CreatedAt key={planString+"0.12"} createdAt={updatedAt}/>
                     </div>
                     <div key={planString+"0.13"} className='planit-dataresult-share'>
-                        <button key={planString+"0.14"} className='planit-dataresult-share-btn' onClick={() => handleShareView("plan",planString)}>Share</button>
+                        <button key={planString+"0.14"} className='planit-dataresult-share-btn' onClick={() => handleShareView("plan",itemID)}>Share</button>
                     </div>
                     <div className='planit-dataresult-fav' key={planString+"0.15"}>
                         { (user) ? <>{
                             <>{ (planString.includes(user._id)) ?
                                 <>
-                                    <button className='planit-dataresult-fav-btn' onClick={() => handleUnfavorite( planString )} key={planString+"5.1"}>❤</button>
+                                    <button className='planit-dataresult-fav-btn' onClick={() => handleUnfavorite( itemID )} key={planString+"5.1"}>❤</button>
                                 </>
                                 :<>
-                                    <button className='planit-dataresult-unfav-btn' onClick={() => handleFavorite( planString )} key={planString+"5.2"}>♡</button>
+                                    <button className='planit-dataresult-unfav-btn' onClick={() => handleFavorite( itemID )} key={planString+"5.2"}>♡</button>
                                 </>
                             }</>
                         }</>:null}
                     </div>
                     <div className='planit-dataresult-manageplan' key={planString+"0.16"}>
                         { (user) ? <>{
-                            <button key={planString+"0.17"} className='planit-dataresult-manageplan-btn' onClick={() => handleManageView("plan",planString)} >☸</button>
+                            <button key={planString+"0.17"} className='planit-dataresult-manageplan-btn' onClick={() => handleManageView("plan",itemID)} >☸</button>
                         }</>:null}
                     </div>
                 </div>
-                <div key={planString+"0.2"} className='planit-dataresult-2'>
-                    <div 
-                        key={planString + "2"} 
-                        className='planit-dataresult-goal'
-                        >
-                        <a href={'plan/' + planString}>
-                            <button 
-                            key={planString + "2button"} 
-                            className='planit-dataresult-goalbutton'
+                <a href={'InfoData/' + itemID}>
+                    <div key={planString+"0.2"} className='planit-dataresult-2'>
+                        <div 
+                            key={planString + "2"} 
+                            className='planit-dataresult-goal'
                             >
+                            <button 
+                                    key={planString + "2button"} 
+                                    className='planit-dataresult-goalbutton'
+                                    >
                             <div className='planit-dataresult-goalbutton-text'>{planString.replace(/Creator:.*?\|/, '|')}</div>
                             </button>
-                        </a>
-                    </div>
-                    {fileType && (
-                        <div key={planString+"attachments"} className='planit-dataresult-attachments'>
-
-                                <div key={planString+"attachments1"} className='planit-dataresult-attachment'>
-                                    {fileType.startsWith('image/') && (
-                                        <img src={`data:${fileType};base64,${fileData}`} alt={fileName} className='planit-dataresult-image' />
-                                    )}
-                                    {fileType.startsWith('video/') && (
-                                        <video controls className='planit-dataresult-video'>
-                                            <source src={`data:${fileType};base64,${fileData}`} type={fileType} />
-                                            Your browser does not support the video tag.
-                                        </video>
-                                    )}
-                                    {!fileType.startsWith('image/') && !fileType.startsWith('video/') && (
-                                        <div className='planit-dataresult-file'>
-                                            <p>Attachment: {fileName}</p>
-                                            <p>Type: {fileType}</p>
-                                        </div>
-                                    )}
-                                </div>
-
                         </div>
-                    )}
-                </div>
+                        {fileType && (
+                            <div key={planString+"attachments"} className='planit-dataresult-attachments'>
+
+                                    <div key={planString+"attachments1"} className='planit-dataresult-attachment'>
+                                        {fileType.startsWith('image/') && (
+                                            <img src={`data:${fileType};base64,${fileData}`} alt={fileName} className='planit-dataresult-image' />
+                                        )}
+                                        {fileType.startsWith('video/') && (
+                                            <video controls className='planit-dataresult-video'>
+                                                <source src={`data:${fileType};base64,${fileData}`} type={fileType} />
+                                                Your browser does not support the video tag.
+                                            </video>
+                                        )}
+                                        {!fileType.startsWith('image/') && !fileType.startsWith('video/') && (
+                                            <div className='planit-dataresult-file'>
+                                                <p>Attachment: {fileName}</p>
+                                                <p>Type: {fileType}</p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                            </div>
+                        )}
+                    </div>
+                </a>
                 <div key={planString+"0.3"} className='planit-dataresult-3'>
                     <div key={planString+"1"} className="planit-dataresult-disagree-div">
                         <>{(user) && (planString.includes(user._id)) ?
