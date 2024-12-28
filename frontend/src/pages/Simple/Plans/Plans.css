@@ -1,6 +1,6 @@
 .planit-plans{
-    min-height: 85svh;
-    min-height: 85vh;
+    min-height:77svh;
+    min-height: 77vh;
     text-align: left;
     padding: calc(var(--nav-size)*0.5);
     font-size: calc(var(--nav-size)*0.5);
@@ -13,7 +13,7 @@
     font-size: calc(var(--nav-size)*0.3);
 }
 .planit-plans-create{
-    margin-top: calc(var(--nav-size)*1);
+    margin-top: calc(var(--nav-size)*.3);
     padding-top: calc(var(--nav-size)*.3);
     text-align: center;
     font-size: calc(var(--nav-size)*0.3);

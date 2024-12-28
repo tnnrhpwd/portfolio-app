@@ -1,7 +1,7 @@
 // controllers/index.js
 
 const {setData, upload} = require('./setData');
-const {getData} = require('./getData');
+const {getData, getPublicData} = require('./getData');
 const {updateData} = require('./updateData');
 const {deleteData} = require('./deleteData');
 const {registerUser} = require('./registerUser');
@@ -11,6 +11,7 @@ module.exports = {
   setData,
   upload,
   getData,
+  getPublicData,
   updateData,
   deleteData,
   registerUser,

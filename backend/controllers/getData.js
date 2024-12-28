@@ -1,5 +1,3 @@
-// getData.js
-// This file contains the functions that deal with the Data objects( schema imported from Models)  => Exported to Routes(listens + calls these methods on requests)
 require('dotenv').config();
 const asyncHandler = require('express-async-handler'); // sends the errors to the errorhandler
 const fetch = require('node-fetch');
@@ -78,7 +76,7 @@ const getData = asyncHandler(async (req, res) => {
 
         } else { // Handle database search requests
             try {
-                const datas = await Data.find({
+                const dataList = await Data.find({
                     $or: [
                         {
                             $and: [
@@ -106,8 +104,16 @@ const getData = asyncHandler(async (req, res) => {
                         },
                     ]
                 });
-
-                res.status(200).json({ data: datas.map((data) => ({ data: data.data, files: data.files })) });
+                res.status(200).json({
+                    data: dataList.map((data) => ({
+                        data: data.data,
+                        files: data.files,
+                        updatedAt: data.updatedAt,
+                        createdAt: data.createdAt,
+                        __v: data.__v,
+                        _id: data._id
+                    }))
+                });
             } catch (error) {
                 console.error("Error fetching data:", error);
                 res.status(500).json({ error: "Internal server error" });
@@ -124,4 +130,51 @@ const getData = asyncHandler(async (req, res) => {
     }
 });
 
-module.exports = { getData };
+// @desc    Get Public Data
+// @route   GET /api/publicdata
+// @access  Public
+const getPublicData = asyncHandler(async (req, res) => {
+    if (!req.query || !req.query.data) {
+        res.status(400);
+        throw new Error('Invalid request query parameter');
+    }
+
+    let data;
+    try {
+        data = JSON.parse(req.query.data);
+    } catch (error) {
+        res.status(400);
+        throw new Error('Invalid request query parameter parsing');
+    }
+
+    if (!data.text) {
+        res.status(400);
+        throw new Error('Invalid request query parameter parsed data');
+    }
+
+    try {
+        const dataSearchString = data.text.toLowerCase();
+
+        const dataList = await Data.find({
+            $and: [
+                { 'data.text': { $regex: "|Public:true", $options: 'i' } },
+                { 'data.text': { $regex: dataSearchString, $options: 'i' } }
+            ]
+        });
+
+        res.status(200).json({
+            data: dataList.map((data) => ({
+                data: data.data,
+                files: data.files,
+                updatedAt: data.updatedAt,
+                createdAt: data.createdAt,
+                __v: data.__v,
+                _id: data._id
+            }))
+        });    } catch (error) {
+        console.error("Error fetching public data:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+module.exports = { getData, getPublicData };

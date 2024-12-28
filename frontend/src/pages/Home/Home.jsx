@@ -47,7 +47,7 @@ function Home() {
                 <a className="home-spc-tool" href={links.passgen} ><div className="home-spc-tool-text">{links.passgen}</div></a> 
                 <a className="home-spc-tool" href={links.annuities} ><div className="home-spc-tool-text">{links.annuities}</div></a> 
                 {user && <a className="home-spc-tool" href={links.net} ><div className="home-spc-tool-text">{links.net}</div></a>}
-                {user && <a className="home-spc-tool" href={links.plans} ><div className="home-spc-tool-text">{links.plans}</div></a>}
+                <a className="home-spc-tool" href={links.plans} ><div className="home-spc-tool-text">{links.plans}</div></a>
               </div>
             </div>
              <div id="content-tile">

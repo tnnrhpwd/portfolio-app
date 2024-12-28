@@ -52,6 +52,23 @@ export const getData = createAsyncThunk(
     }
   }
 )
+// Get public datas -- READ
+export const getPublicData = createAsyncThunk(
+  'data/getPublic',
+  async (dataData, thunkAPI) => {
+    try {
+      return await dataService.getPublicData(dataData);
+    } catch (error) {
+      const dataMessage =
+        (error.response &&
+          error.response.data &&
+          error.response.data.dataMessage) ||
+        error.dataMessage ||
+        error.toString();
+      return thunkAPI.rejectWithValue(dataMessage);
+    }
+  }
+);
 
 // Update user data -- UPDATE
 export const updateData = createAsyncThunk(
@@ -166,6 +183,22 @@ export const dataSlice = createSlice({
         state.operation = 'get';
       })
       .addCase(getData.rejected, (state, action) => {      // get
+        state.dataIsLoading = false
+        state.dataIsError = true
+        state.dataMessage = action.payload
+        state.operation = null;
+      })
+      .addCase(getPublicData.pending, (state) => {               // get
+        state.dataIsLoading = true
+        state.operation = null;
+      })
+      .addCase(getPublicData.fulfilled, (state, action) => {     // get
+        state.dataIsLoading = false
+        state.dataIsSuccess = true
+        state.data = action.payload
+        state.operation = 'get';
+      })
+      .addCase(getPublicData.rejected, (state, action) => {      // get
         state.dataIsLoading = false
         state.dataIsError = true
         state.dataMessage = action.payload

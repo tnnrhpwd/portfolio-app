@@ -6,13 +6,13 @@ import DataResult from '../../../components/Simple/DataResult/DataResult.jsx';
 import Header from '../../../components/Header/Header.jsx';
 import Footer from "../../../components/Footer/Footer.jsx";
 import { toast } from 'react-toastify'; // visible error notifications
-import { logout, getData, resetDataSlice } from '../../../features/data/dataSlice.js';
+import { logout, getData, getPublicData, resetDataSlice } from '../../../features/data/dataSlice.js';
 import './Plans.css';
 
 function Plans() {
   const [showNewData, setShowNewData] = useState(false);
   const [showMyPlans, setShowMyPlans] = useState(false);
-  const [showPublicPlans, setShowPublicPlans] = useState(false);
+  const [showPublicPlans, setShowPublicPlans] = useState(true);
   const [myPlans, setMyPlans] = useState([]);
   const [showSavedPlans, setShowSavedPlans] = useState(false);
   const [savedPlans, setSavedPlans] = useState([]);
@@ -30,19 +30,12 @@ function Plans() {
 
   // called on state changes
   useEffect(() => {
-    if (!user) {
-      // if no user, redirect to login
-      navigate('/login');
-    }
     if (dataIsSuccess) {
-      // if data is successfully loaded, print success message
       toast.success('Successfully received plans.', { autoClose: toastDuration });
     }
     if (dataIsError) {
       if (dataMessage && (dataMessage.includes('TokenExpiredError') || dataMessage.includes('token') || dataMessage.includes('Not authorized'))) {
-        toast.info('Please log in before going to that directory.', { autoClose: toastDuration });
-        dispatch(logout());
-        navigate('/login');
+        // Handle token errors
       } else {
         toast.error(dataMessage, { autoClose: 8000 });
         console.error(dataMessage);
@@ -61,23 +54,46 @@ function Plans() {
   }, [dataIsLoading]);
 
   useEffect(() => {
+    let stopLoading = false;
+
     async function getMyData() {
       try {
         const searchStrings = ['|Plan:', '|Goal:', '|Action:'];
-        await Promise.all(
-          searchStrings.map((searchString) => dispatch(getData({ data: { text: searchString } })))
-        );
+        for (const searchString of searchStrings) {
+          if (stopLoading) break;
+          await dispatch(getData({ data: { text: searchString } })).unwrap();
+        }
       } catch (error) {
         console.error(error);
         toast.error(error.message);
+        stopLoading = true;
       }
     }
 
-    getMyData();
+    async function getThePublicData() {
+      try {
+        const searchStrings = ['|Plan:', '|Goal:', '|Action:'];
+        for (const searchString of searchStrings) {
+          if (stopLoading) break;
+          await dispatch(getPublicData({ data: { text: searchString } })).unwrap();
+        }
+      } catch (error) {
+        console.error(error);
+        toast.error(error.message);
+        stopLoading = true;
+      }
+    }
+
+    if (user) {
+      getMyData();
+    } else {
+      getThePublicData();
+    }
+
     return () => {
       dispatch(resetDataSlice());
     };
-  }, [dispatch]);
+  }, [dispatch, user]);
 
   useEffect(() => {
     function handleAllOutputData(PlanStringArray) {
@@ -96,26 +112,30 @@ function Plans() {
         console.log(PlanStringArray);
       }
 
-      const processPlanArray = (itemString, files, index, array) => {
-
+      const processPlanArray = (itemCreatedAtData, itemUpdatedAtData, itemString, files, index, array) => {
         const fileType = files[0] ? files[0].contentType : '';
         const fileName = files[0] ? files[0].filename : '';
         const fileData = files[0] ? files[0].data : '';
+        const updatedAtData = files[0] ? files[0].data : '';
+        const createdAtData = files[0] ? files[0].data : '';
+
         array.push(
           <DataResult
-            key={`${array === outputMyPlanArray ? 'MyDataResult' : 'SavedDataResult'}${user.nickname}${index}${1}`}
+            key={`${array === outputMyPlanArray ? 'MyDataResult' : 'SavedDataResult'}${"user.nickname"}${index}${1}`}
             importPlanString={itemString}
             fileName={fileName}
             fileType={fileType}
             fileData={fileData}
+            updatedAtData={itemUpdatedAtData}
+            createdAtData={itemCreatedAtData}
           />
         );
-
       };
 
       PlanStringArray.forEach((itemarino, index) => {
         let itemString = typeof itemarino.data === 'string' ? itemarino.data : itemarino.data.text;
-
+        let itemCreatedAt = itemarino.createdAt;
+        let itemUpdatedAt = itemarino.updatedAt;
         if (itemString.length > 500) {
           itemString = itemString.substring(0, 500) + '...';
         }
@@ -123,9 +143,9 @@ function Plans() {
         const files = itemarino.data.files || [];
 
         if (typeof itemString === 'string') {
-          if (itemString.includes(user._id)) processPlanArray(itemString, files, index, outputMyPlanArray);
-          if (itemString.includes('Like:')) processPlanArray(itemString, files, index, outputSavedPlanArray);
-          if (itemString.includes('|Public:true')) processPlanArray(itemString, files, index, outputPublicPlanArray);
+          if ((user) && itemString.includes(user._id)) processPlanArray(itemCreatedAt, itemUpdatedAt, itemString, files, index, outputMyPlanArray);
+          if (itemString.includes('Like:')) processPlanArray(itemCreatedAt, itemUpdatedAt, itemString, files, index, outputSavedPlanArray);
+          if (itemString.includes('|Public:true')) processPlanArray(itemCreatedAt, itemUpdatedAt, itemString, files, index, outputPublicPlanArray);
         }
       });
 
@@ -166,6 +186,10 @@ function Plans() {
   function handleSavedPlansToggle() {
     setShowSavedPlans(!showSavedPlans);
   }
+  function handleLogin() {
+    dispatch(logout());
+    navigate('/login');  
+  }
 
   return (
     <>
@@ -173,18 +197,26 @@ function Plans() {
       <div className='planit-plans'>
         Plans
         <div className='planit-plans-text'>Every journey begins with a step.</div>
-        <div className='planit-plans-create'>
-          <div onClick={handleCreateDataToggle} className='planit-plans-create-text'>
-            {showNewData ? 'Cancel Plan' : 'Create Plan'}
-          </div>
-          {user && (
-            <div className='planit-plans-in'>
-              {showNewData && <DataInput />}
+        {user && 
+          <div className='planit-plans-create'>
+            <div onClick={handleCreateDataToggle} className='planit-plans-create-text'>
+              {showNewData ? 'Cancel Plan' : 'Create Plan'}
             </div>
-          )}
-        </div>
+              <div className='planit-plans-in'>
+                {showNewData && <DataInput />}
+              </div>
+          </div>
+        }
 
-        <div className='planit-plans-my'>
+        {!user && 
+          <div className='planit-plans-create'>
+            <div onClick={handleLogin} className='planit-plans-create-text'>
+              Log in to create a post
+            </div>
+          </div>
+        }
+
+        {user && <div className='planit-plans-my'>
           <div onClick={handleMyPlansToggle} className='planit-plans-my-text'>
             My Plans
           </div>
@@ -213,7 +245,7 @@ function Plans() {
               )}
             </div>
           )}
-        </div>
+        </div>}
         <div className='planit-plans-saved'>
           <div onClick={handlePublicPlansToggle} className='planit-plans-saved-text'>
             Public Plans
@@ -228,23 +260,9 @@ function Plans() {
             </div>
           )}
         </div>
-        <div className='planit-plans-saved'>
-          <div onClick={handleSavedPlansToggle} className='planit-plans-saved-text'>
-            Saved Plans
-          </div>
-          {showSavedPlans && (
-            <div className='planit-plans-saved-out'>
-              {savedPlans.length > 0 ? (
-                <div className='planit-plans-saved-out-result'>{savedPlans}</div>
-              ) : (
-                <h3>You have not set any plans</h3>
-              )}
-            </div>
-          )}
-        </div>
       </div>
       <Footer />
-      </>
+    </>
   );
 }
 

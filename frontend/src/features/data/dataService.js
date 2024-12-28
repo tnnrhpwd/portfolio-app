@@ -40,6 +40,20 @@ const getData = async (dataData, token) => {
     return response.data
 }
 
+// Get Public data
+const getPublicData = async (dataData) => {
+    const config = {
+        params: dataData, // Include dataData as query parameters
+    }
+
+    console.log('Calling GET URL:', API_URL + 'public');
+    console.log('Calling GET Params:', dataData);
+
+    const response = await axios.get(API_URL + 'public', config);
+
+    return response.data;
+}
+
 // Update user data
 const updateData = async (dataData, token) => {
     const config = {
@@ -106,6 +120,7 @@ const logout = () => {
 const dataService = {
     createData,
     getData,
+    getPublicData,
     updateData,
     deleteData,
     register,

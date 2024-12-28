@@ -1,8 +1,8 @@
-function CreatedAt(props) {
-  const seconds = Math.floor((new Date() - new Date(props.createdAt)) / 1000);
+function CreatedAt({ createdAt }) {
+  const seconds = Math.floor((new Date() - new Date(createdAt)) / 1000);
 
-  function getTimeSince(){
-    var interval = seconds / 31536000;
+  function getTimeSince() {
+    let interval = seconds / 31536000;
     if (interval > 1) {
       return Math.floor(interval) + " years ago";
     }
@@ -24,8 +24,8 @@ function CreatedAt(props) {
     }
     return Math.floor(seconds) + " seconds ago";
   }
-  
-  return getTimeSince()
+
+  return getTimeSince();
 }
 
-export default CreatedAt
+export default CreatedAt;

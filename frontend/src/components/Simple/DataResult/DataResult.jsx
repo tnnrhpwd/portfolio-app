@@ -15,6 +15,8 @@ function DataResult(props) {
     const fileName = props.fileName;
     const fileType = props.fileType;
     const fileData = props.fileData;
+    const updatedAt = props.updatedAtData;
+    const createdAt = props.createdAtData;
 
     const dispatch = useDispatch();
     const navigate = useNavigate();
@@ -73,7 +75,7 @@ function DataResult(props) {
             <div key={planString+"0"} className='planit-dataresult'>
                 <div key={planString+"0.1"} className='planit-dataresult-1'>
                     <div key={planString+"0.11"} className='planit-dataresult-date'>
-                        <CreatedAt key={planString+"0.12"} createdAt={planString}/>
+                        <CreatedAt key={planString+"0.12"} createdAt={updatedAt}/>
                     </div>
                     <div key={planString+"0.13"} className='planit-dataresult-share'>
                         <button key={planString+"0.14"} className='planit-dataresult-share-btn' onClick={() => handleShareView("plan",planString)}>Share</button>
@@ -106,7 +108,7 @@ function DataResult(props) {
                             key={planString + "2button"} 
                             className='planit-dataresult-goalbutton'
                             >
-                            <div className='planit-dataresult-goalbutton-text'>{planString.replace(/Creator:.*?\|/, '')}</div>
+                            <div className='planit-dataresult-goalbutton-text'>{planString.replace(/Creator:.*?\|/, '|')}</div>
                             </button>
                         </a>
                     </div>
@@ -136,20 +138,18 @@ function DataResult(props) {
                 </div>
                 <div key={planString+"0.3"} className='planit-dataresult-3'>
                     <div key={planString+"1"} className="planit-dataresult-disagree-div">
-                        {(user) ?
-                            <>{(planString.includes(user._id)) ?
-                                <button key={planString+"1button"} className='planit-dataresult-disagreeACT' onClick={() => handleDisagree( planString )}><img key={planString+"4.002"} className='planit-dataresult-thumb' src={ThumbsDown} alt='thumbs down logo'/></button>
-                            :
-                                <button key={planString+"1.5button"} className='planit-dataresult-disagree' onClick={() => handleDisagree( planString )}><img key={planString+"4.001"} className='planit-dataresult-thumb' src={ThumbsDown} alt='thumbs down logo'/></button>
-                        }</>:null}
+                        <>{(user) && (planString.includes(user._id)) ?
+                            <button key={planString+"1button"} className='planit-dataresult-disagreeACT' onClick={() => handleDisagree( planString )}><img key={planString+"4.002"} className='planit-dataresult-thumb' src={ThumbsDown} alt='thumbs down logo'/></button>
+                        :
+                            <button key={planString+"1.5button"} className='planit-dataresult-disagree' onClick={() => handleDisagree( planString )}><img key={planString+"4.001"} className='planit-dataresult-thumb' src={ThumbsDown} alt='thumbs down logo'/></button>
+                        }</>
                     </div>
                     <div key={planString+"3"} className="planit-dataresult-agree-div">
-                        {(user) ?
-                        <>{(planString.includes(user._id)) ?
+                        <>{(user) && (planString.includes(user._id)) ?
                             <button key={planString+"3button"} className='planit-dataresult-agreeACT' onClick={() => handleAgree( planString )}><img key={planString+"4.003"} className='planit-dataresult-thumb' src={ThumbsUp} alt='thumbs up logo'/></button>
                         :
                             <button key={planString+"3button"} className='planit-dataresult-agree' onClick={() => handleAgree( planString )}><img key={planString+"4.004"} className='planit-dataresult-thumb' src={ThumbsUp} alt='thumbs up logo'/></button>
-                        }</>:null}
+                        }</>
                     </div>
                     <div className='planit-dataresult-votecomment-holder' key={planString+"4.005"} >
                         <a href={'plan/'+planString} className='planit-dataresult-votecomment-link' key={planString+"4.006"}>
@@ -160,7 +160,7 @@ function DataResult(props) {
                                 }
                                 |
                                 {
-                                    " " + ( planString.length ) + " comments"
+                                    " " + ( 0 ) + " comments"
                                 }
                             </div>
                         </a>
