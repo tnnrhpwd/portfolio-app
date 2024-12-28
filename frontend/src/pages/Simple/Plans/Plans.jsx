@@ -31,7 +31,7 @@ function Plans() {
   // called on state changes
   useEffect(() => {
     if (dataIsSuccess) {
-      toast.success('Successfully received plans.', { autoClose: toastDuration });
+      // toast.success('Successfully received plans.', { autoClose: toastDuration });
     }
     if (dataIsError) {
       if (dataMessage && (dataMessage.includes('TokenExpiredError') || dataMessage.includes('token') || dataMessage.includes('Not authorized'))) {
@@ -255,7 +255,7 @@ function Plans() {
               {publicPlans.length > 0 ? (
                 <div className='planit-plans-saved-out-result'>{publicPlans}</div>
               ) : (
-                <h3>You have not received any public plans.</h3>
+                <h3>Please wait about a minute for the backend to startup.</h3>
               )}
             </div>
           )}

@@ -29,7 +29,7 @@ function InfoData() {
   // called on state changes
   useEffect(() => {
     if (dataIsSuccess) {
-      toast.success('Successfully received data.', { autoClose: toastDuration });
+      // toast.success('Successfully received data.', { autoClose: toastDuration });
     }
     if (dataIsError) {
       toast.error(dataMessage, { autoClose: 8000 });
@@ -47,39 +47,40 @@ function InfoData() {
     }
   }, [dataIsLoading]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        if (!user) {
-          await dispatch(getPublicData({ data: { text: id } })).unwrap();
-        } else {
-          await dispatch(getData({ data: { text: id } })).unwrap();
+  useEffect(() => {  
+      const fetchData = async () => {
+        try {
+          if (!user) {
+            await dispatch(getPublicData({ data: { text: id } })).unwrap();
+          } else {
+            await dispatch(getData({ data: { text: id } })).unwrap();
+          }
+        } catch (error) {
+          console.error(error);
+          toast.error(error.message);
+          navigate('/plans');
         }
-      } catch (error) {
-        console.error(error);
-        toast.error(error.message);
-      }
-    };
-
-    fetchData();
-
-    return () => {
-      dispatch(resetDataSlice());
-    };
-  }, [dispatch, id]);
+      };
+  
+      fetchData();
+  
+      return () => {
+        dispatch(resetDataSlice());
+      };
+    }, [dispatch, id, navigate, user]);
 
   useEffect(() => {
     function handleAllOutputData(PlanObject) {
-      if (!PlanObject) {
-        console.log('PlanObject is undefined');
+      if (!PlanObject || PlanObject.length === 0) {
+        console.log('PlanObject is undefined or empty.');
+        toast.error(`This ID query ${id} is not in our records. Navigating to /plans.`, { autoClose: toastDuration });
+        navigate('/plans');
         return;
-      }
-      if (PlanObject.length === 0) {
-        console.log('PlanObject is empty');
       } else {
         console.log(PlanObject);
       }
       let itemString = typeof PlanObject[0].data === 'string' ? PlanObject[0].data : PlanObject[0].data.text;
+      let itemUserID = itemString.match(/Creator:([a-f0-9]{24})\|/)[1] || '';
       let itemCreatedAt = PlanObject[0].createdAt;
       let itemUpdatedAt = PlanObject[0].updatedAt;
       console.log(PlanObject[0]);
@@ -91,9 +92,9 @@ function InfoData() {
       let itemFileData = PlanObject[0].data.files[0].data || '';
       let itemFileName = PlanObject[0].data.files[0].filename || '';
 
-      const files = PlanObject[0].data.files || [];
       setChosenData({
         data: itemString,
+        userID: itemUserID,
         createdAt: itemCreatedAt,
         updatedAt: itemUpdatedAt,
         _id: itemID,
@@ -109,8 +110,8 @@ function InfoData() {
 
   const handleDeleteData = () => {
     dispatch(deleteData(chosenData._id));
-    toast.info('Your data has been deleted.', { autoClose: 2000 });
-    navigate('/datas');
+    // toast.info('Your data has been deleted.', { autoClose: 2000 });
+    navigate('/plans');
   };
 
   const handleShowDeleteData = (e) => {
@@ -123,9 +124,9 @@ function InfoData() {
       <Header />
       <div className="infodata">
         <button className='infodata-back-button' onClick={() => navigate('/plans')}>Back to /plans</button>
-        {user && (
+        {user && chosenData && (
           <div className='infodata-delete'>
-            {user._id === chosenData.user && (
+            {user._id === chosenData.userID && (
             <button className='infodata-delete-button' onClick={handleShowDeleteData}>
                 Delete Data
             </button>
@@ -133,7 +134,7 @@ function InfoData() {
           </div>
         )}
         {showDeleteDataConfirmation && (
-          <DeleteView view={true} delFunction={handleDeleteData} click={setShowDeleteDataConfirmation} type="data" id={chosenData._id} />
+          <DeleteView view={true} delFunction={handleDeleteData} click={setShowDeleteDataConfirmation} id={chosenData._id} />
         )}
         <div className='infodata-data'>
           <div className='infodata-data-text'>

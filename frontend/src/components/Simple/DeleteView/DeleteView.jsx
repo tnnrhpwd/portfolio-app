@@ -3,8 +3,7 @@ import useOutsideAlerter from '../../useOutsideAlerter.js'
 import './DeleteView.css'
 
 function DeleteView(props) {
-    const type = props.type.toLowerCase();
-    const topicID = props.topicID;
+    const topicID = props.id;
 
     const handleDelete = () => { props.delFunction( topicID ); }
     const hideComponentVisibility = () => { props.click( null ); }
@@ -16,13 +15,13 @@ function DeleteView(props) {
     return (
         <div className='planit-deleteview'>
             <div className='planit-deleteview-spc' ref={insideComponentRef}>
-                Are you sure you want to delete this { type }?
+                Are you sure you want to delete {topicID}?
                 <div>
                     <button className='planit-deleteview-spc-btn' onClick={handleDelete}>
-                        Yes, delete.
+                        Yes, delete
                     </button>
                     <button className='planit-deleteview-spc-btn' ref={toggleButtonRef} onClick={hideComponentVisibility} >
-                        No.
+                        No
                     </button>
                 </div>
             </div>
