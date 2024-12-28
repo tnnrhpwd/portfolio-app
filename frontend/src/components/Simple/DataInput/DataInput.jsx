@@ -9,6 +9,7 @@ function DataInput() {
   const [goalText, setGoalText] = useState('');
   const [actionText, setActionText] = useState('');
   const [files, setFiles] = useState([]);
+  const [isPublic, setIsPublic] = useState(false);
   const fileInputRef = useRef(null);
   const rootStyle = window.getComputedStyle(document.body);
   const toastDuration = parseInt(rootStyle.getPropertyValue('--toast-duration'), 10);
@@ -22,6 +23,7 @@ function DataInput() {
     if (planText) text += `|Plan:${planText}`;
     if (goalText) text += `|Goal:${goalText}`;
     if (actionText || files.length > 0) text += `|Action:${actionText}`;
+    if (isPublic) text += `|Public:${isPublic}`;
     
     const formData = new FormData();
     formData.append('data', text);
@@ -35,6 +37,7 @@ function DataInput() {
     setGoalText('');
     setActionText('');
     setFiles([]);
+    setIsPublic(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -83,6 +86,17 @@ function DataInput() {
             onChange={onFilesChange}
             ref={fileInputRef}
           />
+        </div>
+        <div className='planit-datainput-group'>
+          <label>
+            <input
+              type='checkbox'
+              className='planit-datainput-group-check'
+              checked={isPublic}
+              onChange={(e) => setIsPublic(e.target.checked)}
+            />
+            <div className='planit-datainput-group-public'>Public</div>
+          </label>
         </div>
         <div className='planit-datainput-group'>
           <button className='planit-datainput-submit' type='submit'>

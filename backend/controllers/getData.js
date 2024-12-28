@@ -82,16 +82,28 @@ const getData = asyncHandler(async (req, res) => {
                     $or: [
                         {
                             $and: [
-                                { 'data.text': { $regex: userSearchString, $options: 'i' } },
+                                { 'data.text': { $regex: "|Public:true", $options: 'i' } },
                                 { 'data.text': { $regex: dataSearchString, $options: 'i' } }
                             ]
                         },
                         {
                             $and: [
-                                { 'data': { $regex: dataSearchString, $options: 'i' } },
-                                { 'data': { $regex: userSearchString, $options: 'i' } }
+                                { 'data.text': { $regex: userSearchString, $options: 'i' } },
+                                { 'data.text': { $regex: dataSearchString, $options: 'i' } }
                             ]
-                        }
+                        },                        
+                        {
+                            $and: [
+                                { 'data': { $regex: "|Public:true", $options: 'i' } },
+                                { 'data': { $regex: dataSearchString, $options: 'i' } }
+                            ]
+                        },
+                        {
+                            $and: [
+                                { 'data': { $regex: userSearchString, $options: 'i' } },
+                                { 'data': { $regex: dataSearchString, $options: 'i' } }
+                            ]
+                        },
                     ]
                 });
 

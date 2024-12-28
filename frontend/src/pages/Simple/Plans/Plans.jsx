@@ -12,9 +12,11 @@ import './Plans.css';
 function Plans() {
   const [showNewData, setShowNewData] = useState(false);
   const [showMyPlans, setShowMyPlans] = useState(false);
+  const [showPublicPlans, setShowPublicPlans] = useState(false);
   const [myPlans, setMyPlans] = useState([]);
   const [showSavedPlans, setShowSavedPlans] = useState(false);
   const [savedPlans, setSavedPlans] = useState([]);
+  const [publicPlans, setPublicPlans] = useState([]);
   const [sortOrder, setSortOrder] = useState('createdate-desc');
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -86,6 +88,7 @@ function Plans() {
 
       var outputMyPlanArray = [];
       var outputSavedPlanArray = [];
+      var outputPublicPlanArray = [];
 
       if (PlanStringArray.length === 0) {
         console.log('PlanStringArray is empty');
@@ -119,12 +122,10 @@ function Plans() {
 
         const files = itemarino.data.files || [];
 
-        if (typeof itemString === 'string' && itemString.includes(user._id)) {
-          if (!itemString.includes('Like:')) {
-            processPlanArray(itemString, files, index, outputMyPlanArray);
-          } else {
-            processPlanArray(itemString, files, index, outputSavedPlanArray);
-          }
+        if (typeof itemString === 'string') {
+          if (itemString.includes(user._id)) processPlanArray(itemString, files, index, outputMyPlanArray);
+          if (itemString.includes('Like:')) processPlanArray(itemString, files, index, outputSavedPlanArray);
+          if (itemString.includes('|Public:true')) processPlanArray(itemString, files, index, outputPublicPlanArray);
         }
       });
 
@@ -146,6 +147,7 @@ function Plans() {
 
       setMyPlans(sortPlans(outputMyPlanArray));
       setSavedPlans(sortPlans(outputSavedPlanArray));
+      setPublicPlans(sortPlans(outputPublicPlanArray));
     }
     if (data.data) {
       handleAllOutputData(data.data);
@@ -158,9 +160,11 @@ function Plans() {
   function handleMyPlansToggle() {
     setShowMyPlans(!showMyPlans);
   }
+  function handlePublicPlansToggle() {
+    setShowPublicPlans(!showPublicPlans);
+  }
   function handleSavedPlansToggle() {
     setShowSavedPlans(!showSavedPlans);
-    console.log(showSavedPlans);
   }
 
   return (
@@ -206,6 +210,20 @@ function Plans() {
                 <div className='planit-plans-my-out-result'>{myPlans}</div>
               ) : (
                 <h3>You have not set any plans</h3>
+              )}
+            </div>
+          )}
+        </div>
+        <div className='planit-plans-saved'>
+          <div onClick={handlePublicPlansToggle} className='planit-plans-saved-text'>
+            Public Plans
+          </div>
+          {showPublicPlans && (
+            <div className='planit-plans-saved-out'>
+              {publicPlans.length > 0 ? (
+                <div className='planit-plans-saved-out-result'>{publicPlans}</div>
+              ) : (
+                <h3>You have not received any public plans.</h3>
               )}
             </div>
           )}

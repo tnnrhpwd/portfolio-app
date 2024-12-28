@@ -103,10 +103,7 @@
 .planit-dataresult-goal {
   display: block;
 }
-.planit-dataresult-goalbutton {
-  font-size: calc(var(--nav-size) * 0.3);
-  font-weight: bold;
-}
+
 .planit-dataresult-plan {
   display: block;
 }
@@ -183,11 +180,17 @@
   white-space: pre-line;
 }
 .planit-dataresult-goalbutton {
+  max-width: 90%;
   border: none;
   background-color: transparent;
   color: var(--text-color);
   cursor: pointer;
   font-weight: bold;
+}
+.planit-dataresult-goalbutton-text {
+  font-size: calc(var(--nav-size) * 0.3);
+  white-space: normal;
+  word-wrap: break-word;
 }
 .planit-dataresult-planbutton {
   border: none;

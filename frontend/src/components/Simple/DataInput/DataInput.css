@@ -3,7 +3,17 @@
     text-align: center;
 }
 .planit-datainput-group{
-    font-size: calc(var(--nav-size)*0.75);
+    font-size: calc(var(--nav-size)*0.25);
+}
+.planit-datainput-group-check{
+    font-size: calc(var(--nav-size)*0.25);
+    text-align: left;
+    display: inline-block;
+}
+.planit-datainput-group-public{
+    font-size: calc(var(--nav-size)*0.25);
+    text-align: left;
+    display: inline-block;
 }
 #planit-datainput-input {
     font-family: Cambria, Cochin, Georgia, Times, 'Times New Roman', serif;

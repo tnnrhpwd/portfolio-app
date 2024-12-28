@@ -106,7 +106,7 @@ function DataResult(props) {
                             key={planString + "2button"} 
                             className='planit-dataresult-goalbutton'
                             >
-                            {planString.replace(/Creator:.*?\|/, '')}
+                            <div className='planit-dataresult-goalbutton-text'>{planString.replace(/Creator:.*?\|/, '')}</div>
                             </button>
                         </a>
                     </div>
