@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom'; // redirect the user
 import { useSelector, useDispatch } from 'react-redux'; // access state variables
-import PlanInput from '../../../components/Simple/PlanInput/PlanInput.jsx';
+import DataInput from '../../../components/Simple/DataInput/DataInput.jsx';
 import DataResult from '../../../components/Simple/DataResult/DataResult.jsx';
 import Header from '../../../components/Header/Header.jsx';
 import Footer from "../../../components/Footer/Footer.jsx";
@@ -175,7 +175,7 @@ function Plans() {
           </div>
           {user && (
             <div className='planit-plans-in'>
-              {showNewData && <PlanInput />}
+              {showNewData && <DataInput />}
             </div>
           )}
         </div>

@@ -1,11 +1,11 @@
-.planit-planinput{
+.planit-datainput{
     display: block;
     text-align: center;
 }
-.planit-planinput-group{
+.planit-datainput-group{
     font-size: calc(var(--nav-size)*0.75);
 }
-#planit-planinput-input {
+#planit-datainput-input {
     font-family: Cambria, Cochin, Georgia, Times, 'Times New Roman', serif;
     font-size: calc(var(--nav-size) * 0.35);
     width: 95%;
@@ -22,7 +22,7 @@
     white-space: pre-wrap; /* Preserve newline characters */
     margin-top: calc(var(--nav-size) * 0.3);
   }
-.planit-planinput-submit{
+.planit-datainput-submit{
     display: inline-block;
     font-size: calc(var(--nav-size)*0.25);
     padding: calc(var(--nav-size)*0.3);

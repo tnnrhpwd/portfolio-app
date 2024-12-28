@@ -1,10 +1,10 @@
 import { useState, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { createData } from '../../../features/data/dataSlice';
-import './PlanInput.css';
+import './DataInput.css';
 import { toast } from 'react-toastify';
 
-function PlanInput() {
+function DataInput() {
   const [planText, setPlanText] = useState('');
   const [goalText, setGoalText] = useState('');
   const [actionText, setActionText] = useState('');
@@ -46,36 +46,36 @@ function PlanInput() {
   };
 
   return (
-    <div className='planit-planinput'>
+    <div className='planit-datainput'>
       <form onSubmit={onSubmit}>
-        <div className='planit-planinput-group'>
+        <div className='planit-datainput-group'>
           <textarea
             name='goal'
-            id='planit-planinput-input'
+            id='planit-datainput-input'
             placeholder='Enter goal description...'
             value={goalText}
             onChange={(e) => setGoalText(e.target.value)}
           />
         </div>
-        <div className='planit-planinput-group'>
+        <div className='planit-datainput-group'>
           <textarea
             name='plan'
-            id='planit-planinput-input'
+            id='planit-datainput-input'
             placeholder='Enter plan description...'
             value={planText}
             onChange={(e) => setPlanText(e.target.value)}
           />
         </div>
-        <div className='planit-planinput-group'>
+        <div className='planit-datainput-group'>
           <textarea
             name='action'
-            id='planit-planinput-input'
+            id='planit-datainput-input'
             placeholder='Enter action description...'
             value={actionText}
             onChange={(e) => setActionText(e.target.value)}
           />
         </div>
-        <div className='planit-planinput-group'>
+        <div className='planit-datainput-group'>
           <input
             type='file'
             id='file-input'
@@ -84,8 +84,8 @@ function PlanInput() {
             ref={fileInputRef}
           />
         </div>
-        <div className='planit-planinput-group'>
-          <button className='planit-planinput-submit' type='submit'>
+        <div className='planit-datainput-group'>
+          <button className='planit-datainput-submit' type='submit'>
             Create Plan
           </button>
         </div>
@@ -94,4 +94,4 @@ function PlanInput() {
   );
 }
 
-export default PlanInput;
+export default DataInput;
