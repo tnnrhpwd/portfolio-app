@@ -103,10 +103,10 @@ function Login() {
         <div className='planit-login'>
             <section className="planit-login-heading">
                 <div className="planit-login-heading-title">
-                    Log in!
+                    Hello!
                 </div>
                 <div className="planit-login-heading-description">
-                    Log in to save, create, and share goals and plans!
+                    Log in to save, create, and share!
                 </div>
             </section>
             <section className="planit-login-form">
