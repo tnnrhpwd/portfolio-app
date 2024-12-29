@@ -12,28 +12,33 @@ const loginUser = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
   
     // Check for user email
-    const user = await Data.findOne({ data: { $regex: `${email}` } });
-    if (user === null) {
+    const users = await Data.find({ 'data.text': { $regex: `Email:${email}`, $options: 'i' } });
+    if (!(users.length === 1)) {
       res.status(400);
-      throw new Error('Invalid email.');  // Changed to a more generic error message
+      throw new Error("users.length: "+users.length+",json: "+JSON.stringify(users));
     }
+    let user, userPassword, userNickname;
+    try {
+      user = users[0];
 
-    // Extract password and nickname from the stored data
-    const userPassword = user.data.substring(user.data.indexOf('|Password:') + 10);
-    const userNickname = user.data.substring(user.data.indexOf('Nickname:') + 9, user.data.indexOf('|Email:'));
-    
+      // Extract password and nickname from the stored data
+      userPassword = user.data.text.substring(user.data.text.indexOf('|Password:') + 10);
+      userNickname = user.data.text.substring(user.data.text.indexOf('Nickname:') + 9, user.data.text.indexOf('|Email:'));
+    } catch (error) {
+      res.status(500);
+      throw new Error('Error extracting user data.');
+    }
     // Check if the password matches
     if (await bcrypt.compare(password, userPassword)) {
       res.json({
-        _id: user.id,
-        email: email,  // Include email in the response
+        _id: user._id,
+        email: email,
         nickname: userNickname,
         token: generateToken(user._id),
       });
     } else {
       res.status(400);
-      throw new Error('Invalid password.');  // Changed to a more generic error message
+      throw new Error('Invalid password.');
     }
 });
-
 module.exports = { loginUser };

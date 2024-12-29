@@ -34,8 +34,8 @@ function Login() {
     // called on state changes
     useEffect(() => {
         if (user && !user._id) {
-            toast.error("We're sorry. We are having issues finding your account ID.", { autoClose: 2000 }) // print error to toast errors
-            dispatch(logout())  // dispatch connects to the store, then remove user item from local storage
+            toast.error( dataMessage, { autoClose: 2000 }) // print error to toast errors
+            // dispatch(logout())  // dispatch connects to the store, then remove user item from local storage
         }
         if (dataIsError) {
             if (dataMessage && !dataMessage.includes('token')) {
@@ -58,7 +58,7 @@ function Login() {
 
     useEffect(() => {
         if (dataIsLoading && loadingStartTime && Date.now() - loadingStartTime > 5000) {
-            toast.info("The server service takes about a minute to spin up. Please try again in a moment.", { autoClose: 3000 });
+            toast.info("The server takes about a minute to spin up. Please try again in a moment.", { autoClose: 3000 });
         }
     },  [dataIsLoading]);
     

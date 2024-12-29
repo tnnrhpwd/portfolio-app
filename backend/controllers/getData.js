@@ -82,15 +82,12 @@ const getData = asyncHandler(async (req, res) => {
                     {
                         $or: [
                             { 'data.text': { $regex: "\\|Public:true", $options: 'i' } },
-                            { 'data': { $regex: "\\|Public:true", $options: 'i' } },
                             { 'data.text': { $regex: userSearchString, $options: 'i' } },
-                            { 'data': { $regex: userSearchString, $options: 'i' } }
                         ]
                     },
                     {
                         $or: [
                             { 'data.text': { $regex: dataSearchString, $options: 'i' } },
-                            { 'data': { $regex: dataSearchString, $options: 'i' } },
                         ]
                     }
                 ];
@@ -156,13 +153,11 @@ const getPublicData = asyncHandler(async (req, res) => {
             {
                 $or: [
                     { 'data.text': { $regex: "\\|Public:true", $options: 'i' } },
-                    { 'data': { $regex: "\\|Public:true", $options: 'i' } },
                 ]
             },
             {
                 $or: [
                     { 'data.text': { $regex: dataSearchString, $options: 'i' } },
-                    { 'data': { $regex: dataSearchString, $options: 'i' } },
                 ]
             }
         ];

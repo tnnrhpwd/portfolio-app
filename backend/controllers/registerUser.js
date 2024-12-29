@@ -18,17 +18,27 @@ const registerUser = asyncHandler(async (req, res) => {
       throw new Error('Please add all fields')
     }
   
-    // Check if email exists
-    const emailExists = await Data.findOne({ data: { $regex: `${"Email:"+email}\\s\\|` } })
-    // Check if email exists
-    const nicknameExists = await Data.findOne({ data: { $regex: `${"Nickname:"+nickname}\\s\\|` } })
+    // // Check if email exists
+    // const emailExists = await Data.findOne({ data: { text: { $regex: `${"Email:"+email}\\s\\|` } } })
+    // // Check if email exists
+    // const nicknameExists = await Data.findOne({ data: { text: { $regex: `${"Nickname:"+nickname}\\s\\|` } } })
   
-    if (emailExists) {
+    const emailExists = await Data.find({
+      'data.text': { $regex: `${"Email:" + email}`, $options: 'i' }
+    });
+    
+    if (emailExists.length > 0) {
       res.status(400)
-      throw new Error("This email is already registered.")
-    }if (nicknameExists) {
+      throw new Error('Email already exists')
+    }
+    
+    const nicknameExists = await Data.find({
+      'data.text': { $regex: `${"Nickname:" + nickname}`, $options: 'i' } 
+    });
+    
+    if (nicknameExists.length > 0) {
       res.status(400)
-      throw new Error("This nickname is already taken.")
+      throw new Error('Nickname already exists')
     }
   
     // Hash password
