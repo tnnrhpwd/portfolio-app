@@ -7,6 +7,8 @@ import Header from '../../../components/Header/Header.jsx';
 import Footer from "../../../components/Footer/Footer.jsx";
 import { toast } from 'react-toastify'; // visible error notifications
 import { logout, getData, getPublicData, resetDataSlice } from '../../../features/data/dataSlice.js';
+import Calendar from 'react-calendar';
+import 'react-calendar/dist/Calendar.css';
 import './Plans.css';
 
 function Plans() {
@@ -15,9 +17,16 @@ function Plans() {
   const [showPublicPlans, setShowPublicPlans] = useState(true);
   const [myPlans, setMyPlans] = useState([]);
   const [showSavedPlans, setShowSavedPlans] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(true);
   const [savedPlans, setSavedPlans] = useState([]);
   const [publicPlans, setPublicPlans] = useState([]);
   const [sortOrder, setSortOrder] = useState('createdate-desc');
+  const [date, setDate] = useState(new Date());
+  const [meetings, setMeetings] = useState({
+    '2023-12-01': 2,
+    '2023-12-05': 1,
+    '2023-12-10': 3,
+  });
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const rootStyle = window.getComputedStyle(document.body);
@@ -187,13 +196,24 @@ function Plans() {
   function handlePublicPlansToggle() {
     setShowPublicPlans(!showPublicPlans);
   }
-  function handleSavedPlansToggle() {
-    setShowSavedPlans(!showSavedPlans);
+  function handleCalendarToggle() {
+    setShowCalendar(!showCalendar);
   }
   function handleLogin() {
     dispatch(logout());
     navigate('/login');  
   }
+
+  const tileContent = ({ date, view }) => {
+    const dateString = date.toISOString().split('T')[0];
+    return (
+      view === 'month' && meetings[dateString] ? (
+        <div className="meeting-count">
+          {meetings[dateString]}
+        </div>
+      ) : null
+    );
+  };
 
   return (
     <>
@@ -219,6 +239,21 @@ function Plans() {
             </div>
           </div>
         }
+
+        <div className='planit-plans-calendar'>
+          <div onClick={handleCalendarToggle} className='planit-plans-calendar-text'>
+            Calendar
+          </div>          
+          {showCalendar && <div>
+            <div className='planit-plans-calendar-out'>
+              <Calendar
+                  onChange={setDate}
+                  value={date}
+                  tileContent={tileContent}
+                />
+            </div>
+          </div>}
+        </div>
 
         {user && <div className='planit-plans-my'>
           <div onClick={handleMyPlansToggle} className='planit-plans-my-text'>

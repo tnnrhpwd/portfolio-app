@@ -92,6 +92,28 @@
     color: var(--text-color);
     cursor: pointer;
 }
+.planit-plans-calendar {
+    margin-top: calc(var(--nav-size)*0.5);
+    padding-top: calc(var(--nav-size)*.3);
+    text-align: center;
+    font-size: calc(var(--nav-size)*0.3);
+    border: calc(var(--nav-size)*0.001) solid var(--border-nav);
+    vertical-align: middle;
+    min-height: calc(var(--nav-size)*0.8);
+    border-radius: calc(var(--nav-size)*.15);
+    background-color: var(--bg-nav2);
+    cursor: pointer;
+}
+.planit-plans-calendar-text {
+    font-size: calc(var(--nav-size)*0.3);
+    margin-bottom: calc(var(--nav-size)*0.3);
+}
+.planit-plans-calendar-out {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: calc(var(--nav-size)*0.3);
+}
 @media (orientation: landscape) {
     .planit-plans{
         text-align: left;
