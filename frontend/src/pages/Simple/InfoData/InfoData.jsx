@@ -85,12 +85,9 @@ function InfoData() {
       let itemUpdatedAt = PlanObject[0].updatedAt;
       console.log(PlanObject[0]);
       let itemID = PlanObject[0]._id;
-      if (itemString.length > 500) {
-        itemString = itemString.substring(0, 500) + '...';
-      }
-      let itemFileContentType = PlanObject[0].data.files[0].contentType || '';
-      let itemFileData = PlanObject[0].data.files[0].data || '';
-      let itemFileName = PlanObject[0].data.files[0].filename || '';
+      let itemFileContentType = PlanObject[0].data.files[0] ? PlanObject[0].data.files[0].contentType : '';
+      let itemFileData = PlanObject[0].data.files[0] ? PlanObject[0].data.files[0].data : '';
+      let itemFileName = PlanObject[0].data.files[0] ? PlanObject[0].data.files[0].filename : '';
 
       setChosenData({
         data: itemString,
@@ -142,7 +139,7 @@ function InfoData() {
                 <div className='infodata-data-button-text'>
                     {chosenData.data}
                 </div>
-                <div key={chosenData._id + "attachments1"} className='infodata-data-attachments'>
+                {chosenData.fileName && <div key={chosenData._id + "attachments1"} className='infodata-data-attachments'>
                     {chosenData.fileContentType.startsWith('image/') && (
                         <img src={`data:${chosenData.fileContentType};base64,${chosenData.fileData}`} alt={chosenData.fileName} className='infodata-data-attachments-img'/>
                     )}
@@ -158,7 +155,7 @@ function InfoData() {
                         <p>Type: {chosenData.fileContentType}</p>
                         </div>
                     )}
-                </div>
+                </div>}
             </div>)}
           </div>
         </div>
