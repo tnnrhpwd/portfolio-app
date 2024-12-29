@@ -15,7 +15,7 @@ const loginUser = asyncHandler(async (req, res) => {
     const user = await Data.findOne({ data: { $regex: `${email}` } });
     if (user === null) {
       res.status(400);
-      throw new Error('Invalid email or password');  // Changed to a more generic error message
+      throw new Error('Invalid email.');  // Changed to a more generic error message
     }
 
     // Extract password and nickname from the stored data
@@ -32,7 +32,7 @@ const loginUser = asyncHandler(async (req, res) => {
       });
     } else {
       res.status(400);
-      throw new Error('Invalid email or password'+userPassword+userNickname);  // Changed to a more generic error message
+      throw new Error('Invalid password.');  // Changed to a more generic error message
     }
 });
 
