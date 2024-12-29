@@ -37,7 +37,7 @@ const registerUser = asyncHandler(async (req, res) => {
   
     // Create user
     const data = await Data.create({
-      data:"Nickname:"+nickname+"|Email:"+email+"|Password:"+hashedPassword,
+      data:{text:"Nickname:"+nickname+"|Email:"+email+"|Password:"+hashedPassword},
     })
   
     if (data) { // if user data successfully created, send JSON web token back to user
