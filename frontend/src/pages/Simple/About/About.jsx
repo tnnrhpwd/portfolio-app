@@ -16,7 +16,10 @@ function About() {
       <>
         <div className='about-description'>
           <div className="about-name">
-            Developed by Steven Tanner Hopwood
+            <div className="about-name-container">
+              <div>Developed by</div>
+              <div>Steven Tanner Hopwood</div>
+            </div>
           </div>
           <div className="about-email">
             Business Inquiries: <a className="about-email-link" href="mailto:Steven.T.Hopwood@gmail.com">Steven.T.Hopwood@gmail.com</a>
@@ -27,9 +30,6 @@ function About() {
             </td>
             <td className="about-social" onClick={()=> window.open("https://github.com/tnnrhpwd", "_blank")}>
               <img className="about-github" src={githubimg} alt="github logo" />
-            </td>
-            <td className="about-social" onClick={()=> window.open("https://docs.google.com/document/d/1l8yCRlom5hw-SwOfZtpria_AUuXwcXpC/edit?usp=sharing&ouid=106668374323360993837&rtpof=true&sd=true", "_blank")}>
-              <div className="about-resume">STH Resume</div>
             </td>
           </div>
         </div>

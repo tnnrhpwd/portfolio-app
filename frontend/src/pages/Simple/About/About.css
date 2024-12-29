@@ -30,9 +30,19 @@
 .about-portfolio-link:hover{
     text-decoration: underline;
 }
-.about-name{
-    padding-top: calc(var(--nav-size)*.05);
-    font-size: calc(var(--nav-size)*.4);
+.about-name {
+    padding-top: calc(var(--nav-size) * .05);
+    font-size: calc(var(--nav-size) * .4);
+    display: inline-block;
+}
+.about-name-container {
+    display: flex;
+    flex-wrap: wrap;
+    max-width: 100%;
+}
+.about-name-container > div {
+    white-space: nowrap;
+    margin-right: calc(var(--nav-size)*.15);
 }
 .about-email{
     padding: calc(var(--nav-size)*.05) 0;
