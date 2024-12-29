@@ -1,5 +1,6 @@
 .planit-profile{
     padding-top: calc(var(--nav-size)*1);
+    min-height: 87vh;
 }
 .planit-profile:hover{
 

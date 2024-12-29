@@ -6,6 +6,7 @@ import { logout, resetDataSlice } from './../../features/data/dataSlice.js'     
 import Spinner from '../../components/Spinner/Spinner.jsx';
 import './Profile.css';
 import Header from '../../components/Header/Header.jsx';
+import Footer from '../../components/Footer/Footer.jsx';
 
 function Profile() {
   const navigate = useNavigate() // initialization
@@ -58,6 +59,7 @@ function Profile() {
           <button className="planit-profile-auth-button" onClick={onLogout}>Log out</button>
         </div>
       </div>
+      <Footer />
     </>
     )
   }
