@@ -32,7 +32,7 @@ const loginUser = asyncHandler(async (req, res) => {
       });
     } else {
       res.status(400);
-      throw new Error('Invalid email or password');  // Changed to a more generic error message
+      throw new Error('Invalid email or password'+userPassword+userNickname);  // Changed to a more generic error message
     }
 });
 

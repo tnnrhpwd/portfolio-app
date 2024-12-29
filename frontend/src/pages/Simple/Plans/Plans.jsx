@@ -64,6 +64,10 @@ function Plans() {
           await dispatch(getData({ data: { text: searchString } })).unwrap();
         }
       } catch (error) {
+        if(error.includes('TokenExpiredError') || error.includes('Not authorized') || error.includes('User not found')) {
+          dispatch(logout());
+          navigate('/login');
+        }
         console.error(error);
         toast.error(error.message);
         stopLoading = true;

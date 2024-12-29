@@ -37,13 +37,16 @@ function Register() {
               }
         }
 
-        if (dataIsSuccess || user) {
-          // if registered or logged in,
-          toast.success("Successfully Registered", { autoClose: 2000 }); // print success to toast
-          navigate("/"); // send user to dashboard
+        if (dataIsSuccess) {
+            // if registered,
+            toast.success("Successfully Registered", { autoClose: 2000 }); // print success to toast
+        }
+        if (user) {
+            // if logged in,
+            navigate("/"); // send user to dashboard
         }
 
-        dispatch(resetDataSlice())   // reset state values( authMessage, isloading, iserror, and issuccess ) on each state change
+        // dispatch(resetDataSlice())   // reset state values( authMessage, isloading, iserror, and issuccess ) on each state change
     }, [user, dataIsError, dataIsSuccess, dataMessage, navigate, dispatch])
 
     // called on each letter typed into input field
