@@ -1,9 +1,9 @@
-const path = require('path');        // module to read file locations
-const express = require('express');   // import express to create REST API server
-const colors = require('colors');     // allows the console to print colored text
+const path = require('path'); // module to read file locations
+const express = require('express'); // import express to create REST API server
+const colors = require('colors'); // allows the console to print colored text
 const dotenv = require('dotenv').config();   // import env vars from .env
 const { errorHandler } = require('./middleware/errorMiddleware');    // creates json of error
-const connectDB = require('./config/db');    // connect to MongoDB using Mongooose
+const connectDB = require('./config/db'); // connect to MongoDB using Mongooose
 const { default: mongoose } = require('mongoose');
 const port = process.env.PORT || 5000;  //set port to hold api server
 var cors = require('cors')
@@ -25,7 +25,7 @@ app.use(errorHandler) // adds middleware that returns errors in json format (reg
 // IF MongoDB connected, 
 mongoose.connection.once('open', () => {
   console.log('Connected to MongoDB');  // print confirmation
-  app.listen(port, () => console.log(`Server started on port ${port}`))         // listen for incoming http requests on the PORT && print PORT in console
+  app.listen(port, () => console.log(`Server started on port ${port}`)) // listen for incoming http requests on the PORT && print PORT in console
 })
 // IF MongoDB could not connect, 
 mongoose.connection.once('closed',() => {

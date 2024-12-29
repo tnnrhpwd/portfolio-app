@@ -1,21 +1,41 @@
-.newannuity{
-    border: calc(var(--nav-size)*.0001) solid rgba(255, 255, 255, 0.885);
+.newannuity {
+    border: 1px solid rgba(255, 255, 255, 0.885);
     border-radius: 5%;
+    padding: 20px;
+    background-color: #f9f9f9;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
 }
-#submitNewAnnuity{
-    margin-left:min(500px,3vw);
-    vertical-align: bottom;
-    height: calc(var(--nav-size)*.58);
-    font-size: calc(var(--nav-size)*.19);
-    width: calc(var(--nav-size)*1.4);
+#submitNewAnnuity, #resetNewAnnuity {
+    display: block;
+    margin: 10px auto;
+    height: calc(var(--nav-size) * 0.58);
+    font-size: calc(var(--nav-size) * 0.19);
+    width: calc(var(--nav-size) * 1.4);
     font-weight: bold;
     background-color: rgb(78, 78, 78);
     color: white;
-    border: calc(var(--nav-size)*.0001) solid rgba(255, 255, 255, 0.885);
+    border: 1px solid rgba(255, 255, 255, 0.885);
     border-radius: 5%;
+    cursor: pointer;
+    transition: transform 0.1s, background-color 0.3s;
 }
-#submitNewAnnuity:active{
-    height: calc(var(--nav-size)*.55);
-    transform: rotate(360deg);
-    transition-duration: .1s;
+#submitNewAnnuity:hover, #resetNewAnnuity:hover {
+    background-color: rgb(100, 100, 100);
+}
+#submitNewAnnuity:active, #resetNewAnnuity:active {
+    transform: scale(0.98);
+}
+.inputNewAnnuity input {
+    margin: 10px 0;
+    padding: 10px;
+    width: 100%;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+.inputNewAnnuity input:focus {
+    border-color: #007bff;
+    outline: none;
+    box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
 }

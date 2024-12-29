@@ -1,9 +1,9 @@
 .annuities{
-    background-color: var(--bg);
+    /* background-color: var(--bg); */
     color: var(--text-color);
     padding: calc(var(--nav-size)*.4);
     text-align: center;
-    min-height: 100vh;
+    min-height: 83vh;
 }
 .annuities-title{
     text-align: center;
@@ -60,17 +60,22 @@
 }
 
 
-
-#newAnnuity{
-    margin-left:min(500px,3vw);
-    vertical-align: bottom;
-    height: calc(var(--nav-size)*.45);
-    font-size: calc(var(--nav-size)*.19);
-    width: calc(var(--nav-size)*2.5);
+.newAnnuity-space {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-top: 20px; /* Optional: Add some margin to the top */
+}
+#newAnnuity {
+    display: block;
+    text-align: center;
+    height: calc(var(--nav-size) * 0.45);
+    font-size: calc(var(--nav-size) * 0.19);
+    width: calc(var(--nav-size) * 2.5);
     font-weight: bold;
     background-color: var(--text-color);
     color: var(--text-color-inv);
-    border: calc(var(--nav-size)*.0001) solid var(--text-color-inv);
+    border: calc(var(--nav-size) * 0.0001) solid var(--text-color-inv);
     border-radius: 5%;
     cursor: pointer;
 }
