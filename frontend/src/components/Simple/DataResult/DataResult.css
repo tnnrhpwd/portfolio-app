@@ -198,6 +198,27 @@
   color: var(--text-color);
   cursor: pointer;
 }
+.planit-dataresult-file-navigation {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.planit-dataresult-file-navigation button {
+  background-color: var(--bg-nav2);
+  color: var(--text-color);
+  border: none;
+  padding: 5px 10px;
+  font-size: calc(var(--nav-size) * 0.3);
+  cursor: pointer;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.planit-dataresult-file-navigation button:hover {
+  background-color: var(--bg-nav2-hover);
+}
 
 @media (orientation: landscape) {
   .planit-dataresult-disagree-div {

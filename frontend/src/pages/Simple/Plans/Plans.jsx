@@ -17,7 +17,7 @@ function Plans() {
   const [showPublicPlans, setShowPublicPlans] = useState(true);
   const [myPlans, setMyPlans] = useState([]);
   const [showSavedPlans, setShowSavedPlans] = useState(false);
-  const [showCalendar, setShowCalendar] = useState(true);
+  const [showCalendar, setShowCalendar] = useState(false);
   const [savedPlans, setSavedPlans] = useState([]);
   const [publicPlans, setPublicPlans] = useState([]);
   const [sortOrder, setSortOrder] = useState('createdate-desc');
@@ -107,7 +107,7 @@ function Plans() {
       dispatch(resetDataSlice());
     };
   }, [dispatch, user]);
-
+  
   useEffect(() => {
     function handleAllOutputData(PlanStringArray) {
       if (!PlanStringArray) {
@@ -115,9 +115,9 @@ function Plans() {
         return;
       }
 
-      var outputMyPlanArray = [];
-      var outputSavedPlanArray = [];
-      var outputPublicPlanArray = [];
+      const outputMyPlanArray = [];
+      const outputSavedPlanArray = [];
+      const outputPublicPlanArray = [];
 
       if (PlanStringArray.length === 0) {
         console.log('PlanStringArray is empty');
@@ -126,17 +126,11 @@ function Plans() {
       }
 
       const processPlanArray = (itemIDData, itemCreatedAtData, itemUpdatedAtData, itemString, files, index, array) => {
-        const fileType = files[0] ? files[0].contentType : '';
-        const fileName = files[0] ? files[0].filename : '';
-        const fileData = files[0] ? files[0].data : '';
-
         array.push(
           <DataResult
-            key={`${array === outputMyPlanArray ? 'MyDataResult' : 'SavedDataResult'}${"user.nickname"}${index}${1}`}
+            key={`${array === outputMyPlanArray ? 'MyDataResult' : 'SavedDataResult'}${user.nickname}${index}${1}`}
             importPlanString={itemString}
-            fileName={fileName}
-            fileType={fileType}
-            fileData={fileData}
+            files={files}
             updatedAtData={itemUpdatedAtData}
             createdAtData={itemCreatedAtData}
             itemID={itemIDData}
@@ -146,9 +140,9 @@ function Plans() {
 
       PlanStringArray.forEach((itemarino, index) => {
         let itemString = typeof itemarino.data === 'string' ? itemarino.data : itemarino.data.text;
-        let itemCreatedAt = itemarino.createdAt;
-        let itemUpdatedAt = itemarino.updatedAt;
-        let itemID = itemarino._id;
+        const itemCreatedAt = itemarino.createdAt;
+        const itemUpdatedAt = itemarino.updatedAt;
+        const itemID = itemarino._id;
         if (itemString.length > 500) {
           itemString = itemString.substring(0, 500) + '...';
         }
@@ -156,7 +150,7 @@ function Plans() {
         const files = itemarino.data.files || [];
 
         if (typeof itemString === 'string') {
-          if ((user) && itemString.includes(user._id)) processPlanArray(itemID, itemCreatedAt, itemUpdatedAt, itemString, files, index, outputMyPlanArray);
+          if (user && itemString.includes(user._id)) processPlanArray(itemID, itemCreatedAt, itemUpdatedAt, itemString, files, index, outputMyPlanArray);
           if (itemString.includes('Like:')) processPlanArray(itemID, itemCreatedAt, itemUpdatedAt, itemString, files, index, outputSavedPlanArray);
           if (itemString.includes('|Public:true')) processPlanArray(itemID, itemCreatedAt, itemUpdatedAt, itemString, files, index, outputPublicPlanArray);
         }
@@ -204,14 +198,18 @@ function Plans() {
     navigate('/login');  
   }
 
+  // Function to render content for a calendar tile
   const tileContent = ({ date, view }) => {
+    // Convert the date to a string in the format 'YYYY-MM-DD'
     const dateString = date.toISOString().split('T')[0];
+    
+    // Return a div with the meeting count if the view is 'month' and there are meetings on the date
     return (
       view === 'month' && meetings[dateString] ? (
         <div className="meeting-count">
           {meetings[dateString]}
         </div>
-      ) : null
+      ) : null // Return null if the conditions are not met
     );
   };
 
@@ -244,15 +242,26 @@ function Plans() {
           <div onClick={handleCalendarToggle} className='planit-plans-calendar-text'>
             Calendar
           </div>          
-          {showCalendar && <div>
-            <div className='planit-plans-calendar-out'>
-              <Calendar
+          {showCalendar && (
+            <div>
+              <div className='planit-plans-calendar-out'>
+                <Calendar
                   onChange={setDate}
                   value={date}
-                  tileContent={tileContent}
+                  tileContent={({ date, view }) => {
+                    const dateString = date.toISOString().split('T')[0];
+                    return (
+                      <div className="planit-plans-calendar-out-tile-content">
+                        <div className="planit-plans-calendar-out-meeting-count">
+                          {meetings[dateString] || 0}
+                        </div>
+                      </div>
+                    );
+                  }}
                 />
+              </div>
             </div>
-          </div>}
+          )}
         </div>
 
         {user && <div className='planit-plans-my'>
