@@ -101,11 +101,12 @@ const getData = asyncHandler(async (req, res) => {
                 res.status(200).json({
                     data: dataList.map((data) => ({
                         data: data.data,
+                        ActionGroup: data.ActionGroup,
                         files: data.files,
                         updatedAt: data.updatedAt,
                         createdAt: data.createdAt,
                         __v: data.__v,
-                        _id: data._id
+                        _id: data._id,
                     }))
                 });
             } catch (error) {
@@ -175,7 +176,8 @@ const getPublicData = asyncHandler(async (req, res) => {
                 updatedAt: data.updatedAt,
                 createdAt: data.createdAt,
                 __v: data.__v,
-                _id: data._id
+                _id: data._id,
+                ActionGroup: data.ActionGroup // ← Added
             }))
         });    } catch (error) {
         console.error("Error fetching public data:", error);
