@@ -38,11 +38,16 @@ const setData = asyncHandler(async (req, res) => {
         // throw new Error('Please add a data field. req: ' + JSON.stringify(req.files[0].originalname))
     }
 
+    const localDate = new Date();
+    // UTC EST (-5)
+    localDate.setHours(localDate.getHours() - 5);
+
     const datas = await Data.create({
         data: {
             text: req.body.data,
             files: files
-        }
+        },
+        createdAt: localDate // Assign the adjusted date
     });
     
     res.status(200).json(datas)
