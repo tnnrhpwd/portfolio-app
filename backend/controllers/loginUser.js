@@ -15,7 +15,7 @@ const loginUser = asyncHandler(async (req, res) => {
     const users = await Data.find({ 'data.text': { $regex: `Email:${email}`, $options: 'i' } });
     if (!(users.length === 1)) {
       res.status(400);
-      throw new Error("users.length: "+users.length+",json: "+JSON.stringify(users));
+      throw new Error("Could nto find that user. users.length: "+users.length+",json: "+JSON.stringify(users));
     }
     let user, userPassword, userNickname;
     try {
