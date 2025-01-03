@@ -19,17 +19,23 @@ async function checkIP(req) {
     }
 
     // Skip recording localhost IP
-    // if (ipFromHeader !== '127.0.0.1') {
+    if (ipFromHeader !== '127.0.0.1') {
+        let text = `IP:${ipFromHeader}`;
+
+        if (req.user && req.user.id) {
+            text += `|User:${req.user.id}`;
+        }
         const existing = await Data.findOne({
-            'data.text': { $regex: `IP:${ipFromHeader}`, $options: 'i' }
+            'data.text': { text: text }
         });
 
         if (!existing) {
+
             await Data.create({
-                data: { text: `IP:${ipFromHeader}` }
+                data: { text: text }
             });
         }
-    // }
+    }
 }
 
 module.exports = { checkIP };

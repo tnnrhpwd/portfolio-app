@@ -26,7 +26,7 @@ const { checkIP } = require('./accessData.js');
 // @access  Private
 const getData = asyncHandler(async (req, res) => {
     await checkIP(req);
-    if (!req.user) {  // Check for user
+    if (!req.user) {
         res.status(401);
         throw new Error('User not found');
     }
