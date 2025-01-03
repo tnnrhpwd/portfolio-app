@@ -17,20 +17,18 @@ async function checkIP(req) {
     } else if (req.headers['x-forwarded-for']) {
         ipFromHeader = req.headers['x-forwarded-for'].split(',')[0].trim();
     }
-
+    
     // Skip recording localhost IP
     if (ipFromHeader !== '127.0.0.1') {
         let text = `IP:${ipFromHeader}`;
-
         if (req.user && req.user.id) {
             text += `|User:${req.user.id}`;
         }
         const existing = await Data.findOne({
-            'data.text': { text: text }
+            'data': { text: text }
         });
 
         if (!existing) {
-
             await Data.create({
                 data: { text: text }
             });
