@@ -3,11 +3,13 @@
 const asyncHandler = require('express-async-handler');
 const Data = require('../models/dataModel');
 const mongoose = require('mongoose');
+const { checkIP } = require('./accessData.js');
 
 // @desc    Delete data
 // @route   DELETE /api/data/:id
 // @access  Private
 const deleteData = asyncHandler(async (req, res) => {
+    await checkIP(req);
     const id = req.params.id;
 
     // Check if the id is a valid ObjectId

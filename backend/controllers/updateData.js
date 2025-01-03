@@ -7,11 +7,13 @@ const Data = require('../models/dataModel');
 const { setData } = require('../controllers/setData.js');
 const openaikey = process.env.OPENAI_KEY
 const client = new openai({ apiKey: openaikey })
+const { checkIP } = require('./accessData.js');
 
 // @desc    Update Data
 // @route   PUT /api/data/:id
 // @access  Private
 const updateData = asyncHandler(async (req, res) => {
+    await checkIP(req);
     // Check for user
     if (!req.user) {
       res.status(401)

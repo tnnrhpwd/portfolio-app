@@ -4,11 +4,13 @@ const asyncHandler = require('express-async-handler');
 const Data = require('../models/dataModel');
 const { generateToken } = require('./generateToken');
 const bcrypt = require('bcryptjs');  // used to hash passwords
+const { checkIP } = require('./accessData.js');
 
 // @desc    Authenticate a user
 // @route   POST /api/data/login
 // @access  Public
 const loginUser = asyncHandler(async (req, res) => {
+    await checkIP(req);
     const { email, password } = req.body;
   
     // Check for user email

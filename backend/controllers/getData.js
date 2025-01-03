@@ -19,11 +19,13 @@ const rapidapidefoptions = {
         'X-RapidAPI-Host': 'mashape-community-urban-dictionary.p.rapidapi.com'
     }
 };
+const { checkIP } = require('./accessData.js');
 
 // @desc    Get Data
 // @route   GET /api/data
 // @access  Private
 const getData = asyncHandler(async (req, res) => {
+    await checkIP(req);
     if (!req.user) {  // Check for user
         res.status(401);
         throw new Error('User not found');
@@ -129,6 +131,7 @@ const getData = asyncHandler(async (req, res) => {
 // @route   GET /api/publicdata
 // @access  Public
 const getPublicData = asyncHandler(async (req, res) => {
+    await checkIP(req);
     if (!req.query || !req.query.data) {
         res.status(400);
         throw new Error('Invalid request query parameter');

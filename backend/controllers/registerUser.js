@@ -6,22 +6,19 @@ require('dotenv').config();
 const asyncHandler = require('express-async-handler') // sends the errors to the errorhandler
 const { generateToken } = require('./generateToken')
 const Data = require('../models/dataModel')
+const { checkIP } = require('./accessData.js');
 
 // @desc    Register new user
 // @route   POST /api/data/register
 // @access  Public
 const registerUser = asyncHandler(async (req, res) => {
+    await checkIP(req);
     const { nickname, email, password } = req.body
   
     if (!nickname || !email || !password) {
       res.status(400)
       throw new Error('Please add all fields')
     }
-  
-    // // Check if email exists
-    // const emailExists = await Data.findOne({ data: { text: { $regex: `${"Email:"+email}\\s\\|` } } })
-    // // Check if email exists
-    // const nicknameExists = await Data.findOne({ data: { text: { $regex: `${"Nickname:"+nickname}\\s\\|` } } })
   
     const emailExists = await Data.find({
       'data.text': { $regex: `${"Email:" + email}`, $options: 'i' }

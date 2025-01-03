@@ -3,6 +3,7 @@ const path = require('path');
 const multer = require('multer');
 const asyncHandler = require('express-async-handler');
 const Data = require('../models/dataModel');
+const { checkIP } = require('./accessData.js');
 
 // Ensure the uploads directory exists
 const uploadDir = path.join(__dirname, '../uploads');
@@ -19,6 +20,7 @@ const upload = multer({ storage: storage });
 // @route   POST /api/data
 // @access  Private
 const setData = asyncHandler(async (req, res) => {
+    await checkIP(req);
     if (!req.user) {  // Check for user
       res.status(401)
       throw new Error('User not found')
