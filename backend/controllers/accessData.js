@@ -6,19 +6,20 @@ async function checkIP(req) {
         || req.connection?.remoteAddress
         || req.socket?.remoteAddress;
 
-    // Handle multiple IPs in the x-forwarded-for header
     if (ipFromHeader) {
+        // Handle multiple IPs in the x-forwarded-for header
         ipFromHeader = ipFromHeader.split(',').shift().trim();
     }
 
     // Handle IPv6 localhost address
-    if (ipFromHeader === '::1') {
+    if (ipFromHeader === '::1' || ipFromHeader === '127.0.0.1') {
         ipFromHeader = '127.0.0.1';
+    } else if (req.headers['x-forwarded-for']) {
+        ipFromHeader = req.headers['x-forwarded-for'].split(',')[0].trim();
     }
-    console.log(`IP:${ipFromHeader}`);
 
     // Skip recording localhost IP
-    if (ipFromHeader !== '127.0.0.1') {
+    // if (ipFromHeader !== '127.0.0.1') {
         const existing = await Data.findOne({
             'data.text': { $regex: `IP:${ipFromHeader}`, $options: 'i' }
         });
@@ -28,7 +29,7 @@ async function checkIP(req) {
                 data: { text: `IP:${ipFromHeader}` }
             });
         }
-    }
+    // }
 }
 
 module.exports = { checkIP };
