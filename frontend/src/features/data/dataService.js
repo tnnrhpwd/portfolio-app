@@ -84,6 +84,21 @@ const deleteData = async (dataId, token) => {
     return response.data
 }
 
+// Compress data
+const compressData = async (dataData, token) => {
+    const config = {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    }
+
+    console.log('Calling POST URL:', API_URL + 'compress');
+    console.log('Calling POST Data:', dataData);
+
+    const response = await axios.post(API_URL + 'compress', dataData, config);
+    return response.data;
+}
+
 // Register user
 const register = async (userData) => {
     console.log('Calling POST URL:', API_URL + 'register');
@@ -123,6 +138,7 @@ const dataService = {
     getPublicData,
     updateData,
     deleteData,
+    compressData,
     register,
     login,
     logout,

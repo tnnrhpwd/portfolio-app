@@ -70,6 +70,25 @@ export const getPublicData = createAsyncThunk(
   }
 );
 
+// Compress data
+export const compressData = createAsyncThunk(
+  'data/compress',
+  async (data, thunkAPI) => {
+    try {
+      const token = thunkAPI.getState().data.user.token;
+      return await dataService.compressData(data, token);
+    } catch (error) {
+      const dataMessage =
+        (error.response &&
+          error.response.data &&
+          error.response.data.dataMessage) ||
+        error.dataMessage ||
+        error.toString();
+      return thunkAPI.rejectWithValue(dataMessage);
+    }
+  }
+);
+
 // Update user data -- UPDATE
 export const updateData = createAsyncThunk(
   'data/update',
@@ -203,6 +222,19 @@ export const dataSlice = createSlice({
         state.dataIsError = true
         state.dataMessage = action.payload
         state.operation = null;
+      })
+      .addCase(compressData.pending, (state) => {
+        state.dataIsLoading = true;
+      })
+      .addCase(compressData.fulfilled, (state, action) => {
+        state.dataIsLoading = false;
+        state.dataIsSuccess = true;
+        state.data = action.payload;
+      })
+      .addCase(compressData.rejected, (state, action) => {
+        state.dataIsLoading = false;
+        state.dataIsError = true;
+        state.dataMessage = action.payload;
       })
       .addCase(updateData.pending, (state) => {             // update
         state.dataIsLoading = true

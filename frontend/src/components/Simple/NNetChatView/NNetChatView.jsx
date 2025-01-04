@@ -25,20 +25,6 @@ const NNetChatView = () => {
   const { user, data, dataIsSuccess, dataIsLoading, dataIsError, dataMessage, operation } = useSelector(
     (state) => state.data
   );
-  useEffect(() => {  // Handle loading updates
-    // if data is loading for longer than 5 seconds, show a toast
-    if (dataIsLoading) {
-      // setTimeout(() => {
-      //   if (dataIsLoading) {
-      //     toast.info('Connecting to database...', { autoClose: toastDuration });
-      //   }
-      // }, 500);
-        // toast.info('Connecting to database...', { autoClose: toastDuration });
-    } 
-    // Reset the data slice when unmounting or when there's an error
-    return () => {
-    };
-  }, [dataIsLoading]);
 
   useEffect(() => {  // Handle updatedata updates
     // If there is a new successful response from updateData, update the chat history
@@ -66,7 +52,7 @@ const NNetChatView = () => {
     return () => {
       if (dataIsSuccess || dataIsError) { dispatch(resetDataSlice()); }
     };
-  }, [dataIsSuccess, dataIsError, dataMessage, operation, dispatch]);
+  }, [dataIsSuccess, dataIsError, dataMessage, operation, dispatch, data, inputText, toastDuration]);
 
   useEffect(() => {  // Handle getdata updates
     // If there is a new successful response from getData, update priorChats
@@ -85,7 +71,7 @@ const NNetChatView = () => {
     return () => {
       if (dataIsSuccess || dataIsError) { dispatch(resetDataSlice()); }
     };
-  }, [dataIsSuccess, dataIsError, dataMessage, operation, dispatch]);
+  }, [dataIsSuccess, dataIsError, dataMessage, operation, dispatch, data.data, toastDuration]);
 
   useEffect(() => {  // Additional useEffect for fetching data on component mount
     async function getMyData() {
@@ -94,7 +80,7 @@ const NNetChatView = () => {
           toast.error('Please log in to utilize this API.', { autoClose: toastDuration });
           return;
         }
-        await dispatch(getData({ data: "Net:" }));
+        await dispatch(getData({ data: { text: "Net:" } }));
       } catch (error) {
         console.error(error);
         toast.error(error, { autoClose: toastDuration });    
@@ -106,7 +92,7 @@ const NNetChatView = () => {
     return () => {
       dispatch(resetDataSlice());
     };
-  }, [dispatch]);
+  }, [dispatch, toastDuration, user]);
   
   const handleSend = async () => {
     try {
