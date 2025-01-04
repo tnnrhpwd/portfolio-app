@@ -4,7 +4,7 @@ const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 
 // Import controller functions
-const { setData, upload, getData, getPublicData, updateData, deleteData, registerUser, loginUser } = require('../controllers/index.js');
+const { setData, upload, getData, getPublicData, updateData, compressData, deleteData, registerUser, loginUser } = require('../controllers/index.js');
 
 // Routes
 router.route('/')
@@ -14,6 +14,8 @@ router.route('/')
 router.route('/:id')
   .delete(protect, deleteData) // DELETE request for deleting data
   .put(protect, updateData); // PUT request for updating data
+
+router.post('/compress', protect, compressData); // Route to handle data compression
 
 router.post('/register', registerUser); // Route to handle user registration
 router.post('/login', loginUser); // Route to handle user login
