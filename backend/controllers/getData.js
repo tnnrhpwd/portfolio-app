@@ -79,27 +79,30 @@ const getData = asyncHandler(async (req, res) => {
 
         } else { // Handle database search requests
             try {
-
+                // Search Conditions for the database
                 const searchConditions = [
                     {
+                        // Check if the data is public or belongs to the user
                         $or: [
                             { 'data.text': { $regex: "\\|Public:true", $options: 'i' } },
                             { 'data.text': { $regex: userSearchString, $options: 'i' } },
                         ]
                     },
                     {
+                        // Check if the data contains the search string
                         $or: [
                             { 'data.text': { $regex: dataSearchString, $options: 'i' } },
                         ]
                     }
                 ];
-                
+                // Check if dataSearchString is a valid ObjectId
                 if (ObjectId.isValid(dataSearchString)) {
+                    // Add the ObjectId to the search conditions
                     searchConditions[1].$or.push({ _id: ObjectId(dataSearchString) });
                 }
-
+                // Fetch data from the database
                 const dataList = await Data.find({ $and: searchConditions });
-
+                // Return the data
                 res.status(200).json({
                     data: dataList.map((data) => ({
                         data: data.data,

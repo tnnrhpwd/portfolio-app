@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { updateData, getData, resetDataSlice, deleteData } from '../../../features/data/dataSlice.js';
+import { getData, compressData, updateData, resetDataSlice, deleteData } from '../../../features/data/dataSlice.js';
 import { toast } from 'react-toastify';
 import Spinner from '../../Spinner/Spinner.jsx';
 import NNetBookView from './NNetBookView.jsx';
 import TextareaAutosize from 'react-textarea-autosize';
 import { ReactComponent as Lightning } from '../../../assets/lightning.svg'; // Adjust the path to match the location of lightning.svg
 import './NNetChatView.css';
-
 
 const NNetChatView = () => {
   const rootStyle = window.getComputedStyle(document.body);
@@ -26,38 +25,40 @@ const NNetChatView = () => {
     (state) => state.data
   );
 
-  useEffect(() => {  // Handle updatedata updates
-    // If there is a new successful response from updateData, update the chat history
-    if (operation === 'update' && dataIsSuccess && data.data) {
-      console.log(data);
-      const originalString = data.data[0];
-      const dataString = originalString.includes("|Net:") ? originalString.split("|Net:")[1] : originalString;
-  
-      if (inputText === '') {
-        setChatHistory((prevChatHistory) => [...prevChatHistory, { content: dataString }]);
-      } else {
-        setChatHistory((prevChatHistory) => [...prevChatHistory, { content: inputText }, { content: dataString }]);
-      }
+  useEffect(() => {  // Handle compressData updates
+    // If there is a new successful response from compressData, update the chat history
+    if (operation === 'compress' && dataIsSuccess && data.data) {
+      const compressedResponse = data.data[0];
+      setChatHistory((prevChatHistory) => [...prevChatHistory, { content: compressedResponse }]);
       setInputText('');
     }
-  
+
     // Handle errors
     if (dataIsError) {
       if (dataMessage && !dataMessage.includes('token')) {
           toast.error(dataMessage, { autoClose: toastDuration });
         }
     }
-  
+
     // Reset the data slice when unmounting or when there's an error
     return () => {
       if (dataIsSuccess || dataIsError) { dispatch(resetDataSlice()); }
     };
-  }, [dataIsSuccess, dataIsError, dataMessage, operation, dispatch, data, inputText, toastDuration]);
+  }, [dataIsSuccess, dataIsError, dataMessage, operation, dispatch, data, toastDuration]);
 
-  useEffect(() => {  // Handle getdata updates
+  useEffect(() => {  // Handle getData updates
     // If there is a new successful response from getData, update priorChats
     if (operation === 'get' && dataIsSuccess) {
-      setPriorChats(data.data); // Ensure that dataIsSuccess is true before updating priorChats
+      console.log(data.data);
+      let tempPriorChats = [];
+      data.data.forEach((item) => {
+        if (item.data.text && item.data.text.includes('|Net:')) {
+          tempPriorChats.push(item.data.text);
+        }
+      });
+
+      console.log(tempPriorChats);
+      setPriorChats(tempPriorChats); // Ensure that dataIsSuccess is true before updating priorChats
     }
 
     // Handle errors
@@ -71,16 +72,16 @@ const NNetChatView = () => {
     return () => {
       if (dataIsSuccess || dataIsError) { dispatch(resetDataSlice()); }
     };
-  }, [dataIsSuccess, dataIsError, dataMessage, operation, dispatch, data.data, toastDuration]);
+  }, [dataIsSuccess, dataIsError, dataMessage, operation, dispatch, data, toastDuration]);
 
-  useEffect(() => {  // Additional useEffect for fetching data on component mount
+  useEffect(() => {  // Fetch data with |Net: on component mount
     async function getMyData() {
       try {
         if (!user || user === null) {
           toast.error('Please log in to utilize this API.', { autoClose: toastDuration });
           return;
         }
-        await dispatch(getData({ data: { text: "Net:" } }));
+        await dispatch(getData({ data: { text: "|Net:" } }));
       } catch (error) {
         console.error(error);
         toast.error(error, { autoClose: toastDuration });    
@@ -93,7 +94,7 @@ const NNetChatView = () => {
       dispatch(resetDataSlice());
     };
   }, [dispatch, toastDuration, user]);
-  
+
   const handleSend = async () => {
     try {
       if (!user || user === null) {
@@ -101,8 +102,7 @@ const NNetChatView = () => {
         return;
       }
       // Concatenate prior messages with the current inputText
-      const combinedData = ((activeChat&&chatHistory.length>0)?(activeChat.split('|Net:')[0] || ''):"") 
-        + "|Net:" + chatHistory.map((item) => item.content).join('\n') + (activeChat ? '\n' : '') + inputText;      
+      const combinedData = chatHistory.map((item) => item.content).join('\n') + (inputText ? '\n' + inputText : '');
       console.log(combinedData);
 
       // Check if the combinedData contains only '\n' or is an empty string
@@ -111,8 +111,8 @@ const NNetChatView = () => {
         return;
       }
 
-      // Dispatch the updateData action with the inputText
-      dispatch(updateData({ id: 'compress', data: combinedData }));
+      // Dispatch the compressData action with the combinedData
+      dispatch(compressData({ data: combinedData }));
     } catch (error) {
       // Handle any errors here
       console.error(error);
@@ -157,7 +157,7 @@ const NNetChatView = () => {
       handleSaveEdit(index);
     }
   };
-  
+
   const handleChatClick = (clickedChat) => {
     setActiveChat(clickedChat); // Assuming that each chat object has an 'id' property
     console.log(clickedChat);
@@ -173,7 +173,7 @@ const NNetChatView = () => {
       toast.error('An error occurred while deleting data.', { autoClose: toastDuration });
     }
   };
-  
+
   const handleUpdateData = async (index, originalContent) => {
     try {
       const updatedContent = `${originalContent.content} [Archived]`;
@@ -183,7 +183,7 @@ const NNetChatView = () => {
       toast.error('An error occurred while updating data.', { autoClose: toastDuration });
     }
   };
-  
+
   const handleCopyToClipboard = (content) => {
     try {
       // Use the Clipboard API to copy content to the clipboard
@@ -194,7 +194,7 @@ const NNetChatView = () => {
       toast.error('An error occurred while copying to clipboard.', { autoClose: toastDuration });
     }
   };
-  
+
   return (
     <div className='planit-nnet-chat'>
       <div className='planit-nnet-chat-history'>
@@ -230,7 +230,7 @@ const NNetChatView = () => {
           value={inputText}
           placeholder='Input text.'
           onChange={(e) => setInputText(e.target.value)}
-          onKeyDown={handleMainKeyDown} // Add the keydown event handler
+          onKeyDown={handleMainKeyDown}
           className='planit-nnet-chat-area'
         />
         <button

@@ -47,7 +47,7 @@ function NNetBookView({ myChats, onChatClick, onDeleteData, onUpdateData, onCopy
                 <Copy className='planit-NNetBookView-box-body-chat-mng-btn' onClick={() => onCopyToClipboard(chat)}/>
               </div>
               <span onClick={() => handleChatClick(chat)} className='planit-NNetBookView-box-body-chat-text'>
-                {chat.split("|Net:")[1].substring(0, 15)}...
+                {/* {chat}... */}
               </span>
             </div>
           ))}
