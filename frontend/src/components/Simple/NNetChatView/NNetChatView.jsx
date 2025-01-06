@@ -110,16 +110,17 @@ const NNetChatView = () => {
         toast.error('Please enter some text before sending.', { autoClose: toastDuration });
         return;
       }
-      console.log(activeChat);
-      let activeChatItem = activeChat
-      activeChatItem.data.text = activeChatItem.data.text + (inputText ? '\n' + inputText : '');
-      console.log(activeChatItem);
-      // console.log(JSON.stringify(activeChat))
-      
-      // // activeChat.data.text = activeChat.data.text.split("|Net:")[0] + "|Net:" + combinedData;
-      // const activeChatData = activeChat.data.text.split("|Net:")[0] + "|Net:" + combinedData;
-      // console.log(JSON.stringify(activeChatData));
 
+      console.log(activeChat);
+      let activeChatItem = JSON.parse(JSON.stringify(activeChat)); // Create a deep copy of the activeChat object
+      console.log(activeChatItem);
+      const inputTextString = inputText ? inputText : '';
+      console.log(inputTextString);
+      console.log(activeChatItem.data.text);
+      activeChatItem.data.text = activeChatItem.data.text + "\n" + inputTextString;
+      console.log(activeChatItem.data.text);
+      setActiveChat(activeChatItem);
+      setChatHistory((prevChatHistory) => [...prevChatHistory, { content: inputText }]); // Update the chat history
       // Dispatch the compressData action with the combinedData
       dispatch(compressData({ data: JSON.stringify(activeChatItem) }));
     } catch (error) {
