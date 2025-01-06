@@ -29,7 +29,7 @@ const setData = asyncHandler(async (req, res) => {
       res.status(400)
       throw new Error('Please add a data field. req: ' + JSON.stringify(req.body.data))
     }
-  
+    console.log('req.body.data: ', req.body.data)
     let files = [];
     if (req.files && req.files.length > 0) {
         files = req.files.map(file => ({

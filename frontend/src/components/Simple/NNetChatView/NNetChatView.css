@@ -117,8 +117,8 @@
     position: absolute;
     top: calc(var(--nav-size) * 0.08);
     left: calc(var(--nav-size) * 0.07);
-    width: calc(var(--nav-size) * 0.7);;
-    height: calc(var(--nav-size) * 0.7);;
+    width: calc(var(--nav-size) * 0.7);
+    height: calc(var(--nav-size) * 0.7);
   }
   .planit-NNetBookView-space {
     color: var(--text-color);
@@ -167,15 +167,15 @@
   .planit-NNetBookView__box {
     display: block;
     position: fixed;
-    top: calc(var(--nav-size) * -2.5);
+    top: calc(var(--nav-size) * -9);
     left: calc(var(--nav-size) * 0.3);
-    width: calc(var(--nav-size) * 5);
+    width: 90%;
     padding: calc(var(--nav-size) * 0.08) 0;
     list-style: none;
     background-color: var(--bg-nav1);
     box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.4);
     border: calc(var(--nav-size)*0.001) solid var(--border-nav);
-    transform: translateY(calc(var(--nav-size) * 0.15)); /* Initially hidden above the screen */
+    transform: translateY(calc(var(--nav-size) * 0)); /* Initially hidden above the screen */
     transition-duration: 0.25s;
     text-align: left;
   }
@@ -183,6 +183,17 @@
     font-size: calc(var(--nav-size) * 0.35);
     margin: calc(var(--nav-size) * 0.1);
     text-decoration: underline;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .planit-NNetBookView-box-header-title {
+    display: inline;
+  }
+  .planit-NNetBookView-box-header-new {
+    display: inline;
+    margin-left: auto;
+    margin-right: calc(var(--nav-size) * 0.1);
   }
   .planit-NNetBookView-box-body {
     font-size: calc(var(--nav-size) * 0.3);

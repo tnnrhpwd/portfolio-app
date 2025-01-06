@@ -53,7 +53,7 @@ const NNetChatView = () => {
       let tempPriorChats = [];
       data.data.forEach((item) => {
         if (item.data.text && item.data.text.includes('|Net:')) {
-          tempPriorChats.push(item.data.text);
+          tempPriorChats.push(item);
         }
       });
 
@@ -64,6 +64,7 @@ const NNetChatView = () => {
     // Handle errors
     if (dataIsError) {
       if (dataMessage && !dataMessage.includes('token')) {
+          console.error(dataMessage);
           toast.error(dataMessage, { autoClose: toastDuration });
         }
     }
@@ -103,16 +104,24 @@ const NNetChatView = () => {
       }
       // Concatenate prior messages with the current inputText
       const combinedData = chatHistory.map((item) => item.content).join('\n') + (inputText ? '\n' + inputText : '');
-      console.log(combinedData);
 
       // Check if the combinedData contains only '\n' or is an empty string
       if (/^\s*$/.test(combinedData)) {
         toast.error('Please enter some text before sending.', { autoClose: toastDuration });
         return;
       }
+      console.log(activeChat);
+      let activeChatItem = activeChat
+      activeChatItem.data.text = activeChatItem.data.text + (inputText ? '\n' + inputText : '');
+      console.log(activeChatItem);
+      // console.log(JSON.stringify(activeChat))
+      
+      // // activeChat.data.text = activeChat.data.text.split("|Net:")[0] + "|Net:" + combinedData;
+      // const activeChatData = activeChat.data.text.split("|Net:")[0] + "|Net:" + combinedData;
+      // console.log(JSON.stringify(activeChatData));
 
       // Dispatch the compressData action with the combinedData
-      dispatch(compressData({ data: combinedData }));
+      dispatch(compressData({ data: JSON.stringify(activeChatItem) }));
     } catch (error) {
       // Handle any errors here
       console.error(error);
@@ -158,10 +167,15 @@ const NNetChatView = () => {
     }
   };
 
+  const handleNewChat = () => {
+    setActiveChat(null);
+    setChatHistory([]);
+  };
+
   const handleChatClick = (clickedChat) => {
     setActiveChat(clickedChat); // Assuming that each chat object has an 'id' property
     console.log(clickedChat);
-    const chatContent = clickedChat.split("|Net:")[1];
+    const chatContent = clickedChat.data.text.split("|Net:")[1];
     setChatHistory((prevChatHistory) => [{ content: chatContent }]);
   };
 
@@ -248,6 +262,7 @@ const NNetChatView = () => {
         onUpdateData={handleUpdateData}
         onCopyToClipboard={handleCopyToClipboard}
         activeChatId={activeChat} // Pass down the active chat ID
+        onNewChat={handleNewChat}
       />
       {dataIsLoading && <Spinner />}
     </div>

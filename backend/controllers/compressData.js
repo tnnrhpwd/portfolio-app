@@ -20,19 +20,33 @@ const compressData = asyncHandler(async (req, res) => {
     }
 
     // Check for user
-    if (!req.user.data.includes("tnnrhpwd@gmail.com")) {
+    if (req.user.data && req.user.data.text && typeof req.user.data.text === 'string' && !req.user.data.text.includes("tnnrhpwd@gmail.com")) {
         res.status(401)
-        throw new Error('Only admin are authorized to utilize the API at this time.')
+        throw new Error('Only admin are authorized to utilize the API at this time.' + req.user.data.text)
     }
-    
-    if (!req.body.data.includes("Net:")) {
+
+
+    if (!req.body || !req.body.data || typeof req.body.data !== 'string' || !req.body.data.includes("Net:")) {
         res.status(401)
-        throw new Error('Net: not included.')
+        throw new Error('Net: not included. ')
     }
-    const contextInput = req.body.data // Get context input from the query string. ex. 659887fa192e6e8a77e5d9c5 Creator:65673ec1fcacdd019a167520|Net:Steven:Wassaup, Baby! 
+
+    const parsedJSON = JSON.parse(req.body.data);
+    console.log('Request body:', parsedJSON); // Log the request body
+
+    const itemID = parsedJSON._id; // Get the ID from the query string.
+
+    const contextInput = parsedJSON.data.text; // Get context input from the query string.
+    console.log('Context input:', contextInput); // Log the context input
+
+    if (typeof contextInput !== 'string') { 
+        throw new Error('Data input invalid')
+    }
 
     const netIndex = contextInput.indexOf('Net:'); 
     const userInput = contextInput.substring(netIndex + 4); // Get user's input from the query string. ex. Steven:Wassaup, Baby! 
+
+    console.log('User input:', userInput); // Log the user input
 
     try {
         // const response = await client.completions.create({
@@ -45,19 +59,16 @@ const compressData = asyncHandler(async (req, res) => {
 
     if (response.data.choices[0].text && response.data.choices[0].text.length > 0) {
         const compressedData = response.data.choices[0].text; // Extract the compressed data from the OpenAI response.
-        const newData = "Creator:"+req.user._id+"|Net:"+userInput+compressedData;
+        const newData = "Creator:"+req.user._id+"|Net:"+userInput+"\n"+compressedData;
 
-        // Extract the ID from the contextInput string.
-        const id = contextInput.split(' ')[0]; // Assuming the ID is the first part of the string, separated by a space.
-        
         // Check if the ID is a valid ObjectID
-        if (typeof id !== 'string') {
+        if (!itemID || !itemID.match(/^[0-9a-fA-F]{24}$/)) {
         throw new Error('Data input invalid')
         }
         
         // Check if the ID exists in the database
-        const existingData = await Data.findById(id);
-        const updatedData = await Data.findByIdAndUpdate(id, { data: newData }, { new: true });
+        const existingData = await Data.findById(itemID);
+        const updatedData = await Data.findByIdAndUpdate(itemID, { data: {text: newData} }, { new: true });
         res.status(200).json({ data: [compressedData] });
 
         } else {

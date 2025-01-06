@@ -230,11 +230,13 @@ export const dataSlice = createSlice({
         state.dataIsLoading = false;
         state.dataIsSuccess = true;
         state.data = action.payload;
+        state.operation = 'compress';
       })
       .addCase(compressData.rejected, (state, action) => {
         state.dataIsLoading = false;
         state.dataIsError = true;
         state.dataMessage = action.payload;
+        state.operation = null;
       })
       .addCase(updateData.pending, (state) => {             // update
         state.dataIsLoading = true
