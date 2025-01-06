@@ -1,5 +1,5 @@
 // import react variables
-import React from 'react';
+// import React from 'react';
 
 function ActivePoll() {}
 // function ActivePoll(props) {

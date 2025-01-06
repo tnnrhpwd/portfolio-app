@@ -2,7 +2,7 @@ import { useState, useEffect }  from 'react';
 import { useSelector, useDispatch } from 'react-redux'      // useSelector-brings in user,iserror,isloading from state | useDispatch-brings in reset,register,login from state
 import { useNavigate } from 'react-router-dom'              // page redirects
 import { toast } from 'react-toastify'                        // visible error notifications
-import { register, resetDataSlice } from '../../features/data/dataSlice'     // import functions from authslice
+import { register } from '../../features/data/dataSlice'     // import functions from authslice
 import Spinner from '../../components/Spinner/Spinner.jsx';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
@@ -47,7 +47,7 @@ function Register() {
         }
 
         // dispatch(resetDataSlice())   // reset state values( authMessage, isloading, iserror, and issuccess ) on each state change
-    }, [user, dataIsError, dataIsSuccess, dataMessage, navigate, dispatch])
+    }, [user, dataIsError, dataIsSuccess, dataMessage, navigate, dispatch, toastDuration])
 
     // called on each letter typed into input field
     const onChange = (e) => {

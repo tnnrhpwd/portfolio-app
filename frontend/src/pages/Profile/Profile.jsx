@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux'      // useSelector-brings in user,iserror,isloading from state | useDispatch-brings in reset,register,login from state
 import { useNavigate } from 'react-router-dom'              // page redirects
-import { toast } from 'react-toastify'    
 import { logout, resetDataSlice } from './../../features/data/dataSlice.js'      // import functions from authslice
 import Spinner from '../../components/Spinner/Spinner.jsx';
 import './Profile.css';

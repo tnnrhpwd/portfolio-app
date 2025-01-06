@@ -1,17 +1,9 @@
-import React, { useEffect, useState } from "react";
-import BackgroundVideo from "./BackgroundVideo.js";
+import React, { useEffect } from "react";
 import Header from "../../components/Header/Header.jsx";
 import Footer from "../../components/Footer/Footer.jsx";
 import { useSelector, useDispatch } from 'react-redux';
 import { getPublicData } from '../../features/data/dataSlice.js';
 import './Home.css';
-
-const lwwlink = "https://www.lewisburgwater.org";
-const marellilink = "https://www.marelli.com";
-const rcmlink = "https://www.rcmindustries.com/";
-const shawlink = "https://www.shawinc.com/";
-const faulink = "https://www.faurecia.com/en";
-const yflink = "https://www.yanfeng.com/en";
 
 const links = {
     net: "/net",
@@ -27,7 +19,7 @@ const links = {
 function Home() {
     const dispatch = useDispatch();
 
-    const { user, data, dataIsLoading, dataIsSuccess, dataIsError, dataMessage } = useSelector(
+    const { user } = useSelector(
         (state) => state.data
     );
 

@@ -8,7 +8,7 @@ function ActionInput() {
 
   const dispatch = useDispatch() // initialization
 
-  const { user, dataIsError, dataIsSuccess, dataMessage } = useSelector(
+  const { user } = useSelector(
     // select plan values from data state
     (state) => state.data
   )

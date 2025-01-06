@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import ShareView from '../ShareView/ShareView.jsx';
 import { toast } from 'react-toastify';
@@ -13,7 +13,6 @@ import './DataResult.css';
 function DataResult(props) {
     const planString = props.importPlanString;
     const updatedAt = props.updatedAtData;
-    const createdAt = props.createdAtData;
     const itemID = props.itemID;
     const files = props.files;
 
