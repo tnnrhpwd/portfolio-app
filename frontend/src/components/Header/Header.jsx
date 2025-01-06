@@ -1,22 +1,12 @@
-import React, { useEffect, useState, useRef } from 'react'
-import { Link, useNavigate } from 'react-router-dom';
-import { useSelector, useDispatch } from 'react-redux'    
-import { logout, resetDataSlice } from './../../features/data/dataSlice.js'
-import NavItem from "./../NavBar/NavItem.jsx";
+import React, { useEffect, useState } from 'react'
 import HeaderDropper from './../HeaderDropper/HeaderDropper.jsx';
-import ReactTooltip from "react-tooltip";
-import projectsLogo from './../NavBar/projects.png';
-import contactLogo from './../NavBar/contact.png';
 import HeaderLogo from '../../../src/assets/Checkmark512.png';
 import HeaderBell from '../HeaderBell/HeaderBell.jsx';
 import './Header.css';
 
 function Header() {
-  const navigate = useNavigate() // initialization
-  const dispatch = useDispatch() // initialization
-  const { user } = useSelector((state) => state.data)   // select values from state
   const [ colTheme, setColTheme ] = useState(null);
-  const [ portraitState, setPortraitState ] = useState(false);
+  // const [ portraitState, setPortraitState ] = useState(false);
   useEffect(() => {     // RUNS ON START -- Checks browser for color theme preference. Sets dark mode otherwise.
     const theme = localStorage.getItem('theme');
     if(theme==='light-theme') {
@@ -27,7 +17,7 @@ function Header() {
       setDarkMode();
     }
     if(window.innerHeight > window.innerWidth){
-      setPortraitState(true);
+      // setPortraitState(true);
     }
   }, []);
   function setDarkMode(){
@@ -54,11 +44,11 @@ function Header() {
     if(colTheme==='dark-theme') {setLightMode();}
   }
   
-  const onLogout = () => {
-    dispatch(logout())  // dispatch connects to the store, then remove user item from local storage
-    dispatch(resetDataSlice())  // dispatch connects to the store, then reset state values( message, isloading, iserror, and issuccess )
-    navigate('/')       // send user to dashboard, which will redirect to login page
-  }
+  // const onLogout = () => {
+  //   dispatch(logout())  // dispatch connects to the store, then remove user item from local storage
+  //   dispatch(resetDataSlice())  // dispatch connects to the store, then reset state values( message, isloading, iserror, and issuccess )
+  //   navigate('/')       // send user to dashboard, which will redirect to login page
+  // }
   return (
     <>
       <div className="planit-header unclickable-background">

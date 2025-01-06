@@ -1,8 +1,8 @@
 import { useRef } from 'react'
 import useOutsideAlerter from '../useOutsideAlerter.js';
 // import HeaderLogo from './../../assets/planit192.png';
-import { Link, useNavigate } from 'react-router-dom';
-import { useSelector, useDispatch } from 'react-redux'    
+import { Link } from 'react-router-dom';
+import { useSelector } from 'react-redux'    
 import React from 'react';
 
 import './HeaderDropper.css'
