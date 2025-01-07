@@ -49,16 +49,16 @@ const compressData = asyncHandler(async (req, res) => {
     console.log('User input:', userInput); // Log the user input
 
     try {
-        const response = await client.completions.create({
-          model: 'gpt-4o-mini', // Choose the appropriate engine
-          prompt: userInput,
-          max_tokens: 30, // Adjust as needed
+        const response = await client.chat.completions.create({
+          model: 'gpt-4o', // Choose the appropriate engine
+          messages: [{ role: 'user', content: userInput }],
+          max_tokens: 50, // Adjust as needed
         });
-        console.log('OpenAI response:', response); // Log the OpenAI response
+        console.log('OpenAI response:', JSON.stringify(response)); // Log the OpenAI response
         // const response = { data: { choices: [ {text: "This is a simulated response for debugging purposes."} ] } };
 
-        if (response.choices[0].text && response.choices[0].text.length > 0) {
-            const compressedData = response.choices[0].text; // Extract the compressed data from the OpenAI response.
+        if (response.choices[0].message.content && response.choices[0].message.content.length > 0) {
+            const compressedData = response.choices[0].message.content; // Extract the compressed data from the OpenAI response.
             const newData = "Creator:"+req.user._id+"|Net:"+userInput+"\n"+compressedData;
 
             // Check if the ID is a valid ObjectID

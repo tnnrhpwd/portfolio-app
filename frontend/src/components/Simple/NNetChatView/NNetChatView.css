@@ -131,6 +131,7 @@
   }
   #planit-NNetBookView__toggle:checked ~ .planit-NNetBookView__box {
     top: calc(var(--nav-size) * 2);
+    visibility: visible;
   }
   .planit-NNetBookView__btn {
     width: calc(var(--nav-size) * 0.4);
@@ -170,6 +171,7 @@
     top: calc(var(--nav-size) * -9);
     left: calc(var(--nav-size) * 0.3);
     width: 90%;
+    height: 60vh; /* Set a fixed height to enable scrolling */
     padding: calc(var(--nav-size) * 0.08) 0;
     list-style: none;
     background-color: var(--bg-nav1);
@@ -178,6 +180,8 @@
     transform: translateY(calc(var(--nav-size) * 0)); /* Initially hidden above the screen */
     transition-duration: 0.25s;
     text-align: left;
+    visibility: hidden;
+    overflow-y: auto; /* Enable vertical scrolling */
   }
   .planit-NNetBookView-box-header {
     font-size: calc(var(--nav-size) * 0.35);
