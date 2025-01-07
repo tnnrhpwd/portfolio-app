@@ -116,13 +116,24 @@ const NNetChatView = () => {
       console.log(activeChatItem);
       const inputTextString = inputText ? inputText : '';
       console.log(inputTextString);
-      console.log(activeChatItem.data.text);
-      activeChatItem.data.text = activeChatItem.data.text + "\n" + inputTextString;
-      console.log(activeChatItem.data.text);
-      setActiveChat(activeChatItem);
-      setChatHistory((prevChatHistory) => [...prevChatHistory, { content: inputText }]); // Update the chat history
-      // Dispatch the compressData action with the combinedData
-      dispatch(compressData({ data: JSON.stringify(activeChatItem) }));
+      if(activeChat){
+        console.log("activeChatItem.data.text");
+        activeChatItem.data.text = activeChatItem.data.text + "\n" + inputTextString;
+        console.log(activeChatItem.data.text);
+        setActiveChat(activeChatItem);
+        setChatHistory((prevChatHistory) => [...prevChatHistory, { content: inputText }]); // Update the chat history
+        // Dispatch the compressData action with the combinedData
+        dispatch(compressData({ data: JSON.stringify(activeChatItem) }));
+      }else{
+        let chatItem = { data: { text: inputTextString } };
+        console.log(chatItem);
+        // Dispatch the compressData action with the combinedData
+        dispatch(compressData({ data: JSON.stringify(chatItem) }));
+        setChatHistory((prevChatHistory) => [...prevChatHistory, { content: inputText }]); // Update the chat history
+
+      }
+      
+
     } catch (error) {
       // Handle any errors here
       console.error(error);

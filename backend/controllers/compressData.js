@@ -26,10 +26,10 @@ const compressData = asyncHandler(async (req, res) => {
     }
 
 
-    if (!req.body || !req.body.data || typeof req.body.data !== 'string' || !req.body.data.includes("Net:")) {
-        res.status(401)
-        throw new Error('Net: not included. ')
-    }
+    // if (!req.body || !req.body.data || typeof req.body.data !== 'string' || !req.body.data.includes("Net:")) {
+    //     res.status(401)
+    //     throw new Error('Net: not included. ')
+    // }
 
     const parsedJSON = JSON.parse(req.body.data);
     console.log('Request body:', parsedJSON); // Log the request body
@@ -43,36 +43,43 @@ const compressData = asyncHandler(async (req, res) => {
         throw new Error('Data input invalid')
     }
 
-    const netIndex = contextInput.indexOf('Net:'); 
-    const userInput = contextInput.substring(netIndex + 4); // Get user's input from the query string. ex. Steven:Wassaup, Baby! 
+    const netIndex = contextInput.includes('Net:') ? contextInput.indexOf('Net:'): 0; 
+    const userInput = netIndex>0 ? contextInput.substring(netIndex + 4): contextInput;
 
     console.log('User input:', userInput); // Log the user input
 
     try {
-        // const response = await client.completions.create({
-        //   model: 'gpt-3.5-turbo-instruct', // Choose the appropriate engine
-        //   prompt: userInput,
-        //   max_tokens: 30, // Adjust as needed
-        // });
+        const response = await client.completions.create({
+          model: 'gpt-3.5-turbo-instruct', // Choose the appropriate engine
+          prompt: userInput,
+          max_tokens: 30, // Adjust as needed
+        });
+        console.log('OpenAI response:', response); // Log the OpenAI response
+        // const response = { data: { choices: [ {text: "This is a simulated response for debugging purposes."} ] } };
 
-    const response = { data: { choices: [ {text: "This is a simulated response for debugging purposes."} ] } };
+        if (response.choices[0].text && response.choices[0].text.length > 0) {
+            const compressedData = response.choices[0].text; // Extract the compressed data from the OpenAI response.
+            const newData = "Creator:"+req.user._id+"|Net:"+userInput+"\n"+compressedData;
 
-    if (response.data.choices[0].text && response.data.choices[0].text.length > 0) {
-        const compressedData = response.data.choices[0].text; // Extract the compressed data from the OpenAI response.
-        const newData = "Creator:"+req.user._id+"|Net:"+userInput+"\n"+compressedData;
-
-        // Check if the ID is a valid ObjectID
-        if (!itemID || !itemID.match(/^[0-9a-fA-F]{24}$/)) {
-        throw new Error('Data input invalid')
-        }
-        
-        // Check if the ID exists in the database
-        const existingData = await Data.findById(itemID);
-        const updatedData = await Data.findByIdAndUpdate(itemID, { data: {text: newData} }, { new: true });
-        res.status(200).json({ data: [compressedData] });
-
+            // Check if the ID is a valid ObjectID
+            if (itemID && itemID.match(/^[0-9a-fA-F]{24}$/)) {
+                // Check if the ID exists in the database
+                const existingData = await Data.findById(itemID);
+                if (existingData) {
+                    const updatedData = await Data.findByIdAndUpdate(itemID, { data: { text: newData } }, { new: true });
+                    res.status(200).json({ data: [compressedData] });
+                } else {
+                    res.status(404).json({ error: 'Data not found' });
+                }
+            } else {
+                // Create a new item if no valid itemID is provided
+                const newItem = new Data({ data: { text: newData }, user: req.user._id });
+                console.log('New item:', newItem);
+                await newItem.save();
+                res.status(201).json({ data: [compressedData] });
+            }
         } else {
-        res.status(500).json({ error: 'No compressed data found in the OpenAI response' });
+            res.status(500).json({ error: 'No compressed data found in the OpenAI response' });
         }
     } catch (error) {
         console.error(error);
