@@ -50,7 +50,7 @@ const compressData = asyncHandler(async (req, res) => {
 
     try {
         const response = await client.completions.create({
-          model: 'gpt-3.5-turbo-instruct', // Choose the appropriate engine
+          model: 'gpt-4o-mini', // Choose the appropriate engine
           prompt: userInput,
           max_tokens: 30, // Adjust as needed
         });
