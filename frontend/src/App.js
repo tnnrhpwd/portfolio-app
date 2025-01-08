@@ -42,30 +42,21 @@ function App() {
       <div className="App">
         <Routes>
           <Route path='/about' element={<About />} />
-          <Route path='/agenda' element={<Agenda />} />
           <Route path="/annuities" element={<Annuities/>} />
-          {/* <Route path="/boggle" element={<BoggleBox/>} /> */}
           <Route path="/contact" element={<Contact/>} />
-          <Route path="/drafting" element={<Drafting/>} />
           <Route path="/ethanol" element={<Ethanol/>} />
           <Route path="/GFreq" element={<GFreq/>} />
-          <Route path='/goals' element={<Goals />} />
           <Route path="/halfway" element={<Halfway/>} />
           <Route path="/" element={<Home/>} />
           <Route path="/home" element={<Home/>} />
-          <Route path='/InfoAction' element={<InfoAction />} />
-          <Route path='/InfoGoal' element={<InfoGoal />} />
           <Route path='/InfoData/:id' element={<InfoData />} />
           <Route path='/LegalTerms' element={<LegalTerms />} />
           <Route path='/login' element={<Login />} />
           <Route path='/net' element={<Net />} />
           <Route path="/passgen" element={<PassGen/>} />
           <Route path='/plans' element={<Plans />} />
-          <Route path='/PollBox' element={<PollBox />} />
           <Route path='/privacy' element={<Privacy />} />
-          <Route path="/prodpartners" element={<ProdPartners/>} />
           <Route path='/profile' element={<Profile />} />
-          <Route path="/projects" element={<Projects/>} />
           <Route path='/register' element={<Register />} />
           <Route path='/settings' element={<Settings />} />
           <Route path='/Simple' element={<Simple />} />
