@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { getData, compressData, updateData, resetDataSlice, deleteData } from '../../../features/data/dataSlice.js';
 import { toast } from 'react-toastify';
 import Spinner from '../../Spinner/Spinner.jsx';
@@ -11,7 +12,7 @@ import './NNetChatView.css';
 const NNetChatView = () => {
   const rootStyle = window.getComputedStyle(document.body);
   const toastDuration = parseInt(rootStyle.getPropertyValue('--toast-duration'), 10);
-
+  const navigate = useNavigate();
   const dispatch = useDispatch();
   const [inputText, setInputText] = useState('');
   const [editedText, setEditedText] = useState(''); // New state for edited content
@@ -79,7 +80,8 @@ const NNetChatView = () => {
     async function getMyData() {
       try {
         if (!user || user === null) {
-          toast.error('Please log in to utilize this API.', { autoClose: toastDuration });
+          toast.info('Please login first.', { autoClose: toastDuration });
+          navigate('/login')  
           return;
         }
         await dispatch(getData({ data: { text: "|Net:" } }));

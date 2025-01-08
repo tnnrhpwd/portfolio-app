@@ -128,7 +128,7 @@ function Plans() {
       const processPlanArray = (itemIDData, itemCreatedAtData, itemUpdatedAtData, itemString, files, index, array) => {
         array.push(
           <DataResult
-            key={`${array === outputMyPlanArray ? 'MyDataResult' : 'SavedDataResult'}${user.nickname}${index}${1}`}
+            key={`${array === outputMyPlanArray ? 'MyDataResult' : 'SavedDataResult'}}${index}${1}`}
             importPlanString={itemString}
             files={files}
             updatedAtData={itemUpdatedAtData}
