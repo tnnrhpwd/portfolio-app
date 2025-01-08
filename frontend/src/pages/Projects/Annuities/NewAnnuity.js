@@ -1,14 +1,7 @@
 import React, { useEffect, useState } from "react";
+import "./NewAnnuity.css";
 
-function NewAnnuity(props) {
-
-   // output value array
-    var annuit=[];
-
-    // store chosen tense from parent component
-    var chosenTense = props.tenseAnnuity;
-
-    //holds the value of present value as typed
+function NewAnnuity({ tenseAnnuity, onNewAnnuity }) {
     const [presentVal, setPresentValue] = useState("");
     const [annualVal, setAnnualValue] = useState("");
     const [futureVal, setFutureValue] = useState("");
@@ -16,63 +9,83 @@ function NewAnnuity(props) {
     const [intVal, setIntValue] = useState("");
     const [nVal, setNValValue] = useState("");
 
-
-    // builds output value to output
     useEffect(() => {
+        const annuit = [
+            parseFloat(presentVal) || 0,
+            parseFloat(annualVal) || 0,
+            parseFloat(futureVal) || 0,
+            parseFloat(gradientVal) || 0,
+            parseFloat(intVal) || 0,
+            parseFloat(nVal) || 0
+        ];
+        onNewAnnuity(annuit);
+    }, [presentVal, annualVal, futureVal, gradientVal, intVal, nVal, onNewAnnuity]);
 
-        annuit[0]=parseFloat(presentVal);
-        annuit[1]=parseFloat(annualVal);
-        annuit[2]=parseFloat(futureVal);
-        annuit[3]=parseFloat(gradientVal);
-        annuit[4]=parseFloat(intVal);
-        annuit[5]=parseFloat(nVal);
-    }, [presentVal,annualVal,futureVal,gradientVal,intVal,nVal,annuit]);
-
-
-    // sends a value to parent
-    var handleAnnuityCall = () => {
-        props.onNewAnnuity(annuit);
-    }
-
-    // resets the input fields
-    var handleAnnuityReset = () => {
-        setPresentValue("");
-        setAnnualValue("");
-        setFutureValue("");
-        setGradientValue("");
-        setIntValue("");
-        setNValValue("");
-    }
-
-    const handleKeyDown = (event) =>{
+    const handleKeyDown = (event) => {
         if (event.key === 'Enter') {
-            handleAnnuityCall();
+            onNewAnnuity([
+                parseFloat(presentVal) || 0,
+                parseFloat(annualVal) || 0,
+                parseFloat(futureVal) || 0,
+                parseFloat(gradientVal) || 0,
+                parseFloat(intVal) || 0,
+                parseFloat(nVal) || 0
+            ]);
         }
+    };
 
-    }
-
-
-    return(<>
-        <div className="inputNewAnnuity">
-            {(!(chosenTense==='$Present')) && <input value={presentVal} placeholder="Present Value" onChange={e => setPresentValue(e.target.value)} onKeyDown={handleKeyDown} className="inputNewAnnuity-present" />}
-
-            {(!(chosenTense==='$Periodic')) && <input value={annualVal} placeholder="Periodic Value" onChange={e => setAnnualValue(e.target.value)} onKeyDown={handleKeyDown} className="inputNewAnnuity-annual" />}
-
-            {(!(chosenTense==='$Future')) && <input value={futureVal} placeholder="Future Value" onChange={e => setFutureValue(e.target.value)} onKeyDown={handleKeyDown} className="inputNewAnnuity-future" />}
-
-            <input value={gradientVal} placeholder="Gradient Value" onChange={e => setGradientValue(e.target.value)} onKeyDown={handleKeyDown} className="inputNewAnnuity-gradient" />
-
-            <input value={intVal} placeholder="Interest Rate" onChange={e => setIntValue(e.target.value)} onKeyDown={handleKeyDown} className="inputNewAnnuity-interest" />
-
-            <input value={nVal} placeholder="Number of Periods" onChange={e => setNValValue(e.target.value)} onKeyDown={handleKeyDown} className="inputNewAnnuity-periods" />
+    return (
+        <div className="new-annuity">
+            {tenseAnnuity !== '$Present' && (
+                <input
+                    value={presentVal}
+                    placeholder="Present Value"
+                    onChange={(e) => setPresentValue(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    className="new-annuity-input"
+                />
+            )}
+            {tenseAnnuity !== '$Periodic' && (
+                <input
+                    value={annualVal}
+                    placeholder="Periodic Value"
+                    onChange={(e) => setAnnualValue(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    className="new-annuity-input"
+                />
+            )}
+            {tenseAnnuity !== '$Future' && (
+                <input
+                    value={futureVal}
+                    placeholder="Future Value"
+                    onChange={(e) => setFutureValue(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    className="new-annuity-input"
+                />
+            )}
+            <input
+                value={gradientVal}
+                placeholder="Gradient Value"
+                onChange={(e) => setGradientValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="new-annuity-input"
+            />
+            <input
+                value={intVal}
+                placeholder="Interest Rate"
+                onChange={(e) => setIntValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="new-annuity-input"
+            />
+            <input
+                value={nVal}
+                placeholder="Number of Periods"
+                onChange={(e) => setNValValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="new-annuity-input"
+            />
         </div>
-        <button onClick={handleAnnuityCall} id="submitNewAnnuity" >
-            Submit Annuity
-        </button>
-        <button onClick={handleAnnuityReset} id="submitNewAnnuity" >
-            Reset
-        </button>
-    </>);
+    );
 }
 
 export default NewAnnuity;
