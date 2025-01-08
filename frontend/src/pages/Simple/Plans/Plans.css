@@ -135,6 +135,20 @@
     font-size: calc(var(--nav-size)*0.3);
     color: var(--text-color);
 }
+.react-calendar button{
+    color: var(--text-color-accent);
+    border-radius: calc(var(--nav-size)*.15);
+    border: calc(var(--nav-size)*0.001) solid var(--border-nav);
+}
+.react-calendar__tile--now {
+    background-color: var(--text-color-inv);
+}
+.react-calendar__tile--active:enabled:hover, .react-calendar__tile--active:enabled:focus {
+    background: var(--bg-mint);
+}
+.react-calendar__tile--active {
+    background: var(--bg-blue);
+}
 @media (orientation: landscape) {
     .planit-plans{
         text-align: left;

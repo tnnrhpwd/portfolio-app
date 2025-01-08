@@ -85,6 +85,7 @@ code {
   --bg-page-transp: var(--white0-transp);
   --bg-plan: var(--white1);
   --text-color: var(--dark-blue0);
+  --text-color-accent:var(--grey3);
   --text-color-inv: var(--white0);
   --bg-accent:rgb(126, 126, 126);
   --border-nav: var(--grey1);
@@ -104,6 +105,7 @@ code {
   --bg-blue:rgb(0, 0, 67);
   --bg-mint:rgb(0, 62, 62);
   --text-color:white;
+  --text-color-accent:var(--grey2);
   --text-color-inv: rgb(0, 0, 0);
   pointer-events:none; 
   --bg-pagelink: var(--green2);
