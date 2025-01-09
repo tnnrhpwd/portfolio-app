@@ -15,6 +15,7 @@ function DataResult(props) {
     const updatedAt = props.updatedAtData;
     const itemID = props.itemID;
     const files = props.files;
+    // console.log("DataResult: planString=" + planString + ", updatedAt=" + updatedAt + ", itemID=" + itemID + ", files=" + files);
 
     const dispatch = useDispatch();
     const navigate = useNavigate();
@@ -63,7 +64,7 @@ function DataResult(props) {
     function handleManageView(type, id){
         if(!user){ navigate('/login') }
         if (manageView === null) {
-            const manageViewComponent = <ManageView plan={planString} owner={planString} user={user} view={true} click={setManageView} type={type} />;
+            const manageViewComponent = <ManageView topicID={id} itemString={planString} user={user} view={true} click={setManageView} type={type} />;
             setManageView(manageViewComponent);
         } else {
             setManageView(null);

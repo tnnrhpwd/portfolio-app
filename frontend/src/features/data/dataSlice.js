@@ -89,6 +89,23 @@ export const compressData = createAsyncThunk(
   }
 );
 
+// Get all data
+export const getAllData = createAsyncThunk(
+  'data/getAllData',
+  async (_, thunkAPI) => {
+    try {
+      const token = thunkAPI.getState().data.user.token
+      return await dataService.getAllData(token)
+    } catch (error) {
+      const dataMessage =
+        (error.response && error.response.data && error.response.data.dataMessage) ||
+        error.dataMessage ||
+        error.toString();
+      return thunkAPI.rejectWithValue(dataMessage);
+    }
+  }
+);
+
 // Update user data -- UPDATE
 export const updateData = createAsyncThunk(
   'data/update',
@@ -238,6 +255,22 @@ export const dataSlice = createSlice({
         state.dataMessage = action.payload;
         state.operation = null;
       })
+      .addCase(getAllData.pending, (state) => {
+        state.dataIsLoading = true
+        state.operation = null
+      })
+      .addCase(getAllData.fulfilled, (state, action) => {
+        state.dataIsLoading = false
+        state.dataIsSuccess = true
+        state.data = action.payload
+        state.operation = 'getAllData'
+      })
+      .addCase(getAllData.rejected, (state, action) => {
+        state.dataIsLoading = false
+        state.dataIsError = true
+        state.dataMessage = action.payload
+        state.operation = null
+      })
       .addCase(updateData.pending, (state) => {             // update
         state.dataIsLoading = true
         state.operation = null;
@@ -262,9 +295,13 @@ export const dataSlice = createSlice({
       .addCase(deleteData.fulfilled, (state, action) => {   // delete
         state.dataIsLoading = false
         state.dataIsSuccess = true
-        state.data = state.data.filter(               // hides the deleted data from UI when you click delete. Otherwise, It wouldnt disapear until refresh
-          (data) => data._id !== action.payload.id
-        )
+        if (Array.isArray(state.data.data)) {
+          state.data.data = state.data.data.filter(               // hides the deleted data from UI when you click delete. Otherwise, It wouldnt disapear until refresh
+            (data) => data._id !== action.payload.id
+          );
+        } else {
+          // state.data = [];
+        }
         state.operation = 'update';
       })
       .addCase(deleteData.rejected, (state, action) => {    // delete

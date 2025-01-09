@@ -122,7 +122,7 @@ function Plans() {
       if (PlanStringArray.length === 0) {
         console.log('PlanStringArray is empty');
       } else {
-        console.log(PlanStringArray);
+        // console.log(PlanStringArray);
       }
 
       const processPlanArray = (itemIDData, itemCreatedAtData, itemUpdatedAtData, itemString, files, index, array) => {
@@ -150,6 +150,7 @@ function Plans() {
         const files = itemarino.data.files || [];
 
         if (typeof itemString === 'string') {
+          // console.log('itemID:', itemID, ', itemCreatedAt:', itemCreatedAt, ', itemUpdatedAt:', itemUpdatedAt, ', itemString:', itemString, ', files:', files);
           if (user && itemString.includes(user._id)) processPlanArray(itemID, itemCreatedAt, itemUpdatedAt, itemString, files, index, outputMyPlanArray);
           if (itemString.includes('Like:')) processPlanArray(itemID, itemCreatedAt, itemUpdatedAt, itemString, files, index, outputSavedPlanArray);
           if (itemString.includes('|Public:true')) processPlanArray(itemID, itemCreatedAt, itemUpdatedAt, itemString, files, index, outputPublicPlanArray);

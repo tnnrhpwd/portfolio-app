@@ -16,10 +16,17 @@
     background-color: var(--text-color-inv);
     color: var(--text-color);
     width: 80%;
+    box-shadow: 0 calc(var(--nav-size) * 1) calc(var(--nav-size) * 1) rgba(0, 0, 0, 0.1);
+    border-radius: calc(var(--nav-size) * 0.3);
 }
 .planit-deleteview-spc-btn{
-    font-size: calc(var(--nav-size)*0.25);
-    padding: calc(var(--nav-size)*0.1);
-    margin: calc(var(--nav-size)*0.15);
-    margin-top: calc(var(--nav-size)*0.8);
+    background-color: transparent;
+    border: 1px solid var(--text-color);
+    padding: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.3);
+    font-size: calc(var(--nav-size) * 0.3);
+    color: var(--text-color);
+    cursor: pointer;
+    border-radius: 4px;
+    margin: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.3);
+    transition: background-color 0.3s, color 0.3s;
 }

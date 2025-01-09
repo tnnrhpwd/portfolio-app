@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';     
+import Admin from './pages/Admin/Admin';
 import Annuities from './pages/Projects/Annuities/Annuities';
 // import BoggleBox from './pages/Projects/BoggleBox/BoggleBox';
 import Contact from './pages/Contact/Contact';
@@ -42,6 +43,7 @@ function App() {
       <div className="App">
         <Routes>
           <Route path='/about' element={<About />} />
+          <Route path='/admin' element={<Admin />} />
           <Route path="/annuities" element={<Annuities/>} />
           <Route path="/contact" element={<Contact/>} />
           <Route path="/ethanol" element={<Ethanol/>} />

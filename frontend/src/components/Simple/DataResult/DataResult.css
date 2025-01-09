@@ -66,6 +66,7 @@
   color: var(--text-color);
   vertical-align: middle;
   border: none;
+  cursor: pointer;
 }
 .planit-dataresult-fav {
   width: 10vw;
@@ -79,6 +80,7 @@
   font-size: calc(var(--nav-size) * 0.3);
   vertical-align: middle;
   color: var(--color-favorite);
+  cursor: pointer;
 }
 .planit-dataresult-unfav-btn {
   font-size: calc(var(--nav-size) * 0.45);
@@ -86,6 +88,7 @@
   border: none;
   color: var(--color-unfavorite);
   vertical-align: middle;
+  cursor: pointer;
 }
 .planit-dataresult-manageplan {
   width: 10vw;
@@ -99,6 +102,7 @@
   background-color: transparent;
   color: var(--text-color);
   border: none;
+  cursor: pointer;
 }
 .planit-dataresult-goal {
   display: block;

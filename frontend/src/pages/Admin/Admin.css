@@ -1,0 +1,50 @@
+.admin-container {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(-45deg, var(--bg-mint), var(--bg-blue));
+    background-size: 400% 400%;
+    pointer-events: all;
+}
+
+.admin-section-tile {
+    font-family: 'CutiveMono-Regular';
+    text-align: center;
+    margin: auto;
+    width: 90%;
+    max-width: 100%;
+    color: var(--text-color);
+}
+
+.admin-section-tile h2 {
+    margin-bottom: calc(var(--nav-size)*.025);
+    font-size: calc(var(--nav-size)*.3);
+    text-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.02) var(--border);
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: rgba(255, 255, 255, 0.9);
+    border-radius: calc(var(--nav-size)*.3);
+    overflow: hidden;
+    font-size: calc(var(--nav-size)*.3);
+    text-align: center;
+}
+
+.admin-table th, .admin-table td {
+    /* padding: 0.75rem; */
+    border: calc(var(--nav-size)*.01) solid #ccc;
+    text-align: left;
+}
+
+.admin-table th {
+    background-color: #333;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: calc(var(--nav-size)*.1);
+}
+
+.admin-table tr:hover {
+    background-color: #f2f2f2;
+}

@@ -9,37 +9,53 @@ const { checkIP } = require('./accessData.js');
 // @route   DELETE /api/data/:id
 // @access  Private
 const deleteData = asyncHandler(async (req, res) => {
-    await checkIP(req);
-    const id = req.params.id;
+    try {
+        await checkIP(req);
+        const id = req.params.id;
+        console.log("delete id=" + id);
 
-    // Check if the id is a valid ObjectId
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-        res.status(400);
-        throw new Error('Invalid ID format');
+        // Check if the id is a valid ObjectId
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            res.status(400);
+            throw new Error('Invalid ID format');
+        }
+
+        const dataHolder = await Data.findById(id);
+        console.log("delete dataHolder=" + dataHolder);
+
+        if (!dataHolder) {
+            res.status(400);
+            throw new Error('Data not found.');
+        }
+
+        const dataCreator = dataHolder.data.text.substring(dataHolder.data.text.indexOf("Creator:") + 8, dataHolder.data.text.indexOf("Creator:") + 8 + 24);
+
+        // Check for owner
+        if (!dataCreator) {
+            res.status(401);
+            throw new Error('Data creator not found.');
+        }
+
+        // Check for user
+        if (!req.user) {
+            res.status(401);
+            throw new Error('User not found.');
+        }
+        console.log("delete dataCreator=" + dataCreator + ", req.user.id=" + req.user.id);
+
+        // Make sure the logged in user matches the comment user
+        if (dataCreator !== req.user.id) {
+            res.status(401);
+            throw new Error('User not authorized.');
+        }
+
+        await Data.deleteOne({ _id: id });
+
+        res.status(200).json({ id });
+    } catch (error) {
+        console.error('Error deleting data:', error);
+        res.status(500).json({ error: error.message });
     }
-
-    const dataHolder = await Data.findById(id);
-
-    if (!dataHolder) {
-        res.status(400);
-        throw new Error('Data not found');
-    }
-
-    // Check for user
-    if (!req.user) {
-        res.status(401);
-        throw new Error('User not found');
-    }
-
-    // Make sure the logged in user matches the comment user
-    if (dataHolder.user.toString() !== req.user.id) {
-        res.status(401);
-        throw new Error('User not authorized');
-    }
-
-    await dataHolder.remove();
-
-    res.status(200).json({ id });
 });
 
 module.exports = { deleteData };

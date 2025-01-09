@@ -3,7 +3,8 @@ import useOutsideAlerter from '../../useOutsideAlerter.js'
 import './DeleteView.css'
 
 function DeleteView(props) {
-    const topicID = props.id;
+    const topicID = props.topicID;
+    console.log("DeleteView: topicID=" + topicID);
 
     const handleDelete = () => { props.delFunction( topicID ); }
     const hideComponentVisibility = () => { props.click( null ); }

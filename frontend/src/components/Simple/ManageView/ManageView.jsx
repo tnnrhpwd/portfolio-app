@@ -1,72 +1,70 @@
 import { useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
-import useOutsideAlerter from '../../useOutsideAlerter.js'
-import { toast } from 'react-toastify'                        // visible error notifications
+import useOutsideAlerter from '../../useOutsideAlerter.js';
+import { toast } from 'react-toastify';
 import { deleteData } from '../../../features/data/dataSlice.js';
 import DeleteView from '../DeleteView/DeleteView.jsx';
 import './ManageView.css';
 
-
-function ManageView(props) {
-    const [ showDeleteConfirmation, setShowDeleteConfirmation ] = useState(false);
-
+function ManageView({ type, user, itemString, topicID, click }) {
+    const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
     const dispatch = useDispatch();
-    // const navigate = useNavigate();
+    let itemUserID = itemString.substring(itemString.indexOf("Creator:")+8, itemString.indexOf("Creator:")+8+24);
+    let itemData = (itemString.substring(itemString.indexOf("Creator:")+8+25, itemString.length)).replace("Public:true", "");
+    console.log("itemString:" + itemString + ", itemUserID:" + itemUserID + ", itemData:" + itemData + ", topicID:" + topicID);
 
-    const type = props.type.toLowerCase();
-    const user = props.user
-    const owner = props.owner
-    const topicID = props.topicID
-
-    const hideComponentVisibility = () => { props.click( null ); }
-    const ComponentVisibility = () => { return( true ) }  
-    const toggleButtonRef = useRef(null);  // reference to the dropper toggle button
-    const insideComponentRef = useRef(null); // reference to the dropper container
-    useOutsideAlerter( "share", insideComponentRef, toggleButtonRef, ComponentVisibility, hideComponentVisibility ); // listen for clicks outside dropper container && handle the effects
+    const hideComponentVisibility = () => click(null);
+    const ComponentVisibility = () => true;
+    const toggleButtonRef = useRef(null);
+    const insideComponentRef = useRef(null);
+    useOutsideAlerter("share", insideComponentRef, toggleButtonRef, ComponentVisibility, hideComponentVisibility);
 
     const handleTopicDelete = () => {
-        switch(type) {
-            case 'goal':
-                dispatch(deleteData( topicID ))
-                toast.info("Your plan has been deleted.", { autoClose: 2000 }) // print error to toast errors
-                break;
-            default:
-                toast.error("Delete type is not defined.", { autoClose: 2000 }) // print error to toast errors
-        }
+        dispatch(deleteData(topicID));
+        toast.info("Your plan has been deleted.", { autoClose: 2000 });
+    };
 
-
-    }
     const handleShowDelete = (e) => {
-        e.preventDefault()
-        if(showDeleteConfirmation){setShowDeleteConfirmation(false)}
-        else if(!showDeleteConfirmation){setShowDeleteConfirmation(true)}
-        
-    }
+        e.preventDefault();
+        setShowDeleteConfirmation(!showDeleteConfirmation);
+    };
 
-    return (<>
-        {   ( showDeleteConfirmation ) &&
-            < DeleteView topicID={topicID} view={true} delFunction={handleTopicDelete} click={setShowDeleteConfirmation} type={type} />
-        }
+    return (
+        <>
+            {showDeleteConfirmation && (
+                <DeleteView
+                    topicID={topicID}
+                    view={true}
+                    delFunction={handleTopicDelete}
+                    click={setShowDeleteConfirmation}
+                    type={type}
+                />
+            )}
 
-        <div className='planit-manageview'>
-            <div className='planit-manageview-spc' ref={insideComponentRef}>
-                <button className='planit-manageview-spc-close' ref={toggleButtonRef} onClick={hideComponentVisibility}>
-                    Close
-                </button>
-                <div className='planit-manageview-spc-title'>
-                    ManageView
+            <div className="manage-view">
+                <div className="manage-view-container" ref={insideComponentRef}>
+                    <button
+                        className="manage-view-close"
+                        ref={toggleButtonRef}
+                        onClick={hideComponentVisibility}
+                    >
+                        Close
+                    </button>
+                    <div className="manage-view-title">Manage View</div>
+                    { itemUserID === user._id && (
+                        <div className="manage-view-delete">
+                            <button
+                                onClick={handleShowDelete}
+                                className="manage-view-delete-btn"
+                            >
+                                Delete : {itemData.length > 50 ? `${itemData.substring(0, 50)}...` : itemData}
+                            </button>
+                        </div>
+                    )}
                 </div>
-                { (user._id === owner) &&
-                    <div className='planit-manageview-spc-delete'>
-                        <button onClick={handleShowDelete} className='planit-manageview-spc-delete-btn'>
-                            Delete {type}
-                        </button>
-                    </div>
-                }
             </div>
-        </div>
-    </>)
+        </>
+    );
 }
 
-export default ManageView
+export default ManageView;

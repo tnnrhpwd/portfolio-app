@@ -54,6 +54,16 @@ const getPublicData = async (dataData) => {
     return response.data;
 }
 
+// Get all data (admin)
+const getAllData = async (token) => {
+    const config = {
+        headers: { Authorization: `Bearer ${token}` },
+    }
+    console.log('Calling GET URL:', API_URL + 'all');
+    const response = await axios.get(API_URL + 'all', config);
+    return response.data;
+}
+
 // Update user data
 const updateData = async (dataData, token) => {
     const config = {
@@ -136,6 +146,7 @@ const dataService = {
     createData,
     getData,
     getPublicData,
+    getAllData,
     updateData,
     deleteData,
     compressData,
