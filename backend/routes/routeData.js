@@ -4,7 +4,7 @@ const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 
 // Import controller functions
-const { setData, upload, getData, getPublicData, updateData, compressData, deleteData, registerUser, loginUser } = require('../controllers/index.js');
+const { setData, upload, getData, getAllData, getPublicData, updateData, compressData, deleteData, registerUser, loginUser } = require('../controllers/index.js');
 
 // Routes
 router.route('/')
@@ -22,5 +22,6 @@ router.post('/login', loginUser); // Route to handle user login
 
 // New route for fetching public data
 router.get('/public', getPublicData); // GET request for fetching public data
+router.get('/all', protect, getAllData); // GET request for fetching all data (admin only)
 
 module.exports = router; // Export the router

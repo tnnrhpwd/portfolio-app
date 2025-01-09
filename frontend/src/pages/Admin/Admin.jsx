@@ -13,6 +13,12 @@ function Admin() {
     dispatch(getAllData());
   }, [dispatch]);
 
+  useEffect(() => {
+    if (data) {
+      console.log('Retrieved all data:', data);
+    }
+  }, [data]);
+
   return (
     <>
       <Header />
