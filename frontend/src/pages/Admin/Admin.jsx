@@ -4,10 +4,13 @@ import Header from "../../components/Header/Header.jsx";
 import Footer from "../../components/Footer/Footer.jsx";
 import { getAllData } from "../../features/data/dataSlice";
 import "./Admin.css";
+import { useState } from "react";
 
 function Admin() {
   const dispatch = useDispatch();
-  const { data, dataIsLoading, dataIsError } = useSelector((state) => state.data);
+  const { data, dataIsSuccess,  dataIsLoading, dataIsError } = useSelector((state) => state.data);
+  const [allObjectArray, setAllObjectArray] = useState([]);
+  const [searchText, setSearchText] = useState("");
 
   useEffect(() => {
     dispatch(getAllData());
@@ -15,9 +18,10 @@ function Admin() {
 
   useEffect(() => {
     if (data) {
+      setAllObjectArray(data);
       console.log('Retrieved all data:', data);
     }
-  }, [data]);
+  }, [data, dataIsSuccess]);
 
   return (
     <>
@@ -27,27 +31,45 @@ function Admin() {
           <h2>Administrator Panel</h2>
           {dataIsLoading && <p>Loading...</p>}
           {dataIsError && <p>Error loading data.</p>}
+          <input
+            type="text"
+            placeholder="Search..."
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+          />
           {!dataIsLoading && data && (
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Data</th>
-                  <th>Created At</th>
-                  <th>Updated At</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Array.isArray(data) && data.map((item) => (
-                  <tr key={item._id}>
-                    <td>{item._id}</td>
-                    <td>{item.data}</td>
-                    <td>{item.createdAt}</td>
-                    <td>{item.updatedAt}</td>
+            <div className="table-scroll-container">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Text</th>
+                    <th>Files</th>
+                    <th>Created At</th>
+                    <th>Updated At</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {Array.isArray(allObjectArray) &&
+                    allObjectArray
+                      .filter(item =>
+                        item.text.toLowerCase().includes(searchText.toLowerCase())
+                      )
+                      .map((item) => (
+                        <tr key={item._id} className="admin-table-row">
+                          <td className="admin-table-row-text">{item._id}</td>
+                          <td className="admin-table-row-text">
+                            {item.text.length > 50 ? item.text.substring(0, 50) + '...' : item.text}
+                          </td>
+                          <td className="admin-table-row-text">{item.files}</td>
+                          <td className="admin-table-row-text">{item.createdAt}</td>
+                          <td className="admin-table-row-text">{item.updatedAt}</td>
+                        </tr>
+                      ))
+                  }
+                </tbody>
+              </table>
+            </div>
           )}
         </section>
       </div>

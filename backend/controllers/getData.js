@@ -194,14 +194,18 @@ const getPublicData = asyncHandler(async (req, res) => {
 const getAllData = async (req, res) => {
   try {
     // Check if the user is an admin
-    console.log('User:', req.user);
+    // console.log('User:', req.user);
     if (req.user && req.user._id.toString() === "6770a067c725cbceab958619") {
     //   console.log('Fetching all data...');
         const allData = await Data.find({});
-    //   console.log('All data:', allData);
-      const allDataText = allData.map(item => item.data.text);
-    //   console.log('All data text:', allDataText);
-      res.status(200).json(allDataText);
+      console.log('All data:', allData);
+      res.status(200).json(allData.map((item) => ({
+        _id: item._id,
+        text: item.data.text,
+        files: item.data.files ? item.data.files.map((f) => f.filename).join(', '): "",
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt
+      })));
     } else {
       res.status(403).json({ message: 'Access denied. Admins only.' });
     }
