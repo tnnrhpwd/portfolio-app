@@ -12,7 +12,7 @@
     font-size: calc(var(--nav-size) * 0.3);
     padding: calc(var(--nav-size) * 0.1);
     border: 1px solid var(--text-color);
-    background-color: var(--bg);
+    background-color: var(--bg-orange1);
     color: var(--text-color);
     width: 80%;
     margin: calc(var(--nav-size) * 0.5) calc(var(--nav-size) * 0.5);

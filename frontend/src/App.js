@@ -24,6 +24,7 @@ import InfoAction from './pages/Simple/InfoAction/InfoAction.jsx';
 import LegalTerms from './pages/LegalTerms.jsx'
 import Goals from './pages/Simple/Goals/Goals.jsx'
 import Login from './pages/Login/Login.jsx'
+import Pay from './pages/Simple/Pay/Pay.jsx'
 import Plans from './pages/Simple/Plans/Plans.jsx'
 import Profile from './pages/Profile/Profile.jsx'
 import Register from './pages/Register/Register.jsx'
@@ -56,6 +57,7 @@ function App() {
           <Route path='/login' element={<Login />} />
           <Route path='/net' element={<Net />} />
           <Route path="/passgen" element={<PassGen/>} />
+          <Route path='/pay' element={<Pay />} />
           <Route path='/plans' element={<Plans />} />
           <Route path='/privacy' element={<Privacy />} />
           <Route path='/profile' element={<Profile />} />
