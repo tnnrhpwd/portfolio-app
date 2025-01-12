@@ -25,7 +25,16 @@ app.use(errorHandler) // adds middleware that returns errors in json format (reg
 // IF MongoDB connected, 
 mongoose.connection.once('open', () => {
   console.log('Connected to MongoDB');  // print confirmation
-  app.listen(port, () => console.log(`Server started on port ${port}`)) // listen for incoming http requests on the PORT && print PORT in console
+  const server = app.listen(port, () => console.log(`Server started on port ${port}`)); // listen for incoming http requests on the PORT && print PORT in console
+  
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`Port ${port} is already in use.`);
+      process.exit(1);
+    } else {
+      throw err;
+    }
+  });
 })
 // IF MongoDB could not connect, 
 mongoose.connection.once('closed',() => {
