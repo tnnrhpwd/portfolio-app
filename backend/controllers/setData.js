@@ -43,7 +43,7 @@ const setData = asyncHandler(async (req, res) => {
         data: {
             text: req.body.data.Text,
             ActionGroupObject: req.body.data.ActionGroupObject,
-            files: files
+            files: files.length > 0 ? files : req.body.data.files
         }
     });
     
