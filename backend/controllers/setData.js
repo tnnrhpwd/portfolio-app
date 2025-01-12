@@ -31,14 +31,15 @@ const setData = asyncHandler(async (req, res) => {
     }
     console.log('req.body.data: ', req.body.data)
     let files = [];
-    if (req.Files && req.Files.length > 0) {
-        files = req.Files.map(file => ({
+    if (req.files && req.files.length > 0) {
+        files = req.files.map(file => ({
             filename: file.originalname,
             contentType: file.mimetype,
             data: file.buffer.toString('base64')
         }));
-    } else if (req.body.data.files) {
-        files = Array.from(req.body.data.files);
+    } else if (req.body.data && req.body.data.Files) {
+        // Read from JSON body
+        files = req.body.data.Files;
     }
 
     const datas = await Data.create({
