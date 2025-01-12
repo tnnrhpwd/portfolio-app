@@ -38,7 +38,7 @@ const setData = asyncHandler(async (req, res) => {
             data: file.buffer.toString('base64')
         }));
     } else if (req.body.data.files) {
-        files = req.body.data.files;
+        files = Array.from(req.body.data.files);
     }
 
     const datas = await Data.create({
