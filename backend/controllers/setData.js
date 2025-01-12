@@ -37,13 +37,15 @@ const setData = asyncHandler(async (req, res) => {
             contentType: file.mimetype,
             data: file.buffer.toString('base64')
         }));
+    } else if (req.body.data.files) {
+        files = req.body.data.files;
     }
 
     const datas = await Data.create({
         data: {
             text: req.body.data.Text,
             ActionGroupObject: req.body.data.ActionGroupObject,
-            files: files.length > 0 ? files : req.body.data.files
+            files: files
         }
     });
     
