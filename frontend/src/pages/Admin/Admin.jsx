@@ -53,17 +53,19 @@ function Admin() {
                   {Array.isArray(allObjectArray) &&
                     allObjectArray
                       .filter(item =>
-                        item.text.toLowerCase().includes(searchText.toLowerCase())
+                        typeof item.text === 'string' && item.text.toLowerCase().includes(searchText.toLowerCase())
                       )
                       .map((item) => (
                         <tr key={item._id} className="admin-table-row">
-                          <td className="admin-table-row-text">{item._id}</td>
-                          <td className="admin-table-row-text">
-                            {item.text.length > 50 ? item.text.substring(0, 50) + '...' : item.text}
-                          </td>
-                          <td className="admin-table-row-text">{item.files}</td>
-                          <td className="admin-table-row-text">{item.createdAt}</td>
-                          <td className="admin-table-row-text">{item.updatedAt}</td>
+                          {item._id && <td className="admin-table-row-text">{item._id}</td>}
+                          {item.text && (
+                            <td className="admin-table-row-text">
+                              {item.text.length > 50 ? item.text.substring(0, 50) + '...' : item.text}
+                            </td>
+                          )}
+                          {item.files && <td className="admin-table-row-text">{item.files}</td>}
+                          {item.createdAt && <td className="admin-table-row-text">{item.createdAt}</td>}
+                          {item.updatedAt && <td className="admin-table-row-text">{item.updatedAt}</td>}
                         </tr>
                       ))
                   }
