@@ -31,8 +31,8 @@ const setData = asyncHandler(async (req, res) => {
     }
     console.log('req.body.data: ', req.body.data)
     let files = [];
-    if (req.files && req.files.length > 0) {
-        files = req.files.map(file => ({
+    if (req.Files && req.Files.length > 0) {
+        files = req.Files.map(file => ({
             filename: file.originalname,
             contentType: file.mimetype,
             data: file.buffer.toString('base64')
@@ -41,6 +41,7 @@ const setData = asyncHandler(async (req, res) => {
 
     const datas = await Data.create({
         data: {
+            text: req.body.data.Text,
             ActionGroupObject: req.body.data.ActionGroupObject,
             files: files
         }
