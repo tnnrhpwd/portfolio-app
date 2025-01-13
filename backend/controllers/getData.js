@@ -107,10 +107,7 @@ const getData = asyncHandler(async (req, res) => {
                     data: dataList.map((data) => ({
                         data: data.data,
                         ActionGroup: data.ActionGroup,
-                        files: data.files.map(file => ({
-                            filename: file.filename,
-                            contentType: file.contentType
-                        })),
+                        files: data.files,
                         updatedAt: data.updatedAt,
                         createdAt: data.createdAt,
                         __v: data.__v,
