@@ -102,6 +102,7 @@ const getData = asyncHandler(async (req, res) => {
                 }
                 // Fetch data from the database
                 const dataList = await Data.find({ $and: searchConditions });
+                console.log('Data:', dataList);
                 // Return the data
                 res.status(200).json({
                     data: dataList.map((data) => ({
