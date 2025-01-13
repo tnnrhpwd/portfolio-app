@@ -124,16 +124,16 @@ function DataResult(props) {
                                 <div key={planString+"attachments"} className='planit-dataresult-attachments'>
                                     <div key={planString+"attachments1"} className='planit-dataresult-attachment'>
                                         <a href={'InfoData/' + itemID}>
-                                            {currentFile.contentType && currentFile.contentType.startsWith('image/') && (
+                                            {currentFile.contentType.startsWith('image/') && (
                                                 <img src={`data:${currentFile.contentType};base64,${currentFile.data}`} alt={currentFile.name} className='planit-dataresult-image' />
                                             )}
-                                            {currentFile.contentType && currentFile.contentType.startsWith('video/') && (
+                                            {currentFile.contentType.startsWith('video/') && (
                                                 <video controls className='planit-dataresult-video'>
                                                     <source src={`data:${currentFile.contentType};base64,${currentFile.data}`} type={currentFile.contentType} />
                                                     Your browser does not support the video tag.
                                                 </video>
                                             )}
-                                            {currentFile.contentType && !currentFile.contentType.startsWith('image/') && !currentFile.contentType.startsWith('video/') && (
+                                            {!currentFile.contentType.startsWith('image/') && !currentFile.contentType.startsWith('video/') && (
                                                 <div className='planit-dataresult-file'>
                                                     <p>Attachment: {currentFile.filename}</p>
                                                     <p>Type: {currentFile.contentType}</p>

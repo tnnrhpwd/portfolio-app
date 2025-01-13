@@ -122,7 +122,7 @@ function Plans() {
       if (PlanStringArray.length === 0) {
         console.log('PlanStringArray is empty');
       } else {
-        console.log(PlanStringArray);
+        // console.log(PlanStringArray);
       }
 
       const processPlanArray = (itemIDData, itemCreatedAtData, itemUpdatedAtData, itemString, files, index, array) => {
