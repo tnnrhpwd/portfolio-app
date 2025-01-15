@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import HeaderDropper from './../HeaderDropper/HeaderDropper.jsx';
 import HeaderLogo from '../../../src/assets/Checkmark512.png';
-import HeaderBell from '../HeaderBell/HeaderBell.jsx';
+// import HeaderBell from '../HeaderBell/HeaderBell.jsx';
 import './Header.css';
 
 function Header() {
@@ -70,11 +70,11 @@ function Header() {
             <div className="planit-header-logo-format-sth"> by STHopwood</div>
           </a>
         </div>
-        <HeaderBell
+        {/* <HeaderBell
           colTheme={colTheme}
           setLightMode={setLightMode}
           setDarkMode={setDarkMode}
-        />
+        /> */}
         <HeaderDropper
           colTheme={colTheme}
           setLightMode={setLightMode}
