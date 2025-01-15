@@ -33,23 +33,38 @@
     font-size: calc(var(--nav-size)*.3);
     text-align: center;
     color: var(--text-color);
+    border: var(--nav-size)*.01 solid var(--text-color);
+}
+
+.admin-table thead {
+    display: table;
+    width: calc(100% - calc(var(--nav-size)*.11));
+}
+
+.admin-table tbody {
+    display: block;
+    max-height: 82%; /* Adjust as needed */
+    /* overflow-y: scroll; */
 }
 
 .admin-table th, .admin-table td {
     word-wrap: break-word;
     white-space: normal;
-    border: calc(var(--nav-size)*.01) solid #ccc;
+    border: calc(var(--nav-size)*.01) solid var(--text-color);
     text-align: left;
     text-wrap: break-word;    
-    width: calc(var(--nav-size)*.3);
+    width: 20%;
+    padding: 8px;
+    border-bottom: 1px solid #ddd;
 }
 
 .admin-table th {
-    background-color: var(--bg-2);
+    border: none;
     text-transform: uppercase;
     font-size: calc(var(--nav-size)*.17);
     font-weight: bold;
     text-align: center;
+    background-color: var(--bg-1);
 }
 
 .admin-table tr:hover {
@@ -58,6 +73,9 @@
 
 .admin-table-row {
     width: auto;
+    display: table;
+    width: 100%;
+    table-layout: fixed;
 }
 
 .admin-table-row-text {

@@ -1,14 +1,13 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import Header from "../../components/Header/Header.jsx";
 import Footer from "../../components/Footer/Footer.jsx";
 import { getAllData } from "../../features/data/dataSlice";
 import "./Admin.css";
-import { useState } from "react";
 
 function Admin() {
   const dispatch = useDispatch();
-  const { data, dataIsSuccess,  dataIsLoading, dataIsError } = useSelector((state) => state.data);
+  const { data, dataIsSuccess, dataIsLoading, dataIsError } = useSelector((state) => state.data);
   const [allObjectArray, setAllObjectArray] = useState([]);
   const [searchText, setSearchText] = useState("");
 
@@ -38,7 +37,7 @@ function Admin() {
             onChange={(e) => setSearchText(e.target.value)}
           />
           {!dataIsLoading && data && (
-            <div className="table-scroll-container">
+            <>
               <table className="admin-table">
                 <thead>
                   <tr>
@@ -49,29 +48,31 @@ function Admin() {
                     <th>Updated At</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {Array.isArray(allObjectArray) &&
-                    allObjectArray
-                      .filter(item =>
-                        typeof item.text === 'string' && item.text.toLowerCase().includes(searchText.toLowerCase())
-                      )
-                      .map((item) => (
-                        <tr key={item._id} className="admin-table-row">
-                          {item._id && <td className="admin-table-row-text">{item._id}</td>}
-                          {item.text && (
-                            <td className="admin-table-row-text">
-                              {item.text.length > 50 ? item.text.substring(0, 120) + '...' : item.text}
-                            </td>
-                          )}
-                          {item.files && <td className="admin-table-row-text">{item.files}</td>}
-                          {item.createdAt && <td className="admin-table-row-text">{item.createdAt}</td>}
-                          {item.updatedAt && <td className="admin-table-row-text">{item.updatedAt}</td>}
-                        </tr>
-                      ))
-                  }
-                </tbody>
               </table>
-            </div>
+              <div className="table-scroll-container">
+                <table className="admin-table">
+                  <tbody>
+                    {Array.isArray(allObjectArray) &&
+                      allObjectArray
+                        .filter(item =>
+                          typeof item.text === 'string' && item.text.toLowerCase().includes(searchText.toLowerCase())
+                        )
+                        .map((item) => (
+                          <tr key={item._id} className="admin-table-row">
+                            <td className="admin-table-row-text">{item._id || ''}</td>
+                            <td className="admin-table-row-text">
+                              {item.text ? (item.text.length > 50 ? item.text.substring(0, 120) + '...' : item.text) : ''}
+                            </td>
+                            <td className="admin-table-row-text">{item.files || ''}</td>
+                            <td className="admin-table-row-text">{item.createdAt || ''}</td>
+                            <td className="admin-table-row-text">{item.updatedAt || ''}</td>
+                          </tr>
+                        ))
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </section>
       </div>
