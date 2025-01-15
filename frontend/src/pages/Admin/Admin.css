@@ -47,8 +47,9 @@
 .admin-table th {
     background-color: var(--bg-2);
     text-transform: uppercase;
-    font-size: calc(var(--nav-size)*.3);
-    letter-spacing: calc(var(--nav-size)*.1);
+    font-size: calc(var(--nav-size)*.17);
+    font-weight: bold;
+    text-align: center;
 }
 
 .admin-table tr:hover {
@@ -61,7 +62,7 @@
 
 .admin-table-row-text {
     width: auto;
-    font-size: calc(var(--nav-size)*.2);
+    font-size: calc(var(--nav-size)*.15);
 }
 
 .table-scroll-container {

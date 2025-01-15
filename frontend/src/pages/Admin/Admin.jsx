@@ -60,7 +60,7 @@ function Admin() {
                           {item._id && <td className="admin-table-row-text">{item._id}</td>}
                           {item.text && (
                             <td className="admin-table-row-text">
-                              {item.text.length > 50 ? item.text.substring(0, 50) + '...' : item.text}
+                              {item.text.length > 50 ? item.text.substring(0, 120) + '...' : item.text}
                             </td>
                           )}
                           {item.files && <td className="admin-table-row-text">{item.files}</td>}
