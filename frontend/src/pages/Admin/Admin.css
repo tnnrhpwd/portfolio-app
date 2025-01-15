@@ -29,10 +29,10 @@
     overflow-x: auto;
     border-collapse: collapse;
     background-color: var(--bg-1);
-    border-radius: calc(var(--nav-size)*.3);
     overflow: hidden;
     font-size: calc(var(--nav-size)*.3);
     text-align: center;
+    color: var(--text-color);
 }
 
 .admin-table th, .admin-table td {
@@ -45,7 +45,7 @@
 }
 
 .admin-table th {
-    background-color: #333;
+    background-color: var(--bg-2);
     text-transform: uppercase;
     font-size: calc(var(--nav-size)*.3);
     letter-spacing: calc(var(--nav-size)*.1);
