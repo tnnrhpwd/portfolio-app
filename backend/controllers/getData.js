@@ -101,8 +101,11 @@ const getData = asyncHandler(async (req, res) => {
                     searchConditions[1].$or.push({ _id: ObjectId(dataSearchString) });
                 }
                 // Fetch data from the database
-                const dataList = await Data.find({ $and: searchConditions });
-                console.log('Data:', dataList);
+                const dataList = await Promise.race([
+                    Data.find({ $and: searchConditions }).limit(10),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Database query timeout')), 5000))
+                ]);
+                // console.log('Data:', dataList);
                 // Return the data
                 res.status(200).json({
                     data: dataList.map((data) => ({
