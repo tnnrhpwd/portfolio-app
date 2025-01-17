@@ -52,7 +52,7 @@
 .planit-dataresult-date {
   font-size: calc(var(--nav-size) * 0.25);
   display: inline-block;
-  width: 35vw;
+  width: 50vw;
   text-align: left;
 }
 .planit-dataresult-share {
@@ -222,6 +222,67 @@
 
 .planit-dataresult-file-navigation button:hover {
   background-color: var(--bg-nav2-hover);
+}
+
+.planit-dataresult-user {
+  display: inline-block;
+  font-size: calc(var(--nav-size) * 0.25);
+  margin-right: calc(var(--nav-size) * 0.1);
+  vertical-align: middle;
+}
+
+.planit-dataresult-badge {
+  display: inline-block;
+  background-color: var(--badge-color);
+  color: var(--text-color-inv);
+  font-size: calc(var(--nav-size) * 0.2);
+  padding: calc(var(--nav-size) * 0.05) calc(var(--nav-size) * 0.1);
+  border-radius: calc(var(--nav-size) * 0.05);
+  margin-left: calc(var(--nav-size) * 0.05);
+  vertical-align: middle;
+}
+
+.gold-badge, .silver-badge, .unknown-badge {
+  display: inline-block;
+  position: relative;
+  width: calc(var(--nav-size) * 0.5);
+  height: calc(var(--nav-size) * 0.5);
+  margin-left: calc(var(--nav-size) * 0.1);
+  margin-right: calc(var(--nav-size) * 0.1);
+}
+
+.gold-badge-circle, .silver-badge-circle, .unknown-badge-circle {
+  width: calc(var(--nav-size) * 0.4);
+  height: calc(var(--nav-size) * 0.4);
+  border-radius: 50%;
+  position: absolute;
+  bottom: calc(var(--nav-size) * -0.15);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.gold-badge-triangle {
+  border-bottom-color: gold;
+}
+
+.gold-badge-circle {
+  background-color: gold;
+}
+
+.silver-badge-triangle {
+  border-bottom-color: silver;
+}
+
+.silver-badge-circle {
+  background-color: silver;
+}
+
+.unknown-badge-triangle {
+  border-bottom-color: gray;
+}
+
+.unknown-badge-circle {
+  background-color: gray;
 }
 
 @media (orientation: landscape) {

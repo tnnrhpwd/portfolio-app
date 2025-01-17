@@ -122,10 +122,10 @@ function Plans() {
       if (PlanStringArray.length === 0) {
         console.log('PlanStringArray is empty');
       } else {
-        // console.log(PlanStringArray);
+        console.log(PlanStringArray);
       }
 
-      const processPlanArray = (itemIDData, itemCreatedAtData, itemUpdatedAtData, itemString, files, index, array) => {
+      const processPlanArray = (itemIDData, itemCreatedAtData, itemUpdatedAtData, itemString, files, index, array, itemUser) => {
         array.push(
           <DataResult
             key={`${array === outputMyPlanArray ? 'MyDataResult' : 'SavedDataResult'}}${index}${1}`}
@@ -134,6 +134,8 @@ function Plans() {
             updatedAtData={itemUpdatedAtData}
             createdAtData={itemCreatedAtData}
             itemID={itemIDData}
+            userName={itemUser.nickname ? itemUser.nickname : 'Unknown'}
+            userBadge={itemUser.badge ? itemUser.badge : 'Unknown'}
           />
         );
       };
@@ -149,15 +151,16 @@ function Plans() {
 
         const files = itemarino.data.files || [];
 
+        const creatorMatch = itemString.match(/Creator:(.*?)\|/);
+        const itemUser = creatorMatch ? { id: creatorMatch[1], nickname: 'User' + creatorMatch[1].slice(-4), badge: creatorMatch[1].toString() === "6770a067c725cbceab958619" ? 'Gold' : 'Silver' } : { id: 'Unknown', nickname: 'Unknown', badge: 'Unknown' };
+        console.log(itemUser);
         if (typeof itemString === 'string') {
-          // console.log('itemID:', itemID, ', itemCreatedAt:', itemCreatedAt, ', itemUpdatedAt:', itemUpdatedAt, ', itemString:', itemString, ', files:', files);
-          if (user && itemString.includes(user._id)) processPlanArray(itemID, itemCreatedAt, itemUpdatedAt, itemString, files, index, outputMyPlanArray);
-          if (itemString.includes('Like:')) processPlanArray(itemID, itemCreatedAt, itemUpdatedAt, itemString, files, index, outputSavedPlanArray);
-          if (itemString.includes('|Public:true')) processPlanArray(itemID, itemCreatedAt, itemUpdatedAt, itemString, files, index, outputPublicPlanArray);
+          if (user && itemString.includes(user._id)) processPlanArray(itemID, itemCreatedAt, itemUpdatedAt, itemString, files, index, outputMyPlanArray, itemUser);
+          if (itemString.includes('Like:')) processPlanArray(itemID, itemCreatedAt, itemUpdatedAt, itemString, files, index, outputSavedPlanArray, itemUser);
+          if (itemString.includes('|Public:true')) processPlanArray(itemID, itemCreatedAt, itemUpdatedAt, itemString, files, index, outputPublicPlanArray, itemUser);
         }
       });
 
-      // Sort the plans based on the selected sort order
       const sortPlans = (plans) => {
         switch (sortOrder) {
           case 'itemstring-asc':
@@ -165,9 +168,9 @@ function Plans() {
           case 'itemstring-desc':
             return plans.sort((a, b) => b.props.importPlanString.localeCompare(a.props.importPlanString));
           case 'createdate-asc':
-            return plans; // Default order from MongoDB
+            return plans;
           case 'createdate-desc':
-            return plans.reverse(); // Inverted order from MongoDB
+            return plans.reverse();
           default:
             return plans;
         }

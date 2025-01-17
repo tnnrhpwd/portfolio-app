@@ -10,12 +10,41 @@ import ManageView from '../ManageView/ManageView.jsx';
 import ThumbsDown from './../../../assets/thumbs-down.svg';
 import './DataResult.css';
 
+function GoldBadge() {
+    return (
+        <div className="gold-badge">
+            <div className="gold-badge-triangle"></div>
+            <div className="gold-badge-circle"></div>
+        </div>
+    );
+}
+
+function SilverBadge() {
+    return (
+        <div className="silver-badge">
+            <div className="silver-badge-triangle"></div>
+            <div className="silver-badge-circle"></div>
+        </div>
+    );
+}
+
+function UnknownBadge() {
+    return (
+        <div className="unknown-badge">
+            <div className="unknown-badge-triangle"></div>
+            <div className="unknown-badge-circle"></div>
+        </div>
+    );
+}
+
 function DataResult(props) {
     const planString = props.importPlanString;
     const updatedAt = props.updatedAtData;
     const itemID = props.itemID;
     const files = props.files;
-    // console.log("DataResult: planString=" + planString + ", updatedAt=" + updatedAt + ", itemID=" + itemID + ", files=" + files);
+    const userName = props.userName;
+    const userBadge = props.userBadge;
+    console.log("DataResult: planString=" + planString + ", updatedAt=" + updatedAt + ", itemID=" + itemID + ", files=" + files + ", userName=" + userName + ", userBadge=" + userBadge);
 
     const dispatch = useDispatch();
     const navigate = useNavigate();
@@ -79,6 +108,17 @@ function DataResult(props) {
         setCurrentFileIndex((prevIndex) => (prevIndex - 1 + files.length) % files.length);
     }
 
+    const renderBadge = () => {
+        switch (userBadge) {
+            case 'Gold':
+                return <GoldBadge />;
+            case 'Silver':
+                return <SilverBadge />;
+            default:
+                return <UnknownBadge />;
+        }
+    };
+
     if(planString){
         const currentFile = files[currentFileIndex];
 
@@ -90,6 +130,8 @@ function DataResult(props) {
                 <div key={planString+"0"} className='planit-dataresult'>
                     <div key={planString+"0.1"} className='planit-dataresult-1'>
                         <div key={planString+"0.11"} className='planit-dataresult-date'>
+                            {renderBadge()}
+                            <span className='planit-dataresult-user'>{userName}</span>
                             <CreatedAt key={planString+"0.12"} createdAt={updatedAt}/>
                         </div>
                         <div key={planString+"0.13"} className='planit-dataresult-share'>
