@@ -10,6 +10,7 @@ function DataInput() {
   const [actionText, setActionText] = useState('');
   const [files, setFiles] = useState([]);
   const [isPublic, setIsPublic] = useState(false);
+  const [cost, setCost] = useState('');
   const fileInputRef = useRef(null);
   const rootStyle = window.getComputedStyle(document.body);
   const toastDuration = parseInt(rootStyle.getPropertyValue('--toast-duration'), 10);
@@ -20,6 +21,7 @@ function DataInput() {
   const onSubmit = async (e) => {
     e.preventDefault();
     let text = `Creator:${user._id}`;
+    if (cost) text += `|Cost:$${parseFloat(cost).toFixed(2)}`;
     if (planText) text += `|Plan:${planText}`;
     if (goalText) text += `|Goal:${goalText}`;
     if (actionText || files.length > 0) text += `|Action:${actionText}`;
@@ -38,6 +40,7 @@ function DataInput() {
     setActionText('');
     setFiles([]);
     setIsPublic(false);
+    setCost('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -76,6 +79,15 @@ function DataInput() {
             placeholder='Enter action description...'
             value={actionText}
             onChange={(e) => setActionText(e.target.value)}
+          />
+        </div>
+        <div className='planit-datainput-group'>
+          <input
+            type='number'
+            step='0.01'
+            value={cost}
+            onChange={(e) => setCost(e.target.value)}
+            placeholder='Enter cost in USD'
           />
         </div>
         <div className='planit-datainput-group'>

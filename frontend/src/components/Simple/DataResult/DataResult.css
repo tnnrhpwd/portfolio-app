@@ -49,7 +49,7 @@
   padding-bottom: calc(var(--nav-size) * 0.2);
   padding-top: calc(var(--nav-size) * 0.1);
 }
-.planit-dataresult-date {
+.planit-dataresult-created {
   font-size: calc(var(--nav-size) * 0.25);
   display: inline-block;
   width: 50vw;
@@ -224,10 +224,18 @@
   background-color: var(--bg-nav2-hover);
 }
 
-.planit-dataresult-user {
+.planit-dataresult-created-user {
   display: inline-block;
   font-size: calc(var(--nav-size) * 0.25);
   margin-right: calc(var(--nav-size) * 0.1);
+  vertical-align: middle;
+}
+
+.planit-dataresult-created-date {
+  display: inline-block;
+  font-size: calc(var(--nav-size) * 0.2);
+  margin-right: calc(var(--nav-size) * 0.1);
+  margin-left: calc(var(--nav-size) * 0.2);
   vertical-align: middle;
 }
 

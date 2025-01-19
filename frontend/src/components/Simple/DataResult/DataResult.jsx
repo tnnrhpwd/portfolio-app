@@ -44,7 +44,7 @@ function DataResult(props) {
     const files = props.files;
     const userName = props.userName;
     const userBadge = props.userBadge;
-    console.log("DataResult: planString=" + planString + ", updatedAt=" + updatedAt + ", itemID=" + itemID + ", files=" + files + ", userName=" + userName + ", userBadge=" + userBadge);
+    // console.log("DataResult: planString=" + planString + ", updatedAt=" + updatedAt + ", itemID=" + itemID + ", files=" + files + ", userName=" + userName + ", userBadge=" + userBadge);
 
     const dispatch = useDispatch();
     const navigate = useNavigate();
@@ -129,10 +129,11 @@ function DataResult(props) {
 
                 <div key={planString+"0"} className='planit-dataresult'>
                     <div key={planString+"0.1"} className='planit-dataresult-1'>
-                        <div key={planString+"0.11"} className='planit-dataresult-date'>
+                        <div key={planString+"0.11"} className='planit-dataresult-created'>
                             {renderBadge()}
-                            <span className='planit-dataresult-user'>{userName}</span>
-                            <CreatedAt key={planString+"0.12"} createdAt={updatedAt}/>
+                            <span className='planit-dataresult-created-user'>{userName}</span>
+                            <div className='planit-dataresult-created-date'>                            
+                                <CreatedAt key={planString+"0.12"} createdAt={updatedAt}/></div>
                         </div>
                         <div key={planString+"0.13"} className='planit-dataresult-share'>
                             <button key={planString+"0.14"} className='planit-dataresult-share-btn' onClick={() => handleShareView("plan",itemID)}>Share</button>

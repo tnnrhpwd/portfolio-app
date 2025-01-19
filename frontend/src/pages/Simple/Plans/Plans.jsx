@@ -141,7 +141,7 @@ function Plans() {
       };
 
       PlanStringArray.forEach((itemarino, index) => {
-        let itemString = typeof itemarino.data === 'string' ? itemarino.data : itemarino.data.text;
+        let itemString = typeof itemarino.data === 'string' ? itemarino.data : (itemarino.data.text ? itemarino.data.text : 'Unknown');
         const itemCreatedAt = itemarino.createdAt;
         const itemUpdatedAt = itemarino.updatedAt;
         const itemID = itemarino._id;

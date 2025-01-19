@@ -30,8 +30,21 @@
     overflow-y: auto;
     word-wrap: break-word; /* Enable word wrapping */
     white-space: pre-wrap; /* Preserve newline characters */
-    margin-top: calc(var(--nav-size) * 0.3);
+    margin-top: calc(var(--nav-size) * 0.1);
   }
+.planit-datainput-group input[type='number'] {
+  font-family: Cambria, Cochin, Georgia, Times, 'Times New Roman', serif;
+  font-size: calc(var(--nav-size) * 0.35);
+  width: 95%;
+  max-width: 100%;
+  text-align: center;
+  background-color: transparent;
+  color: var(--text-color);
+  border: calc(var(--nav-size) * 0.001) solid var(--grey3-transp);
+  padding: calc(var(--nav-size) * 0.1);
+  margin-top: calc(var(--nav-size) * 0.1);
+  margin-bottom: calc(var(--nav-size) * 0.1);
+}
 .planit-datainput-submit{
     display: inline-block;
     font-size: calc(var(--nav-size)*0.25);

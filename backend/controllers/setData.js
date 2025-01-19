@@ -44,7 +44,7 @@ const setData = asyncHandler(async (req, res) => {
 
     const datas = await Data.create({
         data: {
-            text: req.body.data.Text,
+            text: typeof req.body.data === 'string' ? req.body.data : req.body.data.Text,
             ActionGroupObject: req.body.data.ActionGroupObject,
             files: files
         }
