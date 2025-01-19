@@ -153,7 +153,7 @@ function Plans() {
 
         const creatorMatch = itemString.match(/Creator:(.*?)\|/);
         const itemUser = creatorMatch ? { id: creatorMatch[1], nickname: 'User' + creatorMatch[1].slice(-4), badge: creatorMatch[1].toString() === "6770a067c725cbceab958619" ? 'Gold' : 'Silver' } : { id: 'Unknown', nickname: 'Unknown', badge: 'Unknown' };
-        console.log(itemUser);
+        // console.log(itemUser);
         if (typeof itemString === 'string') {
           if (user && itemString.includes(user._id)) processPlanArray(itemID, itemCreatedAt, itemUpdatedAt, itemString, files, index, outputMyPlanArray, itemUser);
           if (itemString.includes('Like:')) processPlanArray(itemID, itemCreatedAt, itemUpdatedAt, itemString, files, index, outputSavedPlanArray, itemUser);

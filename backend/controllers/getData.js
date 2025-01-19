@@ -79,33 +79,44 @@ const getData = asyncHandler(async (req, res) => {
 
         } else { // Handle database search requests
             try {
-                // Search Conditions for the database
-                const searchConditions = [
+                // Separate the search conditions for public and private
+                const publicSearchConditions = [
+                    { 'data.text': { $regex: "\\|Public:true", $options: 'i' } },
                     {
-                        // Check if the data is public or belongs to the user
-                        $or: [
-                            { 'data.text': { $regex: "\\|Public:true", $options: 'i' } },
-                            { 'data.text': { $regex: userSearchString, $options: 'i' } },
-                        ]
-                    },
-                    {
-                        // Check if the data contains the search string
                         $or: [
                             { 'data.text': { $regex: dataSearchString, $options: 'i' } },
                         ]
                     }
                 ];
+
+                const privateSearchConditions = [
+                    { 'data.text': { $regex: userSearchString, $options: 'i' } },
+                    {
+                        $or: [
+                            { 'data.text': { $regex: dataSearchString, $options: 'i' } },
+                        ]
+                    }
+                ];
+
                 // Check if dataSearchString is a valid ObjectId
                 if (ObjectId.isValid(dataSearchString)) {
-                    // Add the ObjectId to the search conditions
-                    searchConditions[1].$or.push({ _id: ObjectId(dataSearchString) });
+                    publicSearchConditions[1].$or.push({ _id: ObjectId(dataSearchString) });
+                    privateSearchConditions[1].$or.push({ _id: ObjectId(dataSearchString) });
                 }
+
                 // Fetch data from the database
-                const dataList = await Promise.race([
-                    Data.find({ $and: searchConditions }).limit(10),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('Database query timeout')), 5000))
+                const [dataPublic, dataPrivate] = await Promise.race([
+                    Promise.all([
+                        Data.find({ $and: publicSearchConditions }).sort({ updatedAt: -1 }).limit(5),
+                        Data.find({ $and: privateSearchConditions }).sort({ updatedAt: -1 }).limit(5)
+                    ]),
+                    new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('Database query timeout')), 5000)
+                    )
                 ]);
-                // console.log('Data:', dataList);
+
+                const dataList = [...dataPublic, ...dataPrivate];
+
                 // Return the data
                 res.status(200).json({
                     data: dataList.map((data) => ({
