@@ -5,6 +5,9 @@
 .planit-datainput-group{
     font-size: calc(var(--nav-size)*0.25);
 }
+#file-input {
+    font-size: calc(var(--nav-size)*0.25);
+}
 .planit-datainput-group-check{
     font-size: calc(var(--nav-size)*0.25);
     text-align: left;
@@ -17,7 +20,7 @@
 }
 #planit-datainput-input {
     font-family: Cambria, Cochin, Georgia, Times, 'Times New Roman', serif;
-    font-size: calc(var(--nav-size) * 0.35);
+    font-size: calc(var(--nav-size) * 0.3);
     width: 95%;
     max-width: 100%; /* Ensure it doesn't exceed its container */
     text-align: center;
@@ -34,8 +37,8 @@
   }
 .planit-datainput-group input[type='number'] {
   font-family: Cambria, Cochin, Georgia, Times, 'Times New Roman', serif;
-  font-size: calc(var(--nav-size) * 0.35);
-  width: 95%;
+  font-size: calc(var(--nav-size) * 0.3);
+  width: 60%;
   max-width: 100%;
   text-align: center;
   background-color: transparent;
@@ -45,6 +48,27 @@
   margin-top: calc(var(--nav-size) * 0.1);
   margin-bottom: calc(var(--nav-size) * 0.1);
 }
+
+.planit-datainput-group input[type='number'],
+.planit-datainput-group select {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.planit-datainput-group select {
+    font-family: Cambria, Cochin, Georgia, Times, 'Times New Roman', serif;
+    font-size: calc(var(--nav-size) * 0.3);
+    width: 32%;
+    text-align: center;
+    background-color: transparent;
+    color: var(--text-color);
+    border: calc(var(--nav-size) * 0.001) solid var(--grey3-transp);
+    padding: calc(var(--nav-size) * 0.1);
+    margin-left: calc(var(--nav-size) * 0.1);
+    margin-top: calc(var(--nav-size) * 0.1);
+    margin-bottom: calc(var(--nav-size) * 0.1);
+}
+
 .planit-datainput-submit{
     display: inline-block;
     font-size: calc(var(--nav-size)*0.25);

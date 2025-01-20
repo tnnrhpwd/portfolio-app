@@ -11,6 +11,7 @@ function DataInput() {
   const [files, setFiles] = useState([]);
   const [isPublic, setIsPublic] = useState(false);
   const [cost, setCost] = useState('');
+  const [costType, setCostType] = useState('one-time');
   const fileInputRef = useRef(null);
   const rootStyle = window.getComputedStyle(document.body);
   const toastDuration = parseInt(rootStyle.getPropertyValue('--toast-duration'), 10);
@@ -21,7 +22,10 @@ function DataInput() {
   const onSubmit = async (e) => {
     e.preventDefault();
     let text = `Creator:${user._id}`;
-    if (cost) text += `|Cost:$${parseFloat(cost).toFixed(2)}`;
+    if (cost) {
+      text += `|Cost:$${parseFloat(cost).toFixed(2)}`;
+      text += `|CostType:${costType}`;
+    }
     if (planText) text += `|Plan:${planText}`;
     if (goalText) text += `|Goal:${goalText}`;
     if (actionText || files.length > 0) text += `|Action:${actionText}`;
@@ -89,6 +93,11 @@ function DataInput() {
             onChange={(e) => setCost(e.target.value)}
             placeholder='Enter cost in USD'
           />
+          <select value={costType} onChange={(e) => setCostType(e.target.value)}>
+            <option value='one-time'>one-time</option>
+            <option value='monthly'>monthly</option>
+            <option value='/call'>/call</option>
+          </select>
         </div>
         <div className='planit-datainput-group'>
           <input
