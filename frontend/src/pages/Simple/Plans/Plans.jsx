@@ -163,13 +163,13 @@ function Plans() {
 
       const sortPlans = (plans) => {
         switch (sortOrder) {
-          case 'itemstring-asc':
-            return plans.sort((a, b) => a.props.importPlanString.localeCompare(b.props.importPlanString));
           case 'itemstring-desc':
+            return plans.sort((a, b) => a.props.importPlanString.localeCompare(b.props.importPlanString));
+          case 'itemstring-asc':
             return plans.sort((a, b) => b.props.importPlanString.localeCompare(a.props.importPlanString));
-          case 'createdate-asc':
-            return plans;
           case 'createdate-desc':
+            return plans;
+          case 'createdate-asc':
             return plans.reverse();
           default:
             return plans;
@@ -272,7 +272,6 @@ function Plans() {
           <div onClick={handleMyPlansToggle} className='planit-plans-my-text'>
             My Plans
           </div>
-
           {showMyPlans && (
             <div className='planit-plans-my-out'>
                       
@@ -304,6 +303,21 @@ function Plans() {
           </div>
           {showPublicPlans && (
             <div className='planit-plans-saved-out'>
+
+            <div className='planit-plans-my-out-sort'>
+                <label htmlFor='sortOrder'>Sort by: </label>
+                <select
+                  id='sortOrder'
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value)}
+                >
+                  <option value='itemstring-asc'>Item String Ascending</option>
+                  <option value='itemstring-desc'>Item String Descending</option>
+                  <option value='createdate-asc'>Create Date Ascending</option>
+                  <option value='createdate-desc'>Create Date Descending</option>
+                </select>
+              </div>
+
               {publicPlans.length > 0 ? (
                 <div className='planit-plans-saved-out-result'>{publicPlans}</div>
               ) : (
