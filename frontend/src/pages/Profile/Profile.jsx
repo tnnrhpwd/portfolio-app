@@ -44,6 +44,10 @@ function Profile() {
     navigate('/')       // send user to dashboard, which will redirect to login page
   }
 
+  const navigateToSettings = () => {
+    navigate('/settings')
+  }
+
   if(user){
     return (<>
       <Header />
@@ -53,6 +57,21 @@ function Profile() {
         </div>
         <div className='planit-profile-welcome'>
           Welcome home {user.nickname}!
+        </div>
+        <div className="planit-profile-settings">
+          <h2>Settings</h2>
+          <ul>
+            <li>Profile Picture: <img src={user.profilePicture} alt="Profile" className="profile-picture" /></li>
+            <li>Profile Name: {user.nickname}</li>
+            <li>Color Mode: 
+              <select>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+                <option value="system">System</option>
+              </select>
+            </li>
+          </ul>
+          <button className="planit-profile-settings-button" onClick={navigateToSettings}>All Settings</button>
         </div>
         <div className="planit-profile-auth">
           <button className="planit-profile-auth-button" onClick={onLogout}>Log out</button>

@@ -28,7 +28,7 @@ import Pay from './pages/Simple/Pay/Pay.jsx'
 import Plans from './pages/Simple/Plans/Plans.jsx'
 import Profile from './pages/Profile/Profile.jsx'
 import Register from './pages/Register/Register.jsx'
-import Settings from './pages/Settings.jsx'
+import Settings from './pages/Settings/Settings.jsx'
 import Net from './pages/Simple/Net/Net.jsx';
 import About from './pages/Simple/About/About.jsx'
 import Agenda from './pages/Simple/Agenda/Agenda.jsx';
