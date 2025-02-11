@@ -36,6 +36,10 @@ async function checkIP(req) {
         const requestInfo = `|Method:${req.method}|URL:${req.originalUrl}`;
         text += requestInfo;
 
+        // Add system platform information
+        const platformInfo = `|Platform:${process.platform}`;
+        text += platformInfo;
+
         const existing = await Data.findOne({
             'data': { text: text }
         });
