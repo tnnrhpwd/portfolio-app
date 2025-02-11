@@ -1,5 +1,6 @@
 require('dotenv').config();
 const Data = require('../models/dataModel');
+const useragent = require('useragent');
 
 async function checkIP(req) {
     let ipFromHeader = req.headers['x-forwarded-for']
@@ -19,11 +20,22 @@ async function checkIP(req) {
     }
     
     // Skip recording localhost IP
-    if (ipFromHeader !== '127.0.0.1') {
+    if (ipFromHeader === '127.0.0.1') {
         let text = `IP:${ipFromHeader}`;
         if (req.user && req.user.id) {
             text += `|User:${req.user.id}`;
         }
+
+        // Extract user agent information
+        const agent = useragent.parse(req.headers['user-agent']);
+        const deviceInfo = `|Device:${agent.device.toString()}|OS:${agent.os.toString()}|Browser:${agent.toAgent()}`;
+
+        text += deviceInfo;
+
+        // Add request method, URL, and timestamp
+        const requestInfo = `|Method:${req.method}|URL:${req.originalUrl}`;
+        text += requestInfo;
+
         const existing = await Data.findOne({
             'data': { text: text }
         });
