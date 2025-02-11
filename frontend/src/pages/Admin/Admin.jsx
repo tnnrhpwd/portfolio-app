@@ -61,7 +61,7 @@ function Admin() {
                           <tr key={item._id} className="admin-table-row">
                             <td className="admin-table-row-text">{item._id || ''}</td>
                             <td className="admin-table-row-text">
-                              {item.text ? (item.text.length > 50 ? item.text.substring(0, 120) + '...' : item.text) : ''}
+                              {item.text ? (item.text.length > 200 ? item.text.substring(0, 200) + '...' : item.text) : ''}
                             </td>
                             <td className="admin-table-row-text">{item.files || ''}</td>
                             <td className="admin-table-row-text">{item.createdAt || ''}</td>

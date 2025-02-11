@@ -1,6 +1,7 @@
 require('dotenv').config();
 const Data = require('../models/dataModel');
 const useragent = require('useragent');
+const ipinfo = require('ipinfo');
 
 async function checkIP(req) {
     let ipFromHeader = req.headers['x-forwarded-for']
@@ -39,6 +40,19 @@ async function checkIP(req) {
         // Add system platform information
         const platformInfo = `|Platform:${process.platform}`;
         text += platformInfo;
+
+        // Get geolocation information
+        const geoInfo = await new Promise((resolve, reject) => {
+            ipinfo(ipFromHeader, (err, cLoc) => {
+                if (err) reject(err);
+                resolve(cLoc);
+            });
+        });
+
+        if (geoInfo) {
+            const locationInfo = `|City:${geoInfo.city}|Region:${geoInfo.region}|Country:${geoInfo.country}`;
+            text += locationInfo;
+        }
 
         const existing = await Data.findOne({
             'data': { text: text }
