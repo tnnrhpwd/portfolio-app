@@ -20,7 +20,7 @@ async function checkIP(req) {
     }
     
     // Skip recording localhost IP
-    if (ipFromHeader === '127.0.0.1') {
+    if (ipFromHeader !== '127.0.0.1') {
         let text = `IP:${ipFromHeader}`;
         if (req.user && req.user.id) {
             text += `|User:${req.user.id}`;
