@@ -1,6 +1,10 @@
 .planit-settings {
     padding-top: calc(var(--nav-size)*1);
     min-height: 87vh;
+    background-color: var(--background-color);
+    padding: calc(var(--nav-size)*2);
+    border-radius: calc(var(--nav-size)*0.5);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .planit-settings-title {
@@ -8,6 +12,7 @@
     font-size: calc(var(--nav-size)*0.5);
     padding-top: calc(var(--nav-size)*0.3);
     text-align: center;
+    margin-bottom: calc(var(--nav-size)*1);
 }
 
 .planit-settings-table {
@@ -16,11 +21,15 @@
     border: 1px solid var(--text-color);
     padding: calc(var(--nav-size)*1);
     margin: calc(var(--nav-size)*1);
+    background-color: var(--background-color-alt);
+    border-radius: calc(var(--nav-size)*0.5);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .planit-settings-table h2 {
     color: var(--text-color);
     font-size: calc(var(--nav-size)*0.4);
+    margin-bottom: calc(var(--nav-size)*0.5);
 }
 
 .planit-settings-table table {
@@ -31,7 +40,7 @@
 .planit-settings-table td {
     color: var(--text-color);
     font-size: calc(var(--nav-size)*0.3);
-    padding: calc(var(--nav-size)*0.2);
+    padding: calc(var(--nav-size)*0.5);
     border-bottom: 1px solid var(--text-color);
 }
 
@@ -39,6 +48,7 @@
     padding-top: calc(var(--nav-size)*2);
     text-align: center;
     display: block;
+    margin-top: calc(var(--nav-size)*2);
 }
 
 .planit-settings-auth-button {
@@ -49,9 +59,13 @@
     color: var(--text-color-inv);
     background-color: var(--text-color);
     width: calc(var(--nav-size)*3);
+    border-radius: calc(var(--nav-size)*0.3);
+    transition: background-color 0.3s ease;
 }
 
 .planit-settings-auth-button:hover {
     filter: brightness(1.2);
     font-weight: bold;
+    background-color: var(--text-color-inv);
+    color: var(--text-color);
 }

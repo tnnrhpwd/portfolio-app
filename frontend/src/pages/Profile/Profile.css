@@ -1,47 +1,60 @@
-.planit-profile{
+.planit-profile {
     padding-top: calc(var(--nav-size)*1);
     min-height: 87vh;
+    background-color: var(--background-color);
+    padding: calc(var(--nav-size)*0.2);
+    border-radius: calc(var(--nav-size)*0.5);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
-.planit-profile:hover{
+
+.planit-profile:hover {
 
 }
-.planit-profile-title{
+
+.planit-profile-title {
     color: var(--text-color);
     font-size: calc(var(--nav-size)*0.5);
     padding-top: calc(var(--nav-size)*0.3);
     text-align: center;
+    margin-bottom: calc(var(--nav-size)*1);
 }
-.planit-profile-welcome{
+
+.planit-profile-welcome {
     color: var(--text-color);
-    font-size: calc(var(--nav-size)*0.3);
-    padding-top: calc(var(--nav-size)*2);
-    width: calc(var(--nav-size)*3);
+    font-size: calc(var(--nav-size)*0.4);
+    padding-top: calc(var(--nav-size)*0.2);
+    width: calc(var(--nav-size)*5);
     text-align: center;
     background-color: var(--background-color-alt);
     border-radius: calc(var(--nav-size)*0.2);
     padding: calc(var(--nav-size)*0.5);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     margin: 0 auto;
+    margin-bottom: calc(var(--nav-size)*0.5);
 }
-.planit-profile-auth{
-    padding-top: calc(var(--nav-size)*2);
+
+.planit-profile-auth {
+    padding-top: calc(var(--nav-size)*0.2);
     text-align: center;
     display: block;
 }
-.planit-profile-auth-button{
+
+.planit-profile-auth-button {
     padding: calc(var(--nav-size)*.2) calc(var(--nav-size)*.4);
     border: none;
     font-size: calc(var(--nav-size)*0.3);
-
     cursor: pointer;
     color: var(--text-color-inv);
     background-color: var(--text-color);
     width: calc(var(--nav-size)*3);
+    border-radius: calc(var(--nav-size)*0.3);
+    transition: background-color 0.3s ease;
 }
-.planit-profile-auth-button:hover{
+
+.planit-profile-auth-button:hover {
     filter: brightness(1.2);
     font-weight: bold;
-
+    background-color: var(--text-color-inv);
+    color: var(--text-color);
 }
 
 .planit-profile-settings {
@@ -49,12 +62,16 @@
     text-align: left;
     border: 1px solid var(--text-color);
     padding: calc(var(--nav-size)*1);
-    margin: calc(var(--nav-size)*1);
+    margin: calc(var(--nav-size)*0.1);
+    background-color: var(--background-color-alt);
+    border-radius: calc(var(--nav-size)*0.5);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .planit-profile-settings h2 {
     color: var(--text-color);
     font-size: calc(var(--nav-size)*0.4);
+    margin-bottom: calc(var(--nav-size)*0.5);
 }
 
 .planit-profile-settings ul {
@@ -65,7 +82,7 @@
 .planit-profile-settings li {
     color: var(--text-color);
     font-size: calc(var(--nav-size)*0.3);
-    padding: calc(var(--nav-size)*0.2) 0;
+    padding: calc(var(--nav-size)*0.5) 0;
 }
 
 .planit-profile-settings .profile-picture {
@@ -89,9 +106,13 @@
     background-color: var(--text-color);
     width: calc(var(--nav-size)*3);
     margin-top: calc(var(--nav-size)*0.5);
+    border-radius: calc(var(--nav-size)*0.3);
+    transition: background-color 0.3s ease;
 }
 
 .planit-profile-settings-button:hover {
     filter: brightness(1.2);
     font-weight: bold;
+    background-color: var(--text-color-inv);
+    color: var(--text-color);
 }

@@ -62,16 +62,6 @@ function Settings() {
                   <td>{user.address}</td>
                 </tr>
                 <tr>
-                  <td>Subscription Plan:</td>
-                  <td>
-                    <select value={user.subscriptionPlan}>
-                      <option value="Free">Free</option>
-                      <option value="Flex">Flex</option>
-                      <option value="Premium">Premium</option>
-                    </select>
-                  </td>
-                </tr>
-                <tr>
                   <td>Notification Preferences:</td>
                   <td>{user.notificationPreferences}</td>
                 </tr>
