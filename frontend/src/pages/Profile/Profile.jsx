@@ -6,7 +6,9 @@ import Spinner from '../../components/Spinner/Spinner.jsx';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
 import { setDarkMode, setLightMode, setSystemColorMode } from '../../utils/theme.js';
+import dataService from '../../features/data/dataService';
 import './Profile.css';
+import HeaderLogo from '../../../src/assets/Checkmark512.png';
 
 function Profile() {
   const navigate = useNavigate();
@@ -38,10 +40,25 @@ function Profile() {
     navigate('/settings');
   };
 
+  const handleSubscriptionChange = async (event) => {
+    const newPlan = event.target.value;
+    const userId = user._id;
+
+    try {
+      const updatedData = await dataService.updateData({ id: userId, text: newPlan }, user.token);
+      if (updatedData.redirectToPay) {
+        navigate('/pay');
+      } else {
+        dispatch(resetDataSlice());
+      }
+    } catch (error) {
+      console.error('Failed to update subscription plan:', error);
+    }
+  };
+
   const handleColorModeChange = (event) => {
     const value = event.target.value;
     if (value === 'light') {
-      console.log('light');
       setLightMode();
     } else if (value === 'dark') {
       setDarkMode();
@@ -64,7 +81,7 @@ function Profile() {
           <div className="planit-profile-settings">
             <h2>Settings</h2>
             <ul>
-              <li>Profile Picture: <img src={user.profilePicture} alt="Profile" className="profile-picture" /></li>
+              <li>Profile Picture: <img src={HeaderLogo} alt="Profile" className="profile-picture" /></li>
               <li>Profile Name: {user.nickname}</li>
               <li>Color Mode: 
                 <select onChange={handleColorModeChange}>
@@ -74,7 +91,7 @@ function Profile() {
                 </select>
               </li>
               <li>Subscription Plan:
-                <select value={user.subscriptionPlan}>
+                <select value={user.subscriptionPlan} onChange={handleSubscriptionChange}>
                   <option value="Free">Free</option>
                   <option value="Flex">Flex</option>
                   <option value="Premium">Premium</option>
