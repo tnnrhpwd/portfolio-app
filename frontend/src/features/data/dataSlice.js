@@ -206,6 +206,9 @@ export const dataSlice = createSlice({
         state.dataIsLoading = false
         state.dataIsError = true
         state.dataMessage = action.payload
+        if (action.payload === 'Not authorized, token expired') {
+          state.user = null;
+        }
         state.operation = null;
       })
       .addCase(getData.pending, (state) => {               // get
@@ -222,6 +225,9 @@ export const dataSlice = createSlice({
         state.dataIsLoading = false
         state.dataIsError = true
         state.dataMessage = action.payload
+        if (action.payload === 'Not authorized, token expired') {
+          state.user = null;
+        }
         state.operation = null;
       })
       .addCase(getPublicData.pending, (state) => {               // get
@@ -238,6 +244,9 @@ export const dataSlice = createSlice({
         state.dataIsLoading = false
         state.dataIsError = true
         state.dataMessage = action.payload
+        if (action.payload === 'Not authorized, token expired') {
+          state.user = null;
+        }
         state.operation = null;
       })
       .addCase(compressData.pending, (state) => {
@@ -286,6 +295,9 @@ export const dataSlice = createSlice({
         state.dataIsLoading = false
         state.dataIsError = true
         state.dataMessage = action.payload
+        if (action.payload === 'Not authorized, token expired') {
+          state.user = null;
+        }
         state.operation = null;
       })
       .addCase(deleteData.pending, (state) => {             // delete
@@ -308,6 +320,9 @@ export const dataSlice = createSlice({
         state.dataIsLoading = false
         state.dataIsError = true
         state.dataMessage = action.payload
+        if (action.payload === 'Not authorized, token expired') {
+          state.user = null;
+        }
         state.operation = null;
       })
       .addCase(register.pending, (state) => {

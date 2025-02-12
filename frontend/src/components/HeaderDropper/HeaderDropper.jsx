@@ -1,15 +1,23 @@
-import { useRef } from 'react'
+import { useRef, useEffect } from 'react'
 import useOutsideAlerter from '../useOutsideAlerter.js';
 // import HeaderLogo from './../../assets/planit192.png';
 import { Link } from 'react-router-dom';
-import { useSelector } from 'react-redux'    
+import { useSelector, useDispatch } from 'react-redux'    
 import React from 'react';
 import { setDarkMode, setLightMode } from '../../utils/theme';
+import { logout } from '../../features/data/dataSlice';
 
 import './HeaderDropper.css'
 
 function HeaderDropper(props) {
-  const { user } = useSelector((state) => state.data)   // select values from state
+  const { user, dataMessage } = useSelector((state) => state.data)   // select values from state
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    if (dataMessage === 'Not authorized, token expired') {
+      dispatch(logout());
+    }
+  }, [dataMessage, dispatch]);
 
   const hideComponentVisibility = () => {document.getElementById("planit-header-dropper__toggle").checked = false;}
   const ComponentVisibility = () => {return document.getElementById("planit-header-dropper__toggle").checked}
