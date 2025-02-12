@@ -1,30 +1,29 @@
 .pay-container {
   min-height: 87vh;
-  padding: 1rem;
+  padding: calc(var(--nav-size) * 0.5);
 }
 
 .pay-container-header {
   font-size: calc(var(--nav-size) * 0.4);
   color: var(--text-color);
-  margin-top: 1rem;
   margin-bottom: 1rem;
   text-align: center;
-  width: 80%;
+  width: 100%;
 }
 
 .pay-plan-container {
   color: var(--text-color);
   font-size: calc(var(--nav-size) * 0.3);
-  width: 80%;
+  width: 100%;
 }
 
 .pay-plan-options {
   display: flex;
-  gap: 1rem;
+  gap: calc(var(--nav-size) * 0.9);
 }
 
 .pay-plan-option {
-  padding: 1rem 2rem;
+  padding: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.4);
   border: calc(var(--nav-size) * 0.01) solid var(--text-color);
   background-color: var(--bg);
   color: var(--text-color);
@@ -45,7 +44,7 @@
 }
 
 .pay-plan-descriptions {
-  margin-top: 1rem;
+  margin-top: calc(var(--nav-size) * 1);
 }
 
 .pay-plan-description {
@@ -57,24 +56,23 @@
   margin-top: calc(var(--nav-size) * 0.3);
   color: var(--text-color);
   font-size: calc(var(--nav-size) * 0.3);
-  width: 80%;
+  width: 100%;
 }
 
 .form-group {
-  margin-bottom: 1rem;
-  max-width: 70%;
+  margin-bottom: calc(var(--nav-size) * 1);
+  max-width: 60%;
+  border: calc(var(--nav-size) * 0.01) solid var(--text-color);
+  border-radius: calc(var(--nav-size) * 0.3);
+  padding: calc(var(--nav-size) * 0.3);
+}
+.form-group:hover {
+  border: calc(var(--nav-size) * 0.05) solid var(--text-color);
 }
 
 .form-group label {
   display: block;
   margin-bottom: 0.5rem;
-}
-
-.form-group input {
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
 }
 
 .pay-button {
