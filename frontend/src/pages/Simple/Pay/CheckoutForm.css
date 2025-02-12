@@ -1,0 +1,25 @@
+.card-element {
+  padding: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}
+
+.pay-error {
+  color: red;
+  margin-bottom: 1rem;
+}
+
+.pay-button {
+  padding: 1rem 2rem;
+  background-color: var(--button-bg-color);
+  color: var(--button-text-color);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.pay-button:hover {
+  background-color: var(--button-hover-bg-color);
+  color: var(--button-hover-text-color);
+}
