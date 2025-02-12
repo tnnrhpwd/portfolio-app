@@ -2,7 +2,7 @@
     padding-top: calc(var(--nav-size)*1);
     min-height: 87vh;
     background-color: var(--background-color);
-    padding: calc(var(--nav-size)*2);
+    padding: calc(var(--nav-size)*0.2);
     border-radius: calc(var(--nav-size)*0.5);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
@@ -16,11 +16,11 @@
 }
 
 .planit-settings-table {
-    padding-top: calc(var(--nav-size)*2);
+    padding-top: calc(var(--nav-size)*0.2);
     text-align: left;
     border: 1px solid var(--text-color);
-    padding: calc(var(--nav-size)*1);
-    margin: calc(var(--nav-size)*1);
+    padding: calc(var(--nav-size)*0.2);
+    margin: calc(var(--nav-size)*0.1);
     background-color: var(--background-color-alt);
     border-radius: calc(var(--nav-size)*0.5);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -39,9 +39,26 @@
 
 .planit-settings-table td {
     color: var(--text-color);
-    font-size: calc(var(--nav-size)*0.3);
-    padding: calc(var(--nav-size)*0.5);
+    font-size: calc(var(--nav-size)*0.25);
+    padding: calc(var(--nav-size)*0.2);
     border-bottom: 1px solid var(--text-color);
+}
+
+.planit-settings-table select {
+    margin-left: calc(var(--nav-size)*0.5);
+    font-size: calc(var(--nav-size)*0.3);
+    padding: calc(var(--nav-size)*0.2);
+    border: 1px solid var(--text-color);
+    border-radius: calc(var(--nav-size)*0.2);
+    background-color: var(--background-color);
+    color: var(--text-color);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.planit-settings-table select:focus {
+    border-color: var(--text-color-hover);
+    box-shadow: 0 0 5px var(--text-color-hover);
+    outline: none;
 }
 
 .planit-settings-auth {
@@ -52,20 +69,20 @@
 }
 
 .planit-settings-auth-button {
-    padding: calc(var(--nav-size)*.2) calc(var(--nav-size)*.4);
-    border: none;
+    padding: calc(var(--nav-size)*0.2) calc(var(--nav-size)*0.4);
+    border: 1px solid var(--text-color);
     font-size: calc(var(--nav-size)*0.3);
     cursor: pointer;
-    color: var(--text-color-inv);
-    background-color: var(--text-color);
+    color: var(--text-color);
+    background-color: var(--background-color);
     width: calc(var(--nav-size)*3);
-    border-radius: calc(var(--nav-size)*0.3);
-    transition: background-color 0.3s ease;
+    border-radius: calc(var(--nav-size)*0.2);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
 }
 
 .planit-settings-auth-button:hover {
-    filter: brightness(1.2);
-    font-weight: bold;
-    background-color: var(--text-color-inv);
-    color: var(--text-color);
+    border-color: var(--text-color-hover);
+    box-shadow: 0 0 5px var(--text-color-hover);
+    background-color: var(--text-color-hover);
+    color: var(--text-color-inv);
 }

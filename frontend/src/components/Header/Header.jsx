@@ -56,6 +56,7 @@ function Header() {
           colTheme={colTheme}
           setLightMode={setLightMode}
           setDarkMode={setDarkMode}
+          handleThemeToggle={handleThemeToggle}
         />
       </div>
     </>

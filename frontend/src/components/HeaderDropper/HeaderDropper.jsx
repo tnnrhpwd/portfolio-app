@@ -4,6 +4,7 @@ import useOutsideAlerter from '../useOutsideAlerter.js';
 import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux'    
 import React from 'react';
+import { setDarkMode, setLightMode } from '../../utils/theme';
 
 import './HeaderDropper.css'
 
@@ -27,8 +28,8 @@ function HeaderDropper(props) {
         <div className='planit-header-logo-nav'>
           <Link to='/' onClick={() => {window.scrollTo(0,0); document.getElementById("planit-header-dropper__toggle").checked = false;}}></Link>
         </div>
-        {(props.colTheme==="dark-theme") && <button className='planit-header-dropper-themebutton' onClick={props.setLightMode}>Light Mode</button>}
-        {(props.colTheme==="light-theme") && <button className='planit-header-dropper-themebutton' onClick={props.setDarkMode}>Dark Mode</button>}
+        {(props.colTheme==="dark-theme") && <button className='planit-header-dropper-themebutton' onClick={props.handleThemeToggle}>Light Mode</button>}
+        {(props.colTheme==="light-theme") && <button className='planit-header-dropper-themebutton' onClick={props.handleThemeToggle}>Dark Mode</button>}
           {user ? (<>
             {(user) && <div className='planit-header-dropper-signer'>Signed in as {user.nickname}</div>}
             <a className='planit-header-dropper-profile' href='/profile'>Profile</a>

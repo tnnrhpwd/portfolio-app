@@ -33,30 +33,41 @@ const updateData = asyncHandler(async (req, res) => {
         // Make sure the logged in user matches the data user
         const ObjectId = require('mongoose').Types.ObjectId;
         if (!ObjectId(req.user.id).equals(dataHolder._id)) {
-            if(!dataHolder.user && !dataHolder.user.toString() !== req.user.id) {
+            if (!dataHolder.user || dataHolder.user.toString() !== req.user.id) {
                 res.status(401);
                 console.error('User not authorized');
                 throw new Error('User not authorized');
             }
-        } 
+        }
+
+        const searchConditions = [
+            { 'data.text': { $regex: `Creator:${req.user.id}`, $options: 'i' } },
+            { 'data.text': { $regex: 'Payment:', $options: 'i' } }
+        ];
 
         // Check for payment method
-        const paymentMethods = await Data.find({ text: { $regex: `Creator:${req.user.id}.*Payment:` } });
+        const paymentMethods = await Data.find({ 
+            $and: searchConditions
+        });
+
         if (paymentMethods.length === 0) {
             console.error('No payment method found');
             res.status(200).json({ redirectToPay: true });
             return;
         }
-
+        console.log('Payment methods:', paymentMethods[1]);
         // Update subscription plan
-        const updatedText = dataHolder.text.includes('|Rank:')
-            ? dataHolder.text.replace(/(\|Rank:)(Free|Flex|Premium)/, `$1${req.body.text}`)
-            : `${dataHolder.text} |Rank:${req.body.text}`;
+        const updatedText = dataHolder.data.text.includes('|Rank:')
+            ? dataHolder.data.text.replace(/(\|Rank:)(Free|Flex|Premium)/, `$1${req.body.text}`)
+            : `${dataHolder.data.text}|Rank:${req.body.text}`;
 
-        const updatedData = await Data.findByIdAndUpdate(req.params.id, { text: updatedText }, {
+        console.log('Updated text:', updatedText);
+        dataHolder.data.text = updatedText;
+
+        const updatedData = await Data.findByIdAndUpdate(req.params.id, { 'data.text': updatedText }, {
             new: true,
         });
-
+        console.log('Updated data:', updatedData);
         res.status(200).json(updatedData);
     } catch (error) {
         console.error('Error during data update:', error);
