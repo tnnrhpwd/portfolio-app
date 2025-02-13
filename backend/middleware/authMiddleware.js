@@ -6,12 +6,14 @@ const Data = require('../models/dataModel');           // import data schema
 // This middleware async function is called anytime a user requests user information
 const protect = asyncHandler(async (req, res, next) => {
   let token;
+  console.log('protect middleware called')
 
   if (
     req.headers.authorization &&
     req.headers.authorization.startsWith('Bearer')  // if HTTP request header exists and startes with Bearer -- IF USER HAS JWT ( LOGGED IN )
   ) {
     try {
+
       // Get token from header
       token = req.headers.authorization.split(' ')[1]     // set token as just the token, ignore the "Bearer "
 
@@ -24,21 +26,23 @@ const protect = asyncHandler(async (req, res, next) => {
 
       next()    // goes to next middleware function
     } catch (error) {     
-      console.log(error)
+      console.log('Protect Middleware Error:', error)
       res.status(401)
       if (error.name === 'TokenExpiredError') {
-        throw new Error('Not authorized, token expired')
+        res.json({ dataMessage: 'Not authorized, token expired' });
       } else {
-        throw new Error('Not authorized')
+        res.json({ dataMessage: 'Not authorized' });
       }
+      return;
     }
   }
 
   // if NOT LOGGED IN -- throw error
   if (!token) { 
     res.status(401)
-    throw new Error('Not authorized, no token')
+    res.json({ dataMessage: 'Not authorized, no token' });
   }
+  console.log('protect middleware passed')
 })
 
 module.exports = { protect }  // exported to userRoutes

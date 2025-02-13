@@ -10,6 +10,7 @@ const { checkIP } = require('./accessData.js');
 // @access  Private
 const updateData = asyncHandler(async (req, res) => {
     await checkIP(req);
+    console.log('Update Data Request:', req.body);
 
     // Check for user
     if (!req.user) {

@@ -10,14 +10,15 @@ import { logout } from '../../features/data/dataSlice';
 import './HeaderDropper.css'
 
 function HeaderDropper(props) {
-  const { user, dataMessage } = useSelector((state) => state.data)   // select values from state
+  const { user, dataIsError, dataMessage } = useSelector((state) => state.data)   // select values from state
   const dispatch = useDispatch();
 
   useEffect(() => {
-    if (dataMessage === 'Not authorized, token expired') {
+    console.log('HeaderDropper dataMessage:', dataMessage)
+    if (dataIsError && dataMessage === 'Not authorized, token expired') {
       dispatch(logout());
     }
-  }, [dataMessage, dispatch]);
+  }, [dataIsError, dataMessage, dispatch]);
 
   const hideComponentVisibility = () => {document.getElementById("planit-header-dropper__toggle").checked = false;}
   const ComponentVisibility = () => {return document.getElementById("planit-header-dropper__toggle").checked}

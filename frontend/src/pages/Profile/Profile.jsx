@@ -7,6 +7,7 @@ import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
 import { setDarkMode, setLightMode, setSystemColorMode } from '../../utils/theme.js';
 import dataService from '../../features/data/dataService';
+import { toast } from 'react-toastify';
 import './Profile.css';
 import HeaderLogo from '../../../src/assets/Checkmark512.png';
 
@@ -14,7 +15,7 @@ function Profile() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const { user, dataIsLoading } = useSelector((state) => state.data);
+  const { user, dataIsLoading, dataMessage } = useSelector((state) => state.data);
 
   useEffect(() => {
     if (!user) {
@@ -50,9 +51,12 @@ function Profile() {
         navigate('/pay');
       } else {
         dispatch(resetDataSlice());
+        toast.success('Subscription plan updated successfully!');
       }
     } catch (error) {
       console.error('Failed to update subscription plan:', error);
+      const errorMessage = error.response?.data?.dataMessage || 'Failed to update subscription plan.';
+      toast.error(errorMessage);
     }
   };
 
