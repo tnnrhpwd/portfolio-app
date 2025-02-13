@@ -18,43 +18,27 @@ function CheckoutForm({ paymentType }) {
 
     const cardElement = elements.getElement(CardElement);
 
-    try {
-      const { error, paymentMethod } = await stripe.createPaymentMethod({
-        type: 'card',
-        card: cardElement,
-      });
+    const { error, paymentMethod } = await stripe.createPaymentMethod({
+      type: 'card',
+      card: cardElement,
+    });
 
-      if (error) {
-        setError(error.message);
-        setLoading(false);
-        return;
-      }
-
-      // Send paymentMethod.id to your server (not implemented here)
-      // const response = await fetch('/pay', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify({ paymentMethodId: paymentMethod.id, paymentType }),
-      // });
-
-      // Handle server response (not implemented here)
-      // const serverResponse = await response.json();
-
-      setLoading(false);
-      setError(null);
-      alert('Payment successful!');
-    } catch (error) {
+    if (error) {
       setError(error.message);
       setLoading(false);
+      return;
     }
+
+    // Handle payment processing based on paymentType
+    // You can send paymentMethod.id and paymentType to your backend for further processing
+
+    setLoading(false);
   };
 
   return (
     <form onSubmit={handleSubmit}>
       <div className="form-group">
-        <label htmlFor="card-element">Credit or Debit Card</label>
+        <label htmlFor="card-element">Credit or debit card</label>
         <CardElement id="card-element" className="card-element" />
       </div>
       {error && <div className="pay-error">{error}</div>}

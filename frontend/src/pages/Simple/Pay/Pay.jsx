@@ -10,7 +10,7 @@ import './Pay.css';
 const stripePromise = loadStripe('your-publishable-key-here');
 
 function Pay() {
-  const [paymentType, setPaymentType] = useState('one-time');
+  const [paymentType, setPaymentType] = useState('Flex');
 
   return (
     <>
@@ -24,7 +24,7 @@ function Pay() {
                 The Flex payment plan charges based on usage with a monthly max of $10.
               </p>
               <p className="pay-plan-description">
-                The Premium payment plan charges a lower usage rate with an customizable max {'>'} $10.
+                The Premium payment plan charges a lower usage rate with a customizable max {'>'} $10.
               </p>
           </div>
           <div className="pay-plan-options">
