@@ -8,6 +8,7 @@ const API_URL = devMode ? '/api/data/' : 'https://mern-plan-web-service.onrender
 if (devMode) { console.log("Warning: Running in development mode. Remember to start backend.") }
 
 const handleTokenExpiration = (error) => {
+    console.log('DataService Error:', error);
     if (error.response && error.response.status === 401 && error.response.data === 'Not authorized, token expired') {
         localStorage.removeItem('user');
     }

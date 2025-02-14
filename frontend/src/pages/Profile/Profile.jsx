@@ -57,6 +57,10 @@ function Profile() {
       console.error('Failed to update subscription plan:', error);
       const errorMessage = error.response?.data?.dataMessage || 'Failed to update subscription plan.';
       toast.error(errorMessage);
+      console.log('Toast error message:', errorMessage);
+      if(errorMessage === 'Not authorized, token expired') {
+        onLogout();
+      }
     }
   };
 
