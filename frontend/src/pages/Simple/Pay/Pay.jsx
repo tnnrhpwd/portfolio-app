@@ -4,6 +4,7 @@ import { Elements } from '@stripe/react-stripe-js';
 import Header from '../../../components/Header/Header.jsx';
 import Footer from '../../../components/Footer/Footer.jsx';
 import CheckoutForm from './CheckoutForm.jsx';
+import StripePaymentWrapper from './StripePayment.js';
 import './Pay.css';
 
 // Load Stripe outside of a component’s render to avoid recreating the Stripe object on every render.
@@ -11,6 +12,7 @@ const stripePromise = loadStripe('your-publishable-key-here');
 
 function Pay() {
   const [paymentType, setPaymentType] = useState('Flex');
+  const [membershipType, setMembershipType] = useState('Basic');
 
   return (
     <>
@@ -42,11 +44,29 @@ function Pay() {
             </button>
           </div>
         </div>
+        <div className="membership-container">
+          <h3>Select Membership Type</h3>
+          <div className="membership-options">
+            <button
+              className={`membership-option ${membershipType === 'Basic' ? 'selected' : ''}`}
+              onClick={() => setMembershipType('Basic')}
+            >
+              Basic
+            </button>
+            <button
+              className={`membership-option ${membershipType === 'Pro' ? 'selected' : ''}`}
+              onClick={() => setMembershipType('Pro')}
+            >
+              Pro
+            </button>
+          </div>
+        </div>
         <div className="pay-details-container">
           <h3>Payment Details</h3>
           <Elements stripe={stripePromise}>
             <CheckoutForm paymentType={paymentType} />
           </Elements>
+          <StripePaymentWrapper membershipType={membershipType} />
         </div>
       </div>
       <Footer />
