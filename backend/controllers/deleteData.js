@@ -3,7 +3,7 @@
 const asyncHandler = require('express-async-handler');
 const Data = require('../models/dataModel');
 const mongoose = require('mongoose');
-const { checkIP } = require('./accessData.js');
+const { checkIP } = require('../utils/accessData.js');
 
 // @desc    Delete data
 // @route   DELETE /api/data/:id

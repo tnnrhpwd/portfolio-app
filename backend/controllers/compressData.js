@@ -6,7 +6,7 @@ const openai = require('openai');
 const Data = require('../models/dataModel');
 const openaikey = process.env.OPENAI_KEY;
 const client = new openai({ apiKey: openaikey });
-const { checkIP } = require('./accessData.js');
+const { checkIP } = require('../utils/accessData.js');
 
 // @desc    Compress Data
 // @route   POST /api/compress

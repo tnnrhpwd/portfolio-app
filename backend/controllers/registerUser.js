@@ -6,7 +6,7 @@ require('dotenv').config();
 const asyncHandler = require('express-async-handler') // sends the errors to the errorhandler
 const { generateToken } = require('./generateToken')
 const Data = require('../models/dataModel')
-const { checkIP } = require('./accessData.js');
+const { checkIP } = require('../utils/accessData.js');
 
 // @desc    Register new user
 // @route   POST /api/data/register

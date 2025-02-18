@@ -19,7 +19,7 @@ const rapidapidefoptions = {
         'X-RapidAPI-Host': 'mashape-community-urban-dictionary.p.rapidapi.com'
     }
 };
-const { checkIP } = require('./accessData.js');
+const { checkIP } = require('../utils/accessData.js');
 
 // @desc    Get Public Data
 // @route   GET /api/publicdata
@@ -106,4 +106,4 @@ const getAllData = async (req, res) => {
   }
 };
 
-module.exports = { getData, getPublicData, getAllData };
+module.exports = { getPublicData, getAllData };

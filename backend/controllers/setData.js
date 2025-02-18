@@ -3,7 +3,7 @@ const path = require('path');
 const multer = require('multer');
 const asyncHandler = require('express-async-handler');
 const Data = require('../models/dataModel');
-const { checkIP } = require('./accessData.js');
+const { checkIP } = require('../utils/accessData.js');
 
 // Ensure the uploads directory exists
 const uploadDir = path.join(__dirname, '../uploads');
