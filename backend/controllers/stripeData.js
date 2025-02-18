@@ -45,6 +45,23 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
     res.status(200).json(subscription);
 });
 
+// Fetch previous payment methods
+const getPaymentMethods = asyncHandler(async (req, res) => {
+    const { customerId } = req.query;
+    const paymentMethods = await stripe.paymentMethods.list({
+        customer: customerId,
+        type: 'card',
+    });
+    res.status(200).json(paymentMethods.data);
+});
+
+// Delete a payment method
+const deletePaymentMethod = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    await stripe.paymentMethods.detach(id);
+    res.status(200).json({ id });
+});
+
 const handleWebhook = asyncHandler(async (req, res) => {
     const sig = req.headers['stripe-signature'];
     let event;
@@ -69,4 +86,4 @@ const handleWebhook = asyncHandler(async (req, res) => {
     res.status(200).send();
 });
 
-module.exports = { handleWebhook, createCustomer, createSetupIntent, createInvoice, subscribeCustomer };
+module.exports = { handleWebhook, createCustomer, createSetupIntent, createInvoice, subscribeCustomer, getPaymentMethods, deletePaymentMethod };

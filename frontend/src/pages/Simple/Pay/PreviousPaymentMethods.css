@@ -1,0 +1,27 @@
+.previous-payment-methods {
+  margin-top: calc(var(--nav-size) * 0.3);
+  margin-left: calc(var(--nav-size) * 0.3);
+}
+
+.payment-method {
+  padding: calc(var(--nav-size) * 0.3);
+  border: calc(var(--nav-size) * 0.01) solid var(--text-color);
+  border-radius: calc(var(--nav-size) * 0.3);
+  margin-bottom: calc(var(--nav-size) * 0.3);
+}
+
+.delete-button {
+  padding: 0.5rem 1rem;
+  background-color: var(--button-bg-color);
+  color: var(--button-text-color);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: background-color 0.3s, color 0.3s;
+  border-radius: calc(var(--nav-size) * 0.2);
+  margin-top: 0.5rem;
+}
+
+.delete-button:hover {
+  background-color: var(--button-hover-bg-color);
+  color: var(--button-hover-text-color);
+}

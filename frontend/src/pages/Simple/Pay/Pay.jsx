@@ -1,18 +1,24 @@
-import React, { useState } from 'react';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements } from '@stripe/react-stripe-js';
+import React, { useState, useEffect } from 'react';
 import Header from '../../../components/Header/Header.jsx';
 import Footer from '../../../components/Footer/Footer.jsx';
 import CheckoutForm from './CheckoutForm.jsx';
-import StripePaymentWrapper from './StripePayment.js';
+import PreviousPaymentMethods from './PreviousPaymentMethods.jsx';
+import { useDispatch, useSelector } from 'react-redux';
+import { getPaymentMethods, deletePaymentMethod } from '../../../features/data/dataSlice';
 import './Pay.css';
 
-// Load Stripe outside of a component’s render to avoid recreating the Stripe object on every render.
-const stripePromise = loadStripe('your-publishable-key-here');
-
 function Pay() {
-  const [paymentType, setPaymentType] = useState('Flex');
-  const [membershipType, setMembershipType] = useState('Basic');
+  const dispatch = useDispatch();
+  const { paymentMethods } = useSelector((state) => state.data);
+  const [paymentType, setPaymentType] = useState('Free');
+
+  useEffect(() => {
+    dispatch(getPaymentMethods());
+  }, [dispatch]);
+
+  const handleDeletePaymentMethod = (id) => {
+    dispatch(deletePaymentMethod(id));
+  };
 
   return (
     <>
@@ -44,29 +50,13 @@ function Pay() {
             </button>
           </div>
         </div>
-        <div className="membership-container">
-          <h3>Select Membership Type</h3>
-          <div className="membership-options">
-            <button
-              className={`membership-option ${membershipType === 'Basic' ? 'selected' : ''}`}
-              onClick={() => setMembershipType('Basic')}
-            >
-              Basic
-            </button>
-            <button
-              className={`membership-option ${membershipType === 'Pro' ? 'selected' : ''}`}
-              onClick={() => setMembershipType('Pro')}
-            >
-              Pro
-            </button>
-          </div>
+        <div className="previous-payment-methods-container">
+          <h3>Previous Payment Methods</h3>
+          <PreviousPaymentMethods methods={paymentMethods} onDelete={handleDeletePaymentMethod} />
         </div>
         <div className="pay-details-container">
           <h3>Payment Details</h3>
-          <Elements stripe={stripePromise}>
-            <CheckoutForm paymentType={paymentType} />
-          </Elements>
-          <StripePaymentWrapper membershipType={membershipType} />
+          <CheckoutForm paymentType={paymentType} />
         </div>
       </div>
       <Footer />

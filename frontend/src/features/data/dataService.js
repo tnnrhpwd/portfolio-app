@@ -142,6 +142,38 @@ const compressData = async (dataData, token) => {
     }
 }
 
+// Fetch payment methods
+const getPaymentMethods = async (token) => {
+    const config = {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    };
+
+    try {
+        const response = await axios.get(API_URL + 'payment-methods', config);
+        return response.data;
+    } catch (error) {
+        handleTokenExpiration(error);
+    }
+};
+
+// Delete payment method
+const deletePaymentMethod = async (id, token) => {
+    const config = {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    };
+
+    try {
+        const response = await axios.delete(API_URL + `payment-methods/${id}`, config);
+        return response.data;
+    } catch (error) {
+        handleTokenExpiration(error);
+    }
+};
+
 // Register user
 const register = async (userData) => {
     console.log('Calling POST URL:', API_URL + 'register');
@@ -187,6 +219,8 @@ const dataService = {
     updateData,
     deleteData,
     compressData,
+    getPaymentMethods,
+    deletePaymentMethod,
     register,
     login,
     logout,

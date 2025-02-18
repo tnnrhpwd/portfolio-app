@@ -106,6 +106,44 @@ export const getAllData = createAsyncThunk(
   }
 );
 
+// Fetch payment methods
+export const getPaymentMethods = createAsyncThunk(
+  'data/getPaymentMethods',
+  async (_, thunkAPI) => {
+    try {
+      const token = thunkAPI.getState().data.user.token;
+      return await dataService.getPaymentMethods(token);
+    } catch (error) {
+      const dataMessage =
+        (error.response &&
+          error.response.data &&
+          error.response.data.dataMessage) ||
+        error.dataMessage ||
+        error.toString();
+      return thunkAPI.rejectWithValue(dataMessage);
+    }
+  }
+);
+
+// Delete payment method
+export const deletePaymentMethod = createAsyncThunk(
+  'data/deletePaymentMethod',
+  async (id, thunkAPI) => {
+    try {
+      const token = thunkAPI.getState().data.user.token;
+      return await dataService.deletePaymentMethod(id, token);
+    } catch (error) {
+      const dataMessage =
+        (error.response &&
+          error.response.data &&
+          error.response.data.dataMessage) ||
+        error.dataMessage ||
+        error.toString();
+      return thunkAPI.rejectWithValue(dataMessage);
+    }
+  }
+);
+
 // Update user data -- UPDATE
 export const updateData = createAsyncThunk(
   'data/update',
@@ -279,6 +317,32 @@ export const dataSlice = createSlice({
         state.dataIsError = true
         state.dataMessage = action.payload
         state.operation = null
+      })
+      .addCase(getPaymentMethods.pending, (state) => {
+        state.dataIsLoading = true;
+      })
+      .addCase(getPaymentMethods.fulfilled, (state, action) => {
+        state.dataIsLoading = false;
+        state.dataIsSuccess = true;
+        state.paymentMethods = action.payload;
+      })
+      .addCase(getPaymentMethods.rejected, (state, action) => {
+        state.dataIsLoading = false;
+        state.dataIsError = true;
+        state.dataMessage = action.payload;
+      })
+      .addCase(deletePaymentMethod.pending, (state) => {
+        state.dataIsLoading = true;
+      })
+      .addCase(deletePaymentMethod.fulfilled, (state, action) => {
+        state.dataIsLoading = false;
+        state.dataIsSuccess = true;
+        state.paymentMethods = state.paymentMethods.filter(method => method.id !== action.payload.id);
+      })
+      .addCase(deletePaymentMethod.rejected, (state, action) => {
+        state.dataIsLoading = false;
+        state.dataIsError = true;
+        state.dataMessage = action.payload;
       })
       .addCase(updateData.pending, (state) => {             // update
         state.dataIsLoading = true

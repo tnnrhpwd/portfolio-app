@@ -4,7 +4,22 @@ const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 
 // Import controller functions
-const { handleWebhook, createCustomer, createSetupIntent, createInvoice, setData, getData, getAllData, getPublicData, updateData, compressData, deleteData, registerUser, loginUser } = require('../controllers/index.js');
+const { handleWebhook, 
+  createCustomer, 
+  createSetupIntent, 
+  createInvoice, 
+  setData, 
+  getData, 
+  getAllData, 
+  getPublicData, 
+  updateData, 
+  compressData, 
+  deleteData, 
+  registerUser, 
+  loginUser, 
+  getPaymentMethods, 
+  deletePaymentMethod
+} = require('../controllers/index.js');
 
 // Routes
 router.route('/')
@@ -13,6 +28,10 @@ router.route('/')
 router.route('/:id')
   .delete(protect, deleteData) // DELETE request for deleting data
   .put(protect, updateData); // PUT request for updating data
+
+// Routes for payment methods
+router.get('/payment-methods', protect, getPaymentMethods); // GET request for fetching payment methods
+router.delete('/payment-methods/:id', protect, deletePaymentMethod); // DELETE request for deleting a payment method
 
 router.post('/create-customer', createCustomer);
 router.post('/create-setup-intent', createSetupIntent);

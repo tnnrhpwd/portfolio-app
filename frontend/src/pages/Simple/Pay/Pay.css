@@ -30,6 +30,7 @@
   cursor: pointer;
   transition: background-color 0.3s, color 0.3s;
   border-radius: calc(var(--nav-size) * 0.3);
+  margin-left: calc(var(--nav-size) * 0.3);
 }
 
 .pay-plan-option.selected {
@@ -45,6 +46,7 @@
 
 .pay-plan-descriptions {
   margin-top: calc(var(--nav-size) * 1);
+  padding-left: calc(var(--nav-size) * 0.3);
 }
 
 .pay-plan-description {
@@ -61,7 +63,7 @@
 
 .form-group {
   margin-bottom: calc(var(--nav-size) * 1);
-  max-width: 60%;
+  min-width: 60%;
   border: calc(var(--nav-size) * 0.01) solid var(--text-color);
   border-radius: calc(var(--nav-size) * 0.3);
   padding: calc(var(--nav-size) * 0.3);
@@ -98,4 +100,22 @@
 .pay-error {
   color: red;
   margin-bottom: 1rem;
+}
+
+.previous-payment-methods-container {
+  margin-top: calc(var(--nav-size) * 0.3);
+  color: var(--text-color);
+  font-size: calc(var(--nav-size) * 0.3);
+  width: 100%;
+}
+
+.previous-payment-methods {
+  margin-top: calc(var(--nav-size) * 0.3);
+}
+
+.payment-method {
+  padding: calc(var(--nav-size) * 0.3);
+  border: calc(var(--nav-size) * 0.01) solid var(--text-color);
+  border-radius: calc(var(--nav-size) * 0.3);
+  margin-bottom: calc(var(--nav-size) * 0.3);
 }

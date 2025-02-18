@@ -8,7 +8,13 @@ const {deleteData} = require('./deleteData');
 const {registerUser} = require('./registerUser');
 const {loginUser} = require('./loginUser');
 const Data = require('../models/dataModel');
-const { handleWebhook, createCustomer, createSetupIntent, createInvoice } = require('./stripeData');
+const { handleWebhook, 
+  createCustomer, 
+  createSetupIntent, 
+  createInvoice, 
+  getPaymentMethods, 
+  deletePaymentMethod 
+} = require('./stripeData');
 
 module.exports = {
   setData,
@@ -24,4 +30,6 @@ module.exports = {
   createCustomer,
   createSetupIntent,
   createInvoice,
+  getPaymentMethods, 
+  deletePaymentMethod
 };
