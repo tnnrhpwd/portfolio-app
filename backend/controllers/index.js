@@ -8,10 +8,10 @@ const {deleteData} = require('./deleteData');
 const {registerUser} = require('./registerUser');
 const {loginUser} = require('./loginUser');
 const Data = require('../models/dataModel');
+const { handleWebhook, createCustomer, createSetupIntent, createInvoice } = require('./stripeData');
 
 module.exports = {
   setData,
-  upload,
   getData,
   getPublicData,
   updateData,
@@ -20,4 +20,8 @@ module.exports = {
   registerUser,
   loginUser,
   getAllData,
+  handleWebhook,
+  createCustomer,
+  createSetupIntent,
+  createInvoice,
 };

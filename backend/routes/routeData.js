@@ -4,18 +4,22 @@ const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 
 // Import controller functions
-const { setData, upload, getData, getAllData, getPublicData, updateData, compressData, deleteData, registerUser, loginUser } = require('../controllers/index.js');
+const { handleWebhook, createCustomer, createSetupIntent, createInvoice, setData, getData, getAllData, getPublicData, updateData, compressData, deleteData, registerUser, loginUser } = require('../controllers/index.js');
 
 // Routes
 router.route('/')
   .get(protect, getData) // GET request for fetching protected data
-  .post(protect, upload.array('files'), setData); // POST request for setting data with file upload
 
 router.route('/:id')
   .delete(protect, deleteData) // DELETE request for deleting data
   .put(protect, updateData); // PUT request for updating data
 
+router.post('/create-customer', createCustomer);
+router.post('/create-setup-intent', createSetupIntent);
+router.post('/create-invoice', createInvoice);
+
 router.post('/compress', protect, compressData); // Route to handle data compression
+router.post('/webhook', express.raw({ type: 'application/json' }), handleWebhook);
 
 router.post('/register', registerUser); // Route to handle user registration
 router.post('/login', loginUser); // Route to handle user login
