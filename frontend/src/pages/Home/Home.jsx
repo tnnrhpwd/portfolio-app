@@ -46,7 +46,6 @@ function Home() {
                         <div className="home-spc">
                             {( user && user._id.toString() === '6770a067c725cbceab958619') && 
                                 <a className="home-spc-tool" href={links.admin} ><div className="home-spc-tool-text">{links.admin}</div></a>}
-                            <a className="home-spc-tool" href={links.passgen} ><div className="home-spc-tool-text">{links.passgen}</div></a>
                             <a className="home-spc-tool" href={links.annuities} ><div className="home-spc-tool-text">{links.annuities}</div></a>
                             {user && <a className="home-spc-tool" href={links.net} ><div className="home-spc-tool-text">{links.net}</div></a>}
                             <a className="home-spc-tool" href={links.plans} ><div className="home-spc-tool-text">{links.plans}</div></a>

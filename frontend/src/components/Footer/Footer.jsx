@@ -7,7 +7,7 @@ function Footer() {
   return (
     <div className="footer-space">
         <div className="footer-space-text">
-            Copyright © 2022-{currentYear} Simple Inc. Developed by Steven Tanner Hopwood
+            Copyright © 2022-{currentYear} Simple Inc.
         </div>
         <div className="footer-space-links">
             <a className="footer-space-link" href="/about">About Us</a> | 
