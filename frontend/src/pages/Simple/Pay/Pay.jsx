@@ -10,7 +10,7 @@ import './Pay.css';
 function Pay() {
   const dispatch = useDispatch();
   const { paymentMethods } = useSelector((state) => state.data);
-  const [paymentType, setPaymentType] = useState('Free');
+  const [paymentType, setPaymentType] = useState('Flex');
 
   useEffect(() => {
     dispatch(getPaymentMethods());
