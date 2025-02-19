@@ -40,7 +40,7 @@ function CheckoutForm({ paymentType }) {
           placeholder='Card Number'
           onChange={handleCardInput}
           required
-          pattern="\d*"
+          pattern="\d{4} \d{4} \d{4} \d{4}" // Updated pattern to match the requested format
           maxLength="19" // 16 digits + 3 spaces
         />
         <input
@@ -65,7 +65,7 @@ function CheckoutForm({ paymentType }) {
         />
       </div>
       {error && <div className="pay-error">{error}</div>}
-      <button type="submit" className="pay-button" disabled={loading}>
+      <button type="submit" id="pay-button" disabled={loading}>
         {loading ? 'Processing...' : 'Pay'}
       </button>
     </form>

@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import Header from "../../components/Header/Header.jsx";
 import Footer from "../../components/Footer/Footer.jsx";
 import { useSelector, useDispatch } from 'react-redux';
-import { getPublicData } from '../../features/data/dataSlice.js';
+import { getPublicData, login } from '../../features/data/dataSlice.js';
 import './Home.css';
 
 const links = {
@@ -14,7 +14,8 @@ const links = {
     sonic: "/sonic",
     wordle: "/wordle",
     simple: "/simple",
-    plans: "/plans"
+    plans: "/plans",
+    login: "/login",
 };
 
 function Home() {
@@ -47,8 +48,9 @@ function Home() {
                             {( user && user._id.toString() === '6770a067c725cbceab958619') && 
                                 <a className="home-spc-tool" href={links.admin} ><div className="home-spc-tool-text">{links.admin}</div></a>}
                             <a className="home-spc-tool" href={links.annuities} ><div className="home-spc-tool-text">{links.annuities}</div></a>
-                            {user && <a className="home-spc-tool" href={links.net} ><div className="home-spc-tool-text">{links.net}</div></a>}
-                            <a className="home-spc-tool" href={links.plans} ><div className="home-spc-tool-text">{links.plans}</div></a>
+                            {user ? <><a className="home-spc-tool" href={links.net} ><div className="home-spc-tool-text">{links.net}</div></a>
+                            <a className="home-spc-tool" href={links.plans} ><div className="home-spc-tool-text">{links.plans}</div></a></>
+                            : <a className="home-spc-tool" href={links.login} ><div className="home-spc-tool-text">Login for full access</div></a>}
                         </div>
                     </div>
                     <div id="content-tile">
