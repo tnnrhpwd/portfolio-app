@@ -2,18 +2,39 @@ import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import Header from "../../components/Header/Header.jsx";
 import Footer from "../../components/Footer/Footer.jsx";
+import { useNavigate } from "react-router-dom";
 import { getAllData } from "../../features/data/dataSlice";
 import "./Admin.css";
+import { toast } from 'react-toastify';
 
 function Admin() {
+  const { user, data, dataMessage, dataIsSuccess, dataIsLoading, dataIsError } = useSelector((state) => state.data);
   const dispatch = useDispatch();
-  const { data, dataIsSuccess, dataIsLoading, dataIsError } = useSelector((state) => state.data);
+  const navigate = useNavigate();
   const [allObjectArray, setAllObjectArray] = useState([]);
   const [searchText, setSearchText] = useState("");
 
   useEffect(() => {
     dispatch(getAllData());
   }, [dispatch]);
+
+  useEffect(() => {
+    if (!user) {  // if user is not logged in, redirect to login page
+      navigate("/login");
+    }
+    if (user && user._id.toString() !== "6770a067c725cbceab958619") {  // if user is not an admin, redirect to home page
+      toast.error("Only admin are allowed to use that URL.");
+      console.error("Only admin are allowed to use that URL");
+      navigate("/");
+    }
+  }, [user, navigate]);
+
+  useEffect(() => {
+    if (dataIsError) {
+      console.error("Error fetching data:", dataMessage);
+      toast.error("Error fetching data.");
+    }
+  }, [dataIsError]);
 
   useEffect(() => {
     if (data) {

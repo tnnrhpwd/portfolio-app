@@ -1,7 +1,7 @@
 import { useRef, useEffect } from 'react'
 import useOutsideAlerter from '../useOutsideAlerter.js';
 // import HeaderLogo from './../../assets/planit192.png';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux'    
 import React from 'react';
 import { setDarkMode, setLightMode } from '../../utils/theme';
@@ -13,10 +13,13 @@ function HeaderDropper(props) {
   const { user, dataIsError, dataMessage } = useSelector((state) => state.data)   // select values from state
   const dispatch = useDispatch();
 
+  const navigate = useNavigate();
+
   useEffect(() => {
     console.log('HeaderDropper dataMessage:', dataMessage)
     if (dataIsError && dataMessage === 'Not authorized, token expired') {
       dispatch(logout());
+      navigate('/login');
     }
   }, [dataIsError, dataMessage, dispatch]);
 
@@ -40,7 +43,7 @@ function HeaderDropper(props) {
         {(props.colTheme==="dark-theme") && <button className='planit-header-dropper-themebutton' onClick={props.handleThemeToggle}>Light Mode</button>}
         {(props.colTheme==="light-theme") && <button className='planit-header-dropper-themebutton' onClick={props.handleThemeToggle}>Dark Mode</button>}
           {user ? (<>
-            {(user) && <div className='planit-header-dropper-signer'>Signed in as {user.nickname}</div>}
+            {(user) && <a className='planit-header-dropper-signer' href='/profile'>Signed in as {user.nickname}</a>}
             <a className='planit-header-dropper-profile' href='/profile'>Profile</a>
             </>) : (
             <a className='planit-header-dropper-profile' href='/login' >Log in</a>
