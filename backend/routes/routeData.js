@@ -9,7 +9,7 @@ const { handleWebhook,
   createSetupIntent, 
   createInvoice, 
   setData, 
-  getData, 
+  getHashData, 
   getAllData, 
   getPublicData, 
   updateData, 
@@ -23,7 +23,7 @@ const { handleWebhook,
 
 // Routes
 router.route('/')
-  .get(protect, getData) // GET request for fetching protected data
+  .get(protect, getHashData) // GET request for fetching protected data
 
 router.route('/:id')
   .delete(protect, deleteData) // DELETE request for deleting data

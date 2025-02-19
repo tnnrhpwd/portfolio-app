@@ -4,7 +4,7 @@
 const bcrypt = require('bcryptjs')  // used to hash passwords
 require('dotenv').config();
 const asyncHandler = require('express-async-handler') // sends the errors to the errorhandler
-const { generateToken } = require('./generateToken')
+const { generateToken } = require('../utils/generateToken')
 const Data = require('../models/dataModel')
 const { checkIP } = require('../utils/accessData.js');
 

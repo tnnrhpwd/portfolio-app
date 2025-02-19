@@ -1,7 +1,8 @@
 // controllers/index.js
 
 const {setData,upload} = require('./setData');
-const {getData, getPublicData, getAllData} = require('./getData');
+const {getHashData, getAllData} = require('./getHashData');
+const {getPublicData} = require('./getData');
 const {updateData} = require('./updateData');
 const {compressData} = require('./compressData');
 const {deleteData} = require('./deleteData');
@@ -18,7 +19,7 @@ const { handleWebhook,
 
 module.exports = {
   setData,
-  getData,
+  getHashData,
   getPublicData,
   updateData,
   compressData,

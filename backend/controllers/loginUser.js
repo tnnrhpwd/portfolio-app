@@ -2,7 +2,7 @@
 
 const asyncHandler = require('express-async-handler');
 const Data = require('../models/dataModel');
-const { generateToken } = require('./generateToken');
+const { generateToken } = require('../utils/generateToken');
 const bcrypt = require('bcryptjs');  // used to hash passwords
 const { checkIP } = require('../utils/accessData.js');
 
