@@ -1,14 +1,14 @@
 const stripe = require('stripe')(process.env.STRIPE_KEY);
 const asyncHandler = require('express-async-handler');
 
-// Create a new customer
+// POST: Create a new customer
 const createCustomer = asyncHandler(async (req, res) => {
     const { email, name } = req.body;
     const customer = await stripe.customers.create({ email, name });
     res.status(200).json(customer);
 });
 
-// Create a setup intent to save payment method
+// POST: Create a setup intent to save payment method
 const createSetupIntent = asyncHandler(async (req, res) => {
     const { customerId } = req.body;
     const setupIntent = await stripe.setupIntents.create({
@@ -18,7 +18,7 @@ const createSetupIntent = asyncHandler(async (req, res) => {
     res.status(200).json(setupIntent);
 });
 
-// Create an invoice at the end of the month
+// POST: Create an invoice at the end of the month
 const createInvoice = asyncHandler(async (req, res) => {
     const { customerId, amount, description } = req.body;
     await stripe.invoiceItems.create({
@@ -34,7 +34,7 @@ const createInvoice = asyncHandler(async (req, res) => {
     res.status(200).json(invoice);
 });
 
-// Subscribe customer to a membership plan
+// POST: Subscribe customer to a membership plan
 const subscribeCustomer = asyncHandler(async (req, res) => {
     const { customerId, membershipType } = req.body;
     const priceId = membershipType === 'Pro' ? 'price_pro_plan' : 'price_basic_plan';
@@ -45,7 +45,7 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
     res.status(200).json(subscription);
 });
 
-// Fetch previous payment methods
+// GET: Fetch previous payment methods
 const getPaymentMethods = asyncHandler(async (req, res) => {
     const { customerId } = req.query;
     const paymentMethods = await stripe.paymentMethods.list({
@@ -55,13 +55,14 @@ const getPaymentMethods = asyncHandler(async (req, res) => {
     res.status(200).json(paymentMethods.data);
 });
 
-// Delete a payment method
+// DELETE: Delete a payment method
 const deletePaymentMethod = asyncHandler(async (req, res) => {
     const { id } = req.params;
     await stripe.paymentMethods.detach(id);
     res.status(200).json({ id });
 });
 
+// POST: Handle webhook events
 const handleWebhook = asyncHandler(async (req, res) => {
     const sig = req.headers['stripe-signature'];
     let event;
