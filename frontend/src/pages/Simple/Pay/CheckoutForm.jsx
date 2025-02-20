@@ -24,8 +24,22 @@ function CheckoutForm({ paymentType }) {
     event.preventDefault();
     setLoading(true);
 
-    // Handle payment processing based on paymentType
-    // You can send payment details to your backend for further processing
+    try {
+      // Handle missing / invalid card details
+      if (card.length !== 19 || expiry.length !== 5 || cvv.length !== 3) {
+        throw new Error('Invalid card details');
+      }
+      // Handle payment processing based on paymentType
+      if (paymentType === 'Flex' || paymentType === 'Premium') {
+        // Process credit card payment
+        console.log('Processing credit card payment...');
+        // Add your credit card payment processing logic here
+      } else {
+        throw new Error('Unsupported payment type');
+      }
+    } catch (err) {
+      setError(err.message);
+    }
 
     setLoading(false);
   };
