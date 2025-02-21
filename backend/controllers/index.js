@@ -1,7 +1,7 @@
 // controllers/index.js
 
-const { postData } = require('./postData');
-const { postHashData } = require('./postHashData');
+const { postData, upload: postUpload } = require('./postData');
+const { setData, upload: setUpload } = require('./postHashData');
 const { getHashData, getAllData } = require('./getHashData');
 const { getPublicData } = require('./getData');
 const { updateData } = require('./putData');
@@ -9,7 +9,6 @@ const { compressData } = require('./compressData');
 const { deleteData } = require('./deleteData');
 const { registerUser } = require('./registerUser');
 const { loginUser } = require('./loginUser');
-const Data = require('../models/dataModel');
 const { handleWebhook, 
   createCustomer, 
   createSetupIntent, 
@@ -20,7 +19,9 @@ const { handleWebhook,
 
 module.exports = {
   postData,
-  postHashData,
+  postUpload,
+  setData,
+  setUpload,
   getHashData,
   getPublicData,
   updateData,

@@ -4,22 +4,23 @@ const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 
 // Import controller functions
-const { handleWebhook, 
-  createCustomer, 
-  createSetupIntent, 
-  createInvoice, 
-  setData, 
-  getHashData, 
-  getAllData, 
-  getPublicData, 
-  updateData, 
-  compressData, 
-  deleteData, 
-  registerUser, 
-  loginUser, 
-  getPaymentMethods, 
+const {
+  handleWebhook,
+  createCustomer,
+  createSetupIntent,
+  createInvoice,
+  setData,
+  getHashData,
+  getAllData,
+  getPublicData,
+  updateData,
+  compressData,
+  deleteData,
+  registerUser,
+  loginUser,
+  getPaymentMethods,
   deletePaymentMethod
-} = require('../controllers/index.js');
+} = require('../controllers');
 
 // Routes
 router.route('/')
