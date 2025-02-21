@@ -31,6 +31,7 @@
   transition: background-color 0.3s, color 0.3s;
   border-radius: calc(var(--nav-size) * 0.3);
   margin-left: calc(var(--nav-size) * 0.3);
+  font-size: calc(var(--nav-size) * 0.3);
 }
 
 .pay-plan-option.selected {

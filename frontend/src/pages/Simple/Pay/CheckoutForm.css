@@ -14,7 +14,7 @@
   font-size: 0.9rem;
 }
 
-#pay-button {
+#add-card-button {
   padding: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1);
   background-color: var(--bg-mint);
   color: var(--text-color);
@@ -23,9 +23,10 @@
   transition: background-color 0.3s, color 0.3s;
   border-radius: calc(var(--nav-size) * 0.3);
   margin-left: calc(var(--nav-size) * 0.3);
+  font-size: calc(var(--nav-size) * 0.3);
 }
 
-#pay-button:hover {
+#add-card-button:hover {
   background-color: var(--bg-nav2);
   color: var(--text-color-accent);
 }

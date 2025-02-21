@@ -79,8 +79,8 @@ function CheckoutForm({ paymentType }) {
         />
       </div>
       {error && <div className="pay-error">{error}</div>}
-      <button type="submit" id="pay-button" disabled={loading}>
-        {loading ? 'Processing...' : 'Pay'}
+      <button type="submit" id="add-card-button" disabled={loading}>
+        {loading ? 'Processing...' : 'Add Card'}
       </button>
     </form>
   );
