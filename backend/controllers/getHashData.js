@@ -21,6 +21,17 @@ const rapidapidefoptions = {
 };
 const { checkIP } = require('../utils/accessData.js');
 
+const stripe = require('stripe')(process.env.STRIPE_KEY);
+
+// GET: Fetch previous payment methods
+const getPaymentMethods = asyncHandler(async (req, res) => {
+    const { customerId } = req.query;
+    const paymentMethods = await stripe.paymentMethods.list({
+        customer: customerId,
+        type: 'card',
+    });
+    res.status(200).json(paymentMethods.data);
+});
 // @desc    Get Data
 // @route   GET /api/data
 // @access  Private

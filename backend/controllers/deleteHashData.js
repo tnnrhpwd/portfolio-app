@@ -4,6 +4,15 @@ const asyncHandler = require('express-async-handler');
 const Data = require('../models/dataModel.js');
 const mongoose = require('mongoose');
 const { checkIP } = require('../utils/accessData.js');
+const stripe = require('stripe')(process.env.STRIPE_KEY);
+
+
+// DELETE: Delete a payment method
+const deletePaymentMethod = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    await stripe.paymentMethods.detach(id);
+    res.status(200).json({ id });
+});
 
 // @desc    Delete data
 // @route   DELETE /api/data/:id

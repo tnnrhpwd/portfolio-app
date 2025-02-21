@@ -2,7 +2,7 @@
 
 const asyncHandler = require('express-async-handler');
 require('dotenv').config();
-const Data = require('../models/dataModel');
+const Data = require('../models/dataModel.js');
 const { checkIP } = require('../utils/accessData.js');
 
 // @desc    Update Data
