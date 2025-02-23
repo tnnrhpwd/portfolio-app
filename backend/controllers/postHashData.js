@@ -1,3 +1,5 @@
+// compressData.js
+
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
@@ -5,12 +7,47 @@ const asyncHandler = require('express-async-handler');
 const Data = require('../models/dataModel.js');
 const { checkIP } = require('../utils/accessData.js');
 const stripe = require('stripe')(process.env.STRIPE_KEY);
-// compressData.js
-
 require('dotenv').config();
 const openai = require('openai');
 const openaikey = process.env.OPENAI_KEY;
 const client = new openai({ apiKey: openaikey });
+
+// @desc    Set data
+// @route   POST /api/data
+// @access  Private
+const postHashData = asyncHandler(async (req, res) => {
+    await checkIP(req);
+    if (!req.user) {  // Check for user
+      res.status(401)
+      throw new Error('User not found')
+    }
+    if (!req.body) {
+      res.status(400)
+      throw new Error('Please add a data field. req: ' + JSON.stringify(req.body.data))
+    }
+    console.log('req.body.data: ', req.body.data)
+    let files = [];
+    if (req.files && req.files.length > 0) {
+        files = req.files.map(file => ({
+            filename: file.originalname,
+            contentType: file.mimetype,
+            data: file.buffer.toString('base64')
+        }));
+    } else if (req.body.data && req.body.data.Files) {
+        // Read from JSON body
+        files = req.body.data.Files;
+    }
+
+    const datas = await Data.create({
+        data: {
+            text: typeof req.body.data === 'string' ? req.body.data : req.body.data.Text,
+            ActionGroupObject: req.body.data.ActionGroupObject,
+            files: files
+        }
+    });
+    
+    res.status(200).json(datas)
+})
 
 // @desc    Compress Data
 // @route   POST /api/compress
@@ -28,12 +65,6 @@ const compressData = asyncHandler(async (req, res) => {
         res.status(401)
         throw new Error('Only admin are authorized to utilize the API at this time.' + req.user.data.text)
     }
-
-
-    // if (!req.body || !req.body.data || typeof req.body.data !== 'string' || !req.body.data.includes("Net:")) {
-    //     res.status(401)
-    //     throw new Error('Net: not included. ')
-    // }
 
     const parsedJSON = JSON.parse(req.body.data);
     console.log('Request body:', parsedJSON); // Log the request body
@@ -135,13 +166,7 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
     res.status(200).json(subscription);
 });
 
-// Ensure the uploads directory exists
-const uploadDir = path.join(__dirname, '../uploads');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// POST: Handle webhook events
+// POST: Handle webhook events. Stripe sends events to this endpoint at any time.
 const handleWebhook = asyncHandler(async (req, res) => {
     const sig = req.headers['stripe-signature'];
     let event;
@@ -166,46 +191,4 @@ const handleWebhook = asyncHandler(async (req, res) => {
     res.status(200).send();
 });
 
-// Set up multer for memory storage
-const storage = multer.memoryStorage();
-
-const upload = multer({ storage: storage });
-
-// @desc    Set data
-// @route   POST /api/data
-// @access  Private
-const setData = asyncHandler(async (req, res) => {
-    await checkIP(req);
-    if (!req.user) {  // Check for user
-      res.status(401)
-      throw new Error('User not found')
-    }
-    if (!req.body) {
-      res.status(400)
-      throw new Error('Please add a data field. req: ' + JSON.stringify(req.body.data))
-    }
-    console.log('req.body.data: ', req.body.data)
-    let files = [];
-    if (req.files && req.files.length > 0) {
-        files = req.files.map(file => ({
-            filename: file.originalname,
-            contentType: file.mimetype,
-            data: file.buffer.toString('base64')
-        }));
-    } else if (req.body.data && req.body.data.Files) {
-        // Read from JSON body
-        files = req.body.data.Files;
-    }
-
-    const datas = await Data.create({
-        data: {
-            text: typeof req.body.data === 'string' ? req.body.data : req.body.data.Text,
-            ActionGroupObject: req.body.data.ActionGroupObject,
-            files: files
-        }
-    });
-    
-    res.status(200).json(datas)
-})
-
-module.exports = { setData, upload };
+module.exports = { postHashData, compressData, createCustomer, createSetupIntent, createInvoice, subscribeCustomer, handleWebhook };

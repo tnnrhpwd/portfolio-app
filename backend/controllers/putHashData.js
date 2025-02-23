@@ -8,7 +8,7 @@ const { checkIP } = require('../utils/accessData.js');
 // @desc    Update Data
 // @route   PUT /api/data/:id
 // @access  Private
-const updateData = asyncHandler(async (req, res) => {
+const putHashData = asyncHandler(async (req, res) => {
     await checkIP(req);
     console.log('Update Data Request:', req.body);
 
@@ -77,4 +77,11 @@ const updateData = asyncHandler(async (req, res) => {
     }
 });
 
-module.exports = { updateData };
+// PUT: Update A customer
+const updateCustomer = asyncHandler(async (req, res) => {
+    const { id, email, name } = req.body;
+    const customer = await stripe.customers.update(id, { email, name });
+    res.status(200).json(customer);
+});
+
+module.exports = { putHashData, updateCustomer }; // Export the controller functions

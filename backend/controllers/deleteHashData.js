@@ -6,14 +6,6 @@ const mongoose = require('mongoose');
 const { checkIP } = require('../utils/accessData.js');
 const stripe = require('stripe')(process.env.STRIPE_KEY);
 
-
-// DELETE: Delete a payment method
-const deletePaymentMethod = asyncHandler(async (req, res) => {
-    const { id } = req.params;
-    await stripe.paymentMethods.detach(id);
-    res.status(200).json({ id });
-});
-
 // @desc    Delete data
 // @route   DELETE /api/data/:id
 // @access  Private
@@ -67,4 +59,18 @@ const deleteHashData = asyncHandler(async (req, res) => {
     }
 });
 
-module.exports = { deleteHashData };
+// DELETE: Delete a payment method
+const deletePaymentMethod = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    await stripe.paymentMethods.detach(id);
+    res.status(200).json({ id });
+});
+
+// DETELE: Delete a customer
+const deleteCustomer = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    await stripe.customers.del(id);
+    res.status(200).json({ id });
+});
+
+module.exports = { deleteHashData, deletePaymentMethod, deleteCustomer }; // Export the controller functions

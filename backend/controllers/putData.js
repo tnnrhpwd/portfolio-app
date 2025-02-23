@@ -5,10 +5,10 @@ require('dotenv').config();
 const Data = require('../models/dataModel.js');
 const { checkIP } = require('../utils/accessData.js');
 
-// @desc    Update Data
+// @desc    Put Data
 // @route   PUT /api/data/:id
 // @access  Private
-const updateData = asyncHandler(async (req, res) => {
+const putData = asyncHandler(async (req, res) => {
     await checkIP(req);
     console.log('Update Data Request:', req.body);
 
@@ -77,4 +77,4 @@ const updateData = asyncHandler(async (req, res) => {
     }
 });
 
-module.exports = { updateData };
+module.exports = { putData };
