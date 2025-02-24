@@ -101,9 +101,9 @@
     padding: calc(var(--nav-size)*0.2);
     border: 1px solid var(--text-color);
     border-radius: calc(var(--nav-size)*0.2);
-    background-color: var(--background-color);
     color: var(--text-color);
     transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    background-color: var(--text-color-inv);
 }
 
 .planit-profile-settings select:focus {
