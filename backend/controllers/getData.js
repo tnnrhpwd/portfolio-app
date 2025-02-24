@@ -24,7 +24,7 @@ const { checkIP } = require('../utils/accessData.js');
 // @desc    Get Public Data
 // @route   GET /api/publicdata
 // @access  Public
-const getPublicData = asyncHandler(async (req, res) => {
+const getData = asyncHandler(async (req, res) => {
     await checkIP(req);
     if (!req.query || !req.query.data) {
         res.status(400);
@@ -82,4 +82,4 @@ const getPublicData = asyncHandler(async (req, res) => {
     }
 });
 
-module.exports = { getPublicData };
+module.exports = { getData };

@@ -77,9 +77,9 @@ const getAllData = async (token) => {
     const config = {
         headers: { Authorization: `Bearer ${token}` },
     }
-    console.log('Calling GET URL:', API_URL + 'all');
+    console.log('Calling GET URL:', API_URL + 'all/admin/');
     try {
-        const response = await axios.get(API_URL + 'all', config);
+        const response = await axios.get(API_URL + 'all/admin/', config);
         return response.data;
     } catch (error) {
         handleTokenExpiration(error);
@@ -151,7 +151,7 @@ const getPaymentMethods = async (token) => {
     };
 
     try {
-        const response = await axios.get(API_URL + 'payment-methods', config);
+        const response = await axios.get(API_URL + 'pay-methods', config);
         return response.data;
     } catch (error) {
         handleTokenExpiration(error);
@@ -167,7 +167,7 @@ const deletePaymentMethod = async (id, token) => {
     };
 
     try {
-        const response = await axios.delete(API_URL + `payment-methods/${id}`, config);
+        const response = await axios.delete(API_URL + `pay-methods/${id}`, config);
         return response.data;
     } catch (error) {
         handleTokenExpiration(error);

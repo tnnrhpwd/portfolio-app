@@ -7,7 +7,7 @@ const { protect } = require('../middleware/authMiddleware');
 const {
   deleteData,
   deleteHashData, deletePaymentMethod, deleteCustomer,
-  getPublicData,
+  getData,
   getHashData, getPaymentMethods, getAllData,
   postData, registerUser, loginUser,
   postHashData, compressData, createCustomer, 
@@ -21,8 +21,11 @@ const {
 router.post('/register', registerUser); // Route to handle user registration
 router.post('/login', loginUser); // Route to handle user login
 
+router.route('/public') 
+  .get(getData) // GET request for fetching public data
+  .post(postData); // POST request for creating public data
+
 // Protected routes
-router.get('/all', getPublicData); // GET request for fetching public data
 router.get('/all/admin', protect, getAllData); // GET request for fetching all data (admin only)
 router.post('/compress', protect, compressData); // Route to handle data compression
 
