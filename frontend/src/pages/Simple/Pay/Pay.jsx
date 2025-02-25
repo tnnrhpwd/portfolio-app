@@ -3,18 +3,26 @@ import Header from '../../../components/Header/Header.jsx';
 import Footer from '../../../components/Footer/Footer.jsx';
 import CheckoutForm from './CheckoutForm.jsx';
 import PreviousPaymentMethods from './PreviousPaymentMethods.jsx';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { getPaymentMethods, deletePaymentMethod } from '../../../features/data/dataSlice';
+import { toast } from 'react-toastify';
 import './Pay.css';
 
 function Pay() {
   const dispatch = useDispatch();
-  const [paymentMethods, setPaymentMethods] = useState([]);
+  const { dataIsError, dataMessage, paymentMethods } = useSelector((state) => state.data);
   const [paymentType, setPaymentType] = useState('Flex');
 
   useEffect(() => {
     dispatch(getPaymentMethods());
   }, [dispatch]);
+
+  useEffect(() => {
+    if (dataIsError) {
+      toast.error(dataMessage);
+      console.error('Failed to fetch payment methods:', dataMessage);
+    }
+  }, [dataIsError, dataMessage]);
 
   const handleDeletePaymentMethod = (id) => {
     dispatch(deletePaymentMethod(id));

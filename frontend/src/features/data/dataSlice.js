@@ -114,13 +114,11 @@ export const getPaymentMethods = createAsyncThunk(
       const token = thunkAPI.getState().data.user.token;
       return await dataService.getPaymentMethods(token);
     } catch (error) {
-      const dataMessage =
-        (error.response &&
-          error.response.data &&
-          error.response.data.dataMessage) ||
-        error.dataMessage ||
+      const message =
+        (error.response && error.response.data && error.response.data.error) ||
+        error.message ||
         error.toString();
-      return thunkAPI.rejectWithValue(dataMessage);
+      return thunkAPI.rejectWithValue(message);
     }
   }
 );
