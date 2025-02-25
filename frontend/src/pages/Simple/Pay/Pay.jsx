@@ -3,13 +3,13 @@ import Header from '../../../components/Header/Header.jsx';
 import Footer from '../../../components/Footer/Footer.jsx';
 import CheckoutForm from './CheckoutForm.jsx';
 import PreviousPaymentMethods from './PreviousPaymentMethods.jsx';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import { getPaymentMethods, deletePaymentMethod } from '../../../features/data/dataSlice';
 import './Pay.css';
 
 function Pay() {
   const dispatch = useDispatch();
-  const { paymentMethods } = useSelector((state) => state.data);
+  const [paymentMethods, setPaymentMethods] = useState([]);
   const [paymentType, setPaymentType] = useState('Flex');
 
   useEffect(() => {
