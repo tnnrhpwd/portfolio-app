@@ -150,14 +150,22 @@ const getHashData = asyncHandler(async (req, res) => {
 // GET: Fetch previous payment methods
 const getPaymentMethods = asyncHandler(async (req, res) => {
     try {
-        // Temporary error for debugging
-        throw new Error('Temporary error for debugging');
+        if (!req.user) {
+            res.status(401).json({ error: 'User not found' });
+            return;
+        }
+        
+        const customerId = req.user.substring(0, 24);
+        if (!customerId) {
+            res.status(400).json({ error: 'Customer ID is required' });
+            return;
+        }
 
-        const { customerId } = req.query;
         const paymentMethods = await stripe.paymentMethods.list({
             customer: customerId,
             type: 'card',
         });
+
         res.status(200).json(paymentMethods.data);
     } catch (error) {
         console.error('Error fetching payment methods:', error);
