@@ -9,6 +9,8 @@ const port = process.env.PORT || 5000;  //set port to hold api server
 var cors = require('cors')
 const bodyParser = require('body-parser'); // import body-parser
 
+mongoose.set('strictQuery', true);
+
 connectDB()// this async function connects to Mongo database using Mongoose | RAN ON SERVER INITIALIZATION
 
 const app = express() // Calls the express function "express()" and puts new Express application inside the app variable
