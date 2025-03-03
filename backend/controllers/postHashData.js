@@ -125,8 +125,13 @@ const compressData = asyncHandler(async (req, res) => {
 // POST: Create a new customer
 const createCustomer = asyncHandler(async (req, res) => {
     const { email, name } = req.body;
-    const customer = await stripe.customers.create({ email, name });
-    res.status(200).json(customer);
+    try {
+        const customer = await stripe.customers.create({ email, name });
+        return customer;
+    } catch (error) {
+        console.error('Customer creation failed:', error);
+        throw new Error('Customer creation failed');
+    }
 });
 
 // POST: Create a setup intent to save payment method

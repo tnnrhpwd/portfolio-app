@@ -21,6 +21,7 @@ const rapidapidefoptions = {
 };
 const { checkIP } = require('../utils/accessData.js');
 const stripe = require('stripe')(process.env.STRIPE_KEY);
+const { createCustomer } = require('./postHashData.js');
 
 
 // @desc    Get Data
@@ -154,13 +155,32 @@ const getPaymentMethods = asyncHandler(async (req, res) => {
             res.status(401).json({ error: 'User not found' });
             return;
         }
+        console.log('User:', req.user);
         
-        const customerId = req.user.substring(0, 24);
-        if (!customerId) {
-            res.status(400).json({ error: 'Customer ID is required' });
-            return;
+        if (!req.user.data.text.includes("|stripeid:")) {
+            try {
+                // Create a new customer if the customer ID is not found
+                const customer = await createCustomer({
+                    body: {
+                        email: req.user.data.text.substring(req.user.data.text.indexOf('Email:')+6, req.user.data.text.indexOf('.com|')+4),
+                        name: req.user.data.text.substring(req.user.data.text.indexOf('Nickname:')+9, req.user.data.text.indexOf('|Email:')),
+                    }
+                }, res);
+
+                // Update user data with the new customer ID
+                req.user.data.text += `|stripeid:${customer.id}`;
+                await req.user.save();
+
+                res.status(200).json({ message: 'Customer created and updated successfully', customer });
+                return;
+            } catch (error) {
+                console.error('Customer creation failed:', error);
+                res.status(500).json({ error: 'Customer creation failed' });
+                return;
+            }
         }
 
+        const customerId = req.user.data.text.match(/stripeid:([a-zA-Z0-9]+)/)[1];
         const paymentMethods = await stripe.paymentMethods.list({
             customer: customerId,
             type: 'card',
