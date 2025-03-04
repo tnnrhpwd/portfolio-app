@@ -17,7 +17,7 @@ const putHashData = asyncHandler(async (req, res) => {
         res.status(401);
         throw new Error('User not found');
     }
-    console.log('User:', req.user);
+    // console.log('User:', req.user);
     console.log('req.params.id:', req.params.id);
 
     try {
@@ -28,7 +28,7 @@ const putHashData = asyncHandler(async (req, res) => {
             throw new Error('Data input not found');
         }
 
-        console.log('Data:', dataHolder);
+        // console.log('Data:', dataHolder);
         console.log('req.user.id:', req.user.id);
 
         // Make sure the logged in user matches the data user

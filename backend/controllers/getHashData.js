@@ -155,20 +155,22 @@ const getPaymentMethods = asyncHandler(async (req, res) => {
             res.status(401).json({ error: 'User not found' });
             return;
         }
-        console.log('User:', req.user);
         
         if (!req.user.data.text.includes("|stripeid:")) {
             try {
                 // Create a new customer if the customer ID is not found
                 const customer = await createCustomer({
                     body: {
-                        email: req.user.data.text.substring(req.user.data.text.indexOf('Email:')+6, req.user.data.text.indexOf('.com|')+4),
-                        name: req.user.data.text.substring(req.user.data.text.indexOf('Nickname:')+9, req.user.data.text.indexOf('|Email:')),
+                        email: req.user.data.text.substring(req.user.data.text.indexOf('Email:')+6, 
+                            req.user.data.text.indexOf('.com|')+4),
+                        name: req.user.data.text.substring(req.user.data.text.indexOf('Nickname:')+9, 
+                            req.user.data.text.indexOf('|Email:')),
                     }
                 }, res);
 
                 // Update user data with the new customer ID
                 req.user.data.text += `|stripeid:${customer.id}`;
+                console.log(`|stripeid:${customer.id}`);
                 await req.user.save();
 
                 res.status(200).json({ message: 'Customer created and updated successfully', customer });
@@ -179,14 +181,19 @@ const getPaymentMethods = asyncHandler(async (req, res) => {
                 return;
             }
         }
+        // res.status(500).json({ error: "error.message" });
+        console.log('req.user.data.text:', req.user.data.text);
 
-        const customerId = req.user.data.text.match(/stripeid:([a-zA-Z0-9]+)/)[1];
+        const customerId = req.user.data.text.substring(req.user.data.text.indexOf('|stripeid:')+10, 
+            req.user.data.text.indexOf('|stripeid:')+28);
+        console.log('Customer ID:', customerId);
         const paymentMethods = await stripe.paymentMethods.list({
             customer: customerId,
             type: 'card',
         });
+        console.log('Payment methods:', JSON.stringify(paymentMethods.data, null, 2));
 
-        res.status(200).json(paymentMethods.data);
+        res.status(200).json(paymentMethods.data.length);
     } catch (error) {
         console.error('Error fetching payment methods:', error);
         res.status(500).json({ error: error.message });
@@ -195,13 +202,13 @@ const getPaymentMethods = asyncHandler(async (req, res) => {
 
 const getAllData = async (req, res) => {
     try {
-      // Check if the user is an admin
-      // console.log('User:', req.user);
-      if (req.user && req.user._id.toString() === "6770a067c725cbceab958619") {
-      //   console.log('Fetching all data...');
+        // Check if the user is an admin
+        // console.log('User:', req.user);
+        if (req.user && req.user._id.toString() === "6770a067c725cbceab958619") {
+        //   console.log('Fetching all data...');
           const allData = await Data.find({});
-        console.log('All data:', allData);
-        res.status(200).json(allData.map((item) => ({
+            console.log('All data:', allData);
+            res.status(200).json(allData.map((item) => ({
           _id: item._id,
           text: item.data.text,
           files: item.data.files ? item.data.files.map((f) => f.filename).join(', '): "",
