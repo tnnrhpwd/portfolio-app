@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useDispatch } from 'react-redux';
+import { postPaymentMethod } from '../../../features/data/dataSlice';
 import './CheckoutForm.css';
 
 function CheckoutForm({ paymentType }) {
@@ -7,6 +9,7 @@ function CheckoutForm({ paymentType }) {
   const [card, setCard] = useState('');
   const [cvv, setCVV] = useState('');
   const [expiry, setExpiry] = useState('');
+  const dispatch = useDispatch();
 
   const handleCardInput = (e) => {
     const value = e.target.value.replace(/\D/g, '').slice(0, 16);
@@ -32,8 +35,8 @@ function CheckoutForm({ paymentType }) {
       // Handle payment processing based on paymentType
       if (paymentType === 'Flex' || paymentType === 'Premium') {
         // Process credit card payment
-        console.log('Processing credit card payment...');
-        // Add your credit card payment processing logic here
+        const paymentData = { card, cvv, expiry };
+        await dispatch(postPaymentMethod(paymentData)).unwrap();
       } else {
         throw new Error('Unsupported payment type');
       }

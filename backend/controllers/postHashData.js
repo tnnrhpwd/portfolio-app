@@ -135,7 +135,8 @@ const createCustomer = asyncHandler(async (req, res) => {
 });
 
 // POST: Create a setup intent to save payment method
-const createSetupIntent = asyncHandler(async (req, res) => {
+const postPaymentMethod = asyncHandler(async (req, res) => {
+    console.log('Request body:', req.body);
     const { customerId } = req.body;
     const setupIntent = await stripe.setupIntents.create({
         customer: customerId,
@@ -196,4 +197,4 @@ const handleWebhook = asyncHandler(async (req, res) => {
     res.status(200).send();
 });
 
-module.exports = { postHashData, compressData, createCustomer, createSetupIntent, createInvoice, subscribeCustomer, handleWebhook };
+module.exports = { postHashData, compressData, createCustomer, postPaymentMethod, createInvoice, subscribeCustomer, handleWebhook };

@@ -11,7 +11,7 @@ const {
   getHashData, getPaymentMethods, getAllData,
   postData, registerUser, loginUser,
   postHashData, compressData, createCustomer, 
-  createSetupIntent, createInvoice, subscribeCustomer, 
+  postPaymentMethod, createInvoice, subscribeCustomer, 
   handleWebhook,
   putData,
   putHashData, updateCustomer,
@@ -43,13 +43,14 @@ router.route('/public/:id')
 
 router.route('/pay-methods')
   .get(protect, getPaymentMethods) // GET payment methods
-  .put(protect, putData); // PUT payment methods
+  .put(protect, putPaymentMethod) // PUT payment methods
+  .post(protect, postPaymentMethod); // POST payment methods
+
 
 // Customer routes
 router.delete('/pay-methods/:id', protect, deletePaymentMethod); // DELETE request for deleting a payment method
 
 router.post('/create-customer', protect, createCustomer); // Protect customer creation
-router.post('/create-setup-intent', protect, createSetupIntent); // Protect setup intent creation
 router.post('/create-invoice', protect, createInvoice); // Protect invoice creation
 router.post('/subscribe-customer', protect, subscribeCustomer); // Protect customer subscription
 

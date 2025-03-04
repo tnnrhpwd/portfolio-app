@@ -10,7 +10,7 @@ import './Pay.css';
 
 function Pay() {
   const dispatch = useDispatch();
-  const { dataIsError, dataMessage, dataIsSuccess, paymentMethods } = useSelector((state) => state.data);
+  const { data, dataIsError, dataMessage, dataIsSuccess, paymentMethods } = useSelector((state) => state.data);
   const [paymentType, setPaymentType] = useState('Flex');
 
   useEffect(() => {

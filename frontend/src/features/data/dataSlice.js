@@ -142,6 +142,25 @@ export const deletePaymentMethod = createAsyncThunk(
   }
 );
 
+// Post payment method
+export const postPaymentMethod = createAsyncThunk(
+  'data/postPaymentMethod',
+  async (paymentData, thunkAPI) => {
+    try {
+      const token = thunkAPI.getState().data.user.token;
+      return await dataService.postPaymentMethod(paymentData, token);
+    } catch (error) {
+      const dataMessage =
+        (error.response &&
+          error.response.data &&
+          error.response.data.dataMessage) ||
+        error.dataMessage ||
+        error.toString();
+      return thunkAPI.rejectWithValue(dataMessage);
+    }
+  }
+);
+
 // Update user data -- UPDATE
 export const updateData = createAsyncThunk(
   'data/update',
@@ -338,6 +357,19 @@ export const dataSlice = createSlice({
         state.paymentMethods = state.paymentMethods.filter(method => method.id !== action.payload.id);
       })
       .addCase(deletePaymentMethod.rejected, (state, action) => {
+        state.dataIsLoading = false;
+        state.dataIsError = true;
+        state.dataMessage = action.payload;
+      })
+      .addCase(postPaymentMethod.pending, (state) => {
+        state.dataIsLoading = true;
+      })
+      .addCase(postPaymentMethod.fulfilled, (state, action) => {
+        state.dataIsLoading = false;
+        state.dataIsSuccess = true;
+        // state.paymentMethods.push(action.payload);
+      })
+      .addCase(postPaymentMethod.rejected, (state, action) => {
         state.dataIsLoading = false;
         state.dataIsError = true;
         state.dataMessage = action.payload;

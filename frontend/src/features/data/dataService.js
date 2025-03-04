@@ -174,6 +174,22 @@ const deletePaymentMethod = async (id, token) => {
     }
 };
 
+// Post payment method
+const postPaymentMethod = async (paymentData, token) => {
+    const config = {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    };
+
+    try {
+        const response = await axios.post(API_URL + 'pay-methods', paymentData, config);
+        return response.data;
+    } catch (error) {
+        handleTokenExpiration(error);
+    }
+};
+
 // Register user
 const register = async (userData) => {
     console.log('Calling POST URL:', API_URL + 'register');
@@ -221,6 +237,7 @@ const dataService = {
     compressData,
     getPaymentMethods,
     deletePaymentMethod,
+    postPaymentMethod,
     register,
     login,
     logout,
