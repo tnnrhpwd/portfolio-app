@@ -186,14 +186,19 @@ const getPaymentMethods = asyncHandler(async (req, res) => {
 
         const customerId = req.user.data.text.substring(req.user.data.text.indexOf('|stripeid:')+10, 
             req.user.data.text.indexOf('|stripeid:')+28);
-        console.log('Customer ID:', customerId);
-        const paymentMethods = await stripe.paymentMethods.list({
+        console.log('Customer ID:', customerId,{
             customer: customerId,
+            limit: 3,
             type: 'card',
         });
-        console.log('Payment methods:', JSON.stringify(paymentMethods.data, null, 2));
+        const paymentMethods = await stripe.paymentMethods.list({
+            customer: customerId,
+            limit: 3,
+            type: 'card',
+        });
+        console.log('Reply from Stripe:', JSON.stringify(paymentMethods.data, null, 2));
 
-        res.status(200).json(paymentMethods.data.length);
+        res.status(200).json(paymentMethods.data);
     } catch (error) {
         console.error('Error fetching payment methods:', error);
         res.status(500).json({ error: error.message });
@@ -203,7 +208,6 @@ const getPaymentMethods = asyncHandler(async (req, res) => {
 const getAllData = async (req, res) => {
     try {
         // Check if the user is an admin
-        // console.log('User:', req.user);
         if (req.user && req.user._id.toString() === "6770a067c725cbceab958619") {
         //   console.log('Fetching all data...');
           const allData = await Data.find({});

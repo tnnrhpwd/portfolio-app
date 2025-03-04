@@ -110,12 +110,13 @@ const loginUser = asyncHandler(async (req, res) => {
       res.status(400);
       throw new Error("Could nto find that user. users.length: "+users.length+",json: "+JSON.stringify(users));
     }
-    let user, userPassword, userNickname;
+    let user, userPassword, userNickname, userStripe;
     try {
       user = users[0];
 
       // Extract password and nickname from the stored data
-      userPassword = user.data.text.substring(user.data.text.indexOf('|Password:') + 10);
+      userStripe = user.data.text.substring(user.data.text.indexOf('|stripeid:')+10);
+      userPassword = user.data.text.substring(user.data.text.indexOf('|Password:') + 10, user.data.text.indexOf('|stripeid:'));
       userNickname = user.data.text.substring(user.data.text.indexOf('Nickname:') + 9, user.data.text.indexOf('|Email:'));
     } catch (error) {
       res.status(500);
@@ -127,6 +128,7 @@ const loginUser = asyncHandler(async (req, res) => {
         _id: user._id,
         email: email,
         nickname: userNickname,
+        stripe: userStripe,
         token: generateToken(user._id),
       });
     } else {

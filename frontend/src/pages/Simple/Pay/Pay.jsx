@@ -10,7 +10,7 @@ import './Pay.css';
 
 function Pay() {
   const dispatch = useDispatch();
-  const { dataIsError, dataMessage, paymentMethods } = useSelector((state) => state.data);
+  const { dataIsError, dataMessage, dataIsSuccess, paymentMethods } = useSelector((state) => state.data);
   const [paymentType, setPaymentType] = useState('Flex');
 
   useEffect(() => {
@@ -22,7 +22,16 @@ function Pay() {
       toast.error(dataMessage);
       console.error('Failed to fetch payment methods:', dataMessage);
     }
-  }, [dataIsError, dataMessage]);
+    if (dataIsSuccess) {
+      if(data.length === 0) {
+        toast.info('No payment methods found');
+        console.log('No payment methods found');
+      }else{
+        toast.success('Payment methods fetched successfully');
+        console.log('Payment methods fetched successfully');
+      }
+    }
+  }, [dataIsError, dataMessage, dataIsSuccess]);
 
   const handleDeletePaymentMethod = (id) => {
     dispatch(deletePaymentMethod(id));
