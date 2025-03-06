@@ -10,7 +10,7 @@ const { postHashData, compressData, createCustomer,
   postPaymentMethod, createInvoice, subscribeCustomer, 
   handleWebhook } = require('./postHashData'); // CREATE protected data
 const { putData } = require('./putData'); // UPDATE public data
-const { putHashData, updateCustomer } = require('./putHashData'); // UPDATE protected data
+const { putHashData, updateCustomer, putPaymentMethod } = require('./putHashData'); // UPDATE protected data
 
 module.exports = {
   deleteData,
@@ -22,5 +22,5 @@ module.exports = {
     postPaymentMethod, createInvoice, subscribeCustomer, 
     handleWebhook,
   putData,
-  putHashData,  updateCustomer,
+  putHashData, updateCustomer, putPaymentMethod,
 };

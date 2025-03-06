@@ -84,4 +84,24 @@ const updateCustomer = asyncHandler(async (req, res) => {
     res.status(200).json(customer);
 });
 
-module.exports = { putHashData, updateCustomer }; // Export the controller functions
+// PUT: Update a payment method
+const putPaymentMethod = asyncHandler(async (req, res) => {
+    const { paymentMethodId, customerId } = req.body;
+
+    try {
+        const paymentMethod = await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId });
+        await stripe.customers.update(customerId, {
+            invoice_settings: {
+                default_payment_method: paymentMethodId,
+            },
+        });
+
+        res.status(200).json(paymentMethod);
+    } catch (error) {
+        console.error('Error updating payment method:', error);
+        res.status(500);
+        throw new Error('Server error');
+    }
+});
+
+module.exports = { putHashData, updateCustomer, putPaymentMethod }; // Export the controller functions

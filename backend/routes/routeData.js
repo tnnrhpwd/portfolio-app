@@ -14,7 +14,7 @@ const {
   postPaymentMethod, createInvoice, subscribeCustomer, 
   handleWebhook,
   putData,
-  putHashData, updateCustomer,
+  putHashData, putPaymentMethod, updateCustomer,
 } = require('../controllers');
 
 // Public routes

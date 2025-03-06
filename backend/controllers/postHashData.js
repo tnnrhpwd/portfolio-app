@@ -85,9 +85,9 @@ const compressData = asyncHandler(async (req, res) => {
 
     try {
         const response = await client.chat.completions.create({
-          model: 'gpt-4o', // Choose the appropriate engine
+          model: 'o1-mini', // Use the o1-mini model
           messages: [{ role: 'user', content: userInput }],
-          max_tokens: 50, // Adjust as needed
+          max_completion_tokens: 1000, // Increase the max tokens to allow more complete responses
         });
         console.log('OpenAI response:', JSON.stringify(response)); // Log the OpenAI response
         // const response = { data: { choices: [ {text: "This is a simulated response for debugging purposes."} ] } };
