@@ -4,6 +4,7 @@ const asyncHandler = require('express-async-handler');
 require('dotenv').config();
 const Data = require('../models/dataModel.js');
 const { checkIP } = require('../utils/accessData.js');
+const { getPaymentMethods } = require('./getHashData.js');
 
 // @desc    Update Data
 // @route   PUT /api/data/:id
@@ -41,41 +42,45 @@ const putHashData = asyncHandler(async (req, res) => {
             }
         }
 
-        const searchConditions = [
-            { 'data.text': { $regex: `Creator:${req.user.id}`, $options: 'i' } },
-            { 'data.text': { $regex: 'Payment:', $options: 'i' } }
-        ];
-
-        // Check for payment method
-        const paymentMethods = await Data.find({ 
-            $and: searchConditions
-        });
-
-        if (paymentMethods.length === 0) {
-            console.error('No payment method found');
-            res.status(200).json({ redirectToPay: true });
+        // Skip payment method check if text is 'free'
+        if (req.body.text.toLowerCase() === 'free') {
+            updateDataHolder(req, res, dataHolder);
             return;
         }
-        console.log('Payment methods:', paymentMethods[1]);
-        // Update subscription plan
-        const updatedText = dataHolder.data.text.includes('|Rank:')
-            ? dataHolder.data.text.replace(/(\|Rank:)(Free|Flex|Premium)/, `$1${req.body.text}`)
-            : `${dataHolder.data.text}|Rank:${req.body.text}`;
 
-        console.log('Updated text:', updatedText);
-        dataHolder.data.text = updatedText;
-
-        const updatedData = await Data.findByIdAndUpdate(req.params.id, { 'data.text': updatedText }, {
-            new: true,
+        // Check for payment method
+        await getPaymentMethods(req, res, async () => {
+            const paymentMethods = req.paymentMethods;
+            if (paymentMethods.length === 0) {
+                console.error('No payment method found');
+                res.status(200).json({ redirectToPay: true });
+                return;
+            }
+            console.log('Payment methods:', paymentMethods.length);
+            updateDataHolder(req, res, dataHolder);
         });
-        console.log('Updated data:', updatedData);
-        res.status(200).json(updatedData);
     } catch (error) {
         console.error('Error during data update:', error);
         res.status(500);
         throw new Error('Server error');
     }
 });
+
+const updateDataHolder = async (req, res, dataHolder) => {
+    // Update subscription plan
+    const updatedText = dataHolder.data.text.includes('|Rank:')
+        ? dataHolder.data.text.replace(/(\|Rank:)(Free|Flex|Premium)/, `$1${req.body.text}`)
+        : `${dataHolder.data.text}|Rank:${req.body.text}`;
+
+    console.log('Updated text:', updatedText);
+    dataHolder.data.text = updatedText;
+
+    const updatedData = await Data.findByIdAndUpdate(req.params.id, { 'data.text': updatedText }, {
+        new: true,
+    });
+    console.log('Updated data:', updatedData);
+    res.status(200).json(updatedData);
+};
 
 // PUT: Update A customer
 const updateCustomer = asyncHandler(async (req, res) => {

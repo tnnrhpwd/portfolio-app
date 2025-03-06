@@ -149,7 +149,7 @@ const getHashData = asyncHandler(async (req, res) => {
 });
 
 // GET: Fetch previous payment methods
-const getPaymentMethods = asyncHandler(async (req, res) => {
+const getPaymentMethods = asyncHandler(async (req, res, next) => {
     try {
         if (!req.user) {
             res.status(401).json({ error: 'User not found' });
@@ -173,8 +173,13 @@ const getPaymentMethods = asyncHandler(async (req, res) => {
                 console.log(`|stripeid:${customer.id}`);
                 await req.user.save();
 
-                res.status(200).json({ message: 'Customer created and updated successfully', customer });
-                return;
+                if (next) {
+                    req.paymentMethods = [];
+                    return next();
+                } else {
+                    res.status(200).json({ message: 'Customer created and updated successfully', customer });
+                    return;
+                }
             } catch (error) {
                 console.error('Customer creation failed:', error);
                 res.status(500).json({ error: 'Customer creation failed' });
@@ -186,7 +191,7 @@ const getPaymentMethods = asyncHandler(async (req, res) => {
 
         const customerId = req.user.data.text.substring(req.user.data.text.indexOf('|stripeid:')+10, 
             req.user.data.text.indexOf('|stripeid:')+28);
-        console.log('Customer ID:', customerId,{
+        console.log('Customer ID:', customerId, {
             customer: customerId,
             limit: 3,
             type: 'card',
@@ -198,10 +203,19 @@ const getPaymentMethods = asyncHandler(async (req, res) => {
         });
         console.log('Reply from Stripe:', JSON.stringify(paymentMethods.data, null, 2));
 
-        res.status(200).json(paymentMethods.data);
+        if (next) {
+            req.paymentMethods = paymentMethods.data;
+            return next();
+        } else {
+            res.status(200).json(paymentMethods.data);
+        }
     } catch (error) {
         console.error('Error fetching payment methods:', error);
-        res.status(500).json({ error: error.message });
+        if (next) {
+            return next(error);
+        } else {
+            res.status(500).json({ error: error.message });
+        }
     }
 });
 
