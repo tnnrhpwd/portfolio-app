@@ -44,7 +44,7 @@ const putHashData = asyncHandler(async (req, res) => {
 
         // Skip payment method check if text is 'free'
         if (req.body.text.toLowerCase() === 'free') {
-            updateDataHolder(req, res, dataHolder);
+            console.log("updateDataHolder(req, res, dataHolder)");
             return;
         }
 
@@ -57,7 +57,7 @@ const putHashData = asyncHandler(async (req, res) => {
                 return;
             }
             console.log('Payment methods:', paymentMethods.length);
-            updateDataHolder(req, res, dataHolder);
+            console.log("updateDataHolder(req, res, dataHolder)");
         });
     } catch (error) {
         console.error('Error during data update:', error);

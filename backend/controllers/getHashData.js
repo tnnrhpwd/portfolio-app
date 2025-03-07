@@ -155,15 +155,15 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
             res.status(401).json({ error: 'User not found' });
             return;
         }
-        
+
         if (!req.user.data.text.includes("|stripeid:")) {
             try {
                 // Create a new customer if the customer ID is not found
                 const customer = await createCustomer({
                     body: {
-                        email: req.user.data.text.substring(req.user.data.text.indexOf('Email:')+6, 
-                            req.user.data.text.indexOf('.com|')+4),
-                        name: req.user.data.text.substring(req.user.data.text.indexOf('Nickname:')+9, 
+                        email: req.user.data.text.substring(req.user.data.text.indexOf('Email:') + 6,
+                            req.user.data.text.indexOf('.com|') + 4),
+                        name: req.user.data.text.substring(req.user.data.text.indexOf('Nickname:') + 9,
                             req.user.data.text.indexOf('|Email:')),
                     }
                 }, res);
@@ -173,8 +173,8 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
                 console.log(`|stripeid:${customer.id}`);
                 await req.user.save();
 
-                if (next) {
-                    req.paymentMethods = [];
+                req.paymentMethods = [];
+                if (req.fromPostHashData) {
                     return next();
                 } else {
                     res.status(200).json({ message: 'Customer created and updated successfully', customer });
@@ -186,11 +186,11 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
                 return;
             }
         }
-        // res.status(500).json({ error: "error.message" });
+
         console.log('req.user.data.text:', req.user.data.text);
 
-        const customerId = req.user.data.text.substring(req.user.data.text.indexOf('|stripeid:')+10, 
-            req.user.data.text.indexOf('|stripeid:')+28);
+        const customerId = req.user.data.text.substring(req.user.data.text.indexOf('|stripeid:') + 10,
+            req.user.data.text.indexOf('|stripeid:') + 28);
         console.log('Customer ID:', customerId, {
             customer: customerId,
             limit: 3,
@@ -203,15 +203,16 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
         });
         console.log('Reply from Stripe:', JSON.stringify(paymentMethods.data, null, 2));
 
-        if (next) {
-            req.paymentMethods = paymentMethods.data;
+        req.paymentMethods = paymentMethods.data;
+        
+        if (req.fromPostHashData) {
             return next();
         } else {
             res.status(200).json(paymentMethods.data);
         }
     } catch (error) {
         console.error('Error fetching payment methods:', error);
-        if (next) {
+        if (req.fromPostHashData) {
             return next(error);
         } else {
             res.status(500).json({ error: error.message });
