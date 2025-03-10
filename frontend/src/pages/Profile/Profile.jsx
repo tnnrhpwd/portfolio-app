@@ -15,17 +15,27 @@ function Profile() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const { user, dataIsLoading, dataMessage } = useSelector((state) => state.data);
+  const { user, dataIsLoading, dataIsSuccess, dataIsError, dataMessage } = useSelector((state) => state.data);
 
   useEffect(() => {
     if (!user) {
       navigate('/login');
     }
 
+    if (dataIsError) {
+      toast.error(dataMessage);
+      console.log('Toast error message:', dataMessage);
+    }
+
+    if (dataIsSuccess && dataMessage) {
+      toast.success(dataMessage);
+      console.log('Toast success message:', dataMessage);
+    }
+
     return () => {
       dispatch(resetDataSlice());
     };
-  }, [user, navigate, dispatch]);
+  }, [user, navigate, dispatch, dataIsError, dataIsSuccess, dataMessage]);
 
   if (dataIsLoading) {
     return <Spinner />;
@@ -116,6 +126,8 @@ function Profile() {
       </>
     );
   }
+
+  return null;
 }
 
 export default Profile;

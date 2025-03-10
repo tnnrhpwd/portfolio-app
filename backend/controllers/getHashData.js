@@ -151,6 +151,8 @@ const getHashData = asyncHandler(async (req, res) => {
 // GET: Fetch previous payment methods
 const getPaymentMethods = asyncHandler(async (req, res, next) => {
     try {
+        console.log('getPaymentMethods called with fromPutHashData:', req.fromPutHashData);
+        
         if (!req.user) {
             res.status(401).json({ error: 'User not found' });
             return;
@@ -205,14 +207,16 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
 
         req.paymentMethods = paymentMethods.data;
         
-        if (req.fromPostHashData) {
+        if (req.fromPutHashData) {
+            console.log('Returning next from GetHashData.GetPaymentMethods with payment methods count:', paymentMethods.data.length);
             return next();
         } else {
+            console.log('Returning payment methods from GetHashData.GetPaymentMethods ...');
             res.status(200).json(paymentMethods.data);
         }
     } catch (error) {
         console.error('Error fetching payment methods:', error);
-        if (req.fromPostHashData) {
+        if (req.fromPostHashData || req.fromPutHashData) {
             return next(error);
         } else {
             res.status(500).json({ error: error.message });

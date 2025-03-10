@@ -13,9 +13,9 @@ function Pay() {
   const { data, dataIsError, dataMessage, dataIsSuccess, paymentMethods } = useSelector((state) => state.data);
   const [paymentType, setPaymentType] = useState('Flex');
 
-  useEffect(() => {
-    dispatch(getPaymentMethods());
-  }, [dispatch]);
+  // useEffect(() => {
+  //   dispatch(getPaymentMethods());
+  // }, [dispatch]);
 
   useEffect(() => {
     if (dataIsError) {

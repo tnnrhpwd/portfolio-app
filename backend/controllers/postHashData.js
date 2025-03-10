@@ -134,15 +134,64 @@ const createCustomer = asyncHandler(async (req, res) => {
     }
 });
 
-// POST: Create a setup intent to save payment method
+// POST: Create a setup intent or attach a payment method
 const postPaymentMethod = asyncHandler(async (req, res) => {
+    // Check for user
+    if (!req.user) {
+        res.status(401);
+        throw new Error('User not found');
+    }
     console.log('Request body:', req.body);
-    const { customerId } = req.body;
-    const setupIntent = await stripe.setupIntents.create({
-        customer: customerId,
-        payment_method_types: ['card'],
-    });
-    res.status(200).json(setupIntent);
+    console.log('req.user.data.text:', req.user.data.text);
+
+    try {
+        // Check if stripeid exists
+        if (!req.user.data.text.includes('|stripeid:')) {
+            res.status(400);
+            throw new Error('No customer ID found. Please create a customer first.');
+        }
+
+        // Extract customer ID using regex for more reliability
+        const stripeIdMatch = req.user.data.text.match(/\|stripeid:([^|]+)/);
+        if (!stripeIdMatch || !stripeIdMatch[1]) {
+            res.status(400);
+            throw new Error('Invalid customer ID format');
+        }
+        
+        const customerId = stripeIdMatch[1];
+        console.log('Extracted Customer ID:', customerId);
+        
+        // Case 1: If paymentMethodId is provided (from Stripe.js on frontend), attach it to the customer
+        if (req.body.paymentMethodId) {
+            const paymentMethodId = req.body.paymentMethodId;
+            
+            // Attach the payment method to the customer
+            await stripe.paymentMethods.attach(paymentMethodId, {
+                customer: customerId,
+            });
+            
+            // Set as default payment method
+            await stripe.customers.update(customerId, {
+                invoice_settings: {
+                    default_payment_method: paymentMethodId,
+                },
+            });
+            
+            const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
+            res.status(200).json(paymentMethod);
+        } 
+        // Case 2: Create a setup intent for the frontend to use with Stripe Elements
+        else {
+            const setupIntent = await stripe.setupIntents.create({
+                customer: customerId,
+                payment_method_types: ['card'],
+            });
+            res.status(200).json(setupIntent);
+        }
+    } catch (error) {
+        console.error('Error handling payment method:', error);
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // POST: Create an invoice at the end of the month

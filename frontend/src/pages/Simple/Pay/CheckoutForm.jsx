@@ -1,91 +1,90 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { postPaymentMethod } from '../../../features/data/dataSlice';
+import { loadStripe } from '@stripe/stripe-js';
+import {
+  Elements,
+  CardElement,
+  useStripe,
+  useElements
+} from '@stripe/react-stripe-js';
 import './CheckoutForm.css';
 
-function CheckoutForm({ paymentType }) {
+// Initialize Stripe.js with your publishable key (this is safe to use client-side)
+const stripePromise = loadStripe('pk_live_51Qi5RQDe3PzRS0w2C6RELysPJGooJ2QrdAOfGJdOWS6SGAuR2TH74ZKvq4Pte6sjm9ESZdftoFHZNGdIM7aV5Fu500Y8DkVnnM');
+
+const CheckoutContent = ({ paymentType }) => {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [card, setCard] = useState('');
-  const [cvv, setCVV] = useState('');
-  const [expiry, setExpiry] = useState('');
   const dispatch = useDispatch();
-
-  const handleCardInput = (e) => {
-    const value = e.target.value.replace(/\D/g, '').slice(0, 16);
-    const formattedValue = value.replace(/(.{4})/g, '$1 ').trim();
-    setCard(formattedValue);
-  };
-
-  const handleExpiryInput = (e) => {
-    const value = e.target.value.replace(/\D/g, '').slice(0, 4);
-    const formattedValue = value.replace(/(\d{2})(\d{2})/, '$1/$2');
-    setExpiry(formattedValue);
-  };
+  const stripe = useStripe();
+  const elements = useElements();
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setLoading(true);
+    setError(null);
+
+    if (!stripe || !elements) {
+      setError("Stripe hasn't loaded yet. Please try again.");
+      setLoading(false);
+      return;
+    }
 
     try {
-      // Handle missing / invalid card details
-      if (card.length !== 19 || expiry.length !== 5 || cvv.length !== 3) {
-        throw new Error('Invalid card details');
+      // Create a payment method using the card element
+      const result = await stripe.createPaymentMethod({
+        type: 'card',
+        card: elements.getElement(CardElement)
+      });
+
+      if (result.error) {
+        throw new Error(result.error.message);
       }
-      // Handle payment processing based on paymentType
-      if (paymentType === 'Flex' || paymentType === 'Premium') {
-        // Process credit card payment
-        const paymentData = { card, cvv, expiry };
-        await dispatch(postPaymentMethod(paymentData)).unwrap();
-      } else {
-        throw new Error('Unsupported payment type');
-      }
+
+      // Send only the payment method ID to your server
+      const paymentMethodId = result.paymentMethod.id;
+      await dispatch(postPaymentMethod({ paymentMethodId })).unwrap();
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Payment failed. Please try again.');
     }
 
     setLoading(false);
   };
 
+  const cardElementOptions = {
+    style: {
+      base: {
+        fontSize: '16px',
+        color: '#424770',
+        '::placeholder': {
+          color: '#aab7c4',
+        },
+      },
+      invalid: {
+        color: '#9e2146',
+      },
+    },
+  };
+
   return (
     <form onSubmit={handleSubmit}>
       <div className="form-group">
-        <input
-          type="text"
-          id="form-group-card"
-          value={card}
-          placeholder='Card Number'
-          onChange={handleCardInput}
-          required
-          pattern="\d{4} \d{4} \d{4} \d{4}" // Updated pattern to match the requested format
-          maxLength="19" // 16 digits + 3 spaces
-        />
-        <input
-          type="text"
-          id="form-group-expiry"
-          placeholder='MM/YY'
-          value={expiry}
-          onChange={handleExpiryInput}
-          required
-          pattern="\d{2}/\d{2}"
-          maxLength="5"
-        />
-        <input
-          type="text"
-          id="form-group-cvv"
-          placeholder='CVV'
-          value={cvv}
-          onChange={(e) => setCVV(e.target.value)}
-          required
-          pattern="\d*"
-          maxLength="3"
-        />
+        <CardElement options={cardElementOptions} />
       </div>
       {error && <div className="pay-error">{error}</div>}
-      <button type="submit" id="add-card-button" disabled={loading}>
+      <button type="submit" id="add-card-button" disabled={loading || !stripe}>
         {loading ? 'Processing...' : 'Add Card'}
       </button>
     </form>
+  );
+};
+
+function CheckoutForm({ paymentType }) {
+  return (
+    <Elements stripe={stripePromise}>
+      <CheckoutContent paymentType={paymentType} />
+    </Elements>
   );
 }
 

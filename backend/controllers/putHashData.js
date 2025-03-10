@@ -44,20 +44,23 @@ const putHashData = asyncHandler(async (req, res) => {
 
         // Skip payment method check if text is 'free'
         if (req.body.text.toLowerCase() === 'free') {
-            console.log("updateDataHolder(req, res, dataHolder)");
+            await updateDataHolder(req, res, dataHolder);
             return;
         }
 
+        // Set the flag to indicate this call is from putHashData
+        req.fromPutHashData = true;
+        
         // Check for payment method
         await getPaymentMethods(req, res, async () => {
             const paymentMethods = req.paymentMethods;
-            if (paymentMethods.length === 0) {
+            if (!paymentMethods || paymentMethods.length === 0) {
                 console.error('No payment method found');
                 res.status(200).json({ redirectToPay: true });
                 return;
             }
             console.log('Payment methods:', paymentMethods.length);
-            console.log("updateDataHolder(req, res, dataHolder)");
+            await updateDataHolder(req, res, dataHolder);
         });
     } catch (error) {
         console.error('Error during data update:', error);
