@@ -73,22 +73,6 @@
   background-color: var(--bg-alt, rgba(79, 156, 249, 0.05));
 }
 
-/* Plan styles */
-.plan-card {
-  flex: 1;
-  padding: calc(var(--nav-size) * 0.25);
-  border: calc(var(--nav-size) * 0.025) solid rgba(79, 156, 249, 0.2);
-  border-radius: var(--border-radius);
-  background-color: var(--bg-page);
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.plan-card.selected {
-  border-color: var(--bg-mint);
-  transform: translateY(calc(var(--nav-size) * -0.025));
-}
-
 /* Spinner */
 .spinner {
   display: inline-block;
@@ -672,7 +656,7 @@
   flex: 1;
   border: calc(var(--nav-size) * 0.025) solid rgba(79, 156, 249, 0.2);
   border-radius: var(--border-radius);
-  padding: calc(var(--nav-size) * 0.35);
+  padding: calc(var(--nav-size) * 0.15);
   background-color: var(--bg-page);
   position: relative;
   transition: all 0.3s ease;
@@ -877,4 +861,41 @@
     padding: calc(var(--nav-size) * 0.2);
     margin: 0 calc(var(--nav-size) * 0.2);
   }
+}
+
+/* Added marketing elements */
+.plan-tagline {
+  color: var(--text-color-accent);
+  font-size: calc(var(--nav-size) * 0.2);
+  margin: calc(var(--nav-size) * 0.05) 0 calc(var(--nav-size) * 0.15) 0;
+  font-style: italic;
+}
+
+.subscription-terms {
+  margin: calc(var(--nav-size) * 0.25) 0;
+  padding: calc(var(--nav-size) * 0.2);
+  background-color: rgba(79, 156, 249, 0.05);
+  border-radius: var(--border-radius);
+  text-align: center;
+}
+
+.subscription-terms p {
+  font-size: calc(var(--nav-size) * 0.2);
+  color: var(--text-color);
+}
+
+.terms-highlight {
+  font-weight: 500;
+  color: var(--fg-mint);
+  font-size: calc(var(--nav-size) * 0.22);
+}
+
+.pricing-note {
+  margin: calc(var(--nav-size) * 0.2) 0;
+  padding: calc(var(--nav-size) * 0.15);
+  background-color: rgba(39, 174, 96, 0.05);
+  border-left: calc(var(--nav-size) * 0.05) solid var(--fg-mint);
+  border-radius: var(--border-radius);
+  font-size: calc(var(--nav-size) * 0.2);
+  color: var(--text-color);
 }

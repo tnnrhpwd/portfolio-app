@@ -26,28 +26,28 @@ const MembershipPlans = ({ selectedPlan, onSelectPlan }) => {
     { 
       id: 'flex', 
       name: 'Flex Membership', 
-      price: '$9.99', 
+      price: 'Up to $10', 
       period: 'per month',
+      tagline: 'Pay only for what you use',
       features: [
-        'Unlimited AudioAI conversations',
-        'Plan management console',
-        'Strategic planning sequence',
-        'Basic marketing & research tools',
-        'Community support'
+        'Usage-based pricing - only pay for what you need',
+        'Strategic planning tools',
+        'Basic analytics dashboard',
       ]
     },
     { 
       id: 'premium', 
       name: 'Premium Membership', 
-      price: '$19.99', 
-      period: 'per month',
+      price: 'Custom Max', 
+      period: 'with lower rates',
+      tagline: 'Power users save more',
       features: [
-        'All Flex membership features',
-        'Priority service & alerts',
-        'Advanced AI models access',
-        'Custom data analysis',
-        'Priority email & phone support',
-        'Early access to new features'
+        'Reduced per-usage rates - save up to 40%',
+        'Set your own monthly maximum',
+        'Priority AI processing & responses',
+        'Advanced analytics & data insights',
+        'Dedicated support channel',
+        'Early access to cutting-edge features',
       ]
     }
   ];
@@ -64,6 +64,7 @@ const MembershipPlans = ({ selectedPlan, onSelectPlan }) => {
           >
             <div className="plan-header">
               <h4>{plan.name}</h4>
+              <p className="plan-tagline">{plan.tagline}</p>
               <div className="plan-price">
                 <span className="price">{plan.price}</span>
                 <span className="period">{plan.period}</span>
@@ -335,6 +336,15 @@ const CheckoutContent = ({ paymentType }) => {
     }
   };
 
+  // Update the subscription confirmation display
+  const getPlanDisplayName = () => {
+    if (selectedPlan === 'premium') {
+      return 'Premium (Usage-based with customizable max)';
+    } else {
+      return 'Flex (Usage-based with $10 monthly max)';
+    }
+  };
+
   return (
     <div className="payment-container">
       {stripeBlocked ? (
@@ -472,7 +482,7 @@ const CheckoutContent = ({ paymentType }) => {
                   <div className="confirmation-details">
                     <div className="confirmation-item">
                       <span className="label">Membership:</span>
-                      <span className="value">{selectedPlan === 'premium' ? 'Premium ($19.99/month)' : 'Flex ($9.99/month)'}</span>
+                      <span className="value">{getPlanDisplayName()}</span>
                     </div>
                     <div className="confirmation-item">
                       <span className="label">Payment Method:</span>
@@ -487,6 +497,14 @@ const CheckoutContent = ({ paymentType }) => {
                       <span className="label">Billing Email:</span>
                       <span className="value">{userEmail}</span>
                     </div>
+                  </div>
+                  
+                  <div className="pricing-note">
+                    <p>With {selectedPlan === 'premium' ? 'Premium' : 'Flex'}, you'll only pay for what you use. 
+                    {selectedPlan === 'premium' ? 
+                      ' Your custom monthly maximum ensures you stay in control while enjoying lower per-usage rates.' : 
+                      ' Never worry about exceeding $10 per month, guaranteed.'}
+                    </p>
                   </div>
                   
                   {message && (
