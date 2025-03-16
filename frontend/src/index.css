@@ -78,6 +78,10 @@ code {
   --bg-pink:rgb(255, 233, 255);
   --bg-blue:rgb(224, 224, 255);
   --bg-mint:rgb(219, 255, 255);
+  --fg-orange:rgb(255, 115, 46);
+  --fg-pink:rgb(255, 55, 155);
+  --fg-blue:rgb(56, 56, 255);
+  --fg-mint:rgb(0, 255, 255);
   --bg-pagelink: var(--green0);
   --bg-nav1: var(--white0);
   --bg-nav2: var(--grey0);
@@ -107,7 +111,10 @@ code {
   --text-color:white;
   --text-color-accent:var(--grey2);
   --text-color-inv: rgb(0, 0, 0);
-  pointer-events:none; 
+  --fg-orange:rgb(255, 115, 46);
+  --fg-pink:rgb(255, 55, 155);
+  --fg-blue:rgb(56, 56, 255);
+  --fg-mint:rgb(0, 255, 255);
   --bg-pagelink: var(--green2);
   --bg-nav1: var(--dark-blue0);
   --bg-nav2: var(--dark-blue0-grey);

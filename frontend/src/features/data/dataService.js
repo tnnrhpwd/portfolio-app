@@ -190,6 +190,22 @@ const postPaymentMethod = async (paymentData, token) => {
     }
 };
 
+// Subscribe customer to a membership plan
+const subscribeCustomer = async (subscriptionData, token) => {
+    const config = {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    };
+
+    try {
+        const response = await axios.post(API_URL + 'subscribe-customer', subscriptionData, config);
+        return response.data;
+    } catch (error) {
+        handleTokenExpiration(error);
+    }
+};
+
 // Register user
 const register = async (userData) => {
     console.log('Calling POST URL:', API_URL + 'register');
@@ -238,6 +254,7 @@ const dataService = {
     getPaymentMethods,
     deletePaymentMethod,
     postPaymentMethod,
+    subscribeCustomer,
     register,
     login,
     logout,

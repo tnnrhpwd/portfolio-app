@@ -1,14 +1,29 @@
 .pay-container {
   min-height: 87vh;
   padding: calc(var(--nav-size) * 0.5);
+  padding-top: calc(var(--nav-size) * 1);
 }
 
-.pay-container-header {
+.pay-header {
+  text-align: center;
+  margin-bottom: calc(var(--nav-size) * 0.5);
+}
+
+.pay-header h1 {
   font-size: calc(var(--nav-size) * 0.4);
   color: var(--text-color);
-  margin-bottom: 1rem;
-  text-align: center;
-  width: 100%;
+  margin-bottom: calc(var(--nav-size) * 0.125);
+}
+
+.pay-header p {
+  font-size: calc(var(--nav-size) * 0.2);
+  color: var(--text-color-accent);
+}
+
+.pay-content {
+  display: flex;
+  justify-content: center;
+  margin-top: calc(var(--nav-size) * 0.3);
 }
 
 .pay-plan-container {
@@ -25,11 +40,11 @@
 .pay-plan-option {
   padding: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.4);
   border: calc(var(--nav-size) * 0.01) solid var(--text-color);
-  background-color: var(--bg);
+  background-color: var(--bg-page);
   color: var(--text-color);
   cursor: pointer;
   transition: background-color 0.3s, color 0.3s;
-  border-radius: calc(var(--nav-size) * 0.3);
+  border-radius: var(--border-radius);
   margin-left: calc(var(--nav-size) * 0.3);
   font-size: calc(var(--nav-size) * 0.3);
 }
@@ -41,8 +56,8 @@
 }
 
 .pay-plan-option:hover {
-  background-color: var(--bg-blue);
-  color: var(--text-color);
+  background-color: var(--bg-nav2);
+  color: var(--text-color-accent);
 }
 
 .pay-plan-descriptions {
@@ -63,44 +78,44 @@
 }
 
 .form-group {
-  margin-bottom: calc(var(--nav-size) * 1);
   min-width: 60%;
-  border: calc(var(--nav-size) * 0.01) solid var(--text-color);
-  border-radius: calc(var(--nav-size) * 0.3);
+  border: var(--border);
+  border-radius: var(--border-radius);
   padding: calc(var(--nav-size) * 0.3);
-  margin: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.3);
+  margin: calc(var(--nav-size) * 0.3);
   height: calc(var(--nav-size) * 3.3);
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 0.5rem;
+  margin-bottom: calc(var(--nav-size) * 0.0625);
 }
 
 .pay-button {
-  padding: 1rem 2rem;
-  background-color: var(--button-bg-color);
-  color: var(--button-text-color);
-  border: 1px solid var(--border-color);
+  padding: calc(var(--nav-size) * 0.125) calc(var(--nav-size) * 0.25);
+  background-color: var(--bg-mint);
+  color: var(--text-color-inverse, white);
+  border: var(--border);
   cursor: pointer;
   transition: background-color 0.3s, color 0.3s;
+  border-radius: var(--border-radius);
 }
 
 .pay-button:hover {
-  background-color: var(--button-hover-bg-color);
-  color: var(--button-hover-text-color);
+  background-color: var(--bg-nav2);
+  transform: translateY(calc(var(--nav-size) * -0.025));
 }
 
 .card-element {
-  padding: 1rem;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  margin-bottom: 1rem;
+  padding: calc(var(--nav-size) * 0.125);
+  border: var(--border);
+  border-radius: var(--border-radius);
+  margin-bottom: calc(var(--nav-size) * 0.125);
 }
 
 .pay-error {
-  color: red;
-  margin-bottom: 1rem;
+  color: var(--color-error, #e74c3c);
+  margin-bottom: calc(var(--nav-size) * 0.125);
 }
 
 .previous-payment-methods-container {
@@ -116,7 +131,19 @@
 
 .payment-method {
   padding: calc(var(--nav-size) * 0.3);
-  border: calc(var(--nav-size) * 0.01) solid var(--text-color);
-  border-radius: calc(var(--nav-size) * 0.3);
+  border: var(--border);
+  border-radius: var(--border-radius);
   margin-bottom: calc(var(--nav-size) * 0.3);
+  background-color: var(--bg-page);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .pay-container {
+    padding: calc(var(--nav-size) * 0.25);
+  }
+  
+  .pay-header h1 {
+    font-size: calc(var(--nav-size) * 0.35);
+  }
 }

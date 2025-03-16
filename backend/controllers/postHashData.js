@@ -187,7 +187,7 @@ const postPaymentMethod = asyncHandler(async (req, res) => {
                 customer: customerId,
                 // Support more payment methods - note that your Stripe account needs to be configured to accept these
                 payment_method_types: [
-                    'link',  // Prioritize Link in the list
+                    'link',
                     'card', 
                     'cashapp', 
                 ],

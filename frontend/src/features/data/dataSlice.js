@@ -161,6 +161,25 @@ export const postPaymentMethod = createAsyncThunk(
   }
 );
 
+// Subscribe customer to a membership plan
+export const subscribeCustomer = createAsyncThunk(
+  'data/subscribeCustomer',
+  async (subscriptionData, thunkAPI) => {
+    try {
+      const token = thunkAPI.getState().data.user.token;
+      return await dataService.subscribeCustomer(subscriptionData, token);
+    } catch (error) {
+      const dataMessage =
+        (error.response &&
+          error.response.data &&
+          error.response.data.dataMessage) ||
+        error.dataMessage ||
+        error.toString();
+      return thunkAPI.rejectWithValue(dataMessage);
+    }
+  }
+);
+
 // Update user data -- UPDATE
 export const updateData = createAsyncThunk(
   'data/update',
@@ -370,6 +389,19 @@ export const dataSlice = createSlice({
         // state.paymentMethods.push(action.payload);
       })
       .addCase(postPaymentMethod.rejected, (state, action) => {
+        state.dataIsLoading = false;
+        state.dataIsError = true;
+        state.dataMessage = action.payload;
+      })
+      .addCase(subscribeCustomer.pending, (state) => {
+        state.dataIsLoading = true;
+      })
+      .addCase(subscribeCustomer.fulfilled, (state, action) => {
+        state.dataIsLoading = false;
+        state.dataIsSuccess = true;
+        state.subscription = action.payload;
+      })
+      .addCase(subscribeCustomer.rejected, (state, action) => {
         state.dataIsLoading = false;
         state.dataIsError = true;
         state.dataMessage = action.payload;
