@@ -31,7 +31,7 @@ function Pay() {
         console.log('Payment methods fetched successfully');
       }
     }
-  }, [dataIsError, dataMessage, dataIsSuccess]);
+  }, [dataIsError, dataMessage, dataIsSuccess, data.length]);
 
   const handleDeletePaymentMethod = (id) => {
     dispatch(deletePaymentMethod(id));

@@ -9,9 +9,12 @@
 }
 
 .pay-error {
-  color: var(--red0);
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
+  color: #e74c3c;
+  margin: 10px 0;
+  font-size: 14px;
+  padding: 10px;
+  border-radius: 4px;
+  background-color: rgba(231, 76, 60, 0.1);
 }
 
 #add-card-button {
@@ -56,4 +59,403 @@
 #form-group-card::placeholder,
 #form-group-code::placeholder {
   /* color: var(--bg-1); */
+}
+
+.stripe-blocked-warning {
+  background-color: #fff8e1;
+  border: 1px solid #ffecb3;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+  color: #856404;
+}
+
+.stripe-blocked-warning p {
+  margin-bottom: 12px;
+}
+
+.stripe-blocked-warning ol {
+  margin-left: 24px;
+}
+
+.stripe-error {
+  background-color: #fdecea;
+  border: 1px solid #f5c6cb;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  color: #721c24;
+}
+
+.stripe-error h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+.stripe-error ul {
+  margin-left: 20px;
+  margin-bottom: 15px;
+}
+
+/* Base styles for the payment form */
+.checkout-container {
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 20px;
+  background-color: var(--bg-page, #ffffff);
+  border-radius: calc(var(--border-radius, 8px));
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.payment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.payment-form h2 {
+  font-size: 24px;
+  color: var(--text-color, #333);
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.form-section {
+  margin-bottom: 28px;
+  background-color: var(--bg-page, #ffffff);
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.form-section h3 {
+  margin-top: 0;
+  margin-bottom: 8px;
+  font-size: 16px;
+  color: var(--text-color, #333);
+}
+
+.section-desc {
+  margin-top: 0;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: var(--text-color-accent, #666);
+}
+
+/* Styling for input fields */
+#payment-element,
+#link-authentication-element {
+  margin-bottom: 24px;
+}
+
+/* Button styling */
+#add-payment-button {
+  padding: 12px 16px;
+  background-color: var(--bg-mint, #4f9cf9);
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.2s;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  overflow: hidden;
+  min-height: 48px;
+}
+
+#add-payment-button:hover {
+  background-color: var(--bg-nav2, #3a7ec7);
+  transform: translateY(-2px);
+}
+
+#add-payment-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Loading spinner */
+.spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.button-loading {
+  opacity: 0.8;
+}
+
+/* Messages */
+.payment-success {
+  color: #27ae60;
+  padding: 12px;
+  border-radius: 6px;
+  background-color: rgba(39, 174, 96, 0.1);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.success-checkmark {
+  margin-right: 8px;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+/* Security indicator */
+.payment-security {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  color: #666;
+  font-size: 13px;
+  justify-content: center;
+  background-color: rgba(79, 156, 249, 0.05);
+  padding: 8px;
+  border-radius: 6px;
+}
+
+.security-icon {
+  font-size: 16px;
+}
+
+/* Loading container */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+  gap: 20px;
+}
+
+.loading-container .spinner {
+  width: 30px;
+  height: 30px;
+  border-width: 4px;
+}
+
+.loading-container p {
+  color: var(--text-color, #333);
+}
+
+/* Payment method icons */
+.payment-method-icons {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.payment-method-icon {
+  height: 24px;
+  width: auto;
+  max-width: 40px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.payment-method-icon:hover {
+  opacity: 1;
+}
+
+.payment-method-selected {
+  margin-top: 6px;
+  font-size: 12px;
+  text-transform: capitalize;
+  margin-bottom: 0;
+}
+
+/* Terms agreement section */
+.terms-agreement {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-color-accent, #666);
+  margin-top: 16px;
+}
+
+.terms-agreement a {
+  color: var(--bg-mint, #4f9cf9);
+  text-decoration: none;
+}
+
+.terms-agreement a:hover {
+  text-decoration: underline;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .checkout-container {
+    padding: 16px;
+    margin: 0 16px;
+  }
+
+  #add-payment-button {
+    padding: 10px 14px;
+  }
+  
+  .payment-method-icons {
+    gap: 8px;
+  }
+  
+  .payment-method-icon {
+    height: 20px;
+  }
+  
+  .form-section {
+    padding: 12px;
+  }
+}
+
+/* Improved form layout and styling */
+.form-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.form-subtitle {
+  color: var(--text-color-accent, #666);
+  margin-top: 5px;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+/* Enhanced success message */
+.payment-success {
+  color: #27ae60;
+  padding: 12px;
+  border-radius: 6px;
+  background-color: rgba(39, 174, 96, 0.1);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.success-checkmark {
+  margin-right: 8px;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+/* Enhanced security message */
+.payment-security {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  color: #666;
+  font-size: 13px;
+  justify-content: center;
+  background-color: rgba(79, 156, 249, 0.05);
+  padding: 8px;
+  border-radius: 6px;
+}
+
+.security-icon {
+  font-size: 16px;
+}
+
+/* User email display styling */
+.user-email-display {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background-color: rgba(79, 156, 249, 0.05);
+  border-radius: 6px;
+  margin-top: 5px;
+}
+
+.email-icon {
+  font-size: 20px;
+  color: var(--bg-mint, #4f9cf9);
+}
+
+.user-email-info {
+  flex: 1;
+}
+
+.user-email {
+  font-weight: 500;
+  margin: 0 0 4px 0;
+  color: var(--text-color, #333);
+}
+
+.email-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-color-accent, #666);
+}
+
+/* Link payment method styling */
+.link-benefits {
+  background-color: rgba(38, 132, 255, 0.05);
+  border: 1px solid rgba(38, 132, 255, 0.2);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.link-benefits-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.link-icon {
+  font-size: 20px;
+  color: #2684ff;
+}
+
+.link-benefits h4 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text-color, #333);
+}
+
+.link-description {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  color: var(--text-color-accent, #666);
+}
+
+.link-features {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13px;
+  color: var(--text-color-accent, #666);
+}
+
+.link-features li {
+  margin-bottom: 4px;
+}
+
+/* Link specific element styling - these will be used by Stripe's Link component */
+#payment-element .StripeLink {
+  border: 1px solid rgba(38, 132, 255, 0.5);
+  border-radius: 8px;
+}
+
+#payment-element .StripeTab--selected {
+  border-color: #2684ff;
 }

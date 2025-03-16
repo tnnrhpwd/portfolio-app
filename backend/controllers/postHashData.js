@@ -182,10 +182,20 @@ const postPaymentMethod = asyncHandler(async (req, res) => {
         } 
         // Case 2: Create a setup intent for the frontend to use with Stripe Elements
         else {
+            // Creating a setup intent with expanded payment_method types
             const setupIntent = await stripe.setupIntents.create({
                 customer: customerId,
-                payment_method_types: ['card'],
+                // Support more payment methods - note that your Stripe account needs to be configured to accept these
+                payment_method_types: [
+                    'link',  // Prioritize Link in the list
+                    'card', 
+                    'cashapp', 
+                ],
+                usage: 'off_session',  // Allow future payments without customer present
+                // Remove the problematic payment_method_options that was causing the error
             });
+            
+            // Return the full setup intent object (includes client_secret)
             res.status(200).json(setupIntent);
         }
     } catch (error) {
