@@ -6,13 +6,13 @@
 
 .pay-header {
   text-align: center;
-  margin-bottom: calc(var(--nav-size) * 0.5);
+  margin-bottom: calc(var(--nav-size) * 0.05);
 }
 
 .pay-header h1 {
   font-size: calc(var(--nav-size) * 0.4);
   color: var(--text-color);
-  margin-bottom: calc(var(--nav-size) * 0.125);
+  margin-bottom: 0;
 }
 
 .pay-header p {
@@ -23,7 +23,7 @@
 .pay-content {
   display: flex;
   justify-content: center;
-  margin-top: calc(var(--nav-size) * 0.3);
+  margin-top: calc(var(--nav-size) * 0.03);
 }
 
 .pay-plan-container {
@@ -139,11 +139,14 @@
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-  .pay-container {
-    padding: calc(var(--nav-size) * 0.25);
-  }
-  
-  .pay-header h1 {
-    font-size: calc(var(--nav-size) * 0.35);
-  }
+.pay-container {
+  min-height: 87vh;
+  padding: calc(var(--nav-size) * 0.5);
+  padding-top: calc(var(--nav-size) * 1);
+}
+
+.pay-header {
+  text-align: center;
+  margin-bottom: calc(var(--nav-size) * 0.05);
+}
 }

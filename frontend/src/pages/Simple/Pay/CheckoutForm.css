@@ -664,7 +664,7 @@
 
 .plans-container {
   display: flex;
-  gap: calc(var(--nav-size) * 0.25);
+  gap: calc(var(--nav-size) * 0.15);
   margin-top: calc(var(--nav-size) * 0.19);
 }
 
@@ -677,7 +677,7 @@
   position: relative;
   transition: all 0.3s ease;
   cursor: pointer;
-  width: calc(var(--nav-size) * 5.8);
+  width: 90%;
 }
 
 .plan-card.selected {
@@ -687,7 +687,7 @@
 }
 
 .plan-header {
-  margin-bottom: calc(var(--nav-size) * 0.19);
+  margin-bottom: calc(var(--nav-size) * 0.1);
 }
 
 .plan-header h4 {
