@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { postPaymentMethod, getPaymentMethods, subscribeCustomer } from '../../../features/data/dataSlice';
 import { loadStripe } from '@stripe/stripe-js';
@@ -158,6 +158,45 @@ const PaymentMethodsList = ({ paymentMethods, selectedMethod, onSelectMethod, on
   );
 };
 
+// New Progress Bar component
+const CheckoutProgressBar = ({ currentStep }) => {
+  const steps = [
+    { id: 'plan-selection', label: 'Select Plan' },
+    { id: 'payment-selection', label: 'Payment Method' },
+    { id: 'confirmation', label: 'Confirm' }
+  ];
+
+  return (
+    <div className="checkout-progress-container">
+      <div className="checkout-progress-bar">
+        {steps.map((step, index) => {
+          // Determine if the step is active, completed, or upcoming
+          const isActive = step.id === currentStep;
+          const isCompleted = steps.findIndex(s => s.id === currentStep) > index;
+          const stepClass = isActive ? 'active' : isCompleted ? 'completed' : 'upcoming';
+          
+          return (
+            <React.Fragment key={step.id}>
+              {/* Add connector lines between steps except for the first step */}
+              {index > 0 && (
+                <div className={`progress-connector ${isCompleted ? 'completed' : ''}`} />
+              )}
+              
+              {/* The step circle */}
+              <div className={`progress-step ${stepClass}`}>
+                <div className="progress-step-circle">
+                  {isCompleted ? '✓' : index + 1}
+                </div>
+                <div className="progress-step-label">{step.label}</div>
+              </div>
+            </React.Fragment>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 const CheckoutContent = ({ paymentType }) => {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -170,6 +209,9 @@ const CheckoutContent = ({ paymentType }) => {
   const dispatch = useDispatch();
   const stripe = useStripe();
   const elements = useElements();
+  
+  // Create a ref for the container to scroll to
+  const checkoutContainerRef = useRef(null);
   
   // Get user email and payment methods from Redux store
   const { user, paymentMethods } = useSelector(state => state.data);
@@ -334,22 +376,64 @@ const CheckoutContent = ({ paymentType }) => {
     setShowPaymentForm(true);
     setMessage('');
     setError(null);
+    
+    // Scroll to top when showing payment form
+    setTimeout(() => {
+      window.scrollTo({
+        top: checkoutContainerRef.current?.offsetTop || 0,
+        behavior: 'smooth'
+      });
+    }, 100);
   };
 
-  // Navigation between steps
+  // Navigation between steps with scrolling
   const handleNextStep = () => {
     if (subscriptionStep === 'plan-selection' && selectedPlan) {
       setSubscriptionStep('payment-selection');
+      
+      // Scroll to top after state update
+      setTimeout(() => {
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+        console.log('Scrolled to top');
+      }, 100);
     } else if (subscriptionStep === 'payment-selection' && selectedPaymentMethod) {
       setSubscriptionStep('confirmation');
+      
+      // Scroll to top after state update
+      setTimeout(() => {
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+        console.log('Scrolled to top');
+      }, 100);
     }
   };
 
   const handleBackStep = () => {
     if (subscriptionStep === 'payment-selection') {
       setSubscriptionStep('plan-selection');
+      
+      // Scroll to top after state update
+      setTimeout(() => {
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+      }, 100);
     } else if (subscriptionStep === 'confirmation') {
       setSubscriptionStep('payment-selection');
+      
+      // Scroll to top after state update
+      setTimeout(() => {
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+      }, 100);
     }
   };
 
@@ -363,7 +447,7 @@ const CheckoutContent = ({ paymentType }) => {
   };
 
   return (
-    <div className="payment-container">
+    <div className="payment-container" ref={checkoutContainerRef}>
       {stripeBlocked ? (
         <div className="stripe-blocked-warning">
           <p>
@@ -378,6 +462,9 @@ const CheckoutContent = ({ paymentType }) => {
         </div>
       ) : (
         <>          
+          {/* Add progress bar at the top of the form */}
+          <CheckoutProgressBar currentStep={subscriptionStep} />
+          
           {showPaymentForm ? (
             <form onSubmit={handleSubmit} className="payment-form">
               <div className="form-section">

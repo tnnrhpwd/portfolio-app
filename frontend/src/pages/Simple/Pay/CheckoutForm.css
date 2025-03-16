@@ -923,3 +923,117 @@
   font-size: calc(var(--nav-size) * 0.2);
   color: var(--text-color);
 }
+
+/* Progress Bar Styling */
+.checkout-progress-container {
+  background-color: var(--bg-page);
+}
+
+.checkout-progress-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  width: 100%;
+  padding: calc(var(--nav-size) * 0.15) 0;
+}
+
+.progress-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 1;
+  flex: 1;
+  text-align: center;
+}
+
+.progress-step-circle {
+  width: calc(var(--nav-size) * 0.4);
+  height: calc(var(--nav-size) * 0.4);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: calc(var(--nav-size) * 0.2);
+  margin-bottom: calc(var(--nav-size) * 0.1);
+  transition: all 0.3s ease;
+  background-color: var(--bg-page);
+  color: var(--text-color-accent);
+  border: calc(var(--nav-size) * 0.02) solid var(--text-color-accent);
+}
+
+.progress-step.active .progress-step-circle {
+  background-color: var(--fg-mint);
+  color: var(--text-color-inv);
+  border-color: var(--fg-mint);
+  transform: scale(1.1);
+  box-shadow: 0 0 calc(var(--nav-size) * 0.1) rgba(79, 156, 249, 0.3);
+}
+
+.progress-step.completed .progress-step-circle {
+  background-color: var(--fg-mint);
+  color: var(--text-color-inv);
+  border-color: var(--fg-mint);
+}
+
+.progress-step-label {
+  font-size: calc(var(--nav-size) * 0.175);
+  color: var(--text-color-accent);
+  margin-top: calc(var(--nav-size) * 0.05);
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.progress-step.active .progress-step-label {
+  color: var(--text-color);
+  font-weight: 600;
+}
+
+.progress-step.completed .progress-step-label {
+  color: var(--fg-mint);
+}
+
+.progress-connector {
+  height: calc(var(--nav-size) * 0.02);
+  background-color: var(--text-color-accent, #ccc);
+  flex-grow: 1;
+  margin: 0 calc(var(--nav-size) * -0.1);
+  z-index: 0;
+  opacity: 0.5;
+}
+
+.progress-connector.completed {
+  background-color: var(--fg-mint);
+  opacity: 1;
+}
+
+/* Responsive styling for progress bar */
+@media (max-width: 600px) {
+  .progress-step-label {
+    font-size: calc(var(--nav-size) * 0.15);
+  }
+  
+  .progress-step-circle {
+    width: calc(var(--nav-size) * 0.35);
+    height: calc(var(--nav-size) * 0.35);
+    font-size: calc(var(--nav-size) * 0.175);
+  }
+}
+
+/* Add a pulse animation effect for the active step */
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(79, 156, 249, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 calc(var(--nav-size) * 0.2) rgba(79, 156, 249, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(79, 156, 249, 0);
+  }
+}
+
+.progress-step.active .progress-step-circle {
+  animation: pulse 2s infinite;
+}
