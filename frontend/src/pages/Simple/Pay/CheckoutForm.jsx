@@ -23,32 +23,49 @@ try {
 // Component to display membership plans
 const MembershipPlans = ({ selectedPlan, onSelectPlan }) => {
   const plans = [
-    { 
-      id: 'flex', 
-      name: 'Flex Membership', 
-      price: 'Up to $10', 
+    {
+      id: 'free',
+      name: 'Free Tier',
+      price: '$0',
+      period: 'per month',
+      tagline: 'Experience the basics with zero commitment',
+      features: [
+        'Limited API calls – perfect for exploring our services',
+        'Simple, real-time dashboard',
+        'Community support forum',
+      ],
+      quota: { calls: '1,000 calls/month' },
+    },
+    {
+      id: 'flex',
+      name: 'Flex Membership',
+      price: '$10',
       period: 'per month',
       tagline: 'Pay only for what you use',
       features: [
-        'Usage-based pricing - only pay for what you need',
-        'Strategic planning tools',
-        'Basic analytics dashboard',
-      ]
+        'Usage-based pricing – enjoy a baseline quota then pay per call',
+        'Strategic planning tools for scaling efficiently',
+        'Enhanced analytics dashboard for smarter decision-making',
+      ],
+      quota: {
+        baseCalls: '10,000 calls/month',
+        overageRate: '$0.001 per additional call',
+      },
     },
     { 
-      id: 'premium', 
-      name: 'Premium Membership', 
-      price: 'Custom Max', 
-      period: 'with lower rates',
-      tagline: 'Power users save more',
+      id: 'premium',
+      name: 'Premium Membership',
+      price: 'Custom Pricing',
+      period: 'per month',
+      tagline: 'Power users and enterprises: maximize efficiency and savings',
       features: [
-        'Reduced per-usage rates - save up to 40%',
-        'Set your own monthly maximum',
-        'Priority AI processing & responses',
-        'Advanced analytics & data insights',
-        'Dedicated support channel',
-        'Early access to cutting-edge features',
-      ]
+        'Significantly reduced per-usage rates – save up to 30% on volume',
+        'Set your monthly maximum with predictability in billing',
+        'Priority AI processing for rapid execution',
+        'Advanced analytics with detailed data insights',
+        'Dedicated support channel with direct expert access',
+        'Exclusive early access to innovative, cutting-edge features',
+      ],
     }
   ];
 
@@ -486,11 +503,39 @@ const CheckoutContent = ({ paymentType }) => {
                     </div>
                     <div className="confirmation-item">
                       <span className="label">Payment Method:</span>
-                      <span className="value">
-                        {paymentMethods && selectedPaymentMethod && 
-                         paymentMethods.find(m => m.id === selectedPaymentMethod)?.type === 'card' ? 
-                         `${paymentMethods.find(m => m.id === selectedPaymentMethod)?.card.brand.toUpperCase()} •••• ${paymentMethods.find(m => m.id === selectedPaymentMethod)?.card.last4}` :
-                         'Selected payment method'}
+                      <span className="value payment-method-value">
+                        {paymentMethods && selectedPaymentMethod && (() => {
+                          const method = paymentMethods.find(m => m.id === selectedPaymentMethod);
+                          if (!method) return 'Selected payment method';
+                          
+                          // Create the icon based on payment method type
+                          const getPaymentIcon = (type) => {
+                            switch (type) {
+                              case 'card': return '💳';
+                              case 'link': return '🔗';
+                              case 'cashapp': return '💵';
+                              default: return '💰';
+                            }
+                          };
+                          
+                          // Display method details based on type
+                          if (method.type === 'card') {
+                            return (
+                              <>
+                                <span className="payment-confirm-icon">{getPaymentIcon(method.type)}</span>
+                                {`${method.card.brand.toUpperCase()} •••• ${method.card.last4}`}
+                              </>
+                            );
+                          } else {
+                            // For Link, CashApp, or other payment methods
+                            return (
+                              <>
+                                <span className="payment-confirm-icon">{getPaymentIcon(method.type)}</span>
+                                {method.type.charAt(0).toUpperCase() + method.type.slice(1).replace('_', ' ')}
+                              </>
+                            );
+                          }
+                        })()}
                       </span>
                     </div>
                     <div className="confirmation-item">

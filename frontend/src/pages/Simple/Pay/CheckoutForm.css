@@ -570,6 +570,7 @@
   font-weight: 500;
   margin: 0 0 calc(var(--nav-size) * 0.05) 0;
   color: var(--text-color);
+  font-size: calc(var(--nav-size) * 0.25);
 }
 
 .payment-method-expires {
@@ -595,6 +596,7 @@
 .no-payment-methods {
   text-align: center;
   padding: calc(var(--nav-size) * 0.375) 0;
+  font-size: calc(var(--nav-size) * 0.25);
 }
 
 .no-payment-methods p {
@@ -748,6 +750,8 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: calc(var(--nav-size) * 0.19);
+  font-size: calc(var(--nav-size) * 0.25);
+  color: var(--text-color-accent);
 }
 
 .payment-methods-header h3 {
@@ -824,6 +828,8 @@
   background-color: rgba(79, 156, 249, 0.05);
   border-radius: var(--border-radius);
   padding: calc(var(--nav-size) * 0.25);
+  font-size: calc(var(--nav-size) * 0.25);
+  color: var(--text-color);
 }
 
 .confirmation-item {
@@ -840,11 +846,29 @@
 .confirmation-item .label {
   font-weight: 500;
   color: var(--text-color-accent);
+  width: calc(var(--nav-size) * 2);
+  text-align: left;
+  align-self: center;
 }
 
 .confirmation-item .value {
   font-weight: 600;
   color: var(--text-color);
+  width: calc(var(--nav-size) * 2.5);
+}
+
+/* Payment method confirmation styling */
+.payment-method-value {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.1);
+}
+
+.payment-confirm-icon {
+  font-size: calc(var(--nav-size) * 0.25);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Responsive adjustments */

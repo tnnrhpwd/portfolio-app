@@ -151,7 +151,7 @@ const getHashData = asyncHandler(async (req, res) => {
 // GET: Fetch previous payment methods
 const getPaymentMethods = asyncHandler(async (req, res, next) => {
     try {
-        console.log('getPaymentMethods called with fromPutHashData:', req.fromPutHashData);
+        console.log('getPaymentMethods called with fromPutHashData:', (req.fromPutHashData ? 'true' : 'false'));
         
         if (!req.user) {
             res.status(401).json({ error: 'User not found' });
@@ -193,26 +193,42 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
 
         const customerId = req.user.data.text.substring(req.user.data.text.indexOf('|stripeid:') + 10,
             req.user.data.text.indexOf('|stripeid:') + 28);
-        console.log('Customer ID:', customerId, {
-            customer: customerId,
-            limit: 3,
-            type: 'card',
-        });
-        const paymentMethods = await stripe.paymentMethods.list({
-            customer: customerId,
-            limit: 3,
-            type: 'card',
-        });
-        console.log('Reply from Stripe:', JSON.stringify(paymentMethods.data, null, 2));
-
-        req.paymentMethods = paymentMethods.data;
+        console.log('Customer ID:', customerId);
+        
+        // Define all payment method types we want to fetch
+        const paymentMethodTypes = ['card', 'link', 'cashapp'];
+        let allPaymentMethods = [];
+        
+        // Fetch each payment method type
+        for (const type of paymentMethodTypes) {
+            try {
+                console.log(`Fetching ${type} payment methods for customer: ${customerId}`);
+                const methodsResponse = await stripe.paymentMethods.list({
+                    customer: customerId,
+                    limit: 10,
+                    type: type,
+                });
+                
+                if (methodsResponse.data && methodsResponse.data.length > 0) {
+                    console.log(`Found ${methodsResponse.data.length} ${type} payment methods`);
+                    allPaymentMethods = [...allPaymentMethods, ...methodsResponse.data];
+                }
+            } catch (typeError) {
+                console.error(`Error fetching ${type} payment methods:`, typeError.message);
+                // Continue with other types even if one fails
+            }
+        }
+        
+        console.log('Total payment methods found:', allPaymentMethods.length);
+        req.paymentMethods = allPaymentMethods;
         
         if (req.fromPutHashData) {
-            console.log('Returning next from GetHashData.GetPaymentMethods with payment methods count:', paymentMethods.data.length);
+            console.log('Returning next from GetHashData.GetPaymentMethods with payment methods count:', allPaymentMethods.length);
             return next();
         } else {
             console.log('Returning payment methods from GetHashData.GetPaymentMethods ...');
-            res.status(200).json(paymentMethods.data);
+            console.log('Payment methods:', allPaymentMethods);
+            res.status(200).json(allPaymentMethods);
         }
     } catch (error) {
         console.error('Error fetching payment methods:', error);
