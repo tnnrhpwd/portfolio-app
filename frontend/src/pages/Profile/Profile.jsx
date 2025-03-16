@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { logout, resetDataSlice } from './../../features/data/dataSlice.js';
@@ -14,10 +14,22 @@ import HeaderLogo from '../../../src/assets/Checkmark512.png';
 function Profile() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const [currentColorMode, setCurrentColorMode] = useState('system');
 
   const { user, dataIsLoading, dataIsSuccess, dataIsError, dataMessage } = useSelector((state) => state.data);
 
   useEffect(() => {
+    // Detect current theme on component mount
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const html = document.querySelector('html');
+    if (html.classList.contains('dark')) {
+      setCurrentColorMode('dark');
+    } else if (html.classList.contains('light')) {
+      setCurrentColorMode('light');
+    } else {
+      setCurrentColorMode('system');
+    }
+    
     if (!user) {
       navigate('/login');
     }
@@ -76,6 +88,8 @@ function Profile() {
 
   const handleColorModeChange = (event) => {
     const value = event.target.value;
+    setCurrentColorMode(value);
+    
     if (value === 'light') {
       setLightMode();
     } else if (value === 'dark') {
@@ -99,16 +113,23 @@ function Profile() {
           <div className="planit-profile-settings">
             <h2>Settings</h2>
             <ul>
-              <li>Profile Picture: <img src={HeaderLogo} alt="Profile" className="profile-picture" /></li>
-              <li>Profile Name: {user.nickname}</li>
-              <li>Color Mode: 
-                <select onChange={handleColorModeChange}>
+              <li>
+                <img src={HeaderLogo} alt="Profile" className="profile-picture" />
+              </li>
+              <li>
+                <span>Profile Name:</span> 
+                <span>{user.nickname}</span>
+              </li>
+              <li>
+                <span>Color Mode:</span>
+                <select value={currentColorMode} onChange={handleColorModeChange}>
                   <option value="light">Light</option>
                   <option value="dark">Dark</option>
                   <option value="system">System</option>
                 </select>
               </li>
-              <li>Subscription Plan:
+              <li>
+                <span>Subscription Plan:</span>
                 <select value={user.subscriptionPlan} onChange={handleSubscriptionChange}>
                   <option value="Free">Free</option>
                   <option value="Flex">Flex</option>

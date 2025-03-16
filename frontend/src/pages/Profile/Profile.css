@@ -2,9 +2,11 @@
     padding-top: calc(var(--nav-size)*1);
     min-height: 87vh;
     background-color: var(--background-color);
-    padding: calc(var(--nav-size)*0.2);
+    padding: calc(var(--nav-size)*0.5);
     border-radius: calc(var(--nav-size)*0.5);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+    max-width: 1200px;
+    margin: 0 auto;
 }
 
 .planit-profile:hover {
@@ -13,65 +15,78 @@
 
 .planit-profile-title {
     color: var(--text-color);
-    font-size: calc(var(--nav-size)*0.5);
+    font-size: calc(var(--nav-size)*0.6);
+    font-weight: 700;
     padding-top: calc(var(--nav-size)*0.3);
     text-align: center;
     margin-bottom: calc(var(--nav-size)*1);
+    letter-spacing: 0.5px;
 }
 
 .planit-profile-welcome {
     color: var(--text-color);
     font-size: calc(var(--nav-size)*0.4);
-    padding-top: calc(var(--nav-size)*0.2);
-    width: calc(var(--nav-size)*5);
+    width: calc(var(--nav-size)*6);
     text-align: center;
     background-color: var(--background-color-alt);
-    border-radius: calc(var(--nav-size)*0.2);
-    padding: calc(var(--nav-size)*0.5);
+    border-radius: calc(var(--nav-size)*0.3);
+    padding: calc(var(--nav-size)*0.6);
     margin: 0 auto;
-    margin-bottom: calc(var(--nav-size)*0.5);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s ease;
+}
+
+.planit-profile-welcome:hover {
+    transform: translateY(-3px);
 }
 
 .planit-profile-auth {
-    padding-top: calc(var(--nav-size)*0.2);
     text-align: center;
     display: block;
 }
 
 .planit-profile-auth-button {
-    padding: calc(var(--nav-size)*0.2) calc(var(--nav-size)*0.4);
     border: 1px solid var(--text-color);
     font-size: calc(var(--nav-size)*0.3);
+    font-weight: 500;
     cursor: pointer;
     color: var(--text-color);
     background-color: var(--background-color);
     width: calc(var(--nav-size)*3);
-    border-radius: calc(var(--nav-size)*0.2);
-    transition: border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+    border-radius: calc(var(--nav-size)*0.25);
+    transition: all 0.3s ease;
+    padding: calc(var(--nav-size)*0.25) calc(var(--nav-size)*0.5);
 }
 
 .planit-profile-auth-button:hover {
     border-color: var(--text-color-hover);
-    box-shadow: 0 0 5px var(--text-color-hover);
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
     background-color: var(--text-color-hover);
     color: var(--text-color-inv);
+    transform: translateY(-2px);
 }
 
 .planit-profile-settings {
-    padding-top: calc(var(--nav-size)*2);
     text-align: left;
-    border: 1px solid var(--text-color);
-    padding: calc(var(--nav-size)*1);
-    margin: calc(var(--nav-size)*0.1);
+    border: 1px solid rgba(125, 125, 125, 0.2);
     background-color: var(--background-color-alt);
     border-radius: calc(var(--nav-size)*0.5);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
+    max-width: 90%;
+    transition: box-shadow 0.3s ease;
+    padding: calc(var(--nav-size)*0.7);
+}
+
+.planit-profile-settings:hover {
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
 }
 
 .planit-profile-settings h2 {
     color: var(--text-color);
-    font-size: calc(var(--nav-size)*0.4);
-    margin-bottom: calc(var(--nav-size)*0.5);
+    font-size: calc(var(--nav-size)*0.45);
+    margin-bottom: calc(var(--nav-size)*0.2);
+    border-bottom: 2px solid rgba(125, 125, 125, 0.2);
+    padding-bottom: calc(var(--nav-size)*0.2);
 }
 
 .planit-profile-settings ul {
@@ -82,28 +97,38 @@
 .planit-profile-settings li {
     color: var(--text-color);
     font-size: calc(var(--nav-size)*0.3);
-    padding: calc(var(--nav-size)*0.5) 0;
+    padding: calc(var(--nav-size)*0.6) 0;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    border-bottom: 1px solid rgba(125, 125, 125, 0.1);
+}
+
+.planit-profile-settings li:last-child {
+    border-bottom: none;
 }
 
 .planit-profile-settings .profile-picture {
-    width: calc(var(--nav-size)*0.5);
-    height: calc(var(--nav-size)*0.5);
+    width: calc(var(--nav-size)*1.2);
+    height: calc(var(--nav-size)*1.2);
     border-radius: 50%;
     margin-left: calc(var(--nav-size)*0.5);
     vertical-align: middle;
     object-fit: cover;
-    line-height: calc(var(--nav-size)*1.5);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border: 2px solid var(--text-color-hover);
 }
 
 .planit-profile-settings select {
     margin-left: calc(var(--nav-size)*0.5);
     font-size: calc(var(--nav-size)*0.3);
-    padding: calc(var(--nav-size)*0.2);
-    border: 1px solid var(--text-color);
+    padding: calc(var(--nav-size)*0.2) calc(var(--nav-size)*0.3);
+    border: 1px solid rgba(125, 125, 125, 0.3);
     border-radius: calc(var(--nav-size)*0.2);
     color: var(--text-color);
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    transition: all 0.3s ease;
     background-color: var(--text-color-inv);
+    flex-grow: 0;
 }
 
 .planit-profile-settings select:focus {
@@ -113,21 +138,85 @@
 }
 
 .planit-profile-settings-button {
-    padding: calc(var(--nav-size)*0.2) calc(var(--nav-size)*0.4);
-    border: 1px solid var(--text-color);
+    padding: calc(var(--nav-size)*0.25) calc(var(--nav-size)*0.5);
+    border: 1px solid rgba(125, 125, 125, 0.3);
     font-size: calc(var(--nav-size)*0.3);
+    font-weight: 500;
     cursor: pointer;
     color: var(--text-color);
     background-color: var(--background-color);
-    width: calc(var(--nav-size)*3);
-    margin-top: calc(var(--nav-size)*0.5);
-    border-radius: calc(var(--nav-size)*0.2);
-    transition: border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+    width: calc(var(--nav-size)*3.5);
+    margin: calc(var(--nav-size)*0.1);
+    border-radius: calc(var(--nav-size)*0.25);
+    transition: all 0.3s ease;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .planit-profile-settings-button:hover {
     border-color: var(--text-color-hover);
-    box-shadow: 0 0 5px var(--text-color-hover);
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.15);
     background-color: var(--text-color-hover);
     color: var(--text-color-inv);
+    transform: translateY(-2px);
+}
+
+/* Portrait orientation (mobile optimization) */
+@media (orientation: portrait) {
+    .planit-profile {
+        padding: calc(var(--nav-size)*0.2);
+        min-height: 90vh;
+    }
+    
+    .planit-profile-title {
+        font-size: calc(var(--nav-size)*0.5);
+        margin-bottom: calc(var(--nav-size)*0.5);
+        padding-top: calc(var(--nav-size)*0.5);
+    }
+    
+    .planit-profile-welcome {
+        width: 90%;
+        font-size: calc(var(--nav-size)*0.35);
+        padding: calc(var(--nav-size)*0.1);
+        margin-bottom: calc(var(--nav-size)*0.1);
+    }
+    
+    .planit-profile-settings {
+        padding: calc(var(--nav-size)*0.6);
+        margin: calc(var(--nav-size)*0.3) auto;
+        max-width: 95%;
+    }
+    
+    .planit-profile-settings h2 {
+        font-size: calc(var(--nav-size)*0.4);
+        margin: 0;
+    }
+    
+    .planit-profile-settings li {
+        padding: calc(var(--nav-size)*0.2) 0;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .planit-profile-settings select,
+    .planit-profile-settings .profile-picture {
+        margin-top: calc(var(--nav-size)*0.1);
+        margin-left: 0;
+        width: 100%;
+        max-width: calc(var(--nav-size)*5);
+    }
+    
+    .planit-profile-settings .profile-picture {
+        width: calc(var(--nav-size)*1.2);
+        height: calc(var(--nav-size)*1.2);
+    }
+    
+    .planit-profile-auth-button,
+    .planit-profile-settings-button {
+        width: 100%;
+        max-width: calc(var(--nav-size)*5);
+        padding: calc(var(--nav-size)*0.3);
+        font-size: calc(var(--nav-size)*0.25);
+    }
 }
