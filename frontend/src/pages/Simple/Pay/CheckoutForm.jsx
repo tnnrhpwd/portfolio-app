@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { postPaymentMethod, getPaymentMethods, subscribeCustomer } from '../../../features/data/dataSlice';
 import { loadStripe } from '@stripe/stripe-js';
 import {
@@ -197,16 +198,17 @@ const CheckoutProgressBar = ({ currentStep }) => {
   );
 };
 
-const CheckoutContent = ({ paymentType }) => {
+const CheckoutContent = ({ paymentType, initialPlan }) => {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [stripeBlocked, setStripeBlocked] = useState(false);
   const [message, setMessage] = useState('');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(null);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [selectedPlan, setSelectedPlan] = useState(initialPlan || null);
   const [subscriptionStep, setSubscriptionStep] = useState('plan-selection'); // 'plan-selection', 'payment-selection', 'confirmation'
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const stripe = useStripe();
   const elements = useElements();
   
@@ -389,7 +391,18 @@ const CheckoutContent = ({ paymentType }) => {
   // Navigation between steps with scrolling
   const handleNextStep = () => {
     if (subscriptionStep === 'plan-selection' && selectedPlan) {
-      setSubscriptionStep('payment-selection');
+      // If free plan is selected, redirect to profile page
+      if (selectedPlan === 'free') {
+        // You could optionally add a "saving..." state here
+        setLoading(true);
+        // Short timeout to show "saving" state before redirecting
+        setTimeout(() => {
+          navigate('/profile');
+        }, 500);
+        return;
+      } else {
+        setSubscriptionStep('payment-selection');
+      }
       
       // Scroll to top after state update
       setTimeout(() => {
@@ -441,8 +454,10 @@ const CheckoutContent = ({ paymentType }) => {
   const getPlanDisplayName = () => {
     if (selectedPlan === 'premium') {
       return 'Premium (Usage-based with customizable max)';
-    } else {
+    } else if (selectedPlan === 'flex') {
       return 'Flex (Usage-based with $10 monthly max)';
+    } else {
+      return 'Free';
     }
   };
 
@@ -548,7 +563,7 @@ const CheckoutContent = ({ paymentType }) => {
                       onClick={handleNextStep}
                       disabled={!selectedPlan}
                     >
-                      Next: Select Payment
+                      {selectedPlan === 'free' ? (loading ? 'Saving...' : 'Save') : 'Next: Select Payment'}
                     </button>
                   </div>
                 </div>
@@ -588,43 +603,45 @@ const CheckoutContent = ({ paymentType }) => {
                       <span className="label">Membership:</span>
                       <span className="value">{getPlanDisplayName()}</span>
                     </div>
-                    <div className="confirmation-item">
-                      <span className="label">Payment Method:</span>
-                      <span className="value payment-method-value">
-                        {paymentMethods && selectedPaymentMethod && (() => {
-                          const method = paymentMethods.find(m => m.id === selectedPaymentMethod);
-                          if (!method) return 'Selected payment method';
-                          
-                          // Create the icon based on payment method type
-                          const getPaymentIcon = (type) => {
-                            switch (type) {
-                              case 'card': return '💳';
-                              case 'link': return '🔗';
-                              case 'cashapp': return '💵';
-                              default: return '💰';
+                    {selectedPlan !== 'free' && (
+                      <div className="confirmation-item">
+                        <span className="label">Payment Method:</span>
+                        <span className="value payment-method-value">
+                          {paymentMethods && selectedPaymentMethod && (() => {
+                            const method = paymentMethods.find(m => m.id === selectedPaymentMethod);
+                            if (!method) return 'Selected payment method';
+                            
+                            // Create the icon based on payment method type
+                            const getPaymentIcon = (type) => {
+                              switch (type) {
+                                case 'card': return '💳';
+                                case 'link': return '🔗';
+                                case 'cashapp': return '💵';
+                                default: return '💰';
+                              }
+                            };
+                            
+                            // Display method details based on type
+                            if (method.type === 'card') {
+                              return (
+                                <>
+                                  <span className="payment-confirm-icon">{getPaymentIcon(method.type)}</span>
+                                  {`${method.card.brand.toUpperCase()} •••• ${method.card.last4}`}
+                                </>
+                              );
+                            } else {
+                              // For Link, CashApp, or other payment methods
+                              return (
+                                <>
+                                  <span className="payment-confirm-icon">{getPaymentIcon(method.type)}</span>
+                                  {method.type.charAt(0).toUpperCase() + method.type.slice(1).replace('_', ' ')}
+                                </>
+                              );
                             }
-                          };
-                          
-                          // Display method details based on type
-                          if (method.type === 'card') {
-                            return (
-                              <>
-                                <span className="payment-confirm-icon">{getPaymentIcon(method.type)}</span>
-                                {`${method.card.brand.toUpperCase()} •••• ${method.card.last4}`}
-                              </>
-                            );
-                          } else {
-                            // For Link, CashApp, or other payment methods
-                            return (
-                              <>
-                                <span className="payment-confirm-icon">{getPaymentIcon(method.type)}</span>
-                                {method.type.charAt(0).toUpperCase() + method.type.slice(1).replace('_', ' ')}
-                              </>
-                            );
-                          }
-                        })()}
-                      </span>
-                    </div>
+                          })()}
+                        </span>
+                      </div>
+                    )}
                     <div className="confirmation-item">
                       <span className="label">Billing Email:</span>
                       <span className="value">{userEmail}</span>
@@ -632,11 +649,15 @@ const CheckoutContent = ({ paymentType }) => {
                   </div>
                   
                   <div className="pricing-note">
-                    <p>With {selectedPlan === 'premium' ? 'Premium' : 'Flex'}, you'll only pay for what you use. 
-                    {selectedPlan === 'premium' ? 
-                      ' Your custom monthly maximum ensures you stay in control while enjoying lower per-usage rates.' : 
-                      ' Never worry about exceeding $10 per month, guaranteed.'}
-                    </p>
+                    {selectedPlan === 'free' ? (
+                      <p>You've selected our Free tier. You can upgrade anytime in your profile settings.</p>
+                    ) : (
+                      <p>With {selectedPlan === 'premium' ? 'Premium' : 'Flex'}, you'll only pay for what you use. 
+                      {selectedPlan === 'premium' ? 
+                        ' Your custom monthly maximum ensures you stay in control while enjoying lower per-usage rates.' : 
+                        ' Never worry about exceeding $10 per month, guaranteed.'}
+                      </p>
+                    )}
                   </div>
                   
                   {message && (
@@ -680,7 +701,7 @@ const CheckoutContent = ({ paymentType }) => {
   );
 };
 
-function CheckoutForm({ paymentType }) {
+function CheckoutForm({ paymentType, initialPlan }) {
   const [isStripeError, setIsStripeError] = useState(false);
   const [clientSecret, setClientSecret] = useState('');
   const dispatch = useDispatch();
@@ -756,7 +777,7 @@ function CheckoutForm({ paymentType }) {
     <div className="checkout-container">
       {clientSecret && (
         <Elements stripe={stripePromise} options={options}>
-          <CheckoutContent paymentType={paymentType} />
+          <CheckoutContent paymentType={paymentType} initialPlan={initialPlan} />
         </Elements>
       )}
       {!clientSecret && (

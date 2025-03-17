@@ -63,27 +63,10 @@ function Profile() {
     navigate('/settings');
   };
 
-  const handleSubscriptionChange = async (event) => {
+  const handleSubscriptionChange = (event) => {
     const newPlan = event.target.value;
-    const userId = user._id;
-
-    try {
-      const updatedData = await dataService.updateData({ id: userId, text: newPlan }, user.token);
-      if (updatedData.redirectToPay) {
-        navigate('/pay');
-      } else {
-        dispatch(resetDataSlice());
-        toast.success('Subscription plan updated successfully!');
-      }
-    } catch (error) {
-      console.error('Failed to update subscription plan:', error);
-      const errorMessage = error.response?.data?.dataMessage || 'Failed to update subscription plan.';
-      toast.error(errorMessage);
-      console.log('Toast error message:', errorMessage);
-      if(errorMessage === 'Not authorized, token expired') {
-        onLogout();
-      }
-    }
+    // Navigate to the pay page with the selected plan as a URL parameter
+    navigate(`/pay?plan=${newPlan.toLowerCase()}`);
   };
 
   const handleColorModeChange = (event) => {
