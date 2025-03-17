@@ -6,7 +6,7 @@
 }
 
 .annuities-header {
-    margin-bottom: calc(var(--nav-size) * 1);
+    margin-bottom: calc(var(--nav-size) * 0.5);
 }
 
 .annuities-title {
@@ -24,7 +24,7 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    margin-bottom: calc(var(--nav-size) * 1);
+    margin-bottom: calc(var(--nav-size) * 0.2);
 }
 
 .annuities-find {
@@ -57,15 +57,15 @@
 }
 
 .annuities-newannuity {
-    margin-bottom: calc(var(--nav-size) * 1);
+    margin-bottom: calc(var(--nav-size) * 0.2);
 }
 
 .annuities-output {
-    margin-bottom: calc(var(--nav-size) * 1);
+    margin-bottom: calc(var(--nav-size) * 0.2);
 }
 
 .annuities-resulttime {
-    margin-bottom: calc(var(--nav-size) * 1);
+    margin-bottom: calc(var(--nav-size) * 0.4);
 }
 
 .annuities-resulttime-text {

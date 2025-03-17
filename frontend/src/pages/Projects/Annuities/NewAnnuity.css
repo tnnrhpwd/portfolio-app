@@ -1,34 +1,28 @@
 .new-annuity {
-    border: 1px solid rgba(255, 255, 255, 0.885);
+    border: 1px solid var(--bg);
     border-radius: 5%;
     padding: calc(var(--nav-size) * 0.15);
     background-color: #f9f9f9;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    margin-bottom: 20px;
+    box-shadow: 0 4px 8px var(--white2-transp);
+    margin-bottom: calc(var(--nav-size) * 0.2);
     text-align: center;
 }
 
 .new-annuity-input {
+    display: block;
     margin: calc(var(--nav-size) * 0.1) 0;
     padding: calc(var(--nav-size) * 0.15);
-    width: 100%;
-    border: 1px solid #ccc;
-    border-radius: 4px;
+    width: 50%;
+    border: calc(var(--nav-size) * 0.01) solid var(--white0);
+    border-radius: 5%;
     box-sizing: border-box;
     font-size: calc(var(--nav-size) * 0.3);
 }
 
 .new-annuity-input:focus {
-    border-color: #007bff;
+    border-color: var(--fg-blue);
     outline: none;
-    box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
-}
-
-.new-annuity-buttons {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    margin-top: 20px;
+    box-shadow: 0 0 5px var(--white2-transp);
 }
 
 .new-annuity-button {
@@ -50,4 +44,129 @@
 
 .new-annuity-button:active {
     transform: scale(0.98);
+}
+
+.annuity-input-container {
+    background-color: var(--bg);
+    border-radius: 10px;
+    padding: calc(var(--nav-size) * 0.3);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    margin-bottom: calc(var(--nav-size) * 0.2);
+    transition: all 0.3s ease;
+}
+
+.annuity-input-container:hover {
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+}
+
+.inputNewAnnuity {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    margin-bottom: calc(var(--nav-size) * 0.2);
+    font-size: calc(var(--nav-size) * 0.3);
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    border-radius: 8px;
+    background-color: var(--bg, #f9f9f9);
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    position: relative;
+    margin-left: calc(var(--nav-size) * 0.1);
+    padding-left: calc(var(--nav-size) * 0.1);
+}
+
+.input-group.has-value {
+    border-left: 3px solid var(--primary-color, #4a90e2);
+}
+
+.input-group.focused {
+    box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.3);
+}
+
+.input-label-container {
+    font-size: calc(var(--nav-size) * 0.3);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.input-group label {
+    font-size: calc(var(--nav-size) * 0.3);
+    margin-bottom: 5px;
+    color: var(--text-color);
+    font-weight: 600;
+}
+
+.input-symbol {
+    font-weight: bold;
+    color: var(--primary-color, #4a90e2);
+    font-size: calc(var(--nav-size) * 0.3);
+    background-color: rgba(74, 144, 226, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.input-description {
+    font-size: calc(var(--nav-size) * 0.25);
+    color: var(--text-color-secondary, #777);
+    margin-top: calc(var(--nav-size) * 0.05);
+    font-style: italic;
+}
+
+.input-value-indicator {
+    position: absolute;
+    right: calc(var(--nav-size) * 0.3);
+    top: calc(var(--nav-size) * 0.8);
+    background-color: var(--primary-color, #4a90e2);
+    color: white;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: calc(var(--nav-size) * 0.3);
+    font-weight: 500;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+}
+
+.inputNewAnnuity input {
+    padding: 0 calc(var(--nav-size) * 0.3);
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: calc(var(--nav-size) * 0.25);
+    transition: all 0.3s ease;
+    background-color: var(--bg, #f9f9f9);
+    color: var(--text-color);
+    height: calc(var(--nav-size) * 0.8);
+}
+
+.inputNewAnnuity input:focus {
+    border-color: var(--primary-color, #4a90e2);
+    box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+    outline: none;
+}
+
+.inputNewAnnuity input::placeholder {
+    color: #aaa;
+    font-size: calc(var(--nav-size) * 0.25);
+}
+
+.annuity-buttons {
+    display: flex;
+    justify-content: center;
+    gap: calc(var(--nav-size) * 0.2);
+    margin-top: calc(var(--nav-size) * 0.3);
+}
+
+@media (max-width: 768px) {
+    .inputNewAnnuity {
+        grid-template-columns: 1fr;
+    }
+    
+    .annuity-buttons {
+        flex-direction: column;
+        align-items: center;
+    }
 }

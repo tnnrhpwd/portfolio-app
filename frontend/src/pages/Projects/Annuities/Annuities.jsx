@@ -16,39 +16,40 @@ function Annuities() {
     const [annuityCall, setAnnuityCall] = useState([]);
     const [graphData, setGraphData] = useState([]);
 
-    useEffect(() => setAnswer(0), [time]);
-
     useEffect(() => {
         const computeAnnuity = () => {
-            let crntAnswer = 0;
+            // We'll use this to store the final period data
+            let finalPeriodData = null;
             const [inputPresent, inputAnnual, inputFuture, inputGradient, inputInterest, inputPeriods] = annuityCall;
             const newGraphData = [];
+            
             if ((!inputPresent && !inputAnnual && !inputFuture) || !inputInterest || !inputPeriods) {
                 return;
             }
+            
             const calculations = {
                 "$Future": {
                     "PTOF": () => {
                         if (inputPresent) {
                             for (let i = 0; i <= inputPeriods; i++) {
-                                crntAnswer = inputPresent * Math.pow(1 + inputInterest, i);
-                                newGraphData.push({ period: i, value: crntAnswer });
+                                const value = inputPresent * Math.pow(1 + inputInterest, i);
+                                newGraphData.push({ period: i, value: value });
                             }
                         }
                     },
                     "ATOF": () => {
                         if (inputAnnual) {
                             for (let i = 0; i <= inputPeriods; i++) {
-                                crntAnswer = inputAnnual * ((Math.pow(1 + inputInterest, i) - 1) / inputInterest);
-                                newGraphData.push({ period: i, value: crntAnswer });
+                                const value = inputAnnual * ((Math.pow(1 + inputInterest, i) - 1) / inputInterest);
+                                newGraphData.push({ period: i, value: value });
                             }
                         }
                     },
                     "GTOF": () => {
                         if (inputGradient) {
                             for (let i = 0; i <= inputPeriods; i++) {
-                                crntAnswer = inputGradient * ((Math.pow(1 + inputInterest, i) - 1) / (inputInterest ** 2) - i / inputInterest);
-                                newGraphData.push({ period: i, value: crntAnswer });
+                                const value = inputGradient * ((Math.pow(1 + inputInterest, i) - 1) / (inputInterest ** 2) - i / inputInterest);
+                                newGraphData.push({ period: i, value: value });
                             }
                         }
                     }
@@ -56,25 +57,28 @@ function Annuities() {
                 "$Present": {
                     "FTOP": () => {
                         if (inputFuture) {
+                            let value = 0;
                             for (let i = 0; i <= inputPeriods; i++) {
-                                crntAnswer = inputFuture * Math.pow(1 / (1 + inputInterest), i);
-                                newGraphData.push({ period: i, value: crntAnswer });
+                                value = inputFuture * Math.pow(1 / (1 + inputInterest), i);
+                                newGraphData.push({ period: i, value: value });
                             }
                         }
                     },
                     "ATOP": () => {
                         if (inputAnnual) {
+                            let value = 0;
                             for (let i = 0; i <= inputPeriods; i++) {
-                                crntAnswer = inputAnnual * ((Math.pow(1 + inputInterest, i) - 1) / (inputInterest * Math.pow(1 + inputInterest, i)));
-                                newGraphData.push({ period: i, value: crntAnswer });
+                                value = inputAnnual * ((Math.pow(1 + inputInterest, i) - 1) / (inputInterest * Math.pow(1 + inputInterest, i)));
+                                newGraphData.push({ period: i, value: value });
                             }
                         }
                     },
                     "GTOP": () => {
                         if (inputGradient) {
+                            let value = 0;
                             for (let i = 0; i <= inputPeriods; i++) {
-                                crntAnswer = inputGradient * (1 / inputInterest) * ((Math.pow(1 + inputInterest, i) - 1) / (inputInterest * Math.pow(1 + inputInterest, i)) - i / Math.pow(1 + inputInterest, i));
-                                newGraphData.push({ period: i, value: crntAnswer });
+                                value = inputGradient * (1 / inputInterest) * ((Math.pow(1 + inputInterest, i) - 1) / (inputInterest * Math.pow(1 + inputInterest, i)) - i / Math.pow(1 + inputInterest, i));
+                                newGraphData.push({ period: i, value: value });
                             }
                         }
                     }
@@ -82,25 +86,28 @@ function Annuities() {
                 "$Periodic": {
                     "FTOA": () => {
                         if (inputFuture) {
+                            let value = 0;
                             for (let i = 0; i <= inputPeriods; i++) {
-                                crntAnswer = inputFuture * (inputInterest / (Math.pow(1 + inputInterest, i) - 1));
-                                newGraphData.push({ period: i, value: crntAnswer });
+                                value = inputFuture * (inputInterest / (Math.pow(1 + inputInterest, i) - 1));
+                                newGraphData.push({ period: i, value: value });
                             }
                         }
                     },
                     "PTOA": () => {
                         if (inputPresent) {
+                            let value = 0;
                             for (let i = 0; i <= inputPeriods; i++) {
-                                crntAnswer = inputPresent * inputInterest * Math.pow(1 + inputInterest, i) / (Math.pow(1 + inputInterest, i) - 1);
-                                newGraphData.push({ period: i, value: crntAnswer });
+                                value = inputPresent * inputInterest * Math.pow(1 + inputInterest, i) / (Math.pow(1 + inputInterest, i) - 1);
+                                newGraphData.push({ period: i, value: value });
                             }
                         }
                     },
                     "GTOA": () => {
                         if (inputGradient) {
+                            let value = 0;
                             for (let i = 0; i <= inputPeriods; i++) {
-                                crntAnswer = inputGradient * ((1 / inputInterest) - (i / (Math.pow(1 + inputInterest, i) - 1)));
-                                newGraphData.push({ period: i, value: crntAnswer });
+                                value = inputGradient * ((1 / inputInterest) - (i / (Math.pow(1 + inputInterest, i) - 1)));
+                                newGraphData.push({ period: i, value: value });
                             }
                         }
                     }
@@ -108,12 +115,22 @@ function Annuities() {
             };
 
             Object.values(calculations[time] || {}).forEach(fn => fn());
-
+            
+            // Find the data point with the highest period (the last one)
+            if (newGraphData.length > 0) {
+                finalPeriodData = newGraphData.reduce((latest, current) => 
+                    current.period > latest.period ? current : latest, 
+                    newGraphData[0]
+                );
+            }
+            
             console.log('Before setting state - newGraphData:', newGraphData);
-            console.log('Before setting state - crntAnswer:', crntAnswer);
+            console.log('Before setting state - finalPeriodData:', finalPeriodData);
 
-            setAnswer(crntAnswer);
-            setGraphData(newGraphData);
+            if (finalPeriodData && !isNaN(finalPeriodData.value)) {
+                setAnswer(finalPeriodData.value);
+                setGraphData(newGraphData);
+            }
         };
 
         computeAnnuity();
@@ -157,13 +174,20 @@ function Annuities() {
 
                 <div className='annuities-output'>
                     {console.log('Rendering GraphAnnuities with graphData:', graphData)}
-                    {/* <GraphAnnuities chartData={graphData} /> */}
+                    <GraphAnnuities
+                        chartData={graphData}
+                        key={`graph-${graphData.length}-${time}`}
+                        tenseAnnuity={time}
+                    />
                 </div>
 
                 { ( answer !== 0 && !isNaN(answer) ) && (
                     <div className='annuities-resulttime'>
                         <p className='annuities-resulttime-text'>
-                            The {time.substring(1)} Value would be ${answer.toFixed(2)}.
+                            The {time.substring(1)} Value at period {annuityCall[5] || 0} is ${answer.toLocaleString('en-US', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                            })}.
                         </p>
                     </div>
                 )}
@@ -188,11 +212,6 @@ function Annuities() {
                     </ul>
                 </div>
             </div>
-            <a href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Annuities" rel="noopener noreferrer" target="_blank">
-                <div className='newAnnuity-space'>
-                    <button id="newAnnuity" className='view-source-btn'>View Source Code</button>
-                </div>
-            </a>
             <Footer />
         </>
     );
