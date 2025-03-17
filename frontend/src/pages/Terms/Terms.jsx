@@ -11,12 +11,16 @@ const Terms = () => {
         document.getElementById(sectionId).scrollIntoView({ behavior: 'smooth' });
     };
 
+    const currentDate = new Date();
+    const currentMonth = currentDate.toLocaleString('default', { month: 'short' });
+    const currentYear = currentDate.getFullYear();
+
     return (<>
         <Header />
         <div className="terms">
             <div className='terms-header'>
                 <h1 className='terms-title'>Terms of Service</h1>
-                <p className='terms-subtitle'>Last Updated: Mar 2025</p>
+                <p className='terms-subtitle'>Last Updated: {currentMonth} {currentYear}</p>
             </div>
 
             <div className="terms-container">
