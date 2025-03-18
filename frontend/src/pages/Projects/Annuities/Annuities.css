@@ -41,6 +41,11 @@
     font-size: calc(var(--nav-size) * 0.3);
 }
 
+.annuities-find-dropdown.id {
+    background-color: var(--bg, #f9f9f9);
+    color: var(--text-color);
+}
+
 .toggle-new-annuity-btn {
     background-color: var(--primary-color);
     color: var(--text-color-inv);

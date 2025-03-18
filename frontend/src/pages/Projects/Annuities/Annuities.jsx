@@ -1,7 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { getData, resetDataSlice } from '../../../features/data/dataSlice.js';
-import { toast } from 'react-toastify';
 import Dropdown from "react-dropdown";
 import "react-dropdown/style.css";
 import NewAnnuity from './NewAnnuity';
@@ -12,7 +9,7 @@ import "./Annuities.css";
 
 function Annuities() {
     const [answer, setAnswer] = useState(0);
-    const [time, setTime] = useState('$Present');
+    const [time, setTime] = useState('$Future');
     const [annuityCall, setAnnuityCall] = useState([]);
     const [graphData, setGraphData] = useState([]);
 
