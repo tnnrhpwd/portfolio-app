@@ -7,7 +7,7 @@ const { protect } = require('../middleware/authMiddleware');
 const {
   deleteData,
   deleteHashData, deletePaymentMethod, deleteCustomer,
-  getData,
+  getData, getUserSubscription,
   getHashData, getPaymentMethods, getAllData,
   postData, registerUser, loginUser,
   postHashData, compressData, createCustomer, 
@@ -29,6 +29,25 @@ router.route('/public')
 router.get('/all/admin', protect, getAllData); // GET request for fetching all data (admin only)
 router.post('/compress', protect, compressData); // Route to handle data compression
 
+// Customer routes and specific paths should come before generic routes like /:id
+router.post('/create-customer', protect, createCustomer); // Protect customer creation
+router.post('/create-invoice', protect, createInvoice); // Protect invoice creation
+router.post('/subscribe-customer', protect, subscribeCustomer); // Protect customer subscription
+router.get('/subscription', protect, getUserSubscription); // GET request for fetching user subscriptions
+
+router.route('/pay-methods')
+  .get(protect, getPaymentMethods) // GET payment methods
+  .put(protect, putPaymentMethod) // PUT payment methods
+  .post(protect, postPaymentMethod); // POST payment methods
+
+router.delete('/pay-methods/:id', protect, deletePaymentMethod); // DELETE request for deleting a payment method
+router.put('/update-customer/:id', protect, updateCustomer); // PUT request for updating customer
+router.delete('/delete-customer/:id', protect, deleteCustomer); // DELETE request for deleting customer
+
+// Webhook route
+router.post('/webhook', express.raw({ type: 'application/json' }), handleWebhook);
+
+// Now the more generic routes
 router.route('/')
   .get(protect, getHashData) // GET protected data
   .post(protect, postHashData); // POST protected data
@@ -40,24 +59,5 @@ router.route('/:id')
 router.route('/public/:id')
   .delete(protect, deleteData) // DELETE public data
   .put(protect, putData); // PUT public data
-
-router.route('/pay-methods')
-  .get(protect, getPaymentMethods) // GET payment methods
-  .put(protect, putPaymentMethod) // PUT payment methods
-  .post(protect, postPaymentMethod); // POST payment methods
-
-
-// Customer routes
-router.delete('/pay-methods/:id', protect, deletePaymentMethod); // DELETE request for deleting a payment method
-
-router.post('/create-customer', protect, createCustomer); // Protect customer creation
-router.post('/create-invoice', protect, createInvoice); // Protect invoice creation
-router.post('/subscribe-customer', protect, subscribeCustomer); // Protect customer subscription
-
-router.put('/update-customer/:id', protect, updateCustomer); // PUT request for updating customer
-router.delete('/delete-customer/:id', protect, deleteCustomer); // DELETE request for deleting customer
-
-// Webhook route
-router.post('/webhook', express.raw({ type: 'application/json' }), handleWebhook);
 
 module.exports = router; // Export the router

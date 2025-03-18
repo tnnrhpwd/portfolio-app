@@ -20,6 +20,7 @@ const rapidapidefoptions = {
     }
 };
 const { checkIP } = require('../utils/accessData.js');
+const stripe = require('stripe')(process.env.STRIPE_KEY);
 
 // @desc    Get Public Data
 // @route   GET /api/publicdata
@@ -82,4 +83,81 @@ const getData = asyncHandler(async (req, res) => {
     }
 });
 
-module.exports = { getData };
+// @desc    Get user subscription information
+// @route   GET /api/user/subscription
+// @access  Private
+const getUserSubscription = asyncHandler(async (req, res) => {
+    await checkIP(req);
+    // Check for user
+    if (!req.user) {
+        res.status(401);
+        throw new Error('User not found');
+    }
+    console.log('calling getUserSubscriptions');
+
+    try {
+        // Extract customer ID using regex for more reliability
+        const stripeIdMatch = req.user.data.text.match(/\|stripeid:([^|]+)/);
+        console.log('stripeIdMatch:', stripeIdMatch);
+        if (!stripeIdMatch || !stripeIdMatch[1]) {
+            // No Stripe ID means they're on free plan
+            console.log('No Stripe ID found');
+            return res.status(200).json({ 
+                subscriptionPlan: 'Free',
+                subscriptionDetails: null 
+            });
+        }
+        
+        const customerId = stripeIdMatch[1];
+        console.log('Customer ID:', customerId);
+        // Get all subscriptions for customer
+        const subscriptions = await stripe.subscriptions.list({
+            customer: customerId,
+            status: 'all',
+            limit: 1, // Most users will have 1 subscription
+            expand: ['data.plan.product']
+        });
+
+        if (subscriptions.data.length === 0) {
+            console.log('No active subscriptions found');
+            // No active subscriptions means they're on free plan
+            return res.status(200).json({ 
+                subscriptionPlan: 'Free',
+                subscriptionDetails: null 
+            });
+        }
+
+        // Get the most recent subscription
+        const subscription = subscriptions.data[0];
+        
+        // Get the product name to determine subscription type
+        const productName = subscription.plan.product.name;
+        console.log('Subscription product name:', productName);
+        let subscriptionPlan = 'Free';
+        if (productName === 'Flex Membership') {
+            subscriptionPlan = 'Flex';
+        } else if (productName === 'Premium Membership') {
+            subscriptionPlan = 'Premium';
+        }
+        console.log('Subscription plan:', subscriptionPlan);
+        // Return subscription details
+        res.status(200).json({
+            subscriptionPlan,
+            subscriptionDetails: {
+                id: subscription.id,
+                status: subscription.status,
+                currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+                productName: productName,
+                priceId: subscription.plan.id,
+                amount: subscription.plan.amount,
+                currency: subscription.plan.currency,
+                interval: subscription.plan.interval
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching subscription:', error);
+        res.status(500).json({ error: error.message || 'Failed to fetch subscription information' });
+    }
+});
+
+module.exports = { getData, getUserSubscription };

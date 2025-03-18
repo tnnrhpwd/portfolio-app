@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { logout, resetDataSlice } from './../../features/data/dataSlice.js';
+import { logout, resetDataSlice, resetDataSuccess, getUserSubscription } from './../../features/data/dataSlice.js';
 import Spinner from '../../components/Spinner/Spinner.jsx';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
@@ -15,9 +15,13 @@ function Profile() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const [currentColorMode, setCurrentColorMode] = useState('system');
+  const [subscriptionLoaded, setSubscriptionLoaded] = useState(false);
+  const [userSubscription, setUserSubscription] = useState(null);
 
+  // Get user data from Redux state
   const { user, dataIsLoading, dataIsSuccess, dataIsError, dataMessage } = useSelector((state) => state.data);
 
+  // Theme detection effect
   useEffect(() => {
     // Detect current theme on component mount
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -32,30 +36,56 @@ function Profile() {
     
     if (!user) {
       navigate('/login');
+      return;
     }
 
     if (dataIsError) {
       toast.error(dataMessage);
       console.log('Toast error message:', dataMessage);
+      dispatch(resetDataSuccess());
     }
 
     if (dataIsSuccess && dataMessage) {
       toast.success(dataMessage);
       console.log('Toast success message:', dataMessage);
+      dispatch(resetDataSuccess());
     }
 
     return () => {
       dispatch(resetDataSlice());
     };
-  }, [user, navigate, dispatch, dataIsError, dataIsSuccess, dataMessage]);
+  }, [user, dataIsSuccess, dataIsError, dataMessage, navigate, dispatch]);
 
-  if (dataIsLoading) {
-    return <Spinner />;
-  }
+  // Only fetch subscription data once when component mounts
+  useEffect(() => {
+    if (user && !subscriptionLoaded) {
+      // Use a local try-catch to prevent the component from crashing
+      try {
+        dispatch(getUserSubscription())
+          .unwrap()
+          .then((subscriptionData) => {
+            setUserSubscription(subscriptionData);
+            setSubscriptionLoaded(true);
+            dispatch(resetDataSuccess());
+          })
+          .catch((error) => {
+            console.error('Failed to fetch subscription:', error);
+            setSubscriptionLoaded(true); // Mark as loaded even on error
+            dispatch(resetDataSuccess());
+          });
+      } catch (error) {
+        console.error('Error dispatching subscription action:', error);
+        setSubscriptionLoaded(true);
+      }
+    }
+  }, [user, subscriptionLoaded, dispatch]);
 
+  // Rest of handlers
   const onLogout = () => {
+    setSubscriptionLoaded(false); // Reset subscription loaded state
     dispatch(logout());
-    dispatch(resetDataSlice());
+    // Delay the resetDataSlice to avoid conflicts with logout
+    setTimeout(() => dispatch(resetDataSlice()), 0);
     navigate('/');
   };
 
@@ -81,6 +111,14 @@ function Profile() {
       setSystemColorMode();
     }
   };
+
+  // Use the local state for subscription details
+  const currentPlan = userSubscription?.subscriptionPlan || 'Free';
+  const subscriptionDetails = userSubscription?.subscriptionDetails;
+
+  if (dataIsLoading) {
+    return <Spinner />;
+  }
 
   if (user) {
     return (
@@ -113,11 +151,19 @@ function Profile() {
               </li>
               <li>
                 <span>Subscription Plan:</span>
-                <select value={user.subscriptionPlan} onChange={handleSubscriptionChange}>
+                <select value={currentPlan} onChange={handleSubscriptionChange}>
                   <option value="Free">Free</option>
                   <option value="Flex">Flex</option>
                   <option value="Premium">Premium</option>
                 </select>
+                
+                {subscriptionDetails && (
+                  <div className="subscription-details">
+                    <p>
+                      {subscriptionDetails.productName} - Renews on {new Date(subscriptionDetails.currentPeriodEnd).toLocaleDateString()}
+                    </p>
+                  </div>
+                )}
               </li>
             </ul>
             <button className="planit-profile-settings-button" onClick={navigateToSettings}>All Settings</button>

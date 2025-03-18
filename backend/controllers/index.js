@@ -3,7 +3,7 @@
 const { deleteData } = require('./deleteData');  // DELETE public data
 const { deleteHashData, deletePaymentMethod, 
   deleteCustomer } = require('./deleteHashData'); // DELETE deleting protected data
-const { getData } = require('./getData'); // GET public data
+const { getData, getUserSubscription } = require('./getData'); // GET public data
 const { getHashData, getPaymentMethods, getAllData } = require('./getHashData'); // GET protected data
 const { postData, registerUser, loginUser } = require('./postData'); // CREATE public data
 const { postHashData, compressData, createCustomer, 
@@ -15,7 +15,7 @@ const { putHashData, updateCustomer, putPaymentMethod } = require('./putHashData
 module.exports = {
   deleteData,
   deleteHashData, deletePaymentMethod, deleteCustomer,
-  getData,
+  getData, getUserSubscription,
   getHashData, getPaymentMethods, getAllData,
   postData, registerUser, loginUser,
   postHashData, compressData, createCustomer, 

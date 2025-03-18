@@ -206,6 +206,24 @@ const subscribeCustomer = async (subscriptionData, token) => {
     }
 };
 
+// Get user subscription
+const getUserSubscription = async (token) => {
+    const config = {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    };
+
+    console.log('Calling GET URL:', API_URL + 'subscription');
+
+    try {
+        const response = await axios.get(API_URL + 'subscription', config);
+        return response.data;
+    } catch (error) {
+        handleTokenExpiration(error);
+    }
+};
+
 // Register user
 const register = async (userData) => {
     console.log('Calling POST URL:', API_URL + 'register');
@@ -255,6 +273,7 @@ const dataService = {
     deletePaymentMethod,
     postPaymentMethod,
     subscribeCustomer,
+    getUserSubscription, // Note: Changed from plural to match implementation
     register,
     login,
     logout,

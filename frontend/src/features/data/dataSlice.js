@@ -180,6 +180,21 @@ export const subscribeCustomer = createAsyncThunk(
   }
 );
 
+// New action to get user subscription
+export const getUserSubscription = createAsyncThunk(
+  'data/getUserSubscription',
+  async (_, thunkAPI) => {
+    try {
+      const token = thunkAPI.getState().data.user.token;
+      return await dataService.getUserSubscription(token);
+    } catch (error) {
+      const message = (error.response && error.response.data && error.response.data.message) || 
+                     error.message || error.toString();
+      return thunkAPI.rejectWithValue(message);
+    }
+  }
+);
+
 // Update user data -- UPDATE
 export const updateData = createAsyncThunk(
   'data/update',
@@ -262,6 +277,11 @@ export const dataSlice = createSlice({
   initialState,
   reducers: { // not async  --  async functions go inside thunkfunctions   --- Without Reducers, we'd need to reload the whole page on changes.
     resetDataSlice: (state) => initialState,  // function sets all data values back to default.
+    resetDataSuccess: (state) => {
+      state.dataIsSuccess = false;
+      state.dataIsError = false;
+      state.dataMessage = '';
+    },
   },
   extraReducers: (builder) => {// all possible states associated with asyncthunk get,create,delete datas functional objects. 
     builder
@@ -406,6 +426,23 @@ export const dataSlice = createSlice({
         state.dataIsError = true;
         state.dataMessage = action.payload;
       })
+      .addCase(getUserSubscription.pending, (state) => {
+        state.dataIsLoading = true;
+      })
+      .addCase(getUserSubscription.fulfilled, (state, action) => {
+        state.dataIsLoading = false;
+        state.dataIsSuccess = true;
+        // Update user with subscription info
+        if (state.user) {
+          state.user.subscriptionPlan = action.payload.subscriptionPlan;
+          state.user.subscriptionDetails = action.payload.subscriptionDetails;
+        }
+      })
+      .addCase(getUserSubscription.rejected, (state, action) => {
+        state.dataIsLoading = false;
+        state.dataIsError = true;
+        state.dataMessage = action.payload || 'Failed to fetch subscription';
+      })
       .addCase(updateData.pending, (state) => {             // update
         state.dataIsLoading = true
         state.operation = null;
@@ -492,5 +529,5 @@ export const dataSlice = createSlice({
   },
 })
 
-export const { resetDataSlice } = dataSlice.actions
+export const { resetDataSlice, resetDataSuccess } = dataSlice.actions
 export default dataSlice.reducer

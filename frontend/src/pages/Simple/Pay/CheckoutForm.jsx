@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { postPaymentMethod, getPaymentMethods, subscribeCustomer } from '../../../features/data/dataSlice';
+import { postPaymentMethod, getPaymentMethods, subscribeCustomer, getUserSubscription } from '../../../features/data/dataSlice';
 import { loadStripe } from '@stripe/stripe-js';
 import {
   Elements,
@@ -22,7 +22,7 @@ try {
 }
 
 // Component to display membership plans
-const MembershipPlans = ({ selectedPlan, onSelectPlan }) => {
+const MembershipPlans = ({ selectedPlan, onSelectPlan, currentSubscription }) => {
   const plans = [
     {
       id: 'free',
@@ -74,30 +74,35 @@ const MembershipPlans = ({ selectedPlan, onSelectPlan }) => {
     <div className="membership-plans">
       <h3>Choose Your Membership</h3>
       <div className="plans-container">
-        {plans.map(plan => (
-          <div 
-            key={plan.id}
-            className={`plan-card ${selectedPlan === plan.id ? 'selected' : ''}`}
-            onClick={() => onSelectPlan(plan.id)}
-          >
-            <div className="plan-header">
-              <h4>{plan.name}</h4>
-              <p className="plan-tagline">{plan.tagline}</p>
-              <div className="plan-price">
-                <span className="price">{plan.price}</span>
-                <span className="period">{plan.period}</span>
+        {plans.map(plan => {
+          const isCurrentPlan = plan.id === currentSubscription;
+          
+          return (
+            <div 
+              key={plan.id}
+              className={`plan-card ${selectedPlan === plan.id ? 'selected' : ''} ${isCurrentPlan ? 'current-plan' : ''}`}
+              onClick={() => onSelectPlan(plan.id)}
+            >
+              {isCurrentPlan && <div className="current-plan-badge">Current Plan</div>}
+              <div className="plan-header">
+                <h4>{plan.name}</h4>
+                <p className="plan-tagline">{plan.tagline}</p>
+                <div className="plan-price">
+                  <span className="price">{plan.price}</span>
+                  <span className="period">{plan.period}</span>
+                </div>
+              </div>
+              <ul className="plan-features">
+                {plan.features.map((feature, index) => (
+                  <li key={index}>{feature}</li>
+                ))}
+              </ul>
+              <div className={`plan-selector ${selectedPlan === plan.id ? 'selected' : ''}`}>
+                {selectedPlan === plan.id && <span className="checkmark">✓</span>}
               </div>
             </div>
-            <ul className="plan-features">
-              {plan.features.map((feature, index) => (
-                <li key={index}>{feature}</li>
-              ))}
-            </ul>
-            <div className={`plan-selector ${selectedPlan === plan.id ? 'selected' : ''}`}>
-              {selectedPlan === plan.id && <span className="checkmark">✓</span>}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -207,6 +212,7 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(initialPlan || null);
   const [subscriptionStep, setSubscriptionStep] = useState('plan-selection'); // 'plan-selection', 'payment-selection', 'confirmation'
+  const [currentSubscription, setCurrentSubscription] = useState(null);
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const stripe = useStripe();
@@ -222,7 +228,23 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
   // Fetch payment methods when the component mounts
   useEffect(() => {
     dispatch(getPaymentMethods());
-  }, [dispatch]);
+    
+    // Fetch current subscription
+    dispatch(getUserSubscription())
+      .unwrap()
+      .then((subscriptionData) => {
+        setCurrentSubscription(subscriptionData?.subscriptionPlan?.toLowerCase() || 'free');
+        console.log('Current subscription:', subscriptionData?.subscriptionPlan);
+        
+        // If initialPlan is the same as current subscription, show message
+        if (initialPlan && initialPlan.toLowerCase() === (subscriptionData?.subscriptionPlan?.toLowerCase() || 'free')) {
+          setError(`You are already subscribed to the ${subscriptionData?.subscriptionPlan || 'Free'} plan`);
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching subscription:', error);
+      });
+  }, [dispatch, initialPlan]);
 
   // Set default payment method as selected if available
   useEffect(() => {
@@ -323,11 +345,129 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
       })).unwrap();
       
       setMessage(`Successfully subscribed to ${selectedPlan} membership!`);
-      setSubscriptionStep('confirmation');
+      
+      // Show success message briefly before redirecting
+      setTimeout(() => {
+        navigate('/profile');
+      }, 1500); // 1.5 second delay to show success message
+      
     } catch (err) {
-      setError(err.message || 'Failed to subscribe. Please try again.');
+      console.error('Subscription failed:', err);
+      
+      // Create detailed error message
+      const errorMessage = err.message || 'Failed to subscribe. Please try again.';
+      setError(errorMessage);
+      
+      // Display error details in UI and console
+      console.log('Error details:', { 
+        plan: selectedPlan,
+        paymentMethod: selectedPaymentMethod,
+        errorMessage
+      });
+      
+      // Stay on confirmation step so user can retry
+      setSubscriptionStep('confirmation');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // New function to handle saving free subscription
+  const handleFreePlanSubscription = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Call the same subscribeCustomer action, but with the free plan
+      await dispatch(subscribeCustomer({ 
+        membershipType: 'free'
+        // No payment method needed for free tier
+      })).unwrap();
+      
+      setMessage('Successfully subscribed to Free tier!');
+      
+      // Show success message briefly before redirecting
+      setTimeout(() => {
+        navigate('/profile');
+      }, 1500); // 1.5 second delay to show success message
+    } catch (err) {
+      console.error('Free subscription setup failed:', err);
+      setError(err.message || 'Failed to set up free subscription. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Update the handleNextStep function
+  const handleNextStep = () => {
+    if (subscriptionStep === 'plan-selection' && selectedPlan) {
+      // If free plan is selected, set up the free subscription instead of just redirecting
+      if (selectedPlan === 'free') {
+        handleFreePlanSubscription();
+        return;
+      } else {
+        setSubscriptionStep('payment-selection');
+      }
+      
+      // Scroll to top after state update
+      setTimeout(() => {
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+        console.log('Scrolled to top');
+      }, 100);
+    } else if (subscriptionStep === 'payment-selection' && selectedPaymentMethod) {
+      setSubscriptionStep('confirmation');
+      
+      // Scroll to top after state update
+      setTimeout(() => {
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+        console.log('Scrolled to top');
+      }, 100);
+    }
+  };
+
+  const handleBackStep = () => {
+    if (subscriptionStep === 'payment-selection') {
+      setSubscriptionStep('plan-selection');
+      
+      // Scroll to top after state update
+      setTimeout(() => {
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+      }, 100);
+    } else if (subscriptionStep === 'confirmation') {
+      setSubscriptionStep('payment-selection');
+      
+      // Scroll to top after state update
+      setTimeout(() => {
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+      }, 100);
+    }
+  };
+
+  // Handle cancel button - redirect to profile page
+  const handleCancel = () => {
+    navigate('/profile');
+  };
+
+  // Update the subscription confirmation display
+  const getPlanDisplayName = () => {
+    if (selectedPlan === 'premium') {
+      return 'Premium (Usage-based with customizable max)';
+    } else if (selectedPlan === 'flex') {
+      return 'Flex (Usage-based with $10 monthly max)';
+    } else {
+      return 'Free';
     }
   };
 
@@ -388,78 +528,14 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
     }, 100);
   };
 
-  // Navigation between steps with scrolling
-  const handleNextStep = () => {
-    if (subscriptionStep === 'plan-selection' && selectedPlan) {
-      // If free plan is selected, redirect to profile page
-      if (selectedPlan === 'free') {
-        // You could optionally add a "saving..." state here
-        setLoading(true);
-        // Short timeout to show "saving" state before redirecting
-        setTimeout(() => {
-          navigate('/profile');
-        }, 500);
-        return;
-      } else {
-        setSubscriptionStep('payment-selection');
-      }
-      
-      // Scroll to top after state update
-      setTimeout(() => {
-        window.scrollTo({
-          top: 0,
-          behavior: 'smooth'
-        });
-        console.log('Scrolled to top');
-      }, 100);
-    } else if (subscriptionStep === 'payment-selection' && selectedPaymentMethod) {
-      setSubscriptionStep('confirmation');
-      
-      // Scroll to top after state update
-      setTimeout(() => {
-        window.scrollTo({
-          top: 0,
-          behavior: 'smooth'
-        });
-        console.log('Scrolled to top');
-      }, 100);
-    }
-  };
-
-  const handleBackStep = () => {
-    if (subscriptionStep === 'payment-selection') {
-      setSubscriptionStep('plan-selection');
-      
-      // Scroll to top after state update
-      setTimeout(() => {
-        window.scrollTo({
-          top: 0,
-          behavior: 'smooth'
-        });
-      }, 100);
-    } else if (subscriptionStep === 'confirmation') {
-      setSubscriptionStep('payment-selection');
-      
-      // Scroll to top after state update
-      setTimeout(() => {
-        window.scrollTo({
-          top: 0,
-          behavior: 'smooth'
-        });
-      }, 100);
-    }
-  };
-
-  // Update the subscription confirmation display
-  const getPlanDisplayName = () => {
-    if (selectedPlan === 'premium') {
-      return 'Premium (Usage-based with customizable max)';
-    } else if (selectedPlan === 'flex') {
-      return 'Flex (Usage-based with $10 monthly max)';
-    } else {
-      return 'Free';
-    }
-  };
+  // Modify MembershipPlans component to receive and use currentSubscription
+  const renderMembershipPlans = () => (
+    <MembershipPlans 
+      selectedPlan={selectedPlan}
+      onSelectPlan={setSelectedPlan}
+      currentSubscription={currentSubscription}
+    />
+  );
 
   return (
     <div className="payment-container" ref={checkoutContainerRef}>
@@ -553,19 +629,40 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
             <div className="subscription-flow">
               {subscriptionStep === 'plan-selection' && (
                 <div className="step-container">
-                  <MembershipPlans 
-                    selectedPlan={selectedPlan}
-                    onSelectPlan={setSelectedPlan}
-                  />
+                  {renderMembershipPlans()}
                   <div className="step-navigation">
+                    <button 
+                      className="cancel-button" 
+                      onClick={handleCancel}
+                    >
+                      Cancel
+                    </button>
                     <button 
                       className="next-step-button" 
                       onClick={handleNextStep}
-                      disabled={!selectedPlan}
+                      disabled={!selectedPlan || loading || selectedPlan === currentSubscription}
                     >
-                      {selectedPlan === 'free' ? (loading ? 'Saving...' : 'Save') : 'Next: Select Payment'}
+                      {selectedPlan === 'free' ? 
+                        (loading ? <><span className="spinner"></span> Saving...</> : 'Save') : 
+                        'Next: Select Payment'}
                     </button>
                   </div>
+                  {/* Add message display for free plan selection */}
+                  {selectedPlan === 'free' && message && (
+                    <div className="payment-success">
+                      <span className="success-checkmark">✓</span> {message}
+                      <p className="redirect-notice">Redirecting to your profile page...</p>
+                    </div>
+                  )}
+                  {selectedPlan === 'free' && error && (
+                    <div className="pay-error">{error}</div>
+                  )}
+                  {/* Display error if user tries to select their current plan */}
+                  {selectedPlan === currentSubscription && (
+                    <div className="pay-error">
+                      You are already subscribed to this plan. Please select a different plan or cancel.
+                    </div>
+                  )}
                 </div>
               )}
               
@@ -578,6 +675,12 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
                     onAddNew={handleAddPaymentMethod}
                   />
                   <div className="step-navigation">
+                    <button 
+                      className="cancel-button" 
+                      onClick={handleCancel}
+                    >
+                      Cancel
+                    </button>
                     <button 
                       className="back-button" 
                       onClick={handleBackStep}
@@ -663,12 +766,26 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
                   {message && (
                     <div className="payment-success">
                       <span className="success-checkmark">✓</span> {message}
+                      <p className="redirect-notice">Redirecting to your profile page...</p>
                     </div>
                   )}
                   
-                  {error && <div className="pay-error">{error}</div>}
+                  {error && (
+                    <div className="pay-error">
+                      <p className="error-message">{error}</p>
+                      <p className="error-suggestion">
+                        Please check your payment details and try again, or contact support if the issue persists.
+                      </p>
+                    </div>
+                  )}
                   
                   <div className="step-navigation">
+                    <button 
+                      className="cancel-button" 
+                      onClick={handleCancel}
+                    >
+                      Cancel
+                    </button>
                     <button 
                       className="back-button" 
                       onClick={handleBackStep}
@@ -679,7 +796,7 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
                     <button 
                       className="subscribe-button" 
                       onClick={handleSubscribe}
-                      disabled={loading}
+                      disabled={loading || message} // Disable if already subscribed successfully
                     >
                       {loading ? (
                         <>

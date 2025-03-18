@@ -222,13 +222,165 @@ const createInvoice = asyncHandler(async (req, res) => {
 
 // POST: Subscribe customer to a membership plan
 const subscribeCustomer = asyncHandler(async (req, res) => {
-    const { customerId, membershipType } = req.body;
-    const priceId = membershipType === 'Pro' ? 'price_pro_plan' : 'price_basic_plan';
-    const subscription = await stripe.subscriptions.create({
-        customer: customerId,
-        items: [{ price: priceId }],
-    });
-    res.status(200).json(subscription);
+    // Check for user
+    if (!req.user) {
+        res.status(401);
+        throw new Error('User not found');
+    }
+
+    const { paymentMethodId, membershipType } = req.body;
+    console.log('Subscription request:', { membershipType, paymentMethodId });
+
+    try {
+        // Extract customer ID using regex for more reliability
+        const stripeIdMatch = req.user.data.text.match(/\|stripeid:([^|]+)/);
+        if (!stripeIdMatch || !stripeIdMatch[1]) {
+            res.status(400);
+            throw new Error('Invalid customer ID format');
+        }
+        
+        const customerId = stripeIdMatch[1];
+
+        // First, check for existing subscriptions
+        const existingSubscriptions = await stripe.subscriptions.list({
+            customer: customerId,
+            status: 'active',
+            limit: 10 // Increase if needed
+        });
+
+        // Check current subscription type
+        let currentMembership = 'free';
+        if (existingSubscriptions.data.length > 0) {
+            const productIds = existingSubscriptions.data.map(sub => sub.plan.product);
+            
+            // Get product details to determine current subscription type
+            if (productIds.length > 0) {
+                const products = await stripe.products.list({
+                    ids: productIds,
+                    expand: ['data.name']
+                });
+                
+                const productNames = products.data.map(p => p.name);
+                if (productNames.includes('Flex Membership')) {
+                    currentMembership = 'flex';
+                } else if (productNames.includes('Premium Membership')) {
+                    currentMembership = 'premium';
+                }
+            }
+        }
+        
+        // If user is trying to subscribe to their current plan, prevent it
+        if (membershipType === currentMembership) {
+            res.status(400);
+            throw new Error(`You are already subscribed to the ${membershipType} plan`);
+        }
+        
+        // Cancel existing subscriptions regardless of which plan they're switching to
+        if (existingSubscriptions.data.length > 0) {
+            console.log(`Cancelling ${existingSubscriptions.data.length} existing subscriptions`);
+            
+            // Cancel each subscription
+            for (const subscription of existingSubscriptions.data) {
+                await stripe.subscriptions.cancel(subscription.id, {
+                    prorate: true // Prorate the amount
+                });
+                console.log(`Cancelled subscription: ${subscription.id}`);
+            }
+        }
+
+        // Handle different membership types
+        if (membershipType === 'free') {
+            // For free tier, simply return success after canceling any existing subscriptions
+            res.status(200).json({ 
+                success: true, 
+                membershipType: 'free',
+                message: 'Successfully switched to free plan'
+            });
+            return;
+        }
+
+        // Set default payment method if provided
+        if (paymentMethodId) {
+            await stripe.customers.update(customerId, {
+                invoice_settings: {
+                    default_payment_method: paymentMethodId,
+                },
+            });
+        }
+
+        // Get the correct price ID based on the membership type
+        // Map frontend membership types to Stripe product names
+        let productName;
+        if (membershipType === 'flex') {
+            productName = 'Flex Membership';
+        } else if (membershipType === 'premium') {
+            productName = 'Premium Membership';
+        } else {
+            res.status(400);
+            throw new Error('Invalid membership type');
+        }
+
+        // Find the price ID for the product
+        let priceId;
+        
+        // First try to use the environment variables if available
+        if (membershipType === 'flex' && process.env.STRIPE_FLEX_PRICE_ID) {
+            priceId = process.env.STRIPE_FLEX_PRICE_ID;
+        } else if (membershipType === 'premium' && process.env.STRIPE_PREMIUM_PRICE_ID) {
+            priceId = process.env.STRIPE_PREMIUM_PRICE_ID;
+        } else {
+            // If environment variables aren't available, look up the price by product name
+            const products = await stripe.products.list({
+                active: true,
+                limit: 100 // Increase if you have more products
+            });
+            
+            const product = products.data.find(p => p.name === productName);
+            
+            if (!product) {
+                console.error(`Product not found: ${productName}`);
+                throw new Error(`Membership product "${productName}" not found in Stripe`);
+            }
+            
+            // Get the price for this product
+            const prices = await stripe.prices.list({
+                product: product.id,
+                active: true
+            });
+            
+            if (prices.data.length === 0) {
+                console.error(`No prices found for product: ${productName}`);
+                throw new Error(`No pricing available for "${productName}"`);
+            }
+            
+            // Use the first active price (you could add logic to select a specific price if needed)
+            priceId = prices.data[0].id;
+        }
+        
+        console.log(`Using price ID: ${priceId} for ${productName}`);
+
+        // Create the subscription
+        const subscription = await stripe.subscriptions.create({
+            customer: customerId,
+            items: [{ price: priceId }],
+            payment_behavior: 'default_incomplete',
+            payment_settings: {
+                save_default_payment_method: 'on_subscription',
+                payment_method_types: ['card', 'link', 'cashapp']
+            },
+            expand: ['latest_invoice.payment_intent'],
+        });
+
+        res.status(200).json({
+            subscriptionId: subscription.id,
+            clientSecret: subscription.latest_invoice?.payment_intent?.client_secret,
+            membershipType: membershipType,
+            productName: productName
+        });
+    } catch (error) {
+        console.error('Error creating subscription:', error);
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // POST: Handle webhook events. Stripe sends events to this endpoint at any time.
