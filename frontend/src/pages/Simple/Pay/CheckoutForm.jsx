@@ -378,13 +378,18 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
     setError(null);
     
     try {
-      // Call the same subscribeCustomer action, but with the free plan
+      // Call the subscribeCustomer action with free plan to cancel all subscriptions
       await dispatch(subscribeCustomer({ 
-        membershipType: 'free'
-        // No payment method needed for free tier
+        membershipType: 'free',
+        cancelAllSubscriptions: true // Explicit flag to cancel all subscriptions
       })).unwrap();
       
-      setMessage('Successfully subscribed to Free tier!');
+      // Update local state to reflect the change
+      setCurrentSubscription('free');
+      setMessage('Successfully switched to Free tier!');
+      
+      // Update the subscription in Redux store
+      dispatch(getUserSubscription());
       
       // Show success message briefly before redirecting
       setTimeout(() => {

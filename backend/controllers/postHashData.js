@@ -228,8 +228,8 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
         throw new Error('User not found');
     }
 
-    const { paymentMethodId, membershipType } = req.body;
-    console.log('Subscription request:', { membershipType, paymentMethodId });
+    const { paymentMethodId, membershipType, cancelAllSubscriptions } = req.body;
+    console.log('Subscription request:', { membershipType, paymentMethodId, cancelAllSubscriptions });
 
     try {
         // Extract customer ID using regex for more reliability
@@ -270,7 +270,7 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
         }
         
         // If user is trying to subscribe to their current plan, prevent it
-        if (membershipType === currentMembership) {
+        if (membershipType === currentMembership && !cancelAllSubscriptions) {
             res.status(400);
             throw new Error(`You are already subscribed to the ${membershipType} plan`);
         }
@@ -288,9 +288,24 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
             }
         }
 
-        // Handle different membership types
+        // Handle free membership type by updating user data
         if (membershipType === 'free') {
-            // For free tier, simply return success after canceling any existing subscriptions
+            // Update user data with free subscription status
+            let updatedUserText = req.user.data.text;
+            
+            // Update the Rank field if it exists
+            if (updatedUserText.includes('|Rank:')) {
+                updatedUserText = updatedUserText.replace(/(\|Rank:)[^|]*/, '|Rank:Free');
+            } else {
+                // Add Rank field if it doesn't exist
+                updatedUserText += '|Rank:Free';
+            }
+            
+            // Update the user document
+            req.user.data.text = updatedUserText;
+            await req.user.save();
+            
+            // For free tier, return success after canceling subscriptions
             res.status(200).json({ 
                 success: true, 
                 membershipType: 'free',
