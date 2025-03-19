@@ -8,147 +8,245 @@
     padding-top: calc(var(--nav-size)*1);
     display: flex;
     flex-direction: column;
+    background: linear-gradient(135deg, var(--bg-nav1) 0%, var(--bg-nav2) 100%);
+    position: relative;
+    overflow: hidden;
 }
+
+.planit-plans::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at top right, rgba(var(--bg-mint-rgb, 79, 156, 249), 0.05), transparent 70%),
+                radial-gradient(circle at bottom left, rgba(var(--fg-mint, 0, 193, 193), 0.05), transparent 70%);
+    z-index: -1;
+}
+
 .planit-plans-text{
     font-size: calc(var(--nav-size)*0.3);
+    margin-bottom: calc(var(--nav-size)*0.3);
+    font-weight: 500;
+    color: var(--text-color);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
+
 .planit-plans-create{
     margin-top: calc(var(--nav-size)*.3);
-    padding-top: calc(var(--nav-size)*.3);
+    padding: calc(var(--nav-size)*.3);
     text-align: center;
     font-size: calc(var(--nav-size)*0.3);
-    border: calc(var(--nav-size)*0.001) solid var(--border-nav);
+    border: none;
     vertical-align: middle;
     min-height: calc(var(--nav-size)*0.8);
     border-radius: calc(var(--nav-size)*.15);
-    background-color: var(--bg-nav2);
-
+    background: linear-gradient(145deg, var(--bg-1) 0%, var(--bg) 100%);
+    box-shadow: 
+        0 calc(var(--nav-size)*0.05) calc(var(--nav-size)*0.2) rgba(0, 0, 0, 0.07),
+        0 calc(var(--nav-size)*0.01) calc(var(--nav-size)*0.05) rgba(0, 0, 0, 0.04);
+    backdrop-filter: blur(calc(var(--nav-size)*0.1));
+    transition: all 0.3s ease;
+    border: calc(var(--nav-size)*0.003) solid var(--border-nav);
 }
+
+.planit-plans-create:hover {
+    box-shadow: 
+        0 calc(var(--nav-size)*0.1) calc(var(--nav-size)*0.25) rgba(0, 0, 0, 0.09),
+        0 calc(var(--nav-size)*0.02) calc(var(--nav-size)*0.07) rgba(0, 0, 0, 0.06);
+    transform: translateY(calc(var(--nav-size)*-0.03));
+    border-color: var(--fg-mint, #4f9cf9);
+}
+
 .planit-plans-create-text{
     border: none;
     background-color: transparent;
     color: var(--text-color);
     cursor: pointer;
+    font-weight: 500;
+    transition: color 0.2s ease;
+    position: relative;
+    display: inline-block;
+    padding-bottom: calc(var(--nav-size)*0.05);
 }
-.planit-plans-my{
-    margin-top: calc(var(--nav-size)*0.5);
-    padding-top: calc(var(--nav-size)*.3);
-    text-align: center;
-    font-size: calc(var(--nav-size)*0.3);
-    border: calc(var(--nav-size)*0.001) solid var(--border-nav);
-    vertical-align: middle;
-    min-height: calc(var(--nav-size)*0.8);
-    border-radius: calc(var(--nav-size)*.15);
-    background-color: var(--bg-nav2);
+
+.planit-plans-create-text:hover {
+    color: var(--fg-mint, #4f9cf9);
 }
-.planit-plans-my-text{
-    padding-bottom: calc(var(--nav-size)*.3);
-    border: none;
-    background-color: transparent;
-    color: var(--text-color);
-    cursor: pointer;
+
+.planit-plans-create-text::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 0;
+    height: calc(var(--nav-size)*0.01);
+    background: linear-gradient(90deg, transparent, var(--fg-mint, #4f9cf9), transparent);
+    transition: width 0.3s ease, left 0.3s ease;
 }
-.planit-plans-my-out-sort {
-    color: var(--text-color);
-    margin-bottom: calc(var(--nav-size)*.1);
+
+.planit-plans-create-text:hover::after {
+    width: 80%;
+    left: 10%;
 }
-.planit-plans-my-out-sort label {
-    color: var(--text-color);
-    font-size: calc(var(--nav-size)*.3);
-    font-weight: bold;
-    margin-right: calc(var(--nav-size)*.1);
-}
-.planit-plans-my-out-sort select {
-    color: var(--text-color);
-    padding: calc(var(--nav-size)*.1) calc(var(--nav-size)*.1);
-    font-size: calc(var(--nav-size)*.3);
-    border: calc(var(--nav-size)*.01) solid var(--text-color);
-    border-radius: calc(var(--nav-size)*.1);
-    background-color: var(--bg-nav2);
-    transition: border-color 0.3s ease;
-}
-.planit-plans-my-out-sort select:focus {
-    border-color: var(--light-blue0);
-    outline: none;
-}
-.planit-plans-my-out-sort select option {
-    padding: calc(var(--nav-size)*0.5);
-}
-.planit-plans-saved{
-    margin-top: calc(var(--nav-size)*0.5);
-    padding-top: calc(var(--nav-size)*.3);
-    text-align: center;
-    font-size: calc(var(--nav-size)*0.3);
-    border: calc(var(--nav-size)*0.001) solid var(--border-nav);
-    vertical-align: middle;
-    min-height: calc(var(--nav-size)*0.8);
-    border-radius: calc(var(--nav-size)*.15);
-    background-color: var(--bg-nav2);
-}
-.planit-plans-saved-text{
-    padding-bottom: calc(var(--nav-size)*.3);
-    border: none;
-    background-color: transparent;
-    color: var(--text-color);
-    cursor: pointer;
-}
+
+.planit-plans-my, 
+.planit-plans-saved,
 .planit-plans-calendar {
     margin-top: calc(var(--nav-size)*0.5);
-    padding-top: calc(var(--nav-size)*.3);
+    padding: calc(var(--nav-size)*.3);
     text-align: center;
     font-size: calc(var(--nav-size)*0.3);
-    border: calc(var(--nav-size)*0.001) solid var(--border-nav);
+    border: none;
     vertical-align: middle;
     min-height: calc(var(--nav-size)*0.8);
     border-radius: calc(var(--nav-size)*.15);
-    background-color: var(--bg-nav2);
-    cursor: pointer;
+    background: linear-gradient(145deg, var(--bg-nav1) 0%, var(--bg-nav2) 100%);
+    box-shadow: 
+        0 calc(var(--nav-size)*0.05) calc(var(--nav-size)*0.2) rgba(0, 0, 0, 0.07),
+        0 calc(var(--nav-size)*0.01) calc(var(--nav-size)*0.05) rgba(0, 0, 0, 0.04);
+    backdrop-filter: blur(calc(var(--nav-size)*0.1));
+    transition: all 0.3s ease;
+    border: calc(var(--nav-size)*0.003) solid var(--border-nav);
+    position: relative;
+    overflow: hidden;
 }
+
+.planit-plans-my:hover, 
+.planit-plans-saved:hover,
+.planit-plans-calendar:hover {
+    box-shadow: 
+        0 calc(var(--nav-size)*0.1) calc(var(--nav-size)*0.25) rgba(0, 0, 0, 0.09),
+        0 calc(var(--nav-size)*0.02) calc(var(--nav-size)*0.07) rgba(0, 0, 0, 0.06);
+    transform: translateY(calc(var(--nav-size)*-0.03));
+    border-color: var(--fg-mint, #4f9cf9);
+}
+
+.planit-plans-my::before,
+.planit-plans-saved::before,
+.planit-plans-calendar::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 30%;
+    height: calc(var(--nav-size)*0.01);
+    background: linear-gradient(90deg, var(--fg-mint, #4f9cf9), transparent);
+    border-radius: var(--border-radius);
+}
+
+.planit-plans-my-text,
+.planit-plans-saved-text,
 .planit-plans-calendar-text {
-    font-size: calc(var(--nav-size)*0.3);
-    margin-bottom: calc(var(--nav-size)*0.3);
+    padding-bottom: calc(var(--nav-size)*.3);
+    border: none;
+    background-color: transparent;
+    color: var(--text-color);
+    cursor: pointer;
+    font-weight: 500;
+    transition: color 0.2s ease;
 }
+
+.planit-plans-my-text:hover,
+.planit-plans-saved-text:hover,
+.planit-plans-calendar-text:hover {
+    color: var(--fg-mint, #4f9cf9);
+}
+
+.planit-plans-my-out,
+.planit-plans-saved-out {
+    padding: calc(var(--nav-size)*0.2);
+    background-color: var(--bg-plan);
+    border-radius: calc(var(--nav-size)*0.1);
+    margin-top: calc(var(--nav-size)*0.2);
+}
+
+.planit-plans-my-out-sort {
+    color: var(--text-color);
+    margin-bottom: calc(var(--nav-size)*.2);
+    padding: calc(var(--nav-size)*.1) calc(var(--nav-size)*.2);
+    border-radius: calc(var(--nav-size)*0.1);
+    background: var(--bg);
+    backdrop-filter: blur(calc(var(--nav-size)*0.05));
+}
+
+.planit-plans-my-out-sort label {
+    color: var(--text-color);
+    font-size: calc(var(--nav-size)*.25);
+    font-weight: 500;
+    margin-right: calc(var(--nav-size)*.15);
+}
+
+.planit-plans-my-out-sort select {
+    color: var(--text-color);
+    padding: calc(var(--nav-size)*.1) calc(var(--nav-size)*.2);
+    font-size: calc(var(--nav-size)*.25);
+    border: none;
+    border-radius: calc(var(--nav-size)*.1);
+    background-color: var(--bg-1);
+    box-shadow: 0 calc(var(--nav-size)*.02) calc(var(--nav-size)*.05) rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    backdrop-filter: blur(calc(var(--nav-size)*0.05));
+}
+
+.planit-plans-my-out-sort select:focus {
+    outline: none;
+    box-shadow: 0 0 0 calc(var(--nav-size)*0.02) rgba(var(--bg-mint-rgb, 79, 156, 249), 0.3);
+}
+
+.planit-plans-my-out-sort select:hover {
+    background-color: var(--bg-accent);
+}
+
 .planit-plans-calendar-out {
     display: flex;
     justify-content: center;
     align-items: center;
     padding: calc(var(--nav-size)*0.3);
+    background-color: var(--bg-plan);
+    border-radius: calc(var(--nav-size)*0.1);
+    margin-top: calc(var(--nav-size)*0.2);
 }
-.planit-plans-calendar-out-tile-content {
-    background-color: transparent;
-    color: var(--text-color);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100%;
-}
-.planit-plans-calendar-out-meeting-count {
-    font-size: calc(var(--nav-size)*0.3);
-    margin-top: calc(var(--nav-size)*0.3);
-}
+
 .react-calendar {
     width: 100%;
     max-width: 100%;
-    background-color: var(--bg-nav2);
-    border: calc(var(--nav-size)*0.001) solid var(--border-nav);
+    background: var(--bg-nav1);
+    border: none;
     border-radius: calc(var(--nav-size)*.15);
-    font-size: calc(var(--nav-size)*0.3);
+    font-size: calc(var(--nav-size)*0.25);
+    color: var(--text-color);
+    box-shadow: 
+        0 calc(var(--nav-size)*0.05) calc(var(--nav-size)*0.15) rgba(0, 0, 0, 0.07),
+        0 calc(var(--nav-size)*0.01) calc(var(--nav-size)*0.05) rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+}
+
+.react-calendar button{
+    color: var(--text-color);
+    border-radius: calc(var(--nav-size)*.1);
+    border: none;
+    transition: all 0.2s ease;
+}
+
+.react-calendar__tile--now {
+    background-color: var(--bg-mint);
     color: var(--text-color);
 }
-.react-calendar button{
-    color: var(--text-color-accent);
-    border-radius: calc(var(--nav-size)*.15);
-    border: calc(var(--nav-size)*0.001) solid var(--border-nav);
-}
-.react-calendar__tile--now {
-    background-color: var(--text-color-inv);
-}
-.react-calendar__tile--active:enabled:hover, .react-calendar__tile--active:enabled:focus {
-    background: var(--bg-mint);
-}
-.react-calendar__tile--active {
+
+.react-calendar__tile--active:enabled:hover, 
+.react-calendar__tile--active:enabled:focus {
     background: var(--bg-blue);
 }
+
+.react-calendar__tile--active {
+    background: var(--fg-mint);
+    color: var(--text-color-inv);
+}
+
+/* Keep existing media query */
 @media (orientation: landscape) {
     .planit-plans{
         text-align: left;
