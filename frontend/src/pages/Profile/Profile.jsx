@@ -95,6 +95,15 @@ function Profile() {
 
   const handleSubscriptionChange = (event) => {
     const newPlan = event.target.value;
+    
+    // Check if the user is trying to select their current plan
+    if (newPlan.toLowerCase() === (userSubscription?.subscriptionPlan || 'Free').toLowerCase()) {
+      // If selecting current plan, just ignore the selection and reset dropdown
+      // This prevents the error message from showing
+      event.target.value = userSubscription?.subscriptionPlan || 'Free';
+      return;
+    }
+    
     // Navigate to the pay page with the selected plan as a URL parameter
     navigate(`/pay?plan=${newPlan.toLowerCase()}`);
   };

@@ -11,6 +11,8 @@ require('dotenv').config();
 const openai = require('openai');
 const openaikey = process.env.OPENAI_KEY;
 const client = new openai({ apiKey: openaikey });
+const { putHashData } = require('./putHashData');
+const mongoose = require('mongoose');
 
 // @desc    Set data
 // @route   POST /api/data
@@ -228,88 +230,248 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
         throw new Error('User not found');
     }
 
-    const { paymentMethodId, membershipType, cancelAllSubscriptions } = req.body;
-    console.log('Subscription request:', { membershipType, paymentMethodId, cancelAllSubscriptions });
+    const { paymentMethodId, membershipType } = req.body;
+    console.log('Subscription request:', { membershipType, paymentMethodId });
+    // Extract customer ID using regex for more reliability
+    const stripeIdMatch = req.user.data.text.match(/\|stripeid:([^|]+)/);
+    if (!stripeIdMatch || !stripeIdMatch[1]) {
+        res.status(400);
+        throw new Error('Invalid customer ID format');
+    }
+    
+    const customerId = stripeIdMatch[1];
+    console.log('Customer ID for subscription management:', customerId);
+
+    // Function to update the Rank in user.data.text using putHashData
+    const updateUserRank = async (rank) => {
+        try {
+            // Convert first letter to uppercase for consistency
+            const formattedRank = rank.charAt(0).toUpperCase() + rank.slice(1).toLowerCase();
+            console.log(`Updating user rank to: ${formattedRank}`);
+            
+            // Find the user data document containing user profile data
+            // This looks for data with format: Nickname:xxx|Email:xxx|Password:xxx|stripeid:xxx|Rank:xxx
+            const userData = await Data.findOne({
+                'data.text': { $regex: `Email:.*\\|Password:.*\\|stripeid:${customerId}`, $options: 'i' }
+            });
+            
+            if (!userData) {
+                console.error(`No user profile data found for customer ID: ${customerId}`);
+                return false;
+            }
+            
+            console.log(`Found user profile data with ID: ${userData._id}`);
+            
+            // Get the current text content
+            let updatedText = userData.data.text;
+            
+            // Update the Rank field if it exists
+            if (updatedText.includes('|Rank:')) {
+                updatedText = updatedText.replace(/(\|Rank:)[^|]*/, `|Rank:${formattedRank}`);
+                console.log(`Updated Rank in text to: ${formattedRank}`);
+            } else {
+                // Add Rank field if it doesn't exist
+                updatedText += `|Rank:${formattedRank}`;
+                console.log(`Added new Rank field: ${formattedRank}`);
+            }
+            
+            // Use putHashData to update only the text field
+            const result = await Data.findByIdAndUpdate(
+                userData._id,
+                { 'data.text': updatedText },
+                { new: true }
+            );
+            
+            if (!result) {
+                console.error('Failed to update user rank in database');
+                return false;
+            }
+            
+            console.log('Successfully updated user rank in database');
+            return true;
+        } catch (error) {
+            console.error('Error updating user rank:', error);
+            return false;
+        }
+    };
 
     try {
-        // Extract customer ID using regex for more reliability
-        const stripeIdMatch = req.user.data.text.match(/\|stripeid:([^|]+)/);
-        if (!stripeIdMatch || !stripeIdMatch[1]) {
-            res.status(400);
-            throw new Error('Invalid customer ID format');
-        }
-        
-        const customerId = stripeIdMatch[1];
-
-        // First, check for existing subscriptions
+        // Get ALL subscriptions in any status for the customer
         const existingSubscriptions = await stripe.subscriptions.list({
             customer: customerId,
-            status: 'active',
-            limit: 10 // Increase if needed
+            status: 'all', // Get all subscriptions regardless of status
+            limit: 20 // Increased limit to catch more subscriptions
         });
 
-        // Check current subscription type
-        let currentMembership = 'free';
+        console.log(`Found ${existingSubscriptions.data.length} existing subscriptions for customer`);
+        
+        // Log subscription details for debugging
         if (existingSubscriptions.data.length > 0) {
-            const productIds = existingSubscriptions.data.map(sub => sub.plan.product);
+            existingSubscriptions.data.forEach((sub, index) => {
+                console.log(`Subscription ${index + 1}: ID=${sub.id}, Status=${sub.status}, Plan=${sub.plan?.nickname || 'unnamed plan'}`);
+            });
+        }
+
+        // Check current subscription type - but don't use expansion which causes errors
+        let currentMembership = 'free';
+        let activeSubscriptions = [];
+        
+        if (existingSubscriptions.data.length > 0) {
+            // Filter to just active subscriptions for determining current plan
+            activeSubscriptions = existingSubscriptions.data.filter(sub => 
+                ['active', 'trialing', 'past_due', 'incomplete'].includes(sub.status)
+            );
             
-            // Get product details to determine current subscription type
-            if (productIds.length > 0) {
-                const products = await stripe.products.list({
-                    ids: productIds,
-                    expand: ['data.name']
-                });
+            // Only try to determine membership type if we have active subscriptions
+            if (activeSubscriptions.length > 0) {
+                // First, collect all product IDs
+                const productIds = [];
+                for (const sub of activeSubscriptions) {
+                    if (sub.plan && sub.plan.product) {
+                        productIds.push(sub.plan.product);
+                    }
+                }
                 
-                const productNames = products.data.map(p => p.name);
-                if (productNames.includes('Flex Membership')) {
-                    currentMembership = 'flex';
-                } else if (productNames.includes('Premium Membership')) {
-                    currentMembership = 'premium';
+                // Then fetch products one by one to avoid expansion issues
+                if (productIds.length > 0) {
+                    for (const productId of productIds) {
+                        try {
+                            const product = await stripe.products.retrieve(productId);
+                            console.log('Product found:', product.name);
+                            
+                            // Determine membership type from product name
+                            if (product.name === 'Flex Membership') {
+                                currentMembership = 'flex';
+                                break;
+                            } else if (product.name === 'Premium Membership') {
+                                currentMembership = 'premium';
+                                break;
+                            }
+                        } catch (productError) {
+                            console.error(`Error fetching product ${productId}:`, productError.message);
+                            // Continue with next product
+                        }
+                    }
                 }
             }
         }
         
+        console.log(`Current membership: ${currentMembership}, Requested membership: ${membershipType}`);
+        
         // If user is trying to subscribe to their current plan, prevent it
-        if (membershipType === currentMembership && !cancelAllSubscriptions) {
+        if (membershipType === currentMembership) {
             res.status(400);
             throw new Error(`You are already subscribed to the ${membershipType} plan`);
         }
         
-        // Cancel existing subscriptions regardless of which plan they're switching to
-        if (existingSubscriptions.data.length > 0) {
-            console.log(`Cancelling ${existingSubscriptions.data.length} existing subscriptions`);
+        // Cancel active subscriptions
+        if (activeSubscriptions.length > 0) {
+            console.log(`Cancelling ${activeSubscriptions.length} active subscriptions`);
             
-            // Cancel each subscription
-            for (const subscription of existingSubscriptions.data) {
-                await stripe.subscriptions.cancel(subscription.id, {
-                    prorate: true // Prorate the amount
-                });
-                console.log(`Cancelled subscription: ${subscription.id}`);
+            // Cancel each subscription that can be cancelled
+            for (const subscription of activeSubscriptions) {
+                try {
+                    const cancelledSub = await stripe.subscriptions.cancel(subscription.id, {
+                        prorate: true // Prorate the amount
+                    });
+                    console.log(`Successfully cancelled subscription: ${subscription.id}, new status: ${cancelledSub.status}`);
+                } catch (cancelError) {
+                    console.error(`Error cancelling subscription ${subscription.id}: ${cancelError.message}`);
+                    // Continue with other subscriptions even if one fails
+                }
             }
         }
 
-        // Handle free membership type by updating user data
+        // Also handle incomplete_expired subscriptions by deleting them
+        const expiredSubscriptions = existingSubscriptions.data.filter(sub => 
+            sub.status === 'incomplete_expired'
+        );
+
+        if (expiredSubscriptions.length > 0) {
+            console.log(`Cleaning up ${expiredSubscriptions.length} expired subscriptions`);
+            for (const expSub of expiredSubscriptions) {
+                try {
+                    // For incomplete_expired, we can't cancel but can delete them from the API
+                    await stripe.subscriptions.del(expSub.id);
+                    console.log(`Deleted expired subscription: ${expSub.id}`);
+                } catch (delError) {
+                    console.error(`Error deleting subscription ${expSub.id}:`, delError.message);
+                }
+            }
+        }
+
+        // Handle free membership type
         if (membershipType === 'free') {
-            // Update user data with free subscription status
-            let updatedUserText = req.user.data.text;
+            let subscriptionCancellationSuccess = true;
             
-            // Update the Rank field if it exists
-            if (updatedUserText.includes('|Rank:')) {
-                updatedUserText = updatedUserText.replace(/(\|Rank:)[^|]*/, '|Rank:Free');
-            } else {
-                // Add Rank field if it doesn't exist
-                updatedUserText += '|Rank:Free';
+            try {
+                // Double check that all active subscriptions were cancelled
+                const checkSubscriptions = await stripe.subscriptions.list({
+                    customer: customerId,
+                    status: 'active',
+                    limit: 5
+                });
+                
+                if (checkSubscriptions.data.length > 0) {
+                    console.log(`Warning: ${checkSubscriptions.data.length} subscriptions still active after cancellation`);
+                    // Try to cancel them one more time
+                    for (const sub of checkSubscriptions.data) {
+                        try {
+                            await stripe.subscriptions.cancel(sub.id, { prorate: true });
+                            console.log(`Cancelled remaining subscription: ${sub.id}`);
+                        } catch (finalCancelError) {
+                            console.error(`Failed to cancel subscription ${sub.id}: ${finalCancelError.message}`);
+                            subscriptionCancellationSuccess = false;
+                        }
+                    }
+                }
+            } catch (cancelCheckError) {
+                console.error('Error checking remaining subscriptions:', cancelCheckError);
+                // Don't set success to false here, we'll try to update the rank anyway
             }
             
-            // Update the user document
-            req.user.data.text = updatedUserText;
-            await req.user.save();
+            // Always update user rank to Free using putHashData - even if subscription cancellation had issues
+            try {
+                const rankUpdated = await updateUserRank('Free');
+                if (!rankUpdated) {
+                    console.warn('Failed to update user rank using putHashData');
+                    
+                    // Fallback to direct database update if putHashData fails
+                    try {
+                        // Find the user data document by user ID
+                        const userData = await Data.findOne({ _id: req.user._id });
+                        
+                        if (userData) {
+                            // Update the Rank field if it exists
+                            let updatedUserText = userData.data.text;
+                            if (updatedUserText.includes('|Rank:')) {
+                                updatedUserText = updatedUserText.replace(/(\|Rank:)[^|]*/, '|Rank:Free');
+                            } else {
+                                // Add Rank field if it doesn't exist
+                                updatedUserText += '|Rank:Free';
+                            }
+                            
+                            // Direct database update
+                            userData.data.text = updatedUserText;
+                            await userData.save();
+                            console.log('Successfully updated user rank through direct database update');
+                        }
+                    } catch (directUpdateError) {
+                        console.error('Failed direct database update:', directUpdateError);
+                    }
+                }
+            } catch (rankUpdateError) {
+                console.error('Error in rank update process:', rankUpdateError);
+            }
             
-            // For free tier, return success after canceling subscriptions
-            res.status(200).json({ 
+            // For free tier, return success even if some cancellations failed
+            // The important thing is that the user's rank is set to Free
+            res.status(subscriptionCancellationSuccess ? 200 : 207).json({ 
                 success: true, 
                 membershipType: 'free',
-                message: 'Successfully switched to free plan'
+                message: subscriptionCancellationSuccess ? 
+                    'Successfully switched to free plan' : 
+                    'Switched to free plan with some subscription cleanup pending'
             });
             return;
         }
@@ -386,6 +548,9 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
             expand: ['latest_invoice.payment_intent'],
         });
 
+        // Update user rank based on the membership type using putHashData
+        await updateUserRank(membershipType);
+
         res.status(200).json({
             subscriptionId: subscription.id,
             clientSecret: subscription.latest_invoice?.payment_intent?.client_secret,
@@ -393,7 +558,18 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
             productName: productName
         });
     } catch (error) {
-        console.error('Error creating subscription:', error);
+        console.error('Error managing subscription:', error);
+        
+        // Even if there's an error, try to update the rank for free plan requests
+        if (membershipType === 'free') {
+            try {
+                console.log('Attempting rank update despite subscription error');
+                await updateUserRank('Free');
+            } catch (fallbackError) {
+                console.error('Fallback rank update also failed:', fallbackError);
+            }
+        }
+        
         res.status(500).json({ error: error.message });
     }
 });

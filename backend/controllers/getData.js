@@ -110,15 +110,32 @@ const getUserSubscription = asyncHandler(async (req, res) => {
         
         const customerId = stripeIdMatch[1];
         console.log('Customer ID:', customerId);
-        // Get all subscriptions for customer
-        const subscriptions = await stripe.subscriptions.list({
+        
+        // Get only active and relevant in-progress subscriptions
+        // This includes active, trialing, past_due, and incomplete subscriptions
+        const activeSubscriptions = await stripe.subscriptions.list({
             customer: customerId,
-            status: 'all',
-            limit: 1, // Most users will have 1 subscription
+            status: 'active',
+            limit: 5,
             expand: ['data.plan.product']
         });
+        
+        const incompleteSubscriptions = await stripe.subscriptions.list({
+            customer: customerId,
+            status: 'incomplete',
+            limit: 5,
+            expand: ['data.plan.product']
+        });
+        
+        console.log(`Found ${activeSubscriptions.data.length} active and ${incompleteSubscriptions.data.length} incomplete subscriptions`);
+        
+        // Combine and sort all relevant subscriptions by created date (newest first)
+        const allRelevantSubscriptions = [
+            ...activeSubscriptions.data,
+            ...incompleteSubscriptions.data
+        ].sort((a, b) => b.created - a.created);
 
-        if (subscriptions.data.length === 0) {
+        if (allRelevantSubscriptions.length === 0) {
             console.log('No active subscriptions found');
             // No active subscriptions means they're on free plan
             return res.status(200).json({ 
@@ -128,7 +145,7 @@ const getUserSubscription = asyncHandler(async (req, res) => {
         }
 
         // Get the most recent subscription
-        const subscription = subscriptions.data[0];
+        const subscription = allRelevantSubscriptions[0];
         
         // Get the product name to determine subscription type
         const productName = subscription.plan.product.name;
@@ -140,6 +157,7 @@ const getUserSubscription = asyncHandler(async (req, res) => {
             subscriptionPlan = 'Premium';
         }
         console.log('Subscription plan:', subscriptionPlan);
+        
         // Return subscription details
         res.status(200).json({
             subscriptionPlan,

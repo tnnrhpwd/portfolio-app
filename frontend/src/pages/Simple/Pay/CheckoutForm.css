@@ -1048,13 +1048,38 @@
 
 .current-plan-badge {
   position: absolute;
-  top: calc(var(--nav-size)*-0.0);
-  right: calc(var(--nav-size)*-0.1);
+  top: calc(var(--nav-size)*0.0);
+  right: calc(var(--nav-size)*0.0);
   background-color: var(--bg-blue);
   color: var(--text-color);
   padding: 1% 3%;
-  border-radius: calc(var(--nav-size)*0.3);
+  border-radius: var(--border-radius);
   font-size: calc(var(--nav-size)*0.2);
   font-weight: bold;
   z-index: 1;
+  border: calc(var(--nav-size) * 0.01) solid var(--fg-blue);
+}
+
+/* Subscription details styling */
+.subscription-details {
+  display: block;
+  width: 100%;
+  clear: both;
+  text-align: center;
+  margin-top: calc(var(--nav-size) * 0.25);
+  padding: calc(var(--nav-size) * 0.15);
+  background-color: rgba(79, 156, 249, 0.05);
+  border-radius: var(--border-radius);
+  border-left: calc(var(--nav-size) * 0.05) solid var(--fg-mint);
+}
+
+.subscription-details p {
+  margin: 0;
+  font-size: calc(var(--nav-size) * 0.2);
+  color: var(--text-color);
+}
+
+.subscription-details strong {
+  color: var(--fg-mint);
+  font-weight: 500;
 }

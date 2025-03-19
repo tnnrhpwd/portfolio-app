@@ -236,9 +236,10 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
         setCurrentSubscription(subscriptionData?.subscriptionPlan?.toLowerCase() || 'free');
         console.log('Current subscription:', subscriptionData?.subscriptionPlan);
         
-        // If initialPlan is the same as current subscription, show message
-        if (initialPlan && initialPlan.toLowerCase() === (subscriptionData?.subscriptionPlan?.toLowerCase() || 'free')) {
-          setError(`You are already subscribed to the ${subscriptionData?.subscriptionPlan || 'Free'} plan`);
+        // Only show "already subscribed" error for paid plans, not for free plan
+        if (initialPlan && initialPlan.toLowerCase() === (subscriptionData?.subscriptionPlan?.toLowerCase() || 'free') && 
+            subscriptionData?.subscriptionPlan?.toLowerCase() !== 'free') {
+          setError(`You are already subscribed to the ${subscriptionData?.subscriptionPlan} plan`);
         }
       })
       .catch(error => {
@@ -378,18 +379,21 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
     setError(null);
     
     try {
-      // Call the subscribeCustomer action with free plan to cancel all subscriptions
-      await dispatch(subscribeCustomer({ 
-        membershipType: 'free',
-        cancelAllSubscriptions: true // Explicit flag to cancel all subscriptions
+      console.log('Saving free subscription plan...');
+      // Call the subscribeCustomer action with free plan
+      const result = await dispatch(subscribeCustomer({ 
+        membershipType: 'free'
+        // No payment method needed for free tier
       })).unwrap();
+      
+      console.log('Free plan subscription result:', result);
       
       // Update local state to reflect the change
       setCurrentSubscription('free');
       setMessage('Successfully switched to Free tier!');
       
       // Update the subscription in Redux store
-      dispatch(getUserSubscription());
+      await dispatch(getUserSubscription());
       
       // Show success message briefly before redirecting
       setTimeout(() => {
@@ -645,7 +649,8 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
                     <button 
                       className="next-step-button" 
                       onClick={handleNextStep}
-                      disabled={!selectedPlan || loading || selectedPlan === currentSubscription}
+                      disabled={!selectedPlan || loading || 
+                               (selectedPlan === currentSubscription && selectedPlan !== 'free')}
                     >
                       {selectedPlan === 'free' ? 
                         (loading ? <><span className="spinner"></span> Saving...</> : 'Save') : 
@@ -662,8 +667,8 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
                   {selectedPlan === 'free' && error && (
                     <div className="pay-error">{error}</div>
                   )}
-                  {/* Display error if user tries to select their current plan */}
-                  {selectedPlan === currentSubscription && (
+                  {/* Display error if user tries to select their current paid plan, but not for free plan */}
+                  {selectedPlan === currentSubscription && selectedPlan !== 'free' && (
                     <div className="pay-error">
                       You are already subscribed to this plan. Please select a different plan or cancel.
                     </div>
