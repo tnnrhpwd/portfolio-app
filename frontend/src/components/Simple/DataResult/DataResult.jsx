@@ -12,27 +12,27 @@ import './DataResult.css';
 
 function GoldBadge() {
     return (
-        <div className="gold-badge">
-            <div className="gold-badge-triangle"></div>
-            <div className="gold-badge-circle"></div>
+        <div className="badge gold-badge">
+            <div className="badge-triangle gold-badge-triangle"></div>
+            <div className="badge-circle gold-badge-circle"></div>
         </div>
     );
 }
 
 function SilverBadge() {
     return (
-        <div className="silver-badge">
-            <div className="silver-badge-triangle"></div>
-            <div className="silver-badge-circle"></div>
+        <div className="badge silver-badge">
+            <div className="badge-triangle silver-badge-triangle"></div>
+            <div className="badge-circle silver-badge-circle"></div>
         </div>
     );
 }
 
 function UnknownBadge() {
     return (
-        <div className="unknown-badge">
-            <div className="unknown-badge-triangle"></div>
-            <div className="unknown-badge-circle"></div>
+        <div className="badge unknown-badge">
+            <div className="badge-triangle unknown-badge-triangle"></div>
+            <div className="badge-circle unknown-badge-circle"></div>
         </div>
     );
 }
@@ -41,10 +41,18 @@ function DataResult(props) {
     const planString = props.importPlanString;
     const updatedAt = props.updatedAtData;
     const itemID = props.itemID;
-    const files = props.files;
+    const files = props.files || [];
     const userName = props.userName;
     const userBadge = props.userBadge;
-    // console.log("DataResult: planString=" + planString + ", updatedAt=" + updatedAt + ", itemID=" + itemID + ", files=" + files + ", userName=" + userName + ", userBadge=" + userBadge);
+    
+    // Extract user rank from planString if available
+    let userRank = "Free"; // Default rank
+    if (planString && planString.includes("|Rank:")) {
+        const rankMatch = planString.match(/\|Rank:([^|]*)/);
+        if (rankMatch && rankMatch[1]) {
+            userRank = rankMatch[1].trim();
+        }
+    }
 
     const dispatch = useDispatch();
     const navigate = useNavigate();
@@ -101,130 +109,148 @@ function DataResult(props) {
     }
 
     function handleNextFile() {
-        setCurrentFileIndex((prevIndex) => (prevIndex + 1) % files.length);
+        if (files.length > 1) {
+            setCurrentFileIndex((prevIndex) => (prevIndex + 1) % files.length);
+        }
     }
 
     function handlePrevFile() {
-        setCurrentFileIndex((prevIndex) => (prevIndex - 1 + files.length) % files.length);
+        if (files.length > 1) {
+            setCurrentFileIndex((prevIndex) => (prevIndex - 1 + files.length) % files.length);
+        }
     }
 
+    // Updated renderBadge function based on user rank
     const renderBadge = () => {
-        switch (userBadge) {
-            case 'Gold':
+        // If we have a direct userBadge prop, use that first
+        if (userBadge) {
+            if (userBadge === 'Gold') return <GoldBadge />;
+            if (userBadge === 'Silver') return <SilverBadge />;
+            return <UnknownBadge />;
+        }
+        
+        // Otherwise use rank from the plan string
+        switch (userRank) {
+            case 'Premium':
                 return <GoldBadge />;
-            case 'Silver':
+            case 'Flex':
                 return <SilverBadge />;
-            default:
+            default: // 'Free' or any other value
                 return <UnknownBadge />;
         }
     };
 
     if(planString){
-        const currentFile = files[currentFileIndex];
+        const currentFile = files && files.length > 0 ? files[currentFileIndex] : null;
+        
+        // Clean the displayed plan string by removing system metadata
+        const displayPlanString = planString.replace(/Creator:.*?\|/, '|').replace(/\|Rank:[^|]*/, '');
 
         return (
             <>
                 {shareView}
                 {manageView}
 
-                <div key={planString+"0"} className='planit-dataresult'>
-                    <div key={planString+"0.1"} className='planit-dataresult-1'>
-                        <div key={planString+"0.11"} className='planit-dataresult-created'>
+                <div className='planit-dataresult'>
+                    <div className='planit-dataresult-header'>
+                        <div className='planit-dataresult-created'>
                             {renderBadge()}
                             <span className='planit-dataresult-created-user'>{userName}</span>
                             <div className='planit-dataresult-created-date'>                            
-                                <CreatedAt key={planString+"0.12"} createdAt={updatedAt}/></div>
+                                <CreatedAt createdAt={updatedAt}/>
+                            </div>
                         </div>
-                        <div key={planString+"0.13"} className='planit-dataresult-share'>
-                            <button key={planString+"0.14"} className='planit-dataresult-share-btn' onClick={() => handleShareView("plan",itemID)}>Share</button>
-                        </div>
-                        <div className='planit-dataresult-fav' key={planString+"0.15"}>
+                        <div className='planit-dataresult-actions'>
+                            <button className='planit-dataresult-share-btn' onClick={() => handleShareView("plan", itemID)}>
+                                <span className="btn-icon">🔗</span>
+                                <span className="btn-text">Share</span>
+                            </button>
                             {user && (
                                 <>
-                                    {planString.includes(user._id) ? (
-                                        <button className='planit-dataresult-fav-btn' onClick={() => handleUnfavorite(itemID)} key={planString+"5.1"}>❤</button>
-                                    ) : (
-                                        <button className='planit-dataresult-unfav-btn' onClick={() => handleFavorite(itemID)} key={planString+"5.2"}>♡</button>
-                                    )}
+                                    <button 
+                                        className={planString.includes(user._id) ? 'planit-dataresult-fav-btn' : 'planit-dataresult-unfav-btn'} 
+                                        onClick={() => planString.includes(user._id) ? handleUnfavorite(itemID) : handleFavorite(itemID)}>
+                                        <span className="btn-icon">{planString.includes(user._id) ? '❤' : '♡'}</span>
+                                    </button>
+                                    <button className='planit-dataresult-manageplan-btn' onClick={() => handleManageView("plan",itemID)}>
+                                        <span className="btn-icon">☸</span>
+                                    </button>
                                 </>
                             )}
                         </div>
-                        <div className='planit-dataresult-manageplan' key={planString+"0.16"}>
-                            {user && (
-                                <button key={planString+"0.17"} className='planit-dataresult-manageplan-btn' onClick={() => handleManageView("plan",itemID)}>☸</button>
-                            )}
-                        </div>
                     </div>
-                        <div key={planString+"0.2"} className='planit-dataresult-2'>                    
-                            <a href={'InfoData/' + itemID}>
-                                <div key={planString + "2"} className='planit-dataresult-goal'>
-                                    <button key={planString + "2button"} className='planit-dataresult-goalbutton'>
-                                        <div className='planit-dataresult-goalbutton-text'>{planString.replace(/Creator:.*?\|/, '|')}</div>
-                                    </button>
-                                </div>                    
-                            </a>
-                            {currentFile && (
-                                <div key={planString+"attachments"} className='planit-dataresult-attachments'>
-                                    <div key={planString+"attachments1"} className='planit-dataresult-attachment'>
-                                        <a href={'InfoData/' + itemID}>
+                    
+                    <div className='planit-dataresult-content'>                    
+                        <a href={'InfoData/' + itemID} className="planit-dataresult-link">
+                            <div className='planit-dataresult-goal'>
+                                <div className='planit-dataresult-goalbutton-text'>{displayPlanString}</div>
+                            </div>                    
+                        </a>
+                        
+                        {currentFile && (
+                            <div className='planit-dataresult-attachments'>
+                                <div className='planit-dataresult-attachment'>
+                                    <a href={'InfoData/' + itemID}>
                                         {currentFile.contentType && currentFile.contentType.startsWith('image/') && (
-                                            <img src={`data:${currentFile.contentType};base64,${currentFile.data}`} alt={currentFile.name} className='planit-dataresult-image' />
-                                            )}
-                                            {currentFile.contentType && currentFile.contentType.startsWith('video/') && (
-                                                <video controls className='planit-dataresult-video'>
-                                                    <source src={`data:${currentFile.contentType};base64,${currentFile.data}`} type={currentFile.contentType} />
-                                                    Your browser does not support the video tag.
-                                                </video>
-                                            )}
-                                            {currentFile.contentType && !currentFile.contentType.startsWith('image/') && !currentFile.contentType.startsWith('video/') && (                                                <div className='planit-dataresult-file'>
-                                                    <p>Attachment: {currentFile.filename}</p>
-                                                    <p>Type: {currentFile.contentType}</p>
-                                                </div>
-                                            )}
-                                        </a>
-                                        {files.length > 1 && (
-                                            <div className='planit-dataresult-file-navigation'>
-                                                <button onClick={handlePrevFile}>Previous</button>
-                                                <button onClick={handleNextFile}>Next</button>
+                                            <img src={`data:${currentFile.contentType};base64,${currentFile.data}`} alt={currentFile.filename} className='planit-dataresult-image' />
+                                        )}
+                                        {currentFile.contentType && currentFile.contentType.startsWith('video/') && (
+                                            <video controls className='planit-dataresult-video'>
+                                                <source src={`data:${currentFile.contentType};base64,${currentFile.data}`} type={currentFile.contentType} />
+                                                Your browser does not support the video tag.
+                                            </video>
+                                        )}
+                                        {currentFile.contentType && !currentFile.contentType.startsWith('image/') && !currentFile.contentType.startsWith('video/') && (
+                                            <div className='planit-dataresult-file'>
+                                                <p>Attachment: {currentFile.filename}</p>
+                                                <p>Type: {currentFile.contentType}</p>
                                             </div>
                                         )}
-                                    </div>
+                                    </a>
+                                    {files.length > 1 && (
+                                        <div className='planit-dataresult-file-navigation'>
+                                            <button onClick={handlePrevFile} className="nav-button prev-button">Previous</button>
+                                            <span className="file-counter">{currentFileIndex + 1} / {files.length}</span>
+                                            <button onClick={handleNextFile} className="nav-button next-button">Next</button>
+                                        </div>
+                                    )}
                                 </div>
-                            )}
-                        </div>
+                            </div>
+                        )}
+                    </div>
 
-                    <div key={planString+"0.3"} className='planit-dataresult-3'>
-                        <div key={planString+"1"} className="planit-dataresult-disagree-div">
-                            {user && planString.includes(user._id) ? (
-                                <button key={planString+"1button"} className='planit-dataresult-disagreeACT' onClick={() => handleDisagree(planString)}><img key={planString+"4.002"} className='planit-dataresult-thumb' src={ThumbsDown} alt='thumbs down logo'/></button>
-                            ) : (
-                                <button key={planString+"1.5button"} className='planit-dataresult-disagree' onClick={() => handleDisagree(planString)}><img key={planString+"4.001"} className='planit-dataresult-thumb' src={ThumbsDown} alt='thumbs down logo'/></button>
-                            )}
+                    <div className='planit-dataresult-footer'>
+                        <div className="planit-dataresult-voting">
+                            <button 
+                                className={user && planString.includes(user._id) ? 'planit-dataresult-disagreeACT' : 'planit-dataresult-disagree'} 
+                                onClick={() => handleDisagree(planString)}>
+                                <img className='planit-dataresult-thumb' src={ThumbsDown} alt='thumbs down logo'/>
+                            </button>
+                            <div className='planit-dataresult-votecomment-holder'>
+                                <a href={'plan/'+planString} className='planit-dataresult-votecomment-link'>
+                                    <div className='planit-dataresult-votecomment'>
+                                        {(planString.length - planString.length > 0)
+                                            ? "+"+(planString.length - planString.length)+" votes "
+                                            : (planString.length - planString.length)+" votes "
+                                        }
+                                        |
+                                        {" " + ( 0 ) + " comments"}
+                                    </div>
+                                </a>
+                            </div>           
+                            <button 
+                                className={user && planString.includes(user._id) ? 'planit-dataresult-agreeACT' : 'planit-dataresult-agree'} 
+                                onClick={() => handleAgree(planString)}>
+                                <img className='planit-dataresult-thumb' src={ThumbsUp} alt='thumbs up logo'/>
+                            </button>
                         </div>
-                        <div key={planString+"3"} className="planit-dataresult-agree-div">
-                            {user && planString.includes(user._id) ? (
-                                <button key={planString+"3button"} className='planit-dataresult-agreeACT' onClick={() => handleAgree(planString)}><img key={planString+"4.003"} className='planit-dataresult-thumb' src={ThumbsUp} alt='thumbs up logo'/></button>
-                            ) : (
-                                <button key={planString+"3button"} className='planit-dataresult-agree' onClick={() => handleAgree(planString)}><img key={planString+"4.004"} className='planit-dataresult-thumb' src={ThumbsUp} alt='thumbs up logo'/></button>
-                            )}
-                        </div>
-                        <div className='planit-dataresult-votecomment-holder' key={planString+"4.005"}>
-                            <a href={'plan/'+planString} className='planit-dataresult-votecomment-link' key={planString+"4.006"}>
-                                <div className='planit-dataresult-votecomment' key={planString+"4.007"}>
-                                    {(planString.length - planString.length > 0)
-                                        ? "+"+(planString.length - planString.length)+" votes "
-                                        : (planString.length - planString.length)+" votes "
-                                    }
-                                    |
-                                    {" " + ( 0 ) + " comments"}
-                                </div>
-                            </a>
-                        </div>           
                     </div>
                 </div>
             </>
         );
     }
+    
+    return null;
 }
 
 export default DataResult;
