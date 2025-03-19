@@ -13,6 +13,7 @@ const openaikey = process.env.OPENAI_KEY;
 const client = new openai({ apiKey: openaikey });
 const { putHashData } = require('./putHashData');
 const mongoose = require('mongoose');
+const { sendEmail } = require('../utils/emailService');
 
 // @desc    Set data
 // @route   POST /api/data
@@ -242,6 +243,14 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
     const customerId = stripeIdMatch[1];
     console.log('Customer ID for subscription management:', customerId);
 
+    // Extract user email for notifications
+    const emailMatch = req.user.data.text.match(/Email:([^|]+)/);
+    let userEmail = null;
+    if (emailMatch && emailMatch[1]) {
+        userEmail = emailMatch[1].trim();
+        console.log('User email for notifications:', userEmail);
+    }
+
     // Function to update the Rank in user.data.text using putHashData
     const updateUserRank = async (rank) => {
         try {
@@ -363,6 +372,9 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
             res.status(400);
             throw new Error(`You are already subscribed to the ${membershipType} plan`);
         }
+
+        // For email notification - store previous plan
+        const oldPlan = currentMembership.charAt(0).toUpperCase() + currentMembership.slice(1);
         
         // Cancel active subscriptions
         if (activeSubscriptions.length > 0) {
@@ -460,6 +472,20 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
                         console.error('Failed direct database update:', directUpdateError);
                     }
                 }
+                
+                // Send notification email if email is available
+                if (userEmail) {
+                    try {
+                        await sendEmail(userEmail, 'subscriptionCancelled', {
+                            plan: oldPlan,
+                            userData: req.user.data
+                        });
+                        console.log('Cancellation email sent successfully');
+                    } catch (emailError) {
+                        console.error('Failed to send cancellation email:', emailError);
+                        // Don't fail the operation if email sending fails
+                    }
+                }
             } catch (rankUpdateError) {
                 console.error('Error in rank update process:', rankUpdateError);
             }
@@ -550,6 +576,31 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
 
         // Update user rank based on the membership type using putHashData
         await updateUserRank(membershipType);
+
+        // Send subscription confirmation email if email is available
+        if (userEmail) {
+            try {
+                // Determine if this is an update or new subscription
+                if (currentMembership === 'free') {
+                    // New subscription
+                    await sendEmail(userEmail, 'subscriptionCreated', {
+                        plan: membershipType.charAt(0).toUpperCase() + membershipType.slice(1),
+                        userData: req.user.data
+                    });
+                } else {
+                    // Subscription update
+                    await sendEmail(userEmail, 'subscriptionUpdated', {
+                        oldPlan: oldPlan,
+                        newPlan: membershipType.charAt(0).toUpperCase() + membershipType.slice(1),
+                        userData: req.user.data
+                    });
+                }
+                console.log('Subscription confirmation email sent successfully');
+            } catch (emailError) {
+                console.error('Failed to send subscription email:', emailError);
+                // Don't fail the operation if email sending fails
+            }
+        }
 
         res.status(200).json({
             subscriptionId: subscription.id,

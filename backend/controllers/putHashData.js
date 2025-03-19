@@ -5,6 +5,8 @@ require('dotenv').config();
 const Data = require('../models/dataModel.js');
 const { checkIP } = require('../utils/accessData.js');
 const { getPaymentMethods } = require('./getHashData.js');
+const { sendEmail } = require('../utils/emailService.js');
+const stripe = require('stripe')(process.env.STRIPE_KEY);
 
 // @desc    Update Data
 // @route   PUT /api/data/:id
@@ -70,6 +72,13 @@ const putHashData = asyncHandler(async (req, res) => {
 });
 
 const updateDataHolder = async (req, res, dataHolder) => {
+    // Extract current rank for email notification
+    let currentRank = 'Free';
+    const rankMatch = dataHolder.data.text.match(/\|Rank:([^|]+)/);
+    if (rankMatch && rankMatch[1]) {
+        currentRank = rankMatch[1].trim();
+    }
+    
     // Update subscription plan
     const updatedText = dataHolder.data.text.includes('|Rank:')
         ? dataHolder.data.text.replace(/(\|Rank:)(Free|Flex|Premium)/, `$1${req.body.text}`)
@@ -82,6 +91,43 @@ const updateDataHolder = async (req, res, dataHolder) => {
         new: true,
     });
     console.log('Updated data:', updatedData);
+    
+    // Send email notification if rank was changed and we have an email address
+    if (currentRank.toLowerCase() !== req.body.text.toLowerCase()) {
+        // Extract email address from user data
+        const emailMatch = updatedText.match(/Email:([^|]+)/);
+        if (emailMatch && emailMatch[1]) {
+            const userEmail = emailMatch[1].trim();
+            
+            try {
+                if (req.body.text.toLowerCase() === 'free') {
+                    // Downgrade to free plan
+                    await sendEmail(userEmail, 'subscriptionCancelled', {
+                        plan: currentRank,
+                        userData: { text: updatedText }
+                    });
+                } else if (currentRank.toLowerCase() === 'free') {
+                    // New subscription
+                    await sendEmail(userEmail, 'subscriptionCreated', {
+                        plan: req.body.text,
+                        userData: { text: updatedText }
+                    });
+                } else {
+                    // Plan change
+                    await sendEmail(userEmail, 'subscriptionUpdated', {
+                        oldPlan: currentRank,
+                        newPlan: req.body.text,
+                        userData: { text: updatedText }
+                    });
+                }
+                console.log(`Subscription email sent to ${userEmail}`);
+            } catch (error) {
+                console.error('Failed to send subscription update email:', error);
+                // Don't fail the operation if email sending fails
+            }
+        }
+    }
+    
     res.status(200).json(updatedData);
 };
 

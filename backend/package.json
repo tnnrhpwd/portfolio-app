@@ -27,7 +27,8 @@
     "openai": "^4.20.0",
     "sthopwood": "file:..",
     "stripe": "^17.6.0",
-    "useragent": "^2.3.0"
+    "useragent": "^2.3.0",
+    "nodemailer": "^6.9.7"
   },
   "jest": {
     "transform": {

@@ -127,11 +127,9 @@
 .planit-profile-settings .profile-picture {
     width: calc(var(--nav-size)*1.2);
     height: calc(var(--nav-size)*1.2);
-    border-radius: 50%;
     padding-left: calc(var(--nav-size)*0.5);
     vertical-align: middle;
     object-fit: cover;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     border: 2px solid var(--text-color-hover);
 }
 
