@@ -1,141 +1,114 @@
-const nodemailer = require('nodemailer');
+const postmark = require('postmark');
 require('dotenv').config();
 
-// Create reusable transporter with environment variables
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-  port: process.env.EMAIL_PORT || 587,
-  secure: process.env.EMAIL_SECURE === 'true',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD,
-  },
-});
+// Initialize Postmark client
+const client = new postmark.ServerClient(process.env.POSTMARK_API_KEY);
 
-// Email templates for different subscription events
-const emailTemplates = {
-  subscriptionCreated: (plan, userDetails) => ({
-    subject: `Your ${plan} Subscription Has Been Activated`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
-        <h2 style="color: #4f9cf9;">Welcome to Your ${plan} Subscription!</h2>
-        <p>Hello ${userDetails.name || 'there'},</p>
-        <p>Thank you for subscribing to our <strong>${plan}</strong> plan. Your subscription is now active.</p>
-        <p>Subscription details:</p>
-        <ul>
-          <li>Plan: ${plan}</li>
-          <li>Start date: ${new Date().toLocaleDateString()}</li>
-        </ul>
-        <p>You can manage your subscription anytime through your profile page.</p>
-        <p>If you have any questions, please don't hesitate to contact our support team.</p>
-        <p>Thank you for your support!</p>
-        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eaeaea;">
-          <p style="font-size: 12px; color: #666;">This is an automated message. Please do not reply to this email.</p>
-        </div>
-      </div>
-    `
-  }),
-  
-  subscriptionUpdated: (oldPlan, newPlan, userDetails) => ({
-    subject: `Your Subscription Has Been Updated to ${newPlan}`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
-        <h2 style="color: #4f9cf9;">Subscription Update Confirmation</h2>
-        <p>Hello ${userDetails.name || 'there'},</p>
-        <p>Your subscription has been successfully updated from <strong>${oldPlan}</strong> to <strong>${newPlan}</strong>.</p>
-        <p>The changes are effective immediately.</p>
-        <p>You can manage your subscription anytime through your profile page.</p>
-        <p>If you have any questions, please don't hesitate to contact our support team.</p>
-        <p>Thank you for your continued support!</p>
-        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eaeaea;">
-          <p style="font-size: 12px; color: #666;">This is an automated message. Please do not reply to this email.</p>
-        </div>
-      </div>
-    `
-  }),
-  
-  subscriptionCancelled: (plan, userDetails) => ({
+// Email templates
+const templates = {
+  subscriptionCreated: {
+    subject: 'Welcome to Your Subscription!',
+    templateId: 'subscription-created-template-id' // Replace with your Postmark template ID
+  },
+  subscriptionUpdated: {
+    subject: 'Your Subscription Has Been Updated',
+    templateId: 'subscription-updated-template-id' // Replace with your Postmark template ID
+  },
+  subscriptionCancelled: {
     subject: 'Your Subscription Has Been Cancelled',
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
-        <h2 style="color: #4f9cf9;">Subscription Cancellation Confirmation</h2>
-        <p>Hello ${userDetails.name || 'there'},</p>
-        <p>Your <strong>${plan}</strong> subscription has been cancelled successfully.</p>
-        <p>You have been moved to the Free tier, and you will no longer be billed.</p>
-        <p>We're sorry to see you go! If you wish to resubscribe in the future, you can do so anytime through your profile page.</p>
-        <p>If you have any feedback on how we can improve our service, we'd love to hear from you.</p>
-        <p>Thank you for your past support!</p>
-        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eaeaea;">
-          <p style="font-size: 12px; color: #666;">This is an automated message. Please do not reply to this email.</p>
-        </div>
-      </div>
-    `
-  })
+    templateId: 'subscription-cancelled-template-id' // Replace with your Postmark template ID
+  }
 };
 
 /**
- * Send an email notification
+ * Send an email using Postmark
  * @param {string} to - Recipient email address
- * @param {string} template - Template name (subscriptionCreated, subscriptionUpdated, subscriptionCancelled)
- * @param {Object} data - Data for the template
- * @returns {Promise} - Email sending result
+ * @param {string} templateName - Name of the template to use (must be one of the keys in templates object)
+ * @param {Object} data - Data to pass to the template
+ * @returns {Promise} - Promise that resolves when email is sent
  */
-const sendEmail = async (to, template, data) => {
+const sendEmail = async (to, templateName, data) => {
   try {
-    // Extract user details from text field if available
-    const userDetails = {
-      name: data.name || extractNameFromUserData(data.userData) || '',
-      email: to
-    };
-    
-    let emailContent;
-    
-    // Select the appropriate template
-    switch (template) {
-      case 'subscriptionCreated':
-        emailContent = emailTemplates.subscriptionCreated(data.plan, userDetails);
-        break;
-      case 'subscriptionUpdated':
-        emailContent = emailTemplates.subscriptionUpdated(data.oldPlan, data.newPlan, userDetails);
-        break;
-      case 'subscriptionCancelled':
-        emailContent = emailTemplates.subscriptionCancelled(data.plan, userDetails);
-        break;
-      default:
-        throw new Error(`Email template "${template}" not found`);
+    if (!templates[templateName]) {
+      throw new Error(`Email template "${templateName}" not found`);
     }
+
+    const template = templates[templateName];
     
-    // Configure email options
-    const mailOptions = {
-      from: `"MyApp Support" <${process.env.EMAIL_USER}>`,
-      to,
-      subject: emailContent.subject,
-      html: emailContent.html
-    };
+    // Format data for template based on template type
+    let templateModel = {};
     
-    // Send email
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`Email sent: ${info.messageId}`);
-    return info;
-    
+    switch(templateName) {
+      case 'subscriptionCreated':
+        templateModel = {
+          product_name: 'Your App',
+          plan_name: data.plan,
+          user_name: extractUserName(data.userData),
+          action_url: 'https://yourdomain.com/account',
+          current_date: new Date().toLocaleDateString()
+        };
+        break;
+      
+      case 'subscriptionUpdated':
+        templateModel = {
+          product_name: 'Your App',
+          old_plan_name: data.oldPlan,
+          new_plan_name: data.newPlan,
+          user_name: extractUserName(data.userData),
+          action_url: 'https://yourdomain.com/account',
+          current_date: new Date().toLocaleDateString()
+        };
+        break;
+      
+      case 'subscriptionCancelled':
+        templateModel = {
+          product_name: 'Your App',
+          plan_name: data.plan,
+          user_name: extractUserName(data.userData),
+          action_url: 'https://yourdomain.com/account',
+          current_date: new Date().toLocaleDateString()
+        };
+        break;
+      
+      default:
+        templateModel = data;
+    }
+
+    // Send the email via Postmark
+    const result = await client.sendEmailWithTemplate({
+      From: `${process.env.POSTMARK_FROM_NAME} <${process.env.POSTMARK_FROM_EMAIL}>`,
+      To: to,
+      TemplateId: template.templateId,
+      TemplateModel: templateModel
+    });
+
+    console.log(`Email sent: ${result.MessageID}`);
+    return result;
   } catch (error) {
-    console.error('Error sending email:', error);
-    // Don't throw so the main function continues even if email fails
-    return { error: error.message };
+    console.error('Failed to send email:', error);
+    throw error;
   }
 };
 
-// Helper function to extract name from user data text
-const extractNameFromUserData = (userData) => {
-  if (!userData || !userData.text) return null;
-  
-  // Try to extract nickname from user data
-  const nicknameMatch = userData.text.match(/Nickname:([^|]+)/);
-  if (nicknameMatch && nicknameMatch[1]) {
-    return nicknameMatch[1].trim();
+/**
+ * Extract user name from userData object
+ * @param {Object} userData - User data object
+ * @returns {string} - User name
+ */
+const extractUserName = (userData) => {
+  try {
+    if (userData && userData.text) {
+      const text = userData.text;
+      const nicknameMatch = text.match(/Nickname:([^|]+)/);
+      if (nicknameMatch && nicknameMatch[1]) {
+        return nicknameMatch[1].trim();
+      }
+    }
+    return 'Valued Customer';
+  } catch (error) {
+    console.error('Error extracting user name:', error);
+    return 'Valued Customer';
   }
-  
-  return null;
 };
 
 module.exports = { sendEmail };
