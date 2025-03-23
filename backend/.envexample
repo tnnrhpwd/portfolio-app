@@ -7,3 +7,5 @@ RAPIDAPI_KEY= 123456789
 STRIPE_KEY = sk_test_123456789
 POSTMARK_API_TOKEN=123456789
 FROM_EMAIL=example@example.com
+
+# Remember to update the backend database vars when hosting
