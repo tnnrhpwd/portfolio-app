@@ -87,3 +87,168 @@
   max-height: 90vh;
   overflow-y: auto;
 }
+
+/* Collapsible Sections */
+.collapsible-section {
+    margin: 20px 0;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background-color: var(--bg-1);
+    overflow: hidden;
+}
+
+.collapsible-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    cursor: pointer;
+    background-color: var(--bg-2);
+    transition: background-color 0.3s ease;
+}
+
+.collapsible-header:hover {
+    background-color: var(--bg-mint);
+}
+
+.collapsible-header h3 {
+    margin: 0;
+    font-size: calc(var(--nav-size)*.2);
+}
+
+.collapse-icon {
+    font-size: calc(var(--nav-size)*.2);
+    transition: transform 0.3s ease;
+}
+
+.collapse-icon.collapsed {
+    transform: rotate(180deg);
+}
+
+.collapsible-content {
+    padding: 15px;
+}
+
+/* Visitor Map */
+.visitor-map-container {
+    width: 100%;
+    height: 500px;
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    margin: 15px 0;
+    overflow: hidden;
+    background-color: var(--bg-1);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.map-controls {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 10;
+}
+
+.map-controls button {
+    background-color: var(--bg-2);
+    border: 1px solid var(--border);
+    color: var(--text-color);
+    padding: 5px 10px;
+    margin-left: 5px;
+    cursor: pointer;
+    border-radius: 3px;
+}
+
+.map-controls button:hover {
+    background-color: var(--bg-mint);
+}
+
+.visitor-map {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transition: transform 0.3s ease;
+    transform-origin: center;
+    max-width: 100%; /* Ensure the map scales properly */
+    max-height: 100%;
+    cursor: grab; /* Add grab cursor for panning */
+}
+
+.visitor-map:active {
+    cursor: grabbing; /* Change cursor to grabbing when dragging */
+}
+
+.world-map-placeholder {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    background-image: url('../../assets/world-map.svg'); /* Corrected path */
+    background-size: contain; /* Ensure the map fits within the container */
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.visitor-dot {
+    width: 14px;
+    height: 14px;
+    background: linear-gradient(135deg, #4caf50, #81c784); /* Modern gradient */
+    border-radius: 50%;
+    position: absolute;
+    transform: translate(-50%, -50%);
+    z-index: 5;
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.visitor-dot:hover {
+    transform: translate(-50%, -50%) scale(1.3);
+    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2);
+    z-index: 6;
+    background: linear-gradient(135deg, #388e3c, #66bb6a); /* Darker gradient on hover */
+}
+
+.visitor-popup {
+    position: absolute;
+    background-color: var(--bg-mint); /* Match app background */
+    color: var(--text-color);
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    transform: translate(-50%, -120%);
+    z-index: 10;
+    pointer-events: none;
+    white-space: nowrap;
+    font-size: calc(var(--nav-size) * 0.15);
+}
+
+.visitor-popup::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 5px;
+    border-style: solid;
+    border-color: var(--bg-mint) transparent transparent transparent; /* Match popup background */
+}
+
+@media (orientation: portrait) {
+    .visitor-map-container {
+        height: 300px; /* Adjust height for portrait mode */
+    }
+}
+
+/* Admin search */
+.admin-search {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background-color: var(--bg-1);
+    color: var(--text-color);
+    font-size: calc(var(--nav-size)*.15);
+}
