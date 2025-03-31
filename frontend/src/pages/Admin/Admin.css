@@ -235,6 +235,48 @@
     border-color: var(--bg-mint) transparent transparent transparent; /* Match popup background */
 }
 
+/* Loading spinner */
+.loading-spinner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: calc(var(--nav-size) * 0.2);
+    color: var(--text-color);
+}
+
+/* No visitors overlay */
+.no-visitors-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: calc(var(--nav-size) * 0.2);
+    color: var(--text-color);
+    background-color: rgba(255, 255, 255, 0.7);
+    padding: 10px 20px;
+    border-radius: 5px;
+    pointer-events: none;
+}
+
+/* Visitor info window styling */
+.visitor-info-window {
+    color: #333;
+    padding: 5px;
+    max-width: 200px;
+}
+
+.visitor-info-window h4 {
+    margin: 0 0 8px;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.visitor-info-window p {
+    margin: 4px 0;
+    font-size: 13px;
+}
+
 @media (orientation: portrait) {
     .visitor-map-container {
         height: 300px; /* Adjust height for portrait mode */
