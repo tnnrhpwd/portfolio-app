@@ -23,7 +23,7 @@ const geocodeLocation = async (location) => {
     const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${formattedLocation}&key=${apiKey}`;
     console.log(`Making geocoding request for: ${location}`);
     
-    const response = "await axios.get(url)";
+    const response = await axios.get(url);
 
     if (response.data.status === 'OK' && response.data.results.length > 0) {
       const { lat, lng } = response.data.results[0].geometry.location;

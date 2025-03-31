@@ -195,6 +195,40 @@ export const getUserSubscription = createAsyncThunk(
   }
 );
 
+// Fetch map configuration
+export const getMapConfig = createAsyncThunk(
+  'data/getMapConfig',
+  async (_, thunkAPI) => {
+    try {
+      const token = thunkAPI.getState().data.user.token;
+      return await dataService.getMapConfig(token);
+    } catch (error) {
+      const message =
+        (error.response && error.response.data && error.response.data.message) ||
+        error.message ||
+        error.toString();
+      return thunkAPI.rejectWithValue(message);
+    }
+  }
+);
+
+// Geocode locations
+export const geocodeLocations = createAsyncThunk(
+  'data/geocodeLocations',
+  async (locations, thunkAPI) => {
+    try {
+      const token = thunkAPI.getState().data.user.token;
+      return await dataService.geocodeLocations(locations, token);
+    } catch (error) {
+      const message =
+        (error.response && error.response.data && error.response.data.message) ||
+        error.message ||
+        error.toString();
+      return thunkAPI.rejectWithValue(message);
+    }
+  }
+);
+
 // Update user data -- UPDATE
 export const updateData = createAsyncThunk(
   'data/update',
@@ -525,6 +559,32 @@ export const dataSlice = createSlice({
       .addCase(logout.fulfilled, (state) => {
         state.user = null
         state.operation = 'logout';
+      })
+      .addCase(getMapConfig.pending, (state) => {
+        state.dataIsLoading = true;
+      })
+      .addCase(getMapConfig.fulfilled, (state, action) => {
+        state.dataIsLoading = false;
+        state.dataIsSuccess = true;
+        state.mapConfig = action.payload;
+      })
+      .addCase(getMapConfig.rejected, (state, action) => {
+        state.dataIsLoading = false;
+        state.dataIsError = true;
+        state.dataMessage = action.payload;
+      })
+      .addCase(geocodeLocations.pending, (state) => {
+        state.dataIsLoading = true;
+      })
+      .addCase(geocodeLocations.fulfilled, (state, action) => {
+        state.dataIsLoading = false;
+        state.dataIsSuccess = true;
+        state.geocodedLocations = action.payload;
+      })
+      .addCase(geocodeLocations.rejected, (state, action) => {
+        state.dataIsLoading = false;
+        state.dataIsError = true;
+        state.dataMessage = action.payload;
       })
   },
 })

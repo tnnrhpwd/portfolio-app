@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { GoogleMap, LoadScript, Marker, InfoWindow } from '@react-google-maps/api';
-import axios from 'axios';
+import { useDispatch, useSelector } from 'react-redux';
+import { getMapConfig, geocodeLocations } from '../../features/data/dataSlice';
 
 const containerStyle = {
   width: '100%',
@@ -18,10 +19,10 @@ const ANIMATION_DROP = 2; // Equivalent to google.maps.Animation.DROP
 
 const VisitorMap = ({ locations = [] }) => {
   const [selectedMarker, setSelectedMarker] = useState(null);
-  const [geocodedLocations, setGeocodedLocations] = useState([]);
+  const dispatch = useDispatch();
+  const { mapConfig, geocodedLocations, dataIsLoading } = useSelector((state) => state.data);
   const [isLoading, setIsLoading] = useState(true);
   const [mapCenter, setMapCenter] = useState(defaultCenter);
-  const [mapConfig, setMapConfig] = useState(null);
   const mapRef = useRef(null);
   const [mapInstance, setMapInstance] = useState(null);
   const [zoom, setZoom] = useState(2);
@@ -29,72 +30,25 @@ const VisitorMap = ({ locations = [] }) => {
 
   // Fetch map configuration including API key
   useEffect(() => {
-    const fetchMapConfig = async () => {
-      try {
-        // Get token from localStorage
-        const user = JSON.parse(localStorage.getItem('user'));
-        if (!user || !user.token) {
-          console.error('No authentication token available');
-          setIsLoading(false);
-          return;
-        }
-
-        const response = await axios.get('/api/data/map-config', {
-          headers: { Authorization: `Bearer ${user.token}` }
-        });
-        
-        setMapConfig(response.data);
-      } catch (error) {
-        console.error('Error fetching map configuration:', error);
-      }
-    };
-
-    fetchMapConfig();
-  }, []);
+    setIsLoading(true);
+    dispatch(getMapConfig())
+      .finally(() => setIsLoading(false));
+  }, [dispatch]);
 
   // Fetch coordinates from backend for all locations
   useEffect(() => {
-    const fetchCoordinates = async () => {
-      if (!locations.length) {
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        // Get token from localStorage
-        const user = JSON.parse(localStorage.getItem('user'));
-        if (!user || !user.token) {
-          console.error('No authentication token available');
-          setIsLoading(false);
-          return;
-        }
-
-        const response = await axios.post(
-          '/api/data/geocode',
-          { locations },
-          {
-            headers: { Authorization: `Bearer ${user.token}` }
+    if (mapConfig && locations.length > 0) {
+      setIsLoading(true);
+      dispatch(geocodeLocations(locations))
+        .then((response) => {
+          if (response.payload && response.payload.length > 0) {
+            // If we have locations, center map on the most recent visitor
+            setMapCenter(response.payload[0].coordinates);
           }
-        );
-
-        const locationsWithCoordinates = response.data.filter(loc => loc.coordinates);
-        setGeocodedLocations(locationsWithCoordinates);
-
-        // If we have locations, center map on the most recent visitor
-        if (locationsWithCoordinates.length > 0) {
-          setMapCenter(locationsWithCoordinates[0].coordinates);
-        }
-      } catch (error) {
-        console.error('Error fetching coordinates:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (mapConfig) {
-      fetchCoordinates();
+        })
+        .finally(() => setIsLoading(false));
     }
-  }, [locations, mapConfig]);
+  }, [locations, mapConfig, dispatch]);
 
   // Reference to track if component is mounted
   const isMounted = useRef(true);
@@ -105,7 +59,7 @@ const VisitorMap = ({ locations = [] }) => {
   
   // Function to fit map to markers
   const fitMapToMarkers = useCallback(() => {
-    if (!mapInstance || geocodedLocations.length === 0 || !window.google || !window.google.maps) return;
+    if (!mapInstance || !geocodedLocations || geocodedLocations.length === 0 || !window.google || !window.google.maps) return;
     
     try {
       const bounds = new window.google.maps.LatLngBounds();
@@ -135,7 +89,7 @@ const VisitorMap = ({ locations = [] }) => {
   
   // Fit map to markers when map loads or locations change
   useEffect(() => {
-    if (mapInstance && geocodedLocations.length > 0) {
+    if (mapInstance && geocodedLocations && geocodedLocations.length > 0) {
       fitMapToMarkers();
     }
   }, [mapInstance, geocodedLocations, fitMapToMarkers]);
@@ -188,7 +142,7 @@ const VisitorMap = ({ locations = [] }) => {
   }
 
   // Show empty state
-  if (geocodedLocations.length === 0) {
+  if (!geocodedLocations || geocodedLocations.length === 0) {
     return (
       <div className="visitor-map-container">
         <div className="no-visitors-overlay">No visitor location data available</div>
@@ -206,7 +160,7 @@ const VisitorMap = ({ locations = [] }) => {
           onLoad={onMapLoad}
           options={mapConfig.mapOptions}
         >
-          {geocodedLocations.map((location, index) => {
+          {geocodedLocations && geocodedLocations.map((location, index) => {
             // Check if location has valid coordinates
             if (!location.coordinates || typeof location.coordinates.lat !== 'number') return null;
             
