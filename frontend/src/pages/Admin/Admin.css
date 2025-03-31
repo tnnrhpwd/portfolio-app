@@ -252,3 +252,26 @@
     color: var(--text-color);
     font-size: calc(var(--nav-size)*.15);
 }
+
+/* Date filter */
+.date-filter {
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.date-filter label {
+  font-size: calc(var(--nav-size) * 0.2);
+  color: var(--text-color);
+}
+
+.date-filter input {
+  padding: 5px;
+  font-size: calc(var(--nav-size) * 0.2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background-color: var(--bg-1);
+  color: var(--text-color);
+}
