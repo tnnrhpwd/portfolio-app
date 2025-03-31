@@ -8,11 +8,11 @@ const {
   deleteData,
   deleteHashData, deletePaymentMethod, deleteCustomer,
   getData, getUserSubscription,
-  getHashData, getPaymentMethods, getAllData,
+  getHashData, getPaymentMethods, getAllData, getMapConfig,
   postData, registerUser, loginUser,
   postHashData, compressData, createCustomer, 
   postPaymentMethod, createInvoice, subscribeCustomer, 
-  handleWebhook,
+  handleWebhook, geocodeVisitorLocations,
   putData,
   putHashData, putPaymentMethod, updateCustomer,
 } = require('../controllers');
@@ -43,6 +43,10 @@ router.route('/pay-methods')
 router.delete('/pay-methods/:id', protect, deletePaymentMethod); // DELETE request for deleting a payment method
 router.put('/update-customer/:id', protect, updateCustomer); // PUT request for updating customer
 router.delete('/delete-customer/:id', protect, deleteCustomer); // DELETE request for deleting customer
+
+// Admin/Map specific routes
+router.get('/map-config', protect, getMapConfig); // Route to get map configuration
+router.post('/geocode', protect, geocodeVisitorLocations); // Route to geocode visitor locations
 
 // Webhook route
 router.post('/webhook', express.raw({ type: 'application/json' }), handleWebhook);
