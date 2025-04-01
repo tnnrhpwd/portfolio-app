@@ -261,36 +261,6 @@ const logout = () => {
     localStorage.removeItem('user')
 }
 
-// Fetch map configuration
-const getMapConfig = async (token) => {
-    const config = {
-        headers: {
-            Authorization: `Bearer ${token}`,
-        },
-    };
-    try {
-        const response = await axios.get(API_URL + 'map-config', config);
-        return response.data;
-    } catch (error) {
-        handleTokenExpiration(error);
-    }
-};
-
-// Geocode locations
-const geocodeLocations = async (locations, token) => {
-    const config = {
-        headers: {
-            Authorization: `Bearer ${token}`,
-        },
-    };
-    try {
-        const response = await axios.post(API_URL + 'geocode', { locations }, config);
-        return response.data;
-    } catch (error) {
-        handleTokenExpiration(error);
-    }
-};
-
 const dataService = {
     createData,
     getData,
@@ -307,8 +277,6 @@ const dataService = {
     register,
     login,
     logout,
-    getMapConfig,
-    geocodeLocations,
 }
 
 export default dataService;

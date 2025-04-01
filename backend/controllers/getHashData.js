@@ -252,7 +252,7 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
             }
         }
 
-        // console.log('req.user.data.text:', req.user.data.text);
+        console.log('req.user.data.text:', req.user.data.text);
 
         const customerId = req.user.data.text.substring(req.user.data.text.indexOf('|stripeid:') + 10,
             req.user.data.text.indexOf('|stripeid:') + 28);
