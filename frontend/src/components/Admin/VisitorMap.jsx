@@ -160,9 +160,12 @@ function getLocationX(country, region, svgDimensions) {
       Georgia: 0.265, 
       Virginia: 0.29, 
       Texas: 0.24,
-      "North Carolina": 0.28
+      "North Carolina": 0.28,
+      California: 0.195,
+      Oregon: 0.202,
+      Tennessee: 0.275 // Approximate X for Tennessee
     },
-    MX: 0.25, // Added Mexico (MX) with approximate X coordinate
+    MX: 0.25,
     UK: 0.5,
     DE: 0.55,
     FR: 0.52,
@@ -197,9 +200,12 @@ function getLocationY(country, region, svgDimensions) {
       Georgia: 0.33,
       Virginia: 0.31, 
       Texas: 0.34,
-      "North Carolina": 0.32
+      "North Carolina": 0.32,
+      California: 0.3,
+      Oregon: 0.26,
+      Tennessee: 0.33 // Approximate Y for Tennessee
     },
-    MX: 0.45, // Mexico
+    MX: 0.45,
     UK: 0.4,
     DE: 0.42,
     FR: 0.45,
