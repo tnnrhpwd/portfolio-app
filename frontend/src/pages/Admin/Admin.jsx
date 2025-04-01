@@ -8,7 +8,6 @@ import CollapsibleSection from "../../components/Admin/CollapsibleSection.jsx";
 import ScrollableTable from "../../components/Admin/ScrollableTable.jsx";
 import { toast } from "react-toastify";
 import parseVisitorData from "../../utils/parseVisitorData.js";
-import axios from 'axios';  // Import axios for direct API calls
 import "./Admin.css";
 
 // Use React.lazy for the VisitorMap component to improve performance
@@ -20,10 +19,6 @@ function Admin() {
   const navigate = useNavigate();
   const [allObjectArray, setAllObjectArray] = useState([]);
   const [visitorLocations, setVisitorLocations] = useState([]);
-  const [mapLocations, setMapLocations] = useState([]);  // New state for consolidated map data points
-  const [mapConfig, setMapConfig] = useState(null);
-  const [isMapConfigLoading, setIsMapConfigLoading] = useState(false);
-  const [mapConfigError, setMapConfigError] = useState(null);
 
   // Calculate default "From" and "To" dates
   const today = new Date().toISOString().split("T")[0];
@@ -38,33 +33,6 @@ function Admin() {
   useEffect(() => {
     dispatch(getAllData());
   }, [dispatch]);
-
-  // Fetch map configuration for admin user
-  useEffect(() => {
-    const fetchMapConfig = async () => {
-      if (!user || user._id.toString() !== "6770a067c725cbceab958619") return;
-      
-      setIsMapConfigLoading(true);
-      try {
-        const config = {
-          headers: {
-            Authorization: `Bearer ${user.token}`,
-          },
-        };
-        const response = await axios.get('/api/data/map-config', config);
-        setMapConfig(response.data);
-        setMapConfigError(null);
-      } catch (error) {
-        console.error('Error fetching map configuration:', error);
-        setMapConfigError('Failed to load map configuration');
-        toast.error('Failed to load map configuration');
-      } finally {
-        setIsMapConfigLoading(false);
-      }
-    };
-    
-    fetchMapConfig();
-  }, [user]);
 
   // Authentication and authorization
   useEffect(() => {
@@ -121,47 +89,6 @@ function Admin() {
     }
   }, [data, dataIsSuccess]);
 
-  // Create consolidated map locations (group by city+country and add count)
-  useEffect(() => {
-    if (!visitorLocations.length) return;
-    
-    try {
-      // Create a map to consolidate locations by city and country
-      const locationMap = new Map();
-      
-      visitorLocations.forEach(visitor => {
-        const locationKey = `${visitor.city}|${visitor.country}`;
-        
-        if (!locationMap.has(locationKey)) {
-          // Create new entry with count 1
-          locationMap.set(locationKey, {
-            ...visitor,
-            visitorCount: 1,
-            visitors: [visitor] // Store all visitors at this location
-          });
-        } else {
-          // Update existing entry
-          const existingLocation = locationMap.get(locationKey);
-          existingLocation.visitorCount += 1;
-          existingLocation.visitors.push(visitor);
-          
-          // If this visitor is more recent, update the timestamp
-          if (new Date(visitor.timestamp) > new Date(existingLocation.timestamp)) {
-            existingLocation.timestamp = visitor.timestamp;
-          }
-        }
-      });
-      
-      // Convert map to array
-      const consolidatedLocations = Array.from(locationMap.values());
-      console.log(`Consolidated ${visitorLocations.length} visitors into ${consolidatedLocations.length} map locations`);
-      
-      setMapLocations(consolidatedLocations);
-    } catch (error) {
-      console.error("Error consolidating map locations:", error);
-    }
-  }, [visitorLocations]);
-
   // Filter visitor locations by date range
   const filteredVisitorLocations = useMemo(() => {
     if (!fromDate && !toDate) return visitorLocations;
@@ -173,18 +100,6 @@ function Admin() {
       return isAfterFromDate && isBeforeToDate;
     });
   }, [visitorLocations, fromDate, toDate]);
-
-  // Filter map locations by date range
-  const filteredMapLocations = useMemo(() => {
-    if (!fromDate && !toDate) return mapLocations;
-
-    return mapLocations.filter((location) => {
-      const locationDate = new Date(location.timestamp).toISOString().split("T")[0];
-      const isAfterFromDate = fromDate ? locationDate >= fromDate : true;
-      const isBeforeToDate = toDate ? locationDate <= toDate : true;
-      return isAfterFromDate && isBeforeToDate;
-    });
-  }, [mapLocations, fromDate, toDate]);
 
   // Filter functions for tables
   const filterMainTable = useCallback((item, searchText) => {
@@ -205,77 +120,6 @@ function Admin() {
       return timestamp || '';
     }
   }, []);
-
-  // Geocode visitor locations if necessary
-  const geocodeVisitorLocations = useCallback(async (locations) => {
-    if (!user || user._id.toString() !== "6770a067c725cbceab958619" || !locations.length) {
-      return locations;
-    }
-
-    try {
-      // Only try to geocode locations that don't already have coordinates
-      const locationsToGeocode = locations.filter(location => 
-        !location.coordinates && location.city && location.country
-      );
-      
-      if (!locationsToGeocode.length) {
-        console.log('No locations need geocoding');
-        return locations;
-      }
-      
-      console.log(`Attempting to geocode ${locationsToGeocode.length} locations`);
-      
-      const config = {
-        headers: {
-          Authorization: `Bearer ${user.token}`,
-        },
-      };
-      
-      const response = await axios.post('/api/data/geocode', 
-        { locations: locationsToGeocode }, 
-        config
-      );
-      
-      if (!response.data || !Array.isArray(response.data)) {
-        console.error('Invalid geocoding response:', response.data);
-        return locations;
-      }
-      
-      console.log(`Received ${response.data.length} geocoded locations`);
-      
-      // Merge geocoded locations with original locations
-      const geocodedMap = new Map();
-      response.data.forEach(location => {
-        if (location.ip) {
-          geocodedMap.set(location.ip, location);
-        }
-      });
-      
-      // Build new array with geocoded data where available
-      return locations.map(location => {
-        if (location.ip && geocodedMap.has(location.ip)) {
-          return geocodedMap.get(location.ip);
-        }
-        return location;
-      });
-    } catch (error) {
-      console.error('Error geocoding locations:', error);
-      toast.error('Error geocoding visitor locations');
-      return locations; // Return original locations if geocoding fails
-    }
-  }, [user]);
-
-  // Geocode map locations when they're available
-  useEffect(() => {
-    if (mapLocations.length > 0) {
-      geocodeVisitorLocations(mapLocations)
-        .then(geocodedLocations => {
-          if (JSON.stringify(geocodedLocations) !== JSON.stringify(mapLocations)) {
-            setMapLocations(geocodedLocations);
-          }
-        });
-    }
-  }, [mapLocations, geocodeVisitorLocations]);
 
   return (
     <>
@@ -332,12 +176,7 @@ function Admin() {
                   />
                 </div>
                 <Suspense fallback={<div className="admin-loading">Loading map...</div>}>
-                  <VisitorMap 
-                    locations={filteredMapLocations} 
-                    mapConfig={mapConfig}
-                    isLoading={isMapConfigLoading}
-                    error={mapConfigError}
-                  />
+                  <VisitorMap locations={filteredVisitorLocations} />
                 </Suspense>
               </CollapsibleSection>
               
