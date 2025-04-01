@@ -189,7 +189,7 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
             }
         }
 
-        console.log('req.user.data.text:', req.user.data.text);
+        // console.log('req.user.data.text:', req.user.data.text);
 
         const customerId = req.user.data.text.substring(req.user.data.text.indexOf('|stripeid:') + 10,
             req.user.data.text.indexOf('|stripeid:') + 28);
@@ -246,7 +246,7 @@ const getAllData = async (req, res) => {
         if (req.user && req.user._id.toString() === "6770a067c725cbceab958619") {
         //   console.log('Fetching all data...');
           const allData = await Data.find({});
-            console.log('All data:', allData);
+            // console.log('All data:', allData);
             res.status(200).json(allData.map((item) => ({
           _id: item._id,
           text: item.data.text,

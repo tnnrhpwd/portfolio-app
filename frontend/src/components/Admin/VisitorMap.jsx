@@ -154,7 +154,14 @@ const VisitorMap = ({ locations }) => {
 // Adjusted helper functions to calculate positions based on SVG dimensions
 function getLocationX(country, region, svgDimensions) {
   const locationMap = {
-    US: { base: 0.2, California: 0.1, "New York": 0.30, Georgia: 0.265 },
+    US: { 
+      base: 0.2, 
+      "New York": 0.30, 
+      Georgia: 0.265, 
+      Virginia: 0.29, 
+      Texas: 0.24,
+      "North Carolina": 0.28
+    },
     MX: 0.25, // Added Mexico (MX) with approximate X coordinate
     UK: 0.5,
     DE: 0.55,
@@ -162,7 +169,7 @@ function getLocationX(country, region, svgDimensions) {
     JP: 0.85,
     CN: 0.78,
     AU: 0.9,
-    CA: 0.15,
+    CA: 0.3,
     BR: 0.4,
     IN: 0.65,
     RU: 0.6,
@@ -186,11 +193,11 @@ function getLocationY(country, region, svgDimensions) {
   const locationMap = {
     US: {
       base: 0.35,
-      California: 0.4,
       "New York": 0.275,
       Georgia: 0.33,
-      Texas: 0.5,
-      Florida: 0.55,
+      Virginia: 0.31, 
+      Texas: 0.34,
+      "North Carolina": 0.32
     },
     MX: 0.45, // Mexico
     UK: 0.4,
@@ -199,7 +206,7 @@ function getLocationY(country, region, svgDimensions) {
     JP: 0.5,
     CN: 0.3,
     AU: 0.8,
-    CA: 0.3,
+    CA: 0.23,
     BR: 0.7,
     IN: 0.5,
     RU: 0.4,

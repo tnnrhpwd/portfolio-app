@@ -76,9 +76,16 @@ function Admin() {
         }
       });
       
-      // Filter out undefined data points
+      // Filter out undefined data points AND locations with missing city, region, or country
       const filteredVisitors = Array.from(visitorMap.values()).filter(
-        (visitor) => visitor.ip && visitor.country && visitor.city
+        (visitor) =>
+          visitor.ip &&
+          visitor.country &&
+          visitor.city &&
+          visitor.region &&
+          visitor.country !== "undefined" &&
+          visitor.city !== "undefined" &&
+          visitor.region !== "undefined"
       );
 
       setVisitorLocations(filteredVisitors);
