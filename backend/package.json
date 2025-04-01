@@ -26,6 +26,7 @@
     "nodemailer": "^6.10.0",
     "nodemon": "^2.0.15",
     "openai": "^4.20.0",
+    "postmark": "^4.0.5",
     "sthopwood": "file:..",
     "stripe": "^17.6.0",
     "useragent": "^2.3.0"

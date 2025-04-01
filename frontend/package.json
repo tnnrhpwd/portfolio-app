@@ -4,7 +4,6 @@
   "proxy": "http://localhost:5000/",
   "private": true,
   "dependencies": {
-    "@react-google-maps/api": "^2.20.6",
     "@reduxjs/toolkit": "^1.8.1",
     "@stripe/react-stripe-js": "^3.3.0",
     "@stripe/stripe-js": "^5.10.0",

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo, Suspense } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import Header from "../../components/Header/Header.jsx";
 import Footer from "../../components/Footer/Footer.jsx";
@@ -6,12 +6,10 @@ import { useNavigate } from "react-router-dom";
 import { getAllData } from "../../features/data/dataSlice";
 import CollapsibleSection from "../../components/Admin/CollapsibleSection.jsx";
 import ScrollableTable from "../../components/Admin/ScrollableTable.jsx";
+import VisitorMap from "../../components/Admin/VisitorMap.jsx";
+import "./Admin.css";
 import { toast } from "react-toastify";
 import parseVisitorData from "../../utils/parseVisitorData.js";
-import "./Admin.css";
-
-// Use React.lazy for the VisitorMap component to improve performance
-const VisitorMap = React.lazy(() => import("../../components/Admin/VisitorMap.jsx"));
 
 function Admin() {
   const { user, data, dataMessage, dataIsSuccess, dataIsLoading, dataIsError } = useSelector((state) => state.data);
@@ -175,9 +173,11 @@ function Admin() {
                     onChange={(e) => setToDate(e.target.value)}
                   />
                 </div>
-                <Suspense fallback={<div className="admin-loading">Loading map...</div>}>
+                {filteredVisitorLocations.length > 0 ? (
                   <VisitorMap locations={filteredVisitorLocations} />
-                </Suspense>
+                ) : (
+                  <p className="admin-no-data">No visitor location data available</p>
+                )}
               </CollapsibleSection>
               
               <CollapsibleSection title="Recent Visitors" defaultCollapsed={true}>
