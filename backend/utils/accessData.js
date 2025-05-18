@@ -1,7 +1,16 @@
 require('dotenv').config();
-const Data = require('../models/dataModel');
+const AWS = require('aws-sdk');
 const useragent = require('useragent');
 const ipinfo = require('ipinfo');
+
+// Configure AWS
+AWS.config.update({
+    region: process.env.AWS_REGION,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+});
+
+const dynamodb = new AWS.DynamoDB.DocumentClient();
 
 async function checkIP(req) {
     let ipFromHeader = req.headers['x-forwarded-for']
@@ -54,14 +63,21 @@ async function checkIP(req) {
             text += locationInfo;
         }
 
-        const existing = await Data.findOne({
-            'data': { text: text }
-        });
+        const params = {
+            TableName: 'Simple', 
+            Item: {
+                id: require('crypto').randomBytes(16).toString("hex"), // Generate a unique ID
+                logData: text,
+                timestamp: new Date().toISOString()
+            },
+            ConditionExpression: 'attribute_not_exists(id)' // Prevent overwrites
+        };
 
-        if (!existing) {
-            await Data.create({
-                data: { text: text }
-            });
+        try {
+            await dynamodb.put(params).promise();
+            console.log('Access log recorded.');
+        } catch (error) {
+            console.error('Error recording access log:', error);
         }
     }
 }

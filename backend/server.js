@@ -3,15 +3,9 @@ const express = require('express'); // import express to create REST API server
 const colors = require('colors'); // allows the console to print colored text
 const dotenv = require('dotenv').config();   // import env vars from .env
 const { errorHandler } = require('./middleware/errorMiddleware');    // creates json of error
-const connectDB = require('./config/db'); // connect to MongoDB using Mongooose
-const { default: mongoose } = require('mongoose');
 const port = process.env.PORT || 5000;  //set port to hold api server
 var cors = require('cors')
 const bodyParser = require('body-parser'); // import body-parser
-
-mongoose.set('strictQuery', true);
-
-connectDB()// this async function connects to Mongo database using Mongoose | RAN ON SERVER INITIALIZATION
 
 const app = express() // Calls the express function "express()" and puts new Express application inside the app variable
 
@@ -24,9 +18,7 @@ app.use('/api/data', require('./routes/routeData')) // serve all data at /api/da
 
 app.use(errorHandler) // adds middleware that returns errors in json format (regardless of hit url)
 
-// IF MongoDB connected, 
-mongoose.connection.once('open', () => {
-  console.log('Connected to MongoDB');  // print confirmation
+  console.log('Connected to DynamoDB');  // print confirmation
   const server = app.listen(port, () => console.log(`Server started on port ${port}`)); // listen for incoming http requests on the PORT && print PORT in console
   
   server.on('error', (err) => {
@@ -37,8 +29,3 @@ mongoose.connection.once('open', () => {
       throw err;
     }
   });
-})
-// IF MongoDB could not connect, 
-mongoose.connection.once('closed',() => {
-  console.log(`Unable to connect to MongoDB.`.red) // print error
-})

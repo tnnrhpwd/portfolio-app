@@ -1,17 +1,13 @@
-const mongoose = require('mongoose'); // MVC library - used to communicate with MongoDB
+// DynamoDB doesn't enforce a schema, but we can define the structure we'll use.
+// This is more for documentation and consistency.
 
-// Schema of each data entry (object attributes) => exported to dataController (object methods/functions) => exported to dataRoutes
-const dataSchema = new mongoose.Schema(
-  {
-    data: {
-      type: mongoose.Schema.Types.Mixed,
-      required: [true, 'Please add a value'],
-    },
-  },
-  {
-    timestamps: true,
-    collection: 'data', // Name of the collection in the database
-  }
-);
-// 1st param below is the name of the collection in the database, 2nd param is the schema defined above: 
-module.exports = mongoose.model('data', dataSchema); // Exported to controller to create callback functions, which are executed from routes
+const dataModel = {
+  id: { type: String, description: 'Unique ID' },
+  text: { type: String, description: 'Main text data' },
+  ActionGroupObject: { type: Object, description: 'Action group object' },
+  files: { type: Array, description: 'Array of file objects' },
+  createdAt: { type: String, description: 'Creation timestamp' },
+  updatedAt: { type: String, description: 'Update timestamp' }
+};
+
+module.exports = dataModel;

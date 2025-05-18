@@ -6,8 +6,17 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 const asyncHandler = require('express-async-handler');
-const Data = require('../models/dataModel');
+const AWS = require('aws-sdk');
 const { checkIP } = require('../utils/accessData.js');
+
+// Configure AWS
+AWS.config.update({
+    region: process.env.AWS_REGION,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+});
+
+const dynamodb = new AWS.DynamoDB.DocumentClient();
 const storage = multer.memoryStorage();// Set up multer for memory storage
 const upload = multer({ storage: storage });
 
@@ -18,10 +27,11 @@ const upload = multer({ storage: storage });
 const postData = asyncHandler(async (req, res) => {
   await checkIP(req);
   if (!req.body) {
-    res.status(400)
-    throw new Error('Please add a data field. req: ' + JSON.stringify(req.body.data))
+    res.status(400);
+    throw new Error('Please add a data field. req: ' + JSON.stringify(req.body.data));
   }
-  console.log('req.body.data: ', req.body.data)
+  console.log('req.body.data: ', req.body.data);
+
   let files = [];
   if (req.files && req.files.length > 0) {
       files = req.files.map(file => ({
@@ -34,15 +44,25 @@ const postData = asyncHandler(async (req, res) => {
       files = req.body.data.Files;
   }
 
-  const datas = await Data.create({
-      data: {
+  const params = {
+      TableName: 'Simple', 
+      Item: {
+          id: require('crypto').randomBytes(16).toString("hex"), // Generate a unique ID
           text: typeof req.body.data === 'string' ? req.body.data : req.body.data.Text,
           ActionGroupObject: req.body.data.ActionGroupObject,
-          files: files
+          files: files,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
       }
-  });
-  
-  res.status(200).json(datas)
+  };
+
+  try {
+      await dynamodb.put(params).promise();
+      res.status(200).json(params.Item); // Return the created item
+  } catch (error) {
+      console.error('Error creating data:', error);
+      res.status(500).json({ error: 'Failed to create data' });
+  }
 })
 
 
@@ -58,42 +78,31 @@ const registerUser = asyncHandler(async (req, res) => {
       throw new Error('Please add all fields')
     }
   
-    const emailExists = await Data.find({
-      'data.text': { $regex: `${"Email:" + email}`, $options: 'i' }
-    });
-    
-    if (emailExists.length > 0) {
-      res.status(400)
-      throw new Error('Email already exists')
-    }
-    
-    const nicknameExists = await Data.find({
-      'data.text': { $regex: `${"Nickname:" + nickname}`, $options: 'i' } 
-    });
-    
-    if (nicknameExists.length > 0) {
-      res.status(400)
-      throw new Error('Nickname already exists')
-    }
-  
     // Hash password
     const salt = await bcrypt.genSalt(10)
     const hashedPassword = await bcrypt.hash(password, salt)
   
-    // Create user
-    const data = await Data.create({
-      data:{text:"Nickname:"+nickname+"|Email:"+email+"|Password:"+hashedPassword},
-    })
+    // Create user in DynamoDB
+    const params = {
+        TableName: 'Simple',
+        Item: {
+            id: require('crypto').randomBytes(16).toString("hex"), // Generate a unique ID
+            text: `Nickname:${nickname}|Email:${email}|Password:${hashedPassword}|stripeid:`,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        }
+    };
   
-    if (data) { // if user data successfully created, send JSON web token back to user
-      res.status(201).json({
-        _id: data.id,
-        nickname,
-        token: generateToken(data._id),   //uses JWT secret 
-      })
-    } else {
-      res.status(400)
-      throw new Error('Invalid user data')
+    try {
+        await dynamodb.put(params).promise();
+        res.status(201).json({
+            _id: params.Item.id,
+            nickname,
+            token: generateToken(params.Item.id),   //uses JWT secret
+        });
+    } catch (error) {
+        console.error('Error creating user:', error);
+        res.status(500).json({ error: 'Failed to create user' });
     }
 })
 
@@ -103,37 +112,50 @@ const registerUser = asyncHandler(async (req, res) => {
 const loginUser = asyncHandler(async (req, res) => {
     await checkIP(req);
     const { email, password } = req.body;
-  
-    // Check for user email
-    const users = await Data.find({ 'data.text': { $regex: `Email:${email}`, $options: 'i' } });
-    if (!(users.length === 1)) {
-      res.status(400);
-      throw new Error("Could nto find that user. users.length: "+users.length+",json: "+JSON.stringify(users));
-    }
-    let user, userPassword, userNickname, userStripe;
-    try {
-      user = users[0];
 
-      // Extract password and nickname from the stored data
-      userStripe = user.data.text.substring(user.data.text.indexOf('|stripeid:')+10);
-      userPassword = user.data.text.substring(user.data.text.indexOf('|Password:') + 10, user.data.text.indexOf('|stripeid:'));
-      userNickname = user.data.text.substring(user.data.text.indexOf('Nickname:') + 9, user.data.text.indexOf('|Email:'));
+    // Query DynamoDB for the user with the given email
+    const params = {
+        TableName: 'Simple',
+        FilterExpression: 'contains(#text, :emailValue)',
+        ExpressionAttributeNames: {
+            '#text': 'text'
+        },
+        ExpressionAttributeValues: {
+            ':emailValue': `Email:${email}`
+        }
+    };
+
+    try {
+        const result = await dynamodb.scan(params).promise();
+        if (result.Items.length !== 1) {
+            res.status(400);
+            throw new Error("Could not find that user.");
+        }
+
+        const user = result.Items[0];
+        // Extract password, nickname, and stripe from the stored data
+        const userText = user.text;
+        const userStripe = userText.substring(userText.indexOf('|stripeid:') + 10);
+        const userPassword = userText.substring(userText.indexOf('|Password:') + 10, userText.indexOf('|stripeid:'));
+        const userNickname = userText.substring(userText.indexOf('Nickname:') + 9, userText.indexOf('|Email:'));
+
+        // Check if the password matches
+        if (await bcrypt.compare(password, userPassword)) {
+            res.json({
+                _id: user.id,
+                email: email,
+                nickname: userNickname,
+                stripe: userStripe,
+                token: generateToken(user.id),
+            });
+        } else {
+            res.status(400);
+            throw new Error('Invalid password.');
+        }
     } catch (error) {
-      res.status(500);
-      throw new Error('Error extracting user data.');
-    }
-    // Check if the password matches
-    if (await bcrypt.compare(password, userPassword)) {
-      res.json({
-        _id: user._id,
-        email: email,
-        nickname: userNickname,
-        stripe: userStripe,
-        token: generateToken(user._id),
-      });
-    } else {
-      res.status(400);
-      throw new Error('Invalid password.');
+        console.error('Error during login:', error);
+        res.status(500);
+        throw new Error('Server error during login.');
     }
 });
 

@@ -1,26 +1,17 @@
 require('dotenv').config();
-const asyncHandler = require('express-async-handler'); // sends the errors to the errorhandler
-const fetch = require('node-fetch');
-const Data = require('../models/dataModel');
-const wordBaseUrl = 'https://random-word-api.p.rapidapi.com/L/';
-const defBaseUrl = 'https://mashape-community-urban-dictionary.p.rapidapi.com/define?term=';
-const { ObjectId } = require('mongoose').Types;
-const rapidapiwordoptions = {
-    method: 'GET',
-    headers: {
-        'X-RapidAPI-Key': process.env.RAPIDAPI_KEY,
-        'X-RapidAPI-Host': 'random-word-api.p.rapidapi.com'
-    }
-};
-const rapidapidefoptions = {
-    method: 'GET',
-    headers: {
-        'X-RapidAPI-Key': process.env.RAPIDAPI_KEY,
-        'X-RapidAPI-Host': 'mashape-community-urban-dictionary.p.rapidapi.com'
-    }
-};
+const AWS = require('aws-sdk');
+const asyncHandler = require('express-async-handler');
 const { checkIP } = require('../utils/accessData.js');
 const stripe = require('stripe')(process.env.STRIPE_KEY);
+
+// Configure AWS
+AWS.config.update({
+    region: process.env.AWS_REGION,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+});
+
+const dynamodb = new AWS.DynamoDB.DocumentClient();
 
 // @desc    Get Public Data
 // @route   GET /api/publicdata
@@ -48,36 +39,23 @@ const getData = asyncHandler(async (req, res) => {
     try {
         const dataSearchString = data.text.toLowerCase();
 
-        const searchConditions = [
-            {
-                $or: [
-                    { 'data.text': { $regex: "\\|Public:true", $options: 'i' } },
-                ]
+        const params = {
+            TableName: 'Simple',
+            FilterExpression: "#text = :textValue",
+            ExpressionAttributeNames: {
+                "#text": "text"
             },
-            {
-                $or: [
-                    { 'data.text': { $regex: dataSearchString, $options: 'i' } },
-                ]
+            ExpressionAttributeValues: {
+                ':textValue': dataSearchString
             }
-        ];
-        
-        if (ObjectId.isValid(dataSearchString)) {
-            searchConditions[1].$or.push({ _id: ObjectId(dataSearchString) });
-        }
-        
-        const dataList = await Data.find({ $and: searchConditions });
+        };
+
+        const result = await dynamodb.scan(params).promise();
 
         res.status(200).json({
-            data: dataList.map((data) => ({
-                data: data.data,
-                files: data.files,
-                updatedAt: data.updatedAt,
-                createdAt: data.createdAt,
-                __v: data.__v,
-                _id: data._id,
-                ActionGroup: data.ActionGroup // ← Added
-            }))
-        });    } catch (error) {
+            data: result.Items
+        });
+    } catch (error) {
         console.error("Error fetching public data:", error);
         res.status(500).json({ error: "Internal server error" });
     }
