@@ -98,7 +98,7 @@ const registerUser = asyncHandler(async (req, res) => {
         res.status(201).json({
             _id: params.Item.id,
             nickname,
-            token: generateToken(params.Item.id),   //uses JWT secret
+            token: generateToken(String(params.Item.id)),   //uses JWT secret
         });
     } catch (error) {
         console.error('Error creating user:', error);
@@ -146,7 +146,7 @@ const loginUser = asyncHandler(async (req, res) => {
                 email: email,
                 nickname: userNickname,
                 stripe: userStripe,
-                token: generateToken(user.id),
+                token: generateToken(String(user.id)),
             });
         } else {
             res.status(400);

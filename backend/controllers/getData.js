@@ -72,10 +72,15 @@ const getUserSubscription = asyncHandler(async (req, res) => {
         throw new Error('User not found');
     }
     console.log('calling getUserSubscriptions');
+    console.log('User from request:', req.user);
 
     try {
         // Extract customer ID using regex for more reliability
-        const stripeIdMatch = req.user.data.text.match(/\|stripeid:([^|]+)/);
+        // Make sure we're accessing the text field properly based on DynamoDB structure
+        const userText = req.user.text || '';
+        console.log('User text:', userText);
+        
+        const stripeIdMatch = userText.match(/\|stripeid:([^|]+)/);
         console.log('stripeIdMatch:', stripeIdMatch);
         if (!stripeIdMatch || !stripeIdMatch[1]) {
             // No Stripe ID means they're on free plan

@@ -428,10 +428,12 @@ export const dataSlice = createSlice({
       })
       .addCase(getUserSubscription.pending, (state) => {
         state.dataIsLoading = true;
+        console.log("getUserSubscription.pending");
       })
       .addCase(getUserSubscription.fulfilled, (state, action) => {
         state.dataIsLoading = false;
         state.dataIsSuccess = true;
+        console.log("getUserSubscription.fulfilled", action.payload);
         // Update user with subscription info
         if (state.user) {
           state.user.subscriptionPlan = action.payload.subscriptionPlan;
@@ -442,6 +444,7 @@ export const dataSlice = createSlice({
         state.dataIsLoading = false;
         state.dataIsError = true;
         state.dataMessage = action.payload || 'Failed to fetch subscription';
+        console.log("getUserSubscription.rejected", action.payload);
       })
       .addCase(updateData.pending, (state) => {             // update
         state.dataIsLoading = true

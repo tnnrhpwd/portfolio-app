@@ -5,6 +5,8 @@ const Data = require('../models/dataModel.js');
 const wordBaseUrl = 'https://random-word-api.p.rapidapi.com/L/';
 const defBaseUrl = 'https://mashape-community-urban-dictionary.p.rapidapi.com/define?term=';
 const { ObjectId } = require('mongoose').Types;
+const AWS = require('aws-sdk');
+const dynamodb = new AWS.DynamoDB.DocumentClient();
 const rapidapiwordoptions = {
     method: 'GET',
     headers: {
@@ -82,58 +84,42 @@ const getHashData = asyncHandler(async (req, res) => {
 
         } else { // Handle database search requests
             try {
-                // Separate the search conditions for public and private
-                const publicSearchConditions = [
-                    { 'data.text': { $regex: "\\|Public:true", $options: 'i' } },
-                    {
-                        $or: [
-                            { 'data.text': { $regex: dataSearchString, $options: 'i' } },
-                        ]
-                    }
-                ];
+                // Construct filter expressions for DynamoDB
+                let filterExpressions = [];
+                let expressionAttributeValues = {};
+                let expressionAttributeNames = {};
 
-                const privateSearchConditions = [
-                    { 'data.text': { $regex: userSearchString, $options: 'i' } },
-                    {
-                        $or: [
-                            { 'data.text': { $regex: dataSearchString, $options: 'i' } },
-                        ]
-                    }
-                ];
+                // Add filter for user ID
+                filterExpressions.push('contains(#text, :userId)');
+                expressionAttributeValues[':userId'] = userSearchString;
+                expressionAttributeNames['#text'] = 'text';
 
-                // Check if dataSearchString is a valid ObjectId
-                if (ObjectId.isValid(dataSearchString)) {
-                    publicSearchConditions[1].$or.push({ _id: ObjectId(dataSearchString) });
-                    privateSearchConditions[1].$or.push({ _id: ObjectId(dataSearchString) });
-                }
+                // Add filter for search string
+                filterExpressions.push('contains(#text, :searchString)');
+                expressionAttributeValues[':searchString'] = dataSearchString;
 
-                // Fetch data from the database
-                const [dataPublic, dataPrivate] = await Promise.race([
-                    Promise.all([
-                        Data.find({ $and: publicSearchConditions }).sort({ updatedAt: -1 }).limit(5),
-                        Data.find({ $and: privateSearchConditions }).sort({ updatedAt: -1 }).limit(5)
-                    ]),
-                    new Promise((_, reject) =>
-                        setTimeout(() => reject(new Error('Database query timeout')), 5000)
-                    )
-                ]);
+                const params = {
+                    TableName: 'Simple',
+                    FilterExpression: filterExpressions.join(' AND '),
+                    ExpressionAttributeValues: expressionAttributeValues,
+                    ExpressionAttributeNames: expressionAttributeNames
+                };
 
-                const dataList = [...dataPublic, ...dataPrivate];
+                const result = await dynamodb.scan(params).promise();
 
-                // Return the data
                 res.status(200).json({
-                    data: dataList.map((data) => ({
-                        data: data.data,
-                        ActionGroup: data.ActionGroup,
-                        files: data.files,
-                        updatedAt: data.updatedAt,
-                        createdAt: data.createdAt,
-                        __v: data.__v,
-                        _id: data._id,
+                    data: result.Items.map(item => ({
+                        data: item,
+                        ActionGroup: item.ActionGroup,
+                        files: item.files,
+                        updatedAt: item.updatedAt,
+                        createdAt: item.createdAt,
+                        __v: null, // Not applicable for DynamoDB
+                        _id: item.id,
                     }))
                 });
             } catch (error) {
-                console.error("Error fetching data:", error);
+                console.error("Error fetching data from DynamoDB:", error);
                 res.status(500).json({ error: "Internal server error" });
             }
         }
@@ -243,24 +229,30 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
 const getAllData = async (req, res) => {
     try {
         // Check if the user is an admin
-        if (req.user && req.user._id.toString() === "6770a067c725cbceab958619") {
-        //   console.log('Fetching all data...');
-          const allData = await Data.find({});
-            // console.log('All data:', allData);
-            res.status(200).json(allData.map((item) => ({
-          _id: item._id,
-          text: item.data.text,
-          files: item.data.files ? item.data.files.map((f) => f.filename).join(', '): "",
-          createdAt: item.createdAt,
-          updatedAt: item.updatedAt
-        })));
-      } else {
-        res.status(403).json({ message: 'Access denied. Admins only.' });
-      }
+        if (req.user && req.user.id === process.env.ADMIN_USER_ID) {
+            console.log('Fetching all data from DynamoDB...');
+
+            const params = {
+                TableName: 'Simple',
+        };
+
+            const result = await dynamodb.scan(params).promise();
+
+            res.status(200).json(result.Items.map(item => ({
+                id: item.id,
+                text: item.text,
+                files: item.files ? item.files.map(f => f.filename).join(', ') : "",
+                createdAt: item.createdAt,
+                updatedAt: item.updatedAt
+            })));
+        } else {
+            console.error("Error: User is not an admin.");
+            res.status(403).json({ message: 'Access denied. Admins only.' });
+        }
     } catch (error) {
-      console.error("Error fetching all data:", error);
-      res.status(500).json({ message: error.message });
+        console.error("Error fetching all data from DynamoDB:", error);
+        res.status(500).json({ message: error.message });
     }
-  };
+};
 
 module.exports = { getHashData, getPaymentMethods, getAllData };

@@ -218,6 +218,7 @@ const getUserSubscription = async (token) => {
 
     try {
         const response = await axios.get(API_URL + 'subscription', config);
+        console.log('getUserSubscription response:', response.data);
         return response.data;
     } catch (error) {
         handleTokenExpiration(error);

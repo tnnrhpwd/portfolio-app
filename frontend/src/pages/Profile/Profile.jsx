@@ -78,7 +78,7 @@ function Profile() {
         setSubscriptionLoaded(true);
       }
     }
-  }, [user, subscriptionLoaded, dispatch]);
+  }, [subscriptionLoaded, dispatch]);
 
   // Rest of handlers
   const onLogout = () => {
