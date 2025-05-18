@@ -1,7 +1,16 @@
 // This file exports protect -- async function that confirms that the request user is the same as the response user. DOES NOT CHECK PASSWORD or ANYTHING WITH UI -- only confirms that reponse is sent to the requester
 const jwt = require('jsonwebtoken');                   // import web token library to get user's token
 const asyncHandler = require('express-async-handler'); // sends the errors to the errorhandler
-const Data = require('../models/dataModel');           // import data schema
+const AWS = require('aws-sdk'); // Import AWS SDK
+
+// Configure AWS
+AWS.config.update({
+    region: process.env.AWS_REGION,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+});
+
+const dynamodb = new AWS.DynamoDB.DocumentClient(); // Create DynamoDB DocumentClient
 
 // This middleware async function is called anytime a user requests user information
 const protect = asyncHandler(async (req, res, next) => {
@@ -13,16 +22,35 @@ const protect = asyncHandler(async (req, res, next) => {
     req.headers.authorization.startsWith('Bearer')  // if HTTP request header exists and startes with Bearer -- IF USER HAS JWT ( LOGGED IN )
   ) {
     try {
-
       // Get token from header
       token = req.headers.authorization.split(' ')[1]     // set token as just the token, ignore the "Bearer "
 
       // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET)
 
-      // Get user from the token -- the JWT payload is holding the id, so we get the ID, find the associated user, and prevent the hashed password from being delivered.
-      // req.user = await Data.findOne({ data: { $regex: `${decoded.id}` } }).select('-password')
-      req.user = await Data.findById(decoded.id).select('-password')
+      console.log("Decoded ID from JWT:", decoded.id);
+
+      // Instead of a direct get operation, use a scan with a filter expression
+      // This is less efficient but more flexible for finding the user
+      const params = {
+        TableName: 'Simple',
+        FilterExpression: "id = :userId",
+        ExpressionAttributeValues: {
+          ":userId": String(decoded.id)
+        }
+      };
+
+      console.log("DynamoDB scan params:", params);
+      const result = await dynamodb.scan(params).promise();
+      console.log("DynamoDB scan result:", result);
+
+      if (!result.Items || result.Items.length === 0) {
+        res.status(401);
+        throw new Error('User not found');
+      }
+
+      req.user = result.Items[0]; // Attach user to the request
+      console.log("User attached to request:", req.user);
 
       next()    // goes to next middleware function
     } catch (error) {     
@@ -44,5 +72,7 @@ const protect = asyncHandler(async (req, res, next) => {
   }
   console.log('protect middleware passed')
 })
+
+// ...existing code...
 
 module.exports = { protect }  // exported to userRoutes
