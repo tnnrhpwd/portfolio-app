@@ -7,21 +7,19 @@ const asyncHandler = require('express-async-handler');
 const { checkIP } = require('../utils/accessData.js');
 const stripe = require('stripe')(process.env.STRIPE_KEY);
 require('dotenv').config();
-const openai = require('openai');
 const openaikey = process.env.OPENAI_KEY;
-const client = new openai({ apiKey: openaikey });
-const { putHashData } = require('./putHashData');
-const { sendEmail } = require('../utils/emailService');
-const AWS = require('aws-sdk');
+let client; // Define client outside the asyncHandler
 
-// Configure AWS
-AWS.config.update({
-    region: process.env.AWS_REGION,
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-});
-
-const dynamodb = new AWS.DynamoDB.DocumentClient();
+async function initializeOpenAI() {
+    try {
+        const openai = await import('openai');
+        client = new openai.OpenAI({ apiKey: openaikey });
+        console.log('OpenAI initialized successfully');
+    } catch (error) {
+        console.error('Error initializing OpenAI:', error);
+        throw error;
+    }
+}
 
 // @desc    Set data
 // @route   POST /api/data
@@ -105,6 +103,9 @@ const compressData = asyncHandler(async (req, res) => {
     console.log('User input:', userInput); // Log the user input
 
     try {
+        if (!client) {
+            await initializeOpenAI();
+        }
         const response = await client.chat.completions.create({
           model: 'o1-mini', // Use the o1-mini model
           messages: [{ role: 'user', content: userInput }],
