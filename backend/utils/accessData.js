@@ -68,7 +68,8 @@ async function checkIP(req) {
             Item: {
                 id: require('crypto').randomBytes(16).toString("hex"), // Generate a unique ID
                 logData: text,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                createdAt: new Date().toISOString() // Add createdAt attribute
             },
             ConditionExpression: 'attribute_not_exists(id)' // Prevent overwrites
         };
