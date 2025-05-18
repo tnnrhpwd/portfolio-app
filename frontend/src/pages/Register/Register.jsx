@@ -41,7 +41,7 @@ function Register() {
             // if registered,
             toast.success("Successfully Registered", { autoClose: 2000 }); // print success to toast
         }
-        if (user) {
+        if (user && user._id) {
             // if logged in,
             navigate("/"); // send user to dashboard
         }

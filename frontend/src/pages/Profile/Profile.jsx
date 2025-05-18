@@ -84,8 +84,7 @@ function Profile() {
   const onLogout = () => {
     setSubscriptionLoaded(false); // Reset subscription loaded state
     dispatch(logout());
-    // Delay the resetDataSlice to avoid conflicts with logout
-    setTimeout(() => dispatch(resetDataSlice()), 0);
+    dispatch(resetDataSlice());
     navigate('/');
   };
 
