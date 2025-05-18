@@ -1,12 +1,19 @@
 require('dotenv').config();
 const asyncHandler = require('express-async-handler'); // sends the errors to the errorhandler
 const fetch = require('node-fetch');
-const Data = require('../models/dataModel.js');
 const wordBaseUrl = 'https://random-word-api.p.rapidapi.com/L/';
 const defBaseUrl = 'https://mashape-community-urban-dictionary.p.rapidapi.com/define?term=';
-const { ObjectId } = require('mongoose').Types;
 const AWS = require('aws-sdk');
+
+// Configure AWS
+AWS.config.update({
+    region: process.env.AWS_REGION,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+});
+
 const dynamodb = new AWS.DynamoDB.DocumentClient();
+
 const rapidapiwordoptions = {
     method: 'GET',
     headers: {
@@ -24,7 +31,6 @@ const rapidapidefoptions = {
 const { checkIP } = require('../utils/accessData.js');
 const stripe = require('stripe')(process.env.STRIPE_KEY);
 const { createCustomer } = require('./postHashData.js');
-
 
 // @desc    Get Data
 // @route   GET /api/data

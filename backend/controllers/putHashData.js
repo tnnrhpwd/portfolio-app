@@ -2,11 +2,20 @@
 
 const asyncHandler = require('express-async-handler');
 require('dotenv').config();
-const Data = require('../models/dataModel.js');
 const { checkIP } = require('../utils/accessData.js');
 const { getPaymentMethods } = require('./getHashData.js');
 const { sendEmail } = require('../utils/emailService.js');
 const stripe = require('stripe')(process.env.STRIPE_KEY);
+const AWS = require('aws-sdk');
+
+// Configure AWS
+AWS.config.update({
+    region: process.env.AWS_REGION,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+});
+
+const dynamodb = new AWS.DynamoDB.DocumentClient();
 
 // @desc    Update Data
 // @route   PUT /api/data/:id
@@ -24,35 +33,47 @@ const putHashData = asyncHandler(async (req, res) => {
     console.log('req.params.id:', req.params.id);
 
     try {
-        const dataHolder = await Data.findById(req.params.id);
-        if (!dataHolder) {
+        // Retrieve the item from DynamoDB
+        const getParams = {
+            TableName: 'Simple',
+            Key: {
+                id: req.params.id
+            }
+        };
+
+        let item;
+        try {
+            const getItemResult = await dynamodb.get(getParams).promise();
+            item = getItemResult.Item;
+        } catch (getError) {
+            console.error('Error getting item:', getError);
+            res.status(500).json({ error: 'Failed to get data from DynamoDB' });
+            return;
+        }
+
+        if (!item) {
             res.status(400);
             console.error('Data input not found');
             throw new Error('Data input not found');
         }
 
-        // console.log('Data:', dataHolder);
-        console.log('req.user.id:', req.user.id);
-
         // Make sure the logged in user matches the data user
-        const ObjectId = require('mongoose').Types.ObjectId;
-        if (!ObjectId(req.user.id).equals(dataHolder._id)) {
-            if (!dataHolder.user || dataHolder.user.toString() !== req.user.id) {
-                res.status(401);
-                console.error('User not authorized');
-                throw new Error('User not authorized');
-            }
+        const dataCreator = item.text.substring(item.text.indexOf("Creator:") + 8, item.text.indexOf("Creator:") + 8 + 24);
+        if (dataCreator !== req.user.id) {
+            res.status(401);
+            console.error('User not authorized');
+            throw new Error('User not authorized');
         }
 
         // Skip payment method check if text is 'free'
         if (req.body.text.toLowerCase() === 'free') {
-            await updateDataHolder(req, res, dataHolder);
+            await updateDataHolder(req, res, item);
             return;
         }
 
         // Set the flag to indicate this call is from putHashData
         req.fromPutHashData = true;
-        
+
         // Check for payment method
         await getPaymentMethods(req, res, async () => {
             const paymentMethods = req.paymentMethods;
@@ -62,7 +83,7 @@ const putHashData = asyncHandler(async (req, res) => {
                 return;
             }
             console.log('Payment methods:', paymentMethods.length);
-            await updateDataHolder(req, res, dataHolder);
+            await updateDataHolder(req, res, item);
         });
     } catch (error) {
         console.error('Error during data update:', error);
@@ -71,64 +92,82 @@ const putHashData = asyncHandler(async (req, res) => {
     }
 });
 
-const updateDataHolder = async (req, res, dataHolder) => {
+const updateDataHolder = async (req, res, item) => {
     // Extract current rank for email notification
     let currentRank = 'Free';
-    const rankMatch = dataHolder.data.text.match(/\|Rank:([^|]+)/);
+    const rankMatch = item.text.match(/\|Rank:([^|]+)/);
     if (rankMatch && rankMatch[1]) {
         currentRank = rankMatch[1].trim();
     }
-    
+
     // Update subscription plan
-    const updatedText = dataHolder.data.text.includes('|Rank:')
-        ? dataHolder.data.text.replace(/(\|Rank:)(Free|Flex|Premium)/, `$1${req.body.text}`)
-        : `${dataHolder.data.text}|Rank:${req.body.text}`;
+    const updatedText = item.text.includes('|Rank:')
+        ? item.text.replace(/(\|Rank:)(Free|Flex|Premium)/, `$1${req.body.text}`)
+        : `${item.text}|Rank:${req.body.text}`;
 
     console.log('Updated text:', updatedText);
-    dataHolder.data.text = updatedText;
 
-    const updatedData = await Data.findByIdAndUpdate(req.params.id, { 'data.text': updatedText }, {
-        new: true,
-    });
-    console.log('Updated data:', updatedData);
-    
-    // Send email notification if rank was changed and we have an email address
-    if (currentRank.toLowerCase() !== req.body.text.toLowerCase()) {
-        // Extract email address from user data
-        const emailMatch = updatedText.match(/Email:([^|]+)/);
-        if (emailMatch && emailMatch[1]) {
-            const userEmail = emailMatch[1].trim();
-            
-            try {
-                if (req.body.text.toLowerCase() === 'free') {
-                    // Downgrade to free plan
-                    await sendEmail(userEmail, 'subscriptionCancelled', {
-                        plan: currentRank,
-                        userData: { text: updatedText }
-                    });
-                } else if (currentRank.toLowerCase() === 'free') {
-                    // New subscription
-                    await sendEmail(userEmail, 'subscriptionCreated', {
-                        plan: req.body.text,
-                        userData: { text: updatedText }
-                    });
-                } else {
-                    // Plan change
-                    await sendEmail(userEmail, 'subscriptionUpdated', {
-                        oldPlan: currentRank,
-                        newPlan: req.body.text,
-                        userData: { text: updatedText }
-                    });
+    const params = {
+        TableName: 'Simple',
+        Key: {
+            id: req.params.id
+        },
+        UpdateExpression: 'set #text = :text, updatedAt = :updatedAt',
+        ExpressionAttributeNames: {
+            '#text': 'text'
+        },
+        ExpressionAttributeValues: {
+            ':text': updatedText,
+            ':updatedAt': new Date().toISOString()
+        },
+        ReturnValues: 'ALL_NEW'
+    };
+
+    try {
+        const updateResult = await dynamodb.update(params).promise();
+        const updatedItem = updateResult.Attributes;
+
+        // Send email notification if rank was changed and we have an email address
+        if (currentRank.toLowerCase() !== req.body.text.toLowerCase()) {
+            // Extract email address from user data
+            const emailMatch = updatedText.match(/Email:([^|]+)/);
+            if (emailMatch && emailMatch[1]) {
+                const userEmail = emailMatch[1].trim();
+
+                try {
+                    if (req.body.text.toLowerCase() === 'free') {
+                        // Downgrade to free plan
+                        await sendEmail(userEmail, 'subscriptionCancelled', {
+                            plan: currentRank,
+                            userData: { text: updatedText }
+                        });
+                    } else if (currentRank.toLowerCase() === 'free') {
+                        // New subscription
+                        await sendEmail(userEmail, 'subscriptionCreated', {
+                            plan: req.body.text,
+                            userData: { text: updatedText }
+                        });
+                    } else {
+                        // Plan change
+                        await sendEmail(userEmail, 'subscriptionUpdated', {
+                            oldPlan: currentRank,
+                            newPlan: req.body.text,
+                            userData: { text: updatedText }
+                        });
+                    }
+                    console.log(`Subscription email sent to ${userEmail}`);
+                } catch (error) {
+                    console.error('Failed to send subscription update email:', error);
+                    // Don't fail the operation if email sending fails
                 }
-                console.log(`Subscription email sent to ${userEmail}`);
-            } catch (error) {
-                console.error('Failed to send subscription update email:', error);
-                // Don't fail the operation if email sending fails
             }
         }
+
+        res.status(200).json(updatedItem);
+    } catch (error) {
+        console.error('Error updating data in DynamoDB:', error);
+        res.status(500).json({ error: 'Failed to update data in DynamoDB' });
     }
-    
-    res.status(200).json(updatedData);
 };
 
 // PUT: Update A customer

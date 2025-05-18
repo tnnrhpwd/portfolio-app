@@ -4,7 +4,6 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 const asyncHandler = require('express-async-handler');
-const Data = require('../models/dataModel.js');
 const { checkIP } = require('../utils/accessData.js');
 const stripe = require('stripe')(process.env.STRIPE_KEY);
 require('dotenv').config();
@@ -12,8 +11,17 @@ const openai = require('openai');
 const openaikey = process.env.OPENAI_KEY;
 const client = new openai({ apiKey: openaikey });
 const { putHashData } = require('./putHashData');
-const mongoose = require('mongoose');
 const { sendEmail } = require('../utils/emailService');
+const AWS = require('aws-sdk');
+
+// Configure AWS
+AWS.config.update({
+    region: process.env.AWS_REGION,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+});
+
+const dynamodb = new AWS.DynamoDB.DocumentClient();
 
 // @desc    Set data
 // @route   POST /api/data
@@ -41,15 +49,25 @@ const postHashData = asyncHandler(async (req, res) => {
         files = req.body.data.Files;
     }
 
-    const datas = await Data.create({
-        data: {
-            text: typeof req.body.data === 'string' ? req.body.data : req.body.data.Text,
+    const params = {
+        TableName: 'Simple',
+        Item: {
+            id: require('crypto').randomBytes(16).toString("hex"), // Generate a unique ID
+            text: `Creator:${req.user.id}|` + (typeof req.body.data === 'string' ? req.body.data : req.body.data.Text),
             ActionGroupObject: req.body.data.ActionGroupObject,
-            files: files
+            files: files,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
         }
-    });
-    
-    res.status(200).json(datas)
+    };
+
+    try {
+        await dynamodb.put(params).promise();
+        res.status(200).json(params.Item); // Return the created item
+    } catch (error) {
+        console.error('Error creating data:', error);
+        res.status(500).json({ error: 'Failed to create data' });
+    }
 })
 
 // @desc    Compress Data
