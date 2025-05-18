@@ -1,10 +1,17 @@
 // deleteData.js
 
 const asyncHandler = require('express-async-handler');
-const Data = require('../models/dataModel.js');
-const mongoose = require('mongoose');
 const { checkIP } = require('../utils/accessData.js');
-const stripe = require('stripe')(process.env.STRIPE_KEY);
+const AWS = require('aws-sdk');
+
+// Configure AWS
+AWS.config.update({
+    region: process.env.AWS_REGION,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+});
+
+const dynamodb = new AWS.DynamoDB.DocumentClient();
 
 // @desc    Delete data
 // @route   DELETE /api/data/:id
@@ -15,21 +22,37 @@ const deleteHashData = asyncHandler(async (req, res) => {
         const id = req.params.id;
         console.log("delete id=" + id);
 
-        // Check if the id is a valid ObjectId
-        if (!mongoose.Types.ObjectId.isValid(id)) {
-            res.status(400);
-            throw new Error('Invalid ID format');
+        // Check for user
+        if (!req.user) {
+            res.status(401);
+            throw new Error('User not found.');
         }
 
-        const dataHolder = await Data.findById(id);
-        console.log("delete dataHolder=" + dataHolder);
+        // Retrieve the item from DynamoDB
+        const getParams = {
+            TableName: 'Simple',
+            Key: {
+                id: id
+            }
+        };
 
-        if (!dataHolder) {
+        let item;
+        try {
+            const getItemResult = await dynamodb.get(getParams).promise();
+            item = getItemResult.Item;
+        } catch (getError) {
+            console.error('Error getting item:', getError);
+            res.status(500).json({ error: 'Failed to get data from DynamoDB' });
+            return;
+        }
+
+        if (!item) {
             res.status(400);
             throw new Error('Data not found.');
         }
 
-        const dataCreator = dataHolder.data.text.substring(dataHolder.data.text.indexOf("Creator:") + 8, dataHolder.data.text.indexOf("Creator:") + 8 + 24);
+        // Extract the creator ID from the item's text attribute
+        const dataCreator = item.text.substring(item.text.indexOf("Creator:") + 8, item.text.indexOf("Creator:") + 8 + 24);
 
         // Check for owner
         if (!dataCreator) {
@@ -37,22 +60,27 @@ const deleteHashData = asyncHandler(async (req, res) => {
             throw new Error('Data creator not found.');
         }
 
-        // Check for user
-        if (!req.user) {
-            res.status(401);
-            throw new Error('User not found.');
-        }
-        console.log("delete dataCreator=" + dataCreator + ", req.user.id=" + req.user.id);
-
-        // Make sure the logged in user matches the comment user
+        // Make sure the logged in user matches the data creator
         if (dataCreator !== req.user.id) {
             res.status(401);
             throw new Error('User not authorized.');
         }
 
-        await Data.deleteOne({ _id: id });
+        // Delete the item from DynamoDB
+        const deleteParams = {
+            TableName: 'Simple',
+            Key: {
+                id: id
+            }
+        };
 
-        res.status(200).json({ id });
+        try {
+            await dynamodb.delete(deleteParams).promise();
+            res.status(200).json({ id });
+        } catch (deleteError) {
+            console.error('Error deleting data:', deleteError);
+            res.status(500).json({ error: 'Failed to delete data' });
+        }
     } catch (error) {
         console.error('Error deleting data:', error);
         res.status(500).json({ error: error.message });
