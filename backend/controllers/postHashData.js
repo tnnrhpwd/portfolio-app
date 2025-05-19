@@ -5,6 +5,7 @@ const path = require('path');
 const multer = require('multer');
 const asyncHandler = require('express-async-handler');
 const { checkIP } = require('../utils/accessData.js');
+const { json } = require('body-parser');
 const stripe = require('stripe')(process.env.STRIPE_KEY);
 require('dotenv').config();
 const openaikey = process.env.OPENAI_KEY;
@@ -25,16 +26,29 @@ async function initializeOpenAI() {
 // @route   POST /api/data
 // @access  Private
 const postHashData = asyncHandler(async (req, res) => {
+    console.log('postHashData called');
+    console.log('req.body: ', JSON.stringify(req.body));
     await checkIP(req);
+    console.log('req.body:')
+    // console.log('req.body.data: ', json.stringify(req.body));
+
     if (!req.user) {  // Check for user
       res.status(401)
       throw new Error('User not found')
     }
+    // console.log('req.body: ', json.stringify(req.body));
+    // Check if req.body exists
     if (!req.body) {
-      res.status(400)
-      throw new Error('Please add a data field. req: ' + JSON.stringify(req.body.data))
+        res.status(400);
+        throw new Error('Request body is missing');
     }
-    console.log('req.body.data: ', req.body.data)
+
+    // Check if req.body.data exists
+    if (!req.body.data) {
+        res.status(400);
+        throw new Error('Please add a data field. req: ' + JSON.stringify(req.body));
+    }
+
     let files = [];
     if (req.files && req.files.length > 0) {
         files = req.files.map(file => ({
@@ -47,11 +61,22 @@ const postHashData = asyncHandler(async (req, res) => {
         files = req.body.data.Files;
     }
 
+    let text;
+    if (typeof req.body.data === 'string') {
+        text = req.body.data;
+    } else if (req.body.data.Text) {
+        text = req.body.data.Text;
+    } else {
+        console.log('req.body.data:', req.body.data);
+        res.status(400);
+        throw new Error('Invalid data format.  Missing Text property.  req.body.data: ' + JSON.stringify(req.body.data));
+    }
+
     const params = {
         TableName: 'Simple',
         Item: {
             id: require('crypto').randomBytes(16).toString("hex"), // Generate a unique ID
-            text: `Creator:${req.user.id}|` + (typeof req.body.data === 'string' ? req.body.data : req.body.data.Text),
+            text: `Creator:${req.user.id}|` + text,
             ActionGroupObject: req.body.data.ActionGroupObject,
             files: files,
             createdAt: new Date().toISOString(),

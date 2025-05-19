@@ -26,6 +26,9 @@ function DataInput() {
       text += `|Cost:$${parseFloat(cost).toFixed(2)}`;
       text += `|CostType:${costType}`;
     }
+    
+    console.log('planText:', planText, 'goalText:', goalText, 'actionText:', actionText, 'files:', files);
+
     if (planText) text += `|Plan:${planText}`;
     if (goalText) text += `|Goal:${goalText}`;
     if (actionText || files.length > 0) text += `|Action:${actionText}`;
