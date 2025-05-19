@@ -236,7 +236,7 @@ const getAllData = async (req, res) => {
     try {
         // Check if the user is an admin
         if (req.user && req.user.id === process.env.ADMIN_USER_ID) {
-            console.log('Fetching all data from DynamoDB...');
+            // console.log('Fetching all data from DynamoDB...');
 
             const params = {
                 TableName: 'Simple',

@@ -47,31 +47,38 @@ const ScrollableTable = ({ headers, data, renderRow, filterFn }) => {
         aria-label="Search table entries"
       />
       <div className="admin-table-wrapper">
-        <table className="admin-table" aria-label="Data table">
-          <thead>
-            <tr>
-              {headers.map((header) => (
-                <th
-                  key={header.key}
-                  scope="col"
-                  onClick={() => handleSort(header.key)}
-                  className={`sortable-header ${
-                    sortConfig.key === header.key ? sortConfig.direction : ""
-                  }`}
-                >
-                  {header.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-        </table>
         <div className="table-scroll-container">
-          <table className="admin-table">
+          <table className="admin-table" aria-label="Data table">
+            <thead>
+              <tr>
+                {headers.map((header) => (
+                  <th
+                    key={header.key}
+                    scope="col"
+                    onClick={() => handleSort(header.key)}
+                    className={`sortable-header ${
+                      sortConfig.key === header.key ? sortConfig.direction : ""
+                    }`}
+                  >
+                    {header.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
             <tbody>
               {filteredAndSortedData.length > 0 ? (
-                filteredAndSortedData.map(renderRow)
+                // Wrap renderRow in a React.Fragment with key to ensure each row has a key
+                filteredAndSortedData.map((item, index) => {
+                  // Get the id from the item or use index as fallback
+                  const key = item._id || `item-${index}`;
+                  return (
+                    <React.Fragment key={key}>
+                      {renderRow(item, index)}
+                    </React.Fragment>
+                  );
+                })
               ) : (
-                <tr>
+                <tr key={`no-data-${headers.map((h) => h.key).join("-")}`}>
                   <td colSpan={headers.length} className="admin-table-no-data">
                     No matching data found
                   </td>

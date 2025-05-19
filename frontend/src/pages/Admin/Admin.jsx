@@ -60,6 +60,11 @@ function Admin() {
     
     setAllObjectArray(data);
     
+    console.log("Data received from Redux:", data); // Inspect the data
+    console.log("Number of items in data:", data.length); // Check the length
+    console.log("All Object Array after setting state:", allObjectArray); // Check the state
+    console.log("Number of items in allObjectArray:", allObjectArray.length); // Check the state length
+    
     // Extract and deduplicate visitor location data
     try {
       const visitorMap = new Map(); // Use map to deduplicate by IP
@@ -126,6 +131,9 @@ function Admin() {
     }
   }, []);
 
+  console.log("All Data:", allObjectArray);
+  console.log("Number of items:", allObjectArray.length);
+
   return (
     <>
       <Header />
@@ -149,6 +157,7 @@ function Admin() {
                   ]}
                   data={allObjectArray}
                   filterFn={filterMainTable}
+                  key={allObjectArray.length} // Force re-render when data changes
                   renderRow={(item) => (
                     <tr key={item._id} className="admin-table-row">
                       <td className="admin-table-row-text">{item._id || ''}</td>

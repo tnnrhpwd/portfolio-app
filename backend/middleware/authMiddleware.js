@@ -40,9 +40,9 @@ const protect = asyncHandler(async (req, res, next) => {
         }
       };
 
-      console.log("DynamoDB scan params:", params);
+      // console.log("DynamoDB scan params:", params);
       const result = await dynamodb.scan(params).promise();
-      console.log("DynamoDB scan result:", result);
+      // console.log("DynamoDB scan result:", result);
 
       if (!result.Items || result.Items.length === 0) {
         res.status(401);
@@ -50,7 +50,7 @@ const protect = asyncHandler(async (req, res, next) => {
       }
 
       req.user = result.Items[0]; // Attach user to the request
-      console.log("User attached to request:", req.user);
+      // console.log("User attached to request:", req.user);
 
       next()    // goes to next middleware function
     } catch (error) {     
