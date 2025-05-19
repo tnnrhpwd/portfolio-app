@@ -29,8 +29,6 @@ const postHashData = asyncHandler(async (req, res) => {
     console.log('postHashData called');
     console.log('req.body: ', JSON.stringify(req.body));
     await checkIP(req);
-    console.log('req.body:')
-    // console.log('req.body.data: ', json.stringify(req.body));
 
     if (!req.user) {  // Check for user
       res.status(401)

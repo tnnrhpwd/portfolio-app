@@ -25,6 +25,11 @@ const createData = async (dataData, token) => {
 
     console.log('Calling POST URL:', API_URL);
     console.log('Calling POST Data:', dataData);
+    console.log('FormData contents in dataService:');
+    for (const pair of dataData.entries()) {
+      console.log(pair[0] + ', ' + pair[1]);
+    }
+    console.log('Config:', config); // Log the config object
 
     try {
         const response = await axios.post(API_URL, dataData, config)

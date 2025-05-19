@@ -5,14 +5,13 @@ const dotenv = require('dotenv').config();   // import env vars from .env
 const { errorHandler } = require('./middleware/errorMiddleware');    // creates json of error
 const port = process.env.PORT || 5000;  //set port to hold api server
 var cors = require('cors')
-const bodyParser = require('body-parser'); // import body-parser
 
 const app = express() // Calls the express function "express()" and puts new Express application inside the app variable
 
 // app.use adds middleware to the data routes
 app.use(cors())
-app.use(bodyParser.json({ limit: "50mb" })) // adds middleware that parses json requests and moves data into the request body (regardless of hit url)
-app.use(bodyParser.urlencoded({ limit: "50mb", extended: true, parameterLimit: 50000 })) // parses data using query-string library rather than qs library (regardless of hit url)
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 app.use('/api/data', require('./routes/routeData')) // serve all data at /api/data (regardless of hit url)
 

@@ -40,6 +40,17 @@ function DataInput() {
       formData.append('files', file);
     });
 
+    // Append an empty files array if no files are selected
+    if (files.length === 0) {
+      formData.append('files', []);
+    }
+
+    // Log FormData contents correctly
+    console.log('FormData contents:');
+    for (const pair of formData.entries()) {
+      console.log(pair[0] + ', ' + pair[1]);
+    }
+
     dispatch(createData(formData));
 
     setPlanText('');
