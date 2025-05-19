@@ -96,7 +96,7 @@ async function checkIP(req) {
             Item: {
                 id: require('crypto').randomBytes(16).toString("hex"),
                 text: text,
-                timestamp: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
                 createdAt: new Date().toISOString()
             },
             ConditionExpression: 'attribute_not_exists(id)'
