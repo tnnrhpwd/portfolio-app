@@ -30,7 +30,7 @@ async function checkIP(req) {
     // Handle IPv6 localhost address
     if (ipFromHeader === '::1' || ipFromHeader === '127.0.0.1') {
         ipFromHeader = '127.0.0.1';
-        console.log('Localhost IP detected, setting to 127.0.0.1');
+        // console.log('Localhost IP detected, setting to 127.0.0.1');
     } else if (req.headers['x-forwarded-for']) {
         ipFromHeader = req.headers['x-forwarded-for'].split(',')[0].trim();
         console.log('Using x-forwarded-for header, IP:', ipFromHeader);

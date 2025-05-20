@@ -28,7 +28,7 @@ const protect = asyncHandler(async (req, res, next) => {
       // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET)
 
-      console.log("Decoded ID from JWT:", decoded.id);
+      // console.log("Decoded ID from JWT:", decoded.id);
 
       // Instead of a direct get operation, use a scan with a filter expression
       // This is less efficient but more flexible for finding the user
