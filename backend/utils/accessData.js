@@ -13,18 +13,18 @@ AWS.config.update({
 const dynamodb = new AWS.DynamoDB.DocumentClient();
 
 async function checkIP(req) {
-    console.log('checkIP function called');
+    // console.log('checkIP function called');
     
     let ipFromHeader = req.headers['x-forwarded-for']
         || req.connection?.remoteAddress
         || req.socket?.remoteAddress;
 
-    console.log('Original IP from headers:', ipFromHeader);
+    // console.log('Original IP from headers:', ipFromHeader);
 
     if (ipFromHeader) {
         // Handle multiple IPs in the x-forwarded-for header
         ipFromHeader = ipFromHeader.split(',').shift().trim();
-        console.log('IP after splitting and trimming:', ipFromHeader);
+        // console.log('IP after splitting and trimming:', ipFromHeader);
     }
 
     // Handle IPv6 localhost address
@@ -111,7 +111,7 @@ async function checkIP(req) {
             console.error('Error recording access log to DynamoDB:', error);
         }
     } else {
-        console.log('Skipping localhost IP, not recording');
+        // console.log('Skipping localhost IP, not recording');
     }
 }
 

@@ -15,7 +15,7 @@ const dynamodb = new AWS.DynamoDB.DocumentClient(); // Create DynamoDB DocumentC
 // This middleware async function is called anytime a user requests user information
 const protect = asyncHandler(async (req, res, next) => {
   let token;
-  console.log('protect middleware called')
+  // console.log('protect middleware called')
 
   if (
     req.headers.authorization &&
@@ -70,7 +70,7 @@ const protect = asyncHandler(async (req, res, next) => {
     res.status(401)
     res.json({ dataMessage: 'Not authorized, no token' });
   }
-  console.log('protect middleware passed')
+  // console.log('protect middleware passed')
 })
 
 // ...existing code...
