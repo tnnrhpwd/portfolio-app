@@ -122,7 +122,7 @@ function Plans() {
       if (PlanStringArray.length === 0) {
         console.log('PlanStringArray is empty');
       } else {
-        console.log(PlanStringArray);
+        console.log('PlanStringArray content:', PlanStringArray); // Enhanced log
       }
 
       const processPlanArray = (itemIDData, itemCreatedAtData, itemUpdatedAtData, itemString, files, index, array, itemUser) => {
@@ -141,15 +141,30 @@ function Plans() {
       };
 
       PlanStringArray.forEach((itemarino, index) => {
-        let itemString = typeof itemarino.data === 'string' ? itemarino.data : (itemarino.data.text ? itemarino.data.text : 'Unknown');
+        // Determine the source object for properties like 'text' and 'files'.
+        // If itemarino.data exists and itemarino.data.text is present, it's likely from the protected endpoint.
+        // Otherwise, itemarino itself should contain these properties (from public endpoint or already transformed).
+        const sourceObject = (itemarino.data && typeof itemarino.data.text !== 'undefined') 
+                             ? itemarino.data 
+                             : itemarino;
+
+        let itemString = typeof sourceObject.text === 'string' ? sourceObject.text : 'Unknown';
+        // Ensure createdAt, updatedAt, and _id are consistently accessed from the top-level itemarino,
+        // assuming your Redux slice or backend mapping ensures their presence there.
         const itemCreatedAt = itemarino.createdAt;
         const itemUpdatedAt = itemarino.updatedAt;
-        const itemID = itemarino._id;
+        const itemID = itemarino._id; // This needs to be consistently available.
+
+        if (!itemID) {
+          console.warn('ItemID (_id) is missing for item:', itemarino);
+          // Potentially skip this item or handle error, as itemID is crucial for the key.
+        }
+        
         if (itemString.length > 500) {
           itemString = itemString.substring(0, 500) + '...';
         }
 
-        const files = itemarino.data.files || [];
+        const files = sourceObject.files || [];
 
         const creatorMatch = itemString.match(/Creator:(.*?)\|/);
         const itemUser = creatorMatch ? { id: creatorMatch[1], nickname: 'User' + creatorMatch[1].slice(-4), badge: creatorMatch[1].toString() === "6770a067c725cbceab958619" ? 'Gold' : 'Silver' } : { id: 'Unknown', nickname: 'Unknown', badge: 'Unknown' };

@@ -234,6 +234,7 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
 
 const getAllData = async (req, res) => {
     try {
+        console.log('getAllData called. req.body:', req.body, 'req.user:', req.user);
         // Check if the user is an admin
         if (req.user && req.user.id === process.env.ADMIN_USER_ID) {
             // console.log('Fetching all data from DynamoDB...');

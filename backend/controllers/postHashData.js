@@ -5,11 +5,21 @@ const path = require('path');
 const multer = require('multer');
 const asyncHandler = require('express-async-handler');
 const { checkIP } = require('../utils/accessData.js');
-const { json } = require('body-parser');
 const stripe = require('stripe')(process.env.STRIPE_KEY);
 require('dotenv').config();
 const openaikey = process.env.OPENAI_KEY;
 let client; // Define client outside the asyncHandler
+
+const AWS = require('aws-sdk');
+
+// Configure AWS
+AWS.config.update({
+    region: process.env.AWS_REGION,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+});
+
+const dynamodb = new AWS.DynamoDB.DocumentClient();
 
 async function initializeOpenAI() {
     try {
@@ -27,56 +37,105 @@ async function initializeOpenAI() {
 // @access  Private
 const postHashData = asyncHandler(async (req, res) => {
     console.log('postHashData called');
-    console.log('req.body: ', JSON.stringify(req.body));
+    console.log('req.body: ', JSON.stringify(req.body), 'req.user:', req.user, 'req.files:', req.files);
     await checkIP(req);
 
-    if (!req.user) {  // Check for user
-      res.status(401)
-      throw new Error('User not found')
-    }
-    // console.log('req.body: ', json.stringify(req.body));
-    // Check if req.body exists
-    if (!req.body) {
-        res.status(400);
-        throw new Error('Request body is missing');
+    if (!req.user) {
+      res.status(401);
+      throw new Error('User not found');
     }
 
-    // Check if req.body.data exists
-    if (!req.body.data) {
+    if (Object.keys(req.body).length === 0 && (!req.files || req.files.length === 0)) {
         res.status(400);
-        throw new Error('Please add a data field. req: ' + JSON.stringify(req.body));
+        throw new Error('Request body and files are missing');
     }
 
-    let files = [];
+    let textContent;
+    let actionGroupObjectContent;
+    let filesData = []; // For the DynamoDB 'files' attribute
+
+    // Handle file uploads via multer first
     if (req.files && req.files.length > 0) {
-        files = req.files.map(file => ({
+        filesData = req.files.map(file => ({
             filename: file.originalname,
             contentType: file.mimetype,
             data: file.buffer.toString('base64')
         }));
-    } else if (req.body.data && req.body.data.Files) {
-        // Read from JSON body
-        files = req.body.data.Files;
     }
 
-    let text;
-    if (typeof req.body.data === 'string') {
-        text = req.body.data;
-    } else if (req.body.data.Text) {
-        text = req.body.data.Text;
-    } else {
-        console.log('req.body.data:', req.body.data);
-        res.status(400);
-        throw new Error('Invalid data format.  Missing Text property.  req.body.data: ' + JSON.stringify(req.body.data));
+    if (req.headers['content-type'] && req.headers['content-type'].startsWith('multipart/form-data')) {
+        // For multipart/form-data, text fields are directly in req.body
+        textContent = req.body.data || req.body.Text; // Based on logs, 'data' field contains the primary text
+
+        if (req.body.ActionGroupObject) {
+            if (typeof req.body.ActionGroupObject === 'string') {
+                try {
+                    actionGroupObjectContent = JSON.parse(req.body.ActionGroupObject);
+                } catch (e) {
+                    console.warn('Failed to parse ActionGroupObject from multipart form field. Value:', req.body.ActionGroupObject);
+                    // Decide how to handle: error, or treat as string, or ignore
+                    actionGroupObjectContent = null; // Or some default/error state
+                }
+            } else {
+                 // If it's already an object (less common for multipart but possible if client constructs it so)
+                actionGroupObjectContent = req.body.ActionGroupObject;
+            }
+        }
+        
+        // If files were sent as a JSON string in a field (e.g., 'filesJsonString') and no actual files uploaded
+        // This is less common if also using multer for direct file uploads.
+        // The log showed `req.body.files = ""`, which is just a text field.
+        // If `filesData` is still empty and `req.body.Files` (or similar field) contains stringified JSON for file metadata
+        if (filesData.length === 0 && req.body.Files && typeof req.body.Files === 'string') {
+            try {
+                const parsedFilesField = JSON.parse(req.body.Files);
+                if (Array.isArray(parsedFilesField)) {
+                    filesData = parsedFilesField; // Assuming it's already in the desired format
+                }
+            } catch (e) {
+                console.warn('Failed to parse "Files" field from multipart form data.');
+            }
+        }
+
+
+    } else { // Handle application/json
+        if (!req.body.data) {
+            res.status(400);
+            throw new Error('Please add a data field for application/json. req: ' + JSON.stringify(req.body));
+        }
+
+        let jsonDataPayload = req.body.data;
+        if (typeof jsonDataPayload === 'string') {
+            try {
+                jsonDataPayload = JSON.parse(jsonDataPayload);
+            } catch (e) {
+                // If it's a string but not JSON, assume it's the text content itself
+                textContent = jsonDataPayload;
+                jsonDataPayload = null; // No further parsing needed for this path
+            }
+        }
+
+        if (jsonDataPayload) {
+            textContent = jsonDataPayload.Text;
+            actionGroupObjectContent = jsonDataPayload.ActionGroupObject;
+            if (Array.isArray(jsonDataPayload.Files)) { // Only if no files from multer
+                 if (filesData.length === 0) filesData = jsonDataPayload.Files;
+            }
+        }
     }
 
+    if (!textContent) {
+         res.status(400);
+         throw new Error('Text content is missing or could not be determined from the request.');
+    }
+    
     const params = {
         TableName: 'Simple',
         Item: {
-            id: require('crypto').randomBytes(16).toString("hex"), // Generate a unique ID
-            text: `Creator:${req.user.id}|` + text,
-            ActionGroupObject: req.body.data.ActionGroupObject,
-            files: files,
+            id: require('crypto').randomBytes(16).toString("hex"),
+            text: `Creator:${req.user.id}|` + textContent,
+            ActionGroupObject: actionGroupObjectContent, // Will be undefined if not provided/parsed
+            files: filesData, // Will be empty array if no files
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         }
@@ -84,7 +143,7 @@ const postHashData = asyncHandler(async (req, res) => {
 
     try {
         await dynamodb.put(params).promise();
-        res.status(200).json(params.Item); // Return the created item
+        res.status(200).json(params.Item);
     } catch (error) {
         console.error('Error creating data:', error);
         res.status(500).json({ error: 'Failed to create data' });

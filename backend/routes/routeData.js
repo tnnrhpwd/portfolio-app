@@ -2,6 +2,30 @@
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
+const multer = require('multer');
+
+// Configure multer for memory storage (or disk storage if preferred)
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
+
+// Diagnostic logging for incoming requests BEFORE body parsing
+router.use((req, res, next) => {
+  console.log(`[DEBUG] Incoming request: ${req.method} ${req.originalUrl}`);
+  // Log only content-type for brevity, or more headers if needed
+  console.log(`[DEBUG] Request Content-Type Header: ${req.headers['content-type']}`);
+  // console.log('[DEBUG] Request Headers:', JSON.stringify(req.headers, null, 2)); // Uncomment for full headers
+  next();
+});
+
+// Middleware for parsing JSON and URL-encoded request bodies
+router.use(express.json());
+router.use(express.urlencoded({ extended: false }));
+
+// Diagnostic logging AFTER body parsing
+router.use((req, res, next) => {
+  console.log('[DEBUG] Request Body After Parsing:', JSON.stringify(req.body, null, 2));
+  next();
+});
 
 // Import controller functions
 const {
@@ -50,7 +74,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), handleWebhook
 // Now the more generic routes
 router.route('/')
   .get(protect, getHashData) // GET protected data
-  .post(protect, postHashData); // POST protected data
+  .post(protect, upload.any(), postHashData); // POST protected data - Added multer middleware upload.any()
 
 router.route('/:id')
   .delete(protect, deleteHashData) // DELETE protected data
