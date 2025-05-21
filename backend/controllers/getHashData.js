@@ -61,8 +61,10 @@ const getHashData = asyncHandler(async (req, res) => {
     }
 
     try {
-        const dataSearchString = data.text.toLowerCase();
-        const userSearchString = `Creator:${req.user.id.toLowerCase()}`;
+        // Use the search string as provided by the client (case-sensitive)
+        const dataSearchString = data.text; 
+        // Use the user ID with its original casing
+        const userSearchString = `Creator:${req.user.id}`; 
         var randomWord = "";
 
         if (dataSearchString.startsWith("getword:")) { // Check if dataSearchString is "getword"
@@ -73,7 +75,7 @@ const getHashData = asyncHandler(async (req, res) => {
                 throw new Error('Failed to fetch random word from rapidapi.');
             }
             const data = await response.json();
-            randomWord = data.word.toLowerCase(); // Convert to lowercase
+            randomWord = data.word.toLowerCase(); // Convert to lowercase - this is specific to the word API
             res.status(200).json({ word: randomWord }); // Return the random word
 
         } else if (dataSearchString.startsWith("getdef:")) { // Handle "getdef:" request
@@ -97,12 +99,12 @@ const getHashData = asyncHandler(async (req, res) => {
 
                 // Add filter for user ID
                 filterExpressions.push('contains(#text, :userId)');
-                expressionAttributeValues[':userId'] = userSearchString;
+                expressionAttributeValues[':userId'] = userSearchString; // Uses original case user ID
                 expressionAttributeNames['#text'] = 'text';
 
                 // Add filter for search string
                 filterExpressions.push('contains(#text, :searchString)');
-                expressionAttributeValues[':searchString'] = dataSearchString;
+                expressionAttributeValues[':searchString'] = dataSearchString; // Uses original case search string
 
                 const params = {
                     TableName: 'Simple',

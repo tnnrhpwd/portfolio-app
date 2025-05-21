@@ -21,28 +21,43 @@ function DataInput() {
 
   const onSubmit = async (e) => {
     e.preventDefault();
-    let text = `Creator:${user._id}`;
+    
+    const parts = [];
     if (cost) {
-      text += `|Cost:$${parseFloat(cost).toFixed(2)}`;
-      text += `|CostType:${costType}`;
+      parts.push(`Cost:$${parseFloat(cost).toFixed(2)}`);
+      parts.push(`CostType:${costType}`);
     }
     
     console.log('planText:', planText, 'goalText:', goalText, 'actionText:', actionText, 'files:', files);
 
-    if (planText) text += `|Plan:${planText}`;
-    if (goalText) text += `|Goal:${goalText}`;
-    if (actionText || files.length > 0) text += `|Action:${actionText}`;
-    if (isPublic) text += `|Public:${isPublic}`;
+    if (planText) parts.push(`Plan:${planText}`);
+    if (goalText) parts.push(`Goal:${goalText}`);
+    // Ensure Action field is added if there's actionText or files are present.
+    // If actionText is empty but files exist, it will add "Action:"
+    if (actionText || files.length > 0) parts.push(`Action:${actionText}`);
+    if (isPublic) parts.push(`Public:${isPublic}`);
     
+    const text = parts.join('|');
+
     const formData = new FormData();
-    formData.append('data', text);
+    formData.append('data', text); // Send the content string without the Creator prefix
     files.forEach(file => {
       formData.append('files', file);
     });
 
     // Append an empty files array if no files are selected
     if (files.length === 0) {
-      formData.append('files', []);
+      // If you intend to send an empty array for 'files' field when no files are selected:
+      // formData.append('files', new Blob([], { type: 'application/json' }), ''); // This is one way for an empty file entry
+      // However, backend postHashData.js currently expects 'files' to be actual file objects from multer.
+      // If 'files' field in FormData is just an empty string or empty array string, multer might not process it as req.files.
+      // The current backend logic for filesData prioritizes req.files.
+      // If no files are uploaded, req.files will be empty or undefined, and filesData will remain [].
+      // So, explicitly appending an empty 'files' field might not be necessary if no files are selected.
+      // The backend handles filesData = [] if req.files is empty.
+      // Let's remove the explicit formData.append('files', []) for now as it might be causing `req.body.files = ""`
+      // which was then confusingly parsed in postHashData.js.
+      // Multer will simply not populate req.files if no files are sent with the 'files' key.
     }
 
     // Log FormData contents correctly
