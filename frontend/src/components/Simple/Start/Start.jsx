@@ -6,7 +6,7 @@ import Spinner from '../../Spinner/Spinner.jsx'
 import { getData, resetDataSlice, createData } from '../../../features/data/dataSlice.js'
 // import { getComments, resetCommentSlice, createComment, updateComment } from '../../features/comments/commentSlice'
 // import { getMyData, resetAuthSlice } from '../../features/auth/authSlice'
-import dataresult from '../dataresult/dataresult.jsx'
+// import dataresult from '../dataresult/dataresult.jsx'
 import LoginView from '../../LoginView/LoginView.jsx'
 // import BuildPlanObjectArray from '../BuildPlanitObjectArray.js'
 

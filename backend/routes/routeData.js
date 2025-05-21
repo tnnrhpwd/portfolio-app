@@ -12,7 +12,7 @@ const upload = multer({ storage: storage });
 router.use((req, res, next) => {
   console.log(`[DEBUG] Incoming request: ${req.method} ${req.originalUrl}`);
   // Log only content-type for brevity, or more headers if needed
-  console.log(`[DEBUG] Request Content-Type Header: ${req.headers['content-type']}`);
+  // console.log(`[DEBUG] Request Content-Type Header: ${req.headers['content-type']}`);
   // console.log('[DEBUG] Request Headers:', JSON.stringify(req.headers, null, 2)); // Uncomment for full headers
   next();
 });
