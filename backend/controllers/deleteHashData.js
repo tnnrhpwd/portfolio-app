@@ -23,15 +23,49 @@ const deleteHashData = asyncHandler(async (req, res) => {
     // --- Minimal GetItem Test ---
     try {
         console.log(`[DELETEHASH_TEST] Performing minimal getItem test for id: ${routeParamId}`);
+
+        // Scan the table to find the item with the given id
+        const scanParams = {
+            TableName: 'Simple',
+            FilterExpression: 'id = :id',
+            ExpressionAttributeValues: {
+                ':id': routeParamId
+            }
+        };
+
+        let createdAtValue;
+        try {
+            const scanResult = await dynamodb.scan(scanParams).promise();
+            if (scanResult.Items && scanResult.Items.length > 0) {
+                createdAtValue = scanResult.Items[0].createdAt;
+            } else {
+                console.log(`[DELETEHASH_TEST] Minimal GetItem Test: Item with id ${routeParamId} not found during scan.`);
+                // If item not found, set createdAtValue to null or a default value
+                createdAtValue = null;
+            }
+        } catch (scanError) {
+            console.error(`[DELETEHASH_TEST] Minimal GetItem Test: Scan operation failed for id: ${routeParamId}`, scanError);
+            res.status(500).json({
+                error: `Minimal GetItem Test: Scan operation failed: ${scanError.message}`,
+                code: scanError.code,
+                details: "The scan operation failed. Verify DynamoDB table name ('Simple'), region, and that the primary key is solely 'id' (String) with no sort key. Also check IAM permissions.",
+                awsRequestId: scanError.requestId
+            });
+            return;
+        }
+
         const testGetParams = {
             TableName: 'Simple',
             Key: {
-                id: routeParamId
+                id: routeParamId,
+                createdAt: createdAtValue // Use the createdAt value from the scan
             }
         };
+
         console.log('[DELETEHASH_TEST] Minimal GetItem Test Params:', JSON.stringify(testGetParams, null, 2));
         const testItemResult = await dynamodb.get(testGetParams).promise();
         console.log('[DELETEHASH_TEST] Minimal GetItem Test Result:', JSON.stringify(testItemResult, null, 2));
+
         if (!testItemResult.Item) {
             console.log(`[DELETEHASH_TEST] Minimal GetItem Test: Item with id ${routeParamId} not found.`);
         } else {
@@ -65,15 +99,48 @@ const deleteHashData = asyncHandler(async (req, res) => {
         // Retrieve the item from DynamoDB
         // CRITICAL: Ensure the Key definition below matches your DynamoDB 'Simple' table's primary key schema.
         // Check AWS Console for 'Simple' table: Partition Key name/type and Sort Key name/type (if any).
+        let item; // Declare item here
+        let createdAtValue;
+
+        // Scan the table to find the item with the given id
+        const scanParams = {
+            TableName: 'Simple',
+            FilterExpression: 'id = :id',
+            ExpressionAttributeValues: {
+                ':id': routeParamId
+            }
+        };
+
+        try {
+            const scanResult = await dynamodb.scan(scanParams).promise();
+            if (scanResult.Items && scanResult.Items.length > 0) {
+                item = scanResult.Items[0];
+                createdAtValue = scanResult.Items[0].createdAt;
+            } else {
+                console.log(`[DELETEHASH] Item with id ${routeParamId} not found during scan.`);
+                res.status(400);
+                throw new Error('Data not found.');
+            }
+        } catch (scanError) {
+            console.error(`[DELETEHASH] Scan operation failed for id: ${routeParamId}`, scanError);
+            res.status(500).json({
+                error: `Scan operation failed: ${scanError.message}`,
+                code: scanError.code,
+                details: "The scan operation failed. Verify DynamoDB table name ('Simple'), region, and that the primary key is solely 'id' (String) with no sort key. Also check IAM permissions.",
+                awsRequestId: scanError.requestId
+            });
+            return;
+        }
+
         const getParams = {
             TableName: 'Simple',
             Key: {
-                id: routeParamId // This assumes 'id' (String) is the Partition Key and there's NO Sort Key.
+                id: routeParamId, // This assumes 'id' (String) is the Partition Key
+                createdAt: createdAtValue // Need to grab the createdAt value to delete
             }
         };
         // console.log('Attempting to get item with params:', JSON.stringify(getParams, null, 2)); // Logged by minimal test
 
-        let item;
         try {
             const getItemResult = await dynamodb.get(getParams).promise();
             item = getItemResult.Item;
@@ -113,7 +180,8 @@ const deleteHashData = asyncHandler(async (req, res) => {
         const deleteParams = {
             TableName: 'Simple',
             Key: {
-                id: routeParamId // This assumes 'id' (String) is the Partition Key and there's NO Sort Key.
+                id: routeParamId, // This assumes 'id' (String) is the Partition Key
+                createdAt: item ? item.createdAt : null //Need to grab the createdAt value to delete
             }
         };
         console.log('Attempting to delete item with params:', JSON.stringify(deleteParams, null, 2)); // Diagnostic log
