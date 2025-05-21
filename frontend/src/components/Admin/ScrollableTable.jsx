@@ -1,21 +1,23 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import "./ScrollableTable.css"; // Add styles if needed
 
 const ScrollableTable = ({ headers, data, renderRow, filterFn }) => {
   const [searchText, setSearchText] = useState("");
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
+  const [sortBy, setSortBy] = useState(null);
+  const [sortOrder, setSortOrder] = useState("asc");
 
   // Handle sorting when a column header is clicked
-  const handleSort = (key) => {
-    setSortConfig((prevConfig) => {
-      if (prevConfig.key === key) {
-        // Toggle direction if the same column is clicked
-        return { key, direction: prevConfig.direction === "asc" ? "desc" : "asc" };
+  const handleSort = useCallback(
+    (key) => {
+      if (sortBy === key) {
+        setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+      } else {
+        setSortBy(key);
+        setSortOrder("asc");
       }
-      // Default to ascending for a new column
-      return { key, direction: "asc" };
-    });
-  };
+    },
+    [sortBy, sortOrder]
+  );
 
   // Memoize filtered and sorted data
   const filteredAndSortedData = useMemo(() => {
@@ -23,18 +25,32 @@ const ScrollableTable = ({ headers, data, renderRow, filterFn }) => {
       filterFn ? (item) => filterFn(item, searchText) : () => true
     );
 
-    if (sortConfig.key) {
+    if (sortBy) {
       filteredData = [...filteredData].sort((a, b) => {
-        const aValue = a[sortConfig.key] || "";
-        const bValue = b[sortConfig.key] || "";
-        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
-        return 0;
+        const aValue = a[sortBy];
+        const bValue = b[sortBy];
+
+        if (aValue === bValue) return 0;
+
+        if (aValue == null) return sortOrder === "asc" ? -1 : 1;
+        if (bValue == null) return sortOrder === "asc" ? 1 : -1;
+
+        if (typeof aValue === "number" && typeof bValue === "number") {
+          return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
+        }
+
+        if (typeof aValue === "string" && typeof bValue === "string") {
+          return sortOrder === "asc"
+            ? aValue.localeCompare(bValue)
+            : bValue.localeCompare(aValue);
+        }
+
+        return String(aValue).localeCompare(String(bValue)) * (sortOrder === "asc" ? 1 : -1);
       });
     }
 
     return filteredData;
-  }, [data, filterFn, searchText, sortConfig]);
+  }, [data, filterFn, searchText, sortBy, sortOrder]);
 
   return (
     <>
@@ -57,10 +73,13 @@ const ScrollableTable = ({ headers, data, renderRow, filterFn }) => {
                     scope="col"
                     onClick={() => handleSort(header.key)}
                     className={`sortable-header ${
-                      sortConfig.key === header.key ? sortConfig.direction : ""
+                      sortBy === header.key ? sortOrder : ""
                     }`}
                   >
                     {header.label}
+                    {sortBy === header.key && (
+                      <span>{sortOrder === "asc" ? " ▲" : " ▼"}</span>
+                    )}
                   </th>
                 ))}
               </tr>

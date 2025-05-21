@@ -6,27 +6,33 @@
 
 .admin-table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   background-color: var(--bg-1);
   color: var(--text-color);
-  font-size: calc(var(--nav-size) * 0.2);
-  text-align: left;
+  border: var(--nav-size)*.01 solid var(--text-color);
+}
+
+.admin-table thead {
+  background-color: var(--bg-2);
+  color: var(--text-color);
 }
 
 .admin-table th,
 .admin-table td {
-  padding: 10px;
-  border: 1px solid var(--border);
+  padding: 8px;
+  border: var(--nav-size)*.01 solid var(--text-color);
+  text-align: left;
   word-wrap: break-word;
 }
 
 .admin-table th {
-  background-color: var(--bg-2);
+  cursor: pointer;
   font-weight: bold;
   text-transform: uppercase;
 }
 
-.admin-table tr:hover {
+.admin-table tbody tr:nth-child(even) {
   background-color: var(--bg-mint);
 }
 
@@ -42,7 +48,7 @@
 }
 
 .table-scroll-container {
-  max-height: 400px;
+  max-height: 90vh;
   overflow-y: auto;
 }
 

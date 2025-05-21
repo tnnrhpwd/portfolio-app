@@ -5,7 +5,7 @@ import Footer from "../../components/Footer/Footer.jsx";
 import { useNavigate } from "react-router-dom";
 import { getAllData } from "../../features/data/dataSlice";
 import CollapsibleSection from "../../components/Admin/CollapsibleSection.jsx";
-import ScrollableTable from "../../components/Admin/ScrollableTable.jsx";
+import ScrollableTable from "../../components/Admin/ScrollableTable.jsx"; // Updated import
 import VisitorMap from "../../components/Admin/VisitorMap.jsx";
 import "./Admin.css";
 import { toast } from "react-toastify";
@@ -113,7 +113,14 @@ function Admin() {
 
   // Filter functions for tables
   const filterMainTable = useCallback((item, searchText) => {
-    return typeof item.text === 'string' && item.text.toLowerCase().includes(searchText.toLowerCase());
+    const type = item.text && (item.text.includes("|IP:") || item.text.includes("|OS:") || item.text.includes("|Browser:"))
+      ? "Visit"
+      : "Input";
+
+    return (
+      (typeof item.text === 'string' && item.text.toLowerCase().includes(searchText.toLowerCase())) ||
+      type.toLowerCase().includes(searchText.toLowerCase())
+    );
   }, []);
   
   const filterVisitorTable = useCallback((item, searchText) => {
@@ -154,10 +161,10 @@ function Admin() {
                     { key: "files", label: "Files" },
                     { key: "createdAt", label: "Created At" },
                     { key: "updatedAt", label: "Updated At" },
+                    { key: "type", label: "Type" }, // New column
                   ]}
                   data={allObjectArray}
                   filterFn={filterMainTable}
-                  key={allObjectArray.length} // Force re-render when data changes
                   renderRow={(item) => (
                     <tr key={item._id} className="admin-table-row">
                       <td className="admin-table-row-text">{item._id || ''}</td>
@@ -167,6 +174,11 @@ function Admin() {
                       <td className="admin-table-row-text">{item.files || ''}</td>
                       <td className="admin-table-row-text">{formatTimestamp(item.createdAt)}</td>
                       <td className="admin-table-row-text">{formatTimestamp(item.updatedAt)}</td>
+                      <td className="admin-table-row-text">
+                        {item.text && (item.text.includes("|IP:") || item.text.includes("|OS:") || item.text.includes("|Browser:"))
+                          ? "Visit"
+                          : "Input"}
+                      </td>
                     </tr>
                   )}
                 />
