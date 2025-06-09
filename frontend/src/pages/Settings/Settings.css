@@ -37,28 +37,54 @@
     border-collapse: collapse;
 }
 
+.planit-settings-table tr {
+    border-bottom: 1px solid var(--text-color); /* Add border to each row */
+}
+
+.planit-settings-table tr:last-child {
+    border-bottom: none; /* Remove border from the last row */
+}
+
 .planit-settings-table td {
     color: var(--text-color);
     font-size: calc(var(--nav-size)*0.25);
     padding: calc(var(--nav-size)*0.2);
-    border-bottom: 1px solid var(--text-color);
+    display: flex; /* Add flex display */
+    align-items: center; /* Vertically align items */
+    border-bottom: none; /* Remove border from td */
 }
 
-.planit-settings-table select {
-    margin-left: calc(var(--nav-size)*0.5);
-    font-size: calc(var(--nav-size)*0.3);
-    padding: calc(var(--nav-size)*0.2);
+.planit-settings-table input[type="text"],
+.planit-settings-table input[type="email"],
+.planit-settings-table input[type="tel"],
+.planit-settings-table select,
+.planit-settings-table input[type="checkbox"] {
+    margin-left: auto; /* Push elements to the right */
+}
+
+/* Adjustments for checkbox alignment */
+.planit-settings-table input[type="checkbox"] {
+    margin-right: 0; /* Remove default right margin */
+}
+
+/* Style for checkbox labels to improve alignment */
+.planit-settings-table label {
+    display: flex;
+    align-items: center;
+}
+
+.planit-settings-table label input[type="checkbox"] {
+    margin-right: 5px; /* Add some spacing between checkbox and label */
+}
+
+/* Add some styling for the color inputs */
+.planit-settings-table input[type="color"] {
+    width: 50px;
+    height: 30px;
     border: 1px solid var(--text-color);
-    border-radius: calc(var(--nav-size)*0.2);
-    background-color: var(--background-color);
-    color: var(--text-color);
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
-}
-
-.planit-settings-table select:focus {
-    border-color: var(--text-color-hover);
-    box-shadow: 0 0 5px var(--text-color-hover);
-    outline: none;
+    border-radius: 4px;
+    margin-left: auto;
+    cursor: pointer;
 }
 
 .planit-settings-auth {
