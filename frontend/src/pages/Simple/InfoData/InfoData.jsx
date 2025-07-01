@@ -2,10 +2,9 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom'; // redirect the user
 import { useSelector, useDispatch } from 'react-redux'; // access state variables
 import { toast } from 'react-toastify'; // visible error notifications
-import { createData, deleteData, getData, getPublicData, resetDataSlice } from '../../../features/data/dataSlice';
+import { deleteData, getData, getPublicData, resetDataSlice } from '../../../features/data/dataSlice';
 import DeleteView from '../../../components/Simple/DeleteView/DeleteView';
 import Spinner from '../../../components/Spinner/Spinner';
-import DataResult from '../../../components/Simple/DataResult/DataResult';
 import './InfoData.css';
 import Header from '../../../components/Header/Header';
 import Footer from '../../../components/Footer/Footer';
@@ -14,8 +13,6 @@ function InfoData() {
   const { id } = useParams();
   const dispatch = useDispatch();
   const [chosenData, setChosenData] = useState(null);
-  const [importedDatas, setImportedDatas] = useState([]);
-  const [newData, setNewData] = useState('');
   const [showDeleteDataConfirmation, setShowDeleteDataConfirmation] = useState(false);
   const navigate = useNavigate();
   const rootStyle = window.getComputedStyle(document.body);
@@ -48,23 +45,36 @@ function InfoData() {
   }, [dataIsLoading]);
 
   useEffect(() => {  
+      let isCancelled = false;
+      
       const fetchData = async () => {
+        console.log(`Attempting to fetch data for ID: ${id.length > 50 ? id.substring(0, 50) + "..." : id}`);
+        console.log(`User status: ${user ? 'logged in' : 'not logged in'}`);
+        
         try {
           if (!user) {
+            console.log('Fetching public data...');
             await dispatch(getPublicData({ data: { text: id } })).unwrap();
           } else {
+            console.log('Fetching private data...');
             await dispatch(getData({ data: { text: id } })).unwrap();
           }
         } catch (error) {
-          console.error(error);
-          toast.error(error.message);
-          navigate('/plans');
+          if (!isCancelled) {
+            const errorMsg = error.message || 'Unknown error';
+            const truncatedError = errorMsg.length > 100 ? errorMsg.substring(0, 100) + "..." : errorMsg;
+            console.error('Error fetching data:', truncatedError);
+            toast.error(`Failed to fetch data: ${truncatedError}`);
+          }
         }
       };
   
-      fetchData();
+      if (id) {
+        fetchData();
+      }
   
       return () => {
+        isCancelled = true;
         dispatch(resetDataSlice());
       };
     }, [dispatch, id, navigate, user]);
@@ -72,20 +82,37 @@ function InfoData() {
   useEffect(() => {
     function handleAllOutputData(PlanObject) {
       if (!PlanObject || PlanObject.length === 0) {
-        console.log('PlanObject is undefined or empty.');
-        toast.error(`This ID query ${id} is not in our records. Navigating to /plans.`, { autoClose: toastDuration });
-        navigate('/plans');
+        console.log(`This ID query ${id} is not in our records.`);
+        toast.error(`This ID query ${id} is not in our records.`, { autoClose: toastDuration });
+        // navigate('/plans');
         return;
       } else {
-        console.log(PlanObject);
+        // Truncate console log to 100 characters
+        const dataPreview = JSON.stringify(PlanObject).length > 100 
+          ? JSON.stringify(PlanObject).substring(0, 100) + "..."
+          : JSON.stringify(PlanObject);
+        console.log('PlanObject preview:', dataPreview);
       }
       let itemString = typeof PlanObject[0].data === 'string' ? PlanObject[0].data : PlanObject[0].data.text;
-      let itemUserID = itemString.match(/Creator:([a-f0-9]{24})\|/)[1] || '';
+      // Handle both MongoDB ObjectIds (24 chars) and DynamoDB IDs (32 chars)
+      let itemUserID = '';
+      const mongoIdMatch = itemString.match(/Creator:([a-f0-9]{24})\|/);
+      const dynamoIdMatch = itemString.match(/Creator:([a-f0-9]{32})\|/);
+      if (mongoIdMatch) {
+        itemUserID = mongoIdMatch[1];
+      } else if (dynamoIdMatch) {
+        itemUserID = dynamoIdMatch[1];
+      }
+      
       let itemCreatedAt = PlanObject[0].createdAt;
       let itemUpdatedAt = PlanObject[0].updatedAt;
-      console.log(PlanObject[0]);
-      let itemID = PlanObject[0]._id;
-      let itemFiles = PlanObject[0].data.files || [];
+      // Truncate individual item console log
+      const itemPreview = JSON.stringify(PlanObject[0]).length > 100 
+        ? JSON.stringify(PlanObject[0]).substring(0, 100) + "..."
+        : JSON.stringify(PlanObject[0]);
+      console.log('Item preview:', itemPreview);
+      let itemID = PlanObject[0]._id || PlanObject[0].id; // Handle both MongoDB _id and DynamoDB id
+      let itemFiles = PlanObject[0].data?.files || PlanObject[0].files || [];
 
       setChosenData({
         data: itemString,
@@ -99,7 +126,7 @@ function InfoData() {
     if (data.data) {
       handleAllOutputData(data.data);
     }
-  }, [data]);
+  }, [data, id, toastDuration]);
 
   const handleDeleteData = () => {
     dispatch(deleteData(chosenData._id));
@@ -119,7 +146,7 @@ function InfoData() {
         <button className='infodata-back-button' onClick={() => navigate('/plans')}>Back to /plans</button>
         {user && chosenData && (
           <div className='infodata-delete'>
-            {user._id === chosenData.userID && (
+            {(user._id === chosenData.userID || user.id === chosenData.userID) && (
             <button className='infodata-delete-button' onClick={handleShowDeleteData}>
                 Delete Data
             </button>
@@ -130,10 +157,44 @@ function InfoData() {
           <DeleteView view={true} delFunction={handleDeleteData} click={setShowDeleteDataConfirmation} id={chosenData._id} />
         )}
         <div className='infodata-data'>
+          {dataIsLoading && (
+            <div className='infodata-loading'>
+              <Spinner />
+              <p>Loading data...</p>
+            </div>
+          )}
+          {!dataIsLoading && !chosenData && (
+            <div className='infodata-no-data'>
+              <p>No data found for ID: {id}</p>
+              <p>Please check the URL or try a different ID.</p>
+            </div>
+          )}
           <div className='infodata-data-text'>
             {chosenData && (<div>
-                <div className='infodata-data-button-text'>
-                    {chosenData.data}
+                <div className='infodata-data-content'>
+                  <label htmlFor="dataTextArea" className='infodata-data-label'>
+                    Data Content (Click to select all):
+                  </label>
+                  <textarea
+                    id="dataTextArea"
+                    className='infodata-data-textarea'
+                    value={chosenData.data}
+                    readOnly
+                    onClick={(e) => e.target.select()}
+                    style={{
+                      width: '100%',
+                      minHeight: '200px',
+                      padding: '10px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      fontFamily: 'monospace',
+                      resize: 'vertical',
+                      backgroundColor: '#f8f9fa',
+                      whiteSpace: 'pre-wrap',
+                      wordWrap: 'break-word'
+                    }}
+                  />
                 </div>
                 {chosenData.files && chosenData.files.map((file, index) => (
                   <div key={chosenData._id + "attachments" + index} className='infodata-data-attachments'>

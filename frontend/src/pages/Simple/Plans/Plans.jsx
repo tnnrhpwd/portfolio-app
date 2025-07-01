@@ -77,7 +77,7 @@ function Plans() {
           dispatch(logout());
           navigate('/login');
         }
-        console.error(error);
+        console.error(error.message);
         toast.error(error.message);
         stopLoading = true;
       }
@@ -91,7 +91,7 @@ function Plans() {
           await dispatch(getPublicData({ data: { text: searchString } })).unwrap();
         }
       } catch (error) {
-        console.error(error);
+        console.error(error.message);
         toast.error(error.message);
         stopLoading = true;
       }

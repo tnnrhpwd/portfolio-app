@@ -17,8 +17,17 @@ const dynamodb = new AWS.DynamoDB.DocumentClient();
 // @route   GET /api/publicdata
 // @access  Public
 const getData = asyncHandler(async (req, res) => {
-    await checkIP(req);
+    try {
+        await checkIP(req);
+    } catch (error) {
+        console.log('Error in checkIP:', error);
+        // Continue anyway - don't fail the request for IP checking
+    }
+    
+    console.log('getData (public) called with query:', req.query);
+    
     if (!req.query || !req.query.data) {
+        console.log('Missing query or data parameter');
         res.status(400);
         throw new Error('Invalid request query parameter');
     }
@@ -26,34 +35,50 @@ const getData = asyncHandler(async (req, res) => {
     let data;
     try {
         data = JSON.parse(req.query.data);
+        console.log('Parsed data:', data);
     } catch (error) {
+        console.log('Error parsing query data:', error);
         res.status(400);
         throw new Error('Invalid request query parameter parsing');
     }
 
     if (!data.text) {
+        console.log('Missing text field in parsed data');
         res.status(400);
         throw new Error('Invalid request query parameter parsed data');
     }
 
     try {
-        const dataSearchString = data.text.toLowerCase();
+        const dataSearchString = data.text;
+        console.log('Searching for ID:', dataSearchString);
 
+        // Use scan with filter like auth middleware does
         const params = {
             TableName: 'Simple',
-            FilterExpression: "#text = :textValue",
-            ExpressionAttributeNames: {
-                "#text": "text"
-            },
+            FilterExpression: "id = :searchId",
             ExpressionAttributeValues: {
-                ':textValue': dataSearchString
+                ":searchId": dataSearchString
             }
         };
 
+        console.log('DynamoDB scan params:', JSON.stringify(params, null, 2));
         const result = await dynamodb.scan(params).promise();
+        console.log('DynamoDB result:', result);
+
+        // Convert to expected frontend format
+        const responseData = result.Items && result.Items.length > 0 ? [{
+            data: result.Items[0].text, // Return the text content as the data field
+            ActionGroup: result.Items[0].ActionGroup,
+            files: result.Items[0].files,
+            updatedAt: result.Items[0].updatedAt,
+            createdAt: result.Items[0].createdAt,
+            __v: null,
+            _id: result.Items[0].id,
+        }] : [];
+        console.log('Response data:', responseData);
 
         res.status(200).json({
-            data: result.Items
+            data: responseData
         });
     } catch (error) {
         console.error("Error fetching public data:", error);

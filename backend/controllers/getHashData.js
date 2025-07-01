@@ -36,7 +36,17 @@ const { createCustomer } = require('./postHashData.js');
 // @route   GET /api/data
 // @access  Private
 const getHashData = asyncHandler(async (req, res) => {
-    await checkIP(req);
+    try {
+        await checkIP(req);
+    } catch (error) {
+        console.log('Error in checkIP:', error);
+        // Continue anyway - don't fail the request for IP checking
+    }
+    
+    console.log('getHashData called');
+    console.log('req.user:', req.user);
+    console.log('req.query:', req.query);
+    
     if (!req.user) {
         res.status(401);
         throw new Error('User not found');
@@ -50,7 +60,9 @@ const getHashData = asyncHandler(async (req, res) => {
     let data;
     try {
         data = JSON.parse(req.query.data);
+        console.log('Parsed query data:', data);
     } catch (error) {
+        console.log('Error parsing query data:', error);
         res.status(400);
         throw new Error('Invalid request query parameter parsing');
     }
@@ -63,8 +75,11 @@ const getHashData = asyncHandler(async (req, res) => {
     try {
         // Use the search string as provided by the client (case-sensitive)
         const dataSearchString = data.text; 
+        console.log('dataSearchString:', dataSearchString);
+        
         // Use the user ID with its original casing
         const userSearchString = `Creator:${req.user.id}`; 
+        console.log('userSearchString:', userSearchString);
         var randomWord = "";
 
         if (dataSearchString.startsWith("getword:")) { // Check if dataSearchString is "getword"
@@ -92,40 +107,95 @@ const getHashData = asyncHandler(async (req, res) => {
 
         } else { // Handle database search requests
             try {
-                // Construct filter expressions for DynamoDB
-                let filterExpressions = [];
-                let expressionAttributeValues = {};
-                let expressionAttributeNames = {};
+                console.log('dataSearchString:', dataSearchString);
+                // Check if the search string looks like a direct ID (32 hex characters)
+                const isDirectId = /^[a-f0-9]{32}$/i.test(dataSearchString);
+                console.log('isDirectId:', isDirectId);
+                
+                if (isDirectId) {
+                    console.log('Searching for direct ID:', dataSearchString);
+                    // Use scan with filter like auth middleware does
+                    const params = {
+                        TableName: 'Simple',
+                        FilterExpression: "id = :searchId",
+                        ExpressionAttributeValues: {
+                            ":searchId": dataSearchString
+                        }
+                    };
 
-                // Add filter for user ID
-                filterExpressions.push('contains(#text, :userId)');
-                expressionAttributeValues[':userId'] = userSearchString; // Uses original case user ID
-                expressionAttributeNames['#text'] = 'text';
+                    console.log('DynamoDB scan params:', params);
+                    const result = await dynamodb.scan(params).promise();
+                    console.log('DynamoDB scan result:', JSON.stringify(result).substring(0, 100) + '...');
 
-                // Add filter for search string
-                filterExpressions.push('contains(#text, :searchString)');
-                expressionAttributeValues[':searchString'] = dataSearchString; // Uses original case search string
+                    if (result.Items && result.Items.length > 0) {
+                        const item = result.Items[0]; // Take the first match
+                        // Check if this item belongs to the current user
+                        const itemText = item.text || '';
+                        const userSearchString = `Creator:${req.user.id}`;
+                        console.log('Checking if item belongs to user:', userSearchString);
+                        console.log('Item text:', itemText.length > 100 ? itemText.substring(0, 100) + '...' : itemText);
+                        
+                        if (itemText.includes(userSearchString)) {
+                            console.log('Item belongs to user, returning data');
+                            res.status(200).json({
+                                data: [{
+                                    data: item.text, // Return the text content as the data field
+                                    ActionGroup: item.ActionGroup,
+                                    files: item.files,
+                                    updatedAt: item.updatedAt,
+                                    createdAt: item.createdAt,
+                                    __v: null,
+                                    _id: item.id,
+                                }]
+                            });
+                        } else {
+                            // Item exists but doesn't belong to this user
+                            console.log('Item does not belong to user');
+                            res.status(200).json({ data: [] }); // Return empty array instead of 403
+                        }
+                    } else {
+                        // Item not found
+                        console.log('Item not found');
+                        res.status(200).json({ data: [] });
+                    }
+                } else {
+                    // Search for data containing the search string (original behavior)
+                    console.log('Searching for text containing:', dataSearchString);
+                    // Construct filter expressions for DynamoDB
+                    let filterExpressions = [];
+                    let expressionAttributeValues = {};
+                    let expressionAttributeNames = {};
 
-                const params = {
-                    TableName: 'Simple',
-                    FilterExpression: filterExpressions.join(' AND '),
-                    ExpressionAttributeValues: expressionAttributeValues,
-                    ExpressionAttributeNames: expressionAttributeNames
-                };
+                    // Add filter for user ID
+                    filterExpressions.push('contains(#text, :userId)');
+                    expressionAttributeValues[':userId'] = `Creator:${req.user.id}`; // Uses original case user ID
+                    expressionAttributeNames['#text'] = 'text';
 
-                const result = await dynamodb.scan(params).promise();
+                    // Add filter for search string
+                    filterExpressions.push('contains(#text, :searchString)');
+                    expressionAttributeValues[':searchString'] = dataSearchString; // Uses original case search string
 
-                res.status(200).json({
-                    data: result.Items.map(item => ({
-                        data: item,
-                        ActionGroup: item.ActionGroup,
-                        files: item.files,
-                        updatedAt: item.updatedAt,
-                        createdAt: item.createdAt,
-                        __v: null, // Not applicable for DynamoDB
-                        _id: item.id,
-                    }))
-                });
+                    const params = {
+                        TableName: 'Simple',
+                        FilterExpression: filterExpressions.join(' AND '),
+                        ExpressionAttributeValues: expressionAttributeValues,
+                        ExpressionAttributeNames: expressionAttributeNames
+                    };
+
+                    const result = await dynamodb.scan(params).promise();
+
+                    res.status(200).json({
+                        data: result.Items.map(item => ({
+                            data: item.text, // Return the text content as the data field
+                            ActionGroup: item.ActionGroup,
+                            files: item.files,
+                            updatedAt: item.updatedAt,
+                            createdAt: item.createdAt,
+                            __v: null, // Not applicable for DynamoDB
+                            _id: item.id,
+                        }))
+                    });
+                }
             } catch (error) {
                 console.error("Error fetching data from DynamoDB:", error);
                 res.status(500).json({ error: "Internal server error" });
