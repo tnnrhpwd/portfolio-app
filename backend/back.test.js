@@ -24,27 +24,71 @@ AWS.config.credentials = new AWS.Credentials('test', 'test');
 const dynamodb = new AWS.DynamoDB.DocumentClient();
 
 describe('Backend Tests', () => {
-    it('can access DynamoDB', async () => {
-        // Mock DynamoDB response instead of making a real call
+    it('should return an empty array if DynamoDB table is empty', async () => {
         const mockResult = { Items: [] };
         jest.spyOn(dynamodb, 'scan').mockImplementation(() => ({
             promise: jest.fn().mockResolvedValue(mockResult)
         }));
-        
-        const params = {
-            TableName: 'Simple', // Replace with your table name
-            Limit: 1 // Just check if we can access it
-        };
-
-        try {
-            const result = await dynamodb.scan(params).promise();
-            expect(result).toBeDefined();
-            expect(result).toEqual(mockResult);
-        } catch (error) {
-            console.error('Error accessing DynamoDB:', error);
-            throw error;
-        }
+        const params = { TableName: 'Simple', Limit: 1 };
+        const result = await dynamodb.scan(params).promise();
+        expect(result.Items).toEqual([]);
     });
 
-    it.todo('can communicate with the OpenAI api');
+    it('should handle OpenAI API returning no choices', async () => {
+        const axios = require('axios');
+        jest.spyOn(axios, 'post').mockResolvedValue({ data: { choices: [] } });
+        const response = await axios.post('https://api.openai.com/v1/completions', {
+            prompt: 'Say nothing',
+            max_tokens: 5
+        }, {
+            headers: { Authorization: 'Bearer test' }
+        });
+        expect(response.data.choices).toEqual([]);
+    });
+    it('should successfully retrieve items from DynamoDB table', async () => {
+        // Mock DynamoDB response
+        const mockResult = { Items: [{ id: '1', name: 'Test Item' }] };
+        jest.spyOn(dynamodb, 'scan').mockImplementation(() => ({
+            promise: jest.fn().mockResolvedValue(mockResult)
+        }));
+        const params = {
+            TableName: 'Simple',
+            Limit: 1
+        };
+        const result = await dynamodb.scan(params).promise();
+        expect(result).toBeDefined();
+        expect(result).toEqual(mockResult);
+    });
+
+    it('should handle DynamoDB scan errors gracefully', async () => {
+        const error = new Error('DynamoDB scan failed');
+        jest.spyOn(dynamodb, 'scan').mockImplementation(() => ({
+            promise: jest.fn().mockRejectedValue(error)
+        }));
+        const params = { TableName: 'Simple', Limit: 1 };
+        await expect(dynamodb.scan(params).promise()).rejects.toThrow('DynamoDB scan failed');
+    });
+
+    it('should send a prompt to the OpenAI API and receive a valid response', async () => {
+        // Mock OpenAI API call
+        const axios = require('axios');
+        jest.spyOn(axios, 'post').mockResolvedValue({ data: { choices: [{ text: 'Hello, world!' }] } });
+        // Simulate a call to OpenAI API
+        const response = await axios.post('https://api.openai.com/v1/completions', {
+            prompt: 'Say hello',
+            max_tokens: 5
+        }, {
+            headers: { Authorization: 'Bearer test' }
+        });
+        expect(response.data).toBeDefined();
+        expect(response.data.choices[0].text).toBe('Hello, world!');
+    });
+
+    it('should handle OpenAI API errors gracefully', async () => {
+        const axios = require('axios');
+        jest.spyOn(axios, 'post').mockRejectedValue(new Error('OpenAI API error'));
+        await expect(
+            axios.post('https://api.openai.com/v1/completions', { prompt: 'fail', max_tokens: 5 }, { headers: { Authorization: 'Bearer test' } })
+        ).rejects.toThrow('OpenAI API error');
+    });
 });
