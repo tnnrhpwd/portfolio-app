@@ -9,8 +9,24 @@ if (devMode) { console.log("Warning: Running in development mode. Remember to st
 
 const handleTokenExpiration = (error) => {
     console.log('DataService Error:', error);
-    if (error.response && error.response.status === 401 && error.response.data === 'Not authorized, token expired') {
-        localStorage.removeItem('user');
+    console.log('Error response:', error.response?.data);
+    console.log('Error status:', error.response?.status);
+    
+    if (error.response && error.response.status === 401) {
+        const errorData = error.response.data;
+        
+        // Handle different formats of error responses
+        if (errorData === 'Not authorized, token expired' || 
+            (errorData && errorData.dataMessage === 'Not authorized, token expired') ||
+            (errorData && errorData.message && errorData.message.includes('expired'))) {
+            console.log('Token expired, removing user from localStorage');
+            localStorage.removeItem('user');
+        } else if (errorData === 'Not authorized' ||
+                  (errorData && errorData.dataMessage === 'Not authorized') ||
+                  (errorData && errorData.dataMessage === 'Not authorized, no token')) {
+            console.log('Authentication failed, removing user from localStorage');
+            localStorage.removeItem('user');
+        }
     }
     throw error;
 }
@@ -213,6 +229,10 @@ const subscribeCustomer = async (subscriptionData, token) => {
 
 // Get user subscription
 const getUserSubscription = async (token) => {
+    console.log('dataService.getUserSubscription called');
+    console.log('Token provided:', !!token);
+    console.log('Token preview:', token ? token.substring(0, 50) + '...' : 'No token');
+    
     const config = {
         headers: {
             Authorization: `Bearer ${token}`,
@@ -220,12 +240,17 @@ const getUserSubscription = async (token) => {
     };
 
     console.log('Calling GET URL:', API_URL + 'subscription');
+    console.log('Request config:', config);
 
     try {
         const response = await axios.get(API_URL + 'subscription', config);
         console.log('getUserSubscription response:', response.data);
         return response.data;
     } catch (error) {
+        console.error('getUserSubscription service error:', error);
+        console.error('Error response data:', error.response?.data);
+        console.error('Error response status:', error.response?.status);
+        console.error('Error response headers:', error.response?.headers);
         handleTokenExpiration(error);
     }
 };

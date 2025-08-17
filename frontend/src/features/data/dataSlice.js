@@ -185,10 +185,27 @@ export const getUserSubscription = createAsyncThunk(
   'data/getUserSubscription',
   async (_, thunkAPI) => {
     try {
-      const token = thunkAPI.getState().data.user.token;
+      const state = thunkAPI.getState();
+      const token = state.data.user?.token;
+      
+      console.log('getUserSubscription action called');
+      console.log('User exists:', !!state.data.user);
+      console.log('Token exists:', !!token);
+      
+      if (!token) {
+        console.error('No token found in state');
+        return thunkAPI.rejectWithValue('No authentication token found');
+      }
+      
       return await dataService.getUserSubscription(token);
     } catch (error) {
+      console.error('getUserSubscription error:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      
       const message = (error.response && error.response.data && error.response.data.message) || 
+                     (error.response && error.response.data && error.response.data.dataMessage) ||
+                     (error.response && error.response.data && error.response.data.error) ||
                      error.message || error.toString();
       return thunkAPI.rejectWithValue(message);
     }

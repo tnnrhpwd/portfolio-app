@@ -91,13 +91,15 @@ const getData = asyncHandler(async (req, res) => {
 // @access  Private
 const getUserSubscription = asyncHandler(async (req, res) => {
     await checkIP(req);
+    
     // Check for user
     if (!req.user) {
+        console.log('getUserSubscription: No user found in request');
         res.status(401);
         throw new Error('User not found');
     }
-    console.log('calling getUserSubscriptions');
-    console.log('User from request:', req.user);
+    
+    console.log('getUserSubscription called for user ID:', req.user.id);
 
     try {
         // Extract customer ID using regex for more reliability

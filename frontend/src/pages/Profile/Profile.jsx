@@ -6,7 +6,7 @@ import Spinner from '../../components/Spinner/Spinner.jsx';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
 import { setDarkMode, setLightMode, setSystemColorMode } from '../../utils/theme.js';
-import dataService from '../../features/data/dataService';
+import { isTokenValid, getTokenExpiration } from '../../utils/tokenUtils.js';
 import { toast } from 'react-toastify';
 import './Profile.css';
 import HeaderLogo from '../../../src/assets/Checkmark512.png';
@@ -24,7 +24,6 @@ function Profile() {
   // Theme detection effect
   useEffect(() => {
     // Detect current theme on component mount
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const html = document.querySelector('html');
     if (html.classList.contains('dark')) {
       setCurrentColorMode('dark');
@@ -59,18 +58,53 @@ function Profile() {
   // Only fetch subscription data once when component mounts
   useEffect(() => {
     if (user && !subscriptionLoaded) {
+      // Debug: Check user token
+      console.log('User object:', user);
+      console.log('User token exists:', !!user.token);
+      
+      if (!user.token) {
+        console.log('No token found, logging out');
+        dispatch(logout());
+        navigate('/login');
+        return;
+      }
+      
+      // Check if token is valid using utility function
+      if (!isTokenValid(user.token)) {
+        const expiration = getTokenExpiration(user.token);
+        console.log('Token is invalid or expired');
+        console.log('Token expiration:', expiration);
+        toast.error('Your session has expired. Please log in again.');
+        dispatch(logout());
+        navigate('/login');
+        return;
+      }
+      
+      console.log('Token is valid, fetching subscription');
+      
       // Use a local try-catch to prevent the component from crashing
       try {
         dispatch(getUserSubscription())
           .unwrap()
           .then((subscriptionData) => {
+            console.log('Successfully fetched subscription:', subscriptionData);
             setUserSubscription(subscriptionData);
             setSubscriptionLoaded(true);
             dispatch(resetDataSuccess());
           })
           .catch((error) => {
             console.error('Failed to fetch subscription:', error);
-            setSubscriptionLoaded(true); // Mark as loaded even on error
+            
+            // If it's an authentication error, redirect to login
+            if (error.includes('Not authorized') || error.includes('token expired')) {
+              toast.error('Your session has expired. Please log in again.');
+              dispatch(logout());
+              navigate('/login');
+            } else {
+              // For other errors, just mark as loaded and set default subscription
+              setUserSubscription({ subscriptionPlan: 'Free', subscriptionDetails: null });
+              setSubscriptionLoaded(true);
+            }
             dispatch(resetDataSuccess());
           });
       } catch (error) {
@@ -78,7 +112,7 @@ function Profile() {
         setSubscriptionLoaded(true);
       }
     }
-  }, [subscriptionLoaded, dispatch]);
+  }, [user, subscriptionLoaded, dispatch, navigate]);
 
   // Rest of handlers
   const onLogout = () => {

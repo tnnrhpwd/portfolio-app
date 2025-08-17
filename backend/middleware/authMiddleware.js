@@ -15,7 +15,7 @@ const dynamodb = new AWS.DynamoDB.DocumentClient(); // Create DynamoDB DocumentC
 // This middleware async function is called anytime a user requests user information
 const protect = asyncHandler(async (req, res, next) => {
   let token;
-  // console.log('protect middleware called')
+  console.log('protect middleware called for:', req.method, req.originalUrl)
 
   if (
     req.headers.authorization &&
@@ -27,8 +27,7 @@ const protect = asyncHandler(async (req, res, next) => {
 
       // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-      // console.log("Decoded ID from JWT:", decoded.id);
+      console.log("Token verified for user ID:", decoded.id);
 
       // Instead of a direct get operation, use a scan with a filter expression
       // This is less efficient but more flexible for finding the user
@@ -40,25 +39,26 @@ const protect = asyncHandler(async (req, res, next) => {
         }
       };
 
-      // console.log("DynamoDB scan params:", params);
       const result = await dynamodb.scan(params).promise();
-      // console.log("DynamoDB scan result:", result);
 
       if (!result.Items || result.Items.length === 0) {
+        console.log('User not found in database for ID:', decoded.id);
         res.status(401);
         throw new Error('User not found');
       }
 
       req.user = result.Items[0]; // Attach user to the request
-      // console.log("User attached to request:", req.user);
+      console.log("User authenticated successfully");
 
       next()    // goes to next middleware function
     } catch (error) {     
-      console.log('Protect Middleware Error:', error)
+      console.log('Protect Middleware Error:', error.message)
       res.status(401)
       if (error.name === 'TokenExpiredError') {
+        console.log('Token expired error')
         res.json({ dataMessage: 'Not authorized, token expired' });
       } else {
+        console.log('Authorization error:', error.message)
         res.json({ dataMessage: 'Not authorized' });
       }
       return;
@@ -67,10 +67,10 @@ const protect = asyncHandler(async (req, res, next) => {
 
   // if NOT LOGGED IN -- throw error
   if (!token) { 
+    console.log('No authorization token provided')
     res.status(401)
     res.json({ dataMessage: 'Not authorized, no token' });
   }
-  // console.log('protect middleware passed')
 })
 
 // ...existing code...
