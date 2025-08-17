@@ -75,15 +75,16 @@
   },
   "jest": {
     "moduleNameMapper": {
-      "\\.(css|less)$": "identity-obj-proxy"
+      "\\.(css|less)$": "identity-obj-proxy",
+      "\\.(svg)$": "identity-obj-proxy"
     },
     "collectCoverageFrom": [
       "src/**/*.{js,jsx}",
       "!src/index.js"
     ],
     "resetMocks": false,
-    "transform": {
-      "^.+\\.svg$": "jest-svg-transformer"
-    }
+    "transformIgnorePatterns": [
+      "node_modules/(?!(msw|@bundled-es-modules)/)"
+    ]
   }
 }
