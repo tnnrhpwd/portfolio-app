@@ -200,6 +200,9 @@ function Admin() {
                     value={toDate}
                     onChange={(e) => setToDate(e.target.value)}
                   />
+                  <span className="visit-counter">
+                    Displaying {filteredVisitorLocations.length} visit{filteredVisitorLocations.length !== 1 ? 's' : ''}
+                  </span>
                 </div>
                 {filteredVisitorLocations.length > 0 ? (
                   <VisitorMap locations={filteredVisitorLocations} />
