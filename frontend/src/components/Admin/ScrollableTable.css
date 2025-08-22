@@ -70,3 +70,134 @@
   right: 5px;
   font-size: 0.8em;
 }
+
+/* Column Filter Styles */
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+}
+
+.header-text {
+  flex: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sort-indicator {
+  font-size: 0.8em;
+  margin-left: 4px;
+}
+
+.filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.column-filter-btn {
+  background-color: var(--bg-1);
+  border: 1px solid var(--border);
+  color: var(--text-color);
+  padding: 2px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: bold;
+  min-width: 20px;
+  height: 20px;
+  transition: all 0.2s ease;
+}
+
+.column-filter-btn:hover {
+  background-color: var(--accent-color);
+  color: var(--bg-1);
+}
+
+.column-filter-btn.active {
+  background-color: var(--accent-color);
+  color: var(--bg-1);
+  border-color: var(--accent-color);
+}
+
+.clear-filter-btn {
+  background-color: #dc3545;
+  border: 1px solid #dc3545;
+  color: white;
+  padding: 1px 4px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: bold;
+  min-width: 16px;
+  height: 16px;
+  line-height: 1;
+  transition: all 0.2s ease;
+}
+
+.clear-filter-btn:hover {
+  background-color: #c82333;
+  border-color: #c82333;
+}
+
+.column-filter-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background-color: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  margin-top: 2px;
+}
+
+.column-filter-input {
+  width: 100%;
+  padding: 8px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background-color: var(--bg-1);
+  color: var(--text-color);
+  font-size: 12px;
+  box-sizing: border-box;
+}
+
+.column-filter-input:focus {
+  outline: none;
+  background-color: var(--bg-2);
+}
+
+.filter-options {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.filter-option {
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  background-color: transparent;
+  color: var(--text-color);
+  text-align: left;
+  cursor: pointer;
+  font-size: 11px;
+  transition: background-color 0.2s ease;
+}
+
+.filter-option:hover {
+  background-color: var(--bg-2);
+}
+
+.admin-table-no-data {
+  text-align: center;
+  font-style: italic;
+  color: var(--text-color-muted);
+  padding: 20px;
+}

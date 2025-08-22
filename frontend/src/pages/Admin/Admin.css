@@ -53,7 +53,7 @@
     border: calc(var(--nav-size)*.01) solid var(--text-color);
     text-align: left;
     text-wrap: break-word;    
-    width: 16.66%; /* Adjusted width for 6 columns */
+    width: 14.28%; /* Adjusted width for 7 columns (100/7) */
     padding: 8px;
     border-bottom: 1px solid #ddd;
 }
@@ -81,6 +81,24 @@
 .admin-table-row-text {
     width: auto;
     font-size: calc(var(--nav-size)*.15);
+}
+
+/* Specific styling for location column */
+.admin-table td:nth-child(7) {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+}
+
+.admin-table td:nth-child(7):hover {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: initial;
+    background-color: var(--bg-2);
+    z-index: 10;
+    position: relative;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .table-scroll-container {

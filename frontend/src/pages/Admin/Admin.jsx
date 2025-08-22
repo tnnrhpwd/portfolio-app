@@ -7,6 +7,8 @@ import { getAllData } from "../../features/data/dataSlice";
 import CollapsibleSection from "../../components/Admin/CollapsibleSection.jsx";
 import ScrollableTable from "../../components/Admin/ScrollableTable.jsx"; // Updated import
 import VisitorMap from "../../components/Admin/VisitorMap.jsx";
+import VisitorMapFilter from "../../components/Admin/VisitorMapFilter.jsx";
+import DataTableFilter from "../../components/Admin/DataTableFilter.jsx";
 import "./Admin.css";
 import { toast } from "react-toastify";
 import parseVisitorData from "../../utils/parseVisitorData.js";
@@ -17,6 +19,8 @@ function Admin() {
   const navigate = useNavigate();
   const [allObjectArray, setAllObjectArray] = useState([]);
   const [visitorLocations, setVisitorLocations] = useState([]);
+  const [filteredMapLocations, setFilteredMapLocations] = useState([]);
+  const [filteredTableData, setFilteredTableData] = useState([]);
 
   // Calculate default "From" and "To" dates
   const today = new Date().toISOString().split("T")[0];
@@ -60,10 +64,19 @@ function Admin() {
     
     setAllObjectArray(data);
     
-    console.log("Data received from Redux:", data); // Inspect the data
-    console.log("Number of items in data:", data.length); // Check the length
-    console.log("All Object Array after setting state:", allObjectArray); // Check the state
-    console.log("Number of items in allObjectArray:", allObjectArray.length); // Check the state length
+    console.log("Data received from Redux:", data.length, "items");
+    
+    // Log a sample of visitor data to see the format
+    const sampleVisitorData = data.find(item => 
+      item.text && item.text.includes("IP:") && item.text.includes("|OS:")
+    );
+    
+    if (sampleVisitorData) {
+      console.log("Sample visitor data text:", sampleVisitorData.text);
+      console.log("Parsed sample visitor:", parseVisitorData(sampleVisitorData.text));
+    } else {
+      console.log("No visitor data found in sample");
+    }
     
     // Extract and deduplicate visitor location data
     try {
@@ -111,23 +124,113 @@ function Admin() {
     });
   }, [visitorLocations, fromDate, toDate]);
 
+  // Handle filtered locations from VisitorMapFilter
+  const handleFilteredMapLocations = useCallback((filtered) => {
+    setFilteredMapLocations(filtered);
+  }, []);
+
+  // Handle filtered data from DataTableFilter
+  const handleFilteredTableData = useCallback((filtered) => {
+    setFilteredTableData(filtered);
+  }, []);
+
+  // Final locations to display on map (after both date and map filters)
+  const finalMapLocations = useMemo(() => {
+    return filteredMapLocations.length > 0 ? filteredMapLocations : filteredVisitorLocations;
+  }, [filteredMapLocations, filteredVisitorLocations]);
+
+  // Data to display in table (filtered or all)
+  const displayTableData = useMemo(() => {
+    return filteredTableData.length >= 0 ? filteredTableData : allObjectArray;
+  }, [filteredTableData, allObjectArray]);
+
+  // Helper function to extract location from visitor data
+  const getLocationFromItem = useCallback((item) => {
+    // First, let's check if this is a visitor entry
+    if (!item.text) {
+      return "N/A";
+    }
+    
+    // Check for different possible visitor data indicators
+    const isVisitorData = item.text.includes("IP:") && 
+                         (item.text.includes("|OS:") || item.text.includes("|Browser:"));
+    
+    if (!isVisitorData) {
+      return "N/A";
+    }
+    
+    try {
+      // Try the parseVisitorData function first
+      const visitor = parseVisitorData(item.text);
+      
+      if (visitor) {
+        if (visitor.city && visitor.country && visitor.city !== "undefined" && visitor.country !== "undefined") {
+          return `${visitor.city}, ${visitor.country}`;
+        } else if (visitor.country && visitor.country !== "undefined") {
+          return visitor.country;
+        } else if (visitor.region && visitor.region !== "undefined") {
+          return visitor.region;
+        }
+      }
+      
+      // If parseVisitorData didn't work, try direct regex matching
+      const cityMatch = item.text.match(/\|City:([^|]+)/);
+      const countryMatch = item.text.match(/\|Country:([^|]+)/);
+      
+      if (cityMatch && countryMatch) {
+        const city = cityMatch[1].trim();
+        const country = countryMatch[1].trim();
+        if (city !== "undefined" && country !== "undefined") {
+          return `${city}, ${country}`;
+        }
+      } else if (countryMatch) {
+        const country = countryMatch[1].trim();
+        if (country !== "undefined") {
+          return country;
+        }
+      }
+      
+      return "Location Unknown";
+    } catch (error) {
+      console.log("Error parsing visitor data:", error);
+      return "Parse Error";
+    }
+  }, []);
+
   // Filter functions for tables
   const filterMainTable = useCallback((item, searchText) => {
     const type = item.text && (item.text.includes("|IP:") || item.text.includes("|OS:") || item.text.includes("|Browser:"))
       ? "Visit"
       : "Input";
+      
+    const location = getLocationFromItem(item);
 
     return (
       (typeof item.text === 'string' && item.text.toLowerCase().includes(searchText.toLowerCase())) ||
-      type.toLowerCase().includes(searchText.toLowerCase())
+      (typeof item._id === 'string' && item._id.toLowerCase().includes(searchText.toLowerCase())) ||
+      (typeof item.files === 'string' && item.files.toLowerCase().includes(searchText.toLowerCase())) ||
+      type.toLowerCase().includes(searchText.toLowerCase()) ||
+      location.toLowerCase().includes(searchText.toLowerCase())
     );
-  }, []);
+  }, [getLocationFromItem]);
   
   const filterVisitorTable = useCallback((item, searchText) => {
     return Object.values(item).some(
       val => typeof val === 'string' && val.toLowerCase().includes(searchText.toLowerCase())
     );
   }, []);
+
+  // Custom column value extractor for ScrollableTable
+  const getColumnValue = useCallback((item, columnKey) => {
+    if (columnKey === 'type') {
+      return item.text && (item.text.includes("|IP:") || item.text.includes("|OS:") || item.text.includes("|Browser:"))
+        ? "Visit"
+        : "Input";
+    } else if (columnKey === 'location') {
+      return getLocationFromItem(item);
+    }
+    return item[columnKey];
+  }, [getLocationFromItem]);
 
   // Format timestamp for better readability
   const formatTimestamp = useCallback((timestamp) => {
@@ -140,6 +243,24 @@ function Admin() {
 
   console.log("All Data:", allObjectArray);
   console.log("Number of items:", allObjectArray.length);
+  
+  // Add a debug function to window for manual testing
+  React.useEffect(() => {
+    window.debugLocationData = () => {
+      console.log("=== DEBUG: Location Data Analysis ===");
+      const visitorEntries = allObjectArray.filter(item => 
+        item.text && item.text.includes("IP:") && item.text.includes("|OS:")
+      );
+      console.log(`Found ${visitorEntries.length} visitor entries out of ${allObjectArray.length} total`);
+      
+      visitorEntries.slice(0, 3).forEach((item, index) => {
+        console.log(`\nVisitor Entry ${index + 1}:`);
+        console.log("Full text:", item.text);
+        console.log("Parsed:", parseVisitorData(item.text));
+        console.log("Location result:", getLocationFromItem(item));
+      });
+    };
+  }, [allObjectArray, getLocationFromItem]);
 
   return (
     <>
@@ -154,6 +275,11 @@ function Admin() {
           {!dataIsLoading && data && (
             <>
               <CollapsibleSection title="All Data" defaultCollapsed={false}>
+                <DataTableFilter
+                  data={allObjectArray}
+                  onFilteredData={handleFilteredTableData}
+                  getLocationFromItem={getLocationFromItem}
+                />
                 <ScrollableTable 
                   headers={[
                     { key: "_id", label: "ID" },
@@ -161,10 +287,12 @@ function Admin() {
                     { key: "files", label: "Files" },
                     { key: "createdAt", label: "Created At" },
                     { key: "updatedAt", label: "Updated At" },
-                    { key: "type", label: "Type" }, // New column
+                    { key: "type", label: "Type" },
+                    { key: "location", label: "Location" }, // New column
                   ]}
-                  data={allObjectArray}
+                  data={displayTableData}
                   filterFn={filterMainTable}
+                  getColumnValue={getColumnValue}
                   renderRow={(item) => (
                     <tr key={item._id} className="admin-table-row">
                       <td className="admin-table-row-text">{item._id || ''}</td>
@@ -179,6 +307,7 @@ function Admin() {
                           ? "Visit"
                           : "Input"}
                       </td>
+                      <td className="admin-table-row-text">{getLocationFromItem(item)}</td>
                     </tr>
                   )}
                 />
@@ -201,11 +330,15 @@ function Admin() {
                     onChange={(e) => setToDate(e.target.value)}
                   />
                   <span className="visit-counter">
-                    Displaying {filteredVisitorLocations.length} visit{filteredVisitorLocations.length !== 1 ? 's' : ''}
+                    Displaying {finalMapLocations.length} visit{finalMapLocations.length !== 1 ? 's' : ''}
                   </span>
                 </div>
-                {filteredVisitorLocations.length > 0 ? (
-                  <VisitorMap locations={filteredVisitorLocations} />
+                <VisitorMapFilter 
+                  locations={filteredVisitorLocations} 
+                  onFilteredLocations={handleFilteredMapLocations} 
+                />
+                {finalMapLocations.length > 0 ? (
+                  <VisitorMap locations={finalMapLocations} />
                 ) : (
                   <p className="admin-no-data">No visitor location data available</p>
                 )}
