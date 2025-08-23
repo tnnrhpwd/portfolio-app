@@ -13,7 +13,8 @@ function About() {
 
   const engineeringSkills = [
     'AutoCAD', 'SolidWorks', 'Autodesk Inventor', 'Revit', 'ArchiCAD',
-    'ProModel', 'Microsoft Visio', 'SAP', 'PLM', 'Cognex Vision Suite'
+    'ProModel', 'Microsoft Visio', 'SAP', 'PLM', 'Cognex Vision Suite',
+    'Keyence Navigator', 'Vision System Programming', 'Machine Vision Setup'
   ];
 
   const businessSkills = [
