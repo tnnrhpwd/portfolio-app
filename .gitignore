@@ -4,6 +4,9 @@
 /node_modules
 /.pnp
 .pnp.js
+node_modules
+logs
+backend/logs
 
 # testing
 /coverage
@@ -27,7 +30,3 @@ yarn-error.log*
 
 # Environment variables
 .env
-
-node_modules
-.env
-logs/

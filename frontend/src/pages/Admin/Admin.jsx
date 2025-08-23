@@ -266,6 +266,13 @@ function Admin() {
     <>
       <Header />
       <div className="admin-container">
+        {/* Floating elements for visual interest */}
+        <div className="floating-shapes">
+          <div className="floating-circle floating-circle-1"></div>
+          <div className="floating-circle floating-circle-2"></div>
+          <div className="floating-circle floating-circle-3"></div>
+        </div>
+        
         <section className="admin-section-tile">
           <h2>Administrator Panel</h2>
           
