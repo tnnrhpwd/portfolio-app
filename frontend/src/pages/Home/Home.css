@@ -32,15 +32,127 @@
     position: relative;
     text-align: center;
     flex-grow: 1;
+    z-index: 2;
+}
+
+/* Hero section enhancements */
+.hero-section {
+    position: relative;
+    margin-top: calc(var(--nav-size) * 2);
+}
+
+.hero-section::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, var(--bg-page-transp) 0%, transparent 70%);
+    transform: translate(-50%, -50%);
+    z-index: -1;
+    animation: pulse 4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 0.3;
+    }
+    50% {
+        transform: translate(-50%, -50%) scale(1.1);
+        opacity: 0.6;
+    }
 }
 .container {
     min-height: 100svh;
     min-height: 100vh;
     background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
     background-size: 400% 400%;
+    animation: gradientShift 12s ease infinite;
     pointer-events: all;
     display: flex;
     flex-direction: column;
+    position: relative;
+    overflow-x: hidden;
+}
+
+/* Enhanced gradient animation with theme awareness */
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    25% { background-position: 100% 50%; }
+    50% { background-position: 100% 100%; }
+    75% { background-position: 0% 100%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Theme-specific animation speeds */
+.light-theme .container {
+    animation-duration: 15s;
+}
+
+.dark-theme .container {
+    animation-duration: 10s;
+}
+
+/* Floating background elements */
+.floating-shapes {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.floating-circle {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--white1-transp) 0%, transparent 70%);
+    animation: float 6s ease-in-out infinite;
+}
+
+.floating-circle-1 {
+    width: 120px;
+    height: 120px;
+    top: 20%;
+    left: 10%;
+    animation-delay: 0s;
+    animation-duration: 8s;
+}
+
+.floating-circle-2 {
+    width: 80px;
+    height: 80px;
+    top: 60%;
+    right: 15%;
+    animation-delay: -2s;
+    animation-duration: 10s;
+}
+
+.floating-circle-3 {
+    width: 150px;
+    height: 150px;
+    bottom: 20%;
+    left: 60%;
+    animation-delay: -4s;
+    animation-duration: 12s;
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0px) rotate(0deg);
+        opacity: 0.3;
+    }
+    33% {
+        transform: translateY(-20px) rotate(120deg);
+        opacity: 0.6;
+    }
+    66% {
+        transform: translateY(-10px) rotate(240deg);
+        opacity: 0.4;
+    }
 }
 #content-title{
     color: var(--text-color);
@@ -54,6 +166,39 @@
     text-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.02) var(--border);
     margin-top: calc(var(--nav-size)*2);
     margin-bottom: calc(var(--nav-size)*2);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Typewriter effect */
+.typewriter {
+    /* Remove the CSS border cursor since we have a JS cursor */
+    display: inline-block;
+    white-space: nowrap;
+}
+
+.cursor {
+    animation: blink 1s infinite;
+    font-weight: normal;
+    display: inline;
+    color: var(--text-color);
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+}
+
+/* Fade in animations */
+.fade-in-up {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: all 0.6s ease;
+}
+
+.fade-in-up.visible {
+    opacity: 1;
+    transform: translateY(0);
 }
 #text-body{
     font-size: calc(var(--nav-size)*.3);
@@ -70,6 +215,35 @@
     text-decoration: underline;
     padding: calc(var(--nav-size)*.15);
     text-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.02) var(--border);
+}
+
+/* Enhanced link with glow effect */
+.glow-link {
+    position: relative;
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.glow-link:hover {
+    color: var(--text-color);
+    border-bottom: 2px solid var(--text-color);
+    text-shadow: 0 0 10px var(--white1-transp);
+}
+
+.glow-link::before {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink));
+    transition: width 0.3s ease;
+}
+
+.glow-link:hover::before {
+    width: 100%;
 }
 .content-shadow{
     background-color: rgba(0, 0, 0, 0.6);
@@ -125,10 +299,27 @@
 .home-spc-tool{
     display: inline-block;
     background-color: transparent;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: slideInUp 0.6s ease forwards;
 }
+
+/* Staggered animation for tools */
+.animate-in {
+    animation: slideInUp 0.8s ease forwards;
+}
+
+@keyframes slideInUp {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 .home-spc-tool:hover {
-    transform: scale(1.1); 
-    text-decoration: underline;
+    transform: scale(1.05) translateY(-5px);
+    text-decoration: none;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 .home-spc-tool-text{
     font-size: calc(var(--nav-size)*.3);
@@ -145,6 +336,124 @@
     filter: drop-shadow(30px 30px 30px var(--bg-1));
     text-wrap:wrap;
     padding: calc(var(--nav-size)*0.1) calc(var(--nav-size)*0.2);
+    border-radius: calc(var(--nav-size) * 0.15);
+    transition: all 0.4s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.home-spc-tool:hover .home-spc-tool-text {
+    background-position: 200% center;
+    box-shadow: 
+        0 8px 25px var(--grey3-transp),
+        inset 0 0 20px var(--white1-transp);
+    transform: translateZ(0);
+}
+
+/* Special styling for login and app buttons */
+.login-highlight .home-spc-tool-text {
+    background: linear-gradient(45deg, var(--fg-orange), var(--fg-pink));
+    color: var(--text-color-inv);
+    font-weight: bold;
+    animation: shimmer 2s ease-in-out infinite;
+}
+
+.app-highlight .home-spc-tool-text {
+    background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+    color: var(--text-color-inv);
+    font-weight: bold;
+}
+
+@keyframes shimmer {
+    0%, 100% { background-position: -200% center; }
+    50% { background-position: 200% center; }
+}
+
+.app-icon {
+    margin-right: calc(var(--nav-size) * 0.1);
+    font-size: calc(var(--nav-size) * 0.35);
+    animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-5px);
+    }
+    60% {
+        transform: translateY(-3px);
+    }
+}
+
+/* Section headers with enhanced styling */
+.section-header {
+    position: relative;
+    margin-bottom: calc(var(--nav-size) * 0.5);
+}
+
+.section-header::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 50px;
+    height: 2px;
+    background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink));
+    animation: expandLine 1s ease-out;
+}
+
+@keyframes expandLine {
+    from {
+        width: 0;
+    }
+    to {
+        width: 50px;
+    }
+}
+
+/* Thank you section enhancements */
+.thank-you-section {
+    position: relative;
+}
+
+.thank-you-text {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: calc(var(--nav-size) * 0.2);
+}
+
+.heart-pulse {
+    animation: heartbeat 1.5s ease-in-out infinite;
+    font-size: calc(var(--nav-size) * 0.4);
+}
+
+@keyframes heartbeat {
+    0%, 50%, 100% {
+        transform: scale(1);
+    }
+    25%, 75% {
+        transform: scale(1.2);
+    }
+}
+
+/* Links section animation */
+.links-section {
+    animation: fadeInSection 1s ease-out 0.5s both;
+}
+
+@keyframes fadeInSection {
+    from {
+        opacity: 0;
+        transform: translateY(50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 .home-spc-logo{
     display: inline-block;
@@ -170,18 +479,129 @@
         padding: 0 calc(var(--nav-size)*3);
         padding-top: calc(var(--nav-size)*1);
     }
-    #text-title{
-
+    
+    /* Fix typewriter cursor positioning in landscape mode */
+    #text-title {
+        text-align: left;
+        padding-left: 20%;
     }
+    
+    .typewriter {
+        display: inline-block;
+        text-align: left;
+    }
+    
     #text-body{
         padding-left: 20%;
     }
     #text-subtext{
         padding-left: 20%;
-
     }
     #text-about{
         padding-left: 20%;
-
     }
+    
+    /* Enhanced landscape animations */
+    .floating-circle-1 {
+        left: 5%;
+        animation-duration: 12s;
+    }
+    
+    .floating-circle-2 {
+        right: 10%;
+        animation-duration: 14s;
+    }
+    
+    .floating-circle-3 {
+        left: 70%;
+        animation-duration: 16s;
+    }
+}
+
+/* Mobile and tablet responsiveness */
+@media (max-width: 768px) {
+    .floating-circle {
+        display: none; /* Hide floating elements on mobile for performance */
+    }
+    
+    .hero-section::before {
+        display: none; /* Simplify mobile experience */
+    }
+    
+    .typewriter {
+        animation: none; /* Simplify typewriter on mobile */
+        border-right: none;
+    }
+    
+    .home-spc-tool-text {
+        min-width: calc(var(--nav-size)*3);
+        font-size: calc(var(--nav-size)*0.32);
+    }
+    
+    .container {
+        animation-duration: 20s; /* Slower animation on mobile */
+    }
+    
+    .heart-pulse {
+        animation-duration: 2s; /* Slower heartbeat on mobile */
+    }
+}
+
+@media (max-width: 480px) {
+    .home-spc-tool {
+        margin: calc(var(--nav-size) * 0.05);
+    }
+    
+    .home-spc-tool-text {
+        min-width: calc(var(--nav-size)*2.5);
+        font-size: calc(var(--nav-size)*0.28);
+        padding: calc(var(--nav-size)*0.08) calc(var(--nav-size)*0.15);
+    }
+    
+    .app-icon {
+        font-size: calc(var(--nav-size) * 0.3);
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-reduced-motion: reduce) {
+    .container {
+        animation: none;
+    }
+    
+    .floating-circle {
+        animation: none;
+    }
+    
+    .typewriter {
+        animation: none;
+        border-right: none;
+    }
+    
+    .cursor {
+        animation: none;
+    }
+    
+    .heart-pulse {
+        animation: none;
+    }
+    
+    .app-icon {
+        animation: none;
+    }
+    
+    .login-highlight .home-spc-tool-text {
+        animation: none;
+    }
+}
+
+/* Focus states for accessibility */
+.home-spc-tool:focus {
+    outline: 2px solid var(--text-color);
+    outline-offset: 2px;
+}
+
+.glow-link:focus {
+    outline: 2px solid var(--text-color);
+    outline-offset: 2px;
 }

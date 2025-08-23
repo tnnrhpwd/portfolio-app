@@ -78,67 +78,74 @@ function Register() {
         return <Spinner />
     }
 
-  return (<>
-    <Header />
-    <div className='planit-register'>
-        <section className="planit-register-heading">
-            <div className="planit-register-heading-title">
-                Register Now!
+    return (<>
+        <Header />
+        <div className="planit-register-bg">
+            <div className="floating-shapes">
+                <div className="floating-circle floating-circle-1"></div>
+                <div className="floating-circle floating-circle-2"></div>
+                <div className="floating-circle floating-circle-3"></div>
             </div>
-            <div className="planit-register-heading-description">
-                Register to save, create, and share goals and plans!
+            <div className="planit-register-card">
+                <section className="planit-register-heading">
+                    <div className="planit-register-heading-title">Create Your Account</div>
+                    <div className="planit-register-heading-description">Register to save, create, and share goals and plans!</div>
+                </section>
+                <section className="planit-register-form">
+                    <form onSubmit={onSubmit} autoComplete="on">
+                        <div className="planit-register-form-group">
+                            <input
+                                type="text"
+                                className="planit-register-form-control"
+                                id="nickname"
+                                name="nickname"
+                                value={nickname}
+                                placeholder="Enter nickname"
+                                onChange={onChange}
+                                autoFocus
+                                required
+                            />
+                        </div>
+                        <div className="planit-register-form-group">
+                            <input
+                                type="email"
+                                className="planit-register-form-control"
+                                id="email"
+                                name="email"
+                                value={email}
+                                placeholder="Enter your email"
+                                onChange={onChange}
+                                required
+                            />
+                        </div>
+                        <div className="planit-register-form-group">
+                            <input
+                                type="password"
+                                className="planit-register-form-control"
+                                id="password"
+                                name="password"
+                                value={password}
+                                placeholder="Enter password"
+                                onChange={onChange}
+                                required
+                            />
+                        </div>
+                        <div className="planit-register-form-group">
+                            <button type="submit" className="planit-register-form-submit">
+                                Register
+                            </button>
+                        </div>
+                    </form>
+                </section>
+                <div className="planit-register-actions">
+                    <a href="/login">
+                        <button className="planit-register-login">Log In Instead</button>
+                    </a>
+                </div>
             </div>
-        </section>
-        <section className="planit-register-form">
-            <form onSubmit={onSubmit}>
-                <div className="planit-register-form-group">
-                    <input
-                        type='nickanme'
-                        className='planit-register-form-control'
-                        id='nickname'
-                        name='nickname'
-                        value={nickname}
-                        placeholder='Enter nickname'
-                        onChange={onChange}
-                    />
-                </div>
-                <div className="planit-register-form-group">
-                    <input
-                        type='email'
-                        className='planit-register-form-control'
-                        id='email'
-                        name='email'
-                        value={email}
-                        placeholder='Enter your email'
-                        onChange={onChange}
-                    />
-                </div>
-                <div className="planit-register-form-group">
-                    <input
-                        type='password'
-                        className='planit-register-form-control'
-                        id='password'
-                        name='password'
-                        value={password}
-                        placeholder='Enter password'
-                        onChange={onChange}
-                    />
-                </div>
-                <div className='planit-register-form-group'>
-                    <button type='submit' className='planit-register-form-submit'>
-                        Submit
-                    </button>
-                </div>
-            </form>
-        </section>
-        <a href='/login'>
-            <button className='planit-register-login'>
-                Log In Instead
-            </button>
-        </a>
-    </div>
-    <Footer />
-  </>)
+        </div>
+        <Footer />
+    </>);
 }
 
 export default Register

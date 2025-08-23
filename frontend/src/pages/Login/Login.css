@@ -1,84 +1,178 @@
-.planit-login{
-    padding: calc(var(--nav-size)*.25);
-    font-size: calc(var(--nav-size)*.5);
-    text-align: center;
-    padding-top: calc(var(--nav-size)*1);
-    min-height: 90vh;
+
+.planit-login-bg {
+    min-height: 100vh;
+    background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
+    background-size: 400% 400%;
+    animation: gradientShift 12s ease infinite;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
 }
 
+.floating-shapes {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+}
+.floating-circle {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--white1-transp) 0%, transparent 70%);
+    animation: float 6s ease-in-out infinite;
+}
+.floating-circle-1 {
+    width: 80px;
+    height: 80px;
+    top: 10%;
+    left: 15%;
+    animation-delay: 0s;
+    animation-duration: 8s;
+}
+.floating-circle-2 {
+    width: 60px;
+    height: 60px;
+    top: 70%;
+    right: 10%;
+    animation-delay: -2s;
+    animation-duration: 10s;
+}
+.floating-circle-3 {
+    width: 100px;
+    height: 100px;
+    bottom: 15%;
+    left: 60%;
+    animation-delay: -4s;
+    animation-duration: 12s;
+}
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0px) rotate(0deg);
+        opacity: 0.3;
+    }
+    33% {
+        transform: translateY(-20px) rotate(120deg);
+        opacity: 0.6;
+    }
+    66% {
+        transform: translateY(-10px) rotate(240deg);
+        opacity: 0.4;
+    }
+}
 
-.planit-login-heading{
+.planit-login-card {
+    background: var(--bg-page-transp);
+    backdrop-filter: blur(12px);
+    border-radius: var(--border-radius);
+    box-shadow: 0 8px 32px var(--grey3-transp);
+    padding: calc(var(--nav-size)*1.2) calc(var(--nav-size)*1.5);
+    z-index: 2;
+    min-width: 320px;
+    max-width: 400px;
+    margin: 2rem auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.planit-login-heading {
     text-align: center;
     color: var(--text-color);
+    margin-bottom: calc(var(--nav-size)*.5);
 }
-.planit-login-heading-title{
+.planit-login-heading-title {
     font-size: calc(var(--nav-size)*.5);
+    font-weight: bold;
+    margin-bottom: calc(var(--nav-size)*.2);
 }
-.planit-login-heading-description{
+.planit-login-heading-description {
     font-size: calc(var(--nav-size)*.25);
+    color: var(--text-color-accent);
 }
-
-.planit-login-form{
-    text-align: center;
+.planit-login-form {
+    width: 100%;
     margin-top: calc(var(--nav-size)*.5);
-    /* margin-left: calc(var(--nav-size)*.6); */
 }
-.planit-login-form-group{
-
+.planit-login-form-group {
+    margin-bottom: calc(var(--nav-size)*.3);
+    width: 100%;
 }
-.planit-login-form-control{
+.planit-login-form-control {
     font-size: calc(var(--nav-size)*.4);
-    background-color: var(--text-color);
-    color: var(--text-color-inv);
-    min-width: 40%;
-    max-width: 80%;
+    background: var(--white1-transp);
+    color: var(--text-color);
+    border: 1px solid var(--border-nav);
+    border-radius: var(--border-radius);
+    padding: calc(var(--nav-size)*.2);
+    width: 100%;
+    transition: box-shadow 0.3s, border-color 0.3s;
+    outline: none;
 }
-
-#planit-password{
-    font-size: calc(var(--nav-size)*.4);
-    
+.planit-login-form-control:focus {
+    border-color: var(--fg-blue);
+    box-shadow: 0 0 0 2px var(--fg-blue);
 }
-#planit-email{
-    font-size: calc(var(--nav-size)*.4);
-    
+.planit-login-password-wrapper {
+    position: relative;
+    width: 100%;
 }
-
-.planit-login-form-submit{
-    width: calc(var(--nav-size)*1.5);
-    margin: calc(var(--nav-size)*.1);
-    padding: calc(var(--nav-size)*.1);
+.planit-login-showhide {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
     font-size: calc(var(--nav-size)*.3);
-    background-color: var(--text-color);
-    color: var(--text-color-inv);
     cursor: pointer;
+    color: var(--fg-blue);
+    transition: color 0.2s;
 }
-.planit-login-form-submit:hover{
-    filter: brightness(1.2);
-    font-weight: bold;
+.planit-login-showhide:focus {
+    outline: 2px solid var(--fg-blue);
 }
-.planit-login-register{
-    width: calc(var(--nav-size)*2);
-    margin: calc(var(--nav-size)*.1);
-    padding: calc(var(--nav-size)*.1);
+.planit-login-form-submit {
+    width: 100%;
+    padding: calc(var(--nav-size)*.2);
     font-size: calc(var(--nav-size)*.3);
-    background-color: var(--text-color);
+    background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink));
     color: var(--text-color-inv);
+    border: none;
+    border-radius: var(--border-radius);
     cursor: pointer;
-}
-.planit-login-register:hover{
-    filter: brightness(1.2);
     font-weight: bold;
+    box-shadow: 0 2px 8px var(--grey3-transp);
+    transition: background 0.3s, box-shadow 0.3s;
 }
-.planit-login-guest{
-    width: calc(var(--nav-size)*3);
-    margin: calc(var(--nav-size)*.1);
-    padding: calc(var(--nav-size)*.1);
+.planit-login-form-submit:hover {
+    background: linear-gradient(90deg, var(--fg-pink), var(--fg-blue));
+    box-shadow: 0 4px 16px var(--grey3-transp);
+}
+.planit-login-actions {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size)*.2);
+    margin-top: calc(var(--nav-size)*.5);
+    width: 100%;
+}
+.planit-login-register, .planit-login-guest {
+    width: 100%;
+    padding: calc(var(--nav-size)*.2);
     font-size: calc(var(--nav-size)*.3);
-    background-color: var(--text-color);
+    background: var(--fg-blue);
     color: var(--text-color-inv);
+    border: none;
+    border-radius: var(--border-radius);
     cursor: pointer;
-}
-.planit-login-guest:hover{
-    filter: brightness(1.2);
     font-weight: bold;
+    box-shadow: 0 2px 8px var(--grey3-transp);
+    transition: background 0.3s, box-shadow 0.3s;
+}
+.planit-login-register:hover, .planit-login-guest:hover {
+    background: var(--fg-pink);
+    box-shadow: 0 4px 16px var(--grey3-transp);
 }

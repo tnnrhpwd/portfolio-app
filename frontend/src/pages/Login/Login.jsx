@@ -19,6 +19,7 @@ function Login() {
 
     // the state values of the input fields
     const { email, password } = formData
+    const [showPassword, setShowPassword] = useState(false);
 
     const navigate = useNavigate() // initialization
     const dispatch = useDispatch() // initialization
@@ -98,61 +99,78 @@ function Login() {
         return <Spinner />
     }
 
-    return (<>
-    <Header />
-        <div className='planit-login'>
-            <section className="planit-login-heading">
-                <div className="planit-login-heading-title">
-                    Hello!
+        return (<>
+            <Header />
+            <div className="planit-login-bg">
+                <div className="floating-shapes">
+                    <div className="floating-circle floating-circle-1"></div>
+                    <div className="floating-circle floating-circle-2"></div>
+                    <div className="floating-circle floating-circle-3"></div>
                 </div>
-                <div className="planit-login-heading-description">
-                    Log in to save, create, and share!
+                <div className="planit-login-card">
+                    <section className="planit-login-heading">
+                        <div className="planit-login-heading-title">Welcome Back!</div>
+                        <div className="planit-login-heading-description">Log in to save, create, and share!</div>
+                    </section>
+                    <section className="planit-login-form">
+                        <form onSubmit={onSubmit} autoComplete="on">
+                            <div className="planit-login-form-group">
+                                <input
+                                    type="email"
+                                    className="planit-login-form-control"
+                                    id="planit-email"
+                                    name="email"
+                                    value={email}
+                                    placeholder="Enter your email"
+                                    onChange={onChange}
+                                    autoFocus
+                                    required
+                                />
+                            </div>
+                            <div className="planit-login-form-group">
+                                <div className="planit-login-password-wrapper">
+                                    <input
+                                        type={showPassword ? "text" : "password"}
+                                        className="planit-login-form-control"
+                                        id="planit-password"
+                                        name="password"
+                                        value={password}
+                                        placeholder="Enter password"
+                                        onChange={onChange}
+                                        required
+                                    />
+                                    <button
+                                        type="button"
+                                        className="planit-login-showhide"
+                                        onClick={() => setShowPassword((show) => !show)}
+                                        tabIndex={0}
+                                        aria-label={showPassword ? "Hide password" : "Show password"}
+                                    >
+                                        {showPassword ? "�" : "�️"}
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="planit-login-form-group">
+                                <button type="submit" className="planit-login-form-submit">
+                                    Log In
+                                </button>
+                            </div>
+                        </form>
+                    </section>
+                    <div className="planit-login-actions">
+                        <a href="/register">
+                            <button className="planit-login-register">Register</button>
+                        </a>
+                        {devMode && (
+                            <button onClick={handleGuestLogin} className="planit-login-guest">
+                                Login as Guest
+                            </button>
+                        )}
+                    </div>
                 </div>
-            </section>
-            <section className="planit-login-form">
-                <form onSubmit={onSubmit}>
-                    <div className="planit-login-form-group">
-                        <input
-                            type='email'
-                            className='planit-login-form-control'
-                            id='planit-email'
-                            name='email'
-                            value={email}
-                            placeholder='Enter your email'
-                            onChange={onChange}
-                        />
-                    </div>
-                    <div className="planit-login-form-group">
-                        <input
-                            type='password'
-                            className='planit-login-form-control'
-                            id='planit-password'
-                            name='password'
-                            value={password}
-                            placeholder='Enter password'
-                            onChange={onChange}
-                        />
-                    </div>
-                    <div className='planit-login-form-group'>
-                        <button type='submit' className='planit-login-form-submit'>
-                            Submit
-                        </button>
-                    </div>
-                </form>
-            </section>
-            <a href='/register'>
-                <button className='planit-login-register'>
-                    Register
-                </button>
-            </a>
-            {devMode &&
-                <button onClick={handleGuestLogin} className='planit-login-guest'>
-                    Login as Guest
-                </button>
-            }
-        </div>
-        <Footer />
-    </>)
+            </div>
+            <Footer />
+        </>);
 }
 
 export default Login
