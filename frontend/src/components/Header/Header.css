@@ -26,20 +26,47 @@
 .planit-header-logo-format{
   margin-left: calc(var(--nav-size)*0.1);
   text-wrap:wrap;
-/* text-shadow:
-    calc(var(--nav-size)*5) calc(var(--nav-size)*5) 0 var(--text-color-inv),
-    -3px 3px 0 var(--text-color-inv),
-    -3px -3px 0 var(--text-color-inv),
-    3px -3px 0 var(--text-color-inv); */
+  text-shadow: 
+    calc(var(--nav-size)*0.05) calc(var(--nav-size)*0.05) 0 var(--text-color-inv),
+    calc(var(--nav-size)*-0.05) calc(var(--nav-size)*0.05) 0 var(--text-color-inv),
+    calc(var(--nav-size)*-0.05) calc(var(--nav-size)*-0.05) 0 var(--text-color-inv),
+    calc(var(--nav-size)*0.05) calc(var(--nav-size)*-0.05) 0 var(--text-color-inv),
+    calc(var(--nav-size)*0.08) 0 0 var(--text-color-inv),
+    calc(var(--nav-size)*-0.08) 0 0 var(--text-color-inv),
+    0 calc(var(--nav-size)*0.08) 0 var(--text-color-inv),
+    0 calc(var(--nav-size)*-0.08) 0 var(--text-color-inv);
 }
 .planit-header-logo-format:hover{
   text-decoration: underline;
 }
 .planit-header-logo-format-simple{
   font-size: calc(var(--nav-size)*0.5);
+  font-weight: bold;
+  color: var(--text-color);
+  text-shadow: 
+    calc(var(--nav-size)*0.04) calc(var(--nav-size)*0.04) 0 var(--text-color-inv),
+    calc(var(--nav-size)*-0.04) calc(var(--nav-size)*0.04) 0 var(--text-color-inv),
+    calc(var(--nav-size)*-0.04) calc(var(--nav-size)*-0.04) 0 var(--text-color-inv),
+    calc(var(--nav-size)*0.04) calc(var(--nav-size)*-0.04) 0 var(--text-color-inv),
+    calc(var(--nav-size)*0.06) 0 0 var(--text-color-inv),
+    calc(var(--nav-size)*-0.06) 0 0 var(--text-color-inv),
+    0 calc(var(--nav-size)*0.06) 0 var(--text-color-inv),
+    0 calc(var(--nav-size)*-0.06) 0 var(--text-color-inv);
 }
+
 .planit-header-logo-format-sth{
   font-size: calc(var(--nav-size)*0.2);
+  font-weight: bold;
+  color: var(--text-color);
+  text-shadow: 
+    calc(var(--nav-size)*0.02) calc(var(--nav-size)*0.02) 0 var(--text-color-inv),
+    calc(var(--nav-size)*-0.02) calc(var(--nav-size)*0.02) 0 var(--text-color-inv),
+    calc(var(--nav-size)*-0.02) calc(var(--nav-size)*-0.02) 0 var(--text-color-inv),
+    calc(var(--nav-size)*0.02) calc(var(--nav-size)*-0.02) 0 var(--text-color-inv),
+    calc(var(--nav-size)*0.03) 0 0 var(--text-color-inv),
+    calc(var(--nav-size)*-0.03) 0 0 var(--text-color-inv),
+    0 calc(var(--nav-size)*0.03) 0 var(--text-color-inv),
+    0 calc(var(--nav-size)*-0.03) 0 var(--text-color-inv);
 }
 .planit-header-title{
   font-size: calc(var(--nav-size)*0.5);
@@ -51,9 +78,6 @@
   color: var(--secondary-color);
   margin-right: auto;
   color: var(--text-color);
-}
-.planit-header-title:active {
-
 }
 #planit-header-logo-img{
   height: calc(var(--nav-size)*0.8);
@@ -202,8 +226,6 @@ a{
     margin-right: calc(var(--nav-size)*0.7);
     color: var(--text-color);
     transition-duration: .25s;
-  }
-  #planit-header-logo-img{
   }
   .planit-header-link-landscape{
     border-radius: 5%;

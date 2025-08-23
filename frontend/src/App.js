@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { ToastContainer } from 'react-toastify';     
+import { ToastContainer } from 'react-toastify';
+import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
 import Admin from './pages/Admin/Admin';
 import Annuities from './pages/Projects/Annuities/Annuities';
 // import BoggleBox from './pages/Projects/BoggleBox/BoggleBox';
@@ -39,42 +40,53 @@ import 'react-toastify/dist/ReactToastify.css';
 import './App.css';
 
 function App() {
-  return (<>
-    <Router>
-      <div className="App">
-        <Routes>
-          <Route path='/about' element={<About />} />
-          <Route path='/admin' element={<Admin />} />
-          <Route path="/annuities" element={<Annuities/>} />
-          <Route path="/contact" element={<Contact/>} />
-          <Route path="/ethanol" element={<Ethanol/>} />
-          <Route path="/GFreq" element={<GFreq/>} />
-          <Route path="/halfway" element={<Halfway/>} />
-          <Route path="/" element={<Home/>} />
-          <Route path="/home" element={<Home/>} />
-          <Route path='/InfoData/:id' element={<InfoData />} />
-          <Route path='/LegalTerms' element={<LegalTerms />} />
-          <Route path='/login' element={<Login />} />
-          <Route path='/net' element={<Net />} />
-          <Route path="/passgen" element={<PassGen/>} />
-          <Route path='/pay' element={<Pay />} />
-          <Route path='/plans' element={<Plans />} />
-          <Route path='/privacy' element={<Privacy />} />
-          <Route path='/profile' element={<Profile />} />
-          <Route path='/register' element={<Register />} />
-          <Route path='/settings' element={<Settings />} />
-          <Route path='/Simple' element={<Simple />} />
-          <Route path="/sleepassist" element={<SleepAssist/>} />
-          <Route path="/sonic" element={<Sonic/>} />
-          <Route path='/terms' element={<Terms />} />
-          <Route path="/wordle" element={<Wordle/>} />
-          <Route path="/wordlesolver" element={<WordleSolver/>} />
-          <Route path="/Simple" element={<Simple/>} />
+  return (
+    <ErrorBoundary>
+      <Router>
+        <div className="App">
+          <Routes>
+            <Route path='/about' element={<About />} />
+            <Route path='/admin' element={<Admin />} />
+            <Route path="/annuities" element={<Annuities/>} />
+            <Route path="/contact" element={<Contact/>} />
+            <Route path="/ethanol" element={<Ethanol/>} />
+            <Route path="/GFreq" element={<GFreq/>} />
+            <Route path="/halfway" element={<Halfway/>} />
+            <Route path="/" element={<Home/>} />
+            <Route path="/home" element={<Home/>} />
+            <Route path='/InfoData/:id' element={<InfoData />} />
+            <Route path='/LegalTerms' element={<LegalTerms />} />
+            <Route path='/login' element={<Login />} />
+            <Route path='/net' element={<Net />} />
+            <Route path="/passgen" element={<PassGen/>} />
+            <Route path='/pay' element={<Pay />} />
+            <Route path='/plans' element={<Plans />} />
+            <Route path='/privacy' element={<Privacy />} />
+            <Route path='/profile' element={<Profile />} />
+            <Route path='/register' element={<Register />} />
+            <Route path='/settings' element={<Settings />} />
+            <Route path='/Simple' element={<Simple />} />
+            <Route path="/sleepassist" element={<SleepAssist/>} />
+            <Route path="/sonic" element={<Sonic/>} />
+            <Route path='/terms' element={<Terms />} />
+            <Route path="/wordle" element={<Wordle/>} />
+            <Route path="/wordlesolver" element={<WordleSolver/>} />
+            <Route path="/Simple" element={<Simple/>} />
           </Routes>
-      </div>
-    </Router>
-    <ToastContainer/>
-  </>
+        </div>
+      </Router>
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
+    </ErrorBoundary>
   );
 }
 

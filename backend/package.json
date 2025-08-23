@@ -6,7 +6,13 @@
   "scripts": {
     "build": "npm i",
     "server": "nodemon server.js",
-    "test": "jest"
+    "dev": "nodemon server.js",
+    "start": "node server.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint . --ext .js",
+    "lint:fix": "eslint . --ext .js --fix"
   },
   "author": "Steven Tanner Hopwood",
   "license": "UNLICENSED",
@@ -15,19 +21,25 @@
     "bcryptjs": "^2.4.3",
     "body-parser": "^1.20.2",
     "colors": "^1.4.0",
+    "compression": "^1.7.4",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "express-async-handler": "^1.2.0",
+    "express-rate-limit": "^7.1.5",
+    "express-validator": "^7.0.1",
+    "helmet": "^7.1.0",
     "ipinfo": "^1.5.2",
     "jsonwebtoken": "^9.0.1",
     "multer": "^1.4.5-lts.1",
+    "node-cache": "^5.1.2",
     "node-fetch": "^2.6.12",
     "openai": "^4.24.7",
     "postmark": "^3.0.17",
     "sthopwood": "file:..",
     "stripe": "^14.14.0",
-    "useragent": "^2.3.0"
+    "useragent": "^2.3.0",
+    "winston": "^3.11.0"
   },
   "jest": {
     "transform": {

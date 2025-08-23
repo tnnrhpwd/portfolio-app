@@ -2,18 +2,42 @@
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
+const { authLimiter, paymentLimiter } = require('../middleware/rateLimiter');
+const { 
+  validateRegistration, 
+  validateLogin, 
+  validateDataCreation,
+  validatePaymentData,
+  handleValidationErrors 
+} = require('../middleware/validation');
+const { logSecurityEvent } = require('../middleware/logger');
 const multer = require('multer');
 
 // Configure multer for memory storage (or disk storage if preferred)
 const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+    files: 5 // Maximum 5 files
+  },
+  fileFilter: (req, file, cb) => {
+    // Allow only specific file types
+    const allowedTypes = /jpeg|jpg|png|gif|pdf|txt|doc|docx/;
+    const extname = allowedTypes.test(file.originalname.toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (extname && mimetype) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only images, PDFs, and documents are allowed.'));
+    }
+  }
+});
 
 // Diagnostic logging for incoming requests BEFORE body parsing
 router.use((req, res, next) => {
   console.log(`[DEBUG] Incoming request: ${req.method} ${req.originalUrl}`);
-  // Log only content-type for brevity, or more headers if needed
-  // console.log(`[DEBUG] Request Content-Type Header: ${req.headers['content-type']}`);
-  // console.log('[DEBUG] Request Headers:', JSON.stringify(req.headers, null, 2)); // Uncomment for full headers
   next();
 });
 
@@ -23,7 +47,11 @@ router.use(express.urlencoded({ extended: false }));
 
 // Diagnostic logging AFTER body parsing
 router.use((req, res, next) => {
-  console.log('[DEBUG] Request Body After Parsing:', JSON.stringify(req.body, null, 2));
+  // Only log body for non-sensitive routes and if body is not too large
+  if (!req.originalUrl.includes('login') && !req.originalUrl.includes('register') && 
+      JSON.stringify(req.body).length < 1000) {
+    console.log('[DEBUG] Request Body After Parsing:', JSON.stringify(req.body, null, 2));
+  }
   next();
 });
 
@@ -41,32 +69,56 @@ const {
   putHashData, putPaymentMethod, updateCustomer,
 } = require('../controllers');
 
-// Public routes
-router.post('/register', registerUser); // Route to handle user registration
-router.post('/login', loginUser); // Route to handle user login
+// Public routes with validation
+router.post('/register', 
+  authLimiter,
+  validateRegistration, 
+  handleValidationErrors, 
+  (req, res, next) => {
+    logSecurityEvent('user_registration_attempt', { email: req.body.email }, req);
+    next();
+  },
+  registerUser
+);
+
+router.post('/login', 
+  authLimiter,
+  validateLogin, 
+  handleValidationErrors,
+  (req, res, next) => {
+    logSecurityEvent('user_login_attempt', { email: req.body.email }, req);
+    next();
+  },
+  loginUser
+);
 
 router.route('/public') 
   .get(getData) // GET request for fetching public data
-  .post(postData); // POST request for creating public data
+  .post(validateDataCreation, handleValidationErrors, postData); // POST request for creating public data
 
 // Protected routes
 router.get('/all/admin', protect, getAllData); // GET request for fetching all data (admin only)
 router.post('/compress', protect, compressData); // Route to handle data compression
 
 // Customer routes and specific paths should come before generic routes like /:id
-router.post('/create-customer', protect, createCustomer); // Protect customer creation
-router.post('/create-invoice', protect, createInvoice); // Protect invoice creation
-router.post('/subscribe-customer', protect, subscribeCustomer); // Protect customer subscription
+router.post('/create-customer', protect, paymentLimiter, createCustomer); // Protect customer creation
+router.post('/create-invoice', protect, paymentLimiter, createInvoice); // Protect invoice creation
+router.post('/subscribe-customer', protect, paymentLimiter, subscribeCustomer); // Protect customer subscription
 router.get('/subscription', protect, getUserSubscription); // GET request for fetching user subscriptions
 
 router.route('/pay-methods')
   .get(protect, getPaymentMethods) // GET payment methods
-  .put(protect, putPaymentMethod) // PUT payment methods
-  .post(protect, postPaymentMethod); // POST payment methods
+  .put(protect, paymentLimiter, validatePaymentData, handleValidationErrors, putPaymentMethod) // PUT payment methods
+  .post(protect, paymentLimiter, validatePaymentData, handleValidationErrors, postPaymentMethod); // POST payment methods
 
-router.delete('/pay-methods/:id', protect, deletePaymentMethod); // DELETE request for deleting a payment method
-router.put('/update-customer/:id', protect, updateCustomer); // PUT request for updating customer
-router.delete('/delete-customer/:id', protect, deleteCustomer); // DELETE request for deleting customer
+router.delete('/pay-methods/:id', protect, paymentLimiter, deletePaymentMethod); // DELETE request for deleting a payment method
+router.put('/update-customer/:id', protect, paymentLimiter, updateCustomer); // PUT request for updating customer
+router.delete('/delete-customer/:id', protect, paymentLimiter, deleteCustomer); // DELETE request for deleting customer
+
+// Customer routes with payment rate limiting
+router.post('/create-customer', protect, paymentLimiter, createCustomer);
+router.post('/create-invoice', protect, paymentLimiter, createInvoice);
+router.post('/subscribe-customer', protect, paymentLimiter, subscribeCustomer);
 
 // Webhook route
 router.post('/webhook', express.raw({ type: 'application/json' }), handleWebhook);

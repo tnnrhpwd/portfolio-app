@@ -1,30 +1,37 @@
-# Steven Tanner Hopwood's Portfolio Website
+# Portfolio App - Enhanced Full-Stack React & Node.js Application
 
-Welcome to the GitHub repository for my personal portfolio website, [www.sthopwood.com](http://www.sthopwood.com). This project showcases my skills and projects as a software developer.
+A professional portfolio application with React frontend and Node.js backend, featuring enhanced security, performance, and maintainability improvements.
 
-## Technologies Used
+## 🚀 Recent Improvements
 
-This project is built with:
+### 🔒 Security Enhancements
+- **Rate Limiting**: Protection against brute force attacks and API abuse
+- **Input Validation**: Comprehensive validation using express-validator
+- **Security Headers**: Helmet.js integration with CSP, HSTS, and other security headers
+- **Input Sanitization**: XSS protection through input sanitization
+- **Enhanced Authentication**: Improved JWT handling with automatic token cleanup
+- **Request Logging**: Security event tracking and monitoring
 
-- React.js (v18.0.0)
-- CSS
-- HTML
+### ⚡ Performance Optimizations
+- **Caching System**: In-memory caching for frequently accessed data
+- **Database Optimization**: Improved DynamoDB queries with batch operations
+- **Compression**: Gzip compression for reduced payload sizes
+- **Optimized File Uploads**: Enhanced multer configuration with file type validation
+- **Bundle Optimization**: Better webpack configuration for smaller bundle sizes
 
-Additional libraries and tools include:
+### 🏗️ Code Quality & Maintainability
+- **Error Boundaries**: React error boundaries for graceful error handling
+- **Improved Logging**: Winston-based logging with different log levels
+- **ESLint & Prettier**: Consistent code formatting and linting
+- **Enhanced Error Handling**: Better error messages and user feedback
+- **Loading States**: Improved UX with skeleton loaders and spinners
 
-- axios (v0.26.1) for promise-based HTTP requests
-- chart.js (v3.7.1) and react-chartjs-2 (v4.1.0) for creating charts
-- dotenv (v16.0.0) for environment variable management
-- gsap (v3.10.3) for JavaScript animations
-- react-circular-progressbar (v2.0.4) for circular progress bars
-- react-router-dom (v6.3.0) for routing
-- react-scroll (v1.8.7) and react-scroll-trigger (v0.6.14) for scroll animations
-- react-slideshow-image (v4.2.1) for image slideshows
-- react-tooltip (v4.2.21) for tooltips
-- react-youtube (v7.14.0) for embedding YouTube videos
-- readline (v1.3.0) for reading lines from readable streams
-- sunrise-sunset-js (v2.2.1) for sunrise and sunset times
-- web-vitals (v2.1.4) for measuring web vitals
+### 🛠️ Development Experience
+- **Docker Support**: Complete containerization with docker-compose
+- **Health Checks**: Automated service health monitoring
+- **Environment Templates**: Clear environment variable documentation
+- **Enhanced Testing**: Better test structure and coverage tools
+- **Development Scripts**: Improved npm scripts for common tasks
 
 ## Getting Started
 
