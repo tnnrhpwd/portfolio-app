@@ -61,6 +61,51 @@
     cursor: pointer;
     z-index: 1;
 }
+.hamburger-animate {
+    animation: hamburgerSmoothShimmer 2.2s cubic-bezier(0.22, 0.61, 0.36, 1);
+    background: linear-gradient(90deg, var(--fg-orange), var(--fg-pink), var(--fg-blue), var(--fg-mint));
+    background-size: 400% 400%;
+    animation-iteration-count: 1;
+}
+
+@keyframes hamburgerSmoothShimmer {
+    0% {
+        transform: scale(1.7);
+        box-shadow: 0 0 40px 16px var(--fg-orange), 0 0 32px 12px var(--fg-blue), 0 0 24px 8px var(--fg-pink);
+        filter: brightness(1.7) drop-shadow(0 0 20px var(--fg-orange));
+        background-position: 0% 50%;
+    }
+    20% {
+        transform: scale(1.4);
+        box-shadow: 0 0 32px 12px var(--fg-pink), 0 0 24px 8px var(--fg-blue);
+        filter: brightness(1.5) drop-shadow(0 0 16px var(--fg-pink));
+        background-position: 100% 50%;
+    }
+    40% {
+        transform: scale(1.2);
+        box-shadow: 0 0 24px 8px var(--fg-blue), 0 0 16px 6px var(--fg-mint);
+        filter: brightness(1.3) drop-shadow(0 0 12px var(--fg-blue));
+        background-position: 100% 100%;
+    }
+    60% {
+        transform: scale(1.08);
+        box-shadow: 0 0 12px 4px var(--fg-mint), 0 0 8px 2px var(--fg-orange);
+        filter: brightness(1.1) drop-shadow(0 0 8px var(--fg-mint));
+        background-position: 0% 100%;
+    }
+    80% {
+        transform: scale(1.02);
+        box-shadow: 0 0 6px 2px var(--fg-blue), 0 0 2px 1px var(--fg-pink);
+        filter: brightness(1.05) drop-shadow(0 0 4px var(--fg-blue));
+        background-position: 0% 50%;
+    }
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 var(--fg-orange), 0 0 0 0 var(--fg-blue), 0 0 0 0 var(--fg-pink);
+        filter: brightness(1) drop-shadow(0 0 0 var(--fg-orange));
+        background-position: 0% 50%;
+    }
+}
 .planit-header-dropper__btn:hover {
     transform: scale(1.1);
 }
@@ -92,10 +137,11 @@
     margin: 0;
     padding: calc(var(--nav-size)*0.08) 0;
     list-style: none;
-    background-color: var(--bg-nav1);
-    box-shadow: 2px 2px 6px rgba(0, 0, 0, .4);
+    background-color: var(--text-color-inv); /* Use color much closer to text-color-inv for high contrast */
+    box-shadow: 2px 2px 16px rgba(0, 0, 0, .18);
     transition-duration: .25s;
     text-align: left;
+    border-left: 2px solid var(--border-nav);
 }
 .planit-header-dropper-pagelink {
     display: block;

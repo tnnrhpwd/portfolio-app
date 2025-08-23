@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import useOutsideAlerter from '../useOutsideAlerter.js';
 // import HeaderLogo from './../../assets/planit192.png';
 import { Link, useNavigate } from 'react-router-dom';
@@ -9,34 +9,42 @@ import { logout } from '../../features/data/dataSlice';
 
 import './HeaderDropper.css'
 
-function HeaderDropper(props) {
-  const { user, dataIsError, dataMessage } = useSelector((state) => state.data)   // select values from state
-  const dispatch = useDispatch();
 
+function HeaderDropper(props) {
+  const { user, dataIsError, dataMessage } = useSelector((state) => state.data);
+  const dispatch = useDispatch();
   const navigate = useNavigate();
+  const [showHamburgerAnim, setShowHamburgerAnim] = useState(false);
+  const toggleButtonRef = useRef(null);
+  const insideComponentRef = useRef(null);
+
+  // Show animation only once on homepage load
+  useEffect(() => {
+    if (window.location.pathname === '/') {
+      setShowHamburgerAnim(true);
+      const timer = setTimeout(() => setShowHamburgerAnim(false), 1200);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   useEffect(() => {
-    console.log('HeaderDropper dataMessage:', dataMessage)
     if (dataIsError && dataMessage === 'Not authorized, token expired') {
       dispatch(logout());
       navigate('/login');
     }
-  }, [dataIsError, dataMessage, dispatch]);
+  }, [dataIsError, dataMessage, dispatch, navigate]);
 
   const hideComponentVisibility = () => {document.getElementById("planit-header-dropper__toggle").checked = false;}
   const ComponentVisibility = () => {return document.getElementById("planit-header-dropper__toggle").checked}
-  const toggleButtonRef = useRef(null);  // reference to the dropper toggle button
-  const insideComponentRef = useRef(null); // reference to the dropper container
-  useOutsideAlerter( "nav", insideComponentRef, toggleButtonRef, ComponentVisibility, hideComponentVisibility ); // listen for clicks outside dropper container && handle the effects
+  useOutsideAlerter( "nav", insideComponentRef, toggleButtonRef, ComponentVisibility, hideComponentVisibility );
 
   return (
     <div className="planit-header-dropper-space unclickable-background">
       <input id="planit-header-dropper__toggle" type="checkbox" />
-      <label className="planit-header-dropper__btn" htmlFor="planit-header-dropper__toggle" ref={toggleButtonRef}>
+      <label className={`planit-header-dropper__btn${showHamburgerAnim ? ' hamburger-animate' : ''}`} htmlFor="planit-header-dropper__toggle" ref={toggleButtonRef}>
         <span></span>
       </label>
       <ul ref={insideComponentRef} className="planit-header-dropper__box">
-        
         <div className='planit-header-logo-nav'>
           <Link to='/' onClick={() => {window.scrollTo(0,0); document.getElementById("planit-header-dropper__toggle").checked = false;}}></Link>
         </div>
