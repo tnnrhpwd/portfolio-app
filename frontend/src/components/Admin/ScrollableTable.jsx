@@ -301,14 +301,12 @@ const ScrollableTable = ({ headers, data, renderRow, filterFn, getColumnValue })
                         </div>
                       </div>
                     )}
-                    {/* Resize handle */}
-                    {index < headers.length - 1 && (
-                      <div
-                        className="resize-handle"
-                        onMouseDown={(e) => handleMouseDown(e, header.key)}
-                        title="Drag to resize column"
-                      />
-                    )}
+                    {/* Resize handle - now available for all columns */}
+                    <div
+                      className="resize-handle"
+                      onMouseDown={(e) => handleMouseDown(e, header.key)}
+                      title="Drag to resize column"
+                    />
                   </th>
                 ))}
               </tr>
