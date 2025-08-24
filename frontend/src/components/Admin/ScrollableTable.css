@@ -64,13 +64,28 @@
 
 .admin-search {
   width: 100%;
-  padding: 10px;
-  margin-bottom: 15px;
-  border: 1px solid var(--border);
-  border-radius: 5px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
   background-color: var(--bg-1);
   color: var(--text-color);
   font-size: calc(var(--nav-size) * 0.2);
+  font-family: inherit;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.admin-search:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(var(--accent-color-rgb, 0, 100, 200), 0.1);
+  background-color: var(--bg-2);
+}
+
+.admin-search::placeholder {
+  color: var(--text-color-muted);
+  opacity: 0.7;
 }
 
 .table-scroll-container {
@@ -98,20 +113,18 @@
 .sortable-header {
   cursor: pointer;
   position: relative;
+  user-select: none;
 }
 
-.sortable-header.asc::after {
-  content: "▲";
-  position: absolute;
-  right: 5px;
-  font-size: 0.8em;
+.sortable-header:hover {
+  background-color: rgba(var(--accent-color-rgb, 0, 100, 200), 0.1);
 }
 
-.sortable-header.desc::after {
-  content: "▼";
-  position: absolute;
-  right: 5px;
+.sort-indicator {
   font-size: 0.8em;
+  margin-left: 4px;
+  color: var(--accent-color);
+  font-weight: bold;
 }
 
 /* Column Filter Styles */
@@ -120,7 +133,8 @@
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  min-height: 30px;
+  min-height: 32px;
+  padding: 4px 0;
 }
 
 .header-text {
@@ -128,12 +142,16 @@
   cursor: pointer;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  font-weight: bold;
+  text-transform: uppercase;
+  font-size: calc(var(--nav-size) * 0.16);
 }
 
 .sort-indicator {
   font-size: 0.8em;
   margin-left: 4px;
+  color: var(--accent-color);
+  font-weight: bold;
 }
 
 .filter-controls {
@@ -147,14 +165,17 @@
   background-color: var(--bg-1);
   border: 1px solid var(--border);
   color: var(--text-color);
-  padding: 2px 6px;
+  padding: 4px 8px;
   border-radius: 3px;
   cursor: pointer;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: bold;
-  min-width: 20px;
-  height: 20px;
+  min-width: 24px;
+  height: 24px;
   transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .column-filter-btn:hover {
@@ -188,54 +209,140 @@
   border-color: #c82333;
 }
 
-.column-filter-dropdown {
+.excel-filter-dropdown {
   position: absolute;
   top: 100%;
   left: 0;
   right: 0;
-  background-color: var(--bg-1);
+  background-color: var(--bg);
   border: 1px solid var(--border);
   border-radius: 4px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 1);
   z-index: 1000;
   margin-top: 2px;
+  min-width: 250px;
+  max-height: 400px;
+  display: flex;
+  flex-direction: column;
 }
 
-.column-filter-input {
-  width: 100%;
+.filter-search {
   padding: 8px;
-  border: none;
   border-bottom: 1px solid var(--border);
+}
+
+.filter-search-input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
   background-color: var(--bg-1);
   color: var(--text-color);
   font-size: 12px;
   box-sizing: border-box;
 }
 
-.column-filter-input:focus {
+.filter-search-input:focus {
   outline: none;
+  border-color: var(--accent-color);
   background-color: var(--bg-2);
 }
 
-.filter-options {
-  max-height: 200px;
-  overflow-y: auto;
+.filter-select-all {
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+  background-color: var(--bg-2);
 }
 
-.filter-option {
-  width: 100%;
-  padding: 6px 8px;
-  border: none;
-  background-color: transparent;
-  color: var(--text-color);
-  text-align: left;
+.filter-checkbox-label {
+  display: flex;
+  align-items: center;
   cursor: pointer;
-  font-size: 11px;
+  padding: 4px 0;
   transition: background-color 0.2s ease;
+  font-size: 12px;
+  color: var(--text-color);
 }
 
-.filter-option:hover {
+.filter-checkbox-label:hover {
   background-color: var(--bg-2);
+}
+
+.filter-checkbox-label input[type="checkbox"] {
+  margin-right: 8px;
+  cursor: pointer;
+}
+
+.select-all-text {
+  font-weight: bold;
+}
+
+.filter-value-text {
+  flex: 1;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+.filter-options-list {
+  max-height: 250px;
+  overflow-y: auto;
+  padding: 4px 8px;
+}
+
+.filter-options-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.filter-options-list::-webkit-scrollbar-track {
+  background: var(--bg-2);
+}
+
+.filter-options-list::-webkit-scrollbar-thumb {
+  background: var(--accent-color);
+  border-radius: 3px;
+}
+
+.filter-options-list::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-color-dark, var(--accent-color));
+}
+
+.filter-actions {
+  padding: 8px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.filter-ok-btn,
+.filter-cancel-btn {
+  padding: 6px 12px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: bold;
+  border: 1px solid;
+  transition: all 0.2s ease;
+}
+
+.filter-ok-btn {
+  background-color: var(--accent-color);
+  color: var(--text-color);
+  border-color: var(--border);
+}
+
+.filter-ok-btn:hover {
+  background-color: var(--accent-color-dark, var(--accent-color));
+}
+
+.filter-cancel-btn {
+  background-color: var(--bg-2);
+  color: var(--text-color);
+  border-color: var(--border);
+}
+
+.filter-cancel-btn:hover {
+  background-color: var(--bg-3);
 }
 
 .admin-table-no-data {

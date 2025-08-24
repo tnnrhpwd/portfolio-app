@@ -5,7 +5,6 @@ const ScrollableTable = ({ headers, data, renderRow, filterFn, getColumnValue })
   const [searchText, setSearchText] = useState("");
   const [sortBy, setSortBy] = useState(null);
   const [sortOrder, setSortOrder] = useState("asc");
-  const [columnFilters, setColumnFilters] = useState({});
   const [showColumnFilter, setShowColumnFilter] = useState(null);
   const tableRef = useRef(null);
   
@@ -15,6 +14,10 @@ const ScrollableTable = ({ headers, data, renderRow, filterFn, getColumnValue })
   const [resizingColumn, setResizingColumn] = useState(null);
   const [startX, setStartX] = useState(0);
   const [startWidth, setStartWidth] = useState(0);
+
+  // Multi-select filter state
+  const [filterSelections, setFilterSelections] = useState({});
+  const [filterSearchTerms, setFilterSearchTerms] = useState({});
 
   // Close column filter dropdown when clicking outside
   useEffect(() => {
@@ -104,24 +107,51 @@ const ScrollableTable = ({ headers, data, renderRow, filterFn, getColumnValue })
     setShowColumnFilter(showColumnFilter === columnKey ? null : columnKey);
   }, [showColumnFilter]);
 
-  // Handle column filter change
-  const handleColumnFilterChange = useCallback((columnKey, value) => {
-    setColumnFilters(prev => ({
-      ...prev,
-      [columnKey]: value
-    }));
+  // Handle Excel-style multi-select filter
+  const handleFilterSelection = useCallback((columnKey, value, isSelected) => {
+    setFilterSelections(prev => {
+      const currentSelections = prev[columnKey] || new Set();
+      const newSelections = new Set(currentSelections);
+      
+      if (isSelected) {
+        newSelections.add(value);
+      } else {
+        newSelections.delete(value);
+      }
+      
+      return {
+        ...prev,
+        [columnKey]: newSelections
+      };
+    });
   }, []);
 
-  // Clear column filter
+  // Clear all filters for a column
   const clearColumnFilter = useCallback((columnKey) => {
-    setColumnFilters(prev => {
+    setFilterSelections(prev => {
       const newFilters = { ...prev };
       delete newFilters[columnKey];
       return newFilters;
     });
   }, []);
 
-  // Get unique values for column filter dropdown
+  // Select all values for a column filter
+  const selectAllForColumn = useCallback((columnKey, allValues) => {
+    setFilterSelections(prev => ({
+      ...prev,
+      [columnKey]: new Set(allValues)
+    }));
+  }, []);
+
+  // Deselect all values for a column filter
+  const deselectAllForColumn = useCallback((columnKey) => {
+    setFilterSelections(prev => ({
+      ...prev,
+      [columnKey]: new Set()
+    }));
+  }, []);
+
+  // Get unique values for Excel-style column filter dropdown
   const getColumnUniqueValues = useCallback((columnKey) => {
     const values = data.map(item => {
       let value;
@@ -143,15 +173,21 @@ const ScrollableTable = ({ headers, data, renderRow, filterFn, getColumnValue })
     return values.sort();
   }, [data, getColumnValue]);
 
+  // Check if a column has active filters
+  const hasColumnFilter = useCallback((columnKey) => {
+    const selections = filterSelections[columnKey];
+    return selections && selections.size > 0;
+  }, [filterSelections]);
+
   // Memoize filtered and sorted data
   const filteredAndSortedData = useMemo(() => {
     let filteredData = data.filter(item => {
       // Apply global search filter
       const matchesSearch = filterFn ? filterFn(item, searchText) : true;
       
-      // Apply column filters
-      const matchesColumnFilters = Object.entries(columnFilters).every(([columnKey, filterValue]) => {
-        if (!filterValue) return true;
+      // Apply Excel-style column filters
+      const matchesColumnFilters = Object.entries(filterSelections).every(([columnKey, selections]) => {
+        if (!selections || selections.size === 0) return true;
         
         let itemValue;
         if (getColumnValue) {
@@ -166,7 +202,7 @@ const ScrollableTable = ({ headers, data, renderRow, filterFn, getColumnValue })
           }
         }
         
-        return String(itemValue || '').toLowerCase().includes(filterValue.toLowerCase());
+        return selections.has(String(itemValue || ''));
       });
       
       return matchesSearch && matchesColumnFilters;
@@ -214,7 +250,7 @@ const ScrollableTable = ({ headers, data, renderRow, filterFn, getColumnValue })
     }
 
     return filteredData;
-  }, [data, filterFn, searchText, sortBy, sortOrder, columnFilters, getColumnValue]);
+  }, [data, filterFn, searchText, sortBy, sortOrder, filterSelections, getColumnValue]);
 
   return (
     <>
@@ -255,14 +291,14 @@ const ScrollableTable = ({ headers, data, renderRow, filterFn, getColumnValue })
                       </span>
                       <div className="filter-controls">
                         <button
-                          className={`column-filter-btn ${columnFilters[header.key] ? 'active' : ''}`}
+                          className={`column-filter-btn ${hasColumnFilter(header.key) ? 'active' : ''}`}
                           onClick={() => toggleColumnFilter(header.key)}
                           title={`Filter ${header.label}`}
                           aria-label={`Filter ${header.label} column`}
                         >
-                          V
+                          ▼
                         </button>
-                        {columnFilters[header.key] && (
+                        {hasColumnFilter(header.key) && (
                           <button
                             className="clear-filter-btn"
                             onClick={() => clearColumnFilter(header.key)}
@@ -275,29 +311,78 @@ const ScrollableTable = ({ headers, data, renderRow, filterFn, getColumnValue })
                       </div>
                     </div>
                     {showColumnFilter === header.key && (
-                      <div className="column-filter-dropdown">
-                        <input
-                          type="text"
-                          className="column-filter-input"
-                          placeholder={`Filter ${header.label}...`}
-                          value={columnFilters[header.key] || ''}
-                          onChange={(e) => handleColumnFilterChange(header.key, e.target.value)}
-                          onClick={(e) => e.stopPropagation()}
-                          autoFocus
-                        />
-                        <div className="filter-options">
-                          {getColumnUniqueValues(header.key).slice(0, 10).map((value, index) => (
-                            <button
-                              key={index}
-                              className="filter-option"
-                              onClick={() => {
-                                handleColumnFilterChange(header.key, String(value));
-                                setShowColumnFilter(null);
+                      <div className="excel-filter-dropdown">
+                        <div className="filter-search">
+                          <input
+                            type="text"
+                            className="filter-search-input"
+                            placeholder="Search values..."
+                            value={filterSearchTerms[header.key] || ''}
+                            onChange={(e) => {
+                              const searchTerm = e.target.value;
+                              setFilterSearchTerms(prev => ({
+                                ...prev,
+                                [header.key]: searchTerm
+                              }));
+                            }}
+                          />
+                        </div>
+                        <div className="filter-select-all">
+                          <label className="filter-checkbox-label">
+                            <input
+                              type="checkbox"
+                              checked={!hasColumnFilter(header.key) || (filterSelections[header.key] && filterSelections[header.key].size === getColumnUniqueValues(header.key).length)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  selectAllForColumn(header.key, getColumnUniqueValues(header.key));
+                                } else {
+                                  deselectAllForColumn(header.key);
+                                }
                               }}
-                            >
-                              {String(value).length > 30 ? String(value).substring(0, 30) + '...' : String(value)}
-                            </button>
-                          ))}
+                            />
+                            <span className="select-all-text">Select All</span>
+                          </label>
+                        </div>
+                        <div className="filter-options-list">
+                          {getColumnUniqueValues(header.key)
+                            .filter(value => {
+                              const searchTerm = filterSearchTerms[header.key];
+                              return !searchTerm || String(value).toLowerCase().includes(searchTerm.toLowerCase());
+                            })
+                            .map((value, index) => {
+                              const isSelected = !hasColumnFilter(header.key) || (filterSelections[header.key] && filterSelections[header.key].has(String(value)));
+                              return (
+                                <label key={index} className="filter-checkbox-label">
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={(e) => {
+                                      handleFilterSelection(header.key, String(value), e.target.checked);
+                                    }}
+                                  />
+                                  <span className="filter-value-text">
+                                    {String(value).length > 30 ? String(value).substring(0, 30) + '...' : String(value)}
+                                  </span>
+                                </label>
+                              );
+                            })}
+                        </div>
+                        <div className="filter-actions">
+                          <button
+                            className="filter-ok-btn"
+                            onClick={() => setShowColumnFilter(null)}
+                          >
+                            OK
+                          </button>
+                          <button
+                            className="filter-cancel-btn"
+                            onClick={() => {
+                              clearColumnFilter(header.key);
+                              setShowColumnFilter(null);
+                            }}
+                          >
+                            Clear
+                          </button>
                         </div>
                       </div>
                     )}

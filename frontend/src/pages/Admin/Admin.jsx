@@ -5,10 +5,9 @@ import Footer from "../../components/Footer/Footer.jsx";
 import { useNavigate } from "react-router-dom";
 import { getAllData } from "../../features/data/dataSlice";
 import CollapsibleSection from "../../components/Admin/CollapsibleSection.jsx";
-import ScrollableTable from "../../components/Admin/ScrollableTable.jsx"; // Updated import
+import ScrollableTable from "../../components/Admin/ScrollableTable.jsx";
 import VisitorMap from "../../components/Admin/VisitorMap.jsx";
 import VisitorMapFilter from "../../components/Admin/VisitorMapFilter.jsx";
-import DataTableFilter from "../../components/Admin/DataTableFilter.jsx";
 import "./Admin.css";
 import { toast } from "react-toastify";
 import parseVisitorData from "../../utils/parseVisitorData.js";
@@ -20,7 +19,6 @@ function Admin() {
   const [allObjectArray, setAllObjectArray] = useState([]);
   const [visitorLocations, setVisitorLocations] = useState([]);
   const [filteredMapLocations, setFilteredMapLocations] = useState([]);
-  const [filteredTableData, setFilteredTableData] = useState([]);
 
   // Calculate default "From" and "To" dates
   const today = new Date().toISOString().split("T")[0];
@@ -129,20 +127,10 @@ function Admin() {
     setFilteredMapLocations(filtered);
   }, []);
 
-  // Handle filtered data from DataTableFilter
-  const handleFilteredTableData = useCallback((filtered) => {
-    setFilteredTableData(filtered);
-  }, []);
-
   // Final locations to display on map (after both date and map filters)
   const finalMapLocations = useMemo(() => {
     return filteredMapLocations.length > 0 ? filteredMapLocations : filteredVisitorLocations;
   }, [filteredMapLocations, filteredVisitorLocations]);
-
-  // Data to display in table (filtered or all)
-  const displayTableData = useMemo(() => {
-    return filteredTableData.length >= 0 ? filteredTableData : allObjectArray;
-  }, [filteredTableData, allObjectArray]);
 
   // Helper function to extract location from visitor data
   const getLocationFromItem = useCallback((item) => {
@@ -282,11 +270,6 @@ function Admin() {
           {!dataIsLoading && data && (
             <>
               <CollapsibleSection title="All Data" defaultCollapsed={false}>
-                <DataTableFilter
-                  data={allObjectArray}
-                  onFilteredData={handleFilteredTableData}
-                  getLocationFromItem={getLocationFromItem}
-                />
                 <ScrollableTable 
                   headers={[
                     { key: "_id", label: "ID" },
@@ -297,7 +280,7 @@ function Admin() {
                     { key: "type", label: "Type" },
                     { key: "location", label: "Location" }, // New column
                   ]}
-                  data={displayTableData}
+                  data={allObjectArray}
                   filterFn={filterMainTable}
                   getColumnValue={getColumnValue}
                   renderRow={(item) => (
