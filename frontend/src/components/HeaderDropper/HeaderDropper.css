@@ -66,6 +66,7 @@
     background: linear-gradient(90deg, var(--fg-orange), var(--fg-pink), var(--fg-blue), var(--fg-mint));
     background-size: 400% 400%;
     animation-iteration-count: 1;
+    border-radius: 50%;
 }
 
 @keyframes hamburgerSmoothShimmer {
