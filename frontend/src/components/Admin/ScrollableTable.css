@@ -24,12 +24,38 @@
   border: var(--nav-size)*.01 solid var(--text-color);
   text-align: left;
   word-wrap: break-word;
+  position: relative;
 }
 
 .admin-table th {
   cursor: pointer;
   font-weight: bold;
   text-transform: uppercase;
+}
+
+/* Resize handle styles */
+.resize-handle {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  width: 4px;
+  height: 100%;
+  cursor: col-resize;
+  background-color: transparent;
+  z-index: 10;
+  border-right: 2px solid transparent;
+  transition: border-color 0.2s ease;
+}
+
+.resize-handle:hover {
+  border-right-color: var(--accent-color);
+}
+
+.resize-handle:active,
+.resize-handle.resizing {
+  border-right-color: var(--accent-color);
+  background-color: var(--accent-color);
+  opacity: 0.3;
 }
 
 .admin-table tbody tr:nth-child(even) {
@@ -50,6 +76,23 @@
 .table-scroll-container {
   max-height: 90vh;
   overflow-y: auto;
+  overflow-x: auto;
+}
+
+/* Prevent text selection during resize */
+.admin-table.resizing,
+.admin-table.resizing * {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* Ensure table cells don't exceed their assigned width */
+.admin-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sortable-header {

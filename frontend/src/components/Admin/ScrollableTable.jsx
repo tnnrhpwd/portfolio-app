@@ -8,6 +8,13 @@ const ScrollableTable = ({ headers, data, renderRow, filterFn, getColumnValue })
   const [columnFilters, setColumnFilters] = useState({});
   const [showColumnFilter, setShowColumnFilter] = useState(null);
   const tableRef = useRef(null);
+  
+  // Column resizing state
+  const [columnWidths, setColumnWidths] = useState({});
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizingColumn, setResizingColumn] = useState(null);
+  const [startX, setStartX] = useState(0);
+  const [startWidth, setStartWidth] = useState(0);
 
   // Close column filter dropdown when clicking outside
   useEffect(() => {
@@ -22,6 +29,62 @@ const ScrollableTable = ({ headers, data, renderRow, filterFn, getColumnValue })
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // Initialize column widths
+  useEffect(() => {
+    if (headers.length > 0 && Object.keys(columnWidths).length === 0) {
+      const initialWidths = {};
+      headers.forEach(header => {
+        initialWidths[header.key] = 150; // Default width
+      });
+      setColumnWidths(initialWidths);
+    }
+  }, [headers, columnWidths]);
+
+  // Column resizing handlers
+  const handleMouseDown = useCallback((e, columnKey) => {
+    e.preventDefault();
+    setIsResizing(true);
+    setResizingColumn(columnKey);
+    setStartX(e.clientX);
+    setStartWidth(columnWidths[columnKey] || 150);
+  }, [columnWidths]);
+
+  const handleMouseMove = useCallback((e) => {
+    if (!isResizing || !resizingColumn) return;
+    
+    const diff = e.clientX - startX;
+    const newWidth = Math.max(50, startWidth + diff); // Minimum width of 50px
+    
+    setColumnWidths(prev => ({
+      ...prev,
+      [resizingColumn]: newWidth
+    }));
+  }, [isResizing, resizingColumn, startX, startWidth]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsResizing(false);
+    setResizingColumn(null);
+    setStartX(0);
+    setStartWidth(0);
+  }, []);
+
+  // Add global mouse event listeners for resizing
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      };
+    }
+  }, [isResizing, handleMouseMove, handleMouseUp]);
 
   // Handle sorting when a column header is clicked
   const handleSort = useCallback(
@@ -165,16 +228,20 @@ const ScrollableTable = ({ headers, data, renderRow, filterFn, getColumnValue })
       />
       <div className="admin-table-wrapper" ref={tableRef}>
         <div className="table-scroll-container">
-          <table className="admin-table" aria-label="Data table">
+          <table className={`admin-table ${isResizing ? 'resizing' : ''}`} aria-label="Data table">
             <thead>
               <tr>
-                {headers.map((header) => (
+                {headers.map((header, index) => (
                   <th
                     key={header.key}
                     scope="col"
                     className={`sortable-header ${
                       sortBy === header.key ? sortOrder : ""
                     }`}
+                    style={{ 
+                      width: columnWidths[header.key] || 150,
+                      position: 'relative'
+                    }}
                   >
                     <div className="header-content">
                       <span 
@@ -234,6 +301,14 @@ const ScrollableTable = ({ headers, data, renderRow, filterFn, getColumnValue })
                         </div>
                       </div>
                     )}
+                    {/* Resize handle */}
+                    {index < headers.length - 1 && (
+                      <div
+                        className="resize-handle"
+                        onMouseDown={(e) => handleMouseDown(e, header.key)}
+                        title="Drag to resize column"
+                      />
+                    )}
                   </th>
                 ))}
               </tr>
@@ -244,9 +319,28 @@ const ScrollableTable = ({ headers, data, renderRow, filterFn, getColumnValue })
                 filteredAndSortedData.map((item, index) => {
                   // Get the id from the item or use index as fallback
                   const key = item._id || `item-${index}`;
+                  
+                  // Clone the row and apply column widths to each cell
+                  const row = renderRow(item, index);
+                  const rowWithWidths = React.cloneElement(row, {
+                    children: React.Children.map(row.props.children, (cell, cellIndex) => {
+                      if (cellIndex < headers.length) {
+                        return React.cloneElement(cell, {
+                          style: {
+                            ...cell.props.style,
+                            width: columnWidths[headers[cellIndex].key] || 150,
+                            minWidth: columnWidths[headers[cellIndex].key] || 150,
+                            maxWidth: columnWidths[headers[cellIndex].key] || 150
+                          }
+                        });
+                      }
+                      return cell;
+                    })
+                  });
+                  
                   return (
                     <React.Fragment key={key}>
-                      {renderRow(item, index)}
+                      {rowWithWidths}
                     </React.Fragment>
                   );
                 })
