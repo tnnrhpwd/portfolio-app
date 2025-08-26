@@ -2,9 +2,7 @@ import React from 'react';
 import Header from './../../../components/Header/Header';
 import './Simple.css';
 import Footer from './../../../components/Footer/Footer';
-import simplenetimg from './SimpleNET.png';
-import simplenetactionimg from './SimpleNETAction.png'; // Import the second image
-import simplenetobserveimg from './SimpleNETObserve.png';   // Import the third image
+import simpleGraphic from './simple_graphic.png';
 
 const simplelink = "https://github.com/tnnrhpwd/C-Simple";
 
@@ -27,20 +25,25 @@ function Simple() {
           </div>
         </div>
         <div className='planit-dashboard-lower'>
-          <section className='planit-dashboard-preview'>
-            <h2>Preview</h2>
-            <ul>
-              <li>
-                <img className="planit-dashboard-preview-img" src={simplenetimg} alt="app home 1" />
-              </li>
-              <li>
-                <img className="planit-dashboard-preview-img" src={simplenetactionimg} alt="app home 2" /> {/* Second image */}
-              </li>
-              <li>
-                <img className="planit-dashboard-preview-img" src={simplenetobserveimg} alt="app home 3" /> {/* Third image */}
-              </li>
-            </ul>
-          </section>
+          <div className='planit-dashboard-preview'>
+            <h2>System Intelligence Overview</h2>
+            <div className='simple-graphic-container'>
+              <img 
+                src={simpleGraphic} 
+                alt="Simple.NET System Intelligence Overview" 
+                className='simple-graphic-img'
+              />
+            </div>
+            <div className='planit-dashboard-features'>
+              <h2>Key Features</h2>
+              <ul>
+                <li>🧠 <strong>Predictive Actions:</strong> Learn from your behavior patterns to anticipate your next moves</li>
+                <li>⚡ <strong>Workflow Optimization:</strong> Streamline repetitive tasks with intelligent automation</li>
+                <li>🎯 <strong>Goal-Oriented Assistance:</strong> Adapt to help you achieve your specific objectives</li>
+                <li>📊 <strong>Real-time Analytics:</strong> Monitor system performance and user interaction patterns</li>
+              </ul>
+            </div>
+          </div>
         </div>
         <Footer />
       </div>
