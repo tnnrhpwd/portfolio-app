@@ -5,7 +5,7 @@ import Footer from '../../../components/Footer/Footer';
 import url from "./../WordleSolver/Dictionary.txt";
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom'              // page redirects
-import { getData } from '../../../features/data/dataSlice.js';
+import { updateData, getData, resetDataSlice, deleteData } from '../../../features/data/dataSlice.js';
 import "./Wordle.css";
 
 const initialKeys = {
@@ -37,6 +37,7 @@ function Wordle() {
   const [settingMenuText, setSettingMenuText] = useState("5");
   const [outputMessage, setOutputMessage] = useState("");
   const [answerVisibility, setAnswerVisibility] = useState(false);
+  const [isDictionaryLoaded, setIsDictionaryLoaded] = useState(false);
   
   const keyListenerRef = useRef(null);
   const rootStyle = window.getComputedStyle(document.body);
@@ -95,6 +96,7 @@ function Wordle() {
         dictionaryArray = dictionaryArray[0].split("\n");
       }
       setDictionary(dictionaryArray);
+      setIsDictionaryLoaded(true);
       console.log("Dictionary loaded successfully");
     } catch (err) {
       console.error("Error loading dictionary:", err);

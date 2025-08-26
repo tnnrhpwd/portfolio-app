@@ -5,33 +5,116 @@
     min-height: 100vh;
     flex-direction: column;
     font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
-    background-color: var(--bg);
+    background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
+    background-size: 400% 400%;
+    animation: gradientShift 12s ease infinite;
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+}
+
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    25% { background-position: 100% 50%; }
+    50% { background-position: 100% 100%; }
+    75% { background-position: 0% 100%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Floating background elements for Wordle */
+.wordle-space::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+    background-image: 
+        radial-gradient(circle at 20% 30%, var(--white1-transp) 0%, transparent 50%),
+        radial-gradient(circle at 80% 70%, rgba(255, 115, 46, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 40% 80%, rgba(0, 193, 193, 0.1) 0%, transparent 50%);
+    animation: floatBackground 8s ease-in-out infinite;
+}
+
+@keyframes floatBackground {
+    0%, 100% {
+        opacity: 0.3;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.6;
+        transform: scale(1.05);
+    }
+}
+
+/* Ensure game elements stay above background */
+.wordle-space > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* Theme-specific animation speeds to match homepage */
+.light-theme .wordle-space {
+    animation-duration: 15s;
+}
+
+.dark-theme .wordle-space {
+    animation-duration: 10s;
 }
 .wordle-space .found{
-    background-color: #c9b458;
-    border-color: var(--text-color);
-    color: var(--text-color);
+    background: linear-gradient(135deg, var(--fg-orange), var(--bg-orange1));
+    border-color: var(--fg-orange);
+    color: var(--text-color-inv);
+    box-shadow: 0 2px 8px rgba(255, 115, 46, 0.3);
 }
 .wordle-space .correct{
-    background-color: #538D4E;
-    border-color: var(--text-color);
-    color: var(--text-color);
+    background: linear-gradient(135deg, var(--fg-mint), var(--bg-mint));
+    border-color: var(--fg-mint);
+    color: var(--text-color-inv);
+    box-shadow: 0 2px 8px rgba(0, 193, 193, 0.3);
 }
 .wordle-space .wrong {   /* CLASS for wrong letters*/
-    background-color: var(--bg-accent);
+    background: linear-gradient(135deg, var(--bg-accent), var(--bg-1));
     border-color: var(--text-color);
     color: var(--text-color);
-    
+    opacity: 0.7;
 }
 .title { /* CLASS for the region containing the Title */
     padding-top: calc(var(--nav-size)*1);
     color: var(--text-color);
     font-size: 5vw;
-    border-bottom: solid min(3px,5vw) var(--bg-accent); 
+    border-bottom: solid min(3px,5vw) var(--fg-blue); 
     height: 5.5vw;
+    position: relative;
+    text-shadow: 0 2px 10px rgba(56, 56, 255, 0.3);
+}
+
+.title::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 150%;
+    height: 150%;
+    background: radial-gradient(circle, var(--bg-page-transp) 0%, transparent 70%);
+    transform: translate(-50%, -50%);
+    z-index: -1;
+    animation: titlePulse 3s ease-in-out infinite;
+}
+
+@keyframes titlePulse {
+    0%, 100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 0.2;
+    }
+    50% {
+        transform: translate(-50%, -50%) scale(1.05);
+        opacity: 0.4;
+    }
 }
 .guessGrid {
     margin-top: calc(var(--nav-size)*0.2);
@@ -48,28 +131,53 @@
     justify-content: center;
     align-items: center;
     text-transform: uppercase;
-    border: calc(1vw * 0.1) solid var(--text-color);
-    box-shadow: 0 0 0 calc(var(--nav-size) * 0.001) var(--bg-accent); /* Adjust the 3px to the width you want for the second border */
+    border: calc(1vw * 0.15) solid var(--fg-pink);
+    box-shadow: 0 2px 8px rgba(255, 55, 155, 0.2);
     height: calc(var(--nav-size) * 1.2);
     width: calc(calc(1vw * 82) / var(--key-guess-count));
     vertical-align: middle;
     color: var(--text-color);
+    background: linear-gradient(135deg, var(--bg-page), var(--white1-transp));
+    border-radius: calc(var(--nav-size) * 0.05);
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.key-guess::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, transparent, rgba(255, 55, 155, 0.1), transparent);
+    border-radius: calc(var(--nav-size) * 0.05);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.key-guess:hover::before {
+    opacity: 1;
 }
 .wordle-answer{
     top: calc(var(--nav-size)*4);
     position: absolute;
     margin-bottom: calc(var(--nav-size)*.2);
     font-size: calc(var(--nav-size)*.27);
-    background-color: var(--text-color-inv);
+    background: linear-gradient(135deg, var(--fg-mint), var(--bg-mint));
+    color: var(--text-color-inv);
     padding: calc(var(--nav-size)*.3);
     border-radius: calc(var(--nav-size)*.1);
+    border: calc(var(--nav-size)*.002) solid var(--fg-mint);
+    box-shadow: 0 4px 12px rgba(0, 193, 193, 0.4);
+    font-weight: bold;
 }
 .key { /* CLASS for the keyboard buttons */
     font-weight: bold;
     text-transform: uppercase;
     font-size: calc(1vw * 3.2);
     border-radius: calc(var(--nav-size)*.1);
-    background-color: var(--text-color-inv);
+    background: linear-gradient(135deg, var(--text-color-inv), var(--bg-page));
     color: var(--text-color);
     padding: calc(var(--nav-size)*.2);
     margin: calc(var(--nav-size)*.00);
@@ -77,12 +185,16 @@
     vertical-align: middle;
     min-width: calc(1vw * 9.65);
     height: calc(var(--nav-size) * 1.05);
-    border: calc(var(--nav-size)*.001) solid var(--bg-accent);
+    border: calc(var(--nav-size)*.002) solid var(--fg-blue);
     display: inline;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 5px rgba(56, 56, 255, 0.1);
 }
 .key:hover{
-    background-image: radial-gradient( var(--text-color) 20%, transparent );
+    background: linear-gradient(135deg, var(--fg-blue), var(--bg-blue));
     color: var(--text-color-inv);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(56, 56, 255, 0.3);
 }
 .keyboard { /* CLASS for the region containing the keyboard */
     margin-top: calc(var(--nav-size)*0.4);
@@ -121,13 +233,16 @@
     cursor: pointer;
     width: calc(var(--nav-size)*2);
     height: calc(var(--nav-size)*.55);
-    color: var(--text-color);
-    background-color: var(--text-color-inv);
-    border: calc(var(--nav-size)*.001) solid var(--bg-accent);
+    color: var(--text-color-inv);
+    background: linear-gradient(135deg, var(--fg-mint), var(--bg-mint));
+    border: calc(var(--nav-size)*.002) solid var(--fg-mint);
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 193, 193, 0.3);
 }
 #automate-newBut:hover{
-    background-image: radial-gradient( var(--text-color) 20%, transparent );
-    color: var(--text-color-inv);
+    background: linear-gradient(135deg, var(--bg-mint), var(--fg-mint));
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 193, 193, 0.4);
 }
 #automate-solutionBut{
     font-size: calc(var(--nav-size)*.2);
@@ -139,13 +254,16 @@
     font-size: calc(var(--nav-size)*.26);
     vertical-align: bottom;
     cursor: pointer;
-    color: var(--text-color);
-    background-color: var(--text-color-inv);
-    border: calc(var(--nav-size)*.001) solid var(--bg-accent);
+    color: var(--text-color-inv);
+    background: linear-gradient(135deg, var(--fg-orange), var(--bg-orange1));
+    border: calc(var(--nav-size)*.002) solid var(--fg-orange);
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(255, 115, 46, 0.3);
 }
 #automate-solutionBut:hover{
-    background-image: radial-gradient( var(--text-color) 20%, transparent );
-    color: var(--text-color-inv);
+    background: linear-gradient(135deg, var(--bg-orange1), var(--fg-orange));
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(255, 115, 46, 0.4);
 }
 #automate-settingBut{
     font-size: calc(var(--nav-size)*.4);
@@ -157,13 +275,16 @@
     cursor: pointer;
     height: calc(var(--nav-size)*.55);
     width: calc(var(--nav-size)*.6);
-    color: var(--text-color);
-    background-color: var(--text-color-inv);
-    border: calc(var(--nav-size)*.001) solid var(--bg-accent);
+    color: var(--text-color-inv);
+    background: linear-gradient(135deg, var(--fg-pink), var(--bg-pink));
+    border: calc(var(--nav-size)*.002) solid var(--fg-pink);
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(255, 55, 155, 0.3);
 }
 #automate-settingBut:hover{
-    background-image: radial-gradient( var(--text-color) 20%, transparent );
-    color: var(--text-color-inv);
+    background: linear-gradient(135deg, var(--bg-pink), var(--fg-pink));
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(255, 55, 155, 0.4);
 }
 #automate-solverbut{
     margin-top: calc(var(--nav-size)*.05);
@@ -175,19 +296,27 @@
     vertical-align: middle;
     cursor: pointer;
     height: calc(var(--nav-size)*.4);
-    color: var(--text-color);
-    background-color: var(--text-color-inv);
-    border: calc(var(--nav-size)*.001) solid var(--bg-accent);
+    color: var(--text-color-inv);
+    background: linear-gradient(135deg, var(--fg-blue), var(--bg-blue));
+    border: calc(var(--nav-size)*.002) solid var(--fg-blue);
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(56, 56, 255, 0.3);
 }
 #automate-solverbut:hover{
-    filter: brightness(1.2);
+    background: linear-gradient(135deg, var(--bg-blue), var(--fg-blue));
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(56, 56, 255, 0.4);
 }
 .settingMenu{ /* CLASS for the region containing the settings */
     margin-top: calc(var(--nav-size)*.1);
     padding: min(10px,4vw);
     text-align: center;
     font-size: calc(var(--nav-size)*.2);
-    border: calc(var(--nav-size)*.001) dashed var(--text-color);
+    border: calc(var(--nav-size)*.002) solid var(--fg-pink);
+    background: linear-gradient(135deg, var(--bg-page), var(--white1-transp));
+    border-radius: calc(var(--nav-size)*.1);
+    box-shadow: 0 4px 12px rgba(255, 55, 155, 0.2);
+    backdrop-filter: blur(5px);
 }
 #settingMenu-text{  /* CLASS for the region containing the settings input */
     font-size: calc(var(--nav-size)*.2);
