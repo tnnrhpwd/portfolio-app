@@ -13,6 +13,9 @@ var cors = require('cors')
 
 const app = express() // Calls the express function "express()" and puts new Express application inside the app variable
 
+// Trust proxy settings for rate limiting
+app.set('trust proxy', 1); // Trust first proxy
+
 // Security middleware
 app.use(helmet({
   contentSecurityPolicy: {

@@ -58,23 +58,25 @@ const getHashData = asyncHandler(async (req, res) => {
     }
 
     let data;
+    let dataSearchString;
     try {
+        // Try to parse as JSON first
         data = JSON.parse(req.query.data);
-        console.log('Parsed query data:', data);
+        console.log('Parsed query data as JSON:', data);
+        dataSearchString = data.text;
     } catch (error) {
-        console.log('Error parsing query data:', error);
-        res.status(400);
-        throw new Error('Invalid request query parameter parsing');
+        // If JSON parsing fails, treat as plain string
+        console.log('Query data is not JSON, treating as plain string:', req.query.data);
+        dataSearchString = req.query.data;
     }
 
-    if (!data.text) {
+    if (!dataSearchString) {
         res.status(400);
-        throw new Error('Invalid request query parameter parsed data');
+        throw new Error('Invalid request query parameter - no search string found');
     }
 
     try {
         // Use the search string as provided by the client (case-sensitive)
-        const dataSearchString = data.text; 
         console.log('dataSearchString:', dataSearchString);
         
         // Use the user ID with its original casing

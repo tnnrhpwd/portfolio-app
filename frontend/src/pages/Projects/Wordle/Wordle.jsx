@@ -37,6 +37,7 @@ function Wordle() {
   const [settingMenuText, setSettingMenuText] = useState("5");
   const [outputMessage, setOutputMessage] = useState("");
   const [answerVisibility, setAnswerVisibility] = useState(false);
+  const [hasShownWelcome, setHasShownWelcome] = useState(false);
   
   const keyListenerRef = useRef(null);
   const rootStyle = window.getComputedStyle(document.body);
@@ -270,12 +271,15 @@ function Wordle() {
 
   // UI functions
   const loginWelcome = useCallback(() => {
-    if (user) {
-      toast.success(`Welcome back, ${user.nickname}!`, { autoClose: toastDuration });
-    } else {
-      toast.info('Welcome! Please login to play. This page uses an api with tracked usage.', { autoClose: 4000 });
+    if (!hasShownWelcome) {
+      if (user) {
+        toast.success(`Welcome back, ${user.nickname}!`, { autoClose: toastDuration });
+      } else {
+        toast.info('Welcome! Please login to play. This page uses an api with tracked usage.', { autoClose: 4000 });
+      }
+      setHasShownWelcome(true);
     }
-  }, [user, toastDuration]);
+  }, [user, toastDuration, hasShownWelcome]);
 
   const newGameButton = useCallback(async () => {
     // GUARD CLAUSE - only numbers OR empty
@@ -338,8 +342,6 @@ function Wordle() {
     const launchTimer = setTimeout(async () => {
       await fetchDictionary();
       const cleanup = startKeyListen();
-      getMyData();
-      loginWelcome();
       
       return cleanup;
     }, 50);
@@ -350,7 +352,19 @@ function Wordle() {
         document.removeEventListener('keydown', keyListenerRef.current, false);
       }
     };
-  }, [fetchDictionary, startKeyListen, getMyData, loginWelcome]);
+  }, [fetchDictionary, startKeyListen]);
+
+  // Separate effect for welcome message - only runs once
+  useEffect(() => {
+    loginWelcome();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Intentionally empty - we want this to run only once on mount
+
+  // Separate effect for getMyData - only runs once  
+  useEffect(() => {
+    getMyData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Intentionally empty - we want this to run only once on mount
 
   useEffect(() => {
     if (dataMessage && !dataMessage.includes('token')) {

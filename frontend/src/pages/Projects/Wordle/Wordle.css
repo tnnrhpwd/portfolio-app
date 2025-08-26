@@ -231,9 +231,9 @@
     border-radius: calc(var(--nav-size)*.1);font-size: calc(var(--nav-size)*.26);
     vertical-align: middle;
     cursor: pointer;
+    color: var(--text-color);
     width: calc(var(--nav-size)*2);
     height: calc(var(--nav-size)*.55);
-    color: var(--text-color-inv);
     background: linear-gradient(135deg, var(--fg-mint), var(--bg-mint));
     border: calc(var(--nav-size)*.002) solid var(--fg-mint);
     transition: all 0.2s ease;
@@ -254,7 +254,7 @@
     font-size: calc(var(--nav-size)*.26);
     vertical-align: bottom;
     cursor: pointer;
-    color: var(--text-color-inv);
+    color: var(--text-color);
     background: linear-gradient(135deg, var(--fg-orange), var(--bg-orange1));
     border: calc(var(--nav-size)*.002) solid var(--fg-orange);
     transition: all 0.2s ease;
@@ -275,7 +275,7 @@
     cursor: pointer;
     height: calc(var(--nav-size)*.55);
     width: calc(var(--nav-size)*.6);
-    color: var(--text-color-inv);
+    color: var(--text-color);
     background: linear-gradient(135deg, var(--fg-pink), var(--bg-pink));
     border: calc(var(--nav-size)*.002) solid var(--fg-pink);
     transition: all 0.2s ease;
