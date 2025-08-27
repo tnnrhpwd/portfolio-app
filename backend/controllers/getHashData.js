@@ -207,9 +207,47 @@ const getHashData = asyncHandler(async (req, res) => {
                         ExpressionAttributeNames: expressionAttributeNames
                     };
 
+                    console.log('DynamoDB scan params:', JSON.stringify(params, null, 2));
+                    
+                    // First, let's also do a broader search to see if you have ANY data for this user
+                    const broadParams = {
+                        TableName: 'Simple',
+                        FilterExpression: 'contains(#text, :userId)',
+                        ExpressionAttributeValues: {
+                            ':userId': `Creator:${req.user.id}`
+                        },
+                        ExpressionAttributeNames: {
+                            '#text': 'text'
+                        }
+                    };
+                    
+                    console.log('Checking for ANY user data...');
+                    const broadResult = await dynamodb.scan(broadParams).promise();
+                    console.log('Total items for this user:', broadResult.Items ? broadResult.Items.length : 0);
+                    
+                    if (broadResult.Items && broadResult.Items.length > 0) {
+                        console.log('Sample user data items:');
+                        broadResult.Items.slice(0, 3).forEach((item, index) => {
+                            console.log(`Item ${index + 1}:`, item.text ? item.text.substring(0, 150) + '...' : 'no text');
+                        });
+                        
+                        // Check if any contain "Net:" at all
+                        const netItems = broadResult.Items.filter(item => item.text && item.text.includes('Net:'));
+                        console.log('Items containing "Net:":', netItems.length);
+                        if (netItems.length > 0) {
+                            console.log('First Net item:', netItems[0].text.substring(0, 200) + '...');
+                        }
+                    }
+                    
                     const result = await dynamodb.scan(params).promise();
+                    console.log('DynamoDB scan completed');
+                    console.log('Items found:', result.Items ? result.Items.length : 0);
+                    
+                    if (result.Items && result.Items.length > 0) {
+                        console.log('First item preview:', result.Items[0].text ? result.Items[0].text.substring(0, 100) + '...' : 'no text');
+                    }
 
-                    res.status(200).json({
+                    const responseData = {
                         data: result.Items.map(item => ({
                             data: item.text, // Return the text content as the data field
                             ActionGroup: item.ActionGroup,
@@ -219,7 +257,10 @@ const getHashData = asyncHandler(async (req, res) => {
                             __v: null, // Not applicable for DynamoDB
                             _id: item.id,
                         }))
-                    });
+                    };
+                    
+                    console.log('Sending response with', responseData.data.length, 'items');
+                    res.status(200).json(responseData);
                 }
             } catch (error) {
                 console.error("Error fetching data from DynamoDB:", error);

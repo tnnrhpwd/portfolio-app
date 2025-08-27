@@ -5,6 +5,7 @@ const path = require('path');
 const multer = require('multer');
 const asyncHandler = require('express-async-handler');
 const { checkIP } = require('../utils/accessData.js');
+const { sendEmail } = require('../utils/emailService.js');
 const stripe = require('stripe')(process.env.STRIPE_KEY);
 require('dotenv').config();
 const openaikey = process.env.OPENAI_KEY;
@@ -198,24 +199,27 @@ const compressData = asyncHandler(async (req, res) => {
 
         if (response.choices[0].message.content && response.choices[0].message.content.length > 0) {
             const compressedData = response.choices[0].message.content; // Extract the compressed data from the OpenAI response.
-            const newData = "Creator:"+req.user._id+"|Net:"+userInput+"\n"+compressedData;
+            const newData = "Creator:"+req.user.id+"|Net:"+userInput+"\n"+compressedData;
 
-            // Check if the ID is a valid ObjectID
-            if (itemID && itemID.match(/^[0-9a-fA-F]{24}$/)) {
-                // Check if the ID exists in the database
-                const existingData = await Data.findById(itemID);
-                if (existingData) {
-                    const updatedData = await Data.findByIdAndUpdate(itemID, { data: { text: newData } }, { new: true });
-                    res.status(200).json({ data: [compressedData] });
-                } else {
-                    res.status(404).json({ error: 'Data not found' });
+            console.log('Saving data with format:', newData.substring(0, 100) + '...');
+
+            // DynamoDB: Create a new item
+            const newItemParams = {
+                TableName: 'Simple',
+                Item: {
+                    id: require('crypto').randomBytes(16).toString("hex"),
+                    text: newData,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
                 }
-            } else {
-                // Create a new item if no valid itemID is provided
-                const newItem = new Data({ data: { text: newData }, user: req.user._id });
-                console.log('New item:', newItem);
-                await newItem.save();
+            };
+
+            try {
+                await dynamodb.put(newItemParams).promise();
                 res.status(201).json({ data: [compressedData] });
+            } catch (dbError) {
+                console.error('Error saving to DynamoDB:', dbError);
+                res.status(500).json({ error: 'Failed to save data' });
             }
         } else {
             res.status(500).json({ error: 'No compressed data found in the OpenAI response' });

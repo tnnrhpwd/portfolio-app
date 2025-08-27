@@ -50,15 +50,19 @@ const NNetChatView = () => {
   useEffect(() => {  // Handle getData updates
     // If there is a new successful response from getData, update priorChats
     if (operation === 'get' && dataIsSuccess) {
-      console.log(data.data);
+      console.log('getData response:', data.data);
       let tempPriorChats = [];
       data.data.forEach((item) => {
-        if (item.data.text && item.data.text.includes('|Net:')) {
-          tempPriorChats.push(item);
+        // Backend returns data directly in item.data, not item.data.text
+        if (item.data && item.data.includes('|Net:')) {
+          tempPriorChats.push({
+            ...item,
+            data: { text: item.data } // Restructure to match expected format
+          });
         }
       });
 
-      console.log(tempPriorChats);
+      console.log('Processed priorChats:', tempPriorChats);
       setPriorChats(tempPriorChats); // Ensure that dataIsSuccess is true before updating priorChats
     }
 
@@ -96,7 +100,7 @@ const NNetChatView = () => {
     return () => {
       dispatch(resetDataSlice());
     };
-  }, [dispatch, toastDuration, user]);
+  }, [dispatch, toastDuration, user, navigate]);
 
   const handleSend = async () => {
     try {
@@ -188,9 +192,20 @@ const NNetChatView = () => {
 
   const handleChatClick = (clickedChat) => {
     setActiveChat(clickedChat); // Assuming that each chat object has an 'id' property
-    console.log(clickedChat);
+    console.log('Clicked chat:', clickedChat);
+    // Extract the chat content after |Net: token
     const chatContent = clickedChat.data.text.split("|Net:")[1];
-    setChatHistory((prevChatHistory) => [{ content: chatContent }]);
+    console.log('Extracted chat content:', chatContent);
+    
+    // Parse the chat content to recreate the conversation history
+    const lines = chatContent.split('\n').filter(line => line.trim());
+    const chatMessages = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+      chatMessages.push({ content: lines[i] });
+    }
+    
+    setChatHistory(chatMessages);
   };
 
   const handleDeleteData = async (id) => {
