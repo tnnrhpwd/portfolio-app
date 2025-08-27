@@ -196,7 +196,7 @@ function Wordle() {
     
     try {
       if (definition) {
-        setOutputMessage(`Definition: ${definition}`); // Set definition for credits
+        setOutputMessage(`Definition (from Urban Dictionary): ${definition}\n\n⚠️ Note: Definitions are sourced from Urban Dictionary and may contain inappropriate, offensive, or non-professional content. We are not responsible for the content of these definitions.`); // Set definition for credits
       } else {
         setOutputMessage("Thanks for playing! Definition not available.");
       }
