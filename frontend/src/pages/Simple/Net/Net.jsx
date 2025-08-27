@@ -7,7 +7,16 @@ function Net() {
   return (<>
     <Header />
     <div className='planit-nnet'>
-        <NNetChatView />
+        {/* Floating background elements */}
+        <div className="floating-shapes">
+            <div className="floating-circle floating-circle-1"></div>
+            <div className="floating-circle floating-circle-2"></div>
+            <div className="floating-circle floating-circle-3"></div>
+        </div>
+        
+        <div className="net-hero-section">
+            <NNetChatView />
+        </div>
     </div>
   </>
   );

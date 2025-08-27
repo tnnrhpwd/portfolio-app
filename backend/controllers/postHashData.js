@@ -171,9 +171,12 @@ const compressData = asyncHandler(async (req, res) => {
     const parsedJSON = JSON.parse(req.body.data);
     console.log('Request body:', parsedJSON); // Log the request body
 
+    const updateId = req.body.updateId; // Check if this is an update to existing chat
+    console.log('Update ID:', updateId);
+
     const itemID = parsedJSON._id; // Get the ID from the query string.
 
-    const contextInput = parsedJSON.data.text; // Get context input from the query string.
+    const contextInput = parsedJSON.text; // Get context input directly from text field
     console.log('Context input:', contextInput); // Log the context input
 
     if (typeof contextInput !== 'string') { 
@@ -203,23 +206,54 @@ const compressData = asyncHandler(async (req, res) => {
 
             console.log('Saving data with format:', newData.substring(0, 100) + '...');
 
-            // DynamoDB: Create a new item
-            const newItemParams = {
-                TableName: 'Simple',
-                Item: {
-                    id: require('crypto').randomBytes(16).toString("hex"),
-                    text: newData,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
-                }
-            };
+            if (updateId) {
+                // Update existing item in DynamoDB
+                console.log('Updating existing chat with ID:', updateId);
+                const updateParams = {
+                    TableName: 'Simple',
+                    Key: {
+                        id: updateId
+                    },
+                    UpdateExpression: 'SET #text = :text, updatedAt = :updatedAt',
+                    ExpressionAttributeNames: {
+                        '#text': 'text'
+                    },
+                    ExpressionAttributeValues: {
+                        ':text': newData,
+                        ':updatedAt': new Date().toISOString()
+                    },
+                    ReturnValues: 'UPDATED_NEW'
+                };
 
-            try {
-                await dynamodb.put(newItemParams).promise();
-                res.status(201).json({ data: [compressedData] });
-            } catch (dbError) {
-                console.error('Error saving to DynamoDB:', dbError);
-                res.status(500).json({ error: 'Failed to save data' });
+                try {
+                    const result = await dynamodb.update(updateParams).promise();
+                    console.log('Successfully updated existing chat');
+                    res.status(200).json({ data: [compressedData] });
+                } catch (dbError) {
+                    console.error('Error updating DynamoDB:', dbError);
+                    res.status(500).json({ error: 'Failed to update data' });
+                }
+            } else {
+                // Create new item in DynamoDB
+                console.log('Creating new chat entry');
+                const newItemParams = {
+                    TableName: 'Simple',
+                    Item: {
+                        id: require('crypto').randomBytes(16).toString("hex"),
+                        text: newData,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                    }
+                };
+
+                try {
+                    await dynamodb.put(newItemParams).promise();
+                    console.log('Successfully created new chat');
+                    res.status(201).json({ data: [compressedData] });
+                } catch (dbError) {
+                    console.error('Error saving to DynamoDB:', dbError);
+                    res.status(500).json({ error: 'Failed to save data' });
+                }
             }
         } else {
             res.status(500).json({ error: 'No compressed data found in the OpenAI response' });

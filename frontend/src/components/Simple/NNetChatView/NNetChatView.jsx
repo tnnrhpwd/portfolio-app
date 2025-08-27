@@ -32,6 +32,9 @@ const NNetChatView = () => {
       const compressedResponse = data.data[0];
       setChatHistory((prevChatHistory) => [...prevChatHistory, { content: compressedResponse }]);
       setInputText('');
+      
+      // Refresh the prior chats list to show the updated/new chat
+      dispatch(getData({ data: { text: "|Net:" } }));
     }
 
     // Handle errors
@@ -128,15 +131,21 @@ const NNetChatView = () => {
         console.log(activeChatItem.data.text);
         setActiveChat(activeChatItem);
         setChatHistory((prevChatHistory) => [...prevChatHistory, { content: inputText }]); // Update the chat history
-        // Dispatch the compressData action with the combinedData
-        dispatch(compressData({ data: JSON.stringify(activeChatItem) }));
+        // Include the ID to indicate this is an update, not a new entry
+        dispatch(compressData({ 
+          data: JSON.stringify({ 
+            text: "Net:" + combinedData 
+          }),
+          updateId: activeChatItem._id // Pass the ID for updating existing entry
+        }));
       }else{
-        let chatItem = { data: { text: inputTextString } };
-        console.log(chatItem);
-        // Dispatch the compressData action with the combinedData
-        dispatch(compressData({ data: JSON.stringify(chatItem) }));
+        // New chat - no updateId
+        dispatch(compressData({ 
+          data: JSON.stringify({ 
+            text: "Net:" + combinedData 
+          })
+        }));
         setChatHistory((prevChatHistory) => [...prevChatHistory, { content: inputText }]); // Update the chat history
-
       }
       
 
