@@ -167,6 +167,33 @@
     width: 100%;
     flex-grow: 1;
 }
+
+/* Animation for initial "Press New Game to begin!" message */
+.game-start-message {
+    animation: fadeInBounce 1.2s ease-out;
+    color: var(--text-color);
+    font-size: calc(var(--nav-size) * 0.35);
+    font-weight: 600;
+    text-shadow: 0 2px 8px rgba(56, 56, 255, 0.3);
+    margin-top: calc(var(--nav-size) * 0.3);
+    opacity: 0;
+    animation-fill-mode: forwards;
+}
+
+@keyframes fadeInBounce {
+    0% {
+        opacity: 0;
+        transform: translateY(-30px) scale(0.8);
+    }
+    50% {
+        opacity: 0.8;
+        transform: translateY(10px) scale(1.05);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
 .key-guess {
     display: inline-flex;
     justify-content: center;
@@ -366,6 +393,20 @@
     font-size: calc(var(--nav-size)*.26);
     text-align: center;
     flex-grow: 1;
+    animation: slideInUp 0.8s ease-out 0.3s;
+    opacity: 0;
+    animation-fill-mode: forwards;
+}
+
+@keyframes slideInUp {
+    0% {
+        opacity: 0;
+        transform: translateY(40px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 #automate-newBut{
     font-size: calc(var(--nav-size)*.2);
@@ -382,6 +423,20 @@
     border: calc(var(--nav-size)*.002) solid var(--fg-mint);
     transition: all 0.2s ease;
     box-shadow: 0 2px 8px rgba(0, 193, 193, 0.3);
+    animation: slideInLeft 0.6s ease-out 0.5s;
+    opacity: 0;
+    animation-fill-mode: forwards;
+}
+
+@keyframes slideInLeft {
+    0% {
+        opacity: 0;
+        transform: translateX(-30px) scale(0.9);
+    }
+    100% {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
 }
 #automate-newBut:hover{
     background: linear-gradient(135deg, var(--bg-mint), var(--fg-mint));
@@ -424,6 +479,20 @@
     border: calc(var(--nav-size)*.002) solid var(--fg-pink);
     transition: all 0.2s ease;
     box-shadow: 0 2px 8px rgba(255, 55, 155, 0.3);
+    animation: slideInRight 0.6s ease-out 0.7s;
+    opacity: 0;
+    animation-fill-mode: forwards;
+}
+
+@keyframes slideInRight {
+    0% {
+        opacity: 0;
+        transform: translateX(30px) scale(0.9);
+    }
+    100% {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
 }
 #automate-settingBut:hover{
     background: linear-gradient(135deg, var(--bg-pink), var(--fg-pink));

@@ -86,7 +86,6 @@ function Wordle() {
   const [outputMessage, setOutputMessage] = useState("");
   const [answerWord, setAnswerWord] = useState("");
   const [answerVisibility, setAnswerVisibility] = useState(false);
-  const [hasShownWelcome, setHasShownWelcome] = useState(false);
   const [isCreditsExpanded, setIsCreditsExpanded] = useState(false);
   const [useFullDictionary, setUseFullDictionary] = useState(false);
   const [gameStartTime, setGameStartTime] = useState(null);
@@ -499,17 +498,6 @@ function Wordle() {
   }, [keyListener]);
 
   // UI functions
-  const loginWelcome = useCallback(() => {
-    if (!hasShownWelcome) {
-      if (user) {
-        toast.success(`Welcome back, ${user.nickname}!`, { autoClose: toastDuration });
-      } else {
-        toast.info('Welcome to Wordle! You can play without logging in, but login to see word definitions.', { autoClose: 4000 });
-      }
-      setHasShownWelcome(true);
-    }
-  }, [user, toastDuration, hasShownWelcome]);
-
   const newGameButton = useCallback(async () => {
     // GUARD CLAUSE - only numbers OR empty
     if (!(/^\d+$/.test(settingMenuText))) {
@@ -625,12 +613,6 @@ function Wordle() {
     return cleanup;
   }, [startKeyListen]);
 
-  // Separate effect for welcome message - only runs once
-  useEffect(() => {
-    loginWelcome();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Intentionally empty - we want this to run only once on mount
-
   // Separate effect for getMyData - only runs once  
   useEffect(() => {
     getMyData();
@@ -727,7 +709,7 @@ function Wordle() {
       <div className="guessGrid">
         <GetGuessGrid/>
         <div/>
-        {(buttonPressNum===0)&&"Press New Game to begin!"}
+        {(buttonPressNum===0)&&<div className="game-start-message">Press New Game to begin!</div>}
       </div>
       {(answerVisibility===true)&&
         <div className='wordle-answer'>
