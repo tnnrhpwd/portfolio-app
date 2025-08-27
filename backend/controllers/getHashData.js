@@ -104,7 +104,30 @@ const getHashData = asyncHandler(async (req, res) => {
                 throw new Error('Failed to fetch definition from rapidapi');
             }
             const data = await response.json();
-            const definition = data.list[0].definition + data.list[1].definition + data.list[2].definition;
+            
+            // Clean up and format the definitions
+            let definitions = [];
+            if (data.list && data.list.length > 0) {
+                // Take up to 3 definitions and clean them
+                for (let i = 0; i < Math.min(3, data.list.length); i++) {
+                    if (data.list[i] && data.list[i].definition) {
+                        let def = data.list[i].definition
+                            .replace(/\[|\]/g, '') // Remove brackets
+                            .replace(/\r\n/g, ' ') // Replace line breaks
+                            .replace(/\s+/g, ' ')  // Replace multiple spaces
+                            .trim();
+                        
+                        if (def && def.length > 0) {
+                            definitions.push(`${i + 1}. ${def}`);
+                        }
+                    }
+                }
+            }
+            
+            const definition = definitions.length > 0 
+                ? definitions.join(' | ') 
+                : 'Definition not available.';
+                
             res.status(200).json({ worddef: definition }); // Return the definition
 
         } else { // Handle database search requests

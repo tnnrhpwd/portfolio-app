@@ -36,10 +36,14 @@ function Wordle() {
   const [settingMenu, setSettingMenu] = useState(0);
   const [settingMenuText, setSettingMenuText] = useState("5");
   const [outputMessage, setOutputMessage] = useState("");
+  const [answerWord, setAnswerWord] = useState("");
   const [answerVisibility, setAnswerVisibility] = useState(false);
   const [hasShownWelcome, setHasShownWelcome] = useState(false);
+  const [isCreditsExpanded, setIsCreditsExpanded] = useState(false);
   
   const keyListenerRef = useRef(null);
+  const isDictionaryLoadedRef = useRef(false);
+  const isKeyboardListeningRef = useRef(false);
   const rootStyle = window.getComputedStyle(document.body);
   const toastDuration = parseInt(rootStyle.getPropertyValue('--toast-duration'), 10);
 
@@ -65,15 +69,62 @@ function Wordle() {
     return appearances;
   }, []);
 
+  // Text truncation helpers
+  const truncateText = useCallback((text, maxLength = 200) => {
+    if (!text || text.length <= maxLength) return text;
+    return text.substring(0, maxLength).trim() + '...';
+  }, []);
+
+  const TruncatedText = useCallback(({ 
+    text, 
+    maxLength = 200, 
+    isExpanded, 
+    setIsExpanded, 
+    className = '' 
+  }) => {
+    const shouldTruncate = text && text.length > maxLength;
+    const displayText = isExpanded ? text : truncateText(text, maxLength);
+    
+    return (
+      <div className={className}>
+        {displayText}
+        {shouldTruncate && (
+          <button 
+            onClick={(e) => {
+              e.preventDefault();
+              setIsExpanded(!isExpanded);
+            }}
+            className="expand-toggle"
+            style={{
+              marginLeft: '8px',
+              background: 'none',
+              border: 'none',
+              color: 'var(--fg-blue)',
+              cursor: 'pointer',
+              textDecoration: 'underline',
+              fontSize: 'inherit',
+              fontWeight: 'bold'
+            }}
+          >
+            {isExpanded ? 'Show less' : 'Show more'}
+          </button>
+        )}
+      </div>
+    );
+  }, [truncateText]);
+
   // Reset game state
   const resetInitialValues = useCallback(() => {
     setKeys(initialKeys);
     setGuesses([]);
     setCurrentGuess([]);
-    setWordLength(0);
+    // Don't reset wordLength here - it should be set by newGameButton
     setSecretWord("");
+    setAnswerWord("");
     setButtonPressNum(0);
     setAnswerVisibility(false);
+    setIsCreditsExpanded(false);
+    // Note: Don't reset isDictionaryLoaded or isKeyboardListening as they should persist
 
     // Reset keyboard visual state
     Object.keys(initialKeys).forEach(key => {
@@ -87,6 +138,10 @@ function Wordle() {
 
   // Dictionary loading
   const fetchDictionary = useCallback(async () => {
+    if (isDictionaryLoadedRef.current) {
+      return; // Already loaded, don't reload
+    }
+    
     try {
       const response = await fetch(url);
       const data = await response.text();
@@ -96,6 +151,7 @@ function Wordle() {
         dictionaryArray = dictionaryArray[0].split("\n");
       }
       setDictionary(dictionaryArray);
+      isDictionaryLoadedRef.current = true;
       console.log("Dictionary loaded successfully");
     } catch (err) {
       console.error("Error loading dictionary:", err);
@@ -137,11 +193,17 @@ function Wordle() {
   // Game logic
   const endOfGame = useCallback(async () => {
     setAnswerVisibility(true);
+    setAnswerWord(secretWord); // Set just the word for wordle-answer
+    
     try {
-      setOutputMessage(`The answer is ${secretWord}. Definition: ${definition}`);
+      if (definition) {
+        setOutputMessage(`Definition: ${definition}`); // Set definition for credits
+      } else {
+        setOutputMessage("Thanks for playing! Definition not available.");
+      }
     } catch (error) {
-      console.error('Error fetching definition:', error.message);
-      setOutputMessage(`The answer is ${secretWord}. Definition not available.`);
+      console.error('Error setting definition:', error.message);
+      setOutputMessage("Thanks for playing! Definition not available.");
     }
   }, [secretWord, definition]);
 
@@ -227,46 +289,115 @@ function Wordle() {
     setCurrentGuess([]);
   }, [currentGuess, wordLength, guesses.length, dictionary, secretWord, toastDuration, countLetters, endOfGame]);
 
-  const keyPress = useCallback((key) => {
+  const keyPress = useCallback((key, fromVirtualKeyboard = false) => {
+    console.log('keyPress called with:', key, 'currentGuess length:', currentGuess.length, 'wordLength:', wordLength, 'guesses length:', guesses.length);
+    
     switch(key){
       case '⌫': 
+        console.log('Calling backspace');
         backspace(); 
         break; 
       case '⏎': 
+        console.log('Calling enter');
         enter();
         break;
       default:
         if (currentGuess.length < wordLength && guesses.length < maxGuesses) {
-          setCurrentGuess(prev => [...prev, { key: key, result: '' }]);
+          console.log('Adding letter to current guess:', key);
+          setCurrentGuess(prev => {
+            const newGuess = [...prev, { key: key, result: '' }];
+            console.log('New current guess:', newGuess);
+            return newGuess;
+          });
+        } else {
+          console.log('Cannot add letter - currentGuess.length:', currentGuess.length, 'wordLength:', wordLength, 'guesses.length:', guesses.length, 'maxGuesses:', maxGuesses);
         }
+    }
+    
+    // If this was a virtual keyboard press, remove focus to allow physical keyboard input
+    if (fromVirtualKeyboard) {
+      setTimeout(() => {
+        if (document.activeElement && document.activeElement.blur) {
+          document.activeElement.blur();
+        }
+      }, 10);
     }
   }, [currentGuess.length, wordLength, guesses.length, backspace, enter]);
 
-  // Event listeners
+  // Event listeners - SIMPLE APPROACH: just capture all keys during active gameplay
   const keyListener = useCallback((event) => {
-    if(event.code === undefined) return;
+    // Get current state values directly to avoid closure issues
+    const currentInGameState = document.getElementById('wordle-space')?.dataset?.inGameState || '0';
+    const currentAnswerVisibility = document.getElementById('wordle-space')?.dataset?.answerVisibility || 'false';
     
-    if(event.code.length === 4){
-      keyPress(event.code.substring(3,4));
+    console.log('Keyboard event:', event.key, 'Game state:', currentInGameState, 'Answer visible:', currentAnswerVisibility);
+    
+    // Only process keyboard events during active gameplay
+    if (parseInt(currentInGameState) % 2 !== 1 || currentAnswerVisibility === 'true') {
+      console.log('Game not active, ignoring keyboard input');
+      return; // Game not active, ignore keyboard input
     }
-    switch(event.code){
-      case 'Backspace': 
+
+    // Don't prevent default for input fields or other elements that need keyboard input
+    if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+      console.log('Input field focused, ignoring keyboard input');
+      return;
+    }
+
+    // Prevent default behavior for game keys
+    event.preventDefault();
+    
+    console.log('Processing keyboard input:', event.key);
+
+    const key = event.key.toUpperCase();
+    
+    // Handle letter keys (A-Z)
+    if (key.length === 1 && key >= 'A' && key <= 'Z') {
+      console.log('Letter key pressed:', key);
+      keyPress(key);
+      return;
+    }
+    
+    // Handle special keys
+    switch(event.code || event.key) {
+      case 'Backspace':
+      case 'Delete':
+        console.log('Backspace key pressed');
         keyPress('⌫'); 
         break;
-      case 'Enter': 
+      case 'Enter':
+      case 'NumpadEnter':
+        console.log('Enter key pressed');
         keyPress('⏎'); 
         break;
       default:
+        console.log('Other key pressed, ignoring:', event.key);
         break;
     }
   }, [keyPress]);
 
   const startKeyListen = useCallback(() => {
+    if (isKeyboardListeningRef.current) {
+      return () => {}; // Already listening, return empty cleanup
+    }
+    
+    // Remove any existing listener first
+    if (keyListenerRef.current) {
+      document.removeEventListener('keydown', keyListenerRef.current, false);
+    }
+    
     const handleKeydown = keyListener;
+    // Simple document-level listener
     document.addEventListener('keydown', handleKeydown, false);
     keyListenerRef.current = handleKeydown;
+    isKeyboardListeningRef.current = true;
     console.log("Now listening for keyboard inputs");
-    return () => document.removeEventListener('keydown', handleKeydown, false);
+    
+    return () => {
+      document.removeEventListener('keydown', handleKeydown, false);
+      keyListenerRef.current = null;
+      isKeyboardListeningRef.current = false;
+    };
   }, [keyListener]);
 
   // UI functions
@@ -300,14 +431,16 @@ function Wordle() {
       return;
     }
 
+    const newWordLength = parseFloat(settingMenuText);
+    console.log('Setting new word length to:', newWordLength);
+    
     resetInitialValues();
     setOutputMessage("");
     setButtonPressNum(prev => prev + 1);
     setInGameState(1);
+    setWordLength(newWordLength); // Set word length after reset
 
     try {
-      const newWordLength = parseFloat(settingMenuText);
-      setWordLength(newWordLength);
       await fetchRandomWordFromBackend(newWordLength);
     } catch (error) {
       console.error('Error fetching random word:', error.message);
@@ -337,22 +470,27 @@ function Wordle() {
     return grid;
   }, [wordLength, guesses, updateKeyGuessCount]);
 
-  // Effects
+  // Effects - Initialize dictionary and keyboard listener only once
   useEffect(() => {
+    let cleanup;
+    
     const launchTimer = setTimeout(async () => {
-      await fetchDictionary();
-      const cleanup = startKeyListen();
-      
-      return cleanup;
+      if (!isDictionaryLoadedRef.current) {
+        await fetchDictionary();
+      }
+      if (!isKeyboardListeningRef.current) {
+        cleanup = startKeyListen();
+      }
     }, 50);
   
     return () => {
       clearTimeout(launchTimer);
-      if (keyListenerRef.current) {
-        document.removeEventListener('keydown', keyListenerRef.current, false);
+      if (cleanup) {
+        cleanup();
       }
     };
-  }, [fetchDictionary, startKeyListen]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Intentionally empty - we want this to run only once on mount
 
   // Separate effect for welcome message - only runs once
   useEffect(() => {
@@ -415,7 +553,12 @@ function Wordle() {
   }, [keys, publishKeyboard]);
 
   return (
-    <div className='wordle-space' id='wordle-space'>
+    <div 
+      className='wordle-space' 
+      id='wordle-space'
+      data-in-game-state={inGameState}
+      data-answer-visibility={answerVisibility.toString()}
+    >
       <Header/>
       <div className="title">
         Wordle
@@ -427,7 +570,7 @@ function Wordle() {
       </div>
       {(answerVisibility===true)&&
         <div className='wordle-answer'>
-          {outputMessage}
+          The answer is: <strong>{answerWord.toUpperCase()}</strong>
         </div>
       }  
       <div className="keyboard">
@@ -436,7 +579,15 @@ function Wordle() {
             {Object.keys(keys).map((key,index) => (
               <div className='keyboard-div2' key={"keyboard-div2"+key}>
                 {(key.includes("break"))?<br key={index} />:
-                  <button id={key} onClick={() => keyPress(key)} className='key' key={key} >{key}</button>
+                  <button 
+                    id={key} 
+                    onClick={() => keyPress(key, true)} 
+                    className='key' 
+                    key={key}
+                    onMouseDown={(e) => e.preventDefault()} // Prevent focus on mouse down
+                  >
+                    {key}
+                  </button>
                 }
               </div>
             ))}
@@ -479,9 +630,13 @@ function Wordle() {
           </div>
         }  
       </div>
-      <div className="credits">
-      {outputMessage}
-      </div>
+      <TruncatedText 
+        text={outputMessage}
+        maxLength={150}
+        isExpanded={isCreditsExpanded}
+        setIsExpanded={setIsCreditsExpanded}
+        className="credits"
+      />
       <Footer/>
     </div>
   );

@@ -15,6 +15,10 @@
     overflow-x: hidden;
 }
 
+.footer-space{
+    background-color: transparent !important;
+}
+
 @keyframes gradientShift {
     0% { background-position: 0% 50%; }
     25% { background-position: 100% 50%; }
@@ -131,8 +135,8 @@
     justify-content: center;
     align-items: center;
     text-transform: uppercase;
-    border: calc(1vw * 0.15) solid var(--fg-pink);
-    box-shadow: 0 2px 8px rgba(255, 55, 155, 0.2);
+    border: calc(1vw * 0.15) solid var(--fg-blue);
+    box-shadow: 0 2px 8px var(--fg-blue);
     height: calc(var(--nav-size) * 1.2);
     width: calc(calc(1vw * 82) / var(--key-guess-count));
     vertical-align: middle;
@@ -160,17 +164,62 @@
     opacity: 1;
 }
 .wordle-answer{
-    top: calc(var(--nav-size)*4);
-    position: absolute;
-    margin-bottom: calc(var(--nav-size)*.2);
-    font-size: calc(var(--nav-size)*.27);
-    background: linear-gradient(135deg, var(--fg-mint), var(--bg-mint));
-    color: var(--text-color-inv);
-    padding: calc(var(--nav-size)*.3);
-    border-radius: calc(var(--nav-size)*.1);
-    border: calc(var(--nav-size)*.002) solid var(--fg-mint);
-    box-shadow: 0 4px 12px rgba(0, 193, 193, 0.4);
-    font-weight: bold;
+    position: relative;
+    max-width: 90vw;
+    width: fit-content;
+    margin: calc(var(--nav-size) * 0.5) auto calc(var(--nav-size) * 0.3) auto;
+    padding: calc(var(--nav-size) * 0.4);
+    font-size: calc(var(--nav-size)*.3);
+    line-height: 1.2;
+    text-align: center;
+    
+    /* Modern gradient background matching the theme */
+    background: linear-gradient(135deg, var(--bg-blue), var(--bg-mint));
+    color: var(--text-color);
+    border-radius: calc(var(--nav-size) * 0.2);
+    
+    /* Enhanced border with gradient */
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    box-shadow: 
+        0 0 0 2px var(--fg-blue),
+        0 8px 25px rgba(56, 56, 255, 0.15),
+        0 4px 15px rgba(0, 193, 193, 0.1);
+    
+    /* Smooth animations */
+    animation: answerSlideIn 0.6s ease-out;
+    font-weight: 500;
+    z-index: 10;
+}
+
+.wordle-answer strong {
+    font-weight: 700;
+    font-size: calc(var(--nav-size)*.35);
+    color: var(--fg-blue);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+@keyframes answerSlideIn {
+    0% {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.9);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.expand-toggle {
+    transition: all 0.2s ease;
+    border-radius: calc(var(--nav-size) * 0.1);
+    padding: 2px 6px;
+}
+
+.expand-toggle:hover {
+    background-color: var(--bg-blue) !important;
+    color: var(--text-color-inv) !important;
+    transform: scale(1.05);
 }
 .key { /* CLASS for the keyboard buttons */
     font-weight: bold;
@@ -212,9 +261,44 @@
     display:inline;
 }
 .credits { /* CLASS for the region containing the Thank you for visiting */
-    margin-top: min(20px,4vw);
+    margin: calc(var(--nav-size) * 0.4) auto calc(var(--nav-size) * 0.6) auto;
+    padding: calc(var(--nav-size) * 0.3);
+    max-width: 85vw;
+    text-align: center;
+    
+    /* Enhanced typography */
     color: var(--text-color);
-    font-size: calc(var(--nav-size)*.2);
+    font-size: calc(var(--nav-size) * 0.3);
+    font-weight: 500;
+    line-height: 1.5;
+    
+    /* Subtle background styling */
+    background: linear-gradient(135deg, var(--bg-page-transp), var(--white1-transp));
+    border-radius: calc(var(--nav-size) * 0.15);
+    border: 1px solid var(--grey1);
+    
+    /* Soft shadow */
+    box-shadow: 
+        0 2px 10px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    
+    /* Smooth appearance */
+    transition: all 0.3s ease;
+    z-index: 5;
+}
+
+.credits:not(:empty) {
+    /* Only show background/padding when there's content */
+    opacity: 1;
+}
+
+.credits:empty {
+    /* Hide styling when empty */
+    background: none;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    margin: 0;
 }
 .automate { /* CLASS for the region containing the REVEAL SOLUTION button */
     margin-top: min(10px,4vw);
@@ -351,7 +435,21 @@
         width: calc(32.2vw / var(--key-guess-count));
     }
     .wordle-answer{
-        font-size: calc(var(--nav-size)*.3);
+        font-size: calc(var(--nav-size) * 0.3);
+        padding: calc(var(--nav-size) * 0.5);
+        margin: calc(var(--nav-size) * 0.4) auto;
+        max-width: 95vw;
+    }
+    
+    .wordle-answer strong {
+        font-size: calc(var(--nav-size) * 0.35);
+    }
+    
+    .credits {
+        font-size: calc(var(--nav-size) * 0.35);
+        padding: calc(var(--nav-size) * 0.25);
+        margin: calc(var(--nav-size) * 0.3) auto calc(var(--nav-size) * 0.5) auto;
+        max-width: 90vw;
     }
     #automate-newBut{
         font-size: calc(var(--nav-size)*.2);
