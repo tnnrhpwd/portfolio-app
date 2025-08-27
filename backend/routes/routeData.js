@@ -123,6 +123,11 @@ router.post('/subscribe-customer', protect, paymentLimiter, subscribeCustomer);
 // Webhook route
 router.post('/webhook', express.raw({ type: 'application/json' }), handleWebhook);
 
+// More specific routes must come before generic ones
+router.route('/public/:id')
+  .delete(protect, deleteData) // DELETE public data
+  .put(protect, putData); // PUT public data
+
 // Now the more generic routes
 router.route('/')
   .get(protect, getHashData) // GET protected data
@@ -131,9 +136,5 @@ router.route('/')
 router.route('/:id')
   .delete(protect, deleteHashData) // DELETE protected data
   .put(protect, putHashData); // PUT protected data
-
-router.route('/public/:id')
-  .delete(protect, deleteData) // DELETE public data
-  .put(protect, putData); // PUT public data
 
 module.exports = router; // Export the router

@@ -33,20 +33,36 @@ const putHashData = asyncHandler(async (req, res) => {
     console.log('req.params.id:', req.params.id);
 
     try {
-        // Retrieve the item from DynamoDB
-        const getParams = {
+        // Debug: log the exact parameter we're trying to use
+        console.log('Attempting to get item with id:', req.params.id);
+        console.log('id type:', typeof req.params.id);
+        console.log('id length:', req.params.id.length);
+
+        // Try using scan instead of get, like the working controllers
+        const scanParams = {
             TableName: 'Simple',
-            Key: {
-                id: req.params.id
+            FilterExpression: "id = :searchId",
+            ExpressionAttributeValues: {
+                ":searchId": req.params.id
             }
         };
 
         let item;
         try {
-            const getItemResult = await dynamodb.get(getParams).promise();
-            item = getItemResult.Item;
-        } catch (getError) {
-            console.error('Error getting item:', getError);
+            console.log('Using scan instead of get...');
+            const scanResult = await dynamodb.scan(scanParams).promise();
+            console.log('Scan result count:', scanResult.Items ? scanResult.Items.length : 0);
+            
+            if (!scanResult.Items || scanResult.Items.length === 0) {
+                console.log('No items found via scan');
+                res.status(404).json({ error: 'Data item not found' });
+                return;
+            }
+            
+            item = scanResult.Items[0];
+            console.log('Found item via scan');
+        } catch (scanError) {
+            console.error('Error scanning item:', scanError);
             res.status(500).json({ error: 'Failed to get data from DynamoDB' });
             return;
         }
@@ -65,8 +81,8 @@ const putHashData = asyncHandler(async (req, res) => {
             throw new Error('User not authorized');
         }
 
-        // Skip payment method check if text is 'free'
-        if (req.body.text.toLowerCase() === 'free') {
+        // Skip payment method check if text is 'free' or if it's Net chat content
+        if (req.body.text.toLowerCase() === 'free' || req.body.text.includes('|Net:')) {
             await updateDataHolder(req, res, item);
             return;
         }
@@ -93,6 +109,37 @@ const putHashData = asyncHandler(async (req, res) => {
 });
 
 const updateDataHolder = async (req, res, item) => {
+    // Check if this is a Net chat update (contains |Net: content)
+    if (req.body.text.includes('|Net:')) {
+        console.log('Processing Net chat update');
+        
+        // For Net chats, replace the entire text content
+        const updatedText = req.body.text;
+        console.log('Updated Net chat text:', updatedText);
+
+        // Use put operation to update the item
+        const putParams = {
+            TableName: 'Simple',
+            Item: {
+                ...item, // Keep all existing data
+                text: updatedText, // Update the text
+                updatedAt: new Date().toISOString() // Update timestamp
+            }
+        };
+
+        try {
+            await dynamodb.put(putParams).promise();
+            const updatedItem = putParams.Item;
+            console.log('Net chat updated successfully');
+            res.status(200).json(updatedItem);
+        } catch (error) {
+            console.error('Error updating Net chat in DynamoDB:', error);
+            res.status(500).json({ error: 'Failed to update Net chat in DynamoDB' });
+        }
+        return;
+    }
+
+    // Original logic for subscription plan updates
     // Extract current rank for email notification
     let currentRank = 'Free';
     const rankMatch = item.text.match(/\|Rank:([^|]+)/);
@@ -107,25 +154,19 @@ const updateDataHolder = async (req, res, item) => {
 
     console.log('Updated text:', updatedText);
 
-    const params = {
+    // Use put operation instead of update since we're working with scan results
+    const putParams = {
         TableName: 'Simple',
-        Key: {
-            id: req.params.id
-        },
-        UpdateExpression: 'set #text = :text, updatedAt = :updatedAt',
-        ExpressionAttributeNames: {
-            '#text': 'text'
-        },
-        ExpressionAttributeValues: {
-            ':text': updatedText,
-            ':updatedAt': new Date().toISOString()
-        },
-        ReturnValues: 'ALL_NEW'
+        Item: {
+            ...item, // Keep all existing data
+            text: updatedText, // Update the text
+            updatedAt: new Date().toISOString() // Update timestamp
+        }
     };
 
     try {
-        const updateResult = await dynamodb.update(params).promise();
-        const updatedItem = updateResult.Attributes;
+        await dynamodb.put(putParams).promise();
+        const updatedItem = putParams.Item;
 
         // Send email notification if rank was changed and we have an email address
         if (currentRank.toLowerCase() !== req.body.text.toLowerCase()) {

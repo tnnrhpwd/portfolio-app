@@ -31,27 +31,60 @@ const putData = asyncHandler(async (req, res) => {
     try {
         const dataId = req.params.id;
 
-        const params = {
-            TableName: 'Simple', 
-            Key: {
-                id: dataId // ID of the item to update
-            },
-            UpdateExpression: 'set text = :text, updatedAt = :updatedAt',
+        // First, find the item using the same pattern as getData.js which works
+        const scanParams = {
+            TableName: 'Simple',
+            FilterExpression: "id = :searchId",
             ExpressionAttributeValues: {
-                ':text': req.body.text,
-                ':updatedAt': new Date().toISOString()
-            },
-            ReturnValues: 'ALL_NEW'
+                ":searchId": dataId
+            }
         };
 
-        const result = await dynamodb.update(params).promise();
+        console.log('DynamoDB scan params:', JSON.stringify(scanParams, null, 2));
+        const scanResult = await dynamodb.scan(scanParams).promise();
+        console.log('DynamoDB scan result count:', scanResult.Items ? scanResult.Items.length : 0);
 
-        console.log('Updated data:', result.Attributes);
-        res.status(200).json(result.Attributes);
+        if (!scanResult.Items || scanResult.Items.length === 0) {
+            console.log('No items found via scan');
+            res.status(404);
+            throw new Error('Data item not found');
+        }
+
+        const item = scanResult.Items[0];
+        console.log('Found item via scan');
+
+        // Make sure the logged in user matches the data creator (if the data has a creator field)
+        if (item.text && item.text.includes('Creator:')) {
+            const dataCreator = item.text.substring(item.text.indexOf("Creator:") + 8, item.text.indexOf("Creator:") + 8 + 24);
+            if (dataCreator !== req.user.id) {
+                res.status(401);
+                console.error('User not authorized');
+                throw new Error('User not authorized');
+            }
+        }
+
+        // Use a simple approach that works with the existing table structure
+        // Just update the item directly using put (which will overwrite if it exists)
+        const newItem = {
+            ...item, // Keep all existing data
+            text: req.body.text, // Update the text
+            updatedAt: new Date().toISOString() // Update timestamp
+        };
+
+        const putParams = {
+            TableName: 'Simple',
+            Item: newItem
+        };
+
+        await dynamodb.put(putParams).promise();
+
+        console.log('Updated data:', newItem);
+        res.status(200).json(newItem);
     } catch (error) {
         console.error('Error during data update:', error);
-        res.status(500);
-        throw new Error('Server error');
+        if (!res.headersSent) {
+            res.status(500).json({ error: 'Failed to update data in DynamoDB' });
+        }
     }
 });
 
