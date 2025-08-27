@@ -1,7 +1,7 @@
 .login-space{
     width: 100%;
     text-align: center;
-    z-index: 96999999999999999;
+    z-index: 9;
 }
 .login-form{
     width: calc(var(--nav-size)*5);

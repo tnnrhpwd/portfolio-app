@@ -12,7 +12,7 @@
     flex-direction: column;
     min-height: 100vh;
     position: relative;
-    overflow-x: hidden;
+    overflow: auto;
 }
 
 .footer-space{
@@ -195,6 +195,7 @@
     border-radius: calc(var(--nav-size) * 0.05);
     opacity: 0;
     transition: opacity 0.3s ease;
+    pointer-events: none;
 }
 
 .key-guess:hover::before {
@@ -226,7 +227,7 @@
     /* Smooth animations */
     animation: answerSlideIn 0.6s ease-out;
     font-weight: 500;
-    z-index: 10;
+    z-index: 1;
 }
 
 .wordle-answer strong {
@@ -256,7 +257,7 @@
 .expand-toggle:hover {
     background-color: var(--bg-blue) !important;
     color: var(--text-color-inv) !important;
-    transform: scale(1.05);
+    transform: scale(1.02);
 }
 .key { /* CLASS for the keyboard buttons */
     font-weight: bold;
@@ -279,8 +280,8 @@
 .key:hover{
     background: linear-gradient(135deg, var(--fg-blue), var(--bg-blue));
     color: var(--text-color-inv);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(56, 56, 255, 0.3);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(56, 56, 255, 0.25);
 }
 .keyboard { /* CLASS for the region containing the keyboard */
     margin-top: calc(var(--nav-size)*0.4);
@@ -321,7 +322,7 @@
     
     /* Smooth appearance */
     transition: all 0.3s ease;
-    z-index: 5;
+    z-index: 1;
     
     /* Preserve line breaks for warning text */
     white-space: pre-line;
@@ -353,7 +354,7 @@
 }
 
 .credits-clickable:hover {
-    transform: scale(1.02);
+    transform: scale(1.01);
     box-shadow: 
         0 4px 20px rgba(56, 56, 255, 0.3),
         inset 0 2px 0 rgba(255, 255, 255, 0.3);

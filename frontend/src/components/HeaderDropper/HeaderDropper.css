@@ -59,7 +59,7 @@
     padding-top: calc(var(--nav-size)*0.2);
     padding-bottom: calc(var(--nav-size)*0.3);
     cursor: pointer;
-    z-index: 1;
+    z-index: 99999999;
 }
 .hamburger-animate {
     animation: hamburgerSmoothShimmer 2.2s cubic-bezier(0.22, 0.61, 0.36, 1);
@@ -143,6 +143,7 @@
     transition-duration: .25s;
     text-align: left;
     border-left: 2px solid var(--border-nav);
+    z-index: 9999999;
 }
 .planit-header-dropper-pagelink {
     display: block;
