@@ -27,12 +27,6 @@
     width: 0;
     height: 0;
 }
-/* .planit-header-dropper-pagelink{
-  display: block;
-  color: var(--text-color);
-  text-align: left;
-  padding: calc(var(--nav-size)*0.15);
-} */
 #planit-header-dropper__toggle {
     opacity: 0;
 }

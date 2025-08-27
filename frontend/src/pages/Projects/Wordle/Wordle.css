@@ -56,7 +56,7 @@
 }
 
 /* Ensure game elements stay above background */
-.wordle-space > * {
+.wordle-space  {
     position: relative;
     z-index: 1;
 }
