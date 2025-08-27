@@ -18,7 +18,9 @@ const NNetChatView = () => {
   const [editedText, setEditedText] = useState(''); // New state for edited content
   const [chatHistory, setChatHistory] = useState([]);
   const [editingIndex, setEditingIndex] = useState(null);
-  const [priorChats, setPriorChats] = useState([]); // New state for prior chats
+  const [priorChats, setPriorChats] = useState([]);
+  const [archivedChats, setArchivedChats] = useState([]);
+  const [viewingArchived, setViewingArchived] = useState(false); // New state for prior chats
   const [activeChat, setActiveChat] = useState(null);
 
   // Get the relevant data from the state
@@ -35,6 +37,19 @@ const NNetChatView = () => {
       
       // Refresh the prior chats list to show the updated/new chat
       dispatch(getData({ data: { text: "|Net:" } }));
+    }
+
+    // Handle successful delete operations
+    if (operation === 'delete' && dataIsSuccess) {
+      console.log('Delete operation completed successfully');
+      // Reset active chat if it was deleted
+      setActiveChat(null);
+      setChatHistory([]);
+    }
+
+    // Handle successful update operations  
+    if (operation === 'update' && dataIsSuccess) {
+      console.log('Update operation completed successfully');
     }
 
     // Handle errors
@@ -55,18 +70,28 @@ const NNetChatView = () => {
     if (operation === 'get' && dataIsSuccess) {
       console.log('getData response:', data.data);
       let tempPriorChats = [];
+      let tempArchivedChats = [];
       data.data.forEach((item) => {
         // Backend returns data directly in item.data, not item.data.text
         if (item.data && item.data.includes('|Net:')) {
-          tempPriorChats.push({
+          const chatItem = {
             ...item,
             data: { text: item.data } // Restructure to match expected format
-          });
+          };
+          
+          // Check if the chat is archived
+          if (item.data.includes('|Archived')) {
+            tempArchivedChats.push(chatItem);
+          } else {
+            tempPriorChats.push(chatItem);
+          }
         }
       });
 
       console.log('Processed priorChats:', tempPriorChats);
-      setPriorChats(tempPriorChats); // Ensure that dataIsSuccess is true before updating priorChats
+      console.log('Processed archivedChats:', tempArchivedChats);
+      setPriorChats(tempPriorChats); // Regular chats
+      setArchivedChats(tempArchivedChats); // Archived chats
     }
 
     // Handle errors
@@ -199,6 +224,10 @@ const NNetChatView = () => {
     setChatHistory([]);
   };
 
+  const handleToggleArchived = () => {
+    setViewingArchived(!viewingArchived);
+  };
+
   const handleChatClick = (clickedChat) => {
     setActiveChat(clickedChat); // Assuming that each chat object has an 'id' property
     console.log('Clicked chat:', clickedChat);
@@ -217,22 +246,51 @@ const NNetChatView = () => {
     setChatHistory(chatMessages);
   };
 
-  const handleDeleteData = async (id) => {
+  const handleDeleteData = async (chatId) => {
     try {
-      await dispatch(deleteData(id)); // Assuming you have the deleteData action in your dataSlice
+      console.log('Deleting chat with ID:', chatId);
+      await dispatch(deleteData(chatId));
+      toast.success('Chat deleted successfully!', { autoClose: toastDuration });
+      // Refresh the prior chats list
+      await dispatch(getData({ data: { text: "|Net:" } }));
     } catch (error) {
       console.error(error);
       toast.error('An error occurred while deleting data.', { autoClose: toastDuration });
     }
   };
 
-  const handleUpdateData = async (index, originalContent) => {
+  const handleUpdateData = async (chatId, originalChat) => {
     try {
-      const updatedContent = `${originalContent.content} [Archived]`;
-      await dispatch(updateData({ id: originalContent.id, data: updatedContent }));
+      console.log('Archiving chat with ID:', chatId);
+      // Add |Archived token to the chat text (similar to |Net: format)
+      const originalText = originalChat.data.text;
+      
+      // Check if already archived
+      if (originalText.includes('|Archived')) {
+        toast.info('Chat is already archived!', { autoClose: toastDuration });
+        return;
+      }
+      
+      // Add the |Archived token after the Creator: part
+      const creatorEndIndex = originalText.indexOf('|Net:');
+      if (creatorEndIndex !== -1) {
+        const beforeNet = originalText.substring(0, creatorEndIndex);
+        const afterNet = originalText.substring(creatorEndIndex);
+        const updatedText = beforeNet + '|Archived' + afterNet;
+        
+        await dispatch(updateData({ 
+          id: chatId, 
+          text: updatedText
+        }));
+        toast.success('Chat archived successfully!', { autoClose: toastDuration });
+        // Refresh the prior chats list
+        await dispatch(getData({ data: { text: "|Net:" } }));
+      } else {
+        toast.error('Invalid chat format for archiving.', { autoClose: toastDuration });
+      }
     } catch (error) {
       console.error(error);
-      toast.error('An error occurred while updating data.', { autoClose: toastDuration });
+      toast.error('An error occurred while archiving the chat.', { autoClose: toastDuration });
     }
   };
 
@@ -294,13 +352,16 @@ const NNetChatView = () => {
         </button>
       </div>
       <NNetBookView
-        myChats={priorChats}
+        myChats={viewingArchived ? archivedChats : priorChats}
+        archivedChats={archivedChats}
+        viewingArchived={viewingArchived}
         onChatClick={handleChatClick}
         onDeleteData={handleDeleteData}
         onUpdateData={handleUpdateData}
         onCopyToClipboard={handleCopyToClipboard}
         activeChatId={activeChat} // Pass down the active chat ID
         onNewChat={handleNewChat}
+        onToggleArchived={handleToggleArchived}
       />
       {dataIsLoading && <Spinner />}
     </div>

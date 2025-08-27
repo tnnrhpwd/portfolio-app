@@ -193,15 +193,52 @@
   }
   .planit-NNetBookView-box-header-title {
     display: inline;
+    flex-grow: 1;
+  }
+  .planit-NNetBookView-box-header-buttons {
+    display: flex;
+    gap: calc(var(--nav-size) * 0.1);
+    align-items: center;
+  }
+  .planit-NNetBookView-box-header-archived {
+    display: inline;
+    background-color: var(--bg-page-transp);
+    color: var(--text-color);
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.2));
+    padding: calc(var(--nav-size) * 0.05) calc(var(--nav-size) * 0.1);
+    border-radius: calc(var(--nav-size) * 0.05);
+    cursor: pointer;
+    font-size: calc(var(--nav-size) * 0.25);
+    transition: all 0.2s ease;
+  }
+  .planit-NNetBookView-box-header-archived:hover {
+    background-color: var(--bg-mint);
+    color: var(--text-color-alt, #000);
   }
   .planit-NNetBookView-box-header-new {
     display: inline;
-    margin-left: auto;
-    margin-right: calc(var(--nav-size) * 0.1);
+    background-color: var(--bg-page-transp);
+    color: var(--text-color);
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.2));
+    padding: calc(var(--nav-size) * 0.05) calc(var(--nav-size) * 0.1);
+    border-radius: calc(var(--nav-size) * 0.05);
+    cursor: pointer;
+    font-size: calc(var(--nav-size) * 0.25);
+    transition: all 0.2s ease;
+  }
+  .planit-NNetBookView-box-header-new:hover {
+    background-color: var(--bg-blue);
+    color: var(--text-color-alt, #fff);
   }
   .planit-NNetBookView-box-body {
     font-size: calc(var(--nav-size) * 0.3);
     margin: calc(var(--nav-size) * 0.1);
+  }
+  .planit-NNetBookView-box-body-empty {
+    text-align: center;
+    color: var(--text-color-secondary, rgba(255, 255, 255, 0.6));
+    padding: calc(var(--nav-size) * 0.5);
+    font-style: italic;
   }
   .planit-NNetBookView-box-body-chat {
     font-size: calc(var(--nav-size) * 0.3);
@@ -225,6 +262,59 @@
     width: calc(var(--nav-size) * 0.4);
     margin-right: calc(var(--nav-size) * 0.1);
     display: inline-block;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    position: relative;
+  }
+  
+  .planit-NNetBookView-box-body-chat-mng-btn:hover {
+    transform: scale(1.1);
+    filter: brightness(1.2);
+  }
+  
+  /* Enhanced tooltip styles */
+  .planit-NNetBookView-box-body-chat-mng-btn[title] {
+    position: relative;
+  }
+  
+  .planit-NNetBookView-box-body-chat-mng-btn[title]:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 120%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--bg-page);
+    color: var(--text-color);
+    padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.15);
+    border-radius: calc(var(--nav-size) * 0.05);
+    font-size: calc(var(--nav-size) * 0.25);
+    white-space: nowrap;
+    z-index: 1000;
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.2));
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    animation: tooltipFadeIn 0.2s ease-in-out;
+  }
+  
+  .planit-NNetBookView-box-body-chat-mng-btn[title]:hover::before {
+    content: '';
+    position: absolute;
+    bottom: 110%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: calc(var(--nav-size) * 0.05) solid transparent;
+    border-top-color: var(--bg-page);
+    z-index: 1001;
+  }
+  
+  @keyframes tooltipFadeIn {
+    from {
+      opacity: 0;
+      transform: translateX(-50%) translateY(-5px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
   }
 }
 .Toastify{

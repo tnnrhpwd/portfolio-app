@@ -7,7 +7,7 @@ import { ReactComponent as Archive } from '../../../assets/archive.svg';
 import { ReactComponent as Copy } from '../../../assets/copy.svg';
 
 
-function NNetBookView({ myChats, onChatClick, onDeleteData, onUpdateData, onCopyToClipboard, onNewChat }) {
+function NNetBookView({ myChats, archivedChats, viewingArchived, onChatClick, onDeleteData, onUpdateData, onCopyToClipboard, onNewChat, onToggleArchived }) {
   // const dispatch = useDispatch(); // Initialize dispatch
   const hideComponentVisibility = () => {
     document.getElementById("planit-NNetBookView__toggle").checked = false;
@@ -43,25 +43,53 @@ function NNetBookView({ myChats, onChatClick, onDeleteData, onUpdateData, onCopy
       </label>
       <ul ref={isideComponentRef} className="planit-NNetBookView__box">
         <div className='planit-NNetBookView-box-header'>
-          <div className='planit-NNetBookView-box-header-title'>Prior Chats</div>
-          <button onClick={handleNewChat} className='planit-NNetBookView-box-header-new'>New</button>
+          <div className='planit-NNetBookView-box-header-title'>
+            {viewingArchived ? 'Archived Chats' : 'Prior Chats'}
+          </div>
+          <div className='planit-NNetBookView-box-header-buttons'>
+            <button 
+              onClick={onToggleArchived} 
+              className='planit-NNetBookView-box-header-archived'
+              title={viewingArchived ? 'View active chats' : 'View archived chats'}
+            >
+              {viewingArchived ? 'Active' : 'Archived'}
+            </button>
+            <button onClick={handleNewChat} className='planit-NNetBookView-box-header-new'>New</button>
+          </div>
         </div>
         <div className='planit-NNetBookView-box-body'>
-          {myChats.map((chat, index) => {
+          {myChats.length === 0 ? (
+            <div className='planit-NNetBookView-box-body-empty'>
+              {viewingArchived ? 'No archived chats found' : 'No prior chats found'}
+            </div>
+          ) : (
+            myChats.map((chat, index) => {
             const chatText = chat.data.text.split('|Net:')[1]; // Cut out everything before and including |Net:
             return (
               <div key={index} className="planit-NNetBookView-box-body-chat">
                 <div className='planit-NNetBookView-box-body-chat-mng'>
-                  <Delete className='planit-NNetBookView-box-body-chat-mng-btn' onClick={() => onDeleteData(index)}/>
-                  <Archive className='planit-NNetBookView-box-body-chat-mng-btn' onClick={() => onUpdateData(index, chat)}/>
-                  <Copy className='planit-NNetBookView-box-body-chat-mng-btn' onClick={() => onCopyToClipboard(chat)}/>
+                  <Delete 
+                    className='planit-NNetBookView-box-body-chat-mng-btn' 
+                    onClick={() => onDeleteData(chat._id)}
+                    title="Delete this chat conversation permanently"
+                  />
+                  <Archive 
+                    className='planit-NNetBookView-box-body-chat-mng-btn' 
+                    onClick={() => onUpdateData(chat._id, chat)}
+                    title="Archive this chat conversation"
+                  />
+                  <Copy 
+                    className='planit-NNetBookView-box-body-chat-mng-btn' 
+                    onClick={() => onCopyToClipboard(chatText)}
+                    title="Copy chat text to clipboard"
+                  />
                 </div>
                 <span onClick={() => handleChatClick(chat) } className='planit-NNetBookView-box-body-chat-text'>
                   {chatText}...
                 </span>
               </div>
             );
-          })}
+          }))}
         </div>
       </ul>
     </div>
