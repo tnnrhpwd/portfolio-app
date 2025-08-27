@@ -23,6 +23,7 @@ function Home() {
     const [displayedText, setDisplayedText] = useState("");
     const [isTyping, setIsTyping] = useState(true);
     const [animationPhase, setAnimationPhase] = useState(0);
+    const [showWordlePopup, setShowWordlePopup] = useState(false);
 
     const { user } = useSelector(
         (state) => state.data
@@ -47,6 +48,19 @@ function Home() {
     useEffect(() => {
         dispatch(getPublicData({ data: { text: "Action" } })).unwrap();
     }, [dispatch]);
+
+    // Show Wordle popup after 5 seconds
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setShowWordlePopup(true);
+        }, 5000);
+        
+        return () => clearTimeout(timer);
+    }, []);
+
+    const handleClosePopup = () => {
+        setShowWordlePopup(false);
+    };
 
     return (
         <>
@@ -87,11 +101,14 @@ function Home() {
                             <a className="home-spc-tool animate-in" href={links.annuities} style={{animationDelay: '0.2s'}}>
                                 <div className="home-spc-tool-text">{links.annuities}</div>
                             </a>
+                            <a className="home-spc-tool animate-in" href={links.wordle} style={{animationDelay: '0.25s'}}>
+                                <div className="home-spc-tool-text">{links.wordle}</div>
+                            </a>
                             {user ? <>
                                 <a className="home-spc-tool animate-in" href={links.net} style={{animationDelay: '0.3s'}}>
                                     <div className="home-spc-tool-text">{links.net}</div>
                                 </a>
-                                <a className="home-spc-tool animate-in" href={links.plans} style={{animationDelay: '0.4s'}}>
+                                <a className="home-spc-tool animate-in" href={links.plans} style={{animationDelay: '0.35s'}}>
                                     <div className="home-spc-tool-text">{links.plans}</div>
                                 </a>
                             </> : 
@@ -105,7 +122,7 @@ function Home() {
                     <div id="content-tile">
                         <div id="text-body" className="section-header"> Apps: </div>
                         <div className="home-spc">
-                            <a className="home-spc-tool animate-in app-highlight" href={links.simple} style={{animationDelay: '0.5s'}}>
+                            <a className="home-spc-tool animate-in app-highlight" href={links.simple} style={{animationDelay: '0.4s'}}>
                                 <div className="home-spc-tool-text">
                                     <span className="app-icon">💻</span>
                                     Simple (Windows)
@@ -125,6 +142,28 @@ function Home() {
                 </section>
                 
                 <Footer />
+                
+                {/* Wordle Welcome Popup */}
+                {showWordlePopup && (
+                    <div className="wordle-popup">
+                        <button className="popup-close" onClick={handleClosePopup}>×</button>
+                        <div className="popup-content">
+                            <div className="popup-icon">🎯</div>
+                            <div className="popup-text">
+                                <span className="popup-title">Try Wordle?</span>
+                                <span className="popup-subtitle">Test your word skills!</span>
+                            </div>
+                        </div>
+                        <div className="popup-buttons">
+                            <a href="/wordle" className="popup-btn primary">
+                                Play
+                            </a>
+                            <button className="popup-btn secondary" onClick={handleClosePopup}>
+                                ×
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </>
     );

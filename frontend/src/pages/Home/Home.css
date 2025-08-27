@@ -605,3 +605,183 @@
     outline: 2px solid var(--text-color);
     outline-offset: 2px;
 }
+
+/* Wordle Welcome Popup Styles */
+.wordle-popup {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: linear-gradient(45deg, var(--fg-orange), var(--fg-pink));
+    border: 1px solid var(--text-color);
+    border-radius: calc(var(--nav-size) * 0.15);
+    padding: calc(var(--nav-size) * 0.2);
+    width: 260px;
+    box-shadow: 
+        0 8px 25px rgba(0, 0, 0, 0.15),
+        0 0 10px var(--fg-blue-transp);
+    animation: slideInBottomSmall 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    color: var(--text-color-inv);
+    font-family: 'CutiveMono-Regular';
+    z-index: 100;
+    backdrop-filter: blur(10px);
+}
+
+.popup-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: none;
+    border: none;
+    font-size: calc(var(--nav-size) * 0.3);
+    color: var(--text-color-inv);
+    cursor: pointer;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    opacity: 0.7;
+}
+
+.popup-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.popup-content {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.15);
+    margin-bottom: calc(var(--nav-size) * 0.2);
+}
+
+.popup-icon {
+    font-size: calc(var(--nav-size) * 0.35);
+    animation: gentleBounce 3s infinite;
+}
+
+.popup-text {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.popup-title {
+    font-size: calc(var(--nav-size) * 0.25);
+    font-weight: bold;
+    margin-bottom: 2px;
+}
+
+.popup-subtitle {
+    font-size: calc(var(--nav-size) * 0.18);
+    opacity: 0.8;
+}
+
+.popup-buttons {
+    display: flex;
+    gap: calc(var(--nav-size) * 0.1);
+}
+
+.popup-btn {
+    flex: 1;
+    padding: calc(var(--nav-size) * 0.08) calc(var(--nav-size) * 0.15);
+    border-radius: calc(var(--nav-size) * 0.08);
+    font-size: calc(var(--nav-size) * 0.18);
+    font-family: 'CutiveMono-Regular';
+    font-weight: bold;
+    text-decoration: none;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    display: inline-block;
+}
+
+.popup-btn.primary {
+    background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+    color: white;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.popup-btn.primary:hover {
+    background: linear-gradient(45deg, var(--fg-mint), var(--fg-blue));
+    transform: translateY(-1px);
+}
+
+.popup-btn.secondary {
+    background: transparent;
+    color: var(--text-color-inv);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    font-size: calc(var(--nav-size) * 0.2);
+    width: 30px;
+    padding: calc(var(--nav-size) * 0.05);
+}
+
+.popup-btn.secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: scale(1.05);
+}
+
+@keyframes gentleBounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-2px);
+    }
+}
+
+@keyframes slideInBottomSmall {
+    from {
+        transform: translateY(50px) translateX(20px) scale(0.9);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0) translateX(0) scale(1);
+        opacity: 1;
+    }
+}
+
+/* Mobile responsiveness for popup */
+@media (max-width: 768px) {
+    .wordle-popup {
+        bottom: 15px;
+        right: 15px;
+        width: 240px;
+        padding: calc(var(--nav-size) * 0.15);
+    }
+    
+    .popup-title {
+        font-size: calc(var(--nav-size) * 0.22);
+    }
+    
+    .popup-subtitle {
+        font-size: calc(var(--nav-size) * 0.16);
+    }
+}
+
+@media (max-width: 480px) {
+    .wordle-popup {
+        bottom: 10px;
+        right: 10px;
+        width: 200px;
+        padding: calc(var(--nav-size) * 0.12);
+    }
+    
+    .popup-icon {
+        font-size: calc(var(--nav-size) * 0.3);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .wordle-popup {
+        animation: none;
+    }
+    
+    .popup-icon {
+        animation: none;
+    }
+}
