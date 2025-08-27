@@ -61,6 +61,16 @@ app.use(sanitizeInput);
 
 app.use('/api/data', require('./routes/routeData')) // serve all data at /api/data (regardless of hit url)
 
+// Root endpoint for deployment health checks
+app.get('/', (req, res) => {
+  res.status(200).json({
+    message: 'Backend is running!',
+    service: 'portfolio-app-backend',
+    timestamp: new Date().toISOString(),
+    version: '1.0.0'
+  });
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({
