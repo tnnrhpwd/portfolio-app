@@ -6,6 +6,7 @@ import { getPublicData } from '../../features/data/dataSlice.js';
 import './Home.css';
 
 const links = {
+    about: "/about",
     net: "/net",
     agenda: "/agenda",
     admin: "/admin",
@@ -16,6 +17,7 @@ const links = {
     simple: "/simple",
     plans: "/plans",
     login: "/login",
+    profile: "/profile",
 };
 
 function Home() {
@@ -85,7 +87,7 @@ function Home() {
                             Manufacturing, Engineering, and Process Development
                         </div>
                         <div id="text-about" className={`fade-in-up ${animationPhase >= 1 ? 'visible' : ''}`}>
-                            <a href="/about" className="glow-link">Learn more about us.</a>
+                            <a href={links.about} className="glow-link">Learn more about us.</a>
                         </div>
                     </div>
                 </section>
@@ -94,21 +96,27 @@ function Home() {
                     <div id="content-tile">
                         <div id="text-body" className="section-header"> Pages: </div>
                         <div className="home-spc">
-                            {(user && user._id && user._id.toString() === '6770a067c725cbceab958619') && 
-                                <a className="home-spc-tool animate-in" href={links.admin} style={{animationDelay: '0.1s'}}>
-                                    <div className="home-spc-tool-text">{links.admin}</div>
-                                </a>}
-                            <a className="home-spc-tool animate-in" href={links.annuities} style={{animationDelay: '0.2s'}}>
+                            <a className="home-spc-tool animate-in" href={links.about} style={{animationDelay: '0.1s'}}>
+                                <div className="home-spc-tool-text">{links.about}</div>
+                            </a>
+                            <a className="home-spc-tool animate-in" href={links.annuities} style={{animationDelay: '0.15s'}}>
                                 <div className="home-spc-tool-text">{links.annuities}</div>
                             </a>
-                            <a className="home-spc-tool animate-in" href={links.wordle} style={{animationDelay: '0.25s'}}>
+                            <a className="home-spc-tool animate-in" href={links.wordle} style={{animationDelay: '0.2s'}}>
                                 <div className="home-spc-tool-text">{links.wordle}</div>
                             </a>
+                            {(user && user._id && user._id.toString() === '6770a067c725cbceab958619') && 
+                                <a className="home-spc-tool animate-in" href={links.admin} style={{animationDelay: '0.25s'}}>
+                                    <div className="home-spc-tool-text">{links.admin}</div>
+                                </a>}
                             {user ? <>
-                                <a className="home-spc-tool animate-in" href={links.net} style={{animationDelay: '0.3s'}}>
+                                <a className="home-spc-tool animate-in" href={links.passgen} style={{animationDelay: '0.35s'}}>
+                                    <div className="home-spc-tool-text">{links.passgen}</div>
+                                </a>
+                                <a className="home-spc-tool animate-in" href={links.net} style={{animationDelay: '0.4s'}}>
                                     <div className="home-spc-tool-text">{links.net}</div>
                                 </a>
-                                <a className="home-spc-tool animate-in" href={links.plans} style={{animationDelay: '0.35s'}}>
+                                <a className="home-spc-tool animate-in" href={links.plans} style={{animationDelay: '0.45s'}}>
                                     <div className="home-spc-tool-text">{links.plans}</div>
                                 </a>
                             </> : 
@@ -122,7 +130,7 @@ function Home() {
                     <div id="content-tile">
                         <div id="text-body" className="section-header"> Apps: </div>
                         <div className="home-spc">
-                            <a className="home-spc-tool animate-in app-highlight" href={links.simple} style={{animationDelay: '0.4s'}}>
+                            <a className="home-spc-tool animate-in app-highlight" href={links.simple} style={{animationDelay: '0.5s'}}>
                                 <div className="home-spc-tool-text">
                                     <span className="app-icon">💻</span>
                                     Simple (Windows)

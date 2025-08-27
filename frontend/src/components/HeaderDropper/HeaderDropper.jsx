@@ -57,13 +57,15 @@ function HeaderDropper(props) {
             <a className='planit-header-dropper-profile' href='/login' >Log in</a>
           )}
         <a className='planit-header-dropper-pagelink' href='/about'>◽About</a>
+        <a className='planit-header-dropper-pagelink' href='/annuities'>◽Annuities</a>
         <a className='planit-header-dropper-pagelink' href='/wordle'>◽Wordle</a>
         {( user ) 
           ?(<>   
             {/* <a className='planit-header-dropper-pagelink' href='/settings'>Settings</a> */}
             {/* <a className='planit-header-dropper-pagelink' href='/agenda'>◽Agenda</a> */}
+            {(user._id && user._id.toString() === '6770a067c725cbceab958619') && 
+              <a className='planit-header-dropper-pagelink' href='/admin'>◽Admin</a>}
             <a className='planit-header-dropper-pagelink' href='/passgen'>◽Passwords</a>
-            <a className='planit-header-dropper-pagelink' href='/annuities'>◽Annuities</a>
             <a className='planit-header-dropper-pagelink' href='/simple'>◽Simple</a>
             <a className='planit-header-dropper-pagelink' href='/net'>◽Net</a>
             <a className='planit-header-dropper-pagelink' href='/plans'>◽Plans</a>

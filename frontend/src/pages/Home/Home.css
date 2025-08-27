@@ -676,8 +676,7 @@
 }
 
 .popup-subtitle {
-    font-size: calc(var(--nav-size) * 0.18);
-    opacity: 0.8;
+    font-size: calc(var(--nav-size) * 0.2);
 }
 
 .popup-buttons {

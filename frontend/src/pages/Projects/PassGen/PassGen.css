@@ -1,165 +1,655 @@
-.passgen{
-    font-family: 'Times New Roman', Times, serif;
-    background-color: var(--bg);
-    color: var(--text-color);
-    text-align: center;
+@font-face {
+    font-family: 'CutiveMono-Regular';
+    src: url(./../../../fonts/CutiveMono-Regular.ttf) format('truetype'),
+    url(./../../../fonts/CutiveMono-Regular.woff) format('woff');
+}
+
+/* Main container with animated background */
+.container {
+    min-height: 100svh;
+    min-height: 100vh;
+    background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
+    background-size: 400% 400%;
+    animation: gradientShift 12s ease infinite;
+    pointer-events: all;
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
-}
-.passgen-title{
-    padding-top: calc(var(--nav-size)*1.2);
-    font-size: calc(var(--nav-size)*.5);
-}
-.passgen-description{
-    padding-left: calc(var(--nav-size)*.75);
-    padding-right: calc(var(--nav-size)*.75);
-    margin-bottom: calc(var(--nav-size)*.5);
-    font-size: calc(var(--nav-size)*.25);
-}
-.passgen-col1{
-    text-align: center;
-    vertical-align: top;
-    display: inline-block;
-    /* width: 100%; */
-    margin-bottom: calc(var(--nav-size)*.2);
-    padding: 0 15%;
-}
-#passgen-calculator-slider {
-    width: 70%;
-    height: calc(var(--nav-size)*.2);
-    /* margin: calc(var(--nav-size)*.2) 0; */
-    background-color: var(--text-color);
-    vertical-align: middle;
-}  
-#passgen-calculator-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: calc(var(--nav-size)*.9);
-    height: calc(var(--nav-size)*.9);
-    background-color: #007bff;
-    border-radius: 50%;
-    cursor: pointer;
-} 
-#passgen-calculator-slider::-moz-range-thumb {
-    width: calc(var(--nav-size)*.9);
-    height: calc(var(--nav-size)*.1);
-    background-color: #007bff;
-    border-radius: 50%;
-    cursor: pointer;
-} 
-#passgen-calculator-slider::-webkit-slider-runnable-track {
-    height: calc(var(--nav-size)*.05);
-    background-color: #007bff;
-}
-#passgen-calculator-slider::-moz-range-track {
-    height: calc(var(--nav-size)*.05);
-    background-color: #007bff;
-} 
-#passgen-calculator-slider::-ms-track {
-    height: calc(var(--nav-size)*.05);
-    background-color: #007bff;
-    border-color: transparent;
-    color: transparent;
-}  
-#passgen-calculator-label{
-    /* padding-left: calc(var(--nav-size)*.75);
-    padding-right: calc(var(--nav-size)*.75); */
-    /* margin-bottom: calc(var(--nav-size)*.5); */
-    font-size: calc(var(--nav-size)*.3);
-    vertical-align: middle;
-    margin: 0;
-}
-.passgen-calculator-checkholder{
-    margin: 0;
-    height: calc(var(--nav-size)*.7);
-}
-#passgen-calculator-checkbox {
-    color: #007bff;
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    width: calc(var(--nav-size)*.3);
-    height: calc(var(--nav-size)*.3);
-    background-color: var(--bg);
-    border: 2px solid #007bff;
-    border-radius: 3px;
-    display: inline-block;
-    vertical-align: middle;
     position: relative;
-    cursor: pointer;
+    overflow-x: hidden;
+    font-family: 'CutiveMono-Regular', monospace;
 }
-#passgen-calculator-checkbox::after {
+
+/* Enhanced gradient animation */
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    25% { background-position: 100% 50%; }
+    50% { background-position: 100% 100%; }
+    75% { background-position: 0% 100%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Theme-specific animation speeds */
+.light-theme .container {
+    animation-duration: 15s;
+}
+
+.dark-theme .container {
+    animation-duration: 10s;
+}
+
+/* Floating background elements */
+.floating-shapes {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.floating-circle {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--white1-transp) 0%, transparent 70%);
+    animation: float 6s ease-in-out infinite;
+}
+
+.floating-circle-1 {
+    width: 120px;
+    height: 120px;
+    top: 20%;
+    left: 10%;
+    animation-delay: 0s;
+    animation-duration: 8s;
+}
+
+.floating-circle-2 {
+    width: 80px;
+    height: 80px;
+    top: 60%;
+    right: 15%;
+    animation-delay: -2s;
+    animation-duration: 10s;
+}
+
+.floating-circle-3 {
+    width: 150px;
+    height: 150px;
+    bottom: 20%;
+    left: 60%;
+    animation-delay: -4s;
+    animation-duration: 12s;
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0px) rotate(0deg);
+        opacity: 0.3;
+    }
+    33% {
+        transform: translateY(-20px) rotate(120deg);
+        opacity: 0.6;
+    }
+    66% {
+        transform: translateY(-10px) rotate(240deg);
+        opacity: 0.4;
+    }
+}
+
+/* Section styling */
+.section-tile {
+    font-family: 'CutiveMono-Regular';
+    font-weight: calc(var(--nav-size)*5);
+    position: relative;
+    text-align: center;
+    flex-grow: 1;
+    z-index: 2;
+}
+
+/* Hero section enhancements */
+.hero-section {
+    position: relative;
+    margin-top: calc(var(--nav-size) * 2);
+}
+
+.hero-section::before {
     content: '';
     position: absolute;
     top: 50%;
     left: 50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, var(--bg-page-transp) 0%, transparent 70%);
     transform: translate(-50%, -50%);
-    width: calc(var(--nav-size)*.1);
-    height: calc(var(--nav-size)*.1);
-    /* border: solid white;     */
-    background-color: var(--text-color);
+    z-index: -1;
+    animation: pulse 4s ease-in-out infinite;
+}
 
-    /* border-width: 0 2px 2px 0; */
-    /* transform-origin: bottom left; */
-    display: none;
-}
-#passgen-calculator-checkbox:checked::after {
-    display: block;
-}
-  
-#passgen-calculator-submit{
-    padding: calc(var(--nav-size)*.15) calc(var(--nav-size)*.3);
-    border-radius: calc(var(--nav-size)*.1);
-    background-color: #3498db;
-    color: white;
-    border: none;
-    font-size: calc(var(--nav-size)*.2);
-    cursor: pointer;
-}
-#passgen-calculator-output {
-    width: 80%;
-    height: calc(var(--nav-size)*2);
-    padding: calc(var(--nav-size)*.15);
-    font-family: 'Helvetica Neue', sans-serif;
-    font-size: calc(var(--nav-size)*.2);
-    line-height: 1.0;
-    border: calc(var(--nav-size)*.02) solid var(--text-color);
-    border-radius: 5px;
-    resize: none;
-}
-  
-#passgen-calculator-outcome {
-    font-size: calc(var(--nav-size)*.3);
-    vertical-align: middle;
-}
-#passgen-sourcecode{
-    margin-top: calc(var(--nav-size)*.45);
-    margin-bottom: calc(var(--nav-size)*.45);
-    vertical-align: bottom;
-    height: calc(var(--nav-size)*.45);
-    font-size: calc(var(--nav-size)*.19);
-    width: calc(var(--nav-size)*2.5);
-    font-weight: bold;
-    background-color: var(--text-color);
-    color:  var(--text-color-inv);
-    border: calc(var(--nav-size)*.0001) solid rgba(255, 255, 255, 0.885);
-    border-radius: 5%;
-    cursor: pointer;
-    /* display: block; */
-    /* text-align: center; */
-}
-#passgen-sourcecode:hover{
-
-    filter: brightness(1.2);
-    border: calc(var(--nav-size)*.001) solid white;
-}
-#passgen-sourcecode:active{
-    height: calc(var(--nav-size)*.55);
-    transition-duration: .1s;
-}
-@media (orientation: landscape) {
-    .passgen{
-        min-height: 100vh;
+@keyframes pulse {
+    0%, 100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 0.3;
     }
+    50% {
+        transform: translate(-50%, -50%) scale(1.1);
+        opacity: 0.6;
+    }
+}
+
+/* Content tile styling */
+#content-tile {
+    padding: 0 calc(var(--nav-size)*.2);
+    padding-top: calc(var(--nav-size)*1);
+    font-size: calc(var(--nav-size)*.4);
+    color: var(--text-color);
+    font-weight: bold;
+    word-wrap: break-word;
+    text-align: left;
+}
+
+/* Title styling with typewriter effect */
+#text-title {
+    font-weight: bolder;
+    text-align: center;
+    font-size: calc(var(--nav-size)*.5);
+    padding: calc(var(--nav-size)*.1);
+    text-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.02) var(--border);
+    margin-top: calc(var(--nav-size)*2);
+    margin-bottom: calc(var(--nav-size)*2);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Typewriter effect */
+.typewriter {
+    display: inline-block;
+    white-space: nowrap;
+}
+
+.cursor {
+    animation: blink 1s infinite;
+    font-weight: normal;
+    display: inline;
+    color: var(--text-color);
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+}
+
+/* Fade in animations */
+.fade-in-up {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: all 0.6s ease;
+}
+
+.fade-in-up.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+#text-body {
+    font-size: calc(var(--nav-size)*.3);
+    padding: calc(var(--nav-size)*.15);
+    text-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.02) var(--border);
+}
+
+#text-subtext {
+    font-size: calc(var(--nav-size)*.28);
+    padding: calc(var(--nav-size)*.15);
+    text-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.02) var(--border);
+}
+
+/* Calculator section styling */
+.calculator-section {
+    animation: fadeInSection 1s ease-out 0.5s both;
+}
+
+@keyframes fadeInSection {
+    from {
+        opacity: 0;
+        transform: translateY(50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.passgen-calculator {
+    background: linear-gradient(135deg, var(--white1-transp), var(--grey2-transp));
+    border: 1px solid var(--text-color);
+    border-radius: calc(var(--nav-size) * 0.2);
+    padding: calc(var(--nav-size) * 0.4);
+    max-width: 600px;
+    margin: 0 auto;
+    backdrop-filter: blur(10px);
+    box-shadow: 
+        0 8px 25px var(--grey3-transp),
+        inset 0 0 20px var(--white1-transp);
+}
+
+.animate-in {
+    opacity: 0;
+    transform: translateY(20px);
+    animation: slideInUp 0.8s ease forwards;
+}
+
+@keyframes slideInUp {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Slider styling */
+.passgen-calculator-slider {
+    margin-bottom: calc(var(--nav-size) * 0.4);
+    text-align: center;
+}
+
+#passgen-calculator-label {
+    font-size: calc(var(--nav-size)*.3);
+    font-weight: bold;
+    color: var(--text-color);
+    display: block;
+    margin-bottom: calc(var(--nav-size) * 0.2);
+    text-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.02) var(--border);
+}
+
+#passgen-calculator-slider {
+    width: 80%;
+    height: calc(var(--nav-size)*.15);
+    background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink));
+    border-radius: calc(var(--nav-size) * 0.1);
+    outline: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+#passgen-calculator-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: calc(var(--nav-size)*.4);
+    height: calc(var(--nav-size)*.4);
+    background: linear-gradient(45deg, var(--fg-orange), var(--fg-mint));
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+}
+
+#passgen-calculator-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* Options grid */
+.passgen-options-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: calc(var(--nav-size) * 0.3);
+    margin-bottom: calc(var(--nav-size) * 0.4);
+}
+
+.passgen-calculator-checkholder {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: calc(var(--nav-size) * 0.15);
+    background: linear-gradient(45deg, var(--white1-transp), var(--grey1-transp));
+    border: 1px solid var(--text-color);
+    border-radius: calc(var(--nav-size) * 0.1);
+    transition: all 0.3s ease;
+    animation-delay: 0.1s;
+}
+
+.passgen-calculator-checkholder:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px var(--grey3-transp);
+}
+
+.passgen-calculator-checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    width: calc(var(--nav-size)*.35);
+    height: calc(var(--nav-size)*.35);
+    background: linear-gradient(45deg, var(--bg), var(--grey1));
+    border: 2px solid var(--fg-blue);
+    border-radius: calc(var(--nav-size) * 0.05);
+    position: relative;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.passgen-calculator-checkbox:checked {
+    background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+    border-color: var(--fg-orange);
+    transform: scale(1.1);
+}
+
+.passgen-calculator-checkbox::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: calc(var(--nav-size) * 0.2);
+    font-weight: bold;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.passgen-calculator-checkbox:checked::after {
+    opacity: 1;
+}
+
+/* Button styling */
+.passgen-buttons {
+    display: flex;
+    gap: calc(var(--nav-size) * 0.2);
+    margin-bottom: calc(var(--nav-size) * 0.4);
+    justify-content: center;
+}
+
+.primary-btn, .secondary-btn {
+    font-family: 'CutiveMono-Regular';
+    padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.4);
+    border-radius: calc(var(--nav-size) * 0.15);
+    font-size: calc(var(--nav-size) * 0.25);
+    font-weight: bold;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    display: flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.1);
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.primary-btn {
+    background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+    color: white;
+}
+
+.primary-btn:hover {
+    background: linear-gradient(45deg, var(--fg-mint), var(--fg-blue));
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0, 123, 255, 0.3);
+}
+
+.secondary-btn {
+    background: linear-gradient(45deg, var(--fg-orange), var(--fg-pink));
+    color: white;
+}
+
+.secondary-btn:hover:not(:disabled) {
+    background: linear-gradient(45deg, var(--fg-pink), var(--fg-orange));
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(255, 108, 55, 0.3);
+}
+
+.secondary-btn:disabled {
+    background: var(--grey2);
+    color: var(--grey4);
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Output section */
+.passgen-output-section {
+    text-align: center;
+}
+
+#passgen-calculator-output {
+    width: 100%;
+    height: calc(var(--nav-size) * 1.5);
+    padding: calc(var(--nav-size) * 0.2);
+    font-family: 'CutiveMono-Regular', monospace;
+    font-size: calc(var(--nav-size) * 0.25);
+    line-height: 1.4;
+    border: 2px solid var(--fg-blue);
+    border-radius: calc(var(--nav-size) * 0.1);
+    background: linear-gradient(135deg, var(--bg), var(--white1-transp));
+    color: var(--text-color);
+    resize: none;
+    outline: none;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(5px);
+    word-break: break-all;
+}
+
+#passgen-calculator-output:focus {
+    border-color: var(--fg-orange);
+    box-shadow: 0 0 15px var(--fg-blue-transp);
+    transform: scale(1.02);
+}
+
+#passgen-calculator-output::placeholder {
+    color: var(--grey3);
+    font-style: italic;
+}
+
+/* Outcome message styling */
+#passgen-calculator-outcome {
+    margin-top: calc(var(--nav-size) * 0.3);
+    font-size: calc(var(--nav-size) * 0.25);
+    font-weight: bold;
+    padding: calc(var(--nav-size) * 0.15);
+    border-radius: calc(var(--nav-size) * 0.1);
+    transition: all 0.3s ease;
+    min-height: calc(var(--nav-size) * 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#passgen-calculator-outcome.success {
+    background: linear-gradient(45deg, var(--fg-mint), var(--fg-blue));
+    color: white;
+    animation: successPulse 0.6s ease;
+}
+
+#passgen-calculator-outcome.error {
+    background: linear-gradient(45deg, var(--fg-orange), var(--fg-pink));
+    color: white;
+    animation: errorShake 0.6s ease;
+}
+
+@keyframes successPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+@keyframes errorShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+/* Source section styling */
+.source-section {
+    margin-top: calc(var(--nav-size) * 0.5);
+}
+
+.source-link {
+    text-decoration: none;
+}
+
+.source-btn {
+    font-family: 'CutiveMono-Regular';
+    background: linear-gradient(45deg, var(--text-color), var(--grey3));
+    color: var(--text-color-inv);
+    border: 2px solid var(--text-color);
+    border-radius: calc(var(--nav-size) * 0.15);
+    padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.4);
+    font-size: calc(var(--nav-size) * 0.22);
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    display: flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.1);
+    margin: 0 auto;
+}
+
+.source-btn:hover {
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 8px 20px var(--grey3-transp);
+    filter: brightness(1.2);
+}
+
+.source-btn:active {
+    transform: translateY(-1px) scale(1.02);
+    transition-duration: 0.1s;
+}
+
+.source-icon {
+    font-size: calc(var(--nav-size) * 0.25);
+    animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-3px);
+    }
+    60% {
+        transform: translateY(-1px);
+    }
+}
+
+/* Responsive design */
+@media (orientation: landscape) {
+    #content-tile {
+        text-align: left;
+        padding: 0 calc(var(--nav-size)*3);
+        padding-top: calc(var(--nav-size)*1);
+    }
+    
+    #text-title {
+        text-align: left;
+        padding-left: 20%;
+    }
+    
+    .typewriter {
+        display: inline-block;
+        text-align: left;
+    }
+    
+    #text-body, #text-subtext {
+        padding-left: 20%;
+    }
+    
+    /* Enhanced landscape animations */
+    .floating-circle-1 {
+        left: 5%;
+        animation-duration: 12s;
+    }
+    
+    .floating-circle-2 {
+        right: 10%;
+        animation-duration: 14s;
+    }
+    
+    .floating-circle-3 {
+        left: 70%;
+        animation-duration: 16s;
+    }
+}
+
+@media (max-width: 768px) {
+    .floating-circle {
+        display: none; /* Hide floating elements on mobile for performance */
+    }
+    
+    .hero-section::before {
+        display: none; /* Simplify mobile experience */
+    }
+    
+    .passgen-options-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .passgen-buttons {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .primary-btn, .secondary-btn {
+        width: 100%;
+        max-width: 300px;
+    }
+    
+    .container {
+        animation-duration: 20s; /* Slower animation on mobile */
+    }
+}
+
+@media (max-width: 480px) {
+    .passgen-calculator {
+        margin: 0 calc(var(--nav-size) * 0.2);
+        padding: calc(var(--nav-size) * 0.3);
+    }
+    
+    #passgen-calculator-slider {
+        width: 90%;
+    }
+    
+    .passgen-calculator-checkholder {
+        flex-direction: column;
+        gap: calc(var(--nav-size) * 0.1);
+        text-align: center;
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-reduced-motion: reduce) {
+    .container {
+        animation: none;
+    }
+    
+    .floating-circle {
+        animation: none;
+    }
+    
+    .typewriter {
+        animation: none;
+        border-right: none;
+    }
+    
+    .cursor {
+        animation: none;
+    }
+    
+    .source-icon {
+        animation: none;
+    }
+    
+    .hero-section::before {
+        animation: none;
+    }
+}
+
+/* Focus states for accessibility */
+.passgen-calculator-checkbox:focus {
+    outline: 2px solid var(--fg-orange);
+    outline-offset: 2px;
+}
+
+.primary-btn:focus, .secondary-btn:focus {
+    outline: 2px solid var(--text-color);
+    outline-offset: 2px;
+}
+
+.source-btn:focus {
+    outline: 2px solid var(--text-color);
+    outline-offset: 2px;
 }
