@@ -43,7 +43,6 @@ function Wordle() {
   
   const keyListenerRef = useRef(null);
   const isDictionaryLoadedRef = useRef(false);
-  const isKeyboardListeningRef = useRef(false);
   const rootStyle = window.getComputedStyle(document.body);
   const toastDuration = parseInt(rootStyle.getPropertyValue('--toast-duration'), 10);
 
@@ -290,7 +289,7 @@ function Wordle() {
   }, [currentGuess, wordLength, guesses.length, dictionary, secretWord, toastDuration, countLetters, endOfGame]);
 
   const keyPress = useCallback((key, fromVirtualKeyboard = false) => {
-    console.log('keyPress called with:', key, 'currentGuess length:', currentGuess.length, 'wordLength:', wordLength, 'guesses length:', guesses.length);
+    console.log('keyPress called with:', key, 'currentGuess length:', currentGuess.length, 'wordLength:', wordLength, 'guesses length:', guesses.length, 'inGameState:', inGameState, 'answerVisibility:', answerVisibility);
     
     switch(key){
       case '⌫': 
@@ -322,18 +321,15 @@ function Wordle() {
         }
       }, 10);
     }
-  }, [currentGuess.length, wordLength, guesses.length, backspace, enter]);
+  }, [currentGuess.length, wordLength, guesses.length, backspace, enter, inGameState, answerVisibility]);
 
   // Event listeners - SIMPLE APPROACH: just capture all keys during active gameplay
   const keyListener = useCallback((event) => {
-    // Get current state values directly to avoid closure issues
-    const currentInGameState = document.getElementById('wordle-space')?.dataset?.inGameState || '0';
-    const currentAnswerVisibility = document.getElementById('wordle-space')?.dataset?.answerVisibility || 'false';
-    
-    console.log('Keyboard event:', event.key, 'Game state:', currentInGameState, 'Answer visible:', currentAnswerVisibility);
+    console.log('Keyboard event:', event.key, 'Game state:', inGameState, 'Answer visible:', answerVisibility);
     
     // Only process keyboard events during active gameplay
-    if (parseInt(currentInGameState) % 2 !== 1 || currentAnswerVisibility === 'true') {
+    // Game is active when inGameState is odd AND answer is not visible
+    if (inGameState % 2 !== 1 || answerVisibility === true) {
       console.log('Game not active, ignoring keyboard input');
       return; // Game not active, ignore keyboard input
     }
@@ -374,13 +370,9 @@ function Wordle() {
         console.log('Other key pressed, ignoring:', event.key);
         break;
     }
-  }, [keyPress]);
+  }, [keyPress, inGameState, answerVisibility]);
 
   const startKeyListen = useCallback(() => {
-    if (isKeyboardListeningRef.current) {
-      return () => {}; // Already listening, return empty cleanup
-    }
-    
     // Remove any existing listener first
     if (keyListenerRef.current) {
       document.removeEventListener('keydown', keyListenerRef.current, false);
@@ -390,13 +382,11 @@ function Wordle() {
     // Simple document-level listener
     document.addEventListener('keydown', handleKeydown, false);
     keyListenerRef.current = handleKeydown;
-    isKeyboardListeningRef.current = true;
     console.log("Now listening for keyboard inputs");
     
     return () => {
       document.removeEventListener('keydown', handleKeydown, false);
       keyListenerRef.current = null;
-      isKeyboardListeningRef.current = false;
     };
   }, [keyListener]);
 
@@ -470,16 +460,13 @@ function Wordle() {
     return grid;
   }, [wordLength, guesses, updateKeyGuessCount]);
 
-  // Effects - Initialize dictionary and keyboard listener only once
+  // Effects - Initialize dictionary and setup keyboard listener
   useEffect(() => {
     let cleanup;
     
     const launchTimer = setTimeout(async () => {
       if (!isDictionaryLoadedRef.current) {
         await fetchDictionary();
-      }
-      if (!isKeyboardListeningRef.current) {
-        cleanup = startKeyListen();
       }
     }, 50);
   
@@ -491,6 +478,12 @@ function Wordle() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Intentionally empty - we want this to run only once on mount
+
+  // Separate effect for keyboard listener that updates when dependencies change
+  useEffect(() => {
+    const cleanup = startKeyListen();
+    return cleanup;
+  }, [startKeyListen]);
 
   // Separate effect for welcome message - only runs once
   useEffect(() => {
