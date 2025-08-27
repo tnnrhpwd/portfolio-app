@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import url from "./Dictionary.txt";
 
 import Footer from '../../../components/Footer/Footer';
-import NavBar from '../../../components/NavBar/NavBar';
+import Header from '../../../components/Header/Header';
 import "./WordleSolver.css";
 
 // possible links to the dictionary -- may delete
@@ -263,7 +263,7 @@ function WordleSolver() {
 
     return (
         <div>
-            <NavBar/>
+            <Header/>
             <body className="containerq">
                 <div id="title">
                     Wordle Solver
