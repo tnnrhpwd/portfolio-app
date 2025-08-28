@@ -166,52 +166,93 @@ function Profile() {
     return (
       <>
         <Header />
-        <div className='planit-profile'>
-          <div className='planit-profile-title'>
-            Profile
+        <div className="planit-profile-bg">
+          <div className="floating-shapes">
+            <div className="floating-circle floating-circle-1"></div>
+            <div className="floating-circle floating-circle-2"></div>
+            <div className="floating-circle floating-circle-3"></div>
           </div>
-          <div className='planit-profile-welcome'>
-            Welcome home {user.nickname}!
-          </div>
-          <div className="planit-profile-settings">
-            <h2>Settings</h2>
-            <ul>
-              <li>
-                <img src={HeaderLogo} alt="Profile" className="profile-picture" />
-              </li>
-              <li>
-                <span>Profile Name:</span> 
-                <span>{user.nickname}</span>
-              </li>
-              <li>
-                <span>Color Mode:</span>
-                <select value={currentColorMode} onChange={handleColorModeChange}>
-                  <option value="light">Light</option>
-                  <option value="dark">Dark</option>
-                  <option value="system">System</option>
-                </select>
-              </li>
-              <li>
-                <span>Subscription Plan:</span>
-                <select value={currentPlan} onChange={handleSubscriptionChange}>
-                  <option value="Free">Free</option>
-                  <option value="Flex">Flex</option>
-                  <option value="Premium">Premium</option>
-                </select>
+          <div className="planit-profile-card">
+            <section className="planit-profile-heading">
+              <div className="planit-profile-avatar">
+                <img src={HeaderLogo} alt="Profile Avatar" className="profile-picture" />
+              </div>
+              <div className="planit-profile-heading-title">Welcome back, {user.nickname}!</div>
+              <div className="planit-profile-heading-description">Manage your account settings and preferences</div>
+            </section>
+            
+            <section className="planit-profile-content">
+              <div className="planit-profile-section">
+                <h3 className="planit-profile-section-title">Account Information</h3>
+                <div className="planit-profile-info-grid">
+                  <div className="planit-profile-info-item">
+                    <span className="planit-profile-info-label">Profile Name</span>
+                    <span className="planit-profile-info-value">{user.nickname}</span>
+                  </div>
+                  <div className="planit-profile-info-item">
+                    <span className="planit-profile-info-label">Email</span>
+                    <span className="planit-profile-info-value">{user.email || 'Not provided'}</span>
+                  </div>
+                  <div className="planit-profile-info-item">
+                    <span className="planit-profile-info-label">Member Since</span>
+                    <span className="planit-profile-info-value">
+                      {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="planit-profile-section">
+                <h3 className="planit-profile-section-title">Preferences</h3>
+                <div className="planit-profile-settings-grid">
+                  <div className="planit-profile-setting-item">
+                    <label className="planit-profile-setting-label">Theme Mode</label>
+                    <select 
+                      value={currentColorMode} 
+                      onChange={handleColorModeChange}
+                      className="planit-profile-setting-select"
+                    >
+                      <option value="light">☀️ Light</option>
+                      <option value="dark">🌙 Dark</option>
+                      <option value="system">💻 System</option>
+                    </select>
+                  </div>
+                  
+                  <div className="planit-profile-setting-item">
+                    <label className="planit-profile-setting-label">Subscription Plan</label>
+                    <select 
+                      value={currentPlan} 
+                      onChange={handleSubscriptionChange}
+                      className="planit-profile-setting-select"
+                    >
+                      <option value="Free">🆓 Free Plan</option>
+                      <option value="Flex">⚡ Flex Plan</option>
+                      <option value="Premium">👑 Premium Plan</option>
+                    </select>
+                  </div>
+                </div>
                 
                 {subscriptionDetails && (
-                  <div className="subscription-details">
-                    <p>
-                      {subscriptionDetails.productName} - Renews on {new Date(subscriptionDetails.currentPeriodEnd).toLocaleDateString()}
-                    </p>
+                  <div className="planit-profile-subscription-details">
+                    <div className="subscription-info">
+                      <span className="subscription-product">{subscriptionDetails.productName}</span>
+                      <span className="subscription-renewal">
+                        Renews on {new Date(subscriptionDetails.currentPeriodEnd).toLocaleDateString()}
+                      </span>
+                    </div>
                   </div>
                 )}
-              </li>
-            </ul>
-            <button className="planit-profile-settings-button" onClick={navigateToSettings}>All Settings</button>
-          </div>
-          <div className="planit-profile-auth">
-            <button className="planit-profile-auth-button" onClick={onLogout}>Log out</button>
+              </div>
+            </section>
+            
+            <section className="planit-profile-actions">
+              <button className="planit-profile-settings-button" onClick={navigateToSettings}>
+                ⚙️ Advanced Settings
+              </button>
+              <button className="planit-profile-logout-button" onClick={onLogout}>
+                🚪 Sign Out
+              </button>
+            </section>
           </div>
         </div>
         <Footer />
