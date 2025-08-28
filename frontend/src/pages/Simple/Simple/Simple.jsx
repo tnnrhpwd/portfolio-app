@@ -12,6 +12,9 @@ function Simple() {
       <Header />
       <div className='planit-dashboard'>
         <div className='planit-dashboard-upper'>
+          <div className='work-in-progress-notice'>
+            🚧 This project is currently a work in progress 🚧
+          </div>
           <header className='planit-dashboard-upper-header'>
             Empower Your Windows System with Intelligence
           </header>

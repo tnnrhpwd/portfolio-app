@@ -42,6 +42,20 @@
   min-height: 50vh;
   /* border-top: 4px solid #0078d7; */
 }
+.work-in-progress-notice {
+  font-size: calc(var(--nav-size) * 0.4);
+  font-weight: 600;
+  color: var(--text-color);
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: calc(var(--nav-size) * 0.4) calc(var(--nav-size) * 0.6);
+  margin: calc(var(--nav-size) * 1) auto calc(var(--nav-size) * 0.8) auto;
+  max-width: 80%;
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.4) rgba(0, 0, 0, 0.1);
+  animation: pulse-glow 3s ease-in-out infinite alternate;
+}
 .planit-dashboard-upper-header {
   font-size: calc(var(--nav-size)*.8);
   font-weight: 600;
@@ -242,6 +256,13 @@
   .simple-graphic-img {
     max-width: 90%;
   }
+  
+  .work-in-progress-notice {
+    font-size: calc(var(--nav-size) * 0.35);
+    padding: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.4);
+    margin: calc(var(--nav-size) * 1) auto calc(var(--nav-size) * 0.5) auto;
+    max-width: 90%;
+  }
 }
 
 @media (max-width: 480px) {
@@ -311,6 +332,13 @@
   .simple-graphic-img {
     max-width: 95%;
     border-radius: 8px;
+  }
+  
+  .work-in-progress-notice {
+    font-size: calc(var(--nav-size) * 0.32);
+    padding: calc(var(--nav-size) * 0.25) calc(var(--nav-size) * 0.35);
+    margin: calc(var(--nav-size) * 1) auto calc(var(--nav-size) * 0.4) auto;
+    max-width: 95%;
   }
 }
 
@@ -432,5 +460,23 @@
   .planit-dashboard-feedback {
     font-size: calc(var(--nav-size)*0.33);
     padding: calc(var(--nav-size)*0.4) calc(var(--nav-size)*0.4);
+  }
+  .work-in-progress-notice {
+    font-size: calc(var(--nav-size) * 0.35);
+    padding: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.4);
+    margin: calc(var(--nav-size) * 1) auto calc(var(--nav-size) * 0.5) auto;
+    max-width: 90%;
+  }
+}
+
+/* Keyframe animation for work-in-progress notice */
+@keyframes pulse-glow {
+  0% {
+    box-shadow: 0 calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.4) rgba(0, 0, 0, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+  100% {
+    box-shadow: 0 calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.8) rgba(255, 193, 7, 0.3);
+    border-color: rgba(255, 193, 7, 0.4);
   }
 }
