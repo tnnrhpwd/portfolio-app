@@ -142,6 +142,25 @@ export const deletePaymentMethod = createAsyncThunk(
   }
 );
 
+// Create customer
+export const createCustomer = createAsyncThunk(
+  'data/createCustomer',
+  async (customerData, thunkAPI) => {
+    try {
+      const token = thunkAPI.getState().data.user.token;
+      return await dataService.createCustomer(customerData, token);
+    } catch (error) {
+      const dataMessage =
+        (error.response &&
+          error.response.data &&
+          error.response.data.dataMessage) ||
+        error.dataMessage ||
+        error.toString();
+      return thunkAPI.rejectWithValue(dataMessage);
+    }
+  }
+);
+
 // Post payment method
 export const postPaymentMethod = createAsyncThunk(
   'data/postPaymentMethod',
@@ -153,10 +172,15 @@ export const postPaymentMethod = createAsyncThunk(
       const dataMessage =
         (error.response &&
           error.response.data &&
-          error.response.data.dataMessage) ||
+          (error.response.data.message || error.response.data.dataMessage)) ||
+        error.message ||
         error.dataMessage ||
         error.toString();
-      return thunkAPI.rejectWithValue(dataMessage);
+      return thunkAPI.rejectWithValue({
+        message: dataMessage,
+        status: error.response?.status,
+        data: error.response?.data
+      });
     }
   }
 );
@@ -413,6 +437,19 @@ export const dataSlice = createSlice({
         state.paymentMethods = state.paymentMethods.filter(method => method.id !== action.payload.id);
       })
       .addCase(deletePaymentMethod.rejected, (state, action) => {
+        state.dataIsLoading = false;
+        state.dataIsError = true;
+        state.dataMessage = action.payload;
+      })
+      .addCase(createCustomer.pending, (state) => {
+        state.dataIsLoading = true;
+      })
+      .addCase(createCustomer.fulfilled, (state, action) => {
+        state.dataIsLoading = false;
+        state.dataIsSuccess = true;
+        state.customer = action.payload;
+      })
+      .addCase(createCustomer.rejected, (state, action) => {
         state.dataIsLoading = false;
         state.dataIsError = true;
         state.dataMessage = action.payload;

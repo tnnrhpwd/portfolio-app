@@ -195,6 +195,22 @@ const deletePaymentMethod = async (id, token) => {
     }
 };
 
+// Create customer
+const createCustomer = async (customerData, token) => {
+    const config = {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    };
+
+    try {
+        const response = await axios.post(API_URL + 'create-customer', customerData, config);
+        return response.data;
+    } catch (error) {
+        handleTokenExpiration(error);
+    }
+};
+
 // Post payment method
 const postPaymentMethod = async (paymentData, token) => {
     const config = {
@@ -302,6 +318,7 @@ const dataService = {
     compressData,
     getPaymentMethods,
     deletePaymentMethod,
+    createCustomer,
     postPaymentMethod,
     subscribeCustomer,
     getUserSubscription, // Note: Changed from plural to match implementation

@@ -1,152 +1,539 @@
-.pay-container {
-  min-height: 87vh;
-  padding: calc(var(--nav-size) * 0.5);
-  padding-top: calc(var(--nav-size) * 1);
+/* 
+ * ===================================================================
+ * PLANIT PAY PAGE - MODERN DESIGN SYSTEM
+ * ===================================================================
+ * Enhanced with glass-morphism effects, intelligent responsive design,
+ * and consistent typography matching Home page patterns.
+ */
+
+/* Main Background Container */
+.planit-pay-bg {
+    min-height: 100svh;
+    min-height: 100vh;
+    background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
+    background-size: 400% 400%;
+    animation: gradientShift 12s ease infinite;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow-x: hidden;
+    padding: calc(var(--nav-size) * 0.5);
 }
 
-.pay-header {
-  text-align: center;
-  margin-bottom: calc(var(--nav-size) * 0.05);
+/* Enhanced gradient animation with theme awareness */
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    25% { background-position: 100% 50%; }
+    50% { background-position: 100% 100%; }
+    75% { background-position: 0% 100%; }
+    100% { background-position: 0% 50%; }
 }
 
-.pay-header h1 {
-  font-size: calc(var(--nav-size) * 0.4);
-  color: var(--text-color);
-  margin-bottom: 0;
+/* Floating background elements */
+.floating-shapes {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 1;
 }
 
-.pay-header p {
-  font-size: calc(var(--nav-size) * 0.2);
-  color: var(--text-color-accent);
+.floating-circle {
+    position: absolute;
+    background: linear-gradient(135deg, var(--fg-blue), var(--fg-pink));
+    border-radius: 50%;
+    opacity: 0.3;
+    animation: float 20s ease-in-out infinite;
 }
 
-.pay-content {
-  display: flex;
-  justify-content: center;
-  margin-top: calc(var(--nav-size) * 0.03);
+.floating-circle-1 {
+    width: 180px;
+    height: 180px;
+    top: 20%;
+    left: 10%;
+    animation-delay: -2s;
+    animation-duration: 20s;
 }
 
+.floating-circle-2 {
+    width: 140px;
+    height: 140px;
+    top: 60%;
+    right: 15%;
+    animation-delay: -10s;
+    animation-duration: 16s;
+}
+
+.floating-circle-3 {
+    width: 120px;
+    height: 120px;
+    bottom: 15%;
+    left: 75%;
+    animation-delay: -7s;
+    animation-duration: 18s;
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0px) rotate(0deg);
+        opacity: 0.3;
+    }
+    33% {
+        transform: translateY(-30px) rotate(120deg);
+        opacity: 0.6;
+    }
+    66% {
+        transform: translateY(-15px) rotate(240deg);
+        opacity: 0.4;
+    }
+}
+
+/* Main Card Container */
+.planit-pay-card {
+    background: var(--bg-page-transp);
+    backdrop-filter: blur(12px);
+    border-radius: var(--border-radius);
+    box-shadow: 0 8px 32px var(--grey3-transp);
+    padding: calc(var(--nav-size) * 1.5);
+    z-index: 2;
+    min-width: 320px;
+    max-width: 900px;
+    width: 100%;
+    margin: 2rem auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Heading Section */
+.planit-pay-heading {
+    text-align: center;
+    color: var(--text-color);
+    margin-bottom: calc(var(--nav-size) * 0.8);
+    width: 100%;
+}
+
+.planit-pay-heading-title {
+    font-size: calc(var(--nav-size) * 0.35);
+    font-weight: bold;
+    margin-bottom: calc(var(--nav-size) * 0.2);
+    color: var(--text-color);
+}
+
+.planit-pay-heading-description {
+    font-size: calc(var(--nav-size) * 0.2);
+    color: var(--text-color-accent);
+    margin-bottom: calc(var(--nav-size) * 0.4);
+}
+
+/* Content Section */
+.planit-pay-content {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.6);
+}
+
+/* Plan Container - Enhanced */
 .pay-plan-container {
-  color: var(--text-color);
-  font-size: calc(var(--nav-size) * 0.3);
-  width: 100%;
+    background: var(--white1-transp);
+    border-radius: var(--border-radius);
+    padding: calc(var(--nav-size) * 0.6);
+    border: 1px solid var(--border-nav);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(16px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    color: var(--text-color);
+    font-size: calc(var(--nav-size) * 0.18);
+    width: 100%;
+    margin-bottom: calc(var(--nav-size) * 0.4);
 }
 
+.pay-plan-container:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+    border-color: var(--fg-blue);
+}
+
+/* Plan Options Grid */
 .pay-plan-options {
-  display: flex;
-  gap: calc(var(--nav-size) * 0.9);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: calc(var(--nav-size) * 0.4);
+    margin-bottom: calc(var(--nav-size) * 0.6);
 }
 
+/* Individual Plan Option */
 .pay-plan-option {
-  padding: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.4);
-  border: calc(var(--nav-size) * 0.01) solid var(--text-color);
-  background-color: var(--bg-page);
-  color: var(--text-color);
-  cursor: pointer;
-  transition: background-color 0.3s, color 0.3s;
-  border-radius: var(--border-radius);
-  margin-left: calc(var(--nav-size) * 0.3);
-  font-size: calc(var(--nav-size) * 0.3);
+    padding: calc(var(--nav-size) * 0.4);
+    border: 2px solid var(--border-nav);
+    background: var(--white1-transp);
+    color: var(--text-color);
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: var(--border-radius);
+    font-size: calc(var(--nav-size) * 0.18);
+    text-align: center;
+    backdrop-filter: blur(8px);
+    position: relative;
+    overflow: hidden;
 }
 
-.pay-plan-option.selected {
-  background-color: var(--bg-mint);
-  color: var(--text-color);
-  border: calc(var(--nav-size) * 0.05) solid var(--text-color);
+.pay-plan-option::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, var(--fg-blue), var(--fg-pink));
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: -1;
 }
 
 .pay-plan-option:hover {
-  background-color: var(--bg-nav2);
-  color: var(--text-color-accent);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    border-color: var(--fg-blue);
 }
 
+.pay-plan-option:hover::before {
+    opacity: 0.1;
+}
+
+.pay-plan-option.selected {
+    background: linear-gradient(135deg, var(--fg-blue), var(--fg-pink));
+    color: var(--text-color-inv);
+    border-color: var(--fg-blue);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.pay-plan-option.selected::before {
+    opacity: 0.3;
+}
+
+/* Plan Descriptions */
 .pay-plan-descriptions {
-  margin-top: calc(var(--nav-size) * 1);
-  padding-left: calc(var(--nav-size) * 0.3);
+    margin-top: calc(var(--nav-size) * 0.6);
+    padding: calc(var(--nav-size) * 0.4);
+    background: var(--white1-transp);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-nav);
 }
 
 .pay-plan-description {
-  font-size: calc(var(--nav-size) * 0.25);
-  color: var(--text-color);
+    font-size: calc(var(--nav-size) * 0.16);
+    color: var(--text-color);
+    line-height: 1.5;
+    margin-bottom: calc(var(--nav-size) * 0.3);
 }
 
+/* Details Container */
 .pay-details-container {
-  margin-top: calc(var(--nav-size) * 0.3);
-  color: var(--text-color);
-  font-size: calc(var(--nav-size) * 0.3);
-  width: 100%;
+    margin-top: calc(var(--nav-size) * 0.6);
+    background: var(--white1-transp);
+    border-radius: var(--border-radius);
+    padding: calc(var(--nav-size) * 0.6);
+    border: 1px solid var(--border-nav);
+    backdrop-filter: blur(16px);
+    color: var(--text-color);
+    font-size: calc(var(--nav-size) * 0.18);
+    width: 100%;
 }
 
+/* Enhanced Form Styling */
 .form-group {
-  min-width: 60%;
-  border: var(--border);
-  border-radius: var(--border-radius);
-  padding: calc(var(--nav-size) * 0.3);
-  margin: calc(var(--nav-size) * 0.3);
-  height: calc(var(--nav-size) * 3.3);
+    background: var(--white1-transp);
+    border: 1px solid var(--border-nav);
+    border-radius: var(--border-radius);
+    padding: calc(var(--nav-size) * 0.4);
+    margin: calc(var(--nav-size) * 0.3) 0;
+    min-height: calc(var(--nav-size) * 1.2);
+    backdrop-filter: blur(8px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.form-group:hover {
+    border-color: var(--fg-pink);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.form-group:focus-within {
+    border-color: var(--fg-blue);
+    box-shadow: 0 0 0 2px rgba(var(--fg-blue-rgb), 0.2);
+    transform: translateY(-1px);
 }
 
 .form-group label {
-  display: block;
-  margin-bottom: calc(var(--nav-size) * 0.0625);
+    display: block;
+    margin-bottom: calc(var(--nav-size) * 0.15);
+    font-size: calc(var(--nav-size) * 0.16);
+    color: var(--text-color-accent);
+    font-weight: 500;
 }
 
+/* Enhanced Payment Button */
 .pay-button {
-  padding: calc(var(--nav-size) * 0.125) calc(var(--nav-size) * 0.25);
-  background-color: var(--bg-mint);
-  color: var(--text-color-inverse, white);
-  border: var(--border);
-  cursor: pointer;
-  transition: background-color 0.3s, color 0.3s;
-  border-radius: var(--border-radius);
+    width: 100%;
+    padding: calc(var(--nav-size) * 0.4);
+    font-size: calc(var(--nav-size) * 0.2);
+    background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink));
+    color: var(--text-color-inv);
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: 0 4px 16px var(--grey3-transp);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    min-height: calc(var(--nav-size) * 1);
+    margin-top: calc(var(--nav-size) * 0.6);
 }
 
 .pay-button:hover {
-  background-color: var(--bg-nav2);
-  transform: translateY(calc(var(--nav-size) * -0.025));
+    background: linear-gradient(90deg, var(--fg-pink), var(--fg-blue));
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    transform: translateY(-3px);
 }
 
+.pay-button:active {
+    transform: translateY(1px);
+    box-shadow: 0 2px 8px var(--grey3-transp);
+}
+
+.pay-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Stripe Card Element Enhancement */
 .card-element {
-  padding: calc(var(--nav-size) * 0.125);
-  border: var(--border);
-  border-radius: var(--border-radius);
-  margin-bottom: calc(var(--nav-size) * 0.125);
+    padding: calc(var(--nav-size) * 0.3);
+    border: 1px solid var(--border-nav);
+    border-radius: var(--border-radius);
+    margin-bottom: calc(var(--nav-size) * 0.3);
+    background: var(--white1-transp);
+    backdrop-filter: blur(8px);
+    transition: all 0.3s ease;
 }
 
+.card-element:hover {
+    border-color: var(--fg-pink);
+}
+
+.card-element:focus {
+    border-color: var(--fg-blue);
+    box-shadow: 0 0 0 2px rgba(var(--fg-blue-rgb), 0.2);
+}
+
+/* Error Styling */
 .pay-error {
-  color: var(--color-error, #e74c3c);
-  margin-bottom: calc(var(--nav-size) * 0.125);
+    color: var(--color-error, #e74c3c);
+    background: rgba(231, 76, 60, 0.1);
+    padding: calc(var(--nav-size) * 0.3);
+    border-radius: var(--border-radius);
+    border: 1px solid rgba(231, 76, 60, 0.3);
+    margin-bottom: calc(var(--nav-size) * 0.3);
+    font-size: calc(var(--nav-size) * 0.16);
+    backdrop-filter: blur(8px);
 }
 
+/* Enhanced Previous Payment Methods */
 .previous-payment-methods-container {
-  margin-top: calc(var(--nav-size) * 0.3);
-  color: var(--text-color);
-  font-size: calc(var(--nav-size) * 0.3);
-  width: 100%;
+    margin-top: calc(var(--nav-size) * 0.6);
+    background: var(--white1-transp);
+    border-radius: var(--border-radius);
+    padding: calc(var(--nav-size) * 0.6);
+    border: 1px solid var(--border-nav);
+    backdrop-filter: blur(16px);
+    color: var(--text-color);
+    font-size: calc(var(--nav-size) * 0.18);
+    width: 100%;
 }
 
 .previous-payment-methods {
-  margin-top: calc(var(--nav-size) * 0.3);
+    margin-top: calc(var(--nav-size) * 0.4);
+    display: grid;
+    gap: calc(var(--nav-size) * 0.3);
 }
 
 .payment-method {
-  padding: calc(var(--nav-size) * 0.3);
-  border: var(--border);
-  border-radius: var(--border-radius);
-  margin-bottom: calc(var(--nav-size) * 0.3);
-  background-color: var(--bg-page);
+    padding: calc(var(--nav-size) * 0.4);
+    border: 1px solid var(--border-nav);
+    border-radius: var(--border-radius);
+    background: var(--white1-transp);
+    backdrop-filter: blur(8px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    font-size: calc(var(--nav-size) * 0.16);
 }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
-.pay-container {
-  min-height: 87vh;
-  padding: calc(var(--nav-size) * 0.5);
-  padding-top: calc(var(--nav-size) * 1);
+.payment-method:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    border-color: var(--fg-blue);
 }
 
-.pay-header {
-  text-align: center;
-  margin-bottom: calc(var(--nav-size) * 0.05);
+.payment-method.selected {
+    border-color: var(--fg-blue);
+    background: linear-gradient(135deg, rgba(var(--fg-blue-rgb), 0.1), rgba(var(--fg-pink-rgb), 0.1));
 }
+
+/* 
+ * ===================================================================
+ * INTELLIGENT RESPONSIVE DESIGN
+ * ===================================================================
+ */
+
+/* Landscape mode optimizations */
+@media (orientation: landscape) {
+    .planit-pay-card {
+        max-width: 1200px;
+        padding: calc(var(--nav-size) * 1.8);
+        margin: calc(var(--nav-size) * 0.8) auto;
+        min-height: 60vh;
+    }
+    
+    .pay-plan-options {
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: calc(var(--nav-size) * 0.5);
+    }
+    
+    .planit-pay-heading-title {
+        font-size: calc(var(--nav-size) * 0.4);
+    }
+    
+    .planit-pay-heading-description {
+        font-size: calc(var(--nav-size) * 0.22);
+    }
+    
+    /* Desktop enhancements */
+    @media (min-width: 1024px) {
+        .planit-pay-card {
+            padding: calc(var(--nav-size) * 2);
+        }
+        
+        .pay-plan-options {
+            grid-template-columns: repeat(3, 1fr);
+        }
+        
+        .planit-pay-heading-title {
+            font-size: calc(var(--nav-size) * 0.45);
+        }
+        
+        .planit-pay-heading-description {
+            font-size: calc(var(--nav-size) * 0.25);
+        }
+    }
+}
+
+/* Portrait mode optimizations */
+@media (orientation: portrait) {
+    .planit-pay-card {
+        max-width: 95vw;
+        padding: calc(var(--nav-size) * 1.2);
+        margin: calc(var(--nav-size) * 0.5) auto;
+    }
+    
+    .pay-plan-options {
+        grid-template-columns: 1fr;
+        gap: calc(var(--nav-size) * 0.3);
+    }
+    
+    .planit-pay-heading-title {
+        font-size: calc(var(--nav-size) * 0.32);
+    }
+    
+    .planit-pay-heading-description {
+        font-size: calc(var(--nav-size) * 0.18);
+    }
+    
+    /* Mobile portrait optimizations */
+    @media (max-width: 480px) {
+        .planit-pay-card {
+            max-width: 98vw;
+            padding: calc(var(--nav-size) * 1);
+            margin: calc(var(--nav-size) * 0.3) auto;
+        }
+        
+        .planit-pay-heading-title {
+            font-size: calc(var(--nav-size) * 0.3);
+        }
+        
+        .planit-pay-heading-description {
+            font-size: calc(var(--nav-size) * 0.16);
+        }
+        
+        .pay-button {
+            padding: calc(var(--nav-size) * 0.45);
+            font-size: calc(var(--nav-size) * 0.22);
+            min-height: calc(var(--nav-size) * 1.1);
+        }
+    }
+}
+
+/* Performance optimizations for mobile devices */
+@media (orientation: portrait) and (max-width: 768px) {
+    .floating-circle-1,
+    .floating-circle-2,
+    .floating-circle-3 {
+        animation-duration: 25s;
+        opacity: 0.2;
+    }
+}
+
+/* Enhanced animations for landscape and larger screens */
+@media (orientation: landscape) {
+    .floating-circle-1,
+    .floating-circle-2,
+    .floating-circle-3 {
+        animation-duration: 15s;
+        opacity: 0.4;
+    }
+    
+    @media (min-width: 1024px) {
+        .floating-circle-1 {
+            width: 200px;
+            height: 200px;
+            animation-duration: 12s;
+        }
+        
+        .floating-circle-2 {
+            width: 160px;
+            height: 160px;
+            animation-duration: 14s;
+        }
+        
+        .floating-circle-3 {
+            width: 140px;
+            height: 140px;
+            animation-duration: 16s;
+        }
+    }
+}
+
+/* Accessibility: Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+    .floating-circle-1,
+    .floating-circle-2,
+    .floating-circle-3 {
+        animation: none;
+        opacity: 0.1;
+    }
+    
+    .planit-pay-card,
+    .pay-plan-option,
+    .form-group,
+    .pay-button {
+        transition: none;
+    }
 }

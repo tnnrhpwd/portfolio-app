@@ -166,9 +166,9 @@ const compressData = asyncHandler(async (req, res) => {
     }
 
     // Check for user
-    if (req.user.data && req.user.data.text && typeof req.user.data.text === 'string' && !req.user.data.text.includes("tnnrhpwd@gmail.com")) {
+    if (req.user.text && typeof req.user.text === 'string' && !req.user.text.includes("tnnrhpwd@gmail.com")) {
         res.status(401)
-        throw new Error('Only admin are authorized to utilize the API at this time.' + req.user.data.text)
+        throw new Error('Only admin are authorized to utilize the API at this time.' + req.user.text)
     }
 
     const parsedJSON = JSON.parse(req.body.data);
@@ -270,11 +270,52 @@ const compressData = asyncHandler(async (req, res) => {
 // POST: Create a new customer
 const createCustomer = asyncHandler(async (req, res) => {
     const { email, name } = req.body;
+    
+    // Check for user
+    if (!req.user) {
+        res.status(401);
+        throw new Error('User not found');
+    }
+    
+    // Check if user.text exists before accessing its properties
+    if (!req.user.text) {
+        res.status(400);
+        throw new Error('User data not found or incomplete');
+    }
+    
     try {
+        // Create Stripe customer
         const customer = await stripe.customers.create({ email, name });
-        return customer;
+        console.log('Stripe customer created:', customer.id);
+        
+        // Update user's stripeid in the database
+        const userData = req.user.text;
+        const updatedUserData = userData.replace(/\|stripeid:([^|]*)/, `|stripeid:${customer.id}`);
+        
+        console.log('Original user data:', userData);
+        console.log('Updated user data:', updatedUserData);
+        
+        // Update the user data in DynamoDB using PutCommand (like other successful updates)
+        const putParams = {
+            TableName: 'Simple',
+            Item: {
+                ...req.user, // Keep all existing user data
+                text: updatedUserData, // Update the text with new stripeid
+                updatedAt: new Date().toISOString() // Update timestamp
+            }
+        };
+        
+        await dynamodb.send(new PutCommand(putParams));
+        console.log('User data updated with Stripe customer ID');
+        
+        res.status(201).json({
+            success: true,
+            customer: customer,
+            message: 'Customer created successfully and user data updated'
+        });
     } catch (error) {
         console.error('Customer creation failed:', error);
+        res.status(500);
         throw new Error('Customer creation failed');
     }
 });
@@ -286,24 +327,36 @@ const postPaymentMethod = asyncHandler(async (req, res) => {
         res.status(401);
         throw new Error('User not found');
     }
+    // Updated: Added validation fix for setup intents
     console.log('Request body:', req.body);
-    console.log('req.user.data.text:', req.user.data.text);
+    console.log('req.user:', req.user);
+    
+    // Check if user.text exists before accessing its properties (corrected structure)
+    if (!req.user.text) {
+        res.status(400);
+        throw new Error('User data not found or incomplete');
+    }
+    
+    console.log('req.user.text:', req.user.text);
 
     try {
-        // Check if stripeid exists
-        if (!req.user.data.text.includes('|stripeid:')) {
+        // Check if stripeid exists and extract customer ID
+        const stripeIdMatch = req.user.text.match(/\|stripeid:([^|]*)/);
+        if (!stripeIdMatch) {
             res.status(400);
             throw new Error('No customer ID found. Please create a customer first.');
         }
-
-        // Extract customer ID using regex for more reliability
-        const stripeIdMatch = req.user.data.text.match(/\|stripeid:([^|]+)/);
-        if (!stripeIdMatch || !stripeIdMatch[1]) {
-            res.status(400);
-            throw new Error('Invalid customer ID format');
-        }
         
         const customerId = stripeIdMatch[1];
+        if (!customerId || customerId.trim() === '') {
+            console.log('No Stripe customer ID found, returning error to trigger customer creation');
+            return res.status(400).json({
+                success: false,
+                message: 'No customer ID found. Please create a customer first.',
+                code: 'CUSTOMER_REQUIRED'
+            });
+        }
+        
         console.log('Extracted Customer ID:', customerId);
         
         // Case 1: If paymentMethodId is provided (from Stripe.js on frontend), attach it to the customer
@@ -376,7 +429,7 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
     const { paymentMethodId, membershipType } = req.body;
     console.log('Subscription request:', { membershipType, paymentMethodId });
     // Extract customer ID using regex for more reliability
-    const stripeIdMatch = req.user.data.text.match(/\|stripeid:([^|]+)/);
+    const stripeIdMatch = req.user.text.match(/\|stripeid:([^|]+)/);
     if (!stripeIdMatch || !stripeIdMatch[1]) {
         res.status(400);
         throw new Error('Invalid customer ID format');
@@ -386,7 +439,7 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
     console.log('Customer ID for subscription management:', customerId);
 
     // Extract user email for notifications
-    const emailMatch = req.user.data.text.match(/Email:([^|]+)/);
+    const emailMatch = req.user.text.match(/Email:([^|]+)/);
     let userEmail = null;
     if (emailMatch && emailMatch[1]) {
         userEmail = emailMatch[1].trim();

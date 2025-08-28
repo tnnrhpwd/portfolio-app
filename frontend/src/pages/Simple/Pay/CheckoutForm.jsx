@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { postPaymentMethod, getPaymentMethods, subscribeCustomer, getUserSubscription } from '../../../features/data/dataSlice';
+import { postPaymentMethod, getPaymentMethods, subscribeCustomer, getUserSubscription, createCustomer } from '../../../features/data/dataSlice';
 import { loadStripe } from '@stripe/stripe-js';
 import {
   Elements,
@@ -831,7 +831,36 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
 function CheckoutForm({ paymentType, initialPlan }) {
   const [isStripeError, setIsStripeError] = useState(false);
   const [clientSecret, setClientSecret] = useState('');
+  const [error, setError] = useState(null);
   const dispatch = useDispatch();
+  
+  // Get user data for customer creation
+  const { user } = useSelector(state => state.data);
+  const userEmail = user?.email || '';
+
+  // Test function to manually trigger customer creation
+  const testCustomerCreation = async () => {
+    try {
+      console.log('Testing customer creation...');
+      console.log('User email:', userEmail);
+      console.log('User data:', user);
+      const customerData = {
+        email: userEmail,
+        name: user?.nickname || userEmail.split('@')[0]
+      };
+      console.log('Customer data to send:', customerData);
+      await dispatch(createCustomer(customerData)).unwrap();
+      console.log('Customer created successfully!');
+      // Retry setup intent after customer creation
+      const retrySetupIntent = await dispatch(postPaymentMethod({})).unwrap();
+      if (retrySetupIntent && retrySetupIntent.client_secret) {
+        setClientSecret(retrySetupIntent.client_secret);
+        console.log('Setup intent created after customer creation!');
+      }
+    } catch (error) {
+      console.error('Customer creation test failed:', error);
+    }
+  };
 
   useEffect(() => {
     const getSetupIntent = async () => {
@@ -846,14 +875,96 @@ function CheckoutForm({ paymentType, initialPlan }) {
           setClientSecret(setupIntent.client_secret);
         } else {
           console.error('Invalid setup intent response:', setupIntent);
+          setError('Failed to initialize payment setup. Please try again.');
         }
       } catch (error) {
         console.error('Failed to get setup intent:', error);
+        
+        // Log the full error structure for debugging
+        console.log('Error object:', error);
+        console.log('Error type:', typeof error);
+        console.log('Error keys:', Object.keys(error || {}));
+        console.log('Error message:', error?.message);
+        console.log('Error response:', error?.response?.data);
+        console.log('Error status:', error?.response?.status);
+        console.log('Error data:', error?.data);
+        console.log('Error status from data:', error?.status);
+        
+        // Handle specific error cases - check multiple possible error message locations
+        // Redux thunk errors are structured differently
+        let errorMessage = '';
+        let errorStatus = null;
+        
+        if (error?.message) {
+          // Direct error from Redux thunk
+          errorMessage = error.message;
+          errorStatus = error.status;
+          console.log('Using Redux thunk error structure');
+        } else if (error?.response?.data) {
+          // Direct axios error
+          if (typeof error.response.data === 'string') {
+            errorMessage = error.response.data;
+          } else if (error.response.data.message) {
+            errorMessage = error.response.data.message;
+          } else if (error.response.data.error) {
+            errorMessage = error.response.data.error;
+          } else {
+            errorMessage = JSON.stringify(error.response.data);
+          }
+          errorStatus = error.response.status;
+          console.log('Using axios error structure');
+        } else {
+          errorMessage = error?.toString() || '';
+          console.log('Using fallback error structure');
+        }
+        
+        console.log('Extracted error message:', errorMessage);
+        console.log('Extracted error status:', errorStatus);
+        console.log('Does error contain customer?', errorMessage.includes('customer'));
+        console.log('Does error contain Customer?', errorMessage.includes('Customer'));
+        console.log('Is status 400?', errorStatus === 400);
+        console.log('Does error contain "No customer ID"?', errorMessage.includes('No customer ID'));
+        
+        // Check both the error message and status code for customer creation trigger
+        const needsCustomer = errorMessage.includes('customer') || 
+                             errorMessage.includes('Customer') || 
+                             (errorStatus === 400 && errorMessage.includes('No customer ID'));
+        
+        console.log('Needs customer creation?', needsCustomer);
+        
+        if (needsCustomer) {
+          // User doesn't have a Stripe customer ID, try to create one
+          try {
+            console.log('Creating customer first...');
+            console.log('User email:', userEmail);
+            console.log('User data:', user);
+            const customerData = {
+              email: userEmail,
+              name: user?.nickname || userEmail.split('@')[0] // Use nickname if available, otherwise use email prefix
+            };
+            console.log('Customer data to send:', customerData);
+            await dispatch(createCustomer(customerData)).unwrap();
+            console.log('Customer created successfully, retrying setup intent...');
+            
+            // Retry setup intent creation after creating customer
+            const retrySetupIntent = await dispatch(postPaymentMethod({})).unwrap();
+            if (retrySetupIntent && retrySetupIntent.client_secret) {
+              setClientSecret(retrySetupIntent.client_secret);
+            } else {
+              setError('Failed to initialize payment after customer creation.');
+            }
+          } catch (createError) {
+            console.error('Failed to create customer:', createError);
+            setError('Failed to set up payment system. Please contact support.');
+          }
+        } else {
+          setError(error?.message || 'Failed to initialize payment setup. Please try again.');
+        }
       }
     };
     
     getSetupIntent();
-  }, [dispatch]);
+  }, [dispatch, user, userEmail]); // Added missing dependencies
 
   // If Stripe initialization failed, show an error instead of trying to load Elements
   if (stripePromise === null && !isStripeError) {
@@ -870,6 +981,19 @@ function CheckoutForm({ paymentType, initialPlan }) {
           <li>Connection issues with our payment provider</li>
         </ul>
         <p>Please try disabling any ad-blockers or privacy extensions, then refresh the page.</p>
+        <button onClick={testCustomerCreation} style={{marginTop: '10px', padding: '10px', backgroundColor: '#007cba', color: 'white', border: 'none', borderRadius: '4px'}}>
+          Test Customer Creation
+        </button>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="pay-error">
+        <h3>Payment Setup Error</h3>
+        <p>{error}</p>
+        <button onClick={() => window.location.reload()}>Try Again</button>
       </div>
     );
   }
@@ -879,6 +1003,9 @@ function CheckoutForm({ paymentType, initialPlan }) {
       <div className="loading-container">
         <div className="spinner"></div>
         <p>Preparing payment options...</p>
+        <button onClick={testCustomerCreation} style={{marginTop: '10px', padding: '10px', backgroundColor: '#007cba', color: 'white', border: 'none', borderRadius: '4px'}}>
+          Test Customer Creation
+        </button>
       </div>
     );
   }

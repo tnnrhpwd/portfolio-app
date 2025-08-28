@@ -1,54 +1,63 @@
-/* Base styles */
+/* Base styles - Updated to match Home page patterns */
 .card-element, #form-group-card, #form-group-cvv, #form-group-expiry {
   padding: calc(var(--nav-size) * 0.3);
-  border: var(--border);
+  border: 1px solid var(--border-nav);
   border-radius: var(--border-radius);
   color: var(--text-color);
-  background-color: var(--bg-page);
+  background: var(--white1-transp);
+  backdrop-filter: blur(8px);
+  transition: all 0.3s ease;
 }
 
 /* Common message styles */
 .pay-error, .stripe-blocked-warning, .stripe-error, .payment-success {
-  padding: calc(var(--nav-size) * 0.2);
+  padding: calc(var(--nav-size) * 0.3);
   border-radius: var(--border-radius);
-  margin-bottom: calc(var(--nav-size) * 0.25);
+  margin-bottom: calc(var(--nav-size) * 0.3);
+  backdrop-filter: blur(8px);
 }
 
 .pay-error {
-  font-size: calc(var(--nav-size) * 0.25);
+  font-size: calc(var(--nav-size) * 0.16);
   color: var(--error-color, #e74c3c);
-  background-color: var(--error-bg, rgba(231, 76, 60, 0.1));
+  background: rgba(231, 76, 60, 0.1);
+  border: 1px solid rgba(231, 76, 60, 0.3);
 }
 
-/* Button styles */
+/* Enhanced Button styles */
 .add-method-button, .next-step-button, .subscribe-button, #add-payment-button {
-  padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.2);
-  background-color: var(--fg-mint);
+  padding: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.4);
+  background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink));
   color: var(--text-color-inv);
   border: none;
   border-radius: var(--border-radius);
-  font-size: calc(var(--nav-size) * 0.25);
+  font-size: calc(var(--nav-size) * 0.18);
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: calc(var(--nav-size) * 0.8);
+  box-shadow: 0 4px 16px var(--grey3-transp);
 }
 
 .add-method-button:hover, .next-step-button:hover, .subscribe-button:hover, #add-payment-button:hover {
-  background-color: var(--bg-nav2);
-  transform: translateY(calc(var(--nav-size) * -0.025));
-  color: var(--text-color);
+  background: linear-gradient(90deg, var(--fg-pink), var(--fg-blue));
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }
 
-/* Container styles */
+/* Enhanced Container styles */
 .checkout-container, .form-section, .confirmation-details {
-  background-color: var(--bg-page);
+  background: var(--white1-transp);
   border-radius: var(--border-radius);
-  padding: calc(var(--nav-size) * 0.25);
+  padding: calc(var(--nav-size) * 0.6);
+  border: 1px solid var(--border-nav);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
-/* Text styles */
+/* Updated Text styles to match Home page font sizes */
 .section-desc, .email-note, .terms-agreement, .link-description {
-  font-size: calc(var(--nav-size) * 0.25);
+  font-size: calc(var(--nav-size) * 0.16);
   color: var(--text-color-accent);
   margin: calc(var(--nav-size) * 0.1) 0;
 }
@@ -1075,11 +1084,61 @@
 
 .subscription-details p {
   margin: 0;
-  font-size: calc(var(--nav-size) * 0.2);
+  font-size: calc(var(--nav-size) * 0.16);
   color: var(--text-color);
 }
 
 .subscription-details strong {
   color: var(--fg-mint);
   font-weight: 500;
+}
+
+/* 
+ * ===================================================================
+ * FONT SIZE STANDARDIZATION - HOME PAGE PATTERNS
+ * ===================================================================
+ * Override all font sizes to match Home page typography system
+ */
+
+/* Global font size updates to match Home page patterns */
+.email-note,
+.terms-agreement,
+.link-description,
+.form-description,
+.error-message,
+.success-message,
+.loading-text {
+    font-size: calc(var(--nav-size) * 0.16);
+}
+
+/* Section headers and titles */
+.checkout-step-title,
+.confirmation-title,
+.section-header {
+    font-size: calc(var(--nav-size) * 0.2);
+}
+
+/* Membership plan elements */
+.membership-plan h3 {
+    font-size: calc(var(--nav-size) * 0.22);
+}
+
+.membership-plan .price,
+.plan-option-price,
+.total-amount {
+    font-size: calc(var(--nav-size) * 0.18);
+    font-weight: 600;
+}
+
+.membership-plan .tagline,
+.membership-plan .features li,
+.membership-plan .quota {
+    font-size: calc(var(--nav-size) * 0.16);
+}
+
+/* Smaller descriptive text */
+.plan-option-description,
+.terms-text,
+.disclaimer-text {
+    font-size: calc(var(--nav-size) * 0.14);
 }

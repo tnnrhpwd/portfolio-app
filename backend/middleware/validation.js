@@ -48,21 +48,46 @@ const validateDataCreation = [
 // Validation rules for payment data
 const validatePaymentData = [
   body('amount')
+    .optional() // Make amount optional for setup intents
     .isNumeric()
     .withMessage('Amount must be a number')
     .custom((value) => {
-      if (value <= 0) {
+      if (value !== undefined && value <= 0) {
         throw new Error('Amount must be greater than 0');
       }
-      if (value > 999999) {
+      if (value !== undefined && value > 999999) {
         throw new Error('Amount must be less than $999,999');
       }
       return true;
     }),
   
   body('currency')
+    .optional() // Make currency optional for setup intents
     .matches(/^[A-Z]{3}$/)
     .withMessage('Currency must be a 3-letter ISO code (e.g., USD)'),
+  
+  // Custom validation to ensure amount and currency are both provided if either is provided
+  body().custom((value, { req }) => {
+    const { amount, currency } = req.body;
+    
+    // If paymentMethodId is provided, we don't need amount/currency validation
+    if (req.body.paymentMethodId) {
+      return true;
+    }
+    
+    // If neither amount nor currency are provided, it's likely a setup intent request
+    if (!amount && !currency) {
+      return true;
+    }
+    
+    // If one is provided but not the other, that's an error
+    if ((amount && !currency) || (!amount && currency)) {
+      throw new Error('Both amount and currency must be provided together');
+    }
+    
+    return true;
+  })
+    .withMessage('Payment data validation failed'),
 ];
 
 // Middleware to handle validation errors
