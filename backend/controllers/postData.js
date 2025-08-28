@@ -86,13 +86,14 @@ const registerUser = asyncHandler(async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, salt)
   
     // Create user in DynamoDB
+    const creationDate = new Date().toISOString();
     const params = {
         TableName: 'Simple',
         Item: {
             id: require('crypto').randomBytes(16).toString("hex"), // Generate a unique ID
-            text: `Nickname:${nickname}|Email:${email}|Password:${hashedPassword}|stripeid:`,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
+            text: `Nickname:${nickname}|Email:${email}|Password:${hashedPassword}|Birth:${creationDate}|stripeid:`,
+            createdAt: creationDate,
+            updatedAt: creationDate
         }
     };
   
@@ -101,6 +102,8 @@ const registerUser = asyncHandler(async (req, res) => {
         res.status(201).json({
             _id: params.Item.id,
             nickname,
+            email,
+            createdAt: creationDate, // Include the birth date
             token: generateToken(String(params.Item.id)),   //uses JWT secret
         });
     } catch (error) {
@@ -136,21 +139,40 @@ const loginUser = asyncHandler(async (req, res) => {
         }
 
         const user = result.Items[0];
-        // Extract password, nickname, and stripe from the stored data
+        // Extract password, nickname, birth, and stripe from the stored data
         const userText = user.text;
         const userStripe = userText.substring(userText.indexOf('|stripeid:') + 10);
-        const userPassword = userText.substring(userText.indexOf('|Password:') + 10, userText.indexOf('|stripeid:'));
+        
+        // Handle both old format (without Birth) and new format (with Birth)
+        let userPassword, userBirth;
+        if (userText.includes('|Birth:')) {
+            // New format: Nickname:xxx|Email:xxx|Password:xxx|Birth:xxx|stripeid:xxx
+            userPassword = userText.substring(userText.indexOf('|Password:') + 10, userText.indexOf('|Birth:'));
+            userBirth = userText.substring(userText.indexOf('|Birth:') + 7, userText.indexOf('|stripeid:'));
+        } else {
+            // Old format: Nickname:xxx|Email:xxx|Password:xxx|stripeid:xxx
+            userPassword = userText.substring(userText.indexOf('|Password:') + 10, userText.indexOf('|stripeid:'));
+            userBirth = null; // No birth date for old users
+        }
+        
         const userNickname = userText.substring(userText.indexOf('Nickname:') + 9, userText.indexOf('|Email:'));
 
         // Check if the password matches
         if (await bcrypt.compare(password, userPassword)) {
-            res.json({
+            const responseData = {
                 _id: user.id,
                 email: email,
                 nickname: userNickname,
                 stripe: userStripe,
                 token: generateToken(String(user.id)),
-            });
+            };
+            
+            // Include birth date if available
+            if (userBirth) {
+                responseData.createdAt = userBirth;
+            }
+            
+            res.json(responseData);
         } else {
             res.status(400);
             throw new Error('Invalid password.');

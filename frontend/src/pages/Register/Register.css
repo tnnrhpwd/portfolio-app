@@ -116,6 +116,17 @@
     border-color: var(--fg-blue);
     box-shadow: 0 0 0 2px var(--fg-blue);
 }
+.planit-register-password-requirements {
+    font-size: calc(var(--nav-size) * 0.2);
+    color: var(--text-color-accent);
+    margin-top: calc(var(--nav-size) * 0.1);
+    padding: calc(var(--nav-size) * 0.15);
+    background: var(--white1-transp);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-nav);
+    text-align: center;
+    line-height: 1.3;
+}
 .planit-register-form-submit {
     width: 100%;
     padding: calc(var(--nav-size)*.2);

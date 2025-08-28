@@ -63,6 +63,16 @@ function Register() {
 
         if (((nickname).length === 0) || ((email).length === 0) || ((password).length === 0)) { // if passwords dont match, error. Else, 
             toast.error('Please fill in all blanks.', { autoClose: 2000 })
+        } else if (password.length < 8) {
+            toast.error('Password must be at least 8 characters long.', { autoClose: 3000 })
+        } else if (!/(?=.*[a-z])/.test(password)) {
+            toast.error('Password must contain at least one lowercase letter.', { autoClose: 3000 })
+        } else if (!/(?=.*[A-Z])/.test(password)) {
+            toast.error('Password must contain at least one uppercase letter.', { autoClose: 3000 })
+        } else if (!/(?=.*\d)/.test(password)) {
+            toast.error('Password must contain at least one number.', { autoClose: 3000 })
+        } else if (!/(?=.*[@$!%*?&])/.test(password)) {
+            toast.error('Password must contain at least one special character (@$!%*?&).', { autoClose: 4000 })
         } else {
             const userData = {  // get data from input form
             nickname,
@@ -129,6 +139,9 @@ function Register() {
                                 onChange={onChange}
                                 required
                             />
+                            <div className="planit-register-password-requirements">
+                                Password must contain: lowercase, uppercase, number, and special character (@$!%*?&)
+                            </div>
                         </div>
                         <div className="planit-register-form-group">
                             <button type="submit" className="planit-register-form-submit">

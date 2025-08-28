@@ -186,7 +186,7 @@
 
 .planit-profile-info-label {
     font-size: calc(var(--nav-size) * 0.3);
-    color: var(--text-color-accent);
+    color: var(--text-color);
     font-weight: 500;
 }
 
@@ -194,6 +194,36 @@
     font-size: calc(var(--nav-size) * 0.3);
     color: var(--text-color);
     font-weight: 600;
+}
+
+/* Special styling for birth date and age */
+.planit-profile-birth-info,
+.planit-profile-age-info {
+    background: linear-gradient(90deg, var(--bg-blue), var(--bg-mint)) !important;
+    border-radius: calc(var(--border-radius) * 0.5);
+    padding: calc(var(--nav-size) * 0.25) calc(var(--nav-size) * 0.2);
+    margin: calc(var(--nav-size) * 0.1) 0;
+    border: 1px solid var(--fg-blue);
+    box-shadow: 0 2px 8px var(--grey3-transp);
+}
+
+.planit-profile-birth-info .planit-profile-info-value,
+.planit-profile-age-info .planit-profile-info-value {
+    color: var(--text-color);
+    font-weight: bold;
+}
+
+.planit-profile-birth-info .planit-profile-info-label,
+.planit-profile-age-info .planit-profile-info-label {
+    color: var(--text-color);
+    font-weight: bold;
+}
+
+.planit-profile-birth-info:hover,
+.planit-profile-age-info:hover {
+    background: linear-gradient(90deg, var(--bg-mint), var(--bg-blue)) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px var(--grey3-transp);
 }
 
 /* Settings Grid */
@@ -211,7 +241,7 @@
 
 .planit-profile-setting-label {
     font-size: calc(var(--nav-size) * 0.3);
-    color: var(--text-color-accent);
+    color: var(--text-color);
     font-weight: 500;
 }
 
@@ -277,7 +307,7 @@
     padding: calc(var(--nav-size) * 0.3);
     font-size: calc(var(--nav-size) * 0.3);
     background: var(--fg-blue);
-    color: var(--text-color-inv);
+    color: white;
     border: none;
     border-radius: var(--border-radius);
     cursor: pointer;
@@ -297,7 +327,7 @@
     padding: calc(var(--nav-size) * 0.3);
     font-size: calc(var(--nav-size) * 0.3);
     background: linear-gradient(90deg, var(--bg-orange), var(--bg-pink));
-    color: var(--text-color-inv);
+    color: var(--text-color);
     border: none;
     border-radius: var(--border-radius);
     cursor: pointer;

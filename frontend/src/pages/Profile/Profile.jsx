@@ -186,17 +186,42 @@ function Profile() {
                 <h3 className="planit-profile-section-title">Account Information</h3>
                 <div className="planit-profile-info-grid">
                   <div className="planit-profile-info-item">
-                    <span className="planit-profile-info-label">Profile Name</span>
+                    <span className="planit-profile-info-label">👤 Profile Name</span>
                     <span className="planit-profile-info-value">{user.nickname}</span>
                   </div>
                   <div className="planit-profile-info-item">
-                    <span className="planit-profile-info-label">Email</span>
+                    <span className="planit-profile-info-label">📧 Email</span>
                     <span className="planit-profile-info-value">{user.email || 'Not provided'}</span>
                   </div>
                   <div className="planit-profile-info-item">
-                    <span className="planit-profile-info-label">Member Since</span>
+                    <span className="planit-profile-info-label">📅 Account Created</span>
                     <span className="planit-profile-info-value">
                       {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}
+                    </span>
+                  </div>
+                  <div className="planit-profile-info-item planit-profile-age-info">
+                    <span className="planit-profile-info-label">⏰ Account Age</span>
+                    <span className="planit-profile-info-value">
+                      {user.createdAt ? (() => {
+                        const birthDate = new Date(user.createdAt);
+                        const now = new Date();
+                        const diffTime = Math.abs(now - birthDate);
+                        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                        const diffMonths = Math.floor(diffDays / 30.44); // Average days per month
+                        const diffYears = Math.floor(diffDays / 365.25); // Account for leap years
+                        
+                        if (diffYears > 0) {
+                          const remainingMonths = Math.floor((diffDays % 365.25) / 30.44);
+                          return `${diffYears} year${diffYears !== 1 ? 's' : ''}${remainingMonths > 0 ? `, ${remainingMonths} month${remainingMonths !== 1 ? 's' : ''}` : ''}`;
+                        } else if (diffMonths > 0) {
+                          return `${diffMonths} month${diffMonths !== 1 ? 's' : ''}`;
+                        } else if (diffDays > 0) {
+                          return `${diffDays} day${diffDays !== 1 ? 's' : ''}`;
+                        } else {
+                          const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
+                          return diffHours > 0 ? `${diffHours} hour${diffHours !== 1 ? 's' : ''}` : 'Just created';
+                        }
+                      })() : 'Unknown'}
                     </span>
                   </div>
                 </div>
