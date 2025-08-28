@@ -1,114 +1,732 @@
-.planit-settings {
-    padding-top: calc(var(--nav-size)*1);
-    min-height: 87vh;
-    background-color: var(--background-color);
-    padding: calc(var(--nav-size)*0.2);
-    border-radius: calc(var(--nav-size)*0.5);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-}
+/* Modern Settings Page Styling - Matching Profile Design */
 
-.planit-settings-title {
-    color: var(--text-color);
-    font-size: calc(var(--nav-size)*0.5);
-    padding-top: calc(var(--nav-size)*0.3);
-    text-align: center;
-    margin-bottom: calc(var(--nav-size)*1);
-}
-
-.planit-settings-table {
-    padding-top: calc(var(--nav-size)*0.2);
-    text-align: left;
-    border: 1px solid var(--text-color);
-    padding: calc(var(--nav-size)*0.2);
-    margin: calc(var(--nav-size)*0.1);
-    background-color: var(--background-color-alt);
-    border-radius: calc(var(--nav-size)*0.5);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-}
-
-.planit-settings-table h2 {
-    color: var(--text-color);
-    font-size: calc(var(--nav-size)*0.4);
-    margin-bottom: calc(var(--nav-size)*0.5);
-}
-
-.planit-settings-table table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.planit-settings-table tr {
-    border-bottom: 1px solid var(--text-color); /* Add border to each row */
-}
-
-.planit-settings-table tr:last-child {
-    border-bottom: none; /* Remove border from the last row */
-}
-
-.planit-settings-table td {
-    color: var(--text-color);
-    font-size: calc(var(--nav-size)*0.25);
-    padding: calc(var(--nav-size)*0.2);
-    display: flex; /* Add flex display */
-    align-items: center; /* Vertically align items */
-    border-bottom: none; /* Remove border from td */
-}
-
-.planit-settings-table input[type="text"],
-.planit-settings-table input[type="email"],
-.planit-settings-table input[type="tel"],
-.planit-settings-table select,
-.planit-settings-table input[type="checkbox"] {
-    margin-left: auto; /* Push elements to the right */
-}
-
-/* Adjustments for checkbox alignment */
-.planit-settings-table input[type="checkbox"] {
-    margin-right: 0; /* Remove default right margin */
-}
-
-/* Style for checkbox labels to improve alignment */
-.planit-settings-table label {
+.planit-settings-bg {
+    min-height: 100vh;
+    background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
+    background-size: 400% 400%;
+    animation: gradientShift 12s ease infinite;
     display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    padding: 2rem 1rem;
+}
+
+.floating-shapes {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.floating-circle {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--white1-transp) 0%, transparent 70%);
+    animation: float 6s ease-in-out infinite;
+}
+
+.floating-circle-1 {
+    width: 140px;
+    height: 140px;
+    top: 10%;
+    left: 5%;
+    animation-delay: 0s;
+    animation-duration: 14s;
+}
+
+.floating-circle-2 {
+    width: 100px;
+    height: 100px;
+    top: 60%;
+    right: 8%;
+    animation-delay: -4s;
+    animation-duration: 16s;
+}
+
+.floating-circle-3 {
+    width: 120px;
+    height: 120px;
+    bottom: 15%;
+    left: 75%;
+    animation-delay: -7s;
+    animation-duration: 18s;
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0px) rotate(0deg);
+        opacity: 0.3;
+    }
+    33% {
+        transform: translateY(-30px) rotate(120deg);
+        opacity: 0.6;
+    }
+    66% {
+        transform: translateY(-15px) rotate(240deg);
+        opacity: 0.4;
+    }
+}
+
+/* Performance optimizations for mobile devices */
+@media (orientation: portrait) and (max-width: 768px) {
+    .floating-circle-1,
+    .floating-circle-2,
+    .floating-circle-3 {
+        /* Reduce animation complexity on mobile */
+        animation-duration: 25s;
+        opacity: 0.2;
+    }
+}
+
+/* Enhanced animations for landscape and larger screens */
+@media (orientation: landscape) {
+    .floating-circle-1,
+    .floating-circle-2,
+    .floating-circle-3 {
+        /* More dynamic animations in landscape */
+        animation-duration: 15s;
+        opacity: 0.4;
+    }
+    
+    /* Desktop gets full animation experience */
+    @media (min-width: 1024px) {
+        .floating-circle-1 {
+            width: 200px;
+            height: 200px;
+            animation-duration: 12s;
+        }
+        
+        .floating-circle-2 {
+            width: 160px;
+            height: 160px;
+            animation-duration: 14s;
+        }
+        
+        .floating-circle-3 {
+            width: 140px;
+            height: 140px;
+            animation-duration: 16s;
+        }
+    }
+}
+
+/* Accessibility: Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+    .floating-circle-1,
+    .floating-circle-2,
+    .floating-circle-3 {
+        animation: none;
+        opacity: 0.1;
+    }
+}
+
+.planit-settings-card {
+    background: var(--bg-page-transp);
+    backdrop-filter: blur(12px);
+    border-radius: var(--border-radius);
+    box-shadow: 0 8px 32px var(--grey3-transp);
+    padding: calc(var(--nav-size) * 1.5);
+    z-index: 2;
+    min-width: 320px;
+    max-width: 800px;
+    width: 100%;
+    margin: 2rem auto;
+    display: flex;
+    flex-direction: column;
     align-items: center;
 }
 
-.planit-settings-table label input[type="checkbox"] {
-    margin-right: 5px; /* Add some spacing between checkbox and label */
+/* Intelligent card sizing and positioning */
+@media (orientation: landscape) {
+    .planit-settings-card {
+        max-width: 1200px;
+        padding: calc(var(--nav-size) * 1.8);
+        margin: calc(var(--nav-size) * 0.8) auto;
+        /* Better use of landscape space */
+        min-height: 60vh;
+    }
+    
+    /* Ultra-wide screens get even more space */
+    @media (min-width: 1400px) {
+        .planit-settings-card {
+            max-width: 1400px;
+            padding: calc(var(--nav-size) * 2);
+        }
+    }
+    
+    /* Tablet landscape optimization */
+    @media (min-width: 768px) and (max-width: 1023px) {
+        .planit-settings-card {
+            max-width: 900px;
+            padding: calc(var(--nav-size) * 1.6);
+        }
+    }
 }
 
-/* Add some styling for the color inputs */
-.planit-settings-table input[type="color"] {
-    width: 50px;
-    height: 30px;
-    border: 1px solid var(--text-color);
-    border-radius: 4px;
-    margin-left: auto;
-    cursor: pointer;
+@media (orientation: portrait) {
+    .planit-settings-card {
+        max-width: 95vw;
+        padding: calc(var(--nav-size) * 1.2);
+        margin: calc(var(--nav-size) * 0.5) auto;
+        /* Optimize for portrait scrolling */
+        min-height: auto;
+    }
+    
+    /* Mobile portrait needs more touch-friendly spacing */
+    @media (max-width: 480px) {
+        .planit-settings-card {
+            max-width: 98vw;
+            padding: calc(var(--nav-size) * 1);
+            margin: calc(var(--nav-size) * 0.3) auto;
+            border-radius: calc(var(--border-radius) * 0.8);
+        }
+    }
 }
 
-.planit-settings-auth {
-    padding-top: calc(var(--nav-size)*2);
+/* Heading Section */
+.planit-settings-heading {
     text-align: center;
-    display: block;
-    margin-top: calc(var(--nav-size)*2);
+    color: var(--text-color);
+    margin-bottom: calc(var(--nav-size) * 0.8);
+    width: 100%;
 }
 
-.planit-settings-auth-button {
-    padding: calc(var(--nav-size)*0.2) calc(var(--nav-size)*0.4);
-    border: 1px solid var(--text-color);
-    font-size: calc(var(--nav-size)*0.3);
+.planit-settings-heading-title {
+    font-size: calc(var(--nav-size) * 0.35);
+    font-weight: bold;
+    margin-bottom: calc(var(--nav-size) * 0.2);
+    color: var(--text-color);
+}
+
+.planit-settings-heading-description {
+    font-size: calc(var(--nav-size) * 0.2);
+    color: var(--text-color-accent);
+    margin-bottom: calc(var(--nav-size) * 0.4);
+}
+
+/* Content Section */
+.planit-settings-content {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.6);
+}
+
+.planit-settings-section {
+    background: var(--white1-transp);
+    border-radius: var(--border-radius);
+    padding: calc(var(--nav-size) * 0.6);
+    border: 1px solid var(--border-nav);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Enhanced glass effect */
+    backdrop-filter: blur(16px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    /* Ensure consistent flex behavior */
+    display: flex;
+    flex-direction: column;
+}
+
+/* Landscape mode section optimizations */
+@media (orientation: landscape) {
+    .planit-settings-section {
+        padding: calc(var(--nav-size) * 0.7);
+        /* Adjust for better landscape viewing */
+        min-height: auto;
+    }
+    
+    /* Enhanced hover effects for non-touch devices */
+    @media (hover: hover) {
+        .planit-settings-section:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+            border-color: var(--fg-blue);
+        }
+    }
+    
+    /* Larger landscape screens get more padding */
+    @media (min-width: 1024px) {
+        .planit-settings-section {
+            padding: calc(var(--nav-size) * 0.8);
+        }
+    }
+}
+
+/* Portrait mode section optimizations */
+@media (orientation: portrait) {
+    .planit-settings-section {
+        padding: calc(var(--nav-size) * 0.5);
+        /* More touch-friendly spacing */
+        margin-bottom: calc(var(--nav-size) * 0.2);
+    }
+    
+    /* Smaller portrait screens need adjusted padding */
+    @media (max-width: 480px) {
+        .planit-settings-section {
+            padding: calc(var(--nav-size) * 0.4);
+            margin-bottom: calc(var(--nav-size) * 0.15);
+        }
+    }
+}
+
+.planit-settings-section-title {
+    font-size: calc(var(--nav-size) * 0.25);
+    font-weight: bold;
+    color: var(--text-color);
+    margin-bottom: calc(var(--nav-size) * 0.4);
+    border-bottom: 2px solid var(--fg-blue);
+    padding-bottom: calc(var(--nav-size) * 0.2);
+    /* Flex to allow for icons */
+    display: flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.2);
+}
+
+/* Intelligent typography scaling */
+@media (orientation: landscape) {
+    .planit-settings-section-title {
+        font-size: calc(var(--nav-size) * 0.28);
+        margin-bottom: calc(var(--nav-size) * 0.5);
+        /* Better visual hierarchy in landscape */
+        text-align: left;
+    }
+    
+    /* Larger screens get bigger typography */
+    @media (min-width: 1024px) {
+        .planit-settings-section-title {
+            font-size: calc(var(--nav-size) * 0.3);
+        }
+    }
+}
+
+@media (orientation: portrait) {
+    .planit-settings-section-title {
+        font-size: calc(var(--nav-size) * 0.22);
+        margin-bottom: calc(var(--nav-size) * 0.35);
+        /* Center aligned for better portrait reading */
+        text-align: center;
+        justify-content: center;
+    }
+    
+    /* Smaller portrait screens need smaller text */
+    @media (max-width: 480px) {
+        .planit-settings-section-title {
+            font-size: calc(var(--nav-size) * 0.2);
+            margin-bottom: calc(var(--nav-size) * 0.3);
+        }
+    }
+}
+
+/* Settings Grid - Intelligent Responsive Layout */
+.planit-settings-grid {
+    display: grid;
+    gap: calc(var(--nav-size) * 0.4);
+    /* Smart grid that adapts based on screen space */
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+/* Landscape mode optimizations */
+@media (orientation: landscape) {
+    .planit-settings-grid {
+        /* More columns in landscape for better space utilization */
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: calc(var(--nav-size) * 0.5);
+    }
+    
+    /* Wider screens get 3 columns */
+    @media (min-width: 1200px) {
+        .planit-settings-grid {
+            grid-template-columns: repeat(3, 1fr);
+            max-width: 1400px;
+        }
+    }
+    
+    /* Medium landscape screens get 2 columns */
+    @media (min-width: 768px) and (max-width: 1199px) {
+        .planit-settings-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+}
+
+/* Portrait mode optimizations */
+@media (orientation: portrait) {
+    .planit-settings-grid {
+        /* Single column in portrait for better touch targets */
+        grid-template-columns: 1fr;
+        gap: calc(var(--nav-size) * 0.3);
+    }
+    
+    /* Larger portrait screens (tablets) can handle 2 columns */
+    @media (min-width: 600px) {
+        .planit-settings-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: calc(var(--nav-size) * 0.4);
+        }
+    }
+}
+
+/* Smart content organization for different screen sizes */
+@media (min-width: 1024px) {
+    .planit-settings-content {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: calc(var(--nav-size) * 0.8);
+        align-items: start;
+    }
+    
+    /* Group sections logically for larger screens */
+    .planit-settings-section:nth-child(1),
+    .planit-settings-section:nth-child(3),
+    .planit-settings-section:nth-child(5) {
+        grid-column: 1;
+    }
+    
+    .planit-settings-section:nth-child(2),
+    .planit-settings-section:nth-child(4),
+    .planit-settings-section:nth-child(6) {
+        grid-column: 2;
+    }
+}
+
+.planit-settings-item {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.2);
+}
+
+.planit-settings-label {
+    font-size: calc(var(--nav-size) * 0.18);
+    color: var(--text-color-accent);
+    font-weight: 500;
+}
+
+.planit-settings-input {
+    font-size: calc(var(--nav-size) * 0.18);
+    background: var(--white1-transp);
+    color: var(--text-color);
+    border: 1px solid var(--border-nav);
+    border-radius: var(--border-radius);
+    padding: calc(var(--nav-size) * 0.25);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Intelligent input sizing for different orientations */
+@media (orientation: landscape) {
+    .planit-settings-input {
+        font-size: calc(var(--nav-size) * 0.2);
+        padding: calc(var(--nav-size) * 0.3);
+        /* Slightly larger touch targets in landscape */
+        min-height: calc(var(--nav-size) * 0.8);
+    }
+    
+    /* Desktop gets even better input experience */
+    @media (min-width: 1024px) and (hover: hover) {
+        .planit-settings-input {
+            font-size: calc(var(--nav-size) * 0.22);
+            padding: calc(var(--nav-size) * 0.35);
+            min-height: calc(var(--nav-size) * 0.9);
+        }
+    }
+}
+
+@media (orientation: portrait) {
+    .planit-settings-input {
+        font-size: calc(var(--nav-size) * 0.16);
+        padding: calc(var(--nav-size) * 0.3);
+        /* Larger touch targets for mobile portrait */
+        min-height: calc(var(--nav-size) * 0.85);
+    }
+    
+    /* Smaller portrait screens need bigger touch targets */
+    @media (max-width: 480px) {
+        .planit-settings-input {
+            font-size: calc(var(--nav-size) * 0.18);
+            padding: calc(var(--nav-size) * 0.35);
+            min-height: calc(var(--nav-size) * 0.9);
+        }
+    }
+}
+
+.planit-settings-input:focus {
+    border-color: var(--fg-blue);
+    box-shadow: 0 0 0 2px var(--fg-blue);
+}
+
+.planit-settings-input:hover {
+    border-color: var(--fg-pink);
+}
+
+/* Color Input Specific Styling */
+.planit-settings-color-input {
+    width: 80px;
+    height: calc(var(--nav-size) * 0.8);
+    border: 1px solid var(--border-nav);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: box-shadow 0.3s, border-color 0.3s;
+    background: var(--white1-transp);
+}
+
+.planit-settings-color-input:hover {
+    border-color: var(--fg-pink);
+    box-shadow: 0 2px 8px var(--grey3-transp);
+}
+
+/* Checkbox Items */
+.planit-settings-checkbox-item {
+    background: var(--white1-transp);
+    border-radius: var(--border-radius);
+    padding: calc(var(--nav-size) * 0.3);
+    border: 1px solid var(--border-nav);
+    transition: background-color 0.2s ease, box-shadow 0.3s ease;
+}
+
+.planit-settings-checkbox-item:hover {
+    background: var(--bg-mint);
+    box-shadow: 0 2px 8px var(--grey3-transp);
+}
+
+.planit-settings-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.2);
     cursor: pointer;
     color: var(--text-color);
-    background-color: var(--background-color);
-    width: calc(var(--nav-size)*3);
-    border-radius: calc(var(--nav-size)*0.2);
-    transition: border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+    font-size: calc(var(--nav-size) * 0.18);
+    font-weight: 500;
 }
 
-.planit-settings-auth-button:hover {
-    border-color: var(--text-color-hover);
-    box-shadow: 0 0 5px var(--text-color-hover);
-    background-color: var(--text-color-hover);
+/* Responsive checkbox label sizing */
+@media (orientation: landscape) {
+    .planit-settings-checkbox-label {
+        font-size: calc(var(--nav-size) * 0.2);
+    }
+    
+    @media (min-width: 1024px) {
+        .planit-settings-checkbox-label {
+            font-size: calc(var(--nav-size) * 0.22);
+        }
+    }
+}
+
+@media (orientation: portrait) {
+    .planit-settings-checkbox-label {
+        font-size: calc(var(--nav-size) * 0.16);
+    }
+    
+    @media (max-width: 480px) {
+        .planit-settings-checkbox-label {
+            font-size: calc(var(--nav-size) * 0.18);
+        }
+    }
+}
+
+.planit-settings-checkbox {
+    width: calc(var(--nav-size) * 0.4);
+    height: calc(var(--nav-size) * 0.4);
+    accent-color: var(--fg-blue);
+    cursor: pointer;
+}
+
+.planit-settings-checkbox:checked + span {
+    color: var(--fg-blue);
+    font-weight: bold;
+}
+
+/* Actions Section */
+.planit-settings-actions {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.3);
+    margin-top: calc(var(--nav-size) * 0.6);
+    width: 100%;
+}
+
+.planit-settings-save-button {
+    width: 100%;
+    padding: calc(var(--nav-size) * 0.3);
+    font-size: calc(var(--nav-size) * 0.2);
+    background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink));
     color: var(--text-color-inv);
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: 0 2px 8px var(--grey3-transp);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    min-height: calc(var(--nav-size) * 0.8);
+}
+
+/* Intelligent button sizing for different orientations */
+@media (orientation: landscape) {
+    .planit-settings-save-button {
+        padding: calc(var(--nav-size) * 0.35);
+        font-size: calc(var(--nav-size) * 0.22);
+        min-height: calc(var(--nav-size) * 0.9);
+        /* Better visual weight in landscape */
+        font-weight: 600;
+    }
+    
+    /* Desktop gets enhanced button experience */
+    @media (min-width: 1024px) and (hover: hover) {
+        .planit-settings-save-button {
+            padding: calc(var(--nav-size) * 0.4);
+            font-size: calc(var(--nav-size) * 0.25);
+            min-height: calc(var(--nav-size) * 1);
+        }
+        
+        .planit-settings-save-button:hover {
+            background: linear-gradient(90deg, var(--fg-pink), var(--fg-blue));
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            transform: translateY(-3px);
+        }
+    }
+}
+
+@media (orientation: portrait) {
+    .planit-settings-save-button {
+        padding: calc(var(--nav-size) * 0.4);
+        font-size: calc(var(--nav-size) * 0.18);
+        /* Larger touch targets for mobile */
+        min-height: calc(var(--nav-size) * 1);
+    }
+    
+    /* Mobile portrait needs even bigger touch targets */
+    @media (max-width: 480px) {
+        .planit-settings-save-button {
+            padding: calc(var(--nav-size) * 0.45);
+            font-size: calc(var(--nav-size) * 0.2);
+            min-height: calc(var(--nav-size) * 1.1);
+        }
+    }
+    
+    /* Touch feedback for mobile */
+    .planit-settings-save-button:active {
+        transform: translateY(1px);
+        box-shadow: 0 2px 8px var(--grey3-transp);
+    }
+}
+
+.planit-settings-logout-button {
+    width: 100%;
+    padding: calc(var(--nav-size) * 0.3);
+    font-size: calc(var(--nav-size) * 0.2);
+    background: linear-gradient(90deg, var(--bg-orange), var(--bg-pink));
+    color: var(--text-color-inv);
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: 0 2px 8px var(--grey3-transp);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    min-height: calc(var(--nav-size) * 0.8);
+}
+
+/* Responsive logout button matching save button patterns */
+@media (orientation: landscape) {
+    .planit-settings-logout-button {
+        padding: calc(var(--nav-size) * 0.35);
+        font-size: calc(var(--nav-size) * 0.22);
+        min-height: calc(var(--nav-size) * 0.9);
+        font-weight: 600;
+    }
+    
+    @media (min-width: 1024px) and (hover: hover) {
+        .planit-settings-logout-button {
+            padding: calc(var(--nav-size) * 0.4);
+            font-size: calc(var(--nav-size) * 0.25);
+            min-height: calc(var(--nav-size) * 1);
+        }
+        
+        .planit-settings-logout-button:hover {
+            background: linear-gradient(90deg, var(--bg-pink), var(--bg-orange));
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            transform: translateY(-3px);
+        }
+    }
+}
+
+@media (orientation: portrait) {
+    .planit-settings-logout-button {
+        padding: calc(var(--nav-size) * 0.4);
+        font-size: calc(var(--nav-size) * 0.18);
+        min-height: calc(var(--nav-size) * 1);
+    }
+    
+    @media (max-width: 480px) {
+        .planit-settings-logout-button {
+            padding: calc(var(--nav-size) * 0.45);
+            font-size: calc(var(--nav-size) * 0.2);
+            min-height: calc(var(--nav-size) * 1.1);
+        }
+    }
+    
+    .planit-settings-logout-button:active {
+        transform: translateY(1px);
+        box-shadow: 0 2px 8px var(--grey3-transp);
+    }
+}
+
+/* 
+ * ===================================================================
+ * INTELLIGENT RESPONSIVE DESIGN SUMMARY
+ * ===================================================================
+ * 
+ * This Settings page implements intelligent adaptation patterns:
+ * 
+ * 🌅 LANDSCAPE ORIENTATION:
+ * - Multi-column grid layouts for better space utilization
+ * - Enhanced hover effects and animations
+ * - Larger typography and spacing for desktop viewing
+ * - Performance-optimized animations
+ * 
+ * 📱 PORTRAIT ORIENTATION:
+ * - Single-column layouts for optimal mobile reading
+ * - Larger touch targets (min 44px) for accessibility
+ * - Touch-friendly spacing and interactions
+ * - Reduced motion for better mobile performance
+ * 
+ * 🎯 SMART BREAKPOINTS:
+ * - 320px+: Basic mobile support
+ * - 480px+: Enhanced mobile experience
+ * - 600px+: Tablet portrait mode
+ * - 768px+: Tablet landscape/small desktop
+ * - 1024px+: Full desktop experience
+ * - 1200px+: Large screen optimization
+ * - 1400px+: Ultra-wide screen support
+ * 
+ * ♿ ACCESSIBILITY FEATURES:
+ * - Respects prefers-reduced-motion settings
+ * - High contrast focus states
+ * - Touch-friendly target sizes
+ * - Screen reader friendly structure
+ */
+
+/* Portrait orientation optimization */
+@media (orientation: portrait) and (max-width: 480px) {
+    .planit-settings-card {
+        min-width: 280px;
+        padding: calc(var(--nav-size) * 0.8);
+    }
+    
+    .floating-circle-1, .floating-circle-2, .floating-circle-3 {
+        opacity: 0.2;
+    }
+    
+    .planit-settings-section {
+        padding: calc(var(--nav-size) * 0.4);
+    }
+    
+    .planit-settings-color-input {
+        width: 60px;
+        height: calc(var(--nav-size) * 0.6);
+    }
 }

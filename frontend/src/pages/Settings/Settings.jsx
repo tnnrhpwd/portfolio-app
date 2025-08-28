@@ -22,9 +22,9 @@ function Settings() {
 
     // Notification Settings
     notificationPreferences: '',
-    emailNotifications: true,
+    emailNotifications: false,
     smsNotifications: false,
-    pushNotifications: true,
+    pushNotifications: false,
 
     // Appearance Settings
     theme: 'light',
@@ -65,6 +65,9 @@ function Settings() {
       phoneNumber: user.phoneNumber || '',
       address: user.address || '',
       notificationPreferences: user.notificationPreferences || '',
+      emailNotifications: user.emailNotifications || false,
+      smsNotifications: user.smsNotifications || false,
+      pushNotifications: user.pushNotifications || false,
       theme: user.theme || 'light',
 			fontSize: user.fontSize || 'medium',
 			fontFamily: user.fontFamily || 'Arial',
@@ -116,354 +119,369 @@ function Settings() {
     return (
       <>
         <Header />
-        <div className='planit-settings'>
-          <div className='planit-settings-title'>
-            Settings
+        <div className="planit-settings-bg">
+          <div className="floating-shapes">
+            <div className="floating-circle floating-circle-1"></div>
+            <div className="floating-circle floating-circle-2"></div>
+            <div className="floating-circle floating-circle-3"></div>
           </div>
-          <div className='planit-settings-table'>
-            <h2>Account Settings</h2>
+          <div className="planit-settings-card">
+            <section className="planit-settings-heading">
+              <div className="planit-settings-heading-title">⚙️ Advanced Settings</div>
+              <div className="planit-settings-heading-description">Configure your account preferences and system settings</div>
+            </section>
+            
             <form onSubmit={handleSubmit}>
-              <table>
-                <tbody>
-                  <tr>
-                    <td>Payment Method:</td>
-                    <td>
+              <section className="planit-settings-content">
+                
+                {/* Account Settings */}
+                <div className="planit-settings-section">
+                  <h3 className="planit-settings-section-title">💼 Account Settings</h3>
+                  <div className="planit-settings-grid">
+                    <div className="planit-settings-item">
+                      <label className="planit-settings-label">💳 Payment Method</label>
                       <select
                         name="paymentMethod"
                         value={settings.paymentMethod}
                         onChange={handleChange}
+                        className="planit-settings-input"
                       >
                         <option value="">Select Payment Method</option>
                         <option value="credit_card">Credit Card</option>
                         <option value="paypal">PayPal</option>
                         <option value="stripe">Stripe</option>
                       </select>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>Email:</td>
-                    <td>
+                    </div>
+                    
+                    <div className="planit-settings-item">
+                      <label className="planit-settings-label">📧 Email Address</label>
                       <input
                         type="email"
                         name="email"
                         value={settings.email}
                         onChange={handleChange}
+                        className="planit-settings-input"
+                        placeholder="Enter email address"
                       />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>Phone Number:</td>
-                    <td>
+                    </div>
+                    
+                    <div className="planit-settings-item">
+                      <label className="planit-settings-label">📱 Phone Number</label>
                       <input
                         type="tel"
                         name="phoneNumber"
                         value={settings.phoneNumber}
                         onChange={handleChange}
+                        className="planit-settings-input"
+                        placeholder="Enter phone number"
                       />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>Address:</td>
-                    <td>
+                    </div>
+                    
+                    <div className="planit-settings-item">
+                      <label className="planit-settings-label">🏠 Address</label>
                       <input
                         type="text"
                         name="address"
                         value={settings.address}
                         onChange={handleChange}
+                        className="planit-settings-input"
+                        placeholder="Enter address"
                       />
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+                    </div>
+                  </div>
+                </div>
 
-              <h2>Notification Settings</h2>
-              <table>
-                <tbody>
-                  <tr>
-                    <td>Notification Preferences:</td>
-                    <td>
+                {/* Notification Settings */}
+                <div className="planit-settings-section">
+                  <h3 className="planit-settings-section-title">🔔 Notification Settings</h3>
+                  <div className="planit-settings-grid">
+                    <div className="planit-settings-item">
+                      <label className="planit-settings-label">📬 Notification Preferences</label>
                       <select
                         name="notificationPreferences"
                         value={settings.notificationPreferences}
                         onChange={handleChange}
+                        className="planit-settings-input"
                       >
                         <option value="">Select Preference</option>
-                        <option value="email">Email</option>
-                        <option value="sms">SMS</option>
-                        <option value="push">Push Notification</option>
-                        <option value="none">None</option>
+                        <option value="email">📧 Email</option>
+                        <option value="sms">📱 SMS</option>
+                        <option value="push">🔔 Push Notification</option>
+                        <option value="none">🔕 None</option>
                       </select>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>Email Notifications:</td>
-                    <td>
-                      <input
-                        type="checkbox"
-                        name="emailNotifications"
-                        checked={settings.emailNotifications}
-                        onChange={handleChange}
-                      />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>SMS Notifications:</td>
-                    <td>
-                      <input
-                        type="checkbox"
-                        name="smsNotifications"
-                        checked={settings.smsNotifications}
-                        onChange={handleChange}
-                      />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>Push Notifications:</td>
-                    <td>
-                      <input
-                        type="checkbox"
-                        name="pushNotifications"
-                        checked={settings.pushNotifications}
-                        onChange={handleChange}
-                      />
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+                    </div>
+                    
+                    <div className="planit-settings-item planit-settings-checkbox-item">
+                      <label className="planit-settings-checkbox-label">
+                        <input
+                          type="checkbox"
+                          name="emailNotifications"
+                          checked={settings.emailNotifications}
+                          onChange={handleChange}
+                          className="planit-settings-checkbox"
+                        />
+                        <span>📧 Email Notifications</span>
+                      </label>
+                    </div>
+                    
+                    <div className="planit-settings-item planit-settings-checkbox-item">
+                      <label className="planit-settings-checkbox-label">
+                        <input
+                          type="checkbox"
+                          name="smsNotifications"
+                          checked={settings.smsNotifications}
+                          onChange={handleChange}
+                          className="planit-settings-checkbox"
+                        />
+                        <span>📱 SMS Notifications</span>
+                      </label>
+                    </div>
+                    
+                    <div className="planit-settings-item planit-settings-checkbox-item">
+                      <label className="planit-settings-checkbox-label">
+                        <input
+                          type="checkbox"
+                          name="pushNotifications"
+                          checked={settings.pushNotifications}
+                          onChange={handleChange}
+                          className="planit-settings-checkbox"
+                        />
+                        <span>🔔 Push Notifications</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
 
-              <h2>Appearance Settings</h2>
-              <table>
-                <tbody>
-                  <tr>
-                    <td>Theme:</td>
-                    <td>
+                {/* Appearance Settings */}
+                <div className="planit-settings-section">
+                  <h3 className="planit-settings-section-title">🎨 Appearance Settings</h3>
+                  <div className="planit-settings-grid">
+                    <div className="planit-settings-item">
+                      <label className="planit-settings-label">🌓 Theme</label>
                       <select
                         name="theme"
                         value={settings.theme}
                         onChange={handleChange}
+                        className="planit-settings-input"
                       >
-                        <option value="light">Light</option>
-                        <option value="dark">Dark</option>
+                        <option value="light">☀️ Light</option>
+                        <option value="dark">🌙 Dark</option>
+                        <option value="system">💻 System</option>
                       </select>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>Font Size:</td>
-                    <td>
+                    </div>
+                    
+                    <div className="planit-settings-item">
+                      <label className="planit-settings-label">📏 Font Size</label>
                       <select
                         name="fontSize"
                         value={settings.fontSize}
                         onChange={handleChange}
+                        className="planit-settings-input"
                       >
                         <option value="small">Small</option>
                         <option value="medium">Medium</option>
                         <option value="large">Large</option>
                       </select>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>Language:</td>
-                    <td>
-                      <select
-                        name="language"
-                        value={settings.language}
-                        onChange={handleChange}
-                      >
-                        <option value="en">English</option>
-                        <option value="es">Spanish</option>
-                        <option value="fr">French</option>
-                      </select>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>Font Family:</td>
-                    <td>
+                    </div>
+                    
+                    <div className="planit-settings-item">
+                      <label className="planit-settings-label">🔤 Font Family</label>
                       <select
                         name="fontFamily"
                         value={settings.fontFamily}
                         onChange={handleChange}
+                        className="planit-settings-input"
                       >
                         <option value="Arial">Arial</option>
                         <option value="Times New Roman">Times New Roman</option>
                         <option value="Helvetica">Helvetica</option>
                       </select>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>Background Color:</td>
-                    <td>
+                    </div>
+                    
+                    <div className="planit-settings-item">
+                      <label className="planit-settings-label">🎨 Background Color</label>
                       <input
                         type="color"
                         name="backgroundColor"
                         value={settings.backgroundColor}
                         onChange={handleChange}
+                        className="planit-settings-color-input"
                       />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>Text Color:</td>
-                    <td>
+                    </div>
+                    
+                    <div className="planit-settings-item">
+                      <label className="planit-settings-label">✏️ Text Color</label>
                       <input
                         type="color"
                         name="textColor"
                         value={settings.textColor}
                         onChange={handleChange}
+                        className="planit-settings-color-input"
                       />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>Background Accent Color:</td>
-                    <td>
+                    </div>
+                    
+                    <div className="planit-settings-item">
+                      <label className="planit-settings-label">🌈 Accent Color</label>
                       <input
                         type="color"
                         name="backgroundAccentColor"
                         value={settings.backgroundAccentColor}
                         onChange={handleChange}
+                        className="planit-settings-color-input"
                       />
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+                    </div>
+                  </div>
+                </div>
 
-              <h2>Privacy Settings</h2>
-              <table>
-                <tbody>
-                  <tr>
-                    <td>Profile Visibility:</td>
-                    <td>
+                {/* Privacy Settings */}
+                <div className="planit-settings-section">
+                  <h3 className="planit-settings-section-title">🔒 Privacy Settings</h3>
+                  <div className="planit-settings-grid">
+                    <div className="planit-settings-item">
+                      <label className="planit-settings-label">👁️ Profile Visibility</label>
                       <select
                         name="profileVisibility"
                         value={settings.profileVisibility}
                         onChange={handleChange}
+                        className="planit-settings-input"
                       >
-                        <option value="public">Public</option>
-                        <option value="private">Private</option>
-                        <option value="friends">Friends Only</option>
+                        <option value="public">🌐 Public</option>
+                        <option value="private">🔒 Private</option>
+                        <option value="friends">👥 Friends Only</option>
                       </select>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>Data Sharing:</td>
-                    <td>
-                      <input
-                        type="checkbox"
-                        name="dataSharing"
-                        checked={settings.dataSharing}
-                        onChange={handleChange}
-                      />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>Location Tracking:</td>
-                    <td>
-                      <input
-                        type="checkbox"
-                        name="locationTracking"
-                        checked={settings.locationTracking}
-                        onChange={handleChange}
-                      />
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+                    </div>
+                    
+                    <div className="planit-settings-item planit-settings-checkbox-item">
+                      <label className="planit-settings-checkbox-label">
+                        <input
+                          type="checkbox"
+                          name="dataSharing"
+                          checked={settings.dataSharing}
+                          onChange={handleChange}
+                          className="planit-settings-checkbox"
+                        />
+                        <span>📊 Data Sharing</span>
+                      </label>
+                    </div>
+                    
+                    <div className="planit-settings-item planit-settings-checkbox-item">
+                      <label className="planit-settings-checkbox-label">
+                        <input
+                          type="checkbox"
+                          name="locationTracking"
+                          checked={settings.locationTracking}
+                          onChange={handleChange}
+                          className="planit-settings-checkbox"
+                        />
+                        <span>📍 Location Tracking</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
 
-              <h2>Accessibility Settings</h2>
-              <table>
-                <tbody>
-                  <tr>
-                    <td>High Contrast:</td>
-                    <td>
-                      <input
-                        type="checkbox"
-                        name="highContrast"
-                        checked={settings.highContrast}
-                        onChange={handleChange}
-                      />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>Text-to-Speech:</td>
-                    <td>
-                      <input
-                        type="checkbox"
-                        name="textToSpeech"
-                        checked={settings.textToSpeech}
-                        onChange={handleChange}
-                      />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>Keyboard Navigation:</td>
-                    <td>
-                      <input
-                        type="checkbox"
-                        name="keyboardNavigation"
-                        checked={settings.keyboardNavigation}
-                        onChange={handleChange}
-                      />
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+                {/* Accessibility Settings */}
+                <div className="planit-settings-section">
+                  <h3 className="planit-settings-section-title">♿ Accessibility Settings</h3>
+                  <div className="planit-settings-grid">
+                    <div className="planit-settings-item planit-settings-checkbox-item">
+                      <label className="planit-settings-checkbox-label">
+                        <input
+                          type="checkbox"
+                          name="highContrast"
+                          checked={settings.highContrast}
+                          onChange={handleChange}
+                          className="planit-settings-checkbox"
+                        />
+                        <span>🌓 High Contrast</span>
+                      </label>
+                    </div>
+                    
+                    <div className="planit-settings-item planit-settings-checkbox-item">
+                      <label className="planit-settings-checkbox-label">
+                        <input
+                          type="checkbox"
+                          name="textToSpeech"
+                          checked={settings.textToSpeech}
+                          onChange={handleChange}
+                          className="planit-settings-checkbox"
+                        />
+                        <span>🔊 Text-to-Speech</span>
+                      </label>
+                    </div>
+                    
+                    <div className="planit-settings-item planit-settings-checkbox-item">
+                      <label className="planit-settings-checkbox-label">
+                        <input
+                          type="checkbox"
+                          name="keyboardNavigation"
+                          checked={settings.keyboardNavigation}
+                          onChange={handleChange}
+                          className="planit-settings-checkbox"
+                        />
+                        <span>⌨️ Keyboard Navigation</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
 
-              <h2>Advanced Settings</h2>
-              <table>
-                <tbody>
-                  <tr>
-                    <td>API Endpoint:</td>
-                    <td>
+                {/* Advanced Settings */}
+                <div className="planit-settings-section">
+                  <h3 className="planit-settings-section-title">🔧 Advanced Settings</h3>
+                  <div className="planit-settings-grid">
+                    <div className="planit-settings-item">
+                      <label className="planit-settings-label">🔗 API Endpoint</label>
                       <input
                         type="text"
                         name="apiEndpoint"
                         value={settings.apiEndpoint}
                         onChange={handleChange}
+                        className="planit-settings-input"
+                        placeholder="Enter API endpoint"
                       />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>Data Backup Frequency:</td>
-                    <td>
+                    </div>
+                    
+                    <div className="planit-settings-item">
+                      <label className="planit-settings-label">💾 Data Backup Frequency</label>
                       <select
                         name="dataBackupFrequency"
                         value={settings.dataBackupFrequency}
                         onChange={handleChange}
+                        className="planit-settings-input"
                       >
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                        <option value="monthly">Monthly</option>
+                        <option value="daily">📅 Daily</option>
+                        <option value="weekly">📆 Weekly</option>
+                        <option value="monthly">🗓️ Monthly</option>
                       </select>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-
-              <h2>Regional Settings</h2>
-              <table>
-                <tbody>
-                  <tr>
-                    <td>Time Zone:</td>
-                    <td>
+                    </div>
+                    
+                    <div className="planit-settings-item">
+                      <label className="planit-settings-label">🌍 Time Zone</label>
                       <select
                         name="timeZone"
                         value={settings.timeZone}
                         onChange={handleChange}
+                        className="planit-settings-input"
                       >
                         <option value="">Select Time Zone</option>
-                        <option value="America/Los_Angeles">Pacific Time</option>
-                        <option value="America/New_York">Eastern Time</option>
-                        <option value="UTC">UTC</option>
-                        {/* Add more time zones as needed */}
+                        <option value="America/Los_Angeles">🌊 Pacific Time</option>
+                        <option value="America/New_York">🗽 Eastern Time</option>
+                        <option value="UTC">🌐 UTC</option>
                       </select>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-
-              <button className="planit-settings-auth-button" type="submit">Update Settings</button>
+                    </div>
+                  </div>
+                </div>
+                
+              </section>
+              
+              <section className="planit-settings-actions">
+                <button type="submit" className="planit-settings-save-button">
+                  💾 Update Settings
+                </button>
+                <button type="button" className="planit-settings-logout-button" onClick={onLogout}>
+                  🚪 Sign Out
+                </button>
+              </section>
             </form>
-          </div>
-          <div className="planit-settings-auth">
-            <button className="planit-settings-auth-button" onClick={onLogout}>Log out</button>
           </div>
         </div>
         <Footer />
