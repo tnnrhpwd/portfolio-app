@@ -6,16 +6,19 @@ const { checkIP } = require('../utils/accessData.js');
 const { getPaymentMethods } = require('./getHashData.js');
 const { sendEmail } = require('../utils/emailService.js');
 const stripe = require('stripe')(process.env.STRIPE_KEY);
-const AWS = require('aws-sdk');
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocumentClient, ScanCommand, PutCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
 
-// Configure AWS
-AWS.config.update({
+// Configure AWS DynamoDB Client
+const client = new DynamoDBClient({
     region: process.env.AWS_REGION,
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    }
 });
 
-const dynamodb = new AWS.DynamoDB.DocumentClient();
+const dynamodb = DynamoDBDocumentClient.from(client);
 
 // @desc    Update Data
 // @route   PUT /api/data/:id
@@ -50,7 +53,7 @@ const putHashData = asyncHandler(async (req, res) => {
         let item;
         try {
             console.log('Using scan instead of get...');
-            const scanResult = await dynamodb.scan(scanParams).promise();
+            const scanResult = await dynamodb.send(new ScanCommand(scanParams));
             console.log('Scan result count:', scanResult.Items ? scanResult.Items.length : 0);
             
             if (!scanResult.Items || scanResult.Items.length === 0) {
@@ -128,7 +131,7 @@ const updateDataHolder = async (req, res, item) => {
         };
 
         try {
-            await dynamodb.put(putParams).promise();
+            await dynamodb.send(new PutCommand(putParams));
             const updatedItem = putParams.Item;
             console.log('Net chat updated successfully');
             res.status(200).json(updatedItem);
@@ -165,7 +168,7 @@ const updateDataHolder = async (req, res, item) => {
     };
 
     try {
-        await dynamodb.put(putParams).promise();
+        await dynamodb.send(new PutCommand(putParams));
         const updatedItem = putParams.Item;
 
         // Send email notification if rank was changed and we have an email address

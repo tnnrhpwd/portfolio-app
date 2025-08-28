@@ -1,16 +1,19 @@
 // This file exports protect -- async function that confirms that the request user is the same as the response user. DOES NOT CHECK PASSWORD or ANYTHING WITH UI -- only confirms that reponse is sent to the requester
 const jwt = require('jsonwebtoken');                   // import web token library to get user's token
 const asyncHandler = require('express-async-handler'); // sends the errors to the errorhandler
-const AWS = require('aws-sdk'); // Import AWS SDK
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocumentClient, ScanCommand } = require('@aws-sdk/lib-dynamodb');
 
-// Configure AWS
-AWS.config.update({
+// Configure AWS DynamoDB Client
+const client = new DynamoDBClient({
     region: process.env.AWS_REGION,
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    }
 });
 
-const dynamodb = new AWS.DynamoDB.DocumentClient(); // Create DynamoDB DocumentClient
+const dynamodb = DynamoDBDocumentClient.from(client);
 
 // This middleware async function is called anytime a user requests user information
 const protect = asyncHandler(async (req, res, next) => {
@@ -39,7 +42,7 @@ const protect = asyncHandler(async (req, res, next) => {
         }
       };
 
-      const result = await dynamodb.scan(params).promise();
+      const result = await dynamodb.send(new ScanCommand(params));
 
       if (!result.Items || result.Items.length === 0) {
         console.log('User not found in database for ID:', decoded.id);

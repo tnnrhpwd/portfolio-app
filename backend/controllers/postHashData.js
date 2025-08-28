@@ -11,16 +11,19 @@ require('dotenv').config();
 const openaikey = process.env.OPENAI_KEY;
 let client; // Define client outside the asyncHandler
 
-const AWS = require('aws-sdk');
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocumentClient, PutCommand, ScanCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
 
-// Configure AWS
-AWS.config.update({
+// Configure AWS DynamoDB Client
+const awsClient = new DynamoDBClient({
     region: process.env.AWS_REGION,
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    }
 });
 
-const dynamodb = new AWS.DynamoDB.DocumentClient();
+const dynamodb = DynamoDBDocumentClient.from(awsClient);
 
 async function initializeOpenAI() {
     try {
@@ -143,7 +146,7 @@ const postHashData = asyncHandler(async (req, res) => {
     };
 
     try {
-        await dynamodb.put(params).promise();
+        await dynamodb.send(new PutCommand(params));
         res.status(200).json(params.Item);
     } catch (error) {
         console.error('Error creating data:', error);
@@ -226,7 +229,7 @@ const compressData = asyncHandler(async (req, res) => {
                 };
 
                 try {
-                    const result = await dynamodb.update(updateParams).promise();
+                    const result = await dynamodb.send(new UpdateCommand(updateParams));
                     console.log('Successfully updated existing chat');
                     res.status(200).json({ data: [compressedData] });
                 } catch (dbError) {
@@ -247,7 +250,7 @@ const compressData = asyncHandler(async (req, res) => {
                 };
 
                 try {
-                    await dynamodb.put(newItemParams).promise();
+                    await dynamodb.send(new PutCommand(newItemParams));
                     console.log('Successfully created new chat');
                     res.status(201).json({ data: [compressedData] });
                 } catch (dbError) {

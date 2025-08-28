@@ -1,17 +1,20 @@
 // deleteData.js
 
-const AWS = require('aws-sdk');
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocumentClient, DeleteCommand } = require('@aws-sdk/lib-dynamodb');
 const asyncHandler = require('express-async-handler');
 const { checkIP } = require('../utils/accessData.js');
 
-// Configure AWS
-AWS.config.update({
+// Configure AWS DynamoDB Client
+const client = new DynamoDBClient({
     region: process.env.AWS_REGION,
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    }
 });
 
-const dynamodb = new AWS.DynamoDB.DocumentClient();
+const dynamodb = DynamoDBDocumentClient.from(client);
 
 // @desc    Delete data
 // @route   DELETE /api/data/:id
@@ -28,7 +31,7 @@ const deleteData = asyncHandler(async (req, res) => {
             }
         };
 
-        await dynamodb.delete(params).promise();
+        await dynamodb.send(new DeleteCommand(params));
 
         res.status(200).json({ id: dataId });
     } catch (error) {

@@ -3,16 +3,19 @@ const asyncHandler = require('express-async-handler'); // sends the errors to th
 const fetch = require('node-fetch');
 const wordBaseUrl = 'https://random-word-api.p.rapidapi.com/L/';
 const defBaseUrl = 'https://mashape-community-urban-dictionary.p.rapidapi.com/define?term=';
-const AWS = require('aws-sdk');
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocumentClient, ScanCommand } = require('@aws-sdk/lib-dynamodb');
 
-// Configure AWS
-AWS.config.update({
+// Configure AWS DynamoDB Client
+const client = new DynamoDBClient({
     region: process.env.AWS_REGION,
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    }
 });
 
-const dynamodb = new AWS.DynamoDB.DocumentClient();
+const dynamodb = DynamoDBDocumentClient.from(client);
 
 const rapidapiwordoptions = {
     method: 'GET',
@@ -149,7 +152,7 @@ const getHashData = asyncHandler(async (req, res) => {
                     };
 
                     console.log('DynamoDB scan params:', params);
-                    const result = await dynamodb.scan(params).promise();
+                    const result = await dynamodb.send(new ScanCommand(params));
                     console.log('DynamoDB scan result:', JSON.stringify(result).substring(0, 100) + '...');
 
                     if (result.Items && result.Items.length > 0) {
@@ -222,7 +225,7 @@ const getHashData = asyncHandler(async (req, res) => {
                     };
                     
                     console.log('Checking for ANY user data...');
-                    const broadResult = await dynamodb.scan(broadParams).promise();
+                    const broadResult = await dynamodb.send(new ScanCommand(broadParams));
                     console.log('Total items for this user:', broadResult.Items ? broadResult.Items.length : 0);
                     
                     if (broadResult.Items && broadResult.Items.length > 0) {
@@ -239,7 +242,7 @@ const getHashData = asyncHandler(async (req, res) => {
                         }
                     }
                     
-                    const result = await dynamodb.scan(params).promise();
+                    const result = await dynamodb.send(new ScanCommand(params));
                     console.log('DynamoDB scan completed');
                     console.log('Items found:', result.Items ? result.Items.length : 0);
                     
@@ -381,7 +384,7 @@ const getAllData = async (req, res) => {
                 TableName: 'Simple',
         };
 
-            const result = await dynamodb.scan(params).promise();
+            const result = await dynamodb.send(new ScanCommand(params));
 
             res.status(200).json(result.Items.map(item => ({
                 id: item.id,

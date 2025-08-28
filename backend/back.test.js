@@ -10,23 +10,23 @@ if (typeof TextEncoder === 'undefined') {
 const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const AWS = require('aws-sdk');
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocumentClient, ScanCommand, PutCommand, UpdateCommand, DeleteCommand } = require('@aws-sdk/lib-dynamodb');
 const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
-// Configure AWS with endpoint for local testing
-AWS.config.update({
-    region: process.env.AWS_REGION || 'us-east-1', // Provide a default region
-    accessKeyId: 'test',
-    secretAccessKey: 'test',
+// Configure AWS DynamoDB Client for local testing
+const client = new DynamoDBClient({
+    region: process.env.AWS_REGION || 'us-east-1',
+    credentials: {
+        accessKeyId: 'test',
+        secretAccessKey: 'test'
+    },
     endpoint: 'http://localhost:8000' // Local DynamoDB endpoint
 });
 
-// Set AWS SDK to not use the EC2 instance metadata service
-AWS.config.credentials = new AWS.Credentials('test', 'test');
-
 // Create dynamoDB client
-const dynamodb = new AWS.DynamoDB.DocumentClient();
+const dynamodb = DynamoDBDocumentClient.from(client);
 
 // Mock the server app for testing
 const app = express();

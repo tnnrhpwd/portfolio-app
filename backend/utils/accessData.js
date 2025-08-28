@@ -1,16 +1,19 @@
 require('dotenv').config();
-const AWS = require('aws-sdk');
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocumentClient, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const useragent = require('useragent');
 const ipinfo = require('ipinfo');
 
-// Configure AWS
-AWS.config.update({
+// Configure AWS DynamoDB Client
+const client = new DynamoDBClient({
     region: process.env.AWS_REGION,
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    }
 });
 
-const dynamodb = new AWS.DynamoDB.DocumentClient();
+const dynamodb = DynamoDBDocumentClient.from(client);
 
 async function checkIP(req) {
     // console.log('checkIP function called');
@@ -105,7 +108,7 @@ async function checkIP(req) {
         console.log('Preparing to save data to DynamoDB:', params);
 
         try {
-            await dynamodb.put(params).promise();
+            await dynamodb.send(new PutCommand(params));
             console.log('Access log recorded successfully. Item ID:', params.Item.id);
         } catch (error) {
             console.error('Error recording access log to DynamoDB:', error);

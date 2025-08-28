@@ -2,16 +2,19 @@
 
 const asyncHandler = require('express-async-handler');
 const { checkIP } = require('../utils/accessData.js');
-const AWS = require('aws-sdk');
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocumentClient, ScanCommand, GetCommand, DeleteCommand } = require('@aws-sdk/lib-dynamodb');
 
-// Configure AWS
-AWS.config.update({
+// Configure AWS DynamoDB Client
+const client = new DynamoDBClient({
     region: process.env.AWS_REGION,
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    }
 });
 
-const dynamodb = new AWS.DynamoDB.DocumentClient();
+const dynamodb = DynamoDBDocumentClient.from(client);
 
 // @desc    Delete data
 // @route   DELETE /api/data/:id
@@ -35,7 +38,7 @@ const deleteHashData = asyncHandler(async (req, res) => {
 
         let createdAtValue;
         try {
-            const scanResult = await dynamodb.scan(scanParams).promise();
+            const scanResult = await dynamodb.send(new ScanCommand(scanParams));
             if (scanResult.Items && scanResult.Items.length > 0) {
                 createdAtValue = scanResult.Items[0].createdAt;
             } else {
@@ -63,7 +66,7 @@ const deleteHashData = asyncHandler(async (req, res) => {
         };
 
         console.log('[DELETEHASH_TEST] Minimal GetItem Test Params:', JSON.stringify(testGetParams, null, 2));
-        const testItemResult = await dynamodb.get(testGetParams).promise();
+        const testItemResult = await dynamodb.send(new GetCommand(testGetParams));
         console.log('[DELETEHASH_TEST] Minimal GetItem Test Result:', JSON.stringify(testItemResult, null, 2));
 
         if (!testItemResult.Item) {
@@ -112,7 +115,7 @@ const deleteHashData = asyncHandler(async (req, res) => {
         };
 
         try {
-            const scanResult = await dynamodb.scan(scanParams).promise();
+            const scanResult = await dynamodb.send(new ScanCommand(scanParams));
             if (scanResult.Items && scanResult.Items.length > 0) {
                 item = scanResult.Items[0];
                 createdAtValue = scanResult.Items[0].createdAt;
@@ -142,7 +145,7 @@ const deleteHashData = asyncHandler(async (req, res) => {
         // console.log('Attempting to get item with params:', JSON.stringify(getParams, null, 2)); // Logged by minimal test
 
         try {
-            const getItemResult = await dynamodb.get(getParams).promise();
+            const getItemResult = await dynamodb.send(new GetCommand(getParams));
             item = getItemResult.Item;
         } catch (getError) {
             console.error('Error getting item (after minimal test passed or was skipped):', getError);
@@ -187,7 +190,7 @@ const deleteHashData = asyncHandler(async (req, res) => {
         console.log('Attempting to delete item with params:', JSON.stringify(deleteParams, null, 2)); // Diagnostic log
 
         try {
-            await dynamodb.delete(deleteParams).promise();
+            await dynamodb.send(new DeleteCommand(deleteParams));
             res.status(200).json({ id: routeParamId });
         } catch (deleteError) {
             console.error('Error deleting data:', deleteError);

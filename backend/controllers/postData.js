@@ -6,17 +6,20 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 const asyncHandler = require('express-async-handler');
-const AWS = require('aws-sdk');
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocumentClient, PutCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
 const { checkIP } = require('../utils/accessData.js');
 
-// Configure AWS
-AWS.config.update({
+// Configure AWS DynamoDB Client
+const client = new DynamoDBClient({
     region: process.env.AWS_REGION,
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    }
 });
 
-const dynamodb = new AWS.DynamoDB.DocumentClient();
+const dynamodb = DynamoDBDocumentClient.from(client);
 const storage = multer.memoryStorage();// Set up multer for memory storage
 const upload = multer({ storage: storage });
 
@@ -57,7 +60,7 @@ const postData = asyncHandler(async (req, res) => {
   };
 
   try {
-      await dynamodb.put(params).promise();
+      await dynamodb.send(new PutCommand(params));
       res.status(200).json(params.Item); // Return the created item
   } catch (error) {
       console.error('Error creating data:', error);
@@ -94,7 +97,7 @@ const registerUser = asyncHandler(async (req, res) => {
     };
   
     try {
-        await dynamodb.put(params).promise();
+        await dynamodb.send(new PutCommand(params));
         res.status(201).json({
             _id: params.Item.id,
             nickname,
@@ -126,7 +129,7 @@ const loginUser = asyncHandler(async (req, res) => {
     };
 
     try {
-        const result = await dynamodb.scan(params).promise();
+        const result = await dynamodb.send(new ScanCommand(params));
         if (result.Items.length !== 1) {
             res.status(400);
             throw new Error("Could not find that user.");

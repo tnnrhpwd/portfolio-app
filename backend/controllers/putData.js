@@ -1,17 +1,20 @@
 // updateData.js
 
-const AWS = require('aws-sdk');
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocumentClient, ScanCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const asyncHandler = require('express-async-handler');
 const { checkIP } = require('../utils/accessData.js');
 
-// Configure AWS
-AWS.config.update({
+// Configure AWS DynamoDB Client
+const client = new DynamoDBClient({
     region: process.env.AWS_REGION,
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    }
 });
 
-const dynamodb = new AWS.DynamoDB.DocumentClient();
+const dynamodb = DynamoDBDocumentClient.from(client);
 
 // @desc    Put Data
 // @route   PUT /api/data/:id
@@ -41,7 +44,7 @@ const putData = asyncHandler(async (req, res) => {
         };
 
         console.log('DynamoDB scan params:', JSON.stringify(scanParams, null, 2));
-        const scanResult = await dynamodb.scan(scanParams).promise();
+        const scanResult = await dynamodb.send(new ScanCommand(scanParams));
         console.log('DynamoDB scan result count:', scanResult.Items ? scanResult.Items.length : 0);
 
         if (!scanResult.Items || scanResult.Items.length === 0) {
@@ -76,7 +79,7 @@ const putData = asyncHandler(async (req, res) => {
             Item: newItem
         };
 
-        await dynamodb.put(putParams).promise();
+        await dynamodb.send(new PutCommand(putParams));
 
         console.log('Updated data:', newItem);
         res.status(200).json(newItem);
