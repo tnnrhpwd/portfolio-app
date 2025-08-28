@@ -328,6 +328,19 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
             req.user.data.text.indexOf('|stripeid:') + 28);
         console.log('Customer ID:', customerId);
         
+        // Validate that the customer ID exists in Stripe before attempting to fetch payment methods
+        try {
+            const validatedCustomer = await stripe.customers.retrieve(customerId);
+            console.log('Customer ID validated successfully for payment methods retrieval');
+        } catch (stripeError) {
+            console.error(`Invalid Stripe customer ID ${customerId}:`, stripeError.message);
+            res.status(400).json({ 
+                error: 'Invalid customer ID found in database. Please contact support.',
+                details: stripeError.message
+            });
+            return;
+        }
+        
         // Define all payment method types we want to fetch
         const paymentMethodTypes = ['card', 'link', 'cashapp'];
         let allPaymentMethods = [];

@@ -7,6 +7,7 @@ const asyncHandler = require('express-async-handler');
 const { checkIP } = require('../utils/accessData.js');
 const { sendEmail } = require('../utils/emailService.js');
 const stripe = require('stripe')(process.env.STRIPE_KEY);
+const Data = require('../models/dataModel'); // Add Data model import
 require('dotenv').config();
 const openaikey = process.env.OPENAI_KEY;
 let client; // Define client outside the asyncHandler
@@ -284,12 +285,64 @@ const createCustomer = asyncHandler(async (req, res) => {
     }
     
     try {
-        // Create Stripe customer
-        const customer = await stripe.customers.create({ email, name });
-        console.log('Stripe customer created:', customer.id);
+        let customer;
+        const userData = req.user.text;
+        
+        // Check if user already has a Stripe customer ID in the database
+        const stripeIdMatch = userData.match(/\|stripeid:([^|]*)/);
+        const existingStripeId = stripeIdMatch && stripeIdMatch[1] ? stripeIdMatch[1].trim() : null;
+        
+        // If user has a Stripe ID, validate it against Stripe
+        if (existingStripeId && existingStripeId !== '') {
+            try {
+                console.log('Validating existing Stripe customer ID:', existingStripeId);
+                const existingCustomer = await stripe.customers.retrieve(existingStripeId);
+                
+                // Check if the email matches
+                if (existingCustomer.email === email) {
+                    console.log('Existing Stripe customer ID is valid and email matches');
+                    customer = existingCustomer;
+                } else {
+                    console.log(`Email mismatch: DB has ${existingStripeId} with email ${existingCustomer.email}, but user email is ${email}`);
+                    // Email doesn't match, need to find or create correct customer
+                    customer = null; // Will be handled below
+                }
+            } catch (stripeError) {
+                console.log(`Stripe customer ID ${existingStripeId} is invalid or deleted:`, stripeError.message);
+                // Invalid customer ID, need to find or create new one
+                customer = null; // Will be handled below
+            }
+        }
+        
+        // If no valid customer found yet, search by email or create new one
+        if (!customer) {
+            // First, check if a customer with this email already exists in Stripe
+            const existingCustomers = await stripe.customers.list({
+                email: email,
+                limit: 1
+            });
+            
+            if (existingCustomers.data.length > 0) {
+                // Use the existing customer
+                customer = existingCustomers.data[0];
+                console.log('Found existing Stripe customer by email:', customer.id, 'for email:', email);
+                
+                // Log if we're correcting a mismatch
+                if (existingStripeId && existingStripeId !== customer.id) {
+                    console.log(`Correcting customer ID mismatch: ${existingStripeId} -> ${customer.id}`);
+                }
+            } else {
+                // Create new Stripe customer if none exists
+                customer = await stripe.customers.create({ email, name });
+                console.log('Created new Stripe customer:', customer.id, 'for email:', email);
+                
+                if (existingStripeId) {
+                    console.log(`Replacing invalid customer ID: ${existingStripeId} -> ${customer.id}`);
+                }
+            }
+        }
         
         // Update user's stripeid in the database
-        const userData = req.user.text;
         const updatedUserData = userData.replace(/\|stripeid:([^|]*)/, `|stripeid:${customer.id}`);
         
         console.log('Original user data:', userData);
@@ -308,15 +361,25 @@ const createCustomer = asyncHandler(async (req, res) => {
         await dynamodb.send(new PutCommand(putParams));
         console.log('User data updated with Stripe customer ID');
         
+        // Determine response message based on what happened
+        let responseMessage;
+        if (existingStripeId && existingStripeId === customer.id) {
+            responseMessage = 'Existing customer ID validated successfully';
+        } else if (existingStripeId && existingStripeId !== customer.id) {
+            responseMessage = 'Customer ID corrected and updated in database';
+        } else {
+            responseMessage = 'Customer found/created and assigned to user';
+        }
+        
         res.status(201).json({
             success: true,
             customer: customer,
-            message: 'Customer created successfully and user data updated'
+            message: responseMessage
         });
     } catch (error) {
-        console.error('Customer creation failed:', error);
+        console.error('Customer creation/assignment failed:', error);
         res.status(500);
-        throw new Error('Customer creation failed');
+        throw new Error('Customer creation/assignment failed');
     }
 });
 
@@ -358,6 +421,21 @@ const postPaymentMethod = asyncHandler(async (req, res) => {
         }
         
         console.log('Extracted Customer ID:', customerId);
+        
+        // Validate that the customer ID exists in Stripe and get user email for validation
+        let validatedCustomer;
+        try {
+            validatedCustomer = await stripe.customers.retrieve(customerId);
+            console.log('Customer ID validated successfully in Stripe');
+        } catch (stripeError) {
+            console.error(`Invalid Stripe customer ID ${customerId}:`, stripeError.message);
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid customer ID found. Please create a customer first.',
+                code: 'CUSTOMER_INVALID',
+                stripeError: stripeError.message
+            });
+        }
         
         // Case 1: If paymentMethodId is provided (from Stripe.js on frontend), attach it to the customer
         if (req.body.paymentMethodId) {
@@ -437,6 +515,16 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
     
     const customerId = stripeIdMatch[1];
     console.log('Customer ID for subscription management:', customerId);
+
+    // Validate that the customer ID exists in Stripe
+    try {
+        const validatedCustomer = await stripe.customers.retrieve(customerId);
+        console.log('Customer ID validated successfully for subscription');
+    } catch (stripeError) {
+        console.error(`Invalid Stripe customer ID ${customerId} during subscription:`, stripeError.message);
+        res.status(400);
+        throw new Error(`Invalid customer ID. Please contact support. Error: ${stripeError.message}`);
+    }
 
     // Extract user email for notifications
     const emailMatch = req.user.text.match(/Email:([^|]+)/);

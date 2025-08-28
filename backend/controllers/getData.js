@@ -124,6 +124,21 @@ const getUserSubscription = asyncHandler(async (req, res) => {
         const customerId = stripeIdMatch[1];
         console.log('Customer ID:', customerId);
         
+        // Validate that the customer ID exists in Stripe
+        try {
+            const validatedCustomer = await stripe.customers.retrieve(customerId);
+            console.log('Customer ID validated successfully for subscription check');
+        } catch (stripeError) {
+            console.error(`Invalid Stripe customer ID ${customerId} during subscription check:`, stripeError.message);
+            // If customer ID is invalid, treat as free plan but log the issue
+            console.log('Treating user as free plan due to invalid customer ID');
+            return res.status(200).json({ 
+                subscriptionPlan: 'Free',
+                subscriptionDetails: null,
+                warning: 'Invalid customer ID found in database'
+            });
+        }
+        
         // Get only active and relevant in-progress subscriptions
         // This includes active, trialing, past_due, and incomplete subscriptions
         const activeSubscriptions = await stripe.subscriptions.list({

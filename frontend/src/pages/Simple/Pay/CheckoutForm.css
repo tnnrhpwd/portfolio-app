@@ -453,6 +453,7 @@
   font-weight: 500;
   margin: 0 0 calc(var(--nav-size) * 0.05) 0;
   color: var(--text-color);
+  font-size: calc(var(--nav-size) * 0.25) !important;
 }
 
 /* Link payment method styling */
@@ -479,7 +480,7 @@
 .link-benefits h4 {
   margin: 0;
   font-size: calc(var(--nav-size) * 0.25);
-  color: var (--text-color);
+  color: var(--text-color) !important;
 }
 
 .link-description {
