@@ -21,16 +21,16 @@ try {
   stripePromise = null;
 }
 
-// Component to display membership plans
-const MembershipPlans = ({ selectedPlan, onSelectPlan, currentSubscription, membershipPricing }) => {
-  // Helper function to format price from cents to dollars
-  const formatPrice = (priceInCents) => {
-    if (!priceInCents) return 'Free';
-    const dollars = priceInCents / 100;
-    // Use toFixed(2) to preserve cents, then remove trailing zeros
-    return `$${dollars.toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1')}`;
-  };
+// Helper function to format price from cents to dollars
+const formatPrice = (priceInCents) => {
+  if (!priceInCents) return 'Free';
+  const dollars = priceInCents / 100;
+  // Use toFixed(2) to preserve cents, then remove trailing zeros
+  return `$${dollars.toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1')}`;
+};
 
+// Component to display membership plan selection
+const MembershipPlans = ({ selectedPlan, onSelectPlan, currentSubscription, membershipPricing }) => {
   // Create plans array with dynamic pricing if available, otherwise use static fallback
   const getPlans = () => {
     // If we have dynamic pricing data, use it
@@ -253,7 +253,7 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
   const checkoutContainerRef = useRef(null);
   
   // Get user email and payment methods from Redux store
-  const { user, paymentMethods, membershipPricing, membershipPricingIsLoading } = useSelector(state => state.data);
+  const { user, paymentMethods, membershipPricing } = useSelector(state => state.data);
   const userEmail = user?.email || '';
 
   // Fetch payment methods and membership pricing when the component mounts
@@ -503,6 +503,17 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
 
   // Update the subscription confirmation display
   const getPlanDisplayName = () => {
+    // First try to get the plan from dynamic pricing data
+    if (membershipPricing && membershipPricing.success && membershipPricing.data && membershipPricing.data.length > 0) {
+      const dynamicPlan = membershipPricing.data.find(plan => plan.id === selectedPlan);
+      if (dynamicPlan) {
+        const price = dynamicPlan.price ? formatPrice(dynamicPlan.price) : 'Custom Pricing';
+        const period = dynamicPlan.interval || 'month';
+        return `${dynamicPlan.name} (${price} per ${period})`;
+      }
+    }
+    
+    // Fallback to static display names if dynamic pricing not available
     if (selectedPlan === 'premium') {
       return 'Premium (Usage-based with customizable max)';
     } else if (selectedPlan === 'flex') {
