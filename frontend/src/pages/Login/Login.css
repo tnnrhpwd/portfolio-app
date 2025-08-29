@@ -116,6 +116,15 @@
     border-color: var(--fg-blue);
     box-shadow: 0 0 0 2px var(--fg-blue);
 }
+.planit-login-form-control.error {
+    border-color: var(--fg-pink);
+    box-shadow: 0 0 0 2px var(--fg-pink);
+    background: rgba(255, 182, 193, 0.1);
+}
+.planit-login-form-control.error:focus {
+    border-color: var(--fg-pink);
+    box-shadow: 0 0 0 2px var(--fg-pink);
+}
 .planit-login-password-wrapper {
     position: relative;
     width: 100%;
@@ -146,11 +155,16 @@
     cursor: pointer;
     font-weight: bold;
     box-shadow: 0 2px 8px var(--grey3-transp);
-    transition: background 0.3s, box-shadow 0.3s;
+    transition: background 0.3s, box-shadow 0.3s, opacity 0.3s;
 }
-.planit-login-form-submit:hover {
+.planit-login-form-submit:hover:not(:disabled) {
     background: linear-gradient(90deg, var(--fg-pink), var(--fg-blue));
     box-shadow: 0 4px 16px var(--grey3-transp);
+}
+.planit-login-form-submit:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    background: var(--border-nav);
 }
 .planit-login-actions {
     display: flex;
@@ -170,9 +184,14 @@
     cursor: pointer;
     font-weight: bold;
     box-shadow: 0 2px 8px var(--grey3-transp);
-    transition: background 0.3s, box-shadow 0.3s;
+    transition: background 0.3s, box-shadow 0.3s, opacity 0.3s;
 }
-.planit-login-register:hover, .planit-login-guest:hover {
+.planit-login-register:hover:not(:disabled), .planit-login-guest:hover:not(:disabled) {
     background: var(--fg-pink);
     box-shadow: 0 4px 16px var(--grey3-transp);
+}
+.planit-login-guest:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    background: var(--border-nav);
 }

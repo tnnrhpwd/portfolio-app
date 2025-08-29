@@ -1,8 +1,8 @@
-import { useState, useEffect }  from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux'      // useSelector-brings in user,iserror,isloading from state | useDispatch-brings in reset,register,login from state
 import { useNavigate } from 'react-router-dom'              // page redirects
 import { toast } from 'react-toastify'                        // visible error notifications
-import { login, logout, resetDataSlice } from '../../features/data/dataSlice'     // import functions from authslice
+import { login, resetDataSlice } from '../../features/data/dataSlice'     // import functions from authslice
 import Spinner from '../../components/Spinner/Spinner.jsx';
 import React from 'react';
 import './Login.css';
@@ -20,12 +20,11 @@ function Login() {
     // the state values of the input fields
     const { email, password } = formData
     const [showPassword, setShowPassword] = useState(false);
+    const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
     const navigate = useNavigate() // initialization
     const dispatch = useDispatch() // initialization
-    const rootStyle = window.getComputedStyle(document.body);
-    const toastDuration = parseInt(rootStyle.getPropertyValue('--toast-duration'), 10);
-    let loadingStartTime = null;
+    const loadingStartTimeRef = useRef(null);
 
     // select values from state
     const { user, dataIsLoading, dataIsError, dataIsSuccess, dataMessage } = useSelector(
@@ -35,33 +34,74 @@ function Login() {
     // called on state changes
     useEffect(() => {
         if (user && !user._id) {
-            toast.error( dataMessage, { autoClose: 2000 }) // print error to toast errors
+            toast.error(dataMessage, { autoClose: 3000 }) // print error to toast errors
             // dispatch(logout())  // dispatch connects to the store, then remove user item from local storage
         }
-        if (dataIsError) {
-            if (dataMessage && !dataMessage.includes('token')) {
-                toast.error(dataMessage, { autoClose: toastDuration });
-              }
+        if (dataIsError && dataMessage) {
+            // Handle specific login error messages with better user feedback
+            let errorMessage = dataMessage;
+            
+            // Don't show token-related errors on login page
+            if (dataMessage.includes('token')) {
+                return;
+            }
+            
+            // Customize error messages for better user experience
+            if (dataMessage === "Could not find that user.") {
+                errorMessage = "No account found with this email address. Please check your email or register a new account.";
+            } else if (dataMessage === "Invalid password.") {
+                errorMessage = "Incorrect password. Please check your password and try again.";
+                // Clear password field on invalid password
+                setFormData(prevState => ({
+                    ...prevState,
+                    password: ''
+                }));
+            } else if (dataMessage === "Server error during login.") {
+                errorMessage = "Login service is temporarily unavailable. Please try again in a few moments.";
+            } else if (dataMessage === "Please provide a valid email address") {
+                errorMessage = "Please enter a valid email address.";
+            } else if (dataMessage === "Password is required") {
+                errorMessage = "Please enter your password.";
+            }
+            
+            toast.error(errorMessage, { 
+                autoClose: 4000,
+                hideProgressBar: false,
+                closeOnClick: true,
+                pauseOnHover: true,
+                draggable: true,
+            });
+            
+            setAttemptedSubmit(true);
         }
         if (user && user._id) {  // if registered or logged in, 
-            toast.success("Successfully logged in as "+user.nickname, { autoClose: 2000 }) // print error to toast errors
-            navigate('/')           // send user to dashboard
-        }else{
-            dispatch(resetDataSlice())   // reset state values( data, dataisloading, dataiserror, datamessage, and dataissuccess ) on each state change
+            const welcomeMessage = user.nickname === 'Guest User' 
+                ? `Welcome, ${user.nickname}! (Debug Mode)` 
+                : `Welcome back, ${user.nickname}!`;
+            
+            toast.success(welcomeMessage, { 
+                autoClose: 2000,
+                hideProgressBar: false,
+                closeOnClick: true,
+                pauseOnHover: true,
+            });
+            navigate('/');           // send user to dashboard
+        } else {
+            dispatch(resetDataSlice());   // reset state values( data, dataisloading, dataiserror, datamessage, and dataissuccess ) on each state change
         }
     }, [user, dataIsError, dataIsSuccess, dataMessage, navigate, dispatch])
 
     useEffect(() => {
         if (dataIsLoading) {
-            loadingStartTime = Date.now();
+            loadingStartTimeRef.current = Date.now();
         }
     }, [dataIsLoading]);
 
     useEffect(() => {
-        if (dataIsLoading && loadingStartTime && Date.now() - loadingStartTime > 5000) {
+        if (dataIsLoading && loadingStartTimeRef.current && Date.now() - loadingStartTimeRef.current > 5000) {
             toast.info("The server takes about a minute to spin up. Please try again in a moment.", { autoClose: 3000 });
         }
-    },  [dataIsLoading]);
+    }, [dataIsLoading]);
     
     // called on each letter typed into input field
     const onChange = (e) => {
@@ -74,24 +114,61 @@ function Login() {
       // called on each login form submit
     const onSubmit = (e) => {
         e.preventDefault()
-        const userData = {     // get data from input form
-        email,
-        password,
+        
+        // Reset previous attempt state
+        setAttemptedSubmit(false);
+        
+        // Basic client-side validation
+        if (!email.trim()) {
+            toast.error("Please enter your email address.", { autoClose: 3000 });
+            return;
         }
-        console.log(userData)
-        dispatch(login(userData))   // dispatch connects to the store, then calls the async register function passing userdata as input.
+        
+        if (!password.trim()) {
+            toast.error("Please enter your password.", { autoClose: 3000 });
+            return;
+        }
+        
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            toast.error("Please enter a valid email address.", { autoClose: 3000 });
+            return;
+        }
+        
+        const userData = {     // get data from input form
+            email: email.trim(),
+            password,
+        }
+        console.log('Attempting login for:', email);
+        dispatch(login(userData));   // dispatch connects to the store, then calls the async register function passing userdata as input.
     }
 
     // called on each guest login form submit
-    const handleGuestLogin = (e) => {
+    const handleGuestLogin = async (e) => {
         e.preventDefault()
+        
+        // Reset previous attempt state
+        setAttemptedSubmit(false);
 
-        const userData = {
-          // set input data to guest user
-          email: "Guest@gmail.com",
-          password: "Guest",
-        };
-        dispatch(login(userData))   // dispatch connects to the store, then calls the async register function passing userdata as input. 
+        try {
+            const userData = {
+              // set input data to guest user (matches database entry)
+              email: "guest@gmail.com",
+              password: "guest",
+            };
+            
+            console.log('Attempting guest login with:', userData.email);
+            await dispatch(login(userData)).unwrap();   // Use unwrap() to handle promise rejection properly
+        } catch (error) {
+            console.error('Guest login failed:', error);
+            // Additional error handling for guest login issues
+            if (error.includes && error.includes('Could not find that user')) {
+                toast.error('Guest user not found. Please contact support or try regular login.', {
+                    autoClose: 5000
+                });
+            }
+        }
     }
 
     // if loading, show spinner. authIsLoading resets on state change.
@@ -117,7 +194,7 @@ function Login() {
                             <div className="planit-login-form-group">
                                 <input
                                     type="email"
-                                    className="planit-login-form-control"
+                                    className={`planit-login-form-control ${attemptedSubmit && dataIsError && (dataMessage.includes('email') || dataMessage.includes('Could not find that user')) ? 'error' : ''}`}
                                     id="planit-email"
                                     name="email"
                                     value={email}
@@ -131,7 +208,7 @@ function Login() {
                                 <div className="planit-login-password-wrapper">
                                     <input
                                         type={showPassword ? "text" : "password"}
-                                        className="planit-login-form-control"
+                                        className={`planit-login-form-control ${attemptedSubmit && dataIsError && (dataMessage.includes('password') || dataMessage.includes('Invalid password')) ? 'error' : ''}`}
                                         id="planit-password"
                                         name="password"
                                         value={password}
@@ -146,13 +223,13 @@ function Login() {
                                         tabIndex={0}
                                         aria-label={showPassword ? "Hide password" : "Show password"}
                                     >
-                                        {showPassword ? "�" : "�️"}
+                                        {showPassword ? "🙈" : "👁️"}
                                     </button>
                                 </div>
                             </div>
                             <div className="planit-login-form-group">
-                                <button type="submit" className="planit-login-form-submit">
-                                    Log In
+                                <button type="submit" className="planit-login-form-submit" disabled={dataIsLoading}>
+                                    {dataIsLoading ? 'Logging In...' : 'Log In'}
                                 </button>
                             </div>
                         </form>
@@ -162,8 +239,12 @@ function Login() {
                             <button className="planit-login-register">Register</button>
                         </a>
                         {devMode && (
-                            <button onClick={handleGuestLogin} className="planit-login-guest">
-                                Login as Guest
+                            <button 
+                                onClick={handleGuestLogin} 
+                                className="planit-login-guest"
+                                disabled={dataIsLoading}
+                            >
+                                {dataIsLoading ? 'Logging in as Guest...' : 'Login as Guest'}
                             </button>
                         )}
                     </div>
