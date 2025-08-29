@@ -1,6 +1,6 @@
 require('dotenv').config();
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, ScanCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, ScanCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const asyncHandler = require('express-async-handler');
 const { checkIP } = require('../utils/accessData.js');
 const stripe = require('stripe')(process.env.STRIPE_KEY);
@@ -125,31 +125,91 @@ const getUserSubscription = asyncHandler(async (req, res) => {
         console.log('Customer ID:', customerId);
         
         // Validate that the customer ID exists in Stripe
+        let validatedCustomer;
+        let finalCustomerId = customerId; // Use a mutable variable for updates
         try {
-            const validatedCustomer = await stripe.customers.retrieve(customerId);
+            validatedCustomer = await stripe.customers.retrieve(customerId);
             console.log('Customer ID validated successfully for subscription check');
         } catch (stripeError) {
             console.error(`Invalid Stripe customer ID ${customerId} during subscription check:`, stripeError.message);
-            // If customer ID is invalid, treat as free plan but log the issue
-            console.log('Treating user as free plan due to invalid customer ID');
-            return res.status(200).json({ 
-                subscriptionPlan: 'Free',
-                subscriptionDetails: null,
-                warning: 'Invalid customer ID found in database'
-            });
+            
+            // Fallback: Search by email and update customer ID
+            try {
+                console.log('Attempting to recover by searching for customer by email...');
+                
+                // Extract email and name from user data
+                const userData = req.user.text;
+                const emailMatch = userData.match(/Email:([^|]*)/);
+                const nameMatch = userData.match(/Nickname:([^|]*)/);
+                
+                if (!emailMatch || !emailMatch[1]) {
+                    throw new Error('Could not extract email from user data');
+                }
+                
+                const email = emailMatch[1].trim();
+                const name = nameMatch && nameMatch[1] ? nameMatch[1].trim() : 'Unknown';
+                
+                console.log('Extracted email:', email, 'name:', name);
+                
+                // Search for existing customer by email
+                const existingCustomers = await stripe.customers.list({
+                    email: email,
+                    limit: 1
+                });
+                
+                if (existingCustomers.data.length > 0) {
+                    // Found existing customer
+                    validatedCustomer = existingCustomers.data[0];
+                    console.log('Found existing Stripe customer by email:', validatedCustomer.id);
+                } else {
+                    // Create new customer
+                    validatedCustomer = await stripe.customers.create({ email, name });
+                    console.log('Created new Stripe customer:', validatedCustomer.id);
+                }
+                
+                // Update user data with correct customer ID
+                const updatedUserData = userData.replace(/\|stripeid:([^|]*)/, `|stripeid:${validatedCustomer.id}`);
+                console.log('Updating user data with correct customer ID:', validatedCustomer.id);
+                
+                // Update in DynamoDB
+                const putParams = {
+                    TableName: 'Simple',
+                    Item: {
+                        ...req.user,
+                        text: updatedUserData,
+                        updatedAt: new Date().toISOString()
+                    }
+                };
+                
+                await dynamodb.send(new PutCommand(putParams));
+                console.log('User data updated with correct Stripe customer ID');
+                
+                // Update customerId for the rest of the function
+                finalCustomerId = validatedCustomer.id;
+                
+            } catch (recoveryError) {
+                console.error('Failed to recover customer ID:', recoveryError.message);
+                // If customer ID is invalid and recovery fails, treat as free plan but log the issue
+                console.log('Treating user as free plan due to failed recovery');
+                return res.status(200).json({ 
+                    subscriptionPlan: 'Free',
+                    subscriptionDetails: null,
+                    warning: 'Failed to validate or recover customer ID'
+                });
+            }
         }
         
         // Get only active and relevant in-progress subscriptions
         // This includes active, trialing, past_due, and incomplete subscriptions
         const activeSubscriptions = await stripe.subscriptions.list({
-            customer: customerId,
+            customer: finalCustomerId,
             status: 'active',
             limit: 5,
             expand: ['data.plan.product']
         });
         
         const incompleteSubscriptions = await stripe.subscriptions.list({
-            customer: customerId,
+            customer: finalCustomerId,
             status: 'incomplete',
             limit: 5,
             expand: ['data.plan.product']

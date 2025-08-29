@@ -424,55 +424,293 @@ const postPaymentMethod = asyncHandler(async (req, res) => {
         
         // Validate that the customer ID exists in Stripe and get user email for validation
         let validatedCustomer;
+        let finalCustomerId = customerId; // Use a mutable variable for updates
+        console.log('Initial finalCustomerId:', finalCustomerId);
+        
         try {
-            validatedCustomer = await stripe.customers.retrieve(customerId);
+            validatedCustomer = await stripe.customers.retrieve(finalCustomerId);
             console.log('Customer ID validated successfully in Stripe');
         } catch (stripeError) {
-            console.error(`Invalid Stripe customer ID ${customerId}:`, stripeError.message);
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid customer ID found. Please create a customer first.',
-                code: 'CUSTOMER_INVALID',
-                stripeError: stripeError.message
-            });
+            console.error(`Invalid Stripe customer ID ${finalCustomerId}:`, stripeError.message);
+            
+            // Fallback: Search by email and update customer ID
+            try {
+                console.log('Attempting to recover by searching for customer by email...');
+                
+                // Extract email and name from user data
+                const userData = req.user.text;
+                const emailMatch = userData.match(/Email:([^|]*)/);
+                const nameMatch = userData.match(/Nickname:([^|]*)/);
+                
+                if (!emailMatch || !emailMatch[1]) {
+                    throw new Error('Could not extract email from user data');
+                }
+                
+                const email = emailMatch[1].trim();
+                const name = nameMatch && nameMatch[1] ? nameMatch[1].trim() : 'Unknown';
+                
+                console.log('Extracted email:', email, 'name:', name);
+                
+                // Search for existing customer by email
+                const existingCustomers = await stripe.customers.list({
+                    email: email,
+                    limit: 1
+                });
+                
+                if (existingCustomers.data.length > 0) {
+                    // Found existing customer
+                    validatedCustomer = existingCustomers.data[0];
+                    console.log('Found existing Stripe customer by email:', validatedCustomer.id);
+                } else {
+                    // Create new customer
+                    validatedCustomer = await stripe.customers.create({ email, name });
+                    console.log('Created new Stripe customer:', validatedCustomer.id);
+                }
+                
+                // Update user data with correct customer ID
+                const updatedUserData = userData.replace(/\|stripeid:([^|]*)/, `|stripeid:${validatedCustomer.id}`);
+                console.log('Updating user data with correct customer ID:', validatedCustomer.id);
+                
+                // Update in DynamoDB
+                const putParams = {
+                    TableName: 'Simple',
+                    Item: {
+                        ...req.user,
+                        text: updatedUserData,
+                        updatedAt: new Date().toISOString()
+                    }
+                };
+                
+                await dynamodb.send(new PutCommand(putParams));
+                console.log('User data updated with correct Stripe customer ID');
+                
+                // Update customerId for the rest of the function
+                finalCustomerId = validatedCustomer.id;
+                console.log('Updated finalCustomerId after recovery:', finalCustomerId);
+                
+            } catch (recoveryError) {
+                console.error('Failed to recover customer ID:', recoveryError.message);
+                return res.status(500).json({
+                    success: false,
+                    message: 'Failed to validate or recover customer ID',
+                    details: recoveryError.message
+                });
+            }
         }
+        
+        console.log('Final customer ID to be used for operations:', finalCustomerId);
         
         // Case 1: If paymentMethodId is provided (from Stripe.js on frontend), attach it to the customer
         if (req.body.paymentMethodId) {
             const paymentMethodId = req.body.paymentMethodId;
             
-            // Attach the payment method to the customer
-            await stripe.paymentMethods.attach(paymentMethodId, {
-                customer: customerId,
-            });
-            
-            // Set as default payment method
-            await stripe.customers.update(customerId, {
-                invoice_settings: {
-                    default_payment_method: paymentMethodId,
-                },
-            });
-            
-            const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
-            res.status(200).json(paymentMethod);
+            try {
+                // Attach the payment method to the customer
+                await stripe.paymentMethods.attach(paymentMethodId, {
+                    customer: finalCustomerId,
+                });
+                
+                // Set as default payment method
+                await stripe.customers.update(finalCustomerId, {
+                    invoice_settings: {
+                        default_payment_method: paymentMethodId,
+                    },
+                });
+                
+                const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
+                res.status(200).json(paymentMethod);
+                
+            } catch (attachError) {
+                console.error('Payment method attachment failed:', attachError.message);
+                
+                // If this is a "No such customer" error, try the fallback recovery
+                if (attachError.code === 'resource_missing' && attachError.message.includes('No such customer')) {
+                    console.log('Payment method attachment failed due to invalid customer ID, attempting recovery...');
+                    
+                    try {
+                        // Extract email and name from user data
+                        const userData = req.user.text;
+                        const emailMatch = userData.match(/Email:([^|]*)/);
+                        const nameMatch = userData.match(/Nickname:([^|]*)/);
+                        
+                        if (!emailMatch || !emailMatch[1]) {
+                            throw new Error('Could not extract email from user data');
+                        }
+                        
+                        const email = emailMatch[1].trim();
+                        const name = nameMatch && nameMatch[1] ? nameMatch[1].trim() : 'Unknown';
+                        
+                        console.log('Extracted email for recovery:', email, 'name:', name);
+                        
+                        // Search for existing customer by email
+                        const existingCustomers = await stripe.customers.list({
+                            email: email,
+                            limit: 1
+                        });
+                        
+                        let recoveredCustomer;
+                        if (existingCustomers.data.length > 0) {
+                            // Found existing customer
+                            recoveredCustomer = existingCustomers.data[0];
+                            console.log('Found existing Stripe customer by email:', recoveredCustomer.id);
+                        } else {
+                            // Create new customer
+                            recoveredCustomer = await stripe.customers.create({ email, name });
+                            console.log('Created new Stripe customer:', recoveredCustomer.id);
+                        }
+                        
+                        // Update user data with correct customer ID
+                        const updatedUserData = userData.replace(/\|stripeid:([^|]*)/, `|stripeid:${recoveredCustomer.id}`);
+                        console.log('Updating user data with recovered customer ID:', recoveredCustomer.id);
+                        
+                        // Update in DynamoDB
+                        const putParams = {
+                            TableName: 'Simple',
+                            Item: {
+                                ...req.user,
+                                text: updatedUserData,
+                                updatedAt: new Date().toISOString()
+                            }
+                        };
+                        
+                        await dynamodb.send(new PutCommand(putParams));
+                        console.log('User data updated with recovered Stripe customer ID');
+                        
+                        // Now retry the payment method attachment with the recovered customer ID
+                        console.log('Retrying payment method attachment with recovered customer:', recoveredCustomer.id);
+                        
+                        await stripe.paymentMethods.attach(paymentMethodId, {
+                            customer: recoveredCustomer.id,
+                        });
+                        
+                        await stripe.customers.update(recoveredCustomer.id, {
+                            invoice_settings: {
+                                default_payment_method: paymentMethodId,
+                            },
+                        });
+                        
+                        const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
+                        console.log('Payment method attached successfully with recovered customer');
+                        res.status(200).json(paymentMethod);
+                        
+                    } catch (recoveryError) {
+                        console.error('Failed to recover from payment method attachment error:', recoveryError.message);
+                        res.status(500).json({ 
+                            error: 'Failed to attach payment method and recovery failed',
+                            details: recoveryError.message
+                        });
+                    }
+                } else {
+                    // Different error, just throw it
+                    throw attachError;
+                }
+            }
         } 
         // Case 2: Create a setup intent for the frontend to use with Stripe Elements
         else {
-            // Creating a setup intent with expanded payment_method types
-            const setupIntent = await stripe.setupIntents.create({
-                customer: customerId,
-                // Support more payment methods - note that your Stripe account needs to be configured to accept these
-                payment_method_types: [
-                    'link',
-                    'card', 
-                    'cashapp', 
-                ],
-                usage: 'off_session',  // Allow future payments without customer present
-                // Remove the problematic payment_method_options that was causing the error
-            });
+            console.log('Creating setup intent for customer:', finalCustomerId);
             
-            // Return the full setup intent object (includes client_secret)
-            res.status(200).json(setupIntent);
+            try {
+                // Creating a setup intent with expanded payment_method types
+                const setupIntent = await stripe.setupIntents.create({
+                    customer: finalCustomerId,
+                    // Support more payment methods - note that your Stripe account needs to be configured to accept these
+                    payment_method_types: [
+                        'link',
+                        'card', 
+                        'cashapp', 
+                    ],
+                    usage: 'off_session',  // Allow future payments without customer present
+                    // Remove the problematic payment_method_options that was causing the error
+                });
+                
+                console.log('Setup intent created successfully:', setupIntent.id);
+                // Return the full setup intent object (includes client_secret)
+                res.status(200).json(setupIntent);
+                
+            } catch (setupIntentError) {
+                console.error('Setup intent creation failed:', setupIntentError.message);
+                
+                // If this is a "No such customer" error, try the fallback recovery
+                if (setupIntentError.code === 'resource_missing' && setupIntentError.message.includes('No such customer')) {
+                    console.log('Setup intent failed due to invalid customer ID, attempting recovery...');
+                    
+                    try {
+                        // Extract email and name from user data
+                        const userData = req.user.text;
+                        const emailMatch = userData.match(/Email:([^|]*)/);
+                        const nameMatch = userData.match(/Nickname:([^|]*)/);
+                        
+                        if (!emailMatch || !emailMatch[1]) {
+                            throw new Error('Could not extract email from user data');
+                        }
+                        
+                        const email = emailMatch[1].trim();
+                        const name = nameMatch && nameMatch[1] ? nameMatch[1].trim() : 'Unknown';
+                        
+                        console.log('Extracted email for recovery:', email, 'name:', name);
+                        
+                        // Search for existing customer by email
+                        const existingCustomers = await stripe.customers.list({
+                            email: email,
+                            limit: 1
+                        });
+                        
+                        let recoveredCustomer;
+                        if (existingCustomers.data.length > 0) {
+                            // Found existing customer
+                            recoveredCustomer = existingCustomers.data[0];
+                            console.log('Found existing Stripe customer by email:', recoveredCustomer.id);
+                        } else {
+                            // Create new customer
+                            recoveredCustomer = await stripe.customers.create({ email, name });
+                            console.log('Created new Stripe customer:', recoveredCustomer.id);
+                        }
+                        
+                        // Update user data with correct customer ID
+                        const updatedUserData = userData.replace(/\|stripeid:([^|]*)/, `|stripeid:${recoveredCustomer.id}`);
+                        console.log('Updating user data with recovered customer ID:', recoveredCustomer.id);
+                        
+                        // Update in DynamoDB
+                        const putParams = {
+                            TableName: 'Simple',
+                            Item: {
+                                ...req.user,
+                                text: updatedUserData,
+                                updatedAt: new Date().toISOString()
+                            }
+                        };
+                        
+                        await dynamodb.send(new PutCommand(putParams));
+                        console.log('User data updated with recovered Stripe customer ID');
+                        
+                        // Now try creating the setup intent with the recovered customer ID
+                        console.log('Retrying setup intent creation with recovered customer:', recoveredCustomer.id);
+                        const retrySetupIntent = await stripe.setupIntents.create({
+                            customer: recoveredCustomer.id,
+                            payment_method_types: [
+                                'link',
+                                'card', 
+                                'cashapp', 
+                            ],
+                            usage: 'off_session',
+                        });
+                        
+                        console.log('Setup intent created successfully with recovered customer:', retrySetupIntent.id);
+                        res.status(200).json(retrySetupIntent);
+                        
+                    } catch (recoveryError) {
+                        console.error('Failed to recover from setup intent error:', recoveryError.message);
+                        res.status(500).json({ 
+                            error: 'Failed to create setup intent and recovery failed',
+                            details: recoveryError.message
+                        });
+                    }
+                } else {
+                    // Different error, just throw it
+                    throw setupIntentError;
+                }
+            }
         }
     } catch (error) {
         console.error('Error handling payment method:', error);
@@ -517,13 +755,73 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
     console.log('Customer ID for subscription management:', customerId);
 
     // Validate that the customer ID exists in Stripe
+    let validatedCustomer;
+    let finalCustomerId = customerId; // Use a mutable variable for updates
     try {
-        const validatedCustomer = await stripe.customers.retrieve(customerId);
+        validatedCustomer = await stripe.customers.retrieve(customerId);
         console.log('Customer ID validated successfully for subscription');
     } catch (stripeError) {
         console.error(`Invalid Stripe customer ID ${customerId} during subscription:`, stripeError.message);
-        res.status(400);
-        throw new Error(`Invalid customer ID. Please contact support. Error: ${stripeError.message}`);
+        
+        // Fallback: Search by email and update customer ID
+        try {
+            console.log('Attempting to recover by searching for customer by email...');
+            
+            // Extract email and name from user data
+            const userData = req.user.text;
+            const emailMatch = userData.match(/Email:([^|]*)/);
+            const nameMatch = userData.match(/Nickname:([^|]*)/);
+            
+            if (!emailMatch || !emailMatch[1]) {
+                throw new Error('Could not extract email from user data');
+            }
+            
+            const email = emailMatch[1].trim();
+            const name = nameMatch && nameMatch[1] ? nameMatch[1].trim() : 'Unknown';
+            
+            console.log('Extracted email:', email, 'name:', name);
+            
+            // Search for existing customer by email
+            const existingCustomers = await stripe.customers.list({
+                email: email,
+                limit: 1
+            });
+            
+            if (existingCustomers.data.length > 0) {
+                // Found existing customer
+                validatedCustomer = existingCustomers.data[0];
+                console.log('Found existing Stripe customer by email:', validatedCustomer.id);
+            } else {
+                // Create new customer
+                validatedCustomer = await stripe.customers.create({ email, name });
+                console.log('Created new Stripe customer:', validatedCustomer.id);
+            }
+            
+            // Update user data with correct customer ID
+            const updatedUserData = userData.replace(/\|stripeid:([^|]*)/, `|stripeid:${validatedCustomer.id}`);
+            console.log('Updating user data with correct customer ID:', validatedCustomer.id);
+            
+            // Update in DynamoDB
+            const putParams = {
+                TableName: 'Simple',
+                Item: {
+                    ...req.user,
+                    text: updatedUserData,
+                    updatedAt: new Date().toISOString()
+                }
+            };
+            
+            await dynamodb.send(new PutCommand(putParams));
+            console.log('User data updated with correct Stripe customer ID');
+            
+            // Update customerId for the rest of the function
+            finalCustomerId = validatedCustomer.id;
+            
+        } catch (recoveryError) {
+            console.error('Failed to recover customer ID:', recoveryError.message);
+            res.status(500);
+            throw new Error(`Failed to validate or recover customer ID: ${recoveryError.message}`);
+        }
     }
 
     // Extract user email for notifications
@@ -544,11 +842,11 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
             // Find the user data document containing user profile data
             // This looks for data with format: Nickname:xxx|Email:xxx|Password:xxx|stripeid:xxx|Rank:xxx
             const userData = await Data.findOne({
-                'data.text': { $regex: `Email:.*\\|Password:.*\\|stripeid:${customerId}`, $options: 'i' }
+                'data.text': { $regex: `Email:.*\\|Password:.*\\|stripeid:${finalCustomerId}`, $options: 'i' }
             });
             
             if (!userData) {
-                console.error(`No user profile data found for customer ID: ${customerId}`);
+                console.error(`No user profile data found for customer ID: ${finalCustomerId}`);
                 return false;
             }
             
@@ -590,7 +888,7 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
     try {
         // Get ALL subscriptions in any status for the customer
         const existingSubscriptions = await stripe.subscriptions.list({
-            customer: customerId,
+            customer: finalCustomerId,
             status: 'all', // Get all subscriptions regardless of status
             limit: 20 // Increased limit to catch more subscriptions
         });
@@ -702,7 +1000,7 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
             try {
                 // Double check that all active subscriptions were cancelled
                 const checkSubscriptions = await stripe.subscriptions.list({
-                    customer: customerId,
+                    customer: finalCustomerId,
                     status: 'active',
                     limit: 5
                 });
@@ -847,7 +1145,7 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
 
         // Create the subscription
         const subscription = await stripe.subscriptions.create({
-            customer: customerId,
+            customer: finalCustomerId,
             items: [{ price: priceId }],
             payment_behavior: 'default_incomplete',
             payment_settings: {

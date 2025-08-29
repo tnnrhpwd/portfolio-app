@@ -4,7 +4,7 @@ const fetch = require('node-fetch');
 const wordBaseUrl = 'https://random-word-api.p.rapidapi.com/L/';
 const defBaseUrl = 'https://mashape-community-urban-dictionary.p.rapidapi.com/define?term=';
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, ScanCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, ScanCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -291,20 +291,20 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
             return;
         }
 
-        if (!req.user.data.text.includes("|stripeid:")) {
+        if (!req.user.text.includes("|stripeid:")) {
             try {
                 // Create a new customer if the customer ID is not found
                 const customer = await createCustomer({
                     body: {
-                        email: req.user.data.text.substring(req.user.data.text.indexOf('Email:') + 6,
-                            req.user.data.text.indexOf('.com|') + 4),
-                        name: req.user.data.text.substring(req.user.data.text.indexOf('Nickname:') + 9,
-                            req.user.data.text.indexOf('|Email:')),
+                        email: req.user.text.substring(req.user.text.indexOf('Email:') + 6,
+                            req.user.text.indexOf('.com|') + 4),
+                        name: req.user.text.substring(req.user.text.indexOf('Nickname:') + 9,
+                            req.user.text.indexOf('|Email:')),
                     }
                 }, res);
 
                 // Update user data with the new customer ID
-                req.user.data.text += `|stripeid:${customer.id}`;
+                req.user.text += `|stripeid:${customer.id}`;
                 console.log(`|stripeid:${customer.id}`);
                 await req.user.save();
 
@@ -322,35 +322,95 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
             }
         }
 
-        // console.log('req.user.data.text:', req.user.data.text);
+        // console.log('req.user.text:', req.user.text);
 
-        const customerId = req.user.data.text.substring(req.user.data.text.indexOf('|stripeid:') + 10,
-            req.user.data.text.indexOf('|stripeid:') + 28);
+        const customerId = req.user.text.substring(req.user.text.indexOf('|stripeid:') + 10,
+            req.user.text.indexOf('|stripeid:') + 28);
         console.log('Customer ID:', customerId);
         
         // Validate that the customer ID exists in Stripe before attempting to fetch payment methods
+        let validatedCustomer;
         try {
-            const validatedCustomer = await stripe.customers.retrieve(customerId);
+            validatedCustomer = await stripe.customers.retrieve(customerId);
             console.log('Customer ID validated successfully for payment methods retrieval');
         } catch (stripeError) {
             console.error(`Invalid Stripe customer ID ${customerId}:`, stripeError.message);
-            res.status(400).json({ 
-                error: 'Invalid customer ID found in database. Please contact support.',
-                details: stripeError.message
-            });
-            return;
+            
+            // Fallback: Search by email and update customer ID
+            try {
+                console.log('Attempting to recover by searching for customer by email...');
+                
+                // Extract email and name from user data
+                const userData = req.user.text;
+                const emailMatch = userData.match(/Email:([^|]*)/);
+                const nameMatch = userData.match(/Nickname:([^|]*)/);
+                
+                if (!emailMatch || !emailMatch[1]) {
+                    throw new Error('Could not extract email from user data');
+                }
+                
+                const email = emailMatch[1].trim();
+                const name = nameMatch && nameMatch[1] ? nameMatch[1].trim() : 'Unknown';
+                
+                console.log('Extracted email:', email, 'name:', name);
+                
+                // Search for existing customer by email
+                const existingCustomers = await stripe.customers.list({
+                    email: email,
+                    limit: 1
+                });
+                
+                if (existingCustomers.data.length > 0) {
+                    // Found existing customer
+                    validatedCustomer = existingCustomers.data[0];
+                    console.log('Found existing Stripe customer by email:', validatedCustomer.id);
+                } else {
+                    // Create new customer
+                    validatedCustomer = await stripe.customers.create({ email, name });
+                    console.log('Created new Stripe customer:', validatedCustomer.id);
+                }
+                
+                // Update user data with correct customer ID
+                const updatedUserData = userData.replace(/\|stripeid:([^|]*)/, `|stripeid:${validatedCustomer.id}`);
+                console.log('Updating user data with correct customer ID:', validatedCustomer.id);
+                
+                // Update in DynamoDB
+                const putParams = {
+                    TableName: 'Simple',
+                    Item: {
+                        ...req.user,
+                        text: updatedUserData,
+                        updatedAt: new Date().toISOString()
+                    }
+                };
+                
+                await dynamodb.send(new PutCommand(putParams));
+                console.log('User data updated with correct Stripe customer ID');
+                
+            } catch (recoveryError) {
+                console.error('Failed to recover customer ID:', recoveryError.message);
+                res.status(500).json({ 
+                    error: 'Failed to validate or recover customer ID',
+                    details: recoveryError.message
+                });
+                return;
+            }
         }
         
         // Define all payment method types we want to fetch
         const paymentMethodTypes = ['card', 'link', 'cashapp'];
         let allPaymentMethods = [];
         
+        // Use the validated customer ID for fetching payment methods
+        const finalCustomerId = validatedCustomer.id;
+        console.log('Using customer ID for payment methods:', finalCustomerId);
+        
         // Fetch each payment method type
         for (const type of paymentMethodTypes) {
             try {
-                console.log(`Fetching ${type} payment methods for customer: ${customerId}`);
+                console.log(`Fetching ${type} payment methods for customer: ${finalCustomerId}`);
                 const methodsResponse = await stripe.paymentMethods.list({
-                    customer: customerId,
+                    customer: finalCustomerId,
                     limit: 10,
                     type: type,
                 });
