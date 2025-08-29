@@ -13,6 +13,11 @@ backend/logs
 
 # production
 /build
+/frontend/build
+/backend/build
+/backend/dist
+build/
+dist/
 
 # misc
 .DS_Store
