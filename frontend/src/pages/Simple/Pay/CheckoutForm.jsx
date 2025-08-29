@@ -26,28 +26,24 @@ const MembershipPlans = ({ selectedPlan, onSelectPlan, currentSubscription, memb
   // Helper function to format price from cents to dollars
   const formatPrice = (priceInCents) => {
     if (!priceInCents) return 'Free';
-    return `$${(priceInCents / 100).toFixed(0)}`;
+    const dollars = priceInCents / 100;
+    // Use toFixed(2) to preserve cents, then remove trailing zeros
+    return `$${dollars.toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1')}`;
   };
 
   // Create plans array with dynamic pricing if available, otherwise use static fallback
   const getPlans = () => {
     // If we have dynamic pricing data, use it
-    if (membershipPricing && membershipPricing.length > 0) {
-      const dynamicPlans = membershipPricing.map(product => {
-        // Find the price for this product
-        const price = product.prices && product.prices.length > 0 ? product.prices[0] : null;
-        
-        // Map product metadata to plan structure
-        const planId = product.name.toLowerCase().replace(/\s+/g, '');
-        
+    if (membershipPricing && membershipPricing.success && membershipPricing.data && membershipPricing.data.length > 0) {
+      const dynamicPlans = membershipPricing.data.map(product => {
         return {
-          id: planId,
+          id: product.id,
           name: product.name,
-          price: price ? formatPrice(price.unit_amount) : 'Custom Pricing',
-          period: price && price.recurring ? `per ${price.recurring.interval}` : 'per month',
+          price: product.price ? formatPrice(product.price) : 'Custom Pricing',
+          period: `per ${product.interval || 'month'}`,
           tagline: product.description || '',
-          features: product.metadata?.features ? product.metadata.features.split('|') : [],
-          quota: product.metadata?.quota ? JSON.parse(product.metadata.quota) : {},
+          features: product.features || [],
+          quota: product.quota || {},
         };
       });
       
@@ -72,7 +68,7 @@ const MembershipPlans = ({ selectedPlan, onSelectPlan, currentSubscription, memb
       {
         id: 'flex',
         name: 'Flex Membership',
-        price: '$10',
+        price: '$0.50',
         period: 'per month',
         tagline: 'Pay only for what you use',
         features: [
@@ -88,7 +84,7 @@ const MembershipPlans = ({ selectedPlan, onSelectPlan, currentSubscription, memb
       { 
         id: 'premium',
         name: 'Premium Membership',
-        price: 'Custom Pricing',
+        price: '$0.50',
         period: 'per month',
         tagline: 'Power users and enterprises: maximize efficiency and savings',
         features: [
