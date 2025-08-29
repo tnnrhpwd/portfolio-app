@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { postPaymentMethod, getPaymentMethods, subscribeCustomer, getUserSubscription, createCustomer } from '../../../features/data/dataSlice';
+import { postPaymentMethod, getPaymentMethods, subscribeCustomer, getUserSubscription, createCustomer, getMembershipPricing } from '../../../features/data/dataSlice';
 import { loadStripe } from '@stripe/stripe-js';
 import {
   Elements,
@@ -22,53 +22,88 @@ try {
 }
 
 // Component to display membership plans
-const MembershipPlans = ({ selectedPlan, onSelectPlan, currentSubscription }) => {
-  const plans = [
-    {
-      id: 'free',
-      name: 'Free Tier',
-      price: '$0',
-      period: 'per month',
-      tagline: 'Experience the basics with zero commitment',
-      features: [
-        'Limited API calls – perfect for exploring our services',
-        'Simple, real-time dashboard',
-        'Community support forum',
-      ],
-      quota: { calls: '1,000 calls/month' },
-    },
-    {
-      id: 'flex',
-      name: 'Flex Membership',
-      price: '$10',
-      period: 'per month',
-      tagline: 'Pay only for what you use',
-      features: [
-        'Usage-based pricing – enjoy a baseline quota then pay per call',
-        'Strategic planning tools for scaling efficiently',
-        'Enhanced analytics dashboard for smarter decision-making',
-      ],
-      quota: {
-        baseCalls: '10,000 calls/month',
-        overageRate: '$0.001 per additional call',
-      },
-    },
-    { 
-      id: 'premium',
-      name: 'Premium Membership',
-      price: 'Custom Pricing',
-      period: 'per month',
-      tagline: 'Power users and enterprises: maximize efficiency and savings',
-      features: [
-        'Significantly reduced per-usage rates – save up to 30% on volume',
-        'Set your monthly maximum with predictability in billing',
-        'Priority AI processing for rapid execution',
-        'Advanced analytics with detailed data insights',
-        'Dedicated support channel with direct expert access',
-        'Exclusive early access to innovative, cutting-edge features',
-      ],
+const MembershipPlans = ({ selectedPlan, onSelectPlan, currentSubscription, membershipPricing }) => {
+  // Helper function to format price from cents to dollars
+  const formatPrice = (priceInCents) => {
+    if (!priceInCents) return 'Free';
+    return `$${(priceInCents / 100).toFixed(0)}`;
+  };
+
+  // Create plans array with dynamic pricing if available, otherwise use static fallback
+  const getPlans = () => {
+    // If we have dynamic pricing data, use it
+    if (membershipPricing && membershipPricing.length > 0) {
+      const dynamicPlans = membershipPricing.map(product => {
+        // Find the price for this product
+        const price = product.prices && product.prices.length > 0 ? product.prices[0] : null;
+        
+        // Map product metadata to plan structure
+        const planId = product.name.toLowerCase().replace(/\s+/g, '');
+        
+        return {
+          id: planId,
+          name: product.name,
+          price: price ? formatPrice(price.unit_amount) : 'Custom Pricing',
+          period: price && price.recurring ? `per ${price.recurring.interval}` : 'per month',
+          tagline: product.description || '',
+          features: product.metadata?.features ? product.metadata.features.split('|') : [],
+          quota: product.metadata?.quota ? JSON.parse(product.metadata.quota) : {},
+        };
+      });
+      
+      return dynamicPlans;
     }
-  ];
+    
+    // Fallback to static plans if no dynamic pricing available
+    return [
+      {
+        id: 'free',
+        name: 'Free Tier',
+        price: '$0',
+        period: 'per month',
+        tagline: 'Experience the basics with zero commitment',
+        features: [
+          'Limited API calls – perfect for exploring our services',
+          'Simple, real-time dashboard',
+          'Community support forum',
+        ],
+        quota: { calls: '1,000 calls/month' },
+      },
+      {
+        id: 'flex',
+        name: 'Flex Membership',
+        price: '$10',
+        period: 'per month',
+        tagline: 'Pay only for what you use',
+        features: [
+          'Usage-based pricing – enjoy a baseline quota then pay per call',
+          'Strategic planning tools for scaling efficiently',
+          'Enhanced analytics dashboard for smarter decision-making',
+        ],
+        quota: {
+          baseCalls: '10,000 calls/month',
+          overageRate: '$0.001 per additional call',
+        },
+      },
+      { 
+        id: 'premium',
+        name: 'Premium Membership',
+        price: 'Custom Pricing',
+        period: 'per month',
+        tagline: 'Power users and enterprises: maximize efficiency and savings',
+        features: [
+          'Significantly reduced per-usage rates – save up to 30% on volume',
+          'Set your monthly maximum with predictability in billing',
+          'Priority AI processing for rapid execution',
+          'Advanced analytics with detailed data insights',
+          'Dedicated support channel with direct expert access',
+          'Exclusive early access to innovative, cutting-edge features',
+        ],
+      }
+    ];
+  };
+
+  const plans = getPlans();
 
   return (
     <div className="membership-plans">
@@ -222,12 +257,13 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
   const checkoutContainerRef = useRef(null);
   
   // Get user email and payment methods from Redux store
-  const { user, paymentMethods } = useSelector(state => state.data);
+  const { user, paymentMethods, membershipPricing, membershipPricingIsLoading } = useSelector(state => state.data);
   const userEmail = user?.email || '';
 
-  // Fetch payment methods when the component mounts
+  // Fetch payment methods and membership pricing when the component mounts
   useEffect(() => {
     dispatch(getPaymentMethods());
+    dispatch(getMembershipPricing());
     
     // Fetch current subscription
     dispatch(getUserSubscription())
@@ -543,6 +579,7 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
       selectedPlan={selectedPlan}
       onSelectPlan={setSelectedPlan}
       currentSubscription={currentSubscription}
+      membershipPricing={membershipPricing}
     />
   );
 

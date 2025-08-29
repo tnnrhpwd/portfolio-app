@@ -303,6 +303,17 @@ const login = async (userData) => {
     }
 }
   
+// Get membership pricing (public endpoint)
+const getMembershipPricing = async () => {
+    try {
+        const response = await axios.get(API_URL + 'membership-pricing');
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching membership pricing:', error);
+        throw error;
+    }
+}
+
 // Logout user
 const logout = () => {
     localStorage.removeItem('user')
@@ -322,6 +333,7 @@ const dataService = {
     postPaymentMethod,
     subscribeCustomer,
     getUserSubscription, // Note: Changed from plural to match implementation
+    getMembershipPricing,
     register,
     login,
     logout,

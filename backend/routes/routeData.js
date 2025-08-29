@@ -60,7 +60,7 @@ const {
   deleteData,
   deleteHashData, deletePaymentMethod, deleteCustomer,
   getData, getUserSubscription,
-  getHashData, getPaymentMethods, getAllData,
+  getHashData, getPaymentMethods, getAllData, getMembershipPricing,
   postData, registerUser, loginUser,
   postHashData, compressData, createCustomer, 
   postPaymentMethod, createInvoice, subscribeCustomer, 
@@ -95,6 +95,9 @@ router.post('/login',
 router.route('/public') 
   .get(getData) // GET request for fetching public data
   .post(validateDataCreation, handleValidationErrors, postData); // POST request for creating public data
+
+// Public route for membership pricing (no authentication required)
+router.get('/membership-pricing', getMembershipPricing); // GET request for fetching membership pricing
 
 // Protected routes
 router.get('/all/admin', protect, getAllData); // GET request for fetching all data (admin only)

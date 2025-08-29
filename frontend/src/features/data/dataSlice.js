@@ -13,6 +13,10 @@ const initialState = {  // default values for each state change
   dataIsLoading: false,
   dataMessage: '',
   operation: null,
+  membershipPricing: [],
+  membershipPricingIsLoading: false,
+  membershipPricingIsError: false,
+  membershipPricingMessage: '',
 }
 
 // Create new data  -- Async functional object -- called from pages using dispatch --CREATE
@@ -58,6 +62,24 @@ export const getPublicData = createAsyncThunk(
   async (dataData, thunkAPI) => {
     try {
       return await dataService.getPublicData(dataData);
+    } catch (error) {
+      const dataMessage =
+        (error.response &&
+          error.response.data &&
+          error.response.data.dataMessage) ||
+        error.dataMessage ||
+        error.toString();
+      return thunkAPI.rejectWithValue(dataMessage);
+    }
+  }
+);
+
+// Get membership pricing -- READ PUBLIC
+export const getMembershipPricing = createAsyncThunk(
+  'data/getMembershipPricing',
+  async (_, thunkAPI) => {
+    try {
+      return await dataService.getMembershipPricing();
     } catch (error) {
       const dataMessage =
         (error.response &&
@@ -383,6 +405,20 @@ export const dataSlice = createSlice({
           state.user = null;
         }
         state.operation = null;
+      })
+      .addCase(getMembershipPricing.pending, (state) => {
+        state.membershipPricingIsLoading = true;
+        state.membershipPricingIsError = false;
+        state.membershipPricingMessage = '';
+      })
+      .addCase(getMembershipPricing.fulfilled, (state, action) => {
+        state.membershipPricingIsLoading = false;
+        state.membershipPricing = action.payload;
+      })
+      .addCase(getMembershipPricing.rejected, (state, action) => {
+        state.membershipPricingIsLoading = false;
+        state.membershipPricingIsError = true;
+        state.membershipPricingMessage = action.payload;
       })
       .addCase(compressData.pending, (state) => {
         state.dataIsLoading = true;
