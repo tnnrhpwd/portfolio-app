@@ -42,6 +42,7 @@
     "openai": "^4.24.7",
     "postmark": "^3.0.17",
     "sthopwood": "file:..",
+    "sthopwood-backend": "file:",
     "stripe": "^14.14.0",
     "useragent": "^2.3.0",
     "winston": "^3.11.0"

@@ -391,26 +391,236 @@
 }
 
 /* Responsive adjustments */
-@media (max-width: 600px) {
+@media (max-width: 480px) {
   .checkout-container {
-    padding: 16px;
-    margin: 0 16px;
-  }
-
-  #add-payment-button {
-    padding: 10px 14px;
+    padding: calc(var(--nav-size) * 0.15);
+    margin: 0 calc(var(--nav-size) * 0.15);
+    max-width: 98%;
   }
   
-  .payment-method-icons {
-    gap: 8px;
-  }
-  
-  .payment-method-icon {
-    height: 20px;
+  .plan-card {
+    padding: calc(var(--nav-size) * 0.12);
   }
   
   .form-section {
-    padding: 12px;
+    padding: calc(var(--nav-size) * 0.12);
+  }
+  
+  .payment-form h2 {
+    font-size: calc(var(--nav-size) * 0.25);
+  }
+  
+  .form-section h3 {
+    font-size: calc(var(--nav-size) * 0.22);
+  }
+  
+  #add-payment-button,
+  .add-method-button,
+  .next-step-button,
+  .subscribe-button {
+    padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.25);
+    font-size: calc(var(--nav-size) * 0.18);
+    min-height: calc(var(--nav-size) * 1.1);
+  }
+  
+  /* Ultra-compact payment methods on very small screens */
+  .payment-method-item {
+    padding: calc(var(--nav-size) * 0.15);
+  }
+  
+  .payment-method-icon {
+    font-size: calc(var(--nav-size) * 0.25);
+    width: calc(var(--nav-size) * 0.4);
+    height: calc(var(--nav-size) * 0.4);
+  }
+  
+  /* Progress bar ultra-compact */
+  .progress-step-circle {
+    width: calc(var(--nav-size) * 0.3);
+    height: calc(var(--nav-size) * 0.3);
+    font-size: calc(var(--nav-size) * 0.15);
+  }
+  
+  .progress-step-label {
+    font-size: calc(var(--nav-size) * 0.13);
+  }
+  
+  /* Plan cards ultra-compact */
+  .plan-header h4 {
+    font-size: calc(var(--nav-size) * 0.22);
+  }
+  
+  .price {
+    font-size: calc(var(--nav-size) * 0.25);
+  }
+  
+  .period {
+    font-size: calc(var(--nav-size) * 0.18);
+  }
+  
+  .plan-features li {
+    font-size: calc(var(--nav-size) * 0.22);
+    padding: calc(var(--nav-size) * 0.05) 0;
+  }
+}
+
+/* High contrast and reduced motion preferences - Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .plan-card {
+    transition: none;
+  }
+  
+  .payment-method-item {
+    transition: none;
+  }
+  
+  #add-payment-button,
+  .add-method-button,
+  .next-step-button,
+  .subscribe-button {
+    transition: none;
+  }
+  
+  .progress-step-circle {
+    transition: none;
+    animation: none;
+  }
+  
+  .progress-step-label {
+    transition: none;
+  }
+  
+  .spinner {
+    animation: none;
+  }
+  
+  /* Disable hover effects for reduced motion */
+  .plan-card:hover,
+  .payment-method-item:hover,
+  #add-payment-button:hover,
+  .add-method-button:hover,
+  .next-step-button:hover,
+  .subscribe-button:hover {
+    transform: none;
+  }
+}
+
+/* Enhanced focus states for accessibility - Matching Home page patterns */
+.plan-card:focus,
+.payment-method-item:focus {
+  outline: 2px solid var(--text-color);
+  outline-offset: 2px;
+  border-color: var(--text-color);
+}
+
+#add-payment-button:focus,
+.add-method-button:focus,
+.next-step-button:focus,
+.subscribe-button:focus {
+  outline: 2px solid var(--text-color-inv);
+  outline-offset: 2px;
+}
+
+.add-method-link:focus {
+  outline: 2px solid var(--fg-mint);
+  outline-offset: 2px;
+}
+
+/* Terms agreement link focus */
+.terms-agreement a:focus {
+  outline: 2px solid var(--fg-mint);
+  outline-offset: 2px;
+}
+
+/* Enhanced mobile touch targets */
+@media (max-width: 768px) {
+  .plan-card,
+  .payment-method-item,
+  #add-payment-button,
+  .add-method-button,
+  .next-step-button,
+  .subscribe-button {
+    min-height: calc(var(--nav-size) * 0.9);
+  }
+  
+  .add-method-link {
+    padding: calc(var(--nav-size) * 0.1);
+    min-height: calc(var(--nav-size) * 0.8);
+    display: inline-flex;
+    align-items: center;
+  }
+  
+  /* Larger tap targets for plan selector */
+  .plan-selector {
+    width: calc(var(--nav-size) * 0.35);
+    height: calc(var(--nav-size) * 0.35);
+  }
+  
+  /* Better spacing for form sections on mobile */
+  .form-section {
+    margin-bottom: calc(var(--nav-size) * 0.25);
+  }
+}
+
+/* Performance optimizations - Matching Home page patterns */
+@media (max-width: 768px) {
+  /* Reduce shadow complexity on mobile */
+  .checkout-container,
+  .form-section,
+  .confirmation-details {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+  }
+  
+  .plan-card {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  }
+  
+  .payment-method-item {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  }
+  
+  /* Simplify backdrop filters on mobile for performance */
+  .card-element,
+  #form-group-card,
+  #form-group-cvv,
+  #form-group-expiry {
+    backdrop-filter: blur(4px);
+  }
+  
+  .checkout-container,
+  .form-section,
+  .confirmation-details {
+    backdrop-filter: blur(8px);
+  }
+}
+
+/* Large screen optimizations */
+@media (min-width: 1024px) {
+  .checkout-container {
+    max-width: 70%;
+  }
+  
+  .plans-container {
+    gap: calc(var(--nav-size) * 0.2);
+  }
+  
+  .plan-card {
+    padding: calc(var(--nav-size) * 0.2);
+  }
+  
+  .form-section {
+    padding: calc(var(--nav-size) * 0.3);
+  }
+}
+
+/* Ultra-wide screen optimizations */
+@media (min-width: 1440px) {
+  .checkout-container {
+    max-width: 60%;
+  }
+  
+  .plans-container {
+    gap: calc(var(--nav-size) * 0.25);
   }
 }
 
@@ -882,7 +1092,58 @@
   justify-content: center;
 }
 
-/* Responsive adjustments */
+/* Enhanced Responsive Design - Matching Home Page Patterns */
+
+/* Landscape orientation optimizations */
+@media (orientation: landscape) and (max-width: 768px) {
+  .checkout-container {
+    max-width: 85%;
+    padding: calc(var(--nav-size) * 0.2);
+  }
+  
+  .plans-container {
+    flex-direction: row;
+    gap: calc(var(--nav-size) * 0.1);
+  }
+  
+  .plan-card {
+    width: 100%;
+    margin-bottom: calc(var(--nav-size) * 0.15);
+  }
+  
+  .form-section {
+    padding: calc(var(--nav-size) * 0.15);
+  }
+  
+  .payment-methods-list {
+    gap: calc(var(--nav-size) * 0.1);
+  }
+}
+
+/* Portrait orientation optimizations */
+@media (orientation: portrait) and (max-width: 768px) {
+  .plans-container {
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.15);
+  }
+  
+  .plan-card {
+    width: 100%;
+    margin-bottom: calc(var(--nav-size) * 0.19);
+  }
+  
+  .checkout-container {
+    max-width: 95%;
+    padding: calc(var(--nav-size) * 0.2);
+    margin: 0 calc(var(--nav-size) * 0.1);
+  }
+  
+  .payment-methods-list {
+    gap: calc(var(--nav-size) * 0.15);
+  }
+}
+
+/* Tablet and mobile responsiveness */
 @media (max-width: 768px) {
   .plans-container {
     flex-direction: column;
@@ -890,11 +1151,45 @@
   
   .plan-card {
     margin-bottom: calc(var(--nav-size) * 0.19);
+    width: 100%;
   }
   
   .checkout-container {
     padding: calc(var(--nav-size) * 0.2);
     margin: 0 calc(var(--nav-size) * 0.2);
+  }
+  
+  /* Simplify animations on mobile for performance */
+  .plan-card {
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+  }
+  
+  .payment-method-item {
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+  }
+  
+  /* Enhanced mobile button sizing */
+  #add-payment-button,
+  .add-method-button,
+  .next-step-button,
+  .subscribe-button {
+    min-height: calc(var(--nav-size) * 1);
+    padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.3);
+  }
+  
+  /* Progress bar mobile optimization */
+  .checkout-progress-bar {
+    padding: calc(var(--nav-size) * 0.1) 0;
+  }
+  
+  .progress-step-circle {
+    width: calc(var(--nav-size) * 0.35);
+    height: calc(var(--nav-size) * 0.35);
+    font-size: calc(var(--nav-size) * 0.175);
+  }
+  
+  .progress-step-label {
+    font-size: calc(var(--nav-size) * 0.15);
   }
 }
 
@@ -1096,6 +1391,112 @@
 
 /* 
  * ===================================================================
+ * ENHANCED RESPONSIVE DESIGN - MATCHING HOME PAGE PATTERNS
+ * ===================================================================
+ * Comprehensive responsive design updates to match Home.css patterns
+ * Includes orientation queries, accessibility features, and performance optimizations
+ */
+
+/* Enhanced animation performance control - matching Home page */
+@media (max-width: 768px) {
+  /* Disable complex animations on mobile for performance */
+  .progress-step.active .progress-step-circle {
+    animation: none;
+  }
+  
+  /* Simplify hover effects on touch devices */
+  .plan-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+  
+  .payment-method-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+  
+  #add-payment-button:hover,
+  .add-method-button:hover,
+  .next-step-button:hover,
+  .subscribe-button:hover {
+    transform: translateY(-1px);
+  }
+}
+
+/* Theme-specific responsive adjustments - matching Home page patterns */
+@media (max-width: 768px) {
+  .light-theme .checkout-container {
+    background: rgba(255, 255, 255, 0.95);
+  }
+  
+  .dark-theme .checkout-container {
+    background: rgba(30, 30, 30, 0.95);
+  }
+  
+  /* Enhanced contrast for mobile readability */
+  .light-theme .plan-card {
+    border-color: rgba(0, 0, 0, 0.15);
+  }
+  
+  .dark-theme .plan-card {
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+}
+
+/* Container and layout responsive patterns - matching Home page */
+@media (max-width: 768px) {
+  .container {
+    /* Match Home page container behavior */
+    overflow-x: hidden;
+  }
+  
+  .checkout-container {
+    /* Full width on mobile like Home page */
+    min-width: unset;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  
+  /* Form elements full width on mobile */
+  .form-section,
+  .confirmation-details,
+  .payment-methods-container {
+    width: 100%;
+    box-sizing: border-box;
+  }
+}
+
+/* Enhanced mobile form interactions - matching Home page patterns */
+@media (max-width: 480px) {
+  /* Touch-friendly form elements */
+  .card-element,
+  #form-group-card,
+  #form-group-cvv,
+  #form-group-expiry {
+    padding: calc(var(--nav-size) * 0.25);
+    font-size: calc(var(--nav-size) * 0.2);
+  }
+  
+  /* Mobile-optimized text sizes matching Home page */
+  .section-desc,
+  .email-note,
+  .terms-agreement,
+  .link-description {
+    font-size: calc(var(--nav-size) * 0.18);
+    line-height: 1.4;
+  }
+  
+  .payment-method-type {
+    font-size: calc(var(--nav-size) * 0.2);
+  }
+  
+  .payment-method-expires {
+    font-size: calc(var(--nav-size) * 0.18);
+  }
+}
+
+/* 
+ * ===================================================================
  * FONT SIZE STANDARDIZATION - HOME PAGE PATTERNS
  * ===================================================================
  * Override all font sizes to match Home page typography system
@@ -1142,4 +1543,439 @@
 .terms-text,
 .disclaimer-text {
     font-size: calc(var(--nav-size) * 0.14);
+}
+
+/* 
+ * ===================================================================
+ * ENHANCED MOBILE RESPONSIVENESS - DEVICES UNDER 700PX WIDTH
+ * ===================================================================
+ * Specific optimizations for medium mobile devices (under 700px)
+ * Bridges the gap between tablet (768px) and small mobile (480px) breakpoints
+ */
+
+@media (max-width: 700px) {
+  /* Container adjustments for medium mobile */
+  .checkout-container {
+    max-width: 92%;
+    padding: calc(var(--nav-size) * 0.18);
+    margin: 0 calc(var(--nav-size) * 0.18);
+  }
+  
+  /* Form sections optimization */
+  .form-section,
+  .confirmation-details {
+    padding: calc(var(--nav-size) * 0.16);
+    margin-bottom: calc(var(--nav-size) * 0.22);
+  }
+  
+  /* Typography adjustments for 700px and under */
+  .payment-form h2 {
+    font-size: calc(var(--nav-size) * 0.28);
+  }
+  
+  .form-section h3 {
+    font-size: calc(var(--nav-size) * 0.24);
+  }
+  
+  .membership-plans h3 {
+    font-size: calc(var(--nav-size) * 0.28);
+    margin-bottom: calc(var(--nav-size) * 0.15);
+  }
+  
+  /* Plan cards medium mobile optimization */
+  .plans-container {
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.18);
+  }
+  
+  .plan-card {
+    width: 100%;
+    padding: calc(var(--nav-size) * 0.16);
+    margin-bottom: calc(var(--nav-size) * 0.12);
+  }
+  
+  .plan-header h4 {
+    font-size: calc(var(--nav-size) * 0.24);
+  }
+  
+  .price {
+    font-size: calc(var(--nav-size) * 0.28);
+  }
+  
+  .period {
+    font-size: calc(var(--nav-size) * 0.19);
+  }
+  
+  .plan-features li {
+    font-size: calc(var(--nav-size) * 0.23);
+    padding: calc(var(--nav-size) * 0.055) 0;
+  }
+  
+  .plan-tagline {
+    font-size: calc(var(--nav-size) * 0.19);
+  }
+  
+  /* Enhanced button sizing for medium mobile */
+  #add-payment-button,
+  .add-method-button,
+  .next-step-button,
+  .subscribe-button {
+    padding: calc(var(--nav-size) * 0.19) calc(var(--nav-size) * 0.28);
+    font-size: calc(var(--nav-size) * 0.19);
+    min-height: calc(var(--nav-size) * 0.95);
+    border-radius: calc(var(--nav-size) * 0.12);
+  }
+  
+  /* Payment methods optimization */
+  .payment-method-item {
+    padding: calc(var(--nav-size) * 0.18);
+  }
+  
+  .payment-method-icon {
+    font-size: calc(var(--nav-size) * 0.28);
+    width: calc(var(--nav-size) * 0.45);
+    height: calc(var(--nav-size) * 0.45);
+  }
+  
+  .payment-method-type {
+    font-size: calc(var(--nav-size) * 0.23);
+  }
+  
+  .payment-method-expires {
+    font-size: calc(var(--nav-size) * 0.21);
+  }
+  
+  /* Progress bar medium mobile optimization */
+  .progress-step-circle {
+    width: calc(var(--nav-size) * 0.38);
+    height: calc(var(--nav-size) * 0.38);
+    font-size: calc(var(--nav-size) * 0.18);
+  }
+  
+  .progress-step-label {
+    font-size: calc(var(--nav-size) * 0.16);
+  }
+  
+  /* Form elements medium mobile */
+  .card-element,
+  #form-group-card,
+  #form-group-cvv,
+  #form-group-expiry {
+    padding: calc(var(--nav-size) * 0.28);
+    font-size: calc(var(--nav-size) * 0.22);
+  }
+  
+  /* Text elements medium mobile */
+  .section-desc,
+  .email-note,
+  .terms-agreement,
+  .link-description {
+    font-size: calc(var(--nav-size) * 0.17);
+    line-height: 1.35;
+  }
+  
+  /* Plan selector medium mobile */
+  .plan-selector {
+    width: calc(var(--nav-size) * 0.32);
+    height: calc(var(--nav-size) * 0.32);
+  }
+  
+  .plan-selector.selected span {
+    font-size: calc(var(--nav-size) * 0.19);
+  }
+  
+  /* Enhanced spacing for better touch interaction */
+  .payment-methods-list {
+    gap: calc(var(--nav-size) * 0.16);
+  }
+  
+  .method-selected-indicator {
+    width: calc(var(--nav-size) * 0.32);
+    height: calc(var(--nav-size) * 0.32);
+  }
+  
+  /* Subscription details medium mobile */
+  .subscription-details {
+    padding: calc(var(--nav-size) * 0.18);
+  }
+  
+  .subscription-details p {
+    font-size: calc(var(--nav-size) * 0.17);
+  }
+  
+  /* Confirmation items medium mobile */
+  .confirmation-item .label,
+  .confirmation-item .value {
+    font-size: calc(var(--nav-size) * 0.21);
+  }
+  
+  /* Security indicator medium mobile */
+  .payment-security {
+    padding: calc(var(--nav-size) * 0.12);
+    font-size: calc(var(--nav-size) * 0.21);
+  }
+  
+  /* Error and success messages */
+  .pay-error,
+  .stripe-blocked-warning,
+  .stripe-error,
+  .payment-success {
+    font-size: calc(var(--nav-size) * 0.17);
+    padding: calc(var(--nav-size) * 0.28);
+  }
+}
+
+/* 
+ * ===================================================================
+ * LANDSCAPE ORIENTATION IMPROVEMENTS FOR MEDIUM MOBILE (700PX AND UNDER)
+ * ===================================================================
+ */
+
+@media (orientation: landscape) and (max-width: 700px) {
+  .checkout-container {
+    max-width: 88%;
+    padding: calc(var(--nav-size) * 0.15);
+  }
+  
+  /* Keep plans horizontal in landscape if there's space */
+  .plans-container {
+    flex-direction: row;
+    gap: calc(var(--nav-size) * 0.12);
+  }
+  
+  .plan-card {
+    padding: calc(var(--nav-size) * 0.14);
+    margin-bottom: calc(var(--nav-size) * 0.1);
+  }
+  
+  /* Compact form sections for landscape */
+  .form-section {
+    padding: calc(var(--nav-size) * 0.14);
+  }
+  
+  /* Smaller text in landscape to fit more content */
+  .payment-form h2 {
+    font-size: calc(var(--nav-size) * 0.26);
+  }
+  
+  .form-section h3 {
+    font-size: calc(var(--nav-size) * 0.22);
+  }
+  
+  /* Progress bar landscape optimization */
+  .checkout-progress-bar {
+    padding: calc(var(--nav-size) * 0.08) 0;
+  }
+  
+  .progress-step-circle {
+    width: calc(var(--nav-size) * 0.32);
+    height: calc(var(--nav-size) * 0.32);
+  }
+  
+  .progress-step-label {
+    font-size: calc(var(--nav-size) * 0.14);
+  }
+}
+
+/* 
+ * ===================================================================
+ * TOUCH INTERACTION IMPROVEMENTS FOR 700PX AND UNDER
+ * ===================================================================
+ */
+
+@media (max-width: 700px) {
+  /* Enhanced touch targets */
+  .plan-card,
+  .payment-method-item {
+    cursor: pointer;
+    -webkit-tap-highlight-color: rgba(79, 156, 249, 0.1);
+  }
+  
+  /* Better hover states for touch devices */
+  .plan-card:active {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+  }
+  
+  .payment-method-item:active {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Button active states */
+  #add-payment-button:active,
+  .add-method-button:active,
+  .next-step-button:active,
+  .subscribe-button:active {
+    transform: translateY(1px);
+  }
+  
+  /* Plan selector better touch feedback */
+  .plan-selector {
+    transition: all 0.15s ease;
+  }
+  
+  .plan-selector:active {
+    transform: scale(0.95);
+  }
+  
+  /* Add method link better touch target */
+  .add-method-link {
+    padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.08);
+    min-height: calc(var(--nav-size) * 0.85);
+    display: inline-flex;
+    align-items: center;
+    border-radius: calc(var(--nav-size) * 0.08);
+    transition: background-color 0.2s ease;
+  }
+  
+  .add-method-link:active {
+    background-color: rgba(79, 156, 249, 0.1);
+  }
+  
+  /* Terms agreement link better touch target */
+  .terms-agreement a {
+    padding: calc(var(--nav-size) * 0.05) calc(var(--nav-size) * 0.03);
+    border-radius: calc(var(--nav-size) * 0.05);
+    transition: background-color 0.2s ease;
+  }
+  
+  .terms-agreement a:active {
+    background-color: rgba(79, 156, 249, 0.1);
+  }
+}
+
+/* 
+ * ===================================================================
+ * MEDIUM-SMALL MOBILE OPTIMIZATION (600-700PX RANGE)
+ * ===================================================================
+ * Fine-tuned responsive design for the sweet spot between medium and small mobile
+ */
+
+@media (max-width: 650px) {
+  /* Container further optimization */
+  .checkout-container {
+    max-width: 94%;
+    padding: calc(var(--nav-size) * 0.17);
+  }
+  
+  /* Form sections compact */
+  .form-section,
+  .confirmation-details {
+    padding: calc(var(--nav-size) * 0.15);
+  }
+  
+  /* Typography refinement */
+  .payment-form h2 {
+    font-size: calc(var(--nav-size) * 0.27);
+  }
+  
+  .membership-plans h3 {
+    font-size: calc(var(--nav-size) * 0.27);
+  }
+  
+  /* Plan card compact spacing */
+  .plan-card {
+    padding: calc(var(--nav-size) * 0.15);
+  }
+  
+  .plan-features li {
+    font-size: calc(var(--nav-size) * 0.225);
+    padding: calc(var(--nav-size) * 0.05) 0;
+  }
+  
+  /* Button sizing refinement */
+  #add-payment-button,
+  .add-method-button,
+  .next-step-button,
+  .subscribe-button {
+    padding: calc(var(--nav-size) * 0.185) calc(var(--nav-size) * 0.26);
+    font-size: calc(var(--nav-size) * 0.185);
+  }
+  
+  /* Payment method items */
+  .payment-method-item {
+    padding: calc(var(--nav-size) * 0.17);
+  }
+  
+  .payment-method-type {
+    font-size: calc(var(--nav-size) * 0.225);
+  }
+  
+  /* Progress bar refinement */
+  .progress-step-circle {
+    width: calc(var(--nav-size) * 0.36);
+    height: calc(var(--nav-size) * 0.36);
+    font-size: calc(var(--nav-size) * 0.17);
+  }
+  
+  .progress-step-label {
+    font-size: calc(var(--nav-size) * 0.155);
+  }
+}
+
+/* 
+ * ===================================================================
+ * PERFORMANCE OPTIMIZATIONS FOR DEVICES UNDER 700PX
+ * ===================================================================
+ * Matching Home page performance patterns for medium mobile devices
+ */
+
+@media (max-width: 700px) {
+  /* Reduce animation complexity */
+  .plan-card.selected {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(79, 156, 249, 0.12);
+  }
+  
+  .payment-method-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+  }
+  
+  /* Simplify backdrop filters for better performance */
+  .checkout-container,
+  .form-section,
+  .confirmation-details {
+    backdrop-filter: blur(6px);
+  }
+  
+  .card-element,
+  #form-group-card,
+  #form-group-cvv,
+  #form-group-expiry {
+    backdrop-filter: blur(3px);
+  }
+  
+  /* Disable complex animations */
+  .progress-step.active .progress-step-circle {
+    animation: none;
+  }
+  
+  /* Simplify shadows */
+  .plan-card {
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.06);
+  }
+  
+  .payment-method-item {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  }
+  
+  /* Theme-specific optimizations for medium mobile */
+  .light-theme .checkout-container {
+    background: rgba(255, 255, 255, 0.92);
+  }
+  
+  .dark-theme .checkout-container {
+    background: rgba(25, 25, 25, 0.92);
+  }
+  
+  /* Enhanced contrast for better readability */
+  .section-desc,
+  .email-note,
+  .terms-agreement,
+  .link-description {
+    color: var(--text-color);
+    opacity: 0.85;
+  }
 }
