@@ -162,6 +162,13 @@ function Profile() {
     }
   }, [user, subscriptionLoaded, dispatch, navigate]);
 
+  // Debug effect to monitor userUsage changes
+  useEffect(() => {
+    console.log('🔍 userUsage state changed:', userUsage);
+    console.log('🔍 userUsage type:', typeof userUsage);
+    console.log('🔍 userUsage keys:', userUsage ? Object.keys(userUsage) : 'no keys');
+  }, [userUsage]);
+
   // Rest of handlers
   const onLogout = () => {
     setSubscriptionLoaded(false); // Reset subscription loaded state
@@ -319,50 +326,73 @@ function Profile() {
 
               <div className="planit-profile-section">
                 <h3 className="planit-profile-section-title">API Usage & Limits</h3>
-                {!usageLoaded ? (
-                  <div className="planit-profile-usage-loading">Loading usage data...</div>
-                ) : userUsageIsLoading ? (
+                {/* Debugging current state */}
+                <div style={{fontSize: '12px', color: '#666', marginBottom: '10px'}}>
+                  Debug: usageLoaded={String(usageLoaded)}, userUsageIsLoading={String(userUsageIsLoading)}, userUsageIsError={String(userUsageIsError)}, userUsage={userUsage ? JSON.stringify(userUsage) : 'null/undefined'}
+                </div>
+                {userUsageIsLoading ? (
                   <div className="planit-profile-usage-loading">Loading usage data...</div>
                 ) : userUsageIsError ? (
                   <div className="planit-profile-usage-error">
                     Error loading usage data: {userUsageMessage}
                   </div>
-                ) : userUsage ? (
+                ) : userUsage && userUsage.totalUsage !== undefined ? (
                   <div className="planit-profile-usage-container">
                     <div className="planit-profile-usage-overview">
                       <div className="usage-stat">
                         <span className="usage-label">💰 Current Usage</span>
-                        <span className="usage-value">${userUsage.totalUsage?.toFixed(4) || '0.0000'}</span>
+                        <span className="usage-value">
+                          ${userUsage?.totalUsage !== undefined ? 
+                            Number(userUsage.totalUsage).toFixed(4) : 
+                            '0.0000'
+                          }
+                        </span>
                       </div>
                       <div className="usage-stat">
                         <span className="usage-label">🎯 Monthly Limit</span>
                         <span className="usage-value">
-                          {userUsage.membership === 'Premium' ? '∞ Unlimited' : `$${userUsage.limit?.toFixed(2) || '0.00'}`}
+                          {userUsage?.membership === 'Premium' ? 
+                            '∞ Unlimited' : 
+                            `$${userUsage?.limit !== undefined ? Number(userUsage.limit).toFixed(2) : '0.00'}`
+                          }
                         </span>
                       </div>
                       <div className="usage-stat">
                         <span className="usage-label">💸 Remaining</span>
                         <span className="usage-value">
-                          {userUsage.membership === 'Premium' 
+                          {userUsage?.membership === 'Premium' 
                             ? '∞ Unlimited' 
-                            : `$${userUsage.remainingBalance?.toFixed(4) || '0.0000'}`
+                            : `$${userUsage?.remainingBalance !== undefined ? 
+                                Number(userUsage.remainingBalance).toFixed(4) : 
+                                '0.0000'
+                              }`
                           }
                         </span>
                       </div>
                       <div className="usage-stat">
                         <span className="usage-label">📊 Usage %</span>
                         <span className="usage-value">
-                          {userUsage.membership === 'Premium' ? 'N/A' : `${userUsage.percentUsed?.toFixed(1) || '0.0'}%`}
+                          {userUsage?.membership === 'Premium' ? 
+                            'N/A' : 
+                            `${userUsage?.percentUsed !== undefined ? 
+                              Number(userUsage.percentUsed).toFixed(1) : 
+                              '0.0'
+                            }%`
+                          }
                         </span>
                       </div>
                     </div>
                     
-                    {userUsage.percentUsed > 0 && (
+                    {userUsage?.percentUsed > 0 && userUsage?.membership !== 'Premium' && (
                       <div className="planit-profile-usage-bar">
                         <div className="usage-bar-track">
                           <div 
-                            className={`usage-bar-fill ${userUsage.percentUsed >= 90 ? 'danger' : userUsage.percentUsed >= 75 ? 'warning' : 'normal'}`}
-                            style={{ width: `${Math.min(userUsage.percentUsed, 100)}%` }}
+                            className={`usage-bar-fill ${
+                              userUsage.percentUsed >= 90 ? 'danger' : 
+                              userUsage.percentUsed >= 75 ? 'warning' : 
+                              'normal'
+                            }`}
+                            style={{ width: `${Math.min(Number(userUsage.percentUsed) || 0, 100)}%` }}
                           ></div>
                         </div>
                         <div className="usage-bar-label">

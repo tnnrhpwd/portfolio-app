@@ -167,12 +167,6 @@ const compressData = asyncHandler(async (req, res) => {
         throw new Error('User not found');
     }
 
-    // Check for user
-    if (req.user.text && typeof req.user.text === 'string' && !req.user.text.includes("tnnrhpwd@gmail.com")) {
-        res.status(401)
-        throw new Error('Only admin are authorized to utilize the API at this time.' + req.user.text)
-    }
-
     const parsedJSON = JSON.parse(req.body.data);
     console.log('Request body:', parsedJSON); // Log the request body
 
@@ -194,12 +188,18 @@ const compressData = asyncHandler(async (req, res) => {
     console.log('User input:', userInput); // Log the user input
 
     try {
+        console.log('🔍 Starting API validation check...');
+        const startValidation = Date.now();
+        const startApiCheck = Date.now();
+        
         // Check if user can make OpenAI API call
         const canMakeCall = await canMakeApiCall(req.user.id, 'openai', {
             model: 'o1-mini',
             inputTokens: Math.ceil(userInput.length / 4), // Rough estimate: 4 chars per token
             outputTokens: 200 // Estimate for output
         });
+
+        console.log(`✅ API validation completed in ${Date.now() - startApiCheck}ms`);
 
         if (!canMakeCall.canMake) {
             console.log('OpenAI API call blocked:', canMakeCall.reason);
@@ -216,12 +216,20 @@ const compressData = asyncHandler(async (req, res) => {
             await initializeOpenAI();
         }
         
+        console.log('🤖 Starting OpenAI API call...');
+        const startOpenAI = Date.now();
+        
         const response = await client.chat.completions.create({
           model: 'o1-mini', // Use the o1-mini model
           messages: [{ role: 'user', content: userInput }],
           max_completion_tokens: 1000, // Increase the max tokens to allow more complete responses
         });
+        
+        console.log(`🤖 OpenAI API call completed in ${Date.now() - startOpenAI}ms`);
         console.log('OpenAI response:', JSON.stringify(response)); // Log the OpenAI response
+        
+        console.log('📊 Starting usage tracking...');
+        const startTracking = Date.now();
         
         // Track API usage
         const inputTokens = response.usage?.prompt_tokens || Math.ceil(userInput.length / 4);
@@ -231,6 +239,8 @@ const compressData = asyncHandler(async (req, res) => {
             inputTokens: inputTokens,
             outputTokens: outputTokens
         }, 'o1-mini');
+
+        console.log(`📊 Usage tracking completed in ${Date.now() - startTracking}ms`);
 
         if (!usageResult.success) {
             console.log('Usage tracking failed:', usageResult.error);
@@ -242,6 +252,9 @@ const compressData = asyncHandler(async (req, res) => {
         // const response = { data: { choices: [ {text: "This is a simulated response for debugging purposes."} ] } };
 
         if (response.choices[0].message.content && response.choices[0].message.content.length > 0) {
+            console.log('💾 Starting data saving...');
+            const startSaving = Date.now();
+            
             const compressedData = response.choices[0].message.content; // Extract the compressed data from the OpenAI response.
             const newData = "Creator:"+req.user.id+"|Net:"+userInput+"\n"+compressedData;
 
@@ -268,6 +281,7 @@ const compressData = asyncHandler(async (req, res) => {
 
                 try {
                     const result = await dynamodb.send(new UpdateCommand(updateParams));
+                    console.log(`💾 Data saving completed in ${Date.now() - startSaving}ms`);
                     console.log('Successfully updated existing chat');
                     res.status(200).json({ data: [compressedData] });
                 } catch (dbError) {
@@ -289,6 +303,7 @@ const compressData = asyncHandler(async (req, res) => {
 
                 try {
                     await dynamodb.send(new PutCommand(newItemParams));
+                    console.log(`💾 Data saving completed in ${Date.now() - startSaving}ms`);
                     console.log('Successfully created new chat');
                     res.status(201).json({ data: [compressedData] });
                 } catch (dbError) {
@@ -297,6 +312,7 @@ const compressData = asyncHandler(async (req, res) => {
                 }
             }
         } else {
+            console.log(`💾 Total operation completed in ${Date.now() - startValidation}ms`);
             res.status(500).json({ error: 'No compressed data found in the OpenAI response' });
         }
     } catch (error) {

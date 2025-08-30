@@ -39,37 +39,72 @@ const MEMBERSHIP_LIMITS = {
  * @returns {Object} Parsed usage data
  */
 function parseUsageData(userText) {
+    // Debug logging
+    console.log('parseUsageData: Input text length:', userText.length);
+    console.log('parseUsageData: Input text preview:', userText.substring(0, 300) + '...');
+    
     const usageMatch = userText.match(/\|Usage:([^|]*)/);
     if (!usageMatch || !usageMatch[1]) {
+        console.log('parseUsageData: No usage data found in user text');
         return { entries: [], totalCost: 0 };
     }
 
-    const usageString = usageMatch[1];
+    const usageString = usageMatch[1].trim();
+    console.log('parseUsageData: Found usage string:', usageString);
+    
+    // Handle edge cases where the string might be empty or just whitespace
+    if (!usageString || usageString.length === 0) {
+        console.log('parseUsageData: Usage string is empty');
+        return { entries: [], totalCost: 0 };
+    }
+    
     const entries = [];
     let totalCost = 0;
 
     // Parse entries like: openai-2024-08-30:150t:$0.05,rapidword-2024-08-30:5c:$0.01
-    const usageEntries = usageString.split(',').filter(entry => entry.trim());
+    // But also handle single entries without commas: openai-2025-08-30:1664t:$0.0196
+    const usageEntries = usageString.includes(',') 
+        ? usageString.split(',').filter(entry => entry.trim()).map(entry => entry.trim())
+        : [usageString.trim()]; // If no comma, treat the whole string as a single entry
+    
+    console.log('parseUsageData: Usage entries after processing:', usageEntries);
     
     for (const entry of usageEntries) {
+        console.log(`Parsing entry: "${entry}"`);
         const parts = entry.split(':');
+        console.log('Split parts:', parts);
         if (parts.length >= 3) {
             const [apiDate, usage, costStr] = parts;
-            const [apiName, date] = apiDate.split('-', 2);
-            const cost = parseFloat(costStr.replace('$', ''));
+            // Find the first dash to separate API name from date
+            const firstDashIndex = apiDate.indexOf('-');
+            const apiName = firstDashIndex > 0 ? apiDate.substring(0, firstDashIndex) : apiDate;
+            const fullDate = firstDashIndex > 0 ? apiDate.substring(firstDashIndex + 1) : '';
             
-            entries.push({
-                api: apiName,
-                date: date,
-                usage: usage,
-                cost: cost,
-                fullDate: apiDate.substring(apiName.length + 1)
-            });
+            // Clean the cost string and parse it
+            const cleanCostStr = costStr.replace('$', '').trim();
+            const cost = parseFloat(cleanCostStr);
             
-            totalCost += cost;
+            console.log(`  - API: ${apiName}, Date: ${fullDate}, Usage: ${usage}, Cost: $${cost}`);
+            
+            if (!isNaN(cost)) {
+                entries.push({
+                    api: apiName,
+                    date: fullDate,
+                    usage: usage,
+                    cost: cost,
+                    fullDate: fullDate
+                });
+                
+                totalCost += cost;
+            } else {
+                console.warn(`  - Failed to parse cost from "${costStr}"`);
+            }
+        } else {
+            console.warn(`  - Invalid entry format, expected 3 parts but got ${parts.length}: "${entry}"`);
         }
     }
 
+    console.log('parseUsageData: Final result - entries:', entries.length, 'totalCost:', totalCost);
     return { entries, totalCost };
 }
 
@@ -94,21 +129,12 @@ function formatUsageData(entries) {
  */
 async function trackApiUsage(userId, apiName, usageData, model = null) {
     try {
-        // Get user data
-        const scanParams = {
-            TableName: 'Simple',
-            FilterExpression: "id = :userId",
-            ExpressionAttributeValues: {
-                ":userId": userId
-            }
-        };
-
-        const scanResult = await dynamodb.send(new ScanCommand(scanParams));
-        if (!scanResult.Items || scanResult.Items.length === 0) {
+        // Use cached user data
+        const user = await getUserDataCached(userId);
+        if (!user) {
             throw new Error('User not found');
         }
 
-        const user = scanResult.Items[0];
         const userText = user.text || '';
         
         // Parse existing usage data
@@ -142,7 +168,18 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
 
         // Check if user has exceeded their limit
         const currentUsage = parseUsageData(userText);
-        const userRank = getUserRank(userText);
+        
+        // Try to get rank from Stripe first, fallback to legacy rank
+        let userRank;
+        try {
+            userRank = await getUserRankFromStripe(userId);
+            console.log('trackApiUsage: Got rank from Stripe:', userRank);
+        } catch (error) {
+            console.error('trackApiUsage: Stripe rank lookup failed, using legacy:', error);
+            userRank = getUserRank(userText);
+            console.log('trackApiUsage: Using legacy rank:', userRank);
+        }
+        
         const userLimit = MEMBERSHIP_LIMITS[userRank] || 0;
         
         if (userRank === 'Free' || (userLimit > 0 && currentUsage.totalCost + cost > userLimit)) {
@@ -237,26 +274,31 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
  */
 async function getUserUsageStats(userId) {
     try {
-        const scanParams = {
-            TableName: 'Simple',
-            FilterExpression: "id = :userId",
-            ExpressionAttributeValues: {
-                ":userId": userId
-            }
-        };
-
-        const scanResult = await dynamodb.send(new ScanCommand(scanParams));
-        if (!scanResult.Items || scanResult.Items.length === 0) {
+        // Use cached user data
+        const user = await getUserDataCached(userId);
+        if (!user) {
             throw new Error('User not found');
         }
 
-        const user = scanResult.Items[0];
         const userText = user.text || '';
+        console.log('getUserUsageStats: User text contains:', userText.substring(0, 200) + '...');
         const usage = parseUsageData(userText);
-        const userRank = getUserRank(userText);
+        console.log('getUserUsageStats: Parsed usage:', usage);
+        
+        // Try to get rank from Stripe first, fallback to legacy rank
+        let userRank;
+        try {
+            userRank = await getUserRankFromStripe(userId);
+            console.log('getUserUsageStats: Got rank from Stripe:', userRank);
+        } catch (error) {
+            console.error('getUserUsageStats: Stripe rank lookup failed, using legacy:', error);
+            userRank = getUserRank(userText);
+            console.log('getUserUsageStats: Using legacy rank:', userRank);
+        }
+        
         const limit = MEMBERSHIP_LIMITS[userRank] || 0;
 
-        return {
+        const result = {
             totalUsage: usage.totalCost,
             limit: limit,
             remainingBalance: Math.max(0, limit - usage.totalCost),
@@ -264,14 +306,163 @@ async function getUserUsageStats(userId) {
             membership: userRank,
             percentUsed: limit > 0 ? (usage.totalCost / limit) * 100 : 0
         };
+        
+        console.log('getUserUsageStats: Returning result:', result);
+        return result;
     } catch (error) {
         console.error('Error getting user usage stats:', error);
         throw error;
     }
 }
 
+// In-memory cache for user ranks (expires every 5 minutes)
+const userRankCache = new Map();
+const userDataCache = new Map(); // Cache DynamoDB user data
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+const USER_DATA_CACHE_DURATION = 2 * 60 * 1000; // 2 minutes for user data
+
 /**
- * Get user rank from text
+ * Get user data from DynamoDB with caching
+ * @param {string} userId - User ID
+ * @returns {Promise<Object>} User data
+ */
+async function getUserDataCached(userId) {
+    const cacheKey = `user_data_${userId}`;
+    const cached = userDataCache.get(cacheKey);
+    
+    if (cached && (Date.now() - cached.timestamp) < USER_DATA_CACHE_DURATION) {
+        console.log(`Using cached user data for ${userId}`);
+        return cached.data;
+    }
+
+    const scanParams = {
+        TableName: 'Simple',
+        FilterExpression: "id = :userId",
+        ExpressionAttributeValues: {
+            ":userId": userId
+        }
+    };
+
+    const scanResult = await dynamodb.send(new ScanCommand(scanParams));
+    if (!scanResult.Items || scanResult.Items.length === 0) {
+        return null;
+    }
+
+    const userData = scanResult.Items[0];
+    userDataCache.set(cacheKey, { data: userData, timestamp: Date.now() });
+    return userData;
+}
+
+/**
+ * Get user rank from Stripe subscription with advanced caching
+ * @param {string} userId - User ID
+ * @returns {Promise<string>} User rank
+ */
+async function getUserRankFromStripe(userId) {
+    try {
+        // Check cache first
+        const cacheKey = userId;
+        const cached = userRankCache.get(cacheKey);
+        
+        if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+            console.log(`getUserRankFromStripe: Using cached rank for ${userId}: ${cached.rank}`);
+            return cached.rank;
+        }
+
+        console.log('getUserRankFromStripe called for userId:', userId);
+        
+        // Get user data with caching
+        const user = await getUserDataCached(userId);
+        if (!user) {
+            console.log('getUserRankFromStripe: User not found in DynamoDB');
+            const rank = 'Free';
+            userRankCache.set(cacheKey, { rank, timestamp: Date.now() });
+            return rank;
+        }
+
+        const userText = user.text || '';
+        console.log('getUserRankFromStripe: User text (first 200 chars):', userText.substring(0, 200));
+        
+        // Extract Stripe customer ID
+        const stripeIdMatch = userText.match(/\|stripeid:([^|]+)/);
+        if (!stripeIdMatch || !stripeIdMatch[1]) {
+            console.log('getUserRankFromStripe: No Stripe customer ID found');
+            const rank = 'Free';
+            userRankCache.set(cacheKey, { rank, timestamp: Date.now() });
+            return rank;
+        }
+
+        const customerId = stripeIdMatch[1];
+        console.log('getUserRankFromStripe: Customer ID:', customerId);
+        const stripe = require('stripe')(process.env.STRIPE_KEY);
+        
+        // Optimized: Get only the most recent subscriptions and use a single API call
+        const recentSubscriptions = await stripe.subscriptions.list({
+            customer: customerId,
+            status: 'all',
+            limit: 3, // Reduced from 10 to 3 for speed
+            expand: ['data.plan.product']
+        });
+
+        console.log('getUserRankFromStripe: Found', recentSubscriptions.data.length, 'recent subscriptions');
+        
+        // Only log detailed info if no cached result and in development
+        if (process.env.NODE_ENV === 'development' && !cached) {
+            recentSubscriptions.data.forEach((sub, index) => {
+                console.log(`getUserRankFromStripe: Subscription ${index + 1}: ID=${sub.id}, Status=${sub.status}, Product=${sub.plan?.product?.name || 'unknown'}`);
+            });
+        }
+
+        // Find the best subscription in priority order
+        const priorityStatuses = ['active', 'trialing', 'past_due', 'incomplete', 'unpaid'];
+        let validSubscription = null;
+        let foundStatus = null;
+
+        for (const status of priorityStatuses) {
+            const subscription = recentSubscriptions.data.find(sub => sub.status === status);
+            if (subscription) {
+                validSubscription = subscription;
+                foundStatus = status;
+                console.log(`getUserRankFromStripe: Using ${status} subscription: ${subscription.id}`);
+                break;
+            }
+        }
+        
+        if (!validSubscription) {
+            console.log('getUserRankFromStripe: No valid subscriptions found');
+            const rank = 'Free';
+            userRankCache.set(cacheKey, { rank, timestamp: Date.now() });
+            return rank;
+        }
+        
+        // Determine rank from product name
+        const productName = validSubscription.plan.product.name;
+        console.log('getUserRankFromStripe: Product name:', productName, 'Status:', foundStatus);
+        
+        let rank = 'Free';
+        if (productName === 'Flex Membership') {
+            rank = 'Flex';
+        } else if (productName === 'Premium Membership') {
+            rank = 'Premium';
+        }
+
+        console.log(`getUserRankFromStripe: Returning ${rank} membership (status: ${foundStatus})`);
+
+        // Cache the result with longer duration for stable subscriptions
+        const cacheDuration = foundStatus === 'active' ? CACHE_DURATION * 2 : CACHE_DURATION;
+        userRankCache.set(cacheKey, { rank, timestamp: Date.now() - (CACHE_DURATION - cacheDuration) });
+        
+        return rank;
+        
+    } catch (error) {
+        console.error('Error getting user rank from Stripe:', error);
+        // Don't cache errors, return default
+        return 'Free';
+    }
+}
+
+/**
+ * Get user rank from text (legacy method, kept for backward compatibility)
  * @param {string} userText - User text field
  * @returns {string} User rank
  */
@@ -289,13 +480,17 @@ function getUserRank(userText) {
  */
 async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
     try {
+        console.log('canMakeApiCall called for userId:', userId, 'apiName:', apiName);
         const stats = await getUserUsageStats(userId);
+        console.log('canMakeApiCall: User stats:', JSON.stringify(stats, null, 2));
         
         if (stats.membership === 'Free') {
+            console.log('canMakeApiCall: Blocking free user');
             return { canMake: false, reason: 'Free users cannot use paid APIs' };
         }
 
         if (stats.membership === 'Premium') {
+            console.log('canMakeApiCall: Allowing premium user');
             return { canMake: true, reason: 'Premium user has unlimited access' };
         }
 
@@ -336,6 +531,9 @@ module.exports = {
     getUserUsageStats,
     canMakeApiCall,
     parseUsageData,
+    getUserRankFromStripe,
+    getUserRank,
+    getUserDataCached,
     API_COSTS,
     MEMBERSHIP_LIMITS
 };
