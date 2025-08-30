@@ -620,7 +620,7 @@
     padding: calc(var(--nav-size) * 0.3);
     font-size: calc(var(--nav-size) * 0.2);
     background: linear-gradient(90deg, var(--bg-orange), var(--bg-pink));
-    color: var(--text-color-inv);
+    color: var(--text-color);
     border: none;
     border-radius: var(--border-radius);
     cursor: pointer;

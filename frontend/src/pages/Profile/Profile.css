@@ -283,13 +283,13 @@
 
 .subscription-product {
     font-size: calc(var(--nav-size) * 0.25);
-    color: var(--text-color-inv);
+    color: var(--text-color);
     font-weight: bold;
 }
 
 .subscription-renewal {
     font-size: calc(var(--nav-size) * 0.22);
-    color: var(--text-color-inv);
+    color: var(--text-color);
     opacity: 0.9;
 }
 
