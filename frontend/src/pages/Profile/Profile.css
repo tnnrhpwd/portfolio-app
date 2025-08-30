@@ -686,3 +686,38 @@
         padding: calc(var(--nav-size) * 0.3);
     }
 }
+
+/* Refresh Button Styling */
+.planit-profile-refresh-button {
+    margin-left: calc(var(--nav-size) * 0.3);
+    padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.25);
+    font-size: calc(var(--nav-size) * 0.22);
+    background: var(--fg-blue);
+    color: white;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px var(--grey3-transp);
+}
+
+.planit-profile-refresh-button:hover {
+    background: var(--fg-pink);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px var(--grey3-transp);
+}
+
+.planit-profile-refresh-button:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 3px var(--grey3-transp);
+}
+
+/* Mobile responsive refresh button */
+@media (max-width: 768px) {
+    .planit-profile-refresh-button {
+        margin-left: calc(var(--nav-size) * 0.2);
+        padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.2);
+        font-size: calc(var(--nav-size) * 0.2);
+    }
+}

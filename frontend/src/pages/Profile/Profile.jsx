@@ -167,6 +167,23 @@ function Profile() {
     console.log('🔍 userUsage keys:', userUsage ? Object.keys(userUsage) : 'no keys');
   }, [userUsage]);
 
+  // Add refresh handler
+  const refreshUsageData = () => {
+    if (user && user.token && isTokenValid(user.token)) {
+      console.log('🔄 Manually refreshing usage data...');
+      dispatch(getUserUsage())
+        .unwrap()
+        .then((usageData) => {
+          console.log('✅ Successfully refreshed usage data:', usageData);
+          toast.success('Usage data refreshed!', { autoClose: 2000 });
+        })
+        .catch((error) => {
+          console.error('❌ Failed to refresh usage data:', error);
+          toast.error('Failed to refresh usage data');
+        });
+    }
+  };
+
   // Rest of handlers
   const onLogout = () => {
     setSubscriptionLoaded(false); // Reset subscription loaded state
@@ -323,7 +340,16 @@ function Profile() {
               </div>
 
               <div className="planit-profile-section">
-                <h3 className="planit-profile-section-title">API Usage & Limits</h3>
+                <h3 className="planit-profile-section-title">
+                  API Usage & Limits
+                  <button 
+                    onClick={refreshUsageData}
+                    className="planit-profile-refresh-button"
+                    title="Refresh usage data"
+                  >
+                    🔄 Refresh
+                  </button>
+                </h3>
                 {userUsageIsLoading ? (
                   <div className="planit-profile-usage-loading">Loading usage data...</div>
                 ) : userUsageIsError ? (
