@@ -62,7 +62,8 @@ function Profile() {
     }
 
     return () => {
-      dispatch(resetDataSlice());
+      // Don't reset the entire data slice - this was causing userUsage to be cleared
+      // dispatch(resetDataSlice());
     };
   }, [user, dataIsSuccess, dataIsError, dataMessage, navigate, dispatch]);
 
@@ -101,7 +102,8 @@ function Profile() {
             console.log('Successfully fetched subscription:', subscriptionData);
             setUserSubscription(subscriptionData);
             setSubscriptionLoaded(true);
-            dispatch(resetDataSuccess());
+            // Don't reset success state as it might interfere with other actions
+            // dispatch(resetDataSuccess());
           })
           .catch((error) => {
             console.error('Failed to fetch subscription:', error);
@@ -116,7 +118,8 @@ function Profile() {
               setUserSubscription({ subscriptionPlan: 'Free', subscriptionDetails: null });
               setSubscriptionLoaded(true);
             }
-            dispatch(resetDataSuccess());
+            // Don't reset success state as it might interfere with other actions
+            // dispatch(resetDataSuccess());
           });
 
         // Fetch usage data
@@ -336,7 +339,7 @@ function Profile() {
                   <div className="planit-profile-usage-error">
                     Error loading usage data: {userUsageMessage}
                   </div>
-                ) : userUsage && userUsage.totalUsage !== undefined ? (
+                ) : userUsage && typeof userUsage === 'object' && 'totalUsage' in userUsage ? (
                   <div className="planit-profile-usage-container">
                     <div className="planit-profile-usage-overview">
                       <div className="usage-stat">

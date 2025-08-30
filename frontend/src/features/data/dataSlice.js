@@ -279,7 +279,10 @@ export const getUserUsage = createAsyncThunk(
         return thunkAPI.rejectWithValue('No authentication token found');
       }
       
-      return await dataService.getUserUsage(token);
+      const result = await dataService.getUserUsage(token);
+      console.log('🔧 getUserUsage thunk - service returned:', result);
+      console.log('🔧 getUserUsage thunk - result type:', typeof result);
+      return result;
     } catch (error) {
       console.error('getUserUsage error:', error);
       console.error('Error response:', error.response?.data);
@@ -664,9 +667,12 @@ export const dataSlice = createSlice({
         state.userUsageMessage = ''
       })
       .addCase(getUserUsage.fulfilled, (state, action) => {
+        console.log('🔧 Redux getUserUsage.fulfilled - action.payload:', action.payload);
+        console.log('🔧 Redux getUserUsage.fulfilled - payload type:', typeof action.payload);
         state.userUsageIsLoading = false
         state.userUsageIsSuccess = true
         state.userUsage = action.payload
+        console.log('🔧 Redux state.userUsage after update:', state.userUsage);
       })
       .addCase(getUserUsage.rejected, (state, action) => {
         state.userUsageIsLoading = false
