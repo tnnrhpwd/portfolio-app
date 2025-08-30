@@ -9,7 +9,7 @@ const { getMembershipPricing } = require('../utils/getMembershipPricing'); // GE
 const { postData, registerUser, loginUser } = require('./postData'); // CREATE public data
 const { postHashData, compressData, createCustomer,
     postPaymentMethod, createInvoice, subscribeCustomer,
-    handleWebhook } = require('./postHashData'); // CREATE protected data
+    handleWebhook, setCustomLimit } = require('./postHashData'); // CREATE protected data
 const { putData } = require('./putData'); // UPDATE public data
 const { putHashData, updateCustomer, putPaymentMethod } = require('./putHashData'); // UPDATE protected data
 
@@ -21,7 +21,7 @@ module.exports = {
     postData, registerUser, loginUser,
     postHashData, compressData, createCustomer,
     postPaymentMethod, createInvoice, subscribeCustomer,
-    handleWebhook,
+    handleWebhook, setCustomLimit,
     putData,
     putHashData, updateCustomer, putPaymentMethod,
 };

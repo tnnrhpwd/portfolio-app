@@ -1,5 +1,6 @@
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
+const stripe = require('stripe')(process.env.STRIPE_KEY);
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -26,12 +27,116 @@ const API_COSTS = {
     }
 };
 
-// Membership limits (in USD)
+// Membership limits (in USD) - Updated system
 const MEMBERSHIP_LIMITS = {
     Free: 0,
-    Flex: 10,
-    Premium: 10 // Premium gets unlimited (but we track for transparency)
+    Flex: 0.50, // Flex limit equals the cost of the membership ($0.50/month)
+    Premium: null // Premium has customizable limits set per user
 };
+
+/**
+ * Get or create user credits data
+ * @param {string} userText - User text field
+ * @returns {Object} Credits data
+ */
+function parseUserCredits(userText) {
+    const creditsMatch = userText.match(/\|Credits:([^|]*)/);
+    if (!creditsMatch || !creditsMatch[1]) {
+        // Default credits structure
+        return {
+            availableCredits: 0,
+            customLimit: null,
+            lastReset: null,
+            membershipLevel: 'Free'
+        };
+    }
+
+    try {
+        return JSON.parse(creditsMatch[1]);
+    } catch (error) {
+        console.error('Error parsing credits data:', error);
+        return {
+            availableCredits: 0,
+            customLimit: null,
+            lastReset: null,
+            membershipLevel: 'Free'
+        };
+    }
+}
+
+/**
+ * Update user credits in user text
+ * @param {string} userText - Current user text
+ * @param {Object} creditsData - Credits data to save
+ * @returns {string} Updated user text
+ */
+function updateUserCredits(userText, creditsData) {
+    const creditsString = JSON.stringify(creditsData);
+    
+    if (userText.includes('|Credits:')) {
+        return userText.replace(/\|Credits:[^|]*/, `|Credits:${creditsString}`);
+    } else {
+        return `${userText}|Credits:${creditsString}`;
+    }
+}
+
+/**
+ * Check if user needs monthly credit reset
+ * @param {Object} creditsData - User credits data
+ * @param {string} membership - User membership level
+ * @returns {boolean} True if reset is needed
+ */
+function needsMonthlyReset(creditsData, membership) {
+    if (!creditsData.lastReset) return true;
+    
+    const lastReset = new Date(creditsData.lastReset);
+    const now = new Date();
+    const monthsDiff = (now.getFullYear() - lastReset.getFullYear()) * 12 + 
+                      (now.getMonth() - lastReset.getMonth());
+    
+    return monthsDiff >= 1;
+}
+
+/**
+ * Perform monthly credit reset and top-off
+ * @param {Object} creditsData - Current credits data
+ * @param {string} membership - User membership level
+ * @param {boolean} subscriptionActive - Whether the subscription is active
+ * @returns {Object} Updated credits data
+ */
+function performMonthlyReset(creditsData, membership, subscriptionActive = true) {
+    const now = new Date().toISOString();
+    
+    // Only perform reset if subscription is active
+    if (!subscriptionActive) {
+        console.log('Subscription not active, skipping monthly reset');
+        return creditsData; // Return unchanged if subscription cancelled
+    }
+    
+    switch (membership) {
+        case 'Flex':
+            // Flex gets topped off to $0.50 worth of credits
+            creditsData.availableCredits = Math.max(creditsData.availableCredits, 0.50);
+            creditsData.customLimit = 0.50;
+            break;
+        case 'Premium':
+            // Premium gets topped off to their custom limit
+            if (creditsData.customLimit) {
+                creditsData.availableCredits = Math.max(creditsData.availableCredits, creditsData.customLimit);
+            }
+            break;
+        default:
+            // Free users get no credits
+            creditsData.availableCredits = 0;
+            creditsData.customLimit = null;
+            break;
+    }
+    
+    creditsData.lastReset = now;
+    creditsData.membershipLevel = membership;
+    
+    return creditsData;
+}
 
 /**
  * Parse usage data from user text
@@ -120,7 +225,7 @@ function formatUsageData(entries) {
 }
 
 /**
- * Track API usage for a user
+ * Track API usage for a user using the new credit system
  * @param {string} userId - User ID
  * @param {string} apiName - API name (openai, rapidword, rapiddef)
  * @param {Object} usageData - Usage data (tokens, calls, etc.)
@@ -136,9 +241,6 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
         }
 
         const userText = user.text || '';
-        
-        // Parse existing usage data
-        const { entries } = parseUsageData(userText);
         
         // Calculate cost for this usage
         let cost = 0;
@@ -166,10 +268,7 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
                 throw new Error(`Unknown API: ${apiName}`);
         }
 
-        // Check if user has exceeded their limit
-        const currentUsage = parseUsageData(userText);
-        
-        // Try to get rank from Stripe first, fallback to legacy rank
+        // Get membership level
         let userRank;
         try {
             userRank = await getUserRankFromStripe(userId);
@@ -179,19 +278,44 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
             userRank = getUserRank(userText);
             console.log('trackApiUsage: Using legacy rank:', userRank);
         }
+
+        // Get user credits data
+        let creditsData = parseUserCredits(userText);
         
-        const userLimit = MEMBERSHIP_LIMITS[userRank] || 0;
-        
-        if (userRank === 'Free' || (userLimit > 0 && currentUsage.totalCost + cost > userLimit)) {
+        // Check if monthly reset is needed
+        if (needsMonthlyReset(creditsData, userRank)) {
+            console.log('trackApiUsage: Performing monthly reset for user');
+            creditsData = performMonthlyReset(creditsData, userRank);
+        }
+
+        // Check if user has enough credits for this call
+        if (userRank === 'Free') {
             return {
                 success: false,
-                error: `Usage limit exceeded. Current: $${currentUsage.totalCost.toFixed(4)}, Limit: $${userLimit}, This request: $${cost.toFixed(4)}`,
-                currentUsage: currentUsage.totalCost,
-                limit: userLimit,
+                error: 'Free users cannot use paid APIs',
+                currentCredits: 0,
                 requestCost: cost
             };
         }
 
+        if (creditsData.availableCredits < cost) {
+            return {
+                success: false,
+                error: `Insufficient credits. Available: $${creditsData.availableCredits.toFixed(4)}, Required: $${cost.toFixed(4)}`,
+                currentCredits: creditsData.availableCredits,
+                requestCost: cost
+            };
+        }
+
+        // Deduct cost from available credits
+        creditsData.availableCredits -= cost;
+        creditsData.availableCredits = Math.max(0, creditsData.availableCredits); // Ensure no negative credits
+
+        console.log(`trackApiUsage: Deducted $${cost.toFixed(4)}, Remaining credits: $${creditsData.availableCredits.toFixed(4)}`);
+
+        // Parse existing usage data for tracking purposes
+        const { entries } = parseUsageData(userText);
+        
         // Add new usage entry
         const newEntry = {
             api: apiName,
@@ -228,7 +352,7 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
             entries.push(newEntry);
         }
 
-        // Update user text with new usage data
+        // Update user text with new usage data and credits
         const newUsageString = formatUsageData(entries);
         let updatedText;
         
@@ -237,6 +361,9 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
         } else {
             updatedText = `${userText}|Usage:${newUsageString}`;
         }
+
+        // Update credits in user text
+        updatedText = updateUserCredits(updatedText, creditsData);
 
         // Save updated user data
         const putParams = {
@@ -255,10 +382,11 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
         return {
             success: true,
             cost: cost,
+            availableCredits: creditsData.availableCredits,
+            customLimit: creditsData.customLimit,
             totalUsage: newTotalUsage.totalCost,
-            limit: userLimit,
-            remainingBalance: Math.max(0, userLimit - newTotalUsage.totalCost),
-            usageBreakdown: newTotalUsage.entries
+            usageBreakdown: newTotalUsage.entries,
+            membership: userRank
         };
 
     } catch (error) {
@@ -268,7 +396,7 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
 }
 
 /**
- * Get user's current usage statistics
+ * Get user's current usage statistics with new credit system
  * @param {string} userId - User ID
  * @returns {Promise} Usage statistics
  */
@@ -295,16 +423,47 @@ async function getUserUsageStats(userId) {
             userRank = getUserRank(userText);
             console.log('getUserUsageStats: Using legacy rank:', userRank);
         }
+
+        // Get credits data
+        let creditsData = parseUserCredits(userText);
         
-        const limit = MEMBERSHIP_LIMITS[userRank] || 0;
+        // Check if monthly reset is needed and perform it
+        if (needsMonthlyReset(creditsData, userRank)) {
+            console.log('getUserUsageStats: Performing monthly reset for user');
+            creditsData = performMonthlyReset(creditsData, userRank);
+            
+            // Save updated credits to database
+            const updatedText = updateUserCredits(userText, creditsData);
+            const putParams = {
+                TableName: 'Simple',
+                Item: {
+                    ...user,
+                    text: updatedText,
+                    updatedAt: new Date().toISOString()
+                }
+            };
+            await dynamodb.send(new PutCommand(putParams));
+        }
+
+        // Calculate limit based on membership type
+        let limit;
+        if (userRank === 'Premium' && creditsData.customLimit) {
+            limit = creditsData.customLimit;
+        } else {
+            limit = MEMBERSHIP_LIMITS[userRank] || 0;
+        }
 
         const result = {
             totalUsage: usage.totalCost,
+            availableCredits: creditsData.availableCredits,
             limit: limit,
-            remainingBalance: Math.max(0, limit - usage.totalCost),
+            customLimit: creditsData.customLimit,
             usageBreakdown: usage.entries,
             membership: userRank,
-            percentUsed: limit > 0 ? (usage.totalCost / limit) * 100 : 0
+            lastReset: creditsData.lastReset,
+            // For backwards compatibility, calculate remaining balance as available credits
+            remainingBalance: creditsData.availableCredits,
+            percentUsed: limit > 0 ? ((limit - creditsData.availableCredits) / limit) * 100 : 0
         };
         
         console.log('getUserUsageStats: Returning result:', result);
@@ -472,7 +631,7 @@ function getUserRank(userText) {
 }
 
 /**
- * Check if user can make an API call
+ * Check if user can make an API call using the new credit system
  * @param {string} userId - User ID
  * @param {string} apiName - API name
  * @param {Object} estimatedUsage - Estimated usage for the call
@@ -481,17 +640,72 @@ function getUserRank(userText) {
 async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
     try {
         console.log('canMakeApiCall called for userId:', userId, 'apiName:', apiName);
-        const stats = await getUserUsageStats(userId);
-        console.log('canMakeApiCall: User stats:', JSON.stringify(stats, null, 2));
         
-        if (stats.membership === 'Free') {
+        // Get user data
+        const user = await getUserDataCached(userId);
+        if (!user) {
+            return { canMake: false, reason: 'User not found' };
+        }
+
+        const userText = user.text || '';
+        
+        // Get membership level
+        let userRank;
+        try {
+            userRank = await getUserRankFromStripe(userId);
+            console.log('canMakeApiCall: Got rank from Stripe:', userRank);
+        } catch (error) {
+            console.error('canMakeApiCall: Stripe rank lookup failed, using legacy:', error);
+            userRank = getUserRank(userText);
+        }
+
+        console.log('canMakeApiCall: User membership:', userRank);
+
+        // Free users cannot use paid APIs
+        if (userRank === 'Free') {
             console.log('canMakeApiCall: Blocking free user');
             return { canMake: false, reason: 'Free users cannot use paid APIs' };
         }
 
-        if (stats.membership === 'Premium') {
-            console.log('canMakeApiCall: Allowing premium user');
-            return { canMake: true, reason: 'Premium user has unlimited access' };
+        // Get user credits data
+        let creditsData = parseUserCredits(userText);
+        
+        // Check if monthly reset is needed
+        if (needsMonthlyReset(creditsData, userRank)) {
+            console.log('canMakeApiCall: Checking subscription status for monthly reset...');
+            
+            // Check if subscription is active
+            let subscriptionActive = true;
+            if (userText.includes('subscriptionId:')) {
+                try {
+                    const subscriptionId = userText.match(/subscriptionId:([^|]+)/)?.[1];
+                    if (subscriptionId) {
+                        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+                        subscriptionActive = subscription.status === 'active';
+                        console.log(`Subscription ${subscriptionId} status: ${subscription.status}`);
+                    }
+                } catch (subError) {
+                    console.error('Error checking subscription status:', subError);
+                    subscriptionActive = false; // Assume cancelled if we can't check
+                }
+            } else {
+                subscriptionActive = false; // No subscription ID means no active subscription
+            }
+            
+            console.log('canMakeApiCall: Performing monthly reset for user, subscription active:', subscriptionActive);
+            creditsData = performMonthlyReset(creditsData, userRank, subscriptionActive);
+            
+            // Save updated credits to database
+            const updatedText = updateUserCredits(userText, creditsData);
+            const putParams = {
+                TableName: 'Simple',
+                Item: {
+                    ...user,
+                    text: updatedText,
+                    updatedAt: new Date().toISOString()
+                }
+            };
+            await dynamodb.send(new PutCommand(putParams));
         }
 
         // Calculate estimated cost for this call
@@ -510,15 +724,34 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
                 break;
         }
 
-        const wouldExceed = stats.totalUsage + estimatedCost > stats.limit;
+        // Check if user has enough available credits
+        const hasEnoughCredits = creditsData.availableCredits >= estimatedCost;
+        
+        console.log(`canMakeApiCall: Available credits: $${creditsData.availableCredits.toFixed(4)}, Estimated cost: $${estimatedCost.toFixed(4)}, Can make: ${hasEnoughCredits}`);
+        
+        let reason;
+        if (hasEnoughCredits) {
+            reason = 'Within credit limit';
+        } else {
+            // Different messaging based on membership type
+            if (userRank === 'Flex') {
+                reason = 'Insufficient credits. Flex membership usage is frozen until next month or upgrade to Premium.';
+            } else if (userRank === 'Premium') {
+                reason = 'Insufficient credits. Consider increasing your Premium limit to continue usage.';
+            } else {
+                reason = 'Insufficient credits';
+            }
+        }
         
         return {
-            canMake: !wouldExceed,
-            reason: wouldExceed ? 'Would exceed usage limit' : 'Within usage limit',
-            currentUsage: stats.totalUsage,
+            canMake: hasEnoughCredits,
+            reason: reason,
+            currentCredits: creditsData.availableCredits,
             estimatedCost: estimatedCost,
-            limit: stats.limit,
-            remainingBalance: stats.remainingBalance
+            customLimit: creditsData.customLimit,
+            membership: userRank,
+            isFrozen: !hasEnoughCredits && userRank === 'Flex',
+            canIncreaseLimit: !hasEnoughCredits && userRank === 'Premium'
         };
     } catch (error) {
         console.error('Error checking if user can make API call:', error);
@@ -535,5 +768,10 @@ module.exports = {
     getUserRank,
     getUserDataCached,
     API_COSTS,
-    MEMBERSHIP_LIMITS
+    MEMBERSHIP_LIMITS,
+    // New credit system functions
+    parseUserCredits,
+    updateUserCredits,
+    needsMonthlyReset,
+    performMonthlyReset
 };

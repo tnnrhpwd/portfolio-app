@@ -127,19 +127,21 @@ function Profile() {
           .then((usageData) => {
             console.log('Successfully fetched usage data:', usageData);
             
-            // Show warning toast if usage is getting high
-            if (usageData && usageData.membership !== 'Premium') {
-              const percentUsed = usageData.percentUsed || 0;
-              if (percentUsed >= 90) {
-                toast.warning('⚠️ API usage is at 90%! Consider upgrading soon.', {
+            // Show warning toast based on available credits
+            if (usageData && usageData.membership !== 'Premium' && usageData.availableCredits !== undefined) {
+              const availableCredits = Number(usageData.availableCredits);
+              const membershipLimit = usageData.membership === 'Flex' ? 0.50 : 0;
+              
+              if (availableCredits <= 0.05 && membershipLimit > 0) {
+                toast.warning('🚨 API credits nearly depleted! Consider upgrading to Premium for custom limits.', {
                   position: 'top-right',
                   autoClose: 8000,
                   hideProgressBar: false,
                   closeOnClick: true,
                   pauseOnHover: true,
                 });
-              } else if (percentUsed >= 75) {
-                toast.info('📊 API usage is at 75%. Keep an eye on your remaining balance!', {
+              } else if (availableCredits <= 0.15 && membershipLimit > 0) {
+                toast.info('⚠️ API credits running low. Keep an eye on your remaining balance!', {
                   position: 'top-right',
                   autoClose: 6000,
                   hideProgressBar: false,
@@ -341,7 +343,7 @@ function Profile() {
 
               <div className="planit-profile-section">
                 <h3 className="planit-profile-section-title">
-                  API Usage & Limits
+                  API Credits & Usage
                   <button 
                     onClick={refreshUsageData}
                     className="planit-profile-refresh-button"
@@ -356,14 +358,14 @@ function Profile() {
                   <div className="planit-profile-usage-error">
                     Error loading usage data: {userUsageMessage}
                   </div>
-                ) : userUsage && typeof userUsage === 'object' && 'totalUsage' in userUsage ? (
+                ) : userUsage && typeof userUsage === 'object' && ('availableCredits' in userUsage || 'totalUsage' in userUsage) ? (
                   <div className="planit-profile-usage-container">
                     <div className="planit-profile-usage-overview">
                       <div className="usage-stat">
-                        <span className="usage-label">💰 Current Usage</span>
+                        <span className="usage-label">� Available Credits</span>
                         <span className="usage-value">
-                          ${userUsage?.totalUsage !== undefined ? 
-                            Number(userUsage.totalUsage).toFixed(4) : 
+                          ${userUsage?.availableCredits !== undefined ? 
+                            Number(userUsage.availableCredits).toFixed(4) : 
                             '0.0000'
                           }
                         </span>
@@ -372,53 +374,160 @@ function Profile() {
                         <span className="usage-label">🎯 Monthly Limit</span>
                         <span className="usage-value">
                           {userUsage?.membership === 'Premium' ? 
-                            '∞ Unlimited' : 
-                            `$${userUsage?.limit !== undefined ? Number(userUsage.limit).toFixed(2) : '0.00'}`
+                            `$${userUsage?.customLimit !== undefined ? Number(userUsage.customLimit).toFixed(2) : '10.00'}` : 
+                            userUsage?.membership === 'Flex' ? '$0.50' :
+                            '$0.00'
                           }
                         </span>
                       </div>
                       <div className="usage-stat">
-                        <span className="usage-label">💸 Remaining</span>
+                        <span className="usage-label">� Usage This Month</span>
                         <span className="usage-value">
-                          {userUsage?.membership === 'Premium' 
-                            ? '∞ Unlimited' 
-                            : `$${userUsage?.remainingBalance !== undefined ? 
-                                Number(userUsage.remainingBalance).toFixed(4) : 
-                                '0.0000'
-                              }`
+                          ${userUsage?.totalUsage !== undefined ? 
+                            Number(userUsage.totalUsage).toFixed(4) : 
+                            '0.0000'
                           }
                         </span>
                       </div>
                       <div className="usage-stat">
-                        <span className="usage-label">📊 Usage %</span>
+                        <span className="usage-label">� Next Reset</span>
                         <span className="usage-value">
-                          {userUsage?.membership === 'Premium' ? 
-                            'N/A' : 
-                            `${userUsage?.percentUsed !== undefined ? 
-                              Number(userUsage.percentUsed).toFixed(1) : 
-                              '0.0'
-                            }%`
+                          {userUsage?.nextReset ? 
+                            new Date(userUsage.nextReset).toLocaleDateString() : 
+                            new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toLocaleDateString()
                           }
                         </span>
                       </div>
                     </div>
                     
-                    {userUsage?.percentUsed > 0 && userUsage?.membership !== 'Premium' && (
+                    {/* Credit Status Warnings */}
+                    {userUsage?.availableCredits !== undefined && (
+                      <div className="planit-profile-credit-status">
+                        {userUsage.availableCredits <= 0 && userUsage.membership === 'Flex' && (
+                          <div className="credit-warning frozen">
+                            <span className="warning-icon">🚨</span>
+                            <div className="warning-content">
+                              <strong>Usage Frozen</strong>
+                              <p>Your Flex membership has no remaining credits. API usage is frozen until next month or upgrade to Premium for custom limits.</p>
+                              <button 
+                                className="upgrade-premium-button"
+                                onClick={() => navigate('/pay?plan=premium')}
+                              >
+                                Upgrade to Premium
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {userUsage.availableCredits <= 0 && userUsage.membership === 'Premium' && (
+                          <div className="credit-warning premium-empty">
+                            <span className="warning-icon">⚠️</span>
+                            <div className="warning-content">
+                              <strong>Credits Depleted</strong>
+                              <p>Your Premium limit has been reached. Increase your custom limit to continue API usage.</p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {userUsage.availableCredits > 0 && userUsage.availableCredits <= 0.10 && (
+                          <div className="credit-warning low">
+                            <span className="warning-icon">🔔</span>
+                            <div className="warning-content">
+                              <strong>Credits Running Low</strong>
+                              <p>You have ${userUsage.availableCredits.toFixed(4)} remaining. 
+                                {userUsage.membership === 'Flex' 
+                                  ? ' Consider upgrading to Premium for flexible limits.' 
+                                  : ' Consider increasing your Premium limit.'}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Premium Custom Limit Setting */}
+                    {userUsage?.membership === 'Premium' && (
+                      <div className="planit-profile-custom-limit">
+                        <h4 className="custom-limit-title">💎 Premium Custom Limit</h4>
+                        <div className="custom-limit-controls">
+                          <input 
+                            type="number" 
+                            step="0.50" 
+                            min="0.50" 
+                            placeholder="Enter custom limit" 
+                            className="custom-limit-input"
+                            id="customLimitInput"
+                          />
+                          <button 
+                            className="custom-limit-button"
+                            onClick={async () => {
+                              const input = document.getElementById('customLimitInput');
+                              const newLimit = parseFloat(input.value);
+                              if (newLimit && newLimit >= 0.50) {
+                                try {
+                                  const token = localStorage.getItem('token');
+                                  const response = await fetch('/api/data/custom-limit', {
+                                    method: 'POST',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                      'Authorization': `Bearer ${token}`
+                                    },
+                                    body: JSON.stringify({ customLimit: newLimit })
+                                  });
+                                  
+                                  const result = await response.json();
+                                  
+                                  if (result.success) {
+                                    toast.success(`✅ ${result.message}`);
+                                    input.value = ''; // Clear input
+                                    // Refresh usage data to show updated credits
+                                    setTimeout(() => {
+                                      dispatch(getUserUsage());
+                                    }, 1000);
+                                  } else {
+                                    toast.error(`❌ ${result.message || 'Failed to set custom limit'}`);
+                                  }
+                                } catch (error) {
+                                  console.error('Error setting custom limit:', error);
+                                  toast.error('❌ Network error. Please try again.');
+                                }
+                              } else {
+                                toast.error('Please enter a valid limit (minimum $0.50)');
+                              }
+                            }}
+                          >
+                            Set Limit
+                          </button>
+                        </div>
+                        <div className="custom-limit-info">
+                          <small>Current limit: ${userUsage?.customLimit !== undefined ? Number(userUsage.customLimit).toFixed(2) : '10.00'}</small>
+                          <small>You'll be charged for any limit increases immediately.</small>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Credit Usage Bar */}
+                    {userUsage?.availableCredits !== undefined && userUsage?.membership !== 'Free' && (
                       <div className="planit-profile-usage-bar">
                         <div className="usage-bar-track">
                           <div 
                             className={`usage-bar-fill ${
-                              userUsage.percentUsed >= 90 ? 'danger' : 
-                              userUsage.percentUsed >= 75 ? 'warning' : 
+                              userUsage.availableCredits <= 0.10 ? 'danger' : 
+                              userUsage.availableCredits <= 0.25 ? 'warning' : 
                               'normal'
                             }`}
-                            style={{ width: `${Math.min(Number(userUsage.percentUsed) || 0, 100)}%` }}
+                            style={{ 
+                              width: `${Math.min(
+                                ((userUsage.customLimit || (userUsage.membership === 'Flex' ? 0.50 : 10.00)) - userUsage.availableCredits) / 
+                                (userUsage.customLimit || (userUsage.membership === 'Flex' ? 0.50 : 10.00)) * 100, 100
+                              )}%` 
+                            }}
                           ></div>
                         </div>
                         <div className="usage-bar-label">
-                          {userUsage.percentUsed >= 90 && '⚠️ Nearly Full'}
-                          {userUsage.percentUsed >= 75 && userUsage.percentUsed < 90 && '🔶 High Usage'}
-                          {userUsage.percentUsed < 75 && '✅ Good'}
+                          {userUsage.availableCredits <= 0.10 && '🚨 Credits Low'}
+                          {userUsage.availableCredits > 0.10 && userUsage.availableCredits <= 0.25 && '⚠️ Credits Running Low'}
+                          {userUsage.availableCredits > 0.25 && '✅ Credits Available'}
                         </div>
                       </div>
                     )}
@@ -452,8 +561,8 @@ function Profile() {
                         <div className="upgrade-message">
                           <span className="upgrade-icon">🚀</span>
                           <div className="upgrade-text">
-                            <strong>Upgrade to Flex or Premium</strong>
-                            <p>Get $10 monthly API usage allowance and access to AI-powered features!</p>
+                            <strong>Upgrade to Get API Credits</strong>
+                            <p>Flex: $0.50 monthly credits | Premium: Custom credit limits with usage flexibility!</p>
                           </div>
                         </div>
                         <button 
@@ -468,13 +577,13 @@ function Profile() {
                 ) : (
                   <div className="planit-profile-usage-placeholder">
                     <div className="usage-stat">
-                      <span className="usage-label">💰 Current Usage</span>
+                      <span className="usage-label">� Available Credits</span>
                       <span className="usage-value">$0.0000</span>
                     </div>
                     <div className="usage-stat">
                       <span className="usage-label">🎯 Monthly Limit</span>
                       <span className="usage-value">
-                        {currentPlan === 'Premium' ? '∞ Unlimited' : currentPlan === 'Free' ? '$0.00' : '$10.00'}
+                        {currentPlan === 'Premium' ? '$10.00' : currentPlan === 'Free' ? '$0.00' : '$0.50'}
                       </span>
                     </div>
                   </div>

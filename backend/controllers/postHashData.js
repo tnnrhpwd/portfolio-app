@@ -1284,4 +1284,166 @@ const handleWebhook = asyncHandler(async (req, res) => {
     res.status(200).send();
 });
 
-module.exports = { postHashData, compressData, createCustomer, postPaymentMethod, createInvoice, subscribeCustomer, handleWebhook };
+// POST: Set custom usage limit for Premium users
+const setCustomLimit = asyncHandler(async (req, res) => {
+    console.log('setCustomLimit called:', req.body);
+
+    // Check for user
+    if (!req.user) {
+        res.status(401);
+        throw new Error('User not found');
+    }
+
+    const { customLimit } = req.body;
+    
+    // Validate custom limit
+    if (!customLimit || typeof customLimit !== 'number' || customLimit < 0.50) {
+        res.status(400);
+        throw new Error('Invalid custom limit. Must be at least $0.50.');
+    }
+
+    // Check if user is Premium
+    const userText = req.user.text || '';
+    let userRank;
+    
+    try {
+        const { getUserRankFromStripe } = require('../utils/apiUsageTracker.js');
+        userRank = await getUserRankFromStripe(req.user.id);
+    } catch (error) {
+        console.error('Failed to get user rank from Stripe:', error);
+        res.status(500);
+        throw new Error('Unable to verify membership status');
+    }
+
+    if (userRank !== 'Premium') {
+        res.status(403);
+        throw new Error('Custom limits are only available for Premium members');
+    }
+
+    // Get current credits data
+    const { parseUserCredits, updateUserCredits } = require('../utils/apiUsageTracker.js');
+    let creditsData = parseUserCredits(userText);
+
+    // Calculate the price difference
+    const currentLimit = creditsData.customLimit || 10.00;
+    const limitDifference = customLimit - currentLimit;
+
+    console.log(`Current limit: $${currentLimit.toFixed(2)}, New limit: $${customLimit.toFixed(2)}, Difference: $${limitDifference.toFixed(2)}`);
+
+    if (limitDifference > 0) {
+        // User is increasing their limit - charge them the difference and add credits immediately
+        try {
+            // Get stripe customer ID from user text
+            const stripeCustomerId = userText.match(/stripeCustomerId:([^|]+)/)?.[1];
+            if (!stripeCustomerId) {
+                res.status(400);
+                throw new Error('No Stripe customer ID found');
+            }
+
+            // Create payment intent for the difference
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: Math.round(limitDifference * 100), // Convert to cents
+                currency: 'usd',
+                customer: stripeCustomerId,
+                description: `Premium limit increase from $${currentLimit.toFixed(2)} to $${customLimit.toFixed(2)}`,
+                automatic_payment_methods: {
+                    enabled: true,
+                },
+                confirm: true,
+                return_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/profile`
+            });
+
+            console.log('Payment processed successfully for limit increase:', paymentIntent.id);
+
+            // Add credits immediately
+            creditsData.customLimit = customLimit;
+            creditsData.availableCredits = (creditsData.availableCredits || 0) + limitDifference;
+            
+            // Update subscription for future billing cycles
+            const subscriptionId = userText.match(/subscriptionId:([^|]+)/)?.[1];
+            if (subscriptionId) {
+                try {
+                    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+                    
+                    // Create new price for custom limit amount
+                    const customPrice = await stripe.prices.create({
+                        currency: 'usd',
+                        unit_amount: Math.round(customLimit * 100),
+                        recurring: { interval: 'month' },
+                        product_data: {
+                            name: `Premium Membership - $${customLimit.toFixed(2)} Monthly Limit`
+                        }
+                    });
+                    
+                    // Update subscription
+                    await stripe.subscriptions.update(subscriptionId, {
+                        items: [{
+                            id: subscription.items.data[0].id,
+                            price: customPrice.id,
+                        }],
+                        proration_behavior: 'none' // We already charged the difference
+                    });
+                    
+                    console.log(`Updated subscription to monthly charge of $${customLimit.toFixed(2)}`);
+                } catch (subscriptionError) {
+                    console.error('Error updating subscription:', subscriptionError);
+                }
+            }
+            
+            console.log(`Custom limit increased from $${currentLimit.toFixed(2)} to $${customLimit.toFixed(2)}`);
+            console.log(`Added $${limitDifference.toFixed(4)} in credits immediately`);
+            
+        } catch (paymentError) {
+            console.error('Payment processing error:', paymentError);
+            res.status(400);
+            throw new Error(`Payment failed: ${paymentError.message}`);
+        }
+    } else if (limitDifference < 0) {
+        // User is decreasing their limit - adjust for next billing cycle, don't remove existing credits
+        creditsData.customLimit = customLimit;
+        console.log(`Custom limit decreased from $${currentLimit.toFixed(2)} to $${customLimit.toFixed(2)}`);
+        console.log('Next billing cycle will reflect the lower amount');
+    } else {
+        // No change in limit
+        res.status(400);
+        throw new Error('Custom limit is the same as current limit');
+    }
+
+    // Update user text with new credits data
+    const updatedText = updateUserCredits(userText, creditsData);
+
+    // Save to database
+    const putParams = {
+        TableName: 'Simple',
+        Item: {
+            ...req.user,
+            text: updatedText,
+            updatedAt: new Date().toISOString()
+        }
+    };
+
+    await dynamodb.send(new PutCommand(putParams));
+
+    console.log('Custom limit updated successfully');
+    res.status(200).json({
+        success: true,
+        message: limitDifference > 0 
+            ? `Custom limit increased to $${customLimit.toFixed(2)}. Credits added immediately.`
+            : `Custom limit updated to $${customLimit.toFixed(2)}. Next billing cycle will reflect the new amount.`,
+        newLimit: customLimit,
+        availableCredits: creditsData.availableCredits,
+        limitChange: limitDifference,
+        immediateCredits: Math.max(0, limitDifference)
+    });
+});
+
+module.exports = { 
+    postHashData, 
+    compressData, 
+    createCustomer, 
+    postPaymentMethod, 
+    createInvoice, 
+    subscribeCustomer, 
+    handleWebhook,
+    setCustomLimit 
+};

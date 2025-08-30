@@ -64,7 +64,7 @@ const {
   postData, registerUser, loginUser,
   postHashData, compressData, createCustomer, 
   postPaymentMethod, createInvoice, subscribeCustomer, 
-  handleWebhook,
+  handleWebhook, setCustomLimit,
   putData,
   putHashData, putPaymentMethod, updateCustomer,
 } = require('../controllers');
@@ -109,6 +109,7 @@ router.post('/create-invoice', protect, paymentLimiter, createInvoice); // Prote
 router.post('/subscribe-customer', protect, paymentLimiter, subscribeCustomer); // Protect customer subscription
 router.get('/subscription', protect, getUserSubscription); // GET request for fetching user subscriptions
 router.get('/usage', protect, getUserUsageData); // GET request for fetching user API usage stats
+router.post('/custom-limit', protect, paymentLimiter, setCustomLimit); // POST request for setting custom usage limit (Premium only)
 
 router.route('/pay-methods')
   .get(protect, getPaymentMethods) // GET payment methods

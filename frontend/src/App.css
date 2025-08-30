@@ -4,3 +4,257 @@
     z-index: -999999999999999999999999999;
     pointer-events:all; /* Enables clicks on its child elements by default */
 }
+
+/* Credit System Styles for Profile Page */
+.planit-profile-credit-status {
+  margin-top: 1rem;
+}
+
+.credit-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  border-left: 4px solid;
+}
+
+.credit-warning.frozen {
+  background-color: #fff5f5;
+  border-left-color: #e53e3e;
+  color: #c53030;
+}
+
+.credit-warning.premium-empty {
+  background-color: #fffaf0;
+  border-left-color: #dd6b20;
+  color: #c05621;
+}
+
+.credit-warning.low {
+  background-color: #fffbeb;
+  border-left-color: #eab308;
+  color: #a16207;
+}
+
+.warning-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.warning-content {
+  flex: 1;
+}
+
+.warning-content strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.warning-content p {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.upgrade-premium-button {
+  background-color: #8b5cf6;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+  transition: background-color 0.2s;
+}
+
+.upgrade-premium-button:hover {
+  background-color: #7c3aed;
+}
+
+.planit-profile-custom-limit {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.custom-limit-title {
+  color: #4a5568;
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.custom-limit-controls {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.custom-limit-input {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.875rem;
+}
+
+.custom-limit-button {
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background-color 0.2s;
+}
+
+.custom-limit-button:hover {
+  background-color: #2563eb;
+}
+
+.custom-limit-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.custom-limit-info small {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.planit-profile-refresh-button {
+  background: none;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  margin-left: 0.5rem;
+  transition: all 0.2s;
+}
+
+.planit-profile-refresh-button:hover {
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.usage-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.usage-stat:last-child {
+  border-bottom: none;
+}
+
+.usage-label {
+  font-weight: 500;
+  color: #64748b;
+}
+
+.usage-value {
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.planit-profile-usage-bar {
+  margin-top: 1rem;
+}
+
+.usage-bar-track {
+  width: 100%;
+  height: 8px;
+  background-color: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.usage-bar-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.usage-bar-fill.normal {
+  background-color: #10b981;
+}
+
+.usage-bar-fill.warning {
+  background-color: #f59e0b;
+}
+
+.usage-bar-fill.danger {
+  background-color: #ef4444;
+}
+
+.usage-bar-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: center;
+  color: #64748b;
+}
+
+.planit-profile-upgrade-prompt {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.upgrade-message {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.upgrade-icon {
+  font-size: 2rem;
+}
+
+.upgrade-text strong {
+  display: block;
+  font-size: 1.125rem;
+  margin-bottom: 0.25rem;
+}
+
+.upgrade-text p {
+  margin: 0;
+  opacity: 0.9;
+  font-size: 0.875rem;
+}
+
+.upgrade-button {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.upgrade-button:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
