@@ -17,6 +17,10 @@ const initialState = {  // default values for each state change
   membershipPricingIsLoading: false,
   membershipPricingIsError: false,
   membershipPricingMessage: '',
+  userUsage: null,
+  userUsageIsLoading: false,
+  userUsageIsError: false,
+  userUsageMessage: '',
 }
 
 // Create new data  -- Async functional object -- called from pages using dispatch --CREATE
@@ -258,6 +262,39 @@ export const getUserSubscription = createAsyncThunk(
   }
 );
 
+// New action to get user API usage
+export const getUserUsage = createAsyncThunk(
+  'data/getUserUsage',
+  async (_, thunkAPI) => {
+    try {
+      const state = thunkAPI.getState();
+      const token = state.data.user?.token;
+      
+      console.log('getUserUsage action called');
+      console.log('User exists:', !!state.data.user);
+      console.log('Token exists:', !!token);
+      
+      if (!token) {
+        console.error('No token found in state');
+        return thunkAPI.rejectWithValue('No authentication token found');
+      }
+      
+      return await dataService.getUserUsage(token);
+    } catch (error) {
+      console.error('getUserUsage error:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      
+      const message = (error.response && error.response.data && error.response.data.message) || 
+                     (error.response && error.response.data && error.response.data.dataMessage) ||
+                     (error.response && error.response.data && error.response.data.error) ||
+                     error.message || error.toString();
+
+      return thunkAPI.rejectWithValue(message);
+    }
+  }
+);
+
 // Update user data -- UPDATE
 export const updateData = createAsyncThunk(
   'data/update',
@@ -344,6 +381,8 @@ export const dataSlice = createSlice({
       state.dataIsSuccess = false;
       state.dataIsError = false;
       state.dataMessage = '';
+      state.userUsageIsError = false;
+      state.userUsageMessage = '';
     },
   },
   extraReducers: (builder) => {// all possible states associated with asyncthunk get,create,delete datas functional objects. 
@@ -618,6 +657,24 @@ export const dataSlice = createSlice({
       .addCase(logout.fulfilled, (state) => {
         state.user = null
         state.operation = 'logout';
+      })
+      .addCase(getUserUsage.pending, (state) => {
+        state.userUsageIsLoading = true
+        state.userUsageIsError = false
+        state.userUsageMessage = ''
+      })
+      .addCase(getUserUsage.fulfilled, (state, action) => {
+        state.userUsageIsLoading = false
+        state.userUsageIsSuccess = true
+        state.userUsage = action.payload
+      })
+      .addCase(getUserUsage.rejected, (state, action) => {
+        state.userUsageIsLoading = false
+        state.userUsageIsError = true
+        state.userUsageMessage = action.payload
+        if (action.payload === 'Not authorized, token expired') {
+          state.user = null;
+        }
       })
   },
 })

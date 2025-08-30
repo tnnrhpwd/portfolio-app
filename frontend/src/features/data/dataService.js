@@ -1,6 +1,7 @@
 // The service file only makes the http request and sends the data back to user and local storage.
 // Exported to the Slice
 import axios from 'axios';  // import ability to make http request
+import { toast } from 'react-toastify'; // import toast notifications
 const devMode = (process.env.NODE_ENV === 'development')
 
 // const API_URL = 'https://mern-plan-web-service.onrender.com/api/data/';  // sends base http request here
@@ -26,6 +27,52 @@ const handleTokenExpiration = (error) => {
                   (errorData && errorData.dataMessage === 'Not authorized, no token')) {
             console.log('Authentication failed, removing user from localStorage');
             localStorage.removeItem('user');
+        }
+    } else if (error.response && error.response.status === 402) {
+        // Handle API usage limit errors
+        const errorData = error.response.data;
+        
+        if (errorData && errorData.error === 'API usage limit reached') {
+            // Show specific toast message based on the reason
+            if (errorData.reason === 'Free users cannot use paid APIs') {
+                toast.error('🚀 Upgrade to Flex or Premium to access AI-powered features!', {
+                    position: 'top-center',
+                    autoClose: 5000,
+                    hideProgressBar: false,
+                    closeOnClick: true,
+                    pauseOnHover: true,
+                    draggable: true,
+                });
+            } else if (errorData.reason === 'Would exceed usage limit') {
+                const currentUsage = errorData.currentUsage?.toFixed(4) || '0.0000';
+                const limit = errorData.limit?.toFixed(2) || '0.00';
+                toast.warning(`💸 Monthly API limit reached! Used: $${currentUsage} / $${limit}. Upgrade for more usage!`, {
+                    position: 'top-center',
+                    autoClose: 7000,
+                    hideProgressBar: false,
+                    closeOnClick: true,
+                    pauseOnHover: true,
+                    draggable: true,
+                });
+            } else {
+                toast.error(`🔒 ${errorData.reason || 'API usage limit reached'}`, {
+                    position: 'top-center',
+                    autoClose: 5000,
+                    hideProgressBar: false,
+                    closeOnClick: true,
+                    pauseOnHover: true,
+                    draggable: true,
+                });
+            }
+        } else {
+            toast.error('🔒 API usage limit reached. Please upgrade your plan!', {
+                position: 'top-center',
+                autoClose: 5000,
+                hideProgressBar: false,
+                closeOnClick: true,
+                pauseOnHover: true,
+                draggable: true,
+            });
         }
     }
     throw error;
@@ -314,6 +361,33 @@ const getMembershipPricing = async () => {
     }
 }
 
+// Get user API usage statistics
+const getUserUsage = async (token) => {
+    console.log('Getting user API usage');
+    console.log('Token preview:', token ? token.substring(0, 50) + '...' : 'No token');
+    
+    const config = {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    };
+
+    console.log('Calling GET URL:', API_URL + 'usage');
+    console.log('Request config:', config);
+
+    try {
+        const response = await axios.get(API_URL + 'usage', config);
+        console.log('getUserUsage response:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('getUserUsage service error:', error);
+        console.error('Error response data:', error.response?.data);
+        console.error('Error response status:', error.response?.status);
+        console.error('Error response headers:', error.response?.headers);
+        handleTokenExpiration(error);
+    }
+};
+
 // Logout user
 const logout = () => {
     localStorage.removeItem('user')
@@ -333,6 +407,7 @@ const dataService = {
     postPaymentMethod,
     subscribeCustomer,
     getUserSubscription, // Note: Changed from plural to match implementation
+    getUserUsage,
     getMembershipPricing,
     register,
     login,

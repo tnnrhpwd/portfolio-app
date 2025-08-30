@@ -1,6 +1,7 @@
 require('dotenv').config();
 const asyncHandler = require('express-async-handler'); // sends the errors to the errorhandler
 const fetch = require('node-fetch');
+const { trackApiUsage, canMakeApiCall } = require('../utils/apiUsageTracker.js');
 const wordBaseUrl = 'https://random-word-api.p.rapidapi.com/L/';
 const defBaseUrl = 'https://mashape-community-urban-dictionary.p.rapidapi.com/define?term=';
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
@@ -32,6 +33,7 @@ const rapidapidefoptions = {
     }
 };
 const { checkIP } = require('../utils/accessData.js');
+const { getUserUsageStats } = require('../utils/apiUsageTracker.js');
 const stripe = require('stripe')(process.env.STRIPE_KEY);
 const { createCustomer } = require('./postHashData.js');
 
@@ -89,6 +91,20 @@ const getHashData = asyncHandler(async (req, res) => {
 
         if (dataSearchString.startsWith("getword:")) { // Check if dataSearchString is "getword"
             const wordLength = dataSearchString.substring(8); // returns "5" before a user modifies it to other custom numbers
+            
+            // Check if user can make RapidAPI word call
+            const canMakeCall = await canMakeApiCall(req.user.id, 'rapidword');
+            if (!canMakeCall.canMake) {
+                console.log('RapidAPI Word call blocked:', canMakeCall.reason);
+                return res.status(402).json({ 
+                    error: 'API usage limit reached', 
+                    reason: canMakeCall.reason,
+                    currentUsage: canMakeCall.currentUsage,
+                    limit: canMakeCall.limit,
+                    requiresUpgrade: true
+                });
+            }
+            
             const ranwordapiurl = `${wordBaseUrl}${wordLength}`;
             const response = await fetch(ranwordapiurl, rapidapiwordoptions);
             if (!response.ok) {
@@ -96,10 +112,31 @@ const getHashData = asyncHandler(async (req, res) => {
             }
             const data = await response.json();
             randomWord = data.word.toLowerCase(); // Convert to lowercase - this is specific to the word API
+            
+            // Track API usage
+            const usageResult = await trackApiUsage(req.user.id, 'rapidword', {});
+            if (usageResult.success) {
+                console.log(`RapidAPI Word usage tracked: $${usageResult.cost.toFixed(4)}, Total: $${usageResult.totalUsage.toFixed(4)}`);
+            }
+            
             res.status(200).json({ word: randomWord }); // Return the random word
 
         } else if (dataSearchString.startsWith("getdef:")) { // Handle "getdef:" request
             const word = dataSearchString.substring(7); // Extract the word from dataSearchString
+            
+            // Check if user can make RapidAPI definition call
+            const canMakeCall = await canMakeApiCall(req.user.id, 'rapiddef');
+            if (!canMakeCall.canMake) {
+                console.log('RapidAPI Definition call blocked:', canMakeCall.reason);
+                return res.status(402).json({ 
+                    error: 'API usage limit reached', 
+                    reason: canMakeCall.reason,
+                    currentUsage: canMakeCall.currentUsage,
+                    limit: canMakeCall.limit,
+                    requiresUpgrade: true
+                });
+            }
+            
             const defUrl = `${defBaseUrl}${word}`;
 
             const response = await fetch(defUrl, rapidapidefoptions);
@@ -107,6 +144,12 @@ const getHashData = asyncHandler(async (req, res) => {
                 throw new Error('Failed to fetch definition from rapidapi');
             }
             const data = await response.json();
+            
+            // Track API usage
+            const usageResult = await trackApiUsage(req.user.id, 'rapiddef', {});
+            if (usageResult.success) {
+                console.log(`RapidAPI Definition usage tracked: $${usageResult.cost.toFixed(4)}, Total: $${usageResult.totalUsage.toFixed(4)}`);
+            }
             
             // Clean up and format the definitions
             let definitions = [];
@@ -476,4 +519,30 @@ const getAllData = async (req, res) => {
     }
 };
 
-module.exports = { getHashData, getPaymentMethods, getAllData };
+// @desc    Get user API usage data
+// @route   GET /api/data/usage
+// @access  Private
+const getUserUsageData = asyncHandler(async (req, res) => {
+    try {
+        await checkIP(req);
+    } catch (error) {
+        console.log('Error in checkIP:', error);
+        // Continue anyway - don't fail the request for IP checking
+    }
+
+    // Check for user
+    if (!req.user) {
+        res.status(401);
+        throw new Error('User not found');
+    }
+
+    try {
+        const usageStats = await getUserUsageStats(req.user.id);
+        res.status(200).json(usageStats);
+    } catch (error) {
+        console.error("Error fetching user usage stats:", error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+module.exports = { getHashData, getPaymentMethods, getAllData, getUserUsageData };

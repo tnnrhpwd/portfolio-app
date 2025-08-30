@@ -6,6 +6,7 @@ const multer = require('multer');
 const asyncHandler = require('express-async-handler');
 const { checkIP } = require('../utils/accessData.js');
 const { sendEmail } = require('../utils/emailService.js');
+const { trackApiUsage, canMakeApiCall } = require('../utils/apiUsageTracker.js');
 const stripe = require('stripe')(process.env.STRIPE_KEY);
 const Data = require('../models/dataModel'); // Add Data model import
 require('dotenv').config();
@@ -193,15 +194,51 @@ const compressData = asyncHandler(async (req, res) => {
     console.log('User input:', userInput); // Log the user input
 
     try {
+        // Check if user can make OpenAI API call
+        const canMakeCall = await canMakeApiCall(req.user.id, 'openai', {
+            model: 'o1-mini',
+            inputTokens: Math.ceil(userInput.length / 4), // Rough estimate: 4 chars per token
+            outputTokens: 200 // Estimate for output
+        });
+
+        if (!canMakeCall.canMake) {
+            console.log('OpenAI API call blocked:', canMakeCall.reason);
+            return res.status(402).json({ 
+                error: 'API usage limit reached', 
+                reason: canMakeCall.reason,
+                currentUsage: canMakeCall.currentUsage,
+                limit: canMakeCall.limit,
+                requiresUpgrade: true
+            });
+        }
+
         if (!client) {
             await initializeOpenAI();
         }
+        
         const response = await client.chat.completions.create({
           model: 'o1-mini', // Use the o1-mini model
           messages: [{ role: 'user', content: userInput }],
           max_completion_tokens: 1000, // Increase the max tokens to allow more complete responses
         });
         console.log('OpenAI response:', JSON.stringify(response)); // Log the OpenAI response
+        
+        // Track API usage
+        const inputTokens = response.usage?.prompt_tokens || Math.ceil(userInput.length / 4);
+        const outputTokens = response.usage?.completion_tokens || Math.ceil(response.choices[0].message.content.length / 4);
+        
+        const usageResult = await trackApiUsage(req.user.id, 'openai', {
+            inputTokens: inputTokens,
+            outputTokens: outputTokens
+        }, 'o1-mini');
+
+        if (!usageResult.success) {
+            console.log('Usage tracking failed:', usageResult.error);
+            // Continue anyway - don't fail the request for usage tracking issues
+        } else {
+            console.log(`OpenAI usage tracked: $${usageResult.cost.toFixed(4)}, Total: $${usageResult.totalUsage.toFixed(4)}`);
+        }
+        
         // const response = { data: { choices: [ {text: "This is a simulated response for debugging purposes."} ] } };
 
         if (response.choices[0].message.content && response.choices[0].message.content.length > 0) {

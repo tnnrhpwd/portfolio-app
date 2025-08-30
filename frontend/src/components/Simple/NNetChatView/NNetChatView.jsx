@@ -54,7 +54,13 @@ const NNetChatView = () => {
 
     // Handle errors
     if (dataIsError) {
-      if (dataMessage && !dataMessage.includes('token')) {
+      if (dataMessage && 
+          !dataMessage.includes('token') && 
+          !dataMessage.includes('API usage limit') &&
+          !dataMessage.includes('Upgrade to Flex') &&
+          !dataMessage.includes('Monthly API limit') &&
+          !dataMessage.includes('Request failed with status code 402') &&
+          !dataMessage.includes('Payment Required')) {
           toast.error(dataMessage, { autoClose: toastDuration });
         }
     }
@@ -96,7 +102,13 @@ const NNetChatView = () => {
 
     // Handle errors
     if (dataIsError) {
-      if (dataMessage && !dataMessage.includes('token')) {
+      if (dataMessage && 
+          !dataMessage.includes('token') && 
+          !dataMessage.includes('API usage limit') &&
+          !dataMessage.includes('Upgrade to Flex') &&
+          !dataMessage.includes('Monthly API limit') &&
+          !dataMessage.includes('Request failed with status code 402') &&
+          !dataMessage.includes('Payment Required')) {
           console.error(dataMessage);
           toast.error(dataMessage, { autoClose: toastDuration });
         }
@@ -119,7 +131,11 @@ const NNetChatView = () => {
         await dispatch(getData({ data: { text: "|Net:" } }));
       } catch (error) {
         console.error(error);
-        toast.error(error, { autoClose: toastDuration });    
+        // Don't show toast for API limit errors as they're handled by dataService
+        if (error?.response?.status !== 402 && 
+            !error?.message?.includes('Request failed with status code 402')) {
+          toast.error(error, { autoClose: toastDuration });    
+        }
       }
     }
     getMyData();
@@ -177,7 +193,11 @@ const NNetChatView = () => {
     } catch (error) {
       // Handle any errors here
       console.error(error);
-      toast.error('An error occurred while fetching data from OpenAI.', { autoClose: toastDuration });
+      // Don't show toast for API limit errors as they're handled by dataService
+      if (error?.response?.status !== 402 && 
+          !error?.message?.includes('Request failed with status code 402')) {
+        toast.error('An error occurred while fetching data from OpenAI.', { autoClose: toastDuration });
+      }
     }
   };
 

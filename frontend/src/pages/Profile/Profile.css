@@ -293,6 +293,236 @@
     opacity: 0.9;
 }
 
+/* API Usage Styles */
+.planit-profile-usage-container {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.4);
+}
+
+.planit-profile-usage-overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: calc(var(--nav-size) * 0.3);
+}
+
+.usage-stat {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.1);
+    padding: calc(var(--nav-size) * 0.25);
+    background: var(--white1-transp);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-nav);
+    text-align: center;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.usage-stat:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px var(--grey3-transp);
+}
+
+.usage-label {
+    font-size: calc(var(--nav-size) * 0.25);
+    color: var(--text-color-accent);
+    font-weight: 500;
+}
+
+.usage-value {
+    font-size: calc(var(--nav-size) * 0.3);
+    color: var(--text-color);
+    font-weight: bold;
+}
+
+.planit-profile-usage-bar {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.2);
+}
+
+.usage-bar-track {
+    width: 100%;
+    height: calc(var(--nav-size) * 0.2);
+    background: var(--grey2-transp);
+    border-radius: calc(var(--border-radius) * 2);
+    overflow: hidden;
+    border: 1px solid var(--border-nav);
+}
+
+.usage-bar-fill {
+    height: 100%;
+    border-radius: calc(var(--border-radius) * 2);
+    transition: width 0.3s ease;
+}
+
+.usage-bar-fill.normal {
+    background: linear-gradient(90deg, var(--bg-mint), var(--bg-blue));
+}
+
+.usage-bar-fill.warning {
+    background: linear-gradient(90deg, #FFB347, #FFA500);
+}
+
+.usage-bar-fill.danger {
+    background: linear-gradient(90deg, #FF6B6B, #FF4757);
+}
+
+.usage-bar-label {
+    font-size: calc(var(--nav-size) * 0.25);
+    color: var(--text-color);
+    font-weight: 500;
+    text-align: center;
+}
+
+.planit-profile-usage-breakdown {
+    background: var(--white1-transp);
+    border-radius: var(--border-radius);
+    padding: calc(var(--nav-size) * 0.4);
+    border: 1px solid var(--border-nav);
+}
+
+.usage-breakdown-title {
+    font-size: calc(var(--nav-size) * 0.3);
+    color: var(--text-color);
+    font-weight: bold;
+    margin-bottom: calc(var(--nav-size) * 0.3);
+    border-bottom: 2px solid var(--fg-blue);
+    padding-bottom: calc(var(--nav-size) * 0.1);
+}
+
+.usage-breakdown-list {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.2);
+}
+
+.usage-breakdown-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: calc(var(--nav-size) * 0.2);
+    background: var(--bg-page-transp);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-nav);
+    transition: background-color 0.2s ease;
+}
+
+.usage-breakdown-item:hover {
+    background: linear-gradient(90deg, var(--bg-blue), var(--bg-mint));
+}
+
+.usage-api-info {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.05);
+}
+
+.api-name {
+    font-size: calc(var(--nav-size) * 0.25);
+    color: var(--text-color);
+    font-weight: 500;
+}
+
+.api-date {
+    font-size: calc(var(--nav-size) * 0.2);
+    color: var(--text-color-accent);
+}
+
+.usage-details {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: calc(var(--nav-size) * 0.05);
+}
+
+.usage-amount {
+    font-size: calc(var(--nav-size) * 0.22);
+    color: var(--text-color-accent);
+}
+
+.usage-cost {
+    font-size: calc(var(--nav-size) * 0.25);
+    color: var(--text-color);
+    font-weight: bold;
+}
+
+.planit-profile-upgrade-prompt {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: calc(var(--nav-size) * 0.4);
+    background: linear-gradient(135deg, var(--bg-orange), var(--bg-pink));
+    border-radius: var(--border-radius);
+    border: 2px solid var(--fg-pink);
+    box-shadow: 0 4px 16px var(--grey3-transp);
+}
+
+.upgrade-message {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.3);
+}
+
+.upgrade-icon {
+    font-size: calc(var(--nav-size) * 0.6);
+}
+
+.upgrade-text strong {
+    font-size: calc(var(--nav-size) * 0.3);
+    color: var(--text-color);
+    display: block;
+    margin-bottom: calc(var(--nav-size) * 0.1);
+}
+
+.upgrade-text p {
+    font-size: calc(var(--nav-size) * 0.25);
+    color: var(--text-color);
+    margin: 0;
+    opacity: 0.9;
+}
+
+.upgrade-button {
+    padding: calc(var(--nav-size) * 0.25) calc(var(--nav-size) * 0.4);
+    background: var(--fg-blue);
+    color: white;
+    border: none;
+    border-radius: var(--border-radius);
+    font-size: calc(var(--nav-size) * 0.25);
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.upgrade-button:hover {
+    background: var(--fg-pink);
+    transform: translateY(-2px);
+}
+
+.planit-profile-usage-loading,
+.planit-profile-usage-error,
+.planit-profile-usage-placeholder {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: calc(var(--nav-size) * 0.3);
+}
+
+.planit-profile-usage-loading {
+    color: var(--text-color-accent);
+    font-style: italic;
+    text-align: center;
+    padding: calc(var(--nav-size) * 0.4);
+}
+
+.planit-profile-usage-error {
+    color: #FF4757;
+    background: rgba(255, 71, 87, 0.1);
+    padding: calc(var(--nav-size) * 0.4);
+    border-radius: var(--border-radius);
+    border: 1px solid rgba(255, 71, 87, 0.3);
+    text-align: center;
+}
+
 /* Actions Section */
 .planit-profile-actions {
     display: flex;
@@ -376,6 +606,51 @@
     .planit-profile-info-value {
         font-weight: 400;
     }
+
+    /* Mobile API Usage Styles */
+    .planit-profile-usage-overview {
+        grid-template-columns: repeat(2, 1fr);
+        gap: calc(var(--nav-size) * 0.2);
+    }
+
+    .usage-stat {
+        padding: calc(var(--nav-size) * 0.2);
+    }
+
+    .usage-label {
+        font-size: calc(var(--nav-size) * 0.22);
+    }
+
+    .usage-value {
+        font-size: calc(var(--nav-size) * 0.25);
+    }
+
+    .planit-profile-upgrade-prompt {
+        flex-direction: column;
+        gap: calc(var(--nav-size) * 0.3);
+        text-align: center;
+    }
+
+    .upgrade-message {
+        flex-direction: column;
+        gap: calc(var(--nav-size) * 0.2);
+        text-align: center;
+    }
+
+    .upgrade-icon {
+        font-size: calc(var(--nav-size) * 0.5);
+    }
+
+    .usage-breakdown-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: calc(var(--nav-size) * 0.1);
+    }
+
+    .usage-details {
+        align-items: flex-start;
+        width: 100%;
+    }
 }
 
 /* Portrait orientation optimization */
@@ -395,5 +670,19 @@
     
     .planit-profile-actions {
         gap: calc(var(--nav-size) * 0.2);
+    }
+
+    /* Portrait API Usage Styles */
+    .planit-profile-usage-overview {
+        grid-template-columns: 1fr;
+        gap: calc(var(--nav-size) * 0.15);
+    }
+
+    .usage-breakdown-title {
+        font-size: calc(var(--nav-size) * 0.25);
+    }
+
+    .planit-profile-upgrade-prompt {
+        padding: calc(var(--nav-size) * 0.3);
     }
 }

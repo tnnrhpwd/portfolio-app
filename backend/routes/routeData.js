@@ -60,7 +60,7 @@ const {
   deleteData,
   deleteHashData, deletePaymentMethod, deleteCustomer,
   getData, getUserSubscription,
-  getHashData, getPaymentMethods, getAllData, getMembershipPricing,
+  getHashData, getPaymentMethods, getAllData, getMembershipPricing, getUserUsageData,
   postData, registerUser, loginUser,
   postHashData, compressData, createCustomer, 
   postPaymentMethod, createInvoice, subscribeCustomer, 
@@ -108,6 +108,7 @@ router.post('/create-customer', protect, paymentLimiter, createCustomer); // Pro
 router.post('/create-invoice', protect, paymentLimiter, createInvoice); // Protect invoice creation
 router.post('/subscribe-customer', protect, paymentLimiter, subscribeCustomer); // Protect customer subscription
 router.get('/subscription', protect, getUserSubscription); // GET request for fetching user subscriptions
+router.get('/usage', protect, getUserUsageData); // GET request for fetching user API usage stats
 
 router.route('/pay-methods')
   .get(protect, getPaymentMethods) // GET payment methods

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { logout, resetDataSlice, resetDataSuccess, getUserSubscription } from './../../features/data/dataSlice.js';
+import { logout, resetDataSlice, resetDataSuccess, getUserSubscription, getUserUsage } from './../../features/data/dataSlice.js';
 import Spinner from '../../components/Spinner/Spinner.jsx';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
@@ -17,9 +17,20 @@ function Profile() {
   const [currentColorMode, setCurrentColorMode] = useState('system');
   const [subscriptionLoaded, setSubscriptionLoaded] = useState(false);
   const [userSubscription, setUserSubscription] = useState(null);
+  const [usageLoaded, setUsageLoaded] = useState(false);
 
   // Get user data from Redux state
-  const { user, dataIsLoading, dataIsSuccess, dataIsError, dataMessage } = useSelector((state) => state.data);
+  const { 
+    user, 
+    dataIsLoading, 
+    dataIsSuccess, 
+    dataIsError, 
+    dataMessage,
+    userUsage,
+    userUsageIsLoading,
+    userUsageIsError,
+    userUsageMessage
+  } = useSelector((state) => state.data);
 
   // Theme detection effect
   useEffect(() => {
@@ -80,7 +91,7 @@ function Profile() {
         return;
       }
       
-      console.log('Token is valid, fetching subscription');
+      console.log('Token is valid, fetching subscription and usage data');
       
       // Use a local try-catch to prevent the component from crashing
       try {
@@ -107,9 +118,46 @@ function Profile() {
             }
             dispatch(resetDataSuccess());
           });
+
+        // Fetch usage data
+        dispatch(getUserUsage())
+          .unwrap()
+          .then((usageData) => {
+            console.log('Successfully fetched usage data:', usageData);
+            
+            // Show warning toast if usage is getting high
+            if (usageData && usageData.membership !== 'Premium') {
+              const percentUsed = usageData.percentUsed || 0;
+              if (percentUsed >= 90) {
+                toast.warning('⚠️ API usage is at 90%! Consider upgrading soon.', {
+                  position: 'top-right',
+                  autoClose: 8000,
+                  hideProgressBar: false,
+                  closeOnClick: true,
+                  pauseOnHover: true,
+                });
+              } else if (percentUsed >= 75) {
+                toast.info('📊 API usage is at 75%. Keep an eye on your remaining balance!', {
+                  position: 'top-right',
+                  autoClose: 6000,
+                  hideProgressBar: false,
+                  closeOnClick: true,
+                  pauseOnHover: true,
+                });
+              }
+            }
+            
+            setUsageLoaded(true);
+          })
+          .catch((error) => {
+            console.error('Failed to fetch usage data:', error);
+            setUsageLoaded(true);
+          });
+
       } catch (error) {
-        console.error('Error dispatching subscription action:', error);
+        console.error('Error dispatching subscription/usage actions:', error);
         setSubscriptionLoaded(true);
+        setUsageLoaded(true);
       }
     }
   }, [user, subscriptionLoaded, dispatch, navigate]);
@@ -263,6 +311,120 @@ function Profile() {
                       <span className="subscription-product">{subscriptionDetails.productName}</span>
                       <span className="subscription-renewal">
                         Renews on {new Date(subscriptionDetails.currentPeriodEnd).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="planit-profile-section">
+                <h3 className="planit-profile-section-title">API Usage & Limits</h3>
+                {!usageLoaded ? (
+                  <div className="planit-profile-usage-loading">Loading usage data...</div>
+                ) : userUsageIsLoading ? (
+                  <div className="planit-profile-usage-loading">Loading usage data...</div>
+                ) : userUsageIsError ? (
+                  <div className="planit-profile-usage-error">
+                    Error loading usage data: {userUsageMessage}
+                  </div>
+                ) : userUsage ? (
+                  <div className="planit-profile-usage-container">
+                    <div className="planit-profile-usage-overview">
+                      <div className="usage-stat">
+                        <span className="usage-label">💰 Current Usage</span>
+                        <span className="usage-value">${userUsage.totalUsage?.toFixed(4) || '0.0000'}</span>
+                      </div>
+                      <div className="usage-stat">
+                        <span className="usage-label">🎯 Monthly Limit</span>
+                        <span className="usage-value">
+                          {userUsage.membership === 'Premium' ? '∞ Unlimited' : `$${userUsage.limit?.toFixed(2) || '0.00'}`}
+                        </span>
+                      </div>
+                      <div className="usage-stat">
+                        <span className="usage-label">💸 Remaining</span>
+                        <span className="usage-value">
+                          {userUsage.membership === 'Premium' 
+                            ? '∞ Unlimited' 
+                            : `$${userUsage.remainingBalance?.toFixed(4) || '0.0000'}`
+                          }
+                        </span>
+                      </div>
+                      <div className="usage-stat">
+                        <span className="usage-label">📊 Usage %</span>
+                        <span className="usage-value">
+                          {userUsage.membership === 'Premium' ? 'N/A' : `${userUsage.percentUsed?.toFixed(1) || '0.0'}%`}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {userUsage.percentUsed > 0 && (
+                      <div className="planit-profile-usage-bar">
+                        <div className="usage-bar-track">
+                          <div 
+                            className={`usage-bar-fill ${userUsage.percentUsed >= 90 ? 'danger' : userUsage.percentUsed >= 75 ? 'warning' : 'normal'}`}
+                            style={{ width: `${Math.min(userUsage.percentUsed, 100)}%` }}
+                          ></div>
+                        </div>
+                        <div className="usage-bar-label">
+                          {userUsage.percentUsed >= 90 && '⚠️ Nearly Full'}
+                          {userUsage.percentUsed >= 75 && userUsage.percentUsed < 90 && '🔶 High Usage'}
+                          {userUsage.percentUsed < 75 && '✅ Good'}
+                        </div>
+                      </div>
+                    )}
+
+                    {userUsage.usageBreakdown && userUsage.usageBreakdown.length > 0 && (
+                      <div className="planit-profile-usage-breakdown">
+                        <h4 className="usage-breakdown-title">Recent API Usage</h4>
+                        <div className="usage-breakdown-list">
+                          {userUsage.usageBreakdown.slice(-5).map((entry, index) => (
+                            <div key={index} className="usage-breakdown-item">
+                              <div className="usage-api-info">
+                                <span className="api-name">
+                                  {entry.api === 'openai' && '🤖 OpenAI'}
+                                  {entry.api === 'rapidword' && '📝 Word Generator'}
+                                  {entry.api === 'rapiddef' && '📚 Dictionary'}
+                                </span>
+                                <span className="api-date">{entry.fullDate}</span>
+                              </div>
+                              <div className="usage-details">
+                                <span className="usage-amount">{entry.usage}</span>
+                                <span className="usage-cost">${entry.cost?.toFixed(4)}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {userUsage.membership === 'Free' && (
+                      <div className="planit-profile-upgrade-prompt">
+                        <div className="upgrade-message">
+                          <span className="upgrade-icon">🚀</span>
+                          <div className="upgrade-text">
+                            <strong>Upgrade to Flex or Premium</strong>
+                            <p>Get $10 monthly API usage allowance and access to AI-powered features!</p>
+                          </div>
+                        </div>
+                        <button 
+                          className="upgrade-button"
+                          onClick={() => navigate('/pay?plan=flex')}
+                        >
+                          Upgrade Now
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="planit-profile-usage-placeholder">
+                    <div className="usage-stat">
+                      <span className="usage-label">💰 Current Usage</span>
+                      <span className="usage-value">$0.0000</span>
+                    </div>
+                    <div className="usage-stat">
+                      <span className="usage-label">🎯 Monthly Limit</span>
+                      <span className="usage-value">
+                        {currentPlan === 'Premium' ? '∞ Unlimited' : currentPlan === 'Free' ? '$0.00' : '$10.00'}
                       </span>
                     </div>
                   </div>
