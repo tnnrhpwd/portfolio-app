@@ -17,7 +17,6 @@ function Profile() {
   const [currentColorMode, setCurrentColorMode] = useState('system');
   const [subscriptionLoaded, setSubscriptionLoaded] = useState(false);
   const [userSubscription, setUserSubscription] = useState(null);
-  const [usageLoaded, setUsageLoaded] = useState(false);
 
   // Get user data from Redux state
   const { 
@@ -149,18 +148,14 @@ function Profile() {
                 });
               }
             }
-            
-            setUsageLoaded(true);
           })
           .catch((error) => {
             console.error('Failed to fetch usage data:', error);
-            setUsageLoaded(true);
           });
 
       } catch (error) {
         console.error('Error dispatching subscription/usage actions:', error);
         setSubscriptionLoaded(true);
-        setUsageLoaded(true);
       }
     }
   }, [user, subscriptionLoaded, dispatch, navigate]);
@@ -329,10 +324,6 @@ function Profile() {
 
               <div className="planit-profile-section">
                 <h3 className="planit-profile-section-title">API Usage & Limits</h3>
-                {/* Debugging current state */}
-                <div style={{fontSize: '12px', color: '#666', marginBottom: '10px'}}>
-                  Debug: usageLoaded={String(usageLoaded)}, userUsageIsLoading={String(userUsageIsLoading)}, userUsageIsError={String(userUsageIsError)}, userUsage={userUsage ? JSON.stringify(userUsage) : 'null/undefined'}
-                </div>
                 {userUsageIsLoading ? (
                   <div className="planit-profile-usage-loading">Loading usage data...</div>
                 ) : userUsageIsError ? (
