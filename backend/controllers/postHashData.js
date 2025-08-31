@@ -105,28 +105,37 @@ const postHashData = asyncHandler(async (req, res) => {
 
 
     } else { // Handle application/json
-        if (!req.body.data) {
+        // Check if data is sent directly as 'text' field (for bug reports, reviews, etc.)
+        if (req.body.text) {
+            textContent = req.body.text;
+            actionGroupObjectContent = req.body.ActionGroupObject;
+            if (Array.isArray(req.body.Files)) {
+                if (filesData.length === 0) filesData = req.body.Files;
+            }
+        }
+        // Original data field handling for backward compatibility
+        else if (req.body.data) {
+            let jsonDataPayload = req.body.data;
+            if (typeof jsonDataPayload === 'string') {
+                try {
+                    jsonDataPayload = JSON.parse(jsonDataPayload);
+                } catch (e) {
+                    // If it's a string but not JSON, assume it's the text content itself
+                    textContent = jsonDataPayload;
+                    jsonDataPayload = null; // No further parsing needed for this path
+                }
+            }
+
+            if (jsonDataPayload) {
+                textContent = jsonDataPayload.Text;
+                actionGroupObjectContent = jsonDataPayload.ActionGroupObject;
+                if (Array.isArray(jsonDataPayload.Files)) { // Only if no files from multer
+                     if (filesData.length === 0) filesData = jsonDataPayload.Files;
+                }
+            }
+        } else {
             res.status(400);
-            throw new Error('Please add a data field for application/json. req: ' + JSON.stringify(req.body));
-        }
-
-        let jsonDataPayload = req.body.data;
-        if (typeof jsonDataPayload === 'string') {
-            try {
-                jsonDataPayload = JSON.parse(jsonDataPayload);
-            } catch (e) {
-                // If it's a string but not JSON, assume it's the text content itself
-                textContent = jsonDataPayload;
-                jsonDataPayload = null; // No further parsing needed for this path
-            }
-        }
-
-        if (jsonDataPayload) {
-            textContent = jsonDataPayload.Text;
-            actionGroupObjectContent = jsonDataPayload.ActionGroupObject;
-            if (Array.isArray(jsonDataPayload.Files)) { // Only if no files from multer
-                 if (filesData.length === 0) filesData = jsonDataPayload.Files;
-            }
+            throw new Error('Please provide either a data field or text field for application/json. req: ' + JSON.stringify(req.body));
         }
     }
 

@@ -88,10 +88,17 @@ const createData = async (dataData, token) => {
 
     console.log('Calling POST URL:', API_URL);
     console.log('Calling POST Data:', dataData);
-    console.log('FormData contents in dataService:');
-    for (const pair of dataData.entries()) {
-      console.log(pair[0] + ', ' + pair[1]);
+    
+    // Only log FormData contents if it's actually FormData
+    if (dataData instanceof FormData) {
+        console.log('FormData contents in dataService:');
+        for (const pair of dataData.entries()) {
+          console.log(pair[0] + ', ' + pair[1]);
+        }
+    } else {
+        console.log('Object data in dataService:', dataData);
     }
+    
     console.log('Config:', config); // Log the config object
 
     try {

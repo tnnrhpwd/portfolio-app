@@ -42,6 +42,9 @@ function Support() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedFaq, setExpandedFaq] = useState(null);
+  const [userBugReports, setUserBugReports] = useState([]);
+  const [loadingReports, setLoadingReports] = useState(false);
+  const [hoverRating, setHoverRating] = useState(0);
 
   // FAQ Data with enhanced answers containing hyperlinks
   const faqData = [
@@ -143,6 +146,16 @@ function Support() {
       action: () => setActiveTab('review')
     },
     {
+      id: 'reports',
+      title: 'My Bug Reports',
+      description: 'View and manage your submitted reports',
+      icon: '📋',
+      action: () => {
+        setActiveTab('reports');
+        fetchUserBugReports();
+      }
+    },
+    {
       id: 'bug',
       title: 'Report a Bug',
       description: 'Help us improve by reporting issues',
@@ -201,6 +214,104 @@ function Support() {
       ...prev,
       [name]: type === 'number' ? parseInt(value) : value
     }));
+  };
+
+  const handleStarClick = (rating) => {
+    setFormData(prev => ({
+      ...prev,
+      reviewRating: rating
+    }));
+  };
+
+  const getUserIdentifier = () => {
+    if (!user) return 'Anonymous';
+    
+    // Check for direct email property first (most likely in frontend user object)
+    if (user.email) return user.email;
+    
+    // Check for email in the text field (backend format)
+    if (user.text && user.text.includes('Email:')) {
+      const emailMatch = user.text.match(/Email:([^|]+)/);
+      if (emailMatch) return emailMatch[1];
+    }
+    
+    // Fallback to other identifiers
+    return user.id || user.nickname || 'Anonymous';
+  };
+
+  const fetchUserBugReports = async () => {
+    // Check for user authentication using the available user properties
+    if (!user || !user.id) {
+      toast.error('Please log in to view your bug reports.', { autoClose: 3000 });
+      return;
+    }
+    
+    setLoadingReports(true);
+    try {
+      // Since the backend doesn't have a specific endpoint for user bug reports,
+      // we'll need to get user data and filter client-side
+      // For now, we'll use a placeholder until we can implement proper backend filtering
+      
+      // Mock data for demonstration - in production, you'd query the backend for user's bug reports
+      const mockReports = [
+        {
+          id: 'mock-1',
+          title: 'Button not responding on mobile',
+          severity: 'medium',
+          description: 'The submit button on forms doesn\'t work on mobile devices.',
+          steps: '1. Open app on mobile\n2. Fill out any form\n3. Try to submit\n4. Nothing happens',
+          expected: 'Form should submit successfully',
+          actual: 'Button appears unresponsive, no feedback given',
+          browser: 'Mobile Safari iOS 16.2',
+          device: 'iPhone 14 Pro',
+          status: 'Open',
+          createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
+          updatedAt: new Date(Date.now() - 86400000).toISOString(),
+          timestamp: new Date(Date.now() - 86400000).toISOString()
+        }
+      ];
+
+      // TODO: Replace with actual backend call once implemented
+      // const response = await dispatch(getUserBugReports({ userId: user.id })).unwrap();
+      
+      setUserBugReports(mockReports);
+      
+    } catch (error) {
+      console.error('Error fetching bug reports:', error);
+      toast.error('Failed to load your bug reports.', { autoClose: 3000 });
+      setUserBugReports([]);
+    } finally {
+      setLoadingReports(false);
+    }
+  };
+
+  const closeBugReport = async (reportId) => {
+    try {
+      setIsSubmitting(true);
+      
+      // Mock the close functionality for demonstration
+      // TODO: Replace with actual backend call once implemented
+      
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Update the local state to show the report as closed
+      setUserBugReports(prevReports => 
+        prevReports.map(report => 
+          report.id === reportId 
+            ? { ...report, status: 'Closed', updatedAt: new Date().toISOString() }
+            : report
+        )
+      );
+      
+      toast.success('Bug report marked as resolved!', { autoClose: 4000 });
+      
+    } catch (error) {
+      console.error('Error closing bug report:', error);
+      toast.error('Failed to close bug report. Please try again.', { autoClose: 3000 });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleReviewSubmit = async (e) => {
@@ -269,8 +380,10 @@ function Support() {
     setIsSubmitting(true);
 
     try {
+      // Enhanced bug report data with structured format including Creator, Status, and all form fields
+      const userId = getUserIdentifier();
       const bugData = {
-        text: `Bug:${formData.bugTitle}|Severity:${formData.bugSeverity}|Description:${formData.bugDescription}|Steps:${formData.bugSteps}|Expected:${formData.bugExpected}|Actual:${formData.bugActual}|Browser:${formData.bugBrowser}|Device:${formData.bugDevice}|User:${user?.email || 'Anonymous'}|Timestamp:${new Date().toISOString()}`
+        text: `Bug:${formData.bugTitle}|Severity:${formData.bugSeverity}|Description:${formData.bugDescription}|Steps:${formData.bugSteps}|Expected:${formData.bugExpected}|Actual:${formData.bugActual}|Browser:${formData.bugBrowser}|Device:${formData.bugDevice}|Creator:${userId}|Status:Open|Timestamp:${new Date().toISOString()}`
       };
 
       await dispatch(createData(bugData)).unwrap();
@@ -287,6 +400,11 @@ function Support() {
         bugActual: '',
         bugSeverity: 'medium'
       }));
+
+      // Refresh bug reports if user is on reports tab
+      if (activeTab === 'reports') {
+        fetchUserBugReports();
+      }
       
     } catch (error) {
       console.error('Error submitting bug report:', error);
@@ -362,6 +480,17 @@ function Support() {
             >
               💬 Contact Us
             </button>
+            {user && (
+              <button
+                className={`support-tab ${activeTab === 'reports' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab('reports');
+                  fetchUserBugReports();
+                }}
+              >
+                📋 My Reports
+              </button>
+            )}
             <button
               className={`support-tab ${activeTab === 'bug' ? 'active' : ''}`}
               onClick={() => setActiveTab('bug')}
@@ -463,21 +592,16 @@ function Support() {
                   <div className="support-form-group">
                     <label htmlFor="reviewRating">Rating</label>
                     <div className="support-rating-container">
-                      <input
-                        type="range"
-                        id="reviewRating"
-                        name="reviewRating"
-                        min="1"
-                        max="5"
-                        value={formData.reviewRating}
-                        onChange={handleInputChange}
-                        className="support-rating-slider"
-                      />
-                      <div className="support-rating-display">
+                      <div className="support-rating-stars">
                         {[...Array(5)].map((_, i) => (
                           <span
                             key={i}
-                            className={`support-star ${i < formData.reviewRating ? 'filled' : ''}`}
+                            className={`support-star clickable ${
+                              i < (hoverRating || formData.reviewRating) ? 'filled' : ''
+                            }`}
+                            onClick={() => handleStarClick(i + 1)}
+                            onMouseEnter={() => setHoverRating(i + 1)}
+                            onMouseLeave={() => setHoverRating(0)}
                           >
                             ⭐
                           </span>
@@ -629,6 +753,104 @@ function Support() {
                     {isSubmitting ? '📤 Sending...' : '💬 Send Message'}
                   </button>
                 </form>
+              </div>
+            )}
+
+            {/* My Bug Reports Tab */}
+            {activeTab === 'reports' && user && (
+              <div className="support-form-section">
+                <h2>📋 My Bug Reports</h2>
+                
+                <p className="support-form-description">
+                  View and manage your submitted bug reports. You can close reports that have been resolved.
+                </p>
+
+                {loadingReports ? (
+                  <div className="support-loading">
+                    <Spinner />
+                    <p>Loading your bug reports...</p>
+                  </div>
+                ) : userBugReports.length === 0 ? (
+                  <div className="support-no-reports">
+                    <div className="support-no-reports-icon">🐛</div>
+                    <p>You haven't submitted any bug reports yet.</p>
+                    <button
+                      className="support-action-btn"
+                      onClick={() => setActiveTab('bug')}
+                    >
+                      Report Your First Bug
+                    </button>
+                  </div>
+                ) : (
+                  <div className="support-reports-list">
+                    {userBugReports.map((report) => (
+                      <div key={report.id} className="support-report-card">
+                        <div className="support-report-header">
+                          <h3 className="support-report-title">{report.title}</h3>
+                          <div className="support-report-meta">
+                            <span className={`support-report-status ${report.status.toLowerCase()}`}>
+                              {report.status === 'Open' ? '🔓 Open' : '🔒 Closed'}
+                            </span>
+                            <span className={`support-report-severity severity-${report.severity}`}>
+                              {report.severity === 'low' && '🟢 Low'}
+                              {report.severity === 'medium' && '🟡 Medium'}
+                              {report.severity === 'high' && '🟠 High'}
+                              {report.severity === 'critical' && '🔴 Critical'}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="support-report-details">
+                          <div className="support-report-field">
+                            <strong>Description:</strong>
+                            <p>{report.description}</p>
+                          </div>
+                          
+                          <div className="support-report-field">
+                            <strong>Steps to Reproduce:</strong>
+                            <p>{report.steps}</p>
+                          </div>
+                          
+                          <div className="support-report-row">
+                            <div className="support-report-field">
+                              <strong>Expected Result:</strong>
+                              <p>{report.expected}</p>
+                            </div>
+                            <div className="support-report-field">
+                              <strong>Actual Result:</strong>
+                              <p>{report.actual}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="support-report-system-info">
+                            <strong>System Information:</strong>
+                            <p><strong>Browser:</strong> {report.browser}</p>
+                            <p><strong>Device:</strong> {report.device}</p>
+                          </div>
+                          
+                          <div className="support-report-timestamps">
+                            <p><strong>Submitted:</strong> {new Date(report.createdAt).toLocaleDateString()} at {new Date(report.createdAt).toLocaleTimeString()}</p>
+                            {report.updatedAt !== report.createdAt && (
+                              <p><strong>Last Updated:</strong> {new Date(report.updatedAt).toLocaleDateString()} at {new Date(report.updatedAt).toLocaleTimeString()}</p>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {report.status === 'Open' && (
+                          <div className="support-report-actions">
+                            <button
+                              className="support-close-report-btn"
+                              onClick={() => closeBugReport(report.id)}
+                              disabled={isSubmitting}
+                            >
+                              {isSubmitting ? '🔄 Closing...' : '✅ Mark as Resolved'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
