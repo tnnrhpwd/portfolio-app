@@ -730,3 +730,265 @@
         height: calc(var(--nav-size) * 0.6);
     }
 }
+
+/* ===================================================================
+ * AUTHENTICATION & ACCOUNT LINKING STYLES
+ * ================================================================ */
+
+/* Authentication Preferences Section */
+.planit-settings-auth-preferences {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.4);
+}
+
+.planit-settings-auth-options {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.3);
+    background: var(--bg-1);
+    border-radius: var(--border-radius);
+    padding: calc(var(--nav-size) * 0.4);
+    border: 1px solid var(--border-nav);
+}
+
+.planit-settings-help-text {
+    font-size: calc(var(--nav-size) * 0.15);
+    color: var(--text-color-accent);
+    margin-top: calc(var(--nav-size) * 0.1);
+    margin-left: calc(var(--nav-size) * 0.6);
+    line-height: 1.4;
+    font-style: italic;
+}
+
+/* Linked Accounts Container */
+.planit-settings-linked-accounts-container {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.3);
+}
+
+.planit-settings-linked-accounts-status {
+    background: var(--bg-1);
+    border-radius: calc(var(--border-radius) * 0.5);
+    padding: calc(var(--nav-size) * 0.3);
+    border: 1px solid var(--border-nav);
+    margin-bottom: calc(var(--nav-size) * 0.2);
+}
+
+.planit-settings-status-summary {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.15);
+}
+
+.planit-settings-linked-count {
+    font-size: calc(var(--nav-size) * 0.18);
+    color: var(--text-color);
+    font-weight: 500;
+    text-align: center;
+}
+
+.planit-settings-status-bar {
+    width: 100%;
+    height: calc(var(--nav-size) * 0.1);
+    background: var(--border-nav);
+    border-radius: calc(var(--nav-size) * 0.05);
+    overflow: hidden;
+}
+
+.planit-settings-status-fill {
+    height: 100%;
+    background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+    border-radius: calc(var(--nav-size) * 0.05);
+    transition: width 0.5s ease-in-out;
+    min-width: 2px;
+}
+
+/* Authentication Section */
+.planit-settings-linked-accounts {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.3);
+    background: var(--bg-1);
+    border-radius: var(--border-radius);
+    padding: calc(var(--nav-size) * 0.4);
+    border: 1px solid var(--border-nav);
+}
+
+.planit-settings-account-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: calc(var(--nav-size) * 0.25) calc(var(--nav-size) * 0.3);
+    background: var(--white1-transp);
+    border-radius: calc(var(--border-radius) * 0.5);
+    border: 1px solid var(--border-nav);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.planit-settings-account-item:hover {
+    background: var(--bg-accent);
+    border-color: var(--fg-blue);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px var(--grey3-transp);
+}
+
+.planit-settings-account-item.linked {
+    background: linear-gradient(90deg, rgba(86, 204, 242, 0.1), rgba(0, 255, 255, 0.1));
+    border-color: var(--fg-mint);
+}
+
+.planit-settings-account-item.linked:hover {
+    background: linear-gradient(90deg, rgba(86, 204, 242, 0.15), rgba(0, 255, 255, 0.15));
+    border-color: var(--fg-blue);
+}
+
+.planit-settings-account-provider {
+    font-size: calc(var(--nav-size) * 0.2);
+    color: var(--text-color);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.15);
+}
+
+.planit-settings-linked-badge {
+    font-size: calc(var(--nav-size) * 0.14);
+    color: var(--fg-mint);
+    font-weight: bold;
+    background: rgba(0, 255, 255, 0.1);
+    padding: calc(var(--nav-size) * 0.05) calc(var(--nav-size) * 0.1);
+    border-radius: calc(var(--border-radius) * 0.3);
+    margin-left: calc(var(--nav-size) * 0.1);
+}
+
+.planit-settings-link-button {
+    font-size: calc(var(--nav-size) * 0.18);
+    background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+    color: var(--text-color-inv);
+    border: none;
+    border-radius: calc(var(--border-radius) * 0.5);
+    padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.3);
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    font-weight: 500;
+    min-width: calc(var(--nav-size) * 1.8);
+    text-align: center;
+}
+
+.planit-settings-link-button:hover {
+    background: linear-gradient(45deg, var(--fg-mint), var(--fg-blue));
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(86, 204, 242, 0.4);
+}
+
+.planit-settings-link-button:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(86, 204, 242, 0.3);
+}
+
+/* Unlink button styling */
+.planit-settings-link-button.unlink {
+    background: linear-gradient(45deg, var(--fg-pink), var(--fg-orange));
+}
+
+.planit-settings-link-button.unlink:hover {
+    background: linear-gradient(45deg, var(--fg-orange), var(--fg-pink));
+    box-shadow: 0 4px 12px rgba(255, 55, 155, 0.4);
+}
+
+/* Responsive design for account linking section */
+@media (orientation: landscape) {
+    .planit-settings-linked-accounts {
+        padding: calc(var(--nav-size) * 0.5);
+        gap: calc(var(--nav-size) * 0.4);
+    }
+    
+    .planit-settings-auth-options {
+        padding: calc(var(--nav-size) * 0.5);
+        gap: calc(var(--nav-size) * 0.4);
+    }
+    
+    .planit-settings-account-item {
+        padding: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.4);
+    }
+    
+    .planit-settings-account-provider {
+        font-size: calc(var(--nav-size) * 0.22);
+    }
+    
+    .planit-settings-link-button {
+        font-size: calc(var(--nav-size) * 0.2);
+        padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.4);
+        min-width: calc(var(--nav-size) * 2);
+    }
+    
+    .planit-settings-help-text {
+        font-size: calc(var(--nav-size) * 0.16);
+        margin-left: calc(var(--nav-size) * 0.7);
+    }
+
+    .planit-settings-linked-count {
+        font-size: calc(var(--nav-size) * 0.2);
+    }
+}
+
+@media (orientation: portrait) {
+    .planit-settings-linked-accounts {
+        padding: calc(var(--nav-size) * 0.3);
+        gap: calc(var(--nav-size) * 0.25);
+    }
+    
+    .planit-settings-auth-options {
+        padding: calc(var(--nav-size) * 0.3);
+        gap: calc(var(--nav-size) * 0.25);
+    }
+    
+    .planit-settings-account-item {
+        padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.25);
+        flex-direction: column;
+        gap: calc(var(--nav-size) * 0.15);
+        align-items: stretch;
+        text-align: center;
+    }
+    
+    .planit-settings-account-provider {
+        font-size: calc(var(--nav-size) * 0.18);
+        justify-content: center;
+    }
+    
+    .planit-settings-link-button {
+        font-size: calc(var(--nav-size) * 0.16);
+        padding: calc(var(--nav-size) * 0.25) calc(var(--nav-size) * 0.3);
+        min-height: calc(var(--nav-size) * 0.8);
+    }
+    
+    .planit-settings-help-text {
+        font-size: calc(var(--nav-size) * 0.14);
+        margin-left: calc(var(--nav-size) * 0.4);
+        text-align: left;
+    }
+
+    .planit-settings-linked-count {
+        font-size: calc(var(--nav-size) * 0.16);
+    }
+    
+    /* Smaller portrait screens need bigger touch targets */
+    @media (max-width: 480px) {
+        .planit-settings-account-item {
+            padding: calc(var(--nav-size) * 0.25) calc(var(--nav-size) * 0.3);
+        }
+        
+        .planit-settings-link-button {
+            font-size: calc(var(--nav-size) * 0.18);
+            padding: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.4);
+            min-height: calc(var(--nav-size) * 0.9);
+        }
+
+        .planit-settings-help-text {
+            font-size: calc(var(--nav-size) * 0.13);
+            margin-left: calc(var(--nav-size) * 0.3);
+        }
+    }
+}

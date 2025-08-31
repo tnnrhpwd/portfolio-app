@@ -195,3 +195,123 @@
     cursor: not-allowed;
     background: var(--border-nav);
 }
+
+/* ===================================================================
+ * SOCIAL LOGIN STYLES
+ * ================================================================ */
+
+.planit-login-social {
+    width: 100%;
+    margin: calc(var(--nav-size) * 0.6) 0;
+}
+
+.planit-login-divider {
+    display: flex;
+    align-items: center;
+    margin: calc(var(--nav-size) * 0.4) 0;
+    text-align: center;
+}
+
+.planit-login-divider::before,
+.planit-login-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-nav);
+}
+
+.planit-login-divider span {
+    padding: 0 calc(var(--nav-size) * 0.3);
+    color: var(--text-color-accent);
+    font-size: calc(var(--nav-size) * 0.25);
+    font-weight: 500;
+    background: var(--bg-1);
+}
+
+.planit-login-social-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.25);
+    width: 100%;
+}
+
+.planit-login-social-button {
+    width: 100%;
+    padding: calc(var(--nav-size) * 0.25) calc(var(--nav-size) * 0.3);
+    font-size: calc(var(--nav-size) * 0.25);
+    border: 1px solid var(--border-nav);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: calc(var(--nav-size) * 0.2);
+    background: var(--white1-transp);
+    color: var(--text-color);
+    box-shadow: 0 2px 4px var(--grey3-transp);
+}
+
+.planit-login-social-button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px var(--grey3-transp);
+    border-color: var(--fg-blue);
+}
+
+.planit-login-social-button:active {
+    transform: translateY(0);
+}
+
+.planit-login-social-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Provider-specific styling */
+.planit-login-google:hover:not(:disabled) {
+    background: linear-gradient(45deg, #4285f4, #34a853);
+    color: var(--text-color-inv);
+    border-color: #4285f4;
+}
+
+.planit-login-facebook:hover:not(:disabled) {
+    background: linear-gradient(45deg, #1877f2, #42a5f5);
+    color: var(--text-color-inv);
+    border-color: #1877f2;
+}
+
+.planit-login-github:hover:not(:disabled) {
+    background: linear-gradient(45deg, #333, #24292e);
+    color: var(--text-color-inv);
+    border-color: #333;
+}
+
+/* Responsive design for social login */
+@media (max-width: 480px) {
+    .planit-login-social-button {
+        padding: calc(var(--nav-size) * 0.3);
+        font-size: calc(var(--nav-size) * 0.22);
+        min-height: calc(var(--nav-size) * 0.9);
+    }
+    
+    .planit-login-divider span {
+        font-size: calc(var(--nav-size) * 0.22);
+        padding: 0 calc(var(--nav-size) * 0.25);
+    }
+}
+
+@media (min-width: 481px) {
+    .planit-login-social-buttons {
+        flex-direction: row;
+        gap: calc(var(--nav-size) * 0.2);
+    }
+    
+    .planit-login-social-button {
+        flex: 1;
+        min-width: 0;
+        font-size: calc(var(--nav-size) * 0.22);
+        padding: calc(var(--nav-size) * 0.25);
+    }
+}

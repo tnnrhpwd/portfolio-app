@@ -34,6 +34,7 @@ import Net from './pages/Simple/Net/Net.jsx';
 import About from './pages/Simple/About/About.jsx'
 import Agenda from './pages/Simple/Agenda/Agenda.jsx';
 import Simple from './pages/Simple/Simple/Simple.jsx';
+import Support from './pages/Support/Support.jsx';
 import Privacy from './pages/Privacy/Privacy.jsx';
 import Terms from './pages/Terms/Terms.jsx';
 import 'react-toastify/dist/ReactToastify.css';
@@ -68,6 +69,7 @@ function App() {
             <Route path='/Simple' element={<Simple />} />
             <Route path="/sleepassist" element={<SleepAssist/>} />
             <Route path="/sonic" element={<Sonic/>} />
+            <Route path='/support' element={<Support />} />
             <Route path='/terms' element={<Terms />} />
             <Route path="/wordle" element={<Wordle/>} />
             <Route path="/wordlesolver" element={<WordleSolver/>} />
