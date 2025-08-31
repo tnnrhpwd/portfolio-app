@@ -179,6 +179,28 @@ const getUserBugReports = async (token, userId) => {
     }
 }
 
+// Close bug report with resolution text
+const closeBugReport = async (reportId, resolutionText, token) => {
+    const config = {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    }
+
+    console.log('Calling PUT URL to close bug report:', API_URL + reportId);
+    console.log('Resolution text:', resolutionText);
+
+    try {
+        const response = await axios.put(API_URL + reportId, {
+            action: 'close_bug_report',
+            resolutionText: resolutionText
+        }, config);
+        return response.data;
+    } catch (error) {
+        handleTokenExpiration(error);
+    }
+}
+
 // Update user data
 const updateData = async (dataData, token) => {
     const config = {
@@ -451,6 +473,7 @@ const dataService = {
     getPublicData,
     getAllData,
     getUserBugReports,
+    closeBugReport,
     updateData,
     deleteData,
     compressData,

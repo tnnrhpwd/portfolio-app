@@ -13,7 +13,7 @@
   padding: 10px 15px;
   cursor: pointer;
   background-color: var(--bg-2);
-  transition: background-color 0.3s ease;
+  transition: background-color 12s ease;
 }
 
 .collapsible-header:hover {
@@ -27,7 +27,7 @@
 
 .collapse-icon {
   font-size: calc(var(--nav-size) * 0.2);
-  transition: transform 0.3s ease;
+  transition: transform 3s ease;
 }
 
 .collapse-icon.collapsed {

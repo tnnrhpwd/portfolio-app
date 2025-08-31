@@ -105,6 +105,9 @@ const getHashData = asyncHandler(async (req, res) => {
                     device: bugData.device || '',
                     status: bugData.status || 'Open',
                     creator: bugData.creator || '',
+                    resolution: bugData.resolution || '',
+                    resolvedBy: bugData.resolvedby || '',
+                    resolvedAt: bugData.resolvedat || '',
                     timestamp: bugData.timestamp || item.createdAt,
                     createdAt: item.createdAt,
                     updatedAt: item.updatedAt

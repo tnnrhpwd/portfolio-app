@@ -156,6 +156,24 @@ export const getUserBugReports = createAsyncThunk(
   }
 );
 
+// Close bug report with resolution
+export const closeBugReport = createAsyncThunk(
+  'data/closeBugReport',
+  async ({ reportId, resolutionText }, thunkAPI) => {
+    try {
+      const token = thunkAPI.getState().data.user.token;
+      return await dataService.closeBugReport(reportId, resolutionText, token);
+    } catch (error) {
+      const dataMessage =
+        (error.response && error.response.data && error.response.data.dataMessage) ||
+        (error.response && error.response.data && error.response.data.error) ||
+        error.dataMessage ||
+        error.toString();
+      return thunkAPI.rejectWithValue(dataMessage);
+    }
+  }
+);
+
 // Fetch payment methods
 export const getPaymentMethods = createAsyncThunk(
   'data/getPaymentMethods',
@@ -566,6 +584,33 @@ export const dataSlice = createSlice({
         state.operation = 'getUserBugReports'
       })
       .addCase(getUserBugReports.rejected, (state, action) => {
+        state.dataIsLoading = false
+        state.dataIsError = true
+        state.dataMessage = action.payload
+        state.operation = null
+      })
+      .addCase(closeBugReport.pending, (state) => {
+        state.dataIsLoading = true
+        state.operation = null
+      })
+      .addCase(closeBugReport.fulfilled, (state, action) => {
+        state.dataIsLoading = false
+        state.dataIsSuccess = true
+        // Update the specific bug report in userBugReports if it exists
+        if (state.userBugReports && Array.isArray(state.userBugReports.data)) {
+          const reportIndex = state.userBugReports.data.findIndex(report => report.id === action.meta.arg.reportId);
+          if (reportIndex !== -1) {
+            state.userBugReports.data[reportIndex] = {
+              ...state.userBugReports.data[reportIndex],
+              status: 'Closed',
+              resolution: action.meta.arg.resolutionText,
+              updatedAt: new Date().toISOString()
+            };
+          }
+        }
+        state.operation = 'closeBugReport'
+      })
+      .addCase(closeBugReport.rejected, (state, action) => {
         state.dataIsLoading = false
         state.dataIsError = true
         state.dataMessage = action.payload

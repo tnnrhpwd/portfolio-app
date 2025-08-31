@@ -41,6 +41,13 @@ const putHashData = asyncHandler(async (req, res) => {
         console.log('id type:', typeof req.params.id);
         console.log('id length:', req.params.id.length);
 
+        // Check if this is a bug report close action
+        if (req.body.action === 'close_bug_report') {
+            console.log('Processing bug report closure');
+            await closeBugReportHandler(req, res);
+            return;
+        }
+
         // Try using scan instead of get, like the working controllers
         const scanParams = {
             TableName: 'Simple',
@@ -211,6 +218,95 @@ const updateDataHolder = async (req, res, item) => {
     } catch (error) {
         console.error('Error updating data in DynamoDB:', error);
         res.status(500).json({ error: 'Failed to update data in DynamoDB' });
+    }
+};
+
+// Handle bug report closure with resolution text
+const closeBugReportHandler = async (req, res) => {
+    const { resolutionText } = req.body;
+    const reportId = req.params.id;
+
+    console.log('Closing bug report with ID:', reportId);
+    console.log('Resolution text:', resolutionText);
+
+    try {
+        // Find the bug report
+        const scanParams = {
+            TableName: 'Simple',
+            FilterExpression: "id = :searchId",
+            ExpressionAttributeValues: {
+                ":searchId": reportId
+            }
+        };
+
+        const scanResult = await dynamodb.send(new ScanCommand(scanParams));
+        
+        if (!scanResult.Items || scanResult.Items.length === 0) {
+            console.log('Bug report not found');
+            res.status(404).json({ error: 'Bug report not found' });
+            return;
+        }
+
+        const item = scanResult.Items[0];
+
+        // Check if this is actually a bug report
+        if (!item.text || !item.text.includes('Bug:') || !item.text.includes('Status:')) {
+            res.status(400).json({ error: 'Item is not a bug report' });
+            return;
+        }
+
+        // Check if user is admin or the creator of the bug report
+        const isAdmin = req.user.id === '6770a067c725cbceab958619';
+        let isCreator = false;
+        
+        if (item.text.includes('Creator:')) {
+            const creatorMatch = item.text.match(/Creator:([^|]+)/);
+            if (creatorMatch) {
+                const creatorId = creatorMatch[1].trim();
+                isCreator = creatorId === req.user.id || creatorId === req.user.email;
+            }
+        }
+
+        if (!isAdmin && !isCreator) {
+            res.status(403).json({ error: 'Not authorized to close this bug report' });
+            return;
+        }
+
+        // Update the bug report text to mark as closed and add resolution
+        let updatedText = item.text;
+        
+        // Update status to Closed
+        updatedText = updatedText.replace(/Status:([^|]+)/, 'Status:Closed');
+        
+        // Add resolution text
+        const timestamp = new Date().toISOString();
+        const resolvedBy = isAdmin ? `Admin (${req.user.email || req.user.id})` : `User (${req.user.email || req.user.id})`;
+        
+        // Add resolution information to the bug report
+        updatedText += `|Resolution:${resolutionText}|ResolvedBy:${resolvedBy}|ResolvedAt:${timestamp}`;
+
+        // Update the item in DynamoDB
+        const putParams = {
+            TableName: 'Simple',
+            Item: {
+                ...item,
+                text: updatedText,
+                updatedAt: timestamp
+            }
+        };
+
+        await dynamodb.send(new PutCommand(putParams));
+        console.log('Bug report closed successfully');
+        
+        res.status(200).json({
+            success: true,
+            message: 'Bug report closed successfully',
+            updatedItem: putParams.Item
+        });
+
+    } catch (error) {
+        console.error('Error closing bug report:', error);
+        res.status(500).json({ error: 'Failed to close bug report' });
     }
 };
 

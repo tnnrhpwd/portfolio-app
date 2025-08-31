@@ -48,31 +48,40 @@ function HeaderDropper(props) {
         <div className='planit-header-logo-nav'>
           <Link to='/' onClick={() => {window.scrollTo(0,0); document.getElementById("planit-header-dropper__toggle").checked = false;}}></Link>
         </div>
+        
+        {/* User Account & Settings (Always at top) */}
         {(props.colTheme==="dark-theme") && <button className='planit-header-dropper-themebutton' onClick={props.handleThemeToggle}>Light Mode</button>}
         {(props.colTheme==="light-theme") && <button className='planit-header-dropper-themebutton' onClick={props.handleThemeToggle}>Dark Mode</button>}
-          {user ? (<>
-            {(user) && <a className='planit-header-dropper-signer' href='/profile'>Signed in as {user.nickname}</a>}
-            <a className='planit-header-dropper-profile' href='/profile'>Profile</a>
-            </>) : (
-            <a className='planit-header-dropper-profile' href='/login' >Log in</a>
-          )}
+        {user ? (<>
+          {(user) && <a className='planit-header-dropper-signer' href='/profile'>Signed in as {user.nickname}</a>}
+          <a className='planit-header-dropper-profile' href='/profile'>Profile</a>
+        </>) : (
+          <a className='planit-header-dropper-profile' href='/login' >Log in</a>
+        )}
+        
+        {/* Core Information */}
         <a className='planit-header-dropper-pagelink' href='/about'>◽About</a>
-        <a className='planit-header-dropper-pagelink' href='/annuities'>◽Annuities</a>
-        <a className='planit-header-dropper-pagelink' href='/wordle'>◽Wordle</a>
         <a className='planit-header-dropper-pagelink' href='/support'>◽Support</a>
-        {( user ) 
-          ?(<>   
-            {/* <a className='planit-header-dropper-pagelink' href='/settings'>Settings</a> */}
-            {/* <a className='planit-header-dropper-pagelink' href='/agenda'>◽Agenda</a> */}
-            {(user._id && user._id.toString() === '6770a067c725cbceab958619') && 
-              <a className='planit-header-dropper-pagelink' href='/admin'>◽Admin</a>}
+        
+        {/* Financial Tools */}
+        <a className='planit-header-dropper-pagelink' href='/annuities'>◽Annuities</a>
+        {user && <a className='planit-header-dropper-pagelink' href='/plans'>◽Plans</a>}
+        
+        {/* Utilities & Tools */}
+        {user && (
+          <>
             <a className='planit-header-dropper-pagelink' href='/passgen'>◽Passwords</a>
             <a className='planit-header-dropper-pagelink' href='/simple'>◽Simple</a>
             <a className='planit-header-dropper-pagelink' href='/net'>◽Net</a>
-            <a className='planit-header-dropper-pagelink' href='/plans'>◽Plans</a>
-          </>)
-          :null
-        }
+          </>
+        )}
+        
+        {/* Games & Entertainment */}
+        <a className='planit-header-dropper-pagelink' href='/wordle'>◽Wordle</a>
+        
+        {/* Admin (Special Access) */}
+        {(user && user._id && user._id.toString() === '6770a067c725cbceab958619') && 
+          <a className='planit-header-dropper-pagelink' href='/admin'>◽Admin</a>}
       </ul>
     </div>
   )

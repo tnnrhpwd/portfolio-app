@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import Header from "../../components/Header/Header.jsx";
 import Footer from "../../components/Footer/Footer.jsx";
 import { useNavigate } from "react-router-dom";
-import { getAllData } from "../../features/data/dataSlice";
+import { getAllData, closeBugReport } from "../../features/data/dataSlice";
 import CollapsibleSection from "../../components/Admin/CollapsibleSection.jsx";
 import ScrollableTable from "../../components/Admin/ScrollableTable.jsx";
 import VisitorMap from "../../components/Admin/VisitorMap.jsx";
@@ -19,6 +19,9 @@ function Admin() {
   const [allObjectArray, setAllObjectArray] = useState([]);
   const [visitorLocations, setVisitorLocations] = useState([]);
   const [filteredMapLocations, setFilteredMapLocations] = useState([]);
+  const [closingBugId, setClosingBugId] = useState(null);
+  const [resolutionText, setResolutionText] = useState("");
+  const [showResolutionModal, setShowResolutionModal] = useState(false);
 
   // Calculate default "From" and "To" dates
   const today = new Date().toISOString().split("T")[0];
@@ -229,6 +232,128 @@ function Admin() {
     }
   }, []);
 
+  // Filter functions for bug reports and ratings
+  const getBugReports = useCallback(() => {
+    if (!allObjectArray || !Array.isArray(allObjectArray)) return [];
+    
+    return allObjectArray
+      .filter(item => 
+        item.text && 
+        item.text.includes('Bug:') && 
+        item.text.includes('Status:') &&
+        item.text.includes('Creator:')
+      )
+      .map(item => {
+        const text = item.text || '';
+        const bugData = {};
+        
+        // Parse the pipe-delimited data
+        const parts = text.split('|');
+        parts.forEach(part => {
+          const [key, ...valueParts] = part.split(':');
+          if (key && valueParts.length > 0) {
+            bugData[key.toLowerCase()] = valueParts.join(':');
+          }
+        });
+        
+        return {
+          id: item.id || item._id,
+          title: bugData.bug || 'Untitled Bug Report',
+          severity: bugData.severity || 'medium',
+          description: bugData.description || '',
+          steps: bugData.steps || '',
+          expected: bugData.expected || '',
+          actual: bugData.actual || '',
+          browser: bugData.browser || '',
+          device: bugData.device || '',
+          status: bugData.status || 'Open',
+          creator: bugData.creator || 'Unknown',
+          resolution: bugData.resolution || '',
+          resolvedby: bugData.resolvedby || '',
+          resolvedat: bugData.resolvedat || '',
+          timestamp: bugData.timestamp || item.createdAt,
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt
+        };
+      })
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); // Sort by newest first
+  }, [allObjectArray]);
+
+  // Handle closing bug reports
+  const handleCloseBugReport = useCallback(async (reportId) => {
+    if (!resolutionText.trim()) {
+      toast.error('Please enter a resolution description before closing the report.');
+      return;
+    }
+
+    try {
+      await dispatch(closeBugReport({ reportId, resolutionText })).unwrap();
+      toast.success('Bug report closed successfully!');
+      setShowResolutionModal(false);
+      setResolutionText('');
+      setClosingBugId(null);
+      
+      // Refresh data to show updated status
+      dispatch(getAllData());
+    } catch (error) {
+      console.error('Error closing bug report:', error);
+      toast.error('Failed to close bug report. Please try again.');
+    }
+  }, [dispatch, resolutionText]);
+
+  const openResolutionModal = useCallback((reportId) => {
+    setClosingBugId(reportId);
+    setShowResolutionModal(true);
+    setResolutionText('');
+  }, []);
+
+  const closeResolutionModal = useCallback(() => {
+    setShowResolutionModal(false);
+    setResolutionText('');
+    setClosingBugId(null);
+  }, []);
+
+  const getRatingsAndReviews = useCallback(() => {
+    if (!allObjectArray || !Array.isArray(allObjectArray)) return [];
+    
+    return allObjectArray
+      .filter(item => 
+        item.text && 
+        (item.text.includes('Review:') || item.text.includes('Rating:')) &&
+        item.text.includes('User:')
+      )
+      .map(item => {
+        const text = item.text || '';
+        const reviewData = {};
+        
+        // Parse the pipe-delimited data
+        const parts = text.split('|');
+        parts.forEach(part => {
+          const [key, ...valueParts] = part.split(':');
+          if (key && valueParts.length > 0) {
+            reviewData[key.toLowerCase()] = valueParts.join(':');
+          }
+        });
+        
+        return {
+          id: item.id || item._id,
+          title: reviewData.review || 'Untitled Review',
+          category: reviewData.category || 'General',
+          rating: reviewData.rating || 'N/A',
+          content: reviewData.content || '',
+          user: reviewData.user || 'Anonymous',
+          timestamp: reviewData.timestamp || item.createdAt,
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt
+        };
+      })
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); // Sort by newest first
+  }, [allObjectArray]);
+
+  // Get filtered data
+  const bugReports = useMemo(() => getBugReports(), [getBugReports]);
+  const ratingsAndReviews = useMemo(() => getRatingsAndReviews(), [getRatingsAndReviews]);
+
   console.log("All Data:", allObjectArray);
   console.log("Number of items:", allObjectArray.length);
   
@@ -360,9 +485,183 @@ function Admin() {
                   <p className="admin-no-data">No visitor data available</p>
                 )}
               </CollapsibleSection>
+              
+              <CollapsibleSection title="🐛 Bug Reports" defaultCollapsed={true}>
+                {bugReports.length > 0 ? (
+                  <ScrollableTable 
+                    headers={[
+                      { key: "title", label: "Bug Title" },
+                      { key: "severity", label: "Severity" },
+                      { key: "status", label: "Status" },
+                      { key: "creator", label: "Reporter" },
+                      { key: "description", label: "Description" },
+                      { key: "browser", label: "Browser" },
+                      { key: "createdAt", label: "Submitted" },
+                      { key: "actions", label: "Actions" },
+                    ]}
+                    data={bugReports}
+                    filterFn={(item, searchText) => {
+                      return Object.values(item).some(
+                        val => typeof val === 'string' && val.toLowerCase().includes(searchText.toLowerCase())
+                      );
+                    }}
+                    renderRow={(report) => (
+                      <tr key={report.id} className="admin-table-row">
+                        <td className="admin-table-row-text">
+                          <strong>{report.title}</strong>
+                          {report.resolution && (
+                            <div className="report-resolution">
+                              <strong>Resolution:</strong> {report.resolution}
+                              <br />
+                              <small>
+                                Resolved by {report.resolvedby} 
+                                {report.resolvedat && ` on ${new Date(report.resolvedat).toLocaleDateString()}`}
+                              </small>
+                            </div>
+                          )}
+                        </td>
+                        <td className="admin-table-row-text">
+                          <span className={`severity-badge severity-${report.severity}`}>
+                            {report.severity === 'low' && '🟢 Low'}
+                            {report.severity === 'medium' && '🟡 Medium'}
+                            {report.severity === 'high' && '🟠 High'}
+                            {report.severity === 'critical' && '🔴 Critical'}
+                          </span>
+                        </td>
+                        <td className="admin-table-row-text">
+                          <span className={`status-badge status-${report.status.toLowerCase()}`}>
+                            {report.status === 'Open' ? '🔓 Open' : '🔒 Closed'}
+                          </span>
+                        </td>
+                        <td className="admin-table-row-text">{report.creator}</td>
+                        <td className="admin-table-row-text">
+                          {report.description.length > 100 
+                            ? report.description.substring(0, 100) + '...' 
+                            : report.description}
+                        </td>
+                        <td className="admin-table-row-text">
+                          {report.browser.includes('Chrome') && '🌐 Chrome'}
+                          {report.browser.includes('Firefox') && '🦊 Firefox'}
+                          {report.browser.includes('Safari') && '🧭 Safari'}
+                          {report.browser.includes('Edge') && '🔷 Edge'}
+                          {!report.browser.includes('Chrome') && !report.browser.includes('Firefox') && 
+                           !report.browser.includes('Safari') && !report.browser.includes('Edge') && '🌐 Other'}
+                        </td>
+                        <td className="admin-table-row-text">{formatTimestamp(report.createdAt)}</td>
+                        <td className="admin-table-row-text">
+                          {report.status === 'Open' ? (
+                            <button
+                              className="admin-close-report-btn"
+                              onClick={() => openResolutionModal(report.id)}
+                              title="Close this bug report"
+                            >
+                              ✅ Close
+                            </button>
+                          ) : (
+                            <span className="admin-report-closed">Resolved</span>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  />
+                ) : (
+                  <p className="admin-no-data">No bug reports found</p>
+                )}
+              </CollapsibleSection>
+
+              <CollapsibleSection title="⭐ User Ratings & Reviews" defaultCollapsed={true}>
+                {ratingsAndReviews.length > 0 ? (
+                  <ScrollableTable 
+                    headers={[
+                      { key: "title", label: "Review Title" },
+                      { key: "rating", label: "Rating" },
+                      { key: "category", label: "Category" },
+                      { key: "user", label: "User" },
+                      { key: "content", label: "Review Content" },
+                      { key: "createdAt", label: "Submitted" },
+                    ]}
+                    data={ratingsAndReviews}
+                    filterFn={(item, searchText) => {
+                      return Object.values(item).some(
+                        val => typeof val === 'string' && val.toLowerCase().includes(searchText.toLowerCase())
+                      );
+                    }}
+                    renderRow={(review) => (
+                      <tr key={review.id} className="admin-table-row">
+                        <td className="admin-table-row-text">
+                          <strong>{review.title}</strong>
+                        </td>
+                        <td className="admin-table-row-text">
+                          <span className="rating-badge">
+                            {'⭐'.repeat(parseInt(review.rating) || 0)} {review.rating}
+                          </span>
+                        </td>
+                        <td className="admin-table-row-text">
+                          <span className="category-badge">{review.category}</span>
+                        </td>
+                        <td className="admin-table-row-text">{review.user}</td>
+                        <td className="admin-table-row-text">
+                          {review.content.length > 150 
+                            ? review.content.substring(0, 150) + '...' 
+                            : review.content}
+                        </td>
+                        <td className="admin-table-row-text">{formatTimestamp(review.createdAt)}</td>
+                      </tr>
+                    )}
+                  />
+                ) : (
+                  <p className="admin-no-data">No ratings or reviews found</p>
+                )}
+              </CollapsibleSection>
             </>
           )}
         </section>
+        
+        {/* Resolution Modal */}
+        {showResolutionModal && (
+          <div className="admin-modal-overlay">
+            <div className="admin-modal">
+              <div className="admin-modal-header">
+                <h3>🔒 Close Bug Report</h3>
+                <button 
+                  className="admin-modal-close" 
+                  onClick={closeResolutionModal}
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="admin-modal-content">
+                <label htmlFor="resolutionText">Resolution Description:</label>
+                <textarea
+                  id="resolutionText"
+                  value={resolutionText}
+                  onChange={(e) => setResolutionText(e.target.value)}
+                  placeholder="Describe how this bug was resolved or why it's being closed..."
+                  rows="4"
+                  maxLength="500"
+                />
+                <small className="admin-char-count">
+                  {resolutionText.length}/500 characters
+                </small>
+              </div>
+              <div className="admin-modal-actions">
+                <button 
+                  className="admin-modal-cancel" 
+                  onClick={closeResolutionModal}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className="admin-modal-confirm"
+                  onClick={() => handleCloseBugReport(closingBugId)}
+                  disabled={!resolutionText.trim()}
+                >
+                  Close Report
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       <Footer />
     </>

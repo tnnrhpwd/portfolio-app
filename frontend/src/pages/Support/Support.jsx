@@ -809,6 +809,21 @@ function Support() {
                             </div>
                           </div>
                           
+                          {report.status === 'Closed' && report.resolution && (
+                            <div className="support-resolution-section">
+                              <strong>🔒 Resolution:</strong>
+                              <div className="support-resolution-content">
+                                <p>{report.resolution}</p>
+                                {report.resolvedBy && (
+                                  <small className="support-resolution-info">
+                                    Resolved by {report.resolvedBy}
+                                    {report.resolvedAt && ` on ${new Date(report.resolvedAt).toLocaleDateString()}`}
+                                  </small>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
                           <div className="support-report-system-info">
                             <strong>System Information:</strong>
                             <p><strong>Browser:</strong> {report.browser}</p>
