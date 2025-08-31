@@ -53,6 +53,8 @@ function Settings() {
     timeZone: '', // New setting
   });
 
+  const [isResetPasswordLoading, setIsResetPasswordLoading] = useState(false);
+
   useEffect(() => {
     if (!user) {
       navigate('/login');
@@ -116,6 +118,55 @@ function Settings() {
     console.log('Settings submitted:', settings);
     toast.success('Settings updated successfully!', { autoClose: 2000 });
     // dispatch(updateSettings(settings));
+  };
+
+  const handlePasswordReset = async () => {
+    // Extract email from user object
+    const userEmail = user?.email;
+    
+    if (!userEmail) {
+      toast.error('Unable to send password reset email. No email address found.', { autoClose: 3000 });
+      return;
+    }
+
+    // Show confirmation dialog
+    const isConfirmed = window.confirm(
+      `Are you sure you want to reset your password?\n\n` +
+      `A password reset email will be sent to: ${userEmail}\n\n` +
+      `You will need to click the link in the email to complete the password reset process.`
+    );
+
+    if (!isConfirmed) {
+      return; // User cancelled
+    }
+
+    setIsResetPasswordLoading(true);
+    try {
+      const API_BASE_URL = process.env.NODE_ENV === 'production' 
+        ? 'https://www.sthopwood.com' 
+        : 'http://localhost:5000';
+      
+      const response = await fetch(`${API_BASE_URL}/api/data/forgot-password-authenticated`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`, // Include auth token for authenticated request
+        },
+        body: JSON.stringify({}), // Empty body since email comes from auth
+      });
+
+      if (response.ok) {
+        toast.success(`Password reset email sent to ${userEmail}`, { autoClose: 5000 });
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to send password reset email');
+      }
+    } catch (error) {
+      console.error('Password reset error:', error);
+      toast.error('Failed to send password reset email. Please try again.', { autoClose: 3000 });
+    } finally {
+      setIsResetPasswordLoading(false);
+    }
   };
 
   if (user) {
@@ -190,6 +241,18 @@ function Settings() {
                         className="planit-settings-input"
                         placeholder="Enter address"
                       />
+                    </div>
+
+                    <div className="planit-settings-item">
+                      <label className="planit-settings-label">🔐 Password</label>
+                      <button
+                        type="button"
+                        onClick={handlePasswordReset}
+                        disabled={isResetPasswordLoading}
+                        className="planit-settings-password-reset-button"
+                      >
+                        {isResetPasswordLoading ? '📤 Sending...' : '🔐 Reset Password'}
+                      </button>
                     </div>
                   </div>
                 </div>

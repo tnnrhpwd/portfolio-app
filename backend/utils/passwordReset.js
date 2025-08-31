@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const asyncHandler = require('express-async-handler');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
-const { sendEmail } = require('../utils/emailService');
+const { sendEmail } = require('./emailService');
 const useragent = require('useragent');
 const ipinfo = require('ipinfo');
 
@@ -300,7 +300,98 @@ const resetPassword = asyncHandler(async (req, res) => {
     }
 });
 
+/**
+ * @desc    Send password reset email for authenticated user
+ * @route   POST /api/data/forgot-password-authenticated  
+ * @access  Private
+ */
+const forgotPasswordAuthenticated = asyncHandler(async (req, res) => {
+    const user = req.user; // Get user from auth middleware
+    
+    if (!user || !user.text) {
+        res.status(400);
+        throw new Error('User authentication required');
+    }
+
+    // Extract email from user text field
+    const userText = user.text;
+    const emailMatch = userText.match(/\|Email:([^|]+)/);
+    
+    if (!emailMatch) {
+        res.status(400);
+        throw new Error('User email not found');
+    }
+    
+    const userEmail = emailMatch[1];
+
+    // Get IP and location information
+    const requestInfo = await getIPLocationInfo(req);
+
+    try {
+        // We already have the user record from auth middleware, no need to search again
+        // Extract user nickname
+        const userNickname = userText.substring(userText.indexOf('Nickname:') + 9, userText.indexOf('|Email:'));
+        
+        // Generate reset token
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour from now
+        
+        // Store reset token in database
+        // Add or update reset token fields in the user's text
+        let updatedText = userText;
+        
+        // Remove existing reset token fields if they exist
+        updatedText = updatedText.replace(/\|ResetToken:[^|]*/, '');
+        updatedText = updatedText.replace(/\|ResetTokenExpiry:[^|]*/, '');
+        
+        // Add new reset token fields
+        updatedText += `|ResetToken:${resetToken}|ResetTokenExpiry:${resetTokenExpiry}`;
+        
+        const putParams = {
+            TableName: 'Simple',
+            Item: {
+                ...user, // Keep all existing data
+                text: updatedText, // Update the text
+                updatedAt: new Date().toISOString() // Update timestamp
+            }
+        };
+
+        await dynamodb.send(new PutCommand(putParams));
+        
+        // Create reset link with proper environment detection
+        const getBaseUrl = () => {
+            if (process.env.NODE_ENV === 'production') {
+                return process.env.FRONTEND_URL || 'https://www.sthopwood.com';
+            } else {
+                return process.env.FRONTEND_URL || 'http://localhost:3000';
+            }
+        };
+        
+        const resetLink = `${getBaseUrl()}/reset-password?token=${resetToken}`;
+        
+        // Send password reset email
+        await sendEmail(userEmail, 'passwordReset', {
+            resetLink,
+            userNickname: userNickname.trim(),
+            requestInfo
+        });
+        
+        console.log(`Authenticated password reset email sent to: ${userEmail}`);
+        
+        res.status(200).json({
+            success: true,
+            message: `Password reset email sent to ${userEmail}`
+        });
+        
+    } catch (error) {
+        console.error('Error in forgotPasswordAuthenticated:', error);
+        res.status(500);
+        throw new Error('Server error while processing authenticated password reset request');
+    }
+});
+
 module.exports = {
     forgotPassword,
-    resetPassword
+    resetPassword,
+    forgotPasswordAuthenticated
 };

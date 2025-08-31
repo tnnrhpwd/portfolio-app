@@ -69,7 +69,7 @@ const {
   handleWebhook, setCustomLimit,
   putData,
   putHashData, putPaymentMethod, updateCustomer,
-  forgotPassword, resetPassword,
+  forgotPassword, resetPassword, forgotPasswordAuthenticated,
 } = require('../controllers');
 
 // Public routes with validation
@@ -116,6 +116,19 @@ router.post('/reset-password',
     next();
   },
   resetPassword
+);
+
+// Authenticated password reset route
+router.post('/forgot-password-authenticated', 
+  protect, // Require authentication
+  authLimiter,
+  (req, res, next) => {
+    logSecurityEvent('authenticated_password_reset_request', { 
+      email: req.user?.email 
+    }, req);
+    next();
+  },
+  forgotPasswordAuthenticated
 );
 
 router.route('/public') 

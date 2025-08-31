@@ -480,6 +480,72 @@
     box-shadow: 0 2px 8px var(--grey3-transp);
 }
 
+/* Password Reset Button Specific Styling */
+.planit-settings-password-reset-button {
+    padding: calc(var(--nav-size) * 0.3);
+    font-size: calc(var(--nav-size) * 0.18);
+    background: linear-gradient(90deg, var(--fg-blue), var(--bg-mint));
+    color: var(--text-color-inv);
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: 0 2px 8px var(--grey3-transp);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    min-height: calc(var(--nav-size) * 0.8);
+    width: 100%;
+}
+
+.planit-settings-password-reset-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Responsive password reset button sizing */
+@media (orientation: landscape) {
+    .planit-settings-password-reset-button {
+        padding: calc(var(--nav-size) * 0.35);
+        font-size: calc(var(--nav-size) * 0.2);
+        min-height: calc(var(--nav-size) * 0.9);
+    }
+    
+    @media (min-width: 1024px) and (hover: hover) {
+        .planit-settings-password-reset-button {
+            padding: calc(var(--nav-size) * 0.4);
+            font-size: calc(var(--nav-size) * 0.22);
+            min-height: calc(var(--nav-size) * 1);
+        }
+        
+        .planit-settings-password-reset-button:hover:not(:disabled) {
+            background: linear-gradient(90deg, var(--bg-mint), var(--fg-blue));
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+            transform: translateY(-2px);
+        }
+    }
+}
+
+@media (orientation: portrait) {
+    .planit-settings-password-reset-button {
+        padding: calc(var(--nav-size) * 0.4);
+        font-size: calc(var(--nav-size) * 0.16);
+        min-height: calc(var(--nav-size) * 1);
+    }
+    
+    @media (max-width: 480px) {
+        .planit-settings-password-reset-button {
+            padding: calc(var(--nav-size) * 0.45);
+            font-size: calc(var(--nav-size) * 0.18);
+            min-height: calc(var(--nav-size) * 1.1);
+        }
+    }
+    
+    .planit-settings-password-reset-button:active:not(:disabled) {
+        transform: translateY(1px);
+        box-shadow: 0 2px 8px var(--grey3-transp);
+    }
+}
+
 /* Checkbox Items */
 .planit-settings-checkbox-item {
     background: var(--white1-transp);

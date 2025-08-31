@@ -12,7 +12,7 @@ const { postHashData, compressData, createCustomer,
     handleWebhook, setCustomLimit } = require('./postHashData'); // CREATE protected data
 const { putData } = require('./putData'); // UPDATE public data
 const { putHashData, updateCustomer, putPaymentMethod } = require('./putHashData'); // UPDATE protected data
-const { forgotPassword, resetPassword } = require('./passwordReset'); // Password reset functionality
+const { forgotPassword, resetPassword, forgotPasswordAuthenticated } = require('../utils/passwordReset'); // Password reset functionality
 
 module.exports = {
     deleteData,
@@ -25,5 +25,5 @@ module.exports = {
     handleWebhook, setCustomLimit,
     putData,
     putHashData, updateCustomer, putPaymentMethod,
-    forgotPassword, resetPassword,
+    forgotPassword, resetPassword, forgotPasswordAuthenticated,
 };
