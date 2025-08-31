@@ -36,6 +36,31 @@ const validateLogin = [
     .withMessage('Password is required'),
 ];
 
+// Validation rules for forgot password request
+const validateForgotPassword = [
+  body('email')
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('Please provide a valid email address')
+    .isLength({ max: 100 })
+    .withMessage('Email must not exceed 100 characters'),
+];
+
+// Validation rules for password reset
+const validatePasswordReset = [
+  body('token')
+    .notEmpty()
+    .withMessage('Reset token is required')
+    .isLength({ min: 32, max: 128 })
+    .withMessage('Invalid reset token format'),
+  
+  body('password')
+    .isLength({ min: 6, max: 128 })
+    .withMessage('Password must be between 6 and 128 characters')
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .withMessage('Password must contain at least one lowercase letter, one uppercase letter, and one number'),
+];
+
 // Validation rules for data creation
 const validateDataCreation = [
   body('text')
@@ -135,6 +160,8 @@ const sanitizeInput = (req, res, next) => {
 module.exports = {
   validateRegistration,
   validateLogin,
+  validateForgotPassword,
+  validatePasswordReset,
   validateDataCreation,
   validatePaymentData,
   handleValidationErrors,

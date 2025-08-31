@@ -6,6 +6,8 @@ const { authLimiter, paymentLimiter } = require('../middleware/rateLimiter');
 const { 
   validateRegistration, 
   validateLogin, 
+  validateForgotPassword,
+  validatePasswordReset,
   validateDataCreation,
   validatePaymentData,
   handleValidationErrors 
@@ -67,6 +69,7 @@ const {
   handleWebhook, setCustomLimit,
   putData,
   putHashData, putPaymentMethod, updateCustomer,
+  forgotPassword, resetPassword,
 } = require('../controllers');
 
 // Public routes with validation
@@ -90,6 +93,29 @@ router.post('/login',
     next();
   },
   loginUser
+);
+
+// Password reset routes
+router.post('/forgot-password', 
+  authLimiter,
+  validateForgotPassword,
+  handleValidationErrors,
+  (req, res, next) => {
+    logSecurityEvent('password_reset_request', { email: req.body.email }, req);
+    next();
+  },
+  forgotPassword
+);
+
+router.post('/reset-password', 
+  authLimiter,
+  validatePasswordReset,
+  handleValidationErrors,
+  (req, res, next) => {
+    logSecurityEvent('password_reset_attempt', { token: req.body.token }, req);
+    next();
+  },
+  resetPassword
 );
 
 router.route('/public') 

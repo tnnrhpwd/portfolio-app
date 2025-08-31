@@ -239,6 +239,9 @@ function Login() {
                         <a href="/register">
                             <button className="planit-login-register">Register</button>
                         </a>
+                        <a href="/forgot-password">
+                            <button className="planit-login-forgot">Forgot Password?</button>
+                        </a>
                         {devMode && (
                             <button 
                                 onClick={handleGuestLogin} 

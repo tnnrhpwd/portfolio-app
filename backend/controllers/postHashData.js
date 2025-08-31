@@ -1359,7 +1359,7 @@ const setCustomLimit = asyncHandler(async (req, res) => {
                     enabled: true,
                 },
                 confirm: true,
-                return_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/profile`
+                return_url: `${process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://www.sthopwood.com' : 'http://localhost:3000')}/profile`
             });
 
             console.log('Payment processed successfully for limit increase:', paymentIntent.id);

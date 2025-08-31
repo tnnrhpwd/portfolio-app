@@ -8,6 +8,7 @@ import Annuities from './pages/Projects/Annuities/Annuities';
 import Contact from './pages/Contact/Contact';
 import Drafting from "./pages/Projects/Drafting/Drafting";
 import Ethanol from './pages/Projects/Ethanol/Ethanol';
+import ForgotPassword from './pages/ForgotPassword/ForgotPassword.jsx';
 import GFreq from './pages/Projects/GFreq/GFreq';
 import Halfway from './pages/Projects/Halfway/Halfway';
 import Home from './pages/Home/Home';
@@ -15,6 +16,7 @@ import PollBox from './pages/Projects/PollBox/PollBox';
 import PassGen from './pages/Projects/PassGen/PassGen';
 import ProdPartners from './pages/Projects/ProdPartners/ProdPartners';
 import Projects from './pages/Projects/Projects/Projects';
+import ResetPassword from './pages/ResetPassword/ResetPassword.jsx';
 import SleepAssist from './pages/Projects/SleepAssist/SleepAssist';
 import Sonic from './pages/Projects/Sonic/Sonic';
 import Wordle from './pages/Projects/Wordle/Wordle';
@@ -51,6 +53,7 @@ function App() {
             <Route path="/annuities" element={<Annuities/>} />
             <Route path="/contact" element={<Contact/>} />
             <Route path="/ethanol" element={<Ethanol/>} />
+            <Route path='/forgot-password' element={<ForgotPassword />} />
             <Route path="/GFreq" element={<GFreq/>} />
             <Route path="/halfway" element={<Halfway/>} />
             <Route path="/" element={<Home/>} />
@@ -65,6 +68,7 @@ function App() {
             <Route path='/privacy' element={<Privacy />} />
             <Route path='/profile' element={<Profile />} />
             <Route path='/register' element={<Register />} />
+            <Route path='/reset-password' element={<ResetPassword />} />
             <Route path='/settings' element={<Settings />} />
             <Route path='/Simple' element={<Simple />} />
             <Route path="/sleepassist" element={<SleepAssist/>} />

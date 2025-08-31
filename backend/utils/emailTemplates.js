@@ -2,6 +2,217 @@
  * Email templates for user subscription events
  */
 
+// Template for password reset
+const passwordResetTemplate = (data) => {
+  const { resetLink, userNickname, requestInfo } = data;
+  
+  // Format timestamp for display
+  const formatTimestamp = (timestamp) => {
+    return new Date(timestamp).toLocaleString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: requestInfo?.location?.timezone || 'UTC'
+    });
+  };
+
+  const formattedTime = requestInfo ? formatTimestamp(requestInfo.timestamp) : 'Unknown time';
+  
+  return {
+    subject: 'Password Reset Request',
+    html: `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Password Reset</title>
+      <style>
+        body { 
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          margin: 0;
+          padding: 0;
+        }
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+          background-color: #ffffff;
+        }
+        .header {
+          background-color: #4a6fa5;
+          padding: 20px;
+          text-align: center;
+          color: white;
+          border-radius: 5px 5px 0 0;
+        }
+        .content {
+          padding: 20px;
+          border: 1px solid #e9e9e9;
+          border-top: none;
+          border-radius: 0 0 5px 5px;
+        }
+        .footer {
+          margin-top: 20px;
+          text-align: center;
+          font-size: 12px;
+          color: #999;
+        }
+        .button {
+          display: inline-block;
+          padding: 15px 25px;
+          background-color: #4a6fa5;
+          color: white;
+          text-decoration: none;
+          border-radius: 4px;
+          margin: 20px 0;
+          font-weight: bold;
+        }
+        .warning {
+          background-color: #fff3cd;
+          border: 1px solid #ffeaa7;
+          border-radius: 4px;
+          padding: 15px;
+          margin: 20px 0;
+        }
+        .security-note {
+          background-color: #f8f9fa;
+          border-left: 4px solid #4a6fa5;
+          padding: 15px;
+          margin: 20px 0;
+        }
+        .request-info {
+          background-color: #f0f7ff;
+          border: 1px solid #b8daff;
+          border-radius: 4px;
+          padding: 15px;
+          margin: 20px 0;
+        }
+        .info-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        .info-table td {
+          padding: 5px 10px;
+          border-bottom: 1px solid #e9e9e9;
+        }
+        .info-table td:first-child {
+          font-weight: bold;
+          width: 30%;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Password Reset Request</h1>
+        </div>
+        <div class="content">
+          <h2>Hello ${userNickname || 'valued user'},</h2>
+          <p>We received a request to reset your password for your ST Hopwood account.</p>
+          
+          <p>Click the button below to reset your password:</p>
+          
+          <div style="text-align: center;">
+            <a href="${resetLink}" class="button">Reset My Password</a>
+          </div>
+          
+          <div class="warning">
+            <p><strong>⚠️ Important:</strong> This link will expire in 1 hour for security reasons.</p>
+          </div>
+
+          ${requestInfo ? `
+          <div class="request-info">
+            <h3>🔍 Request Details:</h3>
+            <p>For your security, here are the details of this password reset request:</p>
+            <table class="info-table">
+              <tr>
+                <td>Time:</td>
+                <td>${formattedTime}</td>
+              </tr>
+              <tr>
+                <td>IP Address:</td>
+                <td>${requestInfo.ipAddress}</td>
+              </tr>
+              <tr>
+                <td>Location:</td>
+                <td>${requestInfo.location.city}, ${requestInfo.location.region}, ${requestInfo.location.country}</td>
+              </tr>
+              <tr>
+                <td>Browser:</td>
+                <td>${requestInfo.device.browser}</td>
+              </tr>
+              <tr>
+                <td>Operating System:</td>
+                <td>${requestInfo.device.os}</td>
+              </tr>
+            </table>
+          </div>
+          ` : ''}
+          
+          <div class="security-note">
+            <h3>Security Information:</h3>
+            <ul>
+              <li>If you didn't request this password reset from the above location, please ignore this email and contact our support team immediately</li>
+              <li>Your password won't change until you click the link above and create a new one</li>
+              <li>For your security, this link can only be used once</li>
+              <li>Never share this email or reset link with anyone</li>
+            </ul>
+          </div>
+          
+          <p>If the button above doesn't work, copy and paste this link into your browser:</p>
+          <p style="word-break: break-all; color: #4a6fa5;">${resetLink}</p>
+          
+          <p>If you continue to have trouble, please contact our support team.</p>
+          
+          <p>Best regards,<br>The ST Hopwood Team</p>
+        </div>
+        <div class="footer">
+          <p>&copy; ${new Date().getFullYear()} ST Hopwood. All rights reserved.</p>
+          <p>This email was sent because a password reset was requested for your account.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+    `,
+    text: `Hello ${userNickname || 'valued user'},
+
+We received a request to reset your password for your ST Hopwood account.
+
+To reset your password, visit this link: ${resetLink}
+
+⚠️ Important: This link will expire in 1 hour for security reasons.
+
+REQUEST DETAILS:
+${requestInfo ? `
+Time: ${formattedTime}
+IP Address: ${requestInfo.ipAddress}
+Location: ${requestInfo.location.city}, ${requestInfo.location.region}, ${requestInfo.location.country}
+Browser: ${requestInfo.device.browser}
+Operating System: ${requestInfo.device.os}
+` : 'Request details not available'}
+
+Security Information:
+- If you didn't request this password reset from the above location, please ignore this email and contact our support team immediately
+- Your password won't change until you click the link above and create a new one
+- For your security, this link can only be used once
+- Never share this email or reset link with anyone
+
+If you continue to have trouble, please contact our support team.
+
+Best regards,
+The ST Hopwood Team
+
+© ${new Date().getFullYear()} ST Hopwood. All rights reserved.
+This email was sent because a password reset was requested for your account.`
+  };
+};
+
 // Template for when a user creates a new subscription
 const subscriptionCreatedTemplate = (data) => {
   const { plan, userData } = data;
@@ -97,7 +308,7 @@ const subscriptionCreatedTemplate = (data) => {
           
           <p>If you have any questions or need assistance, please don't hesitate to contact our support team.</p>
           
-          <a href="https://sthopwood.com/account" class="button">Manage Your Account</a>
+          <a href="https://www.sthopwood.com/account" class="button">Manage Your Account</a>
           
           <p>Best regards,<br>The ST Hopwood Team</p>
         </div>
@@ -271,7 +482,7 @@ const subscriptionUpdatedTemplate = (data) => {
           
           <p>If you have any questions about your new plan or need assistance, please contact our support team.</p>
           
-          <a href="https://sthopwood.com/account" class="button">Manage Your Account</a>
+          <a href="https://www.sthopwood.com/account" class="button">Manage Your Account</a>
           
           <p>Best regards,<br>The ST Hopwood Team</p>
         </div>
@@ -407,7 +618,7 @@ const subscriptionCancelledTemplate = (data) => {
           <div class="resubscribe">
             <h3>Changed Your Mind?</h3>
             <p>You can resubscribe at any time to regain access to premium features.</p>
-            <a href="https://sthopwood.com/pricing" class="button">View Subscription Options</a>
+            <a href="https://www.sthopwood.com/pricing" class="button">View Subscription Options</a>
           </div>
           
           <p>If you have any questions or feedback, please don't hesitate to contact our support team.</p>
@@ -435,7 +646,7 @@ We're sorry to see you go! If you have a moment, we'd appreciate it if you could
 
 Changed Your Mind?
 You can resubscribe at any time to regain access to premium features.
-Visit: https://sthopwood.com/pricing
+Visit: https://www.sthopwood.com/pricing
 
 If you have any questions or feedback, please don't hesitate to contact our support team.
 
@@ -448,6 +659,7 @@ This email was sent to you because you cancelled your subscription.`
 };
 
 module.exports = {
+  passwordResetTemplate,
   subscriptionCreatedTemplate,
   subscriptionUpdatedTemplate,
   subscriptionCancelledTemplate

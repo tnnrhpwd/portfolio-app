@@ -1,5 +1,6 @@
 const postmark = require('postmark');
 const {
+  passwordResetTemplate,
   subscriptionCreatedTemplate,
   subscriptionUpdatedTemplate,
   subscriptionCancelledTemplate
@@ -21,6 +22,9 @@ const sendEmail = async (to, templateName, data) => {
     
     // Select template based on template name
     switch (templateName) {
+      case 'passwordReset':
+        emailContent = passwordResetTemplate(data);
+        break;
       case 'subscriptionCreated':
         emailContent = subscriptionCreatedTemplate(data);
         break;
