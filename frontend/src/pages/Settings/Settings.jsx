@@ -543,6 +543,13 @@ function Settings() {
                 <button type="submit" className="planit-settings-save-button">
                   💾 Update Settings
                 </button>
+                <button 
+                  type="button" 
+                  className="planit-settings-profile-button" 
+                  onClick={() => navigate('/profile')}
+                >
+                  👤 View Profile
+                </button>
                 <button type="button" className="planit-settings-logout-button" onClick={onLogout}>
                   🚪 Sign Out
                 </button>

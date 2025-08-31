@@ -35,9 +35,7 @@
 /* Header Section */
 .support-header {
     text-align: center;
-    margin-bottom: calc(var(--nav-size) * 1);
     padding-bottom: calc(var(--nav-size) * 0.6);
-    border-bottom: 2px solid var(--border-nav);
 }
 
 .support-title {
@@ -451,7 +449,7 @@
 .support-contact-info p {
     margin: calc(var(--nav-size) * 0.1) 0;
     font-size: calc(var(--nav-size) * 0.2);
-    color: var(--text-color-accent);
+    color: var(--text-color);
 }
 
 .support-contact-info a {

@@ -411,6 +411,25 @@ function Support() {
     setExpandedFaq(expandedFaq === faqId ? null : faqId);
   };
 
+  const scrollToContent = () => {
+    // Find the support-content element and scroll to it smoothly
+    const contentElement = document.querySelector('.support-content');
+    if (contentElement) {
+      contentElement.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }
+  };
+
+  const handleTabClick = (tabName) => {
+    setActiveTab(tabName);
+    // Scroll to content after a short delay to allow tab change
+    setTimeout(() => {
+      scrollToContent();
+    }, 100);
+  };
+
   if (dataIsLoading) {
     return <Spinner />;
   }
@@ -427,43 +446,23 @@ function Support() {
             </p>
           </div>
 
-          {/* Quick Actions */}
-          <div className="support-quick-actions">
-            <h2 className="support-section-title">Quick Actions</h2>
-            <div className="support-actions-grid">
-              {quickActions.map(action => (
-                <button
-                  key={action.id}
-                  className="support-action-card"
-                  onClick={action.action}
-                >
-                  <div className="support-action-icon">{action.icon}</div>
-                  <div className="support-action-content">
-                    <h3>{action.title}</h3>
-                    <p>{action.description}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Tab Navigation */}
           <div className="support-tabs">
             <button
               className={`support-tab ${activeTab === 'help' ? 'active' : ''}`}
-              onClick={() => setActiveTab('help')}
+              onClick={() => handleTabClick('help')}
             >
               ❓ Help & FAQ
             </button>
             <button
               className={`support-tab ${activeTab === 'review' ? 'active' : ''}`}
-              onClick={() => setActiveTab('review')}
+              onClick={() => handleTabClick('review')}
             >
               ⭐ Leave Review
             </button>
             <button
               className={`support-tab ${activeTab === 'contact' ? 'active' : ''}`}
-              onClick={() => setActiveTab('contact')}
+              onClick={() => handleTabClick('contact')}
             >
               💬 Contact Us
             </button>
@@ -473,6 +472,9 @@ function Support() {
                 onClick={() => {
                   setActiveTab('reports');
                   fetchUserBugReports();
+                  setTimeout(() => {
+                    scrollToContent();
+                  }, 100);
                 }}
               >
                 📋 My Reports
@@ -480,7 +482,7 @@ function Support() {
             )}
             <button
               className={`support-tab ${activeTab === 'bug' ? 'active' : ''}`}
-              onClick={() => setActiveTab('bug')}
+              onClick={() => handleTabClick('bug')}
             >
               🐛 Report Bug
             </button>
@@ -728,7 +730,7 @@ function Support() {
 
                   <div className="support-contact-info">
                     <h4>Alternative Contact Methods:</h4>
-                    <p>📧 Email: <a href="mailto:support@yourapp.com">support@yourapp.com</a></p>
+                    <p>📧 Email: <a href="mailto:Admin@STHopwood.com">Admin@STHopwood.com</a></p>
                     <p>🕒 Response Time: Within 24 hours (1-2 hours for critical issues)</p>
                   </div>
 

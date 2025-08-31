@@ -30,6 +30,67 @@
     animation: float 6s ease-in-out infinite;
 }
 
+/* Profile Button Specific Styling */
+.planit-settings-profile-button {
+    width: 100%;
+    padding: calc(var(--nav-size) * 0.3);
+    font-size: calc(var(--nav-size) * 0.2);
+    background: linear-gradient(90deg, var(--fg-pink), var(--bg-mint));
+    color: var(--text-color-inv);
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: 0 2px 8px var(--grey3-transp);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    min-height: calc(var(--nav-size) * 0.8);
+}
+
+/* Responsive profile button matching other button patterns */
+@media (orientation: landscape) {
+    .planit-settings-profile-button {
+        padding: calc(var(--nav-size) * 0.35);
+        font-size: calc(var(--nav-size) * 0.22);
+        min-height: calc(var(--nav-size) * 0.9);
+        font-weight: 600;
+    }
+    
+    @media (min-width: 1024px) and (hover: hover) {
+        .planit-settings-profile-button {
+            padding: calc(var(--nav-size) * 0.4);
+            font-size: calc(var(--nav-size) * 0.25);
+            min-height: calc(var(--nav-size) * 1);
+        }
+        
+        .planit-settings-profile-button:hover {
+            background: linear-gradient(90deg, var(--bg-mint), var(--fg-pink));
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            transform: translateY(-3px);
+        }
+    }
+}
+
+@media (orientation: portrait) {
+    .planit-settings-profile-button {
+        padding: calc(var(--nav-size) * 0.4);
+        font-size: calc(var(--nav-size) * 0.18);
+        min-height: calc(var(--nav-size) * 1);
+    }
+    
+    @media (max-width: 480px) {
+        .planit-settings-profile-button {
+            padding: calc(var(--nav-size) * 0.45);
+            font-size: calc(var(--nav-size) * 0.2);
+            min-height: calc(var(--nav-size) * 1.1);
+        }
+    }
+    
+    .planit-settings-profile-button:active {
+        transform: translateY(1px);
+        box-shadow: 0 2px 8px var(--grey3-transp);
+    }
+}
+
 .floating-circle-1 {
     width: 140px;
     height: 140px;
@@ -736,6 +797,67 @@
     }
     
     .planit-settings-logout-button:active {
+        transform: translateY(1px);
+        box-shadow: 0 2px 8px var(--grey3-transp);
+    }
+}
+
+/* Profile Button Specific Styling */
+.planit-settings-profile-button {
+    width: 100%;
+    padding: calc(var(--nav-size) * 0.3);
+    font-size: calc(var(--nav-size) * 0.2);
+    background: linear-gradient(90deg, var(--fg-pink), var(--bg-mint));
+    color: var(--text-color-inv);
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: 0 2px 8px var(--grey3-transp);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    min-height: calc(var(--nav-size) * 0.8);
+}
+
+/* Responsive profile button matching other button patterns */
+@media (orientation: landscape) {
+    .planit-settings-profile-button {
+        padding: calc(var(--nav-size) * 0.35);
+        font-size: calc(var(--nav-size) * 0.22);
+        min-height: calc(var(--nav-size) * 0.9);
+        font-weight: 600;
+    }
+    
+    @media (min-width: 1024px) and (hover: hover) {
+        .planit-settings-profile-button {
+            padding: calc(var(--nav-size) * 0.4);
+            font-size: calc(var(--nav-size) * 0.25);
+            min-height: calc(var(--nav-size) * 1);
+        }
+        
+        .planit-settings-profile-button:hover {
+            background: linear-gradient(90deg, var(--bg-mint), var(--fg-pink));
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            transform: translateY(-3px);
+        }
+    }
+}
+
+@media (orientation: portrait) {
+    .planit-settings-profile-button {
+        padding: calc(var(--nav-size) * 0.4);
+        font-size: calc(var(--nav-size) * 0.18);
+        min-height: calc(var(--nav-size) * 1);
+    }
+    
+    @media (max-width: 480px) {
+        .planit-settings-profile-button {
+            padding: calc(var(--nav-size) * 0.45);
+            font-size: calc(var(--nav-size) * 0.2);
+            min-height: calc(var(--nav-size) * 1.1);
+        }
+    }
+    
+    .planit-settings-profile-button:active {
         transform: translateY(1px);
         box-shadow: 0 2px 8px var(--grey3-transp);
     }
