@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { logout, resetDataSlice, resetDataSuccess, getUserSubscription, getUserUsage } from './../../features/data/dataSlice.js';
+import { logout, resetDataSlice, resetDataSuccess, getUserSubscription, getUserUsage, getUserStorage } from './../../features/data/dataSlice.js';
 import Spinner from '../../components/Spinner/Spinner.jsx';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
@@ -28,7 +28,11 @@ function Profile() {
     userUsage,
     userUsageIsLoading,
     userUsageIsError,
-    userUsageMessage
+    userUsageMessage,
+    userStorage,
+    userStorageIsLoading,
+    userStorageIsError,
+    userStorageMessage
   } = useSelector((state) => state.data);
 
   // Theme detection effect
@@ -155,6 +159,16 @@ function Profile() {
             console.error('Failed to fetch usage data:', error);
           });
 
+        // Fetch storage data
+        dispatch(getUserStorage())
+          .unwrap()
+          .then((storageData) => {
+            console.log('Successfully fetched storage data:', storageData);
+          })
+          .catch((error) => {
+            console.error('Failed to fetch storage data:', error);
+          });
+
       } catch (error) {
         console.error('Error dispatching subscription/usage actions:', error);
         setSubscriptionLoaded(true);
@@ -172,17 +186,29 @@ function Profile() {
   // Add refresh handler
   const refreshUsageData = () => {
     if (user && user.token && isTokenValid(user.token)) {
-      console.log('🔄 Manually refreshing usage data...');
+      console.log('🔄 Manually refreshing usage and storage data...');
+      
+      // Refresh usage data
       dispatch(getUserUsage())
         .unwrap()
         .then((usageData) => {
           console.log('✅ Successfully refreshed usage data:', usageData);
-          toast.success('Usage data refreshed!', { autoClose: 2000 });
         })
         .catch((error) => {
           console.error('❌ Failed to refresh usage data:', error);
-          toast.error('Failed to refresh usage data');
         });
+
+      // Refresh storage data
+      dispatch(getUserStorage())
+        .unwrap()
+        .then((storageData) => {
+          console.log('✅ Successfully refreshed storage data:', storageData);
+        })
+        .catch((error) => {
+          console.error('❌ Failed to refresh storage data:', error);
+        });
+
+      toast.success('Data refreshed!', { autoClose: 2000 });
     }
   };
 
@@ -347,7 +373,7 @@ function Profile() {
                   <button 
                     onClick={refreshUsageData}
                     className="planit-profile-refresh-button"
-                    title="Refresh usage data"
+                    title="Refresh usage and storage data"
                   >
                     🔄 <span className="refresh-text">Refresh</span>
                   </button>
@@ -584,6 +610,149 @@ function Profile() {
                       <span className="usage-label">🎯 Monthly Limit</span>
                       <span className="usage-value">
                         {currentPlan === 'Premium' ? '$10.00' : currentPlan === 'Free' ? '$0.00' : '$0.50'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="planit-profile-section">
+                <h3 className="planit-profile-section-title">💾 Database Storage</h3>
+                {userStorageIsLoading ? (
+                  <div className="planit-profile-usage-loading">Loading storage data...</div>
+                ) : userStorageIsError ? (
+                  <div className="planit-profile-usage-error">
+                    Error loading storage data: {userStorageMessage}
+                  </div>
+                ) : userStorage && typeof userStorage === 'object' ? (
+                  <div className="planit-profile-storage-container">
+                    <div className="planit-profile-usage-overview">
+                      <div className="usage-stat">
+                        <span className="usage-label">📊 Total Used</span>
+                        <span className="usage-value">{userStorage.totalStorageFormatted}</span>
+                      </div>
+                      <div className="usage-stat">
+                        <span className="usage-label">🎯 Storage Limit</span>
+                        <span className="usage-value">{userStorage.storageLimitFormatted}</span>
+                      </div>
+                      <div className="usage-stat">
+                        <span className="usage-label">📁 Total Items</span>
+                        <span className="usage-value">{userStorage.itemCount}</span>
+                      </div>
+                      <div className="usage-stat">
+                        <span className="usage-label">📄 Files Stored</span>
+                        <span className="usage-value">{userStorage.fileCount}</span>
+                      </div>
+                    </div>
+
+                    {/* Storage warnings */}
+                    {userStorage.isOverLimit && (
+                      <div className="credit-warning frozen">
+                        <span className="warning-icon">🚨</span>
+                        <div className="warning-content">
+                          <strong>Storage Limit Exceeded</strong>
+                          <p>You've exceeded your storage limit. Delete some items or upgrade to continue storing data.</p>
+                          {userStorage.membership !== 'Premium' && (
+                            <button 
+                              className="upgrade-premium-button"
+                              onClick={() => navigate('/pay?plan=premium')}
+                            >
+                              Upgrade to Premium
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {userStorage.isNearLimit && !userStorage.isOverLimit && (
+                      <div className="credit-warning low">
+                        <span className="warning-icon">⚠️</span>
+                        <div className="warning-content">
+                          <strong>Storage Nearly Full</strong>
+                          <p>You're using {userStorage.storageUsagePercent.toFixed(1)}% of your storage limit.</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Storage usage bar */}
+                    {userStorage.storageLimit && (
+                      <div className="planit-profile-usage-bar">
+                        <div className="usage-bar-track">
+                          <div 
+                            className={`usage-bar-fill ${
+                              userStorage.storageUsagePercent >= 100 ? 'danger' : 
+                              userStorage.storageUsagePercent >= 80 ? 'warning' : 
+                              'normal'
+                            }`}
+                            style={{ 
+                              width: `${Math.min(userStorage.storageUsagePercent, 100)}%` 
+                            }}
+                          ></div>
+                        </div>
+                        <div className="usage-bar-label">
+                          {userStorage.storageUsagePercent.toFixed(1)}% Used
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Storage breakdown */}
+                    {userStorage.storageBreakdown && userStorage.storageBreakdown.length > 0 && (
+                      <div className="planit-profile-usage-breakdown">
+                        <h4 className="usage-breakdown-title">Largest Items</h4>
+                        <div className="usage-breakdown-list">
+                          {userStorage.storageBreakdown.slice(0, 5).map((item, index) => (
+                            <div key={index} className="usage-breakdown-item">
+                              <div className="usage-api-info">
+                                <span className="api-name">
+                                  {item.hasFiles ? '📎 File Data' : '📝 Text Data'}
+                                </span>
+                                <span className="api-date">
+                                  {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'Unknown date'}
+                                </span>
+                              </div>
+                              <div className="usage-details">
+                                <span className="usage-amount">
+                                  {item.fileCount > 0 ? `${item.fileCount} files` : 'Text only'}
+                                </span>
+                                <span className="usage-cost">{item.sizeFormatted}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Storage upgrade prompt for non-Premium users */}
+                    {userStorage.membership !== 'Premium' && userStorage.storageUsagePercent > 50 && (
+                      <div className="planit-profile-upgrade-prompt">
+                        <div className="upgrade-message">
+                          <span className="upgrade-icon">💾</span>
+                          <div className="upgrade-text">
+                            <strong>Need More Storage?</strong>
+                            <p>Premium membership includes unlimited storage for all your data and files!</p>
+                          </div>
+                        </div>
+                        <button 
+                          className="upgrade-button"
+                          onClick={() => navigate('/pay?plan=premium')}
+                        >
+                          Upgrade Now
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="planit-profile-usage-placeholder">
+                    <div className="usage-stat">
+                      <span className="usage-label">📊 Total Used</span>
+                      <span className="usage-value">0 B</span>
+                    </div>
+                    <div className="usage-stat">
+                      <span className="usage-label">🎯 Storage Limit</span>
+                      <span className="usage-value">
+                        {currentPlan === 'Premium' ? 'Unlimited' : 
+                         currentPlan === 'Flex' ? '100 MB' : 
+                         '10 MB'}
                       </span>
                     </div>
                   </div>

@@ -1,4 +1,4 @@
-const path = require('path'); // module to read file locations
+﻿const path = require('path'); // module to read file locations
 const express = require('express'); // import express to create REST API server
 const colors = require('colors'); // allows the console to print colored text
 const helmet = require('helmet'); // security middleware

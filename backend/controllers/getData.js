@@ -3,6 +3,7 @@ const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const asyncHandler = require('express-async-handler');
 const { checkIP } = require('../utils/accessData.js');
+const { getUserStorageUsage } = require('../utils/storageTracker.js');
 const stripe = require('stripe')(process.env.STRIPE_KEY);
 
 // Configure AWS DynamoDB Client
@@ -266,4 +267,35 @@ const getUserSubscription = asyncHandler(async (req, res) => {
     }
 });
 
-module.exports = { getData, getUserSubscription };
+// @desc    Get user storage usage
+// @route   GET /api/user/storage
+// @access  Private
+const getUserStorage = asyncHandler(async (req, res) => {
+    await checkIP(req);
+    
+    // Check for user
+    if (!req.user) {
+        console.log('getUserStorage: No user found in request');
+        res.status(401);
+        throw new Error('User not found');
+    }
+    
+    console.log('getUserStorage called for user ID:', req.user.id);
+
+    try {
+        const storageData = await getUserStorageUsage(req.user.id);
+        
+        console.log(`getUserStorage: Returning storage data for user ${req.user.id}:`, {
+            totalStorage: storageData.totalStorageFormatted,
+            storageLimit: storageData.storageLimitFormatted,
+            usage: `${storageData.storageUsagePercent.toFixed(1)}%`
+        });
+        
+        res.status(200).json(storageData);
+    } catch (error) {
+        console.error('Error fetching storage usage:', error);
+        res.status(500).json({ error: error.message || 'Failed to fetch storage usage' });
+    }
+});
+
+module.exports = { getData, getUserSubscription, getUserStorage };

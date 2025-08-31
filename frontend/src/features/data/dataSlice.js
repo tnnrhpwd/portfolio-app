@@ -21,6 +21,10 @@ const initialState = {  // default values for each state change
   userUsageIsLoading: false,
   userUsageIsError: false,
   userUsageMessage: '',
+  userStorage: null,
+  userStorageIsLoading: false,
+  userStorageIsError: false,
+  userStorageMessage: '',
 }
 
 // Create new data  -- Async functional object -- called from pages using dispatch --CREATE
@@ -298,6 +302,42 @@ export const getUserUsage = createAsyncThunk(
   }
 );
 
+// Get user storage usage
+export const getUserStorage = createAsyncThunk(
+  'data/getUserStorage',
+  async (_, thunkAPI) => {
+    try {
+      const state = thunkAPI.getState();
+      const token = state.data.user?.token;
+      
+      console.log('getUserStorage action called');
+      console.log('User exists:', !!state.data.user);
+      console.log('Token exists:', !!token);
+      
+      if (!token) {
+        console.error('No token found in state');
+        return thunkAPI.rejectWithValue('No authentication token found');
+      }
+      
+      const result = await dataService.getUserStorage(token);
+      console.log('🔧 getUserStorage thunk - service returned:', result);
+      console.log('🔧 getUserStorage thunk - result type:', typeof result);
+      return result;
+    } catch (error) {
+      console.error('getUserStorage error:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      
+      const message = (error.response && error.response.data && error.response.data.message) || 
+                     (error.response && error.response.data && error.response.data.dataMessage) ||
+                     (error.response && error.response.data && error.response.data.error) ||
+                     error.message || error.toString();
+
+      return thunkAPI.rejectWithValue(message);
+    }
+  }
+);
+
 // Update user data -- UPDATE
 export const updateData = createAsyncThunk(
   'data/update',
@@ -386,6 +426,8 @@ export const dataSlice = createSlice({
       state.dataMessage = '';
       state.userUsageIsError = false;
       state.userUsageMessage = '';
+      state.userStorageIsError = false;
+      state.userStorageMessage = '';
     },
   },
   extraReducers: (builder) => {// all possible states associated with asyncthunk get,create,delete datas functional objects. 
@@ -678,6 +720,29 @@ export const dataSlice = createSlice({
         state.userUsageIsLoading = false
         state.userUsageIsError = true
         state.userUsageMessage = action.payload
+        if (action.payload === 'Not authorized, token expired') {
+          state.user = null;
+        }
+      })
+      // Storage reducers
+      .addCase(getUserStorage.pending, (state) => {
+        state.userStorageIsLoading = true
+        state.userStorageIsError = false
+        console.log('getUserStorage.pending');
+      })
+      .addCase(getUserStorage.fulfilled, (state, action) => {
+        console.log('🔧 Redux getUserStorage.fulfilled - action.payload:', action.payload);
+        console.log('🔧 Redux getUserStorage.fulfilled - payload type:', typeof action.payload);
+        state.userStorageIsLoading = false
+        state.userStorageIsError = false
+        state.userStorageIsSuccess = true
+        state.userStorage = action.payload
+        console.log('🔧 Redux state.userStorage after update:', state.userStorage);
+      })
+      .addCase(getUserStorage.rejected, (state, action) => {
+        state.userStorageIsLoading = false
+        state.userStorageIsError = true
+        state.userStorageMessage = action.payload
         if (action.payload === 'Not authorized, token expired') {
           state.user = null;
         }

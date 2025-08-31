@@ -2,6 +2,7 @@
 const bcrypt = require('bcryptjs')  // used to hash passwords
 require('dotenv').config();
 const { generateToken } = require('../utils/generateToken')
+const { trackStorageUsage } = require('../utils/storageTracker')
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
@@ -47,16 +48,41 @@ const postData = asyncHandler(async (req, res) => {
       files = req.body.data.Files;
   }
 
+  const itemData = {
+      id: require('crypto').randomBytes(16).toString("hex"), // Generate a unique ID
+      text: typeof req.body.data === 'string' ? req.body.data : req.body.data.Text,
+      ActionGroupObject: req.body.data.ActionGroupObject,
+      files: files,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+  };
+
+  // Check storage capacity if user is authenticated
+  if (req.user && req.user.id) {
+      console.log('postData: Checking storage capacity for authenticated user:', req.user.id);
+      try {
+          const storageCheck = await trackStorageUsage(req.user.id, itemData);
+          if (!storageCheck.success) {
+              console.log('postData: Storage limit exceeded:', storageCheck.error);
+              res.status(413); // 413 Payload Too Large
+              return res.json({ 
+                  error: 'Storage limit exceeded', 
+                  details: storageCheck.error,
+                  currentUsage: storageCheck.currentUsageFormatted,
+                  itemSize: storageCheck.itemSizeFormatted,
+                  storageLimit: storageCheck.storageLimitFormatted 
+              });
+          }
+          console.log('postData: Storage check passed. Item size:', storageCheck.itemSizeFormatted);
+      } catch (storageError) {
+          console.error('postData: Storage check failed:', storageError);
+          // Continue with creation but log the error
+      }
+  }
+
   const params = {
       TableName: 'Simple', 
-      Item: {
-          id: require('crypto').randomBytes(16).toString("hex"), // Generate a unique ID
-          text: typeof req.body.data === 'string' ? req.body.data : req.body.data.Text,
-          ActionGroupObject: req.body.data.ActionGroupObject,
-          files: files,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-      }
+      Item: itemData
   };
 
   try {

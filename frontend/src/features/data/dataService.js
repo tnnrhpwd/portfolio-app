@@ -388,6 +388,33 @@ const getUserUsage = async (token) => {
     }
 };
 
+// Get user storage usage statistics
+const getUserStorage = async (token) => {
+    console.log('Getting user storage usage');
+    console.log('Token preview:', token ? token.substring(0, 50) + '...' : 'No token');
+    
+    const config = {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    };
+
+    console.log('Calling GET URL:', API_URL + 'storage');
+    console.log('Request config:', config);
+
+    try {
+        const response = await axios.get(API_URL + 'storage', config);
+        console.log('getUserStorage response:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('getUserStorage service error:', error);
+        console.error('Error response data:', error.response?.data);
+        console.error('Error response status:', error.response?.status);
+        console.error('Error response headers:', error.response?.headers);
+        handleTokenExpiration(error);
+    }
+};
+
 // Logout user
 const logout = () => {
     localStorage.removeItem('user')
@@ -408,6 +435,7 @@ const dataService = {
     subscribeCustomer,
     getUserSubscription, // Note: Changed from plural to match implementation
     getUserUsage,
+    getUserStorage,
     getMembershipPricing,
     register,
     login,

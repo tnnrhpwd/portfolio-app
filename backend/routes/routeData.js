@@ -59,7 +59,7 @@ router.use((req, res, next) => {
 const {
   deleteData,
   deleteHashData, deletePaymentMethod, deleteCustomer,
-  getData, getUserSubscription,
+  getData, getUserSubscription, getUserStorage,
   getHashData, getPaymentMethods, getAllData, getMembershipPricing, getUserUsageData,
   postData, registerUser, loginUser,
   postHashData, compressData, createCustomer, 
@@ -108,6 +108,7 @@ router.post('/create-customer', protect, paymentLimiter, createCustomer); // Pro
 router.post('/create-invoice', protect, paymentLimiter, createInvoice); // Protect invoice creation
 router.post('/subscribe-customer', protect, paymentLimiter, subscribeCustomer); // Protect customer subscription
 router.get('/subscription', protect, getUserSubscription); // GET request for fetching user subscriptions
+router.get('/storage', protect, getUserStorage); // GET request for fetching user storage usage
 router.get('/usage', protect, getUserUsageData); // GET request for fetching user API usage stats
 router.post('/custom-limit', protect, paymentLimiter, setCustomLimit); // POST request for setting custom usage limit (Premium only)
 
