@@ -171,90 +171,6 @@ function Login() {
         }
     }
 
-    // Handle social login
-    const handleSocialLogin = async (provider) => {
-        console.log(`Attempting social login with ${provider}`);
-        
-        try {
-            const providerConfig = {
-                google: {
-                    url: `https://accounts.google.com/oauth/authorize`,
-                    clientId: process.env.REACT_APP_GOOGLE_CLIENT_ID,
-                    scope: 'email profile',
-                    name: 'Google'
-                },
-                facebook: {
-                    url: `https://www.facebook.com/v12.0/dialog/oauth`,
-                    clientId: process.env.REACT_APP_FACEBOOK_CLIENT_ID,
-                    scope: 'email',
-                    name: 'Facebook'
-                },
-                github: {
-                    url: `https://github.com/login/oauth/authorize`,
-                    clientId: process.env.REACT_APP_GITHUB_CLIENT_ID,
-                    scope: 'user:email',
-                    name: 'GitHub'
-                }
-            };
-
-            const config = providerConfig[provider];
-            
-            if (!config || !config.clientId) {
-                toast.error(`${provider} login is not configured. Please use email/password login or contact support.`, { autoClose: 4000 });
-                return;
-            }
-
-            toast.info(`Redirecting to ${config.name} for login...`, { autoClose: 2000 });
-
-            // Build OAuth URL
-            const params = new URLSearchParams({
-                client_id: config.clientId,
-                redirect_uri: `${window.location.origin}/auth/callback/${provider}`,
-                scope: config.scope,
-                response_type: 'code',
-                state: JSON.stringify({ 
-                    action: 'login',
-                    provider: provider
-                })
-            });
-
-            const authUrl = `${config.url}?${params.toString()}`;
-            
-            // Open OAuth popup window
-            const popup = window.open(
-                authUrl,
-                `${provider}-oauth-login`,
-                'width=600,height=600,scrollbars=yes,resizable=yes'
-            );
-
-            // Monitor popup for completion
-            const checkClosed = setInterval(() => {
-                if (popup?.closed) {
-                    clearInterval(checkClosed);
-                    // Check if login was successful
-                    checkSocialLoginStatus(provider);
-                }
-            }, 1000);
-
-        } catch (error) {
-            console.error(`Error initiating ${provider} login:`, error);
-            toast.error(`Failed to initiate ${provider} login. Please try again or use email/password login.`, { autoClose: 3000 });
-        }
-    };
-
-    // Check if social login was successful
-    const checkSocialLoginStatus = async (provider) => {
-        try {
-            // TODO: Make API call to check if the social login was successful
-            // For now, we'll show a message that it's not implemented
-            toast.info(`${provider} login integration is coming soon! Please use email/password login for now.`, { autoClose: 4000 });
-            
-        } catch (error) {
-            console.error(`Error checking ${provider} login status:`, error);
-            toast.error(`Failed to complete ${provider} login.`, { autoClose: 3000 });
-        }
-    };
-
     // if loading, show spinner. authIsLoading resets on state change.
     if (dataIsLoading) {
         return <Spinner />
@@ -317,39 +233,6 @@ function Login() {
                                 </button>
                             </div>
                         </form>
-                    </section>
-                    
-                    {/* Social Login Options */}
-                    <section className="planit-login-social">
-                        <div className="planit-login-divider">
-                            <span>or</span>
-                        </div>
-                        <div className="planit-login-social-buttons">
-                            <button
-                                type="button"
-                                className="planit-login-social-button planit-login-google"
-                                onClick={() => handleSocialLogin('google')}
-                                disabled={dataIsLoading}
-                            >
-                                🌐 Continue with Google
-                            </button>
-                            <button
-                                type="button"
-                                className="planit-login-social-button planit-login-facebook"
-                                onClick={() => handleSocialLogin('facebook')}
-                                disabled={dataIsLoading}
-                            >
-                                📘 Continue with Facebook
-                            </button>
-                            <button
-                                type="button"
-                                className="planit-login-social-button planit-login-github"
-                                onClick={() => handleSocialLogin('github')}
-                                disabled={dataIsLoading}
-                            >
-                                🐱 Continue with GitHub
-                            </button>
-                        </div>
                     </section>
                     
                     <div className="planit-login-actions">
