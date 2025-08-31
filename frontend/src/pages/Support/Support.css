@@ -680,6 +680,7 @@
     display: flex;
     flex-direction: column;
     gap: calc(var(--nav-size) * 0.1);
+    color: var(--text-color);
 }
 
 .support-report-field strong {
@@ -691,9 +692,9 @@
 .support-report-field p {
     margin: 0;
     font-size: calc(var(--nav-size) * 0.18);
-    color: var(--text-color-accent);
+    color: var(--text-color);
     line-height: 1.4;
-    background: var(--bg-accent);
+    background: var(--bg);
     padding: calc(var(--nav-size) * 0.2);
     border-radius: calc(var(--border-radius) * 0.5);
     border: 1px solid var(--border-nav);
@@ -724,7 +725,7 @@
 .support-report-system-info p {
     margin: calc(var(--nav-size) * 0.1) 0;
     font-size: calc(var(--nav-size) * 0.16);
-    color: var(--text-color-accent);
+    color: var(--text-color);
     font-family: monospace;
     word-break: break-all;
     background: none;
@@ -734,7 +735,7 @@
 
 /* Timestamps */
 .support-report-timestamps {
-    background: var(--bg-accent);
+    background: var(--bg);
     padding: calc(var(--nav-size) * 0.25);
     border-radius: var(--border-radius);
     border: 1px solid var(--border-nav);
@@ -743,7 +744,7 @@
 .support-report-timestamps p {
     margin: calc(var(--nav-size) * 0.05) 0;
     font-size: calc(var(--nav-size) * 0.16);
-    color: var(--text-color-accent);
+    color: var(--text-color);
     background: none;
     padding: 0;
     border: none;

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { toast } from 'react-toastify';
-import { createData } from '../../features/data/dataSlice';
+import { createData, getUserBugReports } from '../../features/data/dataSlice';
 import Spinner from '../../components/Spinner/Spinner.jsx';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
@@ -240,41 +240,28 @@ function Support() {
   };
 
   const fetchUserBugReports = async () => {
-    // Check for user authentication using the available user properties
-    if (!user || !user.id) {
+    // Check for user authentication using the same logic as getUserIdentifier
+    if (!user) {
+      toast.error('Please log in to view your bug reports.', { autoClose: 3000 });
+      return;
+    }
+    
+    // Use getUserIdentifier to check if we can identify the user
+    const userId = getUserIdentifier();
+    if (userId === 'Anonymous') {
       toast.error('Please log in to view your bug reports.', { autoClose: 3000 });
       return;
     }
     
     setLoadingReports(true);
     try {
-      // Since the backend doesn't have a specific endpoint for user bug reports,
-      // we'll need to get user data and filter client-side
-      // For now, we'll use a placeholder until we can implement proper backend filtering
+      // Use the new Redux action to fetch user bug reports
+      const response = await dispatch(getUserBugReports()).unwrap();
+      console.log('Bug reports response:', response);
       
-      // Mock data for demonstration - in production, you'd query the backend for user's bug reports
-      const mockReports = [
-        {
-          id: 'mock-1',
-          title: 'Button not responding on mobile',
-          severity: 'medium',
-          description: 'The submit button on forms doesn\'t work on mobile devices.',
-          steps: '1. Open app on mobile\n2. Fill out any form\n3. Try to submit\n4. Nothing happens',
-          expected: 'Form should submit successfully',
-          actual: 'Button appears unresponsive, no feedback given',
-          browser: 'Mobile Safari iOS 16.2',
-          device: 'iPhone 14 Pro',
-          status: 'Open',
-          createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-          updatedAt: new Date(Date.now() - 86400000).toISOString(),
-          timestamp: new Date(Date.now() - 86400000).toISOString()
-        }
-      ];
-
-      // TODO: Replace with actual backend call once implemented
-      // const response = await dispatch(getUserBugReports({ userId: user.id })).unwrap();
-      
-      setUserBugReports(mockReports);
+      // The response should have a data property with the array of bug reports
+      const bugReports = response.data || response || [];
+      setUserBugReports(bugReports);
       
     } catch (error) {
       console.error('Error fetching bug reports:', error);

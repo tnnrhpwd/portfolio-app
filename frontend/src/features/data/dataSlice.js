@@ -8,6 +8,7 @@ const user = JSON.parse(localStorage.getItem('user'))
 const initialState = {  // default values for each state change
   user: user ? user : null,
   data: { data: [] },
+  userBugReports: [],
   dataIsError: false,
   dataIsSuccess: false,
   dataIsLoading: false,
@@ -129,6 +130,25 @@ export const getAllData = createAsyncThunk(
     } catch (error) {
       const dataMessage =
         (error.response && error.response.data && error.response.data.dataMessage) ||
+        error.dataMessage ||
+        error.toString();
+      return thunkAPI.rejectWithValue(dataMessage);
+    }
+  }
+);
+
+// Fetch user bug reports
+export const getUserBugReports = createAsyncThunk(
+  'data/getUserBugReports',
+  async (_, thunkAPI) => {
+    try {
+      const token = thunkAPI.getState().data.user.token;
+      const userId = thunkAPI.getState().data.user.id;
+      return await dataService.getUserBugReports(token, userId);
+    } catch (error) {
+      const dataMessage =
+        (error.response && error.response.data && error.response.data.dataMessage) ||
+        (error.response && error.response.data && error.response.data.error) ||
         error.dataMessage ||
         error.toString();
       return thunkAPI.rejectWithValue(dataMessage);
@@ -530,6 +550,22 @@ export const dataSlice = createSlice({
         state.operation = 'getAllData'
       })
       .addCase(getAllData.rejected, (state, action) => {
+        state.dataIsLoading = false
+        state.dataIsError = true
+        state.dataMessage = action.payload
+        state.operation = null
+      })
+      .addCase(getUserBugReports.pending, (state) => {
+        state.dataIsLoading = true
+        state.operation = null
+      })
+      .addCase(getUserBugReports.fulfilled, (state, action) => {
+        state.dataIsLoading = false
+        state.dataIsSuccess = true
+        state.userBugReports = action.payload
+        state.operation = 'getUserBugReports'
+      })
+      .addCase(getUserBugReports.rejected, (state, action) => {
         state.dataIsLoading = false
         state.dataIsError = true
         state.dataMessage = action.payload

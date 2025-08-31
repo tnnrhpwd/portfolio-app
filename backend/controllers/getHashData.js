@@ -2,6 +2,7 @@ require('dotenv').config();
 const asyncHandler = require('express-async-handler'); // sends the errors to the errorhandler
 const fetch = require('node-fetch');
 const { trackApiUsage, canMakeApiCall } = require('../utils/apiUsageTracker.js');
+const { checkIP } = require('../utils/accessData.js');
 const wordBaseUrl = 'https://random-word-api.p.rapidapi.com/L/';
 const defBaseUrl = 'https://mashape-community-urban-dictionary.p.rapidapi.com/define?term=';
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
@@ -32,7 +33,6 @@ const rapidapidefoptions = {
         'X-RapidAPI-Host': 'mashape-community-urban-dictionary.p.rapidapi.com'
     }
 };
-const { checkIP } = require('../utils/accessData.js');
 const { getUserUsageStats } = require('../utils/apiUsageTracker.js');
 const stripe = require('stripe')(process.env.STRIPE_KEY);
 const { createCustomer } = require('./postHashData.js');
@@ -57,6 +57,71 @@ const getHashData = asyncHandler(async (req, res) => {
         throw new Error('User not found');
     }
 
+    // Handle bug reports filtering
+    if (req.query.filterType === 'bug_reports') {
+        console.log('Filtering bug reports for user:', req.user.id);
+        
+        try {
+            const params = {
+                TableName: 'Simple',
+                FilterExpression: 'contains(#text, :creatorId) AND contains(#text, :bugPrefix)',
+                ExpressionAttributeNames: {
+                    '#text': 'text'
+                },
+                ExpressionAttributeValues: {
+                    ':creatorId': `Creator:${req.user.id}`,
+                    ':bugPrefix': 'Bug:'
+                }
+            };
+
+            console.log('DynamoDB scan params for bug reports:', JSON.stringify(params, null, 2));
+            const result = await dynamodb.send(new ScanCommand(params));
+            
+            console.log(`Found ${result.Items.length} bug reports for user`);
+            
+            // Process the results to extract bug report information
+            const processedReports = result.Items.map(item => {
+                const text = item.text || '';
+                const bugData = {};
+                
+                // Parse the pipe-delimited data
+                const parts = text.split('|');
+                parts.forEach(part => {
+                    const [key, ...valueParts] = part.split(':');
+                    if (key && valueParts.length > 0) {
+                        bugData[key.toLowerCase()] = valueParts.join(':');
+                    }
+                });
+                
+                return {
+                    id: item.id,
+                    title: bugData.bug || 'Untitled Bug Report',
+                    severity: bugData.severity || 'medium',
+                    description: bugData.description || '',
+                    steps: bugData.steps || '',
+                    expected: bugData.expected || '',
+                    actual: bugData.actual || '',
+                    browser: bugData.browser || '',
+                    device: bugData.device || '',
+                    status: bugData.status || 'Open',
+                    creator: bugData.creator || '',
+                    timestamp: bugData.timestamp || item.createdAt,
+                    createdAt: item.createdAt,
+                    updatedAt: item.updatedAt
+                };
+            });
+            
+            console.log('Processed bug reports:', processedReports.length);
+            return res.status(200).json({ data: processedReports });
+            
+        } catch (error) {
+            console.error('Error fetching bug reports:', error);
+            res.status(500);
+            throw new Error('Failed to fetch bug reports');
+        }
+    }
+
+    // Original logic for other requests
     if (!req.query || !req.query.data) {
         res.status(400);
         throw new Error('Invalid request query parameter');

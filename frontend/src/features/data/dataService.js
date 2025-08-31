@@ -161,6 +161,24 @@ const getAllData = async (token) => {
     }
 }
 
+// Get user bug reports
+const getUserBugReports = async (token, userId) => {
+    const config = {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { 
+            filterType: 'bug_reports',
+            userId: userId 
+        }
+    }
+    console.log('Calling GET URL for user bug reports:', API_URL);
+    try {
+        const response = await axios.get(API_URL, config);
+        return response.data;
+    } catch (error) {
+        handleTokenExpiration(error);
+    }
+}
+
 // Update user data
 const updateData = async (dataData, token) => {
     const config = {
@@ -432,6 +450,7 @@ const dataService = {
     getData,
     getPublicData,
     getAllData,
+    getUserBugReports,
     updateData,
     deleteData,
     compressData,
