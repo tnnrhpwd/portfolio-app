@@ -349,7 +349,7 @@ function Profile() {
                     className="planit-profile-refresh-button"
                     title="Refresh usage data"
                   >
-                    🔄 Refresh
+                    🔄 <span className="refresh-text">Refresh</span>
                   </button>
                 </h3>
                 {userUsageIsLoading ? (

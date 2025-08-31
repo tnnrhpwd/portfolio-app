@@ -690,34 +690,211 @@
 /* Refresh Button Styling */
 .planit-profile-refresh-button {
     margin-left: calc(var(--nav-size) * 0.3);
-    padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.25);
-    font-size: calc(var(--nav-size) * 0.22);
-    background: var(--fg-blue);
-    color: white;
-    border: none;
+    padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.35);
+    font-size: calc(var(--nav-size) * 0.25);
+    background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
+    color: var(--text-color-inv);
+    border: 2px solid var(--fg-blue);
     border-radius: var(--border-radius);
     cursor: pointer;
-    font-weight: 500;
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 6px var(--grey3-transp);
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.15);
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px var(--grey3-transp);
+    min-width: auto;
+    white-space: nowrap;
 }
 
 .planit-profile-refresh-button:hover {
-    background: var(--fg-pink);
-    transform: translateY(-1px);
-    box-shadow: 0 3px 8px var(--grey3-transp);
+    background: linear-gradient(135deg, var(--fg-pink), var(--fg-orange));
+    border-color: var(--fg-pink);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px var(--grey3-transp);
 }
 
 .planit-profile-refresh-button:active {
     transform: translateY(0);
-    box-shadow: 0 1px 3px var(--grey3-transp);
+    box-shadow: 0 2px 6px var(--grey3-transp);
+}
+
+.planit-profile-refresh-button:focus {
+    outline: 2px solid var(--fg-blue);
+    outline-offset: 2px;
+}
+
+/* Ensure proper spacing with section title */
+.planit-profile-section-title {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: calc(var(--nav-size) * 0.2);
 }
 
 /* Mobile responsive refresh button */
 @media (max-width: 768px) {
     .planit-profile-refresh-button {
         margin-left: calc(var(--nav-size) * 0.2);
-        padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.2);
-        font-size: calc(var(--nav-size) * 0.2);
+        padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.25);
+        font-size: calc(var(--nav-size) * 0.22);
+        gap: calc(var(--nav-size) * 0.1);
     }
+    
+    .planit-profile-section-title {
+        gap: calc(var(--nav-size) * 0.15);
+    }
+}
+
+/* Very small screens - show icon only */
+@media (max-width: 480px) {
+    .planit-profile-refresh-button {
+        padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.2);
+        font-size: calc(var(--nav-size) * 0.2);
+        margin-left: calc(var(--nav-size) * 0.15);
+    }
+    
+    .planit-profile-refresh-button .refresh-text {
+        display: none;
+    }
+}
+
+/* Portrait orientation optimization */
+@media (orientation: portrait) and (max-width: 480px) {
+    .planit-profile-refresh-button {
+        padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.15);
+        margin-left: calc(var(--nav-size) * 0.1);
+        border-width: 1px;
+    }
+}
+
+/* Credit System Styles - Moved from App.css */
+.planit-profile-credit-status {
+    margin-top: 1rem;
+}
+
+.credit-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    border-left: 4px solid;
+}
+
+.credit-warning.frozen {
+    background-color: #fff5f5;
+    border-left-color: #e53e3e;
+    color: #c53030;
+}
+
+.credit-warning.premium-empty {
+    background-color: #fffaf0;
+    border-left-color: #dd6b20;
+    color: #c05621;
+}
+
+.credit-warning.low {
+    background-color: #fffbeb;
+    border-left-color: #eab308;
+    color: #a16207;
+}
+
+.warning-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.warning-content {
+    flex: 1;
+}
+
+.warning-content strong {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-weight: 600;
+}
+
+.warning-content p {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
+
+.upgrade-premium-button {
+    background-color: #8b5cf6;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+    transition: background-color 0.2s;
+}
+
+.upgrade-premium-button:hover {
+    background-color: #7c3aed;
+}
+
+.planit-profile-custom-limit {
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.custom-limit-title {
+    color: #4a5568;
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.custom-limit-controls {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.custom-limit-input {
+    flex: 1;
+    padding: 0.5rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.875rem;
+}
+
+.custom-limit-button {
+    background-color: #3b82f6;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: background-color 0.2s;
+}
+
+.custom-limit-button:hover {
+    background-color: #2563eb;
+}
+
+.custom-limit-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.custom-limit-info small {
+    font-size: 0.75rem;
+    color: #6b7280;
 }
