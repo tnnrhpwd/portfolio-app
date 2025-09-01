@@ -16,13 +16,11 @@ function Plans() {
   const [showMyPlans, setShowMyPlans] = useState(false);
   const [showPublicPlans, setShowPublicPlans] = useState(true);
   const [myPlans, setMyPlans] = useState([]);
-  const [showSavedPlans, setShowSavedPlans] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
-  const [savedPlans, setSavedPlans] = useState([]);
   const [publicPlans, setPublicPlans] = useState([]);
   const [sortOrder, setSortOrder] = useState('createdate-desc');
   const [date, setDate] = useState(new Date());
-  const [meetings, setMeetings] = useState({
+  const [meetings] = useState({
     '2023-12-01': 2,
     '2023-12-05': 1,
     '2023-12-10': 3,
@@ -106,7 +104,7 @@ function Plans() {
     return () => {
       dispatch(resetDataSlice());
     };
-  }, [dispatch, user]);
+  }, [dispatch, user, navigate]);
   
   useEffect(() => {
     function handleAllOutputData(PlanStringArray) {
@@ -116,7 +114,6 @@ function Plans() {
       }
 
       const outputMyPlanArray = [];
-      const outputSavedPlanArray = [];
       const outputPublicPlanArray = [];
 
       if (PlanStringArray.length === 0) {
@@ -128,7 +125,7 @@ function Plans() {
       const processPlanArray = (itemIDData, itemCreatedAtData, itemUpdatedAtData, itemString, files, index, array, itemUser) => {
         array.push(
           <DataResult
-            key={`${array === outputMyPlanArray ? 'MyDataResult' : 'SavedDataResult'}}${index}${1}`}
+            key={`${array === outputMyPlanArray ? 'MyDataResult' : 'PublicDataResult'}${index}${itemIDData}`}
             importPlanString={itemString}
             files={files}
             updatedAtData={itemUpdatedAtData}
@@ -141,58 +138,53 @@ function Plans() {
       };
 
       PlanStringArray.forEach((itemarino, index) => {
-        // Determine the source object for properties like 'text' and 'files'.
-        // If itemarino.data exists and itemarino.data.text is present, it's likely from the protected endpoint.
-        // Otherwise, itemarino itself should contain these properties (from public endpoint or already transformed).
-        const sourceObject = (itemarino.data && typeof itemarino.data.text !== 'undefined') 
-                             ? itemarino.data 
-                             : itemarino;
-
-        let itemString = typeof sourceObject.text === 'string' ? sourceObject.text : 'Unknown';
-        // Ensure createdAt, updatedAt, and _id are consistently accessed from the top-level itemarino,
-        // assuming your Redux slice or backend mapping ensures their presence there.
+        // The data content is directly in itemarino.data as a string
+        let itemString = typeof itemarino.data === 'string' ? itemarino.data : 'Unknown';
+        
+        // Ensure createdAt, updatedAt, and _id are consistently accessed from the top-level itemarino
         const itemCreatedAt = itemarino.createdAt;
         const itemUpdatedAt = itemarino.updatedAt;
-        const itemID = itemarino._id; // This needs to be consistently available.
+        const itemID = itemarino._id;
 
         if (!itemID) {
           console.warn('ItemID (_id) is missing for item:', itemarino);
-          // Potentially skip this item or handle error, as itemID is crucial for the key.
+          // Skip this item since itemID is crucial
+          return;
         }
         
         if (itemString.length > 500) {
           itemString = itemString.substring(0, 500) + '...';
         }
 
-        const files = sourceObject.files || [];
+        const files = itemarino.files || [];
 
         const creatorMatch = itemString.match(/Creator:(.*?)\|/);
         const itemUser = creatorMatch ? { id: creatorMatch[1], nickname: 'User' + creatorMatch[1].slice(-4), badge: creatorMatch[1].toString() === "6770a067c725cbceab958619" ? 'Gold' : 'Silver' } : { id: 'Unknown', nickname: 'Unknown', badge: 'Unknown' };
         // console.log(itemUser);
         if (typeof itemString === 'string') {
           if (user && itemString.includes(user._id)) processPlanArray(itemID, itemCreatedAt, itemUpdatedAt, itemString, files, index, outputMyPlanArray, itemUser);
-          if (itemString.includes('Like:')) processPlanArray(itemID, itemCreatedAt, itemUpdatedAt, itemString, files, index, outputSavedPlanArray, itemUser);
           if (itemString.includes('|Public:true')) processPlanArray(itemID, itemCreatedAt, itemUpdatedAt, itemString, files, index, outputPublicPlanArray, itemUser);
         }
       });
 
       const sortPlans = (plans) => {
-        switch (sortOrder) {
-          case 'itemstring-desc':
-            return plans.sort((a, b) => a.props.importPlanString.localeCompare(b.props.importPlanString));
-          case 'itemstring-asc':
-            return plans.sort((a, b) => b.props.importPlanString.localeCompare(a.props.importPlanString));
-          case 'createdate-desc':
-            return plans;
-          case 'createdate-asc':
-            return plans.reverse();
-          default:
-            return plans;
-        }
+        return [...plans].sort((a, b) => {
+          switch (sortOrder) {
+            case 'itemstring-asc':
+              return a.props.importPlanString.localeCompare(b.props.importPlanString);
+            case 'itemstring-desc':
+              return b.props.importPlanString.localeCompare(a.props.importPlanString);
+            case 'createdate-asc':
+              return new Date(a.props.createdAtData) - new Date(b.props.createdAtData);
+            case 'createdate-desc':
+              return new Date(b.props.createdAtData) - new Date(a.props.createdAtData);
+            default:
+              return 0;
+          }
+        });
       };
 
       setMyPlans(sortPlans(outputMyPlanArray));
-      setSavedPlans(sortPlans(outputSavedPlanArray));
       setPublicPlans(sortPlans(outputPublicPlanArray));
     }
     if (data.data) {
@@ -216,21 +208,6 @@ function Plans() {
     dispatch(logout());
     navigate('/login');  
   }
-
-  // Function to render content for a calendar tile
-  const tileContent = ({ date, view }) => {
-    // Convert the date to a string in the format 'YYYY-MM-DD'
-    const dateString = date.toISOString().split('T')[0];
-    
-    // Return a div with the meeting count if the view is 'month' and there are meetings on the date
-    return (
-      view === 'month' && meetings[dateString] ? (
-        <div className="meeting-count">
-          {meetings[dateString]}
-        </div>
-      ) : null // Return null if the conditions are not met
-    );
-  };
 
   return (
     <>
