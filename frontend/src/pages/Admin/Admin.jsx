@@ -491,11 +491,9 @@ function Admin() {
                   <ScrollableTable 
                     headers={[
                       { key: "title", label: "Bug Title" },
-                      { key: "severity", label: "Severity" },
                       { key: "status", label: "Status" },
                       { key: "creator", label: "Reporter" },
                       { key: "description", label: "Description" },
-                      { key: "browser", label: "Browser" },
                       { key: "createdAt", label: "Submitted" },
                       { key: "actions", label: "Actions" },
                     ]}
@@ -521,14 +519,6 @@ function Admin() {
                           )}
                         </td>
                         <td className="admin-table-row-text">
-                          <span className={`severity-badge severity-${report.severity}`}>
-                            {report.severity === 'low' && '🟢 Low'}
-                            {report.severity === 'medium' && '🟡 Medium'}
-                            {report.severity === 'high' && '🟠 High'}
-                            {report.severity === 'critical' && '🔴 Critical'}
-                          </span>
-                        </td>
-                        <td className="admin-table-row-text">
                           <span className={`status-badge status-${report.status.toLowerCase()}`}>
                             {report.status === 'Open' ? '🔓 Open' : '🔒 Closed'}
                           </span>
@@ -538,14 +528,6 @@ function Admin() {
                           {report.description.length > 100 
                             ? report.description.substring(0, 100) + '...' 
                             : report.description}
-                        </td>
-                        <td className="admin-table-row-text">
-                          {report.browser.includes('Chrome') && '🌐 Chrome'}
-                          {report.browser.includes('Firefox') && '🦊 Firefox'}
-                          {report.browser.includes('Safari') && '🧭 Safari'}
-                          {report.browser.includes('Edge') && '🔷 Edge'}
-                          {!report.browser.includes('Chrome') && !report.browser.includes('Firefox') && 
-                           !report.browser.includes('Safari') && !report.browser.includes('Edge') && '🌐 Other'}
                         </td>
                         <td className="admin-table-row-text">{formatTimestamp(report.createdAt)}</td>
                         <td className="admin-table-row-text">
