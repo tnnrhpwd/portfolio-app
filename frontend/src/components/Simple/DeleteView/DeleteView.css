@@ -1,32 +1,456 @@
-.planit-deleteview{
-    position: absolute;
-    /* top: calc(var(--nav-size)*0.3); */
-    /* left: calc(var(--nav-size)*0.3); */
+/* Modern DeleteView Component - Industry Best Practices */
+
+.planit-deleteview {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: overlayFadeIn 0.3s ease-out;
+}
+
+@keyframes overlayFadeIn {
+    from {
+        opacity: 0;
+        backdrop-filter: blur(0px);
+    }
+    to {
+        opacity: 1;
+        backdrop-filter: blur(8px);
+    }
+}
+
+.planit-deleteview-spc {
+    background: var(--bg-page-transp);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border-nav);
+    border-radius: calc(var(--nav-size) * 0.25);
+    padding: calc(var(--nav-size) * 0.6);
     width: 90%;
+    max-width: calc(var(--nav-size) * 12);
+    position: relative;
+    box-shadow: 
+        0 20px 60px rgba(0, 0, 0, 0.25),
+        0 8px 24px rgba(0, 0, 0, 0.15);
+    animation: modalSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    color: var(--text-color);
+    font-size: calc(var(--nav-size) * 0.3);
     text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.4);
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.planit-deleteview-spc::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--fg-pink), #DC143C, var(--fg-pink));
+    background-size: 200% 100%;
+    animation: gradientSlide 3s ease-in-out infinite;
+    border-radius: calc(var(--nav-size) * 0.25) calc(var(--nav-size) * 0.25) 0 0;
+}
+
+@keyframes gradientSlide {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
+.planit-deleteview-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.2);
+    margin-bottom: calc(var(--nav-size) * 0.2);
+}
+
+.planit-deleteview-icon {
+    font-size: calc(var(--nav-size) * 0.8);
+    color: var(--fg-pink);
+    animation: warningPulse 2s ease-in-out infinite;
+}
+
+@keyframes warningPulse {
+    0%, 100% { 
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% { 
+        transform: scale(1.1);
+        opacity: 0.8;
+    }
+}
+
+.planit-deleteview-title {
+    font-size: calc(var(--nav-size) * 0.4);
+    font-weight: 700;
+    color: var(--fg-pink);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.15);
+}
+
+.planit-deleteview-title::before {
+    content: "⚠️";
+    font-size: calc(var(--nav-size) * 0.35);
+}
+
+.planit-deleteview-message {
+    font-size: calc(var(--nav-size) * 0.32);
+    line-height: 1.6;
+    color: var(--text-color);
+    margin-bottom: calc(var(--nav-size) * 0.2);
+    padding: calc(var(--nav-size) * 0.3);
+    background: rgba(var(--fg-pink-rgb, 255, 105, 180), 0.1);
+    border: 1px solid rgba(var(--fg-pink-rgb, 255, 105, 180), 0.3);
+    border-radius: calc(var(--nav-size) * 0.15);
+    position: relative;
+}
+
+.planit-deleteview-message::before {
+    content: "";
+    position: absolute;
+    left: calc(var(--nav-size) * 0.15);
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 60%;
+    background: var(--fg-pink);
+    border-radius: 2px;
+}
+
+.planit-deleteview-warning {
+    font-size: calc(var(--nav-size) * 0.28);
+    color: var(--fg-pink);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: calc(var(--nav-size) * 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: calc(var(--nav-size) * 0.1);
+}
+
+.planit-deleteview-warning::before {
+    content: "🚨";
+    font-size: calc(var(--nav-size) * 0.26);
+}
+
+.planit-deleteview-actions {
+    display: flex;
+    gap: calc(var(--nav-size) * 0.25);
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: calc(var(--nav-size) * 0.2);
+    padding-top: calc(var(--nav-size) * 0.3);
+    border-top: 1px solid var(--border-nav);
+}
+
+.planit-deleteview-spc-btn {
+    font-size: calc(var(--nav-size) * 0.3);
+    font-weight: 600;
+    padding: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.5);
+    border: 2px solid transparent;
+    border-radius: calc(var(--nav-size) * 0.15);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    display: inline-flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.1);
+    box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.1),
+        0 2px 6px rgba(0, 0, 0, 0.05);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    min-width: calc(var(--nav-size) * 2.5);
+    justify-content: center;
+}
+
+.planit-deleteview-spc-btn::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s ease;
+}
+
+.planit-deleteview-spc-btn:hover::before {
+    left: 100%;
+}
+
+.planit-deleteview-spc-btn.delete-btn {
+    background: linear-gradient(135deg, var(--fg-pink), #DC143C);
+    color: white;
+    border-color: var(--fg-pink);
+    box-shadow: 
+        0 4px 12px rgba(var(--fg-pink-rgb, 255, 105, 180), 0.3),
+        0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.planit-deleteview-spc-btn.delete-btn:hover {
+    background: linear-gradient(135deg, #DC143C, #B22222);
+    transform: translateY(-2px);
+    box-shadow: 
+        0 6px 20px rgba(var(--fg-pink-rgb, 255, 105, 180), 0.4),
+        0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.planit-deleteview-spc-btn.delete-btn::after {
+    content: "🗑️";
+    font-size: calc(var(--nav-size) * 0.25);
+}
+
+.planit-deleteview-spc-btn.cancel-btn {
+    background: var(--bg-page);
+    color: var(--text-color);
+    border-color: var(--border-nav);
+}
+
+.planit-deleteview-spc-btn.cancel-btn:hover {
+    border-color: var(--fg-mint);
+    background: var(--bg-accent);
+    transform: translateY(-2px);
+    box-shadow: 
+        0 6px 20px rgba(0, 0, 0, 0.1),
+        0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.planit-deleteview-spc-btn.cancel-btn::after {
+    content: "❌";
+    font-size: calc(var(--nav-size) * 0.22);
+}
+
+.planit-deleteview-spc-btn:active {
+    transform: translateY(-1px);
+    box-shadow: 
+        0 2px 8px rgba(0, 0, 0, 0.1),
+        0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.planit-deleteview-spc-btn:focus {
+    outline: none;
+    box-shadow: 
+        0 0 0 3px rgba(var(--fg-blue-rgb, 56, 56, 255), 0.1),
+        0 4px 12px rgba(0, 0, 0, 0.1),
+        0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+/* Additional Information */
+.planit-deleteview-details {
+    font-size: calc(var(--nav-size) * 0.26);
+    color: var(--text-color-accent);
+    font-style: italic;
+    margin-top: calc(var(--nav-size) * 0.15);
+    padding: calc(var(--nav-size) * 0.2);
+    background: var(--bg-plan);
+    border-radius: calc(var(--nav-size) * 0.1);
+    border: 1px solid var(--border-nav);
+}
+
+.planit-deleteview-details::before {
+    content: "ℹ️";
+    margin-right: calc(var(--nav-size) * 0.1);
+}
+
+/* Close Button */
+.planit-deleteview-close {
+    background: none;
+    border: none;
+    font-size: calc(var(--nav-size) * 0.35);
+    color: var(--text-color-accent);
+    cursor: pointer;
+    padding: calc(var(--nav-size) * 0.1);
+    border-radius: 50%;
+    width: calc(var(--nav-size) * 0.55);
+    height: calc(var(--nav-size) * 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    position: absolute;
+    top: calc(var(--nav-size) * 0.2);
+    right: calc(var(--nav-size) * 0.2);
     z-index: 10;
 }
-.planit-deleteview-spc{
-    display: inline-block;
-    font-size: calc(var(--nav-size)*0.3);
-    padding: calc(var(--nav-size)*0.5);
-    padding-top: calc(var(--nav-size)*0.8);
-    padding-bottom: calc(var(--nav-size)*0.8);
-    border: calc(var(--nav-size)*0.001) solid var(--text-color);
-    background-color: var(--text-color-inv);
-    color: var(--text-color);
-    width: 80%;
-    box-shadow: 0 calc(var(--nav-size) * 1) calc(var(--nav-size) * 1) rgba(0, 0, 0, 0.1);
-    border-radius: calc(var(--nav-size) * 0.3);
+
+.planit-deleteview-close::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--text-color);
+    border-radius: 50%;
+    transform: scale(0);
+    transition: transform 0.3s ease;
 }
-.planit-deleteview-spc-btn{
-    background-color: transparent;
-    border: 1px solid var(--text-color);
-    padding: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.3);
-    font-size: calc(var(--nav-size) * 0.3);
-    color: var(--text-color);
-    cursor: pointer;
-    border-radius: 4px;
-    margin: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.3);
-    transition: background-color 0.3s, color 0.3s;
+
+.planit-deleteview-close:hover::before {
+    transform: scale(1);
+}
+
+.planit-deleteview-close:hover {
+    color: var(--bg-page);
+    transform: scale(1.1);
+}
+
+.planit-deleteview-close::after {
+    content: "✕";
+    position: relative;
+    z-index: 1;
+}
+
+/* Loading State */
+.planit-deleteview-spc.loading {
+    pointer-events: none;
+}
+
+.planit-deleteview-spc.loading::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(var(--bg-page-rgb, 255, 255, 255), 0.8);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: inherit;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .planit-deleteview-spc {
+        width: 95%;
+        padding: calc(var(--nav-size) * 0.5);
+        gap: calc(var(--nav-size) * 0.3);
+    }
+    
+    .planit-deleteview-title {
+        font-size: calc(var(--nav-size) * 0.36);
+    }
+    
+    .planit-deleteview-message {
+        font-size: calc(var(--nav-size) * 0.3);
+        padding: calc(var(--nav-size) * 0.25);
+    }
+    
+    .planit-deleteview-actions {
+        flex-direction: column;
+        gap: calc(var(--nav-size) * 0.2);
+    }
+    
+    .planit-deleteview-spc-btn {
+        font-size: calc(var(--nav-size) * 0.28);
+        padding: calc(var(--nav-size) * 0.25) calc(var(--nav-size) * 0.4);
+        align-self: stretch;
+    }
+    
+    .planit-deleteview-icon {
+        font-size: calc(var(--nav-size) * 0.7);
+    }
+}
+
+@media (max-width: 480px) {
+    .planit-deleteview-spc {
+        width: 98%;
+        padding: calc(var(--nav-size) * 0.4);
+        gap: calc(var(--nav-size) * 0.25);
+    }
+    
+    .planit-deleteview-title {
+        font-size: calc(var(--nav-size) * 0.32);
+    }
+    
+    .planit-deleteview-message {
+        font-size: calc(var(--nav-size) * 0.28);
+        padding: calc(var(--nav-size) * 0.2);
+    }
+    
+    .planit-deleteview-spc-btn {
+        font-size: calc(var(--nav-size) * 0.26);
+        padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.35);
+        min-width: calc(var(--nav-size) * 2.2);
+    }
+    
+    .planit-deleteview-icon {
+        font-size: calc(var(--nav-size) * 0.6);
+    }
+    
+    .planit-deleteview-close {
+        width: calc(var(--nav-size) * 0.5);
+        height: calc(var(--nav-size) * 0.5);
+        font-size: calc(var(--nav-size) * 0.3);
+        top: calc(var(--nav-size) * 0.15);
+        right: calc(var(--nav-size) * 0.15);
+    }
+}
+
+/* Accessibility Improvements */
+@media (prefers-reduced-motion: reduce) {
+    .planit-deleteview,
+    .planit-deleteview-spc,
+    .planit-deleteview-icon,
+    .planit-deleteview-spc-btn,
+    .planit-deleteview-close {
+        animation: none;
+        transition: none;
+    }
+    
+    .planit-deleteview-spc-btn:hover,
+    .planit-deleteview-close:hover {
+        transform: none;
+    }
+}
+
+@media (prefers-contrast: high) {
+    .planit-deleteview-spc {
+        border: 3px solid var(--text-color);
+    }
+    
+    .planit-deleteview-spc-btn {
+        border: 3px solid var(--text-color);
+    }
+    
+    .planit-deleteview-message {
+        border: 3px solid var(--fg-pink);
+    }
+}
+
+/* Print Styles */
+@media print {
+    .planit-deleteview {
+        display: none;
+    }
 }

@@ -1,21 +1,34 @@
+/* Modern Plans Page Styling - Industry Standards & Best Practices */
+
+/* Base Layout & Background */
 .footer-space {
     background-color: var(--bg-nav2);
 }
-.planit-plans{
-    min-height:85svh;
-    min-height: 85vh;
-    text-align: left;
-    padding: calc(var(--nav-size)*0.5);
-    font-size: calc(var(--nav-size)*0.5);
-    color: var(--text-color);
-    padding-top: calc(var(--nav-size)*1);
+
+.planit-plans {
+    min-height: 100vh;
+    min-height: 100svh;
+    background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
+    background-size: 400% 400%;
+    animation: gradientShift 15s ease infinite;
     display: flex;
     flex-direction: column;
-    background: linear-gradient(175deg, var(--bg-nav1) 0%, var(--bg-nav2) 100%);
     position: relative;
     overflow: hidden;
+    padding: calc(var(--nav-size) * 1);
+    color: var(--text-color);
 }
 
+/* Enhanced gradient animation matching Home.css */
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    25% { background-position: 100% 50%; }
+    50% { background-position: 100% 100%; }
+    75% { background-position: 0% 100%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Floating background elements for visual depth */
 .planit-plans::before {
     content: "";
     position: absolute;
@@ -23,107 +36,84 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: radial-gradient(circle at top right, rgba(var(--bg-mint-rgb, 79, 156, 249), 0.05), transparent 70%),
-                radial-gradient(circle at bottom left, rgba(var(--fg-mint, 0, 193, 193), 0.05), transparent 70%);
+    background: 
+        radial-gradient(circle at 20% 20%, rgba(var(--fg-mint-rgb, 0, 193, 193), 0.1), transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(var(--fg-blue-rgb, 56, 56, 255), 0.1), transparent 50%),
+        radial-gradient(circle at 40% 70%, rgba(var(--fg-pink-rgb, 255, 55, 155), 0.08), transparent 60%);
     z-index: -1;
+    animation: backgroundFloat 20s ease-in-out infinite;
 }
 
-.planit-plans-text{
-    font-size: calc(var(--nav-size)*0.3);
-    margin-bottom: calc(var(--nav-size)*0.3);
-    font-weight: 500;
-    color: var(--text-color);
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+@keyframes backgroundFloat {
+    0%, 100% { transform: rotate(0deg) scale(1); }
+    33% { transform: rotate(120deg) scale(1.05); }
+    66% { transform: rotate(240deg) scale(0.95); }
 }
 
-.planit-plans-create{
-    margin-top: calc(var(--nav-size)*.3);
-    padding: calc(var(--nav-size)*.3);
+/* Page Header */
+.planit-plans > .page-title {
+    font-size: calc(var(--nav-size) * 1.2);
+    font-weight: 700;
     text-align: center;
-    font-size: calc(var(--nav-size)*0.3);
-    border: none;
-    vertical-align: middle;
-    min-height: calc(var(--nav-size)*0.8);
-    border-radius: calc(var(--nav-size)*.15);
-    box-shadow: 
-        0 calc(var(--nav-size)*0.05) calc(var(--nav-size)*0.2) rgba(0, 0, 0, 0.07),
-        0 calc(var(--nav-size)*0.01) calc(var(--nav-size)*0.05) rgba(0, 0, 0, 0.04);
-    backdrop-filter: blur(calc(var(--nav-size)*0.1));
-    transition: all 0.3s ease;
-    border: calc(var(--nav-size)*0.003) solid var(--border-nav);
-}
-
-.planit-plans-create:hover {
-    box-shadow: 
-        0 calc(var(--nav-size)*0.1) calc(var(--nav-size)*0.25) rgba(0, 0, 0, 0.09),
-        0 calc(var(--nav-size)*0.02) calc(var(--nav-size)*0.07) rgba(0, 0, 0, 0.06);
-    transform: translateY(calc(var(--nav-size)*-0.03));
-    border-color: var(--fg-mint, #4f9cf9);
-}
-
-.planit-plans-create-text{
-    border: none;
-    background-color: transparent;
-    color: var(--text-color);
-    cursor: pointer;
-    font-weight: 500;
-    transition: color 0.2s ease;
+    margin-bottom: calc(var(--nav-size) * 0.3);
+    background: linear-gradient(135deg, var(--text-color), var(--fg-blue));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
     position: relative;
-    display: inline-block;
-    padding-bottom: calc(var(--nav-size)*0.05);
 }
 
-.planit-plans-create-text:hover {
-    color: var(--fg-mint, #4f9cf9);
+.planit-plans-text {
+    font-size: calc(var(--nav-size) * 0.4);
+    text-align: center;
+    margin-bottom: calc(var(--nav-size) * 0.6);
+    font-weight: 500;
+    color: var(--text-color);
+    opacity: 0.9;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    position: relative;
+    z-index: 2;
 }
 
-.planit-plans-create-text::after {
+.planit-plans-text::after {
     content: "";
     position: absolute;
-    bottom: 0;
+    bottom: -8px;
     left: 50%;
-    width: 0;
-    height: calc(var(--nav-size)*0.01);
-    background: linear-gradient(90deg, transparent, var(--fg-mint, #4f9cf9), transparent);
-    transition: width 0.3s ease, left 0.3s ease;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 2px;
+    background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint));
+    border-radius: 1px;
+    animation: expandLine 1s ease-out 0.5s both;
 }
 
-.planit-plans-create-text:hover::after {
-    width: 80%;
-    left: 10%;
+@keyframes expandLine {
+    from { width: 0; }
+    to { width: 60px; }
 }
 
-.planit-plans-my, 
+/* Card Base Styles */
+.planit-plans-create,
+.planit-plans-my,
 .planit-plans-saved,
 .planit-plans-calendar {
-    margin-top: calc(var(--nav-size)*0.5);
-    padding: calc(var(--nav-size)*.3);
-    text-align: center;
-    font-size: calc(var(--nav-size)*0.3);
-    border: none;
-    vertical-align: middle;
-    min-height: calc(var(--nav-size)*0.8);
-    border-radius: calc(var(--nav-size)*.15);
-    background: linear-gradient(145deg, var(--bg-nav1) 0%, var(--bg-nav2) 100%);
+    margin-top: calc(var(--nav-size) * 0.8);
+    padding: calc(var(--nav-size) * 0.6);
+    background: var(--bg-page-transp);
+    backdrop-filter: blur(12px);
+    border-radius: calc(var(--nav-size) * 0.3);
     box-shadow: 
-        0 calc(var(--nav-size)*0.05) calc(var(--nav-size)*0.2) rgba(0, 0, 0, 0.07),
-        0 calc(var(--nav-size)*0.01) calc(var(--nav-size)*0.05) rgba(0, 0, 0, 0.04);
-    backdrop-filter: blur(calc(var(--nav-size)*0.1));
-    transition: all 0.3s ease;
-    border: calc(var(--nav-size)*0.003) solid var(--border-nav);
+        0 8px 32px rgba(0, 0, 0, 0.1),
+        0 4px 16px rgba(0, 0, 0, 0.05),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border-nav);
     position: relative;
+    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    z-index: 2;
     overflow: hidden;
 }
 
-.planit-plans-my:hover, 
-.planit-plans-saved:hover,
-.planit-plans-calendar:hover {
-    box-shadow: 
-        0 calc(var(--nav-size)*0.1) calc(var(--nav-size)*0.25) rgba(0, 0, 0, 0.09),
-        0 calc(var(--nav-size)*0.02) calc(var(--nav-size)*0.07) rgba(0, 0, 0, 0.06);
-    transform: translateY(calc(var(--nav-size)*-0.03));
-    border-color: var(--fg-mint, #4f9cf9);
-}
 .planit-plans-create::before,
 .planit-plans-my::before,
 .planit-plans-saved::before,
@@ -132,130 +122,519 @@
     position: absolute;
     top: 0;
     left: 0;
-    width: 30%;
-    height: calc(var(--nav-size)*0.01);
-    background: linear-gradient(90deg, var(--fg-mint, #4f9cf9), transparent);
-    border-radius: var(--border-radius);
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint), var(--fg-pink));
+    background-size: 200% 100%;
+    animation: gradientSlide 3s ease-in-out infinite;
 }
 
+@keyframes gradientSlide {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
+/* Hover effects for cards */
+.planit-plans-create:hover,
+.planit-plans-my:hover,
+.planit-plans-saved:hover,
+.planit-plans-calendar:hover {
+    transform: translateY(-4px);
+    box-shadow: 
+        0 16px 48px rgba(0, 0, 0, 0.15),
+        0 8px 24px rgba(0, 0, 0, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    border-color: var(--fg-mint);
+}
+
+/* Section Headers */
+.planit-plans-create-text,
 .planit-plans-my-text,
 .planit-plans-saved-text,
 .planit-plans-calendar-text {
-    padding-bottom: calc(var(--nav-size)*.3);
-    border: none;
-    background-color: transparent;
+    font-size: calc(var(--nav-size) * 0.3);
+    font-weight: 600;
     color: var(--text-color);
     cursor: pointer;
-    font-weight: 500;
-    transition: color 0.2s ease;
+    text-align: center;
+    padding: calc(var(--nav-size) * 0.3) 0;
+    border: none;
+    background: none;
+    width: 100%;
+    position: relative;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: calc(var(--nav-size) * 0.2);
 }
 
+.planit-plans-create-text:hover,
 .planit-plans-my-text:hover,
 .planit-plans-saved-text:hover,
 .planit-plans-calendar-text:hover {
-    color: var(--fg-mint, #4f9cf9);
+    color: var(--fg-blue);
+    transform: scale(1.02);
 }
 
+.planit-plans-create-text::after,
+.planit-plans-my-text::after,
+.planit-plans-saved-text::after,
+.planit-plans-calendar-text::after {
+    content: "";
+    position: absolute;
+    bottom: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink));
+    transition: width 0.3s ease;
+}
+
+.planit-plans-create-text:hover::after,
+.planit-plans-my-text:hover::after,
+.planit-plans-saved-text:hover::after,
+.planit-plans-calendar-text:hover::after {
+    width: 60%;
+}
+
+/* Content Areas */
+.planit-plans-in,
 .planit-plans-my-out,
 .planit-plans-saved-out {
-    padding: calc(var(--nav-size)*0.2);
-    background-color: var(--bg-plan);
-    border-radius: calc(var(--nav-size)*0.1);
-    margin-top: calc(var(--nav-size)*0.2);
+    margin-top: calc(var(--nav-size) * 0.4);
+    padding: calc(var(--nav-size) * 0.4);
+    background: var(--bg-plan);
+    border-radius: calc(var(--nav-size) * 0.2);
+    border: 1px solid var(--border-plan);
+    animation: slideDown 0.3s ease-out;
 }
 
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+        max-height: 0;
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+        max-height: 1000px;
+    }
+}
+
+/* Sort Controls */
 .planit-plans-my-out-sort {
-    color: var(--text-color);
-    margin-bottom: calc(var(--nav-size)*.2);
-    padding: calc(var(--nav-size)*.1) calc(var(--nav-size)*.2);
-    border-radius: calc(var(--nav-size)*0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: calc(var(--nav-size) * 0.3);
+    margin-bottom: calc(var(--nav-size) * 0.4);
+    padding: calc(var(--nav-size) * 0.3);
+    background: var(--bg-1);
+    border-radius: calc(var(--nav-size) * 0.15);
+    border: 1px solid var(--border-nav);
+    flex-wrap: wrap;
 }
 
 .planit-plans-my-out-sort label {
     color: var(--text-color);
-    font-size: calc(var(--nav-size)*.25);
-    font-weight: 500;
-    margin-right: calc(var(--nav-size)*.15);
+    font-size: calc(var(--nav-size) * 0.3);
+    font-weight: 600;
+    white-space: nowrap;
 }
 
 .planit-plans-my-out-sort select {
     color: var(--text-color);
-    padding: calc(var(--nav-size)*.1) calc(var(--nav-size)*.2);
-    font-size: calc(var(--nav-size)*.25);
-    border: none;
-    border-radius: calc(var(--nav-size)*.1);
-    background-color: var(--bg-1);
-    box-shadow: 0 calc(var(--nav-size)*.02) calc(var(--nav-size)*.05) rgba(0, 0, 0, 0.05);
-    transition: all 0.3s ease;
+    background: var(--bg-page);
+    border: 2px solid var(--border-nav);
+    border-radius: calc(var(--nav-size) * 0.15);
+    padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.3);
+    font-size: calc(var(--nav-size) * 0.28);
+    font-weight: 500;
     cursor: pointer;
-    backdrop-filter: blur(calc(var(--nav-size)*0.05));
+    transition: all 0.3s ease;
+    outline: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .planit-plans-my-out-sort select:focus {
-    outline: none;
-    box-shadow: 0 0 0 calc(var(--nav-size)*0.02) rgba(var(--bg-mint-rgb, 79, 156, 249), 0.3);
+    border-color: var(--fg-blue);
+    box-shadow: 
+        0 0 0 3px rgba(var(--fg-blue-rgb, 56, 56, 255), 0.1),
+        0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
 }
 
 .planit-plans-my-out-sort select:hover {
-    background-color: var(--bg-accent);
+    border-color: var(--fg-mint);
+    background: var(--bg-accent);
+    transform: translateY(-1px);
 }
 
+.planit-plans-my-out-sort select option {
+    background: var(--bg-page);
+    color: var(--text-color);
+    padding: calc(var(--nav-size) * 0.15);
+}
+
+/* Results Display */
+.planit-plans-my-out-result,
+.planit-plans-saved-out-result {
+    display: grid;
+    gap: calc(var(--nav-size) * 0.4);
+    animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Empty States */
+.planit-plans-my-out h3,
+.planit-plans-saved-out h3 {
+    text-align: center;
+    color: var(--text-color-accent);
+    font-size: calc(var(--nav-size) * 0.4);
+    font-weight: 500;
+    margin: calc(var(--nav-size) * 0.8) 0;
+    padding: calc(var(--nav-size) * 0.6);
+    background: var(--bg-1);
+    border-radius: calc(var(--nav-size) * 0.2);
+    border: 2px dashed var(--border-nav);
+    position: relative;
+    animation: pulseGently 2s ease-in-out infinite;
+}
+
+@keyframes pulseGently {
+    0%, 100% {
+        opacity: 0.7;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.02);
+    }
+}
+
+.planit-plans-my-out h3::before,
+.planit-plans-saved-out h3::before {
+    content: "📝";
+    display: block;
+    font-size: calc(var(--nav-size) * 0.6);
+    margin-bottom: calc(var(--nav-size) * 0.2);
+}
+
+/* Calendar Styles */
 .planit-plans-calendar-out {
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: calc(var(--nav-size)*0.3);
-    background-color: var(--bg-plan);
-    border-radius: calc(var(--nav-size)*0.1);
-    margin-top: calc(var(--nav-size)*0.2);
+    padding: calc(var(--nav-size) * 0.4);
+    background: var(--bg-plan);
+    border-radius: calc(var(--nav-size) * 0.2);
+    margin-top: calc(var(--nav-size) * 0.3);
+    border: 1px solid var(--border-nav);
 }
 
 .react-calendar {
     width: 100%;
     max-width: 100%;
-    background: var(--bg-nav1);
+    background: var(--bg-page);
     border: none;
-    border-radius: calc(var(--nav-size)*.15);
-    font-size: calc(var(--nav-size)*0.25);
+    border-radius: calc(var(--nav-size) * 0.2);
+    font-size: calc(var(--nav-size) * 0.28);
     color: var(--text-color);
     box-shadow: 
-        0 calc(var(--nav-size)*0.05) calc(var(--nav-size)*0.15) rgba(0, 0, 0, 0.07),
-        0 calc(var(--nav-size)*0.01) calc(var(--nav-size)*0.05) rgba(0, 0, 0, 0.04);
+        0 4px 16px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
     overflow: hidden;
+    font-family: inherit;
 }
 
-.react-calendar button{
+.react-calendar button {
     color: var(--text-color);
-    border-radius: calc(var(--nav-size)*.1);
+    border-radius: calc(var(--nav-size) * 0.1);
     border: none;
+    transition: all 0.2s ease;
+    font-weight: 500;
+    position: relative;
+}
+
+.react-calendar__navigation {
+    background: var(--bg-1);
+    margin-bottom: 0;
+    border-bottom: 1px solid var(--border-nav);
+}
+
+.react-calendar__navigation button {
+    font-weight: 600;
+    font-size: calc(var(--nav-size) * 0.32);
+    padding: calc(var(--nav-size) * 0.25);
+}
+
+.react-calendar__navigation button:hover {
+    background: var(--fg-blue);
+    color: var(--text-color-inv);
+    transform: scale(1.05);
+}
+
+.react-calendar__tile {
+    padding: calc(var(--nav-size) * 0.2);
+    position: relative;
     transition: all 0.2s ease;
 }
 
-.react-calendar__tile--now {
-    background-color: var(--bg-mint);
+.react-calendar__tile:hover {
+    background: var(--bg-mint);
     color: var(--text-color);
+    transform: scale(1.05);
 }
 
-.react-calendar__tile--active:enabled:hover, 
-.react-calendar__tile--active:enabled:focus {
-    background: var(--bg-blue);
+.react-calendar__tile--now {
+    background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
+    color: var(--text-color-inv);
+    font-weight: bold;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .react-calendar__tile--active {
-    background: var(--fg-mint);
+    background: linear-gradient(135deg, var(--fg-pink), var(--fg-orange));
     color: var(--text-color-inv);
+    font-weight: bold;
 }
 
-/* Keep existing media query */
+.react-calendar__tile--active:enabled:hover,
+.react-calendar__tile--active:enabled:focus {
+    background: linear-gradient(135deg, var(--fg-orange), var(--fg-pink));
+}
+
+.planit-plans-calendar-out-tile-content {
+    position: absolute;
+    top: 50%;
+    right: 4px;
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+.planit-plans-calendar-out-meeting-count {
+    background: var(--fg-pink);
+    color: white;
+    border-radius: 50%;
+    width: calc(var(--nav-size) * 0.15);
+    height: calc(var(--nav-size) * 0.15);
+    font-size: calc(var(--nav-size) * 0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Loading States */
+.planit-plans-loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: calc(var(--nav-size) * 1);
+    color: var(--text-color-accent);
+    font-size: calc(var(--nav-size) * 0.4);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
+}
+
+/* Error States */
+.planit-plans-error {
+    text-align: center;
+    color: var(--red0);
+    background: rgba(220, 0, 0, 0.1);
+    padding: calc(var(--nav-size) * 0.6);
+    border-radius: calc(var(--nav-size) * 0.2);
+    border: 2px solid rgba(220, 0, 0, 0.3);
+    margin: calc(var(--nav-size) * 0.4) 0;
+    font-size: calc(var(--nav-size) * 0.35);
+    font-weight: 500;
+}
+
+/* Responsive Design */
 @media (orientation: landscape) {
-    .planit-plans{
-        text-align: left;
-        padding: calc(var(--nav-size)*1);
-        font-size: calc(var(--nav-size)*1);
-        padding-left: 5%;
-        padding-right: 5%;
+    .planit-plans {
+        padding: calc(var(--nav-size) * 1.5) 5%;
+        margin: 0 auto;
     }
-    .planit-plans-text{
-        font-size: calc(var(--nav-size)*0.5);
+    
+    .planit-plans-text {
+        font-size: calc(var(--nav-size) * 0.5);
+        margin-bottom: calc(var(--nav-size) * 0.8);
+    }
+    
+    .planit-plans-my-out-sort {
+        justify-content: flex-start;
+    }
+    
+    .react-calendar {
+        max-width: 500px;
+        margin: 0 auto;
+    }
+}
+
+@media (max-width: 768px) {
+    .planit-plans {
+        padding: calc(var(--nav-size) * 0.8) calc(var(--nav-size) * 0.5);
+    }
+    
+    .planit-plans-create,
+    .planit-plans-my,
+    .planit-plans-saved,
+    .planit-plans-calendar {
+        margin-top: calc(var(--nav-size) * 0.5);
+        padding: calc(var(--nav-size) * 0.4);
+    }
+    
+    .planit-plans-my-out-sort {
+        flex-direction: column;
+        gap: calc(var(--nav-size) * 0.2);
+        align-items: stretch;
+    }
+    
+    .planit-plans-my-out-sort select {
+        width: 100%;
+    }
+    
+    .react-calendar {
+        font-size: calc(var(--nav-size) * 0.25);
+    }
+    
+    .react-calendar__navigation button {
+        font-size: calc(var(--nav-size) * 0.28);
+        padding: calc(var(--nav-size) * 0.2);
+    }
+}
+
+@media (max-width: 480px) {
+    .planit-plans {
+        padding: calc(var(--nav-size) * 0.5) calc(var(--nav-size) * 0.3);
+    }
+    
+    .planit-plans-create-text,
+    .planit-plans-my-text,
+    .planit-plans-saved-text,
+    .planit-plans-calendar-text {
+        font-size: calc(var(--nav-size) * 0.4);
+        padding: calc(var(--nav-size) * 0.25) 0;
+    }
+    
+    .planit-plans-my-out h3,
+    .planit-plans-saved-out h3 {
+        font-size: calc(var(--nav-size) * 0.35);
+        padding: calc(var(--nav-size) * 0.4);
+        margin: calc(var(--nav-size) * 0.5) 0;
+    }
+    
+    .react-calendar__tile {
+        padding: calc(var(--nav-size) * 0.15);
+    }
+    
+    .planit-plans-calendar-out-meeting-count {
+        width: calc(var(--nav-size) * 0.12);
+        height: calc(var(--nav-size) * 0.12);
+        font-size: calc(var(--nav-size) * 0.1);
+    }
+}
+
+/* Theme-specific adjustments */
+.light-theme .planit-plans {
+    animation-duration: 18s;
+}
+
+.dark-theme .planit-plans {
+    animation-duration: 12s;
+}
+
+/* Accessibility Improvements */
+@media (prefers-reduced-motion: reduce) {
+    .planit-plans,
+    .planit-plans::before,
+    .planit-plans-create::before,
+    .planit-plans-my::before,
+    .planit-plans-saved::before,
+    .planit-plans-calendar::before {
+        animation: none;
+    }
+    
+    .planit-plans-create,
+    .planit-plans-my,
+    .planit-plans-saved,
+    .planit-plans-calendar {
+        transition: none;
+    }
+    
+    .planit-plans-my-out h3,
+    .planit-plans-saved-out h3 {
+        animation: none;
+    }
+}
+
+@media (prefers-contrast: high) {
+    .planit-plans-create,
+    .planit-plans-my,
+    .planit-plans-saved,
+    .planit-plans-calendar {
+        border: 2px solid var(--text-color);
+    }
+    
+    .planit-plans-my-out-sort select {
+        border: 2px solid var(--text-color);
+    }
+}
+
+/* Focus states for better accessibility */
+.planit-plans-create-text:focus,
+.planit-plans-my-text:focus,
+.planit-plans-saved-text:focus,
+.planit-plans-calendar-text:focus {
+    outline: 2px solid var(--fg-blue);
+    outline-offset: 4px;
+    border-radius: calc(var(--nav-size) * 0.1);
+}
+
+/* Print styles */
+@media print {
+    .planit-plans {
+        background: white;
+        color: black;
+        animation: none;
+        box-shadow: none;
+        padding: 1rem;
+    }
+    
+    .planit-plans::before,
+    .planit-plans-create::before,
+    .planit-plans-my::before,
+    .planit-plans-saved::before,
+    .planit-plans-calendar::before {
+        display: none;
+    }
+    
+    .planit-plans-create,
+    .planit-plans-my,
+    .planit-plans-saved,
+    .planit-plans-calendar {
+        background: white;
+        box-shadow: none;
+        border: 1px solid #ccc;
+        break-inside: avoid;
     }
 }

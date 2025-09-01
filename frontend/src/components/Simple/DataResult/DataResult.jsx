@@ -227,7 +227,7 @@ function DataResult(props) {
                                 <img className='planit-dataresult-thumb' src={ThumbsDown} alt='thumbs down logo'/>
                             </button>
                             <div className='planit-dataresult-votecomment-holder'>
-                                <a href={'plan/'+planString} className='planit-dataresult-votecomment-link'>
+                                <a href={'InfoData/' + itemID} className='planit-dataresult-votecomment-link'>
                                     <div className='planit-dataresult-votecomment'>
                                         {(planString.length - planString.length > 0)
                                             ? "+"+(planString.length - planString.length)+" votes "

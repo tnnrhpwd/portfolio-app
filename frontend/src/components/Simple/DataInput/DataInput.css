@@ -1,82 +1,391 @@
-.planit-datainput{
-    display: block;
-    text-align: center;
+/* Modern DataInput Component - Matching Plans.css Design Standards */
+
+.planit-datainput {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.4);
+    padding: calc(var(--nav-size) * 0.6);
+    background: var(--bg-page-transp);
+    backdrop-filter: blur(8px);
+    border-radius: calc(var(--nav-size) * 0.2);
+    border: 1px solid var(--border-nav);
+    position: relative;
+    animation: slideDown 0.4s ease-out;
 }
-.planit-datainput-group{
-    font-size: calc(var(--nav-size)*0.25);
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+        max-height: 0;
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+        max-height: 1000px;
+    }
 }
-#file-input {
-    font-size: calc(var(--nav-size)*0.25);
+
+.planit-datainput::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint), var(--fg-pink));
+    background-size: 200% 100%;
+    animation: gradientSlide 3s ease-in-out infinite;
+    border-radius: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.2) 0 0;
 }
-.planit-datainput-group-check{
-    font-size: calc(var(--nav-size)*0.25);
-    text-align: left;
-    display: inline-block;
+
+@keyframes gradientSlide {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
 }
-.planit-datainput-group-public{
-    font-size: calc(var(--nav-size)*0.25);
-    text-align: left;
-    display: inline-block;
+
+/* Form Groups */
+.planit-datainput-group {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.15);
+    position: relative;
 }
+
+/* Main Text Areas */
 #planit-datainput-input {
-    font-family: Cambria, Cochin, Georgia, Times, 'Times New Roman', serif;
-    font-size: calc(var(--nav-size) * 0.3);
-    width: 95%;
-    max-width: 100%; /* Ensure it doesn't exceed its container */
-    text-align: center;
-    background-color: transparent;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: calc(var(--nav-size) * 0.32);
+    width: 100%;
+    min-height: calc(var(--nav-size) * 2);
+    padding: calc(var(--nav-size) * 0.3);
+    background: var(--bg-plan);
     color: var(--text-color);
-    border: calc(var(--nav-size) * 0.001) solid var(--grey3-transp);
-    padding: calc(var(--nav-size) * 0.1);
+    border: 2px solid var(--border-nav);
+    border-radius: calc(var(--nav-size) * 0.15);
     resize: vertical;
-    min-height: calc(var(--nav-size) * 1.5);
-    overflow-y: auto;
-    word-wrap: break-word; /* Enable word wrapping */
-    white-space: pre-wrap; /* Preserve newline characters */
-    margin-top: calc(var(--nav-size) * 0.1);
-  }
+    transition: all 0.3s ease;
+    outline: none;
+    box-shadow: 
+        inset 0 2px 4px rgba(0, 0, 0, 0.05),
+        0 1px 2px rgba(0, 0, 0, 0.05);
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    line-height: 1.5;
+}
+
+#planit-datainput-input::placeholder {
+    color: var(--text-color-accent);
+    opacity: 0.7;
+    font-style: italic;
+}
+
+#planit-datainput-input:focus {
+    border-color: var(--fg-blue);
+    box-shadow: 
+        0 0 0 3px rgba(var(--fg-blue-rgb, 56, 56, 255), 0.1),
+        inset 0 2px 4px rgba(0, 0, 0, 0.05),
+        0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+}
+
+#planit-datainput-input:hover:not(:focus) {
+    border-color: var(--fg-mint);
+    box-shadow: 
+        inset 0 2px 4px rgba(0, 0, 0, 0.05),
+        0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Cost Input Section */
+.planit-datainput-cost-container {
+    display: flex;
+    gap: calc(var(--nav-size) * 0.2);
+    align-items: stretch;
+}
+
 .planit-datainput-group input[type='number'] {
-  font-family: Cambria, Cochin, Georgia, Times, 'Times New Roman', serif;
-  font-size: calc(var(--nav-size) * 0.3);
-  width: 60%;
-  max-width: 100%;
-  text-align: center;
-  background-color: transparent;
-  color: var(--text-color);
-  border: calc(var(--nav-size) * 0.001) solid var(--grey3-transp);
-  padding: calc(var(--nav-size) * 0.1);
-  margin-top: calc(var(--nav-size) * 0.1);
-  margin-bottom: calc(var(--nav-size) * 0.1);
-}
-
-.planit-datainput-group input[type='number'],
-.planit-datainput-group select {
-  display: inline-block;
-  vertical-align: middle;
-}
-
-.planit-datainput-group select {
-    font-family: Cambria, Cochin, Georgia, Times, 'Times New Roman', serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: calc(var(--nav-size) * 0.3);
-    width: 32%;
-    text-align: center;
-    background-color: transparent;
+    flex: 1;
+    padding: calc(var(--nav-size) * 0.25);
+    background: var(--bg-plan);
     color: var(--text-color);
-    border: calc(var(--nav-size) * 0.001) solid var(--grey3-transp);
-    padding: calc(var(--nav-size) * 0.1);
-    margin-left: calc(var(--nav-size) * 0.1);
-    margin-top: calc(var(--nav-size) * 0.1);
-    margin-bottom: calc(var(--nav-size) * 0.1);
+    border: 2px solid var(--border-nav);
+    border-radius: calc(var(--nav-size) * 0.15);
+    transition: all 0.3s ease;
+    outline: none;
+    box-shadow: 
+        inset 0 1px 3px rgba(0, 0, 0, 0.05),
+        0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-.planit-datainput-submit{
-    display: inline-block;
-    font-size: calc(var(--nav-size)*0.25);
-    padding: calc(var(--nav-size)*0.3);
-    margin: calc(var(--nav-size)*0.15);
-    cursor: pointer;
-    background-color: transparent;
+.planit-datainput-group input[type='number']:focus {
+    border-color: var(--fg-blue);
+    box-shadow: 
+        0 0 0 3px rgba(var(--fg-blue-rgb, 56, 56, 255), 0.1),
+        inset 0 1px 3px rgba(0, 0, 0, 0.05),
+        0 2px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+}
+
+.planit-datainput-group select {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: calc(var(--nav-size) * 0.3);
+    padding: calc(var(--nav-size) * 0.25) calc(var(--nav-size) * 0.3);
+    background: var(--bg-plan);
     color: var(--text-color);
-    border: calc(var(--nav-size)*0.001) solid var(--grey3-transp);
-    border-radius: calc(var(--nav-size)*.15);
+    border: 2px solid var(--border-nav);
+    border-radius: calc(var(--nav-size) * 0.15);
+    transition: all 0.3s ease;
+    outline: none;
+    cursor: pointer;
+    box-shadow: 
+        inset 0 1px 3px rgba(0, 0, 0, 0.05),
+        0 1px 2px rgba(0, 0, 0, 0.05);
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right calc(var(--nav-size) * 0.2) center;
+    background-size: calc(var(--nav-size) * 0.2);
+    padding-right: calc(var(--nav-size) * 0.6);
+}
+
+.planit-datainput-group select:focus {
+    border-color: var(--fg-blue);
+    box-shadow: 
+        0 0 0 3px rgba(var(--fg-blue-rgb, 56, 56, 255), 0.1),
+        inset 0 1px 3px rgba(0, 0, 0, 0.05),
+        0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.planit-datainput-group select option {
+    background: var(--bg-page);
+    color: var(--text-color);
+    padding: calc(var(--nav-size) * 0.2);
+}
+
+/* File Input */
+#file-input {
+    font-size: calc(var(--nav-size) * 0.28);
+    padding: calc(var(--nav-size) * 0.25);
+    background: var(--bg-plan);
+    color: var(--text-color);
+    border: 2px dashed var(--border-nav);
+    border-radius: calc(var(--nav-size) * 0.15);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+#file-input:hover {
+    border-color: var(--fg-mint);
+    background: var(--bg-accent);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+#file-input:focus {
+    outline: none;
+    border-color: var(--fg-blue);
+    box-shadow: 0 0 0 3px rgba(var(--fg-blue-rgb, 56, 56, 255), 0.1);
+}
+
+/* Checkbox Group */
+.planit-datainput-checkbox-container {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.2);
+    padding: calc(var(--nav-size) * 0.25);
+    background: var(--bg-plan);
+    border-radius: calc(var(--nav-size) * 0.15);
+    border: 1px solid var(--border-nav);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.planit-datainput-checkbox-container:hover {
+    background: var(--bg-accent);
+    border-color: var(--fg-mint);
+}
+
+.planit-datainput-group-check {
+    appearance: none;
+    width: calc(var(--nav-size) * 0.4);
+    height: calc(var(--nav-size) * 0.4);
+    border: 2px solid var(--border-nav);
+    border-radius: calc(var(--nav-size) * 0.08);
+    background: var(--bg-page);
+    cursor: pointer;
+    position: relative;
+    transition: all 0.3s ease;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.planit-datainput-group-check:checked {
+    background: var(--fg-blue);
+    border-color: var(--fg-blue);
+    box-shadow: 
+        0 0 0 2px rgba(var(--fg-blue-rgb, 56, 56, 255), 0.2),
+        inset 0 0 0 2px white;
+}
+
+.planit-datainput-group-check:checked::after {
+    content: "✓";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: calc(var(--nav-size) * 0.25);
+    font-weight: bold;
+}
+
+.planit-datainput-group-public {
+    font-size: calc(var(--nav-size) * 0.3);
+    color: var(--text-color);
+    font-weight: 500;
+    user-select: none;
+    cursor: pointer;
+}
+
+/* Submit Button */
+.planit-datainput-submit {
+    font-size: calc(var(--nav-size) * 0.35);
+    font-weight: 600;
+    padding: calc(var(--nav-size) * 0.4) calc(var(--nav-size) * 0.8);
+    background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
+    color: white;
+    border: none;
+    border-radius: calc(var(--nav-size) * 0.2);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 
+        0 4px 16px rgba(var(--fg-blue-rgb, 56, 56, 255), 0.3),
+        0 2px 8px rgba(0, 0, 0, 0.1);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    align-self: center;
+    min-width: calc(var(--nav-size) * 3);
+}
+
+.planit-datainput-submit::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s ease;
+}
+
+.planit-datainput-submit:hover {
+    background: linear-gradient(135deg, var(--fg-mint), var(--fg-pink));
+    transform: translateY(-2px);
+    box-shadow: 
+        0 6px 20px rgba(var(--fg-blue-rgb, 56, 56, 255), 0.4),
+        0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.planit-datainput-submit:hover::before {
+    left: 100%;
+}
+
+.planit-datainput-submit:active {
+    transform: translateY(-1px);
+    box-shadow: 
+        0 4px 12px rgba(var(--fg-blue-rgb, 56, 56, 255), 0.3),
+        0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.planit-datainput-submit:focus {
+    outline: none;
+    box-shadow: 
+        0 0 0 3px rgba(var(--fg-blue-rgb, 56, 56, 255), 0.1),
+        0 4px 16px rgba(var(--fg-blue-rgb, 56, 56, 255), 0.3),
+        0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Input Labels/Placeholders Enhancement */
+.planit-datainput-group:has(#planit-datainput-input:focus) {
+    transform: scale(1.01);
+}
+
+/* Loading State */
+.planit-datainput.loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.planit-datainput.loading .planit-datainput-submit {
+    background: var(--bg-accent);
+    cursor: not-allowed;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .planit-datainput {
+        padding: calc(var(--nav-size) * 0.4);
+        gap: calc(var(--nav-size) * 0.3);
+    }
+    
+    #planit-datainput-input {
+        font-size: calc(var(--nav-size) * 0.3);
+        min-height: calc(var(--nav-size) * 1.5);
+        padding: calc(var(--nav-size) * 0.25);
+    }
+    
+    .planit-datainput-cost-container {
+        flex-direction: column;
+        gap: calc(var(--nav-size) * 0.15);
+    }
+    
+    .planit-datainput-submit {
+        font-size: calc(var(--nav-size) * 0.3);
+        padding: calc(var(--nav-size) * 0.35) calc(var(--nav-size) * 0.6);
+    }
+}
+
+@media (max-width: 480px) {
+    .planit-datainput {
+        padding: calc(var(--nav-size) * 0.3);
+    }
+    
+    #planit-datainput-input {
+        font-size: calc(var(--nav-size) * 0.28);
+        padding: calc(var(--nav-size) * 0.2);
+    }
+    
+    .planit-datainput-checkbox-container {
+        padding: calc(var(--nav-size) * 0.2);
+    }
+}
+
+/* Accessibility Improvements */
+@media (prefers-reduced-motion: reduce) {
+    .planit-datainput,
+    .planit-datainput::before,
+    #planit-datainput-input,
+    .planit-datainput-submit,
+    .planit-datainput-submit::before {
+        animation: none;
+        transition: none;
+    }
+}
+
+@media (prefers-contrast: high) {
+    #planit-datainput-input,
+    .planit-datainput-group input[type='number'],
+    .planit-datainput-group select,
+    #file-input {
+        border: 3px solid var(--text-color);
+    }
+    
+    .planit-datainput-group-check {
+        border: 3px solid var(--text-color);
+    }
 }

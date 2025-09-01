@@ -190,7 +190,6 @@ function InfoData() {
                       fontSize: '14px',
                       fontFamily: 'monospace',
                       resize: 'vertical',
-                      backgroundColor: '#f8f9fa',
                       whiteSpace: 'pre-wrap',
                       wordWrap: 'break-word'
                     }}
