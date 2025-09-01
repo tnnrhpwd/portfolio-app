@@ -146,31 +146,293 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: calc(var(--nav-size) * 0.25);
+  gap: calc(var(--nav-size) * 0.3);
   width: 100%;
-  padding: calc(var(--nav-size) * 0.05);
+  padding: calc(var(--nav-size) * 0.15);
+  border-radius: calc(var(--nav-size) * 0.2);
+  background: linear-gradient(135deg, 
+    rgba(var(--bg-alt-rgb, 245, 245, 245), 0.4),
+    rgba(var(--bg-alt-rgb, 245, 245, 245), 0.2)
+  );
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(var(--border-nav-rgb, 0, 0, 0), 0.1);
 }
 
 .planit-dataresult-votecomment-holder {
   display: flex;
   justify-content: center;
   min-width: calc(var(--nav-size) * 3);
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.05);
 }
 
 .planit-dataresult-votecomment-link {
   text-decoration: none;
   color: var(--text-color);
-  opacity: 0.8;
-  transition: opacity 0.2s;
+  opacity: 0.9;
+  transition: all 0.3s ease;
+  border-radius: calc(var(--nav-size) * 0.1);
+  padding: calc(var(--nav-size) * 0.05);
 }
 
 .planit-dataresult-votecomment-link:hover {
   opacity: 1;
+  background: rgba(var(--bg-mint-rgb, 79, 156, 249), 0.1);
+  transform: translateY(-1px);
 }
 
 .planit-dataresult-votecomment {
-  font-size: calc(var(--nav-size) * 0.225);
-  padding: calc(var(--nav-size) * 0.1);
+  font-size: calc(var(--nav-size) * 0.26);
+  font-weight: 600;
+  text-align: center;
+  padding: calc(var(--nav-size) * 0.08);
+  background: linear-gradient(135deg, 
+    rgba(var(--text-color-rgb, 0, 0, 0), 0.05),
+    transparent
+  );
+  border-radius: calc(var(--nav-size) * 0.08);
+  border: 1px solid rgba(var(--text-color-rgb, 0, 0, 0), 0.08);
+  min-width: calc(var(--nav-size) * 2.5);
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+/* Vote display styling */
+.vote-display {
+  font-size: calc(var(--nav-size) * 0.28);
+  font-weight: 700;
+  margin-bottom: calc(var(--nav-size) * 0.03);
+}
+
+.vote-breakdown {
+  font-size: calc(var(--nav-size) * 0.22);
+  font-weight: 400;
+  opacity: 0.8;
+  letter-spacing: 0.5px;
+}
+
+/* Vote count styling with color indicators */
+.vote-count-positive {
+  color: var(--green0, #2ecc71);
+  text-shadow: 0 0 calc(var(--nav-size) * 0.02) rgba(46, 204, 113, 0.3);
+}
+
+.vote-count-positive .vote-display {
+  background: linear-gradient(135deg, rgba(46, 204, 113, 0.1), rgba(39, 174, 96, 0.05));
+  border-radius: calc(var(--nav-size) * 0.05);
+  padding: calc(var(--nav-size) * 0.03);
+}
+
+.vote-count-negative {
+  color: var(--red1, #e74c3c);
+  text-shadow: 0 0 calc(var(--nav-size) * 0.02) rgba(231, 76, 60, 0.3);
+}
+
+.vote-count-negative .vote-display {
+  background: linear-gradient(135deg, rgba(231, 76, 60, 0.1), rgba(192, 57, 43, 0.05));
+  border-radius: calc(var(--nav-size) * 0.05);
+  padding: calc(var(--nav-size) * 0.03);
+}
+
+.vote-count-neutral {
+  color: var(--text-color);
+  opacity: 0.7;
+}
+
+.vote-count-neutral .vote-display {
+  background: linear-gradient(135deg, rgba(var(--text-color-rgb, 0, 0, 0), 0.05), transparent);
+  border-radius: calc(var(--nav-size) * 0.05);
+  padding: calc(var(--nav-size) * 0.03);
+}
+
+/* Enhanced thumb buttons with animations */
+.planit-dataresult-agree,
+.planit-dataresult-disagree,
+.planit-dataresult-agreeACT,
+.planit-dataresult-disagreeACT {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--nav-size) * 0.8);
+  height: calc(var(--nav-size) * 0.8);
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(8px);
+  box-shadow: 
+    0 calc(var(--nav-size) * 0.04) calc(var(--nav-size) * 0.08) rgba(0, 0, 0, 0.12),
+    inset 0 calc(var(--nav-size) * 0.02) calc(var(--nav-size) * 0.04) rgba(255, 255, 255, 0.4);
+}
+
+/* Inactive state styling */
+.planit-dataresult-agree,
+.planit-dataresult-disagree {
+  background: linear-gradient(135deg, 
+    rgba(var(--bg-alt-rgb, 245, 245, 245), 0.8),
+    rgba(var(--bg-alt-rgb, 245, 245, 245), 0.6)
+  );
+  border-color: rgba(var(--text-color-rgb, 0, 0, 0), 0.15);
+}
+
+/* Active state styling with enhanced colors */
+.planit-dataresult-agreeACT {
+  background: linear-gradient(135deg, 
+    rgba(46, 204, 113, 0.3),
+    rgba(39, 174, 96, 0.4)
+  );
+  border-color: rgba(46, 204, 113, 0.6);
+  box-shadow: 
+    0 calc(var(--nav-size) * 0.06) calc(var(--nav-size) * 0.12) rgba(46, 204, 113, 0.25),
+    0 0 calc(var(--nav-size) * 0.2) rgba(46, 204, 113, 0.15),
+    inset 0 calc(var(--nav-size) * 0.02) calc(var(--nav-size) * 0.04) rgba(255, 255, 255, 0.6);
+}
+
+.planit-dataresult-disagreeACT {
+  background: linear-gradient(135deg, 
+    rgba(231, 76, 60, 0.3),
+    rgba(192, 57, 43, 0.4)
+  );
+  border-color: rgba(231, 76, 60, 0.6);
+  box-shadow: 
+    0 calc(var(--nav-size) * 0.06) calc(var(--nav-size) * 0.12) rgba(231, 76, 60, 0.25),
+    0 0 calc(var(--nav-size) * 0.2) rgba(231, 76, 60, 0.15),
+    inset 0 calc(var(--nav-size) * 0.02) calc(var(--nav-size) * 0.04) rgba(255, 255, 255, 0.6);
+}
+
+/* Hover effects */
+.planit-dataresult-agree:hover,
+.planit-dataresult-disagree:hover {
+  transform: translateY(calc(var(--nav-size) * -0.05)) scale(1.05);
+  box-shadow: 
+    0 calc(var(--nav-size) * 0.06) calc(var(--nav-size) * 0.12) rgba(0, 0, 0, 0.18),
+    inset 0 calc(var(--nav-size) * 0.02) calc(var(--nav-size) * 0.04) rgba(255, 255, 255, 0.6);
+}
+
+.planit-dataresult-agree:hover {
+  background: linear-gradient(135deg, 
+    rgba(46, 204, 113, 0.15),
+    rgba(39, 174, 96, 0.2)
+  );
+  border-color: rgba(46, 204, 113, 0.4);
+}
+
+.planit-dataresult-disagree:hover {
+  background: linear-gradient(135deg, 
+    rgba(231, 76, 60, 0.15),
+    rgba(192, 57, 43, 0.2)
+  );
+  border-color: rgba(231, 76, 60, 0.4);
+}
+
+.planit-dataresult-agreeACT:hover,
+.planit-dataresult-disagreeACT:hover {
+  transform: translateY(calc(var(--nav-size) * -0.08)) scale(1.1);
+  filter: brightness(1.1);
+}
+
+/* Click animation */
+.planit-dataresult-agree:active,
+.planit-dataresult-disagree:active,
+.planit-dataresult-agreeACT:active,
+.planit-dataresult-disagreeACT:active {
+  transform: translateY(0) scale(0.95);
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Ripple effect animation */
+.planit-dataresult-agree::before,
+.planit-dataresult-disagree::before,
+.planit-dataresult-agreeACT::before,
+.planit-dataresult-disagreeACT::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.planit-dataresult-agree.ripple::before,
+.planit-dataresult-disagree.ripple::before {
+  width: calc(var(--nav-size) * 1.5);
+  height: calc(var(--nav-size) * 1.5);
+  background: rgba(46, 204, 113, 0.3);
+}
+
+.planit-dataresult-agreeACT.ripple::before {
+  width: calc(var(--nav-size) * 1.5);
+  height: calc(var(--nav-size) * 1.5);
+  background: rgba(46, 204, 113, 0.4);
+}
+
+.planit-dataresult-disagreeACT.ripple::before {
+  width: calc(var(--nav-size) * 1.5);
+  height: calc(var(--nav-size) * 1.5);
+  background: rgba(231, 76, 60, 0.4);
+}
+
+/* Pulse animation for active states */
+@keyframes agree-pulse {
+  0%, 100% {
+    box-shadow: 
+      0 calc(var(--nav-size) * 0.06) calc(var(--nav-size) * 0.12) rgba(46, 204, 113, 0.25),
+      0 0 calc(var(--nav-size) * 0.15) rgba(46, 204, 113, 0.15);
+  }
+  50% {
+    box-shadow: 
+      0 calc(var(--nav-size) * 0.08) calc(var(--nav-size) * 0.16) rgba(46, 204, 113, 0.35),
+      0 0 calc(var(--nav-size) * 0.25) rgba(46, 204, 113, 0.25);
+  }
+}
+
+@keyframes disagree-pulse {
+  0%, 100% {
+    box-shadow: 
+      0 calc(var(--nav-size) * 0.06) calc(var(--nav-size) * 0.12) rgba(231, 76, 60, 0.25),
+      0 0 calc(var(--nav-size) * 0.15) rgba(231, 76, 60, 0.15);
+  }
+  50% {
+    box-shadow: 
+      0 calc(var(--nav-size) * 0.08) calc(var(--nav-size) * 0.16) rgba(231, 76, 60, 0.35),
+      0 0 calc(var(--nav-size) * 0.25) rgba(231, 76, 60, 0.25);
+  }
+}
+
+.planit-dataresult-agreeACT {
+  animation: agree-pulse 2s infinite ease-in-out;
+}
+
+.planit-dataresult-disagreeACT {
+  animation: disagree-pulse 2s infinite ease-in-out;
+}
+
+.planit-dataresult-thumb {
+  width: calc(var(--nav-size) * 0.4);
+  height: calc(var(--nav-size) * 0.4);
+  object-fit: contain;
+  filter: drop-shadow(0 calc(var(--nav-size) * 0.01) calc(var(--nav-size) * 0.02) rgba(0, 0, 0, 0.2));
+  transition: all 0.3s ease;
+}
+
+/* Enhanced thumb icon colors based on state */
+.planit-dataresult-agreeACT .planit-dataresult-thumb {
+  filter: 
+    brightness(1.2) 
+    drop-shadow(0 calc(var(--nav-size) * 0.01) calc(var(--nav-size) * 0.02) rgba(46, 204, 113, 0.4));
+}
+
+.planit-dataresult-disagreeACT .planit-dataresult-thumb {
+  filter: 
+    brightness(1.2) 
+    drop-shadow(0 calc(var(--nav-size) * 0.01) calc(var(--nav-size) * 0.02) rgba(231, 76, 60, 0.4));
 }
 
 /* User info styling */
@@ -256,51 +518,6 @@
   line-height: 1.6;
   font-weight: 400;
   color: var(--text-color);
-}
-
-/* Thumb buttons styling */
-.planit-dataresult-agree,
-.planit-dataresult-disagree,
-.planit-dataresult-agreeACT,
-.planit-dataresult-disagreeACT {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: calc(var(--nav-size) * 0.65);
-  height: calc(var(--nav-size) * 0.65);
-  border-radius: 50%;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 
-    0 calc(var(--nav-size) * 0.02) calc(var(--nav-size) * 0.05) rgba(0, 0, 0, 0.1),
-    inset 0 calc(var(--nav-size) * 0.01) calc(var(--nav-size) * 0.02) rgba(255, 255, 255, 0.6);
-}
-
-.planit-dataresult-agree,
-.planit-dataresult-disagree {
-  background-color: var(--bg-alt, rgba(0, 0, 0, 0.05));
-}
-
-.planit-dataresult-agreeACT {
-  background-color: var(--green0, rgba(46, 204, 113, 0.2));
-  border: calc(var(--nav-size) * 0.01) solid var(--green0, rgba(46, 204, 113, 0.5));
-}
-
-.planit-dataresult-disagreeACT {
-  background-color: var(--red1, rgba(231, 76, 60, 0.2));
-  border: calc(var(--nav-size) * 0.01) solid var(--red1, rgba(231, 76, 60, 0.5));
-}
-
-.planit-dataresult-agree:hover,
-.planit-dataresult-disagree:hover {
-  transform: translateY(calc(var(--nav-size) * -0.05));
-}
-
-.planit-dataresult-thumb {
-  width: calc(var(--nav-size) * 0.3);
-  height: calc(var(--nav-size) * 0.3);
-  object-fit: contain;
 }
 
 /* File navigation styling */

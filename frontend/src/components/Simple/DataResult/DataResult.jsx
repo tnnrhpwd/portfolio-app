@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import ShareView from '../ShareView/ShareView.jsx';
 import { toast } from 'react-toastify';
@@ -62,17 +62,104 @@ function DataResult(props) {
     const [shareView, setShareView] = useState(null);
     const [manageView, setManageView] = useState(null);
     const [currentFileIndex, setCurrentFileIndex] = useState(0);
+    
+    // Local state for optimistic updates
+    const [localPlanString, setLocalPlanString] = useState(planString);
+    
+    // Update local state when props change
+    useEffect(() => {
+        setLocalPlanString(planString);
+    }, [planString]);
 
     function handleAgree(id){
-        if(!user){ navigate('/login') }
+        if(!user){ navigate('/login'); return; }
+        
+        // Add ripple animation
+        const button = document.querySelector(`.planit-dataresult-agree, .planit-dataresult-agreeACT`);
+        if (button) {
+            button.classList.add('ripple');
+            setTimeout(() => button.classList.remove('ripple'), 600);
+        }
+        
+        // Optimistic update
+        updateVoteOptimistically('agree');
+        
         const type = ("agree");
         dispatch(updateData({ id, type }));
     }
 
     function handleDisagree(id){
-        if(!user){ navigate('/login') }
+        if(!user){ navigate('/login'); return; }
+        
+        // Add ripple animation
+        const button = document.querySelector(`.planit-dataresult-disagree, .planit-dataresult-disagreeACT`);
+        if (button) {
+            button.classList.add('ripple');
+            setTimeout(() => button.classList.remove('ripple'), 600);
+        }
+        
+        // Optimistic update
+        updateVoteOptimistically('disagree');
+        
         const type = ("disagree");
         dispatch(updateData({ id, type }));
+    }
+    
+    function updateVoteOptimistically(voteType) {
+        if (!user) return;
+        
+        const userId = user._id || user.id;
+        let newPlanString = localPlanString;
+        
+        // Parse current votes
+        const agreesMatch = localPlanString.match(/\|Agrees:([^|]*)/);
+        const disagreesMatch = localPlanString.match(/\|Disagrees:([^|]*)/);
+        
+        let agrees = [];
+        let disagrees = [];
+        
+        if (agreesMatch && agreesMatch[1]) {
+            agrees = agreesMatch[1].split(',').filter(id => id.trim() !== '');
+        }
+        
+        if (disagreesMatch && disagreesMatch[1]) {
+            disagrees = disagreesMatch[1].split(',').filter(id => id.trim() !== '');
+        }
+        
+        const userHasAgreed = agrees.includes(userId);
+        const userHasDisagreed = disagrees.includes(userId);
+        
+        if (voteType === 'agree') {
+            if (userHasAgreed) {
+                // Remove user from agrees
+                agrees = agrees.filter(id => id !== userId);
+            } else {
+                // Add user to agrees and remove from disagrees if present
+                agrees.push(userId);
+                disagrees = disagrees.filter(id => id !== userId);
+            }
+        } else if (voteType === 'disagree') {
+            if (userHasDisagreed) {
+                // Remove user from disagrees
+                disagrees = disagrees.filter(id => id !== userId);
+            } else {
+                // Add user to disagrees and remove from agrees if present
+                disagrees.push(userId);
+                agrees = agrees.filter(id => id !== userId);
+            }
+        }
+        
+        // Update the planString with new vote data
+        // Remove existing vote data
+        newPlanString = newPlanString.replace(/\|Agrees:[^|]*/, '').replace(/\|Disagrees:[^|]*/, '');
+        
+        // Add updated vote data
+        const agreesString = agrees.length > 0 ? `|Agrees:${agrees.join(',')}` : '|Agrees:';
+        const disagreesString = disagrees.length > 0 ? `|Disagrees:${disagrees.join(',')}` : '|Disagrees:';
+        
+        newPlanString = newPlanString + agreesString + disagreesString;
+        
+        setLocalPlanString(newPlanString);
     }
 
     function handleFavorite(id){
@@ -140,11 +227,34 @@ function DataResult(props) {
         }
     };
 
-    if(planString){
+    if(localPlanString){
         const currentFile = files && files.length > 0 ? files[currentFileIndex] : null;
         
         // Clean the displayed plan string by removing system metadata
-        const displayPlanString = planString.replace(/Creator:.*?\|/, '|').replace(/\|Rank:[^|]*/, '');
+        const displayPlanString = localPlanString.replace(/Creator:.*?\|/, '|')
+            .replace(/\|Rank:[^|]*/, '')
+            .replace(/\|Agrees:[^|]*/, '')
+            .replace(/\|Disagrees:[^|]*/, '');
+
+        // Parse agrees and disagrees from localPlanString (for optimistic updates)
+        let agrees = [];
+        let disagrees = [];
+        let userHasAgreed = false;
+        let userHasDisagreed = false;
+
+        const agreesMatch = localPlanString.match(/\|Agrees:([^|]*)/);
+        if (agreesMatch && agreesMatch[1]) {
+            agrees = agreesMatch[1].split(',').filter(id => id.trim() !== '');
+            userHasAgreed = user && agrees.includes(user._id || user.id);
+        }
+        
+        const disagreesMatch = localPlanString.match(/\|Disagrees:([^|]*)/);
+        if (disagreesMatch && disagreesMatch[1]) {
+            disagrees = disagreesMatch[1].split(',').filter(id => id.trim() !== '');
+            userHasDisagreed = user && disagrees.includes(user._id || user.id);
+        }
+
+        const netVotes = agrees.length - disagrees.length;
 
         return (
             <>
@@ -168,9 +278,9 @@ function DataResult(props) {
                             {user && (
                                 <>
                                     <button 
-                                        className={planString.includes(user._id) ? 'planit-dataresult-fav-btn' : 'planit-dataresult-unfav-btn'} 
-                                        onClick={() => planString.includes(user._id) ? handleUnfavorite(itemID) : handleFavorite(itemID)}>
-                                        <span className="btn-icon">{planString.includes(user._id) ? '❤' : '♡'}</span>
+                                        className={localPlanString.includes(user._id) ? 'planit-dataresult-fav-btn' : 'planit-dataresult-unfav-btn'} 
+                                        onClick={() => localPlanString.includes(user._id) ? handleUnfavorite(itemID) : handleFavorite(itemID)}>
+                                        <span className="btn-icon">{localPlanString.includes(user._id) ? '❤' : '♡'}</span>
                                     </button>
                                     <button className='planit-dataresult-manageplan-btn' onClick={() => handleManageView("plan",itemID)}>
                                         <span className="btn-icon">☸</span>
@@ -222,25 +332,29 @@ function DataResult(props) {
                     <div className='planit-dataresult-footer'>
                         <div className="planit-dataresult-voting">
                             <button 
-                                className={user && planString.includes(user._id) ? 'planit-dataresult-disagreeACT' : 'planit-dataresult-disagree'} 
-                                onClick={() => handleDisagree(planString)}>
+                                className={userHasDisagreed ? 'planit-dataresult-disagreeACT' : 'planit-dataresult-disagree'} 
+                                onClick={() => handleDisagree(itemID)}>
                                 <img className='planit-dataresult-thumb' src={ThumbsDown} alt='thumbs down logo'/>
                             </button>
                             <div className='planit-dataresult-votecomment-holder'>
                                 <a href={'InfoData/' + itemID} className='planit-dataresult-votecomment-link'>
-                                    <div className='planit-dataresult-votecomment'>
-                                        {(planString.length - planString.length > 0)
-                                            ? "+"+(planString.length - planString.length)+" votes "
-                                            : (planString.length - planString.length)+" votes "
-                                        }
-                                        |
-                                        {" " + ( 0 ) + " comments"}
+                                    <div className={`planit-dataresult-votecomment ${
+                                        netVotes > 0 ? 'vote-count-positive' : 
+                                        netVotes < 0 ? 'vote-count-negative' : 
+                                        'vote-count-neutral'
+                                    }`}>
+                                        <div className="vote-display">
+                                            {netVotes > 0 ? `+${netVotes}` : netVotes} votes
+                                        </div>
+                                        <div className="vote-breakdown">
+                                            {agrees.length} 👍 • {disagrees.length} 👎 • 0 comments
+                                        </div>
                                     </div>
                                 </a>
                             </div>           
                             <button 
-                                className={user && planString.includes(user._id) ? 'planit-dataresult-agreeACT' : 'planit-dataresult-agree'} 
-                                onClick={() => handleAgree(planString)}>
+                                className={userHasAgreed ? 'planit-dataresult-agreeACT' : 'planit-dataresult-agree'} 
+                                onClick={() => handleAgree(itemID)}>
                                 <img className='planit-dataresult-thumb' src={ThumbsUp} alt='thumbs up logo'/>
                             </button>
                         </div>

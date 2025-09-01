@@ -48,6 +48,13 @@ const putHashData = asyncHandler(async (req, res) => {
             return;
         }
 
+        // Check if this is an agree/disagree action
+        if (req.body.type === 'agree' || req.body.type === 'disagree') {
+            console.log('Processing agree/disagree action:', req.body.type);
+            await handleAgreeDisagreeAction(req, res);
+            return;
+        }
+
         // Try using scan instead of get, like the working controllers
         const scanParams = {
             TableName: 'Simple',
@@ -117,6 +124,114 @@ const putHashData = asyncHandler(async (req, res) => {
         throw new Error('Server error');
     }
 });
+
+// Handle agree/disagree actions
+const handleAgreeDisagreeAction = async (req, res) => {
+    const userId = req.user.id;
+    const actionType = req.body.type; // 'agree' or 'disagree'
+    
+    try {
+        // Decode the URL-encoded ID
+        const decodedId = decodeURIComponent(req.params.id);
+        console.log('Decoded ID for agree/disagree:', decodedId);
+        
+        // Find the item using scan
+        const scanParams = {
+            TableName: 'Simple',
+            FilterExpression: "id = :searchId",
+            ExpressionAttributeValues: {
+                ":searchId": decodedId
+            }
+        };
+
+        const scanResult = await dynamodb.send(new ScanCommand(scanParams));
+        
+        if (!scanResult.Items || scanResult.Items.length === 0) {
+            console.log('Item not found for agree/disagree action');
+            res.status(404).json({ error: 'Item not found' });
+            return;
+        }
+
+        const item = scanResult.Items[0];
+        let updatedText = item.text;
+        
+        // Parse existing agrees and disagrees
+        let agrees = [];
+        let disagrees = [];
+        
+        const agreesMatch = updatedText.match(/\|Agrees:([^|]*)/);
+        if (agreesMatch && agreesMatch[1]) {
+            agrees = agreesMatch[1].split(',').filter(id => id.trim() !== '');
+        }
+        
+        const disagreesMatch = updatedText.match(/\|Disagrees:([^|]*)/);
+        if (disagreesMatch && disagreesMatch[1]) {
+            disagrees = disagreesMatch[1].split(',').filter(id => id.trim() !== '');
+        }
+        
+        // Process the action
+        if (actionType === 'agree') {
+            // Remove from disagrees if present
+            disagrees = disagrees.filter(id => id !== userId);
+            
+            // Toggle agree
+            if (agrees.includes(userId)) {
+                agrees = agrees.filter(id => id !== userId);
+            } else {
+                agrees.push(userId);
+            }
+        } else if (actionType === 'disagree') {
+            // Remove from agrees if present
+            agrees = agrees.filter(id => id !== userId);
+            
+            // Toggle disagree
+            if (disagrees.includes(userId)) {
+                disagrees = disagrees.filter(id => id !== userId);
+            } else {
+                disagrees.push(userId);
+            }
+        }
+        
+        // Update the text with new agrees/disagrees
+        // Remove existing agrees/disagrees from text
+        updatedText = updatedText.replace(/\|Agrees:[^|]*/, '');
+        updatedText = updatedText.replace(/\|Disagrees:[^|]*/, '');
+        
+        // Add updated agrees/disagrees
+        if (agrees.length > 0) {
+            updatedText += `|Agrees:${agrees.join(',')}`;
+        }
+        if (disagrees.length > 0) {
+            updatedText += `|Disagrees:${disagrees.join(',')}`;
+        }
+        
+        console.log('Updated text with agrees/disagrees:', updatedText);
+        
+        // Update the item in DynamoDB
+        const putParams = {
+            TableName: 'Simple',
+            Item: {
+                ...item,
+                text: updatedText,
+                updatedAt: new Date().toISOString()
+            }
+        };
+
+        await dynamodb.send(new PutCommand(putParams));
+        
+        res.status(200).json({
+            success: true,
+            message: `${actionType} action processed successfully`,
+            updatedItem: putParams.Item,
+            agrees: agrees.length,
+            disagrees: disagrees.length
+        });
+
+    } catch (error) {
+        console.error('Error processing agree/disagree action:', error);
+        res.status(500).json({ error: 'Failed to process agree/disagree action' });
+    }
+};
 
 const updateDataHolder = async (req, res, item) => {
     // Check if this is a Net chat update (contains |Net: content)
