@@ -142,8 +142,22 @@ const registerUser = asyncHandler(async (req, res) => {
 // @route   POST /api/data/login
 // @access  Public
 const loginUser = asyncHandler(async (req, res) => {
+    console.log('=== LOGIN REQUEST ===');
+    console.log('Request origin:', req.get('origin'));
+    console.log('Request referer:', req.get('referer'));
+    console.log('User agent:', req.get('user-agent'));
+    console.log('Request body keys:', Object.keys(req.body));
+    
     await checkIP(req);
     const { email, password } = req.body;
+
+    if (!email || !password) {
+        console.log('Missing email or password in request');
+        res.status(400);
+        throw new Error(!email ? 'Email is required' : 'Password is required');
+    }
+
+    console.log('Attempting login for email:', email);
 
     // Query DynamoDB for the user with the given email
     const params = {
@@ -158,13 +172,28 @@ const loginUser = asyncHandler(async (req, res) => {
     };
 
     try {
+        console.log('Querying DynamoDB for user...');
         const result = await dynamodb.send(new ScanCommand(params));
-        if (result.Items.length !== 1) {
+        console.log('DynamoDB query result:', {
+            itemCount: result.Items?.length || 0,
+            hasItems: !!result.Items && result.Items.length > 0
+        });
+
+        if (!result.Items || result.Items.length === 0) {
+            console.log('No user found with email:', email);
             res.status(400);
             throw new Error("Could not find that user.");
         }
 
+        if (result.Items.length > 1) {
+            console.warn('Multiple users found with same email:', email);
+            res.status(400);
+            throw new Error("Multiple accounts found. Please contact support.");
+        }
+
         const user = result.Items[0];
+        console.log('User found in database, verifying password...');
+        
         // Extract password, nickname, birth, and stripe from the stored data
         const userText = user.text;
         const userStripe = userText.substring(userText.indexOf('|stripeid:') + 10);
@@ -184,7 +213,13 @@ const loginUser = asyncHandler(async (req, res) => {
         const userNickname = userText.substring(userText.indexOf('Nickname:') + 9, userText.indexOf('|Email:'));
 
         // Check if the password matches
-        if (await bcrypt.compare(password, userPassword)) {
+        console.log('Comparing password...');
+        const passwordMatch = await bcrypt.compare(password, userPassword);
+        console.log('Password match result:', passwordMatch);
+
+        if (passwordMatch) {
+            console.log('Login successful for user:', userNickname);
+            
             const responseData = {
                 _id: user.id,
                 email: email,
@@ -198,15 +233,32 @@ const loginUser = asyncHandler(async (req, res) => {
                 responseData.createdAt = userBirth;
             }
             
-            res.json(responseData);
+            console.log('Sending login response with keys:', Object.keys(responseData));
+            res.status(200).json(responseData);
         } else {
+            console.log('Password verification failed for user:', email);
             res.status(400);
             throw new Error('Invalid password.');
         }
     } catch (error) {
-        console.error('Error during login:', error);
-        res.status(500);
-        throw new Error('Server error during login.');
+        console.error('=== LOGIN ERROR ===');
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+        
+        if (error.message.includes('Could not find that user') || 
+            error.message.includes('Invalid password') ||
+            error.message.includes('Email is required') ||
+            error.message.includes('Password is required') ||
+            error.message.includes('Multiple accounts found')) {
+            // These are expected errors, re-throw them
+            throw error;
+        } else {
+            // Unexpected errors
+            console.error('Unexpected login error:', error);
+            res.status(500);
+            throw new Error('Server error during login.');
+        }
     }
 });
 

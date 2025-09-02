@@ -2,8 +2,27 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import dataService from './dataService';                          // import the async functional objects from dataService
 
-// Get user from localStorage
-const user = JSON.parse(localStorage.getItem('user'))
+// Get user from localStorage with validation
+let user = null;
+try {
+  const storedUser = localStorage.getItem('user');
+  if (storedUser) {
+    const parsedUser = JSON.parse(storedUser);
+    // Only use stored user if it has valid user data (not error data)
+    if (parsedUser && parsedUser._id && parsedUser.token && !parsedUser.dataMessage) {
+      user = parsedUser;
+      console.log('🔧 Valid user loaded from localStorage:', { id: user._id, nickname: user.nickname });
+    } else {
+      console.log('🔧 Invalid user data in localStorage, clearing:', parsedUser);
+      localStorage.removeItem('user');
+    }
+  }
+} catch (error) {
+  console.error('🔧 Error parsing user from localStorage:', error);
+  localStorage.removeItem('user');
+}
+
+console.log('🔧 Final initial user:', user ? { id: user._id, nickname: user.nickname } : null);
 
 const initialState = {  // default values for each state change
   user: user ? user : null,
@@ -765,15 +784,23 @@ export const dataSlice = createSlice({
       })
       .addCase(login.pending, (state) => {
         state.dataIsLoading = true
+        state.dataIsError = false
+        state.dataMessage = ''
         state.operation = null;
       })
       .addCase(login.fulfilled, (state, action) => {
+        console.log('🔧 Login successful for user:', action.payload?.nickname);
+        
         state.dataIsLoading = false
         state.dataIsSuccess = true
+        state.dataIsError = false
+        state.dataMessage = ''
         state.user = action.payload
         state.operation = 'login';
       })
       .addCase(login.rejected, (state, action) => {
+        console.log('🔧 Login failed:', action.payload);
+        
         state.dataIsLoading = false
         state.dataIsError = true
         state.dataMessage = action.payload          // deals with thunkAPI.rejectWithValue(dataMessage)

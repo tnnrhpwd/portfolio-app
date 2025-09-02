@@ -33,16 +33,37 @@ function Login() {
 
     // called on state changes
     useEffect(() => {
-        if (user && !user._id) {
-            toast.error(dataMessage, { autoClose: 3000 }) // print error to toast errors
-            // dispatch(logout())  // dispatch connects to the store, then remove user item from local storage
+        console.log('🔧 Login useEffect triggered:', {
+            hasUser: !!user,
+            userId: user?._id,
+            userNickname: user?.nickname,
+            dataIsError,
+            dataIsSuccess,
+            dataIsLoading,
+            dataMessage,
+            operation: user?.operation
+        });
+
+        // If user exists but has old error data (no _id), clear localStorage and reset state
+        if (user && !user._id && user.dataMessage) {
+            console.log('🔧 User has old error data, clearing localStorage:', user);
+            localStorage.removeItem('user');
+            dispatch(resetDataSlice());
+            return; // Don't show error toast for stale data
         }
+
+        // Only show error toast if there's an actual error from a recent login attempt
         if (dataIsError && dataMessage) {
             // Handle specific login error messages with better user feedback
             let errorMessage = dataMessage;
             
-            // Don't show token-related errors on login page
-            if (dataMessage.includes('token')) {
+            // Log the original error for debugging
+            console.error('Login error received:', dataMessage);
+            console.error('Current environment:', process.env.NODE_ENV);
+            
+            // Don't hide all token-related errors, only specific ones that aren't relevant during login
+            if (dataMessage === 'Not authorized, no token' && window.location.pathname === '/login') {
+                // This is expected on the login page, don't show it
                 return;
             }
             
@@ -62,6 +83,16 @@ function Login() {
                 errorMessage = "Please enter a valid email address.";
             } else if (dataMessage === "Password is required") {
                 errorMessage = "Please enter your password.";
+            } else if (dataMessage.includes('Unable to connect to server')) {
+                errorMessage = "Unable to connect to server. Please check your internet connection and try again.";
+            } else if (dataMessage.includes('timeout')) {
+                errorMessage = "Login request timed out. Please check your internet connection and try again.";
+            } else if (dataMessage.includes('Network Error') || dataMessage.includes('ERR_NETWORK')) {
+                errorMessage = "Network error. Please check your internet connection and try again.";
+            } else {
+                // Show the original error for debugging in production
+                errorMessage = `Login failed: ${dataMessage}`;
+                console.error('Unhandled login error:', dataMessage);
             }
             
             toast.error(errorMessage, { 
@@ -89,7 +120,7 @@ function Login() {
         } else {
             dispatch(resetDataSlice());   // reset state values( data, dataisloading, dataiserror, datamessage, and dataissuccess ) on each state change
         }
-    }, [user, dataIsError, dataIsSuccess, dataMessage, navigate, dispatch])
+    }, [user, dataIsError, dataIsSuccess, dataIsLoading, dataMessage, navigate, dispatch])
 
     useEffect(() => {
         if (dataIsLoading) {
@@ -140,7 +171,14 @@ function Login() {
             email: email.trim(),
             password,
         }
-        console.log('Attempting login for:', email);
+        
+        console.log('=== LOGIN FORM SUBMIT ===');
+        console.log('Environment:', process.env.NODE_ENV);
+        console.log('Attempting login for email:', email);
+        console.log('Window location:', window.location.href);
+        console.log('User agent:', navigator.userAgent);
+        console.log('Local storage user:', localStorage.getItem('user') ? 'exists' : 'none');
+        
         dispatch(login(userData));   // dispatch connects to the store, then calls the async register function passing userdata as input.
     }
 

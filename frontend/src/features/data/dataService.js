@@ -4,9 +4,31 @@ import axios from 'axios';  // import ability to make http request
 import { toast } from 'react-toastify'; // import toast notifications
 const devMode = (process.env.NODE_ENV === 'development')
 
-// const API_URL = 'https://mern-plan-web-service.onrender.com/api/data/';  // sends base http request here
-const API_URL = devMode ? '/api/data/' : 'https://mern-plan-web-service.onrender.com/api/data/';
-if (devMode) { console.log("Warning: Running in development mode. Remember to start backend.") }
+// Dynamic API URL configuration based on environment
+const getApiUrl = () => {
+    if (devMode) {
+        console.log("Warning: Running in development mode. Remember to start backend.");
+        return '/api/data/';
+    }
+    
+    // In production, try to get the API URL from the current domain first
+    if (typeof window !== 'undefined') {
+        const currentHostname = window.location.hostname;
+        
+        // If we're on the main domain, use the API service
+        if (currentHostname === 'www.sthopwood.com' || currentHostname === 'sthopwood.com') {
+            return 'https://mern-plan-web-service.onrender.com/api/data/';
+        }
+        
+        // For other domains or local testing, try relative URL first
+        return '/api/data/';
+    }
+    
+    // Fallback to the main API service
+    return 'https://mern-plan-web-service.onrender.com/api/data/';
+};
+
+const API_URL = getApiUrl();
 
 const handleTokenExpiration = (error) => {
     console.log('DataService Error:', error);
@@ -383,16 +405,58 @@ const register = async (userData) => {
   
 // Login user
 const login = async (userData) => {
-    console.log('Calling POST URL:', API_URL + 'login');
-    console.log('Calling POST Data:', userData);
+    console.log('=== LOGIN ATTEMPT ===');
+    console.log('Environment:', devMode ? 'development' : 'production');
+    console.log('API URL:', API_URL);
+    console.log('User data (email only):', { email: userData.email });
 
     try {
-        const response = await axios.post(API_URL + 'login', userData)    // send user data to /api/data/login/
-        if (response.data) {
-            localStorage.setItem('user', JSON.stringify(response.data))     // catches the return data from POST -- contains the JSON Web Token
+        const response = await axios.post(API_URL + 'login', userData, {
+            timeout: 30000, // 30 second timeout
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            // Ensure credentials are included for CORS
+            withCredentials: false
+        });
+        
+        console.log('Login successful:', {
+            status: response.status,
+            hasData: !!response.data,
+            hasId: !!response.data?._id,
+            hasToken: !!response.data?.token,
+            nickname: response.data?.nickname
+        });
+
+        if (response.data && response.data._id && response.data.token) {
+            localStorage.setItem('user', JSON.stringify(response.data));
+            console.log('User data stored in localStorage');
+            return response.data;
+        } else {
+            console.warn('Invalid login response data:', response.data);
+            throw new Error('Invalid response from server');
         }
-        return response.data
     } catch (error) {
+        console.error('=== LOGIN ERROR ===');
+        console.error('Error type:', error.name);
+        console.error('Error message:', error.message);
+        
+        if (error.response) {
+            console.error('Response status:', error.response.status);
+            console.error('Response data:', error.response.data);
+        }
+        
+        // Handle network errors specifically
+        if (error.code === 'ERR_NETWORK') {
+            console.error('Network error - possibly CORS or connectivity issue');
+            throw new Error('Unable to connect to server. Please check your internet connection and try again.');
+        }
+        
+        if (error.code === 'ECONNABORTED') {
+            console.error('Request timeout');
+            throw new Error('Login request timed out. Please try again.');
+        }
+        
         handleTokenExpiration(error);
     }
 }

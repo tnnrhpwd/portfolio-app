@@ -16,32 +16,77 @@ const app = express() // Calls the express function "express()" and puts new Exp
 // Trust proxy settings for rate limiting
 app.set('trust proxy', 1); // Trust first proxy
 
-// Security middleware
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
+// Security middleware with development-friendly settings
+if (process.env.NODE_ENV === 'production') {
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        scriptSrc: ["'self'"],
+        imgSrc: ["'self'", "data:", "https:"],
+      },
     },
-  },
-  hsts: {
-    maxAge: 31536000,
-    includeSubDomains: true,
-    preload: true
-  }
-}));
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true
+    }
+  }));
+} else {
+  // More lenient helmet settings for development
+  app.use(helmet({
+    contentSecurityPolicy: false, // Disable CSP in development
+    hsts: false // Disable HSTS in development
+  }));
+  console.log('Helmet configured for development (lenient settings)');
+}
 
-// CORS configuration
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? process.env.FRONTEND_URL || 'https://www.sthopwood.com'
-    : ['http://localhost:3000', 'http://127.0.0.1:3000'],
-  credentials: true,
-  optionsSuccessStatus: 200
-}));
+// CORS configuration - simplified for development
+if (process.env.NODE_ENV === 'production') {
+  // Strict CORS for production
+  const allowedOrigins = [
+    'https://www.sthopwood.com',
+    'https://sthopwood.com',
+    process.env.FRONTEND_URL,
+  ].filter(Boolean);
+
+  console.log('Production CORS allowed origins:', allowedOrigins);
+
+  app.use(cors({
+    origin: function (origin, callback) {
+      console.log('CORS check for origin:', origin);
+      
+      if (!origin) {
+        console.log('No origin header, allowing request');
+        return callback(null, true);
+      }
+      
+      if (allowedOrigins.includes(origin)) {
+        console.log('Origin allowed:', origin);
+        callback(null, true);
+      } else {
+        console.warn('CORS blocked origin:', origin);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true,
+    optionsSuccessStatus: 200,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  }));
+} else {
+  // Permissive CORS for development
+  console.log('Development mode: using permissive CORS');
+  app.use(cors({
+    origin: true, // Allow all origins in development
+    credentials: true,
+    optionsSuccessStatus: 200,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  }));
+}
 
 // Compression middleware
 app.use(compression());
