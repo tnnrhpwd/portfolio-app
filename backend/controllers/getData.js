@@ -54,33 +54,39 @@ const getData = asyncHandler(async (req, res) => {
 
     try {
         const dataSearchString = data.text;
-        console.log('Searching for ID:', dataSearchString);
+        console.log('Searching for public data containing:', dataSearchString);
 
-        // Use scan with filter like auth middleware does
+        // Search for public data containing the search string
         const params = {
             TableName: 'Simple',
-            FilterExpression: "id = :searchId",
+            FilterExpression: 'contains(#text, :searchString) AND contains(#text, :publicFlag)',
+            ExpressionAttributeNames: {
+                '#text': 'text'
+            },
             ExpressionAttributeValues: {
-                ":searchId": dataSearchString
+                ':searchString': dataSearchString,
+                ':publicFlag': 'Public:true'
             }
         };
 
-        console.log('DynamoDB scan params:', JSON.stringify(params, null, 2));
+        console.log('DynamoDB scan params for public data:', JSON.stringify(params, null, 2));
         const result = await dynamodb.send(new ScanCommand(params));
-        console.log('DynamoDB result:', result);
+        console.log('DynamoDB public data result:', result);
 
         // Convert to expected frontend format
-        const responseData = result.Items && result.Items.length > 0 ? [{
-            data: result.Items[0].text, // Return the text content as the data field
-            ActionGroup: result.Items[0].ActionGroup,
-            files: result.Items[0].files,
-            updatedAt: result.Items[0].updatedAt,
-            createdAt: result.Items[0].createdAt,
-            __v: null,
-            _id: result.Items[0].id,
-        }] : [];
-        console.log('Response data:', responseData);
-
+        const responseData = result.Items && result.Items.length > 0 
+            ? result.Items.map(item => ({
+                data: item.text, // Return the text content as the data field
+                ActionGroup: item.ActionGroup,
+                files: item.files,
+                updatedAt: item.updatedAt,
+                createdAt: item.createdAt,
+                __v: null,
+                _id: item.id,
+            }))
+            : [];
+        
+        console.log('Public data response:', responseData.length, 'items found');
         res.status(200).json({
             data: responseData
         });

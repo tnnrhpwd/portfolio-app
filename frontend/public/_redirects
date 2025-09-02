@@ -1,1 +1,14 @@
+# Option 1: If backend is deployed on a separate domain/subdomain
+# Replace 'your-backend-url.com' with your actual backend deployment URL
+# Examples:
+# - Heroku: myapp.herokuapp.com
+# - Railway: myapp.railway.app  
+# - Render: myapp.onrender.com
+# - AWS/DigitalOcean: api.sthopwood.com
+/api/* https://your-backend-url.com/api/:splat 200!
+
+# Option 2: If backend is on same domain but different port (for development)
+# /api/* http://localhost:5000/api/:splat 200!
+
+# All other routes serve the React app
 /* /index.html 200
