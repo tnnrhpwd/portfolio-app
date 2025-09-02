@@ -43,7 +43,10 @@ async function initializeOpenAI() {
 // @access  Private
 const postHashData = asyncHandler(async (req, res) => {
     console.log('postHashData called');
-    console.log('req.body: ', JSON.stringify(req.body), 'req.user:', req.user, 'req.files:', req.files);
+    console.log('req.body keys:', Object.keys(req.body));
+    console.log('req.body.data:', req.body.data);
+    console.log('req.files length:', req.files ? req.files.length : 0);
+    
     await checkIP(req);
 
     if (!req.user) {
@@ -62,16 +65,40 @@ const postHashData = asyncHandler(async (req, res) => {
 
     // Handle file uploads via multer first
     if (req.files && req.files.length > 0) {
+        console.log('Processing files:', req.files.length);
+        
+        // Validate file sizes before processing
+        const maxFileSize = 300 * 1024; // 300KB per file
+        const maxTotalSize = 350 * 1024; // 350KB total
+        
+        const oversizedFiles = req.files.filter(file => file.size > maxFileSize);
+        if (oversizedFiles.length > 0) {
+            const fileNames = oversizedFiles.map(f => f.originalname).join(', ');
+            console.log('Files rejected - too large:', fileNames);
+            res.status(413);
+            throw new Error(`Files too large: ${fileNames}. Maximum size is 300KB per file.`);
+        }
+        
+        const totalFileSize = req.files.reduce((sum, file) => sum + file.size, 0);
+        if (totalFileSize > maxTotalSize) {
+            console.log('Files rejected - total size too large:', Math.round(totalFileSize/1024), 'KB');
+            res.status(413);
+            throw new Error(`Total file size (${Math.round(totalFileSize/1024)}KB) exceeds limit of 350KB.`);
+        }
+        
         filesData = req.files.map(file => ({
             filename: file.originalname,
             contentType: file.mimetype,
             data: file.buffer.toString('base64')
         }));
+        console.log('Files processed successfully:', filesData.length);
     }
 
+    // Handle text content from FormData
     if (req.headers['content-type'] && req.headers['content-type'].startsWith('multipart/form-data')) {
         // For multipart/form-data, text fields are directly in req.body
-        textContent = req.body.data || req.body.Text; // Based on logs, 'data' field contains the primary text
+        textContent = req.body.data || req.body.Text;
+        console.log('Extracted textContent from FormData:', textContent);
 
         if (req.body.ActionGroupObject) {
             if (typeof req.body.ActionGroupObject === 'string') {
@@ -139,11 +166,17 @@ const postHashData = asyncHandler(async (req, res) => {
         }
     }
 
+    console.log('Final textContent:', textContent);
+    console.log('Final actionGroupObjectContent:', actionGroupObjectContent);
+    console.log('Final filesData:', filesData);
+
     if (!textContent) {
+         console.error('Text content validation failed - textContent is empty or undefined');
          res.status(400);
          throw new Error('Text content is missing or could not be determined from the request.');
     }
-    
+
+    console.log('Creating DynamoDB item...');
     const params = {
         TableName: 'Simple',
         Item: {
@@ -156,12 +189,36 @@ const postHashData = asyncHandler(async (req, res) => {
         }
     };
 
+    // Check total item size before sending to DynamoDB
+    const itemSizeBytes = JSON.stringify(params.Item).length;
+    const maxDynamoDBSize = 400 * 1024; // 400KB DynamoDB limit
+    
+    console.log('DynamoDB params:', {
+        TableName: params.TableName,
+        itemKeys: Object.keys(params.Item),
+        textLength: params.Item.text?.length,
+        filesCount: params.Item.files?.length || 0,
+        totalItemSize: Math.round(itemSizeBytes / 1024) + 'KB'
+    });
+
+    if (itemSizeBytes > maxDynamoDBSize) {
+        console.error('Item size exceeds DynamoDB limit:', Math.round(itemSizeBytes/1024), 'KB > 400KB');
+        res.status(413);
+        throw new Error(`Item size (${Math.round(itemSizeBytes/1024)}KB) exceeds DynamoDB limit of 400KB. Please reduce file sizes or content.`);
+    }
+
     try {
+        console.log('Sending to DynamoDB...');
         await dynamodb.send(new PutCommand(params));
+        console.log('DynamoDB write successful');
         res.status(200).json(params.Item);
     } catch (error) {
-        console.error('Error creating data:', error);
-        res.status(500).json({ error: 'Failed to create data' });
+        console.error('=== DynamoDB Error ===');
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Error code:', error.code);
+        console.error('Full error:', error);
+        res.status(500).json({ error: 'Failed to create data', details: error.message });
     }
 })
 

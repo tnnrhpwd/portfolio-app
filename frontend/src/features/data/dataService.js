@@ -96,6 +96,18 @@ const handleTokenExpiration = (error) => {
                 draggable: true,
             });
         }
+    } else if (error.response && error.response.status === 413) {
+        // Handle file size errors
+        const errorData = error.response.data;
+        const errorMessage = errorData?.details || errorData?.error || 'File size too large';
+        toast.error(`📁 ${errorMessage}`, {
+            position: 'top-center',
+            autoClose: 7000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+        });
     }
     throw error;
 }

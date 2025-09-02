@@ -3,6 +3,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { createData } from '../../../features/data/dataSlice';
 import './DataInput.css';
 import { toast } from 'react-toastify';
+import { processFilesWithCompression } from '../../../utils/imageCompression';
 
 function DataInput() {
   const [planText, setPlanText] = useState('');
@@ -80,8 +81,45 @@ function DataInput() {
     toast.success("Plan successfully created!", { autoClose: toastDuration });
   };
 
-  const onFilesChange = (e) => {
-    setFiles([...e.target.files]);
+  const onFilesChange = async (e) => {
+    const selectedFiles = [...e.target.files];
+    
+    if (selectedFiles.length === 0) {
+      setFiles([]);
+      return;
+    }
+    
+    console.log(`Files selected: ${selectedFiles.length}`);
+    selectedFiles.forEach(file => {
+      console.log(`- ${file.name}: ${Math.round(file.size/1024)}KB, type: ${file.type}`);
+    });
+    
+    try {
+      // Process files with automatic compression
+      const processedFiles = await processFilesWithCompression(selectedFiles, {
+        maxFileSize: 280 * 1024, // 280KB per file
+        maxTotalSize: 350 * 1024, // 350KB total
+        useAPI: false // Set to true if you want to use external API compression
+      });
+      
+      if (processedFiles.length > 0) {
+        setFiles(processedFiles);
+        toast.success(`✅ ${processedFiles.length} file(s) ready for upload!`, { autoClose: 2000 });
+      } else {
+        // Clear file input if no files were processed successfully
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        setFiles([]);
+      }
+    } catch (error) {
+      console.error('Error processing files:', error);
+      toast.error('Failed to process files. Please try again.');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      setFiles([]);
+    }
   };
 
   return (
@@ -129,13 +167,27 @@ function DataInput() {
           </select>
         </div>
         <div className='planit-datainput-group'>
+          <label htmlFor='file-input'>Files (Images auto-compressed to fit limits):</label>
           <input
             type='file'
             id='file-input'
             multiple
+            accept="image/*,.pdf,.txt,.doc,.docx"
             onChange={onFilesChange}
             ref={fileInputRef}
           />
+          {files.length > 0 && (
+            <div className='file-info' style={{marginTop: '10px', fontSize: '12px'}}>
+              {files.map((file, index) => (
+                <div key={index} className='file-item'>
+                  {file.type.startsWith('image/') ? '�' : '�📄'} {file.name} ({Math.round(file.size/1024)}KB)
+                </div>
+              ))}
+              <div className='total-size' style={{fontWeight: 'bold', marginTop: '5px', color: files.reduce((sum, file) => sum + file.size, 0) > 350 * 1024 ? 'red' : 'green'}}>
+                Total: {Math.round(files.reduce((sum, file) => sum + file.size, 0)/1024)}KB / 350KB
+              </div>
+            </div>
+          )}
         </div>
         <div className='planit-datainput-group'>
           <label>

@@ -164,6 +164,23 @@
     padding: calc(var(--nav-size) * 0.2);
 }
 
+/* File Input Label */
+label[for="file-input"] {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: calc(var(--nav-size) * 0.3);
+    font-weight: 500;
+    color: var(--text-color);
+    margin-bottom: calc(var(--nav-size) * 0.1);
+    display: block;
+    position: relative;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+label[for="file-input"]:hover {
+    color: var(--fg-mint);
+}
+
 /* File Input */
 #file-input {
     font-size: calc(var(--nav-size) * 0.28);
@@ -176,6 +193,7 @@
     cursor: pointer;
     position: relative;
     overflow: hidden;
+    margin-top: calc(var(--nav-size) * 0.05);
 }
 
 #file-input:hover {
@@ -189,6 +207,32 @@
     outline: none;
     border-color: var(--fg-blue);
     box-shadow: 0 0 0 3px rgba(var(--fg-blue-rgb, 56, 56, 255), 0.1);
+}
+
+/* File Info Display */
+.file-info {
+    margin-top: calc(var(--nav-size) * 0.25) !important;
+    padding: calc(var(--nav-size) * 0.2);
+    background: var(--bg-accent);
+    border: 1px solid var(--border-nav);
+    border-radius: calc(var(--nav-size) * 0.1);
+    font-size: calc(var(--nav-size) * 0.24) !important;
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.1);
+    padding: calc(var(--nav-size) * 0.05) 0;
+    color: var(--text-color-accent);
+}
+
+.total-size {
+    font-weight: 600 !important;
+    margin-top: calc(var(--nav-size) * 0.1) !important;
+    padding-top: calc(var(--nav-size) * 0.1);
+    border-top: 1px solid var(--border-nav);
+    text-align: right;
 }
 
 /* Checkbox Group */
