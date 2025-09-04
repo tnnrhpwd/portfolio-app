@@ -72,6 +72,13 @@ const {
   forgotPassword, resetPassword, forgotPasswordAuthenticated,
 } = require('../controllers');
 
+// Import referer analytics controller
+const {
+  getRefererAnalytics,
+  getRefererData,
+  getRefererSummary
+} = require('../controllers/refererAnalytics');
+
 // Public routes with validation
 router.post('/register', 
   authLimiter,
@@ -150,6 +157,11 @@ router.get('/subscription', protect, getUserSubscription); // GET request for fe
 router.get('/storage', protect, getUserStorage); // GET request for fetching user storage usage
 router.get('/usage', protect, getUserUsageData); // GET request for fetching user API usage stats
 router.post('/custom-limit', protect, paymentLimiter, setCustomLimit); // POST request for setting custom usage limit (Premium only)
+
+// Referer Analytics routes (Admin only)
+router.get('/analytics/referer-stats', protect, getRefererAnalytics); // GET referer analytics statistics
+router.get('/analytics/referer-data', protect, getRefererData); // GET detailed referer data
+router.get('/analytics/referer-summary', protect, getRefererSummary); // GET referer summary for dashboard
 
 router.route('/pay-methods')
   .get(protect, getPaymentMethods) // GET payment methods

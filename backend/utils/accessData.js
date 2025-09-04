@@ -64,6 +64,62 @@ async function checkIP(req) {
         console.log('Request info:', requestInfo);
         text += requestInfo;
 
+        // Add HTTP referer information
+        const referer = req.headers['referer'] || req.headers['referrer'] || null;
+        if (referer) {
+            try {
+                const refererUrl = new URL(referer);
+                const refererInfo = `|Referer:${referer}|RefererHost:${refererUrl.hostname}|RefererPath:${refererUrl.pathname}`;
+                console.log('Referer info:', refererInfo);
+                text += refererInfo;
+                
+                // Add additional referer analysis
+                if (refererUrl.search) {
+                    const refererQuery = `|RefererQuery:${refererUrl.search}`;
+                    console.log('Referer query params:', refererQuery);
+                    text += refererQuery;
+                }
+
+                // Categorize referer source for analytics
+                let refererCategory = 'external';
+                const currentHost = req.headers['host'] || req.get('host');
+                
+                if (refererUrl.hostname === currentHost) {
+                    refererCategory = 'internal';
+                } else if (refererUrl.hostname.includes('google.')) {
+                    refererCategory = 'search_google';
+                } else if (refererUrl.hostname.includes('bing.')) {
+                    refererCategory = 'search_bing';
+                } else if (refererUrl.hostname.includes('yahoo.')) {
+                    refererCategory = 'search_yahoo';
+                } else if (refererUrl.hostname.includes('facebook.') || refererUrl.hostname.includes('fb.')) {
+                    refererCategory = 'social_facebook';
+                } else if (refererUrl.hostname.includes('twitter.') || refererUrl.hostname.includes('t.co')) {
+                    refererCategory = 'social_twitter';
+                } else if (refererUrl.hostname.includes('linkedin.')) {
+                    refererCategory = 'social_linkedin';
+                } else if (refererUrl.hostname.includes('github.')) {
+                    refererCategory = 'development_github';
+                }
+
+                const refererCategoryInfo = `|RefererCategory:${refererCategory}`;
+                console.log('Referer category:', refererCategoryInfo);
+                text += refererCategoryInfo;
+
+            } catch (refererError) {
+                // If referer URL is malformed, still record the raw value
+                const refererInfo = `|Referer:${referer}|RefererHost:invalid|RefererPath:invalid|RefererCategory:malformed`;
+                console.log('Referer info (invalid URL):', refererInfo);
+                text += refererInfo;
+                console.warn('Invalid referer URL format:', refererError.message);
+            }
+        } else {
+            // Record when no referer is present (direct access, bookmark, etc.)
+            const refererInfo = `|Referer:direct|RefererHost:none|RefererPath:none|RefererCategory:direct`;
+            console.log('Referer info (direct access):', refererInfo);
+            text += refererInfo;
+        }
+
         // Add system platform information
         const platformInfo = `|Platform:${process.platform}`;
         console.log('Platform info:', platformInfo);
