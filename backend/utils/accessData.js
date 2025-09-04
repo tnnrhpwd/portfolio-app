@@ -66,9 +66,22 @@ async function checkIP(req) {
 
         // Add HTTP referer information
         const referer = req.headers['referer'] || req.headers['referrer'] || null;
+        const userAgent = req.headers['user-agent'] || '';
+        
+        console.log('Raw referer header:', referer);
+        console.log('User agent:', userAgent);
+        console.log('Current host:', req.headers['host'] || req.get('host'));
+        
+        // Check for Instagram app user agent patterns
+        const isInstagramApp = userAgent.includes('Instagram') || 
+                              userAgent.includes('FBAN') || 
+                              userAgent.includes('FBAV');
+        
         if (referer) {
             try {
                 const refererUrl = new URL(referer);
+                console.log('Parsed referer URL - hostname:', refererUrl.hostname, 'pathname:', refererUrl.pathname);
+                
                 const refererInfo = `|Referer:${referer}|RefererHost:${refererUrl.hostname}|RefererPath:${refererUrl.pathname}`;
                 console.log('Referer info:', refererInfo);
                 text += refererInfo;
@@ -84,7 +97,11 @@ async function checkIP(req) {
                 let refererCategory = 'external';
                 const currentHost = req.headers['host'] || req.get('host');
                 
-                if (refererUrl.hostname === currentHost) {
+                // Check for internal navigation (same domain)
+                if (refererUrl.hostname === currentHost || 
+                    refererUrl.hostname === 'sthopwood.com' || 
+                    currentHost.includes(refererUrl.hostname) || 
+                    refererUrl.hostname.includes(currentHost.replace('www.', ''))) {
                     refererCategory = 'internal';
                 } else if (refererUrl.hostname.includes('google.')) {
                     refererCategory = 'search_google';
@@ -94,12 +111,29 @@ async function checkIP(req) {
                     refererCategory = 'search_yahoo';
                 } else if (refererUrl.hostname.includes('facebook.') || refererUrl.hostname.includes('fb.')) {
                     refererCategory = 'social_facebook';
-                } else if (refererUrl.hostname.includes('twitter.') || refererUrl.hostname.includes('t.co')) {
+                } else if (refererUrl.hostname.includes('instagram.') || 
+                          refererUrl.hostname.includes('ig.') || 
+                          refererUrl.hostname.includes('l.instagram.com') ||
+                          refererUrl.hostname === 'l.instagram.com') {
+                    refererCategory = 'social_instagram';
+                } else if (refererUrl.hostname.includes('twitter.') || refererUrl.hostname.includes('t.co') || refererUrl.hostname.includes('x.com')) {
                     refererCategory = 'social_twitter';
                 } else if (refererUrl.hostname.includes('linkedin.')) {
                     refererCategory = 'social_linkedin';
+                } else if (refererUrl.hostname.includes('tiktok.')) {
+                    refererCategory = 'social_tiktok';
+                } else if (refererUrl.hostname.includes('youtube.') || refererUrl.hostname.includes('youtu.be')) {
+                    refererCategory = 'social_youtube';
                 } else if (refererUrl.hostname.includes('github.')) {
                     refererCategory = 'development_github';
+                } else if (refererUrl.hostname.includes('reddit.')) {
+                    refererCategory = 'social_reddit';
+                }
+
+                // Override category if we detect Instagram app but internal referer
+                if (isInstagramApp && refererCategory === 'internal') {
+                    refererCategory = 'social_instagram';
+                    console.log('Detected Instagram app with internal referer - overriding to social_instagram');
                 }
 
                 const refererCategoryInfo = `|RefererCategory:${refererCategory}`;
@@ -108,14 +142,29 @@ async function checkIP(req) {
 
             } catch (refererError) {
                 // If referer URL is malformed, still record the raw value
-                const refererInfo = `|Referer:${referer}|RefererHost:invalid|RefererPath:invalid|RefererCategory:malformed`;
+                let refererCategory = 'malformed';
+                
+                // Even with malformed referer, check user agent for app detection
+                if (isInstagramApp) {
+                    refererCategory = 'social_instagram';
+                }
+                
+                const refererInfo = `|Referer:${referer}|RefererHost:invalid|RefererPath:invalid|RefererCategory:${refererCategory}`;
                 console.log('Referer info (invalid URL):', refererInfo);
                 text += refererInfo;
                 console.warn('Invalid referer URL format:', refererError.message);
             }
         } else {
             // Record when no referer is present (direct access, bookmark, etc.)
-            const refererInfo = `|Referer:direct|RefererHost:none|RefererPath:none|RefererCategory:direct`;
+            let refererCategory = 'direct';
+            
+            // Check if this might be from a social media app that doesn't send referers
+            if (isInstagramApp) {
+                refererCategory = 'social_instagram';
+                console.log('No referer but detected Instagram app user agent');
+            }
+            
+            const refererInfo = `|Referer:direct|RefererHost:none|RefererPath:none|RefererCategory:${refererCategory}`;
             console.log('Referer info (direct access):', refererInfo);
             text += refererInfo;
         }
