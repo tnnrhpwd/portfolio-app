@@ -116,7 +116,7 @@ function Simple() {
             <strong>Are you tired of clicking the same buttons, opening the same programs, and doing the same tasks every single day?</strong> 
             <br/><br/>
             Simple.NET learns your Windows habits and automates your routine tasks, saving you hours every day. 
-            Join professionals who've already reclaimed their time and boosted their productivity significantly.
+            Reclaim your time and boost your productivity significantly.
           </p>
         </div>
 
@@ -148,7 +148,6 @@ function Simple() {
         </div>
         <div className='planit-dashboard-lower'>
           <div className='planit-dashboard-preview'>
-            <h2>See Simple.NET in Action</h2>
             <div className='simple-graphic-container'>
               <img 
                 src={simpleGraphic} 
@@ -193,9 +192,7 @@ function Simple() {
 
             {/* Pricing Section */}
             <div className='pricing-section'>
-              <h2>Choose Your Productivity Level</h2>
-              <p className='pricing-subtitle'>Usage-based pricing - only pay for what you use!</p>
-              
+              <h2>Choose Your Productivity Level</h2>              
               <div className='pricing-grid'>
                 {plans.map((plan, index) => (
                   <div 
@@ -257,42 +254,6 @@ function Simple() {
                     <strong>Risk-Free Trial</strong>
                     <p>Start with our Free tier and upgrade anytime. Cancel or downgrade without penalty.</p>
                   </div>
-                </div>
-              </div>
-            </div>
-
-            {/* FAQ Section */}
-            <div className='faq-section'>
-              <h2>Frequently Asked Questions</h2>
-              <div className='faq-grid'>
-                <div className='faq-item'>
-                  <h3>Is my data safe and private?</h3>
-                  <p>Absolutely. Simple.NET processes everything locally on your machine. Your usage patterns and data never leave your computer. We use enterprise-grade encryption for all local storage.</p>
-                </div>
-                
-                <div className='faq-item'>
-                  <h3>Will this slow down my computer?</h3>
-                  <p>No, Simple.NET actually speeds up your system by optimizing resource usage and preventing unnecessary background processes. Most users see noticeable improvements in system performance.</p>
-                </div>
-                
-                <div className='faq-item'>
-                  <h3>How long before I see results?</h3>
-                  <p>You'll notice immediate improvements in app launch times and workflow organization. The AI learns your patterns quickly and reaches full optimization within days of normal usage.</p>
-                </div>
-                
-                <div className='faq-item'>
-                  <h3>What if I don't like it?</h3>
-                  <p>We offer a money-back guarantee, no questions asked. Plus, you can easily uninstall Simple.NET without any impact on your existing system configuration.</p>
-                </div>
-                
-                <div className='faq-item'>
-                  <h3>Does it work with all Windows versions?</h3>
-                  <p>Simple.NET supports Windows 10 (build 1909+) and Windows 11. It works seamlessly with all major applications and doesn't interfere with existing software.</p>
-                </div>
-                
-                <div className='faq-item'>
-                  <h3>Can I customize the automation?</h3>
-                  <p>Yes! While Simple.NET learns automatically, you have full control over which automations to enable, modify, or disable. Create custom workflows for your specific needs.</p>
                 </div>
               </div>
             </div>
