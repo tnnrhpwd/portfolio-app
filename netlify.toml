@@ -1,12 +1,12 @@
 [build]
-  command = "npm run build"
-  publish = "frontend/build"
+command = "npm run build"
+publish = "frontend/build"
 
 [build.environment]
-  NODE_VERSION = "22"
-  NPM_VERSION = "10"
+NODE_VERSION = "22"
+NPM_VERSION = "10"
 
 [[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+from = "/*"
+to = "/index.html"
+status = 200
