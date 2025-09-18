@@ -54,7 +54,7 @@ function Simple() {
         name: 'Free Tier',
         price: '$0',
         period: 'per month',
-        tagline: 'Perfect for trying Simple.NET',
+        tagline: 'Perfect for trying Simple',
         features: [
           'Limited automation (3 workflows)',
           'Basic app launching',
@@ -115,7 +115,7 @@ function Simple() {
           <p className='planit-dashboard-upper-description'>
             <strong>Are you tired of clicking the same buttons, opening the same programs, and doing the same tasks every single day?</strong> 
             <br/><br/>
-            Simple.NET learns your Windows habits and automates your routine tasks, saving you hours every day. 
+            Simple learns your Windows habits and automates your routine tasks, saving you hours every day. 
             Reclaim your time and boost your productivity significantly.
           </p>
         </div>
@@ -142,7 +142,7 @@ function Simple() {
           </div>
           
           <div className='solution-callout'>
-            <h3>Simple.NET Changes Everything</h3>
+            <h3>Simple Changes Everything</h3>
             <p>Our AI watches how you work and automatically handles your routine tasks. Imagine your computer becoming your personal assistant that knows exactly what you need, when you need it.</p>
           </div>
         </div>
@@ -151,7 +151,7 @@ function Simple() {
             <div className='simple-graphic-container'>
               <img 
                 src={simpleGraphic} 
-                alt="Simple.NET System Intelligence Overview" 
+                alt="Simple System Intelligence Overview" 
                 className='simple-graphic-img'
               />
             </div>
@@ -261,7 +261,7 @@ function Simple() {
             {/* Final CTA */}
             <div className='final-cta-section'>
               <h2>Ready to Reclaim Your Time?</h2>
-              <p>Join professionals who save hours daily with Simple.NET</p>
+              <p>Join professionals who save hours daily with Simple</p>
               <div className='urgency-notice'>
                 <span className='urgency-icon'>⚡</span>
                 <strong>Start Free, Pay Only for What You Use</strong>
