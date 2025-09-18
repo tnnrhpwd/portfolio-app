@@ -461,7 +461,7 @@
     @media (max-width: 480px) {
         .planit-pay-card {
             max-width: 98vw;
-            padding: calc(var(--nav-size) * 1);
+            padding: calc(var(--nav-size) * .25);
             margin: calc(var(--nav-size) * 0.3) auto;
         }
         

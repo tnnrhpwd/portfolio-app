@@ -28,7 +28,7 @@
 .add-method-button, .next-step-button, .subscribe-button, #add-payment-button {
   padding: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.4);
   background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink));
-  color: var(--text-color-inv);
+  color: var(--text-color);
   border: none;
   border-radius: var(--border-radius);
   font-size: calc(var(--nav-size) * 0.18);
@@ -252,7 +252,7 @@
 .subscribe-button {
   padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.2);
   background-color: var(--bg-mint);
-  color: var(--text-color-inv);
+  color: var(--text-color);
   border: none;
   border-radius: var(--border-radius);
   font-size: calc(var(--nav-size) * 0.25);
@@ -919,13 +919,6 @@
   padding-left: calc(var(--nav-size) * 0.25);
 }
 
-.plan-features li:before {
-  content: "✓";
-  position: absolute;
-  left: 0;
-  color: var(--fg-mint);
-}
-
 .plan-selector {
   width: calc(var(--nav-size) * 0.3);
   height: calc(var(--nav-size) * 0.3);
@@ -984,6 +977,7 @@
 }
 
 .step-navigation {
+  color: var(--text-color);
   display: flex;
   justify-content: space-between;
   margin-top: calc(var(--nav-size) * 0.25);
@@ -1891,6 +1885,7 @@
   .subscribe-button {
     padding: calc(var(--nav-size) * 0.185) calc(var(--nav-size) * 0.26);
     font-size: calc(var(--nav-size) * 0.185);
+    color: var(--text-color);
   }
   
   /* Payment method items */

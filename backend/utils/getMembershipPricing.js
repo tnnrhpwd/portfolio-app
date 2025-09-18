@@ -117,9 +117,9 @@ const getMembershipPricing = asyncHandler(async (req, res) => {
             if (membershipType.id === 'flex') {
                 description = 'Pay only for what you use';
                 features = [
-                    'Usage-based pricing – enjoy a baseline quota then pay per call',
-                    'Strategic planning tools for scaling efficiently',
-                    'Enhanced analytics dashboard for smarter decision-making',
+                    'Unlimited automation workflows',
+                    'Advanced context awareness', 
+                    'Detailed productivity analytics',
                 ];
                 quota = {
                     baseCalls: '10,000 calls/month',
@@ -128,12 +128,9 @@ const getMembershipPricing = asyncHandler(async (req, res) => {
             } else if (membershipType.id === 'premium') {
                 description = 'Power users and enterprises: maximize efficiency and savings';
                 features = [
-                    'Significantly reduced per-usage rates – save up to 30% on volume',
-                    'Set your monthly maximum with predictability in billing',
-                    'Priority AI processing for rapid execution',
-                    'Advanced analytics with detailed data insights',
-                    'Dedicated support channel with direct expert access',
-                    'Exclusive early access to innovative, cutting-edge features',
+                    'Reduced per-usage rates (save up to 30%)',
+                    'Set your own monthly maximum',
+                    'Advanced analytics with insights',
                 ];
             }
             
