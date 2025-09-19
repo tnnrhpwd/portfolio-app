@@ -10,8 +10,10 @@
     display: flex;
     align-items: flex-start;
     justify-content: center;
-    padding: calc(var(--nav-size) * 0.5) calc(var(--nav-size) * 0.3);
+    padding: var(--spacing-md) var(--spacing-sm);
     box-sizing: border-box;
+    color: var(--text-color);
+    font-family: var(--font-family-base);
 }
 
 @keyframes gradientShift {
@@ -39,18 +41,22 @@
 }
 
 .support-title {
-    font-size: calc(var(--nav-size) * 0.6);
-    font-weight: bold;
-    color: var(--text-color);
-    margin-bottom: calc(var(--nav-size) * 0.3);
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+    font-size: var(--font-size-display);
+    font-weight: var(--font-weight-bold);
+    color: var(--text-color-strong);
+    margin-bottom: var(--spacing-md);
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+    line-height: var(--line-height-tight);
 }
 
 .support-subtitle {
-    font-size: calc(var(--nav-size) * 0.3);
-    color: var(--text-color-accent);
+    font-size: var(--font-size-large);
+    color: var(--text-color-accent-dark-strong);
     margin: 0;
-    line-height: 1.5;
+    line-height: var(--line-height-relaxed);
+    max-width: 80%;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 /* Quick Actions Section */
@@ -187,9 +193,10 @@
 }
 
 .support-search-input:focus {
-    outline: none;
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset);
     border-color: var(--fg-blue);
-    box-shadow: 0 0 0 2px rgba(86, 204, 242, 0.2);
+    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.2);
 }
 
 .support-faq-list {
@@ -365,9 +372,10 @@
 .support-form-group input:focus,
 .support-form-group select:focus,
 .support-form-group textarea:focus {
-    outline: none;
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset);
     border-color: var(--fg-blue);
-    box-shadow: 0 0 0 2px rgba(86, 204, 242, 0.2);
+    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.2);
 }
 
 .support-form-group textarea {
@@ -487,23 +495,44 @@
 /* Submit Button */
 .support-submit-btn {
     align-self: center;
-    padding: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.8);
-    font-size: calc(var(--nav-size) * 0.25);
-    font-weight: bold;
-    background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+    padding: var(--spacing-md) var(--spacing-xl);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
     color: var(--text-color-inv);
     border: none;
     border-radius: var(--border-radius);
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    min-width: calc(var(--nav-size) * 4);
-    box-shadow: 0 4px 12px rgba(86, 204, 242, 0.3);
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    min-width: 160px;
+    min-height: 48px;
+    box-shadow: var(--shadow-md);
+    position: relative;
+    overflow: hidden;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    line-height: var(--line-height-base);
+}
+
+.support-submit-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+}
+
+.support-submit-btn:hover:not(:disabled)::before {
+    left: 100%;
 }
 
 .support-submit-btn:hover:not(:disabled) {
-    background: linear-gradient(45deg, var(--fg-mint), var(--fg-blue));
+    background: linear-gradient(135deg, var(--fg-mint), var(--fg-blue));
     transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(86, 204, 242, 0.4);
+    box-shadow: var(--shadow-lg);
 }
 
 .support-submit-btn:active:not(:disabled) {
@@ -515,6 +544,13 @@
     cursor: not-allowed;
     transform: none;
     box-shadow: none;
+    background: var(--bg-accent);
+    color: var(--text-color-accent);
+}
+
+.support-submit-btn:focus {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset);
 }
 
 /* ===================================================================
@@ -934,9 +970,13 @@
     }
 }
 
-/* Accessibility Improvements */
+/* Reduced Motion Preferences */
 @media (prefers-reduced-motion: reduce) {
-    .support-bg,
+    .support-bg {
+        animation: none;
+        background: var(--bg-page);
+    }
+    
     .support-faq-arrow,
     .support-faq-answer {
         animation: none;
@@ -944,26 +984,87 @@
     }
     
     .support-action-card:hover,
-    .support-submit-btn:hover:not(:disabled) {
+    .support-submit-btn:hover:not(:disabled),
+    .support-tab:hover {
         transform: none;
     }
+    
+    .support-submit-btn::before,
+    .support-submit-btn:hover:not(:disabled)::before {
+        display: none;
+    }
+}
+
+/* Enhanced Accessibility Features */
+
+/* Skip to content link */
+.skip-to-content {
+    position: absolute;
+    top: -40px;
+    left: 6px;
+    background: var(--bg-accent);
+    color: var(--text-color-inv);
+    padding: var(--spacing-sm) var(--spacing-md);
+    text-decoration: none;
+    border-radius: var(--border-radius);
+    z-index: 1000;
+    transition: top 0.3s ease;
+}
+
+.skip-to-content:focus {
+    top: 6px;
+}
+
+/* Screen reader content */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Enhanced focus states */
+.support-action-card:focus,
+.support-tab:focus,
+.support-faq-question:focus {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset);
 }
 
 /* High Contrast Mode */
 @media (prefers-contrast: high) {
     .support-container {
-        border: 2px solid var(--text-color);
+        border: 3px solid var(--text-color);
+        background: var(--bg-1);
     }
     
     .support-tab.active {
         background: var(--text-color);
         color: var(--bg-1);
+        border: 2px solid var(--text-color);
     }
     
     .support-submit-btn {
         background: var(--text-color);
         color: var(--bg-1);
         border: 2px solid var(--text-color);
+    }
+    
+    .support-action-card {
+        border: 2px solid var(--text-color);
+        background: var(--bg-1);
+    }
+    
+    .support-form-group input,
+    .support-form-group select,
+    .support-form-group textarea {
+        border: 2px solid var(--text-color);
+        background: var(--bg-1);
     }
 }
 

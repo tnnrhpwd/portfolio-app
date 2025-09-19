@@ -192,6 +192,7 @@ function Simple() {
 
             {/* Pricing Section */}
             <div className='pricing-section'>
+              <h4>Ready to Reclaim Your Time?</h4>
               <h2>Choose Your Productivity Level</h2>              
               <div className='pricing-grid'>
                 {plans.map((plan, index) => (
@@ -255,27 +256,6 @@ function Simple() {
                     <p>Start with our Free tier and upgrade anytime. Cancel or downgrade without penalty.</p>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            {/* Final CTA */}
-            <div className='final-cta-section'>
-              <h2>Ready to Reclaim Your Time?</h2>
-              <p>Join professionals who save hours daily with Simple</p>
-              <div className='urgency-notice'>
-                <span className='urgency-icon'>⚡</span>
-                <strong>Start Free, Pay Only for What You Use</strong>
-              </div>
-              <div className='final-cta-buttons'>
-                <button 
-                  className='cta-button primary large'
-                  onClick={() => handleGetStarted('free')}
-                >
-                  Start Free Now
-                </button>
-                <a href={simplelink} className='secondary-link' target="_blank" rel="noopener noreferrer">
-                  View Technical Details
-                </a>
               </div>
             </div>
           </div>

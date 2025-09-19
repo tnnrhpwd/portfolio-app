@@ -1,6 +1,353 @@
-.App{
-    /* min-height: 100vh; */
-    /* background-color: var(--bg); */
-    z-index: -999999999999999999999999999;
-    pointer-events:all; /* Enables clicks on its child elements by default */
+.App {
+    min-height: 100vh;
+    background-color: var(--bg-page);
+    color: var(--text-color);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-base);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    position: relative;
+    z-index: 1;
+    overflow-x: hidden;
+    
+    /* Smooth scrolling for better UX */
+    scroll-behavior: smooth;
+    
+    /* Better text rendering */
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+}
+
+/* Skip link for accessibility */
+.App::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 0;
+    z-index: 9999;
+}
+
+/* Enhanced layout containers */
+.App-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: var(--spacing-md);
+    box-sizing: border-box;
+    position: relative;
+}
+
+.App-content {
+    padding: var(--spacing-xl) var(--spacing-md);
+    margin-top: calc(var(--nav-size) * 1.2);
+    min-height: calc(100vh - calc(var(--nav-size) * 2.4));
+    background: var(--bg-1);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-sm);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.App-main {
+    padding: var(--spacing-lg);
+    background: var(--bg-page-transp);
+    border-radius: var(--border-radius-lg);
+    margin: var(--spacing-md) 0;
+    box-shadow: var(--shadow-sm);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border-nav);
+}
+
+.App-section {
+    margin-bottom: var(--spacing-2xl);
+    padding: var(--spacing-lg);
+    background: var(--bg-1);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-nav);
+    box-shadow: var(--shadow-sm);
+}
+
+.App-section h2 {
+    font-size: var(--font-size-heading);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-color-strong);
+    margin-bottom: var(--spacing-md);
+    line-height: var(--line-height-tight);
+}
+
+.App-section p {
+    color: var(--text-color);
+    line-height: var(--line-height-relaxed);
+    margin-bottom: var(--spacing-md);
+}
+
+/* Improved page transitions */
+.page-transition {
+    opacity: 0;
+    transform: translateY(20px);
+    animation: pageEnter 0.4s ease-out forwards;
+}
+
+@keyframes pageEnter {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Loading states */
+.loading-spinner {
+    display: inline-block;
+    width: calc(var(--nav-size) * 0.8);
+    height: calc(var(--nav-size) * 0.8);
+    border: 3px solid var(--text-color-accent);
+    border-radius: 50%;
+    border-top-color: var(--fg-blue);
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Enhanced error states */
+.error-boundary {
+    padding: var(--spacing-2xl);
+    text-align: center;
+    background: var(--bg-1);
+    border-radius: var(--border-radius-lg);
+    border: 3px solid var(--red0);
+    margin: var(--spacing-lg);
+    box-shadow: var(--shadow-lg);
+    backdrop-filter: blur(10px);
+}
+
+.error-boundary h2 {
+    color: var(--red0);
+    font-size: var(--font-size-heading);
+    font-weight: var(--font-weight-bold);
+    margin-bottom: var(--spacing-md);
+    line-height: var(--line-height-tight);
+}
+
+.error-boundary p {
+    color: var(--text-color-accent-dark-strong);
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-relaxed);
+    margin-bottom: var(--spacing-md);
+}
+
+.error-boundary button {
+    background: linear-gradient(135deg, var(--red0), #c41e3a);
+    color: white;
+    border: none;
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border-radius: var(--border-radius);
+    font-weight: var(--font-weight-semibold);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.error-boundary button:hover {
+    background: linear-gradient(135deg, #c41e3a, var(--red0));
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+/* Success states */
+.success-message {
+    padding: var(--spacing-md);
+    background: rgba(34, 197, 94, 0.1);
+    border: 2px solid #22c55e;
+    border-radius: var(--border-radius);
+    color: var(--text-color);
+    margin: var(--spacing-md) 0;
+}
+
+.warning-message {
+    padding: var(--spacing-md);
+    background: rgba(251, 191, 36, 0.1);
+    border: 2px solid #fbbf24;
+    border-radius: var(--border-radius);
+    color: var(--text-color);
+    margin: var(--spacing-md) 0;
+}
+
+.info-message {
+    padding: var(--spacing-md);
+    background: rgba(33, 150, 243, 0.1);
+    border: 2px solid var(--fg-blue);
+    border-radius: var(--border-radius);
+    color: var(--text-color);
+    margin: var(--spacing-md) 0;
+}
+
+/* Accessibility improvements */
+.App:focus-within {
+    outline: none;
+}
+
+/* Better responsive layout */
+@media (max-width: 768px) {
+    .App-container {
+        padding: var(--spacing-sm);
+    }
+    
+    .App-content {
+        padding: var(--spacing-md) var(--spacing-sm);
+        margin-top: calc(var(--nav-size) * 1);
+    }
+}
+
+@media (max-width: 480px) {
+    .App-container {
+        padding: var(--spacing-xs);
+    }
+    
+    .App-content {
+        padding: var(--spacing-sm) var(--spacing-xs);
+    }
+}
+
+/* Enhanced responsive grid system */
+.App-grid {
+    display: grid;
+    gap: var(--spacing-lg);
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    margin: var(--spacing-lg) 0;
+}
+
+.App-grid-2 {
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+}
+
+.App-grid-3 {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.App-flex {
+    display: flex;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+
+.App-flex-center {
+    justify-content: center;
+    align-items: center;
+}
+
+.App-flex-between {
+    justify-content: space-between;
+}
+
+/* Card components */
+.App-card {
+    background: var(--bg-1);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+    border: 1px solid var(--border-nav);
+    box-shadow: var(--shadow-sm);
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.App-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--fg-blue);
+}
+
+.App-card-featured {
+    border: 2px solid var(--fg-blue);
+    position: relative;
+    overflow: hidden;
+}
+
+.App-card-featured::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint));
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .App-content,
+    .App-main,
+    .App-section,
+    .App-card {
+        border: 3px solid var(--text-color);
+        background: var(--bg-1);
+    }
+    
+    .error-boundary {
+        border: 4px solid var(--red0);
+    }
+    
+    .success-message {
+        border: 3px solid #22c55e;
+    }
+    
+    .warning-message {
+        border: 3px solid #fbbf24;
+    }
+    
+    .info-message {
+        border: 3px solid var(--fg-blue);
+    }
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+    .App {
+        scroll-behavior: auto;
+    }
+    
+    .page-transition,
+    .loading-spinner {
+        animation: none;
+    }
+    
+    .App-card:hover,
+    .error-boundary button:hover {
+        transform: none;
+    }
+    
+    * {
+        transition: none !important;
+        animation: none !important;
+    }
+}
+
+/* Print styles */
+@media print {
+    .App {
+        background: white;
+        color: black;
+        font-size: 12pt;
+        line-height: 1.4;
+    }
+    
+    .loading-spinner,
+    .page-transition,
+    .App-card {
+        box-shadow: none;
+        border: 1px solid #ccc;
+    }
+    
+    .error-boundary,
+    .success-message,
+    .warning-message,
+    .info-message {
+        border: 2px solid #333;
+        background: #f9f9f9;
+    }
 }

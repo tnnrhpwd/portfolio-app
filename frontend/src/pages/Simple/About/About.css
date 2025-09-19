@@ -6,6 +6,8 @@
     background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
     background-size: 400% 400%;
     animation: gradientShift 15s ease infinite;
+    font-family: var(--font-family-base);
+    position: relative;
 }
 
 @keyframes gradientShift {
@@ -37,16 +39,22 @@
 }
 
 .about-title{
-    font-size: calc(var(--nav-size) * 0.6);
-    font-weight: bold;
-    margin-bottom: calc(var(--nav-size) * 0.3);
-    text-shadow: 2px 2px 4px var(--grey3-transp);
+    font-size: var(--font-size-display);
+    font-weight: var(--font-weight-bold);
+    margin-bottom: var(--spacing-md);
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+    color: var(--text-color-strong);
+    line-height: var(--line-height-tight);
 }
 
 .about-subtitle {
-    font-size: calc(var(--nav-size) * 0.35);
-    color: var(--text-color-accent);
-    margin-bottom: calc(var(--nav-size) * 0.5);
+    font-size: var(--font-size-large);
+    color: var(--text-color-accent-dark-strong);
+    margin-bottom: var(--spacing-xl);
+    line-height: var(--line-height-base);
+    max-width: 80%;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 /* Theme-specific subtitle styling */
@@ -61,10 +69,24 @@
 .about-content {
     background: var(--bg-page-transp);
     backdrop-filter: blur(10px);
-    border-radius: var(--border-radius);
-    padding: calc(var(--nav-size) * 0.5);
-    box-shadow: 0 8px 32px var(--grey3-transp);
-    margin-bottom: calc(var(--nav-size) * 0.5);
+    border-radius: var(--border-radius-lg);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    padding: var(--spacing-xl);
+    box-shadow: var(--shadow-xl);
+    margin-bottom: var(--spacing-xl);
+    position: relative;
+    overflow: hidden;
+}
+
+.about-content::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint), var(--fg-orange));
+    border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
 }
 
 .about-section {
@@ -72,13 +94,15 @@
 }
 
 .section-title {
-    font-size: calc(var(--nav-size) * 0.45);
-    margin-bottom: calc(var(--nav-size) * 0.4);
-    color: var(--text-color);
+    font-size: var(--font-size-heading);
+    margin-bottom: var(--spacing-lg);
+    color: var(--text-color-strong);
     border-bottom: 2px solid var(--text-color-accent);
-    padding-bottom: calc(var(--nav-size) * 0.1);
+    padding-bottom: var(--spacing-xs);
     position: relative;
     transition: all 0.3s ease;
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
 }
 
 .section-title::after {
@@ -106,15 +130,16 @@
 }
 
 .about-text p {
-    font-size: calc(var(--nav-size) * 0.32);
-    line-height: 1.6;
-    margin-bottom: calc(var(--nav-size) * 0.3);
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-relaxed);
+    margin-bottom: var(--spacing-md);
     text-align: left;
+    color: var(--text-color);
 }
 
 .about-text strong {
-    color: var(--text-color);
-    font-weight: 600;
+    color: var(--text-color-strong);
+    font-weight: var(--font-weight-semibold);
 }
 
 .skills-container {
@@ -203,15 +228,24 @@
 }
 
 .about-email-link{
-    color: var(--text-color);
+    color: var(--text-color-strong);
     text-decoration: none;
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
     border-bottom: 2px solid transparent;
-    transition: border-bottom 0.2s ease;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    border-radius: var(--border-radius-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
 }
 
 .about-email-link:hover {
-    border-bottom: 2px solid var(--text-color);
+    border-bottom: 2px solid var(--fg-blue);
+    background: rgba(33, 150, 243, 0.1);
+    transform: translateY(-1px);
+}
+
+.about-email-link:focus {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset);
 }
 
 .social-links {
@@ -224,22 +258,50 @@
 .social-button {
     display: flex;
     align-items: center;
-    gap: calc(var(--nav-size) * 0.15);
-    padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.3);
-    border: 1px solid var(--border-nav);
-    border-radius: calc(var(--nav-size) * 0.15);
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 2px solid var(--border-nav);
+    border-radius: var(--border-radius);
     background: var(--bg-1);
     color: var(--text-color);
     cursor: pointer;
-    transition: all 0.2s ease;
-    font-size: calc(var(--nav-size) * 0.28);
-    font-weight: 500;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-medium);
     text-decoration: none;
+    min-height: 48px;
+    position: relative;
+    overflow: hidden;
+}
+
+.social-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transition: left 0.5s;
+}
+
+.social-button:hover::before {
+    left: 100%;
 }
 
 .social-button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px var(--grey3-transp);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--fg-blue);
+}
+
+.social-button:focus {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset);
+}
+
+.social-button:active {
+    transform: translateY(0);
 }
 
 .social-button img {
@@ -513,20 +575,52 @@
 }
 
 .project-link {
-    background: var(--fg-blue);
+    background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
     color: var(--text-color-inv);
     border: none;
-    padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.25);
-    border-radius: calc(var(--nav-size) * 0.1);
-    font-size: calc(var(--nav-size) * 0.26);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--border-radius);
+    font-size: var(--font-size-small);
     cursor: pointer;
-    transition: background 0.2s ease, transform 0.1s ease;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     align-self: flex-start;
+    font-weight: var(--font-weight-medium);
+    text-decoration: none;
+    display: inline-block;
+    position: relative;
+    overflow: hidden;
+    min-height: 32px;
+    line-height: var(--line-height-base);
+}
+
+.project-link::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
 }
 
 .project-link:hover {
-    background: var(--fg-pink);
-    transform: translateX(2px);
+    background: linear-gradient(135deg, var(--fg-mint), var(--fg-blue));
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+
+.project-link:hover::before {
+    left: 100%;
+}
+
+.project-link:focus {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset);
+}
+
+.project-link:active {
+    transform: translateY(0);
 }
 
 /* Responsive Design */
@@ -564,15 +658,16 @@
 
 @media (max-width: 480px) {
     .about-title {
-        font-size: calc(var(--nav-size) * 0.5);
+        font-size: calc(var(--font-size-display) * 0.9);
     }
     
     .about-subtitle {
-        font-size: calc(var(--nav-size) * 0.3);
+        font-size: var(--font-size-base);
+        max-width: 95%;
     }
     
     .section-title {
-        font-size: calc(var(--nav-size) * 0.4);
+        font-size: calc(var(--font-size-heading) * 0.9);
     }
     
     .achievements-grid {
@@ -580,6 +675,112 @@
     }
     
     .achievement-number {
-        font-size: calc(var(--nav-size) * 0.45);
+        font-size: calc(var(--font-size-display) * 0.8);
+    }
+    
+    .about-content {
+        padding: var(--spacing-lg);
+    }
+    
+    .social-button {
+        min-height: 44px;
+        font-size: var(--font-size-small);
+        padding: var(--spacing-sm);
+    }
+}
+
+/* Enhanced Accessibility Features */
+
+/* Skip to content link */
+.skip-to-content {
+    position: absolute;
+    top: -40px;
+    left: 6px;
+    background: var(--bg-accent);
+    color: var(--text-color-inv);
+    padding: var(--spacing-sm) var(--spacing-md);
+    text-decoration: none;
+    border-radius: var(--border-radius);
+    z-index: 1000;
+    transition: top 0.3s ease;
+}
+
+.skip-to-content:focus {
+    top: 6px;
+}
+
+/* Screen reader content */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Enhanced focus states */
+.skill-tag:focus,
+.service-card:focus,
+.achievement-card:focus,
+.education-item:focus,
+.project-card:focus {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset);
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .about-content {
+        border: 3px solid var(--text-color);
+        background: var(--bg-1);
+    }
+    
+    .social-button {
+        border: 2px solid var(--text-color);
+        background: var(--bg-1);
+    }
+    
+    .project-link {
+        background: var(--text-color);
+        color: var(--bg-1);
+        border: 2px solid var(--text-color);
+    }
+    
+    .skill-tag {
+        border: 2px solid var(--text-color);
+        background: var(--bg-1);
+        color: var(--text-color);
+    }
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+    .about {
+        animation: none;
+        background: var(--bg-page);
+    }
+    
+    .social-button:hover,
+    .project-link:hover,
+    .service-card:hover,
+    .achievement-card:hover,
+    .education-item:hover,
+    .project-card:hover {
+        transform: none;
+    }
+    
+    .social-button::before,
+    .social-button:hover::before,
+    .project-link::before,
+    .project-link:hover::before {
+        display: none;
+    }
+    
+    .section-title::after {
+        transition: none;
     }
 }

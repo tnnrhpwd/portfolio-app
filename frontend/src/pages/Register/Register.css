@@ -3,12 +3,22 @@
     min-height: 100vh;
     background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
     background-size: 400% 400%;
-    animation: gradientShift 12s ease infinite;
+    animation: gradientShift 15s ease infinite;
     display: flex;
     align-items: center;
     justify-content: center;
     position: relative;
     overflow: hidden;
+    padding: var(--spacing-md);
+    box-sizing: border-box;
+}
+
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    25% { background-position: 100% 50%; }
+    50% { background-position: 100% 100%; }
+    75% { background-position: 0% 100%; }
+    100% { background-position: 0% 50%; }
 }
 
 .floating-shapes {
@@ -66,105 +76,495 @@
 }
 
 .planit-register-card {
-    background: var(--bg-page-transp);
-    backdrop-filter: blur(12px);
-    border-radius: var(--border-radius);
-    box-shadow: 0 8px 32px var(--grey3-transp);
-    padding: calc(var(--nav-size)*1.2) calc(var(--nav-size)*1.5);
+    background: var(--bg-1);
+    backdrop-filter: blur(20px);
+    border-radius: calc(var(--border-radius) * 2);
+    box-shadow: 
+        0 20px 60px rgba(0, 0, 0, 0.15),
+        0 0 0 1px var(--border-nav);
+    padding: var(--spacing-xl) var(--spacing-lg);
     z-index: 2;
-    min-width: 320px;
-    max-width: 400px;
-    margin: 2rem auto;
+    min-width: 380px;
+    max-width: 480px;
+    width: 100%;
+    margin: 0 auto;
     display: flex;
     flex-direction: column;
     align-items: center;
+    position: relative;
+    border: 1px solid var(--border-nav);
+}
+
+.planit-register-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--fg-orange), var(--fg-pink), var(--fg-mint));
+    border-radius: calc(var(--border-radius) * 2) calc(var(--border-radius) * 2) 0 0;
 }
 .planit-register-heading {
     text-align: center;
     color: var(--text-color);
-    margin-bottom: calc(var(--nav-size)*.5);
+    margin-bottom: var(--spacing-lg);
+    width: 100%;
 }
+
 .planit-register-heading-title {
-    font-size: calc(var(--nav-size)*.5);
-    font-weight: bold;
-    margin-bottom: calc(var(--nav-size)*.2);
+    font-size: var(--font-size-heading);
+    font-weight: 700;
+    margin-bottom: var(--spacing-sm);
+    line-height: var(--line-height-tight);
+    color: var(--text-color);
+    letter-spacing: -0.02em;
 }
+
 .planit-register-heading-description {
-    font-size: calc(var(--nav-size)*.25);
+    font-size: var(--font-size-base);
     color: var(--text-color-accent);
+    line-height: var(--line-height-base);
+    margin-bottom: 0;
 }
 .planit-register-form {
     width: 100%;
-    margin-top: calc(var(--nav-size)*.5);
+    margin-top: var(--spacing-md);
 }
+
 .planit-register-form-group {
-    margin-bottom: calc(var(--nav-size)*.3);
+    margin-bottom: var(--spacing-md);
     width: 100%;
+    position: relative;
 }
-.planit-register-form-control {
-    font-size: calc(var(--nav-size)*.4);
-    background: var(--white1-transp);
+
+.planit-register-form-label {
+    display: block;
+    font-size: var(--font-size-small);
+    font-weight: 600;
     color: var(--text-color);
-    border: 1px solid var(--border-nav);
-    border-radius: var(--border-radius);
-    padding: calc(var(--nav-size)*.2);
-    width: 100%;
-    transition: box-shadow 0.3s, border-color 0.3s;
-    outline: none;
+    margin-bottom: var(--spacing-xs);
+    line-height: var(--line-height-base);
 }
+
+.planit-register-form-control {
+    font-size: var(--font-size-base);
+    background: var(--bg-1);
+    color: var(--text-color);
+    border: 2px solid var(--border-nav);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-sm);
+    width: 100%;
+    box-sizing: border-box;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    outline: none;
+    line-height: var(--line-height-base);
+    font-family: inherit;
+}
+
+.planit-register-form-control::placeholder {
+    color: var(--text-color-accent);
+    opacity: 0.7;
+}
+
 .planit-register-form-control:focus {
     border-color: var(--fg-blue);
-    box-shadow: 0 0 0 2px var(--fg-blue);
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.planit-register-form-control.error {
+    border-color: var(--red0);
+    background: rgba(220, 0, 0, 0.05);
+    animation: shake 0.4s ease-in-out;
+}
+
+.planit-register-form-control.success {
+    border-color: var(--green2);
+    background: rgba(5, 107, 50, 0.05);
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+.planit-register-form-error-message {
+    display: block;
+    color: var(--red0);
+    font-size: var(--font-size-small);
+    margin-top: var(--spacing-xs);
+    line-height: var(--line-height-base);
+    font-weight: 500;
+}
+
+.planit-register-form-success-message {
+    display: block;
+    color: var(--green2);
+    font-size: var(--font-size-small);
+    margin-top: var(--spacing-xs);
+    line-height: var(--line-height-base);
+    font-weight: 500;
 }
 .planit-register-password-requirements {
-    font-size: calc(var(--nav-size) * 0.2);
+    font-size: var(--font-size-small);
     color: var(--text-color-accent);
-    margin-top: calc(var(--nav-size) * 0.1);
-    padding: calc(var(--nav-size) * 0.15);
-    background: var(--white1-transp);
+    margin-top: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    background: var(--bg-accent);
     border-radius: var(--border-radius);
     border: 1px solid var(--border-nav);
-    text-align: center;
-    line-height: 1.3;
+    line-height: var(--line-height-base);
+}
+
+.planit-register-password-requirements h4 {
+    margin: 0 0 var(--spacing-xs) 0;
+    font-size: var(--font-size-small);
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.planit-register-password-requirements ul {
+    margin: 0;
+    padding-left: var(--spacing-md);
+    list-style: none;
+}
+
+.planit-register-password-requirements li {
+    margin-bottom: var(--spacing-xs);
+    position: relative;
+    padding-left: var(--spacing-md);
+    font-size: var(--font-size-small);
+    transition: color 0.3s ease;
+}
+
+.planit-register-password-requirements li::before {
+    content: '✗';
+    position: absolute;
+    left: 0;
+    color: var(--red0);
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+.planit-register-password-requirements li.valid {
+    color: var(--green2);
+}
+
+.planit-register-password-requirements li.valid::before {
+    content: '✓';
+    color: var(--green2);
+}
+
+/* Password strength indicator */
+.password-strength-indicator {
+    margin-top: var(--spacing-xs);
+    height: 4px;
+    background: var(--bg-accent);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.password-strength-bar {
+    height: 100%;
+    width: 0%;
+    transition: all 0.3s ease;
+    border-radius: 2px;
+}
+
+.password-strength-bar.weak {
+    width: 25%;
+    background: var(--red0);
+}
+
+.password-strength-bar.fair {
+    width: 50%;
+    background: #f59e0b;
+}
+
+.password-strength-bar.good {
+    width: 75%;
+    background: #10b981;
+}
+
+.password-strength-bar.strong {
+    width: 100%;
+    background: var(--green2);
 }
 .planit-register-form-submit {
     width: 100%;
-    padding: calc(var(--nav-size)*.2);
-    font-size: calc(var(--nav-size)*.3);
-    background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink));
+    padding: var(--spacing-md);
+    font-size: var(--font-size-base);
+    background: linear-gradient(135deg, var(--fg-orange), var(--fg-pink));
     color: var(--text-color-inv);
     border: none;
     border-radius: var(--border-radius);
     cursor: pointer;
-    font-weight: bold;
-    box-shadow: 0 2px 8px var(--grey3-transp);
-    transition: background 0.3s, box-shadow 0.3s;
+    font-weight: 600;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    position: relative;
+    overflow: hidden;
+    line-height: var(--line-height-base);
+    margin-top: var(--spacing-lg);
 }
-.planit-register-form-submit:hover {
-    background: linear-gradient(90deg, var(--fg-pink), var(--fg-blue));
-    box-shadow: 0 4px 16px var(--grey3-transp);
+
+.planit-register-form-submit::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.5s ease;
+}
+
+.planit-register-form-submit:hover:not(:disabled)::before {
+    left: 100%;
+}
+
+.planit-register-form-submit:hover:not(:disabled) {
+    background: linear-gradient(135deg, var(--fg-pink), var(--fg-orange));
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.planit-register-form-submit:focus {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset);
+}
+
+.planit-register-form-submit:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.planit-register-form-submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: var(--bg-accent);
+    transform: none;
+    box-shadow: none;
+}
+
+.planit-register-form-submit:disabled::before {
+    display: none;
+}
+
+/* Loading state for form submission */
+.planit-register-form-submit.loading {
+    position: relative;
+    color: transparent;
+}
+
+.planit-register-form-submit.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    border: 2px solid transparent;
+    border-top: 2px solid var(--text-color-inv);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: translate(-50%, -50%) rotate(360deg);
+    }
 }
 .planit-register-actions {
     display: flex;
     flex-direction: column;
-    gap: calc(var(--nav-size)*.2);
-    margin-top: calc(var(--nav-size)*.5);
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-lg);
     width: 100%;
 }
+
+.planit-register-divider {
+    position: relative;
+    text-align: center;
+    margin: var(--spacing-lg) 0;
+    color: var(--text-color-accent);
+    font-size: var(--font-size-small);
+}
+
+.planit-register-divider::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--border-nav);
+    z-index: 1;
+}
+
+.planit-register-divider span {
+    background: var(--bg-1);
+    padding: 0 var(--spacing-md);
+    position: relative;
+    z-index: 2;
+}
+
 .planit-register-login {
     width: 100%;
-    padding: calc(var(--nav-size)*.2);
-    font-size: calc(var(--nav-size)*.3);
-    background: var(--fg-blue);
-    color: var(--text-color-inv);
-    border: none;
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: var(--font-size-base);
+    background: transparent;
+    color: var(--text-color);
+    border: 2px solid var(--border-nav);
     border-radius: var(--border-radius);
     cursor: pointer;
-    font-weight: bold;
-    box-shadow: 0 2px 8px var(--grey3-transp);
-    transition: background 0.3s, box-shadow 0.3s;
+    font-weight: 500;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    text-decoration: none;
+    display: inline-block;
+    text-align: center;
+    line-height: var(--line-height-base);
+    position: relative;
+    overflow: hidden;
 }
-.planit-register-login:hover {
-    background: var(--fg-pink);
-    box-shadow: 0 4px 16px var(--grey3-transp);
+
+.planit-register-login:hover:not(:disabled) {
+    background: var(--bg-accent);
+    color: var(--text-color-inv);
+    border-color: var(--fg-blue);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.planit-register-login:focus {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset);
+}
+
+/* Terms and Privacy Policy */
+.planit-register-terms {
+    margin-top: var(--spacing-md);
+    padding: var(--spacing-sm);
+    background: var(--bg-accent);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-nav);
+    font-size: var(--font-size-small);
+    line-height: var(--line-height-base);
+    color: var(--text-color-accent);
+    text-align: center;
+}
+
+.planit-register-terms a {
+    color: var(--fg-blue);
+    text-decoration: underline;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+.planit-register-terms a:hover {
+    color: var(--fg-mint);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .planit-register-bg {
+        padding: var(--spacing-sm);
+    }
+    
+    .planit-register-card {
+        min-width: 320px;
+        max-width: 100%;
+        padding: var(--spacing-lg) var(--spacing-md);
+    }
+    
+    .planit-register-heading-title {
+        font-size: calc(var(--font-size-heading) * 0.9);
+    }
+    
+    .planit-register-heading-description {
+        font-size: var(--font-size-small);
+    }
+    
+    .floating-circle {
+        display: none; /* Hide floating elements on mobile for performance */
+    }
+    
+    .planit-register-bg {
+        animation-duration: 20s; /* Slower animation on mobile */
+    }
+}
+
+@media (max-width: 480px) {
+    .planit-register-bg {
+        padding: var(--spacing-xs);
+    }
+    
+    .planit-register-card {
+        min-width: 300px;
+        padding: var(--spacing-md) var(--spacing-sm);
+    }
+    
+    .planit-register-heading-title {
+        font-size: calc(var(--font-size-heading) * 0.8);
+    }
+    
+    .planit-register-form-control {
+        font-size: var(--font-size-small);
+        padding: var(--spacing-sm);
+    }
+    
+    .planit-register-form-submit {
+        padding: var(--spacing-sm);
+        font-size: var(--font-size-small);
+    }
+    
+    .planit-register-login {
+        padding: var(--spacing-sm);
+        font-size: var(--font-size-small);
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .planit-register-card {
+        border: 3px solid var(--text-color);
+        box-shadow: none;
+    }
+    
+    .planit-register-form-control {
+        border-width: 3px;
+    }
+    
+    .planit-register-form-submit {
+        background: var(--text-color);
+        color: var(--bg-1);
+        border: 2px solid var(--text-color);
+    }
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+    .planit-register-bg {
+        animation: none;
+        background: var(--bg-page);
+    }
+    
+    .floating-circle {
+        animation: none;
+        display: none;
+    }
+    
+    .planit-register-form-control.error {
+        animation: none;
+    }
+    
+    .planit-register-form-submit::before,
+    .planit-register-form-submit:hover:not(:disabled)::before {
+        display: none;
+    }
 }
