@@ -31,9 +31,48 @@
   background-size: 400% 400%;
   animation: gradientShift 12s ease infinite;
   min-height: 100vh;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: var(--font-family-base);
   position: relative;
   overflow-x: hidden;
+  color: var(--text-color);
+}
+
+/* Floating decorative elements for visual appeal */
+.planit-dashboard::before,
+.planit-dashboard::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.1;
+  animation: float 8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.planit-dashboard::before {
+  width: 200px;
+  height: 200px;
+  background: var(--bg-accent);
+  top: 10%;
+  right: 10%;
+  animation-delay: -2s;
+}
+
+.planit-dashboard::after {
+  width: 150px;
+  height: 150px;
+  background: var(--fg-mint);
+  bottom: 20%;
+  left: 5%;
+  animation-delay: -4s;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-20px) rotate(180deg);
+  }
 }
 
 @keyframes gradientShift {
@@ -53,24 +92,29 @@
 }
 
 .planit-dashboard-upper-header {
-  font-size: calc(var(--nav-size) * 0.6);
-  font-weight: 700;
-  color: var(--text-color);
-  margin-bottom: calc(var(--nav-size) * 0.3);
-  margin-top: calc(var(--nav-size) * 0.3);
-  text-shadow: calc(var(--nav-size)*0.025) calc(var(--nav-size)*0.02) var(--border);
+  font-size: var(--font-size-display);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-color-strong);
+  margin-bottom: var(--spacing-md);
+  margin-top: var(--spacing-md);
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
   opacity: 0;
   transform: translateY(30px);
   animation: fadeInUp 0.8s ease 0.3s forwards;
+  line-height: var(--line-height-tight);
+  text-align: center;
+  max-width: 90%;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .planit-dashboard-upper-description {
-  font-size: calc(var(--nav-size) * 0.35);
+  font-size: var(--font-size-large);
   color: var(--text-color);
-  margin-top: calc(var(--nav-size) * 0.3);
-  margin-bottom: calc(var(--nav-size) * 0.6);
-  line-height: 1.6;
-  padding: calc(var(--nav-size)*0.2) calc(var(--nav-size)*0.3);
+  margin-top: var(--spacing-md);
+  margin-bottom: var(--spacing-xl);
+  line-height: var(--line-height-relaxed);
+  padding: var(--spacing-sm) var(--spacing-md);
   word-wrap: break-word;
   overflow-wrap: break-word;
   hyphens: auto;
@@ -80,6 +124,10 @@
   opacity: 0;
   transform: translateY(30px);
   animation: fadeInUp 0.8s ease 0.6s forwards;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: var(--border-radius);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 @keyframes fadeInUp {
@@ -299,19 +347,38 @@
 
 /* Early Access Badge */
 .early-access-badge {
-  font-size: calc(var(--nav-size) * 0.35);
-  font-weight: 600;
+  font-size: var(--font-size-large);
+  font-weight: var(--font-weight-semibold);
   color: var(--text-color-inv);
-  background: linear-gradient(135deg, #ff6b35, #f7931e);
-  border-radius: calc(var(--nav-size) * 0.15);
-  padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.3);
-  margin: calc(var(--nav-size) * 0.3) auto calc(var(--nav-size) * 0.3) auto;
+  background: linear-gradient(135deg, var(--fg-orange), var(--fg-pink));
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  margin: var(--spacing-md) auto;
   max-width: 70%;
   text-align: center;
-  box-shadow: 0 calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.4) rgba(255, 107, 53, 0.3);
+  box-shadow: var(--shadow-md);
   opacity: 0;
   transform: translateY(20px);
   animation: fadeInUp 0.8s ease 0.1s forwards;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  position: relative;
+  overflow: hidden;
+}
+
+.early-access-badge::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.early-access-badge:hover::before {
+  left: 100%;
 }
 
 /* Social Proof Stats */
@@ -414,7 +481,7 @@
   background: linear-gradient(135deg, var(--fg-blue), var(--fg-orange));
   padding: calc(var(--nav-size) * 0.8);
   border-radius: calc(var(--nav-size) * 0.15);
-  color: var(--text-color);
+  color: var(--text-color-inv);
   box-shadow: 0 calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.6) rgba(0, 0, 0, 0.2);
   max-width: 600px;
   margin: 0 auto;
@@ -448,39 +515,69 @@
 
 .feature-card {
   background: rgba(255, 255, 255, 0.1);
-  padding: calc(var(--nav-size) * 0.6);
-  border-radius: calc(var(--nav-size) * 0.15);
+  padding: var(--spacing-lg);
+  border-radius: var(--border-radius-lg);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.2);
   text-align: center;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   position: relative;
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.feature-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint));
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
 .feature-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 calc(var(--nav-size) * 0.4) calc(var(--nav-size) * 0.8) rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-lg);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.feature-card:hover::before {
+  opacity: 1;
+}
+
+.feature-card:focus-within {
+  outline: var(--focus-outline);
+  outline-offset: var(--focus-outline-offset);
 }
 
 .feature-icon {
-  font-size: calc(var(--nav-size) * 0.8);
+  font-size: 3rem;
   display: block;
-  margin-bottom: calc(var(--nav-size) * 0.4);
+  margin-bottom: var(--spacing-md);
+  color: var(--fg-blue);
+  transition: color 0.3s ease;
+}
+
+.feature-card:hover .feature-icon {
+  color: var(--fg-mint);
 }
 
 .feature-card h3 {
-  font-size: calc(var(--nav-size) * 0.4);
-  color: var(--text-color);
-  margin-bottom: calc(var(--nav-size) * 0.4);
-  font-weight: 600;
+  font-size: var(--font-size-heading);
+  color: var(--text-color-strong);
+  margin-bottom: var(--spacing-md);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
 }
 
 .feature-card p {
-  font-size: calc(var(--nav-size) * 0.3);
+  font-size: var(--font-size-base);
   color: var(--text-color);
-  line-height: 1.5;
-  margin-bottom: calc(var(--nav-size) * 0.5);
+  line-height: var(--line-height-relaxed);
+  margin-bottom: var(--spacing-lg);
   opacity: 0.9;
 }
 
@@ -604,16 +701,34 @@
 
 .pricing-card {
   background: rgba(255, 255, 255, 0.1);
-  border-radius: calc(var(--nav-size) * 0.2);
-  padding: calc(var(--nav-size) * 0.6);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-lg);
   backdrop-filter: blur(10px);
   border: 2px solid rgba(255, 255, 255, 0.2);
   position: relative;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  min-height: calc(var(--nav-size) * 10);
+  min-height: 400px;
+  box-shadow: var(--shadow-sm);
+}
+
+.pricing-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint), var(--fg-orange));
+  border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.pricing-card:hover::before {
+  opacity: 1;
 }
 
 .pricing-card.featured {
@@ -730,18 +845,43 @@
 }
 
 .cta-button {
-  width: 80%;
-  padding: calc(var(--nav-size) * 0.4) calc(var(--nav-size) * 0.1);
-  font-size: calc(var(--nav-size) * 0.35);
-  font-weight: 600;
+  width: 100%;
+  padding: var(--spacing-md) var(--spacing-sm);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
   border: none;
-  border-radius: 12px;
-  background: linear-gradient(135deg, var(--bg-orange), var(--bg-pink));
-  color: var(--text-color);
+  border-radius: var(--border-radius);
+  background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
+  color: var(--text-color-inv);
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.4) rgba(0, 0, 0, 0.2);
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  box-shadow: var(--shadow-md);
   margin-top: auto;
+  position: relative;
+  overflow: hidden;
+  line-height: var(--line-height-base);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cta-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.cta-button:hover::before {
+  left: 100%;
+}
+
+.cta-button:focus {
+  outline: var(--focus-outline);
+  outline-offset: var(--focus-outline-offset);
 }
 
 .cta-button.primary {
@@ -927,10 +1067,71 @@
   }
 }
 
-/* Focus states for accessibility */
+/* Enhanced Focus states for accessibility */
 .cta-button:focus,
-.pricing-card:focus {
-  outline: 2px solid var(--text-color);
-  outline-offset: 2px;
+.pricing-card:focus,
+.feature-card:focus,
+.testimonial-card:focus,
+.faq-item:focus {
+  outline: var(--focus-outline);
+  outline-offset: var(--focus-outline-offset);
+}
+
+/* Skip to content link for accessibility */
+.skip-to-content {
+  position: absolute;
+  top: -40px;
+  left: 6px;
+  background: var(--bg-accent);
+  color: var(--text-color-inv);
+  padding: var(--spacing-sm) var(--spacing-md);
+  text-decoration: none;
+  border-radius: var(--border-radius);
+  z-index: 1000;
+  transition: top 0.3s ease;
+}
+
+.skip-to-content:focus {
+  top: 6px;
+}
+
+/* Screen reader only content */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* High contrast mode improvements */
+@media (prefers-contrast: high) {
+  .planit-dashboard {
+    background: var(--bg-page);
+  }
+  
+  .pricing-card,
+  .feature-card,
+  .testimonial-card,
+  .faq-item {
+    border: 3px solid var(--text-color);
+    background: var(--bg-1);
+  }
+  
+  .cta-button {
+    background: var(--text-color);
+    color: var(--bg-1);
+    border: 2px solid var(--text-color);
+  }
+  
+  .early-access-badge {
+    background: var(--text-color);
+    color: var(--bg-1);
+    border: 2px solid var(--text-color);
+  }
 }
 

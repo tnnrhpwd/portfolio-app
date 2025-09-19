@@ -184,9 +184,6 @@ function Home() {
                             <a href="/wordle" className="popup-btn primary">
                                 Play
                             </a>
-                            <button className="popup-btn secondary" onClick={handleClosePopup}>
-                                ×
-                            </button>
                         </div>
                     </div>
                 )}
