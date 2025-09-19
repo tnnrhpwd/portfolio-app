@@ -31,20 +31,55 @@ function Simple() {
 
   // Generate plans with dynamic pricing if available
   const getPlans = () => {
-    // If we have dynamic pricing data, use it
+    // If we have dynamic pricing data, use it but override with minimum values for flex/premium
     if (membershipPricing && membershipPricing.success && membershipPricing.data && membershipPricing.data.length > 0) {
-      return membershipPricing.data.map(product => ({
-        id: product.id,
-        name: product.name,
-        price: product.price ? formatPrice(product.price) : 'Usage-based',
-        period: `per ${product.interval || 'month'}`,
-        originalPrice: product.originalPrice ? formatPrice(product.originalPrice) : null,
-        tagline: product.description || '',
-        features: (product.features || []).map(feature => 
-          typeof feature === 'string' ? feature.replace(/^[✓✔︎☑️✅•→▶▷◾◼️⬛⚫🔸🔹🔘•·‣⁃]\s*/, '').trim() : feature
-        ),
-        quota: product.quota || {},
-      }));
+      return membershipPricing.data.map(product => {
+        // Override pricing for flex and premium to show minimum values instead of Stripe prices
+        let displayPrice, displayPeriod, displayTagline, displayFeatures;
+        
+        if (product.name === 'Flex Membership' || product.id === 'flex') {
+          displayPrice = 'Custom Budget';
+          displayPeriod = 'minimum $10/month';
+          displayTagline = 'Set your own budget, pay only for usage';
+          displayFeatures = [
+            'Unlimited automation workflows',
+            'Advanced context awareness', 
+            'Detailed productivity analytics',
+            '🌐 Web-based platform access only',
+            '💰 You set your monthly budget (min $10)',
+          ];
+        } else if (product.name === 'Premium Membership' || product.id === 'premium') {
+          displayPrice = 'Custom Investment';
+          displayPeriod = 'minimum $9,999/year (~$833/month)';
+          displayTagline = 'Enterprise-level with annual custom investment';
+          displayFeatures = [
+            'Reduced per-usage rates (save up to 30%)',
+            'Annual billing with monthly usage tracking',
+            'Advanced analytics with insights',
+            '🖥️ Includes Simple.NET desktop app installation',
+            '💎 Custom enterprise pricing (min $9,999/year)',
+          ];
+        } else {
+          // For other products (like free tier), use original data
+          displayPrice = product.price ? formatPrice(product.price) : 'Usage-based';
+          displayPeriod = `per ${product.interval || 'month'}`;
+          displayTagline = product.description || '';
+          displayFeatures = (product.features || []).map(feature => 
+            typeof feature === 'string' ? feature.replace(/^[✓✔︎☑️✅•→▶▷◾◼️⬛⚫🔸🔹🔘•·‣⁃]\s*/, '').trim() : feature
+          );
+        }
+        
+        return {
+          id: product.id,
+          name: product.name,
+          price: displayPrice,
+          period: displayPeriod,
+          originalPrice: product.originalPrice ? formatPrice(product.originalPrice) : null,
+          tagline: displayTagline,
+          features: displayFeatures,
+          quota: product.quota || {},
+        };
+      });
     }
     
     // Fallback to static plans if no dynamic pricing available
@@ -64,25 +99,29 @@ function Simple() {
       {
         id: 'flex',
         name: 'Flex',
-        price: 'Usage-based',
-        period: 'starting at $0.50/month',
-        tagline: 'Pay only for what you use',
+        price: 'Custom Budget',
+        period: 'minimum $10/month',
+        tagline: 'Set your own budget, pay only for usage',
         features: [
           'Unlimited automation workflows',
           'Advanced context awareness', 
           'Detailed productivity analytics',
+          '🌐 Web-based platform access only',
+          '💰 You set your monthly budget (min $10)',
         ],
       },
       { 
         id: 'premium',
         name: 'Premium',
-        price: 'Usage-based',
-        period: 'with custom limits',
-        tagline: 'Maximum efficiency with predictable costs',
+        price: 'Custom Investment',
+        period: 'minimum $9,999/year (~$833/month)',
+        tagline: 'Enterprise-level with annual custom investment',
         features: [
           'Reduced per-usage rates (save up to 30%)',
-          'Set your own monthly maximum',
+          'Annual billing with monthly usage tracking',
           'Advanced analytics with insights',
+          '🖥️ Includes Simple.NET desktop app installation',
+          '💎 Custom enterprise pricing (min $9,999/year)',
         ],
       }
     ];
@@ -192,7 +231,8 @@ function Simple() {
 
             {/* Pricing Section */}
             <div className='pricing-section'>
-              <h2>Choose Your Productivity Level</h2>              
+              <h2>Choose Your Custom Pricing Plan</h2>
+              <p className='pricing-description'>Set your own monthly budget or investment level. Prices shown are minimum purchase values - you define what works for your needs.</p>              
               <div className='pricing-grid'>
                 {plans.map((plan, index) => (
                   <div 

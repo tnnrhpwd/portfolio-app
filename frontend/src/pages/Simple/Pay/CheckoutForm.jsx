@@ -30,7 +30,7 @@ const formatPrice = (priceInCents) => {
 };
 
 // Component to display membership plan selection
-const MembershipPlans = ({ selectedPlan, onSelectPlan, currentSubscription, membershipPricing }) => {
+const MembershipPlans = ({ selectedPlan, onSelectPlan, currentSubscription, membershipPricing, customPrice, onCustomPriceChange, customPriceError }) => {
   // Create plans array with dynamic pricing if available, otherwise use static fallback
   const getPlans = () => {
     // If we have dynamic pricing data, use it
@@ -68,13 +68,15 @@ const MembershipPlans = ({ selectedPlan, onSelectPlan, currentSubscription, memb
       {
         id: 'flex',
         name: 'Flex Membership',
-        price: '$0.50',
-        period: 'per month',
-        tagline: 'Pay only for what you use',
+        price: 'Custom Pricing',
+        period: 'minimum $10/month',
+        tagline: 'Pay only for what you use - set your own budget',
         features: [
           'Usage-based pricing – enjoy a baseline quota then pay per call',
           'Strategic planning tools for scaling efficiently',
           'Enhanced analytics dashboard for smarter decision-making',
+          '💰 Set your own custom price (minimum $10/month)',
+          '📱 Web-based access only (no desktop app)',
         ],
         quota: {
           baseCalls: '10,000 calls/month',
@@ -84,16 +86,18 @@ const MembershipPlans = ({ selectedPlan, onSelectPlan, currentSubscription, memb
       { 
         id: 'premium',
         name: 'Premium Membership',
-        price: '$0.50',
-        period: 'per month',
-        tagline: 'Power users and enterprises: maximize efficiency and savings',
+        price: 'Custom Annual Investment',
+        period: 'minimum $9,999/year (~$833/month)',
+        tagline: 'Enterprise annual billing: maximize efficiency and predictable costs',
         features: [
           'Significantly reduced per-usage rates – save up to 30% on volume',
-          'Set your monthly maximum with predictability in billing',
+          'Annual billing cycle with monthly usage tracking',
           'Priority AI processing for rapid execution',
           'Advanced analytics with detailed data insights',
           'Dedicated support channel with direct expert access',
           'Exclusive early access to innovative, cutting-edge features',
+          '🔥 Set your own custom annual price (minimum $9,999/year)',
+          '🖥️ Includes Simple.NET desktop app installation and license',
         ],
       }
     ];
@@ -135,6 +139,74 @@ const MembershipPlans = ({ selectedPlan, onSelectPlan, currentSubscription, memb
           );
         })}
       </div>
+      
+      {/* Custom Price Input for Premium and Flex Plans */}
+      {(selectedPlan === 'premium' || selectedPlan === 'flex') && (
+        <div className={`custom-price-section ${selectedPlan === 'flex' ? 'flex-plan' : 'premium-plan'}`}>
+          <div className="custom-price-header">
+            <h4>Set Your Custom Price</h4>
+            <p className="custom-price-description">
+              {selectedPlan === 'premium' 
+                ? 'As a premium member, you set your annual investment with monthly usage tracking. This provides predictable annual costs while scaling usage according to your business needs.'
+                : 'With Flex membership, set your own monthly budget while enjoying usage-based pricing. Pay only for what you use within your custom limit.'
+              }
+            </p>
+          </div>
+          
+          <div className="custom-price-input-group">
+            <label htmlFor="custom-price">
+              {selectedPlan === 'premium' ? 'Annual Investment (USD)' : 'Monthly Budget (USD)'}
+            </label>
+            <div className="price-input-container">
+              <span className="currency-symbol">$</span>
+              <input
+                type="number"
+                id="custom-price"
+                min={selectedPlan === 'premium' ? '9999' : '10'}
+                step="1"
+                value={customPrice}
+                onChange={(e) => onCustomPriceChange(e.target.value)}
+                className={`custom-price-input ${customPriceError ? 'error' : ''}`}
+                placeholder={selectedPlan === 'premium' ? '9999' : '10'}
+              />
+              <span className="price-period">{selectedPlan === 'premium' ? '/year' : '/month'}</span>
+            </div>
+            {customPriceError && (
+              <div className="price-error-message">{customPriceError}</div>
+            )}
+            <div className="price-benefits">
+              <p className="minimum-note">
+                ⚡ Minimum {selectedPlan === 'premium' ? 'annual investment' : 'monthly budget'}: 
+                ${selectedPlan === 'premium' ? '9,999/year (~$833/month)' : '10/month'}
+              </p>
+              <div className="price-tier-benefits">
+                <p><strong>Your {selectedPlan === 'premium' ? 'investment' : 'budget'} unlocks:</strong></p>
+                <ul>
+                  {selectedPlan === 'premium' ? (
+                    <>
+                      <li>🚀 Higher usage limits based on your investment level</li>
+                      <li>⏱️ Priority processing and faster response times</li>
+                      <li>👨‍💼 Dedicated account management and support</li>
+                      <li>🔧 Custom integrations and enterprise features</li>
+                      <li>📊 Advanced analytics and reporting capabilities</li>
+                      <li>🖥️ Simple.NET desktop app installation and license</li>
+                    </>
+                  ) : (
+                    <>
+                      <li>💰 Usage-based billing up to your custom limit</li>
+                      <li>📊 Enhanced analytics dashboard access</li>
+                      <li>🛠️ Strategic planning tools for scaling</li>
+                      <li>📧 Email support and community access</li>
+                      <li>🌐 Full web-based platform access</li>
+                      <li>📈 Baseline quota with overage protection</li>
+                    </>
+                  )}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -242,6 +314,8 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(null);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(initialPlan || null);
+  const [customPrice, setCustomPrice] = useState(10); // Default to flex minimum, will update based on plan
+  const [customPriceError, setCustomPriceError] = useState('');
   const [subscriptionStep, setSubscriptionStep] = useState('plan-selection'); // 'plan-selection', 'payment-selection', 'confirmation'
   const [currentSubscription, setCurrentSubscription] = useState(null);
   const dispatch = useDispatch();
@@ -368,14 +442,30 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
       return;
     }
 
+    // Validate custom price for premium plan
+    if (selectedPlan === 'premium') {
+      const numPrice = parseFloat(customPrice);
+      if (!customPrice || isNaN(numPrice) || numPrice < 9999) {
+        setError('Please enter a valid custom price of at least $9,999');
+        return;
+      }
+    }
+
     setLoading(true);
     setError(null);
 
     try {
-      await dispatch(subscribeCustomer({ 
+      const subscriptionData = { 
         paymentMethodId: selectedPaymentMethod,
         membershipType: selectedPlan
-      })).unwrap();
+      };
+      
+      // Add custom price for premium plans
+      if (selectedPlan === 'premium') {
+        subscriptionData.customPrice = parseFloat(customPrice);
+      }
+      
+      await dispatch(subscribeCustomer(subscriptionData)).unwrap();
       
       setMessage(`Successfully subscribed to ${selectedPlan} membership!`);
       
@@ -442,6 +532,18 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
   // Update the handleNextStep function
   const handleNextStep = () => {
     if (subscriptionStep === 'plan-selection' && selectedPlan) {
+      // Validate custom pricing for premium plan
+      if (selectedPlan === 'premium') {
+        const numPrice = parseFloat(customPrice);
+        if (!customPrice || isNaN(numPrice) || numPrice < 9999) {
+          setCustomPriceError('Please enter a valid price of at least $9,999');
+          return;
+        }
+        if (customPriceError) {
+          return; // Don't proceed if there are validation errors
+        }
+      }
+      
       // If free plan is selected, set up the free subscription instead of just redirecting
       if (selectedPlan === 'free') {
         handleFreePlanSubscription();
@@ -580,13 +682,59 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
     }, 100);
   };
 
+  // Custom price validation function
+  const handleCustomPriceChange = (value) => {
+    const numValue = parseFloat(value);
+    setCustomPrice(value);
+    
+    // Get minimum price based on selected plan
+    const getMinimumPrice = () => {
+      if (selectedPlan === 'premium') return 9999;
+      if (selectedPlan === 'flex') return 10;
+      return 10; // Default fallback
+    };
+    
+    const minimumPrice = getMinimumPrice();
+    
+    if (!value || value === '') {
+      setCustomPriceError('Please enter a price');
+    } else if (isNaN(numValue)) {
+      setCustomPriceError('Please enter a valid number');
+    } else if (numValue < minimumPrice) {
+      if (selectedPlan === 'premium') {
+        setCustomPriceError('Minimum price is $9,999/month for Premium');
+      } else if (selectedPlan === 'flex') {
+        setCustomPriceError('Minimum price is $10/month for Flex');
+      } else {
+        setCustomPriceError(`Minimum price is $${minimumPrice}/month`);
+      }
+    } else {
+      setCustomPriceError('');
+    }
+  };
+
+  // Handle plan selection with custom price reset
+  const handlePlanSelection = (planId) => {
+    setSelectedPlan(planId);
+    // Reset custom price based on the selected plan
+    if (planId === 'premium') {
+      setCustomPrice(9999);
+    } else if (planId === 'flex') {
+      setCustomPrice(10);
+    }
+    setCustomPriceError(''); // Clear any existing errors
+  };
+
   // Modify MembershipPlans component to receive and use currentSubscription
   const renderMembershipPlans = () => (
     <MembershipPlans 
       selectedPlan={selectedPlan}
-      onSelectPlan={setSelectedPlan}
+      onSelectPlan={handlePlanSelection}
       currentSubscription={currentSubscription}
       membershipPricing={membershipPricing}
+      customPrice={customPrice}
+      onCustomPriceChange={handleCustomPriceChange}
+      customPriceError={customPriceError}
     />
   );
 
@@ -799,6 +947,14 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
                         </span>
                       </div>
                     )}
+                    {selectedPlan === 'premium' && (
+                      <div className="confirmation-item">
+                        <span className="label">Custom Price:</span>
+                        <span className="value custom-price-display">
+                          ${parseFloat(customPrice).toLocaleString()}/month
+                        </span>
+                      </div>
+                    )}
                     <div className="confirmation-item">
                       <span className="label">Billing Email:</span>
                       <span className="value">{userEmail}</span>
@@ -808,12 +964,12 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
                   <div className="pricing-note">
                     {selectedPlan === 'free' ? (
                       <p>You've selected our Free tier. You can upgrade anytime in your profile settings.</p>
+                    ) : selectedPlan === 'premium' ? (
+                      <p>With Premium, your custom monthly investment of <strong>${parseFloat(customPrice).toLocaleString()}</strong> unlocks 
+                      priority processing, dedicated support, and enhanced usage limits. You'll enjoy significantly reduced per-usage rates 
+                      with the security of a predictable monthly maximum.</p>
                     ) : (
-                      <p>With {selectedPlan === 'premium' ? 'Premium' : 'Flex'}, you'll only pay for what you use. 
-                      {selectedPlan === 'premium' ? 
-                        ' Your custom monthly maximum ensures you stay in control while enjoying lower per-usage rates.' : 
-                        ' Never worry about exceeding $10 per month, guaranteed.'}
-                      </p>
+                      <p>With Flex, you'll only pay for what you use. Never worry about exceeding $10 per month, guaranteed.</p>
                     )}
                   </div>
                   

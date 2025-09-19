@@ -861,8 +861,8 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
         throw new Error('User not found');
     }
 
-    const { paymentMethodId, membershipType } = req.body;
-    console.log('Subscription request:', { membershipType, paymentMethodId });
+    const { paymentMethodId, membershipType, customPrice } = req.body;
+    console.log('Subscription request:', { membershipType, paymentMethodId, customPrice });
     // Extract customer ID using regex for more reliability
     const stripeIdMatch = req.user.text.match(/\|stripeid:([^|]+)/);
     if (!stripeIdMatch || !stripeIdMatch[1]) {
@@ -941,6 +941,45 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
             res.status(500);
             throw new Error(`Failed to validate or recover customer ID: ${recoveryError.message}`);
         }
+    }
+
+    // Validate custom price for premium and flex memberships
+    if (membershipType === 'premium') {
+        if (!customPrice) {
+            res.status(400);
+            throw new Error('Custom price is required for premium membership');
+        }
+        
+        const numPrice = parseFloat(customPrice);
+        if (isNaN(numPrice)) {
+            res.status(400);
+            throw new Error('Custom price must be a valid number');
+        }
+        
+        if (numPrice < 9999) {
+            res.status(400);
+            throw new Error('Custom price must be at least $9,999/year for premium membership');
+        }
+        
+        console.log(`Premium annual custom price validated: $${numPrice}/year`);
+    } else if (membershipType === 'flex') {
+        if (!customPrice) {
+            res.status(400);
+            throw new Error('Custom price is required for flex membership');
+        }
+        
+        const numPrice = parseFloat(customPrice);
+        if (isNaN(numPrice)) {
+            res.status(400);
+            throw new Error('Custom price must be a valid number');
+        }
+        
+        if (numPrice < 10) {
+            res.status(400);
+            throw new Error('Custom price must be at least $10 for flex membership');
+        }
+        
+        console.log(`Flex custom price validated: $${numPrice}`);
     }
 
     // Extract user email for notifications
@@ -1223,47 +1262,89 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
             throw new Error('Invalid membership type');
         }
 
-        // Find the price ID for the product
+        // Handle pricing for different membership types
         let priceId;
+        let subscription;
         
-        // First try to use the environment variables if available
-        if (membershipType === 'flex' && process.env.STRIPE_FLEX_PRICE_ID) {
-            priceId = process.env.STRIPE_FLEX_PRICE_ID;
-        } else if (membershipType === 'premium' && process.env.STRIPE_PREMIUM_PRICE_ID) {
-            priceId = process.env.STRIPE_PREMIUM_PRICE_ID;
-        } else {
-            // If environment variables aren't available, look up the price by product name
+        if ((membershipType === 'premium' || membershipType === 'flex') && customPrice) {
+            // For plans with custom pricing, create a dynamic price
+            console.log(`Creating custom price for ${membershipType}: $${customPrice}`);
+            
+            // First, find or create the product
             const products = await stripe.products.list({
                 active: true,
-                limit: 100 // Increase if you have more products
+                limit: 100
             });
             
-            const product = products.data.find(p => p.name === productName);
+            let product = products.data.find(p => p.name === productName);
             
             if (!product) {
-                console.error(`Product not found: ${productName}`);
-                throw new Error(`Membership product "${productName}" not found in Stripe`);
+                // Create the product if it doesn't exist
+                product = await stripe.products.create({
+                    name: productName,
+                    description: `${membershipType === 'premium' ? 'Premium' : 'Flex'} Membership with custom pricing`,
+                });
+                console.log(`Created ${membershipType} product: ${product.id}`);
             }
             
-            // Get the price for this product
-            const prices = await stripe.prices.list({
+            // Create a new price for this custom amount
+            const customPriceAmount = Math.round(parseFloat(customPrice) * 100); // Convert to cents
+            const billingInterval = membershipType === 'premium' ? 'year' : 'month';
+            const dynamicPrice = await stripe.prices.create({
                 product: product.id,
-                active: true
+                unit_amount: customPriceAmount,
+                currency: 'usd',
+                recurring: {
+                    interval: billingInterval
+                },
+                nickname: `${membershipType === 'premium' ? 'Premium' : 'Flex'} Custom - $${customPrice}/${billingInterval}`
             });
             
-            if (prices.data.length === 0) {
-                console.error(`No prices found for product: ${productName}`);
-                throw new Error(`No pricing available for "${productName}"`);
+            priceId = dynamicPrice.id;
+            console.log(`Created custom price ID: ${priceId} for $${customPrice}/${billingInterval}`);
+            
+        } else {
+            // For flex plans or premium plans without custom pricing, use existing logic
+            
+            // First try to use the environment variables if available
+            if (membershipType === 'flex' && process.env.STRIPE_FLEX_PRICE_ID) {
+                priceId = process.env.STRIPE_FLEX_PRICE_ID;
+            } else if (membershipType === 'premium' && process.env.STRIPE_PREMIUM_PRICE_ID) {
+                priceId = process.env.STRIPE_PREMIUM_PRICE_ID;
+            } else {
+                // If environment variables aren't available, look up the price by product name
+                const products = await stripe.products.list({
+                    active: true,
+                    limit: 100 // Increase if you have more products
+                });
+                
+                const product = products.data.find(p => p.name === productName);
+                
+                if (!product) {
+                    console.error(`Product not found: ${productName}`);
+                    throw new Error(`Membership product "${productName}" not found in Stripe`);
+                }
+                
+                // Get the price for this product
+                const prices = await stripe.prices.list({
+                    product: product.id,
+                    active: true
+                });
+                
+                if (prices.data.length === 0) {
+                    console.error(`No prices found for product: ${productName}`);
+                    throw new Error(`No pricing available for "${productName}"`);
+                }
+                
+                // Use the first active price (you could add logic to select a specific price if needed)
+                priceId = prices.data[0].id;
             }
             
-            // Use the first active price (you could add logic to select a specific price if needed)
-            priceId = prices.data[0].id;
+            console.log(`Using existing price ID: ${priceId} for ${productName}`);
         }
-        
-        console.log(`Using price ID: ${priceId} for ${productName}`);
 
-        // Create the subscription
-        const subscription = await stripe.subscriptions.create({
+        // Create the subscription with the determined price ID
+        subscription = await stripe.subscriptions.create({
             customer: finalCustomerId,
             items: [{ price: priceId }],
             payment_behavior: 'default_incomplete',
@@ -1302,12 +1383,19 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
             }
         }
 
-        res.status(200).json({
+        const response = {
             subscriptionId: subscription.id,
             clientSecret: subscription.latest_invoice?.payment_intent?.client_secret,
             membershipType: membershipType,
             productName: productName
-        });
+        };
+        
+        // Add custom price information for premium plans
+        if (membershipType === 'premium' && customPrice) {
+            response.customPrice = parseFloat(customPrice);
+        }
+        
+        res.status(200).json(response);
     } catch (error) {
         console.error('Error managing subscription:', error);
         
