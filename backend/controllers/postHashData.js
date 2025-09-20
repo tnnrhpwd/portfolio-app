@@ -943,11 +943,11 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
         }
     }
 
-    // Validate custom price for premium and flex memberships
+    // Validate custom price for csimple and simple memberships
     if (membershipType === 'premium') {
         if (!customPrice) {
             res.status(400);
-            throw new Error('Custom price is required for premium membership');
+            throw new Error('Custom price is required for csimple membership');
         }
         
         const numPrice = parseFloat(customPrice);
@@ -958,14 +958,14 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
         
         if (numPrice < 9999) {
             res.status(400);
-            throw new Error('Custom price must be at least $9,999/year for premium membership');
+            throw new Error('Custom price must be at least $9,999/year for csimple membership');
         }
         
-        console.log(`Premium annual custom price validated: $${numPrice}/year`);
+        console.log(`CSimple annual custom price validated: $${numPrice}/year`);
     } else if (membershipType === 'flex') {
         if (!customPrice) {
             res.status(400);
-            throw new Error('Custom price is required for flex membership');
+            throw new Error('Custom price is required for simple membership');
         }
         
         const numPrice = parseFloat(customPrice);
@@ -976,10 +976,10 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
         
         if (numPrice < 10) {
             res.status(400);
-            throw new Error('Custom price must be at least $10 for flex membership');
+            throw new Error('Custom price must be at least $10 for simple membership');
         }
         
-        console.log(`Flex custom price validated: $${numPrice}`);
+        console.log(`Simple custom price validated: $${numPrice}`);
     }
 
     // Extract user email for notifications
@@ -1088,10 +1088,10 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
                             console.log('Product found:', product.name);
                             
                             // Determine membership type from product name
-                            if (product.name === 'Flex Membership') {
+                            if (product.name === 'Simple Membership') {
                                 currentMembership = 'flex';
                                 break;
-                            } else if (product.name === 'Premium Membership') {
+                            } else if (product.name === 'CSimple Membership') {
                                 currentMembership = 'premium';
                                 break;
                             }
@@ -1254,9 +1254,9 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
         // Map frontend membership types to Stripe product names
         let productName;
         if (membershipType === 'flex') {
-            productName = 'Flex Membership';
+            productName = 'Simple Membership';
         } else if (membershipType === 'premium') {
-            productName = 'Premium Membership';
+            productName = 'CSimple Membership';
         } else {
             res.status(400);
             throw new Error('Invalid membership type');
@@ -1525,7 +1525,7 @@ const setCustomLimit = asyncHandler(async (req, res) => {
                         unit_amount: Math.round(customLimit * 100),
                         recurring: { interval: 'month' },
                         product_data: {
-                            name: `Premium Membership - $${customLimit.toFixed(2)} Monthly Limit`
+                            name: `CSimple Membership - $${customLimit.toFixed(2)} Monthly Limit`
                         }
                     });
                     

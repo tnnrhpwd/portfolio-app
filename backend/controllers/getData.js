@@ -246,9 +246,9 @@ const getUserSubscription = asyncHandler(async (req, res) => {
         const productName = subscription.plan.product.name;
         console.log('Subscription product name:', productName);
         let subscriptionPlan = 'Free';
-        if (productName === 'Flex Membership') {
+        if (productName === 'Simple Membership') {
             subscriptionPlan = 'Flex';
-        } else if (productName === 'Premium Membership') {
+        } else if (productName === 'CSimple Membership') {
             subscriptionPlan = 'Premium';
         }
         console.log('Subscription plan:', subscriptionPlan);

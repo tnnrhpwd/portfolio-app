@@ -1,7 +1,7 @@
 # API Usage Tracking System - Implementation Summary
 
 ## Overview
-I've implemented a comprehensive API usage tracking system for your portfolio app that tracks usage of paid external APIs and provides usage limits for Flex and Premium memberships.
+I've implemented a comprehensive API usage tracking system for your portfolio app that tracks usage of paid external APIs and provides usage limits for Simple and CSimple memberships.
 
 ## Features Implemented
 

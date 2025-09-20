@@ -115,48 +115,130 @@
     }
 }
 
-/* Enhanced error states */
-.error-boundary {
-    padding: var(--spacing-2xl);
-    text-align: center;
-    background: var(--bg-1);
-    border-radius: var(--border-radius-lg);
-    border: 3px solid var(--red0);
-    margin: var(--spacing-lg);
-    box-shadow: var(--shadow-lg);
-    backdrop-filter: blur(10px);
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    25% { background-position: 100% 50%; }
+    50% { background-position: 100% 100%; }
+    75% { background-position: 0% 100%; }
+    100% { background-position: 0% 50%; }
 }
 
-.error-boundary h2 {
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0px) rotate(0deg);
+    }
+    50% {
+        transform: translateY(-20px) rotate(180deg);
+    }
+}
+
+/* Enhanced error states - Global fallback (specific ErrorBoundary component has its own styles) */
+.app-error-fallback {
+    min-height: 50vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
+    background-size: 400% 400%;
+    animation: gradientShift 12s ease infinite;
+    padding: var(--spacing-2xl);
+    text-align: center;
+    border-radius: var(--border-radius-lg);
+    margin: var(--spacing-lg);
+    position: relative;
+    overflow: hidden;
+}
+
+.app-error-fallback::before,
+.app-error-fallback::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0.1;
+    animation: float 8s ease-in-out infinite;
+    pointer-events: none;
+}
+
+.app-error-fallback::before {
+    width: 100px;
+    height: 100px;
+    background: var(--bg-accent);
+    top: 10%;
+    right: 10%;
+    animation-delay: -2s;
+}
+
+.app-error-fallback::after {
+    width: 80px;
+    height: 80px;
+    background: var(--fg-mint);
+    bottom: 10%;
+    left: 10%;
+    animation-delay: -4s;
+}
+
+.app-error-content {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-xl);
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    box-shadow: var(--shadow-lg);
+    position: relative;
+    z-index: 2;
+}
+
+.app-error-content h2 {
     color: var(--red0);
-    font-size: var(--font-size-heading);
+    font-size: var(--font-size-display);
     font-weight: var(--font-weight-bold);
     margin-bottom: var(--spacing-md);
     line-height: var(--line-height-tight);
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-.error-boundary p {
-    color: var(--text-color-accent-dark-strong);
-    font-size: var(--font-size-base);
+.app-error-content p {
+    color: var(--text-color);
+    font-size: var(--font-size-large);
     line-height: var(--line-height-relaxed);
-    margin-bottom: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+    opacity: 0.9;
 }
 
-.error-boundary button {
-    background: linear-gradient(135deg, var(--red0), #c41e3a);
-    color: white;
+.app-error-content button {
+    background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
+    color: var(--text-color-inv);
     border: none;
-    padding: var(--spacing-sm) var(--spacing-lg);
+    padding: var(--spacing-md) var(--spacing-lg);
     border-radius: var(--border-radius);
     font-weight: var(--font-weight-semibold);
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    position: relative;
+    overflow: hidden;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: var(--shadow-md);
 }
 
-.error-boundary button:hover {
-    background: linear-gradient(135deg, #c41e3a, var(--red0));
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-md);
+.app-error-content button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+}
+
+.app-error-content button:hover::before {
+    left: 100%;
+}
+
+.app-error-content button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 calc(var(--nav-size) * 0.4) calc(var(--nav-size) * 1) rgba(0, 123, 255, 0.3);
 }
 
 /* Success states */
@@ -288,7 +370,7 @@
         background: var(--bg-1);
     }
     
-    .error-boundary {
+    .app-error-fallback .app-error-content {
         border: 4px solid var(--red0);
     }
     
@@ -316,9 +398,23 @@
         animation: none;
     }
     
+    .app-error-fallback {
+        animation: none;
+        background: var(--bg-1);
+    }
+    
+    .app-error-fallback::before,
+    .app-error-fallback::after {
+        animation: none;
+    }
+    
     .App-card:hover,
-    .error-boundary button:hover {
+    .app-error-content button:hover {
         transform: none;
+    }
+    
+    .app-error-content button::before {
+        display: none;
     }
     
     * {

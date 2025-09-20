@@ -3,64 +3,137 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 20px;
+  background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
+  background-size: 400% 400%;
+  animation: gradientShift 12s ease infinite;
+  padding: var(--spacing-lg);
   box-sizing: border-box;
+  font-family: var(--font-family-base);
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Floating decorative elements for visual appeal */
+.error-boundary::before,
+.error-boundary::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.1;
+  animation: float 8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.error-boundary::before {
+  width: 200px;
+  height: 200px;
+  background: var(--bg-accent);
+  top: 10%;
+  right: 10%;
+  animation-delay: -2s;
+}
+
+.error-boundary::after {
+  width: 150px;
+  height: 150px;
+  background: var(--fg-mint);
+  bottom: 20%;
+  left: 5%;
+  animation-delay: -4s;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-20px) rotate(180deg);
+  }
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  25% { background-position: 100% 50%; }
+  50% { background-position: 100% 100%; }
+  75% { background-position: 0% 100%; }
+  100% { background-position: 0% 50%; }
 }
 
 .error-boundary-content {
-  background: white;
-  border-radius: 12px;
-  padding: 2rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-2xl);
   max-width: 600px;
   width: 100%;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  box-shadow: var(--shadow-lg);
   text-align: center;
+  position: relative;
+  z-index: 2;
+  opacity: 0;
+  transform: translateY(30px);
+  animation: fadeInUp 0.8s ease 0.3s forwards;
+}
+
+@keyframes fadeInUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .error-boundary-title {
-  color: #e74c3c;
-  font-size: 2rem;
-  margin: 0 0 1rem 0;
-  font-weight: 600;
+  color: var(--red0);
+  font-size: var(--font-size-display);
+  font-weight: var(--font-weight-bold);
+  margin: 0 0 var(--spacing-md) 0;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+  line-height: var(--line-height-tight);
 }
 
 .error-boundary-message {
-  color: #555;
-  font-size: 1.1rem;
-  line-height: 1.6;
-  margin: 0 0 2rem 0;
+  color: var(--text-color);
+  font-size: var(--font-size-large);
+  line-height: var(--line-height-relaxed);
+  margin: 0 0 var(--spacing-xl) 0;
+  opacity: 0.9;
 }
 
 .error-boundary-details {
   text-align: left;
-  margin: 1.5rem 0;
-  border: 1px solid #ddd;
-  border-radius: 8px;
+  margin: var(--spacing-lg) 0;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--border-radius);
   overflow: hidden;
+  backdrop-filter: blur(5px);
 }
 
 .error-boundary-details summary {
-  padding: 1rem;
-  background: #f8f9fa;
+  padding: var(--spacing-md);
+  background: rgba(255, 255, 255, 0.1);
   cursor: pointer;
-  font-weight: 500;
-  border-bottom: 1px solid #ddd;
+  font-weight: var(--font-weight-semibold);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--text-color);
+  transition: all 0.3s ease;
 }
 
 .error-boundary-details summary:hover {
-  background: #e9ecef;
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateX(2px);
 }
 
 .error-boundary-error-info {
-  padding: 1rem;
-  background: #fff;
+  padding: var(--spacing-md);
+  background: rgba(0, 0, 0, 0.1);
 }
 
 .error-boundary-error-info h3 {
-  color: #333;
-  font-size: 1rem;
-  margin: 1rem 0 0.5rem 0;
+  color: var(--text-color-strong);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  margin: var(--spacing-md) 0 var(--spacing-sm) 0;
 }
 
 .error-boundary-error-info h3:first-child {
@@ -68,78 +141,104 @@
 }
 
 .error-boundary-error-info pre {
-  background: #f8f9fa;
-  padding: 0.75rem;
-  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: var(--spacing-sm);
+  border-radius: var(--border-radius);
   overflow-x: auto;
-  font-size: 0.85rem;
-  border: 1px solid #e9ecef;
+  font-size: calc(var(--font-size-base) * 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   white-space: pre-wrap;
   word-wrap: break-word;
+  color: var(--text-color);
+  backdrop-filter: blur(5px);
 }
 
 .error-boundary-actions {
   display: flex;
-  gap: 1rem;
+  gap: var(--spacing-md);
   justify-content: center;
-  margin: 2rem 0 1rem 0;
+  margin: var(--spacing-xl) 0 var(--spacing-md) 0;
   flex-wrap: wrap;
 }
 
 .error-boundary-button {
-  padding: 0.75rem 1.5rem;
+  padding: var(--spacing-md) var(--spacing-lg);
   border: none;
-  border-radius: 6px;
-  font-size: 1rem;
-  font-weight: 500;
+  border-radius: var(--border-radius);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   min-width: 120px;
+  position: relative;
+  overflow: hidden;
+  line-height: var(--line-height-base);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: var(--shadow-md);
+}
+
+.error-boundary-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.error-boundary-button:hover::before {
+  left: 100%;
 }
 
 .error-boundary-button-primary {
-  background: #3498db;
-  color: white;
+  background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
+  color: var(--text-color-inv);
 }
 
 .error-boundary-button-primary:hover {
-  background: #2980b9;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 calc(var(--nav-size) * 0.4) calc(var(--nav-size) * 1) rgba(0, 123, 255, 0.3);
 }
 
 .error-boundary-button-secondary {
-  background: #95a5a6;
-  color: white;
+  background: linear-gradient(135deg, var(--red0), #c41e3a);
+  color: var(--text-color-inv);
 }
 
 .error-boundary-button-secondary:hover {
-  background: #7f8c8d;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(149, 165, 166, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 calc(var(--nav-size) * 0.4) calc(var(--nav-size) * 1) rgba(220, 53, 69, 0.3);
 }
 
 .error-boundary-error-id {
-  font-size: 0.85rem;
-  color: #777;
+  font-size: calc(var(--font-size-base) * 0.85);
+  color: var(--text-color-accent);
   font-family: 'Courier New', monospace;
-  margin: 1rem 0 0 0;
-  padding-top: 1rem;
-  border-top: 1px solid #eee;
+  margin: var(--spacing-md) 0 0 0;
+  padding-top: var(--spacing-md);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  opacity: 0.8;
 }
 
 /* Responsive design */
 @media (max-width: 768px) {
   .error-boundary {
-    padding: 10px;
+    padding: var(--spacing-md);
   }
 
   .error-boundary-content {
-    padding: 1.5rem;
+    padding: var(--spacing-lg);
   }
 
   .error-boundary-title {
-    font-size: 1.5rem;
+    font-size: calc(var(--font-size-display) * 0.8);
+  }
+
+  .error-boundary-message {
+    font-size: var(--font-size-base);
   }
 
   .error-boundary-actions {
@@ -149,52 +248,74 @@
 
   .error-boundary-button {
     width: 100%;
-    max-width: 200px;
+    max-width: 250px;
+  }
+
+  .error-boundary::before,
+  .error-boundary::after {
+    width: 100px;
+    height: 100px;
   }
 }
 
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
+@media (max-width: 480px) {
+  .error-boundary {
+    padding: var(--spacing-sm);
+  }
+
   .error-boundary-content {
-    background: #2c3e50;
-    color: #ecf0f1;
+    padding: var(--spacing-md);
   }
 
-  .error-boundary-message {
-    color: #bdc3c7;
+  .error-boundary-title {
+    font-size: calc(var(--font-size-display) * 0.6);
   }
+}
 
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .error-boundary-content {
+    border: 3px solid var(--text-color);
+  }
+  
   .error-boundary-details {
-    border-color: #34495e;
+    border: 3px solid var(--text-color);
   }
-
-  .error-boundary-details summary {
-    background: #34495e;
-    color: #ecf0f1;
-    border-bottom-color: #4a5f7a;
+  
+  .error-boundary-button {
+    border: 2px solid var(--text-color-inv);
   }
+}
 
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .error-boundary {
+    animation: none;
+    background: var(--bg-1);
+  }
+  
+  .error-boundary::before,
+  .error-boundary::after {
+    animation: none;
+  }
+  
+  .error-boundary-content {
+    animation: none;
+    opacity: 1;
+    transform: translateY(0);
+  }
+  
+  .error-boundary-button:hover,
   .error-boundary-details summary:hover {
-    background: #4a5f7a;
+    transform: none;
   }
-
-  .error-boundary-error-info {
-    background: #2c3e50;
-    color: #ecf0f1;
+  
+  .error-boundary-button::before {
+    display: none;
   }
-
-  .error-boundary-error-info h3 {
-    color: #ecf0f1;
-  }
-
-  .error-boundary-error-info pre {
-    background: #34495e;
-    color: #ecf0f1;
-    border-color: #4a5f7a;
-  }
-
-  .error-boundary-error-id {
-    color: #95a5a6;
-    border-top-color: #34495e;
+  
+  * {
+    transition: none !important;
+    animation: none !important;
   }
 }

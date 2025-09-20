@@ -20,14 +20,14 @@ const getMembershipPricing = asyncHandler(async (req, res) => {
                 interval: 'month'
             },
             { 
-                id: 'flex', 
-                name: 'Flex Membership', 
-                productName: 'Flex Membership' 
+                id: 'simple', 
+                name: 'Simple', 
+                productName: 'Simple Membership' 
             },
             { 
-                id: 'premium', 
-                name: 'Premium Membership', 
-                productName: 'Premium Membership' 
+                id: 'csimple', 
+                name: 'CSimple', 
+                productName: 'CSimple Membership' 
             }
         ];
         
@@ -52,12 +52,6 @@ const getMembershipPricing = asyncHandler(async (req, res) => {
                     interval: 'month',
                     priceId: null,
                     productId: null,
-                    description: 'Experience the basics with zero commitment',
-                    features: [
-                        'Limited API calls – perfect for exploring our services',
-                        'Simple, real-time dashboard',
-                        'Community support forum',
-                    ],
                     quota: { calls: '1,000 calls/month' }
                 });
                 continue;
@@ -77,7 +71,6 @@ const getMembershipPricing = asyncHandler(async (req, res) => {
                     interval: 'month',
                     priceId: null,
                     productId: null,
-                    description: product?.description || 'Product pricing not available',
                     error: 'Product not found in Stripe'
                 });
                 continue;
@@ -113,27 +106,7 @@ const getMembershipPricing = asyncHandler(async (req, res) => {
             let features = [];
             let description = '';
             let quota = null;
-            
-            if (membershipType.id === 'flex') {
-                description = 'Pay only for what you use';
-                features = [
-                    'Unlimited automation workflows',
-                    'Advanced context awareness', 
-                    'Detailed productivity analytics',
-                ];
-                quota = {
-                    baseCalls: '10,000 calls/month',
-                    overageRate: '$0.001 per additional call',
-                };
-            } else if (membershipType.id === 'premium') {
-                description = 'Power users and enterprises: maximize efficiency and savings';
-                features = [
-                    'Reduced per-usage rates (save up to 30%)',
-                    'Set your own monthly maximum',
-                    'Advanced analytics with insights',
-                ];
-            }
-            
+        
             pricingData.push({
                 id: membershipType.id,
                 name: membershipType.name,

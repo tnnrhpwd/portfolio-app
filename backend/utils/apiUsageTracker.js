@@ -599,9 +599,9 @@ async function getUserRankFromStripe(userId) {
         console.log('getUserRankFromStripe: Product name:', productName, 'Status:', foundStatus);
         
         let rank = 'Free';
-        if (productName === 'Flex Membership') {
+        if (productName === 'Simple Membership') {
             rank = 'Flex';
-        } else if (productName === 'Premium Membership') {
+        } else if (productName === 'CSimple Membership') {
             rank = 'Premium';
         }
 
@@ -735,9 +735,9 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
         } else {
             // Different messaging based on membership type
             if (userRank === 'Flex') {
-                reason = 'Insufficient credits. Flex membership usage is frozen until next month or upgrade to Premium.';
+                reason = 'Insufficient credits. Simple membership usage is frozen until next month or upgrade to CSimple.';
             } else if (userRank === 'Premium') {
-                reason = 'Insufficient credits. Consider increasing your Premium limit to continue usage.';
+                reason = 'Insufficient credits. Consider increasing your CSimple limit to continue usage.';
             } else {
                 reason = 'Insufficient credits';
             }

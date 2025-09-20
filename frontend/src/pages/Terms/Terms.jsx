@@ -119,16 +119,16 @@ const Terms = () => {
                                 Our Free tier provides limited access to our services with restricted API calls. This tier 
                                 is intended for evaluation purposes and personal use.
                             </p>
-                            <h3>3.2 Flex Membership</h3>
+                            <h3>3.2 Simple Membership</h3>
                             <p>
-                                Our Flex tier operates on a usage-based pricing model. You will be charged a base rate plus 
+                                Our Simple tier operates on a usage-based pricing model. You will be charged a base rate plus 
                                 additional fees for usage beyond your included quota. The current rate is $10/month with a 
                                 quota of 10,000 API calls and $0.001 per additional call.
                             </p>
-                            <h3>3.3 Premium Membership</h3>
+                            <h3>3.3 CSimple Membership</h3>
                             <p>
-                                Our Premium tier offers custom pricing based on your specific needs and volume requirements. 
-                                Premium memberships include priority processing, advanced features, and dedicated support.
+                                Our CSimple tier offers custom pricing based on your specific needs and volume requirements. 
+                                CSimple memberships include priority processing, advanced features, and dedicated support.
                             </p>
                         </div>
                     </section>

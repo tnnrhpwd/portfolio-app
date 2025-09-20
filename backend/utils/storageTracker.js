@@ -240,7 +240,7 @@ async function checkStorageCapacity(userId, additionalSize) {
                 canStore: true,
                 currentUsage: currentUsage.totalStorage,
                 newSize: newTotalSize,
-                reason: 'Premium membership - unlimited storage'
+                reason: 'CSimple membership - unlimited storage'
             };
         }
         

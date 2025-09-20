@@ -7,8 +7,6 @@ import './Simple.css';
 import Footer from './../../../components/Footer/Footer';
 import simpleGraphic from './simple_graphic.png';
 
-const simplelink = "https://github.com/tnnrhpwd/C-Simple";
-
 // Helper function to format price from cents to dollars
 const formatPrice = (priceInCents) => {
   if (!priceInCents) return 'Free';
@@ -37,27 +35,15 @@ function Simple() {
         // Override pricing for flex and premium to show minimum values instead of Stripe prices
         let displayPrice, displayPeriod, displayTagline, displayFeatures;
         
-        if (product.name === 'Flex Membership' || product.id === 'flex') {
-          displayPrice = 'Custom Budget';
-          displayPeriod = 'minimum $10/month';
-          displayTagline = 'Set your own budget, pay only for usage';
+        if (product.name === 'Simple') {
+          displayPrice = '>$10';
           displayFeatures = [
-            'Unlimited automation workflows',
-            'Advanced context awareness', 
-            'Detailed productivity analytics',
             '🌐 Web-based platform access only',
-            '💰 You set your monthly budget (min $10)',
           ];
-        } else if (product.name === 'Premium Membership' || product.id === 'premium') {
-          displayPrice = 'Custom Investment';
-          displayPeriod = 'minimum $9,999/year (~$833/month)';
-          displayTagline = 'Enterprise-level with annual custom investment';
+        } else if (product.name === 'CSimple') {
+          displayPrice = '>$850';
           displayFeatures = [
-            'Reduced per-usage rates (save up to 30%)',
-            'Annual billing with monthly usage tracking',
-            'Advanced analytics with insights',
             '🖥️ Includes Simple.NET desktop app installation',
-            '💎 Custom enterprise pricing (min $9,999/year)',
           ];
         } else {
           // For other products (like free tier), use original data
@@ -81,50 +67,6 @@ function Simple() {
         };
       });
     }
-    
-    // Fallback to static plans if no dynamic pricing available
-    return [
-      {
-        id: 'free',
-        name: 'Free Tier',
-        price: '$0',
-        period: 'per month',
-        tagline: 'Perfect for trying Simple',
-        features: [
-          'Limited automation (3 workflows)',
-          'Basic app launching',
-          'Simple analytics',
-        ],
-      },
-      {
-        id: 'flex',
-        name: 'Flex',
-        price: 'Custom Budget',
-        period: 'minimum $10/month',
-        tagline: 'Set your own budget, pay only for usage',
-        features: [
-          'Unlimited automation workflows',
-          'Advanced context awareness', 
-          'Detailed productivity analytics',
-          '🌐 Web-based platform access only',
-          '💰 You set your monthly budget (min $10)',
-        ],
-      },
-      { 
-        id: 'premium',
-        name: 'Premium',
-        price: 'Custom Investment',
-        period: 'minimum $9,999/year (~$833/month)',
-        tagline: 'Enterprise-level with annual custom investment',
-        features: [
-          'Reduced per-usage rates (save up to 30%)',
-          'Annual billing with monthly usage tracking',
-          'Advanced analytics with insights',
-          '🖥️ Includes Simple.NET desktop app installation',
-          '💎 Custom enterprise pricing (min $9,999/year)',
-        ],
-      }
-    ];
   };
 
   const plans = getPlans();
@@ -233,10 +175,8 @@ function Simple() {
             <div className='pricing-section'>
               <h2>Choose Your Custom Pricing Plan</h2>
               <p className='pricing-description'>Set your own monthly budget or investment level. Prices shown are minimum purchase values - you define what works for your needs.</p>              
-              <h4>Ready to Reclaim Your Time?</h4>
-              <h2>Choose Your Productivity Level</h2>              
               <div className='pricing-grid'>
-                {plans.map((plan, index) => (
+                {plans && plans.length > 0 ? plans.map((plan, index) => (
                   <div 
                     key={plan.id}
                     className={`pricing-card ${selectedPlan === plan.id ? 'selected' : ''} ${plan.id === 'premium' ? 'featured' : ''}`} 
@@ -255,13 +195,11 @@ function Simple() {
                           </>
                         ) : plan.price === 'Usage-based' ? (
                           <>
-                            <span className='usage-based'>Usage-based</span>
-                            <span className='period'>{plan.period}</span>
                           </>
                         ) : (
                           <>
                             <span className='price-text'>{plan.price}</span>
-                            <span className='period'>{plan.period}</span>
+                            <span className='period'>/month</span>
                           </>
                         )}
                       </div>
@@ -286,7 +224,12 @@ function Simple() {
                       </button>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <div className='pricing-loading'>
+                    <div className='loading-spinner'></div>
+                    <p>Loading pricing plans...</p>
+                  </div>
+                )}
               </div>
 
               <div className='guarantee-section'>

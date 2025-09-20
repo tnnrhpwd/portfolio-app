@@ -434,12 +434,12 @@ function Profile() {
                             <span className="warning-icon">🚨</span>
                             <div className="warning-content">
                               <strong>Usage Frozen</strong>
-                              <p>Your Flex membership has no remaining credits. API usage is frozen until next month or upgrade to Premium for custom limits.</p>
+                              <p>Your Simple membership has no remaining credits. API usage is frozen until next month or upgrade to CSimple for custom limits.</p>
                               <button 
                                 className="upgrade-premium-button"
                                 onClick={() => navigate('/pay?plan=premium')}
                               >
-                                Upgrade to Premium
+                                Upgrade to CSimple
                               </button>
                             </div>
                           </div>
@@ -729,7 +729,7 @@ function Profile() {
                           <span className="upgrade-icon">💾</span>
                           <div className="upgrade-text">
                             <strong>Need More Storage?</strong>
-                            <p>Premium membership includes unlimited storage for all your data and files!</p>
+                            <p>CSimple membership includes unlimited storage for all your data and files!</p>
                           </div>
                         </div>
                         <button 

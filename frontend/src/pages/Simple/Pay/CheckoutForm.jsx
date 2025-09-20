@@ -49,58 +49,6 @@ const MembershipPlans = ({ selectedPlan, onSelectPlan, currentSubscription, memb
       
       return dynamicPlans;
     }
-    
-    // Fallback to static plans if no dynamic pricing available
-    return [
-      {
-        id: 'free',
-        name: 'Free Tier',
-        price: '$0',
-        period: 'per month',
-        tagline: 'Experience the basics with zero commitment',
-        features: [
-          'Limited API calls – perfect for exploring our services',
-          'Simple, real-time dashboard',
-          'Community support forum',
-        ],
-        quota: { calls: '1,000 calls/month' },
-      },
-      {
-        id: 'flex',
-        name: 'Flex Membership',
-        price: 'Custom Pricing',
-        period: 'minimum $10/month',
-        tagline: 'Pay only for what you use - set your own budget',
-        features: [
-          'Usage-based pricing – enjoy a baseline quota then pay per call',
-          'Strategic planning tools for scaling efficiently',
-          'Enhanced analytics dashboard for smarter decision-making',
-          '💰 Set your own custom price (minimum $10/month)',
-          '📱 Web-based access only (no desktop app)',
-        ],
-        quota: {
-          baseCalls: '10,000 calls/month',
-          overageRate: '$0.001 per additional call',
-        },
-      },
-      { 
-        id: 'premium',
-        name: 'Premium Membership',
-        price: 'Custom Annual Investment',
-        period: 'minimum $9,999/year (~$833/month)',
-        tagline: 'Enterprise annual billing: maximize efficiency and predictable costs',
-        features: [
-          'Significantly reduced per-usage rates – save up to 30% on volume',
-          'Annual billing cycle with monthly usage tracking',
-          'Priority AI processing for rapid execution',
-          'Advanced analytics with detailed data insights',
-          'Dedicated support channel with direct expert access',
-          'Exclusive early access to innovative, cutting-edge features',
-          '🔥 Set your own custom annual price (minimum $9,999/year)',
-          '🖥️ Includes Simple.NET desktop app installation and license',
-        ],
-      }
-    ];
   };
 
   const plans = getPlans();
@@ -148,7 +96,7 @@ const MembershipPlans = ({ selectedPlan, onSelectPlan, currentSubscription, memb
             <p className="custom-price-description">
               {selectedPlan === 'premium' 
                 ? 'As a premium member, you set your annual investment with monthly usage tracking. This provides predictable annual costs while scaling usage according to your business needs.'
-                : 'With Flex membership, set your own monthly budget while enjoying usage-based pricing. Pay only for what you use within your custom limit.'
+                : 'With Simple membership, set your own monthly budget while enjoying usage-based pricing. Pay only for what you use within your custom limit.'
               }
             </p>
           </div>
@@ -445,8 +393,8 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
     // Validate custom price for premium plan
     if (selectedPlan === 'premium') {
       const numPrice = parseFloat(customPrice);
-      if (!customPrice || isNaN(numPrice) || numPrice < 9999) {
-        setError('Please enter a valid custom price of at least $9,999');
+      if (!customPrice || isNaN(numPrice) || numPrice < 850) {
+        setError('Please enter a valid custom price >$850/month');
         return;
       }
     }
@@ -535,8 +483,8 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
       // Validate custom pricing for premium plan
       if (selectedPlan === 'premium') {
         const numPrice = parseFloat(customPrice);
-        if (!customPrice || isNaN(numPrice) || numPrice < 9999) {
-          setCustomPriceError('Please enter a valid price of at least $9,999');
+        if (!customPrice || isNaN(numPrice) || numPrice < 850) {
+          setCustomPriceError('Please enter a valid price >$850/month');
           return;
         }
         if (customPriceError) {
@@ -619,7 +567,7 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
     if (selectedPlan === 'premium') {
       return 'Premium (Usage-based with customizable max)';
     } else if (selectedPlan === 'flex') {
-      return 'Flex (Usage-based with $10 monthly max)';
+      return 'Simple (Usage-based, >$10/month)';
     } else {
       return 'Free';
     }
@@ -702,9 +650,9 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
       setCustomPriceError('Please enter a valid number');
     } else if (numValue < minimumPrice) {
       if (selectedPlan === 'premium') {
-        setCustomPriceError('Minimum price is $9,999/month for Premium');
+        setCustomPriceError('Choose a price >$850/month for CSimple');
       } else if (selectedPlan === 'flex') {
-        setCustomPriceError('Minimum price is $10/month for Flex');
+        setCustomPriceError('Choose a price >$10/month for Simple');
       } else {
         setCustomPriceError(`Minimum price is $${minimumPrice}/month`);
       }
@@ -959,18 +907,6 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
                       <span className="label">Billing Email:</span>
                       <span className="value">{userEmail}</span>
                     </div>
-                  </div>
-                  
-                  <div className="pricing-note">
-                    {selectedPlan === 'free' ? (
-                      <p>You've selected our Free tier. You can upgrade anytime in your profile settings.</p>
-                    ) : selectedPlan === 'premium' ? (
-                      <p>With Premium, your custom monthly investment of <strong>${parseFloat(customPrice).toLocaleString()}</strong> unlocks 
-                      priority processing, dedicated support, and enhanced usage limits. You'll enjoy significantly reduced per-usage rates 
-                      with the security of a predictable monthly maximum.</p>
-                    ) : (
-                      <p>With Flex, you'll only pay for what you use. Never worry about exceeding $10 per month, guaranteed.</p>
-                    )}
                   </div>
                   
                   {message && (
