@@ -87,8 +87,8 @@
   width: 100%;
   text-align: center;
   min-height: 40vh;
-  padding-top: calc(var(--nav-size) * 1);
-  padding-bottom: calc(var(--nav-size) * 0.3);
+  padding-top: calc(var(--nav-size) * 1.2);
+  padding-bottom: var(--spacing-lg);
 }
 
 .planit-dashboard-upper-header {

@@ -231,13 +231,10 @@ function Simple() {
 
             {/* Pricing Section */}
             <div className='pricing-section'>
-<<<<<<< HEAD
               <h2>Choose Your Custom Pricing Plan</h2>
               <p className='pricing-description'>Set your own monthly budget or investment level. Prices shown are minimum purchase values - you define what works for your needs.</p>              
-=======
               <h4>Ready to Reclaim Your Time?</h4>
               <h2>Choose Your Productivity Level</h2>              
->>>>>>> 49244d47350bd8035d15f6906ed269289e0d01a8
               <div className='pricing-grid'>
                 {plans.map((plan, index) => (
                   <div 

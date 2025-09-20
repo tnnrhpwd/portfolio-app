@@ -205,7 +205,7 @@ ul{
 
 a:hover {
   color: var(--fg-mint);
-  background: rgba(33, 150, 243, 0.1);
+  /* background: rgba(33, 150, 243, 0.1); */
   transform: translateY(-1px);
 }
 

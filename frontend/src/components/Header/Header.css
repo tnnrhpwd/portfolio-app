@@ -84,6 +84,7 @@
 }
 a{
   text-decoration: none;
+  color: var(--text-color);
 }
 
 .planit-header-logo-nav{
