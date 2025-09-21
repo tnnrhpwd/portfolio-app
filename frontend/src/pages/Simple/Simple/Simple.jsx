@@ -185,24 +185,6 @@ function Simple() {
                     {plan.id === 'premium' && <div className='popular-badge'>Most Popular</div>}
                     <div className='plan-header'>
                       <h3>{plan.name}</h3>
-                      <p className='plan-tagline'>{plan.tagline}</p>
-                      <div className='plan-price'>
-                        {plan.price === '$0' ? (
-                          <>
-                            <span className='currency'>$</span>
-                            <span className='amount'>0</span>
-                            <span className='period'>/month</span>
-                          </>
-                        ) : plan.price === 'Usage-based' ? (
-                          <>
-                          </>
-                        ) : (
-                          <>
-                            <span className='price-text'>{plan.price}</span>
-                            <span className='period'>/month</span>
-                          </>
-                        )}
-                      </div>
                       {plan.originalPrice && (
                         <div className='plan-original-price'>Regular: {plan.originalPrice}</div>
                       )}
@@ -220,7 +202,22 @@ function Simple() {
                           handleGetStarted(plan.id);
                         }}
                       >
-                        {plan.id === 'free' ? 'Start Free' : 'Get Started'}
+                        {plan.id === 'free' ? 'Start Free' : 
+                          plan.price === '$0' ? (
+                            <>
+                              <span className='currency'>$</span>
+                              <span className='amount'>0</span>
+                              <span className='period'>/month</span>
+                            </>
+                          ) : plan.price === 'Usage-based' ? (
+                            'Get Started'
+                          ) : (
+                            <>
+                              <span className='price-text'>{plan.price}</span>
+                              <span className='period'>/month</span>
+                            </>
+                          )
+                        }
                       </button>
                     </div>
                   </div>

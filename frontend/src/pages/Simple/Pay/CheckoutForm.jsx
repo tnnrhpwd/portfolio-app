@@ -39,7 +39,7 @@ const MembershipPlans = ({ selectedPlan, onSelectPlan, currentSubscription, memb
         return {
           id: product.id,
           name: product.name,
-          price: product.price ? formatPrice(product.price) : 'Custom Pricing',
+          price: product.price ? formatPrice(product.price) : 'Free',
           period: `per ${product.interval || 'month'}`,
           tagline: product.description || '',
           features: product.features || [],

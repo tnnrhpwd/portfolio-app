@@ -783,19 +783,17 @@
 .price-text {
   font-size: calc(var(--nav-size) * 0.4);
   font-weight: 600;
-  color: var(--text-color);
 }
 
 .period {
   font-size: calc(var(--nav-size) * 0.35);
-  color: var(--text-color);
   opacity: 0.8;
   text-align: center;
+  color: var(--text-color-inv);
 }
 
 .plan-original-price {
   font-size: calc(var(--nav-size) * 0.26);
-  color: var(--text-color);
   opacity: 0.6;
   text-decoration: line-through;
   margin-bottom: calc(var(--nav-size) * 0.4);
