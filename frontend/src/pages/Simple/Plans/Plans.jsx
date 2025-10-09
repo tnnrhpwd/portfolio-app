@@ -159,7 +159,11 @@ function Plans() {
         const files = itemarino.files || [];
 
         const creatorMatch = itemString.match(/Creator:(.*?)\|/);
-        const itemUser = creatorMatch ? { id: creatorMatch[1], nickname: 'User' + creatorMatch[1].slice(-4), badge: creatorMatch[1].toString() === "6770a067c725cbceab958619" ? 'Gold' : 'Silver' } : { id: 'Unknown', nickname: 'Unknown', badge: 'Unknown' };
+        const itemUser = creatorMatch ? {
+          id: creatorMatch[1],
+          nickname: user && creatorMatch[1] === user._id ? user.nickname : `User${creatorMatch[1].slice(-4)}`,
+          badge: creatorMatch[1].toString() === "6770a067c725cbceab958619" ? 'Gold' : 'Silver'
+        } : { id: 'Unknown', nickname: 'Unknown', badge: 'Unknown' };
         // console.log(itemUser);
         if (typeof itemString === 'string') {
           if (user && itemString.includes(user._id)) processPlanArray(itemID, itemCreatedAt, itemUpdatedAt, itemString, files, index, outputMyPlanArray, itemUser);
@@ -246,10 +250,11 @@ function Plans() {
                   value={date}
                   tileContent={({ date, view }) => {
                     const dateString = date.toISOString().split('T')[0];
+                    const meetingCount = meetings[dateString] || 0;
                     return (
                       <div className="planit-plans-calendar-out-tile-content">
                         <div className="planit-plans-calendar-out-meeting-count">
-                          {meetings[dateString] || 0}
+                          {meetingCount > 0 ? meetingCount : ''}
                         </div>
                       </div>
                     );

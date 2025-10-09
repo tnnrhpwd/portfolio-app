@@ -1,5 +1,7 @@
-import React from 'react';
-import { useLocation } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useSelector, useDispatch } from 'react-redux';
+import { logout } from '../../../features/data/dataSlice';
 import CheckoutForm from './CheckoutForm';
 import Header from '../../../components/Header/Header';
 import './Pay.css';
@@ -7,8 +9,19 @@ import Footer from '../../../components/Footer/Footer';
 
 function Pay() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { dataIsError, dataMessage } = useSelector((state) => state.data);
   const queryParams = new URLSearchParams(location.search);
   const selectedPlan = queryParams.get('plan');
+
+  // Handle JWT expiration
+  useEffect(() => {
+    if (dataIsError && dataMessage === 'Not authorized, token expired') {
+      dispatch(logout());
+      navigate('/login');
+    }
+  }, [dataIsError, dataMessage, dispatch, navigate]);
 
   return (
     <>

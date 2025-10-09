@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { postPaymentMethod, getPaymentMethods, subscribeCustomer, getUserSubscription, createCustomer, getMembershipPricing } from '../../../features/data/dataSlice';
+import { postPaymentMethod, getPaymentMethods, subscribeCustomer, getUserSubscription, createCustomer, getMembershipPricing, logout } from '../../../features/data/dataSlice';
 import { loadStripe } from '@stripe/stripe-js';
 import {
   Elements,
@@ -275,7 +275,7 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
   const checkoutContainerRef = useRef(null);
   
   // Get user email and payment methods from Redux store
-  const { user, paymentMethods, membershipPricing } = useSelector(state => state.data);
+  const { user, paymentMethods, membershipPricing, dataIsError, dataMessage } = useSelector(state => state.data);
   const userEmail = user?.email || '';
 
   // Fetch payment methods and membership pricing when the component mounts
@@ -324,6 +324,14 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
       return () => clearTimeout(timer);
     }
   }, [stripe, stripeBlocked]);
+
+  // Handle JWT expiration
+  useEffect(() => {
+    if (dataIsError && dataMessage === 'Not authorized, token expired') {
+      dispatch(logout());
+      navigate('/login');
+    }
+  }, [dataIsError, dataMessage, dispatch, navigate]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -971,8 +979,9 @@ function CheckoutForm({ paymentType, initialPlan }) {
   const dispatch = useDispatch();
   
   // Get user data for customer creation
-  const { user } = useSelector(state => state.data);
+  const { user, dataIsError, dataMessage } = useSelector(state => state.data);
   const userEmail = user?.email || '';
+  const navigate = useNavigate();
 
   // Test function to manually trigger customer creation
   const testCustomerCreation = async () => {
@@ -1101,6 +1110,14 @@ function CheckoutForm({ paymentType, initialPlan }) {
     
     getSetupIntent();
   }, [dispatch, user, userEmail]); // Added missing dependencies
+
+  // Handle JWT expiration
+  useEffect(() => {
+    if (dataIsError && dataMessage === 'Not authorized, token expired') {
+      dispatch(logout());
+      navigate('/login');
+    }
+  }, [dataIsError, dataMessage, dispatch, navigate]);
 
   // If Stripe initialization failed, show an error instead of trying to load Elements
   if (stripePromise === null && !isStripeError) {
