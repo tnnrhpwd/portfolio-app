@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Dropdown from "react-dropdown";
 import "react-dropdown/style.css";
 import NewAnnuity from './NewAnnuity';

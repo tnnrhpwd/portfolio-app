@@ -25,12 +25,12 @@ function Halfway() {
             setSunsetTime( getSunset(position.coords.latitude, position.coords.longitude) );
         });
     }
-    function getAllTimes(){
-        setCurrentTime(new Date())
-        getSunTimesFromLocation()
-    }
 
     useEffect(() => {
+        function getAllTimes(){
+            setCurrentTime(new Date())
+            getSunTimesFromLocation()
+        }
         getAllTimes()
     }, [])
     

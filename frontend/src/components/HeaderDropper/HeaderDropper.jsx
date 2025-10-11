@@ -4,7 +4,7 @@ import useOutsideAlerter from '../useOutsideAlerter.js';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux'    
 import React from 'react';
-import { setDarkMode, setLightMode } from '../../utils/theme';
+
 import { logout } from '../../features/data/dataSlice';
 
 import './HeaderDropper.css'
