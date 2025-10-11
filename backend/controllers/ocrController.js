@@ -10,8 +10,8 @@ const { trackApiUsage, canMakeApiCall } = require('../utils/apiUsageTracker.js')
 require('dotenv').config();
 let openaiClient, anthropicClient, googleClient;
 
-// Initialize LLM clients
-async function initializeLLMClients() {
+// Initialize local OCR-specific LLM clients (separate from the unified system for OCR processing)
+async function initializeOCRLLMClients() {
     if (!openaiClient) {
         const { OpenAI } = require('openai');
         openaiClient = new OpenAI({
@@ -98,7 +98,7 @@ async function processWithOpenAIVision(imageData, model = 'gpt-4o') {
             throw new Error('OpenAI API key not configured');
         }
         
-        await initializeLLMClients();
+        await initializeOCRLLMClients();
         
         if (!openaiClient) {
             throw new Error('OpenAI client not initialized');
@@ -141,6 +141,117 @@ async function processWithOpenAIVision(imageData, model = 'gpt-4o') {
     } catch (error) {
         console.error('OpenAI Vision API error:', error);
         throw new Error(`OpenAI Vision failed: ${error.message}`);
+    }
+}
+
+async function processWithXAIVision(imageData, model = 'grok-4') {
+    // XAI Vision API implementation using unified LLM provider
+    try {
+        console.log('Processing with XAI Vision API, model:', model);
+        console.log('Image data length:', imageData ? imageData.length : 0);
+        
+        // Check if XAI API key is available
+        if (!process.env.XAI_API_KEY && !process.env.XAI_KEY) {
+            throw new Error('XAI API key not configured');
+        }
+        
+        // Initialize LLM clients through unified system
+        await initializeLLMClients();
+        
+        console.log('XAI client initialized successfully via unified system');
+        console.log('XAI API endpoint:', 'https://api.x.ai/v1/chat/completions');
+        const xaiKey = process.env.XAI_API_KEY || process.env.XAI_KEY;
+        console.log('XAI API key status:', xaiKey ? `Available (${xaiKey.substring(0, 10)}...)` : 'Not configured');
+        
+        // Use unified completion function with image
+        const completion = await createCompletion('xai', model || 'grok-4', [
+            {
+                role: 'user',
+                content: [
+                    {
+                        type: 'image_url',
+                        image_url: {
+                            url: `data:image/jpeg;base64,${imageData}`,
+                            detail: 'high' // High detail for better OCR extraction
+                        }
+                    },
+                    {
+                        type: 'text',
+                        text: 'Extract all text from this image and convert it to a structured datetime + action format. For each time entry and associated task/activity, output one line in this exact format: MM/DD/YYYY H:MM:SS\tactionname (tab-separated). Convert times to 24-hour format with full dates. Combine related activities into concise action names (no spaces, use camelCase or concatenation). Focus on extracting: time entries, meetings, tasks, activities, breaks, meals. Output should be clean lines of datetime\\taction pairs only.'
+                    }
+                ]
+            }
+        ], {
+            max_tokens: 4000
+        });
+        
+        // Debug the completion object structure
+        console.log('=== OCR Response Structure Debug ===');
+        console.log('Completion type:', typeof completion);
+        console.log('Has choices:', !!completion.choices);
+        console.log('Choices length:', completion.choices?.length);
+        console.log('Content exists:', !!completion.choices?.[0]?.message?.content);
+        console.log('Raw message content (direct access):');
+        console.log('---RAW CONTENT START---');
+        console.log(completion.choices?.[0]?.message?.content || 'NO CONTENT FOUND');
+        console.log('---RAW CONTENT END---');
+        
+        const extractedText = completion.choices?.[0]?.message?.content || 'No text detected';
+        
+        // Debug logging for XAI Vision response
+        console.log('=== XAI Vision OCR Debug ===');
+        console.log('Content extraction path: completion.choices[0].message.content');
+        console.log('Extracted text length:', extractedText.length);
+        console.log('FULL OCR EXTRACTED TEXT:');
+        console.log('---START FULL TEXT---');
+        console.log(extractedText);
+        console.log('---END FULL TEXT---');
+        console.log('Usage data:', completion.usage);
+        console.log('=== End XAI Vision Debug ===');
+        
+        return {
+            extractedText: extractedText,
+            confidence: 0.95, // XAI Vision is generally very accurate
+            provider: 'xai-vision',
+            model: model || 'grok-4',
+            usage: completion.usage
+        };
+        
+    } catch (error) {
+        console.error('XAI Vision API error:', error);
+        console.error('Error type:', error.constructor.name);
+        console.error('Error code:', error.code);
+        console.error('Error cause:', error.cause);
+        
+        // Check if it's a network/connection error
+        if (error.code === 'ECONNRESET' || error.code === 'ECONNREFUSED' || 
+            error.message?.includes('Connection error') || 
+            error.message?.includes('socket hang up')) {
+            
+            console.log('🔄 XAI Vision connection failed, attempting fallback to OpenAI Vision...');
+            
+            try {
+                // Fallback to OpenAI Vision with GPT-4o
+                const fallbackResult = await processWithOpenAIVision(imageData, 'gpt-4o');
+                console.log('✅ Fallback to OpenAI Vision successful');
+                
+                // Return result but mark it as fallback
+                return {
+                    ...fallbackResult,
+                    provider: 'xai-vision-fallback',
+                    originalProvider: 'xai-vision',
+                    fallbackProvider: 'openai-vision',
+                    fallbackReason: 'XAI API connection failed'
+                };
+                
+            } catch (fallbackError) {
+                console.error('❌ Fallback to OpenAI Vision also failed:', fallbackError);
+                throw new Error(`XAI Vision failed (${error.message}) and OpenAI fallback also failed (${fallbackError.message})`);
+            }
+        } else {
+            // For non-connection errors, just throw the original error
+            throw new Error(`XAI Vision failed: ${error.message}`);
+        }
     }
 }
 
@@ -271,10 +382,23 @@ async function processWithTesseract(imageData, model = 'default') {
     }
 }
 
+const { 
+    initializeLLMClients, 
+    createCompletion, 
+    trackCompletion 
+} = require('../utils/llmProviders.js');
+
 // LLM Post-processing function
 async function postProcessWithLLM(ocrText, llmProvider, llmModel, userId) {
     try {
         console.log(`Post-processing OCR with ${llmProvider}:${llmModel}`);
+        console.log('=== LLM Input Debug ===');
+        console.log('Original OCR text length:', ocrText?.length || 0);
+        console.log('FULL ORIGINAL OCR TEXT BEING PROCESSED:');
+        console.log('---START ORIGINAL OCR---');
+        console.log(ocrText || 'NO OCR TEXT PROVIDED');
+        console.log('---END ORIGINAL OCR---');
+        console.log('=== End LLM Input Debug ===');
         
         // Check if user can make LLM API call
         const canMakeCall = await canMakeApiCall(userId, 'openai'); // For now, use openai limits for all providers
@@ -289,70 +413,52 @@ async function postProcessWithLLM(ocrText, llmProvider, llmModel, userId) {
 
         await initializeLLMClients();
         
-        const prompt = `You are an AI assistant specialized in processing OCR-extracted text from productivity and action tracking images. 
+        const prompt = `Convert the following OCR-extracted text into a structured datetime + action format for productivity tracking.
 
-The following text was extracted from an image using OCR:
+OCR Text:
 """
 ${ocrText}
 """
 
-Please analyze and enhance this text for productivity tracking purposes by:
-1. Correcting any obvious OCR errors or typos
-2. Formatting time entries, meetings, and tasks clearly
-3. Extracting actionable items and timeframes
-4. Organizing the content in a structured, readable format
-5. Adding context that would be useful for productivity analysis
+Instructions:
+1. Parse all time entries and associated activities/tasks
+2. Convert to this exact format: MM/DD/YYYY H:MM:SS\tactionname (tab-separated)
+3. Use 24-hour time format (convert AM/PM if present)
+4. Infer reasonable dates based on context (use current date if unclear)
+5. Create concise action names (no spaces, use camelCase: emails, planning, debugging, lunch, meeting, etc.)
+6. Correct OCR errors in times and activities
+7. Output ONLY the datetime\taction lines, nothing else
 
-Provide the enhanced text in a clear, structured format that would be valuable for action tracking and productivity analysis.`;
+Example format:
+9/26/2022 3:30:00\temails
+9/26/2022 5:00:00\tplanning
+9/26/2022 12:15:00\tlunch
+
+Output the structured data now:`;
 
         let response, inputTokens, outputTokens, modelUsed;
         
-        switch (llmProvider) {
-            case 'openai':
-                modelUsed = llmModel || 'o1-mini';
-                response = await openaiClient.chat.completions.create({
-                    model: modelUsed,
-                    messages: [{ role: 'user', content: prompt }],
-                    max_completion_tokens: 1000
-                });
-                
-                inputTokens = response.usage?.prompt_tokens || Math.ceil(prompt.length / 4);
-                outputTokens = response.usage?.completion_tokens || Math.ceil(response.choices[0].message.content.length / 4);
-                
-                // Track usage
-                await trackApiUsage(userId, 'openai', {
-                    inputTokens: inputTokens,
-                    outputTokens: outputTokens
-                }, modelUsed);
-                
-                return {
-                    enhancedText: response.choices[0].message.content,
-                    provider: llmProvider,
-                    model: modelUsed,
-                    originalText: ocrText
-                };
-                
-            case 'anthropic':
-                // Placeholder for Anthropic implementation
-                return {
-                    enhancedText: `Enhanced by Anthropic ${llmModel}: ${ocrText}`,
-                    provider: llmProvider,
-                    model: llmModel,
-                    originalText: ocrText
-                };
-                
-            case 'google':
-                // Placeholder for Google implementation  
-                return {
-                    enhancedText: `Enhanced by Google ${llmModel}: ${ocrText}`,
-                    provider: llmProvider,
-                    model: llmModel,
-                    originalText: ocrText
-                };
-                
-            default:
-                throw new Error(`Unsupported LLM provider: ${llmProvider}`);
-        }
+        // Initialize LLM clients
+        await initializeLLMClients();
+        
+        // Use unified completion function
+        modelUsed = llmModel || (llmProvider === 'xai' ? 'grok-4' : 'o1-mini');
+        response = await createCompletion(llmProvider, modelUsed, [
+            { role: 'user', content: prompt }
+        ], {
+            maxTokens: 4000,
+            temperature: 0.3
+        });
+        
+        // Track usage using unified function
+        await trackCompletion(userId, llmProvider, modelUsed, response, prompt);
+        
+        return {
+            enhancedText: response.choices[0].message.content,
+            provider: llmProvider,
+            model: modelUsed,
+            originalText: ocrText
+        };
         
     } catch (error) {
         console.error('LLM post-processing error:', error);
@@ -419,6 +525,9 @@ const extractOCR = asyncHandler(async (req, res) => {
         
         // Route to appropriate OCR provider
         switch (method) {
+            case 'xai-vision':
+                ocrResult = await processWithXAIVision(imageData, model);
+                break;
             case 'openai-vision':
             default:
                 ocrResult = await processWithOpenAIVision(imageData, model);
@@ -437,6 +546,16 @@ const extractOCR = asyncHandler(async (req, res) => {
                 break;
         }
         
+        console.log('=== OCR Processing Complete ===');
+        console.log('OCR Method used:', method);
+        console.log('OCR Provider:', ocrResult?.provider);
+        console.log('OCR Confidence:', ocrResult?.confidence);
+        console.log('OCR FULL RESULT TEXT:');
+        console.log('---START OCR RESULT---');
+        console.log(ocrResult?.extractedText || 'No text extracted');
+        console.log('---END OCR RESULT---');
+        console.log('=== End OCR Processing ===');
+        
         // Post-process with LLM if provider is specified
         let finalResult = ocrResult;
         if (llmProvider && llmProvider !== 'none') {
@@ -450,6 +569,12 @@ const extractOCR = asyncHandler(async (req, res) => {
             
             if (llmResult.error) {
                 // If LLM processing fails, still return OCR results with error info
+                console.log('=== LLM Post-Processing Failed ===');
+                console.log('LLM Error:', llmResult.error);
+                console.log('LLM Reason:', llmResult.reason);
+                console.log('Returning original OCR text only');
+                console.log('=== End LLM Error Debug ===');
+                
                 finalResult = {
                     ...ocrResult,
                     llmError: llmResult.error,
@@ -464,6 +589,17 @@ const extractOCR = asyncHandler(async (req, res) => {
                     llmProvider: llmResult.provider,
                     llmModel: llmResult.model
                 };
+                
+                console.log('=== LLM Post-Processing Complete ===');
+                console.log('LLM Provider:', llmResult.provider);
+                console.log('LLM Model:', llmResult.model);
+                console.log('Original OCR text length:', ocrResult.extractedText?.length);
+                console.log('Enhanced text length:', llmResult.enhancedText?.length);
+                console.log('FULL ENHANCED TEXT:');
+                console.log('---START ENHANCED TEXT---');
+                console.log(llmResult.enhancedText);
+                console.log('---END ENHANCED TEXT---');
+                console.log('=== End LLM Post-Processing ===');
             }
         }
         

@@ -6,6 +6,57 @@
     flex-direction: column; /* Arrange children in a column */
     align-items: center; /* Center align children horizontally */
   }
+  
+  .planit-nnet-llm-selection {
+    width: calc(100% - var(--nav-size) * 2.4);
+    display: flex;
+    gap: calc(var(--nav-size) * 0.2);
+    margin-bottom: calc(var(--nav-size) * 0.3);
+    padding: calc(var(--nav-size) * 0.15);
+    background-color: var(--bg-page-transp);
+    border-radius: calc(var(--nav-size) * 0.1);
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.2));
+  }
+  
+  .planit-nnet-llm-provider,
+  .planit-nnet-llm-model {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.05);
+    flex: 1;
+  }
+  
+  .planit-nnet-llm-selection label {
+    font-size: calc(var(--nav-size) * 0.2);
+    color: var(--text-color);
+    font-weight: 600;
+  }
+  
+  .planit-nnet-llm-selection select {
+    padding: calc(var(--nav-size) * 0.08);
+    border-radius: calc(var(--nav-size) * 0.05);
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.2));
+    background-color: var(--bg-page);
+    color: var(--text-color);
+    font-size: calc(var(--nav-size) * 0.18);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .planit-nnet-llm-selection select:hover {
+    border-color: var(--fg-blue);
+  }
+  
+  .planit-nnet-llm-selection select:focus {
+    outline: none;
+    border-color: var(--fg-blue);
+    box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.3);
+  }
+  
+  .planit-nnet-llm-selection select:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
   .planit-nnet-chat-area {
     width: calc(100% - var(--nav-size) * 2.4); /* Adjust the subtraction based on the gobutton size */
     position:fixed;

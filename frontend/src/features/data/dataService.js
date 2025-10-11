@@ -273,18 +273,25 @@ const deleteData = async (dataId, token) => {
 }
 
 // Compress data
-const compressData = async (dataData, token) => {
+const compressData = async (dataData, token, options = {}) => {
     const config = {
         headers: {
             Authorization: `Bearer ${token}`,
         },
     }
 
+    // Add LLM provider options to the request
+    const requestData = {
+        ...dataData,
+        provider: options.provider || 'openai',
+        model: options.model || (options.provider === 'xai' ? 'grok-4-fast-reasoning' : 'o1-mini')
+    };
+
     console.log('Calling POST URL:', API_URL + 'compress');
-    console.log('Calling POST Data:', dataData);
+    console.log('Calling POST Data:', requestData);
 
     try {
-        const response = await axios.post(API_URL + 'compress', dataData, config);
+        const response = await axios.post(API_URL + 'compress', requestData, config);
         return response.data;
     } catch (error) {
         handleTokenExpiration(error);
@@ -538,6 +545,17 @@ const getUserStorage = async (token) => {
     }
 };
 
+// Get available LLM providers
+const getLLMProviders = async () => {
+    try {
+        const response = await axios.get(API_URL + 'llm-providers');
+        return response.data;
+    } catch (error) {
+        console.error('Error getting LLM providers:', error);
+        throw error;
+    }
+};
+
 // Logout user
 const logout = () => {
     localStorage.removeItem('user')
@@ -562,6 +580,7 @@ const dataService = {
     getUserUsage,
     getUserStorage,
     getMembershipPricing,
+    getLLMProviders,
     register,
     login,
     logout,

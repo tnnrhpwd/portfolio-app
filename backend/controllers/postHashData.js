@@ -7,6 +7,13 @@ const asyncHandler = require('express-async-handler');
 const { checkIP } = require('../utils/accessData.js');
 const { sendEmail } = require('../utils/emailService.js');
 const { trackApiUsage, canMakeApiCall } = require('../utils/apiUsageTracker.js');
+const { 
+    initializeLLMClients, 
+    getAvailableProviders, 
+    checkApiUsage, 
+    createCompletion, 
+    trackCompletion 
+} = require('../utils/llmProviders.js');
 const stripe = require('stripe')(process.env.STRIPE_KEY);
 const Data = require('../models/dataModel'); // Add Data model import
 require('dotenv').config();
@@ -244,6 +251,12 @@ const compressData = asyncHandler(async (req, res) => {
     const contextInput = parsedJSON.text; // Get context input directly from text field
     console.log('Context input:', contextInput); // Log the context input
 
+    // Get LLM provider and model from request (with defaults)
+    const provider = req.body.provider || 'openai';
+    const model = req.body.model || (provider === 'xai' ? 'grok-4-fast-reasoning' : 'o1-mini');
+    
+    console.log(`Using ${provider} with model ${model}`);
+
     if (typeof contextInput !== 'string') { 
         throw new Error('Data input invalid')
     }
@@ -256,63 +269,53 @@ const compressData = asyncHandler(async (req, res) => {
     try {
         console.log('🔍 Starting API validation check...');
         const startValidation = Date.now();
-        const startApiCheck = Date.now();
         
-        // Check if user can make OpenAI API call
-        const canMakeCall = await canMakeApiCall(req.user.id, 'openai', {
-            model: 'o1-mini',
-            inputTokens: Math.ceil(userInput.length / 4), // Rough estimate: 4 chars per token
-            outputTokens: 200 // Estimate for output
-        });
+        // Check if user can make API call with the selected provider
+        const usageCheck = await checkApiUsage(req.user.id, provider, model, userInput);
 
-        console.log(`✅ API validation completed in ${Date.now() - startApiCheck}ms`);
+        console.log(`✅ API validation completed in ${Date.now() - startValidation}ms`);
 
-        if (!canMakeCall.canMake) {
-            console.log('OpenAI API call blocked:', canMakeCall.reason);
+        if (!usageCheck.canMake) {
+            console.log(`${provider.toUpperCase()} API call blocked:`, usageCheck.reason);
             return res.status(402).json({ 
                 error: 'API usage limit reached', 
-                reason: canMakeCall.reason,
-                currentUsage: canMakeCall.currentUsage,
-                limit: canMakeCall.limit,
-                requiresUpgrade: true
+                reason: usageCheck.reason,
+                currentUsage: usageCheck.currentUsage,
+                limit: usageCheck.limit,
+                requiresUpgrade: true,
+                provider: provider,
+                model: model
             });
         }
 
-        if (!client) {
-            await initializeOpenAI();
-        }
+        // Initialize LLM clients
+        await initializeLLMClients();
         
-        console.log('🤖 Starting OpenAI API call...');
-        const startOpenAI = Date.now();
+        console.log(`🤖 Starting ${provider.toUpperCase()} API call...`);
+        const startLLM = Date.now();
         
-        const response = await client.chat.completions.create({
-          model: 'o1-mini', // Use the o1-mini model
-          messages: [{ role: 'user', content: userInput }],
-          max_completion_tokens: 1000, // Increase the max tokens to allow more complete responses
+        // Use unified completion function
+        const response = await createCompletion(provider, model, [
+            { role: 'user', content: userInput }
+        ], {
+            maxTokens: 1000,
+            temperature: 0.7
         });
         
-        console.log(`🤖 OpenAI API call completed in ${Date.now() - startOpenAI}ms`);
-        console.log('OpenAI response:', JSON.stringify(response)); // Log the OpenAI response
+        console.log(`🤖 ${provider.toUpperCase()} API call completed in ${Date.now() - startLLM}ms`);
+        console.log('LLM response:', JSON.stringify(response)); // Log the LLM response
         
         console.log('📊 Starting usage tracking...');
         const startTracking = Date.now();
         
-        // Track API usage
-        const inputTokens = response.usage?.prompt_tokens || Math.ceil(userInput.length / 4);
-        const outputTokens = response.usage?.completion_tokens || Math.ceil(response.choices[0].message.content.length / 4);
-        
-        const usageResult = await trackApiUsage(req.user.id, 'openai', {
-            inputTokens: inputTokens,
-            outputTokens: outputTokens
-        }, 'o1-mini');
+        // Track API usage using unified function
+        const usageResult = await trackCompletion(req.user.id, provider, model, response, userInput);
 
         console.log(`📊 Usage tracking completed in ${Date.now() - startTracking}ms`);
 
         if (!usageResult.success) {
             console.log('Usage tracking failed:', usageResult.error);
             // Continue anyway - don't fail the request for usage tracking issues
-        } else {
-            console.log(`OpenAI usage tracked: $${usageResult.cost.toFixed(4)}, Total: $${usageResult.totalUsage.toFixed(4)}`);
         }
         
         // const response = { data: { choices: [ {text: "This is a simulated response for debugging purposes."} ] } };

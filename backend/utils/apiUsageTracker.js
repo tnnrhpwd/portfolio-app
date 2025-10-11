@@ -17,9 +17,15 @@ const dynamodb = DynamoDBDocumentClient.from(client);
 const API_COSTS = {
     openai: {
         'gpt-4': { input: 0.03/1000, output: 0.06/1000 }, // per token
+        'gpt-4o': { input: 0.0025/1000, output: 0.01/1000 }, // per token
+        'gpt-4o-mini': { input: 0.00015/1000, output: 0.0006/1000 }, // per token
         'gpt-3.5-turbo': { input: 0.0015/1000, output: 0.002/1000 }, // per token
         'o1-mini': { input: 0.003/1000, output: 0.012/1000 }, // per token
         'o1-preview': { input: 0.015/1000, output: 0.06/1000 } // per token
+    },
+    xai: {
+        'grok-4': { input: 0.001/1000, output: 0.003/1000 }, // per token (estimated pricing)
+        'grok-4-fast-reasoning': { input: 0.001/1000, output: 0.003/1000 } // per token (estimated pricing)
     },
     rapidapi: {
         word: 0.002, // per call
@@ -234,6 +240,17 @@ function formatUsageData(entries) {
  */
 async function trackApiUsage(userId, apiName, usageData, model = null) {
     try {
+        // Check if user is admin - admins have unlimited access (still track for logging but don't deduct credits)
+        if (userId === process.env.ADMIN_USER_ID) {
+            console.log('trackApiUsage: Admin user detected, logging usage but not deducting credits');
+            // Still log for monitoring purposes but don't deduct credits
+            return {
+                cost: 0,
+                creditsRemaining: Infinity,
+                isAdmin: true
+            };
+        }
+        
         // Use cached user data
         const user = await getUserDataCached(userId);
         if (!user) {
@@ -255,6 +272,14 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
                 const outputTokens = usageData.outputTokens || 0;
                 cost = (inputTokens * modelCosts.input) + (outputTokens * modelCosts.output);
                 usageString = `${inputTokens + outputTokens}t`;
+                break;
+            case 'xai':
+                const xaiModelKey = model || 'grok-4';
+                const xaiModelCosts = API_COSTS.xai[xaiModelKey] || API_COSTS.xai['grok-4'];
+                const xaiInputTokens = usageData.inputTokens || 0;
+                const xaiOutputTokens = usageData.outputTokens || 0;
+                cost = (xaiInputTokens * xaiModelCosts.input) + (xaiOutputTokens * xaiModelCosts.output);
+                usageString = `${xaiInputTokens + xaiOutputTokens}t`;
                 break;
             case 'rapidword':
                 cost = API_COSTS.rapidapi.word;
@@ -641,6 +666,12 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
     try {
         console.log('canMakeApiCall called for userId:', userId, 'apiName:', apiName);
         
+        // Check if user is admin - admins have unlimited access
+        if (userId === process.env.ADMIN_USER_ID) {
+            console.log('canMakeApiCall: Admin user detected, granting unlimited access');
+            return { canMake: true, reason: 'Admin user has unlimited access' };
+        }
+        
         // Get user data
         const user = await getUserDataCached(userId);
         if (!user) {
@@ -717,6 +748,13 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
                 const inputTokens = estimatedUsage.inputTokens || 100; // Default estimate
                 const outputTokens = estimatedUsage.outputTokens || 200; // Default estimate
                 estimatedCost = (inputTokens * modelCosts.input) + (outputTokens * modelCosts.output);
+                break;
+            case 'xai':
+                const xaiModelKey = estimatedUsage.model || 'grok-4-fast-reasoning';
+                const xaiModelCosts = API_COSTS.xai[xaiModelKey] || API_COSTS.xai['grok-4-fast-reasoning'];
+                const xaiInputTokens = estimatedUsage.inputTokens || 100; // Default estimate
+                const xaiOutputTokens = estimatedUsage.outputTokens || 200; // Default estimate
+                estimatedCost = (xaiInputTokens * xaiModelCosts.input) + (xaiOutputTokens * xaiModelCosts.output);
                 break;
             case 'rapidword':
             case 'rapiddef':

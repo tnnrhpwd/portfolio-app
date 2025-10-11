@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { getData, compressData, updateData, resetDataSlice, deleteData } from '../../../features/data/dataSlice.js';
+import { getData, compressData, updateData, resetDataSlice, deleteData, getLLMProviders } from '../../../features/data/dataSlice.js';
 import { toast } from 'react-toastify';
 import Spinner from '../../Spinner/Spinner.jsx';
 import NNetBookView from './NNetBookView.jsx';
@@ -22,9 +22,11 @@ const NNetChatView = () => {
   const [archivedChats, setArchivedChats] = useState([]);
   const [viewingArchived, setViewingArchived] = useState(false); // New state for prior chats
   const [activeChat, setActiveChat] = useState(null);
+  const [selectedProvider, setSelectedProvider] = useState('openai');
+  const [selectedModel, setSelectedModel] = useState('o1-mini');
 
   // Get the relevant data from the state
-  const { user, data, dataIsSuccess, dataIsLoading, dataIsError, dataMessage, operation } = useSelector(
+  const { user, data, dataIsSuccess, dataIsLoading, dataIsError, dataMessage, operation, llmProviders } = useSelector(
     (state) => state.data
   );
 
@@ -120,7 +122,7 @@ const NNetChatView = () => {
     };
   }, [dataIsSuccess, dataIsError, dataMessage, operation, dispatch, data, toastDuration]);
 
-  useEffect(() => {  // Fetch data with |Net: on component mount
+  useEffect(() => {  // Fetch data with |Net: on component mount and load LLM providers
     async function getMyData() {
       try {
         if (!user || user === null) {
@@ -138,6 +140,10 @@ const NNetChatView = () => {
         }
       }
     }
+
+    // Load LLM providers
+    dispatch(getLLMProviders());
+    
     getMyData();
 
     // Reset the data slice when the component unmounts
@@ -145,6 +151,15 @@ const NNetChatView = () => {
       dispatch(resetDataSlice());
     };
   }, [dispatch, toastDuration, user, navigate]);
+
+  // Update model when provider changes
+  useEffect(() => {
+    if (selectedProvider === 'xai') {
+      setSelectedModel('grok-4-fast-reasoning');
+    } else if (selectedProvider === 'openai') {
+      setSelectedModel('o1-mini');
+    }
+  }, [selectedProvider]);
 
   const handleSend = async () => {
     try {
@@ -174,17 +189,29 @@ const NNetChatView = () => {
         setChatHistory((prevChatHistory) => [...prevChatHistory, { content: inputText }]); // Update the chat history
         // Include the ID to indicate this is an update, not a new entry
         dispatch(compressData({ 
-          data: JSON.stringify({ 
-            text: "Net:" + combinedData 
-          }),
-          updateId: activeChatItem._id // Pass the ID for updating existing entry
+          data: { 
+            data: JSON.stringify({ 
+              text: "Net:" + combinedData 
+            }),
+            updateId: activeChatItem._id // Pass the ID for updating existing entry
+          },
+          options: {
+            provider: selectedProvider,
+            model: selectedModel
+          }
         }));
       }else{
         // New chat - no updateId
         dispatch(compressData({ 
-          data: JSON.stringify({ 
-            text: "Net:" + combinedData 
-          })
+          data: { 
+            data: JSON.stringify({ 
+              text: "Net:" + combinedData 
+            })
+          },
+          options: {
+            provider: selectedProvider,
+            model: selectedModel
+          }
         }));
         setChatHistory((prevChatHistory) => [...prevChatHistory, { content: inputText }]); // Update the chat history
       }
@@ -327,6 +354,41 @@ const NNetChatView = () => {
 
   return (
     <div className='planit-nnet-chat'>
+      {/* LLM Provider Selection */}
+      <div className='planit-nnet-llm-selection'>
+        <div className='planit-nnet-llm-provider'>
+          <label htmlFor="llmProvider">AI Provider:</label>
+          <select 
+            id="llmProvider"
+            value={selectedProvider} 
+            onChange={(e) => setSelectedProvider(e.target.value)}
+            disabled={dataIsLoading}
+          >
+            {Object.entries(llmProviders).map(([key, provider]) => (
+              <option key={key} value={key}>
+                {provider.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        
+        <div className='planit-nnet-llm-model'>
+          <label htmlFor="llmModel">Model:</label>
+          <select 
+            id="llmModel"
+            value={selectedModel} 
+            onChange={(e) => setSelectedModel(e.target.value)}
+            disabled={dataIsLoading}
+          >
+            {llmProviders[selectedProvider]?.models && Object.entries(llmProviders[selectedProvider].models).map(([key, model]) => (
+              <option key={key} value={key}>
+                {model.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       <div className='planit-nnet-chat-history'>
         {chatHistory.map((item, index) => (
           <div key={index} className='planit-nnet-chat-history-message'>

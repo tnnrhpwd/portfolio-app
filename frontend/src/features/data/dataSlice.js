@@ -37,6 +37,10 @@ const initialState = {  // default values for each state change
   membershipPricingIsLoading: false,
   membershipPricingIsError: false,
   membershipPricingMessage: '',
+  llmProviders: {},
+  llmProvidersIsLoading: false,
+  llmProvidersIsError: false,
+  llmProvidersMessage: '',
   userUsage: null,
   userUsageIsLoading: false,
   userUsageIsError: false,
@@ -120,13 +124,31 @@ export const getMembershipPricing = createAsyncThunk(
   }
 );
 
+// Get LLM providers -- READ PUBLIC
+export const getLLMProviders = createAsyncThunk(
+  'data/getLLMProviders',
+  async (_, thunkAPI) => {
+    try {
+      return await dataService.getLLMProviders();
+    } catch (error) {
+      const dataMessage =
+        (error.response &&
+          error.response.data &&
+          error.response.data.dataMessage) ||
+        error.dataMessage ||
+        error.toString();
+      return thunkAPI.rejectWithValue(dataMessage);
+    }
+  }
+);
+
 // Compress data
 export const compressData = createAsyncThunk(
   'data/compress',
-  async (data, thunkAPI) => {
+  async ({ data, options }, thunkAPI) => {
     try {
       const token = thunkAPI.getState().data.user.token;
-      return await dataService.compressData(data, token);
+      return await dataService.compressData(data, token, options);
     } catch (error) {
       const dataMessage =
         (error.response &&
@@ -560,6 +582,20 @@ export const dataSlice = createSlice({
         state.membershipPricingIsLoading = false;
         state.membershipPricingIsError = true;
         state.membershipPricingMessage = action.payload;
+      })
+      .addCase(getLLMProviders.pending, (state) => {
+        state.llmProvidersIsLoading = true;
+        state.llmProvidersIsError = false;
+        state.llmProvidersMessage = '';
+      })
+      .addCase(getLLMProviders.fulfilled, (state, action) => {
+        state.llmProvidersIsLoading = false;
+        state.llmProviders = action.payload.providers || {};
+      })
+      .addCase(getLLMProviders.rejected, (state, action) => {
+        state.llmProvidersIsLoading = false;
+        state.llmProvidersIsError = true;
+        state.llmProvidersMessage = action.payload;
       })
       .addCase(compressData.pending, (state) => {
         state.dataIsLoading = true;

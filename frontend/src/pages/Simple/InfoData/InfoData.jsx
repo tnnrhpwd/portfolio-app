@@ -20,10 +20,10 @@ function InfoData() {
   const [comments, setComments] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [ocrLoading, setOcrLoading] = useState(false);
-  const [ocrMethod, setOcrMethod] = useState('openai-vision');
-  const [ocrModel, setOcrModel] = useState('gpt-4o');
-  const [llmProvider, setLlmProvider] = useState('openai');
-  const [llmModel, setLlmModel] = useState('o1-mini');
+  const [ocrMethod, setOcrMethod] = useState('xai-vision');
+  const [ocrModel, setOcrModel] = useState('grok-4');
+  const [llmProvider, setLlmProvider] = useState('xai');
+  const [llmModel, setLlmModel] = useState('grok-4');
   const [editedDataText, setEditedDataText] = useState('');
   const navigate = useNavigate();
   const rootStyle = window.getComputedStyle(document.body);
@@ -430,10 +430,12 @@ function InfoData() {
 
       await dispatch(updateData(updatePayload)).unwrap();
       
-      // Update local chosenData state to reflect changes
+      // Update local chosenData state to reflect changes including timestamp
+      const now = new Date().toISOString();
       setChosenData(prev => ({
         ...prev,
-        data: currentText
+        data: currentText,
+        updatedAt: now
       }));
       
       toast.success('Data updated successfully!', { autoClose: toastDuration });
@@ -514,10 +516,12 @@ function InfoData() {
 
       const updateResult = await updateResponse.json();
       
-      // Update the chosenData to reflect the changes
+      // Update the chosenData to reflect the changes including timestamp
+      const now = new Date().toISOString();
       setChosenData({
         ...chosenData,
-        data: updateResult.updatedItem.text || updateResult.updatedItem.data || chosenData.data
+        data: updateResult.updatedItem.text || updateResult.updatedItem.data || chosenData.data,
+        updatedAt: now
       });
 
       toast.success('OCR extraction completed successfully!', { autoClose: toastDuration });
@@ -572,9 +576,9 @@ function InfoData() {
                     className="infodata-data-textarea infodata-data-textarea-editing"
                     value={editedDataText || chosenData.data || ''}
                     onChange={(e) => {
-                      console.log('Textarea onChange triggered, new value:', e.target.value);
+                      // console.log('Textarea onChange triggered, new value:', e.target.value);
                       setEditedDataText(e.target.value);
-                      console.log('Updated editedDataText to:', e.target.value);
+                      // console.log('Updated editedDataText to:', e.target.value);
                     }}
                     placeholder="Enter your data content here..."
                     rows={8}
@@ -640,13 +644,16 @@ function InfoData() {
                               // Auto-set appropriate model for each method
                               if (e.target.value === 'openai-vision') {
                                 setOcrModel('gpt-4o');
+                              } else if (e.target.value === 'xai-vision') {
+                                setOcrModel('grok-4');
                               } else {
                                 setOcrModel('default');
                               }
                             }}
                             disabled={ocrLoading}
                           >
-                            <option value="openai-vision">OpenAI Vision (Recommended)</option>
+                            <option value="xai-vision">XAI Grok Vision (Default)</option>
+                            <option value="openai-vision">OpenAI Vision</option>
                             <option value="google-vision">Google Vision API</option>
                             <option value="azure-ocr">Azure Computer Vision</option>
                             <option value="aws-textract">AWS Textract</option>
@@ -662,7 +669,12 @@ function InfoData() {
                             onChange={(e) => setOcrModel(e.target.value)}
                             disabled={ocrLoading}
                           >
-                            {ocrMethod === 'openai-vision' ? (
+                            {ocrMethod === 'xai-vision' ? (
+                              <>
+                                <option value="grok-4">Grok 4 (Default)</option>
+                                <option value="grok-4-fast-reasoning">Grok 4 Fast Reasoning</option>
+                              </>
+                            ) : ocrMethod === 'openai-vision' ? (
                               <>
                                 <option value="gpt-4o">GPT-4o (Recommended)</option>
                                 <option value="gpt-4o-mini">GPT-4o Mini (Faster)</option>
@@ -689,6 +701,8 @@ function InfoData() {
                               // Reset model to default when provider changes
                               if (e.target.value === 'openai') {
                                 setLlmModel('o1-mini');
+                              } else if (e.target.value === 'xai') {
+                                setLlmModel('grok-4');
                               } else if (e.target.value === 'anthropic') {
                                 setLlmModel('claude-3-sonnet');
                               } else if (e.target.value === 'google') {
@@ -697,6 +711,7 @@ function InfoData() {
                             }}
                             disabled={ocrLoading}
                           >
+                            <option value="xai">XAI (Grok) - Default</option>
                             <option value="openai">OpenAI</option>
                             <option value="anthropic">Anthropic</option>
                             <option value="google">Google</option>
@@ -719,6 +734,12 @@ function InfoData() {
                                 <option value="gpt-4o-mini">GPT-4o Mini</option>
                                 <option value="gpt-4">GPT-4</option>
                                 <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                              </>
+                            )}
+                            {llmProvider === 'xai' && (
+                              <>
+                                <option value="grok-4">Grok 4 (Default)</option>
+                                <option value="grok-4-fast-reasoning">Grok 4 Fast Reasoning</option>
                               </>
                             )}
                             {llmProvider === 'anthropic' && (

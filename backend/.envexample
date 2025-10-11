@@ -1,11 +1,17 @@
-NODE_ENV = development
-PORT = 5000
-MONGO_URI = mongodb+srv://MONGO_USER:MONGO_PASS@YOURMONGOURI(cluster...)
-JWT_SECRET = abc123
-OPENAI_KEY = 123456789
-RAPIDAPI_KEY= 123456789
-STRIPE_KEY = sk_test_123456789
-POSTMARK_API_TOKEN=123456789
-FROM_EMAIL=example@example.com
+NODE_ENV=development
+PORT=5000
+MONGO_URI=mongodb+srv://username:password@cluster0.mongodb.net/database_name?retryWrites=true&w=majority
+JWT_SECRET=your_jwt_secret_key_here
+OPENAI_KEY=sk-your_openai_api_key_here
+XAI_KEY=xai-your_xai_api_key_here
+RAPIDAPI_KEY=your_rapidapi_key_here
+STRIPE_KEY=sk_live_your_stripe_secret_key_here
+POSTMARK_API_TOKEN=your_postmark_api_token_here
+FROM_EMAIL=your_sender_email@example.com
+GOOGLE_KEY=your_google_api_key_here
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=your_aws_access_key_id_here
+AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key_here
+ADMIN_USER_ID=your_admin_user_id_here
 
 # Remember to update the backend database vars when hosting

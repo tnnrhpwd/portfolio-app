@@ -71,6 +71,7 @@ const {
   putHashData, putPaymentMethod, updateCustomer,
   forgotPassword, resetPassword, forgotPasswordAuthenticated,
   extractOCR, updateWithOCR,
+  getLLMProviders,
 } = require('../controllers');
 
 // Import referer analytics controller
@@ -145,6 +146,9 @@ router.route('/public')
 
 // Public route for membership pricing (no authentication required)
 router.get('/membership-pricing', getMembershipPricing); // GET request for fetching membership pricing
+
+// Public route for LLM providers (no authentication required)
+router.get('/llm-providers', getLLMProviders); // GET request for fetching available LLM providers
 
 // Protected routes
 router.get('/all/admin', protect, getAllData); // GET request for fetching all data (admin only)

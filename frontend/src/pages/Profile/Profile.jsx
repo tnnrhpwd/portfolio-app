@@ -390,19 +390,23 @@ function Profile() {
                       <div className="usage-stat">
                         <span className="usage-label">� Available Credits</span>
                         <span className="usage-value">
-                          ${userUsage?.availableCredits !== undefined ? 
-                            Number(userUsage.availableCredits).toFixed(4) : 
-                            '0.0000'
+                          {user?._id === '6770a067c725cbceab958619' ? 
+                            '∞ (Unlimited)' : 
+                            userUsage?.availableCredits !== undefined ? 
+                              `$${Number(userUsage.availableCredits).toFixed(4)}` : 
+                              '$0.0000'
                           }
                         </span>
                       </div>
                       <div className="usage-stat">
                         <span className="usage-label">🎯 Monthly Limit</span>
                         <span className="usage-value">
-                          {userUsage?.membership === 'Premium' ? 
-                            `$${userUsage?.customLimit !== undefined ? Number(userUsage.customLimit).toFixed(2) : '10.00'}` : 
-                            userUsage?.membership === 'Flex' ? '$0.50' :
-                            '$0.00'
+                          {user?._id === '6770a067c725cbceab958619' ? 
+                            '∞ (Admin)' : 
+                            userUsage?.membership === 'Premium' ? 
+                              `$${userUsage?.customLimit !== undefined ? Number(userUsage.customLimit).toFixed(2) : '10.00'}` : 
+                              userUsage?.membership === 'Flex' ? '$0.50' :
+                              '$0.00'
                           }
                         </span>
                       </div>
