@@ -98,10 +98,11 @@
 /* Actions Section */
 .infodata-actions {
     display: flex;
-    justify-content: flex-end;
+    justify-content: flex-start;
     align-items: center;
     gap: calc(var(--nav-size) * 0.2);
     margin-bottom: calc(var(--nav-size) * 0.3);
+    margin-top: calc(var(--nav-size) * 0.3);
     flex-wrap: wrap;
 }
 
@@ -1157,12 +1158,6 @@
         font-size: calc(var(--nav-size) * 0.28);
         padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.35);
         align-self: flex-start;
-    }
-    
-    .infodata-actions {
-        justify-content: flex-start;
-        flex-direction: column;
-        gap: calc(var(--nav-size) * 0.15);
     }
     
     .infodata-delete-button,

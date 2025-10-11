@@ -13,6 +13,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "install-all": "npm install && concurrently \"npm install --prefix frontend\" \"npm install --prefix backend\"",
+    "build:netlify": "npm install --prefix frontend && npm run build --prefix frontend",
     "docker:build": "docker-compose build",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",

@@ -20,8 +20,8 @@ function InfoData() {
   const [comments, setComments] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [ocrLoading, setOcrLoading] = useState(false);
-  const [ocrMethod, setOcrMethod] = useState('google-vision');
-  const [ocrModel, setOcrModel] = useState('default');
+  const [ocrMethod, setOcrMethod] = useState('openai-vision');
+  const [ocrModel, setOcrModel] = useState('gpt-4o');
   const [llmProvider, setLlmProvider] = useState('openai');
   const [llmModel, setLlmModel] = useState('o1-mini');
   const [editedDataText, setEditedDataText] = useState('');
@@ -534,17 +534,13 @@ function InfoData() {
     <>
       <Header />
       <div className="infodata">
-        <button className='infodata-back-button' onClick={() => navigate('/plans')}>Back to /plans</button>
         {user && chosenData && (
           <div className='infodata-actions'>
             {(user._id === chosenData.userID || user.id === chosenData.userID) && (
               <>
-                <button className='infodata-update-button' onClick={handleUpdateData}>
-                  Save Changes
-                </button>
-                <button className='infodata-delete-button' onClick={handleShowDeleteData}>
-                  Delete Data
-                </button>
+                <button className='infodata-back-button' onClick={() => navigate('/plans')}> /plans</button>
+                <button className='infodata-update-button' onClick={handleUpdateData}>Save</button>
+                <button className='infodata-delete-button' onClick={handleShowDeleteData}>Delete</button>
               </>
             )}
           </div>
@@ -639,9 +635,18 @@ function InfoData() {
                           <select 
                             id="ocrMethod"
                             value={ocrMethod} 
-                            onChange={(e) => setOcrMethod(e.target.value)}
+                            onChange={(e) => {
+                              setOcrMethod(e.target.value);
+                              // Auto-set appropriate model for each method
+                              if (e.target.value === 'openai-vision') {
+                                setOcrModel('gpt-4o');
+                              } else {
+                                setOcrModel('default');
+                              }
+                            }}
                             disabled={ocrLoading}
                           >
+                            <option value="openai-vision">OpenAI Vision (Recommended)</option>
                             <option value="google-vision">Google Vision API</option>
                             <option value="azure-ocr">Azure Computer Vision</option>
                             <option value="aws-textract">AWS Textract</option>
@@ -657,10 +662,20 @@ function InfoData() {
                             onChange={(e) => setOcrModel(e.target.value)}
                             disabled={ocrLoading}
                           >
-                            <option value="default">Default</option>
-                            <option value="handwriting">Handwriting Enhanced</option>
-                            <option value="document">Document Text</option>
-                            <option value="table">Table Detection</option>
+                            {ocrMethod === 'openai-vision' ? (
+                              <>
+                                <option value="gpt-4o">GPT-4o (Recommended)</option>
+                                <option value="gpt-4o-mini">GPT-4o Mini (Faster)</option>
+                                <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                              </>
+                            ) : (
+                              <>
+                                <option value="default">Default</option>
+                                <option value="handwriting">Handwriting Enhanced</option>
+                                <option value="document">Document Text</option>
+                                <option value="table">Table Detection</option>
+                              </>
+                            )}
                           </select>
                         </div>
 

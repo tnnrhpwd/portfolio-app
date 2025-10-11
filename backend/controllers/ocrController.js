@@ -37,26 +37,102 @@ const dynamodb = DynamoDBDocumentClient.from(client);
 // OCR Provider Functions
 async function processWithGoogleVision(imageData, model = 'default') {
     // Google Vision API implementation
-    // This would require setting up Google Cloud credentials and Vision API
     try {
         console.log('Processing with Google Vision API, model:', model);
         
-        // Placeholder for Google Vision API call
-        // const vision = require('@google-cloud/vision');
-        // const client = new vision.ImageAnnotatorClient();
-        // const request = { image: { content: imageData } };
-        // const [result] = await client.textDetection(request);
+        if (process.env.GOOGLE_CLOUD_KEY_FILE) {
+            const vision = require('@google-cloud/vision');
+            const client = new vision.ImageAnnotatorClient({
+                keyFilename: process.env.GOOGLE_CLOUD_KEY_FILE
+            });
+            
+            const request = { 
+                image: { content: Buffer.from(imageData, 'base64') },
+                features: [
+                    { type: 'TEXT_DETECTION' },
+                    { type: 'DOCUMENT_TEXT_DETECTION' }
+                ]
+            };
+            
+            const [result] = await client.annotateImage(request);
+            const textAnnotations = result.textAnnotations;
+            
+            if (textAnnotations && textAnnotations.length > 0) {
+                const extractedText = textAnnotations[0].description;
+                const confidence = textAnnotations[0].confidence || 0.9;
+                
+                return {
+                    extractedText: extractedText,
+                    confidence: confidence,
+                    provider: 'google-vision',
+                    model: model
+                };
+            } else {
+                return {
+                    extractedText: "No text detected in image",
+                    confidence: 0.0,
+                    provider: 'google-vision',
+                    model: model
+                };
+            }
+        } else {
+            console.log('Google Vision API credentials not configured, using OpenAI Vision as fallback');
+            return await processWithOpenAIVision(imageData, model);
+        }
         
-        // For now, return mock data
-        return {
-            extractedText: "Mock OCR result from Google Vision API",
-            confidence: 0.95,
-            provider: 'google-vision',
-            model: model
-        };
     } catch (error) {
         console.error('Google Vision API error:', error);
-        throw new Error(`Google Vision API failed: ${error.message}`);
+        console.log('Falling back to OpenAI Vision');
+        return await processWithOpenAIVision(imageData, model);
+    }
+}
+
+async function processWithOpenAIVision(imageData, model = 'gpt-4o') {
+    // OpenAI Vision API implementation - Production default
+    try {
+        console.log('Processing with OpenAI Vision API, model:', model);
+        
+        await initializeLLMClients();
+        
+        if (!openaiClient) {
+            throw new Error('OpenAI client not initialized');
+        }
+        
+        const response = await openaiClient.chat.completions.create({
+            model: model || 'gpt-4o',
+            messages: [
+                {
+                    role: 'user',
+                    content: [
+                        {
+                            type: 'text',
+                            text: 'Extract all text from this image. Focus on handwritten notes, printed text, schedules, tasks, and any productivity-related content. Maintain the original structure and formatting as much as possible. If there are time entries, meetings, or action items, preserve their format.'
+                        },
+                        {
+                            type: 'image_url',
+                            image_url: {
+                                url: `data:image/jpeg;base64,${imageData}`
+                            }
+                        }
+                    ]
+                }
+            ],
+            max_tokens: 1000
+        });
+        
+        const extractedText = response.choices[0]?.message?.content || 'No text detected';
+        
+        return {
+            extractedText: extractedText,
+            confidence: 0.95, // OpenAI Vision is generally very accurate
+            provider: 'openai-vision',
+            model: model || 'gpt-4o',
+            usage: response.usage
+        };
+        
+    } catch (error) {
+        console.error('OpenAI Vision API error:', error);
+        throw new Error(`OpenAI Vision failed: ${error.message}`);
     }
 }
 
@@ -65,20 +141,56 @@ async function processWithAzureOCR(imageData, model = 'default') {
     try {
         console.log('Processing with Azure Computer Vision, model:', model);
         
-        // Placeholder for Azure Computer Vision API call
-        // const { ComputerVisionClient } = require('@azure/cognitiveservices-computervision');
-        // const { ApiKeyCredentials } = require('@azure/ms-rest-js');
+        if (process.env.AZURE_COMPUTER_VISION_KEY && process.env.AZURE_COMPUTER_VISION_ENDPOINT) {
+            const { ComputerVisionClient } = require('@azure/cognitiveservices-computervision');
+            const { ApiKeyCredentials } = require('@azure/ms-rest-js');
+            
+            const computerVisionClient = new ComputerVisionClient(
+                new ApiKeyCredentials({ 
+                    inHeader: { 'Ocp-Apim-Subscription-Key': process.env.AZURE_COMPUTER_VISION_KEY } 
+                }),
+                process.env.AZURE_COMPUTER_VISION_ENDPOINT
+            );
+            
+            const imageBuffer = Buffer.from(imageData, 'base64');
+            const readResult = await computerVisionClient.readInStream(imageBuffer);
+            
+            // Get operation ID from the operation URL
+            const operationId = readResult.operationLocation.split('/').slice(-1)[0];
+            
+            // Wait for the operation to complete
+            let result;
+            do {
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+                result = await computerVisionClient.getReadResult(operationId);
+            } while (result.status === 'running' || result.status === 'notStarted');
+            
+            if (result.status === 'succeeded') {
+                let extractedText = '';
+                for (const page of result.analyzeResult.readResults) {
+                    for (const line of page.lines) {
+                        extractedText += line.text + '\n';
+                    }
+                }
+                
+                return {
+                    extractedText: extractedText.trim(),
+                    confidence: 0.92,
+                    provider: 'azure-ocr',
+                    model: model
+                };
+            } else {
+                throw new Error('Azure OCR operation failed');
+            }
+        } else {
+            console.log('Azure Computer Vision credentials not configured, using OpenAI Vision as fallback');
+            return await processWithOpenAIVision(imageData, model);
+        }
         
-        // For now, return mock data
-        return {
-            extractedText: "Mock OCR result from Azure Computer Vision",
-            confidence: 0.92,
-            provider: 'azure-ocr',
-            model: model
-        };
     } catch (error) {
         console.error('Azure Computer Vision error:', error);
-        throw new Error(`Azure Computer Vision failed: ${error.message}`);
+        console.log('Falling back to OpenAI Vision');
+        return await processWithOpenAIVision(imageData, model);
     }
 }
 
@@ -108,29 +220,46 @@ async function processWithTesseract(imageData, model = 'default') {
     try {
         console.log('Processing with Tesseract (local), model:', model);
         
-        // This would require tesseract.js
-        // const Tesseract = require('tesseract.js');
-        // const { data: { text } } = await Tesseract.recognize(Buffer.from(imageData, 'base64'));
+        const Tesseract = require('tesseract.js');
         
-        // For now, return mock data with realistic handwriting detection
-        const mockTexts = [
-            "9:00 AM - Planning launch strategy\n10:30 AM - Team meeting\n11:00 AM - Code review\n2:00 PM - Client call",
-            "8:30 Meeting prep\n9:00 Stand-up meeting\n10:15 Development work\n12:00 Lunch break\n1:00 PM Documentation",
-            "Morning: Research competitor analysis\nAfternoon: Product design review\nEvening: Performance optimization",
-            "Tasks:\n- Fix bug #123\n- Update documentation\n- Review pull requests\n- Prepare presentation"
-        ];
+        // Configure Tesseract options based on model
+        let tesseractOptions = {
+            logger: m => console.log(m) // Optional logging
+        };
         
-        const randomText = mockTexts[Math.floor(Math.random() * mockTexts.length)];
+        switch (model) {
+            case 'handwriting':
+                tesseractOptions.tessedit_char_whitelist = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,!?:;-/() \n';
+                break;
+            case 'document':
+                tesseractOptions.tessedit_pageseg_mode = Tesseract.PSM.SINGLE_BLOCK;
+                break;
+            case 'table':
+                tesseractOptions.tessedit_pageseg_mode = Tesseract.PSM.SINGLE_UNIFORM_BLOCK;
+                break;
+            default:
+                tesseractOptions.tessedit_pageseg_mode = Tesseract.PSM.AUTO;
+        }
+        
+        // Convert base64 to buffer
+        const imageBuffer = Buffer.from(imageData, 'base64');
+        
+        // Perform OCR
+        const { data: { text, confidence } } = await Tesseract.recognize(imageBuffer, 'eng', tesseractOptions);
         
         return {
-            extractedText: randomText,
-            confidence: 0.85,
+            extractedText: text.trim(),
+            confidence: confidence / 100, // Tesseract returns confidence as 0-100, normalize to 0-1
             provider: 'tesseract',
             model: model
         };
+        
     } catch (error) {
         console.error('Tesseract error:', error);
-        throw new Error(`Tesseract failed: ${error.message}`);
+        
+        // Fallback to OpenAI Vision if Tesseract fails
+        console.log('Tesseract failed, falling back to OpenAI Vision');
+        return await processWithOpenAIVision(imageData, model);
     }
 }
 
@@ -257,6 +386,10 @@ const extractOCR = asyncHandler(async (req, res) => {
         
         // Route to appropriate OCR provider
         switch (method) {
+            case 'openai-vision':
+            default:
+                ocrResult = await processWithOpenAIVision(imageData, model);
+                break;
             case 'google-vision':
                 ocrResult = await processWithGoogleVision(imageData, model);
                 break;
@@ -267,7 +400,6 @@ const extractOCR = asyncHandler(async (req, res) => {
                 ocrResult = await processWithAWSTextract(imageData, model);
                 break;
             case 'tesseract':
-            default:
                 ocrResult = await processWithTesseract(imageData, model);
                 break;
         }
