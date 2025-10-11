@@ -725,23 +725,36 @@ function InfoData() {
                         </div>
                       </div>
                       
-                      <button 
-                        className='infodata-ocr-extract-btn'
-                        onClick={handleOcrExtraction}
-                        disabled={ocrLoading}
-                      >
-                        {ocrLoading ? (
-                          <>
-                            <Spinner />
-                            <span>Extracting...</span>
-                          </>
-                        ) : (
-                          <>
-                            <span>🔍</span>
-                            <span>Extract Rich Action Data</span>
-                          </>
-                        )}
-                      </button>
+                      <div className='infodata-ocr-buttons'>
+                        <button 
+                          className='infodata-ocr-extract-btn'
+                          onClick={handleOcrExtraction}
+                          disabled={ocrLoading}
+                        >
+                          {ocrLoading ? (
+                            <>
+                              <Spinner />
+                              <span>Extracting...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>🔍</span>
+                              <span>Extract Rich Action Data</span>
+                            </>
+                          )}
+                        </button>
+                        
+                        <button 
+                          className='infodata-ocr-extract-btn'
+                          onClick={() => navigate('/InfoPlanner')}
+                          style={{
+                            background: 'linear-gradient(45deg, var(--fg-orange), var(--fg-pink))'
+                          }}
+                        >
+                          <span>📋</span>
+                          <span>How to Use Paper Planner</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}

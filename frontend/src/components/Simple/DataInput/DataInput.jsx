@@ -214,9 +214,16 @@ function DataInput() {
             <div className='planit-datainput-group-public'>Rich Action Data (for OCR & time tracking)</div>
           </label>
         </div>
-        <div className='planit-datainput-group'>
+        <div className='planit-datainput-group planit-datainput-buttons-container'>
           <button className='planit-datainput-submit' type='submit'>
             Create Plan
+          </button>
+          <button 
+            className='planit-datainput-submit planit-datainput-guide-btn' 
+            type='button'
+            onClick={() => window.open('/InfoPlanner', '_blank')}
+          >
+            📋 Paper Planner Guide
           </button>
         </div>
       </form>

@@ -294,9 +294,20 @@ label[for="file-input"]:hover {
     cursor: pointer;
 }
 
-/* Submit Button */
+/* Buttons Container - Side by Side with Wrap */
+.planit-datainput-buttons-container {
+    display: flex;
+    flex-direction: row !important; /* Override parent column layout */
+    flex-wrap: wrap;
+    gap: calc(var(--nav-size) * 0.25);
+    justify-content: center;
+    width: 100%;
+    align-items: center;
+}
+
+/* Submit Button - Side by Side Layout */
 .planit-datainput-submit {
-    font-size: calc(var(--nav-size) * 0.35);
+    font-size: calc(var(--nav-size) * 0.28);
     font-weight: 600;
     padding: calc(var(--nav-size) * 0.4) calc(var(--nav-size) * 0.8);
     background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
@@ -312,8 +323,26 @@ label[for="file-input"]:hover {
         0 2px 8px rgba(0, 0, 0, 0.1);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    align-self: center;
-    min-width: calc(var(--nav-size) * 3);
+    flex: 0 1 auto;
+    min-width: 140px;
+    white-space: nowrap;
+}
+
+/* Guide Button Variant */
+.planit-datainput-guide-btn {
+    background: linear-gradient(135deg, var(--fg-orange), var(--fg-pink)) !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+    box-shadow: 
+        0 4px 16px rgba(var(--fg-orange-rgb, 255, 165, 0), 0.3),
+        0 2px 8px rgba(0, 0, 0, 0.1) !important;
+}
+
+.planit-datainput-guide-btn:hover {
+    background: linear-gradient(135deg, var(--fg-pink), var(--fg-orange)) !important;
+    box-shadow: 
+        0 6px 20px rgba(var(--fg-orange-rgb, 255, 165, 0), 0.4),
+        0 4px 12px rgba(0, 0, 0, 0.15) !important;
 }
 
 .planit-datainput-submit::before {
@@ -391,6 +420,26 @@ label[for="file-input"]:hover {
     .planit-datainput-submit {
         font-size: calc(var(--nav-size) * 0.3);
         padding: calc(var(--nav-size) * 0.35) calc(var(--nav-size) * 0.6);
+        min-width: 130px;
+    }
+    
+    .planit-datainput-buttons-container {
+        gap: calc(var(--nav-size) * 0.2);
+    }
+}
+
+/* Wrap buttons when screen gets narrower */
+@media (max-width: 520px) {
+    .planit-datainput-buttons-container {
+        flex-direction: column;
+        gap: calc(var(--nav-size) * 0.2);
+    }
+    
+    .planit-datainput-submit {
+        width: 100%;
+        min-width: auto;
+        max-width: none;
+        font-size: calc(var(--nav-size) * 0.28);
     }
 }
 

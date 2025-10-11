@@ -17,6 +17,7 @@ import Sonic from './pages/Projects/Sonic/Sonic';
 import Wordle from './pages/Projects/Wordle/Wordle';
 import WordleSolver from './pages/Projects/WordleSolver/WordleSolver';
 import InfoData from './pages/Simple/InfoData/InfoData.jsx';
+import InfoPlanner from './pages/Simple/InfoPlanner/InfoPlanner.jsx';
 import LegalTerms from './pages/LegalTerms.jsx'
 import Login from './pages/Login/Login.jsx'
 import Pay from './pages/Simple/Pay/Pay.jsx'
@@ -50,6 +51,7 @@ function App() {
             <Route path="/" element={<Home/>} />
             <Route path="/home" element={<Home/>} />
             <Route path='/InfoData/:id' element={<InfoData />} />
+            <Route path='/InfoPlanner' element={<InfoPlanner />} />
             <Route path='/LegalTerms' element={<LegalTerms />} />
             <Route path='/login' element={<Login />} />
             <Route path='/net' element={<Net />} />
