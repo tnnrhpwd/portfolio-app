@@ -70,6 +70,7 @@ const {
   putData,
   putHashData, putPaymentMethod, updateCustomer,
   forgotPassword, resetPassword, forgotPasswordAuthenticated,
+  extractOCR, updateWithOCR,
 } = require('../controllers');
 
 // Import referer analytics controller
@@ -148,6 +149,10 @@ router.get('/membership-pricing', getMembershipPricing); // GET request for fetc
 // Protected routes
 router.get('/all/admin', protect, getAllData); // GET request for fetching all data (admin only)
 router.post('/compress', protect, compressData); // Route to handle data compression
+
+// OCR routes
+router.post('/ocr-extract', protect, extractOCR); // POST request for OCR text extraction
+router.put('/ocr-update/:id', protect, updateWithOCR); // PUT request for updating item with OCR results
 
 // Customer routes and specific paths should come before generic routes like /:id
 router.post('/create-customer', protect, paymentLimiter, createCustomer); // Protect customer creation

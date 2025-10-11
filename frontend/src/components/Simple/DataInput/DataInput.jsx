@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import { createData } from '../../../features/data/dataSlice';
 import './DataInput.css';
 import { toast } from 'react-toastify';
@@ -11,6 +11,7 @@ function DataInput() {
   const [actionText, setActionText] = useState('');
   const [files, setFiles] = useState([]);
   const [isPublic, setIsPublic] = useState(false);
+  const [isRichActionData, setIsRichActionData] = useState(false);
   const [cost, setCost] = useState('');
   const [costType, setCostType] = useState('one-time');
   const fileInputRef = useRef(null);
@@ -18,7 +19,7 @@ function DataInput() {
   const toastDuration = parseInt(rootStyle.getPropertyValue('--toast-duration'), 10);
   const dispatch = useDispatch();
 
-  const { user } = useSelector((state) => state.data);
+  // const { user } = useSelector((state) => state.data);
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -37,6 +38,7 @@ function DataInput() {
     // If actionText is empty but files exist, it will add "Action:"
     if (actionText || files.length > 0) parts.push(`Action:${actionText}`);
     if (isPublic) parts.push(`Public:${isPublic}`);
+    if (isRichActionData) parts.push(`RichActionData:${isRichActionData}`);
     
     const text = parts.join('|');
 
@@ -74,6 +76,7 @@ function DataInput() {
     setActionText('');
     setFiles([]);
     setIsPublic(false);
+    setIsRichActionData(false);
     setCost('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -198,6 +201,17 @@ function DataInput() {
               onChange={(e) => setIsPublic(e.target.checked)}
             />
             <div className='planit-datainput-group-public'>Public</div>
+          </label>
+        </div>
+        <div className='planit-datainput-group'>
+          <label>
+            <input
+              type='checkbox'
+              className='planit-datainput-group-check'
+              checked={isRichActionData}
+              onChange={(e) => setIsRichActionData(e.target.checked)}
+            />
+            <div className='planit-datainput-group-public'>Rich Action Data (for OCR & time tracking)</div>
           </label>
         </div>
         <div className='planit-datainput-group'>

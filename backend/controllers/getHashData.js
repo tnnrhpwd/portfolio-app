@@ -274,8 +274,12 @@ const getHashData = asyncHandler(async (req, res) => {
                         console.log('Checking if item belongs to user:', userSearchString);
                         console.log('Item text:', itemText.length > 100 ? itemText.substring(0, 100) + '...' : itemText);
                         
-                        if (itemText.includes(userSearchString)) {
-                            console.log('Item belongs to user, returning data');
+                        // Check if item belongs to user OR is public
+                        const isUserItem = itemText.includes(userSearchString);
+                        const isPublicItem = itemText.includes('Public:true');
+                        
+                        if (isUserItem || isPublicItem) {
+                            console.log(isUserItem ? 'Item belongs to user' : 'Item is public, returning data');
                             res.status(200).json({
                                 data: [{
                                     data: item.text, // Return the text content as the data field
@@ -288,8 +292,8 @@ const getHashData = asyncHandler(async (req, res) => {
                                 }]
                             });
                         } else {
-                            // Item exists but doesn't belong to this user
-                            console.log('Item does not belong to user');
+                            // Item exists but doesn't belong to this user and isn't public
+                            console.log('Item does not belong to user and is not public');
                             res.status(200).json({ data: [] }); // Return empty array instead of 403
                         }
                     } else {

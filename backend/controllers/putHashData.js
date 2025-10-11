@@ -26,6 +26,9 @@ const dynamodb = DynamoDBDocumentClient.from(client);
 const putHashData = asyncHandler(async (req, res) => {
     await checkIP(req);
     console.log('Update Data Request:', req.body);
+    console.log('Request body keys:', Object.keys(req.body));
+    console.log('Request body data:', req.body.data);
+    console.log('Request body text:', req.body.text);
 
     // Check for user
     if (!req.user) {
@@ -99,7 +102,9 @@ const putHashData = asyncHandler(async (req, res) => {
         }
 
         // Skip payment method check if text is 'free' or if it's Net chat content
-        if (req.body.text.toLowerCase() === 'free' || req.body.text.includes('|Net:')) {
+        // Handle both req.body.text and req.body.data.text formats
+        const textContent = req.body.text || (req.body.data && req.body.data.text) || '';
+        if (textContent.toLowerCase() === 'free' || textContent.includes('|Net:')) {
             await updateDataHolder(req, res, item);
             return;
         }
@@ -234,12 +239,45 @@ const handleAgreeDisagreeAction = async (req, res) => {
 };
 
 const updateDataHolder = async (req, res, item) => {
+    // Handle both req.body.text and req.body.data.text formats
+    const textContent = req.body.text || (req.body.data && req.body.data.text) || '';
+    
+    // Check if this is a general data update (frontend sends data.text format)
+    if (req.body.data && req.body.data.text) {
+        console.log('Processing general data text update');
+        
+        // For general data updates, replace the entire text content
+        const updatedText = textContent;
+        console.log('Updated data text:', updatedText);
+
+        // Use put operation to update the item
+        const putParams = {
+            TableName: 'Simple',
+            Item: {
+                ...item, // Keep all existing data
+                text: updatedText, // Update the text
+                updatedAt: new Date().toISOString() // Update timestamp
+            }
+        };
+
+        try {
+            await dynamodb.send(new PutCommand(putParams));
+            const updatedItem = putParams.Item;
+            console.log('Data text updated successfully');
+            res.status(200).json(updatedItem);
+        } catch (error) {
+            console.error('Error updating data text in DynamoDB:', error);
+            res.status(500).json({ error: 'Failed to update data text in DynamoDB' });
+        }
+        return;
+    }
+    
     // Check if this is a Net chat update (contains |Net: content)
-    if (req.body.text.includes('|Net:')) {
+    if (textContent.includes('|Net:')) {
         console.log('Processing Net chat update');
         
         // For Net chats, replace the entire text content
-        const updatedText = req.body.text;
+        const updatedText = textContent;
         console.log('Updated Net chat text:', updatedText);
 
         // Use put operation to update the item
@@ -274,8 +312,8 @@ const updateDataHolder = async (req, res, item) => {
 
     // Update subscription plan
     const updatedText = item.text.includes('|Rank:')
-        ? item.text.replace(/(\|Rank:)(Free|Flex|Premium)/, `$1${req.body.text}`)
-        : `${item.text}|Rank:${req.body.text}`;
+        ? item.text.replace(/(\|Rank:)(Free|Flex|Premium)/, `$1${textContent}`)
+        : `${item.text}|Rank:${textContent}`;
 
     console.log('Updated text:', updatedText);
 
@@ -294,14 +332,14 @@ const updateDataHolder = async (req, res, item) => {
         const updatedItem = putParams.Item;
 
         // Send email notification if rank was changed and we have an email address
-        if (currentRank.toLowerCase() !== req.body.text.toLowerCase()) {
+        if (currentRank.toLowerCase() !== textContent.toLowerCase()) {
             // Extract email address from user data
             const emailMatch = updatedText.match(/Email:([^|]+)/);
             if (emailMatch && emailMatch[1]) {
                 const userEmail = emailMatch[1].trim();
 
                 try {
-                    if (req.body.text.toLowerCase() === 'free') {
+                    if (textContent.toLowerCase() === 'free') {
                         // Downgrade to free plan
                         await sendEmail(userEmail, 'subscriptionCancelled', {
                             plan: currentRank,
@@ -310,14 +348,14 @@ const updateDataHolder = async (req, res, item) => {
                     } else if (currentRank.toLowerCase() === 'free') {
                         // New subscription
                         await sendEmail(userEmail, 'subscriptionCreated', {
-                            plan: req.body.text,
+                            plan: textContent,
                             userData: { text: updatedText }
                         });
                     } else {
                         // Plan change
                         await sendEmail(userEmail, 'subscriptionUpdated', {
                             oldPlan: currentRank,
-                            newPlan: req.body.text,
+                            newPlan: textContent,
                             userData: { text: updatedText }
                         });
                     }

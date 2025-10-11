@@ -2,9 +2,10 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom'; // redirect the user
 import { useSelector, useDispatch } from 'react-redux'; // access state variables
 import { toast } from 'react-toastify'; // visible error notifications
-import { deleteData, getData, getPublicData, resetDataSlice, createData } from '../../../features/data/dataSlice';
+import { deleteData, getData, getPublicData, resetDataSlice, createData, updateData } from '../../../features/data/dataSlice';
 import DeleteView from '../../../components/Simple/DeleteView/DeleteView';
 import DataResult from '../../../components/Simple/DataResult/DataResult';
+import CreatedAt from '../../../components/Simple/DataResult/CreatedAt';
 import Spinner from '../../../components/Spinner/Spinner';
 import './InfoData.css';
 import Header from '../../../components/Header/Header';
@@ -18,6 +19,12 @@ function InfoData() {
   const [commentText, setCommentText] = useState('');
   const [comments, setComments] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrMethod, setOcrMethod] = useState('google-vision');
+  const [ocrModel, setOcrModel] = useState('default');
+  const [llmProvider, setLlmProvider] = useState('openai');
+  const [llmModel, setLlmModel] = useState('o1-mini');
+  const [editedDataText, setEditedDataText] = useState('');
   const navigate = useNavigate();
   const rootStyle = window.getComputedStyle(document.body);
   const toastDuration = parseInt(rootStyle.getPropertyValue('--toast-duration'), 10);
@@ -74,7 +81,20 @@ function InfoData() {
             result = await dispatch(getPublicData({ data: { text: id } })).unwrap();
           } else {
             console.log('Fetching private data...');
-            result = await dispatch(getData({ data: { text: id } })).unwrap();
+            try {
+              // First try private data access
+              result = await dispatch(getData({ data: { text: id } })).unwrap();
+            } catch (privateError) {
+              console.log('Private data access failed, trying public data as fallback...');
+              // If private access fails, try public data as fallback
+              try {
+                result = await dispatch(getPublicData({ data: { text: id } })).unwrap();
+                console.log('✅ Public fallback successful');
+              } catch (publicError) {
+                // Both failed, rethrow the original private error
+                throw privateError;
+              }
+            }
           }
           console.log('✅ Fetch completed successfully');
           console.log('Result type:', typeof result);
@@ -263,18 +283,31 @@ function InfoData() {
         console.log('=== DEBUG: Fetching comments for ID:', chosenData._id);
         const commentSearchQuery = `Comment:${chosenData._id}`;
         
-        // Since comments are public, always try to fetch them
-        // Try private first (if logged in), then public as backup
-        try {
-          if (user) {
-            await dispatch(getData({ data: { text: commentSearchQuery } })).unwrap();
-          } else {
-            await dispatch(getPublicData({ data: { text: commentSearchQuery } })).unwrap();
+        // Fetch comments directly without using Redux to avoid state conflicts
+        const queryData = JSON.stringify({ text: commentSearchQuery });
+        const searchParams = new URLSearchParams({
+          data: queryData
+        });
+        const response = await fetch(`/api/data/public?${searchParams}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
           }
-        } catch (error) {
-          // If private fetch fails, try public fetch as backup
-          console.log('Trying public data as backup for comments');
-          await dispatch(getPublicData({ data: { text: commentSearchQuery } })).unwrap();
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          console.log('=== DEBUG: Comments fetch result:', result);
+          
+          // Process comments directly without affecting main data state
+          if (result.data && Array.isArray(result.data)) {
+            const commentData = result.data.filter(item => {
+              const itemData = typeof item.data === 'string' ? item.data : item.data?.text || '';
+              return itemData.includes(`Comment:${chosenData._id}`);
+            });
+            console.log('Found comments:', commentData.length);
+            setComments(commentData);
+          }
         }
       } catch (error) {
         console.error('Error fetching comments:', error);
@@ -284,21 +317,18 @@ function InfoData() {
     };
 
     fetchComments();
-  }, [chosenData?._id, dispatch, user]);
+  }, [chosenData?._id]);
 
-  // Process comments when data changes (separate from main data processing)
+  // Comments are now fetched directly in the fetchComments useEffect above
+  // This prevents conflicts with the main data.data state
+
+  // Initialize editedDataText when chosenData loads
   useEffect(() => {
-    if (data.data && chosenData?._id) {
-      console.log('=== DEBUG: Processing comments data ===');
-      const commentData = data.data.filter(item => {
-        const itemData = typeof item.data === 'string' ? item.data : item.data?.text || '';
-        return itemData.includes(`Comment:${chosenData._id}`);
-      });
-      
-      console.log('Found comments:', commentData.length);
-      setComments(commentData);
+    if (chosenData && chosenData.data && !editedDataText) {
+      setEditedDataText(chosenData.data);
+      console.log('Initialized editedDataText with:', chosenData.data);
     }
-  }, [data.data, chosenData?._id]);
+  }, [chosenData, editedDataText]);
 
   // Handle comment submission
   const handleCommentSubmit = async (e) => {
@@ -331,18 +361,28 @@ function InfoData() {
       setCommentText('');
       toast.success('Comment added successfully!', { autoClose: toastDuration });
       
-      // Refresh comments - since comments are public, try both private and public data sources
+      // Refresh comments using direct fetch to avoid Redux state conflicts
       const commentSearchQuery = `Comment:${chosenData._id}`;
       try {
-        if (user) {
-          await dispatch(getData({ data: { text: commentSearchQuery } })).unwrap();
-        } else {
-          await dispatch(getPublicData({ data: { text: commentSearchQuery } })).unwrap();
+        const queryData = JSON.stringify({ text: commentSearchQuery });
+        const searchParams = new URLSearchParams({ data: queryData });
+        const response = await fetch(`/api/data/public?${searchParams}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          if (result.data && Array.isArray(result.data)) {
+            const commentData = result.data.filter(item => {
+              const itemData = typeof item.data === 'string' ? item.data : item.data?.text || '';
+              return itemData.includes(`Comment:${chosenData._id}`);
+            });
+            setComments(commentData);
+          }
         }
       } catch (error) {
-        // If private fetch fails, try public fetch as backup
-        console.log('Trying public data as backup for comments');
-        await dispatch(getPublicData({ data: { text: commentSearchQuery } })).unwrap();
+        console.error('Error refreshing comments:', error);
       }
       
     } catch (error) {
@@ -362,17 +402,150 @@ function InfoData() {
     setShowDeleteDataConfirmation(!showDeleteDataConfirmation);
   };
 
+  // Handle data update
+  const handleUpdateData = async () => {
+    const currentText = editedDataText || chosenData.data || '';
+    
+    if (!currentText.trim()) {
+      toast.error('Please enter data to update');
+      return;
+    }
+
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    // Check if there are actually changes to save
+    if (currentText === chosenData.data) {
+      toast.info('No changes detected');
+      return;
+    }
+
+    try {
+      const updatePayload = {
+        id: chosenData._id,
+        data: { text: currentText }
+      };
+
+      await dispatch(updateData(updatePayload)).unwrap();
+      
+      // Update local chosenData state to reflect changes
+      setChosenData(prev => ({
+        ...prev,
+        data: currentText
+      }));
+      
+      toast.success('Data updated successfully!', { autoClose: toastDuration });
+    } catch (error) {
+      console.error('Error updating data:', error);
+      toast.error(`Failed to update data: ${error.message}`);
+    }
+  };
+
+
+
+  // Handle OCR extraction
+  const handleOcrExtraction = async () => {
+    if (!chosenData?._id || !chosenData?.files || chosenData.files.length === 0) {
+      toast.error('No images found to process');
+      return;
+    }
+
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    setOcrLoading(true);
+    
+    try {
+      // Find the first image file
+      const imageFile = chosenData.files.find(file => file.contentType?.startsWith('image/'));
+      
+      if (!imageFile) {
+        toast.error('No image files found to process');
+        return;
+      }
+
+      // Create the OCR request payload
+      const ocrRequestData = {
+        imageData: imageFile.data,
+        contentType: imageFile.contentType,
+        filename: imageFile.filename,
+        method: ocrMethod,
+        model: ocrModel,
+        llmProvider: llmProvider,
+        llmModel: llmModel
+      };
+
+      // Call the backend OCR endpoint
+      const response = await fetch('/api/data/ocr-extract', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`
+        },
+        body: JSON.stringify(ocrRequestData)
+      });
+
+      if (!response.ok) {
+        throw new Error(`OCR processing failed: ${response.status}`);
+      }
+
+      const ocrResult = await response.json();
+      
+      // Update the database item with OCR results using separate endpoint
+      const updateResponse = await fetch(`/api/data/ocr-update/${chosenData._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`
+        },
+        body: JSON.stringify({
+          ocrText: ocrResult.extractedText,
+          originalText: chosenData.data
+        })
+      });
+
+      if (!updateResponse.ok) {
+        throw new Error(`Failed to update item with OCR results: ${updateResponse.status}`);
+      }
+
+      const updateResult = await updateResponse.json();
+      
+      // Update the chosenData to reflect the changes
+      setChosenData({
+        ...chosenData,
+        data: updateResult.updatedItem.text || updateResult.updatedItem.data || chosenData.data
+      });
+
+      toast.success('OCR extraction completed successfully!', { autoClose: toastDuration });
+      
+    } catch (error) {
+      console.error('Error extracting OCR:', error);
+      toast.error(`Failed to extract text: ${error.message}`);
+    } finally {
+      setOcrLoading(false);
+    }
+  };
+
   return (
     <>
       <Header />
       <div className="infodata">
         <button className='infodata-back-button' onClick={() => navigate('/plans')}>Back to /plans</button>
         {user && chosenData && (
-          <div className='infodata-delete'>
+          <div className='infodata-actions'>
             {(user._id === chosenData.userID || user.id === chosenData.userID) && (
-            <button className='infodata-delete-button' onClick={handleShowDeleteData}>
-                Delete Data
-            </button>
+              <>
+                <button className='infodata-update-button' onClick={handleUpdateData}>
+                  Save Changes
+                </button>
+                <button className='infodata-delete-button' onClick={handleShowDeleteData}>
+                  Delete Data
+                </button>
+              </>
             )}
           </div>
         )}
@@ -396,16 +569,183 @@ function InfoData() {
             {chosenData && (<div>
                 <div className='infodata-data-content'>
                   <label htmlFor="dataTextArea" className='infodata-data-label'>
-                    Data Content (Click to select all):
+                    Data Content (Always Editable):
                   </label>
                   <textarea
                     id="dataTextArea"
-                    className='infodata-data-textarea'
-                    value={chosenData.data}
-                    readOnly
-                    onClick={(e) => e.target.select()}
+                    className="infodata-data-textarea infodata-data-textarea-editing"
+                    value={editedDataText || chosenData.data || ''}
+                    onChange={(e) => {
+                      console.log('Textarea onChange triggered, new value:', e.target.value);
+                      setEditedDataText(e.target.value);
+                      console.log('Updated editedDataText to:', e.target.value);
+                    }}
+                    placeholder="Enter your data content here..."
+                    rows={8}
                   />
                 </div>
+
+                {/* Date Information Section */}
+                <div className='infodata-date-section'>
+                  <h3 className='infodata-date-title'>
+                    <span className='infodata-date-icon'>📅</span>
+                    Date Information
+                  </h3>
+                  <div className='infodata-date-grid'>
+                    <div className='infodata-date-item'>
+                      <div className='infodata-date-label'>Created:</div>
+                      <div className='infodata-date-value'>
+                        {chosenData.createdAt ? (
+                          <>
+                            <CreatedAt createdAt={chosenData.createdAt} />
+                            <span className='infodata-date-full'> ({new Date(chosenData.createdAt).toLocaleString()})</span>
+                          </>
+                        ) : (
+                          <span className='infodata-date-unavailable'>Date unavailable</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className='infodata-date-item'>
+                      <div className='infodata-date-label'>Last Updated:</div>
+                      <div className='infodata-date-value'>
+                        {chosenData.updatedAt ? (
+                          <>
+                            <CreatedAt createdAt={chosenData.updatedAt} />
+                            <span className='infodata-date-full'> ({new Date(chosenData.updatedAt).toLocaleString()})</span>
+                          </>
+                        ) : (
+                          <span className='infodata-date-unavailable'>Date unavailable</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* OCR Extraction Section */}
+                {user && chosenData.files && chosenData.files.some(file => file.contentType?.startsWith('image/')) && (
+                  <div className='infodata-ocr-section'>
+                    <div className='infodata-ocr-header'>
+                      <h3>Extract Rich Action Data</h3>
+                      <p>Process images to extract text and time data for productivity tracking</p>
+                      <p style={{ fontSize: '0.9em', color: 'var(--text-color-accent)', marginTop: '8px' }}>
+                        Using: {ocrMethod} + {llmProvider}:{llmModel} for enhanced processing
+                      </p>
+                    </div>
+                    
+                    <div className='infodata-ocr-controls'>
+                      <div className='infodata-ocr-dropdowns'>
+                        <div className='infodata-ocr-dropdown-group'>
+                          <label htmlFor="ocrMethod">OCR Method:</label>
+                          <select 
+                            id="ocrMethod"
+                            value={ocrMethod} 
+                            onChange={(e) => setOcrMethod(e.target.value)}
+                            disabled={ocrLoading}
+                          >
+                            <option value="google-vision">Google Vision API</option>
+                            <option value="azure-ocr">Azure Computer Vision</option>
+                            <option value="aws-textract">AWS Textract</option>
+                            <option value="tesseract">Tesseract (Local)</option>
+                          </select>
+                        </div>
+                        
+                        <div className='infodata-ocr-dropdown-group'>
+                          <label htmlFor="ocrModel">OCR Model:</label>
+                          <select 
+                            id="ocrModel"
+                            value={ocrModel} 
+                            onChange={(e) => setOcrModel(e.target.value)}
+                            disabled={ocrLoading}
+                          >
+                            <option value="default">Default</option>
+                            <option value="handwriting">Handwriting Enhanced</option>
+                            <option value="document">Document Text</option>
+                            <option value="table">Table Detection</option>
+                          </select>
+                        </div>
+
+                        <div className='infodata-ocr-dropdown-group'>
+                          <label htmlFor="llmProvider">LLM Provider:</label>
+                          <select 
+                            id="llmProvider"
+                            value={llmProvider} 
+                            onChange={(e) => {
+                              setLlmProvider(e.target.value);
+                              // Reset model to default when provider changes
+                              if (e.target.value === 'openai') {
+                                setLlmModel('o1-mini');
+                              } else if (e.target.value === 'anthropic') {
+                                setLlmModel('claude-3-sonnet');
+                              } else if (e.target.value === 'google') {
+                                setLlmModel('gemini-pro');
+                              }
+                            }}
+                            disabled={ocrLoading}
+                          >
+                            <option value="openai">OpenAI</option>
+                            <option value="anthropic">Anthropic</option>
+                            <option value="google">Google</option>
+                          </select>
+                        </div>
+
+                        <div className='infodata-ocr-dropdown-group'>
+                          <label htmlFor="llmModel">LLM Model:</label>
+                          <select 
+                            id="llmModel"
+                            value={llmModel} 
+                            onChange={(e) => setLlmModel(e.target.value)}
+                            disabled={ocrLoading}
+                          >
+                            {llmProvider === 'openai' && (
+                              <>
+                                <option value="o1-mini">o1-mini (Default)</option>
+                                <option value="o1-preview">o1-preview</option>
+                                <option value="gpt-4o">GPT-4o</option>
+                                <option value="gpt-4o-mini">GPT-4o Mini</option>
+                                <option value="gpt-4">GPT-4</option>
+                                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                              </>
+                            )}
+                            {llmProvider === 'anthropic' && (
+                              <>
+                                <option value="claude-3-sonnet">Claude 3 Sonnet (Default)</option>
+                                <option value="claude-3-opus">Claude 3 Opus</option>
+                                <option value="claude-3-haiku">Claude 3 Haiku</option>
+                                <option value="claude-2.1">Claude 2.1</option>
+                              </>
+                            )}
+                            {llmProvider === 'google' && (
+                              <>
+                                <option value="gemini-pro">Gemini Pro (Default)</option>
+                                <option value="gemini-pro-vision">Gemini Pro Vision</option>
+                                <option value="gemini-ultra">Gemini Ultra</option>
+                              </>
+                            )}
+                          </select>
+                        </div>
+                      </div>
+                      
+                      <button 
+                        className='infodata-ocr-extract-btn'
+                        onClick={handleOcrExtraction}
+                        disabled={ocrLoading}
+                      >
+                        {ocrLoading ? (
+                          <>
+                            <Spinner />
+                            <span>Extracting...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>🔍</span>
+                            <span>Extract Rich Action Data</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {chosenData.files && chosenData.files.map((file, index) => (
                   <div key={chosenData._id + "attachments" + index} className='infodata-data-attachments'>
                     {file.contentType.startsWith('image/') && (

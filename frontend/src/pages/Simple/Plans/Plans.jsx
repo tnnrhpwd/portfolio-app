@@ -25,6 +25,9 @@ function Plans() {
     '2023-12-05': 1,
     '2023-12-10': 3,
   });
+  const [showRichActionAnalysis, setShowRichActionAnalysis] = useState(false);
+  const [richActionData, setRichActionData] = useState([]);
+  const [richActionAnalysis, setRichActionAnalysis] = useState(null);
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const rootStyle = window.getComputedStyle(document.body);
@@ -190,6 +193,18 @@ function Plans() {
 
       setMyPlans(sortPlans(outputMyPlanArray));
       setPublicPlans(sortPlans(outputPublicPlanArray));
+
+      // Filter and analyze Rich Action Data
+      const richActionItems = PlanStringArray.filter(item => {
+        const itemString = typeof item.data === 'string' ? item.data : 'Unknown';
+        return itemString.includes('RichActionData:true');
+      });
+      
+      if (richActionItems.length > 0) {
+        setRichActionData(richActionItems);
+        const analysis = analyzeProductivityPatterns(richActionItems);
+        setRichActionAnalysis(analysis);
+      }
     }
     if (data.data) {
       handleAllOutputData(data.data);
@@ -212,6 +227,106 @@ function Plans() {
     dispatch(logout());
     navigate('/login');  
   }
+  function handleRichActionAnalysisToggle() {
+    setShowRichActionAnalysis(!showRichActionAnalysis);
+    if (!showRichActionAnalysis && richActionData.length === 0) {
+      // Load Rich Action Data when first opened
+      loadRichActionData();
+    }
+  }
+
+  // Load and analyze Rich Action Data
+  const loadRichActionData = async () => {
+    try {
+      // Search for items marked as RichActionData
+      await dispatch(getData({ data: { text: 'RichActionData:true' } })).unwrap();
+    } catch (error) {
+      console.error('Error loading rich action data:', error);
+      toast.error('Failed to load rich action data');
+    }
+  };
+
+  // Analyze productivity patterns
+  const analyzeProductivityPatterns = (items) => {
+    const analysis = {
+      totalItems: items.length,
+      weeklyBreakdown: {},
+      productivityClassification: {
+        highly_productive: 0,
+        moderately_productive: 0,
+        non_productive: 0
+      },
+      timeTracking: {
+        totalHours: 0,
+        averageHoursPerDay: 0,
+        peakProductivityHours: {}
+      }
+    };
+
+    // Keywords for productivity classification
+    const highlyProductiveKeywords = [
+      'coding', 'development', 'programming', 'building', 'creating', 
+      'designing', 'implementing', 'solving', 'debugging', 'optimizing',
+      'planning launch', 'strategy', 'analysis', 'review', 'research'
+    ];
+    
+    const nonProductiveKeywords = [
+      'general talking', 'chatting', 'break', 'lunch', 'waiting',
+      'idle', 'browsing', 'distracted', 'interruption', 'social media'
+    ];
+
+    items.forEach(item => {
+      const itemText = (item.data || item.text || '').toLowerCase();
+      const createdAt = new Date(item.createdAt);
+      const weekKey = `${createdAt.getFullYear()}-W${Math.ceil(createdAt.getDate() / 7)}`;
+
+      // Weekly breakdown
+      if (!analysis.weeklyBreakdown[weekKey]) {
+        analysis.weeklyBreakdown[weekKey] = { items: 0, hours: 0 };
+      }
+      analysis.weeklyBreakdown[weekKey].items++;
+
+      // Productivity classification
+      let classified = false;
+      for (const keyword of highlyProductiveKeywords) {
+        if (itemText.includes(keyword)) {
+          analysis.productivityClassification.highly_productive++;
+          classified = true;
+          break;
+        }
+      }
+      
+      if (!classified) {
+        for (const keyword of nonProductiveKeywords) {
+          if (itemText.includes(keyword)) {
+            analysis.productivityClassification.non_productive++;
+            classified = true;
+            break;
+          }
+        }
+      }
+      
+      if (!classified) {
+        analysis.productivityClassification.moderately_productive++;
+      }
+
+      // Extract time information (basic pattern matching)
+      const timeMatches = itemText.match(/(\d{1,2}):(\d{2})\s*(am|pm)?/gi);
+      if (timeMatches && timeMatches.length >= 2) {
+        // Assume time range and calculate hours (simplified)
+        analysis.timeTracking.totalHours += 1; // Placeholder calculation
+        analysis.weeklyBreakdown[weekKey].hours += 1;
+      }
+    });
+
+    // Calculate averages
+    const totalWeeks = Object.keys(analysis.weeklyBreakdown).length;
+    if (totalWeeks > 0) {
+      analysis.timeTracking.averageHoursPerDay = analysis.timeTracking.totalHours / (totalWeeks * 7);
+    }
+
+    return analysis;
+  };
 
   return (
     <>
@@ -294,6 +409,110 @@ function Plans() {
             </div>
           )}
         </div>}
+
+        {user && richActionData.length > 0 && <div className='planit-plans-rich-action'>
+          <div onClick={handleRichActionAnalysisToggle} className='planit-plans-rich-action-text'>
+            Rich Action Data Analysis ({richActionData.length} items)
+          </div>
+          {showRichActionAnalysis && (
+            <div className='planit-plans-rich-action-out'>
+              
+              {richActionAnalysis && (
+                <div className='planit-plans-rich-action-analysis'>
+                  <div className='planit-plans-rich-action-summary'>
+                    <h3>📊 Productivity Overview</h3>
+                    
+                    <div className='planit-plans-rich-action-metrics'>
+                      <div className='planit-plans-rich-action-metric'>
+                        <span className='metric-label'>Total Items:</span>
+                        <span className='metric-value'>{richActionAnalysis.totalItems}</span>
+                      </div>
+                      
+                      <div className='planit-plans-rich-action-metric'>
+                        <span className='metric-label'>Total Hours Tracked:</span>
+                        <span className='metric-value'>{richActionAnalysis.timeTracking.totalHours.toFixed(1)}</span>
+                      </div>
+                      
+                      <div className='planit-plans-rich-action-metric'>
+                        <span className='metric-label'>Avg Hours/Day:</span>
+                        <span className='metric-value'>{richActionAnalysis.timeTracking.averageHoursPerDay.toFixed(1)}</span>
+                      </div>
+                    </div>
+
+                    <div className='planit-plans-rich-action-productivity'>
+                      <h4>🎯 Productivity Classification</h4>
+                      <div className='productivity-bars'>
+                        <div className='productivity-bar highly-productive'>
+                          <span className='bar-label'>Highly Productive</span>
+                          <div className='bar-container'>
+                            <div className='bar-fill' style={{width: `${(richActionAnalysis.productivityClassification.highly_productive / richActionAnalysis.totalItems) * 100}%`}}></div>
+                          </div>
+                          <span className='bar-count'>{richActionAnalysis.productivityClassification.highly_productive}</span>
+                        </div>
+                        
+                        <div className='productivity-bar moderately-productive'>
+                          <span className='bar-label'>Moderately Productive</span>
+                          <div className='bar-container'>
+                            <div className='bar-fill' style={{width: `${(richActionAnalysis.productivityClassification.moderately_productive / richActionAnalysis.totalItems) * 100}%`}}></div>
+                          </div>
+                          <span className='bar-count'>{richActionAnalysis.productivityClassification.moderately_productive}</span>
+                        </div>
+                        
+                        <div className='productivity-bar non-productive'>
+                          <span className='bar-label'>Non-Productive</span>
+                          <div className='bar-container'>
+                            <div className='bar-fill' style={{width: `${(richActionAnalysis.productivityClassification.non_productive / richActionAnalysis.totalItems) * 100}%`}}></div>
+                          </div>
+                          <span className='bar-count'>{richActionAnalysis.productivityClassification.non_productive}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className='planit-plans-rich-action-weekly'>
+                      <h4>📅 Weekly Breakdown</h4>
+                      <div className='weekly-data'>
+                        {Object.entries(richActionAnalysis.weeklyBreakdown).map(([week, data]) => (
+                          <div key={week} className='week-item'>
+                            <span className='week-label'>{week}:</span>
+                            <span className='week-items'>{data.items} items</span>
+                            <span className='week-hours'>{data.hours}h tracked</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className='planit-plans-rich-action-items'>
+                    <h4>📋 Recent Rich Action Items</h4>
+                    <div className='rich-action-items-list'>
+                      {richActionData.slice(0, 5).map((item, index) => {
+                        const itemString = typeof item.data === 'string' ? item.data : 'Unknown';
+                        const truncatedString = itemString.length > 200 ? itemString.substring(0, 200) + '...' : itemString;
+                        
+                        return (
+                          <div key={item._id || index} className='rich-action-item'>
+                            <div className='rich-action-item-text'>{truncatedString}</div>
+                            <div className='rich-action-item-date'>
+                              {new Date(item.createdAt).toLocaleDateString()}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {!richActionAnalysis && (
+                <div className='planit-plans-rich-action-loading'>
+                  <p>Analyzing productivity patterns...</p>
+                </div>
+              )}
+              
+            </div>
+          )}
+        </div>}
+
         <div className='planit-plans-saved'>
           <div onClick={handlePublicPlansToggle} className='planit-plans-saved-text'>
             Public Plans

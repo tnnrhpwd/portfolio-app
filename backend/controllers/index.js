@@ -13,6 +13,7 @@ const { postHashData, compressData, createCustomer,
 const { putData } = require('./putData'); // UPDATE public data
 const { putHashData, updateCustomer, putPaymentMethod } = require('./putHashData'); // UPDATE protected data
 const { forgotPassword, resetPassword, forgotPasswordAuthenticated } = require('../utils/passwordReset'); // Password reset functionality
+const { extractOCR, updateWithOCR } = require('./ocrController'); // OCR functionality
 
 module.exports = {
     deleteData,
@@ -26,4 +27,5 @@ module.exports = {
     putData,
     putHashData, updateCustomer, putPaymentMethod,
     forgotPassword, resetPassword, forgotPasswordAuthenticated,
+    extractOCR, updateWithOCR,
 };

@@ -468,6 +468,305 @@
     font-weight: 500;
 }
 
+/* Rich Action Data Analysis Styles */
+.planit-plans-rich-action {
+    background: var(--bg-plan);
+    border-radius: calc(var(--nav-size) * 0.3);
+    margin-top: calc(var(--nav-size) * 0.6);
+    padding: calc(var(--nav-size) * 0.5);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(var(--fg-mint-rgb, 0, 255, 127), 0.3);
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    position: relative;
+    overflow: hidden;
+    animation: slideInUp 0.6s ease-out;
+}
+
+.planit-plans-rich-action::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--fg-mint), var(--fg-blue), var(--fg-pink), var(--fg-mint));
+    background-size: 300% 100%;
+    animation: gradientSlide 4s ease-in-out infinite;
+}
+
+.planit-plans-rich-action-text {
+    font-size: calc(var(--nav-size) * 0.4);
+    font-weight: 700;
+    color: var(--text-color);
+    text-align: center;
+    cursor: pointer;
+    padding: calc(var(--nav-size) * 0.4) 0;
+    position: relative;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: calc(var(--nav-size) * 0.15);
+}
+
+.planit-plans-rich-action-text::before {
+    content: "📊";
+    font-size: calc(var(--nav-size) * 0.35);
+    animation: bounce 2s ease-in-out infinite;
+}
+
+.planit-plans-rich-action-text:hover {
+    color: var(--fg-mint);
+    transform: scale(1.02);
+}
+
+.planit-plans-rich-action-out {
+    margin-top: calc(var(--nav-size) * 0.4);
+    background: var(--bg-page);
+    border-radius: calc(var(--nav-size) * 0.2);
+    padding: calc(var(--nav-size) * 0.5);
+    border: 1px solid var(--border-nav);
+    animation: slideInUp 0.4s ease-out;
+}
+
+.planit-plans-rich-action-analysis {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: calc(var(--nav-size) * 0.4);
+}
+
+.planit-plans-rich-action-summary h3 {
+    font-size: calc(var(--nav-size) * 0.38);
+    font-weight: 700;
+    color: var(--text-color);
+    margin: 0 0 calc(var(--nav-size) * 0.3) 0;
+    text-align: center;
+    background: linear-gradient(135deg, var(--fg-mint), var(--fg-blue));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.planit-plans-rich-action-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(calc(var(--nav-size) * 4), 1fr));
+    gap: calc(var(--nav-size) * 0.3);
+    margin-bottom: calc(var(--nav-size) * 0.4);
+}
+
+.planit-plans-rich-action-metric {
+    background: linear-gradient(135deg, 
+        rgba(var(--fg-mint-rgb, 0, 255, 127), 0.1),
+        rgba(var(--fg-blue-rgb, 56, 56, 255), 0.1));
+    border: 1px solid rgba(var(--fg-mint-rgb, 0, 255, 127), 0.2);
+    border-radius: calc(var(--nav-size) * 0.15);
+    padding: calc(var(--nav-size) * 0.3);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.1);
+    transition: all 0.3s ease;
+}
+
+.planit-plans-rich-action-metric:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(var(--fg-mint-rgb, 0, 255, 127), 0.2);
+}
+
+.metric-label {
+    font-size: calc(var(--nav-size) * 0.24);
+    color: var(--text-color-accent);
+    font-weight: 500;
+}
+
+.metric-value {
+    font-size: calc(var(--nav-size) * 0.32);
+    color: var(--text-color);
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--fg-mint), var(--fg-blue));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.planit-plans-rich-action-productivity h4 {
+    font-size: calc(var(--nav-size) * 0.32);
+    font-weight: 600;
+    color: var(--text-color);
+    margin: 0 0 calc(var(--nav-size) * 0.25) 0;
+}
+
+.productivity-bars {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.2);
+}
+
+.productivity-bar {
+    display: grid;
+    grid-template-columns: 1fr 2fr auto;
+    gap: calc(var(--nav-size) * 0.15);
+    align-items: center;
+    padding: calc(var(--nav-size) * 0.15);
+    background: var(--bg-plan);
+    border-radius: calc(var(--nav-size) * 0.1);
+}
+
+.bar-label {
+    font-size: calc(var(--nav-size) * 0.24);
+    font-weight: 500;
+    color: var(--text-color);
+}
+
+.bar-container {
+    height: calc(var(--nav-size) * 0.2);
+    background: var(--border-nav);
+    border-radius: calc(var(--nav-size) * 0.1);
+    overflow: hidden;
+    position: relative;
+}
+
+.bar-fill {
+    height: 100%;
+    border-radius: calc(var(--nav-size) * 0.1);
+    transition: width 0.6s ease;
+    animation: barFillAnimation 1s ease-out;
+}
+
+.highly-productive .bar-fill {
+    background: linear-gradient(90deg, var(--fg-mint), var(--fg-blue));
+}
+
+.moderately-productive .bar-fill {
+    background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink));
+}
+
+.non-productive .bar-fill {
+    background: linear-gradient(90deg, var(--fg-pink), var(--fg-orange));
+}
+
+.bar-count {
+    font-size: calc(var(--nav-size) * 0.24);
+    font-weight: 600;
+    color: var(--text-color);
+    min-width: calc(var(--nav-size) * 0.6);
+    text-align: right;
+}
+
+@keyframes barFillAnimation {
+    from { width: 0% !important; }
+}
+
+.planit-plans-rich-action-weekly h4 {
+    font-size: calc(var(--nav-size) * 0.32);
+    font-weight: 600;
+    color: var(--text-color);
+    margin: 0 0 calc(var(--nav-size) * 0.25) 0;
+}
+
+.weekly-data {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.15);
+}
+
+.week-item {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: calc(var(--nav-size) * 0.2);
+    padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.2);
+    background: var(--bg-plan);
+    border-radius: calc(var(--nav-size) * 0.08);
+    align-items: center;
+}
+
+.week-label {
+    font-size: calc(var(--nav-size) * 0.26);
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.week-items,
+.week-hours {
+    font-size: calc(var(--nav-size) * 0.24);
+    color: var(--text-color-accent);
+    font-weight: 500;
+}
+
+.planit-plans-rich-action-items h4 {
+    font-size: calc(var(--nav-size) * 0.32);
+    font-weight: 600;
+    color: var(--text-color);
+    margin: 0 0 calc(var(--nav-size) * 0.25) 0;
+}
+
+.rich-action-items-list {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.2);
+    max-height: calc(var(--nav-size) * 8);
+    overflow-y: auto;
+}
+
+.rich-action-item {
+    background: var(--bg-plan);
+    border: 1px solid var(--border-nav);
+    border-radius: calc(var(--nav-size) * 0.12);
+    padding: calc(var(--nav-size) * 0.25);
+    transition: all 0.3s ease;
+}
+
+.rich-action-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-color: var(--fg-mint);
+}
+
+.rich-action-item-text {
+    font-size: calc(var(--nav-size) * 0.24);
+    color: var(--text-color);
+    line-height: 1.4;
+    margin-bottom: calc(var(--nav-size) * 0.1);
+}
+
+.rich-action-item-date {
+    font-size: calc(var(--nav-size) * 0.22);
+    color: var(--text-color-accent);
+    font-weight: 500;
+}
+
+.planit-plans-rich-action-loading {
+    text-align: center;
+    padding: calc(var(--nav-size) * 1);
+    color: var(--text-color-accent);
+    font-size: calc(var(--nav-size) * 0.3);
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-4px); }
+    60% { transform: translateY(-2px); }
+}
+
+@keyframes gradientSlide {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
 /* Responsive Design */
 @media (orientation: landscape) {
     .planit-plans {
@@ -498,9 +797,26 @@
     .planit-plans-create,
     .planit-plans-my,
     .planit-plans-saved,
-    .planit-plans-calendar {
+    .planit-plans-calendar,
+    .planit-plans-rich-action {
         margin-top: calc(var(--nav-size) * 0.5);
         padding: calc(var(--nav-size) * 0.4);
+    }
+    
+    .planit-plans-rich-action-metrics {
+        grid-template-columns: 1fr;
+        gap: calc(var(--nav-size) * 0.2);
+    }
+    
+    .productivity-bar {
+        grid-template-columns: 1fr 1.5fr auto;
+        gap: calc(var(--nav-size) * 0.1);
+    }
+    
+    .week-item {
+        grid-template-columns: 1fr;
+        gap: calc(var(--nav-size) * 0.1);
+        text-align: center;
     }
     
     .planit-plans-my-out-sort {
@@ -531,7 +847,8 @@
     .planit-plans-create-text,
     .planit-plans-my-text,
     .planit-plans-saved-text,
-    .planit-plans-calendar-text {
+    .planit-plans-calendar-text,
+    .planit-plans-rich-action-text {
         font-size: calc(var(--nav-size) * 0.4);
         padding: calc(var(--nav-size) * 0.25) 0;
     }
