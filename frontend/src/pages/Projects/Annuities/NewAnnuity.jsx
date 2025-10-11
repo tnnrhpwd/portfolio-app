@@ -27,17 +27,6 @@ function NewAnnuity({ tenseAnnuity, onNewAnnuity }) {
         setValues(prevValues => ({ ...prevValues, [name]: numericValue }));
     };
 
-    const handleReset = () => {
-        setValues({
-            presentVal: "",
-            annualVal: "",
-            futureVal: "",
-            gradientVal: "",
-            intVal: "",
-            nVal: ""
-        });
-    };
-
     const handleKeyDown = (event) => {
         if (event.key === 'Enter') {
             onNewAnnuity(Object.values(values).map(val => parseFloat(val) || 0));

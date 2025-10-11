@@ -122,48 +122,6 @@ function Support() {
     }
   ];
 
-  // Quick Actions
-  const quickActions = [
-    {
-      id: 'faq',
-      title: 'Browse FAQ',
-      description: 'Find answers to common questions',
-      icon: '❓',
-      action: () => setActiveTab('help')
-    },
-    {
-      id: 'contact',
-      title: 'Contact Support',
-      description: 'Get personalized help from our team',
-      icon: '💬',
-      action: () => setActiveTab('contact')
-    },
-    {
-      id: 'review',
-      title: 'Leave a Review',
-      description: 'Share your experience with our app',
-      icon: '⭐',
-      action: () => setActiveTab('review')
-    },
-    {
-      id: 'reports',
-      title: 'My Bug Reports',
-      description: 'View and manage your submitted reports',
-      icon: '📋',
-      action: () => {
-        setActiveTab('reports');
-        fetchUserBugReports();
-      }
-    },
-    {
-      id: 'bug',
-      title: 'Report a Bug',
-      description: 'Help us improve by reporting issues',
-      icon: '🐛',
-      action: () => setActiveTab('bug')
-    }
-  ];
-
   useEffect(() => {
     // Auto-detect browser and device for bug reports
     if (typeof window !== 'undefined') {

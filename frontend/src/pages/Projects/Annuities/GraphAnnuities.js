@@ -38,7 +38,6 @@ const GraphAnnuities = ({ chartData, tenseAnnuity }) => {
     }
     
     // Add padding (2 periods before and after if possible)
-    const paddedMinPeriod = Math.max(0, minPeriod - 2);
     const paddedMaxPeriod = maxPeriod + 2;
     
     // Create array with all periods in range
