@@ -3,7 +3,7 @@
  * This script simulates HTTP requests with different referers to test the tracking
  */
 
-const { checkIP } = require('./utils/accessData');
+const { checkIP } = require('../../utils/accessData');
 
 // Mock request objects with different referer scenarios
 const mockRequests = [

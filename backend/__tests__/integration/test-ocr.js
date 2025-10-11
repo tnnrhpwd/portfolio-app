@@ -14,7 +14,7 @@ async function testOCR() {
     
     try {
         // Import the OCR functions (adjust path as needed)
-        const ocrController = require('./controllers/ocrController');
+        const ocrController = require('../../controllers/ocrController');
         
         // Mock request and response objects
         const mockReq = {

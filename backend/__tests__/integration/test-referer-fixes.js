@@ -2,7 +2,7 @@
  * Test script for the fixed referer tracking functionality
  */
 
-const { checkIP } = require('./utils/accessData');
+const { checkIP } = require('../../utils/accessData');
 
 // Test cases based on your reported issues
 const testCases = [

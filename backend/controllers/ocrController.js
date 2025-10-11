@@ -91,12 +91,20 @@ async function processWithOpenAIVision(imageData, model = 'gpt-4o') {
     // OpenAI Vision API implementation - Production default
     try {
         console.log('Processing with OpenAI Vision API, model:', model);
+        console.log('Image data length:', imageData ? imageData.length : 0);
+        
+        // Check if OpenAI API key is available
+        if (!process.env.OPENAI_KEY) {
+            throw new Error('OpenAI API key not configured');
+        }
         
         await initializeLLMClients();
         
         if (!openaiClient) {
             throw new Error('OpenAI client not initialized');
         }
+        
+        console.log('OpenAI client initialized successfully');
         
         const response = await openaiClient.chat.completions.create({
             model: model || 'gpt-4o',
@@ -359,22 +367,47 @@ Provide the enhanced text in a clear, structured format that would be valuable f
 // @route   POST /api/data/ocr-extract  
 // @access  Private
 const extractOCR = asyncHandler(async (req, res) => {
-    await checkIP(req);
+    console.log('OCR extraction request received');
+    
+    try {
+        await checkIP(req);
+        console.log('IP check passed');
+    } catch (error) {
+        console.error('IP check failed:', error);
+        res.status(403);
+        throw new Error(`IP check failed: ${error.message}`);
+    }
     
     // Check for user authentication
     if (!req.user) {
+        console.error('No user found in request');
         res.status(401);
         throw new Error('User not found');
     }
+    
+    console.log(`User authenticated: ${req.user.id}`);
 
     const { imageData, contentType, filename, method, model, llmProvider, llmModel } = req.body;
     
+    console.log('Request data:', {
+        hasImageData: !!imageData,
+        imageDataLength: imageData ? imageData.length : 0,
+        contentType,
+        filename,
+        method,
+        model,
+        llmProvider,
+        llmModel
+    });
+    
     if (!imageData) {
+        console.error('No image data provided');
         res.status(400);
         throw new Error('No image data provided');
     }
 
     if (!contentType || !contentType.startsWith('image/')) {
+        console.error('Invalid content type:', contentType);
         res.status(400);
         throw new Error('Invalid content type. Must be an image');
     }
@@ -452,7 +485,22 @@ const extractOCR = asyncHandler(async (req, res) => {
         
     } catch (error) {
         console.error('OCR extraction error:', error);
-        res.status(500).json({ error: `OCR processing failed: ${error.message}` });
+        console.error('Error stack:', error.stack);
+        
+        // More specific error handling
+        if (error.code === 'insufficient_quota') {
+            res.status(429).json({ error: 'OpenAI API quota exceeded. Please check your billing.' });
+        } else if (error.code === 'invalid_api_key') {
+            res.status(401).json({ error: 'Invalid OpenAI API key' });
+        } else if (error.message.includes('network')) {
+            res.status(503).json({ error: 'Network error connecting to OCR service' });
+        } else {
+            res.status(500).json({ 
+                error: `OCR processing failed: ${error.message}`,
+                details: error.code || 'Unknown error code',
+                timestamp: new Date().toISOString()
+            });
+        }
     }
 });
 

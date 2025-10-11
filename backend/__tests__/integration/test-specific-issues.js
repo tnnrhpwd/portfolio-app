@@ -1,4 +1,4 @@
-const { checkIP } = require('./utils/accessData');
+const { checkIP } = require('../../utils/accessData');
 
 console.log('🔍 Testing Specific Reported Issues\n');
 
