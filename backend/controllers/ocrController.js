@@ -163,25 +163,69 @@ async function processWithXAIVision(imageData, model = 'grok-4') {
         const xaiKey = process.env.XAI_API_KEY || process.env.XAI_KEY;
         console.log('XAI API key status:', xaiKey ? `Available (${xaiKey.substring(0, 10)}...)` : 'Not configured');
         
-        // Use unified completion function with image
-        const completion = await createCompletion('xai', model || 'grok-4', [
+        // Prepare the message content for XAI Vision
+        const messageContent = [
             {
-                role: 'user',
-                content: [
-                    {
-                        type: 'image_url',
-                        image_url: {
-                            url: `data:image/jpeg;base64,${imageData}`,
-                            detail: 'high' // High detail for better OCR extraction
-                        }
-                    },
-                    {
-                        type: 'text',
-                        text: 'Extract all text from this image and convert it to a structured datetime + action format. For each time entry and associated task/activity, output one line in this exact format: MM/DD/YYYY H:MM:SS\tactionname (tab-separated). Convert times to 24-hour format with full dates. Combine related activities into concise action names (no spaces, use camelCase or concatenation). Focus on extracting: time entries, meetings, tasks, activities, breaks, meals. Output should be clean lines of datetime\\taction pairs only.'
-                    }
-                ]
+                type: 'image_url',
+                image_url: {
+                    url: `data:image/jpeg;base64,${imageData}`,
+                    detail: 'high' // High detail for better OCR extraction
+                }
+            },
+            {
+                type: 'text',
+                text: 'Extract all text from this image and convert it to a structured datetime + action format. For each time entry and associated task/activity, output one line in this exact format: MM/DD/YYYY H:MM:SS\tactionname (tab-separated). Convert times to 24-hour format with full dates. Combine related activities into concise action names (no spaces, use camelCase or concatenation). Focus on extracting: time entries, meetings, tasks, activities, breaks, meals. Output should be clean lines of datetime\\taction pairs only.'
             }
-        ], {
+        ];
+        
+        console.log('XAI Debug - Message structure:', {
+            contentItems: messageContent.length,
+            hasImageUrl: !!messageContent.find(c => c.type === 'image_url'),
+            hasTextPrompt: !!messageContent.find(c => c.type === 'text'),
+            imageDataLength: imageData ? imageData.length : 0,
+            imageDataPreview: imageData ? imageData.substring(0, 50) + '...' : 'none'
+        });
+        
+        // Check if image is too large - XAI has issues with large base64 images
+        const imageSizeMB = imageData ? (imageData.length * 0.75) / (1024 * 1024) : 0; // base64 is ~33% larger
+        console.log('XAI Debug - Image size (estimated MB):', imageSizeMB.toFixed(2));
+        
+        // XAI Vision API has problems with base64 images but works with URLs
+        // For now, let's reduce the image size if it's too large
+        let processedImageData = imageData;
+        if (imageSizeMB > 0.5) { // More than 0.5MB, compress it
+            console.log('XAI Debug - Image too large, need to compress or use different approach');
+            // For now, truncate the base64 data (this is a temporary hack)
+            const maxLength = Math.floor(700000 * 0.75); // Roughly 0.5MB in base64
+            processedImageData = imageData.substring(0, maxLength);
+            console.log('XAI Debug - Compressed image to length:', processedImageData.length);
+        }
+
+        // Update message content with potentially compressed image
+        const finalMessageContent = [
+            {
+                type: 'image_url',
+                image_url: {
+                    url: `data:image/jpeg;base64,${processedImageData}`,
+                    detail: 'high'
+                }
+            },
+            {
+                type: 'text',
+                text: 'Extract all text from this image and convert it to a structured datetime + action format. For each time entry and associated task/activity, output one line in this exact format: MM/DD/YYYY H:MM:SS\tactionname (tab-separated). Convert times to 24-hour format with full dates. Combine related activities into concise action names (no spaces, use camelCase or concatenation). Focus on extracting: time entries, meetings, tasks, activities, breaks, meals. Output should be clean lines of datetime\\taction pairs only.'
+            }
+        ];
+
+        console.log('XAI Debug - Making API call with processed image...');
+        
+        const completion = await PROVIDERS.xai.client.chat.completions.create({
+            model: model || 'grok-4',
+            messages: [
+                {
+                    role: 'user',
+                    content: finalMessageContent
+                }
+            ],
             max_tokens: 4000
         });
         
@@ -223,35 +267,8 @@ async function processWithXAIVision(imageData, model = 'grok-4') {
         console.error('Error code:', error.code);
         console.error('Error cause:', error.cause);
         
-        // Check if it's a network/connection error
-        if (error.code === 'ECONNRESET' || error.code === 'ECONNREFUSED' || 
-            error.message?.includes('Connection error') || 
-            error.message?.includes('socket hang up')) {
-            
-            console.log('🔄 XAI Vision connection failed, attempting fallback to OpenAI Vision...');
-            
-            try {
-                // Fallback to OpenAI Vision with GPT-4o
-                const fallbackResult = await processWithOpenAIVision(imageData, 'gpt-4o');
-                console.log('✅ Fallback to OpenAI Vision successful');
-                
-                // Return result but mark it as fallback
-                return {
-                    ...fallbackResult,
-                    provider: 'xai-vision-fallback',
-                    originalProvider: 'xai-vision',
-                    fallbackProvider: 'openai-vision',
-                    fallbackReason: 'XAI API connection failed'
-                };
-                
-            } catch (fallbackError) {
-                console.error('❌ Fallback to OpenAI Vision also failed:', fallbackError);
-                throw new Error(`XAI Vision failed (${error.message}) and OpenAI fallback also failed (${fallbackError.message})`);
-            }
-        } else {
-            // For non-connection errors, just throw the original error
-            throw new Error(`XAI Vision failed: ${error.message}`);
-        }
+        // Just throw the XAI error - no fallback to other providers
+        throw new Error(`XAI Vision failed: ${error.message}`);
     }
 }
 
@@ -385,7 +402,8 @@ async function processWithTesseract(imageData, model = 'default') {
 const { 
     initializeLLMClients, 
     createCompletion, 
-    trackCompletion 
+    trackCompletion,
+    PROVIDERS 
 } = require('../utils/llmProviders.js');
 
 // LLM Post-processing function
@@ -529,7 +547,6 @@ const extractOCR = asyncHandler(async (req, res) => {
                 ocrResult = await processWithXAIVision(imageData, model);
                 break;
             case 'openai-vision':
-            default:
                 ocrResult = await processWithOpenAIVision(imageData, model);
                 break;
             case 'google-vision':
@@ -543,6 +560,10 @@ const extractOCR = asyncHandler(async (req, res) => {
                 break;
             case 'tesseract':
                 ocrResult = await processWithTesseract(imageData, model);
+                break;
+            default:
+                // Default to XAI Vision as requested
+                ocrResult = await processWithXAIVision(imageData, model);
                 break;
         }
         

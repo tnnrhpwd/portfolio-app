@@ -41,7 +41,7 @@ async function initializeLLMClients() {
             console.log('✅ OpenAI client initialized');
         }
 
-        // Initialize XAI (uses OpenAI-compatible client with custom base URL)
+        // Initialize XAI using OpenAI SDK as per official XAI documentation
         if (PROVIDERS.xai.apiKey && !PROVIDERS.xai.client) {
             const openai = await import('openai');
             PROVIDERS.xai.client = new openai.OpenAI({ 
@@ -49,7 +49,7 @@ async function initializeLLMClients() {
                 baseURL: PROVIDERS.xai.baseURL,
                 timeout: 360000 // 6 minutes timeout for reasoning models as per XAI docs
             });
-            console.log('✅ XAI client initialized');
+            console.log('✅ XAI client initialized with OpenAI SDK (XAI compatible)');
         }
 
         return true;
@@ -149,16 +149,31 @@ async function createCompletion(provider, model, messages, options = {}) {
         // Make the API call
         console.log(`🤖 Making ${provider.toUpperCase()} API call with model: ${model}`);
         
-        // Additional debug for XAI
+        // Additional debug for XAI (without printing full image data)
         if (provider === 'xai') {
             console.log('XAI Debug - Base URL:', PROVIDERS.xai.baseURL);
             console.log('XAI Debug - API Key length:', PROVIDERS.xai.apiKey?.length || 0);
-            console.log('XAI Debug - Completion params:', JSON.stringify({
+            console.log('XAI Debug - Client timeout:', PROVIDERS.xai.client?.timeout);
+            
+            // Log completion params without full image data
+            const debugParams = {
                 model: completionParams.model,
-                messages: completionParams.messages?.length + ' messages',
+                messagesCount: completionParams.messages?.length || 0,
                 temperature: completionParams.temperature,
                 max_tokens: completionParams.max_tokens
-            }));
+            };
+            
+            // Check message content types without printing full content
+            if (completionParams.messages) {
+                debugParams.messageTypes = completionParams.messages.map((m, i) => {
+                    if (Array.isArray(m.content)) {
+                        return `Message ${i}: [${m.content.map(c => c.type).join(', ')}]`;
+                    }
+                    return `Message ${i}: text`;
+                });
+            }
+            
+            console.log('XAI Debug - Completion params:', debugParams);
         }
         
         const startTime = Date.now();
@@ -184,7 +199,23 @@ async function createCompletion(provider, model, messages, options = {}) {
         return response;
         
     } catch (error) {
-        console.error(`Error in ${provider} completion:`, error);
+        console.error(`Error in ${provider} completion:`, {
+            message: error.message,
+            code: error.code,
+            status: error.status,
+            errno: error.errno,
+            syscall: error.syscall,
+            address: error.address,
+            port: error.port,
+            stack: error.stack
+        });
+        
+        // Add specific handling for network errors
+        if (error.code === 'ECONNRESET' || error.code === 'ENOTFOUND' || error.message.includes('socket hang up')) {
+            console.error('Network connectivity issue detected with XAI API');
+            console.error('Verify network connection and firewall settings');
+        }
+        
         throw error;
     }
 }
