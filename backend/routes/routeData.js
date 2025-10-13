@@ -15,6 +15,13 @@ const {
 const { logSecurityEvent } = require('../middleware/logger');
 const multer = require('multer');
 
+// Import file upload controller
+const {
+  requestUploadUrl,
+  confirmUpload,
+  deleteUploadedFile
+} = require('../controllers/fileUploadController');
+
 // Configure multer for memory storage (or disk storage if preferred)
 const storage = multer.memoryStorage();
 const upload = multer({ 
@@ -157,6 +164,11 @@ router.post('/compress', protect, compressData); // Route to handle data compres
 // OCR routes
 router.post('/ocr-extract', protect, extractOCR); // POST request for OCR text extraction
 router.put('/ocr-update/:id', protect, updateWithOCR); // PUT request for updating item with OCR results
+
+// File upload routes (S3 integration)
+router.post('/upload-url', protect, requestUploadUrl); // POST request for pre-signed upload URL
+router.post('/upload-confirm', protect, confirmUpload); // POST confirm file upload
+router.delete('/file/:s3Key', protect, deleteUploadedFile); // DELETE uploaded file
 
 // Customer routes and specific paths should come before generic routes like /:id
 router.post('/create-customer', protect, paymentLimiter, createCustomer); // Protect customer creation

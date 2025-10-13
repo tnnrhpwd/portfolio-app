@@ -5,7 +5,7 @@ import { getMembershipPricing } from '../../../features/data/dataSlice';
 import Header from './../../../components/Header/Header';
 import './Simple.css';
 import Footer from './../../../components/Footer/Footer';
-import simpleGraphic from './simple_graphic.png';
+import { STATIC_IMAGES } from '../../../config/staticAssets';
 
 // Helper function to format price from cents to dollars
 const formatPrice = (priceInCents) => {
@@ -131,8 +131,14 @@ function Simple() {
           <div className='planit-dashboard-preview'>
             <div className='simple-graphic-container'>
               <img 
-                src={simpleGraphic} 
-                alt="Simple System Intelligence Overview" 
+                src={STATIC_IMAGES.SIMPLE_GRAPHIC} 
+                alt="Simple System Intelligence Overview"
+                loading="lazy"
+                onLoad={() => console.log('✅ Simple graphic loaded from CloudFront')}
+                onError={(e) => {
+                  console.error('❌ Failed to load simple graphic from CloudFront:', e);
+                  // Optional: Set a fallback image or hide the image
+                }} 
                 className='simple-graphic-img'
               />
             </div>

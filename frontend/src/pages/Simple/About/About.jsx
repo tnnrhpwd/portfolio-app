@@ -23,6 +23,14 @@ function About() {
     'Cost Reduction', 'Project Management', '5S Implementation', 'PFMEA'
   ];
 
+  const getYearsExperience = () => {
+    const startDate = new Date('2021-09-12');
+    const currentDate = new Date();
+    const diffInMs = currentDate - startDate;
+    const diffInYears = diffInMs / (1000 * 60 * 60 * 24 * 365.25);
+    return Math.floor(diffInYears * 10) / 10; // Round to 1 decimal place
+  };
+
   return (<>
     <div className='about'>
       <Header />
@@ -58,7 +66,7 @@ function About() {
                 <div className='achievement-text'>Annual materials savings</div>
               </div>
               <div className='achievement-card'>
-                <div className='achievement-number'>3+ Years</div>
+                <div className='achievement-number'>{getYearsExperience()}+ Years</div>
                 <div className='achievement-text'>Manufacturing experience</div>
               </div>
               <div className='achievement-card'>

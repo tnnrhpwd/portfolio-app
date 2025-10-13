@@ -556,6 +556,85 @@ const getLLMProviders = async () => {
     }
 };
 
+// Request pre-signed upload URL for S3
+const requestUploadUrl = async (fileData, token) => {
+    const config = {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    };
+
+    console.log('Requesting upload URL:', { ...fileData, fileSize: `${fileData.fileSize} bytes` });
+
+    try {
+        const response = await axios.post(API_URL + 'upload-url', fileData, config);
+        return response.data;
+    } catch (error) {
+        handleTokenExpiration(error);
+    }
+};
+
+// Upload file directly to S3 using pre-signed URL
+const uploadFileToS3 = async (file, uploadUrl, onProgress = null) => {
+    console.log('Uploading file to S3:', { name: file.name, size: file.size, type: file.type });
+
+    const config = {
+        headers: {
+            'Content-Type': file.type,
+        },
+        onUploadProgress: onProgress ? (progressEvent) => {
+            const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            onProgress(progress);
+        } : undefined,
+    };
+
+    try {
+        const response = await axios.put(uploadUrl, file, config);
+        console.log('File uploaded successfully to S3');
+        return response;
+    } catch (error) {
+        console.error('S3 upload error:', error);
+        throw new Error(`Failed to upload file to S3: ${error.message}`);
+    }
+};
+
+// Confirm file upload and update database
+const confirmFileUpload = async (uploadData, token) => {
+    const config = {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    };
+
+    console.log('Confirming file upload:', uploadData);
+
+    try {
+        const response = await axios.post(API_URL + 'upload-confirm', uploadData, config);
+        return response.data;
+    } catch (error) {
+        handleTokenExpiration(error);
+    }
+};
+
+// Delete uploaded file from S3 and database
+const deleteUploadedFile = async (s3Key, dataId, token) => {
+    const config = {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+        data: dataId ? { dataId } : undefined,
+    };
+
+    console.log('Deleting uploaded file:', { s3Key, dataId });
+
+    try {
+        const response = await axios.delete(API_URL + `file/${encodeURIComponent(s3Key)}`, config);
+        return response.data;
+    } catch (error) {
+        handleTokenExpiration(error);
+    }
+};
+
 // Logout user
 const logout = () => {
     localStorage.removeItem('user')
@@ -581,6 +660,10 @@ const dataService = {
     getUserStorage,
     getMembershipPricing,
     getLLMProviders,
+    requestUploadUrl,
+    uploadFileToS3,
+    confirmFileUpload,
+    deleteUploadedFile,
     register,
     login,
     logout,

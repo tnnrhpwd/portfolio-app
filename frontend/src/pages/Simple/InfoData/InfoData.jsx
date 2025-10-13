@@ -7,6 +7,8 @@ import DeleteView from '../../../components/Simple/DeleteView/DeleteView';
 import DataResult from '../../../components/Simple/DataResult/DataResult';
 import CreatedAt from '../../../components/Simple/DataResult/CreatedAt';
 import Spinner from '../../../components/Spinner/Spinner';
+import FileUpload from '../../../components/FileUpload/FileUpload';
+import useFileUpload from '../../../hooks/useFileUpload';
 import './InfoData.css';
 import Header from '../../../components/Header/Header';
 import Footer from '../../../components/Footer/Footer';
@@ -25,6 +27,10 @@ function InfoData() {
   const [llmProvider, setLlmProvider] = useState('xai');
   const [llmModel, setLlmModel] = useState('grok-4');
   const [editedDataText, setEditedDataText] = useState('');
+  const [showFileUpload, setShowFileUpload] = useState(false);
+  
+  // File upload hook
+  const { deleteFile } = useFileUpload();
   const navigate = useNavigate();
   const rootStyle = window.getComputedStyle(document.body);
   const toastDuration = parseInt(rootStyle.getPropertyValue('--toast-duration'), 10);
@@ -445,9 +451,57 @@ function InfoData() {
     }
   };
 
+  // Handle file upload completion
+  const handleFileUploadComplete = async (uploadResult) => {
+    try {
+      console.log('File upload completed:', uploadResult);
+      
+      if (uploadResult.success) {
+        // Update the chosenData with new file information
+        const newFile = {
+          s3Key: uploadResult.s3Key,
+          publicUrl: uploadResult.publicUrl,
+          fileName: uploadResult.fileName,
+          fileSize: uploadResult.fileSize,
+          fileType: uploadResult.fileType,
+          uploadedAt: new Date().toISOString()
+        };
 
+        setChosenData(prev => ({
+          ...prev,
+          files: [...(prev.files || []), newFile]
+        }));
 
-  // Handle OCR extraction
+        toast.success(`📁 File "${uploadResult.fileName}" uploaded and linked successfully!`);
+      }
+    } catch (error) {
+      console.error('Error handling upload completion:', error);
+      toast.error('Upload completed but failed to update display');
+    }
+  };
+
+  // Handle file deletion
+  const handleFileDelete = async (fileToDelete) => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    try {
+      await deleteFile(fileToDelete.s3Key, chosenData._id);
+      
+      // Remove file from chosenData state
+      setChosenData(prev => ({
+        ...prev,
+        files: prev.files.filter(file => file.s3Key !== fileToDelete.s3Key)
+      }));
+      
+    } catch (error) {
+      console.error('Error deleting file:', error);
+    }
+  };
+
+  // Handle OCR extraction with S3 URLs
   const handleOcrExtraction = async () => {
     if (!chosenData?._id || !chosenData?.files || chosenData.files.length === 0) {
       toast.error('No images found to process');
@@ -463,23 +517,32 @@ function InfoData() {
     
     try {
       // Find the first image file
-      const imageFile = chosenData.files.find(file => file.contentType?.startsWith('image/'));
+      const imageFile = chosenData.files.find(file => 
+        file.fileType?.startsWith('image/') || file.contentType?.startsWith('image/')
+      );
       
       if (!imageFile) {
         toast.error('No image files found to process');
         return;
       }
 
-      // Create the OCR request payload
+      // Create the OCR request payload using S3 URL
       const ocrRequestData = {
-        imageData: imageFile.data,
-        contentType: imageFile.contentType,
-        filename: imageFile.filename,
+        imageUrl: imageFile.publicUrl || imageFile.s3Url,  // Use S3 URL instead of base64
+        s3Key: imageFile.s3Key,
+        fileName: imageFile.fileName || imageFile.filename,
+        fileType: imageFile.fileType || imageFile.contentType,
         method: ocrMethod,
         model: ocrModel,
         llmProvider: llmProvider,
-        llmModel: llmModel
+        llmModel: llmModel,
+        dataId: chosenData._id
       };
+
+      console.log('OCR Request:', { 
+        ...ocrRequestData, 
+        imageUrl: ocrRequestData.imageUrl ? 'URL provided' : 'No URL' 
+      });
 
       // Call the backend OCR endpoint
       const response = await fetch('/api/data/ocr-extract', {
@@ -492,7 +555,8 @@ function InfoData() {
       });
 
       if (!response.ok) {
-        throw new Error(`OCR processing failed: ${response.status}`);
+        const errorData = await response.text();
+        throw new Error(`OCR processing failed: ${response.status} - ${errorData}`);
       }
 
       const ocrResult = await response.json();
@@ -621,8 +685,42 @@ function InfoData() {
                   </div>
                 </div>
                 
+                {/* File Upload Section */}
+                {user && (user._id === chosenData.userID || user.id === chosenData.userID) && (
+                  <div className='infodata-file-section'>
+                    <div className='infodata-file-header'>
+                      <h3>
+                        <span>📁</span>
+                        Upload Files
+                      </h3>
+                      <p>Add images, documents, or other files to this item</p>
+                      <button
+                        className='infodata-toggle-upload-btn'
+                        onClick={() => setShowFileUpload(!showFileUpload)}
+                        type="button"
+                      >
+                        {showFileUpload ? '🔽 Hide Upload' : '📤 Show Upload'}
+                      </button>
+                    </div>
+                    
+                    {showFileUpload && (
+                      <div className='infodata-file-upload-container'>
+                        <FileUpload
+                          onUploadComplete={handleFileUploadComplete}
+                          fileType="image"
+                          dataId={chosenData._id}
+                          multiple={true}
+                          className="infodata-file-upload"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* OCR Extraction Section */}
-                {user && chosenData.files && chosenData.files.some(file => file.contentType?.startsWith('image/')) && (
+                {user && chosenData.files && chosenData.files.some(file => 
+                  file.contentType?.startsWith('image/') || file.fileType?.startsWith('image/')
+                ) && (
                   <div className='infodata-ocr-section'>
                     <div className='infodata-ocr-header'>
                       <h3>Extract Rich Action Data</h3>
@@ -795,25 +893,95 @@ function InfoData() {
                   </div>
                 )}
 
-                {chosenData.files && chosenData.files.map((file, index) => (
-                  <div key={chosenData._id + "attachments" + index} className='infodata-data-attachments'>
-                    {file.contentType.startsWith('image/') && (
-                        <img src={`data:${file.contentType};base64,${file.data}`} alt={file.filename} className='infodata-data-attachments-img'/>
-                    )}
-                    {file.contentType.startsWith('video/') && (
-                        <video controls >
-                        <source src={`data:${file.contentType};base64,${file.data}`} type={file.contentType} className='infodata-data-attachments-vid'/>
-                        Your browser does not support the video tag.
-                        </video>
-                    )}
-                    {!file.contentType.startsWith('image/') && !file.contentType.startsWith('video/') && (
-                        <div className='infodata-data-attachments-other'>
-                        <p>Attachment: {file.filename}</p>
-                        <p>Type: {file.contentType}</p>
-                        </div>
-                    )}
+                {/* Files Section */}
+                {chosenData.files && chosenData.files.length > 0 && (
+                  <div className='infodata-files-section'>
+                    <h3>
+                      <span>📎</span>
+                      Attached Files ({chosenData.files.length})
+                    </h3>
+                    <div className='infodata-files-grid'>
+                      {chosenData.files.map((file, index) => {
+                        // Handle both old base64 files and new S3 files
+                        const isS3File = file.s3Key && file.publicUrl;
+                        const fileType = file.fileType || file.contentType;
+                        const fileName = file.fileName || file.filename;
+                        const fileUrl = isS3File 
+                          ? file.publicUrl 
+                          : `data:${file.contentType};base64,${file.data}`;
+
+                        return (
+                          <div key={chosenData._id + "attachments" + index} className='infodata-file-item'>
+                            <div className='infodata-file-preview'>
+                              {fileType?.startsWith('image/') && (
+                                <img 
+                                  src={fileUrl} 
+                                  alt={fileName} 
+                                  className='infodata-file-img'
+                                  onError={(e) => {
+                                    console.error('Image failed to load:', fileUrl);
+                                    e.target.style.display = 'none';
+                                  }}
+                                />
+                              )}
+                              {fileType?.startsWith('video/') && (
+                                <video controls className='infodata-file-video'>
+                                  <source src={fileUrl} type={fileType} />
+                                  Your browser does not support the video tag.
+                                </video>
+                              )}
+                              {!fileType?.startsWith('image/') && !fileType?.startsWith('video/') && (
+                                <div className='infodata-file-icon'>
+                                  {fileType?.includes('pdf') ? '📄' : 
+                                   fileType?.includes('text') ? '📝' : 
+                                   fileType?.includes('json') ? '🗂️' : 
+                                   fileType?.includes('document') ? '📋' : 
+                                   fileType?.includes('spreadsheet') ? '📊' : '📁'}
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className='infodata-file-info'>
+                              <div className='infodata-file-name'>{fileName}</div>
+                              <div className='infodata-file-type'>{fileType}</div>
+                              {file.fileSize && (
+                                <div className='infodata-file-size'>
+                                  {(file.fileSize / 1024 / 1024).toFixed(2)} MB
+                                </div>
+                              )}
+                              {isS3File && (
+                                <div className='infodata-file-storage'>☁️ Cloud Storage</div>
+                              )}
+                            </div>
+                            
+                            <div className='infodata-file-actions'>
+                              {isS3File && (
+                                <a 
+                                  href={file.publicUrl} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className='infodata-file-action-btn infodata-file-view-btn'
+                                  title="View file"
+                                >
+                                  👁️
+                                </a>
+                              )}
+                              {user && (user._id === chosenData.userID || user.id === chosenData.userID) && isS3File && (
+                                <button 
+                                  onClick={() => handleFileDelete(file)}
+                                  className='infodata-file-action-btn infodata-file-delete-btn'
+                                  title="Delete file"
+                                >
+                                  🗑️
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                ))}
+                )}
             </div>)}
           </div>
         </div>

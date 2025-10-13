@@ -230,6 +230,20 @@ function DataResult(props) {
     if(localPlanString){
         const currentFile = files && files.length > 0 ? files[currentFileIndex] : null;
         
+        // Debug logging for file structure
+        if (currentFile) {
+            console.log('📁 DataResult currentFile:', {
+                fileName: currentFile.fileName,
+                filename: currentFile.filename,
+                contentType: currentFile.contentType,
+                publicUrl: currentFile.publicUrl,
+                s3Url: currentFile.s3Url,
+                hasContent: !!currentFile.content,
+                hasData: !!currentFile.data,
+                fileStructure: Object.keys(currentFile)
+            });
+        }
+        
         // Clean the displayed plan string by removing system metadata
         const displayPlanString = localPlanString.replace(/Creator:.*?\|/, '|')
             .replace(/\|Rank:[^|]*/, '')
@@ -301,19 +315,52 @@ function DataResult(props) {
                             <div className='planit-dataresult-attachments'>
                                 <div className='planit-dataresult-attachment'>
                                     <a href={'InfoData/' + itemID}>
-                                        {currentFile.contentType && currentFile.contentType.startsWith('image/') && (
-                                            <img src={`data:${currentFile.contentType};base64,${currentFile.data}`} alt={currentFile.filename} className='planit-dataresult-image' />
+                                        {/* Handle both S3 migrated files and legacy base64 files */}
+                                        {((currentFile.contentType && currentFile.contentType.startsWith('image/')) || 
+                                          (currentFile.fileName && currentFile.fileName.match(/\.(jpg|jpeg|png|gif|webp)$/i))) && (
+                                            <img 
+                                                src={
+                                                    currentFile.publicUrl ? currentFile.publicUrl : 
+                                                    currentFile.s3Url ? currentFile.s3Url :
+                                                    `data:${currentFile.contentType};base64,${currentFile.content || currentFile.data}`
+                                                } 
+                                                alt={currentFile.fileName || currentFile.filename || 'Attachment'} 
+                                                className='planit-dataresult-image'
+                                                onLoad={() => {
+                                                    console.log('✅ Image loaded successfully:', {
+                                                        fileName: currentFile.fileName || currentFile.filename,
+                                                        url: currentFile.publicUrl || currentFile.s3Url || 'base64'
+                                                    });
+                                                }}
+                                                onError={(e) => {
+                                                    console.error('❌ Failed to load image:', {
+                                                        currentFile,
+                                                        attemptedSrc: e.target.src
+                                                    });
+                                                    e.target.style.display = 'none';
+                                                }}
+                                            />
                                         )}
                                         {currentFile.contentType && currentFile.contentType.startsWith('video/') && (
                                             <video controls className='planit-dataresult-video'>
-                                                <source src={`data:${currentFile.contentType};base64,${currentFile.data}`} type={currentFile.contentType} />
+                                                <source 
+                                                    src={
+                                                        currentFile.publicUrl ? currentFile.publicUrl :
+                                                        currentFile.s3Url ? currentFile.s3Url :
+                                                        `data:${currentFile.contentType};base64,${currentFile.content || currentFile.data}`
+                                                    } 
+                                                    type={currentFile.contentType} 
+                                                />
                                                 Your browser does not support the video tag.
                                             </video>
                                         )}
                                         {currentFile.contentType && !currentFile.contentType.startsWith('image/') && !currentFile.contentType.startsWith('video/') && (
                                             <div className='planit-dataresult-file'>
-                                                <p>Attachment: {currentFile.filename}</p>
+                                                <p>Attachment: {currentFile.fileName || currentFile.filename}</p>
                                                 <p>Type: {currentFile.contentType}</p>
+                                                {currentFile.publicUrl && (
+                                                    <p><a href={currentFile.publicUrl} target="_blank" rel="noopener noreferrer">View File</a></p>
+                                                )}
                                             </div>
                                         )}
                                     </a>
