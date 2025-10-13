@@ -1,17 +1,42 @@
 NODE_ENV=development
 PORT=5000
-MONGO_URI=mongodb+srv://username:password@cluster0.mongodb.net/database_name?retryWrites=true&w=majority
+MONGO_URI=mongodb+srv://username:password@cluster0.xxxxx.mongodb.net/DatabaseName?retryWrites=true&w=majority
 JWT_SECRET=your_jwt_secret_key_here
 OPENAI_KEY=sk-your_openai_api_key_here
-XAI_KEY=xai-your_xai_api_key_here
+XAI_API_KEY=xai-your_xai_api_key_here
 RAPIDAPI_KEY=your_rapidapi_key_here
-STRIPE_KEY=sk_live_your_stripe_secret_key_here
+STRIPE_KEY=sk_live_your_stripe_key_here
 POSTMARK_API_TOKEN=your_postmark_api_token_here
-FROM_EMAIL=your_sender_email@example.com
+FROM_EMAIL=your_email@yourdomain.com
 GOOGLE_KEY=your_google_api_key_here
 AWS_REGION=us-east-1
-AWS_ACCESS_KEY_ID=your_aws_access_key_id_here
-AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key_here
+AWS_ACCESS_KEY_ID=your_aws_access_key_id
+AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
+# === AWS S3 + CLOUDFRONT CONFIGURATION ===
+# Primary S3 Bucket for file storage
+AWS_S3_BUCKET=your_s3_bucket_name
+AWS_S3_REGION=us-east-1
+# CloudFront Distribution for fast global delivery
+AWS_CLOUDFRONT_DOMAIN=your_cloudfront_domain.cloudfront.net
+# Enable CloudFront (set to false to use direct S3 URLs)
+USE_CLOUDFRONT=true
+# S3 Bucket Configuration
+S3_BUCKET_PUBLIC_READ=false
+S3_PRESIGNED_URL_EXPIRES=900
+# File Upload Limits & Security
+MAX_FILE_SIZE=52428800
+MAX_FILES_PER_UPLOAD=5
+ALLOWED_FILE_TYPES=image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain,text/csv,application/json,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+# File Storage Organization
+S3_FOLDER_STRUCTURE=users/{userId}/{fileType}
+FILE_NAMING_STRATEGY=uuid
+# Content Delivery & Performance
+CLOUDFRONT_CACHE_TTL=86400
+S3_TRANSFER_ACCELERATION=false
+# Security & Access Control
+CORS_ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com,http://localhost:3000
+FILE_VIRUS_SCANNING=false
+WATERMARK_IMAGES=false
+# Legacy Support
+SUPPORT_BASE64_FILES=true
 ADMIN_USER_ID=your_admin_user_id_here
-
-# Remember to update the backend database vars when hosting
