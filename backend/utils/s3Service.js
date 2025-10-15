@@ -1,7 +1,7 @@
 // S3 Service for handling file uploads with pre-signed URLs
 const { S3Client, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 require('dotenv').config();
 
 // Enhanced S3 client with configuration
@@ -52,7 +52,7 @@ const validateFile = (filename, fileSize, contentType) => {
 const generateS3Key = (userId, filename, fileType = 'general') => {
     const fileExtension = filename.split('.').pop();
     const timestamp = Date.now();
-    const uniqueId = uuidv4().substring(0, 8);
+    const uniqueId = randomUUID().substring(0, 8);
     
     // Create organized folder structure
     const folder = fileType === 'profile' ? 'profiles' : 

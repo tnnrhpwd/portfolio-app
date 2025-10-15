@@ -4,7 +4,7 @@
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 require('dotenv').config();
 
 // Initialize AWS clients
@@ -35,7 +35,7 @@ const DRY_RUN = false; // Set to false to actually perform migration
 // Helper function to generate S3 key
 const generateS3Key = (userId, originalFilename, fileType = 'migrated') => {
     const timestamp = Date.now();
-    const uniqueId = uuidv4().substring(0, 8);
+    const uniqueId = randomUUID().substring(0, 8);
     const extension = originalFilename ? originalFilename.split('.').pop() : 'jpg';
     
     return `users/${userId}/${fileType}/${timestamp}_${uniqueId}.${extension}`;
