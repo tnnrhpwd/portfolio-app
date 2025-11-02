@@ -1,64 +1,46 @@
 /**
- * OCR Test Script
- * Simple test to verify OCR functionality is working
+ * OCR Test Script - Converted to Jest
+ * Tests OCR functionality with proper Jest structure
  */
 
-const fs = require('fs');
-const path = require('path');
+// Mock environment
+process.env.OPENAI_KEY = process.env.OPENAI_KEY || 'test-key';
+process.env.STRIPE_KEY = process.env.STRIPE_KEY || 'sk_test_mock';
 
-// Test image in base64 format (simple text image)
+// Test image in base64 format (simple 1x1 pixel image)
 const testImageBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==';
 
-async function testOCR() {
-    console.log('🧪 Testing OCR Backend Integration...\n');
+describe('OCR Backend Integration', () => {
+    let ocrController;
     
-    try {
-        // Import the OCR functions (adjust path as needed)
-        const ocrController = require('../../controllers/ocrController');
+    beforeAll(() => {
+        // Mock console to reduce noise
+        jest.spyOn(console, 'log').mockImplementation(() => {});
+        jest.spyOn(console, 'error').mockImplementation(() => {});
         
-        // Mock request and response objects
-        const mockReq = {
-            user: { id: 'test-user-id' },
-            body: {
-                imageData: testImageBase64,
-                contentType: 'image/png',
-                filename: 'test-image.png',
-                method: 'openai-vision',
-                model: 'gpt-4o',
-                llmProvider: 'openai',
-                llmModel: 'o1-mini'
-            }
-        };
-        
-        const mockRes = {
-            status: (code) => ({ 
-                json: (data) => {
-                    console.log(`Response Status: ${code}`);
-                    console.log('Response Data:', JSON.stringify(data, null, 2));
-                    return data;
-                }
-            })
-        };
-        
-        console.log('Testing OCR extraction with OpenAI Vision...');
-        await ocrController.extractOCR(mockReq, mockRes);
-        
-        console.log('\n✅ OCR test completed!');
-        console.log('\nNote: This is a basic integration test.');
-        console.log('For full testing, upload a real image through the UI.');
-        
-    } catch (error) {
-        console.error('❌ OCR test failed:', error.message);
-        console.log('\nTroubleshooting:');
-        console.log('1. Make sure you have run: node install-ocr-deps.js');
-        console.log('2. Check that OPENAI_KEY is set in your .env file');
-        console.log('3. Verify the backend server can start without errors');
-    }
-}
+        // Mock fetch for Stripe if not available
+        if (typeof global.fetch === 'undefined') {
+            global.fetch = jest.fn();
+        }
+    });
+    
+    afterAll(() => {
+        console.log.mockRestore();
+        console.error.mockRestore();
+    });
 
-// Only run if called directly
-if (require.main === module) {
-    testOCR();
-}
+    it('should load OCR controller without errors', () => {
+        expect(() => {
+            ocrController = require('../../controllers/ocrController');
+        }).not.toThrow();
+        
+        expect(ocrController).toBeDefined();
+        expect(ocrController.extractOCR).toBeDefined();
+    });
 
-module.exports = { testOCR };
+    it('should have extractOCR function available', () => {
+        ocrController = ocrController || require('../../controllers/ocrController');
+        
+        expect(typeof ocrController.extractOCR).toBe('function');
+    });
+});

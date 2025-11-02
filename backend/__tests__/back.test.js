@@ -93,63 +93,57 @@ describe('Portfolio Application - Backend Tests', () => {
     describe('DynamoDB Integration', () => {
         it('should return an empty array if DynamoDB table is empty', async () => {
             const mockResult = { Items: [] };
-            jest.spyOn(dynamodb, 'scan').mockImplementation(() => ({
-                promise: jest.fn().mockResolvedValue(mockResult)
-            }));
+            jest.spyOn(dynamodb, 'send').mockResolvedValueOnce(mockResult);
+            
             const params = { TableName: 'Simple', Limit: 1 };
-            const result = await dynamodb.scan(params).promise();
+            const result = await dynamodb.send(new ScanCommand(params));
             expect(result.Items).toEqual([]);
         });
 
         it('should successfully retrieve items from DynamoDB table', async () => {
             // Mock DynamoDB response
             const mockResult = { Items: [{ id: '1', name: 'Test Item' }] };
-            jest.spyOn(dynamodb, 'scan').mockImplementation(() => ({
-                promise: jest.fn().mockResolvedValue(mockResult)
-            }));
+            jest.spyOn(dynamodb, 'send').mockResolvedValueOnce(mockResult);
+            
             const params = {
                 TableName: 'Simple',
                 Limit: 1
             };
-            const result = await dynamodb.scan(params).promise();
+            const result = await dynamodb.send(new ScanCommand(params));
             expect(result).toBeDefined();
             expect(result).toEqual(mockResult);
         });
 
         it('should handle DynamoDB scan errors gracefully', async () => {
             const error = new Error('DynamoDB scan failed');
-            jest.spyOn(dynamodb, 'scan').mockImplementation(() => ({
-                promise: jest.fn().mockRejectedValue(error)
-            }));
+            jest.spyOn(dynamodb, 'send').mockRejectedValueOnce(error);
+            
             const params = { TableName: 'Simple', Limit: 1 };
-            await expect(dynamodb.scan(params).promise()).rejects.toThrow('DynamoDB scan failed');
+            await expect(dynamodb.send(new ScanCommand(params))).rejects.toThrow('DynamoDB scan failed');
         });
 
         it('should handle DynamoDB connection timeout', async () => {
             const timeoutError = new Error('Connection timeout');
             timeoutError.code = 'NetworkingError';
-            jest.spyOn(dynamodb, 'scan').mockImplementation(() => ({
-                promise: jest.fn().mockRejectedValue(timeoutError)
-            }));
+            jest.spyOn(dynamodb, 'send').mockRejectedValueOnce(timeoutError);
+            
             const params = { TableName: 'Simple' };
-            await expect(dynamodb.scan(params).promise()).rejects.toThrow('Connection timeout');
+            await expect(dynamodb.send(new ScanCommand(params))).rejects.toThrow('Connection timeout');
         });
 
         it('should handle DynamoDB put operations', async () => {
             const mockItem = { id: 'test-id', name: 'Test Item', data: 'test data' };
-            jest.spyOn(dynamodb, 'put').mockImplementation(() => ({
-                promise: jest.fn().mockResolvedValue({})
-            }));
+            jest.spyOn(dynamodb, 'send').mockResolvedValueOnce({});
+            
             const params = { TableName: 'Simple', Item: mockItem };
-            const result = await dynamodb.put(params).promise();
+            const result = await dynamodb.send(new PutCommand(params));
             expect(result).toBeDefined();
         });
 
         it('should handle DynamoDB update operations', async () => {
             const mockUpdateResult = { Attributes: { id: 'test-id', name: 'Updated Item' } };
-            jest.spyOn(dynamodb, 'update').mockImplementation(() => ({
-                promise: jest.fn().mockResolvedValue(mockUpdateResult)
-            }));
+            jest.spyOn(dynamodb, 'send').mockResolvedValueOnce(mockUpdateResult);
+            
             const params = {
                 TableName: 'Simple',
                 Key: { id: 'test-id' },
@@ -158,16 +152,15 @@ describe('Portfolio Application - Backend Tests', () => {
                 ExpressionAttributeValues: { ':name': 'Updated Item' },
                 ReturnValues: 'ALL_NEW'
             };
-            const result = await dynamodb.update(params).promise();
+            const result = await dynamodb.send(new UpdateCommand(params));
             expect(result.Attributes.name).toBe('Updated Item');
         });
 
         it('should handle DynamoDB delete operations', async () => {
-            jest.spyOn(dynamodb, 'delete').mockImplementation(() => ({
-                promise: jest.fn().mockResolvedValue({})
-            }));
+            jest.spyOn(dynamodb, 'send').mockResolvedValueOnce({});
+            
             const params = { TableName: 'Simple', Key: { id: 'test-id' } };
-            const result = await dynamodb.delete(params).promise();
+            const result = await dynamodb.send(new DeleteCommand(params));
             expect(result).toBeDefined();
         });
     });
@@ -522,12 +515,10 @@ describe('Portfolio Application - Backend Tests', () => {
             const connectionError = new Error('Unable to connect to database');
             connectionError.code = 'ECONNREFUSED';
             
-            jest.spyOn(dynamodb, 'scan').mockImplementation(() => ({
-                promise: jest.fn().mockRejectedValue(connectionError)
-            }));
+            jest.spyOn(dynamodb, 'send').mockRejectedValueOnce(connectionError);
             
             const params = { TableName: 'Simple' };
-            await expect(dynamodb.scan(params).promise()).rejects.toThrow('Unable to connect to database');
+            await expect(dynamodb.send(new ScanCommand(params))).rejects.toThrow('Unable to connect to database');
         });
 
         it('should handle unauthorized access attempts', () => {

@@ -2,7 +2,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { BrowserRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
 import '@testing-library/jest-dom';
 
@@ -28,14 +27,7 @@ jest.mock('./pages/Home/Home', () => {
   };
 });
 
-jest.mock('./pages/Projects/Projects/Projects', () => {
-  const React = require('react');
-  return function MockProjects() {
-    return React.createElement('div', { 'data-testid': 'projects-page' }, 'Projects Page');
-  };
-});
-
-jest.mock('./pages/Login/Login', () => {
+jest.mock('./pages/Login/Login.jsx', () => {
   const React = require('react');
   return function MockLogin() {
     return React.createElement('div', { 'data-testid': 'login-page' }, 'Login Page');
@@ -50,7 +42,7 @@ jest.mock('react-toastify', () => {
   };
 });
 
-// Mock individual page components explicitly
+// Mock individual page components explicitly (using correct file extensions)
 jest.mock('./pages/Admin/Admin', () => {
   const React = require('react');
   return () => React.createElement('div', null, 'Admin');
@@ -59,69 +51,85 @@ jest.mock('./pages/Contact/Contact', () => {
   const React = require('react');
   return () => React.createElement('div', null, 'Contact');
 });
-jest.mock('./pages/Register/Register', () => {
+jest.mock('./pages/Register/Register.jsx', () => {
   const React = require('react');
   return () => React.createElement('div', null, 'Register');
 });
-jest.mock('./pages/Profile/Profile', () => {
+jest.mock('./pages/Profile/Profile.jsx', () => {
   const React = require('react');
   return () => React.createElement('div', null, 'Profile');
 });
-jest.mock('./pages/Settings/Settings', () => {
+jest.mock('./pages/Settings/Settings.jsx', () => {
   const React = require('react');
   return () => React.createElement('div', null, 'Settings');
 });
-jest.mock('./pages/Privacy/Privacy', () => {
+jest.mock('./pages/Privacy/Privacy.jsx', () => {
   const React = require('react');
   return () => React.createElement('div', null, 'Privacy');
 });
-jest.mock('./pages/Terms/Terms', () => {
+jest.mock('./pages/Terms/Terms.jsx', () => {
   const React = require('react');
   return () => React.createElement('div', null, 'Terms');
 });
-jest.mock('./pages/LegalTerms', () => {
+jest.mock('./pages/LegalTerms.jsx', () => {
   const React = require('react');
   return () => React.createElement('div', null, 'LegalTerms');
 });
 
-// Mock Simple pages
-jest.mock('./pages/Simple/Simple/Simple', () => {
+// Mock additional components that exist in App.js
+jest.mock('./pages/ForgotPassword/ForgotPassword.jsx', () => {
+  const React = require('react');
+  return () => React.createElement('div', null, 'ForgotPassword');
+});
+jest.mock('./pages/ResetPassword/ResetPassword.jsx', () => {
+  const React = require('react');
+  return () => React.createElement('div', null, 'ResetPassword');
+});
+jest.mock('./pages/Support/Support.jsx', () => {
+  const React = require('react');
+  return () => React.createElement('div', null, 'Support');
+});
+
+// Mock ErrorBoundary component
+jest.mock('./components/ErrorBoundary/ErrorBoundary', () => {
+  const React = require('react');
+  return ({ children }) => React.createElement('div', { 'data-testid': 'error-boundary' }, children);
+});
+
+// Mock Simple pages (only the ones that actually exist)
+jest.mock('./pages/Simple/Simple/Simple.jsx', () => {
   const React = require('react');
   return () => React.createElement('div', null, 'Simple');
 });
-jest.mock('./pages/Simple/About/About', () => {
+jest.mock('./pages/Simple/About/About.jsx', () => {
   const React = require('react');
   return () => React.createElement('div', null, 'About');
 });
-jest.mock('./pages/Simple/Net/Net', () => {
+jest.mock('./pages/Simple/Net/Net.jsx', () => {
   const React = require('react');
   return () => React.createElement('div', null, 'Net');
 });
-jest.mock('./pages/Simple/Pay/Pay', () => {
+jest.mock('./pages/Simple/Pay/Pay.jsx', () => {
   const React = require('react');
   return () => React.createElement('div', null, 'Pay');
 });
-jest.mock('./pages/Simple/Plans/Plans', () => {
+jest.mock('./pages/Simple/Plans/Plans.jsx', () => {
   const React = require('react');
   return () => React.createElement('div', null, 'Plans');
 });
-jest.mock('./pages/Simple/InfoData/InfoData', () => {
+jest.mock('./pages/Simple/InfoData/InfoData.jsx', () => {
   const React = require('react');
   return () => React.createElement('div', null, 'InfoData');
 });
-jest.mock('./pages/Simple/Agenda/Agenda', () => {
+jest.mock('./pages/Simple/InfoPlanner/InfoPlanner.jsx', () => {
   const React = require('react');
-  return () => React.createElement('div', null, 'Agenda');
+  return () => React.createElement('div', null, 'InfoPlanner');
 });
 
-// Mock Project pages
+// Mock Project pages (only the ones that actually exist)
 jest.mock('./pages/Projects/Annuities/Annuities', () => {
   const React = require('react');
   return () => React.createElement('div', null, 'Annuities');
-});
-jest.mock('./pages/Projects/Drafting/Drafting', () => {
-  const React = require('react');
-  return () => React.createElement('div', null, 'Drafting');
 });
 jest.mock('./pages/Projects/Ethanol/Ethanol', () => {
   const React = require('react');
@@ -135,17 +143,9 @@ jest.mock('./pages/Projects/Halfway/Halfway', () => {
   const React = require('react');
   return () => React.createElement('div', null, 'Halfway');
 });
-jest.mock('./pages/Projects/PollBox/PollBox', () => {
-  const React = require('react');
-  return () => React.createElement('div', null, 'PollBox');
-});
 jest.mock('./pages/Projects/PassGen/PassGen', () => {
   const React = require('react');
   return () => React.createElement('div', null, 'PassGen');
-});
-jest.mock('./pages/Projects/ProdPartners/ProdPartners', () => {
-  const React = require('react');
-  return () => React.createElement('div', null, 'ProdPartners');
 });
 jest.mock('./pages/Projects/SleepAssist/SleepAssist', () => {
   const React = require('react');

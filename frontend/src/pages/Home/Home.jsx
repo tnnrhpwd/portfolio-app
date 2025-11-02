@@ -53,13 +53,13 @@ function Home() {
     }, [dispatch]);
 
     // Show Wordle popup after 5 seconds
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setShowWordlePopup(true);
-        }, 5000);
+    // useEffect(() => {
+    //     const timer = setTimeout(() => {
+    //         setShowWordlePopup(true);
+    //     }, 5000);
         
-        return () => clearTimeout(timer);
-    }, []);
+    //     return () => clearTimeout(timer);
+    // }, []);
 
     const handleClosePopup = () => {
         setShowWordlePopup(false);

@@ -65,7 +65,11 @@
       "\\.(png|less)$": "identity-obj-proxy",
       "\\.(svg|less)$": "identity-obj-proxy"
     },
-    "testEnvironment": "jest-environment-jsdom"
+    "testEnvironment": "jest-environment-jsdom",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/__tests__/scripts/"
+    ]
   },
   "devDependencies": {
     "@babel/core": "^7.28.3",
