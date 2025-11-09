@@ -1,0 +1,278 @@
+const stripe = require('stripe')(process.env.STRIPE_KEY);
+const { DynamoDBDocumentClient, PutCommand } = require('@aws-sdk/lib-dynamodb');
+const { getUserRankFromStripe, parseUserCredits, updateUserCredits } = require('../utils/apiUsageTracker.js');
+
+/**
+ * Handle Stripe webhook events
+ * @param {Object} req - Express request object
+ * @param {string} webhookSecret - Stripe webhook secret
+ * @returns {Object} Event object
+ */
+function constructWebhookEvent(req, webhookSecret) {
+    const sig = req.headers['stripe-signature'];
+    
+    try {
+        const event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+        return { success: true, event };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+}
+
+/**
+ * Process webhook event based on type
+ * @param {Object} event - Stripe event object
+ * @returns {Object} Processing result
+ */
+function processWebhookEvent(event) {
+    switch (event.type) {
+        case 'invoice.payment_succeeded':
+            const invoice = event.data.object;
+            console.log('Invoice payment succeeded:', invoice.id);
+            // Handle successful payment
+            return { success: true, message: 'Invoice payment succeeded' };
+            
+        default:
+            console.log(`Unhandled event type ${event.type}`);
+            return { success: true, message: 'Event type not handled' };
+    }
+}
+
+/**
+ * Validate custom limit parameters
+ * @param {number} customLimit - Custom limit amount
+ * @returns {Object} Validation result
+ */
+function validateCustomLimit(customLimit) {
+    if (!customLimit || typeof customLimit !== 'number' || customLimit < 0.50) {
+        return {
+            valid: false,
+            error: 'Invalid custom limit. Must be at least $0.50.'
+        };
+    }
+    return { valid: true };
+}
+
+/**
+ * Verify user is Premium member
+ * @param {string} userId - User ID
+ * @returns {boolean} True if Premium member
+ */
+async function verifyPremiumMembership(userId) {
+    try {
+        const userRank = await getUserRankFromStripe(userId);
+        return userRank === 'Premium';
+    } catch (error) {
+        console.error('Failed to get user rank from Stripe:', error);
+        throw new Error('Unable to verify membership status');
+    }
+}
+
+/**
+ * Calculate price difference and process payment if needed
+ * @param {number} currentLimit - Current limit
+ * @param {number} newLimit - New limit
+ * @param {string} stripeCustomerId - Stripe customer ID
+ * @param {string} frontendUrl - Frontend URL for redirects
+ * @returns {Object} Payment result
+ */
+async function processLimitIncrease(currentLimit, newLimit, stripeCustomerId, frontendUrl) {
+    const limitDifference = newLimit - currentLimit;
+    
+    console.log(`Current limit: $${currentLimit.toFixed(2)}, New limit: $${newLimit.toFixed(2)}, Difference: $${limitDifference.toFixed(2)}`);
+    
+    if (limitDifference <= 0) {
+        return { success: false, error: 'No increase detected' };
+    }
+    
+    try {
+        const paymentIntent = await stripe.paymentIntents.create({
+            amount: Math.round(limitDifference * 100),
+            currency: 'usd',
+            customer: stripeCustomerId,
+            description: `Premium limit increase from $${currentLimit.toFixed(2)} to $${newLimit.toFixed(2)}`,
+            automatic_payment_methods: {
+                enabled: true,
+            },
+            confirm: true,
+            return_url: frontendUrl
+        });
+        
+        console.log('Payment processed successfully for limit increase:', paymentIntent.id);
+        return { success: true, paymentIntent, limitDifference };
+    } catch (paymentError) {
+        console.error('Payment processing error:', paymentError);
+        throw new Error(`Payment failed: ${paymentError.message}`);
+    }
+}
+
+/**
+ * Update subscription for new limit
+ * @param {string} subscriptionId - Subscription ID
+ * @param {number} newLimit - New limit
+ * @returns {boolean} Success status
+ */
+async function updateSubscriptionLimit(subscriptionId, newLimit) {
+    if (!subscriptionId) {
+        console.log('No subscription ID found, skipping subscription update');
+        return false;
+    }
+    
+    try {
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        
+        const customPrice = await stripe.prices.create({
+            currency: 'usd',
+            unit_amount: Math.round(newLimit * 100),
+            recurring: { interval: 'month' },
+            product_data: {
+                name: `CSimple Membership - $${newLimit.toFixed(2)} Monthly Limit`
+            }
+        });
+        
+        await stripe.subscriptions.update(subscriptionId, {
+            items: [{
+                id: subscription.items.data[0].id,
+                price: customPrice.id,
+            }],
+            proration_behavior: 'none'
+        });
+        
+        console.log(`Updated subscription to monthly charge of $${newLimit.toFixed(2)}`);
+        return true;
+    } catch (subscriptionError) {
+        console.error('Error updating subscription:', subscriptionError);
+        return false;
+    }
+}
+
+/**
+ * Update user credits in database
+ * @param {Object} dynamodb - DynamoDB client
+ * @param {Object} user - User object
+ * @param {Object} creditsData - Credits data
+ * @returns {boolean} Success status
+ */
+async function saveUserCredits(dynamodb, user, creditsData) {
+    const updatedText = updateUserCredits(user.text, creditsData);
+    
+    const putParams = {
+        TableName: 'Simple',
+        Item: {
+            ...user,
+            text: updatedText,
+            updatedAt: new Date().toISOString()
+        }
+    };
+    
+    try {
+        await dynamodb.send(new PutCommand(putParams));
+        console.log('Custom limit updated successfully in database');
+        return true;
+    } catch (error) {
+        console.error('Error saving user credits:', error);
+        return false;
+    }
+}
+
+/**
+ * Process custom limit update - orchestrates the entire flow
+ * @param {Object} req - Express request object
+ * @param {Object} dynamodb - DynamoDB client
+ * @returns {Object} Result object
+ */
+async function processCustomLimitUpdate(req, dynamodb) {
+    const { customLimit } = req.body;
+    
+    // Validate custom limit
+    const validation = validateCustomLimit(customLimit);
+    if (!validation.valid) {
+        const error = new Error(validation.error);
+        error.statusCode = 400;
+        throw error;
+    }
+    
+    // Verify Premium membership
+    const isPremium = await verifyPremiumMembership(req.user.id);
+    if (!isPremium) {
+        const error = new Error('Custom limits are only available for Premium members');
+        error.statusCode = 403;
+        throw error;
+    }
+    
+    // Get current credits data
+    const userText = req.user.text || '';
+    let creditsData = parseUserCredits(userText);
+    
+    const currentLimit = creditsData.customLimit || 10.00;
+    const limitDifference = customLimit - currentLimit;
+    
+    if (limitDifference === 0) {
+        const error = new Error('Custom limit is the same as current limit');
+        error.statusCode = 400;
+        throw error;
+    }
+    
+    if (limitDifference > 0) {
+        // User is increasing their limit - charge and add credits
+        const stripeCustomerId = userText.match(/stripeCustomerId:([^|]+)/)?.[1];
+        if (!stripeCustomerId) {
+            const error = new Error('No Stripe customer ID found');
+            error.statusCode = 400;
+            throw error;
+        }
+        
+        const frontendUrl = process.env.FRONTEND_URL || 
+                           (process.env.NODE_ENV === 'production' ? 'https://www.sthopwood.com' : 'http://localhost:3000') + 
+                           '/profile';
+        
+        const paymentResult = await processLimitIncrease(currentLimit, customLimit, stripeCustomerId, frontendUrl);
+        
+        if (!paymentResult.success) {
+            const error = new Error(paymentResult.error);
+            error.statusCode = 400;
+            throw error;
+        }
+        
+        // Add credits immediately
+        creditsData.customLimit = customLimit;
+        creditsData.availableCredits = (creditsData.availableCredits || 0) + limitDifference;
+        
+        // Update subscription
+        const subscriptionId = userText.match(/subscriptionId:([^|]+)/)?.[1];
+        await updateSubscriptionLimit(subscriptionId, customLimit);
+        
+        console.log(`Custom limit increased from $${currentLimit.toFixed(2)} to $${customLimit.toFixed(2)}`);
+        console.log(`Added $${limitDifference.toFixed(4)} in credits immediately`);
+    } else {
+        // User is decreasing their limit - adjust for next billing cycle
+        creditsData.customLimit = customLimit;
+        console.log(`Custom limit decreased from $${currentLimit.toFixed(2)} to $${customLimit.toFixed(2)}`);
+        console.log('Next billing cycle will reflect the lower amount');
+    }
+    
+    // Save to database
+    await saveUserCredits(dynamodb, req.user, creditsData);
+    
+    return {
+        success: true,
+        message: limitDifference > 0 
+            ? `Custom limit increased to $${customLimit.toFixed(2)}. Credits added immediately.`
+            : `Custom limit updated to $${customLimit.toFixed(2)}. Next billing cycle will reflect the new amount.`,
+        newLimit: customLimit,
+        availableCredits: creditsData.availableCredits,
+        limitChange: limitDifference,
+        immediateCredits: Math.max(0, limitDifference)
+    };
+}
+
+module.exports = {
+    constructWebhookEvent,
+    processWebhookEvent,
+    validateCustomLimit,
+    verifyPremiumMembership,
+    processLimitIncrease,
+    updateSubscriptionLimit,
+    saveUserCredits,
+    processCustomLimitUpdate
+};
