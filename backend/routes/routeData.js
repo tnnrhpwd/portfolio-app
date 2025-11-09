@@ -1,6 +1,12 @@
-// Import necessary dependencies
+// routes/routeData.js - API Routes organized by functionality
+
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+
+// ============================================================================
+// Middleware Imports
+// ============================================================================
 const { protect } = require('../middleware/authMiddleware');
 const { authLimiter, paymentLimiter } = require('../middleware/rateLimiter');
 const { 
@@ -13,14 +19,39 @@ const {
   handleValidationErrors 
 } = require('../middleware/validation');
 const { logSecurityEvent } = require('../utils/logger');
-const multer = require('multer');
 
-// Import file upload controller
+// ============================================================================
+// Controller Imports
+// ============================================================================
+
+// Main controllers (from index.js)
+const {
+  deleteData, deleteHashData, deletePaymentMethod, deleteCustomer,
+  getData, getUserSubscription, getUserStorage,
+  getHashData, getPaymentMethods, getAllData, getMembershipPricing, getUserUsageData,
+  postData, registerUser, loginUser,
+  postHashData, compressData, createCustomer,
+  postPaymentMethod, createInvoice, subscribeCustomer,
+  handleWebhook, setCustomLimit,
+  putData, putHashData, updateCustomer, putPaymentMethod,
+  forgotPassword, resetPassword, forgotPasswordAuthenticated,
+  extractOCR, updateWithOCR,
+  getLLMProviders,
+} = require('../controllers');
+
+// File upload controller
 const {
   requestUploadUrl,
   confirmUpload,
   deleteUploadedFile
 } = require('../controllers/fileUploadController');
+
+// Analytics controller
+const {
+  getRefererAnalytics,
+  getRefererData,
+  getRefererSummary
+} = require('../controllers/refererAnalytics');
 
 // Configure multer for memory storage (or disk storage if preferred)
 const storage = multer.memoryStorage();
@@ -64,31 +95,13 @@ router.use((req, res, next) => {
   next();
 });
 
-// Import controller functions
-const {
-  deleteData,
-  deleteHashData, deletePaymentMethod, deleteCustomer,
-  getData, getUserSubscription, getUserStorage,
-  getHashData, getPaymentMethods, getAllData, getMembershipPricing, getUserUsageData,
-  postData, registerUser, loginUser,
-  postHashData, compressData, createCustomer, 
-  postPaymentMethod, createInvoice, subscribeCustomer, 
-  handleWebhook, setCustomLimit,
-  putData,
-  putHashData, putPaymentMethod, updateCustomer,
-  forgotPassword, resetPassword, forgotPasswordAuthenticated,
-  extractOCR, updateWithOCR,
-  getLLMProviders,
-} = require('../controllers');
+// (Controllers imported above)
 
-// Import referer analytics controller
-const {
-  getRefererAnalytics,
-  getRefererData,
-  getRefererSummary
-} = require('../controllers/refererAnalytics');
+// ============================================================================
+// PUBLIC ROUTES
+// ============================================================================
 
-// Public routes with validation
+// Authentication Routes
 router.post('/register', 
   authLimiter,
   validateRegistration, 
@@ -111,7 +124,7 @@ router.post('/login',
   loginUser
 );
 
-// Password reset routes
+// Password Reset (Public)
 router.post('/forgot-password', 
   authLimiter,
   validateForgotPassword,
@@ -134,9 +147,29 @@ router.post('/reset-password',
   resetPassword
 );
 
-// Authenticated password reset route
+// Public Data Routes
+router.route('/public')
+  .get(getData)
+  .post(validateDataCreation, handleValidationErrors, postData);
+
+router.route('/public/:id')
+  .put(protect, putData)
+  .delete(protect, deleteData);
+
+// Membership & LLM Info
+router.get('/membership-pricing', getMembershipPricing);
+router.get('/llm-providers', getLLMProviders);
+
+// Stripe Webhook (Public but signature-verified)
+router.post('/webhook', express.raw({ type: 'application/json' }), handleWebhook);
+
+// ============================================================================
+// PROTECTED ROUTES (Authentication Required)
+// ============================================================================
+
+// Authenticated Password Reset
 router.post('/forgot-password-authenticated', 
-  protect, // Require authentication
+  protect,
   authLimiter,
   (req, res, next) => {
     logSecurityEvent('authenticated_password_reset_request', { 
@@ -147,72 +180,78 @@ router.post('/forgot-password-authenticated',
   forgotPasswordAuthenticated
 );
 
-router.route('/public') 
-  .get(getData) // GET request for fetching public data
-  .post(validateDataCreation, handleValidationErrors, postData); // POST request for creating public data
+// ============================================================================
+// DATA OPERATIONS
+// ============================================================================
 
-// Public route for membership pricing (no authentication required)
-router.get('/membership-pricing', getMembershipPricing); // GET request for fetching membership pricing
+// Admin Routes
+router.get('/all/admin', protect, getAllData);
 
-// Public route for LLM providers (no authentication required)
-router.get('/llm-providers', getLLMProviders); // GET request for fetching available LLM providers
+// Data Compression
+router.post('/compress', protect, compressData);
 
-// Protected routes
-router.get('/all/admin', protect, getAllData); // GET request for fetching all data (admin only)
-router.post('/compress', protect, compressData); // Route to handle data compression
-
-// OCR routes
-router.post('/ocr-extract', protect, extractOCR); // POST request for OCR text extraction
-router.put('/ocr-update/:id', protect, updateWithOCR); // PUT request for updating item with OCR results
-
-// File upload routes (S3 integration)
-router.post('/upload-url', protect, requestUploadUrl); // POST request for pre-signed upload URL
-router.post('/upload-confirm', protect, confirmUpload); // POST confirm file upload
-router.delete('/file/:s3Key', protect, deleteUploadedFile); // DELETE uploaded file
-
-// Customer routes and specific paths should come before generic routes like /:id
-router.post('/create-customer', protect, paymentLimiter, createCustomer); // Protect customer creation
-router.post('/create-invoice', protect, paymentLimiter, createInvoice); // Protect invoice creation
-router.post('/subscribe-customer', protect, paymentLimiter, subscribeCustomer); // Protect customer subscription
-router.get('/subscription', protect, getUserSubscription); // GET request for fetching user subscriptions
-router.get('/storage', protect, getUserStorage); // GET request for fetching user storage usage
-router.get('/usage', protect, getUserUsageData); // GET request for fetching user API usage stats
-router.post('/custom-limit', protect, paymentLimiter, setCustomLimit); // POST request for setting custom usage limit (Premium only)
-
-// Referer Analytics routes (Admin only)
-router.get('/analytics/referer-stats', protect, getRefererAnalytics); // GET referer analytics statistics
-router.get('/analytics/referer-data', protect, getRefererData); // GET detailed referer data
-router.get('/analytics/referer-summary', protect, getRefererSummary); // GET referer summary for dashboard
-
-router.route('/pay-methods')
-  .get(protect, getPaymentMethods) // GET payment methods
-  .put(protect, paymentLimiter, validatePaymentData, handleValidationErrors, putPaymentMethod) // PUT payment methods
-  .post(protect, paymentLimiter, validatePaymentData, handleValidationErrors, postPaymentMethod); // POST payment methods
-
-router.delete('/pay-methods/:id', protect, paymentLimiter, deletePaymentMethod); // DELETE request for deleting a payment method
-router.put('/update-customer/:id', protect, paymentLimiter, updateCustomer); // PUT request for updating customer
-router.delete('/delete-customer/:id', protect, paymentLimiter, deleteCustomer); // DELETE request for deleting customer
-
-// Customer routes with payment rate limiting
-router.post('/create-customer', protect, paymentLimiter, createCustomer);
-router.post('/create-invoice', protect, paymentLimiter, createInvoice);
-router.post('/subscribe-customer', protect, paymentLimiter, subscribeCustomer);
-
-// Webhook route
-router.post('/webhook', express.raw({ type: 'application/json' }), handleWebhook);
-
-// More specific routes must come before generic ones
-router.route('/public/:id')
-  .delete(protect, deleteData) // DELETE public data
-  .put(protect, putData); // PUT public data
-
-// Now the more generic routes
+// Protected Data CRUD
 router.route('/')
-  .get(protect, getHashData) // GET protected data
-  .post(protect, upload.any(), postHashData); // POST protected data - Added multer middleware upload.any()
+  .get(protect, getHashData)
+  .post(protect, upload.any(), postHashData);
 
 router.route('/:id')
-  .delete(protect, deleteHashData) // DELETE protected data
-  .put(protect, putHashData); // PUT protected data
+  .delete(protect, deleteHashData)
+  .put(protect, putHashData);
+
+// ============================================================================
+// FILE UPLOAD (S3)
+// ============================================================================
+
+router.post('/upload-url', protect, requestUploadUrl);
+router.post('/upload-confirm', protect, confirmUpload);
+router.delete('/file/:s3Key', protect, deleteUploadedFile);
+
+// ============================================================================
+// OCR (Optical Character Recognition)
+// ============================================================================
+
+router.post('/ocr-extract', protect, extractOCR);
+router.put('/ocr-update/:id', protect, updateWithOCR);
+
+// ============================================================================
+// USER ACCOUNT & USAGE
+// ============================================================================
+
+router.get('/subscription', protect, getUserSubscription);
+router.get('/storage', protect, getUserStorage);
+router.get('/usage', protect, getUserUsageData);
+
+// ============================================================================
+// PAYMENT & BILLING (Stripe)
+// ============================================================================
+
+// Customer Management
+router.post('/create-customer', protect, paymentLimiter, createCustomer);
+router.put('/update-customer/:id', protect, paymentLimiter, updateCustomer);
+router.delete('/delete-customer/:id', protect, paymentLimiter, deleteCustomer);
+
+// Payment Methods
+router.route('/pay-methods')
+  .get(protect, getPaymentMethods)
+  .post(protect, paymentLimiter, validatePaymentData, handleValidationErrors, postPaymentMethod)
+  .put(protect, paymentLimiter, validatePaymentData, handleValidationErrors, putPaymentMethod);
+
+router.delete('/pay-methods/:id', protect, paymentLimiter, deletePaymentMethod);
+
+// Billing & Subscriptions
+router.post('/create-invoice', protect, paymentLimiter, createInvoice);
+router.post('/subscribe-customer', protect, paymentLimiter, subscribeCustomer);
+router.post('/custom-limit', protect, paymentLimiter, setCustomLimit);
+
+
+
+// ============================================================================
+// ANALYTICS (Admin Only)
+// ============================================================================
+
+router.get('/analytics/referer-stats', protect, getRefererAnalytics);
+router.get('/analytics/referer-data', protect, getRefererData);
+router.get('/analytics/referer-summary', protect, getRefererSummary);
 
 module.exports = router; // Export the router
