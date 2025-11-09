@@ -2,7 +2,7 @@
 
 const asyncHandler = require('express-async-handler');
 const { checkIP } = require('../utils/accessData.js');
-const { sendEmail } = require('../utils/emailService.js');
+const { sendEmail } = require('../services/emailService.js');
 
 // Import service modules
 const { 

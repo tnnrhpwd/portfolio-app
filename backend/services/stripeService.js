@@ -1,6 +1,6 @@
 const stripe = require('stripe')(process.env.STRIPE_KEY);
 const { DynamoDBDocumentClient, PutCommand } = require('@aws-sdk/lib-dynamodb');
-const { sendEmail } = require('../utils/emailService.js');
+const { sendEmail } = require('./emailService.js');
 const Data = require('../models/dataModel');
 
 /**

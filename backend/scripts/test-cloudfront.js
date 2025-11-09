@@ -70,7 +70,7 @@ async function testCloudFront() {
     console.log('\n🔧 Test 3: S3 Service integration...');
     
     try {
-        const s3Service = require('./utils/s3Service.js');
+        const s3Service = require('../services/s3Service.js');
         const testKey = 'test/sample-file.jpg';
         const testUrl = s3Service.generateCloudFrontUrl(testKey);
         

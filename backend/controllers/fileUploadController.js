@@ -7,7 +7,7 @@ const {
     checkFileExists, 
     deleteFile,
     getFileMetadata
-} = require('../utils/s3Service.js');
+} = require('../services/s3Service.js');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, UpdateCommand, GetCommand } = require('@aws-sdk/lib-dynamodb');
 

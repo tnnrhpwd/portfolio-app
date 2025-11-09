@@ -1,5 +1,5 @@
 const AWS = require('aws-sdk');
-const { logger } = require('../middleware/logger');
+const { logger } = require('./logger');
 
 // Configure AWS
 AWS.config.update({

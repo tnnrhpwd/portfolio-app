@@ -4,7 +4,7 @@ const asyncHandler = require('express-async-handler');
 require('dotenv').config();
 const { checkIP } = require('../utils/accessData.js');
 const { getPaymentMethods } = require('./getHashData.js');
-const { sendEmail } = require('../utils/emailService.js');
+const { sendEmail } = require('../services/emailService.js');
 const stripe = require('stripe')(process.env.STRIPE_KEY);
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand, PutCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');

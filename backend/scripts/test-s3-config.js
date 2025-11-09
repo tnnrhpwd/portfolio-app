@@ -60,7 +60,7 @@ try {
 // Test S3 service import
 console.log('\n📦 S3 Service Test:');
 try {
-    const s3Service = require('./utils/s3Service.js');
+    const s3Service = require('../services/s3Service.js');
     console.log('✅ S3 Service imported successfully');
     console.log(`✅ Available functions: ${Object.keys(s3Service).join(', ')}`);
 } catch (error) {

@@ -12,7 +12,7 @@ const {
   validatePaymentData,
   handleValidationErrors 
 } = require('../middleware/validation');
-const { logSecurityEvent } = require('../middleware/logger');
+const { logSecurityEvent } = require('../utils/logger');
 const multer = require('multer');
 
 // Import file upload controller
