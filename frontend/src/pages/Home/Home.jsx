@@ -68,7 +68,7 @@ function Home() {
     return (
         <>
             <Header />
-            <div className="container">
+            <main id="main-content" className="container">
                 {/* Floating elements for visual interest */}
                 <div className="floating-shapes">
                     <div className="floating-circle floating-circle-1"></div>
@@ -187,7 +187,7 @@ function Home() {
                         </div>
                     </div>
                 )}
-            </div>
+            </main>
         </>
     );
 }

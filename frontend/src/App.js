@@ -10,6 +10,7 @@ import ForgotPassword from './pages/ForgotPassword/ForgotPassword.jsx';
 import GFreq from './pages/Projects/GFreq/GFreq';
 import Halfway from './pages/Projects/Halfway/Halfway';
 import Home from './pages/Home/Home';
+import NotFound from './pages/NotFound/NotFound.jsx';
 import PassGen from './pages/Projects/PassGen/PassGen';
 import ResetPassword from './pages/ResetPassword/ResetPassword.jsx';
 import SleepAssist from './pages/Projects/SleepAssist/SleepAssist';
@@ -70,7 +71,8 @@ function App() {
             <Route path='/terms' element={<Terms />} />
             <Route path="/wordle" element={<Wordle/>} />
             <Route path="/wordlesolver" element={<WordleSolver/>} />
-            <Route path="/Simple" element={<Simple/>} />
+            {/* Catch all route for 404 */}
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </div>
       </Router>

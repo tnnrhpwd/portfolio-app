@@ -33,6 +33,9 @@ function Header() {
 
   return (
     <>
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
       <div className="planit-header unclickable-background">
         <div className="planit-header-logo unclickable-background">
           <img
