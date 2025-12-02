@@ -46,7 +46,7 @@
     "multer": "^1.4.5-lts.1",
     "node-cache": "^5.1.2",
     "node-fetch": "^2.6.12",
-    "openai": "^4.24.7",
+    "openai": "^6.9.1",
     "postmark": "^3.0.17",
     "sthopwood": "file:..",
     "sthopwood-backend": "file:",
