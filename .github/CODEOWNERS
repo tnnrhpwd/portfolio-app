@@ -1,0 +1,34 @@
+# CODEOWNERS file
+# These owners will be requested for review when someone opens a pull request
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything
+* @tnnrhpwd
+
+# Backend code
+/backend/ @tnnrhpwd
+
+# Frontend code
+/frontend/ @tnnrhpwd
+
+# Security-sensitive files - require explicit review
+/backend/middleware/authMiddleware.js @tnnrhpwd
+/backend/middleware/rateLimiter.js @tnnrhpwd
+/backend/middleware/validation.js @tnnrhpwd
+/backend/utils/generateToken.js @tnnrhpwd
+/backend/services/stripeService.js @tnnrhpwd
+
+# Configuration files
+*.json @tnnrhpwd
+*.yml @tnnrhpwd
+*.yaml @tnnrhpwd
+.env* @tnnrhpwd
+
+# Documentation
+/docs/ @tnnrhpwd
+*.md @tnnrhpwd
+
+# Docker and deployment
+Dockerfile* @tnnrhpwd
+docker-compose.yml @tnnrhpwd
+netlify.toml @tnnrhpwd

@@ -1,0 +1,2 @@
+# This file ensures the migration-backups directory exists in git
+# Backup files are ignored by .gitignore

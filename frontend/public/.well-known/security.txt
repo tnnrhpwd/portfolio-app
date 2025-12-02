@@ -1,0 +1,13 @@
+Contact: mailto:steven.t.hopwood@gmail.com
+Expires: 2026-12-31T23:59:59.000Z
+Preferred-Languages: en
+Canonical: https://sthopwood.com/.well-known/security.txt
+Policy: https://github.com/tnnrhpwd/portfolio-app/blob/master/.github/SECURITY.md
+
+# Security Policy
+# 
+# We take security seriously. If you find a vulnerability, please report it
+# to us responsibly. Do not create public issues for security problems.
+#
+# Expected Response Time: 48 hours
+# Resolution Target: 30 days

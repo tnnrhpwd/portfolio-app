@@ -1,0 +1,122 @@
+# Dependabot configuration file
+# Automatically creates PRs for dependency updates
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
+
+version: 2
+updates:
+  # Root package.json
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'America/New_York'
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: 'chore(deps)'
+    labels:
+      - 'dependencies'
+      - 'automerge'
+    groups:
+      dev-dependencies:
+        patterns:
+          - '@babel/*'
+          - '@testing-library/*'
+          - '@typescript-eslint/*'
+          - 'eslint*'
+          - 'prettier*'
+          - 'jest*'
+        update-types:
+          - 'minor'
+          - 'patch'
+
+  # Backend dependencies
+  - package-ecosystem: 'npm'
+    directory: '/backend'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'America/New_York'
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: 'chore(deps-backend)'
+    labels:
+      - 'dependencies'
+      - 'backend'
+    groups:
+      aws-sdk:
+        patterns:
+          - '@aws-sdk/*'
+        update-types:
+          - 'minor'
+          - 'patch'
+      security:
+        patterns:
+          - 'helmet'
+          - 'express-rate-limit'
+          - 'express-validator'
+          - 'bcryptjs'
+          - 'jsonwebtoken'
+        update-types:
+          - 'minor'
+          - 'patch'
+
+  # Frontend dependencies
+  - package-ecosystem: 'npm'
+    directory: '/frontend'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'America/New_York'
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: 'chore(deps-frontend)'
+    labels:
+      - 'dependencies'
+      - 'frontend'
+    groups:
+      react:
+        patterns:
+          - 'react'
+          - 'react-dom'
+          - 'react-router*'
+          - 'react-redux'
+          - '@reduxjs/*'
+        update-types:
+          - 'minor'
+          - 'patch'
+      testing:
+        patterns:
+          - '@testing-library/*'
+          - 'jest*'
+          - 'msw'
+        update-types:
+          - 'minor'
+          - 'patch'
+
+  # Docker images
+  - package-ecosystem: 'docker'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+    commit-message:
+      prefix: 'chore(deps-docker)'
+    labels:
+      - 'dependencies'
+      - 'docker'
+
+  # GitHub Actions
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+    commit-message:
+      prefix: 'chore(deps-actions)'
+    labels:
+      - 'dependencies'
+      - 'github-actions'
