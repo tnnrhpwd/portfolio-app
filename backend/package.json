@@ -28,7 +28,7 @@
     "@aws-sdk/s3-request-presigner": "^3.908.0",
     "@azure/cognitiveservices-computervision": "^8.2.0",
     "@azure/ms-rest-js": "^2.7.0",
-    "@google-cloud/vision": "^4.0.0",
+    "@google-cloud/vision": "^5.3.4",
     "bcryptjs": "^2.4.3",
     "body-parser": "^1.20.2",
     "colors": "^1.4.0",
