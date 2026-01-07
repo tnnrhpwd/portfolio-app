@@ -1,6 +1,7 @@
 [build]
 command = "npm run build:netlify"
 publish = "frontend/build"
+image = "ubuntu:noble"
 
 [build.environment]
 NODE_VERSION = "22"
