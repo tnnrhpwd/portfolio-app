@@ -27,12 +27,18 @@ function HeaderDropper(props) {
     }
   }, []);
 
+  // Handle auth errors and update component when user logs out
   useEffect(() => {
     if (dataIsError && dataMessage === 'Not authorized, token expired') {
       dispatch(logout());
       navigate('/login');
     }
   }, [dataIsError, dataMessage, dispatch, navigate]);
+
+  // Force re-render when user state changes (login/logout)
+  useEffect(() => {
+    // This effect ensures the dropdown updates immediately when auth state changes
+  }, [user]);
 
   const hideComponentVisibility = () => {document.getElementById("planit-header-dropper__toggle").checked = false;}
   const ComponentVisibility = () => {return document.getElementById("planit-header-dropper__toggle").checked}

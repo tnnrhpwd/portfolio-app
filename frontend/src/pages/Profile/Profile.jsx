@@ -47,49 +47,25 @@ function Profile() {
       setCurrentColorMode('system');
     }
     
+    // Simple auth check - no user means redirect to login immediately
     if (!user) {
       navigate('/login');
       return;
-    }
-
-    if (dataIsError) {
-      toast.error(dataMessage);
-      console.log('Toast error message:', dataMessage);
-      dispatch(resetDataSuccess());
-    }
-
-    if (dataIsSuccess && dataMessage) {
-      toast.success(dataMessage);
-      console.log('Toast success message:', dataMessage);
-      dispatch(resetDataSuccess());
     }
 
     return () => {
       // Don't reset the entire data slice - this was causing userUsage to be cleared
       // dispatch(resetDataSlice());
     };
-  }, [user, dataIsSuccess, dataIsError, dataMessage, navigate, dispatch]);
+  }, [user, navigate, dispatch]);
 
   // Only fetch subscription data once when component mounts
   useEffect(() => {
     if (user && !subscriptionLoaded) {
-      // Debug: Check user token
-      console.log('User object:', user);
-      console.log('User token exists:', !!user.token);
-      
-      if (!user.token) {
-        console.log('No token found, logging out');
-        dispatch(logout());
-        navigate('/login');
-        return;
-      }
-      
       // Check if token is valid using utility function
-      if (!isTokenValid(user.token)) {
-        const expiration = getTokenExpiration(user.token);
-        console.log('Token is invalid or expired');
-        console.log('Token expiration:', expiration);
-        toast.error('Your session has expired. Please log in again.');
+      if (!user.token || !isTokenValid(user.token)) {
+        // Session expired - logout and redirect without confusing messages
+        console.log('Token invalid or expired, logging out');
         dispatch(logout());
         navigate('/login');
         return;
@@ -113,7 +89,6 @@ function Profile() {
             
             // If it's an authentication error, redirect to login
             if (error.includes('Not authorized') || error.includes('token expired')) {
-              toast.error('Your session has expired. Please log in again.');
               dispatch(logout());
               navigate('/login');
             } else {
@@ -121,8 +96,6 @@ function Profile() {
               setUserSubscription({ subscriptionPlan: 'Free', subscriptionDetails: null });
               setSubscriptionLoaded(true);
             }
-            // Don't reset success state as it might interfere with other actions
-            // dispatch(resetDataSuccess());
           });
 
         // Fetch usage data
