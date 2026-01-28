@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { logout, resetDataSlice, resetDataSuccess, getUserSubscription, getUserUsage, getUserStorage } from './../../features/data/dataSlice.js';
+import { logout, resetDataSlice, getUserSubscription, getUserUsage, getUserStorage } from './../../features/data/dataSlice.js';
 import Spinner from '../../components/Spinner/Spinner.jsx';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
 import { setDarkMode, setLightMode, setSystemColorMode } from '../../utils/theme.js';
-import { isTokenValid, getTokenExpiration } from '../../utils/tokenUtils.js';
+import { isTokenValid } from '../../utils/tokenUtils.js';
 import { toast } from 'react-toastify';
 import './Profile.css';
 import HeaderLogo from '../../../src/assets/Checkmark512.png';
@@ -21,10 +21,7 @@ function Profile() {
   // Get user data from Redux state
   const { 
     user, 
-    dataIsLoading, 
-    dataIsSuccess, 
-    dataIsError, 
-    dataMessage,
+    dataIsLoading,
     userUsage,
     userUsageIsLoading,
     userUsageIsError,
@@ -65,32 +62,24 @@ function Profile() {
       // Check if token is valid using utility function
       if (!user.token || !isTokenValid(user.token)) {
         // Session expired - logout and redirect without confusing messages
-        console.log('Token invalid or expired, logging out');
         dispatch(logout());
-        navigate('/login');
+        navigate('/login', { state: { sessionExpired: true } });
         return;
       }
-      
-      console.log('Token is valid, fetching subscription and usage data');
       
       // Use a local try-catch to prevent the component from crashing
       try {
         dispatch(getUserSubscription())
           .unwrap()
           .then((subscriptionData) => {
-            console.log('Successfully fetched subscription:', subscriptionData);
             setUserSubscription(subscriptionData);
             setSubscriptionLoaded(true);
-            // Don't reset success state as it might interfere with other actions
-            // dispatch(resetDataSuccess());
           })
           .catch((error) => {
-            console.error('Failed to fetch subscription:', error);
-            
             // If it's an authentication error, redirect to login
             if (error.includes('Not authorized') || error.includes('token expired')) {
               dispatch(logout());
-              navigate('/login');
+              navigate('/login', { state: { sessionExpired: true } });
             } else {
               // For other errors, just mark as loaded and set default subscription
               setUserSubscription({ subscriptionPlan: 'Free', subscriptionDetails: null });
@@ -102,7 +91,6 @@ function Profile() {
         dispatch(getUserUsage())
           .unwrap()
           .then((usageData) => {
-            console.log('Successfully fetched usage data:', usageData);
             
             // Show warning toast based on available credits
             if (usageData && usageData.membership !== 'Premium' && usageData.availableCredits !== undefined) {
@@ -135,9 +123,6 @@ function Profile() {
         // Fetch storage data
         dispatch(getUserStorage())
           .unwrap()
-          .then((storageData) => {
-            console.log('Successfully fetched storage data:', storageData);
-          })
           .catch((error) => {
             console.error('Failed to fetch storage data:', error);
           });
@@ -149,36 +134,21 @@ function Profile() {
     }
   }, [user, subscriptionLoaded, dispatch, navigate]);
 
-  // Debug effect to monitor userUsage changes
-  useEffect(() => {
-    console.log('🔍 userUsage state changed:', userUsage);
-    console.log('🔍 userUsage type:', typeof userUsage);
-    console.log('🔍 userUsage keys:', userUsage ? Object.keys(userUsage) : 'no keys');
-  }, [userUsage]);
-
   // Add refresh handler
   const refreshUsageData = () => {
     if (user && user.token && isTokenValid(user.token)) {
-      console.log('🔄 Manually refreshing usage and storage data...');
-      
       // Refresh usage data
       dispatch(getUserUsage())
         .unwrap()
-        .then((usageData) => {
-          console.log('✅ Successfully refreshed usage data:', usageData);
-        })
         .catch((error) => {
-          console.error('❌ Failed to refresh usage data:', error);
+          console.error('Failed to refresh usage data:', error);
         });
 
       // Refresh storage data
       dispatch(getUserStorage())
         .unwrap()
-        .then((storageData) => {
-          console.log('✅ Successfully refreshed storage data:', storageData);
-        })
         .catch((error) => {
-          console.error('❌ Failed to refresh storage data:', error);
+          console.error('Failed to refresh storage data:', error);
         });
 
       toast.success('Data refreshed!', { autoClose: 2000 });

@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const asyncHandler = require('express-async-handler');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
-const { sendEmail } = require('./emailService');
+const { sendEmail } = require('../services/emailService');
 const useragent = require('useragent');
 const ipinfo = require('ipinfo');
 

@@ -24,14 +24,10 @@ const getData = asyncHandler(async (req, res) => {
     try {
         await checkIP(req);
     } catch (error) {
-        console.log('Error in checkIP:', error);
         // Continue anyway - don't fail the request for IP checking
     }
     
-    console.log('getData (public) called with query:', req.query);
-    
     if (!req.query || !req.query.data) {
-        console.log('Missing query or data parameter');
         res.status(400);
         throw new Error('Invalid request query parameter');
     }
@@ -39,22 +35,18 @@ const getData = asyncHandler(async (req, res) => {
     let data;
     try {
         data = JSON.parse(req.query.data);
-        console.log('Parsed data:', data);
     } catch (error) {
-        console.log('Error parsing query data:', error);
         res.status(400);
         throw new Error('Invalid request query parameter parsing');
     }
 
     if (!data.text) {
-        console.log('Missing text field in parsed data');
         res.status(400);
         throw new Error('Invalid request query parameter parsed data');
     }
 
     try {
         const dataSearchString = data.text;
-        console.log('Searching for public data containing:', dataSearchString);
 
         // Search for public data containing the search string
         const params = {
@@ -69,9 +61,7 @@ const getData = asyncHandler(async (req, res) => {
             }
         };
 
-        console.log('DynamoDB scan params for public data:', JSON.stringify(params, null, 2));
         const result = await dynamodb.send(new ScanCommand(params));
-        console.log('DynamoDB public data result:', result);
 
         // Convert to expected frontend format
         const responseData = result.Items && result.Items.length > 0 
@@ -86,7 +76,6 @@ const getData = asyncHandler(async (req, res) => {
             }))
             : [];
         
-        console.log('Public data response:', responseData.length, 'items found');
         res.status(200).json({
             data: responseData
         });

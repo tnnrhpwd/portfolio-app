@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux'      // useSelector-brings in user,iserror,isloading from state | useDispatch-brings in reset,register,login from state
-import { useNavigate } from 'react-router-dom'              // page redirects
+import { useNavigate, useLocation } from 'react-router-dom'              // page redirects
 import { toast } from 'react-toastify'                        // visible error notifications
 import { login, resetDataSlice } from '../../features/data/dataSlice'     // import functions from authslice
 import Spinner from '../../components/Spinner/Spinner.jsx';
@@ -23,6 +23,7 @@ function Login() {
     const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
     const navigate = useNavigate() // initialization
+    const location = useLocation() // to access navigation state
     const dispatch = useDispatch() // initialization
     const loadingStartTimeRef = useRef(null);
 
@@ -105,17 +106,20 @@ function Login() {
             
             setAttemptedSubmit(true);
         }
-        if (user && user._id) {  // if registered or logged in, 
-            const welcomeMessage = user.nickname === 'Guest User' 
-                ? `Welcome, ${user.nickname}! (Debug Mode)` 
-                : `Welcome back, ${user.nickname}!`;
-            
-            toast.success(welcomeMessage, { 
-                autoClose: 2000,
-                hideProgressBar: false,
-                closeOnClick: true,
-                pauseOnHover: true,
-            });
+        if (user && user._id) {  // if registered or logged in
+            // Don't show toast if coming from an expired session redirect
+            if (!location.state?.sessionExpired) {
+                const welcomeMessage = user.nickname === 'Guest User' 
+                    ? `Welcome, ${user.nickname}! (Debug Mode)` 
+                    : `Welcome back, ${user.nickname}!`;
+                
+                toast.success(welcomeMessage, { 
+                    autoClose: 2000,
+                    hideProgressBar: false,
+                    closeOnClick: true,
+                    pauseOnHover: true,
+                });
+            }
             navigate('/');           // send user to dashboard
         } else {
             dispatch(resetDataSlice());   // reset state values( data, dataisloading, dataiserror, datamessage, and dataissuccess ) on each state change
