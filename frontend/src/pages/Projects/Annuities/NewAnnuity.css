@@ -1,11 +1,18 @@
 .new-annuity {
-    border: 1px solid var(--bg);
-    border-radius: 5%;
+    border: 2px solid var(--border-nav);
+    border-radius: var(--border-radius);
     padding: calc(var(--nav-size) * 0.15);
-    background-color: #f9f9f9;
-    box-shadow: 0 4px 8px var(--white2-transp);
+    backdrop-filter: blur(10px);
+    background: var(--white1-transp);
+    box-shadow: 0 4px 15px var(--grey3-transp);
     margin-bottom: calc(var(--nav-size) * 0.2);
     text-align: center;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.new-annuity:hover {
+    box-shadow: 0 8px 25px var(--grey3-transp);
+    transform: translateY(-2px);
 }
 
 .new-annuity-input {
@@ -13,16 +20,19 @@
     margin: calc(var(--nav-size) * 0.1) 0;
     padding: calc(var(--nav-size) * 0.15);
     width: 50%;
-    border: calc(var(--nav-size) * 0.01) solid var(--white0);
-    border-radius: 5%;
+    border: 2px solid var(--border-nav);
+    border-radius: var(--border-radius);
     box-sizing: border-box;
     font-size: calc(var(--nav-size) * 0.3);
+    background: var(--bg);
+    color: var(--text-color);
+    transition: all 0.3s ease;
 }
 
 .new-annuity-input:focus {
     border-color: var(--fg-blue);
     outline: none;
-    box-shadow: 0 0 5px var(--white2-transp);
+    box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
 }
 
 .new-annuity-button {
@@ -30,33 +40,40 @@
     font-size: calc(var(--nav-size) * 0.19);
     width: calc(var(--nav-size) * 1.4);
     font-weight: bold;
-    background-color: rgb(78, 78, 78);
-    color: white;
-    border: 1px solid rgba(255, 255, 255, 0.885);
-    border-radius: 5%;
+    background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+    color: var(--text-color-inv);
+    border: 2px solid transparent;
+    border-radius: var(--border-radius);
     cursor: pointer;
-    transition: transform 0.1s, background-color 0.3s;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
 .new-annuity-button:hover {
-    background-color: rgb(100, 100, 100);
+    background: linear-gradient(45deg, var(--fg-mint), var(--fg-blue));
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
 }
 
 .new-annuity-button:active {
-    transform: scale(0.98);
+    transform: scale(0.98) translateY(0);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
 .annuity-input-container {
-    background-color: var(--bg);
-    border-radius: 10px;
+    backdrop-filter: blur(10px);
+    background: var(--white1-transp);
+    border-radius: var(--border-radius);
     padding: calc(var(--nav-size) * 0.3);
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    border: 2px solid var(--border-nav);
+    box-shadow: 0 4px 15px var(--grey3-transp);
     margin-bottom: calc(var(--nav-size) * 0.2);
-    transition: all 0.3s ease;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .annuity-input-container:hover {
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 8px 25px var(--grey3-transp);
+    transform: translateY(-2px);
 }
 
 .inputNewAnnuity {
@@ -69,21 +86,30 @@
 .input-group {
     display: flex;
     flex-direction: column;
-    border-radius: 8px;
-    background-color: var(--bg, #f9f9f9);
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    border-radius: var(--border-radius);
+    backdrop-filter: blur(5px);
+    background: var(--white1-transp);
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    box-shadow: 0 2px 8px var(--grey3-transp);
     position: relative;
     margin-left: calc(var(--nav-size) * 0.1);
-    padding-left: calc(var(--nav-size) * 0.1);
+    padding: calc(var(--nav-size) * 0.15);
+    border: 2px solid var(--border-nav);
+}
+
+.input-group:hover {
+    box-shadow: 0 4px 15px var(--grey3-transp);
+    transform: translateY(-2px);
+    border-color: var(--fg-blue);
 }
 
 .input-group.has-value {
-    border-left: 3px solid var(--primary-color, #4a90e2);
+    border-left: 4px solid var(--fg-mint);
 }
 
 .input-group.focused {
-    box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.3);
+    box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.3);
+    border-color: var(--fg-blue);
 }
 
 .input-label-container {
@@ -103,16 +129,17 @@
 
 .input-symbol {
     font-weight: bold;
-    color: var(--primary-color, #4a90e2);
-    font-size: calc(var(--nav-size) * 0.3);
-    background-color: rgba(74, 144, 226, 0.1);
-    padding: 2px 6px;
-    border-radius: 4px;
+    background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+    color: var(--text-color-inv);
+    font-size: calc(var(--nav-size) * 0.25);
+    padding: 4px 10px;
+    border-radius: var(--border-radius);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .input-description {
-    font-size: calc(var(--nav-size) * 0.25);
-    color: var(--text-color-secondary, #777);
+    font-size: calc(var(--nav-size) * 0.22);
+    color: var(--text-color-accent);
     margin-top: calc(var(--nav-size) * 0.05);
     font-style: italic;
 }
@@ -121,36 +148,37 @@
     position: absolute;
     right: calc(var(--nav-size) * 0.3);
     top: calc(var(--nav-size) * 0.8);
-    background-color: var(--primary-color, #4a90e2);
-    color: var(--text-color-inv, #fff);
-    padding: 3px 8px;
-    border-radius: 12px;
-    font-size: calc(var(--nav-size) * 0.3);
-    font-weight: 500;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    background: linear-gradient(45deg, var(--fg-mint), var(--fg-blue));
+    color: var(--text-color-inv);
+    padding: 4px 12px;
+    border-radius: var(--border-radius);
+    font-size: calc(var(--nav-size) * 0.25);
+    font-weight: 600;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
     transition: all 0.2s ease;
 }
 
 .inputNewAnnuity input {
     padding: 0 calc(var(--nav-size) * 0.3);
-    border: 1px solid #ccc;
-    border-radius: 5px;
+    border: 2px solid var(--border-nav);
+    border-radius: var(--border-radius);
     font-size: calc(var(--nav-size) * 0.25);
     transition: all 0.3s ease;
-    background-color: var(--bg, #f9f9f9);
+    background: var(--bg);
     color: var(--text-color);
     height: calc(var(--nav-size) * 0.8);
 }
 
 .inputNewAnnuity input:focus {
-    border-color: var(--primary-color, #4a90e2);
-    box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+    border-color: var(--fg-blue);
+    box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
     outline: none;
 }
 
 .inputNewAnnuity input::placeholder {
-    color: #aaa;
-    font-size: calc(var(--nav-size) * 0.25);
+    color: var(--text-color-secondary);
+    font-size: calc(var(--nav-size) * 0.22);
+    opacity: 0.7;
 }
 
 .annuity-buttons {
@@ -168,5 +196,10 @@
     .annuity-buttons {
         flex-direction: column;
         align-items: center;
+    }
+    
+    .input-group {
+        margin-left: 0;
+        margin-bottom: calc(var(--nav-size) * 0.15);
     }
 }

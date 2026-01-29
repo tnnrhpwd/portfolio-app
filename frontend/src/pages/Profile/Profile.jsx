@@ -61,9 +61,12 @@ function Profile() {
     if (user && !subscriptionLoaded) {
       // Check if token is valid using utility function
       if (!user.token || !isTokenValid(user.token)) {
-        // Session expired - logout and redirect without confusing messages
+        // Session expired - logout first, then navigate
         dispatch(logout());
-        navigate('/login', { state: { sessionExpired: true } });
+        // Use setTimeout to ensure logout completes before navigation
+        setTimeout(() => {
+          navigate('/login', { state: { sessionExpired: true } });
+        }, 100);
         return;
       }
       
@@ -79,7 +82,10 @@ function Profile() {
             // If it's an authentication error, redirect to login
             if (error.includes('Not authorized') || error.includes('token expired')) {
               dispatch(logout());
-              navigate('/login', { state: { sessionExpired: true } });
+              // Use setTimeout to ensure logout completes before navigation
+              setTimeout(() => {
+                navigate('/login', { state: { sessionExpired: true } });
+              }, 100);
             } else {
               // For other errors, just mark as loaded and set default subscription
               setUserSubscription({ subscriptionPlan: 'Free', subscriptionDetails: null });

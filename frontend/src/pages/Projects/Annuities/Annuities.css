@@ -1,100 +1,280 @@
+/* Main container with animated gradient background */
 .annuities {
     color: var(--text-color);
     padding: calc(var(--nav-size) * 0.4);
     text-align: center;
-    min-height: 83vh;
+    min-height: 100vh;
+    background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
+    background-size: 400% 400%;
+    animation: gradientShift 12s ease infinite;
+    position: relative;
+    overflow-x: hidden;
+}
+
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    25% { background-position: 100% 50%; }
+    50% { background-position: 100% 100%; }
+    75% { background-position: 0% 100%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Theme-specific animation speeds */
+.light-theme .annuities {
+    animation-duration: 15s;
+}
+
+.dark-theme .annuities {
+    animation-duration: 10s;
 }
 
 .annuities-header {
     margin-bottom: calc(var(--nav-size) * 0.5);
+    position: relative;
+    animation: fadeInUp 0.6s ease forwards;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .annuities-title {
-    font-size: calc(var(--nav-size) * 0.5);
+    font-size: calc(var(--nav-size) * 0.6);
     font-weight: bold;
     margin-bottom: calc(var(--nav-size) * 0.2);
+    text-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.02) var(--grey3-transp);
+    letter-spacing: -0.02em;
 }
 
 .annuities-subtitle {
     font-size: calc(var(--nav-size) * 0.3);
-    color: var(--text-color-secondary);
+    color: var(--text-color-accent);
+    text-shadow: calc(var(--nav-size)*.02) calc(var(--nav-size)*.015) var(--grey3-transp);
 }
 
 .annuities-inputs {
     display: flex;
     justify-content: center;
     align-items: center;
-    margin-bottom: calc(var(--nav-size) * 0.2);
+    margin-bottom: calc(var(--nav-size) * 0.3);
+    animation: fadeInUp 0.6s ease 0.1s forwards;
+    opacity: 0;
 }
 
 .annuities-find {
     display: flex;
     align-items: center;
+    backdrop-filter: blur(10px);
+    background: var(--white1-transp);
+    padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.4);
+    border-radius: var(--border-radius);
+    border: 2px solid var(--border-nav);
+    box-shadow: 0 4px 15px var(--grey3-transp);
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.annuities-find:hover {
+    box-shadow: 0 8px 25px var(--grey3-transp);
+    transform: translateY(-2px);
+    border-color: var(--fg-blue);
 }
 
 .annuities-find-label {
     font-size: calc(var(--nav-size) * 0.3);
     margin-right: calc(var(--nav-size) * 0.2);
+    font-weight: 600;
 }
 
 .annuities-find-dropdown {
     font-size: calc(var(--nav-size) * 0.3);
 }
 
-.annuities-find-dropdown.id {
-    background-color: var(--bg, #f9f9f9);
+.annuities-find-dropdown .Dropdown-control {
+    background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+    color: var(--text-color-inv);
+    border: none;
+    border-radius: var(--border-radius);
+    padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.3);
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.annuities-find-dropdown .Dropdown-control:hover {
+    background: linear-gradient(45deg, var(--fg-mint), var(--fg-blue));
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+
+.annuities-find-dropdown .Dropdown-menu {
+    background: var(--bg);
+    border: 2px solid var(--border-nav);
+    border-radius: var(--border-radius);
+    box-shadow: 0 8px 25px var(--grey3-transp);
+    backdrop-filter: blur(10px);
+    overflow: hidden;
+}
+
+.annuities-find-dropdown .Dropdown-option {
+    padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.3);
     color: var(--text-color);
+    transition: all 0.2s ease;
+}
+
+.annuities-find-dropdown .Dropdown-option:hover {
+    background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+    color: var(--text-color-inv);
+}
+
+.annuities-find-dropdown .Dropdown-option.is-selected {
+    background: var(--fg-blue);
+    color: var(--text-color-inv);
+}
+
+.annuities-find-dropdown .Dropdown-arrow {
+    border-color: var(--text-color-inv) transparent transparent;
 }
 
 .toggle-new-annuity-btn {
-    background-color: var(--primary-color);
+    background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
     color: var(--text-color-inv);
     padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.4);
-    border: none;
-    border-radius: 5px;
+    border: 2px solid transparent;
+    border-radius: var(--border-radius);
     cursor: pointer;
     font-size: calc(var(--nav-size) * 0.3);
-    transition: background-color 0.3s ease;
+    font-weight: 600;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+.toggle-new-annuity-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.5s ease;
+}
+
+.toggle-new-annuity-btn:hover::before {
+    left: 100%;
 }
 
 .toggle-new-annuity-btn:hover {
-    background-color: var(--primary-color-dark);
+    background: linear-gradient(45deg, var(--fg-mint), var(--fg-blue));
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    border-color: var(--text-color);
+}
+
+.toggle-new-annuity-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
 .annuities-newannuity {
-    margin-bottom: calc(var(--nav-size) * 0.2);
+    margin-bottom: calc(var(--nav-size) * 0.3);
+    animation: fadeInUp 0.6s ease 0.2s forwards;
+    opacity: 0;
 }
 
 .annuities-output {
-    margin-bottom: calc(var(--nav-size) * 0.2);
+    margin-bottom: calc(var(--nav-size) * 0.3);
+    animation: fadeInUp 0.6s ease 0.3s forwards;
+    opacity: 0;
 }
 
 .annuities-resulttime {
     margin-bottom: calc(var(--nav-size) * 0.4);
+    backdrop-filter: blur(10px);
+    background: var(--white1-transp);
+    padding: calc(var(--nav-size) * 0.3);
+    border-radius: var(--border-radius);
+    border: 2px solid var(--border-nav);
+    box-shadow: 0 4px 15px var(--grey3-transp);
+    display: inline-block;
+    animation: fadeInUp 0.6s ease 0.4s forwards;
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+.annuities-resulttime:hover {
+    box-shadow: 0 8px 25px var(--grey3-transp);
+    transform: translateY(-2px);
 }
 
 .annuities-resulttime-text {
-    font-size: calc(var(--nav-size) * 0.3);
+    font-size: calc(var(--nav-size) * 0.35);
     font-weight: bold;
+    background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .annuities-description {
     text-align: left;
     font-size: calc(var(--nav-size) * 0.25);
     margin-bottom: calc(var(--nav-size) * 1);
+    backdrop-filter: blur(10px);
+    background: var(--white1-transp);
+    padding: calc(var(--nav-size) * 0.4);
+    border-radius: var(--border-radius);
+    border: 2px solid var(--border-nav);
+    box-shadow: 0 4px 15px var(--grey3-transp);
+    animation: fadeInUp 0.6s ease 0.5s forwards;
+    opacity: 0;
+    transition: all 0.3s ease;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.annuities-description:hover {
+    box-shadow: 0 8px 25px var(--grey3-transp);
+    transform: translateY(-2px);
 }
 
 .annuities-description p {
-    margin-bottom: calc(var(--nav-size) * 0.5);
+    margin-bottom: calc(var(--nav-size) * 0.3);
+    line-height: 1.6;
 }
 
 .annuities-description ul {
     list-style-type: none;
     padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: calc(var(--nav-size) * 0.15);
 }
 
 .annuities-description li {
-    margin-bottom: calc(var(--nav-size) * 0.2);
+    margin-bottom: calc(var(--nav-size) * 0.1);
+    padding: calc(var(--nav-size) * 0.15);
+    background: var(--white1-transp);
+    border-radius: calc(var(--border-radius) * 0.5);
+    border-left: 3px solid var(--fg-blue);
+    transition: all 0.2s ease;
+}
+
+.annuities-description li:hover {
+    background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+    color: var(--text-color-inv);
+    transform: translateX(5px);
+    border-left-color: var(--text-color-inv);
 }
 
 .newAnnuity-space {
@@ -104,16 +284,63 @@
 }
 
 .view-source-btn {
-    background-color: var(--primary-color);
+    background: linear-gradient(45deg, var(--fg-orange), var(--fg-pink));
     color: var(--text-color-inv);
     padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.4);
-    border: none;
-    border-radius: 5px;
+    border: 2px solid transparent;
+    border-radius: var(--border-radius);
     cursor: pointer;
     font-size: calc(var(--nav-size) * 0.3);
-    transition: background-color 0.3s ease;
+    font-weight: 600;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+.view-source-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.5s ease;
+}
+
+.view-source-btn:hover::before {
+    left: 100%;
 }
 
 .view-source-btn:hover {
-    background-color: var(--primary-color-dark);
+    background: linear-gradient(45deg, var(--fg-pink), var(--fg-orange));
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    border-color: var(--text-color);
+}
+
+.view-source-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    .annuities {
+        padding: calc(var(--nav-size) * 0.2);
+    }
+    
+    .annuities-title {
+        font-size: calc(var(--nav-size) * 0.5);
+    }
+    
+    .annuities-description ul {
+        grid-template-columns: 1fr;
+    }
+    
+    .annuities-find {
+        flex-direction: column;
+        gap: calc(var(--nav-size) * 0.15);
+    }
 }

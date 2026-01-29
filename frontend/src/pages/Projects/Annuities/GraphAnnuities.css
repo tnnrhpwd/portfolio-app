@@ -3,23 +3,30 @@
     justify-content: center;
     align-items: center;
     flex-direction: column;
-    border: 1px solid #ccc;
-    border-radius: 10px;
-    background-color: var(--bg);
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    border: 2px solid var(--border-nav);
+    border-radius: var(--border-radius);
+    backdrop-filter: blur(10px);
+    background: var(--white1-transp);
+    box-shadow: 0 4px 15px var(--grey3-transp);
     color: var(--text-color);
     padding: 20px;
     margin-bottom: 20px;
-    transition: all 0.3s ease;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .graph-container:hover {
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 8px 25px var(--grey3-transp);
+    transform: translateY(-2px);
 }
 
 .graph-title {
     font-size: calc(var(--nav-size)*0.4);
     font-weight: bold;
+    background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: calc(var(--nav-size)*0.15);
 }
 
 .graph-description {
@@ -28,7 +35,7 @@
     margin-bottom: calc(var(--nav-size)*0.2);
     text-align: center;
     max-width: 80%;
-    line-height: 1.5;
+    line-height: 1.6;
 }
 
 .chart-wrapper {
@@ -36,6 +43,11 @@
     max-width: 80%;
     height: calc(var(--nav-size)*8);
     position: relative;
+    backdrop-filter: blur(5px);
+    background: var(--white1-transp);
+    border-radius: var(--border-radius);
+    padding: calc(var(--nav-size)*0.2);
+    border: 1px solid var(--border-nav);
 }
 
 .chart-placeholder {
@@ -44,11 +56,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: rgba(200, 200, 200, 0.1);
-    border-radius: 8px;
+    backdrop-filter: blur(5px);
+    background: var(--white1-transp);
+    border-radius: var(--border-radius);
     font-size: calc(var(--nav-size)*0.3);
-    color: var(--text-color-secondary);
+    color: var(--text-color-accent);
     font-style: italic;
+    border: 2px dashed var(--border-nav);
 }
 
 .chartjs-render-monitor {
@@ -58,7 +72,7 @@
 
 @media (max-width: 768px) {
     .graph-title {
-        font-size: calc(var(--nav-size)*0.3);
+        font-size: calc(var(--nav-size)*0.35);
     }
     
     .graph-description {
@@ -68,5 +82,6 @@
     
     .chart-wrapper {
         height: calc(var(--nav-size)*4);
+        max-width: 95%;
     }
 }

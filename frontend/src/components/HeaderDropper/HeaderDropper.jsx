@@ -59,10 +59,10 @@ function HeaderDropper(props) {
         {(props.colTheme==="dark-theme") && <button className='planit-header-dropper-themebutton' onClick={props.handleThemeToggle}>Light Mode</button>}
         {(props.colTheme==="light-theme") && <button className='planit-header-dropper-themebutton' onClick={props.handleThemeToggle}>Dark Mode</button>}
         {user ? (<>
-          {(user) && <a className='planit-header-dropper-signer' href='/profile'>Signed in as {user.nickname}</a>}
-          <a className='planit-header-dropper-profile' href='/profile'>Profile</a>
+          {(user) && <Link className='planit-header-dropper-signer' to='/profile' onClick={() => {document.getElementById("planit-header-dropper__toggle").checked = false;}}>Signed in as {user.nickname}</Link>}
+          <Link className='planit-header-dropper-profile' to='/profile' onClick={() => {document.getElementById("planit-header-dropper__toggle").checked = false;}}>Profile</Link>
         </>) : (
-          <a className='planit-header-dropper-profile' href='/login' >Log in</a>
+          <Link className='planit-header-dropper-profile' to='/login' onClick={() => {document.getElementById("planit-header-dropper__toggle").checked = false;}}>Log in</Link>
         )}
         
         {/* Core Information */}

@@ -8,6 +8,7 @@ import React from 'react';
 import './Login.css';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
+import { isTokenValid } from '../../utils/tokenUtils.js';
 const devMode = (process.env.NODE_ENV === 'development')
 
 function Login() {
@@ -51,6 +52,21 @@ function Login() {
             localStorage.removeItem('user');
             dispatch(resetDataSlice());
             return; // Don't show error toast for stale data
+        }
+
+        // If user exists but token is invalid/expired, clear it and stay on login
+        if (user && user._id && !isTokenValid(user.token)) {
+            console.log('🔧 User has expired token, clearing from localStorage');
+            localStorage.removeItem('user');
+            dispatch(resetDataSlice());
+            // Show session expired message only if redirected from another page
+            if (location.state?.sessionExpired) {
+                toast.info('Your session has expired. Please log in again.', {
+                    autoClose: 4000,
+                    hideProgressBar: false,
+                });
+            }
+            return;
         }
 
         // Only show error toast if there's an actual error from a recent login attempt

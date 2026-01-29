@@ -6,8 +6,13 @@ const {
   subscriptionCancelledTemplate
 } = require('./emailTemplates');
 
-// Create a client using the server token
-const client = new postmark.ServerClient(process.env.POSTMARK_API_TOKEN);
+// Create a client using the server token (only if token is provided)
+let client = null;
+if (process.env.POSTMARK_API_TOKEN) {
+  client = new postmark.ServerClient(process.env.POSTMARK_API_TOKEN);
+} else {
+  console.warn('⚠️  POSTMARK_API_TOKEN not configured. Email functionality will be disabled.');
+}
 
 /**
  * Send an email using Postmark
@@ -18,6 +23,15 @@ const client = new postmark.ServerClient(process.env.POSTMARK_API_TOKEN);
  */
 const sendEmail = async (to, templateName, data) => {
   try {
+    // If email client is not configured, log and skip
+    if (!client) {
+      console.warn(`⚠️  Email would be sent to ${to} with template ${templateName}, but Postmark is not configured.`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Email data:', JSON.stringify(data, null, 2));
+      }
+      return { MessageID: 'dev-mode-skip', Message: 'Email service not configured' };
+    }
+
     let emailContent;
     
     // Select template based on template name
