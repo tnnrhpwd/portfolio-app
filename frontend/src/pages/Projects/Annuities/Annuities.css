@@ -66,6 +66,8 @@
     margin-bottom: calc(var(--nav-size) * 0.3);
     animation: fadeInUp 0.6s ease 0.1s forwards;
     opacity: 0;
+    position: relative;
+    z-index: 1000;
 }
 
 .annuities-find {
@@ -78,6 +80,8 @@
     border: 2px solid var(--border-nav);
     box-shadow: 0 4px 15px var(--grey3-transp);
     transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    position: relative;
+    z-index: 1000;
 }
 
 .annuities-find:hover {
@@ -94,6 +98,28 @@
 
 .annuities-find-dropdown {
     font-size: calc(var(--nav-size) * 0.3);
+    position: relative;
+    z-index: 1001;
+}
+
+/* Force dropdown menu to appear on top */
+.annuities-find-dropdown .Dropdown-root {
+    position: relative;
+    z-index: 1001;
+}
+
+.annuities-find-dropdown .Dropdown-menu {
+    background: var(--bg);
+    border: 2px solid var(--border-nav);
+    border-radius: var(--border-radius);
+    box-shadow: 0 8px 25px var(--grey3-transp);
+    backdrop-filter: blur(10px);
+    overflow: visible;
+    z-index: 9999 !important;
+    position: absolute !important;
+    top: 100%;
+    left: 0;
+    min-width: 100%;
 }
 
 .annuities-find-dropdown .Dropdown-control {
@@ -121,6 +147,8 @@
     box-shadow: 0 8px 25px var(--grey3-transp);
     backdrop-filter: blur(10px);
     overflow: hidden;
+    z-index: 1000;
+    position: absolute;
 }
 
 .annuities-find-dropdown .Dropdown-option {
@@ -189,12 +217,14 @@
     margin-bottom: calc(var(--nav-size) * 0.3);
     animation: fadeInUp 0.6s ease 0.2s forwards;
     opacity: 0;
+    position: relative;
+    z-index: 1;
 }
 
 .annuities-output {
     margin-bottom: calc(var(--nav-size) * 0.3);
-    animation: fadeInUp 0.6s ease 0.3s forwards;
-    opacity: 0;
+    position: relative;
+    z-index: 1;
 }
 
 .annuities-resulttime {
@@ -253,28 +283,69 @@
     line-height: 1.6;
 }
 
-.annuities-description ul {
+.hover-hint {
+    font-size: calc(var(--nav-size) * 0.2);
+    color: var(--text-color-accent);
+    font-style: italic;
+    opacity: 0.8;
+}
+
+.conversion-list {
     list-style-type: none;
     padding: 0;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
     gap: calc(var(--nav-size) * 0.15);
 }
 
-.annuities-description li {
+.conversion-item {
+    position: relative;
     margin-bottom: calc(var(--nav-size) * 0.1);
-    padding: calc(var(--nav-size) * 0.15);
+    padding: calc(var(--nav-size) * 0.2);
     background: var(--white1-transp);
-    border-radius: calc(var(--border-radius) * 0.5);
-    border-left: 3px solid var(--fg-blue);
-    transition: all 0.2s ease;
+    border-radius: var(--border-radius);
+    border-left: 4px solid var(--fg-blue);
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    cursor: help;
 }
 
-.annuities-description li:hover {
-    background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+.conversion-item:hover {
+    background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
     color: var(--text-color-inv);
-    transform: translateX(5px);
+    transform: translateX(5px) scale(1.02);
     border-left-color: var(--text-color-inv);
+    box-shadow: 0 8px 25px var(--grey3-transp);
+    z-index: 10;
+}
+
+.conversion-name {
+    font-weight: 600;
+    display: block;
+    font-size: calc(var(--nav-size) * 0.25);
+}
+
+.conversion-tooltip {
+    display: block;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    font-size: calc(var(--nav-size) * 0.2);
+    line-height: 1.5;
+    margin-top: 0;
+    font-weight: 400;
+    transition: all 0.3s ease;
+}
+
+.conversion-item:hover .conversion-tooltip {
+    max-height: 200px;
+    opacity: 1;
+    margin-top: calc(var(--nav-size) * 0.15);
+    padding-top: calc(var(--nav-size) * 0.1);
+    border-top: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.conversion-item:hover .conversion-name {
+    color: var(--text-color-inv);
 }
 
 .newAnnuity-space {
@@ -325,6 +396,592 @@
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
+/* ==========================================
+   ENGINEERING ECONOMY TABS
+   ========================================== */
+
+.econ-tabs {
+    display: flex;
+    gap: calc(var(--nav-size) * 0.1);
+    margin-bottom: calc(var(--nav-size) * 0.3);
+    padding: calc(var(--nav-size) * 0.1);
+    background: var(--white1-transp);
+    backdrop-filter: blur(10px);
+    border-radius: calc(var(--nav-size) * 0.15);
+    border: 1px solid var(--white2-transp);
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.econ-tab {
+    padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.25);
+    background: transparent;
+    border: 2px solid transparent;
+    border-radius: calc(var(--nav-size) * 0.1);
+    color: var(--text-color);
+    font-size: calc(var(--nav-size) * 0.22);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.econ-tab::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s ease;
+}
+
+.econ-tab:hover::before {
+    left: 100%;
+}
+
+.econ-tab:hover {
+    background: var(--white2-transp);
+    border-color: var(--fg-mint);
+    transform: translateY(-2px);
+}
+
+.econ-tab.active {
+    background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.tab-content {
+    position: relative;
+    z-index: 1;
+}
+
+/* ==========================================
+   COMBINED ANNUITY CALCULATOR
+   ========================================== */
+
+.annuity-form-container {
+    background: var(--white1-transp);
+    backdrop-filter: blur(10px);
+    border-radius: calc(var(--nav-size) * 0.15);
+    border: 1px solid var(--white2-transp);
+    padding: calc(var(--nav-size) * 0.25);
+    margin-bottom: calc(var(--nav-size) * 0.2);
+    animation: slideIn 0.3s ease;
+}
+
+.annuity-form-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: calc(var(--nav-size) * 0.15);
+    padding-bottom: calc(var(--nav-size) * 0.1);
+    border-bottom: 1px solid var(--white2-transp);
+}
+
+.annuity-form-number {
+    font-size: calc(var(--nav-size) * 0.24);
+    font-weight: 600;
+    background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.annuity-form-content {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.15);
+}
+
+.annuities-find-inline {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.15);
+    padding: calc(var(--nav-size) * 0.1);
+    background: var(--white2-transp);
+    border-radius: calc(var(--nav-size) * 0.1);
+}
+
+.annuities-find-inline .annuities-find-label {
+    font-size: calc(var(--nav-size) * 0.22);
+    font-weight: 600;
+    color: var(--text-color);
+    white-space: nowrap;
+}
+
+.annuities-find-inline .annuities-find-dropdown {
+    flex: 1;
+    max-width: 200px;
+}
+
+.annuity-result-inline {
+    padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.2);
+    background: linear-gradient(135deg, var(--fg-mint), var(--fg-blue));
+    border-radius: calc(var(--nav-size) * 0.1);
+    text-align: center;
+}
+
+.annuity-result-text {
+    color: white;
+    font-size: calc(var(--nav-size) * 0.22);
+}
+
+.annuity-result-text strong {
+    font-size: calc(var(--nav-size) * 0.26);
+}
+
+/* Combined Results Section */
+.combined-total-section {
+    background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
+    border-radius: calc(var(--nav-size) * 0.15);
+    padding: calc(var(--nav-size) * 0.3);
+    margin: calc(var(--nav-size) * 0.3) 0;
+    text-align: center;
+}
+
+.combined-total-section h3 {
+    color: white;
+    font-size: calc(var(--nav-size) * 0.28);
+    margin: 0 0 calc(var(--nav-size) * 0.15) 0;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.combined-total-value {
+    color: white;
+    font-size: calc(var(--nav-size) * 0.35);
+    font-weight: 700;
+    text-shadow: 0 2px 15px rgba(0, 0, 0, 0.3);
+}
+
+.individual-values {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: calc(var(--nav-size) * 0.15);
+    margin-top: calc(var(--nav-size) * 0.15);
+}
+
+.individual-value {
+    background: rgba(255, 255, 255, 0.2);
+    padding: calc(var(--nav-size) * 0.08) calc(var(--nav-size) * 0.15);
+    border-radius: calc(var(--nav-size) * 0.08);
+    color: white;
+    font-size: calc(var(--nav-size) * 0.18);
+}
+
+/* ==========================================
+   MULTIPLE ANNUITIES SECTION (Legacy)
+   ========================================== */
+
+.multiple-annuities-section {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.3);
+}
+
+.annuity-list {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.2);
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: calc(var(--nav-size) * 0.1);
+}
+
+.annuity-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.annuity-list::-webkit-scrollbar-track {
+    background: var(--white1-transp);
+    border-radius: 4px;
+}
+
+.annuity-list::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
+    border-radius: 4px;
+}
+
+.annuity-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.2);
+    background: var(--white1-transp);
+    backdrop-filter: blur(8px);
+    border-radius: calc(var(--nav-size) * 0.1);
+    border: 1px solid var(--white2-transp);
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.annuity-list-item span {
+    font-size: calc(var(--nav-size) * 0.22);
+    color: var(--text-color);
+}
+
+.annuity-list-item strong {
+    color: var(--fg-mint);
+    font-weight: 600;
+}
+
+.remove-annuity-btn {
+    width: calc(var(--nav-size) * 0.4);
+    height: calc(var(--nav-size) * 0.4);
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
+    color: white;
+    font-size: calc(var(--nav-size) * 0.25);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.remove-annuity-btn:hover {
+    background: linear-gradient(135deg, #ff5252, #e53935);
+    transform: scale(1.1);
+    box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+}
+
+.add-annuity-btn,
+.clear-list-btn {
+    padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.3);
+    border: none;
+    border-radius: calc(var(--nav-size) * 0.1);
+    font-size: calc(var(--nav-size) * 0.22);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.add-annuity-btn {
+    background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
+    color: white;
+}
+
+.add-annuity-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+
+.clear-list-btn {
+    background: linear-gradient(135deg, var(--fg-orange), var(--fg-pink));
+    color: white;
+}
+
+.clear-list-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+
+.combined-total {
+    margin-top: calc(var(--nav-size) * 0.2);
+    padding: calc(var(--nav-size) * 0.25);
+    background: linear-gradient(135deg, var(--fg-mint), var(--fg-blue));
+    border-radius: calc(var(--nav-size) * 0.15);
+    text-align: center;
+}
+
+.combined-total h3 {
+    color: white;
+    font-size: calc(var(--nav-size) * 0.28);
+    margin: 0;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* ==========================================
+   INTEREST CONVERTER SECTION
+   ========================================== */
+
+.interest-converter-section {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.3);
+}
+
+.converter-direction {
+    display: flex;
+    gap: calc(var(--nav-size) * 0.15);
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.direction-btn {
+    padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.25);
+    border: 2px solid var(--fg-blue);
+    border-radius: calc(var(--nav-size) * 0.1);
+    background: transparent;
+    color: var(--text-color);
+    font-size: calc(var(--nav-size) * 0.2);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.direction-btn:hover {
+    background: var(--white2-transp);
+}
+
+.direction-btn.active {
+    background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
+    color: white;
+    border-color: transparent;
+}
+
+.converter-inputs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: calc(var(--nav-size) * 0.2);
+}
+
+.econ-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.08);
+}
+
+.econ-input-group label {
+    font-size: calc(var(--nav-size) * 0.2);
+    color: var(--text-color);
+    font-weight: 500;
+}
+
+.econ-input-group input,
+.econ-input-group select {
+    padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.15);
+    border: 2px solid var(--white2-transp);
+    border-radius: calc(var(--nav-size) * 0.1);
+    background: var(--white1-transp);
+    backdrop-filter: blur(5px);
+    font-size: calc(var(--nav-size) * 0.22);
+    color: var(--text-color);
+    transition: all 0.3s ease;
+}
+
+.econ-input-group input:focus,
+.econ-input-group select:focus {
+    outline: none;
+    border-color: var(--fg-mint);
+    box-shadow: 0 0 15px rgba(var(--fg-mint-rgb, 100, 200, 180), 0.3);
+}
+
+.converter-result {
+    padding: calc(var(--nav-size) * 0.25);
+    background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
+    border-radius: calc(var(--nav-size) * 0.15);
+    text-align: center;
+}
+
+.converter-result h3 {
+    color: white;
+    font-size: calc(var(--nav-size) * 0.28);
+    margin: 0 0 calc(var(--nav-size) * 0.1) 0;
+}
+
+.converter-result p {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: calc(var(--nav-size) * 0.2);
+    margin: 0;
+}
+
+/* ==========================================
+   DEPRECIATION CALCULATOR SECTION
+   ========================================== */
+
+.depreciation-section {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.3);
+}
+
+.depreciation-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.2);
+}
+
+.input-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: calc(var(--nav-size) * 0.2);
+}
+
+.depreciation-method-select {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.1);
+}
+
+.depreciation-method-select label {
+    font-size: calc(var(--nav-size) * 0.2);
+    color: var(--text-color);
+    font-weight: 500;
+}
+
+.depreciation-method-select select {
+    padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.15);
+    border: 2px solid var(--white2-transp);
+    border-radius: calc(var(--nav-size) * 0.1);
+    background: var(--white1-transp);
+    backdrop-filter: blur(5px);
+    font-size: calc(var(--nav-size) * 0.22);
+    color: var(--text-color);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.depreciation-method-select select:focus {
+    outline: none;
+    border-color: var(--fg-mint);
+}
+
+.depreciation-result {
+    padding: calc(var(--nav-size) * 0.25);
+    background: linear-gradient(135deg, var(--fg-orange), var(--fg-pink));
+    border-radius: calc(var(--nav-size) * 0.15);
+    text-align: center;
+}
+
+.depreciation-result h3 {
+    color: white;
+    font-size: calc(var(--nav-size) * 0.28);
+    margin: 0;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.depreciation-schedule {
+    margin-top: calc(var(--nav-size) * 0.2);
+}
+
+.depreciation-schedule h4 {
+    font-size: calc(var(--nav-size) * 0.24);
+    color: var(--text-color);
+    margin-bottom: calc(var(--nav-size) * 0.15);
+    background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.schedule-table {
+    width: 100%;
+    background: var(--white1-transp);
+    backdrop-filter: blur(8px);
+    border-radius: calc(var(--nav-size) * 0.1);
+    overflow: hidden;
+    border: 1px solid var(--white2-transp);
+}
+
+.schedule-header,
+.schedule-row {
+    display: grid;
+    grid-template-columns: 1fr 2fr 2fr;
+    padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.15);
+}
+
+.schedule-header {
+    background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
+    color: white;
+    font-weight: 600;
+    font-size: calc(var(--nav-size) * 0.2);
+}
+
+.schedule-row {
+    font-size: calc(var(--nav-size) * 0.2);
+    color: var(--text-color);
+    border-bottom: 1px solid var(--white2-transp);
+    transition: background 0.2s ease;
+}
+
+.schedule-row:last-child {
+    border-bottom: none;
+}
+
+.schedule-row:hover {
+    background: var(--white2-transp);
+}
+
+.schedule-row:nth-child(even) {
+    background: var(--white1-transp);
+}
+
+.schedule-row:nth-child(even):hover {
+    background: var(--white2-transp);
+}
+
+/* Empty state styling */
+.annuity-list-empty {
+    text-align: center;
+    padding: calc(var(--nav-size) * 0.4);
+    color: var(--text-color);
+    opacity: 0.7;
+    font-style: italic;
+}
+
+/* Button group styling */
+.button-group {
+    display: flex;
+    gap: calc(var(--nav-size) * 0.15);
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+/* ==========================================
+   DROPDOWN Z-INDEX FIX (Higher specificity)
+   ========================================== */
+
+.annuities .Dropdown-root {
+    position: relative;
+    z-index: 100;
+}
+
+.annuities .Dropdown-control {
+    position: relative;
+    z-index: 100;
+}
+
+.annuities .Dropdown-menu {
+    position: absolute;
+    z-index: 9999 !important;
+    background: var(--bg) !important;
+    border: 2px solid var(--fg-mint) !important;
+    border-radius: calc(var(--nav-size) * 0.1);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3) !important;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.annuities .Dropdown-option {
+    padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.15);
+    color: var(--text-color);
+    transition: all 0.2s ease;
+}
+
+.annuities .Dropdown-option:hover,
+.annuities .Dropdown-option.is-selected {
+    background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint)) !important;
+    color: white !important;
+}
+
 /* Mobile responsiveness */
 @media (max-width: 768px) {
     .annuities {
@@ -335,12 +992,271 @@
         font-size: calc(var(--nav-size) * 0.5);
     }
     
-    .annuities-description ul {
+    .conversion-list {
         grid-template-columns: 1fr;
+    }
+    
+    .conversion-tooltip {
+        /* Always show on mobile since hover doesn't work well */
+        max-height: none;
+        opacity: 0.85;
+        margin-top: calc(var(--nav-size) * 0.1);
+        font-size: calc(var(--nav-size) * 0.18);
+    }
+    
+    .conversion-item {
+        background: var(--bg);
     }
     
     .annuities-find {
         flex-direction: column;
         gap: calc(var(--nav-size) * 0.15);
     }
+    
+    .econ-tabs {
+        flex-direction: column;
+    }
+    
+    .econ-tab {
+        text-align: center;
+    }
+    
+    .converter-direction {
+        flex-direction: column;
+    }
+    
+    .direction-btn {
+        width: 100%;
+    }
+    
+    .schedule-header,
+    .schedule-row {
+        font-size: calc(var(--nav-size) * 0.18);
+        padding: calc(var(--nav-size) * 0.1);
+    }
+    
+    .input-row {
+        grid-template-columns: 1fr;
+    }
+
+    .examples-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .example-card {
+        padding: calc(var(--nav-size) * 0.2);
+    }
+}
+
+/* ==========================================
+   EXAMPLE PROBLEMS SECTION
+   ========================================== */
+
+.examples-section {
+    margin-bottom: calc(var(--nav-size) * 0.4);
+    animation: fadeInUp 0.6s ease 0.15s forwards;
+    opacity: 0;
+}
+
+.examples-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: calc(var(--nav-size) * 0.15);
+    margin-bottom: calc(var(--nav-size) * 0.2);
+}
+
+.examples-title {
+    font-size: calc(var(--nav-size) * 0.35);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.15);
+}
+
+.toggle-examples-btn {
+    font-size: calc(var(--nav-size) * 0.2);
+    padding: calc(var(--nav-size) * 0.08) calc(var(--nav-size) * 0.15);
+    background: var(--white2-transp);
+    border: 1px solid var(--border-nav);
+    border-radius: calc(var(--nav-size) * 0.08);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--text-color);
+}
+
+.toggle-examples-btn:hover {
+    background: var(--fg-blue);
+    color: white;
+    border-color: var(--fg-blue);
+}
+
+.clear-example-btn {
+    font-size: calc(var(--nav-size) * 0.2);
+    padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.2);
+    background: var(--fg-pink);
+    border: none;
+    border-radius: calc(var(--nav-size) * 0.08);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: white;
+    font-weight: 500;
+}
+
+.clear-example-btn:hover {
+    background: #e91e63;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(233, 30, 99, 0.3);
+}
+
+.examples-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: calc(var(--nav-size) * 0.2);
+}
+
+.example-card {
+    background: var(--white1-transp);
+    backdrop-filter: blur(10px);
+    border-radius: calc(var(--nav-size) * 0.12);
+    border: 2px solid var(--white2-transp);
+    padding: calc(var(--nav-size) * 0.25);
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    text-align: left;
+}
+
+.example-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--fg-blue);
+    box-shadow: 0 8px 25px var(--grey3-transp);
+}
+
+.example-card.selected {
+    border-color: var(--fg-mint);
+    background: linear-gradient(135deg, var(--white1-transp), rgba(76, 175, 80, 0.1));
+    box-shadow: 0 4px 20px rgba(76, 175, 80, 0.2);
+}
+
+.example-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: calc(var(--nav-size) * 0.1);
+    margin-bottom: calc(var(--nav-size) * 0.1);
+}
+
+.example-title {
+    font-size: calc(var(--nav-size) * 0.24);
+    font-weight: 600;
+    margin: 0;
+    color: var(--text-color);
+    line-height: 1.3;
+}
+
+.example-difficulty {
+    font-size: calc(var(--nav-size) * 0.16);
+    padding: calc(var(--nav-size) * 0.04) calc(var(--nav-size) * 0.1);
+    border-radius: calc(var(--nav-size) * 0.05);
+    color: white;
+    font-weight: 500;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.example-description {
+    font-size: calc(var(--nav-size) * 0.2);
+    color: var(--text-color-accent);
+    line-height: 1.5;
+    margin-bottom: calc(var(--nav-size) * 0.12);
+}
+
+.example-concepts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: calc(var(--nav-size) * 0.08);
+    margin-bottom: calc(var(--nav-size) * 0.1);
+}
+
+.concept-tag {
+    font-size: calc(var(--nav-size) * 0.16);
+    padding: calc(var(--nav-size) * 0.03) calc(var(--nav-size) * 0.08);
+    background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
+    color: white;
+    border-radius: calc(var(--nav-size) * 0.04);
+    font-weight: 500;
+}
+
+.example-note {
+    font-size: calc(var(--nav-size) * 0.18);
+    color: var(--fg-orange);
+    font-style: italic;
+    margin: 0;
+    padding-top: calc(var(--nav-size) * 0.08);
+    border-top: 1px dashed var(--white2-transp);
+}
+
+/* Selected Example Info Box */
+.selected-example-info {
+    background: linear-gradient(135deg, var(--white1-transp), rgba(33, 150, 243, 0.1));
+    backdrop-filter: blur(10px);
+    border-radius: calc(var(--nav-size) * 0.15);
+    border: 2px solid var(--fg-blue);
+    padding: calc(var(--nav-size) * 0.25);
+    margin-bottom: calc(var(--nav-size) * 0.3);
+    text-align: left;
+    animation: slideIn 0.3s ease;
+}
+
+.selected-example-info h3 {
+    font-size: calc(var(--nav-size) * 0.28);
+    margin: 0 0 calc(var(--nav-size) * 0.1) 0;
+    color: var(--fg-blue);
+}
+
+.selected-example-info p {
+    font-size: calc(var(--nav-size) * 0.22);
+    margin: 0 0 calc(var(--nav-size) * 0.1) 0;
+    line-height: 1.5;
+}
+
+.initial-cost-note {
+    background: rgba(255, 152, 0, 0.15);
+    padding: calc(var(--nav-size) * 0.12);
+    border-radius: calc(var(--nav-size) * 0.08);
+    border-left: 4px solid var(--fg-orange);
+    color: var(--fg-orange);
+    font-weight: 500;
+}
+
+.initial-cost-note strong {
+    color: var(--text-color);
+}
+
+/* Calculator Section */
+.calculator-section {
+    margin-bottom: calc(var(--nav-size) * 0.3);
+}
+
+/* NPV Calculation Display */
+.npv-calculation {
+    margin-top: calc(var(--nav-size) * 0.15);
+    padding: calc(var(--nav-size) * 0.15);
+    background: var(--white1-transp);
+    border-radius: calc(var(--nav-size) * 0.1);
+    font-size: calc(var(--nav-size) * 0.24);
+}
+
+.npv-calculation .positive {
+    color: #4caf50;
+}
+
+.npv-calculation .negative {
+    color: #f44336;
+}
+
+.npv-verdict {
+    font-size: calc(var(--nav-size) * 0.22);
+    margin-left: calc(var(--nav-size) * 0.1);
 }

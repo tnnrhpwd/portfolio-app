@@ -90,9 +90,7 @@ const GraphAnnuities = ({ chartData }) => {
   const options = {
     responsive: true,
     maintainAspectRatio: false,
-    animation: {
-      duration: 500 // Faster animation for more responsive feel
-    },
+    animation: false,
     scales: {
       x: {
         beginAtZero: true,
@@ -172,7 +170,7 @@ const GraphAnnuities = ({ chartData }) => {
         This graph shows the value of the annuity over the specified periods.
       </div>
       <div className="chart-wrapper">
-        <Line data={data} options={options} key={`chart-${paddedData.length}-${JSON.stringify(paddedData)}`} />
+        <Line data={data} options={options} />
       </div>
     </div>
   );

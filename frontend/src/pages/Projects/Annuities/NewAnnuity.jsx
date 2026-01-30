@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import "./NewAnnuity.css";
 
-function NewAnnuity({ tenseAnnuity, onNewAnnuity }) {
+function NewAnnuity({ tenseAnnuity, onNewAnnuity, initialValues }) {
     const [values, setValues] = useState({
         presentVal: "",
         annualVal: "",
@@ -13,6 +13,30 @@ function NewAnnuity({ tenseAnnuity, onNewAnnuity }) {
 
     // Add state for tracking focus
     const [focusedField, setFocusedField] = useState(null);
+
+    // Update values when initialValues prop changes (for example problems)
+    useEffect(() => {
+        if (initialValues) {
+            setValues({
+                presentVal: initialValues.presentVal?.toString() || "",
+                annualVal: initialValues.annualVal?.toString() || "",
+                futureVal: initialValues.futureVal?.toString() || "",
+                gradientVal: initialValues.gradientVal?.toString() || "",
+                intVal: initialValues.intVal?.toString() || "",
+                nVal: initialValues.nVal?.toString() || ""
+            });
+        } else if (initialValues === null) {
+            // Clear all values when initialValues is explicitly null
+            setValues({
+                presentVal: "",
+                annualVal: "",
+                futureVal: "",
+                gradientVal: "",
+                intVal: "",
+                nVal: ""
+            });
+        }
+    }, [initialValues]);
 
     useEffect(() => {
         // Immediately notify parent of value changes for real-time updates
@@ -186,8 +210,8 @@ function NewAnnuity({ tenseAnnuity, onNewAnnuity }) {
                         onBlur={() => setFocusedField(null)}
                         className="inputNewAnnuity-interest"
                         type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
+                        inputMode="decimal"
+                        pattern="[0-9]*\.?[0-9]*"
                     />
                     {values.intVal && <div className="input-value-indicator">Rate: {(parseFloat(values.intVal) * 100).toFixed(2)}%</div>}
                     <span className="input-description">{inputMeta.intVal.description}</span>
