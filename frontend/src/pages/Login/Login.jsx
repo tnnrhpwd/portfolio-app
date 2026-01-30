@@ -140,7 +140,7 @@ function Login() {
         } else {
             dispatch(resetDataSlice());   // reset state values( data, dataisloading, dataiserror, datamessage, and dataissuccess ) on each state change
         }
-    }, [user, dataIsError, dataIsSuccess, dataIsLoading, dataMessage, navigate, dispatch])
+    }, [user, dataIsError, dataIsSuccess, dataIsLoading, dataMessage, navigate, dispatch, location.state?.sessionExpired])
 
     useEffect(() => {
         if (dataIsLoading) {
