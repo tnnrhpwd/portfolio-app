@@ -205,7 +205,7 @@
 }
 #text-body{
     font-size: var(--font-size-large);
-    padding: var(--spacing-sm);
+    padding: var(--spacing-sm) 0;
     text-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.02) var(--grey3-transp);
     line-height: var(--line-height-base);
     color: var(--text-color);
@@ -471,6 +471,16 @@
 /* Thank you section enhancements */
 .thank-you-section {
     position: relative;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    padding-left: 0;
+}
+
+.thank-you-section #content-tile {
+    text-align: center;
 }
 
 .thank-you-text {
@@ -478,6 +488,7 @@
     align-items: center;
     justify-content: center;
     gap: calc(var(--nav-size) * 0.2);
+    white-space: nowrap;
 }
 
 .heart-pulse {
@@ -545,14 +556,18 @@
         text-align: left;
     }
     
-    #text-body{
+    .hero-section #text-body{
         padding-left: 20%;
     }
-    #text-subtext{
+    .hero-section #text-subtext{
         padding-left: 20%;
     }
-    #text-about{
+    .hero-section #text-about{
         padding-left: 20%;
+    }
+    
+    .thank-you-section #text-body {
+        padding-left: 0;
     }
     
     /* Enhanced landscape animations */

@@ -161,6 +161,7 @@ function Home() {
                 <section className="section-tile thank-you-section">
                     <div id="content-tile">
                         <div id="text-body" className="thank-you-text">
+                            <span className="heart-pulse">❤️</span>
                             Thank you for visiting.
                             <span className="heart-pulse">❤️</span>
                         </div>

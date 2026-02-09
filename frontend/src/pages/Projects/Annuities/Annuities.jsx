@@ -402,7 +402,7 @@ function Annuities() {
             <Header />
             <div className='annuities'>
                 <div className='annuities-header'>
-                    <h1 className='annuities-title'>Engineering Economy Calculator</h1>
+                    <h1 className='annuities-title'>Annuities</h1>
                     <p className='annuities-subtitle'>Time Value of Money & Cash Flow Analysis</p>
                 </div>
 
