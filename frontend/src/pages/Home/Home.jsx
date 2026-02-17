@@ -144,7 +144,7 @@ function Home() {
                             }
                         </div>
                     </div>
-                    
+                    {/* commented out for non public 
                     <div id="content-tile">
                         <div id="text-body" className="section-header"> Apps: </div>
                         <div className="home-spc">
@@ -156,6 +156,7 @@ function Home() {
                             </a>
                         </div>
                     </div>
+*/}
                 </section>
 
                 <section className="section-tile thank-you-section">
