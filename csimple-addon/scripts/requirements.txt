@@ -1,0 +1,17 @@
+# Python dependencies for C-Simple Neural Network functionality
+# These packages will be automatically installed in a virtual environment
+
+# Core ML libraries
+torch>=2.0.0
+transformers>=4.20.0
+accelerate>=0.20.0
+tokenizers>=0.13.0
+
+# Optional but recommended
+datasets>=2.0.0
+numpy>=1.21.0
+requests>=2.25.0
+
+# Note: The application will automatically create a virtual environment
+# in %LOCALAPPDATA%/CSimple/venv and install these dependencies.
+# You don't need to install these manually.

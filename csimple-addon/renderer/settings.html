@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSimple Addon — Settings</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1e1e2e;
+      color: #cdd6f4;
+      padding: 24px;
+      min-height: 100vh;
+    }
+    h1 {
+      font-size: 20px;
+      margin-bottom: 16px;
+      color: #89b4fa;
+    }
+    .status-card {
+      background: #313244;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .status-card h2 {
+      font-size: 14px;
+      color: #a6adc8;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .status-value {
+      font-size: 16px;
+      font-weight: 500;
+    }
+    .status-ok { color: #a6e3a1; }
+    .status-warn { color: #f9e2af; }
+    .status-err { color: #f38ba8; }
+    .btn {
+      display: inline-block;
+      padding: 8px 16px;
+      background: #89b4fa;
+      color: #1e1e2e;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      margin-top: 12px;
+      margin-right: 8px;
+    }
+    .btn:hover { background: #74c7ec; }
+    .btn-secondary { background: #585b70; color: #cdd6f4; }
+    .btn-secondary:hover { background: #6c7086; }
+    #status-container { min-height: 200px; }
+  </style>
+</head>
+<body>
+  <h1>CSimple Addon</h1>
+  <div id="status-container">
+    <div class="status-card">
+      <h2>Server</h2>
+      <div id="server-status" class="status-value status-warn">Checking...</div>
+    </div>
+    <div class="status-card">
+      <h2>Python</h2>
+      <div id="python-status" class="status-value status-warn">Checking...</div>
+    </div>
+    <div class="status-card">
+      <h2>Version</h2>
+      <div id="version" class="status-value">—</div>
+    </div>
+  </div>
+  <button class="btn" onclick="restart()">Restart Server</button>
+  <button class="btn btn-secondary" onclick="refresh()">Refresh Status</button>
+
+  <script>
+    async function refresh() {
+      try {
+        const status = await window.csimpleAddon.getStatus();
+        const el = document.getElementById('server-status');
+        if (status.serverRunning) {
+          el.textContent = `Running on port ${status.port}`;
+          el.className = 'status-value status-ok';
+        } else {
+          el.textContent = 'Not running';
+          el.className = 'status-value status-err';
+        }
+
+        const pyEl = document.getElementById('python-status');
+        pyEl.textContent = status.python || 'Unknown';
+        pyEl.className = 'status-value ' + (status.pythonReady ? 'status-ok' : 'status-warn');
+
+        const ver = await window.csimpleAddon.getVersion();
+        document.getElementById('version').textContent = ver || '—';
+      } catch (e) {
+        console.error('Status check failed:', e);
+      }
+    }
+
+    async function restart() {
+      document.getElementById('server-status').textContent = 'Restarting...';
+      document.getElementById('server-status').className = 'status-value status-warn';
+      await window.csimpleAddon.restartServer();
+      setTimeout(refresh, 2000);
+    }
+
+    // Auto-refresh on load and every 10 seconds
+    refresh();
+    setInterval(refresh, 10000);
+  </script>
+</body>
+</html>

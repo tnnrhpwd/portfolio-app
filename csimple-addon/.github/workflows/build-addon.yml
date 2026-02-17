@@ -1,0 +1,111 @@
+name: Build & Release CSimple Addon
+
+on:
+  push:
+    tags:
+      - 'addon-v*'  # Trigger on tags like addon-v1.0.0
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish to GitHub Releases'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        working-directory: csimple-addon
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: csimple-addon/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Electron app
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run build:win
+
+      - name: Upload NSIS installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: csimple-addon-installer
+          path: csimple-addon/dist/*.exe
+          retention-days: 30
+
+      - name: Upload portable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: csimple-addon-portable
+          path: csimple-addon/dist/*portable*.exe
+          retention-days: 30
+          if-no-files-found: ignore
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/addon-v') || github.event.inputs.publish == 'true'
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#addon-}"
+          else
+            VERSION="dev-$(date +%Y%m%d)"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name || format('addon-dev-{0}', github.run_number) }}
+          name: "CSimple Addon ${{ steps.version.outputs.version }}"
+          body: |
+            ## CSimple Addon ${{ steps.version.outputs.version }}
+
+            Desktop addon for [sthopwood.com/net](https://sthopwood.com/net) — runs local AI models, voice control, and system automation privately on your PC.
+
+            ### Installation
+            1. Download the installer (.exe) below
+            2. Run the installer and follow the prompts
+            3. The addon starts in your system tray
+            4. Visit [sthopwood.com/net](https://sthopwood.com/net) — it will detect the addon automatically
+
+            ### Requirements
+            - Windows 10/11 (x64)
+            - Python 3.8+ (for local AI models — [download](https://python.org))
+            - ~2GB disk space for PyTorch (auto-installed on first run)
+          files: artifacts/**/*.exe
+          draft: false
+          prerelease: ${{ !startsWith(github.ref, 'refs/tags/addon-v') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
