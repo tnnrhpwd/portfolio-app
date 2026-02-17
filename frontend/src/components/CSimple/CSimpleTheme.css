@@ -1,0 +1,319 @@
+/**
+ * CSimple Theme Bridge
+ * 
+ * Maps the portfolio's .light-theme/.dark-theme body classes
+ * to CSimple's CSS custom properties within the .csimple-root container.
+ * 
+ * CSimple.Webapp uses [data-theme="..."] on the root element.
+ * Portfolio uses .light-theme/.dark-theme on <body>.
+ * 
+ * When CSimple manages its own theme (via data-csimple-theme attribute),
+ * those take priority. Otherwise, portfolio theme maps to dark/light.
+ */
+
+/* ─── Default: Dark theme (matches CSimple's :root defaults) ──────── */
+.csimple-root {
+  --bg-primary: #0f0f1a;
+  --bg-secondary: #1a1a2e;
+  --bg-tertiary: #16213e;
+  --bg-hover: #1f2b47;
+  --surface: #202040;
+  --surface-hover: #2a2a50;
+  --border: #2d2d5e;
+  --border-light: #3d3d7e;
+  --text-primary: #e8e8f0;
+  --text-secondary: #a0a0c0;
+  --text-muted: #6e6e9e;
+  --accent: #6c63ff;
+  --accent-hover: #5a52e0;
+  --accent-light: rgba(108, 99, 255, 0.15);
+  --user-bubble: #6c63ff;
+  --user-bubble-text: #ffffff;
+  --assistant-bubble: #1e1e3a;
+  --assistant-bubble-text: #e8e8f0;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --error: #f87171;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+  --transition: 200ms ease;
+  --font-size-base: 14px;
+  --font-size-sm: 12px;
+  --font-size-lg: 16px;
+  --font-size-msg: 14px;
+}
+
+/* ─── Portfolio light-theme → CSimple light ───────────────────────── */
+.light-theme .csimple-root,
+.csimple-root[data-csimple-theme="light"] {
+  --bg-primary: #f5f5f8;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #eef0f4;
+  --bg-hover: #e8eaef;
+  --surface: #ffffff;
+  --surface-hover: #f0f0f5;
+  --border: #d8dae0;
+  --border-light: #c4c6cc;
+  --text-primary: #1a1a2e;
+  --text-secondary: #5a5a7a;
+  --text-muted: #8e8ea0;
+  --accent: #6c63ff;
+  --accent-hover: #5a52e0;
+  --accent-light: rgba(108, 99, 255, 0.1);
+  --user-bubble: #6c63ff;
+  --user-bubble-text: #ffffff;
+  --assistant-bubble: #f0f0f8;
+  --assistant-bubble-text: #1a1a2e;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+}
+
+/* ─── CSimple theme overrides (when user picks a CSimple-specific theme) */
+.csimple-root[data-csimple-theme="dark"] {
+  --bg-primary: #0f0f1a;
+  --bg-secondary: #1a1a2e;
+  --bg-tertiary: #16213e;
+  --bg-hover: #1f2b47;
+  --surface: #202040;
+  --surface-hover: #2a2a50;
+  --border: #2d2d5e;
+  --border-light: #3d3d7e;
+  --text-primary: #e8e8f0;
+  --text-secondary: #a0a0c0;
+  --text-muted: #6e6e9e;
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+}
+
+.csimple-root[data-csimple-theme="crimson"] {
+  --bg-primary: #1a0a0a;
+  --bg-secondary: #2a1215;
+  --bg-tertiary: #1f0e10;
+  --bg-hover: #3a1a1e;
+  --surface: #2e1418;
+  --surface-hover: #3d1c22;
+  --border: #5c2830;
+  --border-light: #7a3540;
+  --text-primary: #f0e0e2;
+  --text-secondary: #c0a0a5;
+  --text-muted: #8e6068;
+  --accent: #dc2626;
+  --accent-hover: #b91c1c;
+  --accent-light: rgba(220, 38, 38, 0.15);
+  --user-bubble: #dc2626;
+  --user-bubble-text: #ffffff;
+  --assistant-bubble: #2e1418;
+  --assistant-bubble-text: #f0e0e2;
+  --shadow: 0 4px 24px rgba(150, 0, 0, 0.25);
+}
+
+.csimple-root[data-csimple-theme="emerald"] {
+  --bg-primary: #071a10;
+  --bg-secondary: #0d2818;
+  --bg-tertiary: #0a2014;
+  --bg-hover: #153d24;
+  --surface: #0f2d1c;
+  --surface-hover: #183e26;
+  --border: #1e5c35;
+  --border-light: #2a7a48;
+  --text-primary: #e0f5e8;
+  --text-secondary: #a0d0b0;
+  --text-muted: #5e9070;
+  --accent: #10b981;
+  --accent-hover: #059669;
+  --accent-light: rgba(16, 185, 129, 0.15);
+  --user-bubble: #10b981;
+  --user-bubble-text: #ffffff;
+  --assistant-bubble: #0f2d1c;
+  --assistant-bubble-text: #e0f5e8;
+  --shadow: 0 4px 24px rgba(0, 100, 50, 0.25);
+}
+
+.csimple-root[data-csimple-theme="sakura"] {
+  --bg-primary: #fdf2f8;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #fce7f3;
+  --bg-hover: #fbcfe8;
+  --surface: #fff5f9;
+  --surface-hover: #fce7f3;
+  --border: #f9a8d4;
+  --border-light: #f472b6;
+  --text-primary: #4a1942;
+  --text-secondary: #7a3b6a;
+  --text-muted: #a85d90;
+  --accent: #ec4899;
+  --accent-hover: #db2777;
+  --accent-light: rgba(236, 72, 153, 0.12);
+  --user-bubble: #ec4899;
+  --user-bubble-text: #ffffff;
+  --assistant-bubble: #fce7f3;
+  --assistant-bubble-text: #4a1942;
+  --shadow: 0 4px 24px rgba(200, 50, 130, 0.1);
+}
+
+.csimple-root[data-csimple-theme="midnight"] {
+  --bg-primary: #0a0e1a;
+  --bg-secondary: #101830;
+  --bg-tertiary: #0d1425;
+  --bg-hover: #182548;
+  --surface: #141e3c;
+  --surface-hover: #1c2a50;
+  --border: #243660;
+  --border-light: #304880;
+  --text-primary: #d0daf0;
+  --text-secondary: #8898c0;
+  --text-muted: #506088;
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --accent-light: rgba(59, 130, 246, 0.15);
+  --user-bubble: #3b82f6;
+  --user-bubble-text: #ffffff;
+  --assistant-bubble: #141e3c;
+  --assistant-bubble-text: #d0daf0;
+  --shadow: 0 4px 24px rgba(0, 20, 80, 0.4);
+}
+
+.csimple-root[data-csimple-theme="sunset"] {
+  --bg-primary: #1a0f0a;
+  --bg-secondary: #2a1810;
+  --bg-tertiary: #201410;
+  --bg-hover: #3d2218;
+  --surface: #2e1c14;
+  --surface-hover: #3d2518;
+  --border: #5c3a28;
+  --border-light: #7a4e38;
+  --text-primary: #f5e8d8;
+  --text-secondary: #d0b8a0;
+  --text-muted: #9a7a60;
+  --accent: #f97316;
+  --accent-hover: #ea580c;
+  --accent-light: rgba(249, 115, 22, 0.15);
+  --user-bubble: #f97316;
+  --user-bubble-text: #ffffff;
+  --assistant-bubble: #2e1c14;
+  --assistant-bubble-text: #f5e8d8;
+  --shadow: 0 4px 24px rgba(150, 60, 0, 0.3);
+}
+
+.csimple-root[data-csimple-theme="ocean"] {
+  --bg-primary: #0a1520;
+  --bg-secondary: #0f1f30;
+  --bg-tertiary: #0c1a28;
+  --bg-hover: #152a3e;
+  --surface: #122435;
+  --surface-hover: #1a3048;
+  --border: #1e4060;
+  --border-light: #2a5578;
+  --text-primary: #d5eaf5;
+  --text-secondary: #90b8d0;
+  --text-muted: #507890;
+  --accent: #06b6d4;
+  --accent-hover: #0891b2;
+  --accent-light: rgba(6, 182, 212, 0.15);
+  --user-bubble: #06b6d4;
+  --user-bubble-text: #ffffff;
+  --assistant-bubble: #122435;
+  --assistant-bubble-text: #d5eaf5;
+  --shadow: 0 4px 24px rgba(0, 60, 100, 0.3);
+}
+
+.csimple-root[data-csimple-theme="cyberpunk"] {
+  --bg-primary: #0a0a12;
+  --bg-secondary: #12121e;
+  --bg-tertiary: #0e0e18;
+  --bg-hover: #1a1a2a;
+  --surface: #141422;
+  --surface-hover: #1e1e30;
+  --border: #2a2a45;
+  --border-light: #3a3a5e;
+  --text-primary: #e0e0ff;
+  --text-secondary: #b0b0e0;
+  --text-muted: #6e6ea0;
+  --accent: #f0e030;
+  --accent-hover: #d4c420;
+  --accent-light: rgba(240, 224, 48, 0.12);
+  --user-bubble: #e040fb;
+  --user-bubble-text: #000000;
+  --assistant-bubble: #141422;
+  --assistant-bubble-text: #e0e0ff;
+  --shadow: 0 4px 24px rgba(224, 64, 251, 0.2);
+}
+
+.csimple-root[data-csimple-theme="monokai"] {
+  --bg-primary: #272822;
+  --bg-secondary: #2e2e28;
+  --bg-tertiary: #30302a;
+  --bg-hover: #3e3d32;
+  --surface: #33332c;
+  --surface-hover: #3e3d32;
+  --border: #4a4940;
+  --border-light: #5c5b50;
+  --text-primary: #f8f8f2;
+  --text-secondary: #c0c0b0;
+  --text-muted: #75715e;
+  --accent: #a6e22e;
+  --accent-hover: #8cbe20;
+  --accent-light: rgba(166, 226, 46, 0.12);
+  --user-bubble: #66d9ef;
+  --user-bubble-text: #272822;
+  --assistant-bubble: #33332c;
+  --assistant-bubble-text: #f8f8f2;
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* ─── Font Size Overrides ─────────────────────────────────────────── */
+.csimple-root[data-csimple-font-size="small"] {
+  --font-size-base: 13px;
+  --font-size-sm: 11px;
+  --font-size-lg: 15px;
+  --font-size-msg: 13px;
+}
+
+.csimple-root[data-csimple-font-size="medium"] {
+  --font-size-base: 14px;
+  --font-size-sm: 12px;
+  --font-size-lg: 16px;
+  --font-size-msg: 14px;
+}
+
+.csimple-root[data-csimple-font-size="large"] {
+  --font-size-base: 16px;
+  --font-size-sm: 14px;
+  --font-size-lg: 18px;
+  --font-size-msg: 16px;
+}
+
+/* ─── Container Layout ────────────────────────────────────────────── */
+.csimple-root {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: var(--font-size-base);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  position: relative;
+}
+
+/* Scoped scrollbar styles */
+.csimple-root ::-webkit-scrollbar {
+  width: 6px;
+}
+
+.csimple-root ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.csimple-root ::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.csimple-root ::-webkit-scrollbar-thumb:hover {
+  background: var(--border-light);
+}
+
+.csimple-root ::selection {
+  background: var(--accent-light);
+  color: var(--text-primary);
+}

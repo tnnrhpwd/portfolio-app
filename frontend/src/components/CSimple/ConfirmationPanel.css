@@ -1,0 +1,221 @@
+/* ─── Confirmation Panel ──────────────────────────────── */
+/* Slides up above the text input when the AI needs user
+   confirmation before executing a potentially destructive action. */
+
+.confirmation-panel {
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  margin-bottom: -1px;
+  animation: confirmation-slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  outline: none;
+}
+
+.confirmation-panel--loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+@keyframes confirmation-slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Header: icon + question + close button */
+.confirmation-panel__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.confirmation-panel__icon {
+  flex-shrink: 0;
+  color: var(--accent);
+  margin-top: 1px;
+}
+
+.confirmation-panel__question {
+  flex: 1;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.confirmation-panel__close {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.confirmation-panel__close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.confirmation-panel__close:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Context: shows the detected action */
+.confirmation-panel__context {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(108, 99, 255, 0.06);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.confirmation-panel__context-icon {
+  font-size: 12px;
+}
+
+.confirmation-panel__context-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Options grid */
+.confirmation-panel__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.confirmation-panel__option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.confirmation-panel__option:hover {
+  border-color: var(--accent);
+  background: var(--accent-light);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(108, 99, 255, 0.15);
+}
+
+.confirmation-panel__option:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.confirmation-panel__option:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.confirmation-panel__option-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+
+.confirmation-panel__option:hover .confirmation-panel__option-key {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.confirmation-panel__option-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Loading state */
+.confirmation-panel__loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.confirmation-panel__spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: confirmation-spin 0.6s linear infinite;
+}
+
+@keyframes confirmation-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Hint text */
+.confirmation-panel__hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: 4px;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .confirmation-panel {
+    padding: 10px 12px;
+  }
+
+  .confirmation-panel__options {
+    flex-direction: column;
+  }
+
+  .confirmation-panel__option {
+    justify-content: center;
+  }
+
+  .confirmation-panel__question {
+    font-size: 13px;
+  }
+}

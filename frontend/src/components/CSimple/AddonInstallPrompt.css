@@ -1,0 +1,105 @@
+/* Addon install prompt banner */
+
+.addon-prompt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--csimple-surface, #1e1e2e);
+  border-bottom: 1px solid var(--csimple-border, #333);
+  color: var(--csimple-text, #e0e0e0);
+  font-size: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.addon-prompt__icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.addon-prompt__body {
+  flex: 1;
+  min-width: 200px;
+}
+
+.addon-prompt__title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 2px;
+}
+
+.addon-prompt__text {
+  color: var(--csimple-text-secondary, #aaa);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.addon-prompt__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.addon-prompt__install-btn {
+  padding: 6px 16px;
+  border-radius: 6px;
+  background: var(--csimple-accent, #2196f3);
+  color: #fff;
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.addon-prompt__install-btn:hover {
+  background: var(--csimple-accent-hover, #1976d2);
+}
+
+.addon-prompt__recheck-btn {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--csimple-border, #555);
+  background: transparent;
+  color: var(--csimple-text, #e0e0e0);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.addon-prompt__recheck-btn:hover {
+  background: var(--csimple-surface-hover, rgba(255,255,255,0.05));
+}
+
+.addon-prompt__recheck-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.addon-prompt__dismiss-btn {
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  color: var(--csimple-text-secondary, #aaa);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: color 0.2s;
+  line-height: 1;
+}
+
+.addon-prompt__dismiss-btn:hover {
+  color: var(--csimple-text, #fff);
+}
+
+@media (max-width: 600px) {
+  .addon-prompt {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .addon-prompt__actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}

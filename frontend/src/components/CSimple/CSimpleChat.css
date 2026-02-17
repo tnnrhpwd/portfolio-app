@@ -1,0 +1,84 @@
+/* CSimpleChat layout and overlay styles */
+
+.csimple-root {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.csimple-app {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+@media (max-width: 768px) {
+  .csimple-app {
+    position: relative;
+  }
+}
+
+/* ─── Inactivity Overlay (scoped to csimple) ──────────────────────────────── */
+
+.csimple-inactive-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  cursor: pointer;
+  animation: csimpleFadeIn 0.4s ease;
+}
+
+.csimple-inactive-overlay__content {
+  text-align: center;
+  color: #fff;
+  padding: 2rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  max-width: 320px;
+  pointer-events: auto;
+}
+
+.csimple-inactive-overlay__icon {
+  font-size: 3rem;
+  margin-bottom: 0.75rem;
+}
+
+.csimple-inactive-overlay__title {
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+}
+
+.csimple-inactive-overlay__subtitle {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 1.2rem;
+}
+
+.csimple-inactive-overlay__btn {
+  padding: 10px 28px;
+  border-radius: 8px;
+  border: none;
+  background: var(--accent, #2196f3);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.csimple-inactive-overlay__btn:hover {
+  background: var(--accent-hover, #1976d2);
+}
+
+@keyframes csimpleFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
