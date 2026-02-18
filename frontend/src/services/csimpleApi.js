@@ -157,10 +157,10 @@ export async function sendChatMessage({ message, model, conversationHistory = []
     method: 'POST',
     body: JSON.stringify({
       message,
-      model,
+      modelId: model,
       conversationHistory,
       temperature: settings.defaultTemperature ?? 0.7,
-      maxTokens: settings.defaultMaxTokens ?? 500,
+      maxLength: settings.defaultMaxTokens ?? 500,
       behaviorFile: agent?.behaviorFile || 'default.txt',
     }),
   });
@@ -183,10 +183,10 @@ export async function streamChatMessage({ message, model, conversationHistory = 
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       message,
-      model,
+      modelId: model,
       conversationHistory,
       temperature: settings.defaultTemperature ?? 0.7,
-      maxTokens: settings.defaultMaxTokens ?? 500,
+      maxLength: settings.defaultMaxTokens ?? 500,
       behaviorFile: agent?.behaviorFile || 'default.txt',
     }),
     signal,
@@ -230,10 +230,10 @@ export async function stopGeneration() {
 /**
  * Confirm a pending action.
  */
-export async function confirmAction(actionId, choice) {
+export async function confirmAction(confirmationId, selectedOption) {
   const res = await addonFetch('/api/chat/confirm', {
     method: 'POST',
-    body: JSON.stringify({ actionId, choice }),
+    body: JSON.stringify({ confirmationId, selectedOption }),
   });
   return res.json();
 }
@@ -279,6 +279,151 @@ export async function getBehaviors() {
 export async function getBehaviorContent(filename) {
   const res = await addonFetch(`/api/behaviors/${encodeURIComponent(filename)}`);
   return res.text();
+}
+
+/**
+ * Create a behavior file on the local addon.
+ */
+export async function createBehavior(filename, content) {
+  const res = await addonFetch('/api/behaviors', {
+    method: 'POST',
+    body: JSON.stringify({ filename, content }),
+  });
+  return res.json();
+}
+
+/**
+ * Update a behavior file on the local addon.
+ */
+export async function updateBehavior(filename, content) {
+  const res = await addonFetch(`/api/behaviors/${encodeURIComponent(filename)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ content }),
+  });
+  return res.json();
+}
+
+/**
+ * Delete a behavior file on the local addon.
+ */
+export async function deleteBehavior(filename) {
+  const res = await addonFetch(`/api/behaviors/${encodeURIComponent(filename)}`, {
+    method: 'DELETE',
+  });
+  return res.json();
+}
+
+/**
+ * List memory files from the local addon.
+ */
+export async function getMemoryFiles() {
+  const res = await addonFetch('/api/memory');
+  return res.json();
+}
+
+/**
+ * Read a memory file.
+ */
+export async function getMemoryContent(filename) {
+  const res = await addonFetch(`/api/memory/${encodeURIComponent(filename)}`);
+  return res.json();
+}
+
+/**
+ * Create a memory file on the local addon.
+ */
+export async function createMemory(filename, content) {
+  const res = await addonFetch('/api/memory', {
+    method: 'POST',
+    body: JSON.stringify({ filename, content }),
+  });
+  return res.json();
+}
+
+/**
+ * Update a memory file on the local addon.
+ */
+export async function updateMemory(filename, content) {
+  const res = await addonFetch(`/api/memory/${encodeURIComponent(filename)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ content }),
+  });
+  return res.json();
+}
+
+/**
+ * Delete a memory file on the local addon.
+ */
+export async function deleteMemory(filename) {
+  const res = await addonFetch(`/api/memory/${encodeURIComponent(filename)}`, {
+    method: 'DELETE',
+  });
+  return res.json();
+}
+
+/**
+ * List personality files from the local addon.
+ */
+export async function getPersonalityFiles() {
+  const res = await addonFetch('/api/personality');
+  return res.json();
+}
+
+/**
+ * Read a personality file.
+ */
+export async function getPersonalityContent(filename) {
+  const res = await addonFetch(`/api/personality/${encodeURIComponent(filename)}`);
+  return res.json();
+}
+
+/**
+ * Update a personality file on the local addon.
+ */
+export async function updatePersonality(filename, content) {
+  const res = await addonFetch(`/api/personality/${encodeURIComponent(filename)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ content }),
+  });
+  return res.json();
+}
+
+/**
+ * List workspace files from the local addon.
+ */
+export async function getWorkspaceFiles(type = 'files') {
+  const res = await addonFetch(`/api/workspace/files?type=${type}`);
+  return res.json();
+}
+
+/**
+ * Read a workspace file.
+ */
+export async function getWorkspaceFile(filename, type = 'files') {
+  const res = await addonFetch(`/api/workspace/files/${encodeURIComponent(filename)}?type=${type}`);
+  return res.json();
+}
+
+/**
+ * Create a workspace file.
+ */
+export async function createWorkspaceFile(filename, content, type = 'files') {
+  const res = await addonFetch('/api/workspace/files', {
+    method: 'POST',
+    body: JSON.stringify({ filename, content, type }),
+  });
+  return res.json();
+}
+
+/**
+ * Execute a script in the workspace.
+ */
+export async function executeWorkspaceScript(filename, args = []) {
+  const res = await addonFetch('/api/workspace/execute', {
+    method: 'POST',
+    body: JSON.stringify({ filename, args }),
+  });
+  return res.json();
 }
 
 /**

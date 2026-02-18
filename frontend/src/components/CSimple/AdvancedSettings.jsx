@@ -1,5 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { categorizeVoices } from '../../hooks/csimple/useSpeech';
+import {
+  getBehaviors, getMemoryFiles, getPersonalityFiles, getNetworkInfo,
+  saveAddonSettings, getBehaviorContent, getMemoryContent, getPersonalityContent,
+  createBehavior, updateBehavior, deleteBehavior,
+  createMemory, updateMemory, deleteMemory,
+  updatePersonality,
+} from '../../services/csimpleApi';
 import './AdvancedSettings.css';
 
 const TABS = [
@@ -28,23 +35,19 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
   // Load behaviors and memory files
   useEffect(() => {
     if (!isOpen) return;
-    fetch('/api/behaviors')
-      .then(r => r.json())
+    getBehaviors()
       .then(data => setBehaviors(data.behaviors || []))
       .catch(() => {});
 
-    fetch('/api/memory')
-      .then(r => r.json())
+    getMemoryFiles()
       .then(data => setMemoryFiles(data.files || []))
       .catch(() => {});
 
-    fetch('/api/personality')
-      .then(r => r.json())
+    getPersonalityFiles()
       .then(data => setPersonalityFiles(data.files || []))
       .catch(() => {});
 
-    fetch('/api/network')
-      .then(r => r.json())
+    getNetworkInfo()
       .then(data => setNetworkInfo(data))
       .catch(() => {});
   }, [isOpen]);
@@ -54,16 +57,12 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
     onSettingsChange(newSettings);
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(() => {
-      fetch('/api/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newSettings),
-      }).catch(() => {});
+      saveAddonSettings(newSettings).catch(() => {});
     }, 500);
   }, [onSettingsChange]);
 
   const updateSetting = useCallback((key, value) => {
-    const DEVICE_LOCAL_KEYS = ['micDeviceId', 'sttEnabled'];
+    const DEVICE_LOCAL_KEYS = ['micDeviceId', 'sttEnabled', 'githubToken'];
     const newSettings = { ...settings, [key]: value };
     if (DEVICE_LOCAL_KEYS.includes(key)) {
       // Per-device settings: save to localStorage only, don't sync to server
@@ -242,38 +241,28 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
     const { type, filename, content, isNew } = fileEditor;
     if (!filename || !content) return;
 
-    const endpoint = type === 'behavior' ? '/api/behaviors' : type === 'personality' ? '/api/personality' : '/api/memory';
     try {
       if (isNew) {
         // Create new file
-        const res = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ filename, content }),
-        });
-        if (!res.ok) throw new Error('Failed to create file');
+        if (type === 'behavior') await createBehavior(filename, content);
+        else if (type === 'memory') await createMemory(filename, content);
+        // Personality files can only be edited, not created
       } else {
         // Update existing file
-        const res = await fetch(`${endpoint}/${encodeURIComponent(filename)}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content }),
-        });
-        if (!res.ok) throw new Error('Failed to update file');
+        if (type === 'behavior') await updateBehavior(filename, content);
+        else if (type === 'personality') await updatePersonality(filename, content);
+        else await updateMemory(filename, content);
       }
 
       // Reload the file list
       if (type === 'behavior') {
-        const res = await fetch('/api/behaviors');
-        const data = await res.json();
+        const data = await getBehaviors();
         setBehaviors(data.behaviors || []);
       } else if (type === 'personality') {
-        const res = await fetch('/api/personality');
-        const data = await res.json();
+        const data = await getPersonalityFiles();
         setPersonalityFiles(data.files || []);
       } else {
-        const res = await fetch('/api/memory');
-        const data = await res.json();
+        const data = await getMemoryFiles();
         setMemoryFiles(data.files || []);
       }
 
@@ -287,25 +276,20 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
   const deleteFile = useCallback(async (type, filename) => {
     if (!window.confirm(`Delete ${filename}?`)) return;
 
-    const endpoint = type === 'behavior' ? '/api/behaviors' : type === 'personality' ? '/api/personality' : '/api/memory';
     try {
-      const res = await fetch(`${endpoint}/${encodeURIComponent(filename)}`, {
-        method: 'DELETE',
-      });
-      if (!res.ok) throw new Error('Failed to delete file');
+      if (type === 'behavior') await deleteBehavior(filename);
+      else if (type === 'memory') await deleteMemory(filename);
+      // Personality files cannot be deleted
 
       // Reload the file list
       if (type === 'behavior') {
-        const res = await fetch('/api/behaviors');
-        const data = await res.json();
+        const data = await getBehaviors();
         setBehaviors(data.behaviors || []);
       } else if (type === 'personality') {
-        const res = await fetch('/api/personality');
-        const data = await res.json();
+        const data = await getPersonalityFiles();
         setPersonalityFiles(data.files || []);
       } else {
-        const res = await fetch('/api/memory');
-        const data = await res.json();
+        const data = await getMemoryFiles();
         setMemoryFiles(data.files || []);
       }
     } catch (err) {
@@ -315,11 +299,19 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
   }, []);
 
   const editFile = useCallback(async (type, filename) => {
-    const endpoint = type === 'behavior' ? '/api/behaviors' : type === 'personality' ? '/api/personality' : '/api/memory';
     try {
-      const res = await fetch(`${endpoint}/${encodeURIComponent(filename)}`);
-      const data = await res.json();
-      openFileEditor(type, filename, data.content, false);
+      let content;
+      if (type === 'behavior') {
+        const data = await getBehaviorContent(filename);
+        content = typeof data === 'string' ? data : data.content;
+      } else if (type === 'personality') {
+        const data = await getPersonalityContent(filename);
+        content = data.content;
+      } else {
+        const data = await getMemoryContent(filename);
+        content = data.content;
+      }
+      openFileEditor(type, filename, content, false);
     } catch (err) {
       console.error('File read error:', err);
       alert(`Failed to load file: ${err.message}`);

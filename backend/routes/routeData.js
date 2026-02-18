@@ -16,7 +16,8 @@ const {
   validatePasswordReset,
   validateDataCreation,
   validatePaymentData,
-  handleValidationErrors 
+  handleValidationErrors,
+  sanitizeInput
 } = require('../middleware/validation');
 const { logSecurityEvent } = require('../utils/logger');
 
@@ -264,18 +265,18 @@ router.post('/custom-limit', protect, paymentLimiter, setCustomLimit);
 
 router.route('/csimple/settings')
   .get(protect, getCSimpleSettings)
-  .put(protect, updateCSimpleSettings);
+  .put(protect, sanitizeInput, updateCSimpleSettings);
 
 router.route('/csimple/conversations')
   .get(protect, getCSimpleConversations)
-  .put(protect, updateCSimpleConversations);
+  .put(protect, sanitizeInput, updateCSimpleConversations);
 
 router.route('/csimple/behaviors')
   .get(protect, getCSimpleBehaviors);
 
 router.route('/csimple/behaviors/:name')
   .get(protect, getCSimpleBehavior)
-  .put(protect, updateCSimpleBehavior)
+  .put(protect, sanitizeInput, updateCSimpleBehavior)
   .delete(protect, deleteCSimpleBehavior);
 
 // ============================================================================

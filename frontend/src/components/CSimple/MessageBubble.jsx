@@ -5,6 +5,7 @@ import './MessageBubble.css';
 function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = true }) {
   const isUser = message.role === 'user';
   const hasAction = !isUser && message.action;
+  const hasOperations = !isUser && message.operations?.length > 0;
   const time = new Date(message.timestamp).toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit',
@@ -27,6 +28,29 @@ function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = 
               <div className="message__action-badge">
                 <span className="message__action-icon">⚡</span>
                 <span>Action Executed</span>
+              </div>
+            )}
+            {hasOperations && (
+              <div className="message__operations">
+                {message.operations.map((op, i) => (
+                  <div key={i} className={`message__operation message__operation--${op.success ? 'success' : 'error'}`}>
+                    <span className="message__operation-icon">
+                      {op.type === 'memory_save' ? '🧠' : op.type === 'script_run' ? '▶️' : '📄'}
+                    </span>
+                    <span className="message__operation-label">
+                      {op.type === 'memory_save' && `Saved memory: ${op.filename}`}
+                      {op.type === 'file_create' && `Created file: ${op.filename}`}
+                      {op.type === 'script_create' && `Created script: ${op.filename}`}
+                      {op.type === 'script_run' && `Ran script: ${op.filename}${op.exitCode != null ? ` (exit ${op.exitCode})` : ''}`}
+                    </span>
+                    {op.type === 'script_run' && op.stdout && (
+                      <pre className="message__operation-output">{op.stdout}</pre>
+                    )}
+                    {op.type === 'script_run' && op.stderr && (
+                      <pre className="message__operation-output message__operation-output--error">{op.stderr}</pre>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
             {isUser ? (

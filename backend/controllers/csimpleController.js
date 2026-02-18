@@ -29,6 +29,9 @@ const TABLE_NAME = 'Simple';
 // Keys that must NEVER be synced to the cloud
 const NEVER_SYNC_KEYS = ['githubToken', 'micDeviceId', 'sttEnabled'];
 
+// Behavior name validation: alphanumeric, hyphens, underscores, dots only
+const VALID_BEHAVIOR_NAME = /^[a-zA-Z0-9_\-. ]{1,100}$/;
+
 /**
  * Compress a string with zlib and return base64
  */
@@ -295,9 +298,9 @@ const getCSimpleBehavior = asyncHandler(async (req, res) => {
   }
 
   const { name } = req.params;
-  if (!name) {
+  if (!name || !VALID_BEHAVIOR_NAME.test(name)) {
     res.status(400);
-    throw new Error('Behavior name is required');
+    throw new Error('Invalid behavior name. Use only letters, numbers, hyphens, underscores, and dots (max 100 chars).');
   }
 
   const itemId = `csimple_behavior_${req.user.id}_${name}`;
@@ -338,9 +341,9 @@ const updateCSimpleBehavior = asyncHandler(async (req, res) => {
   const { name } = req.params;
   const { content } = req.body;
 
-  if (!name) {
+  if (!name || !VALID_BEHAVIOR_NAME.test(name)) {
     res.status(400);
-    throw new Error('Behavior name is required');
+    throw new Error('Invalid behavior name. Use only letters, numbers, hyphens, underscores, and dots (max 100 chars).');
   }
 
   if (typeof content !== 'string') {
@@ -384,9 +387,9 @@ const deleteCSimpleBehavior = asyncHandler(async (req, res) => {
   }
 
   const { name } = req.params;
-  if (!name) {
+  if (!name || !VALID_BEHAVIOR_NAME.test(name)) {
     res.status(400);
-    throw new Error('Behavior name is required');
+    throw new Error('Invalid behavior name. Use only letters, numbers, hyphens, underscores, and dots (max 100 chars).');
   }
 
   const itemId = `csimple_behavior_${req.user.id}_${name}`;

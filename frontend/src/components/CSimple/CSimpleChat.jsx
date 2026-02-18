@@ -517,6 +517,7 @@ function CSimpleChat({
         generationTime: data.generationTime,
         modelId: data.modelId,
         action: data.action || null,
+        operations: data.operations || null,
       };
 
       setConversations(prev => prev.map(c => {

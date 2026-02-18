@@ -60,6 +60,41 @@ for (const dir of dirs) {
   }
 }
 
+// ─── Security Helpers ──────────────────────────────────────────────────────────
+
+/**
+ * Sanitize a filename to prevent path traversal attacks.
+ * Strips directory separators, null bytes, and validates the result stays within baseDir.
+ * @param {string} filename - User-provided filename
+ * @param {string} baseDir - The allowed base directory
+ * @returns {string|null} Safe absolute path, or null if the filename is malicious
+ */
+function safePath(filename, baseDir) {
+  if (!filename || typeof filename !== 'string') return null;
+  // Strip null bytes, directory separators, and parent traversal
+  const cleaned = filename
+    .replace(/\0/g, '')           // null bytes
+    .replace(/\.\./g, '')         // parent traversal
+    .replace(/[/\\]/g, '')        // directory separators
+    .trim();
+  if (!cleaned || cleaned.length === 0 || cleaned.length > 255) return null;
+  const resolved = path.resolve(baseDir, cleaned);
+  // Ensure the resolved path is still within baseDir
+  if (!resolved.startsWith(path.resolve(baseDir))) return null;
+  return resolved;
+}
+
+/**
+ * Validate file size of request body content (max 1MB for text files).
+ */
+const MAX_FILE_SIZE = 1024 * 1024; // 1MB
+
+function validateFileContent(content) {
+  if (typeof content !== 'string') return 'Content must be a string';
+  if (Buffer.byteLength(content, 'utf-8') > MAX_FILE_SIZE) return 'Content exceeds maximum size of 1MB';
+  return null;
+}
+
 /**
  * Load personality context from identity.md, soul.md, user.md files.
  * Returns a string to prepend to the system prompt.
@@ -82,6 +117,184 @@ function loadPersonalityContext() {
 
   if (sections.length === 0) return '';
   return '\n\n---\n' + sections.join('\n\n---\n') + '\n\n---\n';
+}
+
+/**
+ * Load memory context from all files in the Memory directory.
+ * Memory files contain persistent knowledge the LLM should reference.
+ * Caps total memory context at 8KB to avoid prompt bloat.
+ * Returns a formatted string for the system prompt.
+ */
+const MAX_MEMORY_CONTEXT_BYTES = 8 * 1024; // 8KB cap for memory in prompt
+
+function loadMemoryContext() {
+  if (!fs.existsSync(MEMORY_PATH)) return '';
+  
+  try {
+    const files = fs.readdirSync(MEMORY_PATH)
+      .filter(f => !fs.statSync(path.join(MEMORY_PATH, f)).isDirectory())
+      .sort(); // deterministic order
+
+    if (files.length === 0) return '';
+
+    const memories = [];
+    let totalSize = 0;
+    
+    for (const file of files) {
+      const filePath = path.join(MEMORY_PATH, file);
+      try {
+        const content = fs.readFileSync(filePath, 'utf-8').trim();
+        if (!content) continue;
+        
+        const entrySize = Buffer.byteLength(content, 'utf-8');
+        if (totalSize + entrySize > MAX_MEMORY_CONTEXT_BYTES) {
+          // Add truncation notice and stop
+          memories.push(`[Memory truncated — ${files.length - memories.length} more files not loaded due to size limit]`);
+          break;
+        }
+        
+        const name = file.replace(/\.[^.]+$/, '').replace(/_/g, ' ');
+        memories.push(`## ${name}\n${content}`);
+        totalSize += entrySize;
+      } catch (err) {
+        console.log(`[Memory] Failed to read ${file}: ${err.message}`);
+      }
+    }
+
+    if (memories.length === 0) return '';
+    return '\n\n--- MEMORY (persistent knowledge) ---\n' + 
+           memories.join('\n\n') + 
+           '\n--- END MEMORY ---\n';
+  } catch (err) {
+    console.log(`[Memory] Failed to load memory context: ${err.message}`);
+    return '';
+  }
+}
+
+/**
+ * Parse and save [MEMORY_SAVE:filename] blocks from LLM responses.
+ * This enables the LLM to autonomously create/update memory files.
+ * Returns the cleaned response text (with save blocks removed) and list of saved files.
+ * 
+ * Format:
+ *   [MEMORY_SAVE:my_notes.md]
+ *   Content to save here
+ *   [/MEMORY_SAVE]
+ */
+function processMemorySaves(responseText) {
+  if (!responseText) return { cleanedText: responseText, savedMemories: [] };
+
+  const MEMORY_SAVE_REGEX = /\[MEMORY_SAVE:([^\]]+)\]\s*\n([\s\S]*?)\[\/MEMORY_SAVE\]/g;
+  const savedMemories = [];
+  let match;
+
+  while ((match = MEMORY_SAVE_REGEX.exec(responseText)) !== null) {
+    const rawFilename = match[1].trim();
+    const content = match[2].trim();
+
+    // Validate filename with safePath
+    const filePath = safePath(rawFilename, MEMORY_PATH);
+    if (!filePath) {
+      console.log(`[Memory Auto-Save] Rejected invalid filename: "${rawFilename}"`);
+      continue;
+    }
+
+    // Validate content size
+    const sizeErr = validateFileContent(content);
+    if (sizeErr) {
+      console.log(`[Memory Auto-Save] Content too large for "${rawFilename}": ${sizeErr}`);
+      continue;
+    }
+
+    try {
+      if (!fs.existsSync(MEMORY_PATH)) {
+        fs.mkdirSync(MEMORY_PATH, { recursive: true });
+      }
+
+      const isUpdate = fs.existsSync(filePath);
+      fs.writeFileSync(filePath, content, 'utf-8');
+      savedMemories.push({
+        filename: rawFilename,
+        action: isUpdate ? 'updated' : 'created',
+      });
+      console.log(`[Memory Auto-Save] ${isUpdate ? 'Updated' : 'Created'}: ${rawFilename}`);
+    } catch (err) {
+      console.error(`[Memory Auto-Save] Failed to save "${rawFilename}": ${err.message}`);
+    }
+  }
+
+  // Remove the MEMORY_SAVE blocks from the visible response
+  const cleanedText = responseText.replace(MEMORY_SAVE_REGEX, '').trim();
+
+  return { cleanedText, savedMemories };
+}
+
+/**
+ * Process all LLM response blocks: MEMORY_SAVE, FILE_CREATE, SCRIPT_CREATE, SCRIPT_RUN.
+ * Executes file operations and collects results for the response.
+ * @param {string} responseText - Raw LLM response
+ * @returns {Promise<{cleanedText: string, operations: object[]}>}
+ */
+async function processLLMBlocks(responseText) {
+  if (!responseText) return { cleanedText: responseText, operations: [] };
+
+  const operations = [];
+
+  // 1. Process MEMORY_SAVE blocks
+  const { cleanedText: afterMemory, savedMemories } = processMemorySaves(responseText);
+  for (const mem of savedMemories) {
+    operations.push({ type: 'memory_save', ...mem });
+  }
+
+  // 2. Process FILE_CREATE blocks
+  const FILE_CREATE_REGEX = /\[FILE_CREATE:([^\]]+)\]\s*\n([\s\S]*?)\[\/FILE_CREATE\]/g;
+  let text = afterMemory;
+  let fileMatch;
+  while ((fileMatch = FILE_CREATE_REGEX.exec(afterMemory)) !== null) {
+    const filename = fileMatch[1].trim();
+    const content = fileMatch[2].trim();
+    const result = actionService.createFile(filename, content, 'files');
+    operations.push({ type: 'file_create', filename, ...result });
+    console.log(`[File Auto-Create] ${result.success ? result.action : 'FAILED'}: ${filename}`);
+  }
+  text = text.replace(FILE_CREATE_REGEX, '').trim();
+
+  // 3. Process SCRIPT_CREATE blocks
+  const SCRIPT_CREATE_REGEX = /\[SCRIPT_CREATE:([^\]]+)\]\s*\n([\s\S]*?)\[\/SCRIPT_CREATE\]/g;
+  let scriptMatch;
+  while ((scriptMatch = SCRIPT_CREATE_REGEX.exec(text)) !== null) {
+    const filename = scriptMatch[1].trim();
+    const content = scriptMatch[2].trim();
+    const result = actionService.createFile(filename, content, 'scripts');
+    operations.push({ type: 'script_create', filename, ...result });
+    console.log(`[Script Auto-Create] ${result.success ? result.action : 'FAILED'}: ${filename}`);
+  }
+  text = text.replace(SCRIPT_CREATE_REGEX, '').trim();
+
+  // 4. Process SCRIPT_RUN blocks (after script creation so the script exists)
+  const SCRIPT_RUN_REGEX = /\[SCRIPT_RUN:([^\]]+)\]\s*(?:\n([\s\S]*?))?\[\/SCRIPT_RUN\]/g;
+  let runMatch;
+  while ((runMatch = SCRIPT_RUN_REGEX.exec(text)) !== null) {
+    const filename = runMatch[1].trim();
+    const argsText = (runMatch[2] || '').trim();
+    const args = argsText ? argsText.split('\n').map(a => a.trim()).filter(Boolean) : [];
+    
+    console.log(`[Script Auto-Run] Executing: ${filename} with args: ${JSON.stringify(args)}`);
+    const result = await actionService.executeScript(filename, args);
+    operations.push({
+      type: 'script_run',
+      filename,
+      success: result.success,
+      exitCode: result.exitCode,
+      stdout: result.stdout?.slice(0, 2000),
+      stderr: result.stderr?.slice(0, 1000),
+      error: result.error,
+    });
+    console.log(`[Script Auto-Run] ${result.success ? 'SUCCESS' : 'FAILED'} (exit ${result.exitCode}): ${filename}`);
+  }
+  text = text.replace(SCRIPT_RUN_REGEX, '').trim();
+
+  return { cleanedText: text, operations };
 }
 
 // Configure multer for agent avatar uploads
@@ -341,10 +554,14 @@ app.post('/api/chat', async (req, res) => {
       });
     }
 
-    // Normal LLM chat with personality context
+    // Normal LLM chat with personality + memory context
     const personalityContext = loadPersonalityContext();
-    const capabilitiesNote = `\nYou can execute system actions on this Windows PC: open apps, control volume/media, press keys, type text, play music services, and more. If the user asks to do something on their computer, do it or suggest a command like "mute", "open edge", "volume up", "play spotify", etc.`;
-    const augmentedPrompt = (systemPrompt || '') + personalityContext + capabilitiesNote;
+    const memoryContext = loadMemoryContext();
+    const capabilitiesNote = `\nYou can execute system actions on this Windows PC: open apps, control volume/media, press keys, type text, play music services, and more. If the user asks to do something on their computer, do it or suggest a command like "mute", "open edge", "volume up", "play spotify", etc.\n\nYou can also:\n1. Save persistent memories using [MEMORY_SAVE:filename.md] blocks.\n2. Create files in the user's workspace using [FILE_CREATE:filename.ext] blocks.\n3. Create and run scripts using [SCRIPT_CREATE:filename.py] followed by [SCRIPT_RUN:filename.py] blocks.\n\nBlock formats:\n[MEMORY_SAVE:notes.md]\nPersistent knowledge to remember\n[/MEMORY_SAVE]\n\n[FILE_CREATE:document.txt]\nFile content here\n[/FILE_CREATE]\n\n[SCRIPT_CREATE:task.py]\nprint("Hello from CSimple")\n[/SCRIPT_CREATE]\n\n[SCRIPT_RUN:task.py]\n(optional args, one per line)\n[/SCRIPT_RUN]\n\nFiles are created in the CSimple Workspace directory. Scripts have a 30-second timeout.`;
+    const memoryInstructions = memoryContext ? 
+      `\nThe MEMORY section above contains your persistent knowledge. Reference it when relevant to the conversation.` : 
+      '';
+    const augmentedPrompt = (systemPrompt || '') + personalityContext + memoryContext + capabilitiesNote + memoryInstructions;
 
     const isGitHubModel = GITHUB_MODELS.some(m => m.id === modelId);
 
@@ -375,12 +592,16 @@ app.post('/api/chat', async (req, res) => {
       });
     }
 
+    // Post-process: extract and execute any LLM blocks (MEMORY_SAVE, FILE_CREATE, SCRIPT_CREATE, SCRIPT_RUN)
+    const { cleanedText, operations } = await processLLMBlocks(result.text);
+
     const totalElapsedSec = ((Date.now() - parseStartTime) / 1000).toFixed(2);
     res.json({
-      response: result.text,
+      response: cleanedText,
       modelId,
       generationTime: `${totalElapsedSec}s`,
       timestamp: new Date().toISOString(),
+      ...(operations.length > 0 && { operations }),
     });
   } catch (err) {
     console.error('Chat error:', err);
@@ -599,6 +820,103 @@ app.get('/api/actions/history', (req, res) => {
   res.json({ actions: actionService.getHistory(limit) });
 });
 
+// ─── Workspace File Operations API ────────────────────────────────────────────
+// Sandboxed file operations in ~/Documents/CSimple/Workspace/
+// Enables agents to create files, scripts, and auto-execute them.
+
+// List files in workspace
+app.get('/api/workspace/files', (req, res) => {
+  const subdir = req.query.type === 'scripts' ? 'scripts' : 'files';
+  const result = actionService.listFiles(subdir);
+  if (result.success) {
+    res.json({ files: result.files, directory: subdir });
+  } else {
+    res.status(500).json({ error: result.error });
+  }
+});
+
+// Get a workspace file
+app.get('/api/workspace/files/:filename', (req, res) => {
+  const subdir = req.query.type === 'scripts' ? 'scripts' : 'files';
+  const result = actionService.readFile(req.params.filename, subdir);
+  if (result.success) {
+    res.json({ filename: req.params.filename, content: result.content, path: result.path });
+  } else {
+    res.status(result.error === 'File not found' ? 404 : 400).json({ error: result.error });
+  }
+});
+
+// Create/update a workspace file
+app.post('/api/workspace/files', (req, res) => {
+  const { filename, content, type } = req.body;
+  if (!filename) return res.status(400).json({ error: 'Filename is required' });
+  const subdir = type === 'scripts' ? 'scripts' : 'files';
+  const result = actionService.createFile(filename, content || '', subdir);
+  if (result.success) {
+    res.json({ status: result.action, filename, path: result.path });
+  } else {
+    res.status(400).json({ error: result.error });
+  }
+});
+
+// Delete a workspace file
+app.delete('/api/workspace/files/:filename', (req, res) => {
+  const subdir = req.query.type === 'scripts' ? 'scripts' : 'files';
+  const result = actionService.deleteFile(req.params.filename, subdir);
+  if (result.success) {
+    res.json({ status: 'deleted', filename: req.params.filename });
+  } else {
+    res.status(result.error === 'File not found' ? 404 : 400).json({ error: result.error });
+  }
+});
+
+// Execute a script from the workspace (requires confirmation for destructive scripts)
+app.post('/api/workspace/execute', async (req, res) => {
+  const { filename, args = [] } = req.body;
+  if (!filename) return res.status(400).json({ error: 'Script filename is required' });
+
+  console.log(`[Workspace] Executing script: ${filename} with args: ${JSON.stringify(args)}`);
+  const result = await actionService.executeScript(filename, args);
+
+  // Log to action history
+  const historyEntry = {
+    id: Date.now().toString(),
+    command: `execute ${filename}`,
+    intent: 'script_execute',
+    description: `Execute script: ${filename}`,
+    steps: [{ type: 'runScript', filename, args }],
+    status: result.success ? 'completed' : 'failed',
+    queuedAt: new Date().toISOString(),
+    completedAt: new Date().toISOString(),
+    result: {
+      exitCode: result.exitCode,
+      stdout: result.stdout?.slice(0, 2000), // Truncate for history
+      stderr: result.stderr?.slice(0, 1000),
+    },
+  };
+  actionService.actionHistory.push(historyEntry);
+  actionService._persistHistory();
+
+  if (result.success) {
+    res.json({
+      status: 'completed',
+      filename,
+      exitCode: result.exitCode,
+      stdout: result.stdout,
+      stderr: result.stderr,
+    });
+  } else {
+    res.status(400).json({
+      status: 'failed',
+      filename,
+      exitCode: result.exitCode,
+      error: result.error,
+      stdout: result.stdout,
+      stderr: result.stderr,
+    });
+  }
+});
+
 // ─── Vision-based text/element finding ─────────────────────────────────────────
 
 app.post('/api/vision/find-text', async (req, res) => {
@@ -745,7 +1063,8 @@ app.get('/api/behaviors', (req, res) => {
 
 app.get('/api/behaviors/:filename', (req, res) => {
   try {
-    const filePath = path.join(BEHAVIORS_PATH, req.params.filename);
+    const filePath = safePath(req.params.filename, BEHAVIORS_PATH);
+    if (!filePath) return res.status(400).json({ error: 'Invalid filename' });
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'Behavior file not found' });
     }
@@ -762,13 +1081,13 @@ app.post('/api/behaviors', (req, res) => {
     if (!filename || !filename.endsWith('.txt')) {
       return res.status(400).json({ error: 'Filename must end with .txt' });
     }
-    if (!content) {
-      return res.status(400).json({ error: 'Content is required' });
-    }
+    const sizeErr = validateFileContent(content);
+    if (sizeErr) return res.status(400).json({ error: sizeErr });
+    const filePath = safePath(filename, BEHAVIORS_PATH);
+    if (!filePath) return res.status(400).json({ error: 'Invalid filename' });
     if (!fs.existsSync(BEHAVIORS_PATH)) {
       fs.mkdirSync(BEHAVIORS_PATH, { recursive: true });
     }
-    const filePath = path.join(BEHAVIORS_PATH, filename);
     if (fs.existsSync(filePath)) {
       return res.status(409).json({ error: 'File already exists' });
     }
@@ -785,7 +1104,10 @@ app.put('/api/behaviors/:filename', (req, res) => {
     if (content === undefined) {
       return res.status(400).json({ error: 'Content is required' });
     }
-    const filePath = path.join(BEHAVIORS_PATH, req.params.filename);
+    const sizeErr = validateFileContent(content);
+    if (sizeErr) return res.status(400).json({ error: sizeErr });
+    const filePath = safePath(req.params.filename, BEHAVIORS_PATH);
+    if (!filePath) return res.status(400).json({ error: 'Invalid filename' });
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'Behavior file not found' });
     }
@@ -798,7 +1120,8 @@ app.put('/api/behaviors/:filename', (req, res) => {
 
 app.delete('/api/behaviors/:filename', (req, res) => {
   try {
-    const filePath = path.join(BEHAVIORS_PATH, req.params.filename);
+    const filePath = safePath(req.params.filename, BEHAVIORS_PATH);
+    if (!filePath) return res.status(400).json({ error: 'Invalid filename' });
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'Behavior file not found' });
     }
@@ -833,7 +1156,8 @@ app.get('/api/memory', (req, res) => {
 
 app.get('/api/memory/:filename', (req, res) => {
   try {
-    const filePath = path.join(MEMORY_PATH, req.params.filename);
+    const filePath = safePath(req.params.filename, MEMORY_PATH);
+    if (!filePath) return res.status(400).json({ error: 'Invalid filename' });
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'Memory file not found' });
     }
@@ -850,13 +1174,13 @@ app.post('/api/memory', (req, res) => {
     if (!filename) {
       return res.status(400).json({ error: 'Filename is required' });
     }
-    if (!content) {
-      return res.status(400).json({ error: 'Content is required' });
-    }
+    const sizeErr = validateFileContent(content);
+    if (sizeErr) return res.status(400).json({ error: sizeErr });
+    const filePath = safePath(filename, MEMORY_PATH);
+    if (!filePath) return res.status(400).json({ error: 'Invalid filename' });
     if (!fs.existsSync(MEMORY_PATH)) {
       fs.mkdirSync(MEMORY_PATH, { recursive: true });
     }
-    const filePath = path.join(MEMORY_PATH, filename);
     if (fs.existsSync(filePath)) {
       return res.status(409).json({ error: 'File already exists' });
     }
@@ -873,7 +1197,10 @@ app.put('/api/memory/:filename', (req, res) => {
     if (content === undefined) {
       return res.status(400).json({ error: 'Content is required' });
     }
-    const filePath = path.join(MEMORY_PATH, req.params.filename);
+    const sizeErr = validateFileContent(content);
+    if (sizeErr) return res.status(400).json({ error: sizeErr });
+    const filePath = safePath(req.params.filename, MEMORY_PATH);
+    if (!filePath) return res.status(400).json({ error: 'Invalid filename' });
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'Memory file not found' });
     }
@@ -886,7 +1213,8 @@ app.put('/api/memory/:filename', (req, res) => {
 
 app.delete('/api/memory/:filename', (req, res) => {
   try {
-    const filePath = path.join(MEMORY_PATH, req.params.filename);
+    const filePath = safePath(req.params.filename, MEMORY_PATH);
+    if (!filePath) return res.status(400).json({ error: 'Invalid filename' });
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'Memory file not found' });
     }
@@ -918,7 +1246,8 @@ app.get('/api/personality', (req, res) => {
 
 app.get('/api/personality/:filename', (req, res) => {
   try {
-    const filePath = path.join(PERSONALITY_PATH, req.params.filename);
+    const filePath = safePath(req.params.filename, PERSONALITY_PATH);
+    if (!filePath) return res.status(400).json({ error: 'Invalid filename' });
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'Personality file not found' });
     }
@@ -935,7 +1264,10 @@ app.put('/api/personality/:filename', (req, res) => {
     if (content === undefined) {
       return res.status(400).json({ error: 'Content is required' });
     }
-    const filePath = path.join(PERSONALITY_PATH, req.params.filename);
+    const sizeErr = validateFileContent(content);
+    if (sizeErr) return res.status(400).json({ error: sizeErr });
+    const filePath = safePath(req.params.filename, PERSONALITY_PATH);
+    if (!filePath) return res.status(400).json({ error: 'Invalid filename' });
     fs.writeFileSync(filePath, content, 'utf-8');
     res.json({ status: 'updated', filename: req.params.filename, content });
   } catch (err) {

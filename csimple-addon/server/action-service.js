@@ -193,6 +193,66 @@ class ActionService {
     this.actionHistory = [];
     // Pending confirmations — awaiting user choice
     this.pendingConfirmations = new Map();
+    // File operations sandbox — agents can only create/read/run files within this directory
+    const os = require('os');
+    const path = require('path');
+    this.WORKSPACE_PATH = path.join(os.homedir(), 'Documents', 'CSimple', 'Workspace');
+    this.SCRIPTS_PATH = path.join(this.WORKSPACE_PATH, 'scripts');
+    this.FILES_PATH = path.join(this.WORKSPACE_PATH, 'files');
+    // Action history persistence path
+    this.HISTORY_PATH = path.join(os.homedir(), 'Documents', 'CSimple', 'Resources', 'action-history.json');
+    // Ensure dirs exist
+    const fs = require('fs');
+    for (const dir of [this.WORKSPACE_PATH, this.SCRIPTS_PATH, this.FILES_PATH]) {
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    }
+    // Load persisted history
+    this._loadHistory();
+  }
+
+  /**
+   * Load action history from disk on startup.
+   */
+  _loadHistory() {
+    const fs = require('fs');
+    try {
+      if (fs.existsSync(this.HISTORY_PATH)) {
+        const data = JSON.parse(fs.readFileSync(this.HISTORY_PATH, 'utf-8'));
+        this.actionHistory = Array.isArray(data) ? data.slice(-500) : []; // Keep last 500
+      }
+    } catch (err) {
+      console.log(`[ActionService] Failed to load history: ${err.message}`);
+      this.actionHistory = [];
+    }
+  }
+
+  /**
+   * Persist action history to disk (debounced internally).
+   */
+  _persistHistory() {
+    const fs = require('fs');
+    if (this._persistTimer) clearTimeout(this._persistTimer);
+    this._persistTimer = setTimeout(() => {
+      try {
+        const recent = this.actionHistory.slice(-500); // Keep last 500
+        fs.writeFileSync(this.HISTORY_PATH, JSON.stringify(recent, null, 2), 'utf-8');
+      } catch (err) {
+        console.error(`[ActionService] Failed to persist history: ${err.message}`);
+      }
+    }, 2000); // Debounce 2s
+  }
+
+  /**
+   * Validate a filename is safe (no path traversal).
+   */
+  _safePath(filename, baseDir) {
+    const path = require('path');
+    if (!filename || typeof filename !== 'string') return null;
+    const cleaned = filename.replace(/\0/g, '').replace(/\.\./g, '').replace(/[/\\]/g, '').trim();
+    if (!cleaned || cleaned.length > 255) return null;
+    const resolved = path.resolve(baseDir, cleaned);
+    if (!resolved.startsWith(path.resolve(baseDir))) return null;
+    return resolved;
   }
 
   /**
@@ -313,12 +373,12 @@ If user cancelled:
     try {
       const response = await callLLM(selectedOption, systemPrompt);
       const jsonMatch = response.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) return { action: 'execute' }; // Default to execute if parse fails
+      if (!jsonMatch) return { action: 'cancel' }; // Fail-safe: cancel if parse fails
 
       return JSON.parse(jsonMatch[0]);
     } catch (err) {
       console.error('[Confirmation Resolve] Error:', err.message);
-      return { action: 'execute' }; // Default to execute on error
+      return { action: 'cancel' }; // Fail-safe: cancel on error rather than executing
     }
   }
 
@@ -465,6 +525,7 @@ If user cancelled:
     };
     this.pendingActions.push(action);
     this.actionHistory.push(action);
+    this._persistHistory();
 
     // Signal to MAUI app via stdout (WebAppHostService intercepts this)
     const payload = JSON.stringify(action);
@@ -491,6 +552,7 @@ If user cancelled:
       action.status = success ? 'completed' : 'failed';
       action.completedAt = new Date().toISOString();
       if (error) action.error = error;
+      this._persistHistory();
     }
     // Also remove from pending if still there
     this.pendingActions = this.pendingActions.filter(a => a.id !== actionId);
@@ -502,6 +564,196 @@ If user cancelled:
    */
   getHistory(limit = 20) {
     return this.actionHistory.slice(-limit);
+  }
+
+  // ─── File Operations (Sandboxed) ──────────────────────────────────────────
+
+  /**
+   * Create a file in the sandboxed workspace.
+   * @param {string} filename - File to create (in Workspace/files/)
+   * @param {string} content - File content
+   * @param {string} [subdir='files'] - Subdirectory ('files' or 'scripts')
+   * @returns {{ success: boolean, path?: string, error?: string }}
+   */
+  createFile(filename, content, subdir = 'files') {
+    const fs = require('fs');
+    const baseDir = subdir === 'scripts' ? this.SCRIPTS_PATH : this.FILES_PATH;
+    const filePath = this._safePath(filename, baseDir);
+    if (!filePath) return { success: false, error: 'Invalid filename' };
+    if (Buffer.byteLength(content || '', 'utf-8') > 1024 * 1024) {
+      return { success: false, error: 'Content exceeds 1MB limit' };
+    }
+    try {
+      const isUpdate = fs.existsSync(filePath);
+      fs.writeFileSync(filePath, content || '', 'utf-8');
+      return { success: true, path: filePath, action: isUpdate ? 'updated' : 'created' };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Read a file from the sandboxed workspace.
+   * @param {string} filename
+   * @param {string} [subdir='files']
+   * @returns {{ success: boolean, content?: string, error?: string }}
+   */
+  readFile(filename, subdir = 'files') {
+    const fs = require('fs');
+    const baseDir = subdir === 'scripts' ? this.SCRIPTS_PATH : this.FILES_PATH;
+    const filePath = this._safePath(filename, baseDir);
+    if (!filePath) return { success: false, error: 'Invalid filename' };
+    try {
+      if (!fs.existsSync(filePath)) return { success: false, error: 'File not found' };
+      const content = fs.readFileSync(filePath, 'utf-8');
+      return { success: true, content, path: filePath };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * List files in the sandboxed workspace.
+   * @param {string} [subdir='files']
+   * @returns {{ success: boolean, files?: string[], error?: string }}
+   */
+  listFiles(subdir = 'files') {
+    const fs = require('fs');
+    const baseDir = subdir === 'scripts' ? this.SCRIPTS_PATH : this.FILES_PATH;
+    try {
+      if (!fs.existsSync(baseDir)) return { success: true, files: [] };
+      const files = fs.readdirSync(baseDir)
+        .filter(f => !fs.statSync(require('path').join(baseDir, f)).isDirectory())
+        .map(f => {
+          const stat = fs.statSync(require('path').join(baseDir, f));
+          return { filename: f, size: stat.size, modified: stat.mtime.toISOString() };
+        });
+      return { success: true, files };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Delete a file from the sandboxed workspace.
+   * @param {string} filename
+   * @param {string} [subdir='files']
+   * @returns {{ success: boolean, error?: string }}
+   */
+  deleteFile(filename, subdir = 'files') {
+    const fs = require('fs');
+    const baseDir = subdir === 'scripts' ? this.SCRIPTS_PATH : this.FILES_PATH;
+    const filePath = this._safePath(filename, baseDir);
+    if (!filePath) return { success: false, error: 'Invalid filename' };
+    try {
+      if (!fs.existsSync(filePath)) return { success: false, error: 'File not found' };
+      fs.unlinkSync(filePath);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Execute a script from the sandboxed scripts directory.
+   * Supports .py (Python), .js (Node.js), .ps1 (PowerShell), .bat/.cmd (batch).
+   * Runs with a 30-second timeout and captures stdout/stderr.
+   * @param {string} filename - Script filename in Workspace/scripts/
+   * @param {string[]} [args=[]] - Command-line arguments
+   * @returns {Promise<{ success: boolean, stdout?: string, stderr?: string, exitCode?: number, error?: string }>}
+   */
+  async executeScript(filename, args = []) {
+    const fs = require('fs');
+    const path = require('path');
+    const { spawn } = require('child_process');
+
+    const filePath = this._safePath(filename, this.SCRIPTS_PATH);
+    if (!filePath) return { success: false, error: 'Invalid script filename' };
+    if (!fs.existsSync(filePath)) return { success: false, error: 'Script not found' };
+
+    const ext = path.extname(filename).toLowerCase();
+    const ALLOWED_EXTENSIONS = ['.py', '.js', '.ps1', '.bat', '.cmd'];
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      return { success: false, error: `Unsupported script type: ${ext}. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}` };
+    }
+
+    // Sanitize args — no shell injection
+    const safeArgs = args.map(a => String(a).slice(0, 1000));
+
+    let command, commandArgs;
+    switch (ext) {
+      case '.py':
+        command = process.platform === 'win32' ? 'python' : 'python3';
+        commandArgs = [filePath, ...safeArgs];
+        break;
+      case '.js':
+        command = 'node';
+        commandArgs = [filePath, ...safeArgs];
+        break;
+      case '.ps1':
+        command = 'powershell';
+        commandArgs = ['-ExecutionPolicy', 'Bypass', '-File', filePath, ...safeArgs];
+        break;
+      case '.bat':
+      case '.cmd':
+        command = 'cmd';
+        commandArgs = ['/c', filePath, ...safeArgs];
+        break;
+    }
+
+    const TIMEOUT_MS = 30000; // 30 seconds
+
+    return new Promise((resolve) => {
+      let stdout = '';
+      let stderr = '';
+      let killed = false;
+
+      const child = spawn(command, commandArgs, {
+        cwd: this.WORKSPACE_PATH,
+        timeout: TIMEOUT_MS,
+        env: { ...process.env, CSIMPLE_WORKSPACE: this.WORKSPACE_PATH },
+        windowsHide: true,
+      });
+
+      child.stdout.on('data', (data) => {
+        stdout += data.toString();
+        if (stdout.length > 100000) { // 100KB output cap
+          child.kill();
+          killed = true;
+        }
+      });
+
+      child.stderr.on('data', (data) => {
+        stderr += data.toString();
+        if (stderr.length > 50000) { // 50KB error cap
+          child.kill();
+          killed = true;
+        }
+      });
+
+      child.on('close', (code) => {
+        const result = {
+          success: code === 0 && !killed,
+          stdout: stdout.slice(0, 100000),
+          stderr: stderr.slice(0, 50000),
+          exitCode: code,
+        };
+        if (killed) result.error = 'Output exceeded size limit or timed out';
+        resolve(result);
+      });
+
+      child.on('error', (err) => {
+        resolve({ success: false, error: err.message, stdout, stderr });
+      });
+
+      // Fallback timeout (in case child_process timeout doesn't fire)
+      setTimeout(() => {
+        if (!child.killed) {
+          child.kill('SIGKILL');
+          killed = true;
+        }
+      }, TIMEOUT_MS + 1000);
+    });
   }
 
   // ─── Pattern Matchers ──────────────────────────────────────────────────────

@@ -214,4 +214,4 @@ const optionalAuth = asyncHandler(async (req, res, next) => {
   next();
 });
 
-module.exports = { protect, optionalAuth };module.exports = { protect }  // exported to userRoutes
+module.exports = { protect, optionalAuth };
