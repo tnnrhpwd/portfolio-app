@@ -311,3 +311,123 @@ export async function getPortfolioLLMProviders(token) {
   if (!res.ok) throw new Error('Failed to fetch LLM providers');
   return res.json();
 }
+
+// ─── Cloud Settings Sync API Methods ────────────────────────────────────────
+
+/**
+ * Get user's CSimple settings from the cloud.
+ * @param {string} token - JWT auth token
+ * @returns {{ settings: object|null, updatedAt: string|null }}
+ */
+export async function getCloudSettings(token) {
+  const res = await fetch(`${getPortfolioApiUrl()}/csimple/settings`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return { settings: null, updatedAt: null };
+  return res.json();
+}
+
+/**
+ * Save CSimple settings to the cloud.
+ * @param {string} token - JWT auth token
+ * @param {object} settings - Settings object (sensitive keys will be stripped server-side)
+ * @returns {{ success: boolean, updatedAt: string }}
+ */
+export async function saveCloudSettings(token, settings) {
+  const res = await fetch(`${getPortfolioApiUrl()}/csimple/settings`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ settings, updatedAt: new Date().toISOString() }),
+  });
+  if (!res.ok) throw new Error('Failed to save cloud settings');
+  return res.json();
+}
+
+/**
+ * Get user's conversations from the cloud.
+ * @param {string} token - JWT auth token
+ * @returns {{ conversations: Array|null, updatedAt: string|null }}
+ */
+export async function getCloudConversations(token) {
+  const res = await fetch(`${getPortfolioApiUrl()}/csimple/conversations`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return { conversations: null, updatedAt: null };
+  return res.json();
+}
+
+/**
+ * Save conversations to the cloud.
+ * @param {string} token - JWT auth token
+ * @param {Array} conversations - Conversations array
+ * @returns {{ success: boolean, updatedAt: string }}
+ */
+export async function saveCloudConversations(token, conversations) {
+  const res = await fetch(`${getPortfolioApiUrl()}/csimple/conversations`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ conversations }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new Error(`Failed to save conversations: ${text}`);
+  }
+  return res.json();
+}
+
+/**
+ * Get user's synced behavior files list from the cloud.
+ * @param {string} token - JWT auth token
+ * @returns {{ behaviors: Array<{ name: string, updatedAt: string }> }}
+ */
+export async function getCloudBehaviors(token) {
+  const res = await fetch(`${getPortfolioApiUrl()}/csimple/behaviors`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return { behaviors: [] };
+  return res.json();
+}
+
+/**
+ * Get a specific behavior file from the cloud.
+ * @param {string} token - JWT auth token
+ * @param {string} name - Behavior filename
+ * @returns {{ name: string, content: string, updatedAt: string }|null}
+ */
+export async function getCloudBehavior(token, name) {
+  const res = await fetch(`${getPortfolioApiUrl()}/csimple/behaviors/${encodeURIComponent(name)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+/**
+ * Save/update a behavior file to the cloud.
+ * @param {string} token - JWT auth token
+ * @param {string} name - Behavior filename
+ * @param {string} content - Behavior file content
+ */
+export async function saveCloudBehavior(token, name, content) {
+  const res = await fetch(`${getPortfolioApiUrl()}/csimple/behaviors/${encodeURIComponent(name)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ content }),
+  });
+  if (!res.ok) throw new Error('Failed to save behavior to cloud');
+  return res.json();
+}
+
+/**
+ * Delete a behavior file from the cloud.
+ * @param {string} token - JWT auth token
+ * @param {string} name - Behavior filename
+ */
+export async function deleteCloudBehavior(token, name) {
+  const res = await fetch(`${getPortfolioApiUrl()}/csimple/behaviors/${encodeURIComponent(name)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Failed to delete behavior from cloud');
+  return res.json();
+}

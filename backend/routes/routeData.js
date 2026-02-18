@@ -53,6 +53,18 @@ const {
   getRefererSummary
 } = require('../controllers/refererAnalytics');
 
+// CSimple sync controller
+const {
+  getCSimpleSettings,
+  updateCSimpleSettings,
+  getCSimpleConversations,
+  updateCSimpleConversations,
+  getCSimpleBehaviors,
+  getCSimpleBehavior,
+  updateCSimpleBehavior,
+  deleteCSimpleBehavior,
+} = require('../controllers/csimpleController');
+
 // Configure multer for memory storage (or disk storage if preferred)
 const storage = multer.memoryStorage();
 const upload = multer({ 
@@ -245,6 +257,26 @@ router.post('/subscribe-customer', protect, paymentLimiter, subscribeCustomer);
 router.post('/custom-limit', protect, paymentLimiter, setCustomLimit);
 
 
+
+// ============================================================================
+// CSIMPLE SETTINGS SYNC
+// ============================================================================
+
+router.route('/csimple/settings')
+  .get(protect, getCSimpleSettings)
+  .put(protect, updateCSimpleSettings);
+
+router.route('/csimple/conversations')
+  .get(protect, getCSimpleConversations)
+  .put(protect, updateCSimpleConversations);
+
+router.route('/csimple/behaviors')
+  .get(protect, getCSimpleBehaviors);
+
+router.route('/csimple/behaviors/:name')
+  .get(protect, getCSimpleBehavior)
+  .put(protect, updateCSimpleBehavior)
+  .delete(protect, deleteCSimpleBehavior);
 
 // ============================================================================
 // ANALYTICS (Admin Only)

@@ -12,6 +12,10 @@ import {
   getAddonSettings,
   saveAddonSettings,
   getBehaviorContent,
+  getCloudSettings,
+  saveCloudSettings,
+  getCloudConversations,
+  saveCloudConversations,
 } from '../../services/csimpleApi';
 import './CSimpleChat.css';
 import './CSimpleTheme.css';
@@ -19,7 +23,7 @@ import './CSimpleTheme.css';
 const DEFAULT_MODEL = 'Qwen/Qwen2.5-0.5B-Instruct';
 const CHATS_STORAGE_KEY = 'csimple_chats';
 const ACTIVE_CHAT_KEY = 'csimple_active_chat';
-const DEVICE_LOCAL_KEYS = ['micDeviceId', 'sttEnabled'];
+const DEVICE_LOCAL_KEYS = ['micDeviceId', 'sttEnabled', 'githubToken'];
 const DEVICE_SETTINGS_KEY = 'csimple_device_settings';
 
 function getDeviceLocalSettings() {
@@ -54,6 +58,7 @@ const DEFAULT_SETTINGS = {
   githubToken: '',
   githubModel: 'gpt-4o-mini',
   portfolioModel: 'o1-mini',
+  cloudSync: false,
 };
 
 /**
@@ -105,8 +110,14 @@ function CSimpleChat({
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
   const [pendingConfirmation, setPendingConfirmation] = useState(null);
   const [isConfirming, setIsConfirming] = useState(false);
-  const settingsLoaded = useRef(false);
+  const [cloudSyncStatus, setCloudSyncStatus] = useState(null); // null | 'syncing' | 'synced' | 'error'
+  const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
   const handleConfirmRef = useRef(null);
+  const cloudSettingsTimer = useRef(null);
+  const cloudConvosTimer = useRef(null);
+  const lastCloudSettingsUpdate = useRef(null);
+  const lastCloudConvosUpdate = useRef(null);
+  const cloudSyncInitialized = useRef(false);
 
   const activeConversation = conversations.find(c => c.id === activeConversationId);
   const activeAgent = settings.agents?.find(a => a.id === settings.selectedAgentId) || settings.agents?.[0];
@@ -196,11 +207,11 @@ function CSimpleChat({
             }
             setSettings(prev => ({ ...prev, ...merged }));
           }
-          settingsLoaded.current = true;
+          setIsSettingsLoaded(true);
         })
-        .catch(() => { settingsLoaded.current = true; });
+        .catch(() => { setIsSettingsLoaded(true); });
     } else {
-      settingsLoaded.current = true;
+      setIsSettingsLoaded(true);
     }
   }, [isAddonConnected]);
 
@@ -252,6 +263,119 @@ function CSimpleChat({
   useEffect(() => {
     localStorage.setItem(ACTIVE_CHAT_KEY, activeConversationId);
   }, [activeConversationId]);
+
+  // ─── Cloud Sync: Initial load on login ────────────────────────────────────
+  useEffect(() => {
+    if (!user?.token || !isSettingsLoaded || cloudSyncInitialized.current) return;
+
+    // Check if cloudSync was previously enabled (from localStorage or current settings)
+    const checkAndLoadCloud = async () => {
+      try {
+        const cloudData = await getCloudSettings(user.token);
+        if (cloudData?.settings) {
+          const cloudSettings = cloudData.settings;
+          // If cloud has cloudSync enabled, merge cloud settings in
+          if (cloudSettings.cloudSync) {
+            const deviceLocal = getDeviceLocalSettings();
+            const merged = { ...settings };
+            // Cloud wins for non-device-local keys
+            for (const [key, value] of Object.entries(cloudSettings)) {
+              if (!DEVICE_LOCAL_KEYS.includes(key)) {
+                // Use cloud value if it's newer or if local doesn't have a meaningful override
+                merged[key] = value;
+              }
+            }
+            // Re-apply device-local keys
+            for (const key of DEVICE_LOCAL_KEYS) {
+              if (key in deviceLocal) merged[key] = deviceLocal[key];
+            }
+            setSettings(merged);
+
+            // Also load cloud conversations if enabled
+            try {
+              const convData = await getCloudConversations(user.token);
+              if (convData?.conversations && Array.isArray(convData.conversations)) {
+                // Merge: add cloud conversations that don't exist locally (by ID)
+                setConversations(prev => {
+                  const localIds = new Set(prev.map(c => c.id));
+                  const cloudOnly = convData.conversations.filter(c => !localIds.has(c.id));
+                  if (cloudOnly.length > 0) {
+                    return [...prev, ...cloudOnly];
+                  }
+                  return prev;
+                });
+              }
+            } catch (convErr) {
+              console.warn('[CSimple] Failed to load cloud conversations:', convErr);
+            }
+
+            setCloudSyncStatus('synced');
+          }
+        } else if (settings.cloudSync && user.token) {
+          // Cloud is empty but local has sync enabled — push local settings up
+          const toSync = { ...settings };
+          DEVICE_LOCAL_KEYS.forEach(k => delete toSync[k]);
+          await saveCloudSettings(user.token, toSync);
+          setCloudSyncStatus('synced');
+        }
+      } catch (err) {
+        console.warn('[CSimple] Cloud sync initial load failed:', err);
+        setCloudSyncStatus('error');
+      }
+      cloudSyncInitialized.current = true;
+    };
+
+    checkAndLoadCloud();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.token, isSettingsLoaded]);
+
+  // ─── Cloud Sync: Debounced settings save ──────────────────────────────────
+  useEffect(() => {
+    if (!settings.cloudSync || !user?.token || !cloudSyncInitialized.current) return;
+
+    if (cloudSettingsTimer.current) clearTimeout(cloudSettingsTimer.current);
+    cloudSettingsTimer.current = setTimeout(async () => {
+      try {
+        setCloudSyncStatus('syncing');
+        const toSync = { ...settings };
+        DEVICE_LOCAL_KEYS.forEach(k => delete toSync[k]);
+        const result = await saveCloudSettings(user.token, toSync);
+        lastCloudSettingsUpdate.current = result.updatedAt;
+        setCloudSyncStatus('synced');
+      } catch (err) {
+        console.warn('[CSimple] Cloud settings sync failed:', err);
+        setCloudSyncStatus('error');
+      }
+    }, 500);
+
+    return () => {
+      if (cloudSettingsTimer.current) clearTimeout(cloudSettingsTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings, user?.token]);
+
+  // ─── Cloud Sync: Debounced conversations save ────────────────────────────
+  useEffect(() => {
+    if (!settings.cloudSync || !user?.token || !cloudSyncInitialized.current) return;
+
+    if (cloudConvosTimer.current) clearTimeout(cloudConvosTimer.current);
+    cloudConvosTimer.current = setTimeout(async () => {
+      try {
+        setCloudSyncStatus('syncing');
+        const result = await saveCloudConversations(user.token, conversations);
+        lastCloudConvosUpdate.current = result.updatedAt;
+        setCloudSyncStatus('synced');
+      } catch (err) {
+        console.warn('[CSimple] Cloud conversations sync failed:', err);
+        setCloudSyncStatus('error');
+      }
+    }, 2000);
+
+    return () => {
+      if (cloudConvosTimer.current) clearTimeout(cloudConvosTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversations, user?.token, settings.cloudSync]);
 
   // Connection status — online if addon connected or if we can reach the portfolio
   useEffect(() => {
@@ -556,6 +680,8 @@ function CSimpleChat({
           isOnline={isOnline}
           speech={speech}
           micDevices={micDevices}
+          user={user}
+          cloudSyncStatus={cloudSyncStatus}
         />
 
         {isInactive && (

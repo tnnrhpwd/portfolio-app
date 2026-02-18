@@ -8,7 +8,7 @@ const TABS = [
   { id: 'network', label: '🌐 Network' },
 ];
 
-function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnline, speech, micDevices }) {
+function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnline, speech, micDevices, user, cloudSyncStatus }) {
   const [activeTab, setActiveTab] = useState('general');
   const [behaviors, setBehaviors] = useState([]);
   const [memoryFiles, setMemoryFiles] = useState([]);
@@ -368,6 +368,35 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
                       type="checkbox"
                       checked={settings.saveChatsLocally ?? true}
                       onChange={e => updateSetting('saveChatsLocally', e.target.checked)}
+                    />
+                    <span className="adv-toggle__slider" />
+                  </label>
+                </div>
+              </div>
+
+              <div className="adv-group">
+                <div className="adv-group__row">
+                  <div>
+                    <label className="adv-group__label">Cloud Sync</label>
+                    <p className="adv-group__desc">
+                      {user
+                        ? 'Sync settings and conversations across devices'
+                        : 'Log in to enable cloud sync'}
+                    </p>
+                    {cloudSyncStatus && settings.cloudSync && user && (
+                      <p className="adv-group__desc" style={{ marginTop: '4px', fontSize: '11px' }}>
+                        {cloudSyncStatus === 'syncing' && '⟳ Syncing...'}
+                        {cloudSyncStatus === 'synced' && '✓ Synced'}
+                        {cloudSyncStatus === 'error' && '✗ Sync failed'}
+                      </p>
+                    )}
+                  </div>
+                  <label className="adv-toggle">
+                    <input
+                      type="checkbox"
+                      checked={settings.cloudSync ?? false}
+                      onChange={e => updateSetting('cloudSync', e.target.checked)}
+                      disabled={!user}
                     />
                     <span className="adv-toggle__slider" />
                   </label>
