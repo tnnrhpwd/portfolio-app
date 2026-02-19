@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
-    "@babel/preset-env": "^7.14.9",
+    "@babel/preset-env": "^7.29.0",
     "@testing-library/jest-dom": "^5.11.4",
     "@testing-library/react": "^11.1.0",
     "@testing-library/user-event": "^12.1.10",
@@ -32,12 +32,12 @@
     "eslint-config-prettier": "^9.0.0",
     "eslint-plugin-import": "^2.29.0",
     "eslint-plugin-jsx-a11y": "^6.8.0",
-    "eslint-plugin-prettier": "^5.0.1",
+    "eslint-plugin-prettier": "^5.5.5",
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",
     "jest-environment-jsdom": "^29.7.0",
     "nodemon": "^2.0.15",
-    "prettier": "^3.1.0"
+    "prettier": "^3.8.1"
   },
   "jest": {
     "transform": {
@@ -51,7 +51,7 @@
     "testEnvironment": "jest-environment-jsdom"
   },
   "dependencies": {
-    "@babel/preset-react": "^7.22.15",
+    "@babel/preset-react": "^7.28.5",
     "@stripe/stripe-js": "^5.5.0",
     "concurrently": "^7.6.0",
     "identity-obj-proxy": "^3.0.0",
