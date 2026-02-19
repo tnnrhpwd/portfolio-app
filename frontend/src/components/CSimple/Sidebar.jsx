@@ -43,16 +43,26 @@ function Sidebar({
   ];
 
   // Build portfolio models list from providers
+  // config.models may be an array OR an object keyed by model ID
   const portfolioModels = React.useMemo(() => {
     if (!portfolioLLMProviders) return [];
     const result = [];
     Object.entries(portfolioLLMProviders).forEach(([provider, config]) => {
-      if (config.models) {
+      if (!config.models) return;
+      if (Array.isArray(config.models)) {
         config.models.forEach(m => {
           result.push({
             id: typeof m === 'string' ? m : m.id,
             name: typeof m === 'string' ? m : (m.name || m.id),
-            provider: provider,
+            provider,
+          });
+        });
+      } else {
+        Object.entries(config.models).forEach(([modelId, modelInfo]) => {
+          result.push({
+            id: modelId,
+            name: (modelInfo && modelInfo.name) ? modelInfo.name : modelId,
+            provider,
           });
         });
       }
