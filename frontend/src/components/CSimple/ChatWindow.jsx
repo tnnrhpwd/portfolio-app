@@ -3,14 +3,19 @@ import MessageBubble from './MessageBubble';
 import ConfirmationPanel from './ConfirmationPanel';
 import './ChatWindow.css';
 
+// Only allow data: and https: avatar URLs — drop stale /api/agents/... paths
+const safeAvatarUrl = (url) =>
+  url && (url.startsWith('data:') || url.startsWith('https://') || url.startsWith('http://')) ? url : null;
+
 function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneration, onToggleSidebar, selectedModel, isOnline, agent, speech, sttEnabled, settings, pendingConfirmation, onConfirmOption, onDismissConfirmation, isConfirming, onTogglePassiveListening }) {
   const [input, setInput] = useState('');
-  const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const textareaRef = useRef(null);
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll to bottom on new messages (scoped to the messages box, not the page)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = messagesContainerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [conversation?.messages]);
 
   // Auto-resize textarea
@@ -123,12 +128,12 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
       )}
 
       {/* Messages */}
-      <div className="chat-window__messages">
+      <div className="chat-window__messages" ref={messagesContainerRef}>
         {messages.length === 0 && (
           <div className="chat-window__empty">
             <div className="chat-window__empty-icon">
-              {agent?.avatarUrl ? (
-                <img className="chat-window__empty-avatar-img" src={agent.avatarUrl} alt="" />
+              {safeAvatarUrl(agent?.avatarUrl) ? (
+                <img className="chat-window__empty-avatar-img" src={safeAvatarUrl(agent.avatarUrl)} alt="" />
               ) : (
                 <img className="chat-window__empty-logo" src="/csimple_logo.png" alt="C-Simple" />
               )}
@@ -166,8 +171,8 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
 
         {isGenerating && (
           <div className="chat-window__typing">
-            {agent?.avatarUrl ? (
-              <img className="chat-window__typing-avatar-img" src={agent.avatarUrl} alt="" />
+            {safeAvatarUrl(agent?.avatarUrl) ? (
+              <img className="chat-window__typing-avatar-img" src={safeAvatarUrl(agent.avatarUrl)} alt="" />
             ) : (
               <div className="chat-window__typing-avatar">{(agent?.name || 'C')[0]}</div>
             )}
@@ -179,7 +184,7 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
           </div>
         )}
 
-        <div ref={messagesEndRef} />
+        <div aria-hidden="true" />
       </div>
 
       {/* Input */}

@@ -12,7 +12,7 @@ require('dotenv').config();
 const asyncHandler = require('express-async-handler');
 const zlib = require('zlib');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, GetCommand, PutCommand, DeleteCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, GetCommand, PutCommand, DeleteCommand, ScanCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -26,11 +26,15 @@ const client = new DynamoDBClient({
 const dynamodb = DynamoDBDocumentClient.from(client);
 const TABLE_NAME = 'Simple';
 
-// Keys that must NEVER be synced to the cloud
-const NEVER_SYNC_KEYS = ['githubToken', 'micDeviceId', 'sttEnabled'];
+// Keys that must NEVER be synced to the cloud (device-specific hardware settings)
+const NEVER_SYNC_KEYS = ['micDeviceId', 'sttEnabled'];
 
 // Behavior name validation: alphanumeric, hyphens, underscores, dots only
 const VALID_BEHAVIOR_NAME = /^[a-zA-Z0-9_\-. ]{1,100}$/;
+
+// Fixed createdAt sentinel for CSimple items (table has composite key: id + createdAt)
+// Using a fixed value lets us use GetCommand directly instead of scanning.
+const CSIMPLE_CREATED_AT = '2000-01-01T00:00:00.000Z';
 
 /**
  * Compress a string with zlib and return base64
@@ -76,7 +80,7 @@ const getCSimpleSettings = asyncHandler(async (req, res) => {
   try {
     const { Item } = await dynamodb.send(new GetCommand({
       TableName: TABLE_NAME,
-      Key: { id: itemId },
+      Key: { id: itemId, createdAt: CSIMPLE_CREATED_AT },
     }));
 
     if (!Item) {
@@ -123,7 +127,7 @@ const updateCSimpleSettings = asyncHandler(async (req, res) => {
       Item: {
         id: itemId,
         text: JSON.stringify(sanitized),
-        createdAt: updatedAt || now,
+        createdAt: CSIMPLE_CREATED_AT,
         updatedAt: now,
       },
     }));
@@ -157,7 +161,7 @@ const getCSimpleConversations = asyncHandler(async (req, res) => {
   try {
     const { Item } = await dynamodb.send(new GetCommand({
       TableName: TABLE_NAME,
-      Key: { id: itemId },
+      Key: { id: itemId, createdAt: CSIMPLE_CREATED_AT },
     }));
 
     if (!Item) {
@@ -228,7 +232,7 @@ const updateCSimpleConversations = asyncHandler(async (req, res) => {
         id: itemId,
         text,
         compressed,
-        createdAt: now,
+        createdAt: CSIMPLE_CREATED_AT,
         updatedAt: now,
       },
     }));
@@ -308,7 +312,7 @@ const getCSimpleBehavior = asyncHandler(async (req, res) => {
   try {
     const { Item } = await dynamodb.send(new GetCommand({
       TableName: TABLE_NAME,
-      Key: { id: itemId },
+      Key: { id: itemId, createdAt: CSIMPLE_CREATED_AT },
     }));
 
     if (!Item) {
@@ -360,7 +364,7 @@ const updateCSimpleBehavior = asyncHandler(async (req, res) => {
       Item: {
         id: itemId,
         text: content,
-        createdAt: now,
+        createdAt: CSIMPLE_CREATED_AT,
         updatedAt: now,
       },
     }));
@@ -397,7 +401,7 @@ const deleteCSimpleBehavior = asyncHandler(async (req, res) => {
   try {
     await dynamodb.send(new DeleteCommand({
       TableName: TABLE_NAME,
-      Key: { id: itemId },
+      Key: { id: itemId, createdAt: CSIMPLE_CREATED_AT },
     }));
 
     res.status(200).json({

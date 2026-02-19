@@ -42,7 +42,7 @@ function Net() {
 
   // Callback for CSimpleChat to send messages via portfolio backend
   const handlePortfolioChat = useCallback(
-    (message, conversationHistory) => {
+    (message, conversationHistory, provider = 'openai', model = 'gpt-4o-mini') => {
       if (!user) return;
 
       // Format conversation for the portfolio API
@@ -54,7 +54,7 @@ function Net() {
       dispatch(
         compressData({
           data: { data: JSON.stringify({ text: 'Net:' + combinedData }) },
-          options: { provider: 'openai', model: 'o1-mini' },
+          options: { provider, model },
         })
       );
     },

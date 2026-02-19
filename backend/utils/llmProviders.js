@@ -26,6 +26,21 @@ const PROVIDERS = {
         apiKey: process.env.XAI_API_KEY || process.env.XAI_KEY, // Try both environment variable names
         client: null,
         baseURL: 'https://api.x.ai/v1'
+    },
+    github: {
+        name: 'GitHub Models',
+        models: {
+            'gpt-4o': { name: 'GPT-4o', contextWindow: 128000 },
+            'gpt-4o-mini': { name: 'GPT-4o Mini', contextWindow: 128000 },
+            'o3-mini': { name: 'o3-mini', contextWindow: 200000 },
+            'o1-mini': { name: 'o1-mini', contextWindow: 65536 },
+            'meta-llama/Meta-Llama-3.1-70B-Instruct': { name: 'Llama 3.1 70B', contextWindow: 131072 },
+            'Mistral-large-2411': { name: 'Mistral Large', contextWindow: 128000 }
+        },
+        apiKey: null,       // Per-user GitHub PAT — supplied at call time
+        client: null,
+        baseURL: 'https://models.inference.ai.azure.com',
+        perUserKey: true    // Token fetched from user's CSimple settings in DynamoDB
     }
 };
 
@@ -85,11 +100,43 @@ function validateProviderModel(provider, model) {
         throw new Error(`Unsupported model: ${model} for provider: ${provider}`);
     }
     
-    if (!PROVIDERS[provider].apiKey) {
+    // Per-user-key providers (e.g. github) don't have a server-level apiKey
+    if (!PROVIDERS[provider].apiKey && !PROVIDERS[provider].perUserKey) {
         throw new Error(`API key not configured for provider: ${provider}`);
     }
     
     return true;
+}
+
+/**
+ * Create a completion using a caller-supplied API key (for per-user-key providers like GitHub Models).
+ * Creates a temporary OpenAI-compatible client — no singleton state is modified.
+ */
+async function createCompletionWithKey(provider, model, messages, options = {}, apiKey) {
+    const providerConfig = PROVIDERS[provider];
+    if (!providerConfig) throw new Error(`Unsupported provider: ${provider}`);
+    if (!providerConfig.models[model]) throw new Error(`Unsupported model: ${model} for provider: ${provider}`);
+    if (!apiKey) throw new Error(`No API key provided for provider: ${provider}`);
+
+    const { default: OpenAI } = await import('openai');
+    const client = new OpenAI({
+        apiKey,
+        ...(providerConfig.baseURL ? { baseURL: providerConfig.baseURL } : {})
+    });
+
+    const completionParams = {
+        model,
+        messages,
+        temperature: options.temperature ?? 0.7,
+        max_tokens: options.maxTokens || options.max_tokens || 1000,
+        stream: false
+    };
+
+    console.log(`🤖 Making ${provider.toUpperCase()} API call with model: ${model} (per-user key)`);
+    const startTime = Date.now();
+    const response = await client.chat.completions.create(completionParams);
+    console.log(`🤖 ${provider.toUpperCase()} API call completed in ${Date.now() - startTime}ms`);
+    return response;
 }
 
 // Check if user can make API call
@@ -278,6 +325,7 @@ module.exports = {
     validateProviderModel,
     checkApiUsage,
     createCompletion,
+    createCompletionWithKey,
     trackCompletion,
     testXAIConnection
 };

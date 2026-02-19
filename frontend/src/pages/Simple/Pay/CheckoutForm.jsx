@@ -15,10 +15,12 @@ import CheckoutProgressBar from '../../../components/Checkout/CheckoutProgressBa
 import { LinkBenefits } from '../../../components/Checkout/LinkBenefits';
 import './CheckoutForm.css';
 
-const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLIC_KEY).catch(err => {
-  console.error('Failed to load Stripe:', err);
-  return null;
-});
+const stripePromise = process.env.REACT_APP_STRIPE_PUBLIC_KEY
+  ? loadStripe(process.env.REACT_APP_STRIPE_PUBLIC_KEY).catch(err => {
+      console.error('Failed to load Stripe:', err);
+      return null;
+    })
+  : Promise.resolve(null);
 
 const CheckoutContent = ({ paymentType, initialPlan }) => {
   const stripe = useStripe();

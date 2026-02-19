@@ -1,9 +1,10 @@
-const { DynamoDBDocumentClient, PutCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, PutCommand, UpdateCommand, GetCommand } = require('@aws-sdk/lib-dynamodb');
 const crypto = require('crypto');
 const { 
     initializeLLMClients, 
     checkApiUsage, 
-    createCompletion, 
+    createCompletion,
+    createCompletionWithKey,
     trackCompletion 
 } = require('../utils/llmProviders.js');
 
@@ -41,7 +42,10 @@ function parseCompressionRequest(req) {
 
     // Get LLM provider and model from request (with defaults)
     const provider = req.body.provider || 'openai';
-    const model = req.body.model || (provider === 'xai' ? 'grok-4-fast-reasoning' : 'o1-mini');
+    const defaultModel = provider === 'xai' ? 'grok-4-fast-reasoning'
+                       : provider === 'github' ? 'gpt-4o-mini'
+                       : 'gpt-4o-mini';
+    const model = req.body.model || defaultModel;
     
     console.log(`Using ${provider} with model ${model}`);
 
@@ -51,8 +55,8 @@ function parseCompressionRequest(req) {
         throw error;
     }
 
-    const netIndex = contextInput.includes('Net:') ? contextInput.indexOf('Net:') : 0;
-    const userInput = netIndex > 0 ? contextInput.substring(netIndex + 4) : contextInput;
+    const netIndex = contextInput.indexOf('Net:');
+    const userInput = netIndex >= 0 ? contextInput.substring(netIndex + 4) : contextInput;
 
     console.log('User input:', userInput);
 
@@ -95,24 +99,61 @@ async function validateApiUsage(userId, provider, model, userInput) {
 }
 
 /**
+ * Fetch a user's GitHub PAT from their CSimple settings in DynamoDB.
+ * Returns null if not found.
+ */
+async function getUserGithubToken(dynamodb, userId) {
+    try {
+        const { Item } = await dynamodb.send(new GetCommand({
+            TableName: 'Simple',
+            Key: { id: `csimple_settings_${userId}`, createdAt: '2000-01-01T00:00:00.000Z' }
+        }));
+        if (!Item?.text) return null;
+        const settings = JSON.parse(Item.text);
+        return settings.githubToken || null;
+    } catch (e) {
+        console.error('[llmService] Failed to fetch user github token:', e);
+        return null;
+    }
+}
+
+/**
  * Call LLM API to compress data
  * @param {string} provider - LLM provider
  * @param {string} model - Model name
  * @param {string} userInput - User input
+ * @param {string|null} githubToken - Per-user GitHub PAT (only for provider='github')
  * @returns {Object} LLM response
  */
-async function callLLMApi(provider, model, userInput) {
+async function callLLMApi(provider, model, userInput, githubToken = null) {
     await initializeLLMClients();
     
     console.log(`🤖 Starting ${provider.toUpperCase()} API call...`);
     const startLLM = Date.now();
+
+    // Build messages array — if userInput is a Net: chat payload, extract conversation history
+    let messages;
+    try {
+        const parsed = JSON.parse(userInput);
+        if (parsed.message && Array.isArray(parsed.conversationHistory)) {
+            // Reconstruct proper multi-turn conversation
+            messages = [
+                ...parsed.conversationHistory.map(m => ({ role: m.role, content: m.content })),
+                { role: 'user', content: parsed.message }
+            ];
+        } else {
+            messages = [{ role: 'user', content: userInput }];
+        }
+    } catch {
+        messages = [{ role: 'user', content: userInput }];
+    }
     
-    const response = await createCompletion(provider, model, [
-        { role: 'user', content: userInput }
-    ], {
-        maxTokens: 1000,
-        temperature: 0.7
-    });
+    const response = provider === 'github' && githubToken
+        ? await createCompletionWithKey('github', model, messages, { maxTokens: 1000, temperature: 0.7 }, githubToken)
+        : await createCompletion(provider, model, messages, {
+            maxTokens: 1000,
+            temperature: 0.7
+        });
     
     console.log(`🤖 ${provider.toUpperCase()} API call completed in ${Date.now() - startLLM}ms`);
     console.log('LLM response:', JSON.stringify(response));
@@ -226,15 +267,28 @@ async function processCompressionRequest(req, dynamodb) {
     // Validate API usage
     await validateApiUsage(req.user.id, provider, model, userInput);
     
+    // For GitHub provider, look up the user's GitHub PAT from their CSimple settings
+    let githubToken = null;
+    if (provider === 'github') {
+        githubToken = await getUserGithubToken(dynamodb, req.user.id);
+        if (!githubToken) {
+            const error = new Error('GitHub token not configured. Add your GitHub PAT in CSimple → Settings → Advanced.');
+            error.statusCode = 401;
+            throw error;
+        }
+        console.log('[llmService] Using user\'s GitHub token for GitHub Models API');
+    }
+    
     // Call LLM API
-    const response = await callLLMApi(provider, model, userInput);
+    const response = await callLLMApi(provider, model, userInput, githubToken);
     
     // Track API usage
     await trackApiUsageAfterCall(req.user.id, provider, model, response, userInput);
     
     // Check if response has content
-    if (response.choices[0].message.content && response.choices[0].message.content.length > 0) {
-        const compressedData = response.choices[0].message.content;
+    const content = response?.choices?.[0]?.message?.content;
+    if (content && content.length > 0) {
+        const compressedData = content;
         
         // Save to DynamoDB
         const result = await saveCompressedData(dynamodb, req.user.id, userInput, compressedData, updateId);

@@ -62,7 +62,7 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
   }, [onSettingsChange]);
 
   const updateSetting = useCallback((key, value) => {
-    const DEVICE_LOCAL_KEYS = ['micDeviceId', 'sttEnabled', 'githubToken'];
+    const DEVICE_LOCAL_KEYS = ['micDeviceId', 'sttEnabled'];
     const newSettings = { ...settings, [key]: value };
     if (DEVICE_LOCAL_KEYS.includes(key)) {
       // Per-device settings: save to localStorage only, don't sync to server
@@ -122,21 +122,17 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
     if (editingAgentId === agentId) setEditingAgentId(null);
   }, [settings, autoSave, editingAgentId]);
 
-  const handleAvatarUpload = useCallback(async (agentId, file) => {
-    const formData = new FormData();
-    formData.append('avatar', file);
-    try {
-      const res = await fetch(`/api/agents/${agentId}/avatar`, {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await res.json();
-      if (data.avatarUrl) {
-        updateAgent(agentId, { avatarUrl: `${data.avatarUrl}?t=${Date.now()}` });
+  const handleAvatarUpload = useCallback((agentId, file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target.result;
+      if (dataUrl) {
+        updateAgent(agentId, { avatarUrl: dataUrl });
       }
-    } catch (err) {
-      console.error('Avatar upload failed:', err);
-    }
+    };
+    reader.onerror = () => console.error('Avatar read failed');
+    reader.readAsDataURL(file);
   }, [updateAgent]);
 
   const startEditAgent = useCallback((agent) => {
@@ -727,7 +723,7 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
                         }}
                         title="Click to upload avatar"
                       >
-                        {agent.avatarUrl ? (
+                        {agent.avatarUrl && (agent.avatarUrl.startsWith('data:') || agent.avatarUrl.startsWith('https://') || agent.avatarUrl.startsWith('http://')) ? (
                           <img src={agent.avatarUrl} alt={agent.name} className="adv-agent__avatar-img" />
                         ) : (
                           <span className="adv-agent__avatar-placeholder">

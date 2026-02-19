@@ -31,7 +31,7 @@ function Sidebar({
   const effectiveModel = isGitHub
     ? (settings?.githubModel || 'gpt-4o-mini')
     : isPortfolio
-      ? (settings?.portfolioModel || 'o1-mini')
+      ? (settings?.portfolioModel || 'gpt-4o-mini')
       : selectedModel;
 
   // GitHub Models available client-side
@@ -192,7 +192,7 @@ function Sidebar({
                       ))
                     ) : (
                       <>
-                        <option value="o1-mini">o1-mini</option>
+                        <option value="gpt-4o-mini">gpt-4o-mini</option>
                         <option value="gpt-4o-mini">gpt-4o-mini</option>
                       </>
                     )}

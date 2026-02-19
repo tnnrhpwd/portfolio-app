@@ -2,6 +2,10 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import './MessageBubble.css';
 
+// Only render data: or http(s): avatar URLs — drop stale /api/agents/... paths
+const safeAvatarUrl = (url) =>
+  url && (url.startsWith('data:') || url.startsWith('https://') || url.startsWith('http://')) ? url : null;
+
 function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = true }) {
   const isUser = message.role === 'user';
   const hasAction = !isUser && message.action;
@@ -15,8 +19,8 @@ function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = 
     <div className={`message ${isUser ? 'message--user' : 'message--assistant'} ${message.isError ? 'message--error' : ''}`}>
       <div className="message__row">
         {!isUser && (
-          agent?.avatarUrl ? (
-            <img className="message__avatar message__avatar--assistant-img" src={agent.avatarUrl} alt={agent.name} />
+          safeAvatarUrl(agent?.avatarUrl) ? (
+            <img className="message__avatar message__avatar--assistant-img" src={safeAvatarUrl(agent.avatarUrl)} alt={agent.name} />
           ) : (
             <div className="message__avatar message__avatar--assistant">{(agent?.name || 'C')[0]}</div>
           )

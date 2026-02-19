@@ -5,7 +5,7 @@
 }
 
 .planit-nnet {
-    display: flex;
+    /* display: flex; */
     flex-direction: column;
     align-items: center;
     text-align: center;
@@ -16,7 +16,7 @@
     animation: gradientShift 12s ease infinite;
     pointer-events: all;
     position: relative;
-    overflow: hidden;
+    /* overflow: hidden; */
     font-family: 'CutiveMono-Regular', monospace;
 }
 

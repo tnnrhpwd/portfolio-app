@@ -4,11 +4,11 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 16px;
+  padding: 70px 60px 10px 16px;
   background: var(--csimple-surface, #1e1e2e);
   border-bottom: 1px solid var(--csimple-border, #333);
   color: var(--csimple-text, #e0e0e0);
-  font-size: 0.85rem;
+  font-size: var(--font-size-base);
   flex-wrap: wrap;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
     Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
@@ -17,7 +17,7 @@
 }
 
 .addon-prompt__icon {
-  font-size: 1.5rem;
+    font-size: var(--font-size-base);
   flex-shrink: 0;
 }
 
@@ -28,13 +28,13 @@
 
 .addon-prompt__title {
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: var(--font-size-base);
   margin-bottom: 2px;
 }
 
 .addon-prompt__text {
   color: var(--csimple-text-secondary, #aaa);
-  font-size: 0.8rem;
+  font-size: var(--font-size-base);
   line-height: 1.4;
 }
 
@@ -51,7 +51,7 @@
   background: var(--csimple-accent, #2196f3);
   color: #fff;
   text-decoration: none;
-  font-size: 0.8rem;
+  font-size: var(--font-size-base);
   font-weight: 500;
   transition: background 0.2s;
   white-space: nowrap;
@@ -67,7 +67,7 @@
   border: 1px solid var(--csimple-border, #555);
   background: transparent;
   color: var(--csimple-text, #e0e0e0);
-  font-size: 0.8rem;
+  font-size: var(--font-size-base);
   cursor: pointer;
   transition: background 0.2s;
   white-space: nowrap;
@@ -87,7 +87,7 @@
   border: none;
   background: transparent;
   color: var(--csimple-text-secondary, #aaa);
-  font-size: 1rem;
+  font-size: var(--font-size-base);
   cursor: pointer;
   transition: color 0.2s;
   line-height: 1;

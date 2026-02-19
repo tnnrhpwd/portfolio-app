@@ -23,7 +23,7 @@ import './CSimpleTheme.css';
 const DEFAULT_MODEL = 'Qwen/Qwen2.5-0.5B-Instruct';
 const CHATS_STORAGE_KEY = 'csimple_chats';
 const ACTIVE_CHAT_KEY = 'csimple_active_chat';
-const DEVICE_LOCAL_KEYS = ['micDeviceId', 'sttEnabled', 'githubToken'];
+const DEVICE_LOCAL_KEYS = ['micDeviceId', 'sttEnabled'];
 const DEVICE_SETTINGS_KEY = 'csimple_device_settings';
 
 function getDeviceLocalSettings() {
@@ -57,7 +57,7 @@ const DEFAULT_SETTINGS = {
   llmProvider: 'portfolio',   // Default to portfolio cloud when no addon
   githubToken: '',
   githubModel: 'gpt-4o-mini',
-  portfolioModel: 'o1-mini',
+  portfolioModel: 'gpt-4o-mini',
   cloudSync: false,
 };
 
@@ -205,6 +205,10 @@ function CSimpleChat({
             for (const key of DEVICE_LOCAL_KEYS) {
               if (key in deviceLocal) merged[key] = deviceLocal[key];
             }
+            // One-time migration: if server doesn't have githubToken yet but localStorage does, use it
+            if (!merged.githubToken && deviceLocal.githubToken) {
+              merged.githubToken = deviceLocal.githubToken;
+            }
             setSettings(prev => ({ ...prev, ...merged }));
           }
           setIsSettingsLoaded(true);
@@ -285,9 +289,13 @@ function CSimpleChat({
                 merged[key] = value;
               }
             }
-            // Re-apply device-local keys
+            // Re-apply device-local keys (micDeviceId, sttEnabled)
             for (const key of DEVICE_LOCAL_KEYS) {
               if (key in deviceLocal) merged[key] = deviceLocal[key];
+            }
+            // One-time migration: if cloud doesn't have githubToken yet but localStorage does, use it
+            if (!merged.githubToken && deviceLocal.githubToken) {
+              merged.githubToken = deviceLocal.githubToken;
             }
             setSettings(merged);
 
@@ -463,7 +471,10 @@ function CSimpleChat({
       if (provider === 'portfolio') {
         // Route through portfolio backend via Redux
         if (onPortfolioChat) {
-          onPortfolioChat(text, trimmedHistory);
+          // Use GitHub Models if the user has a GitHub token configured, otherwise OpenAI
+          const portfolioProvider = settings.githubToken ? 'github' : 'openai';
+          const portfolioModel = settings.portfolioModel || 'gpt-4o-mini';
+          onPortfolioChat(text, trimmedHistory, portfolioProvider, portfolioModel);
           // Response will come via portfolioChatResponse prop
         } else {
           throw new Error('Portfolio chat not available. Please log in.');
@@ -471,7 +482,14 @@ function CSimpleChat({
         return; // Don't set isGenerating to false yet — wait for response
       }
 
-      // Local addon or GitHub Models — direct fetch
+      // Local addon or GitHub Models — direct fetch (requires addon)
+      if (!isAddonConnected) {
+        throw new Error(
+          `Cannot use ${provider === 'github' ? 'GitHub Models' : 'local'} provider — the CSimple addon is not running. ` +
+          'Switch to the Cloud (Portfolio) provider in Settings, or install and start the addon.'
+        );
+      }
+
       const model = provider === 'github'
         ? (settings.githubModel || 'gpt-4o-mini')
         : selectedModel;

@@ -11,6 +11,7 @@ const fs = require('fs');
 const os = require('os');
 const { TrayManager } = require('./tray');
 const { PythonManager } = require('./python-manager');
+const { ActionBridge } = require('./server/action-bridge');
 
 // Prevent multiple instances
 const gotLock = app.requestSingleInstanceLock();
@@ -25,6 +26,7 @@ let trayManager = null;
 let pythonManager = null;
 let server = null;
 let settingsWindow = null;
+let actionBridge = null;
 
 // ─── Resource Paths ─────────────────────────────────────────────────────────────
 
@@ -76,6 +78,13 @@ async function startExpressServer() {
     console.log(`[Main] Server started on port ${port}`);
     trayManager?.setServerInfo(port, httpsPort);
     trayManager?.notify('CSimple Addon', `Server running on port ${port}`);
+
+    // Start the built-in action bridge so PC automation works without a separate app
+    if (!actionBridge) {
+      actionBridge = new ActionBridge(port);
+    }
+    actionBridge.start();
+    console.log('[Main] Built-in ActionBridge started');
 
     return { port, httpsPort };
   } catch (err) {
@@ -190,6 +199,11 @@ app.on('window-all-closed', (e) => {
 
 app.on('before-quit', async () => {
   console.log('[Main] Shutting down...');
+
+  // Stop the built-in action bridge
+  if (actionBridge) {
+    actionBridge.stop();
+  }
 
   // Stop any running Python processes
   if (pythonManager) {

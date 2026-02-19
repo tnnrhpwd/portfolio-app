@@ -284,7 +284,7 @@ const compressData = async (dataData, token, options = {}) => {
     const requestData = {
         ...dataData,
         provider: options.provider || 'openai',
-        model: options.model || (options.provider === 'xai' ? 'grok-4-fast-reasoning' : 'o1-mini')
+        model: options.model || (options.provider === 'xai' ? 'grok-4-fast-reasoning' : 'gpt-4o-mini')
     };
 
     console.log('Calling POST URL:', API_URL + 'compress');
