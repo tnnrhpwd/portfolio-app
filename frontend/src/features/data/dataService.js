@@ -167,7 +167,7 @@ const getData = async (dataData, token) => {
 // Get Public data
 const getPublicData = async (dataData) => {
     const config = {
-        params: dataData, // Include dataData as query parameters
+        params: { data: JSON.stringify(dataData.data) }, // Serialize nested object as JSON string for backend
     }
 
     console.log('Calling GET URL:', API_URL + 'public');

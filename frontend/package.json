@@ -8,7 +8,7 @@
     "@stripe/react-stripe-js": "^3.3.0",
     "@stripe/stripe-js": "^5.10.0",
     "@testing-library/user-event": "^14.1.1",
-    "axios": "^0.27.2",
+    "axios": "^1.8.0",
     "chart.js": "^3.9.1",
     "chartjs-adapter-moment": "^1.0.1",
     "dotenv": "^16.0.0",
@@ -64,7 +64,9 @@
   },
   "overrides": {
     "@types/react": "^18.2.0",
-    "@types/react-dom": "^18.2.0"
+    "@types/react-dom": "^18.2.0",
+    "semver": "^7.6.0",
+    "nth-check": "^2.1.1"
   },
   "devDependencies": {
     "@babel/core": "^7.23.0",
