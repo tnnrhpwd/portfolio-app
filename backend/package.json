@@ -47,7 +47,7 @@
     "node-cache": "^5.1.2",
     "node-fetch": "^2.6.12",
     "openai": "^4.24.7",
-    "postmark": "^3.0.17",
+    "postmark": "^4.0.5",
     "sthopwood": "file:..",
     "sthopwood-backend": "file:",
     "stripe": "^14.14.0",
