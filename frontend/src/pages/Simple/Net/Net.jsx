@@ -19,6 +19,9 @@ function Net() {
     recheckAddon,
     dismissPrompt,
     showInstallPrompt,
+    showUpdatePrompt,
+    isOutdated,
+    requiredVersion,
   } = useAddonDetection();
 
   // Track portfolio LLM response for passing to CSimpleChat
@@ -81,11 +84,14 @@ function Net() {
         </div>
 
         <div className="net-hero-section">
-          {showInstallPrompt && (
+          {(showInstallPrompt || showUpdatePrompt) && (
             <AddonInstallPrompt
               isChecking={isChecking}
               onDismiss={dismissPrompt}
               onRecheck={recheckAddon}
+              isOutdated={isOutdated}
+              currentVersion={addonStatus.version}
+              requiredVersion={requiredVersion}
             />
           )}
 

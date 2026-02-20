@@ -56,14 +56,14 @@
 }
 
 .csimple-inactive-overlay__title {
-  font-size: 1.4rem;
+  font-size: var(--font-size-base);
   font-weight: 600;
   margin-bottom: 0.4rem;
 }
 
 .csimple-inactive-overlay__subtitle {
-  font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.6);
+  font-size: var(--font-size-base);
+  color: var(--csimple-text-secondary, rgba(255, 255, 255, 0.6));
   margin-bottom: 1.2rem;
 }
 
@@ -73,7 +73,7 @@
   border: none;
   background: var(--accent, #2196f3);
   color: #fff;
-  font-size: 0.95rem;
+  font-size: var(--font-size-base);
   font-weight: 500;
   cursor: pointer;
   transition: background 0.2s;

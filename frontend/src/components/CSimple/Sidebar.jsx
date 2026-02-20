@@ -86,10 +86,6 @@ function Sidebar({
       {isOpen && <div className="sidebar-overlay" onClick={onClose} />}
       <aside className={`sidebar ${isOpen ? 'sidebar--open' : ''}`}>
         <div className="sidebar__header">
-          <div className="sidebar__logo">
-            <span className="sidebar__logo-icon" role="img" aria-label="CSimple">🤖</span>
-            <span className="sidebar__logo-text">CSimple AI</span>
-          </div>
           <button className="sidebar__close" onClick={onClose} title="Close sidebar">
             ×
           </button>

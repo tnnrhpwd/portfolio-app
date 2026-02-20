@@ -1,6 +1,24 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { detectAddon, getAddonStatus, onAddonStatusChange, startAddonPolling } from '../../services/csimpleApi';
 
+/** Minimum addon version required for full ActionBridge support (added 2025-02-18) */
+const REQUIRED_ADDON_VERSION = '1.0.1';
+
+/**
+ * Compare two semver strings. Returns true if `actual` is >= `required`.
+ */
+function isVersionAtLeast(actual, required) {
+  if (!actual) return false;
+  const parse = (v) => v.split('.').map((n) => parseInt(n, 10) || 0);
+  const a = parse(actual);
+  const r = parse(required);
+  for (let i = 0; i < 3; i++) {
+    if ((a[i] ?? 0) > (r[i] ?? 0)) return true;
+    if ((a[i] ?? 0) < (r[i] ?? 0)) return false;
+  }
+  return true;
+}
+
 /**
  * React hook for detecting and monitoring the CSimple local addon.
  * 
@@ -10,6 +28,9 @@ import { detectAddon, getAddonStatus, onAddonStatusChange, startAddonPolling } f
  *   - recheckAddon: function - manually trigger a recheck
  *   - dismissed: boolean - whether the user dismissed the install prompt
  *   - dismissPrompt: function - dismiss the install prompt for this session
+ *   - isOutdated: boolean - addon is connected but below REQUIRED_ADDON_VERSION
+ *   - showInstallPrompt: boolean - addon not found; show install banner
+ *   - showUpdatePrompt: boolean - addon found but outdated; show update banner
  */
 export function useAddonDetection({ pollInterval = 30000 } = {}) {
   const [addonStatus, setAddonStatus] = useState(getAddonStatus);
@@ -68,6 +89,9 @@ export function useAddonDetection({ pollInterval = 30000 } = {}) {
     }
   }, []);
 
+  const isOutdated =
+    addonStatus.isConnected && !isVersionAtLeast(addonStatus.version, REQUIRED_ADDON_VERSION);
+
   return {
     addonStatus,
     isConnected: addonStatus.isConnected,
@@ -75,7 +99,11 @@ export function useAddonDetection({ pollInterval = 30000 } = {}) {
     recheckAddon,
     dismissed,
     dismissPrompt,
-    // Convenience: should we show the install prompt?
+    isOutdated,
+    requiredVersion: REQUIRED_ADDON_VERSION,
+    // Show install banner when addon is not found at all
     showInstallPrompt: !addonStatus.isConnected && !isChecking && !dismissed,
+    // Show update banner when addon is connected but running an older version
+    showUpdatePrompt: isOutdated && !dismissed,
   };
 }
