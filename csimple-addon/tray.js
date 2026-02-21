@@ -175,17 +175,25 @@ class TrayManager {
   }
 
   /**
+   * Extract the build number from a version string. "1.0.15" → 15
+   */
+  _buildNum(version) {
+    return version ? version.split('.').pop() : '?';
+  }
+
+  /**
    * Build the update-related menu items based on the current update state.
    */
   _buildUpdateMenuItems() {
+    const b = this._buildNum(this.updateVersion);
     switch (this.updateState) {
       case 'downloading':
         return [
-          { label: `Downloading v${this.updateVersion}... ${this.updateProgress}%`, enabled: false },
+          { label: `Downloading Build #${b}... ${this.updateProgress}%`, enabled: false },
         ];
       case 'ready':
         return [
-          { label: `v${this.updateVersion} ready — installs on quit`, enabled: false },
+          { label: `Build #${b} ready — installs on quit`, enabled: false },
           { label: 'Restart && Update Now', click: () => this.callbacks.onInstallUpdate?.() },
         ];
       case 'error':

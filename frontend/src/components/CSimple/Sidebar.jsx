@@ -18,6 +18,13 @@ function Sidebar({
   isOnline,
   isAddonConnected,
   portfolioLLMProviders,
+  showAddonPrompt = false,
+  addonPromptOutdated = false,
+  addonPromptChecking = false,
+  onAddonRecheck,
+  onAddonDismiss,
+  addonCurrentVersion,
+  addonRequiredVersion,
 }) {
   const [models, setModels] = useState([]);
   const [showSettings, setShowSettings] = useState(false);
@@ -123,6 +130,49 @@ function Sidebar({
         </div>
 
         <div className="sidebar__footer">
+          {showAddonPrompt && (
+            <div className={`sidebar__addon-notice${addonPromptOutdated ? ' sidebar__addon-notice--update' : ''}`}>
+              <span className="sidebar__addon-notice__icon">{addonPromptOutdated ? '⬆️' : '🧩'}</span>
+              <div className="sidebar__addon-notice__body">
+                <span className="sidebar__addon-notice__title">
+                  {addonPromptOutdated
+                    ? `Update addon → v${addonRequiredVersion}`
+                    : 'Install C-Simple Addon'}
+                </span>
+                <span className="sidebar__addon-notice__sub">
+                  {addonPromptOutdated
+                    ? `v${addonCurrentVersion || '?'} installed — update for automation`
+                    : 'Unlock local AI, voice & automation'}
+                </span>
+              </div>
+              <div className="sidebar__addon-notice__actions">
+                <a
+                  className="sidebar__addon-notice__btn"
+                  href="https://github.com/tnnrhpwd/C-Simple/releases"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {addonPromptOutdated ? 'Update' : 'Get'}
+                </a>
+                <button
+                  className="sidebar__addon-notice__recheck"
+                  onClick={onAddonRecheck}
+                  disabled={addonPromptChecking}
+                  title="Recheck addon status"
+                >
+                  {addonPromptChecking ? '…' : '↺'}
+                </button>
+                <button
+                  className="sidebar__addon-notice__dismiss"
+                  onClick={onAddonDismiss}
+                  title="Dismiss"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
+
           <button
             className="sidebar__settings-toggle"
             onClick={() => setShowSettings(!showSettings)}

@@ -2,7 +2,6 @@ import React, { useEffect, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { compressData, getLLMProviders, resetDataSlice } from '../../../features/data/dataSlice.js';
 import CSimpleChat from '../../../components/CSimple/CSimpleChat.jsx';
-import AddonInstallPrompt from '../../../components/CSimple/AddonInstallPrompt.jsx';
 import { useAddonDetection } from '../../../hooks/csimple/useAddonDetection.js';
 import './Net.css';
 import Header from '../../../components/Header/Header.jsx';
@@ -84,17 +83,6 @@ function Net() {
         </div>
 
         <div className="net-hero-section">
-          {(showInstallPrompt || showUpdatePrompt) && (
-            <AddonInstallPrompt
-              isChecking={isChecking}
-              onDismiss={dismissPrompt}
-              onRecheck={recheckAddon}
-              isOutdated={isOutdated}
-              currentVersion={addonStatus.version}
-              requiredVersion={requiredVersion}
-            />
-          )}
-
           <CSimpleChat
             addonStatus={addonStatus}
             user={user}
@@ -102,6 +90,13 @@ function Net() {
             onPortfolioChat={handlePortfolioChat}
             portfolioChatLoading={dataIsLoading}
             portfolioChatResponse={portfolioChatResponse}
+            showAddonPrompt={showInstallPrompt || showUpdatePrompt}
+            addonPromptOutdated={isOutdated}
+            addonPromptChecking={isChecking}
+            onAddonRecheck={recheckAddon}
+            onAddonDismiss={dismissPrompt}
+            addonCurrentVersion={addonStatus.version}
+            addonRequiredVersion={requiredVersion}
           />
         </div>
       </div>

@@ -57,7 +57,8 @@ class UpdateManager {
     });
 
     autoUpdater.on('update-available', (info) => {
-      log.info(`[Updater] Update available: v${info.version}`);
+      const build = info.version.split('.').pop();
+      log.info(`[Updater] Update available: Build #${build} (v${info.version})`);
       this.updateAvailable = true;
       this.updateInfo = info;
 
@@ -79,13 +80,14 @@ class UpdateManager {
     });
 
     autoUpdater.on('update-downloaded', (info) => {
-      log.info(`[Updater] Update downloaded: v${info.version}`);
+      const build = info.version.split('.').pop();
+      log.info(`[Updater] Update downloaded: Build #${build} (v${info.version})`);
       this.updateDownloaded = true;
 
       // Single, non-intrusive notification — the only one the user sees
       this.trayManager?.notify(
         'CSimple Addon Update Ready',
-        `v${info.version} will be installed automatically when you close the app.`
+        `Build #${build} will install automatically when you close the app.`
       );
 
       this.trayManager?.setUpdateStatus('ready', info.version);

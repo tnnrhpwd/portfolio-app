@@ -78,6 +78,13 @@ const DEFAULT_SETTINGS = {
  * @param {function} props.onPortfolioChat - Callback to send chat via portfolio backend
  * @param {boolean} props.portfolioChatLoading - Whether portfolio chat is loading
  * @param {string} props.portfolioChatResponse - Response from portfolio backend
+ * @param {boolean} props.showAddonPrompt - Whether to show the addon install/update notice
+ * @param {boolean} props.addonPromptOutdated - Addon is installed but outdated
+ * @param {boolean} props.addonPromptChecking - Recheck is in flight
+ * @param {function} props.onAddonRecheck - Trigger a status recheck
+ * @param {function} props.onAddonDismiss - Dismiss the notice
+ * @param {string}  props.addonCurrentVersion - Installed addon version
+ * @param {string}  props.addonRequiredVersion - Minimum required version
  */
 function CSimpleChat({
   addonStatus,
@@ -86,6 +93,13 @@ function CSimpleChat({
   onPortfolioChat,
   portfolioChatLoading,
   portfolioChatResponse,
+  showAddonPrompt = false,
+  addonPromptOutdated = false,
+  addonPromptChecking = false,
+  onAddonRecheck,
+  onAddonDismiss,
+  addonCurrentVersion,
+  addonRequiredVersion,
 }) {
   const rootRef = useRef(null);
   const isAddonConnected = addonStatus?.isConnected ?? false;
@@ -680,6 +694,13 @@ function CSimpleChat({
           isOnline={isOnline}
           isAddonConnected={isAddonConnected}
           portfolioLLMProviders={portfolioLLMProviders}
+          showAddonPrompt={showAddonPrompt}
+          addonPromptOutdated={addonPromptOutdated}
+          addonPromptChecking={addonPromptChecking}
+          onAddonRecheck={onAddonRecheck}
+          onAddonDismiss={onAddonDismiss}
+          addonCurrentVersion={addonCurrentVersion}
+          addonRequiredVersion={addonRequiredVersion}
         />
 
         <ChatWindow

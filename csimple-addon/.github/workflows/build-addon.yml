@@ -3,7 +3,7 @@ name: Build & Release CSimple Addon
 on:
   push:
     tags:
-      - 'addon-v*'  # Trigger on tags like addon-v1.0.0
+      - 'addon-v*' # Trigger on tags like addon-v1.0.0
   workflow_dispatch:
     inputs:
       publish:
@@ -72,38 +72,44 @@ jobs:
           path: artifacts
           merge-multiple: true
 
-      - name: Extract version from tag
+      - name: Extract version and build number from tag
         id: version
         run: |
           if [[ "${{ github.ref }}" == refs/tags/* ]]; then
             VERSION="${{ github.ref_name }}"
-            VERSION="${VERSION#addon-}"
+            VERSION="${VERSION#addon-v}"  # strip "addon-v" prefix → "1.0.5"
           else
             VERSION="dev-$(date +%Y%m%d)"
           fi
+          # Extract build number (last segment of version)
+          BUILD="${VERSION##*.}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version: $VERSION"
+          echo "build=$BUILD" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION  Build: #$BUILD"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name || format('addon-dev-{0}', github.run_number) }}
-          name: "CSimple Addon ${{ steps.version.outputs.version }}"
+          name: 'CSimple Addon — Build #${{ steps.version.outputs.build }}'
           body: |
-            ## CSimple Addon ${{ steps.version.outputs.version }}
+            ## CSimple Addon — Build #${{ steps.version.outputs.build }}
+            **Version:** ${{ steps.version.outputs.version }}
 
             Desktop addon for [sthopwood.com/net](https://sthopwood.com/net) — runs local AI models, voice control, and system automation privately on your PC.
 
             ### Installation
             1. Download the installer (.exe) below
-            2. Run the installer and follow the prompts
-            3. The addon starts in your system tray
-            4. Visit [sthopwood.com/net](https://sthopwood.com/net) — it will detect the addon automatically
+            2. Run the installer — it takes about 10 seconds
+            3. The addon starts in your system tray automatically
+            4. Visit [sthopwood.com/net](https://sthopwood.com/net) — it will detect the addon
+
+            ### Existing users
+            Your addon updates automatically — no action needed.
 
             ### Requirements
             - Windows 10/11 (x64)
             - Python 3.8+ (for local AI models — [download](https://python.org))
-            - ~2GB disk space for PyTorch (auto-installed on first run)
           files: artifacts/**/*.exe
           draft: false
           prerelease: ${{ !startsWith(github.ref, 'refs/tags/addon-v') }}

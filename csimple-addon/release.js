@@ -3,13 +3,17 @@
  * CSimple Addon Release Script
  *
  * Usage:
- *   npm run release              → patch bump (1.0.1 → 1.0.2)
- *   npm run release -- minor     → minor bump (1.0.1 → 1.1.0)
- *   npm run release -- major     → major bump (1.0.1 → 2.0.0)
- *   npm run release -- 2.5.0     → set explicit version
+ *   npm run release          → increments build number (1.0.1 → 1.0.2 → 1.0.3 ...)
+ *
+ * Versioning:
+ *   Uses format 1.0.BUILD where BUILD is a simple incrementing number.
+ *   Each release is +1 from the last, making it easy for users to see
+ *   exactly how many updates have been released.
+ *
+ *   Examples: 1.0.1, 1.0.2, 1.0.3, ... 1.0.50, 1.0.51, ...
  *
  * What it does:
- *   1. Bumps version in package.json (and package-lock.json)
+ *   1. Increments the build number in package.json (and package-lock.json)
  *   2. Commits the version bump
  *   3. Creates a git tag (addon-v{version})
  *   4. Pushes commit + tag to origin
@@ -31,31 +35,33 @@ function runCapture(cmd) {
   return execSync(cmd, { cwd: __dirname, encoding: 'utf-8' }).trim();
 }
 
-function bumpVersion(current, type) {
-  const [major, minor, patch] = current.split('.').map(Number);
-  switch (type) {
-    case 'major': return `${major + 1}.0.0`;
-    case 'minor': return `${major}.${minor + 1}.0`;
-    case 'patch': return `${major}.${minor}.${patch + 1}`;
-    default:
-      // If type looks like an explicit semver, use it directly
-      if (/^\d+\.\d+\.\d+$/.test(type)) return type;
-      console.error(`Unknown bump type: "${type}". Use patch, minor, major, or an explicit version like 2.0.0`);
-      process.exit(1);
-  }
+/**
+ * Increment the build number: 1.0.N → 1.0.(N+1)
+ */
+function incrementVersion(current) {
+  const parts = current.split('.');
+  const build = parseInt(parts[2] || '0', 10) + 1;
+  return `${parts[0]}.${parts[1]}.${build}`;
+}
+
+/**
+ * Extract the build number from a version string.
+ * "1.0.15" → 15
+ */
+function getBuildNumber(version) {
+  return parseInt(version.split('.')[2] || '0', 10);
 }
 
 // ─── Pre-flight Checks ─────────────────────────────────────────────────────────
 
 function preflight() {
-  // Make sure we're in the csimple-addon directory
   const pkgPath = path.join(__dirname, 'package.json');
   if (!fs.existsSync(pkgPath)) {
     console.error('Error: package.json not found. Run this from csimple-addon/.');
     process.exit(1);
   }
 
-  // Check for uncommitted changes (allow package.json since we're about to change it)
+  // Check for uncommitted changes
   try {
     const status = runCapture('git status --porcelain');
     if (status) {
@@ -69,7 +75,6 @@ function preflight() {
     process.exit(1);
   }
 
-  // Make sure we can push
   try {
     runCapture('git remote get-url origin');
   } catch {
@@ -81,8 +86,6 @@ function preflight() {
 // ─── Main ───────────────────────────────────────────────────────────────────────
 
 function main() {
-  const bumpType = process.argv[2] || 'patch';
-
   console.log('\n🚀 CSimple Addon Release\n');
 
   preflight();
@@ -91,10 +94,12 @@ function main() {
   const pkgPath = path.join(__dirname, 'package.json');
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
   const currentVersion = pkg.version;
+  const currentBuild = getBuildNumber(currentVersion);
 
-  // 2. Calculate new version
-  const newVersion = bumpVersion(currentVersion, bumpType);
-  console.log(`  Version: ${currentVersion} → ${newVersion}\n`);
+  // 2. Increment build number
+  const newVersion = incrementVersion(currentVersion);
+  const newBuild = getBuildNumber(newVersion);
+  console.log(`  Build #${currentBuild} → Build #${newBuild}  (${currentVersion} → ${newVersion})\n`);
 
   // 3. Update package.json
   pkg.version = newVersion;
@@ -111,7 +116,7 @@ function main() {
       }
       fs.writeFileSync(lockPath, JSON.stringify(lock, null, 2) + '\n', 'utf-8');
     } catch {
-      // Not critical — CI runs npm ci anyway
+      // Not critical
     }
   }
 
@@ -119,11 +124,11 @@ function main() {
   const tag = `addon-v${newVersion}`;
   console.log('  Committing version bump...');
   run('git add package.json package-lock.json');
-  run(`git commit -m "release: CSimple Addon v${newVersion}"`);
+  run(`git commit -m "release: CSimple Addon Build #${newBuild} (v${newVersion})"`);
 
   // 6. Git tag
   console.log(`\n  Creating tag: ${tag}`);
-  run(`git tag -a ${tag} -m "CSimple Addon v${newVersion}"`);
+  run(`git tag -a ${tag} -m "CSimple Addon Build #${newBuild}"`);
 
   // 7. Push
   console.log('\n  Pushing to origin...');
@@ -132,15 +137,14 @@ function main() {
 
   // Done!
   console.log(`
-✅ Release v${newVersion} triggered!
+✅ Build #${newBuild} released!  (v${newVersion})
 
   Tag:      ${tag}
   CI:       https://github.com/tnnrhpwd/portfolio-app/actions
   Release:  https://github.com/tnnrhpwd/C-Simple/releases  (once CI completes)
 
-  The GitHub Actions workflow will build the Windows installer
-  and publish it as a GitHub Release. Existing addon installs
-  will pick up the update automatically.
+  GitHub Actions will build the installer and publish it.
+  Running addon installs will pick it up automatically.
 `);
 }
 
