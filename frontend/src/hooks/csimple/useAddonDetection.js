@@ -2,12 +2,12 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { detectAddon, getAddonStatus, onAddonStatusChange, startAddonPolling } from '../../services/csimpleApi';
 
 /** Hard-coded floor — only used when GitHub API is unreachable */
-const FALLBACK_REQUIRED_VERSION = '1.0.100';
+const FALLBACK_REQUIRED_VERSION = '1.0.6';
 
-/** GitHub repo to check for latest release */
-const GITHUB_RELEASES_API = 'https://api.github.com/repos/tnnrhpwd/portfolio-app/releases/latest';
+/** GitHub tags API — addon versions are tagged as "addon-v1.0.X" */
+const GITHUB_TAGS_API = 'https://api.github.com/repos/tnnrhpwd/portfolio-app/tags';
 
-/** Fetch the latest release tag from GitHub (cached in sessionStorage for 10 min). */
+/** Fetch the latest addon version from GitHub tags (cached in sessionStorage for 10 min). */
 async function fetchLatestRelease() {
   const CACHE_KEY = 'csimple_latest_version';
   const CACHE_TS_KEY = 'csimple_latest_version_ts';
@@ -20,20 +20,21 @@ async function fetchLatestRelease() {
   } catch { /* ignore */ }
 
   try {
-    const res = await fetch(GITHUB_RELEASES_API, {
+    const res = await fetch(GITHUB_TAGS_API, {
       headers: { Accept: 'application/vnd.github.v3+json' },
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return FALLBACK_REQUIRED_VERSION;
-    const data = await res.json();
-    // tag_name is typically "v1.0.100" or "1.0.100"
-    const tag = (data.tag_name || '').replace(/^v/i, '');
-    if (tag) {
+    const tags = await res.json();
+    // Tags are named "addon-v1.0.6" etc — find the first addon tag (already sorted newest-first)
+    const addonTag = tags.find(t => /^addon-v/i.test(t.name));
+    if (addonTag) {
+      const version = addonTag.name.replace(/^addon-v/i, '');
       try {
-        sessionStorage.setItem(CACHE_KEY, tag);
+        sessionStorage.setItem(CACHE_KEY, version);
         sessionStorage.setItem(CACHE_TS_KEY, String(Date.now()));
       } catch { /* ignore */ }
-      return tag;
+      return version;
     }
   } catch { /* network error */ }
 
@@ -132,7 +133,9 @@ export function useAddonDetection({ pollInterval = 30000 } = {}) {
   }, []);
 
   const isOutdated =
-    addonStatus.isConnected && !isVersionAtLeast(addonStatus.version, latestVersion);
+    addonStatus.isConnected &&
+    !!addonStatus.version &&
+    !isVersionAtLeast(addonStatus.version, latestVersion);
 
   return {
     addonStatus,

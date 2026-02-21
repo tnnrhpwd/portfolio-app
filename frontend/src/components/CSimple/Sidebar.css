@@ -466,9 +466,8 @@
 .sidebar__addon-notice__title {
   font-weight: 600;
   color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .sidebar__addon-notice--update .sidebar__addon-notice__title {
@@ -478,9 +477,8 @@
 .sidebar__addon-notice__sub {
   color: var(--text-muted);
   font-size: 11px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .sidebar__addon-notice__actions {

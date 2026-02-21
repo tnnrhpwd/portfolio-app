@@ -186,13 +186,13 @@ function Sidebar({
               <div className="sidebar__addon-notice__body">
                 <span className="sidebar__addon-notice__title">
                   {addonPromptOutdated
-                    ? `Update addon → v${addonRequiredVersion}`
-                    : 'Install C-Simple Addon'}
+                    ? `Update addon v${addonRequiredVersion}`
+                    : 'Addon not running'}
                 </span>
                 <span className="sidebar__addon-notice__sub">
                   {addonPromptOutdated
-                    ? `v${addonCurrentVersion || '?'} installed — update for automation`
-                    : 'Unlock local AI, voice & automation'}
+                    ? `v${addonCurrentVersion || '?'} installed`
+                    : 'Start C-Simple to enable local AI & automation'}
                 </span>
               </div>
               <div className="sidebar__addon-notice__actions">
