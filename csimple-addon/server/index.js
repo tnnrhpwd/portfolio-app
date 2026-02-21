@@ -860,7 +860,7 @@ app.get('/api/actions/bridge-status', (req, res) => {
     // Help the frontend show useful guidance when bridge is not connected
     info: connected ? null : {
       message: 'No ActionBridge connected. System actions (keyboard, mouse, app control) require the ActionBridge.',
-      downloadUrl: 'https://github.com/tnnrhpwd/C-Simple/releases',
+      downloadUrl: 'https://github.com/tnnrhpwd/portfolio-app/releases',
       hint: 'Download and run CSimple.ActionBridge to enable PC automation features.',
     },
   });

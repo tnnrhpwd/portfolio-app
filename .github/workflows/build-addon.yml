@@ -43,10 +43,10 @@ jobs:
       # electron-builder reads the "publish" config in package.json which
       # points to tnnrhpwd/C-Simple.  Passing --publish always makes it
       # create a GitHub Release on that repo using GH_TOKEN.
-      - name: Build & Publish to C-Simple repo
+      - name: Build & Publish to portfolio-app releases
         if: startsWith(github.ref, 'refs/tags/addon-v') || github.event.inputs.publish == 'true'
         env:
-          GH_TOKEN: ${{ secrets.CSIMPLE_RELEASE_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx electron-builder --win --publish always
 
       # When triggered manually without publish, just build (no release)
