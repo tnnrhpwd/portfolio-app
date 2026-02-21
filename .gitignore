@@ -16,6 +16,9 @@ package-lock.json.bak
 /backend/build
 /backend/dist
 build/
+!csimple-addon/build/
+csimple-addon/build/*
+!csimple-addon/build/installer.nsh
 dist/
 *.tsbuildinfo
 
