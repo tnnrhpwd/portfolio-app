@@ -11,6 +11,9 @@
     "build": "electron-builder",
     "build:win": "electron-builder --win",
     "build:portable": "electron-builder --win portable",
+    "release": "node release.js",
+    "release:minor": "node release.js minor",
+    "release:major": "node release.js major",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {

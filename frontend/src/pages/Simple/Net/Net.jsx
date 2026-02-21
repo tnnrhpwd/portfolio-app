@@ -105,7 +105,6 @@ function Net() {
           />
         </div>
       </div>
-      <Footer />
     </>
   );
 }
