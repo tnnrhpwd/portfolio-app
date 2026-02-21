@@ -22,6 +22,7 @@ const { LlmService } = require('./llm-service');
 const { ActionService } = require('./action-service');
 const { GitHubModelsService, GITHUB_MODELS } = require('./github-models-service');
 const { checkMessage, checkActionPlan, checkScriptContent } = require('./security-guard');
+const { stepsToPS, runPowerShell } = require('./action-bridge');
 
 const app = express();
 const DEFAULT_PORT = 3001;
@@ -344,6 +345,33 @@ const llmService = new LlmService({
 // Initialize Action service
 const actionService = new ActionService();
 
+/**
+ * Execute an action plan immediately on this machine via PowerShell.
+ * Called right after queueAction()  — marks the action complete so the
+ * bridge's polling loop finds nothing pending (no double-execution).
+ */
+async function executeActionDirect(action) {
+  const steps = action.steps || [];
+  if (steps.length === 0) {
+    actionService.completeAction(action.id, true);
+    return;
+  }
+  try {
+    const psScript = stepsToPS(steps);
+    console.log(`[Server] Executing action ${action.id} directly via PowerShell`);
+    const result = await runPowerShell(psScript);
+    if (result.success) {
+      console.log(`[Server] ✅ Action ${action.id} completed`);
+    } else {
+      console.warn(`[Server] ⚠️ Action ${action.id} finished with error:`, result.error);
+    }
+    actionService.completeAction(action.id, result.success, result.error);
+  } catch (err) {
+    console.error(`[Server] ❌ Action ${action.id} failed:`, err.message);
+    actionService.completeAction(action.id, false, err.message);
+  }
+}
+
 // Initialize GitHub Models service
 const githubModelsService = new GitHubModelsService();
 
@@ -536,9 +564,9 @@ app.post('/api/chat', async (req, res) => {
         });
       }
 
-      // Execute immediately (no confirmation needed)
+      // Queue then immediately execute on this machine — no external bridge needed
       const queuedAction = actionService.queueAction(actionPlan);
-      const bridgeConnected = lastBridgePoll > 0 && (Date.now() - lastBridgePoll) < 5000;
+      executeActionDirect(queuedAction); // fire-and-forget; marks complete when done
 
       const estimatedMs = actionPlan.steps.reduce((sum, step) => {
         if (step.type === 'delay') return sum + (step.duration || 0);
@@ -549,10 +577,7 @@ app.post('/api/chat', async (req, res) => {
       const parseTimeMs = Date.now() - parseStartTime;
       const totalEstimatedSec = ((estimatedMs + parseTimeMs) / 1000).toFixed(1);
 
-      let responseText = actionService.formatActionResponse(actionPlan);
-      if (!bridgeConnected) {
-        responseText += '\n\n⚠️ **No action bridge connected.** Actions are queued but won\'t execute until the bridge is running.';
-      }
+      const responseText = actionService.formatActionResponse(actionPlan);
 
       return res.json({
         response: responseText,
@@ -565,7 +590,6 @@ app.post('/api/chat', async (req, res) => {
           description: actionPlan.description,
           steps: actionPlan.steps,
           status: queuedAction.status,
-          bridgeConnected,
         },
       });
     }
@@ -755,15 +779,10 @@ app.post('/api/chat/confirm', async (req, res) => {
     }
 
     const queuedAction = actionService.queueAction(finalPlan);
-    const bridgeConnected = lastBridgePoll > 0 && (Date.now() - lastBridgePoll) < 5000;
-
-    let responseText = actionService.formatActionResponse(finalPlan);
-    if (!bridgeConnected) {
-      responseText += '\n\n⚠️ **No action bridge connected.**';
-    }
+    executeActionDirect(queuedAction); // fire-and-forget
 
     return res.json({
-      response: responseText,
+      response: actionService.formatActionResponse(finalPlan),
       timestamp: new Date().toISOString(),
       action: {
         id: queuedAction.id,
@@ -771,7 +790,6 @@ app.post('/api/chat/confirm', async (req, res) => {
         description: finalPlan.description,
         steps: finalPlan.steps,
         status: queuedAction.status,
-        bridgeConnected,
       },
     });
   } catch (err) {
@@ -782,6 +800,7 @@ app.post('/api/chat/confirm', async (req, res) => {
       return res.status(403).json({ error: 'Action blocked by security policy', reason: fallbackCheck.reason });
     }
     const queuedAction = actionService.queueAction(confirmation.actionPlan);
+    executeActionDirect(queuedAction); // fire-and-forget
     return res.json({
       response: actionService.formatActionResponse(confirmation.actionPlan),
       timestamp: new Date().toISOString(),
@@ -851,18 +870,12 @@ app.post('/api/actions/complete', (req, res) => {
   res.json({ action: action || null });
 });
 
-// Check if an action bridge is connected
+// Check if action execution is available
+// Actions now execute directly in-process via PowerShell — always connected.
 app.get('/api/actions/bridge-status', (req, res) => {
-  const connected = lastBridgePoll > 0 && (Date.now() - lastBridgePoll) < 5000;
   res.json({
-    connected,
-    lastPoll: lastBridgePoll,
-    // Help the frontend show useful guidance when bridge is not connected
-    info: connected ? null : {
-      message: 'No ActionBridge connected. System actions (keyboard, mouse, app control) require the ActionBridge.',
-      downloadUrl: 'https://github.com/tnnrhpwd/portfolio-app/releases',
-      hint: 'Download and run CSimple.ActionBridge to enable PC automation features.',
-    },
+    connected: true,
+    executionMode: 'direct', // server executes via PowerShell in-process
   });
 });
 

@@ -373,4 +373,4 @@ class ActionBridge {
   }
 }
 
-module.exports = { ActionBridge };
+module.exports = { ActionBridge, stepsToPS, runPowerShell };
