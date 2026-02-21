@@ -2,7 +2,7 @@
  * System Tray — Creates and manages the tray icon + context menu.
  */
 
-const { Tray, Menu, nativeImage, Notification } = require('electron');
+const { Tray, Menu, nativeImage, Notification, shell, app } = require('electron');
 const path = require('path');
 
 class TrayManager {
@@ -12,6 +12,9 @@ class TrayManager {
     this.httpsPort = null;
     this.pythonStatus = 'checking...';
     this.callbacks = {};
+    this.updateState = 'idle';        // idle | available | downloading | ready | error | up-to-date
+    this.updateVersion = null;
+    this.updateProgress = 0;
   }
 
   /**
@@ -21,6 +24,12 @@ class TrayManager {
    * @param {Function} callbacks.onOpenSettings
    * @param {Function} callbacks.onSetupPython
    * @param {Function} callbacks.onQuit
+   * @param {Function} callbacks.onCheckForUpdates
+   * @param {Function} callbacks.onDownloadUpdate
+   * @param {Function} callbacks.onInstallUpdate
+   * @param {Function} callbacks.onOpenWebApp
+   * @param {Function} callbacks.onOpenResources
+   * @param {Function} callbacks.onToggleStartAtLogin
    */
   create(callbacks = {}) {
     this.callbacks = callbacks;
@@ -41,6 +50,12 @@ class TrayManager {
 
     this.tray = new Tray(icon);
     this.tray.setToolTip('CSimple Addon — Starting...');
+
+    // Double-click tray icon opens the web app
+    this.tray.on('double-click', () => {
+      this.callbacks.onOpenWebApp?.();
+    });
+
     this._updateMenu();
 
     return this.tray;
@@ -65,11 +80,24 @@ class TrayManager {
   }
 
   /**
+   * Update the update status display and refresh the menu.
+   * @param {'idle'|'available'|'downloading'|'ready'|'error'|'up-to-date'} state
+   * @param {string} [version]
+   * @param {number} [progress]
+   */
+  setUpdateStatus(state, version, progress) {
+    this.updateState = state;
+    if (version) this.updateVersion = version;
+    if (progress !== undefined) this.updateProgress = progress;
+    this._updateMenu();
+  }
+
+  /**
    * Show a native notification.
    */
   notify(title, body) {
     if (Notification.isSupported()) {
-      new Notification({ title, body, silent: true }).show();
+      new Notification({ title, body, silent: false }).show();
     }
   }
 
@@ -87,13 +115,32 @@ class TrayManager {
       ? `HTTPS: https://localhost:${this.httpsPort}`
       : 'HTTPS: Disabled';
 
+    // Determine whether the app is set to launch at login
+    const loginSettings = app.getLoginItemSettings();
+    const startAtLogin = loginSettings.openAtLogin;
+
     const menu = Menu.buildFromTemplate([
       { label: 'CSimple Addon', enabled: false },
       { type: 'separator' },
+
+      // ── Quick Actions ──
+      {
+        label: 'Open Web App',
+        click: () => this.callbacks.onOpenWebApp?.(),
+      },
+      {
+        label: 'Open Resources Folder',
+        click: () => this.callbacks.onOpenResources?.(),
+      },
+      { type: 'separator' },
+
+      // ── Status ──
       { label: serverLabel, enabled: false },
       { label: httpsLabel, enabled: false },
       { label: `Python: ${this.pythonStatus}`, enabled: false },
       { type: 'separator' },
+
+      // ── Server / Python ──
       {
         label: 'Restart Server',
         click: () => this.callbacks.onRestartServer?.(),
@@ -103,13 +150,59 @@ class TrayManager {
         click: () => this.callbacks.onSetupPython?.(),
       },
       { type: 'separator' },
+
+      // ── Updates ──
+      ...this._buildUpdateMenuItems(),
+      { type: 'separator' },
+
+      // ── Settings ──
       {
-        label: 'Quit',
+        label: 'Start at Login',
+        type: 'checkbox',
+        checked: startAtLogin,
+        click: (menuItem) => this.callbacks.onToggleStartAtLogin?.(menuItem.checked),
+      },
+      { type: 'separator' },
+
+      // ── Quit ──
+      {
+        label: 'Quit CSimple Addon',
         click: () => this.callbacks.onQuit?.(),
       },
     ]);
 
     this.tray.setContextMenu(menu);
+  }
+
+  /**
+   * Build the update-related menu items based on the current update state.
+   */
+  _buildUpdateMenuItems() {
+    switch (this.updateState) {
+      case 'downloading':
+        return [
+          { label: `Downloading v${this.updateVersion}... ${this.updateProgress}%`, enabled: false },
+        ];
+      case 'ready':
+        return [
+          { label: `v${this.updateVersion} ready — installs on quit`, enabled: false },
+          { label: 'Restart && Update Now', click: () => this.callbacks.onInstallUpdate?.() },
+        ];
+      case 'error':
+        return [
+          { label: 'Update check failed', enabled: false },
+          { label: 'Retry Update Check', click: () => this.callbacks.onCheckForUpdates?.() },
+        ];
+      case 'up-to-date':
+        return [
+          { label: 'App is up to date', enabled: false },
+          { label: 'Check for Updates', click: () => this.callbacks.onCheckForUpdates?.() },
+        ];
+      default: // idle
+        return [
+          { label: 'Check for Updates', click: () => this.callbacks.onCheckForUpdates?.() },
+        ];
+    }
   }
 
   /**

@@ -5,13 +5,14 @@
  * No main window — tray-only app with status menu.
  */
 
-const { app, BrowserWindow, Notification } = require('electron');
+const { app, BrowserWindow, Notification, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { TrayManager } = require('./tray');
 const { PythonManager } = require('./python-manager');
 const { ActionBridge } = require('./server/action-bridge');
+const { UpdateManager } = require('./auto-updater');
 
 // Prevent multiple instances
 const gotLock = app.requestSingleInstanceLock();
@@ -27,10 +28,12 @@ let pythonManager = null;
 let server = null;
 let settingsWindow = null;
 let actionBridge = null;
+let updateManager = null;
 
 // ─── Resource Paths ─────────────────────────────────────────────────────────────
 
 const RESOURCES_PATH = path.join(os.homedir(), 'Documents', 'CSimple', 'Resources');
+const WEBAPP_URL = 'https://sthopwood.com/net';
 const SCRIPTS_PATH = app.isPackaged
   ? path.join(process.resourcesPath, 'scripts')
   : path.join(__dirname, 'scripts');
@@ -170,6 +173,8 @@ app.on('ready', async () => {
   // 2. Create system tray
   trayManager = new TrayManager();
   trayManager.create({
+    onOpenWebApp: () => shell.openExternal(WEBAPP_URL),
+    onOpenResources: () => shell.openPath(RESOURCES_PATH),
     onRestartServer: () => restartExpressServer(),
     onSetupPython: () => {
       if (pythonManager) {
@@ -179,7 +184,33 @@ app.on('ready', async () => {
     onQuit: () => {
       app.quit();
     },
+    onCheckForUpdates: () => updateManager?.checkForUpdates(),
+    onInstallUpdate: () => updateManager?.quitAndInstall(),
+    onToggleStartAtLogin: (enabled) => {
+      app.setLoginItemSettings({
+        openAtLogin: enabled,
+        path: app.getPath('exe'),
+      });
+      console.log(`[Main] Start at login: ${enabled}`);
+    },
   });
+
+  // Enable start-at-login by default on first run (use a marker file since
+  // wasOpenedAtLogin is macOS-only and unreliable on Windows)
+  const firstRunMarker = path.join(app.getPath('userData'), '.start-at-login-set');
+  if (!fs.existsSync(firstRunMarker)) {
+    app.setLoginItemSettings({
+      openAtLogin: true,
+      path: app.getPath('exe'),
+    });
+    fs.writeFileSync(firstRunMarker, new Date().toISOString(), 'utf-8');
+    console.log('[Main] Enabled start-at-login (first run)');
+  }
+
+  // 2b. Initialize auto-updater
+  updateManager = new UpdateManager();
+  updateManager.init(trayManager);
+  updateManager.startPeriodicChecks();
 
   // 3. Start Express server
   try {
@@ -199,6 +230,11 @@ app.on('window-all-closed', (e) => {
 
 app.on('before-quit', async () => {
   console.log('[Main] Shutting down...');
+
+  // Stop update checks
+  if (updateManager) {
+    updateManager.stopPeriodicChecks();
+  }
 
   // Stop the built-in action bridge
   if (actionBridge) {

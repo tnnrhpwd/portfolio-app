@@ -3,26 +3,9 @@ const crypto = require('crypto');
 const { 
     initializeLLMClients, 
     checkApiUsage, 
-    createCompletion,
     createCompletionWithKey,
     trackCompletion 
 } = require('../utils/llmProviders.js');
-
-let openaiClient; // OpenAI client for backwards compatibility
-
-/**
- * Initialize OpenAI client
- */
-async function initializeOpenAI() {
-    try {
-        const openai = await import('openai');
-        openaiClient = new openai.OpenAI({ apiKey: process.env.OPENAI_KEY });
-        console.log('OpenAI initialized successfully');
-    } catch (error) {
-        console.error('Error initializing OpenAI:', error);
-        throw error;
-    }
-}
 
 /**
  * Parse compression request data
@@ -40,12 +23,14 @@ function parseCompressionRequest(req) {
     const contextInput = parsedJSON.text;
     console.log('Context input:', contextInput);
 
-    // Get LLM provider and model from request (with defaults)
-    const provider = req.body.provider || 'openai';
-    const defaultModel = provider === 'xai' ? 'grok-4-fast-reasoning'
-                       : provider === 'github' ? 'gpt-4o-mini'
-                       : 'gpt-4o-mini';
-    const model = req.body.model || defaultModel;
+    // Get LLM provider and model from request (GitHub Models only)
+    const provider = req.body.provider || 'github';
+    if (provider !== 'github') {
+        const error = new Error(`Provider "${provider}" is not supported. Only GitHub Models is available.`);
+        error.statusCode = 400;
+        throw error;
+    }
+    const model = req.body.model || 'gpt-4o-mini';
     
     console.log(`Using ${provider} with model ${model}`);
 
@@ -148,12 +133,13 @@ async function callLLMApi(provider, model, userInput, githubToken = null) {
         messages = [{ role: 'user', content: userInput }];
     }
     
-    const response = provider === 'github' && githubToken
-        ? await createCompletionWithKey('github', model, messages, { maxTokens: 1000, temperature: 0.7 }, githubToken)
-        : await createCompletion(provider, model, messages, {
-            maxTokens: 1000,
-            temperature: 0.7
-        });
+    if (!githubToken) {
+        const error = new Error('GitHub token not configured. Add your GitHub PAT in CSimple → Settings → Advanced → GitHub Personal Access Token.');
+        error.statusCode = 401;
+        throw error;
+    }
+
+    const response = await createCompletionWithKey('github', model, messages, { maxTokens: 1000, temperature: 0.7 }, githubToken);
     
     console.log(`🤖 ${provider.toUpperCase()} API call completed in ${Date.now() - startLLM}ms`);
     console.log('LLM response:', JSON.stringify(response));
@@ -297,14 +283,13 @@ async function processCompressionRequest(req, dynamodb) {
         return result;
     } else {
         console.log(`💾 Total operation completed in ${Date.now() - startValidation}ms`);
-        const error = new Error('No compressed data found in the OpenAI response');
+        const error = new Error('No response content returned from GitHub Models API.');
         error.statusCode = 500;
         throw error;
     }
 }
 
 module.exports = {
-    initializeOpenAI,
     parseCompressionRequest,
     validateApiUsage,
     callLLMApi,
