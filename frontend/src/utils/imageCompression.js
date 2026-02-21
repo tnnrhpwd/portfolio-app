@@ -71,7 +71,7 @@ export const compressImageCanvas = (file, maxSizeKB = 280) => {
 export const compressImageAPI = async (file) => {
   // This is an example using CompressAPI.org
   // You would need to sign up and get an API key
-  const API_KEY = process.env.REACT_APP_COMPRESS_API_KEY;
+  const API_KEY = import.meta.env.VITE_COMPRESS_API_KEY;
   
   if (!API_KEY) {
     console.warn('No compression API key found, falling back to canvas compression');

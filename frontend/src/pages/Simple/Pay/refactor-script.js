@@ -29,7 +29,7 @@ import './CheckoutForm.css';`;
 
 // Keep Stripe initialization (lines 13-21 of original, but update)
 const stripeInit = `
-const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLIC_KEY).catch(err => {
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY).catch(err => {
   console.error('Failed to load Stripe:', err);
   return null;
 });`;

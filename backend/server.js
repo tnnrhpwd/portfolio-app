@@ -126,27 +126,16 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Handle webpack hot-update files in development (ignore them silently)
-if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV !== 'production') {
-  app.use('*.hot-update.json', (req, res) => {
-    res.status(404).end(); // Return empty 404 without logging
-  });
-  
-  app.use('*.hot-update.js', (req, res) => {
-    res.status(404).end(); // Return empty 404 without logging
-  });
-}
+// Silently handle common browser requests that aren't real API routes
+app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 // Handle 404 for undefined routes
 app.use('*', (req, res) => {
-  // Don't log webpack hot-update requests as errors
-  if (!req.originalUrl.includes('.hot-update.')) {
-    logger.warn(`404 - Route not found: ${req.originalUrl}`, {
-      method: req.method,
-      ip: req.ip,
-      userAgent: req.get('User-Agent')
-    });
-  }
+  logger.warn(`404 - Route not found: ${req.originalUrl}`, {
+    method: req.method,
+    ip: req.ip,
+    userAgent: req.get('User-Agent')
+  });
   
   res.status(404).json({
     error: 'Route not found',
