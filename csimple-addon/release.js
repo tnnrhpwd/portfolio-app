@@ -140,10 +140,10 @@ function main() {
 ✅ Build #${newBuild} released!  (v${newVersion})
 
   Tag:      ${tag}
-  CI:       https://github.com/tnnrhpwd/portfolio-app/actions
-  Release:  https://github.com/tnnrhpwd/C-Simple/releases  (once CI completes)
+  CI:       https://github.com/tnnrhpwd/portfolio-app/actions/workflows/build-addon.yml
+  Release:  https://github.com/tnnrhpwd/C-Simple/releases  (once CI publishes)
 
-  GitHub Actions will build the installer and publish it.
+  GitHub Actions will build the installer and publish it to the C-Simple repo.
   Running addon installs will pick it up automatically.
 `);
 }

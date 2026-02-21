@@ -1,0 +1,64 @@
+name: Build & Release CSimple Addon
+
+on:
+  push:
+    tags:
+      - 'addon-v*' # Trigger on tags like addon-v1.0.4
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish to GitHub Releases'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        working-directory: csimple-addon
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: csimple-addon/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # electron-builder reads the "publish" config in package.json which
+      # points to tnnrhpwd/C-Simple.  Passing --publish always makes it
+      # create a GitHub Release on that repo using GH_TOKEN.
+      - name: Build & Publish to C-Simple repo
+        if: startsWith(github.ref, 'refs/tags/addon-v') || github.event.inputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.CSIMPLE_RELEASE_TOKEN }}
+        run: npx electron-builder --win --publish always
+
+      # When triggered manually without publish, just build (no release)
+      - name: Build only (no publish)
+        if: "!startsWith(github.ref, 'refs/tags/addon-v') && github.event.inputs.publish != 'true'"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: csimple-addon-installer
+          path: csimple-addon/dist/*.exe
+          retention-days: 30
