@@ -174,7 +174,7 @@ async function getUserStorageUsage(userId) {
             totalStorage,
             totalStorageFormatted: formatBytes(totalStorage),
             storageLimit,
-            storageLimitFormatted: storageLimit ? formatBytes(storageLimit) : 'Unlimited',
+            storageLimitFormatted: storageLimit ? formatBytes(storageLimit) : 'N/A',
             storageUsagePercent,
             itemCount,
             fileCount,
@@ -206,7 +206,7 @@ async function getUserStorageUsage(userId) {
  */
 function formatBytes(bytes) {
     if (bytes === 0) return '0 B';
-    if (bytes === null || bytes === undefined) return 'Unlimited';
+    if (bytes === null || bytes === undefined) return 'N/A';
     
     const k = 1024;
     const decimals = 2;
@@ -228,18 +228,10 @@ async function checkStorageCapacity(userId, additionalSize) {
         const currentUsage = await getUserStorageUsage(userId);
         const newTotalSize = currentUsage.totalStorage + additionalSize;
         
-        if (!currentUsage.storageLimit) {
-            // Simple/Premium users have unlimited storage
-            return {
-                canStore: true,
-                currentUsage: currentUsage.totalStorage,
-                newSize: newTotalSize,
-                reason: 'Simple membership - unlimited storage'
-            };
-        }
-        
-        const canStore = newTotalSize <= currentUsage.storageLimit;
-        const availableSpace = currentUsage.storageLimit - currentUsage.totalStorage;
+        const canStore = !currentUsage.storageLimit || newTotalSize <= currentUsage.storageLimit;
+        const availableSpace = currentUsage.storageLimit 
+            ? currentUsage.storageLimit - currentUsage.totalStorage 
+            : null;
         
         return {
             canStore,

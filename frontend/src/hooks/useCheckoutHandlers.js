@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { 
   postPaymentMethod, 
-  subscribeCustomer 
+  subscribeCustomer,
+  getPaymentMethods 
 } from '../features/data/dataSlice';
 import { parseErrorMessage } from '../utils/checkoutUtils';
 
@@ -69,6 +70,13 @@ export const useCheckoutHandlers = ({
       if (setupIntent && setupIntent.payment_method) {
         const paymentMethodId = setupIntent.payment_method;
         await dispatch(postPaymentMethod({ paymentMethodId })).unwrap();
+        
+        // Refetch payment methods so the list is up to date
+        await dispatch(getPaymentMethods()).unwrap();
+        
+        // Auto-select the newly added payment method
+        setSelectedPaymentMethod(paymentMethodId);
+        
         setMessage('Payment method added successfully!');
         setShowPaymentForm(false);
         
@@ -85,7 +93,7 @@ export const useCheckoutHandlers = ({
     } finally {
       setLoading(false);
     }
-  }, [stripe, elements, dispatch, setError, setLoading, setMessage, setShowPaymentForm, checkoutContainerRef]);
+  }, [stripe, elements, dispatch, setError, setLoading, setMessage, setShowPaymentForm, setSelectedPaymentMethod, checkoutContainerRef]);
 
   // Handle subscription completion
   const handleSubscribe = useCallback(async () => {

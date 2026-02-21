@@ -55,7 +55,7 @@ export const CREDITS = Object.freeze({
 export const STORAGE_DISPLAY = Object.freeze({
   [PLAN_IDS.FREE]:   '100 MB',
   [PLAN_IDS.PRO]:    '5 GB',
-  [PLAN_IDS.SIMPLE]: 'Unlimited',
+  [PLAN_IDS.SIMPLE]: '50 GB',
 });
 
 // ──────────────────────────────────────────────
@@ -64,14 +64,14 @@ export const STORAGE_DISPLAY = Object.freeze({
 export const QUOTAS = Object.freeze({
   [PLAN_IDS.FREE]:   '50 commands/day',
   [PLAN_IDS.PRO]:    '500 commands/day',
-  [PLAN_IDS.SIMPLE]: 'Unlimited',
+  [PLAN_IDS.SIMPLE]: '5,000 commands/day',
 });
 
 /** Short quota descriptions used in comparison strings */
 export const QUOTA_SHORT = Object.freeze({
   [PLAN_IDS.FREE]:   '50 cmds/day',
   [PLAN_IDS.PRO]:    '500 cmds/day',
-  [PLAN_IDS.SIMPLE]: 'Unlimited addon',
+  [PLAN_IDS.SIMPLE]: '5,000 cmds/day',
 });
 
 // ──────────────────────────────────────────────
@@ -93,9 +93,9 @@ export const FEATURES = Object.freeze({
   ],
   [PLAN_IDS.SIMPLE]: [
     '✅ Everything in Pro',
-    '♾️ Unlimited addon commands',
+    '♾️ 5,000 addon commands per day',
     '📱 Phone → PC remote control',
-    '💾 Unlimited cloud storage',
+    '💾 50 GB cloud storage',
     '⭐ Priority support',
   ],
 });
@@ -106,7 +106,7 @@ export const FEATURES = Object.freeze({
 export const DESCRIPTIONS = Object.freeze({
   [PLAN_IDS.FREE]:   'Try the addon free for 14 days',
   [PLAN_IDS.PRO]:    'More addon power & storage for daily use',
-  [PLAN_IDS.SIMPLE]: 'Unlimited addon with full PC automation',
+  [PLAN_IDS.SIMPLE]: 'Full PC automation with priority support',
 });
 
 // ──────────────────────────────────────────────

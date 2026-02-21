@@ -108,7 +108,7 @@ function Profile() {
               const membershipLimit = isProTier(usageData.membership) ? CREDITS[PLAN_IDS.PRO].monthlyLimit : 0;
               
               if (availableCredits <= 0.05 && membershipLimit > 0) {
-                toast.warning('🚨 API credits nearly depleted! Consider upgrading to Simple for unlimited usage.', {
+                toast.warning('🚨 API credits nearly depleted! Consider upgrading to Simple for higher credit limits.', {
                   position: 'top-right',
                   autoClose: 8000,
                   hideProgressBar: false,
@@ -390,7 +390,7 @@ function Profile() {
                             <span className="warning-icon">🚨</span>
                             <div className="warning-content">
                               <strong>Usage Frozen</strong>
-                              <p>Your Pro membership has no remaining credits. API usage is frozen until next month or upgrade to Simple for unlimited usage.</p>
+                              <p>Your Pro membership has no remaining credits. API usage is frozen until next month or upgrade to Simple for higher credit limits.</p>
                               <button 
                                 className="upgrade-premium-button"
                                 onClick={() => navigate('/pay?plan=simple')}
@@ -418,7 +418,7 @@ function Profile() {
                               <strong>Credits Running Low</strong>
                               <p>You have ${userUsage.availableCredits.toFixed(4)} remaining. 
                                 {isProTier(userUsage.membership)
-                                  ? ' Consider upgrading to Simple for unlimited usage.' 
+                                  ? ' Consider upgrading to Simple for higher credit limits.' 
                                   : ' Consider increasing your Simple limit.'}
                               </p>
                             </div>
@@ -686,7 +686,7 @@ function Profile() {
                           <span className="upgrade-icon">💾</span>
                           <div className="upgrade-text">
                             <strong>Need More Storage?</strong>
-                            <p>Simple membership includes unlimited storage for all your data and files!</p>
+                            <p>Simple membership includes 50 GB of storage for all your data and files!</p>
                           </div>
                         </div>
                         <button 

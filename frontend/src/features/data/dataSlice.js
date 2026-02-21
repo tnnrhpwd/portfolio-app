@@ -64,6 +64,11 @@ const initialState = {
   userStorageIsLoading: false,
   userStorageIsError: false,
   userStorageMessage: '',
+  paymentMethods: [],
+  paymentMethodsIsLoading: false,
+  paymentMethodsIsError: false,
+  paymentMethodsMessage: '',
+  currentSubscription: null,
 };
 
 // Create slice
@@ -347,6 +352,37 @@ export const dataSlice = createSlice({
       .addCase(logout.fulfilled, (state) => {
         state.user = null;
         state.operation = 'logout';
+      })
+      // Payment methods
+      .addCase(getPaymentMethods.pending, (state) => {
+        state.paymentMethodsIsLoading = true;
+        state.paymentMethodsIsError = false;
+        state.paymentMethodsMessage = '';
+      })
+      .addCase(getPaymentMethods.fulfilled, (state, action) => {
+        state.paymentMethodsIsLoading = false;
+        state.paymentMethods = action.payload?.paymentMethods || action.payload || [];
+      })
+      .addCase(getPaymentMethods.rejected, (state, action) => {
+        state.paymentMethodsIsLoading = false;
+        state.paymentMethodsIsError = true;
+        state.paymentMethodsMessage = action.payload;
+      })
+      // Post payment method (attach)
+      .addCase(postPaymentMethod.fulfilled, (state, action) => {
+        // If the response contains a payment method, we'll refetch the list
+        // The response may be a setup intent (no paymentMethodId) or an attach confirmation
+      })
+      // Delete payment method
+      .addCase(deletePaymentMethod.fulfilled, (state, action) => {
+        const deletedId = action.meta?.arg;
+        if (deletedId) {
+          state.paymentMethods = state.paymentMethods.filter(m => m.id !== deletedId);
+        }
+      })
+      // Subscribe customer
+      .addCase(subscribeCustomer.fulfilled, (state, action) => {
+        state.currentSubscription = action.payload?.subscription || action.payload;
       });
   },
 });

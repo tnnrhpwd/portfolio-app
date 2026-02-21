@@ -81,16 +81,16 @@ const CREDITS = Object.freeze({
 const STORAGE_LIMITS = Object.freeze({
   [PLAN_NAMES[PLAN_IDS.FREE]]:   100 * 1024 * 1024,           // 100 MB
   [PLAN_NAMES[PLAN_IDS.PRO]]:    5 * 1024 * 1024 * 1024,      // 5 GB
-  [PLAN_NAMES[PLAN_IDS.SIMPLE]]: null,                         // Unlimited
+  [PLAN_NAMES[PLAN_IDS.SIMPLE]]: 50 * 1024 * 1024 * 1024,     // 50 GB
   // backward compat keys that may exist in DB/lookups
   Flex:    5 * 1024 * 1024 * 1024,
-  Premium: null,
+  Premium: 50 * 1024 * 1024 * 1024,
 });
 
 const STORAGE_DISPLAY = Object.freeze({
   [PLAN_IDS.FREE]:   '100 MB',
   [PLAN_IDS.PRO]:    '5 GB',
-  [PLAN_IDS.SIMPLE]: 'Unlimited',
+  [PLAN_IDS.SIMPLE]: '50 GB',
 });
 
 // ──────────────────────────────────────────────
@@ -99,7 +99,7 @@ const STORAGE_DISPLAY = Object.freeze({
 const QUOTAS = Object.freeze({
   [PLAN_IDS.FREE]:   '50 commands/day',
   [PLAN_IDS.PRO]:    '500 commands/day',
-  [PLAN_IDS.SIMPLE]: 'Unlimited',
+  [PLAN_IDS.SIMPLE]: '5,000 commands/day',
 });
 
 // ──────────────────────────────────────────────
@@ -121,9 +121,9 @@ const FEATURES = Object.freeze({
   ],
   [PLAN_IDS.SIMPLE]: [
     '✅ Everything in Pro',
-    '♾️ Unlimited addon commands',
+    '♾️ 5,000 addon commands per day',
     '📱 Phone → PC remote control',
-    '💾 Unlimited cloud storage',
+    '💾 50 GB cloud storage',
     '⭐ Priority support',
   ],
 });
@@ -141,9 +141,9 @@ const FEATURES_PLAIN = Object.freeze({
     'Email support',
   ],
   [PLAN_IDS.SIMPLE]: [
-    'Unlimited addon commands',
+    '5,000 addon commands per day',
     'Phone → PC remote control',
-    'Unlimited cloud storage',
+    '50 GB cloud storage',
     'Priority support',
   ],
 });
@@ -154,7 +154,7 @@ const FEATURES_PLAIN = Object.freeze({
 const DESCRIPTIONS = Object.freeze({
   [PLAN_IDS.FREE]:   'Try the addon free for 14 days',
   [PLAN_IDS.PRO]:    'More addon power & storage for daily use',
-  [PLAN_IDS.SIMPLE]: 'Unlimited addon with full PC automation',
+  [PLAN_IDS.SIMPLE]: 'Full PC automation with priority support',
 });
 
 // ──────────────────────────────────────────────

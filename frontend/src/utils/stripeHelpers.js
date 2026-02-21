@@ -40,7 +40,7 @@ export const getPlanDisplayName = (selectedPlan, membershipPricing, customPrice,
   }
   
   if (selectedPlan === PLAN_IDS.SIMPLE) {
-    return `${PLAN_NAMES[PLAN_IDS.SIMPLE]} (Unlimited addon)`;
+    return `${PLAN_NAMES[PLAN_IDS.SIMPLE]} (Full PC automation)`;
   } else if (selectedPlan === PLAN_IDS.PRO) {
     return PLAN_NAMES[PLAN_IDS.PRO];
   } else {
