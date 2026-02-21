@@ -130,6 +130,17 @@ function Sidebar({
         </div>
 
         <div className="sidebar__footer">
+          {isAddonConnected && !showAddonPrompt && (
+            <div className="sidebar__addon-connected">
+              <span className="sidebar__addon-connected__icon">🧩</span>
+              <span className="sidebar__addon-connected__label">
+                Addon connected
+                {addonCurrentVersion && <span className="sidebar__addon-connected__version"> v{addonCurrentVersion}</span>}
+              </span>
+              <span className="sidebar__addon-connected__check">✓</span>
+            </div>
+          )}
+
           {showAddonPrompt && (
             <div className={`sidebar__addon-notice${addonPromptOutdated ? ' sidebar__addon-notice--update' : ''}`}>
               <span className="sidebar__addon-notice__icon">{addonPromptOutdated ? '⬆️' : '🧩'}</span>

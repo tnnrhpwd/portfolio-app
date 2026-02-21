@@ -434,6 +434,54 @@ export async function getActionBridgeStatus() {
   return res.json();
 }
 
+/**
+ * Run a diagnostic test against the local addon.
+ * Checks: health, settings read, bridge connection, models list.
+ * Returns { passed, checks: [{ name, ok, detail }] }
+ */
+export async function testAddonConnection() {
+  const checks = [];
+
+  // 1. Health / status
+  try {
+    const res = await addonFetch('/api/status');
+    const data = await res.json();
+    checks.push({ name: 'Server', ok: true, detail: `Up ${Math.round(data.uptime || 0)}s` });
+  } catch (e) {
+    checks.push({ name: 'Server', ok: false, detail: e.message });
+  }
+
+  // 2. Settings read/write
+  try {
+    const res = await addonFetch('/api/settings');
+    const data = await res.json();
+    checks.push({ name: 'Settings', ok: true, detail: `provider=${data.llmProvider || 'local'}` });
+  } catch (e) {
+    checks.push({ name: 'Settings', ok: false, detail: e.message });
+  }
+
+  // 3. Action bridge
+  try {
+    const res = await addonFetch('/api/actions/bridge-status');
+    const data = await res.json();
+    checks.push({ name: 'Action bridge', ok: data.connected, detail: data.connected ? 'Connected' : 'Not connected' });
+  } catch (e) {
+    checks.push({ name: 'Action bridge', ok: false, detail: e.message });
+  }
+
+  // 4. Models list
+  try {
+    const res = await addonFetch('/api/models');
+    const data = await res.json();
+    const count = data.models?.length ?? 0;
+    checks.push({ name: 'Models', ok: count > 0, detail: `${count} available` });
+  } catch (e) {
+    checks.push({ name: 'Models', ok: false, detail: e.message });
+  }
+
+  return { passed: checks.every(c => c.ok), checks };
+}
+
 // ─── Portfolio Backend API Methods ──────────────────────────────────────────
 
 /**
