@@ -2,6 +2,7 @@ const stripe = require('stripe')(process.env.STRIPE_KEY);
 const { DynamoDBDocumentClient, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const { sendEmail } = require('./emailService.js');
 const Data = require('../models/dataModel');
+const { STRIPE_PRODUCT_IDS, PLAN_TO_STRIPE_PRODUCT } = require('../constants/pricing');
 
 /**
  * Extract customer ID from user text
@@ -298,27 +299,12 @@ async function getCurrentMembershipType(customerId) {
     );
     
     if (activeSubscriptions.length > 0) {
-        const productIds = [];
         for (const sub of activeSubscriptions) {
-            if (sub.plan && sub.plan.product) {
-                productIds.push(sub.plan.product);
-            }
-        }
-        
-        for (const productId of productIds) {
-            try {
-                const product = await stripe.products.retrieve(productId);
-                console.log('Product found:', product.name);
-                
-                if (product.name === 'Simple Membership') {
-                    currentMembership = 'flex';
-                    break;
-                } else if (product.name === 'CSimple Membership') {
-                    currentMembership = 'premium';
-                    break;
-                }
-            } catch (productError) {
-                console.error(`Error fetching product ${productId}:`, productError.message);
+            const pid = sub.plan && sub.plan.product;
+            if (pid && STRIPE_PRODUCT_IDS[pid]) {
+                currentMembership = STRIPE_PRODUCT_IDS[pid];
+                console.log(`Product ${pid} matched plan: ${currentMembership}`);
+                break;
             }
         }
     }
@@ -382,76 +368,31 @@ async function cancelActiveSubscriptions(customerId) {
  * @returns {string} Price ID
  */
 async function getOrCreatePriceId(membershipType, customPrice = null) {
-    let productName;
-    if (membershipType === 'flex') {
-        productName = 'Simple Membership';
-    } else if (membershipType === 'premium') {
-        productName = 'CSimple Membership';
-    } else {
+    // Check env-var overrides first (no API call needed)
+    if (membershipType === 'pro' && process.env.STRIPE_PRO_PRICE_ID) {
+        return process.env.STRIPE_PRO_PRICE_ID;
+    } else if (membershipType === 'simple' && process.env.STRIPE_SIMPLE_PRICE_ID) {
+        return process.env.STRIPE_SIMPLE_PRICE_ID;
+    }
+
+    const productId = PLAN_TO_STRIPE_PRODUCT[membershipType];
+    if (!productId) {
         throw new Error('Invalid membership type');
     }
-    
-    if ((membershipType === 'premium' || membershipType === 'flex') && customPrice) {
-        console.log(`Creating custom price for ${membershipType}: $${customPrice}`);
-        
-        const products = await stripe.products.list({
-            active: true,
-            limit: 100
-        });
-        
-        let product = products.data.find(p => p.name === productName);
-        
-        if (!product) {
-            product = await stripe.products.create({
-                name: productName,
-                description: `${membershipType === 'premium' ? 'Premium' : 'Flex'} Membership with custom pricing`,
-            });
-            console.log(`Created ${membershipType} product: ${product.id}`);
-        }
-        
-        const customPriceAmount = Math.round(parseFloat(customPrice) * 100);
-        const billingInterval = membershipType === 'premium' ? 'year' : 'month';
-        const dynamicPrice = await stripe.prices.create({
-            product: product.id,
-            unit_amount: customPriceAmount,
-            currency: 'usd',
-            recurring: { interval: billingInterval },
-            nickname: `${membershipType === 'premium' ? 'Premium' : 'Flex'} Custom - $${customPrice}/${billingInterval}`
-        });
-        
-        console.log(`Created custom price ID: ${dynamicPrice.id} for $${customPrice}/${billingInterval}`);
-        return dynamicPrice.id;
-    } else {
-        // Use environment variables or look up existing price
-        if (membershipType === 'flex' && process.env.STRIPE_FLEX_PRICE_ID) {
-            return process.env.STRIPE_FLEX_PRICE_ID;
-        } else if (membershipType === 'premium' && process.env.STRIPE_PREMIUM_PRICE_ID) {
-            return process.env.STRIPE_PREMIUM_PRICE_ID;
-        }
-        
-        const products = await stripe.products.list({
-            active: true,
-            limit: 100
-        });
-        
-        const product = products.data.find(p => p.name === productName);
-        
-        if (!product) {
-            throw new Error(`Membership product "${productName}" not found in Stripe`);
-        }
-        
-        const prices = await stripe.prices.list({
-            product: product.id,
-            active: true
-        });
-        
-        if (prices.data.length === 0) {
-            throw new Error(`No pricing available for "${productName}"`);
-        }
-        
-        console.log(`Using existing price ID: ${prices.data[0].id} for ${productName}`);
-        return prices.data[0].id;
+
+    // Look up price directly by product ID (single API call instead of listing all products)
+    const prices = await stripe.prices.list({
+        product: productId,
+        active: true,
+        limit: 1
+    });
+
+    if (prices.data.length === 0) {
+        throw new Error(`No pricing available for product ${productId}`);
     }
+
+    console.log(`Using price ID: ${prices.data[0].id} for ${membershipType} (${productId})`);
+    return prices.data[0].id;
 }
 
 /**

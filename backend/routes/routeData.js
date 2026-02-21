@@ -33,7 +33,7 @@ const {
   postData, registerUser, loginUser,
   postHashData, compressData, createCustomer,
   postPaymentMethod, createInvoice, subscribeCustomer,
-  handleWebhook, setCustomLimit,
+  handleWebhook, setCustomLimit, processFileUpload,
   putData, putHashData, updateCustomer, putPaymentMethod,
   forgotPassword, resetPassword, forgotPasswordAuthenticated,
   extractOCR, updateWithOCR,
@@ -65,6 +65,14 @@ const {
   updateCSimpleBehavior,
   deleteCSimpleBehavior,
 } = require('../controllers/csimpleController');
+
+// Memory controller (Goals / Plans / Actions)
+const {
+  getMemory,
+  createMemory,
+  updateMemory,
+  deleteMemory,
+} = require('../controllers/memoryController');
 
 // Configure multer for memory storage (or disk storage if preferred)
 const storage = multer.memoryStorage();
@@ -203,6 +211,13 @@ router.get('/all/admin', protect, getAllData);
 // Data Compression
 router.post('/compress', protect, compressData);
 
+// File Processing (in-memory, no DB storage)
+const fileProcessUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB
+}).single('file');
+router.post('/process-file', protect, fileProcessUpload, processFileUpload);
+
 // Protected Data CRUD
 router.route('/')
   .get(protect, getHashData)
@@ -258,6 +273,18 @@ router.post('/subscribe-customer', protect, paymentLimiter, subscribeCustomer);
 router.post('/custom-limit', protect, paymentLimiter, setCustomLimit);
 
 
+
+// ============================================================================
+// MEMORY (Goals / Plans / Actions)
+// ============================================================================
+
+router.route('/memory')
+  .get(protect, getMemory)
+  .post(protect, createMemory);
+
+router.route('/memory/:id')
+  .put(protect, updateMemory)
+  .delete(protect, deleteMemory);
 
 // ============================================================================
 // CSIMPLE SETTINGS SYNC

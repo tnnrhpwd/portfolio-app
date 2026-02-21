@@ -15,7 +15,7 @@ const formatPrice = (priceInCents) => {
 };
 
 function Simple() {
-  const [selectedPlan, setSelectedPlan] = useState('premium');
+  const [selectedPlan, setSelectedPlan] = useState('simple');
   const dispatch = useDispatch();
   const navigate = useNavigate();
   
@@ -29,31 +29,15 @@ function Simple() {
 
   // Generate plans with dynamic pricing if available
   const getPlans = () => {
-    // If we have dynamic pricing data, use it but override with minimum values for flex/premium
     if (membershipPricing && membershipPricing.success && membershipPricing.data && membershipPricing.data.length > 0) {
       return membershipPricing.data.map(product => {
-        // Override pricing for flex and premium to show minimum values instead of Stripe prices
-        let displayPrice, displayPeriod, displayTagline, displayFeatures;
-        
-        if (product.name === 'Simple') {
-          displayPrice = '>$10';
-          displayFeatures = [
-            '🌐 Web-based platform access only',
-          ];
-        } else if (product.name === 'CSimple') {
-          displayPrice = '>$850';
-          displayFeatures = [
-            '🖥️ Includes Simple.NET desktop app installation',
-          ];
-        } else {
-          // For other products (like free tier), use original data
-          displayPrice = product.price ? formatPrice(product.price) : 'Usage-based';
-          displayPeriod = `per ${product.interval || 'month'}`;
-          displayTagline = product.description || '';
-          displayFeatures = (product.features || []).map(feature => 
-            typeof feature === 'string' ? feature.replace(/^[✓✔︎☑️✅•→▶▷◾◼️⬛⚫🔸🔹🔘•·‣⁃]\s*/, '').trim() : feature
-          );
-        }
+        // Use backend data directly — prices, features, descriptions all come from the API
+        const displayPrice = product.price ? formatPrice(product.price) : 'Free';
+        const displayPeriod = `per ${product.interval || 'month'}`;
+        const displayTagline = product.description || '';
+        const displayFeatures = (product.features || []).map(feature => 
+          typeof feature === 'string' ? feature : feature
+        );
         
         return {
           id: product.id,
@@ -185,10 +169,10 @@ function Simple() {
                 {plans && plans.length > 0 ? plans.map((plan, index) => (
                   <div 
                     key={plan.id}
-                    className={`pricing-card ${selectedPlan === plan.id ? 'selected' : ''} ${plan.id === 'premium' ? 'featured' : ''}`} 
+                    className={`pricing-card ${selectedPlan === plan.id ? 'selected' : ''} ${plan.id === 'simple' ? 'featured' : ''}`} 
                     onClick={() => setSelectedPlan(plan.id)}
                   >
-                    {plan.id === 'premium' && <div className='popular-badge'>Most Popular</div>}
+                    {plan.id === 'simple' && <div className='popular-badge'>Most Popular</div>}
                     <div className='plan-header'>
                       <h3>{plan.name}</h3>
                       {plan.originalPrice && (
@@ -202,7 +186,7 @@ function Simple() {
                     </ul>
                     <div className='plan-cta'>
                       <button 
-                        className={`cta-button ${plan.id === 'premium' ? 'primary' : ''}`}
+                        className={`cta-button ${plan.id === 'simple' ? 'primary' : ''}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleGetStarted(plan.id);

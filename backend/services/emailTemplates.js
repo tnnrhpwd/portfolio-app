@@ -1,6 +1,29 @@
 /**
  * Email templates for user subscription events
  */
+const { FEATURES_PLAIN, isSimpleTier, isProTier } = require('../constants/pricing');
+
+/**
+ * Get plain-text feature bullets for a plan (for emails).
+ * @param {string} plan - Plan name (e.g. 'Simple', 'Pro', 'Free', 'Premium', 'Flex')
+ * @returns {string[]} Array of feature strings
+ */
+function getPlanFeatures(plan) {
+  const lc = plan.toLowerCase();
+  if (isSimpleTier(plan) || lc === 'simple') return FEATURES_PLAIN.simple;
+  if (isProTier(plan) || lc === 'pro') return FEATURES_PLAIN.pro;
+  return FEATURES_PLAIN.free;
+}
+
+/** HTML <li> list from plan features */
+function featuresHtml(plan) {
+  return getPlanFeatures(plan).map(f => `<li>${f}</li>`).join('\n                ');
+}
+
+/** Plain-text bullet list from plan features */
+function featuresText(plan) {
+  return getPlanFeatures(plan).map(f => `- ${f}`).join('\n');
+}
 
 // Template for password reset
 const passwordResetTemplate = (data) => {
@@ -288,20 +311,9 @@ const subscriptionCreatedTemplate = (data) => {
           
           <div class="highlights">
             <h3>Your ${plan} Benefits:</h3>
-            ${plan.toLowerCase() === 'premium' ? `
             <ul>
-              <li>Unlimited access to all premium features</li>
-              <li>Priority customer support</li>
-              <li>Advanced analytics and reporting</li>
-              <li>Custom workflows and integrations</li>
+              ${featuresHtml(plan)}
             </ul>
-            ` : `
-            <ul>
-              <li>Access to core premium features</li>
-              <li>Standard customer support</li>
-              <li>Basic analytics</li>
-            </ul>
-            `}
           </div>
           
           <p>You can manage your subscription at any time through your account settings.</p>
@@ -325,9 +337,7 @@ const subscriptionCreatedTemplate = (data) => {
 Thank you for subscribing to our ${plan} Plan! Your subscription is now active.
 
 Your ${plan} Benefits:
-${plan.toLowerCase() === 'premium' 
-  ? '- Unlimited access to all premium features\n- Priority customer support\n- Advanced analytics and reporting\n- Custom workflows and integrations' 
-  : '- Access to core premium features\n- Standard customer support\n- Basic analytics'}
+${featuresText(plan)}
 
 You can manage your subscription at any time through your account settings.
 
@@ -443,37 +453,13 @@ const subscriptionUpdatedTemplate = (data) => {
             <div class="plan-column old-plan">
               <div class="plan-header">${oldPlan} Plan (Previous)</div>
               <ul>
-                ${oldPlan.toLowerCase() === 'premium' ? `
-                <li>Unlimited access to all premium features</li>
-                <li>Priority customer support</li>
-                <li>Advanced analytics and reporting</li>
-                <li>Custom workflows and integrations</li>
-                ` : oldPlan.toLowerCase() === 'flex' ? `
-                <li>Access to core premium features</li>
-                <li>Standard customer support</li>
-                <li>Basic analytics</li>
-                ` : `
-                <li>Basic features only</li>
-                <li>Community support</li>
-                `}
+                ${featuresHtml(oldPlan)}
               </ul>
             </div>
             <div class="plan-column new-plan">
               <div class="plan-header">${newPlan} Plan (New)</div>
               <ul>
-                ${newPlan.toLowerCase() === 'premium' ? `
-                <li>Unlimited access to all premium features</li>
-                <li>Priority customer support</li>
-                <li>Advanced analytics and reporting</li>
-                <li>Custom workflows and integrations</li>
-                ` : newPlan.toLowerCase() === 'flex' ? `
-                <li>Access to core premium features</li>
-                <li>Standard customer support</li>
-                <li>Basic analytics</li>
-                ` : `
-                <li>Basic features only</li>
-                <li>Community support</li>
-                `}
+                ${featuresHtml(newPlan)}
               </ul>
             </div>
           </div>
@@ -499,18 +485,10 @@ const subscriptionUpdatedTemplate = (data) => {
 Your subscription has been successfully updated from ${oldPlan} to ${newPlan}!
 
 Previous ${oldPlan} Plan:
-${oldPlan.toLowerCase() === 'premium' 
-  ? '- Unlimited access to all premium features\n- Priority customer support\n- Advanced analytics and reporting\n- Custom workflows and integrations' 
-  : oldPlan.toLowerCase() === 'flex'
-    ? '- Access to core premium features\n- Standard customer support\n- Basic analytics'
-    : '- Basic features only\n- Community support'}
+${featuresText(oldPlan)}
 
 New ${newPlan} Plan:
-${newPlan.toLowerCase() === 'premium' 
-  ? '- Unlimited access to all premium features\n- Priority customer support\n- Advanced analytics and reporting\n- Custom workflows and integrations' 
-  : newPlan.toLowerCase() === 'flex'
-    ? '- Access to core premium features\n- Standard customer support\n- Basic analytics'
-    : '- Basic features only\n- Community support'}
+${featuresText(newPlan)}
 
 Your billing will be updated accordingly. You can manage your subscription at any time through your account settings.
 

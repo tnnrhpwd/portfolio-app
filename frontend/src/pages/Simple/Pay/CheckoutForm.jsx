@@ -151,9 +151,6 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
                     }}
                     currentSubscription={state.currentSubscription}
                     membershipPricing={membershipPricing}
-                    customPrice={state.customPrice}
-                    onCustomPriceChange={handlers.handleCustomPriceChange}
-                    customPriceError={state.customPriceError}
                   />
                   <div className="step-navigation">
                     <button 
@@ -245,14 +242,6 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
                               </>
                             );
                           })()}
-                        </span>
-                      </div>
-                    )}
-                    {state.selectedPlan === 'premium' && (
-                      <div className="confirmation-item">
-                        <span className="label">Custom Price:</span>
-                        <span className="value custom-price-display">
-                          ${parseFloat(state.customPrice).toLocaleString()}/month
                         </span>
                       </div>
                     )}
@@ -356,11 +345,19 @@ function CheckoutForm({ paymentType, initialPlan }) {
   }
 
   if (error) {
+    const isRateLimited = error.toLowerCase().includes('too many') || error.includes('429') || error.toLowerCase().includes('wait');
     return (
       <div className="pay-error">
         <h3>Payment Setup Error</h3>
         <p>{error}</p>
-        <button onClick={() => window.location.reload()}>Try Again</button>
+        {isRateLimited ? (
+          <p style={{ fontSize: '0.9em', opacity: 0.7 }}>This usually resolves in a few minutes.</p>
+        ) : (
+          <button onClick={() => {
+            sessionStorage.removeItem('stripe_setup_intent');
+            window.location.reload();
+          }}>Try Again</button>
+        )}
       </div>
     );
   }

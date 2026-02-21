@@ -220,6 +220,13 @@
   margin-bottom: 24px;
 }
 
+.chat-window__empty-hint {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: -16px;
+  margin-bottom: 20px;
+}
+
 .chat-window__suggestions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -321,6 +328,126 @@
   max-width: 800px;
   margin: 0 auto;
   width: 100%;
+  position: relative;
+}
+
+.chat-window__input-form--drag-active {
+  outline: 2px dashed var(--accent);
+  outline-offset: -4px;
+  border-radius: var(--radius);
+  background: var(--accent-light, rgba(99, 102, 241, 0.06));
+}
+
+/* ─── Drop overlay ────────────────────────── */
+.chat-window__drop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(99, 102, 241, 0.08);
+  border-radius: var(--radius);
+  pointer-events: none;
+}
+
+.chat-window__drop-overlay-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.chat-window__drop-icon {
+  font-size: 22px;
+}
+
+/* ─── File chips ──────────────────────────── */
+.chat-window__file-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 2px 8px;
+}
+
+.chat-window__file-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 6px;
+  background: var(--surface, #f3f4f6);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+  max-width: 260px;
+  animation: chip-in 0.15s ease-out;
+}
+
+@keyframes chip-in {
+  from { transform: scale(0.9); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+.chat-window__file-chip-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.chat-window__file-chip-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.chat-window__file-chip-size {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.chat-window__file-chip-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.chat-window__file-chip-remove:hover {
+  background: var(--error, #ef4444);
+  color: #fff;
+}
+
+/* ─── Attach button ───────────────────────── */
+.chat-window__attach-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  transition: all var(--transition);
+}
+
+.chat-window__attach-btn:hover {
+  background: var(--hover);
+  color: var(--accent);
 }
 
 .chat-window__input-wrapper {

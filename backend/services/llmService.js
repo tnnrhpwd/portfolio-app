@@ -6,6 +6,7 @@ const {
     createCompletionWithKey,
     trackCompletion 
 } = require('../utils/llmProviders.js');
+const { getGoalsSummary, logAction } = require('./memoryService.js');
 
 /**
  * Parse compression request data
@@ -110,7 +111,7 @@ async function getUserGithubToken(dynamodb, userId) {
  * @param {string|null} githubToken - Per-user GitHub PAT (only for provider='github')
  * @returns {Object} LLM response
  */
-async function callLLMApi(provider, model, userInput, githubToken = null) {
+async function callLLMApi(provider, model, userInput, githubToken = null, goalsSummary = null) {
     await initializeLLMClients();
     
     console.log(`🤖 Starting ${provider.toUpperCase()} API call...`);
@@ -131,6 +132,14 @@ async function callLLMApi(provider, model, userInput, githubToken = null) {
         }
     } catch {
         messages = [{ role: 'user', content: userInput }];
+    }
+
+    // Inject goals as system-level context when available
+    if (goalsSummary) {
+        messages.unshift({
+            role: 'system',
+            content: `You are a helpful AI assistant. The following is context about the user's goals and priorities — use this to personalize your responses when relevant:\n\n${goalsSummary}`
+        });
     }
     
     if (!githubToken) {
@@ -265,8 +274,17 @@ async function processCompressionRequest(req, dynamodb) {
         console.log('[llmService] Using user\'s GitHub token for GitHub Models API');
     }
     
+    // Fetch user's active goals to inject as context
+    let goalsSummary = null;
+    try {
+        goalsSummary = await getGoalsSummary(req.user.id);
+        if (goalsSummary) console.log('[llmService] Injecting goals context for user');
+    } catch (err) {
+        console.warn('[llmService] Failed to fetch goals summary:', err.message);
+    }
+    
     // Call LLM API
-    const response = await callLLMApi(provider, model, userInput, githubToken);
+    const response = await callLLMApi(provider, model, userInput, githubToken, goalsSummary);
     
     // Track API usage
     await trackApiUsageAfterCall(req.user.id, provider, model, response, userInput);
@@ -278,6 +296,18 @@ async function processCompressionRequest(req, dynamodb) {
         
         // Save to DynamoDB
         const result = await saveCompressedData(dynamodb, req.user.id, userInput, compressedData, updateId);
+        
+        // Auto-log the action (fire-and-forget — don't block the response)
+        try {
+            // Extract the plain user message for the action log
+            let actionSummary;
+            try {
+                const parsed = JSON.parse(userInput);
+                actionSummary = parsed.message || userInput;
+            } catch { actionSummary = userInput; }
+            if (actionSummary.length > 120) actionSummary = actionSummary.substring(0, 117) + '...';
+            logAction(req.user.id, `Chat: ${actionSummary}`, 'net').catch(() => {});
+        } catch {}
         
         console.log(`💾 Total operation completed in ${Date.now() - startValidation}ms`);
         return result;

@@ -5,7 +5,7 @@ import { useSelector } from 'react-redux';
  * Custom hook to manage checkout form state
  */
 export const useCheckoutState = (initialPlan) => {
-  const { currentSubscription } = useSelector(state => state.subscription);
+  const currentSubscription = useSelector(state => state.data?.currentSubscription ?? null);
   const [selectedPlan, setSelectedPlan] = useState(initialPlan || 'free');
   const [customPrice, setCustomPrice] = useState(9999);
   const [customPriceError, setCustomPriceError] = useState('');
@@ -24,14 +24,10 @@ export const useCheckoutState = (initialPlan) => {
     }
   }, [initialPlan]);
 
-  // Set default custom price based on selected plan
+  // Set default custom price based on selected plan - no longer needed with fixed pricing
   useEffect(() => {
-    if (selectedPlan === 'premium' && customPrice !== 9999) {
-      setCustomPrice(9999);
-    } else if (selectedPlan === 'flex' && customPrice !== 10) {
-      setCustomPrice(10);
-    }
-  }, [selectedPlan, customPrice]);
+    // No custom pricing needed - plans use fixed Stripe prices
+  }, [selectedPlan]);
 
   return {
     selectedPlan,

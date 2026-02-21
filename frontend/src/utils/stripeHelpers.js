@@ -1,6 +1,8 @@
 /**
  * Payment Element configuration for Stripe
  */
+import { PLAN_IDS, PLAN_NAMES } from '../constants/pricing';
+
 export const getPaymentElementOptions = (userEmail) => ({
   layout: {
     type: 'tabs',
@@ -37,12 +39,12 @@ export const getPlanDisplayName = (selectedPlan, membershipPricing, customPrice,
     }
   }
   
-  if (selectedPlan === 'premium') {
-    return 'Premium (Usage-based with customizable max)';
-  } else if (selectedPlan === 'flex') {
-    return 'Simple (Usage-based, >$10/month)';
+  if (selectedPlan === PLAN_IDS.SIMPLE) {
+    return `${PLAN_NAMES[PLAN_IDS.SIMPLE]} (Unlimited addon)`;
+  } else if (selectedPlan === PLAN_IDS.PRO) {
+    return PLAN_NAMES[PLAN_IDS.PRO];
   } else {
-    return 'Free';
+    return PLAN_NAMES[PLAN_IDS.FREE];
   }
 };
 

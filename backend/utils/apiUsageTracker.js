@@ -1,6 +1,7 @@
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const stripe = require('stripe')(process.env.STRIPE_KEY);
+const { CREDITS, PLAN_IDS, isProTier, isSimpleTier, STRIPE_PRODUCT_IDS, STRIPE_PRODUCT_MAP } = require('../constants/pricing');
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -43,11 +44,11 @@ const API_COSTS = {
     }
 };
 
-// Membership limits (in USD) - Updated system
+// Membership limits (in USD) - Derived from centralized pricing constants
 const MEMBERSHIP_LIMITS = {
-    Free: 0,
-    Flex: 0.50, // Flex limit equals the cost of the membership ($0.50/month)
-    Premium: null // Premium has customizable limits set per user
+    Free: CREDITS[PLAN_IDS.FREE].monthlyLimit,
+    Pro: CREDITS[PLAN_IDS.PRO].monthlyLimit,
+    Simple: null // Simple has custom usage limits
 };
 
 /**
@@ -130,13 +131,15 @@ function performMonthlyReset(creditsData, membership, subscriptionActive = true)
     }
     
     switch (membership) {
-        case 'Flex':
-            // Flex gets topped off to $0.50 worth of credits
-            creditsData.availableCredits = Math.max(creditsData.availableCredits, 0.50);
-            creditsData.customLimit = 0.50;
+        case 'Pro':
+        case 'Flex': // backward compat
+            // Pro gets topped off to their monthly credit limit
+            creditsData.availableCredits = Math.max(creditsData.availableCredits, CREDITS[PLAN_IDS.PRO].monthlyLimit);
+            creditsData.customLimit = CREDITS[PLAN_IDS.PRO].monthlyLimit;
             break;
-        case 'Premium':
-            // Premium gets topped off to their custom limit
+        case 'Simple':
+        case 'Premium': // backward compat
+            // Simple gets topped off to their custom limit
             if (creditsData.customLimit) {
                 creditsData.availableCredits = Math.max(creditsData.availableCredits, creditsData.customLimit);
             }
@@ -490,7 +493,7 @@ async function getUserUsageStats(userId) {
 
         // Calculate limit based on membership type
         let limit;
-        if (userRank === 'Premium' && creditsData.customLimit) {
+        if (userRank === 'Simple' && creditsData.customLimit) {
             limit = creditsData.customLimit;
         } else {
             limit = MEMBERSHIP_LIMITS[userRank] || 0;
@@ -637,15 +640,15 @@ async function getUserRankFromStripe(userId) {
             return rank;
         }
         
-        // Determine rank from product name
-        const productName = validSubscription.plan.product.name;
-        console.log('getUserRankFromStripe: Product name:', productName, 'Status:', foundStatus);
+        // Determine rank from product ID (prefer ID match, fallback to name)
+        const product = validSubscription.plan.product;
+        const productName = product.name;
+        console.log('getUserRankFromStripe: Product:', product.id, productName, 'Status:', foundStatus);
         
         let rank = 'Free';
-        if (productName === 'Simple Membership') {
-            rank = 'Flex';
-        } else if (productName === 'CSimple Membership') {
-            rank = 'Premium';
+        const planId = STRIPE_PRODUCT_IDS[product.id] || STRIPE_PRODUCT_MAP[productName];
+        if (planId) {
+            rank = planId.charAt(0).toUpperCase() + planId.slice(1); // 'pro' -> 'Pro'
         }
 
         console.log(`getUserRankFromStripe: Returning ${rank} membership (status: ${foundStatus})`);
@@ -797,10 +800,10 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
             reason = 'Within credit limit';
         } else {
             // Different messaging based on membership type
-            if (userRank === 'Flex') {
-                reason = 'Insufficient credits. Flex membership usage is frozen until next month or upgrade to Premium.';
-            } else if (userRank === 'Premium') {
-                reason = 'Insufficient credits. Consider increasing your Premium limit to continue usage.';
+            if (isProTier(userRank)) {
+                reason = 'Insufficient credits. Pro membership usage is frozen until next month or upgrade to Simple.';
+            } else if (isSimpleTier(userRank)) {
+                reason = 'Insufficient credits. Consider increasing your Simple plan limit to continue usage.';
             } else {
                 reason = 'Insufficient credits';
             }
@@ -813,8 +816,8 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
             estimatedCost: estimatedCost,
             customLimit: creditsData.customLimit,
             membership: userRank,
-            isFrozen: !hasEnoughCredits && userRank === 'Flex',
-            canIncreaseLimit: !hasEnoughCredits && userRank === 'Premium'
+            isFrozen: !hasEnoughCredits && isProTier(userRank),
+            canIncreaseLimit: !hasEnoughCredits && isSimpleTier(userRank)
         };
     } catch (error) {
         console.error('Error checking if user can make API call:', error);

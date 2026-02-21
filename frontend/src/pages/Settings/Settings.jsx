@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { logout, resetDataSlice } from './../../features/data/dataSlice.js';
@@ -7,6 +7,32 @@ import { toast } from 'react-toastify';
 import './Settings.css';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
+
+const DEVICE_SETTINGS_KEY = 'csimple_device_settings';
+
+const GITHUB_MODELS = [
+  { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
+  { id: 'gpt-4o', name: 'GPT-4o' },
+  { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini' },
+  { id: 'gpt-4.1-nano', name: 'GPT-4.1 Nano' },
+];
+
+function getAISettings() {
+  try {
+    const saved = localStorage.getItem(DEVICE_SETTINGS_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch { /* ignore */ }
+  return {};
+}
+
+function saveAISettings(updates) {
+  try {
+    const current = getAISettings();
+    const merged = { ...current, ...updates };
+    localStorage.setItem(DEVICE_SETTINGS_KEY, JSON.stringify(merged));
+    return merged;
+  } catch { return updates; }
+}
 
 function Settings() {
   const navigate = useNavigate();
@@ -36,6 +62,31 @@ function Settings() {
   });
 
   const [isResetPasswordLoading, setIsResetPasswordLoading] = useState(false);
+
+  // AI Settings (synced with /net via localStorage)
+  const [aiSettings, setAiSettings] = useState(() => {
+    const stored = getAISettings();
+    return {
+      llmProvider: stored.llmProvider || 'portfolio',
+      githubModel: stored.githubModel || 'gpt-4o-mini',
+      portfolioModel: stored.portfolioModel || 'gpt-4o-mini',
+      githubToken: stored.githubToken || '',
+      defaultTemperature: stored.defaultTemperature ?? 0.7,
+      defaultMaxTokens: stored.defaultMaxTokens ?? 500,
+      sendWithEnter: stored.sendWithEnter ?? true,
+      showTimestamps: stored.showTimestamps ?? true,
+      enableMarkdown: stored.enableMarkdown ?? true,
+    };
+  });
+  const [showToken, setShowToken] = useState(false);
+
+  const updateAISetting = useCallback((key, value) => {
+    setAiSettings(prev => {
+      const updated = { ...prev, [key]: value };
+      saveAISettings({ [key]: value });
+      return updated;
+    });
+  }, []);
 
   useEffect(() => {
     if (!user) {
@@ -298,6 +349,158 @@ function Settings() {
                       Access AI chat powered by GitHub Models at <strong>/net</strong>. 
                       For local AI and desktop automation, install the <strong>CSimple addon</strong>.
                     </p>
+
+                    {/* LLM Provider */}
+                    <div className="planit-settings-grid">
+                      <div className="planit-settings-item">
+                        <label className="planit-settings-label">☁️ LLM Provider</label>
+                        <select
+                          value={aiSettings.llmProvider}
+                          onChange={e => updateAISetting('llmProvider', e.target.value)}
+                          className="planit-settings-input"
+                        >
+                          <option value="portfolio">☁️ Cloud (Portfolio)</option>
+                          <option value="github">🐙 GitHub Models</option>
+                          <option value="local">💻 Local (HuggingFace)</option>
+                        </select>
+                      </div>
+
+                      {/* Model selector */}
+                      <div className="planit-settings-item">
+                        <label className="planit-settings-label">
+                          🧠 Model
+                          {aiSettings.llmProvider === 'github' && <span className="planit-settings-provider-badge">🐙 GitHub</span>}
+                          {aiSettings.llmProvider === 'portfolio' && <span className="planit-settings-provider-badge">☁️ Cloud</span>}
+                          {aiSettings.llmProvider === 'local' && <span className="planit-settings-provider-badge">💻 Local</span>}
+                        </label>
+                        {aiSettings.llmProvider === 'github' ? (
+                          <select
+                            value={aiSettings.githubModel}
+                            onChange={e => updateAISetting('githubModel', e.target.value)}
+                            className="planit-settings-input"
+                          >
+                            {GITHUB_MODELS.map(m => (
+                              <option key={m.id} value={m.id}>{m.name}</option>
+                            ))}
+                          </select>
+                        ) : aiSettings.llmProvider === 'portfolio' ? (
+                          <select
+                            value={aiSettings.portfolioModel}
+                            onChange={e => updateAISetting('portfolioModel', e.target.value)}
+                            className="planit-settings-input"
+                          >
+                            <option value="gpt-4o-mini">GPT-4o Mini</option>
+                            <option value="gpt-4o">GPT-4o</option>
+                          </select>
+                        ) : (
+                          <p className="planit-settings-ai-note" style={{ margin: 0 }}>
+                            Local models require the CSimple addon to be running.
+                          </p>
+                        )}
+                      </div>
+
+                      {/* GitHub Token */}
+                      <div className="planit-settings-item planit-settings-item-full">
+                        <label className="planit-settings-label">🔑 GitHub Personal Access Token</label>
+                        <div className="planit-settings-token-group">
+                          <input
+                            type={showToken ? 'text' : 'password'}
+                            value={aiSettings.githubToken}
+                            onChange={e => updateAISetting('githubToken', e.target.value)}
+                            className="planit-settings-input"
+                            placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                            autoComplete="off"
+                          />
+                          <button
+                            type="button"
+                            className="planit-settings-token-toggle"
+                            onClick={() => setShowToken(v => !v)}
+                          >
+                            {showToken ? '🙈' : '👁️'}
+                          </button>
+                        </div>
+                        <span className="planit-settings-token-status">
+                          {aiSettings.githubToken
+                            ? (aiSettings.githubToken.startsWith('ghp_') ? '✅ Classic PAT detected' : '⚠️ Use a classic PAT (ghp_...)')
+                            : 'Required for GitHub Models provider'}
+                        </span>
+                        <p className="planit-settings-token-help">
+                          Create a <a href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer">classic PAT</a> (not fine-grained) — no scopes needed.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Chat Preferences */}
+                    <h4 className="planit-settings-subsection-title">💬 Chat Preferences</h4>
+                    <div className="planit-settings-grid">
+                      <div className="planit-settings-item">
+                        <label className="planit-settings-label">🌡️ Temperature</label>
+                        <div className="planit-settings-range-group">
+                          <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.1"
+                            value={aiSettings.defaultTemperature}
+                            onChange={e => updateAISetting('defaultTemperature', parseFloat(e.target.value))}
+                            className="planit-settings-range"
+                          />
+                          <span className="planit-settings-range-value">{aiSettings.defaultTemperature}</span>
+                        </div>
+                        <span className="planit-settings-hint">Lower = more focused, Higher = more creative</span>
+                      </div>
+
+                      <div className="planit-settings-item">
+                        <label className="planit-settings-label">📏 Max Tokens</label>
+                        <input
+                          type="number"
+                          min="50"
+                          max="4000"
+                          step="50"
+                          value={aiSettings.defaultMaxTokens}
+                          onChange={e => updateAISetting('defaultMaxTokens', parseInt(e.target.value) || 500)}
+                          className="planit-settings-input"
+                        />
+                        <span className="planit-settings-hint">Maximum response length (50-4000)</span>
+                      </div>
+
+                      <div className="planit-settings-item planit-settings-checkbox-item">
+                        <label className="planit-settings-checkbox-label">
+                          <input
+                            type="checkbox"
+                            checked={aiSettings.sendWithEnter}
+                            onChange={e => updateAISetting('sendWithEnter', e.target.checked)}
+                            className="planit-settings-checkbox"
+                          />
+                          <span>⏎ Send with Enter</span>
+                        </label>
+                      </div>
+
+                      <div className="planit-settings-item planit-settings-checkbox-item">
+                        <label className="planit-settings-checkbox-label">
+                          <input
+                            type="checkbox"
+                            checked={aiSettings.showTimestamps}
+                            onChange={e => updateAISetting('showTimestamps', e.target.checked)}
+                            className="planit-settings-checkbox"
+                          />
+                          <span>🕐 Show Timestamps</span>
+                        </label>
+                      </div>
+
+                      <div className="planit-settings-item planit-settings-checkbox-item">
+                        <label className="planit-settings-checkbox-label">
+                          <input
+                            type="checkbox"
+                            checked={aiSettings.enableMarkdown}
+                            onChange={e => updateAISetting('enableMarkdown', e.target.checked)}
+                            className="planit-settings-checkbox"
+                          />
+                          <span>📝 Enable Markdown Rendering</span>
+                        </label>
+                      </div>
+                    </div>
+
                     <div className="planit-settings-ai-actions">
                       <button 
                         type="button" 
@@ -316,7 +519,7 @@ function Settings() {
                       </a>
                     </div>
                     <p className="planit-settings-ai-note">
-                      GitHub token and model settings are configured in the /net sidebar when the addon is connected.
+                      These settings sync with the /net chat sidebar automatically.
                     </p>
                   </div>
                 </div>

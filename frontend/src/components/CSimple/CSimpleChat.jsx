@@ -148,7 +148,11 @@ function CSimpleChat({
   });
 
   const micDevices = useMicDevices();
-  const { isInactive, resume: resumeActivity } = useInactivity(3 * 60 * 1000);
+  // Shorter inactivity timeout when mic is active (saves resources),
+  // longer timeout when mic is off (tab is lightweight, don't nag).
+  const sttActive = settings.sttEnabled ?? false;
+  const inactivityTimeout = sttActive ? 3 * 60 * 1000 : 10 * 60 * 1000;
+  const { isInactive, resume: resumeActivity } = useInactivity(inactivityTimeout);
   const wasInactiveRef = useRef(false);
   const sendMessageRef = useRef(null);
 
@@ -454,8 +458,98 @@ function CSimpleChat({
     }
   }, [activeConversationId]);
 
-  const sendMessage = useCallback(async (text) => {
-    if (!text.trim() || isGenerating) return;
+  const sendMessage = useCallback(async (text, files = []) => {
+    const hasFiles = files && files.length > 0;
+    if (!text.trim() && !hasFiles) return;
+    if (isGenerating) return;
+
+    // ── File processing branch — entirely separate from chat ────────────────
+    if (hasFiles) {
+      const file = files[0]; // single file for now
+      const displayText = text.trim() || `Process ${file.name}`;
+
+      const userMessage = {
+        id: Date.now().toString(),
+        role: 'user',
+        content: displayText,
+        attachedFile: { name: file.name, size: file.size, type: file.type },
+        timestamp: new Date().toISOString(),
+      };
+
+      setConversations(prev => prev.map(c => {
+        if (c.id !== activeConversationId) return c;
+        const title = c.messages.length === 0 ? displayText.substring(0, 40) : c.title;
+        return { ...c, messages: [...c.messages, userMessage], title };
+      }));
+
+      setIsGenerating(true);
+
+      try {
+        // Build the API URL (same logic as dataService)
+        const devMode = process.env.NODE_ENV === 'development';
+        let apiBase;
+        if (devMode) {
+          apiBase = '/api/data/';
+        } else if (typeof window !== 'undefined') {
+          const h = window.location.hostname;
+          apiBase = (h === 'www.sthopwood.com' || h === 'sthopwood.com')
+            ? 'https://mern-plan-web-service.onrender.com/api/data/'
+            : '/api/data/';
+        } else {
+          apiBase = 'https://mern-plan-web-service.onrender.com/api/data/';
+        }
+
+        const token = user?.token;
+        if (!token) throw new Error('Please log in to process files.');
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('instruction', displayText);
+
+        const response = await fetch(`${apiBase}process-file`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'File processing failed');
+        }
+
+        const assistantMessage = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: `✅ ${result.description}`,
+          fileDownload: result.file, // { data, filename, mimeType, size }
+          timestamp: new Date().toISOString(),
+        };
+
+        setConversations(prev => prev.map(c => {
+          if (c.id !== activeConversationId) return c;
+          return { ...c, messages: [...c.messages, assistantMessage] };
+        }));
+      } catch (error) {
+        const errorMsg = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: `❌ ${error.message}`,
+          timestamp: new Date().toISOString(),
+          isError: true,
+        };
+        setConversations(prev => prev.map(c => {
+          if (c.id !== activeConversationId) return c;
+          return { ...c, messages: [...c.messages, errorMsg] };
+        }));
+      } finally {
+        setIsGenerating(false);
+      }
+      return;
+    }
+
+    // ── Normal text chat ────────────────────────────────────────────────────
+    if (!text.trim()) return;
 
     // ── Security Layer 0: client-side pre-screen before any network call ──────
     const secCheck = securityCheckMessage(text);
@@ -603,7 +697,7 @@ function CSimpleChat({
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeConversationId, conversations, isGenerating, selectedModel, settings, activeAgent, onPortfolioChat, speech]);
+  }, [activeConversationId, conversations, isGenerating, selectedModel, settings, activeAgent, onPortfolioChat, speech, user, isAddonConnected]);
 
   const handleConfirmOption = useCallback(async (confirmationId, selectedOption) => {
     if (isConfirming) return;

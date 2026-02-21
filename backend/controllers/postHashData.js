@@ -17,6 +17,11 @@ const {
 } = require('../services/llmService.js');
 
 const {
+    parseFileInstruction,
+    processFile: executeFileProcessing,
+} = require('../services/fileProcessingService.js');
+
+const {
     createOrValidateCustomer,
     validateOrRecoverCustomer,
     updateUserCustomerId,
@@ -302,28 +307,7 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
             await updateUserCustomerId(dynamodb, req.user, finalCustomerId);
         }
         
-        // Validate custom price for premium and flex memberships
-        if (membershipType === 'premium') {
-            if (!customPrice) {
-                res.status(400);
-                throw new Error('Custom price is required for csimple membership');
-            }
-            const numPrice = parseFloat(customPrice);
-            if (isNaN(numPrice) || numPrice < 9999) {
-                res.status(400);
-                throw new Error('Custom price must be at least $9,999/year for csimple membership');
-            }
-        } else if (membershipType === 'flex') {
-            if (!customPrice) {
-                res.status(400);
-                throw new Error('Custom price is required for simple membership');
-            }
-            const numPrice = parseFloat(customPrice);
-            if (isNaN(numPrice) || numPrice < 10) {
-                res.status(400);
-                throw new Error('Custom price must be at least $10 for simple membership');
-            }
-        }
+        // No custom price validation needed - Pro and Simple use fixed Stripe prices
         
         const userEmail = extractEmail(req.user.text);
         
@@ -407,12 +391,8 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
             subscriptionId: subscription.id,
             clientSecret: subscription.latest_invoice?.payment_intent?.client_secret,
             membershipType: membershipType,
-            productName: membershipType === 'flex' ? 'Simple Membership' : 'CSimple Membership'
+            productName: membershipType === 'pro' ? 'Pro Membership' : 'Simple Membership'
         };
-        
-        if (membershipType === 'premium' && customPrice) {
-            response.customPrice = parseFloat(customPrice);
-        }
         
         res.status(200).json(response);
     } catch (error) {
@@ -446,7 +426,7 @@ const handleWebhook = asyncHandler(async (req, res) => {
     res.status(200).send();
 });
 
-// @desc    Set custom usage limit for Premium users
+// @desc    Set custom usage limit for Simple (top-tier) users
 // @route   POST /api/custom-limit
 // @access  Private
 const setCustomLimit = asyncHandler(async (req, res) => {
@@ -468,9 +448,57 @@ const setCustomLimit = asyncHandler(async (req, res) => {
     }
 });
 
+// @desc    Process a file in-memory (convert, resize, compress, etc.) — nothing saved to DB
+// @route   POST /api/data/process-file
+// @access  Private
+const processFileUpload = asyncHandler(async (req, res) => {
+    if (!req.user) {
+        res.status(401);
+        throw new Error('User not found');
+    }
+
+    if (!req.file) {
+        res.status(400);
+        throw new Error('No file uploaded');
+    }
+
+    const instruction = req.body.instruction || '';
+    if (!instruction.trim()) {
+        res.status(400);
+        throw new Error('No instruction provided. Tell me what to do with the file (e.g. "convert to jpg").');
+    }
+
+    try {
+        const operation = parseFileInstruction(instruction, req.file.originalname);
+        const result = await executeFileProcessing(req.file.buffer, req.file.originalname, operation);
+
+        // Return the processed file as base64 so the frontend can trigger a download
+        const base64 = result.buffer.toString('base64');
+
+        res.status(200).json({
+            success: true,
+            description: result.description,
+            file: {
+                data: base64,
+                filename: result.filename,
+                mimeType: result.mimeType,
+                size: result.buffer.length,
+            },
+        });
+    } catch (error) {
+        console.error('Error in processFileUpload:', error);
+        const statusCode = error.statusCode || 500;
+        res.status(statusCode).json({
+            success: false,
+            error: error.message || 'File processing failed',
+        });
+    }
+});
+
 module.exports = { 
     postHashData, 
     compressData, 
+    processFileUpload,
     createCustomer, 
     postPaymentMethod, 
     createInvoice, 

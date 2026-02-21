@@ -1,5 +1,6 @@
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
+const { STORAGE_LIMITS } = require('../constants/pricing');
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -11,13 +12,6 @@ const client = new DynamoDBClient({
 });
 
 const dynamodb = DynamoDBDocumentClient.from(client);
-
-// Storage limits by membership tier (in bytes)
-const STORAGE_LIMITS = {
-    Free: 10 * 1024 * 1024,    // 10 MB for free users
-    Flex: 100 * 1024 * 1024,   // 100 MB for Flex users
-    Premium: null              // No limit for Premium (or can be set to very high like 10 GB)
-};
 
 /**
  * Calculate the size of an object/data in bytes
@@ -235,12 +229,12 @@ async function checkStorageCapacity(userId, additionalSize) {
         const newTotalSize = currentUsage.totalStorage + additionalSize;
         
         if (!currentUsage.storageLimit) {
-            // Premium users have unlimited storage
+            // Simple/Premium users have unlimited storage
             return {
                 canStore: true,
                 currentUsage: currentUsage.totalStorage,
                 newSize: newTotalSize,
-                reason: 'CSimple membership - unlimited storage'
+                reason: 'Simple membership - unlimited storage'
             };
         }
         

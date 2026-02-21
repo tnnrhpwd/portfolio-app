@@ -11,9 +11,16 @@ function Pay() {
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const { dataIsError, dataMessage } = useSelector((state) => state.data);
+  const { user, dataIsError, dataMessage } = useSelector((state) => state.data);
   const queryParams = new URLSearchParams(location.search);
   const selectedPlan = queryParams.get('plan');
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!user) {
+      navigate('/login');
+    }
+  }, [user, navigate]);
 
   // Handle JWT expiration
   useEffect(() => {
@@ -22,6 +29,8 @@ function Pay() {
       navigate('/login');
     }
   }, [dataIsError, dataMessage, dispatch, navigate]);
+
+  if (!user) return null;
 
   return (
     <>
@@ -36,8 +45,8 @@ function Pay() {
         
         <div className="planit-pay-card">
           <section className="planit-pay-heading">
-            <div className="planit-pay-heading-title">💳 Start Your Membership</div>
-            <div className="planit-pay-heading-description">Choose a plan that works perfectly for you</div>
+            <div className="planit-pay-heading-title">💳 Choose Your Plan</div>
+            <div className="planit-pay-heading-description">Unlock AI chat credits, storage, and more</div>
           </section>
           
           <section className="planit-pay-content">

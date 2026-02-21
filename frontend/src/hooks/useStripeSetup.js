@@ -29,8 +29,40 @@ export const useStripeSetup = () => {
     }
   }, [dataIsError, dataMessage, dispatch, navigate]);
 
-  // Initialize Stripe setup intent
+  // Initialize Stripe setup intent (with sessionStorage cache to avoid rate limits)
   useEffect(() => {
+    if (!user) return; // Don't attempt Stripe setup without a logged-in user
+
+    const CACHE_KEY = 'stripe_setup_intent';
+    const CACHE_TTL = 25 * 60 * 1000; // 25 minutes (setup intents last ~30 min)
+
+    const getCachedSecret = () => {
+      try {
+        const cached = sessionStorage.getItem(CACHE_KEY);
+        if (cached) {
+          const { secret, timestamp } = JSON.parse(cached);
+          if (Date.now() - timestamp < CACHE_TTL && secret?.includes('_secret_')) {
+            return secret;
+          }
+          sessionStorage.removeItem(CACHE_KEY);
+        }
+      } catch { /* ignore */ }
+      return null;
+    };
+
+    const cacheSecret = (secret) => {
+      try {
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify({ secret, timestamp: Date.now() }));
+      } catch { /* ignore */ }
+    };
+
+    const cachedSecret = getCachedSecret();
+    if (cachedSecret) {
+      console.log('Using cached setup intent');
+      setClientSecret(cachedSecret);
+      return;
+    }
+
     const getSetupIntent = async () => {
       try {
         const setupIntent = await dispatch(postPaymentMethod({})).unwrap();
@@ -38,6 +70,7 @@ export const useStripeSetup = () => {
         if (setupIntent && setupIntent.client_secret) {
           console.log('Setup intent created successfully');
           setClientSecret(setupIntent.client_secret);
+          cacheSecret(setupIntent.client_secret);
         } else {
           console.error('Invalid setup intent response:', setupIntent);
           setError('Failed to initialize payment setup. Please try again.');
@@ -64,6 +97,12 @@ export const useStripeSetup = () => {
           errorStatus = error.response.status;
         } else {
           errorMessage = error?.toString() || '';
+        }
+
+        // Rate limited — show a friendly wait message instead of retrying
+        if (errorStatus === 429 || errorMessage.includes('429') || errorMessage.toLowerCase().includes('too many')) {
+          setError('You\'ve made too many requests. Please wait a few minutes and refresh the page.');
+          return;
         }
         
         if (needsCustomerCreation(errorMessage, errorStatus)) {

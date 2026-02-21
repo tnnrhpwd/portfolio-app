@@ -94,14 +94,9 @@ export const useCheckoutHandlers = ({
     setMessage('');
 
     try {
-      const priceInCents = selectedPlan === 'premium' || selectedPlan === 'flex'
-        ? Math.round(parseFloat(customPrice) * 100)
-        : 0;
-
       const subscriptionData = {
         planId: selectedPlan,
         paymentMethodId: selectedPaymentMethod,
-        priceInCents
       };
 
       await dispatch(subscribeCustomer(subscriptionData)).unwrap();
@@ -116,7 +111,7 @@ export const useCheckoutHandlers = ({
     } finally {
       setLoading(false);
     }
-  }, [dispatch, navigate, selectedPlan, customPrice, selectedPaymentMethod, setError, setLoading, setMessage]);
+  }, [dispatch, navigate, selectedPlan, selectedPaymentMethod, setError, setLoading, setMessage]);
 
   // Handle next step in subscription flow
   const handleNextStep = useCallback(async () => {
@@ -194,46 +189,13 @@ export const useCheckoutHandlers = ({
     }, 100);
   }, [setShowPaymentForm, setMessage, setError, checkoutContainerRef]);
 
-  // Handle custom price change
-  const handleCustomPriceChange = useCallback((value) => {
-    const numValue = parseFloat(value);
-    setCustomPrice(value);
-
-    const getMinimumPrice = () => {
-      if (selectedPlan === 'premium') return 9999;
-      if (selectedPlan === 'flex') return 10;
-      return 10;
-    };
-
-    const minimumPrice = getMinimumPrice();
-
-    if (!value || value === '') {
-      setCustomPriceError('Please enter a price');
-    } else if (isNaN(numValue)) {
-      setCustomPriceError('Please enter a valid number');
-    } else if (numValue < minimumPrice) {
-      if (selectedPlan === 'premium') {
-        setCustomPriceError('Choose a price >$850/month for CSimple');
-      } else if (selectedPlan === 'flex') {
-        setCustomPriceError('Choose a price >$10/month for Simple');
-      } else {
-        setCustomPriceError(`Minimum price is $${minimumPrice}/month`);
-      }
-    } else {
-      setCustomPriceError('');
-    }
-  }, [selectedPlan, setCustomPrice, setCustomPriceError]);
+  // Handle custom price change - no longer needed with fixed pricing
+  const handleCustomPriceChange = useCallback(() => {}, []);
 
   // Handle plan selection
   const handlePlanSelection = useCallback((planId) => {
     setSelectedPaymentMethod(null);
-    if (planId === 'premium') {
-      setCustomPrice(9999);
-    } else if (planId === 'flex') {
-      setCustomPrice(10);
-    }
-    setCustomPriceError('');
-  }, [setSelectedPaymentMethod, setCustomPrice, setCustomPriceError]);
+  }, [setSelectedPaymentMethod]);
 
   return {
     handleSubmit,

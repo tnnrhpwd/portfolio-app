@@ -296,3 +296,54 @@
   color: #fca5a5;
   background: rgba(239, 68, 68, 0.1);
 }
+
+/* ─── Attached file indicator (user messages) ─── */
+.message__attached-file {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  margin-bottom: 4px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 12px;
+}
+
+.message__attached-file-icon {
+  font-size: 14px;
+}
+
+.message__attached-file-name {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+/* ─── Download button (assistant messages) ─── */
+.message__download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px 16px;
+  border: 1px solid var(--accent, #6366f1);
+  border-radius: 8px;
+  background: var(--accent, #6366f1);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.message__download-btn:hover {
+  background: var(--accent-hover, #4f46e5);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+}
+
+.message__download-icon {
+  font-size: 15px;
+}

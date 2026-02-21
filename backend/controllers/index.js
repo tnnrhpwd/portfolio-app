@@ -9,7 +9,7 @@ const { getMembershipPricing } = require('../utils/getMembershipPricing'); // GE
 const { postData, registerUser, loginUser } = require('./postData'); // CREATE public data
 const { postHashData, compressData, createCustomer,
     postPaymentMethod, createInvoice, subscribeCustomer,
-    handleWebhook, setCustomLimit } = require('./postHashData'); // CREATE protected data
+    handleWebhook, setCustomLimit, processFileUpload } = require('./postHashData'); // CREATE protected data
 const { putData } = require('./putData'); // UPDATE public data
 const { putHashData, updateCustomer, putPaymentMethod } = require('./putHashData'); // UPDATE protected data
 const { forgotPassword, resetPassword, forgotPasswordAuthenticated } = require('../utils/passwordReset'); // Password reset functionality
@@ -43,7 +43,7 @@ module.exports = {
     postData, registerUser, loginUser,
     postHashData, compressData, createCustomer,
     postPaymentMethod, createInvoice, subscribeCustomer,
-    handleWebhook, setCustomLimit,
+    handleWebhook, setCustomLimit, processFileUpload,
     putData,
     putHashData, updateCustomer, putPaymentMethod,
     forgotPassword, resetPassword, forgotPasswordAuthenticated,

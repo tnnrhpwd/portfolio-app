@@ -10,10 +10,26 @@ function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = 
   const isUser = message.role === 'user';
   const hasAction = !isUser && message.action;
   const hasOperations = !isUser && message.operations?.length > 0;
+  const hasFileDownload = !isUser && message.fileDownload;
+  const hasAttachedFile = isUser && message.attachedFile;
   const time = new Date(message.timestamp).toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit',
   });
+
+  const handleDownload = () => {
+    if (!message.fileDownload) return;
+    const { data, filename, mimeType } = message.fileDownload;
+    const byteArray = Uint8Array.from(atob(data), c => c.charCodeAt(0));
+    const blob = new Blob([byteArray], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a); }, 100);
+  };
 
   return (
     <div className={`message ${isUser ? 'message--user' : 'message--assistant'} ${message.isError ? 'message--error' : ''}`}>
@@ -58,7 +74,15 @@ function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = 
               </div>
             )}
             {isUser ? (
-              <p className="message__text">{message.content}</p>
+              <>
+                {hasAttachedFile && (
+                  <div className="message__attached-file">
+                    <span className="message__attached-file-icon">📎</span>
+                    <span className="message__attached-file-name">{message.attachedFile.name}</span>
+                  </div>
+                )}
+                <p className="message__text">{message.content}</p>
+              </>
             ) : enableMarkdown ? (
               <div className="message__markdown">
                 <ReactMarkdown
@@ -79,6 +103,12 @@ function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = 
                 >
                   {message.content}
                 </ReactMarkdown>
+                {hasFileDownload && (
+                  <button className="message__download-btn" onClick={handleDownload}>
+                    <span className="message__download-icon">⬇️</span>
+                    <span>Download {message.fileDownload.filename}</span>
+                  </button>
+                )}
               </div>
             ) : (
               <p className="message__text">{message.content}</p>

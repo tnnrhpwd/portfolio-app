@@ -57,7 +57,7 @@ const handleTokenExpiration = (error) => {
         if (errorData && errorData.error === 'API usage limit reached') {
             // Show specific toast message based on the reason
             if (errorData.reason === 'Free users cannot use paid APIs') {
-                toast.error('🚀 Upgrade to Flex or Premium to access AI-powered features!', {
+                toast.error('🚀 Upgrade to Pro or Simple to access AI-powered features!', {
                     position: 'top-center',
                     autoClose: 5000,
                     hideProgressBar: false,

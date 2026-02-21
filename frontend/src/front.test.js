@@ -637,7 +637,7 @@ describe('Portfolio Application - Frontend Tests', () => {
       fetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          subscriptionPlan: 'premium',
+          subscriptionPlan: 'simple',
           subscriptionDetails: {
             status: 'active',
             nextBilling: '2025-09-17'
@@ -651,7 +651,7 @@ describe('Portfolio Application - Frontend Tests', () => {
       
       expect(response.ok).toBe(true);
       const data = await response.json();
-      expect(data.subscriptionPlan).toBe('premium');
+      expect(data.subscriptionPlan).toBe('simple');
       expect(data.subscriptionDetails.status).toBe('active');
     });
 
@@ -662,7 +662,7 @@ describe('Portfolio Application - Frontend Tests', () => {
         ok: true,
         json: async () => ({
           message: 'Subscription upgraded successfully',
-          subscriptionPlan: 'premium'
+          subscriptionPlan: 'simple'
         }),
       });
 
@@ -672,12 +672,12 @@ describe('Portfolio Application - Frontend Tests', () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${mockToken}`
         },
-        body: JSON.stringify({ plan: 'premium' })
+        body: JSON.stringify({ plan: 'simple' })
       });
       
       expect(response.ok).toBe(true);
       const data = await response.json();
-      expect(data.subscriptionPlan).toBe('premium');
+      expect(data.subscriptionPlan).toBe('simple');
     });
 
     it('fetches payment methods for user', async () => {

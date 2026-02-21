@@ -19,6 +19,7 @@ import WordleSolver from './pages/Projects/WordleSolver/WordleSolver';
 import LegalTerms from './pages/LegalTerms.jsx'
 import Login from './pages/Login/Login.jsx'
 import Net from './pages/Simple/Net/Net.jsx';
+import Pay from './pages/Simple/Pay/Pay.jsx';
 import Plans from './pages/Simple/Plans/Plans.jsx'
 import About from './pages/Simple/About/About.jsx'
 import Profile from './pages/Profile/Profile.jsx'
@@ -50,6 +51,7 @@ function App() {
             <Route path='/login' element={<Login />} />
             <Route path='/net' element={<Net />} />
             <Route path="/passgen" element={<PassGen/>} />
+            <Route path="/pay" element={<Pay />} />
             <Route path='/plans' element={<Plans />} />
             <Route path='/privacy' element={<Privacy />} />
             <Route path='/profile' element={<Profile />} />

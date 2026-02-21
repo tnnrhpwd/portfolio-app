@@ -12,33 +12,12 @@ export const formatPrice = (priceInCents) => {
 
 /**
  * Validate custom price based on membership type
- * @param {string} membershipType - Type of membership (premium or flex)
+ * @param {string} membershipType - Type of membership (pro or simple)
  * @param {number} customPrice - Custom price value
  * @returns {Object} Validation result with valid flag and error message
  */
 export const validateCustomPrice = (membershipType, customPrice) => {
-  const numPrice = parseFloat(customPrice);
-  
-  if (membershipType === 'premium') {
-    if (!customPrice || isNaN(numPrice)) {
-      return { valid: false, error: 'Please enter a valid price' };
-    }
-    if (numPrice < 9999) {
-      return { valid: false, error: 'Custom price must be at least $9,999/year for csimple membership' };
-    }
-    return { valid: true, error: '' };
-  }
-  
-  if (membershipType === 'flex') {
-    if (!customPrice || isNaN(numPrice)) {
-      return { valid: false, error: 'Please enter a valid price' };
-    }
-    if (numPrice < 10) {
-      return { valid: false, error: 'Custom price must be at least $10 for simple membership' };
-    }
-    return { valid: true, error: '' };
-  }
-  
+  // Fixed pricing — no custom price validation needed for pro/simple
   return { valid: true, error: '' };
 };
 
@@ -91,11 +70,5 @@ export const needsCustomerCreation = (errorMessage, errorStatus) => {
  * @returns {number} Default price
  */
 export const getDefaultCustomPrice = (membershipType) => {
-  if (membershipType === 'premium') {
-    return 9999; // $9,999 minimum for annual
-  }
-  if (membershipType === 'flex') {
-    return 10; // $10 minimum for monthly
-  }
   return 0;
 };

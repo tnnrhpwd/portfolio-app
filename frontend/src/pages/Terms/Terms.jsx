@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
+import { PLAN_NAMES, PLAN_IDS, QUOTAS, STORAGE_DISPLAY } from '../../constants/pricing';
 import './Terms.css';
 
 const Terms = () => {
@@ -110,25 +111,27 @@ const Terms = () => {
                         <div className="section-content">
                             <h2>3. Subscription Plans</h2>
                             <p>
-                                Our platform offers various subscription plans, including Free, Flex, and Premium options. 
+                                Our platform offers various subscription plans, including {PLAN_NAMES[PLAN_IDS.FREE]}, {PLAN_NAMES[PLAN_IDS.PRO]}, and {PLAN_NAMES[PLAN_IDS.SIMPLE]} options. 
                                 Each plan provides different levels of access, usage limits, and features as described 
                                 on our pricing page.
                             </p>
-                            <h3>3.1 Free Tier</h3>
+                            <h3>3.1 {PLAN_NAMES[PLAN_IDS.FREE]} Tier</h3>
                             <p>
-                                Our Free tier provides limited access to our services with restricted API calls. This tier 
-                                is intended for evaluation purposes and personal use.
+                                Our {PLAN_NAMES[PLAN_IDS.FREE]} tier provides limited access to our services with restricted API calls. This tier 
+                                is intended for evaluation purposes and personal use. Free users can use the /net AI chat
+                                with their own GitHub Personal Access Token.
                             </p>
-                            <h3>3.2 Simple Membership</h3>
+                            <h3>3.2 {PLAN_NAMES[PLAN_IDS.PRO]} Membership</h3>
                             <p>
-                                Our Simple tier operates on a usage-based pricing model. You will be charged a base rate plus 
-                                additional fees for usage beyond your included quota. The current rate is $10/month with a 
-                                quota of 10,000 API calls and $0.001 per additional call.
+                                Our {PLAN_NAMES[PLAN_IDS.PRO]} tier includes a monthly AI credit allowance for use with /net AI chat,
+                                {QUOTAS[PLAN_IDS.PRO]}, {STORAGE_DISPLAY[PLAN_IDS.PRO]} of storage, full analytics, and email support.
+                                Pricing is shown on our checkout page and may be updated from time to time.
                             </p>
-                            <h3>3.3 CSimple Membership</h3>
+                            <h3>3.3 {PLAN_NAMES[PLAN_IDS.SIMPLE]} Membership</h3>
                             <p>
-                                Our CSimple tier offers custom pricing based on your specific needs and volume requirements. 
-                                CSimple memberships include priority processing, advanced features, and dedicated support.
+                                Our {PLAN_NAMES[PLAN_IDS.SIMPLE]} tier offers unlimited addon commands, phone-to-PC remote control,
+                                unlimited storage, and priority support. {PLAN_NAMES[PLAN_IDS.SIMPLE]} memberships include custom
+                                credit limits and advanced features.
                             </p>
                         </div>
                     </section>
@@ -222,7 +225,7 @@ const Terms = () => {
                                 immediately cease.
                             </p>
                             <p>
-                                You may cancel your subscription at any time. For Flex or Premium plans, cancellation 
+                                You may cancel your subscription at any time. For Pro or Simple plans, cancellation 
                                 will take effect at the end of your current billing cycle, and you will not be charged 
                                 for the following period.
                             </p>

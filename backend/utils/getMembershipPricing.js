@@ -1,6 +1,7 @@
 require('dotenv').config();
 const asyncHandler = require('express-async-handler');
 const stripe = require('stripe')(process.env.STRIPE_KEY);
+const { PLAN_IDS, PLAN_NAMES, STRIPE_PRODUCT_MAP, PLAN_TO_STRIPE_PRODUCT, FEATURES, DESCRIPTIONS, QUOTAS } = require('../constants/pricing');
 
 // @desc    Get membership pricing from Stripe
 // @route   GET /api/data/membership-pricing
@@ -9,41 +10,33 @@ const getMembershipPricing = asyncHandler(async (req, res) => {
     try {
         console.log('Fetching membership pricing from Stripe...');
         
-        // Define the membership types and their corresponding product names
+        // Define the membership types and their corresponding Stripe product IDs
         const membershipTypes = [
             { 
-                id: 'free', 
-                name: 'Free Tier', 
-                productName: null, // No Stripe product for free tier
+                id: PLAN_IDS.FREE, 
+                name: PLAN_NAMES[PLAN_IDS.FREE], 
+                stripeProductId: null, // No Stripe product for free tier
                 price: 0,
                 currency: 'usd',
                 interval: 'month'
             },
             { 
-                id: 'simple', 
-                name: 'Simple', 
-                productName: 'Simple Membership' 
+                id: PLAN_IDS.PRO, 
+                name: PLAN_NAMES[PLAN_IDS.PRO], 
+                stripeProductId: PLAN_TO_STRIPE_PRODUCT[PLAN_IDS.PRO]
             },
             { 
-                id: 'csimple', 
-                name: 'CSimple', 
-                productName: 'CSimple Membership' 
+                id: PLAN_IDS.SIMPLE, 
+                name: PLAN_NAMES[PLAN_IDS.SIMPLE], 
+                stripeProductId: PLAN_TO_STRIPE_PRODUCT[PLAN_IDS.SIMPLE]
             }
         ];
         
         const pricingData = [];
         
-        // Fetch all active products from Stripe
-        const products = await stripe.products.list({
-            active: true,
-            limit: 100
-        });
-        
-        console.log(`Found ${products.data.length} active products in Stripe`);
-        
         for (const membershipType of membershipTypes) {
-            if (membershipType.id === 'free') {
-                // Free tier doesn't have a Stripe product, use hardcoded values
+            if (membershipType.id === PLAN_IDS.FREE) {
+                // Free tier doesn't have a Stripe product, use centralized values
                 pricingData.push({
                     id: membershipType.id,
                     name: membershipType.name,
@@ -52,16 +45,23 @@ const getMembershipPricing = asyncHandler(async (req, res) => {
                     interval: 'month',
                     priceId: null,
                     productId: null,
-                    quota: { calls: '1,000 calls/month' }
+                    description: DESCRIPTIONS[PLAN_IDS.FREE],
+                    features: FEATURES[PLAN_IDS.FREE],
+                    quota: { calls: QUOTAS[PLAN_IDS.FREE] }
                 });
                 continue;
             }
             
-            // Find the product in Stripe
-            const product = products.data.find(p => p.name === membershipType.productName);
+            // Retrieve the product directly by ID (1 API call instead of listing all)
+            let product;
+            try {
+                product = await stripe.products.retrieve(membershipType.stripeProductId);
+            } catch (err) {
+                console.warn(`Could not retrieve Stripe product ${membershipType.stripeProductId}: ${err.message}`);
+            }
             
             if (!product) {
-                console.warn(`Product not found in Stripe: ${membershipType.productName}`);
+                console.warn(`Product not found in Stripe: ${membershipType.stripeProductId}`);
                 // Add placeholder data for missing products
                 pricingData.push({
                     id: membershipType.id,
@@ -84,7 +84,7 @@ const getMembershipPricing = asyncHandler(async (req, res) => {
             });
             
             if (prices.data.length === 0) {
-                console.warn(`No active prices found for product: ${membershipType.productName}`);
+                console.warn(`No active prices found for product: ${membershipType.stripeProductId}`);
                 pricingData.push({
                     id: membershipType.id,
                     name: membershipType.name,
@@ -102,11 +102,11 @@ const getMembershipPricing = asyncHandler(async (req, res) => {
             // Use the first active price (or you could add logic to select a specific price)
             const price = prices.data[0];
             
-            // Add membership-specific features and descriptions
-            let features = [];
-            let description = '';
-            let quota = null;
-        
+            // Add membership-specific features and descriptions from centralized config
+            let features = FEATURES[membershipType.id] || [];
+            let description = DESCRIPTIONS[membershipType.id] || '';
+            let quota = { calls: QUOTAS[membershipType.id] || 'N/A' };
+
             pricingData.push({
                 id: membershipType.id,
                 name: membershipType.name,

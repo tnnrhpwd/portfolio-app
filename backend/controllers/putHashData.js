@@ -8,6 +8,7 @@ const { sendEmail } = require('../services/emailService.js');
 const stripe = require('stripe')(process.env.STRIPE_KEY);
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand, PutCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
+const { RANK_REGEX } = require('../constants/pricing');
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -312,7 +313,7 @@ const updateDataHolder = async (req, res, item) => {
 
     // Update subscription plan
     const updatedText = item.text.includes('|Rank:')
-        ? item.text.replace(/(\|Rank:)(Free|Flex|Premium)/, `$1${textContent}`)
+        ? item.text.replace(RANK_REGEX, `$1${textContent}`)
         : `${item.text}|Rank:${textContent}`;
 
     console.log('Updated text:', updatedText);

@@ -1,6 +1,7 @@
 const stripe = require('stripe')(process.env.STRIPE_KEY);
 const { DynamoDBDocumentClient, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const { getUserRankFromStripe, parseUserCredits, updateUserCredits } = require('../utils/apiUsageTracker.js');
+const { CREDITS, PLAN_IDS, isSimpleTier } = require('../constants/pricing');
 
 /**
  * Handle Stripe webhook events
@@ -44,24 +45,24 @@ function processWebhookEvent(event) {
  * @returns {Object} Validation result
  */
 function validateCustomLimit(customLimit) {
-    if (!customLimit || typeof customLimit !== 'number' || customLimit < 0.50) {
+    if (!customLimit || typeof customLimit !== 'number' || customLimit < CREDITS[PLAN_IDS.SIMPLE].minLimit) {
         return {
             valid: false,
-            error: 'Invalid custom limit. Must be at least $0.50.'
+            error: `Invalid custom limit. Must be at least $${CREDITS[PLAN_IDS.SIMPLE].minLimit.toFixed(2)}.`
         };
     }
     return { valid: true };
 }
 
 /**
- * Verify user is Premium member
+ * Verify user is Simple (top-tier) member
  * @param {string} userId - User ID
- * @returns {boolean} True if Premium member
+ * @returns {boolean} True if Simple member
  */
-async function verifyPremiumMembership(userId) {
+async function verifySimpleMembership(userId) {
     try {
         const userRank = await getUserRankFromStripe(userId);
-        return userRank === 'Premium';
+        return isSimpleTier(userRank);
     } catch (error) {
         console.error('Failed to get user rank from Stripe:', error);
         throw new Error('Unable to verify membership status');
@@ -90,7 +91,7 @@ async function processLimitIncrease(currentLimit, newLimit, stripeCustomerId, fr
             amount: Math.round(limitDifference * 100),
             currency: 'usd',
             customer: stripeCustomerId,
-            description: `Premium limit increase from $${currentLimit.toFixed(2)} to $${newLimit.toFixed(2)}`,
+            description: `Simple plan limit increase from $${currentLimit.toFixed(2)} to $${newLimit.toFixed(2)}`,
             automatic_payment_methods: {
                 enabled: true,
             },
@@ -126,7 +127,7 @@ async function updateSubscriptionLimit(subscriptionId, newLimit) {
             unit_amount: Math.round(newLimit * 100),
             recurring: { interval: 'month' },
             product_data: {
-                name: `CSimple Membership - $${newLimit.toFixed(2)} Monthly Limit`
+                name: `Simple Membership - $${newLimit.toFixed(2)} Monthly Limit`
             }
         });
         
@@ -192,10 +193,10 @@ async function processCustomLimitUpdate(req, dynamodb) {
         throw error;
     }
     
-    // Verify Premium membership
-    const isPremium = await verifyPremiumMembership(req.user.id);
-    if (!isPremium) {
-        const error = new Error('Custom limits are only available for Premium members');
+    // Verify Simple membership
+    const isSimple = await verifySimpleMembership(req.user.id);
+    if (!isSimple) {
+        const error = new Error('Custom limits are only available for Simple members');
         error.statusCode = 403;
         throw error;
     }
@@ -204,7 +205,7 @@ async function processCustomLimitUpdate(req, dynamodb) {
     const userText = req.user.text || '';
     let creditsData = parseUserCredits(userText);
     
-    const currentLimit = creditsData.customLimit || 10.00;
+    const currentLimit = creditsData.customLimit || CREDITS[PLAN_IDS.SIMPLE].defaultLimit;
     const limitDifference = customLimit - currentLimit;
     
     if (limitDifference === 0) {
@@ -270,7 +271,7 @@ module.exports = {
     constructWebhookEvent,
     processWebhookEvent,
     validateCustomLimit,
-    verifyPremiumMembership,
+    verifySimpleMembership,
     processLimitIncrease,
     updateSubscriptionLimit,
     saveUserCredits,

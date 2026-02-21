@@ -107,6 +107,7 @@ const NNetChatView = () => {
       if (dataMessage && 
           !dataMessage.includes('token') && 
           !dataMessage.includes('API usage limit') &&
+          !dataMessage.includes('Upgrade to Pro') &&
           !dataMessage.includes('Upgrade to Flex') &&
           !dataMessage.includes('Monthly API limit') &&
           !dataMessage.includes('Request failed with status code 402') &&

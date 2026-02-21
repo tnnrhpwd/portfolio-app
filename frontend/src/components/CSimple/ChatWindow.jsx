@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import MessageBubble from './MessageBubble';
 import ConfirmationPanel from './ConfirmationPanel';
 import './ChatWindow.css';
@@ -7,10 +7,25 @@ import './ChatWindow.css';
 const safeAvatarUrl = (url) =>
   url && (url.startsWith('data:') || url.startsWith('https://') || url.startsWith('http://')) ? url : null;
 
+const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/tiff', 'image/avif', 'image/bmp'];
+
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
 function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneration, onToggleSidebar, selectedModel, isOnline, agent, speech, sttEnabled, settings, pendingConfirmation, onConfirmOption, onDismissConfirmation, isConfirming, onTogglePassiveListening }) {
   const [input, setInput] = useState('');
+  const [attachedFiles, setAttachedFiles] = useState([]);
+  const [dragActive, setDragActive] = useState(false);
   const messagesContainerRef = useRef(null);
   const textareaRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const dragCounter = useRef(0);
 
   // Auto-scroll to bottom on new messages (scoped to the messages box, not the page)
   useEffect(() => {
@@ -26,11 +41,82 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
     }
   }, [input]);
 
+  // ── File handling ─────────────────────────────────────────────────────────
+  const validateAndAddFiles = useCallback((fileList) => {
+    const newFiles = [];
+    for (const file of fileList) {
+      if (file.size > MAX_FILE_SIZE) {
+        alert(`${file.name} is too large (max 25 MB)`);
+        continue;
+      }
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        alert(`${file.name} is not a supported image type.\nSupported: JPG, PNG, WEBP, GIF, TIFF, AVIF`);
+        continue;
+      }
+      // Avoid duplicates by name
+      if (!attachedFiles.some(f => f.name === file.name && f.size === file.size)) {
+        newFiles.push(file);
+      }
+    }
+    if (newFiles.length > 0) {
+      setAttachedFiles(prev => [...prev, ...newFiles].slice(0, 1)); // single file for now
+    }
+  }, [attachedFiles]);
+
+  const removeFile = useCallback((index) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const handleDragEnter = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current++;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setDragActive(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current === 0) {
+      setDragActive(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    dragCounter.current = 0;
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      validateAndAddFiles(e.dataTransfer.files);
+      e.dataTransfer.clearData();
+    }
+  }, [validateAndAddFiles]);
+
+  const handleFileInputChange = useCallback((e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      validateAndAddFiles(e.target.files);
+      e.target.value = ''; // reset so the same file can be re-selected
+    }
+  }, [validateAndAddFiles]);
+
+  // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!input.trim() || isGenerating) return;
-    onSendMessage(input.trim());
+    const hasText = input.trim().length > 0;
+    const hasFiles = attachedFiles.length > 0;
+    if ((!hasText && !hasFiles) || isGenerating) return;
+    onSendMessage(input.trim(), attachedFiles);
     setInput('');
+    setAttachedFiles([]);
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
@@ -140,6 +226,7 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
             </div>
             <h2>{agent?.name || 'C-Simple AI'} Chat</h2>
             <p>Send a message to start chatting with your local AI model.</p>
+            <p className="chat-window__empty-hint">📎 Drop an image to convert, resize, or compress it</p>
             <div className="chat-window__suggestions">
               {[
                 'Explain how neural networks work',
@@ -188,7 +275,24 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
       </div>
 
       {/* Input */}
-      <form className="chat-window__input-form" onSubmit={handleSubmit}>
+      <form
+        className={`chat-window__input-form ${dragActive ? 'chat-window__input-form--drag-active' : ''}`}
+        onSubmit={handleSubmit}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
+        {/* Drag overlay */}
+        {dragActive && (
+          <div className="chat-window__drop-overlay">
+            <div className="chat-window__drop-overlay-content">
+              <span className="chat-window__drop-icon">📎</span>
+              <span>Drop file here</span>
+            </div>
+          </div>
+        )}
+
         {/* Confirmation Panel — slides up when the AI needs user confirmation */}
         <ConfirmationPanel
           confirmation={pendingConfirmation}
@@ -202,14 +306,55 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
             <span>Listening{speech.transcript ? `: "${speech.transcript}"` : '...'}</span>
           </div>
         )}
+
+        {/* Attached file chips */}
+        {attachedFiles.length > 0 && (
+          <div className="chat-window__file-chips">
+            {attachedFiles.map((file, idx) => (
+              <div key={`${file.name}-${idx}`} className="chat-window__file-chip">
+                <span className="chat-window__file-chip-icon">
+                  {file.type.startsWith('image/') ? '🖼️' : '📄'}
+                </span>
+                <span className="chat-window__file-chip-name">{file.name}</span>
+                <span className="chat-window__file-chip-size">{formatFileSize(file.size)}</span>
+                <button
+                  type="button"
+                  className="chat-window__file-chip-remove"
+                  onClick={() => removeFile(idx)}
+                  title="Remove file"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="chat-window__input-wrapper">
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileInputChange}
+            style={{ display: 'none' }}
+          />
+          {/* Attach file button */}
+          <button
+            type="button"
+            className="chat-window__attach-btn"
+            onClick={() => fileInputRef.current?.click()}
+            title="Attach an image file"
+          >
+            File
+          </button>
           <textarea
             ref={textareaRef}
             className="chat-window__input"
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={isOnline ? "Type a message..." : "Offline - Cannot send messages"}
+            placeholder={attachedFiles.length > 0 ? 'Describe what to do with the file (e.g. "convert to jpg")...' : isOnline ? "Type a message..." : "Offline - Cannot send messages"}
             rows={1}
             disabled={isGenerating || !isOnline}
           />
@@ -243,7 +388,7 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
             <button
               type="submit"
               className="chat-window__send-btn"
-              disabled={!input.trim() || !isOnline}
+              disabled={(!input.trim() && attachedFiles.length === 0) || !isOnline}
               title={isOnline ? "Send message" : "Cannot send while offline"}
             >
               Send

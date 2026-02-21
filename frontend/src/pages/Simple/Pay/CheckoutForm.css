@@ -18,7 +18,7 @@
 }
 
 .pay-error {
-  font-size: calc(var(--nav-size) * 0.16);
+  font-size: var(--font-size-small);
   color: var(--error-color, #e74c3c);
   background: rgba(231, 76, 60, 0.1);
   border: 1px solid rgba(231, 76, 60, 0.3);
@@ -31,7 +31,7 @@
   color: var(--text-color);
   border: none;
   border-radius: var(--border-radius);
-  font-size: calc(var(--nav-size) * 0.18);
+  font-size: var(--font-size-base);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -57,7 +57,7 @@
 
 /* Updated Text styles to match Home page font sizes */
 .section-desc, .email-note, .terms-agreement, .link-description {
-  font-size: calc(var(--nav-size) * 0.16);
+  font-size: var(--font-size-small);
   color: var(--text-color-accent);
   margin: calc(var(--nav-size) * 0.1) 0;
 }
@@ -105,7 +105,7 @@
   border: var(--border);
   border-radius: var(--border-radius);
   margin-bottom: calc(var(--nav-size) * 0.125);
-  font-size: calc(var(--nav-size) * 0.25);
+  font-size: var(--font-size-base);
   color: var(--text-color);
   background-color: var(--bg-page);
 }
@@ -119,7 +119,7 @@
   transition: background-color 0.3s, color 0.3s;
   border-radius: calc(var(--nav-size) * 0.3);
   margin-left: calc(var(--nav-size) * 0.3);
-  font-size: calc(var(--nav-size) * 0.3);
+  font-size: var(--font-size-large);
 }
 
 #add-card-button:hover {
@@ -165,7 +165,7 @@
 
 /* Base styles for the payment form */
 .checkout-container {
-  max-width: 80%;
+  width: 100%;
   margin: 0 auto;
   padding: calc(var(--nav-size) * 0.25);
   background-color: var(--bg-page);
@@ -180,7 +180,7 @@
 }
 
 .payment-form h2 {
-  font-size: calc(var(--nav-size) * 0.3);
+  font-size: var(--font-size-large);
   color: var(--text-color);
   margin-bottom: calc(var(--nav-size) * 0.1);
   text-align: center;
@@ -198,14 +198,14 @@
 .form-section h3 {
   margin-top: 0;
   margin-bottom: calc(var(--nav-size) * 0.1);
-  font-size: calc(var(--nav-size) * 0.25);
+  font-size: var(--font-size-base);
   color: var(--text-color);
 }
 
 .section-desc,
 .email-note,
 .terms-agreement {
-  font-size: calc(var(--nav-size) * 0.25);
+  font-size: var(--font-size-small);
   color: var(--text-color-accent);
   margin: calc(var(--nav-size) * 0.1) 0;
 }
@@ -225,7 +225,7 @@
   cursor: pointer;
   transition: background-color 0.3s, transform 0.2s;
   border-radius: var(--border-radius);
-  font-size: calc(var(--nav-size) * 0.2);
+  font-size: var(--font-size-base);
   font-weight: 600;
   display: flex;
   justify-content: center;
@@ -255,7 +255,7 @@
   color: var(--text-color);
   border: none;
   border-radius: var(--border-radius);
-  font-size: calc(var(--nav-size) * 0.25);
+  font-size: var(--font-size-base);
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.3s, transform 0.2s;
@@ -295,7 +295,7 @@
   padding: calc(var(--nav-size) * 0.15);
   border-radius: var(--border-radius);
   background-color: var(--success-bg, rgba(39, 174, 96, 0.1));
-  font-size: calc(var(--nav-size) * 0.25);
+  font-size: var(--font-size-base);
   display: flex;
   align-items: center;
   margin-bottom: calc(var(--nav-size) * 0.2);
@@ -303,7 +303,7 @@
 
 .success-checkmark {
   margin-right: calc(var(--nav-size) * 0.1);
-  font-size: calc(var(--nav-size) * 0.2);
+  font-size: var(--font-size-small);
   font-weight: bold;
 }
 
@@ -314,7 +314,7 @@
   gap: calc(var(--nav-size) * 0.125);
   margin-top: calc(var(--nav-size) * 0.2);
   color: var(--text-color-accent);
-  font-size: calc(var(--nav-size) * 0.25);
+  font-size: var(--font-size-small);
   justify-content: center;
   background-color: rgba(79, 156, 249, 0.05);
   padding: calc(var(--nav-size) * 0.1);
@@ -322,7 +322,7 @@
 }
 
 .security-icon {
-  font-size: calc(var(--nav-size) * 0.25);
+  font-size: var(--font-size-small);
 }
 
 /* Loading container */
@@ -368,7 +368,7 @@
 
 .payment-method-selected {
   margin-top: calc(var(--nav-size) * 0.075);
-  font-size: calc(var(--nav-size) * 0.25);
+  font-size: var(--font-size-base);
   text-transform: capitalize;
   margin-bottom: 0;
 }
@@ -376,7 +376,7 @@
 /* Terms agreement section */
 .terms-agreement {
   text-align: center;
-  font-size: calc(var(--nav-size) * 0.25);
+  font-size: var(--font-size-small);
   color: var(--text-color-accent);
   margin-top: calc(var(--nav-size) * 0.2);
 }
@@ -595,11 +595,7 @@
 }
 
 /* Large screen optimizations */
-@media (min-width: 1024px) {
-  .checkout-container {
-    max-width: 70%;
-  }
-  
+@media (min-width: 1024px) {  
   .plans-container {
     gap: calc(var(--nav-size) * 0.2);
   }
@@ -616,7 +612,7 @@
 /* Ultra-wide screen optimizations */
 @media (min-width: 1440px) {
   .checkout-container {
-    max-width: 60%;
+    /* max-width: 60%; */
   }
   
   .plans-container {
@@ -628,7 +624,7 @@
 .form-header {
   text-align: center;
   margin-bottom: calc(var(--nav-size) * 0.3);
-  font-size: calc(var(--nav-size) * 0.25);
+  font-size: var(--font-size-base);
   color: var(--text-color-accent);
 }
 
@@ -636,7 +632,7 @@
   color: var(--text-color-accent);
   margin-top: calc(var(--nav-size) * 0.0625);
   margin-bottom: calc(var(--nav-size) * 0.15);
-  font-size: calc(var(--nav-size) * 0.25);
+  font-size: var(--font-size-small);
 }
 
 /* User email display styling */
@@ -651,7 +647,7 @@
 }
 
 .email-icon {
-  font-size: calc(var(--nav-size) * 0.25);
+  font-size: var(--font-size-base);
   color: var(--bg-mint);
 }
 
@@ -663,7 +659,7 @@
   font-weight: 500;
   margin: 0 0 calc(var(--nav-size) * 0.05) 0;
   color: var(--text-color);
-  font-size: calc(var(--nav-size) * 0.25) !important;
+  font-size: var(--font-size-base) !important;
 }
 
 /* Link payment method styling */
@@ -683,26 +679,26 @@
 }
 
 .link-icon {
-  font-size: calc(var(--nav-size) * 0.25);
+  font-size: var(--font-size-base);
   color: var(--bg-mint);
 }
 
 .link-benefits h4 {
   margin: 0;
-  font-size: calc(var(--nav-size) * 0.25);
+  font-size: var(--font-size-base);
   color: var(--text-color) !important;
 }
 
 .link-description {
   margin: 0 0 calc(var(--nav-size) * 0.125) 0;
-  font-size: calc(var(--nav-size) * 0.25);
+  font-size: var(--font-size-small);
   color: var(--text-color-accent);
 }
 
 .link-features {
   margin: 0;
   padding-left: calc(var(--nav-size) * 0.25);
-  font-size: calc(var(--nav-size) * 0.25);
+  font-size: var(--font-size-small);
   color: var(--text-color-accent);
 }
 
@@ -768,7 +764,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: calc(var(--nav-size) * 0.25);
+  font-size: var(--font-size-small);
 }
 
 .payment-method-icon {
@@ -792,11 +788,11 @@
   font-weight: 500;
   margin: 0 0 calc(var(--nav-size) * 0.05) 0;
   color: var(--text-color);
-  font-size: calc(var(--nav-size) * 0.25);
+  font-size: var(--font-size-base);
 }
 
 .payment-method-expires {
-  font-size: calc(var(--nav-size) * 0.25);
+  font-size: var(--font-size-small);
   color: var(--text-color-accent);
   margin: 0;
 }
@@ -818,7 +814,7 @@
 .no-payment-methods {
   text-align: center;
   padding: calc(var(--nav-size) * 0.375) 0;
-  font-size: calc(var(--nav-size) * 0.25);
+  font-size: var(--font-size-base);
 }
 
 .no-payment-methods p {
@@ -841,6 +837,7 @@
   display: flex;
   flex-direction: column;
   gap: calc(var(--nav-size) * 0.25);
+  width: 100%;
 }
 
 /* Membership plans styling */
@@ -850,7 +847,7 @@
 
 .membership-plans h3 {
   margin: 0;
-  font-size: calc(var(--nav-size) * 0.3);
+  font-size: var(--font-size-large);
   color: var(--text-color);
 }
 
@@ -869,7 +866,7 @@
   position: relative;
   transition: all 0.3s ease;
   cursor: pointer;
-  width: 90%;
+  width: 100%;
 }
 
 .plan-card.selected {
@@ -884,7 +881,7 @@
 
 .plan-header h4 {
   margin: 0 0 calc(var(--nav-size) * 0.1) 0;
-  font-size: calc(var(--nav-size) * 0.25);
+  font-size: var(--font-size-base);
   color: var(--text-color);
 }
 
@@ -894,13 +891,13 @@
 }
 
 .price {
-  font-size: calc(var(--nav-size) * 0.3);
+  font-size: var(--font-size-large);
   font-weight: bold;
   color: var(--fg-mint);
 }
 
 .period {
-  font-size: calc(var(--nav-size) * 0.2);
+  font-size: var(--font-size-small);
   color: var(--text-color-accent);
   margin-left: calc(var(--nav-size) * 0.0625);
 }
@@ -913,7 +910,7 @@
 
 .plan-features li {
   padding: calc(var(--nav-size) * 0.0625) 0;
-  font-size: calc(var(--nav-size) * 0.25);
+  font-size: var(--font-size-small);
   color: var(--text-color);
   position: relative;
   padding-left: calc(var(--nav-size) * 0.25);
@@ -940,7 +937,7 @@
 }
 
 .plan-selector.selected span {
-  font-size: calc(var(--nav-size) * 0.2);
+  font-size: var(--font-size-small);
 }
 
 /* Enhanced payment methods list */
@@ -949,7 +946,7 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: calc(var(--nav-size) * 0.19);
-  font-size: calc(var(--nav-size) * 0.25);
+  font-size: var(--font-size-base);
   color: var(--text-color-accent);
 }
 
@@ -963,7 +960,7 @@
   color: var(--fg-mint);
   cursor: pointer;
   padding: 0;
-  font-size: calc(var(--nav-size) * 0.175);
+  font-size: var(--font-size-small);
   font-weight: 500;
 }
 
@@ -989,7 +986,7 @@
   color: var(--text-color);
   border: calc(var(--nav-size) * 0.01) solid rgba(0, 0, 0, 0.15);
   border-radius: var(--border-radius);
-  font-size: calc(var(--nav-size) * 0.2);
+  font-size: var(--font-size-base);
   cursor: pointer;
   transition: background-color 0.3s;
 }
@@ -1004,7 +1001,7 @@
   color: var(--text-color);
   border: calc(var(--nav-size) * 0.01) solid rgba(0, 0, 0, 0.15);
   border-radius: var(--border-radius);
-  font-size: calc(var(--nav-size) * 0.2);
+  font-size: var(--font-size-base);
   cursor: pointer;
   transition: background-color 0.3s;
 }
@@ -1020,7 +1017,7 @@
   color: var(--text-color-inv, white);
   border: none;
   border-radius: var(--border-radius);
-  font-size: calc(var(--nav-size) * 0.2);
+  font-size: var(--font-size-base);
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.3s, transform 0.2s;
@@ -1043,7 +1040,7 @@
   background-color: rgba(79, 156, 249, 0.05);
   border-radius: var(--border-radius);
   padding: calc(var(--nav-size) * 0.25);
-  font-size: calc(var(--nav-size) * 0.25);
+  font-size: var(--font-size-base);
   color: var(--text-color);
 }
 
@@ -1080,7 +1077,7 @@
 }
 
 .payment-confirm-icon {
-  font-size: calc(var(--nav-size) * 0.25);
+  font-size: var(--font-size-base);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1190,7 +1187,7 @@
 /* Added marketing elements */
 .plan-tagline {
   color: var(--text-color-accent);
-  font-size: calc(var(--nav-size) * 0.2);
+  font-size: var(--font-size-small);
   margin: calc(var(--nav-size) * 0.05) 0 calc(var(--nav-size) * 0.15) 0;
   font-style: italic;
 }
@@ -1204,14 +1201,14 @@
 }
 
 .subscription-terms p {
-  font-size: calc(var(--nav-size) * 0.2);
+  font-size: var(--font-size-small);
   color: var(--text-color);
 }
 
 .terms-highlight {
   font-weight: 500;
   color: var(--fg-mint);
-  font-size: calc(var(--nav-size) * 0.22);
+  font-size: var(--font-size-small);
 }
 
 .pricing-note {
@@ -1220,7 +1217,7 @@
   background-color: rgba(39, 174, 96, 0.05);
   border-left: calc(var(--nav-size) * 0.05) solid var(--fg-mint);
   border-radius: var(--border-radius);
-  font-size: calc(var(--nav-size) * 0.2);
+  font-size: var(--font-size-small);
   color: var(--text-color);
 }
 
@@ -1255,7 +1252,7 @@
   align-items: center;
   justify-content: center;
   font-weight: bold;
-  font-size: calc(var(--nav-size) * 0.2);
+  font-size: var(--font-size-small);
   margin-bottom: calc(var(--nav-size) * 0.1);
   transition: all 0.3s ease;
   background-color: var(--bg-page);
@@ -1278,7 +1275,7 @@
 }
 
 .progress-step-label {
-  font-size: calc(var(--nav-size) * 0.175);
+  font-size: var(--font-size-small);
   color: var(--text-color-accent);
   margin-top: calc(var(--nav-size) * 0.05);
   font-weight: 500;
@@ -1353,7 +1350,7 @@
   color: var(--text-color);
   padding: 1% 3%;
   border-radius: var(--border-radius);
-  font-size: calc(var(--nav-size)*0.2);
+  font-size: var(--font-size-small);
   font-weight: bold;
   z-index: 1;
   border: calc(var(--nav-size) * 0.01) solid var(--fg-blue);
@@ -1374,7 +1371,7 @@
 
 .subscription-details p {
   margin: 0;
-  font-size: calc(var(--nav-size) * 0.16);
+  font-size: var(--font-size-small);
   color: var(--text-color);
 }
 
@@ -1446,7 +1443,6 @@
   
   .checkout-container {
     /* Full width on mobile like Home page */
-    min-width: unset;
     width: 100%;
     box-sizing: border-box;
   }
@@ -1496,7 +1492,7 @@
  * Override all font sizes to match Home page typography system
  */
 
-/* Global font size updates to match Home page patterns */
+/* Global font size updates to match Pay.css design system variables */
 .email-note,
 .terms-agreement,
 .link-description,
@@ -1504,39 +1500,39 @@
 .error-message,
 .success-message,
 .loading-text {
-    font-size: calc(var(--nav-size) * 0.16);
+    font-size: var(--font-size-small);
 }
 
 /* Section headers and titles */
 .checkout-step-title,
 .confirmation-title,
 .section-header {
-    font-size: calc(var(--nav-size) * 0.2);
+    font-size: var(--font-size-base);
 }
 
 /* Membership plan elements */
 .membership-plan h3 {
-    font-size: calc(var(--nav-size) * 0.22);
+    font-size: var(--font-size-large);
 }
 
 .membership-plan .price,
 .plan-option-price,
 .total-amount {
-    font-size: calc(var(--nav-size) * 0.18);
+    font-size: var(--font-size-base);
     font-weight: 600;
 }
 
 .membership-plan .tagline,
 .membership-plan .features li,
 .membership-plan .quota {
-    font-size: calc(var(--nav-size) * 0.16);
+    font-size: var(--font-size-small);
 }
 
 /* Smaller descriptive text */
 .plan-option-description,
 .terms-text,
 .disclaimer-text {
-    font-size: calc(var(--nav-size) * 0.14);
+    font-size: calc(var(--font-size-small) * 0.85);
 }
 
 /* 
@@ -2020,7 +2016,7 @@
 
 .custom-price-header h4 {
   color: var(--text-color);
-  font-size: calc(var(--nav-size) * 0.5);
+  font-size: var(--font-size-large);
   font-weight: 700;
   margin-bottom: calc(var(--nav-size) * 0.3);
   background: linear-gradient(135deg, #2ecc71, #3498db);
@@ -2031,7 +2027,7 @@
 
 .custom-price-description {
   color: var(--text-color);
-  font-size: calc(var(--nav-size) * 0.32);
+  font-size: var(--font-size-base);
   opacity: 0.9;
   line-height: 1.5;
   max-width: 500px;
@@ -2046,7 +2042,7 @@
 .custom-price-input-group label {
   display: block;
   color: var(--text-color);
-  font-size: calc(var(--nav-size) * 0.35);
+  font-size: var(--font-size-large);
   font-weight: 600;
   margin-bottom: calc(var(--nav-size) * 0.3);
   text-align: center;
@@ -2072,7 +2068,7 @@
 
 .currency-symbol {
   color: var(--text-color);
-  font-size: calc(var(--nav-size) * 0.5);
+  font-size: var(--font-size-display);
   font-weight: 700;
   padding: 0 calc(var(--nav-size) * 0.3);
   opacity: 0.8;
@@ -2084,10 +2080,11 @@
   outline: none;
   background: transparent;
   color: var(--text-color);
-  font-size: calc(var(--nav-size) * 0.5);
+  font-size: var(--font-size-large);
   font-weight: 600;
   text-align: center;
-  padding: calc(var(--nav-size) * 0.3);
+  padding: calc(var(--nav-size) * 0.2);
+  max-width: 120px;
 }
 
 .custom-price-input::placeholder {
@@ -2101,14 +2098,14 @@
 
 .price-period {
   color: var(--text-color);
-  font-size: calc(var(--nav-size) * 0.32);
+  font-size: var(--font-size-small);
   padding: 0 calc(var(--nav-size) * 0.3);
   opacity: 0.8;
 }
 
 .price-error-message {
   color: #e74c3c;
-  font-size: calc(var(--nav-size) * 0.28);
+  font-size: var(--font-size-small);
   text-align: center;
   margin-bottom: calc(var(--nav-size) * 0.4);
   font-weight: 600;
@@ -2123,7 +2120,7 @@
 
 .minimum-note {
   color: var(--text-color);
-  font-size: calc(var(--nav-size) * 0.32);
+  font-size: var(--font-size-small);
   font-weight: 600;
   text-align: center;
   margin-bottom: calc(var(--nav-size) * 0.4);
@@ -2138,7 +2135,7 @@
 
 .price-tier-benefits p {
   color: var(--text-color);
-  font-size: calc(var(--nav-size) * 0.32);
+  font-size: var(--font-size-base);
   font-weight: 600;
   margin-bottom: calc(var(--nav-size) * 0.3);
 }
@@ -2151,7 +2148,7 @@
 
 .price-tier-benefits li {
   color: var(--text-color);
-  font-size: calc(var(--nav-size) * 0.3);
+  font-size: var(--font-size-small);
   padding: calc(var(--nav-size) * 0.15) 0;
   opacity: 0.9;
   line-height: 1.4;
@@ -2159,7 +2156,7 @@
 
 /* Confirmation step custom price display */
 .custom-price-display {
-  font-size: calc(var(--nav-size) * 0.4);
+  font-size: var(--font-size-large);
   font-weight: 700;
   color: #2ecc71;
   background: linear-gradient(135deg, #2ecc71, #3498db);
@@ -2176,22 +2173,22 @@
   }
   
   .custom-price-header h4 {
-    font-size: calc(var(--nav-size) * 0.4);
+    font-size: var(--font-size-large);
   }
   
   .custom-price-description {
-    font-size: calc(var(--nav-size) * 0.3);
+    font-size: var(--font-size-small);
   }
   
   .custom-price-input {
-    font-size: calc(var(--nav-size) * 0.4);
+    font-size: var(--font-size-large);
   }
   
   .currency-symbol {
-    font-size: calc(var(--nav-size) * 0.4);
+    font-size: var(--font-size-large);
   }
   
   .price-tier-benefits li {
-    font-size: calc(var(--nav-size) * 0.28);
+    font-size: var(--font-size-small);
   }
 }

@@ -734,6 +734,109 @@
     margin: 0;
 }
 
+/* Provider badge next to model label */
+.planit-settings-provider-badge {
+    font-size: calc(var(--nav-size) * 0.18);
+    margin-left: calc(var(--nav-size) * 0.1);
+    opacity: 0.75;
+}
+
+/* Full-width item (e.g. token field) */
+.planit-settings-item-full {
+    grid-column: 1 / -1;
+}
+
+/* Subsection title within a section */
+.planit-settings-subsection-title {
+    font-size: var(--font-size-base);
+    color: var(--text-color);
+    margin: calc(var(--nav-size) * 0.15) 0 calc(var(--nav-size) * 0.05) 0;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border-nav);
+    padding-bottom: calc(var(--nav-size) * 0.08);
+}
+
+/* Token input group with toggle */
+.planit-settings-token-group {
+    display: flex;
+    gap: calc(var(--nav-size) * 0.1);
+    align-items: center;
+}
+
+.planit-settings-token-group .planit-settings-input {
+    flex: 1;
+    font-family: monospace;
+}
+
+.planit-settings-token-toggle {
+    background: var(--bg-1);
+    border: 2px solid var(--border-nav);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    padding: calc(var(--nav-size) * 0.12);
+    font-size: calc(var(--nav-size) * 0.3);
+    line-height: 1;
+    transition: all 0.2s ease;
+    min-height: 44px;
+    min-width: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.planit-settings-token-toggle:hover {
+    background: var(--fg-blue);
+    color: white;
+    border-color: var(--fg-blue);
+}
+
+.planit-settings-token-status {
+    font-size: calc(var(--nav-size) * 0.22);
+    display: block;
+    margin-top: calc(var(--nav-size) * 0.06);
+}
+
+.planit-settings-token-help {
+    font-size: calc(var(--nav-size) * 0.22);
+    color: var(--text-color-accent);
+    margin: calc(var(--nav-size) * 0.06) 0 0 0;
+}
+
+.planit-settings-token-help a {
+    color: var(--fg-blue);
+    text-decoration: underline;
+}
+
+/* Range slider group */
+.planit-settings-range-group {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.15);
+}
+
+.planit-settings-range {
+    flex: 1;
+    accent-color: var(--fg-blue);
+    height: calc(var(--nav-size) * 0.08);
+    cursor: pointer;
+}
+
+.planit-settings-range-value {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: var(--fg-mint);
+    min-width: calc(var(--nav-size) * 0.5);
+    text-align: center;
+}
+
+/* Hint text beneath inputs */
+.planit-settings-hint {
+    font-size: calc(var(--nav-size) * 0.2);
+    color: var(--text-color-accent);
+    display: block;
+    margin-top: calc(var(--nav-size) * 0.04);
+}
+
 /* Net Button in Actions */
 .planit-settings-net-button {
     width: 100%;

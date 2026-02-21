@@ -5,6 +5,7 @@ const asyncHandler = require('express-async-handler');
 const { checkIP } = require('../utils/accessData.js');
 const { getUserStorageUsage } = require('../utils/storageTracker.js');
 const stripe = require('stripe')(process.env.STRIPE_KEY);
+const { STRIPE_PRODUCT_IDS, STRIPE_PRODUCT_MAP } = require('../constants/pricing');
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -231,15 +232,15 @@ const getUserSubscription = asyncHandler(async (req, res) => {
         // Get the most recent subscription
         const subscription = allRelevantSubscriptions[0];
         
-        // Get the product name to determine subscription type
-        const productName = subscription.plan.product.name;
-        console.log('Subscription product name:', productName);
-        let subscriptionPlan = 'Free';
-        if (productName === 'Simple Membership') {
-            subscriptionPlan = 'Flex';
-        } else if (productName === 'CSimple Membership') {
-            subscriptionPlan = 'Premium';
-        }
+        // Get the product to determine subscription type (prefer ID match, fallback to name)
+        const product = subscription.plan.product;
+        const productName = product.name;
+        console.log('Subscription product:', product.id, productName);
+        let subscriptionPlan = STRIPE_PRODUCT_IDS[product.id]
+            ? STRIPE_PRODUCT_IDS[product.id].charAt(0).toUpperCase() + STRIPE_PRODUCT_IDS[product.id].slice(1)
+            : (STRIPE_PRODUCT_MAP[productName]
+                ? STRIPE_PRODUCT_MAP[productName].charAt(0).toUpperCase() + STRIPE_PRODUCT_MAP[productName].slice(1)
+                : 'Free');
         console.log('Subscription plan:', subscriptionPlan);
         
         // Return subscription details

@@ -8,6 +8,10 @@ import Footer from '../../components/Footer/Footer.jsx';
 import { setDarkMode, setLightMode, setSystemColorMode } from '../../utils/theme.js';
 import { isTokenValid } from '../../utils/tokenUtils.js';
 import { toast } from 'react-toastify';
+import {
+  CREDITS, PLAN_IDS, QUOTA_SHORT, STORAGE_DISPLAY,
+  isProTier, isSimpleTier, getCreditDisplay, getDefaultCreditLimit,
+} from '../../constants/pricing.js';
 import './Profile.css';
 import HeaderLogo from '../../../src/assets/Checkmark512.png';
 
@@ -99,12 +103,12 @@ function Profile() {
           .then((usageData) => {
             
             // Show warning toast based on available credits
-            if (usageData && usageData.membership !== 'Premium' && usageData.availableCredits !== undefined) {
+            if (usageData && !isSimpleTier(usageData.membership) && usageData.availableCredits !== undefined) {
               const availableCredits = Number(usageData.availableCredits);
-              const membershipLimit = usageData.membership === 'Flex' ? 0.50 : 0;
+              const membershipLimit = isProTier(usageData.membership) ? CREDITS[PLAN_IDS.PRO].monthlyLimit : 0;
               
               if (availableCredits <= 0.05 && membershipLimit > 0) {
-                toast.warning('🚨 API credits nearly depleted! Consider upgrading to Premium for custom limits.', {
+                toast.warning('🚨 API credits nearly depleted! Consider upgrading to Simple for unlimited usage.', {
                   position: 'top-right',
                   autoClose: 8000,
                   hideProgressBar: false,
@@ -298,8 +302,8 @@ function Profile() {
                       className="planit-profile-setting-select"
                     >
                       <option value="Free">🆓 Free Plan</option>
-                      <option value="Flex">⚡ Flex Plan</option>
-                      <option value="Premium">👑 Premium Plan</option>
+                      <option value="Pro">⚡ Pro Plan</option>
+                      <option value="Simple">👑 Simple Plan</option>
                     </select>
                   </div>
                 </div>
@@ -352,10 +356,9 @@ function Profile() {
                         <span className="usage-value">
                           {user?._id === '6770a067c725cbceab958619' ? 
                             '∞ (Admin)' : 
-                            userUsage?.membership === 'Premium' ? 
-                              `$${userUsage?.customLimit !== undefined ? Number(userUsage.customLimit).toFixed(2) : '10.00'}` : 
-                              userUsage?.membership === 'Flex' ? '$0.50' :
-                              '$0.00'
+                            isSimpleTier(userUsage?.membership) ? 
+                              `$${userUsage?.customLimit !== undefined ? Number(userUsage.customLimit).toFixed(2) : CREDITS[PLAN_IDS.SIMPLE].defaultLimit.toFixed(2)}` : 
+                              getCreditDisplay(userUsage?.membership || 'Free')
                           }
                         </span>
                       </div>
@@ -382,28 +385,28 @@ function Profile() {
                     {/* Credit Status Warnings */}
                     {userUsage?.availableCredits !== undefined && (
                       <div className="planit-profile-credit-status">
-                        {userUsage.availableCredits <= 0 && userUsage.membership === 'Flex' && (
+                        {userUsage.availableCredits <= 0 && isProTier(userUsage.membership) && (
                           <div className="credit-warning frozen">
                             <span className="warning-icon">🚨</span>
                             <div className="warning-content">
                               <strong>Usage Frozen</strong>
-                              <p>Your Flex membership has no remaining credits. API usage is frozen until next month or upgrade to Premium for custom limits.</p>
+                              <p>Your Pro membership has no remaining credits. API usage is frozen until next month or upgrade to Simple for unlimited usage.</p>
                               <button 
                                 className="upgrade-premium-button"
-                                onClick={() => navigate('/pay?plan=premium')}
+                                onClick={() => navigate('/pay?plan=simple')}
                               >
-                                Upgrade to Premium
+                                Upgrade to Simple
                               </button>
                             </div>
                           </div>
                         )}
                         
-                        {userUsage.availableCredits <= 0 && userUsage.membership === 'Premium' && (
+                        {userUsage.availableCredits <= 0 && isSimpleTier(userUsage.membership) && (
                           <div className="credit-warning premium-empty">
                             <span className="warning-icon">⚠️</span>
                             <div className="warning-content">
                               <strong>Credits Depleted</strong>
-                              <p>Your Premium limit has been reached. Increase your custom limit to continue API usage.</p>
+                              <p>Your Simple plan limit has been reached. Increase your limit to continue API usage.</p>
                             </div>
                           </div>
                         )}
@@ -414,9 +417,9 @@ function Profile() {
                             <div className="warning-content">
                               <strong>Credits Running Low</strong>
                               <p>You have ${userUsage.availableCredits.toFixed(4)} remaining. 
-                                {userUsage.membership === 'Flex' 
-                                  ? ' Consider upgrading to Premium for flexible limits.' 
-                                  : ' Consider increasing your Premium limit.'}
+                                {isProTier(userUsage.membership)
+                                  ? ' Consider upgrading to Simple for unlimited usage.' 
+                                  : ' Consider increasing your Simple limit.'}
                               </p>
                             </div>
                           </div>
@@ -424,15 +427,15 @@ function Profile() {
                       </div>
                     )}
 
-                    {/* Premium Custom Limit Setting */}
-                    {userUsage?.membership === 'Premium' && (
+                    {/* Simple Custom Limit Setting */}
+                    {isSimpleTier(userUsage?.membership) && (
                       <div className="planit-profile-custom-limit">
-                        <h4 className="custom-limit-title">💎 Premium Custom Limit</h4>
+                        <h4 className="custom-limit-title">💎 Simple Custom Limit</h4>
                         <div className="custom-limit-controls">
                           <input 
                             type="number" 
-                            step="0.50" 
-                            min="0.50" 
+                            step={CREDITS[PLAN_IDS.SIMPLE].minLimit} 
+                            min={CREDITS[PLAN_IDS.SIMPLE].minLimit} 
                             placeholder="Enter custom limit" 
                             className="custom-limit-input"
                             id="customLimitInput"
@@ -442,7 +445,7 @@ function Profile() {
                             onClick={async () => {
                               const input = document.getElementById('customLimitInput');
                               const newLimit = parseFloat(input.value);
-                              if (newLimit && newLimit >= 0.50) {
+                              if (newLimit && newLimit >= CREDITS[PLAN_IDS.SIMPLE].minLimit) {
                                 try {
                                   const token = localStorage.getItem('token');
                                   const response = await fetch('/api/data/custom-limit', {
@@ -471,7 +474,7 @@ function Profile() {
                                   toast.error('❌ Network error. Please try again.');
                                 }
                               } else {
-                                toast.error('Please enter a valid limit (minimum $0.50)');
+                                toast.error(`Please enter a valid limit (minimum $${CREDITS[PLAN_IDS.SIMPLE].minLimit.toFixed(2)})`);
                               }
                             }}
                           >
@@ -479,7 +482,7 @@ function Profile() {
                           </button>
                         </div>
                         <div className="custom-limit-info">
-                          <small>Current limit: ${userUsage?.customLimit !== undefined ? Number(userUsage.customLimit).toFixed(2) : '10.00'}</small>
+                          <small>Current limit: ${userUsage?.customLimit !== undefined ? Number(userUsage.customLimit).toFixed(2) : CREDITS[PLAN_IDS.SIMPLE].defaultLimit.toFixed(2)}</small>
                           <small>You'll be charged for any limit increases immediately.</small>
                         </div>
                       </div>
@@ -497,8 +500,8 @@ function Profile() {
                             }`}
                             style={{ 
                               width: `${Math.min(
-                                ((userUsage.customLimit || (userUsage.membership === 'Flex' ? 0.50 : 10.00)) - userUsage.availableCredits) / 
-                                (userUsage.customLimit || (userUsage.membership === 'Flex' ? 0.50 : 10.00)) * 100, 100
+                                ((userUsage.customLimit || (isProTier(userUsage.membership) ? CREDITS[PLAN_IDS.PRO].monthlyLimit : CREDITS[PLAN_IDS.SIMPLE].defaultLimit)) - userUsage.availableCredits) / 
+                                (userUsage.customLimit || (isProTier(userUsage.membership) ? CREDITS[PLAN_IDS.PRO].monthlyLimit : CREDITS[PLAN_IDS.SIMPLE].defaultLimit)) * 100, 100
                               )}%` 
                             }}
                           ></div>
@@ -541,13 +544,13 @@ function Profile() {
                         <div className="upgrade-message">
                           <span className="upgrade-icon">🚀</span>
                           <div className="upgrade-text">
-                            <strong>Upgrade to Get API Credits</strong>
-                            <p>Flex: $0.50 monthly credits | Premium: Custom credit limits with usage flexibility!</p>
+                            <strong>Upgrade to Get More</strong>
+                            <p>Pro: {QUOTA_SHORT[PLAN_IDS.PRO]} + {STORAGE_DISPLAY[PLAN_IDS.PRO]} storage | Simple: {QUOTA_SHORT[PLAN_IDS.SIMPLE]} + phone control!</p>
                           </div>
                         </div>
                         <button 
                           className="upgrade-button"
-                          onClick={() => navigate('/pay?plan=flex')}
+                          onClick={() => navigate('/pay?plan=pro')}
                         >
                           Upgrade Now
                         </button>
@@ -563,7 +566,7 @@ function Profile() {
                     <div className="usage-stat">
                       <span className="usage-label">🎯 Monthly Limit</span>
                       <span className="usage-value">
-                        {currentPlan === 'Premium' ? '$10.00' : currentPlan === 'Free' ? '$0.00' : '$0.50'}
+                        {getCreditDisplay(currentPlan || 'Free')}
                       </span>
                     </div>
                   </div>
@@ -606,12 +609,12 @@ function Profile() {
                         <div className="warning-content">
                           <strong>Storage Limit Exceeded</strong>
                           <p>You've exceeded your storage limit. Delete some items or upgrade to continue storing data.</p>
-                          {userStorage.membership !== 'Premium' && (
+                          {!isSimpleTier(userStorage.membership) && (
                             <button 
                               className="upgrade-premium-button"
-                              onClick={() => navigate('/pay?plan=premium')}
+                              onClick={() => navigate('/pay?plan=simple')}
                             >
-                              Upgrade to Premium
+                              Upgrade to Simple
                             </button>
                           )}
                         </div>
@@ -676,19 +679,19 @@ function Profile() {
                       </div>
                     )}
 
-                    {/* Storage upgrade prompt for non-Premium users */}
-                    {userStorage.membership !== 'Premium' && userStorage.storageUsagePercent > 50 && (
+                    {/* Storage upgrade prompt for non-Simple users */}
+                    {!isSimpleTier(userStorage.membership) && userStorage.storageUsagePercent > 50 && (
                       <div className="planit-profile-upgrade-prompt">
                         <div className="upgrade-message">
                           <span className="upgrade-icon">💾</span>
                           <div className="upgrade-text">
                             <strong>Need More Storage?</strong>
-                            <p>Premium membership includes unlimited storage for all your data and files!</p>
+                            <p>Simple membership includes unlimited storage for all your data and files!</p>
                           </div>
                         </div>
                         <button 
                           className="upgrade-button"
-                          onClick={() => navigate('/pay?plan=premium')}
+                          onClick={() => navigate('/pay?plan=simple')}
                         >
                           Upgrade Now
                         </button>
@@ -704,9 +707,9 @@ function Profile() {
                     <div className="usage-stat">
                       <span className="usage-label">🎯 Storage Limit</span>
                       <span className="usage-value">
-                        {currentPlan === 'Premium' ? 'Unlimited' : 
-                         currentPlan === 'Flex' ? '100 MB' : 
-                         '10 MB'}
+                        {isSimpleTier(currentPlan) ? STORAGE_DISPLAY[PLAN_IDS.SIMPLE] : 
+                         isProTier(currentPlan) ? STORAGE_DISPLAY[PLAN_IDS.PRO] : 
+                         STORAGE_DISPLAY[PLAN_IDS.FREE]}
                       </span>
                     </div>
                   </div>

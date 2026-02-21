@@ -8,6 +8,7 @@ import { updateData } from '../../../features/data/dataSlice.js';
 import ThumbsUp from './../../../assets/thumbs-up.svg';
 import ManageView from '../ManageView/ManageView.jsx';
 import ThumbsDown from './../../../assets/thumbs-down.svg';
+import { PLAN_BADGE } from '../../../constants/pricing';
 import './DataResult.css';
 
 function GoldBadge() {
@@ -217,14 +218,10 @@ function DataResult(props) {
         }
         
         // Otherwise use rank from the plan string
-        switch (userRank) {
-            case 'Premium':
-                return <GoldBadge />;
-            case 'Flex':
-                return <SilverBadge />;
-            default: // 'Free' or any other value
-                return <UnknownBadge />;
-        }
+        const badge = PLAN_BADGE[userRank];
+        if (badge === 'Gold') return <GoldBadge />;
+        if (badge === 'Silver') return <SilverBadge />;
+        return <UnknownBadge />;
     };
 
     if(localPlanString){

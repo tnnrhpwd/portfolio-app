@@ -24,10 +24,10 @@ const authLimiter = rateLimit({
 
 // Payment endpoint rate limiter
 const paymentLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10, // limit each IP to 10 payment requests per hour
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 30, // limit each IP to 30 payment requests per 15 min
   message: {
-    error: 'Too many payment requests, please try again later.'
+    error: 'Too many payment requests. Please wait a few minutes before trying again.'
   },
   standardHeaders: true,
   legacyHeaders: false,
