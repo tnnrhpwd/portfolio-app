@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { getLocalModels } from '../../services/csimpleApi';
+import React, { useState, useEffect, useCallback } from 'react';
+import { getLocalModels, testAddonConnection } from '../../services/csimpleApi';
 import './Sidebar.css';
 
 function Sidebar({
@@ -28,6 +28,19 @@ function Sidebar({
 }) {
   const [models, setModels] = useState([]);
   const [showSettings, setShowSettings] = useState(false);
+  const [addonTest, setAddonTest] = useState({ state: 'idle', checks: [] });
+
+  const runAddonTest = useCallback(async () => {
+    if (addonTest.state === 'testing') return;
+    setAddonTest({ state: 'testing', checks: [] });
+    try {
+      const result = await testAddonConnection();
+      setAddonTest({ state: result.passed ? 'passed' : 'failed', checks: result.checks });
+    } catch {
+      setAddonTest({ state: 'failed', checks: [{ name: 'Connection', ok: false, detail: 'Test threw an error' }] });
+    }
+    setTimeout(() => setAddonTest(prev => prev.state !== 'testing' ? { state: 'idle', checks: [] } : prev), 6000);
+  }, [addonTest.state]);
 
   const agents = settings?.agents || [];
   const selectedAgentId = settings?.selectedAgentId || 'default';
@@ -131,13 +144,39 @@ function Sidebar({
 
         <div className="sidebar__footer">
           {isAddonConnected && !showAddonPrompt && (
-            <div className="sidebar__addon-connected">
-              <span className="sidebar__addon-connected__icon">🧩</span>
-              <span className="sidebar__addon-connected__label">
-                Addon connected
-                {addonCurrentVersion && <span className="sidebar__addon-connected__version"> v{addonCurrentVersion}</span>}
+            <div
+              className={`sidebar__addon-connected sidebar__addon-connected--${addonTest.state}`}
+              onClick={runAddonTest}
+              role="button"
+              tabIndex={0}
+              title="Click to run addon diagnostics"
+            >
+              <span className="sidebar__addon-connected__icon">
+                {addonTest.state === 'testing' ? '⏳' : '🧩'}
               </span>
-              <span className="sidebar__addon-connected__check">✓</span>
+              <span className="sidebar__addon-connected__label">
+                {addonTest.state === 'idle' && <>Addon connected{addonCurrentVersion && <span className="sidebar__addon-connected__version"> v{addonCurrentVersion}</span>}</>}
+                {addonTest.state === 'testing' && 'Running diagnostics…'}
+                {addonTest.state === 'passed' && 'All checks passed'}
+                {addonTest.state === 'failed' && 'Some checks failed'}
+              </span>
+              <span className="sidebar__addon-connected__check">
+                {addonTest.state === 'idle' && '✓'}
+                {addonTest.state === 'testing' && ''}
+                {addonTest.state === 'passed' && '✓'}
+                {addonTest.state === 'failed' && '✗'}
+              </span>
+            </div>
+          )}
+          {addonTest.checks.length > 0 && (
+            <div className="sidebar__addon-test-results">
+              {addonTest.checks.map((c, i) => (
+                <div key={i} className={`sidebar__addon-test-row ${c.ok ? 'sidebar__addon-test-row--ok' : 'sidebar__addon-test-row--fail'}`}>
+                  <span className="sidebar__addon-test-row__icon">{c.ok ? '✓' : '✗'}</span>
+                  <span className="sidebar__addon-test-row__name">{c.name}</span>
+                  <span className="sidebar__addon-test-row__detail">{c.detail}</span>
+                </div>
+              ))}
             </div>
           )}
 
@@ -159,7 +198,7 @@ function Sidebar({
               <div className="sidebar__addon-notice__actions">
                 <a
                   className="sidebar__addon-notice__btn"
-                  href="https://github.com/tnnrhpwd/C-Simple/releases"
+                  href="https://github.com/tnnrhpwd/portfolio-app/releases"
                   target="_blank"
                   rel="noopener noreferrer"
                 >

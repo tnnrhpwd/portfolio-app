@@ -325,6 +325,81 @@
   background: rgba(34, 197, 94, 0.08);
   border: 1px solid rgba(34, 197, 94, 0.25);
   font-size: 12px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  user-select: none;
+}
+.sidebar__addon-connected:hover {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+/* Test state variants */
+.sidebar__addon-connected--testing {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.3);
+  animation: addon-pulse 1.2s ease-in-out infinite;
+}
+.sidebar__addon-connected--passed {
+  background: rgba(34, 197, 94, 0.14);
+  border-color: rgba(34, 197, 94, 0.45);
+}
+.sidebar__addon-connected--failed {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+@keyframes addon-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* ─── Addon test result rows ─── */
+.sidebar__addon-test-results {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 4px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  animation: addon-results-in 0.2s ease-out;
+}
+@keyframes addon-results-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.sidebar__addon-test-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+.sidebar__addon-test-row--ok .sidebar__addon-test-row__icon {
+  color: #22c55e;
+}
+.sidebar__addon-test-row--fail .sidebar__addon-test-row__icon {
+  color: #ef4444;
+}
+.sidebar__addon-test-row__icon {
+  flex-shrink: 0;
+  font-weight: 700;
+  width: 14px;
+  text-align: center;
+}
+.sidebar__addon-test-row__name {
+  color: var(--text-primary);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.sidebar__addon-test-row__detail {
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar__addon-connected__icon {
@@ -350,6 +425,12 @@
   color: #22c55e;
   font-size: 13px;
   font-weight: 700;
+}
+.sidebar__addon-connected--failed .sidebar__addon-connected__check {
+  color: #ef4444;
+}
+.sidebar__addon-connected--testing .sidebar__addon-connected__check {
+  color: #3b82f6;
 }
 
 .sidebar__addon-notice {

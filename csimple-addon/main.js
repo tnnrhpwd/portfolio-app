@@ -228,7 +228,7 @@ app.on('window-all-closed', (e) => {
   // Do nothing — keep running in tray
 });
 
-app.on('before-quit', async () => {
+app.on('before-quit', async (e) => {
   console.log('[Main] Shutting down...');
 
   // Stop update checks
@@ -252,8 +252,12 @@ app.on('before-quit', async () => {
     await server.stopServer();
   }
 
-  // Destroy tray
+  // Destroy tray so the process can fully exit (no lingering tray icon)
   trayManager?.destroy();
+  trayManager = null;
+
+  // Release the single-instance lock so the installer/updater can proceed
+  app.releaseSingleInstanceLock();
 });
 
 // Handle second instance launch — just show a notification

@@ -1,8 +1,44 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { detectAddon, getAddonStatus, onAddonStatusChange, startAddonPolling } from '../../services/csimpleApi';
 
-/** Minimum addon version required for full ActionBridge support (added 2025-02-18) */
-const REQUIRED_ADDON_VERSION = '1.0.1';
+/** Hard-coded floor — only used when GitHub API is unreachable */
+const FALLBACK_REQUIRED_VERSION = '1.0.100';
+
+/** GitHub repo to check for latest release */
+const GITHUB_RELEASES_API = 'https://api.github.com/repos/tnnrhpwd/portfolio-app/releases/latest';
+
+/** Fetch the latest release tag from GitHub (cached in sessionStorage for 10 min). */
+async function fetchLatestRelease() {
+  const CACHE_KEY = 'csimple_latest_version';
+  const CACHE_TS_KEY = 'csimple_latest_version_ts';
+  const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+  try {
+    const cached = sessionStorage.getItem(CACHE_KEY);
+    const cachedTs = Number(sessionStorage.getItem(CACHE_TS_KEY) || 0);
+    if (cached && Date.now() - cachedTs < CACHE_TTL) return cached;
+  } catch { /* ignore */ }
+
+  try {
+    const res = await fetch(GITHUB_RELEASES_API, {
+      headers: { Accept: 'application/vnd.github.v3+json' },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return FALLBACK_REQUIRED_VERSION;
+    const data = await res.json();
+    // tag_name is typically "v1.0.100" or "1.0.100"
+    const tag = (data.tag_name || '').replace(/^v/i, '');
+    if (tag) {
+      try {
+        sessionStorage.setItem(CACHE_KEY, tag);
+        sessionStorage.setItem(CACHE_TS_KEY, String(Date.now()));
+      } catch { /* ignore */ }
+      return tag;
+    }
+  } catch { /* network error */ }
+
+  return FALLBACK_REQUIRED_VERSION;
+}
 
 /**
  * Compare two semver strings. Returns true if `actual` is >= `required`.
@@ -35,6 +71,7 @@ function isVersionAtLeast(actual, required) {
 export function useAddonDetection({ pollInterval = 30000 } = {}) {
   const [addonStatus, setAddonStatus] = useState(getAddonStatus);
   const [isChecking, setIsChecking] = useState(true);
+  const [latestVersion, setLatestVersion] = useState(FALLBACK_REQUIRED_VERSION);
   const [dismissed, setDismissed] = useState(() => {
     try {
       return sessionStorage.getItem('csimple_addon_dismissed') === 'true';
@@ -43,6 +80,11 @@ export function useAddonDetection({ pollInterval = 30000 } = {}) {
     }
   });
   const initialCheckDone = useRef(false);
+
+  // Fetch latest release version from GitHub on mount
+  useEffect(() => {
+    fetchLatestRelease().then(setLatestVersion);
+  }, []);
 
   // Subscribe to status changes from the polling service
   useEffect(() => {
@@ -90,7 +132,7 @@ export function useAddonDetection({ pollInterval = 30000 } = {}) {
   }, []);
 
   const isOutdated =
-    addonStatus.isConnected && !isVersionAtLeast(addonStatus.version, REQUIRED_ADDON_VERSION);
+    addonStatus.isConnected && !isVersionAtLeast(addonStatus.version, latestVersion);
 
   return {
     addonStatus,
@@ -100,7 +142,7 @@ export function useAddonDetection({ pollInterval = 30000 } = {}) {
     dismissed,
     dismissPrompt,
     isOutdated,
-    requiredVersion: REQUIRED_ADDON_VERSION,
+    requiredVersion: latestVersion,
     // Show install banner when addon is not found at all
     showInstallPrompt: !addonStatus.isConnected && !isChecking && !dismissed,
     // Show update banner when addon is connected but running an older version

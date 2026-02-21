@@ -81,7 +81,9 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "CSimple Addon",
-      "runAfterFinish": true
+      "runAfterFinish": true,
+      "include": "build/installer.nsh",
+      "warningsAsErrors": false
     },
     "portable": {
       "artifactName": "CSimple-Addon-${version}-portable.exe"

@@ -30,7 +30,7 @@ function AddonInstallPrompt({ isChecking, onDismiss, onRecheck, isOutdated, curr
         <div className="addon-prompt__actions">
           <a
             className="addon-prompt__install-btn"
-            href="https://github.com/tnnrhpwd/C-Simple/releases"
+            href="https://github.com/tnnrhpwd/portfolio-app/releases"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -64,7 +64,7 @@ function AddonInstallPrompt({ isChecking, onDismiss, onRecheck, isOutdated, curr
       <div className="addon-prompt__actions">
         <a
           className="addon-prompt__install-btn"
-          href="https://github.com/tnnrhpwd/C-Simple/releases"
+          href="https://github.com/tnnrhpwd/portfolio-app/releases"
           target="_blank"
           rel="noopener noreferrer"
         >
