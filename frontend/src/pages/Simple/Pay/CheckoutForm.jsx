@@ -15,12 +15,14 @@ import CheckoutProgressBar from '../../../components/Checkout/CheckoutProgressBa
 import { LinkBenefits } from '../../../components/Checkout/LinkBenefits';
 import './CheckoutForm.css';
 
+let stripeLoadFailed = false;
 const stripePromise = import.meta.env.VITE_STRIPE_PUBLIC_KEY
   ? loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY).catch(err => {
       console.error('Failed to load Stripe:', err);
+      stripeLoadFailed = true;
       return null;
     })
-  : Promise.resolve(null);
+  : (() => { stripeLoadFailed = true; return Promise.resolve(null); })();
 
 const CheckoutContent = ({ paymentType, initialPlan }) => {
   const stripe = useStripe();
@@ -89,7 +91,14 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
               <div className="form-section">
                 <h3>Payment Method</h3>
                 <p className="section-desc">All transactions are secure and encrypted</p>
-                <PaymentElement id="payment-element" options={paymentElementOptions} />
+                <PaymentElement 
+                  id="payment-element" 
+                  options={paymentElementOptions}
+                  onLoadError={(e) => {
+                    console.error('PaymentElement load error:', e);
+                    state.setError('Payment form failed to load. Please clear your browser cache and try again.');
+                  }}
+                />
               </div>
               
               {state.message && (
@@ -323,7 +332,7 @@ function CheckoutForm({ paymentType, initialPlan }) {
     }
   };
 
-  if (stripePromise === null && !isStripeError) {
+  if (stripeLoadFailed && !isStripeError) {
     setIsStripeError(true);
   }
 
@@ -354,7 +363,10 @@ function CheckoutForm({ paymentType, initialPlan }) {
           <p style={{ fontSize: '0.9em', opacity: 0.7 }}>This usually resolves in a few minutes.</p>
         ) : (
           <button onClick={() => {
-            sessionStorage.removeItem('stripe_setup_intent');
+            // Clear all stripe setup intent caches
+            Object.keys(sessionStorage).forEach(key => {
+              if (key.startsWith('stripe_setup_intent')) sessionStorage.removeItem(key);
+            });
             window.location.reload();
           }}>Try Again</button>
         )}
@@ -377,11 +389,11 @@ function CheckoutForm({ paymentType, initialPlan }) {
   const options = {
     clientSecret,
     appearance: {
-      theme: 'stripe',
+      theme: 'night',
       variables: {
         colorPrimary: '#4f9cf9',
-        colorBackground: '#ffffff',
-        colorText: '#424770',
+        colorBackground: '#1a1a2e',
+        colorText: '#e0e0e0',
         colorDanger: '#e74c3c',
         fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         spacingUnit: '4px',

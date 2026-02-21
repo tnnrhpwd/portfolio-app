@@ -6,6 +6,19 @@ const {
   subscriptionCancelledTemplate
 } = require('./emailTemplates');
 
+// Lazy-loaded test funnel hook — avoids circular require at module load
+let _interceptTestEmail = null;
+function getInterceptor() {
+  if (_interceptTestEmail === null) {
+    try {
+      _interceptTestEmail = require('../controllers/testFunnelController').interceptTestEmail;
+    } catch (_) {
+      _interceptTestEmail = false; // module not available
+    }
+  }
+  return _interceptTestEmail || null;
+}
+
 // Create a client using the server token (only if token is provided)
 let client = null;
 if (process.env.POSTMARK_API_TOKEN) {
@@ -23,6 +36,13 @@ if (process.env.POSTMARK_API_TOKEN) {
  */
 const sendEmail = async (to, templateName, data) => {
   try {
+    // Test-funnel intercept — capture instead of sending
+    const intercept = getInterceptor();
+    if (intercept && intercept(to, templateName, data)) {
+      console.log(`📧 [TEST FUNNEL] Captured email to ${to} (template: ${templateName})`);
+      return { MessageID: 'test-funnel-captured', Message: 'Captured by test funnel' };
+    }
+
     // If email client is not configured, log and skip
     if (!client) {
       console.warn(`⚠️  Email would be sent to ${to} with template ${templateName}, but Postmark is not configured.`);

@@ -136,7 +136,9 @@ function Login() {
                     pauseOnHover: true,
                 });
             }
-            navigate('/');           // send user to dashboard
+            // Redirect to intended page if provided, otherwise home
+            const redirectTo = location.state?.redirectTo || '/';
+            navigate(redirectTo);           // send user to intended destination
         } else {
             dispatch(resetDataSlice());   // reset state values( data, dataisloading, dataiserror, datamessage, and dataissuccess ) on each state change
         }
@@ -294,9 +296,9 @@ function Login() {
                     </section>
                     
                     <div className="planit-login-actions">
-                        <a href="/register">
-                            <button className="planit-login-register">Register</button>
-                        </a>
+                        <button className="planit-login-register" onClick={() => navigate('/register', { state: { redirectTo: location.state?.redirectTo } })}>
+                            Register
+                        </button>
                         <a href="/forgot-password">
                             <button className="planit-login-forgot">Forgot Password?</button>
                         </a>

@@ -214,4 +214,14 @@ const optionalAuth = asyncHandler(async (req, res, next) => {
   next();
 });
 
-module.exports = { protect, optionalAuth };
+/**
+ * Invalidate a specific user's auth cache entry.
+ * Call this after updating a user's DynamoDB record so the next
+ * request fetches the fresh version.
+ * @param {string} userId
+ */
+const invalidateUserCache = (userId) => {
+  if (userId) userCache.delete(String(userId));
+};
+
+module.exports = { protect, optionalAuth, invalidateUserCache };

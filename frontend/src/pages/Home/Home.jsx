@@ -124,6 +124,11 @@ function Home() {
                                 </a>
                             </>}
                             
+                            {/* Games & Entertainment */}
+                            <a className="home-spc-tool animate-in" href={links.wordle} style={{animationDelay: '0.4s'}}>
+                                <div className="home-spc-tool-text">{links.wordle}</div>
+                            </a>
+                            
                             {/* Admin (Special Access) */}
                             {(user && user._id && user._id.toString() === '6770a067c725cbceab958619') && 
                                 <a className="home-spc-tool animate-in" href={links.admin} style={{animationDelay: '0.45s'}}>

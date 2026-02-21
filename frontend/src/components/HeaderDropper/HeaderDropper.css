@@ -1,6 +1,6 @@
 .planit-header-dropper-themebutton{
     color: var(--text-color);
-    font-size: calc(var(--nav-size)*0.32);
+    font-size: var(--font-size-small);
     cursor: pointer;
     position: fixed;
     padding: calc(var(--nav-size)*0.1);
@@ -16,7 +16,7 @@
 }
 .planit-header-dropper-signer{
     color: var(--text-color);
-    font-size: calc(var(--nav-size)*0.32);
+    font-size: var(--font-size-small);
     cursor: pointer;
     position: fixed;
     padding: calc(var(--nav-size)*0.1);
@@ -168,7 +168,7 @@
     padding: calc(var(--nav-size)*0.2) calc(var(--nav-size)*0.2);
     color: var(--text-color);
     font-family: 'Roboto', sans-serif;
-    font-size: calc(var(--nav-size)*0.45);
+    font-size: var(--font-size-large);
     text-decoration: none;
     transition-duration: .25s;
 }
@@ -181,7 +181,7 @@
     padding: calc(var(--nav-size)*0.2) calc(var(--nav-size)*0.2);
     color: var(--text-color);
     font-family: 'Roboto', sans-serif;
-    font-size: calc(var(--nav-size)*0.45);
+    font-size: var(--font-size-large);
     text-decoration: none;
     transition-duration: .25s;
     width: 100%;
@@ -194,7 +194,7 @@
 .planit-header-dropper-user{
     padding: calc(var(--nav-size)*0.1) calc(var(--nav-size)*0.4);
     vertical-align: calc(var(--nav-size)*0.05);
-    font-size: calc(var(--nav-size)*0.3);
+    font-size: var(--font-size-small);
     background-color: var(--bg-accent);
     cursor: pointer;
     margin-left: calc(var(--nav-size)*0.5);

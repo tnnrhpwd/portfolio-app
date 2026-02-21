@@ -199,7 +199,7 @@ async function createSetupIntent(customerId) {
     
     const setupIntent = await stripe.setupIntents.create({
         customer: customerId,
-        payment_method_types: ['link', 'card', 'cashapp'],
+        automatic_payment_methods: { enabled: true },
         usage: 'off_session',
     });
     
@@ -350,8 +350,8 @@ async function cancelActiveSubscriptions(customerId) {
         console.log(`Cleaning up ${expiredSubscriptions.length} expired subscriptions`);
         for (const expSub of expiredSubscriptions) {
             try {
-                await stripe.subscriptions.del(expSub.id);
-                console.log(`Deleted expired subscription: ${expSub.id}`);
+                await stripe.subscriptions.cancel(expSub.id);
+                console.log(`Cancelled expired subscription: ${expSub.id}`);
             } catch (delError) {
                 console.error(`Error deleting subscription ${expSub.id}:`, delError.message);
             }

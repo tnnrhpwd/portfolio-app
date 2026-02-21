@@ -216,7 +216,7 @@
     font-size: var(--font-size-base);
     padding: var(--spacing-sm);
     text-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.02) var(--grey3-transp);
-    line-height: var(--line-height-loose);
+    line-height: var(--line-height-relaxed);
     color: var(--text-color-accent);
     max-width: 700px;
     margin: 0 auto;
@@ -275,7 +275,7 @@
 #content-tile{
     padding: 0 calc(var(--nav-size)*.2);
     padding-top: calc(var(--nav-size)*1);
-    font-size: calc(var(--nav-size)*.4);
+    font-size: var(--font-size-large);
     color: var(--text-color);
     font-weight: bold;
     word-wrap: break-word;
@@ -425,7 +425,7 @@
 
 .app-icon {
     margin-right: calc(var(--nav-size) * 0.1);
-    font-size: calc(var(--nav-size) * 0.35);
+    font-size: var(--font-size-base);
     animation: bounce 2s infinite;
 }
 
@@ -646,12 +646,12 @@
     
     .home-spc-tool-text {
         min-width: calc(var(--nav-size)*2.5);
-        font-size: calc(var(--nav-size)*0.28);
+        font-size: var(--font-size-small);
         padding: calc(var(--nav-size)*0.08) calc(var(--nav-size)*0.15);
     }
     
     .app-icon {
-        font-size: calc(var(--nav-size) * 0.3);
+        font-size: var(--font-size-small);
     }
 }
 
@@ -724,7 +724,7 @@
     right: 8px;
     background: none;
     border: none;
-    font-size: calc(var(--nav-size) * 0.3);
+    font-size: var(--font-size-small);
     color: var(--text-color-inv);
     cursor: pointer;
     width: 20px;
@@ -751,7 +751,7 @@
 }
 
 .popup-icon {
-    font-size: calc(var(--nav-size) * 0.35);
+    font-size: var(--font-size-base);
     animation: gentleBounce 3s infinite;
 }
 
@@ -762,13 +762,13 @@
 }
 
 .popup-title {
-    font-size: calc(var(--nav-size) * 0.25);
+    font-size: var(--font-size-small);
     font-weight: bold;
     margin-bottom: 2px;
 }
 
 .popup-subtitle {
-    font-size: calc(var(--nav-size) * 0.2);
+    font-size: var(--font-size-xs);
 }
 
 .popup-buttons {
@@ -780,7 +780,7 @@
     flex: 1;
     padding: calc(var(--nav-size) * 0.08) calc(var(--nav-size) * 0.15);
     border-radius: calc(var(--nav-size) * 0.08);
-    font-size: calc(var(--nav-size) * 0.18);
+    font-size: var(--font-size-xs);
     font-family: 'CutiveMono-Regular';
     font-weight: bold;
     text-decoration: none;
@@ -809,7 +809,7 @@
     background: transparent;
     color: var(--text-color-inv);
     border: 1px solid rgba(255, 255, 255, 0.3);
-    font-size: calc(var(--nav-size) * 0.2);
+    font-size: var(--font-size-xs);
     width: 30px;
     padding: calc(var(--nav-size) * 0.05);
 }
@@ -849,11 +849,11 @@
     }
     
     .popup-title {
-        font-size: calc(var(--nav-size) * 0.22);
+        font-size: var(--font-size-xs);
     }
     
     .popup-subtitle {
-        font-size: calc(var(--nav-size) * 0.16);
+        font-size: calc(var(--font-size-xs) * 0.85);
     }
 }
 
@@ -866,7 +866,7 @@
     }
     
     .popup-icon {
-        font-size: calc(var(--nav-size) * 0.3);
+        font-size: var(--font-size-small);
     }
 }
 

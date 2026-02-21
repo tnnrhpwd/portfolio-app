@@ -48,7 +48,8 @@ export const useCheckoutHandlers = ({
     try {
       const { error: submitError } = await elements.submit();
       if (submitError) {
-        setError(parseErrorMessage(submitError.message));
+        const parsed1 = parseErrorMessage(submitError.message);
+        setError(typeof parsed1 === 'object' ? (parsed1.message || String(parsed1)) : parsed1);
         setLoading(false);
         return;
       }
@@ -62,7 +63,8 @@ export const useCheckoutHandlers = ({
       });
 
       if (confirmError) {
-        setError(parseErrorMessage(confirmError.message));
+        const parsed2 = parseErrorMessage(confirmError.message);
+        setError(typeof parsed2 === 'object' ? (parsed2.message || String(parsed2)) : parsed2);
         setLoading(false);
         return;
       }
@@ -89,7 +91,8 @@ export const useCheckoutHandlers = ({
       }
     } catch (err) {
       console.error('Error:', err);
-      setError(parseErrorMessage(err?.message || 'An unexpected error occurred'));
+      const parsed3 = parseErrorMessage(err?.message || 'An unexpected error occurred');
+      setError(typeof parsed3 === 'object' ? (parsed3.message || String(parsed3)) : parsed3);
     } finally {
       setLoading(false);
     }
@@ -115,7 +118,8 @@ export const useCheckoutHandlers = ({
       }, 2000);
     } catch (err) {
       console.error('Subscription error:', err);
-      setError(parseErrorMessage(err?.message || 'Failed to subscribe. Please try again.'));
+      const parsed = parseErrorMessage(err?.message || 'Failed to subscribe. Please try again.');
+      setError(typeof parsed === 'object' ? (parsed.message || String(parsed)) : parsed);
     } finally {
       setLoading(false);
     }
@@ -138,7 +142,8 @@ export const useCheckoutHandlers = ({
           }, 2000);
         } catch (err) {
           console.error('Subscription error:', err);
-          setError(parseErrorMessage(err?.message || 'Failed to subscribe. Please try again.'));
+          const parsedFree = parseErrorMessage(err?.message || 'Failed to subscribe. Please try again.');
+          setError(typeof parsedFree === 'object' ? (parsedFree.message || String(parsedFree)) : parsedFree);
         } finally {
           setLoading(false);
         }

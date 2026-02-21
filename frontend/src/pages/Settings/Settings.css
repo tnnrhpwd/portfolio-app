@@ -34,7 +34,7 @@
 .planit-settings-profile-button {
     width: 100%;
     padding: calc(var(--nav-size) * 0.3);
-    font-size: calc(var(--nav-size) * 0.2);
+    font-size: var(--font-size-base);
     background: linear-gradient(90deg, var(--fg-pink), var(--bg-mint));
     color: var(--text-color-inv);
     border: none;
@@ -50,7 +50,6 @@
 @media (orientation: landscape) {
     .planit-settings-profile-button {
         padding: calc(var(--nav-size) * 0.35);
-        font-size: calc(var(--nav-size) * 0.22);
         min-height: calc(var(--nav-size) * 0.9);
         font-weight: 600;
     }
@@ -58,7 +57,6 @@
     @media (min-width: 1024px) and (hover: hover) {
         .planit-settings-profile-button {
             padding: calc(var(--nav-size) * 0.4);
-            font-size: calc(var(--nav-size) * 0.25);
             min-height: calc(var(--nav-size) * 1);
         }
         
@@ -73,14 +71,12 @@
 @media (orientation: portrait) {
     .planit-settings-profile-button {
         padding: calc(var(--nav-size) * 0.4);
-        font-size: calc(var(--nav-size) * 0.18);
         min-height: calc(var(--nav-size) * 1);
     }
     
     @media (max-width: 480px) {
         .planit-settings-profile-button {
             padding: calc(var(--nav-size) * 0.45);
-            font-size: calc(var(--nav-size) * 0.2);
             min-height: calc(var(--nav-size) * 1.1);
         }
     }
@@ -258,14 +254,14 @@
 }
 
 .planit-settings-heading-title {
-    font-size: calc(var(--nav-size) * 0.35);
+    font-size: var(--font-size-heading);
     font-weight: bold;
     margin-bottom: calc(var(--nav-size) * 0.2);
     color: var(--text-color);
 }
 
 .planit-settings-heading-description {
-    font-size: calc(var(--nav-size) * 0.2);
+    font-size: var(--font-size-base);
     color: var(--text-color-accent);
     margin-bottom: calc(var(--nav-size) * 0.4);
 }
@@ -335,7 +331,7 @@
 }
 
 .planit-settings-section-title {
-    font-size: calc(var(--nav-size) * 0.25);
+    font-size: var(--font-size-base);
     font-weight: bold;
     color: var(--text-color);
     margin-bottom: calc(var(--nav-size) * 0.4);
@@ -350,7 +346,6 @@
 /* Intelligent typography scaling */
 @media (orientation: landscape) {
     .planit-settings-section-title {
-        font-size: calc(var(--nav-size) * 0.28);
         margin-bottom: calc(var(--nav-size) * 0.5);
         /* Better visual hierarchy in landscape */
         text-align: left;
@@ -359,26 +354,17 @@
     /* Larger screens get bigger typography */
     @media (min-width: 1024px) {
         .planit-settings-section-title {
-            font-size: calc(var(--nav-size) * 0.3);
+            font-size: var(--font-size-large);
         }
     }
 }
 
 @media (orientation: portrait) {
     .planit-settings-section-title {
-        font-size: calc(var(--nav-size) * 0.22);
         margin-bottom: calc(var(--nav-size) * 0.35);
         /* Center aligned for better portrait reading */
         text-align: center;
         justify-content: center;
-    }
-    
-    /* Smaller portrait screens need smaller text */
-    @media (max-width: 480px) {
-        .planit-settings-section-title {
-            font-size: calc(var(--nav-size) * 0.2);
-            margin-bottom: calc(var(--nav-size) * 0.3);
-        }
     }
 }
 
@@ -461,13 +447,13 @@
 }
 
 .planit-settings-label {
-    font-size: calc(var(--nav-size) * 0.18);
+    font-size: var(--font-size-small);
     color: var(--text-color-accent);
     font-weight: 500;
 }
 
 .planit-settings-input {
-    font-size: calc(var(--nav-size) * 0.18);
+    font-size: var(--font-size-base);
     background: var(--white1-transp);
     color: var(--text-color);
     border: 1px solid var(--border-nav);
@@ -482,7 +468,6 @@
 /* Intelligent input sizing for different orientations */
 @media (orientation: landscape) {
     .planit-settings-input {
-        font-size: calc(var(--nav-size) * 0.2);
         padding: calc(var(--nav-size) * 0.3);
         /* Slightly larger touch targets in landscape */
         min-height: calc(var(--nav-size) * 0.8);
@@ -491,7 +476,6 @@
     /* Desktop gets even better input experience */
     @media (min-width: 1024px) and (hover: hover) {
         .planit-settings-input {
-            font-size: calc(var(--nav-size) * 0.22);
             padding: calc(var(--nav-size) * 0.35);
             min-height: calc(var(--nav-size) * 0.9);
         }
@@ -500,7 +484,6 @@
 
 @media (orientation: portrait) {
     .planit-settings-input {
-        font-size: calc(var(--nav-size) * 0.16);
         padding: calc(var(--nav-size) * 0.3);
         /* Larger touch targets for mobile portrait */
         min-height: calc(var(--nav-size) * 0.85);
@@ -509,7 +492,6 @@
     /* Smaller portrait screens need bigger touch targets */
     @media (max-width: 480px) {
         .planit-settings-input {
-            font-size: calc(var(--nav-size) * 0.18);
             padding: calc(var(--nav-size) * 0.35);
             min-height: calc(var(--nav-size) * 0.9);
         }
@@ -544,7 +526,7 @@
 /* Password Reset Button Specific Styling */
 .planit-settings-password-reset-button {
     padding: calc(var(--nav-size) * 0.3);
-    font-size: calc(var(--nav-size) * 0.18);
+    font-size: var(--font-size-base);
     background: linear-gradient(90deg, var(--fg-blue), var(--bg-mint));
     color: var(--text-color-inv);
     border: none;
@@ -567,14 +549,12 @@
 @media (orientation: landscape) {
     .planit-settings-password-reset-button {
         padding: calc(var(--nav-size) * 0.35);
-        font-size: calc(var(--nav-size) * 0.2);
         min-height: calc(var(--nav-size) * 0.9);
     }
     
     @media (min-width: 1024px) and (hover: hover) {
         .planit-settings-password-reset-button {
             padding: calc(var(--nav-size) * 0.4);
-            font-size: calc(var(--nav-size) * 0.22);
             min-height: calc(var(--nav-size) * 1);
         }
         
@@ -589,14 +569,12 @@
 @media (orientation: portrait) {
     .planit-settings-password-reset-button {
         padding: calc(var(--nav-size) * 0.4);
-        font-size: calc(var(--nav-size) * 0.16);
         min-height: calc(var(--nav-size) * 1);
     }
     
     @media (max-width: 480px) {
         .planit-settings-password-reset-button {
             padding: calc(var(--nav-size) * 0.45);
-            font-size: calc(var(--nav-size) * 0.18);
             min-height: calc(var(--nav-size) * 1.1);
         }
     }
@@ -627,32 +605,20 @@
     gap: calc(var(--nav-size) * 0.2);
     cursor: pointer;
     color: var(--text-color);
-    font-size: calc(var(--nav-size) * 0.18);
+    font-size: var(--font-size-small);
     font-weight: 500;
 }
 
 /* Responsive checkbox label sizing */
 @media (orientation: landscape) {
     .planit-settings-checkbox-label {
-        font-size: calc(var(--nav-size) * 0.2);
-    }
-    
-    @media (min-width: 1024px) {
-        .planit-settings-checkbox-label {
-            font-size: calc(var(--nav-size) * 0.22);
-        }
+        /* Token already scales via --nav-size */
     }
 }
 
 @media (orientation: portrait) {
     .planit-settings-checkbox-label {
-        font-size: calc(var(--nav-size) * 0.16);
-    }
-    
-    @media (max-width: 480px) {
-        .planit-settings-checkbox-label {
-            font-size: calc(var(--nav-size) * 0.18);
-        }
+        /* Token already scales via --nav-size */
     }
 }
 
@@ -677,8 +643,8 @@
 
 .planit-settings-ai-description {
     color: var(--text-color);
-    font-size: calc(var(--nav-size) * 0.28);
-    line-height: 1.6;
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-relaxed);
     margin: 0;
 }
 
@@ -690,7 +656,7 @@
 
 .planit-settings-ai-button {
     padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.4);
-    font-size: calc(var(--nav-size) * 0.25);
+    font-size: var(--font-size-base);
     background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink));
     color: white;
     border: none;
@@ -708,7 +674,7 @@
 
 .planit-settings-ai-link {
     padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.4);
-    font-size: calc(var(--nav-size) * 0.25);
+    font-size: var(--font-size-base);
     background: var(--bg-blue);
     color: var(--text-color);
     border: 1px solid var(--grey3-transp);
@@ -729,14 +695,14 @@
 
 .planit-settings-ai-note {
     color: var(--grey3);
-    font-size: calc(var(--nav-size) * 0.22);
+    font-size: var(--font-size-xs);
     font-style: italic;
     margin: 0;
 }
 
 /* Provider badge next to model label */
 .planit-settings-provider-badge {
-    font-size: calc(var(--nav-size) * 0.18);
+    font-size: var(--font-size-xs);
     margin-left: calc(var(--nav-size) * 0.1);
     opacity: 0.75;
 }
@@ -774,7 +740,7 @@
     border-radius: var(--border-radius);
     cursor: pointer;
     padding: calc(var(--nav-size) * 0.12);
-    font-size: calc(var(--nav-size) * 0.3);
+    font-size: var(--font-size-small);
     line-height: 1;
     transition: all 0.2s ease;
     min-height: 44px;
@@ -791,13 +757,13 @@
 }
 
 .planit-settings-token-status {
-    font-size: calc(var(--nav-size) * 0.22);
+    font-size: var(--font-size-xs);
     display: block;
     margin-top: calc(var(--nav-size) * 0.06);
 }
 
 .planit-settings-token-help {
-    font-size: calc(var(--nav-size) * 0.22);
+    font-size: var(--font-size-xs);
     color: var(--text-color-accent);
     margin: calc(var(--nav-size) * 0.06) 0 0 0;
 }
@@ -831,7 +797,7 @@
 
 /* Hint text beneath inputs */
 .planit-settings-hint {
-    font-size: calc(var(--nav-size) * 0.2);
+    font-size: var(--font-size-xs);
     color: var(--text-color-accent);
     display: block;
     margin-top: calc(var(--nav-size) * 0.04);
@@ -841,7 +807,7 @@
 .planit-settings-net-button {
     width: 100%;
     padding: calc(var(--nav-size) * 0.3);
-    font-size: calc(var(--nav-size) * 0.2);
+    font-size: var(--font-size-base);
     background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink));
     color: white;
     border: none;
@@ -871,7 +837,7 @@
 .planit-settings-save-button {
     width: 100%;
     padding: calc(var(--nav-size) * 0.3);
-    font-size: calc(var(--nav-size) * 0.2);
+    font-size: var(--font-size-base);
     background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink));
     color: var(--text-color-inv);
     border: none;
@@ -887,7 +853,6 @@
 @media (orientation: landscape) {
     .planit-settings-save-button {
         padding: calc(var(--nav-size) * 0.35);
-        font-size: calc(var(--nav-size) * 0.22);
         min-height: calc(var(--nav-size) * 0.9);
         /* Better visual weight in landscape */
         font-weight: 600;
@@ -897,7 +862,6 @@
     @media (min-width: 1024px) and (hover: hover) {
         .planit-settings-save-button {
             padding: calc(var(--nav-size) * 0.4);
-            font-size: calc(var(--nav-size) * 0.25);
             min-height: calc(var(--nav-size) * 1);
         }
         
@@ -912,7 +876,6 @@
 @media (orientation: portrait) {
     .planit-settings-save-button {
         padding: calc(var(--nav-size) * 0.4);
-        font-size: calc(var(--nav-size) * 0.18);
         /* Larger touch targets for mobile */
         min-height: calc(var(--nav-size) * 1);
     }
@@ -921,7 +884,6 @@
     @media (max-width: 480px) {
         .planit-settings-save-button {
             padding: calc(var(--nav-size) * 0.45);
-            font-size: calc(var(--nav-size) * 0.2);
             min-height: calc(var(--nav-size) * 1.1);
         }
     }
@@ -936,7 +898,7 @@
 .planit-settings-logout-button {
     width: 100%;
     padding: calc(var(--nav-size) * 0.3);
-    font-size: calc(var(--nav-size) * 0.2);
+    font-size: var(--font-size-base);
     background: linear-gradient(90deg, var(--bg-orange), var(--bg-pink));
     color: var(--text-color);
     border: none;
@@ -952,7 +914,6 @@
 @media (orientation: landscape) {
     .planit-settings-logout-button {
         padding: calc(var(--nav-size) * 0.35);
-        font-size: calc(var(--nav-size) * 0.22);
         min-height: calc(var(--nav-size) * 0.9);
         font-weight: 600;
     }
@@ -960,7 +921,6 @@
     @media (min-width: 1024px) and (hover: hover) {
         .planit-settings-logout-button {
             padding: calc(var(--nav-size) * 0.4);
-            font-size: calc(var(--nav-size) * 0.25);
             min-height: calc(var(--nav-size) * 1);
         }
         
@@ -975,14 +935,12 @@
 @media (orientation: portrait) {
     .planit-settings-logout-button {
         padding: calc(var(--nav-size) * 0.4);
-        font-size: calc(var(--nav-size) * 0.18);
         min-height: calc(var(--nav-size) * 1);
     }
     
     @media (max-width: 480px) {
         .planit-settings-logout-button {
             padding: calc(var(--nav-size) * 0.45);
-            font-size: calc(var(--nav-size) * 0.2);
             min-height: calc(var(--nav-size) * 1.1);
         }
     }
@@ -993,66 +951,7 @@
     }
 }
 
-/* Profile Button Specific Styling */
-.planit-settings-profile-button {
-    width: 100%;
-    padding: calc(var(--nav-size) * 0.3);
-    font-size: calc(var(--nav-size) * 0.2);
-    background: linear-gradient(90deg, var(--fg-pink), var(--bg-mint));
-    color: var(--text-color-inv);
-    border: none;
-    border-radius: var(--border-radius);
-    cursor: pointer;
-    font-weight: bold;
-    box-shadow: 0 2px 8px var(--grey3-transp);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    min-height: calc(var(--nav-size) * 0.8);
-}
-
-/* Responsive profile button matching other button patterns */
-@media (orientation: landscape) {
-    .planit-settings-profile-button {
-        padding: calc(var(--nav-size) * 0.35);
-        font-size: calc(var(--nav-size) * 0.22);
-        min-height: calc(var(--nav-size) * 0.9);
-        font-weight: 600;
-    }
-    
-    @media (min-width: 1024px) and (hover: hover) {
-        .planit-settings-profile-button {
-            padding: calc(var(--nav-size) * 0.4);
-            font-size: calc(var(--nav-size) * 0.25);
-            min-height: calc(var(--nav-size) * 1);
-        }
-        
-        .planit-settings-profile-button:hover {
-            background: linear-gradient(90deg, var(--bg-mint), var(--fg-pink));
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-            transform: translateY(-3px);
-        }
-    }
-}
-
-@media (orientation: portrait) {
-    .planit-settings-profile-button {
-        padding: calc(var(--nav-size) * 0.4);
-        font-size: calc(var(--nav-size) * 0.18);
-        min-height: calc(var(--nav-size) * 1);
-    }
-    
-    @media (max-width: 480px) {
-        .planit-settings-profile-button {
-            padding: calc(var(--nav-size) * 0.45);
-            font-size: calc(var(--nav-size) * 0.2);
-            min-height: calc(var(--nav-size) * 1.1);
-        }
-    }
-    
-    .planit-settings-profile-button:active {
-        transform: translateY(1px);
-        box-shadow: 0 2px 8px var(--grey3-transp);
-    }
-}
+/* Profile Button Specific Styling (duplicate removed — see top of file) */
 
 /* 
  * ===================================================================
@@ -1113,3 +1012,37 @@
 /* ===================================================================
  * RESPONSIVE DESIGN
  * ================================================================ */
+
+/* Font Size Slider - Preview & Reset */
+.planit-settings-font-preview {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.2);
+    margin-top: calc(var(--nav-size) * 0.1);
+    flex-wrap: wrap;
+}
+
+.planit-settings-font-preview-text {
+    font-size: var(--font-size-base);
+    color: var(--text-color);
+    line-height: var(--line-height-base);
+    font-style: italic;
+    opacity: 0.8;
+}
+
+.planit-settings-font-reset {
+    font-size: var(--font-size-xs);
+    color: var(--fg-blue);
+    background: none;
+    border: 1px solid var(--fg-blue);
+    border-radius: var(--border-radius-sm);
+    padding: calc(var(--nav-size) * 0.05) calc(var(--nav-size) * 0.15);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.planit-settings-font-reset:hover {
+    background: var(--fg-blue);
+    color: white;
+}

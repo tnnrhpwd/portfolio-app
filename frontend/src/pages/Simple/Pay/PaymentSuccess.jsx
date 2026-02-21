@@ -14,7 +14,7 @@ const PaymentSuccess = () => {
       // Reset relevant payment state
       dispatch(resetDataSlice());
       // Redirect after a delay
-      navigate('/dashboard');
+      navigate('/profile');
     }, 5000);
     
     return () => clearTimeout(timer);
@@ -25,12 +25,12 @@ const PaymentSuccess = () => {
       <div className="success-icon">✓</div>
       <h1>Payment Method Added Successfully!</h1>
       <p>Your payment details have been securely saved.</p>
-      <p>You'll be redirected to your dashboard in a few seconds...</p>
+      <p>You'll be redirected to your profile in a few seconds...</p>
       <button 
         className="continue-button"
-        onClick={() => navigate('/dashboard')}
+        onClick={() => navigate('/profile')}
       >
-        Continue to Dashboard
+        Continue to Profile
       </button>
     </div>
   );

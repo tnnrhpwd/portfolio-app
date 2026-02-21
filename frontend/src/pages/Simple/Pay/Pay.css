@@ -172,7 +172,7 @@
     backdrop-filter: blur(16px);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
     color: var(--text-color);
-    font-size: calc(var(--nav-size) * 0.18);
+    font-size: var(--font-size-xs);
     width: 100%;
     margin-bottom: calc(var(--nav-size) * 0.4);
 }
@@ -200,7 +200,7 @@
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     border-radius: var(--border-radius);
-    font-size: calc(var(--nav-size) * 0.18);
+    font-size: var(--font-size-xs);
     text-align: center;
     backdrop-filter: blur(8px);
     position: relative;
@@ -252,7 +252,7 @@
 }
 
 .pay-plan-description {
-    font-size: calc(var(--nav-size) * 0.16);
+    font-size: var(--font-size-xs);
     color: var(--text-color);
     line-height: 1.5;
     margin-bottom: calc(var(--nav-size) * 0.3);
@@ -267,7 +267,7 @@
     border: 1px solid var(--border-nav);
     backdrop-filter: blur(16px);
     color: var(--text-color);
-    font-size: calc(var(--nav-size) * 0.18);
+    font-size: var(--font-size-xs);
     width: 100%;
 }
 
@@ -457,7 +457,7 @@
     border-radius: var(--border-radius);
     border: 1px solid rgba(231, 76, 60, 0.3);
     margin-bottom: calc(var(--nav-size) * 0.3);
-    font-size: calc(var(--nav-size) * 0.16);
+    font-size: var(--font-size-xs);
     backdrop-filter: blur(8px);
 }
 
@@ -470,7 +470,7 @@
     border: 1px solid var(--border-nav);
     backdrop-filter: blur(16px);
     color: var(--text-color);
-    font-size: calc(var(--nav-size) * 0.18);
+    font-size: var(--font-size-xs);
     width: 100%;
 }
 
@@ -488,7 +488,7 @@
     backdrop-filter: blur(8px);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     cursor: pointer;
-    font-size: calc(var(--nav-size) * 0.16);
+    font-size: var(--font-size-xs);
 }
 
 .payment-method:hover {
@@ -523,11 +523,11 @@
     }
     
     .planit-pay-heading-title {
-        font-size: calc(var(--nav-size) * 0.4);
+        font-size: var(--font-size-large);
     }
     
     .planit-pay-heading-description {
-        font-size: calc(var(--nav-size) * 0.22);
+        font-size: var(--font-size-xs);
     }
     
     /* Desktop enhancements */
@@ -541,11 +541,11 @@
         }
         
         .planit-pay-heading-title {
-            font-size: calc(var(--nav-size) * 0.45);
+            font-size: var(--font-size-large);
         }
         
         .planit-pay-heading-description {
-            font-size: calc(var(--nav-size) * 0.25);
+            font-size: var(--font-size-small);
         }
     }
 }
@@ -564,11 +564,11 @@
     }
     
     .planit-pay-heading-title {
-        font-size: calc(var(--nav-size) * 0.32);
+        font-size: var(--font-size-small);
     }
     
     .planit-pay-heading-description {
-        font-size: calc(var(--nav-size) * 0.18);
+        font-size: var(--font-size-xs);
     }
     
     /* Mobile portrait optimizations */
@@ -580,16 +580,16 @@
         }
         
         .planit-pay-heading-title {
-            font-size: calc(var(--nav-size) * 0.3);
+            font-size: var(--font-size-small);
         }
         
         .planit-pay-heading-description {
-            font-size: calc(var(--nav-size) * 0.16);
+            font-size: var(--font-size-xs);
         }
         
         .pay-button {
             padding: calc(var(--nav-size) * 0.45);
-            font-size: calc(var(--nav-size) * 0.22);
+            font-size: var(--font-size-xs);
             min-height: calc(var(--nav-size) * 1.1);
         }
     }

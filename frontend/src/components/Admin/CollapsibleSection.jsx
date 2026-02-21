@@ -1,21 +1,25 @@
 import React, { useState } from "react";
 import "./CollapsibleSection.css"; // Add styles if needed
 
-const CollapsibleSection = ({ title, children, defaultCollapsed = false }) => {
+const CollapsibleSection = ({ title, children, defaultCollapsed = false, onToggle }) => {
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
+
+  const toggle = () => {
+    const nextState = !isCollapsed;
+    setIsCollapsed(nextState);
+    if (onToggle) onToggle(!nextState); // true = section is now open
+  };
 
   return (
     <div className="collapsible-section">
       <div
         className="collapsible-header"
-        onClick={() => setIsCollapsed((prev) => !prev)}
+        onClick={toggle}
         aria-expanded={!isCollapsed}
         role="button"
         tabIndex={0}
         onKeyPress={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            setIsCollapsed((prev) => !prev);
-          }
+          if (e.key === "Enter" || e.key === " ") toggle();
         }}
       >
         <h3>{title}</h3>

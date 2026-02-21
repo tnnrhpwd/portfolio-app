@@ -76,11 +76,13 @@ code {
   
   /* WCAG AA Typography and Spacing Standards */
   --font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
-  --font-size-small: calc(var(--nav-size) * 0.32);      /* Minimum 16px equivalent */
-  --font-size-base: calc(var(--nav-size) * 0.36);       /* Base text size */
-  --font-size-large: calc(var(--nav-size) * 0.44);      /* Large text */
-  --font-size-heading: calc(var(--nav-size) * 0.6);     /* Main headings */
-  --font-size-display: calc(var(--nav-size) * 0.8);     /* Large display text */
+  --font-size-scale: 1;                                  /* User-adjustable font size scale (0.8–1.4) */
+  --font-size-xs: calc(var(--nav-size) * 0.22 * var(--font-size-scale));       /* Badges, fine print, tooltips */
+  --font-size-small: calc(var(--nav-size) * 0.32 * var(--font-size-scale));    /* Labels, captions, small text */
+  --font-size-base: calc(var(--nav-size) * 0.36 * var(--font-size-scale));     /* Body text, inputs, buttons */
+  --font-size-large: calc(var(--nav-size) * 0.44 * var(--font-size-scale));    /* Section headers, emphasized */
+  --font-size-heading: calc(var(--nav-size) * 0.6 * var(--font-size-scale));   /* Page titles */
+  --font-size-display: calc(var(--nav-size) * 0.8 * var(--font-size-scale));   /* Hero / display text */
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;

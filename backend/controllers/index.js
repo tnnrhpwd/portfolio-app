@@ -15,6 +15,8 @@ const { putHashData, updateCustomer, putPaymentMethod } = require('./putHashData
 const { forgotPassword, resetPassword, forgotPasswordAuthenticated } = require('../utils/passwordReset'); // Password reset functionality
 const { extractOCR, updateWithOCR } = require('./ocrController'); // OCR functionality
 const { getAvailableProviders } = require('../utils/llmProviders'); // LLM providers
+const { getAdminDashboard, getAdminUsers, getAdminPaginatedData } = require('./adminController'); // Admin dashboard
+const { initTestFunnel, resetTestFunnel, getTestFunnelStatus, recordFunnelStep, getTestEmails } = require('./testFunnelController'); // Test funnel
 
 // @desc    Get available LLM providers and models
 // @route   GET /api/data/llm-providers
@@ -49,4 +51,6 @@ module.exports = {
     forgotPassword, resetPassword, forgotPasswordAuthenticated,
     extractOCR, updateWithOCR,
     getLLMProviders,
+    getAdminDashboard, getAdminUsers, getAdminPaginatedData,
+    initTestFunnel, resetTestFunnel, getTestFunnelStatus, recordFunnelStep, getTestEmails,
 };

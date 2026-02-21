@@ -17,8 +17,7 @@ export const getPaymentElementOptions = (userEmail) => ({
   },
   paymentMethodOrder: [
     'link',
-    'card', 
-    'cashapp',
+    'card',
   ],
   wallets: {
     applePay: 'auto',

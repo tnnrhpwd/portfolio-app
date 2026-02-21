@@ -1,6 +1,6 @@
 import { useState, useEffect }  from 'react';
 import { useSelector, useDispatch } from 'react-redux'      // useSelector-brings in user,iserror,isloading from state | useDispatch-brings in reset,register,login from state
-import { useNavigate } from 'react-router-dom'              // page redirects
+import { useNavigate, useLocation } from 'react-router-dom'              // page redirects
 import { toast } from 'react-toastify'                        // visible error notifications
 import { register } from '../../features/data/dataSlice'     // import functions from authslice
 import Spinner from '../../components/Spinner/Spinner.jsx';
@@ -20,6 +20,7 @@ function Register() {
     const { email, password, nickname } = formData
 
     const navigate = useNavigate() // initialization
+    const location = useLocation() // to access navigation state
     const dispatch = useDispatch() // initialization
     const rootStyle = window.getComputedStyle(document.body);
     const toastDuration = parseInt(rootStyle.getPropertyValue('--toast-duration'), 10);
@@ -42,8 +43,9 @@ function Register() {
             toast.success("Successfully Registered", { autoClose: 2000 }); // print success to toast
         }
         if (user && user._id) {
-            // if logged in,
-            navigate("/"); // send user to dashboard
+            // if logged in, redirect to intended page if provided, otherwise home
+            const redirectTo = location.state?.redirectTo || '/';
+            navigate(redirectTo);
         }
 
         // dispatch(resetDataSlice())   // reset state values( authMessage, isloading, iserror, and issuccess ) on each state change
@@ -151,9 +153,9 @@ function Register() {
                     </form>
                 </section>
                 <div className="planit-register-actions">
-                    <a href="/login">
-                        <button className="planit-register-login">Log In Instead</button>
-                    </a>
+                    <button className="planit-register-login" onClick={() => navigate('/login', { state: { redirectTo: location.state?.redirectTo } })}>
+                        Log In Instead
+                    </button>
                 </div>
             </div>
         </div>

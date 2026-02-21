@@ -104,6 +104,10 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 // Input sanitization
 app.use(sanitizeInput);
 
+// Funnel timing — records step timestamps when the test user hits key endpoints
+const funnelTimingMiddleware = require('./middleware/funnelTiming');
+app.use('/api/data', funnelTimingMiddleware);
+
 app.use('/api/data', require('./routes/routeData')) // serve all data at /api/data (regardless of hit url)
 
 // Root endpoint for deployment health checks

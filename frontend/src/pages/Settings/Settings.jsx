@@ -4,6 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import { logout, resetDataSlice } from './../../features/data/dataSlice.js';
 import Spinner from '../../components/Spinner/Spinner.jsx';
 import { toast } from 'react-toastify';
+import {
+  setFontSizeScale,
+  loadFontSizeScale,
+  FONT_SCALE_MIN,
+  FONT_SCALE_MAX,
+  FONT_SCALE_DEFAULT,
+} from '../../utils/theme.js';
 import './Settings.css';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
@@ -79,6 +86,18 @@ function Settings() {
     };
   });
   const [showToken, setShowToken] = useState(false);
+  const [fontScale, setFontScale] = useState(() => loadFontSizeScale());
+
+  const handleFontScaleChange = useCallback((e) => {
+    const value = parseFloat(e.target.value);
+    setFontScale(value);
+    setFontSizeScale(value);
+  }, []);
+
+  const resetFontScale = useCallback(() => {
+    setFontScale(FONT_SCALE_DEFAULT);
+    setFontSizeScale(FONT_SCALE_DEFAULT);
+  }, []);
 
   const updateAISetting = useCallback((key, value) => {
     setAiSettings(prev => {
@@ -337,6 +356,36 @@ function Settings() {
                         <option value="dark">🌙 Dark</option>
                         <option value="system">💻 System</option>
                       </select>
+                    </div>
+
+                    <div className="planit-settings-item">
+                      <label className="planit-settings-label">🔤 Font Size</label>
+                      <div className="planit-settings-range-group">
+                        <input
+                          type="range"
+                          min={FONT_SCALE_MIN}
+                          max={FONT_SCALE_MAX}
+                          step="0.05"
+                          value={fontScale}
+                          onChange={handleFontScaleChange}
+                          className="planit-settings-range"
+                          aria-label="Font size scale"
+                        />
+                        <span className="planit-settings-range-value">{Math.round(fontScale * 100)}%</span>
+                      </div>
+                      <div className="planit-settings-font-preview">
+                        <span className="planit-settings-font-preview-text">The quick brown fox jumps over the lazy dog</span>
+                        {fontScale !== FONT_SCALE_DEFAULT && (
+                          <button
+                            type="button"
+                            className="planit-settings-font-reset"
+                            onClick={resetFontScale}
+                          >
+                            Reset to default
+                          </button>
+                        )}
+                      </div>
+                      <span className="planit-settings-hint">Adjusts text size across the entire app ({Math.round(FONT_SCALE_MIN * 100)}%–{Math.round(FONT_SCALE_MAX * 100)}%)</span>
                     </div>
                   </div>
                 </div>

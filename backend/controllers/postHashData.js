@@ -285,7 +285,8 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
         throw new Error('User not found');
     }
 
-    const { paymentMethodId, membershipType, customPrice } = req.body;
+    const { paymentMethodId, planId, membershipType: legacyMembershipType, customPrice } = req.body;
+    const membershipType = planId || legacyMembershipType; // Support both planId (new) and membershipType (legacy)
     console.log('Subscription request:', { membershipType, paymentMethodId, customPrice });
     
     const customerId = extractCustomerId(req.user.text);
@@ -422,7 +423,23 @@ const handleWebhook = asyncHandler(async (req, res) => {
         return;
     }
     
-    processWebhookEvent(result.event);
+    const eventResult = processWebhookEvent(result.event);
+
+    // Act on actionable events
+    if (eventResult.action === 'subscription_deleted' && eventResult.customerId) {
+        // Downgrade user to Free tier when their subscription is cancelled/deleted
+        try {
+            const downgraded = await updateUserRank(eventResult.customerId, 'Free');
+            if (downgraded) {
+                console.log(`User with customer ${eventResult.customerId} downgraded to Free after subscription deletion`);
+            } else {
+                console.error(`Failed to downgrade user with customer ${eventResult.customerId}`);
+            }
+        } catch (err) {
+            console.error('Error downgrading user after subscription deletion:', err);
+        }
+    }
+
     res.status(200).send();
 });
 

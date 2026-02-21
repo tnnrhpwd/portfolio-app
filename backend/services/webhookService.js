@@ -1,7 +1,7 @@
 const stripe = require('stripe')(process.env.STRIPE_KEY);
-const { DynamoDBDocumentClient, PutCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, PutCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
 const { getUserRankFromStripe, parseUserCredits, updateUserCredits } = require('../utils/apiUsageTracker.js');
-const { CREDITS, PLAN_IDS, isSimpleTier } = require('../constants/pricing');
+const { CREDITS, PLAN_IDS, PLAN_NAMES, isSimpleTier, STRIPE_PRODUCT_IDS } = require('../constants/pricing');
 
 /**
  * Handle Stripe webhook events
@@ -27,12 +27,64 @@ function constructWebhookEvent(req, webhookSecret) {
  */
 function processWebhookEvent(event) {
     switch (event.type) {
-        case 'invoice.payment_succeeded':
+        case 'invoice.payment_succeeded': {
             const invoice = event.data.object;
             console.log('Invoice payment succeeded:', invoice.id);
-            // Handle successful payment
             return { success: true, message: 'Invoice payment succeeded' };
-            
+        }
+
+        case 'invoice.payment_failed': {
+            const invoice = event.data.object;
+            const customerId = invoice.customer;
+            console.error(`Invoice payment FAILED for customer ${customerId}:`, invoice.id);
+            console.error(`  Attempt count: ${invoice.attempt_count}`);
+            console.error(`  Next attempt: ${invoice.next_payment_attempt ? new Date(invoice.next_payment_attempt * 1000).toISOString() : 'none'}`);
+            // After final attempt, Stripe will fire customer.subscription.deleted
+            return {
+                success: true,
+                message: 'Invoice payment failed logged',
+                action: 'payment_failed',
+                customerId,
+                attemptCount: invoice.attempt_count
+            };
+        }
+
+        case 'customer.subscription.updated': {
+            const subscription = event.data.object;
+            const customerId = subscription.customer;
+            const status = subscription.status;
+            const productId = subscription.items?.data?.[0]?.price?.product;
+            console.log(`Subscription updated for customer ${customerId}: status=${status}, product=${productId}`);
+
+            // If subscription went past_due or unpaid, log a warning
+            if (status === 'past_due' || status === 'unpaid') {
+                console.warn(`Subscription ${subscription.id} is now ${status} for customer ${customerId}`);
+            }
+
+            return {
+                success: true,
+                message: `Subscription updated: ${status}`,
+                action: 'subscription_updated',
+                customerId,
+                status
+            };
+        }
+
+        case 'customer.subscription.deleted': {
+            const subscription = event.data.object;
+            const customerId = subscription.customer;
+            console.warn(`Subscription DELETED for customer ${customerId}:`, subscription.id);
+            console.warn(`  Cancellation reason: ${subscription.cancellation_details?.reason || 'unknown'}`);
+
+            // Return info so the controller can downgrade the user
+            return {
+                success: true,
+                message: 'Subscription deleted — user should be downgraded',
+                action: 'subscription_deleted',
+                customerId
+            };
+        }
+
         default:
             console.log(`Unhandled event type ${event.type}`);
             return { success: true, message: 'Event type not handled' };

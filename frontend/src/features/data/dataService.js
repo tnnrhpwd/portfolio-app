@@ -640,6 +640,50 @@ const logout = () => {
     localStorage.removeItem('user')
 }
 
+// ── Admin-specific endpoints ──
+
+// Get aggregated admin dashboard stats (server-side computation)
+const getAdminDashboard = async (token, refresh = false) => {
+    const config = {
+        headers: { Authorization: `Bearer ${token}` },
+        params: refresh ? { refresh: 'true' } : {},
+    };
+    try {
+        const response = await axios.get(API_URL + 'admin/dashboard', config);
+        return response.data;
+    } catch (error) {
+        handleTokenExpiration(error);
+    }
+};
+
+// Get paginated user list (admin)
+const getAdminUsers = async (token, { page = 1, limit = 50, search = '' } = {}) => {
+    const config = {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { page, limit, search },
+    };
+    try {
+        const response = await axios.get(API_URL + 'admin/users', config);
+        return response.data;
+    } catch (error) {
+        handleTokenExpiration(error);
+    }
+};
+
+// Get paginated raw data (admin)
+const getAdminPaginatedData = async (token, { page = 1, limit = 50, type } = {}) => {
+    const config = {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { page, limit, ...(type ? { type } : {}) },
+    };
+    try {
+        const response = await axios.get(API_URL + 'admin/data', config);
+        return response.data;
+    } catch (error) {
+        handleTokenExpiration(error);
+    }
+};
+
 const dataService = {
     createData,
     getData,
@@ -655,7 +699,7 @@ const dataService = {
     createCustomer,
     postPaymentMethod,
     subscribeCustomer,
-    getUserSubscription, // Note: Changed from plural to match implementation
+    getUserSubscription,
     getUserUsage,
     getUserStorage,
     getMembershipPricing,
@@ -667,6 +711,30 @@ const dataService = {
     register,
     login,
     logout,
+    getAdminDashboard,
+    getAdminUsers,
+    getAdminPaginatedData,
+    // Test Funnel
+    initTestFunnel: async (token) => {
+        const res = await axios.post(API_URL + 'test-funnel/init', {}, { headers: { Authorization: `Bearer ${token}` } });
+        return res.data;
+    },
+    resetTestFunnel: async (token) => {
+        const res = await axios.post(API_URL + 'test-funnel/reset', {}, { headers: { Authorization: `Bearer ${token}` } });
+        return res.data;
+    },
+    getTestFunnelStatus: async (token) => {
+        const res = await axios.get(API_URL + 'test-funnel/status', { headers: { Authorization: `Bearer ${token}` } });
+        return res.data;
+    },
+    recordTestFunnelStep: async (token, step, meta = {}) => {
+        const res = await axios.post(API_URL + 'test-funnel/step', { step, meta }, { headers: { Authorization: `Bearer ${token}` } });
+        return res.data;
+    },
+    getTestFunnelEmails: async (token) => {
+        const res = await axios.get(API_URL + 'test-funnel/emails', { headers: { Authorization: `Bearer ${token}` } });
+        return res.data;
+    },
 }
 
 export default dataService;

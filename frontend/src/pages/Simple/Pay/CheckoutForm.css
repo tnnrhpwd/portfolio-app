@@ -407,11 +407,11 @@
   }
   
   .payment-form h2 {
-    font-size: calc(var(--nav-size) * 0.25);
+    font-size: var(--font-size-small);
   }
   
   .form-section h3 {
-    font-size: calc(var(--nav-size) * 0.22);
+    font-size: var(--font-size-xs);
   }
   
   #add-payment-button,
@@ -419,7 +419,7 @@
   .next-step-button,
   .subscribe-button {
     padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.25);
-    font-size: calc(var(--nav-size) * 0.18);
+    font-size: var(--font-size-xs);
     min-height: calc(var(--nav-size) * 1.1);
   }
   
@@ -429,7 +429,7 @@
   }
   
   .payment-method-icon {
-    font-size: calc(var(--nav-size) * 0.25);
+    font-size: var(--font-size-small);
     width: calc(var(--nav-size) * 0.4);
     height: calc(var(--nav-size) * 0.4);
   }
@@ -438,28 +438,28 @@
   .progress-step-circle {
     width: calc(var(--nav-size) * 0.3);
     height: calc(var(--nav-size) * 0.3);
-    font-size: calc(var(--nav-size) * 0.15);
+    font-size: var(--font-size-xs);
   }
   
   .progress-step-label {
-    font-size: calc(var(--nav-size) * 0.13);
+    font-size: var(--font-size-xs);
   }
   
   /* Plan cards ultra-compact */
   .plan-header h4 {
-    font-size: calc(var(--nav-size) * 0.22);
+    font-size: var(--font-size-xs);
   }
   
   .price {
-    font-size: calc(var(--nav-size) * 0.25);
+    font-size: var(--font-size-small);
   }
   
   .period {
-    font-size: calc(var(--nav-size) * 0.18);
+    font-size: var(--font-size-xs);
   }
   
   .plan-features li {
-    font-size: calc(var(--nav-size) * 0.22);
+    font-size: var(--font-size-xs);
     padding: calc(var(--nav-size) * 0.05) 0;
   }
 }
@@ -768,7 +768,7 @@
 }
 
 .payment-method-icon {
-  font-size: calc(var(--nav-size) * 0.3);
+  font-size: var(--font-size-small);
   margin-right: calc(var(--nav-size) * 0.2);
   color: var(--bg-mint);
   width: calc(var(--nav-size) * 0.5);
@@ -802,7 +802,7 @@
   color: var(--text-color-inv, white);
   padding: calc(var(--nav-size) * 0.05) calc(var(--nav-size) * 0.1);
   border-radius: calc(var(--nav-size) * 0.15);
-  font-size: calc(var(--nav-size) * 0.15);
+  font-size: var(--font-size-xs);
   font-weight: 500;
 }
 
@@ -1066,7 +1066,7 @@
 .confirmation-item .value {
   font-weight: 600;
   color: var(--text-color);
-  width: calc(var(--nav-size) * 2.5);
+  /* width: calc(var(--nav-size) * 2.5); */
 }
 
 /* Payment method confirmation styling */
@@ -1176,11 +1176,11 @@
   .progress-step-circle {
     width: calc(var(--nav-size) * 0.35);
     height: calc(var(--nav-size) * 0.35);
-    font-size: calc(var(--nav-size) * 0.175);
+    font-size: var(--font-size-xs);
   }
   
   .progress-step-label {
-    font-size: calc(var(--nav-size) * 0.15);
+    font-size: var(--font-size-xs);
   }
 }
 
@@ -1308,13 +1308,13 @@
 /* Responsive styling for progress bar */
 @media (max-width: 600px) {
   .progress-step-label {
-    font-size: calc(var(--nav-size) * 0.15);
+    font-size: var(--font-size-xs);
   }
   
   .progress-step-circle {
     width: calc(var(--nav-size) * 0.35);
     height: calc(var(--nav-size) * 0.35);
-    font-size: calc(var(--nav-size) * 0.175);
+    font-size: var(--font-size-xs);
   }
 }
 
@@ -1464,7 +1464,7 @@
   #form-group-cvv,
   #form-group-expiry {
     padding: calc(var(--nav-size) * 0.25);
-    font-size: calc(var(--nav-size) * 0.2);
+    font-size: var(--font-size-xs);
   }
   
   /* Mobile-optimized text sizes matching Home page */
@@ -1472,16 +1472,16 @@
   .email-note,
   .terms-agreement,
   .link-description {
-    font-size: calc(var(--nav-size) * 0.18);
+    font-size: var(--font-size-xs);
     line-height: 1.4;
   }
   
   .payment-method-type {
-    font-size: calc(var(--nav-size) * 0.2);
+    font-size: var(--font-size-xs);
   }
   
   .payment-method-expires {
-    font-size: calc(var(--nav-size) * 0.18);
+    font-size: var(--font-size-xs);
   }
 }
 
@@ -1532,7 +1532,7 @@
 .plan-option-description,
 .terms-text,
 .disclaimer-text {
-    font-size: calc(var(--font-size-small) * 0.85);
+    font-size: var(--font-size-xs);
 }
 
 /* 
@@ -1560,15 +1560,15 @@
   
   /* Typography adjustments for 700px and under */
   .payment-form h2 {
-    font-size: calc(var(--nav-size) * 0.28);
+    font-size: var(--font-size-small);
   }
   
   .form-section h3 {
-    font-size: calc(var(--nav-size) * 0.24);
+    font-size: var(--font-size-small);
   }
   
   .membership-plans h3 {
-    font-size: calc(var(--nav-size) * 0.28);
+    font-size: var(--font-size-small);
     margin-bottom: calc(var(--nav-size) * 0.15);
   }
   
@@ -1585,24 +1585,24 @@
   }
   
   .plan-header h4 {
-    font-size: calc(var(--nav-size) * 0.24);
+    font-size: var(--font-size-small);
   }
   
   .price {
-    font-size: calc(var(--nav-size) * 0.28);
+    font-size: var(--font-size-small);
   }
   
   .period {
-    font-size: calc(var(--nav-size) * 0.19);
+    font-size: var(--font-size-xs);
   }
   
   .plan-features li {
-    font-size: calc(var(--nav-size) * 0.23);
+    font-size: var(--font-size-xs);
     padding: calc(var(--nav-size) * 0.055) 0;
   }
   
   .plan-tagline {
-    font-size: calc(var(--nav-size) * 0.19);
+    font-size: var(--font-size-xs);
   }
   
   /* Enhanced button sizing for medium mobile */
@@ -1611,7 +1611,7 @@
   .next-step-button,
   .subscribe-button {
     padding: calc(var(--nav-size) * 0.19) calc(var(--nav-size) * 0.28);
-    font-size: calc(var(--nav-size) * 0.19);
+    font-size: var(--font-size-xs);
     min-height: calc(var(--nav-size) * 0.95);
     border-radius: calc(var(--nav-size) * 0.12);
   }
@@ -1622,28 +1622,28 @@
   }
   
   .payment-method-icon {
-    font-size: calc(var(--nav-size) * 0.28);
+    font-size: var(--font-size-small);
     width: calc(var(--nav-size) * 0.45);
     height: calc(var(--nav-size) * 0.45);
   }
   
   .payment-method-type {
-    font-size: calc(var(--nav-size) * 0.23);
+    font-size: var(--font-size-xs);
   }
   
   .payment-method-expires {
-    font-size: calc(var(--nav-size) * 0.21);
+    font-size: var(--font-size-xs);
   }
   
   /* Progress bar medium mobile optimization */
   .progress-step-circle {
     width: calc(var(--nav-size) * 0.38);
     height: calc(var(--nav-size) * 0.38);
-    font-size: calc(var(--nav-size) * 0.18);
+    font-size: var(--font-size-xs);
   }
   
   .progress-step-label {
-    font-size: calc(var(--nav-size) * 0.16);
+    font-size: var(--font-size-xs);
   }
   
   /* Form elements medium mobile */
@@ -1652,7 +1652,7 @@
   #form-group-cvv,
   #form-group-expiry {
     padding: calc(var(--nav-size) * 0.28);
-    font-size: calc(var(--nav-size) * 0.22);
+    font-size: var(--font-size-xs);
   }
   
   /* Text elements medium mobile */
@@ -1660,7 +1660,7 @@
   .email-note,
   .terms-agreement,
   .link-description {
-    font-size: calc(var(--nav-size) * 0.17);
+    font-size: var(--font-size-xs);
     line-height: 1.35;
   }
   
@@ -1671,7 +1671,7 @@
   }
   
   .plan-selector.selected span {
-    font-size: calc(var(--nav-size) * 0.19);
+    font-size: var(--font-size-xs);
   }
   
   /* Enhanced spacing for better touch interaction */
@@ -1690,19 +1690,19 @@
   }
   
   .subscription-details p {
-    font-size: calc(var(--nav-size) * 0.17);
+    font-size: var(--font-size-xs);
   }
   
   /* Confirmation items medium mobile */
   .confirmation-item .label,
   .confirmation-item .value {
-    font-size: calc(var(--nav-size) * 0.21);
+    font-size: var(--font-size-xs);
   }
   
   /* Security indicator medium mobile */
   .payment-security {
     padding: calc(var(--nav-size) * 0.12);
-    font-size: calc(var(--nav-size) * 0.21);
+    font-size: var(--font-size-xs);
   }
   
   /* Error and success messages */
@@ -1710,7 +1710,7 @@
   .stripe-blocked-warning,
   .stripe-error,
   .payment-success {
-    font-size: calc(var(--nav-size) * 0.17);
+    font-size: var(--font-size-xs);
     padding: calc(var(--nav-size) * 0.28);
   }
 }
@@ -1745,11 +1745,11 @@
   
   /* Smaller text in landscape to fit more content */
   .payment-form h2 {
-    font-size: calc(var(--nav-size) * 0.26);
+    font-size: var(--font-size-small);
   }
   
   .form-section h3 {
-    font-size: calc(var(--nav-size) * 0.22);
+    font-size: var(--font-size-xs);
   }
   
   /* Progress bar landscape optimization */
@@ -1763,7 +1763,7 @@
   }
   
   .progress-step-label {
-    font-size: calc(var(--nav-size) * 0.14);
+    font-size: var(--font-size-xs);
   }
 }
 
@@ -1857,11 +1857,11 @@
   
   /* Typography refinement */
   .payment-form h2 {
-    font-size: calc(var(--nav-size) * 0.27);
+    font-size: var(--font-size-small);
   }
   
   .membership-plans h3 {
-    font-size: calc(var(--nav-size) * 0.27);
+    font-size: var(--font-size-small);
   }
   
   /* Plan card compact spacing */
@@ -1870,7 +1870,7 @@
   }
   
   .plan-features li {
-    font-size: calc(var(--nav-size) * 0.225);
+    font-size: var(--font-size-xs);
     padding: calc(var(--nav-size) * 0.05) 0;
   }
   
@@ -1880,7 +1880,7 @@
   .next-step-button,
   .subscribe-button {
     padding: calc(var(--nav-size) * 0.185) calc(var(--nav-size) * 0.26);
-    font-size: calc(var(--nav-size) * 0.185);
+    font-size: var(--font-size-xs);
     color: var(--text-color);
   }
   
@@ -1890,18 +1890,18 @@
   }
   
   .payment-method-type {
-    font-size: calc(var(--nav-size) * 0.225);
+    font-size: var(--font-size-xs);
   }
   
   /* Progress bar refinement */
   .progress-step-circle {
     width: calc(var(--nav-size) * 0.36);
     height: calc(var(--nav-size) * 0.36);
-    font-size: calc(var(--nav-size) * 0.17);
+    font-size: var(--font-size-xs);
   }
   
   .progress-step-label {
-    font-size: calc(var(--nav-size) * 0.155);
+    font-size: var(--font-size-xs);
   }
 }
 

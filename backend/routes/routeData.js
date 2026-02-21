@@ -38,6 +38,8 @@ const {
   forgotPassword, resetPassword, forgotPasswordAuthenticated,
   extractOCR, updateWithOCR,
   getLLMProviders,
+  getAdminDashboard, getAdminUsers, getAdminPaginatedData,
+  initTestFunnel, resetTestFunnel, getTestFunnelStatus, recordFunnelStep, getTestEmails,
 } = require('../controllers');
 
 // File upload controller
@@ -207,6 +209,16 @@ router.post('/forgot-password-authenticated',
 
 // Admin Routes
 router.get('/all/admin', protect, getAllData);
+router.get('/admin/dashboard', protect, getAdminDashboard);
+router.get('/admin/users', protect, getAdminUsers);
+router.get('/admin/data', protect, getAdminPaginatedData);
+
+// Test Funnel Routes
+router.post('/test-funnel/init', protect, initTestFunnel);
+router.post('/test-funnel/reset', protect, resetTestFunnel);
+router.get('/test-funnel/status', protect, getTestFunnelStatus);
+router.post('/test-funnel/step', protect, recordFunnelStep);
+router.get('/test-funnel/emails', protect, getTestEmails);
 
 // Data Compression
 router.post('/compress', protect, compressData);

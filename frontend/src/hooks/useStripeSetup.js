@@ -33,8 +33,11 @@ export const useStripeSetup = () => {
   useEffect(() => {
     if (!user) return; // Don't attempt Stripe setup without a logged-in user
 
-    const CACHE_KEY = 'stripe_setup_intent';
+    const CACHE_KEY = `stripe_setup_intent_${user._id || user.id || 'anon'}`;
     const CACHE_TTL = 25 * 60 * 1000; // 25 minutes (setup intents last ~30 min)
+
+    // Clean up legacy non-user-specific cache key
+    try { sessionStorage.removeItem('stripe_setup_intent'); } catch { /* ignore */ }
 
     const getCachedSecret = () => {
       try {

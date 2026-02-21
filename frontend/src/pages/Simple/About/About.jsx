@@ -166,6 +166,22 @@ function About() {
             </div>
           </section>
 
+          <section className='about-section about-cta-section'>
+            <h2 className='section-title'>Try Our AI Tools</h2>
+            <div className='about-cta-grid'>
+              <div className='about-cta-card'>
+                <h3>AI Chat on /net</h3>
+                <p>Chat with multiple AI providers, manage goals and plans, and automate your workflow.</p>
+                <a href='/pricing' className='about-cta-button primary'>See Pricing</a>
+              </div>
+              <div className='about-cta-card'>
+                <h3>Get Started for Free</h3>
+                <p>Create an account and start using the platform with 50 free commands per day.</p>
+                <a href='/register' className='about-cta-button secondary'>Sign Up Free</a>
+              </div>
+            </div>
+          </section>
+
           <section className='about-section'>
             <h2 className='section-title'>Get in Touch</h2>
             <div className='contact-info'>

@@ -15,18 +15,18 @@ function Pay() {
   const queryParams = new URLSearchParams(location.search);
   const selectedPlan = queryParams.get('plan');
 
-  // Redirect to login if not authenticated
+  // Redirect to login if not authenticated, preserving the intended destination
   useEffect(() => {
     if (!user) {
-      navigate('/login');
+      navigate('/login', { state: { redirectTo: `/pay${location.search}` } });
     }
-  }, [user, navigate]);
+  }, [user, navigate, location.search]);
 
   // Handle JWT expiration
   useEffect(() => {
     if (dataIsError && dataMessage === 'Not authorized, token expired') {
       dispatch(logout());
-      navigate('/login');
+      navigate('/login', { state: { redirectTo: `/pay${location.search}`, sessionExpired: true } });
     }
   }, [dataIsError, dataMessage, dispatch, navigate]);
 

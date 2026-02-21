@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
+import { loadFontSizeScale } from './utils/theme';
 import Admin from './pages/Admin/Admin';
 import Annuities from './pages/Projects/Annuities/Annuities';
 import Contact from './pages/Contact/Contact';
@@ -19,7 +20,6 @@ import WordleSolver from './pages/Projects/WordleSolver/WordleSolver';
 import LegalTerms from './pages/LegalTerms.jsx'
 import Login from './pages/Login/Login.jsx'
 import Net from './pages/Simple/Net/Net.jsx';
-import Pay from './pages/Simple/Pay/Pay.jsx';
 import Plans from './pages/Simple/Plans/Plans.jsx'
 import About from './pages/Simple/About/About.jsx'
 import Profile from './pages/Profile/Profile.jsx'
@@ -30,6 +30,9 @@ import Privacy from './pages/Privacy/Privacy.jsx';
 import Terms from './pages/Terms/Terms.jsx';
 import 'react-toastify/dist/ReactToastify.css';
 import './App.css';
+
+// Apply saved font size scale on app load
+loadFontSizeScale();
 
 function App() {
   return (
@@ -51,7 +54,6 @@ function App() {
             <Route path='/login' element={<Login />} />
             <Route path='/net' element={<Net />} />
             <Route path="/passgen" element={<PassGen/>} />
-            <Route path="/pay" element={<Pay />} />
             <Route path='/plans' element={<Plans />} />
             <Route path='/privacy' element={<Privacy />} />
             <Route path='/profile' element={<Profile />} />

@@ -2,7 +2,7 @@
   color: var(--text-color);
   height: calc(var(--nav-size));
   vertical-align: top;
-  font-size: calc(var(--nav-size)*0.5);
+  font-size: var(--font-size-large);
   position:fixed;
   text-decoration: none;
   width: 100vw;
@@ -32,7 +32,7 @@
     0 calc(var(--nav-size)*-0.08) 0 var(--text-color-inv);
 }
 .planit-header-logo-format-simple{
-  font-size: calc(var(--nav-size)*0.5);
+  font-size: var(--font-size-large);
   font-weight: bold;
   color: var(--text-color);
   text-shadow: 
@@ -47,7 +47,7 @@
 }
 
 .planit-header-logo-format-sth{
-  font-size: calc(var(--nav-size)*0.2);
+  font-size: var(--font-size-xs);
   font-weight: bold;
   color: var(--text-color);
   text-shadow: 
@@ -61,7 +61,7 @@
     0 calc(var(--nav-size)*-0.03) 0 var(--text-color-inv);
 }
 .planit-header-title{
-  font-size: calc(var(--nav-size)*0.5);
+  font-size: var(--font-size-large);
   width: calc(var(--nav-size)*1.5);
   display: inline-block;
   padding-top: calc(var(--nav-size)*0.15);
@@ -108,7 +108,7 @@ a{
   background-color: transparent;
   border: none;
   margin-top: calc(var(--nav-size)*0.07);
-  font-size: calc(var(--nav-size)*.8);
+  font-size: var(--font-size-display);
   cursor: pointer;
   margin-right: calc(var(--nav-size)*0.7);
   color: var(--text-color);
@@ -125,7 +125,7 @@ a{
 }
 #tooltip-projects{
   font-family: 'CutiveMono-Regular';
-  font-size: calc(var(--nav-size)*.25);
+  font-size: var(--font-size-xs);
   font-weight: bold;
   color: white;
   border-radius: 20%;
@@ -136,7 +136,7 @@ a{
 }
 #tooltip-contact{
   font-family: 'CutiveMono-Regular';
-  font-size: calc(var(--nav-size)*.25);
+  font-size: var(--font-size-xs);
   font-weight: bold;
   color: white;
   border-radius: 20%;
@@ -214,7 +214,7 @@ a{
     background-color: transparent;
     border: none;
     margin-top: calc(var(--nav-size)*0.07);
-    font-size: calc(var(--nav-size)*.8);
+    font-size: var(--font-size-display);
     cursor: pointer;
     margin-right: calc(var(--nav-size)*0.7);
     color: var(--text-color);
@@ -225,7 +225,7 @@ a{
     padding: calc(var(--nav-size)*0.05);
     border: none;
     margin: calc(var(--nav-size)*0.15);
-    font-size: calc(var(--nav-size)*0.3);
+    font-size: var(--font-size-small);
     height: calc(var(--nav-size)*0.7);
     width: calc(var(--nav-size)*1.7);
     cursor: pointer;
@@ -236,7 +236,7 @@ a{
     font-weight: bold;
   }
   .planit-header-themebutton-landscape{
-    font-size: calc(var(--nav-size)*0.3);
+    font-size: var(--font-size-small);
     background-color: transparent;
     cursor: pointer;
     right: calc(var(--nav-size)*2.3);
@@ -257,7 +257,7 @@ a{
     padding: calc(var(--nav-size)*0.05);
     border: calc(var(--nav-size)*0.01) solid var(--text-color);
     margin: calc(var(--nav-size)*0.15);
-    font-size: calc(var(--nav-size)*0.35);
+    font-size: var(--font-size-base);
     height: calc(var(--nav-size)*0.7);
     cursor: pointer;
   }
@@ -267,7 +267,7 @@ a{
   }
   .planit-header-profile-auth{
     border: none;
-    font-size: calc(var(--nav-size)*0.3);
+    font-size: var(--font-size-small);
     width: calc(var(--nav-size)*1.7);
     cursor: pointer;
   }
@@ -328,7 +328,7 @@ a{
     color: white;
     -webkit-text-stroke-color: transparent;
     background: transparent;
-    font-size: calc(var(--nav-size)*0.15);
+    font-size: var(--font-size-xs);
   }
   .nav-item{
     /* width: calc(var(--nav-size)*0.8); */

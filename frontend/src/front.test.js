@@ -13,6 +13,11 @@ jest.mock('./utils/theme.js', () => ({
   setDarkMode: jest.fn(),
   setLightMode: jest.fn(),
   setSystemColorMode: jest.fn(),
+  setFontSizeScale: jest.fn(() => 1),
+  loadFontSizeScale: jest.fn(() => 1),
+  FONT_SCALE_MIN: 0.8,
+  FONT_SCALE_MAX: 1.4,
+  FONT_SCALE_DEFAULT: 1,
 }));
 
 // Mock all asset imports
