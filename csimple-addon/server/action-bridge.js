@@ -15,6 +15,7 @@ const { spawn } = require('child_process');
 const path  = require('path');
 const fs    = require('fs');
 const os    = require('os');
+const { checkActionPlan, checkPSScript } = require('./security-guard');
 
 // ─── PS helper definitions ──────────────────────────────────────────────────────
 
@@ -321,6 +322,14 @@ class ActionBridge {
   async _execute(action) {
     console.log(`[ActionBridge] Executing action ${action.id}: ${action.description || action.intent}`);
 
+    // ── Security Layer 2: validate action plan before execution ──────────────
+    const planCheck = checkActionPlan(action);
+    if (planCheck.blocked) {
+      console.error(`[ActionBridge] 🚫 Action ${action.id} BLOCKED by security guard: ${planCheck.reason}`);
+      await this._complete(action.id, false, `SECURITY_BLOCKED: ${planCheck.reason}`);
+      return;
+    }
+
     const steps = action.steps || [];
     if (steps.length === 0) {
       await this._complete(action.id, true);
@@ -329,6 +338,15 @@ class ActionBridge {
 
     try {
       const psScript = stepsToPS(steps);
+
+      // ── Security Layer 3: validate generated PowerShell before running ──────
+      const psCheck = checkPSScript(psScript);
+      if (psCheck.blocked) {
+        console.error(`[ActionBridge] 🚫 PowerShell BLOCKED by security guard: ${psCheck.reason}`);
+        await this._complete(action.id, false, `SECURITY_BLOCKED: ${psCheck.reason}`);
+        return;
+      }
+
       console.log(`[ActionBridge] PS script:\n${psScript}`);
       const result = await runPowerShell(psScript);
 

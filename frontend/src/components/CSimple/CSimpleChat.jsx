@@ -19,6 +19,7 @@ import {
 } from '../../services/csimpleApi';
 import './CSimpleChat.css';
 import './CSimpleTheme.css';
+import { checkMessage as securityCheckMessage } from '../../utils/csimple/securityGuard';
 
 const DEFAULT_MODEL = 'Qwen/Qwen2.5-0.5B-Instruct';
 const CHATS_STORAGE_KEY = 'csimple_chats';
@@ -441,6 +442,29 @@ function CSimpleChat({
 
   const sendMessage = useCallback(async (text) => {
     if (!text.trim() || isGenerating) return;
+
+    // ── Security Layer 0: client-side pre-screen before any network call ──────
+    const secCheck = securityCheckMessage(text);
+    if (secCheck.blocked) {
+      const blockedMsg = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: `⛔ **Command blocked by security policy**\n\n${secCheck.reason}\n\nFor safety, this command cannot be executed. If you believe this is a false positive, please rephrase your request.`,
+        timestamp: new Date().toISOString(),
+        isError: true,
+      };
+      const userMsg = {
+        id: Date.now().toString(),
+        role: 'user',
+        content: text,
+        timestamp: new Date().toISOString(),
+      };
+      setConversations(prev => prev.map(c => {
+        if (c.id !== activeConversationId) return c;
+        return { ...c, messages: [...c.messages, userMsg, blockedMsg] };
+      }));
+      return;
+    }
 
     const userMessage = {
       id: Date.now().toString(),

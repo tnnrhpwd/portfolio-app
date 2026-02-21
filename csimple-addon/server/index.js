@@ -21,6 +21,7 @@ const multer = require('multer');
 const { LlmService } = require('./llm-service');
 const { ActionService } = require('./action-service');
 const { GitHubModelsService, GITHUB_MODELS } = require('./github-models-service');
+const { checkMessage, checkActionPlan, checkScriptContent } = require('./security-guard');
 
 const app = express();
 const DEFAULT_PORT = 3001;
@@ -265,6 +266,14 @@ async function processLLMBlocks(responseText) {
   while ((scriptMatch = SCRIPT_CREATE_REGEX.exec(text)) !== null) {
     const filename = scriptMatch[1].trim();
     const content = scriptMatch[2].trim();
+    const ext = require('path').extname(filename).toLowerCase();
+    // ── Security: validate script content before saving ──────────────────
+    const scriptCheck = checkScriptContent(content, ext);
+    if (scriptCheck.blocked) {
+      console.warn(`[Security] Script create blocked for ${filename}: ${scriptCheck.reason}`);
+      operations.push({ type: 'script_create', filename, success: false, error: `Blocked: ${scriptCheck.reason}` });
+      continue;
+    }
     const result = actionService.createFile(filename, content, 'scripts');
     operations.push({ type: 'script_create', filename, ...result });
     console.log(`[Script Auto-Create] ${result.success ? result.action : 'FAILED'}: ${filename}`);
@@ -424,6 +433,16 @@ app.post('/api/chat', async (req, res) => {
     return res.status(400).json({ error: 'Message is required' });
   }
 
+  // ── Security Layer 1: screen raw message before any processing ───────────
+  const msgCheck = checkMessage(message);
+  if (msgCheck.blocked) {
+    console.warn(`[Security] Message blocked: ${msgCheck.reason}`);
+    return res.status(403).json({
+      error: 'Request blocked by security policy',
+      reason: msgCheck.reason,
+    });
+  }
+
   try {
     const parseStartTime = Date.now();
     console.log(`[${new Date().toISOString()}] Chat request: model=${modelId}, message="${message.substring(0, 80)}..."`);
@@ -505,6 +524,16 @@ app.post('/api/chat', async (req, res) => {
         } catch (err) {
           console.log(`[Confirmation Check] Skipping confirmation (error): ${err.message}`);
         }
+      }
+
+      // ── Security Layer 2: validate action plan before queuing ───────────
+      const planCheck = checkActionPlan(actionPlan);
+      if (planCheck.blocked) {
+        console.warn(`[Security] Action plan blocked: ${planCheck.reason}`);
+        return res.status(403).json({
+          error: 'Action blocked by security policy',
+          reason: planCheck.reason,
+        });
       }
 
       // Execute immediately (no confirmation needed)
@@ -719,6 +748,12 @@ app.post('/api/chat/confirm', async (req, res) => {
       if (newPlan) finalPlan = newPlan;
     }
 
+    // ── Security Layer 2: re-validate final plan (it may have changed via modify) ──
+    const confirmPlanCheck = checkActionPlan(finalPlan);
+    if (confirmPlanCheck.blocked) {
+      return res.status(403).json({ error: 'Action blocked by security policy', reason: confirmPlanCheck.reason });
+    }
+
     const queuedAction = actionService.queueAction(finalPlan);
     const bridgeConnected = lastBridgePoll > 0 && (Date.now() - lastBridgePoll) < 5000;
 
@@ -741,6 +776,11 @@ app.post('/api/chat/confirm', async (req, res) => {
     });
   } catch (err) {
     console.error('[Confirmation] Error:', err.message);
+    // ── Security: validate fallback plan too ───────────────────────────
+    const fallbackCheck = checkActionPlan(confirmation.actionPlan);
+    if (fallbackCheck.blocked) {
+      return res.status(403).json({ error: 'Action blocked by security policy', reason: fallbackCheck.reason });
+    }
     const queuedAction = actionService.queueAction(confirmation.actionPlan);
     return res.json({
       response: actionService.formatActionResponse(confirmation.actionPlan),
@@ -764,12 +804,24 @@ app.post('/api/actions/execute', (req, res) => {
     return res.status(400).json({ error: 'Command is required' });
   }
 
+  // ── Security Layer 1: screen command message ──────────────────────────────
+  const cmdMsgCheck = checkMessage(command);
+  if (cmdMsgCheck.blocked) {
+    return res.status(403).json({ error: 'Command blocked by security policy', reason: cmdMsgCheck.reason });
+  }
+
   const actionPlan = actionService.detectAction(command);
   if (!actionPlan) {
     return res.status(400).json({
       error: 'Could not parse action command',
       hint: 'Try commands like: "open edge", "type hello", "press ctrl+c", "copy", "save"',
     });
+  }
+
+  // ── Security Layer 2: validate action plan ────────────────────────────────
+  const cmdPlanCheck = checkActionPlan(actionPlan);
+  if (cmdPlanCheck.blocked) {
+    return res.status(403).json({ error: 'Action blocked by security policy', reason: cmdPlanCheck.reason });
   }
 
   const queuedAction = actionService.queueAction(actionPlan);
@@ -851,6 +903,14 @@ app.post('/api/workspace/files', (req, res) => {
   const { filename, content, type } = req.body;
   if (!filename) return res.status(400).json({ error: 'Filename is required' });
   const subdir = type === 'scripts' ? 'scripts' : 'files';
+  // ── Security: validate script content before saving ──────────────────────
+  if (subdir === 'scripts' && content) {
+    const fileExt = require('path').extname(filename).toLowerCase();
+    const fileCheck = checkScriptContent(content, fileExt);
+    if (fileCheck.blocked) {
+      return res.status(403).json({ error: 'Script content blocked by security policy', reason: fileCheck.reason });
+    }
+  }
   const result = actionService.createFile(filename, content || '', subdir);
   if (result.success) {
     res.json({ status: result.action, filename, path: result.path });
