@@ -481,6 +481,60 @@
     margin-bottom: calc(var(--nav-size) * 0.15);
     padding-bottom: calc(var(--nav-size) * 0.1);
     border-bottom: 1px solid var(--white2-transp);
+    user-select: none;
+    transition: margin-bottom 0.2s ease, padding-bottom 0.2s ease;
+}
+
+.annuity-form-collapsed .annuity-form-header {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.annuity-form-header:hover {
+    opacity: 0.85;
+}
+
+.annuity-form-header-left {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.1);
+    min-width: 0;
+    overflow: hidden;
+}
+
+.annuity-form-toggle {
+    font-size: calc(var(--nav-size) * 0.2);
+    color: var(--fg-blue);
+    flex-shrink: 0;
+    width: 1em;
+    text-align: center;
+    transition: transform 0.2s ease;
+}
+
+.annuity-form-summary {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.1);
+    font-size: calc(var(--nav-size) * 0.2);
+    color: var(--text-color);
+    opacity: 0.7;
+}
+
+.annuity-form-summary-type {
+    background: var(--white2-transp);
+    padding: 2px 8px;
+    border-radius: calc(var(--nav-size) * 0.06);
+    font-size: calc(var(--nav-size) * 0.18);
+    font-weight: 500;
+}
+
+.annuity-form-summary-value {
+    font-weight: 600;
+    background: linear-gradient(90deg, var(--fg-mint), var(--fg-blue));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .annuity-form-number {

@@ -410,15 +410,19 @@ app.get('/api/status', (req, res) => {
 app.get('/api/network', (req, res) => {
   const interfaces = os.networkInterfaces();
   const addresses = [];
+  const WEBAPP_URL = 'https://sthopwood.com/net';
 
   for (const [name, nets] of Object.entries(interfaces)) {
     for (const net of nets) {
       if (net.family === 'IPv4' && !net.internal) {
+        const addonHost = `${net.address}:${activePort}`;
         addresses.push({
           interface: name,
           address: net.address,
           url: `http://${net.address}:${activePort}`,
-          httpsUrl: `https://${net.address}:${activeHttpsPort}`,
+          httpsUrl: activeHttpsPort ? `https://${net.address}:${activeHttpsPort}` : null,
+          // URL that a phone can open to use the webapp with this PC's addon
+          connectUrl: `${WEBAPP_URL}?addon=${encodeURIComponent(addonHost)}`,
         });
       }
     }

@@ -387,12 +387,12 @@ function Profile() {
                             <span className="warning-icon">🚨</span>
                             <div className="warning-content">
                               <strong>Usage Frozen</strong>
-                              <p>Your Simple membership has no remaining credits. API usage is frozen until next month or upgrade to CSimple for custom limits.</p>
+                              <p>Your Flex membership has no remaining credits. API usage is frozen until next month or upgrade to Premium for custom limits.</p>
                               <button 
                                 className="upgrade-premium-button"
                                 onClick={() => navigate('/pay?plan=premium')}
                               >
-                                Upgrade to CSimple
+                                Upgrade to Premium
                               </button>
                             </div>
                           </div>
@@ -513,15 +513,16 @@ function Profile() {
 
                     {userUsage.usageBreakdown && userUsage.usageBreakdown.length > 0 && (
                       <div className="planit-profile-usage-breakdown">
-                        <h4 className="usage-breakdown-title">Recent API Usage</h4>
+                        <h4 className="usage-breakdown-title">Recent Usage</h4>
                         <div className="usage-breakdown-list">
                           {userUsage.usageBreakdown.slice(-5).map((entry, index) => (
                             <div key={index} className="usage-breakdown-item">
                               <div className="usage-api-info">
                                 <span className="api-name">
-                                  {entry.api === 'openai' && '🤖 OpenAI'}
+                                  {(entry.api === 'openai' || entry.api === 'github') && '🤖 GitHub Models'}
                                   {entry.api === 'rapidword' && '📝 Word Generator'}
                                   {entry.api === 'rapiddef' && '📚 Dictionary'}
+                                  {!['openai', 'github', 'rapidword', 'rapiddef'].includes(entry.api) && `🔧 ${entry.api}`}
                                 </span>
                                 <span className="api-date">{entry.fullDate}</span>
                               </div>
@@ -682,7 +683,7 @@ function Profile() {
                           <span className="upgrade-icon">💾</span>
                           <div className="upgrade-text">
                             <strong>Need More Storage?</strong>
-                            <p>CSimple membership includes unlimited storage for all your data and files!</p>
+                            <p>Premium membership includes unlimited storage for all your data and files!</p>
                           </div>
                         </div>
                         <button 
@@ -714,6 +715,9 @@ function Profile() {
             </section>
             
             <section className="planit-profile-actions">
+              <button className="planit-profile-net-button" onClick={() => navigate('/net')}>
+                🤖 Open AI Chat
+              </button>
               <button className="planit-profile-settings-button" onClick={navigateToSettings}>
                 ⚙️ Advanced Settings
               </button>

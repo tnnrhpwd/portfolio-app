@@ -22,35 +22,17 @@ function Settings() {
     address: '',
 
     // Notification Settings
-    notificationPreferences: '',
     emailNotifications: false,
     smsNotifications: false,
     pushNotifications: false,
 
     // Appearance Settings
     theme: 'light',
-    fontSize: 'medium',
-    fontFamily: 'Arial',
-    backgroundColor: '',
-    textColor: '',
-    backgroundAccentColor: '', // New setting
-
-    // Privacy Settings
-    profileVisibility: 'public',
-    dataSharing: true,
-    locationTracking: false,
 
     // Accessibility Settings
     highContrast: false,
     textToSpeech: false,
     keyboardNavigation: true,
-
-    // Advanced Settings
-    apiEndpoint: '',
-    dataBackupFrequency: 'weekly',
-
-    // Regional Settings
-    timeZone: '', // New setting
   });
 
   const [isResetPasswordLoading, setIsResetPasswordLoading] = useState(false);
@@ -61,32 +43,19 @@ function Settings() {
       return;
     }
 
-    // Initialize settings from user data (replace with actual user data retrieval)
+    // Initialize settings from user data
     setSettings({
       paymentMethod: user.paymentMethod || '',
       email: user.email || '',
       phoneNumber: user.phoneNumber || '',
       address: user.address || '',
-      notificationPreferences: user.notificationPreferences || '',
       emailNotifications: user.emailNotifications || false,
       smsNotifications: user.smsNotifications || false,
       pushNotifications: user.pushNotifications || false,
       theme: user.theme || 'light',
-			fontSize: user.fontSize || 'medium',
-			fontFamily: user.fontFamily || 'Arial',
-			backgroundColor: user.backgroundColor || '',
-			textColor: user.textColor || '',
-			backgroundAccentColor: user.backgroundAccentColor || '', // Initialize
-			profileVisibility: user.profileVisibility || 'public',
-			dataSharing: user.dataSharing || true,
-			locationTracking: user.locationTracking || false,
-			highContrast: user.highContrast || false,
-			textToSpeech: user.textToSpeech || false,
-			keyboardNavigation: user.keyboardNavigation || false,
-
-			apiEndpoint: user.apiEndpoint || '',
-			dataBackupFrequency: user.dataBackupFrequency || 'weekly',
-      timeZone: user.timeZone || '', // Initialize
+      highContrast: user.highContrast || false,
+      textToSpeech: user.textToSpeech || false,
+      keyboardNavigation: user.keyboardNavigation || false,
     });
 
     return () => {
@@ -114,10 +83,9 @@ function Settings() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Dispatch action to update settings (not implemented yet)
+    // TODO: Dispatch action to update settings when backend supports it
     console.log('Settings submitted:', settings);
-    toast.success('Settings updated successfully!', { autoClose: 2000 });
-    // dispatch(updateSettings(settings));
+    toast.info('Settings persistence coming soon.', { autoClose: 2000 });
   };
 
   const handlePasswordReset = async () => {
@@ -261,22 +229,6 @@ function Settings() {
                 <div className="planit-settings-section">
                   <h3 className="planit-settings-section-title">🔔 Notification Settings</h3>
                   <div className="planit-settings-grid">
-                    <div className="planit-settings-item">
-                      <label className="planit-settings-label">📬 Notification Preferences</label>
-                      <select
-                        name="notificationPreferences"
-                        value={settings.notificationPreferences}
-                        onChange={handleChange}
-                        className="planit-settings-input"
-                      >
-                        <option value="">Select Preference</option>
-                        <option value="email">📧 Email</option>
-                        <option value="sms">📱 SMS</option>
-                        <option value="push">🔔 Push Notification</option>
-                        <option value="none">🔕 None</option>
-                      </select>
-                    </div>
-                    
                     <div className="planit-settings-item planit-settings-checkbox-item">
                       <label className="planit-settings-checkbox-label">
                         <input
@@ -335,113 +287,37 @@ function Settings() {
                         <option value="system">💻 System</option>
                       </select>
                     </div>
-                    
-                    <div className="planit-settings-item">
-                      <label className="planit-settings-label">📏 Font Size</label>
-                      <select
-                        name="fontSize"
-                        value={settings.fontSize}
-                        onChange={handleChange}
-                        className="planit-settings-input"
-                      >
-                        <option value="small">Small</option>
-                        <option value="medium">Medium</option>
-                        <option value="large">Large</option>
-                      </select>
-                    </div>
-                    
-                    <div className="planit-settings-item">
-                      <label className="planit-settings-label">🔤 Font Family</label>
-                      <select
-                        name="fontFamily"
-                        value={settings.fontFamily}
-                        onChange={handleChange}
-                        className="planit-settings-input"
-                      >
-                        <option value="Arial">Arial</option>
-                        <option value="Times New Roman">Times New Roman</option>
-                        <option value="Helvetica">Helvetica</option>
-                      </select>
-                    </div>
-                    
-                    <div className="planit-settings-item">
-                      <label className="planit-settings-label">🎨 Background Color</label>
-                      <input
-                        type="color"
-                        name="backgroundColor"
-                        value={settings.backgroundColor}
-                        onChange={handleChange}
-                        className="planit-settings-color-input"
-                      />
-                    </div>
-                    
-                    <div className="planit-settings-item">
-                      <label className="planit-settings-label">✏️ Text Color</label>
-                      <input
-                        type="color"
-                        name="textColor"
-                        value={settings.textColor}
-                        onChange={handleChange}
-                        className="planit-settings-color-input"
-                      />
-                    </div>
-                    
-                    <div className="planit-settings-item">
-                      <label className="planit-settings-label">🌈 Accent Color</label>
-                      <input
-                        type="color"
-                        name="backgroundAccentColor"
-                        value={settings.backgroundAccentColor}
-                        onChange={handleChange}
-                        className="planit-settings-color-input"
-                      />
-                    </div>
                   </div>
                 </div>
 
-                {/* Privacy Settings */}
+                {/* AI & CSimple Addon */}
                 <div className="planit-settings-section">
-                  <h3 className="planit-settings-section-title">🔒 Privacy Settings</h3>
-                  <div className="planit-settings-grid">
-                    <div className="planit-settings-item">
-                      <label className="planit-settings-label">👁️ Profile Visibility</label>
-                      <select
-                        name="profileVisibility"
-                        value={settings.profileVisibility}
-                        onChange={handleChange}
-                        className="planit-settings-input"
+                  <h3 className="planit-settings-section-title">🤖 AI & CSimple Addon</h3>
+                  <div className="planit-settings-ai-info">
+                    <p className="planit-settings-ai-description">
+                      Access AI chat powered by GitHub Models at <strong>/net</strong>. 
+                      For local AI and desktop automation, install the <strong>CSimple addon</strong>.
+                    </p>
+                    <div className="planit-settings-ai-actions">
+                      <button 
+                        type="button" 
+                        className="planit-settings-ai-button"
+                        onClick={() => navigate('/net')}
                       >
-                        <option value="public">🌐 Public</option>
-                        <option value="private">🔒 Private</option>
-                        <option value="friends">👥 Friends Only</option>
-                      </select>
+                        🤖 Open AI Chat
+                      </button>
+                      <a 
+                        href="https://github.com/tnnrhpwd/portfolio-app/releases"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="planit-settings-ai-link"
+                      >
+                        📥 Get CSimple Addon
+                      </a>
                     </div>
-                    
-                    <div className="planit-settings-item planit-settings-checkbox-item">
-                      <label className="planit-settings-checkbox-label">
-                        <input
-                          type="checkbox"
-                          name="dataSharing"
-                          checked={settings.dataSharing}
-                          onChange={handleChange}
-                          className="planit-settings-checkbox"
-                        />
-                        <span>📊 Data Sharing</span>
-                      </label>
-                    </div>
-                    
-                    <div className="planit-settings-item planit-settings-checkbox-item">
-                      <label className="planit-settings-checkbox-label">
-                        <input
-                          type="checkbox"
-                          name="locationTracking"
-                          checked={settings.locationTracking}
-                          onChange={handleChange}
-                          className="planit-settings-checkbox"
-                        />
-                        <span>📍 Location Tracking</span>
-                      </label>
-                    </div>
+                    <p className="planit-settings-ai-note">
+                      GitHub token and model settings are configured in the /net sidebar when the addon is connected.
+                    </p>
                   </div>
                 </div>
 
@@ -490,58 +366,19 @@ function Settings() {
                   </div>
                 </div>
 
-                {/* Advanced Settings */}
-                <div className="planit-settings-section">
-                  <h3 className="planit-settings-section-title">🔧 Advanced Settings</h3>
-                  <div className="planit-settings-grid">
-                    <div className="planit-settings-item">
-                      <label className="planit-settings-label">🔗 API Endpoint</label>
-                      <input
-                        type="text"
-                        name="apiEndpoint"
-                        value={settings.apiEndpoint}
-                        onChange={handleChange}
-                        className="planit-settings-input"
-                        placeholder="Enter API endpoint"
-                      />
-                    </div>
-                    
-                    <div className="planit-settings-item">
-                      <label className="planit-settings-label">💾 Data Backup Frequency</label>
-                      <select
-                        name="dataBackupFrequency"
-                        value={settings.dataBackupFrequency}
-                        onChange={handleChange}
-                        className="planit-settings-input"
-                      >
-                        <option value="daily">📅 Daily</option>
-                        <option value="weekly">📆 Weekly</option>
-                        <option value="monthly">🗓️ Monthly</option>
-                      </select>
-                    </div>
-                    
-                    <div className="planit-settings-item">
-                      <label className="planit-settings-label">🌍 Time Zone</label>
-                      <select
-                        name="timeZone"
-                        value={settings.timeZone}
-                        onChange={handleChange}
-                        className="planit-settings-input"
-                      >
-                        <option value="">Select Time Zone</option>
-                        <option value="America/Los_Angeles">🌊 Pacific Time</option>
-                        <option value="America/New_York">🗽 Eastern Time</option>
-                        <option value="UTC">🌐 UTC</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
                 
               </section>
               
               <section className="planit-settings-actions">
                 <button type="submit" className="planit-settings-save-button">
                   💾 Update Settings
+                </button>
+                <button 
+                  type="button" 
+                  className="planit-settings-net-button" 
+                  onClick={() => navigate('/net')}
+                >
+                  🤖 Open AI Chat
                 </button>
                 <button 
                   type="button" 

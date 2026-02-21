@@ -6,6 +6,7 @@
  * 
  * Architecture:
  *   - Local addon runs at localhost:3001 (HTTP) / localhost:3444 (HTTPS)
+ *   - Remote addon can be reached via LAN IP (e.g. 192.168.1.13:3001)
  *   - Portfolio backend runs at the deployed backend URL
  *   - This service detects addon presence and routes requests accordingly
  */
@@ -13,6 +14,7 @@
 const ADDON_DEFAULT_PORT = 3001;
 const ADDON_HEALTH_ENDPOINT = '/api/status';
 const ADDON_POLL_INTERVAL = 30000; // 30s between health checks
+const CUSTOM_HOST_KEY = 'csimple_addon_host'; // localStorage key
 
 /** Cached addon state */
 let _addonStatus = {
@@ -25,43 +27,102 @@ let _addonStatus = {
 /** All registered listeners for addon status changes */
 const _statusListeners = new Set();
 
+// ─── Custom Addon Host (for phone → PC control over LAN) ───────────────────
+
+/**
+ * Auto-apply ?addon= URL parameter if present.
+ * e.g. https://sthopwood.com/net?addon=192.168.1.13:3001
+ */
+(function _initFromUrlParam() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const addonParam = params.get('addon');
+    if (addonParam) {
+      // Normalize: strip protocol if user included it, store just host:port
+      const cleaned = addonParam.replace(/^https?:\/\//, '');
+      localStorage.setItem(CUSTOM_HOST_KEY, cleaned);
+    }
+  } catch { /* SSR or no window */ }
+})();
+
+/**
+ * Get the saved custom addon host (e.g. "192.168.1.13:3001").
+ * Returns null if not set.
+ */
+export function getCustomAddonHost() {
+  try {
+    return localStorage.getItem(CUSTOM_HOST_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Set a custom addon host for LAN access (e.g. "192.168.1.13:3001").
+ * Pass null/empty to clear and revert to localhost detection.
+ */
+export function setCustomAddonHost(host) {
+  try {
+    if (host) {
+      const cleaned = host.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+      localStorage.setItem(CUSTOM_HOST_KEY, cleaned);
+    } else {
+      localStorage.removeItem(CUSTOM_HOST_KEY);
+    }
+    // Re-detect immediately with the new host
+    detectAddon();
+  } catch { /* ignore */ }
+}
+
 /**
  * Detect if the CSimple local addon is running.
- * Tries localhost ports and returns the base URL if found.
+ * Tries custom host first (if set), then localhost ports.
  */
 export async function detectAddon() {
+  // Build candidate URLs — custom host first, then localhost fallbacks
+  const candidates = [];
+
+  const customHost = getCustomAddonHost();
+  if (customHost) {
+    // Try both protocols for the custom host
+    candidates.push(`https://${customHost}`, `http://${customHost}`);
+  }
+
+  // Always try localhost as fallback
   const ports = [ADDON_DEFAULT_PORT, 3444];
   const protocols = ['http', 'https'];
-
   for (const proto of protocols) {
     for (const port of ports) {
-      const url = `${proto}://localhost:${port}`;
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 2000);
+      candidates.push(`${proto}://localhost:${port}`);
+    }
+  }
 
-        const res = await fetch(`${url}${ADDON_HEALTH_ENDPOINT}`, {
-          signal: controller.signal,
-          mode: 'cors',
-        });
-        clearTimeout(timeout);
+  for (const url of candidates) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 2000);
 
-        if (res.ok) {
-          const data = await res.json();
-          const newStatus = {
-            isConnected: true,
-            baseUrl: url,
-            lastCheck: Date.now(),
-            version: data.version || null,
-            uptime: data.uptime || null,
-          };
-          _addonStatus = newStatus;
-          _notifyListeners(newStatus);
-          return newStatus;
-        }
-      } catch {
-        // Port not available, try next
+      const res = await fetch(`${url}${ADDON_HEALTH_ENDPOINT}`, {
+        signal: controller.signal,
+        mode: 'cors',
+      });
+      clearTimeout(timeout);
+
+      if (res.ok) {
+        const data = await res.json();
+        const newStatus = {
+          isConnected: true,
+          baseUrl: url,
+          lastCheck: Date.now(),
+          version: data.version || null,
+          uptime: data.uptime || null,
+        };
+        _addonStatus = newStatus;
+        _notifyListeners(newStatus);
+        return newStatus;
       }
+    } catch {
+      // Port not available, try next
     }
   }
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { categorizeVoices } from '../../hooks/csimple/useSpeech';
 import {
   getBehaviors, getMemoryFiles, getPersonalityFiles, getNetworkInfo,
@@ -6,6 +7,7 @@ import {
   createBehavior, updateBehavior, deleteBehavior,
   createMemory, updateMemory, deleteMemory,
   updatePersonality,
+  getCustomAddonHost, setCustomAddonHost,
 } from '../../services/csimpleApi';
 import './AdvancedSettings.css';
 
@@ -23,6 +25,8 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
   const [editingAgentId, setEditingAgentId] = useState(null);
   const [agentName, setAgentName] = useState('');
   const [networkInfo, setNetworkInfo] = useState(null);
+  const [customAddonHost, setCustomAddonHostLocal] = useState(getCustomAddonHost() || '');
+  const [selectedQrAddr, setSelectedQrAddr] = useState(null);
   const [pronTest, setPronTest] = useState({ active: false, agentId: null, heard: [], status: '' });
   const pronRecogRef = useRef(null);
   const [fileEditor, setFileEditor] = useState({ isOpen: false, type: '', filename: '', content: '', isNew: false });
@@ -1079,25 +1083,87 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
                 </div>
               </div>
 
+              {/* ── Connect from Phone (manual IP entry) ─────────── */}
+              <div className="adv-group">
+                <label className="adv-group__label">Connect from Another Device</label>
+                <p className="adv-group__desc">
+                  Enter your PC's addon address to control it from a phone or tablet on the same WiFi network.
+                  {isOnline && ' Or scan the QR code below.'}
+                </p>
+                <div className="adv-custom-host">
+                  <input
+                    type="text"
+                    className="adv-input"
+                    placeholder="e.g. 192.168.1.13:3001"
+                    value={customAddonHost}
+                    onChange={e => setCustomAddonHostLocal(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        setCustomAddonHost(customAddonHost.trim());
+                      }
+                    }}
+                  />
+                  <button
+                    className="adv-btn adv-btn--sm"
+                    onClick={() => setCustomAddonHost(customAddonHost.trim())}
+                  >
+                    Connect
+                  </button>
+                  {getCustomAddonHost() && (
+                    <button
+                      className="adv-btn adv-btn--sm adv-btn--muted"
+                      onClick={() => {
+                        setCustomAddonHostLocal('');
+                        setCustomAddonHost(null);
+                      }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* ── QR Code for Phone Access ──────────────────────── */}
               {networkInfo && networkInfo.addresses.length > 0 && (
                 <div className="adv-group">
-                  <label className="adv-group__label">Access from other devices</label>
-                  <p className="adv-group__desc">Use these URLs to access the webapp from your phone, tablet, or other computers on the same network.</p>
-                  <div className="adv-network-list">
-                    {networkInfo.addresses.map((addr, i) => (
-                      <div key={i} className="adv-network-item">
-                        <span className="adv-network-item__label">{addr.interface}:</span>
-                        <a
-                          href={addr.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="adv-network-item__link"
+                  <label className="adv-group__label">Scan to Connect from Phone</label>
+                  <p className="adv-group__desc">
+                    Scan this QR code with your phone to open the webapp pre-configured to control this PC.
+                  </p>
+                  {networkInfo.addresses.length > 1 && (
+                    <div className="adv-network-selector">
+                      {networkInfo.addresses.map((addr, i) => (
+                        <button
+                          key={i}
+                          className={`adv-btn adv-btn--sm ${(selectedQrAddr ?? 0) === i ? 'adv-btn--active' : 'adv-btn--muted'}`}
+                          onClick={() => setSelectedQrAddr(i)}
                         >
-                          {addr.url}
-                        </a>
+                          {addr.interface}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {(() => {
+                    const addr = networkInfo.addresses[selectedQrAddr ?? 0];
+                    if (!addr) return null;
+                    const qrUrl = addr.connectUrl || `https://sthopwood.com/net?addon=${encodeURIComponent(addr.address + ':' + networkInfo.port)}`;
+                    return (
+                      <div className="adv-qr-container">
+                        <QRCodeSVG value={qrUrl} size={180} level="M" includeMargin />
+                        <div className="adv-qr-details">
+                          <span className="adv-network-item__label">{addr.interface}</span>
+                          <a
+                            href={qrUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="adv-network-item__link"
+                          >
+                            {addr.address}:{networkInfo.port}
+                          </a>
+                        </div>
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })()}
                 </div>
               )}
 

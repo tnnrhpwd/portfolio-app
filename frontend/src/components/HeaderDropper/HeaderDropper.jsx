@@ -77,13 +77,9 @@ function HeaderDropper(props) {
         {user && (
           <>
             <a className='planit-header-dropper-pagelink' href='/passgen'>◽Passwords</a>
-            <a className='planit-header-dropper-pagelink' href='/simple'>◽Simple</a>
             <a className='planit-header-dropper-pagelink' href='/net'>◽Net</a>
           </>
         )}
-        
-        {/* Games & Entertainment */}
-        <a className='planit-header-dropper-pagelink' href='/wordle'>◽Wordle</a>
         
         {/* Admin (Special Access) */}
         {(user && user._id && user._id.toString() === '6770a067c725cbceab958619') && 

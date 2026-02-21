@@ -14,7 +14,6 @@ const links = {
     annuities: "/annuities",
     sonic: "/sonic",
     wordle: "/wordle",
-    simple: "/simple",
     plans: "/plans",
     login: "/login",
     profile: "/profile",
@@ -117,18 +116,13 @@ function Home() {
                             
                             {/* Utilities & Tools */}
                             {user && <>
-                                <a className="home-spc-tool animate-in" href={links.passgen} style={{animationDelay: '0.3s'}}>
+                                <a className="home-spc-tool animate-in" href={links.passgen} style={{animationDelay: '0.25s'}}>
                                     <div className="home-spc-tool-text">{links.passgen}</div>
                                 </a>
-                                <a className="home-spc-tool animate-in" href={links.net} style={{animationDelay: '0.35s'}}>
+                                <a className="home-spc-tool animate-in" href={links.net} style={{animationDelay: '0.3s'}}>
                                     <div className="home-spc-tool-text">{links.net}</div>
                                 </a>
                             </>}
-                            
-                            {/* Games & Entertainment */}
-                            <a className="home-spc-tool animate-in" href={links.wordle} style={{animationDelay: '0.4s'}}>
-                                <div className="home-spc-tool-text">{links.wordle}</div>
-                            </a>
                             
                             {/* Admin (Special Access) */}
                             {(user && user._id && user._id.toString() === '6770a067c725cbceab958619') && 
@@ -144,19 +138,7 @@ function Home() {
                             }
                         </div>
                     </div>
-                    {/* commented out for non public 
-                    <div id="content-tile">
-                        <div id="text-body" className="section-header"> Apps: </div>
-                        <div className="home-spc">
-                            <a className="home-spc-tool animate-in app-highlight" href={links.simple} style={{animationDelay: '0.55s'}}>
-                                <div className="home-spc-tool-text">
-                                    <span className="app-icon">💻</span>
-                                    Simple (Windows)
-                                </div>
-                            </a>
-                        </div>
-                    </div>
-*/}
+
                 </section>
 
                 <section className="section-tile thank-you-section">

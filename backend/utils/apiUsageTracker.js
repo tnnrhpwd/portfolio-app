@@ -23,6 +23,16 @@ const API_COSTS = {
         'o1-mini': { input: 0.003/1000, output: 0.012/1000 }, // per token
         'o1-preview': { input: 0.015/1000, output: 0.06/1000 } // per token
     },
+    github: {
+        // GitHub Models (Azure inference) — pricing mirrors the underlying model
+        'gpt-4o': { input: 0.0025/1000, output: 0.01/1000 },
+        'gpt-4o-mini': { input: 0.00015/1000, output: 0.0006/1000 },
+        'o1-mini': { input: 0.003/1000, output: 0.012/1000 },
+        'o1-preview': { input: 0.015/1000, output: 0.06/1000 },
+        'Meta-Llama-3.1-405B-Instruct': { input: 0.001/1000, output: 0.002/1000 },
+        'Mistral-large-2411': { input: 0.002/1000, output: 0.006/1000 },
+        'default': { input: 0.001/1000, output: 0.003/1000 } // fallback for unknown models
+    },
     xai: {
         'grok-4': { input: 0.001/1000, output: 0.003/1000 }, // per token (estimated pricing)
         'grok-4-fast-reasoning': { input: 0.001/1000, output: 0.003/1000 } // per token (estimated pricing)
@@ -272,6 +282,14 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
                 const outputTokens = usageData.outputTokens || 0;
                 cost = (inputTokens * modelCosts.input) + (outputTokens * modelCosts.output);
                 usageString = `${inputTokens + outputTokens}t`;
+                break;
+            case 'github':
+                const ghModelKey = model || 'gpt-4o-mini';
+                const ghModelCosts = API_COSTS.github[ghModelKey] || API_COSTS.github['default'];
+                const ghInputTokens = usageData.inputTokens || 0;
+                const ghOutputTokens = usageData.outputTokens || 0;
+                cost = (ghInputTokens * ghModelCosts.input) + (ghOutputTokens * ghModelCosts.output);
+                usageString = `${ghInputTokens + ghOutputTokens}t`;
                 break;
             case 'xai':
                 const xaiModelKey = model || 'grok-4';
@@ -749,6 +767,13 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
                 const outputTokens = estimatedUsage.outputTokens || 200; // Default estimate
                 estimatedCost = (inputTokens * modelCosts.input) + (outputTokens * modelCosts.output);
                 break;
+            case 'github':
+                const ghModelKey = estimatedUsage.model || 'gpt-4o-mini';
+                const ghModelCosts = API_COSTS.github[ghModelKey] || API_COSTS.github['default'];
+                const ghInputTokens = estimatedUsage.inputTokens || 100;
+                const ghOutputTokens = estimatedUsage.outputTokens || 200;
+                estimatedCost = (ghInputTokens * ghModelCosts.input) + (ghOutputTokens * ghModelCosts.output);
+                break;
             case 'xai':
                 const xaiModelKey = estimatedUsage.model || 'grok-4-fast-reasoning';
                 const xaiModelCosts = API_COSTS.xai[xaiModelKey] || API_COSTS.xai['grok-4-fast-reasoning'];
@@ -773,9 +798,9 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
         } else {
             // Different messaging based on membership type
             if (userRank === 'Flex') {
-                reason = 'Insufficient credits. Simple membership usage is frozen until next month or upgrade to CSimple.';
+                reason = 'Insufficient credits. Flex membership usage is frozen until next month or upgrade to Premium.';
             } else if (userRank === 'Premium') {
-                reason = 'Insufficient credits. Consider increasing your CSimple limit to continue usage.';
+                reason = 'Insufficient credits. Consider increasing your Premium limit to continue usage.';
             } else {
                 reason = 'Insufficient credits';
             }

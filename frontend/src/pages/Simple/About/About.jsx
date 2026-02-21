@@ -140,18 +140,8 @@ function About() {
             <h2 className='section-title'>Featured Projects</h2>
             <div className='projects-grid'>
               <div className='project-card'>
-                <h3>C# Simple Automation</h3>
-                <p>Desktop automation application built with C# for streamlining repetitive tasks.</p>
-                <button 
-                  className='project-link'
-                  onClick={() => window.open("https://github.com/tnnrhpwd/C-Simple", "_blank")}
-                >
-                  View on GitHub →
-                </button>
-              </div>
-              <div className='project-card'>
-                <h3>Portfolio Web App</h3>
-                <p>Full-stack React application with Node.js backend showcasing engineering and development skills.</p>
+                <h3>Simple</h3>
+                <p>Full-stack React application with AI chat, desktop automation, and Node.js backend. Desktop automation application built with C# for streamlining repetitive tasks.</p>
                 <button 
                   className='project-link'
                   onClick={() => window.open("https://github.com/tnnrhpwd/portfolio-app", "_blank")}

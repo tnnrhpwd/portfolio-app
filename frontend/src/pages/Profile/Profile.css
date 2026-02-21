@@ -552,6 +552,26 @@
     transform: translateY(-2px);
 }
 
+.planit-profile-net-button {
+    width: 100%;
+    padding: calc(var(--nav-size) * 0.3);
+    font-size: calc(var(--nav-size) * 0.3);
+    background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink));
+    color: white;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: 0 2px 8px var(--grey3-transp);
+    transition: background 0.3s, box-shadow 0.3s, transform 0.2s;
+}
+
+.planit-profile-net-button:hover {
+    background: linear-gradient(90deg, var(--fg-pink), var(--fg-blue));
+    box-shadow: 0 4px 16px var(--grey3-transp);
+    transform: translateY(-2px);
+}
+
 .planit-profile-logout-button {
     width: 100%;
     padding: calc(var(--nav-size) * 0.3);

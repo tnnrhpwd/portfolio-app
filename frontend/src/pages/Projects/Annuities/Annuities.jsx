@@ -175,7 +175,17 @@ function Annuities() {
     const [combinedGraphData, setCombinedGraphData] = useState([]);
     const [combinedTotal, setCombinedTotal] = useState(0);
     const [selectedExample, setSelectedExample] = useState(null);
-    const [showExamples, setShowExamples] = useState(true);
+    const [showExamples, setShowExamples] = useState(false);    const [showFormulas, setShowFormulas] = useState(false);    const [collapsedCashFlows, setCollapsedCashFlows] = useState(new Set([1]));
+
+    // Toggle a single cash flow's collapsed state
+    const toggleCashFlow = useCallback((id) => {
+        setCollapsedCashFlows(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    }, []);
 
     // Check if any fields have values
     const hasAnyValues = annuities.some(a => 
@@ -325,6 +335,7 @@ function Annuities() {
     const addAnnuity = useCallback(() => {
         const newId = Math.max(...annuities.map(a => a.id), 0) + 1;
         setAnnuities(prev => [...prev, { id: newId, time: '$Future', values: [], graphData: [], answer: 0, initialValues: null }]);
+        setCollapsedCashFlows(prev => new Set([...prev, newId]));
     }, [annuities]);
 
     // Remove an annuity form
@@ -339,21 +350,37 @@ function Annuities() {
         setSelectedExample(example);
         setShowExamples(false);
         
-        const newAnnuities = example.annuities.map((ann, index) => ({
-            id: index + 1,
-            time: ann.time,
-            values: [],
-            graphData: [],
-            answer: 0,
-            initialValues: ann.values
-        }));
+        const newAnnuities = example.annuities.map((ann, index) => {
+            // Pre-compute values so the graph updates immediately (even while collapsed)
+            const vals = ann.values;
+            const valuesArray = [
+                parseFloat(vals.presentVal) || 0,
+                parseFloat(vals.annualVal) || 0,
+                parseFloat(vals.futureVal) || 0,
+                parseFloat(vals.gradientVal) || 0,
+                parseFloat(vals.intVal) || 0,
+                parseFloat(vals.nVal) || 0,
+            ];
+            const result = computeSingleAnnuity(valuesArray, ann.time);
+            return {
+                id: index + 1,
+                time: ann.time,
+                values: valuesArray,
+                graphData: result.graphData,
+                answer: result.answer,
+                initialValues: ann.values
+            };
+        });
         
+        // Collapse all cash flows by default when loading an example
+        setCollapsedCashFlows(new Set(newAnnuities.map(a => a.id)));
         setAnnuities(newAnnuities);
-    }, []);
+    }, [computeSingleAnnuity]);
 
     // Clear and start fresh
     const clearCalculator = useCallback(() => {
         setSelectedExample(null);
+        setCollapsedCashFlows(new Set());
         // Use timestamp to force a fresh component mount
         setAnnuities([{ id: Date.now(), time: '$Future', values: [], graphData: [], answer: 0, initialValues: null }]);
     }, []);
@@ -474,14 +501,29 @@ function Annuities() {
                 {/* Calculator Section */}
                 <div className='calculator-section'>
                     {/* Multiple Annuity Forms */}
-                    {annuities.map((annuity, index) => (
-                        <div key={annuity.id} className='annuity-form-container'>
-                            <div className='annuity-form-header'>
-                                <span className='annuity-form-number'>Cash Flow #{index + 1}</span>
+                    {annuities.map((annuity, index) => {
+                        const isCollapsed = collapsedCashFlows.has(annuity.id);
+                        return (
+                        <div key={annuity.id} className={`annuity-form-container ${isCollapsed ? 'annuity-form-collapsed' : ''}`}>
+                            <div className='annuity-form-header' onClick={() => toggleCashFlow(annuity.id)} style={{ cursor: 'pointer' }}>
+                                <div className='annuity-form-header-left'>
+                                    <span className='annuity-form-toggle'>{isCollapsed ? '▶' : '▼'}</span>
+                                    <span className='annuity-form-number'>Cash Flow #{index + 1}</span>
+                                    {isCollapsed && (
+                                        <span className='annuity-form-summary'>
+                                            <span className='annuity-form-summary-type'>{annuity.time.substring(1)}</span>
+                                            {annuity.answer !== 0 && !isNaN(annuity.answer) && (
+                                                <span className='annuity-form-summary-value'>
+                                                    ${annuity.answer.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </span>
+                                            )}
+                                        </span>
+                                    )}
+                                </div>
                                 {annuities.length > 1 && (
                                     <button 
                                         className='remove-annuity-btn'
-                                        onClick={() => removeAnnuity(annuity.id)}
+                                        onClick={(e) => { e.stopPropagation(); removeAnnuity(annuity.id); }}
                                         title="Remove this cash flow"
                                     >
                                         ✕
@@ -489,6 +531,7 @@ function Annuities() {
                                 )}
                             </div>
                             
+                            {!isCollapsed && (
                             <div className='annuity-form-content'>
                                 <div className='annuities-find-inline'>
                                     <label className='annuities-find-label'>Find:</label>
@@ -521,8 +564,10 @@ function Annuities() {
                                     </div>
                                 )}
                             </div>
+                            )}
                         </div>
-                    ))}
+                    );
+                    })}
 
                     {/* Add Annuity Button */}
                     <button className='add-annuity-btn' onClick={addAnnuity}>
@@ -578,7 +623,10 @@ function Annuities() {
 
                 {/* Formula Reference Section */}
                 <div className='annuities-description'>
-                    <h3>📖 Formula Reference</h3>
+                    <h3 className='formula-ref-header' onClick={() => setShowFormulas(!showFormulas)} style={{ cursor: 'pointer' }}>
+                        <span>{showFormulas ? '▼' : '▶'}</span> 📖 Formula Reference
+                    </h3>
+                    {showFormulas && (<>
                     <p>
                         <strong>Quick Start:</strong> Select what you want to find (Present, Periodic, or Future value), 
                         enter your known values, and the calculator will compute the result.
@@ -624,6 +672,7 @@ function Annuities() {
                             <span className='conversion-tooltip'>Determines equal periodic deposits needed to accumulate a future amount. Answers "How much must I save each period to have $X?" Used for planning major purchases, equipment replacement funds, or debt payoff.</span>
                         </li>
                     </ul>
+                    </>)}
                 </div>
             </div>
             <Footer />

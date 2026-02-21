@@ -668,6 +668,94 @@
     font-weight: bold;
 }
 
+/* AI & CSimple Addon Section */
+.planit-settings-ai-info {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.25);
+}
+
+.planit-settings-ai-description {
+    color: var(--text-color);
+    font-size: calc(var(--nav-size) * 0.28);
+    line-height: 1.6;
+    margin: 0;
+}
+
+.planit-settings-ai-actions {
+    display: flex;
+    gap: calc(var(--nav-size) * 0.25);
+    flex-wrap: wrap;
+}
+
+.planit-settings-ai-button {
+    padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.4);
+    font-size: calc(var(--nav-size) * 0.25);
+    background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink));
+    color: white;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.planit-settings-ai-button:hover {
+    background: linear-gradient(90deg, var(--fg-pink), var(--fg-blue));
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px var(--grey3-transp);
+}
+
+.planit-settings-ai-link {
+    padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.4);
+    font-size: calc(var(--nav-size) * 0.25);
+    background: var(--bg-blue);
+    color: var(--text-color);
+    border: 1px solid var(--grey3-transp);
+    border-radius: var(--border-radius);
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+}
+
+.planit-settings-ai-link:hover {
+    background: var(--fg-blue);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px var(--grey3-transp);
+}
+
+.planit-settings-ai-note {
+    color: var(--grey3);
+    font-size: calc(var(--nav-size) * 0.22);
+    font-style: italic;
+    margin: 0;
+}
+
+/* Net Button in Actions */
+.planit-settings-net-button {
+    width: 100%;
+    padding: calc(var(--nav-size) * 0.3);
+    font-size: calc(var(--nav-size) * 0.2);
+    background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink));
+    color: white;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: 0 2px 8px var(--grey3-transp);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    min-height: calc(var(--nav-size) * 0.8);
+}
+
+.planit-settings-net-button:hover {
+    background: linear-gradient(90deg, var(--fg-pink), var(--fg-blue));
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    transform: translateY(-3px);
+}
+
 /* Actions Section */
 .planit-settings-actions {
     display: flex;

@@ -7,14 +7,6 @@ import Header from '../../../components/Header/Header';
 
 const projectData = [
   {
-    id: 7,
-    imgSrc: require("../../../assets/planit.png"),
-    alt: "the display for my planit project",
-    url: "/simple",
-    description: "Do you have a plan you want to share with the world?",
-    utilities: ["code", "html", "react", "css", "mongo", "node", "netlify"],
-  },
-  {
     id: 4,
     imgSrc: require("../../../assets/passgen.png"),
     alt: "the display for passgen",

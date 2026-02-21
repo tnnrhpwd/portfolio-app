@@ -377,7 +377,16 @@
 
 .chat-window__send-btn {
   background: var(--accent);
-  color: white;
+  color: #fff;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  width: auto;
+}
+
+.chat-window__send-btn svg {
+  stroke: #fff;
+  fill: none;
 }
 
 .chat-window__send-btn:hover:not(:disabled) {
@@ -392,7 +401,11 @@
 
 .chat-window__stop-btn {
   background: var(--error);
-  color: white;
+  color: #fff;
+}
+
+.chat-window__stop-btn svg {
+  fill: #fff;
 }
 
 .chat-window__stop-btn:hover {

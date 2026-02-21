@@ -763,6 +763,57 @@
   text-decoration: underline;
 }
 
+/* ─── Custom addon host / manual IP entry ──────────────────────────────────── */
+
+.adv-custom-host {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.adv-custom-host .adv-input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ─── QR Code ──────────────────────────────────────────────────────────────── */
+
+.adv-network-selector {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.adv-qr-container {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-top: 8px;
+}
+
+.adv-qr-container svg {
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.adv-qr-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.adv-btn--active {
+  background: var(--accent);
+  color: #fff;
+}
+
 .adv-info-grid {
   background: var(--bg-primary);
   border: 1px solid var(--border);
