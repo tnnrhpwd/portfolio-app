@@ -491,6 +491,28 @@ const getMembershipPricing = async () => {
     }
 }
 
+// Get Stripe publishable key from backend (sends auth token if available for test mode detection)
+const getStripeConfig = async () => {
+    try {
+        const headers = {};
+        // Send auth token if available so the backend can detect test funnel users
+        try {
+            const storedUser = localStorage.getItem('user');
+            if (storedUser) {
+                const parsed = JSON.parse(storedUser);
+                if (parsed?.token) {
+                    headers.Authorization = `Bearer ${parsed.token}`;
+                }
+            }
+        } catch { /* ignore */ }
+        const response = await axios.get(API_URL + 'stripe-config', { headers });
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching Stripe config:', error);
+        throw error;
+    }
+}
+
 // Get user API usage statistics
 const getUserUsage = async (token) => {
     console.log('Getting user API usage');
@@ -703,6 +725,7 @@ const dataService = {
     getUserUsage,
     getUserStorage,
     getMembershipPricing,
+    getStripeConfig,
     getLLMProviders,
     requestUploadUrl,
     uploadFileToS3,

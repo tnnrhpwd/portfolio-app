@@ -16,7 +16,9 @@ const {
   UpdateCommand,
 } = require('@aws-sdk/lib-dynamodb');
 
-const stripe = require('stripe')(process.env.STRIPE_KEY);
+// Use test Stripe keys for the funnel tester — keeps live keys untouched
+const testStripeKey = process.env.TEST_STRIPE_KEY || process.env.STRIPE_KEY;
+const stripe = require('stripe')(testStripeKey);
 const { invalidateUserCache } = require('../middleware/authMiddleware');
 
 // ── DynamoDB client (same pattern as dataService) ────────────────────────

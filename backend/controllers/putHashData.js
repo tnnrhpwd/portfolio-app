@@ -5,7 +5,7 @@ require('dotenv').config();
 const { checkIP } = require('../utils/accessData.js');
 const { getPaymentMethods } = require('./getHashData.js');
 const { sendEmail } = require('../services/emailService.js');
-const stripe = require('stripe')(process.env.STRIPE_KEY);
+const { getStripe, liveStripe: stripe } = require('../utils/stripeInstance.js');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand, PutCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
 const { RANK_REGEX } = require('../constants/pricing');
@@ -467,17 +467,19 @@ const closeBugReportHandler = async (req, res) => {
 // PUT: Update A customer
 const updateCustomer = asyncHandler(async (req, res) => {
     const { id, email, name } = req.body;
-    const customer = await stripe.customers.update(id, { email, name });
+    const s = getStripe(req.user?.id);
+    const customer = await s.customers.update(id, { email, name });
     res.status(200).json(customer);
 });
 
 // PUT: Update a payment method
 const putPaymentMethod = asyncHandler(async (req, res) => {
     const { paymentMethodId, customerId } = req.body;
+    const s = getStripe(req.user?.id);
 
     try {
-        const paymentMethod = await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId });
-        await stripe.customers.update(customerId, {
+        const paymentMethod = await s.paymentMethods.attach(paymentMethodId, { customer: customerId });
+        await s.customers.update(customerId, {
             invoice_settings: {
                 default_payment_method: paymentMethodId,
             },

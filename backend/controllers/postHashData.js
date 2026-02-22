@@ -38,6 +38,8 @@ const {
     stripe
 } = require('../services/stripeService.js');
 
+const { getStripe } = require('../utils/stripeInstance.js');
+
 const {
     constructWebhookEvent,
     processWebhookEvent,
@@ -188,7 +190,7 @@ const postPaymentMethod = asyncHandler(async (req, res) => {
         let finalCustomerId = customerId;
         
         try {
-            const validatedCustomer = await validateOrRecoverCustomer(customerId, email, name);
+            const validatedCustomer = await validateOrRecoverCustomer(customerId, email, name, req.user.id);
             
             if (validatedCustomer.id !== customerId) {
                 // Customer ID was recovered/updated
@@ -209,7 +211,7 @@ const postPaymentMethod = asyncHandler(async (req, res) => {
         // Handle payment method attachment or setup intent creation
         if (req.body.paymentMethodId) {
             try {
-                const paymentMethod = await attachPaymentMethod(req.body.paymentMethodId, finalCustomerId);
+                const paymentMethod = await attachPaymentMethod(req.body.paymentMethodId, finalCustomerId, req.user.id);
                 res.status(200).json(paymentMethod);
             } catch (attachError) {
                 console.error('Payment method attachment failed:', attachError.message);
@@ -217,9 +219,9 @@ const postPaymentMethod = asyncHandler(async (req, res) => {
                 // Retry with recovery if needed
                 if (attachError.code === 'resource_missing') {
                     try {
-                        const recoveredCustomer = await validateOrRecoverCustomer(customerId, email, name);
+                        const recoveredCustomer = await validateOrRecoverCustomer(customerId, email, name, req.user.id);
                         await updateUserCustomerId(dynamodb, req.user, recoveredCustomer.id);
-                        const paymentMethod = await attachPaymentMethod(req.body.paymentMethodId, recoveredCustomer.id);
+                        const paymentMethod = await attachPaymentMethod(req.body.paymentMethodId, recoveredCustomer.id, req.user.id);
                         res.status(200).json(paymentMethod);
                     } catch (recoveryError) {
                         console.error('Recovery failed:', recoveryError.message);
@@ -234,7 +236,7 @@ const postPaymentMethod = asyncHandler(async (req, res) => {
             }
         } else {
             try {
-                const setupIntent = await createSetupIntent(finalCustomerId);
+                const setupIntent = await createSetupIntent(finalCustomerId, req.user.id);
                 res.status(200).json(setupIntent);
             } catch (setupIntentError) {
                 console.error('Setup intent creation failed:', setupIntentError.message);
@@ -242,9 +244,9 @@ const postPaymentMethod = asyncHandler(async (req, res) => {
                 // Retry with recovery if needed
                 if (setupIntentError.code === 'resource_missing') {
                     try {
-                        const recoveredCustomer = await validateOrRecoverCustomer(customerId, email, name);
+                        const recoveredCustomer = await validateOrRecoverCustomer(customerId, email, name, req.user.id);
                         await updateUserCustomerId(dynamodb, req.user, recoveredCustomer.id);
-                        const setupIntent = await createSetupIntent(recoveredCustomer.id);
+                        const setupIntent = await createSetupIntent(recoveredCustomer.id, req.user.id);
                         res.status(200).json(setupIntent);
                     } catch (recoveryError) {
                         console.error('Recovery failed:', recoveryError.message);
@@ -271,7 +273,7 @@ const createInvoice = asyncHandler(async (req, res) => {
     const { customerId, amount, description } = req.body;
     
     const { createInvoice: createInvoiceService } = require('../services/stripeService.js');
-    const invoice = await createInvoiceService(customerId, amount, description);
+    const invoice = await createInvoiceService(customerId, amount, description, req.user?.id);
     
     res.status(200).json(invoice);
 });
@@ -301,7 +303,7 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
         // Validate and potentially recover customer ID
         const email = extractEmail(req.user.text);
         const name = extractName(req.user.text);
-        const validatedCustomer = await validateOrRecoverCustomer(customerId, email, name);
+        const validatedCustomer = await validateOrRecoverCustomer(customerId, email, name, req.user.id);
         let finalCustomerId = validatedCustomer.id;
         
         if (finalCustomerId !== customerId) {
@@ -313,7 +315,7 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
         const userEmail = extractEmail(req.user.text);
         
         // Get current membership type
-        const currentMembership = await getCurrentMembershipType(finalCustomerId);
+        const currentMembership = await getCurrentMembershipType(finalCustomerId, req.user.id);
         console.log(`Current membership: ${currentMembership}, Requested membership: ${membershipType}`);
         
         // Prevent subscribing to current plan
@@ -325,7 +327,7 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
         const oldPlan = currentMembership.charAt(0).toUpperCase() + currentMembership.slice(1);
         
         // Cancel active subscriptions
-        await cancelActiveSubscriptions(finalCustomerId);
+        await cancelActiveSubscriptions(finalCustomerId, req.user.id);
         
         // Handle free membership type
         if (membershipType === 'free') {
@@ -352,7 +354,8 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
         
         // Set default payment method if provided
         if (paymentMethodId) {
-            await stripe.customers.update(finalCustomerId, {
+            const s = getStripe(req.user.id);
+            await s.customers.update(finalCustomerId, {
                 invoice_settings: {
                     default_payment_method: paymentMethodId,
                 },
@@ -360,10 +363,10 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
         }
         
         // Get or create price ID
-        const priceId = await getOrCreatePriceId(membershipType, customPrice);
+        const priceId = await getOrCreatePriceId(membershipType, customPrice, req.user.id);
         
         // Create subscription
-        const subscription = await createSubscription(finalCustomerId, priceId);
+        const subscription = await createSubscription(finalCustomerId, priceId, req.user.id);
         
         // Update user rank
         await updateUserRank(finalCustomerId, membershipType);

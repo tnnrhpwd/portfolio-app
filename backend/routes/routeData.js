@@ -40,6 +40,7 @@ const {
   getLLMProviders,
   getAdminDashboard, getAdminUsers, getAdminPaginatedData,
   initTestFunnel, resetTestFunnel, getTestFunnelStatus, recordFunnelStep, getTestEmails,
+  getStripeConfig,
 } = require('../controllers');
 
 // File upload controller
@@ -182,6 +183,10 @@ router.route('/public/:id')
 // Membership & LLM Info
 router.get('/membership-pricing', getMembershipPricing);
 router.get('/llm-providers', getLLMProviders);
+
+// Stripe publishable key (public, but auth-aware to serve test key for funnel users)
+const { optionalAuth } = require('../middleware/authMiddleware');
+router.get('/stripe-config', optionalAuth, getStripeConfig);
 
 // Stripe Webhook (Public but signature-verified)
 router.post('/webhook', express.raw({ type: 'application/json' }), handleWebhook);

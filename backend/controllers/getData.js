@@ -4,7 +4,8 @@ const { DynamoDBDocumentClient, ScanCommand, PutCommand } = require('@aws-sdk/li
 const asyncHandler = require('express-async-handler');
 const { checkIP } = require('../utils/accessData.js');
 const { getUserStorageUsage } = require('../utils/storageTracker.js');
-const stripe = require('stripe')(process.env.STRIPE_KEY);
+const { getStripe, liveStripe: stripe } = require('../utils/stripeInstance.js');
+const { isTestMode } = require('../utils/stripeInstance.js');
 const { STRIPE_PRODUCT_IDS, STRIPE_PRODUCT_MAP } = require('../constants/pricing');
 
 // Configure AWS DynamoDB Client
@@ -121,16 +122,28 @@ const getUserSubscription = asyncHandler(async (req, res) => {
         const customerId = stripeIdMatch[1];
         console.log('Customer ID:', customerId);
         
+        // Use test or live Stripe instance based on user context
+        const s = getStripe(req.user.id);
+        const userIsTestMode = isTestMode(req.user.id);
+
         // Validate that the customer ID exists in Stripe
         let validatedCustomer;
         let finalCustomerId = customerId; // Use a mutable variable for updates
         try {
-            validatedCustomer = await stripe.customers.retrieve(customerId);
+            validatedCustomer = await s.customers.retrieve(customerId);
             console.log('Customer ID validated successfully for subscription check');
         } catch (stripeError) {
             console.error(`Invalid Stripe customer ID ${customerId} during subscription check:`, stripeError.message);
             
             // Fallback: Search by email and update customer ID
+            // Skip recovery for test-mode users — their customer ID is test-mode only
+            if (userIsTestMode) {
+                console.log('Test-mode user — skipping customer recovery, treating as free');
+                return res.status(200).json({ 
+                    subscriptionPlan: 'Free',
+                    subscriptionDetails: null
+                });
+            }
             try {
                 console.log('Attempting to recover by searching for customer by email...');
                 
@@ -149,7 +162,7 @@ const getUserSubscription = asyncHandler(async (req, res) => {
                 console.log('Extracted email:', email, 'name:', name);
                 
                 // Search for existing customer by email
-                const existingCustomers = await stripe.customers.list({
+                const existingCustomers = await s.customers.list({
                     email: email,
                     limit: 1
                 });
@@ -160,7 +173,7 @@ const getUserSubscription = asyncHandler(async (req, res) => {
                     console.log('Found existing Stripe customer by email:', validatedCustomer.id);
                 } else {
                     // Create new customer
-                    validatedCustomer = await stripe.customers.create({ email, name });
+                    validatedCustomer = await s.customers.create({ email, name });
                     console.log('Created new Stripe customer:', validatedCustomer.id);
                 }
                 
@@ -198,14 +211,14 @@ const getUserSubscription = asyncHandler(async (req, res) => {
         
         // Get only active and relevant in-progress subscriptions
         // This includes active, trialing, past_due, and incomplete subscriptions
-        const activeSubscriptions = await stripe.subscriptions.list({
+        const activeSubscriptions = await s.subscriptions.list({
             customer: finalCustomerId,
             status: 'active',
             limit: 5,
             expand: ['data.plan.product']
         });
         
-        const incompleteSubscriptions = await stripe.subscriptions.list({
+        const incompleteSubscriptions = await s.subscriptions.list({
             customer: finalCustomerId,
             status: 'incomplete',
             limit: 5,

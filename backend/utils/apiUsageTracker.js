@@ -1,6 +1,6 @@
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
-const stripe = require('stripe')(process.env.STRIPE_KEY);
+const { getStripe, liveStripe: stripe } = require('./stripeInstance');
 const { CREDITS, PLAN_IDS, isProTier, isSimpleTier, STRIPE_PRODUCT_IDS, STRIPE_PRODUCT_MAP } = require('../constants/pricing');
 
 // Configure AWS DynamoDB Client
@@ -599,10 +599,10 @@ async function getUserRankFromStripe(userId) {
 
         const customerId = stripeIdMatch[1];
         console.log('getUserRankFromStripe: Customer ID:', customerId);
-        const stripe = require('stripe')(process.env.STRIPE_KEY);
+        const s = getStripe(userId);
         
         // Optimized: Get only the most recent subscriptions and use a single API call
-        const recentSubscriptions = await stripe.subscriptions.list({
+        const recentSubscriptions = await s.subscriptions.list({
             customer: customerId,
             status: 'all',
             limit: 3, // Reduced from 10 to 3 for speed
@@ -732,7 +732,8 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
                 try {
                     const subscriptionId = userText.match(/subscriptionId:([^|]+)/)?.[1];
                     if (subscriptionId) {
-                        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+                        const s2 = getStripe(userId);
+                        const subscription = await s2.subscriptions.retrieve(subscriptionId);
                         subscriptionActive = subscription.status === 'active';
                         console.log(`Subscription ${subscriptionId} status: ${subscription.status}`);
                     }

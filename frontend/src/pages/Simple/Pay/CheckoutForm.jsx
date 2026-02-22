@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
@@ -9,6 +9,7 @@ import { useCheckoutState } from '../../../hooks/useCheckoutState';
 import { useCheckoutHandlers } from '../../../hooks/useCheckoutHandlers';
 import { useCheckoutData } from '../../../hooks/useCheckoutData';
 import { useStripeSetup } from '../../../hooks/useStripeSetup';
+import dataService from '../../../features/data/dataService';
 import MembershipPlans from '../../../components/Checkout/MembershipPlans';
 import PaymentMethodsList from '../../../components/Checkout/PaymentMethodsList';
 import CheckoutProgressBar from '../../../components/Checkout/CheckoutProgressBar';
@@ -16,13 +17,40 @@ import { LinkBenefits } from '../../../components/Checkout/LinkBenefits';
 import './CheckoutForm.css';
 
 let stripeLoadFailed = false;
-const stripePromise = import.meta.env.VITE_STRIPE_PUBLIC_KEY
-  ? loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY).catch(err => {
-      console.error('Failed to load Stripe:', err);
+let stripePromise = null;
+let currentStripeKey = null; // Track which key is loaded to detect test/live switches
+
+// Fetch the Stripe publishable key from the backend and load Stripe
+const initStripe = async () => {
+  try {
+    const config = await dataService.getStripeConfig();
+    if (config?.publishableKey) {
+      // Re-init if the key changed (e.g. switching between test and live user)
+      if (currentStripeKey === config.publishableKey && stripePromise) {
+        return stripePromise;
+      }
+      currentStripeKey = config.publishableKey;
+      stripeLoadFailed = false;
+      stripePromise = loadStripe(config.publishableKey).catch(err => {
+        console.error('Failed to load Stripe:', err);
+        stripeLoadFailed = true;
+        return null;
+      });
+      if (config.testMode) {
+        console.log('Stripe loaded in TEST mode for funnel testing');
+      }
+      return stripePromise;
+    } else {
+      console.error('No publishable key returned from backend');
       stripeLoadFailed = true;
       return null;
-    })
-  : (() => { stripeLoadFailed = true; return Promise.resolve(null); })();
+    }
+  } catch (err) {
+    console.error('Failed to fetch Stripe config:', err);
+    stripeLoadFailed = true;
+    return null;
+  }
+};
 
 const CheckoutContent = ({ paymentType, initialPlan }) => {
   const stripe = useStripe();
@@ -317,7 +345,16 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
 
 function CheckoutForm({ paymentType, initialPlan }) {
   const dispatch = useDispatch();
+  const [stripeReady, setStripeReady] = useState(!!stripePromise);
   const { clientSecret, error, isStripeError, setIsStripeError, userEmail, user } = useStripeSetup();
+
+  // Fetch the Stripe publishable key from the backend on mount
+  // Always re-fetch to handle test/live key switching (e.g. funnel test user)
+  useEffect(() => {
+    initStripe().then((p) => {
+      if (p) setStripeReady(true);
+    });
+  }, []);
 
   const testCustomerCreation = async () => {
     try {
@@ -405,12 +442,11 @@ function CheckoutForm({ paymentType, initialPlan }) {
 
   return (
     <div className="checkout-container">
-      {clientSecret && (
+      {clientSecret && stripeReady && stripePromise ? (
         <Elements stripe={stripePromise} options={options}>
           <CheckoutContent paymentType={paymentType} initialPlan={initialPlan} />
         </Elements>
-      )}
-      {!clientSecret && (
+      ) : (
         <div className="loading-container">
           <div className="spinner"></div>
           <p>Preparing payment options...</p>

@@ -1,8 +1,13 @@
-const stripe = require('stripe')(process.env.STRIPE_KEY);
+const { getStripe, isTestMode, liveStripe } = require('../utils/stripeInstance');
+// Default stripe instance for backward compat; per-request calls use getStripe(userId)
+const stripe = liveStripe;
 const { DynamoDBDocumentClient, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const { sendEmail } = require('./emailService.js');
 const Data = require('../models/dataModel');
-const { STRIPE_PRODUCT_IDS, PLAN_TO_STRIPE_PRODUCT } = require('../constants/pricing');
+const { STRIPE_PRODUCT_IDS, PLAN_TO_STRIPE_PRODUCT, STRIPE_PRODUCT_MAP } = require('../constants/pricing');
+
+// Cache for auto-created test-mode product/price IDs so they are only created once
+const testPriceCache = {}; // e.g. { simple: 'price_xxx', pro: 'price_xxx' }
 
 /**
  * Extract customer ID from user text
@@ -47,16 +52,17 @@ function extractName(userText) {
  * @param {string} name - User name for recovery
  * @returns {Object} Validated customer object
  */
-async function validateOrRecoverCustomer(customerId, email, name) {
+async function validateOrRecoverCustomer(customerId, email, name, userId) {
+    const s = getStripe(userId);
     try {
-        const customer = await stripe.customers.retrieve(customerId);
+        const customer = await s.customers.retrieve(customerId);
         console.log('Customer ID validated successfully');
         return customer;
     } catch (stripeError) {
         console.log(`Invalid Stripe customer ID ${customerId}, attempting recovery...`);
         
         // Search for existing customer by email
-        const existingCustomers = await stripe.customers.list({
+        const existingCustomers = await s.customers.list({
             email: email,
             limit: 1
         });
@@ -66,7 +72,7 @@ async function validateOrRecoverCustomer(customerId, email, name) {
             return existingCustomers.data[0];
         } else {
             // Create new customer
-            const newCustomer = await stripe.customers.create({ email, name });
+            const newCustomer = await s.customers.create({ email, name });
             console.log('Created new Stripe customer:', newCustomer.id);
             return newCustomer;
         }
@@ -106,6 +112,8 @@ async function updateUserCustomerId(dynamodb, user, customerId) {
 async function createOrValidateCustomer(req, dynamodb) {
     const { email, name } = req.body;
     const userData = req.user.text;
+    const userId = req.user.id;
+    const s = getStripe(userId);
     
     let customer;
     const existingStripeId = extractCustomerId(userData);
@@ -114,7 +122,7 @@ async function createOrValidateCustomer(req, dynamodb) {
     if (existingStripeId && existingStripeId !== '') {
         try {
             console.log('Validating existing Stripe customer ID:', existingStripeId);
-            const existingCustomer = await stripe.customers.retrieve(existingStripeId);
+            const existingCustomer = await s.customers.retrieve(existingStripeId);
             
             if (existingCustomer.email === email) {
                 console.log('Existing Stripe customer ID is valid and email matches');
@@ -131,7 +139,7 @@ async function createOrValidateCustomer(req, dynamodb) {
     
     // If no valid customer found yet, search by email or create new one
     if (!customer) {
-        const existingCustomers = await stripe.customers.list({
+        const existingCustomers = await s.customers.list({
             email: email,
             limit: 1
         });
@@ -144,7 +152,7 @@ async function createOrValidateCustomer(req, dynamodb) {
                 console.log(`Correcting customer ID mismatch: ${existingStripeId} -> ${customer.id}`);
             }
         } else {
-            customer = await stripe.customers.create({ email, name });
+            customer = await s.customers.create({ email, name });
             console.log('Created new Stripe customer:', customer.id, 'for email:', email);
             
             if (existingStripeId) {
@@ -175,18 +183,19 @@ async function createOrValidateCustomer(req, dynamodb) {
  * @param {string} customerId - Customer ID
  * @returns {Object} Payment method object
  */
-async function attachPaymentMethod(paymentMethodId, customerId) {
-    await stripe.paymentMethods.attach(paymentMethodId, {
+async function attachPaymentMethod(paymentMethodId, customerId, userId) {
+    const s = getStripe(userId);
+    await s.paymentMethods.attach(paymentMethodId, {
         customer: customerId,
     });
     
-    await stripe.customers.update(customerId, {
+    await s.customers.update(customerId, {
         invoice_settings: {
             default_payment_method: paymentMethodId,
         },
     });
     
-    return await stripe.paymentMethods.retrieve(paymentMethodId);
+    return await s.paymentMethods.retrieve(paymentMethodId);
 }
 
 /**
@@ -194,10 +203,11 @@ async function attachPaymentMethod(paymentMethodId, customerId) {
  * @param {string} customerId - Customer ID
  * @returns {Object} Setup intent object
  */
-async function createSetupIntent(customerId) {
+async function createSetupIntent(customerId, userId) {
+    const s = getStripe(userId);
     console.log('Creating setup intent for customer:', customerId);
     
-    const setupIntent = await stripe.setupIntents.create({
+    const setupIntent = await s.setupIntents.create({
         customer: customerId,
         automatic_payment_methods: { enabled: true },
         usage: 'off_session',
@@ -214,15 +224,16 @@ async function createSetupIntent(customerId) {
  * @param {string} description - Invoice description
  * @returns {Object} Invoice object
  */
-async function createInvoice(customerId, amount, description) {
-    await stripe.invoiceItems.create({
+async function createInvoice(customerId, amount, description, userId) {
+    const s = getStripe(userId);
+    await s.invoiceItems.create({
         customer: customerId,
         amount,
         currency: 'usd',
         description,
     });
     
-    const invoice = await stripe.invoices.create({
+    const invoice = await s.invoices.create({
         customer: customerId,
         auto_advance: true,
     });
@@ -240,37 +251,51 @@ async function updateUserRank(customerId, rank) {
     try {
         const formattedRank = rank.charAt(0).toUpperCase() + rank.slice(1).toLowerCase();
         console.log(`Updating user rank to: ${formattedRank}`);
-        
-        const userData = await Data.findOne({
-            'data.text': { $regex: `Email:.*\\|Password:.*\\|stripeid:${customerId}`, $options: 'i' }
+
+        // Scan DynamoDB for the user record containing this stripeid
+        const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+        const { DynamoDBDocumentClient: DocClient, ScanCommand, PutCommand: PutCmd } = require('@aws-sdk/lib-dynamodb');
+        const ddbClient = new DynamoDBClient({
+            region: process.env.AWS_REGION,
+            credentials: {
+                accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+                secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+            }
         });
-        
-        if (!userData) {
+        const dynamodb = DocClient.from(ddbClient);
+
+        const scanResult = await dynamodb.send(new ScanCommand({
+            TableName: 'Simple',
+            FilterExpression: 'contains(#txt, :stripeid)',
+            ExpressionAttributeNames: { '#txt': 'text' },
+            ExpressionAttributeValues: { ':stripeid': `stripeid:${customerId}` }
+        }));
+
+        if (!scanResult.Items || scanResult.Items.length === 0) {
             console.error(`No user profile data found for customer ID: ${customerId}`);
             return false;
         }
-        
-        console.log(`Found user profile data with ID: ${userData._id}`);
-        
-        let updatedText = userData.data.text;
-        
+
+        const userData = scanResult.Items[0];
+        console.log(`Found user profile data with ID: ${userData.id}`);
+
+        let updatedText = userData.text;
+
         if (updatedText.includes('|Rank:')) {
             updatedText = updatedText.replace(/(\|Rank:)[^|]*/, `|Rank:${formattedRank}`);
         } else {
             updatedText += `|Rank:${formattedRank}`;
         }
-        
-        const result = await Data.findByIdAndUpdate(
-            userData._id,
-            { 'data.text': updatedText },
-            { new: true }
-        );
-        
-        if (!result) {
-            console.error('Failed to update user rank in database');
-            return false;
-        }
-        
+
+        await dynamodb.send(new PutCmd({
+            TableName: 'Simple',
+            Item: {
+                ...userData,
+                text: updatedText,
+                updatedAt: new Date().toISOString()
+            }
+        }));
+
         console.log('Successfully updated user rank in database');
         return true;
     } catch (error) {
@@ -284,8 +309,10 @@ async function updateUserRank(customerId, rank) {
  * @param {string} customerId - Customer ID
  * @returns {string} Current membership type
  */
-async function getCurrentMembershipType(customerId) {
-    const existingSubscriptions = await stripe.subscriptions.list({
+async function getCurrentMembershipType(customerId, userId) {
+    const s = getStripe(userId);
+    const testMode = isTestMode(userId);
+    const existingSubscriptions = await s.subscriptions.list({
         customer: customerId,
         status: 'all',
         limit: 20
@@ -301,10 +328,25 @@ async function getCurrentMembershipType(customerId) {
     if (activeSubscriptions.length > 0) {
         for (const sub of activeSubscriptions) {
             const pid = sub.plan && sub.plan.product;
+            // Live mode: direct ID lookup
             if (pid && STRIPE_PRODUCT_IDS[pid]) {
                 currentMembership = STRIPE_PRODUCT_IDS[pid];
                 console.log(`Product ${pid} matched plan: ${currentMembership}`);
                 break;
+            }
+            // Test mode: look up product name to identify plan
+            if (pid && testMode) {
+                try {
+                    const product = await s.products.retrieve(pid);
+                    const planId = STRIPE_PRODUCT_MAP[product.name];
+                    if (planId) {
+                        currentMembership = planId;
+                        console.log(`Test product "${product.name}" (${pid}) matched plan: ${currentMembership}`);
+                        break;
+                    }
+                } catch (e) {
+                    console.warn(`Could not retrieve test product ${pid}:`, e.message);
+                }
             }
         }
     }
@@ -317,8 +359,9 @@ async function getCurrentMembershipType(customerId) {
  * @param {string} customerId - Customer ID
  * @returns {boolean} Success status
  */
-async function cancelActiveSubscriptions(customerId) {
-    const existingSubscriptions = await stripe.subscriptions.list({
+async function cancelActiveSubscriptions(customerId, userId) {
+    const s = getStripe(userId);
+    const existingSubscriptions = await s.subscriptions.list({
         customer: customerId,
         status: 'all',
         limit: 20
@@ -333,7 +376,7 @@ async function cancelActiveSubscriptions(customerId) {
         
         for (const subscription of activeSubscriptions) {
             try {
-                await stripe.subscriptions.cancel(subscription.id, { prorate: true });
+                await s.subscriptions.cancel(subscription.id, { prorate: true });
                 console.log(`Successfully cancelled subscription: ${subscription.id}`);
             } catch (cancelError) {
                 console.error(`Error cancelling subscription ${subscription.id}: ${cancelError.message}`);
@@ -350,7 +393,7 @@ async function cancelActiveSubscriptions(customerId) {
         console.log(`Cleaning up ${expiredSubscriptions.length} expired subscriptions`);
         for (const expSub of expiredSubscriptions) {
             try {
-                await stripe.subscriptions.cancel(expSub.id);
+                await s.subscriptions.cancel(expSub.id);
                 console.log(`Cancelled expired subscription: ${expSub.id}`);
             } catch (delError) {
                 console.error(`Error deleting subscription ${expSub.id}:`, delError.message);
@@ -367,32 +410,77 @@ async function cancelActiveSubscriptions(customerId) {
  * @param {number|null} customPrice - Custom price (optional)
  * @returns {string} Price ID
  */
-async function getOrCreatePriceId(membershipType, customPrice = null) {
-    // Check env-var overrides first (no API call needed)
-    if (membershipType === 'pro' && process.env.STRIPE_PRO_PRICE_ID) {
-        return process.env.STRIPE_PRO_PRICE_ID;
-    } else if (membershipType === 'simple' && process.env.STRIPE_SIMPLE_PRICE_ID) {
-        return process.env.STRIPE_SIMPLE_PRICE_ID;
+async function getOrCreatePriceId(membershipType, customPrice = null, userId) {
+    const testMode = isTestMode(userId);
+
+    // ── env-var overrides (test keys checked first when in test mode) ──
+    if (testMode) {
+        if (membershipType === 'pro' && process.env.TEST_STRIPE_PRO_PRICE_ID) {
+            return process.env.TEST_STRIPE_PRO_PRICE_ID;
+        } else if (membershipType === 'simple' && process.env.TEST_STRIPE_SIMPLE_PRICE_ID) {
+            return process.env.TEST_STRIPE_SIMPLE_PRICE_ID;
+        }
+        // Check in-memory cache
+        if (testPriceCache[membershipType]) {
+            console.log(`Using cached test price for ${membershipType}: ${testPriceCache[membershipType]}`);
+            return testPriceCache[membershipType];
+        }
+    } else {
+        if (membershipType === 'pro' && process.env.STRIPE_PRO_PRICE_ID) {
+            return process.env.STRIPE_PRO_PRICE_ID;
+        } else if (membershipType === 'simple' && process.env.STRIPE_SIMPLE_PRICE_ID) {
+            return process.env.STRIPE_SIMPLE_PRICE_ID;
+        }
     }
 
-    const productId = PLAN_TO_STRIPE_PRODUCT[membershipType];
-    if (!productId) {
-        throw new Error('Invalid membership type');
+    const s = getStripe(userId);
+
+    // ── Live mode: look up by hardcoded product ID ──
+    if (!testMode) {
+        const productId = PLAN_TO_STRIPE_PRODUCT[membershipType];
+        if (!productId) {
+            throw new Error('Invalid membership type');
+        }
+        const prices = await s.prices.list({ product: productId, active: true, limit: 1 });
+        if (prices.data.length === 0) {
+            throw new Error(`No pricing available for product ${productId}`);
+        }
+        console.log(`Using price ID: ${prices.data[0].id} for ${membershipType} (${productId})`);
+        return prices.data[0].id;
     }
 
-    // Look up price directly by product ID (single API call instead of listing all products)
-    const prices = await stripe.prices.list({
-        product: productId,
-        active: true,
-        limit: 1
-    });
+    // ── Test mode: find or create product & price ──
+    const productName = membershipType === 'pro' ? 'Pro Membership' : 'Simple Membership';
+    const unitAmount  = membershipType === 'pro' ? 1200 : 3900; // cents
 
-    if (prices.data.length === 0) {
-        throw new Error(`No pricing available for product ${productId}`);
+    // Search for existing test product by name
+    const products = await s.products.list({ limit: 100, active: true });
+    let testProduct = products.data.find(p => p.name === productName);
+
+    if (!testProduct) {
+        console.log(`Creating test product: ${productName}`);
+        testProduct = await s.products.create({ name: productName });
     }
 
-    console.log(`Using price ID: ${prices.data[0].id} for ${membershipType} (${productId})`);
-    return prices.data[0].id;
+    // Look for an existing active recurring price on this product
+    const prices = await s.prices.list({ product: testProduct.id, active: true, limit: 10 });
+    let matchingPrice = prices.data.find(
+        p => p.unit_amount === unitAmount && p.recurring?.interval === 'month'
+    );
+
+    if (!matchingPrice) {
+        console.log(`Creating test price for ${productName}: $${unitAmount / 100}/month`);
+        matchingPrice = await s.prices.create({
+            product: testProduct.id,
+            unit_amount: unitAmount,
+            currency: 'usd',
+            recurring: { interval: 'month' },
+        });
+    }
+
+    console.log(`Using test price ID: ${matchingPrice.id} for ${membershipType} (${testProduct.id})`);
+    testPriceCache[membershipType] = matchingPrice.id;
+    return matchingPrice.id;
 }
 
 /**
@@ -401,8 +489,9 @@ async function getOrCreatePriceId(membershipType, customPrice = null) {
  * @param {string} priceId - Price ID
  * @returns {Object} Subscription object
  */
-async function createSubscription(customerId, priceId) {
-    const subscription = await stripe.subscriptions.create({
+async function createSubscription(customerId, priceId, userId) {
+    const s = getStripe(userId);
+    const subscription = await s.subscriptions.create({
         customer: customerId,
         items: [{ price: priceId }],
         payment_behavior: 'default_incomplete',

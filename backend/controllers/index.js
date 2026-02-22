@@ -37,6 +37,25 @@ const getLLMProviders = (req, res) => {
     }
 };
 
+// @desc    Get Stripe publishable key (returns test key for funnel test user)
+// @route   GET /api/data/stripe-config
+// @access  Public (optionally auth-aware)
+const getStripeConfig = (req, res) => {
+    // If the authenticated user is the active test funnel user, return the test key
+    const { getTestUserId } = require('./testFunnelController');
+    const activeTestUserId = getTestUserId();
+    const isTestUser = activeTestUserId && req.user && req.user.id === activeTestUserId;
+
+    const publishableKey = isTestUser
+        ? (process.env.TEST_STRIPE_PUBLIC_KEY || process.env.STRIPE_PUBLIC_KEY)
+        : process.env.STRIPE_PUBLIC_KEY;
+
+    if (!publishableKey) {
+        return res.status(500).json({ success: false, error: 'Stripe is not configured' });
+    }
+    res.status(200).json({ success: true, publishableKey, testMode: !!isTestUser });
+};
+
 module.exports = {
     deleteData,
     deleteHashData, deletePaymentMethod, deleteCustomer,
@@ -51,6 +70,7 @@ module.exports = {
     forgotPassword, resetPassword, forgotPasswordAuthenticated,
     extractOCR, updateWithOCR,
     getLLMProviders,
+    getStripeConfig,
     getAdminDashboard, getAdminUsers, getAdminPaginatedData,
     initTestFunnel, resetTestFunnel, getTestFunnelStatus, recordFunnelStep, getTestEmails,
 };

@@ -34,7 +34,7 @@ const rapidapidefoptions = {
     }
 };
 const { getUserUsageStats } = require('../utils/apiUsageTracker.js');
-const stripe = require('stripe')(process.env.STRIPE_KEY);
+const { getStripe, liveStripe: stripe } = require('../utils/stripeInstance.js');
 const { createCustomer } = require('./postHashData.js');
 
 // @desc    Get Data
@@ -445,8 +445,9 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
         
         // Validate that the customer ID exists in Stripe before attempting to fetch payment methods
         let validatedCustomer;
+        const s = getStripe(req.user.id);
         try {
-            validatedCustomer = await stripe.customers.retrieve(customerId);
+            validatedCustomer = await s.customers.retrieve(customerId);
             console.log('Customer ID validated successfully for payment methods retrieval');
         } catch (stripeError) {
             console.error(`Invalid Stripe customer ID ${customerId}:`, stripeError.message);
@@ -470,7 +471,7 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
                 console.log('Extracted email:', email, 'name:', name);
                 
                 // Search for existing customer by email
-                const existingCustomers = await stripe.customers.list({
+                const existingCustomers = await s.customers.list({
                     email: email,
                     limit: 1
                 });
@@ -481,7 +482,7 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
                     console.log('Found existing Stripe customer by email:', validatedCustomer.id);
                 } else {
                     // Create new customer
-                    validatedCustomer = await stripe.customers.create({ email, name });
+                    validatedCustomer = await s.customers.create({ email, name });
                     console.log('Created new Stripe customer:', validatedCustomer.id);
                 }
                 
@@ -524,7 +525,7 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
         for (const type of paymentMethodTypes) {
             try {
                 console.log(`Fetching ${type} payment methods for customer: ${finalCustomerId}`);
-                const methodsResponse = await stripe.paymentMethods.list({
+                const methodsResponse = await s.paymentMethods.list({
                     customer: finalCustomerId,
                     limit: 10,
                     type: type,
