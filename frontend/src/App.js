@@ -20,6 +20,8 @@ import WordleSolver from './pages/Projects/WordleSolver/WordleSolver';
 import LegalTerms from './pages/LegalTerms.jsx'
 import Login from './pages/Login/Login.jsx'
 import Net from './pages/Simple/Net/Net.jsx';
+import Pay from './pages/Simple/Pay/Pay.jsx';
+import PaymentSuccess from './pages/Simple/Pay/PaymentSuccess.jsx';
 import Plans from './pages/Simple/Plans/Plans.jsx'
 import About from './pages/Simple/About/About.jsx'
 import Profile from './pages/Profile/Profile.jsx'
@@ -53,6 +55,8 @@ function App() {
             <Route path='/LegalTerms' element={<LegalTerms />} />
             <Route path='/login' element={<Login />} />
             <Route path='/net' element={<Net />} />
+            <Route path='/pay' element={<Pay />} />
+            <Route path='/payment-success' element={<PaymentSuccess />} />
             <Route path="/passgen" element={<PassGen/>} />
             <Route path='/plans' element={<Plans />} />
             <Route path='/privacy' element={<Privacy />} />

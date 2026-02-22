@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import Header from "../../components/Header/Header.jsx";
 import Footer from "../../components/Footer/Footer.jsx";
 import { useSelector, useDispatch } from 'react-redux';
-import { getPublicData } from '../../features/data/dataSlice.js';
+import { getPublicData, getUserUsage } from '../../features/data/dataSlice.js';
+import { normalizePlanName, isProTier, isSimpleTier, FEATURES, PLAN_IDS, CREDITS } from '../../constants/pricing.js';
 import './Home.css';
 
 const links = {
@@ -27,9 +28,16 @@ function Home() {
     const [animationPhase, setAnimationPhase] = useState(0);
     const [showWordlePopup, setShowWordlePopup] = useState(false);
 
-    const { user } = useSelector(
+    const { user, userUsage } = useSelector(
         (state) => state.data
     );
+
+    // Derive membership info
+    const rawRank = userUsage?.membership || 'Free';
+    const membership = normalizePlanName(rawRank);
+    const isFree = !isProTier(rawRank) && !isSimpleTier(rawRank);
+    const isPro = isProTier(rawRank);
+    const isSimple = isSimpleTier(rawRank);
 
     const titleText = "It's simple.";
     
@@ -50,6 +58,13 @@ function Home() {
     useEffect(() => {
         dispatch(getPublicData({ data: { text: "Action" } })).unwrap();
     }, [dispatch]);
+
+    // Fetch user usage/membership when logged in
+    useEffect(() => {
+        if (user) {
+            dispatch(getUserUsage());
+        }
+    }, [dispatch, user]);
 
     // Show Wordle popup after 5 seconds
     // useEffect(() => {
@@ -134,16 +149,126 @@ function Home() {
                                 <a className="home-spc-tool animate-in" href={links.admin} style={{animationDelay: '0.45s'}}>
                                     <div className="home-spc-tool-text">{links.admin}</div>
                                 </a>}
-                            
-                            {/* Login prompt for non-authenticated users */}
-                            {!user && 
-                                <a className="home-spc-tool animate-in login-highlight" href={links.login} style={{animationDelay: '0.5s'}}>
-                                    <div className="home-spc-tool-text">Login for full access</div>
-                                </a>
-                            }
+
                         </div>
                     </div>
 
+                </section>
+
+                {/* Membership & AI Chat Section */}
+                <section className="section-tile membership-section">
+                    <div id="content-tile">
+                        {user ? (
+                            <>
+                                {/* Current Plan Badge */}
+                                <div className={`membership-badge membership-${membership.toLowerCase()}`}>
+                                    <span className="badge-icon">
+                                        {isSimple ? '⭐' : isPro ? '🔷' : '🔓'}
+                                    </span>
+                                    <span className="badge-label">{membership} Plan</span>
+                                </div>
+
+                                {/* AI Chat Card */}
+                                <div className="home-feature-card ai-chat-card">
+                                    <div className="feature-card-icon">🤖</div>
+                                    <div className="feature-card-body">
+                                        <h3 className="feature-card-title">AI Chat</h3>
+                                        {isFree ? (
+                                            <>
+                                                <p className="feature-card-desc">
+                                                    Bring your own API key to use AI chat, or upgrade to Pro for {CREDITS[PLAN_IDS.PRO].display}/mo in included credits.
+                                                </p>
+                                                <a href="/net" className="feature-card-link">Open AI Chat</a>
+                                            </>
+                                        ) : isPro ? (
+                                            <>
+                                                <p className="feature-card-desc">
+                                                    You have {CREDITS[PLAN_IDS.PRO].display}/mo in AI credits.
+                                                    {userUsage?.availableCredits != null && (
+                                                        <> <strong>${Number(userUsage.availableCredits).toFixed(2)}</strong> remaining this cycle.</>
+                                                    )}
+                                                </p>
+                                                <a href="/net" className="feature-card-link">Open AI Chat</a>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <p className="feature-card-desc">
+                                                    You have {CREDITS[PLAN_IDS.SIMPLE].display}/mo in AI credits with priority support.
+                                                    {userUsage?.availableCredits != null && (
+                                                        <> <strong>${Number(userUsage.availableCredits).toFixed(2)}</strong> remaining this cycle.</>
+                                                    )}
+                                                </p>
+                                                <a href="/net" className="feature-card-link">Open AI Chat</a>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Upgrade Prompt — only for Free and Pro */}
+                                {!isSimple && (
+                                    <div className={`home-upgrade-card upgrade-from-${membership.toLowerCase()}`}>
+                                        <div className="upgrade-card-header">
+                                            <span className="upgrade-icon">{isFree ? '🚀' : '⬆️'}</span>
+                                            <h3 className="upgrade-title">
+                                                {isFree
+                                                    ? 'Unlock AI Credits'
+                                                    : 'Go Simple — Full Power'}
+                                            </h3>
+                                        </div>
+                                        <p className="upgrade-desc">
+                                            {isFree
+                                                ? 'Upgrade to Pro for 500 commands/day and $0.50/mo in AI credits, or go Simple for the full experience.'
+                                                : 'Get 5,000 commands/day, $10/mo AI credits, phone-to-PC remote control, 50 GB storage, and priority support.'}
+                                        </p>
+                                        <div className="upgrade-features">
+                                            {(isFree ? FEATURES[PLAN_IDS.PRO] : FEATURES[PLAN_IDS.SIMPLE]).slice(0, 3).map((f, i) => (
+                                                <span key={i} className="upgrade-feature-pill">{f}</span>
+                                            ))}
+                                        </div>
+                                        <a href="/pay" className="upgrade-cta">
+                                            {isFree ? 'View Plans' : 'Upgrade to Simple'}
+                                        </a>
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <>
+                                {/* Non-user: welcome CTA */}
+                                <div className="home-feature-card ai-chat-card">
+                                    <div className="feature-card-icon">🤖</div>
+                                    <div className="feature-card-body">
+                                        <h3 className="feature-card-title">AI Chat</h3>
+                                        <p className="feature-card-desc">
+                                            Chat with leading AI models. Create a free account to bring your own API key, or subscribe for included credits.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="home-upgrade-card upgrade-from-guest">
+                                    <div className="upgrade-card-header">
+                                        <span className="upgrade-icon">🚀</span>
+                                        <h3 className="upgrade-title">Get Started Free</h3>
+                                    </div>
+                                    <p className="upgrade-desc">
+                                        Sign up for free to unlock AI chat, password tools, annuity calculators, and more. Upgrade anytime for bonus credits and premium features.
+                                    </p>
+                                    <div className="upgrade-features">
+                                        {FEATURES[PLAN_IDS.FREE].slice(0, 3).map((f, i) => (
+                                            <span key={i} className="upgrade-feature-pill">{f}</span>
+                                        ))}
+                                    </div>
+                                    <div className="upgrade-cta-row">
+                                        <a href="/login" className="upgrade-cta">
+                                            Create Free Account
+                                        </a>
+                                        <a href="/login" className="upgrade-cta-secondary">
+                                            Log In
+                                        </a>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </section>
 
                 <section className="section-tile thank-you-section">

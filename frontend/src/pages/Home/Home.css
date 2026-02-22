@@ -376,7 +376,7 @@
     transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 .home-spc-tool-text{
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-small);
     color: var(--text-color);
     min-width: calc(var(--nav-size)*2.25);
     min-height: calc(var(--nav-size)*1.2);
@@ -453,7 +453,7 @@
     bottom: -5px;
     left: 50%;
     transform: translateX(-50%);
-    width: 50px;
+    width: 10%;
     height: 2px;
     background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink));
     animation: expandLine 1s ease-out;
@@ -491,9 +491,276 @@
     white-space: nowrap;
 }
 
+/* ─── Membership & AI Chat Section ─── */
+.membership-section {
+    padding: var(--spacing-sm) 0;
+}
+
+.membership-section #content-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+    max-width: 640px;
+    margin: 0 auto;
+}
+
+/* Plan badge — styled like .home-spc-tool-text */
+.membership-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.12);
+    padding: calc(var(--nav-size) * 0.1) var(--spacing-xs);
+    border-radius: var(--border-radius);
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    backdrop-filter: blur(10px);
+    border: 2px solid var(--border-nav);
+    box-shadow: 0 4px 15px var(--grey3-transp);
+    line-height: 1;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.membership-free  { color: var(--text-color); }
+.membership-pro   { background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint)); color: var(--text-color-inv); border-color: var(--fg-blue); }
+.membership-simple { background: linear-gradient(45deg, var(--fg-orange), var(--fg-pink)); color: var(--text-color-inv); border-color: var(--fg-orange); }
+
+.badge-icon { font-size: var(--font-size-small); }
+.badge-label { white-space: nowrap; }
+
+/* Feature card — styled like .home-spc-tool-text */
+.home-feature-card {
+    width: 100%;
+    display: flex;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs);
+    border-radius: var(--border-radius);
+    border: 2px solid var(--border-nav);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 15px var(--grey3-transp);
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    text-align: left;
+    position: relative;
+    overflow: hidden;
+}
+.home-feature-card:hover {
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    border-color: var(--fg-blue);
+}
+.feature-card-icon {
+    font-size: var(--font-size-large);
+    flex-shrink: 0;
+    line-height: 1;
+}
+.feature-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.08);
+}
+.feature-card-title {
+    font-size: var(--font-size-base);
+    font-weight: 700;
+    color: var(--text-color);
+    margin: 0;
+    text-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.02) var(--grey3-transp);
+}
+.feature-card-desc {
+    font-size: var(--font-size-small);
+    color: var(--text-color-accent);
+    margin: 0;
+    line-height: var(--line-height-relaxed);
+}
+.feature-card-desc strong {
+    color: var(--fg-mint);
+}
+/* "Open AI Chat" link — styled like .glow-link */
+.feature-card-link {
+    display: inline-block;
+    margin-top: calc(var(--nav-size) * 0.1);
+    color: var(--text-color);
+    font-weight: 600;
+    text-decoration: underline;
+    font-size: var(--font-size-small);
+    position: relative;
+    border-bottom: 2px solid transparent;
+    transition: all 0.3s ease;
+}
+.feature-card-link::before {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink));
+    transition: width 0.3s ease;
+}
+.feature-card-link:hover {
+    color: var(--text-color);
+    text-shadow: 0 0 10px var(--white1-transp);
+}
+.feature-card-link:hover::before {
+    width: 100%;
+}
+
+/* Upgrade card — styled like .home-spc-tool-text */
+.home-upgrade-card {
+    width: 100%;
+    padding: var(--spacing-xs);
+    border-radius: var(--border-radius);
+    border: 2px solid var(--border-nav);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 15px var(--grey3-transp);
+    text-align: left;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.home-upgrade-card:hover {
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    border-color: var(--fg-blue);
+}
+.upgrade-card-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+}
+.upgrade-icon { font-size: var(--font-size-base); }
+.upgrade-title {
+    font-size: var(--font-size-base);
+    font-weight: 700;
+    margin: 0;
+    color: var(--text-color);
+    text-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.02) var(--grey3-transp);
+}
+.upgrade-desc {
+    font-size: var(--font-size-base);
+    color: var(--text-color-accent);
+    margin: 0 0 var(--spacing-xs) 0;
+    line-height: var(--line-height-relaxed);
+}
+.upgrade-features {
+    display: flex;
+    flex-wrap: wrap;
+    gap: calc(var(--nav-size) * 0.1);
+    margin-bottom: var(--spacing-xs);
+}
+.upgrade-feature-pill {
+    font-size: var(--font-size-small);
+    padding: calc(var(--nav-size) * 0.06) calc(var(--nav-size) * 0.15);
+    border-radius: var(--border-radius);
+    border: 2px solid var(--border-nav);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 8px var(--grey3-transp);
+    color: var(--text-color);
+    white-space: nowrap;
+    font-weight: 500;
+}
+/* CTA button — matches .home-spc-tool-text sizing */
+.upgrade-cta {
+    font-family: 'CutiveMono-Regular';
+    color: var(--text-color-inv);
+    font-size: var(--font-size-small);
+    padding: 0 var(--spacing-sm);
+    min-width: calc(var(--nav-size) * 2.25);
+    min-height: calc(var(--nav-size) * 1.2);
+    text-align: center;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+    cursor: pointer;
+    border-radius: var(--border-radius);
+    font-weight: 600;
+    border: 2px solid transparent;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    text-decoration: none;
+    box-shadow: 0 4px 15px var(--grey3-transp);
+    position: relative;
+    overflow: hidden;
+    line-height: var(--line-height-base);
+}
+.upgrade-cta::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.5s ease;
+}
+.upgrade-cta:hover::before {
+    left: 100%;
+}
+.upgrade-cta:hover {
+    background: linear-gradient(45deg, var(--fg-mint), var(--fg-blue));
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    border-color: var(--text-color);
+}
+.upgrade-cta:focus {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset);
+}
+.upgrade-cta:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+.upgrade-from-pro .upgrade-cta {
+    background: linear-gradient(45deg, var(--fg-orange), var(--fg-pink));
+}
+.upgrade-from-pro .upgrade-cta:hover {
+    background: linear-gradient(45deg, var(--fg-pink), var(--fg-orange));
+}
+
+/* CTA row — side-by-side buttons for guest card */
+.upgrade-cta-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    flex-wrap: wrap;
+}
+/* Secondary (Log In) link — matches .glow-link / .feature-card-link style */
+.upgrade-cta-secondary {
+    font-family: 'CutiveMono-Regular';
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: var(--text-color);
+    text-decoration: underline;
+    padding: var(--spacing-sm) var(--spacing-md);
+    position: relative;
+    transition: all 0.3s ease;
+    line-height: var(--line-height-base);
+}
+.upgrade-cta-secondary::before {
+    content: '';
+    position: absolute;
+    bottom: calc(var(--spacing-sm) - 2px);
+    left: var(--spacing-md);
+    width: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink));
+    transition: width 0.3s ease;
+}
+.upgrade-cta-secondary:hover {
+    color: var(--text-color);
+    text-shadow: 0 0 10px var(--white1-transp);
+}
+.upgrade-cta-secondary:hover::before {
+    width: calc(100% - var(--spacing-md) * 2);
+}
+.upgrade-cta-secondary:focus {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset);
+}
+
 .heart-pulse {
     animation: heartbeat 1.5s ease-in-out infinite;
-    font-size: calc(var(--nav-size) * 0.4);
+    font-size: var(--font-size-large);
 }
 
 @keyframes heartbeat {
@@ -636,6 +903,19 @@
     
     .heart-pulse {
         animation-duration: 2s; /* Slower heartbeat on mobile */
+    }
+
+    /* Membership section mobile */
+    .home-feature-card {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: calc(var(--nav-size) * 0.15);
+    }
+    .upgrade-features {
+        gap: calc(var(--nav-size) * 0.06);
+    }
+    .upgrade-feature-pill {
+        font-size: calc(var(--font-size-small) * 0.9);
     }
 }
 
