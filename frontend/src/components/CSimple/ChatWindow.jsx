@@ -358,7 +358,7 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
             rows={1}
             disabled={isGenerating || !isOnline}
           />
-          {sttEnabled && speech?.sttSupported && (
+          {speech?.sttSupported && (
             <button
               type="button"
               className={`chat-window__mic-btn ${speech.isListening ? 'chat-window__mic-btn--active' : ''}`}
@@ -399,7 +399,7 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
           {(settings?.sendWithEnter ?? true)
             ? 'Press Enter to send, Shift+Enter for new line'
             : 'Press Shift+Enter to send, Enter for new line'
-          }{sttEnabled && speech?.sttSupported ? ` · Click 🎤 or say "${agent?.name || 'agent'}"` : ''}
+          }{speech?.sttSupported ? ` · Click 🎤${sttEnabled ? ` or say "${agent?.name || 'agent'}"` : ''}` : ''}
         </div>
       </form>
     </main>
