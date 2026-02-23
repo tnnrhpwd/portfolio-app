@@ -530,7 +530,7 @@
 
 /* Feature card — styled like .home-spc-tool-text */
 .home-feature-card {
-    width: 100%;
+    width: 65vw;
     display: flex;
     gap: var(--spacing-xs);
     padding: var(--spacing-xs);
@@ -541,7 +541,7 @@
     transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     text-align: left;
     position: relative;
-    overflow: hidden;
+    overflow: wrap;
 }
 .home-feature-card:hover {
     transform: translateY(-3px) scale(1.02);
@@ -566,7 +566,7 @@
     text-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.02) var(--grey3-transp);
 }
 .feature-card-desc {
-    font-size: var(--font-size-small);
+    font-size: calc(var(--nav-size) * .28);
     color: var(--text-color-accent);
     margin: 0;
     line-height: var(--line-height-relaxed);
@@ -606,7 +606,7 @@
 
 /* Upgrade card — styled like .home-spc-tool-text */
 .home-upgrade-card {
-    width: 100%;
+    width: 65vw;
     padding: var(--spacing-xs);
     border-radius: var(--border-radius);
     border: 2px solid var(--border-nav);
@@ -637,7 +637,7 @@
     text-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.02) var(--grey3-transp);
 }
 .upgrade-desc {
-    font-size: var(--font-size-base);
+    font-size: calc(var(--nav-size) * .28);
     color: var(--text-color-accent);
     margin: 0 0 var(--spacing-xs) 0;
     line-height: var(--line-height-relaxed);
@@ -649,7 +649,7 @@
     margin-bottom: var(--spacing-xs);
 }
 .upgrade-feature-pill {
-    font-size: var(--font-size-small);
+    font-size: calc(var(--nav-size) * .28);
     padding: calc(var(--nav-size) * 0.06) calc(var(--nav-size) * 0.15);
     border-radius: var(--border-radius);
     border: 2px solid var(--border-nav);
@@ -663,7 +663,7 @@
 .upgrade-cta {
     font-family: 'CutiveMono-Regular';
     color: var(--text-color-inv);
-    font-size: var(--font-size-small);
+    font-size: calc(var(--nav-size) * .28);
     padding: 0 var(--spacing-sm);
     min-width: calc(var(--nav-size) * 2.25);
     min-height: calc(var(--nav-size) * 1.2);
@@ -727,7 +727,7 @@
 /* Secondary (Log In) link — matches .glow-link / .feature-card-link style */
 .upgrade-cta-secondary {
     font-family: 'CutiveMono-Regular';
-    font-size: var(--font-size-base);
+    font-size: calc(var(--nav-size) * .28);
     font-weight: 600;
     color: var(--text-color);
     text-decoration: underline;
