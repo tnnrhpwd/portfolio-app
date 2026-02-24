@@ -78,6 +78,7 @@ const DEFAULT_SETTINGS = {
  * @param {function} props.onPortfolioChat - Callback to send chat via portfolio backend
  * @param {boolean} props.portfolioChatLoading - Whether portfolio chat is loading
  * @param {string} props.portfolioChatResponse - Response from portfolio backend
+ * @param {string} props.portfolioChatError - Error message from portfolio backend
  * @param {boolean} props.showAddonPrompt - Whether to show the addon install/update notice
  * @param {boolean} props.addonPromptOutdated - Addon is installed but outdated
  * @param {boolean} props.addonPromptChecking - Recheck is in flight
@@ -93,6 +94,7 @@ function CSimpleChat({
   onPortfolioChat,
   portfolioChatLoading,
   portfolioChatResponse,
+  portfolioChatError,
   showAddonPrompt = false,
   addonPromptOutdated = false,
   addonPromptChecking = false,
@@ -337,6 +339,12 @@ function CSimpleChat({
             }
 
             setCloudSyncStatus('synced');
+          } else {
+            // Cloud sync is NOT enabled, but still pull the githubToken from cloud
+            // so the user doesn't have to re-enter it on every new device
+            if (cloudSettings.githubToken && !settings.githubToken) {
+              setSettings(prev => ({ ...prev, githubToken: cloudSettings.githubToken }));
+            }
           }
         } else if (settings.cloudSync && user.token) {
           // Cloud is empty but local has sync enabled — push local settings up
@@ -433,6 +441,27 @@ function CSimpleChat({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [portfolioChatResponse, portfolioChatLoading]);
+
+  // Handle portfolio chat errors (e.g. missing GitHub token, server errors)
+  useEffect(() => {
+    if (portfolioChatError && !portfolioChatLoading) {
+      const errorMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: `**Error:** ${portfolioChatError}`,
+        timestamp: new Date().toISOString(),
+        isError: true,
+      };
+
+      setConversations(prev => prev.map(c => {
+        if (c.id !== activeConversationId) return c;
+        return { ...c, messages: [...c.messages, errorMessage] };
+      }));
+
+      setIsGenerating(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [portfolioChatError, portfolioChatLoading]);
 
   const createNewChat = useCallback(() => {
     const newId = Date.now().toString();
@@ -827,12 +856,28 @@ function CSimpleChat({
           onClose={() => setShowAdvancedSettings(false)}
           settings={settings}
           onSettingsChange={(newSettings) => {
+            const prevSettings = settings;
             setSettings(newSettings);
             // Sync to addon if connected
             if (isAddonConnected) {
               const toSync = { ...newSettings };
               DEVICE_LOCAL_KEYS.forEach(k => delete toSync[k]);
               saveAddonSettings(toSync).catch(() => {});
+            }
+            // Always persist githubToken to cloud when logged in (backend needs it for GitHub Models API)
+            // even if full cloudSync is not enabled
+            if (user?.token && newSettings.githubToken !== prevSettings.githubToken) {
+              // Fetch existing cloud settings, merge the new token in, and save
+              getCloudSettings(user.token).then(cloudData => {
+                const existing = cloudData?.settings || {};
+                saveCloudSettings(user.token, { ...existing, githubToken: newSettings.githubToken }).catch(err => {
+                  console.warn('[CSimple] Failed to persist githubToken to cloud:', err);
+                });
+              }).catch(err => {
+                // If we can't fetch existing, just save the token
+                saveCloudSettings(user.token, { githubToken: newSettings.githubToken }).catch(() => {});
+                console.warn('[CSimple] Failed to fetch cloud settings for token persist:', err);
+              });
             }
           }}
           isOnline={isOnline}

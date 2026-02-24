@@ -9,7 +9,7 @@ import Footer from '../../../components/Footer/Footer.jsx';
 
 function Net() {
   const dispatch = useDispatch();
-  const { user, data, dataIsLoading, dataIsSuccess, operation, llmProviders } = useSelector(
+  const { user, data, dataIsLoading, dataIsSuccess, dataIsError, dataMessage, operation, llmProviders } = useSelector(
     (state) => state.data
   );
   const {
@@ -23,8 +23,9 @@ function Net() {
     requiredVersion,
   } = useAddonDetection();
 
-  // Track portfolio LLM response for passing to CSimpleChat
+  // Track portfolio LLM response and errors for passing to CSimpleChat
   const [portfolioChatResponse, setPortfolioChatResponse] = React.useState(null);
+  const [portfolioChatError, setPortfolioChatError] = React.useState(null);
 
   // Fetch LLM providers on mount if user is logged in
   useEffect(() => {
@@ -38,9 +39,18 @@ function Net() {
     if (operation === 'compress' && dataIsSuccess && data?.data) {
       const response = data.data[0] || data.data;
       setPortfolioChatResponse(typeof response === 'string' ? response : JSON.stringify(response));
+      setPortfolioChatError(null);
       dispatch(resetDataSlice());
     }
   }, [operation, dataIsSuccess, data, dispatch]);
+
+  // Handle compressData errors (e.g. missing GitHub token, API failures)
+  useEffect(() => {
+    if (dataIsError && dataMessage) {
+      setPortfolioChatError(dataMessage);
+      dispatch(resetDataSlice());
+    }
+  }, [dataIsError, dataMessage, dispatch]);
 
   // Callback for CSimpleChat to send messages via portfolio backend
   const handlePortfolioChat = useCallback(
@@ -90,6 +100,7 @@ function Net() {
             onPortfolioChat={handlePortfolioChat}
             portfolioChatLoading={dataIsLoading}
             portfolioChatResponse={portfolioChatResponse}
+            portfolioChatError={portfolioChatError}
             showAddonPrompt={showInstallPrompt || showUpdatePrompt}
             addonPromptOutdated={isOutdated}
             addonPromptChecking={isChecking}
