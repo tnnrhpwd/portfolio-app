@@ -132,7 +132,13 @@ async function createCompletionWithKey(provider, model, messages, options = {}, 
         stream: false
     };
 
-    console.log(`🤖 Making ${provider.toUpperCase()} API call with model: ${model} (per-user key)`);
+    // Add tools (function calling) if provided
+    if (options.tools && options.tools.length > 0) {
+        completionParams.tools = options.tools;
+        completionParams.tool_choice = options.tool_choice || 'auto';
+    }
+
+    console.log(`🤖 Making ${provider.toUpperCase()} API call with model: ${model} (per-user key)${options.tools ? ` [${options.tools.length} tools]` : ''}`);
     const startTime = Date.now();
     const response = await client.chat.completions.create(completionParams);
     console.log(`🤖 ${provider.toUpperCase()} API call completed in ${Date.now() - startTime}ms`);

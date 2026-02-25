@@ -7,6 +7,7 @@ const {
     trackCompletion 
 } = require('../utils/llmProviders.js');
 const { getGoalsSummary, logAction } = require('./memoryService.js');
+const { TOOL_SCHEMAS, executeTool } = require('./netTools.js');
 
 /**
  * Parse compression request data
@@ -104,14 +105,19 @@ async function getUserGithubToken(dynamodb, userId) {
 }
 
 /**
- * Call LLM API to compress data
+ * Call LLM API with tool-use support.
+ * The LLM decides whether to reply in text, call tools, or both.
+ * Handles the tool-call loop: LLM → tool calls → feed results back → final text.
+ *
  * @param {string} provider - LLM provider
  * @param {string} model - Model name
  * @param {string} userInput - User input
  * @param {string|null} githubToken - Per-user GitHub PAT (only for provider='github')
- * @returns {Object} LLM response
+ * @param {string|null} goalsSummary - User's goals context
+ * @param {object|null} toolContext - { userId, userEmail, userName } for tool execution
+ * @returns {Object} LLM response (final, after any tool calls are resolved)
  */
-async function callLLMApi(provider, model, userInput, githubToken = null, goalsSummary = null) {
+async function callLLMApi(provider, model, userInput, githubToken = null, goalsSummary = null, toolContext = null) {
     await initializeLLMClients();
     
     console.log(`🤖 Starting ${provider.toUpperCase()} API call...`);
@@ -134,13 +140,23 @@ async function callLLMApi(provider, model, userInput, githubToken = null, goalsS
         messages = [{ role: 'user', content: userInput }];
     }
 
-    // Inject goals as system-level context when available
+    // System prompt with tool awareness
+    const systemParts = [
+        'You are a helpful AI assistant on sthopwood.com\'s /net chat.',
+        'You have access to tools that let you take real actions — save goals, notes, log actions, submit support tickets, and more.',
+        'Use tools when the user\'s intent clearly calls for an action (e.g. "remember this", "I want to achieve X", "submit a bug report").',
+        'For normal conversation, questions, or requests for information, just reply in text.',
+        'Be concise and helpful. When you use a tool, also include a brief conversational response explaining what you did.',
+    ];
+
     if (goalsSummary) {
-        messages.unshift({
-            role: 'system',
-            content: `You are a helpful AI assistant. The following is context about the user's goals and priorities — use this to personalize your responses when relevant:\n\n${goalsSummary}`
-        });
+        systemParts.push(`\nThe following is context about the user's goals and priorities — use this to personalize your responses when relevant:\n\n${goalsSummary}`);
     }
+
+    messages.unshift({
+        role: 'system',
+        content: systemParts.join(' ')
+    });
     
     if (!githubToken) {
         const error = new Error('GitHub token not configured. Add your GitHub PAT in CSimple → Settings → Advanced → GitHub Personal Access Token.');
@@ -148,11 +164,74 @@ async function callLLMApi(provider, model, userInput, githubToken = null, goalsS
         throw error;
     }
 
-    const response = await createCompletionWithKey('github', model, messages, { maxTokens: 1000, temperature: 0.7 }, githubToken);
+    // Determine if we should send tools (only for Net: chat, not plain compression)
+    const useTools = toolContext !== null;
+    const llmOptions = { maxTokens: 1000, temperature: 0.7 };
+    if (useTools) {
+        llmOptions.tools = TOOL_SCHEMAS;
+        llmOptions.tool_choice = 'auto';
+    }
+
+    // Initial LLM call
+    let response = await createCompletionWithKey('github', model, messages, llmOptions, githubToken);
     
-    console.log(`🤖 ${provider.toUpperCase()} API call completed in ${Date.now() - startLLM}ms`);
+    // ─── Tool-call loop (max 3 rounds to prevent runaway) ────────────────
+    const MAX_TOOL_ROUNDS = 3;
+    let round = 0;
+    const toolResults = []; // Track executed tools for logging
+
+    while (useTools && round < MAX_TOOL_ROUNDS) {
+        const choice = response?.choices?.[0];
+        if (!choice?.message?.tool_calls || choice.message.tool_calls.length === 0) {
+            break; // No tool calls — LLM is done
+        }
+
+        round++;
+        console.log(`🔧 Tool call round ${round}: ${choice.message.tool_calls.length} tool(s) requested`);
+
+        // Add the assistant's tool-call message to conversation
+        messages.push(choice.message);
+
+        // Execute each tool call and collect results
+        for (const toolCall of choice.message.tool_calls) {
+            const fnName = toolCall.function.name;
+            let fnArgs;
+            try {
+                fnArgs = JSON.parse(toolCall.function.arguments);
+            } catch {
+                fnArgs = {};
+            }
+
+            console.log(`🔧 Executing tool: ${fnName}`, JSON.stringify(fnArgs));
+            const result = await executeTool(fnName, fnArgs, toolContext);
+            console.log(`🔧 Tool result: ${result.substring(0, 200)}`);
+
+            toolResults.push({ tool: fnName, args: fnArgs, result });
+
+            // Add tool result to conversation for the LLM to incorporate
+            messages.push({
+                role: 'tool',
+                tool_call_id: toolCall.id,
+                content: result,
+            });
+        }
+
+        // Call LLM again with tool results so it can produce a final response
+        response = await createCompletionWithKey('github', model, messages, llmOptions, githubToken);
+    }
+
+    console.log(`🤖 ${provider.toUpperCase()} API call completed in ${Date.now() - startLLM}ms (${round} tool round(s))`);
     console.log('LLM response:', JSON.stringify(response));
     
+    // Attach tool execution metadata to the response for the frontend
+    if (toolResults.length > 0) {
+        response._toolsExecuted = toolResults.map(t => ({
+            tool: t.tool,
+            args: t.args,
+            success: !t.result.startsWith('Error'),
+        }));
+    }
+
     return response;
 }
 
@@ -283,8 +362,25 @@ async function processCompressionRequest(req, dynamodb) {
         console.warn('[llmService] Failed to fetch goals summary:', err.message);
     }
     
-    // Call LLM API
-    const response = await callLLMApi(provider, model, userInput, githubToken, goalsSummary);
+    // Build tool context for Net: chat messages (enables function calling)
+    // Only Net: chat gets tools — other compression requests remain plain text
+    let toolContext = null;
+    try {
+        const parsed = JSON.parse(userInput);
+        if (parsed.message && Array.isArray(parsed.conversationHistory)) {
+            toolContext = {
+                userId: req.user.id,
+                userEmail: req.user.email || null,
+                userName: req.user.nickname || req.user.name || null,
+            };
+            console.log('[llmService] Net: chat detected — enabling tool-use');
+        }
+    } catch {
+        // Not a Net: chat payload — no tools
+    }
+
+    // Call LLM API (with tools if Net: chat)
+    const response = await callLLMApi(provider, model, userInput, githubToken, goalsSummary, toolContext);
     
     // Track API usage
     await trackApiUsageAfterCall(req.user.id, provider, model, response, userInput);
