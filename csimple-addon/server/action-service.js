@@ -1489,10 +1489,16 @@ If user cancelled:
 
   /**
    * "type hello world", "enter text something", "write hello"
+   * Excludes conversational patterns like "write a script", "type me an essay"
    */
   _matchTypeText(lower, original) {
     const match = lower.match(/^(?:type|write|enter text|input)\s+(.+)$/);
     if (!match) return null;
+
+    // Skip conversational patterns — these are LLM requests, not typing commands
+    // e.g. "write a Python script", "write me a poem", "type out an email for me"
+    const conversationalPattern = /^(?:type|write|enter text|input)\s+(?:a|an|me|some|the|this|that|my|our|about|out|up|down|code|script|program|function|class|method|essay|email|letter|story|poem|song|paragraph|summary|report|document|list|guide|tutorial|example|test|html|css|json|javascript|python|java|sql|query|app|application|file|page|template|blog|article|response|reply|message|instructions|recipe|plan|review|analysis|description|explanation|api|readme|documentation|comment|note)\b/;
+    if (conversationalPattern.test(lower)) return null;
 
     // Preserve original casing for the text
     const text = original.substring(original.toLowerCase().indexOf(match[1]));

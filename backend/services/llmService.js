@@ -147,6 +147,8 @@ async function callLLMApi(provider, model, userInput, githubToken = null, goalsS
         'Use tools when the user\'s intent clearly calls for an action (e.g. "remember this", "I want to achieve X", "submit a bug report").',
         'For normal conversation, questions, or requests for information, just reply in text.',
         'Be concise and helpful. When you use a tool, also include a brief conversational response explaining what you did.',
+        'Each message in the conversation is prefixed with a timestamp in brackets like [1/15/2025, 2:30:00 PM]. Use these timestamps for temporal context — you can reference when things were said, how much time has passed, and be aware of the current date and time.',
+        'When the user asks you to write, create, or generate content (code, scripts, emails, documents, etc.), present the content directly in your response using proper formatting (e.g. code blocks for code). If the content might be useful to save, briefly mention they can copy it or ask you to save it as a note.',
     ];
 
     if (goalsSummary) {

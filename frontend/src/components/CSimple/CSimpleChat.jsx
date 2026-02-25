@@ -623,7 +623,9 @@ function CSimpleChat({
       const currentConv = conversations.find(c => c.id === activeConversationId);
       const history = currentConv ? currentConv.messages.map(m => ({
         role: m.role,
-        content: m.content,
+        content: m.timestamp
+          ? `[${new Date(m.timestamp).toLocaleString()}] ${m.content}`
+          : m.content,
       })) : [];
       const trimmedHistory = history.slice(-(settings.maxConversationHistory ?? 50));
 
@@ -632,10 +634,11 @@ function CSimpleChat({
       if (provider === 'portfolio') {
         // Route through portfolio backend via Redux
         if (onPortfolioChat) {
-          // Use GitHub Models if the user has a GitHub token configured, otherwise OpenAI
-          const portfolioProvider = settings.githubToken ? 'github' : 'openai';
+          if (!settings.githubToken) {
+            throw new Error('GitHub token not configured. Go to Settings → Advanced → GitHub Personal Access Token and add your token.');
+          }
           const portfolioModel = settings.portfolioModel || 'gpt-4o-mini';
-          onPortfolioChat(text, trimmedHistory, portfolioProvider, portfolioModel);
+          onPortfolioChat(text, trimmedHistory, 'github', portfolioModel);
           // Response will come via portfolioChatResponse prop
         } else {
           throw new Error('Portfolio chat not available. Please log in.');

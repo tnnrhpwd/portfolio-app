@@ -5,7 +5,7 @@
 }
 
 /* Main container with animated background */
-.container {
+/* .container {
     min-height: 100svh;
     min-height: 100vh;
     background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
@@ -17,16 +17,16 @@
     position: relative;
     overflow-x: hidden;
     font-family: 'CutiveMono-Regular', monospace;
-}
+} */
 
 /* Enhanced gradient animation */
-@keyframes gradientShift {
+/* @keyframes gradientShift {
     0% { background-position: 0% 50%; }
     25% { background-position: 100% 50%; }
     50% { background-position: 100% 100%; }
     75% { background-position: 0% 100%; }
     100% { background-position: 0% 50%; }
-}
+} */
 
 /* Theme-specific animation speeds */
 .light-theme .container {

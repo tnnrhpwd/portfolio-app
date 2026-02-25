@@ -23,6 +23,7 @@ const { ActionService } = require('./action-service');
 const { GitHubModelsService, GITHUB_MODELS } = require('./github-models-service');
 const { checkMessage, checkActionPlan, checkScriptContent } = require('./security-guard');
 const { stepsToPS, runPowerShell } = require('./action-bridge');
+const { ADDON_TOOL_SCHEMAS, toolCallToActionPlan, executeMemoryTool, isMemoryTool } = require('./addon-tools');
 
 const app = express();
 const DEFAULT_PORT = 3001;
@@ -95,6 +96,24 @@ function validateFileContent(content) {
   if (typeof content !== 'string') return 'Content must be a string';
   if (Buffer.byteLength(content, 'utf-8') > MAX_FILE_SIZE) return 'Content exceeds maximum size of 1MB';
   return null;
+}
+
+/**
+ * Load a behavior file's content by filename.
+ * Returns the content string, or empty string if not found.
+ */
+function loadBehaviorContext(behaviorFile) {
+  if (!behaviorFile) return '';
+  const filePath = path.join(BEHAVIORS_PATH, behaviorFile);
+  if (!fs.existsSync(filePath)) return '';
+  try {
+    const content = fs.readFileSync(filePath, 'utf-8').trim();
+    if (!content) return '';
+    return '\n\n--- BEHAVIOR INSTRUCTIONS ---\n' + content + '\n--- END BEHAVIOR ---\n';
+  } catch (err) {
+    console.log(`[Behavior] Failed to read ${behaviorFile}: ${err.message}`);
+    return '';
+  }
 }
 
 /**
@@ -479,175 +498,216 @@ app.post('/api/chat', async (req, res) => {
     const parseStartTime = Date.now();
     console.log(`[${new Date().toISOString()}] Chat request: model=${modelId}, message="${message.substring(0, 80)}..."`);
 
-    // Check if the message is an action command
-    let actionPlan = actionService.detectAction(message);
-
-    // If message looks multi-step, prefer LLM parsing
-    if (actionService.looksLikeMultiStep(message.toLowerCase())) {
-      const webappSettings = readWebappSettings();
-      if (webappSettings.githubToken) {
-        githubModelsService.setToken(webappSettings.githubToken);
-        try {
-          const llmPlan = await actionService.detectActionWithLLM(message, async (msg, sysPrompt) => {
-            const result = await githubModelsService.chat({
-              message: msg,
-              modelId: 'gpt-4o-mini',
-              systemPrompt: sysPrompt,
-              temperature: 0.1,
-              maxLength: 300,
-              conversationHistory: [],
-            });
-            return result.text;
-          });
-          if (llmPlan) actionPlan = llmPlan;
-        } catch (err) {
-          console.log(`[LLM Action Parser] Fallback to regex: ${err.message}`);
-        }
-      }
-    }
-
-    if (actionPlan) {
-      console.log(`[${new Date().toISOString()}] Action detected: ${actionPlan.intent} - ${actionPlan.description}`);
-
-      // Ask the LLM if this action needs user confirmation
-      const webappSettings = readWebappSettings();
-      if (webappSettings.githubToken) {
-        githubModelsService.setToken(webappSettings.githubToken);
-        try {
-          const confirmResult = await actionService.checkConfirmation(
-            actionPlan,
-            message,
-            async (msg, sysPrompt) => {
-              const result = await githubModelsService.chat({
-                message: msg,
-                modelId: 'gpt-4o-mini',
-                systemPrompt: sysPrompt,
-                temperature: 0.1,
-                maxLength: 200,
-                conversationHistory: [],
-              });
-              return result.text;
-            }
-          );
-
-          if (confirmResult && confirmResult.needsConfirmation) {
-            const confirmationId = actionService.storeConfirmation(
-              actionPlan,
-              confirmResult.question,
-              confirmResult.options,
-              message
-            );
-            const parseTimeMs = Date.now() - parseStartTime;
-            const elapsedSec = (parseTimeMs / 1000).toFixed(2);
-
-            return res.json({
-              response: confirmResult.question,
-              modelId,
-              generationTime: `${elapsedSec}s`,
-              timestamp: new Date().toISOString(),
-              confirmation: {
-                id: confirmationId,
-                question: confirmResult.question,
-                options: confirmResult.options,
-                originalAction: actionPlan.description,
-              },
-            });
-          }
-        } catch (err) {
-          console.log(`[Confirmation Check] Skipping confirmation (error): ${err.message}`);
-        }
-      }
-
-      // ── Security Layer 2: validate action plan before queuing ───────────
-      const planCheck = checkActionPlan(actionPlan);
-      if (planCheck.blocked) {
-        console.warn(`[Security] Action plan blocked: ${planCheck.reason}`);
-        return res.status(403).json({
-          error: 'Action blocked by security policy',
-          reason: planCheck.reason,
-        });
-      }
-
-      // Queue then immediately execute on this machine — no external bridge needed
-      const queuedAction = actionService.queueAction(actionPlan);
-      executeActionDirect(queuedAction); // fire-and-forget; marks complete when done
-
-      const estimatedMs = actionPlan.steps.reduce((sum, step) => {
-        if (step.type === 'delay') return sum + (step.duration || 0);
-        if (step.type === 'visualClick') return sum + 8000;
-        if (step.type === 'typeText') return sum + (step.text?.length || 0) * 60;
-        return sum + 100;
-      }, 0);
-      const parseTimeMs = Date.now() - parseStartTime;
-      const totalEstimatedSec = ((estimatedMs + parseTimeMs) / 1000).toFixed(1);
-
-      const responseText = actionService.formatActionResponse(actionPlan);
-
-      return res.json({
-        response: responseText,
-        modelId,
-        generationTime: `~${totalEstimatedSec}s`,
-        timestamp: new Date().toISOString(),
-        action: {
-          id: queuedAction.id,
-          intent: actionPlan.intent,
-          description: actionPlan.description,
-          steps: actionPlan.steps,
-          status: queuedAction.status,
-        },
-      });
-    }
-
-    // Check for action-like suggestions
-    const suggestion = actionService.suggestAction(message);
-    if (suggestion) {
-      const elapsedSec = ((Date.now() - parseStartTime) / 1000).toFixed(2);
-      const responseText = `I can help with that! 💡\n\n${suggestion}\n\nJust type the command directly and I'll execute it on your PC.`;
-      return res.json({
-        response: responseText,
-        modelId,
-        generationTime: `${elapsedSec}s`,
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    // Normal LLM chat with personality + memory context
+    // Build system prompt with personality, memory, behavior, and capabilities
     const personalityContext = loadPersonalityContext();
     const memoryContext = loadMemoryContext();
-    const capabilitiesNote = `\nYou can execute system actions on this Windows PC: open apps, control volume/media, press keys, type text, play music services, and more. If the user asks to do something on their computer, do it or suggest a command like "mute", "open edge", "volume up", "play spotify", etc.\n\nYou can also:\n1. Save persistent memories using [MEMORY_SAVE:filename.md] blocks.\n2. Create files in the user's workspace using [FILE_CREATE:filename.ext] blocks.\n3. Create and run scripts using [SCRIPT_CREATE:filename.py] followed by [SCRIPT_RUN:filename.py] blocks.\n\nBlock formats:\n[MEMORY_SAVE:notes.md]\nPersistent knowledge to remember\n[/MEMORY_SAVE]\n\n[FILE_CREATE:document.txt]\nFile content here\n[/FILE_CREATE]\n\n[SCRIPT_CREATE:task.py]\nprint("Hello from CSimple")\n[/SCRIPT_CREATE]\n\n[SCRIPT_RUN:task.py]\n(optional args, one per line)\n[/SCRIPT_RUN]\n\nFiles are created in the CSimple Workspace directory. Scripts have a 30-second timeout.`;
+    const behaviorContext = loadBehaviorContext(behaviorFile);
+    const capabilitiesNote = `\nYou can execute system actions on this Windows PC using the provided tools: open apps, control volume/media, press keys, type text, play music services, and more. Use tools when the user wants you to do something on their computer. For conversation, questions, or content generation (writing code, essays, etc.), just reply in text.\n\nYou can also create files and scripts using [FILE_CREATE:filename.ext] and [SCRIPT_CREATE:filename.py] / [SCRIPT_RUN:filename.py] blocks in your text responses.\n\nIMPORTANT: The type_text tool physically types on the keyboard. Only use it when the user explicitly wants text typed/inputted into their computer. When they ask you to "write a script", "write an email", "create code", etc., respond with the content in your text reply instead.`;
+
+    const autoMemoryInstructions = `\n\n--- AUTO-MEMORY SYSTEM ---\nYou have tools to manage persistent memory, personality, and behavior files. Use them PROACTIVELY:\n\n**Memory (update_memory):** Automatically save when the user shares:\n- Personal info (name, job, location, timezone, relationships, pets)\n- Preferences (communication style, favorite tools/languages, interests)\n- Projects they're working on, goals, deadlines\n- Important context they'd want you to remember next session\n- Corrections to things you got wrong\nMerge with existing memories — read what's already in MEMORY above before writing. Organize into logical files (user_profile.md, projects.md, preferences.md, etc.).\n\n**Personality (update_personality):** Update when:\n- User asks you to change your tone, name, or communication style\n- User says things like "be more casual", "don't use emojis", "call me [name]"\n- You learn how they prefer to interact (user.md)\n\n**Behavior (update_behavior):** Update when:\n- User gives you standing instructions ("always show code examples", "prefer Python")\n- User sets up context for a specific workflow\n\nDo NOT announce every memory save — just do it silently. Only mention it if saving something the user explicitly asked you to remember, or if it's a significant update worth confirming.\n--- END AUTO-MEMORY ---`;
+
     const memoryInstructions = memoryContext ? 
-      `\nThe MEMORY section above contains your persistent knowledge. Reference it when relevant to the conversation.` : 
-      '';
-    const augmentedPrompt = (systemPrompt || '') + personalityContext + memoryContext + capabilitiesNote + memoryInstructions;
+      `\nThe MEMORY section above contains your persistent knowledge from past conversations. Reference it naturally when relevant. If info seems outdated, update it.` : 
+      `\nYou have no memories yet. Start building them as the user shares information about themselves.`;
+    const augmentedPrompt = (systemPrompt || '') + personalityContext + behaviorContext + memoryContext + capabilitiesNote + autoMemoryInstructions + memoryInstructions;
 
     const isGitHubModel = GITHUB_MODELS.some(m => m.id === modelId);
 
-    let result;
+    // ── GitHub Models path: LLM with function-calling tools ──────────────
     if (isGitHubModel) {
       const webappSettings = readWebappSettings();
       if (!webappSettings.githubToken) {
         return res.status(400).json({ error: 'GitHub token not configured. Go to Settings → General → LLM Provider to add your token.' });
       }
       githubModelsService.setToken(webappSettings.githubToken);
-      result = await githubModelsService.chat({
+
+      // Send message to LLM with action tools — LLM decides whether to act or chat
+      const result = await githubModelsService.chat({
         message,
         modelId,
         systemPrompt: augmentedPrompt,
         temperature,
         maxLength,
         conversationHistory,
+        tools: ADDON_TOOL_SCHEMAS,
+        tool_choice: 'auto',
       });
-    } else {
-      result = await llmService.chat({
-        message,
+
+      // If LLM chose to call a tool → execute as action or memory update
+      if (result.toolCalls && result.toolCalls.length > 0) {
+        console.log(`[${new Date().toISOString()}] LLM chose ${result.toolCalls.length} tool call(s): ${result.toolCalls.map(tc => tc.function.name).join(', ')}`);
+
+        // ── Separate memory tools from PC action tools ─────────────
+        const memoryToolCalls = result.toolCalls.filter(tc => isMemoryTool(tc.function.name));
+        const actionToolCalls = result.toolCalls.filter(tc => !isMemoryTool(tc.function.name));
+
+        let memoryOperations = [];
+        let toolResultMessages = [];
+
+        // ── Execute memory / personality / behavior tools ──────────
+        for (const tc of memoryToolCalls) {
+          try {
+            const memResult = await executeMemoryTool(tc);
+            console.log(`[Memory] ${tc.function.name}: ${memResult.result}`);
+            memoryOperations.push(memResult.operation);
+            toolResultMessages.push({
+              role: 'tool',
+              tool_call_id: tc.id,
+              content: JSON.stringify({ success: true, result: memResult.result }),
+            });
+          } catch (err) {
+            console.error(`[Memory] Error executing ${tc.function.name}:`, err.message);
+            toolResultMessages.push({
+              role: 'tool',
+              tool_call_id: tc.id,
+              content: JSON.stringify({ success: false, error: err.message }),
+            });
+          }
+        }
+
+        // ── Execute PC action tools ───────────────────────────────
+        let actionPlan = null;
+        if (actionToolCalls.length === 1) {
+          actionPlan = toolCallToActionPlan(actionToolCalls[0], actionService);
+        } else if (actionToolCalls.length > 1) {
+          const allSteps = [];
+          const descriptions = [];
+          for (const tc of actionToolCalls) {
+            const plan = toolCallToActionPlan(tc, actionService);
+            if (plan) {
+              if (allSteps.length > 0) allSteps.push({ type: 'delay', duration: 500, description: 'Wait between actions' });
+              allSteps.push(...plan.steps);
+              descriptions.push(plan.description);
+            }
+          }
+          if (allSteps.length > 0) {
+            actionPlan = {
+              command: message,
+              intent: 'compound',
+              description: descriptions.join(', then '),
+              steps: allSteps,
+            };
+          }
+        }
+
+        // If there are action tools, add their tool_call results too
+        for (const tc of actionToolCalls) {
+          toolResultMessages.push({
+            role: 'tool',
+            tool_call_id: tc.id,
+            content: JSON.stringify({ success: true, result: actionPlan ? 'Action queued for execution' : 'No action taken' }),
+          });
+        }
+
+        // ── If memory tools were called, do a follow-up LLM call ──
+        // The LLM needs to see the tool results to produce its final text response
+        let finalText = result.text || '';
+        if (memoryToolCalls.length > 0 && toolResultMessages.length > 0) {
+          try {
+            // Build messages for the follow-up call: original messages + assistant message with tool_calls + tool results
+            const followUpMessages = [
+              { role: 'system', content: augmentedPrompt },
+              ...conversationHistory.map(m => ({ role: m.role, content: m.content })),
+              { role: 'user', content: message },
+              result.message, // assistant message with tool_calls
+              ...toolResultMessages,
+            ];
+
+            const followUp = await githubModelsService.chatRaw({
+              messages: followUpMessages,
+              modelId,
+              temperature,
+              topP,
+              maxTokens: maxLength,
+            });
+
+            if (followUp.text) {
+              finalText = followUp.text;
+            }
+          } catch (err) {
+            console.error('[Memory] Follow-up LLM call failed:', err.message);
+            // Fall back to whatever text the first call produced
+          }
+        }
+
+        // ── If there's an action plan, execute it ─────────────────
+        if (actionPlan) {
+          const planCheck = checkActionPlan(actionPlan);
+          if (planCheck.blocked) {
+            console.warn(`[Security] Action plan blocked: ${planCheck.reason}`);
+            return res.status(403).json({
+              error: 'Action blocked by security policy',
+              reason: planCheck.reason,
+            });
+          }
+
+          const queuedAction = actionService.queueAction(actionPlan);
+          executeActionDirect(queuedAction); // fire-and-forget
+
+          const estimatedMs = actionPlan.steps.reduce((sum, step) => {
+            if (step.type === 'delay') return sum + (step.duration || 0);
+            if (step.type === 'visualClick') return sum + 8000;
+            if (step.type === 'typeText') return sum + (step.text?.length || 0) * 60;
+            return sum + 100;
+          }, 0);
+          const parseTimeMs = Date.now() - parseStartTime;
+          const totalEstimatedSec = ((estimatedMs + parseTimeMs) / 1000).toFixed(1);
+
+          const responseText = finalText || actionService.formatActionResponse(actionPlan);
+
+          return res.json({
+            response: responseText,
+            modelId,
+            generationTime: `~${totalEstimatedSec}s`,
+            timestamp: new Date().toISOString(),
+            ...(memoryOperations.length > 0 && { memoryOperations }),
+            action: {
+              id: queuedAction.id,
+              intent: actionPlan.intent,
+              description: actionPlan.description,
+              steps: actionPlan.steps,
+              status: queuedAction.status,
+            },
+          });
+        }
+
+        // ── Memory-only response (no PC actions) ──────────────────
+        if (memoryToolCalls.length > 0) {
+          const { cleanedText, operations } = await processLLMBlocks(finalText);
+          const totalElapsedSec = ((Date.now() - parseStartTime) / 1000).toFixed(2);
+          return res.json({
+            response: cleanedText,
+            modelId,
+            generationTime: `${totalElapsedSec}s`,
+            timestamp: new Date().toISOString(),
+            ...(memoryOperations.length > 0 && { memoryOperations }),
+            ...(operations.length > 0 && { operations }),
+          });
+        }
+      }
+
+      // LLM chose to reply with text (no tool calls)
+      const { cleanedText, operations } = await processLLMBlocks(result.text);
+      const totalElapsedSec = ((Date.now() - parseStartTime) / 1000).toFixed(2);
+      return res.json({
+        response: cleanedText,
         modelId,
-        systemPrompt: augmentedPrompt,
-        temperature,
-        topP,
-        maxLength,
-        conversationHistory,
+        generationTime: `${totalElapsedSec}s`,
+        timestamp: new Date().toISOString(),
+        ...(operations.length > 0 && { operations }),
       });
     }
+
+    // ── Local model path: no function calling, use text only ─────────────
+    const result = await llmService.chat({
+      message,
+      modelId,
+      systemPrompt: augmentedPrompt,
+      temperature,
+      topP,
+      maxLength,
+      conversationHistory,
+    });
 
     // Post-process: extract and execute any LLM blocks (MEMORY_SAVE, FILE_CREATE, SCRIPT_CREATE, SCRIPT_RUN)
     const { cleanedText, operations } = await processLLMBlocks(result.text);

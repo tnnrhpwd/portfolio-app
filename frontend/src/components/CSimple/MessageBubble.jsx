@@ -12,10 +12,20 @@ function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = 
   const hasOperations = !isUser && message.operations?.length > 0;
   const hasFileDownload = !isUser && message.fileDownload;
   const hasAttachedFile = isUser && message.attachedFile;
-  const time = new Date(message.timestamp).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const msgDate = new Date(message.timestamp);
+  const today = new Date();
+  const isToday = msgDate.toDateString() === today.toDateString();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday = msgDate.toDateString() === yesterday.toDateString();
+
+  const timeStr = msgDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const dateStr = isToday
+    ? timeStr
+    : isYesterday
+      ? `Yesterday, ${timeStr}`
+      : `${msgDate.toLocaleDateString([], { month: 'short', day: 'numeric' })}, ${timeStr}`;
+  const time = dateStr;
 
   const handleDownload = () => {
     if (!message.fileDownload) return;
