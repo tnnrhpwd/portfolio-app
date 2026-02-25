@@ -415,6 +415,319 @@ const deleteCSimpleBehavior = asyncHandler(async (req, res) => {
   }
 });
 
+// =============================================================================
+// MEMORY FILE ENDPOINTS (cloud storage for AI memory)
+// =============================================================================
+
+// Valid filename: alphanumeric, hyphens, underscores, dots, spaces, parens (max 100 chars)
+const VALID_FILENAME = /^[a-zA-Z0-9_\-. ()]{1,100}$/;
+
+// @desc    List user's synced memory files
+// @route   GET /api/data/csimple/memory
+// @access  Private
+const getCSimpleMemoryFiles = asyncHandler(async (req, res) => {
+  if (!req.user) { res.status(401); throw new Error('User not found'); }
+
+  const prefix = `csimple_memory_${req.user.id}_`;
+  try {
+    const { Items } = await dynamodb.send(new ScanCommand({
+      TableName: TABLE_NAME,
+      FilterExpression: 'begins_with(id, :prefix)',
+      ExpressionAttributeValues: { ':prefix': prefix },
+      ProjectionExpression: 'id, updatedAt, createdAt',
+    }));
+    const files = (Items || []).map(item => ({
+      name: item.id.replace(prefix, ''),
+      updatedAt: item.updatedAt || item.createdAt,
+    }));
+    res.status(200).json({ files });
+  } catch (error) {
+    console.error('[CSimple] Error listing memory files:', error);
+    res.status(500);
+    throw new Error('Failed to list memory files');
+  }
+});
+
+// @desc    Get a specific memory file
+// @route   GET /api/data/csimple/memory/:name
+// @access  Private
+const getCSimpleMemoryFile = asyncHandler(async (req, res) => {
+  if (!req.user) { res.status(401); throw new Error('User not found'); }
+  const { name } = req.params;
+  if (!name || !VALID_FILENAME.test(name)) {
+    res.status(400);
+    throw new Error('Invalid filename');
+  }
+  const itemId = `csimple_memory_${req.user.id}_${name}`;
+  try {
+    const { Item } = await dynamodb.send(new GetCommand({
+      TableName: TABLE_NAME,
+      Key: { id: itemId, createdAt: CSIMPLE_CREATED_AT },
+    }));
+    if (!Item) { res.status(404); throw new Error('Memory file not found'); }
+    res.status(200).json({ name, content: Item.text, updatedAt: Item.updatedAt || Item.createdAt });
+  } catch (error) {
+    if (error.message === 'Memory file not found') throw error;
+    console.error('[CSimple] Error getting memory file:', error);
+    res.status(500);
+    throw new Error('Failed to retrieve memory file');
+  }
+});
+
+// @desc    Create or update a memory file
+// @route   PUT /api/data/csimple/memory/:name
+// @access  Private
+const updateCSimpleMemoryFile = asyncHandler(async (req, res) => {
+  if (!req.user) { res.status(401); throw new Error('User not found'); }
+  const { name } = req.params;
+  const { content } = req.body;
+  if (!name || !VALID_FILENAME.test(name)) {
+    res.status(400);
+    throw new Error('Invalid filename');
+  }
+  if (typeof content !== 'string') {
+    res.status(400);
+    throw new Error('Content must be a string');
+  }
+  // Cap single file at 32KB
+  if (Buffer.byteLength(content, 'utf-8') > 32 * 1024) {
+    res.status(413);
+    throw new Error('Memory file too large (max 32 KB)');
+  }
+  const itemId = `csimple_memory_${req.user.id}_${name}`;
+  const now = new Date().toISOString();
+  try {
+    await dynamodb.send(new PutCommand({
+      TableName: TABLE_NAME,
+      Item: { id: itemId, text: content, createdAt: CSIMPLE_CREATED_AT, updatedAt: now },
+    }));
+    res.status(200).json({ success: true, name, updatedAt: now });
+  } catch (error) {
+    console.error('[CSimple] Error saving memory file:', error);
+    res.status(500);
+    throw new Error('Failed to save memory file');
+  }
+});
+
+// @desc    Delete a memory file
+// @route   DELETE /api/data/csimple/memory/:name
+// @access  Private
+const deleteCSimpleMemoryFile = asyncHandler(async (req, res) => {
+  if (!req.user) { res.status(401); throw new Error('User not found'); }
+  const { name } = req.params;
+  if (!name || !VALID_FILENAME.test(name)) {
+    res.status(400);
+    throw new Error('Invalid filename');
+  }
+  const itemId = `csimple_memory_${req.user.id}_${name}`;
+  try {
+    await dynamodb.send(new DeleteCommand({
+      TableName: TABLE_NAME,
+      Key: { id: itemId, createdAt: CSIMPLE_CREATED_AT },
+    }));
+    res.status(200).json({ success: true, name });
+  } catch (error) {
+    console.error('[CSimple] Error deleting memory file:', error);
+    res.status(500);
+    throw new Error('Failed to delete memory file');
+  }
+});
+
+// =============================================================================
+// PERSONALITY FILE ENDPOINTS (cloud storage for AI personality)
+// =============================================================================
+
+// @desc    List user's synced personality files
+// @route   GET /api/data/csimple/personality
+// @access  Private
+const getCSimplePersonalityFiles = asyncHandler(async (req, res) => {
+  if (!req.user) { res.status(401); throw new Error('User not found'); }
+
+  const prefix = `csimple_personality_${req.user.id}_`;
+  try {
+    const { Items } = await dynamodb.send(new ScanCommand({
+      TableName: TABLE_NAME,
+      FilterExpression: 'begins_with(id, :prefix)',
+      ExpressionAttributeValues: { ':prefix': prefix },
+      ProjectionExpression: 'id, updatedAt, createdAt',
+    }));
+    const files = (Items || []).map(item => ({
+      name: item.id.replace(prefix, ''),
+      updatedAt: item.updatedAt || item.createdAt,
+    }));
+    res.status(200).json({ files });
+  } catch (error) {
+    console.error('[CSimple] Error listing personality files:', error);
+    res.status(500);
+    throw new Error('Failed to list personality files');
+  }
+});
+
+// @desc    Get a specific personality file
+// @route   GET /api/data/csimple/personality/:name
+// @access  Private
+const getCSimplePersonalityFile = asyncHandler(async (req, res) => {
+  if (!req.user) { res.status(401); throw new Error('User not found'); }
+  const { name } = req.params;
+  if (!name || !VALID_FILENAME.test(name)) {
+    res.status(400);
+    throw new Error('Invalid filename');
+  }
+  const itemId = `csimple_personality_${req.user.id}_${name}`;
+  try {
+    const { Item } = await dynamodb.send(new GetCommand({
+      TableName: TABLE_NAME,
+      Key: { id: itemId, createdAt: CSIMPLE_CREATED_AT },
+    }));
+    if (!Item) { res.status(404); throw new Error('Personality file not found'); }
+    res.status(200).json({ name, content: Item.text, updatedAt: Item.updatedAt || Item.createdAt });
+  } catch (error) {
+    if (error.message === 'Personality file not found') throw error;
+    console.error('[CSimple] Error getting personality file:', error);
+    res.status(500);
+    throw new Error('Failed to retrieve personality file');
+  }
+});
+
+// @desc    Create or update a personality file
+// @route   PUT /api/data/csimple/personality/:name
+// @access  Private
+const updateCSimplePersonalityFile = asyncHandler(async (req, res) => {
+  if (!req.user) { res.status(401); throw new Error('User not found'); }
+  const { name } = req.params;
+  const { content } = req.body;
+  if (!name || !VALID_FILENAME.test(name)) {
+    res.status(400);
+    throw new Error('Invalid filename');
+  }
+  if (typeof content !== 'string') {
+    res.status(400);
+    throw new Error('Content must be a string');
+  }
+  if (Buffer.byteLength(content, 'utf-8') > 16 * 1024) {
+    res.status(413);
+    throw new Error('Personality file too large (max 16 KB)');
+  }
+  const itemId = `csimple_personality_${req.user.id}_${name}`;
+  const now = new Date().toISOString();
+  try {
+    await dynamodb.send(new PutCommand({
+      TableName: TABLE_NAME,
+      Item: { id: itemId, text: content, createdAt: CSIMPLE_CREATED_AT, updatedAt: now },
+    }));
+    res.status(200).json({ success: true, name, updatedAt: now });
+  } catch (error) {
+    console.error('[CSimple] Error saving personality file:', error);
+    res.status(500);
+    throw new Error('Failed to save personality file');
+  }
+});
+
+// =============================================================================
+// USER CONTEXT ENDPOINT (loads memory + personality + behavior for LLM)
+// =============================================================================
+
+const MAX_CONTEXT_BYTES = 16 * 1024;
+const MAX_SINGLE_FILE = 32 * 1024;
+const PRIORITY_PATTERNS = [/^user/i, /profile/i, /preference/i, /identity/i, /name/i];
+
+// @desc    Get full user context for LLM (memory + personality + behavior)
+// @route   GET /api/data/csimple/context?behavior=default.txt
+// @access  Private
+const getCSimpleUserContext = asyncHandler(async (req, res) => {
+  if (!req.user) { res.status(401); throw new Error('User not found'); }
+  const userId = req.user.id;
+  const behaviorName = req.query.behavior || 'default.txt';
+
+  try {
+    // ── Load memory files ──
+    const memPrefix = `csimple_memory_${userId}_`;
+    const { Items: memItems } = await dynamodb.send(new ScanCommand({
+      TableName: TABLE_NAME,
+      FilterExpression: 'begins_with(id, :prefix)',
+      ExpressionAttributeValues: { ':prefix': memPrefix },
+    }));
+
+    let memoryContext = '';
+    if (memItems && memItems.length > 0) {
+      // Sort: priority files first, then small → large
+      const fileInfos = memItems.map(item => ({
+        name: item.id.replace(memPrefix, ''),
+        content: (item.text || '').trim(),
+        size: Buffer.byteLength(item.text || '', 'utf-8'),
+      }));
+      fileInfos.sort((a, b) => {
+        const aPri = PRIORITY_PATTERNS.some(p => p.test(a.name)) ? 0 : 1;
+        const bPri = PRIORITY_PATTERNS.some(p => p.test(b.name)) ? 0 : 1;
+        if (aPri !== bPri) return aPri - bPri;
+        return a.size - b.size;
+      });
+
+      const memories = [];
+      let totalSize = 0;
+      for (const info of fileInfos) {
+        if (info.size > MAX_SINGLE_FILE || !info.content) continue;
+        if (totalSize + info.size > MAX_CONTEXT_BYTES) {
+          memories.push('[Memory truncated — more files not loaded due to size limit]');
+          break;
+        }
+        const displayName = info.name.replace(/\.[^.]+$/, '').replace(/_/g, ' ');
+        memories.push(`## ${displayName}\n${info.content}`);
+        totalSize += info.size;
+      }
+      if (memories.length > 0) {
+        memoryContext = '\n\n--- MEMORY (persistent knowledge) ---\n' + memories.join('\n\n') + '\n--- END MEMORY ---\n';
+      }
+    }
+
+    // ── Load personality files ──
+    const persPrefix = `csimple_personality_${userId}_`;
+    const { Items: persItems } = await dynamodb.send(new ScanCommand({
+      TableName: TABLE_NAME,
+      FilterExpression: 'begins_with(id, :prefix)',
+      ExpressionAttributeValues: { ':prefix': persPrefix },
+    }));
+
+    let personalityContext = '';
+    if (persItems && persItems.length > 0) {
+      const sections = persItems
+        .map(item => (item.text || '').trim())
+        .filter(Boolean);
+      if (sections.length > 0) {
+        personalityContext = '\n\n---\n' + sections.join('\n\n---\n') + '\n\n---\n';
+      }
+    }
+
+    // ── Load behavior file ──
+    let behaviorContext = '';
+    if (behaviorName && VALID_BEHAVIOR_NAME.test(behaviorName)) {
+      const bhvId = `csimple_behavior_${userId}_${behaviorName}`;
+      try {
+        const { Item } = await dynamodb.send(new GetCommand({
+          TableName: TABLE_NAME,
+          Key: { id: bhvId, createdAt: CSIMPLE_CREATED_AT },
+        }));
+        if (Item?.text) {
+          behaviorContext = '\n\n--- BEHAVIOR INSTRUCTIONS ---\n' + Item.text.trim() + '\n--- END BEHAVIOR ---\n';
+        }
+      } catch { /* behavior not found — ok */ }
+    }
+
+    res.status(200).json({
+      memoryContext,
+      personalityContext,
+      behaviorContext,
+      hasMemory: memoryContext.length > 0,
+      hasPersonality: personalityContext.length > 0,
+      hasBehavior: behaviorContext.length > 0,
+    });
+  } catch (error) {
+    console.error('[CSimple] Error loading user context:', error);
+    res.status(500);
+    throw new Error('Failed to load user context');
+  }
+});
+
 module.exports = {
   getCSimpleSettings,
   updateCSimpleSettings,
@@ -424,4 +737,12 @@ module.exports = {
   getCSimpleBehavior,
   updateCSimpleBehavior,
   deleteCSimpleBehavior,
+  getCSimpleMemoryFiles,
+  getCSimpleMemoryFile,
+  updateCSimpleMemoryFile,
+  deleteCSimpleMemoryFile,
+  getCSimplePersonalityFiles,
+  getCSimplePersonalityFile,
+  updateCSimplePersonalityFile,
+  getCSimpleUserContext,
 };

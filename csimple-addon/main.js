@@ -5,7 +5,7 @@
  * No main window — tray-only app with status menu.
  */
 
-const { app, BrowserWindow, Notification, shell } = require('electron');
+const { app, BrowserWindow, Notification, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -32,7 +32,111 @@ let updateManager = null;
 
 // ─── Resource Paths ─────────────────────────────────────────────────────────────
 
-const RESOURCES_PATH = path.join(os.homedir(), 'Documents', 'CSimple', 'Resources');
+const CONFIG_DIR = app.getPath('userData');
+const RESOURCES_CONFIG_PATH = path.join(CONFIG_DIR, 'resources-path.json');
+const DEFAULT_RESOURCES_PATH = path.join(os.homedir(), 'Documents', 'CSimple', 'Resources');
+
+/**
+ * Read the stored resources folder location, or return the default.
+ */
+function getResourcesPath() {
+  try {
+    if (fs.existsSync(RESOURCES_CONFIG_PATH)) {
+      const config = JSON.parse(fs.readFileSync(RESOURCES_CONFIG_PATH, 'utf-8'));
+      if (config.resourcesPath && fs.existsSync(path.dirname(config.resourcesPath))) {
+        return config.resourcesPath;
+      }
+    }
+  } catch (err) {
+    console.error('[Main] Error reading resources config:', err.message);
+  }
+  return DEFAULT_RESOURCES_PATH;
+}
+
+/**
+ * Persist the resources folder location.
+ */
+function saveResourcesPath(resourcesPath) {
+  try {
+    fs.writeFileSync(RESOURCES_CONFIG_PATH, JSON.stringify({ resourcesPath }, null, 2), 'utf-8');
+    console.log(`[Main] Resources path saved: ${resourcesPath}`);
+  } catch (err) {
+    console.error('[Main] Error saving resources config:', err.message);
+  }
+}
+
+/**
+ * Prompt user to choose resources folder (first run only).
+ * Returns the chosen path, or the default if the user cancels.
+ */
+async function promptResourcesFolder() {
+  const result = await dialog.showMessageBox(null, {
+    type: 'question',
+    title: 'CSimple Addon — Resources Folder',
+    message: 'Where would you like to store CSimple data?',
+    detail: `This folder holds your memory, personality, behavior files, and agents.\n\nDefault: ${DEFAULT_RESOURCES_PATH}`,
+    buttons: ['Use Default', 'Choose Folder', 'Cancel'],
+    defaultId: 0,
+    cancelId: 2,
+  });
+
+  if (result.response === 1) {
+    const folderResult = await dialog.showOpenDialog(null, {
+      title: 'Choose CSimple Resources Folder',
+      defaultPath: DEFAULT_RESOURCES_PATH,
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    if (!folderResult.canceled && folderResult.filePaths.length > 0) {
+      return folderResult.filePaths[0];
+    }
+  }
+  return DEFAULT_RESOURCES_PATH;
+}
+
+/**
+ * Let user change resources folder via dialog. Moves existing files.
+ */
+async function changeResourcesFolder() {
+  const currentPath = getResourcesPath();
+  const folderResult = await dialog.showOpenDialog(null, {
+    title: 'Change CSimple Resources Folder',
+    defaultPath: currentPath,
+    properties: ['openDirectory', 'createDirectory'],
+  });
+
+  if (folderResult.canceled || folderResult.filePaths.length === 0) return;
+  const newPath = folderResult.filePaths[0];
+  if (newPath === currentPath) return;
+
+  // Move existing files if the old folder exists
+  try {
+    if (fs.existsSync(currentPath)) {
+      const items = fs.readdirSync(currentPath);
+      for (const item of items) {
+        const src = path.join(currentPath, item);
+        const dest = path.join(newPath, item);
+        if (!fs.existsSync(dest)) {
+          fs.cpSync(src, dest, { recursive: true });
+        }
+      }
+      console.log(`[Main] Copied resources from ${currentPath} → ${newPath}`);
+    }
+  } catch (err) {
+    console.error('[Main] Error moving resources:', err.message);
+  }
+
+  saveResourcesPath(newPath);
+  // Expose updated path so the server can pick it up
+  global.CSIMPLE_RESOURCES_PATH = newPath;
+
+  trayManager?.notify('CSimple Addon', `Resources folder changed to:\n${newPath}\n\nRestarting server...`);
+  await restartExpressServer();
+}
+
+// Make resources path available to server modules
+let RESOURCES_PATH = getResourcesPath();
+global.CSIMPLE_RESOURCES_PATH = RESOURCES_PATH;
+
 const WEBAPP_URL = 'https://sthopwood.com/net';
 const SCRIPTS_PATH = app.isPackaged
   ? path.join(process.resourcesPath, 'scripts')
@@ -42,13 +146,14 @@ const REQUIREMENTS_PATH = path.join(SCRIPTS_PATH, 'requirements.txt');
 // ─── Directory Setup ────────────────────────────────────────────────────────────
 
 function ensureDirectories() {
+  const rp = getResourcesPath();
   const dirs = [
-    RESOURCES_PATH,
-    path.join(RESOURCES_PATH, 'Behaviors'),
-    path.join(RESOURCES_PATH, 'Memory'),
-    path.join(RESOURCES_PATH, 'Personality'),
-    path.join(RESOURCES_PATH, 'Agents'),
-    path.join(RESOURCES_PATH, 'Agents', 'avatars'),
+    rp,
+    path.join(rp, 'Behaviors'),
+    path.join(rp, 'Memory'),
+    path.join(rp, 'Personality'),
+    path.join(rp, 'Agents'),
+    path.join(rp, 'Agents', 'avatars'),
   ];
 
   for (const dir of dirs) {
@@ -59,7 +164,7 @@ function ensureDirectories() {
   }
 
   // Create default behavior file if missing
-  const defaultBehavior = path.join(RESOURCES_PATH, 'Behaviors', 'default.txt');
+  const defaultBehavior = path.join(rp, 'Behaviors', 'default.txt');
   if (!fs.existsSync(defaultBehavior)) {
     fs.writeFileSync(defaultBehavior, 
       'You are a helpful AI assistant. Be concise and informative in your responses.\n' +
@@ -167,6 +272,17 @@ app.on('ready', async () => {
     app.dock?.hide();
   }
 
+  // 0. First-run: prompt for resources folder location
+  const firstRunConfig = path.join(CONFIG_DIR, '.resources-configured');
+  if (!fs.existsSync(firstRunConfig)) {
+    const chosenPath = await promptResourcesFolder();
+    saveResourcesPath(chosenPath);
+    RESOURCES_PATH = chosenPath;
+    global.CSIMPLE_RESOURCES_PATH = chosenPath;
+    fs.writeFileSync(firstRunConfig, new Date().toISOString(), 'utf-8');
+    console.log(`[Main] First-run resources path: ${chosenPath}`);
+  }
+
   // 1. Ensure directories exist
   ensureDirectories();
 
@@ -174,7 +290,8 @@ app.on('ready', async () => {
   trayManager = new TrayManager();
   trayManager.create({
     onOpenWebApp: () => shell.openExternal(WEBAPP_URL),
-    onOpenResources: () => shell.openPath(RESOURCES_PATH),
+    onOpenResources: () => shell.openPath(getResourcesPath()),
+    onChangeResourcesFolder: () => changeResourcesFolder(),
     onRestartServer: () => restartExpressServer(),
     onSetupPython: () => {
       if (pythonManager) {

@@ -488,6 +488,25 @@ export async function executeWorkspaceScript(filename, args = []) {
 }
 
 /**
+ * Open a workspace file in the OS default viewer.
+ */
+export async function openFile(filePath) {
+  const res = await addonFetch('/api/open-file', {
+    method: 'POST',
+    body: JSON.stringify({ path: filePath }),
+  });
+  return res.json();
+}
+
+/**
+ * Get the addon base URL for building preview links.
+ * Returns null if addon is not connected.
+ */
+export function getAddonBaseUrl() {
+  return _addonStatus.isConnected ? _addonStatus.baseUrl : null;
+}
+
+/**
  * Get action bridge status.
  */
 export async function getActionBridgeStatus() {
@@ -683,5 +702,121 @@ export async function deleteCloudBehavior(token, name) {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error('Failed to delete behavior from cloud');
+  return res.json();
+}
+
+// ─── Cloud Memory Files API ─────────────────────────────────────────────────
+
+/**
+ * List memory files from the cloud.
+ * @param {string} token - JWT auth token
+ */
+export async function getCloudMemoryFiles(token) {
+  const res = await fetch(`${getPortfolioApiUrl()}/csimple/memory`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return { files: [] };
+  return res.json();
+}
+
+/**
+ * Get a specific memory file from the cloud.
+ * @param {string} token - JWT auth token
+ * @param {string} name - Memory filename
+ */
+export async function getCloudMemoryFile(token, name) {
+  const res = await fetch(`${getPortfolioApiUrl()}/csimple/memory/${encodeURIComponent(name)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+/**
+ * Save/update a memory file to the cloud.
+ * @param {string} token - JWT auth token
+ * @param {string} name - Memory filename
+ * @param {string} content - Memory file content
+ */
+export async function saveCloudMemoryFile(token, name, content) {
+  const res = await fetch(`${getPortfolioApiUrl()}/csimple/memory/${encodeURIComponent(name)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ content }),
+  });
+  if (!res.ok) throw new Error('Failed to save memory file to cloud');
+  return res.json();
+}
+
+/**
+ * Delete a memory file from the cloud.
+ * @param {string} token - JWT auth token
+ * @param {string} name - Memory filename
+ */
+export async function deleteCloudMemoryFile(token, name) {
+  const res = await fetch(`${getPortfolioApiUrl()}/csimple/memory/${encodeURIComponent(name)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Failed to delete memory file from cloud');
+  return res.json();
+}
+
+// ─── Cloud Personality Files API ────────────────────────────────────────────
+
+/**
+ * List personality files from the cloud.
+ * @param {string} token - JWT auth token
+ */
+export async function getCloudPersonalityFiles(token) {
+  const res = await fetch(`${getPortfolioApiUrl()}/csimple/personality`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return { files: [] };
+  return res.json();
+}
+
+/**
+ * Get a specific personality file from the cloud.
+ * @param {string} token - JWT auth token
+ * @param {string} name - Personality filename
+ */
+export async function getCloudPersonalityFile(token, name) {
+  const res = await fetch(`${getPortfolioApiUrl()}/csimple/personality/${encodeURIComponent(name)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+/**
+ * Save/update a personality file to the cloud.
+ * @param {string} token - JWT auth token
+ * @param {string} name - Personality filename
+ * @param {string} content - Personality file content
+ */
+export async function saveCloudPersonalityFile(token, name, content) {
+  const res = await fetch(`${getPortfolioApiUrl()}/csimple/personality/${encodeURIComponent(name)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ content }),
+  });
+  if (!res.ok) throw new Error('Failed to save personality file to cloud');
+  return res.json();
+}
+
+// ─── Cloud User Context (aggregate) ────────────────────────────────────────
+
+/**
+ * Fetch aggregate user context (memory + personality + behavior) for LLM injection.
+ * @param {string} token - JWT auth token
+ * @param {string} [behaviorFile='default.txt'] - Active behavior file name
+ */
+export async function getCloudUserContext(token, behaviorFile = 'default.txt') {
+  const res = await fetch(
+    `${getPortfolioApiUrl()}/csimple/context?behavior=${encodeURIComponent(behaviorFile)}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!res.ok) return { memoryContext: '', personalityContext: '', behaviorContext: '' };
   return res.json();
 }

@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
+import { openFile, getAddonBaseUrl } from '../../services/csimpleApi';
 import './MessageBubble.css';
 
 // Only render data: or http(s): avatar URLs — drop stale /api/agents/... paths
@@ -41,6 +42,25 @@ function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = 
     setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a); }, 100);
   };
 
+  const handleOpenFile = async (op) => {
+    // For file_save operations (from save_file tool), open via OS default viewer
+    if (op.path) {
+      try {
+        await openFile(op.path);
+      } catch (err) {
+        console.error('Failed to open file:', err);
+      }
+      return;
+    }
+    // For file_create / script_create (from LLM blocks in workspace), open preview in browser
+    const baseUrl = getAddonBaseUrl();
+    if (baseUrl && op.filename) {
+      window.open(`${baseUrl}/api/workspace/preview/${encodeURIComponent(op.filename)}`, '_blank');
+    }
+  };
+
+  const isFileOperation = (type) => ['file_save', 'file_create', 'script_create'].includes(type);
+
   return (
     <div className={`message ${isUser ? 'message--user' : 'message--assistant'} ${message.isError ? 'message--error' : ''}`}>
       <div className="message__row">
@@ -63,16 +83,27 @@ function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = 
             {hasOperations && (
               <div className="message__operations">
                 {message.operations.map((op, i) => (
-                  <div key={i} className={`message__operation message__operation--${op.success ? 'success' : 'error'}`}>
+                  <div key={i} className={`message__operation message__operation--${op.success !== false ? 'success' : 'error'}`}>
                     <span className="message__operation-icon">
-                      {op.type === 'memory_save' ? '🧠' : op.type === 'script_run' ? '▶️' : '📄'}
+                      {op.type === 'memory_save' ? '🧠' : op.type === 'file_save' ? '💾' : op.type === 'script_run' ? '▶️' : '📄'}
                     </span>
-                    <span className="message__operation-label">
-                      {op.type === 'memory_save' && `Saved memory: ${op.filename}`}
-                      {op.type === 'file_create' && `Created file: ${op.filename}`}
-                      {op.type === 'script_create' && `Created script: ${op.filename}`}
-                      {op.type === 'script_run' && `Ran script: ${op.filename}${op.exitCode != null ? ` (exit ${op.exitCode})` : ''}`}
-                    </span>
+                    {isFileOperation(op.type) ? (
+                      <span
+                        className="message__operation-label message__operation-link"
+                        onClick={() => handleOpenFile(op)}
+                        title={op.path || `Click to view ${op.filename}`}
+                      >
+                        {op.type === 'file_save' && `Saved: ${op.filename}`}
+                        {op.type === 'file_create' && `Created: ${op.filename}`}
+                        {op.type === 'script_create' && `Script: ${op.filename}`}
+                        <span className="message__operation-open-hint">↗ Open</span>
+                      </span>
+                    ) : (
+                      <span className="message__operation-label">
+                        {op.type === 'memory_save' && `Saved memory: ${op.filename}`}
+                        {op.type === 'script_run' && `Ran script: ${op.filename}${op.exitCode != null ? ` (exit ${op.exitCode})` : ''}`}
+                      </span>
+                    )}
                     {op.type === 'script_run' && op.stdout && (
                       <pre className="message__operation-output">{op.stdout}</pre>
                     )}
@@ -129,6 +160,11 @@ function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = 
             {showTimestamp && <span className="message__time">{time}</span>}
             {message.generationTime && (
               <span className="message__gen-time">⚡ {message.generationTime}</span>
+            )}
+            {message.tokenUsage && (
+              <span className="message__tokens" title={`Prompt: ${message.tokenUsage.prompt_tokens} | Completion: ${message.tokenUsage.completion_tokens}`}>
+                🔤 {message.tokenUsage.total_tokens} tok
+              </span>
             )}
             {message.modelId && (
               <span className="message__model">{message.modelId.split('/').pop()}</span>

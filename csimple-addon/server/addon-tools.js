@@ -14,7 +14,20 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 
-const RESOURCES_PATH = path.join(os.homedir(), 'Documents', 'CSimple', 'Resources');
+// Read resources path from global (set by main.js) or fall back to default
+function resolveResourcesPath() {
+  if (global.CSIMPLE_RESOURCES_PATH) return global.CSIMPLE_RESOURCES_PATH;
+  try {
+    const configPath = path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'csimple-addon', 'resources-path.json');
+    if (fs.existsSync(configPath)) {
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      if (config.resourcesPath) return config.resourcesPath;
+    }
+  } catch {}
+  return path.join(os.homedir(), 'Documents', 'CSimple', 'Resources');
+}
+
+const RESOURCES_PATH = resolveResourcesPath();
 const MEMORY_PATH = path.join(RESOURCES_PATH, 'Memory');
 const PERSONALITY_PATH = path.join(RESOURCES_PATH, 'Personality');
 const BEHAVIORS_PATH = path.join(RESOURCES_PATH, 'Behaviors');
@@ -66,11 +79,11 @@ const ADDON_TOOL_SCHEMAS = [
     type: 'function',
     function: {
       name: 'type_text',
-      description: 'Type text using the keyboard on the PC. Only use this when the user explicitly wants text physically typed/inputted into their computer, NOT when they ask you to write/compose/generate content.',
+      description: 'Simulate physical keyboard input — literally presses keys on the user\'s PC. ONLY use when the user explicitly wants text typed INTO an already-open application (e.g. "type hello world", "type my password", "fill in the form"). NEVER use for: writing code, writing scripts, writing emails, composing content, answering questions, creating files, generating text. For those, respond in your normal text reply.',
       parameters: {
         type: 'object',
         properties: {
-          text: { type: 'string', description: 'The exact text to type on the keyboard' },
+          text: { type: 'string', description: 'The exact text to physically type on the keyboard' },
         },
         required: ['text'],
       },
@@ -258,6 +271,30 @@ const ADDON_TOOL_SCHEMAS = [
           },
         },
         required: ['actions'],
+      },
+    },
+  },
+
+  // ── File Save Tool ───────────────────────────────────────────────────────────
+
+  {
+    type: 'function',
+    function: {
+      name: 'save_file',
+      description: 'Save/create a file on the user\'s PC. Use this when the user asks to save content (code, text, scripts, etc.) to a specific location like their Desktop, Documents, Downloads, or a custom path. This actually writes the file to disk.',
+      parameters: {
+        type: 'object',
+        properties: {
+          filename: { type: 'string', description: 'Name of the file to create (e.g. "sort_list.py", "notes.txt", "index.html")' },
+          content: { type: 'string', description: 'Full content of the file to save' },
+          location: {
+            type: 'string',
+            enum: ['desktop', 'documents', 'downloads', 'workspace', 'custom'],
+            description: 'Where to save the file. Use "desktop", "documents", "downloads" for standard folders, "workspace" for the CSimple workspace, or "custom" with custom_path.',
+          },
+          custom_path: { type: 'string', description: 'Absolute directory path when location is "custom" (e.g. "C:\\Projects\\myapp")' },
+        },
+        required: ['filename', 'content', 'location'],
       },
     },
   },
@@ -558,13 +595,18 @@ function toolCallToActionPlan(toolCall, actionService) {
       };
     }
 
+    case 'save_file': {
+      // save_file is handled by executeMemoryTool, not as a PC action
+      return null;
+    }
+
     default:
       return null;
   }
 }
 
 /**
- * Safe path helper — prevents directory traversal.
+ * Sanitise a filename and resolve against a base directory — prevents directory traversal.
  */
 function safePath(filename, baseDir) {
   if (!filename || typeof filename !== 'string') return null;
@@ -640,14 +682,62 @@ function executeMemoryTool(toolCall) {
       }
     }
 
+    case 'save_file': {
+      // Resolve the target directory based on location
+      let targetDir;
+      switch (args.location) {
+        case 'desktop':
+          targetDir = path.join(os.homedir(), 'Desktop');
+          break;
+        case 'documents':
+          targetDir = path.join(os.homedir(), 'Documents');
+          break;
+        case 'downloads':
+          targetDir = path.join(os.homedir(), 'Downloads');
+          break;
+        case 'workspace':
+          targetDir = path.join(os.homedir(), 'Documents', 'CSimple', 'Workspace', 'files');
+          break;
+        case 'custom':
+          if (!args.custom_path) return { executed: true, result: 'Error: custom_path is required when location is "custom"' };
+          targetDir = args.custom_path;
+          break;
+        default:
+          targetDir = path.join(os.homedir(), 'Desktop');
+      }
+
+      // Security: don't allow saving to system dirs
+      const normalizedDir = path.resolve(targetDir).toLowerCase();
+      const blockedPrefixes = ['c:\\windows', 'c:\\program files', 'c:\\programdata', '/usr', '/bin', '/sbin', '/etc'];
+      if (blockedPrefixes.some(p => normalizedDir.startsWith(p))) {
+        return { executed: true, result: `Error: Cannot save files to ${targetDir} — system directory` };
+      }
+
+      const filename = args.filename.replace(/\0/g, '').replace(/\.\./g, '').replace(/[\/\\]/g, '').trim();
+      if (!filename) return { executed: true, result: 'Error: invalid filename' };
+
+      try {
+        if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
+        const filePath = path.join(targetDir, filename);
+        if (Buffer.byteLength(args.content || '', 'utf-8') > 5 * 1024 * 1024) {
+          return { executed: true, result: 'Error: content exceeds 5MB limit' };
+        }
+        fs.writeFileSync(filePath, args.content, 'utf-8');
+        console.log(`[Save File] Saved: ${filePath}`);
+        return { executed: true, result: `File saved: ${filePath}`, operation: { type: 'file_save', filename, path: filePath, location: args.location } };
+      } catch (err) {
+        return { executed: true, result: `Error saving file: ${err.message}` };
+      }
+    }
+
     default:
       return { executed: false };
   }
 }
 
-/** Check if a tool call is a memory/personality/behavior tool (not a PC action). */
+/** Check if a tool call is a memory/personality/behavior/file tool (not a PC action). */
 function isMemoryTool(toolName) {
-  return ['update_memory', 'delete_memory', 'update_personality', 'update_behavior'].includes(toolName);
+  return ['update_memory', 'delete_memory', 'update_personality', 'update_behavior', 'save_file'].includes(toolName);
 }
 
 module.exports = { ADDON_TOOL_SCHEMAS, toolCallToActionPlan, executeMemoryTool, isMemoryTool };

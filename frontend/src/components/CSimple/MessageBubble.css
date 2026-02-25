@@ -277,6 +277,33 @@
   font-family: var(--font-mono, monospace);
 }
 
+.message__operation-link {
+  cursor: pointer;
+  color: #60a5fa;
+  transition: color 0.15s, text-decoration 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.message__operation-link:hover {
+  color: #93bbfc;
+  text-decoration: underline;
+}
+
+.message__operation-open-hint {
+  font-size: 10px;
+  font-weight: 400;
+  opacity: 0;
+  transition: opacity 0.15s;
+  color: #818cf8;
+  font-family: var(--font-sans, system-ui, sans-serif);
+}
+
+.message__operation-link:hover .message__operation-open-hint {
+  opacity: 1;
+}
+
 .message__operation-output {
   width: 100%;
   margin: 2px 0 0;

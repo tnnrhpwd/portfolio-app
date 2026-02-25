@@ -1,4 +1,4 @@
-const { DynamoDBDocumentClient, PutCommand, UpdateCommand, GetCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, PutCommand, UpdateCommand, GetCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
 const crypto = require('crypto');
 const { 
     initializeLLMClients, 
@@ -8,6 +8,99 @@ const {
 } = require('../utils/llmProviders.js');
 const { getGoalsSummary, logAction } = require('./memoryService.js');
 const { TOOL_SCHEMAS, executeTool } = require('./netTools.js');
+
+// Constants for user context loading
+const CSIMPLE_CREATED_AT = '2000-01-01T00:00:00.000Z';
+const MAX_CONTEXT_BYTES = 16 * 1024;
+const MAX_SINGLE_FILE = 32 * 1024;
+const CTX_PRIORITY_PATTERNS = [/^user/i, /profile/i, /preference/i, /identity/i, /name/i];
+
+/**
+ * Load user's CSimple context (memory, personality, behavior) directly from DynamoDB.
+ * This is the same logic as the /csimple/context endpoint but called internally.
+ */
+async function loadUserContextFromDB(dynamodb, userId, behaviorFile = 'default.txt') {
+    const TABLE_NAME = 'Simple';
+
+    // ── Load memory files ──
+    const memPrefix = `csimple_memory_${userId}_`;
+    const { Items: memItems } = await dynamodb.send(new ScanCommand({
+        TableName: TABLE_NAME,
+        FilterExpression: 'begins_with(id, :prefix)',
+        ExpressionAttributeValues: { ':prefix': memPrefix },
+    }));
+
+    let memoryContext = '';
+    if (memItems && memItems.length > 0) {
+        const fileInfos = memItems.map(item => ({
+            name: item.id.replace(memPrefix, ''),
+            content: (item.text || '').trim(),
+            size: Buffer.byteLength(item.text || '', 'utf-8'),
+        }));
+        fileInfos.sort((a, b) => {
+            const aPri = CTX_PRIORITY_PATTERNS.some(p => p.test(a.name)) ? 0 : 1;
+            const bPri = CTX_PRIORITY_PATTERNS.some(p => p.test(b.name)) ? 0 : 1;
+            if (aPri !== bPri) return aPri - bPri;
+            return a.size - b.size;
+        });
+
+        const memories = [];
+        let totalSize = 0;
+        for (const info of fileInfos) {
+            if (info.size > MAX_SINGLE_FILE || !info.content) continue;
+            if (totalSize + info.size > MAX_CONTEXT_BYTES) {
+                memories.push('[Memory truncated — more files not loaded due to size limit]');
+                break;
+            }
+            const displayName = info.name.replace(/\.[^.]+$/, '').replace(/_/g, ' ');
+            memories.push(`## ${displayName}\n${info.content}`);
+            totalSize += info.size;
+        }
+        if (memories.length > 0) {
+            memoryContext = '\n\n--- MEMORY (persistent knowledge) ---\n' + memories.join('\n\n') + '\n--- END MEMORY ---\n';
+        }
+    }
+
+    // ── Load personality files ──
+    const persPrefix = `csimple_personality_${userId}_`;
+    const { Items: persItems } = await dynamodb.send(new ScanCommand({
+        TableName: TABLE_NAME,
+        FilterExpression: 'begins_with(id, :prefix)',
+        ExpressionAttributeValues: { ':prefix': persPrefix },
+    }));
+
+    let personalityContext = '';
+    if (persItems && persItems.length > 0) {
+        const sections = persItems.map(item => (item.text || '').trim()).filter(Boolean);
+        if (sections.length > 0) {
+            personalityContext = '\n\n---\n' + sections.join('\n\n---\n') + '\n\n---\n';
+        }
+    }
+
+    // ── Load behavior file ──
+    let behaviorContext = '';
+    if (behaviorFile) {
+        try {
+            const bhvId = `csimple_behavior_${userId}_${behaviorFile}`;
+            const { Item } = await dynamodb.send(new GetCommand({
+                TableName: TABLE_NAME,
+                Key: { id: bhvId, createdAt: CSIMPLE_CREATED_AT },
+            }));
+            if (Item?.text) {
+                behaviorContext = '\n\n--- BEHAVIOR INSTRUCTIONS ---\n' + Item.text.trim() + '\n--- END BEHAVIOR ---\n';
+            }
+        } catch { /* behavior not found — ok */ }
+    }
+
+    return {
+        memoryContext,
+        personalityContext,
+        behaviorContext,
+        hasMemory: memoryContext.length > 0,
+        hasPersonality: personalityContext.length > 0,
+        hasBehavior: behaviorContext.length > 0,
+    };
+}
 
 /**
  * Parse compression request data
@@ -115,9 +208,10 @@ async function getUserGithubToken(dynamodb, userId) {
  * @param {string|null} githubToken - Per-user GitHub PAT (only for provider='github')
  * @param {string|null} goalsSummary - User's goals context
  * @param {object|null} toolContext - { userId, userEmail, userName } for tool execution
+ * @param {object|null} userContext - { memoryContext, personalityContext, behaviorContext } from DB
  * @returns {Object} LLM response (final, after any tool calls are resolved)
  */
-async function callLLMApi(provider, model, userInput, githubToken = null, goalsSummary = null, toolContext = null) {
+async function callLLMApi(provider, model, userInput, githubToken = null, goalsSummary = null, toolContext = null, userContext = null) {
     await initializeLLMClients();
     
     console.log(`🤖 Starting ${provider.toUpperCase()} API call...`);
@@ -149,10 +243,25 @@ async function callLLMApi(provider, model, userInput, githubToken = null, goalsS
         'Be concise and helpful. When you use a tool, also include a brief conversational response explaining what you did.',
         'Each message in the conversation is prefixed with a timestamp in brackets like [1/15/2025, 2:30:00 PM]. Use these timestamps for temporal context — you can reference when things were said, how much time has passed, and be aware of the current date and time.',
         'When the user asks you to write, create, or generate content (code, scripts, emails, documents, etc.), present the content directly in your response using proper formatting (e.g. code blocks for code). If the content might be useful to save, briefly mention they can copy it or ask you to save it as a note.',
+        // Auto-memory system: let the LLM save persistent facts
+        'AUTO-MEMORY: You can save important facts about the user (name, preferences, important dates, context) by including a [MEMORY_SAVE:filename] block in your response. Format:\n[MEMORY_SAVE:user_profile.md]\n- Name: John\n- Preference: dark mode\n[/MEMORY_SAVE]\nUse this when the user shares personal info, asks you to remember something, or reveals preferences. Keep memory files small and focused. Do NOT announce the memory save to the user — just do it silently alongside your normal response.',
     ];
 
     if (goalsSummary) {
         systemParts.push(`\nThe following is context about the user's goals and priorities — use this to personalize your responses when relevant:\n\n${goalsSummary}`);
+    }
+
+    // Inject user context from cloud DB (memory, personality, behavior)
+    if (userContext) {
+        if (userContext.personalityContext) {
+            systemParts.push(userContext.personalityContext);
+        }
+        if (userContext.memoryContext) {
+            systemParts.push(userContext.memoryContext);
+        }
+        if (userContext.behaviorContext) {
+            systemParts.push(userContext.behaviorContext);
+        }
     }
 
     messages.unshift({
@@ -329,6 +438,75 @@ async function saveCompressedData(dynamodb, userId, userInput, compressedData, u
 }
 
 /**
+ * Parse and save [MEMORY_SAVE:filename] blocks from LLM responses to cloud DB.
+ * Mirrors the addon's processMemorySaves() but writes to DynamoDB instead of local files.
+ * Returns cleaned content (blocks stripped) and list of saved memories.
+ */
+async function processCloudMemorySaves(dynamodb, userId, responseText) {
+    if (!responseText) return { cleanedContent: responseText, savedMemories: [] };
+
+    const MEMORY_SAVE_REGEX = /\[MEMORY_SAVE:([^\]]+)\]\s*\n([\s\S]*?)\[\/MEMORY_SAVE\]/g;
+    const savedMemories = [];
+    let match;
+
+    while ((match = MEMORY_SAVE_REGEX.exec(responseText)) !== null) {
+        const rawFilename = match[1].trim();
+        const content = match[2].trim();
+
+        // Validate filename (alphanumeric, dots, hyphens, underscores, spaces, parens)
+        if (!/^[a-zA-Z0-9_\-. ()]{1,100}$/.test(rawFilename)) {
+            console.log(`[CloudMemory] Rejected invalid filename: "${rawFilename}"`);
+            continue;
+        }
+
+        // Validate content size (max 32KB)
+        if (Buffer.byteLength(content, 'utf-8') > 32 * 1024) {
+            console.log(`[CloudMemory] Content too large for "${rawFilename}"`);
+            continue;
+        }
+
+        try {
+            const itemId = `csimple_memory_${userId}_${rawFilename}`;
+            const now = new Date().toISOString();
+
+            // Check if exists for logging
+            let isUpdate = false;
+            try {
+                const { Item } = await dynamodb.send(new GetCommand({
+                    TableName: 'Simple',
+                    Key: { id: itemId, createdAt: CSIMPLE_CREATED_AT },
+                }));
+                isUpdate = !!Item;
+            } catch { /* ok */ }
+
+            await dynamodb.send(new PutCommand({
+                TableName: 'Simple',
+                Item: {
+                    id: itemId,
+                    text: content,
+                    createdAt: CSIMPLE_CREATED_AT,
+                    updatedAt: now,
+                },
+            }));
+
+            savedMemories.push({ filename: rawFilename, action: isUpdate ? 'updated' : 'created' });
+            console.log(`[CloudMemory] ${isUpdate ? 'Updated' : 'Created'} memory: ${rawFilename}`);
+        } catch (err) {
+            console.error(`[CloudMemory] Failed to save "${rawFilename}":`, err.message);
+        }
+    }
+
+    // Strip memory save blocks from visible response
+    const cleanedContent = responseText.replace(MEMORY_SAVE_REGEX, '').trim();
+
+    if (savedMemories.length > 0) {
+        console.log(`[CloudMemory] Processed ${savedMemories.length} memory save(s) for user ${userId}`);
+    }
+
+    return { cleanedContent, savedMemories };
+}
+
+/**
  * Process compression request - orchestrates the entire compression flow
  * @param {Object} req - Express request object
  * @param {Object} dynamodb - DynamoDB client
@@ -367,6 +545,7 @@ async function processCompressionRequest(req, dynamodb) {
     // Build tool context for Net: chat messages (enables function calling)
     // Only Net: chat gets tools — other compression requests remain plain text
     let toolContext = null;
+    let behaviorFile = 'default.txt';
     try {
         const parsed = JSON.parse(userInput);
         if (parsed.message && Array.isArray(parsed.conversationHistory)) {
@@ -375,14 +554,33 @@ async function processCompressionRequest(req, dynamodb) {
                 userEmail: req.user.email || null,
                 userName: req.user.nickname || req.user.name || null,
             };
+            behaviorFile = parsed.behaviorFile || 'default.txt';
             console.log('[llmService] Net: chat detected — enabling tool-use');
         }
     } catch {
         // Not a Net: chat payload — no tools
     }
 
+    // Load user context (memory, personality, behavior) from cloud DB
+    let userContext = null;
+    try {
+        userContext = await loadUserContextFromDB(dynamodb, req.user.id, behaviorFile);
+        if (userContext) {
+            const parts = [
+                userContext.hasMemory ? 'memory' : null,
+                userContext.hasPersonality ? 'personality' : null,
+                userContext.hasBehavior ? 'behavior' : null,
+            ].filter(Boolean);
+            if (parts.length > 0) {
+                console.log(`[llmService] Injecting user context: ${parts.join(', ')}`);
+            }
+        }
+    } catch (err) {
+        console.warn('[llmService] Failed to load user context:', err.message);
+    }
+
     // Call LLM API (with tools if Net: chat)
-    const response = await callLLMApi(provider, model, userInput, githubToken, goalsSummary, toolContext);
+    const response = await callLLMApi(provider, model, userInput, githubToken, goalsSummary, toolContext, userContext);
     
     // Track API usage
     await trackApiUsageAfterCall(req.user.id, provider, model, response, userInput);
@@ -390,10 +588,18 @@ async function processCompressionRequest(req, dynamodb) {
     // Check if response has content
     const content = response?.choices?.[0]?.message?.content;
     if (content && content.length > 0) {
-        const compressedData = content;
+        // Process any [MEMORY_SAVE:filename] blocks in the LLM response
+        const { cleanedContent, savedMemories } = await processCloudMemorySaves(dynamodb, req.user.id, content);
+
+        const compressedData = cleanedContent;
         
         // Save to DynamoDB
         const result = await saveCompressedData(dynamodb, req.user.id, userInput, compressedData, updateId);
+        
+        // Attach memory save info to result for frontend awareness
+        if (savedMemories.length > 0) {
+            result.memorySaves = savedMemories;
+        }
         
         // Auto-log the action (fire-and-forget — don't block the response)
         try {

@@ -124,6 +124,7 @@ class GitHubModelsService {
       generationTime: `${elapsed}s`,
       toolCalls,
       message: choice?.message, // Full message object for multi-turn tool loops
+      usage: data.usage || null, // { prompt_tokens, completion_tokens, total_tokens }
     };
   }
 
@@ -169,6 +170,7 @@ class GitHubModelsService {
       text: choice?.message?.content?.trim() || '',
       toolCalls: choice?.message?.tool_calls || null,
       message: choice?.message,
+      usage: data.usage || null,
     };
   }
 

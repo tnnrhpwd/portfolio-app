@@ -47,8 +47,21 @@ function resolveScriptsPath() {
 const SCRIPTS_PATH = resolveScriptsPath();
 const HF_SCRIPT = path.join(SCRIPTS_PATH, 'run_hf_model.py');
 
-// CSimple Resources path (user data directory)
-const RESOURCES_PATH = path.join(os.homedir(), 'Documents', 'CSimple', 'Resources');
+// CSimple Resources path — reads from global (set by main.js) or falls back to default
+function resolveResourcesPath() {
+  if (global.CSIMPLE_RESOURCES_PATH) return global.CSIMPLE_RESOURCES_PATH;
+  // Fallback: read config file directly
+  try {
+    const configPath = path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'csimple-addon', 'resources-path.json');
+    if (fs.existsSync(configPath)) {
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      if (config.resourcesPath) return config.resourcesPath;
+    }
+  } catch {}
+  return path.join(os.homedir(), 'Documents', 'CSimple', 'Resources');
+}
+
+const RESOURCES_PATH = resolveResourcesPath();
 const SETTINGS_PATH = path.join(RESOURCES_PATH, 'settings.json');
 const BEHAVIORS_PATH = path.join(RESOURCES_PATH, 'Behaviors');
 const MEMORY_PATH = path.join(RESOURCES_PATH, 'Memory');
@@ -61,6 +74,97 @@ for (const dir of dirs) {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
+}
+
+// ─── Token Estimation ───────────────────────────────────────────────────────────
+
+/**
+ * Rough token estimation: ~4 chars per token for English text.
+ * Good enough for budgeting — real tokenizers are slower.
+ */
+function estimateTokens(text) {
+  if (!text) return 0;
+  return Math.ceil(text.length / 4);
+}
+
+/**
+ * Estimate tokens for the tool schemas JSON.
+ */
+let _toolSchemaTokens = null;
+function estimateToolSchemaTokens(tools) {
+  if (!tools || tools.length === 0) return 0;
+  if (_toolSchemaTokens && tools.length === ADDON_TOOL_SCHEMAS.length) return _toolSchemaTokens;
+  const count = estimateTokens(JSON.stringify(tools));
+  if (tools.length === ADDON_TOOL_SCHEMAS.length) _toolSchemaTokens = count;
+  return count;
+}
+
+/**
+ * Trim conversation history to fit within a token budget.
+ * Strategy:
+ *  1. Always keep the last N messages (recent context is most important)
+ *  2. If history exceeds budget, summarize the oldest messages into one "recap" message
+ *  3. Strip timestamps from history messages (redundant — LLM doesn't need them)
+ *
+ * @param {Array} history - [{role, content}]
+ * @param {number} budgetTokens - max tokens to spend on history
+ * @returns {Array} trimmed history
+ */
+function trimConversationHistory(history, budgetTokens = 2000) {
+  if (!history || history.length === 0) return [];
+
+  // Strip embedded timestamps that the frontend prepends (waste of tokens)
+  const stripped = history.map(m => {
+    const content = typeof m.content === 'string'
+      ? m.content.replace(/^\[\d{1,2}\/\d{1,2}\/\d{4},?\s*\d{1,2}:\d{2}:\d{2}\s*[AP]M\]\s*/i, '')
+      : m.content;
+    return { role: m.role, content };
+  });
+
+  // Estimate current total
+  let total = stripped.reduce((sum, m) => sum + estimateTokens(m.content), 0);
+  if (total <= budgetTokens) return stripped;
+
+  // Keep at least the last 6 messages (3 user + 3 assistant turns)
+  const KEEP_RECENT = Math.min(6, stripped.length);
+  const recent = stripped.slice(-KEEP_RECENT);
+  const older = stripped.slice(0, -KEEP_RECENT);
+
+  if (older.length === 0) {
+    // Even the recent messages exceed budget — just truncate content of older recent messages
+    return recent;
+  }
+
+  // Build a compact summary of the older messages
+  const recentTokens = recent.reduce((sum, m) => sum + estimateTokens(m.content), 0);
+  const remainingBudget = Math.max(200, budgetTokens - recentTokens);
+
+  // Summarize older messages into key points
+  const keyFacts = [];
+  for (const m of older) {
+    // Extract first meaningful sentence or short snippet
+    const text = m.content || '';
+    if (text.length < 100) {
+      keyFacts.push(`${m.role}: ${text}`);
+    } else {
+      keyFacts.push(`${m.role}: ${text.substring(0, 80)}...`);
+    }
+  }
+  let summary = '[Earlier conversation summary]\n' + keyFacts.join('\n');
+
+  // Truncate summary to fit budget
+  while (estimateTokens(summary) > remainingBudget && summary.length > 100) {
+    // Remove oldest lines from summary
+    const lines = summary.split('\n');
+    if (lines.length <= 2) break;
+    lines.splice(1, 1); // Remove second line (first is the header)
+    summary = lines.join('\n');
+  }
+
+  const summaryMsg = { role: 'system', content: summary };
+  console.log(`[TokenOptim] Trimmed history: ${stripped.length} msgs → summary (${estimateTokens(summary)} tok) + ${recent.length} recent (${recentTokens} tok) | saved ~${total - estimateTokens(summary) - recentTokens} tokens`);
+
+  return [summaryMsg, ...recent];
 }
 
 // ─── Security Helpers ──────────────────────────────────────────────────────────
@@ -143,48 +247,75 @@ function loadPersonalityContext() {
 /**
  * Load memory context from all files in the Memory directory.
  * Memory files contain persistent knowledge the LLM should reference.
- * Caps total memory context at 8KB to avoid prompt bloat.
+ * Caps total memory context at 16KB to avoid prompt bloat.
+ * Prioritises small user-relevant files; skips oversized legacy files.
  * Returns a formatted string for the system prompt.
  */
-const MAX_MEMORY_CONTEXT_BYTES = 8 * 1024; // 8KB cap for memory in prompt
+const MAX_MEMORY_CONTEXT_BYTES = 16 * 1024; // 16KB cap for memory in prompt
+const MAX_SINGLE_FILE_BYTES = 32 * 1024;    // skip individual files > 32KB
 
 function loadMemoryContext() {
   if (!fs.existsSync(MEMORY_PATH)) return '';
-  
-  try {
-    const files = fs.readdirSync(MEMORY_PATH)
-      .filter(f => !fs.statSync(path.join(MEMORY_PATH, f)).isDirectory())
-      .sort(); // deterministic order
 
-    if (files.length === 0) return '';
+  try {
+    const allFiles = fs.readdirSync(MEMORY_PATH)
+      .filter(f => !fs.statSync(path.join(MEMORY_PATH, f)).isDirectory());
+
+    if (allFiles.length === 0) return '';
+
+    // Build file info with sizes so we can sort smartly
+    const fileInfos = allFiles.map(f => {
+      const fp = path.join(MEMORY_PATH, f);
+      const size = fs.statSync(fp).size;
+      return { name: f, path: fp, size };
+    });
+
+    // Priority order: user-related files first, then by size (small → large)
+    const PRIORITY_PATTERNS = [/^user/i, /profile/i, /preference/i, /identity/i, /name/i];
+    fileInfos.sort((a, b) => {
+      const aPri = PRIORITY_PATTERNS.findIndex(p => p.test(a.name));
+      const bPri = PRIORITY_PATTERNS.findIndex(p => p.test(b.name));
+      const aHasPri = aPri !== -1;
+      const bHasPri = bPri !== -1;
+      if (aHasPri && !bHasPri) return -1;
+      if (!aHasPri && bHasPri) return 1;
+      if (aHasPri && bHasPri) return aPri - bPri; // earlier pattern wins
+      return a.size - b.size; // smaller files first
+    });
 
     const memories = [];
     let totalSize = 0;
-    
-    for (const file of files) {
-      const filePath = path.join(MEMORY_PATH, file);
+    let skipped = 0;
+
+    for (const info of fileInfos) {
+      // Skip individual files that are too large (legacy dumps, logs, etc.)
+      if (info.size > MAX_SINGLE_FILE_BYTES) {
+        console.log(`[Memory] Skipping oversized file: ${info.name} (${(info.size / 1024).toFixed(1)}KB)`);
+        skipped++;
+        continue;
+      }
+
       try {
-        const content = fs.readFileSync(filePath, 'utf-8').trim();
+        const content = fs.readFileSync(info.path, 'utf-8').trim();
         if (!content) continue;
-        
+
         const entrySize = Buffer.byteLength(content, 'utf-8');
         if (totalSize + entrySize > MAX_MEMORY_CONTEXT_BYTES) {
-          // Add truncation notice and stop
-          memories.push(`[Memory truncated — ${files.length - memories.length} more files not loaded due to size limit]`);
+          memories.push(`[Memory truncated — ${fileInfos.length - memories.length - skipped} more files not loaded due to size limit]`);
           break;
         }
-        
-        const name = file.replace(/\.[^.]+$/, '').replace(/_/g, ' ');
-        memories.push(`## ${name}\n${content}`);
+
+        const displayName = info.name.replace(/\.[^.]+$/, '').replace(/_/g, ' ');
+        memories.push(`## ${displayName}\n${content}`);
         totalSize += entrySize;
       } catch (err) {
-        console.log(`[Memory] Failed to read ${file}: ${err.message}`);
+        console.log(`[Memory] Failed to read ${info.name}: ${err.message}`);
       }
     }
 
     if (memories.length === 0) return '';
-    return '\n\n--- MEMORY (persistent knowledge) ---\n' + 
-           memories.join('\n\n') + 
+    return '\n\n--- MEMORY (persistent knowledge) ---\n' +
+           memories.join('\n\n') +
            '\n--- END MEMORY ---\n';
   } catch (err) {
     console.log(`[Memory] Failed to load memory context: ${err.message}`);
@@ -478,6 +609,7 @@ app.post('/api/chat', async (req, res) => {
     topP = 0.9,
     maxLength = 500,
     conversationHistory = [],
+    behaviorFile = 'default.txt',
   } = req.body;
 
   if (!message || !message.trim()) {
@@ -502,7 +634,7 @@ app.post('/api/chat', async (req, res) => {
     const personalityContext = loadPersonalityContext();
     const memoryContext = loadMemoryContext();
     const behaviorContext = loadBehaviorContext(behaviorFile);
-    const capabilitiesNote = `\nYou can execute system actions on this Windows PC using the provided tools: open apps, control volume/media, press keys, type text, play music services, and more. Use tools when the user wants you to do something on their computer. For conversation, questions, or content generation (writing code, essays, etc.), just reply in text.\n\nYou can also create files and scripts using [FILE_CREATE:filename.ext] and [SCRIPT_CREATE:filename.py] / [SCRIPT_RUN:filename.py] blocks in your text responses.\n\nIMPORTANT: The type_text tool physically types on the keyboard. Only use it when the user explicitly wants text typed/inputted into their computer. When they ask you to "write a script", "write an email", "create code", etc., respond with the content in your text reply instead.`;
+    const capabilitiesNote = `\nYou can execute system actions on this Windows PC using the provided tools: open apps, control volume/media, press keys, type text, play music services, save files, and more. Use tools ONLY when the user wants you to physically do something on their computer. For conversation, questions, or content generation, just reply in text — do NOT call any tool.\n\nFILE SAVING:\n- When the user asks to save/create/download a file to a specific location, use the save_file tool. Locations: "desktop", "documents", "downloads", "workspace", or "custom" with a custom_path.\n- Example: "Save this to my desktop" → call save_file with location="desktop"\n- Include the FULL file content in the save_file tool call.\n\nCRITICAL RULE — type_text vs text reply:\n- "Write a Python script" → Reply with the code in your message. Do NOT call type_text.\n- "Write me an email" → Reply with the email in your message. Do NOT call type_text.\n- "Create a function that..." → Reply with the code. Do NOT call type_text.\n- "Type hello world" → Call type_text (user wants keyboard input).\n- "Type my name in the search box" → Call type_text (user wants keyboard input).\nWhen in doubt, reply in text. Only use type_text when the user says "type" as a verb meaning keyboard input.`;
 
     const autoMemoryInstructions = `\n\n--- AUTO-MEMORY SYSTEM ---\nYou have tools to manage persistent memory, personality, and behavior files. Use them PROACTIVELY:\n\n**Memory (update_memory):** Automatically save when the user shares:\n- Personal info (name, job, location, timezone, relationships, pets)\n- Preferences (communication style, favorite tools/languages, interests)\n- Projects they're working on, goals, deadlines\n- Important context they'd want you to remember next session\n- Corrections to things you got wrong\nMerge with existing memories — read what's already in MEMORY above before writing. Organize into logical files (user_profile.md, projects.md, preferences.md, etc.).\n\n**Personality (update_personality):** Update when:\n- User asks you to change your tone, name, or communication style\n- User says things like "be more casual", "don't use emojis", "call me [name]"\n- You learn how they prefer to interact (user.md)\n\n**Behavior (update_behavior):** Update when:\n- User gives you standing instructions ("always show code examples", "prefer Python")\n- User sets up context for a specific workflow\n\nDo NOT announce every memory save — just do it silently. Only mention it if saving something the user explicitly asked you to remember, or if it's a significant update worth confirming.\n--- END AUTO-MEMORY ---`;
 
@@ -510,6 +642,20 @@ app.post('/api/chat', async (req, res) => {
       `\nThe MEMORY section above contains your persistent knowledge from past conversations. Reference it naturally when relevant. If info seems outdated, update it.` : 
       `\nYou have no memories yet. Start building them as the user shares information about themselves.`;
     const augmentedPrompt = (systemPrompt || '') + personalityContext + behaviorContext + memoryContext + capabilitiesNote + autoMemoryInstructions + memoryInstructions;
+
+    // ── Token budget management ─────────────────────────────────
+    // Model context windows: gpt-4o-mini ~128k, gpt-4o ~128k, but GitHub Models
+    // free tier has input token limits per request. Budget conservatively.
+    const MODEL_INPUT_BUDGETS = { 'gpt-4o-mini': 12000, 'gpt-4o': 12000, 'gpt-4.1-mini': 12000, 'gpt-4.1-nano': 8000 };
+    const inputBudget = MODEL_INPUT_BUDGETS[modelId] || 10000;
+    const systemTokens = estimateTokens(augmentedPrompt);
+    const toolSchemaTokens = estimateToolSchemaTokens(ADDON_TOOL_SCHEMAS);
+    const historyBudget = Math.max(500, inputBudget - systemTokens - toolSchemaTokens - estimateTokens(message) - 200 /*buffer*/);
+
+    // Trim conversation history to fit within budget
+    const trimmedHistory = trimConversationHistory(conversationHistory, historyBudget);
+
+    console.log(`[TokenBudget] system=${systemTokens} tools=${toolSchemaTokens} msg=${estimateTokens(message)} histBudget=${historyBudget} histMsgs=${conversationHistory.length}→${trimmedHistory.length}`);
 
     const isGitHubModel = GITHUB_MODELS.some(m => m.id === modelId);
 
@@ -521,6 +667,19 @@ app.post('/api/chat', async (req, res) => {
       }
       githubModelsService.setToken(webappSettings.githubToken);
 
+      // Determine which tools to offer the LLM.
+      // If the message looks like content generation (write/create/code/etc.),
+      // strip type_text so the model literally cannot choose it.
+      const contentGenRe = /\b(write|create|generate|compose|draft|make|build|code|script|program|explain|describe|summarize|help me with|show me|give me|can you|how to|what is|tell me)\b/i;
+      const explicitTypeRe = /^(type|enter|input|fill|put)\b/i;
+      const isContentGen = contentGenRe.test(message) && !explicitTypeRe.test(message.trim());
+      const toolsForCall = isContentGen
+        ? ADDON_TOOL_SCHEMAS.filter(t => t.function.name !== 'type_text')
+        : ADDON_TOOL_SCHEMAS;
+      if (isContentGen) {
+        console.log(`[Guard] Content-generation detected — type_text tool removed from schema`);
+      }
+
       // Send message to LLM with action tools — LLM decides whether to act or chat
       const result = await githubModelsService.chat({
         message,
@@ -528,8 +687,8 @@ app.post('/api/chat', async (req, res) => {
         systemPrompt: augmentedPrompt,
         temperature,
         maxLength,
-        conversationHistory,
-        tools: ADDON_TOOL_SCHEMAS,
+        conversationHistory: trimmedHistory,
+        tools: toolsForCall,
         tool_choice: 'auto',
       });
 
@@ -537,9 +696,43 @@ app.post('/api/chat', async (req, res) => {
       if (result.toolCalls && result.toolCalls.length > 0) {
         console.log(`[${new Date().toISOString()}] LLM chose ${result.toolCalls.length} tool call(s): ${result.toolCalls.map(tc => tc.function.name).join(', ')}`);
 
+        // ── Guard: reject type_text when the user is asking for content generation ──
+        const contentGenPattern = /\b(write|create|generate|compose|draft|make|build|code|script|program|explain|describe|summarize|help me with|show me|give me|can you)\b/i;
+        const explicitTypePattern = /^(type|enter|input|fill|put)\b/i;
+        const filteredToolCalls = result.toolCalls.filter(tc => {
+          if (tc.function.name === 'type_text' && contentGenPattern.test(message) && !explicitTypePattern.test(message.trim())) {
+            console.log(`[Guard] Blocked type_text — user message "${message.substring(0, 60)}" is content generation, not keyboard input`);
+            return false;
+          }
+          return true;
+        });
+
+        // If all tool calls were filtered out, fall through to text response
+        if (filteredToolCalls.length === 0) {
+          // Re-call LLM without tools to get a proper text response
+          const textResult = await githubModelsService.chat({
+            message,
+            modelId,
+            systemPrompt: augmentedPrompt,
+            temperature,
+            maxLength,
+            conversationHistory: trimmedHistory,
+          });
+          const { cleanedText, operations } = await processLLMBlocks(textResult.text);
+          const totalElapsedSec = ((Date.now() - parseStartTime) / 1000).toFixed(2);
+          return res.json({
+            response: cleanedText,
+            modelId,
+            generationTime: `${totalElapsedSec}s`,
+            timestamp: new Date().toISOString(),
+            ...(textResult.usage && { tokenUsage: textResult.usage }),
+            ...(operations.length > 0 && { operations }),
+          });
+        }
+
         // ── Separate memory tools from PC action tools ─────────────
-        const memoryToolCalls = result.toolCalls.filter(tc => isMemoryTool(tc.function.name));
-        const actionToolCalls = result.toolCalls.filter(tc => !isMemoryTool(tc.function.name));
+        const memoryToolCalls = filteredToolCalls.filter(tc => isMemoryTool(tc.function.name));
+        const actionToolCalls = filteredToolCalls.filter(tc => !isMemoryTool(tc.function.name));
 
         let memoryOperations = [];
         let toolResultMessages = [];
@@ -607,7 +800,7 @@ app.post('/api/chat', async (req, res) => {
             // Build messages for the follow-up call: original messages + assistant message with tool_calls + tool results
             const followUpMessages = [
               { role: 'system', content: augmentedPrompt },
-              ...conversationHistory.map(m => ({ role: m.role, content: m.content })),
+              ...trimmedHistory.map(m => ({ role: m.role, content: m.content })),
               { role: 'user', content: message },
               result.message, // assistant message with tool_calls
               ...toolResultMessages,
@@ -660,7 +853,8 @@ app.post('/api/chat', async (req, res) => {
             modelId,
             generationTime: `~${totalEstimatedSec}s`,
             timestamp: new Date().toISOString(),
-            ...(memoryOperations.length > 0 && { memoryOperations }),
+            ...(result.usage && { tokenUsage: result.usage }),
+            ...(memoryOperations.length > 0 && { operations: memoryOperations }),
             action: {
               id: queuedAction.id,
               intent: actionPlan.intent,
@@ -675,13 +869,14 @@ app.post('/api/chat', async (req, res) => {
         if (memoryToolCalls.length > 0) {
           const { cleanedText, operations } = await processLLMBlocks(finalText);
           const totalElapsedSec = ((Date.now() - parseStartTime) / 1000).toFixed(2);
+          const allOperations = [...memoryOperations, ...operations];
           return res.json({
             response: cleanedText,
             modelId,
             generationTime: `${totalElapsedSec}s`,
             timestamp: new Date().toISOString(),
-            ...(memoryOperations.length > 0 && { memoryOperations }),
-            ...(operations.length > 0 && { operations }),
+            ...(result.usage && { tokenUsage: result.usage }),
+            ...(allOperations.length > 0 && { operations: allOperations }),
           });
         }
       }
@@ -694,6 +889,7 @@ app.post('/api/chat', async (req, res) => {
         modelId,
         generationTime: `${totalElapsedSec}s`,
         timestamp: new Date().toISOString(),
+        ...(result.usage && { tokenUsage: result.usage }),
         ...(operations.length > 0 && { operations }),
       });
     }
@@ -706,7 +902,7 @@ app.post('/api/chat', async (req, res) => {
       temperature,
       topP,
       maxLength,
-      conversationHistory,
+      conversationHistory: trimmedHistory,
     });
 
     // Post-process: extract and execute any LLM blocks (MEMORY_SAVE, FILE_CREATE, SCRIPT_CREATE, SCRIPT_RUN)
@@ -1052,6 +1248,68 @@ app.post('/api/workspace/execute', async (req, res) => {
       stderr: result.stderr,
     });
   }
+});
+
+// ─── Open File in System Default Viewer ────────────────────────────────────────
+
+app.post('/api/open-file', (req, res) => {
+  const { path: filePath } = req.body;
+  if (!filePath || typeof filePath !== 'string') {
+    return res.status(400).json({ error: 'File path is required' });
+  }
+
+  // Security: only allow paths within the CSimple Workspace
+  const path = require('path');
+  const fs = require('fs');
+  const workspaceRoot = path.join(require('os').homedir(), 'Documents', 'CSimple', 'Workspace');
+  const resolvedPath = path.resolve(filePath);
+
+  if (!resolvedPath.startsWith(workspaceRoot)) {
+    return res.status(403).json({ error: 'Can only open files within the CSimple Workspace' });
+  }
+
+  if (!fs.existsSync(resolvedPath)) {
+    return res.status(404).json({ error: 'File not found' });
+  }
+
+  // Open with OS default viewer
+  const { exec } = require('child_process');
+  exec(`start "" "${resolvedPath}"`, (err) => {
+    if (err) {
+      console.error('[OpenFile] Error:', err.message);
+      return res.status(500).json({ error: 'Failed to open file' });
+    }
+    res.json({ success: true, path: resolvedPath });
+  });
+});
+
+// Serve workspace file content for in-browser preview
+app.get('/api/workspace/preview/:filename', (req, res) => {
+  const path = require('path');
+  const fs = require('fs');
+  const workspaceRoot = path.join(require('os').homedir(), 'Documents', 'CSimple', 'Workspace', 'files');
+  const safeName = path.basename(req.params.filename); // prevent directory traversal
+  const filePath = path.join(workspaceRoot, safeName);
+
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'File not found' });
+  }
+
+  // Determine MIME type from extension
+  const ext = path.extname(safeName).toLowerCase();
+  const MIME_MAP = {
+    '.html': 'text/html', '.htm': 'text/html',
+    '.css': 'text/css', '.js': 'application/javascript',
+    '.json': 'application/json', '.txt': 'text/plain',
+    '.md': 'text/markdown', '.xml': 'text/xml',
+    '.svg': 'image/svg+xml', '.png': 'image/png',
+    '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif', '.webp': 'image/webp',
+    '.pdf': 'application/pdf',
+  };
+  const contentType = MIME_MAP[ext] || 'text/plain';
+  res.setHeader('Content-Type', contentType);
+  res.sendFile(filePath);
 });
 
 // ─── Vision-based text/element finding ─────────────────────────────────────────

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import MessageBubble from './MessageBubble';
 import ConfirmationPanel from './ConfirmationPanel';
 import './ChatWindow.css';
@@ -10,6 +10,49 @@ const safeAvatarUrl = (url) =>
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/tiff', 'image/avif', 'image/bmp'];
 
+// ── Suggested prompt pool ──────────────────────────────────────────────────
+// Each prompt is tagged: addon = true means it requires the CSimple addon to be
+// connected and up-to-date (PC actions, local file ops, memory tools).
+const SUGGESTION_POOL = [
+  // ── Addon-required: PC actions, file creation, memory ──
+  { text: 'Open Notepad, write a grocery list, and save it to my Desktop', addon: true },
+  { text: 'Create a budget tracker spreadsheet and save it to Documents', addon: true },
+  { text: 'Open Chrome and search for the weather in New York', addon: true },
+  { text: 'Remember my name, birthday, and favorite programming language', addon: true },
+  { text: 'Write a Python script that sorts a CSV file and save it to my Desktop', addon: true },
+  { text: 'Minimize all windows and open Task Manager', addon: true },
+  { text: 'Open File Explorer and create a new folder called Projects', addon: true },
+  { text: 'What do you remember about me? Check your memory files.', addon: true },
+  { text: 'Create a daily planner for this week and save it as a text file', addon: true },
+  { text: 'Open Calculator, figure out a 20% tip on $85, then close it', addon: true },
+  { text: 'Update your personality to be more witty and sarcastic', addon: true },
+  { text: 'Write a batch script to organize my Downloads folder by file type', addon: true },
+  { text: 'Open VS Code and create a new HTML file with a boilerplate template', addon: true },
+  { text: 'Create a workout plan for this week and save it to my Desktop', addon: true },
+  { text: 'Launch Spotify and press play on my current playlist', addon: true },
+  // ── General: work without addon ──
+  { text: 'Explain how transformer models work in machine learning', addon: false },
+  { text: 'Write a React hook for debouncing user input', addon: false },
+  { text: 'Compare Docker vs Kubernetes — when should I use each?', addon: false },
+  { text: 'Help me write a professional email requesting a deadline extension', addon: false },
+  { text: 'Create a regex pattern that validates international phone numbers', addon: false },
+  { text: 'Write a Node.js function to recursively traverse a directory tree', addon: false },
+  { text: 'Explain how JWT authentication works step by step', addon: false },
+  { text: 'Debug this: why does my React component keep re-rendering infinitely?', addon: false },
+  { text: 'Write a Python web scraper using BeautifulSoup with error handling', addon: false },
+  { text: 'Explain the SOLID principles with simple code examples', addon: false },
+];
+
+/** Shuffle an array using Fisher-Yates (returns new array). */
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 function formatFileSize(bytes) {
   if (bytes === 0) return '0 B';
   const k = 1024;
@@ -18,7 +61,7 @@ function formatFileSize(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneration, onToggleSidebar, selectedModel, isOnline, agent, speech, sttEnabled, settings, pendingConfirmation, onConfirmOption, onDismissConfirmation, isConfirming, onTogglePassiveListening }) {
+function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneration, onToggleSidebar, selectedModel, isOnline, agent, speech, sttEnabled, settings, pendingConfirmation, onConfirmOption, onDismissConfirmation, isConfirming, onTogglePassiveListening, isAddonConnected, isAddonOutdated }) {
   const [input, setInput] = useState('');
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [dragActive, setDragActive] = useState(false);
@@ -26,6 +69,14 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
   const dragCounter = useRef(0);
+
+  // ── Randomised suggested prompts (stable per conversation) ──────────────
+  const addonReady = isAddonConnected && !isAddonOutdated;
+  const suggestions = useMemo(() => {
+    const eligible = SUGGESTION_POOL.filter(s => addonReady || !s.addon);
+    return shuffleArray(eligible).slice(0, 4).map(s => s.text);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversation?.id, addonReady]);
 
   // Auto-scroll to bottom on new messages (scoped to the messages box, not the page)
   useEffect(() => {
@@ -225,15 +276,10 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
               )}
             </div>
             <h2>{agent?.name || 'C-Simple AI'} Chat</h2>
-            <p>Send a message to start chatting with your local AI model.</p>
+            <p>Send a message to start chatting{addonReady ? ' — your PC is connected and ready for actions.' : '.'}</p>
             <p className="chat-window__empty-hint">📎 Drop an image to convert, resize, or compress it</p>
             <div className="chat-window__suggestions">
-              {[
-                'Explain how neural networks work',
-                'Write a Python script to sort a list',
-                'What are the benefits of local AI?',
-                'Help me debug my code',
-              ].map((suggestion, i) => (
+              {suggestions.map((suggestion, i) => (
                 <button
                   key={i}
                   className="chat-window__suggestion"

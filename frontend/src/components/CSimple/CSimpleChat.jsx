@@ -47,7 +47,7 @@ const DEFAULT_SETTINGS = {
   sendWithEnter: true,
   showTimestamps: true,
   enableMarkdown: true,
-  maxConversationHistory: 50,
+  maxConversationHistory: 20,
   defaultTemperature: 0.7,
   defaultMaxTokens: 500,
   agents: [{ id: 'default', name: 'C-Simple AI', behaviorFile: 'default.txt', avatarUrl: null, voiceURI: '' }],
@@ -700,6 +700,7 @@ function CSimpleChat({
         modelId: data.modelId,
         action: data.action || null,
         operations: data.operations || null,
+        tokenUsage: data.tokenUsage || null,
       };
 
       setConversations(prev => prev.map(c => {
@@ -845,6 +846,8 @@ function CSimpleChat({
           onConfirmOption={handleConfirmOption}
           onDismissConfirmation={handleDismissConfirmation}
           isConfirming={isConfirming}
+          isAddonConnected={isAddonConnected}
+          isAddonOutdated={addonPromptOutdated}
           onTogglePassiveListening={() => {
             setSettings(prev => {
               const newVal = !prev.sttEnabled;

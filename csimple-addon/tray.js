@@ -29,6 +29,7 @@ class TrayManager {
    * @param {Function} callbacks.onInstallUpdate
    * @param {Function} callbacks.onOpenWebApp
    * @param {Function} callbacks.onOpenResources
+   * @param {Function} callbacks.onChangeResourcesFolder
    * @param {Function} callbacks.onToggleStartAtLogin
    */
   create(callbacks = {}) {
@@ -131,6 +132,10 @@ class TrayManager {
       {
         label: 'Open Resources Folder',
         click: () => this.callbacks.onOpenResources?.(),
+      },
+      {
+        label: 'Change Resources Folder...',
+        click: () => this.callbacks.onChangeResourcesFolder?.(),
       },
       { type: 'separator' },
 

@@ -67,6 +67,14 @@ const {
   getCSimpleBehavior,
   updateCSimpleBehavior,
   deleteCSimpleBehavior,
+  getCSimpleMemoryFiles,
+  getCSimpleMemoryFile,
+  updateCSimpleMemoryFile,
+  deleteCSimpleMemoryFile,
+  getCSimplePersonalityFiles,
+  getCSimplePersonalityFile,
+  updateCSimplePersonalityFile,
+  getCSimpleUserContext,
 } = require('../controllers/csimpleController');
 
 // Memory controller (Goals / Plans / Actions)
@@ -322,6 +330,26 @@ router.route('/csimple/behaviors/:name')
   .get(protect, getCSimpleBehavior)
   .put(protect, sanitizeInput, updateCSimpleBehavior)
   .delete(protect, deleteCSimpleBehavior);
+
+// CSIMPLE MEMORY FILES (cloud storage for AI memory)
+router.route('/csimple/memory')
+  .get(protect, getCSimpleMemoryFiles);
+
+router.route('/csimple/memory/:name')
+  .get(protect, getCSimpleMemoryFile)
+  .put(protect, sanitizeInput, updateCSimpleMemoryFile)
+  .delete(protect, deleteCSimpleMemoryFile);
+
+// CSIMPLE PERSONALITY FILES (cloud storage for AI personality)
+router.route('/csimple/personality')
+  .get(protect, getCSimplePersonalityFiles);
+
+router.route('/csimple/personality/:name')
+  .get(protect, getCSimplePersonalityFile)
+  .put(protect, sanitizeInput, updateCSimplePersonalityFile);
+
+// CSIMPLE USER CONTEXT (aggregate memory + personality + behavior for LLM)
+router.get('/csimple/context', protect, getCSimpleUserContext);
 
 // ============================================================================
 // ANALYTICS (Admin Only)
