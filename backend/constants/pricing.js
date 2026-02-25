@@ -77,12 +77,19 @@ const CREDITS = Object.freeze({
 
 // ──────────────────────────────────────────────
 // Storage (bytes)
+// Uses PLAN_IDS as keys for consistency with other constants.
+// Also includes PLAN_NAMES and legacy aliases for backward compat lookups.
 // ──────────────────────────────────────────────
 const STORAGE_LIMITS = Object.freeze({
-  [PLAN_NAMES[PLAN_IDS.FREE]]:   100 * 1024 * 1024,           // 100 MB
-  [PLAN_NAMES[PLAN_IDS.PRO]]:    5 * 1024 * 1024 * 1024,      // 5 GB
-  [PLAN_NAMES[PLAN_IDS.SIMPLE]]: 50 * 1024 * 1024 * 1024,     // 50 GB
-  // backward compat keys that may exist in DB/lookups
+  // Primary keys: plan IDs (consistent with CREDITS, QUOTAS, FEATURES, etc.)
+  [PLAN_IDS.FREE]:   100 * 1024 * 1024,           // 100 MB
+  [PLAN_IDS.PRO]:    5 * 1024 * 1024 * 1024,      // 5 GB
+  [PLAN_IDS.SIMPLE]: 50 * 1024 * 1024 * 1024,     // 50 GB
+  // Display-name keys (backward compat for DB lookups using user rank strings)
+  [PLAN_NAMES[PLAN_IDS.FREE]]:   100 * 1024 * 1024,
+  [PLAN_NAMES[PLAN_IDS.PRO]]:    5 * 1024 * 1024 * 1024,
+  [PLAN_NAMES[PLAN_IDS.SIMPLE]]: 50 * 1024 * 1024 * 1024,
+  // Legacy aliases
   Flex:    5 * 1024 * 1024 * 1024,
   Premium: 50 * 1024 * 1024 * 1024,
 });

@@ -94,8 +94,25 @@ app.use(compression());
 // Request logging
 app.use(requestLogger);
 
-// Rate limiting
+// Rate limiting — applied once here globally (NOT duplicated in routeData.js)
 app.use('/api/', apiLimiter);
+
+// CSRF defense-in-depth: reject state-changing requests without a custom header.
+// Browsers won't send custom headers in "simple" cross-origin requests without a
+// CORS preflight, which is already restricted above. This adds an extra layer even
+// though JWT bearer auth isn't vulnerable to classic CSRF.
+app.use('/api/', (req, res, next) => {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+  // Stripe webhook sends application/json from server-to-server — exempt it
+  if (req.originalUrl.includes('/webhook')) return next();
+  const ct = (req.headers['content-type'] || '').toLowerCase();
+  const hasCustomHeader = req.headers['authorization'] || req.headers['x-requested-with'];
+  // Allow if there's a custom header OR a non-simple content-type (both trigger preflight)
+  if (hasCustomHeader || (ct && !ct.startsWith('text/plain') && !ct.startsWith('application/x-www-form-urlencoded') && !ct.startsWith('multipart/form-data'))) {
+    return next();
+  }
+  return res.status(403).json({ error: 'Forbidden: missing required request headers.' });
+});
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' })); // Reduced from 50mb for security

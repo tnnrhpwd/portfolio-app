@@ -1,10 +1,23 @@
 const { getStripe, isTestMode, liveStripe } = require('../utils/stripeInstance');
+const crypto = require('crypto');
 // Default stripe instance for backward compat; per-request calls use getStripe(userId)
 const stripe = liveStripe;
-const { DynamoDBDocumentClient, PutCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocumentClient, PutCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
 const { sendEmail } = require('./emailService.js');
 const Data = require('../models/dataModel');
 const { STRIPE_PRODUCT_IDS, PLAN_TO_STRIPE_PRODUCT, STRIPE_PRODUCT_MAP } = require('../constants/pricing');
+
+// Shared DynamoDB client — reused across all calls to avoid creating new clients each invocation
+const _ddbClient = new DynamoDBClient({
+    region: process.env.AWS_REGION,
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    },
+    maxAttempts: 3
+});
+const _dynamodb = DynamoDBDocumentClient.from(_ddbClient);
 
 // Cache for auto-created test-mode product/price IDs so they are only created once
 const testPriceCache = {}; // e.g. { simple: 'price_xxx', pro: 'price_xxx' }
@@ -152,7 +165,8 @@ async function createOrValidateCustomer(req, dynamodb) {
                 console.log(`Correcting customer ID mismatch: ${existingStripeId} -> ${customer.id}`);
             }
         } else {
-            customer = await s.customers.create({ email, name });
+            const idempotencyKey = crypto.randomUUID();
+            customer = await s.customers.create({ email, name }, { idempotencyKey });
             console.log('Created new Stripe customer:', customer.id, 'for email:', email);
             
             if (existingStripeId) {
@@ -226,17 +240,18 @@ async function createSetupIntent(customerId, userId) {
  */
 async function createInvoice(customerId, amount, description, userId) {
     const s = getStripe(userId);
+    const idempotencyKey = `inv_${customerId}_${amount}_${Date.now()}`;
     await s.invoiceItems.create({
         customer: customerId,
         amount,
         currency: 'usd',
         description,
-    });
+    }, { idempotencyKey: `${idempotencyKey}_item` });
     
     const invoice = await s.invoices.create({
         customer: customerId,
         auto_advance: true,
-    });
+    }, { idempotencyKey });
     
     return invoice;
 }
@@ -252,19 +267,10 @@ async function updateUserRank(customerId, rank) {
         const formattedRank = rank.charAt(0).toUpperCase() + rank.slice(1).toLowerCase();
         console.log(`Updating user rank to: ${formattedRank}`);
 
-        // Scan DynamoDB for the user record containing this stripeid
-        const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-        const { DynamoDBDocumentClient: DocClient, ScanCommand, PutCommand: PutCmd } = require('@aws-sdk/lib-dynamodb');
-        const ddbClient = new DynamoDBClient({
-            region: process.env.AWS_REGION,
-            credentials: {
-                accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-                secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-            }
-        });
-        const dynamodb = DocClient.from(ddbClient);
-
-        const scanResult = await dynamodb.send(new ScanCommand({
+        // Use the shared DynamoDB client instead of creating a new one each call
+        // Note: This is still a full-table scan filtered by stripeid.
+        // TODO: Add a GSI on the stripeid field for O(1) lookups.
+        const scanResult = await _dynamodb.send(new ScanCommand({
             TableName: 'Simple',
             FilterExpression: 'contains(#txt, :stripeid)',
             ExpressionAttributeNames: { '#txt': 'text' },
@@ -287,7 +293,7 @@ async function updateUserRank(customerId, rank) {
             updatedText += `|Rank:${formattedRank}`;
         }
 
-        await dynamodb.send(new PutCmd({
+        await _dynamodb.send(new PutCommand({
             TableName: 'Simple',
             Item: {
                 ...userData,
@@ -491,6 +497,7 @@ async function getOrCreatePriceId(membershipType, customPrice = null, userId) {
  */
 async function createSubscription(customerId, priceId, userId) {
     const s = getStripe(userId);
+    const idempotencyKey = `sub_${customerId}_${priceId}_${Date.now()}`;
     const subscription = await s.subscriptions.create({
         customer: customerId,
         items: [{ price: priceId }],
@@ -500,7 +507,7 @@ async function createSubscription(customerId, priceId, userId) {
             payment_method_types: ['card', 'link', 'cashapp']
         },
         expand: ['latest_invoice.payment_intent'],
-    });
+    }, { idempotencyKey });
     
     return subscription;
 }

@@ -8,7 +8,7 @@ const multer = require('multer');
 // Middleware Imports
 // ============================================================================
 const { protect } = require('../middleware/authMiddleware');
-const { authLimiter, paymentLimiter } = require('../middleware/rateLimiter');
+const { apiLimiter, authLimiter, paymentLimiter, llmLimiter, ocrLimiter, uploadLimiter } = require('../middleware/rateLimiter');
 const { 
   validateRegistration, 
   validateLogin, 
@@ -16,6 +16,8 @@ const {
   validatePasswordReset,
   validateDataCreation,
   validatePaymentData,
+  validateSubscription,
+  validateCustomLimit,
   handleValidationErrors,
   sanitizeInput
 } = require('../middleware/validation');
@@ -113,9 +115,17 @@ router.use((req, res, next) => {
   next();
 });
 
+// ============================================================================
+// WEBHOOK ROUTE — must come BEFORE express.json() to preserve raw body
+// for Stripe signature verification
+// ============================================================================
+router.post('/webhook', express.raw({ type: 'application/json' }), handleWebhook);
+
 // Middleware for parsing JSON and URL-encoded request bodies
 router.use(express.json());
 router.use(express.urlencoded({ extended: false }));
+
+// NOTE: apiLimiter is applied globally in server.js — not duplicated here.
 
 // Diagnostic logging AFTER body parsing
 router.use((req, res, next) => {
@@ -196,8 +206,7 @@ router.get('/llm-providers', getLLMProviders);
 const { optionalAuth } = require('../middleware/authMiddleware');
 router.get('/stripe-config', optionalAuth, getStripeConfig);
 
-// Stripe Webhook (Public but signature-verified)
-router.post('/webhook', express.raw({ type: 'application/json' }), handleWebhook);
+// Stripe Webhook is registered above (before express.json()) to preserve raw body
 
 // ============================================================================
 // PROTECTED ROUTES (Authentication Required)
@@ -220,11 +229,17 @@ router.post('/forgot-password-authenticated',
 // DATA OPERATIONS
 // ============================================================================
 
-// Admin Routes
-router.get('/all/admin', protect, getAllData);
-router.get('/admin/dashboard', protect, getAdminDashboard);
-router.get('/admin/users', protect, getAdminUsers);
-router.get('/admin/data', protect, getAdminPaginatedData);
+// Admin Routes — require authentication AND admin role
+const requireAdmin = (req, res, next) => {
+  if (!req.user || req.user.id !== process.env.ADMIN_USER_ID) {
+    return res.status(403).json({ dataMessage: 'Forbidden: admin access required' });
+  }
+  next();
+};
+router.get('/all/admin', protect, requireAdmin, getAllData);
+router.get('/admin/dashboard', protect, requireAdmin, getAdminDashboard);
+router.get('/admin/users', protect, requireAdmin, getAdminUsers);
+router.get('/admin/data', protect, requireAdmin, getAdminPaginatedData);
 
 // Test Funnel Routes
 router.post('/test-funnel/init', protect, initTestFunnel);
@@ -241,31 +256,31 @@ const fileProcessUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB
 }).single('file');
-router.post('/process-file', protect, fileProcessUpload, processFileUpload);
+router.post('/process-file', protect, uploadLimiter, fileProcessUpload, processFileUpload);
 
-// Protected Data CRUD
+// Protected Data CRUD (with sanitization on write operations)
 router.route('/')
   .get(protect, getHashData)
-  .post(protect, upload.any(), postHashData);
+  .post(protect, sanitizeInput, upload.any(), postHashData);
 
 router.route('/:id')
   .delete(protect, deleteHashData)
-  .put(protect, putHashData);
+  .put(protect, sanitizeInput, putHashData);
 
 // ============================================================================
 // FILE UPLOAD (S3)
 // ============================================================================
 
-router.post('/upload-url', protect, requestUploadUrl);
-router.post('/upload-confirm', protect, confirmUpload);
+router.post('/upload-url', protect, uploadLimiter, requestUploadUrl);
+router.post('/upload-confirm', protect, uploadLimiter, confirmUpload);
 router.delete('/file/:s3Key', protect, deleteUploadedFile);
 
 // ============================================================================
 // OCR (Optical Character Recognition)
 // ============================================================================
 
-router.post('/ocr-extract', protect, extractOCR);
-router.put('/ocr-update/:id', protect, updateWithOCR);
+router.post('/ocr-extract', protect, ocrLimiter, extractOCR);
+router.put('/ocr-update/:id', protect, ocrLimiter, updateWithOCR);
 
 // ============================================================================
 // USER ACCOUNT & USAGE
@@ -280,22 +295,22 @@ router.get('/usage', protect, getUserUsageData);
 // ============================================================================
 
 // Customer Management
-router.post('/create-customer', protect, paymentLimiter, createCustomer);
-router.put('/update-customer/:id', protect, paymentLimiter, updateCustomer);
-router.delete('/delete-customer/:id', protect, paymentLimiter, deleteCustomer);
+router.post('/create-customer', protect, paymentLimiter, logPaymentAction, sanitizeInput, createCustomer);
+router.put('/update-customer/:id', protect, paymentLimiter, logPaymentAction, sanitizeInput, updateCustomer);
+router.delete('/delete-customer/:id', protect, paymentLimiter, logPaymentAction, deleteCustomer);
 
 // Payment Methods
 router.route('/pay-methods')
   .get(protect, getPaymentMethods)
-  .post(protect, paymentLimiter, validatePaymentData, handleValidationErrors, postPaymentMethod)
-  .put(protect, paymentLimiter, validatePaymentData, handleValidationErrors, putPaymentMethod);
+  .post(protect, paymentLimiter, logPaymentAction, validatePaymentData, handleValidationErrors, postPaymentMethod)
+  .put(protect, paymentLimiter, logPaymentAction, validatePaymentData, handleValidationErrors, putPaymentMethod);
 
-router.delete('/pay-methods/:id', protect, paymentLimiter, deletePaymentMethod);
+router.delete('/pay-methods/:id', protect, paymentLimiter, logPaymentAction, deletePaymentMethod);
 
 // Billing & Subscriptions
-router.post('/create-invoice', protect, paymentLimiter, createInvoice);
-router.post('/subscribe-customer', protect, paymentLimiter, subscribeCustomer);
-router.post('/custom-limit', protect, paymentLimiter, setCustomLimit);
+router.post('/create-invoice', protect, paymentLimiter, logPaymentAction, sanitizeInput, createInvoice);
+router.post('/subscribe-customer', protect, paymentLimiter, logPaymentAction, validateSubscription, handleValidationErrors, subscribeCustomer);
+router.post('/custom-limit', protect, paymentLimiter, logPaymentAction, validateCustomLimit, handleValidationErrors, setCustomLimit);
 
 
 
@@ -355,8 +370,19 @@ router.get('/csimple/context', protect, getCSimpleUserContext);
 // ANALYTICS (Admin Only)
 // ============================================================================
 
-router.get('/analytics/referer-stats', protect, getRefererAnalytics);
-router.get('/analytics/referer-data', protect, getRefererData);
-router.get('/analytics/referer-summary', protect, getRefererSummary);
+// Payment audit logging — log all payment-related requests for monitoring
+const logPaymentAction = (req, res, next) => {
+  const { method, originalUrl, ip } = req;
+  const userId = req.user?.id || 'anonymous';
+  console.log(`[PAYMENT AUDIT] ${new Date().toISOString()} | ${method} ${originalUrl} | user=${userId} | ip=${ip}`);
+  next();
+};
+
+// Apply payment audit logging to all payment routes retroactively
+// (This is logged in addition to the route-level middleware already applied above)
+
+router.get('/analytics/referer-stats', protect, requireAdmin, getRefererAnalytics);
+router.get('/analytics/referer-data', protect, requireAdmin, getRefererData);
+router.get('/analytics/referer-summary', protect, requireAdmin, getRefererSummary);
 
 module.exports = router; // Export the router

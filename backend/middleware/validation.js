@@ -46,7 +46,7 @@ const validateForgotPassword = [
     .withMessage('Email must not exceed 100 characters'),
 ];
 
-// Validation rules for password reset
+// Validation rules for password reset — enforce same strength as registration
 const validatePasswordReset = [
   body('token')
     .notEmpty()
@@ -55,10 +55,10 @@ const validatePasswordReset = [
     .withMessage('Invalid reset token format'),
   
   body('password')
-    .isLength({ min: 6, max: 128 })
-    .withMessage('Password must be between 6 and 128 characters')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-    .withMessage('Password must contain at least one lowercase letter, one uppercase letter, and one number'),
+    .isLength({ min: 8, max: 128 })
+    .withMessage('Password must be between 8 and 128 characters')
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+    .withMessage('Password must contain at least one lowercase letter, one uppercase letter, one number, and one special character'),
 ];
 
 // Validation rules for data creation
@@ -115,6 +115,33 @@ const validatePaymentData = [
     .withMessage('Payment data validation failed'),
 ];
 
+// Validation rules for subscription creation
+const validateSubscription = [
+  body('membershipType')
+    .notEmpty()
+    .withMessage('Membership type is required')
+    .isIn(['free', 'pro', 'simple'])
+    .withMessage('Membership type must be free, pro, or simple'),
+];
+
+// Validation rules for custom limit updates
+const validateCustomLimit = [
+  body('customLimit')
+    .notEmpty()
+    .withMessage('Custom limit is required')
+    .isNumeric()
+    .withMessage('Custom limit must be a number')
+    .custom((value) => {
+      if (value < 0.50) {
+        throw new Error('Custom limit must be at least $0.50');
+      }
+      if (value > 10000) {
+        throw new Error('Custom limit must be less than $10,000');
+      }
+      return true;
+    }),
+];
+
 // Middleware to handle validation errors
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
@@ -131,15 +158,20 @@ const handleValidationErrors = (req, res, next) => {
   next();
 };
 
-// Sanitize request body to prevent XSS
+// Sanitize request body to prevent XSS using sanitize-html
+const sanitizeHtml = require('sanitize-html');
+
 const sanitizeInput = (req, res, next) => {
   const sanitizeValue = (value) => {
     if (typeof value === 'string') {
-      // Remove potentially dangerous HTML/script tags
-      return value.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-                  .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
-                  .replace(/javascript:/gi, '')
-                  .replace(/on\w+\s*=/gi, '');
+      // Strip ALL HTML tags and dangerous attributes using a proven library
+      return sanitizeHtml(value, {
+        allowedTags: [],       // no HTML tags allowed
+        allowedAttributes: {}, // no attributes allowed
+        disallowedTagsMode: 'recursiveEscape',
+      });
+    } else if (Array.isArray(value)) {
+      return value.map(sanitizeValue);
     } else if (typeof value === 'object' && value !== null) {
       const sanitized = {};
       for (const [key, val] of Object.entries(value)) {
@@ -153,7 +185,7 @@ const sanitizeInput = (req, res, next) => {
   if (req.body) {
     req.body = sanitizeValue(req.body);
   }
-  
+
   next();
 };
 
@@ -164,6 +196,8 @@ module.exports = {
   validatePasswordReset,
   validateDataCreation,
   validatePaymentData,
+  validateSubscription,
+  validateCustomLimit,
   handleValidationErrors,
   sanitizeInput
 };

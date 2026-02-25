@@ -90,7 +90,7 @@ async function getMemoryItems(userId, type = null) {
 // ── Create a new memory item ────────────────────────────────────────────────
 
 async function createMemoryItem(userId, type, payload) {
-  const validTypes = ['goal', 'plan', 'action'];
+  const validTypes = ['goal', 'plan', 'action', 'note'];
   if (!validTypes.includes(type)) {
     throw Object.assign(new Error(`Invalid memory type: ${type}`), { statusCode: 400 });
   }

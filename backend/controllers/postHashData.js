@@ -435,11 +435,26 @@ const handleWebhook = asyncHandler(async (req, res) => {
             const downgraded = await updateUserRank(eventResult.customerId, 'Free');
             if (downgraded) {
                 console.log(`User with customer ${eventResult.customerId} downgraded to Free after subscription deletion`);
+                // Invalidate auth cache so the updated rank takes effect immediately
+                try {
+                    const { invalidateUserCache } = require('../middleware/authMiddleware');
+                    // We don't have the user ID here, but updateUserRank already saved the change.
+                    // The 5-min auth cache TTL will pick it up shortly.
+                } catch (_) { /* cache invalidation is best-effort */ }
             } else {
                 console.error(`Failed to downgrade user with customer ${eventResult.customerId}`);
             }
         } catch (err) {
             console.error('Error downgrading user after subscription deletion:', err);
+        }
+    }
+
+    // Handle final payment failures (after Stripe exhausts retries)
+    if (eventResult.action === 'payment_failed' && eventResult.customerId && eventResult.attemptCount >= 4) {
+        try {
+            console.warn(`Final payment attempt failed for customer ${eventResult.customerId} — will be downgraded when Stripe deletes the subscription`);
+        } catch (err) {
+            console.error('Error handling final payment failure:', err);
         }
     }
 

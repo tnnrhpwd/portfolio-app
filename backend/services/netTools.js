@@ -171,13 +171,42 @@ const TOOL_SCHEMAS = [
  * @param {object} context - { userId, userEmail, userName }
  * @returns {Promise<string>} Result message to feed back to the LLM
  */
+// ─── Input length limits per field ────────────────────────────────────────────
+const MAX_LENGTHS = {
+  subject: 200,
+  description: 5000,
+  title: 200,
+  content: 5000,
+  summary: 300,
+  query: 500,
+  reason: 500,
+  deadline: 100,
+};
+
+/**
+ * Truncate arguments that exceed safe limits.
+ * Prevents abuse via extremely long payloads.
+ */
+function enforceArgLimits(args) {
+  if (!args || typeof args !== 'object') return args;
+  const safe = { ...args };
+  for (const [key, maxLen] of Object.entries(MAX_LENGTHS)) {
+    if (typeof safe[key] === 'string' && safe[key].length > maxLen) {
+      console.warn(`[netTools] Truncating argument "${key}" from ${safe[key].length} to ${maxLen} chars`);
+      safe[key] = safe[key].slice(0, maxLen);
+    }
+  }
+  return safe;
+}
+
 async function executeTool(toolName, args, context) {
   const executor = TOOL_EXECUTORS[toolName];
   if (!executor) {
     return `Error: Unknown tool "${toolName}". This tool is not available.`;
   }
   try {
-    return await executor(args, context);
+    const safeArgs = enforceArgLimits(args);
+    return await executor(safeArgs, context);
   } catch (err) {
     console.error(`[netTools] Error executing tool "${toolName}":`, err);
     return `Error executing ${toolName}: ${err.message}`;
@@ -216,7 +245,7 @@ const TOOL_EXECUTORS = {
             <p><strong>Category:</strong> ${category}</p>
             <p><strong>Priority:</strong> ${priority}</p>
             <hr />
-            <p>${description.replace(/\n/g, '<br/>')}</p>
+            <p>${description.replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c])).replace(/\n/g, '<br/>')}</p>
             <hr />
             <p><em>Submitted via /net AI chat tool</em></p>
           `,
@@ -252,8 +281,8 @@ const TOOL_EXECUTORS = {
   async save_note(args, context) {
     const { title, content } = args;
 
-    await createMemoryItem(context.userId, 'action', {
-      title: `Note: ${title}`,
+    await createMemoryItem(context.userId, 'note', {
+      title,
       description: content,
       source: 'net-tool',
       timestamp: new Date().toISOString(),
@@ -284,15 +313,24 @@ const TOOL_EXECUTORS = {
 
   // ── Get notes ─────────────────────────────────────────────────────────────
   async get_my_notes(args, context) {
-    const items = await getMemoryItems(context.userId, 'action');
-    const notes = items.filter(a => a.data?.title?.startsWith('Note:'));
+    // Fetch dedicated 'note' type items, with backward-compat fallback for
+    // legacy notes stored as type 'action' with a "Note:" title prefix.
+    const noteItems = await getMemoryItems(context.userId, 'note');
+    const legacyActions = await getMemoryItems(context.userId, 'action');
+    const legacyNotes = legacyActions.filter(a => a.data?.title?.startsWith('Note:'));
 
-    if (notes.length === 0) {
+    // Merge and deduplicate (legacy items won't have the same ids)
+    const allNotes = [...noteItems, ...legacyNotes];
+
+    if (allNotes.length === 0) {
       return 'You have no saved notes. You can save one by asking me to remember something.';
     }
 
-    const list = notes.slice(-10).map((n, i) => {
-      return `${i + 1}. ${n.data.title.replace('Note: ', '')}${n.data.description ? '\n   ' + n.data.description : ''}`;
+    // Sort newest first, take last 10
+    allNotes.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    const list = allNotes.slice(0, 10).map((n, i) => {
+      const title = (n.data.title || '').replace(/^Note:\s*/, '');
+      return `${i + 1}. ${title}${n.data.description ? '\n   ' + n.data.description : ''}`;
     }).join('\n');
 
     return `Your recent notes:\n${list}`;
@@ -307,10 +345,38 @@ const TOOL_EXECUTORS = {
     return `Action logged: "${summary}". You can view your action history on the /plans page.`;
   },
 
-  // ── Web search suggestion ─────────────────────────────────────────────────
+  // ── Web search ────────────────────────────────────────────────────────────
+  // Performs a real web search when BRAVE_SEARCH_API_KEY is configured,
+  // otherwise falls back to a Google search URL suggestion.
   async web_search_suggestion(args) {
     const { query, reason } = args;
     const encoded = encodeURIComponent(query);
+
+    // Try Brave Search API if configured
+    const braveKey = process.env.BRAVE_SEARCH_API_KEY;
+    if (braveKey) {
+      try {
+        const res = await fetch(
+          `https://api.search.brave.com/res/v1/web/search?q=${encoded}&count=5`,
+          { headers: { 'X-Subscription-Token': braveKey, Accept: 'application/json' } }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const results = (data.web?.results || []).slice(0, 5);
+          if (results.length > 0) {
+            const list = results.map((r, i) =>
+              `${i + 1}. ${r.title}\n   ${r.description || ''}\n   ${r.url}`
+            ).join('\n');
+            return `Search results for "${query}":\n${list}`;
+          }
+        }
+      } catch (err) {
+        // Fall through to suggestion fallback
+        console.error('Brave Search API error:', err.message);
+      }
+    }
+
+    // Fallback: return a clickable Google search link
     return `I don't have real-time data for this. ${reason}\n\nSuggested search: [${query}](https://www.google.com/search?q=${encoded})`;
   },
 };

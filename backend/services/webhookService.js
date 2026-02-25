@@ -1,7 +1,11 @@
-const stripe = require('stripe')(process.env.STRIPE_KEY);
+const { getStripe, liveStripe } = require('../utils/stripeInstance');
 const { DynamoDBDocumentClient, PutCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
 const { getUserRankFromStripe, parseUserCredits, updateUserCredits } = require('../utils/apiUsageTracker.js');
 const { CREDITS, PLAN_IDS, PLAN_NAMES, isSimpleTier, STRIPE_PRODUCT_IDS } = require('../constants/pricing');
+
+// Use the live Stripe instance for webhook processing (webhooks always come from live mode)
+// TODO: If you add test-mode webhook support, use getStripe() with appropriate context
+const stripe = liveStripe;
 
 /**
  * Handle Stripe webhook events
@@ -139,6 +143,8 @@ async function processLimitIncrease(currentLimit, newLimit, stripeCustomerId, fr
     }
     
     try {
+        const crypto = require('crypto');
+        const idempotencyKey = `limit_${stripeCustomerId}_${Math.round(newLimit * 100)}_${Date.now()}`;
         const paymentIntent = await stripe.paymentIntents.create({
             amount: Math.round(limitDifference * 100),
             currency: 'usd',
@@ -149,7 +155,7 @@ async function processLimitIncrease(currentLimit, newLimit, stripeCustomerId, fr
             },
             confirm: true,
             return_url: frontendUrl
-        });
+        }, { idempotencyKey });
         
         console.log('Payment processed successfully for limit increase:', paymentIntent.id);
         return { success: true, paymentIntent, limitDifference };
@@ -173,20 +179,43 @@ async function updateSubscriptionLimit(subscriptionId, newLimit) {
     
     try {
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-        
-        const customPrice = await stripe.prices.create({
-            currency: 'usd',
-            unit_amount: Math.round(newLimit * 100),
-            recurring: { interval: 'month' },
-            product_data: {
-                name: `Simple Membership - $${newLimit.toFixed(2)} Monthly Limit`
-            }
-        });
+        const productId = subscription.items.data[0]?.price?.product;
+
+        // Reuse an existing active price at this amount if one exists on the product,
+        // otherwise create a new one. This avoids accumulating orphaned Price objects.
+        let matchingPrice = null;
+        if (productId) {
+            const existingPrices = await stripe.prices.list({
+                product: productId,
+                active: true,
+                limit: 50,
+            });
+            matchingPrice = existingPrices.data.find(
+                p => p.unit_amount === Math.round(newLimit * 100) && p.recurring?.interval === 'month'
+            );
+        }
+
+        if (!matchingPrice) {
+            matchingPrice = await stripe.prices.create({
+                currency: 'usd',
+                unit_amount: Math.round(newLimit * 100),
+                recurring: { interval: 'month' },
+                product: productId || undefined,
+                ...(productId ? {} : {
+                    product_data: {
+                        name: `Simple Membership - $${newLimit.toFixed(2)} Monthly Limit`
+                    }
+                }),
+            });
+            console.log(`Created new price ${matchingPrice.id} for $${newLimit.toFixed(2)}/month`);
+        } else {
+            console.log(`Reusing existing price ${matchingPrice.id} for $${newLimit.toFixed(2)}/month`);
+        }
         
         await stripe.subscriptions.update(subscriptionId, {
             items: [{
                 id: subscription.items.data[0].id,
-                price: customPrice.id,
+                price: matchingPrice.id,
             }],
             proration_behavior: 'none'
         });

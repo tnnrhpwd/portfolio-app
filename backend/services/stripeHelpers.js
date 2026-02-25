@@ -1,114 +1,71 @@
-const stripe = require('stripe')(process.env.STRIPE_KEY);
+/**
+ * @deprecated This module is a thin wrapper around stripeService.js for backward
+ * compatibility. New code should import directly from stripeService.
+ */
+const {
+    extractCustomerId,
+    validateOrRecoverCustomer,
+    createOrValidateCustomer,
+} = require('./stripeService');
+const { getStripe } = require('../utils/stripeInstance');
 
 /**
  * Validates a Stripe customer ID by attempting to retrieve it from Stripe
  * @param {string} customerId - The Stripe customer ID to validate
+ * @param {string} [userId] - Optional user ID for test/live mode selection
  * @returns {Promise<{isValid: boolean, customer?: Object, error?: string}>}
  */
-const validateStripeCustomerId = async (customerId) => {
+const validateStripeCustomerId = async (customerId, userId) => {
     try {
         if (!customerId || customerId.trim() === '') {
-            return {
-                isValid: false,
-                error: 'Customer ID is empty or null'
-            };
+            return { isValid: false, error: 'Customer ID is empty or null' };
         }
-
+        const stripe = getStripe(userId);
         const customer = await stripe.customers.retrieve(customerId);
-        
-        return {
-            isValid: true,
-            customer: customer
-        };
+        return { isValid: true, customer };
     } catch (stripeError) {
-        return {
-            isValid: false,
-            error: stripeError.message || 'Unknown Stripe error',
-            stripeError: stripeError
-        };
+        return { isValid: false, error: stripeError.message || 'Unknown Stripe error', stripeError };
     }
 };
 
 /**
- * Extracts and validates a Stripe customer ID from user data text
- * @param {string} userText - The user data text containing stripeid
- * @returns {Promise<{isValid: boolean, customerId?: string, customer?: Object, error?: string}>}
+ * Extracts and validates a Stripe customer ID from user data text.
+ * Delegates extraction to stripeService.extractCustomerId.
  */
-const extractAndValidateCustomerId = async (userText) => {
+const extractAndValidateCustomerId = async (userText, userId) => {
     try {
-        // Extract customer ID using regex
-        const stripeIdMatch = userText.match(/\|stripeid:([^|]*)/);
-        
-        if (!stripeIdMatch) {
-            return {
-                isValid: false,
-                error: 'No stripeid found in user data'
-            };
+        const customerId = extractCustomerId(userText);
+        if (!customerId) {
+            return { isValid: false, error: 'No stripeid found in user data' };
         }
-        
-        const customerId = stripeIdMatch[1];
-        
-        if (!customerId || customerId.trim() === '') {
-            return {
-                isValid: false,
-                error: 'Stripe customer ID is empty'
-            };
-        }
-        
-        // Validate the customer ID with Stripe
-        const validation = await validateStripeCustomerId(customerId);
-        
+        const validation = await validateStripeCustomerId(customerId, userId);
         return {
             isValid: validation.isValid,
-            customerId: customerId,
+            customerId,
             customer: validation.customer,
             error: validation.error,
-            stripeError: validation.stripeError
+            stripeError: validation.stripeError,
         };
     } catch (error) {
-        return {
-            isValid: false,
-            error: `Error processing user data: ${error.message}`
-        };
+        return { isValid: false, error: `Error processing user data: ${error.message}` };
     }
 };
 
 /**
- * Finds or creates a Stripe customer for a given email and name
- * @param {string} email - Customer email
- * @param {string} name - Customer name
- * @returns {Promise<{success: boolean, customer?: Object, wasExisting?: boolean, error?: string}>}
+ * Find or create a Stripe customer.
+ * Delegates to stripeService.validateOrRecoverCustomer when a customerId exists.
  */
-const findOrCreateCustomer = async (email, name) => {
+const findOrCreateCustomer = async (email, name, userId) => {
     try {
-        // First, check if a customer with this email already exists in Stripe
-        const existingCustomers = await stripe.customers.list({
-            email: email,
-            limit: 1
-        });
-        
-        if (existingCustomers.data.length > 0) {
-            // Use the existing customer
-            return {
-                success: true,
-                customer: existingCustomers.data[0],
-                wasExisting: true
-            };
-        } else {
-            // Create new Stripe customer if none exists
-            const newCustomer = await stripe.customers.create({ email, name });
-            return {
-                success: true,
-                customer: newCustomer,
-                wasExisting: false
-            };
+        const stripe = getStripe(userId);
+        const existing = await stripe.customers.list({ email, limit: 1 });
+        if (existing.data.length > 0) {
+            return { success: true, customer: existing.data[0], wasExisting: true };
         }
+        const newCustomer = await stripe.customers.create({ email, name });
+        return { success: true, customer: newCustomer, wasExisting: false };
     } catch (stripeError) {
-        return {
-            success: false,
-            error: stripeError.message || 'Unknown Stripe error',
-            stripeError: stripeError
-        };
+        return { success: false, error: stripeError.message || 'Unknown Stripe error', stripeError };
     }
 };
 

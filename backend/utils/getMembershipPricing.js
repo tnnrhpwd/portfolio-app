@@ -1,13 +1,23 @@
 require('dotenv').config();
 const asyncHandler = require('express-async-handler');
-const stripe = require('stripe')(process.env.STRIPE_KEY);
+const { liveStripe: stripe } = require('../utils/stripeInstance');
 const { PLAN_IDS, PLAN_NAMES, STRIPE_PRODUCT_MAP, PLAN_TO_STRIPE_PRODUCT, FEATURES, DESCRIPTIONS, QUOTAS } = require('../constants/pricing');
+
+// ── In-memory cache for pricing data (avoids Stripe API calls on every page view) ──
+let pricingCache = { data: null, timestamp: 0 };
+const PRICING_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
 // @desc    Get membership pricing from Stripe
 // @route   GET /api/data/membership-pricing
 // @access  Public (pricing can be viewed by anyone)
 const getMembershipPricing = asyncHandler(async (req, res) => {
     try {
+        // Return cached data if still fresh
+        if (pricingCache.data && Date.now() - pricingCache.timestamp < PRICING_CACHE_TTL) {
+            console.log('Returning cached membership pricing');
+            return res.status(200).json({ success: true, data: pricingCache.data });
+        }
+
         console.log('Fetching membership pricing from Stripe...');
         
         // Define the membership types and their corresponding Stripe product IDs
@@ -124,6 +134,10 @@ const getMembershipPricing = asyncHandler(async (req, res) => {
         }
         
         console.log('Successfully fetched membership pricing');
+
+        // Cache the result
+        pricingCache = { data: pricingData, timestamp: Date.now() };
+
         res.status(200).json({
             success: true,
             data: pricingData
