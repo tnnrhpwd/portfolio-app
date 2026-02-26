@@ -541,7 +541,7 @@ function toolCallToActionPlan(toolCall, actionService) {
       const sysSteps = {
         lock: [{ type: 'hotkey', keys: ['win', 'l'], description: 'Lock screen' }],
         screenshot: [{ type: 'hotkey', keys: ['win', 'shift', 's'], description: 'Take screenshot' }],
-        sleep: [{ type: 'systemCommand', command: 'sleep', description: 'Sleep' }],
+        sleep: [{ type: 'powerCommand', command: 'sleep', description: 'Sleep' }],
         show_desktop: [{ type: 'hotkey', keys: ['win', 'd'], description: 'Show desktop' }],
         minimize: [{ type: 'hotkey', keys: ['win', 'down'], description: 'Minimize window' }],
         maximize: [{ type: 'hotkey', keys: ['win', 'up'], description: 'Maximize window' }],
@@ -556,10 +556,10 @@ function toolCallToActionPlan(toolCall, actionService) {
 
     case 'power_command': {
       const powerSteps = {
-        shutdown: [{ type: 'systemCommand', command: 'shutdown', description: 'Shut down PC' }],
-        restart: [{ type: 'systemCommand', command: 'restart', description: 'Restart PC' }],
-        hibernate: [{ type: 'systemCommand', command: 'hibernate', description: 'Hibernate PC' }],
-        sleep: [{ type: 'systemCommand', command: 'sleep', description: 'Sleep PC' }],
+        shutdown: [{ type: 'powerCommand', command: 'shutdown', description: 'Shut down PC' }],
+        restart: [{ type: 'powerCommand', command: 'restart', description: 'Restart PC' }],
+        hibernate: [{ type: 'powerCommand', command: 'hibernate', description: 'Hibernate PC' }],
+        sleep: [{ type: 'powerCommand', command: 'sleep', description: 'Sleep PC' }],
       };
       return {
         command: args.action,

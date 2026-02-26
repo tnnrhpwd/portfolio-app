@@ -318,6 +318,27 @@ function stepsToPS(steps) {
         break;
       }
 
+      case 'powerCommand':
+      case 'systemCommand': {
+        switch (step.command) {
+          case 'shutdown':
+            lines.push('Stop-Computer -Force');
+            break;
+          case 'restart':
+            lines.push('Restart-Computer -Force');
+            break;
+          case 'sleep':
+            lines.push('& rundll32.exe powrprof.dll,SetSuspendState 0,1,0');
+            break;
+          case 'hibernate':
+            lines.push('& rundll32.exe powrprof.dll,SetSuspendState 1,1,0');
+            break;
+          default:
+            console.log(`[stepsToPS] Unknown power command: ${step.command}`);
+        }
+        break;
+      }
+
       default:
         console.log(`[stepsToPS] Unknown step type: ${step.type}`);
         break;
