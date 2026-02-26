@@ -13,7 +13,7 @@
 
 .csimple-app {
   display: flex;
-  height: 100vh;
+  height: 100%;
   overflow: hidden;
   position: relative;
 }
@@ -21,6 +21,11 @@
 @media (max-width: 768px) {
   .csimple-app {
     position: relative;
+    height: 100%;
+  }
+
+  .csimple-root {
+    height: 100%;
   }
 }
 

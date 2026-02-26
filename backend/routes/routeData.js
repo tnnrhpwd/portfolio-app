@@ -294,6 +294,14 @@ router.get('/usage', protect, getUserUsageData);
 // PAYMENT & BILLING (Stripe)
 // ============================================================================
 
+// Payment audit logging — log all payment-related requests for monitoring
+const logPaymentAction = (req, res, next) => {
+  const { method, originalUrl, ip } = req;
+  const userId = req.user?.id || 'anonymous';
+  console.log(`[PAYMENT AUDIT] ${new Date().toISOString()} | ${method} ${originalUrl} | user=${userId} | ip=${ip}`);
+  next();
+};
+
 // Customer Management
 router.post('/create-customer', protect, paymentLimiter, logPaymentAction, sanitizeInput, createCustomer);
 router.put('/update-customer/:id', protect, paymentLimiter, logPaymentAction, sanitizeInput, updateCustomer);
@@ -369,17 +377,6 @@ router.get('/csimple/context', protect, getCSimpleUserContext);
 // ============================================================================
 // ANALYTICS (Admin Only)
 // ============================================================================
-
-// Payment audit logging — log all payment-related requests for monitoring
-const logPaymentAction = (req, res, next) => {
-  const { method, originalUrl, ip } = req;
-  const userId = req.user?.id || 'anonymous';
-  console.log(`[PAYMENT AUDIT] ${new Date().toISOString()} | ${method} ${originalUrl} | user=${userId} | ip=${ip}`);
-  next();
-};
-
-// Apply payment audit logging to all payment routes retroactively
-// (This is logged in addition to the route-level middleware already applied above)
 
 router.get('/analytics/referer-stats', protect, requireAdmin, getRefererAnalytics);
 router.get('/analytics/referer-data', protect, requireAdmin, getRefererData);

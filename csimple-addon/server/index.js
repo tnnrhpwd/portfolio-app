@@ -834,6 +834,48 @@ app.post('/api/chat', async (req, res) => {
             });
           }
 
+          // ── Confirmation check: ask user before destructive actions ──
+          try {
+            const callLLM = async (prompt, sysPrompt) => {
+              const r = await githubModelsService.chat({
+                message: prompt,
+                modelId,
+                systemPrompt: sysPrompt,
+                temperature: 0.3,
+                maxLength: 200,
+                conversationHistory: [],
+              });
+              return r.text;
+            };
+
+            const confirmResult = await actionService.checkConfirmation(actionPlan, message, callLLM);
+            if (confirmResult && confirmResult.needsConfirmation) {
+              const confirmId = actionService.storeConfirmation(
+                actionPlan,
+                confirmResult.question,
+                confirmResult.options,
+                message,
+              );
+              const responseText = finalText || `I want to make sure — ${confirmResult.question}`;
+              const totalElapsedSec = ((Date.now() - parseStartTime) / 1000).toFixed(2);
+              return res.json({
+                response: responseText,
+                modelId,
+                generationTime: `${totalElapsedSec}s`,
+                timestamp: new Date().toISOString(),
+                ...(result.usage && { tokenUsage: result.usage }),
+                confirmation: {
+                  id: confirmId,
+                  question: confirmResult.question,
+                  options: confirmResult.options,
+                  originalAction: actionPlan.description,
+                },
+              });
+            }
+          } catch (confirmErr) {
+            console.error('[Confirmation] Error during check, proceeding without confirmation:', confirmErr.message);
+          }
+
           const queuedAction = actionService.queueAction(actionPlan);
           executeActionDirect(queuedAction); // fire-and-forget
 
@@ -1258,29 +1300,21 @@ app.post('/api/open-file', (req, res) => {
     return res.status(400).json({ error: 'File path is required' });
   }
 
-  // Security: only allow paths within the CSimple Workspace
   const path = require('path');
   const fs = require('fs');
-  const workspaceRoot = path.join(require('os').homedir(), 'Documents', 'CSimple', 'Workspace');
   const resolvedPath = path.resolve(filePath);
-
-  if (!resolvedPath.startsWith(workspaceRoot)) {
-    return res.status(403).json({ error: 'Can only open files within the CSimple Workspace' });
-  }
 
   if (!fs.existsSync(resolvedPath)) {
     return res.status(404).json({ error: 'File not found' });
   }
 
-  // Open with OS default viewer
-  const { exec } = require('child_process');
-  exec(`start "" "${resolvedPath}"`, (err) => {
-    if (err) {
-      console.error('[OpenFile] Error:', err.message);
-      return res.status(500).json({ error: 'Failed to open file' });
-    }
-    res.json({ success: true, path: resolvedPath });
-  });
+  // Open Explorer with the file selected
+  // Note: explorer.exe often returns exit code 1 even on success, so we use spawn
+  // and respond immediately after launching.
+  const { spawn } = require('child_process');
+  const child = spawn('explorer', ['/select,', resolvedPath], { detached: true, stdio: 'ignore' });
+  child.unref();
+  res.json({ success: true, path: resolvedPath });
 });
 
 // Serve workspace file content for in-browser preview

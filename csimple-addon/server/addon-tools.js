@@ -13,6 +13,35 @@
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
+const { execSync } = require('child_process');
+
+/**
+ * Resolve a Windows known folder path (Desktop, Documents, Downloads).
+ * Uses the registry to handle OneDrive-redirected folders correctly,
+ * falls back to os.homedir() + folderName if the registry lookup fails.
+ */
+function getKnownFolderPath(folderName) {
+  const regNames = {
+    'Desktop': 'Desktop',
+    'Documents': 'Personal',
+    'Downloads': '{374DE290-123F-4565-9164-39C4925E467B}',
+  };
+  const regValue = regNames[folderName];
+  if (regValue && process.platform === 'win32') {
+    try {
+      const regKey = 'HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders';
+      const output = execSync(`reg query "${regKey}" /v "${regValue}"`, { encoding: 'utf-8' });
+      const match = output.match(/REG_\w+\s+(.+)/);
+      if (match) {
+        let resolved = match[1].trim();
+        // Expand environment variables like %USERPROFILE%
+        resolved = resolved.replace(/%([^%]+)%/g, (_, varName) => process.env[varName] || `%${varName}%`);
+        if (fs.existsSync(resolved)) return resolved;
+      }
+    } catch { /* fall through */ }
+  }
+  return path.join(os.homedir(), folderName);
+}
 
 // Read resources path from global (set by main.js) or fall back to default
 function resolveResourcesPath() {
@@ -687,13 +716,13 @@ function executeMemoryTool(toolCall) {
       let targetDir;
       switch (args.location) {
         case 'desktop':
-          targetDir = path.join(os.homedir(), 'Desktop');
+          targetDir = getKnownFolderPath('Desktop');
           break;
         case 'documents':
-          targetDir = path.join(os.homedir(), 'Documents');
+          targetDir = getKnownFolderPath('Documents');
           break;
         case 'downloads':
-          targetDir = path.join(os.homedir(), 'Downloads');
+          targetDir = getKnownFolderPath('Downloads');
           break;
         case 'workspace':
           targetDir = path.join(os.homedir(), 'Documents', 'CSimple', 'Workspace', 'files');

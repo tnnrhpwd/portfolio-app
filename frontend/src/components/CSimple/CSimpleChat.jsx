@@ -1,4 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { useDispatch } from 'react-redux';
+import { toast } from 'react-toastify';
 import Sidebar from './Sidebar';
 import ChatWindow from './ChatWindow';
 import AdvancedSettings from './AdvancedSettings';
@@ -17,6 +19,8 @@ import {
   getCloudConversations,
   saveCloudConversations,
 } from '../../services/csimpleApi';
+import { createData } from '../../features/data/dataSlice';
+import { getUserIdentifier } from '../../utils/supportUtils';
 import './CSimpleChat.css';
 import './CSimpleTheme.css';
 import { checkMessage as securityCheckMessage } from '../../utils/csimple/securityGuard';
@@ -103,6 +107,7 @@ function CSimpleChat({
   addonCurrentVersion,
   addonRequiredVersion,
 }) {
+  const dispatch = useDispatch();
   const rootRef = useRef(null);
   const isAddonConnected = addonStatus?.isConnected ?? false;
 
@@ -793,6 +798,34 @@ function CSimpleChat({
     if (speech.isListening) speech.stopListening();
   }, [speech]);
 
+  // ── Auto-report LLM errors as bug reports ──────────────────────────────
+  const lastReportedRef = useRef(null);
+  useEffect(() => {
+    const msgs = conversations.find(c => c.id === activeConversationId)?.messages || [];
+    const lastMsg = msgs[msgs.length - 1];
+    if (lastMsg && lastMsg.isError && lastMsg.id !== lastReportedRef.current) {
+      lastReportedRef.current = lastMsg.id;
+      const userId = getUserIdentifier(user);
+      const truncated = (lastMsg.content || '').slice(0, 500);
+      const bugData = {
+        text: [
+          `Bug:CSimple Auto-Report — LLM Error`,
+          `Severity:high`,
+          `Description:${truncated}`,
+          `Steps:Chatting with C-Simple AI`,
+          `Expected:Normal response`,
+          `Actual:Error response from LLM`,
+          `Browser:${navigator.userAgent}`,
+          `Device:${navigator.platform}`,
+          `Creator:${userId}`,
+          `Status:Open`,
+          `Timestamp:${new Date().toISOString()}`,
+        ].join('|'),
+      };
+      dispatch(createData(bugData)).catch(() => {});
+    }
+  }, [conversations, activeConversationId, dispatch, user]);
+
   sendMessageRef._send = sendMessage;
 
   const stopGeneration = useCallback(async () => {
@@ -801,6 +834,35 @@ function CSimpleChat({
     }
     setIsGenerating(false);
   }, [isAddonConnected]);
+
+  // ── Bug-report & copy handlers for message context menu ────────────────
+  const handleReportMessage = useCallback((message) => {
+    const userId = getUserIdentifier(user);
+    const truncated = (message.content || '').slice(0, 500);
+    const bugData = {
+      text: [
+        `Bug:CSimple Chat Error`,
+        `Severity:medium`,
+        `Description:LLM response issue — ${truncated}`,
+        `Steps:Chatting with C-Simple AI`,
+        `Expected:Normal response`,
+        `Actual:${message.isError ? 'Error response' : 'Unexpected output'}`,
+        `Browser:${navigator.userAgent}`,
+        `Device:${navigator.platform}`,
+        `Creator:${userId}`,
+        `Status:Open`,
+        `Timestamp:${new Date().toISOString()}`,
+      ].join('|'),
+    };
+    dispatch(createData(bugData))
+      .unwrap()
+      .then(() => toast.success('Bug report submitted — thank you!', { autoClose: 3000 }))
+      .catch(() => toast.error('Failed to submit bug report', { autoClose: 3000 }));
+  }, [dispatch, user]);
+
+  const handleCopyMessage = useCallback(() => {
+    toast.success('Copied to clipboard', { autoClose: 1500 });
+  }, []);
 
   return (
     <div className="csimple-root" ref={rootRef}>
@@ -855,6 +917,8 @@ function CSimpleChat({
               return { ...prev, sttEnabled: newVal };
             });
           }}
+          onReportMessage={handleReportMessage}
+          onCopyMessage={handleCopyMessage}
         />
 
         <AdvancedSettings

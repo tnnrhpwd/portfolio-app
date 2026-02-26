@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { openFile, getAddonBaseUrl } from '../../services/csimpleApi';
 import './MessageBubble.css';
@@ -7,8 +7,10 @@ import './MessageBubble.css';
 const safeAvatarUrl = (url) =>
   url && (url.startsWith('data:') || url.startsWith('https://') || url.startsWith('http://')) ? url : null;
 
-function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = true }) {
+function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = true, onReportMessage, onCopyMessage }) {
   const isUser = message.role === 'user';
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
   const hasAction = !isUser && message.action;
   const hasOperations = !isUser && message.operations?.length > 0;
   const hasFileDownload = !isUser && message.fileDownload;
@@ -43,12 +45,12 @@ function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = 
   };
 
   const handleOpenFile = async (op) => {
-    // For file_save operations (from save_file tool), open via OS default viewer
+    // For file_save operations, open containing folder with file selected
     if (op.path) {
       try {
         await openFile(op.path);
       } catch (err) {
-        console.error('Failed to open file:', err);
+        console.error('Failed to open file location:', err);
       }
       return;
     }
@@ -60,6 +62,28 @@ function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = 
   };
 
   const isFileOperation = (type) => ['file_save', 'file_create', 'script_create'].includes(type);
+
+  // Close menu on click outside
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpen]);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(message.content || '').then(() => {
+      onCopyMessage?.();
+    }).catch(() => {});
+    setMenuOpen(false);
+  };
+
+  const handleReport = () => {
+    onReportMessage?.(message);
+    setMenuOpen(false);
+  };
 
   return (
     <div className={`message ${isUser ? 'message--user' : 'message--assistant'} ${message.isError ? 'message--error' : ''}`}>
@@ -96,7 +120,7 @@ function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = 
                         {op.type === 'file_save' && `Saved: ${op.filename}`}
                         {op.type === 'file_create' && `Created: ${op.filename}`}
                         {op.type === 'script_create' && `Script: ${op.filename}`}
-                        <span className="message__operation-open-hint">↗ Open</span>
+                        <span className="message__operation-open-hint">↗ Show in folder</span>
                       </span>
                     ) : (
                       <span className="message__operation-label">
@@ -138,6 +162,20 @@ function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = 
                       );
                     },
                     a({ href, children }) {
+                      // Intercept local file paths — open in Explorer instead of navigating
+                      const isLocalPath = href && /^[a-zA-Z]:[\\\/]/.test(href);
+                      if (isLocalPath) {
+                        return (
+                          <a
+                            href="#"
+                            onClick={(e) => { e.preventDefault(); openFile(href).catch(() => {}); }}
+                            title={`Show in folder: ${href}`}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            {children}
+                          </a>
+                        );
+                      }
                       return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>;
                     },
                   }}
@@ -170,7 +208,31 @@ function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = 
               <span className="message__model">{message.modelId.split('/').pop()}</span>
             )}
           </div>
+
         </div>
+
+        {/* Three-dot context menu for assistant messages — sits to the right of the bubble */}
+        {!isUser && (
+          <div className="message__menu" ref={menuRef}>
+            <button
+              className="message__menu-trigger"
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-label="Message options"
+            >
+              ⋮
+            </button>
+            {menuOpen && (
+              <div className="message__menu-dropdown">
+                <button className="message__menu-item" onClick={handleCopy}>
+                  <span className="message__menu-icon">📋</span> Copy
+                </button>
+                <button className="message__menu-item" onClick={handleReport}>
+                  <span className="message__menu-icon">🐛</span> Report
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {isUser && (
           <div className="message__avatar message__avatar--user">

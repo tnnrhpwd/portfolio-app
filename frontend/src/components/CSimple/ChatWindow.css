@@ -738,24 +738,131 @@
     display: flex;
   }
 
+  /* ── Compact header ── */
+  .chat-window__header {
+    padding: 8px 12px;
+    gap: 6px;
+  }
+
+  .chat-window__header-info {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .chat-window__title {
+    display: none;
+  }
+
+  .chat-window__model-badge {
+    font-size: 10px;
+    padding: 2px 8px;
+  }
+
+  .chat-window__header-spacer {
+    display: none;
+  }
+
+  .chat-window__status-badge {
+    padding: 3px 6px;
+  }
+
+  .chat-window__status-text {
+    display: none;
+  }
+
+  .chat-window__passive-toggle {
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+
+  /* ── Messages area ── */
   .chat-window__messages {
-    padding: 16px 0;
+    padding: 12px 0;
   }
 
-  .chat-window__input-form {
-    padding: 8px 12px 12px;
+  /* ── Empty state — tighter on mobile ── */
+  .chat-window__empty {
+    padding: 16px 16px 8px;
+    justify-content: flex-start;
+    padding-top: 4vh;
   }
 
-  .chat-window__suggestions {
-    grid-template-columns: 1fr;
+  .chat-window__empty-icon {
+    margin-bottom: 12px;
   }
 
   .chat-window__empty-logo {
-    width: 48px;
-    height: 48px;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+  }
+
+  .chat-window__empty-avatar-img {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
   }
 
   .chat-window__empty h2 {
-    font-size: 20px;
+    font-size: 18px;
+    margin-bottom: 4px;
+  }
+
+  .chat-window__empty p {
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+
+  .chat-window__empty-hint {
+    font-size: 12px;
+    margin-top: -8px;
+    margin-bottom: 12px;
+  }
+
+  /* ── Suggestions — compact 2-col grid ── */
+  .chat-window__suggestions {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    max-width: 100%;
+    padding: 0 4px;
+  }
+
+  .chat-window__suggestion {
+    padding: 10px 12px;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  /* ── Input area ── */
+  .chat-window__input-form {
+    padding: 6px 10px 8px;
+  }
+
+  .chat-window__input-wrapper {
+    padding: 6px 10px;
+    gap: 6px;
+  }
+
+  .chat-window__input {
+    font-size: 14px;
+  }
+
+  .chat-window__attach-btn,
+  .chat-window__mic-btn,
+  .chat-window__send-btn,
+  .chat-window__stop-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .chat-window__send-btn {
+    padding: 0 12px;
+    font-size: 12px;
+  }
+
+  .chat-window__input-hint {
+    font-size: 10px;
+    margin-top: 4px;
   }
 }

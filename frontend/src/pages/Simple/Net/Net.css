@@ -5,7 +5,7 @@
 }
 
 .planit-nnet {
-    /* display: flex; */
+    display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
@@ -16,7 +16,7 @@
     animation: gradientShift 12s ease infinite;
     pointer-events: all;
     position: relative;
-    /* overflow: hidden; */
+    overflow: hidden;
     font-family: 'CutiveMono-Regular', monospace;
 }
 
@@ -132,6 +132,22 @@
         transform: translate(-50%, -50%) scale(1.1);
         opacity: 0.6;
     }
+}
+
+/* ─── Mobile improvements ─────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .planit-nnet {
+    height: 100svh;
+    padding-top: var(--nav-size);
+  }
+
+  .net-hero-section {
+    height: calc(100svh - var(--nav-size));
+  }
+
+  .floating-shapes {
+    display: none;
+  }
 }
 
 @media (orientation: landscape) {
