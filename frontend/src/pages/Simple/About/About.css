@@ -626,48 +626,110 @@
 /* Responsive Design */
 @media (max-width: 768px) {
     .about-container {
-        padding: 0 15px;
+        padding: 0 10px;
+        margin-top: calc(var(--nav-size) * 0.8);
+    }
+
+    .about-hero {
+        margin-bottom: calc(var(--nav-size) * 0.5);
+    }
+
+    .about-title {
+        font-size: calc(var(--font-size-display) * 0.85);
+        margin-bottom: var(--spacing-sm);
+    }
+
+    .about-subtitle {
+        font-size: var(--font-size-base);
+        margin-bottom: var(--spacing-md);
+        max-width: 95%;
     }
     
     .about-content {
         padding: calc(var(--nav-size) * 0.3);
+        margin-bottom: var(--spacing-md);
+    }
+
+    .about-section {
+        margin-bottom: calc(var(--nav-size) * 0.4);
+    }
+
+    .section-title {
+        font-size: calc(var(--font-size-heading) * 0.85);
+        margin-bottom: var(--spacing-sm);
+    }
+
+    .service-card {
+        padding: calc(var(--nav-size) * 0.25);
+    }
+
+    .achievement-card {
+        padding: calc(var(--nav-size) * 0.25);
+    }
+
+    .education-item {
+        padding: calc(var(--nav-size) * 0.2);
+        margin-bottom: calc(var(--nav-size) * 0.2);
+    }
+
+    .project-card {
+        padding: calc(var(--nav-size) * 0.25);
     }
     
     .services-grid {
         grid-template-columns: 1fr;
+        gap: calc(var(--nav-size) * 0.25);
     }
     
     .projects-grid {
         grid-template-columns: 1fr;
+        gap: calc(var(--nav-size) * 0.25);
     }
     
     .achievements-grid {
         grid-template-columns: repeat(2, 1fr);
+        gap: calc(var(--nav-size) * 0.2);
     }
-    
+
+    .skills-container {
+        gap: calc(var(--nav-size) * 0.12);
+    }
+
     .social-links {
         flex-direction: column;
         align-items: center;
+        gap: calc(var(--nav-size) * 0.2);
     }
     
     .social-button {
         width: 200px;
         justify-content: center;
+        padding: var(--spacing-xs) var(--spacing-sm);
+        min-height: 40px;
+    }
+
+    .about-email {
+        padding: calc(var(--nav-size) * 0.2) 0;
+        margin-bottom: calc(var(--nav-size) * 0.2);
+    }
+
+    .about-cta-card {
+        padding: var(--spacing-md);
     }
 }
 
 @media (max-width: 480px) {
     .about-title {
-        font-size: calc(var(--font-size-display) * 0.9);
+        font-size: calc(var(--font-size-display) * 0.8);
     }
     
     .about-subtitle {
-        font-size: var(--font-size-base);
-        max-width: 95%;
+        font-size: var(--font-size-small);
+        max-width: 100%;
     }
     
     .section-title {
-        font-size: calc(var(--font-size-heading) * 0.9);
+        font-size: calc(var(--font-size-heading) * 0.8);
     }
     
     .achievements-grid {
@@ -675,17 +737,175 @@
     }
     
     .achievement-number {
-        font-size: calc(var(--font-size-display) * 0.8);
+        font-size: calc(var(--font-size-display) * 0.7);
     }
     
     .about-content {
-        padding: var(--spacing-lg);
+        padding: var(--spacing-sm);
     }
     
     .social-button {
-        min-height: 44px;
+        min-height: 38px;
         font-size: var(--font-size-small);
+        padding: var(--spacing-xs);
+    }
+}
+
+/* Portrait phone optimization */
+@media (orientation: portrait) and (max-width: 480px) {
+    .about-container {
+        padding: 0 6px;
+        margin-top: calc(var(--nav-size) * 0.5);
+    }
+
+    .about-hero {
+        margin-bottom: calc(var(--nav-size) * 0.3);
+    }
+
+    .about-title {
+        font-size: calc(var(--font-size-display) * 0.7);
+        margin-bottom: var(--spacing-xs);
+    }
+
+    .about-subtitle {
+        font-size: calc(var(--nav-size) * 0.26);
+        margin-bottom: var(--spacing-sm);
+    }
+
+    .about-content {
+        padding: calc(var(--nav-size) * 0.2);
+        margin-bottom: var(--spacing-sm);
+        border-radius: var(--border-radius);
+    }
+
+    .about-section {
+        margin-bottom: calc(var(--nav-size) * 0.3);
+    }
+
+    .section-title {
+        font-size: calc(var(--nav-size) * 0.35);
+        margin-bottom: calc(var(--nav-size) * 0.15);
+        padding-bottom: calc(var(--nav-size) * 0.1);
+    }
+
+    .about-text p {
+        font-size: calc(var(--nav-size) * 0.26);
+        margin-bottom: var(--spacing-xs);
+    }
+
+    .service-card {
+        padding: calc(var(--nav-size) * 0.2);
+    }
+
+    .service-card h3 {
+        font-size: calc(var(--nav-size) * 0.3);
+        margin-bottom: calc(var(--nav-size) * 0.1);
+    }
+
+    .service-card p {
+        font-size: calc(var(--nav-size) * 0.24);
+    }
+
+    .achievement-card {
+        padding: calc(var(--nav-size) * 0.2);
+    }
+
+    .achievement-number {
+        font-size: calc(var(--nav-size) * 0.4);
+        margin-bottom: calc(var(--nav-size) * 0.1);
+    }
+
+    .achievement-text {
+        font-size: calc(var(--nav-size) * 0.22);
+    }
+
+    .skill-tag {
+        font-size: calc(var(--nav-size) * 0.24);
+        padding: calc(var(--nav-size) * 0.06) calc(var(--nav-size) * 0.12);
+    }
+
+    .skill-category {
+        margin-bottom: calc(var(--nav-size) * 0.3);
+    }
+
+    .skill-category h3 {
+        font-size: calc(var(--nav-size) * 0.3);
+        margin-bottom: calc(var(--nav-size) * 0.15);
+        padding-left: calc(var(--nav-size) * 0.15);
+    }
+
+    .education-item {
+        padding: calc(var(--nav-size) * 0.15);
+        margin-bottom: calc(var(--nav-size) * 0.15);
+    }
+
+    .education-item h3 {
+        font-size: calc(var(--nav-size) * 0.28);
+    }
+
+    .education-item p {
+        font-size: calc(var(--nav-size) * 0.22);
+    }
+
+    .project-card {
+        padding: calc(var(--nav-size) * 0.2);
+    }
+
+    .project-card h3 {
+        font-size: calc(var(--nav-size) * 0.3);
+        margin-bottom: calc(var(--nav-size) * 0.1);
+    }
+
+    .project-card p {
+        font-size: calc(var(--nav-size) * 0.24);
+        margin-bottom: calc(var(--nav-size) * 0.15);
+    }
+
+    .project-link {
+        font-size: calc(var(--nav-size) * 0.24);
+        padding: var(--spacing-xs) var(--spacing-sm);
+        min-height: 28px;
+    }
+
+    .about-email {
+        padding: calc(var(--nav-size) * 0.15) 0;
+        font-size: calc(var(--nav-size) * 0.28);
+        margin-bottom: calc(var(--nav-size) * 0.15);
+    }
+
+    .social-button {
+        width: 180px;
+        min-height: 36px;
+        font-size: calc(var(--nav-size) * 0.26);
+        padding: calc(var(--nav-size) * 0.08) calc(var(--nav-size) * 0.15);
+        gap: var(--spacing-xs);
+    }
+
+    .social-button img {
+        height: calc(var(--nav-size) * 0.4);
+        width: calc(var(--nav-size) * 0.4);
+    }
+
+    .social-links {
+        gap: calc(var(--nav-size) * 0.12);
+    }
+
+    .about-cta-card {
         padding: var(--spacing-sm);
+    }
+
+    .about-cta-card h3 {
+        font-size: var(--font-size-base);
+    }
+
+    .about-cta-card p {
+        font-size: calc(var(--nav-size) * 0.24);
+        margin-bottom: var(--spacing-sm);
+    }
+
+    .about-cta-button {
+        padding: 8px 20px;
+        font-size: var(--font-size-small);
     }
 }
 

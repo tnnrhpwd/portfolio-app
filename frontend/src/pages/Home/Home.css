@@ -864,6 +864,10 @@
         display: none; /* Simplify mobile experience */
     }
     
+    .hero-section {
+        margin-top: calc(var(--nav-size) * 1);
+    }
+    
     .typewriter {
         animation: none; /* Simplify typewriter on mobile */
         border-right: none;
@@ -871,18 +875,24 @@
     
     #text-title {
         font-size: calc(var(--font-size-heading) * 0.85);
-        margin-top: var(--spacing-lg);
-        margin-bottom: var(--spacing-lg);
+        margin-top: var(--spacing-md);
+        margin-bottom: var(--spacing-md);
     }
     
     #text-body {
         font-size: var(--font-size-base);
-        padding: var(--spacing-md);
+        padding: var(--spacing-sm);
     }
     
     #text-subtext {
         font-size: var(--font-size-small);
-        padding: var(--spacing-md);
+        padding: var(--spacing-sm);
+    }
+    
+    #content-tile {
+        padding-top: calc(var(--nav-size) * 0.5);
+        padding-left: calc(var(--nav-size) * 0.15);
+        padding-right: calc(var(--nav-size) * 0.15);
     }
     
     .home-spc-tool-text {
@@ -905,17 +915,71 @@
         animation-duration: 2s; /* Slower heartbeat on mobile */
     }
 
+    .section-header {
+        margin-bottom: calc(var(--nav-size) * 0.25);
+    }
+
     /* Membership section mobile */
-    .home-feature-card {
+    .membership-section {
+        padding: var(--spacing-xs) 0;
+    }
+
+    .membership-section #content-tile {
+        gap: var(--spacing-xs);
+        max-width: 95%;
+    }
+
+    .home-feature-card,
+    .home-upgrade-card {
+        width: 90vw;
         flex-direction: column;
         align-items: flex-start;
-        gap: calc(var(--nav-size) * 0.15);
+        gap: calc(var(--nav-size) * 0.1);
+        padding: calc(var(--spacing-xs) * 0.8);
     }
+
+    .feature-card-icon {
+        font-size: var(--font-size-base);
+    }
+
+    .feature-card-title,
+    .upgrade-title {
+        font-size: var(--font-size-small);
+    }
+
+    .feature-card-desc,
+    .upgrade-desc {
+        font-size: calc(var(--nav-size) * 0.24);
+    }
+
+    .upgrade-card-header {
+        gap: var(--spacing-xs);
+        margin-bottom: var(--spacing-xs);
+    }
+
+    .upgrade-cta {
+        min-width: calc(var(--nav-size) * 2);
+        min-height: calc(var(--nav-size) * 0.9);
+        font-size: calc(var(--nav-size) * 0.24);
+        padding: 0 var(--spacing-xs);
+    }
+
+    .upgrade-cta-secondary {
+        font-size: calc(var(--nav-size) * 0.24);
+        padding: var(--spacing-xs) var(--spacing-sm);
+    }
+
     .upgrade-features {
-        gap: calc(var(--nav-size) * 0.06);
+        gap: calc(var(--nav-size) * 0.05);
     }
     .upgrade-feature-pill {
-        font-size: calc(var(--font-size-small) * 0.9);
+        font-size: calc(var(--font-size-small) * 0.85);
+        padding: calc(var(--nav-size) * 0.04) calc(var(--nav-size) * 0.1);
+    }
+
+    .membership-badge {
+        font-size: var(--font-size-small);
+        padding: calc(var(--nav-size) * 0.06) calc(var(--nav-size) * 0.12);
     }
 }
 
@@ -932,6 +996,121 @@
     
     .app-icon {
         font-size: var(--font-size-small);
+    }
+}
+
+/* Portrait phone optimization */
+@media (orientation: portrait) and (max-width: 480px) {
+    .hero-section {
+        margin-top: calc(var(--nav-size) * 0.5);
+    }
+
+    #text-title {
+        font-size: calc(var(--font-size-heading) * 0.75);
+        margin-top: var(--spacing-sm);
+        margin-bottom: var(--spacing-sm);
+    }
+
+    #text-body {
+        padding: var(--spacing-xs);
+    }
+
+    #text-subtext {
+        padding: var(--spacing-xs);
+    }
+
+    #content-tile {
+        padding-top: calc(var(--nav-size) * 0.3);
+        padding-left: calc(var(--nav-size) * 0.1);
+        padding-right: calc(var(--nav-size) * 0.1);
+    }
+
+    .section-header {
+        margin-bottom: calc(var(--nav-size) * 0.15);
+    }
+
+    .membership-section #content-tile {
+        gap: calc(var(--nav-size) * 0.15);
+        max-width: 100%;
+    }
+
+    .home-feature-card,
+    .home-upgrade-card {
+        width: 95vw;
+        padding: calc(var(--nav-size) * 0.15);
+        gap: calc(var(--nav-size) * 0.06);
+    }
+
+    .feature-card-icon {
+        font-size: var(--font-size-small);
+    }
+
+    .feature-card-title,
+    .upgrade-title {
+        font-size: calc(var(--nav-size) * 0.28);
+    }
+
+    .feature-card-desc,
+    .upgrade-desc {
+        font-size: calc(var(--nav-size) * 0.22);
+        margin-bottom: calc(var(--nav-size) * 0.06);
+    }
+
+    .feature-card-link {
+        font-size: calc(var(--nav-size) * 0.22);
+        margin-top: calc(var(--nav-size) * 0.04);
+    }
+
+    .upgrade-card-header {
+        gap: calc(var(--nav-size) * 0.08);
+        margin-bottom: calc(var(--nav-size) * 0.06);
+    }
+
+    .upgrade-features {
+        gap: calc(var(--nav-size) * 0.03);
+        margin-bottom: calc(var(--nav-size) * 0.06);
+    }
+
+    .upgrade-feature-pill {
+        font-size: calc(var(--nav-size) * 0.2);
+        padding: calc(var(--nav-size) * 0.03) calc(var(--nav-size) * 0.08);
+        border-width: 1px;
+    }
+
+    .upgrade-cta {
+        min-width: calc(var(--nav-size) * 1.8);
+        min-height: calc(var(--nav-size) * 0.8);
+        font-size: calc(var(--nav-size) * 0.22);
+        padding: 0 calc(var(--nav-size) * 0.15);
+    }
+
+    .upgrade-cta-secondary {
+        font-size: calc(var(--nav-size) * 0.22);
+        padding: var(--spacing-xs) calc(var(--nav-size) * 0.15);
+    }
+
+    .membership-badge {
+        font-size: calc(var(--nav-size) * 0.26);
+        padding: calc(var(--nav-size) * 0.04) calc(var(--nav-size) * 0.1);
+        gap: calc(var(--nav-size) * 0.06);
+    }
+
+    .thank-you-text {
+        gap: calc(var(--nav-size) * 0.1);
+    }
+
+    .home-spc-tool-text {
+        min-width: calc(var(--nav-size) * 2);
+        min-height: calc(var(--nav-size) * 0.9);
+        margin: calc(var(--spacing-xs) * 0.5);
+        padding: calc(var(--nav-size) * 0.05) calc(var(--nav-size) * 0.1);
+    }
+
+    #content-button {
+        min-width: calc(var(--nav-size) * 2.5);
+        min-height: calc(var(--nav-size) * 0.8);
+        padding: calc(var(--nav-size) * 0.06) calc(var(--nav-size) * 0.15);
+        font-size: calc(var(--nav-size) * 0.24);
     }
 }
 

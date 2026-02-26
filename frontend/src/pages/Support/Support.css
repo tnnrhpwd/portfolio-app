@@ -855,118 +855,431 @@
 /* Tablet Portrait & Mobile (max-width: 767px) */
 @media (max-width: 767px) {
     .support-bg {
-        padding: calc(var(--nav-size) * 0.2);
+        padding: calc(var(--nav-size) * 0.15);
     }
     
     .support-container {
-        padding: calc(var(--nav-size) * 0.6);
-        margin: calc(var(--nav-size) * 0.2) 0;
+        padding: calc(var(--nav-size) * 0.4);
+        margin: calc(var(--nav-size) * 0.15) 0;
+    }
+
+    .support-header {
+        padding-bottom: calc(var(--nav-size) * 0.3);
     }
     
     .support-title {
-        font-size: calc(var(--nav-size) * 0.5);
+        font-size: calc(var(--nav-size) * 0.45);
+        margin-bottom: var(--spacing-sm);
     }
     
     .support-subtitle {
-        font-size: calc(var(--nav-size) * 0.25);
+        font-size: calc(var(--nav-size) * 0.22);
+        max-width: 95%;
+    }
+
+    .support-quick-actions {
+        margin-bottom: calc(var(--nav-size) * 0.5);
+    }
+
+    .support-section-title {
+        font-size: calc(var(--nav-size) * 0.32);
+        margin-bottom: calc(var(--nav-size) * 0.3);
     }
     
     .support-actions-grid {
         grid-template-columns: 1fr;
-        gap: calc(var(--nav-size) * 0.3);
+        gap: calc(var(--nav-size) * 0.2);
+        margin-bottom: calc(var(--nav-size) * 0.3);
     }
     
     .support-action-card {
         flex-direction: column;
         text-align: center;
-        gap: calc(var(--nav-size) * 0.2);
-        padding: calc(var(--nav-size) * 0.5);
+        gap: calc(var(--nav-size) * 0.15);
+        padding: calc(var(--nav-size) * 0.3);
     }
-    
+
+    .support-action-icon {
+        font-size: calc(var(--nav-size) * 0.4);
+        min-width: auto;
+    }
+
     .support-tabs {
         flex-direction: column;
-        gap: calc(var(--nav-size) * 0.1);
+        gap: calc(var(--nav-size) * 0.06);
+        margin-bottom: calc(var(--nav-size) * 0.4);
+        padding: calc(var(--nav-size) * 0.06);
     }
     
     .support-tab {
         text-align: center;
-        padding: calc(var(--nav-size) * 0.3);
+        padding: calc(var(--nav-size) * 0.2);
     }
     
     .support-content {
-        padding: calc(var(--nav-size) * 0.5);
+        padding: calc(var(--nav-size) * 0.35);
+        min-height: calc(var(--nav-size) * 5);
+    }
+
+    .support-help-section {
+        gap: calc(var(--nav-size) * 0.3);
+    }
+
+    .support-faq-list {
+        gap: calc(var(--nav-size) * 0.2);
     }
     
     .support-form-row {
         grid-template-columns: 1fr;
+        gap: calc(var(--nav-size) * 0.2);
+    }
+
+    .support-form {
+        gap: calc(var(--nav-size) * 0.3);
+    }
+
+    .support-form-section {
         gap: calc(var(--nav-size) * 0.3);
     }
     
     .support-faq-question {
         font-size: calc(var(--nav-size) * 0.22);
-        padding: calc(var(--nav-size) * 0.3);
+        padding: calc(var(--nav-size) * 0.25);
     }
     
     .support-faq-answer {
-        padding: calc(var(--nav-size) * 0.3);
+        padding: calc(var(--nav-size) * 0.25);
+    }
+
+    .support-contact-info,
+    .support-system-info {
+        padding: calc(var(--nav-size) * 0.25);
+    }
+
+    .support-submit-btn {
+        padding: var(--spacing-sm) var(--spacing-lg);
+        min-width: 140px;
+        min-height: 40px;
+        font-size: var(--font-size-small);
     }
 
     /* Bug Reports Mobile Styles */
+    .support-reports-list {
+        gap: calc(var(--nav-size) * 0.3);
+    }
+
+    .support-report-card {
+        padding: calc(var(--nav-size) * 0.35);
+    }
+
     .support-report-header {
         flex-direction: column;
         align-items: stretch;
-        gap: calc(var(--nav-size) * 0.3);
+        gap: calc(var(--nav-size) * 0.2);
+        margin-bottom: calc(var(--nav-size) * 0.25);
     }
 
     .support-report-meta {
         flex-direction: row;
         align-items: center;
-        gap: calc(var(--nav-size) * 0.2);
+        gap: calc(var(--nav-size) * 0.15);
+    }
+
+    .support-report-details {
+        gap: calc(var(--nav-size) * 0.25);
     }
 
     .support-report-row {
         grid-template-columns: 1fr;
-        gap: calc(var(--nav-size) * 0.3);
+        gap: calc(var(--nav-size) * 0.2);
     }
 
     .support-report-actions {
         justify-content: center;
+        margin-top: calc(var(--nav-size) * 0.25);
+        padding-top: calc(var(--nav-size) * 0.25);
+    }
+
+    .support-no-reports {
+        padding: calc(var(--nav-size) * 1);
+    }
+
+    .support-loading {
+        padding: calc(var(--nav-size) * 1) 0;
     }
 }
 
 /* Small Mobile (max-width: 480px) */
 @media (max-width: 480px) {
     .support-container {
-        padding: calc(var(--nav-size) * 0.4);
+        padding: calc(var(--nav-size) * 0.3);
     }
     
     .support-title {
-        font-size: calc(var(--nav-size) * 0.45);
+        font-size: calc(var(--nav-size) * 0.4);
     }
     
     .support-subtitle {
-        font-size: calc(var(--nav-size) * 0.22);
+        font-size: calc(var(--nav-size) * 0.2);
     }
     
     .support-action-card {
-        padding: calc(var(--nav-size) * 0.4);
+        padding: calc(var(--nav-size) * 0.25);
     }
     
     .support-content {
-        padding: calc(var(--nav-size) * 0.4);
+        padding: calc(var(--nav-size) * 0.25);
     }
     
     .support-form-group input,
     .support-form-group select,
     .support-form-group textarea {
         font-size: calc(var(--nav-size) * 0.18);
-        padding: calc(var(--nav-size) * 0.3);
+        padding: calc(var(--nav-size) * 0.2);
     }
     
     .support-submit-btn {
-        padding: calc(var(--nav-size) * 0.4) calc(var(--nav-size) * 0.6);
+        padding: calc(var(--nav-size) * 0.25) calc(var(--nav-size) * 0.5);
+        font-size: calc(var(--nav-size) * 0.2);
+        min-width: calc(var(--nav-size) * 2.5);
+        min-height: 36px;
+    }
+}
+
+/* Portrait phone optimization */
+@media (orientation: portrait) and (max-width: 480px) {
+    .support-bg {
+        padding: calc(var(--nav-size) * 0.1);
+    }
+
+    .support-container {
+        padding: calc(var(--nav-size) * 0.2);
+        margin: calc(var(--nav-size) * 0.1) 0;
+        border-radius: var(--border-radius);
+    }
+
+    .support-header {
+        padding-bottom: calc(var(--nav-size) * 0.2);
+    }
+
+    .support-title {
+        font-size: calc(var(--nav-size) * 0.35);
+        margin-bottom: var(--spacing-xs);
+    }
+
+    .support-subtitle {
+        font-size: calc(var(--nav-size) * 0.18);
+        max-width: 100%;
+    }
+
+    .support-quick-actions {
+        margin-bottom: calc(var(--nav-size) * 0.3);
+    }
+
+    .support-section-title {
+        font-size: calc(var(--nav-size) * 0.28);
+        margin-bottom: calc(var(--nav-size) * 0.2);
+    }
+
+    .support-actions-grid {
+        gap: calc(var(--nav-size) * 0.12);
+        margin-bottom: calc(var(--nav-size) * 0.2);
+    }
+
+    .support-action-card {
+        padding: calc(var(--nav-size) * 0.2);
+        gap: calc(var(--nav-size) * 0.1);
+    }
+
+    .support-action-icon {
+        font-size: calc(var(--nav-size) * 0.32);
+    }
+
+    .support-action-content h3 {
         font-size: calc(var(--nav-size) * 0.22);
-        min-width: calc(var(--nav-size) * 3.5);
+    }
+
+    .support-action-content p {
+        font-size: calc(var(--nav-size) * 0.18);
+    }
+
+    .support-tabs {
+        margin-bottom: calc(var(--nav-size) * 0.25);
+        padding: calc(var(--nav-size) * 0.04);
+        gap: calc(var(--nav-size) * 0.04);
+    }
+
+    .support-tab {
+        padding: calc(var(--nav-size) * 0.15);
+        font-size: calc(var(--nav-size) * 0.2);
+    }
+
+    .support-content {
+        padding: calc(var(--nav-size) * 0.2);
+        min-height: calc(var(--nav-size) * 4);
+    }
+
+    .support-help-section {
+        gap: calc(var(--nav-size) * 0.2);
+    }
+
+    .support-search-input {
+        padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.25);
+        font-size: calc(var(--nav-size) * 0.22);
+    }
+
+    .support-faq-list {
+        gap: calc(var(--nav-size) * 0.12);
+    }
+
+    .support-faq-question {
+        padding: calc(var(--nav-size) * 0.2);
+        font-size: calc(var(--nav-size) * 0.2);
+    }
+
+    .support-faq-answer {
+        padding: calc(var(--nav-size) * 0.2);
+    }
+
+    .support-faq-answer p,
+    .support-faq-answer-text {
+        font-size: calc(var(--nav-size) * 0.18);
+    }
+
+    .support-form-section {
+        gap: calc(var(--nav-size) * 0.2);
+    }
+
+    .support-form-section h2 {
+        font-size: calc(var(--nav-size) * 0.3);
+    }
+
+    .support-form-description {
+        font-size: calc(var(--nav-size) * 0.18);
+    }
+
+    .support-form {
+        gap: calc(var(--nav-size) * 0.2);
+    }
+
+    .support-form-group {
+        gap: calc(var(--nav-size) * 0.08);
+    }
+
+    .support-form-group label {
+        font-size: calc(var(--nav-size) * 0.2);
+    }
+
+    .support-form-group input,
+    .support-form-group select,
+    .support-form-group textarea {
+        padding: calc(var(--nav-size) * 0.15);
+        font-size: calc(var(--nav-size) * 0.18);
+    }
+
+    .support-contact-info,
+    .support-system-info {
+        padding: calc(var(--nav-size) * 0.2);
+    }
+
+    .support-contact-info h4,
+    .support-system-info h4 {
+        font-size: calc(var(--nav-size) * 0.2);
+        margin-bottom: calc(var(--nav-size) * 0.1);
+    }
+
+    .support-contact-info p,
+    .support-system-details p {
+        font-size: calc(var(--nav-size) * 0.16);
+    }
+
+    .support-rating-stars {
+        gap: calc(var(--nav-size) * 0.06);
+    }
+
+    .support-star {
+        font-size: calc(var(--nav-size) * 0.32);
+    }
+
+    .support-submit-btn {
+        padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.4);
+        font-size: calc(var(--nav-size) * 0.18);
+        min-width: calc(var(--nav-size) * 2);
+        min-height: 32px;
+    }
+
+    /* Bug Reports Portrait */
+    .support-reports-list {
+        gap: calc(var(--nav-size) * 0.2);
+    }
+
+    .support-report-card {
+        padding: calc(var(--nav-size) * 0.2);
+    }
+
+    .support-report-title {
+        font-size: calc(var(--nav-size) * 0.24);
+    }
+
+    .support-report-header {
+        gap: calc(var(--nav-size) * 0.12);
+        margin-bottom: calc(var(--nav-size) * 0.15);
+    }
+
+    .support-report-status,
+    .support-report-severity {
+        font-size: calc(var(--nav-size) * 0.15);
+        padding: calc(var(--nav-size) * 0.06) calc(var(--nav-size) * 0.12);
+    }
+
+    .support-report-details {
+        gap: calc(var(--nav-size) * 0.15);
+    }
+
+    .support-report-field strong {
+        font-size: calc(var(--nav-size) * 0.18);
+    }
+
+    .support-report-field p {
+        font-size: calc(var(--nav-size) * 0.16);
+        padding: calc(var(--nav-size) * 0.12);
+    }
+
+    .support-report-system-info {
+        padding: calc(var(--nav-size) * 0.15);
+    }
+
+    .support-report-timestamps {
+        padding: calc(var(--nav-size) * 0.15);
+    }
+
+    .support-report-actions {
+        margin-top: calc(var(--nav-size) * 0.15);
+        padding-top: calc(var(--nav-size) * 0.15);
+    }
+
+    .support-close-report-btn {
+        padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.25);
+        font-size: calc(var(--nav-size) * 0.16);
+    }
+
+    .support-no-reports {
+        padding: calc(var(--nav-size) * 0.6);
+    }
+
+    .support-no-reports-icon {
+        font-size: calc(var(--nav-size) * 1);
+        margin-bottom: calc(var(--nav-size) * 0.3);
+    }
+
+    .support-no-reports p {
+        font-size: calc(var(--nav-size) * 0.2);
+        margin-bottom: calc(var(--nav-size) * 0.3);
+    }
+
+    .support-resolution-section {
+        padding: calc(var(--nav-size) * 0.2);
+        margin-top: calc(var(--nav-size) * 0.2);
     }
 }
 
