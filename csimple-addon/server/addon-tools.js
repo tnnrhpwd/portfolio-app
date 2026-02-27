@@ -226,13 +226,13 @@ const ADDON_TOOL_SCHEMAS = [
     type: 'function',
     function: {
       name: 'system_command',
-      description: 'Execute a system command: lock screen, take screenshot, sleep, show desktop, minimize all, maximize window.',
+      description: 'Execute a system command: lock screen, take screenshot, show desktop, minimize all, maximize window. Do NOT use this for sleep/hibernate/shutdown — use power_command instead.',
       parameters: {
         type: 'object',
         properties: {
           command: {
             type: 'string',
-            enum: ['lock', 'screenshot', 'sleep', 'show_desktop', 'minimize', 'maximize'],
+            enum: ['lock', 'screenshot', 'show_desktop', 'minimize', 'maximize'],
             description: 'System command to execute',
           },
         },
@@ -251,6 +251,26 @@ const ADDON_TOOL_SCHEMAS = [
           action: { type: 'string', enum: ['shutdown', 'restart', 'hibernate', 'sleep'], description: 'Power action' },
         },
         required: ['action'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'clarify_action',
+      description: 'When the user\'s intent is ambiguous or you want to confirm before executing a significant/destructive action, use this tool to present clarification options. This lets the user pick from specific choices before anything happens. Use this when: the command could mean multiple things, the action is destructive (power off, delete, etc.), or you want to offer related alternatives. Do NOT use this for simple, obvious commands.',
+      parameters: {
+        type: 'object',
+        properties: {
+          question: { type: 'string', description: 'A short question to ask the user (e.g. "Which power action did you mean?")' },
+          options: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Array of 2-5 concise option strings for the user to pick from. Always include a Cancel option.',
+          },
+          original_intent: { type: 'string', description: 'Brief description of what you think the user wants (e.g. "sleep the PC")' },
+        },
+        required: ['question', 'options', 'original_intent'],
       },
     },
   },
@@ -541,7 +561,6 @@ function toolCallToActionPlan(toolCall, actionService) {
       const sysSteps = {
         lock: [{ type: 'hotkey', keys: ['win', 'l'], description: 'Lock screen' }],
         screenshot: [{ type: 'hotkey', keys: ['win', 'shift', 's'], description: 'Take screenshot' }],
-        sleep: [{ type: 'powerCommand', command: 'sleep', description: 'Sleep' }],
         show_desktop: [{ type: 'hotkey', keys: ['win', 'd'], description: 'Show desktop' }],
         minimize: [{ type: 'hotkey', keys: ['win', 'down'], description: 'Minimize window' }],
         maximize: [{ type: 'hotkey', keys: ['win', 'up'], description: 'Maximize window' }],

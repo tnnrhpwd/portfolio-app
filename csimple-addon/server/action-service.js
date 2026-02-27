@@ -292,7 +292,10 @@ Guidelines for options:
 - Include related alternatives (e.g., for shutdown: restart, sleep, hibernate)`;
 
     // Deterministic check: always confirm power commands without LLM
-    const powerStep = actionPlan.steps.find(s => s.type === 'powerCommand' || (s.type === 'systemCommand' && ['shutdown', 'restart', 'sleep', 'hibernate'].includes(s.command)));
+    const powerStep = actionPlan.steps && actionPlan.steps.find(s =>
+      s.type === 'powerCommand' ||
+      (s.type === 'systemCommand' && ['shutdown', 'restart', 'sleep', 'hibernate'].includes(s.command))
+    );
     if (powerStep) {
       const optionsMap = {
         shutdown: ['Yes, shut down', 'Restart instead', 'Sleep instead', 'Cancel'],
@@ -301,13 +304,16 @@ Guidelines for options:
         hibernate:['Yes, hibernate', 'Sleep instead', 'Shut down instead', 'Cancel'],
       };
       const label = powerStep.command || 'perform this action';
-      console.log(`[Confirmation Check] Power command detected (${label}), forcing confirmation`);
+      console.log(`[Confirmation Check] Power command detected (${label}), forcing confirmation. Step: ${JSON.stringify(powerStep)}`);
       return {
         needsConfirmation: true,
         question: `Are you sure you want to ${label} your PC?`,
         options: optionsMap[powerStep.command] || ['Yes, proceed', 'Cancel'],
       };
     }
+
+    // Log what we're evaluating for debugging
+    console.log(`[Confirmation Check] No power step found in ${(actionPlan.steps || []).length} steps: ${JSON.stringify((actionPlan.steps || []).map(s => ({ type: s.type, command: s.command })))}`);
 
     try {
       const prompt = `User said: "${originalMessage}"\nDetected action: ${actionPlan.description}\nAction type: ${actionPlan.intent}\nSteps: ${actionPlan.steps.map(s => s.description || s.type).join(', ')}`;

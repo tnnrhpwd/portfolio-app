@@ -634,7 +634,7 @@ app.post('/api/chat', async (req, res) => {
     const personalityContext = loadPersonalityContext();
     const memoryContext = loadMemoryContext();
     const behaviorContext = loadBehaviorContext(behaviorFile);
-    const capabilitiesNote = `\nYou can execute system actions on this Windows PC using the provided tools: open apps, control volume/media, press keys, type text, play music services, save files, and more. Use tools ONLY when the user wants you to physically do something on their computer. For conversation, questions, or content generation, just reply in text — do NOT call any tool.\n\nFILE SAVING:\n- When the user asks to save/create/download a file to a specific location, use the save_file tool. Locations: "desktop", "documents", "downloads", "workspace", or "custom" with a custom_path.\n- Example: "Save this to my desktop" → call save_file with location="desktop"\n- Include the FULL file content in the save_file tool call.\n\nCRITICAL RULE — type_text vs text reply:\n- "Write a Python script" → Reply with the code in your message. Do NOT call type_text.\n- "Write me an email" → Reply with the email in your message. Do NOT call type_text.\n- "Create a function that..." → Reply with the code. Do NOT call type_text.\n- "Type hello world" → Call type_text (user wants keyboard input).\n- "Type my name in the search box" → Call type_text (user wants keyboard input).\nWhen in doubt, reply in text. Only use type_text when the user says "type" as a verb meaning keyboard input.`;
+    const capabilitiesNote = `\nYou can execute system actions on this Windows PC using the provided tools: open apps, control volume/media, press keys, type text, play music services, save files, and more. Use tools ONLY when the user wants you to physically do something on their computer. For conversation, questions, or content generation, just reply in text — do NOT call any tool.\n\nACTION CLARIFICATION:\nWhen the user asks you to do something that is destructive (shutdown, restart, sleep, hibernate, delete), ambiguous, or could mean multiple things, use the clarify_action tool to present options BEFORE executing. Examples:\n- "Put this PC to sleep" → call clarify_action with options like ["Yes, sleep", "Hibernate instead", "Cancel"]\n- "Turn off the computer" → clarify between shutdown and sleep\n- "Close everything" → clarify what "everything" means\nFor simple, obvious commands (open chrome, set volume to 50, play spotify), just execute directly — no need to clarify.\n\nFILE SAVING:\n- When the user asks to save/create/download a file to a specific location, use the save_file tool. Locations: "desktop", "documents", "downloads", "workspace", or "custom" with a custom_path.\n- Example: "Save this to my desktop" → call save_file with location="desktop"\n- Include the FULL file content in the save_file tool call.\n\nCRITICAL RULE — type_text vs text reply:\n- "Write a Python script" → Reply with the code in your message. Do NOT call type_text.\n- "Write me an email" → Reply with the email in your message. Do NOT call type_text.\n- "Create a function that..." → Reply with the code. Do NOT call type_text.\n- "Type hello world" → Call type_text (user wants keyboard input).\n- "Type my name in the search box" → Call type_text (user wants keyboard input).\nWhen in doubt, reply in text. Only use type_text when the user says "type" as a verb meaning keyboard input.`;
 
     const autoMemoryInstructions = `\n\n--- AUTO-MEMORY SYSTEM ---\nYou have tools to manage persistent memory, personality, and behavior files. Use them PROACTIVELY:\n\n**Memory (update_memory):** Automatically save when the user shares:\n- Personal info (name, job, location, timezone, relationships, pets)\n- Preferences (communication style, favorite tools/languages, interests)\n- Projects they're working on, goals, deadlines\n- Important context they'd want you to remember next session\n- Corrections to things you got wrong\nMerge with existing memories — read what's already in MEMORY above before writing. Organize into logical files (user_profile.md, projects.md, preferences.md, etc.).\n\n**Personality (update_personality):** Update when:\n- User asks you to change your tone, name, or communication style\n- User says things like "be more casual", "don't use emojis", "call me [name]"\n- You learn how they prefer to interact (user.md)\n\n**Behavior (update_behavior):** Update when:\n- User gives you standing instructions ("always show code examples", "prefer Python")\n- User sets up context for a specific workflow\n\nDo NOT announce every memory save — just do it silently. Only mention it if saving something the user explicitly asked you to remember, or if it's a significant update worth confirming.\n--- END AUTO-MEMORY ---`;
 
@@ -732,7 +732,55 @@ app.post('/api/chat', async (req, res) => {
 
         // ── Separate memory tools from PC action tools ─────────────
         const memoryToolCalls = filteredToolCalls.filter(tc => isMemoryTool(tc.function.name));
-        const actionToolCalls = filteredToolCalls.filter(tc => !isMemoryTool(tc.function.name));
+        const clarifyToolCalls = filteredToolCalls.filter(tc => tc.function.name === 'clarify_action');
+        const actionToolCalls = filteredToolCalls.filter(tc => !isMemoryTool(tc.function.name) && tc.function.name !== 'clarify_action');
+
+        // ── If LLM chose to clarify before acting, present options to user ──
+        if (clarifyToolCalls.length > 0) {
+          const tc = clarifyToolCalls[0];
+          try {
+            const args = JSON.parse(tc.function.arguments);
+            const question = args.question || 'What would you like to do?';
+            const options = Array.isArray(args.options) ? args.options : ['Proceed', 'Cancel'];
+            const originalIntent = args.original_intent || 'perform this action';
+
+            // If there's also an action tool call, store it as the pending action
+            let pendingActionPlan = null;
+            if (actionToolCalls.length > 0) {
+              pendingActionPlan = toolCallToActionPlan(actionToolCalls[0], actionService);
+            }
+
+            // Store a confirmation so the user can pick an option
+            const confirmId = actionService.storeConfirmation(
+              pendingActionPlan || { command: originalIntent, intent: 'clarify', description: originalIntent, steps: [] },
+              question,
+              options,
+              message,
+            );
+
+            const responseText = result.text || `${question}`;
+            const totalElapsedSec = ((Date.now() - parseStartTime) / 1000).toFixed(2);
+
+            console.log(`[Clarify] LLM requested clarification: "${question}" with ${options.length} options`);
+
+            return res.json({
+              response: responseText,
+              modelId,
+              generationTime: `${totalElapsedSec}s`,
+              timestamp: new Date().toISOString(),
+              ...(result.usage && { tokenUsage: result.usage }),
+              confirmation: {
+                id: confirmId,
+                question,
+                options,
+                originalAction: originalIntent,
+              },
+            });
+          } catch (err) {
+            console.error('[Clarify] Error parsing clarify_action tool call:', err.message);
+            // Fall through to normal processing
+          }
+        }
 
         let memoryOperations = [];
         let toolResultMessages = [];
@@ -873,7 +921,8 @@ app.post('/api/chat', async (req, res) => {
               });
             }
           } catch (confirmErr) {
-            console.error('[Confirmation] Error during check, proceeding without confirmation:', confirmErr.message);
+            console.error('[Confirmation] Error during check, proceeding without confirmation:', confirmErr.message, confirmErr.stack);
+            console.error('[Confirmation] Action plan was:', JSON.stringify(actionPlan, null, 2));
           }
 
           const queuedAction = actionService.queueAction(actionPlan);
@@ -1072,6 +1121,21 @@ app.post('/api/chat/confirm', async (req, res) => {
     if (resolution.action === 'modify' && resolution.modifiedCommand) {
       const newPlan = actionService.detectAction(resolution.modifiedCommand);
       if (newPlan) finalPlan = newPlan;
+    }
+
+    // If the plan has no steps (e.g., from clarify_action with no paired action),
+    // try to detect an action from the selected option text
+    if (!finalPlan.steps || finalPlan.steps.length === 0) {
+      const detectedPlan = actionService.detectAction(selectedOption);
+      if (detectedPlan) {
+        finalPlan = detectedPlan;
+      } else {
+        return res.json({
+          response: `Got it — "${selectedOption}". Let me know if you need anything else.`,
+          cancelled: true,
+          timestamp: new Date().toISOString(),
+        });
+      }
     }
 
     // ── Security Layer 2: re-validate final plan (it may have changed via modify) ──
