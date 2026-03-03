@@ -30,12 +30,29 @@ const PROVIDERS = {
     github: {
         name: 'GitHub Models',
         models: {
+            // OpenAI
             'gpt-4o': { name: 'GPT-4o', contextWindow: 128000 },
             'gpt-4o-mini': { name: 'GPT-4o Mini', contextWindow: 128000 },
+            'gpt-4.1': { name: 'GPT-4.1', contextWindow: 128000 },
+            'gpt-4.1-mini': { name: 'GPT-4.1 Mini', contextWindow: 128000 },
+            'gpt-4.1-nano': { name: 'GPT-4.1 Nano', contextWindow: 128000 },
             'o3-mini': { name: 'o3-mini', contextWindow: 200000 },
-            'o1-mini': { name: 'o1-mini', contextWindow: 65536 },
-            'meta-llama/Meta-Llama-3.1-70B-Instruct': { name: 'Llama 3.1 70B', contextWindow: 131072 },
-            'Mistral-large-2411': { name: 'Mistral Large', contextWindow: 128000 }
+            'o4-mini': { name: 'o4-mini', contextWindow: 200000 },
+            // Anthropic Claude
+            'claude-3.5-sonnet': { name: 'Claude 3.5 Sonnet', contextWindow: 200000 },
+            'claude-3.5-haiku': { name: 'Claude 3.5 Haiku', contextWindow: 200000 },
+            // Meta Llama
+            'Llama-3.3-70B-Instruct': { name: 'Llama 3.3 70B', contextWindow: 131072 },
+            'Meta-Llama-3.1-405B-Instruct': { name: 'Llama 3.1 405B', contextWindow: 131072 },
+            // Mistral
+            'Mistral-large-2411': { name: 'Mistral Large', contextWindow: 128000 },
+            'Mistral-small': { name: 'Mistral Small', contextWindow: 128000 },
+            // DeepSeek
+            'DeepSeek-R1': { name: 'DeepSeek R1', contextWindow: 64000 },
+            // Microsoft
+            'Phi-4': { name: 'Phi-4', contextWindow: 16384 },
+            // Cohere
+            'Cohere-command-r-plus': { name: 'Command R+', contextWindow: 128000 },
         },
         apiKey: null,       // Per-user GitHub PAT — supplied at call time
         client: null,
@@ -74,15 +91,30 @@ async function initializeLLMClients() {
     }
 }
 
-// Get available providers and models
+// Get available providers and models (with rate info)
 function getAvailableProviders() {
+    // Import API_COSTS lazily to avoid circular deps
+    let API_COSTS;
+    try {
+        API_COSTS = require('./apiUsageTracker.js').API_COSTS;
+    } catch { API_COSTS = null; }
+
     const availableProviders = {};
     
     for (const [providerKey, provider] of Object.entries(PROVIDERS)) {
         if (provider.apiKey) {
+            const modelsWithRates = {};
+            for (const [modelId, modelInfo] of Object.entries(provider.models)) {
+                const cost = API_COSTS?.[providerKey]?.[modelId];
+                const ratePer1M = cost ? `$${(cost.input * 1000000).toFixed(2)}/1M` : null;
+                modelsWithRates[modelId] = {
+                    ...modelInfo,
+                    rate: ratePer1M,
+                };
+            }
             availableProviders[providerKey] = {
                 name: provider.name,
-                models: provider.models
+                models: modelsWithRates
             };
         }
     }

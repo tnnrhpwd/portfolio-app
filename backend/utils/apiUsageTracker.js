@@ -25,13 +25,30 @@ const API_COSTS = {
         'o1-preview': { input: 0.015/1000, output: 0.06/1000 } // per token
     },
     github: {
-        // GitHub Models (Azure inference) — pricing mirrors the underlying model
+        // GitHub Models (Azure inference) — free with Copilot subscription (rate-limited)
+        // Costs below reflect the underlying model cost if billed (used for internal tracking)
         'gpt-4o': { input: 0.0025/1000, output: 0.01/1000 },
         'gpt-4o-mini': { input: 0.00015/1000, output: 0.0006/1000 },
-        'o1-mini': { input: 0.003/1000, output: 0.012/1000 },
-        'o1-preview': { input: 0.015/1000, output: 0.06/1000 },
+        'gpt-4.1': { input: 0.002/1000, output: 0.008/1000 },
+        'gpt-4.1-mini': { input: 0.0004/1000, output: 0.0016/1000 },
+        'gpt-4.1-nano': { input: 0.0001/1000, output: 0.0004/1000 },
+        'o3-mini': { input: 0.0011/1000, output: 0.0044/1000 },
+        'o4-mini': { input: 0.0011/1000, output: 0.0044/1000 },
+        // Anthropic Claude
+        'claude-3.5-sonnet': { input: 0.003/1000, output: 0.015/1000 },
+        'claude-3.5-haiku': { input: 0.0008/1000, output: 0.004/1000 },
+        // Meta Llama
+        'Llama-3.3-70B-Instruct': { input: 0.00037/1000, output: 0.00037/1000 },
         'Meta-Llama-3.1-405B-Instruct': { input: 0.001/1000, output: 0.002/1000 },
+        // Mistral
         'Mistral-large-2411': { input: 0.002/1000, output: 0.006/1000 },
+        'Mistral-small': { input: 0.001/1000, output: 0.003/1000 },
+        // DeepSeek
+        'DeepSeek-R1': { input: 0.00055/1000, output: 0.0022/1000 },
+        // Microsoft
+        'Phi-4': { input: 0.00007/1000, output: 0.00028/1000 },
+        // Cohere
+        'Cohere-command-r-plus': { input: 0.0025/1000, output: 0.01/1000 },
         'default': { input: 0.001/1000, output: 0.003/1000 } // fallback for unknown models
     },
     xai: {

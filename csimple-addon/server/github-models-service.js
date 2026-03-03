@@ -11,11 +11,31 @@
 const GITHUB_MODELS_ENDPOINT = 'https://models.inference.ai.azure.com';
 
 // Models available through GitHub Models API
+// All free with Copilot subscription — rate limits differ per model
 const GITHUB_MODELS = [
-  { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'github', description: 'Fast & cheap — great for most tasks', maxTokens: 4096 },
-  { id: 'gpt-4o', name: 'GPT-4o', provider: 'github', description: 'Most capable — best for complex reasoning', maxTokens: 4096 },
-  { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini', provider: 'github', description: 'Latest mini model — balanced performance', maxTokens: 4096 },
-  { id: 'gpt-4.1-nano', name: 'GPT-4.1 Nano', provider: 'github', description: 'Smallest & fastest — ideal for simple tasks', maxTokens: 4096 },
+  // OpenAI
+  { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'github', description: 'Fast & cheap — great for most tasks', maxTokens: 4096, rate: 'Free · 150/day' },
+  { id: 'gpt-4o', name: 'GPT-4o', provider: 'github', description: 'Highly capable multimodal model', maxTokens: 4096, rate: 'Free · 50/day' },
+  { id: 'gpt-4.1', name: 'GPT-4.1', provider: 'github', description: 'Latest flagship model', maxTokens: 4096, rate: 'Free · 50/day' },
+  { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini', provider: 'github', description: 'Latest mini model — balanced performance', maxTokens: 4096, rate: 'Free · 150/day' },
+  { id: 'gpt-4.1-nano', name: 'GPT-4.1 Nano', provider: 'github', description: 'Smallest & fastest — ideal for simple tasks', maxTokens: 4096, rate: 'Free · 150/day' },
+  { id: 'o3-mini', name: 'o3-mini', provider: 'github', description: 'Reasoning model — good for math & code', maxTokens: 4096, rate: 'Free · 50/day' },
+  { id: 'o4-mini', name: 'o4-mini', provider: 'github', description: 'Latest reasoning model', maxTokens: 4096, rate: 'Free · 50/day' },
+  // Anthropic Claude
+  { id: 'claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', provider: 'github', description: 'Anthropic flagship — strong at coding & analysis', maxTokens: 4096, rate: 'Free · 50/day' },
+  { id: 'claude-3.5-haiku', name: 'Claude 3.5 Haiku', provider: 'github', description: 'Fast Claude — great balance of speed & quality', maxTokens: 4096, rate: 'Free · 150/day' },
+  // Meta Llama
+  { id: 'Llama-3.3-70B-Instruct', name: 'Llama 3.3 70B', provider: 'github', description: 'Latest Llama — improved quality', maxTokens: 4096, rate: 'Free · 150/day' },
+  { id: 'Meta-Llama-3.1-405B-Instruct', name: 'Llama 3.1 405B', provider: 'github', description: 'Largest open-source model', maxTokens: 4096, rate: 'Free · 50/day' },
+  // Mistral
+  { id: 'Mistral-large-2411', name: 'Mistral Large', provider: 'github', description: 'Mistral flagship — strong reasoning', maxTokens: 4096, rate: 'Free · 50/day' },
+  { id: 'Mistral-small', name: 'Mistral Small', provider: 'github', description: 'Efficient Mistral model', maxTokens: 4096, rate: 'Free · 150/day' },
+  // DeepSeek
+  { id: 'DeepSeek-R1', name: 'DeepSeek R1', provider: 'github', description: 'Reasoning-focused open model', maxTokens: 4096, rate: 'Free · 50/day' },
+  // Microsoft
+  { id: 'Phi-4', name: 'Phi-4', provider: 'github', description: 'Microsoft small language model', maxTokens: 4096, rate: 'Free · 150/day' },
+  // Cohere
+  { id: 'Cohere-command-r-plus', name: 'Command R+', provider: 'github', description: 'Cohere flagship — RAG optimized', maxTokens: 4096, rate: 'Free · 50/day' },
 ];
 
 class GitHubModelsService {

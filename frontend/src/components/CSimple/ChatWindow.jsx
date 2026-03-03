@@ -201,11 +201,7 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
       {/* Header */}
       <header className="chat-window__header">
         <button className="chat-window__menu-btn" onClick={onToggleSidebar} title="Toggle sidebar">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="3" y1="6" x2="21" y2="6" />
-            <line x1="3" y1="12" x2="21" y2="12" />
-            <line x1="3" y1="18" x2="21" y2="18" />
-          </svg>
+          Menu
         </button>
         <div className="chat-window__header-info">
           <h1 className="chat-window__title">{conversation?.title || 'New Chat'}</h1>
