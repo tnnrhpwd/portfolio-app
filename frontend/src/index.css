@@ -1,3 +1,11 @@
+/* ── Centralized font declaration ─────────────────────────── */
+@font-face {
+  font-family: 'CutiveMono-Regular';
+  src: url('./fonts/CutiveMono-Regular.woff') format('woff'),
+       url('./fonts/CutiveMono-Regular.ttf') format('truetype');
+  font-display: swap;
+}
+
 body, html {
   height: 100%;
   margin: 0;

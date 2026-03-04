@@ -1,8 +1,3 @@
-@font-face {
-    font-family: 'CutiveMono-Regular';
-    src: url(./../../fonts/CutiveMono-Regular.ttf) format('truetype'),
-    url(./../../fonts/CutiveMono-Regular.woff) format('woff');
-}
 .footer-space{
     padding-top: calc(var(--nav-size)*.5);
     font-family: 'CutiveMono-Regular';

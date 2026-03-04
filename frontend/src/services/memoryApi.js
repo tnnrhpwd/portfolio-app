@@ -8,19 +8,7 @@
  *   DELETE /api/data/memory/:id
  */
 
-const devMode = process.env.NODE_ENV === 'development';
-
-function getApiBase() {
-  if (devMode) return '/api/data/';
-  if (typeof window !== 'undefined') {
-    const h = window.location.hostname;
-    if (h === 'www.sthopwood.com' || h === 'sthopwood.com') {
-      return 'https://mern-plan-web-service.onrender.com/api/data/';
-    }
-    return '/api/data/';
-  }
-  return 'https://mern-plan-web-service.onrender.com/api/data/';
-}
+import { getApiBase } from '../config/api';
 
 function headers(token) {
   return {

@@ -180,9 +180,9 @@ function Settings() {
 
     setIsResetPasswordLoading(true);
     try {
-      const API_BASE_URL = process.env.NODE_ENV === 'production' 
-        ? 'https://www.sthopwood.com' 
-        : 'http://localhost:5000';
+      // Centralized API origin — uses Netlify proxy in prod, localhost in dev
+      const { getApiOrigin } = await import('../../config/api');
+      const API_BASE_URL = getApiOrigin();
       
       const response = await fetch(`${API_BASE_URL}/api/data/forgot-password-authenticated`, {
         method: 'POST',

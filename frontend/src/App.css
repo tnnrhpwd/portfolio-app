@@ -447,3 +447,24 @@
         background: #f9f9f9;
     }
 }
+
+/* ── Route-level lazy-load spinner ────────────────────────── */
+.route-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+
+.route-spinner__dot {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 3px solid var(--text-color, #888);
+  border-top-color: transparent;
+  animation: route-spin 0.7s linear infinite;
+}
+
+@keyframes route-spin {
+  to { transform: rotate(360deg); }
+}

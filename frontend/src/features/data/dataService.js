@@ -2,33 +2,9 @@
 // Exported to the Slice
 import axios from 'axios';  // import ability to make http request
 import { toast } from 'react-toastify'; // import toast notifications
-const devMode = (process.env.NODE_ENV === 'development')
+import { getApiBase } from '../../config/api';
 
-// Dynamic API URL configuration based on environment
-const getApiUrl = () => {
-    if (devMode) {
-        console.log("Warning: Running in development mode. Remember to start backend.");
-        return '/api/data/';
-    }
-    
-    // In production, try to get the API URL from the current domain first
-    if (typeof window !== 'undefined') {
-        const currentHostname = window.location.hostname;
-        
-        // If we're on the main domain, use the API service
-        if (currentHostname === 'www.sthopwood.com' || currentHostname === 'sthopwood.com') {
-            return 'https://mern-plan-web-service.onrender.com/api/data/';
-        }
-        
-        // For other domains or local testing, try relative URL first
-        return '/api/data/';
-    }
-    
-    // Fallback to the main API service
-    return 'https://mern-plan-web-service.onrender.com/api/data/';
-};
-
-const API_URL = getApiUrl();
+const API_URL = getApiBase();
 
 const handleTokenExpiration = (error) => {
     console.log('DataService Error:', error);

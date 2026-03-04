@@ -1,8 +1,3 @@
-@font-face {
-  font-family: 'CutiveMono-Regular';
-  src: url(./../../../fonts/CutiveMono-Regular.ttf) format('truetype'),
-  url(./../../../fonts/CutiveMono-Regular.woff) format('woff');
-}
 .containerq{ /* Container CLASS */
   color: var(--text-color);
   font-weight: bold;
