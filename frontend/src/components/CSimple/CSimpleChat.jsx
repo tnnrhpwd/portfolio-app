@@ -96,6 +96,8 @@ function CSimpleChat({
   user,
   portfolioLLMProviders,
   onPortfolioChat,
+  onPortfolioChatStream,
+  streamCallbacksRef,
   portfolioChatLoading,
   portfolioChatResponse,
   portfolioChatError,
@@ -450,10 +452,20 @@ function CSimpleChat({
   // Handle portfolio chat errors (e.g. missing GitHub token, server errors)
   useEffect(() => {
     if (portfolioChatError && !portfolioChatLoading) {
+      let content;
+      const errStr = String(portfolioChatError);
+      if (errStr.includes('402') || errStr.toLowerCase().includes('credit') || errStr.toLowerCase().includes('limit')) {
+        content = `**Usage Limit Reached**\n\n${errStr}\n\n---\n💡 **Upgrade your plan** to get more credits and higher limits:\n- **Pro** ($12/mo) — 500 cmds/day, $0.50 monthly credit\n- **Simple** ($39/mo) — 5,000 cmds/day, $10 monthly credit\n\n[Upgrade Now →](/pay)`;
+      } else if (errStr.includes('403') || errStr.toLowerCase().includes('requires a')) {
+        content = `**Model Access Restricted**\n\n${errStr}\n\n---\n🔒 This model requires a higher membership tier.\n\n[View Plans →](/pay)`;
+      } else {
+        content = `**Error:** ${errStr}`;
+      }
+
       const errorMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `**Error:** ${portfolioChatError}`,
+        content,
         timestamp: new Date().toISOString(),
         isError: true,
       };
@@ -637,17 +649,101 @@ function CSimpleChat({
       const provider = settings.llmProvider || 'portfolio';
 
       if (provider === 'portfolio') {
-        // Route through portfolio backend via Redux
-        if (onPortfolioChat) {
-          if (!settings.githubToken) {
-            throw new Error('GitHub token not configured. Go to Settings → Advanced → GitHub Personal Access Token and add your token.');
-          }
-          const portfolioModel = settings.portfolioModel || 'gpt-4o-mini';
-          onPortfolioChat(text, trimmedHistory, 'github', portfolioModel);
-          // Response will come via portfolioChatResponse prop
-        } else {
+        if (!onPortfolioChat && !onPortfolioChatStream) {
           throw new Error('Portfolio chat not available. Please log in.');
         }
+        if (!settings.githubToken) {
+          throw new Error('GitHub token not configured. Go to Settings → Advanced → GitHub Personal Access Token and add your token.');
+        }
+        const portfolioModel = settings.portfolioModel || 'gpt-4o-mini';
+
+        // ── Streaming path ──
+        if (onPortfolioChatStream && streamCallbacksRef) {
+          const streamingMsgId = (Date.now() + 1).toString();
+          // Add a placeholder assistant message
+          setConversations(prev => prev.map(c => {
+            if (c.id !== activeConversationId) return c;
+            return {
+              ...c,
+              messages: [...c.messages, {
+                id: streamingMsgId,
+                role: 'assistant',
+                content: '',
+                timestamp: new Date().toISOString(),
+                modelId: portfolioModel,
+                isStreaming: true,
+              }],
+            };
+          }));
+
+          // Wire up streaming callbacks
+          streamCallbacksRef.current = {
+            onToken: (token) => {
+              setConversations(prev => prev.map(c => {
+                if (c.id !== activeConversationId) return c;
+                return {
+                  ...c,
+                  messages: c.messages.map(m =>
+                    m.id === streamingMsgId ? { ...m, content: m.content + token } : m
+                  ),
+                };
+              }));
+            },
+            onTools: (tools) => {
+              // Could display tool indicators — for now just log
+              console.log('[Stream] Tools executed:', tools);
+            },
+            onDone: () => {
+              setConversations(prev => prev.map(c => {
+                if (c.id !== activeConversationId) return c;
+                return {
+                  ...c,
+                  messages: c.messages.map(m =>
+                    m.id === streamingMsgId ? { ...m, isStreaming: false } : m
+                  ),
+                };
+              }));
+              setIsGenerating(false);
+              // TTS on complete
+              setConversations(prev => {
+                const conv = prev.find(c => c.id === activeConversationId);
+                const msg = conv?.messages.find(m => m.id === streamingMsgId);
+                if (msg?.content && (settings.ttsEnabled ?? true)) {
+                  speech.speak(msg.content);
+                }
+                return prev;
+              });
+            },
+            onError: (errMsg, statusCode) => {
+              let displayContent;
+              if (statusCode === 402) {
+                displayContent = `**Usage Limit Reached**\n\n${errMsg}\n\n---\n💡 **Upgrade your plan** to get more credits and higher limits:\n- **Pro** ($12/mo) — 500 cmds/day, $0.50 monthly credit\n- **Simple** ($39/mo) — 5,000 cmds/day, $10 monthly credit\n\n[Upgrade Now →](/pay)`;
+              } else if (statusCode === 403) {
+                displayContent = `**Model Access Restricted**\n\n${errMsg}\n\n---\n🔒 This model requires a higher membership tier.\n\n[View Plans →](/pay)`;
+              } else {
+                displayContent = `**Error:** ${errMsg}`;
+              }
+              setConversations(prev => prev.map(c => {
+                if (c.id !== activeConversationId) return c;
+                return {
+                  ...c,
+                  messages: c.messages.map(m =>
+                    m.id === streamingMsgId
+                      ? { ...m, content: displayContent, isError: true, isStreaming: false }
+                      : m
+                  ),
+                };
+              }));
+              setIsGenerating(false);
+            },
+          };
+
+          onPortfolioChatStream(text, trimmedHistory, 'github', portfolioModel);
+          return; // Don't set isGenerating to false — streaming callbacks handle it
+        }
+
+        // ── Legacy non-streaming fallback ──
+        onPortfolioChat(text, trimmedHistory, 'github', portfolioModel);
         return; // Don't set isGenerating to false yet — wait for response
       }
 
@@ -883,6 +979,7 @@ function CSimpleChat({
           isOnline={isOnline}
           isAddonConnected={isAddonConnected}
           portfolioLLMProviders={portfolioLLMProviders}
+          user={user}
           showAddonPrompt={showAddonPrompt}
           addonPromptOutdated={addonPromptOutdated}
           addonPromptChecking={addonPromptChecking}

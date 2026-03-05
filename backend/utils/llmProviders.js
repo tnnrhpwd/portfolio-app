@@ -92,6 +92,22 @@ async function initializeLLMClients() {
 }
 
 // Get available providers and models (with rate info)
+// Model tier requirements: which minimum tier is needed for each model
+// Models not listed here are available to all tiers (Free+)
+const MODEL_TIER_REQUIREMENTS = {
+    // Pro+ models (medium cost)
+    'gpt-4o': 'pro',
+    'gpt-4.1': 'pro',
+    'claude-3.5-sonnet': 'pro',
+    'Mistral-large-2411': 'pro',
+    'Meta-Llama-3.1-405B-Instruct': 'pro',
+    'Cohere-command-r-plus': 'pro',
+    // Simple+ models (high cost / reasoning)
+    'o3-mini': 'simple',
+    'o4-mini': 'simple',
+    'DeepSeek-R1': 'simple',
+};
+
 function getAvailableProviders() {
     // Import API_COSTS lazily to avoid circular deps
     let API_COSTS;
@@ -110,6 +126,7 @@ function getAvailableProviders() {
                 modelsWithRates[modelId] = {
                     ...modelInfo,
                     rate: ratePer1M,
+                    requiredTier: MODEL_TIER_REQUIREMENTS[modelId] || 'free',
                 };
             }
             availableProviders[providerKey] = {
@@ -358,6 +375,7 @@ async function testXAIConnection() {
 
 module.exports = {
     PROVIDERS,
+    MODEL_TIER_REQUIREMENTS,
     initializeLLMClients,
     getAvailableProviders,
     validateProviderModel,

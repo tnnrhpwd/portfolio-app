@@ -1,6 +1,7 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { compressData, getLLMProviders, resetDataSlice } from '../../../features/data/dataSlice.js';
+import dataService from '../../../features/data/dataService.js';
 import CSimpleChat from '../../../components/CSimple/CSimpleChat.jsx';
 import { useAddonDetection } from '../../../hooks/csimple/useAddonDetection.js';
 import './Net.css';
@@ -27,6 +28,9 @@ function Net() {
   const [portfolioChatResponse, setPortfolioChatResponse] = React.useState(null);
   const [portfolioChatError, setPortfolioChatError] = React.useState(null);
 
+  // Streaming callbacks ref (set by CSimpleChat)
+  const streamCallbacksRef = useRef(null);
+
   // Fetch LLM providers on mount if user is logged in
   useEffect(() => {
     if (user) {
@@ -34,7 +38,7 @@ function Net() {
     }
   }, [user, dispatch]);
 
-  // Handle compressData response
+  // Handle compressData response (fallback non-streaming path)
   useEffect(() => {
     if (operation === 'compress' && dataIsSuccess && data?.data) {
       const response = data.data[0] || data.data;
@@ -44,7 +48,7 @@ function Net() {
     }
   }, [operation, dataIsSuccess, data, dispatch]);
 
-  // Handle compressData errors (e.g. missing GitHub token, API failures)
+  // Handle compressData errors
   useEffect(() => {
     if (dataIsError && dataMessage) {
       setPortfolioChatError(dataMessage);
@@ -52,17 +56,50 @@ function Net() {
     }
   }, [dataIsError, dataMessage, dispatch]);
 
-  // Callback for CSimpleChat to send messages via portfolio backend
+  // Streaming chat handler — streams tokens directly to CSimpleChat callbacks
+  const handlePortfolioChatStream = useCallback(
+    async (message, conversationHistory, provider = 'openai', model = 'gpt-4o-mini') => {
+      if (!user) return;
+
+      const combinedData = JSON.stringify({ message, conversationHistory });
+      const requestData = {
+        data: JSON.stringify({ text: 'Net:' + combinedData }),
+        provider,
+        model,
+      };
+
+      try {
+        const stream = dataService.compressDataStream(
+          { data: JSON.stringify({ text: 'Net:' + combinedData }) },
+          user.token,
+          { provider, model }
+        );
+        for await (const event of stream) {
+          if (event.type === 'token') {
+            streamCallbacksRef.current?.onToken?.(event.text);
+          } else if (event.type === 'content') {
+            // Full content in one shot (tool-call fallback path)
+            streamCallbacksRef.current?.onToken?.(event.text);
+          } else if (event.type === 'tools') {
+            streamCallbacksRef.current?.onTools?.(event.tools);
+          } else if (event.type === 'error') {
+            streamCallbacksRef.current?.onError?.(event.error);
+            return;
+          }
+        }
+        streamCallbacksRef.current?.onDone?.();
+      } catch (err) {
+        streamCallbacksRef.current?.onError?.(err.message, err.status);
+      }
+    },
+    [user]
+  );
+
+  // Legacy non-streaming handler (fallback)
   const handlePortfolioChat = useCallback(
     (message, conversationHistory, provider = 'openai', model = 'gpt-4o-mini') => {
       if (!user) return;
-
-      // Format conversation for the portfolio API
-      const combinedData = JSON.stringify({
-        message,
-        conversationHistory,
-      });
-
+      const combinedData = JSON.stringify({ message, conversationHistory });
       dispatch(
         compressData({
           data: { data: JSON.stringify({ text: 'Net:' + combinedData }) },
@@ -98,6 +135,8 @@ function Net() {
             user={user}
             portfolioLLMProviders={llmProviders}
             onPortfolioChat={handlePortfolioChat}
+            onPortfolioChatStream={handlePortfolioChatStream}
+            streamCallbacksRef={streamCallbacksRef}
             portfolioChatLoading={dataIsLoading}
             portfolioChatResponse={portfolioChatResponse}
             portfolioChatError={portfolioChatError}

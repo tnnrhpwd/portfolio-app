@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getLocalModels, testAddonConnection } from '../../services/csimpleApi';
+import UsageMeter from './UsageMeter';
 import './Sidebar.css';
 
 function Sidebar({
@@ -18,6 +19,7 @@ function Sidebar({
   isOnline,
   isAddonConnected,
   portfolioLLMProviders,
+  user,
   showAddonPrompt = false,
   addonPromptOutdated = false,
   addonPromptChecking = false,
@@ -82,6 +84,20 @@ function Sidebar({
     { id: 'Cohere-command-r-plus', name: 'Command R+', provider: 'github', rate: 'Free · 50/day' },
   ];
 
+  // Derive the user's membership tier from the user prop
+  const userTier = React.useMemo(() => {
+    const text = user?.text || '';
+    const match = text.match(/\|Rank:(\w+)/);
+    return match ? match[1].toLowerCase() : 'free';
+  }, [user?.text]);
+
+  const canAccessTier = (requiredTier) => {
+    if (!requiredTier || requiredTier === 'free') return true;
+    if (requiredTier === 'pro') return userTier === 'pro' || userTier === 'simple';
+    if (requiredTier === 'simple') return userTier === 'simple';
+    return true;
+  };
+
   // Build portfolio models list from providers
   // config.models may be an array OR an object keyed by model ID
   const portfolioModels = React.useMemo(() => {
@@ -96,6 +112,7 @@ function Sidebar({
             name: typeof m === 'string' ? m : (m.name || m.id),
             provider,
             rate: (typeof m === 'object' && m.rate) ? m.rate : null,
+            requiredTier: (typeof m === 'object' && m.requiredTier) ? m.requiredTier : null,
           });
         });
       } else {
@@ -105,6 +122,7 @@ function Sidebar({
             name: (modelInfo && modelInfo.name) ? modelInfo.name : modelId,
             provider,
             rate: modelInfo?.rate || null,
+            requiredTier: modelInfo?.requiredTier || null,
           });
         });
       }
@@ -302,12 +320,22 @@ function Sidebar({
                   <select
                     className="sidebar__select"
                     value={effectiveModel}
-                    onChange={e => onSettingsChange({ ...settings, portfolioModel: e.target.value })}
+                    onChange={e => {
+                      const m = portfolioModels.find(pm => pm.id === e.target.value);
+                      if (m && !canAccessTier(m.requiredTier)) return;
+                      onSettingsChange({ ...settings, portfolioModel: e.target.value });
+                    }}
                   >
                     {portfolioModels.length > 0 ? (
-                      portfolioModels.map(m => (
-                        <option key={m.id} value={m.id}>{m.name} ({m.provider}) — {m.rate || '—'}</option>
-                      ))
+                      portfolioModels.map(m => {
+                        const locked = !canAccessTier(m.requiredTier);
+                        const tierLabel = m.requiredTier === 'simple' ? '🔒 Simple' : m.requiredTier === 'pro' ? '🔒 Pro' : '';
+                        return (
+                          <option key={m.id} value={m.id} disabled={locked}>
+                            {locked ? `${tierLabel} · ` : ''}{m.name} ({m.provider}) — {m.rate || '—'}
+                          </option>
+                        );
+                      })
                     ) : (
                       <>
                         <option value="gpt-4o-mini">gpt-4o-mini</option>
@@ -343,6 +371,8 @@ function Sidebar({
             </div>
           )}
         </div>
+
+        <UsageMeter user={user} />
       </aside>
     </>
   );

@@ -274,6 +274,56 @@ const compressData = async (dataData, token, options = {}) => {
     }
 }
 
+/**
+ * Stream compress data via SSE. Returns an async generator of events.
+ * Event types: { type: 'token', text }, { type: 'tools', tools }, { type: 'content', text }, { type: 'error', error }
+ */
+const compressDataStream = async function* (dataData, token, options = {}) {
+    const requestData = {
+        ...dataData,
+        provider: options.provider || 'openai',
+        model: options.model || (options.provider === 'xai' ? 'grok-4-fast-reasoning' : 'gpt-4o-mini')
+    };
+
+    const response = await fetch(API_URL + 'compress/stream', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(requestData),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const err = new Error(errorData.error || errorData.reason || `Stream request failed (${response.status})`);
+        err.status = response.status;
+        throw err;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const payload = line.slice(6);
+            if (payload === '[DONE]') return;
+            try {
+                yield JSON.parse(payload);
+            } catch {}
+        }
+    }
+}
+
 // Fetch payment methods
 const getPaymentMethods = async (token) => {
     const config = {
@@ -692,6 +742,7 @@ const dataService = {
     updateData,
     deleteData,
     compressData,
+    compressDataStream,
     getPaymentMethods,
     deletePaymentMethod,
     createCustomer,

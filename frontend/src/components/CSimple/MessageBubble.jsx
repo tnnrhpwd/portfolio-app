@@ -86,7 +86,7 @@ function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = 
   };
 
   return (
-    <div className={`message ${isUser ? 'message--user' : 'message--assistant'} ${message.isError ? 'message--error' : ''}`}>
+    <div className={`message ${isUser ? 'message--user' : 'message--assistant'} ${message.isError ? 'message--error' : ''} ${message.isStreaming ? 'message--streaming' : ''}`}>
       <div className="message__row">
         {!isUser && (
           safeAvatarUrl(agent?.avatarUrl) ? (

@@ -1,0 +1,126 @@
+.usage-meter {
+  padding: 8px 12px;
+  border-top: 1px solid var(--border, rgba(255,255,255,0.08));
+}
+
+.usage-meter__toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text-primary, #e2e8f0);
+  cursor: pointer;
+  padding: 6px 4px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  transition: background 0.15s;
+}
+
+.usage-meter__toggle:hover {
+  background: var(--hover-bg, rgba(255,255,255,0.05));
+}
+
+.usage-meter__tier-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+.usage-meter__summary {
+  flex: 1;
+  text-align: left;
+  color: var(--text-secondary, #a0aec0);
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-meter__chevron {
+  font-size: 1rem;
+  transition: transform 0.2s;
+  color: var(--text-secondary, #a0aec0);
+}
+
+.usage-meter__chevron--open {
+  transform: rotate(90deg);
+}
+
+.usage-meter__details {
+  padding: 8px 4px 4px;
+}
+
+.usage-meter__bar-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.usage-meter__bar {
+  flex: 1;
+  height: 6px;
+  background: var(--border, rgba(255,255,255,0.1));
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.usage-meter__bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+.usage-meter__percent {
+  font-size: 0.7rem;
+  color: var(--text-secondary, #a0aec0);
+  white-space: nowrap;
+}
+
+.usage-meter__stats {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.usage-meter__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.usage-meter__stat-label {
+  font-size: 0.65rem;
+  color: var(--text-secondary, #a0aec0);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.usage-meter__stat-value {
+  font-size: 0.78rem;
+  color: var(--text-primary, #e2e8f0);
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-meter__upgrade {
+  display: block;
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: #fff;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-decoration: none;
+  text-align: center;
+  transition: opacity 0.15s;
+}
+
+.usage-meter__upgrade:hover {
+  opacity: 0.9;
+}

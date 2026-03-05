@@ -80,6 +80,18 @@
   background: rgba(248, 113, 113, 0.1);
 }
 
+/* Streaming cursor */
+.message--streaming .message__markdown::after {
+  content: '▋';
+  display: inline;
+  animation: blink-cursor 0.7s step-end infinite;
+  color: var(--text-secondary, #a0aec0);
+}
+
+@keyframes blink-cursor {
+  50% { opacity: 0; }
+}
+
 /* Action bubble styles */
 .message__bubble--action {
   border: 1px solid rgba(251, 191, 36, 0.3);

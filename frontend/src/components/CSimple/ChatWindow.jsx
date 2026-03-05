@@ -300,7 +300,7 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
           />
         ))}
 
-        {isGenerating && (
+        {isGenerating && !messages.some(m => m.isStreaming) && (
           <div className="chat-window__typing">
             {safeAvatarUrl(agent?.avatarUrl) ? (
               <img className="chat-window__typing-avatar-img" src={safeAvatarUrl(agent.avatarUrl)} alt="" />

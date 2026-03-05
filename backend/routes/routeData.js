@@ -33,7 +33,7 @@ const {
   getData, getUserSubscription, getUserStorage,
   getHashData, getPaymentMethods, getAllData, getMembershipPricing, getUserUsageData,
   postData, registerUser, loginUser,
-  postHashData, compressData, createCustomer,
+  postHashData, compressData, compressDataStream, createCustomer,
   postPaymentMethod, createInvoice, subscribeCustomer,
   handleWebhook, setCustomLimit, processFileUpload,
   putData, putHashData, updateCustomer, putPaymentMethod,
@@ -250,6 +250,7 @@ router.get('/test-funnel/emails', protect, getTestEmails);
 
 // Data Compression
 router.post('/compress', protect, compressData);
+router.post('/compress/stream', protect, compressDataStream);
 
 // File Processing (in-memory, no DB storage)
 const fileProcessUpload = multer({

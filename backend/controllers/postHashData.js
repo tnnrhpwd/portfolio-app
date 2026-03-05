@@ -13,7 +13,8 @@ const {
 } = require('../services/dataService.js');
 
 const { 
-    processCompressionRequest 
+    processCompressionRequest,
+    streamCompressionRequest,
 } = require('../services/llmService.js');
 
 const {
@@ -121,6 +122,39 @@ const compressData = asyncHandler(async (req, res) => {
         res.status(statusCode).json({ 
             error: error.message || 'An error occurred during compression' 
         });
+    }
+});
+
+// @desc    Stream Compress Data (SSE)
+// @route   POST /api/compress/stream
+// @access  Private
+const compressDataStream = asyncHandler(async (req, res) => {
+    await checkIP(req);
+
+    if (!req.user) {
+        res.status(401);
+        throw new Error('User not found');
+    }
+
+    try {
+        await streamCompressionRequest(req, res, dynamodb);
+    } catch (error) {
+        console.error('Error in compressDataStream:', error);
+
+        // If headers already sent (streaming started), send error as SSE event
+        if (res.headersSent) {
+            res.write(`data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`);
+            res.write('data: [DONE]\n\n');
+            res.end();
+        } else {
+            if (error.statusCode === 402 && error.details) {
+                return res.status(402).json(error.details);
+            }
+            const statusCode = error.statusCode || 500;
+            res.status(statusCode).json({
+                error: error.message || 'An error occurred during streaming'
+            });
+        }
     }
 });
 
@@ -532,7 +566,8 @@ const processFileUpload = asyncHandler(async (req, res) => {
 
 module.exports = { 
     postHashData, 
-    compressData, 
+    compressData,
+    compressDataStream,
     processFileUpload,
     createCustomer, 
     postPaymentMethod, 

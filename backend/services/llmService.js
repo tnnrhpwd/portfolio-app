@@ -4,8 +4,11 @@ const {
     initializeLLMClients, 
     checkApiUsage, 
     createCompletionWithKey,
-    trackCompletion 
+    trackCompletion,
+    PROVIDERS,
+    MODEL_TIER_REQUIREMENTS,
 } = require('../utils/llmProviders.js');
+const { isProTier, isSimpleTier } = require('../constants/pricing.js');
 const { getGoalsSummary, logAction } = require('./memoryService.js');
 const { TOOL_SCHEMAS, executeTool } = require('./netTools.js');
 
@@ -144,6 +147,30 @@ function parseCompressionRequest(req) {
 }
 
 /**
+ * Check if user's membership tier allows the requested model.
+ * Throws 403 if the model requires a higher tier.
+ */
+function validateModelTierAccess(user, model) {
+    const requiredTier = MODEL_TIER_REQUIREMENTS[model];
+    if (!requiredTier || requiredTier === 'free') return; // No restriction
+
+    const text = user?.text || '';
+    const rankMatch = text.match(/\|Rank:(\w+)/);
+    const rank = rankMatch ? rankMatch[1] : 'Free';
+
+    if (requiredTier === 'pro' && !isProTier(rank) && !isSimpleTier(rank)) {
+        const error = new Error(`Model "${model}" requires a Pro or Simple membership. Upgrade at /pay to access this model.`);
+        error.statusCode = 403;
+        throw error;
+    }
+    if (requiredTier === 'simple' && !isSimpleTier(rank)) {
+        const error = new Error(`Model "${model}" requires a Simple membership. Upgrade at /pay to access this model.`);
+        error.statusCode = 403;
+        throw error;
+    }
+}
+
+/**
  * Check if user can make API call
  * @param {string} userId - User ID
  * @param {string} provider - LLM provider
@@ -211,7 +238,7 @@ async function getUserGithubToken(dynamodb, userId) {
  * @param {object|null} userContext - { memoryContext, personalityContext, behaviorContext } from DB
  * @returns {Object} LLM response (final, after any tool calls are resolved)
  */
-async function callLLMApi(provider, model, userInput, githubToken = null, goalsSummary = null, toolContext = null, userContext = null) {
+async function callLLMApi(provider, model, userInput, githubToken = null, goalsSummary = null, toolContext = null, userContext = null, maxTokensOverride = null) {
     await initializeLLMClients();
     
     console.log(`🤖 Starting ${provider.toUpperCase()} API call...`);
@@ -277,7 +304,7 @@ async function callLLMApi(provider, model, userInput, githubToken = null, goalsS
 
     // Determine if we should send tools (only for Net: chat, not plain compression)
     const useTools = toolContext !== null;
-    const llmOptions = { maxTokens: 1000, temperature: 0.7 };
+    const llmOptions = { maxTokens: maxTokensOverride || 1000, temperature: 0.7 };
     if (useTools) {
         llmOptions.tools = TOOL_SCHEMAS;
         llmOptions.tool_choice = 'auto';
@@ -518,6 +545,9 @@ async function processCompressionRequest(req, dynamodb) {
     // Parse request
     const { updateId, userInput, provider, model } = parseCompressionRequest(req);
     
+    // Check tier access for the requested model
+    validateModelTierAccess(req.user, model);
+    
     // Validate API usage
     await validateApiUsage(req.user.id, provider, model, userInput);
     
@@ -580,7 +610,8 @@ async function processCompressionRequest(req, dynamodb) {
     }
 
     // Call LLM API (with tools if Net: chat)
-    const response = await callLLMApi(provider, model, userInput, githubToken, goalsSummary, toolContext, userContext);
+    const maxTokens = getMaxTokensForRequest(req.user, model);
+    const response = await callLLMApi(provider, model, userInput, githubToken, goalsSummary, toolContext, userContext, maxTokens);
     
     // Track API usage
     await trackApiUsageAfterCall(req.user.id, provider, model, response, userInput);
@@ -623,11 +654,277 @@ async function processCompressionRequest(req, dynamodb) {
     }
 }
 
+/**
+ * Stream a compression request via SSE.
+ * Sends token-by-token chunks as `data:` events.
+ * Final event is `data: [DONE]`.
+ */
+async function streamCompressionRequest(req, res, dynamodb) {
+    const startValidation = Date.now();
+
+    // Parse request
+    const { updateId, userInput, provider, model } = parseCompressionRequest(req);
+
+    // Check tier access for the requested model
+    validateModelTierAccess(req.user, model);
+
+    // Validate API usage
+    await validateApiUsage(req.user.id, provider, model, userInput);
+
+    // Get GitHub PAT
+    let githubToken = null;
+    if (provider === 'github') {
+        githubToken = await getUserGithubToken(dynamodb, req.user.id);
+        if (!githubToken) {
+            const error = new Error('GitHub token not configured. Add your GitHub PAT in CSimple → Settings → Advanced.');
+            error.statusCode = 401;
+            throw error;
+        }
+    }
+
+    // Fetch goals context
+    let goalsSummary = null;
+    try {
+        goalsSummary = await getGoalsSummary(req.user.id);
+    } catch {}
+
+    // Build tool context for Net: chat messages
+    let toolContext = null;
+    let behaviorFile = 'default.txt';
+    try {
+        const parsed = JSON.parse(userInput);
+        if (parsed.message && Array.isArray(parsed.conversationHistory)) {
+            toolContext = {
+                userId: req.user.id,
+                userEmail: req.user.email || null,
+                userName: req.user.nickname || req.user.name || null,
+            };
+            behaviorFile = parsed.behaviorFile || 'default.txt';
+        }
+    } catch {}
+
+    // Load user context
+    let userContext = null;
+    try {
+        userContext = await loadUserContextFromDB(dynamodb, req.user.id, behaviorFile);
+    } catch {}
+
+    // ── Build messages (same logic as callLLMApi) ─────────────────────────
+    await initializeLLMClients();
+
+    let messages;
+    try {
+        const parsed = JSON.parse(userInput);
+        if (parsed.message && Array.isArray(parsed.conversationHistory)) {
+            messages = [
+                ...parsed.conversationHistory.map(m => ({ role: m.role, content: m.content })),
+                { role: 'user', content: parsed.message }
+            ];
+        } else {
+            messages = [{ role: 'user', content: userInput }];
+        }
+    } catch {
+        messages = [{ role: 'user', content: userInput }];
+    }
+
+    // Build system prompt
+    const systemParts = [
+        'You are a helpful AI assistant on sthopwood.com\'s /net chat.',
+        'You have access to tools that let you take real actions — save goals, notes, log actions, submit support tickets, and more.',
+        'Use tools when the user\'s intent clearly calls for an action (e.g. "remember this", "I want to achieve X", "submit a bug report").',
+        'For normal conversation, questions, or requests for information, just reply in text.',
+        'Be concise and helpful. When you use a tool, also include a brief conversational response explaining what you did.',
+        'Each message in the conversation is prefixed with a timestamp in brackets like [1/15/2025, 2:30:00 PM]. Use these timestamps for temporal context.',
+        'When the user asks you to write, create, or generate content (code, scripts, emails, documents, etc.), present the content directly in your response using proper formatting.',
+        'AUTO-MEMORY: You can save important facts about the user by including a [MEMORY_SAVE:filename] block in your response. Format:\n[MEMORY_SAVE:user_profile.md]\n- Name: John\n[/MEMORY_SAVE]\nDo NOT announce the memory save to the user.',
+    ];
+    if (goalsSummary) systemParts.push(`\nThe following is context about the user's goals:\n\n${goalsSummary}`);
+    if (userContext) {
+        if (userContext.personalityContext) systemParts.push(userContext.personalityContext);
+        if (userContext.memoryContext) systemParts.push(userContext.memoryContext);
+        if (userContext.behaviorContext) systemParts.push(userContext.behaviorContext);
+    }
+    messages.unshift({ role: 'system', content: systemParts.join(' ') });
+
+    if (!githubToken) {
+        const error = new Error('GitHub token not configured.');
+        error.statusCode = 401;
+        throw error;
+    }
+
+    const useTools = toolContext !== null;
+
+    // Determine max tokens based on tier + model
+    const maxTokens = getMaxTokensForRequest(req.user, model);
+
+    const llmOptions = { maxTokens, temperature: 0.7 };
+    if (useTools) {
+        llmOptions.tools = TOOL_SCHEMAS;
+        llmOptions.tool_choice = 'auto';
+    }
+
+    // ── Tool-call phase (non-streamed, same as before) ─────────────────────
+    // We must resolve tools before streaming the final answer
+    const MAX_TOOL_ROUNDS = 3;
+    let round = 0;
+    const toolResults = [];
+    let needsStreaming = true;
+
+    if (useTools) {
+        // Do an initial non-streaming call to check for tool calls
+        const initResponse = await createCompletionWithKey('github', model, messages, llmOptions, githubToken);
+        let choice = initResponse?.choices?.[0];
+
+        while (choice?.message?.tool_calls && choice.message.tool_calls.length > 0 && round < MAX_TOOL_ROUNDS) {
+            round++;
+            messages.push(choice.message);
+
+            for (const toolCall of choice.message.tool_calls) {
+                const fnName = toolCall.function.name;
+                let fnArgs;
+                try { fnArgs = JSON.parse(toolCall.function.arguments); } catch { fnArgs = {}; }
+                const result = await executeTool(fnName, fnArgs, toolContext);
+                toolResults.push({ tool: fnName, args: fnArgs, result });
+                messages.push({ role: 'tool', tool_call_id: toolCall.id, content: result });
+            }
+
+            // Check if the follow-up also has tool calls
+            const followUp = await createCompletionWithKey('github', model, messages, llmOptions, githubToken);
+            choice = followUp?.choices?.[0];
+
+            // If no more tools, we'll stream the final response from scratch
+            if (!choice?.message?.tool_calls || choice.message.tool_calls.length === 0) {
+                // The follow-up already has the final text — send it non-streamed
+                const content = choice?.message?.content || '';
+                const { cleanedContent, savedMemories } = await processCloudMemorySaves(dynamodb, req.user.id, content);
+
+                // Track usage from the non-streamed response
+                await trackApiUsageAfterCall(req.user.id, provider, model, followUp, userInput);
+                await saveCompressedData(dynamodb, req.user.id, userInput, cleanedContent, updateId);
+
+                // Send as SSE
+                res.writeHead(200, {
+                    'Content-Type': 'text/event-stream',
+                    'Cache-Control': 'no-cache',
+                    'Connection': 'keep-alive',
+                    'X-Accel-Buffering': 'no',
+                });
+                if (toolResults.length > 0) {
+                    res.write(`data: ${JSON.stringify({ type: 'tools', tools: toolResults.map(t => ({ tool: t.tool, args: t.args, success: !t.result.startsWith('Error') })) })}\n\n`);
+                }
+                res.write(`data: ${JSON.stringify({ type: 'content', text: cleanedContent })}\n\n`);
+                res.write('data: [DONE]\n\n');
+                res.end();
+                needsStreaming = false;
+                break;
+            }
+        }
+    }
+
+    if (!needsStreaming) return;
+
+    // ── Streaming phase ──────────────────────────────────────────────────
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no',
+    });
+
+    // Send tool results first if any
+    if (toolResults.length > 0) {
+        res.write(`data: ${JSON.stringify({ type: 'tools', tools: toolResults.map(t => ({ tool: t.tool, args: t.args, success: !t.result.startsWith('Error') })) })}\n\n`);
+    }
+
+    // Remove tools for the streaming call (tools don't work with streaming)
+    const streamOptions = { maxTokens, temperature: 0.7 };
+
+    const providerConfig = PROVIDERS[provider];
+    const { default: OpenAI } = await import('openai');
+    const client = new OpenAI({
+        apiKey: githubToken,
+        ...(providerConfig.baseURL ? { baseURL: providerConfig.baseURL } : {})
+    });
+
+    const stream = await client.chat.completions.create({
+        model,
+        messages,
+        temperature: streamOptions.temperature,
+        max_tokens: streamOptions.maxTokens,
+        stream: true,
+    });
+
+    let fullContent = '';
+    let chunkCount = 0;
+
+    for await (const chunk of stream) {
+        const delta = chunk.choices?.[0]?.delta?.content;
+        if (delta) {
+            fullContent += delta;
+            chunkCount++;
+            res.write(`data: ${JSON.stringify({ type: 'token', text: delta })}\n\n`);
+        }
+    }
+
+    // Process memory saves and finalize
+    const { cleanedContent, savedMemories } = await processCloudMemorySaves(dynamodb, req.user.id, fullContent);
+
+    // Build a synthetic response for usage tracking
+    const syntheticResponse = {
+        choices: [{ message: { content: fullContent } }],
+        usage: { prompt_tokens: Math.ceil(userInput.length / 4), completion_tokens: Math.ceil(fullContent.length / 4) },
+    };
+    await trackApiUsageAfterCall(req.user.id, provider, model, syntheticResponse, userInput);
+    await saveCompressedData(dynamodb, req.user.id, userInput, cleanedContent, updateId);
+
+    // Log action
+    try {
+        let actionSummary;
+        try { const p = JSON.parse(userInput); actionSummary = p.message || userInput; } catch { actionSummary = userInput; }
+        if (actionSummary.length > 120) actionSummary = actionSummary.substring(0, 117) + '...';
+        logAction(req.user.id, `Chat: ${actionSummary}`, 'net').catch(() => {});
+    } catch {}
+
+    res.write('data: [DONE]\n\n');
+    res.end();
+
+    console.log(`🌊 Streamed ${chunkCount} chunks in ${Date.now() - startValidation}ms`);
+}
+
+/**
+ * Get maxTokens based on user's membership tier and model.
+ * Free: 1000, Pro: 2000, Simple: 4000 (with model-specific ceilings)
+ */
+function getMaxTokensForRequest(user, model) {
+    const text = user?.text || '';
+    const rankMatch = text.match(/\|Rank:(\w+)/);
+    const rank = rankMatch ? rankMatch[1] : 'Free';
+
+    // Base limits by tier
+    const tierLimits = { Free: 1000, Pro: 2000, Flex: 2000, Simple: 4000, Premium: 4000 };
+    const tierMax = tierLimits[rank] || 1000;
+
+    // Model-specific ceilings (some smaller models shouldn't get huge token budgets)
+    const modelCeilings = {
+        'gpt-4.1-nano': 1500,
+        'Phi-4': 1500,
+        'Mistral-small': 2000,
+        'gpt-4o-mini': 3000,
+        'gpt-4.1-mini': 3000,
+        'claude-3.5-haiku': 3000,
+    };
+
+    const ceiling = modelCeilings[model];
+    return ceiling ? Math.min(tierMax, ceiling) : tierMax;
+}
+
 module.exports = {
     parseCompressionRequest,
     validateApiUsage,
     callLLMApi,
     trackApiUsageAfterCall,
     saveCompressedData,
-    processCompressionRequest
+    processCompressionRequest,
+    streamCompressionRequest,
+    getMaxTokensForRequest,
 };

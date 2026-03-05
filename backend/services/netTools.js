@@ -160,6 +160,61 @@ const TOOL_SCHEMAS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'summarize_conversation',
+      description: 'Summarize the current conversation into a concise recap. Use this when the conversation is long and the user asks for a summary, or to compress context before continuing a complex discussion.',
+      parameters: {
+        type: 'object',
+        properties: {
+          highlights: {
+            type: 'string',
+            description: 'Key topics, decisions, or action items from the conversation so far (max 2000 chars)',
+          },
+          next_steps: {
+            type: 'string',
+            description: 'Suggested next steps or open questions',
+          },
+        },
+        required: ['highlights'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'calculate',
+      description: 'Evaluate a mathematical expression and return the result. Use this for arithmetic, unit conversions, percentages, or any numeric computation the user requests.',
+      parameters: {
+        type: 'object',
+        properties: {
+          expression: {
+            type: 'string',
+            description: 'A mathematical expression to evaluate (e.g. "2 * (3 + 4)", "15% of 200", "sqrt(144)")',
+          },
+        },
+        required: ['expression'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_current_datetime',
+      description: 'Get the current date and time. Use this when the user asks what time/date it is, or when you need to determine the current date for deadline calculations or scheduling.',
+      parameters: {
+        type: 'object',
+        properties: {
+          timezone: {
+            type: 'string',
+            description: 'IANA timezone name (e.g. "America/New_York", "Europe/London"). Defaults to UTC.',
+          },
+        },
+        required: [],
+      },
+    },
+  },
 ];
 
 // ─── Tool Executors ─────────────────────────────────────────────────────────
@@ -181,6 +236,10 @@ const MAX_LENGTHS = {
   query: 500,
   reason: 500,
   deadline: 100,
+  highlights: 2000,
+  next_steps: 500,
+  expression: 200,
+  timezone: 50,
 };
 
 /**
@@ -378,6 +437,89 @@ const TOOL_EXECUTORS = {
 
     // Fallback: return a clickable Google search link
     return `I don't have real-time data for this. ${reason}\n\nSuggested search: [${query}](https://www.google.com/search?q=${encoded})`;
+  },
+
+  // ── Summarize conversation ──────────────────────────────────────────────
+  async summarize_conversation(args, context) {
+    const { highlights, next_steps = '' } = args;
+
+    // Save as a note so the user can reference it later
+    await createMemoryItem(context.userId, 'note', {
+      title: 'Conversation Summary',
+      description: highlights + (next_steps ? `\n\nNext steps: ${next_steps}` : ''),
+      source: 'net-tool',
+      timestamp: new Date().toISOString(),
+    });
+
+    let result = `**Conversation Summary**\n\n${highlights}`;
+    if (next_steps) result += `\n\n**Next Steps:** ${next_steps}`;
+    result += '\n\n_This summary has been saved to your notes._';
+    return result;
+  },
+
+  // ── Calculate ─────────────────────────────────────────────────────────────
+  async calculate(args) {
+    const { expression } = args;
+    // Sanitize: only allow digits, math operators, parentheses, dots, spaces,
+    // and a few common math functions
+    const sanitized = expression.replace(/\s+/g, ' ').trim();
+    const SAFE_PATTERN = /^[0-9+\-*/().,%^ sqrtlognabcepitMhfloceir]+$/;
+    if (!SAFE_PATTERN.test(sanitized)) {
+      return `Cannot evaluate expression: contains unsupported characters. Please use standard math notation.`;
+    }
+
+    // Replace common math shorthand
+    let expr = sanitized
+      .replace(/(\d+(?:\.\d+)?)%\s*of\s*(\d+(?:\.\d+)?)/gi, '($1/100)*$2')
+      .replace(/sqrt\(/gi, 'Math.sqrt(')
+      .replace(/log\(/gi, 'Math.log10(')
+      .replace(/ln\(/gi, 'Math.log(')
+      .replace(/abs\(/gi, 'Math.abs(')
+      .replace(/ceil\(/gi, 'Math.ceil(')
+      .replace(/floor\(/gi, 'Math.floor(')
+      .replace(/\bpi\b/gi, 'Math.PI')
+      .replace(/\be\b/g, 'Math.E')
+      .replace(/\^/g, '**');
+
+    // Block anything that looks like code injection
+    if (/[a-zA-Z_$]/.test(expr.replace(/Math\.(sqrt|log10|log|abs|ceil|floor|PI|E|pow)/g, ''))) {
+      return `Cannot evaluate: expression contains non-math identifiers. Please use numbers and standard operators.`;
+    }
+
+    try {
+      // Use Function constructor in a restricted way (no access to globals)
+      const fn = new Function(`"use strict"; return (${expr});`);
+      const result = fn();
+      if (typeof result !== 'number' || !isFinite(result)) {
+        return `Result is not a finite number. Check your expression.`;
+      }
+      return `${expression} = ${result}`;
+    } catch (err) {
+      return `Error evaluating "${expression}": ${err.message}`;
+    }
+  },
+
+  // ── Get current date/time ─────────────────────────────────────────────────
+  async get_current_datetime(args) {
+    const { timezone = 'UTC' } = args;
+    try {
+      const now = new Date();
+      const formatted = now.toLocaleString('en-US', {
+        timeZone: timezone,
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        timeZoneName: 'short',
+      });
+      return `Current date and time (${timezone}): ${formatted}`;
+    } catch {
+      // Fallback to UTC if invalid timezone
+      return `Current date and time (UTC): ${new Date().toISOString()}`;
+    }
   },
 };
 
