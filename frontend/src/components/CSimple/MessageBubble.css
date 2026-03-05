@@ -223,6 +223,11 @@
   color: var(--text-muted);
 }
 
+.message__cost {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
 .message__model {
   color: var(--text-muted);
   padding: 1px 6px;

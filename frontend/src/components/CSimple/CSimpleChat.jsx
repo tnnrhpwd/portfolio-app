@@ -504,6 +504,89 @@ function CSimpleChat({
     }
   }, [activeConversationId]);
 
+  // ── Chat export ──────────────────────────────────────────────────────────
+  const exportChat = useCallback((format = 'markdown') => {
+    const conv = conversations.find(c => c.id === activeConversationId);
+    if (!conv || conv.messages.length === 0) return;
+
+    let content, filename, mimeType;
+    if (format === 'json') {
+      content = JSON.stringify({
+        title: conv.title,
+        createdAt: conv.createdAt,
+        exportedAt: new Date().toISOString(),
+        messages: conv.messages.map(m => ({
+          role: m.role,
+          content: m.content,
+          timestamp: m.timestamp,
+          modelId: m.modelId,
+        })),
+      }, null, 2);
+      filename = `${conv.title.replace(/[^a-zA-Z0-9]/g, '_')}.json`;
+      mimeType = 'application/json';
+    } else {
+      const lines = [`# ${conv.title}`, `*Exported ${new Date().toLocaleString()}*`, ''];
+      conv.messages.forEach(m => {
+        const role = m.role === 'user' ? '**You**' : `**AI** ${m.modelId ? `(${m.modelId})` : ''}`;
+        const time = m.timestamp ? `*${new Date(m.timestamp).toLocaleString()}*` : '';
+        lines.push(`### ${role} ${time}`, '', m.content, '', '---', '');
+      });
+      content = lines.join('\n');
+      filename = `${conv.title.replace(/[^a-zA-Z0-9]/g, '_')}.md`;
+      mimeType = 'text/markdown';
+    }
+
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a); }, 100);
+  }, [conversations, activeConversationId]);
+
+  // ── Slash command handler ────────────────────────────────────────────────
+  const handleSlashCommand = useCallback((text) => {
+    const trimmed = text.trim().toLowerCase();
+
+    if (trimmed === '/export' || trimmed === '/export md') {
+      exportChat('markdown');
+      return { handled: true, message: '📥 Chat exported as Markdown.' };
+    }
+    if (trimmed === '/export json') {
+      exportChat('json');
+      return { handled: true, message: '📥 Chat exported as JSON.' };
+    }
+    if (trimmed === '/goals') {
+      return { handled: false, rewrite: 'Show me my current goals and their status.' };
+    }
+    if (trimmed === '/notes') {
+      return { handled: false, rewrite: 'Show me my saved notes.' };
+    }
+    if (trimmed === '/usage') {
+      return { handled: false, rewrite: 'What is my current plan, credit usage, and remaining quota?' };
+    }
+    if (trimmed === '/help') {
+      return {
+        handled: true,
+        message: '**Available Commands:**\n\n' +
+          '`/goals` — Show your saved goals\n' +
+          '`/notes` — Show your saved notes\n' +
+          '`/usage` — Show your plan & credit usage\n' +
+          '`/export` — Export chat as Markdown\n' +
+          '`/export json` — Export chat as JSON\n' +
+          '`/compare <model>` — Compare current model with another (Pro+)\n' +
+          '`/help` — Show this help\n',
+      };
+    }
+    if (trimmed.startsWith('/compare ')) {
+      const compareModel = text.trim().substring(9).trim();
+      return { handled: false, compare: compareModel };
+    }
+    return null;
+  }, [exportChat]);
+
   const sendMessage = useCallback(async (text, files = []) => {
     const hasFiles = files && files.length > 0;
     if (!text.trim() && !hasFiles) return;
@@ -597,6 +680,38 @@ function CSimpleChat({
     // ── Normal text chat ────────────────────────────────────────────────────
     if (!text.trim()) return;
 
+    // ── Slash commands ────────────────────────────────────────────────────
+    if (text.trim().startsWith('/')) {
+      const cmd = handleSlashCommand(text);
+      if (cmd) {
+        if (cmd.handled) {
+          // Show the command result as a local assistant message
+          const cmdMsg = {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: cmd.message,
+            timestamp: new Date().toISOString(),
+          };
+          const userMsg = {
+            id: Date.now().toString(),
+            role: 'user',
+            content: text,
+            timestamp: new Date().toISOString(),
+          };
+          setConversations(prev => prev.map(c => {
+            if (c.id !== activeConversationId) return c;
+            return { ...c, messages: [...c.messages, userMsg, cmdMsg] };
+          }));
+          return;
+        }
+        if (cmd.rewrite) {
+          // Rewrite the slash command to a natural language prompt and continue
+          text = cmd.rewrite;
+        }
+        // cmd.compare handled below in portfolio provider path
+      }
+    }
+
     // ── Security Layer 0: client-side pre-screen before any network call ──────
     const secCheck = securityCheckMessage(text);
     if (secCheck.blocked) {
@@ -657,6 +772,108 @@ function CSimpleChat({
         }
         const portfolioModel = settings.portfolioModel || 'gpt-4o-mini';
 
+        // ── /compare handler — send last user message to a second model ──
+        const slashCmd = handleSlashCommand(text);
+        if (slashCmd?.compare && onPortfolioChatStream && streamCallbacksRef) {
+          const compareModel = slashCmd.compare;
+          // Find the last real user message in the conversation
+          const lastUserMsg = [...(conversations.find(c => c.id === activeConversationId)?.messages || [])]
+            .reverse()
+            .find(m => m.role === 'user' && !m.content.startsWith('/'));
+
+          if (!lastUserMsg) {
+            const noMsg = {
+              id: (Date.now() + 1).toString(),
+              role: 'assistant',
+              content: '**Compare:** No previous message to compare. Send a message first, then use `/compare <model>`.',
+              timestamp: new Date().toISOString(),
+            };
+            setConversations(prev => prev.map(c => {
+              if (c.id !== activeConversationId) return c;
+              return { ...c, messages: [...c.messages, noMsg] };
+            }));
+            setIsGenerating(false);
+            return;
+          }
+
+          // Create a comparison placeholder message
+          const compareId = (Date.now() + 1).toString();
+          setConversations(prev => prev.map(c => {
+            if (c.id !== activeConversationId) return c;
+            return {
+              ...c,
+              messages: [...c.messages, {
+                id: compareId,
+                role: 'assistant',
+                content: `**🔄 Comparing with ${compareModel}...**\n\n`,
+                timestamp: new Date().toISOString(),
+                modelId: compareModel,
+                isStreaming: true,
+              }],
+            };
+          }));
+
+          streamCallbacksRef.current = {
+            onToken: (token) => {
+              setConversations(prev => prev.map(c => {
+                if (c.id !== activeConversationId) return c;
+                return {
+                  ...c,
+                  messages: c.messages.map(m =>
+                    m.id === compareId ? { ...m, content: m.content + token } : m
+                  ),
+                };
+              }));
+            },
+            onMeta: (meta) => {
+              setConversations(prev => prev.map(c => {
+                if (c.id !== activeConversationId) return c;
+                return {
+                  ...c,
+                  messages: c.messages.map(m =>
+                    m.id === compareId ? {
+                      ...m,
+                      tokenUsage: meta.tokens ? { prompt_tokens: meta.tokens.prompt, completion_tokens: meta.tokens.completion, total_tokens: meta.tokens.total } : m.tokenUsage,
+                      estimatedCost: meta.cost,
+                    } : m
+                  ),
+                };
+              }));
+            },
+            onTools: () => {},
+            onTitle: () => {},
+            onDone: () => {
+              setConversations(prev => prev.map(c => {
+                if (c.id !== activeConversationId) return c;
+                return {
+                  ...c,
+                  messages: c.messages.map(m =>
+                    m.id === compareId ? { ...m, isStreaming: false } : m
+                  ),
+                };
+              }));
+              setIsGenerating(false);
+            },
+            onError: (errMsg) => {
+              setConversations(prev => prev.map(c => {
+                if (c.id !== activeConversationId) return c;
+                return {
+                  ...c,
+                  messages: c.messages.map(m =>
+                    m.id === compareId
+                      ? { ...m, content: `**Compare Error (${compareModel}):** ${errMsg}`, isError: true, isStreaming: false }
+                      : m
+                  ),
+                };
+              }));
+              setIsGenerating(false);
+            },
+          };
+
+          onPortfolioChatStream(lastUserMsg.content, trimmedHistory, 'github', compareModel);
+          return;
+        }
+
         // ── Streaming path ──
         if (onPortfolioChatStream && streamCallbacksRef) {
           const streamingMsgId = (Date.now() + 1).toString();
@@ -692,6 +909,31 @@ function CSimpleChat({
             onTools: (tools) => {
               // Could display tool indicators — for now just log
               console.log('[Stream] Tools executed:', tools);
+            },
+            onMeta: (meta) => {
+              // Attach token usage and cost to the streaming message
+              setConversations(prev => prev.map(c => {
+                if (c.id !== activeConversationId) return c;
+                return {
+                  ...c,
+                  messages: c.messages.map(m =>
+                    m.id === streamingMsgId ? {
+                      ...m,
+                      tokenUsage: meta.tokens ? { prompt_tokens: meta.tokens.prompt, completion_tokens: meta.tokens.completion, total_tokens: meta.tokens.total } : m.tokenUsage,
+                      estimatedCost: meta.cost,
+                    } : m
+                  ),
+                };
+              }));
+            },
+            onTitle: (title) => {
+              // Auto-rename the conversation with the LLM-generated title
+              setConversations(prev => prev.map(c => {
+                if (c.id !== activeConversationId) return c;
+                // Only auto-title if it's still the default
+                if (c.title !== 'New Chat' && !c.title.endsWith('...') && c.messages.length > 2) return c;
+                return { ...c, title };
+              }));
             },
             onDone: () => {
               setConversations(prev => prev.map(c => {
@@ -1016,6 +1258,7 @@ function CSimpleChat({
           }}
           onReportMessage={handleReportMessage}
           onCopyMessage={handleCopyMessage}
+          onExportChat={exportChat}
         />
 
         <AdvancedSettings

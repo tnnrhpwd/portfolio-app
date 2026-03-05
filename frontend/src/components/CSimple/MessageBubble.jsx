@@ -204,6 +204,11 @@ function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = 
                 🔤 {message.tokenUsage.total_tokens} tok
               </span>
             )}
+            {message.estimatedCost != null && message.estimatedCost > 0 && (
+              <span className="message__cost" title="Estimated API cost for this response">
+                💰 ${message.estimatedCost < 0.01 ? '<$0.01' : `$${message.estimatedCost.toFixed(4)}`}
+              </span>
+            )}
             {message.modelId && (
               <span className="message__model">{message.modelId.split('/').pop()}</span>
             )}

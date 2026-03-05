@@ -61,7 +61,7 @@ function formatFileSize(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneration, onToggleSidebar, selectedModel, isOnline, agent, speech, sttEnabled, settings, pendingConfirmation, onConfirmOption, onDismissConfirmation, isConfirming, onTogglePassiveListening, isAddonConnected, isAddonOutdated, onReportMessage, onCopyMessage }) {
+function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneration, onToggleSidebar, selectedModel, isOnline, agent, speech, sttEnabled, settings, pendingConfirmation, onConfirmOption, onDismissConfirmation, isConfirming, onTogglePassiveListening, isAddonConnected, isAddonOutdated, onReportMessage, onCopyMessage, onExportChat }) {
   const [input, setInput] = useState('');
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [dragActive, setDragActive] = useState(false);
@@ -212,6 +212,11 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
           </span>
         </div>
         <div className="chat-window__header-spacer" />
+        {onExportChat && conversation?.messages?.length > 0 && (
+          <button className="chat-window__export-btn" onClick={() => onExportChat('markdown')} title="Export chat as Markdown">
+            📥 Export
+          </button>
+        )}
         <div className={`chat-window__status-badge ${isOnline ? 'chat-window__status-badge--online' : 'chat-window__status-badge--offline'}`}>
           <span className="chat-window__status-indicator">{isOnline ? '🟢' : '⚫'}</span>
           <span className="chat-window__status-text">{isOnline ? 'Online' : 'Offline'}</span>

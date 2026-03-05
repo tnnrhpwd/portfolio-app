@@ -38,6 +38,26 @@
   background: var(--bg-hover);
 }
 
+.chat-window__export-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+  white-space: nowrap;
+}
+
+.chat-window__export-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
 .chat-window__header-info {
   display: flex;
   align-items: center;

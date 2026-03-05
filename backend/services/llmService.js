@@ -147,6 +147,128 @@ function parseCompressionRequest(req) {
 }
 
 /**
+ * Build the base system prompt parts used by both callLLMApi and streamCompressionRequest.
+ */
+function buildSystemPromptParts(goalsSummary) {
+    const parts = [
+        'You are a helpful AI assistant on sthopwood.com\'s /net chat.',
+        'You have access to tools that let you take real actions — save goals, notes, log actions, submit support tickets, search the web, do math, and more.',
+        'Use tools when the user\'s intent clearly calls for an action (e.g. "remember this", "I want to achieve X", "submit a bug report", "what time is it", "calculate 15% of 200").',
+        'For normal conversation, questions, or requests for information, just reply in text.',
+        'Be concise and helpful. When you use a tool, also include a brief conversational response explaining what you did.',
+        'Each message in the conversation is prefixed with a timestamp in brackets like [1/15/2025, 2:30:00 PM]. Use these timestamps for temporal context — you can reference when things were said, how much time has passed, and be aware of the current date and time.',
+        'When the user asks you to write, create, or generate content (code, scripts, emails, documents, etc.), present the content directly in your response using proper formatting (e.g. code blocks for code). If the content might be useful to save, briefly mention they can copy it or ask you to save it as a note.',
+        'AUTO-MEMORY: You can save important facts about the user (name, preferences, important dates, context) by including a [MEMORY_SAVE:filename] block in your response. Format:\n[MEMORY_SAVE:user_profile.md]\n- Name: John\n- Preference: dark mode\n[/MEMORY_SAVE]\nUse this when the user shares personal info, asks you to remember something, or reveals preferences. Keep memory files small and focused. Do NOT announce the memory save to the user — just do it silently alongside your normal response.',
+    ];
+
+    if (goalsSummary) {
+        parts.push(`\nThe following is context about the user's goals and priorities — use this to personalize your responses when relevant:\n\n${goalsSummary}`);
+    }
+
+    return parts;
+}
+
+/**
+ * Inject membership tier context into the system prompt so the AI is aware of
+ * the user's plan, remaining credits, and available features.
+ */
+function injectMembershipContext(systemParts, user) {
+    const text = user?.text || '';
+    const rankMatch = text.match(/\|Rank:(\w+)/);
+    const rank = rankMatch ? rankMatch[1] : 'Free';
+
+    const creditsMatch = text.match(/\|Credits:([^|]*)/);
+    let creditInfo = '';
+    if (creditsMatch) {
+        try {
+            const credits = JSON.parse(creditsMatch[1]);
+            const spent = credits.totalSpent || 0;
+            const limit = credits.customLimit || credits.monthlyLimit || 0;
+            creditInfo = ` Credits used: $${spent.toFixed(2)}${limit ? ` of $${limit.toFixed(2)} limit` : ''}.`;
+        } catch {}
+    }
+
+    const tierFeatures = {
+        Free: 'Free tier (50 cmds/day, 100MB storage, basic models).',
+        Pro: 'Pro tier ($12/mo — 500 cmds/day, 5GB storage, all standard models, email support).',
+        Simple: 'Simple tier ($39/mo — 5000 cmds/day, 50GB storage, all models including premium, priority support).',
+    };
+
+    const tierDesc = tierFeatures[rank] || tierFeatures.Free;
+    systemParts.push(`\nUSER MEMBERSHIP: ${tierDesc}${creditInfo} When the user asks about their plan, credits, or features, answer accurately based on this information. If they ask about upgrading, direct them to /pay.`);
+}
+
+/**
+ * Auto-summarize conversation history when it exceeds a threshold.
+ * Keeps the first message (for context) and last N messages, replacing
+ * the middle with a summary message.
+ */
+function compressConversationHistory(messages, maxMessages = 30) {
+    // Only compress if significantly over limit (user + assistant pairs)
+    if (messages.length <= maxMessages) return messages;
+
+    const systemMsgs = messages.filter(m => m.role === 'system');
+    const nonSystem = messages.filter(m => m.role !== 'system');
+
+    // Keep first 2 exchanges + last (maxMessages - 4) messages
+    const keepStart = 4;
+    const keepEnd = maxMessages - keepStart - 1; // -1 for summary msg
+    const toSummarize = nonSystem.slice(keepStart, -keepEnd);
+
+    if (toSummarize.length < 4) return messages; // Not worth summarizing
+
+    // Build a condensed summary of the middle messages
+    const summaryLines = toSummarize.map(m => {
+        const role = m.role === 'user' ? 'User' : 'Assistant';
+        const text = (m.content || '').substring(0, 150);
+        return `${role}: ${text}${m.content?.length > 150 ? '...' : ''}`;
+    });
+
+    const summaryMsg = {
+        role: 'system',
+        content: `[CONVERSATION SUMMARY — ${toSummarize.length} messages condensed]\n${summaryLines.join('\n')}\n[END SUMMARY — recent messages follow]`,
+    };
+
+    return [
+        ...systemMsgs,
+        ...nonSystem.slice(0, keepStart),
+        summaryMsg,
+        ...nonSystem.slice(-keepEnd),
+    ];
+}
+
+/**
+ * Estimate the cost of an LLM call based on token counts.
+ */
+function estimateCost(provider, model, promptTokens, completionTokens) {
+    const { API_COSTS } = require('../utils/apiUsageTracker');
+    const providerCosts = API_COSTS[provider];
+    if (!providerCosts) return null;
+    const modelCost = providerCosts[model] || providerCosts.default;
+    if (!modelCost) return null;
+    const cost = (promptTokens * modelCost.input) + (completionTokens * modelCost.output);
+    return Math.round(cost * 1000000) / 1000000; // 6 decimal places
+}
+
+/**
+ * Generate a smart conversation title from the first exchange.
+ */
+async function generateConversationTitle(message, response, githubToken) {
+    try {
+        await initializeLLMClients();
+        const titleMessages = [
+            { role: 'system', content: 'Generate a concise 3-6 word title for this conversation. Return ONLY the title text, no quotes or punctuation.' },
+            { role: 'user', content: `User said: "${message.substring(0, 200)}"\nAssistant replied about: "${response.substring(0, 200)}"` },
+        ];
+        const titleResp = await createCompletionWithKey('github', 'gpt-4.1-nano', titleMessages, { maxTokens: 20, temperature: 0.5 }, githubToken);
+        const title = titleResp?.choices?.[0]?.message?.content?.trim();
+        return title && title.length > 0 && title.length < 60 ? title : null;
+    } catch {
+        return null;
+    }
+}
+
+/**
  * Check if user's membership tier allows the requested model.
  * Throws 403 if the model requires a higher tier.
  */
@@ -238,7 +360,7 @@ async function getUserGithubToken(dynamodb, userId) {
  * @param {object|null} userContext - { memoryContext, personalityContext, behaviorContext } from DB
  * @returns {Object} LLM response (final, after any tool calls are resolved)
  */
-async function callLLMApi(provider, model, userInput, githubToken = null, goalsSummary = null, toolContext = null, userContext = null, maxTokensOverride = null) {
+async function callLLMApi(provider, model, userInput, githubToken = null, goalsSummary = null, toolContext = null, userContext = null, maxTokensOverride = null, user = null) {
     await initializeLLMClients();
     
     console.log(`🤖 Starting ${provider.toUpperCase()} API call...`);
@@ -261,22 +383,15 @@ async function callLLMApi(provider, model, userInput, githubToken = null, goalsS
         messages = [{ role: 'user', content: userInput }];
     }
 
-    // System prompt with tool awareness
-    const systemParts = [
-        'You are a helpful AI assistant on sthopwood.com\'s /net chat.',
-        'You have access to tools that let you take real actions — save goals, notes, log actions, submit support tickets, and more.',
-        'Use tools when the user\'s intent clearly calls for an action (e.g. "remember this", "I want to achieve X", "submit a bug report").',
-        'For normal conversation, questions, or requests for information, just reply in text.',
-        'Be concise and helpful. When you use a tool, also include a brief conversational response explaining what you did.',
-        'Each message in the conversation is prefixed with a timestamp in brackets like [1/15/2025, 2:30:00 PM]. Use these timestamps for temporal context — you can reference when things were said, how much time has passed, and be aware of the current date and time.',
-        'When the user asks you to write, create, or generate content (code, scripts, emails, documents, etc.), present the content directly in your response using proper formatting (e.g. code blocks for code). If the content might be useful to save, briefly mention they can copy it or ask you to save it as a note.',
-        // Auto-memory system: let the LLM save persistent facts
-        'AUTO-MEMORY: You can save important facts about the user (name, preferences, important dates, context) by including a [MEMORY_SAVE:filename] block in your response. Format:\n[MEMORY_SAVE:user_profile.md]\n- Name: John\n- Preference: dark mode\n[/MEMORY_SAVE]\nUse this when the user shares personal info, asks you to remember something, or reveals preferences. Keep memory files small and focused. Do NOT announce the memory save to the user — just do it silently alongside your normal response.',
-    ];
+    // Auto-compress long conversation history
+    messages = compressConversationHistory(messages);
 
-    if (goalsSummary) {
-        systemParts.push(`\nThe following is context about the user's goals and priorities — use this to personalize your responses when relevant:\n\n${goalsSummary}`);
-    }
+    // System prompt with tool awareness
+    const systemParts = buildSystemPromptParts(goalsSummary);
+
+    // Inject membership tier awareness
+    if (user) injectMembershipContext(systemParts, user);
+
 
     // Inject user context from cloud DB (memory, personality, behavior)
     if (userContext) {
@@ -611,7 +726,7 @@ async function processCompressionRequest(req, dynamodb) {
 
     // Call LLM API (with tools if Net: chat)
     const maxTokens = getMaxTokensForRequest(req.user, model);
-    const response = await callLLMApi(provider, model, userInput, githubToken, goalsSummary, toolContext, userContext, maxTokens);
+    const response = await callLLMApi(provider, model, userInput, githubToken, goalsSummary, toolContext, userContext, maxTokens, req.user);
     
     // Track API usage
     await trackApiUsageAfterCall(req.user.id, provider, model, response, userInput);
@@ -727,18 +842,12 @@ async function streamCompressionRequest(req, res, dynamodb) {
         messages = [{ role: 'user', content: userInput }];
     }
 
+    // Auto-compress long conversation history
+    messages = compressConversationHistory(messages);
+
     // Build system prompt
-    const systemParts = [
-        'You are a helpful AI assistant on sthopwood.com\'s /net chat.',
-        'You have access to tools that let you take real actions — save goals, notes, log actions, submit support tickets, and more.',
-        'Use tools when the user\'s intent clearly calls for an action (e.g. "remember this", "I want to achieve X", "submit a bug report").',
-        'For normal conversation, questions, or requests for information, just reply in text.',
-        'Be concise and helpful. When you use a tool, also include a brief conversational response explaining what you did.',
-        'Each message in the conversation is prefixed with a timestamp in brackets like [1/15/2025, 2:30:00 PM]. Use these timestamps for temporal context.',
-        'When the user asks you to write, create, or generate content (code, scripts, emails, documents, etc.), present the content directly in your response using proper formatting.',
-        'AUTO-MEMORY: You can save important facts about the user by including a [MEMORY_SAVE:filename] block in your response. Format:\n[MEMORY_SAVE:user_profile.md]\n- Name: John\n[/MEMORY_SAVE]\nDo NOT announce the memory save to the user.',
-    ];
-    if (goalsSummary) systemParts.push(`\nThe following is context about the user's goals:\n\n${goalsSummary}`);
+    const systemParts = buildSystemPromptParts(goalsSummary);
+    injectMembershipContext(systemParts, req.user);
     if (userContext) {
         if (userContext.personalityContext) systemParts.push(userContext.personalityContext);
         if (userContext.memoryContext) systemParts.push(userContext.memoryContext);
@@ -870,17 +979,35 @@ async function streamCompressionRequest(req, res, dynamodb) {
     const { cleanedContent, savedMemories } = await processCloudMemorySaves(dynamodb, req.user.id, fullContent);
 
     // Build a synthetic response for usage tracking
+    const promptTokens = Math.ceil(userInput.length / 4);
+    const completionTokens = Math.ceil(fullContent.length / 4);
     const syntheticResponse = {
         choices: [{ message: { content: fullContent } }],
-        usage: { prompt_tokens: Math.ceil(userInput.length / 4), completion_tokens: Math.ceil(fullContent.length / 4) },
+        usage: { prompt_tokens: promptTokens, completion_tokens: completionTokens },
     };
     await trackApiUsageAfterCall(req.user.id, provider, model, syntheticResponse, userInput);
     await saveCompressedData(dynamodb, req.user.id, userInput, cleanedContent, updateId);
 
+    // Send cost estimate and token usage as metadata
+    const cost = estimateCost(provider, model, promptTokens, completionTokens);
+    res.write(`data: ${JSON.stringify({ type: 'meta', tokens: { prompt: promptTokens, completion: completionTokens, total: promptTokens + completionTokens }, cost })}\n\n`);
+
+    // Generate auto-title for new conversations (fire-and-forget via SSE)
+    let userMessage;
+    try { userMessage = JSON.parse(userInput).message; } catch { userMessage = userInput; }
+    const isFirstExchange = (() => {
+        try { const p = JSON.parse(userInput); return !p.conversationHistory || p.conversationHistory.length <= 1; } catch { return true; }
+    })();
+    if (isFirstExchange && userMessage && cleanedContent) {
+        const title = await generateConversationTitle(userMessage, cleanedContent, githubToken);
+        if (title) {
+            res.write(`data: ${JSON.stringify({ type: 'title', title })}\n\n`);
+        }
+    }
+
     // Log action
     try {
-        let actionSummary;
-        try { const p = JSON.parse(userInput); actionSummary = p.message || userInput; } catch { actionSummary = userInput; }
+        let actionSummary = userMessage || userInput;
         if (actionSummary.length > 120) actionSummary = actionSummary.substring(0, 117) + '...';
         logAction(req.user.id, `Chat: ${actionSummary}`, 'net').catch(() => {});
     } catch {}
@@ -927,4 +1054,5 @@ module.exports = {
     processCompressionRequest,
     streamCompressionRequest,
     getMaxTokensForRequest,
+    generateConversationTitle,
 };

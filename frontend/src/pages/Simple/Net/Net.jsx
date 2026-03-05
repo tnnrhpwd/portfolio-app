@@ -82,6 +82,10 @@ function Net() {
             streamCallbacksRef.current?.onToken?.(event.text);
           } else if (event.type === 'tools') {
             streamCallbacksRef.current?.onTools?.(event.tools);
+          } else if (event.type === 'meta') {
+            streamCallbacksRef.current?.onMeta?.({ tokens: event.tokens, cost: event.cost });
+          } else if (event.type === 'title') {
+            streamCallbacksRef.current?.onTitle?.(event.title);
           } else if (event.type === 'error') {
             streamCallbacksRef.current?.onError?.(event.error);
             return;
