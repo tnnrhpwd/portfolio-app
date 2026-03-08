@@ -41,16 +41,19 @@
 .chat-window__export-btn {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
+  gap: 6px;
+  padding: 4px 12px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 20px;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 0.8rem;
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
-  transition: background var(--transition), color var(--transition);
+  transition: all var(--transition);
   white-space: nowrap;
+  flex-shrink: 0;
+  font-family: inherit;
 }
 
 .chat-window__export-btn:hover {
@@ -92,8 +95,9 @@
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  padding: 4px 10px;
+  padding: 4px 12px;
   border-radius: 20px;
+  border: 1px solid transparent;
   font-weight: 500;
   flex-shrink: 0;
   transition: all var(--transition);
@@ -101,11 +105,13 @@
 
 .chat-window__status-badge--online {
   background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.2);
   color: #22c55e;
 }
 
 .chat-window__status-badge--offline {
   background: rgba(156, 163, 175, 0.1);
+  border-color: rgba(156, 163, 175, 0.2);
   color: #9ca3af;
 }
 
@@ -115,7 +121,7 @@
 }
 
 .chat-window__status-text {
-  font-size: 11px;
+  font-size: 12px;
 }
 
 /* Wake word badge */
@@ -163,7 +169,7 @@
   font-size: 12px;
   padding: 4px 12px;
   border-radius: 20px;
-  border: none;
+  border: 1px solid transparent;
   font-weight: 500;
   cursor: pointer;
   margin-left: 6px;
@@ -175,6 +181,7 @@
 
 .chat-window__passive-toggle--active {
   background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.2);
   color: #22c55e;
 }
 
@@ -185,6 +192,7 @@
 
 .chat-window__passive-toggle--inactive {
   background: rgba(156, 163, 175, 0.1);
+  border-color: rgba(156, 163, 175, 0.2);
   color: #9ca3af;
 }
 

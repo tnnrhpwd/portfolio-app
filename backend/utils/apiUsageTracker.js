@@ -273,11 +273,22 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
         // Check if user is admin - admins have unlimited access (still track for logging but don't deduct credits)
         if (userId === process.env.ADMIN_USER_ID) {
             console.log('trackApiUsage: Admin user detected, logging usage but not deducting credits');
-            // Still log for monitoring purposes but don't deduct credits
             return {
                 cost: 0,
                 creditsRemaining: Infinity,
                 isAdmin: true
+            };
+        }
+
+        // Per-user-key providers (e.g. github) use the user's own API key,
+        // so don't deduct credits for their usage — only track server-key usage.
+        const PER_USER_KEY_PROVIDERS = new Set(['github']);
+        if (PER_USER_KEY_PROVIDERS.has(apiName)) {
+            console.log(`trackApiUsage: Provider "${apiName}" uses per-user key, skipping credit deduction`);
+            return {
+                success: true,
+                cost: 0,
+                skippedReason: 'per-user-key',
             };
         }
         
@@ -465,6 +476,23 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
  */
 async function getUserUsageStats(userId) {
     try {
+        // Admin users have unlimited access
+        if (userId === process.env.ADMIN_USER_ID) {
+            console.log('getUserUsageStats: Admin user detected, returning unlimited stats');
+            return {
+                totalUsage: 0,
+                availableCredits: Infinity,
+                limit: Infinity,
+                customLimit: null,
+                usageBreakdown: [],
+                membership: 'Admin',
+                lastReset: null,
+                remainingBalance: Infinity,
+                percentUsed: 0,
+                isAdmin: true,
+            };
+        }
+
         // Use cached user data
         const user = await getUserDataCached(userId);
         if (!user) {
@@ -708,6 +736,13 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
         if (userId === process.env.ADMIN_USER_ID) {
             console.log('canMakeApiCall: Admin user detected, granting unlimited access');
             return { canMake: true, reason: 'Admin user has unlimited access' };
+        }
+
+        // Per-user-key providers use the user's own API key — always allow
+        const PER_USER_KEY_PROVIDERS = new Set(['github']);
+        if (PER_USER_KEY_PROVIDERS.has(apiName)) {
+            console.log(`canMakeApiCall: Provider "${apiName}" uses per-user key, always allowed`);
+            return { canMake: true, reason: 'Per-user API key — no credit check needed' };
         }
         
         // Get user data

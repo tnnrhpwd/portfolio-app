@@ -58,8 +58,9 @@ function UsageMeter({ user }) {
 
   if (!user?.token || loading && !usage) return null;
 
-  const tier = TIER_LABELS[usage?.membership] || 'Free';
-  const tierColor = TIER_COLORS[tier] || TIER_COLORS.Free;
+  const isAdmin = usage?.isAdmin === true;
+  const tier = isAdmin ? 'Admin' : (TIER_LABELS[usage?.membership] || 'Free');
+  const tierColor = isAdmin ? '#f59e0b' : (TIER_COLORS[tier] || TIER_COLORS.Free);
   const limit = usage?.limit || 0;
   const credits = usage?.availableCredits || 0;
   const percentUsed = usage?.percentUsed || 0;
@@ -67,12 +68,24 @@ function UsageMeter({ user }) {
 
   const barColor = clampedPercent > 90 ? '#ef4444' : clampedPercent > 70 ? '#f59e0b' : '#10b981';
 
+  // Admin gets a simplified unlimited view
+  if (isAdmin) {
+    return (
+      <div className="usage-meter">
+        <div className="usage-meter__toggle" title="Admin — unlimited access">
+          <span className="usage-meter__tier-badge" style={{ background: tierColor }}>Admin</span>
+          <span className="usage-meter__summary">Unlimited</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="usage-meter">
       <button
         className="usage-meter__toggle"
         onClick={() => setCollapsed(c => !c)}
-        title="Usage & membership info"
+        title="Cloud credits — only charged when using portfolio-hosted models"
       >
         <span className="usage-meter__tier-badge" style={{ background: tierColor }}>
           {tier}
@@ -112,6 +125,7 @@ function UsageMeter({ user }) {
               </div>
             )}
           </div>
+          <div className="usage-meter__hint">Only charges for portfolio-hosted models</div>
           {tier === 'Free' && (
             <a className="usage-meter__upgrade" href="/pay">
               Upgrade for more credits →

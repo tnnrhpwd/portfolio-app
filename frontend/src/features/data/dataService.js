@@ -451,7 +451,7 @@ const register = async (userData) => {
 // Login user
 const login = async (userData) => {
     console.log('=== LOGIN ATTEMPT ===');
-    console.log('Environment:', devMode ? 'development' : 'production');
+    console.log('Environment:', process.env.NODE_ENV === 'development' ? 'development' : 'production');
     console.log('API URL:', API_URL);
     console.log('User data (email only):', { email: userData.email });
 
