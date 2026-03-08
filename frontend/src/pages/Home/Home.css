@@ -155,9 +155,9 @@
 }
 #text-title{
     font-weight: bolder;
-    text-align: center;
+    text-align: left;
     font-size: var(--font-size-heading);
-    padding: var(--spacing-sm);
+    padding: var(--spacing-sm) 0;
     text-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.02) var(--grey3-transp);
     margin-top: calc(var(--nav-size)*2);
     margin-bottom: calc(var(--nav-size)*2);
@@ -166,6 +166,9 @@
     line-height: var(--line-height-tight);
     color: var(--text-color);
     letter-spacing: -0.02em;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 /* Typewriter effect */
@@ -206,23 +209,28 @@
     color: var(--text-color);
     max-width: 800px;
     margin: 0 auto;
+    text-align: left;
 }
 #text-subtext{
     font-size: var(--font-size-base);
-    padding: var(--spacing-sm);
+    padding: var(--spacing-sm) 0;
     text-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.02) var(--grey3-transp);
     line-height: var(--line-height-relaxed);
     color: var(--text-color-accent);
-    max-width: 700px;
+    max-width: 800px;
     margin: 0 auto;
+    text-align: left;
 }
 #text-about{
     font-size: var(--font-size-base);
-    padding: var(--spacing-sm);
+    padding: var(--spacing-sm) 0;
     text-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.02) var(--grey3-transp);
     color: var(--fg-blue);
     transition: all 0.3s ease;
     cursor: pointer;
+    max-width: 800px;
+    margin: 0 auto;
+    text-align: left;
 }
 
 #text-about:hover {
@@ -440,15 +448,18 @@
 .section-header {
     position: relative;
     margin-bottom: calc(var(--nav-size) * 0.5);
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: left;
 }
 
 .section-header::after {
     content: '';
     position: absolute;
     bottom: -5px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 10%;
+    left: 0;
+    width: 50px;
     height: 2px;
     background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink));
     animation: expandLine 1s ease-out;
@@ -819,13 +830,13 @@
     }
     
     .hero-section #text-body{
-        padding-left: 20%;
+        padding-left: 5%;
     }
     .hero-section #text-subtext{
-        padding-left: 20%;
+        padding-left: 5%;
     }
     .hero-section #text-about{
-        padding-left: 20%;
+        padding-left: 5%;
     }
     
     .thank-you-section #text-body {
