@@ -337,8 +337,10 @@ async function getUserGithubToken(dynamodb, userId) {
             TableName: 'Simple',
             Key: { id: `csimple_settings_${userId}`, createdAt: '2000-01-01T00:00:00.000Z' }
         }));
+        console.log(`[llmService] getUserGithubToken for ${userId}: Item found=${!!Item}, hasText=${!!Item?.text}`);
         if (!Item?.text) return null;
         const settings = JSON.parse(Item.text);
+        console.log(`[llmService] getUserGithubToken: hasGithubToken=${!!settings.githubToken}`);
         return settings.githubToken || null;
     } catch (e) {
         console.error('[llmService] Failed to fetch user github token:', e);
