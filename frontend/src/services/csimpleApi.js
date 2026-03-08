@@ -7,6 +7,7 @@
  * Architecture:
  *   - Local addon runs at localhost:3001 (HTTP) / localhost:3444 (HTTPS)
  *   - Remote addon can be reached via LAN IP (e.g. 192.168.1.13:3001)
+ *   - Cloud relay: phone → backend → desktop addon (when no local addon detected)
  *   - Portfolio backend runs at the deployed backend URL
  *   - This service detects addon presence and routes requests accordingly
  */
@@ -818,5 +819,131 @@ export async function getCloudUserContext(token, behaviorFile = 'default.txt') {
     { headers: { Authorization: `Bearer ${token}` } },
   );
   if (!res.ok) return { memoryContext: '', personalityContext: '', behaviorContext: '' };
+  return res.json();
+}
+
+// ─── Cloud Relay (phone → backend → desktop addon) ─────────────────────────
+
+/** Cached remote addon state */
+let _remoteAddonStatus = {
+  online: false,
+  lastSeen: null,
+  version: null,
+  hostname: null,
+};
+
+/** Remote addon status listeners */
+const _remoteListeners = new Set();
+
+function _notifyRemoteListeners(status) {
+  _remoteListeners.forEach(fn => {
+    try { fn(status); } catch (e) { console.error('[CSimpleAPI] Remote listener error:', e); }
+  });
+}
+
+/**
+ * Subscribe to remote addon status changes.
+ * @param {function} listener - Called with remote status object
+ * @returns {function} Unsubscribe function
+ */
+export function onRemoteAddonStatusChange(listener) {
+  _remoteListeners.add(listener);
+  return () => _remoteListeners.delete(listener);
+}
+
+/**
+ * Get the current cached remote addon status.
+ */
+export function getRemoteAddonStatus() {
+  return { ..._remoteAddonStatus };
+}
+
+/**
+ * Check if the user's addon is online via the backend (cloud relay).
+ * @param {string} token - JWT auth token
+ */
+export async function checkRemoteAddon(token) {
+  if (!token) {
+    _remoteAddonStatus = { online: false, lastSeen: null, version: null, hostname: null };
+    _notifyRemoteListeners(_remoteAddonStatus);
+    return _remoteAddonStatus;
+  }
+
+  try {
+    const res = await fetch(`${getPortfolioApiUrl()}/addon/status`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) throw new Error('Failed to check remote addon');
+    const data = await res.json();
+    _remoteAddonStatus = {
+      online: data.online ?? false,
+      lastSeen: data.lastSeen ?? null,
+      version: data.version ?? null,
+      hostname: data.hostname ?? null,
+    };
+  } catch {
+    _remoteAddonStatus = { online: false, lastSeen: null, version: null, hostname: null };
+  }
+
+  _notifyRemoteListeners(_remoteAddonStatus);
+  return _remoteAddonStatus;
+}
+
+/**
+ * Register the user's JWT with the local addon to enable cloud relay.
+ * Called when the desktop frontend detects a local addon AND the user is logged in.
+ * @param {string} token - User's JWT
+ */
+export async function registerCloudRelay(token) {
+  if (!_addonStatus.isConnected || !_addonStatus.baseUrl || !token) return;
+
+  try {
+    const res = await fetch(`${_addonStatus.baseUrl}/api/cloud/auth`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+    if (res.ok) {
+      console.log('[CSimpleAPI] Cloud relay registered with local addon');
+    }
+  } catch (e) {
+    console.warn('[CSimpleAPI] Failed to register cloud relay:', e.message);
+  }
+}
+
+/**
+ * Queue a chat command for remote addon execution via the backend.
+ * @param {string} token - JWT auth token
+ * @param {object} payload - Chat payload (message, modelId, conversationHistory, etc.)
+ * @returns {{ commandId: string }}
+ */
+export async function queueRemoteCommand(token, payload) {
+  const res = await fetch(`${getPortfolioApiUrl()}/addon/command`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ type: 'chat', payload }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new Error(`Failed to queue command: ${text}`);
+  }
+  return res.json();
+}
+
+/**
+ * Poll for a remote command result.
+ * @param {string} token - JWT auth token
+ * @param {string} commandId - Command ID to check
+ * @returns {{ status: 'pending'|'completed'|'error', result?, error? }}
+ */
+export async function getRemoteCommandResult(token, commandId) {
+  const res = await fetch(`${getPortfolioApiUrl()}/addon/result/${encodeURIComponent(commandId)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Failed to get command result');
   return res.json();
 }

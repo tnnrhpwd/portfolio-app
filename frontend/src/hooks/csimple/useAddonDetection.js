@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { detectAddon, getAddonStatus, onAddonStatusChange, startAddonPolling } from '../../services/csimpleApi';
+import { useSelector } from 'react-redux';
+import { detectAddon, getAddonStatus, onAddonStatusChange, startAddonPolling, checkRemoteAddon, onRemoteAddonStatusChange, getRemoteAddonStatus, registerCloudRelay } from '../../services/csimpleApi';
 
 /** Hard-coded floor — only used when GitHub API is unreachable */
 const FALLBACK_REQUIRED_VERSION = '1.0.6';
@@ -71,6 +72,7 @@ function isVersionAtLeast(actual, required) {
  */
 export function useAddonDetection({ pollInterval = 30000 } = {}) {
   const [addonStatus, setAddonStatus] = useState(getAddonStatus);
+  const [remoteAddonStatus, setRemoteAddonStatus] = useState(getRemoteAddonStatus);
   const [isChecking, setIsChecking] = useState(true);
   const [latestVersion, setLatestVersion] = useState(FALLBACK_REQUIRED_VERSION);
   const [dismissed, setDismissed] = useState(() => {
@@ -81,6 +83,10 @@ export function useAddonDetection({ pollInterval = 30000 } = {}) {
     }
   });
   const initialCheckDone = useRef(false);
+  const relayRegistered = useRef(false);
+
+  // Get user from Redux for token-based operations
+  const user = useSelector((state) => state.data?.user);
 
   // Fetch latest release version from GitHub on mount
   useEffect(() => {
@@ -94,11 +100,16 @@ export function useAddonDetection({ pollInterval = 30000 } = {}) {
       setIsChecking(false);
     });
 
+    const unsubRemote = onRemoteAddonStatusChange((status) => {
+      setRemoteAddonStatus(status);
+    });
+
     // Start polling
     const stopPolling = startAddonPolling(pollInterval);
 
     return () => {
       unsub();
+      unsubRemote();
       stopPolling();
     };
   }, [pollInterval]);
@@ -115,13 +126,38 @@ export function useAddonDetection({ pollInterval = 30000 } = {}) {
     }
   }, []);
 
+  // When local addon is detected + user is logged in → register cloud relay JWT
+  useEffect(() => {
+    if (addonStatus.isConnected && user?.token && !relayRegistered.current) {
+      relayRegistered.current = true;
+      registerCloudRelay(user.token);
+    }
+    if (!addonStatus.isConnected) {
+      relayRegistered.current = false;
+    }
+  }, [addonStatus.isConnected, user?.token]);
+
+  // When local addon is NOT connected + user is logged in → check remote addon
+  useEffect(() => {
+    if (!addonStatus.isConnected && user?.token) {
+      checkRemoteAddon(user.token);
+      // Also poll remote status periodically
+      const id = setInterval(() => checkRemoteAddon(user.token), pollInterval);
+      return () => clearInterval(id);
+    }
+  }, [addonStatus.isConnected, user?.token, pollInterval]);
+
   const recheckAddon = useCallback(async () => {
     setIsChecking(true);
     const status = await detectAddon();
     setAddonStatus(status);
+    // If local not found, also recheck remote
+    if (!status.isConnected && user?.token) {
+      await checkRemoteAddon(user.token);
+    }
     setIsChecking(false);
     return status;
-  }, []);
+  }, [user?.token]);
 
   const dismissPrompt = useCallback(() => {
     setDismissed(true);
@@ -139,15 +175,17 @@ export function useAddonDetection({ pollInterval = 30000 } = {}) {
 
   return {
     addonStatus,
+    remoteAddonStatus,
     isConnected: addonStatus.isConnected,
+    isRemoteConnected: remoteAddonStatus.online,
     isChecking,
     recheckAddon,
     dismissed,
     dismissPrompt,
     isOutdated,
     requiredVersion: latestVersion,
-    // Show install banner when addon is not found at all
-    showInstallPrompt: !addonStatus.isConnected && !isChecking && !dismissed,
+    // Show install banner when addon is not found at all (local or remote)
+    showInstallPrompt: !addonStatus.isConnected && !remoteAddonStatus.online && !isChecking && !dismissed,
     // Show update banner when addon is connected but running an older version
     showUpdatePrompt: isOutdated && !dismissed,
   };

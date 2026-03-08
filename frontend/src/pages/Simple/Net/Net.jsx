@@ -15,6 +15,7 @@ function Net() {
   );
   const {
     addonStatus,
+    remoteAddonStatus,
     isChecking,
     recheckAddon,
     dismissPrompt,
@@ -136,6 +137,7 @@ function Net() {
         <div className="net-hero-section">
           <CSimpleChat
             addonStatus={addonStatus}
+            remoteAddonStatus={remoteAddonStatus}
             user={user}
             portfolioLLMProviders={llmProviders}
             onPortfolioChat={handlePortfolioChat}

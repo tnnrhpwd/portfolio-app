@@ -24,6 +24,7 @@ const { GitHubModelsService, GITHUB_MODELS } = require('./github-models-service'
 const { checkMessage, checkActionPlan, checkScriptContent } = require('./security-guard');
 const { stepsToPS, runPowerShell } = require('./action-bridge');
 const { ADDON_TOOL_SCHEMAS, toolCallToActionPlan, executeMemoryTool, isMemoryTool } = require('./addon-tools');
+const { CloudRelayService } = require('./cloud-relay');
 
 const app = express();
 const DEFAULT_PORT = 3001;
@@ -525,6 +526,22 @@ async function executeActionDirect(action) {
 // Initialize GitHub Models service
 const githubModelsService = new GitHubModelsService();
 
+// Initialize Cloud Relay — enables phone→cloud→desktop command execution.
+// The chatHandler makes a local HTTP request to the addon's own /api/chat endpoint.
+const cloudRelay = new CloudRelayService(async (payload) => {
+  const port = activePort || DEFAULT_PORT;
+  const res = await fetch(`http://127.0.0.1:${port}/api/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new Error(`Addon chat failed: ${res.status} ${text}`);
+  }
+  return res.json();
+});
+
 // ─── Middleware ─────────────────────────────────────────────────────────────────
 
 // CORS: Allow portfolio frontend (sthopwood.com) and localhost origins
@@ -554,6 +571,29 @@ app.get('/api/status', (req, res) => {
     timestamp: new Date().toISOString(),
     version: require('../package.json').version,
   });
+});
+
+// ─── Cloud Relay Auth ───────────────────────────────────────────────────────
+// When the desktop frontend detects the local addon AND the user is logged in,
+// it passes the user's JWT to the addon so the addon can communicate with the
+// portfolio backend for remote relay (phone → cloud → desktop).
+
+app.post('/api/cloud/auth', (req, res) => {
+  const { token } = req.body;
+  if (!token || typeof token !== 'string') {
+    return res.status(400).json({ error: 'Token is required' });
+  }
+  cloudRelay.setToken(token);
+  res.json({ ok: true, message: 'Cloud relay activated' });
+});
+
+app.delete('/api/cloud/auth', (req, res) => {
+  cloudRelay.clearToken();
+  res.json({ ok: true, message: 'Cloud relay deactivated' });
+});
+
+app.get('/api/cloud/status', (req, res) => {
+  res.json({ active: cloudRelay._running, hasToken: !!cloudRelay._token });
 });
 
 // Get local network info for accessing from other devices
@@ -1947,6 +1987,7 @@ function startServer(options = {}) {
  * Stop the Express server and clean up.
  */
 function stopServer() {
+  cloudRelay.stop();
   return new Promise((resolve) => {
     let closed = 0;
     const total = (httpServer ? 1 : 0) + (httpsServer ? 1 : 0);

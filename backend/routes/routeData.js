@@ -79,6 +79,16 @@ const {
   getCSimpleUserContext,
 } = require('../controllers/csimpleController');
 
+// Addon relay controller (cloud command relay for remote execution)
+const {
+  addonHeartbeat,
+  getAddonStatus,
+  queueCommand,
+  getPendingCommands,
+  postCommandResult,
+  getCommandResult,
+} = require('../controllers/addonRelayController');
+
 // Memory controller (Goals / Plans / Actions)
 const {
   getMemory,
@@ -374,6 +384,17 @@ router.route('/csimple/personality/:name')
 
 // CSIMPLE USER CONTEXT (aggregate memory + personality + behavior for LLM)
 router.get('/csimple/context', protect, getCSimpleUserContext);
+
+// ============================================================================
+// ADDON RELAY (cloud command relay for phone → desktop execution)
+// ============================================================================
+
+router.post('/addon/heartbeat', protect, addonHeartbeat);
+router.get('/addon/status', protect, getAddonStatus);
+router.post('/addon/command', protect, sanitizeInput, queueCommand);
+router.get('/addon/pending', protect, getPendingCommands);
+router.post('/addon/result/:commandId', protect, sanitizeInput, postCommandResult);
+router.get('/addon/result/:commandId', protect, getCommandResult);
 
 // ============================================================================
 // ANALYTICS (Admin Only)

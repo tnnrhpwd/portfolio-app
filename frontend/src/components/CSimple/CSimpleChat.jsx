@@ -18,6 +18,8 @@ import {
   saveCloudSettings,
   getCloudConversations,
   saveCloudConversations,
+  queueRemoteCommand,
+  getRemoteCommandResult,
 } from '../../services/csimpleApi';
 import { createData } from '../../features/data/dataSlice';
 import { getUserIdentifier } from '../../utils/supportUtils';
@@ -77,6 +79,7 @@ const DEFAULT_SETTINGS = {
  * 
  * @param {object} props
  * @param {object} props.addonStatus - { isConnected, baseUrl, version }
+ * @param {object} props.remoteAddonStatus - { online, hostname, version } — remote addon via cloud relay
  * @param {object} props.user - Portfolio auth user (from Redux)
  * @param {object} props.portfolioLLMProviders - LLM providers from portfolio backend
  * @param {function} props.onPortfolioChat - Callback to send chat via portfolio backend
@@ -93,6 +96,7 @@ const DEFAULT_SETTINGS = {
  */
 function CSimpleChat({
   addonStatus,
+  remoteAddonStatus,
   user,
   portfolioLLMProviders,
   onPortfolioChat,
@@ -112,6 +116,7 @@ function CSimpleChat({
   const dispatch = useDispatch();
   const rootRef = useRef(null);
   const isAddonConnected = addonStatus?.isConnected ?? false;
+  const isRemoteAddonOnline = !isAddonConnected && (remoteAddonStatus?.online ?? false);
 
   const [conversations, setConversations] = useState(() => {
     try {
@@ -421,8 +426,8 @@ function CSimpleChat({
 
   // Connection status — online if addon connected or if we can reach the portfolio
   useEffect(() => {
-    setIsOnline(isAddonConnected || !!user);
-  }, [isAddonConnected, user]);
+    setIsOnline(isAddonConnected || isRemoteAddonOnline || !!user);
+  }, [isAddonConnected, isRemoteAddonOnline, user]);
 
   // Handle portfolio chat response
   useEffect(() => {
@@ -987,7 +992,7 @@ function CSimpleChat({
       }
 
       // Local addon or GitHub Models — direct fetch (requires addon)
-      if (!isAddonConnected) {
+      if (!isAddonConnected && !isRemoteAddonOnline) {
         throw new Error(
           `Cannot use ${provider === 'github' ? 'GitHub Models' : 'local'} provider — the CSimple addon is not running. ` +
           'Switch to the Cloud (Portfolio) provider in Settings, or install and start the addon.'
@@ -997,6 +1002,70 @@ function CSimpleChat({
       const model = provider === 'github'
         ? (settings.githubModel || 'gpt-4o-mini')
         : selectedModel;
+
+      // ── Remote addon relay path (phone → cloud → desktop) ──
+      if (!isAddonConnected && isRemoteAddonOnline) {
+        if (!user?.token) {
+          throw new Error('Please log in to use the remote addon relay.');
+        }
+
+        const payload = {
+          message: text,
+          modelId: model,
+          conversationHistory: trimmedHistory,
+          temperature: settings.defaultTemperature ?? 0.7,
+          maxLength: settings.defaultMaxTokens ?? 500,
+          behaviorFile: activeAgent?.behaviorFile || 'default.txt',
+        };
+
+        const { commandId } = await queueRemoteCommand(user.token, payload);
+
+        // Poll for result (max ~60s)
+        const POLL_INTERVAL = 2000;
+        const MAX_POLLS = 30;
+        let result = null;
+        for (let i = 0; i < MAX_POLLS; i++) {
+          await new Promise(r => setTimeout(r, POLL_INTERVAL));
+          const poll = await getRemoteCommandResult(user.token, commandId);
+          if (poll.status === 'completed') {
+            result = poll.result;
+            break;
+          }
+          if (poll.status === 'error') {
+            throw new Error(poll.error || 'Remote addon execution failed');
+          }
+          // status === 'pending' → keep polling
+        }
+
+        if (!result) {
+          throw new Error('Remote addon did not respond in time. Is the addon running on your desktop?');
+        }
+
+        const assistantMessage = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: result.response || (typeof result === 'string' ? result : JSON.stringify(result)),
+          timestamp: new Date().toISOString(),
+          generationTime: result.generationTime || null,
+          modelId: result.modelId || model,
+          action: result.action || null,
+          operations: result.operations || null,
+          tokenUsage: result.tokenUsage || null,
+          isRemote: true,
+        };
+
+        setConversations(prev => prev.map(c => {
+          if (c.id !== activeConversationId) return c;
+          return { ...c, messages: [...c.messages, assistantMessage] };
+        }));
+
+        if (result.action?.description && (settings.ttsEnabled ?? true)) {
+          speech.speak(result.action.description);
+        }
+        return;
+      }
+
+      // ── Local addon path ──
 
       const data = await sendChatMessage({
         message: text,
@@ -1070,7 +1139,7 @@ function CSimpleChat({
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeConversationId, conversations, isGenerating, selectedModel, settings, activeAgent, onPortfolioChat, speech, user, isAddonConnected]);
+  }, [activeConversationId, conversations, isGenerating, selectedModel, settings, activeAgent, onPortfolioChat, speech, user, isAddonConnected, isRemoteAddonOnline]);
 
   const handleConfirmOption = useCallback(async (confirmationId, selectedOption) => {
     if (isConfirming) return;
