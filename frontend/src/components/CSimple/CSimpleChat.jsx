@@ -767,9 +767,6 @@ function CSimpleChat({
         if (!onPortfolioChat && !onPortfolioChatStream) {
           throw new Error('Portfolio chat not available. Please log in.');
         }
-        if (!settings.githubToken) {
-          throw new Error('GitHub token not configured. Go to Settings → Advanced → GitHub Personal Access Token and add your token.');
-        }
         const portfolioModel = settings.portfolioModel || 'gpt-4o-mini';
 
         // ── /compare handler — send last user message to a second model ──
