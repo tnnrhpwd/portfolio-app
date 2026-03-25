@@ -15,7 +15,7 @@ const formatPrice = (priceInCents) => {
 };
 
 function Simple() {
-  const [selectedPlan, setSelectedPlan] = useState('simple');
+  const [selectedPlan, setSelectedPlan] = useState('pro');
   const dispatch = useDispatch();
   const navigate = useNavigate();
   
@@ -169,10 +169,10 @@ function Simple() {
                 {plans && plans.length > 0 ? plans.map((plan, index) => (
                   <div 
                     key={plan.id}
-                    className={`pricing-card ${selectedPlan === plan.id ? 'selected' : ''} ${plan.id === 'simple' ? 'featured' : ''}`} 
+                    className={`pricing-card ${selectedPlan === plan.id ? 'selected' : ''} ${plan.id === 'pro' ? 'featured' : ''}`} 
                     onClick={() => setSelectedPlan(plan.id)}
                   >
-                    {plan.id === 'simple' && <div className='popular-badge'>Most Popular</div>}
+                    {plan.id === 'pro' && <div className='popular-badge'>Most Popular</div>}
                     <div className='plan-header'>
                       <h3>{plan.name}</h3>
                       {plan.originalPrice && (
@@ -186,7 +186,7 @@ function Simple() {
                     </ul>
                     <div className='plan-cta'>
                       <button 
-                        className={`cta-button ${plan.id === 'simple' ? 'primary' : ''}`}
+                        className={`cta-button ${plan.id === 'pro' ? 'primary' : ''}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleGetStarted(plan.id);

@@ -34,11 +34,6 @@ const getMembershipPricing = asyncHandler(async (req, res) => {
                 id: PLAN_IDS.PRO, 
                 name: PLAN_NAMES[PLAN_IDS.PRO], 
                 stripeProductId: PLAN_TO_STRIPE_PRODUCT[PLAN_IDS.PRO]
-            },
-            { 
-                id: PLAN_IDS.SIMPLE, 
-                name: PLAN_NAMES[PLAN_IDS.SIMPLE], 
-                stripeProductId: PLAN_TO_STRIPE_PRODUCT[PLAN_IDS.SIMPLE]
             }
         ];
         

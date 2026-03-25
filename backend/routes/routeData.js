@@ -17,7 +17,6 @@ const {
   validateDataCreation,
   validatePaymentData,
   validateSubscription,
-  validateCustomLimit,
   handleValidationErrors,
   sanitizeInput
 } = require('../middleware/validation');
@@ -35,7 +34,7 @@ const {
   postData, registerUser, loginUser,
   postHashData, compressData, compressDataStream, createCustomer,
   postPaymentMethod, createInvoice, subscribeCustomer,
-  handleWebhook, setCustomLimit, processFileUpload,
+  handleWebhook, processFileUpload,
   putData, putHashData, updateCustomer, putPaymentMethod,
   forgotPassword, resetPassword, forgotPasswordAuthenticated,
   extractOCR, updateWithOCR,
@@ -329,7 +328,7 @@ router.delete('/pay-methods/:id', protect, paymentLimiter, logPaymentAction, del
 // Billing & Subscriptions
 router.post('/create-invoice', protect, paymentLimiter, logPaymentAction, sanitizeInput, createInvoice);
 router.post('/subscribe-customer', protect, paymentLimiter, logPaymentAction, validateSubscription, handleValidationErrors, subscribeCustomer);
-router.post('/custom-limit', protect, paymentLimiter, logPaymentAction, validateCustomLimit, handleValidationErrors, setCustomLimit);
+// custom-limit route removed — BYOK model, no credit limits
 
 
 

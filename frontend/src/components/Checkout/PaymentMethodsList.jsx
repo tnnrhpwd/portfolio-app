@@ -34,7 +34,8 @@ const PaymentMethodsList = ({ paymentMethods, selectedMethod, onSelectMethod, on
             <div className="payment-method-icon">
               {method.type === 'card' ? '💳' : 
                method.type === 'link' ? '🔗' : 
-               method.type === 'cashapp' ? '💵' : '💰'}
+               method.type === 'cashapp' ? '💵' : 
+               method.type === 'venmo' ? '🟦' : '💰'}
             </div>
             <div className="payment-method-details">
               <p className="payment-method-type">

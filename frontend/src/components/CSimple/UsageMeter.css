@@ -1,20 +1,20 @@
 .usage-meter {
-  padding: 6px 10px;
-  border-top: 1px solid var(--border, rgba(255,255,255,0.08));
+  padding: var(--spacing-xs) calc(var(--spacing-xs) * 1.2);
+  border-top: 1px solid var(--border-nav, rgba(255,255,255,0.08));
 }
 
 .usage-meter__toggle {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--spacing-xs);
   width: 100%;
   background: none;
   border: none;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--text-color, #e2e8f0);
   cursor: pointer;
-  padding: 4px 4px;
-  border-radius: 6px;
-  font-size: 0.65rem;
+  padding: calc(var(--spacing-xs) * 0.5) calc(var(--spacing-xs) * 0.5);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-small);
   transition: background 0.15s;
 }
 
@@ -24,10 +24,10 @@
 
 .usage-meter__tier-badge {
   display: inline-block;
-  padding: 1px 6px;
-  border-radius: 8px;
-  font-size: 0.55rem;
-  font-weight: 600;
+  padding: 2px calc(var(--spacing-xs) * 0.7);
+  border-radius: var(--border-radius);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold, 600);
   color: #fff;
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -37,15 +37,15 @@
 .usage-meter__summary {
   flex: 1;
   text-align: left;
-  font-size: 0.6rem;
-  color: var(--text-secondary, #a0aec0);
+  font-size: var(--font-size-small);
+  color: var(--text-color-accent, #a0aec0);
   font-variant-numeric: tabular-nums;
 }
 
 .usage-meter__chevron {
-  font-size: 0.75rem;
+  font-size: var(--font-size-base);
   transition: transform 0.2s;
-  color: var(--text-secondary, #a0aec0);
+  color: var(--text-color-accent, #a0aec0);
 }
 
 .usage-meter__chevron--open {
@@ -53,77 +53,78 @@
 }
 
 .usage-meter__details {
-  padding: 6px 4px 4px;
+  padding: var(--spacing-xs) calc(var(--spacing-xs) * 0.5) calc(var(--spacing-xs) * 0.5);
 }
 
 .usage-meter__bar-container {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 6px;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-xs);
 }
 
 .usage-meter__bar {
   flex: 1;
-  height: 4px;
-  background: var(--border, rgba(255,255,255,0.1));
-  border-radius: 2px;
+  height: 5px;
+  background: var(--border-nav, rgba(255,255,255,0.1));
+  border-radius: var(--border-radius-sm);
   overflow: hidden;
 }
 
 .usage-meter__bar-fill {
   height: 100%;
-  border-radius: 2px;
+  border-radius: var(--border-radius-sm);
   transition: width 0.5s ease;
 }
 
 .usage-meter__percent {
-  font-size: 0.55rem;
-  color: var(--text-secondary, #a0aec0);
+  font-size: var(--font-size-xs);
+  color: var(--text-color-accent, #a0aec0);
   white-space: nowrap;
 }
 
 .usage-meter__stats {
   display: flex;
-  gap: 10px;
-  margin-bottom: 4px;
+  gap: var(--spacing-sm);
+  margin-bottom: calc(var(--spacing-xs) * 0.5);
 }
 
 .usage-meter__stat {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
 }
 
 .usage-meter__stat-label {
-  font-size: 0.5rem;
-  color: var(--text-secondary, #a0aec0);
+  font-size: var(--font-size-xs);
+  color: var(--text-color-accent, #a0aec0);
   text-transform: uppercase;
   letter-spacing: 0.3px;
+  font-weight: var(--font-weight-medium, 500);
 }
 
 .usage-meter__stat-value {
-  font-size: 0.6rem;
-  color: var(--text-primary, #e2e8f0);
+  font-size: var(--font-size-small);
+  color: var(--text-color, #e2e8f0);
   font-variant-numeric: tabular-nums;
 }
 
 .usage-meter__hint {
-  font-size: 0.5rem;
-  color: var(--text-secondary, #a0aec0);
+  font-size: var(--font-size-xs);
+  color: var(--text-color-accent, #a0aec0);
   opacity: 0.7;
-  margin-bottom: 4px;
+  margin-bottom: calc(var(--spacing-xs) * 0.5);
 }
 
 .usage-meter__upgrade {
   display: block;
-  margin-top: 4px;
-  padding: 4px 8px;
+  margin-top: calc(var(--spacing-xs) * 0.5);
+  padding: calc(var(--spacing-xs) * 0.5) var(--spacing-xs);
   background: linear-gradient(135deg, #3b82f6, #8b5cf6);
   color: #fff;
-  border-radius: 4px;
-  font-size: 0.55rem;
-  font-weight: 500;
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium, 500);
   text-decoration: none;
   text-align: center;
   transition: opacity 0.15s;

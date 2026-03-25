@@ -514,7 +514,7 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
         }
         
         // Define all payment method types we want to fetch
-        const paymentMethodTypes = ['card', 'link', 'cashapp'];
+        const paymentMethodTypes = ['card', 'link', 'cashapp', 'venmo'];
         let allPaymentMethods = [];
         
         // Use the validated customer ID for fetching payment methods

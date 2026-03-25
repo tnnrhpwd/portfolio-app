@@ -93,6 +93,7 @@ const DEFAULT_SETTINGS = {
  * @param {function} props.onAddonDismiss - Dismiss the notice
  * @param {string}  props.addonCurrentVersion - Installed addon version
  * @param {string}  props.addonRequiredVersion - Minimum required version
+ * @param {Array}   props.membershipPricing - Dynamic pricing from backend
  */
 function CSimpleChat({
   addonStatus,
@@ -112,6 +113,7 @@ function CSimpleChat({
   onAddonDismiss,
   addonCurrentVersion,
   addonRequiredVersion,
+  membershipPricing = [],
 }) {
   const dispatch = useDispatch();
   const rootRef = useRef(null);
@@ -460,9 +462,13 @@ function CSimpleChat({
       let content;
       const errStr = String(portfolioChatError);
       if (errStr.includes('402') || errStr.toLowerCase().includes('credit') || errStr.toLowerCase().includes('limit')) {
-        content = `**Usage Limit Reached**\n\n${errStr}\n\n---\n💡 **Upgrade your plan** to get more credits and higher limits:\n- **Pro** ($12/mo) — 500 cmds/day, $0.50 monthly credit\n- **Simple** ($39/mo) — 5,000 cmds/day, $10 monthly credit\n\n[Upgrade Now →](/pay)`;
+        const proPlan = membershipPricing?.find?.(p => p.id === 'pro');
+        const proPrice = proPlan ? `$${(proPlan.price / 100).toFixed(0)}/mo` : '';
+        const proQuota = proPlan?.quota?.calls || '';
+        const proLine = proPlan ? `- **Pro** (${proPrice})${proQuota ? ` — ${proQuota}` : ''}` : '- **Pro** — more credits and higher limits';
+        content = `**Usage Limit Reached**\n\n${errStr}\n\n---\n💡 **Upgrade your plan** to get more credits and higher limits:\n${proLine}\n\n[Upgrade Now →](/pay?plan=pro)`;
       } else if (errStr.includes('403') || errStr.toLowerCase().includes('requires a')) {
-        content = `**Model Access Restricted**\n\n${errStr}\n\n---\n🔒 This model requires a higher membership tier.\n\n[View Plans →](/pay)`;
+        content = `**Model Access Restricted**\n\n${errStr}\n\n---\n🔒 This model requires a higher membership tier.\n\n[View Plans →](/pay?plan=pro)`;
       } else {
         content = `**Error:** ${errStr}`;
       }
@@ -961,9 +967,13 @@ function CSimpleChat({
             onError: (errMsg, statusCode) => {
               let displayContent;
               if (statusCode === 402) {
-                displayContent = `**Usage Limit Reached**\n\n${errMsg}\n\n---\n💡 **Upgrade your plan** to get more credits and higher limits:\n- **Pro** ($12/mo) — 500 cmds/day, $0.50 monthly credit\n- **Simple** ($39/mo) — 5,000 cmds/day, $10 monthly credit\n\n[Upgrade Now →](/pay)`;
+                const proPlan = membershipPricing?.find?.(p => p.id === 'pro');
+                const proPrice = proPlan ? `$${(proPlan.price / 100).toFixed(0)}/mo` : '';
+                const proQuota = proPlan?.quota?.calls || '';
+                const proLine = proPlan ? `- **Pro** (${proPrice})${proQuota ? ` — ${proQuota}` : ''}` : '- **Pro** — more credits and higher limits';
+                displayContent = `**Usage Limit Reached**\n\n${errMsg}\n\n---\n💡 **Upgrade your plan** to get more credits and higher limits:\n${proLine}\n\n[Upgrade Now →](/pay?plan=pro)`;
               } else if (statusCode === 403) {
-                displayContent = `**Model Access Restricted**\n\n${errMsg}\n\n---\n🔒 This model requires a higher membership tier.\n\n[View Plans →](/pay)`;
+                displayContent = `**Model Access Restricted**\n\n${errMsg}\n\n---\n🔒 This model requires a higher membership tier.\n\n[View Plans →](/pay?plan=pro)`;
               } else {
                 displayContent = `**Error:** ${errMsg}`;
               }

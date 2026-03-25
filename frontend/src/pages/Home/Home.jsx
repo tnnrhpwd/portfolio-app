@@ -3,7 +3,7 @@ import Header from "../../components/Header/Header.jsx";
 import Footer from "../../components/Footer/Footer.jsx";
 import { useSelector, useDispatch } from 'react-redux';
 import { getPublicData, getUserUsage } from '../../features/data/dataSlice.js';
-import { normalizePlanName, isProTier, isSimpleTier, FEATURES, PLAN_IDS, CREDITS } from '../../constants/pricing.js';
+import { normalizePlanName, isProTier, isPaidTier, FEATURES, PLAN_IDS } from '../../constants/pricing.js';
 import './Home.css';
 
 const links = {
@@ -35,9 +35,8 @@ function Home() {
     // Derive membership info
     const rawRank = userUsage?.membership || 'Free';
     const membership = normalizePlanName(rawRank);
-    const isFree = !isProTier(rawRank) && !isSimpleTier(rawRank);
+    const isFree = !isPaidTier(rawRank);
     const isPro = isProTier(rawRank);
-    const isSimple = isSimpleTier(rawRank);
 
     const titleText = "It's simple.";
     
@@ -162,7 +161,7 @@ function Home() {
                         {user && (
                             <div className={`membership-badge membership-${membership.toLowerCase()}`}>
                                 <span className="badge-icon">
-                                    {isSimple ? '⭐' : isPro ? '🔷' : '🔓'}
+                                    {isPro ? '⭐' : '🔓'}
                                 </span>
                                 <span className="badge-label">{membership} Plan</span>
                             </div>
@@ -175,18 +174,8 @@ function Home() {
                                 <h3 className="feature-card-title">AI Chat</h3>
                                 <p className="feature-card-desc">
                                     {!user
-                                        ? 'Chat with leading AI models. Create a free account to bring your own API key, or subscribe for included credits.'
-                                        : isFree
-                                            ? `Bring your own API key to use AI chat, or upgrade to Pro for ${CREDITS[PLAN_IDS.PRO].display}/mo in included credits.`
-                                            : isPro
-                                                ? <>You have {CREDITS[PLAN_IDS.PRO].display}/mo in AI credits.
-                                                    {userUsage?.availableCredits != null && (
-                                                        <> <strong>${Number(userUsage.availableCredits).toFixed(2)}</strong> remaining this cycle.</>
-                                                    )}</>
-                                                : <>You have {CREDITS[PLAN_IDS.SIMPLE].display}/mo in AI credits with priority support.
-                                                    {userUsage?.availableCredits != null && (
-                                                        <> <strong>${Number(userUsage.availableCredits).toFixed(2)}</strong> remaining this cycle.</>
-                                                    )}</>
+                                        ? 'Chat with leading AI models using your own API key. Create a free account to get started.'
+                                        : 'Use your own API key with AI chat. Supports OpenAI, XAI/Grok, and more.'
                                     }
                                 </p>
                                 {user
@@ -196,29 +185,25 @@ function Home() {
                             </div>
                         </div>
 
-                        {/* Upgrade Prompt — logged-in Free and Pro users */}
-                        {user && !isSimple && (
-                            <div className={`home-upgrade-card upgrade-from-${membership.toLowerCase()}`}>
+                        {/* Upgrade Prompt — logged-in Free users */}
+                        {user && isFree && (
+                            <div className="home-upgrade-card upgrade-from-free">
                                 <div className="upgrade-card-header">
-                                    <span className="upgrade-icon">{isFree ? '🚀' : '⬆️'}</span>
+                                    <span className="upgrade-icon">🚀</span>
                                     <h3 className="upgrade-title">
-                                        {isFree
-                                            ? 'Unlock AI Credits'
-                                            : 'Go Simple — Full Power'}
+                                        Unlock Full Automation
                                     </h3>
                                 </div>
                                 <p className="upgrade-desc">
-                                    {isFree
-                                        ? 'Upgrade to Pro for 500 commands/day and $0.50/mo in AI credits, or go Simple for the full experience.'
-                                        : 'Get 5,000 commands/day, $10/mo AI credits, phone-to-PC remote control, 50 GB storage, and priority support.'}
+                                    Upgrade to Pro for 5,000 automation commands/day, phone-to-PC control, 50 GB storage, and priority support.
                                 </p>
                                 <div className="upgrade-features">
-                                    {(isFree ? FEATURES[PLAN_IDS.PRO] : FEATURES[PLAN_IDS.SIMPLE]).slice(0, 3).map((f, i) => (
+                                    {FEATURES[PLAN_IDS.PRO].slice(0, 3).map((f, i) => (
                                         <span key={i} className="upgrade-feature-pill">{f}</span>
                                     ))}
                                 </div>
-                                <a href="/pay" className="upgrade-cta">
-                                    {isFree ? 'View Plans' : 'Upgrade to Simple'}
+                                <a href="/pay?plan=pro" className="upgrade-cta">
+                                    Upgrade to Pro
                                 </a>
                             </div>
                         )}

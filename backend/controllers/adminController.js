@@ -12,7 +12,7 @@
 const asyncHandler = require('express-async-handler');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand } = require('@aws-sdk/lib-dynamodb');
-const { normalizePlanName, isPaidTier, PLAN_IDS } = require('../constants/pricing');
+const { normalizePlanName, isPaidTier, PLAN_IDS, MONTHLY_PRICES } = require('../constants/pricing');
 
 // ── DynamoDB client (matches existing getHashData.js pattern) ──
 const client = new DynamoDBClient({
@@ -177,7 +177,7 @@ const getAdminDashboard = asyncHandler(async (req, res) => {
 
     // ── Revenue estimation ──
     // Prices from the Stripe product config
-    const MONTHLY_PRICES = { pro: 12, simple: 39 };
+    // MONTHLY_PRICES imported from pricing constants
     const estimatedMRR = Object.entries(byPlan).reduce((sum, [plan, count]) => {
         return sum + (MONTHLY_PRICES[plan] || 0) * count;
     }, 0);

@@ -38,37 +38,25 @@ function Pricing() {
         period: 'month',
         tagline: 'Get started with the basics',
         features: [
-          '$0.00/mo AI credits',
+          'AI chat (bring your own API key)',
           '100 MB storage',
-          '50 commands per day',
-          'Basic AI chat access',
+          '50 automation commands per day',
+          'CSimple addon — 14-day trial',
         ],
       },
       {
         id: 'pro',
         name: 'Pro',
-        price: '$12',
+        price: '$15',
         period: 'month',
-        tagline: 'For power users who need more',
+        tagline: 'Full Windows automation with priority support',
         features: [
-          '$0.50/mo AI credits',
-          '5 GB storage',
-          '500 commands per day',
-          'Priority support',
-        ],
-      },
-      {
-        id: 'simple',
-        name: 'Simple',
-        price: '$39',
-        period: 'month',
-        tagline: 'Unlimited productivity',
-        features: [
-          '$10/mo AI credits (customizable)',
-          '50 GB storage',
-          '5,000 commands per day',
-          'Custom credit limits',
-          'Priority support',
+          'Everything in Free',
+          'Full CSimple addon access',
+          '5,000 automation commands per day',
+          'Phone → PC remote control',
+          '50 GB cloud storage',
+          'Priority email support',
         ],
       },
     ];
@@ -111,9 +99,9 @@ function Pricing() {
               {plans.map((plan) => (
                 <div
                   key={plan.id}
-                  className={`pricing-plan-card ${plan.id === 'simple' ? 'featured' : ''}`}
+                  className={`pricing-plan-card ${plan.id === 'pro' ? 'featured' : ''}`}
                 >
-                  {plan.id === 'simple' && (
+                  {plan.id === 'pro' && (
                     <div className="pricing-plan-badge">Best Value</div>
                   )}
                   <div className="pricing-plan-name">{plan.name}</div>
@@ -128,7 +116,7 @@ function Pricing() {
                     ))}
                   </ul>
                   <button
-                    className={`pricing-plan-cta ${plan.id === 'simple' ? 'primary' : 'secondary'}`}
+                    className={`pricing-plan-cta ${plan.id === 'pro' ? 'primary' : 'secondary'}`}
                     onClick={() => handleSelectPlan(plan.id)}
                   >
                     {plan.id === 'free'

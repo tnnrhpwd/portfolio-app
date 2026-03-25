@@ -189,9 +189,8 @@ function injectMembershipContext(systemParts, user) {
     }
 
     const tierFeatures = {
-        Free: 'Free tier (50 cmds/day, 100MB storage, basic models).',
-        Pro: 'Pro tier ($12/mo — 500 cmds/day, 5GB storage, all standard models, email support).',
-        Simple: 'Simple tier ($39/mo — 5000 cmds/day, 50GB storage, all models including premium, priority support).',
+        Free: 'Free tier (50 automation cmds/day, 100MB storage, bring your own API key).',
+        Pro: 'Pro tier ($15/mo — 5000 automation cmds/day, 50GB storage, all models, phone-to-PC remote, priority support).',
     };
 
     const tierDesc = tierFeatures[rank] || tierFeatures.Free;
@@ -280,16 +279,9 @@ function validateModelTierAccess(user, model) {
     const rankMatch = text.match(/\|Rank:(\w+)/);
     const rank = rankMatch ? rankMatch[1] : 'Free';
 
-    if (requiredTier === 'pro' && !isProTier(rank) && !isSimpleTier(rank)) {
-        const error = new Error(`Model "${model}" requires a Pro or Simple membership. Upgrade at /pay to access this model.`);
-        error.statusCode = 403;
-        throw error;
-    }
-    if (requiredTier === 'simple' && !isSimpleTier(rank)) {
-        const error = new Error(`Model "${model}" requires a Simple membership. Upgrade at /pay to access this model.`);
-        error.statusCode = 403;
-        throw error;
-    }
+    // BYOK model — no tier gating on models (users pay via their own API key)
+    // All models are available to all users
+    return;
 }
 
 /**

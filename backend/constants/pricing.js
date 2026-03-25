@@ -1,9 +1,12 @@
 /**
  * Centralized pricing & plan configuration.
  * 
- * ALL plan names, credit limits, storage limits, features, and quotas
+ * ALL plan names, storage limits, features, and quotas
  * are defined here.  Every other file should import from this module
  * instead of hard-coding values.
+ *
+ * Two tiers: Free and Pro ($15/mo).
+ * AI usage is BYOK (Bring Your Own Key) — no platform credits.
  *
  * Stripe product names are set in the Stripe dashboard and mapped
  * to internal plan IDs here.
@@ -13,26 +16,30 @@
 // Plan IDs & names
 // ──────────────────────────────────────────────
 const PLAN_IDS = Object.freeze({
-  FREE:   'free',
-  PRO:    'pro',
-  SIMPLE: 'simple',
+  FREE: 'free',
+  PRO:  'pro',
 });
 
 const PLAN_NAMES = Object.freeze({
-  [PLAN_IDS.FREE]:   'Free',
-  [PLAN_IDS.PRO]:    'Pro',
-  [PLAN_IDS.SIMPLE]: 'Simple',
+  [PLAN_IDS.FREE]: 'Free',
+  [PLAN_IDS.PRO]:  'Pro',
+});
+
+/** Monthly price in dollars (used for admin revenue estimation). */
+const MONTHLY_PRICES = Object.freeze({
+  [PLAN_IDS.FREE]: 0,
+  [PLAN_IDS.PRO]:  15,
 });
 
 /** Old rank strings that may still exist in DynamoDB records. */
 const LEGACY_ALIASES = Object.freeze({
-  Flex:    PLAN_NAMES[PLAN_IDS.PRO],     // 'Flex'    → 'Pro'
-  Premium: PLAN_NAMES[PLAN_IDS.SIMPLE],  // 'Premium' → 'Simple'
+  Flex:    'Pro',
+  Premium: 'Pro',   // old "Simple"/"Premium" tier now maps to Pro
+  Simple:  'Pro',   // old "Simple" tier now maps to Pro
 });
 
-/** All rank strings that should be treated as a given tier. */
-const PRO_RANKS     = Object.freeze(['Pro', 'Flex']);
-const SIMPLE_RANKS  = Object.freeze(['Simple', 'Premium']);
+/** All rank strings that should be treated as Pro tier. */
+const PRO_RANKS = Object.freeze(['Pro', 'Flex', 'Simple', 'Premium']);
 
 /** Regex that matches any stored rank string (used for text replacement). */
 const RANK_REGEX = /(\|Rank:)(Free|Pro|Simple|Flex|Premium)/;
@@ -43,70 +50,48 @@ const RANK_REGEX = /(\|Rank:)(Free|Pro|Simple|Flex|Premium)/;
 
 /** Map Stripe product IDs to internal plan IDs (avoids extra API calls). */
 const STRIPE_PRODUCT_IDS = Object.freeze({
-  'prod_T5NvvJFzla8PSo': PLAN_IDS.PRO,     // Pro Membership – $12/mo
-  'prod_T5NsEloas3D4yu': PLAN_IDS.SIMPLE,   // Simple Membership – $39/mo
+  'prod_T5NvvJFzla8PSo': PLAN_IDS.PRO,   // legacy Pro product
+  'prod_T5NsEloas3D4yu': PLAN_IDS.PRO,   // legacy Simple product → now Pro
 });
 
 /** Reverse lookup: internal plan ID → Stripe product ID. */
 const PLAN_TO_STRIPE_PRODUCT = Object.freeze({
-  [PLAN_IDS.PRO]:    'prod_T5NvvJFzla8PSo',
-  [PLAN_IDS.SIMPLE]: 'prod_T5NsEloas3D4yu',
+  [PLAN_IDS.PRO]: 'prod_T5NvvJFzla8PSo',
 });
 
 /** Map Stripe product display names → internal plan IDs (fallback). */
 const STRIPE_PRODUCT_MAP = Object.freeze({
   'Pro Membership':    PLAN_IDS.PRO,
-  'Simple Membership': PLAN_IDS.SIMPLE,
-});
-
-// ──────────────────────────────────────────────
-// Credits / billing
-// ──────────────────────────────────────────────
-const CREDITS = Object.freeze({
-  [PLAN_IDS.FREE]: {
-    monthlyLimit: 0,
-  },
-  [PLAN_IDS.PRO]: {
-    monthlyLimit: 0.50,      // $0.50/month
-  },
-  [PLAN_IDS.SIMPLE]: {
-    defaultLimit: 10.00,     // $10.00 default custom limit
-    minLimit:     0.50,      // minimum custom limit
-  },
+  'Simple Membership': PLAN_IDS.PRO,
 });
 
 // ──────────────────────────────────────────────
 // Storage (bytes)
-// Uses PLAN_IDS as keys for consistency with other constants.
-// Also includes PLAN_NAMES and legacy aliases for backward compat lookups.
 // ──────────────────────────────────────────────
 const STORAGE_LIMITS = Object.freeze({
-  // Primary keys: plan IDs (consistent with CREDITS, QUOTAS, FEATURES, etc.)
-  [PLAN_IDS.FREE]:   100 * 1024 * 1024,           // 100 MB
-  [PLAN_IDS.PRO]:    5 * 1024 * 1024 * 1024,      // 5 GB
-  [PLAN_IDS.SIMPLE]: 50 * 1024 * 1024 * 1024,     // 50 GB
+  // Primary keys: plan IDs
+  [PLAN_IDS.FREE]: 100 * 1024 * 1024,           // 100 MB
+  [PLAN_IDS.PRO]:  50 * 1024 * 1024 * 1024,     // 50 GB
   // Display-name keys (backward compat for DB lookups using user rank strings)
-  [PLAN_NAMES[PLAN_IDS.FREE]]:   100 * 1024 * 1024,
-  [PLAN_NAMES[PLAN_IDS.PRO]]:    5 * 1024 * 1024 * 1024,
-  [PLAN_NAMES[PLAN_IDS.SIMPLE]]: 50 * 1024 * 1024 * 1024,
+  Free:    100 * 1024 * 1024,
+  Pro:     50 * 1024 * 1024 * 1024,
   // Legacy aliases
-  Flex:    5 * 1024 * 1024 * 1024,
+  Flex:    50 * 1024 * 1024 * 1024,
   Premium: 50 * 1024 * 1024 * 1024,
+  Simple:  50 * 1024 * 1024 * 1024,
 });
 
 const STORAGE_DISPLAY = Object.freeze({
-  [PLAN_IDS.FREE]:   '100 MB',
-  [PLAN_IDS.PRO]:    '5 GB',
-  [PLAN_IDS.SIMPLE]: '50 GB',
+  [PLAN_IDS.FREE]: '100 MB',
+  [PLAN_IDS.PRO]:  '50 GB',
 });
 
 // ──────────────────────────────────────────────
 // Quotas (displayed on pricing page / emails)
 // ──────────────────────────────────────────────
 const QUOTAS = Object.freeze({
-  [PLAN_IDS.FREE]:   '50 commands/day',
-  [PLAN_IDS.PRO]:    '500 commands/day',
-  [PLAN_IDS.SIMPLE]: '5,000 commands/day',
+  [PLAN_IDS.FREE]: '50 automation commands/day',
+  [PLAN_IDS.PRO]:  '5,000 automation commands/day',
 });
 
 // ──────────────────────────────────────────────
@@ -114,44 +99,37 @@ const QUOTAS = Object.freeze({
 // ──────────────────────────────────────────────
 const FEATURES = Object.freeze({
   [PLAN_IDS.FREE]: [
-    '🌐 /net AI chat (bring your own API key)',
+    '🌐 AI chat (bring your own API key)',
     '🖥️ CSimple addon — 14-day free trial',
-    `⚡ ${QUOTAS[PLAN_IDS.FREE].replace('commands/day', 'addon commands per day')}`,
-    `📁 ${STORAGE_DISPLAY[PLAN_IDS.FREE]} cloud storage`,
+    '⚡ 50 automation commands per day',
+    '📁 100 MB cloud storage',
   ],
   [PLAN_IDS.PRO]: [
     '✅ Everything in Free',
-    `⚡ ${QUOTAS[PLAN_IDS.PRO].replace('commands/day', 'addon commands per day')}`,
-    `📁 ${STORAGE_DISPLAY[PLAN_IDS.PRO]} cloud storage`,
-    '📊 Full analytics dashboard',
-    '📧 Email support',
-  ],
-  [PLAN_IDS.SIMPLE]: [
-    '✅ Everything in Pro',
-    '♾️ 5,000 addon commands per day',
+    '🖥️ Full CSimple addon access',
+    '⚡ 5,000 automation commands per day',
     '📱 Phone → PC remote control',
     '💾 50 GB cloud storage',
-    '⭐ Priority support',
+    '📊 Full analytics dashboard',
+    '⭐ Priority email support',
   ],
 });
 
 /** Plain-text feature bullets (no emoji) for emails */
 const FEATURES_PLAIN = Object.freeze({
   [PLAN_IDS.FREE]: [
-    'Basic features only',
-    'Community support',
+    'AI chat (bring your own API key)',
+    '14-day addon trial',
+    '50 automation commands per day',
+    '100 MB cloud storage',
   ],
   [PLAN_IDS.PRO]: [
-    `${QUOTAS[PLAN_IDS.PRO].replace('commands/day', 'addon commands per day')}`,
-    `${STORAGE_DISPLAY[PLAN_IDS.PRO]} cloud storage`,
-    'Full analytics dashboard',
-    'Email support',
-  ],
-  [PLAN_IDS.SIMPLE]: [
-    '5,000 addon commands per day',
-    'Phone → PC remote control',
+    'Full CSimple addon access',
+    '5,000 automation commands per day',
+    'Phone to PC remote control',
     '50 GB cloud storage',
-    'Priority support',
+    'Full analytics dashboard',
+    'Priority email support',
   ],
 });
 
@@ -159,9 +137,8 @@ const FEATURES_PLAIN = Object.freeze({
 // Descriptions (used on pricing cards)
 // ──────────────────────────────────────────────
 const DESCRIPTIONS = Object.freeze({
-  [PLAN_IDS.FREE]:   'Try the addon free for 14 days',
-  [PLAN_IDS.PRO]:    'More addon power & storage for daily use',
-  [PLAN_IDS.SIMPLE]: 'Full PC automation with priority support',
+  [PLAN_IDS.FREE]: 'Try the addon free for 14 days',
+  [PLAN_IDS.PRO]:  'Full Windows automation with priority support',
 });
 
 // ──────────────────────────────────────────────
@@ -170,38 +147,37 @@ const DESCRIPTIONS = Object.freeze({
 
 /**
  * Normalize a rank string to the current plan name.
- * e.g. 'Flex' → 'Pro', 'Premium' → 'Simple'
+ * e.g. 'Flex' → 'Pro', 'Premium' → 'Pro', 'Simple' → 'Pro'
  */
 function normalizePlanName(rank) {
   return LEGACY_ALIASES[rank] || rank;
 }
 
-/** True when `rank` is Pro (or legacy Flex). */
+/** True when `rank` is Pro (including legacy Flex/Simple/Premium). */
 function isProTier(rank) {
   return PRO_RANKS.includes(rank);
 }
 
-/** True when `rank` is Simple (or legacy Premium). */
+/** @deprecated — kept for backward compat. Now identical to isProTier. */
 function isSimpleTier(rank) {
-  return SIMPLE_RANKS.includes(rank);
+  return isProTier(rank);
 }
 
-/** True when `rank` is a paid tier (Pro or Simple, including legacy names). */
+/** True when `rank` is a paid tier. */
 function isPaidTier(rank) {
-  return isProTier(rank) || isSimpleTier(rank);
+  return isProTier(rank);
 }
 
 module.exports = {
   PLAN_IDS,
   PLAN_NAMES,
+  MONTHLY_PRICES,
   LEGACY_ALIASES,
   PRO_RANKS,
-  SIMPLE_RANKS,
   RANK_REGEX,
   STRIPE_PRODUCT_IDS,
   PLAN_TO_STRIPE_PRODUCT,
   STRIPE_PRODUCT_MAP,
-  CREDITS,
   STORAGE_LIMITS,
   STORAGE_DISPLAY,
   QUOTAS,

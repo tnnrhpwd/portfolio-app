@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { logout, resetDataSlice, getUserSubscription, getUserUsage, getUserStorage } from './../../features/data/dataSlice.js';
@@ -9,8 +9,8 @@ import { setDarkMode, setLightMode, setSystemColorMode } from '../../utils/theme
 import { isTokenValid } from '../../utils/tokenUtils.js';
 import { toast } from 'react-toastify';
 import {
-  CREDITS, PLAN_IDS, QUOTA_SHORT, STORAGE_DISPLAY,
-  isProTier, isSimpleTier, getCreditDisplay, getDefaultCreditLimit,
+  PLAN_IDS, QUOTA_SHORT, STORAGE_DISPLAY,
+  isProTier, isSimpleTier,
 } from '../../constants/pricing.js';
 import './Profile.css';
 import HeaderLogo from '../../../src/assets/Checkmark512.png';
@@ -100,32 +100,6 @@ function Profile() {
         // Fetch usage data
         dispatch(getUserUsage())
           .unwrap()
-          .then((usageData) => {
-            
-            // Show warning toast based on available credits
-            if (usageData && !isSimpleTier(usageData.membership) && usageData.availableCredits !== undefined) {
-              const availableCredits = Number(usageData.availableCredits);
-              const membershipLimit = isProTier(usageData.membership) ? CREDITS[PLAN_IDS.PRO].monthlyLimit : 0;
-              
-              if (availableCredits <= 0.05 && membershipLimit > 0) {
-                toast.warning('🚨 API credits nearly depleted! Consider upgrading to Simple for higher credit limits.', {
-                  position: 'top-right',
-                  autoClose: 8000,
-                  hideProgressBar: false,
-                  closeOnClick: true,
-                  pauseOnHover: true,
-                });
-              } else if (availableCredits <= 0.15 && membershipLimit > 0) {
-                toast.info('⚠️ API credits running low. Keep an eye on your remaining balance!', {
-                  position: 'top-right',
-                  autoClose: 6000,
-                  hideProgressBar: false,
-                  closeOnClick: true,
-                  pauseOnHover: true,
-                });
-              }
-            }
-          })
           .catch((error) => {
             console.error('Failed to fetch usage data:', error);
           });
@@ -303,7 +277,6 @@ function Profile() {
                     >
                       <option value="Free">🆓 Free Plan</option>
                       <option value="Pro">⚡ Pro Plan</option>
-                      <option value="Simple">👑 Simple Plan</option>
                     </select>
                   </div>
                 </div>
@@ -322,7 +295,7 @@ function Profile() {
 
               <div className="planit-profile-section">
                 <h3 className="planit-profile-section-title">
-                  API Credits & Usage
+                  Usage & Quota
                   <button 
                     onClick={refreshUsageData}
                     className="planit-profile-refresh-button"
@@ -337,182 +310,24 @@ function Profile() {
                   <div className="planit-profile-usage-error">
                     Error loading usage data: {userUsageMessage}
                   </div>
-                ) : userUsage && typeof userUsage === 'object' && ('availableCredits' in userUsage || 'totalUsage' in userUsage) ? (
+                ) : userUsage && typeof userUsage === 'object' ? (
                   <div className="planit-profile-usage-container">
                     <div className="planit-profile-usage-overview">
                       <div className="usage-stat">
-                        <span className="usage-label">� Available Credits</span>
+                        <span className="usage-label">🎯 Plan</span>
+                        <span className="usage-value">{userUsage?.membership || 'Free'}</span>
+                      </div>
+                      <div className="usage-stat">
+                        <span className="usage-label">⚡ Automation Quota</span>
                         <span className="usage-value">
-                          {user?._id === '6770a067c725cbceab958619' ? 
-                            '∞ (Unlimited)' : 
-                            userUsage?.availableCredits !== undefined ? 
-                              `$${Number(userUsage.availableCredits).toFixed(4)}` : 
-                              '$0.0000'
-                          }
+                          {isProTier(userUsage?.membership) ? QUOTA_SHORT[PLAN_IDS.PRO] : QUOTA_SHORT[PLAN_IDS.FREE]}
                         </span>
                       </div>
                       <div className="usage-stat">
-                        <span className="usage-label">🎯 Monthly Limit</span>
-                        <span className="usage-value">
-                          {user?._id === '6770a067c725cbceab958619' ? 
-                            '∞ (Admin)' : 
-                            isSimpleTier(userUsage?.membership) ? 
-                              `$${userUsage?.customLimit !== undefined ? Number(userUsage.customLimit).toFixed(2) : CREDITS[PLAN_IDS.SIMPLE].defaultLimit.toFixed(2)}` : 
-                              getCreditDisplay(userUsage?.membership || 'Free')
-                          }
-                        </span>
-                      </div>
-                      <div className="usage-stat">
-                        <span className="usage-label">� Usage This Month</span>
-                        <span className="usage-value">
-                          ${userUsage?.totalUsage !== undefined ? 
-                            Number(userUsage.totalUsage).toFixed(4) : 
-                            '0.0000'
-                          }
-                        </span>
-                      </div>
-                      <div className="usage-stat">
-                        <span className="usage-label">� Next Reset</span>
-                        <span className="usage-value">
-                          {userUsage?.nextReset ? 
-                            new Date(userUsage.nextReset).toLocaleDateString() : 
-                            new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toLocaleDateString()
-                          }
-                        </span>
+                        <span className="usage-label">🔑 AI Usage</span>
+                        <span className="usage-value">Bring Your Own Key</span>
                       </div>
                     </div>
-                    
-                    {/* Credit Status Warnings */}
-                    {userUsage?.availableCredits !== undefined && (
-                      <div className="planit-profile-credit-status">
-                        {userUsage.availableCredits <= 0 && isProTier(userUsage.membership) && (
-                          <div className="credit-warning frozen">
-                            <span className="warning-icon">🚨</span>
-                            <div className="warning-content">
-                              <strong>Usage Frozen</strong>
-                              <p>Your Pro membership has no remaining credits. API usage is frozen until next month or upgrade to Simple for higher credit limits.</p>
-                              <button 
-                                className="upgrade-premium-button"
-                                onClick={() => navigate('/pay?plan=simple')}
-                              >
-                                Upgrade to Simple
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {userUsage.availableCredits <= 0 && isSimpleTier(userUsage.membership) && (
-                          <div className="credit-warning premium-empty">
-                            <span className="warning-icon">⚠️</span>
-                            <div className="warning-content">
-                              <strong>Credits Depleted</strong>
-                              <p>Your Simple plan limit has been reached. Increase your limit to continue API usage.</p>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {userUsage.availableCredits > 0 && userUsage.availableCredits <= 0.10 && (
-                          <div className="credit-warning low">
-                            <span className="warning-icon">🔔</span>
-                            <div className="warning-content">
-                              <strong>Credits Running Low</strong>
-                              <p>You have ${userUsage.availableCredits.toFixed(4)} remaining. 
-                                {isProTier(userUsage.membership)
-                                  ? ' Consider upgrading to Simple for higher credit limits.' 
-                                  : ' Consider increasing your Simple limit.'}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Simple Custom Limit Setting */}
-                    {isSimpleTier(userUsage?.membership) && (
-                      <div className="planit-profile-custom-limit">
-                        <h4 className="custom-limit-title">💎 Simple Custom Limit</h4>
-                        <div className="custom-limit-controls">
-                          <input 
-                            type="number" 
-                            step={CREDITS[PLAN_IDS.SIMPLE].minLimit} 
-                            min={CREDITS[PLAN_IDS.SIMPLE].minLimit} 
-                            placeholder="Enter custom limit" 
-                            className="custom-limit-input"
-                            id="customLimitInput"
-                          />
-                          <button 
-                            className="custom-limit-button"
-                            onClick={async () => {
-                              const input = document.getElementById('customLimitInput');
-                              const newLimit = parseFloat(input.value);
-                              if (newLimit && newLimit >= CREDITS[PLAN_IDS.SIMPLE].minLimit) {
-                                try {
-                                  const token = localStorage.getItem('token');
-                                  const response = await fetch('/api/data/custom-limit', {
-                                    method: 'POST',
-                                    headers: {
-                                      'Content-Type': 'application/json',
-                                      'Authorization': `Bearer ${token}`
-                                    },
-                                    body: JSON.stringify({ customLimit: newLimit })
-                                  });
-                                  
-                                  const result = await response.json();
-                                  
-                                  if (result.success) {
-                                    toast.success(`✅ ${result.message}`);
-                                    input.value = ''; // Clear input
-                                    // Refresh usage data to show updated credits
-                                    setTimeout(() => {
-                                      dispatch(getUserUsage());
-                                    }, 1000);
-                                  } else {
-                                    toast.error(`❌ ${result.message || 'Failed to set custom limit'}`);
-                                  }
-                                } catch (error) {
-                                  console.error('Error setting custom limit:', error);
-                                  toast.error('❌ Network error. Please try again.');
-                                }
-                              } else {
-                                toast.error(`Please enter a valid limit (minimum $${CREDITS[PLAN_IDS.SIMPLE].minLimit.toFixed(2)})`);
-                              }
-                            }}
-                          >
-                            Set Limit
-                          </button>
-                        </div>
-                        <div className="custom-limit-info">
-                          <small>Current limit: ${userUsage?.customLimit !== undefined ? Number(userUsage.customLimit).toFixed(2) : CREDITS[PLAN_IDS.SIMPLE].defaultLimit.toFixed(2)}</small>
-                          <small>You'll be charged for any limit increases immediately.</small>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Credit Usage Bar */}
-                    {userUsage?.availableCredits !== undefined && userUsage?.membership !== 'Free' && (
-                      <div className="planit-profile-usage-bar">
-                        <div className="usage-bar-track">
-                          <div 
-                            className={`usage-bar-fill ${
-                              userUsage.availableCredits <= 0.10 ? 'danger' : 
-                              userUsage.availableCredits <= 0.25 ? 'warning' : 
-                              'normal'
-                            }`}
-                            style={{ 
-                              width: `${Math.min(
-                                ((userUsage.customLimit || (isProTier(userUsage.membership) ? CREDITS[PLAN_IDS.PRO].monthlyLimit : CREDITS[PLAN_IDS.SIMPLE].defaultLimit)) - userUsage.availableCredits) / 
-                                (userUsage.customLimit || (isProTier(userUsage.membership) ? CREDITS[PLAN_IDS.PRO].monthlyLimit : CREDITS[PLAN_IDS.SIMPLE].defaultLimit)) * 100, 100
-                              )}%` 
-                            }}
-                          ></div>
-                        </div>
-                        <div className="usage-bar-label">
-                          {userUsage.availableCredits <= 0.10 && '🚨 Credits Low'}
-                          {userUsage.availableCredits > 0.10 && userUsage.availableCredits <= 0.25 && '⚠️ Credits Running Low'}
-                          {userUsage.availableCredits > 0.25 && '✅ Credits Available'}
-                        </div>
-                      </div>
-                    )}
 
                     {userUsage.usageBreakdown && userUsage.usageBreakdown.length > 0 && (
                       <div className="planit-profile-usage-breakdown">
@@ -531,7 +346,6 @@ function Profile() {
                               </div>
                               <div className="usage-details">
                                 <span className="usage-amount">{entry.usage}</span>
-                                <span className="usage-cost">${entry.cost?.toFixed(4)}</span>
                               </div>
                             </div>
                           ))}
@@ -544,8 +358,8 @@ function Profile() {
                         <div className="upgrade-message">
                           <span className="upgrade-icon">🚀</span>
                           <div className="upgrade-text">
-                            <strong>Upgrade to Get More</strong>
-                            <p>Pro: {QUOTA_SHORT[PLAN_IDS.PRO]} + {STORAGE_DISPLAY[PLAN_IDS.PRO]} storage | Simple: {QUOTA_SHORT[PLAN_IDS.SIMPLE]} + phone control!</p>
+                            <strong>Upgrade to Pro</strong>
+                            <p>{QUOTA_SHORT[PLAN_IDS.PRO]} + {STORAGE_DISPLAY[PLAN_IDS.PRO]} storage + phone control!</p>
                           </div>
                         </div>
                         <button 
@@ -560,14 +374,14 @@ function Profile() {
                 ) : (
                   <div className="planit-profile-usage-placeholder">
                     <div className="usage-stat">
-                      <span className="usage-label">� Available Credits</span>
-                      <span className="usage-value">$0.0000</span>
+                      <span className="usage-label">⚡ Automation Quota</span>
+                      <span className="usage-value">
+                        {isProTier(currentPlan) ? QUOTA_SHORT[PLAN_IDS.PRO] : QUOTA_SHORT[PLAN_IDS.FREE]}
+                      </span>
                     </div>
                     <div className="usage-stat">
-                      <span className="usage-label">🎯 Monthly Limit</span>
-                      <span className="usage-value">
-                        {getCreditDisplay(currentPlan || 'Free')}
-                      </span>
+                      <span className="usage-label">🔑 AI Usage</span>
+                      <span className="usage-value">Bring Your Own Key</span>
                     </div>
                   </div>
                 )}
@@ -609,12 +423,12 @@ function Profile() {
                         <div className="warning-content">
                           <strong>Storage Limit Exceeded</strong>
                           <p>You've exceeded your storage limit. Delete some items or upgrade to continue storing data.</p>
-                          {!isSimpleTier(userStorage.membership) && (
+                          {!isProTier(userStorage.membership) && (
                             <button 
                               className="upgrade-premium-button"
-                              onClick={() => navigate('/pay?plan=simple')}
+                              onClick={() => navigate('/pay?plan=pro')}
                             >
-                              Upgrade to Simple
+                              Upgrade to Pro
                             </button>
                           )}
                         </div>
@@ -680,18 +494,18 @@ function Profile() {
                     )}
 
                     {/* Storage upgrade prompt for non-Simple users */}
-                    {!isSimpleTier(userStorage.membership) && userStorage.storageUsagePercent > 50 && (
+                    {!isProTier(userStorage.membership) && userStorage.storageUsagePercent > 50 && (
                       <div className="planit-profile-upgrade-prompt">
                         <div className="upgrade-message">
                           <span className="upgrade-icon">💾</span>
                           <div className="upgrade-text">
                             <strong>Need More Storage?</strong>
-                            <p>Simple membership includes 50 GB of storage for all your data and files!</p>
+                            <p>Pro membership includes 50 GB of storage for all your data and files!</p>
                           </div>
                         </div>
                         <button 
                           className="upgrade-button"
-                          onClick={() => navigate('/pay?plan=simple')}
+                          onClick={() => navigate('/pay?plan=pro')}
                         >
                           Upgrade Now
                         </button>
@@ -707,8 +521,7 @@ function Profile() {
                     <div className="usage-stat">
                       <span className="usage-label">🎯 Storage Limit</span>
                       <span className="usage-value">
-                        {isSimpleTier(currentPlan) ? STORAGE_DISPLAY[PLAN_IDS.SIMPLE] : 
-                         isProTier(currentPlan) ? STORAGE_DISPLAY[PLAN_IDS.PRO] : 
+                        {isProTier(currentPlan) ? STORAGE_DISPLAY[PLAN_IDS.PRO] : 
                          STORAGE_DISPLAY[PLAN_IDS.FREE]}
                       </span>
                     </div>

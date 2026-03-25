@@ -1,7 +1,7 @@
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const { getStripe, liveStripe: stripe } = require('./stripeInstance');
-const { CREDITS, PLAN_IDS, isProTier, isSimpleTier, STRIPE_PRODUCT_IDS, STRIPE_PRODUCT_MAP } = require('../constants/pricing');
+const { PLAN_IDS, isProTier, isSimpleTier, STRIPE_PRODUCT_IDS, STRIPE_PRODUCT_MAP } = require('../constants/pricing');
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -61,11 +61,10 @@ const API_COSTS = {
     }
 };
 
-// Membership limits (in USD) - Derived from centralized pricing constants
+// Membership limits — BYOK model, no platform credits
 const MEMBERSHIP_LIMITS = {
-    Free: CREDITS[PLAN_IDS.FREE].monthlyLimit,
-    Pro: CREDITS[PLAN_IDS.PRO].monthlyLimit,
-    Simple: null // Simple has custom usage limits
+    Free: 0,
+    Pro: 0,
 };
 
 /**
@@ -147,26 +146,9 @@ function performMonthlyReset(creditsData, membership, subscriptionActive = true)
         return creditsData; // Return unchanged if subscription cancelled
     }
     
-    switch (membership) {
-        case 'Pro':
-        case 'Flex': // backward compat
-            // Pro gets topped off to their monthly credit limit
-            creditsData.availableCredits = Math.max(creditsData.availableCredits, CREDITS[PLAN_IDS.PRO].monthlyLimit);
-            creditsData.customLimit = CREDITS[PLAN_IDS.PRO].monthlyLimit;
-            break;
-        case 'Simple':
-        case 'Premium': // backward compat
-            // Simple gets topped off to their custom limit
-            if (creditsData.customLimit) {
-                creditsData.availableCredits = Math.max(creditsData.availableCredits, creditsData.customLimit);
-            }
-            break;
-        default:
-            // Free users get no credits
-            creditsData.availableCredits = 0;
-            creditsData.customLimit = null;
-            break;
-    }
+    // BYOK model — no platform credits to reset
+    creditsData.availableCredits = 0;
+    creditsData.customLimit = null;
     
     creditsData.lastReset = now;
     creditsData.membershipLevel = membership;
@@ -538,11 +520,7 @@ async function getUserUsageStats(userId) {
 
         // Calculate limit based on membership type
         let limit;
-        if (userRank === 'Simple' && creditsData.customLimit) {
-            limit = creditsData.customLimit;
-        } else {
-            limit = MEMBERSHIP_LIMITS[userRank] || 0;
-        }
+        limit = MEMBERSHIP_LIMITS[userRank] || 0;
 
         const result = {
             totalUsage: usage.totalCost,
@@ -765,11 +743,8 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
 
         console.log('canMakeApiCall: User membership:', userRank);
 
-        // Free users cannot use paid APIs
-        if (userRank === 'Free') {
-            console.log('canMakeApiCall: Blocking free user');
-            return { canMake: false, reason: 'Free users cannot use paid APIs' };
-        }
+        // BYOK model — all users can make calls (they use their own API key)
+        // Only block if explicitly rate-limited elsewhere
 
         // Get user credits data
         let creditsData = parseUserCredits(userText);
@@ -843,34 +818,18 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
                 break;
         }
 
-        // Check if user has enough available credits
-        const hasEnoughCredits = creditsData.availableCredits >= estimatedCost;
-        
-        console.log(`canMakeApiCall: Available credits: $${creditsData.availableCredits.toFixed(4)}, Estimated cost: $${estimatedCost.toFixed(4)}, Can make: ${hasEnoughCredits}`);
-        
-        let reason;
-        if (hasEnoughCredits) {
-            reason = 'Within credit limit';
-        } else {
-            // Different messaging based on membership type
-            if (isProTier(userRank)) {
-                reason = 'Insufficient credits. Pro membership usage is frozen until next month or upgrade to Simple.';
-            } else if (isSimpleTier(userRank)) {
-                reason = 'Insufficient credits. Consider increasing your Simple plan limit to continue usage.';
-            } else {
-                reason = 'Insufficient credits';
-            }
-        }
+        // BYOK model — always allow (user pays via their own API key)
+        console.log(`canMakeApiCall: BYOK model — allowing call (estimated cost: $${estimatedCost.toFixed(4)})`);
         
         return {
-            canMake: hasEnoughCredits,
-            reason: reason,
-            currentCredits: creditsData.availableCredits,
+            canMake: true,
+            reason: 'BYOK — user provides their own API key',
+            currentCredits: 0,
             estimatedCost: estimatedCost,
-            customLimit: creditsData.customLimit,
+            customLimit: null,
             membership: userRank,
-            isFrozen: !hasEnoughCredits && isProTier(userRank),
-            canIncreaseLimit: !hasEnoughCredits && isSimpleTier(userRank)
+            isFrozen: false,
+            canIncreaseLimit: false
         };
     } catch (error) {
         console.error('Error checking if user can make API call:', error);

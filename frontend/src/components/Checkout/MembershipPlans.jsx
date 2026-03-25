@@ -43,11 +43,11 @@ const MembershipPlans = ({
           return (
             <div 
               key={plan.id}
-              className={`plan-card ${selectedPlan === plan.id ? 'selected' : ''} ${isCurrentPlan ? 'current-plan' : ''} ${plan.id === 'simple' ? 'featured' : ''}`}
+              className={`plan-card ${selectedPlan === plan.id ? 'selected' : ''} ${isCurrentPlan ? 'current-plan' : ''} ${plan.id === 'pro' ? 'featured' : ''}`}
               onClick={() => onSelectPlan(plan.id)}
             >
               {isCurrentPlan && <div className="current-plan-badge">Current Plan</div>}
-              {plan.id === 'simple' && !isCurrentPlan && <div className="popular-badge">Best Value</div>}
+              {plan.id === 'pro' && !isCurrentPlan && <div className="popular-badge">Best Value</div>}
               <div className="plan-header">
                 <h4>{plan.name}</h4>
                 <p className="plan-tagline">{plan.tagline}</p>

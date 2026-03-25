@@ -10,8 +10,7 @@ const { FEATURES_PLAIN, isSimpleTier, isProTier } = require('../constants/pricin
  */
 function getPlanFeatures(plan) {
   const lc = plan.toLowerCase();
-  if (isSimpleTier(plan) || lc === 'simple') return FEATURES_PLAIN.simple;
-  if (isProTier(plan) || lc === 'pro') return FEATURES_PLAIN.pro;
+  if (isProTier(plan) || isSimpleTier(plan) || lc === 'pro' || lc === 'simple') return FEATURES_PLAIN.pro;
   return FEATURES_PLAIN.free;
 }
 

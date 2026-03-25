@@ -4,21 +4,20 @@ import './UsageMeter.css';
 const TIER_COLORS = {
   Free: '#6b7280',
   Pro: '#3b82f6',
-  Simple: '#8b5cf6',
 };
 
 const TIER_LABELS = {
   Free: 'Free',
   Pro: 'Pro',
   Flex: 'Pro',
-  Simple: 'Simple',
-  Premium: 'Simple',
+  Simple: 'Pro',
+  Premium: 'Pro',
 };
 
 function UsageMeter({ user }) {
   const [usage, setUsage] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [collapsed, setCollapsed] = useState(true);
+  const [collapsed, setCollapsed] = useState(null); // null = auto-decide after first fetch
 
   const fetchUsage = useCallback(async () => {
     if (!user?.token) return;
@@ -65,6 +64,11 @@ function UsageMeter({ user }) {
   const credits = usage?.availableCredits || 0;
   const percentUsed = usage?.percentUsed || 0;
   const clampedPercent = Math.min(100, Math.max(0, percentUsed));
+  const dailyUsed = usage?.dailyCommandsUsed ?? null;
+  const dailyLimit = usage?.dailyCommandLimit ?? (tier === 'Free' ? 50 : tier === 'Pro' ? 5000 : null);
+
+  // Auto-expand for Free tier on first load
+  const isCollapsed = collapsed === null ? tier !== 'Free' : collapsed;
 
   const barColor = clampedPercent > 90 ? '#ef4444' : clampedPercent > 70 ? '#f59e0b' : '#10b981';
 
@@ -84,21 +88,23 @@ function UsageMeter({ user }) {
     <div className="usage-meter">
       <button
         className="usage-meter__toggle"
-        onClick={() => setCollapsed(c => !c)}
+        onClick={() => setCollapsed(c => c === null ? tier === 'Free' : !c)}
         title="Cloud credits — only charged when using portfolio-hosted models"
       >
         <span className="usage-meter__tier-badge" style={{ background: tierColor }}>
           {tier}
         </span>
         <span className="usage-meter__summary">
-          {limit > 0
-            ? `$${credits.toFixed(2)} / $${limit.toFixed(2)}`
-            : 'No credits'}
+          {dailyLimit != null && dailyUsed != null
+            ? `${dailyUsed}/${dailyLimit} cmds`
+            : limit > 0
+              ? `$${credits.toFixed(2)} / $${limit.toFixed(2)}`
+              : 'No credits'}
         </span>
-        <span className={`usage-meter__chevron ${collapsed ? '' : 'usage-meter__chevron--open'}`}>›</span>
+        <span className={`usage-meter__chevron ${isCollapsed ? '' : 'usage-meter__chevron--open'}`}>›</span>
       </button>
 
-      {!collapsed && (
+      {!isCollapsed && (
         <div className="usage-meter__details">
           {limit > 0 && (
             <div className="usage-meter__bar-container">
@@ -126,13 +132,19 @@ function UsageMeter({ user }) {
             )}
           </div>
           <div className="usage-meter__hint">Only charges for portfolio-hosted models</div>
+          {dailyLimit != null && dailyUsed != null && (
+            <div className="usage-meter__stat">
+              <span className="usage-meter__stat-label">Daily commands</span>
+              <span className="usage-meter__stat-value">{dailyUsed} / {dailyLimit}</span>
+            </div>
+          )}
           {tier === 'Free' && (
-            <a className="usage-meter__upgrade" href="/pay">
+            <a className="usage-meter__upgrade" href="/pay?plan=pro">
               Upgrade for more credits →
             </a>
           )}
-          {clampedPercent > 80 && tier !== 'Simple' && tier !== 'Free' && (
-            <a className="usage-meter__upgrade" href="/pay">
+          {clampedPercent > 80 && tier !== 'Free' && (
+            <a className="usage-meter__upgrade" href="/pay?plan=pro">
               Running low — upgrade →
             </a>
           )}

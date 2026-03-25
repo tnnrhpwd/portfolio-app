@@ -1,6 +1,7 @@
 import React, { useEffect, useCallback, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { compressData, getLLMProviders, resetDataSlice } from '../../../features/data/dataSlice.js';
+import { useNavigate } from 'react-router-dom';
+import { compressData, getLLMProviders, getMembershipPricing, resetDataSlice } from '../../../features/data/dataSlice.js';
 import dataService from '../../../features/data/dataService.js';
 import CSimpleChat from '../../../components/CSimple/CSimpleChat.jsx';
 import { useAddonDetection } from '../../../hooks/csimple/useAddonDetection.js';
@@ -10,7 +11,8 @@ import Footer from '../../../components/Footer/Footer.jsx';
 
 function Net() {
   const dispatch = useDispatch();
-  const { user, data, dataIsLoading, dataIsSuccess, dataIsError, dataMessage, operation, llmProviders } = useSelector(
+  const navigate = useNavigate();
+  const { user, data, dataIsLoading, dataIsSuccess, dataIsError, dataMessage, operation, llmProviders, membershipPricing } = useSelector(
     (state) => state.data
   );
   const {
@@ -38,6 +40,11 @@ function Net() {
       dispatch(getLLMProviders());
     }
   }, [user, dispatch]);
+
+  // Fetch membership pricing on mount (public endpoint, no auth needed)
+  useEffect(() => {
+    dispatch(getMembershipPricing());
+  }, [dispatch]);
 
   // Handle compressData response (fallback non-streaming path)
   useEffect(() => {
@@ -135,6 +142,38 @@ function Net() {
         </div>
 
         <div className="net-hero-section">
+          {!user ? (
+            <div className="net-login-prompt">
+              <div className="net-login-card">
+                <h2 className="net-login-title">◻ Net AI Chat</h2>
+                <p className="net-login-subtitle">Your AI-powered assistant for automation, coding, and more.</p>
+                {membershipPricing?.length > 0 && (
+                  <div className="net-login-plans">
+                    {membershipPricing.map((plan) => (
+                      <div key={plan.id} className={`net-plan-chip ${plan.id === 'pro' ? 'net-plan-chip--featured' : ''}`}>
+                        <span className="net-plan-chip__name">{plan.name}</span>
+                        <span className="net-plan-chip__price">
+                          {plan.price === 0 ? 'Free' : `$${(plan.price / 100).toFixed(0)}/mo`}
+                        </span>
+                        {plan.quota?.calls && (
+                          <span className="net-plan-chip__quota">{plan.quota.calls}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="net-login-actions">
+                  <button className="net-login-btn net-login-btn--primary" onClick={() => navigate('/login', { state: { redirectTo: '/net' } })}>
+                    Log In
+                  </button>
+                  <button className="net-login-btn net-login-btn--secondary" onClick={() => navigate('/register', { state: { redirectTo: '/net' } })}>
+                    Sign Up
+                  </button>
+                </div>
+                <a className="net-login-link" href="/pricing">View all plans →</a>
+              </div>
+            </div>
+          ) : (
           <CSimpleChat
             addonStatus={addonStatus}
             remoteAddonStatus={remoteAddonStatus}
@@ -153,7 +192,9 @@ function Net() {
             onAddonDismiss={dismissPrompt}
             addonCurrentVersion={addonStatus.version}
             addonRequiredVersion={requiredVersion}
+            membershipPricing={membershipPricing}
           />
+          )}
         </div>
       </div>
     </>

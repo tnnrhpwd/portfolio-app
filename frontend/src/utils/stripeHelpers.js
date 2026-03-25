@@ -18,6 +18,7 @@ export const getPaymentElementOptions = (userEmail) => ({
   paymentMethodOrder: [
     'link',
     'card',
+    'venmo',
   ],
   wallets: {
     applePay: 'auto',
@@ -38,10 +39,8 @@ export const getPlanDisplayName = (selectedPlan, membershipPricing, customPrice,
     }
   }
   
-  if (selectedPlan === PLAN_IDS.SIMPLE) {
-    return `${PLAN_NAMES[PLAN_IDS.SIMPLE]} (Full PC automation)`;
-  } else if (selectedPlan === PLAN_IDS.PRO) {
-    return PLAN_NAMES[PLAN_IDS.PRO];
+  if (selectedPlan === PLAN_IDS.PRO) {
+    return `${PLAN_NAMES[PLAN_IDS.PRO]} (Full automation)`;
   } else {
     return PLAN_NAMES[PLAN_IDS.FREE];
   }
@@ -55,6 +54,7 @@ export const getPaymentIcon = (type) => {
     case 'card': return '💳';
     case 'link': return '🔗';
     case 'cashapp': return '💵';
+    case 'venmo': return '🟦';
     default: return '💰';
   }
 };

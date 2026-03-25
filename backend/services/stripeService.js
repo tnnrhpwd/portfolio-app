@@ -224,7 +224,7 @@ async function createSetupIntent(customerId, userId) {
     const setupIntent = await s.setupIntents.create({
         customer: customerId,
         automatic_payment_methods: { enabled: true },
-        usage: 'off_session',
+        usage: 'on_session',
     });
     
     console.log('Setup intent created successfully:', setupIntent.id);
@@ -423,8 +423,6 @@ async function getOrCreatePriceId(membershipType, customPrice = null, userId) {
     if (testMode) {
         if (membershipType === 'pro' && process.env.TEST_STRIPE_PRO_PRICE_ID) {
             return process.env.TEST_STRIPE_PRO_PRICE_ID;
-        } else if (membershipType === 'simple' && process.env.TEST_STRIPE_SIMPLE_PRICE_ID) {
-            return process.env.TEST_STRIPE_SIMPLE_PRICE_ID;
         }
         // Check in-memory cache
         if (testPriceCache[membershipType]) {
@@ -434,8 +432,6 @@ async function getOrCreatePriceId(membershipType, customPrice = null, userId) {
     } else {
         if (membershipType === 'pro' && process.env.STRIPE_PRO_PRICE_ID) {
             return process.env.STRIPE_PRO_PRICE_ID;
-        } else if (membershipType === 'simple' && process.env.STRIPE_SIMPLE_PRICE_ID) {
-            return process.env.STRIPE_SIMPLE_PRICE_ID;
         }
     }
 
@@ -456,8 +452,8 @@ async function getOrCreatePriceId(membershipType, customPrice = null, userId) {
     }
 
     // ── Test mode: find or create product & price ──
-    const productName = membershipType === 'pro' ? 'Pro Membership' : 'Simple Membership';
-    const unitAmount  = membershipType === 'pro' ? 1200 : 3900; // cents
+    const productName = 'Pro Membership';
+    const unitAmount  = 1500; // $15/mo in cents
 
     // Search for existing test product by name
     const products = await s.products.list({ limit: 100, active: true });
@@ -504,7 +500,7 @@ async function createSubscription(customerId, priceId, userId) {
         payment_behavior: 'default_incomplete',
         payment_settings: {
             save_default_payment_method: 'on_subscription',
-            payment_method_types: ['card', 'link', 'cashapp']
+            payment_method_types: ['card', 'link', 'cashapp', 'venmo']
         },
         expand: ['latest_invoice.payment_intent'],
     }, { idempotencyKey });

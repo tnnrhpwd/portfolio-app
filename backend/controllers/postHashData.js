@@ -44,7 +44,6 @@ const { getStripe } = require('../utils/stripeInstance.js');
 const {
     constructWebhookEvent,
     processWebhookEvent,
-    processCustomLimitUpdate
 } = require('../services/webhookService.js');
 
 const Data = require('../models/dataModel');
@@ -429,7 +428,7 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
             subscriptionId: subscription.id,
             clientSecret: subscription.latest_invoice?.payment_intent?.client_secret,
             membershipType: membershipType,
-            productName: membershipType === 'pro' ? 'Pro Membership' : 'Simple Membership'
+            productName: 'Pro Membership'
         };
         
         res.status(200).json(response);
@@ -495,28 +494,6 @@ const handleWebhook = asyncHandler(async (req, res) => {
     res.status(200).send();
 });
 
-// @desc    Set custom usage limit for Simple (top-tier) users
-// @route   POST /api/custom-limit
-// @access  Private
-const setCustomLimit = asyncHandler(async (req, res) => {
-    console.log('setCustomLimit called:', req.body);
-
-    if (!req.user) {
-        res.status(401);
-        throw new Error('User not found');
-    }
-
-    try {
-        const result = await processCustomLimitUpdate(req, dynamodb);
-        res.status(200).json(result);
-    } catch (error) {
-        console.error('Error in setCustomLimit:', error);
-        const statusCode = error.statusCode || 500;
-        res.status(statusCode);
-        throw error;
-    }
-});
-
 // @desc    Process a file in-memory (convert, resize, compress, etc.) — nothing saved to DB
 // @route   POST /api/data/process-file
 // @access  Private
@@ -573,6 +550,5 @@ module.exports = {
     postPaymentMethod, 
     createInvoice, 
     subscribeCustomer, 
-    handleWebhook,
-    setCustomLimit 
+    handleWebhook
 };

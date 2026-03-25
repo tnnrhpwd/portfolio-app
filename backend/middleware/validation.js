@@ -120,8 +120,8 @@ const validateSubscription = [
   body('membershipType')
     .notEmpty()
     .withMessage('Membership type is required')
-    .isIn(['free', 'pro', 'simple'])
-    .withMessage('Membership type must be free, pro, or simple'),
+    .isIn(['free', 'pro'])
+    .withMessage('Membership type must be free or pro'),
 ];
 
 // Validation rules for custom limit updates
@@ -197,7 +197,7 @@ module.exports = {
   validateDataCreation,
   validatePaymentData,
   validateSubscription,
-  validateCustomLimit,
+  // validateCustomLimit, // removed — BYOK model, no credit limits
   handleValidationErrors,
   sanitizeInput
 };

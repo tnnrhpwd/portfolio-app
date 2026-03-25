@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
-import { PLAN_NAMES, PLAN_IDS, QUOTAS, STORAGE_DISPLAY, CREDITS } from '../../constants/pricing';
+import { PLAN_NAMES, PLAN_IDS, QUOTAS, STORAGE_DISPLAY } from '../../constants/pricing';
 import './Terms.css';
 
 const Terms = () => {
@@ -41,7 +41,7 @@ const Terms = () => {
                             <button onClick={() => scrollToSection("subscriptions")}>3. Subscription Plans</button>
                         </li>
                         <li className={activeSection === "credits" ? "active" : ""}>
-                            <button onClick={() => scrollToSection("credits")}>4. AI Credits & Usage</button>
+                            <button onClick={() => scrollToSection("credits")}>4. AI Usage (BYOK)</button>
                         </li>
                         <li className={activeSection === "payments" ? "active" : ""}>
                             <button onClick={() => scrollToSection("payments")}>5. Payments & Billing</button>
@@ -117,7 +117,7 @@ const Terms = () => {
                         <div className="section-content">
                             <h2>3. Subscription Plans</h2>
                             <p>
-                                Our platform offers three subscription tiers — {PLAN_NAMES[PLAN_IDS.FREE]}, {PLAN_NAMES[PLAN_IDS.PRO]}, and {PLAN_NAMES[PLAN_IDS.SIMPLE]}. 
+                                Our platform offers two subscription tiers — {PLAN_NAMES[PLAN_IDS.FREE]} and {PLAN_NAMES[PLAN_IDS.PRO]}. 
                                 Each plan provides different levels of access, usage limits, and features as described 
                                 below and on our pricing page. All prices are in USD.
                             </p>
@@ -135,41 +135,24 @@ const Terms = () => {
                                 After the 14-day trial the addon will require a paid subscription. The /net AI chat
                                 feature remains available on the Free tier with your own API key at no charge from us.
                             </p>
-                            <h3>3.2 {PLAN_NAMES[PLAN_IDS.PRO]} Membership — $12/month</h3>
+                            <h3>3.2 {PLAN_NAMES[PLAN_IDS.PRO]} Membership — $15/month</h3>
                             <p>
-                                The {PLAN_NAMES[PLAN_IDS.PRO]} tier is billed at <strong>$12.00 USD per month</strong> and includes:
+                                The {PLAN_NAMES[PLAN_IDS.PRO]} tier is billed at <strong>$15.00 USD per month</strong> and includes:
                             </p>
                             <ul>
                                 <li>Everything in {PLAN_NAMES[PLAN_IDS.FREE]}</li>
-                                <li>{CREDITS[PLAN_IDS.PRO].display} of included monthly AI credits for /net chat</li>
+                                <li>Full CSimple addon access</li>
                                 <li>{QUOTAS[PLAN_IDS.PRO]}</li>
+                                <li>Phone-to-PC remote control</li>
                                 <li>{STORAGE_DISPLAY[PLAN_IDS.PRO]} cloud storage</li>
                                 <li>Full analytics dashboard</li>
-                                <li>Email support</li>
+                                <li>Priority email support</li>
                             </ul>
                             <p>
-                                When the monthly AI credit allowance is exhausted, AI-powered features will be
-                                paused until the next billing cycle or until you upgrade to {PLAN_NAMES[PLAN_IDS.SIMPLE]}.
-                                Unused credits do not roll over.
+                                AI usage on all plans is bring-your-own-key (BYOK). You provide your own API keys
+                                from providers like OpenAI or XAI, and API costs are billed directly by the provider.
                             </p>
-                            <h3>3.3 {PLAN_NAMES[PLAN_IDS.SIMPLE]} Membership — $39/month</h3>
-                            <p>
-                                The {PLAN_NAMES[PLAN_IDS.SIMPLE]} tier is billed at <strong>$39.00 USD per month</strong> and includes:
-                            </p>
-                            <ul>
-                                <li>Everything in {PLAN_NAMES[PLAN_IDS.PRO]}</li>
-                                <li>Custom AI credit limit (default {CREDITS[PLAN_IDS.SIMPLE].display}/month, adjustable)</li>
-                                <li>5,000 addon commands per day</li>
-                                <li>Phone-to-PC remote control</li>
-                                <li>{STORAGE_DISPLAY[PLAN_IDS.SIMPLE]} cloud storage</li>
-                                <li>Priority support</li>
-                            </ul>
-                            <p>
-                                All usage limits are hard caps. Custom credit limits may be adjusted by you
-                                at any time; charges for API usage beyond the base subscription are calculated
-                                at the end of each billing period.
-                            </p>
-                            <h3>3.4 Pricing Changes</h3>
+                            <h3>3.3 Pricing Changes</h3>
                             <p>
                                 We reserve the right to modify subscription pricing at any time. You will receive 
                                 at least 30 days' notice before any price increase takes effect. Continued use of
@@ -181,30 +164,24 @@ const Terms = () => {
                     <section id="credits" className="terms-section">
                         <div className="section-icon">⚡</div>
                         <div className="section-content">
-                            <h2>4. AI Credits & Usage</h2>
-                            <h3>4.1 AI Credit System</h3>
+                            <h2>4. AI Usage (Bring Your Own Key)</h2>
+                            <h3>4.1 BYOK Model</h3>
                             <p>
-                                Paid plans include a monthly allowance of AI credits that cover the cost of third-party
-                                AI model calls (e.g., OpenAI, Anthropic) made through our /net chat and addon features.
-                                Credits are denominated in US dollars and are deducted based on the actual cost of
-                                each API call at our then-current rates.
+                                All AI features on our platform operate under a bring-your-own-key (BYOK) model.
+                                You must supply your own API keys from third-party AI providers (e.g., OpenAI, XAI/Grok).
+                                We do not provide, resell, or subsidize AI API credits.
                             </p>
-                            <h3>4.2 Credit Limits</h3>
-                            <ul>
-                                <li><strong>{PLAN_NAMES[PLAN_IDS.FREE]}:</strong> No included credits — bring your own API key.</li>
-                                <li><strong>{PLAN_NAMES[PLAN_IDS.PRO]}:</strong> {CREDITS[PLAN_IDS.PRO].display} per month. When exhausted, AI features pause until the next cycle.</li>
-                                <li><strong>{PLAN_NAMES[PLAN_IDS.SIMPLE]}:</strong> Customizable limit (default {CREDITS[PLAN_IDS.SIMPLE].display}/month). Usage beyond the custom limit will pause AI features until the next cycle or until you raise the limit.</li>
-                            </ul>
-                            <h3>4.3 No Rollover</h3>
+                            <h3>4.2 Third-Party Billing</h3>
                             <p>
-                                Unused AI credits expire at the end of each monthly billing period and do not
-                                accumulate or roll over to subsequent months.
+                                API usage costs are billed directly by the respective third-party provider according
+                                to their pricing terms. We are not responsible for charges incurred through your
+                                API keys.
                             </p>
-                            <h3>4.4 Rate Transparency</h3>
+                            <h3>4.3 Key Security</h3>
                             <p>
-                                Per-call AI costs are determined by third-party provider pricing and may change
-                                without notice. Updated cost tables are available within the platform. We do not 
-                                mark up third-party API costs passed through to your credit balance.
+                                Your API keys are transmitted securely and are not stored on our servers beyond the
+                                duration of the request. You are responsible for safeguarding your API keys and
+                                monitoring usage with your providers.
                             </p>
                         </div>
                     </section>
@@ -259,15 +236,13 @@ const Terms = () => {
                             <h3>6.2 Addon Command Limits</h3>
                             <ul>
                                 <li><strong>{PLAN_NAMES[PLAN_IDS.FREE]}:</strong> {QUOTAS[PLAN_IDS.FREE]}</li>
-                                <li><strong>{PLAN_NAMES[PLAN_IDS.PRO]}:</strong> {QUOTAS[PLAN_IDS.PRO]}</li>
-                                <li><strong>{PLAN_NAMES[PLAN_IDS.SIMPLE]}:</strong> {QUOTAS[PLAN_IDS.SIMPLE]}. Automated, scripted, or
+                                <li><strong>{PLAN_NAMES[PLAN_IDS.PRO]}:</strong> {QUOTAS[PLAN_IDS.PRO]}. Automated, scripted, or
                                     bulk usage that circumvents these limits may result in throttling or suspension.</li>
                             </ul>
                             <h3>6.3 Storage Limits</h3>
                             <ul>
                                 <li><strong>{PLAN_NAMES[PLAN_IDS.FREE]}:</strong> {STORAGE_DISPLAY[PLAN_IDS.FREE]}</li>
-                                <li><strong>{PLAN_NAMES[PLAN_IDS.PRO]}:</strong> {STORAGE_DISPLAY[PLAN_IDS.PRO]}</li>
-                                <li><strong>{PLAN_NAMES[PLAN_IDS.SIMPLE]}:</strong> {STORAGE_DISPLAY[PLAN_IDS.SIMPLE]}. Additional storage
+                                <li><strong>{PLAN_NAMES[PLAN_IDS.PRO]}:</strong> {STORAGE_DISPLAY[PLAN_IDS.PRO]}. Additional storage
                                     may be available upon request and may incur additional fees.</li>
                             </ul>
                             <h3>6.4 Rate Limiting</h3>

@@ -1,7 +1,7 @@
 const { getStripe, liveStripe } = require('../utils/stripeInstance');
 const { DynamoDBDocumentClient, PutCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
 const { getUserRankFromStripe, parseUserCredits, updateUserCredits } = require('../utils/apiUsageTracker.js');
-const { CREDITS, PLAN_IDS, PLAN_NAMES, isSimpleTier, STRIPE_PRODUCT_IDS } = require('../constants/pricing');
+const { PLAN_IDS, PLAN_NAMES, isSimpleTier, STRIPE_PRODUCT_IDS } = require('../constants/pricing');
 
 // Use the live Stripe instance for webhook processing (webhooks always come from live mode)
 // TODO: If you add test-mode webhook support, use getStripe() with appropriate context
