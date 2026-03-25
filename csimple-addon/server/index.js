@@ -23,11 +23,13 @@ const { ActionService } = require('./action-service');
 const { GitHubModelsService, GITHUB_MODELS } = require('./github-models-service');
 const { checkMessage, checkActionPlan, checkScriptContent } = require('./security-guard');
 const { stepsToPS, runPowerShell } = require('./action-bridge');
-const { ADDON_TOOL_SCHEMAS, toolCallToActionPlan, executeMemoryTool, isMemoryTool } = require('./addon-tools');
+const { ADDON_TOOL_SCHEMAS, toolCallToActionPlan, executeMemoryTool, isMemoryTool, isEyeTrackingTool } = require('./addon-tools');
 const { CloudRelayService } = require('./cloud-relay');
+const { EyeTrackingManager } = require('./eye-tracking-manager');
 
 const app = express();
 const DEFAULT_PORT = 3001;
+const eyeTrackingManager = new EyeTrackingManager();
 
 // ─── Path Resolution ─────────────────────────────────────────────────────────
 // In development: scripts are in ../scripts relative to this file
@@ -772,8 +774,9 @@ app.post('/api/chat', async (req, res) => {
 
         // ── Separate memory tools from PC action tools ─────────────
         const memoryToolCalls = filteredToolCalls.filter(tc => isMemoryTool(tc.function.name));
+        const eyeTrackingToolCalls = filteredToolCalls.filter(tc => isEyeTrackingTool(tc.function.name));
         const clarifyToolCalls = filteredToolCalls.filter(tc => tc.function.name === 'clarify_action');
-        const actionToolCalls = filteredToolCalls.filter(tc => !isMemoryTool(tc.function.name) && tc.function.name !== 'clarify_action');
+        const actionToolCalls = filteredToolCalls.filter(tc => !isMemoryTool(tc.function.name) && !isEyeTrackingTool(tc.function.name) && tc.function.name !== 'clarify_action');
 
         // ── If LLM chose to clarify before acting, present options to user ──
         if (clarifyToolCalls.length > 0) {
@@ -846,6 +849,48 @@ app.post('/api/chat', async (req, res) => {
           }
         }
 
+        // ── Execute eye tracking tools ────────────────────────────
+        for (const tc of eyeTrackingToolCalls) {
+          try {
+            const args = JSON.parse(tc.function.arguments);
+            let etResult;
+            switch (args.action) {
+              case 'start':
+                etResult = await eyeTrackingManager.start({ duration: args.duration || 0 });
+                break;
+              case 'stop':
+                etResult = await eyeTrackingManager.stop();
+                break;
+              case 'calibrate':
+                if (global.openCalibrationWindow) {
+                  global.openCalibrationWindow(0);
+                  etResult = { success: true, result: 'Calibration window opened' };
+                } else {
+                  etResult = { success: false, error: 'Calibration window not available' };
+                }
+                break;
+              case 'status':
+                etResult = { success: true, result: JSON.stringify(eyeTrackingManager.getStatus()) };
+                break;
+              default:
+                etResult = { success: false, error: `Unknown eye tracking action: ${args.action}` };
+            }
+            console.log(`[EyeTracking] ${args.action}: ${etResult.success ? 'OK' : etResult.error}`);
+            toolResultMessages.push({
+              role: 'tool',
+              tool_call_id: tc.id,
+              content: JSON.stringify(etResult),
+            });
+          } catch (err) {
+            console.error(`[EyeTracking] Error:`, err.message);
+            toolResultMessages.push({
+              role: 'tool',
+              tool_call_id: tc.id,
+              content: JSON.stringify({ success: false, error: err.message }),
+            });
+          }
+        }
+
         // ── Execute PC action tools ───────────────────────────────
         let actionPlan = null;
         if (actionToolCalls.length === 1) {
@@ -880,10 +925,10 @@ app.post('/api/chat', async (req, res) => {
           });
         }
 
-        // ── If memory tools were called, do a follow-up LLM call ──
+        // ── If memory/eye-tracking tools were called, do a follow-up LLM call ──
         // The LLM needs to see the tool results to produce its final text response
         let finalText = result.text || '';
-        if (memoryToolCalls.length > 0 && toolResultMessages.length > 0) {
+        if ((memoryToolCalls.length > 0 || eyeTrackingToolCalls.length > 0) && toolResultMessages.length > 0) {
           try {
             // Build messages for the follow-up call: original messages + assistant message with tool_calls + tool results
             const followUpMessages = [
@@ -1289,6 +1334,50 @@ app.get('/api/actions/bridge-status', (req, res) => {
 app.get('/api/actions/history', (req, res) => {
   const limit = parseInt(req.query.limit) || 20;
   res.json({ actions: actionService.getHistory(limit) });
+});
+
+// ─── Eye Tracking API ──────────────────────────────────────────────────────────────────
+
+app.get('/api/eye-tracking/status', (req, res) => {
+  res.json(eyeTrackingManager.getStatus());
+});
+
+app.post('/api/eye-tracking/start', async (req, res) => {
+  const { cameraIndex, duration } = req.body || {};
+  const result = await eyeTrackingManager.start({
+    cameraIndex: cameraIndex ?? 0,
+    duration: duration ?? 0,
+  });
+  if (result.success) {
+    res.json({ status: 'started', ...eyeTrackingManager.getStatus() });
+  } else {
+    res.status(400).json({ error: result.error });
+  }
+});
+
+app.post('/api/eye-tracking/stop', async (req, res) => {
+  const result = await eyeTrackingManager.stop();
+  if (result.success) {
+    res.json({ status: 'stopped' });
+  } else {
+    res.status(400).json({ error: result.error });
+  }
+});
+
+app.post('/api/eye-tracking/calibrate', async (req, res) => {
+  const { cameraIndex } = req.body || {};
+  // Signal the main process to open the calibration window
+  if (global.openCalibrationWindow) {
+    global.openCalibrationWindow(cameraIndex ?? 0);
+    res.json({ status: 'calibration_started' });
+  } else {
+    res.status(500).json({ error: 'Calibration window not available (not running in Electron)' });
+  }
+});
+
+app.get('/api/eye-tracking/cameras', async (req, res) => {
+  const cameras = await eyeTrackingManager.listCameras();
+  res.json({ cameras });
 });
 
 // ─── Workspace File Operations API ────────────────────────────────────────────
@@ -2024,6 +2113,7 @@ module.exports = {
   startServer,
   stopServer,
   stopGeneration,
+  eyeTrackingManager,
   getPort: () => activePort,
   getHttpsPort: () => activeHttpsPort,
 };

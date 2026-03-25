@@ -412,6 +412,31 @@ const ADDON_TOOL_SCHEMAS = [
       },
     },
   },
+
+  // ── Eye Tracking Tool ────────────────────────────────────────────────────────
+
+  {
+    type: 'function',
+    function: {
+      name: 'eye_tracking',
+      description: 'Control eye tracking cursor movement. The user\'s webcam tracks their eye gaze and moves the cursor to where they look. Actions: "start" begins tracking (requires prior calibration), "stop" ends tracking, "calibrate" opens calibration setup, "status" checks current state. Users might say things like "track my eyes", "follow my gaze", "stop eye tracking", "calibrate eye tracking".',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            enum: ['start', 'stop', 'calibrate', 'status'],
+            description: 'Eye tracking action: start, stop, calibrate, or status',
+          },
+          duration: {
+            type: 'integer',
+            description: 'Duration in seconds for tracking (0 = indefinite, default: 0). Only used with "start".',
+          },
+        },
+        required: ['action'],
+      },
+    },
+  },
 ];
 
 /**
@@ -648,6 +673,11 @@ function toolCallToActionPlan(toolCall, actionService) {
       return null;
     }
 
+    case 'eye_tracking': {
+      // eye_tracking is handled as a direct service call, not via PowerShell
+      return null;
+    }
+
     default:
       return null;
   }
@@ -788,4 +818,9 @@ function isMemoryTool(toolName) {
   return ['update_memory', 'delete_memory', 'update_personality', 'update_behavior', 'save_file'].includes(toolName);
 }
 
-module.exports = { ADDON_TOOL_SCHEMAS, toolCallToActionPlan, executeMemoryTool, isMemoryTool };
+/** Check if a tool call is the eye tracking tool (handled as a direct service call). */
+function isEyeTrackingTool(toolName) {
+  return toolName === 'eye_tracking';
+}
+
+module.exports = { ADDON_TOOL_SCHEMAS, toolCallToActionPlan, executeMemoryTool, isMemoryTool, isEyeTrackingTool };

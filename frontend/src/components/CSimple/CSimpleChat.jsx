@@ -469,6 +469,8 @@ function CSimpleChat({
         content = `**Usage Limit Reached**\n\n${errStr}\n\n---\n💡 **Upgrade your plan** to get more credits and higher limits:\n${proLine}\n\n[Upgrade Now →](/pay?plan=pro)`;
       } else if (errStr.includes('403') || errStr.toLowerCase().includes('requires a')) {
         content = `**Model Access Restricted**\n\n${errStr}\n\n---\n🔒 This model requires a higher membership tier.\n\n[View Plans →](/pay?plan=pro)`;
+      } else if (errStr.includes('401') || errStr.toLowerCase().includes('unauthorized')) {
+        content = `**Authentication Failed**\n\nYour GitHub PAT may have expired or been revoked.\n\n---\n🔑 Go to [github.com/settings/tokens](https://github.com/settings/tokens) to check its status or create a new classic PAT — no special scopes needed.`;
       } else {
         content = `**Error:** ${errStr}`;
       }
@@ -974,6 +976,8 @@ function CSimpleChat({
                 displayContent = `**Usage Limit Reached**\n\n${errMsg}\n\n---\n💡 **Upgrade your plan** to get more credits and higher limits:\n${proLine}\n\n[Upgrade Now →](/pay?plan=pro)`;
               } else if (statusCode === 403) {
                 displayContent = `**Model Access Restricted**\n\n${errMsg}\n\n---\n🔒 This model requires a higher membership tier.\n\n[View Plans →](/pay?plan=pro)`;
+              } else if (statusCode === 401 || errMsg?.includes?.('401') || errMsg?.toLowerCase?.().includes?.('unauthorized')) {
+                displayContent = `**Authentication Failed**\n\nYour GitHub PAT may have expired or been revoked.\n\n---\n🔑 Go to [github.com/settings/tokens](https://github.com/settings/tokens) to check its status or create a new classic PAT — no special scopes needed.`;
               } else {
                 displayContent = `**Error:** ${errMsg}`;
               }
@@ -1131,10 +1135,14 @@ function CSimpleChat({
         speech.speak(data.action.description);
       }
     } catch (err) {
+      let errContent = `**Error:** ${err.message}`;
+      if (err.message?.includes('401') || err.message?.toLowerCase()?.includes('unauthorized')) {
+        errContent = `**Authentication Failed**\n\nYour GitHub PAT may have expired or been revoked.\n\n---\n🔑 Go to [github.com/settings/tokens](https://github.com/settings/tokens) to check its status or create a new classic PAT — no special scopes needed.`;
+      }
       const errorMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `**Error:** ${err.message}`,
+        content: errContent,
         timestamp: new Date().toISOString(),
         isError: true,
       };

@@ -5,7 +5,7 @@
  * No main window — tray-only app with status menu.
  */
 
-const { app, BrowserWindow, Notification, shell, dialog } = require('electron');
+const { app, BrowserWindow, Notification, shell, dialog, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -29,6 +29,7 @@ let server = null;
 let settingsWindow = null;
 let actionBridge = null;
 let updateManager = null;
+let calibrationWindow = null;
 
 // ─── Resource Paths ─────────────────────────────────────────────────────────────
 
@@ -194,6 +195,16 @@ async function startExpressServer() {
     actionBridge.start();
     console.log('[Main] Built-in ActionBridge started');
 
+    // Wire up eye tracking state changes to tray menu
+    if (server.eyeTrackingManager) {
+      server.eyeTrackingManager.onStateChange = (state) => {
+        trayManager?.setEyeTrackingStatus(state);
+      };
+    }
+
+    // Expose calibration window opener as a global so the server can invoke it
+    global.openCalibrationWindow = (cameraIndex) => openCalibrationWindow(cameraIndex);
+
     return { port, httpsPort };
   } catch (err) {
     console.error('[Main] Failed to start server:', err);
@@ -262,6 +273,78 @@ async function setupPython() {
   });
 }
 
+// ─── Eye Tracking Calibration ────────────────────────────────────────────────────
+
+/**
+ * Open the fullscreen calibration window and start collecting calibration data.
+ */
+function openCalibrationWindow(cameraIndex = 0) {
+  if (calibrationWindow) {
+    calibrationWindow.focus();
+    return;
+  }
+
+  calibrationWindow = new BrowserWindow({
+    fullscreen: true,
+    frame: false,
+    alwaysOnTop: true,
+    backgroundColor: '#0a0a0f',
+    webPreferences: {
+      preload: path.join(__dirname, 'renderer', 'calibration-preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  calibrationWindow.loadFile(path.join(__dirname, 'renderer', 'calibration.html'));
+
+  calibrationWindow.on('closed', () => {
+    calibrationWindow = null;
+    // Stop calibration if still running
+    if (server?.eyeTrackingManager?.state === 'calibrating') {
+      server.eyeTrackingManager.stop();
+    }
+  });
+
+  // Start the Python calibration process
+  if (server?.eyeTrackingManager) {
+    server.eyeTrackingManager.startCalibration(cameraIndex);
+
+    // Forward calibration progress to the renderer
+    server.eyeTrackingManager.onCalibrationProgress = (data) => {
+      if (calibrationWindow && !calibrationWindow.isDestroyed()) {
+        if (data.calibration === 'complete') {
+          calibrationWindow.webContents.send('calibration-complete');
+        } else {
+          calibrationWindow.webContents.send('calibration-progress', data);
+        }
+      }
+    };
+  }
+
+  console.log('[Main] Calibration window opened');
+}
+
+// ── Calibration IPC handlers ──────────────────────────────────────────────────
+
+ipcMain.on('calibration-point-ready', (_event, { index, screenX, screenY }) => {
+  if (server?.eyeTrackingManager) {
+    server.eyeTrackingManager.sendCalibrationPoint(index, screenX, screenY);
+  }
+});
+
+ipcMain.on('calibration-finish', () => {
+  if (server?.eyeTrackingManager) {
+    server.eyeTrackingManager.finishCalibration();
+  }
+});
+
+ipcMain.on('calibration-close', () => {
+  if (calibrationWindow) {
+    calibrationWindow.close();
+  }
+});
+
 // ─── App Lifecycle ──────────────────────────────────────────────────────────────
 
 app.on('ready', async () => {
@@ -310,6 +393,7 @@ app.on('ready', async () => {
       });
       console.log(`[Main] Start at login: ${enabled}`);
     },
+    onCalibrateEyeTracking: () => openCalibrationWindow(),
   });
 
   // Enable start-at-login by default on first run (use a marker file since
@@ -361,6 +445,11 @@ app.on('before-quit', async (e) => {
   // Stop any running Python processes
   if (pythonManager) {
     pythonManager.cancelSetup();
+  }
+
+  // Stop eye tracking if running
+  if (server?.eyeTrackingManager) {
+    await server.eyeTrackingManager.stop();
   }
 
   // Stop the Express server

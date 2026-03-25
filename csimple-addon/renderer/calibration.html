@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSimple — Eye Tracking Calibration</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: #0a0a0f;
+      color: #cdd6f4;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      cursor: none;
+      user-select: none;
+    }
+
+    #overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    /* ── Instruction screens ─── */
+    #intro, #complete {
+      text-align: center;
+      max-width: 600px;
+      padding: 40px;
+    }
+    #intro h1, #complete h1 {
+      font-size: 28px;
+      color: #89b4fa;
+      margin-bottom: 20px;
+    }
+    #intro p, #complete p {
+      font-size: 16px;
+      line-height: 1.6;
+      color: #a6adc8;
+      margin-bottom: 16px;
+    }
+    #intro .start-btn, #complete .close-btn {
+      display: inline-block;
+      padding: 12px 32px;
+      background: #89b4fa;
+      color: #1e1e2e;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    #intro .start-btn:hover, #complete .close-btn:hover {
+      background: #74c7ec;
+    }
+
+    /* ── Progress bar ─── */
+    #progress {
+      position: fixed;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      z-index: 200;
+    }
+    #progress .label {
+      font-size: 14px;
+      color: #a6adc8;
+      margin-bottom: 8px;
+    }
+    #progress .bar-container {
+      width: 200px;
+      height: 4px;
+      background: #313244;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    #progress .bar-fill {
+      height: 100%;
+      background: #89b4fa;
+      border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+
+    /* ── Calibration dot ─── */
+    .cal-dot {
+      position: fixed;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #89b4fa;
+      transform: translate(-50%, -50%);
+      z-index: 150;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+    }
+    .cal-dot::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #1e1e2e;
+      transform: translate(-50%, -50%);
+    }
+    .cal-dot.collecting {
+      animation: pulse 0.6s ease-in-out infinite alternate;
+    }
+    @keyframes pulse {
+      from { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 0 0 rgba(137, 180, 250, 0.4); }
+      to   { transform: translate(-50%, -50%) scale(1.3); box-shadow: 0 0 20px 10px rgba(137, 180, 250, 0.1); }
+    }
+
+    /* ── Status indicator ─── */
+    #sample-status {
+      position: fixed;
+      top: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 13px;
+      color: #585b70;
+      z-index: 200;
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <!-- Intro screen -->
+  <div id="intro">
+    <div id="overlay">
+      <h1>Eye Tracking Calibration</h1>
+      <p>
+        Look directly at each dot as it appears on screen.<br>
+        Keep your head still and follow the dot with your eyes only.<br>
+        Each point takes about 3 seconds.
+      </p>
+      <p>9 calibration points will be shown across the screen.</p>
+      <button class="start-btn" id="startBtn">Begin Calibration</button>
+    </div>
+  </div>
+
+  <!-- Calibration dot -->
+  <div class="cal-dot hidden" id="calDot"></div>
+
+  <!-- Progress -->
+  <div id="progress" class="hidden">
+    <div class="label" id="progressLabel">Point 1 of 9</div>
+    <div class="bar-container">
+      <div class="bar-fill" id="progressBar" style="width: 0%"></div>
+    </div>
+  </div>
+
+  <!-- Sample collection status -->
+  <div id="sample-status" class="hidden"></div>
+
+  <!-- Completion screen -->
+  <div id="complete" class="hidden">
+    <div id="overlay">
+      <h1>Calibration Complete!</h1>
+      <p>Your eye tracking is now calibrated.<br>You can start tracking with the command:<br><strong>"track my eyes"</strong></p>
+      <button class="close-btn" id="closeBtn">Close</button>
+    </div>
+  </div>
+
+  <script>
+    // ── Calibration Configuration ───────────────────────────────────────────────
+    const TOTAL_POINTS = 9;
+    const FIXATION_TIME = 2000;   // ms to fixate before collecting
+    const COLLECT_TIME = 1000;    // ms to collect samples
+
+    // 9-point grid at 10%, 50%, 90% of screen dimensions
+    const GRID_POSITIONS = [
+      { xPct: 0.10, yPct: 0.10 },
+      { xPct: 0.50, yPct: 0.10 },
+      { xPct: 0.90, yPct: 0.10 },
+      { xPct: 0.10, yPct: 0.50 },
+      { xPct: 0.50, yPct: 0.50 },
+      { xPct: 0.90, yPct: 0.50 },
+      { xPct: 0.10, yPct: 0.90 },
+      { xPct: 0.50, yPct: 0.90 },
+      { xPct: 0.90, yPct: 0.90 },
+    ];
+
+    let currentPoint = 0;
+
+    // ── DOM Elements ────────────────────────────────────────────────────────────
+    const introEl = document.getElementById('intro');
+    const completeEl = document.getElementById('complete');
+    const dotEl = document.getElementById('calDot');
+    const progressEl = document.getElementById('progress');
+    const progressLabel = document.getElementById('progressLabel');
+    const progressBar = document.getElementById('progressBar');
+    const sampleStatus = document.getElementById('sample-status');
+    const startBtn = document.getElementById('startBtn');
+    const closeBtn = document.getElementById('closeBtn');
+
+    // ── IPC Communication ───────────────────────────────────────────────────────
+
+    startBtn.addEventListener('click', () => {
+      introEl.classList.add('hidden');
+      progressEl.classList.remove('hidden');
+      sampleStatus.classList.remove('hidden');
+      currentPoint = 0;
+      showPoint(currentPoint);
+    });
+
+    closeBtn.addEventListener('click', () => {
+      window.calibrationAPI.close();
+    });
+
+    // Listen for calibration progress from main process
+    window.calibrationAPI.onProgress((data) => {
+      if (data.status === 'calibrating') {
+        sampleStatus.textContent = `Collecting samples: ${data.samples} / ${data.target}`;
+      }
+    });
+
+    window.calibrationAPI.onComplete(() => {
+      dotEl.classList.add('hidden');
+      progressEl.classList.add('hidden');
+      sampleStatus.classList.add('hidden');
+      completeEl.classList.remove('hidden');
+    });
+
+    // ── Calibration Flow ────────────────────────────────────────────────────────
+
+    function showPoint(index) {
+      if (index >= TOTAL_POINTS) {
+        // All points shown — request finish
+        dotEl.classList.add('hidden');
+        progressLabel.textContent = 'Computing calibration...';
+        window.calibrationAPI.finishCalibration();
+        return;
+      }
+
+      const pos = GRID_POSITIONS[index];
+      const screenX = Math.round(pos.xPct * window.screen.width);
+      const screenY = Math.round(pos.yPct * window.screen.height);
+
+      // Position the dot
+      dotEl.style.left = `${pos.xPct * 100}%`;
+      dotEl.style.top = `${pos.yPct * 100}%`;
+      dotEl.classList.remove('hidden', 'collecting');
+
+      // Update progress
+      progressLabel.textContent = `Point ${index + 1} of ${TOTAL_POINTS} — Look at the dot`;
+      progressBar.style.width = `${((index) / TOTAL_POINTS) * 100}%`;
+      sampleStatus.textContent = 'Focus on the dot...';
+
+      // Wait for fixation, then start collecting
+      setTimeout(() => {
+        dotEl.classList.add('collecting');
+        sampleStatus.textContent = 'Collecting samples...';
+
+        // Tell main process to start collecting for this point
+        window.calibrationAPI.reportPoint(index, screenX, screenY);
+
+        // After collection time, move to next point
+        setTimeout(() => {
+          dotEl.classList.remove('collecting');
+          currentPoint++;
+          progressBar.style.width = `${(currentPoint / TOTAL_POINTS) * 100}%`;
+          showPoint(currentPoint);
+        }, COLLECT_TIME);
+      }, FIXATION_TIME);
+    }
+  </script>
+</body>
+</html>

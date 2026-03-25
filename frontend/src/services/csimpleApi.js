@@ -195,7 +195,13 @@ async function addonFetch(path, options = {}) {
 
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
-    throw new Error(`Addon API error ${res.status}: ${text}`);
+    // Try to extract a clean error message from JSON responses
+    let errorMsg = text;
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed.error) errorMsg = typeof parsed.error === 'string' ? parsed.error : parsed.error.message || text;
+    } catch {}
+    throw new Error(errorMsg);
   }
 
   return res;

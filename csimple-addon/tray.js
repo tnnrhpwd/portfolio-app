@@ -15,6 +15,7 @@ class TrayManager {
     this.updateState = 'idle';        // idle | available | downloading | ready | error | up-to-date
     this.updateVersion = null;
     this.updateProgress = 0;
+    this.eyeTrackingState = 'idle';   // idle | running | calibrating | error
   }
 
   /**
@@ -31,6 +32,7 @@ class TrayManager {
    * @param {Function} callbacks.onOpenResources
    * @param {Function} callbacks.onChangeResourcesFolder
    * @param {Function} callbacks.onToggleStartAtLogin
+   * @param {Function} callbacks.onCalibrateEyeTracking
    */
   create(callbacks = {}) {
     this.callbacks = callbacks;
@@ -94,6 +96,14 @@ class TrayManager {
   }
 
   /**
+   * Update the eye tracking status display.
+   */
+  setEyeTrackingStatus(state) {
+    this.eyeTrackingState = state;
+    this._updateMenu();
+  }
+
+  /**
    * Show a native notification.
    */
   notify(title, body) {
@@ -143,6 +153,17 @@ class TrayManager {
       { label: serverLabel, enabled: false },
       { label: httpsLabel, enabled: false },
       { label: `Python: ${this.pythonStatus}`, enabled: false },
+      { type: 'separator' },
+
+      // ── Eye Tracking ──
+      {
+        label: `Eye Tracking: ${this.eyeTrackingState === 'running' ? 'Active' : this.eyeTrackingState === 'calibrating' ? 'Calibrating...' : 'Inactive'}`,
+        enabled: false,
+      },
+      {
+        label: 'Calibrate Eye Tracking',
+        click: () => this.callbacks.onCalibrateEyeTracking?.(),
+      },
       { type: 'separator' },
 
       // ── Server / Python ──

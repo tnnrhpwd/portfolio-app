@@ -120,9 +120,9 @@ class GitHubModelsService {
 
       if (response.status === 401) {
         throw new Error(
-          'GitHub Models returned 401 (Unauthorized). Your PAT needs access to GitHub Models. ' +
-          'Create a classic PAT at github.com/settings/tokens with no special scopes — ' +
-          'GitHub Models access comes from your Copilot subscription, not PAT scopes.'
+          'Your GitHub PAT may have expired or been revoked. ' +
+          'Check its status and create a new classic PAT at [github.com/settings/tokens](https://github.com/settings/tokens) — ' +
+          'no special scopes are needed. Access comes from your Copilot subscription.'
         );
       }
       if (response.status === 429) {
