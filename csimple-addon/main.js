@@ -5,7 +5,7 @@
  * No main window — tray-only app with status menu.
  */
 
-const { app, BrowserWindow, Notification, shell, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, Notification, shell, dialog, ipcMain, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -195,10 +195,21 @@ async function startExpressServer() {
     actionBridge.start();
     console.log('[Main] Built-in ActionBridge started');
 
-    // Wire up eye tracking state changes to tray menu
+    // Wire up eye tracking state changes to tray menu + Escape e-stop
     if (server.eyeTrackingManager) {
       server.eyeTrackingManager.onStateChange = (state) => {
         trayManager?.setEyeTrackingStatus(state);
+        // Register Escape as emergency stop when tracking is active
+        if (state === 'running') {
+          try {
+            globalShortcut.register('Escape', () => {
+              console.log('[EyeTracking] ESCAPE pressed — emergency stop');
+              server.eyeTrackingManager.stop();
+            });
+          } catch (e) { console.error('[EyeTracking] Failed to register Escape shortcut:', e.message); }
+        } else {
+          globalShortcut.unregister('Escape');
+        }
       };
     }
 
@@ -370,6 +381,39 @@ ipcMain.handle('get-cameras', async () => {
   return [];
 });
 
+// Stop eye tracking (used from validation screen)
+ipcMain.handle('stop-tracking', async () => {
+  if (server?.eyeTrackingManager) {
+    server.eyeTrackingManager.validationMode = false;
+    server.eyeTrackingManager.onGazeData = null;
+    return await server.eyeTrackingManager.stop();
+  }
+  return { success: false, error: 'No eye tracking manager' };
+});
+
+// Start tracking for validation (uses existing calibration, no cursor movement)
+ipcMain.handle('start-validation-tracking', async (_event, { cameraIndex }) => {
+  if (server?.eyeTrackingManager) {
+    server.eyeTrackingManager.validationMode = true;
+    // Pipe gaze data to calibration window
+    server.eyeTrackingManager.onGazeData = (data) => {
+      if (calibrationWindow && !calibrationWindow.isDestroyed()) {
+        calibrationWindow.webContents.send('gaze-data', data);
+      }
+    };
+    return await server.eyeTrackingManager.start({ cameraIndex, duration: 0 });
+  }
+  return { success: false, error: 'No eye tracking manager' };
+});
+
+// Get live gaze data for validation display
+ipcMain.handle('get-tracking-status', () => {
+  if (server?.eyeTrackingManager) {
+    return server.eyeTrackingManager.getStatus();
+  }
+  return { state: 'idle' };
+});
+
 ipcMain.handle('get-displays', () => {
   const { screen } = require('electron');
   const displays = screen.getAllDisplays();
@@ -469,6 +513,9 @@ app.on('window-all-closed', (e) => {
 
 app.on('before-quit', async (e) => {
   console.log('[Main] Shutting down...');
+
+  // Unregister all global shortcuts
+  globalShortcut.unregisterAll();
 
   // Stop update checks
   if (updateManager) {

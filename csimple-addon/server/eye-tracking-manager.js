@@ -37,6 +37,8 @@ class EyeTrackingManager {
     this.lastError = null;
     this.onStateChange = null; // callback for tray updates
     this._stdinWriter = null;
+    this.onGazeData = null; // callback for live gaze coordinates
+    this.validationMode = false; // when true, don't move cursor
   }
 
   /**
@@ -215,7 +217,11 @@ while ($true) {
             }
 
             if (typeof data.x === 'number' && typeof data.y === 'number') {
-              if (data.confidence >= confidence) {
+              // Always emit gaze data for listeners (validation screen)
+              if (this.onGazeData) {
+                this.onGazeData({ x: data.x, y: data.y, confidence: data.confidence });
+              }
+              if (!this.validationMode && data.confidence >= confidence) {
                 this._moveCursor(data.x, data.y);
               }
             }
@@ -294,6 +300,8 @@ while ($true) {
 
     this._stopCursorProcess();
     this._stdinWriter = null;
+    this.validationMode = false;
+    this.onGazeData = null;
     this._setState('idle');
     console.log('[EyeTracking] Stopped');
     return { success: true };

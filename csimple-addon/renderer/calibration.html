@@ -7,383 +7,618 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
-      width: 100vw;
-      height: 100vh;
+      width: 100vw; height: 100vh;
       overflow: hidden;
       background: #0a0a0f;
       color: #cdd6f4;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       user-select: none;
     }
-    body.calibrating {
-      cursor: none;
-    }
+    body.hide-cursor { cursor: none; }
 
-    #overlay {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
+    .screen {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
       z-index: 100;
     }
+    .panel { text-align: center; max-width: 640px; padding: 40px; }
+    .panel h1 { font-size: 28px; color: #89b4fa; margin-bottom: 20px; }
+    .panel p  { font-size: 15px; line-height: 1.6; color: #a6adc8; margin-bottom: 14px; }
 
-    /* ── Instruction screens ─── */
-    #intro, #complete {
-      text-align: center;
-      max-width: 600px;
-      padding: 40px;
+    .btn {
+      display: inline-block; padding: 12px 32px;
+      background: #89b4fa; color: #1e1e2e; border: none; border-radius: 8px;
+      font-size: 16px; font-weight: 600; cursor: pointer; margin: 8px 6px 0;
     }
-    #intro h1, #complete h1 {
-      font-size: 28px;
-      color: #89b4fa;
-      margin-bottom: 20px;
-    }
-    #intro p, #complete p {
-      font-size: 16px;
-      line-height: 1.6;
-      color: #a6adc8;
-      margin-bottom: 16px;
-    }
-    #intro .start-btn, #complete .close-btn {
-      display: inline-block;
-      padding: 12px 32px;
-      background: #89b4fa;
-      color: #1e1e2e;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      margin-top: 20px;
-    }
-    #intro .start-btn, #complete .close-btn {
-      cursor: pointer;
-    }
-    #intro .start-btn:hover, #complete .close-btn:hover {
-      background: #74c7ec;
-    }
+    .btn:hover { background: #74c7ec; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn.secondary { background: #45475a; color: #cdd6f4; }
+    .btn.secondary:hover { background: #585b70; }
 
-    /* ── Progress bar ─── */
-    #progress {
-      position: fixed;
-      bottom: 40px;
-      left: 50%;
-      transform: translateX(-50%);
-      text-align: center;
-      z-index: 200;
+    /* Setup selectors */
+    .setup-row {
+      display: flex; align-items: center; justify-content: center;
+      gap: 12px; margin-bottom: 14px;
     }
-    #progress .label {
-      font-size: 14px;
-      color: #a6adc8;
-      margin-bottom: 8px;
+    .setup-row label { font-size: 14px; color: #a6adc8; min-width: 80px; text-align: right; }
+    .setup-row select {
+      padding: 8px 14px; background: #1e1e2e; color: #cdd6f4;
+      border: 1px solid #45475a; border-radius: 6px; font-size: 14px;
+      min-width: 260px; cursor: pointer; outline: none;
     }
-    #progress .bar-container {
-      width: 200px;
-      height: 4px;
-      background: #313244;
-      border-radius: 2px;
-      overflow: hidden;
+    .setup-row select:focus { border-color: #89b4fa; }
+
+    /* Tips */
+    .tips {
+      background: #1e1e2e; border: 1px solid #313244; border-radius: 8px;
+      padding: 16px 20px; margin: 16px 0; text-align: left;
+      font-size: 13px; color: #a6adc8; line-height: 1.7;
     }
-    #progress .bar-fill {
-      height: 100%;
-      background: #89b4fa;
-      border-radius: 2px;
-      transition: width 0.3s ease;
+    .tips strong { color: #89b4fa; }
+    .tips ul { padding-left: 18px; margin: 6px 0 0; }
+
+    /* Escape hint */
+    .escape-hint {
+      position: fixed; bottom: 12px; right: 16px;
+      font-size: 12px; color: #585b70; z-index: 300;
     }
 
     /* ── Calibration dot ─── */
     .cal-dot {
-      position: fixed;
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      background: #89b4fa;
-      transform: translate(-50%, -50%);
-      z-index: 150;
-      transition: opacity 0.3s ease;
-      pointer-events: none;
+      position: fixed; width: 28px; height: 28px; border-radius: 50%;
+      background: #89b4fa; transform: translate(-50%, -50%);
+      z-index: 150; pointer-events: none;
+      transition: left 0.3s ease, top 0.3s ease, opacity 0.3s ease;
     }
     .cal-dot::after {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #1e1e2e;
+      content: ''; position: absolute; top: 50%; left: 50%;
+      width: 6px; height: 6px; border-radius: 50%; background: #1e1e2e;
       transform: translate(-50%, -50%);
     }
     .cal-dot.collecting {
       animation: pulse 0.6s ease-in-out infinite alternate;
     }
+    .cal-dot.done-flash {
+      background: #a6e3a1;
+      transition: background 0.2s;
+    }
     @keyframes pulse {
-      from { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 0 0 rgba(137, 180, 250, 0.4); }
-      to   { transform: translate(-50%, -50%) scale(1.3); box-shadow: 0 0 20px 10px rgba(137, 180, 250, 0.1); }
+      from { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 0 0 rgba(137,180,250,0.4); }
+      to   { transform: translate(-50%, -50%) scale(1.3); box-shadow: 0 0 20px 10px rgba(137,180,250,0.1); }
     }
 
-    /* ── Status indicator ─── */
-    #sample-status {
-      position: fixed;
-      top: 30px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 13px;
-      color: #585b70;
-      z-index: 200;
+    /* ── Status banner ─── */
+    #cal-status {
+      position: fixed; top: 28px; left: 50%; transform: translateX(-50%);
+      font-size: 15px; z-index: 200; text-align: center;
+      padding: 6px 20px; border-radius: 8px;
+      background: rgba(30,30,46,0.85); border: 1px solid #313244;
     }
+    #cal-status .msg { color: #a6adc8; }
+    #cal-status .msg.warn { color: #f9e2af; }
+    #cal-status .msg.ok   { color: #a6e3a1; }
+
+    /* ── Progress bar ─── */
+    #progress-wrap {
+      position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
+      text-align: center; z-index: 200;
+    }
+    #progress-wrap .label { font-size: 14px; color: #a6adc8; margin-bottom: 8px; }
+    .bar-container { width: 240px; height: 4px; background: #313244; border-radius: 2px; overflow: hidden; }
+    .bar-fill { height: 100%; background: #89b4fa; border-radius: 2px; transition: width 0.3s ease; }
+
+    /* ── Gaze cursor ─── */
+    #gaze-cursor {
+      position: fixed; width: 28px; height: 28px; border-radius: 50%;
+      background: rgba(243,139,168,0.55); border: 2px solid #f38ba8;
+      transform: translate(-50%, -50%); pointer-events: none;
+      z-index: 160; transition: left 0.06s linear, top 0.06s linear;
+    }
+
+    /* ── Validation target ─── */
+    .val-dot {
+      position: fixed; width: 22px; height: 22px; border-radius: 50%;
+      border: 3px solid #585b70; background: transparent;
+      transform: translate(-50%, -50%); pointer-events: none; z-index: 140;
+      transition: border-color 0.3s, background 0.3s;
+    }
+    .val-dot.active  { border-color: #89b4fa; background: rgba(137,180,250,0.15); }
+    .val-dot.locked  { border-color: #a6e3a1; background: rgba(166,227,161,0.2); }
+    .val-dot.failed  { border-color: #f38ba8; background: rgba(243,139,168,0.15); }
+    .val-dot .check {
+      position: absolute; inset: -2px; display: flex;
+      align-items: center; justify-content: center;
+      font-size: 14px; font-weight: bold;
+    }
+
+    /* Accuracy display */
+    .accuracy-hud {
+      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+      text-align: center; z-index: 200; font-size: 14px; color: #a6adc8;
+    }
+    .accuracy-hud .big { font-size: 32px; font-weight: 700; margin: 2px 0; }
+    .accuracy-hud .big.good { color: #a6e3a1; }
+    .accuracy-hud .big.ok   { color: #f9e2af; }
+    .accuracy-hud .big.bad  { color: #f38ba8; }
 
     .hidden { display: none !important; }
-
-    /* ── Setup selectors ─── */
-    .setup-row {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      margin-bottom: 14px;
-    }
-    .setup-row label {
-      font-size: 14px;
-      color: #a6adc8;
-      min-width: 70px;
-      text-align: right;
-    }
-    .setup-row select {
-      padding: 8px 14px;
-      background: #1e1e2e;
-      color: #cdd6f4;
-      border: 1px solid #45475a;
-      border-radius: 6px;
-      font-size: 14px;
-      min-width: 260px;
-      cursor: pointer;
-      outline: none;
-    }
-    .setup-row select:focus {
-      border-color: #89b4fa;
-    }
-    #startBtn:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
   </style>
 </head>
 <body>
-  <!-- Intro screen -->
-  <div id="intro">
-    <div id="overlay">
-      <h1>Eye Tracking Calibration</h1>
-      <p>
-        Look directly at each dot as it appears on screen.<br>
-        Keep your head still and follow the dot with your eyes only.<br>
-        Each point takes about 3 seconds.
-      </p>
 
-      <div class="setup-row">
-        <label for="cameraSelect">Webcam:</label>
-        <select id="cameraSelect"><option value="0">Searching for cameras...</option></select>
-      </div>
+<!-- ═══════════ Screen 1: Setup ═══════════ -->
+<div id="s-setup" class="screen">
+  <div class="panel">
+    <h1>Eye Tracking Calibration</h1>
+    <p>Follow each dot with your eyes. Keep your head still &mdash; move only your eyes.</p>
 
-      <div class="setup-row">
-        <label for="displaySelect">Monitor:</label>
-        <select id="displaySelect"><option>Loading displays...</option></select>
-      </div>
-
-      <button class="start-btn" id="startBtn" disabled>Begin Calibration</button>
+    <div class="tips">
+      <strong>Tips for accurate calibration:</strong>
+      <ul>
+        <li>Sit ~50&ndash;70 cm from the screen</li>
+        <li>Face should be well-lit from the front (avoid backlight)</li>
+        <li>If you wear <strong>glasses</strong>, keep them on; recalibrate if you remove them</li>
+        <li>Keep your head level and centered &mdash; don't tilt</li>
+        <li>Stare at the exact <strong>center</strong> of each dot</li>
+        <li>The dot will turn <strong style="color:#a6e3a1">green</strong> when it captures a stable reading</li>
+      </ul>
     </div>
+
+    <div class="setup-row">
+      <label for="cameraSelect">Webcam:</label>
+      <select id="cameraSelect"><option value="" disabled selected>Searching...</option></select>
+    </div>
+    <div class="setup-row">
+      <label for="displaySelect">Monitor:</label>
+      <select id="displaySelect"><option>Loading...</option></select>
+    </div>
+    <div class="setup-row">
+      <label for="pointsSelect">Points:</label>
+      <select id="pointsSelect">
+        <option value="9">9 &mdash; fast</option>
+        <option value="16" selected>16 &mdash; recommended</option>
+        <option value="25">25 &mdash; high accuracy</option>
+      </select>
+    </div>
+
+    <button class="btn" id="startBtn" disabled>Begin Calibration</button>
+  </div>
+</div>
+
+<!-- ═══════════ Calibration dot ═══════════ -->
+<div class="cal-dot hidden" id="calDot"></div>
+
+<!-- ═══════════ Calibration status ═══════════ -->
+<div id="cal-status" class="hidden"><span class="msg" id="calMsg">Preparing...</span></div>
+
+<!-- ═══════════ Progress ═══════════ -->
+<div id="progress-wrap" class="hidden">
+  <div class="label" id="progressLabel">Point 1 / 16</div>
+  <div class="bar-container"><div class="bar-fill" id="progressBar" style="width:0%"></div></div>
+</div>
+
+<!-- ═══════════ Escape hint ═══════════ -->
+<div class="escape-hint hidden" id="escHint">Press <strong>ESC</strong> to stop</div>
+
+<!-- ═══════════ Gaze cursor (validation) ═══════════ -->
+<div id="gaze-cursor" class="hidden"></div>
+
+<!-- ═══════════ Screen 2: Validation ═══════════ -->
+<div id="s-validate" class="screen hidden">
+  <div class="accuracy-hud" id="accHud">
+    <div>Validation</div>
+    <div class="big" id="accScore">&mdash;</div>
+    <div id="accDetail">Look at the highlighted dot until it locks</div>
   </div>
 
-  <!-- Calibration dot -->
-  <div class="cal-dot hidden" id="calDot"></div>
-
-  <!-- Progress -->
-  <div id="progress" class="hidden">
-    <div class="label" id="progressLabel">Point 1 of 9</div>
-    <div class="bar-container">
-      <div class="bar-fill" id="progressBar" style="width: 0%"></div>
-    </div>
+  <div style="position:fixed;bottom:28px;left:50%;transform:translateX(-50%);z-index:200;text-align:center;">
+    <button class="btn" id="acceptBtn">Accept &amp; Close</button>
+    <button class="btn secondary" id="recalBtn">Recalibrate</button>
   </div>
+</div>
 
-  <!-- Sample collection status -->
-  <div id="sample-status" class="hidden"></div>
-
-  <!-- Completion screen -->
-  <div id="complete" class="hidden">
-    <div id="overlay">
-      <h1>Calibration Complete!</h1>
-      <p>Your eye tracking is now calibrated.<br>You can start tracking with the command:<br><strong>"track my eyes"</strong></p>
-      <button class="close-btn" id="closeBtn">Close</button>
-    </div>
+<!-- ═══════════ Screen 3: Done ═══════════ -->
+<div id="s-done" class="screen hidden">
+  <div class="panel">
+    <h1>Calibration Complete!</h1>
+    <p>Start tracking with: <strong>"track my eyes"</strong><br>
+    Press <strong>Escape</strong> at any time to emergency-stop.</p>
+    <button class="btn" id="closeBtn">Close</button>
   </div>
+</div>
 
-  <script>
-    // ── Calibration Configuration ───────────────────────────────────────────────
-    const TOTAL_POINTS = 9;
-    const FIXATION_TIME = 2000;   // ms to fixate before collecting
-    const COLLECT_TIME = 1000;    // ms to collect samples
+<script>
+// ════════════════════════════════════════════════════════════════════════════════
+// Helpers
+// ════════════════════════════════════════════════════════════════════════════════
+function buildGrid(n) {
+  const side = Math.round(Math.sqrt(n));
+  const m = 0.08, step = (1 - 2 * m) / (side - 1);
+  const pts = [];
+  for (let r = 0; r < side; r++)
+    for (let c = 0; c < side; c++)
+      pts.push({ xPct: m + c * step, yPct: m + r * step });
+  return pts;
+}
 
-    // 9-point grid at 10%, 50%, 90% of screen dimensions
-    const GRID_POSITIONS = [
-      { xPct: 0.10, yPct: 0.10 },
-      { xPct: 0.50, yPct: 0.10 },
-      { xPct: 0.90, yPct: 0.10 },
-      { xPct: 0.10, yPct: 0.50 },
-      { xPct: 0.50, yPct: 0.50 },
-      { xPct: 0.90, yPct: 0.50 },
-      { xPct: 0.10, yPct: 0.90 },
-      { xPct: 0.50, yPct: 0.90 },
-      { xPct: 0.90, yPct: 0.90 },
-    ];
+let GRID = buildGrid(16);
+let chosenDisplay = null, chosenCamera = 0, aborted = false;
 
-    let currentPoint = 0;
-    let chosenDisplay = null; // { id, width, height }
+// ── DOM ────────────────────────────────────────────────────────────────────────
+const $  = id => document.getElementById(id);
+const sSetup     = $('s-setup');
+const sValidate  = $('s-validate');
+const sDone      = $('s-done');
+const calDot     = $('calDot');
+const calStatus  = $('cal-status');
+const calMsg     = $('calMsg');
+const progWrap   = $('progress-wrap');
+const progLabel  = $('progressLabel');
+const progBar    = $('progressBar');
+const escHint    = $('escHint');
+const gazeCursor = $('gaze-cursor');
+const accScore   = $('accScore');
+const accDetail  = $('accDetail');
+const startBtn   = $('startBtn');
+const closeBtn   = $('closeBtn');
+const acceptBtn  = $('acceptBtn');
+const recalBtn   = $('recalBtn');
+const camSel     = $('cameraSelect');
+const dispSel    = $('displaySelect');
+const ptsSel     = $('pointsSelect');
 
-    // ── DOM Elements ────────────────────────────────────────────────────────────
-    const introEl = document.getElementById('intro');
-    const completeEl = document.getElementById('complete');
-    const dotEl = document.getElementById('calDot');
-    const progressEl = document.getElementById('progress');
-    const progressLabel = document.getElementById('progressLabel');
-    const progressBar = document.getElementById('progressBar');
-    const sampleStatus = document.getElementById('sample-status');
-    const startBtn = document.getElementById('startBtn');
-    const closeBtn = document.getElementById('closeBtn');
-    const cameraSelect = document.getElementById('cameraSelect');
-    const displaySelect = document.getElementById('displaySelect');
+// ════════════════════════════════════════════════════════════════════════════════
+// Startup: enumerate cameras & displays
+// ════════════════════════════════════════════════════════════════════════════════
+(async () => {
+  const displays = await window.calibrationAPI.getDisplays();
+  dispSel.innerHTML = '';
+  displays.forEach(d => {
+    const o = document.createElement('option');
+    o.value = d.id; o.textContent = d.label;
+    if (d.isPrimary) o.selected = true;
+    dispSel.appendChild(o);
+  });
+  chosenDisplay = displays.find(d => d.isPrimary) || displays[0];
+  dispSel.onchange = () => {
+    chosenDisplay = displays.find(d => String(d.id) === dispSel.value) || displays[0];
+  };
 
-    // ── Load cameras and displays on startup ────────────────────────────────────
-    (async () => {
-      // Load displays first (instant)
-      const displays = await window.calibrationAPI.getDisplays();
-      displaySelect.innerHTML = '';
-      displays.forEach(d => {
-        const opt = document.createElement('option');
-        opt.value = d.id;
-        opt.textContent = d.label;
-        if (d.isPrimary) opt.selected = true;
-        displaySelect.appendChild(opt);
+  camSel.innerHTML = '<option value="" disabled selected>Searching...</option>';
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({ video: true });
+    s.getTracks().forEach(t => t.stop());
+    const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+    camSel.innerHTML = '';
+    if (!devs.length) {
+      camSel.innerHTML = '<option value="" disabled>No cameras found</option>';
+    } else {
+      devs.forEach((d, i) => {
+        const o = document.createElement('option');
+        o.value = i; o.textContent = d.label || `Camera ${i}`;
+        camSel.appendChild(o);
       });
-      chosenDisplay = displays.find(d => d.isPrimary) || displays[0];
-
-      displaySelect.addEventListener('change', () => {
-        chosenDisplay = displays.find(d => String(d.id) === displaySelect.value) || displays[0];
-      });
-
-      // Enumerate cameras using the browser MediaDevices API (instant & reliable)
-      cameraSelect.innerHTML = '<option value="" disabled selected>Searching for cameras...</option>';
-      try {
-        // Request camera permission first — enumerateDevices needs it to get labels
-        await navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
-          stream.getTracks().forEach(t => t.stop()); // Release immediately
-        });
-
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(d => d.kind === 'videoinput');
-
-        cameraSelect.innerHTML = '';
-        if (videoDevices.length === 0) {
-          cameraSelect.innerHTML = '<option value="" disabled>No cameras found</option>';
-        } else {
-          videoDevices.forEach((dev, i) => {
-            const opt = document.createElement('option');
-            opt.value = i;
-            opt.textContent = dev.label || `Camera ${i}`;
-            cameraSelect.appendChild(opt);
-          });
-          startBtn.disabled = false;
-        }
-      } catch (err) {
-        console.error('Camera enumeration failed:', err);
-        cameraSelect.innerHTML = '<option value="" disabled>Camera access denied</option>';
-      }
-    })();
-
-    // ── IPC Communication ───────────────────────────────────────────────────────
-
-    startBtn.addEventListener('click', () => {
-      const cameraIndex = parseInt(cameraSelect.value, 10) || 0;
-      const displayId = chosenDisplay ? chosenDisplay.id : 0;
-
-      // Tell main process to move window to chosen display and start Python
-      window.calibrationAPI.startCalibration(cameraIndex, displayId);
-
-      introEl.classList.add('hidden');
-      progressEl.classList.remove('hidden');
-      sampleStatus.classList.remove('hidden');
-      document.body.classList.add('calibrating');
-      currentPoint = 0;
-
-      // Small delay so the window can reposition before showing dots
-      setTimeout(() => showPoint(currentPoint), 500);
-    });
-
-    closeBtn.addEventListener('click', () => {
-      window.calibrationAPI.close();
-    });
-
-    // Listen for calibration progress from main process
-    window.calibrationAPI.onProgress((data) => {
-      if (data.status === 'calibrating') {
-        sampleStatus.textContent = `Collecting samples: ${data.samples} / ${data.target}`;
-      }
-    });
-
-    window.calibrationAPI.onComplete(() => {
-      dotEl.classList.add('hidden');
-      progressEl.classList.add('hidden');
-      sampleStatus.classList.add('hidden');
-      document.body.classList.remove('calibrating');
-      completeEl.classList.remove('hidden');
-    });
-
-    // ── Calibration Flow ────────────────────────────────────────────────────────
-
-    function showPoint(index) {
-      if (index >= TOTAL_POINTS) {
-        // All points shown — request finish
-        dotEl.classList.add('hidden');
-        progressLabel.textContent = 'Computing calibration...';
-        window.calibrationAPI.finishCalibration();
-        return;
-      }
-
-      const pos = GRID_POSITIONS[index];
-      // Use the chosen display's resolution for screen coordinates
-      const dispW = chosenDisplay ? chosenDisplay.width : window.screen.width;
-      const dispH = chosenDisplay ? chosenDisplay.height : window.screen.height;
-      const screenX = Math.round(pos.xPct * dispW);
-      const screenY = Math.round(pos.yPct * dispH);
-
-      // Position the dot
-      dotEl.style.left = `${pos.xPct * 100}%`;
-      dotEl.style.top = `${pos.yPct * 100}%`;
-      dotEl.classList.remove('hidden', 'collecting');
-
-      // Update progress
-      progressLabel.textContent = `Point ${index + 1} of ${TOTAL_POINTS} — Look at the dot`;
-      progressBar.style.width = `${((index) / TOTAL_POINTS) * 100}%`;
-      sampleStatus.textContent = 'Focus on the dot...';
-
-      // Wait for fixation, then start collecting
-      setTimeout(() => {
-        dotEl.classList.add('collecting');
-        sampleStatus.textContent = 'Collecting samples...';
-
-        // Tell main process to start collecting for this point
-        window.calibrationAPI.reportPoint(index, screenX, screenY);
-
-        // After collection time, move to next point
-        setTimeout(() => {
-          dotEl.classList.remove('collecting');
-          currentPoint++;
-          progressBar.style.width = `${(currentPoint / TOTAL_POINTS) * 100}%`;
-          showPoint(currentPoint);
-        }, COLLECT_TIME);
-      }, FIXATION_TIME);
+      startBtn.disabled = false;
     }
-  </script>
+  } catch (e) {
+    camSel.innerHTML = '<option value="" disabled>Camera access denied</option>';
+  }
+})();
+
+ptsSel.onchange = () => { GRID = buildGrid(parseInt(ptsSel.value, 10)); };
+
+// ════════════════════════════════════════════════════════════════════════════════
+// Escape — emergency stop
+// ════════════════════════════════════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { e.preventDefault(); eStop(); }
+});
+async function eStop() {
+  aborted = true;
+  await window.calibrationAPI.stopTracking().catch(() => {});
+  window.calibrationAPI.close();
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// Phase 1 — Adaptive Calibration
+// ════════════════════════════════════════════════════════════════════════════════
+let calIdx = 0;
+let faceDetected = false;
+let pointDone = false;
+
+function showScreen(el) {
+  [sSetup, sValidate, sDone].forEach(s => s.classList.add('hidden'));
+  el.classList.remove('hidden');
+}
+
+startBtn.onclick = () => beginCalibration();
+
+function beginCalibration() {
+  chosenCamera = parseInt(camSel.value, 10) || 0;
+  aborted = false; calIdx = 0; faceDetected = false; pointDone = false;
+
+  const dispId = chosenDisplay ? chosenDisplay.id : 0;
+  window.calibrationAPI.startCalibration(chosenCamera, dispId);
+
+  showScreen(document.createElement('div')); // hide all screens
+  calDot.classList.remove('hidden', 'collecting', 'done-flash');
+  calStatus.classList.remove('hidden');
+  progWrap.classList.remove('hidden');
+  escHint.classList.remove('hidden');
+  document.body.classList.add('hide-cursor');
+
+  // Wait for Python to start and face to be detected
+  calMsg.textContent = 'Starting camera... look at the screen';
+  calMsg.className = 'msg warn';
+  setTimeout(() => { if (!aborted) advancePoint(); }, 600);
+}
+
+function advancePoint() {
+  if (aborted) return;
+  if (calIdx >= GRID.length) {
+    // All points collected — compute calibration
+    calDot.classList.add('hidden');
+    calMsg.textContent = 'Computing calibration...';
+    calMsg.className = 'msg';
+    window.calibrationAPI.finishCalibration();
+    return;
+  }
+
+  pointDone = false;
+  const pos = GRID[calIdx];
+  const dW = chosenDisplay ? chosenDisplay.width : screen.width;
+  const dH = chosenDisplay ? chosenDisplay.height : screen.height;
+  const sx = Math.round(pos.xPct * dW);
+  const sy = Math.round(pos.yPct * dH);
+
+  // Move dot
+  calDot.style.left = `${pos.xPct * 100}%`;
+  calDot.style.top  = `${pos.yPct * 100}%`;
+  calDot.classList.remove('hidden', 'collecting', 'done-flash');
+
+  progLabel.textContent = `Point ${calIdx + 1} / ${GRID.length}`;
+  progBar.style.width = `${(calIdx / GRID.length) * 100}%`;
+
+  if (!faceDetected) {
+    calMsg.textContent = 'Position your face in view of the camera...';
+    calMsg.className = 'msg warn';
+  } else {
+    calMsg.textContent = 'Look at the dot...';
+    calMsg.className = 'msg';
+  }
+
+  // Brief pause before starting collection (let eyes settle on dot)
+  setTimeout(() => {
+    if (aborted || pointDone) return;
+    // Send the calibration point to Python — it starts collecting immediately
+    window.calibrationAPI.reportPoint(calIdx, sx, sy);
+    calDot.classList.add('collecting');
+    calMsg.textContent = 'Hold steady — collecting...';
+    calMsg.className = 'msg';
+  }, 1200);
+
+  // Safety timeout: if point isn't done in 20s, force advance
+  setTimeout(() => {
+    if (!aborted && !pointDone) {
+      onPointDone();
+    }
+  }, 20000);
+}
+
+function onPointDone() {
+  if (pointDone) return;
+  pointDone = true;
+  calDot.classList.remove('collecting');
+  calDot.classList.add('done-flash');
+  progBar.style.width = `${((calIdx + 1) / GRID.length) * 100}%`;
+  calIdx++;
+
+  // Brief flash then advance
+  setTimeout(() => { if (!aborted) advancePoint(); }, 350);
+}
+
+// Listen to calibration progress from Python
+window.calibrationAPI.onProgress((data) => {
+  if (aborted) return;
+
+  // Face detected signal
+  if (data.status === 'face_detected') {
+    faceDetected = true;
+    return;
+  }
+
+  // No face
+  if (data.error && data.error.includes('No face')) {
+    faceDetected = false;
+    calMsg.textContent = 'Cannot see your face — check lighting & position';
+    calMsg.className = 'msg warn';
+    return;
+  }
+
+  // Point collection progress
+  if (data.status === 'calibrating') {
+    const pct = Math.min(100, Math.round((data.samples / data.target) * 100));
+    if (data.stable) {
+      calMsg.textContent = `Locked on — ${pct}%`;
+      calMsg.className = 'msg ok';
+    } else if (data.samples > 5) {
+      calMsg.textContent = `Collecting — hold steady (${pct}%)`;
+      calMsg.className = 'msg';
+    }
+    if (data.done) {
+      onPointDone();
+    }
+  }
+});
+
+// Calibration computed
+window.calibrationAPI.onComplete(() => {
+  if (aborted) return;
+  calDot.classList.add('hidden');
+  calStatus.classList.add('hidden');
+  progWrap.classList.add('hidden');
+  document.body.classList.remove('hide-cursor');
+  startValidation();
+});
+
+// ════════════════════════════════════════════════════════════════════════════════
+// Phase 2 — Guided Validation (one dot at a time, gaze-lock detection)
+// ════════════════════════════════════════════════════════════════════════════════
+const VAL_GRID = [
+  { xPct: 0.20, yPct: 0.20 }, { xPct: 0.50, yPct: 0.15 }, { xPct: 0.80, yPct: 0.20 },
+  { xPct: 0.15, yPct: 0.50 }, { xPct: 0.50, yPct: 0.50 }, { xPct: 0.85, yPct: 0.50 },
+  { xPct: 0.20, yPct: 0.80 }, { xPct: 0.50, yPct: 0.85 }, { xPct: 0.80, yPct: 0.80 },
+];
+
+let valDots = [];     // DOM elements
+let valIdx = 0;
+let valLocked = 0;
+let valFailed = 0;
+let recentGaze = [];  // rolling window of {x,y} for lock detection
+let valTimer = null;
+
+function startValidation() {
+  showScreen(sValidate);
+  escHint.classList.remove('hidden');
+  gazeCursor.classList.remove('hidden');
+  accScore.textContent = '\u2014';
+  accScore.className = 'big';
+  accDetail.textContent = 'Look at the highlighted dot until it locks';
+
+  const dW = chosenDisplay ? chosenDisplay.width : screen.width;
+  const dH = chosenDisplay ? chosenDisplay.height : screen.height;
+
+  // Create validation dots
+  valDots.forEach(v => v.el.remove());
+  valDots = [];
+  valIdx = 0; valLocked = 0; valFailed = 0; recentGaze = [];
+
+  VAL_GRID.forEach((pos, i) => {
+    const el = document.createElement('div');
+    el.className = 'val-dot';
+    el.style.left = `${pos.xPct * 100}%`;
+    el.style.top  = `${pos.yPct * 100}%`;
+    document.body.appendChild(el);
+    valDots.push({
+      el, xPct: pos.xPct, yPct: pos.yPct,
+      sx: pos.xPct * dW, sy: pos.yPct * dH,
+      result: null,
+    });
+  });
+
+  // Start tracking in validation mode
+  window.calibrationAPI.startValidationTracking(chosenCamera);
+
+  // Listen for gaze data
+  window.calibrationAPI.onGazeData(onGazeData);
+
+  // Start first validation dot
+  setTimeout(() => activateValDot(0), 500);
+}
+
+function activateValDot(idx) {
+  if (idx >= valDots.length) {
+    finishValidation();
+    return;
+  }
+  valIdx = idx;
+  recentGaze = [];
+
+  // Highlight the active dot
+  valDots.forEach((v, i) => {
+    v.el.classList.remove('active');
+    if (i === idx && !v.result) v.el.classList.add('active');
+  });
+
+  accDetail.textContent = `Dot ${idx + 1} / ${valDots.length} — look at the highlighted dot`;
+
+  // Timeout: if not locked in 6 seconds, mark failed
+  if (valTimer) clearTimeout(valTimer);
+  valTimer = setTimeout(() => {
+    if (valDots[idx].result) return;
+    markValDot(idx, false);
+  }, 6000);
+}
+
+function onGazeData(data) {
+  if (!data || typeof data.x !== 'number') return;
+  const dW = chosenDisplay ? chosenDisplay.width : screen.width;
+  const dH = chosenDisplay ? chosenDisplay.height : screen.height;
+
+  // Move gaze cursor
+  gazeCursor.style.left = `${(data.x / dW) * 100}%`;
+  gazeCursor.style.top  = `${(data.y / dH) * 100}%`;
+
+  // Track recent gaze for lock detection
+  recentGaze.push({ x: data.x, y: data.y, t: Date.now() });
+  // Keep last 1.5 seconds
+  const cutoff = Date.now() - 1500;
+  recentGaze = recentGaze.filter(g => g.t >= cutoff);
+
+  // Check lock: over last 1 second, >70% of samples within 120px of target
+  if (valIdx < valDots.length && !valDots[valIdx].result && recentGaze.length >= 15) {
+    const target = valDots[valIdx];
+    const lockRadius = Math.max(120, dW * 0.06); // 120px or 6% of screen width
+    const recent1s = recentGaze.filter(g => g.t >= Date.now() - 1000);
+    if (recent1s.length >= 10) {
+      const inRange = recent1s.filter(g => {
+        const dx = g.x - target.sx, dy = g.y - target.sy;
+        return Math.sqrt(dx*dx + dy*dy) < lockRadius;
+      });
+      if (inRange.length / recent1s.length >= 0.7) {
+        markValDot(valIdx, true);
+      }
+    }
+  }
+}
+
+function markValDot(idx, success) {
+  if (valDots[idx].result) return;
+  if (valTimer) clearTimeout(valTimer);
+
+  const dot = valDots[idx];
+  dot.result = success ? 'locked' : 'failed';
+  dot.el.classList.remove('active');
+  dot.el.classList.add(success ? 'locked' : 'failed');
+  dot.el.innerHTML = `<span class="check">${success ? '\u2713' : '\u2717'}</span>`;
+
+  if (success) valLocked++; else valFailed++;
+  accScore.textContent = `${valLocked} / ${valDots.length}`;
+  accScore.className = 'big ' + (valFailed === 0 ? 'good' : valFailed <= 3 ? 'ok' : 'bad');
+
+  // Advance after brief pause
+  setTimeout(() => activateValDot(idx + 1), 400);
+}
+
+function finishValidation() {
+  const pct = Math.round((valLocked / valDots.length) * 100);
+  accScore.textContent = `${pct}%`;
+  accScore.className = 'big ' + (pct >= 80 ? 'good' : pct >= 50 ? 'ok' : 'bad');
+  accDetail.textContent = `${valLocked} locked, ${valFailed} failed — ${pct >= 80 ? 'Good calibration!' : pct >= 50 ? 'Acceptable — consider recalibrating' : 'Poor — please recalibrate'}`;
+}
+
+function cleanupValidation() {
+  valDots.forEach(v => v.el.remove());
+  valDots = [];
+  gazeCursor.classList.add('hidden');
+  if (valTimer) clearTimeout(valTimer);
+  window.calibrationAPI.stopTracking();
+}
+
+acceptBtn.onclick = () => {
+  cleanupValidation();
+  showScreen(sDone);
+  escHint.classList.add('hidden');
+};
+
+recalBtn.onclick = () => {
+  cleanupValidation();
+  showScreen(sSetup);
+  escHint.classList.add('hidden');
+};
+
+closeBtn.onclick = () => window.calibrationAPI.close();
+</script>
 </body>
 </html>

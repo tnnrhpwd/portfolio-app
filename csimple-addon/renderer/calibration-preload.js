@@ -24,12 +24,20 @@ contextBridge.exposeInMainWorld('calibrationAPI', {
 
   getDisplays: () => ipcRenderer.invoke('get-displays'),
 
+  startValidationTracking: (cameraIndex) => ipcRenderer.invoke('start-validation-tracking', { cameraIndex }),
+
+  stopTracking: () => ipcRenderer.invoke('stop-tracking'),
+
   onProgress: (callback) => {
     ipcRenderer.on('calibration-progress', (_event, data) => callback(data));
   },
 
   onComplete: (callback) => {
     ipcRenderer.on('calibration-complete', (_event) => callback());
+  },
+
+  onGazeData: (callback) => {
+    ipcRenderer.on('gaze-data', (_event, data) => callback(data));
   },
 
   close: () => {

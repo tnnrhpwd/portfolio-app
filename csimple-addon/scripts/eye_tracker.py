@@ -73,7 +73,8 @@ class EyeTracker:
         self.calibrating = False
         self.calibration_points = {}  # {index: {"screen": (x,y), "iris_samples": [(ix,iy), ...]}}
         self.current_cal_point = None
-        self.cal_sample_count = 30  # Frames to collect per point
+        self.cal_sample_count = 45  # Minimum frames to collect per point
+        self.cal_max_samples = 150  # Max frames before forcing done
 
         # Load calibration if available
         if calibration_file:
@@ -149,14 +150,31 @@ class EyeTracker:
 
         samples = self.calibration_points[idx]["iris_samples"]
         samples.append((iris_x, iris_y))
+
+        n = len(samples)
+        min_samples = self.cal_sample_count
+        max_samples = self.cal_max_samples
+
+        # Check gaze stability over the last 15 samples
+        stable = False
+        if n >= 15:
+            recent = samples[-15:]
+            xs = [s[0] for s in recent]
+            ys = [s[1] for s in recent]
+            stable = np.std(xs) < 4.0 and np.std(ys) < 4.0
+
+        done = (n >= min_samples and stable) or n >= max_samples
+
         self._emit({
             "status": "calibrating",
             "point_index": idx,
-            "samples": len(samples),
-            "target": self.cal_sample_count,
+            "samples": n,
+            "target": min_samples,
+            "stable": stable,
+            "done": done,
         })
 
-        if len(samples) >= self.cal_sample_count:
+        if done:
             self.current_cal_point = None  # Done collecting for this point
 
     def start_calibration_point(self, index, screen_x, screen_y):
@@ -180,9 +198,20 @@ class EyeTracker:
                 self._emit({"error": f"Not enough samples for point {idx} ({len(samples)} < 5)"})
                 return False
 
-            # Average the iris samples
-            avg_x = np.mean([s[0] for s in samples])
-            avg_y = np.mean([s[1] for s in samples])
+            xs = np.array([s[0] for s in samples])
+            ys = np.array([s[1] for s in samples])
+
+            # Outlier rejection: remove samples > 2 std devs from mean
+            if len(samples) > 10:
+                mean_x, mean_y = np.mean(xs), np.mean(ys)
+                std_x, std_y = np.std(xs), np.std(ys)
+                if std_x > 0.01 and std_y > 0.01:
+                    mask = (np.abs(xs - mean_x) < 2 * std_x) & (np.abs(ys - mean_y) < 2 * std_y)
+                    xs = xs[mask]
+                    ys = ys[mask]
+
+            avg_x = float(np.mean(xs))
+            avg_y = float(np.mean(ys))
             src_points.append([avg_x, avg_y])
             dst_points.append(list(point["screen"]))
 
@@ -253,6 +282,7 @@ class EyeTracker:
 
         start_time = time.time()
         no_face_count = 0
+        face_was_lost = True  # Track face acquisition for status emission
 
         try:
             while self.running:
@@ -274,10 +304,15 @@ class EyeTracker:
 
                 if not results.multi_face_landmarks:
                     no_face_count += 1
+                    face_was_lost = True
                     if no_face_count % 30 == 0:  # Report every ~1 second
                         self._emit({"error": "No face detected", "frames_missed": no_face_count})
                     continue
 
+                # Face found — emit status if it was previously lost
+                if face_was_lost:
+                    face_was_lost = False
+                    self._emit({"status": "face_detected"})
                 no_face_count = 0
                 landmarks = results.multi_face_landmarks[0].landmark
                 h, w = frame.shape[:2]
