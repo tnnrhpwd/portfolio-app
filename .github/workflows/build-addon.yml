@@ -57,7 +57,7 @@ jobs:
         run: npx electron-builder --win
 
       - name: Upload installer artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: csimple-addon-installer
           path: |
