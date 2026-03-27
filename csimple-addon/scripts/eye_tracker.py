@@ -232,7 +232,9 @@ class EyeTracker:
         """Main tracking loop."""
         self.running = True
 
-        cap = cv2.VideoCapture(self.camera_index)
+        import platform
+        backend = cv2.CAP_DSHOW if platform.system() == 'Windows' else cv2.CAP_ANY
+        cap = cv2.VideoCapture(self.camera_index, backend)
         if not cap.isOpened():
             self._emit({"error": f"Cannot open camera {self.camera_index}"})
             return
@@ -337,10 +339,12 @@ class EyeTracker:
 
 
 def list_cameras(max_index=5):
-    """Probe camera indices to find available webcams."""
+    """Probe camera indices to find available webcams (DirectShow on Windows for speed)."""
+    import platform
+    backend = cv2.CAP_DSHOW if platform.system() == 'Windows' else cv2.CAP_ANY
     available = []
     for i in range(max_index):
-        cap = cv2.VideoCapture(i)
+        cap = cv2.VideoCapture(i, backend)
         if cap.isOpened():
             ret, _ = cap.read()
             if ret:

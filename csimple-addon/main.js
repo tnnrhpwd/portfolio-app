@@ -203,7 +203,7 @@ async function startExpressServer() {
     }
 
     // Expose calibration window opener as a global so the server can invoke it
-    global.openCalibrationWindow = (cameraIndex) => openCalibrationWindow(cameraIndex);
+    global.openCalibrationWindow = () => openCalibrationWindow();
 
     return { port, httpsPort };
   } catch (err) {
@@ -278,17 +278,20 @@ async function setupPython() {
 /**
  * Open the fullscreen calibration window and start collecting calibration data.
  */
-function openCalibrationWindow(cameraIndex = 0) {
+function openCalibrationWindow() {
   if (calibrationWindow) {
     calibrationWindow.focus();
     return;
   }
+
+  const iconPath = path.join(__dirname, 'resources', 'icon.ico');
 
   calibrationWindow = new BrowserWindow({
     fullscreen: true,
     frame: false,
     alwaysOnTop: true,
     backgroundColor: '#0a0a0f',
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'renderer', 'calibration-preload.js'),
       contextIsolation: true,
@@ -306,11 +309,8 @@ function openCalibrationWindow(cameraIndex = 0) {
     }
   });
 
-  // Start the Python calibration process
+  // Forward calibration progress from Python to the renderer
   if (server?.eyeTrackingManager) {
-    server.eyeTrackingManager.startCalibration(cameraIndex);
-
-    // Forward calibration progress to the renderer
     server.eyeTrackingManager.onCalibrationProgress = (data) => {
       if (calibrationWindow && !calibrationWindow.isDestroyed()) {
         if (data.calibration === 'complete') {
@@ -343,6 +343,44 @@ ipcMain.on('calibration-close', () => {
   if (calibrationWindow) {
     calibrationWindow.close();
   }
+});
+
+// Start calibration with the user-chosen camera and move window to chosen display
+ipcMain.on('calibration-start', async (_event, { cameraIndex, displayId }) => {
+  const { screen } = require('electron');
+  const displays = screen.getAllDisplays();
+  const chosen = displays.find(d => d.id === displayId) || screen.getPrimaryDisplay();
+
+  // Move calibration window to the chosen display and go fullscreen there
+  if (calibrationWindow && !calibrationWindow.isDestroyed()) {
+    calibrationWindow.setBounds(chosen.bounds);
+    calibrationWindow.setFullScreen(true);
+  }
+
+  // Start the Python calibration process with the chosen camera
+  if (server?.eyeTrackingManager) {
+    server.eyeTrackingManager.startCalibration(cameraIndex);
+  }
+});
+
+ipcMain.handle('get-cameras', async () => {
+  if (server?.eyeTrackingManager) {
+    return await server.eyeTrackingManager.listCameras();
+  }
+  return [];
+});
+
+ipcMain.handle('get-displays', () => {
+  const { screen } = require('electron');
+  const displays = screen.getAllDisplays();
+  const primary = screen.getPrimaryDisplay();
+  return displays.map(d => ({
+    id: d.id,
+    label: `${d.size.width}x${d.size.height}` + (d.id === primary.id ? ' (Primary)' : ''),
+    width: d.size.width,
+    height: d.size.height,
+    isPrimary: d.id === primary.id,
+  }));
 });
 
 // ─── App Lifecycle ──────────────────────────────────────────────────────────────

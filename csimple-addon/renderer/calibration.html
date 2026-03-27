@@ -13,8 +13,10 @@
       background: #0a0a0f;
       color: #cdd6f4;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      cursor: none;
       user-select: none;
+    }
+    body.calibrating {
+      cursor: none;
     }
 
     #overlay {
@@ -55,6 +57,9 @@
       font-weight: 600;
       cursor: pointer;
       margin-top: 20px;
+    }
+    #intro .start-btn, #complete .close-btn {
+      cursor: pointer;
     }
     #intro .start-btn:hover, #complete .close-btn:hover {
       background: #74c7ec;
@@ -131,6 +136,39 @@
     }
 
     .hidden { display: none !important; }
+
+    /* ── Setup selectors ─── */
+    .setup-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .setup-row label {
+      font-size: 14px;
+      color: #a6adc8;
+      min-width: 70px;
+      text-align: right;
+    }
+    .setup-row select {
+      padding: 8px 14px;
+      background: #1e1e2e;
+      color: #cdd6f4;
+      border: 1px solid #45475a;
+      border-radius: 6px;
+      font-size: 14px;
+      min-width: 260px;
+      cursor: pointer;
+      outline: none;
+    }
+    .setup-row select:focus {
+      border-color: #89b4fa;
+    }
+    #startBtn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body>
@@ -143,8 +181,18 @@
         Keep your head still and follow the dot with your eyes only.<br>
         Each point takes about 3 seconds.
       </p>
-      <p>9 calibration points will be shown across the screen.</p>
-      <button class="start-btn" id="startBtn">Begin Calibration</button>
+
+      <div class="setup-row">
+        <label for="cameraSelect">Webcam:</label>
+        <select id="cameraSelect"><option value="0">Searching for cameras...</option></select>
+      </div>
+
+      <div class="setup-row">
+        <label for="displaySelect">Monitor:</label>
+        <select id="displaySelect"><option>Loading displays...</option></select>
+      </div>
+
+      <button class="start-btn" id="startBtn" disabled>Begin Calibration</button>
     </div>
   </div>
 
@@ -191,6 +239,7 @@
     ];
 
     let currentPoint = 0;
+    let chosenDisplay = null; // { id, width, height }
 
     // ── DOM Elements ────────────────────────────────────────────────────────────
     const introEl = document.getElementById('intro');
@@ -202,15 +251,73 @@
     const sampleStatus = document.getElementById('sample-status');
     const startBtn = document.getElementById('startBtn');
     const closeBtn = document.getElementById('closeBtn');
+    const cameraSelect = document.getElementById('cameraSelect');
+    const displaySelect = document.getElementById('displaySelect');
+
+    // ── Load cameras and displays on startup ────────────────────────────────────
+    (async () => {
+      // Load displays first (instant)
+      const displays = await window.calibrationAPI.getDisplays();
+      displaySelect.innerHTML = '';
+      displays.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.id;
+        opt.textContent = d.label;
+        if (d.isPrimary) opt.selected = true;
+        displaySelect.appendChild(opt);
+      });
+      chosenDisplay = displays.find(d => d.isPrimary) || displays[0];
+
+      displaySelect.addEventListener('change', () => {
+        chosenDisplay = displays.find(d => String(d.id) === displaySelect.value) || displays[0];
+      });
+
+      // Enumerate cameras using the browser MediaDevices API (instant & reliable)
+      cameraSelect.innerHTML = '<option value="" disabled selected>Searching for cameras...</option>';
+      try {
+        // Request camera permission first — enumerateDevices needs it to get labels
+        await navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+          stream.getTracks().forEach(t => t.stop()); // Release immediately
+        });
+
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(d => d.kind === 'videoinput');
+
+        cameraSelect.innerHTML = '';
+        if (videoDevices.length === 0) {
+          cameraSelect.innerHTML = '<option value="" disabled>No cameras found</option>';
+        } else {
+          videoDevices.forEach((dev, i) => {
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = dev.label || `Camera ${i}`;
+            cameraSelect.appendChild(opt);
+          });
+          startBtn.disabled = false;
+        }
+      } catch (err) {
+        console.error('Camera enumeration failed:', err);
+        cameraSelect.innerHTML = '<option value="" disabled>Camera access denied</option>';
+      }
+    })();
 
     // ── IPC Communication ───────────────────────────────────────────────────────
 
     startBtn.addEventListener('click', () => {
+      const cameraIndex = parseInt(cameraSelect.value, 10) || 0;
+      const displayId = chosenDisplay ? chosenDisplay.id : 0;
+
+      // Tell main process to move window to chosen display and start Python
+      window.calibrationAPI.startCalibration(cameraIndex, displayId);
+
       introEl.classList.add('hidden');
       progressEl.classList.remove('hidden');
       sampleStatus.classList.remove('hidden');
+      document.body.classList.add('calibrating');
       currentPoint = 0;
-      showPoint(currentPoint);
+
+      // Small delay so the window can reposition before showing dots
+      setTimeout(() => showPoint(currentPoint), 500);
     });
 
     closeBtn.addEventListener('click', () => {
@@ -228,6 +335,7 @@
       dotEl.classList.add('hidden');
       progressEl.classList.add('hidden');
       sampleStatus.classList.add('hidden');
+      document.body.classList.remove('calibrating');
       completeEl.classList.remove('hidden');
     });
 
@@ -243,8 +351,11 @@
       }
 
       const pos = GRID_POSITIONS[index];
-      const screenX = Math.round(pos.xPct * window.screen.width);
-      const screenY = Math.round(pos.yPct * window.screen.height);
+      // Use the chosen display's resolution for screen coordinates
+      const dispW = chosenDisplay ? chosenDisplay.width : window.screen.width;
+      const dispH = chosenDisplay ? chosenDisplay.height : window.screen.height;
+      const screenX = Math.round(pos.xPct * dispW);
+      const screenY = Math.round(pos.yPct * dispH);
 
       // Position the dot
       dotEl.style.left = `${pos.xPct * 100}%`;
