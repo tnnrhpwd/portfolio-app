@@ -53,6 +53,26 @@ RIGHT_IRIS = [473, 474, 475, 476, 477]
 LEFT_IRIS_CENTER = 468
 RIGHT_IRIS_CENTER = 473
 
+# ── Eye Contour Landmark Indices for Blink Detection (EAR) ──────────────────────
+# Left eye vertical: top 159, bottom 145; horizontal: left 33, right 133
+# Right eye vertical: top 386, bottom 374; horizontal: left 362, right 263
+LEFT_EYE_TOP = 159
+LEFT_EYE_BOTTOM = 145
+LEFT_EYE_LEFT = 33
+LEFT_EYE_RIGHT = 133
+RIGHT_EYE_TOP = 386
+RIGHT_EYE_BOTTOM = 374
+RIGHT_EYE_LEFT = 362
+RIGHT_EYE_RIGHT = 263
+
+# ── Head Pose Estimation Landmarks ──────────────────────────────────────────────
+# 6-point model: nose tip, chin, left/right eye corners, left/right mouth corners
+HEAD_POSE_LANDMARKS = [1, 152, 33, 263, 61, 291]
+
+# EAR threshold for blink detection
+EAR_BLINK_THRESHOLD = 0.21
+EAR_CONSEC_FRAMES = 2  # Minimum consecutive frames below threshold to count as blink
+
 
 class EyeTracker:
     def __init__(self, camera_index=0, screen_width=1920, screen_height=1080,
@@ -75,6 +95,29 @@ class EyeTracker:
         self.current_cal_point = None
         self.cal_sample_count = 45  # Minimum frames to collect per point
         self.cal_max_samples = 150  # Max frames before forcing done
+
+        # ── Blink detection state ──
+        self.blink_counter = 0       # consecutive frames with low EAR
+        self.is_blinking = False
+        self.blink_total = 0         # total blinks detected this session
+
+        # ── Adaptive smoothing state ──
+        self.prev_raw_x = None
+        self.prev_raw_y = None
+        self.prev_time = None
+        self.smoothing_alpha_min = 0.08   # very smooth for fixations
+        self.smoothing_alpha_max = 0.65   # responsive for saccades
+        self.velocity_threshold_low = 50   # px/frame below = fixation
+        self.velocity_threshold_high = 300 # px/frame above = saccade
+
+        # ── Head pose compensation state ──
+        self.base_head_yaw = None
+        self.base_head_pitch = None
+        self.head_compensation_gain = 150.0  # pixels per radian of head rotation
+
+        # ── Face-loss grace period ──
+        self.face_lost_time = None
+        self.grace_period = 0.5  # seconds to hold last position when face lost
 
         # Load calibration if available
         if calibration_file:
@@ -138,6 +181,139 @@ class EyeTracker:
             self.smoothed_x = self.smoothing_alpha * x + (1 - self.smoothing_alpha) * self.smoothed_x
             self.smoothed_y = self.smoothing_alpha * y + (1 - self.smoothing_alpha) * self.smoothed_y
         return self.smoothed_x, self.smoothed_y
+
+    def _compute_ear(self, landmarks, frame_width, frame_height):
+        """Compute Eye Aspect Ratio (EAR) for blink detection.
+        EAR = (|top - bottom|) / (|left - right|) averaged over both eyes.
+        Low EAR (~<0.21) indicates a blink."""
+        def dist(a, b):
+            return np.sqrt((a.x - b.x)**2 + (a.y - b.y)**2)
+
+        # Left eye
+        left_v = dist(landmarks[LEFT_EYE_TOP], landmarks[LEFT_EYE_BOTTOM])
+        left_h = dist(landmarks[LEFT_EYE_LEFT], landmarks[LEFT_EYE_RIGHT])
+        left_ear = left_v / (left_h + 1e-6)
+
+        # Right eye
+        right_v = dist(landmarks[RIGHT_EYE_TOP], landmarks[RIGHT_EYE_BOTTOM])
+        right_h = dist(landmarks[RIGHT_EYE_LEFT], landmarks[RIGHT_EYE_RIGHT])
+        right_ear = right_v / (right_h + 1e-6)
+
+        return (left_ear + right_ear) / 2.0
+
+    def _detect_blink(self, ear):
+        """Update blink state based on current EAR value.
+        Returns True if currently in a blink."""
+        if ear < EAR_BLINK_THRESHOLD:
+            self.blink_counter += 1
+        else:
+            if self.blink_counter >= EAR_CONSEC_FRAMES:
+                self.blink_total += 1
+            self.blink_counter = 0
+
+        self.is_blinking = self.blink_counter >= EAR_CONSEC_FRAMES
+        return self.is_blinking
+
+    def _adaptive_smooth(self, x, y):
+        """Velocity-adaptive smoothing: responsive during saccades, stable during fixations."""
+        now = time.time()
+        if self.prev_raw_x is None:
+            self.prev_raw_x = x
+            self.prev_raw_y = y
+            self.prev_time = now
+            self.smoothed_x = x
+            self.smoothed_y = y
+            return x, y
+
+        dt = max(now - self.prev_time, 0.001)
+        velocity = np.sqrt((x - self.prev_raw_x)**2 + (y - self.prev_raw_y)**2) / (dt * 30)  # normalize to ~30fps
+
+        self.prev_raw_x = x
+        self.prev_raw_y = y
+        self.prev_time = now
+
+        # Map velocity to alpha: low velocity = low alpha (smooth), high velocity = high alpha (responsive)
+        if velocity <= self.velocity_threshold_low:
+            alpha = self.smoothing_alpha_min
+        elif velocity >= self.velocity_threshold_high:
+            alpha = self.smoothing_alpha_max
+        else:
+            t = (velocity - self.velocity_threshold_low) / (self.velocity_threshold_high - self.velocity_threshold_low)
+            alpha = self.smoothing_alpha_min + t * (self.smoothing_alpha_max - self.smoothing_alpha_min)
+
+        self.smoothed_x = alpha * x + (1 - alpha) * self.smoothed_x
+        self.smoothed_y = alpha * y + (1 - alpha) * self.smoothed_y
+        return self.smoothed_x, self.smoothed_y
+
+    def _estimate_head_pose(self, landmarks, frame_width, frame_height):
+        """Estimate head yaw and pitch from 6 key face landmarks using solvePnP."""
+        # 3D model points (generic face model, centered at nose tip)
+        model_points = np.array([
+            (0.0, 0.0, 0.0),          # Nose tip
+            (0.0, -63.6, -12.5),       # Chin
+            (-43.3, 32.7, -26.0),      # Left eye left corner
+            (43.3, 32.7, -26.0),       # Right eye right corner
+            (-28.9, -28.9, -24.1),     # Left mouth corner
+            (28.9, -28.9, -24.1),      # Right mouth corner
+        ], dtype=np.float64)
+
+        # 2D image points from landmarks
+        image_points = np.array([
+            (landmarks[idx].x * frame_width, landmarks[idx].y * frame_height)
+            for idx in HEAD_POSE_LANDMARKS
+        ], dtype=np.float64)
+
+        # Camera internals (approximate)
+        focal_length = frame_width
+        center = (frame_width / 2, frame_height / 2)
+        camera_matrix = np.array([
+            [focal_length, 0, center[0]],
+            [0, focal_length, center[1]],
+            [0, 0, 1],
+        ], dtype=np.float64)
+        dist_coeffs = np.zeros((4, 1))
+
+        success, rotation_vector, translation_vector = cv2.solvePnP(
+            model_points, image_points, camera_matrix, dist_coeffs,
+            flags=cv2.SOLVEPNP_ITERATIVE,
+        )
+        if not success:
+            return 0.0, 0.0
+
+        # Convert rotation vector to Euler angles
+        rotation_matrix, _ = cv2.Rodrigues(rotation_vector)
+        # Extract yaw (Y-axis) and pitch (X-axis) from rotation matrix
+        yaw = np.arctan2(rotation_matrix[2][0], rotation_matrix[2][2])
+        pitch = np.arctan2(-rotation_matrix[2][1],
+                           np.sqrt(rotation_matrix[2][0]**2 + rotation_matrix[2][2]**2))
+
+        return float(yaw), float(pitch)
+
+    def _apply_head_compensation(self, screen_x, screen_y, yaw, pitch):
+        """Offset gaze position based on head rotation delta from baseline."""
+        if self.base_head_yaw is None:
+            # First frame: set baseline
+            self.base_head_yaw = yaw
+            self.base_head_pitch = pitch
+            return screen_x, screen_y
+
+        delta_yaw = yaw - self.base_head_yaw
+        delta_pitch = pitch - self.base_head_pitch
+
+        # Only compensate small head movements (within ~15 degrees)
+        max_angle = 0.26  # ~15 degrees in radians
+        delta_yaw = max(-max_angle, min(max_angle, delta_yaw))
+        delta_pitch = max(-max_angle, min(max_angle, delta_pitch))
+
+        # Offset: head turns right → gaze drifts left, so subtract
+        comp_x = screen_x - delta_yaw * self.head_compensation_gain
+        comp_y = screen_y + delta_pitch * self.head_compensation_gain
+
+        # Clamp
+        comp_x = max(0, min(self.screen_width - 1, comp_x))
+        comp_y = max(0, min(self.screen_height - 1, comp_y))
+
+        return comp_x, comp_y
 
     def _handle_calibration_frame(self, iris_x, iris_y):
         """Collect iris sample for the current calibration point."""
@@ -305,17 +481,40 @@ class EyeTracker:
                 if not results.multi_face_landmarks:
                     no_face_count += 1
                     face_was_lost = True
+
+                    # ── Grace period: hold last position when face briefly lost ──
+                    if mode == "track" and self.smoothed_x is not None:
+                        if self.face_lost_time is None:
+                            self.face_lost_time = time.time()
+                        elapsed_lost = time.time() - self.face_lost_time
+                        if elapsed_lost < self.grace_period:
+                            # Emit last known position with decaying confidence
+                            decay = max(0.3, 1.0 - (elapsed_lost / self.grace_period))
+                            self._emit({
+                                "x": round(self.smoothed_x),
+                                "y": round(self.smoothed_y),
+                                "confidence": round(decay, 3),
+                                "both_eyes": False,
+                                "held": True,
+                            })
+                            continue
+
                     if no_face_count % 30 == 0:  # Report every ~1 second
                         self._emit({"error": "No face detected", "frames_missed": no_face_count})
                     continue
 
-                # Face found — emit status if it was previously lost
+                # Face found — reset grace period and emit status if previously lost
+                self.face_lost_time = None
                 if face_was_lost:
                     face_was_lost = False
                     self._emit({"status": "face_detected"})
                 no_face_count = 0
                 landmarks = results.multi_face_landmarks[0].landmark
                 h, w = frame.shape[:2]
+
+                # ── Blink detection ──
+                ear = self._compute_ear(landmarks, w, h)
+                is_blink = self._detect_blink(ear)
 
                 iris_x, iris_y, both_eyes = self._get_iris_center(landmarks, w, h)
 
@@ -336,11 +535,14 @@ class EyeTracker:
                         "confidence": round(confidence, 3),
                         "both_eyes": both_eyes,
                         "frame_size": [w, h],
+                        "ear": round(ear, 3),
+                        "blink": is_blink,
                     })
                     continue
 
                 if mode == "calibrate" or self.calibrating:
-                    self._handle_calibration_frame(iris_x, iris_y)
+                    if not is_blink:  # Don't collect samples during blinks
+                        self._handle_calibration_frame(iris_x, iris_y)
                     continue
 
                 # Mode: track — map to screen coordinates
@@ -349,18 +551,34 @@ class EyeTracker:
                     time.sleep(1)  # Don't spam
                     continue
 
+                # ── Skip cursor movement during blinks ──
+                if is_blink:
+                    self._emit({
+                        "x": round(self.smoothed_x) if self.smoothed_x else 0,
+                        "y": round(self.smoothed_y) if self.smoothed_y else 0,
+                        "confidence": 0.0,
+                        "both_eyes": both_eyes,
+                        "blink": True,
+                    })
+                    continue
+
                 screen_x, screen_y = self._apply_homography(iris_x, iris_y)
                 if screen_x is None:
                     continue
 
-                # Apply smoothing
-                smooth_x, smooth_y = self._smooth(screen_x, screen_y)
+                # ── Head pose compensation ──
+                yaw, pitch = self._estimate_head_pose(landmarks, w, h)
+                screen_x, screen_y = self._apply_head_compensation(screen_x, screen_y, yaw, pitch)
+
+                # ── Adaptive velocity-based smoothing ──
+                smooth_x, smooth_y = self._adaptive_smooth(screen_x, screen_y)
 
                 self._emit({
                     "x": round(smooth_x),
                     "y": round(smooth_y),
                     "confidence": round(confidence, 3),
                     "both_eyes": both_eyes,
+                    "ear": round(ear, 3),
                 })
 
         finally:

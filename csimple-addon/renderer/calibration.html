@@ -142,6 +142,42 @@
     .accuracy-hud .big.ok   { color: #f9e2af; }
     .accuracy-hud .big.bad  { color: #f38ba8; }
 
+    /* ── Camera preview ─── */
+    #camera-preview-wrap {
+      position: relative; margin: 16px auto; width: 260px; height: 195px;
+      border-radius: 10px; overflow: hidden; border: 2px solid #313244;
+      background: #11111b;
+    }
+    #camera-preview-wrap video {
+      width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);
+    }
+    #camera-preview-status {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      padding: 4px 10px; font-size: 12px; text-align: center;
+      background: rgba(17,17,27,0.85);
+    }
+    #camera-preview-status.detecting { color: #f9e2af; }
+    #camera-preview-status.detected  { color: #a6e3a1; }
+    #camera-preview-status.error     { color: #f38ba8; }
+    .face-indicator {
+      position: absolute; top: 8px; right: 8px; width: 12px; height: 12px;
+      border-radius: 50%; background: #585b70;
+    }
+    .face-indicator.active { background: #a6e3a1; animation: face-pulse 1s ease-in-out infinite alternate; }
+    @keyframes face-pulse {
+      from { box-shadow: 0 0 0 0 rgba(166,227,161,0.4); }
+      to   { box-shadow: 0 0 8px 4px rgba(166,227,161,0.1); }
+    }
+
+    /* ── Blink indicator ─── */
+    #blink-indicator {
+      position: fixed; top: 20px; right: 20px; z-index: 200;
+      padding: 4px 12px; border-radius: 6px; font-size: 12px;
+      background: rgba(243,139,168,0.15); color: #f38ba8; border: 1px solid #f38ba8;
+      opacity: 0; transition: opacity 0.15s;
+    }
+    #blink-indicator.visible { opacity: 1; }
+
     .hidden { display: none !important; }
   </style>
 </head>
@@ -182,9 +218,18 @@
       </select>
     </div>
 
+    <div id="camera-preview-wrap">
+      <video id="camera-preview" autoplay muted playsinline></video>
+      <div class="face-indicator" id="faceIndicator"></div>
+      <div id="camera-preview-status" class="detecting">Starting camera...</div>
+    </div>
+
     <button class="btn" id="startBtn" disabled>Begin Calibration</button>
   </div>
 </div>
+
+<!-- ═══════════ Blink indicator ═══════════ -->
+<div id="blink-indicator">Blink detected — paused</div>
 
 <!-- ═══════════ Calibration dot ═══════════ -->
 <div class="cal-dot hidden" id="calDot"></div>
@@ -267,6 +312,77 @@ const recalBtn   = $('recalBtn');
 const camSel     = $('cameraSelect');
 const dispSel    = $('displaySelect');
 const ptsSel     = $('pointsSelect');
+const camPreview = $('camera-preview');
+const camStatus  = $('camera-preview-status');
+const faceInd    = $('faceIndicator');
+const blinkInd   = $('blink-indicator');
+
+let previewStream = null;
+let blinkTimeout  = null;
+
+// ════════════════════════════════════════════════════════════════════════════════
+// Camera Preview — start live feed on setup screen
+// ════════════════════════════════════════════════════════════════════════════════
+async function startCameraPreview(deviceIndex) {
+  // Stop any existing stream
+  if (previewStream) {
+    previewStream.getTracks().forEach(t => t.stop());
+    previewStream = null;
+  }
+
+  try {
+    const devices = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+    const device = devices[deviceIndex];
+    const constraints = device
+      ? { video: { deviceId: { exact: device.deviceId }, width: 320, height: 240 } }
+      : { video: { width: 320, height: 240 } };
+
+    previewStream = await navigator.mediaDevices.getUserMedia(constraints);
+    camPreview.srcObject = previewStream;
+    camStatus.textContent = 'Camera active — position your face';
+    camStatus.className = 'detecting';
+    faceInd.classList.remove('active');
+
+    // Simple face detection check using built-in FaceDetector API if available,
+    // otherwise just show camera feed without face detection
+    if (typeof FaceDetector !== 'undefined') {
+      const detector = new FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
+      let checkCount = 0;
+      const checkFace = async () => {
+        if (!previewStream || checkCount > 300) return; // Stop after ~30s
+        checkCount++;
+        try {
+          const faces = await detector.detect(camPreview);
+          if (faces.length > 0) {
+            camStatus.textContent = 'Face detected — ready to calibrate!';
+            camStatus.className = 'detected';
+            faceInd.classList.add('active');
+          } else {
+            camStatus.textContent = 'Position your face in front of the camera';
+            camStatus.className = 'detecting';
+            faceInd.classList.remove('active');
+          }
+        } catch {}
+        if (previewStream) setTimeout(checkFace, 100);
+      };
+      setTimeout(checkFace, 500);
+    } else {
+      camStatus.textContent = 'Camera active — ready to calibrate';
+      camStatus.className = 'detected';
+    }
+  } catch (e) {
+    camStatus.textContent = 'Camera unavailable';
+    camStatus.className = 'error';
+  }
+}
+
+function stopCameraPreview() {
+  if (previewStream) {
+    previewStream.getTracks().forEach(t => t.stop());
+    previewStream = null;
+  }
+  camPreview.srcObject = null;
+}
 
 // ════════════════════════════════════════════════════════════════════════════════
 // Startup: enumerate cameras & displays
@@ -300,6 +416,9 @@ const ptsSel     = $('pointsSelect');
         camSel.appendChild(o);
       });
       startBtn.disabled = false;
+      // Start live camera preview
+      startCameraPreview(0);
+      camSel.onchange = () => startCameraPreview(parseInt(camSel.value, 10));
     }
   } catch (e) {
     camSel.innerHTML = '<option value="" disabled>Camera access denied</option>';
@@ -337,6 +456,9 @@ startBtn.onclick = () => beginCalibration();
 function beginCalibration() {
   chosenCamera = parseInt(camSel.value, 10) || 0;
   aborted = false; calIdx = 0; faceDetected = false; pointDone = false;
+
+  // Stop the setup camera preview (Python will use the camera)
+  stopCameraPreview();
 
   const dispId = chosenDisplay ? chosenDisplay.id : 0;
   window.calibrationAPI.startCalibration(chosenCamera, dispId);
@@ -546,6 +668,14 @@ function onGazeData(data) {
   const dW = chosenDisplay ? chosenDisplay.width : screen.width;
   const dH = chosenDisplay ? chosenDisplay.height : screen.height;
 
+  // ── Blink indicator ──
+  if (data.blink) {
+    blinkInd.classList.add('visible');
+    if (blinkTimeout) clearTimeout(blinkTimeout);
+    blinkTimeout = setTimeout(() => blinkInd.classList.remove('visible'), 300);
+    return; // Don't update gaze cursor during blink
+  }
+
   // Move gaze cursor
   gazeCursor.style.left = `${(data.x / dW) * 100}%`;
   gazeCursor.style.top  = `${(data.y / dH) * 100}%`;
@@ -616,6 +746,8 @@ recalBtn.onclick = () => {
   cleanupValidation();
   showScreen(sSetup);
   escHint.classList.add('hidden');
+  // Restart camera preview for setup screen
+  startCameraPreview(parseInt(camSel.value, 10) || 0);
 };
 
 closeBtn.onclick = () => window.calibrationAPI.close();

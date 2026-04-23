@@ -219,9 +219,12 @@ while ($true) {
             if (typeof data.x === 'number' && typeof data.y === 'number') {
               // Always emit gaze data for listeners (validation screen)
               if (this.onGazeData) {
-                this.onGazeData({ x: data.x, y: data.y, confidence: data.confidence });
+                this.onGazeData({ x: data.x, y: data.y, confidence: data.confidence, blink: data.blink });
               }
-              if (!this.validationMode && data.confidence >= confidence) {
+              // Skip cursor movement during blinks or held (grace period) low-confidence frames
+              const isBlink = data.blink === true;
+              const isHeld = data.held === true;
+              if (!this.validationMode && !isBlink && data.confidence >= confidence) {
                 this._moveCursor(data.x, data.y);
               }
             }
