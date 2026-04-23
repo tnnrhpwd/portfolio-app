@@ -137,6 +137,14 @@ class EyeTracker:
         self.base_head_pitch = None
         self.head_compensation_gain = 0.0  # disabled by default (was 150); iris-only tracking
 
+        # ── Eye-corner low-pass state (for stable normalization denominator) ──
+        # The head moves slowly relative to the eyes, so we lowpass-filter the
+        # eye-corner landmark positions before using them as the reference frame
+        # for iris normalization. This dramatically reduces feature jitter
+        # without dampening actual saccades (the iris itself stays unfiltered).
+        self._eye_anchor = None  # dict of smoothed corner/edge positions
+        self._eye_anchor_alpha = 0.15  # heavy smoothing on the head-frame anchor
+
         # ── Face-loss grace period ──
         self.face_lost_time = None
         self.grace_period = 0.5  # seconds to hold last position when face lost
@@ -193,77 +201,84 @@ class EyeTracker:
     def _get_iris_center(self, landmarks, frame_width, frame_height):
         """Extract a head-pose-invariant gaze feature.
 
-        PROBLEM: Raw iris pixel coordinates (iris.x * frame_width) move whenever
-        the head translates, even if the eyes haven't moved relative to the head.
-        That makes the calibration learn "head position → screen position" instead
-        of true gaze, so the cursor follows your head instead of your eyes.
+        The raw iris pixel coordinates move with the head, so calibration ends
+        up learning "head pose → screen" instead of true gaze. To fix that, we
+        compute the iris position **relative to a smoothed eye-corner anchor**.
 
-        FIX: Compute iris position *relative to its own eye corners*, which is
-        invariant to head translation and largely invariant to head rotation
-        (small angles). For each eye independently:
-            norm_x = (iris_x - eye_left_x) / eye_width
-            norm_y = (iris_y - eye_top_y) / eye_height
-        Typical range ≈ [0.3, 0.7]. Then average left/right eyes, and finally
-        rescale by a representative inter-ocular distance so downstream code
-        (which expects pixel-like magnitudes) still gets sensible numbers.
+        Key design decisions to keep this both head-invariant AND low-noise:
+          1. Use the *horizontal* eye-corner distance (eye_width ≈ 30–40px) as
+             the unit length for BOTH axes. eye_height (~10–15px) is too small
+             and shrinks during blinks, which made the previous version of this
+             feature extremely jittery on the y axis.
+          2. Lowpass-filter the eye-corner landmarks themselves with a heavy
+             EMA (α=0.15). The head moves slowly compared to the eyes, so the
+             corner positions should be stable. The iris position itself is
+             NOT filtered, so saccades remain snappy.
+          3. Average left/right eyes for binocular noise reduction.
 
-        Returns (gaze_x, gaze_y, both_eyes) where gaze_{x,y} are in "synthetic
-        pixel" units that depend ONLY on where the irises sit within the eye
-        openings, not on where the head is in the frame.
+        Returns (gaze_x, gaze_y, both_eyes) where gaze_{x,y} are in synthetic
+        pixels keyed off inter-ocular distance, so downstream code (poly2 fit,
+        residual thresholds, iris-range diagnostics) keeps its familiar scale.
         """
-        # --- Left eye ---
+        # --- Raw landmark pixel positions ---
         l_iris_x = landmarks[LEFT_IRIS_CENTER].x * frame_width
         l_iris_y = landmarks[LEFT_IRIS_CENTER].y * frame_height
-        l_corner_left_x  = landmarks[LEFT_EYE_LEFT].x  * frame_width
-        l_corner_left_y  = landmarks[LEFT_EYE_LEFT].y  * frame_height
-        l_corner_right_x = landmarks[LEFT_EYE_RIGHT].x * frame_width
-        l_corner_right_y = landmarks[LEFT_EYE_RIGHT].y * frame_height
-        l_top_y    = landmarks[LEFT_EYE_TOP].y    * frame_height
-        l_bottom_y = landmarks[LEFT_EYE_BOTTOM].y * frame_height
-
-        l_eye_w = (l_corner_right_x - l_corner_left_x)
-        l_eye_h = (l_bottom_y - l_top_y)
-        if abs(l_eye_w) < 1e-3 or abs(l_eye_h) < 1e-3:
-            return None, None, False
-        # Eye-corner-relative iris position (origin = inner-left corner of eye)
-        l_eye_cx = (l_corner_left_x + l_corner_right_x) * 0.5
-        l_eye_cy = (l_top_y + l_bottom_y) * 0.5
-        l_norm_x = (l_iris_x - l_eye_cx) / l_eye_w   # ≈ [-0.3, +0.3]
-        l_norm_y = (l_iris_y - l_eye_cy) / l_eye_h   # ≈ [-0.4, +0.4]
-
-        # --- Right eye ---
         r_iris_x = landmarks[RIGHT_IRIS_CENTER].x * frame_width
         r_iris_y = landmarks[RIGHT_IRIS_CENTER].y * frame_height
-        r_corner_left_x  = landmarks[RIGHT_EYE_LEFT].x  * frame_width
-        r_corner_left_y  = landmarks[RIGHT_EYE_LEFT].y  * frame_height
-        r_corner_right_x = landmarks[RIGHT_EYE_RIGHT].x * frame_width
-        r_corner_right_y = landmarks[RIGHT_EYE_RIGHT].y * frame_height
-        r_top_y    = landmarks[RIGHT_EYE_TOP].y    * frame_height
-        r_bottom_y = landmarks[RIGHT_EYE_BOTTOM].y * frame_height
 
-        r_eye_w = (r_corner_right_x - r_corner_left_x)
-        r_eye_h = (r_bottom_y - r_top_y)
-        if abs(r_eye_w) < 1e-3 or abs(r_eye_h) < 1e-3:
+        l_left_x  = landmarks[LEFT_EYE_LEFT].x  * frame_width
+        l_left_y  = landmarks[LEFT_EYE_LEFT].y  * frame_height
+        l_right_x = landmarks[LEFT_EYE_RIGHT].x * frame_width
+        l_right_y = landmarks[LEFT_EYE_RIGHT].y * frame_height
+
+        r_left_x  = landmarks[RIGHT_EYE_LEFT].x  * frame_width
+        r_left_y  = landmarks[RIGHT_EYE_LEFT].y  * frame_height
+        r_right_x = landmarks[RIGHT_EYE_RIGHT].x * frame_width
+        r_right_y = landmarks[RIGHT_EYE_RIGHT].y * frame_height
+
+        raw = {
+            'l_left_x': l_left_x,  'l_left_y': l_left_y,
+            'l_right_x': l_right_x, 'l_right_y': l_right_y,
+            'r_left_x': r_left_x,  'r_left_y': r_left_y,
+            'r_right_x': r_right_x, 'r_right_y': r_right_y,
+        }
+
+        # --- Lowpass-filter the head-frame anchor (eye corners) ---
+        if self._eye_anchor is None:
+            self._eye_anchor = dict(raw)
+        else:
+            a = self._eye_anchor_alpha
+            for k, v in raw.items():
+                self._eye_anchor[k] = a * v + (1 - a) * self._eye_anchor[k]
+
+        a = self._eye_anchor
+        # Per-eye center & width from the smoothed anchor
+        l_cx = (a['l_left_x'] + a['l_right_x']) * 0.5
+        l_cy = (a['l_left_y'] + a['l_right_y']) * 0.5
+        l_w  = a['l_right_x'] - a['l_left_x']
+        r_cx = (a['r_left_x'] + a['r_right_x']) * 0.5
+        r_cy = (a['r_left_y'] + a['r_right_y']) * 0.5
+        r_w  = a['r_right_x'] - a['r_left_x']
+
+        if abs(l_w) < 5.0 or abs(r_w) < 5.0:
             return None, None, False
-        r_eye_cx = (r_corner_left_x + r_corner_right_x) * 0.5
-        r_eye_cy = (r_top_y + r_bottom_y) * 0.5
-        r_norm_x = (r_iris_x - r_eye_cx) / r_eye_w
-        r_norm_y = (r_iris_y - r_eye_cy) / r_eye_h
 
-        # Average both eyes (binocular fusion + noise reduction)
+        # Iris offset from each eye's smoothed center, normalized by eye_width
+        # (use eye_width for BOTH axes — eye_height is too noisy/small).
+        l_norm_x = (l_iris_x - l_cx) / l_w
+        l_norm_y = (l_iris_y - l_cy) / l_w
+        r_norm_x = (r_iris_x - r_cx) / r_w
+        r_norm_y = (r_iris_y - r_cy) / r_w
+
+        # Binocular average
         norm_x = (l_norm_x + r_norm_x) * 0.5
         norm_y = (l_norm_y + r_norm_y) * 0.5
 
-        # Rescale to "synthetic pixels" so the rest of the pipeline (poly2 fit,
-        # iris-range diagnostics, residual thresholds) keeps working with
-        # familiar magnitudes. Use inter-ocular distance as the unit length:
-        # scale chosen so a fully-left → fully-right eye sweep spans roughly
-        # the same pixel range as the old raw-iris-pixel feature did (~80px).
-        inter_ocular = abs(((l_corner_left_x + l_corner_right_x) * 0.5)
-                           - ((r_corner_left_x + r_corner_right_x) * 0.5))
+        # Rescale to "synthetic pixels" using inter-ocular distance, so the
+        # rest of the pipeline keeps its familiar magnitudes (~80–120px sweep).
+        inter_ocular = abs(l_cx - r_cx)
         if inter_ocular < 1.0:
             inter_ocular = 1.0
-        # Multiplier ≈ 200 gives sweep range ~80–120px for typical eyes
         gaze_x = norm_x * inter_ocular * 2.0
         gaze_y = norm_y * inter_ocular * 2.0
 
