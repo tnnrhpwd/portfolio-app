@@ -13,9 +13,13 @@ numpy>=1.21.0
 requests>=2.25.0
 
 # Eye tracking dependencies
-mediapipe>=0.10.0
+# Pin mediapipe to a version that still ships the legacy `mp.solutions.face_mesh`
+# Solutions API (used by eye_tracker.py). Removed in 0.10.15+.
+mediapipe>=0.10.0,<0.10.15
 opencv-python>=4.8.0
 pygrabber>=0.2
+# protobuf 5.x breaks the bundled mediapipe protobuf runtime on Windows
+protobuf>=4.25.0,<5.0.0
 
 # Note: The application will automatically create a virtual environment
 # in %LOCALAPPDATA%/CSimple/venv and install these dependencies.

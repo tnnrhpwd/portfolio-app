@@ -103,6 +103,7 @@ class EyeTracker:
 
         self.running = False
         self.homography = None
+        self.gaze_model = None  # {type:'poly2', coeffs_x, coeffs_y, iris_mean, iris_scale}
         self.smoothed_x = None
         self.smoothed_y = None
 
@@ -112,6 +113,10 @@ class EyeTracker:
         self.current_cal_point = None
         self.cal_sample_count = 25  # Minimum frames to collect per point
         self.cal_max_samples = 90   # Max frames before forcing done
+        # Prior calibration seed (optimize mode): list of aggregated dicts
+        # [{"sx":..,"sy":..,"ix":..,"iy":..,"w":..}, ...]
+        self.prior_calibration_points = []
+        self.prior_weight_factor = 0.5  # discount old observations vs. fresh samples
 
         # ── Blink detection state ──
         self.blink_counter = 0       # consecutive frames with low EAR
@@ -143,15 +148,30 @@ class EyeTracker:
             self._load_calibration(calibration_file)
 
     def _load_calibration(self, filepath):
-        """Load homography matrix from calibration JSON file."""
+        """Load gaze model (polynomial preferred, homography fallback)."""
         try:
             with open(filepath, 'r') as f:
                 data = json.load(f)
+            self.gaze_model = None
+            if 'gazeModel' in data and data['gazeModel'].get('type') == 'poly2':
+                gm = data['gazeModel']
+                self.gaze_model = {
+                    'type': 'poly2',
+                    'coeffs_x': np.array(gm['coeffs_x'], dtype=np.float64),
+                    'coeffs_y': np.array(gm['coeffs_y'], dtype=np.float64),
+                    'iris_mean': np.array(gm['iris_mean'], dtype=np.float64),
+                    'iris_scale': np.array(gm['iris_scale'], dtype=np.float64),
+                }
             if 'homographyMatrix' in data:
                 self.homography = np.array(data['homographyMatrix'], dtype=np.float64)
-                self._emit({"status": "calibration_loaded", "file": filepath})
+            if self.gaze_model is not None or self.homography is not None:
+                self._emit({
+                    "status": "calibration_loaded",
+                    "file": filepath,
+                    "model": (self.gaze_model or {}).get('type', 'homography'),
+                })
             else:
-                self._emit({"error": f"No homography matrix in {filepath}"})
+                self._emit({"error": f"No gaze model in {filepath}"})
         except FileNotFoundError:
             self._emit({"status": "no_calibration", "file": filepath})
         except Exception as e:
@@ -171,34 +191,205 @@ class EyeTracker:
                 pass
 
     def _get_iris_center(self, landmarks, frame_width, frame_height):
-        """Extract the average iris center from both eyes in frame pixel coordinates."""
-        left_x = landmarks[LEFT_IRIS_CENTER].x * frame_width
-        left_y = landmarks[LEFT_IRIS_CENTER].y * frame_height
-        right_x = landmarks[RIGHT_IRIS_CENTER].x * frame_width
-        right_y = landmarks[RIGHT_IRIS_CENTER].y * frame_height
+        """Extract a head-pose-invariant gaze feature.
 
-        both_eyes = True
-        # Average of both iris centers
-        iris_x = (left_x + right_x) / 2.0
-        iris_y = (left_y + right_y) / 2.0
+        PROBLEM: Raw iris pixel coordinates (iris.x * frame_width) move whenever
+        the head translates, even if the eyes haven't moved relative to the head.
+        That makes the calibration learn "head position → screen position" instead
+        of true gaze, so the cursor follows your head instead of your eyes.
 
-        return iris_x, iris_y, both_eyes
+        FIX: Compute iris position *relative to its own eye corners*, which is
+        invariant to head translation and largely invariant to head rotation
+        (small angles). For each eye independently:
+            norm_x = (iris_x - eye_left_x) / eye_width
+            norm_y = (iris_y - eye_top_y) / eye_height
+        Typical range ≈ [0.3, 0.7]. Then average left/right eyes, and finally
+        rescale by a representative inter-ocular distance so downstream code
+        (which expects pixel-like magnitudes) still gets sensible numbers.
 
-    def _apply_homography(self, iris_x, iris_y):
-        """Map iris coordinates to screen coordinates using the calibration homography."""
-        if self.homography is None:
+        Returns (gaze_x, gaze_y, both_eyes) where gaze_{x,y} are in "synthetic
+        pixel" units that depend ONLY on where the irises sit within the eye
+        openings, not on where the head is in the frame.
+        """
+        # --- Left eye ---
+        l_iris_x = landmarks[LEFT_IRIS_CENTER].x * frame_width
+        l_iris_y = landmarks[LEFT_IRIS_CENTER].y * frame_height
+        l_corner_left_x  = landmarks[LEFT_EYE_LEFT].x  * frame_width
+        l_corner_left_y  = landmarks[LEFT_EYE_LEFT].y  * frame_height
+        l_corner_right_x = landmarks[LEFT_EYE_RIGHT].x * frame_width
+        l_corner_right_y = landmarks[LEFT_EYE_RIGHT].y * frame_height
+        l_top_y    = landmarks[LEFT_EYE_TOP].y    * frame_height
+        l_bottom_y = landmarks[LEFT_EYE_BOTTOM].y * frame_height
+
+        l_eye_w = (l_corner_right_x - l_corner_left_x)
+        l_eye_h = (l_bottom_y - l_top_y)
+        if abs(l_eye_w) < 1e-3 or abs(l_eye_h) < 1e-3:
+            return None, None, False
+        # Eye-corner-relative iris position (origin = inner-left corner of eye)
+        l_eye_cx = (l_corner_left_x + l_corner_right_x) * 0.5
+        l_eye_cy = (l_top_y + l_bottom_y) * 0.5
+        l_norm_x = (l_iris_x - l_eye_cx) / l_eye_w   # ≈ [-0.3, +0.3]
+        l_norm_y = (l_iris_y - l_eye_cy) / l_eye_h   # ≈ [-0.4, +0.4]
+
+        # --- Right eye ---
+        r_iris_x = landmarks[RIGHT_IRIS_CENTER].x * frame_width
+        r_iris_y = landmarks[RIGHT_IRIS_CENTER].y * frame_height
+        r_corner_left_x  = landmarks[RIGHT_EYE_LEFT].x  * frame_width
+        r_corner_left_y  = landmarks[RIGHT_EYE_LEFT].y  * frame_height
+        r_corner_right_x = landmarks[RIGHT_EYE_RIGHT].x * frame_width
+        r_corner_right_y = landmarks[RIGHT_EYE_RIGHT].y * frame_height
+        r_top_y    = landmarks[RIGHT_EYE_TOP].y    * frame_height
+        r_bottom_y = landmarks[RIGHT_EYE_BOTTOM].y * frame_height
+
+        r_eye_w = (r_corner_right_x - r_corner_left_x)
+        r_eye_h = (r_bottom_y - r_top_y)
+        if abs(r_eye_w) < 1e-3 or abs(r_eye_h) < 1e-3:
+            return None, None, False
+        r_eye_cx = (r_corner_left_x + r_corner_right_x) * 0.5
+        r_eye_cy = (r_top_y + r_bottom_y) * 0.5
+        r_norm_x = (r_iris_x - r_eye_cx) / r_eye_w
+        r_norm_y = (r_iris_y - r_eye_cy) / r_eye_h
+
+        # Average both eyes (binocular fusion + noise reduction)
+        norm_x = (l_norm_x + r_norm_x) * 0.5
+        norm_y = (l_norm_y + r_norm_y) * 0.5
+
+        # Rescale to "synthetic pixels" so the rest of the pipeline (poly2 fit,
+        # iris-range diagnostics, residual thresholds) keeps working with
+        # familiar magnitudes. Use inter-ocular distance as the unit length:
+        # scale chosen so a fully-left → fully-right eye sweep spans roughly
+        # the same pixel range as the old raw-iris-pixel feature did (~80px).
+        inter_ocular = abs(((l_corner_left_x + l_corner_right_x) * 0.5)
+                           - ((r_corner_left_x + r_corner_right_x) * 0.5))
+        if inter_ocular < 1.0:
+            inter_ocular = 1.0
+        # Multiplier ≈ 200 gives sweep range ~80–120px for typical eyes
+        gaze_x = norm_x * inter_ocular * 2.0
+        gaze_y = norm_y * inter_ocular * 2.0
+
+        return gaze_x, gaze_y, True
+
+    @staticmethod
+    def _poly2_features(x, y):
+        """2nd-order polynomial feature vector: [1, x, y, x*y, x^2, y^2]."""
+        return np.array([1.0, x, y, x * y, x * x, y * y], dtype=np.float64)
+
+    @staticmethod
+    def _aggregate_point_samples(samples):
+        """Robust per-point aggregation: drop settling prefix, MAD outlier rejection, median.
+
+        Returns (iris_x, iris_y, weight) where weight = 1 / (stability_spread + 1).
+        """
+        n = len(samples)
+        if n == 0:
+            return None
+        xs = np.array([s[0] for s in samples], dtype=np.float64)
+        ys = np.array([s[1] for s in samples], dtype=np.float64)
+
+        # Drop the first 30% — eye is still settling onto the new dot
+        if n >= 10:
+            drop = max(3, int(n * 0.30))
+            xs = xs[drop:]
+            ys = ys[drop:]
+
+        if xs.size < 3:
+            return float(np.median(xs)), float(np.median(ys)), 1.0
+
+        # MAD-based outlier rejection (robust to saccades / glints)
+        med_x, med_y = np.median(xs), np.median(ys)
+        mad_x = np.median(np.abs(xs - med_x)) + 1e-6
+        mad_y = np.median(np.abs(ys - med_y)) + 1e-6
+        # 3 * MAD ≈ 2 sigma for normal data
+        mask = (np.abs(xs - med_x) <= 3.0 * mad_x) & (np.abs(ys - med_y) <= 3.0 * mad_y)
+        if mask.sum() >= 3:
+            xs = xs[mask]
+            ys = ys[mask]
+
+        iris_x = float(np.median(xs))
+        iris_y = float(np.median(ys))
+        spread = float(np.median(np.abs(xs - iris_x)) + np.median(np.abs(ys - iris_y)))
+        weight = 1.0 / (spread + 1.0)
+        return iris_x, iris_y, weight
+
+    def _fit_poly2_gaze_model(self, src, dst, weights):
+        """Fit weighted 2nd-order polynomial mapping iris → screen for x and y axes.
+
+        src: (N, 2) iris coords; dst: (N, 2) screen coords; weights: (N,)
+        Returns dict or None if fitting fails.
+        """
+        n = src.shape[0]
+        if n < 6:
+            return None
+
+        # Normalize iris coords for numerical stability
+        iris_mean = src.mean(axis=0)
+        iris_scale = src.std(axis=0) + 1e-6
+        nx = (src[:, 0] - iris_mean[0]) / iris_scale[0]
+        ny = (src[:, 1] - iris_mean[1]) / iris_scale[1]
+
+        # Design matrix with 2nd-order features: [1, x, y, xy, x², y²]
+        X = np.stack([
+            np.ones_like(nx), nx, ny, nx * ny, nx * nx, ny * ny,
+        ], axis=1)
+
+        w = np.clip(weights, 0.1, 10.0)
+        W = np.diag(w)
+
+        try:
+            # Weighted least squares: (X'WX) β = X'W y
+            XtW = X.T @ W
+            coeffs_x, *_ = np.linalg.lstsq(XtW @ X, XtW @ dst[:, 0], rcond=None)
+            coeffs_y, *_ = np.linalg.lstsq(XtW @ X, XtW @ dst[:, 1], rcond=None)
+        except np.linalg.LinAlgError:
+            return None
+
+        # Sanity: ensure coefficients are finite
+        if not (np.all(np.isfinite(coeffs_x)) and np.all(np.isfinite(coeffs_y))):
+            return None
+
+        return {
+            'type': 'poly2',
+            'coeffs_x': coeffs_x,
+            'coeffs_y': coeffs_y,
+            'iris_mean': iris_mean,
+            'iris_scale': iris_scale,
+        }
+
+    def _evaluate_model_residuals(self, model, src, dst):
+        """Return per-point residuals (screen-pixel distance) and summary stats."""
+        preds = []
+        for ix, iy in src:
+            nx = (ix - model['iris_mean'][0]) / max(model['iris_scale'][0], 1e-6)
+            ny = (iy - model['iris_mean'][1]) / max(model['iris_scale'][1], 1e-6)
+            feats = self._poly2_features(nx, ny)
+            preds.append([feats @ model['coeffs_x'], feats @ model['coeffs_y']])
+        preds = np.array(preds)
+        errs = np.linalg.norm(preds - dst, axis=1)
+        return errs
+
+    def _apply_gaze_model(self, iris_x, iris_y):
+        """Map iris → screen using polynomial model if available, else homography."""
+        if self.gaze_model is not None and self.gaze_model.get('type') == 'poly2':
+            nx = (iris_x - self.gaze_model['iris_mean'][0]) / max(self.gaze_model['iris_scale'][0], 1e-6)
+            ny = (iris_y - self.gaze_model['iris_mean'][1]) / max(self.gaze_model['iris_scale'][1], 1e-6)
+            feats = self._poly2_features(nx, ny)
+            screen_x = float(feats @ self.gaze_model['coeffs_x'])
+            screen_y = float(feats @ self.gaze_model['coeffs_y'])
+        elif self.homography is not None:
+            point = np.array([[[iris_x, iris_y]]], dtype=np.float64)
+            transformed = cv2.perspectiveTransform(point, self.homography)
+            screen_x = float(transformed[0][0][0])
+            screen_y = float(transformed[0][0][1])
+        else:
             return None, None
 
-        point = np.array([[[iris_x, iris_y]]], dtype=np.float64)
-        transformed = cv2.perspectiveTransform(point, self.homography)
-        screen_x = float(transformed[0][0][0])
-        screen_y = float(transformed[0][0][1])
-
-        # Clamp to screen bounds
         screen_x = max(0, min(self.screen_width - 1, screen_x))
         screen_y = max(0, min(self.screen_height - 1, screen_y))
-
         return screen_x, screen_y
+
+    # Back-compat alias
+    def _apply_homography(self, iris_x, iris_y):
+        return self._apply_gaze_model(iris_x, iris_y)
 
     def _smooth(self, x, y):
         """Apply exponential moving average smoothing."""
@@ -352,12 +543,14 @@ class EyeTracker:
         if idx not in self.calibration_points:
             return
 
-        samples = self.calibration_points[idx]["iris_samples"]
+        point = self.calibration_points[idx]
+        samples = point["iris_samples"]
         samples.append((iris_x, iris_y))
 
         n = len(samples)
-        min_samples = self.cal_sample_count
-        max_samples = self.cal_max_samples
+        # Per-point overrides (used by the moving-dot prelude for rapid capture)
+        min_samples = point.get("min_samples") or self.cal_sample_count
+        max_samples = point.get("max_samples") or self.cal_max_samples
 
         # Check gaze stability over the last 15 samples
         stable = False
@@ -381,43 +574,128 @@ class EyeTracker:
         if done:
             self.current_cal_point = None  # Done collecting for this point
 
-    def start_calibration_point(self, index, screen_x, screen_y):
-        """Begin collecting samples for a calibration point."""
+    def start_calibration_point(self, index, screen_x, screen_y, min_samples=None, max_samples=None):
+        """Begin collecting samples for a calibration point.
+
+        Optional per-point thresholds (min_samples, max_samples) let the moving-dot
+        prelude capture small bursts (e.g. 3-8 frames) per sub-target while the
+        static grid keeps the default ~25-90 frame window.
+        """
         self.calibration_points[index] = {
             "screen": (screen_x, screen_y),
             "iris_samples": [],
+            "min_samples": min_samples,
+            "max_samples": max_samples,
         }
         self.current_cal_point = index
         self.calibrating = True
 
+    def load_prior_calibration(self, points):
+        """Seed the fit with previously-calibrated aggregated points (optimize mode).
+
+        `points` is a list of dicts with keys screenX, screenY, irisX, irisY, [weight].
+        Stored points are merged (at discounted weight) during finish_calibration().
+        """
+        self.prior_calibration_points = []
+        if not isinstance(points, list):
+            self._emit({"error": "load_prior_calibration: points must be a list"})
+            return
+        for p in points:
+            try:
+                self.prior_calibration_points.append({
+                    "sx": float(p["screenX"]),
+                    "sy": float(p["screenY"]),
+                    "ix": float(p["irisX"]),
+                    "iy": float(p["irisY"]),
+                    "w":  float(p.get("weight", 1.0)),
+                })
+            except (KeyError, TypeError, ValueError):
+                continue
+        self._emit({
+            "status": "prior_calibration_loaded",
+            "count": len(self.prior_calibration_points),
+        })
+
     def finish_calibration(self, output_file):
-        """Compute homography from collected calibration data and save."""
-        src_points = []  # Iris coordinates
-        dst_points = []  # Screen coordinates
+        """Compute gaze model (weighted poly2 preferred, homography fallback) and save."""
+        src_points = []   # aggregated iris coordinates
+        dst_points = []   # screen coordinates
+        weights = []      # per-point fit weights (inverse spread)
+        agg_per_point = []  # for saving
 
         for idx in sorted(self.calibration_points.keys()):
             point = self.calibration_points[idx]
             samples = point["iris_samples"]
-            if len(samples) < 5:
-                self._emit({"error": f"Not enough samples for point {idx} ({len(samples)} < 5)"})
+            # Moving-dot points have low overrides; honor them. Static dots need >=5.
+            min_required = 3 if point.get("min_samples") else 5
+            if len(samples) < min_required:
+                # Skip silently — sparse moving-dot bursts shouldn't abort the fit.
+                if point.get("min_samples"):
+                    continue
+                self._emit({"error": f"Not enough samples for point {idx} ({len(samples)} < {min_required})"})
                 return False
 
-            xs = np.array([s[0] for s in samples])
-            ys = np.array([s[1] for s in samples])
+            result = self._aggregate_point_samples(samples)
+            if result is None or result[0] is None:
+                self._emit({"error": f"Failed to aggregate samples for point {idx}"})
+                return False
+            iris_x, iris_y, weight = result
 
-            # Outlier rejection: remove samples > 2 std devs from mean
-            if len(samples) > 10:
-                mean_x, mean_y = np.mean(xs), np.mean(ys)
-                std_x, std_y = np.std(xs), np.std(ys)
-                if std_x > 0.01 and std_y > 0.01:
-                    mask = (np.abs(xs - mean_x) < 2 * std_x) & (np.abs(ys - mean_y) < 2 * std_y)
-                    xs = xs[mask]
-                    ys = ys[mask]
-
-            avg_x = float(np.mean(xs))
-            avg_y = float(np.mean(ys))
-            src_points.append([avg_x, avg_y])
+            src_points.append([iris_x, iris_y])
             dst_points.append(list(point["screen"]))
+            weights.append(weight)
+            agg_per_point.append({
+                "index": idx,
+                "screenX": point["screen"][0],
+                "screenY": point["screen"][1],
+                "irisX": iris_x,
+                "irisY": iris_y,
+                "sampleCount": len(samples),
+                "weight": weight,
+            })
+
+        # ── Merge prior calibration points (optimize mode) ──
+        # A new sample supersedes a prior point when they land near the same screen
+        # position (within a proximity threshold scaled to screen size). This lets
+        # the user re-calibrate with a DIFFERENT grid size (e.g. 16 → 25 points):
+        # prior points far from any new dot still anchor the fit at 0.5× weight,
+        # while prior points close to a fresh dot are dropped so they can't bias it.
+        fresh_positions = [(p["screenX"], p["screenY"]) for p in agg_per_point]
+        # ~4% of the screen diagonal — typical calibration dots are spaced >20%
+        prox_threshold = 0.04 * float(np.hypot(self.screen_width, self.screen_height))
+        prior_merged = 0
+        prior_dropped_near_fresh = 0
+        for pp in self.prior_calibration_points:
+            near_fresh = False
+            for (fx, fy) in fresh_positions:
+                if abs(fx - pp["sx"]) <= prox_threshold and abs(fy - pp["sy"]) <= prox_threshold:
+                    near_fresh = True
+                    break
+            if near_fresh:
+                prior_dropped_near_fresh += 1
+                continue
+            src_points.append([pp["ix"], pp["iy"]])
+            dst_points.append([pp["sx"], pp["sy"]])
+            weights.append(pp["w"] * self.prior_weight_factor)
+            agg_per_point.append({
+                "index": -1,  # marker: came from prior calibration
+                "screenX": pp["sx"],
+                "screenY": pp["sy"],
+                "irisX": pp["ix"],
+                "irisY": pp["iy"],
+                "sampleCount": 0,
+                "weight": pp["w"] * self.prior_weight_factor,
+                "fromPrior": True,
+            })
+            prior_merged += 1
+        if prior_merged > 0 or prior_dropped_near_fresh > 0:
+            self._emit({
+                "status": "prior_points_merged",
+                "count": prior_merged,
+                "dropped_near_fresh": prior_dropped_near_fresh,
+                "fresh_count": len(fresh_positions),
+                "proximity_px": prox_threshold,
+            })
 
         if len(src_points) < 4:
             self._emit({"error": f"Need at least 4 calibration points, got {len(src_points)}"})
@@ -425,46 +703,101 @@ class EyeTracker:
 
         src = np.array(src_points, dtype=np.float64)
         dst = np.array(dst_points, dtype=np.float64)
+        w = np.array(weights, dtype=np.float64)
 
-        homography, status = cv2.findHomography(src, dst, cv2.RANSAC, 5.0)
+        # ── Homography (always computed as fallback) ──
+        homography, _ = cv2.findHomography(src, dst, cv2.RANSAC, 5.0)
         if homography is None:
             self._emit({"error": "Failed to compute homography matrix"})
             return False
-
         self.homography = homography
 
-        # Save calibration data
+        # ── Polynomial model (preferred when ≥9 points) ──
+        poly_model = None
+        poly_residuals = None
+        if len(src_points) >= 9:
+            poly_model = self._fit_poly2_gaze_model(src, dst, w)
+            if poly_model is not None:
+                poly_residuals = self._evaluate_model_residuals(poly_model, src, dst)
+
+        # ── Homography residuals (for comparison) ──
+        hom_preds = cv2.perspectiveTransform(src.reshape(-1, 1, 2), homography).reshape(-1, 2)
+        hom_residuals = np.linalg.norm(hom_preds - dst, axis=1)
+
+        # Choose better model by mean residual
+        use_poly = False
+        chosen_residuals = hom_residuals
+        model_type = "homography"
+        if poly_model is not None and poly_residuals is not None:
+            # Prefer polynomial if it improves mean residual by at least 15%
+            if poly_residuals.mean() < hom_residuals.mean() * 0.85:
+                use_poly = True
+                chosen_residuals = poly_residuals
+                model_type = "poly2"
+            else:
+                # Small improvement only → still prefer poly if it doesn't hurt max error significantly
+                if poly_residuals.max() <= hom_residuals.max() * 1.1 and poly_residuals.mean() < hom_residuals.mean():
+                    use_poly = True
+                    chosen_residuals = poly_residuals
+                    model_type = "poly2"
+
+        if use_poly:
+            self.gaze_model = poly_model
+        else:
+            self.gaze_model = None  # homography-only path
+
+        # Attach per-point residuals to saved data
+        for p, r in zip(agg_per_point, chosen_residuals):
+            p["residualPx"] = float(r)
+
         cal_data = {
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
             "screenResolution": {"width": self.screen_width, "height": self.screen_height},
             "cameraIndex": self.camera_index,
-            "points": [
-                {
-                    "index": idx,
-                    "screenX": self.calibration_points[idx]["screen"][0],
-                    "screenY": self.calibration_points[idx]["screen"][1],
-                    "irisX": float(np.mean([s[0] for s in self.calibration_points[idx]["iris_samples"]])),
-                    "irisY": float(np.mean([s[1] for s in self.calibration_points[idx]["iris_samples"]])),
-                }
-                for idx in sorted(self.calibration_points.keys())
-            ],
+            "points": agg_per_point,
             "homographyMatrix": homography.tolist(),
+            "modelType": model_type,
+            "meanResidualPx": float(chosen_residuals.mean()),
+            "maxResidualPx": float(chosen_residuals.max()),
         }
+        if use_poly and poly_model is not None:
+            cal_data["gazeModel"] = {
+                "type": "poly2",
+                "coeffs_x": poly_model['coeffs_x'].tolist(),
+                "coeffs_y": poly_model['coeffs_y'].tolist(),
+                "iris_mean": poly_model['iris_mean'].tolist(),
+                "iris_scale": poly_model['iris_scale'].tolist(),
+            }
 
         try:
             with open(output_file, 'w') as f:
                 json.dump(cal_data, f, indent=2)
-            # Report iris range so UI can surface calibration quality
             iris_xs = [p["irisX"] for p in cal_data["points"]]
             iris_ys = [p["irisY"] for p in cal_data["points"]]
             iris_range_x = float(max(iris_xs) - min(iris_xs)) if iris_xs else 0.0
             iris_range_y = float(max(iris_ys) - min(iris_ys)) if iris_ys else 0.0
+
+            # Identify worst point so UI can suggest recalibration of that region
+            worst_idx = int(np.argmax(chosen_residuals))
+            worst_point = agg_per_point[worst_idx]
+
             self._emit({
                 "calibration": "complete",
                 "file": output_file,
                 "iris_range_x": iris_range_x,
                 "iris_range_y": iris_range_y,
                 "num_points": len(cal_data["points"]),
+                "model_type": model_type,
+                "mean_residual_px": float(chosen_residuals.mean()),
+                "max_residual_px": float(chosen_residuals.max()),
+                "worst_point": {
+                    "index": worst_point["index"],
+                    "screenX": worst_point["screenX"],
+                    "screenY": worst_point["screenY"],
+                    "residualPx": float(chosen_residuals[worst_idx]),
+                },
+                "hom_mean_residual_px": float(hom_residuals.mean()),
+                "poly_mean_residual_px": float(poly_residuals.mean()) if poly_residuals is not None else None,
             })
             self.calibrating = False
             return True
@@ -602,6 +935,9 @@ class EyeTracker:
                 is_blink = self._detect_blink(ear)
 
                 iris_x, iris_y, both_eyes = self._get_iris_center(landmarks, w, h)
+                if iris_x is None or iris_y is None:
+                    # Degenerate eye geometry (e.g. closed eyes / extreme angle); skip frame.
+                    continue
 
                 # Compute a simple confidence based on landmark visibility
                 left_vis = landmarks[LEFT_IRIS_CENTER].visibility if hasattr(landmarks[LEFT_IRIS_CENTER], 'visibility') else 1.0
@@ -631,7 +967,7 @@ class EyeTracker:
                     continue
 
                 # Mode: track — map to screen coordinates
-                if self.homography is None:
+                if self.homography is None and self.gaze_model is None:
                     self._emit({"error": "No calibration data — run calibration first"})
                     time.sleep(1)  # Don't spam
                     continue
@@ -782,10 +1118,14 @@ def stdin_listener(tracker, calibration_output_file):
                 cmd["index"],
                 cmd["screen_x"],
                 cmd["screen_y"],
+                min_samples=cmd.get("min_samples"),
+                max_samples=cmd.get("max_samples"),
             )
         elif cmd.get("cmd") == "finish_calibration":
             output = cmd.get("output_file", calibration_output_file)
             tracker.finish_calibration(output)
+        elif cmd.get("cmd") == "load_prior_calibration":
+            tracker.load_prior_calibration(cmd.get("points", []))
 
 
 def main():

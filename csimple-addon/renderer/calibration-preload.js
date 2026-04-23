@@ -8,16 +8,16 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('calibrationAPI', {
-  reportPoint: (index, screenX, screenY) => {
-    ipcRenderer.send('calibration-point-ready', { index, screenX, screenY });
+  reportPoint: (index, screenX, screenY, opts) => {
+    ipcRenderer.send('calibration-point-ready', { index, screenX, screenY, opts });
   },
 
   finishCalibration: () => {
     ipcRenderer.send('calibration-finish');
   },
 
-  startCalibration: (cameraIndex, displayId) => {
-    ipcRenderer.send('calibration-start', { cameraIndex, displayId });
+  startCalibration: (cameraIndex, displayId, optimize) => {
+    ipcRenderer.send('calibration-start', { cameraIndex, displayId, optimize: !!optimize });
   },
 
   getCameras: () => ipcRenderer.invoke('get-cameras'),
@@ -25,6 +25,8 @@ contextBridge.exposeInMainWorld('calibrationAPI', {
   getCameraSnapshot: (cameraIndex) => ipcRenderer.invoke('get-camera-snapshot', { cameraIndex }),
 
   getDisplays: () => ipcRenderer.invoke('get-displays'),
+
+  getPriorCalibration: () => ipcRenderer.invoke('get-prior-calibration'),
 
   startValidationTracking: (cameraIndex) => ipcRenderer.invoke('start-validation-tracking', { cameraIndex }),
 

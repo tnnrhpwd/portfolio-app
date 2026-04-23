@@ -339,8 +339,10 @@
     </div>
 
     <div id="historyNote" class="history-note hidden"></div>
+    <div id="priorNote" class="history-note hidden"></div>
 
     <button class="btn" id="startBtn" disabled>Begin Calibration</button>
+    <button class="btn secondary hidden" id="optimizeBtn" disabled>Optimize Calibration</button>
   </div>
 </div>
 
@@ -413,17 +415,106 @@
 function buildGrid(n) {
   const side = Math.round(Math.sqrt(n));
   const m = 0.08, step = (1 - 2 * m) / (side - 1);
-  const pts = [];
+  // Generate raw grid
+  const raw = [];
   for (let r = 0; r < side; r++)
     for (let c = 0; c < side; c++)
-      pts.push({ xPct: m + c * step, yPct: m + r * step });
-  return pts;
+      raw.push({ xPct: m + c * step, yPct: m + r * step, r, c });
+
+  // Order: outer ring first, then next ring, ... down to center.
+  // Within each ring traverse clockwise starting top-left.
+  const maxRing = Math.floor((side - 1) / 2);
+  const ordered = [];
+  for (let ring = 0; ring <= maxRing; ring++) {
+    const rMin = ring, rMax = side - 1 - ring;
+    const cMin = ring, cMax = side - 1 - ring;
+    if (rMin === rMax && cMin === cMax) {
+      // Center single cell
+      ordered.push(raw.find(p => p.r === rMin && p.c === cMin));
+      continue;
+    }
+    // Top edge: left → right
+    for (let c = cMin; c <= cMax; c++) ordered.push(raw.find(p => p.r === rMin && p.c === c));
+    // Right edge: top+1 → bottom
+    for (let r = rMin + 1; r <= rMax; r++) ordered.push(raw.find(p => p.r === r && p.c === cMax));
+    // Bottom edge: right-1 → left
+    for (let c = cMax - 1; c >= cMin; c--) ordered.push(raw.find(p => p.r === rMax && p.c === c));
+    // Left edge: bottom-1 → top+1
+    for (let r = rMax - 1; r >= rMin + 1; r--) ordered.push(raw.find(p => p.r === r && p.c === cMin));
+  }
+  return ordered.map(p => ({ xPct: p.xPct, yPct: p.yPct }));
 }
 
 function getModeConfig(mode) {
   if (mode === 'quick') return { points: 9, settleMs: 850, timeoutMs: 15000 };
   if (mode === 'precision') return { points: 25, settleMs: 1400, timeoutMs: 26000 };
   return { points: 16, settleMs: 1200, timeoutMs: 20000 };
+}
+
+// Inter-grid validation positions — picked to land BETWEEN the static grid dots
+// so they probe regions the static fit interpolates. These become real
+// calibration anchors (no more "fake-pass" lock validation).
+function buildValidationGrid(staticGrid) {
+  const cfg = [
+    { xPct: 0.30, yPct: 0.30 }, { xPct: 0.70, yPct: 0.30 },
+    { xPct: 0.50, yPct: 0.50 },
+    { xPct: 0.30, yPct: 0.70 }, { xPct: 0.70, yPct: 0.70 },
+    { xPct: 0.50, yPct: 0.20 }, { xPct: 0.50, yPct: 0.80 },
+    { xPct: 0.20, yPct: 0.50 }, { xPct: 0.80, yPct: 0.50 },
+  ];
+  // Drop validation positions that sit right on top of a static dot
+  const tooClose = 0.06;
+  return cfg.filter(v => !staticGrid.some(s =>
+    Math.abs(s.xPct - v.xPct) < tooClose && Math.abs(s.yPct - v.yPct) < tooClose
+  ));
+}
+
+// Smooth-pursuit path: outer rectangle → spiral inward to center.
+// Returns an array of {xPct, yPct} sampled along the path at ~120ms cadence.
+function buildPursuitPath(durationSec = 8, sampleMs = 140) {
+  const total = Math.floor((durationSec * 1000) / sampleMs);
+  const pts = [];
+  // Two laps around shrinking rectangles, then a converging spiral
+  const margin = 0.10;
+  const rings = 3;
+  // Build a continuous polyline of waypoints
+  const waypoints = [];
+  for (let i = 0; i < rings; i++) {
+    const m = margin + i * 0.10;
+    waypoints.push({ x: m,     y: m });
+    waypoints.push({ x: 1 - m, y: m });
+    waypoints.push({ x: 1 - m, y: 1 - m });
+    waypoints.push({ x: m,     y: 1 - m });
+    waypoints.push({ x: m,     y: m });
+  }
+  waypoints.push({ x: 0.5, y: 0.5 });
+
+  // Resample evenly along the polyline
+  let segLens = [];
+  let totalLen = 0;
+  for (let i = 1; i < waypoints.length; i++) {
+    const dx = waypoints[i].x - waypoints[i - 1].x;
+    const dy = waypoints[i].y - waypoints[i - 1].y;
+    const L = Math.hypot(dx, dy);
+    segLens.push(L); totalLen += L;
+  }
+  for (let k = 0; k < total; k++) {
+    let target = (k / (total - 1)) * totalLen;
+    let acc = 0;
+    for (let i = 1; i < waypoints.length; i++) {
+      const L = segLens[i - 1];
+      if (acc + L >= target) {
+        const t = L === 0 ? 0 : (target - acc) / L;
+        pts.push({
+          xPct: waypoints[i - 1].x + t * (waypoints[i].x - waypoints[i - 1].x),
+          yPct: waypoints[i - 1].y + t * (waypoints[i].y - waypoints[i - 1].y),
+        });
+        break;
+      }
+      acc += L;
+    }
+  }
+  return pts;
 }
 
 function saveTrainingResult(result) {
@@ -506,6 +597,10 @@ function clearPointTimers() {
 }
 
 let GRID = buildGrid(16);
+let GRID_STATIC_LEN = GRID.length;
+let GRID_VAL_LEN = 0;
+let pursuitTimer = null;
+let pursuitActive = false;
 let chosenDisplay = null, chosenCamera = 0, aborted = false;
 
 // ── DOM ────────────────────────────────────────────────────────────────────────
@@ -539,6 +634,8 @@ const faceInd    = $('faceIndicator');
 const refreshPreviewBtn = $('refreshPreviewBtn');
 const blinkInd   = $('blink-indicator');
 const historyNote = $('historyNote');
+const priorNote = $('priorNote');
+const optimizeBtn = $('optimizeBtn');
 const qualityWrap = $('quality-wrap');
 const qualityBar = $('qualityBar');
 const qualityPill = $('qualityPill');
@@ -656,6 +753,8 @@ function stopCameraPreview() {
         camSel.appendChild(o);
       });
       startBtn.disabled = false;
+      // If a prior calibration exists, also enable "Optimize Calibration"
+      refreshPriorCalibrationNote();
       // Start live camera preview
       const firstCam = calibrationCameras[0].index;
       startCameraPreview(firstCam);
@@ -667,7 +766,15 @@ function stopCameraPreview() {
   }
 })();
 
-ptsSel.onchange = () => { GRID = buildGrid(parseInt(ptsSel.value, 10)); };
+ptsSel.onchange = () => {
+  const n = parseInt(ptsSel.value, 10);
+  GRID = buildGrid(n);
+  // Keep Mode in sync so beginCalibration() (which reads modePreset) honors this.
+  if (n === 9) modePreset = 'quick';
+  else if (n === 25) modePreset = 'precision';
+  else modePreset = 'balanced';
+  modeSel.value = modePreset;
+};
 modeSel.onchange = () => {
   modePreset = modeSel.value;
   const cfg = getModeConfig(modePreset);
@@ -683,6 +790,7 @@ document.addEventListener('keydown', e => {
 });
 async function eStop() {
   aborted = true;
+  abortPursuit();
   calPreviewBg.classList.add('hidden');
   await window.calibrationAPI.stopTracking().catch(() => {});
   window.calibrationAPI.close();
@@ -700,9 +808,36 @@ function showScreen(el) {
   el.classList.remove('hidden');
 }
 
-startBtn.onclick = () => beginCalibration();
+startBtn.onclick = () => beginCalibration({ optimize: false });
+optimizeBtn.onclick = () => beginCalibration({ optimize: true });
 
-function beginCalibration() {
+async function refreshPriorCalibrationNote() {
+  try {
+    const info = await window.calibrationAPI.getPriorCalibration();
+    if (!info || !info.exists) {
+      priorNote.classList.add('hidden');
+      optimizeBtn.classList.add('hidden');
+      optimizeBtn.disabled = true;
+      return;
+    }
+    const parts = [];
+    if (info.timestamp) parts.push(info.timestamp.replace('T', ' '));
+    if (typeof info.pointCount === 'number') parts.push(`${info.pointCount} pts`);
+    if (info.modelType) parts.push(info.modelType);
+    if (typeof info.meanResidualPx === 'number') parts.push(`mean ${info.meanResidualPx.toFixed(1)}px`);
+    if (typeof info.maxResidualPx === 'number') parts.push(`max ${info.maxResidualPx.toFixed(1)}px`);
+    priorNote.textContent = `Prior calibration: ${parts.join(' · ')} — Optimize keeps old points at ½ weight and merges any new grid size you pick (e.g. 16 → 25).`;
+    priorNote.classList.remove('hidden');
+    optimizeBtn.classList.remove('hidden');
+    optimizeBtn.disabled = false;
+  } catch (e) {
+    priorNote.classList.add('hidden');
+    optimizeBtn.classList.add('hidden');
+  }
+}
+
+function beginCalibration(opts = {}) {
+  const optimize = !!opts.optimize;
   chosenCamera = parseInt(camSel.value, 10) || 0;
   aborted = false; calIdx = 0; faceDetected = false; pointDone = false;
   paused = false;
@@ -710,13 +845,21 @@ function beginCalibration() {
   currentPointTarget = 0;
 
   const cfg = getModeConfig(modePreset);
-  GRID = buildGrid(cfg.points);
+  // Static spiral grid + 9 inter-grid "validation" positions appended as real
+  // calibration points. The validation phase (lock-to-pass) was easy to game by
+  // glancing near the dot — instead, every dot the user sees becomes calibration
+  // data, and we end with a brief informational live-cursor preview.
+  const staticGrid = buildGrid(cfg.points);
+  const valGrid = buildValidationGrid(staticGrid);
+  GRID = staticGrid.concat(valGrid);
+  GRID_STATIC_LEN = staticGrid.length;
+  GRID_VAL_LEN = valGrid.length;
 
   // Stop the setup camera preview (Python will use the camera)
   stopCameraPreview();
 
   const dispId = chosenDisplay ? chosenDisplay.id : 0;
-  window.calibrationAPI.startCalibration(chosenCamera, dispId);
+  window.calibrationAPI.startCalibration(chosenCamera, dispId, optimize);
 
   showScreen(document.createElement('div')); // hide all screens
   calPreviewBg.classList.remove('hidden');
@@ -731,9 +874,72 @@ function beginCalibration() {
   updateQuality(false, false, 0, 100);
 
   // Wait for Python to start and face to be detected
-  calMsg.textContent = 'Starting camera... look at the screen';
+  calMsg.textContent = optimize
+    ? 'Optimize mode: starting camera... prior samples will be kept at reduced weight.'
+    : 'Starting camera... look at the screen';
   calMsg.className = 'msg warn';
-  setTimeout(() => { if (!aborted) advancePoint(); }, 600);
+  // Phase 0 (skipped in optimize): smooth-pursuit prelude that animates a dot along
+  // a border-to-center spiral. Captures dense samples between static dots.
+  setTimeout(() => {
+    if (aborted) return;
+    if (!optimize) {
+      runPursuitPhase().then(() => { if (!aborted) advancePoint(); });
+    } else {
+      advancePoint();
+    }
+  }, 600);
+}
+
+function runPursuitPhase() {
+  return new Promise((resolve) => {
+    if (pursuitActive) return resolve();
+    pursuitActive = true;
+    const path = buildPursuitPath(7, 160);  // 7 sec @ ~6 Hz
+    const dW = chosenDisplay ? chosenDisplay.width : screen.width;
+    const dH = chosenDisplay ? chosenDisplay.height : screen.height;
+    let i = 0;
+    // Use high index range so it never collides with static-grid indices.
+    let pursuitIndex = 10000;
+
+    calMsg.textContent = 'Follow the moving dot smoothly with your eyes...';
+    calMsg.className = 'msg';
+    progLabel.textContent = 'Smooth pursuit warm-up';
+    progBar.style.width = '0%';
+    calDot.classList.remove('hidden', 'done-flash');
+    calDot.classList.add('collecting');
+
+    const tick = () => {
+      if (aborted || !pursuitActive) {
+        pursuitActive = false;
+        clearInterval(pursuitTimer);
+        pursuitTimer = null;
+        return resolve();
+      }
+      if (i >= path.length) {
+        pursuitActive = false;
+        clearInterval(pursuitTimer);
+        pursuitTimer = null;
+        calDot.classList.remove('collecting');
+        return resolve();
+      }
+      const p = path[i];
+      const sx = Math.round(p.xPct * dW);
+      const sy = Math.round(p.yPct * dH);
+      calDot.style.left = `${p.xPct * 100}%`;
+      calDot.style.top  = `${p.yPct * 100}%`;
+      // Each pursuit waypoint becomes a tiny calibration anchor (3-6 frames each)
+      window.calibrationAPI.reportPoint(pursuitIndex++, sx, sy, { minSamples: 3, maxSamples: 6 });
+      progBar.style.width = `${(i / path.length) * 100}%`;
+      i++;
+    };
+    pursuitTimer = setInterval(tick, 160);
+    tick();
+  });
+}
+
+function abortPursuit() {
+  pursuitActive = false;
+  if (pursuitTimer) { clearInterval(pursuitTimer); pursuitTimer = null; }
 }
 
 function advancePoint() {
@@ -766,7 +972,12 @@ function advancePoint() {
   calDot.style.top  = `${pos.yPct * 100}%`;
   calDot.classList.remove('hidden', 'collecting', 'done-flash');
 
-  progLabel.textContent = `Point ${calIdx + 1} / ${GRID.length}`;
+  const isValDot = calIdx >= GRID_STATIC_LEN;
+  const labelPrefix = isValDot ? 'Refine' : 'Point';
+  const labelTotal = isValDot
+    ? `${calIdx - GRID_STATIC_LEN + 1} / ${GRID_VAL_LEN}`
+    : `${calIdx + 1} / ${GRID_STATIC_LEN}`;
+  progLabel.textContent = `${labelPrefix} ${labelTotal}`;
   progBar.style.width = `${(calIdx / GRID.length) * 100}%`;
 
   if (!faceDetected) {
@@ -846,6 +1057,7 @@ window.calibrationAPI.onProgress((data) => {
 
   if (data.error && (data.error.includes('Cannot open camera') || data.error.includes('Camera read failure'))) {
     aborted = true;
+    abortPursuit();
     clearPointTimers();
     calDot.classList.add('hidden');
     calStatus.classList.remove('hidden');
@@ -928,6 +1140,21 @@ window.calibrationAPI.onComplete((info) => {
     console.log(`[Calibration] iris range X=${rx.toFixed(1)}px Y=${ry.toFixed(1)}px points=${info.num_points}`);
     window.__lastIrisRange = { x: rx, y: ry, low: lowRange };
   }
+  // Fit-quality diagnostics (new polynomial model)
+  if (info && typeof info.mean_residual_px === 'number') {
+    const meanR = info.mean_residual_px;
+    const maxR = info.max_residual_px;
+    const model = info.model_type || 'homography';
+    const worst = info.worst_point;
+    console.log(`[Calibration] model=${model} mean=${meanR.toFixed(1)}px max=${maxR.toFixed(1)}px`);
+    if (typeof info.hom_mean_residual_px === 'number' && typeof info.poly_mean_residual_px === 'number') {
+      console.log(`[Calibration] homography mean=${info.hom_mean_residual_px.toFixed(1)}px  poly mean=${info.poly_mean_residual_px.toFixed(1)}px`);
+    }
+    window.__lastFitQuality = {
+      model, meanResidualPx: meanR, maxResidualPx: maxR, worst,
+      homMeanPx: info.hom_mean_residual_px, polyMeanPx: info.poly_mean_residual_px,
+    };
+  }
   startValidation();
 });
 
@@ -951,146 +1178,98 @@ function startValidation() {
   showScreen(sValidate);
   escHint.classList.remove('hidden');
   gazeCursor.classList.remove('hidden');
-  accScore.textContent = '\u2014';
-  accScore.className = 'big';
-  accDetail.textContent = 'Look at the highlighted dot until it locks';
-  if (window.__lastIrisRange) {
-    const { x, y, low } = window.__lastIrisRange;
-    if (low) {
-      accDetail.textContent = `⚠ Calibration captured narrow iris range (${x.toFixed(0)}x${y.toFixed(0)}px). Recalibrate: keep head still, move ONLY your eyes to each dot.`;
-    } else {
-      accDetail.textContent = `Iris range: ${x.toFixed(0)}x${y.toFixed(0)}px — look at the highlighted dot until it locks`;
-    }
-  }
 
+  // Score is now derived from the polynomial fit's measured residuals (real data),
+  // not from "did the user manage to glance at each dot for 1s" which was easy to
+  // game and didn't produce useful diagnostics.
+  const fq = window.__lastFitQuality;
+  const ir = window.__lastIrisRange;
   const dW = chosenDisplay ? chosenDisplay.width : screen.width;
   const dH = chosenDisplay ? chosenDisplay.height : screen.height;
+  const diag = Math.sqrt(dW * dW + dH * dH);
 
-  // Create validation dots
+  // Map mean residual → quality % using exponential decay scaled to screen diagonal.
+  // Scale = 3.5% of diagonal (~77px on 1080p): mean 20px → 77%, 40px → 60%,
+  // 60px → 46%, 100px → 27%, 150px → 14%. Anything <10px is essentially perfect.
+  let pct = null;
+  let errPctDiag = null;
+  if (fq && typeof fq.meanResidualPx === 'number') {
+    const scale = diag * 0.035;
+    pct = Math.round(100 * Math.exp(-fq.meanResidualPx / scale));
+    errPctDiag = (fq.meanResidualPx / diag) * 100;
+  }
+  accScore.textContent = pct !== null ? `${pct}%` : '—';
+  accScore.className = 'big ' + (pct === null ? '' : pct >= 70 ? 'good' : pct >= 40 ? 'ok' : 'bad');
+
+  const fqStr = fq
+    ? `fit ${fq.model} mean=${fq.meanResidualPx.toFixed(1)}px (${errPctDiag.toFixed(2)}% diag) max=${fq.maxResidualPx.toFixed(1)}px`
+    : 'no fit data';
+  const irStr = ir ? `iris ${ir.x.toFixed(0)}×${ir.y.toFixed(0)}px` : '';
+  if (ir && ir.low) {
+    accDetail.textContent = `⚠ Narrow ${irStr} — keep head still next time. ${fqStr}. Move your eyes around to preview the cursor, then click Accept.`;
+  } else {
+    accDetail.textContent = `${fqStr}${irStr ? ' · ' + irStr : ''} — move your eyes around to preview the cursor, then click Accept.`;
+  }
+
+  // Show all the validation positions as faint reference dots (visual only).
   valDots.forEach(v => v.el.remove());
   valDots = [];
-  valIdx = 0; valLocked = 0; valFailed = 0; recentGaze = [];
+  recentGaze = [];
 
-  VAL_GRID.forEach((pos, i) => {
+  // Use the validation positions that were appended to GRID — they were the
+  // dots used during calibration's "Refine" phase, so showing them as ghost
+  // dots gives the user an intuitive sense of where the model was anchored.
+  const valPositions = GRID.slice(GRID_STATIC_LEN);
+  valPositions.forEach((pos) => {
     const el = document.createElement('div');
-    el.className = 'val-dot';
+    el.className = 'val-dot locked';
     el.style.left = `${pos.xPct * 100}%`;
     el.style.top  = `${pos.yPct * 100}%`;
+    el.innerHTML = '<span class="check">\u2713</span>';
     document.body.appendChild(el);
     valDots.push({
       el, xPct: pos.xPct, yPct: pos.yPct,
       sx: pos.xPct * dW, sy: pos.yPct * dH,
-      result: null,
+      result: 'locked',
     });
   });
 
-  // Start tracking in validation mode
-  window.calibrationAPI.startValidationTracking(chosenCamera);
-
-  // Listen for gaze data
-  window.calibrationAPI.onGazeData(onGazeData);
-
-  // Start first validation dot
-  setTimeout(() => activateValDot(0), 500);
-}
-
-function activateValDot(idx) {
-  if (idx >= valDots.length) {
-    finishValidation();
-    return;
-  }
-  valIdx = idx;
-  recentGaze = [];
-
-  // Highlight the active dot
-  valDots.forEach((v, i) => {
-    v.el.classList.remove('active');
-    if (i === idx && !v.result) v.el.classList.add('active');
+  // Save score to history immediately
+  saveTrainingResult({
+    timestamp: new Date().toISOString(),
+    score: pct === null ? 0 : pct,
+    meanPx: fq ? fq.meanResidualPx : null,
+    maxPx: fq ? fq.maxResidualPx : null,
+    model: fq ? fq.model : 'unknown',
+    mode: modePreset,
+    points: GRID.length,
   });
+  renderHistoryNote();
 
-  accDetail.textContent = `Dot ${idx + 1} / ${valDots.length} — look at the highlighted dot`;
-
-  // Timeout: if not locked in 6 seconds, mark failed
-  if (valTimer) clearTimeout(valTimer);
-  valTimer = setTimeout(() => {
-    if (valDots[idx].result) return;
-    markValDot(idx, false);
-  }, 6000);
+  // Start tracking so the user can see the live cursor following their gaze.
+  window.calibrationAPI.startValidationTracking(chosenCamera);
+  window.calibrationAPI.onGazeData(onGazeData);
 }
+
+function activateValDot() { /* legacy no-op; calibration absorbed validation */ }
+function markValDot()    { /* legacy no-op; calibration absorbed validation */ }
+function finishValidation() { /* legacy no-op; score is computed in startValidation */ }
 
 function onGazeData(data) {
   if (!data || typeof data.x !== 'number') return;
   const dW = chosenDisplay ? chosenDisplay.width : screen.width;
   const dH = chosenDisplay ? chosenDisplay.height : screen.height;
 
-  // ── Blink indicator ──
   if (data.blink) {
     blinkInd.classList.add('visible');
     if (blinkTimeout) clearTimeout(blinkTimeout);
     blinkTimeout = setTimeout(() => blinkInd.classList.remove('visible'), 300);
-    return; // Don't update gaze cursor during blink
+    return;
   }
 
-  // Move gaze cursor
+  // Move gaze cursor — this is the user's only feedback that calibration is good.
   gazeCursor.style.left = `${(data.x / dW) * 100}%`;
   gazeCursor.style.top  = `${(data.y / dH) * 100}%`;
-
-  // Track recent gaze for lock detection
-  recentGaze.push({ x: data.x, y: data.y, t: Date.now() });
-  // Keep last 1.5 seconds
-  const cutoff = Date.now() - 1500;
-  recentGaze = recentGaze.filter(g => g.t >= cutoff);
-
-  // Check lock: over last 1 second, >70% of samples within 120px of target
-  if (valIdx < valDots.length && !valDots[valIdx].result && recentGaze.length >= 15) {
-    const target = valDots[valIdx];
-    const lockRadius = Math.max(120, dW * 0.06); // 120px or 6% of screen width
-    const recent1s = recentGaze.filter(g => g.t >= Date.now() - 1000);
-    if (recent1s.length >= 10) {
-      const inRange = recent1s.filter(g => {
-        const dx = g.x - target.sx, dy = g.y - target.sy;
-        return Math.sqrt(dx*dx + dy*dy) < lockRadius;
-      });
-      if (inRange.length / recent1s.length >= 0.7) {
-        markValDot(valIdx, true);
-      }
-    }
-  }
-}
-
-function markValDot(idx, success) {
-  if (valDots[idx].result) return;
-  if (valTimer) clearTimeout(valTimer);
-
-  const dot = valDots[idx];
-  dot.result = success ? 'locked' : 'failed';
-  dot.el.classList.remove('active');
-  dot.el.classList.add(success ? 'locked' : 'failed');
-  dot.el.innerHTML = `<span class="check">${success ? '\u2713' : '\u2717'}</span>`;
-
-  if (success) valLocked++; else valFailed++;
-  accScore.textContent = `${valLocked} / ${valDots.length}`;
-  accScore.className = 'big ' + (valFailed === 0 ? 'good' : valFailed <= 3 ? 'ok' : 'bad');
-
-  // Advance after brief pause
-  setTimeout(() => activateValDot(idx + 1), 400);
-}
-
-function finishValidation() {
-  const pct = Math.round((valLocked / valDots.length) * 100);
-  accScore.textContent = `${pct}%`;
-  accScore.className = 'big ' + (pct >= 80 ? 'good' : pct >= 50 ? 'ok' : 'bad');
-  accDetail.textContent = `${valLocked} locked, ${valFailed} failed — ${pct >= 80 ? 'Good calibration!' : pct >= 50 ? 'Acceptable — consider recalibrating' : 'Poor — please recalibrate'}`;
-
-  saveTrainingResult({
-    timestamp: new Date().toISOString(),
-    score: pct,
-    locked: valLocked,
-    failed: valFailed,
-    mode: modePreset,
-    points: GRID.length,
-  });
-  renderHistoryNote();
 }
 
 function cleanupValidation() {
@@ -1118,6 +1297,8 @@ recalBtn.onclick = () => {
   paused = false;
   // Restart camera preview for setup screen
   startCameraPreview(parseInt(camSel.value, 10) || 0);
+  // A new calibration was just saved — refresh the Optimize button state.
+  refreshPriorCalibrationNote();
 };
 
 closeBtn.onclick = () => window.calibrationAPI.close();

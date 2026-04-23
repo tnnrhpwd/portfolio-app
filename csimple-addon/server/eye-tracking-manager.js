@@ -314,7 +314,7 @@ while ($true) {
    * Start calibration mode — spawns eye_tracker.py in calibrate mode.
    * The calibration window will send points via sendCalibrationPoint().
    */
-  async startCalibration(cameraIndex = 0) {
+  async startCalibration(cameraIndex = 0, options = {}) {
     if (this.state === 'running') {
       await this.stop();
     }
@@ -323,6 +323,35 @@ while ($true) {
     const screen = this._getScreenSize();
     const scriptPath = path.join(resolveScriptsPath(), 'eye_tracker.py');
     const pythonPath = this._getPythonPath();
+
+    // If optimizing an existing calibration, load the prior aggregated points.
+    let priorPoints = null;
+    if (options && options.optimize) {
+      try {
+        const resourcesPath = resolveResourcesPath();
+        const calFile = path.join(resourcesPath, 'eye-calibration.json');
+        if (fs.existsSync(calFile)) {
+          const prior = JSON.parse(fs.readFileSync(calFile, 'utf8'));
+          if (Array.isArray(prior.points) && prior.points.length > 0) {
+            priorPoints = prior.points
+              .filter(p => p && !p.fromPrior &&
+                typeof p.screenX === 'number' && typeof p.screenY === 'number' &&
+                typeof p.irisX === 'number' && typeof p.irisY === 'number')
+              .map(p => ({
+                screenX: p.screenX,
+                screenY: p.screenY,
+                irisX: p.irisX,
+                irisY: p.irisY,
+                weight: typeof p.weight === 'number' ? p.weight : 1.0,
+              }));
+            if (priorPoints.length === 0) priorPoints = null;
+          }
+        }
+      } catch (err) {
+        console.warn('[EyeTracking] Could not load prior calibration for optimize:', err.message);
+        priorPoints = null;
+      }
+    }
 
     const args = [
       scriptPath,
@@ -381,7 +410,21 @@ while ($true) {
 
         this._setState('calibrating');
         console.log('[EyeTracking] Calibration started');
-        resolve({ success: true });
+
+        // If optimizing, seed the Python fit with prior aggregated points.
+        if (priorPoints && priorPoints.length > 0 && this._stdinWriter && this._stdinWriter.writable) {
+          try {
+            this._stdinWriter.write(JSON.stringify({
+              cmd: 'load_prior_calibration',
+              points: priorPoints,
+            }) + '\n');
+            console.log(`[EyeTracking] Seeded optimize with ${priorPoints.length} prior points`);
+          } catch (err) {
+            console.warn('[EyeTracking] Failed to send prior points:', err.message);
+          }
+        }
+
+        resolve({ success: true, optimize: !!(priorPoints && priorPoints.length), priorCount: priorPoints ? priorPoints.length : 0 });
 
       } catch (err) {
         this.lastError = err.message;
@@ -393,16 +436,19 @@ while ($true) {
   /**
    * Send a calibration point to the Python subprocess.
    */
-  sendCalibrationPoint(index, screenX, screenY) {
+  sendCalibrationPoint(index, screenX, screenY, opts = {}) {
     if (!this._stdinWriter || !this._stdinWriter.writable) {
       return { success: false, error: 'Calibration process not running' };
     }
-    this._stdinWriter.write(JSON.stringify({
+    const payload = {
       cmd: 'calibrate_point',
       index,
       screen_x: screenX,
       screen_y: screenY,
-    }) + '\n');
+    };
+    if (opts && typeof opts.minSamples === 'number') payload.min_samples = opts.minSamples;
+    if (opts && typeof opts.maxSamples === 'number') payload.max_samples = opts.maxSamples;
+    this._stdinWriter.write(JSON.stringify(payload) + '\n');
     return { success: true };
   }
 
@@ -420,6 +466,32 @@ while ($true) {
       output_file: outputFile,
     }) + '\n');
     return { success: true };
+  }
+
+  /**
+   * Return a summary of any existing calibration so the UI can offer "Optimize".
+   */
+  getPriorCalibrationSummary() {
+    try {
+      const resourcesPath = resolveResourcesPath();
+      const calFile = path.join(resourcesPath, 'eye-calibration.json');
+      if (!fs.existsSync(calFile)) return { exists: false };
+      const prior = JSON.parse(fs.readFileSync(calFile, 'utf8'));
+      const pts = Array.isArray(prior.points) ? prior.points : [];
+      const usable = pts.filter(p => p && !p.fromPrior &&
+        typeof p.screenX === 'number' && typeof p.irisX === 'number').length;
+      return {
+        exists: true,
+        timestamp: prior.timestamp || null,
+        modelType: prior.modelType || (prior.gazeModel ? 'poly2' : 'homography'),
+        meanResidualPx: typeof prior.meanResidualPx === 'number' ? prior.meanResidualPx : null,
+        maxResidualPx: typeof prior.maxResidualPx === 'number' ? prior.maxResidualPx : null,
+        pointCount: usable,
+        screenResolution: prior.screenResolution || null,
+      };
+    } catch (err) {
+      return { exists: false, error: err.message };
+    }
   }
 
   /**

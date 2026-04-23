@@ -329,6 +329,12 @@ function openCalibrationWindow() {
             iris_range_x: data.iris_range_x,
             iris_range_y: data.iris_range_y,
             num_points: data.num_points,
+            model_type: data.model_type,
+            mean_residual_px: data.mean_residual_px,
+            max_residual_px: data.max_residual_px,
+            worst_point: data.worst_point,
+            hom_mean_residual_px: data.hom_mean_residual_px,
+            poly_mean_residual_px: data.poly_mean_residual_px,
           });
         } else {
           calibrationWindow.webContents.send('calibration-progress', data);
@@ -342,9 +348,9 @@ function openCalibrationWindow() {
 
 // ── Calibration IPC handlers ──────────────────────────────────────────────────
 
-ipcMain.on('calibration-point-ready', (_event, { index, screenX, screenY }) => {
+ipcMain.on('calibration-point-ready', (_event, { index, screenX, screenY, opts }) => {
   if (server?.eyeTrackingManager) {
-    server.eyeTrackingManager.sendCalibrationPoint(index, screenX, screenY);
+    server.eyeTrackingManager.sendCalibrationPoint(index, screenX, screenY, opts || {});
   }
 });
 
@@ -361,7 +367,7 @@ ipcMain.on('calibration-close', () => {
 });
 
 // Start calibration with the user-chosen camera and move window to chosen display
-ipcMain.on('calibration-start', async (_event, { cameraIndex, displayId }) => {
+ipcMain.on('calibration-start', async (_event, { cameraIndex, displayId, optimize }) => {
   const { screen } = require('electron');
   const displays = screen.getAllDisplays();
   const chosen = displays.find(d => d.id === displayId) || screen.getPrimaryDisplay();
@@ -374,8 +380,15 @@ ipcMain.on('calibration-start', async (_event, { cameraIndex, displayId }) => {
 
   // Start the Python calibration process with the chosen camera
   if (server?.eyeTrackingManager) {
-    server.eyeTrackingManager.startCalibration(cameraIndex);
+    server.eyeTrackingManager.startCalibration(cameraIndex, { optimize: !!optimize });
   }
+});
+
+ipcMain.handle('get-prior-calibration', async () => {
+  if (server?.eyeTrackingManager) {
+    return server.eyeTrackingManager.getPriorCalibrationSummary();
+  }
+  return { exists: false };
 });
 
 ipcMain.handle('get-cameras', async () => {
