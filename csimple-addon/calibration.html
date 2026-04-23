@@ -358,7 +358,7 @@
 <!-- ═══════════ Calibration quality ═══════════ -->
 <div id="quality-wrap" class="hidden">
   <div class="q-row">
-    <span>Dot sample progress</span>
+    <span>Training quality</span>
     <span id="qualityPill" class="q-pill">Unknown</span>
   </div>
   <div class="qbar"><div id="qualityBar"></div></div>
@@ -471,27 +471,17 @@ function updateQualityPill(score) {
 }
 
 function updateQuality(faceDetectedNow, stableNow, samples, target) {
-  // Quality bar now represents the CURRENT DOT's sample progress (real backend data)
-  const t = Math.max(1, target || 1);
-  const pct = Math.min(100, Math.round((samples / t) * 100));
-  qualityState.score = pct;
-  qualityState.faceScore = faceDetectedNow ? 100 : 0;
-  qualityState.stabilityScore = stableNow ? 100 : pct;
-  qualityBar.style.width = `${pct}%`;
-  // Pill reflects meaning: not started / collecting / stable
-  qualityPill.className = 'q-pill';
-  if (samples <= 0) {
-    qualityPill.textContent = faceDetectedNow ? 'Waiting…' : 'No face';
-    if (!faceDetectedNow) qualityPill.classList.add('bad');
-  } else if (stableNow || pct >= 100) {
-    qualityPill.textContent = `Locked ${samples}/${t}`;
-    qualityPill.classList.add('good');
-  } else if (pct >= 50) {
-    qualityPill.textContent = `Collecting ${samples}/${t}`;
-    qualityPill.classList.add('ok');
+  qualityState.faceScore = faceDetectedNow ? 100 : 20;
+  if (stableNow) {
+    qualityState.stabilityScore = 100;
   } else {
-    qualityPill.textContent = `${samples}/${t}`;
+    const ratio = target > 0 ? Math.min(1, samples / target) : 0;
+    qualityState.stabilityScore = Math.round(35 + ratio * 45);
   }
+
+  qualityState.score = Math.round(0.6 * qualityState.faceScore + 0.4 * qualityState.stabilityScore);
+  qualityBar.style.width = `${qualityState.score}%`;
+  updateQualityPill(qualityState.score);
 }
 
 function clearPointTimers() {
@@ -908,7 +898,7 @@ window.calibrationAPI.onProgress((data) => {
 });
 
 // Calibration computed
-window.calibrationAPI.onComplete((info) => {
+window.calibrationAPI.onComplete(() => {
   if (aborted) return;
   clearPointTimers();
   calPreviewBg.classList.add('hidden');
@@ -918,16 +908,6 @@ window.calibrationAPI.onComplete((info) => {
   qualityWrap.classList.add('hidden');
   calControls.classList.add('hidden');
   document.body.classList.remove('hide-cursor');
-
-  // Warn if iris samples barely varied between points — homography will be bad
-  if (info && typeof info.iris_range_x === 'number') {
-    const rx = info.iris_range_x || 0;
-    const ry = info.iris_range_y || 0;
-    const minRange = 12; // pixels; below this, eyes barely moved relative to frame
-    const lowRange = rx < minRange || ry < minRange;
-    console.log(`[Calibration] iris range X=${rx.toFixed(1)}px Y=${ry.toFixed(1)}px points=${info.num_points}`);
-    window.__lastIrisRange = { x: rx, y: ry, low: lowRange };
-  }
   startValidation();
 });
 
@@ -954,14 +934,6 @@ function startValidation() {
   accScore.textContent = '\u2014';
   accScore.className = 'big';
   accDetail.textContent = 'Look at the highlighted dot until it locks';
-  if (window.__lastIrisRange) {
-    const { x, y, low } = window.__lastIrisRange;
-    if (low) {
-      accDetail.textContent = `⚠ Calibration captured narrow iris range (${x.toFixed(0)}x${y.toFixed(0)}px). Recalibrate: keep head still, move ONLY your eyes to each dot.`;
-    } else {
-      accDetail.textContent = `Iris range: ${x.toFixed(0)}x${y.toFixed(0)}px — look at the highlighted dot until it locks`;
-    }
-  }
 
   const dW = chosenDisplay ? chosenDisplay.width : screen.width;
   const dH = chosenDisplay ? chosenDisplay.height : screen.height;

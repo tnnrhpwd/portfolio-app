@@ -9,6 +9,7 @@ Modes:
   --mode calibrate         Collect iris samples for calibration points received via stdin
   --mode test              Output raw iris coordinates without calibration (for debugging)
   --mode list_cameras      List available camera indices and exit
+    --mode snapshot_camera   Capture a preview frame for one camera and exit
 
 Stdin commands (JSON lines):
   {"cmd": "stop"}                                         — Graceful shutdown
@@ -22,9 +23,11 @@ Stdout output (JSON lines):
   {"calibration": "complete", "file": "path/to/calibration.json"}
   {"error": "No face detected"}
   {"cameras": [0, 1]}
+    {"snapshot": {"index": 0, "name": "USB Camera", "image": "data:image/jpeg;base64,..."}}
 """
 
 import argparse
+import base64
 import json
 import sys
 import time
@@ -74,6 +77,20 @@ EAR_BLINK_THRESHOLD = 0.21
 EAR_CONSEC_FRAMES = 2  # Minimum consecutive frames below threshold to count as blink
 
 
+def encode_preview_image(frame, max_width=480, max_height=360, quality=55):
+    """Encode a frame to a compact JPEG data URL for UI previews."""
+    height, width = frame.shape[:2]
+    scale = min(max_width / max(width, 1), max_height / max(height, 1), 1.0)
+    if scale < 1.0:
+        frame = cv2.resize(frame, (max(1, int(width * scale)), max(1, int(height * scale))))
+
+    success, encoded = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
+    if not success:
+        return None
+    image_b64 = base64.b64encode(encoded.tobytes()).decode('ascii')
+    return f"data:image/jpeg;base64,{image_b64}"
+
+
 class EyeTracker:
     def __init__(self, camera_index=0, screen_width=1920, screen_height=1080,
                  calibration_file=None, smoothing_alpha=0.3, confidence_threshold=0.6):
@@ -93,8 +110,8 @@ class EyeTracker:
         self.calibrating = False
         self.calibration_points = {}  # {index: {"screen": (x,y), "iris_samples": [(ix,iy), ...]}}
         self.current_cal_point = None
-        self.cal_sample_count = 45  # Minimum frames to collect per point
-        self.cal_max_samples = 150  # Max frames before forcing done
+        self.cal_sample_count = 25  # Minimum frames to collect per point
+        self.cal_max_samples = 90   # Max frames before forcing done
 
         # ── Blink detection state ──
         self.blink_counter = 0       # consecutive frames with low EAR
@@ -105,19 +122,21 @@ class EyeTracker:
         self.prev_raw_x = None
         self.prev_raw_y = None
         self.prev_time = None
-        self.smoothing_alpha_min = 0.08   # very smooth for fixations
-        self.smoothing_alpha_max = 0.65   # responsive for saccades
+        self.smoothing_alpha_min = 0.28   # responsive even at fixations (prevents drift-lock)
+        self.smoothing_alpha_max = 0.75   # very responsive during saccades
         self.velocity_threshold_low = 50   # px/frame below = fixation
         self.velocity_threshold_high = 300 # px/frame above = saccade
 
         # ── Head pose compensation state ──
         self.base_head_yaw = None
         self.base_head_pitch = None
-        self.head_compensation_gain = 150.0  # pixels per radian of head rotation
+        self.head_compensation_gain = 0.0  # disabled by default (was 150); iris-only tracking
 
         # ── Face-loss grace period ──
         self.face_lost_time = None
         self.grace_period = 0.5  # seconds to hold last position when face lost
+        self.preview_frame_counter = 0
+        self.preview_emit_every = 6
 
         # Load calibration if available
         if calibration_file:
@@ -139,8 +158,17 @@ class EyeTracker:
             self._emit({"error": f"Failed to load calibration: {str(e)}"})
 
     def _emit(self, data):
-        """Write a JSON line to stdout."""
-        print(json.dumps(data), flush=True)
+        """Write a JSON line to stdout (best-effort, never blocks fatally)."""
+        try:
+            line = json.dumps(data)
+            sys.stdout.write(line + "\n")
+            sys.stdout.flush()
+        except Exception as e:
+            try:
+                sys.stderr.write(f"[eye_tracker] emit failed: {e}\n")
+                sys.stderr.flush()
+            except Exception:
+                pass
 
     def _get_iris_center(self, landmarks, frame_width, frame_height):
         """Extract the average iris center from both eyes in frame pixel coordinates."""
@@ -337,9 +365,9 @@ class EyeTracker:
             recent = samples[-15:]
             xs = [s[0] for s in recent]
             ys = [s[1] for s in recent]
-            stable = np.std(xs) < 4.0 and np.std(ys) < 4.0
+            stable = bool(np.std(xs) < 4.0 and np.std(ys) < 4.0)
 
-        done = (n >= min_samples and stable) or n >= max_samples
+        done = bool((n >= min_samples and stable) or n >= max_samples)
 
         self._emit({
             "status": "calibrating",
@@ -426,7 +454,18 @@ class EyeTracker:
         try:
             with open(output_file, 'w') as f:
                 json.dump(cal_data, f, indent=2)
-            self._emit({"calibration": "complete", "file": output_file})
+            # Report iris range so UI can surface calibration quality
+            iris_xs = [p["irisX"] for p in cal_data["points"]]
+            iris_ys = [p["irisY"] for p in cal_data["points"]]
+            iris_range_x = float(max(iris_xs) - min(iris_xs)) if iris_xs else 0.0
+            iris_range_y = float(max(iris_ys) - min(iris_ys)) if iris_ys else 0.0
+            self._emit({
+                "calibration": "complete",
+                "file": output_file,
+                "iris_range_x": iris_range_x,
+                "iris_range_y": iris_range_y,
+                "num_points": len(cal_data["points"]),
+            })
             self.calibrating = False
             return True
         except Exception as e:
@@ -444,16 +483,39 @@ class EyeTracker:
             self._emit({"error": f"Cannot open camera {self.camera_index}"})
             return
 
-        # Set camera resolution for better iris detection
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        # Request a modest resolution. Some cameras (4K webcams) ignore this
+        # and deliver full-res frames, so we ALSO downscale in-loop below.
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+        try:
+            cap.set(cv2.CAP_PROP_FPS, 30)
+        except Exception:
+            pass
+
+        # Target processing resolution — MediaPipe face mesh is tuned around
+        # 640 px wide. Larger frames degrade detection and slow the loop.
+        PROCESS_MAX_WIDTH = 640
+        PROCESS_MAX_HEIGHT = 480
+
+        # Emit camera_opened status so UI knows the backend is alive
+        actual_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 0)
+        actual_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
+        self._emit({
+            "status": "camera_opened",
+            "camera_index": self.camera_index,
+            "width": actual_w,
+            "height": actual_h,
+            "process_width": PROCESS_MAX_WIDTH,
+            "process_height": PROCESS_MAX_HEIGHT,
+            "mode": mode,
+        })
 
         mp_face_mesh = mp.solutions.face_mesh
         face_mesh = mp_face_mesh.FaceMesh(
             max_num_faces=1,
             refine_landmarks=True,  # Enables iris landmarks (468-477)
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5,
+            min_detection_confidence=0.3,
+            min_tracking_confidence=0.3,
         )
 
         start_time = time.time()
@@ -473,6 +535,29 @@ class EyeTracker:
                     if no_face_count > 30:
                         self._emit({"error": "Camera read failure"})
                     continue
+
+                # ── Downscale huge frames (e.g. 4K webcams) before processing ──
+                fh, fw = frame.shape[:2]
+                if fw > PROCESS_MAX_WIDTH or fh > PROCESS_MAX_HEIGHT:
+                    scale = min(PROCESS_MAX_WIDTH / fw, PROCESS_MAX_HEIGHT / fh)
+                    new_w = max(1, int(fw * scale))
+                    new_h = max(1, int(fh * scale))
+                    frame = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+                self.preview_frame_counter += 1
+
+                # Emit preview BEFORE MediaPipe processing so the UI receives
+                # live camera frames even when face_mesh.process() is slow or
+                # blocks early (first frames after cold start).
+                if mode == "calibrate" or self.calibrating:
+                    if self.preview_frame_counter % self.preview_emit_every == 0:
+                        preview_image = encode_preview_image(frame)
+                        if preview_image:
+                            self._emit({
+                                "status": "calibration_preview",
+                                "image": preview_image,
+                                "frame": self.preview_frame_counter,
+                            })
 
                 # Convert BGR to RGB for MediaPipe
                 rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -591,19 +676,91 @@ class EyeTracker:
         self.running = False
 
 
-def list_cameras(max_index=5):
-    """Probe camera indices to find available webcams (DirectShow on Windows for speed)."""
+def list_cameras(max_index=8):
+    """Probe camera indices and return metadata.
+
+    On Windows, try to enumerate DirectShow device names with pygrabber so the
+    returned names align with the same backend OpenCV uses for calibration.
+    """
     import platform
-    backend = cv2.CAP_DSHOW if platform.system() == 'Windows' else cv2.CAP_ANY
+
+    system = platform.system()
+    backend = cv2.CAP_DSHOW if system == 'Windows' else cv2.CAP_ANY
     available = []
+    names_by_index = {}
+
+    if system == 'Windows':
+        try:
+            from pygrabber.dshow_graph import FilterGraph
+            devices = FilterGraph().get_input_devices()
+            for idx, name in enumerate(devices):
+                names_by_index[idx] = name
+        except Exception:
+            names_by_index = {}
+
     for i in range(max_index):
         cap = cv2.VideoCapture(i, backend)
         if cap.isOpened():
-            ret, _ = cap.read()
+            ret, frame = cap.read()
             if ret:
-                available.append(i)
+                width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 0)
+                height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
+                available.append({
+                    "index": i,
+                    "name": names_by_index.get(i, f"Camera {i}"),
+                    "width": width,
+                    "height": height,
+                    "backend": "dshow" if system == 'Windows' else "default",
+                })
             cap.release()
     return available
+
+
+def snapshot_camera(camera_index, max_width=640, max_height=360):
+    """Capture a single preview frame from the selected camera index."""
+    import platform
+
+    backend = cv2.CAP_DSHOW if platform.system() == 'Windows' else cv2.CAP_ANY
+    camera_meta = next((camera for camera in list_cameras(max(camera_index + 1, 8)) if camera.get("index") == camera_index), None)
+
+    cap = cv2.VideoCapture(camera_index, backend)
+    if not cap.isOpened():
+        return {"error": f"Cannot open camera {camera_index}"}
+
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+
+    frame = None
+    for _ in range(12):
+        ret, candidate = cap.read()
+        if ret and candidate is not None:
+            frame = candidate
+            break
+        time.sleep(0.08)
+    cap.release()
+
+    if frame is None:
+        return {"error": f"Camera {camera_index} did not return a frame"}
+
+    height, width = frame.shape[:2]
+    scale = min(max_width / max(width, 1), max_height / max(height, 1), 1.0)
+    if scale < 1.0:
+        frame = cv2.resize(frame, (max(1, int(width * scale)), max(1, int(height * scale))))
+
+    success, encoded = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+    if not success:
+        return {"error": f"Failed to encode preview for camera {camera_index}"}
+
+    image_b64 = base64.b64encode(encoded.tobytes()).decode('ascii')
+    return {
+        "snapshot": {
+            "index": camera_index,
+            "name": camera_meta.get("name", f"Camera {camera_index}") if camera_meta else f"Camera {camera_index}",
+            "image": f"data:image/jpeg;base64,{image_b64}",
+            "width": int(frame.shape[1]),
+            "height": int(frame.shape[0]),
+        }
+    }
 
 
 def stdin_listener(tracker, calibration_output_file):
@@ -638,7 +795,7 @@ def main():
     parser.add_argument("--screen_height", type=int, default=1080, help="Screen height in pixels")
     parser.add_argument("--calibration_file", type=str, default=None, help="Path to calibration JSON")
     parser.add_argument("--duration", type=int, default=0, help="Duration in seconds (0 = indefinite)")
-    parser.add_argument("--mode", type=str, default="track", choices=["track", "calibrate", "test", "list_cameras"],
+    parser.add_argument("--mode", type=str, default="track", choices=["track", "calibrate", "test", "list_cameras", "snapshot_camera"],
                         help="Operating mode")
     parser.add_argument("--smoothing", type=float, default=0.3, help="Smoothing alpha (0-1, higher = less smooth)")
     parser.add_argument("--confidence_threshold", type=float, default=0.6, help="Minimum confidence to emit coordinates")
@@ -647,6 +804,10 @@ def main():
     if args.mode == "list_cameras":
         cameras = list_cameras()
         print(json.dumps({"cameras": cameras}), flush=True)
+        return
+
+    if args.mode == "snapshot_camera":
+        print(json.dumps(snapshot_camera(args.camera_index)), flush=True)
         return
 
     tracker = EyeTracker(

@@ -33,6 +33,7 @@ class TrayManager {
    * @param {Function} callbacks.onChangeResourcesFolder
    * @param {Function} callbacks.onToggleStartAtLogin
    * @param {Function} callbacks.onCalibrateEyeTracking
+  * @param {Function} callbacks.onShowEyeTrackingHelp
    */
   create(callbacks = {}) {
     this.callbacks = callbacks;
@@ -163,6 +164,10 @@ class TrayManager {
       {
         label: 'Calibrate Eye Tracking',
         click: () => this.callbacks.onCalibrateEyeTracking?.(),
+      },
+      {
+        label: 'How To Start Eye Tracking',
+        click: () => this.callbacks.onShowEyeTrackingHelp?.(),
       },
       { type: 'separator' },
 

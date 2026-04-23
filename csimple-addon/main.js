@@ -325,7 +325,11 @@ function openCalibrationWindow() {
     server.eyeTrackingManager.onCalibrationProgress = (data) => {
       if (calibrationWindow && !calibrationWindow.isDestroyed()) {
         if (data.calibration === 'complete') {
-          calibrationWindow.webContents.send('calibration-complete');
+          calibrationWindow.webContents.send('calibration-complete', {
+            iris_range_x: data.iris_range_x,
+            iris_range_y: data.iris_range_y,
+            num_points: data.num_points,
+          });
         } else {
           calibrationWindow.webContents.send('calibration-progress', data);
         }
@@ -379,6 +383,13 @@ ipcMain.handle('get-cameras', async () => {
     return await server.eyeTrackingManager.listCameras();
   }
   return [];
+});
+
+ipcMain.handle('get-camera-snapshot', async (_event, { cameraIndex }) => {
+  if (server?.eyeTrackingManager) {
+    return await server.eyeTrackingManager.getCameraSnapshot(cameraIndex);
+  }
+  return { error: 'No eye tracking manager' };
 });
 
 // Stop eye tracking (used from validation screen)
@@ -476,6 +487,12 @@ app.on('ready', async () => {
       console.log(`[Main] Start at login: ${enabled}`);
     },
     onCalibrateEyeTracking: () => openCalibrationWindow(),
+    onShowEyeTrackingHelp: () => {
+      trayManager?.notify(
+        'Eye Tracking Quick Start',
+        '1) Say "calibrate eye tracking" (or use tray menu).\n2) Follow all dots and accept score.\n3) Say "track my eyes" to start.\n4) Say "stop eye tracking" or press Escape to stop.'
+      );
+    },
   });
 
   // Enable start-at-login by default on first run (use a marker file since

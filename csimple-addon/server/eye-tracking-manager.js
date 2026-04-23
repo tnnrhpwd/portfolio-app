@@ -461,7 +461,13 @@ while ($true) {
       proc.on('exit', () => {
         try {
           const data = JSON.parse(output.trim());
-          resolve(data.cameras || []);
+          const cameras = Array.isArray(data.cameras) ? data.cameras : [];
+          resolve(cameras.map((camera) => {
+            if (typeof camera === 'number') {
+              return { index: camera, name: `Camera ${camera}` };
+            }
+            return camera;
+          }));
         } catch {
           resolve([]);
         }
@@ -473,6 +479,38 @@ while ($true) {
         proc.kill();
         resolve([]);
       }, 15000);
+    });
+  }
+
+  /**
+   * Capture a single preview frame from the selected calibration camera.
+   */
+  async getCameraSnapshot(cameraIndex) {
+    const scriptPath = path.join(resolveScriptsPath(), 'eye_tracker.py');
+    const pythonPath = this._getPythonPath();
+
+    return new Promise((resolve) => {
+      const proc = spawn(pythonPath, [scriptPath, '--mode', 'snapshot_camera', '--camera_index', String(cameraIndex)], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+      });
+
+      let output = '';
+      proc.stdout.on('data', (data) => { output += data.toString(); });
+      proc.on('exit', () => {
+        try {
+          const data = JSON.parse(output.trim());
+          resolve(data);
+        } catch {
+          resolve({ error: 'Failed to read camera preview' });
+        }
+      });
+      proc.on('error', () => resolve({ error: 'Failed to start camera preview' }));
+
+      setTimeout(() => {
+        proc.kill();
+        resolve({ error: 'Camera preview timed out' });
+      }, 10000);
     });
   }
 

@@ -86,14 +86,23 @@ class PythonManager {
   }
 
   /**
-   * Check if torch and transformers are installed in the venv.
+   * Check if core runtime dependencies are installed in the venv.
    */
   areDependenciesInstalled() {
     const venvPython = this._getVenvPython();
     if (!venvPython || !fs.existsSync(venvPython)) return false;
 
     try {
-      execSync(`"${venvPython}" -c "import torch; import transformers; print('ok')"`, {
+      const checkScript = [
+        'import platform',
+        'import torch',
+        'import transformers',
+        'import mediapipe',
+        'import cv2',
+        'if platform.system() == "Windows": import pygrabber',
+        'print("ok")',
+      ].join('; ');
+      execSync(`"${venvPython}" -c "${checkScript}"`, {
         encoding: 'utf-8',
         timeout: 30000,
         stdio: ['pipe', 'pipe', 'pipe'],

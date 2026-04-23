@@ -15,6 +15,7 @@ requests>=2.25.0
 # Eye tracking dependencies
 mediapipe>=0.10.0
 opencv-python>=4.8.0
+pygrabber>=0.2
 
 # Note: The application will automatically create a virtual environment
 # in %LOCALAPPDATA%/CSimple/venv and install these dependencies.

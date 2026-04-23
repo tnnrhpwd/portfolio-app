@@ -22,6 +22,8 @@ contextBridge.exposeInMainWorld('calibrationAPI', {
 
   getCameras: () => ipcRenderer.invoke('get-cameras'),
 
+  getCameraSnapshot: (cameraIndex) => ipcRenderer.invoke('get-camera-snapshot', { cameraIndex }),
+
   getDisplays: () => ipcRenderer.invoke('get-displays'),
 
   startValidationTracking: (cameraIndex) => ipcRenderer.invoke('start-validation-tracking', { cameraIndex }),
@@ -33,7 +35,7 @@ contextBridge.exposeInMainWorld('calibrationAPI', {
   },
 
   onComplete: (callback) => {
-    ipcRenderer.on('calibration-complete', (_event) => callback());
+    ipcRenderer.on('calibration-complete', (_event, data) => callback(data));
   },
 
   onGazeData: (callback) => {
