@@ -329,6 +329,48 @@
       </select>
     </div>
 
+    <details id="advanced-wrap" style="margin: 10px auto 4px; max-width: 560px; text-align: left;">
+      <summary style="cursor: pointer; color: #89b4fa; font-size: 13px; padding: 4px 8px;">Advanced camera options</summary>
+      <div style="padding: 10px 12px; background: #11111b; border: 1px solid #313244; border-radius: 8px; margin-top: 6px;">
+        <div class="setup-row" style="justify-content: flex-start;">
+          <label style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+            <input type="checkbox" id="irModeCheckbox">
+            <span style="color: #cdd6f4;">IR camera mode</span>
+          </label>
+        </div>
+        <div style="font-size: 11px; color: #a6adc8; margin: -4px 0 10px 24px; line-height: 1.5;">
+          Enable for Windows Hello / UVC IR cameras. Applies CLAHE contrast boost so the face mesh works under low light. Select the IR device above.
+        </div>
+        <div class="setup-row">
+          <label for="processResSelect">Processing:</label>
+          <select id="processResSelect">
+            <option value="640x480" selected>640×480 (fastest, default)</option>
+            <option value="960x720">960×720 (balanced)</option>
+            <option value="1280x720">1280×720 (precise)</option>
+            <option value="1920x1080">1920×1080 (maximum)</option>
+          </select>
+        </div>
+        <div class="setup-row">
+          <label for="captureResSelect">Capture:</label>
+          <select id="captureResSelect">
+            <option value="0x0" selected>Driver default (1280×720)</option>
+            <option value="1920x1080">1920×1080 (IR / 1080p)</option>
+            <option value="2560x1440">2560×1440 (1440p)</option>
+            <option value="3840x2160">3840×2160 (4K native)</option>
+          </select>
+        </div>
+        <div class="setup-row" style="justify-content: flex-start;">
+          <label style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+            <input type="checkbox" id="hiresIrisCheckbox">
+            <span style="color: #cdd6f4;">Hi-res iris refinement</span>
+          </label>
+        </div>
+        <div style="font-size: 11px; color: #a6adc8; margin: -4px 0 0 24px; line-height: 1.5;">
+          Re-localize the iris center on the full-resolution frame for sub-pixel accuracy. Recommended for 1080p IR or 4K webcams; costs a little CPU.
+        </div>
+      </div>
+    </details>
+
     <div id="camera-preview-wrap">
       <img id="camera-preview" alt="Selected camera preview">
       <div class="face-indicator" id="faceIndicator"></div>
@@ -628,6 +670,10 @@ const cameraNote = $('cameraNote');
 const dispSel    = $('displaySelect');
 const ptsSel     = $('pointsSelect');
 const modeSel    = $('modeSelect');
+const irModeCb   = $('irModeCheckbox');
+const procResSel = $('processResSelect');
+const capResSel  = $('captureResSelect');
+const hiresIrisCb = $('hiresIrisCheckbox');
 const camPreview = $('camera-preview');
 const camStatus  = $('camera-preview-status');
 const faceInd    = $('faceIndicator');
@@ -766,6 +812,60 @@ function stopCameraPreview() {
   }
 })();
 
+// ════════════════════════════════════════════════════════════════════════════════
+// Advanced camera options: IR mode, processing resolution, hires iris refinement
+// ════════════════════════════════════════════════════════════════════════════════
+const CAM_OPTS_KEY = 'csimple.eyeTracking.cameraOptions.v1';
+function loadCameraOptions() {
+  try {
+    const raw = localStorage.getItem(CAM_OPTS_KEY);
+    if (!raw) return;
+    const opts = JSON.parse(raw);
+    if (typeof opts.irMode === 'boolean') irModeCb.checked = opts.irMode;
+    if (typeof opts.hiresIris === 'boolean') hiresIrisCb.checked = opts.hiresIris;
+    if (opts.processRes && [...procResSel.options].some(o => o.value === opts.processRes)) {
+      procResSel.value = opts.processRes;
+    }
+    if (opts.captureRes && [...capResSel.options].some(o => o.value === opts.captureRes)) {
+      capResSel.value = opts.captureRes;
+    }
+  } catch {}
+}
+function persistCameraOptions() {
+  try {
+    localStorage.setItem(CAM_OPTS_KEY, JSON.stringify({
+      irMode: irModeCb.checked,
+      hiresIris: hiresIrisCb.checked,
+      processRes: procResSel.value,
+      captureRes: capResSel.value,
+    }));
+  } catch {}
+}
+function readCameraOptions() {
+  const [pw, ph] = (procResSel.value || '640x480').split('x').map(n => parseInt(n, 10) || 0);
+  const [cw, ch] = (capResSel.value || '0x0').split('x').map(n => parseInt(n, 10) || 0);
+  return {
+    irMode: !!irModeCb.checked,
+    hiresIris: !!hiresIrisCb.checked,
+    processWidth: pw,
+    processHeight: ph,
+    captureWidth: cw,
+    captureHeight: ch,
+  };
+}
+loadCameraOptions();
+[irModeCb, hiresIrisCb, procResSel, capResSel].forEach(el => {
+  el.addEventListener('change', persistCameraOptions);
+});
+// Auto-suggest hires iris when a native hi-res capture is selected
+capResSel.addEventListener('change', () => {
+  const [cw] = capResSel.value.split('x').map(n => parseInt(n, 10) || 0);
+  if (cw >= 1920 && !hiresIrisCb.checked) {
+    hiresIrisCb.checked = true;
+    persistCameraOptions();
+  }
+});
+
 ptsSel.onchange = () => {
   const n = parseInt(ptsSel.value, 10);
   GRID = buildGrid(n);
@@ -859,7 +959,7 @@ function beginCalibration(opts = {}) {
   stopCameraPreview();
 
   const dispId = chosenDisplay ? chosenDisplay.id : 0;
-  window.calibrationAPI.startCalibration(chosenCamera, dispId, optimize);
+  window.calibrationAPI.startCalibration(chosenCamera, dispId, optimize, readCameraOptions());
 
   showScreen(document.createElement('div')); // hide all screens
   calPreviewBg.classList.remove('hidden');
@@ -1247,7 +1347,7 @@ function startValidation() {
   renderHistoryNote();
 
   // Start tracking so the user can see the live cursor following their gaze.
-  window.calibrationAPI.startValidationTracking(chosenCamera);
+  window.calibrationAPI.startValidationTracking(chosenCamera, readCameraOptions());
   window.calibrationAPI.onGazeData(onGazeData);
 }
 

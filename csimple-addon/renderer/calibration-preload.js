@@ -16,8 +16,8 @@ contextBridge.exposeInMainWorld('calibrationAPI', {
     ipcRenderer.send('calibration-finish');
   },
 
-  startCalibration: (cameraIndex, displayId, optimize) => {
-    ipcRenderer.send('calibration-start', { cameraIndex, displayId, optimize: !!optimize });
+  startCalibration: (cameraIndex, displayId, optimize, cameraOptions) => {
+    ipcRenderer.send('calibration-start', { cameraIndex, displayId, optimize: !!optimize, cameraOptions: cameraOptions || null });
   },
 
   getCameras: () => ipcRenderer.invoke('get-cameras'),
@@ -28,7 +28,7 @@ contextBridge.exposeInMainWorld('calibrationAPI', {
 
   getPriorCalibration: () => ipcRenderer.invoke('get-prior-calibration'),
 
-  startValidationTracking: (cameraIndex) => ipcRenderer.invoke('start-validation-tracking', { cameraIndex }),
+  startValidationTracking: (cameraIndex, cameraOptions) => ipcRenderer.invoke('start-validation-tracking', { cameraIndex, cameraOptions: cameraOptions || null }),
 
   stopTracking: () => ipcRenderer.invoke('stop-tracking'),
 

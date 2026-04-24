@@ -42,6 +42,41 @@ class EyeTrackingManager {
   }
 
   /**
+   * Resolve camera pipeline options (IR mode, process resolution, hires iris,
+   * native capture resolution). Merges persisted settings.json with per-call
+   * overrides passed into start()/startCalibration().
+   */
+  _resolveCameraOptions(options = {}) {
+    let irMode = false;
+    let processWidth = 640;
+    let processHeight = 480;
+    let hiresIris = false;
+    let captureWidth = 0;
+    let captureHeight = 0;
+    try {
+      const settingsPath = path.join(resolveResourcesPath(), 'settings.json');
+      if (fs.existsSync(settingsPath)) {
+        const s = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+        if (s.eyeTracking) {
+          irMode = s.eyeTracking.irMode ?? irMode;
+          processWidth = s.eyeTracking.processWidth ?? processWidth;
+          processHeight = s.eyeTracking.processHeight ?? processHeight;
+          hiresIris = s.eyeTracking.hiresIris ?? hiresIris;
+          captureWidth = s.eyeTracking.captureWidth ?? captureWidth;
+          captureHeight = s.eyeTracking.captureHeight ?? captureHeight;
+        }
+      }
+    } catch {}
+    if (options.irMode !== undefined) irMode = !!options.irMode;
+    if (options.processWidth) processWidth = options.processWidth;
+    if (options.processHeight) processHeight = options.processHeight;
+    if (options.hiresIris !== undefined) hiresIris = !!options.hiresIris;
+    if (options.captureWidth) captureWidth = options.captureWidth;
+    if (options.captureHeight) captureHeight = options.captureHeight;
+    return { irMode, processWidth, processHeight, hiresIris, captureWidth, captureHeight };
+  }
+
+  /**
    * Get the Python executable path (from venv or system).
    */
   _getPythonPath() {
@@ -164,6 +199,9 @@ while ($true) {
     // Load settings for smoothing/confidence
     let smoothing = 0.3;
     let confidence = 0.6;
+    let oeMinCutoff = 0.8;
+    let oeBeta = 0.007;
+    let deadzonePx = 4.0;
     try {
       const settingsPath = path.join(resourcesPath, 'settings.json');
       if (fs.existsSync(settingsPath)) {
@@ -171,9 +209,19 @@ while ($true) {
         if (settings.eyeTracking) {
           smoothing = settings.eyeTracking.smoothingAlpha ?? smoothing;
           confidence = settings.eyeTracking.confidenceThreshold ?? confidence;
+          oeMinCutoff = settings.eyeTracking.oneEuroMinCutoff ?? oeMinCutoff;
+          oeBeta = settings.eyeTracking.oneEuroBeta ?? oeBeta;
+          deadzonePx = settings.eyeTracking.deadzonePx ?? deadzonePx;
         }
       }
     } catch {}
+    // Per-call overrides
+    if (typeof options.oneEuroMinCutoff === 'number') oeMinCutoff = options.oneEuroMinCutoff;
+    if (typeof options.oneEuroBeta === 'number') oeBeta = options.oneEuroBeta;
+    if (typeof options.deadzonePx === 'number') deadzonePx = options.deadzonePx;
+
+    // Camera pipeline options (IR, processing/capture resolution, hires iris)
+    const camOpts = this._resolveCameraOptions(options);
 
     const pythonPath = this._getPythonPath();
     const args = [
@@ -186,7 +234,16 @@ while ($true) {
       '--mode', 'track',
       '--smoothing', String(smoothing),
       '--confidence_threshold', String(confidence),
+      '--process_width', String(camOpts.processWidth),
+      '--process_height', String(camOpts.processHeight),
+      '--oe_min_cutoff', String(oeMinCutoff),
+      '--oe_beta', String(oeBeta),
+      '--deadzone_px', String(deadzonePx),
     ];
+    if (camOpts.irMode) args.push('--ir_mode');
+    if (camOpts.hiresIris) args.push('--hires_iris');
+    if (camOpts.captureWidth > 0) args.push('--capture_width', String(camOpts.captureWidth));
+    if (camOpts.captureHeight > 0) args.push('--capture_height', String(camOpts.captureHeight));
 
     return new Promise((resolve) => {
       try {
@@ -360,6 +417,15 @@ while ($true) {
       '--screen_height', String(screen.height),
       '--mode', 'calibrate',
     ];
+
+    // Merge settings + per-call options for IR / resolution
+    const camOpts = this._resolveCameraOptions(options);
+    args.push('--process_width', String(camOpts.processWidth));
+    args.push('--process_height', String(camOpts.processHeight));
+    if (camOpts.irMode) args.push('--ir_mode');
+    if (camOpts.hiresIris) args.push('--hires_iris');
+    if (camOpts.captureWidth > 0) args.push('--capture_width', String(camOpts.captureWidth));
+    if (camOpts.captureHeight > 0) args.push('--capture_height', String(camOpts.captureHeight));
 
     return new Promise((resolve) => {
       try {

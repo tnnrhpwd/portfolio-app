@@ -367,7 +367,7 @@ ipcMain.on('calibration-close', () => {
 });
 
 // Start calibration with the user-chosen camera and move window to chosen display
-ipcMain.on('calibration-start', async (_event, { cameraIndex, displayId, optimize }) => {
+ipcMain.on('calibration-start', async (_event, { cameraIndex, displayId, optimize, cameraOptions }) => {
   const { screen } = require('electron');
   const displays = screen.getAllDisplays();
   const chosen = displays.find(d => d.id === displayId) || screen.getPrimaryDisplay();
@@ -380,7 +380,10 @@ ipcMain.on('calibration-start', async (_event, { cameraIndex, displayId, optimiz
 
   // Start the Python calibration process with the chosen camera
   if (server?.eyeTrackingManager) {
-    server.eyeTrackingManager.startCalibration(cameraIndex, { optimize: !!optimize });
+    server.eyeTrackingManager.startCalibration(cameraIndex, {
+      optimize: !!optimize,
+      ...(cameraOptions || {}),
+    });
   }
 });
 
@@ -416,7 +419,7 @@ ipcMain.handle('stop-tracking', async () => {
 });
 
 // Start tracking for validation (uses existing calibration, no cursor movement)
-ipcMain.handle('start-validation-tracking', async (_event, { cameraIndex }) => {
+ipcMain.handle('start-validation-tracking', async (_event, { cameraIndex, cameraOptions }) => {
   if (server?.eyeTrackingManager) {
     server.eyeTrackingManager.validationMode = true;
     // Pipe gaze data to calibration window
@@ -425,7 +428,11 @@ ipcMain.handle('start-validation-tracking', async (_event, { cameraIndex }) => {
         calibrationWindow.webContents.send('gaze-data', data);
       }
     };
-    return await server.eyeTrackingManager.start({ cameraIndex, duration: 0 });
+    return await server.eyeTrackingManager.start({
+      cameraIndex,
+      duration: 0,
+      ...(cameraOptions || {}),
+    });
   }
   return { success: false, error: 'No eye tracking manager' };
 });
