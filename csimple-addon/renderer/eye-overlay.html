@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Eye Overlay</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+      pointer-events: none; /* paranoia — window is also click-through */
+      cursor: none;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      user-select: none;
+    }
+
+    /* The gaze dot — animated to smooth over inter-frame jumps */
+    .gaze-dot {
+      position: absolute;
+      left: 0; top: 0;
+      width: 28px;
+      height: 28px;
+      margin-left: -14px;
+      margin-top: -14px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 50% 50%,
+        rgba(80, 220, 255, 0.95) 0%,
+        rgba(80, 220, 255, 0.55) 35%,
+        rgba(80, 220, 255, 0.0) 75%);
+      box-shadow:
+        0 0 12px rgba(80, 220, 255, 0.65),
+        0 0 26px rgba(80, 220, 255, 0.35);
+      transition: transform 60ms linear, opacity 200ms ease;
+      will-change: transform, opacity;
+      transform: translate3d(-200px, -200px, 0);
+      opacity: 0;
+    }
+    .gaze-dot.visible { opacity: 1; }
+    .gaze-dot.blink { opacity: 0.15; }
+
+    /* Tiny inner pip for precise center */
+    .gaze-dot::after {
+      content: '';
+      position: absolute;
+      left: 50%; top: 50%;
+      width: 6px;
+      height: 6px;
+      margin-left: -3px;
+      margin-top: -3px;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 0 6px rgba(255, 255, 255, 0.9);
+    }
+
+    /* Brief flash when an implicit-calibration sample fires */
+    .train-flash {
+      position: absolute;
+      left: 0; top: 0;
+      width: 60px;
+      height: 60px;
+      margin-left: -30px;
+      margin-top: -30px;
+      border-radius: 50%;
+      border: 2px solid rgba(120, 255, 160, 0.85);
+      box-shadow: 0 0 20px rgba(120, 255, 160, 0.6);
+      animation: train-pulse 700ms ease-out forwards;
+      pointer-events: none;
+    }
+    @keyframes train-pulse {
+      0%   { transform: scale(0.4); opacity: 1; }
+      100% { transform: scale(1.6); opacity: 0; }
+    }
+
+    /* HUD — shows live status in a corner. Subtle, semi-transparent. */
+    .hud {
+      position: absolute;
+      left: 16px;
+      bottom: 16px;
+      padding: 8px 12px;
+      background: rgba(10, 10, 18, 0.55);
+      color: #cfe9ff;
+      font-size: 11px;
+      line-height: 1.4;
+      border-radius: 8px;
+      border: 1px solid rgba(80, 220, 255, 0.25);
+      backdrop-filter: blur(6px);
+      pointer-events: none;
+      letter-spacing: 0.02em;
+    }
+    .hud .label { opacity: 0.65; margin-right: 4px; }
+    .hud .num { color: #ffffff; font-variant-numeric: tabular-nums; }
+    .hud .ok { color: #a3f5b6; }
+    .hud .warn { color: #ffd07a; }
+  </style>
+</head>
+<body>
+  <div id="dot" class="gaze-dot"></div>
+  <div id="hud" class="hud">
+    <div><span class="label">Eye Overlay</span> <span id="status" class="ok">starting…</span></div>
+    <div><span class="label">gaze</span> <span id="gaze" class="num">—</span></div>
+    <div><span class="label">samples</span> <span id="samples" class="num">0</span> · <span class="label">residual</span> <span id="residual" class="num">—</span></div>
+  </div>
+
+  <script>
+    (function () {
+      const dot = document.getElementById('dot');
+      const elStatus = document.getElementById('status');
+      const elGaze = document.getElementById('gaze');
+      const elSamples = document.getElementById('samples');
+      const elResidual = document.getElementById('residual');
+
+      // The overlay window covers the full virtual desktop. Gaze coordinates
+      // arrive in *global* screen space, so we subtract the window origin to
+      // translate into local CSS pixels.
+      let originX = 0, originY = 0;
+      let sampleCount = 0;
+
+      window.overlayAPI.onInit((data) => {
+        if (data && data.origin) {
+          originX = data.origin.x || 0;
+          originY = data.origin.y || 0;
+        }
+        elStatus.textContent = 'tracking';
+      });
+
+      window.overlayAPI.onGaze((data) => {
+        if (typeof data.x !== 'number' || typeof data.y !== 'number') return;
+        const lx = data.x - originX;
+        const ly = data.y - originY;
+        dot.style.transform = `translate3d(${lx}px, ${ly}px, 0)`;
+        dot.classList.add('visible');
+        if (data.blink) dot.classList.add('blink');
+        else dot.classList.remove('blink');
+        elGaze.textContent = `${Math.round(data.x)}, ${Math.round(data.y)}`;
+      });
+
+      window.overlayAPI.onTrainSample((data) => {
+        sampleCount = data.count || (sampleCount + 1);
+        elSamples.textContent = String(sampleCount);
+        // Spawn a transient flash at the cursor target
+        const flash = document.createElement('div');
+        flash.className = 'train-flash';
+        flash.style.transform = `translate3d(${data.x - originX}px, ${data.y - originY}px, 0)`;
+        document.body.appendChild(flash);
+        setTimeout(() => flash.remove(), 800);
+      });
+
+      window.overlayAPI.onModelUpdated((info) => {
+        if (info && typeof info.mean_residual_px === 'number') {
+          elResidual.textContent = `${info.mean_residual_px.toFixed(1)}px`;
+          elResidual.className = 'num ' + (info.mean_residual_px < 80 ? 'ok' : 'warn');
+        }
+        elStatus.textContent = `model: ${info.model || '?'} · adapting`;
+      });
+    })();
+  </script>
+</body>
+</html>

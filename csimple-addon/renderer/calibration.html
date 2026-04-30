@@ -297,7 +297,7 @@
         <li>Sit ~50&ndash;70 cm from the screen</li>
         <li>Face should be well-lit from the front (avoid backlight)</li>
         <li>If you wear <strong>glasses</strong>, keep them on; recalibrate if you remove them</li>
-        <li>Keep your head level and centered &mdash; don't tilt</li>
+        <li><strong style="color:#a6e3a1">Vary your head pose slightly</strong> while looking at each dot &mdash; small left/right turns and up/down nods (~5&deg; either way). This teaches the system to compensate when your head moves later, dramatically improving accuracy outside the calibration pose.</li>
         <li>Stare at the exact <strong>center</strong> of each dot</li>
         <li>The dot will turn <strong style="color:#a6e3a1">green</strong> when it captures a stable reading</li>
       </ul>
@@ -313,60 +313,29 @@
       <select id="displaySelect"><option>Loading...</option></select>
     </div>
     <div class="setup-row">
-      <label for="pointsSelect">Points:</label>
+      <label for="pointsSelect">Accuracy:</label>
       <select id="pointsSelect">
-        <option value="9">9 &mdash; fast</option>
-        <option value="16" selected>16 &mdash; recommended</option>
-        <option value="25">25 &mdash; high accuracy</option>
-      </select>
-    </div>
-    <div class="setup-row">
-      <label for="modeSelect">Mode:</label>
-      <select id="modeSelect">
-        <option value="quick">Quick (9 points, shortest)</option>
-        <option value="balanced" selected>Balanced (16 points, recommended)</option>
-        <option value="precision">Precision (25 points, best accuracy)</option>
+        <option value="9">9 points &mdash; fast</option>
+        <option value="16" selected>16 points &mdash; recommended</option>
+        <option value="25">25 points &mdash; high accuracy</option>
       </select>
     </div>
 
     <details id="advanced-wrap" style="margin: 10px auto 4px; max-width: 560px; text-align: left;">
       <summary style="cursor: pointer; color: #89b4fa; font-size: 13px; padding: 4px 8px;">Advanced camera options</summary>
       <div style="padding: 10px 12px; background: #11111b; border: 1px solid #313244; border-radius: 8px; margin-top: 6px;">
-        <div class="setup-row" style="justify-content: flex-start;">
-          <label style="display: flex; align-items: center; gap: 8px; min-width: 0;">
-            <input type="checkbox" id="irModeCheckbox">
-            <span style="color: #cdd6f4;">IR camera mode</span>
-          </label>
-        </div>
-        <div style="font-size: 11px; color: #a6adc8; margin: -4px 0 10px 24px; line-height: 1.5;">
-          Enable for Windows Hello / UVC IR cameras. Applies CLAHE contrast boost so the face mesh works under low light. Select the IR device above.
-        </div>
         <div class="setup-row">
-          <label for="processResSelect">Processing:</label>
-          <select id="processResSelect">
-            <option value="640x480" selected>640×480 (fastest, default)</option>
-            <option value="960x720">960×720 (balanced)</option>
-            <option value="1280x720">1280×720 (precise)</option>
-            <option value="1920x1080">1920×1080 (maximum)</option>
+          <label for="cameraProfileSelect">Camera profile:</label>
+          <select id="cameraProfileSelect">
+            <option value="auto" selected>Auto &mdash; standard webcam</option>
+            <option value="ir">IR (Windows Hello)</option>
+            <option value="hires">Hi-res / 4K webcam</option>
           </select>
         </div>
-        <div class="setup-row">
-          <label for="captureResSelect">Capture:</label>
-          <select id="captureResSelect">
-            <option value="0x0" selected>Driver default (1280×720)</option>
-            <option value="1920x1080">1920×1080 (IR / 1080p)</option>
-            <option value="2560x1440">2560×1440 (1440p)</option>
-            <option value="3840x2160">3840×2160 (4K native)</option>
-          </select>
-        </div>
-        <div class="setup-row" style="justify-content: flex-start;">
-          <label style="display: flex; align-items: center; gap: 8px; min-width: 0;">
-            <input type="checkbox" id="hiresIrisCheckbox">
-            <span style="color: #cdd6f4;">Hi-res iris refinement</span>
-          </label>
-        </div>
-        <div style="font-size: 11px; color: #a6adc8; margin: -4px 0 0 24px; line-height: 1.5;">
-          Re-localize the iris center on the full-resolution frame for sub-pixel accuracy. Recommended for 1080p IR or 4K webcams; costs a little CPU.
+        <div style="font-size: 11px; color: #a6adc8; margin: -4px 0 0 8px; line-height: 1.5;">
+          <strong>Auto</strong>: 640&times;480 processing, driver-default capture. Works for most webcams.<br>
+          <strong>IR</strong>: Applies CLAHE contrast boost, relaxed detection thresholds, 1080p capture with sub-pixel iris refinement. Use for Windows Hello / UVC IR cameras.<br>
+          <strong>Hi-res / 4K</strong>: Captures at 4K, processes at 1280&times;720 with sub-pixel iris refinement for maximum precision.
         </div>
       </div>
     </details>
@@ -644,6 +613,11 @@ let GRID_VAL_LEN = 0;
 let pursuitTimer = null;
 let pursuitActive = false;
 let chosenDisplay = null, chosenCamera = 0, aborted = false;
+// Set true after the final dot is captured and `finishCalibration` is sent to
+// the backend. Any late `calibrating` progress events that arrive after this
+// (e.g. from frames already in flight) must NOT overwrite the "Computing…"
+// message — otherwise the UI looks stuck on the last dot's sample counter.
+let computing = false;
 
 // ── DOM ────────────────────────────────────────────────────────────────────────
 const $  = id => document.getElementById(id);
@@ -669,11 +643,7 @@ const camSel     = $('cameraSelect');
 const cameraNote = $('cameraNote');
 const dispSel    = $('displaySelect');
 const ptsSel     = $('pointsSelect');
-const modeSel    = $('modeSelect');
-const irModeCb   = $('irModeCheckbox');
-const procResSel = $('processResSelect');
-const capResSel  = $('captureResSelect');
-const hiresIrisCb = $('hiresIrisCheckbox');
+const cameraProfileSel = $('cameraProfileSelect');
 const camPreview = $('camera-preview');
 const camStatus  = $('camera-preview-status');
 const faceInd    = $('faceIndicator');
@@ -804,7 +774,15 @@ function stopCameraPreview() {
       // Start live camera preview
       const firstCam = calibrationCameras[0].index;
       startCameraPreview(firstCam);
-      camSel.onchange = () => startCameraPreview(parseInt(camSel.value, 10));
+      // The IR profile only makes sense for IR-capable hardware (Windows
+      // Hello, dedicated IR webcams). Disable it on regular RGB cameras so
+      // users can't accidentally apply CLAHE / relaxed thresholds and get
+      // worse tracking. Re-evaluated whenever the camera selection changes.
+      updateIrProfileAvailability();
+      camSel.onchange = () => {
+        startCameraPreview(parseInt(camSel.value, 10));
+        updateIrProfileAvailability();
+      };
       refreshPreviewBtn.onclick = () => startCameraPreview(parseInt(camSel.value, 10));
     }
   } catch (e) {
@@ -813,73 +791,104 @@ function stopCameraPreview() {
 })();
 
 // ════════════════════════════════════════════════════════════════════════════════
-// Advanced camera options: IR mode, processing resolution, hires iris refinement
+// Advanced camera options: single "Camera profile" preset that expands to
+// IR mode, processing/capture resolutions, and hi-res iris refinement flags.
 // ════════════════════════════════════════════════════════════════════════════════
 const CAM_OPTS_KEY = 'csimple.eyeTracking.cameraOptions.v1';
+
+// Preset → backend flags. Keep processing resolutions modest so MediaPipe stays
+// real-time; capture resolution is what we ask the driver for.
+const CAMERA_PROFILES = {
+  auto: {
+    irMode: false, hiresIris: false,
+    processWidth: 640,  processHeight: 480,
+    captureWidth: 0,    captureHeight: 0,
+  },
+  ir: {
+    irMode: true, hiresIris: true,
+    processWidth: 960,  processHeight: 720,
+    captureWidth: 1920, captureHeight: 1080,
+  },
+  hires: {
+    irMode: false, hiresIris: true,
+    processWidth: 1280, processHeight: 720,
+    captureWidth: 3840, captureHeight: 2160,
+  },
+};
+
 function loadCameraOptions() {
   try {
     const raw = localStorage.getItem(CAM_OPTS_KEY);
     if (!raw) return;
     const opts = JSON.parse(raw);
-    if (typeof opts.irMode === 'boolean') irModeCb.checked = opts.irMode;
-    if (typeof opts.hiresIris === 'boolean') hiresIrisCb.checked = opts.hiresIris;
-    if (opts.processRes && [...procResSel.options].some(o => o.value === opts.processRes)) {
-      procResSel.value = opts.processRes;
-    }
-    if (opts.captureRes && [...capResSel.options].some(o => o.value === opts.captureRes)) {
-      capResSel.value = opts.captureRes;
+    if (typeof opts.profile === 'string' && CAMERA_PROFILES[opts.profile]) {
+      cameraProfileSel.value = opts.profile;
+    } else if (opts.irMode === true) {
+      // Migrate legacy schema stored before we collapsed the four controls.
+      cameraProfileSel.value = 'ir';
+    } else if (typeof opts.captureRes === 'string' && opts.captureRes.startsWith('3840')) {
+      cameraProfileSel.value = 'hires';
     }
   } catch {}
 }
 function persistCameraOptions() {
   try {
     localStorage.setItem(CAM_OPTS_KEY, JSON.stringify({
-      irMode: irModeCb.checked,
-      hiresIris: hiresIrisCb.checked,
-      processRes: procResSel.value,
-      captureRes: capResSel.value,
+      profile: cameraProfileSel.value || 'auto',
     }));
   } catch {}
 }
 function readCameraOptions() {
-  const [pw, ph] = (procResSel.value || '640x480').split('x').map(n => parseInt(n, 10) || 0);
-  const [cw, ch] = (capResSel.value || '0x0').split('x').map(n => parseInt(n, 10) || 0);
-  return {
-    irMode: !!irModeCb.checked,
-    hiresIris: !!hiresIrisCb.checked,
-    processWidth: pw,
-    processHeight: ph,
-    captureWidth: cw,
-    captureHeight: ch,
-  };
+  const preset = CAMERA_PROFILES[cameraProfileSel.value] || CAMERA_PROFILES.auto;
+  return { ...preset };
 }
 loadCameraOptions();
-[irModeCb, hiresIrisCb, procResSel, capResSel].forEach(el => {
-  el.addEventListener('change', persistCameraOptions);
-});
-// Auto-suggest hires iris when a native hi-res capture is selected
-capResSel.addEventListener('change', () => {
-  const [cw] = capResSel.value.split('x').map(n => parseInt(n, 10) || 0);
-  if (cw >= 1920 && !hiresIrisCb.checked) {
-    hiresIrisCb.checked = true;
+cameraProfileSel.addEventListener('change', persistCameraOptions);
+
+// ── IR profile gating ──
+// Heuristic: a camera is treated as IR-capable when its enumerated name
+// contains an IR/infrared/Hello marker. Covers Windows Hello ("IR Camera",
+// "Integrated IR Camera"), HP TrueVision IR, RealSense IR streams, etc.
+// False negatives (an unlabeled IR cam) just mean the user has to pick a
+// different camera — better than letting users with regular webcams
+// accidentally pick the IR profile and get worse tracking.
+function isIRCapableCameraName(name) {
+  if (!name || typeof name !== 'string') return false;
+  const n = name.toLowerCase();
+  // Word-bounded "IR" so we don't match e.g. "Air" or "Iris". Plus a few
+  // explicit substrings that don't need word boundaries.
+  if (/\bir\b/.test(n)) return true;
+  return n.includes('infrared')
+      || n.includes('windows hello')
+      || n.includes('hello camera')
+      || n.includes('truevision ir')
+      || n.includes('realsense');
+}
+
+function updateIrProfileAvailability() {
+  const irOption = cameraProfileSel.querySelector('option[value="ir"]');
+  if (!irOption) return;
+  const camIdx = parseInt(camSel.value, 10);
+  const camera = calibrationCameras.find(c => c.index === camIdx);
+  const irOk = !!(camera && isIRCapableCameraName(camera.name));
+  irOption.disabled = !irOk;
+  irOption.textContent = irOk
+    ? 'IR (Windows Hello)'
+    : 'IR (Windows Hello) — not detected on this camera';
+  // If the user previously selected IR but the new camera doesn't support it,
+  // fall back to the safe "Auto" profile and persist the change.
+  if (!irOk && cameraProfileSel.value === 'ir') {
+    cameraProfileSel.value = 'auto';
     persistCameraOptions();
   }
-});
+}
 
 ptsSel.onchange = () => {
   const n = parseInt(ptsSel.value, 10);
   GRID = buildGrid(n);
-  // Keep Mode in sync so beginCalibration() (which reads modePreset) honors this.
   if (n === 9) modePreset = 'quick';
   else if (n === 25) modePreset = 'precision';
   else modePreset = 'balanced';
-  modeSel.value = modePreset;
-};
-modeSel.onchange = () => {
-  modePreset = modeSel.value;
-  const cfg = getModeConfig(modePreset);
-  ptsSel.value = String(cfg.points);
-  GRID = buildGrid(cfg.points);
 };
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -941,6 +950,7 @@ function beginCalibration(opts = {}) {
   chosenCamera = parseInt(camSel.value, 10) || 0;
   aborted = false; calIdx = 0; faceDetected = false; pointDone = false;
   paused = false;
+  computing = false;
   currentPointSamples = 0;
   currentPointTarget = 0;
 
@@ -1045,11 +1055,20 @@ function abortPursuit() {
 function advancePoint() {
   if (aborted || paused) return;
   if (calIdx >= GRID.length) {
-    // All points collected — compute calibration
+    // All points collected — compute calibration.
+    // Clear the per-dot quality pill / progress bar so the user doesn't keep
+    // seeing the last dot's "Locked 45/20" indicator and think the system is
+    // stuck on that dot. Show a dedicated computing message + spinner.
+    computing = true;
     clearPointTimers();
     calPreviewBg.classList.add('hidden');
     calDot.classList.add('hidden');
-    calMsg.textContent = 'Computing calibration...';
+    progBar.style.width = '100%';
+    progLabel.textContent = 'All dots captured — fitting model…';
+    qualityBar.style.width = '100%';
+    qualityPill.className = 'q-pill good';
+    qualityPill.textContent = 'Computing…';
+    calMsg.textContent = 'Computing calibration model — please wait…';
     calMsg.className = 'msg';
     window.calibrationAPI.finishCalibration();
     return;
@@ -1106,11 +1125,14 @@ function advancePoint() {
         calMsg.className = 'msg warn';
         setTimeout(() => { if (!aborted && !paused) advancePoint(); }, 600);
       } else {
-        calMsg.textContent = `Still collecting real samples (${currentPointSamples}) — keep looking at the dot`;
+        // We have samples but the stability signal never fired — force-complete
+        // this point and move on so we don't loop forever on the same dot
+        // (common under IR cameras where iris jitter prevents stability lock).
+        calMsg.textContent = `Accepting ${currentPointSamples} samples and moving on`;
         calMsg.className = 'msg warn';
         currentPointTimeout = setTimeout(() => {
-          if (!aborted && !pointDone) advancePoint();
-        }, 3000);
+          if (!aborted && !pointDone) onPointDone();
+        }, 800);
       }
     }
   }, cfg.timeoutMs);
@@ -1184,6 +1206,41 @@ window.calibrationAPI.onProgress((data) => {
     return;
   }
 
+  // Backend started computing the calibration model. Surface this so the user
+  // sees the UI is alive while Python crunches numbers.
+  if (data.status === 'calibration_computing') {
+    calMsg.textContent = 'Computing calibration model — please wait…';
+    calMsg.className = 'msg';
+    return;
+  }
+
+  // Non-fatal warning emitted from finish_calibration (e.g. head-correction
+  // fit had numerical trouble). Log it so the calibration still proceeds.
+  if (data.warning) {
+    console.warn('[Calibration] backend warning:', data.warning);
+    return;
+  }
+
+  // Generic error from finish_calibration / model fit (e.g. "Need at least 4
+  // points"). Don't leave the UI stuck — show the message and re-enable retry.
+  if (data.error && !data.error.includes('No face')) {
+    console.error('[Calibration] backend error:', data.error, data.traceback || '');
+    aborted = true;
+    clearPointTimers();
+    calDot.classList.add('hidden');
+    calStatus.classList.remove('hidden');
+    calMsg.textContent = `Calibration failed: ${data.error}`;
+    calMsg.className = 'msg warn';
+    qualityWrap.classList.add('hidden');
+    calControls.classList.add('hidden');
+    progWrap.classList.add('hidden');
+    calPreviewBg.classList.add('hidden');
+    document.body.classList.remove('hide-cursor');
+    showScreen(sSetup);
+    startCameraPreview(parseInt(camSel.value, 10) || 0);
+    return;
+  }
+
   // Face detected signal
   if (data.status === 'face_detected') {
     faceDetected = true;
@@ -1202,6 +1259,10 @@ window.calibrationAPI.onProgress((data) => {
 
   // Point collection progress
   if (data.status === 'calibrating') {
+    // Ignore any late events that arrive after we've moved on to the
+    // computing phase — otherwise the last dot's "45/20" sample counter
+    // would re-overwrite the "Computing…" message and look like we're stuck.
+    if (computing) return;
     currentPointSamples = data.samples || 0;
     currentPointTarget = data.target || currentPointTarget;
     const pct = Math.min(100, Math.round((data.samples / data.target) * 100));
@@ -1254,6 +1315,16 @@ window.calibrationAPI.onComplete((info) => {
       model, meanResidualPx: meanR, maxResidualPx: maxR, worst,
       homMeanPx: info.hom_mean_residual_px, polyMeanPx: info.poly_mean_residual_px,
     };
+  }
+  // Head-pose correction status (new in v1.0.7+)
+  if (info && info.head_correction) {
+    const hc = info.head_correction;
+    if (hc.enabled) {
+      console.log(`[Calibration] head correction ENABLED — yaw spread=${hc.yaw_spread_deg.toFixed(1)}° pitch spread=${hc.pitch_spread_deg.toFixed(1)}°`);
+    } else {
+      console.log(`[Calibration] head correction DISABLED — head was held too still during calibration (yaw=${hc.yaw_spread_deg.toFixed(1)}°, pitch=${hc.pitch_spread_deg.toFixed(1)}°). Recalibrate with small head movements for compensation.`);
+    }
+    window.__lastHeadCorrection = hc;
   }
   startValidation();
 });

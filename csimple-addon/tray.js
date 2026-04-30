@@ -16,6 +16,7 @@ class TrayManager {
     this.updateVersion = null;
     this.updateProgress = 0;
     this.eyeTrackingState = 'idle';   // idle | running | calibrating | error
+    this.eyeOverlayActive = false;    // overlay (test mode) on/off
   }
 
   /**
@@ -33,6 +34,8 @@ class TrayManager {
    * @param {Function} callbacks.onChangeResourcesFolder
    * @param {Function} callbacks.onToggleStartAtLogin
    * @param {Function} callbacks.onCalibrateEyeTracking
+   * @param {Function} callbacks.onToggleEyeTracking
+   * @param {Function} callbacks.onEmergencyStopEyeTracking
   * @param {Function} callbacks.onShowEyeTrackingHelp
    */
   create(callbacks = {}) {
@@ -105,6 +108,14 @@ class TrayManager {
   }
 
   /**
+   * Update the overlay (test mode) toggle state.
+   */
+  setEyeOverlayActive(active) {
+    this.eyeOverlayActive = !!active;
+    this._updateMenu();
+  }
+
+  /**
    * Show a native notification.
    */
   notify(title, body) {
@@ -162,8 +173,28 @@ class TrayManager {
         enabled: false,
       },
       {
+        label: this.eyeTrackingState === 'running' ? 'Disable Eye Tracking' : 'Enable Eye Tracking',
+        type: 'checkbox',
+        checked: this.eyeTrackingState === 'running',
+        enabled: this.eyeTrackingState !== 'calibrating',
+        click: (menuItem) => this.callbacks.onToggleEyeTracking?.(menuItem.checked),
+      },
+      {
         label: 'Calibrate Eye Tracking',
+        enabled: this.eyeTrackingState !== 'calibrating',
         click: () => this.callbacks.onCalibrateEyeTracking?.(),
+      },
+      {
+        label: this.eyeOverlayActive ? 'Stop Eye Overlay (Test Mode)' : 'Start Eye Overlay (Test Mode)',
+        type: 'checkbox',
+        checked: this.eyeOverlayActive,
+        enabled: this.eyeTrackingState !== 'calibrating',
+        click: (menuItem) => this.callbacks.onToggleEyeOverlay?.(menuItem.checked),
+      },
+      {
+        label: 'Emergency Stop  (Esc / Ctrl+Alt+E)',
+        enabled: this.eyeTrackingState === 'running' || this.eyeTrackingState === 'calibrating',
+        click: () => this.callbacks.onEmergencyStopEyeTracking?.(),
       },
       {
         label: 'How To Start Eye Tracking',

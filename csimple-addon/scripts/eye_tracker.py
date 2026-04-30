@@ -29,6 +29,7 @@ Stdout output (JSON lines):
 import argparse
 import base64
 import json
+import os
 import sys
 import time
 import threading
@@ -75,6 +76,36 @@ HEAD_POSE_LANDMARKS = [1, 152, 33, 263, 61, 291]
 # EAR threshold for blink detection
 EAR_BLINK_THRESHOLD = 0.21
 EAR_CONSEC_FRAMES = 2  # Minimum consecutive frames below threshold to count as blink
+
+
+def _open_camera_capture(camera_index):
+    """Open a webcam, falling back through Windows backends.
+
+    Windows Hello IR cameras and many newer integrated webcams are exposed
+    only through Media Foundation (MSMF), not DirectShow (DSHOW). Probe
+    DSHOW first (faster init, broader support for legacy USB webcams), then
+    fall back to MSMF, then to OpenCV's auto backend. Returns (cap, backend_name)
+    or (None, None) if no backend could open the device.
+    """
+    import platform
+    if platform.system() == 'Windows':
+        candidates = [(cv2.CAP_DSHOW, 'dshow'), (cv2.CAP_MSMF, 'msmf'), (cv2.CAP_ANY, 'any')]
+    else:
+        candidates = [(cv2.CAP_ANY, 'any')]
+
+    for backend_const, backend_name in candidates:
+        try:
+            cap = cv2.VideoCapture(camera_index, backend_const)
+        except Exception:
+            continue
+        if cap is not None and cap.isOpened():
+            return cap, backend_name
+        try:
+            if cap is not None:
+                cap.release()
+        except Exception:
+            pass
+    return None, None
 
 
 def encode_preview_image(frame, max_width=480, max_height=360, quality=55):
@@ -125,8 +156,8 @@ class EyeTracker:
         self.calibrating = False
         self.calibration_points = {}  # {index: {"screen": (x,y), "iris_samples": [(ix,iy), ...]}}
         self.current_cal_point = None
-        self.cal_sample_count = 25  # Minimum frames to collect per point
-        self.cal_max_samples = 90   # Max frames before forcing done
+        self.cal_sample_count = 20  # Minimum frames to collect per point
+        self.cal_max_samples = 45   # Max frames before forcing done (prevents getting stuck when stability can't be reached)
         # Prior calibration seed (optimize mode): list of aggregated dicts
         # [{"sx":..,"sy":..,"ix":..,"iy":..,"w":..}, ...]
         self.prior_calibration_points = []
@@ -168,10 +199,35 @@ class EyeTracker:
         self.prev_raw_y = None
         self.prev_time = None
 
-        # ── Head pose compensation state ──
+        # ── Head pose correction state ──
+        # Set during finish_calibration() / _load_calibration(). When non-None,
+        # the runtime applies a linear correction screen += K · (pose - pose_ref)
+        # so head movement away from the calibration pose stays accurate.
+        self.head_correction = None
+
+        # ── Online learning state (overlay/test mode) ──
+        # When the host issues `online_train` commands, the tracker pairs each
+        # command with the most recent (iris_x, iris_y, yaw, pitch) measured
+        # in the runtime track loop and refits the gaze model in-place. This
+        # lets the tracker adapt to new head poses, lighting, or eyewear that
+        # weren't represented in the original calibration grid — without
+        # forcing the user back through a full recalibration.
+        self.last_iris_x = None
+        self.last_iris_y = None
+        self.last_yaw = 0.0
+        self.last_pitch = 0.0
+        self.original_calibration_points = []  # anchor points from calibration file
+        self.online_samples = []               # list of dicts: {ix,iy,sx,sy,yaw,pitch,w,t}
+        self.online_max_samples = 240          # cap rolling buffer
+        self.online_min_for_first_refit = 3    # refit after 3 fresh samples initially
+        self.online_refit_interval = 4         # then every 4 new samples
+        self._online_pending_since_refit = 0
+        self.online_calibration_file = None    # if set, auto-save updated model
+
+        # Legacy dormant compensation state (kept for back-compat; not used now)
         self.base_head_yaw = None
         self.base_head_pitch = None
-        self.head_compensation_gain = 0.0  # disabled by default (was 150); iris-only tracking
+        self.head_compensation_gain = 0.0
 
         # ── Eye-corner low-pass state (for stable normalization denominator) ──
         # The head moves slowly relative to the eyes, so we lowpass-filter the
@@ -208,11 +264,39 @@ class EyeTracker:
                 }
             if 'homographyMatrix' in data:
                 self.homography = np.array(data['homographyMatrix'], dtype=np.float64)
+            # Optional head-pose correction (added in v1.0.7+)
+            if 'headCorrection' in data:
+                hc = data['headCorrection']
+                try:
+                    self.head_correction = {
+                        'pose_ref': np.array(hc['pose_ref'], dtype=np.float64),
+                        'K_x':      np.array(hc['K_x'], dtype=np.float64),
+                        'K_y':      np.array(hc['K_y'], dtype=np.float64),
+                    }
+                except (KeyError, TypeError, ValueError):
+                    self.head_correction = None
+            # ── Cache the original calibration points as anchor data for online learning. ──
+            self.original_calibration_points = []
+            for pt in (data.get('points') or []):
+                try:
+                    if pt is None:
+                        continue
+                    sx = float(pt['screenX']); sy = float(pt['screenY'])
+                    ix = float(pt['irisX']);   iy = float(pt['irisY'])
+                except (KeyError, TypeError, ValueError):
+                    continue
+                self.original_calibration_points.append({
+                    'sx': sx, 'sy': sy, 'ix': ix, 'iy': iy,
+                    'yaw': float(pt.get('yaw', 0.0)),
+                    'pitch': float(pt.get('pitch', 0.0)),
+                    'w': float(pt.get('weight', 1.0)),
+                })
             if self.gaze_model is not None or self.homography is not None:
                 self._emit({
                     "status": "calibration_loaded",
                     "file": filepath,
                     "model": (self.gaze_model or {}).get('type', 'homography'),
+                    "anchor_points": len(self.original_calibration_points),
                 })
             else:
                 self._emit({"error": f"No gaze model in {filepath}"})
@@ -407,22 +491,35 @@ class EyeTracker:
     def _aggregate_point_samples(samples):
         """Robust per-point aggregation: drop settling prefix, MAD outlier rejection, median.
 
-        Returns (iris_x, iris_y, weight) where weight = 1 / (stability_spread + 1).
+        Each sample is (iris_x, iris_y) for legacy callers, or (iris_x, iris_y,
+        yaw, pitch) when head pose is being captured. The aggregator handles
+        both transparently.
+
+        Returns (iris_x, iris_y, yaw, pitch, weight) where weight = 1 / (stability_spread + 1).
         """
         n = len(samples)
         if n == 0:
             return None
+        has_pose = len(samples[0]) >= 4
         xs = np.array([s[0] for s in samples], dtype=np.float64)
         ys = np.array([s[1] for s in samples], dtype=np.float64)
+        yaws = np.array([s[2] for s in samples], dtype=np.float64) if has_pose else np.zeros(n)
+        pitches = np.array([s[3] for s in samples], dtype=np.float64) if has_pose else np.zeros(n)
 
         # Drop the first 30% — eye is still settling onto the new dot
         if n >= 10:
             drop = max(3, int(n * 0.30))
             xs = xs[drop:]
             ys = ys[drop:]
+            yaws = yaws[drop:]
+            pitches = pitches[drop:]
 
         if xs.size < 3:
-            return float(np.median(xs)), float(np.median(ys)), 1.0
+            return (
+                float(np.median(xs)), float(np.median(ys)),
+                float(np.median(yaws)), float(np.median(pitches)),
+                1.0,
+            )
 
         # MAD-based outlier rejection (robust to saccades / glints)
         med_x, med_y = np.median(xs), np.median(ys)
@@ -433,12 +530,16 @@ class EyeTracker:
         if mask.sum() >= 3:
             xs = xs[mask]
             ys = ys[mask]
+            yaws = yaws[mask]
+            pitches = pitches[mask]
 
         iris_x = float(np.median(xs))
         iris_y = float(np.median(ys))
+        yaw = float(np.median(yaws))
+        pitch = float(np.median(pitches))
         spread = float(np.median(np.abs(xs - iris_x)) + np.median(np.abs(ys - iris_y)))
         weight = 1.0 / (spread + 1.0)
-        return iris_x, iris_y, weight
+        return iris_x, iris_y, yaw, pitch, weight
 
     def _fit_poly2_gaze_model(self, src, dst, weights):
         """Fit weighted 2nd-order polynomial mapping iris → screen for x and y axes.
@@ -496,8 +597,117 @@ class EyeTracker:
         errs = np.linalg.norm(preds - dst, axis=1)
         return errs
 
-    def _apply_gaze_model(self, iris_x, iris_y):
-        """Map iris → screen using polynomial model if available, else homography."""
+    def _predict_with_correction(self, src, poses, poly_model, homography, head_correction):
+        """Predict screen positions for an array of (iris, pose) samples.
+
+        Used to compute residuals after head correction is applied so the
+        saved meanResidualPx reflects the runtime cursor accuracy.
+        """
+        preds = []
+        for (ix, iy), (yaw, pitch) in zip(src, poses):
+            if poly_model is not None:
+                nx = (ix - poly_model['iris_mean'][0]) / max(poly_model['iris_scale'][0], 1e-6)
+                ny = (iy - poly_model['iris_mean'][1]) / max(poly_model['iris_scale'][1], 1e-6)
+                feats = self._poly2_features(nx, ny)
+                sx = float(feats @ poly_model['coeffs_x'])
+                sy = float(feats @ poly_model['coeffs_y'])
+            else:
+                pt = np.array([[[ix, iy]]], dtype=np.float64)
+                tr = cv2.perspectiveTransform(pt, homography)
+                sx = float(tr[0][0][0])
+                sy = float(tr[0][0][1])
+            if head_correction is not None:
+                d_yaw = float(yaw) - float(head_correction['pose_ref'][0])
+                d_pitch = float(pitch) - float(head_correction['pose_ref'][1])
+                K_x = head_correction['K_x']
+                K_y = head_correction['K_y']
+                sx += float(K_x[0]) * d_yaw + float(K_x[1]) * d_pitch
+                sy += float(K_y[0]) * d_yaw + float(K_y[1]) * d_pitch
+            preds.append([sx, sy])
+        return np.array(preds)
+
+    def _fit_head_correction(self, poses, dst, weights, poly_model, homography, src):
+        """Fit a linear correction screen += K · (pose - pose_ref) from residuals.
+
+        Returns a dict {pose_ref, K_x, K_y, yaw_spread_deg, pitch_spread_deg, data_driven}.
+        If the user kept their head still during calibration (pose spread < ~1°),
+        we skip the fit (returns K=0 so no compensation is applied — but no harm).
+        """
+        if not poses:
+            return None
+        poses_arr = np.array(poses, dtype=np.float64)
+        pose_ref = np.average(poses_arr, axis=0, weights=np.clip(weights, 0.1, 10.0))
+        d_yaw = poses_arr[:, 0] - pose_ref[0]
+        d_pitch = poses_arr[:, 1] - pose_ref[1]
+
+        yaw_spread_deg = float(np.degrees(d_yaw.std()))
+        pitch_spread_deg = float(np.degrees(d_pitch.std()))
+
+        # Predict at calibration pose (no correction yet) to get residuals
+        if poly_model is not None:
+            preds = self._predict_with_correction(src, poses_arr, poly_model, homography, None)
+        else:
+            hom_preds = cv2.perspectiveTransform(src.reshape(-1, 1, 2), homography).reshape(-1, 2)
+            preds = hom_preds
+        rx = dst[:, 0] - preds[:, 0]
+        ry = dst[:, 1] - preds[:, 1]
+
+        # Need meaningful pose variation to identify K reliably. Below ~0.5°
+        # of std the regression is poorly conditioned → skip and return zeros.
+        # User will still get the calibrated pose mapping, just no compensation.
+        min_spread_rad = np.radians(0.5)
+        data_driven = (d_yaw.std() >= min_spread_rad) or (d_pitch.std() >= min_spread_rad)
+
+        if not data_driven:
+            return {
+                'pose_ref': pose_ref,
+                'K_x': np.zeros(2, dtype=np.float64),
+                'K_y': np.zeros(2, dtype=np.float64),
+                'yaw_spread_deg': yaw_spread_deg,
+                'pitch_spread_deg': pitch_spread_deg,
+                'data_driven': False,
+            }
+
+        # Weighted ridge regression: residual = K·[d_yaw, d_pitch]
+        # (X'WX + λI) β = X'W r
+        w = np.clip(np.asarray(weights, dtype=np.float64), 0.1, 10.0)
+        X = np.stack([d_yaw, d_pitch], axis=1)            # (N, 2)
+        WX = X * w[:, None]
+        # Ridge λ in same units as X.T@W@X. With 16 points and 1° spread,
+        # X.T@W@X diagonal ~ 16 * 1 * (0.017)² ≈ 5e-3. λ=5e-4 is mild prior.
+        A = X.T @ WX + 5e-4 * np.eye(2)
+        try:
+            K_x = np.linalg.solve(A, X.T @ (w * rx))
+            K_y = np.linalg.solve(A, X.T @ (w * ry))
+        except np.linalg.LinAlgError:
+            return None
+
+        # Sanity clamps: |K| should be at most ~screen size per radian.
+        # Higher than that means the fit is overfitting noise.
+        max_K_x = self.screen_width * 3.0
+        max_K_y = self.screen_height * 3.0
+        K_x = np.clip(K_x, -max_K_x, max_K_x)
+        K_y = np.clip(K_y, -max_K_y, max_K_y)
+
+        if not (np.all(np.isfinite(K_x)) and np.all(np.isfinite(K_y))):
+            return None
+
+        return {
+            'pose_ref': pose_ref,
+            'K_x': K_x,
+            'K_y': K_y,
+            'yaw_spread_deg': yaw_spread_deg,
+            'pitch_spread_deg': pitch_spread_deg,
+            'data_driven': True,
+        }
+
+    def _apply_gaze_model(self, iris_x, iris_y, yaw=0.0, pitch=0.0):
+        """Map iris (+ optional head pose) → screen using the calibrated model.
+
+        When `head_correction` is available, applies a linear residual
+        correction: screen += K · (pose - pose_ref). This compensates for head
+        movement away from the calibration pose so accuracy doesn't degrade.
+        """
         if self.gaze_model is not None and self.gaze_model.get('type') == 'poly2':
             nx = (iris_x - self.gaze_model['iris_mean'][0]) / max(self.gaze_model['iris_scale'][0], 1e-6)
             ny = (iris_y - self.gaze_model['iris_mean'][1]) / max(self.gaze_model['iris_scale'][1], 1e-6)
@@ -512,13 +722,30 @@ class EyeTracker:
         else:
             return None, None
 
+        # ── Head pose correction ──
+        if self.head_correction is not None:
+            pose_ref = self.head_correction['pose_ref']
+            d_yaw = float(yaw) - float(pose_ref[0])
+            d_pitch = float(pitch) - float(pose_ref[1])
+            # Clamp to a sane range so a brief misdetection can't fling the cursor
+            # off-screen (±25° is well beyond useful tracking).
+            max_delta = 0.44  # ~25 deg
+            if d_yaw > max_delta:   d_yaw = max_delta
+            if d_yaw < -max_delta:  d_yaw = -max_delta
+            if d_pitch > max_delta: d_pitch = max_delta
+            if d_pitch < -max_delta: d_pitch = -max_delta
+            K_x = self.head_correction['K_x']
+            K_y = self.head_correction['K_y']
+            screen_x += float(K_x[0]) * d_yaw + float(K_x[1]) * d_pitch
+            screen_y += float(K_y[0]) * d_yaw + float(K_y[1]) * d_pitch
+
         screen_x = max(0, min(self.screen_width - 1, screen_x))
         screen_y = max(0, min(self.screen_height - 1, screen_y))
         return screen_x, screen_y
 
     # Back-compat alias
-    def _apply_homography(self, iris_x, iris_y):
-        return self._apply_gaze_model(iris_x, iris_y)
+    def _apply_homography(self, iris_x, iris_y, yaw=0.0, pitch=0.0):
+        return self._apply_gaze_model(iris_x, iris_y, yaw, pitch)
 
     def _smooth(self, x, y):
         """Apply exponential moving average smoothing."""
@@ -699,7 +926,7 @@ class EyeTracker:
 
         return comp_x, comp_y
 
-    def _handle_calibration_frame(self, iris_x, iris_y):
+    def _handle_calibration_frame(self, iris_x, iris_y, yaw=0.0, pitch=0.0):
         """Collect iris sample for the current calibration point."""
         if self.current_cal_point is None:
             return
@@ -710,20 +937,23 @@ class EyeTracker:
 
         point = self.calibration_points[idx]
         samples = point["iris_samples"]
-        samples.append((iris_x, iris_y))
+        samples.append((iris_x, iris_y, float(yaw), float(pitch)))
 
         n = len(samples)
         # Per-point overrides (used by the moving-dot prelude for rapid capture)
         min_samples = point.get("min_samples") or self.cal_sample_count
         max_samples = point.get("max_samples") or self.cal_max_samples
 
-        # Check gaze stability over the last 15 samples
+        # ── Check gaze stability over the last 15 samples.
+        # IR cameras have noisier pixel data → looser threshold so stability can
+        # actually be reached instead of hitting max_samples every time.
         stable = False
         if n >= 15:
             recent = samples[-15:]
             xs = [s[0] for s in recent]
             ys = [s[1] for s in recent]
-            stable = bool(np.std(xs) < 4.0 and np.std(ys) < 4.0)
+            stability_thresh = 7.0 if self.ir_mode else 4.0
+            stable = bool(np.std(xs) < stability_thresh and np.std(ys) < stability_thresh)
 
         done = bool((n >= min_samples and stable) or n >= max_samples)
 
@@ -772,6 +1002,8 @@ class EyeTracker:
                     "sy": float(p["screenY"]),
                     "ix": float(p["irisX"]),
                     "iy": float(p["irisY"]),
+                    "yaw": float(p.get("yaw", 0.0)),
+                    "pitch": float(p.get("pitch", 0.0)),
                     "w":  float(p.get("weight", 1.0)),
                 })
             except (KeyError, TypeError, ValueError):
@@ -781,11 +1013,237 @@ class EyeTracker:
             "count": len(self.prior_calibration_points),
         })
 
+    # ────────────────────────────────────────────────────────────────────
+    # Online learning (overlay/test mode)
+    # ────────────────────────────────────────────────────────────────────
+
+    def add_online_sample(self, screen_x, screen_y, weight=0.4):
+        """Pair the latest tracked iris position with an external screen target.
+
+        The host (Electron main process) decides *when* a fresh implicit
+        training pair is reliable — typically when the OS cursor and the
+        user's gaze have both been stationary near the same point — and
+        sends that screen target here. We pair it with the tracker's most
+        recent (iris_x, iris_y, yaw, pitch) and append to a rolling buffer.
+
+        Refits happen in-place once enough fresh samples have accumulated.
+        """
+        if self.last_iris_x is None or self.last_iris_y is None:
+            self._emit({"warning": "online_train: no recent iris sample yet"})
+            return
+        try:
+            sx = float(screen_x); sy = float(screen_y)
+            w = max(0.05, float(weight))
+        except (TypeError, ValueError):
+            return
+        sample = {
+            "ix": float(self.last_iris_x),
+            "iy": float(self.last_iris_y),
+            "sx": sx, "sy": sy,
+            "yaw": float(self.last_yaw),
+            "pitch": float(self.last_pitch),
+            "w": w,
+            "t": time.time(),
+        }
+        self.online_samples.append(sample)
+        # Cap the rolling buffer (FIFO-evict oldest)
+        if len(self.online_samples) > self.online_max_samples:
+            self.online_samples = self.online_samples[-self.online_max_samples:]
+        self._online_pending_since_refit += 1
+
+        threshold = (self.online_min_for_first_refit
+                     if len(self.online_samples) <= self.online_min_for_first_refit
+                     else self.online_refit_interval)
+        if self._online_pending_since_refit >= threshold:
+            self._online_pending_since_refit = 0
+            self._refit_online()
+
+    def set_online_calibration_file(self, path):
+        """Set the path used to auto-save updated calibration after each refit."""
+        self.online_calibration_file = path or None
+        self._emit({"status": "online_autosave_set", "file": self.online_calibration_file})
+
+    def _refit_online(self):
+        """Refit gaze model using anchor calibration + online samples.
+
+        Anchor (original calibration) points are kept at full weight; online
+        samples carry per-sample weights so noisy inputs can't dominate the
+        fit. Falls back gracefully if the fit fails — old model stays active.
+        """
+        try:
+            return self._refit_online_inner()
+        except Exception as e:
+            self._emit({"warning": f"online refit failed: {e}"})
+            return False
+
+    def _refit_online_inner(self):
+        anchors = self.original_calibration_points
+        online = self.online_samples
+        # Need a minimum number of distinct points for a sane fit.
+        total = len(anchors) + len(online)
+        if total < 4:
+            return False
+
+        src_points = []
+        dst_points = []
+        weights = []
+        poses = []
+
+        for a in anchors:
+            src_points.append([a['ix'], a['iy']])
+            dst_points.append([a['sx'], a['sy']])
+            weights.append(a.get('w', 1.0))
+            poses.append([a.get('yaw', 0.0), a.get('pitch', 0.0)])
+        for o in online:
+            src_points.append([o['ix'], o['iy']])
+            dst_points.append([o['sx'], o['sy']])
+            weights.append(o['w'])
+            poses.append([o['yaw'], o['pitch']])
+
+        src = np.array(src_points, dtype=np.float64)
+        dst = np.array(dst_points, dtype=np.float64)
+        w = np.array(weights, dtype=np.float64)
+
+        # Homography (always available)
+        homography, _ = cv2.findHomography(src, dst, cv2.RANSAC, 5.0)
+        if homography is None:
+            return False
+
+        # Polynomial (preferred when we have enough points)
+        poly_model = None
+        poly_residuals = None
+        if len(src_points) >= 9:
+            poly_model = self._fit_poly2_gaze_model(src, dst, w)
+            if poly_model is not None:
+                poly_residuals = self._evaluate_model_residuals(poly_model, src, dst)
+
+        hom_preds = cv2.perspectiveTransform(src.reshape(-1, 1, 2), homography).reshape(-1, 2)
+        hom_residuals = np.linalg.norm(hom_preds - dst, axis=1)
+
+        use_poly = False
+        chosen_residuals = hom_residuals
+        if poly_model is not None and poly_residuals is not None:
+            if poly_residuals.mean() < hom_residuals.mean() * 0.95:
+                use_poly = True
+                chosen_residuals = poly_residuals
+
+        # Atomically swap models
+        self.homography = homography
+        self.gaze_model = poly_model if use_poly else None
+
+        # Re-fit head correction (best-effort; tolerate failure)
+        try:
+            self.head_correction = self._fit_head_correction(
+                poses, dst, weights,
+                poly_model if use_poly else None,
+                homography, src,
+            )
+        except Exception:
+            pass
+
+        self._emit({
+            "status": "model_updated",
+            "anchors": len(anchors),
+            "online": len(online),
+            "model": "poly2" if use_poly else "homography",
+            "mean_residual_px": float(chosen_residuals.mean()),
+            "max_residual_px":  float(chosen_residuals.max()),
+        })
+
+        # Optional auto-save so adaptation persists across sessions
+        if self.online_calibration_file:
+            try:
+                self._save_online_calibration(
+                    self.online_calibration_file,
+                    src_points, dst_points, weights, poses,
+                    chosen_residuals,
+                    "poly2" if use_poly else "homography",
+                    poly_model, homography,
+                )
+            except Exception as e:
+                self._emit({"warning": f"online autosave failed: {e}"})
+        return True
+
+    def _save_online_calibration(self, output_file, src_points, dst_points, weights, poses,
+                                  chosen_residuals, model_type, poly_model, homography):
+        """Persist the updated model so the next session starts pre-adapted."""
+        agg = []
+        anchor_count = len(self.original_calibration_points)
+        for i, (s, d, wt, p) in enumerate(zip(src_points, dst_points, weights, poses)):
+            agg.append({
+                "index": i if i < anchor_count else -2,  # -2 = online sample
+                "screenX": float(d[0]), "screenY": float(d[1]),
+                "irisX": float(s[0]),   "irisY": float(s[1]),
+                "yaw": float(p[0]),     "pitch": float(p[1]),
+                "weight": float(wt),
+                "residualPx": float(chosen_residuals[i]) if i < len(chosen_residuals) else 0.0,
+                "fromOnline": i >= anchor_count,
+            })
+        cal_data = {
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "screenResolution": {"width": self.screen_width, "height": self.screen_height},
+            "cameraIndex": self.camera_index,
+            "points": agg,
+            "homographyMatrix": homography.tolist(),
+            "modelType": model_type,
+            "meanResidualPx": float(chosen_residuals.mean()),
+            "maxResidualPx":  float(chosen_residuals.max()),
+            "onlineLearning": True,
+        }
+        if model_type == "poly2" and poly_model is not None:
+            cal_data["gazeModel"] = {
+                "type": "poly2",
+                "coeffs_x": poly_model['coeffs_x'].tolist(),
+                "coeffs_y": poly_model['coeffs_y'].tolist(),
+                "iris_mean":  poly_model['iris_mean'].tolist(),
+                "iris_scale": poly_model['iris_scale'].tolist(),
+            }
+        if self.head_correction is not None:
+            hc = self.head_correction
+            cal_data["headCorrection"] = {
+                "pose_ref": hc['pose_ref'].tolist(),
+                "K_x": hc['K_x'].tolist(),
+                "K_y": hc['K_y'].tolist(),
+                "yaw_spread_deg":   float(hc.get('yaw_spread_deg', 0.0)),
+                "pitch_spread_deg": float(hc.get('pitch_spread_deg', 0.0)),
+                "data_driven": bool(hc.get('data_driven', False)),
+            }
+        # Atomic write via temp file + replace
+        tmp = output_file + ".tmp"
+        with open(tmp, 'w') as f:
+            json.dump(cal_data, f, indent=2)
+        try:
+            os.replace(tmp, output_file)
+        except Exception:
+            # On failure, fall back to direct write so we don't lose the update
+            with open(output_file, 'w') as f:
+                json.dump(cal_data, f, indent=2)
+
     def finish_calibration(self, output_file):
-        """Compute gaze model (weighted poly2 preferred, homography fallback) and save."""
+        """Compute gaze model (weighted poly2 preferred, homography fallback) and save.
+
+        Always emits either {"calibration": "complete", ...} or {"error": ...}
+        so the calibration UI never hangs on an unhandled exception.
+        """
+        # Tell the UI we received the finish command and started computing.
+        self._emit({"status": "calibration_computing"})
+        try:
+            return self._finish_calibration_inner(output_file)
+        except Exception as e:
+            import traceback
+            tb = traceback.format_exc()
+            self._emit({
+                "error": f"Calibration computation failed: {e}",
+                "traceback": tb,
+            })
+            self.calibrating = False
+            return False
+
+    def _finish_calibration_inner(self, output_file):
         src_points = []   # aggregated iris coordinates
         dst_points = []   # screen coordinates
         weights = []      # per-point fit weights (inverse spread)
+        poses = []        # aggregated (yaw, pitch) per point
         agg_per_point = []  # for saving
 
         for idx in sorted(self.calibration_points.keys()):
@@ -804,17 +1262,20 @@ class EyeTracker:
             if result is None or result[0] is None:
                 self._emit({"error": f"Failed to aggregate samples for point {idx}"})
                 return False
-            iris_x, iris_y, weight = result
+            iris_x, iris_y, yaw, pitch, weight = result
 
             src_points.append([iris_x, iris_y])
             dst_points.append(list(point["screen"]))
             weights.append(weight)
+            poses.append([yaw, pitch])
             agg_per_point.append({
                 "index": idx,
                 "screenX": point["screen"][0],
                 "screenY": point["screen"][1],
                 "irisX": iris_x,
                 "irisY": iris_y,
+                "yaw": yaw,
+                "pitch": pitch,
                 "sampleCount": len(samples),
                 "weight": weight,
             })
@@ -842,12 +1303,15 @@ class EyeTracker:
             src_points.append([pp["ix"], pp["iy"]])
             dst_points.append([pp["sx"], pp["sy"]])
             weights.append(pp["w"] * self.prior_weight_factor)
+            poses.append([pp.get("yaw", 0.0), pp.get("pitch", 0.0)])
             agg_per_point.append({
                 "index": -1,  # marker: came from prior calibration
                 "screenX": pp["sx"],
                 "screenY": pp["sy"],
                 "irisX": pp["ix"],
                 "irisY": pp["iy"],
+                "yaw": pp.get("yaw", 0.0),
+                "pitch": pp.get("pitch", 0.0),
                 "sampleCount": 0,
                 "weight": pp["w"] * self.prior_weight_factor,
                 "fromPrior": True,
@@ -911,6 +1375,43 @@ class EyeTracker:
         else:
             self.gaze_model = None  # homography-only path
 
+        # ── Head-pose correction ──
+        # The poly2 model maps iris-feature → screen at the head pose used during
+        # calibration. When the head moves, the relationship breaks: the eye must
+        # rotate to maintain fixation, so iris feature shifts even though gaze
+        # didn't change. We compensate by fitting linear residuals against
+        # (Δyaw, Δpitch) from per-point head pose. If the user kept their head
+        # rock-still, pose spread will be tiny and the fit collapses to ~0
+        # (no compensation, but no harm). If they varied head pose during
+        # calibration (encouraged by the UI tip), we get real compensation.
+        # Wrapped in try/except so any numerical issue here can never block
+        # the calibration save — we just fall back to no head correction.
+        head_correction = None
+        try:
+            head_correction = self._fit_head_correction(
+                poses, dst, weights,
+                poly_model if use_poly else None,
+                homography,
+                src,
+            )
+        except Exception as e:
+            self._emit({"warning": f"head correction fit failed (continuing without it): {e}"})
+            head_correction = None
+        self.head_correction = head_correction
+
+        # Re-evaluate residuals WITH head correction so the saved residuals
+        # reflect what the runtime cursor will actually do.
+        if head_correction is not None:
+            try:
+                preds = self._predict_with_correction(
+                    src, np.array(poses, dtype=np.float64),
+                    poly_model if use_poly else None,
+                    homography, head_correction,
+                )
+                chosen_residuals = np.linalg.norm(preds - dst, axis=1)
+            except Exception as e:
+                self._emit({"warning": f"head correction residual recompute failed: {e}"})
+
         # Attach per-point residuals to saved data
         for p, r in zip(agg_per_point, chosen_residuals):
             p["residualPx"] = float(r)
@@ -932,6 +1433,15 @@ class EyeTracker:
                 "coeffs_y": poly_model['coeffs_y'].tolist(),
                 "iris_mean": poly_model['iris_mean'].tolist(),
                 "iris_scale": poly_model['iris_scale'].tolist(),
+            }
+        if head_correction is not None:
+            cal_data["headCorrection"] = {
+                "pose_ref": head_correction['pose_ref'].tolist(),
+                "K_x": head_correction['K_x'].tolist(),  # [K_yaw_x, K_pitch_x]
+                "K_y": head_correction['K_y'].tolist(),  # [K_yaw_y, K_pitch_y]
+                "yaw_spread_deg": float(head_correction['yaw_spread_deg']),
+                "pitch_spread_deg": float(head_correction['pitch_spread_deg']),
+                "data_driven": bool(head_correction['data_driven']),
             }
 
         try:
@@ -963,6 +1473,11 @@ class EyeTracker:
                 },
                 "hom_mean_residual_px": float(hom_residuals.mean()),
                 "poly_mean_residual_px": float(poly_residuals.mean()) if poly_residuals is not None else None,
+                "head_correction": {
+                    "enabled": bool(head_correction is not None and head_correction.get('data_driven')),
+                    "yaw_spread_deg": float(head_correction['yaw_spread_deg']) if head_correction else 0.0,
+                    "pitch_spread_deg": float(head_correction['pitch_spread_deg']) if head_correction else 0.0,
+                } if head_correction is not None else None,
             })
             self.calibrating = False
             return True
@@ -974,12 +1489,11 @@ class EyeTracker:
         """Main tracking loop."""
         self.running = True
 
-        import platform
-        backend = cv2.CAP_DSHOW if platform.system() == 'Windows' else cv2.CAP_ANY
-        cap = cv2.VideoCapture(self.camera_index, backend)
-        if not cap.isOpened():
+        cap, backend_name = _open_camera_capture(self.camera_index)
+        if cap is None:
             self._emit({"error": f"Cannot open camera {self.camera_index}"})
             return
+        self._camera_backend = backend_name
 
         # Request a capture resolution. If caller provided explicit capture_width/
         # height (e.g. 3840×2160 for a 4K IR or RGB camera), honor it so the
@@ -1158,6 +1672,18 @@ class EyeTracker:
                     # Degenerate eye geometry (e.g. closed eyes / extreme angle); skip frame.
                     continue
 
+                # Head pose — used both for calibration sample tagging and
+                # for runtime correction. Cheap to compute (one solvePnP).
+                yaw, pitch = self._estimate_head_pose(landmarks, w, h)
+
+                # Cache the most recent gaze feature for online learning. The
+                # host pairs this with an external screen target via
+                # `online_train` — see add_online_sample().
+                self.last_iris_x = iris_x
+                self.last_iris_y = iris_y
+                self.last_yaw = yaw
+                self.last_pitch = pitch
+
                 # Compute a simple confidence based on landmark visibility
                 left_vis = landmarks[LEFT_IRIS_CENTER].visibility if hasattr(landmarks[LEFT_IRIS_CENTER], 'visibility') else 1.0
                 right_vis = landmarks[RIGHT_IRIS_CENTER].visibility if hasattr(landmarks[RIGHT_IRIS_CENTER], 'visibility') else 1.0
@@ -1182,7 +1708,7 @@ class EyeTracker:
 
                 if mode == "calibrate" or self.calibrating:
                     if not is_blink:  # Don't collect samples during blinks
-                        self._handle_calibration_frame(iris_x, iris_y)
+                        self._handle_calibration_frame(iris_x, iris_y, yaw, pitch)
                     continue
 
                 # Mode: track — map to screen coordinates
@@ -1202,13 +1728,9 @@ class EyeTracker:
                     })
                     continue
 
-                screen_x, screen_y = self._apply_homography(iris_x, iris_y)
+                screen_x, screen_y = self._apply_gaze_model(iris_x, iris_y, yaw, pitch)
                 if screen_x is None:
                     continue
-
-                # ── Head pose compensation ──
-                yaw, pitch = self._estimate_head_pose(landmarks, w, h)
-                screen_x, screen_y = self._apply_head_compensation(screen_x, screen_y, yaw, pitch)
 
                 # ── Adaptive velocity-based smoothing ──
                 smooth_x, smooth_y = self._adaptive_smooth(screen_x, screen_y)
@@ -1234,13 +1756,16 @@ class EyeTracker:
 def list_cameras(max_index=8):
     """Probe camera indices and return metadata.
 
-    On Windows, try to enumerate DirectShow device names with pygrabber so the
-    returned names align with the same backend OpenCV uses for calibration.
+    On Windows, enumerate DirectShow device names with pygrabber so the
+    returned names align with what users expect. For each enumerated device,
+    try DSHOW first; if that fails (common for Windows Hello IR cameras),
+    fall back to MSMF. This lets the IR camera show up in the dropdown so
+    the user can pick it for the IR profile, and we remember which backend
+    actually worked.
     """
     import platform
 
     system = platform.system()
-    backend = cv2.CAP_DSHOW if system == 'Windows' else cv2.CAP_ANY
     available = []
     names_by_index = {}
 
@@ -1253,10 +1778,23 @@ def list_cameras(max_index=8):
         except Exception:
             names_by_index = {}
 
-    for i in range(max_index):
-        cap = cv2.VideoCapture(i, backend)
-        if cap.isOpened():
+    # Probe at least the named devices, plus a few more in case pygrabber
+    # didn't enumerate everything. On non-Windows systems pygrabber is unused
+    # and we just probe indices 0..max_index.
+    probe_count = max(max_index, len(names_by_index))
+    for i in range(probe_count):
+        cap, backend_name = _open_camera_capture(i)
+        if cap is None:
+            continue
+        try:
             ret, frame = cap.read()
+            # Some IR cameras need a few warm-up reads before they yield a
+            # frame, especially via MSMF.
+            if not ret:
+                for _ in range(5):
+                    ret, frame = cap.read()
+                    if ret:
+                        break
             if ret:
                 width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 0)
                 height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
@@ -1265,21 +1803,22 @@ def list_cameras(max_index=8):
                     "name": names_by_index.get(i, f"Camera {i}"),
                     "width": width,
                     "height": height,
-                    "backend": "dshow" if system == 'Windows' else "default",
+                    "backend": backend_name,
                 })
-            cap.release()
+        finally:
+            try:
+                cap.release()
+            except Exception:
+                pass
     return available
 
 
 def snapshot_camera(camera_index, max_width=640, max_height=360):
     """Capture a single preview frame from the selected camera index."""
-    import platform
-
-    backend = cv2.CAP_DSHOW if platform.system() == 'Windows' else cv2.CAP_ANY
     camera_meta = next((camera for camera in list_cameras(max(camera_index + 1, 8)) if camera.get("index") == camera_index), None)
 
-    cap = cv2.VideoCapture(camera_index, backend)
-    if not cap.isOpened():
+    cap, _backend_name = _open_camera_capture(camera_index)
+    if cap is None:
         return {"error": f"Cannot open camera {camera_index}"}
 
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
@@ -1345,6 +1884,15 @@ def stdin_listener(tracker, calibration_output_file):
             tracker.finish_calibration(output)
         elif cmd.get("cmd") == "load_prior_calibration":
             tracker.load_prior_calibration(cmd.get("points", []))
+        elif cmd.get("cmd") == "online_train":
+            # Implicit-calibration sample emitted by the overlay/test-mode loop.
+            tracker.add_online_sample(
+                cmd.get("screen_x"),
+                cmd.get("screen_y"),
+                weight=cmd.get("weight", 0.4),
+            )
+        elif cmd.get("cmd") == "set_online_calibration_file":
+            tracker.set_online_calibration_file(cmd.get("path"))
 
 
 def main():

@@ -30,6 +30,8 @@ let settingsWindow = null;
 let actionBridge = null;
 let updateManager = null;
 let calibrationWindow = null;
+let eyeOverlayWindow = null;       // transparent click-through gaze dot
+let eyeOverlayAutoTrain = null;    // {timer, lastSampleAt, lastCursor, lastCursorAt, lastGaze, lastGazeAt}
 
 // ─── Resource Paths ─────────────────────────────────────────────────────────────
 
@@ -197,9 +199,27 @@ async function startExpressServer() {
 
     // Wire up eye tracking state changes to tray menu + Escape e-stop
     if (server.eyeTrackingManager) {
+      // Register a PERSISTENT global emergency-stop hotkey that always works —
+      // even if focus is elsewhere and even when tracking isn't actively running
+      // (so the user can hit it preemptively if the cursor is acting up).
+      try {
+        globalShortcut.register('CommandOrControl+Alt+E', () => {
+          console.log('[EyeTracking] Ctrl+Alt+E — emergency stop');
+          server.eyeTrackingManager.stop().catch(() => {});
+          trayManager?.notify('Eye Tracking', 'Emergency stop (Ctrl+Alt+E) — tracking halted.');
+        });
+      } catch (e) { console.error('[EyeTracking] Failed to register Ctrl+Alt+E:', e.message); }
+
       server.eyeTrackingManager.onStateChange = (state) => {
         trayManager?.setEyeTrackingStatus(state);
-        // Register Escape as emergency stop when tracking is active
+        // If tracking stopped while overlay was active, tear the overlay down
+        // (e.g. user hit Escape / Ctrl+Alt+E to emergency-stop).
+        if (state === 'idle' && eyeOverlayWindow) {
+          _stopOverlayAutoTrain();
+          closeEyeOverlayWindow();
+          trayManager?.setEyeOverlayActive(false);
+        }
+        // Register Escape as additional emergency stop while tracking is active
         if (state === 'running') {
           try {
             globalShortcut.register('Escape', () => {
@@ -207,6 +227,10 @@ async function startExpressServer() {
               server.eyeTrackingManager.stop();
             });
           } catch (e) { console.error('[EyeTracking] Failed to register Escape shortcut:', e.message); }
+          trayManager?.notify(
+            'Eye Tracking Active',
+            'Emergency stop: press Escape or Ctrl+Alt+E anytime to halt cursor control.'
+          );
         } else {
           globalShortcut.unregister('Escape');
         }
@@ -346,6 +370,273 @@ function openCalibrationWindow() {
   console.log('[Main] Calibration window opened');
 }
 
+// ─── Eye Tracking Overlay (Test Mode) ────────────────────────────────────────────
+//
+// The overlay is a click-through transparent fullscreen-virtual-desktop window
+// that draws a colored dot at the user's predicted gaze location. It does NOT
+// move the OS cursor. While it's active we run an implicit-calibration loop
+// that pairs the OS cursor with the live gaze whenever both have been
+// stationary together — this lets the model continuously refit as the user
+// moves their head into poses the original calibration grid never covered.
+
+function _virtualScreenBounds() {
+  const { screen } = require('electron');
+  const displays = screen.getAllDisplays();
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const d of displays) {
+    const b = d.bounds;
+    if (b.x < minX) minX = b.x;
+    if (b.y < minY) minY = b.y;
+    if (b.x + b.width > maxX) maxX = b.x + b.width;
+    if (b.y + b.height > maxY) maxY = b.y + b.height;
+  }
+  if (!isFinite(minX)) {
+    const p = screen.getPrimaryDisplay().bounds;
+    return { x: p.x, y: p.y, width: p.width, height: p.height };
+  }
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
+
+function openEyeOverlayWindow() {
+  if (eyeOverlayWindow && !eyeOverlayWindow.isDestroyed()) {
+    eyeOverlayWindow.focus();
+    return eyeOverlayWindow;
+  }
+  const bounds = _virtualScreenBounds();
+  eyeOverlayWindow = new BrowserWindow({
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height,
+    transparent: true,
+    frame: false,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    hasShadow: false,
+    focusable: false,
+    show: false,
+    backgroundColor: '#00000000',
+    webPreferences: {
+      preload: path.join(__dirname, 'renderer', 'eye-overlay-preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      backgroundThrottling: false,
+    },
+  });
+  // Make it click-through so it never steals input.
+  eyeOverlayWindow.setIgnoreMouseEvents(true, { forward: false });
+  eyeOverlayWindow.setAlwaysOnTop(true, 'screen-saver');
+  // Don't activate the window or its WebContents.
+  try { eyeOverlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true }); } catch {}
+
+  eyeOverlayWindow.loadFile(path.join(__dirname, 'renderer', 'eye-overlay.html'));
+  eyeOverlayWindow.once('ready-to-show', () => {
+    eyeOverlayWindow.showInactive();
+    // Re-assert after show (some Windows builds reset ignoreMouseEvents).
+    eyeOverlayWindow.setIgnoreMouseEvents(true, { forward: false });
+    // Send virtual screen origin so renderer can map global → window coords.
+    eyeOverlayWindow.webContents.send('overlay-init', { origin: { x: bounds.x, y: bounds.y } });
+  });
+  eyeOverlayWindow.on('closed', () => {
+    eyeOverlayWindow = null;
+  });
+  return eyeOverlayWindow;
+}
+
+function closeEyeOverlayWindow() {
+  if (eyeOverlayWindow && !eyeOverlayWindow.isDestroyed()) {
+    eyeOverlayWindow.close();
+  }
+  eyeOverlayWindow = null;
+}
+
+function _stopOverlayAutoTrain() {
+  if (eyeOverlayAutoTrain && eyeOverlayAutoTrain.timer) {
+    clearInterval(eyeOverlayAutoTrain.timer);
+  }
+  eyeOverlayAutoTrain = null;
+}
+
+/**
+ * Implicit-calibration loop. Polls the OS cursor at ~50ms and uses the most
+ * recent gaze emission (fed via onGazeData) to detect "fixation pairs" — the
+ * cursor and the gaze both stationary together. When a stable pair is found
+ * we fire `addOnlineTrainingSample`, which the Python tracker uses to refit.
+ */
+function _startOverlayAutoTrain() {
+  _stopOverlayAutoTrain();
+  const { screen } = require('electron');
+  const POLL_MS = 50;
+  const CURSOR_STILL_MS = 350;          // cursor must be stationary this long
+  const GAZE_STILL_MS = 250;            // gaze must be stationary this long
+  const CURSOR_RADIUS_PX = 6;           // movement under this = "still"
+  const GAZE_RADIUS_PX = 60;            // gaze jitter that still counts as fixation
+  const SAMPLE_COOLDOWN_MS = 1200;      // min interval between fired samples
+  const MAX_CURSOR_GAZE_DIST_FRAC = 0.35; // gaze→cursor sanity gate (% of diagonal)
+
+  const primary = screen.getPrimaryDisplay();
+  const diag = Math.hypot(primary.size.width, primary.size.height);
+  const sanityMaxDist = MAX_CURSOR_GAZE_DIST_FRAC * diag;
+
+  eyeOverlayAutoTrain = {
+    timer: null,
+    lastSampleAt: 0,
+    cursorAnchor: null,
+    cursorAnchorAt: 0,
+    gazeAnchor: null,
+    gazeAnchorAt: 0,
+    lastGaze: null,
+    lastGazeAt: 0,
+    sampleCount: 0,
+  };
+
+  eyeOverlayAutoTrain.timer = setInterval(() => {
+    if (!server?.eyeTrackingManager || server.eyeTrackingManager.state !== 'running') return;
+    const now = Date.now();
+    const cursor = screen.getCursorScreenPoint();
+
+    // Cursor stillness
+    const ca = eyeOverlayAutoTrain.cursorAnchor;
+    if (!ca || Math.hypot(cursor.x - ca.x, cursor.y - ca.y) > CURSOR_RADIUS_PX) {
+      eyeOverlayAutoTrain.cursorAnchor = cursor;
+      eyeOverlayAutoTrain.cursorAnchorAt = now;
+    }
+    const cursorStillFor = now - eyeOverlayAutoTrain.cursorAnchorAt;
+
+    // Gaze stillness — must have a recent gaze sample (< 200ms old)
+    const gaze = eyeOverlayAutoTrain.lastGaze;
+    const gazeAge = now - eyeOverlayAutoTrain.lastGazeAt;
+    if (!gaze || gazeAge > 200) return;
+
+    const ga = eyeOverlayAutoTrain.gazeAnchor;
+    if (!ga || Math.hypot(gaze.x - ga.x, gaze.y - ga.y) > GAZE_RADIUS_PX) {
+      eyeOverlayAutoTrain.gazeAnchor = { x: gaze.x, y: gaze.y };
+      eyeOverlayAutoTrain.gazeAnchorAt = now;
+    }
+    const gazeStillFor = now - eyeOverlayAutoTrain.gazeAnchorAt;
+
+    // Both must have been stationary long enough
+    if (cursorStillFor < CURSOR_STILL_MS) return;
+    if (gazeStillFor < GAZE_STILL_MS) return;
+
+    // Cooldown
+    if (now - eyeOverlayAutoTrain.lastSampleAt < SAMPLE_COOLDOWN_MS) return;
+
+    // Sanity gate: skip if gaze is wildly different from cursor — user
+    // probably isn't looking at the cursor right now.
+    const dist = Math.hypot(gaze.x - cursor.x, gaze.y - cursor.y);
+    if (dist > sanityMaxDist) return;
+
+    // Weight by closeness — closer pairs get more trust. Range ~0.25–0.6.
+    const closeness = 1.0 - Math.min(1.0, dist / sanityMaxDist);
+    const weight = 0.25 + 0.35 * closeness;
+
+    const res = server.eyeTrackingManager.addOnlineTrainingSample(cursor.x, cursor.y, weight);
+    if (res && res.success) {
+      eyeOverlayAutoTrain.lastSampleAt = now;
+      eyeOverlayAutoTrain.sampleCount++;
+      // Notify overlay so it can flash
+      if (eyeOverlayWindow && !eyeOverlayWindow.isDestroyed()) {
+        eyeOverlayWindow.webContents.send('train-sample', {
+          x: cursor.x, y: cursor.y, weight, count: eyeOverlayAutoTrain.sampleCount,
+        });
+      }
+    }
+  }, POLL_MS);
+}
+
+async function startEyeOverlayMode(opts = {}) {
+  if (!server?.eyeTrackingManager) {
+    return { success: false, error: 'Eye tracking manager unavailable' };
+  }
+  const mgr = server.eyeTrackingManager;
+
+  // Force the same camera that was used during calibration. Iris geometry,
+  // FOV, and lens distortion differ between webcams, so the saved gaze model
+  // is only valid for the camera it was trained on. We read cameraIndex from
+  // the calibration JSON unless the caller explicitly overrode it.
+  let cameraIndex = opts.cameraIndex;
+  if (cameraIndex === undefined || cameraIndex === null) {
+    try {
+      const calFile = path.join(getResourcesPath(), 'eye-calibration.json');
+      if (fs.existsSync(calFile)) {
+        const cal = JSON.parse(fs.readFileSync(calFile, 'utf-8'));
+        if (typeof cal.cameraIndex === 'number') {
+          cameraIndex = cal.cameraIndex;
+          console.log(`[EyeOverlay] Using calibration camera index: ${cameraIndex}`);
+        }
+      }
+    } catch (err) {
+      console.warn('[EyeOverlay] Could not read calibration camera index:', err.message);
+    }
+  }
+  if (cameraIndex === undefined || cameraIndex === null) cameraIndex = 0;
+  // If tracking is already running for cursor control, stop it first so we
+  // can re-enter in overlay mode (no cursor, online-train enabled).
+  if (mgr.state === 'running') {
+    await mgr.stop().catch(() => {});
+  }
+
+  // Open the window first so it's ready to receive gaze events.
+  openEyeOverlayWindow();
+
+  // Wire callbacks
+  mgr.overlayMode = true;
+  mgr.onGazeData = (data) => {
+    if (eyeOverlayWindow && !eyeOverlayWindow.isDestroyed()) {
+      eyeOverlayWindow.webContents.send('gaze-data', data);
+    }
+    // Cache for the auto-train loop
+    if (eyeOverlayAutoTrain && typeof data.x === 'number') {
+      eyeOverlayAutoTrain.lastGaze = { x: data.x, y: data.y };
+      eyeOverlayAutoTrain.lastGazeAt = Date.now();
+    }
+  };
+  mgr.onModelUpdated = (info) => {
+    if (eyeOverlayWindow && !eyeOverlayWindow.isDestroyed()) {
+      eyeOverlayWindow.webContents.send('model-updated', info);
+    }
+  };
+
+  const result = await mgr.start({ cameraIndex, duration: 0, ...(opts.cameraOptions || {}) });
+  if (!result.success) {
+    closeEyeOverlayWindow();
+    mgr.overlayMode = false;
+    mgr.onGazeData = null;
+    mgr.onModelUpdated = null;
+    return result;
+  }
+
+  // Tell the tracker to auto-save adapted calibration so adaptation sticks.
+  try {
+    const calFile = path.join(getResourcesPath(), 'eye-calibration.json');
+    mgr.setOnlineCalibrationFile(calFile);
+  } catch {}
+
+  _startOverlayAutoTrain();
+  trayManager?.setEyeOverlayActive(true);
+  trayManager?.notify('Eye Overlay', 'Overlay active — gaze dot is on screen, model is adapting automatically.');
+  return { success: true };
+}
+
+async function stopEyeOverlayMode() {
+  _stopOverlayAutoTrain();
+  closeEyeOverlayWindow();
+  if (server?.eyeTrackingManager) {
+    server.eyeTrackingManager.overlayMode = false;
+    if (server.eyeTrackingManager.state === 'running') {
+      await server.eyeTrackingManager.stop().catch(() => {});
+    }
+  }
+  trayManager?.setEyeOverlayActive(false);
+  return { success: true };
+}
+
 // ── Calibration IPC handlers ──────────────────────────────────────────────────
 
 ipcMain.on('calibration-point-ready', (_event, { index, screenX, screenY, opts }) => {
@@ -458,6 +749,16 @@ ipcMain.handle('get-displays', () => {
   }));
 });
 
+// ── Eye Overlay (Test Mode) IPC ─────────────────────────────────────────────
+
+ipcMain.handle('start-eye-overlay', async (_event, opts) => {
+  return await startEyeOverlayMode(opts || {});
+});
+
+ipcMain.handle('stop-eye-overlay', async () => {
+  return await stopEyeOverlayMode();
+});
+
 // ─── App Lifecycle ──────────────────────────────────────────────────────────────
 
 app.on('ready', async () => {
@@ -507,10 +808,45 @@ app.on('ready', async () => {
       console.log(`[Main] Start at login: ${enabled}`);
     },
     onCalibrateEyeTracking: () => openCalibrationWindow(),
+    onToggleEyeTracking: async (enabled) => {
+      if (!server?.eyeTrackingManager) {
+        trayManager?.notify('Eye Tracking', 'Server is not ready yet.');
+        return;
+      }
+      if (enabled) {
+        const result = await server.eyeTrackingManager.start().catch((e) => ({ success: false, error: e.message }));
+        if (!result?.success) {
+          trayManager?.notify('Eye Tracking', result?.error || 'Failed to start tracking.');
+        }
+      } else {
+        await server.eyeTrackingManager.stop().catch(() => {});
+      }
+    },
+    onToggleEyeOverlay: async (enabled) => {
+      if (!server?.eyeTrackingManager) {
+        trayManager?.notify('Eye Overlay', 'Server is not ready yet.');
+        return;
+      }
+      if (enabled) {
+        const result = await startEyeOverlayMode().catch((e) => ({ success: false, error: e.message }));
+        if (!result?.success) {
+          trayManager?.notify('Eye Overlay', result?.error || 'Failed to start overlay.');
+        }
+      } else {
+        await stopEyeOverlayMode();
+        trayManager?.notify('Eye Overlay', 'Overlay stopped.');
+      }
+    },
+    onEmergencyStopEyeTracking: async () => {
+      if (server?.eyeTrackingManager) {
+        await server.eyeTrackingManager.stop().catch(() => {});
+        trayManager?.notify('Eye Tracking', 'Emergency stop — tracking halted.');
+      }
+    },
     onShowEyeTrackingHelp: () => {
       trayManager?.notify(
         'Eye Tracking Quick Start',
-        '1) Say "calibrate eye tracking" (or use tray menu).\n2) Follow all dots and accept score.\n3) Say "track my eyes" to start.\n4) Say "stop eye tracking" or press Escape to stop.'
+        '1) Calibrate (tray menu or say "calibrate eye tracking").\n2) Toggle "Enable Eye Tracking" in the tray, or say "track my eyes".\n3) EMERGENCY STOP: Escape or Ctrl+Alt+E (works globally).'
       );
     },
   });
@@ -573,6 +909,10 @@ app.on('before-quit', async (e) => {
   if (server?.eyeTrackingManager) {
     await server.eyeTrackingManager.stop();
   }
+
+  // Tear down overlay window + auto-train loop
+  _stopOverlayAutoTrain();
+  closeEyeOverlayWindow();
 
   // Stop the Express server
   if (server) {

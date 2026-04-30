@@ -39,6 +39,8 @@ class EyeTrackingManager {
     this._stdinWriter = null;
     this.onGazeData = null; // callback for live gaze coordinates
     this.validationMode = false; // when true, don't move cursor
+    this.overlayMode = false; // when true, don't move cursor + accept online_train
+    this.onModelUpdated = null; // callback when online refit succeeds
   }
 
   /**
@@ -268,20 +270,24 @@ while ($true) {
               return;
             }
 
+            if (data.status === 'model_updated' && this.onModelUpdated) {
+              try { this.onModelUpdated(data); } catch {}
+            }
+
             if (data.error) {
               this.lastError = data.error;
               return;
             }
 
             if (typeof data.x === 'number' && typeof data.y === 'number') {
-              // Always emit gaze data for listeners (validation screen)
+              // Always emit gaze data for listeners (validation screen / overlay)
               if (this.onGazeData) {
                 this.onGazeData({ x: data.x, y: data.y, confidence: data.confidence, blink: data.blink });
               }
               // Skip cursor movement during blinks or held (grace period) low-confidence frames
               const isBlink = data.blink === true;
-              const isHeld = data.held === true;
-              if (!this.validationMode && !isBlink && data.confidence >= confidence) {
+              const suppressCursor = this.validationMode || this.overlayMode;
+              if (!suppressCursor && !isBlink && data.confidence >= confidence) {
                 this._moveCursor(data.x, data.y);
               }
             }
@@ -361,10 +367,32 @@ while ($true) {
     this._stopCursorProcess();
     this._stdinWriter = null;
     this.validationMode = false;
+    this.overlayMode = false;
     this.onGazeData = null;
+    this.onModelUpdated = null;
     this._setState('idle');
     console.log('[EyeTracking] Stopped');
     return { success: true };
+  }
+
+  /**
+   * Tear down a still-running calibration subprocess (graceful then forced).
+   * Called when the Python tracker reports calibration:complete so the
+   * webcam is freed for follow-up features (overlay, validation, tracking).
+   */
+  _shutdownCalibrationProcess() {
+    if (!this.pythonProcess) return;
+    try {
+      if (this._stdinWriter && this._stdinWriter.writable) {
+        this._stdinWriter.write(JSON.stringify({ cmd: 'stop' }) + '\n');
+      }
+    } catch {}
+    const proc = this.pythonProcess;
+    setTimeout(() => {
+      try {
+        if (proc && !proc.killed) proc.kill();
+      } catch {}
+    }, 1500);
   }
 
   /**
@@ -443,6 +471,11 @@ while ($true) {
             if (data.calibration === 'complete') {
               console.log(`[EyeTracking] Calibration complete: ${data.file}`);
               this._setState('idle');
+              // Terminate the Python subprocess so the webcam is released.
+              // Otherwise the calibration process keeps running its capture
+              // loop in the background and blocks the camera for downstream
+              // features (overlay/test mode, validation, plain tracking).
+              this._shutdownCalibrationProcess();
             }
             if (data.error) {
               this.lastError = data.error;
@@ -532,6 +565,46 @@ while ($true) {
       output_file: outputFile,
     }) + '\n');
     return { success: true };
+  }
+
+  /**
+   * Send an implicit-calibration training sample to the running tracker.
+   * The Python side pairs the screen target with the most recent iris/pose
+   * measurement and refits the gaze model in-place after a few samples.
+   */
+  addOnlineTrainingSample(screenX, screenY, weight = 0.4) {
+    if (this.state !== 'running') return { success: false, error: 'not running' };
+    if (!this._stdinWriter || !this._stdinWriter.writable) {
+      return { success: false, error: 'tracker stdin not writable' };
+    }
+    try {
+      this._stdinWriter.write(JSON.stringify({
+        cmd: 'online_train',
+        screen_x: Math.round(screenX),
+        screen_y: Math.round(screenY),
+        weight,
+      }) + '\n');
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Tell the tracker where to auto-save the updated calibration after each
+   * successful online refit (so adaptation persists across sessions).
+   */
+  setOnlineCalibrationFile(filePath) {
+    if (!this._stdinWriter || !this._stdinWriter.writable) return { success: false };
+    try {
+      this._stdinWriter.write(JSON.stringify({
+        cmd: 'set_online_calibration_file',
+        path: filePath,
+      }) + '\n');
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
   }
 
   /**
