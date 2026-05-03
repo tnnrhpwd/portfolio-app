@@ -222,6 +222,21 @@ class EyeTracker:
         self.online_min_for_first_refit = 3    # refit after 3 fresh samples initially
         self.online_refit_interval = 4         # then every 4 new samples
         self._online_pending_since_refit = 0
+        # Spatial overwrite radius: when a new online sample arrives within
+        # this many screen pixels of an existing online sample, the existing
+        # one is REPLACED rather than added alongside. This lets the user
+        # "overwrite" stale or wrong samples just by re-looking at that
+        # region of the screen — bad data doesn't accumulate forever.
+        self.online_spatial_overwrite_px = 90
+        # Time-decay constant for online sample weights (seconds). Older
+        # samples gradually lose influence so the model tracks recent gaze
+        # behaviour without being dominated by long-stale data.
+        self.online_time_decay_tau = 600.0
+        # Outlier rejection: after a refit, online samples whose residual
+        # exceeds (median + k * MAD + floor) are dropped from the buffer.
+        # This auto-prunes bad-data points the user accidentally fed in.
+        self.online_outlier_k = 2.5
+        self.online_outlier_floor_px = 40.0
         self.online_calibration_file = None    # if set, auto-save updated model
 
         # Legacy dormant compensation state (kept for back-compat; not used now)
@@ -1045,7 +1060,21 @@ class EyeTracker:
             "w": w,
             "t": time.time(),
         }
-        self.online_samples.append(sample)
+        # Spatial overwrite: if there's already an online sample within
+        # online_spatial_overwrite_px of this screen target, replace it.
+        # This lets stale/bad samples be corrected by re-looking at the
+        # same region instead of accumulating noise.
+        overwrite_idx = -1
+        overwrite_dist = float('inf')
+        for idx, existing in enumerate(self.online_samples):
+            d = ((existing['sx'] - sx) ** 2 + (existing['sy'] - sy) ** 2) ** 0.5
+            if d < self.online_spatial_overwrite_px and d < overwrite_dist:
+                overwrite_idx = idx
+                overwrite_dist = d
+        if overwrite_idx >= 0:
+            self.online_samples[overwrite_idx] = sample
+        else:
+            self.online_samples.append(sample)
         # Cap the rolling buffer (FIFO-evict oldest)
         if len(self.online_samples) > self.online_max_samples:
             self.online_samples = self.online_samples[-self.online_max_samples:]
@@ -1084,6 +1113,16 @@ class EyeTracker:
         if total < 4:
             return False
 
+        # Apply time decay to online sample weights so older samples lose
+        # influence. Anchors (original calibration) are not decayed.
+        now = time.time()
+        tau = max(60.0, float(self.online_time_decay_tau))
+        decayed_online_weights = []
+        for o in online:
+            age = max(0.0, now - float(o.get('t', now)))
+            decay = 2.718281828 ** (-age / tau)
+            decayed_online_weights.append(o['w'] * decay)
+
         src_points = []
         dst_points = []
         weights = []
@@ -1094,10 +1133,10 @@ class EyeTracker:
             dst_points.append([a['sx'], a['sy']])
             weights.append(a.get('w', 1.0))
             poses.append([a.get('yaw', 0.0), a.get('pitch', 0.0)])
-        for o in online:
+        for o, dw in zip(online, decayed_online_weights):
             src_points.append([o['ix'], o['iy']])
             dst_points.append([o['sx'], o['sy']])
-            weights.append(o['w'])
+            weights.append(dw)
             poses.append([o['yaw'], o['pitch']])
 
         src = np.array(src_points, dtype=np.float64)
@@ -1126,6 +1165,30 @@ class EyeTracker:
             if poly_residuals.mean() < hom_residuals.mean() * 0.95:
                 use_poly = True
                 chosen_residuals = poly_residuals
+
+        # ── Outlier rejection on ONLINE samples ──
+        # Anchor points (original calibration) are trusted; never dropped.
+        # For online samples, compute residual against the chosen model;
+        # samples with residual > median + k * MAD + floor are auto-pruned.
+        # This is the mechanism that prevents "bad data never gets
+        # overwritten" — noise points self-evict on the next refit.
+        n_anchors = len(anchors)
+        if n_anchors < len(chosen_residuals):
+            online_resid = chosen_residuals[n_anchors:]
+            if len(online_resid) >= 4:
+                med = float(np.median(online_resid))
+                mad = float(np.median(np.abs(online_resid - med)))
+                threshold = med + self.online_outlier_k * (mad + 1e-6) + self.online_outlier_floor_px
+                keep_mask = online_resid <= threshold
+                dropped_count = int((~keep_mask).sum())
+                if dropped_count > 0:
+                    self.online_samples = [o for o, keep in zip(online, keep_mask) if keep]
+                    self._emit({
+                        "status": "online_outliers_pruned",
+                        "dropped": dropped_count,
+                        "remaining": len(self.online_samples),
+                        "threshold_px": float(threshold),
+                    })
 
         # Atomically swap models
         self.homography = homography
@@ -1893,6 +1956,21 @@ def stdin_listener(tracker, calibration_output_file):
             )
         elif cmd.get("cmd") == "set_online_calibration_file":
             tracker.set_online_calibration_file(cmd.get("path"))
+        elif cmd.get("cmd") == "clear_online_samples":
+            # Drop all online samples and revert to the anchor-only model.
+            tracker.online_samples = []
+            tracker._online_pending_since_refit = 0
+            tracker._refit_online()
+            tracker._emit({"status": "online_cleared"})
+        elif cmd.get("cmd") == "drop_recent_online_sample":
+            # Undo the most recent N online samples (default 1) — useful when
+            # the user knows a captured pair was bad.
+            n = max(1, int(cmd.get("count", 1)))
+            dropped = min(n, len(tracker.online_samples))
+            if dropped > 0:
+                tracker.online_samples = tracker.online_samples[:-dropped]
+                tracker._refit_online()
+            tracker._emit({"status": "online_dropped", "dropped": dropped, "remaining": len(tracker.online_samples)})
 
 
 def main():

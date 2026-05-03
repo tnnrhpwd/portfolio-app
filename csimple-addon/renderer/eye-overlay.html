@@ -94,23 +94,76 @@
     .hud .num { color: #ffffff; font-variant-numeric: tabular-nums; }
     .hud .ok { color: #a3f5b6; }
     .hud .warn { color: #ffd07a; }
+    .hud .err { color: #ff8c8c; }
+    .hud .hint {
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px solid rgba(80, 220, 255, 0.18);
+      max-width: 320px;
+      color: #cfe9ff;
+    }
+    /* Twin progress bars: cursor-still + gaze-still */
+    .bar-row { display: flex; align-items: center; gap: 6px; margin-top: 3px; }
+    .bar-row .bar-label { width: 46px; opacity: 0.7; font-size: 10px; }
+    .bar-row .bar-track {
+      flex: 1;
+      height: 4px;
+      background: rgba(255,255,255,0.12);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .bar-row .bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #50dcff, #a3f5b6);
+      transition: width 80ms linear;
+    }
+    .bar-row .bar-fill.full { background: linear-gradient(90deg, #a3f5b6, #ffffff); }
+    /* Cursor-target halo: shown when training is gated only by gaze sanity */
+    .cursor-halo {
+      position: absolute;
+      left: 0; top: 0;
+      width: 50px;
+      height: 50px;
+      margin-left: -25px;
+      margin-top: -25px;
+      border-radius: 50%;
+      border: 2px dashed rgba(255, 208, 122, 0.7);
+      transition: transform 60ms linear, opacity 200ms ease;
+      pointer-events: none;
+      opacity: 0;
+      will-change: transform, opacity;
+    }
+    .cursor-halo.visible { opacity: 0.85; }
   </style>
 </head>
 <body>
   <div id="dot" class="gaze-dot"></div>
+  <div id="cursorHalo" class="cursor-halo"></div>
   <div id="hud" class="hud">
     <div><span class="label">Eye Overlay</span> <span id="status" class="ok">starting…</span></div>
     <div><span class="label">gaze</span> <span id="gaze" class="num">—</span></div>
     <div><span class="label">samples</span> <span id="samples" class="num">0</span> · <span class="label">residual</span> <span id="residual" class="num">—</span></div>
+    <div class="bar-row"><span class="bar-label">cursor</span><div class="bar-track"><div id="barCursor" class="bar-fill"></div></div></div>
+    <div class="bar-row"><span class="bar-label">gaze</span><div class="bar-track"><div id="barGaze" class="bar-fill"></div></div></div>
+    <div class="hint" id="hint">
+      <b>Auto-calibration:</b> move the mouse to a new spot you're looking at,
+      then hold both still for ~½ second. A green ring = sample captured.<br>
+      <span style="opacity:0.7;">Hotkeys: <b>Ctrl+Shift+G</b> force-confirm · <b>Ctrl+Shift+U</b> undo last · <b>Ctrl+Shift+R</b> reset all online samples</span>
+    </div>
   </div>
 
   <script>
     (function () {
       const dot = document.getElementById('dot');
+      const halo = document.getElementById('cursorHalo');
       const elStatus = document.getElementById('status');
       const elGaze = document.getElementById('gaze');
       const elSamples = document.getElementById('samples');
       const elResidual = document.getElementById('residual');
+      const elHint = document.getElementById('hint');
+      const barCursor = document.getElementById('barCursor');
+      const barGaze = document.getElementById('barGaze');
 
       // The overlay window covers the full virtual desktop. Gaze coordinates
       // arrive in *global* screen space, so we subtract the window origin to
@@ -154,6 +207,44 @@
           elResidual.className = 'num ' + (info.mean_residual_px < 80 ? 'ok' : 'warn');
         }
         elStatus.textContent = `model: ${info.model || '?'} · adapting`;
+      });
+
+      // Live training-progress feedback. Updated every ~50ms while overlay is
+      // active so the user can see the auto-calibration gates in real time.
+      window.overlayAPI.onTrainStatus((s) => {
+        if (!s) return;
+        const cursorPct = Math.min(1, s.cursorStillMs / s.cursorStillTargetMs);
+        const gazePct   = Math.min(1, s.gazeStillMs   / s.gazeStillTargetMs);
+        barCursor.style.width = (cursorPct * 100).toFixed(0) + '%';
+        barGaze.style.width   = (gazePct   * 100).toFixed(0) + '%';
+        barCursor.classList.toggle('full', cursorPct >= 1);
+        barGaze.classList.toggle('full', gazePct >= 1);
+
+        // Show a dashed halo around the OS cursor so the user can SEE the
+        // hold-still target. (The OS cursor itself isn't visible to us.)
+        if (s.cursor) {
+          const cx = s.cursor.x - originX;
+          const cy = s.cursor.y - originY;
+          halo.style.transform = `translate3d(${cx}px, ${cy}px, 0)`;
+          halo.classList.add('visible');
+        }
+
+        // Contextual hint — tell the user what's blocking sample capture.
+        let msg;
+        if (s.cooldownRemaining > 50) {
+          msg = `<b>Cooling down…</b> ${(s.cooldownRemaining/1000).toFixed(1)}s — then move the cursor to a new spot you're looking at.`;
+        } else if (!s.movedRecently) {
+          msg = `<b>Move the cursor</b> to a new spot you're looking at — a parked cursor won't capture samples.`;
+        } else if (!s.inSanity) {
+          msg = `<b>Look at the cursor.</b> Gaze is ${Math.round(s.dist)}px from cursor (need <${Math.round(s.sanityMaxDist)}px). Wrong-target samples are rejected.`;
+        } else if (cursorPct < 1) {
+          msg = `<b>Hold the cursor still…</b> ${Math.round(s.cursorStillMs)}ms / ${s.cursorStillTargetMs}ms.`;
+        } else if (gazePct < 1) {
+          msg = `<b>Hold your gaze still…</b> ${Math.round(s.gazeStillMs)}ms / ${s.gazeStillTargetMs}ms.`;
+        } else {
+          msg = `<b>Capturing…</b>`;
+        }
+        elHint.innerHTML = msg;
       });
     })();
   </script>

@@ -462,6 +462,66 @@ function _stopOverlayAutoTrain() {
   eyeOverlayAutoTrain = null;
 }
 
+// Hotkeys exposed only while the overlay is active. Give the user explicit
+// override over the auto-train heuristic so they can force-capture a sample
+// when they KNOW they're looking at the cursor, or undo a bad capture.
+function _registerOverlayHotkeys() {
+  try {
+    globalShortcut.register('CommandOrControl+Shift+G', () => {
+      const { screen } = require('electron');
+      const cur = screen.getCursorScreenPoint();
+      const res = server?.eyeTrackingManager?.addOnlineTrainingSample(cur.x, cur.y, 0.9);
+      if (res?.success) {
+        if (eyeOverlayAutoTrain) {
+          eyeOverlayAutoTrain.lastSampleAt = Date.now();
+          eyeOverlayAutoTrain.sampleCount++;
+        }
+        if (eyeOverlayWindow && !eyeOverlayWindow.isDestroyed()) {
+          eyeOverlayWindow.webContents.send('train-sample', {
+            x: cur.x, y: cur.y, weight: 0.9,
+            count: eyeOverlayAutoTrain?.sampleCount || 0,
+            forced: true,
+          });
+        }
+      }
+    });
+    globalShortcut.register('CommandOrControl+Shift+U', () => {
+      server?.eyeTrackingManager?.dropRecentOnlineSamples(1);
+      if (eyeOverlayAutoTrain && eyeOverlayAutoTrain.sampleCount > 0) {
+        eyeOverlayAutoTrain.sampleCount--;
+      }
+      if (eyeOverlayWindow && !eyeOverlayWindow.isDestroyed()) {
+        eyeOverlayWindow.webContents.send('train-sample', {
+          x: 0, y: 0, weight: 0,
+          count: eyeOverlayAutoTrain?.sampleCount || 0,
+          undone: true,
+        });
+      }
+    });
+    globalShortcut.register('CommandOrControl+Shift+R', () => {
+      server?.eyeTrackingManager?.clearOnlineSamples();
+      if (eyeOverlayAutoTrain) eyeOverlayAutoTrain.sampleCount = 0;
+      if (eyeOverlayWindow && !eyeOverlayWindow.isDestroyed()) {
+        eyeOverlayWindow.webContents.send('train-sample', {
+          x: 0, y: 0, weight: 0,
+          count: 0,
+          cleared: true,
+        });
+      }
+    });
+  } catch (e) {
+    console.warn('[EyeOverlay] Failed to register hotkeys:', e.message);
+  }
+}
+
+function _unregisterOverlayHotkeys() {
+  try {
+    globalShortcut.unregister('CommandOrControl+Shift+G');
+    globalShortcut.unregister('CommandOrControl+Shift+U');
+    globalShortcut.unregister('CommandOrControl+Shift+R');
+  } catch {}
+}
+
 /**
  * Implicit-calibration loop. Polls the OS cursor at ~50ms and uses the most
  * recent gaze emission (fed via onGazeData) to detect "fixation pairs" — the
@@ -472,16 +532,25 @@ function _startOverlayAutoTrain() {
   _stopOverlayAutoTrain();
   const { screen } = require('electron');
   const POLL_MS = 50;
-  const CURSOR_STILL_MS = 350;          // cursor must be stationary this long
-  const GAZE_STILL_MS = 250;            // gaze must be stationary this long
+  const CURSOR_STILL_MS = 450;          // cursor must be stationary this long
+  const GAZE_STILL_MS = 350;            // gaze must be stationary this long
   const CURSOR_RADIUS_PX = 6;           // movement under this = "still"
-  const GAZE_RADIUS_PX = 60;            // gaze jitter that still counts as fixation
-  const SAMPLE_COOLDOWN_MS = 1200;      // min interval between fired samples
-  const MAX_CURSOR_GAZE_DIST_FRAC = 0.35; // gaze→cursor sanity gate (% of diagonal)
-
-  const primary = screen.getPrimaryDisplay();
-  const diag = Math.hypot(primary.size.width, primary.size.height);
-  const sanityMaxDist = MAX_CURSOR_GAZE_DIST_FRAC * diag;
+  const GAZE_RADIUS_PX = 50;            // gaze jitter that still counts as fixation
+  const SAMPLE_COOLDOWN_MS = 1500;      // min interval between fired samples
+  // Stricter trust: the LIVE gaze prediction (i.e. the model's current
+  // estimate) must already be near the cursor. This is much tighter than
+  // "some fraction of the screen" and effectively requires the user to be
+  // looking at the cursor, since otherwise the model wouldn't predict near
+  // the cursor's location. Combined with cursor-movement evidence below,
+  // this rejects the common false-positive of "cursor parked while user
+  // reads something elsewhere on screen".
+  const TRUST_RADIUS_PX = 180;
+  // Cursor-movement evidence: require the cursor to have actually moved a
+  // meaningful distance recently (user intent), then settled. A parked
+  // cursor that the user isn't looking at won't fire samples.
+  const CURSOR_MOVE_WINDOW_MS = 1800;
+  const CURSOR_MOVE_MIN_PX = 80;
+  const CURSOR_MOVE_MAX_PX = 2500;
 
   eyeOverlayAutoTrain = {
     timer: null,
@@ -493,12 +562,20 @@ function _startOverlayAutoTrain() {
     lastGaze: null,
     lastGazeAt: 0,
     sampleCount: 0,
+    cursorTrail: [],   // [{x,y,t}] last few seconds of cursor positions
   };
 
   eyeOverlayAutoTrain.timer = setInterval(() => {
     if (!server?.eyeTrackingManager || server.eyeTrackingManager.state !== 'running') return;
     const now = Date.now();
     const cursor = screen.getCursorScreenPoint();
+
+    // Maintain a rolling cursor trail (last ~3s) so we can detect that the
+    // user actually MOVED the cursor to a new target — not just left it
+    // parked while reading something else on screen.
+    const trail = eyeOverlayAutoTrain.cursorTrail;
+    trail.push({ x: cursor.x, y: cursor.y, t: now });
+    while (trail.length && now - trail[0].t > 3000) trail.shift();
 
     // Cursor stillness
     const ca = eyeOverlayAutoTrain.cursorAnchor;
@@ -520,6 +597,43 @@ function _startOverlayAutoTrain() {
     }
     const gazeStillFor = now - eyeOverlayAutoTrain.gazeAnchorAt;
 
+    // Distance gaze ↔ cursor
+    const dist = Math.hypot(gaze.x - cursor.x, gaze.y - cursor.y);
+    const cooldownRemaining = Math.max(0, SAMPLE_COOLDOWN_MS - (now - eyeOverlayAutoTrain.lastSampleAt));
+    const inTrust = dist <= TRUST_RADIUS_PX;
+
+    // Cursor-movement evidence: was there a meaningful cursor displacement
+    // within the last CURSOR_MOVE_WINDOW_MS that ended near the current
+    // position? This rejects "cursor parked, user looking elsewhere".
+    let movedRecently = false;
+    let moveDist = 0;
+    for (const p of trail) {
+      if (now - p.t > CURSOR_MOVE_WINDOW_MS) continue;
+      if (now - p.t < 200) continue; // need some history
+      const d = Math.hypot(cursor.x - p.x, cursor.y - p.y);
+      if (d >= CURSOR_MOVE_MIN_PX && d <= CURSOR_MOVE_MAX_PX) {
+        movedRecently = true;
+        moveDist = Math.max(moveDist, d);
+        break;
+      }
+    }
+
+    // Stream live progress to overlay HUD so the user can see what's needed
+    if (eyeOverlayWindow && !eyeOverlayWindow.isDestroyed()) {
+      eyeOverlayWindow.webContents.send('train-status', {
+        cursorStillMs: cursorStillFor,
+        cursorStillTargetMs: CURSOR_STILL_MS,
+        gazeStillMs: gazeStillFor,
+        gazeStillTargetMs: GAZE_STILL_MS,
+        dist,
+        sanityMaxDist: TRUST_RADIUS_PX,
+        inSanity: inTrust,
+        cooldownRemaining,
+        cursor: { x: cursor.x, y: cursor.y },
+        movedRecently,
+      });
+    }
+
     // Both must have been stationary long enough
     if (cursorStillFor < CURSOR_STILL_MS) return;
     if (gazeStillFor < GAZE_STILL_MS) return;
@@ -527,13 +641,15 @@ function _startOverlayAutoTrain() {
     // Cooldown
     if (now - eyeOverlayAutoTrain.lastSampleAt < SAMPLE_COOLDOWN_MS) return;
 
-    // Sanity gate: skip if gaze is wildly different from cursor — user
-    // probably isn't looking at the cursor right now.
-    const dist = Math.hypot(gaze.x - cursor.x, gaze.y - cursor.y);
-    if (dist > sanityMaxDist) return;
+    // Strict trust gate: gaze prediction must already be near the cursor.
+    if (!inTrust) return;
+
+    // Require cursor-movement evidence — user must have intentionally
+    // moved the cursor to this spot recently.
+    if (!movedRecently) return;
 
     // Weight by closeness — closer pairs get more trust. Range ~0.25–0.6.
-    const closeness = 1.0 - Math.min(1.0, dist / sanityMaxDist);
+    const closeness = 1.0 - Math.min(1.0, dist / TRUST_RADIUS_PX);
     const weight = 0.25 + 0.35 * closeness;
 
     const res = server.eyeTrackingManager.addOnlineTrainingSample(cursor.x, cursor.y, weight);
@@ -619,13 +735,15 @@ async function startEyeOverlayMode(opts = {}) {
   } catch {}
 
   _startOverlayAutoTrain();
+  _registerOverlayHotkeys();
   trayManager?.setEyeOverlayActive(true);
-  trayManager?.notify('Eye Overlay', 'Overlay active — gaze dot is on screen, model is adapting automatically.');
+  trayManager?.notify('Eye Overlay', 'Overlay active. Move the cursor to a new spot you are looking at and hold still. Ctrl+Shift+G = force-confirm sample, Ctrl+Shift+U = undo last sample.');
   return { success: true };
 }
 
 async function stopEyeOverlayMode() {
   _stopOverlayAutoTrain();
+  _unregisterOverlayHotkeys();
   closeEyeOverlayWindow();
   if (server?.eyeTrackingManager) {
     server.eyeTrackingManager.overlayMode = false;

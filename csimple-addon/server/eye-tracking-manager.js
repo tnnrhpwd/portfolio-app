@@ -608,6 +608,38 @@ while ($true) {
   }
 
   /**
+   * Drop the most recent N online training samples. The tracker will refit
+   * immediately so the bad samples are removed from the model.
+   */
+  dropRecentOnlineSamples(count = 1) {
+    if (!this._stdinWriter || !this._stdinWriter.writable) return { success: false };
+    try {
+      this._stdinWriter.write(JSON.stringify({
+        cmd: 'drop_recent_online_sample',
+        count,
+      }) + '\n');
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Drop ALL online samples and revert the model to the anchor calibration.
+   */
+  clearOnlineSamples() {
+    if (!this._stdinWriter || !this._stdinWriter.writable) return { success: false };
+    try {
+      this._stdinWriter.write(JSON.stringify({
+        cmd: 'clear_online_samples',
+      }) + '\n');
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
    * Return a summary of any existing calibration so the UI can offer "Optimize".
    */
   getPriorCalibrationSummary() {

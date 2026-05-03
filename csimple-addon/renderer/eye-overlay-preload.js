@@ -13,4 +13,5 @@ contextBridge.exposeInMainWorld('overlayAPI', {
   onGaze: (cb) => ipcRenderer.on('gaze-data', (_e, data) => cb(data)),
   onTrainSample: (cb) => ipcRenderer.on('train-sample', (_e, data) => cb(data)),
   onModelUpdated: (cb) => ipcRenderer.on('model-updated', (_e, data) => cb(data)),
+  onTrainStatus: (cb) => ipcRenderer.on('train-status', (_e, data) => cb(data)),
 });
