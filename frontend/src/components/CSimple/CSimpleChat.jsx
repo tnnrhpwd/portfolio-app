@@ -334,6 +334,16 @@ function CSimpleChat({
             }
             setSettings(merged);
 
+            // Push merged settings (including githubToken) down to the local addon
+            // so the addon's GitHub Models calls use the same PAT.
+            if (isAddonConnected) {
+              const toAddon = { ...merged };
+              DEVICE_LOCAL_KEYS.forEach(k => delete toAddon[k]);
+              saveAddonSettings(toAddon).catch(err => {
+                console.warn('[CSimple] Failed to push cloud settings to addon:', err);
+              });
+            }
+
             // Also load cloud conversations if enabled
             try {
               const convData = await getCloudConversations(user.token);
@@ -358,6 +368,13 @@ function CSimpleChat({
             // so the user doesn't have to re-enter it on every new device
             if (cloudSettings.githubToken && !settings.githubToken) {
               setSettings(prev => ({ ...prev, githubToken: cloudSettings.githubToken }));
+              // Also push the token down to the local addon if it's connected,
+              // since the addon stores its own settings file and won't have it yet.
+              if (isAddonConnected) {
+                saveAddonSettings({ githubToken: cloudSettings.githubToken }).catch(err => {
+                  console.warn('[CSimple] Failed to push githubToken to addon:', err);
+                });
+              }
             }
           }
         } else if (settings.cloudSync && user.token) {
