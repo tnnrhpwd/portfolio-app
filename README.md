@@ -94,6 +94,25 @@ npm run docker:logs
 npm run docker:down
 ```
 
+## ☁️ Deployment & Cloud Architecture
+
+The application is split across multiple hosting providers, with AWS handling data, storage, and email infrastructure.
+
+| Layer | Service | Role |
+| --- | --- | --- |
+| **Frontend** | [Netlify](https://www.netlify.com/) | Builds the Vite/React app (`frontend/build`) via `netlify.toml`, serves it from Netlify's global CDN, manages security headers, sitemap, and `/api/*` proxy redirects to the backend. |
+| **Backend API** | [Render](https://render.com/) | Hosts the Node.js/Express server (`backend/server.js`) at `mern-plan-web-service.onrender.com`. Handles auth, business logic, Stripe webhooks, and all AWS SDK calls. |
+| **Database** | **AWS DynamoDB** | Primary NoSQL datastore for users, generic data records, memory/personality entries, and analytics. Accessed via `@aws-sdk/lib-dynamodb` in [`backend/services/dataService.js`](backend/services/dataService.js). |
+| **File Storage** | **AWS S3** | Stores user uploads (images, OCR documents, attachments) via [`backend/services/s3Service.js`](backend/services/s3Service.js). Files larger than DynamoDB's 400KB limit are offloaded here. |
+| **CDN for Assets** | **AWS CloudFront** | Fronts the S3 bucket (`AWS_CLOUDFRONT_DOMAIN`) to deliver user-uploaded media with low latency and cacheable URLs. |
+| **Email** | AWS SES / SMTP (Nodemailer) | Transactional email (password resets, notifications) sent from [`backend/services/emailService.js`](backend/services/emailService.js). |
+| **Payments** | Stripe | Subscription billing and webhooks handled in [`backend/services/stripeService.js`](backend/services/stripeService.js). |
+| **CI/CD** | GitHub Actions | Runs tests, security scans (CodeQL), and triggers Netlify/Render deploys on push to `master`. |
+
+**Request flow:** Browser → Netlify CDN (static assets + `/api/*` proxy) → Render-hosted Express API → AWS DynamoDB (data) / S3 + CloudFront (files) / SES (email) / Stripe (payments).
+
+The desktop companion ([`csimple-addon/`](csimple-addon/)) is an Electron app that ships independently and talks to the same Render backend.
+
 ## 🔐 Security
 
 Found a security vulnerability? Please see our [Security Policy](./.github/SECURITY.md) for responsible disclosure guidelines.
