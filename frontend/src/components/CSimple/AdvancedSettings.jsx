@@ -10,10 +10,12 @@ import {
   getCustomAddonHost, setCustomAddonHost,
 } from '../../services/csimpleApi';
 import './AdvancedSettings.css';
+import WorkspaceManager from './WorkspaceManager.jsx';
 
 const TABS = [
   { id: 'general', label: '⚙ General' },
   { id: 'agents', label: '🤖 Agents' },
+  { id: 'workspace', label: '🧠 Workspace' },
   { id: 'network', label: '🌐 Network' },
 ];
 
@@ -1069,6 +1071,12 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
                   </>
                 )}
               </div>
+            </div>
+          )}
+
+          {activeTab === 'workspace' && (
+            <div className="adv-section">
+              <WorkspaceManager user={user} />
             </div>
           )}
 

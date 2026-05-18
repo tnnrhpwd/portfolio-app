@@ -66,16 +66,16 @@ function Net() {
 
   // Streaming chat handler — streams tokens directly to CSimpleChat callbacks
   const handlePortfolioChatStream = useCallback(
-    async (message, conversationHistory, provider = 'openai', model = 'gpt-4o-mini') => {
+    async (message, conversationHistory, provider = 'openai', model = 'gpt-4o-mini', extras = {}) => {
       if (!user) return;
 
-      const combinedData = JSON.stringify({ message, conversationHistory });
-      const requestData = {
-        data: JSON.stringify({ text: 'Net:' + combinedData }),
-        provider,
-        model,
+      const payload = {
+        message,
+        conversationHistory,
+        activeAgent: extras.activeAgent || null,
+        behaviorFile: extras.behaviorFile || 'default.txt',
       };
-
+      const combinedData = JSON.stringify(payload);
       try {
         const stream = dataService.compressDataStream(
           { data: JSON.stringify({ text: 'Net:' + combinedData }) },
@@ -109,9 +109,15 @@ function Net() {
 
   // Legacy non-streaming handler (fallback)
   const handlePortfolioChat = useCallback(
-    (message, conversationHistory, provider = 'openai', model = 'gpt-4o-mini') => {
+    (message, conversationHistory, provider = 'openai', model = 'gpt-4o-mini', extras = {}) => {
       if (!user) return;
-      const combinedData = JSON.stringify({ message, conversationHistory });
+      const payload = {
+        message,
+        conversationHistory,
+        activeAgent: extras.activeAgent || null,
+        behaviorFile: extras.behaviorFile || 'default.txt',
+      };
+      const combinedData = JSON.stringify(payload);
       dispatch(
         compressData({
           data: { data: JSON.stringify({ text: 'Net:' + combinedData }) },

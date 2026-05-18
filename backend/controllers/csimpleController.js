@@ -13,6 +13,7 @@ const asyncHandler = require('express-async-handler');
 const zlib = require('zlib');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, GetCommand, PutCommand, DeleteCommand, ScanCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
+const { encryptString, decryptString } = require('../utils/secretCrypto');
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -28,6 +29,37 @@ const TABLE_NAME = 'Simple';
 
 // Keys that must NEVER be synced to the cloud (device-specific hardware settings)
 const NEVER_SYNC_KEYS = ['micDeviceId', 'sttEnabled'];
+
+// Keys whose values are sensitive secrets — encrypted at rest before persisting
+// to DynamoDB and decrypted when read back. Currently just the GitHub PAT, but
+// designed to grow (e.g. anthropic/openai keys if we ever support BYOK there).
+const SENSITIVE_KEYS = ['githubToken'];
+
+/**
+ * Encrypt sensitive fields in a settings object. Non-string / empty values
+ * pass through. Returns a new object.
+ */
+function encryptSensitive(settings) {
+  if (!settings || typeof settings !== 'object') return settings;
+  const out = { ...settings };
+  for (const key of SENSITIVE_KEYS) {
+    if (key in out) out[key] = encryptString(out[key]);
+  }
+  return out;
+}
+
+/**
+ * Decrypt sensitive fields in a settings object pulled from storage.
+ * Returns a new object.
+ */
+function decryptSensitive(settings) {
+  if (!settings || typeof settings !== 'object') return settings;
+  const out = { ...settings };
+  for (const key of SENSITIVE_KEYS) {
+    if (key in out) out[key] = decryptString(out[key]);
+  }
+  return out;
+}
 
 // Behavior name validation: alphanumeric, hyphens, underscores, dots only
 const VALID_BEHAVIOR_NAME = /^[a-zA-Z0-9_\-. ]{1,100}$/;
@@ -87,7 +119,8 @@ const getCSimpleSettings = asyncHandler(async (req, res) => {
       return res.status(200).json({ settings: null, updatedAt: null });
     }
 
-    const settings = JSON.parse(Item.text);
+    const stored = JSON.parse(Item.text);
+    const settings = decryptSensitive(stored);
     res.status(200).json({
       settings,
       updatedAt: Item.updatedAt || Item.createdAt,
@@ -115,8 +148,9 @@ const updateCSimpleSettings = asyncHandler(async (req, res) => {
     throw new Error('Settings object is required');
   }
 
-  // Strip sensitive keys
+  // Strip device-only keys, then encrypt any sensitive secrets (e.g. PATs)
   const sanitized = sanitizeSettings(settings);
+  const encrypted = encryptSensitive(sanitized);
 
   const itemId = `csimple_settings_${req.user.id}`;
   const now = new Date().toISOString();
@@ -126,7 +160,7 @@ const updateCSimpleSettings = asyncHandler(async (req, res) => {
       TableName: TABLE_NAME,
       Item: {
         id: itemId,
-        text: JSON.stringify(sanitized),
+        text: JSON.stringify(encrypted),
         createdAt: CSIMPLE_CREATED_AT,
         updatedAt: now,
       },

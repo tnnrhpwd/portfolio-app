@@ -828,6 +828,103 @@ export async function getCloudUserContext(token, behaviorFile = 'default.txt') {
   return res.json();
 }
 
+// ─── Workspace API (OpenClaw-style AI workspace) ───────────────────────────
+
+/**
+ * List workspace items, optionally filtered.
+ * @param {string} token JWT
+ * @param {object} [filters] { kind, agent, stage, tag, q }
+ */
+export async function listWorkspace(token, filters = {}) {
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(filters)) {
+    if (v != null && v !== '') params.set(k, v);
+  }
+  const qs = params.toString();
+  const res = await fetch(
+    `${getPortfolioApiUrl()}/csimple/workspace${qs ? `?${qs}` : ''}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!res.ok) throw new Error(`listWorkspace failed: ${res.status}`);
+  return res.json();
+}
+
+/** Read one workspace item. Returns { kind, slug, name, content, ... }. */
+export async function getWorkspaceItem(token, kind, slug) {
+  const res = await fetch(
+    `${getPortfolioApiUrl()}/csimple/workspace/${encodeURIComponent(kind)}/${encodeURIComponent(slug)}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`getWorkspaceItem failed: ${res.status}`);
+  return res.json();
+}
+
+/**
+ * Create or update a workspace item.
+ * @param {object} body { name, content, agent?, stage?, tags?, expectedUpdatedAt? }
+ */
+export async function upsertWorkspaceItem(token, kind, slug, body) {
+  const res = await fetch(
+    `${getPortfolioApiUrl()}/csimple/workspace/${encodeURIComponent(kind)}/${encodeURIComponent(slug)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body || {}),
+    },
+  );
+  if (!res.ok) {
+    const txt = await res.text().catch(() => res.statusText);
+    throw new Error(`upsertWorkspaceItem failed: ${res.status} ${txt}`);
+  }
+  return res.json();
+}
+
+/** Soft-delete a workspace item (hard=true to permanently remove). */
+export async function deleteWorkspaceItem(token, kind, slug, { hard = false } = {}) {
+  const qs = hard ? '?hard=1' : '';
+  const res = await fetch(
+    `${getPortfolioApiUrl()}/csimple/workspace/${encodeURIComponent(kind)}/${encodeURIComponent(slug)}${qs}`,
+    { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!res.ok) throw new Error(`deleteWorkspaceItem failed: ${res.status}`);
+  return res.json();
+}
+
+/** Append a line to today's daily log. */
+export async function appendWorkspaceLog(token, text) {
+  const res = await fetch(`${getPortfolioApiUrl()}/csimple/workspace/log/append`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ text }),
+  });
+  if (!res.ok) throw new Error(`appendWorkspaceLog failed: ${res.status}`);
+  return res.json();
+}
+
+/** Preview the assembled workspace context the LLM will see. */
+export async function getWorkspaceContextPreview(token, { agent, message } = {}) {
+  const params = new URLSearchParams();
+  if (agent) params.set('agent', agent);
+  if (message) params.set('message', message);
+  const qs = params.toString();
+  const res = await fetch(
+    `${getPortfolioApiUrl()}/csimple/workspace/context${qs ? `?${qs}` : ''}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!res.ok) throw new Error(`getWorkspaceContextPreview failed: ${res.status}`);
+  return res.json();
+}
+
+/** Get core-file templates + kind allow-list + per-kind size caps. */
+export async function getWorkspaceTemplates(token) {
+  const res = await fetch(`${getPortfolioApiUrl()}/csimple/workspace/templates`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`getWorkspaceTemplates failed: ${res.status}`);
+  return res.json();
+}
+
 // ─── Cloud Relay (phone → backend → desktop addon) ─────────────────────────
 
 /** Cached remote addon state */

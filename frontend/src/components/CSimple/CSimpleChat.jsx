@@ -880,7 +880,10 @@ function CSimpleChat({
             },
           };
 
-          onPortfolioChatStream(lastUserMsg.content, trimmedHistory, 'github', compareModel);
+          onPortfolioChatStream(lastUserMsg.content, trimmedHistory, 'github', compareModel, {
+            activeAgent: activeAgent?.id || null,
+            behaviorFile: activeAgent?.behaviorFile || 'default.txt',
+          });
           return;
         }
 
@@ -996,12 +999,18 @@ function CSimpleChat({
             },
           };
 
-          onPortfolioChatStream(text, trimmedHistory, 'github', portfolioModel);
+          onPortfolioChatStream(text, trimmedHistory, 'github', portfolioModel, {
+            activeAgent: activeAgent?.id || null,
+            behaviorFile: activeAgent?.behaviorFile || 'default.txt',
+          });
           return; // Don't set isGenerating to false — streaming callbacks handle it
         }
 
         // ── Legacy non-streaming fallback ──
-        onPortfolioChat(text, trimmedHistory, 'github', portfolioModel);
+        onPortfolioChat(text, trimmedHistory, 'github', portfolioModel, {
+          activeAgent: activeAgent?.id || null,
+          behaviorFile: activeAgent?.behaviorFile || 'default.txt',
+        });
         return; // Don't set isGenerating to false yet — wait for response
       }
 

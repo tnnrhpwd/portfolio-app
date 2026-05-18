@@ -78,6 +78,17 @@ const {
   getCSimpleUserContext,
 } = require('../controllers/csimpleController');
 
+// CSimple Workspace controller (OpenClaw-style AI workspace)
+const {
+  listWorkspace,
+  getWorkspaceItem,
+  upsertWorkspaceItem,
+  deleteWorkspaceItem,
+  appendLog,
+  getWorkspaceContextPreview,
+  getWorkspaceTemplates,
+} = require('../controllers/workspaceController');
+
 // Addon relay controller (cloud command relay for remote execution)
 const {
   addonHeartbeat,
@@ -383,6 +394,24 @@ router.route('/csimple/personality/:name')
 
 // CSIMPLE USER CONTEXT (aggregate memory + personality + behavior for LLM)
 router.get('/csimple/context', protect, getCSimpleUserContext);
+
+// ============================================================================
+// CSIMPLE WORKSPACE (OpenClaw-style AI workspace: core/agent/knowledge/
+//                   notebook/skill/log/decision/project)
+// ============================================================================
+
+// Order matters: specific routes BEFORE parameterized ones.
+router.get('/csimple/workspace/templates', protect, getWorkspaceTemplates);
+router.get('/csimple/workspace/context',   protect, getWorkspaceContextPreview);
+router.post('/csimple/workspace/log/append', protect, sanitizeInput, appendLog);
+
+router.route('/csimple/workspace')
+  .get(protect, listWorkspace);
+
+router.route('/csimple/workspace/:kind/:slug')
+  .get(protect, getWorkspaceItem)
+  .put(protect, sanitizeInput, upsertWorkspaceItem)
+  .delete(protect, deleteWorkspaceItem);
 
 // ============================================================================
 // ADDON RELAY (cloud command relay for phone → desktop execution)

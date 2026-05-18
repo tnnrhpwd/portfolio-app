@@ -11,6 +11,8 @@ const {
 const { isProTier, isSimpleTier } = require('../constants/pricing.js');
 const { getGoalsSummary, logAction } = require('./memoryService.js');
 const { TOOL_SCHEMAS, executeTool } = require('./netTools.js');
+const { buildWorkspaceContext } = require('./workspaceContext.js');
+const { decryptString } = require('../utils/secretCrypto');
 
 // Constants for user context loading
 const CSIMPLE_CREATED_AT = '2000-01-01T00:00:00.000Z';
@@ -22,7 +24,7 @@ const CTX_PRIORITY_PATTERNS = [/^user/i, /profile/i, /preference/i, /identity/i,
  * Load user's CSimple context (memory, personality, behavior) directly from DynamoDB.
  * This is the same logic as the /csimple/context endpoint but called internally.
  */
-async function loadUserContextFromDB(dynamodb, userId, behaviorFile = 'default.txt') {
+async function loadUserContextFromDB(dynamodb, userId, behaviorFile = 'default.txt', opts = {}) {
     const TABLE_NAME = 'Simple';
 
     // ── Load memory files ──
@@ -95,13 +97,35 @@ async function loadUserContextFromDB(dynamodb, userId, behaviorFile = 'default.t
         } catch { /* behavior not found — ok */ }
     }
 
+    // ── Layer in OpenClaw-style workspace context (core/agent/log/decisions/skills) ──
+    let workspaceContext = '';
+    let workspaceSections = [];
+    let workspaceBytes = 0;
+    try {
+        const ws = await buildWorkspaceContext({
+            dynamodb,
+            userId,
+            activeAgent: opts.activeAgent || null,
+            message: opts.message || '',
+        });
+        workspaceContext = ws.workspaceContext || '';
+        workspaceSections = ws.sections || [];
+        workspaceBytes = ws.bytes || 0;
+    } catch (e) {
+        console.warn('[llmService] buildWorkspaceContext failed:', e.message);
+    }
+
     return {
         memoryContext,
         personalityContext,
         behaviorContext,
+        workspaceContext,
+        workspaceSections,
+        workspaceBytes,
         hasMemory: memoryContext.length > 0,
         hasPersonality: personalityContext.length > 0,
         hasBehavior: behaviorContext.length > 0,
+        hasWorkspace: workspaceContext.length > 0,
     };
 }
 
@@ -332,8 +356,9 @@ async function getUserGithubToken(dynamodb, userId) {
         console.log(`[llmService] getUserGithubToken for ${userId}: Item found=${!!Item}, hasText=${!!Item?.text}`);
         if (!Item?.text) return null;
         const settings = JSON.parse(Item.text);
-        console.log(`[llmService] getUserGithubToken: hasGithubToken=${!!settings.githubToken}`);
-        return settings.githubToken || null;
+        const token = decryptString(settings.githubToken) || null;
+        console.log(`[llmService] getUserGithubToken: hasGithubToken=${!!token}`);
+        return token;
     } catch (e) {
         console.error('[llmService] Failed to fetch user github token:', e);
         return null;
@@ -387,10 +412,13 @@ async function callLLMApi(provider, model, userInput, githubToken = null, goalsS
     if (user) injectMembershipContext(systemParts, user);
 
 
-    // Inject user context from cloud DB (memory, personality, behavior)
+    // Inject user context from cloud DB (memory, personality, behavior, workspace)
     if (userContext) {
         if (userContext.personalityContext) {
             systemParts.push(userContext.personalityContext);
+        }
+        if (userContext.workspaceContext) {
+            systemParts.push(userContext.workspaceContext);
         }
         if (userContext.memoryContext) {
             systemParts.push(userContext.memoryContext);
@@ -685,6 +713,8 @@ async function processCompressionRequest(req, dynamodb) {
     // Only Net: chat gets tools — other compression requests remain plain text
     let toolContext = null;
     let behaviorFile = 'default.txt';
+    let activeAgent = null;
+    let userMessageForContext = '';
     try {
         const parsed = JSON.parse(userInput);
         if (parsed.message && Array.isArray(parsed.conversationHistory)) {
@@ -694,21 +724,27 @@ async function processCompressionRequest(req, dynamodb) {
                 userName: req.user.nickname || req.user.name || null,
             };
             behaviorFile = parsed.behaviorFile || 'default.txt';
+            activeAgent = parsed.activeAgent || null;
+            userMessageForContext = parsed.message || '';
             console.log('[llmService] Net: chat detected — enabling tool-use');
         }
     } catch {
         // Not a Net: chat payload — no tools
     }
 
-    // Load user context (memory, personality, behavior) from cloud DB
+    // Load user context (memory, personality, behavior, workspace) from cloud DB
     let userContext = null;
     try {
-        userContext = await loadUserContextFromDB(dynamodb, req.user.id, behaviorFile);
+        userContext = await loadUserContextFromDB(dynamodb, req.user.id, behaviorFile, {
+            activeAgent,
+            message: userMessageForContext,
+        });
         if (userContext) {
             const parts = [
                 userContext.hasMemory ? 'memory' : null,
                 userContext.hasPersonality ? 'personality' : null,
                 userContext.hasBehavior ? 'behavior' : null,
+                userContext.hasWorkspace ? `workspace(${(userContext.workspaceSections || []).join('|')})` : null,
             ].filter(Boolean);
             if (parts.length > 0) {
                 console.log(`[llmService] Injecting user context: ${parts.join(', ')}`);
@@ -800,6 +836,8 @@ async function streamCompressionRequest(req, res, dynamodb) {
     // Build tool context for Net: chat messages
     let toolContext = null;
     let behaviorFile = 'default.txt';
+    let activeAgent = null;
+    let userMessageForContext = '';
     try {
         const parsed = JSON.parse(userInput);
         if (parsed.message && Array.isArray(parsed.conversationHistory)) {
@@ -809,13 +847,18 @@ async function streamCompressionRequest(req, res, dynamodb) {
                 userName: req.user.nickname || req.user.name || null,
             };
             behaviorFile = parsed.behaviorFile || 'default.txt';
+            activeAgent = parsed.activeAgent || null;
+            userMessageForContext = parsed.message || '';
         }
     } catch {}
 
-    // Load user context
+    // Load user context (memory, personality, behavior, workspace)
     let userContext = null;
     try {
-        userContext = await loadUserContextFromDB(dynamodb, req.user.id, behaviorFile);
+        userContext = await loadUserContextFromDB(dynamodb, req.user.id, behaviorFile, {
+            activeAgent,
+            message: userMessageForContext,
+        });
     } catch {}
 
     // ── Build messages (same logic as callLLMApi) ─────────────────────────
@@ -844,6 +887,7 @@ async function streamCompressionRequest(req, res, dynamodb) {
     injectMembershipContext(systemParts, req.user);
     if (userContext) {
         if (userContext.personalityContext) systemParts.push(userContext.personalityContext);
+        if (userContext.workspaceContext) systemParts.push(userContext.workspaceContext);
         if (userContext.memoryContext) systemParts.push(userContext.memoryContext);
         if (userContext.behaviorContext) systemParts.push(userContext.behaviorContext);
     }
