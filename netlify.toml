@@ -9,7 +9,7 @@ NPM_VERSION = "10"
 
 # ── Plugins ─────────────────────────────────────────────────
 [[plugins]]
-package = "netlify-plugin-sitemap"
+package = "@netlify/plugin-sitemap"
 
 [plugins.inputs]
 buildDir = "frontend/build"
