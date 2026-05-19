@@ -43,6 +43,12 @@ const _statusListeners = new Set();
       // Normalize: strip protocol if user included it, store just host:port
       const cleaned = addonParam.replace(/^https?:\/\//, '');
       localStorage.setItem(CUSTOM_HOST_KEY, cleaned);
+      // Arriving via the QR's ?addon= param is an explicit user choice to
+      // control a PC from this device, so we treat it as an opt-in to addon
+      // detection on this HTTPS origin. Without this, the page would sit on
+      // the "Enable local addon?" CTA and chats would silently fall back to
+      // the tool-less cloud LLM (which then hallucinates "I can't open apps").
+      localStorage.setItem(OPT_IN_KEY, '1');
     }
   } catch { /* SSR or no window */ }
 })();

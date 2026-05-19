@@ -20,6 +20,7 @@ import {
   saveCloudConversations,
   queueRemoteCommand,
   getRemoteCommandResult,
+  getCustomAddonHost,
 } from '../../services/csimpleApi';
 import { createData } from '../../features/data/dataSlice';
 import { getUserIdentifier } from '../../utils/supportUtils';
@@ -834,6 +835,38 @@ function CSimpleChat({
       // screen actions, etc.) still require the addon.
       const useCloudFallback =
         provider === 'github' && !isAddonConnected && !isRemoteAddonOnline;
+
+      // ── Scan-to-Connect guard ────────────────────────────────────────
+      // If the user arrived via the QR code (?addon=... saved in localStorage)
+      // their intent is explicitly "control my PC from this device". The
+      // cloud LLM has no desktop-action tools, so silently falling back to it
+      // produces "I cannot open applications" responses. Surface a clear
+      // error instead so the user knows what's actually wrong.
+      const phoneTargetingDesktop = !!getCustomAddonHost();
+      if (phoneTargetingDesktop && !isAddonConnected && !isRemoteAddonOnline) {
+        const reasons = [];
+        if (!user?.token) reasons.push('Log in to your sthopwood.com account on this device.');
+        reasons.push('Make sure the CSimple addon is running on the target PC.');
+        reasons.push('Open the CSimple webapp on that PC at least once while logged in so it registers with the cloud relay.');
+        const errMsg = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content:
+            "**Can't reach your PC**\n\n" +
+            "This page is set up to control a desktop, but the addon isn't currently reachable " +
+            "(neither over your local network nor through the cloud relay).\n\n" +
+            reasons.map((r, i) => `${i + 1}. ${r}`).join('\n') +
+            "\n\nOnce the addon is online, retry your message.",
+          timestamp: new Date().toISOString(),
+          isError: true,
+        };
+        setConversations(prev => prev.map(c => {
+          if (c.id !== activeConversationId) return c;
+          return { ...c, messages: [...c.messages, errMsg] };
+        }));
+        setIsGenerating(false);
+        return;
+      }
 
       if (provider === 'portfolio' || useCloudFallback) {
         if (!onPortfolioChat && !onPortfolioChatStream) {
