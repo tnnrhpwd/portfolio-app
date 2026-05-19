@@ -16,6 +16,7 @@ const ADDON_DEFAULT_PORT = 3001;
 const ADDON_HEALTH_ENDPOINT = '/api/status';
 const ADDON_POLL_INTERVAL = 30000; // 30s between health checks
 const CUSTOM_HOST_KEY = 'csimple_addon_host'; // localStorage key
+const OPT_IN_KEY = 'csimple_addon_optin'; // localStorage key
 
 /** Cached addon state */
 let _addonStatus = {
@@ -59,6 +60,25 @@ export function getCustomAddonHost() {
 }
 
 /**
+ * Whether the user has opted in to local addon detection on the current
+ * (HTTPS) origin. On insecure origins (e.g. http://localhost:3000) detection
+ * is always enabled; on HTTPS origins it must be explicitly enabled because
+ * contacting the addon's self-signed cert downgrades the page's lock icon.
+ */
+export function isAddonOptedIn() {
+  try { return localStorage.getItem(OPT_IN_KEY) === '1'; } catch { return false; }
+}
+
+export function setAddonOptIn(value) {
+  try {
+    if (value) localStorage.setItem(OPT_IN_KEY, '1');
+    else localStorage.removeItem(OPT_IN_KEY);
+  } catch { /* ignore */ }
+  // Re-detect immediately so UI reflects the change
+  detectAddon();
+}
+
+/**
  * Set a custom addon host for LAN access (e.g. "192.168.1.13:3001").
  * Pass null/empty to clear and revert to localhost detection.
  */
@@ -88,6 +108,22 @@ export function setCustomAddonHost(host) {
 export async function detectAddon() {
   const pageIsSecure = typeof window !== 'undefined'
     && window.location?.protocol === 'https:';
+
+  // On HTTPS pages, gate detection behind explicit user opt-in. Contacting
+  // the addon's self-signed cert downgrades the page's lock icon to "Not
+  // Secure" for the rest of the tab session, so we don't probe by default.
+  if (pageIsSecure && !isAddonOptedIn()) {
+    const newStatus = {
+      isConnected: false,
+      baseUrl: null,
+      lastCheck: Date.now(),
+      version: null,
+      needsOptIn: true,
+    };
+    _addonStatus = newStatus;
+    _notifyListeners(newStatus);
+    return newStatus;
+  }
 
   // Build candidate URLs — custom host first, then localhost fallbacks
   const candidates = [];

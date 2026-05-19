@@ -133,8 +133,10 @@ function CSimpleChat({
   addonPromptOutdated = false,
   addonPromptChecking = false,
   addonNeedsCertTrust = false,
+  addonNeedsOptIn = false,
   onAddonRecheck,
   onAddonDismiss,
+  onAddonEnableOptIn,
   addonCurrentVersion,
   addonRequiredVersion,
   membershipPricing = [],
@@ -1387,8 +1389,10 @@ function CSimpleChat({
           addonPromptOutdated={addonPromptOutdated}
           addonPromptChecking={addonPromptChecking}
           addonNeedsCertTrust={addonNeedsCertTrust}
+          addonNeedsOptIn={addonNeedsOptIn}
           onAddonRecheck={onAddonRecheck}
           onAddonDismiss={onAddonDismiss}
+          onAddonEnableOptIn={onAddonEnableOptIn}
           addonCurrentVersion={addonCurrentVersion}
           addonRequiredVersion={addonRequiredVersion}
         />

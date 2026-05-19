@@ -26,6 +26,8 @@ function Net() {
     isOutdated,
     requiredVersion,
     addonNeedsCertTrust,
+    addonNeedsOptIn,
+    enableAddonOptIn,
   } = useAddonDetection();
 
   // Track portfolio LLM response and errors for passing to CSimpleChat
@@ -196,6 +198,8 @@ function Net() {
             addonPromptOutdated={isOutdated}
             addonPromptChecking={isChecking}
             addonNeedsCertTrust={addonNeedsCertTrust}
+            addonNeedsOptIn={addonNeedsOptIn}
+            onAddonEnableOptIn={enableAddonOptIn}
             onAddonRecheck={recheckAddon}
             onAddonDismiss={dismissPrompt}
             addonCurrentVersion={addonStatus.version}

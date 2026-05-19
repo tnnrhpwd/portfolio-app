@@ -24,8 +24,10 @@ function Sidebar({
   addonPromptOutdated = false,
   addonPromptChecking = false,
   addonNeedsCertTrust = false,
+  addonNeedsOptIn = false,
   onAddonRecheck,
   onAddonDismiss,
+  onAddonEnableOptIn,
   addonCurrentVersion,
   addonRequiredVersion,
 }) {
@@ -221,7 +223,37 @@ function Sidebar({
             </div>
           )}
 
-          {showAddonPrompt && (
+          {showAddonPrompt && addonNeedsOptIn && (
+            <div className="sidebar__addon-notice">
+              <span className="sidebar__addon-notice__icon">🔌</span>
+              <div className="sidebar__addon-notice__body">
+                <span className="sidebar__addon-notice__title">Enable local addon?</span>
+                <span className="sidebar__addon-notice__sub">
+                  Connects this page to C‑Simple on your computer for local AI
+                  &amp; automation. The browser will mark the page “Not Secure”
+                  while connected (self‑signed cert on localhost).
+                </span>
+              </div>
+              <div className="sidebar__addon-notice__actions">
+                <button
+                  className="sidebar__addon-notice__btn"
+                  onClick={onAddonEnableOptIn}
+                  disabled={addonPromptChecking}
+                >
+                  {addonPromptChecking ? '…' : 'Enable'}
+                </button>
+                <button
+                  className="sidebar__addon-notice__dismiss"
+                  onClick={onAddonDismiss}
+                  title="Dismiss"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
+
+          {showAddonPrompt && !addonNeedsOptIn && (
             <div className={`sidebar__addon-notice${addonPromptOutdated ? ' sidebar__addon-notice--update' : ''}`}>
               <span className="sidebar__addon-notice__icon">{addonPromptOutdated ? '⬆️' : '🧩'}</span>
               <div className="sidebar__addon-notice__body">

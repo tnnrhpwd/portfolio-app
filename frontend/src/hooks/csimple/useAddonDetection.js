@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSelector } from 'react-redux';
-import { detectAddon, getAddonStatus, onAddonStatusChange, startAddonPolling, checkRemoteAddon, onRemoteAddonStatusChange, getRemoteAddonStatus, registerCloudRelay } from '../../services/csimpleApi';
+import { detectAddon, getAddonStatus, onAddonStatusChange, startAddonPolling, checkRemoteAddon, onRemoteAddonStatusChange, getRemoteAddonStatus, registerCloudRelay, setAddonOptIn } from '../../services/csimpleApi';
 
 /** Hard-coded floor — only used when GitHub API is unreachable */
 const FALLBACK_REQUIRED_VERSION = '1.0.6';
@@ -168,6 +168,15 @@ export function useAddonDetection({ pollInterval = 30000 } = {}) {
     }
   }, []);
 
+  const enableAddonOptIn = useCallback(async () => {
+    setIsChecking(true);
+    setAddonOptIn(true);
+    const status = await detectAddon();
+    setAddonStatus(status);
+    setIsChecking(false);
+    return status;
+  }, []);
+
   const isOutdated =
     addonStatus.isConnected &&
     !!addonStatus.version &&
@@ -182,6 +191,7 @@ export function useAddonDetection({ pollInterval = 30000 } = {}) {
     recheckAddon,
     dismissed,
     dismissPrompt,
+    enableAddonOptIn,
     isOutdated,
     requiredVersion: latestVersion,
     // Show install banner when addon is not found at all (local or remote)
@@ -192,6 +202,12 @@ export function useAddonDetection({ pollInterval = 30000 } = {}) {
     // just needs to accept the addon's self-signed cert once.
     addonNeedsCertTrust:
       !!addonStatus.needsCertTrust &&
+      !addonStatus.isConnected &&
+      !remoteAddonStatus.online,
+    // Detection on this HTTPS origin is gated behind explicit user opt-in
+    // (probing the addon's self-signed cert downgrades the page's lock icon).
+    addonNeedsOptIn:
+      !!addonStatus.needsOptIn &&
       !addonStatus.isConnected &&
       !remoteAddonStatus.online,
   };
