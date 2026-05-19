@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { logout, resetDataSlice } from './../../features/data/dataSlice.js';
@@ -11,6 +11,7 @@ import {
   FONT_SCALE_MAX,
   FONT_SCALE_DEFAULT,
 } from '../../utils/theme.js';
+import { getCloudSettings, saveCloudSettings } from '../../services/csimpleApi.js';
 import './Settings.css';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
@@ -88,6 +89,61 @@ function Settings() {
   const [showToken, setShowToken] = useState(false);
   const [fontScale, setFontScale] = useState(() => loadFontSizeScale());
 
+  // ─── Cloud-sync the AI settings (especially the GitHub PAT) so it follows
+  //     the user across browsers/PCs. Stored encrypted on the backend.
+  const cloudSyncDebounce = useRef(null);
+  const cloudPullDone = useRef(false);
+
+  useEffect(() => {
+    if (!user?.token || cloudPullDone.current) return;
+    cloudPullDone.current = true;
+    getCloudSettings(user.token)
+      .then(cloudData => {
+        const cloud = cloudData?.settings;
+        if (!cloud) return;
+        // Only adopt cloud values for fields we care about here, and only when
+        // local doesn't already have a non-empty value (local wins for active edits).
+        const PULL_KEYS = [
+          'llmProvider', 'githubModel', 'portfolioModel', 'githubToken',
+          'defaultTemperature', 'defaultMaxTokens',
+          'sendWithEnter', 'showTimestamps', 'enableMarkdown',
+        ];
+        setAiSettings(prev => {
+          const merged = { ...prev };
+          const updates = {};
+          for (const key of PULL_KEYS) {
+            if (cloud[key] === undefined || cloud[key] === null || cloud[key] === '') continue;
+            // Only pull when local is empty/default — avoids clobbering a fresh edit
+            const localEmpty = prev[key] === '' || prev[key] === undefined || prev[key] === null;
+            if (localEmpty) {
+              merged[key] = cloud[key];
+              updates[key] = cloud[key];
+            }
+          }
+          if (Object.keys(updates).length > 0) {
+            saveAISettings(updates);
+          }
+          return merged;
+        });
+      })
+      .catch(err => console.warn('[Settings] cloud pull failed:', err));
+  }, [user?.token]);
+
+  const pushAISettingToCloud = useCallback((next) => {
+    if (!user?.token) return;
+    if (cloudSyncDebounce.current) clearTimeout(cloudSyncDebounce.current);
+    cloudSyncDebounce.current = setTimeout(async () => {
+      try {
+        // Merge into whatever else is in the cloud so we don't wipe siblings
+        const cloudData = await getCloudSettings(user.token).catch(() => null);
+        const existing = cloudData?.settings || {};
+        await saveCloudSettings(user.token, { ...existing, ...next });
+      } catch (err) {
+        console.warn('[Settings] cloud push failed:', err);
+      }
+    }, 400);
+  }, [user?.token]);
+
   const handleFontScaleChange = useCallback((e) => {
     const value = parseFloat(e.target.value);
     setFontScale(value);
@@ -105,7 +161,9 @@ function Settings() {
       saveAISettings({ [key]: value });
       return updated;
     });
-  }, []);
+    // Mirror change up to the cloud so other browsers pick it up on next sign-in
+    pushAISettingToCloud({ [key]: value });
+  }, [pushAISettingToCloud]);
 
   useEffect(() => {
     if (!user) {
