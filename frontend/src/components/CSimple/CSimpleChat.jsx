@@ -821,11 +821,22 @@ function CSimpleChat({
 
       const provider = settings.llmProvider || 'portfolio';
 
-      if (provider === 'portfolio') {
+      // If user picked GitHub Models but no addon is reachable (e.g. mobile,
+      // or desktop without the addon installed), route through the backend
+      // cloud path instead — it talks to GitHub Models on the user's behalf
+      // using the same encrypted PAT that was synced to their account. This
+      // lets the chat work everywhere; addon-only features (local HF models,
+      // screen actions, etc.) still require the addon.
+      const useCloudFallback =
+        provider === 'github' && !isAddonConnected && !isRemoteAddonOnline;
+
+      if (provider === 'portfolio' || useCloudFallback) {
         if (!onPortfolioChat && !onPortfolioChatStream) {
           throw new Error('Portfolio chat not available. Please log in.');
         }
-        const portfolioModel = settings.portfolioModel || 'gpt-4o-mini';
+        const portfolioModel = useCloudFallback
+          ? (settings.githubModel || 'gpt-4o-mini')
+          : (settings.portfolioModel || 'gpt-4o-mini');
 
         // ── /compare handler — send last user message to a second model ──
         const slashCmd = handleSlashCommand(text);
@@ -1065,10 +1076,14 @@ function CSimpleChat({
       }
 
       // Local addon or GitHub Models — direct fetch (requires addon)
+      // Note: github+no-addon already fell through to the cloud path above,
+      // so reaching here with provider === 'github' is impossible. Only the
+      // 'local' provider can still trip this guard.
       if (!isAddonConnected && !isRemoteAddonOnline) {
         throw new Error(
-          `Cannot use ${provider === 'github' ? 'GitHub Models' : 'local'} provider — the CSimple addon is not running. ` +
-          'Switch to the Cloud (Portfolio) provider in Settings, or install and start the addon.'
+          'Cannot use the local provider — the CSimple addon is not running. ' +
+          'Switch to **GitHub Models** or **Cloud (Portfolio)** in Settings to chat without the addon, ' +
+          'or install and start the desktop addon to run local models.'
         );
       }
 
