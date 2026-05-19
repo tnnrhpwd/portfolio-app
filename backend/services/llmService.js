@@ -7,6 +7,7 @@ const {
     trackCompletion,
     PROVIDERS,
     MODEL_TIER_REQUIREMENTS,
+    resolveGithubModelId,
 } = require('../utils/llmProviders.js');
 const { isProTier, isSimpleTier } = require('../constants/pricing.js');
 const { getGoalsSummary, logAction } = require('./memoryService.js');
@@ -994,7 +995,7 @@ async function streamCompressionRequest(req, res, dynamodb) {
     });
 
     const stream = await client.chat.completions.create({
-        model,
+        model: provider === 'github' ? resolveGithubModelId(model) : model,
         messages,
         temperature: streamOptions.temperature,
         max_tokens: streamOptions.maxTokens,

@@ -4,39 +4,68 @@
  * Uses the GitHub Models inference endpoint (OpenAI-compatible) to access
  * models like GPT-4o-mini, GPT-4o, etc. using a GitHub PAT.
  *
- * Endpoint: https://models.inference.ai.azure.com
- * Auth: Bearer token (GitHub PAT with "models" scope, or Copilot subscription)
+ * Endpoint: https://models.github.ai/inference (current GA endpoint)
+ * Auth:     Bearer <GitHub PAT> — fine-grained PATs need the `models:read`
+ *           permission; classic PATs work as long as the account has Copilot
+ *           access (no special scopes required).
+ * Docs:     https://docs.github.com/en/rest/models/inference
+ *
+ * Model IDs MUST be in the form `<publisher>/<model_name>` (e.g.
+ * `openai/gpt-4o-mini`). The old Azure-hosted endpoint
+ * (`https://models.inference.ai.azure.com`) was retired and now returns 401
+ * for every request, which surfaced as a misleading "PAT expired" error.
  */
 
-const GITHUB_MODELS_ENDPOINT = 'https://models.inference.ai.azure.com';
+const GITHUB_MODELS_ENDPOINT = 'https://models.github.ai/inference';
+const GITHUB_MODELS_API_VERSION = '2022-11-28';
 
-// Models available through GitHub Models API
-// All free with Copilot subscription — rate limits differ per model
+// Models available through GitHub Models API.
+// `id` is what we send to the API (publisher-prefixed).
+// `legacyId` lists older bare IDs we used to store in settings.json so we can
+// upgrade silently without forcing the user to re-select their model.
 const GITHUB_MODELS = [
   // OpenAI
-  { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'github', description: 'Fast & cheap — great for most tasks', maxTokens: 4096, rate: 'Free · 150/day' },
-  { id: 'gpt-4o', name: 'GPT-4o', provider: 'github', description: 'Highly capable multimodal model', maxTokens: 4096, rate: 'Free · 50/day' },
-  { id: 'gpt-4.1', name: 'GPT-4.1', provider: 'github', description: 'Latest flagship model', maxTokens: 4096, rate: 'Free · 50/day' },
-  { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini', provider: 'github', description: 'Latest mini model — balanced performance', maxTokens: 4096, rate: 'Free · 150/day' },
-  { id: 'gpt-4.1-nano', name: 'GPT-4.1 Nano', provider: 'github', description: 'Smallest & fastest — ideal for simple tasks', maxTokens: 4096, rate: 'Free · 150/day' },
-  { id: 'o3-mini', name: 'o3-mini', provider: 'github', description: 'Reasoning model — good for math & code', maxTokens: 4096, rate: 'Free · 50/day' },
-  { id: 'o4-mini', name: 'o4-mini', provider: 'github', description: 'Latest reasoning model', maxTokens: 4096, rate: 'Free · 50/day' },
-  // Anthropic Claude
-  { id: 'claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', provider: 'github', description: 'Anthropic flagship — strong at coding & analysis', maxTokens: 4096, rate: 'Free · 50/day' },
-  { id: 'claude-3.5-haiku', name: 'Claude 3.5 Haiku', provider: 'github', description: 'Fast Claude — great balance of speed & quality', maxTokens: 4096, rate: 'Free · 150/day' },
+  { id: 'openai/gpt-4o-mini', legacyId: ['gpt-4o-mini'], name: 'GPT-4o Mini', provider: 'github', description: 'Fast & cheap — great for most tasks', maxTokens: 4096, rate: 'Free · 150/day' },
+  { id: 'openai/gpt-4o', legacyId: ['gpt-4o'], name: 'GPT-4o', provider: 'github', description: 'Highly capable multimodal model', maxTokens: 4096, rate: 'Free · 50/day' },
+  { id: 'openai/gpt-4.1', legacyId: ['gpt-4.1'], name: 'GPT-4.1', provider: 'github', description: 'Latest flagship model', maxTokens: 4096, rate: 'Free · 50/day' },
+  { id: 'openai/gpt-4.1-mini', legacyId: ['gpt-4.1-mini'], name: 'GPT-4.1 Mini', provider: 'github', description: 'Latest mini model — balanced performance', maxTokens: 4096, rate: 'Free · 150/day' },
+  { id: 'openai/gpt-4.1-nano', legacyId: ['gpt-4.1-nano'], name: 'GPT-4.1 Nano', provider: 'github', description: 'Smallest & fastest — ideal for simple tasks', maxTokens: 4096, rate: 'Free · 150/day' },
+  { id: 'openai/o3-mini', legacyId: ['o3-mini'], name: 'o3-mini', provider: 'github', description: 'Reasoning model — good for math & code', maxTokens: 4096, rate: 'Free · 50/day' },
+  { id: 'openai/o4-mini', legacyId: ['o4-mini'], name: 'o4-mini', provider: 'github', description: 'Latest reasoning model', maxTokens: 4096, rate: 'Free · 50/day' },
   // Meta Llama
-  { id: 'Llama-3.3-70B-Instruct', name: 'Llama 3.3 70B', provider: 'github', description: 'Latest Llama — improved quality', maxTokens: 4096, rate: 'Free · 150/day' },
-  { id: 'Meta-Llama-3.1-405B-Instruct', name: 'Llama 3.1 405B', provider: 'github', description: 'Largest open-source model', maxTokens: 4096, rate: 'Free · 50/day' },
+  { id: 'meta/Llama-3.3-70B-Instruct', legacyId: ['Llama-3.3-70B-Instruct'], name: 'Llama 3.3 70B', provider: 'github', description: 'Latest Llama — improved quality', maxTokens: 4096, rate: 'Free · 150/day' },
+  { id: 'meta/Meta-Llama-3.1-405B-Instruct', legacyId: ['Meta-Llama-3.1-405B-Instruct'], name: 'Llama 3.1 405B', provider: 'github', description: 'Largest open-source model', maxTokens: 4096, rate: 'Free · 50/day' },
   // Mistral
-  { id: 'Mistral-large-2411', name: 'Mistral Large', provider: 'github', description: 'Mistral flagship — strong reasoning', maxTokens: 4096, rate: 'Free · 50/day' },
-  { id: 'Mistral-small', name: 'Mistral Small', provider: 'github', description: 'Efficient Mistral model', maxTokens: 4096, rate: 'Free · 150/day' },
+  { id: 'mistral-ai/Mistral-large-2411', legacyId: ['Mistral-large-2411'], name: 'Mistral Large', provider: 'github', description: 'Mistral flagship — strong reasoning', maxTokens: 4096, rate: 'Free · 50/day' },
+  { id: 'mistral-ai/Mistral-small', legacyId: ['Mistral-small'], name: 'Mistral Small', provider: 'github', description: 'Efficient Mistral model', maxTokens: 4096, rate: 'Free · 150/day' },
   // DeepSeek
-  { id: 'DeepSeek-R1', name: 'DeepSeek R1', provider: 'github', description: 'Reasoning-focused open model', maxTokens: 4096, rate: 'Free · 50/day' },
+  { id: 'deepseek/DeepSeek-R1', legacyId: ['DeepSeek-R1'], name: 'DeepSeek R1', provider: 'github', description: 'Reasoning-focused open model', maxTokens: 4096, rate: 'Free · 50/day' },
   // Microsoft
-  { id: 'Phi-4', name: 'Phi-4', provider: 'github', description: 'Microsoft small language model', maxTokens: 4096, rate: 'Free · 150/day' },
+  { id: 'microsoft/Phi-4', legacyId: ['Phi-4'], name: 'Phi-4', provider: 'github', description: 'Microsoft small language model', maxTokens: 4096, rate: 'Free · 150/day' },
   // Cohere
-  { id: 'Cohere-command-r-plus', name: 'Command R+', provider: 'github', description: 'Cohere flagship — RAG optimized', maxTokens: 4096, rate: 'Free · 50/day' },
+  { id: 'cohere/Cohere-command-r-plus', legacyId: ['Cohere-command-r-plus'], name: 'Command R+', provider: 'github', description: 'Cohere flagship — RAG optimized', maxTokens: 4096, rate: 'Free · 50/day' },
 ];
+
+// Map any legacy bare model ID (e.g. "gpt-4o-mini") to its current publisher-
+// prefixed form (e.g. "openai/gpt-4o-mini"). Unknown IDs pass through; if the
+// ID already contains a "/", it's assumed to be in the new format.
+function resolveModelId(id) {
+  if (!id) return id;
+  if (id.includes('/')) return id;
+  for (const m of GITHUB_MODELS) {
+    if (m.legacyId && m.legacyId.includes(id)) return m.id;
+  }
+  return id;
+}
+
+function buildHeaders(token) {
+  return {
+    'Content-Type': 'application/json',
+    'Accept': 'application/vnd.github+json',
+    'Authorization': `Bearer ${token}`,
+    'X-GitHub-Api-Version': GITHUB_MODELS_API_VERSION,
+  };
+}
 
 class GitHubModelsService {
   constructor() {
@@ -87,8 +116,9 @@ class GitHubModelsService {
     // Add current message
     messages.push({ role: 'user', content: message });
 
+    const resolvedModelId = resolveModelId(modelId);
     const body = {
-      model: modelId,
+      model: resolvedModelId,
       messages,
       temperature,
       max_tokens: maxLength,
@@ -100,14 +130,11 @@ class GitHubModelsService {
       if (tool_choice) body.tool_choice = tool_choice;
     }
 
-    console.log(`[GitHub Models] Calling ${modelId} with ${messages.length} messages${tools ? ` and ${tools.length} tools` : ''}...`);
+    console.log(`[GitHub Models] Calling ${resolvedModelId} with ${messages.length} messages${tools ? ` and ${tools.length} tools` : ''}...`);
 
     const response = await fetch(`${GITHUB_MODELS_ENDPOINT}/chat/completions`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.token}`,
-      },
+      headers: buildHeaders(this.token),
       body: JSON.stringify(body),
     });
 
@@ -120,10 +147,14 @@ class GitHubModelsService {
 
       if (response.status === 401) {
         throw new Error(
-          'Your GitHub PAT may have expired or been revoked. ' +
-          'Check its status and create a new classic PAT at [github.com/settings/tokens](https://github.com/settings/tokens) — ' +
-          'no special scopes are needed. Access comes from your Copilot subscription.'
+          'GitHub Models rejected the request (401). Either the PAT is invalid/expired, ' +
+          'the account has no Copilot access, or — if you upgraded the addon — please ' +
+          'restart it so the new GitHub Models endpoint is picked up. ' +
+          'Manage PATs at [github.com/settings/tokens](https://github.com/settings/tokens) (fine-grained PATs need the `models:read` permission).'
         );
+      }
+      if (response.status === 404) {
+        throw new Error(`GitHub Models could not find model "${resolvedModelId}". Pick a different model in Settings.`);
       }
       if (response.status === 429) {
         throw new Error('Rate limit exceeded. GitHub Models has usage limits — wait a moment and try again.');
@@ -164,7 +195,7 @@ class GitHubModelsService {
       throw new Error('GitHub token not configured.');
     }
 
-    const body = { model: modelId, messages, temperature, max_tokens: maxLength };
+    const body = { model: resolveModelId(modelId), messages, temperature, max_tokens: maxLength };
     if (tools && tools.length > 0) {
       body.tools = tools;
       if (tool_choice) body.tool_choice = tool_choice;
@@ -172,10 +203,7 @@ class GitHubModelsService {
 
     const response = await fetch(`${GITHUB_MODELS_ENDPOINT}/chat/completions`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.token}`,
-      },
+      headers: buildHeaders(this.token),
       body: JSON.stringify(body),
     });
 
@@ -212,8 +240,9 @@ class GitHubModelsService {
 
     const startTime = Date.now();
 
+    const resolvedModelId = resolveModelId(modelId);
     const body = {
-      model: modelId,
+      model: resolvedModelId,
       messages: [
         {
           role: 'user',
@@ -227,14 +256,11 @@ class GitHubModelsService {
       max_tokens: maxLength,
     };
 
-    console.log(`[GitHub Models Vision] Calling ${modelId} with image...`);
+    console.log(`[GitHub Models Vision] Calling ${resolvedModelId} with image...`);
 
     const response = await fetch(`${GITHUB_MODELS_ENDPOINT}/chat/completions`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.token}`,
-      },
+      headers: buildHeaders(this.token),
       body: JSON.stringify(body),
     });
 

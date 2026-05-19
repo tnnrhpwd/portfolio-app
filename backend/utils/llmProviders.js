@@ -29,37 +29,53 @@ const PROVIDERS = {
     },
     github: {
         name: 'GitHub Models',
+        // Model IDs use the publisher/model format required by the current
+        // GitHub Models inference endpoint. legacyId tracks bare names from
+        // older clients so requests still resolve after the migration off
+        // https://models.inference.ai.azure.com (which now returns 401).
         models: {
             // OpenAI
-            'gpt-4o': { name: 'GPT-4o', contextWindow: 128000 },
-            'gpt-4o-mini': { name: 'GPT-4o Mini', contextWindow: 128000 },
-            'gpt-4.1': { name: 'GPT-4.1', contextWindow: 128000 },
-            'gpt-4.1-mini': { name: 'GPT-4.1 Mini', contextWindow: 128000 },
-            'gpt-4.1-nano': { name: 'GPT-4.1 Nano', contextWindow: 128000 },
-            'o3-mini': { name: 'o3-mini', contextWindow: 200000 },
-            'o4-mini': { name: 'o4-mini', contextWindow: 200000 },
-            // Anthropic Claude
-            'claude-3.5-sonnet': { name: 'Claude 3.5 Sonnet', contextWindow: 200000 },
-            'claude-3.5-haiku': { name: 'Claude 3.5 Haiku', contextWindow: 200000 },
+            'openai/gpt-4o': { name: 'GPT-4o', contextWindow: 128000, legacyId: ['gpt-4o'] },
+            'openai/gpt-4o-mini': { name: 'GPT-4o Mini', contextWindow: 128000, legacyId: ['gpt-4o-mini'] },
+            'openai/gpt-4.1': { name: 'GPT-4.1', contextWindow: 128000, legacyId: ['gpt-4.1'] },
+            'openai/gpt-4.1-mini': { name: 'GPT-4.1 Mini', contextWindow: 128000, legacyId: ['gpt-4.1-mini'] },
+            'openai/gpt-4.1-nano': { name: 'GPT-4.1 Nano', contextWindow: 128000, legacyId: ['gpt-4.1-nano'] },
+            'openai/o3-mini': { name: 'o3-mini', contextWindow: 200000, legacyId: ['o3-mini'] },
+            'openai/o4-mini': { name: 'o4-mini', contextWindow: 200000, legacyId: ['o4-mini'] },
             // Meta Llama
-            'Llama-3.3-70B-Instruct': { name: 'Llama 3.3 70B', contextWindow: 131072 },
-            'Meta-Llama-3.1-405B-Instruct': { name: 'Llama 3.1 405B', contextWindow: 131072 },
+            'meta/Llama-3.3-70B-Instruct': { name: 'Llama 3.3 70B', contextWindow: 131072, legacyId: ['Llama-3.3-70B-Instruct'] },
+            'meta/Meta-Llama-3.1-405B-Instruct': { name: 'Llama 3.1 405B', contextWindow: 131072, legacyId: ['Meta-Llama-3.1-405B-Instruct'] },
             // Mistral
-            'Mistral-large-2411': { name: 'Mistral Large', contextWindow: 128000 },
-            'Mistral-small': { name: 'Mistral Small', contextWindow: 128000 },
+            'mistral-ai/Mistral-large-2411': { name: 'Mistral Large', contextWindow: 128000, legacyId: ['Mistral-large-2411'] },
+            'mistral-ai/Mistral-small': { name: 'Mistral Small', contextWindow: 128000, legacyId: ['Mistral-small'] },
             // DeepSeek
-            'DeepSeek-R1': { name: 'DeepSeek R1', contextWindow: 64000 },
+            'deepseek/DeepSeek-R1': { name: 'DeepSeek R1', contextWindow: 64000, legacyId: ['DeepSeek-R1'] },
             // Microsoft
-            'Phi-4': { name: 'Phi-4', contextWindow: 16384 },
+            'microsoft/Phi-4': { name: 'Phi-4', contextWindow: 16384, legacyId: ['Phi-4'] },
             // Cohere
-            'Cohere-command-r-plus': { name: 'Command R+', contextWindow: 128000 },
+            'cohere/Cohere-command-r-plus': { name: 'Command R+', contextWindow: 128000, legacyId: ['Cohere-command-r-plus'] },
         },
         apiKey: null,       // Per-user GitHub PAT — supplied at call time
         client: null,
-        baseURL: 'https://models.inference.ai.azure.com',
+        baseURL: 'https://models.github.ai/inference',
         perUserKey: true    // Token fetched from user's CSimple settings in DynamoDB
     }
 };
+
+/**
+ * Resolve a possibly-legacy GitHub Models model ID (e.g. "gpt-4o-mini") to the
+ * current publisher-prefixed form (e.g. "openai/gpt-4o-mini"). Returns the
+ * input unchanged if it already looks publisher-prefixed or is unknown.
+ */
+function resolveGithubModelId(modelId) {
+    if (!modelId || typeof modelId !== 'string') return modelId;
+    if (modelId.includes('/')) return modelId;
+    const models = PROVIDERS.github?.models || {};
+    for (const [fullId, info] of Object.entries(models)) {
+        if (info.legacyId && info.legacyId.includes(modelId)) return fullId;
+    }
+    return modelId;
+}
 
 // Initialize LLM clients
 async function initializeLLMClients() {
@@ -133,8 +149,12 @@ function validateProviderModel(provider, model) {
     if (!PROVIDERS[provider]) {
         throw new Error(`Unsupported provider: ${provider}`);
     }
-    
-    if (!PROVIDERS[provider].models[model]) {
+
+    // Accept legacy bare GitHub Models IDs by mapping them to the current
+    // publisher-prefixed equivalents before validation.
+    const resolvedModel = provider === 'github' ? resolveGithubModelId(model) : model;
+
+    if (!PROVIDERS[provider].models[resolvedModel]) {
         throw new Error(`Unsupported model: ${model} for provider: ${provider}`);
     }
     
@@ -153,6 +173,10 @@ function validateProviderModel(provider, model) {
 async function createCompletionWithKey(provider, model, messages, options = {}, apiKey) {
     const providerConfig = PROVIDERS[provider];
     if (!providerConfig) throw new Error(`Unsupported provider: ${provider}`);
+    // Auto-migrate legacy GitHub Models IDs (e.g. "gpt-4o-mini" → "openai/gpt-4o-mini")
+    if (provider === 'github') {
+        model = resolveGithubModelId(model);
+    }
     if (!providerConfig.models[model]) throw new Error(`Unsupported model: ${model} for provider: ${provider}`);
     if (!apiKey) throw new Error(`No API key provided for provider: ${provider}`);
 
@@ -372,5 +396,6 @@ module.exports = {
     createCompletion,
     createCompletionWithKey,
     trackCompletion,
-    testXAIConnection
+    testXAIConnection,
+    resolveGithubModelId
 };

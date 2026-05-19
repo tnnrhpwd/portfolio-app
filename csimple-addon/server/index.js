@@ -1599,11 +1599,35 @@ If not visible: {"found":false}`;
 
 // ─── Settings API ──────────────────────────────────────────────────────────────
 
+// Backend-side ciphertext marker for secrets-at-rest (see backend/utils/secretCrypto.js).
+// If we ever see one of these in the addon's settings file it means a stale
+// cloud-pull leaked ciphertext into local storage. Such a value would be sent
+// to GitHub as a Bearer token and produce a misleading 401 ("PAT may have
+// expired"). Strip it on both read and write so the user gets a clean
+// "token not configured" message instead.
+const ENCRYPTED_SECRET_PREFIX = 'enc:v1:';
+const SENSITIVE_WEBAPP_KEYS = ['githubToken'];
+
+function scrubEncryptedSecrets(settings) {
+  if (!settings || typeof settings !== 'object') return settings;
+  let mutated = false;
+  for (const key of SENSITIVE_WEBAPP_KEYS) {
+    const v = settings[key];
+    if (typeof v === 'string' && v.startsWith(ENCRYPTED_SECRET_PREFIX)) {
+      console.warn(`[settings] Refusing ciphertext for ${key} — clearing. Re-enter your GitHub PAT in the webapp.`);
+      settings[key] = '';
+      mutated = true;
+    }
+  }
+  return mutated ? { ...settings } : settings;
+}
+
 function readWebappSettings() {
   try {
     if (fs.existsSync(SETTINGS_PATH)) {
       const data = JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf-8'));
-      return data.webapp || getDefaultWebappSettings();
+      const webapp = data.webapp || getDefaultWebappSettings();
+      return scrubEncryptedSecrets(webapp);
     }
   } catch (err) {
     console.error('Error reading settings:', err.message);
@@ -1617,7 +1641,7 @@ function writeWebappSettings(webappSettings) {
     if (fs.existsSync(SETTINGS_PATH)) {
       data = JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf-8'));
     }
-    data.webapp = webappSettings;
+    data.webapp = scrubEncryptedSecrets(webappSettings);
     data.lastUpdated = new Date().toISOString().replace('T', ' ').substring(0, 19);
     fs.writeFileSync(SETTINGS_PATH, JSON.stringify(data, null, 2), 'utf-8');
     return true;
