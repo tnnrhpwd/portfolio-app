@@ -515,7 +515,7 @@ function Settings() {
                             value={aiSettings.githubToken}
                             onChange={e => updateAISetting('githubToken', e.target.value)}
                             className="planit-settings-input"
-                            placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                            placeholder="github_pat_... or ghp_..."
                             autoComplete="off"
                           />
                           <button
@@ -528,11 +528,15 @@ function Settings() {
                         </div>
                         <span className="planit-settings-token-status">
                           {aiSettings.githubToken
-                            ? (aiSettings.githubToken.startsWith('ghp_') ? '✅ Classic PAT detected' : '⚠️ Use a classic PAT (ghp_...)')
+                            ? (aiSettings.githubToken.startsWith('github_pat_')
+                                ? '✅ Fine-grained PAT detected'
+                                : aiSettings.githubToken.startsWith('ghp_')
+                                  ? '✅ Classic PAT detected'
+                                  : '⚠️ Unrecognized token format')
                             : 'Required for GitHub Models provider'}
                         </span>
                         <p className="planit-settings-token-help">
-                          Create a <a href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer">classic PAT</a> (not fine-grained) — no scopes needed.
+                          Create a <a href="https://github.com/settings/personal-access-tokens" target="_blank" rel="noopener noreferrer">fine-grained PAT</a> with the <strong>Models: Read-only</strong> account permission (recommended), or a <a href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer">classic PAT</a> if your account has GitHub Models access.
                         </p>
                       </div>
                     </div>

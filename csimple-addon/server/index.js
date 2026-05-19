@@ -699,7 +699,12 @@ app.post('/api/chat', async (req, res) => {
 
     console.log(`[TokenBudget] system=${systemTokens} tools=${toolSchemaTokens} msg=${estimateTokens(message)} histBudget=${historyBudget} histMsgs=${conversationHistory.length}→${trimmedHistory.length}`);
 
-    const isGitHubModel = GITHUB_MODELS.some(m => m.id === modelId);
+    // Match either the current publisher-prefixed id (e.g. "openai/gpt-4o-mini")
+    // or any legacy bare id (e.g. "gpt-4o-mini") that older webapp settings/
+    // localStorage may still send.
+    const isGitHubModel = GITHUB_MODELS.some(
+      m => m.id === modelId || (Array.isArray(m.legacyId) && m.legacyId.includes(modelId))
+    );
 
     // ── GitHub Models path: LLM with function-calling tools ──────────────
     if (isGitHubModel) {

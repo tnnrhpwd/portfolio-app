@@ -33,6 +33,29 @@ const ACTIVE_CHAT_KEY = 'csimple_active_chat';
 const DEVICE_LOCAL_KEYS = ['micDeviceId', 'sttEnabled'];
 const DEVICE_SETTINGS_KEY = 'csimple_device_settings';
 
+// Full first-time setup walkthrough appended to GitHub-Models error messages
+// (401 / 403). Keeps the four error sites consistent.
+const GITHUB_PAT_SETUP_STEPS = `**First-time setup — get C-Simple talking to GitHub Models:**
+
+1. **Accept the GitHub Models terms** (one-time, per account)
+   Open [github.com/marketplace/models](https://github.com/marketplace/models), pick any model (e.g. *GPT-4o mini*), and click **Use this model** to accept the ToS prompt. Without this, every model returns 403.
+
+2. **Create a fine-grained Personal Access Token**
+   Go to [github.com/settings/personal-access-tokens](https://github.com/settings/personal-access-tokens) → **Generate new token** → **Fine-grained**.
+   - *Token name:* anything (e.g. \`csimple-models\`)
+   - *Resource owner:* your own user account (not an org, unless that org has GitHub Models enabled)
+   - *Repository access:* **Public repositories (read-only)** is fine — no repos are actually used
+   - *Permissions → Account permissions:* set **\`Models\`** to **Read-only**
+
+3. **Copy the token** (\`github_pat_…\`) — you only see it once.
+
+4. **Paste it into C-Simple**
+   Open **Settings → C-Simple → GitHub Personal Access Token**, paste, then **Save**.
+
+5. **Reload this page** (Ctrl + Shift + R) and retry the chat.
+
+> Classic \`ghp_…\` tokens **cannot** carry the \`models:read\` permission and will fail with 401. Use a fine-grained PAT.`;
+
 function getDeviceLocalSettings() {
   try {
     const saved = localStorage.getItem(DEVICE_SETTINGS_KEY);
@@ -485,9 +508,14 @@ function CSimpleChat({
         const proLine = proPlan ? `- **Pro** (${proPrice})${proQuota ? ` — ${proQuota}` : ''}` : '- **Pro** — more credits and higher limits';
         content = `**Usage Limit Reached**\n\n${errStr}\n\n---\n💡 **Upgrade your plan** to get more credits and higher limits:\n${proLine}\n\n[Upgrade Now →](/pay?plan=pro)`;
       } else if (errStr.includes('403') || errStr.toLowerCase().includes('requires a')) {
-        content = `**Model Access Restricted**\n\n${errStr}\n\n---\n🔒 This model requires a higher membership tier.\n\n[View Plans →](/pay?plan=pro)`;
+        const isGhModels = /no access to model|models\.github\.ai|github models/i.test(errStr);
+        if (isGhModels) {
+          content = `**GitHub Models — No Access to Model (403)**\n\n${errStr}\n\n> Your PAT is authenticating fine — GitHub is just refusing this specific model for your account.\n\n---\n${GITHUB_PAT_SETUP_STEPS}`;
+        } else {
+          content = `**Model Access Restricted**\n\n${errStr}\n\n---\n🔒 This model requires a higher membership tier.\n\n[View Plans →](/pay?plan=pro)`;
+        }
       } else if (errStr.includes('401') || errStr.toLowerCase().includes('unauthorized')) {
-        content = `**Authentication Failed**\n\nYour GitHub PAT may have expired or been revoked.\n\n---\n🔑 Go to [github.com/settings/tokens](https://github.com/settings/tokens) to check its status or create a new classic PAT — no special scopes needed.`;
+        content = `**GitHub Models — Authentication Failed (401)**\n\nThe GitHub Models endpoint (\`models.github.ai/inference\`) rejected your PAT.\n\n---\n${GITHUB_PAT_SETUP_STEPS}`;
       } else {
         content = `**Error:** ${errStr}`;
       }
@@ -995,9 +1023,14 @@ function CSimpleChat({
                 const proLine = proPlan ? `- **Pro** (${proPrice})${proQuota ? ` — ${proQuota}` : ''}` : '- **Pro** — more credits and higher limits';
                 displayContent = `**Usage Limit Reached**\n\n${errMsg}\n\n---\n💡 **Upgrade your plan** to get more credits and higher limits:\n${proLine}\n\n[Upgrade Now →](/pay?plan=pro)`;
               } else if (statusCode === 403) {
-                displayContent = `**Model Access Restricted**\n\n${errMsg}\n\n---\n🔒 This model requires a higher membership tier.\n\n[View Plans →](/pay?plan=pro)`;
+                const isGhModels = /no access to model|models\.github\.ai|github models/i.test(String(errMsg || ''));
+                if (isGhModels) {
+                  displayContent = `**GitHub Models — No Access to Model (403)**\n\n${errMsg}\n\n> Your PAT is authenticating fine — GitHub is just refusing this specific model for your account.\n\n---\n${GITHUB_PAT_SETUP_STEPS}`;
+                } else {
+                  displayContent = `**Model Access Restricted**\n\n${errMsg}\n\n---\n🔒 This model requires a higher membership tier.\n\n[View Plans →](/pay?plan=pro)`;
+                }
               } else if (statusCode === 401 || errMsg?.includes?.('401') || errMsg?.toLowerCase?.().includes?.('unauthorized')) {
-                displayContent = `**Authentication Failed**\n\nYour GitHub PAT may have expired or been revoked.\n\n---\n🔑 Go to [github.com/settings/tokens](https://github.com/settings/tokens) to check its status or create a new classic PAT — no special scopes needed.`;
+                displayContent = `**GitHub Models — Authentication Failed (401)**\n\nThe GitHub Models endpoint (\`models.github.ai/inference\`) rejected your PAT.\n\n---\n${GITHUB_PAT_SETUP_STEPS}`;
               } else {
                 displayContent = `**Error:** ${errMsg}`;
               }
@@ -1163,7 +1196,7 @@ function CSimpleChat({
     } catch (err) {
       let errContent = `**Error:** ${err.message}`;
       if (err.message?.includes('401') || err.message?.toLowerCase()?.includes('unauthorized')) {
-        errContent = `**Authentication Failed**\n\nYour GitHub PAT may have expired or been revoked.\n\n---\n🔑 Go to [github.com/settings/tokens](https://github.com/settings/tokens) to check its status or create a new classic PAT — no special scopes needed.`;
+        errContent = `**GitHub Models — Authentication Failed (401)**\n\nThe GitHub Models endpoint (\`models.github.ai/inference\`) rejected your PAT.\n\n---\n${GITHUB_PAT_SETUP_STEPS}`;
       }
       const errorMessage = {
         id: (Date.now() + 1).toString(),

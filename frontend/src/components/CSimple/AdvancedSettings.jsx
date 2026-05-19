@@ -572,23 +572,33 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
                   <div className="adv-group">
                     <label className="adv-group__label">GitHub Personal Access Token</label>
                     <p className="adv-group__desc">
-                      Create a <a href="https://github.com/settings/tokens" target="_blank" rel="noreferrer" className="adv-link-inline">classic PAT</a> (not fine-grained) — no scopes needed.
-                      Requires a <a href="https://github.com/features/copilot" target="_blank" rel="noreferrer" className="adv-link-inline">GitHub Copilot</a> subscription.
+                      Create a <a href="https://github.com/settings/personal-access-tokens" target="_blank" rel="noreferrer" className="adv-link-inline">fine-grained PAT</a> with the <strong>Models: Read-only</strong> account permission (recommended),
+                      or a <a href="https://github.com/settings/tokens" target="_blank" rel="noreferrer" className="adv-link-inline">classic PAT</a> if your account has GitHub Models access.
                     </p>
                     <div className="adv-group__row" style={{ gap: '8px' }}>
                       <input
                         type="password"
                         className="adv-input"
-                        placeholder="ghp_..."
+                        placeholder="github_pat_... or ghp_..."
                         value={settings.githubToken || ''}
                         onChange={e => updateSetting('githubToken', e.target.value)}
                         style={{ flex: 1 }}
                       />
-                      <span style={{ fontSize: '12px', color: settings.githubToken ? (settings.githubToken.startsWith('ghp_') ? 'var(--success, #22c55e)' : '#f59e0b') : 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                        {settings.githubToken
-                          ? (settings.githubToken.startsWith('ghp_') ? '✓ Classic PAT' : '⚠ Use a classic PAT (ghp_...)')
-                          : '✗ Not set'}
-                      </span>
+                      {(() => {
+                        const tok = settings.githubToken || '';
+                        const isFineGrained = tok.startsWith('github_pat_');
+                        const isClassic = tok.startsWith('ghp_');
+                        const ok = isFineGrained || isClassic;
+                        const color = !tok ? 'var(--text-muted)' : (ok ? 'var(--success, #22c55e)' : '#f59e0b');
+                        const label = !tok
+                          ? '✗ Not set'
+                          : isFineGrained ? '✓ Fine-grained PAT'
+                          : isClassic ? '✓ Classic PAT'
+                          : '⚠ Unrecognized format';
+                        return (
+                          <span style={{ fontSize: '12px', color, whiteSpace: 'nowrap' }}>{label}</span>
+                        );
+                      })()}
                     </div>
                   </div>
 
