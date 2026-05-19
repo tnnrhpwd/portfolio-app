@@ -311,16 +311,20 @@ export async function confirmAction(confirmationId, selectedOption) {
  */
 export async function getAddonSettings() {
   const res = await addonFetch('/api/settings');
-  return res.json();
+  const data = await res.json();
+  return scrubEncryptedSecrets(data);
 }
 
 /**
  * Save settings to the local addon.
  */
 export async function saveAddonSettings(settings) {
+  // Refuse to ever write ciphertext into the addon's local store — it would
+  // be sent as a Bearer token to GitHub and produce a misleading 401.
+  const safe = scrubEncryptedSecrets(settings);
   const res = await addonFetch('/api/settings', {
     method: 'PUT',
-    body: JSON.stringify(settings),
+    body: JSON.stringify(safe),
   });
   return res.json();
 }
@@ -594,6 +598,27 @@ export async function getPortfolioLLMProviders(token) {
 
 // ─── Cloud Settings Sync API Methods ────────────────────────────────────────
 
+// Backend-side ciphertext marker for secrets-at-rest. If we ever see one of
+// these on the wire it means the backend failed to decrypt (stale deploy,
+// JWT_SECRET mismatch, etc.). The frontend MUST refuse to use such a value
+// as if it were the real secret — otherwise we'd send ciphertext to GitHub
+// and the user would see a confusing "PAT expired" 401.
+const ENCRYPTED_PREFIX = 'enc:v1:';
+const SENSITIVE_SETTING_KEYS = ['githubToken'];
+
+function scrubEncryptedSecrets(settings) {
+  if (!settings || typeof settings !== 'object') return settings;
+  const out = { ...settings };
+  for (const key of SENSITIVE_SETTING_KEYS) {
+    const v = out[key];
+    if (typeof v === 'string' && v.startsWith(ENCRYPTED_PREFIX)) {
+      console.warn(`[csimpleApi] Cloud returned undecrypted ${key} — ignoring. Check backend JWT_SECRET / deployment.`);
+      out[key] = '';
+    }
+  }
+  return out;
+}
+
 /**
  * Get user's CSimple settings from the cloud.
  * @param {string} token - JWT auth token
@@ -604,7 +629,11 @@ export async function getCloudSettings(token) {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) return { settings: null, updatedAt: null };
-  return res.json();
+  const data = await res.json();
+  if (data?.settings) {
+    data.settings = scrubEncryptedSecrets(data.settings);
+  }
+  return data;
 }
 
 /**
@@ -614,10 +643,14 @@ export async function getCloudSettings(token) {
  * @returns {{ success: boolean, updatedAt: string }}
  */
 export async function saveCloudSettings(token, settings) {
+  // Defensive: never push ciphertext back up as if it were plaintext. If we
+  // somehow ended up with an "enc:v1:" value in memory (e.g. from a stale
+  // backend), drop it rather than overwriting the real value in the DB.
+  const safe = scrubEncryptedSecrets(settings);
   const res = await fetch(`${getPortfolioApiUrl()}/csimple/settings`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ settings, updatedAt: new Date().toISOString() }),
+    body: JSON.stringify({ settings: safe, updatedAt: new Date().toISOString() }),
   });
   if (!res.ok) throw new Error('Failed to save cloud settings');
   return res.json();
