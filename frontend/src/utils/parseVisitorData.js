@@ -12,6 +12,10 @@ export default function parseVisitorData(text) {
     const cityMatch = text.match(/City:([^|]+)/);
     const regionMatch = text.match(/Region:([^|]+)/);
     const countryMatch = text.match(/Country:([^|]+)/);
+    const refererMatch = text.match(/\|Referer:([^|]+)/);
+    const refererHostMatch = text.match(/\|RefererHost:([^|]+)/);
+    const refererPathMatch = text.match(/\|RefererPath:([^|]+)/);
+    const refererCategoryMatch = text.match(/\|RefererCategory:([^|]+)/);
 
     if (!ipMatch) return null;
 
@@ -29,6 +33,10 @@ export default function parseVisitorData(text) {
       city: cityMatch ? cityMatch[1].trim() : "",
       region: regionMatch ? regionMatch[1].trim() : "",
       country: countryMatch ? countryMatch[1].trim() : "",
+      referer: refererMatch ? refererMatch[1].trim() : "",
+      refererHost: refererHostMatch ? refererHostMatch[1].trim().replace(/^www\./, "") : "",
+      refererPath: refererPathMatch ? refererPathMatch[1].trim() : "",
+      refererCategory: refererCategoryMatch ? refererCategoryMatch[1].trim() : "",
       timestamp,
     };
   } catch (error) {

@@ -15,9 +15,43 @@ const client = new DynamoDBClient({
 
 const dynamodb = DynamoDBDocumentClient.from(client);
 
+// Hosts that indicate the request originated from a local development frontend
+// (e.g. Vite dev server at http://localhost:3000 hitting the production backend).
+// Requests from these origins should not be logged to analytics.
+const DEV_ORIGIN_HOSTS = new Set([
+    'localhost',
+    '127.0.0.1',
+    '0.0.0.0',
+    '::1',
+]);
+
+function isDevOrigin(req) {
+    const candidates = [
+        req.headers['origin'],
+        req.headers['referer'],
+        req.headers['referrer'],
+    ].filter(Boolean);
+
+    for (const raw of candidates) {
+        try {
+            const { hostname } = new URL(raw);
+            if (DEV_ORIGIN_HOSTS.has(hostname)) return true;
+        } catch {
+            // Ignore malformed values
+        }
+    }
+    return false;
+}
+
 async function checkIP(req) {
     // console.log('checkIP function called');
-    
+
+    // Skip analytics entirely when the request comes from a local dev frontend
+    // (e.g. http://localhost:3000) hitting the production backend.
+    if (isDevOrigin(req)) {
+        return;
+    }
+
     let ipFromHeader = req.headers['x-forwarded-for']
         || req.connection?.remoteAddress
         || req.socket?.remoteAddress;

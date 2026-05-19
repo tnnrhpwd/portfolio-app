@@ -53,6 +53,7 @@ function Admin() {
   lastWeek.setDate(lastWeek.getDate() - 7);
   const [fromDate, setFromDate] = useState(lastWeek.toISOString().split("T")[0]);
   const [toDate, setToDate] = useState(today);
+  const [refererFilter, setRefererFilter] = useState(""); // host or 'category:xxx' or '' for all
 
   // ── Active section tracking (for lazy loading) ──
   const [activeSection, setActiveSection] = useState(null);
@@ -156,12 +157,44 @@ function Admin() {
   }, [allData]);
 
   const filteredVisitorLocations = useMemo(() => {
-    if (!fromDate && !toDate) return visitorLocations;
     return visitorLocations.filter(v => {
       const d = new Date(v.timestamp).toISOString().split("T")[0];
-      return (!fromDate || d >= fromDate) && (!toDate || d <= toDate);
+      if (fromDate && d < fromDate) return false;
+      if (toDate && d > toDate) return false;
+      if (refererFilter) {
+        if (refererFilter.startsWith("category:")) {
+          const cat = refererFilter.slice("category:".length);
+          if ((v.refererCategory || "") !== cat) return false;
+        } else if (refererFilter === "__direct__") {
+          const host = v.refererHost || "";
+          if (host && host !== "none" && host !== "invalid") return false;
+        } else {
+          if ((v.refererHost || "") !== refererFilter) return false;
+        }
+      }
+      return true;
     });
-  }, [visitorLocations, fromDate, toDate]);
+  }, [visitorLocations, fromDate, toDate, refererFilter]);
+
+  // Build dropdown options: hosts + categories with counts, sorted by frequency
+  const refererOptions = useMemo(() => {
+    const hostCounts = new Map();
+    const catCounts = new Map();
+    let directCount = 0;
+    visitorLocations.forEach(v => {
+      const host = v.refererHost || "";
+      const cat = v.refererCategory || "";
+      if (!host || host === "none" || host === "invalid") {
+        directCount++;
+      } else {
+        hostCounts.set(host, (hostCounts.get(host) || 0) + 1);
+      }
+      if (cat) catCounts.set(cat, (catCounts.get(cat) || 0) + 1);
+    });
+    const hosts = Array.from(hostCounts.entries()).sort(([, a], [, b]) => b - a);
+    const cats = Array.from(catCounts.entries()).sort(([, a], [, b]) => b - a);
+    return { hosts, cats, directCount };
+  }, [visitorLocations]);
 
   const bugReports = useMemo(() => {
     if (!allData) return [];
@@ -423,11 +456,26 @@ function Admin() {
                   <div className="traffic-card">
                     <h4>Top Referrers</h4>
                     <div className="stat-rows">
-                      {d.visitors.topReferers.map((r, i) => (
-                        <div key={i} className="stat-row">
-                          <span>{r.source}</span><strong>{fmt(r.count)}</strong>
-                        </div>
-                      ))}
+                      {d.visitors.topReferers.map((r, i) => {
+                        const host = (r.source || "").replace(/^www\./, "");
+                        const active = refererFilter === host;
+                        return (
+                          <div
+                            key={i}
+                            className={`stat-row stat-row--clickable${active ? " stat-row--active" : ""}`}
+                            onClick={() => {
+                              setRefererFilter(active ? "" : host);
+                              if (!allData) fetchAllData();
+                              handleSectionToggle("map", true);
+                            }}
+                            title={`Show visitors from ${host}`}
+                            role="button"
+                            tabIndex={0}
+                          >
+                            <span>{r.source}</span><strong>{fmt(r.count)}</strong>
+                          </div>
+                        );
+                      })}
                       {d.visitors.topReferers.length === 0 && <div className="stat-row muted">No data</div>}
                     </div>
                   </div>
@@ -494,12 +542,73 @@ function Admin() {
                       <input type="date" id="from-date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
                       <label htmlFor="to-date">To:</label>
                       <input type="date" id="to-date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                      <label htmlFor="referer-filter">Referer:</label>
+                      <select
+                        id="referer-filter"
+                        value={refererFilter}
+                        onChange={(e) => setRefererFilter(e.target.value)}
+                      >
+                        <option value="">All ({visitorLocations.length})</option>
+                        {refererOptions.directCount > 0 && (
+                          <option value="__direct__">Direct / none ({refererOptions.directCount})</option>
+                        )}
+                        {refererOptions.cats.length > 0 && (
+                          <optgroup label="By category">
+                            {refererOptions.cats.map(([cat, count]) => (
+                              <option key={`cat-${cat}`} value={`category:${cat}`}>{cat} ({count})</option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {refererOptions.hosts.length > 0 && (
+                          <optgroup label="By host">
+                            {refererOptions.hosts.map(([host, count]) => (
+                              <option key={`host-${host}`} value={host}>{host} ({count})</option>
+                            ))}
+                          </optgroup>
+                        )}
+                      </select>
+                      {refererFilter && (
+                        <button className="btn-sm" onClick={() => setRefererFilter("")}>Clear</button>
+                      )}
                       <span className="visit-counter">{filteredVisitorLocations.length} visit{filteredVisitorLocations.length !== 1 ? 's' : ''}</span>
                     </div>
                     {filteredVisitorLocations.length > 0
                       ? <VisitorMap locations={filteredVisitorLocations} />
                       : <p className="admin-no-data">No visitor location data available</p>
                     }
+                    {filteredVisitorLocations.length > 0 && (
+                      <div className="visitor-list">
+                        <h4>Visitor details {refererFilter && <span className="muted">(filtered)</span>}</h4>
+                        <table className="admin-table compact-table">
+                          <thead><tr>
+                            <th>When</th><th>IP</th><th>Location</th><th>Browser / OS</th><th>Referer</th><th>Category</th>
+                          </tr></thead>
+                          <tbody>
+                            {filteredVisitorLocations
+                              .slice()
+                              .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+                              .slice(0, 200)
+                              .map((v, i) => (
+                                <tr key={`${v.ip}-${i}`}>
+                                  <td>{ts(v.timestamp)}</td>
+                                  <td className="mono">{v.ip}</td>
+                                  <td>{[v.city, v.region, v.country].filter(Boolean).join(", ")}</td>
+                                  <td>{v.browser} / {v.os}</td>
+                                  <td title={v.referer}>
+                                    {v.refererHost && v.refererHost !== "none" && v.refererHost !== "invalid"
+                                      ? v.refererHost
+                                      : <span className="muted">direct</span>}
+                                  </td>
+                                  <td>{v.refererCategory || "—"}</td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                        {filteredVisitorLocations.length > 200 && (
+                          <p className="muted">Showing 200 most recent of {filteredVisitorLocations.length}</p>
+                        )}
+                      </div>
+                    )}
                   </>
                 )}
               </CollapsibleSection>

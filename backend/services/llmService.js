@@ -175,13 +175,18 @@ function parseCompressionRequest(req) {
  * Build the base system prompt parts used by both callLLMApi and streamCompressionRequest.
  */
 function buildSystemPromptParts(goalsSummary) {
+    const nowIso = new Date().toISOString();
+    const nowReadable = new Date().toLocaleString('en-US', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+        hour: '2-digit', minute: '2-digit', timeZoneName: 'short'
+    });
     const parts = [
         'You are a helpful AI assistant on sthopwood.com\'s /net chat.',
         'You have access to tools that let you take real actions — save goals, notes, log actions, submit support tickets, search the web, do math, and more.',
         'Use tools when the user\'s intent clearly calls for an action (e.g. "remember this", "I want to achieve X", "submit a bug report", "what time is it", "calculate 15% of 200").',
         'For normal conversation, questions, or requests for information, just reply in text.',
         'Be concise and helpful. When you use a tool, also include a brief conversational response explaining what you did.',
-        'Each message in the conversation is prefixed with a timestamp in brackets like [1/15/2025, 2:30:00 PM]. Use these timestamps for temporal context — you can reference when things were said, how much time has passed, and be aware of the current date and time.',
+        `Current date/time: ${nowReadable} (${nowIso}). Use this for temporal context, but NEVER include a timestamp, date, or bracketed time prefix at the start of your replies — reply with plain prose only.`,
         'When the user asks you to write, create, or generate content (code, scripts, emails, documents, etc.), present the content directly in your response using proper formatting (e.g. code blocks for code). If the content might be useful to save, briefly mention they can copy it or ask you to save it as a note.',
         'AUTO-MEMORY: You can save important facts about the user (name, preferences, important dates, context) by including a [MEMORY_SAVE:filename] block in your response. Format:\n[MEMORY_SAVE:user_profile.md]\n- Name: John\n- Preference: dark mode\n[/MEMORY_SAVE]\nUse this when the user shares personal info, asks you to remember something, or reveals preferences. Keep memory files small and focused. Do NOT announce the memory save to the user — just do it silently alongside your normal response.',
     ];

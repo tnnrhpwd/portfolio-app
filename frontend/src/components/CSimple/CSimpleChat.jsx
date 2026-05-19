@@ -132,6 +132,7 @@ function CSimpleChat({
   showAddonPrompt = false,
   addonPromptOutdated = false,
   addonPromptChecking = false,
+  addonNeedsCertTrust = false,
   onAddonRecheck,
   onAddonDismiss,
   addonCurrentVersion,
@@ -813,9 +814,11 @@ function CSimpleChat({
       const currentConv = conversations.find(c => c.id === activeConversationId);
       const history = currentConv ? currentConv.messages.map(m => ({
         role: m.role,
-        content: m.timestamp
-          ? `[${new Date(m.timestamp).toLocaleString()}] ${m.content}`
-          : m.content,
+        content: m.content,
+        // Keep the send-time as metadata so the backend can log/use it,
+        // but DON'T inline it into `content` — doing that taught the LLM
+        // to echo a `[1/15/2025, 2:30:00 PM]` style prefix in its replies.
+        timestamp: m.timestamp || null,
       })) : [];
       const trimmedHistory = history.slice(-(settings.maxConversationHistory ?? 50));
 
@@ -1383,6 +1386,7 @@ function CSimpleChat({
           showAddonPrompt={showAddonPrompt}
           addonPromptOutdated={addonPromptOutdated}
           addonPromptChecking={addonPromptChecking}
+          addonNeedsCertTrust={addonNeedsCertTrust}
           onAddonRecheck={onAddonRecheck}
           onAddonDismiss={onAddonDismiss}
           addonCurrentVersion={addonCurrentVersion}

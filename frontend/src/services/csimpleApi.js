@@ -78,22 +78,39 @@ export function setCustomAddonHost(host) {
 /**
  * Detect if the CSimple local addon is running.
  * Tries custom host first (if set), then localhost ports.
+ *
+ * NOTE on HTTPS pages (e.g. https://sthopwood.com): browsers block plain
+ * HTTP requests to localhost as mixed content. We therefore only attempt
+ * the HTTPS variant (port 3444) from secure origins. The addon ships a
+ * self-signed cert, so users must visit https://localhost:3444/api/status
+ * once and click "Advanced → Proceed" before the browser will trust it.
  */
 export async function detectAddon() {
+  const pageIsSecure = typeof window !== 'undefined'
+    && window.location?.protocol === 'https:';
+
   // Build candidate URLs — custom host first, then localhost fallbacks
   const candidates = [];
 
   const customHost = getCustomAddonHost();
   if (customHost) {
-    // Try both protocols for the custom host
-    candidates.push(`https://${customHost}`, `http://${customHost}`);
+    // On HTTPS pages, only HTTPS to the custom host can succeed.
+    if (pageIsSecure) {
+      candidates.push(`https://${customHost}`);
+    } else {
+      candidates.push(`https://${customHost}`, `http://${customHost}`);
+    }
   }
 
   // Always try localhost as fallback
   const ports = [ADDON_DEFAULT_PORT, 3444];
-  const protocols = ['http', 'https'];
+  const protocols = pageIsSecure ? ['https'] : ['http', 'https'];
   for (const proto of protocols) {
     for (const port of ports) {
+      // Skip nonsense pairs (HTTP on 3444 / HTTPS on 3001) — those services
+      // don't speak the other protocol so attempts just waste 2s timeouts.
+      if (proto === 'http' && port === 3444) continue;
+      if (proto === 'https' && port === ADDON_DEFAULT_PORT) continue;
       candidates.push(`${proto}://localhost:${port}`);
     }
   }
@@ -132,6 +149,10 @@ export async function detectAddon() {
     baseUrl: null,
     lastCheck: Date.now(),
     version: null,
+    // When detection fails from an HTTPS origin, the most common cause is
+    // the user not having accepted the addon's self-signed cert yet.
+    // The UI can use this hint to surface a one-time "trust the cert" CTA.
+    needsCertTrust: pageIsSecure,
   };
   _addonStatus = newStatus;
   _notifyListeners(newStatus);

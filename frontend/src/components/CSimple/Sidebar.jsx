@@ -23,6 +23,7 @@ function Sidebar({
   showAddonPrompt = false,
   addonPromptOutdated = false,
   addonPromptChecking = false,
+  addonNeedsCertTrust = false,
   onAddonRecheck,
   onAddonDismiss,
   addonCurrentVersion,
@@ -234,6 +235,21 @@ function Sidebar({
                     ? `v${addonCurrentVersion || '?'} installed`
                     : 'Start C-Simple to enable local AI & automation'}
                 </span>
+                {addonNeedsCertTrust && !addonPromptOutdated && (
+                  <span className="sidebar__addon-notice__sub" style={{ marginTop: 4 }}>
+                    Already installed? Browsers block the addon's self-signed
+                    cert on HTTPS sites.{' '}
+                    <a
+                      href="https://localhost:3444/api/status"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ textDecoration: 'underline' }}
+                    >
+                      Click here
+                    </a>
+                    , choose “Advanced → Proceed”, then hit recheck.
+                  </span>
+                )}
               </div>
               <div className="sidebar__addon-notice__actions">
                 <a

@@ -345,6 +345,31 @@
     font-style: italic;
 }
 
+.stat-row--clickable {
+    cursor: pointer;
+    border-radius: calc(var(--nav-size) * 0.04);
+    padding-left: calc(var(--nav-size) * 0.06);
+    padding-right: calc(var(--nav-size) * 0.06);
+    transition: background-color 0.15s ease;
+}
+
+.stat-row--clickable:hover {
+    background-color: var(--background-color-accent, rgba(127, 127, 127, 0.12));
+}
+
+.stat-row--active {
+    background-color: var(--accent-color, rgba(80, 140, 255, 0.18));
+    font-weight: 600;
+}
+
+.visitor-list {
+    margin-top: calc(var(--nav-size) * 0.2);
+}
+
+.visitor-list h4 {
+    margin-bottom: calc(var(--nav-size) * 0.08);
+}
+
 /* ═══════════════════════════════════════════
    Tables (compact admin tables)
    ═══════════════════════════════════════════ */

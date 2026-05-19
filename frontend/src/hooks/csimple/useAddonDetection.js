@@ -188,5 +188,11 @@ export function useAddonDetection({ pollInterval = 30000 } = {}) {
     showInstallPrompt: !addonStatus.isConnected && !remoteAddonStatus.online && !isChecking && !dismissed,
     // Show update banner when addon is connected but running an older version
     showUpdatePrompt: isOutdated && !dismissed,
+    // Detection was attempted from an HTTPS page and failed — likely the user
+    // just needs to accept the addon's self-signed cert once.
+    addonNeedsCertTrust:
+      !!addonStatus.needsCertTrust &&
+      !addonStatus.isConnected &&
+      !remoteAddonStatus.online,
   };
 }

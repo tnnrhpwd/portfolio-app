@@ -14,6 +14,24 @@
 
 const { sendEmail } = require('./emailService');
 const { createMemoryItem, getMemoryItems, getGoalsSummary } = require('./memoryService');
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocumentClient, PutCommand, GetCommand, DeleteCommand } = require('@aws-sdk/lib-dynamodb');
+
+// Local DynamoDB client for memory/personality/behavior tool writes.
+// (Mirrors memoryService.js so tools can run without needing the caller
+// to thread a client through toolContext.)
+const _ddbClient = new DynamoDBClient({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
+});
+const _dynamodb = DynamoDBDocumentClient.from(_ddbClient);
+const CSIMPLE_CREATED_AT = '2000-01-01T00:00:00.000Z';
+const MAX_FILE_BYTES = 32 * 1024;
+const SAFE_FILENAME_RE = /^[a-zA-Z0-9_\-. ()]{1,100}$/;
+const PERSONALITY_FILES = ['identity.md', 'soul.md', 'user.md'];
 
 // ─── Tool Schemas (OpenAI function-calling format) ──────────────────────────
 
@@ -215,6 +233,72 @@ const TOOL_SCHEMAS = [
       },
     },
   },
+
+  // ── Memory / Personality / Behavior Auto-Management Tools ─────────────
+  // Mirror the addon's OpenClaude-style autonomous-memory tools so the
+  // cloud chat path has feature parity for users without the addon.
+  {
+    type: 'function',
+    function: {
+      name: 'update_memory',
+      description: 'Create or update a memory file to persist knowledge across conversations. Use this proactively when the user shares personal info (name, preferences, projects, relationships, goals, job, location, important dates), or when you learn something worth remembering. Memories survive across sessions. Use descriptive filenames like "user_preferences.md", "project_notes.md", "important_dates.md". READ existing memory first (from the MEMORY section in your context) before writing to avoid overwriting — merge new info with existing content.',
+      parameters: {
+        type: 'object',
+        properties: {
+          filename: { type: 'string', description: 'Memory filename (e.g. "user_preferences.md", "projects.md"). Use .md extension.' },
+          content: { type: 'string', description: 'Full content of the memory file. If updating, include ALL existing content plus new additions — this overwrites the file.' },
+          reason: { type: 'string', description: 'Brief internal note for why this memory is being saved (not shown to user).' },
+        },
+        required: ['filename', 'content'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'delete_memory',
+      description: 'Delete a memory file that is no longer relevant or accurate.',
+      parameters: {
+        type: 'object',
+        properties: {
+          filename: { type: 'string', description: 'Memory filename to delete' },
+        },
+        required: ['filename'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'update_personality',
+      description: 'Update a personality file that defines your character and behavior. Files: "identity.md" (who you are, your name, tone, style), "soul.md" (core values, principles, emotional disposition), "user.md" (what you know about this specific user — their communication style, how they like to be addressed, relationship context). Update these when the user asks you to change how you behave, adopt a persona, remember their preferences for interaction style, or when you discover meaningful patterns about how they communicate.',
+      parameters: {
+        type: 'object',
+        properties: {
+          filename: { type: 'string', enum: ['identity.md', 'soul.md', 'user.md'], description: 'Which personality file to update' },
+          content: { type: 'string', description: 'Full replacement content for the personality file.' },
+          reason: { type: 'string', description: 'Brief note for why this personality update is happening.' },
+        },
+        required: ['filename', 'content'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'update_behavior',
+      description: 'Create or update a behavior file that provides high-level instructions for how you should operate. Behaviors are like custom instruction sets — e.g. "coding_assistant.txt" might say "Always provide code examples, prefer TypeScript, explain tradeoffs". Update behaviors when the user wants to customize how you respond for specific contexts or tasks.',
+      parameters: {
+        type: 'object',
+        properties: {
+          filename: { type: 'string', description: 'Behavior filename (e.g. "default.txt", "coding_mode.txt"). Use .txt extension.' },
+          content: { type: 'string', description: 'Full content of the behavior file — instructions for how you should act.' },
+          reason: { type: 'string', description: 'Brief note for why this behavior is being updated.' },
+        },
+        required: ['filename', 'content'],
+      },
+    },
+  },
 ];
 
 // ─── Tool Executors ─────────────────────────────────────────────────────────
@@ -231,7 +315,8 @@ const MAX_LENGTHS = {
   subject: 200,
   description: 5000,
   title: 200,
-  content: 5000,
+  content: 30000,
+  filename: 100,
   summary: 300,
   query: 500,
   reason: 500,
@@ -519,6 +604,122 @@ const TOOL_EXECUTORS = {
     } catch {
       // Fallback to UTC if invalid timezone
       return `Current date and time (UTC): ${new Date().toISOString()}`;
+    }
+  },
+
+  // ── Update memory (cloud equivalent of addon's update_memory) ────────────
+  async update_memory(args, context) {
+    const { filename, content } = args;
+    if (!context?.userId) return 'Error: user context missing.';
+    if (!filename || !SAFE_FILENAME_RE.test(filename)) {
+      return `Error: invalid filename "${filename}". Use alphanumerics, dots, hyphens, underscores, spaces, or parentheses (max 100 chars).`;
+    }
+    if (Buffer.byteLength(content || '', 'utf-8') > MAX_FILE_BYTES) {
+      return `Error: memory file too large (max ${MAX_FILE_BYTES} bytes).`;
+    }
+    try {
+      const itemId = `csimple_memory_${context.userId}_${filename}`;
+      let isUpdate = false;
+      try {
+        const { Item } = await _dynamodb.send(new GetCommand({
+          TableName: 'Simple',
+          Key: { id: itemId, createdAt: CSIMPLE_CREATED_AT },
+        }));
+        isUpdate = !!Item;
+      } catch { /* ignore */ }
+      await _dynamodb.send(new PutCommand({
+        TableName: 'Simple',
+        Item: {
+          id: itemId,
+          text: content || '',
+          createdAt: CSIMPLE_CREATED_AT,
+          updatedAt: new Date().toISOString(),
+        },
+      }));
+      return `Memory ${isUpdate ? 'updated' : 'created'}: ${filename}`;
+    } catch (err) {
+      return `Error saving memory "${filename}": ${err.message}`;
+    }
+  },
+
+  // ── Delete memory ─────────────────────────────────────────────────────────
+  async delete_memory(args, context) {
+    const { filename } = args;
+    if (!context?.userId) return 'Error: user context missing.';
+    if (!filename || !SAFE_FILENAME_RE.test(filename)) {
+      return `Error: invalid filename "${filename}".`;
+    }
+    try {
+      const itemId = `csimple_memory_${context.userId}_${filename}`;
+      await _dynamodb.send(new DeleteCommand({
+        TableName: 'Simple',
+        Key: { id: itemId, createdAt: CSIMPLE_CREATED_AT },
+      }));
+      return `Memory deleted: ${filename}`;
+    } catch (err) {
+      return `Error deleting memory "${filename}": ${err.message}`;
+    }
+  },
+
+  // ── Update personality ───────────────────────────────────────────────────
+  async update_personality(args, context) {
+    const { filename, content } = args;
+    if (!context?.userId) return 'Error: user context missing.';
+    if (!PERSONALITY_FILES.includes(filename)) {
+      return `Error: personality filename must be one of: ${PERSONALITY_FILES.join(', ')}.`;
+    }
+    if (Buffer.byteLength(content || '', 'utf-8') > MAX_FILE_BYTES) {
+      return `Error: personality file too large (max ${MAX_FILE_BYTES} bytes).`;
+    }
+    try {
+      const itemId = `csimple_personality_${context.userId}_${filename}`;
+      await _dynamodb.send(new PutCommand({
+        TableName: 'Simple',
+        Item: {
+          id: itemId,
+          text: content || '',
+          createdAt: CSIMPLE_CREATED_AT,
+          updatedAt: new Date().toISOString(),
+        },
+      }));
+      return `Personality updated: ${filename}`;
+    } catch (err) {
+      return `Error saving personality "${filename}": ${err.message}`;
+    }
+  },
+
+  // ── Update behavior ──────────────────────────────────────────────────────
+  async update_behavior(args, context) {
+    const { filename, content } = args;
+    if (!context?.userId) return 'Error: user context missing.';
+    if (!filename || !SAFE_FILENAME_RE.test(filename)) {
+      return `Error: invalid filename "${filename}".`;
+    }
+    if (Buffer.byteLength(content || '', 'utf-8') > MAX_FILE_BYTES) {
+      return `Error: behavior file too large (max ${MAX_FILE_BYTES} bytes).`;
+    }
+    try {
+      const itemId = `csimple_behavior_${context.userId}_${filename}`;
+      let isUpdate = false;
+      try {
+        const { Item } = await _dynamodb.send(new GetCommand({
+          TableName: 'Simple',
+          Key: { id: itemId, createdAt: CSIMPLE_CREATED_AT },
+        }));
+        isUpdate = !!Item;
+      } catch { /* ignore */ }
+      await _dynamodb.send(new PutCommand({
+        TableName: 'Simple',
+        Item: {
+          id: itemId,
+          text: content || '',
+          createdAt: CSIMPLE_CREATED_AT,
+          updatedAt: new Date().toISOString(),
+        },
+      }));
+      return `Behavior ${isUpdate ? 'updated' : 'created'}: ${filename}`;
+    } catch (err) {
+      return `Error saving behavior "${filename}": ${err.message}`;
     }
   },
 };
