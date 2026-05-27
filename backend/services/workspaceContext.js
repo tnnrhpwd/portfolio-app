@@ -108,6 +108,48 @@ async function buildWorkspaceContext({ dynamodb, userId, activeAgent = null, mes
         pushSection(state, 'ACTIVE PROJECT', proj.text.trim());
     }
 
+    // 2b. Active goals (sorted by priority desc) — the agent loop's worklist
+    const goals = await fetchAllOfKind(dynamodb, userId, 'goal');
+    if (goals.length) {
+        const active = goals.filter(g => (g.status || 'active') === 'active');
+        active.sort((a, b) => {
+            const pa = typeof a.priority === 'number' ? a.priority : 50;
+            const pb = typeof b.priority === 'number' ? b.priority : 50;
+            if (pb !== pa) return pb - pa;
+            return (a.updatedAt || '').localeCompare(b.updatedAt || '');
+        });
+        if (active.length) {
+            const body = active.slice(0, 5).map(g => {
+                const parts = [`### ${g.name || g.slug} [priority=${g.priority ?? 50}]`];
+                if (g.successCriteria) parts.push(`Success: ${g.successCriteria}`);
+                if (g.constraints)     parts.push(`Constraints: ${g.constraints}`);
+                if (g.parentGoalId)    parts.push(`Parent: ${g.parentGoalId}`);
+                if (g.text && g.text.trim()) parts.push(g.text.trim());
+                return parts.join('\n');
+            }).join('\n\n');
+            pushSection(state, 'ACTIVE GOALS', body);
+        }
+    }
+
+    // 2c. Recent automation actions (last ~20 from today's action log)
+    const actions = await fetchAllOfKind(dynamodb, userId, 'action');
+    if (actions.length) {
+        actions.sort((a, b) => (b.slug || '').localeCompare(a.slug || ''));
+        const latest = actions[0];
+        if (latest?.text) {
+            const lines = String(latest.text).split('\n').filter(Boolean);
+            const tail = lines.slice(-20).map(l => {
+                try {
+                    const r = JSON.parse(l);
+                    const args = r.args ? JSON.stringify(r.args).slice(0, 80) : '';
+                    const res = r.result ? String(r.result).slice(0, 80) : '';
+                    return `[${(r.ts || '').slice(11,19)}] ${r.tool}${args ? ' ' + args : ''}${res ? ' → ' + res : ''}${r.exitCode != null ? ' (exit=' + r.exitCode + ')' : ''}`;
+                } catch { return l.slice(0, 160); }
+            }).join('\n');
+            pushSection(state, 'RECENT ACTIONS', tail);
+        }
+    }
+
     // 3. Active-agent working context
     if (activeAgent) {
         // Try canonical slug `<agent>-working-context` first, then any agent item with agent=<activeAgent>

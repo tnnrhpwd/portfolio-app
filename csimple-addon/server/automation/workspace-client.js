@@ -1,0 +1,74 @@
+/**
+ * Tiny client for the portfolio backend's workspace API.
+ *
+ * The addon already stores the user JWT via CloudRelayService.setToken;
+ * we read it from there. All calls hit:
+ *   {BACKEND_URL}/api/data/csimple/workspace/...
+ *
+ * Methods used by the agent loop + goal/action tools:
+ *   - getNextGoal()
+ *   - getGoal(slug) / upsertGoal(slug, patch)
+ *   - appendAction(record)
+ *   - getContext({ activeAgent, message }) → preview (debug)
+ *
+ * Throws on non-2xx.
+ */
+
+const BACKEND_URL = process.env.BACKEND_URL || 'https://mern-plan-web-service.onrender.com';
+const BASE = `${BACKEND_URL}/api/data/csimple/workspace`;
+
+let _tokenGetter = () => null;
+
+function setTokenGetter(fn) { _tokenGetter = fn || (() => null); }
+
+async function req(method, urlPath, body) {
+    const token = _tokenGetter();
+    if (!token) throw new Error('No auth token (sign in on the web app first)');
+    const url = `${BASE}${urlPath}`;
+    const res = await fetch(url, {
+        method,
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+        },
+        body: body ? JSON.stringify(body) : undefined,
+    });
+    const text = await res.text();
+    let json = null;
+    try { json = text ? JSON.parse(text) : null; } catch {}
+    if (!res.ok) {
+        const msg = json?.message || json?.error || text || res.statusText;
+        const e = new Error(`workspace API ${method} ${urlPath} → ${res.status}: ${msg}`);
+        e.status = res.status;
+        throw e;
+    }
+    return json;
+}
+
+const getNextGoal = async ()            => {
+    const out = await req('GET', '/goals/next');
+    // Backend wraps as { goal: {...} } or returns the item directly — normalize.
+    return out?.goal ? out.goal : (out || null);
+};
+const getGoal     = (slug)              => req('GET', `/goal/${encodeURIComponent(slug)}`);
+const upsertGoal  = (slug, body)        => req('PUT', `/goal/${encodeURIComponent(slug)}`, body);
+const deleteGoal  = (slug)              => req('DELETE', `/goal/${encodeURIComponent(slug)}`);
+const appendAction= (record)            => req('POST', '/action/append', record);
+const appendLog   = (text)              => req('POST', '/log/append', { text });
+const getContext  = ({ activeAgent, message } = {}) => {
+    const q = new URLSearchParams();
+    if (activeAgent) q.set('agent', activeAgent);
+    if (message)     q.set('message', message);
+    return req('GET', `/context?${q.toString()}`);
+};
+
+module.exports = {
+    setTokenGetter,
+    getNextGoal,
+    getGoal,
+    upsertGoal,
+    deleteGoal,
+    appendAction,
+    appendLog,
+    getContext,
+};

@@ -57,7 +57,14 @@ const ALLOWED_KINDS = new Set([
     'log',        // daily logs (append-friendly)
     'decision',   // decisions register
     'project',    // active-project state
+    'goal',       // agent goal: { status, priority, successCriteria, ... } (see GOAL_STATUSES)
+    'action',     // append-only execution log of automation tool calls
 ]);
+
+// Allowed goal lifecycle states.
+const GOAL_STATUSES = new Set(['active', 'paused', 'blocked', 'done', 'failed']);
+// Highest first when picking the next goal to run.
+const GOAL_STATUS_RUNNABLE = new Set(['active']);
 
 const ALLOWED_KNOWLEDGE_STAGES = new Set([
     'inbox', 'ideas', 'active', 'proveout', 'completed', 'library',
@@ -80,7 +87,12 @@ const KIND_SIZE_CAP_BYTES = {
     log:       64 * 1024,
     decision:  32 * 1024,
     project:   32 * 1024,
+    goal:      16 * 1024,
+    action:    256 * 1024, // append-only ring buffer
 };
+
+// Hard cap on an `action` item's text — older entries trimmed when exceeded.
+const ACTION_RING_BUFFER_BYTES = 200 * 1024;
 
 // Canonical "core" slugs and starter templates exposed for the client.
 const CORE_TEMPLATES = {
@@ -207,6 +219,10 @@ function toListEntry(item) {
         sizeBytes: item.sizeBytes || 0,
         version: item.version || 1,
         updatedAt: item.updatedAt || item.createdAtReal || null,
+        // Goal-specific surface (null for non-goals; cheap to include):
+        status: item.status || null,
+        priority: typeof item.priority === 'number' ? item.priority : null,
+        parentGoalId: item.parentGoalId || null,
     };
 }
 
@@ -214,6 +230,11 @@ function toFullEntry(item) {
     return {
         ...toListEntry(item),
         content: item.text || '',
+        ...(item.kind === 'goal' ? {
+            successCriteria: item.successCriteria || null,
+            constraints: item.constraints || null,
+            createdBy: item.createdBy || 'user',
+        } : {}),
     };
 }
 
@@ -287,6 +308,28 @@ const upsertWorkspaceItem = asyncHandler(async (req, res) => {
     validateKnowledgeStage(res, kind, stage);
     const safeTags = validateTags(res, tags);
 
+    // ---- Goal-specific fields ----
+    const goalStatus    = req.body?.status;
+    const goalPriority  = req.body?.priority;
+    const goalParent    = req.body?.parentGoalId;
+    const goalSuccess   = req.body?.successCriteria;
+    const goalConstraints = req.body?.constraints;
+    const goalCreatedBy = req.body?.createdBy;
+    if (kind === 'goal') {
+        if (goalStatus != null && !GOAL_STATUSES.has(goalStatus)) {
+            badRequest(res, `Invalid goal status. Allowed: ${[...GOAL_STATUSES].join(', ')}`);
+        }
+        if (goalPriority != null && (typeof goalPriority !== 'number' || goalPriority < 0 || goalPriority > 100)) {
+            badRequest(res, 'goal priority must be a number 0-100');
+        }
+        if (goalCreatedBy != null && !['user', 'agent'].includes(goalCreatedBy)) {
+            badRequest(res, "createdBy must be 'user' or 'agent'");
+        }
+        if (goalParent != null && typeof goalParent !== 'string') {
+            badRequest(res, 'parentGoalId must be a string');
+        }
+    }
+
     if (typeof content !== 'string') badRequest(res, 'content must be a string');
     const sizeBytes = Buffer.byteLength(content, 'utf-8');
     const cap = KIND_SIZE_CAP_BYTES[kind];
@@ -326,6 +369,15 @@ const upsertWorkspaceItem = asyncHandler(async (req, res) => {
         ...(agent ? { agent } : {}),
         ...(stage ? { stage } : {}),
         ...(safeTags.length ? { tags: safeTags } : {}),
+        // Goal fields persisted only when kind=goal
+        ...(kind === 'goal' ? {
+            status:        goalStatus    || existing?.status        || 'active',
+            priority:      goalPriority  ?? existing?.priority      ?? 50,
+            ...(goalParent      ? { parentGoalId: goalParent }      : (existing?.parentGoalId   ? { parentGoalId: existing.parentGoalId }   : {})),
+            ...(goalSuccess     ? { successCriteria: goalSuccess }  : (existing?.successCriteria? { successCriteria: existing.successCriteria }: {})),
+            ...(goalConstraints ? { constraints: goalConstraints }  : (existing?.constraints    ? { constraints: existing.constraints }     : {})),
+            createdBy:     existing?.createdBy || goalCreatedBy || 'user',
+        } : {}),
     };
 
     await dynamodb.send(new PutCommand({ TableName: TABLE_NAME, Item }));
@@ -440,7 +492,104 @@ const getWorkspaceTemplates = asyncHandler(async (req, res) => {
         kinds: [...ALLOWED_KINDS],
         knowledgeStages: [...ALLOWED_KNOWLEDGE_STAGES],
         sizeCaps: KIND_SIZE_CAP_BYTES,
+        goalStatuses: [...GOAL_STATUSES],
     });
+});
+
+// @desc    Return the highest-priority runnable goal for the calling user.
+//          Used by the addon's agent loop to pick up work across devices.
+// @route   GET /api/data/csimple/workspace/goals/next
+// @access  Private
+const getNextGoal = asyncHandler(async (req, res) => {
+    if (!req.user) unauthorized(res);
+    const { Items } = await dynamodb.send(new ScanCommand({
+        TableName: TABLE_NAME,
+        FilterExpression: 'begins_with(id, :prefix) AND attribute_not_exists(deletedAt)',
+        ExpressionAttributeValues: { ':prefix': userPrefix(req.user.id, 'goal') },
+    }));
+    const runnable = (Items || []).filter(it => GOAL_STATUS_RUNNABLE.has(it.status || 'active'));
+    // Highest priority first; tie-break on oldest updatedAt (fairness).
+    runnable.sort((a, b) => {
+        const pa = typeof a.priority === 'number' ? a.priority : 50;
+        const pb = typeof b.priority === 'number' ? b.priority : 50;
+        if (pb !== pa) return pb - pa;
+        return (a.updatedAt || '').localeCompare(b.updatedAt || '');
+    });
+    if (!runnable.length) {
+        return res.status(200).json({ goal: null });
+    }
+    res.status(200).json({ goal: toFullEntry(runnable[0]) });
+});
+
+// @desc    Append a single action record to the user's rolling action log.
+//          Slug = YYYYMMDD; text is a ring buffer of JSON-line action records.
+// @route   POST /api/data/csimple/workspace/action/append
+// @access  Private
+const appendAction = asyncHandler(async (req, res) => {
+    if (!req.user) unauthorized(res);
+    const { tool, args, result, exitCode, durationMs, screenshotKey, approvedBy, goalSlug } = req.body || {};
+    if (typeof tool !== 'string' || !tool.trim()) badRequest(res, 'tool is required');
+
+    const today = new Date().toISOString().slice(0, 10);
+    const slug = today.replace(/-/g, '');
+    const id = itemId(req.user.id, 'action', slug);
+    const now = new Date().toISOString();
+
+    // Compact JSON-line record. Truncate huge fields defensively.
+    function compact(v, max = 2048) {
+        try {
+            const s = typeof v === 'string' ? v : JSON.stringify(v);
+            if (!s) return s;
+            return s.length > max ? s.slice(0, max) + '…[truncated]' : s;
+        } catch { return '[unserializable]'; }
+    }
+    const record = {
+        ts: now,
+        tool: tool.slice(0, 64),
+        args: typeof args === 'undefined' ? null : JSON.parse(compact(args, 1024)),
+        result: typeof result === 'undefined' ? null : compact(result, 2048),
+        exitCode: typeof exitCode === 'number' ? exitCode : null,
+        durationMs: typeof durationMs === 'number' ? durationMs : null,
+        ...(screenshotKey ? { screenshotKey: String(screenshotKey).slice(0, 256) } : {}),
+        ...(approvedBy ? { approvedBy: String(approvedBy).slice(0, 64) } : {}),
+        ...(goalSlug ? { goalSlug: String(goalSlug).slice(0, 100) } : {}),
+    };
+    const line = JSON.stringify(record) + '\n';
+
+    // Append; size cap is enforced after read (DynamoDB has no native string-trim).
+    const { Item: existing } = await dynamodb.send(new GetCommand({
+        TableName: TABLE_NAME,
+        Key: { id, createdAt: CSIMPLE_CREATED_AT },
+    }));
+    let newText = (existing?.text || '') + line;
+    if (Buffer.byteLength(newText, 'utf-8') > ACTION_RING_BUFFER_BYTES) {
+        // Drop oldest lines until we fit.
+        const lines = newText.split('\n');
+        while (lines.length > 1 && Buffer.byteLength(lines.join('\n'), 'utf-8') > ACTION_RING_BUFFER_BYTES) {
+            lines.shift();
+        }
+        newText = lines.join('\n');
+    }
+    const sizeBytes = Buffer.byteLength(newText, 'utf-8');
+    const nextVersion = (existing?.version || 0) + 1;
+
+    await dynamodb.send(new PutCommand({
+        TableName: TABLE_NAME,
+        Item: {
+            id,
+            createdAt: CSIMPLE_CREATED_AT,
+            kind: 'action',
+            slug,
+            name: today,
+            text: newText,
+            sizeBytes,
+            version: nextVersion,
+            createdAtReal: existing?.createdAtReal || now,
+            updatedAt: now,
+        },
+    }));
+
+    res.status(200).json({ success: true, slug, sizeBytes, version: nextVersion });
 });
 
 module.exports = {
@@ -449,12 +598,15 @@ module.exports = {
     upsertWorkspaceItem,
     deleteWorkspaceItem,
     appendLog,
+    appendAction,
+    getNextGoal,
     getWorkspaceContextPreview,
     getWorkspaceTemplates,
     // Exported for use by llmService when assembling system prompts:
     _internal: {
         ALLOWED_KINDS,
         ALLOWED_KNOWLEDGE_STAGES,
+        GOAL_STATUSES,
         CSIMPLE_CREATED_AT,
         TABLE_NAME,
         itemId,

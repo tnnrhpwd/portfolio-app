@@ -60,7 +60,8 @@ function Login() {
             localStorage.removeItem('user');
             dispatch(resetDataSlice());
             // Show session expired message only if redirected from another page
-            if (location.state?.sessionExpired) {
+            const queryExpired = new URLSearchParams(location.search).get('sessionExpired') === '1';
+            if (location.state?.sessionExpired || queryExpired) {
                 toast.info('Your session has expired. Please log in again.', {
                     autoClose: 4000,
                     hideProgressBar: false,
@@ -143,6 +144,19 @@ function Login() {
             dispatch(resetDataSlice());   // reset state values( data, dataisloading, dataiserror, datamessage, and dataissuccess ) on each state change
         }
     }, [user, dataIsError, dataIsSuccess, dataIsLoading, dataMessage, navigate, dispatch, location.state?.sessionExpired])
+
+    // Show a one-time toast when redirected here from an expired session
+    useEffect(() => {
+        const queryExpired = new URLSearchParams(location.search).get('sessionExpired') === '1';
+        if (queryExpired) {
+            toast.info('Your session has expired. Please log in again.', {
+                autoClose: 4000,
+                hideProgressBar: false,
+            });
+        }
+        // Run only on mount
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
         if (dataIsLoading) {

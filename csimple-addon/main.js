@@ -31,6 +31,7 @@ let actionBridge = null;
 let updateManager = null;
 let calibrationWindow = null;
 let eyeOverlayWindow = null;       // transparent click-through gaze dot
+let permissionWindow = null;       // Windows automation permission center
 let eyeOverlayAutoTrain = null;    // {timer, lastSampleAt, lastCursor, lastCursorAt, lastGaze, lastGazeAt}
 
 // ─── Resource Paths ─────────────────────────────────────────────────────────────
@@ -967,7 +968,104 @@ app.on('ready', async () => {
         '1) Calibrate (tray menu or say "calibrate eye tracking").\n2) Toggle "Enable Eye Tracking" in the tray, or say "track my eyes".\n3) EMERGENCY STOP: Escape or Ctrl+Alt+E (works globally).'
       );
     },
+
+    // ── Windows Automation Agent ──
+    onStartAgent: async () => {
+      try {
+        const port = server?.serverPort || 3001;
+        const r = await fetch(`http://127.0.0.1:${port}/api/agent/start`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+        });
+        const json = await r.json();
+        if (json.running) {
+          trayManager?.notify('Agent Started', `Goal: ${json.currentGoal}`);
+          startAgentStatusPolling();
+        } else {
+          trayManager?.notify('Agent', json.reason || 'No active goal to work on.');
+        }
+      } catch (e) {
+        trayManager?.notify('Agent', `Failed to start: ${e.message}`);
+      }
+    },
+    onStopAgent: async () => {
+      try {
+        const port = server?.serverPort || 3001;
+        await fetch(`http://127.0.0.1:${port}/api/agent/stop`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+        });
+        trayManager?.setAgentStatus({ running: false, step: 0, currentGoal: null });
+        trayManager?.notify('Agent Stopped', 'Manual stop.');
+      } catch (e) {
+        trayManager?.notify('Agent', `Stop failed: ${e.message}`);
+      }
+    },
+    onOpenPermissionCenter: () => {
+      try {
+        if (permissionWindow && !permissionWindow.isDestroyed()) {
+          permissionWindow.focus();
+          return;
+        }
+        permissionWindow = new BrowserWindow({
+          width: 880, height: 760, title: 'CSimple Permission Center',
+          backgroundColor: '#0d1117',
+          webPreferences: { contextIsolation: true, nodeIntegration: false },
+        });
+        const port = server?.serverPort || 3001;
+        const url = `file://${path.join(__dirname, 'renderer', 'permissions.html').replace(/\\/g, '/')}?port=${port}`;
+        permissionWindow.loadURL(url);
+        permissionWindow.on('closed', () => { permissionWindow = null; });
+      } catch (e) {
+        trayManager?.notify('Permission Center', e.message);
+      }
+    },
+    onToggleDryRun: async (enabled) => {
+      try {
+        const port = server?.serverPort || 3001;
+        await fetch(`http://127.0.0.1:${port}/api/automation/permissions`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dryRunMode: !!enabled }),
+        });
+        trayManager?.setAgentStatus({ dryRun: !!enabled });
+      } catch (e) {
+        trayManager?.notify('Dry-Run', e.message);
+      }
+    },
+    onKillSwitch: async () => {
+      try {
+        const port = server?.serverPort || 3001;
+        await fetch(`http://127.0.0.1:${port}/api/automation/permissions/kill`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+        });
+        trayManager?.setAgentStatus({ running: false, killSwitch: true });
+        trayManager?.notify('Kill Switch', 'All tool execution blocked. Re-enable in Permission Center.');
+      } catch (e) {
+        trayManager?.notify('Kill Switch', e.message);
+      }
+    },
   });
+
+  // Poll agent status to keep tray in sync.
+  let _agentStatusTimer = null;
+  function startAgentStatusPolling() {
+    if (_agentStatusTimer) return;
+    _agentStatusTimer = setInterval(async () => {
+      try {
+        const port = server?.serverPort || 3001;
+        const r = await fetch(`http://127.0.0.1:${port}/api/agent/status`);
+        const s = await r.json();
+        trayManager?.setAgentStatus({
+          running: !!s.running,
+          currentGoal: s.currentGoal,
+          step: s.step || 0,
+          dryRun: !!s.dryRun,
+        });
+        if (!s.running) {
+          clearInterval(_agentStatusTimer);
+          _agentStatusTimer = null;
+        }
+      } catch {}
+    }, 2000);
+  }
 
   // Enable start-at-login by default on first run (use a marker file since
   // wasOpenedAtLogin is macOS-only and unreliable on Windows)

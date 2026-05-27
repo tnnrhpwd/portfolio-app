@@ -5,6 +5,7 @@ import { store } from './app/store';
 import App from './App';
 import { initWebVitals } from './utils/webVitals';
 import { warmBackend } from './utils/warmBackend';
+import { installAuthInterceptor } from './utils/authInterceptor';
 import './index.css';
 
 const container = document.getElementById('root');

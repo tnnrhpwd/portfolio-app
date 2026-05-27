@@ -20,7 +20,7 @@ const {
   handleValidationErrors,
   sanitizeInput
 } = require('../middleware/validation');
-const { logSecurityEvent } = require('../utils/logger');
+const { logSecurityEvent, logger } = require('../utils/logger');
 
 // ============================================================================
 // Controller Imports
@@ -85,6 +85,8 @@ const {
   upsertWorkspaceItem,
   deleteWorkspaceItem,
   appendLog,
+  appendAction,
+  getNextGoal,
   getWorkspaceContextPreview,
   getWorkspaceTemplates,
 } = require('../controllers/workspaceController');
@@ -221,6 +223,19 @@ router.route('/public/:id')
 // Membership & LLM Info
 router.get('/membership-pricing', getMembershipPricing);
 router.get('/llm-providers', getLLMProviders);
+
+// Web Vitals (analytics beacon — public, fire-and-forget)
+router.post('/web-vitals', apiLimiter, (req, res) => {
+  const { url, ttfb, cls, fcp, lcp, fid, connection, deviceMemory, timestamp } = req.body || {};
+  if (url && timestamp) {
+    // Log for observability; extend here to persist to DB if needed
+    logger.info('web-vitals', {
+      url, ttfb, cls, fcp, lcp, fid, connection, deviceMemory, timestamp,
+      ip: req.ip,
+    });
+  }
+  res.status(204).end();
+});
 
 // Stripe publishable key (public, but auth-aware to serve test key for funnel users)
 const { optionalAuth } = require('../middleware/authMiddleware');
@@ -404,6 +419,8 @@ router.get('/csimple/context', protect, getCSimpleUserContext);
 router.get('/csimple/workspace/templates', protect, getWorkspaceTemplates);
 router.get('/csimple/workspace/context',   protect, getWorkspaceContextPreview);
 router.post('/csimple/workspace/log/append', protect, sanitizeInput, appendLog);
+router.post('/csimple/workspace/action/append', protect, sanitizeInput, appendAction);
+router.get('/csimple/workspace/goals/next', protect, getNextGoal);
 
 router.route('/csimple/workspace')
   .get(protect, listWorkspace);

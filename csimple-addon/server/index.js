@@ -103,6 +103,53 @@ function estimateToolSchemaTokens(tools) {
 }
 
 /**
+ * Build a short human-readable summary of automation tool arguments, used in
+ * the `action.steps[].description` shown by the chat UI.
+ */
+function summarizeAutomationArgs(toolName, args) {
+  if (!args || typeof args !== 'object') return '';
+  try {
+    switch (toolName) {
+      case 'input_hold': {
+        const parts = [];
+        if (Array.isArray(args.keys) && args.keys.length) parts.push(`keys=${args.keys.join('+')}`);
+        if (Array.isArray(args.mouseButtons) && args.mouseButtons.length) parts.push(`mouse=${args.mouseButtons.join('+')}`);
+        if (args.focusWindowTitle) parts.push(`window="${args.focusWindowTitle}"`);
+        if (args.durationMs) parts.push(`max=${Math.round(args.durationMs / 1000)}s`);
+        parts.push('stop=Esc');
+        return parts.join(' ');
+      }
+      case 'input_tap': {
+        const parts = [];
+        if (Array.isArray(args.keys)) parts.push(`keys=${args.keys.join('+')}`);
+        if (Array.isArray(args.mouseButtons)) parts.push(`mouse=${args.mouseButtons.join('+')}`);
+        if (args.repeat && args.repeat > 1) parts.push(`x${args.repeat}`);
+        return parts.join(' ');
+      }
+      case 'window_focus':
+        return args.title || args.processName || '';
+      case 'shell_run':
+        return (args.command || '').slice(0, 80);
+      case 'fs_read':
+      case 'fs_list':
+      case 'fs_write':
+        return args.path || '';
+      case 'uia_find':
+      case 'uia_invoke':
+        return args.name || args.automationId || args.controlType || '';
+      case 'find_and_click_visual':
+        return args.target || args.query || '';
+      default: {
+        const keys = Object.keys(args).slice(0, 3);
+        return keys.map(k => `${k}=${typeof args[k] === 'object' ? JSON.stringify(args[k]).slice(0, 30) : String(args[k]).slice(0, 30)}`).join(' ');
+      }
+    }
+  } catch {
+    return '';
+  }
+}
+
+/**
  * Trim conversation history to fit within a token budget.
  * Strategy:
  *  1. Always keep the last N messages (recent context is most important)
@@ -598,6 +645,15 @@ app.get('/api/cloud/status', (req, res) => {
   res.json({ active: cloudRelay._running, hasToken: !!cloudRelay._token });
 });
 
+// ─── Windows Automation (agent + tools) ─────────────────────────────────────
+try {
+  const { mountAutomation } = require('./automation');
+  mountAutomation(app, { cloudRelay, log: console.log });
+  console.log('[startup] automation layer mounted');
+} catch (e) {
+  console.error('[startup] automation layer failed to mount:', e.message);
+}
+
 // Get local network info for accessing from other devices
 app.get('/api/network', (req, res) => {
   const interfaces = os.networkInterfaces();
@@ -676,7 +732,7 @@ app.post('/api/chat', async (req, res) => {
     const personalityContext = loadPersonalityContext();
     const memoryContext = loadMemoryContext();
     const behaviorContext = loadBehaviorContext(behaviorFile);
-    const capabilitiesNote = `\nYou can execute system actions on this Windows PC using the provided tools: open apps, control volume/media, press keys, type text, play music services, save files, and more. Use tools ONLY when the user wants you to physically do something on their computer. For conversation, questions, or content generation, just reply in text — do NOT call any tool.\n\nACTION CLARIFICATION:\nWhen the user asks you to do something that is destructive (shutdown, restart, sleep, hibernate, delete), ambiguous, or could mean multiple things, use the clarify_action tool to present options BEFORE executing. Examples:\n- "Put this PC to sleep" → call clarify_action with options like ["Yes, sleep", "Hibernate instead", "Cancel"]\n- "Turn off the computer" → clarify between shutdown and sleep\n- "Close everything" → clarify what "everything" means\nFor simple, obvious commands (open chrome, set volume to 50, play spotify), just execute directly — no need to clarify.\n\nFILE SAVING:\n- When the user asks to save/create/download a file to a specific location, use the save_file tool. Locations: "desktop", "documents", "downloads", "workspace", or "custom" with a custom_path.\n- Example: "Save this to my desktop" → call save_file with location="desktop"\n- Include the FULL file content in the save_file tool call.\n\nCRITICAL RULE — type_text vs text reply:\n- "Write a Python script" → Reply with the code in your message. Do NOT call type_text.\n- "Write me an email" → Reply with the email in your message. Do NOT call type_text.\n- "Create a function that..." → Reply with the code. Do NOT call type_text.\n- "Type hello world" → Call type_text (user wants keyboard input).\n- "Type my name in the search box" → Call type_text (user wants keyboard input).\nWhen in doubt, reply in text. Only use type_text when the user says "type" as a verb meaning keyboard input.`;
+    const capabilitiesNote = `\nYou are a Windows automation agent. You DO have direct control over this PC via the provided tools (keyboard, mouse, windows, screen, shell). NEVER reply with "I can't directly control your game/PC" or any similar refusal — that is wrong. If the user asks you to physically do something, CALL THE APPROPRIATE TOOL.\n\nYou can execute system actions on this Windows PC using the provided tools: open apps, control volume/media, press keys, type text, play music services, save files, hold inputs in foreground apps, focus windows, take screenshots, query UI Automation, run shell commands, and more.\n\nSUSTAINED INTERACTION (input_hold) — HIGHEST PRIORITY:\nWhen the user asks to hold keys / mouse buttons continuously in another application until they press Escape — including game inputs like "hold W and left-click in Minecraft", "auto-walk forward in <app>", "keep clicking until I stop you", "mine forward in <game>", or any long-running repetitive interaction with a foreground app — you MUST call the input_hold tool. It atomically focuses the target window then holds any combination of keys + mouse buttons until Escape or the duration expires. Example call for "hold W and left-click in Minecraft until I press Escape":\n  input_hold({ focusWindowTitle: "Minecraft", keys: ["w"], mouseButtons: ["left"], durationMs: 1800000 })\nDo NOT use press_key / hold_key / type_text / click_on_screen for this — input_hold is the correct tool because it focuses the window and holds multiple inputs simultaneously. NEVER decline a game-automation request: just call input_hold.\n\nACTION CLARIFICATION:\nWhen the user asks you to do something that is destructive (shutdown, restart, sleep, hibernate, delete), ambiguous, or could mean multiple things, use the clarify_action tool to present options BEFORE executing. Examples:\n- "Put this PC to sleep" → call clarify_action with options like ["Yes, sleep", "Hibernate instead", "Cancel"]\n- "Turn off the computer" → clarify between shutdown and sleep\n- "Close everything" → clarify what "everything" means\nFor simple, obvious commands (open chrome, set volume to 50, play spotify), just execute directly — no need to clarify.\n\nFILE SAVING:\n- When the user asks to save/create/download a file to a specific location, use the save_file tool. Locations: "desktop", "documents", "downloads", "workspace", or "custom" with a custom_path.\n- Example: "Save this to my desktop" → call save_file with location="desktop"\n- Include the FULL file content in the save_file tool call.\n\nCRITICAL RULE — type_text vs text reply:\n- "Write a Python script" → Reply with the code in your message. Do NOT call type_text.\n- "Write me an email" → Reply with the email in your message. Do NOT call type_text.\n- "Create a function that..." → Reply with the code. Do NOT call type_text.\n- "Type hello world" → Call type_text (user wants keyboard input).\n- "Type my name in the search box" → Call type_text (user wants keyboard input).\nWhen in doubt for content generation, reply in text. But for physical input (hold a key, click somewhere, focus a window, run a command), ALWAYS use a tool.`;
 
     const autoMemoryInstructions = `\n\n--- AUTO-MEMORY SYSTEM ---\nYou have tools to manage persistent memory, personality, and behavior files. Use them PROACTIVELY:\n\n**Memory (update_memory):** Automatically save when the user shares:\n- Personal info (name, job, location, timezone, relationships, pets)\n- Preferences (communication style, favorite tools/languages, interests)\n- Projects they're working on, goals, deadlines\n- Important context they'd want you to remember next session\n- Corrections to things you got wrong\nMerge with existing memories — read what's already in MEMORY above before writing. Organize into logical files (user_profile.md, projects.md, preferences.md, etc.).\n\n**Personality (update_personality):** Update when:\n- User asks you to change your tone, name, or communication style\n- User says things like "be more casual", "don't use emojis", "call me [name]"\n- You learn how they prefer to interact (user.md)\n\n**Behavior (update_behavior):** Update when:\n- User gives you standing instructions ("always show code examples", "prefer Python")\n- User sets up context for a specific workflow\n\nDo NOT announce every memory save — just do it silently. Only mention it if saving something the user explicitly asked you to remember, or if it's a significant update worth confirming.\n--- END AUTO-MEMORY ---`;
 
@@ -720,12 +776,40 @@ app.post('/api/chat', async (req, res) => {
       const contentGenRe = /\b(write|create|generate|compose|draft|make|build|code|script|program|explain|describe|summarize|help me with|show me|give me|can you|how to|what is|tell me)\b/i;
       const explicitTypeRe = /^(type|enter|input|fill|put)\b/i;
       const isContentGen = contentGenRe.test(message) && !explicitTypeRe.test(message.trim());
-      const toolsForCall = isContentGen
+      // Merge the generic automation tools (input_hold, window_focus, screen_capture,
+      // uia_*, shell_run, find_and_click_visual, etc.) into the schema the LLM sees.
+      // These power sustained-input loops, vision fallback clicks, UIA queries, etc.
+      const automationModule = (() => { try { return require('./automation'); } catch { return null; } })();
+      const automationSchemas = automationModule ? automationModule.registry.toolSchemasForLlm() : [];
+      const baseSchemas = isContentGen
         ? ADDON_TOOL_SCHEMAS.filter(t => t.function.name !== 'type_text')
         : ADDON_TOOL_SCHEMAS;
+      const toolsForCall = [...baseSchemas, ...automationSchemas];
+      const automationToolNames = new Set(automationSchemas.map(s => s.function.name));
       if (isContentGen) {
         console.log(`[Guard] Content-generation detected — type_text tool removed from schema`);
       }
+      if (automationSchemas.length) {
+        console.log(`[Chat] Exposing ${automationSchemas.length} automation tools to LLM`);
+      }
+
+      // Heuristic: if the message clearly describes a sustained-input loop
+      // ("hold W and click in Minecraft until I press Escape", "auto-walk
+      // forward in <app>", etc.), force the LLM to call input_hold instead of
+      // letting it refuse with a safety reply. The model's argument synthesis
+      // still picks the right keys/mouse buttons/window title.
+      const sustainedInputRe = /\b(hold|holding|keep\s+(?:pressing|holding|clicking)|auto[-\s]?(?:walk|click|move|run|mine|farm)|press\s+and\s+hold|click\s+(?:and\s+hold|continuously)|spam\s+(?:click|press|key)|left[-\s]?click|right[-\s]?click)\b/i;
+      const untilEscRe = /\b(until\s+(?:i\s+)?(?:press\s+)?(?:esc|escape|stop|i\s+stop)|forever|continuously|nonstop|non[-\s]?stop)\b/i;
+      const inAppRe = /\bin\s+([A-Za-z][\w\s.-]{1,40})$/i;
+      const forceInputHold = automationToolNames.has('input_hold')
+        && sustainedInputRe.test(message)
+        && (untilEscRe.test(message) || inAppRe.test(message.trim()));
+      if (forceInputHold) {
+        console.log('[Chat] Forcing tool_choice=input_hold based on message pattern');
+      }
+      const toolChoice = forceInputHold
+        ? { type: 'function', function: { name: 'input_hold' } }
+        : 'auto';
 
       // Send message to LLM with action tools — LLM decides whether to act or chat
       const result = await githubModelsService.chat({
@@ -736,7 +820,7 @@ app.post('/api/chat', async (req, res) => {
         maxLength,
         conversationHistory: trimmedHistory,
         tools: toolsForCall,
-        tool_choice: 'auto',
+        tool_choice: toolChoice,
       });
 
       // If LLM chose to call a tool → execute as action or memory update
@@ -781,7 +865,14 @@ app.post('/api/chat', async (req, res) => {
         const memoryToolCalls = filteredToolCalls.filter(tc => isMemoryTool(tc.function.name));
         const eyeTrackingToolCalls = filteredToolCalls.filter(tc => isEyeTrackingTool(tc.function.name));
         const clarifyToolCalls = filteredToolCalls.filter(tc => tc.function.name === 'clarify_action');
-        const actionToolCalls = filteredToolCalls.filter(tc => !isMemoryTool(tc.function.name) && !isEyeTrackingTool(tc.function.name) && tc.function.name !== 'clarify_action');
+        // New generic automation registry (input_hold, window_focus, screen_capture, uia_*, shell_run, etc.)
+        const automationCalls = filteredToolCalls.filter(tc => automationToolNames.has(tc.function.name));
+        const actionToolCalls = filteredToolCalls.filter(tc =>
+          !isMemoryTool(tc.function.name)
+          && !isEyeTrackingTool(tc.function.name)
+          && tc.function.name !== 'clarify_action'
+          && !automationToolNames.has(tc.function.name)
+        );
 
         // ── If LLM chose to clarify before acting, present options to user ──
         if (clarifyToolCalls.length > 0) {
@@ -894,6 +985,57 @@ app.post('/api/chat', async (req, res) => {
               content: JSON.stringify({ success: false, error: err.message }),
             });
           }
+        }
+
+        // ── Execute new-style automation tools (input_hold, window_focus, etc.) ──
+        // These come from automation/tool-registry. The user typed the request, so
+        // we pass userInitiated:true to bypass the per-tool approval prompt.
+        // input_hold can run up to 60min, so we fire-and-forget and return an
+        // action object the webapp renders immediately as "Action Executed".
+        let automationActionPayload = null;
+        if (automationCalls.length > 0 && automationModule) {
+          const stepDescriptions = [];
+          const automationDescriptions = [];
+          for (const tc of automationCalls) {
+            let args = {};
+            try { args = JSON.parse(tc.function.arguments || '{}'); } catch { /* ignore */ }
+            const toolName = tc.function.name;
+            const argSummary = summarizeAutomationArgs(toolName, args);
+            const stepDesc = `${toolName}${argSummary ? ': ' + argSummary : ''}`;
+            stepDescriptions.push({ type: 'automation', tool: toolName, args, description: stepDesc });
+            automationDescriptions.push(stepDesc);
+
+            // Fire-and-forget for long-running tools (input_hold, agent loops, etc.)
+            // — the chat response should not block on a 30-minute hold.
+            const longRunning = toolName === 'input_hold';
+            const runP = automationModule.registry.executeTool(toolName, args, {
+              userInitiated: true,
+              log: (...a) => console.log('[automation]', ...a),
+            }).then(r => {
+              if (!r.ok) console.warn(`[Chat→Automation] ${toolName} failed:`, r.error);
+              else console.log(`[Chat→Automation] ${toolName} ok in ${r.durationMs}ms`);
+              // Push a tool result message in case we follow up the LLM later
+              try {
+                toolResultMessages.push({
+                  role: 'tool',
+                  tool_call_id: tc.id,
+                  content: JSON.stringify(r.ok ? { success: true, result: r.result } : { success: false, error: r.error }),
+                });
+              } catch { /* ignore */ }
+            }).catch(err => {
+              console.error(`[Chat→Automation] ${toolName} threw:`, err.message);
+            });
+            if (!longRunning) {
+              try { await runP; } catch { /* ignore */ }
+            }
+          }
+          automationActionPayload = {
+            id: `auto_${Date.now()}`,
+            intent: automationCalls.length === 1 ? automationCalls[0].function.name : 'automation_compound',
+            description: automationDescriptions.join(', then '),
+            steps: stepDescriptions,
+            status: 'running',
+          };
         }
 
         // ── Execute PC action tools ───────────────────────────────
@@ -1043,6 +1185,21 @@ app.post('/api/chat', async (req, res) => {
               steps: actionPlan.steps,
               status: queuedAction.status,
             },
+          });
+        }
+
+        // ── Automation-only response (no legacy actionPlan) ───────
+        if (automationActionPayload && !actionToolCalls.length) {
+          const totalElapsedSec = ((Date.now() - parseStartTime) / 1000).toFixed(2);
+          const responseText = finalText || `Started: ${automationActionPayload.description}. Press Escape to stop.`;
+          return res.json({
+            response: responseText,
+            modelId,
+            generationTime: `${totalElapsedSec}s`,
+            timestamp: new Date().toISOString(),
+            ...(result.usage && { tokenUsage: result.usage }),
+            ...(memoryOperations.length > 0 && { operations: memoryOperations }),
+            action: automationActionPayload,
           });
         }
 

@@ -17,6 +17,7 @@ class TrayManager {
     this.updateProgress = 0;
     this.eyeTrackingState = 'idle';   // idle | running | calibrating | error
     this.eyeOverlayActive = false;    // overlay (test mode) on/off
+    this.agentState = { running: false, currentGoal: null, step: 0, dryRun: false, killSwitch: false };
   }
 
   /**
@@ -116,6 +117,15 @@ class TrayManager {
   }
 
   /**
+   * Update the automation/agent status display.
+   * @param {{running:boolean, currentGoal?:{slug:string,name:string}|null, step?:number, dryRun?:boolean, killSwitch?:boolean}} s
+   */
+  setAgentStatus(s = {}) {
+    this.agentState = { ...this.agentState, ...s };
+    this._updateMenu();
+  }
+
+  /**
    * Show a native notification.
    */
   notify(title, body) {
@@ -210,6 +220,36 @@ class TrayManager {
       {
         label: 'Setup Python Environment',
         click: () => this.callbacks.onSetupPython?.(),
+      },
+      { type: 'separator' },
+
+      // ── Windows Automation Agent ──
+      {
+        label: `Agent: ${this.agentState.running ? `Running (step ${this.agentState.step})` : 'Idle'}${this.agentState.dryRun ? ' [DRY-RUN]' : ''}${this.agentState.killSwitch ? ' [KILL]' : ''}`,
+        enabled: false,
+      },
+      this.agentState.currentGoal
+        ? { label: `Goal: ${this.agentState.currentGoal.name}`, enabled: false }
+        : { label: 'Goal: (none)', enabled: false },
+      {
+        label: this.agentState.running ? 'Stop Agent' : 'Start Agent on Next Goal',
+        click: () => this.agentState.running
+          ? this.callbacks.onStopAgent?.()
+          : this.callbacks.onStartAgent?.(),
+      },
+      {
+        label: 'Open Permission Center',
+        click: () => this.callbacks.onOpenPermissionCenter?.(),
+      },
+      {
+        label: 'Dry-Run Mode',
+        type: 'checkbox',
+        checked: !!this.agentState.dryRun,
+        click: (mi) => this.callbacks.onToggleDryRun?.(mi.checked),
+      },
+      {
+        label: 'EMERGENCY: Kill Switch (block all tools)',
+        click: () => this.callbacks.onKillSwitch?.(),
       },
       { type: 'separator' },
 

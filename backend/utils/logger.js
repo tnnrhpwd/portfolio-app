@@ -47,6 +47,16 @@ const securityLogger = winston.createLogger({
   ],
 });
 
+// In dev, also surface security events on the console so auth failures are visible
+if (process.env.NODE_ENV !== 'production') {
+  securityLogger.add(new winston.transports.Console({
+    format: winston.format.combine(
+      winston.format.colorize(),
+      winston.format.simple()
+    )
+  }));
+}
+
 // Request logging middleware
 const requestLogger = (req, res, next) => {
   const start = Date.now();
