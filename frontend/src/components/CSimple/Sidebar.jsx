@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getLocalModels, testAddonConnection } from '../../services/csimpleApi';
 import UsageMeter from './UsageMeter';
+import AgentLivePanel from './AgentLivePanel';
 import './Sidebar.css';
 
 function Sidebar({
@@ -33,6 +34,7 @@ function Sidebar({
 }) {
   const [models, setModels] = useState([]);
   const [showSettings, setShowSettings] = useState(false);
+  const [showLiveAgent, setShowLiveAgent] = useState(false);
   const [addonTest, setAddonTest] = useState({ state: 'idle', checks: [] });
 
   const runAddonTest = useCallback(async () => {
@@ -416,6 +418,20 @@ function Sidebar({
               >
                 🔧 Advanced Settings
               </button>
+            </div>
+          )}
+
+          <button
+            className="sidebar__settings-toggle"
+            onClick={() => setShowLiveAgent(!showLiveAgent)}
+          >
+            🖥 Live Agent View
+            <span className={`sidebar__arrow ${showLiveAgent ? 'sidebar__arrow--up' : ''}`}>▾</span>
+          </button>
+
+          {showLiveAgent && (
+            <div className="sidebar__live-agent">
+              <AgentLivePanel addonConnected={isAddonConnected} variant="sidebar" />
             </div>
           )}
         </div>

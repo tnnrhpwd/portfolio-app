@@ -1,0 +1,54 @@
+{
+    "name": "skill runner — ephemeral skill of fs_list steps",
+    "description": "Registers an inline skill via the `cache` arg, runs it, asserts both steps executed and the runner's summary is correctly shaped.",
+    "require": { "platform": "win32" },
+    "permissions": {
+        "dryRunMode": false,
+        "categories": { "safe-read": "allow" }
+    },
+    "steps": [
+        {
+            "tool": "skill_run",
+            "args": {
+                "slug": "eval-skill-fs-list",
+                "stepDelayMs": 10,
+                "cache": {
+                    "name": "eval-skill-fs-list",
+                    "slug": "eval-skill-fs-list",
+                    "description": "Eval-only ephemeral skill: list two safe directories.",
+                    "steps": [
+                        { "tool": "fs_list", "args": { "path": "${USERPROFILE}" } },
+                        { "tool": "fs_list", "args": { "path": "${TEMP}" } }
+                    ],
+                    "params": [],
+                    "metadata": { "compilerVersion": 1 }
+                }
+            },
+            "expect": {
+                "ok": true,
+                "resultPath": "failed",
+                "resultEquals": false
+            }
+        },
+        {
+            "tool": "skill_run",
+            "args": {
+                "slug": "eval-skill-fs-list",
+                "cache": {
+                    "name": "eval-skill-fs-list",
+                    "slug": "eval-skill-fs-list",
+                    "steps": [
+                        { "tool": "fs_list", "args": { "path": "${USERPROFILE}" } },
+                        { "tool": "fs_list", "args": { "path": "${TEMP}" } }
+                    ],
+                    "metadata": { "compilerVersion": 1 }
+                }
+            },
+            "expect": {
+                "ok": true,
+                "resultPath": "stepsRun",
+                "resultEquals": 2
+            }
+        }
+    ]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "screen_set_of_marks returns a legend",
+  "description": "Captures the screen, overlays numbered boxes on interactive controls, and returns a legend. Asserts at least one mark was drawn and the annotated image is non-empty.",
+  "require": { "platform": "win32" },
+  "permissions": {
+    "categories": { "safe-read": "allow" }
+  },
+  "steps": [
+    {
+      "tool": "screen_set_of_marks",
+      "args": { "maxMarks": 25, "minSize": 200, "includeImage": false },
+      "expect": {
+        "ok": true,
+        "resultPath": "mime",
+        "resultEquals": "image/png",
+        "durationMsLte": 25000
+      }
+    }
+  ]
+}

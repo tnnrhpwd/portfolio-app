@@ -2,38 +2,17 @@
  * UI Automation tools (Microsoft UI Automation via System.Windows.Automation).
  *
  * Provides reliable, semantically-aware targeting of UI elements — far more
- * robust than pixel matching. Three tools:
- *   - uia_find    : find elements by name/automation-id/control-type
- *   - uia_invoke  : click/select/toggle an element
- *   - uia_get_text: read text from an element
+ * robust than pixel matching. Four tools:
+ *   - uia_find     : find elements by name/automation-id/control-type
+ *   - uia_invoke   : click/select/toggle an element
+ *   - uia_get_text : read text from an element
+ *   - uia_snapshot : capture the foreground (or named) window's accessibility
+ *                    tree as a compact JSON the agent can reason over
  *
  * Snippets are kept short and emit JSON via ConvertTo-Json.
  */
 
-const { spawn } = require('child_process');
-
-const PS_TIMEOUT = 20_000;
-
-function runPsJson(script) {
-    return new Promise((resolve, reject) => {
-        const child = spawn('powershell.exe', [
-            '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
-            '-Command', '-',
-        ], { windowsHide: true });
-        let stdout = '', stderr = '';
-        child.stdout.on('data', d => stdout += d.toString('utf-8'));
-        child.stderr.on('data', d => stderr += d.toString('utf-8'));
-        const timer = setTimeout(() => { try { child.kill('SIGKILL'); } catch {} }, PS_TIMEOUT);
-        child.on('close', code => {
-            clearTimeout(timer);
-            if (code !== 0) return reject(new Error(stderr.trim() || `powershell exited with ${code}`));
-            try { resolve(JSON.parse(stdout || 'null')); } catch { resolve(stdout.trim()); }
-        });
-        child.on('error', e => { clearTimeout(timer); reject(e); });
-        child.stdin.write(script + '\n');
-        child.stdin.end();
-    });
-}
+const { runPsJson, runPsJsonFile } = require('../ps-runner');
 
 const UIA_PRELUDE = `
 Add-Type -AssemblyName UIAutomationClient
@@ -179,4 +158,150 @@ if (-not $text) { $text = $el.Current.Name }
     },
 };
 
-module.exports = { uiaFind, uiaInvoke, uiaGetText };
+const uiaSnapshot = {
+    name: 'uia_snapshot',
+    category: 'safe-read',
+    description:
+        'Capture the accessibility tree of the foreground (or named) window as a compact JSON. ' +
+        'Use this to "see" what the user is looking at before deciding which uia_find/uia_invoke call to make. ' +
+        'Filters offscreen elements by default. ' +
+        'When `mode="interactive"`, returns ONLY actionable controls (Button, Edit, Hyperlink, ListItem, MenuItem, CheckBox, RadioButton, Tab, ComboBox) — much smaller payload, ideal for first-pass agent reasoning.',
+    parameters: {
+        type: 'object',
+        properties: {
+            windowName: { type: 'string', description: 'If provided, snapshot the first top-level window whose name matches this substring; otherwise the foreground window.' },
+            mode: { type: 'string', enum: ['tree', 'interactive', 'flat'], description: 'tree=full hierarchy; interactive=actionable controls only (default); flat=flat list of all visible nodes.' },
+            maxNodes: { type: 'integer', description: 'Hard cap on number of nodes returned (default 250, max 1000).' },
+            maxDepth: { type: 'integer', description: 'Tree depth cutoff (default 12).' },
+            includeOffscreen: { type: 'boolean', description: 'Include nodes flagged IsOffscreen (default false).' },
+        },
+    },
+    async run(args = {}) {
+        const mode = ['tree', 'interactive', 'flat'].includes(args.mode) ? args.mode : 'interactive';
+        const maxNodes = Math.min(1000, Math.max(10, Number(args.maxNodes) || 250));
+        const maxDepth = Math.min(40, Math.max(1, Number(args.maxDepth) || 12));
+        const includeOffscreen = !!args.includeOffscreen;
+        const windowName = String(args.windowName || '');
+
+        // PowerShell script: locate the target window, then walk its ControlView
+        // tree breadth-first, emitting either a full nested tree, a flat list, or
+        // only "interactive" controls.
+        const script = `${UIA_PRELUDE}
+$ErrorActionPreference = 'SilentlyContinue'
+
+# Resolve target window
+$target = $null
+$windowName = ${quote(windowName)}
+if ($windowName) {
+    $children = $root.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition)
+    foreach ($w in $children) {
+        if ($w.Current.Name -and $w.Current.Name.ToLower().Contains($windowName.ToLower())) { $target = $w; break }
+    }
+    if (-not $target) { Write-Error "no window matched: $windowName" -ErrorAction Stop }
+} else {
+    # Walk up from the focused element to the nearest Window ancestor — pure UIA,
+    # no P/Invoke required (avoids fragile here-string parsing over stdin pipes).
+    $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
+    if (-not $focused) { Write-Error 'no focused element' -ErrorAction Stop }
+    $walkerUp = [System.Windows.Automation.TreeWalker]::ControlViewWalker
+    $cursor = $focused
+    while ($cursor -ne $null -and $cursor.Current.ControlType.ProgrammaticName -notmatch 'Window$') {
+        $cursor = $walkerUp.GetParent($cursor)
+    }
+    if (-not $cursor) { $cursor = $root.GetUpdatedCache([System.Windows.Automation.CacheRequest]::new()) }
+    $target = $cursor
+    if (-not $target) { Write-Error 'could not resolve foreground window' -ErrorAction Stop }
+}
+
+$mode = '${mode}'
+$maxNodes = ${maxNodes}
+$maxDepth = ${maxDepth}
+$includeOff = $${includeOffscreen ? 'true' : 'false'}
+$walker = [System.Windows.Automation.TreeWalker]::ControlViewWalker
+
+$interactiveTypes = @('Button','Edit','Hyperlink','ListItem','MenuItem','CheckBox','RadioButton','Tab','TabItem','ComboBox','SplitButton','TreeItem')
+$nodes = New-Object System.Collections.ArrayList
+$script:visited = 0
+
+function To-Node($el, $depth) {
+    try {
+        $b = $el.Current.BoundingRectangle
+        $ct = $el.Current.ControlType.ProgrammaticName -replace 'ControlType\\.',''
+        return [pscustomobject]@{
+            name = $el.Current.Name
+            controlType = $ct
+            automationId = $el.Current.AutomationId
+            className = $el.Current.ClassName
+            depth = $depth
+            x = [int]$b.X; y = [int]$b.Y
+            width = [int]$b.Width; height = [int]$b.Height
+            enabled = $el.Current.IsEnabled
+            offscreen = $el.Current.IsOffscreen
+        }
+    } catch { return $null }
+}
+
+function Walk-Tree($el, $depth) {
+    if ($script:visited -ge $maxNodes) { return $null }
+    if ($depth -gt $maxDepth) { return $null }
+    $n = To-Node $el $depth
+    if (-not $n) { return $null }
+    if (-not $includeOff -and $n.offscreen) { return $null }
+    $script:visited++
+    $children = @()
+    $child = $walker.GetFirstChild($el)
+    while ($child -ne $null -and $script:visited -lt $maxNodes) {
+        $c = Walk-Tree $child ($depth + 1)
+        if ($c) { $children += $c }
+        $child = $walker.GetNextSibling($child)
+    }
+    Add-Member -InputObject $n -NotePropertyName children -NotePropertyValue $children -Force
+    return $n
+}
+
+function Walk-Flat($el, $depth) {
+    if ($script:visited -ge $maxNodes) { return }
+    if ($depth -gt $maxDepth) { return }
+    $n = To-Node $el $depth
+    if (-not $n) { return }
+    if (-not $includeOff -and $n.offscreen) { return }
+    $script:visited++
+    if ($mode -eq 'flat') {
+        [void]$nodes.Add($n)
+    } elseif ($interactiveTypes -contains $n.controlType) {
+        [void]$nodes.Add($n)
+    }
+    $child = $walker.GetFirstChild($el)
+    while ($child -ne $null -and $script:visited -lt $maxNodes) {
+        Walk-Flat $child ($depth + 1)
+        $child = $walker.GetNextSibling($child)
+    }
+}
+
+if ($mode -eq 'tree') {
+    $treeRoot = Walk-Tree $target 0
+    $payload = [pscustomobject]@{
+        window = $target.Current.Name
+        mode = $mode
+        count = $script:visited
+        truncated = ($script:visited -ge $maxNodes)
+        tree = $treeRoot
+    }
+} else {
+    Walk-Flat $target 0
+    $payload = [pscustomobject]@{
+        window = $target.Current.Name
+        mode = $mode
+        count = $nodes.Count
+        visited = $script:visited
+        truncated = ($script:visited -ge $maxNodes)
+        nodes = $nodes
+    }
+}
+$payload | ConvertTo-Json -Depth 20 -Compress
+        `.trim();
+        return await runPsJsonFile(script, { timeoutMs: 25_000 });
+    },
+};
+
+module.exports = { uiaFind, uiaInvoke, uiaGetText, uiaSnapshot };

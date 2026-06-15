@@ -33,6 +33,7 @@ let calibrationWindow = null;
 let eyeOverlayWindow = null;       // transparent click-through gaze dot
 let permissionWindow = null;       // Windows automation permission center
 let eyeOverlayAutoTrain = null;    // {timer, lastSampleAt, lastCursor, lastCursorAt, lastGaze, lastGazeAt}
+let recordingsWindow = null;       // demonstrations & skills browser
 
 // ─── Resource Paths ─────────────────────────────────────────────────────────────
 
@@ -190,6 +191,64 @@ async function startExpressServer() {
     console.log(`[Main] Server started on port ${port}`);
     trayManager?.setServerInfo(port, httpsPort);
     trayManager?.notify('CSimple Addon', `Server running on port ${port}`);
+
+    // Configure the demonstration recorder with its on-disk storage location.
+    // Done here because recordings are user-data and we need the Electron app
+    // ready to resolve userData paths.
+    try {
+      const recorder = require('./server/automation/recorder');
+      recorder.configure({
+        recordingsDir: path.join(CONFIG_DIR, 'recordings'),
+      });
+      console.log('[Main] Recorder configured at', path.join(CONFIG_DIR, 'recordings'));
+    } catch (e) {
+      console.warn('[Main] Failed to configure recorder:', e.message);
+    }
+
+    // Configure the trigger engine. dispatch() is called when a cron/file/
+    // hotkey trigger fires — it asks the agent loop to start on the bound
+    // goal. Hotkey registration is delegated back to Electron's globalShortcut
+    // API via the onHotkeyChange callback.
+    try {
+      const triggers = require('./server/automation/triggers');
+      const triggersFile = path.join(CONFIG_DIR, 'triggers.json');
+      triggers.configure({
+        configPath: triggersFile,
+        dispatch: async (trigger) => {
+          try {
+            const port = server?.serverPort || 3001;
+            await fetch(`http://127.0.0.1:${port}/api/agent/start`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ goalSlug: trigger.goalSlug, _firedBy: trigger.id }),
+            });
+            trayManager?.notify('Trigger fired', `${trigger.kind} → ${trigger.goalSlug}`);
+          } catch (e) {
+            console.warn('[Main] trigger dispatch failed:', e.message);
+          }
+        },
+        onHotkeyChange: ({ action, trigger }) => {
+          try {
+            if (action === 'register') {
+              globalShortcut.register(trigger.accelerator, () => {
+                try { fetch(`http://127.0.0.1:${server?.serverPort || 3001}/api/agent/start`, {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ goalSlug: trigger.goalSlug, _firedBy: trigger.id }),
+                }); } catch {}
+              });
+            } else {
+              globalShortcut.unregister(trigger.accelerator);
+            }
+          } catch (e) {
+            console.warn(`[Main] hotkey ${action} failed for ${trigger.accelerator}:`, e.message);
+          }
+        },
+      });
+      triggers.loadFromDisk();
+      triggers.startAll();
+      console.log('[Main] Triggers loaded from', triggersFile);
+    } catch (e) {
+      console.warn('[Main] Failed to configure triggers:', e.message);
+    }
 
     // Start the built-in action bridge so PC automation works without a separate app
     if (!actionBridge) {
@@ -1042,6 +1101,51 @@ app.on('ready', async () => {
         trayManager?.notify('Kill Switch', e.message);
       }
     },
+    onStartRecording: async () => {
+      try {
+        // Use a simple default name; the user can rename when compiling.
+        const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        const name = `recording-${ts}`;
+        const recorder = require('./server/automation/recorder');
+        const info = await recorder.start({ name });
+        trayManager?.setRecorderStatus({ active: true, name });
+        trayManager?.notify('Recording started', `Capturing input until you stop.\nSession: ${info.sessionId}`);
+      } catch (e) {
+        trayManager?.notify('Recorder', `Start failed: ${e.message}`);
+      }
+    },
+    onStopRecording: async () => {
+      try {
+        const recorder = require('./server/automation/recorder');
+        const result = await recorder.stop();
+        trayManager?.setRecorderStatus({ active: false, name: null });
+        trayManager?.notify(
+          'Recording stopped',
+          `${result.eventCount} events in ${(result.durationMs / 1000).toFixed(1)}s\nSaved to ${path.basename(result.path)}`
+        );
+      } catch (e) {
+        trayManager?.notify('Recorder', `Stop failed: ${e.message}`);
+      }
+    },
+    onOpenRecordedSkills: () => {
+      try {
+        if (recordingsWindow && !recordingsWindow.isDestroyed()) {
+          recordingsWindow.focus();
+          return;
+        }
+        recordingsWindow = new BrowserWindow({
+          width: 980, height: 720, title: 'Recorded Demonstrations & Skills',
+          backgroundColor: '#0d1117',
+          webPreferences: { contextIsolation: true, nodeIntegration: false },
+        });
+        const port = server?.serverPort || 3001;
+        const url = `file://${path.join(__dirname, 'renderer', 'recordings.html').replace(/\\/g, '/')}?port=${port}`;
+        recordingsWindow.loadURL(url);
+        recordingsWindow.on('closed', () => { recordingsWindow = null; });
+      } catch (e) {
+        trayManager?.notify('Recorded Skills', e.message);
+      }
+    },
   });
 
   // Poll agent status to keep tray in sync.
@@ -1135,6 +1239,29 @@ app.on('before-quit', async (e) => {
     server.stopGeneration();
     await server.stopServer();
   }
+
+  // Close any active Playwright browser session.
+  try {
+    const browser = require('./server/automation/tools/browser');
+    await browser._closeSession();
+  } catch (e) {
+    // Module may not have been loaded if browser tools were never used. Ignore.
+  }
+
+  // Stop any active demonstration recording.
+  try {
+    const recorder = require('./server/automation/recorder');
+    if (recorder.status().active) {
+      await recorder.stop();
+      console.log('[Main] Stopped active recording before exit');
+    }
+  } catch {}
+
+  // Stop trigger watchers (cron polling, file watchers, hotkey unregistration).
+  try {
+    const triggers = require('./server/automation/triggers');
+    triggers.stopAll();
+  } catch {}
 
   // Destroy tray so the process can fully exit (no lingering tray icon)
   trayManager?.destroy();

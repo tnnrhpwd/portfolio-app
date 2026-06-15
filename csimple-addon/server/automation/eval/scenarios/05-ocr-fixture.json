@@ -1,0 +1,32 @@
+{
+  "name": "screen_ocr returns text from a generated bitmap",
+  "description": "Renders a PNG with known text using System.Drawing, OCRs it via Windows.Media.Ocr, and asserts the recognized text contains the known string. Skips on non-Windows or when no OCR language pack is installed.",
+  "require": { "platform": "win32" },
+  "permissions": {
+    "categories": { "safe-read": "allow", "shell": "allow" }
+  },
+  "steps": [
+    {
+      "tool": "shell_run",
+      "args": {
+        "command": "Add-Type -AssemblyName System.Drawing; $bmp = New-Object Drawing.Bitmap(400,80); $g = [Drawing.Graphics]::FromImage($bmp); $g.Clear([Drawing.Color]::White); $font = New-Object Drawing.Font('Arial', 28, [Drawing.FontStyle]::Bold); $brush = [Drawing.Brushes]::Black; $g.DrawString('Hello OCR World', $font, $brush, 10, 10); $bmp.Save([IO.Path]::Combine($env:TEMP, 'csimple-ocr-fixture.png')); $g.Dispose(); $bmp.Dispose(); Write-Output 'wrote'",
+        "cwd": "${TEMP}"
+      },
+      "expect": {
+        "ok": true,
+        "resultPath": "stdout",
+        "resultContains": "wrote"
+      }
+    },
+    {
+      "tool": "screen_ocr",
+      "args": { "path": "${TEMP}\\csimple-ocr-fixture.png", "includeWords": false },
+      "expect": {
+        "ok": true,
+        "resultPath": "text",
+        "resultContains": "Hello OCR World",
+        "durationMsLte": 30000
+      }
+    }
+  ]
+}

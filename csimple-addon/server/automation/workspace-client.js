@@ -61,6 +61,27 @@ const getContext  = ({ activeAgent, message } = {}) => {
     if (message)     q.set('message', message);
     return req('GET', `/context?${q.toString()}`);
 };
+const getTelemetrySummary = ({ days, tool } = {}) => {
+    const q = new URLSearchParams();
+    if (days) q.set('days', String(days));
+    if (tool) q.set('tool', tool);
+    const qs = q.toString();
+    return req('GET', `/telemetry/summary${qs ? '?' + qs : ''}`);
+};
+
+// ─── Skill kind helpers ────────────────────────────────────────────────────
+// Skills are stored as workspace items with kind='skill'. The compiled JSON
+// is encoded as the item's `content`; we also keep `name` and `tags`.
+const getSkill = (slug) => req('GET', `/skill/${encodeURIComponent(slug)}`);
+const upsertSkill = (slug, body) => req('PUT', `/skill/${encodeURIComponent(slug)}`, body);
+const deleteSkill = (slug) => req('DELETE', `/skill/${encodeURIComponent(slug)}`);
+const listSkills = () => {
+    // The generic list endpoint is mounted at the base `/csimple/workspace`
+    // (no kind segment) and filters via query string. Our `BASE` already
+    // includes `/csimple/workspace`, so we pass an empty path to req().
+    const q = new URLSearchParams({ kind: 'skill' });
+    return req('GET', `?${q.toString()}`);
+};
 
 module.exports = {
     setTokenGetter,
@@ -71,4 +92,9 @@ module.exports = {
     appendAction,
     appendLog,
     getContext,
+    getTelemetrySummary,
+    getSkill,
+    upsertSkill,
+    deleteSkill,
+    listSkills,
 };

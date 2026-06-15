@@ -1,0 +1,28 @@
+{
+  "name": "perception_recent caches and reuses",
+  "description": "Two sequential calls: the first should miss the cache (fromCache=false), the second within the maxAgeMs window should hit it (fromCache=true).",
+  "require": { "platform": "win32" },
+  "permissions": {
+    "categories": { "safe-read": "allow" }
+  },
+  "steps": [
+    {
+      "tool": "perception_recent",
+      "args": { "maxAgeMs": 0, "mode": "interactive", "maxNodes": 60 },
+      "expect": {
+        "ok": true,
+        "resultPath": "fromCache",
+        "resultEquals": false
+      }
+    },
+    {
+      "tool": "perception_recent",
+      "args": { "maxAgeMs": 60000, "mode": "interactive", "maxNodes": 60 },
+      "expect": {
+        "ok": true,
+        "resultPath": "fromCache",
+        "resultEquals": true
+      }
+    }
+  ]
+}

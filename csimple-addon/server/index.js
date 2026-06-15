@@ -1770,6 +1770,12 @@ If not visible: {"found":false}`;
 const ENCRYPTED_SECRET_PREFIX = 'enc:v1:';
 const SENSITIVE_WEBAPP_KEYS = ['githubToken'];
 
+// Local secret-at-rest layer (Windows DPAPI via Electron safeStorage).
+// We encrypt sensitive webapp keys before writing settings.json and decrypt
+// them when reading. Keys written by older addon versions in plaintext are
+// re-encrypted lazily on next write.
+const localSecrets = require('./secret-storage');
+
 function scrubEncryptedSecrets(settings) {
   if (!settings || typeof settings !== 'object') return settings;
   let mutated = false;
@@ -1784,12 +1790,49 @@ function scrubEncryptedSecrets(settings) {
   return mutated ? { ...settings } : settings;
 }
 
+/**
+ * Decrypt any local DPAPI-wrapped sensitive keys after reading from disk.
+ * Returns a new object only when something was mutated.
+ */
+function decryptLocalSecrets(settings) {
+  if (!settings || typeof settings !== 'object') return settings;
+  let mutated = false;
+  const out = { ...settings };
+  for (const key of SENSITIVE_WEBAPP_KEYS) {
+    const v = out[key];
+    if (localSecrets.isEncrypted(v)) {
+      const pt = localSecrets.decryptSecret(v);
+      out[key] = pt || '';
+      mutated = true;
+    }
+  }
+  return mutated ? out : settings;
+}
+
+/**
+ * Encrypt any sensitive keys before writing to disk. Idempotent for already
+ * encrypted values. Plaintext fallback (safeStorage unavailable) leaves the
+ * value alone but emits a warning from secret-storage.js.
+ */
+function encryptLocalSecrets(settings) {
+  if (!settings || typeof settings !== 'object') return settings;
+  const out = { ...settings };
+  for (const key of SENSITIVE_WEBAPP_KEYS) {
+    const v = out[key];
+    if (typeof v === 'string' && v && !localSecrets.isEncrypted(v)) {
+      out[key] = localSecrets.encryptSecret(v);
+    }
+  }
+  return out;
+}
+
 function readWebappSettings() {
   try {
     if (fs.existsSync(SETTINGS_PATH)) {
       const data = JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf-8'));
       const webapp = data.webapp || getDefaultWebappSettings();
-      return scrubEncryptedSecrets(webapp);
+      // Order: scrub stale backend-ciphertext first, then decrypt local DPAPI blobs.
+      return decryptLocalSecrets(scrubEncryptedSecrets(webapp));
     }
   } catch (err) {
     console.error('Error reading settings:', err.message);
@@ -1803,7 +1846,8 @@ function writeWebappSettings(webappSettings) {
     if (fs.existsSync(SETTINGS_PATH)) {
       data = JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf-8'));
     }
-    data.webapp = scrubEncryptedSecrets(webappSettings);
+    // Strip backend ciphertext, then encrypt our own sensitive keys.
+    data.webapp = encryptLocalSecrets(scrubEncryptedSecrets(webappSettings));
     data.lastUpdated = new Date().toISOString().replace('T', ' ').substring(0, 19);
     fs.writeFileSync(SETTINGS_PATH, JSON.stringify(data, null, 2), 'utf-8');
     return true;
@@ -2201,11 +2245,25 @@ let activeHttpsPort = DEFAULT_PORT + 443;
  * Start the Express server. Tries the default port and increments if busy.
  * @param {Object} options
  * @param {number} options.port - Starting port (default: 3001)
- * @param {string} options.host - Bind address (default: '0.0.0.0')
- * @returns {Promise<{ port: number, httpsPort: number|null }>}
+ * @param {string} options.host - Bind address. Defaults to whatever the automation
+ *   permission store says (loopback unless the user opted into LAN binding).
+ * @returns {Promise<{ port: number, httpsPort: number|null, host: string }>}
  */
 function startServer(options = {}) {
-  const { port = DEFAULT_PORT, host = '0.0.0.0' } = options;
+  // Default host comes from the automation permission store. Loopback is the safe
+  // default; users who want phones-on-the-same-WiFi to reach the addon must flip
+  // hostBinding to 'lan' in the Permission Center (or set CSIMPLE_BIND_HOST).
+  let defaultHost = '127.0.0.1';
+  try {
+    const { resolveBindHost } = require('./automation/permissions');
+    defaultHost = resolveBindHost();
+  } catch (e) {
+    console.warn('[Server] Could not resolve bind host from permissions, defaulting to loopback:', e.message);
+  }
+  const { port = DEFAULT_PORT, host = defaultHost } = options;
+  if (host !== '127.0.0.1' && host !== 'localhost') {
+    console.warn(`[Server] ⚠️  LAN binding enabled (host=${host}). Anyone on your local network can reach the addon. Disable in Permission Center to revert to loopback.`);
+  }
 
   return new Promise((resolve, reject) => {
     let tryPort = port;
@@ -2228,18 +2286,18 @@ function startServer(options = {}) {
             httpsServer = https.createServer(sslCreds, app);
             httpsServer.listen(activeHttpsPort, host, () => {
               console.log(`[Server] HTTPS listening on ${host}:${activeHttpsPort}`);
-              resolve({ port: activePort, httpsPort: activeHttpsPort });
+              resolve({ port: activePort, httpsPort: activeHttpsPort, host });
             });
             httpsServer.on('error', () => {
               console.warn(`[Server] HTTPS port ${activeHttpsPort} unavailable`);
-              resolve({ port: activePort, httpsPort: null });
+              resolve({ port: activePort, httpsPort: null, host });
             });
           } catch (e) {
             console.warn('[Server] HTTPS failed:', e.message);
-            resolve({ port: activePort, httpsPort: null });
+            resolve({ port: activePort, httpsPort: null, host });
           }
         } else {
-          resolve({ port: activePort, httpsPort: null });
+          resolve({ port: activePort, httpsPort: null, host });
         }
       });
 

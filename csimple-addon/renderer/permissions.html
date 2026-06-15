@@ -99,6 +99,18 @@
   </div>
   <div class="row">
     <div>
+      <div class="name">Network Binding</div>
+      <div class="desc">
+        Loopback = only this PC can reach the addon (safest). LAN = phones/tablets on the same WiFi can connect via the IP shown in /api/network. Requires addon restart.
+      </div>
+    </div>
+    <select id="sel-host-binding">
+      <option value="loopback">Loopback (127.0.0.1)</option>
+      <option value="lan">LAN (0.0.0.0)</option>
+    </select>
+  </div>
+  <div class="row">
+    <div>
       <div class="name">Emergency Kill Switch</div>
       <div class="desc">Immediately halts the agent and refuses every tool call until disabled.</div>
     </div>
@@ -195,6 +207,7 @@
   function render(cfg, tools, pending) {
     document.getElementById('kill-banner').style.display = cfg.globalKillSwitch ? 'block' : 'none';
     document.getElementById('cb-dry').checked = !!cfg.dryRunMode;
+    document.getElementById('sel-host-binding').value = cfg.hostBinding === 'lan' ? 'lan' : 'loopback';
 
     // Pending approvals
     const pp = document.getElementById('pending-panel');
@@ -298,6 +311,16 @@
 
   document.getElementById('cb-dry').onchange = async (e) => {
     await api('PUT', '/permissions', { dryRunMode: e.target.checked });
+    refresh();
+  };
+  document.getElementById('sel-host-binding').onchange = async (e) => {
+    const v = e.target.value;
+    if (v === 'lan' && !confirm('Allow ANY device on your local network to control this PC through the addon? Only enable on trusted networks.')) {
+      e.target.value = 'loopback';
+      return;
+    }
+    await api('PUT', '/permissions', { hostBinding: v });
+    alert('Saved. Restart the addon (tray → Quit, then relaunch) for the binding change to take effect.');
     refresh();
   };
   document.getElementById('btn-kill').onclick = async () => {

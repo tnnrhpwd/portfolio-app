@@ -1,0 +1,58 @@
+{
+    "name": "skill runner — param substitution + continueOnError",
+    "description": "Verifies ${param.x} substitution into nested args, AND that continueOnError keeps executing past a failing step.",
+    "require": { "platform": "win32" },
+    "permissions": {
+        "dryRunMode": false,
+        "categories": { "safe-read": "allow" }
+    },
+    "steps": [
+        {
+            "tool": "skill_run",
+            "args": {
+                "slug": "eval-skill-params",
+                "stepDelayMs": 5,
+                "params": { "target": "${USERPROFILE}" },
+                "continueOnError": true,
+                "cache": {
+                    "name": "eval-skill-params",
+                    "slug": "eval-skill-params",
+                    "steps": [
+                        { "tool": "fs_list", "args": { "path": "${param.target}" } },
+                        { "tool": "fs_list", "args": { "path": "C:\\Definitely\\Does\\Not\\Exist\\Path\\xyz" } },
+                        { "tool": "fs_list", "args": { "path": "${param.target}" } }
+                    ],
+                    "metadata": { "compilerVersion": 1 }
+                }
+            },
+            "expect": {
+                "ok": true,
+                "resultPath": "stepsRun",
+                "resultEquals": 3
+            }
+        },
+        {
+            "tool": "skill_run",
+            "args": {
+                "slug": "eval-skill-params",
+                "continueOnError": true,
+                "params": { "target": "${USERPROFILE}" },
+                "cache": {
+                    "name": "eval-skill-params",
+                    "slug": "eval-skill-params",
+                    "steps": [
+                        { "tool": "fs_list", "args": { "path": "${param.target}" } },
+                        { "tool": "fs_list", "args": { "path": "C:\\Definitely\\Does\\Not\\Exist\\Path\\xyz" } },
+                        { "tool": "fs_list", "args": { "path": "${param.target}" } }
+                    ],
+                    "metadata": { "compilerVersion": 1 }
+                }
+            },
+            "expect": {
+                "ok": true,
+                "resultPath": "failed",
+                "resultEquals": true
+            }
+        }
+    ]
+}

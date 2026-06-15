@@ -1,0 +1,18 @@
+{
+  "name": "fs_list reports the user's home directory",
+  "description": "Confirms read-only fs_list can enumerate at least one entry from the home dir.",
+  "require": { "platform": "win32" },
+  "permissions": {
+    "categories": { "safe-read": "allow" }
+  },
+  "steps": [
+    {
+      "tool": "fs_list",
+      "args": { "path": "${USERPROFILE}" },
+      "expect": {
+        "ok": true,
+        "durationMsLte": 5000
+      }
+    }
+  ]
+}

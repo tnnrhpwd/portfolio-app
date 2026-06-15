@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Recorded Demonstrations & Skills</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0d1117;
+    --panel: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--text); padding: 24px; line-height: 1.45;
+  }
+  h1 { margin: 0 0 4px; font-size: 22px; }
+  .subtitle { color: var(--muted); margin-bottom: 24px; font-size: 13px; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px 20px; margin-bottom: 18px;
+  }
+  .panel h2 { margin: 0 0 12px; font-size: 15px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+  .row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #21262d; gap: 12px; }
+  .row:last-child { border-bottom: none; }
+  .row .name { font-weight: 600; font-size: 14px; }
+  .row .desc { color: var(--muted); font-size: 12px; margin-top: 2px; word-break: break-all; }
+  .row .meta { color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .actions { display: flex; gap: 8px; flex-shrink: 0; }
+  input[type="text"] {
+    background: #0d1117; color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 10px; font-size: 13px; font-family: inherit;
+    width: 100%;
+  }
+  button {
+    background: #21262d; color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 14px; font-size: 13px; cursor: pointer;
+    transition: background .15s;
+  }
+  button:hover { background: #30363d; }
+  button.primary { background: #238636; border-color: #238636; }
+  button.primary:hover { background: #2ea043; }
+  button.danger { background: #da3633; border-color: #da3633; }
+  button.danger:hover { background: #f85149; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .empty { color: var(--muted); padding: 20px; text-align: center; }
+  .recording-status { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+  .dot.active { background: var(--red); animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none;
+    align-items: center; justify-content: center; z-index: 100;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    width: min(720px, 90vw); max-height: 80vh; overflow: auto; padding: 20px;
+  }
+  .modal h3 { margin: 0 0 12px; font-size: 16px; }
+  pre.steps {
+    background: #0d1117; border: 1px solid var(--border); border-radius: 6px;
+    padding: 12px; font-family: "Consolas", monospace; font-size: 12px;
+    max-height: 360px; overflow: auto;
+  }
+  small.muted { color: var(--muted); font-size: 11px; }
+</style>
+</head>
+<body>
+
+<h1>Recorded Demonstrations &amp; Skills</h1>
+<p class="subtitle">
+  Record a sequence of clicks &amp; window focus changes, then compile and save it
+  as a reusable skill the agent can replay. Recordings are stored locally;
+  saved skills sync to your workspace.
+</p>
+
+<div class="panel">
+  <h2>Recorder</h2>
+  <div class="row">
+    <div>
+      <div class="recording-status">
+        <span id="rec-dot" class="dot"></span>
+        <span id="rec-status-label">Idle</span>
+      </div>
+      <div class="meta" id="rec-meta">No active recording.</div>
+    </div>
+    <div class="actions">
+      <button id="rec-start" class="primary">Start recording</button>
+      <button id="rec-marker" disabled>Add marker</button>
+      <button id="rec-stop" class="danger" disabled>Stop</button>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Saved recordings</h2>
+  <div id="recordings-list"></div>
+</div>
+
+<div class="panel">
+  <h2>Compiled skills (local cache)</h2>
+  <div id="skills-list"></div>
+</div>
+
+<div id="compile-modal" class="modal-backdrop" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3>Review compiled skill</h3>
+    <p class="subtitle" id="compile-source"></p>
+    <div class="row">
+      <div style="flex:1">
+        <label class="meta">Skill name (used as slug)</label>
+        <input type="text" id="compile-name" placeholder="my-skill-name" />
+      </div>
+    </div>
+    <div class="row">
+      <div style="flex:1">
+        <label class="meta">Description (optional)</label>
+        <input type="text" id="compile-desc" placeholder="What does this skill do?" />
+      </div>
+    </div>
+    <pre class="steps" id="compile-preview">(no skill compiled yet)</pre>
+    <div class="actions" style="justify-content:flex-end; margin-top:12px;">
+      <button id="compile-cancel">Cancel</button>
+      <button id="compile-save" class="primary">Save skill</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const PORT = new URLSearchParams(location.search).get('port') || '3001';
+const BASE = `http://127.0.0.1:${PORT}`;
+let pollTimer = null;
+let pendingCompiled = null;
+
+async function api(path, opts = {}) {
+  const r = await fetch(`${BASE}${path}`, {
+    headers: { 'Content-Type': 'application/json' },
+    ...opts,
+  });
+  const text = await r.text();
+  let json = null;
+  try { json = text ? JSON.parse(text) : null; } catch {}
+  if (!r.ok) {
+    const err = (json && (json.error || json.message)) || text || r.statusText;
+    throw new Error(err);
+  }
+  return json;
+}
+
+function el(tag, props = {}, ...children) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === 'class') e.className = v;
+    else if (k === 'onclick') e.addEventListener('click', v);
+    else if (k === 'html') e.innerHTML = v;
+    else e.setAttribute(k, v);
+  }
+  for (const c of children) {
+    if (c == null) continue;
+    e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+  }
+  return e;
+}
+
+function fmtDuration(ms) {
+  if (!ms) return '—';
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60), r = s % 60;
+  return `${m}m ${r}s`;
+}
+
+async function refreshRecorderStatus() {
+  try {
+    const s = await api('/api/recorder/status');
+    const active = !!s.active;
+    document.getElementById('rec-dot').classList.toggle('active', active);
+    document.getElementById('rec-status-label').textContent = active ? 'Recording…' : 'Idle';
+    document.getElementById('rec-meta').textContent = active
+      ? `Session ${s.sessionId} — ${s.eventCount} events captured`
+      : 'No active recording.';
+    document.getElementById('rec-start').disabled = active;
+    document.getElementById('rec-stop').disabled = !active;
+    document.getElementById('rec-marker').disabled = !active;
+  } catch (e) {
+    document.getElementById('rec-meta').textContent = `Status check failed: ${e.message}`;
+  }
+}
+
+async function refreshRecordingsList() {
+  const container = document.getElementById('recordings-list');
+  container.innerHTML = '';
+  try {
+    const { recordings } = await api('/api/recorder/list');
+    if (!recordings.length) {
+      container.appendChild(el('div', { class: 'empty' }, 'No recordings yet. Hit "Start recording" above.'));
+      return;
+    }
+    for (const r of recordings) {
+      const ageMs = Date.now() - r.modifiedAt;
+      const row = el('div', { class: 'row' },
+        el('div', {},
+          el('div', { class: 'name' }, r.sessionId),
+          el('div', { class: 'desc' }, `${(r.bytes / 1024).toFixed(1)} KB · ${new Date(r.modifiedAt).toLocaleString()}`),
+        ),
+        el('div', { class: 'actions' },
+          el('button', { onclick: () => openCompileModal(r.sessionId) }, 'Compile…'),
+          el('button', { class: 'danger', onclick: () => deleteRecording(r.sessionId) }, 'Delete'),
+        ),
+      );
+      container.appendChild(row);
+    }
+  } catch (e) {
+    container.appendChild(el('div', { class: 'empty' }, `Failed: ${e.message}`));
+  }
+}
+
+async function deleteRecording(id) {
+  if (!confirm(`Delete recording "${id}"? This cannot be undone.`)) return;
+  try {
+    await api(`/api/recorder/${id}`, { method: 'DELETE' });
+    await refreshRecordingsList();
+  } catch (e) {
+    alert(`Delete failed: ${e.message}`);
+  }
+}
+
+async function openCompileModal(sessionId) {
+  try {
+    const { skill } = await api('/api/skill/compile', {
+      method: 'POST', body: JSON.stringify({ sessionId, name: sessionId }),
+    });
+    pendingCompiled = skill;
+    document.getElementById('compile-source').textContent = `From ${sessionId} · ${skill.steps.length} steps`;
+    document.getElementById('compile-name').value = skill.name || sessionId;
+    document.getElementById('compile-desc').value = skill.description || '';
+    document.getElementById('compile-preview').textContent = JSON.stringify(skill.steps, null, 2);
+    document.getElementById('compile-modal').classList.add('open');
+  } catch (e) {
+    alert(`Compile failed: ${e.message}`);
+  }
+}
+
+function closeCompileModal() {
+  document.getElementById('compile-modal').classList.remove('open');
+  pendingCompiled = null;
+}
+
+async function saveCompiled() {
+  if (!pendingCompiled) return;
+  const name = document.getElementById('compile-name').value.trim() || pendingCompiled.name;
+  const description = document.getElementById('compile-desc').value.trim();
+  // Re-slug from the (possibly updated) name.
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'skill';
+  const skill = { ...pendingCompiled, name, description, slug };
+  try {
+    const res = await api('/api/skill/save', { method: 'POST', body: JSON.stringify({ skill }) });
+    const note = res.persisted && !res.persisted.error
+      ? `Saved as "${slug}" — synced to workspace.`
+      : `Saved as "${slug}" — local only (workspace sync failed: ${res.persisted?.error || 'unknown'}).`;
+    alert(note);
+    closeCompileModal();
+    await refreshSkillsList();
+  } catch (e) {
+    alert(`Save failed: ${e.message}`);
+  }
+}
+
+// We can't easily list cached skills from the renderer (no list endpoint
+// for the local cache). Instead, the user sees them after compiling, and
+// we offer a "run by slug" affordance.
+async function refreshSkillsList() {
+  const container = document.getElementById('skills-list');
+  container.innerHTML = '';
+  const row = el('div', { class: 'row' },
+    el('div', {},
+      el('div', { class: 'name' }, 'Run a saved skill'),
+      el('div', { class: 'desc' }, 'Enter the skill slug (lowercase, dashes). The agent will look it up locally first, then in your workspace.'),
+    ),
+    el('div', { class: 'actions' },
+      Object.assign(document.createElement('input'), { id: 'skill-run-slug', type: 'text', placeholder: 'my-skill-slug', style: 'width:240px;' }),
+      el('button', { class: 'primary', onclick: runSavedSkill }, 'Run'),
+    ),
+  );
+  container.appendChild(row);
+}
+
+async function runSavedSkill() {
+  const slug = document.getElementById('skill-run-slug').value.trim();
+  if (!slug) return alert('Enter a skill slug first.');
+  if (!confirm(`Run skill "${slug}"? This will replay UI clicks on your machine.`)) return;
+  try {
+    const out = await api('/api/automation/execute', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'skill_run', args: { slug } }),
+    });
+    alert(`Skill complete. ${out.result?.stepsRun || 0} steps run, failed=${out.result?.failed}`);
+  } catch (e) {
+    alert(`Run failed: ${e.message}`);
+  }
+}
+
+document.getElementById('rec-start').addEventListener('click', async () => {
+  const name = prompt('Name this recording (used as session prefix):', 'recording-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19));
+  if (!name) return;
+  try {
+    await api('/api/recorder/start', { method: 'POST', body: JSON.stringify({ name }) });
+    await refreshRecorderStatus();
+  } catch (e) { alert(`Start failed: ${e.message}`); }
+});
+document.getElementById('rec-stop').addEventListener('click', async () => {
+  try {
+    await api('/api/recorder/stop', { method: 'POST', body: '{}' });
+    await refreshRecorderStatus();
+    await refreshRecordingsList();
+  } catch (e) { alert(`Stop failed: ${e.message}`); }
+});
+document.getElementById('rec-marker').addEventListener('click', async () => {
+  const label = prompt('Marker label:', 'checkpoint');
+  if (!label) return;
+  try { await api('/api/recorder/marker', { method: 'POST', body: JSON.stringify({ label }) }); }
+  catch (e) { alert(`Marker failed: ${e.message}`); }
+});
+document.getElementById('compile-cancel').addEventListener('click', closeCompileModal);
+document.getElementById('compile-save').addEventListener('click', saveCompiled);
+
+// Initial load + polling for live recorder status.
+refreshRecorderStatus();
+refreshRecordingsList();
+refreshSkillsList();
+pollTimer = setInterval(refreshRecorderStatus, 1500);
+window.addEventListener('beforeunload', () => clearInterval(pollTimer));
+</script>
+
+</body>
+</html>

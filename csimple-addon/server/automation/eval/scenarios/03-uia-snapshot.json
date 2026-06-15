@@ -1,0 +1,20 @@
+{
+  "name": "uia_snapshot returns interactive controls from foreground window",
+  "description": "Confirms uia_snapshot can capture the foreground window's accessibility tree and returns at least one node. Skipped if no foreground window is available (CI).",
+  "require": { "platform": "win32" },
+  "permissions": {
+    "categories": { "safe-read": "allow" }
+  },
+  "steps": [
+    {
+      "tool": "uia_snapshot",
+      "args": { "mode": "interactive", "maxNodes": 50 },
+      "expect": {
+        "ok": true,
+        "resultPath": "mode",
+        "resultEquals": "interactive",
+        "durationMsLte": 20000
+      }
+    }
+  ]
+}

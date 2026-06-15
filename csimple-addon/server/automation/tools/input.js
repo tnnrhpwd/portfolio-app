@@ -270,4 +270,68 @@ for ($i = 0; $i -lt ${repeat}; $i++) {
     },
 };
 
-module.exports = { inputHold, inputTap };
+// ─── click_at ─────────────────────────────────────────────────────────────────
+// Move cursor to a screen-absolute (x, y) and issue a single click. Used by
+// the skill-runner replay path. Wraps SetCursorPos + mouse_event so the click
+// lands on whatever pixel the skill recorded.
+const clickAt = {
+    name: 'click_at',
+    category: 'system',
+    description:
+        'Move the mouse cursor to absolute screen coordinates (x, y) and click. ' +
+        'Used to replay recorded skills. Prefer uia_invoke for UI elements you can locate ' +
+        'by name — click_at is brittle to layout changes.',
+    parameters: {
+        type: 'object',
+        required: ['x', 'y'],
+        properties: {
+            x: { type: 'integer' },
+            y: { type: 'integer' },
+            button: { type: 'string', enum: ['left', 'right', 'middle'], default: 'left' },
+            doubleClick: { type: 'boolean', default: false },
+            focusWindowTitle: { type: 'string' },
+            settleMs: { type: 'integer', description: 'Pause after focusing window. Default 80.' },
+        },
+    },
+    async run(args, ctx) {
+        if (typeof args.x !== 'number' || typeof args.y !== 'number') {
+            throw new Error('x and y are required integers');
+        }
+        const btn = resolveButton(args.button || 'left');
+        const settle = Math.max(0, args.settleMs ?? 80);
+        const needle = (args.focusWindowTitle || '').replace(/"/g, '');
+        const dbl = !!args.doubleClick;
+        const x = Math.round(args.x);
+        const y = Math.round(args.y);
+
+        const script = `${NATIVE_PRELUDE}
+Add-Type @"
+using System.Runtime.InteropServices;
+public static class Cursor {
+    [DllImport("user32.dll")] public static extern bool SetCursorPos(int X, int Y);
+}
+"@
+$focused = $null
+if ("${needle}") { $focused = Focus-WindowByTitle "${needle}"; Start-Sleep -Milliseconds ${settle} }
+[Cursor]::SetCursorPos(${x}, ${y}) | Out-Null
+Start-Sleep -Milliseconds 30
+[Native]::mouse_event(${btn.down}, 0, 0, 0, [UIntPtr]::Zero)
+Start-Sleep -Milliseconds 25
+[Native]::mouse_event(${btn.up}, 0, 0, 0, [UIntPtr]::Zero)
+if (${dbl ? '$true' : '$false'}) {
+    Start-Sleep -Milliseconds 80
+    [Native]::mouse_event(${btn.down}, 0, 0, 0, [UIntPtr]::Zero)
+    Start-Sleep -Milliseconds 25
+    [Native]::mouse_event(${btn.up}, 0, 0, 0, [UIntPtr]::Zero)
+}
+@{ ok = $true; x = ${x}; y = ${y}; button = "${args.button || 'left'}"; doubleClick = ${dbl ? '$true' : '$false'}; focused = $focused } | ConvertTo-Json -Compress
+`;
+        const out = await runPsScript(script, { timeoutMs: 5000 });
+        let parsed = null;
+        try { parsed = JSON.parse(out); } catch { parsed = { raw: out }; }
+        try { ctx?.addAction?.({ tool: 'click_at', args, result: parsed }); } catch {}
+        return parsed;
+    },
+};
+
+module.exports = { inputHold, inputTap, clickAt };

@@ -75,11 +75,48 @@ const uploadLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// CSimple workspace read endpoints (GET list/item/context/telemetry).
+// Per-user; generous since the web UI may poll the context preview.
+const workspaceReadLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute window
+  max: 120, // 2 req/sec average
+  keyGenerator: userKeyGenerator,
+  message: { error: 'Too many workspace read requests. Slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// CSimple workspace write endpoints (PUT/DELETE/POST log+action).
+// Tighter: writes also hit DynamoDB + run server-side audit logging.
+const workspaceWriteLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60, // 1 req/sec average
+  keyGenerator: userKeyGenerator,
+  message: { error: 'Too many workspace writes. Please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Action ring-buffer append — the addon emits one per tool call so this
+// needs to support bursts when the agent is active. Keep it firmly bounded
+// to prevent a runaway loop from spamming DynamoDB.
+const workspaceActionLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 180, // 3 req/sec average; burst-friendly
+  keyGenerator: userKeyGenerator,
+  message: { error: 'Action log append rate exceeded.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 module.exports = {
   apiLimiter,
   authLimiter,
   paymentLimiter,
   llmLimiter,
   ocrLimiter,
-  uploadLimiter
+  uploadLimiter,
+  workspaceReadLimiter,
+  workspaceWriteLimiter,
+  workspaceActionLimiter,
 };

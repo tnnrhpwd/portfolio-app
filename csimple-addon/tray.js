@@ -18,6 +18,8 @@ class TrayManager {
     this.eyeTrackingState = 'idle';   // idle | running | calibrating | error
     this.eyeOverlayActive = false;    // overlay (test mode) on/off
     this.agentState = { running: false, currentGoal: null, step: 0, dryRun: false, killSwitch: false };
+    this.recorderActive = false;
+    this.recorderName = null;
   }
 
   /**
@@ -122,6 +124,16 @@ class TrayManager {
    */
   setAgentStatus(s = {}) {
     this.agentState = { ...this.agentState, ...s };
+    this._updateMenu();
+  }
+
+  /**
+   * Update the demonstration-recorder status shown in the tray menu.
+   * @param {{active:boolean, name?:string|null}} s
+   */
+  setRecorderStatus(s = {}) {
+    this.recorderActive = !!s.active;
+    this.recorderName = s.name || null;
     this._updateMenu();
   }
 
@@ -240,6 +252,16 @@ class TrayManager {
       {
         label: 'Open Permission Center',
         click: () => this.callbacks.onOpenPermissionCenter?.(),
+      },
+      {
+        label: this.recorderActive ? `Stop Recording${this.recorderName ? ` "${this.recorderName}"` : ''}` : 'Record Demonstration…',
+        click: () => this.recorderActive
+          ? this.callbacks.onStopRecording?.()
+          : this.callbacks.onStartRecording?.(),
+      },
+      {
+        label: 'Recorded Skills…',
+        click: () => this.callbacks.onOpenRecordedSkills?.(),
       },
       {
         label: 'Dry-Run Mode',

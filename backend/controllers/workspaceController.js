@@ -592,6 +592,107 @@ const appendAction = asyncHandler(async (req, res) => {
     res.status(200).json({ success: true, slug, sizeBytes, version: nextVersion });
 });
 
+// @desc    Aggregate per-tool execution telemetry from the user's `action`
+//          ring-buffer items. Cheap server-side rollup of recent activity
+//          so the web UI can show "what your agent has been doing".
+// @route   GET /api/data/csimple/workspace/telemetry/summary
+// @access  Private
+// @query   days  - look back window in days (default 7, max 30)
+//          tool  - optional filter to a single tool name
+const getTelemetrySummary = asyncHandler(async (req, res) => {
+    if (!req.user) unauthorized(res);
+    const days = Math.min(30, Math.max(1, parseInt(req.query.days, 10) || 7));
+    const toolFilter = typeof req.query.tool === 'string' ? req.query.tool.trim() : '';
+
+    // Build the list of action slugs (YYYYMMDD) for the look-back window.
+    const today = new Date();
+    const slugs = [];
+    for (let i = 0; i < days; i++) {
+        const d = new Date(today.getTime() - i * 86_400_000);
+        slugs.push(d.toISOString().slice(0, 10).replace(/-/g, ''));
+    }
+
+    // Fetch each daily ring buffer in parallel.
+    const items = await Promise.all(slugs.map(async (slug) => {
+        try {
+            const { Item } = await dynamodb.send(new GetCommand({
+                TableName: TABLE_NAME,
+                Key: { id: itemId(req.user.id, 'action', slug), createdAt: CSIMPLE_CREATED_AT },
+            }));
+            return Item;
+        } catch { return null; }
+    }));
+
+    // Aggregate per-tool counts, latency percentiles, and error counts.
+    const byTool = new Map();
+    let totalRecords = 0;
+    let parseErrors = 0;
+    for (const item of items) {
+        if (!item || !item.text || item.deletedAt) continue;
+        const lines = String(item.text).split('\n');
+        for (const ln of lines) {
+            const trimmed = ln.trim();
+            if (!trimmed) continue;
+            let rec;
+            try { rec = JSON.parse(trimmed); } catch { parseErrors++; continue; }
+            if (!rec || typeof rec.tool !== 'string') continue;
+            if (toolFilter && rec.tool !== toolFilter) continue;
+            totalRecords++;
+            let agg = byTool.get(rec.tool);
+            if (!agg) {
+                agg = {
+                    tool: rec.tool, count: 0, ok: 0, fail: 0,
+                    latencies: [], approvedBy: {}, errors: [],
+                };
+                byTool.set(rec.tool, agg);
+            }
+            agg.count++;
+            const ok = rec.exitCode === 0 || rec.exitCode == null;
+            if (ok) agg.ok++; else agg.fail++;
+            if (typeof rec.durationMs === 'number' && rec.durationMs >= 0) {
+                agg.latencies.push(rec.durationMs);
+            }
+            if (rec.approvedBy) {
+                agg.approvedBy[rec.approvedBy] = (agg.approvedBy[rec.approvedBy] || 0) + 1;
+            }
+            if (!ok && rec.result) {
+                // Keep only the top-N most recent error snippets per tool.
+                if (agg.errors.length < 5) agg.errors.push(String(rec.result).slice(0, 200));
+            }
+        }
+    }
+
+    function pct(arr, p) {
+        if (!arr.length) return null;
+        const sorted = arr.slice().sort((a, b) => a - b);
+        const idx = Math.min(sorted.length - 1, Math.floor((p / 100) * sorted.length));
+        return sorted[idx];
+    }
+
+    const tools = Array.from(byTool.values()).map(a => ({
+        tool: a.tool,
+        count: a.count,
+        ok: a.ok,
+        fail: a.fail,
+        successRate: a.count ? +(a.ok / a.count).toFixed(3) : null,
+        latencyMs: {
+            p50: pct(a.latencies, 50),
+            p95: pct(a.latencies, 95),
+            max: a.latencies.length ? Math.max(...a.latencies) : null,
+        },
+        approvedBy: a.approvedBy,
+        recentErrors: a.errors,
+    })).sort((x, y) => y.count - x.count);
+
+    res.status(200).json({
+        windowDays: days,
+        toolFilter: toolFilter || null,
+        totalRecords,
+        parseErrors,
+        tools,
+    });
+});
+
 module.exports = {
     listWorkspace,
     getWorkspaceItem,
@@ -600,6 +701,7 @@ module.exports = {
     appendLog,
     appendAction,
     getNextGoal,
+    getTelemetrySummary,
     getWorkspaceContextPreview,
     getWorkspaceTemplates,
     // Exported for use by llmService when assembling system prompts:

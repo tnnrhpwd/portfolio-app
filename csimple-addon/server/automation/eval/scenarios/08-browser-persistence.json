@@ -1,0 +1,50 @@
+{
+  "name": "browser persists localStorage across close/reopen",
+  "description": "Writes a value to localStorage in one session, closes, reopens with the SAME profile, and verifies the value survived. Proves the persistent context's userDataDir is actually persisting state.",
+  "require": { "platform": "win32" },
+  "permissions": {
+    "categories": { "safe-read": "allow", "sandboxed-write": "allow", "shell": "allow" }
+  },
+  "steps": [
+    {
+      "tool": "browser_open",
+      "args": { "headless": true, "profile": "csimple-eval-persist" },
+      "expect": { "ok": true, "resultPath": "opened", "resultEquals": true }
+    },
+    {
+      "tool": "browser_goto",
+      "args": { "url": "https://example.com/" },
+      "expect": { "ok": true, "resultPath": "status", "resultEquals": 200, "durationMsLte": 30000 }
+    },
+    {
+      "tool": "browser_eval",
+      "args": { "expression": "localStorage.setItem('csimple-eval-key','csimple-eval-value-1234') || 'set'" },
+      "expect": { "ok": true, "resultPath": "value", "resultEquals": "set" }
+    },
+    {
+      "tool": "browser_close",
+      "args": {},
+      "expect": { "ok": true, "resultPath": "closed", "resultEquals": true }
+    },
+    {
+      "tool": "browser_open",
+      "args": { "headless": true, "profile": "csimple-eval-persist" },
+      "expect": { "ok": true, "resultPath": "opened", "resultEquals": true }
+    },
+    {
+      "tool": "browser_goto",
+      "args": { "url": "https://example.com/" },
+      "expect": { "ok": true, "resultPath": "status", "resultEquals": 200, "durationMsLte": 30000 }
+    },
+    {
+      "tool": "browser_eval",
+      "args": { "expression": "localStorage.getItem('csimple-eval-key')" },
+      "expect": { "ok": true, "resultPath": "value", "resultEquals": "csimple-eval-value-1234" }
+    },
+    {
+      "tool": "browser_close",
+      "args": {},
+      "expect": { "ok": true, "resultPath": "closed", "resultEquals": true }
+    }
+  ]
+}

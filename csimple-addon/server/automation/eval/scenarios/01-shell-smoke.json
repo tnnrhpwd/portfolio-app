@@ -1,0 +1,20 @@
+{
+  "name": "shell_run echoes a known string",
+  "description": "Smoke test: confirms shell_run dispatches a benign PowerShell command and captures stdout.",
+  "require": { "platform": "win32" },
+  "permissions": {
+    "categories": { "shell": "allow" }
+  },
+  "steps": [
+    {
+      "tool": "shell_run",
+      "args": { "command": "Write-Output 'csimple-eval-ok'" },
+      "expect": {
+        "ok": true,
+        "resultPath": "stdout",
+        "resultContains": "csimple-eval-ok",
+        "durationMsLte": 15000
+      }
+    }
+  ]
+}

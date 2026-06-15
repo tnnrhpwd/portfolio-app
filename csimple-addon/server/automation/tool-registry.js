@@ -58,6 +58,8 @@ function toolSchemasForLlm() {
  */
 async function executeTool(name, args, ctx = {}) {
     const startedAt = Date.now();
+    const callId = `${startedAt}-${Math.random().toString(36).slice(2, 8)}`;
+    const events = (() => { try { return require('./events'); } catch { return null; } })();
     const tool = _tools.get(name);
     if (!tool) {
         return { ok: false, error: `Unknown tool: ${name}`, durationMs: 0 };
@@ -66,6 +68,8 @@ async function executeTool(name, args, ctx = {}) {
         return { ok: false, error: 'args must be an object', durationMs: 0 };
     }
     const safeArgs = args || {};
+
+    events?.publish('tool.start', { tool: name, args: safeArgs, goalSlug: ctx.goalSlug, callId });
 
     // Permission gate
     const approval = await permissions.requestApproval(tool, safeArgs, {
@@ -78,6 +82,7 @@ async function executeTool(name, args, ctx = {}) {
             exitCode: -1, durationMs, approvedBy: 'denied',
         };
         ctx.addAction?.(record).catch(() => {});
+        events?.publish('tool.end', { tool: name, ok: false, error: approval.reason, mode: approval.mode, durationMs, callId });
         return { ok: false, error: approval.reason, mode: approval.mode, durationMs };
     }
 
@@ -104,6 +109,7 @@ async function executeTool(name, args, ctx = {}) {
             goalSlug: ctx.goalSlug,
         };
         ctx.addAction?.(record).catch(() => {});
+        events?.publish('tool.end', { tool: name, ok: true, mode: approval.mode, durationMs, callId });
         return { ok: true, result, mode: approval.mode, durationMs };
     } catch (e) {
         const durationMs = Date.now() - startedAt;
@@ -113,6 +119,7 @@ async function executeTool(name, args, ctx = {}) {
             exitCode: 1, durationMs, approvedBy: approval.approvedBy || 'auto',
             goalSlug: ctx.goalSlug,
         }).catch(() => {});
+        events?.publish('tool.end', { tool: name, ok: false, error, mode: approval.mode, durationMs, callId });
         return { ok: false, error, mode: approval.mode, durationMs };
     }
 }

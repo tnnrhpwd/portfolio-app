@@ -16,6 +16,9 @@
  * Cross-cutting flags:
  *   - globalKillSwitch: when true, every tool returns { denied: true, reason }
  *   - dryRunMode: when true, override every category to 'dry-run'
+ *   - autoApproveAll: when true, any tool whose effective mode is 'ask' is
+ *       auto-approved without prompting. 'deny', the kill switch, and the shell
+ *       deny-list still block — those are hard safety stops, not prompts.
  */
 
 const fs = require('fs');
@@ -25,6 +28,10 @@ const os = require('os');
 const DEFAULTS = {
     globalKillSwitch: false,
     dryRunMode: false,
+    // When true, 'ask' tool calls run without a prompt. Hard stops (deny, kill
+    // switch, shell deny-list) are unaffected. Off by default — enabling this
+    // lets the agent act unattended, so it's an explicit, user-set choice.
+    autoApproveAll: false,
     categories: {
         'safe-read':       'allow',
         'sandboxed-write': 'ask',
@@ -56,6 +63,12 @@ const DEFAULTS = {
     ],
     // Filesystem write/read sandbox roots (absolute paths). Empty = home dir only.
     fsRoots: [],
+    // How the local addon HTTP/HTTPS server binds:
+    //   'loopback' (default) — 127.0.0.1 only; safest. Cloud relay (outbound) and
+    //                          local frontend talking via http://127.0.0.1 still work.
+    //   'lan'                — 0.0.0.0; lets phones on the same WiFi hit the addon
+    //                          directly via the LAN IP shown in /api/network. Opt-in.
+    hostBinding: 'loopback',
 };
 
 function configPath() {
@@ -108,6 +121,15 @@ function setApprovalRequester(fn) {
 }
 
 /**
+ * Bust the in-process config cache. Used by the eval harness after it
+ * restores the original permission file on disk, so subsequent `load()`
+ * calls re-read from disk instead of returning a stale snapshot.
+ */
+function _resetCache() {
+    _cache = null;
+}
+
+/**
  * Resolve the effective mode for a tool invocation.
  * Returns one of 'allow' | 'ask' | 'dry-run' | 'deny'.
  */
@@ -137,6 +159,11 @@ async function requestApproval(tool, args, opts = {}) {
     if (opts.userInitiated) {
         return { ok: true, mode: 'allow', approvedBy: 'user-chat-request' };
     }
+    // Unattended auto-approval. Hard stops (deny / kill switch) were already
+    // handled above via effectiveMode, so this only fast-tracks 'ask' calls.
+    if (load().autoApproveAll) {
+        return { ok: true, mode: 'allow', approvedBy: 'auto-approve-all' };
+    }
     if (!_approvalRequester) {
         return { ok: false, mode, reason: 'No approval requester registered (UI not initialized)' };
     }
@@ -149,11 +176,25 @@ async function requestApproval(tool, args, opts = {}) {
     }
 }
 
+/**
+ * Resolve the configured bind host for the addon HTTP server.
+ * Returns '127.0.0.1' for loopback (default) or '0.0.0.0' for LAN.
+ * Honors override via env CSIMPLE_BIND_HOST.
+ */
+function resolveBindHost() {
+    const override = process.env.CSIMPLE_BIND_HOST;
+    if (override) return override;
+    const cfg = load();
+    return cfg.hostBinding === 'lan' ? '0.0.0.0' : '127.0.0.1';
+}
+
 module.exports = {
     load,
     save,
     setApprovalRequester,
+    resolveBindHost,
     effectiveMode,
     requestApproval,
     DEFAULTS,
+    _reset: _resetCache,
 };

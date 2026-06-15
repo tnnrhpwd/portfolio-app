@@ -580,6 +580,102 @@ export function getAddonBaseUrl() {
   return _addonStatus.isConnected ? _addonStatus.baseUrl : null;
 }
 
+// ─── Automation agent control (local addon) ─────────────────────────────────
+
+/** Current agent loop status: { running, currentGoal, step, ... }. */
+export async function getAgentStatus() {
+  const res = await addonFetch('/api/agent/status');
+  return res.json();
+}
+
+/** Start the autonomous agent loop. Optional { goalSlug, modelId, maxSteps }. */
+export async function startAgent(opts = {}) {
+  const res = await addonFetch('/api/agent/start', {
+    method: 'POST',
+    body: JSON.stringify(opts || {}),
+  });
+  return res.json();
+}
+
+/** Stop the agent loop. */
+export async function stopAgent(reason = 'user requested stop') {
+  const res = await addonFetch('/api/agent/stop', {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+  return res.json();
+}
+
+/** Pending tool approvals awaiting user decision. */
+export async function getPendingApprovals() {
+  const res = await addonFetch('/api/automation/pending-approvals');
+  return res.json();
+}
+
+/** Approve or deny a pending tool call by id. */
+export async function resolveApproval(id, approved, reason = '') {
+  const res = await addonFetch('/api/automation/approve', {
+    method: 'POST',
+    body: JSON.stringify({ id, approved, reason }),
+  });
+  return res.json();
+}
+
+/** Activate the global kill switch (stops all tools + the agent). */
+export async function activateKillSwitch() {
+  const res = await addonFetch('/api/automation/permissions/kill', { method: 'POST' });
+  return res.json();
+}
+
+/** Read the addon automation permission config. */
+export async function getAutomationPermissions() {
+  const res = await addonFetch('/api/automation/permissions');
+  return res.json();
+}
+
+/**
+ * Toggle unattended auto-approval. When enabled, tool calls that would normally
+ * prompt ('ask' mode) run without a popup. Hard stops (deny, kill switch, shell
+ * deny-list) are unaffected.
+ */
+export async function setAutoApproveAll(enabled) {
+  const res = await addonFetch('/api/automation/permissions', {
+    method: 'PUT',
+    body: JSON.stringify({ autoApproveAll: !!enabled }),
+  });
+  return res.json();
+}
+
+/**
+ * Capture + upload a live screenshot thumbnail via the addon, which publishes a
+ * `screen.frame` SSE event with the resulting URL.
+ */
+export async function relayScreenFrame(opts = {}) {
+  const res = await addonFetch('/api/automation/execute', {
+    method: 'POST',
+    body: JSON.stringify({ name: 'screen_relay', args: opts || {} }),
+  });
+  return res.json();
+}
+
+/**
+ * Build the SSE URL for the agent live event stream. Returns null when the
+ * addon is not connected. Pass `types` to filter (comma-joined) and `sinceSeq`
+ * to replay buffered events.
+ *
+ * NOTE: EventSource cannot send headers, but these endpoints are loopback-only
+ * and unauthenticated by design (the addon binds to 127.0.0.1).
+ */
+export function getAgentEventsUrl({ types = null, sinceSeq = 0 } = {}) {
+  if (!_addonStatus.isConnected || !_addonStatus.baseUrl) return null;
+  const params = new URLSearchParams();
+  if (types) params.set('types', Array.isArray(types) ? types.join(',') : String(types));
+  if (sinceSeq) params.set('sinceSeq', String(sinceSeq));
+  const qs = params.toString();
+  return `${_addonStatus.baseUrl}/api/agent/events${qs ? `?${qs}` : ''}`;
+}
+
+
 /**
  * Get action bridge status.
  */
@@ -1009,6 +1105,27 @@ export async function getWorkspaceContextPreview(token, { agent, message } = {})
     { headers: { Authorization: `Bearer ${token}` } },
   );
   if (!res.ok) throw new Error(`getWorkspaceContextPreview failed: ${res.status}`);
+  return res.json();
+}
+
+/**
+ * Aggregate per-tool execution telemetry from the user's action ring buffer.
+ * @param {string} token user JWT
+ * @param {object} opts
+ * @param {number} [opts.days=7] look-back window, capped at 30 server-side
+ * @param {string} [opts.tool]   restrict to a single tool name
+ * @returns {Promise<{windowDays:number,totalRecords:number,tools:Array}>}
+ */
+export async function getWorkspaceTelemetrySummary(token, { days, tool } = {}) {
+  const params = new URLSearchParams();
+  if (days) params.set('days', String(days));
+  if (tool) params.set('tool', tool);
+  const qs = params.toString();
+  const res = await fetch(
+    `${getPortfolioApiUrl()}/csimple/workspace/telemetry/summary${qs ? `?${qs}` : ''}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!res.ok) throw new Error(`getWorkspaceTelemetrySummary failed: ${res.status}`);
   return res.json();
 }
 

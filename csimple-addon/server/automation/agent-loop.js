@@ -38,7 +38,84 @@ const STEP_DELAY_MS = 400;
 
 function nowIso() { return new Date().toISOString(); }
 
-function buildSystemPrompt({ goal, workspaceContext, toolNames }) {
+/**
+ * Score a candidate skill against a goal. Returns 0..1 plus a human-readable
+ * reason for why we think it might match. Used to populate the
+ * "RECORDED SKILLS THAT MIGHT MATCH" hint block in the system prompt — the
+ * LLM makes the final decision whether to call skill_run.
+ */
+function _scoreSkillAgainstGoal(skill, goal) {
+    const goalText = `${goal.name || ''} ${goal.successCriteria || ''} ${goal.content || ''}`.toLowerCase();
+    const skillText = `${skill.name || ''} ${skill.description || ''} ${skill.slug || ''}`.toLowerCase();
+    if (!goalText.trim() || !skillText.trim()) return { score: 0, reason: 'no overlap' };
+
+    // Tokenize on word boundaries; drop short stopwords.
+    const stop = new Set(['the','a','an','of','to','for','and','or','in','on','at','with','from','by','is','are','it','this','that']);
+    const tokens = (s) => new Set(
+        s.split(/[^a-z0-9]+/).filter(t => t.length >= 3 && !stop.has(t))
+    );
+    const g = tokens(goalText);
+    const k = tokens(skillText);
+    if (g.size === 0 || k.size === 0) return { score: 0, reason: 'no meaningful tokens' };
+
+    let hits = 0;
+    const matched = [];
+    for (const t of k) if (g.has(t)) { hits++; matched.push(t); }
+    const score = hits / Math.max(k.size, 1);
+    if (score === 0) return { score: 0, reason: 'no tokens shared' };
+    return { score, reason: `matched: ${matched.slice(0, 6).join(', ')}` };
+}
+
+/**
+ * Find skills (cached + workspace) most relevant to the current goal.
+ * Best-effort — failures here must NOT break the agent step.
+ *
+ * @returns {Promise<Array<{slug:string,name:string,steps:number,reason:string,score:number}>>}
+ */
+async function findRelevantSkills(goal, { wsClient, log } = {}) {
+    const out = [];
+    // 1. Local cache (cheap, no network).
+    try {
+        const { _cacheMap } = (() => {
+            // The skill module doesn't export the internal map; we hop in via
+            // its public getter and iterate known cached slugs from a side
+            // channel. To avoid that fragility, we expose a simple "scan all
+            // cached" helper instead.
+            try { return require('./tools/skill'); } catch { return {}; }
+        })();
+        const skillMod = require('./tools/skill');
+        if (skillMod.getAllCachedSkills) {
+            for (const s of skillMod.getAllCachedSkills()) {
+                const { score, reason } = _scoreSkillAgainstGoal(s, goal);
+                if (score > 0.1) {
+                    out.push({ slug: s.slug, name: s.name, steps: s.steps?.length || 0, reason: `cache · ${reason}`, score });
+                }
+            }
+        }
+    } catch (e) {
+        log && log('[agent] local skill scan failed:', e.message);
+    }
+    // 2. Workspace listing (network, best-effort).
+    try {
+        const list = await wsClient.listSkills();
+        const entries = list?.entries || list?.items || [];
+        for (const e of entries) {
+            // Skip duplicates we already added from cache.
+            if (out.some(x => x.slug === e.slug)) continue;
+            const fake = { slug: e.slug, name: e.name, description: e.description || '', steps: [] };
+            const { score, reason } = _scoreSkillAgainstGoal(fake, goal);
+            if (score > 0.1) {
+                out.push({ slug: e.slug, name: e.name, steps: e.stepsCount || '?', reason: `workspace · ${reason}`, score });
+            }
+        }
+    } catch (e) {
+        log && log('[agent] workspace skill list failed:', e.message);
+    }
+    out.sort((a, b) => b.score - a.score);
+    return out.slice(0, 3);
+}
+
+function buildSystemPrompt({ goal, workspaceContext, toolNames, skillHints }) {
     return [
         'You are an autonomous Windows automation agent running inside the user\'s PC via the CSimple addon.',
         'You are pursuing a specific GOAL on behalf of the user. Take small, deliberate steps.',
@@ -59,9 +136,15 @@ function buildSystemPrompt({ goal, workspaceContext, toolNames }) {
         '5. When the success criteria are satisfied, call goal_update with status="done" AND respond with the sentinel "<<GOAL_DONE>>" on its own line. The loop will stop.',
         '6. When you have done enough that the user should review, you may also stop with "<<GOAL_DONE>>".',
         '7. Never call tools that you don\'t need. Avoid spamming screen_capture; capture only when vision is required.',
+        '8. If a RECORDED SKILL below matches this goal, PREFER skill_run({ slug: "..." }) over rederiving the steps. Skills are previously-validated demonstrations from the user.',
         '',
         '== AVAILABLE TOOLS ==',
         toolNames.join(', '),
+        '',
+        (skillHints && skillHints.length
+            ? '== RECORDED SKILLS THAT MIGHT MATCH THIS GOAL ==\n' +
+              skillHints.map(s => `- slug="${s.slug}" name="${s.name}" steps=${s.steps} — ${s.reason}`).join('\n')
+            : ''),
         '',
         '== USER WORKSPACE CONTEXT ==',
         (workspaceContext || '(no workspace context loaded)').trim(),
@@ -117,6 +200,7 @@ function createAgentLoop({ wsClient, registry, contextFactory, log = console.log
     async function _stepOnce(ctx) {
         state.step++;
         state.lastTick = nowIso();
+        try { require('./events').publish('agent.step', { goalSlug: state.currentGoal?.slug, step: state.step, lastTickAt: state.lastTick, modelId: state.modelId }); } catch {}
 
         const llm = _lazyLoadLlm();
         const toolSchemas = registry.toolSchemasForLlm();
@@ -131,10 +215,19 @@ function createAgentLoop({ wsClient, registry, contextFactory, log = console.log
             log('[agent] workspace context fetch failed:', e.message);
         }
 
+        // Find skills (cached + workspace) that might match this goal. Best-effort.
+        let skillHints = [];
+        try {
+            skillHints = await findRelevantSkills(state.currentGoal, { wsClient, log });
+        } catch (e) {
+            log('[agent] skill hint resolution failed:', e.message);
+        }
+
         const systemPrompt = buildSystemPrompt({
             goal: state.currentGoal,
             workspaceContext: wsContextString,
             toolNames,
+            skillHints,
         });
 
         // Last user-ish message: a tick prompt that nudges the model to take the
@@ -261,6 +354,7 @@ function createAgentLoop({ wsClient, registry, contextFactory, log = console.log
             state.stopReason = 'max-steps-reached';
         }
         state.running = false;
+        try { require('./events').publish('agent.stopped', { goalSlug: state.currentGoal?.slug, reason: state.stopReason }); } catch {}
         log(`[agent] loop exited: ${state.stopReason} (steps=${state.step})`);
     }
 
@@ -274,6 +368,31 @@ function createAgentLoop({ wsClient, registry, contextFactory, log = console.log
             goal = await wsClient.getNextGoal();
         }
         if (!goal) return { running: false, reason: 'no-active-goal' };
+
+        // Optional planner pass — only if this looks like a "big" goal and
+        // the caller didn't opt out. Planner failures are non-fatal: we
+        // still run the goal directly.
+        if (!opts.skipPlanner) {
+            try {
+                const { planGoal, shouldPlan } = require('./planner');
+                if (shouldPlan(goal)) {
+                    const llm = _lazyLoadLlm();
+                    const result = await planGoal(goal, {
+                        wsClient,
+                        llm,
+                        log,
+                        eventBus: (() => { try { return require('./events'); } catch { return null; } })(),
+                    });
+                    if (result?.created > 0) {
+                        // Re-fetch nextGoal so the loop picks the highest-priority child.
+                        const next = await wsClient.getNextGoal();
+                        if (next) goal = next;
+                    }
+                }
+            } catch (e) {
+                log('[agent] planner pass skipped:', e.message);
+            }
+        }
 
         state = {
             running: true,

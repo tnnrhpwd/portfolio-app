@@ -8,7 +8,7 @@ const multer = require('multer');
 // Middleware Imports
 // ============================================================================
 const { protect } = require('../middleware/authMiddleware');
-const { apiLimiter, authLimiter, paymentLimiter, llmLimiter, ocrLimiter, uploadLimiter } = require('../middleware/rateLimiter');
+const { apiLimiter, authLimiter, paymentLimiter, llmLimiter, ocrLimiter, uploadLimiter, workspaceReadLimiter, workspaceWriteLimiter, workspaceActionLimiter } = require('../middleware/rateLimiter');
 const { 
   validateRegistration, 
   validateLogin, 
@@ -87,6 +87,7 @@ const {
   appendLog,
   appendAction,
   getNextGoal,
+  getTelemetrySummary,
   getWorkspaceContextPreview,
   getWorkspaceTemplates,
 } = require('../controllers/workspaceController');
@@ -416,19 +417,20 @@ router.get('/csimple/context', protect, getCSimpleUserContext);
 // ============================================================================
 
 // Order matters: specific routes BEFORE parameterized ones.
-router.get('/csimple/workspace/templates', protect, getWorkspaceTemplates);
-router.get('/csimple/workspace/context',   protect, getWorkspaceContextPreview);
-router.post('/csimple/workspace/log/append', protect, sanitizeInput, appendLog);
-router.post('/csimple/workspace/action/append', protect, sanitizeInput, appendAction);
-router.get('/csimple/workspace/goals/next', protect, getNextGoal);
+router.get('/csimple/workspace/templates', protect, workspaceReadLimiter, getWorkspaceTemplates);
+router.get('/csimple/workspace/context',   protect, workspaceReadLimiter, getWorkspaceContextPreview);
+router.post('/csimple/workspace/log/append', protect, workspaceWriteLimiter, sanitizeInput, appendLog);
+router.post('/csimple/workspace/action/append', protect, workspaceActionLimiter, sanitizeInput, appendAction);
+router.get('/csimple/workspace/goals/next', protect, workspaceReadLimiter, getNextGoal);
+router.get('/csimple/workspace/telemetry/summary', protect, workspaceReadLimiter, getTelemetrySummary);
 
 router.route('/csimple/workspace')
-  .get(protect, listWorkspace);
+  .get(protect, workspaceReadLimiter, listWorkspace);
 
 router.route('/csimple/workspace/:kind/:slug')
-  .get(protect, getWorkspaceItem)
-  .put(protect, sanitizeInput, upsertWorkspaceItem)
-  .delete(protect, deleteWorkspaceItem);
+  .get(protect, workspaceReadLimiter, getWorkspaceItem)
+  .put(protect, workspaceWriteLimiter, sanitizeInput, upsertWorkspaceItem)
+  .delete(protect, workspaceWriteLimiter, deleteWorkspaceItem);
 
 // ============================================================================
 // ADDON RELAY (cloud command relay for phone → desktop execution)

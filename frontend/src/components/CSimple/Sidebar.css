@@ -269,6 +269,11 @@
   color: var(--accent);
 }
 
+.sidebar__live-agent {
+  padding: 8px 4px;
+  animation: slideDown 200ms ease;
+}
+
 .sidebar__network-info {
   background: var(--bg-primary);
   border-radius: var(--radius-sm);
