@@ -393,7 +393,7 @@
   color: #fdba74;
 }
 
-/* ─── Sidebar variant — compact, single-column, theme-aware ──────────────── */
+/* ─── Sidebar variant — compact, single-column, matches sidebar design ───── */
 .agent-live--sidebar {
   max-width: none;
   width: 100%;
@@ -404,47 +404,73 @@
   border-radius: 0;
   box-shadow: none;
   backdrop-filter: none;
+  color: var(--text-primary);
+  font-family: inherit;
 }
 
 .agent-live--sidebar .agent-live__header {
   justify-content: flex-end;
-  margin-bottom: 0.5rem;
+  margin-bottom: 10px;
+}
+
+.agent-live--sidebar .agent-live__badge {
+  font-size: 11px;
+  padding: 2px 8px;
 }
 
 .agent-live--sidebar .agent-live__badge.is-idle {
-  background: var(--bg-hover, #e5e7eb);
-  color: var(--text-secondary, #374151);
+  background: var(--bg-hover);
+  color: var(--text-secondary);
 }
 
 .agent-live--sidebar .agent-live__badge.is-off {
-  background: var(--bg-hover, #f3f4f6);
-  color: var(--text-muted, #9ca3af);
+  background: var(--bg-hover);
+  color: var(--text-muted);
 }
 
 .agent-live--sidebar .agent-live__goal {
-  font-size: 0.78rem;
-  margin-bottom: 0.5rem;
+  font-size: 12px;
+  gap: 6px;
+  margin-bottom: 10px;
+  color: var(--text-secondary);
+}
+
+.agent-live--sidebar .agent-live__goal-label {
+  font-size: 10px;
+  color: var(--text-muted);
 }
 
 .agent-live--sidebar .agent-live__controls {
-  gap: 0.35rem;
+  gap: 6px;
+  margin-bottom: 10px;
 }
 
 .agent-live--sidebar .agent-live__btn {
-  flex: 1 1 auto;
-  min-width: calc(50% - 0.2rem);
+  flex: 1 1 calc(50% - 3px);
+  min-width: 0;
   text-align: center;
-  font-size: 0.78rem;
-  padding: 0.4rem 0.5rem;
-  background: var(--bg-primary, #fff);
-  color: var(--text-primary, #1f2937);
-  border-color: var(--border, rgba(0, 0, 0, 0.15));
+  font-size: 13px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  transition: all var(--transition);
+}
+
+.agent-live--sidebar .agent-live__btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  filter: none;
 }
 
 .agent-live--sidebar .agent-live__btn--start {
-  background: #16a34a;
+  background: var(--accent);
   color: #fff;
-  border-color: #16a34a;
+  border-color: var(--accent);
+}
+
+.agent-live--sidebar .agent-live__btn--start:hover:not(:disabled) {
+  background: var(--accent-hover);
 }
 
 .agent-live--sidebar .agent-live__btn--stop {
@@ -454,51 +480,115 @@
 }
 
 .agent-live--sidebar .agent-live__btn--kill {
-  background: #111827;
-  color: #fff;
-  border-color: #111827;
+  background: var(--text-primary);
+  color: var(--bg-secondary);
+  border-color: var(--text-primary);
 }
 
 .agent-live--sidebar .agent-live__toggle {
   flex: 1 1 100%;
   justify-content: center;
-  background: var(--bg-primary, #fff);
-  color: var(--text-primary, #1f2937);
-  border-color: var(--border, rgba(0, 0, 0, 0.15));
+  font-size: 13px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.agent-live--sidebar .agent-live__toggle.is-on {
+  background: var(--accent-light);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.agent-live--sidebar .agent-live__toggle input {
+  accent-color: var(--accent);
+}
+
+.agent-live--sidebar .agent-live__autonote,
+.agent-live--sidebar .agent-live__error {
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 10px;
 }
 
 /* Single column: screen on top, feed below */
 .agent-live--sidebar .agent-live__body {
   grid-template-columns: 1fr;
-  gap: 0.6rem;
+  gap: 10px;
 }
 
 .agent-live--sidebar .agent-live__screen {
-  min-height: 130px;
+  min-height: 120px;
+  border-radius: var(--radius-sm);
+}
+
+.agent-live--sidebar .agent-live__frame figcaption {
+  font-size: 11px;
+}
+
+.agent-live--sidebar .agent-live__noframe {
+  padding: 1rem 0.75rem;
+  font-size: 12px;
+}
+
+.agent-live--sidebar .agent-live__hint {
+  font-size: 12px;
+}
+
+.agent-live--sidebar .agent-live__side {
+  gap: 10px;
 }
 
 .agent-live--sidebar .agent-live__feed {
-  max-height: 200px;
-  background: var(--bg-primary, rgba(255, 255, 255, 0.55));
-  border-color: var(--border, rgba(0, 0, 0, 0.08));
+  max-height: 220px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
 }
 
 .agent-live--sidebar .agent-live__feed h4,
 .agent-live--sidebar .agent-live__side h4 {
-  color: var(--text-muted, #6b7280);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  opacity: 1;
 }
 
 .agent-live--sidebar .agent-live__event {
-  border-bottom-color: var(--border, rgba(0, 0, 0, 0.05));
+  font-size: 12px;
+  border-bottom-color: var(--border);
 }
 
 .agent-live--sidebar .agent-live__event-text {
-  color: var(--text-secondary, inherit);
+  color: var(--text-secondary);
+}
+
+.agent-live--sidebar .agent-live__event-time {
+  font-size: 10px;
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+.agent-live--sidebar .agent-live__approvals {
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+
+.agent-live--sidebar .agent-live__approval-tool {
+  font-size: 13px;
 }
 
 .agent-live--sidebar.agent-live--disconnected .agent-live__empty {
-  padding: 0.5rem 0.25rem;
-  font-size: 0.8rem;
+  padding: 4px 2px;
+  font-size: 12px;
   text-align: left;
-  color: var(--text-secondary, #6b7280);
+  color: var(--text-secondary);
+}
+
+.agent-live--sidebar .agent-live__link {
+  color: var(--accent);
 }
