@@ -1494,6 +1494,7 @@ function CSimpleChat({
           micDevices={micDevices}
           user={user}
           cloudSyncStatus={cloudSyncStatus}
+          addonConnected={isAddonConnected}
         />
 
         {isInactive && (

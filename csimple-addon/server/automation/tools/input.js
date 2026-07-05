@@ -88,8 +88,17 @@ function Focus-WindowByTitle($needle) {
 
 function runPsScript(script, { timeoutMs = 65 * 60_000 } = {}) {
     return new Promise((resolve, reject) => {
-        const child = spawn('powershell.exe', [
-            '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', '-',
+        // Transport: -EncodedCommand (UTF-16LE base64). The `-Command -` stdin
+        // approach used previously was unreliable — the child would parse the
+        // here-string but exit before executing, so click_at / input_hold /
+        // input_tap all silently no-op'd.
+        const encoded = Buffer.from(String(script), 'utf16le').toString('base64');
+        const psExe = process.env.SystemRoot
+            ? `${process.env.SystemRoot}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`
+            : 'powershell.exe';
+        const child = spawn(psExe, [
+            '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+            '-EncodedCommand', encoded,
         ], { windowsHide: true });
         let stdout = '', stderr = '';
         child.stdout.on('data', d => { stdout += d.toString('utf-8'); });
@@ -101,8 +110,6 @@ function runPsScript(script, { timeoutMs = 65 * 60_000 } = {}) {
             resolve(stdout.trim());
         });
         child.on('error', e => { clearTimeout(timer); reject(e); });
-        child.stdin.write(script);
-        child.stdin.end();
     });
 }
 
@@ -334,4 +341,168 @@ if (${dbl ? '$true' : '$false'}) {
     },
 };
 
-module.exports = { inputHold, inputTap, clickAt };
+// ─── mouse_path ───────────────────────────────────────────────────────────────
+// Move the cursor along a recorded path of screen-absolute points, replaying
+// the timing between them. Used for camera-look / drawing / drag replay when
+// the button state is handled elsewhere (or not at all).
+const MAX_PATH_MS = 5 * 60_000;
+const CURSOR_PRELUDE = `
+Add-Type @"
+using System.Runtime.InteropServices;
+public static class Cursor {
+    [DllImport("user32.dll")] public static extern bool SetCursorPos(int X, int Y);
+}
+"@
+`;
+function _buildWalkScript(path) {
+    // Emit "sleep(delta), SetCursorPos(x,y)" for each point. Sleep between
+    // adjacent points uses the delta of tOffsetMs, so the whole walk takes
+    // approximately the recorded duration.
+    let prevT = 0;
+    const lines = [];
+    for (let i = 0; i < path.length; i++) {
+        const p = path[i];
+        const x = Math.round(p.x);
+        const y = Math.round(p.y);
+        const t = Math.max(0, Math.round(p.tOffsetMs || 0));
+        const wait = i === 0 ? 0 : Math.max(0, t - prevT);
+        // Cap per-step wait at 5s so a broken recording can't hang the tool.
+        const capped = Math.min(5000, wait);
+        if (capped > 0) lines.push(`Start-Sleep -Milliseconds ${capped}`);
+        // Poll Escape between hops so the user can always abort a long path.
+        lines.push(`if (([Native]::GetAsyncKeyState(0x1B) -band 0x8000) -ne 0) { $reason = "escape-pressed"; break }`);
+        lines.push(`[Cursor]::SetCursorPos(${x}, ${y}) | Out-Null`);
+        prevT = t;
+    }
+    // The Escape checks are inside a `while ($true)` wrapper so `break` works;
+    // wrap the whole thing and break at the end to exit the loop cleanly.
+    return `$reason = "completed"\nwhile ($true) {\n${lines.join('\n')}\nbreak\n}`;
+}
+
+const mousePath = {
+    name: 'mouse_path',
+    category: 'system',
+    description:
+        'Move the mouse cursor along a recorded sequence of screen-absolute points, ' +
+        'replaying the original timing (each point has a tOffsetMs from the first). ' +
+        'Use for camera-look / drawing / cursor-visible drag replay. Press Escape to abort.',
+    parameters: {
+        type: 'object',
+        required: ['path'],
+        properties: {
+            path: {
+                type: 'array',
+                description: 'Array of { x, y, tOffsetMs } points. tOffsetMs is milliseconds since the first point (0 for first).',
+                items: {
+                    type: 'object',
+                    required: ['x', 'y'],
+                    properties: {
+                        x: { type: 'integer' },
+                        y: { type: 'integer' },
+                        tOffsetMs: { type: 'integer' },
+                    },
+                },
+            },
+            focusWindowTitle: { type: 'string' },
+            settleMs: { type: 'integer', description: 'Pause after focusing window. Default 80.' },
+        },
+    },
+    async run(args, ctx) {
+        const path = Array.isArray(args.path) ? args.path : [];
+        if (path.length === 0) throw new Error('path must contain at least one point');
+        const settle = Math.max(0, args.settleMs ?? 80);
+        const needle = (args.focusWindowTitle || '').replace(/"/g, '');
+        const totalMs = Math.min(MAX_PATH_MS, Math.max(0, path[path.length - 1].tOffsetMs || 0));
+
+        const script = `${NATIVE_PRELUDE}
+${CURSOR_PRELUDE}
+$focused = $null
+if ("${needle}") { $focused = Focus-WindowByTitle "${needle}"; Start-Sleep -Milliseconds ${settle} }
+${_buildWalkScript(path)}
+@{ ok = $true; points = ${path.length}; totalMs = ${totalMs}; reason = $reason; focused = $focused } | ConvertTo-Json -Compress
+`;
+        const out = await runPsScript(script, { timeoutMs: totalMs + 15_000 });
+        let parsed = null;
+        try { parsed = JSON.parse(out); } catch { parsed = { raw: out }; }
+        try { ctx?.addAction?.({ tool: 'mouse_path', args, result: parsed }); } catch {}
+        return parsed;
+    },
+};
+
+// ─── mouse_drag ───────────────────────────────────────────────────────────────
+// Press a mouse button, walk a path of screen-absolute points, release. Used
+// for click-and-drag replay (drag files, drag window titles, camera-look in
+// games with right-button-hold, drawing while a tool is active, etc.). An
+// optional `holdMs` adds a dwell at the final position before release, which
+// is how the compiler represents a long stationary press with no movement.
+const mouseDrag = {
+    name: 'mouse_drag',
+    category: 'system',
+    description:
+        'Press a mouse button, move the cursor along a path of screen-absolute points, then release. ' +
+        'Use for click-and-drag, drag-and-drop, or held-button camera control. ' +
+        'The button ALWAYS releases in a finally block. Press Escape to abort.',
+    parameters: {
+        type: 'object',
+        required: ['button', 'path'],
+        properties: {
+            button: { type: 'string', enum: ['left', 'right', 'middle'] },
+            path: {
+                type: 'array',
+                description: 'Array of { x, y, tOffsetMs } points. First point is the press position. tOffsetMs is milliseconds since the first point.',
+                items: {
+                    type: 'object',
+                    required: ['x', 'y'],
+                    properties: {
+                        x: { type: 'integer' },
+                        y: { type: 'integer' },
+                        tOffsetMs: { type: 'integer' },
+                    },
+                },
+            },
+            holdMs: { type: 'integer', description: 'Extra dwell at final position before release. Default 0.' },
+            focusWindowTitle: { type: 'string' },
+            settleMs: { type: 'integer', description: 'Pause after focusing window. Default 80.' },
+        },
+    },
+    async run(args, ctx) {
+        const path = Array.isArray(args.path) ? args.path : [];
+        if (path.length === 0) throw new Error('path must contain at least one point');
+        const btn = resolveButton(args.button);
+        const holdMs = Math.min(MAX_PATH_MS, Math.max(0, args.holdMs || 0));
+        const settle = Math.max(0, args.settleMs ?? 80);
+        const needle = (args.focusWindowTitle || '').replace(/"/g, '');
+        const startX = Math.round(path[0].x);
+        const startY = Math.round(path[0].y);
+        const totalMs = Math.min(MAX_PATH_MS, Math.max(0, path[path.length - 1].tOffsetMs || 0));
+
+        const script = `${NATIVE_PRELUDE}
+${CURSOR_PRELUDE}
+$focused = $null
+if ("${needle}") { $focused = Focus-WindowByTitle "${needle}"; Start-Sleep -Milliseconds ${settle} }
+[Cursor]::SetCursorPos(${startX}, ${startY}) | Out-Null
+Start-Sleep -Milliseconds 30
+try {
+    [Native]::mouse_event(${btn.down}, 0, 0, 0, [UIntPtr]::Zero)
+    ${_buildWalkScript(path)}
+    if (${holdMs} -gt 0 -and $reason -eq "completed") {
+        $held = [System.Diagnostics.Stopwatch]::StartNew()
+        while ($held.ElapsedMilliseconds -lt ${holdMs}) {
+            if (([Native]::GetAsyncKeyState(0x1B) -band 0x8000) -ne 0) { $reason = "escape-pressed"; break }
+            Start-Sleep -Milliseconds 50
+        }
+    }
+} finally {
+    [Native]::mouse_event(${btn.up}, 0, 0, 0, [UIntPtr]::Zero)
+}
+@{ ok = $true; points = ${path.length}; totalMs = ${totalMs}; holdMs = ${holdMs}; reason = $reason; button = "${args.button}"; focused = $focused } | ConvertTo-Json -Compress
+`;
+        const out = await runPsScript(script, { timeoutMs: totalMs + holdMs + 15_000 });
+        let parsed = null;
+        try { parsed = JSON.parse(out); } catch { parsed = { raw: out }; }
+        try { ctx?.addAction?.({ tool: 'mouse_drag', args, result: parsed }); } catch {}
+        return parsed;
+    },
+};
+
+module.exports = { inputHold, inputTap, clickAt, mousePath, mouseDrag };

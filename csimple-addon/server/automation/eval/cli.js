@@ -42,7 +42,7 @@ function registerAllTools() {
     } = require('../tools/browser');
     const { uiaFind, uiaInvoke, uiaGetText, uiaSnapshot } = require('../tools/uia');
     const { perceptionRecent } = require('../perception');
-    const { inputHold, inputTap, clickAt } = require('../tools/input');
+    const { inputHold, inputTap, clickAt, mousePath, mouseDrag } = require('../tools/input');
     const { skillRun } = require('../tools/skill');
 
     const all = [
@@ -50,7 +50,7 @@ function registerAllTools() {
         uiaFind, uiaGetText, uiaSnapshot, perceptionRecent,
         browserOpen, browserGoto, browserText, browserScreenshot, browserStatus,
         fsWrite, clipboardWrite, browserClick, browserFill, browserClose,
-        windowFocus, uiaInvoke, inputHold, inputTap, clickAt,
+        windowFocus, uiaInvoke, inputHold, inputTap, clickAt, mousePath, mouseDrag,
         processKill, shell, browserEval,
         skillRun, screenRelay,
     ];

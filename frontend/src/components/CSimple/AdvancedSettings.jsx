@@ -11,15 +11,17 @@ import {
 } from '../../services/csimpleApi';
 import './AdvancedSettings.css';
 import WorkspaceManager from './WorkspaceManager.jsx';
+import ShortcutsManager from './ShortcutsManager.jsx';
 
 const TABS = [
   { id: 'general', label: '⚙ General' },
   { id: 'agents', label: '🤖 Agents' },
+  { id: 'shortcuts', label: '⌨ Shortcuts' },
   { id: 'workspace', label: '🧠 Workspace' },
   { id: 'network', label: '🌐 Network' },
 ];
 
-function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnline, speech, micDevices, user, cloudSyncStatus }) {
+function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnline, speech, micDevices, user, cloudSyncStatus, addonConnected }) {
   const [activeTab, setActiveTab] = useState('general');
   const [behaviors, setBehaviors] = useState([]);
   const [memoryFiles, setMemoryFiles] = useState([]);
@@ -1087,6 +1089,12 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
           {activeTab === 'workspace' && (
             <div className="adv-section">
               <WorkspaceManager user={user} />
+            </div>
+          )}
+
+          {activeTab === 'shortcuts' && (
+            <div className="adv-section">
+              <ShortcutsManager user={user} addonConnected={!!addonConnected} />
             </div>
           )}
 

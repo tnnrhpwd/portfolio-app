@@ -658,6 +658,119 @@ export async function relayScreenFrame(opts = {}) {
   return res.json();
 }
 
+// ─── Macros / recorded skills (local addon) ─────────────────────────────────
+// The addon records raw input demonstrations, compiles them into parameterised
+// "skills" (a.k.a. macros), and can run or hotkey-bind them. Persistence of the
+// macro itself lives in the cloud workspace (kind='skill'); these helpers cover
+// the local, foreground record → compile → run pipeline plus hotkey sync.
+
+/** Begin recording a demonstration. Requires a connected local addon. */
+export async function startRecording(name) {
+  const res = await addonFetch('/api/recorder/start', {
+    method: 'POST',
+    body: JSON.stringify({ name: name || 'macro' }),
+  });
+  return res.json();
+}
+
+/** Stop the active recording. Returns { sessionId, eventCount, durationMs }. */
+export async function stopRecording() {
+  const res = await addonFetch('/api/recorder/stop', { method: 'POST' });
+  return res.json();
+}
+
+/** Current recorder status: { active, eventCount, startedAt, sessionId }. */
+export async function getRecorderStatus() {
+  const res = await addonFetch('/api/recorder/status');
+  return res.json();
+}
+
+/** Insert a user annotation marker into the active recording. */
+export async function appendRecorderMarker(label) {
+  const res = await addonFetch('/api/recorder/marker', {
+    method: 'POST',
+    body: JSON.stringify({ label: label || '' }),
+  });
+  return res.json();
+}
+
+/** List previously saved raw recordings (not yet compiled). */
+export async function listRecordings() {
+  const res = await addonFetch('/api/recorder/list');
+  return res.json();
+}
+
+/** Delete a raw recording by sessionId. */
+export async function deleteRecording(sessionId) {
+  const res = await addonFetch(`/api/recorder/${encodeURIComponent(sessionId)}`, { method: 'DELETE' });
+  return res.json();
+}
+
+/**
+ * Compile a raw recording into a skill object (does NOT persist).
+ * @param {{ sessionId: string, name?: string, description?: string }} opts
+ * @returns {Promise<{ skill: object }>}
+ */
+export async function compileSkill({ sessionId, name, description } = {}) {
+  const res = await addonFetch('/api/skill/compile', {
+    method: 'POST',
+    body: JSON.stringify({ sessionId, name, description }),
+  });
+  return res.json();
+}
+
+/**
+ * Save a compiled skill: caches locally in the addon and persists to the cloud
+ * workspace (kind='skill'). The macro object should include any `hotkey`.
+ */
+export async function saveSkill(skill) {
+  const res = await addonFetch('/api/skill/save', {
+    method: 'POST',
+    body: JSON.stringify({ skill }),
+  });
+  return res.json();
+}
+
+/**
+ * Run a saved macro by slug through the local addon (permission-gated).
+ *
+ * @param {string} slug
+ * @param {object} [params] key/value substitutions for ${param.x} placeholders
+ * @param {object} [inlineSkill] optional full skill object to seed the addon's
+ *   in-memory cache before lookup. Recommended when the caller already has the
+ *   compiled skill loaded — it avoids a workspace round-trip and works even
+ *   when the addon just restarted (empty cache) or has no cloud auth token yet.
+ */
+export async function runSkill(slug, params = {}, inlineSkill = null) {
+  const body = { slug, params: params || {} };
+  if (inlineSkill && inlineSkill.slug === slug) body.skill = inlineSkill;
+  const res = await addonFetch('/api/skill/run', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}
+
+/**
+ * Push the full macro→hotkey binding map to the local addon, which registers
+ * them as global OS keyboard shortcuts and persists them across restarts.
+ * @param {Array<{ slug: string, accelerator: string }>} hotkeys
+ * @returns {Promise<{ ok: boolean, registered: Array, skipped: Array }>}
+ */
+export async function syncSkillHotkeys(hotkeys) {
+  const res = await addonFetch('/api/skill/hotkeys', {
+    method: 'POST',
+    body: JSON.stringify({ hotkeys: hotkeys || [] }),
+  });
+  return res.json();
+}
+
+/** Read the macro hotkeys currently registered by the local addon. */
+export async function getSkillHotkeys() {
+  const res = await addonFetch('/api/skill/hotkeys');
+  return res.json();
+}
+
 /**
  * Build the SSE URL for the agent live event stream. Returns null when the
  * addon is not connected. Pass `types` to filter (comma-joined) and `sinceSeq`

@@ -250,6 +250,46 @@ async function startExpressServer() {
       console.warn('[Main] Failed to configure triggers:', e.message);
     }
 
+    // Configure the skill-hotkey registry. The web app binds recorded macros
+    // (skills) to global keyboard shortcuts; it pushes the desired binding map
+    // to the addon (POST /api/skill/hotkeys), which persists it to disk. Actual
+    // OS-level registration happens here via Electron's globalShortcut API. When
+    // a bound hotkey fires we run the skill through the addon's own HTTP surface
+    // so it goes through the permission gate like any other tool call.
+    try {
+      const skillHotkeys = require('./server/automation/skill-hotkeys');
+      const skillHotkeysFile = path.join(CONFIG_DIR, 'skill-hotkeys.json');
+      skillHotkeys.configure({
+        configPath: skillHotkeysFile,
+        onHotkeyChange: ({ action, slug, accelerator }) => {
+          try {
+            if (action === 'register') {
+              // Replace any stale binding on this accelerator first.
+              if (globalShortcut.isRegistered(accelerator)) globalShortcut.unregister(accelerator);
+              const ok = globalShortcut.register(accelerator, () => {
+                try {
+                  fetch(`http://127.0.0.1:${server?.serverPort || 3001}/api/skill/run`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ slug }),
+                  }).catch(() => {});
+                  trayManager?.notify('Macro', `Running "${slug}"`);
+                } catch {}
+              });
+              if (!ok) console.warn(`[Main] globalShortcut.register failed for ${accelerator} (in use?)`);
+            } else {
+              globalShortcut.unregister(accelerator);
+            }
+          } catch (e) {
+            console.warn(`[Main] skill hotkey ${action} failed for ${accelerator}:`, e.message);
+          }
+        },
+      });
+      skillHotkeys.loadFromDisk();
+      console.log('[Main] Skill hotkeys loaded from', skillHotkeysFile);
+    } catch (e) {
+      console.warn('[Main] Failed to configure skill hotkeys:', e.message);
+    }
+
     // Start the built-in action bridge so PC automation works without a separate app
     if (!actionBridge) {
       actionBridge = new ActionBridge(port);

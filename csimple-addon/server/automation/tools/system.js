@@ -9,11 +9,21 @@ const { spawn } = require('child_process');
 
 const PS_TIMEOUT = 15_000;
 
+// Absolute path to powershell.exe so we don't depend on the spawned process's
+// PATH inheritance (Electron subprocesses sometimes trim PATH on Windows).
+const PS_EXE = process.env.SystemRoot
+    ? `${process.env.SystemRoot}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`
+    : 'powershell.exe';
+
 function runPs(script) {
     return new Promise((resolve, reject) => {
-        const child = spawn('powershell.exe', [
+        // Transport: -EncodedCommand (UTF-16LE base64). The `-Command -` stdin
+        // approach used previously was unreliable — the child would parse the
+        // script but exit before executing, producing empty output.
+        const encoded = Buffer.from(String(script), 'utf16le').toString('base64');
+        const child = spawn(PS_EXE, [
             '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
-            '-Command', '-',
+            '-EncodedCommand', encoded,
         ], { windowsHide: true });
         let stdout = '', stderr = '';
         child.stdout.on('data', d => stdout += d.toString('utf-8'));
@@ -25,8 +35,6 @@ function runPs(script) {
             resolve(stdout);
         });
         child.on('error', e => { clearTimeout(timer); reject(e); });
-        child.stdin.write(script + '\n');
-        child.stdin.end();
     });
 }
 
@@ -59,18 +67,31 @@ $procs | ForEach-Object { [pscustomobject]@{ pid = $_.Id; name = $_.ProcessName;
 const windowFocus = {
     name: 'window_focus',
     category: 'system',
-    description: 'Bring a window to the foreground by process name or PID.',
+    description: 'Bring a window to the foreground. Match by pid, processName, or titleContains (case-insensitive substring). titleContains is what the skill compiler emits.',
     parameters: {
         type: 'object',
         properties: {
             pid: { type: 'integer' },
             processName: { type: 'string' },
+            titleContains: { type: 'string', description: 'Case-insensitive substring matched against MainWindowTitle.' },
         },
     },
     async run(args) {
-        const sel = args.pid
-            ? `Get-Process -Id ${parseInt(args.pid, 10)}`
-            : `Get-Process -Name '${String(args.processName || '').replace(/'/g, "''")}' -ErrorAction SilentlyContinue | Select-Object -First 1`;
+        // Selector precedence: pid > titleContains > processName. titleContains
+        // is the field the skill-recorder compiler emits (window titles are
+        // more identifying than process names for browsers/editors that share
+        // one host process across many docs).
+        let sel;
+        if (args.pid) {
+            sel = `Get-Process -Id ${parseInt(args.pid, 10)}`;
+        } else if (args.titleContains) {
+            const needle = String(args.titleContains).replace(/'/g, "''");
+            sel = `Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -like '*${needle}*' } | Select-Object -First 1`;
+        } else if (args.processName) {
+            sel = `Get-Process -Name '${String(args.processName).replace(/'/g, "''")}' -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1`;
+        } else {
+            throw new Error('window_focus: provide pid, processName, or titleContains');
+        }
         const script = `
 Add-Type @"
 using System;
@@ -82,7 +103,7 @@ public static class W {
 "@
 $p = ${sel}
 if (-not $p) { Write-Error 'window not found'; exit 1 }
-[W]::ShowWindowAsync($p.MainWindowHandle, 9) | Out-Null  # restore
+[W]::ShowWindowAsync($p.MainWindowHandle, 9) | Out-Null  # 9 = SW_RESTORE
 [W]::SetForegroundWindow($p.MainWindowHandle) | Out-Null
 [pscustomobject]@{ pid = $p.Id; name = $p.ProcessName; title = $p.MainWindowTitle } | ConvertTo-Json -Compress
         `.trim();

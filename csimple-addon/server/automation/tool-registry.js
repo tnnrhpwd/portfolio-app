@@ -90,6 +90,14 @@ async function executeTool(name, args, ctx = {}) {
         dryRun: approval.mode === 'dry-run',
         log: ctx.log || (() => {}),
         abortSignal: ctx.abortSignal,
+        // Propagate userInitiated so composite tools (e.g. skill_run) that
+        // re-enter the registry for each sub-step keep the user's approval
+        // context — otherwise every step would trigger a fresh 'ask' prompt.
+        userInitiated: !!ctx.userInitiated,
+        // Composite tools also need addAction / goalSlug to log sub-step audit
+        // trail against the same goal.
+        addAction: ctx.addAction,
+        goalSlug: ctx.goalSlug,
     };
 
     try {

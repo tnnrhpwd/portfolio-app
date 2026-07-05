@@ -40,7 +40,7 @@ const {
 const { uiaFind, uiaInvoke, uiaGetText, uiaSnapshot } = require('./tools/uia');
 const { perceptionRecent } = require('./perception');
 const { goalUpdate, goalCreate, goalAskUser } = require('./tools/goal');
-const { inputHold, inputTap, clickAt } = require('./tools/input');
+const { inputHold, inputTap, clickAt, mousePath, mouseDrag } = require('./tools/input');
 const { findVisualTarget } = require('./vision-fusion');
 
 const recorder = require('./recorder');
@@ -49,6 +49,7 @@ const { skillRun, cacheSkill, getCachedSkill } = require('./tools/skill');
 
 const events = require('./events');
 const triggers = require('./triggers');
+const skillHotkeys = require('./skill-hotkeys');
 
 const { createAgentLoop } = require('./agent-loop');
 
@@ -91,6 +92,8 @@ function registerAllTools() {
     registry.register(inputHold);
     registry.register(inputTap);
     registry.register(clickAt);
+    registry.register(mousePath);
+    registry.register(mouseDrag);
 
     // Destructive
     registry.register(processKill);
@@ -370,6 +373,57 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
         catch (e) { res.status(404).json({ error: e.message }); }
     });
 
+    // ─── Skill hotkeys (macro keyboard shortcuts) ───────────────────────────
+    // These MUST be declared before the `/api/skill/:slug` param route below so
+    // that `/api/skill/hotkeys` is not swallowed as a slug lookup.
+    //
+    // The web app owns the source of truth (skills live in the DB, each with an
+    // optional `hotkey`). It pushes the full desired binding map here; main.js
+    // performs the actual globalShortcut registration via the onHotkeyChange
+    // callback wired in skillHotkeys.configure().
+    app.get('/api/skill/hotkeys', (req, res) => {
+        res.json({ hotkeys: skillHotkeys.list() });
+    });
+    app.post('/api/skill/hotkeys', (req, res) => {
+        try {
+            const mappings = (req.body && req.body.hotkeys) || [];
+            const result = skillHotkeys.setAll(mappings);
+            events.publish('skill.hotkeys.updated', {
+                count: result.registered.length,
+                skipped: result.skipped.length,
+            });
+            res.json({ ok: true, ...result });
+        } catch (e) {
+            res.status(400).json({ error: e.message });
+        }
+    });
+
+    // Run a saved skill by slug (resolves local cache → workspace). Goes through
+    // the permission-gated tool registry exactly like the agent would — but with
+    // `userInitiated: true` because this endpoint is only reachable from the
+    // loopback UI (user clicked Run) or the Electron globalShortcut handler
+    // (user pressed the bound hotkey). Both are direct user actions, so an
+    // 'ask'-mode tool is fast-tracked to allow, matching chat behaviour.
+    //
+    // If `skill` is provided in the body, it's forwarded as `args.cache` so the
+    // tool can execute without needing to hit the workspace API. This makes
+    // Run-from-web work immediately after an addon restart (empty local cache)
+    // and independent of cloud auth state.
+    app.post('/api/skill/run', async (req, res) => {
+        try {
+            const { slug, params, skill } = req.body || {};
+            if (!slug) return res.status(400).json({ error: 'slug is required' });
+            const ctx = ctxFactory({ goalSlug: null, userInitiated: true });
+            const args = { slug, params: params || {} };
+            if (skill && skill.slug === slug) args.cache = skill;
+            const out = await registry.executeTool('skill_run', args, ctx);
+            events.publish('skill.run', { slug });
+            res.json(out);
+        } catch (e) {
+            res.status(400).json({ error: e.message });
+        }
+    });
+
     // ─── Skill compile / save / list / run ──────────────────────────────────
     // Compile a recording into a skill object (does NOT save).
     app.post('/api/skill/compile', async (req, res) => {
@@ -457,7 +511,7 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
     });
 
     log('[automation] mounted: tools=' + registry.list().length);
-    return { registry, permissions, agentLoop: _agentLoop, triggers, events };
+    return { registry, permissions, agentLoop: _agentLoop, triggers, events, skillHotkeys };
 }
 
 module.exports = {
@@ -468,4 +522,5 @@ module.exports = {
     recorder,
     events,
     triggers,
+    skillHotkeys,
 };
