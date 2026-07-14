@@ -612,6 +612,8 @@ app.use(express.json({ limit: '10mb' }));
 // ─── API Routes ────────────────────────────────────────────────────────────────
 
 // Health check
+let _automationMounted = false;
+
 app.get('/api/status', (req, res) => {
   res.json({
     status: 'ok',
@@ -619,6 +621,12 @@ app.get('/api/status', (req, res) => {
     pythonScript: HF_SCRIPT,
     timestamp: new Date().toISOString(),
     version: require('../package.json').version,
+    automationMounted: _automationMounted,
+    routes: {
+      nlCompiler: _automationMounted,
+      voice: _automationMounted,
+      agent: _automationMounted,
+    },
   });
 });
 
@@ -649,6 +657,7 @@ app.get('/api/cloud/status', (req, res) => {
 try {
   const { mountAutomation } = require('./automation');
   mountAutomation(app, { cloudRelay, log: console.log });
+  _automationMounted = true;
   console.log('[startup] automation layer mounted');
 } catch (e) {
   console.error('[startup] automation layer failed to mount:', e.message);

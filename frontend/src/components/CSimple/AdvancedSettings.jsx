@@ -8,14 +8,17 @@ import {
   createMemory, updateMemory, deleteMemory,
   updatePersonality,
   getCustomAddonHost, setCustomAddonHost,
+  getAddonBaseUrl,
 } from '../../services/csimpleApi';
 import './AdvancedSettings.css';
 import WorkspaceManager from './WorkspaceManager.jsx';
 import ShortcutsManager from './ShortcutsManager.jsx';
+import GoalManager from './GoalManager.jsx';
 
 const TABS = [
   { id: 'general', label: '⚙ General' },
   { id: 'agents', label: '🤖 Agents' },
+  { id: 'goals', label: '🎯 Goals' },
   { id: 'shortcuts', label: '⌨ Shortcuts' },
   { id: 'workspace', label: '🧠 Workspace' },
   { id: 'network', label: '🌐 Network' },
@@ -1083,6 +1086,12 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
                   </>
                 )}
               </div>
+            </div>
+          )}
+
+          {activeTab === 'goals' && (
+            <div className="adv-section">
+              <GoalManager user={user} addonConnected={!!addonConnected} addonBaseUrl={getAddonBaseUrl()} />
             </div>
           )}
 

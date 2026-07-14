@@ -1,0 +1,14 @@
+{
+  "id": "15-predictor",
+  "name": "behavioral predictor — predictions endpoint",
+  "description": "Verifies /api/agent/predictions returns a predictions array and stats object.",
+  "http": {
+    "method": "GET",
+    "path": "/api/agent/predictions"
+  },
+  "expect": {
+    "predictions": { "type": "array" },
+    "stats.enabled": true
+  },
+  "tags": ["predictor", "smoke"]
+}

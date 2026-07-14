@@ -21,6 +21,7 @@ import {
   queueRemoteCommand,
   getRemoteCommandResult,
   getCustomAddonHost,
+  upsertWorkspaceItem,
 } from '../../services/csimpleApi';
 import { createData } from '../../features/data/dataSlice';
 import { getUserIdentifier } from '../../utils/supportUtils';
@@ -611,6 +612,7 @@ function CSimpleChat({
   // ── Slash command handler ────────────────────────────────────────────────
   const handleSlashCommand = useCallback((text) => {
     const trimmed = text.trim().toLowerCase();
+    const raw = text.trim();
 
     if (trimmed === '/export' || trimmed === '/export md') {
       exportChat('markdown');
@@ -629,10 +631,17 @@ function CSimpleChat({
     if (trimmed === '/usage') {
       return { handled: false, rewrite: 'What is my current plan, credit usage, and remaining quota?' };
     }
+    // /goal <description> — create a workspace goal directly
+    if (trimmed.startsWith('/goal ') || trimmed.startsWith('/goal\n')) {
+      const description = raw.slice(6).trim();
+      if (!description) return { handled: true, message: '**Usage:** `/goal <description>` — e.g. `/goal Open Chrome and search for the weather`' };
+      return { handled: false, _createGoal: description };
+    }
     if (trimmed === '/help') {
       return {
         handled: true,
         message: '**Available Commands:**\n\n' +
+          '`/goal <description>` — Create an automation goal (e.g. `/goal Open Notepad`)\n' +
           '`/goals` — Show your saved goals\n' +
           '`/notes` — Show your saved notes\n' +
           '`/usage` — Show your plan & credit usage\n' +
@@ -769,6 +778,28 @@ function CSimpleChat({
         if (cmd.rewrite) {
           // Rewrite the slash command to a natural language prompt and continue
           text = cmd.rewrite;
+        }
+        if (cmd._createGoal) {
+          // Create a goal directly without going through LLM
+          const description = cmd._createGoal;
+          const slug = description.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'goal';
+          const userMsg = { id: Date.now().toString(), role: 'user', content: text, timestamp: new Date().toISOString() };
+          let replyContent;
+          try {
+            await upsertWorkspaceItem(user?.token, 'goal', slug, {
+              name: description.slice(0, 80),
+              content: description,
+              status: 'active',
+              priority: 70,
+              createdBy: 'chat',
+            });
+            replyContent = `🎯 **Goal created:** "${description.slice(0, 80)}"\n\nThe agent will pick it up next time you click **Start Agent** in the Live Agent View, or say *"hey csimple"*.`;
+          } catch (e) {
+            replyContent = `**Could not create goal:** ${e.message}. Make sure you are signed in.`;
+          }
+          const replyMsg = { id: (Date.now() + 1).toString(), role: 'assistant', content: replyContent, timestamp: new Date().toISOString() };
+          setConversations(prev => prev.map(c => c.id !== activeConversationId ? c : { ...c, messages: [...c.messages, userMsg, replyMsg] }));
+          return;
         }
         // cmd.compare handled below in portfolio provider path
       }

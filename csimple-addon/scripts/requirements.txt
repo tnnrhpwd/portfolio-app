@@ -21,6 +21,21 @@ pygrabber>=0.2
 # protobuf 5.x breaks the bundled mediapipe protobuf runtime on Windows
 protobuf>=4.25.0,<5.0.0
 
+# ─── Voice / Audio pipeline (Phase 6) ────────────────────────────────────────
+# Whisper STT — runs fully offline, no API key required.
+# Install the CPU-only version by default (avoids a ~2GB CUDA download).
+# Users with a CUDA GPU can manually: pip install openai-whisper torch --index-url https://download.pytorch.org/whl/cu118
+openai-whisper>=20231117
+
+# Real-time audio capture from the system microphone.
+sounddevice>=0.4.6
+
+# Text-to-Speech using the Windows native SAPI engine (zero external deps).
+pyttsx3>=2.90
+
+# Audio I/O codec support (required by sounddevice on some Windows configs)
+soundfile>=0.12.1
+
 # Note: The application will automatically create a virtual environment
 # in %LOCALAPPDATA%/CSimple/venv and install these dependencies.
 # You don't need to install these manually.

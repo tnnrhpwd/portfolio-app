@@ -115,7 +115,7 @@ async function findRelevantSkills(goal, { wsClient, log } = {}) {
     return out.slice(0, 3);
 }
 
-function buildSystemPrompt({ goal, workspaceContext, toolNames, skillHints }) {
+function buildSystemPrompt({ goal, workspaceContext, toolNames, skillHints, perceptionContext }) {
     return [
         'You are an autonomous Windows automation agent running inside the user\'s PC via the CSimple addon.',
         'You are pursuing a specific GOAL on behalf of the user. Take small, deliberate steps.',
@@ -137,6 +137,8 @@ function buildSystemPrompt({ goal, workspaceContext, toolNames, skillHints }) {
         '6. When you have done enough that the user should review, you may also stop with "<<GOAL_DONE>>".',
         '7. Never call tools that you don\'t need. Avoid spamming screen_capture; capture only when vision is required.',
         '8. If a RECORDED SKILL below matches this goal, PREFER skill_run({ slug: "..." }) over rederiving the steps. Skills are previously-validated demonstrations from the user.',
+        '9. Use audio_transcribe if the goal involves spoken input. Use audio_speak to deliver voice assistant responses.',
+        '10. Use webcam_capture with describe=true only when you need to understand the user\'s physical environment.',
         '',
         '== AVAILABLE TOOLS ==',
         toolNames.join(', '),
@@ -145,6 +147,8 @@ function buildSystemPrompt({ goal, workspaceContext, toolNames, skillHints }) {
             ? '== RECORDED SKILLS THAT MIGHT MATCH THIS GOAL ==\n' +
               skillHints.map(s => `- slug="${s.slug}" name="${s.name}" steps=${s.steps} — ${s.reason}`).join('\n')
             : ''),
+        '',
+        perceptionContext ? `== CURRENT PERCEPTION (live) ==\n${perceptionContext}` : '',
         '',
         '== USER WORKSPACE CONTEXT ==',
         (workspaceContext || '(no workspace context loaded)').trim(),
@@ -223,11 +227,20 @@ function createAgentLoop({ wsClient, registry, contextFactory, log = console.log
             log('[agent] skill hint resolution failed:', e.message);
         }
 
+        // Get latest perception frame for real-time environmental context.
+        let perceptionContext = null;
+        try {
+            const { getPerceptionBus, frameToContextString } = require('./perception-bus');
+            const frame = getPerceptionBus().getLatestFrame();
+            if (frame) perceptionContext = frameToContextString(frame);
+        } catch { /* perception bus not started — non-fatal */ }
+
         const systemPrompt = buildSystemPrompt({
             goal: state.currentGoal,
             workspaceContext: wsContextString,
             toolNames,
             skillHints,
+            perceptionContext,
         });
 
         // Last user-ish message: a tick prompt that nudges the model to take the

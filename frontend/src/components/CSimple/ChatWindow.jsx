@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import MessageBubble from './MessageBubble';
 import ConfirmationPanel from './ConfirmationPanel';
+import { voiceListen, voiceStopListening } from '../../services/csimpleApi';
 import './ChatWindow.css';
 
 // Only allow data: and https: avatar URLs — drop stale /api/agents/... paths
@@ -65,6 +66,8 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
   const [input, setInput] = useState('');
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [dragActive, setDragActive] = useState(false);
+  const [addonListening, setAddonListening] = useState(false); // Whisper mic active
+  const [addonListenError, setAddonListenError] = useState(null);
   const messagesContainerRef = useRef(null);
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -185,6 +188,34 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
       });
     }
   };
+
+  // ── Addon (Whisper) voice input ────────────────────────────────────────────
+  const toggleAddonListening = useCallback(async () => {
+    if (addonListening) {
+      setAddonListening(false);
+      voiceStopListening().catch(() => {});
+      return;
+    }
+    setAddonListening(true);
+    setAddonListenError(null);
+    try {
+      const result = await voiceListen({ maxSeconds: 10, silenceMs: 800 });
+      const text = result?.text?.trim();
+      if (text) {
+        setInput(prev => prev ? `${prev} ${text}` : text);
+      } else {
+        setAddonListenError('Nothing heard');
+        setTimeout(() => setAddonListenError(null), 2000);
+      }
+    } catch (e) {
+      const msg = e.message?.slice(0, 80) || 'Mic error';
+      const hint = (msg.includes('Cannot') || msg.includes('404')) ? 'Restart addon (tray → Restart Server)' : msg;
+      setAddonListenError(hint);
+      setTimeout(() => setAddonListenError(null), 4000);
+    } finally {
+      setAddonListening(false);
+    }
+  }, [addonListening]);
 
   const handleKeyDown = (e) => {
     const sendWithEnter = settings?.sendWithEnter ?? true;
@@ -412,7 +443,7 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
               type="button"
               className={`chat-window__mic-btn ${speech.isListening ? 'chat-window__mic-btn--active' : ''}`}
               onClick={toggleListening}
-              title={speech.isListening ? 'Stop listening' : 'Voice input'}
+              title={speech.isListening ? 'Stop listening' : 'Voice input (browser)'}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
@@ -421,6 +452,30 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
                 <line x1="8" y1="23" x2="16" y2="23" />
               </svg>
             </button>
+          )}
+          {isAddonConnected && !isAddonOutdated && (
+            <button
+              type="button"
+              className={`chat-window__mic-btn chat-window__mic-btn--whisper ${addonListening ? 'chat-window__mic-btn--active' : ''}`}
+              onClick={toggleAddonListening}
+              title={addonListening ? 'Stop Whisper recording' : 'Voice input via Whisper AI (addon)'}
+              disabled={isGenerating}
+            >
+              {addonListening ? (
+                <span className="chat-window__whisper-pulse">🎙</span>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                  <line x1="12" y1="19" x2="12" y2="23" />
+                  <line x1="8" y1="23" x2="16" y2="23" />
+                  <circle cx="12" cy="4" r="1.5" fill="currentColor" stroke="none" />
+                </svg>
+              )}
+            </button>
+          )}
+          {addonListenError && (
+            <span className="chat-window__whisper-err">{addonListenError}</span>
           )}
           {isGenerating ? (
             <button

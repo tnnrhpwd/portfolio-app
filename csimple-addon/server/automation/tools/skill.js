@@ -197,6 +197,147 @@ async function repairStep({ skill, step, resolvedArgs, error, ctx }) {
     return null;
 }
 
+/**
+ * Map an NL-compiler step (type field) to a registry tool call (tool + args),
+ * or flag it as a control-flow type. Returns null for unrecognised types.
+ *
+ * @returns {{ tool: string, args: object } | { _controlFlow: true, ... } | null}
+ */
+function _normaliseStep(step) {
+    // Already a legacy recorded-skill step (has `tool` field)
+    if (step.tool && !step.type) return { tool: step.tool, args: step.args || {} };
+    // Some steps have both — prefer `type` when present (NL compiled)
+    const t = step.type || step.tool;
+    switch (t) {
+        case 'key_tap':
+            return { tool: 'input_tap', args: { keys: step.keys || [], repeat: step.repeat || 1, focusWindowTitle: step.focusWindowTitle } };
+        case 'key_hold':
+            return { tool: 'input_hold', args: { keys: step.keys || [], durationMs: step.duration_ms || 500, focusWindowTitle: step.focusWindowTitle } };
+        case 'type_text':
+            return { tool: 'text_type', args: { text: step.text, focusWindowTitle: step.focusWindowTitle, pressEnterAfter: step.pressEnterAfter } };
+        case 'wait_ms':
+            // No explicit wait tool — use a synthetic shell sleep
+            return { tool: 'shell_run', args: { command: `Start-Sleep -Milliseconds ${Math.max(0, step.ms || 500)}`, shell: 'powershell' } };
+        case 'click_at':
+            return { tool: 'click_at', args: { x: step.x, y: step.y, button: step.button || 'left' } };
+        case 'click_visual':
+            return { tool: 'find_and_click_visual', args: { target: step.target, query: step.target } };
+        case 'open_app':
+            return { tool: 'shell_run', args: { command: `Start-Process "${(step.name || '').replace(/"/g, '')}"`, shell: 'powershell' } };
+        case 'shell_run':
+            return { tool: 'shell_run', args: { command: step.command, shell: step.shell } };
+        case 'uia_invoke':
+            return { tool: 'uia_invoke', args: { name: step.name, automationId: step.automationId, controlType: step.controlType } };
+        case 'skill_run':
+            return { tool: 'skill_run', args: { slug: step.slug, params: step.params } };
+        case 'speak':
+            return { tool: 'audio_speak', args: { text: step.text, rate: step.rate, volume: step.volume } };
+        case 'goal_done':
+            return { tool: 'goal_update', args: { status: 'done' } };
+        case 'screenshot_check':
+            // Control-flow: capture screen, describe, check condition
+            return { _controlFlow: true, type: 'screenshot_check', condition: step.condition, onFail: step.onFail || 'continue' };
+        case 'loop_until_key':
+            return { _controlFlow: true, type: 'loop_until_key', key: step.key || 'Escape', body: step.body || [], maxIterations: step.maxIterations || 10000 };
+        case 'loop_n_times':
+            return { _controlFlow: true, type: 'loop_n_times', times: Math.min(step.times || 1, 10000), body: step.body || [] };
+        case '_marker':
+            return { tool: '_marker', args: step.args || {} };
+        default:
+            return null;
+    }
+}
+
+/**
+ * Execute a control-flow step (loop or screenshot check).
+ */
+async function _execControlFlow(cf, { params, stepDelay, continueOnError, repairEnabled, maxRepairs, ctx, skill }) {
+    if (cf.type === 'screenshot_check') {
+        try {
+            const screenOut = await registry.executeTool('screen_capture', { returnInline: true }, ctx);
+            if (!screenOut?.ok) return { tool: 'screenshot_check', ok: true, skipped: 'screen capture failed', condition: cf.condition };
+            // Use vision description to check condition
+            const { GitHubModelsService } = require('../../github-models-service');
+            const llm = _resolveLlm(ctx) || new GitHubModelsService();
+            const resp = await llm.chat({
+                model: 'openai/gpt-4o-mini',
+                messages: [{
+                    role: 'user',
+                    content: [
+                        { type: 'text', text: `Answer YES or NO only: ${cf.condition}` },
+                        { type: 'image_url', image_url: { url: `data:image/png;base64,${screenOut.result?.base64}`, detail: 'low' } },
+                    ],
+                }],
+                max_tokens: 10,
+            });
+            const answer = (resp?.choices?.[0]?.message?.content || '').trim().toUpperCase();
+            const passed = answer.startsWith('YES');
+            return { tool: 'screenshot_check', ok: true, condition: cf.condition, passed, answer };
+        } catch (e) {
+            return { tool: 'screenshot_check', ok: false, error: e.message };
+        }
+    }
+
+    if (cf.type === 'loop_n_times') {
+        const allResults = [];
+        let failed = false;
+        for (let i = 0; i < cf.times; i++) {
+            for (const bodyStep of (cf.body || [])) {
+                const n = _normaliseStep(bodyStep);
+                if (!n) continue;
+                if (n._controlFlow) continue; // no nested loops
+                let ra = {};
+                try { ra = substituteArgs(n.args || {}, params); } catch {}
+                const out = await registry.executeTool(n.tool, ra, ctx).catch(e => ({ ok: false, error: e.message }));
+                allResults.push({ iteration: i, tool: n.tool, ok: !!out?.ok, error: out?.error });
+                if (!out?.ok && !continueOnError) { failed = true; break; }
+                if (stepDelay > 0) await new Promise(r => setTimeout(r, stepDelay));
+            }
+            if (failed) break;
+        }
+        return { tool: 'loop_n_times', times: cf.times, ok: !failed, iterations: allResults.length, steps: allResults };
+    }
+
+    if (cf.type === 'loop_until_key') {
+        // On Windows, poll a PowerShell key-state check to detect the escape key.
+        // This is a best-effort implementation — accuracy depends on polling interval.
+        const allResults = [];
+        let iteration = 0;
+        const MAX_ITER = cf.maxIterations || 10000;
+        const keyName = cf.key || 'Escape';
+        const PS_KEY_CODE = { Escape: 27, F1: 112, F2: 113, F3: 114, F4: 115, F5: 116, F12: 123, Space: 32 };
+        const vk = PS_KEY_CODE[keyName] || 27;
+        const checkKey = async () => {
+            try {
+                const out = await registry.executeTool('shell_run', {
+                    command: `[System.Windows.Forms.Control]::IsKeyLocked([System.Windows.Forms.Keys]::None) -or ([System.Windows.Input.Keyboard]::IsKeyDown([System.Windows.Input.Key]::${keyName}) 2>$null) -or (([System.Console]::KeyAvailable) -and ([System.Console]::ReadKey($true).Key -eq [System.ConsoleKey]::Escape)) -or (Get-AsKeyState ${vk})`,
+                    shell: 'powershell',
+                    silent: true,
+                }, ctx).catch(() => ({ ok: false }));
+                return out?.ok && String(out?.result?.stdout || '').trim().toLowerCase() === 'true';
+            } catch { return false; }
+        };
+
+        while (iteration < MAX_ITER) {
+            const pressed = await checkKey();
+            if (pressed) break;
+            for (const bodyStep of (cf.body || [])) {
+                const n = _normaliseStep(bodyStep);
+                if (!n || n._controlFlow) continue;
+                let ra = {};
+                try { ra = substituteArgs(n.args || {}, params); } catch {}
+                const out = await registry.executeTool(n.tool, ra, ctx).catch(e => ({ ok: false, error: e.message }));
+                allResults.push({ iteration, tool: n.tool, ok: !!out?.ok });
+                if (stepDelay > 0) await new Promise(r => setTimeout(r, stepDelay));
+            }
+            iteration++;
+        }
+        return { tool: 'loop_until_key', key: keyName, ok: true, iterations: iteration, steps: allResults };
+    }
+
+    return { tool: cf.type, ok: false, error: 'unhandled control-flow type' };
+}
+
 const skillRun = {
     name: 'skill_run',
     category: 'system',
@@ -259,17 +400,37 @@ const skillRun = {
                 continue;
             }
 
+            // ── NL-compiled step type normalisation ──────────────────────────
+            // The NL compiler emits steps with a `type` field (e.g. `key_tap`,
+            // `loop_until_key`, `speak`) rather than a `tool` field. Map these
+            // to tool names or handle them natively (for control-flow types).
+            const normalised = _normaliseStep(step);
+            if (!normalised) {
+                results.push({ index: i, tool: step.type || step.tool, args: step, ok: false, error: `unknown step type: ${step.type}` });
+                if (!continueOnError) { failed = true; break; }
+                failed = true;
+                continue;
+            }
+
+            // Control-flow steps (loops) are handled recursively, not via the registry.
+            if (normalised._controlFlow) {
+                const cfResult = await _execControlFlow(normalised, { params, stepDelay, continueOnError, repairEnabled, maxRepairs, ctx, skill });
+                results.push({ index: i, ...cfResult });
+                if (!cfResult.ok) { failed = true; if (!continueOnError) break; }
+                continue;
+            }
+
             let resolvedArgs;
             try {
-                resolvedArgs = substituteArgs(step.args || {}, params);
+                resolvedArgs = substituteArgs(normalised.args || {}, params);
             } catch (e) {
                 failed = true;
-                results.push({ index: i, tool: step.tool, args: step.args, ok: false, error: e.message });
+                results.push({ index: i, tool: normalised.tool, args: normalised.args, ok: false, error: e.message });
                 if (!continueOnError) break;
                 continue;
             }
 
-            let attempt = await execStep(step.tool, resolvedArgs);
+            let attempt = await execStep(normalised.tool, resolvedArgs);
             const repairs = [];
 
             // LLM repair fallback: on failure, ask the model to amend args and retry.
@@ -279,7 +440,7 @@ const skillRun = {
                 repairCount++;
                 let decision = null;
                 try {
-                    decision = await repairStep({ skill, step, resolvedArgs: usedArgs, error: attempt.error, ctx });
+                    decision = await repairStep({ skill, step: normalised, resolvedArgs: usedArgs, error: attempt.error, ctx });
                 } catch { decision = null; }
 
                 if (!decision || decision.action !== 'retry') {
@@ -288,14 +449,14 @@ const skillRun = {
                 }
                 repairsTotal++;
                 usedArgs = decision.args;
-                const retried = await execStep(step.tool, usedArgs);
+                const retried = await execStep(normalised.tool, usedArgs);
                 repairs.push({ attempt: repairCount, action: 'retry', args: usedArgs, ok: retried.ok, error: retried.error });
                 attempt = retried;
             }
 
             results.push({
                 index: i,
-                tool: step.tool,
+                tool: normalised.tool,
                 args: usedArgs,
                 ok: attempt.ok,
                 result: attempt.result,
@@ -328,6 +489,6 @@ const skillRun = {
 };
 
 module.exports = { skillRun, cacheSkill, getCachedSkill, loadSkill, substituteArgs,
-    repairStep, _extractJsonObject, _resolveLlm,
+    repairStep, _extractJsonObject, _resolveLlm, _normaliseStep,
     getAllCachedSkills: () => Array.from(_localCache.values()),
 };

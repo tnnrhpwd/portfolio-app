@@ -1,0 +1,13 @@
+{
+  "id": "13-voice-status",
+  "name": "voice pipeline status",
+  "description": "Verifies the voice status endpoint is reachable and returns a status object.",
+  "http": {
+    "method": "GET",
+    "path": "/api/voice/status"
+  },
+  "expect": {
+    "running": { "type": "boolean" }
+  },
+  "tags": ["voice", "smoke"]
+}

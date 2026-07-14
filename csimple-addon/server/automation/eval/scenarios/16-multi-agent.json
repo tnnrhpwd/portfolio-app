@@ -1,0 +1,14 @@
+{
+  "id": "16-multi-agent",
+  "name": "multi-agent pool — pool status",
+  "description": "Verifies the agent status endpoint returns the new workerCount and workers fields.",
+  "http": {
+    "method": "GET",
+    "path": "/api/agent/status"
+  },
+  "expect": {
+    "workerCount": { "type": "number" },
+    "workers": { "type": "array" }
+  },
+  "tags": ["multi-agent", "smoke"]
+}

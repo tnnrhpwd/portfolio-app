@@ -771,6 +771,132 @@ export async function getSkillHotkeys() {
   return res.json();
 }
 
+// ─── Natural Language Macro Compiler ─────────────────────────────────────────
+
+/**
+ * Compile an English macro description into structured skill steps via the
+ * addon's NL compiler (LLM-backed). Results are cached by description hash.
+ *
+ * @param {string} description - e.g. "mine stone in minecraft until I press escape"
+ * @param {object} [opts]
+ *   @param {string} [opts.context]  - optional env context (e.g. foreground window title)
+ *   @param {boolean} [opts.noCache] - skip cache and always re-compile
+ * @returns {Promise<{ steps: Array, meta: object }>}
+ */
+export async function compileNaturalMacro(description, { context, noCache } = {}) {
+  const res = await addonFetch('/api/skill/compile-natural', {
+    method: 'POST',
+    body: JSON.stringify({ description, context, noCache: !!noCache }),
+  });
+  return res.json();
+}
+
+// ─── Voice / Audio Pipeline ───────────────────────────────────────────────────
+
+/** Voice pipeline status: { running, listening, wakewordLoop, model, device, lastLevel }. */
+export async function getVoiceStatus() {
+  const res = await addonFetch('/api/voice/status');
+  return res.json();
+}
+
+/**
+ * Record from the microphone until silence, then return the transcript.
+ * @param {{ maxSeconds?: number, silenceMs?: number }} opts
+ * @returns {Promise<{ text: string, confidence: number, language: string, wakeword_detected: boolean }>}
+ */
+export async function voiceListen({ maxSeconds = 10, silenceMs = 800 } = {}) {
+  const res = await addonFetch('/api/voice/listen', {
+    method: 'POST',
+    body: JSON.stringify({ maxSeconds, silenceMs }),
+  });
+  return res.json();
+}
+
+/** Stop any active microphone capture. */
+export async function voiceStopListening() {
+  const res = await addonFetch('/api/voice/stop', { method: 'POST' });
+  return res.json();
+}
+
+/**
+ * Speak text aloud via TTS on the local machine.
+ * @param {string} text
+ * @param {{ rate?: number, volume?: number }} opts
+ */
+export async function voiceSpeak(text, { rate = 175, volume = 1.0 } = {}) {
+  const res = await addonFetch('/api/voice/speak', {
+    method: 'POST',
+    body: JSON.stringify({ text, rate, volume }),
+  });
+  return res.json();
+}
+
+/** List available microphone devices. */
+export async function voiceListDevices() {
+  const res = await addonFetch('/api/voice/devices');
+  return res.json();
+}
+
+/** Start the continuous wakeword detection loop ("hey csimple"). */
+export async function startWakewordLoop() {
+  const res = await addonFetch('/api/voice/wakeword/start', { method: 'POST' });
+  return res.json();
+}
+
+/** Stop the wakeword detection loop. */
+export async function stopWakewordLoop() {
+  const res = await addonFetch('/api/voice/wakeword/stop', { method: 'POST' });
+  return res.json();
+}
+
+// ─── Perception Bus ───────────────────────────────────────────────────────────
+
+/** Perception bus status: { running, hasScreen, hasAudio, hasGaze, hasWindow, ... }. */
+export async function getPerceptionStatus() {
+  const res = await addonFetch('/api/perception/status');
+  return res.json();
+}
+
+/**
+ * Latest perception frame (without raw image data).
+ * @returns {Promise<{ frame: object|null, context: string }>}
+ */
+export async function getPerceptionFrame() {
+  const res = await addonFetch('/api/perception/frame');
+  return res.json();
+}
+
+// ─── Behavioral Predictor ─────────────────────────────────────────────────────
+
+/**
+ * Current behavioral predictions: what the agent is likely to do next.
+ * @returns {Promise<{ predictions: Array, stats: object }>}
+ */
+export async function getAgentPredictions() {
+  const res = await addonFetch('/api/agent/predictions');
+  return res.json();
+}
+
+/**
+ * Fetch proactive automation suggestions based on usage patterns.
+ * @param {{ force?: boolean }} opts
+ */
+export async function getAutomationSuggestions({ force = false } = {}) {
+  const res = await addonFetch(`/api/agent/suggestions${force ? '?force=true' : ''}`);
+  return res.json();
+}
+
+/**
+ * Create a goal from the current clipboard contents.
+ * The addon reads the clipboard on its end (loopback call).
+ */
+export async function createGoalFromClipboard() {
+  const res = await addonFetch('/api/agent/goal-from-clipboard', { method: 'POST' });
+  return res.json();
+}
+
+
+
 /**
  * Build the SSE URL for the agent live event stream. Returns null when the
  * addon is not connected. Pass `types` to filter (comma-joined) and `sinceSeq`
@@ -809,7 +935,17 @@ export async function testAddonConnection() {
   try {
     const res = await addonFetch('/api/status');
     const data = await res.json();
-    checks.push({ name: 'Server', ok: true, detail: `Up ${Math.round(data.uptime || 0)}s` });
+    checks.push({ name: 'Server', ok: true, detail: `Up ${Math.round(data.uptime || 0)}s v${data.version || '?'}` });
+    // Surface automation mount status — if false, the user needs to restart the addon
+    if (data.automationMounted === false) {
+      checks.push({
+        name: 'Automation layer',
+        ok: false,
+        detail: 'Not mounted — restart the addon (tray → Restart Server) to enable agent, macros, and voice',
+      });
+    } else if (data.automationMounted === true) {
+      checks.push({ name: 'Automation layer', ok: true, detail: 'Mounted (NL compiler, voice, agent ready)' });
+    }
   } catch (e) {
     checks.push({ name: 'Server', ok: false, detail: e.message });
   }

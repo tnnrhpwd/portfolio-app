@@ -1,0 +1,13 @@
+{
+  "id": "14-perception-frame",
+  "name": "perception bus — get latest frame",
+  "description": "Verifies the perception frame endpoint returns a frame or null with a context string.",
+  "http": {
+    "method": "GET",
+    "path": "/api/perception/frame"
+  },
+  "expect": {
+    "context": { "type": "string" }
+  },
+  "tags": ["perception", "smoke"]
+}

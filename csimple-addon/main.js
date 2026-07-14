@@ -34,6 +34,7 @@ let eyeOverlayWindow = null;       // transparent click-through gaze dot
 let permissionWindow = null;       // Windows automation permission center
 let eyeOverlayAutoTrain = null;    // {timer, lastSampleAt, lastCursor, lastCursorAt, lastGaze, lastGazeAt}
 let recordingsWindow = null;       // demonstrations & skills browser
+let startAgentStatusPolling = () => {}; // assigned after server ready
 
 // ─── Resource Paths ─────────────────────────────────────────────────────────────
 
@@ -977,6 +978,155 @@ ipcMain.handle('stop-eye-overlay', async () => {
   return await stopEyeOverlayMode();
 });
 
+// ─── Perception Bus + Predictor Wiring ─────────────────────────────────────────
+//
+// Called once after startExpressServer() so all modules are already loaded.
+// Connects the perception bus to eye tracking, audio, and screen sources;
+// wires the predictor to ingest the recent action log; and sets up the
+// wakeword → goal creation pipeline.
+
+function _initPerceptionAndPrediction() {
+  try {
+    const { getPerceptionBus } = require('./server/automation/perception-bus');
+    const { getPredictor } = require('./server/automation/predictor');
+    const { getAudioStreamManager } = require('./server/audio-stream-manager');
+    const wsClient = require('./server/automation/workspace-client');
+
+    const bus = getPerceptionBus();
+    const predictor = getPredictor();
+    const audioMgr = getAudioStreamManager();
+
+    // Screen capture function (uses existing PowerShell tool, best-effort)
+    const captureScreen = async () => {
+      try {
+        const screen = require('./server/automation/tools/screen');
+        const buf = await screen.run({ returnInline: true });
+        return buf && buf.base64
+          ? { base64: buf.base64, width: buf.width || 0, height: buf.height || 0 }
+          : null;
+      } catch { return null; }
+    };
+
+    bus.configure({
+      wsClient,
+      audioManager: audioMgr,
+      eyeTrackingManager: server?.eyeTrackingManager || null,
+      captureScreen,
+      screenIntervalMs: 8000,   // passive screenshot every 8s
+      actionIntervalMs: 15000,  // action log tail every 15s
+    });
+    bus.start();
+    console.log('[Main] Perception bus started');
+
+    // Forward eye-tracker gaze events to perception bus
+    if (server?.eyeTrackingManager) {
+      const origOnGazeData = server.eyeTrackingManager.onGazeData;
+      server.eyeTrackingManager.onGazeData = (data) => {
+        if (typeof data.x === 'number') bus.pushGaze(data);
+        if (origOnGazeData) origOnGazeData(data);
+      };
+    }
+
+    // Ingest recent action log into predictor (best-effort, non-blocking)
+    wsClient.getRecentActions?.(50).then((actions) => {
+      if (Array.isArray(actions)) predictor.ingestActionLog(actions);
+    }).catch(() => {});
+
+    // ── Wakeword → Goal creation pipeline ──────────────────────────────────
+    // When the user says "hey csimple, <instruction>", we:
+    //   1. Extract the instruction after the wakeword (done by voice_pipeline.py)
+    //   2. Create a goal on the workspace API
+    //   3. Start the agent loop to pursue it
+    //   4. Speak a confirmation back to the user
+    audioMgr.on('wakeword', async (msg) => {
+      const instruction = (msg.remainder || '').trim();
+      if (!instruction) {
+        // Just the wakeword with no instruction — speak a prompt
+        audioMgr.speak('Yes? Say a command after "hey csimple".', { rate: 175 }).catch(() => {});
+        return;
+      }
+      console.log('[Main] Wakeword detected, instruction:', instruction.slice(0, 100));
+      trayManager?.notify('Hey CSimple', `"${instruction.slice(0, 80)}"`);
+      try {
+        // Create a goal for this instruction
+        const port = server?.serverPort || 3001;
+        const goalRes = await fetch(`http://127.0.0.1:${port}/api/data/csimple/workspace/goal/${_slugifyInstruction(instruction)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: instruction.slice(0, 80),
+            content: instruction,
+            status: 'active',
+            priority: 80,
+            successCriteria: 'The spoken instruction has been completed.',
+            createdBy: 'voice',
+          }),
+        });
+        if (goalRes.ok) {
+          // Start the agent loop on the new goal
+          await fetch(`http://127.0.0.1:${port}/api/agent/start`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ _firedBy: 'wakeword' }),
+          });
+          startAgentStatusPolling();
+          audioMgr.speak(`On it. ${instruction.slice(0, 60)}.`, { rate: 175 }).catch(() => {});
+        }
+      } catch (e) {
+        console.warn('[Main] Wakeword goal creation failed:', e.message);
+        audioMgr.speak('Sorry, I could not start that task.', { rate: 175 }).catch(() => {});
+      }
+    });
+
+    // Also forward voice.wakeword SSE events for the live panel
+    audioMgr.on('transcript', (msg) => {
+      try {
+        require('./server/automation/events').publish('voice.transcript', {
+          text: (msg.text || '').slice(0, 200),
+          wakeword: msg.wakeword_detected,
+          confidence: msg.confidence,
+        });
+      } catch {}
+    });
+
+    console.log('[Main] Wakeword pipeline active');
+
+    // ── Ctrl+Win+G: Create goal from clipboard ──────────────────────────────
+    // The most intuitive gesture: copy anything, press the hotkey, it becomes a goal.
+    try {
+      globalShortcut.register('CommandOrControl+Super+G', async () => {
+        const port = server?.serverPort || 3001;
+        try {
+          const r = await fetch(`http://127.0.0.1:${port}/api/agent/goal-from-clipboard`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+          });
+          const json = await r.json();
+          if (json.ok) {
+            trayManager?.notify('Goal Created ⌨ Ctrl+Win+G', `"${(json.text || '').slice(0, 80)}"\nSay "Hey CSimple" or click Start Agent to run it.`);
+          } else {
+            trayManager?.notify('Ctrl+Win+G', json.error || 'Copy some text first, then try again.');
+          }
+        } catch (e) {
+          trayManager?.notify('Ctrl+Win+G', `Failed: ${e.message}`);
+        }
+      });
+      console.log('[Main] Ctrl+Win+G hotkey registered (clipboard-to-goal)');
+    } catch (e) {
+      console.warn('[Main] Could not register Ctrl+Win+G:', e.message);
+    }
+  } catch (e) {
+    console.warn('[Main] Perception/prediction init failed:', e.message);
+  }
+}
+
+function _slugifyInstruction(text) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60) || 'voice-goal';
+}
+
 // ─── App Lifecycle ──────────────────────────────────────────────────────────────
 
 app.on('ready', async () => {
@@ -1141,6 +1291,47 @@ app.on('ready', async () => {
         trayManager?.notify('Kill Switch', e.message);
       }
     },
+    onStartWakeword: async () => {
+      try {
+        const port = server?.serverPort || 3001;
+        await fetch(`http://127.0.0.1:${port}/api/voice/wakeword/start`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+        });
+        trayManager?.setAgentStatus({ wakewordActive: true });
+        trayManager?.notify('Hey CSimple', 'Wakeword active — say "Hey CSimple, <instruction>"');
+      } catch (e) {
+        trayManager?.notify('Wakeword', `Failed: ${e.message}`);
+      }
+    },
+    onStopWakeword: async () => {
+      try {
+        const port = server?.serverPort || 3001;
+        await fetch(`http://127.0.0.1:${port}/api/voice/wakeword/stop`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+        });
+        trayManager?.setAgentStatus({ wakewordActive: false });
+        trayManager?.notify('Hey CSimple', 'Wakeword stopped.');
+      } catch (e) {
+        trayManager?.notify('Wakeword', `Failed: ${e.message}`);
+      }
+    },
+    onGoalFromClipboard: async () => {
+      try {
+        const port = server?.serverPort || 3001;
+        const r = await fetch(`http://127.0.0.1:${port}/api/agent/goal-from-clipboard`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+        });
+        const json = await r.json();
+        if (json.ok) {
+          trayManager?.notify('Goal Created', `"${json.text?.slice(0, 80)}"\nAgent will pick it up on next Start.`);
+          startAgentStatusPolling();
+        } else {
+          trayManager?.notify('Goal from Clipboard', json.error || 'Failed');
+        }
+      } catch (e) {
+        trayManager?.notify('Goal from Clipboard', e.message);
+      }
+    },
     onStartRecording: async () => {
       try {
         // Use a simple default name; the user can rename when compiling.
@@ -1190,7 +1381,7 @@ app.on('ready', async () => {
 
   // Poll agent status to keep tray in sync.
   let _agentStatusTimer = null;
-  function startAgentStatusPolling() {
+  startAgentStatusPolling = function () {
     if (_agentStatusTimer) return;
     _agentStatusTimer = setInterval(async () => {
       try {
@@ -1209,7 +1400,7 @@ app.on('ready', async () => {
         }
       } catch {}
     }, 2000);
-  }
+  };
 
   // Enable start-at-login by default on first run (use a marker file since
   // wasOpenedAtLogin is macOS-only and unreliable on Windows)
@@ -1234,6 +1425,9 @@ app.on('ready', async () => {
   } catch (err) {
     console.error('[Main] Server startup failed:', err);
   }
+
+  // 3b. Wire perception bus + predictor now that server is up
+  _initPerceptionAndPrediction();
 
   // 4. Setup Python (in background)
   setupPython();
@@ -1264,6 +1458,18 @@ app.on('before-quit', async (e) => {
   if (pythonManager) {
     pythonManager.cancelSetup();
   }
+
+  // Shutdown audio stream manager (voice pipeline subprocess)
+  try {
+    const { getAudioStreamManager } = require('./server/audio-stream-manager');
+    getAudioStreamManager().shutdown();
+  } catch {}
+
+  // Stop perception bus
+  try {
+    const { getPerceptionBus } = require('./server/automation/perception-bus');
+    getPerceptionBus().stop();
+  } catch {}
 
   // Stop eye tracking if running
   if (server?.eyeTrackingManager) {

@@ -52,8 +52,18 @@ const triggers = require('./triggers');
 const skillHotkeys = require('./skill-hotkeys');
 
 const { createAgentLoop } = require('./agent-loop');
+const { compile: nlCompile } = require('./nl-compiler');
+const { getPerceptionBus, frameToContextString } = require('./perception-bus');
+const { getPredictor } = require('./predictor');
+const { getPatternLearner } = require('./pattern-learner');
+const { audioTranscribe, audioSpeak } = require('./tools/audio');
+const { webcamCapture } = require('./tools/webcam');
+const { textType } = require('./tools/text-type');
+const { getAudioStreamManager } = require('../audio-stream-manager');
 
-let _agentLoop = null;
+let _agentLoop = null;             // primary (legacy) agent loop
+const _agentPool = new Map();       // goalSlug → AgentLoop (multi-agent pool)
+const MAX_CONCURRENT_AGENTS = 3;
 let _pendingApprovals = new Map(); // id -> { resolve, toolName, args, createdAt }
 
 function registerAllTools() {
@@ -111,6 +121,12 @@ function registerAllTools() {
 
     // Recorded-skill runner
     registry.register(skillRun);
+
+    // Multimodal perception
+    registry.register(audioTranscribe);
+    registry.register(audioSpeak);
+    registry.register(webcamCapture);
+    registry.register(textType);
 }
 
 /**
@@ -244,7 +260,9 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
         res.json({ ok: true });
     });
 
-    // ─── Agent loop control ─────────────────────────────────────────────────
+    // ─── Agent loop pool ────────────────────────────────────────────────────
+    // Primary loop (legacy): one loop, picks next active goal automatically.
+    // Pool: up to MAX_CONCURRENT_AGENTS loops, each bound to a specific goal.
     _agentLoop = createAgentLoop({
         wsClient,
         registry,
@@ -252,21 +270,65 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
         log,
     });
 
+    function _getOrCreateLoop(goalSlug) {
+        if (!goalSlug) return _agentLoop;
+        if (_agentPool.has(goalSlug)) return _agentPool.get(goalSlug);
+        if (_agentPool.size >= MAX_CONCURRENT_AGENTS) {
+            throw new Error(`Max concurrent agents (${MAX_CONCURRENT_AGENTS}) reached. Stop one first.`);
+        }
+        const loop = createAgentLoop({ wsClient, registry, contextFactory: ctxFactory, log });
+        _agentPool.set(goalSlug, loop);
+        return loop;
+    }
+
+    function _poolStatus() {
+        const primary = _agentLoop.status();
+        const workers = [];
+        for (const [slug, loop] of _agentPool) {
+            const s = loop.status();
+            workers.push({ goalSlug: slug, ...s });
+            // Clean up finished workers
+            if (!s.running) _agentPool.delete(slug);
+        }
+        return { ...primary, workers, workerCount: workers.length };
+    }
+
     app.post('/api/agent/start', async (req, res) => {
         try {
-            const started = await _agentLoop.start(req.body || {});
-            res.json(started);
+            const { goalSlug } = req.body || {};
+            const loop = _getOrCreateLoop(goalSlug || null);
+            const started = await loop.start(req.body || {});
+            res.json({ ...started, poolSize: _agentPool.size + 1 });
         } catch (e) {
             res.status(500).json({ error: e.message });
         }
     });
     app.post('/api/agent/stop', (req, res) => {
         const reason = (req.body && req.body.reason) || 'user requested stop';
-        _agentLoop.stop(reason);
+        const { goalSlug } = req.body || {};
+        if (goalSlug && _agentPool.has(goalSlug)) {
+            _agentPool.get(goalSlug).stop(reason);
+            _agentPool.delete(goalSlug);
+        } else {
+            _agentLoop.stop(reason);
+            // Also stop all pool workers
+            for (const [slug, loop] of _agentPool) { loop.stop(reason); _agentPool.delete(slug); }
+        }
         res.json({ stopped: true, reason });
     });
     app.get('/api/agent/status', (req, res) => {
-        res.json(_agentLoop.status());
+        res.json(_poolStatus());
+    });
+    // Stop a specific worker by goal slug
+    app.delete('/api/agent/worker/:goalSlug', (req, res) => {
+        const slug = req.params.goalSlug;
+        if (_agentPool.has(slug)) {
+            _agentPool.get(slug).stop('user stopped worker');
+            _agentPool.delete(slug);
+            res.json({ ok: true, stopped: slug });
+        } else {
+            res.status(404).json({ error: 'worker not found' });
+        }
     });
 
     // ─── Live event stream (SSE) ────────────────────────────────────────────
@@ -510,8 +572,170 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
         res.json({ ok });
     });
 
+    // ─── NL Macro Compiler ─────────────────────────────────────────────────
+    // Converts English macro descriptions into executable skill step arrays.
+    // Results are cached for 1h by description hash.
+    app.post('/api/skill/compile-natural', async (req, res) => {
+        try {
+            const { description, context, noCache } = req.body || {};
+            if (!description || typeof description !== 'string' || !description.trim()) {
+                return res.status(400).json({ error: 'description is required' });
+            }
+            if (description.length > 2000) {
+                return res.status(400).json({ error: 'description too long (max 2000 chars)' });
+            }
+            const result = await nlCompile(description.trim(), {
+                context: typeof context === 'string' ? context.slice(0, 500) : undefined,
+                noCache: !!noCache,
+            });
+            events.publish('skill.compiled-natural', { stepCount: result.steps.length });
+            res.json({ ok: true, ...result });
+        } catch (e) {
+            res.status(400).json({ error: e.message });
+        }
+    });
+
+    // ─── Voice / Audio endpoints ────────────────────────────────────────────
+    const _audioMgr = getAudioStreamManager();
+
+    app.get('/api/voice/status', (req, res) => {
+        res.json(_audioMgr.getStatus());
+    });
+
+    app.post('/api/voice/listen', async (req, res) => {
+        try {
+            const { maxSeconds, silenceMs } = req.body || {};
+            const result = await _audioMgr.listen({
+                maxSeconds: Math.min(Number(maxSeconds) || 10, 60),
+                silenceMs: Math.min(Number(silenceMs) || 800, 5000),
+            });
+            events.publish('voice.transcript', { text: (result?.text || '').slice(0, 200), wakeword: result?.wakeword_detected });
+            res.json(result);
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
+    app.post('/api/voice/stop', (req, res) => {
+        _audioMgr.stopListening();
+        res.json({ ok: true });
+    });
+
+    app.post('/api/voice/speak', async (req, res) => {
+        try {
+            const { text, rate, volume } = req.body || {};
+            if (!text || typeof text !== 'string') return res.status(400).json({ error: 'text required' });
+            await _audioMgr.speak(text.slice(0, 500), { rate: Number(rate) || 175, volume: Number(volume) || 1.0 });
+            res.json({ ok: true });
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
+    app.get('/api/voice/devices', async (req, res) => {
+        try {
+            const devices = await _audioMgr.listDevices();
+            res.json({ devices });
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
+    app.post('/api/voice/wakeword/start', (req, res) => {
+        _audioMgr.startWakewordLoop();
+        // Forward wakeword events to the SSE bus
+        _audioMgr.on('wakeword', (msg) => {
+            events.publish('voice.wakeword', { phrase: msg.phrase, remainder: msg.remainder });
+        });
+        res.json({ ok: true, wakewordLoop: true });
+    });
+
+    app.post('/api/voice/wakeword/stop', (req, res) => {
+        _audioMgr.stopWakewordLoop();
+        res.json({ ok: true, wakewordLoop: false });
+    });
+
+    // ─── Perception Bus ─────────────────────────────────────────────────────
+    const _bus = getPerceptionBus();
+
+    app.get('/api/perception/status', (req, res) => {
+        res.json(_bus.getStatus());
+    });
+
+    app.get('/api/perception/frame', (req, res) => {
+        const frame = _bus.getLatestFrame();
+        if (!frame) return res.json({ frame: null, context: '(no data yet)' });
+        // Strip raw base64 from HTTP response unless asked for
+        const safe = { ...frame, screen: frame.screen ? { ...frame.screen, base64: undefined } : null };
+        res.json({ frame: safe, context: frameToContextString(frame) });
+    });
+
+    app.get('/api/perception/history', (req, res) => {
+        const history = _bus.getHistory().map(f => ({
+            ts: f.ts, seq: f.seq,
+            hasScreen: !!f.screen,
+            window: f.window,
+            audio: f.audio ? { transcript: f.audio.transcript?.slice(0, 100), confidence: f.audio.confidence } : null,
+            gaze: f.gaze,
+            recentActions: f.recentActions,
+        }));
+        res.json({ count: history.length, history });
+    });
+
+    // ─── Behavioral Predictor ───────────────────────────────────────────────
+    const _predictor = getPredictor();
+
+    // Hook predictor into tool execution audit
+    registry.onExecuted((toolName, args) => {
+        _predictor.record(toolName, args);
+    });
+
+    app.get('/api/agent/predictions', (req, res) => {
+        res.json({
+            predictions: _predictor.predict(),
+            stats: _predictor.getStats(),
+        });
+    });
+
+    // ─── Pattern Learner (proactive automation suggestions) ────────────────
+    const _learner = getPatternLearner();
+    _learner.configure({ wsClient });
+
+    app.get('/api/agent/suggestions', async (req, res) => {
+        try {
+            const force = req.query.force === 'true';
+            const suggestions = await _learner.analyze({ force });
+            res.json({ suggestions, count: suggestions.length });
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
+    // Clipboard-to-Goal: read the system clipboard and create a goal from it.
+    // Called by the tray menu "Create Goal from Clipboard" or the global hotkey.
+    app.post('/api/agent/goal-from-clipboard', async (req, res) => {
+        try {
+            const clipOut = await registry.executeTool('clipboard_read', {}, ctxFactory({}));
+            const text = clipOut?.result?.text?.trim() || clipOut?.result?.trim?.() || '';
+            if (!text) return res.status(400).json({ error: 'Clipboard is empty' });
+            const slug = text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'clipboard-goal';
+            await wsClient.upsertGoal(slug, {
+                name: text.slice(0, 80),
+                content: text,
+                status: 'active',
+                priority: 75,
+                createdBy: 'clipboard',
+                successCriteria: 'The task described has been completed.',
+            });
+            events.publish('goal.created', { slug, name: text.slice(0, 80), createdBy: 'clipboard' });
+            res.json({ ok: true, slug, text: text.slice(0, 200) });
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
     log('[automation] mounted: tools=' + registry.list().length);
-    return { registry, permissions, agentLoop: _agentLoop, triggers, events, skillHotkeys };
+    return { registry, permissions, agentLoop: _agentLoop, triggers, events, skillHotkeys, perceptionBus: _bus, predictor: _predictor, audioManager: _audioMgr, patternLearner: _learner };
 }
 
 module.exports = {

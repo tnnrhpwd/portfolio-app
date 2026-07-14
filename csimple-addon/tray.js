@@ -250,6 +250,16 @@ class TrayManager {
           : this.callbacks.onStartAgent?.(),
       },
       {
+        label: this.agentState.wakewordActive ? '🎙 Stop "Hey CSimple" Wakeword' : '🎙 Start "Hey CSimple" Wakeword',
+        click: () => this.agentState.wakewordActive
+          ? this.callbacks.onStopWakeword?.()
+          : this.callbacks.onStartWakeword?.(),
+      },
+      {
+        label: '📋 Create Goal from Clipboard (Ctrl+Win+G)',
+        click: () => this.callbacks.onGoalFromClipboard?.(),
+      },
+      {
         label: 'Open Permission Center',
         click: () => this.callbacks.onOpenPermissionCenter?.(),
       },

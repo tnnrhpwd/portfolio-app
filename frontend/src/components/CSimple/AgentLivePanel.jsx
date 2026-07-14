@@ -23,6 +23,11 @@ import {
   relayScreenFrame,
   getAutomationPermissions,
   setAutoApproveAll,
+  startWakewordLoop,
+  stopWakewordLoop,
+  getVoiceStatus,
+  getPerceptionFrame,
+  getAgentPredictions,
 } from '../../services/csimpleApi';
 import './AgentLivePanel.css';
 
@@ -42,6 +47,8 @@ const TYPE_META = {
   'skill.run':          { icon: '🛠', cls: 'skill' },
   'screen.frame':       { icon: '🖼', cls: 'frame' },
   'screen.frame.failed':{ icon: '✗', cls: 'frame' },
+  'voice.wakeword':     { icon: '🎙', cls: 'voice' },
+  'voice.transcript':   { icon: '🔊', cls: 'voice' },
 };
 
 function fmtTime(ts) {
@@ -63,6 +70,8 @@ function describe(ev) {
     case 'skill.run': return `skill ${ev.slug} · ${ev.stepsRun ?? '?'} steps${ev.failed ? ' · failed' : ''}`;
     case 'screen.frame': return `frame ${ev.w}×${ev.h}${ev.reason ? ` · ${ev.reason}` : ''}`;
     case 'screen.frame.failed': return `frame relay failed: ${ev.reason || ''}`;
+    case 'voice.wakeword':  return `Wakeword: "${ev.phrase || ''}"${ev.remainder ? ` → "${ev.remainder}"` : ''}`;
+    case 'voice.transcript': return `Heard: "${String(ev.text || '').slice(0, 100)}"`;
     default: return ev.type;
   }
 }
@@ -77,6 +86,17 @@ export default function AgentLivePanel({ addonConnected, variant = 'full' }) {
   const [autoApprove, setAutoApprove] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+
+  // Voice
+  const [wakewordActive, setWakewordActive] = useState(false);
+  const [lastTranscript, setLastTranscript] = useState(null);
+
+  // Perception
+  const [perceptionCtx, setPerceptionCtx] = useState(null);
+
+  // Predictions
+  const [predictions, setPredictions] = useState([]);
+
   const esRef = useRef(null);
   const lastSeqRef = useRef(0);
 
@@ -95,6 +115,9 @@ export default function AgentLivePanel({ addonConnected, variant = 'full' }) {
     }
     if (ev.type === 'agent.stopped') {
       setStatus((s) => (s ? { ...s, running: false } : s));
+    }
+    if (ev.type === 'voice.transcript' && ev.text) {
+      setLastTranscript({ text: ev.text, wakeword: ev.wakeword, ts: ev.ts || Date.now() });
     }
     setFeed((prev) => {
       const next = [{ ...ev, _k: `${ev.seq}-${ev.ts}` }, ...prev];
@@ -159,6 +182,29 @@ export default function AgentLivePanel({ addonConnected, variant = 'full' }) {
     finally { setBusy(false); }
   }, []);
 
+  // Poll voice + perception + predictions every 5s when connected
+  useEffect(() => {
+    if (!addonConnected) return;
+    let cancelled = false;
+    const poll = async () => {
+      if (cancelled) return;
+      try {
+        const [vStatus, pFrame, preds] = await Promise.all([
+          getVoiceStatus().catch(() => null),
+          getPerceptionFrame().catch(() => null),
+          getAgentPredictions().catch(() => null),
+        ]);
+        if (cancelled) return;
+        if (vStatus) setWakewordActive(!!vStatus.wakewordLoop);
+        if (pFrame?.context) setPerceptionCtx(pFrame.context);
+        if (preds?.predictions) setPredictions(preds.predictions.slice(0, 4));
+      } catch { /* best-effort */ }
+    };
+    poll();
+    const id = setInterval(poll, 5000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [addonConnected]);
+
   const onStart = useCallback(() => withBusy(async () => {
     const r = await startAgent({});
     setStatus((s) => ({ ...(s || {}), ...r, running: true }));
@@ -186,9 +232,18 @@ export default function AgentLivePanel({ addonConnected, variant = 'full' }) {
   const onToggleAutoApprove = useCallback((next) => withBusy(async () => {
     const cfg = await setAutoApproveAll(next);
     setAutoApprove(!!cfg.autoApproveAll);
-    // Clear any queued approvals — auto-approve will fast-track new ones.
     if (next) setApprovals([]);
   }), [withBusy]);
+
+  const onToggleWakeword = useCallback(() => withBusy(async () => {
+    if (wakewordActive) {
+      await stopWakewordLoop();
+      setWakewordActive(false);
+    } else {
+      await startWakewordLoop();
+      setWakewordActive(true);
+    }
+  }), [withBusy, wakewordActive]);
 
   const running = !!status?.running;
   const goalTitle = status?.currentGoal?.name || status?.currentGoal?.slug || null;
@@ -240,6 +295,14 @@ export default function AgentLivePanel({ addonConnected, variant = 'full' }) {
         )}
         <button className="agent-live__btn" onClick={onRefreshFrame} disabled={busy}>Refresh Frame</button>
         <button className="agent-live__btn agent-live__btn--kill" onClick={onKill} disabled={busy}>Kill Switch</button>
+        <button
+          className={`agent-live__btn agent-live__btn--voice ${wakewordActive ? 'is-active' : ''}`}
+          onClick={onToggleWakeword}
+          disabled={busy}
+          title='Say "Hey CSimple, <instruction>" to create a goal and start the agent'
+        >
+          {wakewordActive ? '🎙 Listening…' : '🎙 Wakeword'}
+        </button>
         <label className={`agent-live__toggle ${autoApprove ? 'is-on' : ''}`} title="Auto-approve tool actions that would normally prompt. Hard stops (deny, kill switch, blocked shell commands) still apply.">
           <input
             type="checkbox"
@@ -258,6 +321,37 @@ export default function AgentLivePanel({ addonConnected, variant = 'full' }) {
       )}
 
       {error && <div className="agent-live__error">{error}</div>}
+
+      {/* Perception strip */}
+      {(perceptionCtx || lastTranscript) && (
+        <div className="agent-live__perception">
+          {lastTranscript && (
+            <div className={`agent-live__transcript ${lastTranscript.wakeword ? 'is-wakeword' : ''}`}>
+              {lastTranscript.wakeword && <span className="agent-live__wake-badge">wake</span>}
+              <span>"{lastTranscript.text?.slice(0, 140)}"</span>
+            </div>
+          )}
+          {perceptionCtx && !isSidebar && (
+            <div className="agent-live__percept-ctx" title="Live environment context fed to the agent">
+              {perceptionCtx}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Predictions panel */}
+      {!isSidebar && predictions.length > 0 && (
+        <div className="agent-live__predictions">
+          <span className="agent-live__predictions-label">Predicted next</span>
+          {predictions.map((p, i) => (
+            <span key={i} className={`agent-live__pred ${p.prefetched ? 'is-prefetched' : ''}`}
+              title={`${Math.round(p.probability * 100)}% confident${p.prefetched ? ' · prefetched' : ''}`}>
+              {p.tool}
+              <span className="agent-live__pred-pct">{Math.round(p.probability * 100)}%</span>
+            </span>
+          ))}
+        </div>
+      )}
 
       <div className="agent-live__body">
         <div className="agent-live__screen">

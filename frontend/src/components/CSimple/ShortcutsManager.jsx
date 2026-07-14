@@ -24,6 +24,7 @@ import {
   saveSkill,
   runSkill,
   syncSkillHotkeys,
+  compileNaturalMacro,
 } from '../../services/csimpleApi';
 import './ShortcutsManager.css';
 
@@ -103,6 +104,12 @@ export default function ShortcutsManager({ user, addonConnected }) {
   const [recorder, setRecorder] = useState({ active: false, eventCount: 0, startedAt: null });
   const [pendingName, setPendingName] = useState('');
   const [recorderBusy, setRecorderBusy] = useState(false);
+
+  // Natural language compiler state
+  const [nlText, setNlText] = useState('');
+  const [nlName, setNlName] = useState('');
+  const [nlBusy, setNlBusy] = useState(false);
+  const [nlResult, setNlResult] = useState(null); // { steps, meta }
 
   // Editor state — null unless a macro is open for editing.
   const [editor, setEditor] = useState(null);
@@ -223,6 +230,71 @@ export default function ShortcutsManager({ user, addonConnected }) {
       setRecorderBusy(false);
     }
   }, [addonConnected, pendingName, macros, token, flashStatus, loadMacros]);
+
+  // ── Natural language compiler ──────────────────────────────────────────
+  const handleCompileNl = useCallback(async () => {
+    if (!nlText.trim() || !addonConnected) return;
+    setNlBusy(true);
+    setNlResult(null);
+    setError(null);
+    try {
+      const result = await compileNaturalMacro(nlText.trim(), {});
+      setNlResult(result);
+      // Pre-fill the macro name from the description if not set
+      if (!nlName.trim()) {
+        const derived = nlText.trim().slice(0, 40).replace(/[^a-zA-Z0-9 ]/g, '').trim();
+        setNlName(derived || 'nl-macro');
+      }
+      flashStatus(`Compiled ${result.steps?.length || 0} steps from description`);
+    } catch (e) {
+      const msg = e.message || 'NL compiler failed';
+      // 404 means the addon server hasn't been restarted since the NL compiler was added
+      if (msg.includes('Cannot POST') || msg.includes('404') || msg.includes('compile-natural')) {
+        setError('Addon needs a restart to enable the NL compiler. Right-click the tray icon → Restart Server, then try again.');
+      } else {
+        setError(msg);
+      }
+    } finally {
+      setNlBusy(false);
+    }
+  }, [nlText, nlName, addonConnected, flashStatus]);
+
+  const handleSaveNl = useCallback(async () => {
+    if (!nlResult || !token) return;
+    setNlBusy(true);
+    setError(null);
+    try {
+      const name = (nlName.trim() || 'nl-macro').slice(0, 80);
+      const slug = slugify(name);
+      const skill = {
+        slug,
+        name,
+        description: nlText.trim().slice(0, 200),
+        steps: nlResult.steps,
+        metadata: {
+          source: 'nl-compiler',
+          compiledAt: nlResult.meta?.compiledAt || new Date().toISOString(),
+        },
+      };
+      await upsertWorkspaceItem(token, 'skill', slug, {
+        name,
+        content: JSON.stringify(skill),
+        tags: ['nl-compiled'],
+      });
+      if (addonConnected) {
+        try { await saveSkill(skill); } catch { /* non-fatal */ }
+      }
+      flashStatus(`Saved macro "${name}" (${skill.steps.length} steps)`);
+      setNlText('');
+      setNlName('');
+      setNlResult(null);
+      await loadMacros();
+    } catch (e) {
+      setError(e.message || 'Save failed');
+    } finally {
+      setNlBusy(false);
+    }
+  }, [nlResult, nlText, nlName, token, addonConnected, flashStatus, loadMacros]);
 
   // ── Row actions ────────────────────────────────────────────────────────
   const handleRun = useCallback(async (slug) => {
@@ -464,6 +536,60 @@ export default function ShortcutsManager({ user, addonConnected }) {
           After starting, perform the actions you want captured. Recording covers mouse clicks, focus changes,
           and typed text. Click <b>Stop &amp; save</b> to compile into a runnable macro.
         </p>
+      </div>
+
+      {/* Natural Language Macro Compiler */}
+      <div className="short__group">
+        <div className="short__group-header">
+          <span className="short__group-title">✨ Natural Language Macro</span>
+          <span className="short__group-badge">AI</span>
+        </div>
+        <p className="short__hint">
+          Describe a macro in plain English and the AI will compile it into executable steps.
+          <br />Examples: <em>"mine stone in minecraft until I press Escape"</em> · <em>"open Notepad, type hello, save"</em>
+        </p>
+        <textarea
+          className="adv-input short__nl-textarea"
+          placeholder="Describe what you want the macro to do…"
+          rows={3}
+          value={nlText}
+          onChange={e => setNlText(e.target.value)}
+          disabled={nlBusy}
+        />
+        <div className="short__recorder" style={{ marginTop: '6px' }}>
+          <input
+            type="text"
+            className="adv-input short__name-input"
+            placeholder="Macro name (optional)"
+            value={nlName}
+            onChange={e => setNlName(e.target.value)}
+            disabled={nlBusy}
+          />
+          <button
+            className="short__btn short__btn--primary"
+            onClick={handleCompileNl}
+            disabled={!addonConnected || nlBusy || !nlText.trim()}
+          >
+            {nlBusy ? '⏳ Compiling…' : '⚡ Compile'}
+          </button>
+        </div>
+        {nlResult && (
+          <div className="short__nl-result">
+            <div className="short__nl-result-header">
+              <span>{nlResult.steps?.length} steps compiled</span>
+              <button
+                className="short__btn short__btn--primary"
+                onClick={handleSaveNl}
+                disabled={nlBusy || !token}
+              >
+                💾 Save macro
+              </button>
+            </div>
+            <pre className="short__nl-preview">
+              {JSON.stringify(nlResult.steps, null, 2)}
+            </pre>
+          </div>
+        )}
       </div>
 
       {/* Status / error banners */}

@@ -1,0 +1,17 @@
+{
+  "id": "11-text-type",
+  "name": "text_type tool — type text into foreground window",
+  "description": "Verifies text_type can type a short ASCII string via SendKeys and returns strategy + chars count.",
+  "tool": "text_type",
+  "args": {
+    "text": "Hello CSimple",
+    "pressEnterAfter": false
+  },
+  "expect": {
+    "ok": true,
+    "result.strategy": ["sendkeys", "clipboard"],
+    "result.chars": 13
+  },
+  "dryRun": true,
+  "tags": ["input", "typing", "smoke"]
+}

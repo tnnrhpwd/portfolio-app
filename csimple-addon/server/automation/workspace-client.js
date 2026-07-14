@@ -83,6 +83,31 @@ const listSkills = () => {
     return req('GET', `?${q.toString()}`);
 };
 
+// ─── Goal list + recent actions ────────────────────────────────────────────
+const listGoals = ({ status } = {}) => {
+    const q = new URLSearchParams({ kind: 'goal' });
+    if (status) q.set('status', status);
+    return req('GET', `?${q.toString()}`);
+};
+
+/**
+ * Fetch the tail of the action log (most recent N entries).
+ * The action log is stored as JSONL in a log kind item. We parse it here.
+ */
+const getRecentActions = async (n = 20) => {
+    try {
+        const today = new Date().toISOString().slice(0, 10);
+        const item = await req('GET', `/log/${encodeURIComponent(`log-${today}`)}`).catch(() => null);
+        const content = item?.content || item?.attrs?.content || '';
+        if (!content) return [];
+        const lines = content.trim().split('\n').filter(Boolean);
+        const recent = lines.slice(-Math.max(1, n));
+        return recent.map(l => { try { return JSON.parse(l); } catch { return { summary: l }; } });
+    } catch {
+        return [];
+    }
+};
+
 module.exports = {
     setTokenGetter,
     getNextGoal,
@@ -97,4 +122,6 @@ module.exports = {
     upsertSkill,
     deleteSkill,
     listSkills,
+    listGoals,
+    getRecentActions,
 };

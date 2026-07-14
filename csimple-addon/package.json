@@ -13,7 +13,7 @@
     "build:portable": "electron-builder --win portable",
     "update:local": "powershell -ExecutionPolicy Bypass -File scripts/install-local-update.ps1",
     "release": "node release.js",
-    "test:unit": "node server/automation/recorder/compiler.test.js && node server/automation/events.test.js && node server/automation/triggers.test.js && node server/automation/planner.test.js && node server/automation/skill-hotkeys.test.js",
+    "test:unit": "node server/automation/recorder/compiler.test.js && node server/automation/events.test.js && node server/automation/triggers.test.js && node server/automation/planner.test.js && node server/automation/skill-hotkeys.test.js && node server/automation/nl-compiler.test.js && node server/automation/predictor.test.js",
     "eval": "node server/automation/eval/cli.js",
     "eval:dry": "node server/automation/eval/cli.js --dry",
     "test": "npm run test:unit && npm run eval",

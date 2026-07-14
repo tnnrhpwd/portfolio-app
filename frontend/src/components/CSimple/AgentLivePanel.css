@@ -129,6 +129,111 @@
   border-color: #111827;
 }
 
+.agent-live__btn--voice {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #15803d;
+}
+
+.agent-live__btn--voice.is-active {
+  background: #dcfce7;
+  border-color: #22c55e;
+  color: #15803d;
+  font-weight: 600;
+  animation: voicePulse 1.4s ease-in-out infinite;
+}
+
+@keyframes voicePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.4); }
+  50%       { box-shadow: 0 0 0 5px rgba(34,197,94,0); }
+}
+
+/* ─── Perception strip ─────────────────────────────────────────────────── */
+.agent-live__perception {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 10px;
+  background: var(--bg-secondary, #f9fafb);
+  border: 1px solid var(--border-color, rgba(0,0,0,.1));
+  border-radius: 8px;
+  margin-bottom: 6px;
+  font-size: 0.78rem;
+}
+
+.agent-live__transcript {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-primary, #1f2937);
+  font-style: italic;
+}
+
+.agent-live__transcript.is-wakeword {
+  color: #15803d;
+  font-weight: 600;
+}
+
+.agent-live__wake-badge {
+  background: #22c55e;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  border-radius: 4px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+}
+
+.agent-live__percept-ctx {
+  color: var(--text-secondary, #6b7280);
+  font-size: 0.74rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─── Predictions panel ────────────────────────────────────────────────── */
+.agent-live__predictions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+  font-size: 0.78rem;
+}
+
+.agent-live__predictions-label {
+  color: var(--text-secondary, #6b7280);
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.agent-live__pred {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-secondary, #f3f4f6);
+  border: 1px solid var(--border-color, rgba(0,0,0,.1));
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 0.76rem;
+  color: var(--text-primary, #1f2937);
+}
+
+.agent-live__pred.is-prefetched {
+  border-color: #a5f3fc;
+  background: #ecfeff;
+}
+
+.agent-live__pred-pct {
+  color: var(--text-secondary, #6b7280);
+  font-size: 0.68rem;
+}
+
 .agent-live__toggle {
   display: inline-flex;
   align-items: center;

@@ -19,6 +19,7 @@
 const permissions = require('./permissions');
 
 const _tools = new Map();
+const _executedListeners = new Set();
 
 /** Register a tool. Throws if name conflicts. */
 function register(tool) {
@@ -118,6 +119,8 @@ async function executeTool(name, args, ctx = {}) {
         };
         ctx.addAction?.(record).catch(() => {});
         events?.publish('tool.end', { tool: name, ok: true, mode: approval.mode, durationMs, callId });
+        // Notify predictor and other subscribers of successful execution
+        for (const fn of _executedListeners) { try { fn(name, safeArgs, result); } catch {} }
         return { ok: true, result, mode: approval.mode, durationMs };
     } catch (e) {
         const durationMs = Date.now() - startedAt;
@@ -132,10 +135,22 @@ async function executeTool(name, args, ctx = {}) {
     }
 }
 
+/**
+ * Register a callback fired after every successful tool execution.
+ * Used by the predictor to build its n-gram model.
+ * @param {(toolName: string, args: object, result: any) => void} fn
+ * @returns {() => void} unsubscribe function
+ */
+function onExecuted(fn) {
+    _executedListeners.add(fn);
+    return () => _executedListeners.delete(fn);
+}
+
 module.exports = {
     register,
     list,
     get,
     toolSchemasForLlm,
     executeTool,
+    onExecuted,
 };

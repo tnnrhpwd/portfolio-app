@@ -1,0 +1,17 @@
+{
+  "id": "12-nl-compile",
+  "name": "NL compiler — compile English macro via /api/skill/compile-natural",
+  "description": "Verifies the NL compiler returns a valid steps array for a simple English instruction.",
+  "http": {
+    "method": "POST",
+    "path": "/api/skill/compile-natural",
+    "body": {
+      "description": "open notepad and type hello world"
+    }
+  },
+  "expect": {
+    "ok": true,
+    "steps": { "minLength": 1 }
+  },
+  "tags": ["nl-compiler", "smoke"]
+}

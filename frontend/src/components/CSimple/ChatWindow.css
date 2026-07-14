@@ -599,6 +599,42 @@
   color: white;
 }
 
+.chat-window__mic-btn--whisper {
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+.chat-window__mic-btn--whisper:hover {
+  background: rgba(99, 102, 241, 0.2);
+}
+
+.chat-window__mic-btn--whisper.chat-window__mic-btn--active {
+  background: #6366f1;
+  color: white;
+  animation: whisper-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes whisper-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.5); }
+  50%       { box-shadow: 0 0 0 8px rgba(99, 102, 241, 0); }
+}
+
+.chat-window__whisper-pulse {
+  animation: blink 0.8s step-start infinite;
+}
+
+@keyframes blink { 50% { opacity: 0; } }
+
+.chat-window__whisper-err {
+  font-size: 11px;
+  color: var(--error);
+  white-space: nowrap;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 @keyframes mic-pulse {
   0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
   50% { opacity: 0.85; box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
