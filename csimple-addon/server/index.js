@@ -622,6 +622,7 @@ app.get('/api/status', (req, res) => {
     timestamp: new Date().toISOString(),
     version: require('../package.json').version,
     automationMounted: _automationMounted,
+    automationError: _automationMountError || undefined,
     routes: {
       nlCompiler: _automationMounted,
       voice: _automationMounted,
@@ -653,6 +654,34 @@ app.get('/api/cloud/status', (req, res) => {
   res.json({ active: cloudRelay._running, hasToken: !!cloudRelay._token });
 });
 
+// ─── Self-healing automation remount ─────────────────────────────────────────
+// This endpoint is registered BEFORE the automation try/catch so it's always
+// reachable, even when the automation layer failed to mount. Calling it forces
+// a clean re-mount: resets the tool registry, re-runs mountAutomation.
+// The frontend calls this automatically when it gets a 404 on automation routes.
+let _automationMountError = null;
+app.post('/api/admin/remount', (req, res) => {
+  try {
+    // 1. Reset the tool registry (clears all registered tools, safe to re-register)
+    const registry = require('./automation/tool-registry');
+    registry.reset();
+
+    // 2. Re-run mountAutomation (registers all tools + all routes again).
+    //    Express allows duplicate route registrations — later registrations shadow
+    //    earlier ones, so routes will be live after this call.
+    const { mountAutomation } = require('./automation');
+    mountAutomation(app, { cloudRelay, log: console.log });
+    _automationMounted = true;
+    _automationMountError = null;
+    console.log('[remount] automation layer re-mounted successfully');
+    res.json({ ok: true, automationMounted: true });
+  } catch (e) {
+    _automationMountError = e.message;
+    console.error('[remount] failed:', e.message);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // ─── Windows Automation (agent + tools) ─────────────────────────────────────
 try {
   const { mountAutomation } = require('./automation');
@@ -660,6 +689,7 @@ try {
   _automationMounted = true;
   console.log('[startup] automation layer mounted');
 } catch (e) {
+  _automationMountError = e.message;
   console.error('[startup] automation layer failed to mount:', e.message);
 }
 
@@ -2369,4 +2399,7 @@ module.exports = {
   eyeTrackingManager,
   getPort: () => activePort,
   getHttpsPort: () => activeHttpsPort,
+  // Exported so automation/nl-compiler.js can read the GitHub PAT the same
+  // way /api/chat does (handles DPAPI decryption via secret-storage.js).
+  readWebappSettings,
 };

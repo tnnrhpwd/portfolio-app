@@ -21,13 +21,13 @@ const permissions = require('./permissions');
 const _tools = new Map();
 const _executedListeners = new Set();
 
-/** Register a tool. Throws if name conflicts. */
+/** Register a tool. Overwrites silently if the same name is registered again
+ * (idempotent — safe for server restarts that re-call registerAllTools). */
 function register(tool) {
     if (!tool || !tool.name) throw new Error('Tool requires a name');
-    if (_tools.has(tool.name)) throw new Error(`Duplicate tool: ${tool.name}`);
     if (!tool.category) throw new Error(`Tool ${tool.name} missing category`);
     if (typeof tool.run !== 'function') throw new Error(`Tool ${tool.name} missing run()`);
-    _tools.set(tool.name, tool);
+    _tools.set(tool.name, tool); // overwrite silently on duplicate
 }
 
 function list() {
@@ -146,6 +146,12 @@ function onExecuted(fn) {
     return () => _executedListeners.delete(fn);
 }
 
+/** Clear all registered tools. Used by restartExpressServer to reset state. */
+function reset() {
+    _tools.clear();
+    _executedListeners.clear();
+}
+
 module.exports = {
     register,
     list,
@@ -153,4 +159,5 @@ module.exports = {
     toolSchemasForLlm,
     executeTool,
     onExecuted,
+    reset,
 };

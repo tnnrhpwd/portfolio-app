@@ -177,6 +177,9 @@ function shellAutoApprove(toolName, args) {
 }
 
 function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
+    // Reset tool registry so a server restart doesn't hit "Duplicate tool" errors.
+    // The _tools Map is a module-level singleton that survives require() cache between restarts.
+    registry.reset();
     registerAllTools();
 
     // Wire the workspace client to whichever token the cloud relay holds.
@@ -574,21 +577,55 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
 
     // ─── NL Macro Compiler ─────────────────────────────────────────────────
     // Converts English macro descriptions into executable skill step arrays.
-    // Results are cached for 1h by description hash.
+    // The frontend passes its githubToken in the request body so the addon
+    // doesn't need to find it in settings.json (avoids DPAPI issues).
     app.post('/api/skill/compile-natural', async (req, res) => {
         try {
-            const { description, context, noCache } = req.body || {};
+            const { description, context, noCache, githubToken: inlineToken } = req.body || {};
             if (!description || typeof description !== 'string' || !description.trim()) {
                 return res.status(400).json({ error: 'description is required' });
             }
             if (description.length > 2000) {
                 return res.status(400).json({ error: 'description too long (max 2000 chars)' });
             }
-            const result = await nlCompile(description.trim(), {
-                context: typeof context === 'string' ? context.slice(0, 500) : undefined,
-                noCache: !!noCache,
-            });
-            events.publish('skill.compiled-natural', { stepCount: result.steps.length });
+            // Only use inline token if it's plaintext (not a backend-encrypted enc:v1: blob)
+            const safeInlineToken = (typeof inlineToken === 'string' && inlineToken.length > 10 &&
+                !inlineToken.startsWith('enc:') && !inlineToken.startsWith('v10')) ? inlineToken : undefined;
+
+            let result;
+            try {
+                result = await nlCompile(description.trim(), {
+                    context: typeof context === 'string' ? context.slice(0, 500) : undefined,
+                    noCache: !!noCache,
+                    inlineToken: safeInlineToken,
+                });
+            } catch (localErr) {
+                const isTokenErr = /token|GitHub|LLM client|not configured|401/i.test(localErr.message || '');
+                if (!isTokenErr) throw localErr;
+                // Local PAT unavailable or invalid — wait for cloud relay token then proxy to backend
+                let backendToken = cloudRelay?._token || null;
+                if (!backendToken) {
+                    for (let i = 0; i < 25; i++) {
+                        await new Promise(r => setTimeout(r, 200));
+                        backendToken = cloudRelay?._token || null;
+                        if (backendToken) break;
+                    }
+                }
+                if (!backendToken) throw new Error('Sign in to sthopwood.com/net first, then try again.');
+                log('[compile-natural] proxying to backend');
+                const BACKEND_URL_NL = process.env.BACKEND_URL || 'https://mern-plan-web-service.onrender.com';
+                const backendRes = await fetch(`${BACKEND_URL_NL}/api/data/csimple/compile-natural`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${backendToken}` },
+                    body: JSON.stringify({ description: description.trim(), context }),
+                });
+                const backendText = await backendRes.text();
+                let backendJson; try { backendJson = JSON.parse(backendText); } catch { backendJson = null; }
+                if (!backendRes.ok) throw new Error(backendJson?.dataMessage || backendJson?.message || backendJson?.error || backendText || `backend error ${backendRes.status}`);
+                result = backendJson;
+            }
+
+            events.publish('skill.compiled-natural', { stepCount: result.steps?.length || 0 });
             res.json({ ok: true, ...result });
         } catch (e) {
             res.status(400).json({ error: e.message });

@@ -21,6 +21,32 @@ let _tokenGetter = () => null;
 
 function setTokenGetter(fn) { _tokenGetter = fn || (() => null); }
 
+/**
+ * Call the backend compile-natural endpoint using the user's JWT.
+ * This is the fallback when the local addon doesn't have a GitHub PAT
+ * in settings.json (e.g. fresh dev run, PAT only saved via the web UI).
+ */
+async function compileNaturalViaBackend(description, context) {
+    const token = _tokenGetter();
+    if (!token) throw new Error('No auth token — sign in on the web app first, then try again.');
+    const url = `${BACKEND_URL}/api/data/csimple/compile-natural`;
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ description, context }),
+    });
+    const text = await res.text();
+    let json = null;
+    try { json = text ? JSON.parse(text) : null; } catch {}
+    if (!res.ok) {
+        const msg = json?.dataMessage || json?.message || json?.error || text || `backend error ${res.status}`;
+        const e = new Error(msg);
+        e.status = res.status;
+        throw e;
+    }
+    return json;
+}
+
 async function req(method, urlPath, body) {
     const token = _tokenGetter();
     if (!token) throw new Error('No auth token (sign in on the web app first)');
@@ -124,4 +150,5 @@ module.exports = {
     listSkills,
     listGoals,
     getRecentActions,
+    compileNaturalViaBackend,
 };

@@ -357,9 +357,37 @@ async function restartExpressServer() {
       server.stopGeneration();
     }
 
-    // Re-require with cache clear
-    const serverPath = require.resolve('./server/index');
-    delete require.cache[serverPath];
+    // Clear server/index and the entire automation subtree from require cache.
+    // Without this, tool-registry._tools retains all registered tools from the
+    // previous load, causing "Duplicate tool" on registerAllTools() and silently
+    // preventing ALL automation routes (/api/skill/compile-natural, /api/agent/*, etc.)
+    // from being registered on the restarted server.
+    const clearCache = (mod) => {
+      try {
+        const resolved = require.resolve(mod);
+        if (require.cache[resolved]) {
+          // Also clear children first to avoid stale references
+          const children = require.cache[resolved].children || [];
+          delete require.cache[resolved];
+          // Recursively clear only files inside this project (not node_modules)
+          for (const child of children) {
+            if (child.id && child.id.includes('csimple-addon') && !child.id.includes('node_modules')) {
+              delete require.cache[child.id];
+            }
+          }
+        }
+      } catch { /* module may not be loaded, ignore */ }
+    };
+
+    clearCache('./server/index');
+    clearCache('./server/automation');
+    clearCache('./server/automation/tool-registry');
+    clearCache('./server/automation/permissions');
+    clearCache('./server/automation/workspace-client');
+    clearCache('./server/automation/nl-compiler');
+    clearCache('./server/automation/pattern-learner');
+    clearCache('./server/automation/predictor');
+    clearCache('./server/automation/perception-bus');
 
     await startExpressServer();
   } catch (err) {

@@ -693,6 +693,121 @@ const getTelemetrySummary = asyncHandler(async (req, res) => {
     });
 });
 
+// @desc    Compile an English macro description into executable skill steps.
+//          Mirrors the addon's nl-compiler.js but runs on the portfolio backend,
+//          so it works even when the addon's automation layer fails to mount.
+// @route   POST /api/data/csimple/compile-natural
+// @access  Private
+const compileMacroNatural = asyncHandler(async (req, res) => {
+    if (!req.user) unauthorized(res);
+
+    const { description, context } = req.body || {};
+    if (!description || typeof description !== 'string' || !description.trim()) {
+        badRequest(res, 'description is required');
+    }
+    if (description.length > 2000) badRequest(res, 'description too long (max 2000 chars)');
+
+    // Use the same token-fetching function as the chat endpoint
+    // (handles encryption correctly via secretCrypto)
+    const { getUserGithubToken } = require('../services/llmService');
+    const githubToken = await getUserGithubToken(dynamodb, req.user.id);
+
+    if (!githubToken) {
+        res.status(422);
+        throw new Error('No GitHub PAT found. In CSimple → Settings → Advanced, paste your GitHub Personal Access Token and save, then try again.');
+    }
+
+    // NL compiler schema documentation (mirrors nl-compiler.js exactly)
+    const STEP_SCHEMA = `
+Valid step types:
+  {"type":"key_tap","keys":["w"],"repeat":1}
+  {"type":"key_hold","keys":["w"],"duration_ms":500}
+  {"type":"type_text","text":"Hello world"}
+  {"type":"wait_ms","ms":1000}
+  {"type":"click_at","x":960,"y":540}
+  {"type":"click_visual","target":"the Submit button"}
+  {"type":"open_app","name":"notepad.exe"}
+  {"type":"shell_run","command":"dir C:\\\\Users"}
+  {"type":"uia_invoke","name":"OK","controlType":"Button"}
+  {"type":"skill_run","slug":"my-skill"}
+  {"type":"loop_until_key","key":"Escape","body":[...steps...]}
+  {"type":"loop_n_times","times":5,"body":[...steps...]}
+  {"type":"screenshot_check","condition":"Is the dialog closed?"}
+  {"type":"speak","text":"Done!"}
+  {"type":"goal_done"}
+
+Rules:
+- For "until I press X" → use loop_until_key with the correct key name
+- For "repeat N times" → use loop_n_times
+- Prefer click_visual or uia_invoke over click_at for named UI elements
+- For opening apps → use open_app, not shell_run
+- Do NOT use shell_run for destructive operations (rm, del, format, shutdown, etc.)
+- Max 30 steps total, no nested loops
+`;
+
+    const prompt = [
+        'Convert the following natural language macro description into a JSON step array for Windows automation.',
+        'Return ONLY a JSON object: {"steps": [...]}',
+        '',
+        STEP_SCHEMA,
+        context ? `Context about the user\'s environment: ${context.slice(0, 500)}` : '',
+        '',
+        `Macro description: ${description.trim()}`,
+        '',
+        'Reply with ONLY valid JSON. No prose. No markdown fences.',
+    ].filter(Boolean).join('\n');
+
+    // Call GitHub Models using the same pattern as llmService
+    let steps;
+    try {
+        const { default: OpenAI } = await import('openai');
+        const client = new OpenAI({
+            baseURL: 'https://models.github.ai/inference',
+            apiKey: githubToken,
+        });
+        const response = await client.chat.completions.create({
+            model: 'openai/gpt-4o-mini',
+            messages: [
+                { role: 'system', content: 'You are a Windows macro compiler. Output only valid JSON.' },
+                { role: 'user', content: prompt },
+            ],
+            temperature: 0.1,
+            max_tokens: 2048,
+        });
+        const text = response?.choices?.[0]?.message?.content || '';
+        // Extract JSON from the response
+        const match = text.match(/\{[\s\S]*\}/);
+        if (!match) throw new Error('No JSON found in LLM response');
+        const parsed = JSON.parse(match[0]);
+        steps = parsed.steps || parsed;
+        if (!Array.isArray(steps)) throw new Error('LLM did not return a steps array');
+        if (steps.length === 0) throw new Error('Compiled macro has no steps');
+        if (steps.length > 30) steps = steps.slice(0, 30);
+    } catch (e) {
+        if (e.status === 401 || e.message?.includes('401')) {
+            res.status(422);
+            throw new Error('GitHub token is invalid or expired. Update your PAT in CSimple → Settings → Advanced, then try again.');
+        }
+        if (e.status === 403 || e.message?.includes('403')) {
+            res.status(422);
+            throw new Error('GitHub token lacks GitHub Models access. Visit github.com/marketplace/models, accept the terms, then try again.');
+        }
+        res.status(500);
+        throw new Error('Macro compilation failed. Check that your GitHub PAT is valid and try again.');
+    }
+
+    res.status(200).json({
+        ok: true,
+        steps,
+        meta: {
+            description: description.trim().slice(0, 200),
+            stepCount: steps.length,
+            compiledAt: new Date().toISOString(),
+            via: 'backend',
+        },
+    });
+});
+
 module.exports = {
     listWorkspace,
     getWorkspaceItem,
@@ -704,6 +819,7 @@ module.exports = {
     getTelemetrySummary,
     getWorkspaceContextPreview,
     getWorkspaceTemplates,
+    compileMacroNatural,
     // Exported for use by llmService when assembling system prompts:
     _internal: {
         ALLOWED_KINDS,

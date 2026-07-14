@@ -242,32 +242,89 @@ export function startAddonPolling(interval = ADDON_POLL_INTERVAL) {
  * Make a request to the local addon.
  * @throws {Error} if addon is not connected
  */
+// Automation routes that require the addon's automation layer to be mounted.
+const AUTOMATION_ROUTE_PREFIXES = [
+  '/api/agent/', '/api/automation/', '/api/skill/', '/api/recorder/',
+  '/api/voice/', '/api/perception/', '/api/triggers',
+];
+let _remountInProgress = false;
+
+/** Extract a clean human-readable message from an error response (may be HTML or JSON). */
+function _parseErrorBody(text, status) {
+  if (!text) return `Addon error (${status})`;
+  // HTML 404 from Express "Cannot POST /path"
+  const htmlMatch = text.match(/<pre>(Cannot [A-Z]+ [^<]+)<\/pre>/);
+  if (htmlMatch) return htmlMatch[1];
+  // JSON with known fields
+  try {
+    const j = JSON.parse(text);
+    if (j.dataMessage) return j.dataMessage;
+    if (j.error) return typeof j.error === 'string' ? j.error : j.error.message || text;
+    if (j.message) return j.message;
+  } catch {}
+  return text.length > 200 ? `Addon error (${status})` : text;
+}
+
 async function addonFetch(path, options = {}) {
   if (!_addonStatus.isConnected || !_addonStatus.baseUrl) {
     throw new Error('CSimple addon is not connected');
   }
 
-  const url = `${_addonStatus.baseUrl}${path}`;
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
+  const doFetch = async () => {
+    const url = `${_addonStatus.baseUrl}${path}`;
+    const res = await fetch(url, {
+      ...options,
+      headers: { 'Content-Type': 'application/json', ...options.headers },
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => res.statusText);
+      throw new Error(_parseErrorBody(text, res.status));
+    }
+    return res;
+  };
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText);
-    // Try to extract a clean error message from JSON responses
-    let errorMsg = text;
-    try {
-      const parsed = JSON.parse(text);
-      if (parsed.error) errorMsg = typeof parsed.error === 'string' ? parsed.error : parsed.error.message || text;
-    } catch {}
-    throw new Error(errorMsg);
+  try {
+    return await doFetch();
+  } catch (e) {
+    const msg = e.message || '';
+    const isAutomationRoute = AUTOMATION_ROUTE_PREFIXES.some(p => path.startsWith(p));
+    const isRouteNotFound = msg.startsWith('Cannot POST') || msg.startsWith('Cannot GET') || msg.startsWith('Cannot DELETE');
+
+    if (isAutomationRoute && isRouteNotFound && !_remountInProgress) {
+      // The automation layer is not mounted on the running addon server.
+      // Step 1: Check /api/status to get the exact mount error
+      let mountError = null;
+      try {
+        const statusRes = await fetch(`${_addonStatus.baseUrl}/api/status`);
+        if (statusRes.ok) {
+          const statusJson = await statusRes.json();
+          if (statusJson.automationError) mountError = statusJson.automationError;
+        }
+      } catch {}
+
+      // Step 2: Try /api/admin/remount (exists in updated addon builds)
+      _remountInProgress = true;
+      let remounted = false;
+      try {
+        const r = await fetch(`${_addonStatus.baseUrl}/api/admin/remount`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+        });
+        remounted = r.ok;
+      } catch {}
+      _remountInProgress = false;
+
+      if (remounted) {
+        try { return await doFetch(); } catch {}
+      }
+
+      // Remount failed or still 404 — show actionable message with actual error if known
+      const detail = mountError ? `\n\nError: ${mountError}` : '';
+      throw new Error(
+        `Automation features are not active.${detail}\n\nRight-click the CSimple tray icon → Quit, then relaunch the app.`
+      );
+    }
+    throw e;
   }
-
-  return res;
 }
 
 /**
@@ -774,6 +831,17 @@ export async function getSkillHotkeys() {
 // ─── Natural Language Macro Compiler ─────────────────────────────────────────
 
 /**
+ * Force-remount the automation layer on the addon server.
+ * Called automatically when automation endpoints return 404 — this fixes the
+ * "Duplicate tool" crash that happens after tray "Restart Server" without a
+ * full process restart.
+ */
+export async function remountAutomation() {
+  const res = await addonFetch('/api/admin/remount', { method: 'POST' });
+  return res.json();
+}
+
+/**
  * Compile an English macro description into structured skill steps via the
  * addon's NL compiler (LLM-backed). Results are cached by description hash.
  *
@@ -783,10 +851,10 @@ export async function getSkillHotkeys() {
  *   @param {boolean} [opts.noCache] - skip cache and always re-compile
  * @returns {Promise<{ steps: Array, meta: object }>}
  */
-export async function compileNaturalMacro(description, { context, noCache } = {}) {
+export async function compileNaturalMacro(description, { context, noCache, githubToken } = {}) {
   const res = await addonFetch('/api/skill/compile-natural', {
     method: 'POST',
-    body: JSON.stringify({ description, context, noCache: !!noCache }),
+    body: JSON.stringify({ description, context, noCache: !!noCache, githubToken }),
   });
   return res.json();
 }
@@ -938,10 +1006,11 @@ export async function testAddonConnection() {
     checks.push({ name: 'Server', ok: true, detail: `Up ${Math.round(data.uptime || 0)}s v${data.version || '?'}` });
     // Surface automation mount status — if false, the user needs to restart the addon
     if (data.automationMounted === false) {
+      const errorDetail = data.automationError ? ` (${data.automationError.slice(0, 120)})` : '';
       checks.push({
         name: 'Automation layer',
         ok: false,
-        detail: 'Not mounted — restart the addon (tray → Restart Server) to enable agent, macros, and voice',
+        detail: `Not mounted${errorDetail} — right-click tray icon → Quit → relaunch`,
       });
     } else if (data.automationMounted === true) {
       checks.push({ name: 'Automation layer', ok: true, detail: 'Mounted (NL compiler, voice, agent ready)' });
@@ -991,6 +1060,43 @@ export async function testAddonConnection() {
 export function getPortfolioApiUrl() {
   // In development, proxy handles this. In production, use the deployed URL.
   return '/api/data';
+}
+
+/**
+ * Compile an English macro description via the PORTFOLIO BACKEND.
+ * This is the fallback path used when the addon's automation layer is not mounted.
+ * Requires the user to be signed in (uses their stored GitHub PAT from DynamoDB).
+ *
+ * @param {string} token - User JWT
+ * @param {string} description - English macro description
+ * @param {string} [context] - Optional environment context
+ */
+export async function compileMacroNaturalViaBackend(token, description, context) {
+  if (!token) throw new Error('Sign in required to use cloud macro compilation');
+  let res;
+  try {
+    res = await fetch(`${getPortfolioApiUrl()}/csimple/compile-natural`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ description, context }),
+    });
+  } catch (networkErr) {
+    throw new Error(`Network error: ${networkErr.message}`);
+  }
+  // IMPORTANT: never let a 401 bubble up — the global auth interceptor would
+  // log the user out. Instead, convert all non-2xx to descriptive Error objects.
+  const text = await res.text().catch(() => '');
+  let json;
+  try { json = JSON.parse(text); } catch { json = null; }
+  if (!res.ok) {
+    const msg = json?.dataMessage || json?.message || json?.error || text || `Compiler error (${res.status})`;
+    // Rethrow as plain Error — NOT as a 401 that triggers app-level logout
+    throw new Error(msg);
+  }
+  return json;
 }
 
 /**

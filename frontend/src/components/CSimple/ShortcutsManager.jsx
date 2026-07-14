@@ -25,6 +25,8 @@ import {
   runSkill,
   syncSkillHotkeys,
   compileNaturalMacro,
+  remountAutomation,
+  compileMacroNaturalViaBackend,
 } from '../../services/csimpleApi';
 import './ShortcutsManager.css';
 
@@ -93,7 +95,7 @@ function summarizeSteps(skill) {
     .join(', ');
 }
 
-export default function ShortcutsManager({ user, addonConnected }) {
+export default function ShortcutsManager({ user, addonConnected, githubToken }) {
   const token = user?.token;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -233,31 +235,68 @@ export default function ShortcutsManager({ user, addonConnected }) {
 
   // ── Natural language compiler ──────────────────────────────────────────
   const handleCompileNl = useCallback(async () => {
-    if (!nlText.trim() || !addonConnected) return;
+    if (!nlText.trim()) return;
     setNlBusy(true);
     setNlResult(null);
     setError(null);
-    try {
-      const result = await compileNaturalMacro(nlText.trim(), {});
+
+    const applyResult = (result) => {
       setNlResult(result);
-      // Pre-fill the macro name from the description if not set
       if (!nlName.trim()) {
         const derived = nlText.trim().slice(0, 40).replace(/[^a-zA-Z0-9 ]/g, '').trim();
         setNlName(derived || 'nl-macro');
       }
-      flashStatus(`Compiled ${result.steps?.length || 0} steps from description`);
-    } catch (e) {
-      const msg = e.message || 'NL compiler failed';
-      // 404 means the addon server hasn't been restarted since the NL compiler was added
-      if (msg.includes('Cannot POST') || msg.includes('404') || msg.includes('compile-natural')) {
-        setError('Addon needs a restart to enable the NL compiler. Right-click the tray icon → Restart Server, then try again.');
-      } else {
-        setError(msg);
+      flashStatus(`Compiled ${result.steps?.length || 0} steps${result.meta?.via === 'backend' ? ' (cloud)' : ''}`);
+    };
+
+    try {
+      // Tier 1: Try local addon directly — pass githubToken so the addon doesn't
+      // need to find it in settings.json (avoids DPAPI issues on fresh dev runs).
+      if (addonConnected) {
+        try {
+          const result = await compileNaturalMacro(nlText.trim(), { githubToken });
+          applyResult(result);
+          return;
+        } catch (addonErr) {
+          const msg = addonErr.message || '';
+          const isRouteError = msg.includes('Cannot POST') || msg.includes('404') || msg.includes('compile-natural') || msg.includes('remount');
+          if (isRouteError) {
+            // Tier 2: Auto-heal addon routes and retry
+            try {
+              flashStatus('Reconnecting addon routes…', 0);
+              await remountAutomation();
+              const result2 = await compileNaturalMacro(nlText.trim(), { githubToken });
+              applyResult(result2);
+              return;
+            } catch {
+              // Fall through to backend
+            }
+          } else {
+            // Non-route error (LLM error, validation, etc) — rethrow to show proper message
+            throw addonErr;
+          }
+        }
       }
+
+      // Tier 3: Backend cloud compiler (works without addon, requires login + GitHub PAT)
+      if (token) {
+        flashStatus('Using cloud compiler…', 0);
+        const result3 = await compileMacroNaturalViaBackend(token, nlText.trim());
+        applyResult(result3);
+        return;
+      }
+
+      throw new Error(
+        addonConnected
+          ? 'Addon routes unavailable. Quit and relaunch the addon from the system tray.'
+          : 'Sign in to use cloud macro compilation, or install the CSimple addon.'
+      );
+    } catch (e) {
+      setError(e.message || 'Compile failed');
     } finally {
       setNlBusy(false);
     }
-  }, [nlText, nlName, addonConnected, flashStatus]);
+  }, [nlText, nlName, addonConnected, token, githubToken, flashStatus]);
 
   const handleSaveNl = useCallback(async () => {
     if (!nlResult || !token) return;
@@ -568,7 +607,7 @@ export default function ShortcutsManager({ user, addonConnected }) {
           <button
             className="short__btn short__btn--primary"
             onClick={handleCompileNl}
-            disabled={!addonConnected || nlBusy || !nlText.trim()}
+            disabled={nlBusy || !nlText.trim()}
           >
             {nlBusy ? '⏳ Compiling…' : '⚡ Compile'}
           </button>

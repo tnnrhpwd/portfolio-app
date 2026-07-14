@@ -90,6 +90,7 @@ const {
   getTelemetrySummary,
   getWorkspaceContextPreview,
   getWorkspaceTemplates,
+  compileMacroNatural,
 } = require('../controllers/workspaceController');
 
 // Addon relay controller (cloud command relay for remote execution)
@@ -423,6 +424,8 @@ router.post('/csimple/workspace/log/append', protect, workspaceWriteLimiter, san
 router.post('/csimple/workspace/action/append', protect, workspaceActionLimiter, sanitizeInput, appendAction);
 router.get('/csimple/workspace/goals/next', protect, workspaceReadLimiter, getNextGoal);
 router.get('/csimple/workspace/telemetry/summary', protect, workspaceReadLimiter, getTelemetrySummary);
+// NL macro compiler — works without the addon installed (uses backend GitHub Models call)
+router.post('/csimple/compile-natural', protect, llmLimiter, sanitizeInput, compileMacroNatural);
 
 router.route('/csimple/workspace')
   .get(protect, workspaceReadLimiter, listWorkspace);

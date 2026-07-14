@@ -21,7 +21,6 @@ const errorHandler = (err, req, res, next) => {
         dataMessage: process.env.NODE_ENV === 'production' && statusCode >= 500
             ? 'Internal server error'
             : err.message,
-        stack: process.env.NODE_ENV === 'production' ? null : err.stack,
     });
 }
 

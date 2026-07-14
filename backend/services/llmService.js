@@ -1099,4 +1099,5 @@ module.exports = {
     streamCompressionRequest,
     getMaxTokensForRequest,
     generateConversationTitle,
+    getUserGithubToken,
 };

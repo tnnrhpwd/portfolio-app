@@ -232,19 +232,40 @@ function _buildPrompt(description, context) {
 
 // ─── LLM call ─────────────────────────────────────────────────────────────────
 
-async function _callLlm(prompt, llmClient) {
+async function _callLlm(prompt, llmClient, inlineToken) {
     if (!llmClient) {
         try {
             const { GitHubModelsService } = require('../github-models-service');
             llmClient = new GitHubModelsService();
-            // Load token from settings
-            const fs = require('fs');
-            const os = require('os');
-            const path = require('path');
-            const cfgPath = path.join(os.homedir(), 'Documents', 'CSimple', 'Resources', 'settings.json');
-            if (fs.existsSync(cfgPath)) {
-                const s = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
-                if (s.githubToken) llmClient.setToken(s.githubToken);
+
+            // Priority 1: Inline token passed directly from the frontend (most reliable —
+            // bypasses DPAPI decryption issues between installed and dev builds).
+            if (inlineToken) {
+                llmClient.setToken(inlineToken);
+            } else {
+                // Priority 2: readWebappSettings() from server/index.js (handles DPAPI decryption)
+                try {
+                    const serverMod = require('../../index');
+                    const settings = serverMod?.readWebappSettings?.();
+                    if (settings?.githubToken) llmClient.setToken(settings.githubToken);
+                } catch {}
+
+                // Priority 3: settings.json direct read (plaintext fallback)
+                if (!llmClient._token) {
+                    const fs = require('fs');
+                    const os = require('os');
+                    const path = require('path');
+                    const cfgPath = path.join(os.homedir(), 'Documents', 'CSimple', 'Resources', 'settings.json');
+                    if (fs.existsSync(cfgPath)) {
+                        try {
+                            const s = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
+                            const raw = s?.webapp?.githubToken || s?.githubToken || '';
+                            if (raw && !raw.startsWith('v10') && !raw.startsWith('enc:')) {
+                                llmClient.setToken(raw);
+                            }
+                        } catch {}
+                    }
+                }
             }
         } catch (e) {
             throw new Error('No LLM client available for NL compiler: ' + e.message);
@@ -289,7 +310,7 @@ function _extractJson(text) {
  *   @param {boolean} [opts.noCache]  - Skip cache lookup
  * @returns {Promise<{steps: Array, meta: {description, cachedAt?, tokens?}}>}
  */
-async function compile(description, { context, llmClient, noCache } = {}) {
+async function compile(description, { context, llmClient, noCache, inlineToken } = {}) {
     if (!description || typeof description !== 'string' || !description.trim()) {
         throw new Error('description is required');
     }
@@ -302,7 +323,7 @@ async function compile(description, { context, llmClient, noCache } = {}) {
     }
 
     const prompt = _buildPrompt(text, context);
-    const raw = await _callLlm(prompt, llmClient);
+    const raw = await _callLlm(prompt, llmClient, inlineToken);
 
     let parsed;
     try {
