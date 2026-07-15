@@ -1,6 +1,6 @@
 {
   "name": "csimple-addon",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "CSimple AI Addon — Local AI assistant with system tray integration",
   "main": "main.js",
   "author": "tnnrhpwd",
