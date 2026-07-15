@@ -232,7 +232,7 @@ function _buildPrompt(description, context) {
 
 // ─── LLM call ─────────────────────────────────────────────────────────────────
 
-async function _callLlm(prompt, llmClient, inlineToken) {
+async function _callLlm(prompt, llmClient, inlineToken, systemPrompt) {
     if (!llmClient) {
         try {
             const { GitHubModelsService } = require('../github-models-service');
@@ -278,7 +278,7 @@ async function _callLlm(prompt, llmClient, inlineToken) {
         const response = await llmClient.chat({
             model: 'openai/gpt-4o-mini',
             messages: [
-                { role: 'system', content: 'You are a Windows macro compiler. Output only valid JSON.' },
+                { role: 'system', content: systemPrompt || 'You are a Windows macro compiler. Output only valid JSON.' },
                 { role: 'user', content: prompt },
             ],
             temperature: 0.1,
@@ -356,4 +356,4 @@ async function compile(description, { context, llmClient, noCache, inlineToken }
  */
 function clearCache() { _cache.clear(); }
 
-module.exports = { compile, validateSteps, clearCache, VALID_STEP_TYPES };
+module.exports = { compile, validateSteps, clearCache, VALID_STEP_TYPES, STEP_SCHEMA_DOCS, _callLlm };

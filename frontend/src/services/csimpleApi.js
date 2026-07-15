@@ -1068,7 +1068,84 @@ export async function testAddonConnection() {
   return { passed: checks.every(c => c.ok), checks };
 }
 
-// ─── Portfolio Backend API Methods ──────────────────────────────────────────
+// ─── Self-update (single-click) ─────────────────────────────────────────────
+// Bridges to the addon's Electron-side auto-updater (see
+// csimple-addon/server/update-bridge.js) so the "Update" button in the UI
+// can check → download → install with one click instead of sending the user
+// to the GitHub releases page to download+run an installer manually.
+
+/**
+ * Get the addon's current self-update state.
+ * @returns {Promise<{supported:boolean, state:string, updateAvailable:boolean,
+ *   updateDownloaded:boolean, downloadProgress:number, latestVersion:?string,
+ *   currentVersion:string}>}
+ */
+export async function getAddonUpdateStatus() {
+  const res = await addonFetch('/api/update/status');
+  return res.json();
+}
+
+/** Ask the addon to check for an update (download starts automatically if found). */
+export async function checkAddonUpdate() {
+  const res = await addonFetch('/api/update/check', { method: 'POST' });
+  return res.json();
+}
+
+/** Quit and install an already-downloaded update, relaunching the addon. */
+export async function installAddonUpdate() {
+  const res = await addonFetch('/api/update/install', { method: 'POST' });
+  return res.json();
+}
+
+/**
+ * Single-click update flow: trigger a check, poll until the update finishes
+ * downloading, then install (relaunching the addon). Resolves once install
+ * has been requested; rejects if no update is found or downloading times out.
+ *
+ * The running addon may predate this feature entirely (no `/api/update/*`
+ * routes registered — Express responds "Cannot POST /api/update/check").
+ * That failure is reported via `error.code = 'unsupported'` so the caller can
+ * fall back to the GitHub-releases download link for this one manual update;
+ * every update after that will have the routes and use this flow instead.
+ *
+ * @param {(state:object)=>void} [onProgress] - called with the latest status on each poll
+ */
+export async function runAddonSingleClickUpdate(onProgress) {
+  try {
+    await checkAddonUpdate();
+  } catch (e) {
+    if (/^Cannot (POST|GET) /.test(e.message || '')) {
+      const err = new Error('This addon version predates 1-click updates — download this one manually.');
+      err.code = 'unsupported';
+      throw err;
+    }
+    throw e;
+  }
+
+  const start = Date.now();
+  const TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes — generous for slow connections
+  const POLL_MS = 1500;
+
+  // Give the updater a moment to move off "idle"/"up-to-date" before polling.
+  await new Promise((r) => setTimeout(r, 1000));
+
+  while (Date.now() - start < TIMEOUT_MS) {
+    const status = await getAddonUpdateStatus();
+    onProgress?.(status);
+
+    if (status.state === 'ready') {
+      await installAddonUpdate();
+      return status;
+    }
+    if (status.state === 'up-to-date') {
+      throw new Error('Already up to date');
+    }
+    await new Promise((r) => setTimeout(r, POLL_MS));
+  }
+  throw new Error('Update download timed out — try again shortly');
+}
+
+
 
 /**
  * Send a chat via the portfolio backend (cloud LLM).

@@ -1447,6 +1447,16 @@ app.on('ready', async () => {
   updateManager.init(trayManager);
   updateManager.startPeriodicChecks();
 
+  // Bridge the updater into the HTTP surface so the web frontend's
+  // "Update" button can trigger check/download/install with a single click
+  // instead of sending the user to the GitHub releases page.
+  try {
+    require('./server/update-bridge').configure({ updateManager });
+  } catch (e) {
+    console.warn('[Main] Failed to wire update-bridge:', e.message);
+  }
+
+
   // 3. Start Express server
   try {
     await startExpressServer();

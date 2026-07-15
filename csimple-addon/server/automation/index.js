@@ -45,6 +45,10 @@ const { findVisualTarget } = require('./vision-fusion');
 
 const recorder = require('./recorder');
 const { compileRecording } = require('./recorder/compiler');
+const { generalizeSkill } = require('./recorder/generalize');
+const { inferParams } = require('./recorder/infer-params');
+const { scrubForPublish } = require('./recorder/scrub');
+const { summarizeCapabilities } = require('./capability-summary');
 const { skillRun, cacheSkill, getCachedSkill } = require('./tools/skill');
 
 const events = require('./events');
@@ -498,6 +502,82 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
             const recording = await recorder.read(sessionId);
             const skill = compileRecording(recording, { name, description });
             res.json({ skill });
+        } catch (e) {
+            res.status(400).json({ error: e.message });
+        }
+    });
+
+    // Generalize a compiled (literal) skill into a more robust abstracted form
+    // via LLM re-derivation (docs/new/csimple-agent-prompt.md §5.1). Accepts
+    // either `sessionId` (compiles fresh, then generalizes) or an already-
+    // compiled `skill` object, plus an optional `goalDescription` hint.
+    // Best-effort: on LLM failure the original literal-step skill is returned
+    // unchanged with `metadata.generalizeError` set — never a hard error.
+    app.post('/api/skill/generalize', async (req, res) => {
+        try {
+            const { sessionId, skill: inputSkill, goalDescription, name, description } = req.body || {};
+            let skill = inputSkill;
+            if (!skill) {
+                if (!sessionId) return res.status(400).json({ error: 'sessionId or skill is required' });
+                const recording = await recorder.read(sessionId);
+                skill = compileRecording(recording, { name, description });
+            }
+            const generalized = await generalizeSkill(skill, { goalDescription });
+            res.json({ skill: generalized });
+        } catch (e) {
+            res.status(400).json({ error: e.message });
+        }
+    });
+
+    // Multi-demonstration parameter inference (§5.2). Opt-in: only invoked
+    // when the caller explicitly supplies 2+ compiled skills of the SAME
+    // task (e.g. via a "demonstrate again" affordance). Diffs the demos and
+    // promotes varying literal values (typed text, target names, numeric
+    // values) into `${param.x}` placeholders. Best-effort/never fatal: a
+    // step-count mismatch or per-step kind mismatch degrades to a no-op /
+    // partial result with `report.reason` or per-finding `skipped` notes
+    // rather than an error — see recorder/infer-params.js header comment.
+    app.post('/api/skill/infer-params', async (req, res) => {
+        try {
+            const { sessionIds, skills } = req.body || {};
+            let demos = skills;
+            if (!Array.isArray(demos) || demos.length < 2) {
+                if (!Array.isArray(sessionIds) || sessionIds.length < 2) {
+                    return res.status(400).json({ error: 'skills (2+) or sessionIds (2+) is required' });
+                }
+                demos = await Promise.all(sessionIds.map(async id => compileRecording(await recorder.read(id))));
+            }
+            const { skill: inferred, report } = inferParams(demos);
+            res.json({ skill: inferred, report });
+        } catch (e) {
+            res.status(400).json({ error: e.message });
+        }
+    });
+
+    // Preview the privacy scrub pass on a skill before publishing (§6.1). Does
+    // NOT save/publish anything — returns the scrubbed skill + a report of
+    // every redaction made, so the frontend can render the mandatory
+    // "what will be shared" review. The report never contains raw sensitive
+    // values (see recorder/scrub.js), so it's safe to display directly.
+    app.post('/api/skill/scrub', async (req, res) => {
+        try {
+            const { skill } = req.body || {};
+            if (!skill || !Array.isArray(skill.steps)) return res.status(400).json({ error: 'skill.steps is required' });
+            const { skill: scrubbed, report } = scrubForPublish(skill);
+            res.json({ skill: scrubbed, report });
+        } catch (e) {
+            res.status(400).json({ error: e.message });
+        }
+    });
+
+    // Pre-run "what will this skill do" capability summary (§6.2). Read-only
+    // — does not execute anything. Mandatory before first run of any skill
+    // installed from the marketplace (§4.3); also usable for local skills.
+    app.post('/api/skill/capabilities', async (req, res) => {
+        try {
+            const { skill } = req.body || {};
+            if (!skill || !Array.isArray(skill.steps)) return res.status(400).json({ error: 'skill.steps is required' });
+            res.json(summarizeCapabilities(skill));
         } catch (e) {
             res.status(400).json({ error: e.message });
         }

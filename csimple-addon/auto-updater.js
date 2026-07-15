@@ -37,6 +37,10 @@ class UpdateManager {
     this.downloadProgress = 0;
     this.checkInterval = null;
     this._initialCheckTimer = null;
+    // Explicit state machine mirrored to the HTTP bridge (server/update-bridge.js)
+    // so the web UI can distinguish "haven't checked yet" from "checked, no
+    // update found" — updateAvailable/updateDownloaded alone can't tell them apart.
+    this.status = 'idle'; // idle | checking | downloading | ready | up-to-date | error
   }
 
   /**
@@ -54,6 +58,7 @@ class UpdateManager {
   _registerEvents() {
     autoUpdater.on('checking-for-update', () => {
       log.info('[Updater] Checking for updates...');
+      this.status = 'checking';
     });
 
     autoUpdater.on('update-available', (info) => {
@@ -61,6 +66,7 @@ class UpdateManager {
       log.info(`[Updater] Update available: Build #${build} (v${info.version})`);
       this.updateAvailable = true;
       this.updateInfo = info;
+      this.status = 'downloading';
 
       // Silently update tray — no notification yet (download is automatic)
       this.trayManager?.setUpdateStatus('downloading', info.version, 0);
@@ -70,11 +76,13 @@ class UpdateManager {
       log.info('[Updater] App is up to date.');
       this.updateAvailable = false;
       this.updateInfo = null;
+      this.status = 'up-to-date';
       this.trayManager?.setUpdateStatus('up-to-date');
     });
 
     autoUpdater.on('download-progress', (progress) => {
       this.downloadProgress = Math.round(progress.percent);
+      this.status = 'downloading';
       // Update tray silently (no notification spam during download)
       this.trayManager?.setUpdateStatus('downloading', null, this.downloadProgress);
     });
@@ -83,6 +91,7 @@ class UpdateManager {
       const build = info.version.split('.').pop();
       log.info(`[Updater] Update downloaded: Build #${build} (v${info.version})`);
       this.updateDownloaded = true;
+      this.status = 'ready';
 
       // Single, non-intrusive notification — the only one the user sees
       this.trayManager?.notify(
@@ -95,6 +104,7 @@ class UpdateManager {
 
     autoUpdater.on('error', (err) => {
       log.error('[Updater] Error:', err?.message || err);
+      this.status = 'error';
       // Don't bother the user with update errors — just log and show in tray menu
       this.trayManager?.setUpdateStatus('error');
     });

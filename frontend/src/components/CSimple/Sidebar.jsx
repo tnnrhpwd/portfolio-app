@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getLocalModels, testAddonConnection } from '../../services/csimpleApi';
+import { getLocalModels, testAddonConnection, runAddonSingleClickUpdate } from '../../services/csimpleApi';
 import UsageMeter from './UsageMeter';
 import AgentLivePanel from './AgentLivePanel';
 import './Sidebar.css';
@@ -36,6 +36,34 @@ function Sidebar({
   const [showSettings, setShowSettings] = useState(false);
   const [showLiveAgent, setShowLiveAgent] = useState(false);
   const [addonTest, setAddonTest] = useState({ state: 'idle', checks: [] });
+  // Single-click self-update: 'idle' | 'updating' | 'error' | 'unsupported'
+  const [updateNow, setUpdateNow] = useState({ state: 'idle', progress: 0, error: null });
+
+  const handleUpdateNow = useCallback(async () => {
+    if (updateNow.state === 'updating') return;
+    setUpdateNow({ state: 'updating', progress: 0, error: null });
+    try {
+      await runAddonSingleClickUpdate((status) => {
+        setUpdateNow({ state: 'updating', progress: status.downloadProgress || 0, error: null });
+      });
+      // Addon is about to quit & relaunch itself — leave the button in its
+      // "updating" state until the page's own addon-polling notices the restart.
+    } catch (e) {
+      if (e.code === 'unsupported') {
+        // The currently-running addon predates the /api/update/* routes, so
+        // this webpage has no way to drive its updater over HTTP. It is NOT
+        // stuck, though: the addon's own background auto-updater has already
+        // been silently checking (every 4h) and auto-downloading since it
+        // started — no browser round-trip needed, no approval dialogs, ever.
+        // The fastest path is the system tray it's already running in, not a
+        // browser download+install. Don't open a browser tab for this.
+        setUpdateNow({ state: 'unsupported', progress: 0, error: e.message });
+        return;
+      }
+      setUpdateNow({ state: 'error', progress: 0, error: e.message });
+      setTimeout(() => setUpdateNow(prev => prev.state === 'error' ? { state: 'idle', progress: 0, error: null } : prev), 6000);
+    }
+  }, [updateNow.state]);
 
   const runAddonTest = useCallback(async () => {
     if (addonTest.state === 'testing') return;
@@ -284,16 +312,57 @@ function Sidebar({
                     , choose “Advanced → Proceed”, then hit recheck.
                   </span>
                 )}
+                {addonPromptOutdated && updateNow.state === 'error' && (
+                  <span className="sidebar__addon-notice__sub" style={{ marginTop: 4, color: '#e05d5d' }}>
+                    {updateNow.error}
+                  </span>
+                )}
+                {addonPromptOutdated && updateNow.state === 'unsupported' && (
+                  <span className="sidebar__addon-notice__sub" style={{ marginTop: 4 }}>
+                    This addon predates 1-click web updates, but it's already been
+                    auto-checking &amp; silently downloading in the background on its own.
+                    Right-click the <strong>CSimple tray icon</strong> → if you see
+                    “Restart &amp;&amp; Update Now”, click it (no prompts). Otherwise click
+                    “Check for Updates” and try again in ~10s. After this one time,
+                    updates happen right from this button.
+                  </span>
+                )}
+                {addonPromptOutdated && updateNow.state === 'updating' && (
+                  <span className="sidebar__addon-notice__sub" style={{ marginTop: 4 }}>
+                    The addon will restart automatically once installed.
+                  </span>
+                )}
               </div>
               <div className="sidebar__addon-notice__actions">
-                <a
-                  className="sidebar__addon-notice__btn"
-                  href="https://github.com/tnnrhpwd/portfolio-app/releases"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {addonPromptOutdated ? 'Update' : 'Get'}
-                </a>
+                {addonPromptOutdated && updateNow.state === 'unsupported' ? (
+                  <button
+                    className="sidebar__addon-notice__btn"
+                    onClick={handleUpdateNow}
+                    title="Re-check now that the addon may have finished downloading in the background"
+                  >
+                    Retry
+                  </button>
+                ) : addonPromptOutdated ? (
+                  <button
+                    className="sidebar__addon-notice__btn"
+                    onClick={handleUpdateNow}
+                    disabled={updateNow.state === 'updating'}
+                    title={updateNow.state === 'error' ? updateNow.error : 'Download and install the update, then relaunch the addon'}
+                  >
+                    {updateNow.state === 'updating'
+                      ? (updateNow.progress > 0 ? `Updating… ${updateNow.progress}%` : 'Updating…')
+                      : updateNow.state === 'error' ? 'Retry' : 'Update'}
+                  </button>
+                ) : (
+                  <a
+                    className="sidebar__addon-notice__btn"
+                    href="https://github.com/tnnrhpwd/portfolio-app/releases"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Get
+                  </a>
+                )}
                 <button
                   className="sidebar__addon-notice__recheck"
                   onClick={onAddonRecheck}

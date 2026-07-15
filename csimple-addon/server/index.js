@@ -660,6 +660,40 @@ app.get('/api/status', (req, res) => {
   });
 });
 
+// ─── Self-update (single-click) ──────────────────────────────────────────────
+// Bridges the web frontend to the Electron-side auto-updater (auto-updater.js)
+// so "Update" can be a single click instead of sending the user to the GitHub
+// releases page. main.js wires the real UpdateManager into this module via
+// `require('./server/update-bridge').configure({ updateManager })`.
+const updateBridge = require('./update-bridge');
+
+app.get('/api/update/status', (req, res) => {
+  res.json(updateBridge.getStatus());
+});
+
+app.post('/api/update/check', (req, res) => {
+  try {
+    updateBridge.checkForUpdates();
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.post('/api/update/install', (req, res) => {
+  const status = updateBridge.getStatus();
+  if (!status.updateDownloaded) {
+    return res.status(400).json({ error: 'update has not finished downloading yet' });
+  }
+  // Respond BEFORE installing — quitAndInstall() tears down this very
+  // process, so the client must already have the response in hand.
+  res.json({ ok: true });
+  setTimeout(() => {
+    try { updateBridge.installUpdate(); } catch (e) { console.error('[Update] install failed:', e.message); }
+  }, 300);
+});
+
+
 // ─── Cloud Relay Auth ───────────────────────────────────────────────────────
 // When the desktop frontend detects the local addon AND the user is logged in,
 // it passes the user's JWT to the addon so the addon can communicate with the
