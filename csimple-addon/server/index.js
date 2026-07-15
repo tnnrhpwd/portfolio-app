@@ -301,69 +301,98 @@ function loadPersonalityContext() {
  * Prioritises small user-relevant files; skips oversized legacy files.
  * Returns a formatted string for the system prompt.
  */
-const MAX_MEMORY_CONTEXT_BYTES = 16 * 1024; // 16KB cap for memory in prompt
-const MAX_SINGLE_FILE_BYTES = 32 * 1024;    // skip individual files > 32KB
+const MAX_MEMORY_CONTEXT_BYTES = 4 * 1024;  // 4KB cap — keeps memory within the 8000-token limit
+const MAX_SINGLE_FILE_BYTES = 8 * 1024;     // skip individual files > 8KB
 
-function loadMemoryContext() {
+
+/**
+ * Score a memory file's content against the current message (0–1).
+ * Uses word-overlap with stopword filtering — zero LLM cost.
+ */
+function _scoreMemoryRelevance(content, message) {
+  if (!content || !message) return 0;
+  const stop = new Set(['the','a','an','of','to','for','and','or','in','on','at','with','from',
+                        'by','is','are','it','this','that','was','be','as','i','you','my','me']);
+  const tokenize = (s) => s.toLowerCase().split(/[^a-z0-9]+/).filter(t => t.length >= 3 && !stop.has(t));
+  const msgTokens = new Set(tokenize(message));
+  const memTokens = tokenize(content);
+  if (msgTokens.size === 0 || memTokens.length === 0) return 0;
+  let hits = 0;
+  for (const t of memTokens) if (msgTokens.has(t)) hits++;
+  return Math.min(1, hits / Math.max(msgTokens.size, 1));
+}
+
+/**
+ * Auto-consolidate an oversized memory file: keep the most recent facts that
+ * fit within MAX_SINGLE_FILE_BYTES / 2, discard older lines.
+ * Called automatically after every [MEMORY_SAVE] write that exceeds the limit.
+ */
+function consolidateMemoryFile(filePath) {
+  try {
+    const raw = fs.readFileSync(filePath, 'utf-8');
+    const TARGET = Math.floor(MAX_SINGLE_FILE_BYTES / 2);
+    if (Buffer.byteLength(raw, 'utf-8') <= TARGET) return;
+    const lines = raw.split('\n').filter(l => l.trim());
+    const kept = [];
+    let size = 0;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const lineSize = Buffer.byteLength(lines[i] + '\n', 'utf-8');
+      if (size + lineSize > TARGET) break;
+      kept.unshift(lines[i]);
+      size += lineSize;
+    }
+    const header = `# [Auto-consolidated ${new Date().toISOString().slice(0,10)} — older entries removed]\n\n`;
+    fs.writeFileSync(filePath, header + kept.join('\n') + '\n', 'utf-8');
+    console.log(`[Memory] Consolidated ${path.basename(filePath)}: ${(Buffer.byteLength(raw,'utf-8')/1024).toFixed(1)}KB → ${(size/1024).toFixed(1)}KB`);
+  } catch (err) {
+    console.warn(`[Memory] Consolidation failed for ${path.basename(filePath)}:`, err.message);
+  }
+}
+
+function loadMemoryContext(message) {
   if (!fs.existsSync(MEMORY_PATH)) return '';
-
   try {
     const allFiles = fs.readdirSync(MEMORY_PATH)
       .filter(f => !fs.statSync(path.join(MEMORY_PATH, f)).isDirectory());
-
     if (allFiles.length === 0) return '';
-
-    // Build file info with sizes so we can sort smartly
     const fileInfos = allFiles.map(f => {
       const fp = path.join(MEMORY_PATH, f);
       const size = fs.statSync(fp).size;
-      return { name: f, path: fp, size };
+      const isCore = MEMORY_CORE_PATTERNS.some(p => p.test(f));
+      return { name: f, path: fp, size, isCore };
     });
-
-    // Priority order: user-related files first, then by size (small → large)
-    const PRIORITY_PATTERNS = [/^user/i, /profile/i, /preference/i, /identity/i, /name/i];
-    fileInfos.sort((a, b) => {
-      const aPri = PRIORITY_PATTERNS.findIndex(p => p.test(a.name));
-      const bPri = PRIORITY_PATTERNS.findIndex(p => p.test(b.name));
-      const aHasPri = aPri !== -1;
-      const bHasPri = bPri !== -1;
-      if (aHasPri && !bHasPri) return -1;
-      if (!aHasPri && bHasPri) return 1;
-      if (aHasPri && bHasPri) return aPri - bPri; // earlier pattern wins
-      return a.size - b.size; // smaller files first
-    });
-
+    // Core files always loaded; topic files filtered by relevance to the current message
+    const coreFiles = fileInfos.filter(f => f.isCore && f.size <= MAX_SINGLE_FILE_BYTES);
+    const topicFiles = fileInfos.filter(f => !f.isCore);
+    const scoredTopics = topicFiles.map(f => {
+      if (f.size > MAX_SINGLE_FILE_BYTES) return { ...f, score: -1 };
+      let snippet = '';
+      try { snippet = fs.readFileSync(f.path, 'utf-8').trim().slice(0, 500); } catch {}
+      return { ...f, score: _scoreMemoryRelevance(snippet, message || '') };
+    }).filter(f => f.score > 0 || !message).sort((a, b) => b.score - a.score);
+    const toLoad = [...coreFiles, ...scoredTopics];
     const memories = [];
     let totalSize = 0;
-    let skipped = 0;
-
-    for (const info of fileInfos) {
-      // Skip individual files that are too large (legacy dumps, logs, etc.)
-      if (info.size > MAX_SINGLE_FILE_BYTES) {
-        console.log(`[Memory] Skipping oversized file: ${info.name} (${(info.size / 1024).toFixed(1)}KB)`);
-        skipped++;
-        continue;
-      }
-
+    const oversized = fileInfos.filter(f => f.size > MAX_SINGLE_FILE_BYTES);
+    for (const info of toLoad) {
+      if (info.size > MAX_SINGLE_FILE_BYTES) continue;
       try {
         const content = fs.readFileSync(info.path, 'utf-8').trim();
         if (!content) continue;
-
         const entrySize = Buffer.byteLength(content, 'utf-8');
         if (totalSize + entrySize > MAX_MEMORY_CONTEXT_BYTES) {
-          memories.push(`[Memory truncated — ${fileInfos.length - memories.length - skipped} more files not loaded due to size limit]`);
+          memories.push(`[${toLoad.length - memories.length} more memory files omitted — not relevant to this message]`);
           break;
         }
-
         const displayName = info.name.replace(/\.[^.]+$/, '').replace(/_/g, ' ');
         memories.push(`## ${displayName}\n${content}`);
         totalSize += entrySize;
-      } catch (err) {
-        console.log(`[Memory] Failed to read ${info.name}: ${err.message}`);
-      }
+      } catch (err) { console.log(`[Memory] Failed to read ${info.name}: ${err.message}`); }
     }
-
     if (memories.length === 0) return '';
+    if (oversized.length > 0) console.log(`[Memory] ${oversized.length} oversized file(s) skipped — will auto-consolidate on next save`);
+    const loaded = memories.filter(m => !m.startsWith('[')).length;
+    console.log(`[Memory] Loaded ${loaded}/${fileInfos.length} files (${(totalSize/1024).toFixed(1)}KB)`);
     return '\n\n--- MEMORY (persistent knowledge) ---\n' +
            memories.join('\n\n') +
            '\n--- END MEMORY ---\n';
@@ -401,25 +430,25 @@ function processMemorySaves(responseText) {
       continue;
     }
 
-    // Validate content size
-    const sizeErr = validateFileContent(content);
-    if (sizeErr) {
-      console.log(`[Memory Auto-Save] Content too large for "${rawFilename}": ${sizeErr}`);
-      continue;
-    }
-
     try {
       if (!fs.existsSync(MEMORY_PATH)) {
         fs.mkdirSync(MEMORY_PATH, { recursive: true });
       }
 
+      // IMPROVEMENT 2: Cap write at 2KB — prevents 500KB memory dumps from verbose LLM responses
+      const capped = Buffer.byteLength(content, 'utf-8') > MAX_MEMORY_WRITE_BYTES
+        ? content.slice(0, MAX_MEMORY_WRITE_BYTES) + '\n[...truncated to 2KB limit]'
+        : content;
       const isUpdate = fs.existsSync(filePath);
-      fs.writeFileSync(filePath, content, 'utf-8');
+      fs.writeFileSync(filePath, capped, 'utf-8');
       savedMemories.push({
         filename: rawFilename,
         action: isUpdate ? 'updated' : 'created',
+        bytes: Buffer.byteLength(capped, 'utf-8'),
       });
-      console.log(`[Memory Auto-Save] ${isUpdate ? 'Updated' : 'Created'}: ${rawFilename}`);
+      console.log(`[Memory Auto-Save] ${isUpdate ? 'Updated' : 'Created'}: ${rawFilename} (${(Buffer.byteLength(capped,'utf-8')/1024).toFixed(1)}KB)`);
+      // IMPROVEMENT 3: Auto-consolidate if the file is still too large after the write
+      try { if (fs.statSync(filePath).size > MAX_SINGLE_FILE_BYTES) consolidateMemoryFile(filePath); } catch {}
     } catch (err) {
       console.error(`[Memory Auto-Save] Failed to save "${rawFilename}": ${err.message}`);
     }
@@ -769,7 +798,7 @@ app.post('/api/chat', async (req, res) => {
 
     // Build system prompt with personality, memory, behavior, and capabilities
     const personalityContext = loadPersonalityContext();
-    const memoryContext = loadMemoryContext();
+    const memoryContext = loadMemoryContext(message);
     const behaviorContext = loadBehaviorContext(behaviorFile);
     const capabilitiesNote = `\nYou are a Windows automation agent. You DO have direct control over this PC via the provided tools (keyboard, mouse, windows, screen, shell). NEVER reply with "I can't directly control your game/PC" or any similar refusal — that is wrong. If the user asks you to physically do something, CALL THE APPROPRIATE TOOL.\n\nYou can execute system actions on this Windows PC using the provided tools: open apps, control volume/media, press keys, type text, play music services, save files, hold inputs in foreground apps, focus windows, take screenshots, query UI Automation, run shell commands, and more.\n\nSUSTAINED INTERACTION (input_hold) — HIGHEST PRIORITY:\nWhen the user asks to hold keys / mouse buttons continuously in another application until they press Escape — including game inputs like "hold W and left-click in Minecraft", "auto-walk forward in <app>", "keep clicking until I stop you", "mine forward in <game>", or any long-running repetitive interaction with a foreground app — you MUST call the input_hold tool. It atomically focuses the target window then holds any combination of keys + mouse buttons until Escape or the duration expires. Example call for "hold W and left-click in Minecraft until I press Escape":\n  input_hold({ focusWindowTitle: "Minecraft", keys: ["w"], mouseButtons: ["left"], durationMs: 1800000 })\nDo NOT use press_key / hold_key / type_text / click_on_screen for this — input_hold is the correct tool because it focuses the window and holds multiple inputs simultaneously. NEVER decline a game-automation request: just call input_hold.\n\nACTION CLARIFICATION:\nWhen the user asks you to do something that is destructive (shutdown, restart, sleep, hibernate, delete), ambiguous, or could mean multiple things, use the clarify_action tool to present options BEFORE executing. Examples:\n- "Put this PC to sleep" → call clarify_action with options like ["Yes, sleep", "Hibernate instead", "Cancel"]\n- "Turn off the computer" → clarify between shutdown and sleep\n- "Close everything" → clarify what "everything" means\nFor simple, obvious commands (open chrome, set volume to 50, play spotify), just execute directly — no need to clarify.\n\nFILE SAVING:\n- When the user asks to save/create/download a file to a specific location, use the save_file tool. Locations: "desktop", "documents", "downloads", "workspace", or "custom" with a custom_path.\n- Example: "Save this to my desktop" → call save_file with location="desktop"\n- Include the FULL file content in the save_file tool call.\n\nCRITICAL RULE — type_text vs text reply:\n- "Write a Python script" → Reply with the code in your message. Do NOT call type_text.\n- "Write me an email" → Reply with the email in your message. Do NOT call type_text.\n- "Create a function that..." → Reply with the code. Do NOT call type_text.\n- "Type hello world" → Call type_text (user wants keyboard input).\n- "Type my name in the search box" → Call type_text (user wants keyboard input).\nWhen in doubt for content generation, reply in text. But for physical input (hold a key, click somewhere, focus a window, run a command), ALWAYS use a tool.`;
 
@@ -781,18 +810,23 @@ app.post('/api/chat', async (req, res) => {
     const augmentedPrompt = (systemPrompt || '') + personalityContext + behaviorContext + memoryContext + capabilitiesNote + autoMemoryInstructions + memoryInstructions;
 
     // ── Token budget management ─────────────────────────────────
-    // Model context windows: gpt-4o-mini ~128k, gpt-4o ~128k, but GitHub Models
-    // free tier has input token limits per request. Budget conservatively.
-    const MODEL_INPUT_BUDGETS = { 'gpt-4o-mini': 12000, 'gpt-4o': 12000, 'gpt-4.1-mini': 12000, 'gpt-4.1-nano': 8000 };
-    const inputBudget = MODEL_INPUT_BUDGETS[modelId] || 10000;
+    // GitHub Models free tier hard-caps at 8000 tokens per request for gpt-4o-mini.
+    // We account for system prompt + ALL tool schemas + message, and trim history
+    // and automation tools to fit. Automation tools (~4000 tokens for 42 tools)
+    // are only included when the message pattern actually warrants PC actions.
+    const GITHUB_MODELS_HARD_LIMIT = 7500; // leave 500 buffer below the 8000 cap
+    const MODEL_INPUT_BUDGETS = { 'gpt-4o-mini': GITHUB_MODELS_HARD_LIMIT, 'gpt-4o': GITHUB_MODELS_HARD_LIMIT, 'gpt-4.1-mini': GITHUB_MODELS_HARD_LIMIT, 'gpt-4.1-nano': 7000 };
+    const inputBudget = MODEL_INPUT_BUDGETS[modelId] || GITHUB_MODELS_HARD_LIMIT;
     const systemTokens = estimateTokens(augmentedPrompt);
-    const toolSchemaTokens = estimateToolSchemaTokens(ADDON_TOOL_SCHEMAS);
-    const historyBudget = Math.max(500, inputBudget - systemTokens - toolSchemaTokens - estimateTokens(message) - 200 /*buffer*/);
+    const baseToolTokens = estimateToolSchemaTokens(ADDON_TOOL_SCHEMAS);
+    const msgTokens = estimateTokens(message);
+    // Reserve enough for history after all other components
+    const historyBudget = Math.max(200, inputBudget - systemTokens - baseToolTokens - msgTokens - 400 /*buffer*/);
 
     // Trim conversation history to fit within budget
     const trimmedHistory = trimConversationHistory(conversationHistory, historyBudget);
 
-    console.log(`[TokenBudget] system=${systemTokens} tools=${toolSchemaTokens} msg=${estimateTokens(message)} histBudget=${historyBudget} histMsgs=${conversationHistory.length}→${trimmedHistory.length}`);
+    console.log(`[TokenBudget] system=${systemTokens} tools=${baseToolTokens} msg=${msgTokens} histBudget=${historyBudget} histMsgs=${conversationHistory.length}→${trimmedHistory.length}`);
 
     // Match either the current publisher-prefixed id (e.g. "openai/gpt-4o-mini")
     // or any legacy bare id (e.g. "gpt-4o-mini") that older webapp settings/
@@ -815,16 +849,38 @@ app.post('/api/chat', async (req, res) => {
       const contentGenRe = /\b(write|create|generate|compose|draft|make|build|code|script|program|explain|describe|summarize|help me with|show me|give me|can you|how to|what is|tell me)\b/i;
       const explicitTypeRe = /^(type|enter|input|fill|put)\b/i;
       const isContentGen = contentGenRe.test(message) && !explicitTypeRe.test(message.trim());
-      // Merge the generic automation tools (input_hold, window_focus, screen_capture,
-      // uia_*, shell_run, find_and_click_visual, etc.) into the schema the LLM sees.
-      // These power sustained-input loops, vision fallback clicks, UIA queries, etc.
+
+      // Determine whether to include automation tools. They cost ~4000 tokens for 42 tools,
+      // so only include them when the message pattern actually needs PC actions — specifically
+      // sustained input loops (games, clicks) or explicit PC-action keywords.
       const automationModule = (() => { try { return require('./automation'); } catch { return null; } })();
-      const automationSchemas = automationModule ? automationModule.registry.toolSchemasForLlm() : [];
+      const pcActionRe = /\b(open|close|click|press|type|hold|run|launch|start|minimize|maximize|focus|kill|shutdown|restart|move|resize|copy|paste|scroll|drag|screenshot|window|notepad|chrome|minecraft|game|app|program|desktop|taskbar|folder|file)\b/i;
+      const needsAutomation = pcActionRe.test(message) || isContentGen === false;
+      const allAutomationSchemas = automationModule ? automationModule.registry.toolSchemasForLlm() : [];
+
+      // Only include automation tools if: there are any, message needs PC actions, AND
+      // we have token headroom (system + base tools + automation tools + msg + history must fit).
+      const automationTokens = allAutomationSchemas.length ? estimateTokens(JSON.stringify(allAutomationSchemas)) : 0;
+      const budgetForAutomation = inputBudget - systemTokens - baseToolTokens - msgTokens - estimateTokens(JSON.stringify(trimmedHistory)) - 300;
+      const includeAutomation = needsAutomation && allAutomationSchemas.length > 0 && budgetForAutomation > automationTokens;
+
+      // If automation tools don't fit, send only the most critical ones (input_hold + shell_run)
+      let automationSchemas;
+      if (includeAutomation) {
+        automationSchemas = allAutomationSchemas;
+      } else if (needsAutomation && allAutomationSchemas.length > 0) {
+        const CRITICAL = new Set(['input_hold', 'input_tap', 'window_focus', 'shell_run', 'click_at']);
+        automationSchemas = allAutomationSchemas.filter(s => CRITICAL.has(s.function.name));
+        console.log(`[TokenBudget] Automation tools trimmed to critical set (${automationSchemas.length}) — budget tight`);
+      } else {
+        automationSchemas = [];
+      }
+
       const baseSchemas = isContentGen
         ? ADDON_TOOL_SCHEMAS.filter(t => t.function.name !== 'type_text')
         : ADDON_TOOL_SCHEMAS;
       const toolsForCall = [...baseSchemas, ...automationSchemas];
-      const automationToolNames = new Set(automationSchemas.map(s => s.function.name));
+      const automationToolNames = new Set(allAutomationSchemas.map(s => s.function.name));
       if (isContentGen) {
         console.log(`[Guard] Content-generation detected — type_text tool removed from schema`);
       }

@@ -15,6 +15,11 @@
 const ADDON_DEFAULT_PORT = 3001;
 const ADDON_HEALTH_ENDPOINT = '/api/status';
 const ADDON_POLL_INTERVAL = 30000; // 30s between health checks
+// The addon auto-increments its port if the default is already taken
+// (e.g. a leftover process from a previous version still holding 3001
+// during an update). Probe a small range of fallback ports so detection
+// doesn't silently fail just because the addon landed on 3002+.
+const ADDON_PORT_FALLBACK_RANGE = 4;
 const CUSTOM_HOST_KEY = 'csimple_addon_host'; // localStorage key
 const OPT_IN_KEY = 'csimple_addon_optin'; // localStorage key
 
@@ -144,19 +149,32 @@ export async function detectAddon() {
     }
   }
 
-  // Always try localhost as fallback
-  const ports = [ADDON_DEFAULT_PORT, 3444];
+  // Always try localhost as fallback — the primary ports first, then the
+  // range the addon falls back to if 3001/3444 were already taken.
+  // Also probe the literal 127.0.0.1 IP: the addon binds to that exact
+  // IPv4 address, but "localhost" can resolve to ::1 (IPv6) first on some
+  // systems, which fails to connect even though the addon is listening
+  // fine on IPv4. The addon's self-signed cert includes IP:127.0.0.1 as a
+  // SAN, so HTTPS to the literal IP is trusted the same as to "localhost".
+  const httpPorts = [ADDON_DEFAULT_PORT];
+  const httpsPorts = [3444];
+  for (let i = 1; i <= ADDON_PORT_FALLBACK_RANGE; i++) {
+    httpPorts.push(ADDON_DEFAULT_PORT + i);
+    httpsPorts.push(3444 + i);
+  }
   const protocols = pageIsSecure ? ['https'] : ['http', 'https'];
+  const hosts = ['localhost', '127.0.0.1'];
   for (const proto of protocols) {
+    const ports = proto === 'https' ? httpsPorts : httpPorts;
     for (const port of ports) {
-      // Skip nonsense pairs (HTTP on 3444 / HTTPS on 3001) — those services
-      // don't speak the other protocol so attempts just waste 2s timeouts.
-      if (proto === 'http' && port === 3444) continue;
-      if (proto === 'https' && port === ADDON_DEFAULT_PORT) continue;
-      candidates.push(`${proto}://localhost:${port}`);
+      for (const host of hosts) {
+        candidates.push(`${proto}://${host}:${port}`);
+      }
     }
   }
 
+  // Try each candidate in order (primary port first, then the fallback
+  // range) with a short per-request timeout.
   for (const url of candidates) {
     try {
       const controller = new AbortController();
