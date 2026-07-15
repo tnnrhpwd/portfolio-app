@@ -8,7 +8,7 @@
 'use strict';
 
 const assert = require('assert');
-const { validateSteps, clearCache, VALID_STEP_TYPES } = require('./nl-compiler');
+const { validateSteps, clearCache, VALID_STEP_TYPES, editSteps } = require('./nl-compiler');
 
 let passed = 0;
 let failed = 0;
@@ -16,6 +16,18 @@ let failed = 0;
 function test(name, fn) {
     try {
         fn();
+        console.log(`  PASS  ${name}`);
+        passed++;
+    } catch (e) {
+        console.log(`  FAIL  ${name}`);
+        console.log(`        ${e.message}`);
+        failed++;
+    }
+}
+
+async function asyncTest(name, fn) {
+    try {
+        await fn();
         console.log(`  PASS  ${name}`);
         passed++;
     } catch (e) {
@@ -195,11 +207,90 @@ test('clearCache does not throw', () => {
     clearCache();
 });
 
+// ── editSteps (natural-language macro editing) ─────────────────────────────────
+// Uses an injected fake llmClient so no real network/LLM call is made.
+
+function fakeLlm(responseText) {
+    return { chat: async () => ({ choices: [{ message: { content: responseText } }] }) };
+}
+
+async function runEditStepsTests() {
+    console.log('\nnl-compiler.test: editSteps');
+
+    await asyncTest('rejects empty current steps', async () => {
+        await assertRejects(() => editSteps([], 'do something'), 'non-empty');
+    });
+
+    await asyncTest('rejects missing instruction', async () => {
+        await assertRejects(() => editSteps([{ type: 'key_tap', keys: ['a'] }], ''), 'instruction');
+    });
+
+    await asyncTest('applies an LLM-returned edit (type schema)', async () => {
+        const original = [{ type: 'click_at', x: 10, y: 20 }];
+        const llmClient = fakeLlm(JSON.stringify({
+            steps: [
+                { type: 'click_at', x: 10, y: 20 },
+                { type: 'key_tap', keys: ['z'] },
+            ],
+        }));
+        const result = await editSteps(original, 'press z after the click', { llmClient });
+        assert.strictEqual(result.steps.length, 2);
+        assert.strictEqual(result.steps[1].type, 'key_tap');
+        assert.strictEqual(result.meta.previousStepCount, 1);
+    });
+
+    await asyncTest('preserves legacy {tool,args} shape round-trip', async () => {
+        const original = [{ tool: 'input_tap', args: { keys: ['shift'] } }];
+        const llmClient = fakeLlm(JSON.stringify({
+            steps: [
+                { tool: 'input_tap', args: { keys: ['shift'] } },
+                { tool: 'input_tap', args: { keys: ['z'] } },
+            ],
+        }));
+        const result = await editSteps(original, 'press z after the shift click', { llmClient });
+        assert.strictEqual(result.steps.length, 2);
+        assert.strictEqual(result.steps[1].tool, 'input_tap');
+    });
+
+    await asyncTest('rejects destructive shell command in edited steps', async () => {
+        const original = [{ type: 'key_tap', keys: ['a'] }];
+        const llmClient = fakeLlm(JSON.stringify({
+            steps: [{ type: 'shell_run', command: 'del /f /q C:\\Users' }],
+        }));
+        await assertRejects(() => editSteps(original, 'delete everything', { llmClient }), 'forbidden');
+    });
+
+    await asyncTest('rejects step missing type/tool field', async () => {
+        const original = [{ type: 'key_tap', keys: ['a'] }];
+        const llmClient = fakeLlm(JSON.stringify({ steps: [{ foo: 'bar' }] }));
+        await assertRejects(() => editSteps(original, 'change something', { llmClient }), 'type');
+    });
+
+    await asyncTest('rejects invalid JSON from LLM', async () => {
+        const original = [{ type: 'key_tap', keys: ['a'] }];
+        const llmClient = fakeLlm('not json at all');
+        await assertRejects(() => editSteps(original, 'do something', { llmClient }), 'invalid json');
+    });
+}
+
+async function assertRejects(fn, msgFragment) {
+    let threw = false;
+    try { await fn(); } catch (e) {
+        threw = true;
+        if (msgFragment && !e.message.toLowerCase().includes(msgFragment.toLowerCase())) {
+            throw new Error(`Expected error containing "${msgFragment}", got: ${e.message}`);
+        }
+    }
+    if (!threw) throw new Error('Expected an error to be thrown but none was');
+}
+
 // ── Results ────────────────────────────────────────────────────────────────────
 
-console.log(`\nnl-compiler.test: ${passed + failed}/${passed + failed} PASS`);
-if (failed > 0) {
-    console.error(`\n${failed} test(s) failed`);
-    process.exit(1);
-}
-console.log(`Results: ${passed} passed, ${failed} failed`);
+runEditStepsTests().then(() => {
+    console.log(`\nnl-compiler.test: ${passed + failed}/${passed + failed} PASS`);
+    if (failed > 0) {
+        console.error(`\n${failed} test(s) failed`);
+        process.exit(1);
+    }
+    console.log(`Results: ${passed} passed, ${failed} failed`);
+});

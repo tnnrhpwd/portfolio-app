@@ -54,6 +54,7 @@ function _describeAction(tool, args) {
             if (m) return `open ${m[1]}`;
             return 'run 1 shell command';
         }
+        case 'open_app': return `open ${args?.name || 'an application'}`;
         case 'skill_run': return `run another skill ("${args?.slug || 'unknown'}")`;
         case 'audio_speak': return 'speak out loud';
         case 'goal_update': return 'update the goal status';

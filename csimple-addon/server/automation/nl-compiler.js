@@ -80,17 +80,25 @@ function _validateStep(step, index) {
 
     switch (type) {
         case 'key_tap': {
-            if (!Array.isArray(step.keys) || step.keys.length === 0)
-                throw new Error(`step[${index}]: key_tap requires keys array`);
-            if (step.keys.some(k => typeof k !== 'string' || k.length > 30))
+            const hasKeys = Array.isArray(step.keys) && step.keys.length > 0;
+            const hasButtons = Array.isArray(step.mouseButtons) && step.mouseButtons.length > 0;
+            if (!hasKeys && !hasButtons)
+                throw new Error(`step[${index}]: key_tap requires keys and/or mouseButtons array`);
+            if (hasKeys && step.keys.some(k => typeof k !== 'string' || k.length > 30))
                 throw new Error(`step[${index}]: key_tap keys must be short strings`);
+            if (hasButtons && step.mouseButtons.some(b => !['left', 'right', 'middle'].includes(b)))
+                throw new Error(`step[${index}]: key_tap mouseButtons must be left/right/middle`);
             if (step.repeat !== undefined && (typeof step.repeat !== 'number' || step.repeat > 1000))
                 throw new Error(`step[${index}]: key_tap repeat out of range`);
             break;
         }
         case 'key_hold': {
-            if (!Array.isArray(step.keys) || step.keys.length === 0)
-                throw new Error(`step[${index}]: key_hold requires keys array`);
+            const holdHasKeys = Array.isArray(step.keys) && step.keys.length > 0;
+            const holdHasButtons = Array.isArray(step.mouseButtons) && step.mouseButtons.length > 0;
+            if (!holdHasKeys && !holdHasButtons)
+                throw new Error(`step[${index}]: key_hold requires keys and/or mouseButtons array`);
+            if (holdHasButtons && step.mouseButtons.some(b => !['left', 'right', 'middle'].includes(b)))
+                throw new Error(`step[${index}]: key_hold mouseButtons must be left/right/middle`);
             if (typeof step.duration_ms !== 'number' || step.duration_ms > 30_000)
                 throw new Error(`step[${index}]: key_hold duration_ms must be ≤30000`);
             break;
@@ -121,6 +129,10 @@ function _validateStep(step, index) {
             // Basic safety: no shell injection characters
             if (/[;&|`$]/.test(step.name))
                 throw new Error(`step[${index}]: open_app.name contains forbidden characters`);
+            if (step.windowTitleContains !== undefined && typeof step.windowTitleContains !== 'string')
+                throw new Error(`step[${index}]: open_app.windowTitleContains must be a string`);
+            if (step.waitMs !== undefined && (typeof step.waitMs !== 'number' || step.waitMs < 0 || step.waitMs > 60_000))
+                throw new Error(`step[${index}]: open_app.waitMs must be 0-60000`);
             break;
         }
         case 'shell_run': {
@@ -189,11 +201,14 @@ const STEP_SCHEMA_DOCS = `
 Valid step types and their fields:
   {"type":"key_tap","keys":["w"],"repeat":1}
   {"type":"key_hold","keys":["w"],"duration_ms":500}
+  {"type":"key_hold","mouseButtons":["left"],"duration_ms":10000}  // holding a mouse button — NEVER put "left mouse button"/"click" inside keys
+  {"type":"key_hold","keys":["w"],"mouseButtons":["left"],"duration_ms":10000}  // combine keyboard + mouse hold in one step
   {"type":"type_text","text":"Hello world"}
   {"type":"wait_ms","ms":1000}
   {"type":"click_at","x":960,"y":540,"button":"left"}
   {"type":"click_visual","target":"the Submit button in the top-right corner"}
   {"type":"open_app","name":"notepad.exe"}
+  {"type":"open_app","name":"minecraft.exe","windowTitleContains":"Minecraft","waitMs":15000}  // open_app already POLLS for the window and focuses it — do NOT add a wait_ms step after it
   {"type":"shell_run","command":"dir C:\\\\Users"}
   {"type":"uia_invoke","name":"OK","controlType":"Button"}
   {"type":"skill_run","slug":"my-saved-skill"}
@@ -205,10 +220,11 @@ Valid step types and their fields:
 
 Rules:
 - Prefer key_tap for single presses, key_hold for game movement
+- For holding or clicking a mouse button (left/right/middle), use the mouseButtons field on key_tap/key_hold — NEVER put phrases like "left mouse button" or "left click" inside the keys array, since keys only accepts real keyboard key names
 - For "until I press X" → use loop_until_key with the correct key name
 - For "repeat N times" → use loop_n_times
 - For clicking UI buttons by name → prefer click_visual or uia_invoke over click_at
-- For opening apps → use open_app, not shell_run
+- For opening apps → use open_app, not shell_run. open_app already waits for the app's window to appear and focuses it (default up to 10s) — do NOT follow it with a wait_ms guess. For slow-launching apps (games, IDEs) set open_app.waitMs higher (e.g. 15000-20000) and set windowTitleContains to the expected window title substring so it doesn't match the wrong process
 - Do NOT use shell_run for destructive operations
 - Keep wait_ms realistic (100–2000ms typical)
 - Do NOT nest loops
@@ -356,4 +372,133 @@ async function compile(description, { context, llmClient, noCache, inlineToken }
  */
 function clearCache() { _cache.clear(); }
 
-module.exports = { compile, validateSteps, clearCache, VALID_STEP_TYPES, STEP_SCHEMA_DOCS, _callLlm };
+// ─── Natural-language macro editing ───────────────────────────────────────────
+// Lets a user modify an EXISTING macro (already-compiled steps, which may be
+// in either the abstracted {type,...} schema above or the legacy recorded
+// {tool,args} schema — see tools/skill.js _normaliseStep) by describing the
+// change in English, e.g. "press z after the shift click" or
+// "wait 2 seconds longer before typing". The LLM receives the current step
+// JSON verbatim and must return the FULL modified array in the SAME shape it
+// was given (it should not invent a schema); this keeps legacy `{tool,args}`
+// macros round-tripping unchanged for any step it doesn't need to touch.
+
+const MAX_EDIT_STEPS = 30;
+// Same destructive-operation deny-list used by the shell_run step validator
+// above — re-checked here because edited steps may use either schema and
+// _validateStep() (type-schema only) won't see raw {tool:'shell_run',...} steps.
+const FORBIDDEN_SHELL_SNIPPETS = ['rm ', 'del ', 'format ', 'rmdir', 'rd ', 'shutdown', 'reboot', 'taskkill', 'net user', 'reg delete'];
+
+function _scanForForbiddenCommands(value, path = 'steps') {
+    if (Array.isArray(value)) {
+        value.forEach((v, i) => _scanForForbiddenCommands(v, `${path}[${i}]`));
+        return;
+    }
+    if (!value || typeof value !== 'object') return;
+    const cmd = value.command;
+    if (typeof cmd === 'string') {
+        const lower = cmd.toLowerCase();
+        if (FORBIDDEN_SHELL_SNIPPETS.some(f => lower.includes(f))) {
+            throw new Error(`${path}: command contains a forbidden/destructive operation`);
+        }
+    }
+    // Recurse into nested arrays/objects (args, body, etc.) so loop bodies
+    // and {tool,args:{command}} shapes are covered too.
+    for (const k of Object.keys(value)) {
+        if (k === 'command') continue;
+        _scanForForbiddenCommands(value[k], `${path}.${k}`);
+    }
+}
+
+/**
+ * Lenient structural check for edited step arrays. We intentionally do NOT
+ * require the strict `type` schema here (unlike validateSteps) because
+ * legacy recorded macros use `{tool,args}` steps that validateSteps doesn't
+ * understand. We only enforce: array of plain objects, a size cap, and no
+ * newly-introduced destructive shell commands.
+ */
+function _validateEditedSteps(steps) {
+    if (!Array.isArray(steps)) throw new Error('steps must be an array');
+    if (steps.length === 0) throw new Error('steps array is empty');
+    if (steps.length > MAX_EDIT_STEPS) throw new Error(`too many steps (${steps.length} > ${MAX_EDIT_STEPS})`);
+    steps.forEach((s, i) => {
+        if (!s || typeof s !== 'object' || Array.isArray(s)) throw new Error(`step[${i}] must be an object`);
+        if (!s.type && !s.tool) throw new Error(`step[${i}] must have a "type" or "tool" field`);
+    });
+    _scanForForbiddenCommands(steps);
+    return true;
+}
+
+function _buildEditPrompt(stepsJson, instruction, context) {
+    return [
+        'You are editing an EXISTING Windows automation macro (a JSON array of steps).',
+        'The user will describe a change in plain English. Apply ONLY that change and',
+        'return the FULL resulting step array — keep every unrelated step exactly as-is',
+        '(same field names, same values, same schema/shape). Do not reformat or "clean up"',
+        'steps that were not part of the requested change.',
+        '',
+        'Current steps (JSON array):',
+        stepsJson,
+        '',
+        'Reference — step schema used by the abstracted compiler (existing steps may use',
+        'this shape, OR the legacy recorded shape `{"tool":"...","args":{...}}` — if a step',
+        'already uses the legacy shape, keep using it unless the instruction requires adding',
+        'a brand-new step, in which case prefer the abstracted shape below for the new step):',
+        STEP_SCHEMA_DOCS,
+        '',
+        context ? `Context about the user's environment: ${context}` : '',
+        '',
+        `Requested change: ${instruction}`,
+        '',
+        'Return ONLY a JSON object with one key "steps" containing the full modified array.',
+        'Reply with ONLY valid JSON. No prose. No markdown.',
+    ].filter(Boolean).join('\n');
+}
+
+/**
+ * Modify an existing compiled macro's steps using a natural-language
+ * instruction (e.g. "press z after the shift click").
+ *
+ * @param {Array} steps        - current step array (either schema)
+ * @param {string} instruction - English description of the desired change
+ * @param {object} opts
+ *   @param {string} [opts.context]   - optional env context
+ *   @param {object} [opts.llmClient] - injectable LLM client (tests)
+ *   @param {string} [opts.inlineToken]
+ * @returns {Promise<{steps: Array, meta: object}>}
+ */
+async function editSteps(steps, instruction, { context, llmClient, inlineToken } = {}) {
+    if (!Array.isArray(steps) || steps.length === 0) throw new Error('steps must be a non-empty array');
+    if (!instruction || typeof instruction !== 'string' || !instruction.trim()) {
+        throw new Error('instruction is required');
+    }
+    const text = instruction.trim().slice(0, 1000);
+    const stepsJson = JSON.stringify(steps).slice(0, 12_000);
+
+    const prompt = _buildEditPrompt(stepsJson, text, context);
+    const raw = await _callLlm(prompt, llmClient, inlineToken, 'You are a Windows macro editor. Output only valid JSON.');
+
+    let parsed;
+    try {
+        parsed = _extractJson(raw);
+    } catch (e) {
+        throw new Error(`NL editor: LLM returned invalid JSON — ${e.message}\nRaw: ${raw.slice(0, 200)}`);
+    }
+
+    const newSteps = parsed.steps || parsed;
+    _validateEditedSteps(newSteps);
+
+    return {
+        steps: newSteps,
+        meta: {
+            instruction: text,
+            stepCount: newSteps.length,
+            previousStepCount: steps.length,
+            editedAt: new Date().toISOString(),
+        },
+    };
+}
+
+module.exports = {
+    compile, validateSteps, clearCache, VALID_STEP_TYPES, STEP_SCHEMA_DOCS, _callLlm,
+    editSteps,
+};

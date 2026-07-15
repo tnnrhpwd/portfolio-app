@@ -130,6 +130,45 @@
 .short__banner-dismiss {
   opacity: 0.6;
   font-size: 12px;
+  cursor: pointer;
+}
+
+.short__run--running {
+  background: color-mix(in srgb, var(--accent, #4a90e2) 12%, var(--bg-primary));
+  border: 1px solid color-mix(in srgb, var(--accent, #4a90e2) 40%, var(--border));
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.short__run--done {
+  background: color-mix(in srgb, #2ecc71 12%, var(--bg-primary));
+  border: 1px solid color-mix(in srgb, #2ecc71 40%, var(--border));
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.short__run--failed {
+  background: color-mix(in srgb, red 12%, var(--bg-primary));
+  border: 1px solid color-mix(in srgb, red 40%, var(--border));
+  color: var(--text-primary);
+  cursor: default;
+  font-variant-numeric: tabular-nums;
+}
+
+.short__run-spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 4px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--accent, #4a90e2) 40%, transparent);
+  border-top-color: var(--accent, #4a90e2);
+  animation: short-run-spin 0.7s linear infinite;
+  vertical-align: -1px;
+}
+
+@keyframes short-run-spin {
+  to { transform: rotate(360deg); }
 }
 
 .short__group {
@@ -523,6 +562,16 @@
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.short__nl-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.short__nl-edit-row .adv-input {
+  flex: 1;
 }
 
 .short__editor-textarea {

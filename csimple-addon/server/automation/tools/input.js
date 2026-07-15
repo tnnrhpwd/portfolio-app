@@ -59,6 +59,25 @@ function resolveButton(name) {
     return MOUSE_FLAGS[b];
 }
 
+// Defense-in-depth: some callers (older compiled skills, or steps normalised
+// upstream in tools/skill.js before that fix existed) pass a mouse-button
+// phrase like "left mouse button" / "left click" inside `keys` instead of the
+// dedicated `mouseButtons` array. resolveKey() has no way to represent that as
+// a keyboard virtual-key, so it throws — the macro appears to instantly fail
+// doing nothing. Split those phrases out here too, right before resolution,
+// so input_hold/input_tap work regardless of which layer produced the args.
+const _MOUSE_PHRASE_RE = /^(left|right|middle)[\s_-]*(mouse)?[\s_-]*(button|click)$/i;
+function splitMousePhrasesFromKeys(keys, existingButtons) {
+    const buttons = new Set((existingButtons || []).map(b => String(b).toLowerCase()));
+    const realKeys = [];
+    for (const k of (keys || [])) {
+        const m = typeof k === 'string' ? _MOUSE_PHRASE_RE.exec(k.trim()) : null;
+        if (m) buttons.add(m[1].toLowerCase());
+        else realKeys.push(k);
+    }
+    return { keys: realKeys, mouseButtons: Array.from(buttons) };
+}
+
 // ─── PowerShell prelude: Win32 P/Invoke + window focus helper ─────────────────
 const NATIVE_PRELUDE = `
 $ErrorActionPreference = 'Stop'
@@ -149,8 +168,11 @@ const inputHold = {
         },
     },
     async run(args, ctx) {
-        const keys = Array.isArray(args.keys) ? args.keys : [];
-        const buttons = Array.isArray(args.mouseButtons) ? args.mouseButtons : [];
+        const { keys, mouseButtons } = splitMousePhrasesFromKeys(
+            Array.isArray(args.keys) ? args.keys : [],
+            Array.isArray(args.mouseButtons) ? args.mouseButtons : [],
+        );
+        const buttons = mouseButtons;
         if (keys.length === 0 && buttons.length === 0) {
             throw new Error('at least one key or mouseButton is required');
         }
@@ -236,8 +258,11 @@ const inputTap = {
         },
     },
     async run(args, ctx) {
-        const keys = Array.isArray(args.keys) ? args.keys : [];
-        const buttons = Array.isArray(args.mouseButtons) ? args.mouseButtons : [];
+        const { keys, mouseButtons } = splitMousePhrasesFromKeys(
+            Array.isArray(args.keys) ? args.keys : [],
+            Array.isArray(args.mouseButtons) ? args.mouseButtons : [],
+        );
+        const buttons = mouseButtons;
         if (keys.length === 0 && buttons.length === 0) {
             throw new Error('at least one key or mouseButton is required');
         }
@@ -505,4 +530,4 @@ try {
     },
 };
 
-module.exports = { inputHold, inputTap, clickAt, mousePath, mouseDrag };
+module.exports = { inputHold, inputTap, clickAt, mousePath, mouseDrag, splitMousePhrasesFromKeys };

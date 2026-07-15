@@ -203,16 +203,38 @@ async function repairStep({ skill, step, resolvedArgs, error, ctx }) {
  *
  * @returns {{ tool: string, args: object } | { _controlFlow: true, ... } | null}
  */
+// Some older/LLM-authored key_tap / key_hold steps stuff a mouse-button phrase
+// (e.g. "left mouse button", "left click", "right-click") into the `keys`
+// array instead of using the dedicated `mouseButtons` field — resolveKey()
+// in tools/input.js rejects those as unknown keyboard keys, so the whole
+// step throws synchronously and the macro appears to "do nothing" instantly.
+// Split them out here so both old and new skill JSON work.
+const _MOUSE_PHRASE_RE = /^(left|right|middle)[\s_-]*(mouse)?[\s_-]*(button|click)$/i;
+function _splitKeysAndButtons(keys, existingButtons) {
+    const buttons = new Set((existingButtons || []).map(b => String(b).toLowerCase()));
+    const realKeys = [];
+    for (const k of (keys || [])) {
+        const m = _MOUSE_PHRASE_RE.exec(String(k).trim());
+        if (m) buttons.add(m[1].toLowerCase());
+        else realKeys.push(k);
+    }
+    return { keys: realKeys, mouseButtons: Array.from(buttons) };
+}
+
 function _normaliseStep(step) {
     // Already a legacy recorded-skill step (has `tool` field)
     if (step.tool && !step.type) return { tool: step.tool, args: step.args || {} };
     // Some steps have both — prefer `type` when present (NL compiled)
     const t = step.type || step.tool;
     switch (t) {
-        case 'key_tap':
-            return { tool: 'input_tap', args: { keys: step.keys || [], repeat: step.repeat || 1, focusWindowTitle: step.focusWindowTitle } };
-        case 'key_hold':
-            return { tool: 'input_hold', args: { keys: step.keys || [], durationMs: step.duration_ms || 500, focusWindowTitle: step.focusWindowTitle } };
+        case 'key_tap': {
+            const { keys, mouseButtons } = _splitKeysAndButtons(step.keys, step.mouseButtons);
+            return { tool: 'input_tap', args: { keys, mouseButtons, repeat: step.repeat || 1, focusWindowTitle: step.focusWindowTitle } };
+        }
+        case 'key_hold': {
+            const { keys, mouseButtons } = _splitKeysAndButtons(step.keys, step.mouseButtons);
+            return { tool: 'input_hold', args: { keys, mouseButtons, durationMs: step.duration_ms || 500, focusWindowTitle: step.focusWindowTitle } };
+        }
         case 'type_text':
             return { tool: 'text_type', args: { text: step.text, focusWindowTitle: step.focusWindowTitle, pressEnterAfter: step.pressEnterAfter } };
         case 'wait_ms':
@@ -223,7 +245,20 @@ function _normaliseStep(step) {
         case 'click_visual':
             return { tool: 'find_and_click_visual', args: { target: step.target, query: step.target } };
         case 'open_app':
-            return { tool: 'shell_run', args: { command: `Start-Process "${(step.name || '').replace(/"/g, '')}"`, shell: 'powershell' } };
+            // open_app is a real registered tool (tools/open-app.js) that
+            // launches the process and POLLS for its main window before
+            // returning + focusing it — this is what prevents the classic
+            // "launched Minecraft then immediately sent Escape/WASD to the
+            // wrong window" failure mode of the old raw Start-Process alias.
+            return {
+                tool: 'open_app',
+                args: {
+                    name: step.name,
+                    args: step.args,
+                    windowTitleContains: step.windowTitleContains,
+                    waitMs: step.waitMs,
+                },
+            };
         case 'shell_run':
             return { tool: 'shell_run', args: { command: step.command, shell: step.shell } };
         case 'uia_invoke':

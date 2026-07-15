@@ -877,6 +877,25 @@ export async function compileNaturalMacro(description, { context, noCache, githu
   return res.json();
 }
 
+/**
+ * Modify an EXISTING macro's steps via an English instruction, e.g.
+ * "press z after the shift click", through the addon's NL editor.
+ *
+ * @param {Array} steps - current step array (either schema)
+ * @param {string} instruction - description of the desired change
+ * @param {object} [opts]
+ *   @param {string} [opts.context]
+ *   @param {string} [opts.githubToken]
+ * @returns {Promise<{ ok: boolean, steps: Array, meta: object }>}
+ */
+export async function editMacroNatural(steps, instruction, { context, githubToken } = {}) {
+  const res = await addonFetch('/api/skill/edit-natural', {
+    method: 'POST',
+    body: JSON.stringify({ steps, instruction, context, githubToken }),
+  });
+  return res.json();
+}
+
 // ─── Voice / Audio Pipeline ───────────────────────────────────────────────────
 
 /** Voice pipeline status: { running, listening, wakewordLoop, model, device, lastLevel }. */
@@ -1189,6 +1208,42 @@ export async function compileMacroNaturalViaBackend(token, description, context)
   if (!res.ok) {
     const msg = json?.dataMessage || json?.message || json?.error || text || `Compiler error (${res.status})`;
     // Rethrow as plain Error — NOT as a 401 that triggers app-level logout
+    throw new Error(msg);
+  }
+  return json;
+}
+
+/**
+ * Modify an EXISTING macro's steps via an English instruction, using the
+ * PORTFOLIO BACKEND. Fallback path used when the addon's automation layer
+ * is not mounted. Requires the user to be signed in (uses their stored
+ * GitHub PAT from DynamoDB).
+ *
+ * @param {string} token - User JWT
+ * @param {Array} steps - current step array (either schema)
+ * @param {string} instruction - description of the desired change
+ * @param {string} [context] - Optional environment context
+ */
+export async function editMacroNaturalViaBackend(token, steps, instruction, context) {
+  if (!token) throw new Error('Sign in required to use cloud macro editing');
+  let res;
+  try {
+    res = await fetch(`${getPortfolioApiUrl()}/csimple/edit-natural`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ steps, instruction, context }),
+    });
+  } catch (networkErr) {
+    throw new Error(`Network error: ${networkErr.message}`);
+  }
+  const text = await res.text().catch(() => '');
+  let json;
+  try { json = JSON.parse(text); } catch { json = null; }
+  if (!res.ok) {
+    const msg = json?.dataMessage || json?.message || json?.error || text || `Editor error (${res.status})`;
     throw new Error(msg);
   }
   return json;

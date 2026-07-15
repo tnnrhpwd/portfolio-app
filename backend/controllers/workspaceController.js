@@ -808,6 +808,153 @@ Rules:
     });
 });
 
+// Same destructive-operation deny-list used by compileMacroNatural's prompt rules,
+// re-checked here on the returned steps since edited macros may carry over
+// legacy {tool,args} shell_run steps that the prompt alone can't guarantee against.
+const FORBIDDEN_SHELL_SNIPPETS = ['rm ', 'del ', 'format ', 'rmdir', 'rd ', 'shutdown', 'reboot', 'taskkill', 'net user', 'reg delete'];
+
+function scanForForbiddenCommands(value, path = 'steps') {
+    if (Array.isArray(value)) {
+        value.forEach((v, i) => scanForForbiddenCommands(v, `${path}[${i}]`));
+        return;
+    }
+    if (!value || typeof value !== 'object') return;
+    const cmd = value.command;
+    if (typeof cmd === 'string') {
+        const lower = cmd.toLowerCase();
+        if (FORBIDDEN_SHELL_SNIPPETS.some(f => lower.includes(f))) {
+            throw new Error(`${path}: command contains a forbidden/destructive operation`);
+        }
+    }
+    for (const k of Object.keys(value)) {
+        if (k === 'command') continue;
+        scanForForbiddenCommands(value[k], `${path}.${k}`);
+    }
+}
+
+// @desc    Modify an EXISTING macro's steps using a natural-language
+//          instruction (e.g. "press z after the shift click"). Mirrors the
+//          addon's nl-compiler.js editSteps(), runs on the portfolio backend
+//          as a fallback for users without the addon's automation layer.
+// @route   POST /api/data/csimple/edit-natural
+// @access  Private
+const editMacroNatural = asyncHandler(async (req, res) => {
+    if (!req.user) unauthorized(res);
+
+    const { steps, instruction, context } = req.body || {};
+    if (!Array.isArray(steps) || steps.length === 0) {
+        badRequest(res, 'steps must be a non-empty array');
+    }
+    if (!instruction || typeof instruction !== 'string' || !instruction.trim()) {
+        badRequest(res, 'instruction is required');
+    }
+    if (instruction.length > 1000) badRequest(res, 'instruction too long (max 1000 chars)');
+
+    const { getUserGithubToken } = require('../services/llmService');
+    const githubToken = await getUserGithubToken(dynamodb, req.user.id);
+
+    if (!githubToken) {
+        res.status(422);
+        throw new Error('No GitHub PAT found. In CSimple → Settings → Advanced, paste your GitHub Personal Access Token and save, then try again.');
+    }
+
+    const STEP_SCHEMA = `
+Valid step types:
+  {"type":"key_tap","keys":["w"],"repeat":1}
+  {"type":"key_hold","keys":["w"],"duration_ms":500}
+  {"type":"type_text","text":"Hello world"}
+  {"type":"wait_ms","ms":1000}
+  {"type":"click_at","x":960,"y":540}
+  {"type":"click_visual","target":"the Submit button"}
+  {"type":"open_app","name":"notepad.exe"}
+  {"type":"shell_run","command":"dir C:\\\\Users"}
+  {"type":"uia_invoke","name":"OK","controlType":"Button"}
+  {"type":"skill_run","slug":"my-skill"}
+  {"type":"loop_until_key","key":"Escape","body":[...steps...]}
+  {"type":"loop_n_times","times":5,"body":[...steps...]}
+  {"type":"screenshot_check","condition":"Is the dialog closed?"}
+  {"type":"speak","text":"Done!"}
+  {"type":"goal_done"}
+`;
+
+    const stepsJson = JSON.stringify(steps).slice(0, 12000);
+    const prompt = [
+        'You are editing an EXISTING Windows automation macro (a JSON array of steps).',
+        'The user will describe a change in plain English. Apply ONLY that change and',
+        'return the FULL resulting step array — keep every unrelated step exactly as-is',
+        '(same field names, same values, same schema/shape). Do not reformat or "clean up"',
+        'steps that were not part of the requested change.',
+        '',
+        'Current steps (JSON array):',
+        stepsJson,
+        '',
+        'Reference — step schema (existing steps may use this shape, OR the legacy recorded',
+        'shape `{"tool":"...","args":{...}}` — if a step already uses the legacy shape, keep',
+        'using it unless adding a brand-new step, in which case prefer the shape below):',
+        STEP_SCHEMA,
+        context ? `Context about the user's environment: ${context.slice(0, 500)}` : '',
+        '',
+        `Requested change: ${instruction.trim()}`,
+        '',
+        'Return ONLY a JSON object: {"steps": [...]}',
+        'Reply with ONLY valid JSON. No prose. No markdown fences.',
+    ].filter(Boolean).join('\n');
+
+    let newSteps;
+    try {
+        const { default: OpenAI } = await import('openai');
+        const client = new OpenAI({
+            baseURL: 'https://models.github.ai/inference',
+            apiKey: githubToken,
+        });
+        const response = await client.chat.completions.create({
+            model: 'openai/gpt-4o-mini',
+            messages: [
+                { role: 'system', content: 'You are a Windows macro editor. Output only valid JSON.' },
+                { role: 'user', content: prompt },
+            ],
+            temperature: 0.1,
+            max_tokens: 2048,
+        });
+        const text = response?.choices?.[0]?.message?.content || '';
+        const match = text.match(/\{[\s\S]*\}/);
+        if (!match) throw new Error('No JSON found in LLM response');
+        const parsed = JSON.parse(match[0]);
+        newSteps = parsed.steps || parsed;
+        if (!Array.isArray(newSteps)) throw new Error('LLM did not return a steps array');
+        if (newSteps.length === 0) throw new Error('Edited macro has no steps');
+        if (newSteps.length > 30) newSteps = newSteps.slice(0, 30);
+        newSteps.forEach((s, i) => {
+            if (!s || typeof s !== 'object' || Array.isArray(s)) throw new Error(`step[${i}] must be an object`);
+            if (!s.type && !s.tool) throw new Error(`step[${i}] must have a "type" or "tool" field`);
+        });
+        scanForForbiddenCommands(newSteps);
+    } catch (e) {
+        if (e.status === 401 || e.message?.includes('401')) {
+            res.status(422);
+            throw new Error('GitHub token is invalid or expired. Update your PAT in CSimple → Settings → Advanced, then try again.');
+        }
+        if (e.status === 403 || e.message?.includes('403')) {
+            res.status(422);
+            throw new Error('GitHub token lacks GitHub Models access. Visit github.com/marketplace/models, accept the terms, then try again.');
+        }
+        res.status(422);
+        throw new Error(`Macro edit failed: ${e.message}`);
+    }
+
+    res.status(200).json({
+        ok: true,
+        steps: newSteps,
+        meta: {
+            instruction: instruction.trim().slice(0, 200),
+            stepCount: newSteps.length,
+            previousStepCount: steps.length,
+            editedAt: new Date().toISOString(),
+            via: 'backend',
+        },
+    });
+});
+
 module.exports = {
     listWorkspace,
     getWorkspaceItem,
@@ -820,6 +967,7 @@ module.exports = {
     getWorkspaceContextPreview,
     getWorkspaceTemplates,
     compileMacroNatural,
+    editMacroNatural,
     // Exported for use by llmService when assembling system prompts:
     _internal: {
         ALLOWED_KINDS,

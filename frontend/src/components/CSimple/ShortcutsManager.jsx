@@ -27,6 +27,8 @@ import {
   compileNaturalMacro,
   remountAutomation,
   compileMacroNaturalViaBackend,
+  editMacroNatural,
+  editMacroNaturalViaBackend,
 } from '../../services/csimpleApi';
 import './ShortcutsManager.css';
 
@@ -84,6 +86,13 @@ function parseSkillContent(item) {
   }
 }
 
+/** Format a millisecond duration as e.g. "850ms" or "4.2s". */
+function formatDuration(ms) {
+  if (!Number.isFinite(ms) || ms < 0) return '0ms';
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
 /** Human-friendly summary of a compiled skill's step list. */
 function summarizeSteps(skill) {
   const steps = skill?.steps || [];
@@ -102,6 +111,12 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
   const [status, setStatus] = useState(null);
   const [macros, setMacros] = useState([]); // [{ item, skill }]
 
+  // Macro-run tracking: shown as a dedicated banner that stays visible for
+  // the FULL run (doesn't vanish instantly) and reports total duration plus
+  // which step failed, if any. Separate from the generic `status` flash so
+  // unrelated actions (save/compile/delete) can't clobber it mid-run.
+  const [runInfo, setRunInfo] = useState(null);
+
   // Recorder state
   const [recorder, setRecorder] = useState({ active: false, eventCount: 0, startedAt: null });
   const [pendingName, setPendingName] = useState('');
@@ -116,6 +131,9 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
   // Editor state — null unless a macro is open for editing.
   const [editor, setEditor] = useState(null);
   const [editorBusy, setEditorBusy] = useState(false);
+  // Natural-language edit ("press z after the shift click") inside the editor dialog.
+  const [editNlText, setEditNlText] = useState('');
+  const [editNlBusy, setEditNlBusy] = useState(false);
   const [captureFor, setCaptureFor] = useState(null); // slug currently binding a hotkey
 
   const captureRef = useRef(null);
@@ -181,6 +199,17 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
     setStatus(text);
     if (ms > 0) setTimeout(() => setStatus(cur => (cur === text ? null : cur)), ms);
   }, []);
+
+  // Tick the elapsed-time display once per 100ms while a macro is running.
+  useEffect(() => {
+    if (!runInfo || runInfo.phase !== 'running') return undefined;
+    const id = setInterval(() => {
+      setRunInfo(cur => (cur && cur.phase === 'running'
+        ? { ...cur, elapsedMs: Date.now() - cur.startedAt }
+        : cur));
+    }, 100);
+    return () => clearInterval(id);
+  }, [runInfo?.phase, runInfo?.startedAt]);
 
   // ── Recording pipeline ─────────────────────────────────────────────────
   const handleStartRecording = useCallback(async () => {
@@ -339,19 +368,44 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
   const handleRun = useCallback(async (slug) => {
     if (!addonConnected) return;
     setError(null);
+    const startedAt = Date.now();
+    setRunInfo({ slug, phase: 'running', startedAt, elapsedMs: 0 });
     try {
-      flashStatus(`Running "${slug}"…`, 0);
       // Pass the inline skill so the addon can execute without needing to
       // resolve it from the workspace API (works after addon restart / no auth).
       const macro = macros.find(m => m.item.slug === slug);
       const out = await runSkill(slug, {}, macro?.skill || null);
+      const elapsedMs = Date.now() - startedAt;
+      // The addon's tool-registry ALWAYS wraps a tool's return value as
+      // { ok, result, error, mode, durationMs } (see tool-registry.js
+      // executeTool) — `out.error` here is a registry-level failure (unknown
+      // tool, permission denied, uncaught throw), and the actual skill_run
+      // summary { steps, failed, stepsTotal, stepsRun } lives under
+      // `out.result`, NOT flat on `out`. Reading the wrong level here
+      // previously made every run report "done (0/0 steps)" regardless of
+      // what actually happened.
       if (out?.error) throw new Error(out.error);
-      const failed = (out?.results || []).some(r => r.error);
-      flashStatus(failed ? `"${slug}" ran with errors` : `"${slug}" done`);
+      const summary = out?.result || {};
+      const steps = summary.steps || [];
+      const failedStep = steps.find(s => s.error);
+      const failed = !!summary.failed || !!failedStep;
+      setRunInfo({
+        slug,
+        phase: failed ? 'failed' : 'done',
+        startedAt,
+        elapsedMs,
+        stepsTotal: summary.stepsTotal ?? steps.length,
+        stepsRun: summary.stepsRun ?? steps.length,
+        failedStep: failedStep
+          ? { index: failedStep.index, tool: failedStep.tool, error: failedStep.error }
+          : null,
+      });
     } catch (e) {
+      const elapsedMs = Date.now() - startedAt;
+      setRunInfo({ slug, phase: 'failed', startedAt, elapsedMs, error: e.message || 'Run failed' });
       setError(e.message || 'Run failed');
     }
-  }, [addonConnected, flashStatus, macros]);
+  }, [addonConnected, macros]);
 
   const handleDelete = useCallback(async (slug) => {
     if (!token) return;
@@ -368,6 +422,7 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
   }, [token, flashStatus, loadMacros]);
 
   const openEditor = useCallback(({ item, skill }) => {
+    setEditNlText('');
     setEditor({
       originalSlug: item.slug,
       slug: item.slug,
@@ -429,6 +484,75 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
       setEditorBusy(false);
     }
   }, [editor, token, addonConnected, flashStatus, loadMacros]);
+
+  // ── Natural-language macro editing ──────────────────────────────────────
+  // Lets the user describe a change to an already-open macro in plain
+  // English (e.g. "press z after the shift click") instead of hand-editing
+  // the raw steps JSON. Reuses the same addon → auto-heal → cloud fallback
+  // tiers as the "create from scratch" NL compiler above.
+  const handleEditWithNl = useCallback(async () => {
+    if (!editor || !editNlText.trim()) return;
+    setEditNlBusy(true);
+    setError(null);
+    try {
+      let currentSteps;
+      try { currentSteps = JSON.parse(editor.stepsJson); }
+      catch (e) { throw new Error(`Steps JSON is invalid: ${e.message}`); }
+      if (!Array.isArray(currentSteps) || currentSteps.length === 0) {
+        throw new Error('Add at least one step before using natural-language edits.');
+      }
+      const instruction = editNlText.trim();
+
+      const applyResult = (result) => {
+        setEditor(cur => (cur ? { ...cur, stepsJson: JSON.stringify(result.steps, null, 2) } : cur));
+        setEditNlText('');
+        flashStatus(`Updated to ${result.steps?.length || 0} steps${result.meta?.via === 'backend' ? ' (cloud)' : ''}`);
+      };
+
+      // Tier 1: local addon
+      if (addonConnected) {
+        try {
+          const result = await editMacroNatural(currentSteps, instruction, { githubToken });
+          applyResult(result);
+          return;
+        } catch (addonErr) {
+          const msg = addonErr.message || '';
+          const isRouteError = msg.includes('Cannot POST') || msg.includes('404') || msg.includes('edit-natural') || msg.includes('remount');
+          if (isRouteError) {
+            try {
+              flashStatus('Reconnecting addon routes…', 0);
+              await remountAutomation();
+              const result2 = await editMacroNatural(currentSteps, instruction, { githubToken });
+              applyResult(result2);
+              return;
+            } catch {
+              // Fall through to backend
+            }
+          } else {
+            throw addonErr;
+          }
+        }
+      }
+
+      // Tier 2: backend cloud editor
+      if (token) {
+        flashStatus('Using cloud editor…', 0);
+        const result3 = await editMacroNaturalViaBackend(token, currentSteps, instruction);
+        applyResult(result3);
+        return;
+      }
+
+      throw new Error(
+        addonConnected
+          ? 'Addon routes unavailable. Quit and relaunch the addon from the system tray.'
+          : 'Sign in to use cloud macro editing, or install the CSimple addon.'
+      );
+    } catch (e) {
+      setError(e.message || 'Edit failed');
+    } finally {
+      setEditNlBusy(false);
+    }
+  }, [editor, editNlText, addonConnected, token, githubToken, flashStatus]);
 
   // ── Hotkey capture (keydown handler bound while `captureFor` is set) ──
   useEffect(() => {
@@ -642,6 +766,30 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
           {status}
         </div>
       )}
+      {runInfo && (
+        <div
+          className={`short__banner short__run short__run--${runInfo.phase}`}
+          role="status"
+        >
+          <span>
+            {runInfo.phase === 'running' && (
+              <><span className="short__run-spinner" aria-hidden="true" /> Running "{runInfo.slug}"… {formatDuration(runInfo.elapsedMs)}</>
+            )}
+            {runInfo.phase === 'done' && (
+              <>✓ "{runInfo.slug}" done in {formatDuration(runInfo.elapsedMs)} ({runInfo.stepsRun}/{runInfo.stepsTotal} steps)</>
+            )}
+            {runInfo.phase === 'failed' && runInfo.failedStep && (
+              <>✕ "{runInfo.slug}" failed at step {runInfo.failedStep.index + 1}/{runInfo.stepsTotal} ({runInfo.failedStep.tool}) after {formatDuration(runInfo.elapsedMs)}: {runInfo.failedStep.error}</>
+            )}
+            {runInfo.phase === 'failed' && !runInfo.failedStep && (
+              <>✕ "{runInfo.slug}" failed after {formatDuration(runInfo.elapsedMs)}{runInfo.error ? `: ${runInfo.error}` : ''}</>
+            )}
+          </span>
+          {runInfo.phase !== 'running' && (
+            <span className="short__banner-dismiss" onClick={() => setRunInfo(null)}>✕</span>
+          )}
+        </div>
+      )}
 
       {/* Capture prompt */}
       {captureFor && (
@@ -807,6 +955,31 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
                   )}
                 </div>
               </div>
+              <label className="short__field">
+                <span className="short__field-label">Modify with AI</span>
+                <div className="short__nl-edit-row">
+                  <input
+                    type="text"
+                    className="adv-input"
+                    placeholder='e.g. "press z after the shift click"'
+                    value={editNlText}
+                    onChange={e => setEditNlText(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !editNlBusy) { e.preventDefault(); handleEditWithNl(); } }}
+                    disabled={editNlBusy}
+                  />
+                  <button
+                    className="short__btn short__btn--sm short__btn--primary"
+                    type="button"
+                    onClick={handleEditWithNl}
+                    disabled={editNlBusy || !editNlText.trim()}
+                  >
+                    {editNlBusy ? 'Applying…' : 'Apply'}
+                  </button>
+                </div>
+                <span className="short__field-hint">
+                  Describe the change in plain English — it rewrites the steps below for you to review before saving.
+                </span>
+              </label>
               <label className="short__field">
                 <span className="short__field-label">Steps (JSON)</span>
                 <textarea

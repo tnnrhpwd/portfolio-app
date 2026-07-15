@@ -41,6 +41,7 @@ const { uiaFind, uiaInvoke, uiaGetText, uiaSnapshot } = require('./tools/uia');
 const { perceptionRecent } = require('./perception');
 const { goalUpdate, goalCreate, goalAskUser } = require('./tools/goal');
 const { inputHold, inputTap, clickAt, mousePath, mouseDrag } = require('./tools/input');
+const { openApp } = require('./tools/open-app');
 const { findVisualTarget } = require('./vision-fusion');
 
 const recorder = require('./recorder');
@@ -56,7 +57,7 @@ const triggers = require('./triggers');
 const skillHotkeys = require('./skill-hotkeys');
 
 const { createAgentLoop } = require('./agent-loop');
-const { compile: nlCompile } = require('./nl-compiler');
+const { compile: nlCompile, editSteps: nlEditSteps } = require('./nl-compiler');
 const { getPerceptionBus, frameToContextString } = require('./perception-bus');
 const { getPredictor } = require('./predictor');
 const { getPatternLearner } = require('./pattern-learner');
@@ -108,6 +109,7 @@ function registerAllTools() {
     registry.register(clickAt);
     registry.register(mousePath);
     registry.register(mouseDrag);
+    registry.register(openApp);
 
     // Destructive
     registry.register(processKill);
@@ -706,6 +708,62 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
             }
 
             events.publish('skill.compiled-natural', { stepCount: result.steps?.length || 0 });
+            res.json({ ok: true, ...result });
+        } catch (e) {
+            res.status(400).json({ error: e.message });
+        }
+    });
+
+    // Modify an EXISTING macro's steps via English instruction, e.g.
+    // "press z after the shift click". Reuses the same local→backend
+    // fallback strategy as compile-natural.
+    app.post('/api/skill/edit-natural', async (req, res) => {
+        try {
+            const { steps, instruction, context, githubToken: inlineToken } = req.body || {};
+            if (!Array.isArray(steps) || steps.length === 0) {
+                return res.status(400).json({ error: 'steps must be a non-empty array' });
+            }
+            if (!instruction || typeof instruction !== 'string' || !instruction.trim()) {
+                return res.status(400).json({ error: 'instruction is required' });
+            }
+            if (instruction.length > 1000) {
+                return res.status(400).json({ error: 'instruction too long (max 1000 chars)' });
+            }
+            const safeInlineToken = (typeof inlineToken === 'string' && inlineToken.length > 10 &&
+                !inlineToken.startsWith('enc:') && !inlineToken.startsWith('v10')) ? inlineToken : undefined;
+
+            let result;
+            try {
+                result = await nlEditSteps(steps, instruction.trim(), {
+                    context: typeof context === 'string' ? context.slice(0, 500) : undefined,
+                    inlineToken: safeInlineToken,
+                });
+            } catch (localErr) {
+                const isTokenErr = /token|GitHub|LLM client|not configured|401/i.test(localErr.message || '');
+                if (!isTokenErr) throw localErr;
+                let backendToken = cloudRelay?._token || null;
+                if (!backendToken) {
+                    for (let i = 0; i < 25; i++) {
+                        await new Promise(r => setTimeout(r, 200));
+                        backendToken = cloudRelay?._token || null;
+                        if (backendToken) break;
+                    }
+                }
+                if (!backendToken) throw new Error('Sign in to sthopwood.com/net first, then try again.');
+                log('[edit-natural] proxying to backend');
+                const BACKEND_URL_NL = process.env.BACKEND_URL || 'https://mern-plan-web-service.onrender.com';
+                const backendRes = await fetch(`${BACKEND_URL_NL}/api/data/csimple/edit-natural`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${backendToken}` },
+                    body: JSON.stringify({ steps, instruction: instruction.trim(), context }),
+                });
+                const backendText = await backendRes.text();
+                let backendJson; try { backendJson = JSON.parse(backendText); } catch { backendJson = null; }
+                if (!backendRes.ok) throw new Error(backendJson?.dataMessage || backendJson?.message || backendJson?.error || backendText || `backend error ${backendRes.status}`);
+                result = backendJson;
+            }
+
+            events.publish('skill.edited-natural', { stepCount: result.steps?.length || 0 });
             res.json({ ok: true, ...result });
         } catch (e) {
             res.status(400).json({ error: e.message });
