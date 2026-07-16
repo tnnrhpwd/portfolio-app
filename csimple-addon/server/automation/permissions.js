@@ -69,6 +69,16 @@ const DEFAULTS = {
     //   'lan'                — 0.0.0.0; lets phones on the same WiFi hit the addon
     //                          directly via the LAN IP shown in /api/network. Opt-in.
     hostBinding: 'loopback',
+    // Sensitive capture consents (revocable via permissions save API).
+    dataCapture: {
+        keyboard: false,
+        keyboardGrantedAt: null,
+    },
+    cloudVision: {
+        granted: false,
+        grantedAt: null,
+        policyVersion: '2026-07',
+    },
 };
 
 function configPath() {
@@ -104,6 +114,8 @@ function save(partial) {
         ...partial,
         categories: { ...cur.categories, ...(partial.categories || {}) },
         tools: { ...cur.tools, ...(partial.tools || {}) },
+        dataCapture: { ...(cur.dataCapture || {}), ...(partial.dataCapture || {}) },
+        cloudVision: { ...(cur.cloudVision || {}), ...(partial.cloudVision || {}) },
     };
     _cache = next;
     try {
@@ -188,6 +200,98 @@ function resolveBindHost() {
     return cfg.hostBinding === 'lan' ? '0.0.0.0' : '127.0.0.1';
 }
 
+function hasKeyboardCaptureConsent() {
+    return !!load().dataCapture?.keyboard;
+}
+
+function grantKeyboardCaptureConsent() {
+    return save({
+        dataCapture: {
+            keyboard: true,
+            keyboardGrantedAt: Date.now(),
+        },
+    });
+}
+
+function revokeKeyboardCaptureConsent() {
+    return save({
+        dataCapture: {
+            keyboard: false,
+            keyboardGrantedAt: null,
+        },
+    });
+}
+
+function hasCloudVisionConsent() {
+    return !!load().cloudVision?.granted;
+}
+
+function grantCloudVisionConsent(policyVersion = '2026-07') {
+    return save({
+        cloudVision: {
+            granted: true,
+            grantedAt: Date.now(),
+            policyVersion: String(policyVersion || '2026-07'),
+        },
+    });
+}
+
+function revokeCloudVisionConsent() {
+    const current = load().cloudVision || {};
+    return save({
+        cloudVision: {
+            granted: false,
+            grantedAt: null,
+            policyVersion: current.policyVersion || '2026-07',
+        },
+    });
+}
+
+function updateConsents({ keyboardCapture, cloudVision, cloudVisionPolicyVersion } = {}) {
+    const cur = load();
+    const patch = {};
+    const changes = [];
+
+    if (typeof keyboardCapture === 'boolean') {
+        const before = !!cur.dataCapture?.keyboard;
+        if (before !== keyboardCapture) {
+            patch.dataCapture = {
+                keyboard: keyboardCapture,
+                keyboardGrantedAt: keyboardCapture ? Date.now() : null,
+            };
+            changes.push({
+                key: 'dataCapture.keyboard',
+                from: before,
+                to: keyboardCapture,
+                action: keyboardCapture ? 'granted' : 'revoked',
+            });
+        }
+    }
+
+    if (typeof cloudVision === 'boolean') {
+        const before = !!cur.cloudVision?.granted;
+        const currentPolicy = cur.cloudVision?.policyVersion || '2026-07';
+        const nextPolicy = String(cloudVisionPolicyVersion || currentPolicy);
+        if (before !== cloudVision || nextPolicy !== currentPolicy) {
+            patch.cloudVision = {
+                granted: cloudVision,
+                grantedAt: cloudVision ? Date.now() : null,
+                policyVersion: nextPolicy,
+            };
+            changes.push({
+                key: 'cloudVision.granted',
+                from: before,
+                to: cloudVision,
+                action: cloudVision ? 'granted' : 'revoked',
+                policyVersion: nextPolicy,
+            });
+        }
+    }
+
+    if (!changes.length) return { config: cur, changes: [] };
+    return { config: save(patch), changes };
+}
+
 module.exports = {
     load,
     save,
@@ -195,6 +299,13 @@ module.exports = {
     resolveBindHost,
     effectiveMode,
     requestApproval,
+    hasKeyboardCaptureConsent,
+    grantKeyboardCaptureConsent,
+    revokeKeyboardCaptureConsent,
+    hasCloudVisionConsent,
+    grantCloudVisionConsent,
+    revokeCloudVisionConsent,
+    updateConsents,
     DEFAULTS,
     _reset: _resetCache,
 };

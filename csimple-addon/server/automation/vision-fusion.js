@@ -16,6 +16,8 @@
 const screen = require('./tools/screen');
 const { uiaInvoke } = require('./tools/uia');
 const { spawn } = require('child_process');
+const permissions = require('./permissions');
+const events = require('./events');
 
 const findVisualTarget = {
     name: 'find_and_click_visual',
@@ -37,11 +39,25 @@ const findVisualTarget = {
                 description: 'Optional crop to narrow the search area.',
             },
             dryRun: { type: 'boolean' },
+            confirmCloudVisionCapture: {
+                type: 'boolean',
+                description: 'Explicitly grant cloud vision consent for this and future visual lookups.',
+            },
         },
         required: ['description'],
     },
     async run(args, ctx) {
         if (!args.description) throw new Error('description is required');
+        if (!permissions.hasCloudVisionConsent()) {
+            if (!args.confirmCloudVisionCapture) {
+                throw new Error(
+                    'Cloud vision consent required before screenshots can be sent to the multimodal model. ' +
+                    'Set confirmCloudVisionCapture=true once to grant.'
+                );
+            }
+            permissions.grantCloudVisionConsent();
+            events.publish('permissions.changed', { changedKeys: ['cloudVision.granted'], source: 'find_and_click_visual' });
+        }
 
         // 1) Capture
         const cap = await screen._captureBuffer({

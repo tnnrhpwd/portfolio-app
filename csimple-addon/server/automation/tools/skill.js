@@ -22,6 +22,8 @@ const path = require('path');
 
 const registry = require('../tool-registry');
 const wsClient = require('../workspace-client');
+const events = require('../events');
+const permissions = require('../permissions');
 
 // In-memory cache: slug → skill object. Populated by the compile-and-save
 // route, so newly-created skills are runnable immediately without a round
@@ -32,6 +34,21 @@ const _localCache = new Map();
 // pattern in agent-loop.js so a step that fails can ask the model to amend its
 // arguments against a fresh UI snapshot.
 let _sharedLlm = null;
+
+// Deterministic compatibility downgrades for skills authored against older/
+// alternate tool names. These are intentionally static (no LLM required).
+const TOOL_ALIASES = Object.freeze({
+    click_visual: 'find_and_click_visual',
+    vision_click: 'find_and_click_visual',
+    app_open: 'open_app',
+    open_application: 'open_app',
+    type: 'text_type',
+    say_text: 'audio_speak',
+});
+
+const TOOL_FALLBACKS = Object.freeze({
+    uia_invoke: 'find_and_click_visual',
+});
 
 function cacheSkill(skill) {
     if (!skill || !skill.slug) throw new Error('cacheSkill requires .slug');
@@ -129,6 +146,278 @@ function _extractJsonObject(text) {
         }
     }
     return null;
+}
+
+function _hasTool(name) {
+    if (typeof registry.get !== 'function') return true;
+    return !!registry.get(name);
+}
+
+function _sleep(ms) {
+    const delay = Math.max(0, Number(ms) || 0);
+    if (delay <= 0) return Promise.resolve();
+    return new Promise(resolve => setTimeout(resolve, delay));
+}
+
+function _resolveToolCompatibility(toolName) {
+    const originalTool = String(toolName || '').trim();
+    if (!originalTool) {
+        return { status: 'unsupported', originalTool, resolvedTool: null, reason: 'step tool is missing' };
+    }
+    if (_hasTool(originalTool)) {
+        return { status: 'compatible', originalTool, resolvedTool: originalTool };
+    }
+    const alias = TOOL_ALIASES[originalTool];
+    if (alias && _hasTool(alias)) {
+        return {
+            status: 'degraded',
+            originalTool,
+            resolvedTool: alias,
+            reason: `tool "${originalTool}" mapped to "${alias}"`,
+        };
+    }
+    const fallback = TOOL_FALLBACKS[originalTool];
+    if (fallback && _hasTool(fallback)) {
+        return {
+            status: 'degraded',
+            originalTool,
+            resolvedTool: fallback,
+            reason: `tool "${originalTool}" fell back to "${fallback}"`,
+        };
+    }
+    return {
+        status: 'unsupported',
+        originalTool,
+        resolvedTool: originalTool,
+        reason: `tool "${originalTool}" is not available on this addon version`,
+    };
+}
+
+function _collectCompatibilityFindings(steps, out, pathPrefix = '') {
+    for (let i = 0; i < (steps || []).length; i++) {
+        const step = steps[i];
+        const at = pathPrefix ? `${pathPrefix}.${i}` : String(i);
+        const normalised = _normaliseStep(step);
+        if (!normalised) {
+            out.push({
+                path: at,
+                status: 'unsupported',
+                originalTool: step?.tool || step?.type || 'unknown',
+                resolvedTool: null,
+                reason: `unknown step type: ${step?.type || step?.tool || 'unknown'}`,
+            });
+            continue;
+        }
+        if (normalised._controlFlow) {
+            if (Array.isArray(normalised.body)) _collectCompatibilityFindings(normalised.body, out, `${at}.body`);
+            continue;
+        }
+        if (normalised.tool === '_marker') continue;
+        out.push({ path: at, ..._resolveToolCompatibility(normalised.tool) });
+    }
+}
+
+function analyzeSkillCompatibility(skill) {
+    if (!skill || !Array.isArray(skill.steps)) {
+        throw new Error('analyzeSkillCompatibility: invalid skill (expected .steps array)');
+    }
+    const findings = [];
+    _collectCompatibilityFindings(skill.steps, findings);
+    const compatibleCount = findings.filter(f => f.status === 'compatible').length;
+    const degradedCount = findings.filter(f => f.status === 'degraded').length;
+    const unsupportedCount = findings.filter(f => f.status === 'unsupported').length;
+    return {
+        compatibleCount,
+        degradedCount,
+        unsupportedCount,
+        hasUnsupported: unsupportedCount > 0,
+        findings,
+    };
+}
+
+function _deriveVisualQuery(step, resolvedArgs) {
+    if (!step || !step.tool) return null;
+    if (step.tool === 'uia_invoke') {
+        const parts = [resolvedArgs?.name, resolvedArgs?.automationId, resolvedArgs?.controlType]
+            .map(v => String(v || '').trim())
+            .filter(Boolean);
+        return parts.length ? parts.join(' ') : null;
+    }
+    if (step.tool === 'click_at') {
+        return 'the same target that was expected at this click location';
+    }
+    return null;
+}
+
+async function _attemptVisualRetarget({ step, resolvedArgs, error, ctx }) {
+    const description = _deriveVisualQuery(step, resolvedArgs);
+    if (!description) {
+        return { attempted: false };
+    }
+    events.publish('skill.repair.attempt', {
+        strategy: 'visual-retarget',
+        tool: step.tool,
+        error: String(error || '').slice(0, 200),
+    });
+    try {
+        const out = await registry.executeTool('find_and_click_visual', { description }, ctx);
+        const ok = !out?.error;
+        if (ok) {
+            events.publish('skill.repair.success', { strategy: 'visual-retarget', tool: step.tool });
+            return {
+                attempted: true,
+                ok: true,
+                attempt: {
+                    ok: true,
+                    result: out,
+                    error: undefined,
+                    tool: 'find_and_click_visual',
+                    compatibility: {
+                        status: 'degraded',
+                        originalTool: step.tool,
+                        resolvedTool: 'find_and_click_visual',
+                        reason: 'visual retarget fallback',
+                    },
+                },
+                repairRecord: {
+                    strategy: 'visual-retarget',
+                    action: 'retry',
+                    tool: 'find_and_click_visual',
+                    query: description,
+                    ok: true,
+                    provenance: {
+                        originalTool: step.tool,
+                        originalArgs: resolvedArgs,
+                        originalError: String(error || ''),
+                    },
+                },
+            };
+        }
+        events.publish('skill.repair.failed', {
+            strategy: 'visual-retarget',
+            tool: step.tool,
+            error: String(out?.error || 'visual retarget failed'),
+        });
+        return {
+            attempted: true,
+            ok: false,
+            error: out?.error || 'visual retarget failed',
+            repairRecord: {
+                strategy: 'visual-retarget',
+                action: 'none',
+                reason: out?.error || 'visual retarget failed',
+                query: description,
+                provenance: {
+                    originalTool: step.tool,
+                    originalArgs: resolvedArgs,
+                    originalError: String(error || ''),
+                },
+            },
+        };
+    } catch (e) {
+        events.publish('skill.repair.failed', {
+            strategy: 'visual-retarget',
+            tool: step.tool,
+            error: String(e.message || e),
+        });
+        return {
+            attempted: true,
+            ok: false,
+            error: e.message,
+            repairRecord: {
+                strategy: 'visual-retarget',
+                action: 'none',
+                reason: e.message,
+                query: description,
+                provenance: {
+                    originalTool: step.tool,
+                    originalArgs: resolvedArgs,
+                    originalError: String(error || ''),
+                },
+            },
+        };
+    }
+}
+
+async function _evaluateSuccessCriteria(skill, summary, ctx) {
+    const criteria = skill?.successCriteria;
+    if (!criteria) {
+        return { status: 'indeterminate', success: null, reasonCode: 'NO_CRITERIA', detail: 'skill has no successCriteria' };
+    }
+    if (summary.failed) {
+        return { status: 'failed', success: false, reasonCode: 'STEP_FAILED', detail: 'one or more steps failed' };
+    }
+    if (typeof criteria === 'string') {
+        return {
+            status: 'indeterminate',
+            success: null,
+            reasonCode: 'STRING_CRITERIA_UNCHECKABLE',
+            detail: criteria.slice(0, 500),
+        };
+    }
+    if (typeof criteria !== 'object') {
+        return { status: 'indeterminate', success: null, reasonCode: 'INVALID_CRITERIA', detail: 'criteria must be an object' };
+    }
+    if (criteria.type === 'step_ok') {
+        const index = Number(criteria.index);
+        if (!Number.isInteger(index) || index < 0) {
+            return { status: 'indeterminate', success: null, reasonCode: 'INVALID_STEP_INDEX', detail: 'step_ok requires non-negative integer index' };
+        }
+        const step = summary.steps[index];
+        if (!step) return { status: 'failed', success: false, reasonCode: 'STEP_MISSING', detail: `step ${index} not found` };
+        if (step.ok) return { status: 'passed', success: true, reasonCode: 'STEP_OK', detail: `step ${index} succeeded` };
+        return { status: 'failed', success: false, reasonCode: 'STEP_NOT_OK', detail: `step ${index} failed` };
+    }
+    if (criteria.type === 'tool_succeeded') {
+        const tool = String(criteria.tool || '').trim();
+        if (!tool) {
+            return { status: 'indeterminate', success: null, reasonCode: 'INVALID_TOOL', detail: 'tool_succeeded requires tool name' };
+        }
+        const ok = summary.steps.some(s => s && s.ok && s.tool === tool);
+        return ok
+            ? { status: 'passed', success: true, reasonCode: 'TOOL_SEEN_OK', detail: `tool ${tool} succeeded` }
+            : { status: 'failed', success: false, reasonCode: 'TOOL_NOT_SEEN_OK', detail: `tool ${tool} did not succeed` };
+    }
+    if (criteria.type === 'clipboard_contains') {
+        const text = String(criteria.text || '');
+        if (!text) {
+            return { status: 'indeterminate', success: null, reasonCode: 'INVALID_CLIPBOARD_TEXT', detail: 'clipboard_contains requires text' };
+        }
+        try {
+            const clip = await registry.executeTool('clipboard_read', {}, ctx);
+            const clipText = String(clip?.result?.text || clip?.result || '');
+            const ok = clipText.toLowerCase().includes(text.toLowerCase());
+            return ok
+                ? { status: 'passed', success: true, reasonCode: 'CLIPBOARD_MATCH', detail: 'clipboard contains expected text' }
+                : { status: 'failed', success: false, reasonCode: 'CLIPBOARD_MISMATCH', detail: 'clipboard does not contain expected text' };
+        } catch (e) {
+            return { status: 'indeterminate', success: null, reasonCode: 'CLIPBOARD_CHECK_ERROR', detail: e.message };
+        }
+    }
+    if (criteria.type === 'window_focused') {
+        const titleIncludes = String(criteria.titleIncludes || '').trim();
+        if (!titleIncludes) {
+            return { status: 'indeterminate', success: null, reasonCode: 'INVALID_WINDOW_MATCH', detail: 'window_focused requires titleIncludes' };
+        }
+        try {
+            const list = await registry.executeTool('window_list', { onlyVisible: true, max: 50 }, ctx);
+            const windows = Array.isArray(list?.result?.windows) ? list.result.windows : [];
+            const active = windows.find(w => w && w.isForeground);
+            const activeTitle = String(active?.title || '');
+            const ok = activeTitle.toLowerCase().includes(titleIncludes.toLowerCase());
+            return ok
+                ? { status: 'passed', success: true, reasonCode: 'WINDOW_MATCH', detail: `foreground window matched "${titleIncludes}"` }
+                : { status: 'failed', success: false, reasonCode: 'WINDOW_MISMATCH', detail: `foreground window did not match "${titleIncludes}"` };
+        } catch (e) {
+            return { status: 'indeterminate', success: null, reasonCode: 'WINDOW_CHECK_ERROR', detail: e.message };
+        }
+    }
+    return {
+        status: 'indeterminate',
+        success: null,
+        reasonCode: 'UNSUPPORTED_CRITERIA_TYPE',
+        detail: `unsupported successCriteria type: ${String(criteria.type || '')}`,
+    };
 }
 
 /**
@@ -288,6 +577,14 @@ function _normaliseStep(step) {
  */
 async function _execControlFlow(cf, { params, stepDelay, continueOnError, repairEnabled, maxRepairs, ctx, skill }) {
     if (cf.type === 'screenshot_check') {
+        if (!permissions.hasCloudVisionConsent()) {
+            return {
+                tool: 'screenshot_check',
+                ok: false,
+                error: 'Cloud vision consent required before screenshot_check can send frames to the model.',
+                consentRequired: 'cloudVision.granted',
+            };
+        }
         try {
             const screenOut = await registry.executeTool('screen_capture', { returnInline: true }, ctx);
             if (!screenOut?.ok) return { tool: 'screenshot_check', ok: true, skipped: 'screen capture failed', condition: cf.condition };
@@ -323,9 +620,15 @@ async function _execControlFlow(cf, { params, stepDelay, continueOnError, repair
                 if (n._controlFlow) continue; // no nested loops
                 let ra = {};
                 try { ra = substituteArgs(n.args || {}, params); } catch {}
-                const out = await registry.executeTool(n.tool, ra, ctx).catch(e => ({ ok: false, error: e.message }));
-                allResults.push({ iteration: i, tool: n.tool, ok: !!out?.ok, error: out?.error });
-                if (!out?.ok && !continueOnError) { failed = true; break; }
+                const out = await _execToolStep(n.tool, ra, ctx);
+                allResults.push({
+                    iteration: i,
+                    tool: out.tool || n.tool,
+                    ok: out.ok,
+                    error: out.error,
+                    compatibility: out.compatibility,
+                });
+                if (!out.ok && !continueOnError) { failed = true; break; }
                 if (stepDelay > 0) await new Promise(r => setTimeout(r, stepDelay));
             }
             if (failed) break;
@@ -361,16 +664,48 @@ async function _execControlFlow(cf, { params, stepDelay, continueOnError, repair
                 if (!n || n._controlFlow) continue;
                 let ra = {};
                 try { ra = substituteArgs(n.args || {}, params); } catch {}
-                const out = await registry.executeTool(n.tool, ra, ctx).catch(e => ({ ok: false, error: e.message }));
-                allResults.push({ iteration, tool: n.tool, ok: !!out?.ok });
+                const out = await _execToolStep(n.tool, ra, ctx);
+                allResults.push({
+                    iteration,
+                    tool: out.tool || n.tool,
+                    ok: out.ok,
+                    compatibility: out.compatibility,
+                });
                 if (stepDelay > 0) await new Promise(r => setTimeout(r, stepDelay));
             }
             iteration++;
         }
+
         return { tool: 'loop_until_key', key: keyName, ok: true, iterations: iteration, steps: allResults };
     }
 
     return { tool: cf.type, ok: false, error: 'unhandled control-flow type' };
+}
+
+async function _execToolStep(tool, stepArgs, ctx) {
+    const compatibility = _resolveToolCompatibility(tool);
+    if (compatibility.status === 'unsupported') {
+        return { ok: false, result: undefined, error: compatibility.reason, compatibility, tool };
+    }
+    try {
+        const out = await registry.executeTool(compatibility.resolvedTool, stepArgs, ctx);
+        const ok = !out?.error;
+        return {
+            ok,
+            result: out,
+            error: ok ? undefined : (out.error || 'tool returned error'),
+            compatibility,
+            tool: compatibility.resolvedTool,
+        };
+    } catch (e) {
+        return {
+            ok: false,
+            result: undefined,
+            error: e.message,
+            compatibility,
+            tool: compatibility.resolvedTool,
+        };
+    }
 }
 
 const skillRun = {
@@ -392,6 +727,14 @@ const skillRun = {
             stepDelayMs: { type: 'integer', description: 'Delay between steps in ms. Default 150.' },
             repair: { type: 'boolean', description: 'If true (default), when a step fails ask the model to amend the args against a fresh UI snapshot and retry once.' },
             maxRepairs: { type: 'integer', description: 'Max LLM repair attempts per step. Default 1.' },
+            repairBackoffMs: {
+                type: 'integer',
+                description: 'Backoff delay (ms) between repair attempts. Default 200.',
+            },
+            allowUnsupported: {
+                type: 'boolean',
+                description: 'If false (default), block run when any step resolves as unsupported on this addon version.',
+            },
             cache: {
                 type: 'object',
                 description: 'Optional inline skill object to register in the local cache before lookup. ' +
@@ -411,20 +754,21 @@ const skillRun = {
         const continueOnError = !!args.continueOnError;
         const repairEnabled = args.repair !== false;
         const maxRepairs = Math.max(0, args.maxRepairs ?? 1);
+        const repairBackoffMs = Math.max(0, args.repairBackoffMs ?? 200);
+        const allowUnsupported = !!args.allowUnsupported;
         const results = [];
         let failed = false;
         let repairsTotal = 0;
+        const compatibility = analyzeSkillCompatibility(skill);
 
-        // Execute one step's tool and normalize the registry envelope.
-        const execStep = async (tool, stepArgs) => {
-            try {
-                const out = await registry.executeTool(tool, stepArgs, ctx);
-                const ok = !out?.error;
-                return { ok, result: out, error: ok ? undefined : (out.error || 'tool returned error') };
-            } catch (e) {
-                return { ok: false, result: undefined, error: e.message };
-            }
-        };
+        if (compatibility.hasUnsupported && !allowUnsupported) {
+            const blocked = compatibility.findings.filter(f => f.status === 'unsupported');
+            const short = blocked.slice(0, 3).map(f => `${f.path}: ${f.reason}`).join('; ');
+            throw new Error(
+                `skill has ${blocked.length} unsupported step(s); ` +
+                `set allowUnsupported=true to run partial execution. ${short}`
+            );
+        }
 
         for (let i = 0; i < skill.steps.length; i++) {
             const step = skill.steps[i];
@@ -465,7 +809,7 @@ const skillRun = {
                 continue;
             }
 
-            let attempt = await execStep(normalised.tool, resolvedArgs);
+            let attempt = await _execToolStep(normalised.tool, resolvedArgs, ctx);
             const repairs = [];
 
             // LLM repair fallback: on failure, ask the model to amend args and retry.
@@ -473,29 +817,104 @@ const skillRun = {
             let repairCount = 0;
             while (!attempt.ok && repairEnabled && repairCount < maxRepairs) {
                 repairCount++;
+                events.publish('skill.repair.attempt', {
+                    strategy: 'llm-amend',
+                    tool: normalised.tool,
+                    attempt: repairCount,
+                    error: String(attempt.error || '').slice(0, 200),
+                });
+                const visual = await _attemptVisualRetarget({
+                    step: normalised,
+                    resolvedArgs: usedArgs,
+                    error: attempt.error,
+                    ctx,
+                });
+                if (visual.attempted) {
+                    repairs.push({
+                        attempt: repairCount,
+                        strategy: visual.repairRecord.strategy,
+                        action: visual.repairRecord.action,
+                        tool: visual.repairRecord.tool,
+                        query: visual.repairRecord.query,
+                        ok: !!visual.ok,
+                        reason: visual.error,
+                        provenance: visual.repairRecord.provenance,
+                    });
+                    if (visual.ok && visual.attempt) {
+                        repairsTotal++;
+                        attempt = visual.attempt;
+                        break;
+                    }
+                }
+                if (repairBackoffMs > 0) {
+                    await _sleep(repairBackoffMs * repairCount);
+                }
                 let decision = null;
                 try {
                     decision = await repairStep({ skill, step: normalised, resolvedArgs: usedArgs, error: attempt.error, ctx });
                 } catch { decision = null; }
 
                 if (!decision || decision.action !== 'retry') {
-                    repairs.push({ attempt: repairCount, action: decision?.action || 'none', reason: decision?.reason });
+                    events.publish('skill.repair.failed', {
+                        strategy: 'llm-amend',
+                        tool: normalised.tool,
+                        attempt: repairCount,
+                        reason: String(decision?.reason || 'model declined or produced no repair'),
+                    });
+                    repairs.push({
+                        attempt: repairCount,
+                        strategy: 'llm-amend',
+                        action: decision?.action || 'none',
+                        reason: decision?.reason,
+                        provenance: {
+                            originalTool: normalised.tool,
+                            originalArgs: usedArgs,
+                            originalError: String(attempt.error || ''),
+                        },
+                    });
                     break;
                 }
                 repairsTotal++;
                 usedArgs = decision.args;
-                const retried = await execStep(normalised.tool, usedArgs);
-                repairs.push({ attempt: repairCount, action: 'retry', args: usedArgs, ok: retried.ok, error: retried.error });
+                const retried = await _execToolStep(normalised.tool, usedArgs, ctx);
+                if (retried.ok) {
+                    events.publish('skill.repair.success', {
+                        strategy: 'llm-amend',
+                        tool: normalised.tool,
+                        attempt: repairCount,
+                    });
+                } else {
+                    events.publish('skill.repair.failed', {
+                        strategy: 'llm-amend',
+                        tool: normalised.tool,
+                        attempt: repairCount,
+                        reason: String(retried.error || 'retry failed'),
+                    });
+                }
+                repairs.push({
+                    attempt: repairCount,
+                    strategy: 'llm-amend',
+                    action: 'retry',
+                    args: usedArgs,
+                    ok: retried.ok,
+                    error: retried.error,
+                    provenance: {
+                        originalTool: normalised.tool,
+                        originalArgs: resolvedArgs,
+                        originalError: String(attempt.error || ''),
+                    },
+                });
                 attempt = retried;
             }
 
             results.push({
                 index: i,
-                tool: normalised.tool,
+                tool: attempt.tool || normalised.tool,
                 args: usedArgs,
                 ok: attempt.ok,
                 result: attempt.result,
                 error: attempt.ok ? undefined : attempt.error,
+                compatibility: attempt.compatibility,
                 ...(repairs.length ? { repairs } : {}),
             });
 
@@ -516,14 +935,32 @@ const skillRun = {
             stepsRun: results.length,
             repairsTotal,
             failed,
+            compatibility,
             steps: results,
         };
-        try { ctx?.addAction?.({ tool: 'skill_run', args, result: { slug: skill.slug, stepsRun: results.length, repairsTotal, failed } }); } catch {}
+        const outcome = await _evaluateSuccessCriteria(skill, summary, ctx);
+        summary.outcome = outcome;
+        if (outcome.status === 'failed') {
+            summary.failed = true;
+        }
+        try {
+            ctx?.addAction?.({
+                tool: 'skill_run',
+                args,
+                result: {
+                    slug: skill.slug,
+                    stepsRun: results.length,
+                    repairsTotal,
+                    failed: summary.failed,
+                    outcome,
+                },
+            });
+        } catch {}
         return summary;
     },
 };
 
 module.exports = { skillRun, cacheSkill, getCachedSkill, loadSkill, substituteArgs,
-    repairStep, _extractJsonObject, _resolveLlm, _normaliseStep,
+    repairStep, _extractJsonObject, _resolveLlm, _normaliseStep, analyzeSkillCompatibility,
     getAllCachedSkills: () => Array.from(_localCache.values()),
 };

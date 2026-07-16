@@ -10,9 +10,17 @@ const assert = require('assert');
 // ── Inject fakes before requiring skill.js ──────────────────────────────────
 const registryPath = require.resolve('../tool-registry');
 const wsPath = require.resolve('../workspace-client');
+const permissionsPath = require.resolve('../permissions');
 
 const fakeRegistry = {
     _handler: null,
+    _registered: new Set(),
+    get(name) {
+        if (this._registered.size === 0 || this._registered.has(name)) {
+            return { name, category: 'system' };
+        }
+        return undefined;
+    },
     async executeTool(name, args, ctx) {
         if (!fakeRegistry._handler) throw new Error('no handler set');
         return fakeRegistry._handler(name, args, ctx);
@@ -28,9 +36,17 @@ require.cache[wsPath] = {
         async appendAction() { /* no-op */ },
     },
 };
+const fakePermissions = {
+    _cloudVisionConsent: true,
+    hasCloudVisionConsent() { return this._cloudVisionConsent; },
+    _setCloudVisionConsent(next) { this._cloudVisionConsent = !!next; },
+};
+require.cache[permissionsPath] = {
+    id: permissionsPath, filename: permissionsPath, loaded: true, exports: fakePermissions,
+};
 
 const skill = require('./skill');
-const { skillRun, repairStep, _extractJsonObject } = skill;
+const { skillRun, repairStep, _extractJsonObject, analyzeSkillCompatibility } = skill;
 
 let pass = 0, fail = 0;
 // Queue of async test thunks. They MUST run sequentially because they share a
@@ -230,6 +246,124 @@ asyncTest('run: continueOnError runs all steps despite failure', async () => {
     assert.strictEqual(out.stepsRun, 2, 'both steps run with continueOnError');
     assert.strictEqual(out.steps[0].ok, false);
     assert.strictEqual(out.steps[1].ok, true);
+});
+
+// ── compatibility analysis + downgrade behavior ──────────────────────────────
+test('analyzeSkillCompatibility: reports degraded + unsupported findings', () => {
+    fakeRegistry._registered = new Set(['find_and_click_visual']);
+    const report = analyzeSkillCompatibility(makeSkill('compat', [
+        { tool: 'click_visual', args: { target: 'OK' } },
+        { tool: 'missing_tool', args: {} },
+    ]));
+    assert.strictEqual(report.degradedCount, 1);
+    assert.strictEqual(report.unsupportedCount, 1);
+    assert.ok(report.findings.some(f => f.originalTool === 'click_visual' && f.resolvedTool === 'find_and_click_visual'));
+    assert.ok(report.findings.some(f => f.originalTool === 'missing_tool' && f.status === 'unsupported'));
+    fakeRegistry._registered = new Set();
+});
+
+asyncTest('run: alias tool degrades deterministically and executes mapped tool', async () => {
+    fakeRegistry._registered = new Set(['find_and_click_visual']);
+    let called = null;
+    fakeRegistry._handler = (name) => { called = name; return { ok: true, result: 'clicked' }; };
+    const s = makeSkill('degrade', [{ tool: 'click_visual', args: { target: 'Submit' } }]);
+    const out = await skillRun.run({ slug: 'degrade', cache: s, stepDelayMs: 0 }, {});
+    assert.strictEqual(out.failed, false);
+    assert.strictEqual(called, 'find_and_click_visual');
+    assert.strictEqual(out.steps[0].compatibility.status, 'degraded');
+    fakeRegistry._registered = new Set();
+});
+
+asyncTest('run: unsupported steps are blocked by default and allowed with allowUnsupported', async () => {
+    fakeRegistry._registered = new Set(['a']);
+    fakeRegistry._handler = () => ({ ok: true, result: 'ok' });
+    const s = makeSkill('unsupported', [{ tool: 'missing_tool', args: {} }]);
+    await assert.rejects(
+        () => skillRun.run({ slug: 'unsupported', cache: s, stepDelayMs: 0 }, {}),
+        /unsupported step\(s\)/i,
+    );
+    const out = await skillRun.run(
+        { slug: 'unsupported', cache: s, stepDelayMs: 0, allowUnsupported: true, continueOnError: true },
+        {},
+    );
+    assert.strictEqual(out.failed, true);
+    assert.strictEqual(out.steps[0].ok, false);
+    assert.match(out.steps[0].error, /not available/i);
+    fakeRegistry._registered = new Set();
+});
+
+asyncTest('run: uia_invoke failure recovers via visual retarget before LLM amend', async () => {
+    const llm = stubLlm('{"action":"abort","reason":"should not be needed"}');
+    let visualCalls = 0;
+    fakeRegistry._registered = new Set(['uia_invoke', 'find_and_click_visual']);
+    fakeRegistry._handler = (name) => {
+        if (name === 'uia_invoke') return { ok: false, error: 'element moved' };
+        if (name === 'find_and_click_visual') { visualCalls++; return { ok: true, result: { clickedAt: [10, 10] } }; }
+        if (name === 'uia_snapshot') return { ok: true, result: {} };
+        return { ok: true, result: {} };
+    };
+    const s = makeSkill('retarget', [{ tool: 'uia_invoke', args: { name: 'Submit' } }]);
+    const out = await skillRun.run({ slug: 'retarget', cache: s, stepDelayMs: 0 }, { llm });
+    assert.strictEqual(out.failed, false);
+    assert.strictEqual(visualCalls, 1);
+    assert.strictEqual(llm.calls.length, 0, 'visual retarget should avoid LLM amend when it works');
+    assert.strictEqual(out.steps[0].tool, 'find_and_click_visual');
+    assert.strictEqual(out.steps[0].repairs[0].strategy, 'visual-retarget');
+    fakeRegistry._registered = new Set();
+});
+
+asyncTest('run: successCriteria tool_succeeded marks failed when criterion is unmet', async () => {
+    fakeRegistry._handler = () => ({ ok: true, result: 'ok' });
+    const s = makeSkill('criteria-fail', [{ tool: 'a', args: {} }]);
+    s.successCriteria = { type: 'tool_succeeded', tool: 'b' };
+    const out = await skillRun.run({ slug: 'criteria-fail', cache: s, stepDelayMs: 0 }, {});
+    assert.strictEqual(out.failed, true);
+    assert.strictEqual(out.outcome.status, 'failed');
+    assert.strictEqual(out.outcome.reasonCode, 'TOOL_NOT_SEEN_OK');
+});
+
+asyncTest('run: successCriteria clipboard_contains passes when clipboard has expected text', async () => {
+    fakeRegistry._handler = (name) => {
+        if (name === 'clipboard_read') return { ok: true, result: { text: 'done: order #42' } };
+        return { ok: true, result: 'ok' };
+    };
+    const s = makeSkill('criteria-pass', [{ tool: 'a', args: {} }]);
+    s.successCriteria = { type: 'clipboard_contains', text: 'order #42' };
+    const out = await skillRun.run({ slug: 'criteria-pass', cache: s, stepDelayMs: 0 }, {});
+    assert.strictEqual(out.failed, false);
+    assert.strictEqual(out.outcome.status, 'passed');
+    assert.strictEqual(out.outcome.reasonCode, 'CLIPBOARD_MATCH');
+});
+
+asyncTest('run: screenshot_check fails fast when cloud vision consent is absent', async () => {
+    fakePermissions._setCloudVisionConsent(false);
+    fakeRegistry._handler = () => ({ ok: true, result: {} });
+    const s = makeSkill('no-consent', [{ type: 'screenshot_check', condition: 'Is app open?' }]);
+    const out = await skillRun.run({ slug: 'no-consent', cache: s, stepDelayMs: 0 }, {});
+    assert.strictEqual(out.failed, true);
+    assert.strictEqual(out.steps[0].tool, 'screenshot_check');
+    assert.strictEqual(out.steps[0].ok, false);
+    assert.match(out.steps[0].error, /Cloud vision consent required/i);
+    fakePermissions._setCloudVisionConsent(true);
+});
+
+asyncTest('run: screenshot_check proceeds when cloud vision consent exists', async () => {
+    fakePermissions._setCloudVisionConsent(true);
+    fakeRegistry._handler = (name) => {
+        if (name === 'screen_capture') return { ok: true, result: { base64: 'AAAA' } };
+        return { ok: true, result: {} };
+    };
+    const llm = {
+        async chat() {
+            return { choices: [{ message: { content: 'YES' } }] };
+        },
+    };
+    const s = makeSkill('with-consent', [{ type: 'screenshot_check', condition: 'Is app open?' }]);
+    const out = await skillRun.run({ slug: 'with-consent', cache: s, stepDelayMs: 0 }, { llm });
+    assert.strictEqual(out.failed, false);
+    assert.strictEqual(out.steps[0].tool, 'screenshot_check');
+    assert.strictEqual(out.steps[0].ok, true);
+    assert.strictEqual(out.steps[0].passed, true);
 });
 
 // ── Summary ─────────────────────────────────────────────────────────────────

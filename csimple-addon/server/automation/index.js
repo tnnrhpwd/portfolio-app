@@ -50,7 +50,7 @@ const { generalizeSkill } = require('./recorder/generalize');
 const { inferParams } = require('./recorder/infer-params');
 const { scrubForPublish } = require('./recorder/scrub');
 const { summarizeCapabilities } = require('./capability-summary');
-const { skillRun, cacheSkill, getCachedSkill } = require('./tools/skill');
+const { skillRun, cacheSkill, getCachedSkill, analyzeSkillCompatibility } = require('./tools/skill');
 
 const events = require('./events');
 const triggers = require('./triggers');
@@ -249,6 +249,39 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
         if (_agentLoop?.running) _agentLoop.stop('kill switch');
         res.json(cfg);
     });
+    app.get('/api/automation/consents', (req, res) => {
+        const cfg = permissions.load();
+        res.json({
+            dataCapture: cfg.dataCapture || permissions.DEFAULTS.dataCapture,
+            cloudVision: cfg.cloudVision || permissions.DEFAULTS.cloudVision,
+        });
+    });
+    app.put('/api/automation/consents', (req, res) => {
+        const {
+            keyboardCapture,
+            cloudVision,
+            cloudVisionPolicyVersion,
+        } = req.body || {};
+        const { config, changes } = permissions.updateConsents({
+            keyboardCapture,
+            cloudVision,
+            cloudVisionPolicyVersion,
+        });
+        if (!changes.length) {
+            return res.status(400).json({ error: 'No consent fields provided. Use keyboardCapture and/or cloudVision.' });
+        }
+        events.publish('permissions.changed', {
+            changedKeys: changes.map(c => c.key),
+            source: 'automation.consents',
+            changes,
+        });
+        res.json({
+            ok: true,
+            dataCapture: config.dataCapture || permissions.DEFAULTS.dataCapture,
+            cloudVision: config.cloudVision || permissions.DEFAULTS.cloudVision,
+            changes,
+        });
+    });
 
     // ─── Pending approvals (long-poll for the permission center UI) ─────────
     app.get('/api/automation/pending-approvals', (req, res) => {
@@ -397,9 +430,27 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
     // local-only (same loopback binding as the rest of the addon). They do
     // not go through the LLM tool registry — recording must always be the
     // user's deliberate choice, never the agent's.
+    app.get('/api/recorder/consent-status', (req, res) => {
+        const cfg = permissions.load();
+        res.json({
+            dataCapture: cfg.dataCapture || permissions.DEFAULTS.dataCapture,
+            cloudVision: cfg.cloudVision || permissions.DEFAULTS.cloudVision,
+        });
+    });
     app.post('/api/recorder/start', async (req, res) => {
         try {
             const name = (req.body && req.body.name) || `recording`;
+            const confirmSensitiveCapture = !!(req.body && req.body.confirmSensitiveCapture);
+            if (!permissions.hasKeyboardCaptureConsent()) {
+                if (!confirmSensitiveCapture) {
+                    return res.status(403).json({
+                        error: 'Keyboard capture consent required. Re-submit with confirmSensitiveCapture=true to grant.',
+                        consentRequired: 'dataCapture.keyboard',
+                    });
+                }
+                permissions.grantKeyboardCaptureConsent();
+                events.publish('permissions.changed', { changedKeys: ['dataCapture.keyboard'], source: 'recorder.start' });
+            }
             const info = await recorder.start({ name });
             events.publish('recorder.started', { sessionId: info.sessionId, name });
             res.json({ ok: true, ...info });
@@ -482,13 +533,26 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
     // and independent of cloud auth state.
     app.post('/api/skill/run', async (req, res) => {
         try {
-            const { slug, params, skill } = req.body || {};
+            const { slug, params, skill, marketplaceInstalled, confirmCapabilities } = req.body || {};
             if (!slug) return res.status(400).json({ error: 'slug is required' });
+            if (marketplaceInstalled && !confirmCapabilities) {
+                const preview = (skill && Array.isArray(skill.steps)) ? summarizeCapabilities(skill) : null;
+                return res.status(403).json({
+                    error: 'Capability confirmation required before first run of a marketplace-installed skill.',
+                    capabilityConfirmationRequired: true,
+                    preview,
+                });
+            }
             const ctx = ctxFactory({ goalSlug: null, userInitiated: true });
             const args = { slug, params: params || {} };
             if (skill && skill.slug === slug) args.cache = skill;
             const out = await registry.executeTool('skill_run', args, ctx);
-            events.publish('skill.run', { slug });
+            events.publish('skill.run', {
+                slug,
+                stepsRun: out?.result?.stepsRun,
+                failed: !!out?.result?.failed,
+                outcome: out?.result?.outcome || null,
+            });
             res.json(out);
         } catch (e) {
             res.status(400).json({ error: e.message });
@@ -580,6 +644,19 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
             const { skill } = req.body || {};
             if (!skill || !Array.isArray(skill.steps)) return res.status(400).json({ error: 'skill.steps is required' });
             res.json(summarizeCapabilities(skill));
+        } catch (e) {
+            res.status(400).json({ error: e.message });
+        }
+    });
+
+    // Pre-run tool-version compatibility analysis (§5.4). Resolves each step's
+    // tool against the local registry, applying deterministic downgrade rules
+    // where possible, and reports compatible/degraded/unsupported counts.
+    app.post('/api/skill/compatibility', async (req, res) => {
+        try {
+            const { skill } = req.body || {};
+            if (!skill || !Array.isArray(skill.steps)) return res.status(400).json({ error: 'skill.steps is required' });
+            res.json(analyzeSkillCompatibility(skill));
         } catch (e) {
             res.status(400).json({ error: e.message });
         }

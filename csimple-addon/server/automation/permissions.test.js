@@ -109,6 +109,65 @@ test('autoApproveAll persists via save + reload', () => {
     assert.strictEqual(permissions.load().autoApproveAll, true);
 });
 
+test('keyboard capture consent defaults to false', () => {
+    reset();
+    assert.strictEqual(permissions.hasKeyboardCaptureConsent(), false);
+});
+
+test('grant/revoke keyboard capture consent updates state', () => {
+    reset();
+    permissions.grantKeyboardCaptureConsent();
+    assert.strictEqual(permissions.hasKeyboardCaptureConsent(), true);
+    permissions.revokeKeyboardCaptureConsent();
+    assert.strictEqual(permissions.hasKeyboardCaptureConsent(), false);
+});
+
+test('cloud vision consent defaults to false', () => {
+    reset();
+    assert.strictEqual(permissions.hasCloudVisionConsent(), false);
+});
+
+test('grant/revoke cloud vision consent updates state', () => {
+    reset();
+    permissions.grantCloudVisionConsent('test-policy');
+    assert.strictEqual(permissions.hasCloudVisionConsent(), true);
+    const afterGrant = permissions.load();
+    assert.strictEqual(afterGrant.cloudVision.policyVersion, 'test-policy');
+    permissions.revokeCloudVisionConsent();
+    assert.strictEqual(permissions.hasCloudVisionConsent(), false);
+    const afterRevoke = permissions.load();
+    assert.strictEqual(afterRevoke.cloudVision.policyVersion, 'test-policy');
+});
+
+test('updateConsents returns detailed grant/revoke change metadata', () => {
+    reset();
+    const granted = permissions.updateConsents({
+        keyboardCapture: true,
+        cloudVision: true,
+        cloudVisionPolicyVersion: 'policy-v2',
+    });
+    assert.strictEqual(granted.changes.length, 2);
+    assert.strictEqual(granted.changes[0].action, 'granted');
+    assert.strictEqual(granted.changes[1].action, 'granted');
+    assert.strictEqual(granted.changes[1].policyVersion, 'policy-v2');
+    assert.strictEqual(granted.config.dataCapture.keyboard, true);
+    assert.strictEqual(granted.config.cloudVision.granted, true);
+
+    const revoked = permissions.updateConsents({ keyboardCapture: false, cloudVision: false });
+    assert.strictEqual(revoked.changes.length, 2);
+    assert.strictEqual(revoked.changes[0].action, 'revoked');
+    assert.strictEqual(revoked.changes[1].action, 'revoked');
+    assert.strictEqual(revoked.config.dataCapture.keyboard, false);
+    assert.strictEqual(revoked.config.cloudVision.granted, false);
+    assert.strictEqual(revoked.config.cloudVision.policyVersion, 'policy-v2');
+});
+
+test('updateConsents returns no changes when requested values already match', () => {
+    reset();
+    const out = permissions.updateConsents({});
+    assert.strictEqual(out.changes.length, 0);
+});
+
 // ── Summary + cleanup ───────────────────────────────────────────────────────
 (async () => {
     for (const t of queue) await t();
