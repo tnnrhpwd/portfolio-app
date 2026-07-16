@@ -1,7 +1,10 @@
 {
   "id": "12-nl-compile",
   "name": "NL compiler — compile English macro via /api/skill/compile-natural",
-  "description": "Verifies the NL compiler returns a valid steps array for a simple English instruction.",
+  "description": "Verifies the NL compiler returns a valid steps array for a simple English instruction. Requires a real GitHub Models token (via csimple-addon settings or CLOUD_RELAY token) and network access, so it is gated behind EVAL_ALLOW_LLM=1 and skipped by default in CI/local `npm run eval` runs.",
+  "require": {
+    "env": { "EVAL_ALLOW_LLM": "1" }
+  },
   "http": {
     "method": "POST",
     "path": "/api/skill/compile-natural",
@@ -13,5 +16,5 @@
     "ok": true,
     "steps": { "minLength": 1 }
   },
-  "tags": ["nl-compiler", "smoke"]
+  "tags": ["nl-compiler", "smoke", "http", "llm"]
 }

@@ -28,6 +28,34 @@
  * `resultPath` is dotted ("stdout", "elements.0.name"). `resultContains`
  * checks substring; `resultEquals` checks deep equality; `resultMatches`
  * uses a regex string.
+ *
+ * ── HTTP scenario mode (docs/new/csimple-agent-prompt.md §5.5) ─────────────
+ *
+ * A scenario may instead supply an `http` block (mutually exclusive with
+ * `steps`) to exercise an actual addon route end-to-end via a real, ephemeral
+ * localhost Express server booted from the same `mountAutomation()` the addon
+ * uses in production (see `./http-app.js`):
+ *
+ *   id: "skill-capabilities-http"
+ *   name: "Capability summary — POST /api/skill/capabilities"
+ *   require: { env: { EVAL_ALLOW_LLM: "1" } }   # optional, e.g. to gate LLM-backed routes
+ *   http:
+ *     method: POST
+ *     path: /api/skill/capabilities
+ *     body: { skill: { name: "demo", steps: [ ... ] } }
+ *   expect:
+ *     status: 200            # optional HTTP status check (default: no check)
+ *     ok: true                # optional — checks response body.ok
+ *     summary: { minLength: 1 }   # field assertion — see evaluateFieldAssertion
+ *
+ * Any top-level `expect` key other than `status`/`ok` is treated as a field
+ * assertion against a dotted path into the body (`getByPath(body, key)` —
+ * e.g. `"stats.enabled"` reaches into a nested object), evaluated by
+ * `evaluateFieldAssertion()`: supports `{ equals }`, `{ contains }`,
+ * `{ matches }` (regex), `{ minLength }`/`{ maxLength }` (array/string
+ * length), `{ type: "array"|"string"|"number"|"boolean"|"object" }`,
+ * `{ exists: true|false }`, and a bare non-object value shorthand for
+ * deep-equality.
  */
 
 const fs = require('fs');
@@ -35,6 +63,7 @@ const path = require('path');
 
 const registry = require('../tool-registry');
 const permissions = require('../permissions');
+const { getEvalHttpBaseUrl, closeEvalHttpServer } = require('./http-app');
 
 function tryLoadYaml() {
     try { return require('yaml'); } catch { /* optional dep */ }
@@ -108,6 +137,124 @@ function evaluateExpectations(stepIndex, expected, outcome) {
         failures.push(`step ${stepIndex}: durationMs ${outcome.durationMs} > ${expected.durationMsLte}`);
     }
     return failures;
+}
+
+/**
+ * Evaluate a single field assertion (used by HTTP scenario `expect` blocks).
+ * `assertion` is either a bare value (shorthand for deep-equality) or an
+ * object with one or more of: `equals`, `contains`, `matches` (regex string),
+ * `minLength`, `maxLength`, `exists` (boolean presence check).
+ */
+function evaluateFieldAssertion(key, actual, assertion) {
+    const failures = [];
+    if (assertion === undefined) return failures;
+
+    if (assertion === null || typeof assertion !== 'object') {
+        if (!deepEqual(actual, assertion)) {
+            failures.push(`field "${key}": expected ${JSON.stringify(assertion)}, got ${JSON.stringify(actual)}`);
+        }
+        return failures;
+    }
+
+    if ('exists' in assertion) {
+        const isPresent = actual !== undefined && actual !== null;
+        if (isPresent !== !!assertion.exists) {
+            failures.push(`field "${key}": expected exists=${!!assertion.exists}, got ${isPresent}`);
+        }
+    }
+    if ('equals' in assertion && !deepEqual(actual, assertion.equals)) {
+        failures.push(`field "${key}": equals mismatch. expected=${JSON.stringify(assertion.equals)} got=${JSON.stringify(actual)}`);
+    }
+    if ('contains' in assertion) {
+        const s = String(actual ?? '');
+        if (!s.includes(String(assertion.contains))) {
+            failures.push(`field "${key}": contains "${assertion.contains}" missing (saw: ${s.slice(0, 120)})`);
+        }
+    }
+    if ('matches' in assertion) {
+        const s = String(actual ?? '');
+        let re;
+        try { re = new RegExp(assertion.matches); }
+        catch (e) { failures.push(`field "${key}": invalid matches regex: ${e.message}`); return failures; }
+        if (!re.test(s)) failures.push(`field "${key}": matches /${assertion.matches}/ did not match (saw: ${s.slice(0, 120)})`);
+    }
+    if ('minLength' in assertion) {
+        const len = (Array.isArray(actual) || typeof actual === 'string') ? actual.length : undefined;
+        if (len === undefined || len < assertion.minLength) {
+            failures.push(`field "${key}": expected length >= ${assertion.minLength}, got ${len === undefined ? `n/a (${typeof actual})` : len}`);
+        }
+    }
+    if ('maxLength' in assertion) {
+        const len = (Array.isArray(actual) || typeof actual === 'string') ? actual.length : undefined;
+        if (len === undefined || len > assertion.maxLength) {
+            failures.push(`field "${key}": expected length <= ${assertion.maxLength}, got ${len === undefined ? `n/a (${typeof actual})` : len}`);
+        }
+    }
+    if ('type' in assertion) {
+        const wantType = String(assertion.type);
+        const actualType = Array.isArray(actual) ? 'array' : typeof actual;
+        if (actualType !== wantType) {
+            failures.push(`field "${key}": expected type "${wantType}", got "${actualType}" (value: ${JSON.stringify(actual)})`);
+        }
+    }
+    return failures;
+}
+
+/**
+ * Evaluate an HTTP scenario's `expect` block against the response.
+ * `status`/`ok` are special-cased (HTTP status code, and `body.ok`
+ * respectively); every other key is a field assertion against `body[key]`.
+ */
+function evaluateHttpExpectations(expected, response) {
+    const failures = [];
+    if (!expected) return failures;
+    const { status, body } = response;
+
+    if ('status' in expected && status !== expected.status) {
+        failures.push(`expected HTTP status ${expected.status}, got ${status}`);
+    }
+    if ('ok' in expected) {
+        const actualOk = body && typeof body === 'object' ? !!body.ok : undefined;
+        if (actualOk !== expected.ok) {
+            failures.push(`expected body.ok=${expected.ok}, got ${actualOk} (status=${status}, error=${body?.error || ''})`);
+        }
+    }
+    for (const [key, assertion] of Object.entries(expected)) {
+        if (key === 'status' || key === 'ok') continue;
+        const actual = body && typeof body === 'object' ? getByPath(body, key) : undefined;
+        failures.push(...evaluateFieldAssertion(key, actual, assertion));
+    }
+    return failures;
+}
+
+/**
+ * Execute a scenario's `http` block against the shared eval HTTP server
+ * (see ./http-app.js) and return `{ ok, status, body, durationMs, error }`.
+ */
+async function executeHttpStep(httpSpec) {
+    const startedAt = Date.now();
+    const { method = 'GET', path: reqPath, body, headers } = httpSpec || {};
+    if (!reqPath) throw new Error('scenario.http.path is required');
+    const { baseUrl } = await getEvalHttpBaseUrl();
+    try {
+        const res = await fetch(`${baseUrl}${reqPath}`, {
+            method: String(method).toUpperCase(),
+            headers: { 'Content-Type': 'application/json', ...(headers || {}) },
+            body: body !== undefined ? JSON.stringify(expandEnv(body)) : undefined,
+        });
+        const text = await res.text();
+        let parsed = null;
+        try { parsed = text ? JSON.parse(text) : null; } catch { /* leave null; non-JSON body */ }
+        return {
+            ok: res.ok,
+            status: res.status,
+            body: parsed,
+            durationMs: Date.now() - startedAt,
+            error: res.ok ? null : (parsed?.error || text || res.statusText),
+        };
+    } catch (e) {
+        return { ok: false, status: 0, body: null, durationMs: Date.now() - startedAt, error: e.message };
+    }
 }
 
 function shouldSkip(req) {
@@ -193,25 +340,43 @@ async function runScenarioObject(scenario, opts = {}) {
     }
 
     try {
-        for (let i = 0; i < (scenario.steps || []).length; i++) {
-            const step = scenario.steps[i];
-            const ctx = {
-                log: (...a) => log('[eval]', ...a),
-                addAction: async () => {}, // suppress cloud audit during eval
-                userInitiated: true,        // bypass approval prompts
-            };
-            const outcome = await registry.executeTool(step.tool, expandEnv(step.args || {}), ctx);
-            const failures = evaluateExpectations(i, step.expect, outcome);
+        if (scenario.http) {
+            // ── HTTP scenario mode ───────────────────────────────────────
+            const httpOutcome = await executeHttpStep(scenario.http);
+            const failures = evaluateHttpExpectations(scenario.expect, httpOutcome);
             report.steps.push({
-                index: i, tool: step.tool, ok: outcome.ok,
-                mode: outcome.mode, durationMs: outcome.durationMs,
-                error: outcome.error || null,
+                index: 0,
+                tool: `http:${String(scenario.http.method || 'GET').toUpperCase()} ${scenario.http.path}`,
+                ok: httpOutcome.ok,
+                mode: 'http',
+                durationMs: httpOutcome.durationMs,
+                error: httpOutcome.error || null,
                 failures,
             });
             report.failures.push(...failures);
+            report.passed = report.failures.length === 0
+                && (httpOutcome.ok || scenario.expect?.ok === false || scenario.expect?.status !== undefined);
+        } else {
+            for (let i = 0; i < (scenario.steps || []).length; i++) {
+                const step = scenario.steps[i];
+                const ctx = {
+                    log: (...a) => log('[eval]', ...a),
+                    addAction: async () => {}, // suppress cloud audit during eval
+                    userInitiated: true,        // bypass approval prompts
+                };
+                const outcome = await registry.executeTool(step.tool, expandEnv(step.args || {}), ctx);
+                const failures = evaluateExpectations(i, step.expect, outcome);
+                report.steps.push({
+                    index: i, tool: step.tool, ok: outcome.ok,
+                    mode: outcome.mode, durationMs: outcome.durationMs,
+                    error: outcome.error || null,
+                    failures,
+                });
+                report.failures.push(...failures);
+            }
+            report.passed = report.failures.length === 0
+                && report.steps.every(s => s.ok || (scenario.steps[s.index]?.expect?.ok === false));
         }
-        report.passed = report.failures.length === 0
-            && report.steps.every(s => s.ok || (scenario.steps[s.index]?.expect?.ok === false));
     } finally {
         // Restore the original permissions snapshot.
         // We do this by writing a full config, not a partial patch.
@@ -281,4 +446,7 @@ module.exports = {
     runScenarioFile,
     runScenarioDirectory,
     parseScenarioFile,
+    evaluateFieldAssertion,
+    evaluateHttpExpectations,
+    closeEvalHttpServer,
 };

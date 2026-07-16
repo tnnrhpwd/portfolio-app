@@ -2,6 +2,19 @@
 
 Give this document to your coding agent (Claude Code, etc.) as the starting spec. It expands on an existing codebase (`csimple-addon/`) rather than starting from scratch — read the existing code first before proposing changes.
 
+### Table of contents
+
+1. [Vision](#1-vision)
+2. [Target user & platform](#2-target-user--platform)
+3. [Core interaction model](#3-core-interaction-model)
+4. [Marketplace](#4-marketplace--planned-no-backend-surface-built-yet) — ⬜ planned
+5. [Skill generalization](#5-skill-generalization-priority-ordered-technical-roadmap) — 🟡 partial (5.1/5.2 shipped)
+6. [Safety & permissions](#6-safety--permissions) — 🟡 partial (backend seams shipped, UI open)
+7. [Architecture constraints](#7-architecture-constraints--stack-constraints-already-honored-llm-provider-seam-71-still--planned) — 🟡 partial (seam ⬜ planned)
+8. [Monetization](#8-monetization--planned-no-requiresplanstripe-wiring-in-csimple-addon-yet) — ⬜ planned
+9. [Non-goals for this phase](#9-non-goals-for-this-phase)
+10. [Suggested first milestones](#10-suggested-first-milestones-prioritized-backlog-for-the-agent-to-refine)
+
 ---
 
 ## Status legend
@@ -9,6 +22,15 @@ Give this document to your coding agent (Claude Code, etc.) as the starting spec
 - ✅ **Implemented** — landed in code with tests.
 - 🟡 **Partially implemented** — backend seam exists, integration/UI/guardrails still open.
 - ⬜ **Planned** — not yet implemented.
+
+### Implementation snapshot (2026-07-16)
+
+- ✅ Section 5.1 (LLM re-derivation) shipped.
+- ✅ Section 5.2 (parameter inference) shipped.
+- 🟡 Section 5.3 (vision re-targeting) shipped for key recovery paths; broader coverage/UI surfacing remain.
+- ✅ Section 5.5 (eval harness) now supports HTTP scenarios (`eval/http-app.js` + `runner.js` HTTP mode), activating four previously-inert scenarios; perturbed-UI regression scenarios still open.
+- 🟡 Section 6.1/6.2/6.3 backend seams shipped (scrub, capability summary, consent APIs); frontend confirmation UX remains.
+- 🟡 Marketplace-adjacent telemetry seam exists (`/telemetry/summary` + `getTelemetrySummary`, ✅ shipped and aggregates real action-log data), but marketplace-specific counters (`downloads`/`installs`/`creations`) are still blocked on Section 4 backend work.
 
 ## 1. Vision
 
@@ -35,7 +57,7 @@ Two complementary flows, both need to exist and interoperate:
 
 These two flows should feed each other: agent-loop runs should be recordable, and recorded skills should be describable/searchable in natural language for the agent to find and reuse.
 
-## 4. Marketplace
+## 4. Marketplace — ⬜ planned (no backend surface built yet)
 
 > ⚠️ **Scope correction for the agent:** the marketplace is *not* just "extend the existing skill endpoints." Today's skill endpoints (`/api/data/csimple/workspace/skill/*`) store **private, per-user** items keyed `csimple_ws_{userId}_{kind}_{slug}`. The marketplace needs a **new shared/public namespace** with its own read path (anyone can discover) and controlled write path (publish/fork). Treat the private workspace skill store and the public marketplace as two distinct surfaces that a "publish" action bridges.
 
@@ -63,7 +85,7 @@ These two flows should feed each other: agent-loop runs should be recordable, an
 - ⚠️ **Cold-start mitigation (design around it, don't skip):** a brand-new skill has zero ratings and could still harm early downloaders. Because the marketplace does NOT pre-review, the *real* safety floor is the execution layer (Section 6): every downloaded skill runs through the existing permission gate, shell allow/deny-list, and protected-path blocking regardless of what it claims. In addition:
   - New/low-trust skills default to **dry-run-first** on their first execution so the user sees exactly what would happen before anything real runs.
   - The pre-run capability summary (Section 6.2) is mandatory for any skill installed from the marketplace.
-- Marketplace success metric: **skill downloads and skill creations** are the primary product KPI (not DAU/retention, not "flawless run" count). Build the server-side counters in 4.1 first; wire them into `getTelemetrySummary` (currently a stub hitting a non-existent `/telemetry/summary`).
+- Marketplace success metric: **skill downloads and skill creations** are the primary product KPI (not DAU/retention, not "flawless run" count). Build the server-side counters in 4.1 first; `getTelemetrySummary`/`GET /telemetry/summary` already exist and aggregate per-tool action telemetry (✅ shipped), but they have no concept of marketplace `downloads`/`installs`/`creations` yet — those counters still need to be added to the response schema once 4.1 lands.
 
 ### 4.4 Web frontend
 - New route `sthopwood.com/market`, mirroring the existing `/net` integration pattern, linked to/from `/net`.
@@ -77,9 +99,9 @@ These two flows should feed each other: agent-loop runs should be recordable, an
 - ⬜ Enforce install-before-rate gating with server-side proof of install/run.
 - ⬜ Add marketplace routes to `server/automation/index.js` and client wrappers in `workspace-client.js`.
 - ⬜ Add Jest unit tests for ranking, version pinning, and install/rate gate.
-- ⬜ Add at least one eval scenario after `runner.js` can execute marketplace/http scenarios.
+- ⬜ Add at least one eval scenario for the marketplace routes once they exist (the runner's HTTP scenario mode — §5.5 — is now implemented and ready to use).
 
-### 4.6 Marketplace backend schema + ranking backlog (not started)
+### 4.6 Marketplace backend schema + ranking backlog — ⬜ planned (not started)
 
 - ⬜ Define immutable version key shape: `marketId@version` (or equivalent) and enforce write-once semantics.
 - ⬜ Add author-scope publish limits/rate limits to reduce spam bursts.
@@ -90,7 +112,7 @@ These two flows should feed each other: agent-loop runs should be recordable, an
 - ⬜ Add "low-trust" classifier used by dry-run-first enforcement.
 - ⬜ Add backend contract tests for pagination, sort stability, and install/rate constraints.
 
-## 5. Skill generalization (priority-ordered technical roadmap)
+## 5. Skill generalization (priority-ordered technical roadmap) — 🟡 partially implemented (5.1/5.2 shipped; 5.3/5.4/5.5/5.6 partial)
 
 Fix the current addon's biggest known weakness: the compiler in `recorder/compiler.js` only does literal event coalescing (window focus dedup, click/drag/tap classification) — it does not generalize across variation. Build in this priority order:
 
@@ -139,15 +161,15 @@ Downloaded skills reference tools by name; the registry evolves. Before running 
 - ✅ Add deterministic downgrade rules (no LLM-needed branch for straightforward renames).
 - ✅ Add tests for mixed-version skill imports and partial execution behavior.
 
-### 5.5 Measure it — reuse the eval harness — 🟡 partial
+### 5.5 Measure it — reuse the eval harness — 🟡 partially implemented 2026-07
 Generalization is only "better" if it's measurable. Use the existing `automation/eval/scenarios/` framework: for each generalization change, add scenarios that (a) replay a recorded trace, (b) assert the generalized skill still succeeds against a *perturbed* UI (moved window, renamed control, changed coordinates). A generalization change that doesn't move a scenario from fail→pass isn't done. New pipelines also get Jest unit tests, matching repo convention (`*.test.js` in `test:unit`).
 
-> ⚠️ **Implementation note (2026-07):** `automation/eval/runner.js` only supports tool-registry scenarios (`steps: [{ tool, args, expect }]` executed directly against `tool-registry.js`) — it has NO support for hitting arbitrary HTTP endpoints like `/api/skill/generalize`. The existing `eval/scenarios/12-nl-compile.json` has an `"http"` block that the runner does not read; treat that scenario file as a stale/aspirational pattern, not a template. Until `runner.js` gains HTTP-scenario support (or `generalizeSkill`/`compile` are exposed as registered tools), §5.1's re-derivation is covered by the offline unit tests in `generalize.test.js` only — a true "perturbed UI" regression scenario is still an open TODO.
+> ✅ **Implementation update (2026-07):** `automation/eval/runner.js` now supports HTTP scenarios. A scenario may supply an `http: { method, path, body, headers }` block (mutually exclusive with `steps`) that is executed against a real, ephemeral, localhost-only Express server booted from the production `mountAutomation()` (see new `eval/http-app.js` — lazy singleton, closed via `closeEvalHttpServer()`). Assertions support dotted-path field lookups (`"stats.enabled": true`), `{ type: "array"|"string"|"number"|"boolean"|"object" }`, `{ equals|contains|matches|minLength|maxLength|exists }`, plus `status`/`ok` special cases. This retroactively activated **four previously-inert scenarios** (`13-voice-status.json`, `14-perception-frame.json`, `15-predictor.json`, `16-multi-agent.json`) whose `"http"` blocks had been silently ignored by the old runner and were "passing" with zero real assertions ever executed — they now run for real and pass. `12-nl-compile.json` (needs a live LLM/network call) is gated behind `require.env: { EVAL_ALLOW_LLM: "1" }` so it's skipped by default. A new fully-offline scenario `17-skill-capabilities-http.json` and a unit-test file `eval/runner.test.js` (31 cases: assertion-evaluator unit tests + an end-to-end run against the real ephemeral server) were added and wired into `npm run test:unit`. See `eval/README.md` for the documented HTTP scenario format.
 
 **Remaining checklist**
 
-- ⬜ Extend eval runner with an HTTP scenario mode OR expose generalization helpers as test tools.
-- ⬜ Add at least one perturbed-UI scenario per generalization axis (position shift, label rename, timing variance).
+- ✅ Extend eval runner with an HTTP scenario mode.
+- ⬜ Add at least one perturbed-UI scenario per generalization axis (position shift, label rename, timing variance) — HTTP mode unblocks this but no perturbed-UI scenario exists yet.
 - ⬜ Add CI gate requiring no regression in scenario pass rate for `automation/eval/scenarios/`.
 
 ### 5.6 Per-skill success criteria (runtime observability) — 🟡 partially implemented 2026-07
@@ -168,7 +190,7 @@ A generalized skill needs to know whether a run actually worked, or replay/repai
 - ⬜ Trigger `repairStep` only when criteria fail and retry budget remains.
 - ✅ Add tests for criteria pass/fail/indeterminate states.
 
-## 6. Safety & permissions
+## 6. Safety & permissions — 🟡 partially implemented (backend seams shipped for 6.1/6.2/6.3; UI confirmation flows still open)
 
 Keep and extend the existing permission model (`server/automation/permissions.js`, `security-guard.js`) — do not weaken it for the sake of a smoother consumer onboarding flow. Specifically:
 
@@ -219,7 +241,7 @@ The generalization and vision-fallback paths send **screen captures to a cloud m
 - 🟡 Add revoke/toggle UI and persist consent state so previously granted access can be withdrawn (backend persistence + consent toggle API shipped; UI still pending).
 - 🟡 Ensure every deny path surfaces a user-visible reason (consent/capability deny paths now return explicit actionable errors; complete remaining non-consent deny-path audit).
 
-## 7. Architecture constraints
+## 7. Architecture constraints — 🟡 stack constraints already honored; LLM provider seam (7.1) still ⬜ planned
 
 - **Keep the existing stack**: Electron + Node.js main process/server, Python subprocesses for ML workloads (Whisper STT, MediaPipe eye tracking, webcam/vision). Do not propose a rewrite.
 - **Cloud-first AI, with a local/offline option**: default to cloud APIs (GitHub Models today, per `github-models-service.js`) for the "smart" parts (NL compilation, skill generalization, vision fallback) since that's simplest to ship, but preserve the ability to swap in local models later — don't hardcode cloud-only assumptions into new code. Concretely: define a small **LLM provider interface** (`chat`, `chatMultimodal`) and route `agent-loop.js`, `nl-compiler.js`, and `tools/skill.js` through it instead of newing up `GitHubModelsService` directly, so a local backend can be dropped in behind the same seam.
@@ -234,7 +256,7 @@ The generalization and vision-fallback paths send **screen captures to a cloud m
 - ⬜ Centralize retries/timeouts/error mapping at the provider boundary.
 - ⬜ Add unit tests proving callers no longer instantiate `GitHubModelsService` directly.
 
-## 8. Monetization
+## 8. Monetization — ⬜ planned (no `requiresPlan`/Stripe wiring in `csimple-addon` yet)
 
 Freemium:
 - **Free**: core recording/replay, local skill library, manual triggers (hotkey/voice), basic agent loop.
@@ -249,7 +271,7 @@ Freemium:
 - ⬜ Add clear UX copy when premium-only path is blocked ("what still works for free").
 - ⬜ Add integration tests for free, paid, expired, and grace-period states.
 
-## 8.5 Example marketable use cases
+### 8.2 Example marketable use cases
 
 Concrete "show don't tell" scenarios to use in marketing copy, demo videos, and onboarding examples — each should be a plausible single-demo recording a non-technical user could do in under a minute. Written for everyday people, not tech folks: plain language, no jargon, big obvious payoff up front.
 
@@ -286,13 +308,13 @@ Concrete "show don't tell" scenarios to use in marketing copy, demo videos, and 
 Ordered by value-per-risk. Ship the core "show don't tell" loop before the marketplace, and ship privacy scrubbing before *any* publish path.
 
 1. ✅ **Generalization MVP** — LLM re-derivation (5.1) + multi-demo parameter inference (5.2) shipped.
-   - ⬜ Remaining: add a true eval harness scenario once `runner.js` supports HTTP scenarios or `generalizeSkill`/`inferParams` are exposed as tools (5.5).
+   - ✅ Eval harness now supports an HTTP scenario mode (5.5) with four previously-inert scenarios now live; a perturbed-UI regression scenario for `generalizeSkill`/`inferParams` specifically is still an open TODO.
 2. 🟡 **Privacy scrub pass** (6.1) — scrub engine + preview endpoint + capture-time sensitive-input consent gate shipped.
    - ⬜ Remaining: require scrub-report confirmation in pre-publish UI.
 3. 🟡 **Pre-run capability summary** (6.2) — summarizer + preview endpoint + marketplace run-path confirmation gate shipped.
    - ⬜ Remaining: enforce mandatory pre-run confirmation UX for marketplace-installed skills.
-4. ⬜ **Marketplace backend** (4.1–4.2) — public namespace, versioning, install-gated ratings, atomic counters.
-   - ⬜ Include `/telemetry/summary` support so counters show up in `getTelemetrySummary`.
+4. 🟡 **Marketplace backend** (4.1–4.2) — public namespace, versioning, install-gated ratings, atomic counters.
+   - 🟡 `/telemetry/summary` route + addon `getTelemetrySummary` wiring shipped; marketplace counter fields remain to add.
 5. ⬜ **Marketplace web frontend** (`sthopwood.com/market`, 4.4) + trust ranking + dry-run-first for low-trust skills.
 6. 🟡 **Vision re-targeting on replay** (5.3) — backend recovery path shipped; broaden target coverage + UI messaging remain.
 7. ⬜ **Monetization seam** (8) — `requiresPlan` at LLM provider boundary.
@@ -308,9 +330,10 @@ Use these as concrete "pick up and code" slices in order:
    - `server/automation/index.js`
    - `server/automation/workspace-client.js`
    - new `server/automation/marketplace/*` module(s)
-2. **Telemetry summary plumbing for marketplace counters**
-   - `server/automation/workspace-client.js` (`getTelemetrySummary`)
-   - backend `/telemetry/summary` endpoint in the portfolio backend service
+2. **Telemetry summary plumbing for marketplace counters** (partial)
+   - ✅ `server/automation/workspace-client.js` (`getTelemetrySummary`)
+   - ✅ backend `/telemetry/summary` endpoint in the portfolio backend service
+   - ⬜ Extend summary schema to include marketplace `downloads`/`installs`/`creations` counters once 4.1 lands.
 3. **Capability/scrub UI confirmations (mandatory for marketplace flow)**
    - frontend route(s) that currently consume `/net` integration patterns
 4. **Recorder consent gate**
@@ -326,7 +349,7 @@ Use these as concrete "pick up and code" slices in order:
 
 - ⬜ Marketplace public namespace + immutable version storage.
 - ⬜ Install-gated ratings (server-enforced).
-- ⬜ `/telemetry/summary` endpoint and `getTelemetrySummary` wiring.
+- 🟡 `/telemetry/summary` endpoint and `getTelemetrySummary` wiring (base endpoint + client shipped; marketplace counter fields still pending).
 - ⬜ Mandatory pre-publish scrub confirmation UI.
 - ⬜ Mandatory pre-run capability confirmation UI for installed market skills.
 

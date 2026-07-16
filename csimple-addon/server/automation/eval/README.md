@@ -51,6 +51,57 @@ steps:
 Each step calls one tool. The runner records `{ ok, error, durationMs, mode }`
 for every step and runs the assertions in `expect` against the result.
 
+## HTTP scenarios
+
+A scenario may supply an `http` block instead of `steps` to exercise an
+actual addon HTTP route end-to-end, over the network stack, against a real
+(ephemeral, localhost-only) Express server booted from the same
+`mountAutomation()` used in production (see `./http-app.js`). This is useful
+for routes that aren't simple tool-registry calls — e.g. `/api/skill/*`,
+`/api/voice/*`, `/api/perception/*`, `/api/predictor/*`, `/api/agents/*`.
+
+```json
+{
+  "name": "Capability summary — POST /api/skill/capabilities",
+  "require": { "env": { "EVAL_ALLOW_LLM": "1" } },
+  "http": {
+    "method": "POST",
+    "path": "/api/skill/capabilities",
+    "body": { "skill": { "name": "demo", "steps": [] } },
+    "headers": { "X-Extra": "optional" }
+  },
+  "expect": {
+    "status": 200,
+    "ok": true,
+    "summary": { "minLength": 1 },
+    "stats.enabled": true,
+    "items": { "type": "array" }
+  }
+}
+```
+
+- `http.method`/`http.path`/`http.body`/`http.headers` describe the request.
+  `body` values go through the same `${VAR}` env-interpolation as tool `args`.
+- `expect.status` checks the HTTP status code.
+- `expect.ok` checks `body.ok` is truthy/falsy.
+- Every other `expect` key is a **field assertion** resolved via a dotted
+  path into the JSON body (e.g. `"stats.enabled"` reaches `body.stats.enabled`).
+  Field assertions support:
+  - a bare value → deep-equality shorthand (`"count": 3`)
+  - `{ "equals": ... }` → deep-equality
+  - `{ "contains": "text" }` → substring/array-membership-ish check via `String(...).includes`
+  - `{ "matches": "regex" }` → regex test against `String(actual)`
+  - `{ "minLength": n }` / `{ "maxLength": n }` → array/string length bounds
+  - `{ "type": "array"|"string"|"number"|"boolean"|"object" }` → `typeof`/`Array.isArray` check
+  - `{ "exists": true|false }` → presence check
+- The ephemeral server is a **lazy singleton** — the first HTTP scenario in a
+  run boots it, subsequent scenarios reuse it. `cli.js` closes it after the
+  full directory run completes.
+- Routes that need a real LLM/network call (e.g. `nl-compiler`'s
+  `/api/skill/compile-natural`) should be gated behind `require.env` (see
+  `12-nl-compile.json`'s `EVAL_ALLOW_LLM` gate) so they're skipped by default
+  in CI and only run when a real GitHub Models token is available.
+
 ## Adding a scenario
 
 1. Drop a `.json` or `.yml` file under `scenarios/`.

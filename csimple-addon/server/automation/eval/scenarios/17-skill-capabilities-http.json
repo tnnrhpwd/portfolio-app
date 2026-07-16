@@ -1,0 +1,28 @@
+{
+  "id": "17-skill-capabilities-http",
+  "name": "Capability summary — POST /api/skill/capabilities (offline, no LLM)",
+  "description": "First real HTTP-scenario regression test (docs/new/csimple-agent-prompt.md §5.5): exercises /api/skill/capabilities end-to-end against a real in-process Express server (see eval/http-app.js), fully offline/deterministic — no LLM or network calls. Asserts the summary lists a shell command and flags the declared/actual category mismatch (skill declares only safe-read but its steps resolve to shell + sandboxed-write).",
+  "http": {
+    "method": "POST",
+    "path": "/api/skill/capabilities",
+    "body": {
+      "skill": {
+        "name": "demo-capability-check",
+        "slug": "demo-capability-check",
+        "declaredCategories": ["safe-read"],
+        "steps": [
+          { "tool": "click_at", "args": { "x": 10, "y": 10 } },
+          { "tool": "text_type", "args": { "text": "hello" } },
+          { "tool": "shell_run", "args": { "command": "Write-Output hi" } }
+        ]
+      }
+    }
+  },
+  "expect": {
+    "status": 200,
+    "summary": { "minLength": 1 },
+    "actualCategories": { "contains": "shell" },
+    "mismatches": { "minLength": 1 }
+  },
+  "tags": ["capability-summary", "http", "offline", "smoke"]
+}
