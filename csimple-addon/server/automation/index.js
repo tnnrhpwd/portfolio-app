@@ -702,6 +702,61 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
         }
     });
 
+    // ─── Marketplace routes (§4 of docs/new/csimple-agent-prompt.md) ────────
+    // Thin proxies to the shared backend's public/shared marketplace surface
+    // (a SEPARATE namespace from the private per-user workspace skill store
+    // above). The frontend is expected to have already run /api/skill/scrub
+    // + /api/skill/capabilities locally before calling publish.
+    app.post('/api/market/skills', async (req, res) => {
+        try {
+            const result = await wsClient.publishMarketSkill(req.body || {});
+            res.json(result);
+        } catch (e) {
+            res.status(e.status || 400).json({ error: e.message });
+        }
+    });
+    app.get('/api/market/skills', async (req, res) => {
+        try {
+            const { q, sort, page, perPage } = req.query || {};
+            const result = await wsClient.searchMarketSkills({ q, sort, page, perPage });
+            res.json(result);
+        } catch (e) {
+            res.status(e.status || 400).json({ error: e.message });
+        }
+    });
+    app.get('/api/market/skills/:marketId/:version?', async (req, res) => {
+        try {
+            const result = await wsClient.getMarketSkill(req.params.marketId, req.params.version);
+            res.json(result);
+        } catch (e) {
+            res.status(e.status || 404).json({ error: e.message });
+        }
+    });
+    app.post('/api/market/skills/:marketId/install', async (req, res) => {
+        try {
+            const result = await wsClient.installMarketSkill(req.params.marketId, req.body?.version);
+            res.json(result);
+        } catch (e) {
+            res.status(e.status || 400).json({ error: e.message });
+        }
+    });
+    app.post('/api/market/skills/:marketId/rate', async (req, res) => {
+        try {
+            const result = await wsClient.rateMarketSkill(req.params.marketId, req.body || {});
+            res.json(result);
+        } catch (e) {
+            res.status(e.status || 400).json({ error: e.message });
+        }
+    });
+    app.post('/api/market/skills/:marketId/flag', async (req, res) => {
+        try {
+            const result = await wsClient.flagMarketSkill(req.params.marketId, req.body?.reason);
+            res.json(result);
+        } catch (e) {
+            res.status(e.status || 400).json({ error: e.message });
+        }
+    });
+
     // ─── Trigger engine routes ──────────────────────────────────────────────
     // Triggers are user-configured automation rules (cron/file/hotkey) that
     // enqueue a goal into the agent loop. The actual `configure()` and

@@ -8,7 +8,7 @@ const multer = require('multer');
 // Middleware Imports
 // ============================================================================
 const { protect } = require('../middleware/authMiddleware');
-const { apiLimiter, authLimiter, paymentLimiter, llmLimiter, ocrLimiter, uploadLimiter, workspaceReadLimiter, workspaceWriteLimiter, workspaceActionLimiter } = require('../middleware/rateLimiter');
+const { apiLimiter, authLimiter, paymentLimiter, llmLimiter, ocrLimiter, uploadLimiter, workspaceReadLimiter, workspaceWriteLimiter, workspaceActionLimiter, marketReadLimiter, marketPublishLimiter, marketWriteLimiter } = require('../middleware/rateLimiter');
 const { 
   validateRegistration, 
   validateLogin, 
@@ -93,6 +93,16 @@ const {
   compileMacroNatural,
   editMacroNatural,
 } = require('../controllers/workspaceController');
+
+// CSimple Marketplace controller (public/shared skill marketplace, §4)
+const {
+  publishSkill,
+  searchMarketSkills,
+  getMarketSkill,
+  installMarketSkill,
+  rateMarketSkill,
+  flagMarketSkill,
+} = require('../controllers/marketplaceController');
 
 // Addon relay controller (cloud command relay for remote execution)
 const {
@@ -437,6 +447,21 @@ router.route('/csimple/workspace/:kind/:slug')
   .get(protect, workspaceReadLimiter, getWorkspaceItem)
   .put(protect, workspaceWriteLimiter, sanitizeInput, upsertWorkspaceItem)
   .delete(protect, workspaceWriteLimiter, deleteWorkspaceItem);
+
+// ============================================================================
+// CSIMPLE MARKETPLACE (public/shared skill marketplace — §4 of
+//                      docs/new/csimple-agent-prompt.md)
+// ============================================================================
+
+// Order matters: specific routes BEFORE parameterized ones.
+router.route('/market/skills')
+  .get(protect, marketReadLimiter, searchMarketSkills)
+  .post(protect, marketPublishLimiter, sanitizeInput, publishSkill);
+
+router.get('/market/skills/:marketId/:version?', protect, marketReadLimiter, getMarketSkill);
+router.post('/market/skills/:marketId/install', protect, marketWriteLimiter, sanitizeInput, installMarketSkill);
+router.post('/market/skills/:marketId/rate', protect, marketWriteLimiter, sanitizeInput, rateMarketSkill);
+router.post('/market/skills/:marketId/flag', protect, marketWriteLimiter, sanitizeInput, flagMarketSkill);
 
 // ============================================================================
 // ADDON RELAY (cloud command relay for phone → desktop execution)

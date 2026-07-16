@@ -7,7 +7,7 @@ Give this document to your coding agent (Claude Code, etc.) as the starting spec
 1. [Vision](#1-vision)
 2. [Target user & platform](#2-target-user--platform)
 3. [Core interaction model](#3-core-interaction-model)
-4. [Marketplace](#4-marketplace--planned-no-backend-surface-built-yet) — ⬜ planned
+4. [Marketplace](#4-marketplace--partially-implemented-backend-shipped-2026-07-frontend--ui-confirmations-still-open) — 🟡 partial (backend shipped 2026-07; frontend + UI confirmations open)
 5. [Skill generalization](#5-skill-generalization-priority-ordered-technical-roadmap) — 🟡 partial (5.1/5.2 shipped)
 6. [Safety & permissions](#6-safety--permissions) — 🟡 partial (backend seams shipped, UI open)
 7. [Architecture constraints](#7-architecture-constraints--stack-constraints-already-honored-llm-provider-seam-71-still--planned) — 🟡 partial (seam ⬜ planned)
@@ -30,7 +30,11 @@ Give this document to your coding agent (Claude Code, etc.) as the starting spec
 - 🟡 Section 5.3 (vision re-targeting) shipped for key recovery paths; broader coverage/UI surfacing remain.
 - ✅ Section 5.5 (eval harness) now supports HTTP scenarios (`eval/http-app.js` + `runner.js` HTTP mode), activating four previously-inert scenarios; perturbed-UI regression scenarios still open.
 - 🟡 Section 6.1/6.2/6.3 backend seams shipped (scrub, capability summary, consent APIs); frontend confirmation UX remains.
-- 🟡 Marketplace-adjacent telemetry seam exists (`/telemetry/summary` + `getTelemetrySummary`, ✅ shipped and aggregates real action-log data), but marketplace-specific counters (`downloads`/`installs`/`creations`) are still blocked on Section 4 backend work.
+- ✅ Marketplace backend now exists with server-side atomic `downloads`/`installs`/`creations` counters (`backend/controllers/marketplaceController.js`), but they are only exposed via the marketplace search/get routes, NOT yet folded into `/telemetry/summary` (`getTelemetrySummary` + `/telemetry/summary` remain scoped to per-tool action telemetry only — see §10.2 P0).
+
+### Implementation update (2026-07-16)
+
+- ✅ Marketplace backend (§4.1/§4.2) shipped: `backend/controllers/marketplaceController.js` (public `csimple_market_*` DynamoDB namespace, separate from the private `csimple_ws_*` workspace skill store), routes mounted at `/api/data/market/skills*` in `backend/routes/routeData.js` (note: paths are `/api/data/market/...`, not `/api/market/...` as originally sketched in §4.2, since `routeData.js` is mounted at `/api/data` for every backend route), and pure/offline-testable ranking + trust-gate helpers in `backend/services/marketplaceRanking.js`. Addon-side thin proxies added at `/api/market/skills*` (the addon's own local server, unaffected by the backend's `/api/data` prefix) in `server/automation/index.js`, backed by new `workspace-client.js` wrappers (`publishMarketSkill`, `searchMarketSkills`, `getMarketSkill`, `installMarketSkill`, `rateMarketSkill`, `flagMarketSkill`) that call `/api/data/market/...` on the backend. 48 new Jest cases (`marketplaceRanking.test.js` + `marketplaceController.test.js`, fully offline via a fake DynamoDB doc-client). Still open: publish-time server-side scrub enforcement (client is expected to have already called `/api/skill/scrub`), and all pre-publish/pre-run confirmation UI.
 
 ## 1. Vision
 
@@ -57,7 +61,7 @@ Two complementary flows, both need to exist and interoperate:
 
 These two flows should feed each other: agent-loop runs should be recordable, and recorded skills should be describable/searchable in natural language for the agent to find and reuse.
 
-## 4. Marketplace — ⬜ planned (no backend surface built yet)
+## 4. Marketplace — 🟡 partially implemented (backend shipped 2026-07; frontend + UI confirmations still open)
 
 > ⚠️ **Scope correction for the agent:** the marketplace is *not* just "extend the existing skill endpoints." Today's skill endpoints (`/api/data/csimple/workspace/skill/*`) store **private, per-user** items keyed `csimple_ws_{userId}_{kind}_{slug}`. The marketplace needs a **new shared/public namespace** with its own read path (anyone can discover) and controlled write path (publish/fork). Treat the private workspace skill store and the public marketplace as two distinct surfaces that a "publish" action bridges.
 
@@ -68,16 +72,20 @@ These two flows should feed each other: agent-loop runs should be recordable, an
 - **Counters (server-side, the KPI source):** `downloads`, `installs`, `creations` incremented atomically on the marketplace backend — NOT derived from the per-user JSONL action log.
 - **Compatibility:** every published skill stores `toolSchemaVersion`. On download, the client compares against its own registry; if a referenced tool is missing/renamed, surface a "partially compatible" warning and degrade gracefully instead of hard-failing at run time (see Section 5.4).
 
-### 4.2 API surface (extends `workspace-client.js`, new backend routes)
+### 4.2 API surface (extends `workspace-client.js`, new backend routes) — ✅ shipped 2026-07
 
-| Route | Purpose | Status |
+> Actual mounted paths are `/api/data/market/skills*` on the backend (since `routeData.js` is mounted at `/api/data` for every route in this repo — see `backend/server.js`), not the bare `/api/market/skills*` originally sketched below. The addon's own local server DOES expose bare `/api/market/skills*` proxies (unaffected by the backend's `/api/data` prefix) — see `server/automation/index.js`.
+
+| Route (backend: prefix with `/api/data`) | Purpose | Status |
 |---|---|---|
-| `POST /api/market/skills` | Publish skill (must run scrub + capability-manifest pre-check first) | ⬜ Planned |
-| `GET /api/market/skills?q=<nl>&sort=trust\|downloads\|recent` | NL search + ranking | ⬜ Planned |
-| `GET /api/market/skills/:marketId[/:version]` | Fetch a specific version | ⬜ Planned |
-| `POST /api/market/skills/:marketId/install` | Increment `downloads`/`installs`, return installable scrubbed steps | ⬜ Planned |
-| `POST /api/market/skills/:marketId/rate` | Submit run-gated rating | ⬜ Planned |
-| `POST /api/market/skills/:marketId/flag` | Community flagging | ⬜ Planned |
+| `POST /api/market/skills` | Publish skill (author is expected to have already run `/api/skill/scrub` client-side) | ✅ Shipped |
+| `GET /api/market/skills?q=<nl>&sort=trust\|downloads\|recent` | NL search + ranking | ✅ Shipped |
+| `GET /api/market/skills/:marketId[/:version]` | Fetch a specific version | ✅ Shipped |
+| `POST /api/market/skills/:marketId/install` | Increment `downloads`/`installs`, return installable scrubbed steps | ✅ Shipped |
+| `POST /api/market/skills/:marketId/rate` | Submit run-gated rating | ✅ Shipped |
+| `POST /api/market/skills/:marketId/flag` | Community flagging | ✅ Shipped |
+
+**Shipped as** `backend/controllers/marketplaceController.js` (DynamoDB table `Simple`, new `csimple_market_*` id namespace — `meta`/`version`/`install`/`rating`/`flag`/author-rate-limit records, immutable version records never overwritten), `backend/services/marketplaceRanking.js` (pure, DB-free trust/ranking helpers: `computeAuthorReputation`, `computeTrustScore`, `classifyLowTrust`, `canRate`, `sortSkills` — see §4.6), routes wired in `backend/routes/routeData.js` behind new `marketReadLimiter`/`marketPublishLimiter`/`marketWriteLimiter` rate limiters, and addon-side proxies + `workspace-client.js` wrappers (`publishMarketSkill`, `searchMarketSkills`, `getMarketSkill`, `installMarketSkill`, `rateMarketSkill`, `flagMarketSkill`). 48 Jest cases across `marketplaceRanking.test.js` (18, pure) and `marketplaceController.test.js` (12, offline via a fake in-memory DynamoDB doc-client). **Not yet done:** the publish endpoint trusts the caller to have already scrubbed steps client-side — it does not independently re-run `scrubForPublish`/`summarizeCapabilities` server-side (see §4.5 checklist below).
 
 ### 4.3 Trust model
 - **Reputation/rating-based, no manual moderation/code-review queue** (matches Non-goals).
@@ -85,7 +93,7 @@ These two flows should feed each other: agent-loop runs should be recordable, an
 - ⚠️ **Cold-start mitigation (design around it, don't skip):** a brand-new skill has zero ratings and could still harm early downloaders. Because the marketplace does NOT pre-review, the *real* safety floor is the execution layer (Section 6): every downloaded skill runs through the existing permission gate, shell allow/deny-list, and protected-path blocking regardless of what it claims. In addition:
   - New/low-trust skills default to **dry-run-first** on their first execution so the user sees exactly what would happen before anything real runs.
   - The pre-run capability summary (Section 6.2) is mandatory for any skill installed from the marketplace.
-- Marketplace success metric: **skill downloads and skill creations** are the primary product KPI (not DAU/retention, not "flawless run" count). Build the server-side counters in 4.1 first; `getTelemetrySummary`/`GET /telemetry/summary` already exist and aggregate per-tool action telemetry (✅ shipped), but they have no concept of marketplace `downloads`/`installs`/`creations` yet — those counters still need to be added to the response schema once 4.1 lands.
+- Marketplace success metric: **skill downloads and skill creations** are the primary product KPI (not DAU/retention, not "flawless run" count). The server-side counters (4.1) are ✅ shipped and atomic; `getTelemetrySummary`/`GET /telemetry/summary` already exist and aggregate per-tool action telemetry (✅ shipped), but they still have no concept of marketplace `downloads`/`installs`/`creations` — those counters are exposed via the marketplace search/get routes today and still need to be folded into the `/telemetry/summary` response schema (see §10.2 P0).
 
 ### 4.4 Web frontend
 - New route `sthopwood.com/market`, mirroring the existing `/net` integration pattern, linked to/from `/net`.
@@ -93,24 +101,24 @@ These two flows should feed each other: agent-loop runs should be recordable, an
 
 ### 4.5 Marketplace implementation checklist (Definition of Done)
 
-- ⬜ Add new public-market storage namespace (not `csimple_ws_*`) with immutable version records.
-- ⬜ Add server-atomic counters for `downloads`, `installs`, `creations` (not derived from client logs).
-- ⬜ Wire publish path to run `scrubForPublish` + `summarizeCapabilities` before persistence.
-- ⬜ Enforce install-before-rate gating with server-side proof of install/run.
-- ⬜ Add marketplace routes to `server/automation/index.js` and client wrappers in `workspace-client.js`.
-- ⬜ Add Jest unit tests for ranking, version pinning, and install/rate gate.
-- ⬜ Add at least one eval scenario for the marketplace routes once they exist (the runner's HTTP scenario mode — §5.5 — is now implemented and ready to use).
+- ✅ Add new public-market storage namespace (not `csimple_ws_*`) with immutable version records.
+- ✅ Add server-atomic counters for `downloads`, `installs`, `creations` (not derived from client logs).
+- 🟡 Wire publish path to run `scrubForPublish` + `summarizeCapabilities` before persistence (client is expected to call `/api/skill/scrub` + `/api/skill/capabilities` first; server-side re-enforcement of the scrub pass is not yet implemented).
+- ✅ Enforce install-before-rate gating with server-side proof of install/run.
+- ✅ Add marketplace routes to `server/automation/index.js` and client wrappers in `workspace-client.js`.
+- ✅ Add Jest unit tests for ranking, version pinning, and install/rate gate.
+- ⬜ Add at least one eval scenario for the marketplace routes (the runner's HTTP scenario mode — §5.5 — is implemented and ready to use; the marketplace routes live on the portfolio backend rather than the addon's own `mountAutomation()` server, so wiring an eval scenario for them needs a bit more plumbing than the existing HTTP scenarios).
 
-### 4.6 Marketplace backend schema + ranking backlog — ⬜ planned (not started)
+### 4.6 Marketplace backend schema + ranking backlog — 🟡 mostly shipped 2026-07
 
-- ⬜ Define immutable version key shape: `marketId@version` (or equivalent) and enforce write-once semantics.
-- ⬜ Add author-scope publish limits/rate limits to reduce spam bursts.
-- ⬜ Store install/run attestations used for ratings gate (`canRate = installed && attemptedRun`).
-- ⬜ Persist `outcome` alongside ratings for trust scoring (not just stars).
-- ⬜ Implement ranking weights as explicit config (not magic constants in route code).
-- ⬜ Add deterministic tie-breakers for equal trust score (recency, then downloads, then stable ID).
-- ⬜ Add "low-trust" classifier used by dry-run-first enforcement.
-- ⬜ Add backend contract tests for pagination, sort stability, and install/rate constraints.
+- ✅ Define immutable version key shape: `csimple_market_${marketId}_v${version}` and enforce write-once semantics (version records are always freshly `Put`, never read-modify-written).
+- ✅ Add author-scope publish limits/rate limits to reduce spam bursts (`AUTHOR_PUBLISH_MAX` per rolling `AUTHOR_PUBLISH_WINDOW_MS`, tracked per-author in a dedicated DynamoDB record).
+- ✅ Store install/run attestations used for ratings gate (`canRate = installed && attemptedRun`).
+- ✅ Persist `outcome` alongside ratings for trust scoring (not just stars).
+- ✅ Implement ranking weights as explicit config (`RANKING_WEIGHTS`/`LOW_TRUST_THRESHOLDS` in `marketplaceRanking.js`, not magic constants in route code).
+- ✅ Add deterministic tie-breakers for equal trust score (recency, then downloads, then stable ID) — `sortSkills()`.
+- ✅ Add "low-trust" classifier used by dry-run-first enforcement — `classifyLowTrust()`, surfaced as `lowTrust` on install responses.
+- 🟡 Add backend contract tests for pagination, sort stability, and install/rate constraints (offline controller tests cover the core install/rate/flag/publish flows; dedicated pagination-edge-case tests remain).
 
 ## 5. Skill generalization (priority-ordered technical roadmap) — 🟡 partially implemented (5.1/5.2 shipped; 5.3/5.4/5.5/5.6 partial)
 
@@ -313,9 +321,10 @@ Ordered by value-per-risk. Ship the core "show don't tell" loop before the marke
    - ⬜ Remaining: require scrub-report confirmation in pre-publish UI.
 3. 🟡 **Pre-run capability summary** (6.2) — summarizer + preview endpoint + marketplace run-path confirmation gate shipped.
    - ⬜ Remaining: enforce mandatory pre-run confirmation UX for marketplace-installed skills.
-4. 🟡 **Marketplace backend** (4.1–4.2) — public namespace, versioning, install-gated ratings, atomic counters.
-   - 🟡 `/telemetry/summary` route + addon `getTelemetrySummary` wiring shipped; marketplace counter fields remain to add.
-5. ⬜ **Marketplace web frontend** (`sthopwood.com/market`, 4.4) + trust ranking + dry-run-first for low-trust skills.
+4. ✅ **Marketplace backend** (4.1–4.2) — public namespace, versioning, install-gated ratings, atomic counters shipped 2026-07 (`backend/controllers/marketplaceController.js` + `backend/services/marketplaceRanking.js`).
+   - 🟡 `/telemetry/summary` route + addon `getTelemetrySummary` wiring shipped; extending that response schema to surface the new marketplace counters still remains.
+5. 🟡 **Marketplace web frontend** (`sthopwood.com/market`, 4.4) + trust ranking + dry-run-first for low-trust skills.
+   - ✅ Ranking + `lowTrust` classification now computed server-side (`marketplaceRanking.js`) and returned from install/search responses — the frontend itself is still ⬜ not started.
 6. 🟡 **Vision re-targeting on replay** (5.3) — backend recovery path shipped; broaden target coverage + UI messaging remain.
 7. ⬜ **Monetization seam** (8) — `requiresPlan` at LLM provider boundary.
 8. ⬜ **Onboarding/UX polish** for non-technical users (after core safety + marketplace flows are in place).
@@ -326,10 +335,9 @@ Each milestone ships with Jest unit tests and, where it touches the automation l
 
 Use these as concrete "pick up and code" slices in order:
 
-1. **Marketplace persistence + routes**
-   - `server/automation/index.js`
-   - `server/automation/workspace-client.js`
-   - new `server/automation/marketplace/*` module(s)
+1. ✅ **Marketplace persistence + routes** — shipped 2026-07.
+   - `backend/controllers/marketplaceController.js`, `backend/services/marketplaceRanking.js`, `backend/routes/routeData.js`
+   - `server/automation/index.js` (addon-side `/api/market/skills*` proxies), `server/automation/workspace-client.js` (client wrappers)
 2. **Telemetry summary plumbing for marketplace counters** (partial)
    - ✅ `server/automation/workspace-client.js` (`getTelemetrySummary`)
    - ✅ backend `/telemetry/summary` endpoint in the portfolio backend service
@@ -347,9 +355,9 @@ Use these as concrete "pick up and code" slices in order:
 
 #### P0 — do now
 
-- ⬜ Marketplace public namespace + immutable version storage.
-- ⬜ Install-gated ratings (server-enforced).
-- 🟡 `/telemetry/summary` endpoint and `getTelemetrySummary` wiring (base endpoint + client shipped; marketplace counter fields still pending).
+- ✅ Marketplace public namespace + immutable version storage.
+- ✅ Install-gated ratings (server-enforced).
+- 🟡 `/telemetry/summary` endpoint and `getTelemetrySummary` wiring (base endpoint + client shipped; marketplace counter fields — now that server-side `downloads`/`installs`/`creations` exist in `marketplaceController.js` — still need to be surfaced through the `/telemetry/summary` response schema specifically).
 - ⬜ Mandatory pre-publish scrub confirmation UI.
 - ⬜ Mandatory pre-run capability confirmation UI for installed market skills.
 
@@ -359,24 +367,24 @@ Use these as concrete "pick up and code" slices in order:
 - 🟡 Tool-version compatibility resolver + downgrade messaging (backend + run gating shipped; UI integration and broader mapping coverage remain).
 - 🟡 Recorder sensitive-capture consent gate (`dataCapture.keyboard` + confirmation flow) (backend gate shipped; frontend consent UX polish remains).
 - 🟡 Cloud-vision consent and revoke flow (backend gating + revoke/toggle API + deny/grant/revoke tests shipped; frontend consent UX still pending).
-- 🟡 Per-skill `successCriteria` evaluation + outcome persistence (runtime + telemetry shipped; marketplace outcome integration remains).
+- 🟡 Per-skill `successCriteria` evaluation + outcome persistence (runtime + telemetry shipped; marketplace outcome integration remains — the marketplace rating record does persist `outcome` now, but nothing reads it back into ranking yet beyond the raw star average).
 
 #### P2 — after core loop is stable
 
-- ⬜ Trust-ranking tuning + low-trust dry-run-first policy hardening.
+- 🟡 Trust-ranking tuning + low-trust dry-run-first policy hardening (ranking formula + low-trust classifier shipped in `marketplaceRanking.js` with explicit config; further tuning against real usage data remains).
 - ⬜ LLM provider seam extraction + local adapter quality pass.
 - ⬜ Monetization gate at provider boundary with tier matrix.
 - ⬜ Consumer onboarding polish and starter templates.
 
 ### 10.3 Release-gate checklist for first marketplace public beta
 
-- ⬜ No publish path can bypass scrub + author confirmation.
-- ⬜ No run path can bypass permissions/security guardrails.
-- ⬜ Installed marketplace skills always show capability summary before first execution.
-- ⬜ Low-trust skills default to dry-run-first.
-- ⬜ Ratings endpoint rejects users with no install/run proof.
-- ⬜ Telemetry exposes downloads/installs/creations from server counters.
-- 🟡 All new routes have unit tests and error-path coverage (coverage expanded with `permissions.test`, `tools/skill.test`, and `vision-fusion.test`; index route-level tests still to add).
+- 🟡 No publish path can bypass scrub + author confirmation (server enforces slug/steps/category validation + author-scope rate limiting; it does NOT yet independently re-run the scrub pass server-side — see §4.5).
+- ⬜ No run path can bypass permissions/security guardrails. *(unchanged by this update — this is an addon execution-time property, not a marketplace-backend property)*
+- ⬜ Installed marketplace skills always show capability summary before first execution. *(backend returns `lowTrust` on install; the mandatory pre-run UI confirmation itself is still not built)*
+- 🟡 Low-trust skills default to dry-run-first (`classifyLowTrust()` + `lowTrust` flag now shipped and returned from `installMarketSkill`; the *client-side enforcement* of "actually dry-run first when `lowTrust: true`" is still open).
+- ✅ Ratings endpoint rejects users with no install/run proof (`canRate()` gate in `marketplaceController.rateMarketSkill`).
+- 🟡 Telemetry exposes downloads/installs/creations from server counters (the counters now exist and are atomic in `marketplaceController.js`; they are exposed via `GET /api/data/market/skills` search results, but NOT yet folded into the separate `/telemetry/summary` endpoint — see P0 above).
+- 🟡 All new routes have unit tests and error-path coverage (coverage expanded with `permissions.test`, `tools/skill.test`, `vision-fusion.test`, and now `marketplaceRanking.test`/`marketplaceController.test` (48 cases, offline); a `back.test.js`-style live-DynamoDB integration pass for the new routes still remains, matching the pre-existing gap for `workspaceController.js`).
 
 ---
 

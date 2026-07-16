@@ -109,6 +109,39 @@ const workspaceActionLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// CSimple marketplace read endpoints (search/browse/fetch). Per-user;
+// generous since browsing may involve several quick lookups.
+const marketReadLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120, // 2 req/sec average
+  keyGenerator: userKeyGenerator,
+  message: { error: 'Too many marketplace read requests. Slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// CSimple marketplace publish endpoint — tighter than generic writes since
+// each publish creates an immutable version record; author-scope spam
+// limits are additionally enforced inside marketplaceController itself.
+const marketPublishLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  keyGenerator: userKeyGenerator,
+  message: { error: 'Too many publish requests. Please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// CSimple marketplace install/rate/flag endpoints — per-user.
+const marketWriteLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  keyGenerator: userKeyGenerator,
+  message: { error: 'Too many marketplace requests. Please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 module.exports = {
   apiLimiter,
   authLimiter,
@@ -119,4 +152,7 @@ module.exports = {
   workspaceReadLimiter,
   workspaceWriteLimiter,
   workspaceActionLimiter,
+  marketReadLimiter,
+  marketPublishLimiter,
+  marketWriteLimiter,
 };
