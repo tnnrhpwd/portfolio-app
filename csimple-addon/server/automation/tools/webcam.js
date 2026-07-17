@@ -92,8 +92,8 @@ except ImportError as e:
 async function _describeFrame(base64Jpeg, query, llmClient) {
     if (!llmClient) {
         try {
-            const { GitHubModelsService } = require('../../github-models-service');
-            llmClient = new GitHubModelsService();
+            const { createLlmProvider } = require('../llm-provider');
+            llmClient = createLlmProvider();
             const cfgPath = path.join(os.homedir(), 'Documents', 'CSimple', 'Resources', 'settings.json');
             if (fs.existsSync(cfgPath)) {
                 const s = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));

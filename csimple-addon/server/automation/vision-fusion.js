@@ -68,8 +68,8 @@ const findVisualTarget = {
         // 2) Ask vision model for coords
         let coords = null;
         try {
-            const { GitHubModelsService } = require('../github-models-service');
-            const llm = new GitHubModelsService();
+            const { createLlmProvider } = require('./llm-provider');
+            const llm = createLlmProvider();
             // Reuse the token loading pattern from agent-loop
             const path = require('path'); const fs = require('fs'); const os = require('os');
             const cfgPath = path.join(os.homedir(), 'Documents', 'CSimple', 'Resources', 'settings.json');
