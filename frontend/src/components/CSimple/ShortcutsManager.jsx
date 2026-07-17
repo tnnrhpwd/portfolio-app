@@ -93,6 +93,17 @@ function formatDuration(ms) {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
+function asAddonConnectionErrorMessage(message) {
+  const m = String(message || '');
+  const lower = m.toLowerCase();
+  const isNetwork = lower.includes('failed to fetch')
+    || lower.includes('networkerror')
+    || lower.includes('load failed')
+    || lower.includes('network request failed');
+  if (!isNetwork) return m || 'Run failed';
+  return 'Lost connection to CSimple addon. Make sure the addon is running, then try again.';
+}
+
 /** Human-friendly summary of a compiled skill's step list. */
 function summarizeSteps(skill) {
   const steps = skill?.steps || [];
@@ -116,6 +127,7 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
   // which step failed, if any. Separate from the generic `status` flash so
   // unrelated actions (save/compile/delete) can't clobber it mid-run.
   const [runInfo, setRunInfo] = useState(null);
+  const [showRunDebug, setShowRunDebug] = useState(false);
 
   // Recorder state
   const [recorder, setRecorder] = useState({ active: false, eventCount: 0, startedAt: null });
@@ -369,6 +381,7 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
     if (!addonConnected) return;
     setError(null);
     const startedAt = Date.now();
+    setShowRunDebug(false);
     setRunInfo({ slug, phase: 'running', startedAt, elapsedMs: 0 });
     try {
       // Pass the inline skill so the addon can execute without needing to
@@ -397,13 +410,23 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
         stepsTotal: summary.stepsTotal ?? steps.length,
         stepsRun: summary.stepsRun ?? steps.length,
         failedStep: failedStep
-          ? { index: failedStep.index, tool: failedStep.tool, error: failedStep.error }
+          ? {
+            index: failedStep.index,
+            tool: failedStep.tool,
+            error: failedStep.error,
+            args: failedStep.args,
+            compatibility: failedStep.compatibility,
+            repairs: failedStep.repairs,
+            result: failedStep.result,
+          }
           : null,
+        rawSummary: summary,
       });
     } catch (e) {
       const elapsedMs = Date.now() - startedAt;
-      setRunInfo({ slug, phase: 'failed', startedAt, elapsedMs, error: e.message || 'Run failed' });
-      setError(e.message || 'Run failed');
+      const msg = asAddonConnectionErrorMessage(e?.message);
+      setRunInfo({ slug, phase: 'failed', startedAt, elapsedMs, error: msg });
+      setError(msg);
     }
   }, [addonConnected, macros]);
 
@@ -779,7 +802,16 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
               <>✓ "{runInfo.slug}" done in {formatDuration(runInfo.elapsedMs)} ({runInfo.stepsRun}/{runInfo.stepsTotal} steps)</>
             )}
             {runInfo.phase === 'failed' && runInfo.failedStep && (
-              <>✕ "{runInfo.slug}" failed at step {runInfo.failedStep.index + 1}/{runInfo.stepsTotal} ({runInfo.failedStep.tool}) after {formatDuration(runInfo.elapsedMs)}: {runInfo.failedStep.error}</>
+              <>
+                ✕ "{runInfo.slug}" failed at step {runInfo.failedStep.index + 1}/{runInfo.stepsTotal} ({runInfo.failedStep.tool}) after {formatDuration(runInfo.elapsedMs)}: {runInfo.failedStep.error}
+                <button
+                  type="button"
+                  className="short__run-debug-toggle"
+                  onClick={() => setShowRunDebug(v => !v)}
+                >
+                  {showRunDebug ? 'Hide debug details' : 'Show debug details'}
+                </button>
+              </>
             )}
             {runInfo.phase === 'failed' && !runInfo.failedStep && (
               <>✕ "{runInfo.slug}" failed after {formatDuration(runInfo.elapsedMs)}{runInfo.error ? `: ${runInfo.error}` : ''}</>
@@ -789,6 +821,14 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
             <span className="short__banner-dismiss" onClick={() => setRunInfo(null)}>✕</span>
           )}
         </div>
+      )}
+      {runInfo?.phase === 'failed' && runInfo.failedStep && showRunDebug && (
+        <pre className="short__run-debug" role="status">
+          {JSON.stringify({
+            slug: runInfo.slug,
+            failedStep: runInfo.failedStep,
+          }, null, 2)}
+        </pre>
       )}
 
       {/* Capture prompt */}

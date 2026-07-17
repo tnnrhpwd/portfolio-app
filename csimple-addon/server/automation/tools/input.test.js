@@ -49,6 +49,15 @@ test('extracts "left click" and "right-click" phrasing variants', () => {
     assert.deepStrictEqual(c.mouseButtons, ['left']);
 });
 
+test('extracts suffix and abbreviation variants', () => {
+    const a = splitMousePhrasesFromKeys(['left mouse button down'], []);
+    assert.deepStrictEqual(a.mouseButtons, ['left']);
+    const b = splitMousePhrasesFromKeys(['rmb'], []);
+    assert.deepStrictEqual(b.mouseButtons, ['right']);
+    const c = splitMousePhrasesFromKeys(['"middle click held"'], []);
+    assert.deepStrictEqual(c.mouseButtons, ['middle']);
+});
+
 test('case-insensitive', () => {
     const { mouseButtons } = splitMousePhrasesFromKeys(['Left Mouse Button'], []);
     assert.deepStrictEqual(mouseButtons, ['left']);

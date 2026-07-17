@@ -167,6 +167,30 @@
   vertical-align: -1px;
 }
 
+.short__run-debug-toggle {
+  margin-left: 10px;
+  padding: 2px 8px;
+  font-size: 11px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.short__run-debug {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, red 40%, var(--border));
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 11px;
+  line-height: 1.45;
+  overflow: auto;
+  max-height: 220px;
+}
+
 @keyframes short-run-spin {
   to { transform: rotate(360deg); }
 }

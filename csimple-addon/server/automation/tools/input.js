@@ -66,13 +66,18 @@ function resolveButton(name) {
 // a keyboard virtual-key, so it throws — the macro appears to instantly fail
 // doing nothing. Split those phrases out here too, right before resolution,
 // so input_hold/input_tap work regardless of which layer produced the args.
-const _MOUSE_PHRASE_RE = /^(left|right|middle)[\s_-]*(mouse)?[\s_-]*(button|click)$/i;
+const _MOUSE_PHRASE_RE = /^(?:((?:left|right|middle))(?:[\s_-]+(?:mouse(?:[\s_-]*(?:button|click))?|button|click))(?:[\s_-]+(?:down|up|hold|held|press|pressed))?|((?:lmb|rmb|mmb)))$/i;
 function splitMousePhrasesFromKeys(keys, existingButtons) {
     const buttons = new Set((existingButtons || []).map(b => String(b).toLowerCase()));
     const realKeys = [];
     for (const k of (keys || [])) {
-        const m = typeof k === 'string' ? _MOUSE_PHRASE_RE.exec(k.trim()) : null;
-        if (m) buttons.add(m[1].toLowerCase());
+        const raw = typeof k === 'string' ? k.trim().replace(/^["']|["']$/g, '') : '';
+        const m = raw ? _MOUSE_PHRASE_RE.exec(raw) : null;
+        if (m) {
+            const matched = (m[1] || m[2] || '').toLowerCase();
+            const btn = matched === 'lmb' ? 'left' : matched === 'rmb' ? 'right' : matched === 'mmb' ? 'middle' : matched;
+            if (btn) buttons.add(btn);
+        }
         else realKeys.push(k);
     }
     return { keys: realKeys, mouseButtons: Array.from(buttons) };

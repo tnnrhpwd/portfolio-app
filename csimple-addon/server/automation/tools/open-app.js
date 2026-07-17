@@ -18,6 +18,30 @@ const DEFAULT_WAIT_MS = 10_000;
 const MAX_WAIT_MS = 60_000;
 const POLL_INTERVAL_MS = 250;
 
+function buildLaunchHintCandidates(name) {
+    const raw = String(name || '').trim();
+    if (!raw) return [];
+    const out = [];
+    const seen = new Set();
+    const add = (v) => {
+        const s = String(v || '').trim();
+        if (!s || seen.has(s)) return;
+        seen.add(s);
+        out.push(s);
+    };
+    add(raw);
+    const leaf = raw.split(/[\\/]/).pop();
+    if (leaf && leaf !== raw) add(leaf);
+    const noExt = (leaf || raw).replace(/\.exe$/i, '');
+    const lowerNoExt = noExt.toLowerCase();
+    if (lowerNoExt === 'minecraft' || lowerNoExt === 'minecraftlauncher') {
+        add('Minecraft.exe');
+        add('MinecraftLauncher.exe');
+        add('minecraft://');
+    }
+    return out;
+}
+
 const NATIVE_PRELUDE = `
 $ErrorActionPreference = 'Stop'
 Add-Type @"
@@ -26,6 +50,7 @@ using System.Runtime.InteropServices;
 public static class Native {
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
 }
 "@
 `;
@@ -90,6 +115,8 @@ const openApp = {
         const name = args.name.replace(/"/g, '');
         const cmdArgs = String(args.args || '').replace(/"/g, '');
         const titleNeedle = String(args.windowTitleContains || '').replace(/"/g, '');
+        const launchHints = buildLaunchHintCandidates(name);
+        const launchHintsJson = JSON.stringify(launchHints).replace(/'/g, "''");
         const waitMs = Math.min(MAX_WAIT_MS, Math.max(0, args.waitMs ?? DEFAULT_WAIT_MS));
         const doFocus = args.focus !== false;
         // Best-effort base name for process-name matching when no explicit
@@ -98,30 +125,90 @@ const openApp = {
         const baseName = name.split(/[\\/]/).pop().replace(/\.[a-zA-Z0-9]+$/, '').replace(/"/g, '');
 
         const script = `${NATIVE_PRELUDE}
-$launched = $true
-$launchError = $null
+$hints = @()
 try {
-    if ("${cmdArgs}") {
-        Start-Process -FilePath "${name}" -ArgumentList "${cmdArgs}" | Out-Null
-    } else {
-        Start-Process -FilePath "${name}" | Out-Null
+    $hints = ConvertFrom-Json '${launchHintsJson}'
+} catch { $hints = @("${name}") }
+$launchCandidates = New-Object System.Collections.Generic.List[string]
+function Add-Candidate([string]$v) {
+    if ([string]::IsNullOrWhiteSpace($v)) { return }
+    if (-not $launchCandidates.Contains($v)) { [void]$launchCandidates.Add($v) }
+}
+foreach ($h in $hints) { Add-Candidate "$h" }
+$leaf = Split-Path "${name}" -Leaf
+$isBareName = -not ("${name}" -match '[\\\\/]')
+$windowsApps = if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA 'Microsoft\\WindowsApps' } else { $null }
+if ($isBareName -and $leaf) {
+    Add-Candidate $leaf
+    if ($windowsApps) { Add-Candidate (Join-Path $windowsApps $leaf) }
+    if ($leaf -notmatch '\\.exe$') {
+        Add-Candidate "$leaf.exe"
+        if ($windowsApps) { Add-Candidate (Join-Path $windowsApps "$leaf.exe") }
     }
-} catch {
-    $launched = $false
-    $launchError = $_.Exception.Message
+    $appPathNames = New-Object System.Collections.Generic.List[string]
+    [void]$appPathNames.Add($leaf)
+    if ($leaf -notmatch '\\.exe$') { [void]$appPathNames.Add("$leaf.exe") }
+    foreach ($root in @(
+        'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\App Paths',
+        'HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\App Paths'
+    )) {
+        foreach ($n in $appPathNames) {
+            $k = Join-Path $root $n
+            if (Test-Path $k) {
+                try {
+                    $p = (Get-ItemProperty -Path $k -ErrorAction Stop).'(default)'
+                    if ($p) { Add-Candidate $p }
+                } catch {}
+            }
+        }
+    }
+}
+$findWindow = {
+    $wins = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -ne '' }
+    $matches = $null
+    if ("${titleNeedle}") {
+        $matches = @($wins | Where-Object { $_.MainWindowTitle -like "*${titleNeedle}*" })
+        if ("${baseName}".ToLower() -eq 'minecraft' -and $matches.Count -gt 1) {
+            $nonLauncher = @($matches | Where-Object { $_.MainWindowTitle -notmatch 'Launcher' })
+            if ($nonLauncher.Count -gt 0) { $matches = $nonLauncher }
+        }
+    } else {
+        $matches = @($wins | Where-Object { $_.ProcessName -like "*${baseName}*" })
+    }
+    if ($matches.Count -eq 0) { return $null }
+    $fg = [Native]::GetForegroundWindow()
+    $fgMatch = $matches | Where-Object { $_.MainWindowHandle -eq $fg } | Select-Object -First 1
+    if ($fgMatch) { return $fgMatch }
+    return $matches | Sort-Object Id -Descending | Select-Object -First 1
 }
 
-$deadline = (Get-Date).AddMilliseconds(${waitMs})
-$found = $null
-while ((Get-Date) -lt $deadline) {
-    $candidates = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -ne '' }
-    if ("${titleNeedle}") {
-        $found = $candidates | Where-Object { $_.MainWindowTitle -like "*${titleNeedle}*" } | Select-Object -First 1
-    } else {
-        $found = $candidates | Where-Object { $_.ProcessName -like "*${baseName}*" } | Select-Object -First 1
+$found = & $findWindow
+$reusedExistingWindow = [bool]$found
+$launched = $false
+$launchError = $null
+$launchedAs = $null
+if (-not $found) {
+    foreach ($candidate in $launchCandidates) {
+        try {
+            if ("${cmdArgs}") {
+                Start-Process -FilePath $candidate -ArgumentList "${cmdArgs}" | Out-Null
+            } else {
+                Start-Process -FilePath $candidate | Out-Null
+            }
+            $launched = $true
+            $launchedAs = $candidate
+            break
+        } catch {
+            $launchError = $_.Exception.Message
+        }
     }
-    if ($found) { break }
-    Start-Sleep -Milliseconds ${POLL_INTERVAL_MS}
+
+    $deadline = (Get-Date).AddMilliseconds(${waitMs})
+    while ((Get-Date) -lt $deadline) {
+        $found = & $findWindow
+        if ($found) { break }
+        Start-Sleep -Milliseconds ${POLL_INTERVAL_MS}
+    }
 }
 
 if ($found -and ${doFocus ? '$true' : '$false'}) {
@@ -132,7 +219,10 @@ if ($found -and ${doFocus ? '$true' : '$false'}) {
 
 $out = @{
     launched = $launched
+    reusedExistingWindow = $reusedExistingWindow
+    launchedAs = $launchedAs
     launchError = $launchError
+    triedCandidates = @($launchCandidates)
     windowFound = [bool]$found
     pid = $(if ($found) { $found.Id } else { $null })
     title = $(if ($found) { $found.MainWindowTitle } else { $null })
@@ -143,8 +233,11 @@ $out | ConvertTo-Json -Compress
         const out = await runPsScript(script, { timeoutMs: waitMs + 10_000 });
         let parsed;
         try { parsed = JSON.parse(out); } catch { parsed = { raw: out }; }
-        if (parsed && parsed.launched === false) {
-            throw new Error(`failed to launch "${name}": ${parsed.launchError || 'unknown error'}`);
+        if (parsed && parsed.launched === false && parsed.reusedExistingWindow !== true) {
+            const tried = Array.isArray(parsed.triedCandidates) && parsed.triedCandidates.length
+                ? ` (tried: ${parsed.triedCandidates.join(', ')})`
+                : '';
+            throw new Error(`failed to launch "${name}": ${parsed.launchError || 'unknown error'}${tried}`);
         }
         try { ctx?.addAction?.({ tool: 'open_app', args, result: parsed }); } catch {}
         return parsed;
@@ -163,4 +256,4 @@ $out | ConvertTo-Json -Compress
     },
 };
 
-module.exports = { openApp };
+module.exports = { openApp, buildLaunchHintCandidates };

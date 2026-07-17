@@ -501,13 +501,18 @@ async function repairStep({ skill, step, resolvedArgs, error, ctx }) {
 // in tools/input.js rejects those as unknown keyboard keys, so the whole
 // step throws synchronously and the macro appears to "do nothing" instantly.
 // Split them out here so both old and new skill JSON work.
-const _MOUSE_PHRASE_RE = /^(left|right|middle)[\s_-]*(mouse)?[\s_-]*(button|click)$/i;
+const _MOUSE_PHRASE_RE = /^(?:((?:left|right|middle))(?:[\s_-]+(?:mouse(?:[\s_-]*(?:button|click))?|button|click))(?:[\s_-]+(?:down|up|hold|held|press|pressed))?|((?:lmb|rmb|mmb)))$/i;
 function _splitKeysAndButtons(keys, existingButtons) {
     const buttons = new Set((existingButtons || []).map(b => String(b).toLowerCase()));
     const realKeys = [];
     for (const k of (keys || [])) {
-        const m = _MOUSE_PHRASE_RE.exec(String(k).trim());
-        if (m) buttons.add(m[1].toLowerCase());
+        const raw = String(k).trim().replace(/^["']|["']$/g, '');
+        const m = _MOUSE_PHRASE_RE.exec(raw);
+        if (m) {
+            const matched = (m[1] || m[2] || '').toLowerCase();
+            const btn = matched === 'lmb' ? 'left' : matched === 'rmb' ? 'right' : matched === 'mmb' ? 'middle' : matched;
+            if (btn) buttons.add(btn);
+        }
         else realKeys.push(k);
     }
     return { keys: realKeys, mouseButtons: Array.from(buttons) };
@@ -575,6 +580,72 @@ function _normaliseStep(step) {
     }
 }
 
+function _resolveLoopVirtualKey(keyName) {
+    const name = String(keyName || 'Escape').trim();
+    const map = {
+        Escape: 27,
+        Space: 32,
+        Enter: 13,
+        Tab: 9,
+        Backspace: 8,
+        Delete: 46,
+        Insert: 45,
+        Home: 36,
+        End: 35,
+        PageUp: 33,
+        PageDown: 34,
+        Left: 37,
+        Up: 38,
+        Right: 39,
+        Down: 40,
+        F1: 112, F2: 113, F3: 114, F4: 115, F5: 116, F6: 117,
+        F7: 118, F8: 119, F9: 120, F10: 121, F11: 122, F12: 123,
+    };
+    if (map[name] !== undefined) return map[name];
+    if (name.length === 1) {
+        const c = name.toUpperCase().charCodeAt(0);
+        if (c >= 65 && c <= 90) return c;
+        if (c >= 48 && c <= 57) return c;
+    }
+    return 27;
+}
+
+function _coalesceLoopHoldSteps(body) {
+    const out = [];
+    for (let i = 0; i < (body || []).length; i++) {
+        const a = _normaliseStep(body[i]);
+        const b = i + 1 < (body || []).length ? _normaliseStep(body[i + 1]) : null;
+        if (
+            a && b &&
+            !a._controlFlow && !b._controlFlow &&
+            a.tool === 'input_hold' && b.tool === 'input_hold'
+        ) {
+            const da = Math.max(50, a.args?.durationMs || 500);
+            const db = Math.max(50, b.args?.durationMs || 500);
+            const sameDuration = da === db;
+            const sameFocus = String(a.args?.focusWindowTitle || '') === String(b.args?.focusWindowTitle || '');
+            const sameFgRule = !!a.args?.requireForeground === !!b.args?.requireForeground;
+            if (sameDuration && sameFocus && sameFgRule) {
+                const merged = {
+                    tool: 'input_hold',
+                    args: {
+                        durationMs: da,
+                        focusWindowTitle: a.args?.focusWindowTitle || b.args?.focusWindowTitle,
+                        requireForeground: !!a.args?.requireForeground,
+                        keys: Array.from(new Set([...(a.args?.keys || []), ...(b.args?.keys || [])])),
+                        mouseButtons: Array.from(new Set([...(a.args?.mouseButtons || []), ...(b.args?.mouseButtons || [])])),
+                    },
+                };
+                out.push(merged);
+                i++;
+                continue;
+            }
+        }
+        if (a) out.push(a);
+    }
+    return out;
+}
+
 /**
  * Execute a control-flow step (loop or screenshot check).
  */
@@ -640,18 +711,24 @@ async function _execControlFlow(cf, { params, stepDelay, continueOnError, repair
     }
 
     if (cf.type === 'loop_until_key') {
-        // On Windows, poll a PowerShell key-state check to detect the escape key.
-        // This is a best-effort implementation — accuracy depends on polling interval.
+        // On Windows, poll key state with GetAsyncKeyState(vk). This avoids
+        // console-dependent checks that are unreliable for background automation.
         const allResults = [];
         let iteration = 0;
+        let failed = false;
+        let stoppedByKey = false;
         const MAX_ITER = cf.maxIterations || 10000;
         const keyName = cf.key || 'Escape';
-        const PS_KEY_CODE = { Escape: 27, F1: 112, F2: 113, F3: 114, F4: 115, F5: 116, F12: 123, Space: 32 };
-        const vk = PS_KEY_CODE[keyName] || 27;
+        const vk = _resolveLoopVirtualKey(keyName);
         const checkKey = async () => {
             try {
                 const out = await registry.executeTool('shell_run', {
-                    command: `[System.Windows.Forms.Control]::IsKeyLocked([System.Windows.Forms.Keys]::None) -or ([System.Windows.Input.Keyboard]::IsKeyDown([System.Windows.Input.Key]::${keyName}) 2>$null) -or (([System.Console]::KeyAvailable) -and ([System.Console]::ReadKey($true).Key -eq [System.ConsoleKey]::Escape)) -or (Get-AsKeyState ${vk})`,
+                    command: `Add-Type @"
+using System.Runtime.InteropServices;
+public static class Native {
+    [DllImport("user32.dll")] public static extern short GetAsyncKeyState(int vKey);
+}
+"@; (([Native]::GetAsyncKeyState(${vk}) -band 0x8001) -ne 0)`,
                     shell: 'powershell',
                     silent: true,
                 }, ctx).catch(() => ({ ok: false }));
@@ -659,11 +736,13 @@ async function _execControlFlow(cf, { params, stepDelay, continueOnError, repair
             } catch { return false; }
         };
 
+        const coalescedBody = _coalesceLoopHoldSteps(cf.body || []);
         while (iteration < MAX_ITER) {
             const pressed = await checkKey();
-            if (pressed) break;
-            for (const bodyStep of (cf.body || [])) {
-                const n = _normaliseStep(bodyStep);
+            if (pressed) { stoppedByKey = true; break; }
+            for (const n of coalescedBody) {
+                const stepPressed = await checkKey();
+                if (stepPressed) { stoppedByKey = true; break; }
                 if (!n || n._controlFlow) continue;
                 let ra = {};
                 try { ra = substituteArgs(n.args || {}, params); } catch {}
@@ -672,14 +751,17 @@ async function _execControlFlow(cf, { params, stepDelay, continueOnError, repair
                     iteration,
                     tool: out.tool || n.tool,
                     ok: out.ok,
+                    error: out.error,
                     compatibility: out.compatibility,
                 });
+                if (!out.ok && !continueOnError) { failed = true; break; }
                 if (stepDelay > 0) await new Promise(r => setTimeout(r, stepDelay));
             }
+            if (failed || stoppedByKey) break;
             iteration++;
         }
 
-        return { tool: 'loop_until_key', key: keyName, ok: true, iterations: iteration, steps: allResults };
+        return { tool: 'loop_until_key', key: keyName, ok: !failed, iterations: iteration, stoppedByKey, steps: allResults };
     }
 
     return { tool: cf.type, ok: false, error: 'unhandled control-flow type' };

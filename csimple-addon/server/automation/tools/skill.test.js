@@ -366,6 +366,71 @@ asyncTest('run: screenshot_check proceeds when cloud vision consent exists', asy
     assert.strictEqual(out.steps[0].passed, true);
 });
 
+asyncTest('run: loop_until_key stops promptly when key poll reports pressed', async () => {
+    let pollCount = 0;
+    let bodyCount = 0;
+    let pollCommand = '';
+    fakeRegistry._handler = (name, args) => {
+        if (name === 'shell_run') {
+            pollCount++;
+            pollCommand = args.command || '';
+            return { ok: true, result: { stdout: pollCount > 1 ? 'True' : 'False' } };
+        }
+        if (name === 'input_tap') {
+            bodyCount++;
+            return { ok: true, result: 'ok' };
+        }
+        return { ok: true, result: 'ok' };
+    };
+    const s = makeSkill('loop-stop', [{
+        type: 'loop_until_key',
+        key: 'Escape',
+        body: [{ type: 'key_tap', keys: ['w'] }],
+    }]);
+    const out = await skillRun.run({ slug: 'loop-stop', cache: s, stepDelayMs: 0 }, {});
+    assert.strictEqual(out.failed, false);
+    assert.strictEqual(out.steps[0].tool, 'loop_until_key');
+    assert.strictEqual(out.steps[0].stoppedByKey, true);
+    assert.strictEqual(out.steps[0].iterations, 0);
+    assert.strictEqual(bodyCount, 0);
+    assert.ok(pollCommand.includes('GetAsyncKeyState'), 'key poll should use native async key-state API');
+    assert.ok(pollCommand.includes('0x8001'), 'key poll should detect quick key taps, not only sustained holds');
+});
+
+asyncTest('run: loop_until_key coalesces adjacent key_hold steps into one simultaneous hold', async () => {
+    const calls = [];
+    fakeRegistry._handler = (name, args) => {
+        if (name === 'shell_run') return { ok: true, result: { stdout: 'True' } }; // stop immediately after first loop check
+        calls.push({ name, args });
+        return { ok: true, result: 'ok' };
+    };
+    const s = makeSkill('loop-coalesce', [{
+        type: 'loop_until_key',
+        key: 'Escape',
+        body: [
+            { type: 'key_hold', keys: ['left mouse button'], duration_ms: 1000 },
+            { type: 'key_hold', keys: ['w'], duration_ms: 1000 },
+        ],
+    }]);
+    // Force one body pass before stopping.
+    let polls = 0;
+    fakeRegistry._handler = (name, args) => {
+        if (name === 'shell_run') {
+            polls++;
+            return { ok: true, result: { stdout: polls > 2 ? 'True' : 'False' } };
+        }
+        calls.push({ name, args });
+        return { ok: true, result: 'ok' };
+    };
+    const out = await skillRun.run({ slug: 'loop-coalesce', cache: s, stepDelayMs: 0 }, {});
+    assert.strictEqual(out.failed, false);
+    const holds = calls.filter(c => c.name === 'input_hold');
+    assert.strictEqual(holds.length, 1, 'adjacent holds should execute as one merged input_hold');
+    assert.deepStrictEqual(holds[0].args.keys, ['w']);
+    assert.deepStrictEqual(holds[0].args.mouseButtons, ['left']);
+    assert.strictEqual(holds[0].args.durationMs, 1000);
+});
+
 // ── successCriteria-triggered repair (§5.6) ─────────────────────────────────
 // All steps report ok, but the end-state check still fails — distinct from
 // the per-step repair loop above (which only fires on a tool-execution

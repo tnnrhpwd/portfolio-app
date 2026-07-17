@@ -283,6 +283,19 @@ function _parseErrorBody(text, status) {
   return text.length > 200 ? `Addon error (${status})` : text;
 }
 
+function _isAddonNetworkError(err) {
+  const msg = String(err?.message || '').toLowerCase();
+  return msg.includes('failed to fetch')
+    || msg.includes('networkerror')
+    || msg.includes('load failed')
+    || msg.includes('network request failed');
+}
+
+function _formatAddonUnavailableMessage(baseUrl) {
+  const where = baseUrl || 'the local addon endpoint';
+  return `Could not reach the CSimple addon at ${where}. It is likely not running or was restarted during the request.\n\nStart/relaunch "CSimple Addon" and try again.`;
+}
+
 async function addonFetch(path, options = {}) {
   if (!_addonStatus.isConnected || !_addonStatus.baseUrl) {
     throw new Error('CSimple addon is not connected');
@@ -304,6 +317,15 @@ async function addonFetch(path, options = {}) {
   try {
     return await doFetch();
   } catch (e) {
+    if (_isAddonNetworkError(e)) {
+      _addonStatus = {
+        ..._addonStatus,
+        isConnected: false,
+        lastCheck: Date.now(),
+      };
+      _notifyListeners(_addonStatus);
+      throw new Error(_formatAddonUnavailableMessage(_addonStatus.baseUrl));
+    }
     const msg = e.message || '';
     const isAutomationRoute = AUTOMATION_ROUTE_PREFIXES.some(p => path.startsWith(p));
     const isRouteNotFound = msg.startsWith('Cannot POST') || msg.startsWith('Cannot GET') || msg.startsWith('Cannot DELETE');
