@@ -71,6 +71,7 @@ const {
     sortSkills,
 } = require('../services/marketplaceRanking');
 const { scrubForPublish } = require('../services/marketplaceScrub');
+const { summarizeCapabilities } = require('../services/marketplaceCapabilities');
 
 const client = new DynamoDBClient({
     region: process.env.AWS_REGION,
@@ -218,6 +219,15 @@ const publishSkill = asyncHandler(async (req, res) => {
     // req.body — are what actually get persisted below.
     const { skill: scrubbedSkill, report: scrubReport } = scrubForPublish({ steps, params: params || [] });
 
+    // ── Server-side capability-mismatch re-enforcement (§4.5/§6.2) ──────
+    // Re-run the declared-vs-actual category check server-side too, so a
+    // client can't publish with an under-declared `declaredCategories`
+    // (e.g. claiming `safe-read` while `steps` actually invoke `shell_run`)
+    // undetected. This does not block publishing (no manual moderation
+    // queue, §4.3/§9) — it's surfaced back on the response as
+    // `capabilitySummary`, same "detect and disclose" pattern as `scrubReport`.
+    const capabilitySummary = summarizeCapabilities({ steps: scrubbedSkill.steps, declaredCategories });
+
     // ── Author-scope publish rate limit (§4.6) ──────────────────────────
     const limiterKey = authorLimiterId(req.user.id);
     const limiterItem = await getItem(limiterKey);
@@ -298,7 +308,7 @@ const publishSkill = asyncHandler(async (req, res) => {
     // include the original sensitive value (see marketplaceScrub.js), so
     // this doubles as the "what will be shared" pre-publish review data
     // (§6.1) even when the client's own scrub pass already caught everything.
-    res.status(200).json({ marketId, version, isNewSkill: !existingMeta, skill: metaToSummary(metaItem), scrubReport });
+    res.status(200).json({ marketId, version, isNewSkill: !existingMeta, skill: metaToSummary(metaItem), scrubReport, capabilitySummary });
 });
 
 // @desc    Search/browse published skills.
@@ -386,6 +396,7 @@ const installMarketSkill = asyncHandler(async (req, res) => {
     }));
 
     const summary = metaToSummary(updatedMeta || meta);
+    const capabilitySummary = summarizeCapabilities({ steps: versionItem.steps, declaredCategories: versionItem.declaredCategories });
     res.status(200).json({
         marketId,
         version,
@@ -395,6 +406,7 @@ const installMarketSkill = asyncHandler(async (req, res) => {
             toolSchemaVersion: versionItem.toolSchemaVersion,
         },
         lowTrust: summary.lowTrust,
+        capabilitySummary,
     });
 });
 

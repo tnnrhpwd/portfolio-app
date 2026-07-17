@@ -1,0 +1,39 @@
+{
+  "id": "19-skill-infer-params-perturbed-label-rename",
+  "name": "Parameter inference tolerates a renamed on-screen control label (§5.5 label-rename axis, offline, no LLM)",
+  "description": "Second perturbed-UI-axis regression scenario for §5.5's remaining checklist item (docs/new/csimple-agent-prompt.md §5.5: 'Add at least one perturbed-UI scenario per generalization axis — position shift, label rename, timing variance'). Exercises POST /api/skill/infer-params end-to-end with two demonstrations of the SAME task where a uia_invoke target's visible `name` (its on-screen label) changed between recordings — e.g. a button relabeled from 'Submit' to 'Submit Now' — while its structural `automationId` stayed identical. Asserts recorder/infer-params.js's designed behavior: a renamed label is treated as a semantically-varying value and IS promoted to ${param.name} (so a relabeled control doesn't hard-fail generalization), while the structurally-stable automationId that did NOT vary is correctly left untouched as a literal, and the typed text (also varying) is still promoted alongside it.",
+  "http": {
+    "method": "POST",
+    "path": "/api/skill/infer-params",
+    "body": {
+      "skills": [
+        {
+          "slug": "click-and-type",
+          "name": "click-and-type",
+          "steps": [
+            { "tool": "uia_invoke", "args": { "name": "Submit", "automationId": "btnSubmit", "controlType": "Button" } },
+            { "tool": "text_type", "args": { "text": "first entry" } }
+          ]
+        },
+        {
+          "slug": "click-and-type",
+          "name": "click-and-type",
+          "steps": [
+            { "tool": "uia_invoke", "args": { "name": "Submit Now", "automationId": "btnSubmit", "controlType": "Button" } },
+            { "tool": "text_type", "args": { "text": "second entry" } }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": {
+    "status": 200,
+    "report.applied": true,
+    "skill.steps.0.args.name": "${param.name}",
+    "skill.steps.0.args.automationId": "btnSubmit",
+    "skill.steps.0.args.controlType": "Button",
+    "skill.steps.1.args.text": "${param.text}",
+    "skill.params": { "minLength": 2 }
+  },
+  "tags": ["infer-params", "http", "offline", "perturbed-ui", "label-rename"]
+}

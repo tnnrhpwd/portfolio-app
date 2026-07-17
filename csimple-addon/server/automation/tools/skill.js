@@ -102,8 +102,11 @@ function _resolveLlm(ctx) {
     if (ctx && ctx.llm && typeof ctx.llm.chat === 'function') return ctx.llm;
     if (_sharedLlm) return _sharedLlm;
     try {
-        const { GitHubModelsService } = require('../../github-models-service');
-        const client = new GitHubModelsService();
+        // Routed through the §7.1 provider seam (llm-provider.js) instead of
+        // instantiating GitHubModelsService directly — same returned shape
+        // (`.setToken`/`.chat`), so the token-resolution logic below is unchanged.
+        const { createLlmProvider } = require('../llm-provider');
+        const client = createLlmProvider();
         try {
             const fs = require('fs');
             const os = require('os');
@@ -589,8 +592,8 @@ async function _execControlFlow(cf, { params, stepDelay, continueOnError, repair
             const screenOut = await registry.executeTool('screen_capture', { returnInline: true }, ctx);
             if (!screenOut?.ok) return { tool: 'screenshot_check', ok: true, skipped: 'screen capture failed', condition: cf.condition };
             // Use vision description to check condition
-            const { GitHubModelsService } = require('../../github-models-service');
-            const llm = _resolveLlm(ctx) || new GitHubModelsService();
+            const { createLlmProvider } = require('../llm-provider');
+            const llm = _resolveLlm(ctx) || createLlmProvider();
             const resp = await llm.chat({
                 model: 'openai/gpt-4o-mini',
                 messages: [{
@@ -731,6 +734,12 @@ const skillRun = {
                 type: 'integer',
                 description: 'Backoff delay (ms) between repair attempts. Default 200.',
             },
+            maxCriteriaRepairs: {
+                type: 'integer',
+                description: 'Max repair attempts triggered when all steps succeed but successCriteria still fails ' +
+                             '(§5.6). Default 1. Set to 0 to disable this repair path (per-step repair on tool ' +
+                             'errors, controlled by maxRepairs, is unaffected).',
+            },
             allowUnsupported: {
                 type: 'boolean',
                 description: 'If false (default), block run when any step resolves as unsupported on this addon version.',
@@ -755,6 +764,7 @@ const skillRun = {
         const repairEnabled = args.repair !== false;
         const maxRepairs = Math.max(0, args.maxRepairs ?? 1);
         const repairBackoffMs = Math.max(0, args.repairBackoffMs ?? 200);
+        const maxCriteriaRepairs = Math.max(0, args.maxCriteriaRepairs ?? 1);
         const allowUnsupported = !!args.allowUnsupported;
         const results = [];
         let failed = false;
@@ -938,10 +948,106 @@ const skillRun = {
             compatibility,
             steps: results,
         };
-        const outcome = await _evaluateSuccessCriteria(skill, summary, ctx);
+        const allStepsOk = !failed;
+        let outcome = await _evaluateSuccessCriteria(skill, summary, ctx);
         summary.outcome = outcome;
         if (outcome.status === 'failed') {
             summary.failed = true;
+        }
+
+        // ── successCriteria-triggered repair (§5.6) ──────────────────────
+        // Every step reported ok, but the end-state check still failed —
+        // e.g. a click landed on the wrong control, or the UI moved after
+        // the last action. Distinct from the per-step repair loop above
+        // (which only fires on a hard tool-execution error): here we retry
+        // the LAST executed step via the same LLM repair fallback, telling
+        // it *why* (the failed criteria), then re-check the criteria. Only
+        // engages when the retry budget remains and no step already failed
+        // (a step failure already got its own repair attempts above).
+        let criteriaRepairsAttempted = 0;
+        if (allStepsOk && outcome.status === 'failed' && repairEnabled && maxCriteriaRepairs > 0 && results.length > 0) {
+            while (criteriaRepairsAttempted < maxCriteriaRepairs && outcome.status === 'failed') {
+                const lastResult = [...results].reverse().find(r => r && r.tool !== '_marker' && r.ok);
+                if (!lastResult) break;
+
+                criteriaRepairsAttempted++;
+                const criteriaError = `successCriteria failed: ${outcome.reasonCode} — ${outcome.detail}`;
+                events.publish('skill.repair.attempt', {
+                    strategy: 'criteria-retry',
+                    tool: lastResult.tool,
+                    attempt: criteriaRepairsAttempted,
+                    error: criteriaError.slice(0, 200),
+                });
+
+                let decision = null;
+                try {
+                    decision = await repairStep({
+                        skill,
+                        step: { tool: lastResult.tool, args: lastResult.args },
+                        resolvedArgs: lastResult.args,
+                        error: criteriaError,
+                        ctx,
+                    });
+                } catch { decision = null; }
+
+                if (!decision || decision.action !== 'retry') {
+                    events.publish('skill.repair.failed', {
+                        strategy: 'criteria-retry',
+                        tool: lastResult.tool,
+                        attempt: criteriaRepairsAttempted,
+                        reason: String(decision?.reason || 'model declined or produced no repair'),
+                    });
+                    lastResult.repairs = lastResult.repairs || [];
+                    lastResult.repairs.push({
+                        attempt: criteriaRepairsAttempted,
+                        strategy: 'criteria-retry',
+                        action: decision?.action || 'none',
+                        reason: decision?.reason,
+                        provenance: { originalTool: lastResult.tool, originalArgs: lastResult.args, originalError: criteriaError },
+                    });
+                    break;
+                }
+
+                repairsTotal++;
+                const retried = await _execToolStep(lastResult.tool, decision.args, ctx);
+                lastResult.repairs = lastResult.repairs || [];
+                lastResult.repairs.push({
+                    attempt: criteriaRepairsAttempted,
+                    strategy: 'criteria-retry',
+                    action: 'retry',
+                    args: decision.args,
+                    ok: retried.ok,
+                    error: retried.error,
+                    provenance: { originalTool: lastResult.tool, originalArgs: lastResult.args, originalError: criteriaError },
+                });
+
+                if (retried.ok) {
+                    events.publish('skill.repair.success', { strategy: 'criteria-retry', tool: lastResult.tool, attempt: criteriaRepairsAttempted });
+                    lastResult.args = decision.args;
+                    lastResult.result = retried.result;
+                    lastResult.ok = true;
+                    lastResult.error = undefined;
+                    summary.failed = false; // re-open the criteria check instead of short-circuiting to STEP_FAILED
+                    outcome = await _evaluateSuccessCriteria(skill, summary, ctx);
+                    summary.outcome = outcome;
+                    if (outcome.status === 'failed') summary.failed = true;
+                } else {
+                    events.publish('skill.repair.failed', {
+                        strategy: 'criteria-retry',
+                        tool: lastResult.tool,
+                        attempt: criteriaRepairsAttempted,
+                        reason: String(retried.error || 'retry failed'),
+                    });
+                    lastResult.ok = false;
+                    lastResult.error = retried.error;
+                    summary.failed = true;
+                    outcome = await _evaluateSuccessCriteria(skill, summary, ctx);
+                    summary.outcome = outcome;
+                    break;
+                }
+            }
+            summary.repairsTotal = repairsTotal;
+            summary.criteriaRepairsAttempted = criteriaRepairsAttempted;
         }
         try {
             ctx?.addAction?.({

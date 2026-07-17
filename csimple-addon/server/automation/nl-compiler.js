@@ -251,8 +251,11 @@ function _buildPrompt(description, context) {
 async function _callLlm(prompt, llmClient, inlineToken, systemPrompt) {
     if (!llmClient) {
         try {
-            const { GitHubModelsService } = require('../github-models-service');
-            llmClient = new GitHubModelsService();
+            // Routed through the §7.1 provider seam (llm-provider.js) instead of
+            // instantiating GitHubModelsService directly — same returned shape
+            // (`.setToken`/`.chat`), so the token-resolution logic below is unchanged.
+            const { createLlmProvider } = require('./llm-provider');
+            llmClient = createLlmProvider();
 
             // Priority 1: Inline token passed directly from the frontend (most reliable —
             // bypasses DPAPI decryption issues between installed and dev builds).

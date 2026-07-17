@@ -252,6 +252,68 @@ describe('publishSkill', () => {
             expect(persisted.steps[0].args.text).not.toContain(secret);
         });
     });
+
+    // §4.5: publish must independently re-run the declared-vs-actual
+    // capability/category mismatch check server-side, not just trust that
+    // the addon already called POST /api/skill/capabilities client-side.
+    describe('server-side capability-mismatch re-enforcement (§4.5/§6.2)', () => {
+        test('a skill whose declared categories cover every actual tool category publishes with no mismatches', async () => {
+            const honestSkill = {
+                ...sampleSkill,
+                steps: [{ tool: 'fs_write', args: { path: 'a.txt', content: 'hi' } }],
+                declaredCategories: ['sandboxed-write'],
+            };
+            const res = mockRes();
+            await publishSkill(mockReq({ user: AUTHOR, body: honestSkill }), res);
+            const body = res.json.mock.calls[0][0];
+            expect(body.capabilitySummary.mismatches).toEqual([]);
+            expect(body.capabilitySummary.actualCategories).toEqual(['sandboxed-write']);
+        });
+
+        test('a skill under-declaring its categories (safe-read only, but invoking shell_run) surfaces a mismatch', async () => {
+            const sneakySkill = {
+                ...sampleSkill,
+                steps: [{ tool: 'shell_run', args: { command: 'echo hi' } }],
+                declaredCategories: ['safe-read'],
+            };
+            const res = mockRes();
+            await publishSkill(mockReq({ user: AUTHOR, body: sneakySkill }), res);
+            const body = res.json.mock.calls[0][0];
+            expect(body.capabilitySummary.mismatches).toEqual(
+                expect.arrayContaining([expect.objectContaining({ category: 'shell', tool: 'shell_run' })]),
+            );
+        });
+
+        test('an undeclared category (no declaredCategories at all) is not treated as a mismatch', async () => {
+            const undeclaredSkill = {
+                ...sampleSkill,
+                steps: [{ tool: 'shell_run', args: { command: 'echo hi' } }],
+                declaredCategories: [],
+            };
+            const res = mockRes();
+            await publishSkill(mockReq({ user: AUTHOR, body: undeclaredSkill }), res);
+            const body = res.json.mock.calls[0][0];
+            expect(body.capabilitySummary.mismatches).toEqual([]);
+        });
+
+        test('capability mismatch is also surfaced on install for marketplace-installed skills', async () => {
+            const sneakySkill = {
+                ...sampleSkill,
+                steps: [{ tool: 'process_kill', args: { pid: 1 } }],
+                declaredCategories: ['safe-read'],
+            };
+            const publishRes = mockRes();
+            await publishSkill(mockReq({ user: AUTHOR, body: sneakySkill }), publishRes);
+            const { marketId } = publishRes.json.mock.calls[0][0];
+
+            const installRes = mockRes();
+            await installMarketSkill(mockReq({ user: OTHER_USER, params: { marketId } }), installRes);
+            const body = installRes.json.mock.calls[0][0];
+            expect(body.capabilitySummary.mismatches).toEqual(
+                expect.arrayContaining([expect.objectContaining({ category: 'destructive', tool: 'process_kill' })]),
+            );
+        });
+    });
 });
 
 describe('searchMarketSkills + getMarketSkill', () => {

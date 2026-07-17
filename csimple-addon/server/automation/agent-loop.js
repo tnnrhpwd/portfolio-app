@@ -181,10 +181,13 @@ function createAgentLoop({ wsClient, registry, contextFactory, log = console.log
 
     function _lazyLoadLlm() {
         if (llmClient) return llmClient;
-        // Lazy require to avoid circular deps at server boot.
+        // Lazy require to avoid circular deps at server boot. Routed through the
+        // §7.1 provider seam (llm-provider.js) instead of instantiating
+        // GitHubModelsService directly — same returned shape, so nothing below
+        // this line changes.
         try {
-            const { GitHubModelsService } = require('../github-models-service');
-            llmClient = new GitHubModelsService();
+            const { createLlmProvider } = require('./llm-provider');
+            llmClient = createLlmProvider();
             // Token: pull from webapp settings (same pattern the chat endpoint uses).
             try {
                 const fs = require('fs');

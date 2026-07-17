@@ -366,6 +366,64 @@ asyncTest('run: screenshot_check proceeds when cloud vision consent exists', asy
     assert.strictEqual(out.steps[0].passed, true);
 });
 
+// ── successCriteria-triggered repair (§5.6) ─────────────────────────────────
+// All steps report ok, but the end-state check still fails — distinct from
+// the per-step repair loop above (which only fires on a tool-execution
+// error). skill_run should retry the LAST step via the same repair
+// fallback, telling it *why* (the failed criteria), then re-check.
+asyncTest('run: successCriteria failure with all steps ok triggers a criteria-retry repair that then passes', async () => {
+    let clipboardText = 'wrong';
+    fakeRegistry._handler = (name, args) => {
+        if (name === 'a') { clipboardText = args.text; return { ok: true, result: 'ok' }; }
+        if (name === 'clipboard_read') return { ok: true, result: { text: clipboardText } };
+        if (name === 'uia_snapshot') return { ok: true, result: {} };
+        return { ok: true, result: 'ok' };
+    };
+    const ctx = { llm: stubLlm('{"action":"retry","args":{"text":"order #42"}}') };
+    const s = makeSkill('criteria-repair-pass', [{ tool: 'a', args: { text: 'wrong' } }]);
+    s.successCriteria = { type: 'clipboard_contains', text: 'order #42' };
+    const out = await skillRun.run({ slug: 'criteria-repair-pass', cache: s, stepDelayMs: 0 }, ctx);
+    assert.strictEqual(out.failed, false, 'criteria repair should flip the run back to success');
+    assert.strictEqual(out.outcome.status, 'passed');
+    assert.strictEqual(out.criteriaRepairsAttempted, 1);
+    assert.strictEqual(out.repairsTotal, 1);
+    assert.deepStrictEqual(out.steps[0].args, { text: 'order #42' });
+    assert.strictEqual(out.steps[0].repairs[0].strategy, 'criteria-retry');
+    assert.strictEqual(out.steps[0].repairs[0].ok, true);
+});
+
+asyncTest('run: successCriteria failure repair declines → run stays failed', async () => {
+    fakeRegistry._handler = (name) => {
+        if (name === 'clipboard_read') return { ok: true, result: { text: 'nope' } };
+        if (name === 'uia_snapshot') return { ok: true, result: {} };
+        return { ok: true, result: 'ok' };
+    };
+    const ctx = { llm: stubLlm('{"action":"abort","reason":"cannot fix"}') };
+    const s = makeSkill('criteria-repair-abort', [{ tool: 'a', args: {} }]);
+    s.successCriteria = { type: 'clipboard_contains', text: 'order #42' };
+    const out = await skillRun.run({ slug: 'criteria-repair-abort', cache: s, stepDelayMs: 0 }, ctx);
+    assert.strictEqual(out.failed, true);
+    assert.strictEqual(out.outcome.status, 'failed');
+    assert.strictEqual(out.criteriaRepairsAttempted, 1);
+    assert.strictEqual(out.repairsTotal, 0, 'a declined repair does not count as a retry');
+    assert.strictEqual(out.steps[0].repairs[0].action, 'abort');
+    assert.strictEqual(out.steps[0].repairs[0].strategy, 'criteria-retry');
+});
+
+asyncTest('run: maxCriteriaRepairs=0 disables criteria-triggered repair entirely', async () => {
+    const llm = stubLlm('{"action":"retry","args":{"text":"order #42"}}');
+    fakeRegistry._handler = (name) => {
+        if (name === 'clipboard_read') return { ok: true, result: { text: 'nope' } };
+        return { ok: true, result: 'ok' };
+    };
+    const s = makeSkill('criteria-repair-disabled', [{ tool: 'a', args: {} }]);
+    s.successCriteria = { type: 'clipboard_contains', text: 'order #42' };
+    const out = await skillRun.run({ slug: 'criteria-repair-disabled', cache: s, maxCriteriaRepairs: 0, stepDelayMs: 0 }, { llm });
+    assert.strictEqual(out.failed, true);
+    assert.strictEqual(out.criteriaRepairsAttempted, undefined);
+    assert.strictEqual(llm.calls.length, 0, 'LLM must not be consulted when maxCriteriaRepairs=0');
+});
+
 // ── Summary ─────────────────────────────────────────────────────────────────
 (async () => {
     for (const t of queue) await t();

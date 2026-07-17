@@ -101,6 +101,24 @@ for routes that aren't simple tool-registry calls — e.g. `/api/skill/*`,
   `/api/skill/compile-natural`) should be gated behind `require.env` (see
   `12-nl-compile.json`'s `EVAL_ALLOW_LLM` gate) so they're skipped by default
   in CI and only run when a real GitHub Models token is available.
+- Scenarios 18-20 are the three **perturbed-UI axis** regression scenarios
+  called for in `docs/new/csimple-agent-prompt.md` §5.5 — all three named
+  axes now have offline (`http`-mode, no-LLM) coverage against
+  `POST /api/skill/infer-params`:
+  - `18-skill-infer-params-perturbed-position.json` — **position shift**:
+    two demos with different click coordinates (simulating a moved window)
+    assert pixel `x`/`y` stay un-promoted while varying typed text IS
+    parameterized.
+  - `19-skill-infer-params-perturbed-label-rename.json` — **label rename**:
+    two demos where a `uia_invoke` target's `name` (on-screen label) changed
+    but its `automationId` didn't; asserts the renamed label IS promoted to
+    a param (relabeling doesn't hard-fail inference) while the stable
+    `automationId` stays a literal.
+  - `20-skill-infer-params-perturbed-timing.json` — **timing variance**:
+    two demos where a `wait` step's `ms` duration differs by 4x; asserts
+    the timing field stays un-promoted (never baked in as a required param)
+    while constant click coordinates and varying typed text behave as
+    expected.
 
 ## Adding a scenario
 

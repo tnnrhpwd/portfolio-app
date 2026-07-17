@@ -1,0 +1,41 @@
+{
+  "id": "20-skill-infer-params-perturbed-timing",
+  "name": "Parameter inference tolerates variable inter-step timing (§5.5 timing-variance axis, offline, no LLM)",
+  "description": "Third perturbed-UI-axis regression scenario for §5.5's remaining checklist item (docs/new/csimple-agent-prompt.md §5.5: 'Add at least one perturbed-UI scenario per generalization axis — position shift, label rename, timing variance'), closing out all three named axes. Exercises POST /api/skill/infer-params end-to-end with two demonstrations of the SAME task where a `wait` step's `ms` duration differs sharply between recordings (500ms vs 2000ms — e.g. the target app loaded slower the second time) while the click coordinates stay identical and the typed text varies. Asserts recorder/infer-params.js's designed behavior: timing fields are positional/non-semantic and are NEVER promoted to a ${param.x} placeholder even though they vary by 4x (so replay doesn't bake in one demo's arbitrary wait duration as a required parameter), while the semantically-varying typed text IS still correctly promoted to ${param.text} and the constant click coordinates stay literal numbers.",
+  "http": {
+    "method": "POST",
+    "path": "/api/skill/infer-params",
+    "body": {
+      "skills": [
+        {
+          "slug": "click-wait-type",
+          "name": "click-wait-type",
+          "steps": [
+            { "tool": "click_at", "args": { "x": 100, "y": 200 } },
+            { "tool": "wait", "args": { "ms": 500 } },
+            { "tool": "text_type", "args": { "text": "first entry" } }
+          ]
+        },
+        {
+          "slug": "click-wait-type",
+          "name": "click-wait-type",
+          "steps": [
+            { "tool": "click_at", "args": { "x": 100, "y": 200 } },
+            { "tool": "wait", "args": { "ms": 2000 } },
+            { "tool": "text_type", "args": { "text": "second entry" } }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": {
+    "status": 200,
+    "report.applied": true,
+    "skill.steps.0.args.x": 100,
+    "skill.steps.0.args.y": 200,
+    "skill.steps.1.args.ms": { "type": "number" },
+    "skill.steps.2.args.text": "${param.text}",
+    "skill.params": { "minLength": 1 }
+  },
+  "tags": ["infer-params", "http", "offline", "perturbed-ui", "timing-variance"]
+}
