@@ -20,6 +20,13 @@ const RANKING_WEIGHTS = {
     recencyFloor: 0.1,
     // Each additional flag divides the score by (1 + flagCount * flagWeight).
     flagWeight: 1,
+    // §5.6: each additional point of failed-outcome RATE (0-1, not raw
+    // count) divides the score by (1 + failureOutcomeRate * outcomeFailWeight).
+    // A skill with a perfect 5-star average but where every rater's
+    // `successCriteria` outcome recorded "failed" should still rank below
+    // an equally-starred skill whose runs actually succeeded — stars alone
+    // can't detect "it looked done but the assertion failed."
+    outcomeFailWeight: 3,
 };
 
 // ─── Explicit low-trust classification thresholds (§4.3 cold-start) ───────
@@ -55,16 +62,23 @@ function computeTrustScore({
     authorReputation = 0,
     ageDays = 0,
     flagCount = 0,
+    // §5.6: fraction (0-1) of ratings whose run outcome was recorded as
+    // "failed" (from the skill's successCriteria evaluation at run time,
+    // see tools/skill.js `outcome`) — NOT the star rating. Defaults to 0
+    // (no evidence of failure) so existing callers that don't pass this
+    // yet see no behavior change.
+    outcomeFailRate = 0,
 } = {}) {
     const ratingComponent = ratingCount > 0 ? avgRating : 0;
     const volumeComponent = 1 + Math.log2(1 + Math.max(0, downloads));
-    const { reputationMin, reputationMax, recencyWindowDays, recencyFloor, flagWeight } = RANKING_WEIGHTS;
+    const { reputationMin, reputationMax, recencyWindowDays, recencyFloor, flagWeight, outcomeFailWeight } = RANKING_WEIGHTS;
     const reputationComponent = reputationMin +
         (reputationMax - reputationMin) * (Math.max(0, Math.min(authorReputation, 100)) / 100);
     const recencyComponent = Math.max(recencyFloor, 1 - Math.max(0, ageDays) / recencyWindowDays);
     const flagPenalty = 1 / (1 + Math.max(0, flagCount) * flagWeight);
+    const outcomeFailPenalty = 1 / (1 + Math.max(0, Math.min(1, outcomeFailRate)) * outcomeFailWeight);
 
-    return ratingComponent * volumeComponent * reputationComponent * recencyComponent * flagPenalty;
+    return ratingComponent * volumeComponent * reputationComponent * recencyComponent * flagPenalty * outcomeFailPenalty;
 }
 
 /**

@@ -34,6 +34,12 @@ const {
     ScanCommand,
     UpdateCommand,
 } = require('@aws-sdk/lib-dynamodb');
+// §10.2 P0: fold marketplace downloads/installs/creations counters into
+// /telemetry/summary. Lazily required (not at module scope) so a circular
+// require between the two controllers can never occur, and so unit tests
+// for this file that don't touch the marketplace path don't need to mock
+// marketplaceController.js's DynamoDB client at all.
+function getMarketplaceController() { return require('./marketplaceController'); }
 
 const client = new DynamoDBClient({
     region: process.env.AWS_REGION,
@@ -684,12 +690,26 @@ const getTelemetrySummary = asyncHandler(async (req, res) => {
         recentErrors: a.errors,
     })).sort((x, y) => y.count - x.count);
 
+    // §10.2 P0: surface this author's marketplace downloads/installs/
+    // creations alongside per-tool action telemetry, so the web UI has one
+    // endpoint for "what your agent has been doing" instead of two. Best
+    // effort: a marketplace lookup failure must never break the (already
+    // computed) action telemetry response.
+    let marketplace = null;
+    try {
+        const { getAuthorMarketplaceTotals } = getMarketplaceController();
+        marketplace = await getAuthorMarketplaceTotals(req.user.id);
+    } catch {
+        marketplace = null;
+    }
+
     res.status(200).json({
         windowDays: days,
         toolFilter: toolFilter || null,
         totalRecords,
         parseErrors,
         tools,
+        marketplace,
     });
 });
 

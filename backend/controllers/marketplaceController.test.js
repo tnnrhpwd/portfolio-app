@@ -125,6 +125,7 @@ const {
     installMarketSkill,
     rateMarketSkill,
     flagMarketSkill,
+    getAuthorMarketplaceTotals,
 } = require('./marketplaceController');
 
 // Read AFTER requiring the controller above, since that's what triggers the
@@ -200,6 +201,57 @@ describe('publishSkill', () => {
         await expect(publishSkill(mockReq({ user: AUTHOR, body: { ...sampleSkill, steps: [] } }), res)).rejects.toThrow();
         expect(res.status).toHaveBeenCalledWith(400);
     });
+
+    // §4.5: publish must independently re-scrub server-side, not just trust
+    // that the addon already called POST /api/skill/scrub client-side.
+    describe('server-side scrub re-enforcement (§4.5/§6.1)', () => {
+        test('a clean skill publishes with an empty scrubReport', async () => {
+            const res = mockRes();
+            await publishSkill(mockReq({ user: AUTHOR, body: sampleSkill }), res);
+            const body = res.json.mock.calls[0][0];
+            expect(body.scrubReport.clean).toBe(true);
+            expect(body.scrubReport.findingCount).toBe(0);
+        });
+
+        test('an unscrubbed absolute path in steps is scrubbed before persisting, even if the client never called /api/skill/scrub', async () => {
+            const dirtySkill = {
+                ...sampleSkill,
+                steps: [{ tool: 'shell_run', args: { command: 'dir C:\\Users\\tanne\\Documents\\Secrets' } }],
+            };
+            const publishRes = mockRes();
+            await publishSkill(mockReq({ user: AUTHOR, body: dirtySkill }), publishRes);
+            const body = publishRes.json.mock.calls[0][0];
+            expect(body.scrubReport.clean).toBe(false);
+            expect(body.scrubReport.findings.some(f => f.kind === 'path')).toBe(true);
+            // The report itself must never leak the raw path.
+            expect(JSON.stringify(body.scrubReport)).not.toContain('tanne');
+
+            // What actually got persisted (and is served back by getMarketSkill)
+            // must be the scrubbed version, not the raw client-supplied steps.
+            const { marketId } = body;
+            const getRes = mockRes();
+            await getMarketSkill(mockReq({ user: AUTHOR, params: { marketId } }), getRes);
+            const persisted = getRes.json.mock.calls[0][0];
+            expect(persisted.steps[0].args.command).toBe('dir ${param.userProfile}');
+            expect(JSON.stringify(persisted)).not.toContain('tanne');
+        });
+
+        test('a secret-shaped string in steps is redacted before persisting', async () => {
+            const secret = 'ghp_' + 'a'.repeat(36);
+            const dirtySkill = {
+                ...sampleSkill,
+                steps: [{ tool: 'text_type', args: { text: `token=${secret}` } }],
+            };
+            const publishRes = mockRes();
+            await publishSkill(mockReq({ user: AUTHOR, body: dirtySkill }), publishRes);
+            const { marketId } = publishRes.json.mock.calls[0][0];
+
+            const getRes = mockRes();
+            await getMarketSkill(mockReq({ user: AUTHOR, params: { marketId } }), getRes);
+            const persisted = getRes.json.mock.calls[0][0];
+            expect(persisted.steps[0].args.text).not.toContain(secret);
+        });
+    });
 });
 
 describe('searchMarketSkills + getMarketSkill', () => {
@@ -230,6 +282,76 @@ describe('searchMarketSkills + getMarketSkill', () => {
         const res = mockRes();
         await expect(getMarketSkill(mockReq({ user: AUTHOR, params: { marketId: 'nope' } }), res)).rejects.toThrow();
         expect(res.status).toHaveBeenCalledWith(404);
+    });
+
+    // §4.6 backlog: "Add backend contract tests for pagination, sort
+    // stability, and install/rate constraints" — pagination + stable-sort
+    // coverage below (install/rate constraints already covered above).
+    describe('pagination + sort stability', () => {
+        async function publishN(n) {
+            const marketIds = [];
+            for (let i = 0; i < n; i++) {
+                const res = mockRes();
+                // Distinct trust-score inputs aren't needed here — all skills
+                // start with zero ratings/downloads, so trust/recency alone
+                // won't distinguish them, which is exactly the scenario the
+                // deterministic `byId` tie-breaker in sortSkills() exists for.
+                await publishSkill(mockReq({ user: AUTHOR, body: { ...sampleSkill, slug: `skill-${i}`, name: `Skill ${i}` } }), res);
+                marketIds.push(res.json.mock.calls[0][0].marketId);
+            }
+            return marketIds;
+        }
+
+        test('total reflects the full result set even when perPage truncates the page', async () => {
+            await publishN(3);
+            const res = mockRes();
+            await searchMarketSkills(mockReq({ user: AUTHOR, query: { perPage: '2', page: '1' } }), res);
+            const body = res.json.mock.calls[0][0];
+            expect(body.total).toBe(3);
+            expect(body.skills).toHaveLength(2);
+            expect(body.page).toBe(1);
+            expect(body.perPage).toBe(2);
+        });
+
+        test('later pages return the remaining items with no overlap/duplication', async () => {
+            await publishN(3);
+            const page1Res = mockRes();
+            await searchMarketSkills(mockReq({ user: AUTHOR, query: { perPage: '2', page: '1' } }), page1Res);
+            const page2Res = mockRes();
+            await searchMarketSkills(mockReq({ user: AUTHOR, query: { perPage: '2', page: '2' } }), page2Res);
+
+            const page1Ids = page1Res.json.mock.calls[0][0].skills.map(s => s.marketId);
+            const page2Ids = page2Res.json.mock.calls[0][0].skills.map(s => s.marketId);
+            expect(page1Ids).toHaveLength(2);
+            expect(page2Ids).toHaveLength(1);
+            expect(new Set([...page1Ids, ...page2Ids]).size).toBe(3);
+        });
+
+        test('an out-of-range page returns an empty page without erroring', async () => {
+            await publishN(2);
+            const res = mockRes();
+            await searchMarketSkills(mockReq({ user: AUTHOR, query: { perPage: '2', page: '5' } }), res);
+            const body = res.json.mock.calls[0][0];
+            expect(body.total).toBe(2);
+            expect(body.skills).toHaveLength(0);
+        });
+
+        test('sort order for tied trust/recency/downloads is deterministic across repeated calls', async () => {
+            await publishN(4);
+            const res1 = mockRes();
+            await searchMarketSkills(mockReq({ user: AUTHOR, query: {} }), res1);
+            const res2 = mockRes();
+            await searchMarketSkills(mockReq({ user: AUTHOR, query: {} }), res2);
+
+            const order1 = res1.json.mock.calls[0][0].skills.map(s => s.marketId);
+            const order2 = res2.json.mock.calls[0][0].skills.map(s => s.marketId);
+            // Recency is the first tie-breaker ahead of the deterministic
+            // marketId tie-break (see sortSkills), so what matters here is
+            // that repeated calls against unchanged data return the exact
+            // same order — not any particular id ordering.
+            expect(order1).toEqual(order2);
+            expect(new Set(order1).size).toBe(4);
+        });
     });
 });
 
@@ -294,6 +416,80 @@ describe('install → rate gate', () => {
         }), res)).rejects.toThrow();
         expect(res.status).toHaveBeenCalledWith(400);
     });
+
+    // §5.6: outcome persisted per-rating now also aggregates into
+    // meta.outcomeFailCount, feeding computeTrustScore's outcomeFailRate.
+    describe('outcome aggregation (§5.6)', () => {
+        test('a "failed" outcome increments outcomeFailRate, returned from rateMarketSkill', async () => {
+            const publishRes = mockRes();
+            await publishSkill(mockReq({ user: AUTHOR, body: sampleSkill }), publishRes);
+            const { marketId } = publishRes.json.mock.calls[0][0];
+            await installMarketSkill(mockReq({ user: OTHER_USER, params: { marketId } }), mockRes());
+
+            const rateRes = mockRes();
+            await rateMarketSkill(mockReq({
+                user: OTHER_USER, params: { marketId }, body: { stars: 5, ranAt: new Date().toISOString(), outcome: 'failed' },
+            }), rateRes);
+            expect(rateRes.json.mock.calls[0][0].outcomeFailRate).toBe(1);
+        });
+
+        test('a "passed" outcome does not count toward outcomeFailRate', async () => {
+            const publishRes = mockRes();
+            await publishSkill(mockReq({ user: AUTHOR, body: sampleSkill }), publishRes);
+            const { marketId } = publishRes.json.mock.calls[0][0];
+            await installMarketSkill(mockReq({ user: OTHER_USER, params: { marketId } }), mockRes());
+
+            const rateRes = mockRes();
+            await rateMarketSkill(mockReq({
+                user: OTHER_USER, params: { marketId }, body: { stars: 5, ranAt: new Date().toISOString(), outcome: 'passed' },
+            }), rateRes);
+            expect(rateRes.json.mock.calls[0][0].outcomeFailRate).toBe(0);
+        });
+
+        test('re-rating from "failed" to "passed" decrements outcomeFailCount instead of double-counting', async () => {
+            const publishRes = mockRes();
+            await publishSkill(mockReq({ user: AUTHOR, body: sampleSkill }), publishRes);
+            const { marketId } = publishRes.json.mock.calls[0][0];
+            await installMarketSkill(mockReq({ user: OTHER_USER, params: { marketId } }), mockRes());
+
+            await rateMarketSkill(mockReq({
+                user: OTHER_USER, params: { marketId }, body: { stars: 2, ranAt: new Date().toISOString(), outcome: 'failed' },
+            }), mockRes());
+            const secondRateRes = mockRes();
+            await rateMarketSkill(mockReq({
+                user: OTHER_USER, params: { marketId }, body: { stars: 5, ranAt: new Date().toISOString(), outcome: 'passed' },
+            }), secondRateRes);
+            expect(secondRateRes.json.mock.calls[0][0].outcomeFailRate).toBe(0);
+        });
+
+        test('a skill with a high outcomeFailRate ranks below an equally-starred skill with none', async () => {
+            const publish1 = mockRes();
+            await publishSkill(mockReq({ user: AUTHOR, body: sampleSkill }), publish1);
+            const { marketId: reliableId } = publish1.json.mock.calls[0][0];
+
+            const publish2 = mockRes();
+            await publishSkill(mockReq({ user: AUTHOR, body: { ...sampleSkill, slug: 'flaky-skill', name: 'Flaky skill' } }), publish2);
+            const { marketId: flakyId } = publish2.json.mock.calls[0][0];
+
+            // Same 5-star rating for both, but the flaky one's run outcome failed.
+            await installMarketSkill(mockReq({ user: OTHER_USER, params: { marketId: reliableId } }), mockRes());
+            await rateMarketSkill(mockReq({
+                user: OTHER_USER, params: { marketId: reliableId }, body: { stars: 5, ranAt: new Date().toISOString(), outcome: 'passed' },
+            }), mockRes());
+
+            await installMarketSkill(mockReq({ user: OTHER_USER, params: { marketId: flakyId } }), mockRes());
+            await rateMarketSkill(mockReq({
+                user: OTHER_USER, params: { marketId: flakyId }, body: { stars: 5, ranAt: new Date().toISOString(), outcome: 'failed' },
+            }), mockRes());
+
+            const searchRes = mockRes();
+            await searchMarketSkills(mockReq({ user: AUTHOR, query: { sort: 'trust' } }), searchRes);
+            const ranked = searchRes.json.mock.calls[0][0].skills;
+            const reliableRank = ranked.findIndex(s => s.marketId === reliableId);
+            const flakyRank = ranked.findIndex(s => s.marketId === flakyId);
+            expect(reliableRank).toBeLessThan(flakyRank);
+        });
+    });
 });
 
 describe('flagMarketSkill', () => {
@@ -305,5 +501,46 @@ describe('flagMarketSkill', () => {
         const flagRes = mockRes();
         await flagMarketSkill(mockReq({ user: OTHER_USER, params: { marketId }, body: { reason: 'looks suspicious' } }), flagRes);
         expect(flagRes.json).toHaveBeenCalledWith({ ok: true, flagCount: 1 });
+    });
+});
+
+describe('getAuthorMarketplaceTotals (§10.2 P0 — /telemetry/summary marketplace counters)', () => {
+    test('returns zeroed totals for a user with no published skills', async () => {
+        const totals = await getAuthorMarketplaceTotals('nobody');
+        expect(totals).toEqual({ downloads: 0, installs: 0, creations: 0, skillCount: 0 });
+    });
+
+    test('returns zeroed totals for a missing/undefined author id without scanning', async () => {
+        const totals = await getAuthorMarketplaceTotals(undefined);
+        expect(totals).toEqual({ downloads: 0, installs: 0, creations: 0, skillCount: 0 });
+    });
+
+    test('aggregates downloads/installs/creations across all of one author\'s published skills', async () => {
+        const publish1 = mockRes();
+        await publishSkill(mockReq({ user: AUTHOR, body: sampleSkill }), publish1);
+        const { marketId: marketId1 } = publish1.json.mock.calls[0][0];
+
+        const publish2 = mockRes();
+        await publishSkill(mockReq({ user: AUTHOR, body: { ...sampleSkill, slug: 'second-skill', name: 'Second skill' } }), publish2);
+        const { marketId: marketId2 } = publish2.json.mock.calls[0][0];
+
+        // Two installs on skill 1, one install on skill 2 — all by a different user.
+        await installMarketSkill(mockReq({ user: OTHER_USER, params: { marketId: marketId1 } }), mockRes());
+        await installMarketSkill(mockReq({ user: { id: 'user-third' }, params: { marketId: marketId1 } }), mockRes());
+        await installMarketSkill(mockReq({ user: OTHER_USER, params: { marketId: marketId2 } }), mockRes());
+
+        const totals = await getAuthorMarketplaceTotals(AUTHOR.id);
+        expect(totals.skillCount).toBe(2);
+        expect(totals.downloads).toBe(3);
+        expect(totals.installs).toBe(3);
+        expect(totals.creations).toBe(2);
+    });
+
+    test('does not count another author\'s skills', async () => {
+        const publishRes = mockRes();
+        await publishSkill(mockReq({ user: AUTHOR, body: sampleSkill }), publishRes);
+
+        const totals = await getAuthorMarketplaceTotals(OTHER_USER.id);
+        expect(totals).toEqual({ downloads: 0, installs: 0, creations: 0, skillCount: 0 });
     });
 });

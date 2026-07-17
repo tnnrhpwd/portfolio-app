@@ -63,6 +63,28 @@ describe('computeTrustScore', () => {
         expect(flagged).toBeLessThan(clean);
     });
 
+    // §5.6: outcome (from successCriteria evaluation) feeding back into
+    // ranking, not just the raw star average.
+    test('a higher failed-outcome rate deprioritizes the score even at a fixed star average', () => {
+        const base = { avgRating: 4.5, ratingCount: 20, downloads: 50, authorReputation: 50, ageDays: 10 };
+        const noFailures = computeTrustScore({ ...base, outcomeFailRate: 0 });
+        const someFailures = computeTrustScore({ ...base, outcomeFailRate: 0.5 });
+        const allFailures = computeTrustScore({ ...base, outcomeFailRate: 1 });
+        expect(someFailures).toBeLessThan(noFailures);
+        expect(allFailures).toBeLessThan(someFailures);
+    });
+
+    test('outcomeFailRate defaults to 0 (no penalty) for callers that omit it', () => {
+        const base = { avgRating: 4, ratingCount: 10, downloads: 50, authorReputation: 50, ageDays: 10 };
+        expect(computeTrustScore(base)).toBe(computeTrustScore({ ...base, outcomeFailRate: 0 }));
+    });
+
+    test('outcomeFailRate is clamped to [0, 1] for out-of-range input', () => {
+        const base = { avgRating: 4, ratingCount: 10, downloads: 50, authorReputation: 50, ageDays: 10 };
+        expect(computeTrustScore({ ...base, outcomeFailRate: 5 })).toBe(computeTrustScore({ ...base, outcomeFailRate: 1 }));
+        expect(computeTrustScore({ ...base, outcomeFailRate: -5 })).toBe(computeTrustScore({ ...base, outcomeFailRate: 0 }));
+    });
+
     test('never negative, never NaN, for default/empty input', () => {
         const score = computeTrustScore();
         expect(Number.isNaN(score)).toBe(false);

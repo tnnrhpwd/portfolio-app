@@ -7,8 +7,10 @@
  * workspaceController.js). A "publish" action bridges the two: the addon
  * scrubs (POST /api/skill/scrub) and previews capabilities
  * (POST /api/skill/capabilities) locally (both addon-local routes), then
- * calls this backend's POST /api/data/market/skills with the
- * already-scrubbed steps.
+ * calls this backend's POST /api/data/market/skills — which ALSO
+ * independently re-runs the scrub pass server-side (`services/
+ * marketplaceScrub.js`, §4.5) before persisting, rather than trusting that
+ * the client actually scrubbed first.
  *
  * Data model (DynamoDB table "Simple", same table as the rest of csimple):
  *   meta      id = `csimple_market_${marketId}`
@@ -24,7 +26,10 @@
  *             named `firstPublishedAt` instead, to avoid colliding with
  *             that sentinel key.)
  *   version   id = `csimple_market_${marketId}_v${version}`
- *             attrs: marketId, version, authorUserId, name, slug, steps,
+ *             attrs: marketId, version, authorUserId, name, slug,
+ *                    steps (server-scrubbed — see services/marketplaceScrub.js),
+ *                    params (server-scrubbed, may include a synthesized
+ *                    `userProfile` param — see marketplaceScrub.js),
  *                    declaredCategories, toolSchemaVersion,
  *                    naturalLanguageDescription, createdAt (immutable —
  *                    never overwritten once written)
@@ -65,6 +70,7 @@ const {
     canRate,
     sortSkills,
 } = require('../services/marketplaceRanking');
+const { scrubForPublish } = require('../services/marketplaceScrub');
 
 const client = new DynamoDBClient({
     region: process.env.AWS_REGION,
@@ -122,6 +128,13 @@ function metaToSummary(meta) {
     const ratingCount = meta.ratingCount || 0;
     const avgRating = ratingCount > 0 ? (meta.ratingSum || 0) / ratingCount : 0;
     const ageDays = ageDaysOf(meta.firstPublishedAt);
+    // §5.6: fraction of ratings whose run outcome was recorded as "failed"
+    // (from the skill's successCriteria evaluation — see tools/skill.js
+    // `outcome` — NOT the star value). Feeds computeTrustScore's
+    // outcomeFailRate penalty so a skill that "looks fine" by stars but
+    // reliably fails its own success criteria still ranks lower.
+    const outcomeFailCount = meta.outcomeFailCount || 0;
+    const outcomeFailRate = ratingCount > 0 ? outcomeFailCount / ratingCount : 0;
     // NOTE: authorReputation here is seeded from THIS skill's own age/rating
     // history only (we don't yet cross-reference the author's other
     // published skills or account age — that's a documented follow-up,
@@ -138,6 +151,7 @@ function metaToSummary(meta) {
         authorReputation,
         ageDays,
         flagCount: meta.flagCount || 0,
+        outcomeFailRate,
     });
     const lowTrust = classifyLowTrust({ ratingCount, downloads: meta.downloads || 0, ageDays });
 
@@ -155,6 +169,8 @@ function metaToSummary(meta) {
         creations: meta.creations || 0,
         ratingCount,
         avgRating,
+        outcomeFailCount,
+        outcomeFailRate,
         flagCount: meta.flagCount || 0,
         trustScore,
         lowTrust,
@@ -164,8 +180,13 @@ function metaToSummary(meta) {
 }
 
 // @desc    Publish a skill (new marketplace entry, or a new version of one
-//          this user already authored). Caller must have already run
-//          POST /api/skill/scrub — this endpoint does not re-scrub.
+//          this user already authored). The addon is expected to have
+//          already run POST /api/skill/scrub client-side (§6.1), but this
+//          endpoint ALSO independently re-runs the same scrub pass
+//          server-side before persisting (§4.5) — the persisted `steps` are
+//          always the server-scrubbed output, never the raw request body,
+//          so a client that skips/bypasses the client-side scrub can't get
+//          unscrubbed content into the public marketplace.
 // @route   POST /api/data/market/skills
 // @access  Private
 const publishSkill = asyncHandler(async (req, res) => {
@@ -175,6 +196,7 @@ const publishSkill = asyncHandler(async (req, res) => {
         name,
         slug,
         steps,
+        params,
         declaredCategories,
         toolSchemaVersion,
         naturalLanguageDescription,
@@ -189,6 +211,12 @@ const publishSkill = asyncHandler(async (req, res) => {
     if (naturalLanguageDescription != null && String(naturalLanguageDescription).length > DESC_MAX) {
         badRequest(res, `naturalLanguageDescription: max ${DESC_MAX} chars`);
     }
+
+    // ── Server-side scrub re-enforcement (§4.5/§6.1) ────────────────────
+    // Re-run the exact same PII/secret scrub the addon runs client-side.
+    // `scrubbedSkill.steps`/`params` — never the raw `steps`/`params` from
+    // req.body — are what actually get persisted below.
+    const { skill: scrubbedSkill, report: scrubReport } = scrubForPublish({ steps, params: params || [] });
 
     // ── Author-scope publish rate limit (§4.6) ──────────────────────────
     const limiterKey = authorLimiterId(req.user.id);
@@ -226,7 +254,8 @@ const publishSkill = asyncHandler(async (req, res) => {
         authorUserId: req.user.id,
         name: name.trim().slice(0, NAME_MAX),
         slug,
-        steps,
+        steps: scrubbedSkill.steps,
+        params: scrubbedSkill.params,
         declaredCategories: declaredCategories || [],
         toolSchemaVersion: toolSchemaVersion ?? null,
         naturalLanguageDescription: (naturalLanguageDescription || '').slice(0, DESC_MAX),
@@ -265,7 +294,11 @@ const publishSkill = asyncHandler(async (req, res) => {
         },
     }));
 
-    res.status(200).json({ marketId, version, isNewSkill: !existingMeta, skill: metaToSummary(metaItem) });
+    // `scrubReport` is intentionally safe to return in full — findings never
+    // include the original sensitive value (see marketplaceScrub.js), so
+    // this doubles as the "what will be shared" pre-publish review data
+    // (§6.1) even when the client's own scrub pass already caught everything.
+    res.status(200).json({ marketId, version, isNewSkill: !existingMeta, skill: metaToSummary(metaItem), scrubReport });
 });
 
 // @desc    Search/browse published skills.
@@ -405,14 +438,22 @@ const rateMarketSkill = asyncHandler(async (req, res) => {
     }));
 
     // Adjust the meta aggregate: replace the old star value if re-rating,
-    // otherwise add a brand-new rating to the count.
+    // otherwise add a brand-new rating to the count. Also track the
+    // outcomeFailCount aggregate (§5.6) so a re-rating that flips outcome
+    // from "failed" to "passed" (or vice versa) doesn't double/under-count.
     const starDelta = stars - (existingRating ? existingRating.stars : 0);
     const countDelta = existingRating ? 0 : 1;
+    const wasFailed = existingRating ? existingRating.outcome === 'failed' : false;
+    const isFailed = outcome === 'failed';
+    const outcomeFailDelta = (isFailed ? 1 : 0) - (wasFailed ? 1 : 0);
     const { Attributes: updatedMeta } = await dynamodb.send(new UpdateCommand({
         TableName: TABLE_NAME,
         Key: { id: metaId(marketId), createdAt: MARKET_CREATED_AT },
-        UpdateExpression: 'ADD ratingCount :countDelta, ratingSum :starDelta SET updatedAt = :now',
-        ExpressionAttributeValues: { ':countDelta': countDelta, ':starDelta': starDelta, ':now': nowIso },
+        UpdateExpression: 'ADD ratingCount :countDelta, ratingSum :starDelta, outcomeFailCount :outcomeFailDelta SET updatedAt = :now',
+        ExpressionAttributeValues: {
+            ':countDelta': countDelta, ':starDelta': starDelta,
+            ':outcomeFailDelta': outcomeFailDelta, ':now': nowIso,
+        },
         ReturnValues: 'ALL_NEW',
     }));
 
@@ -424,7 +465,12 @@ const rateMarketSkill = asyncHandler(async (req, res) => {
     }));
 
     const summary = metaToSummary(updatedMeta);
-    res.status(200).json({ ok: true, ratingCount: summary.ratingCount, avgRating: summary.avgRating });
+    res.status(200).json({
+        ok: true,
+        ratingCount: summary.ratingCount,
+        avgRating: summary.avgRating,
+        outcomeFailRate: summary.outcomeFailRate,
+    });
 });
 
 // @desc    Community flag — no manual moderation queue (§9 non-goals);
@@ -461,6 +507,30 @@ const flagMarketSkill = asyncHandler(async (req, res) => {
     res.status(200).json({ ok: true, flagCount: updatedMeta.flagCount });
 });
 
+// @desc    Aggregate one author's marketplace totals (downloads, installs,
+//          creations) across every skill they've published. Not an HTTP
+//          route itself — called by workspaceController.getTelemetrySummary
+//          to fold marketplace KPIs into the addon's /telemetry/summary
+//          response (docs/new/csimple-agent-prompt.md §10.2 P0) without
+//          giving workspaceController.js a direct DynamoDB dependency on
+//          the `csimple_market_*` namespace.
+async function getAuthorMarketplaceTotals(authorUserId) {
+    if (!authorUserId) return { downloads: 0, installs: 0, creations: 0, skillCount: 0 };
+    const { Items } = await dynamodb.send(new ScanCommand({
+        TableName: TABLE_NAME,
+        FilterExpression: 'begins_with(id, :prefix) AND attribute_exists(marketId) AND attribute_exists(latestVersion)',
+        ExpressionAttributeValues: { ':prefix': 'csimple_market_' },
+    }));
+    const authored = (Items || []).filter(it => it.authorUserId === authorUserId);
+    return authored.reduce((acc, it) => {
+        acc.downloads += it.downloads || 0;
+        acc.installs += it.installs || 0;
+        acc.creations += it.creations || 0;
+        acc.skillCount += 1;
+        return acc;
+    }, { downloads: 0, installs: 0, creations: 0, skillCount: 0 });
+}
+
 module.exports = {
     publishSkill,
     searchMarketSkills,
@@ -468,6 +538,7 @@ module.exports = {
     installMarketSkill,
     rateMarketSkill,
     flagMarketSkill,
+    getAuthorMarketplaceTotals,
     // Exported for tests only.
     _internal: { TABLE_NAME, MARKET_CREATED_AT, metaId, versionId, installId, ratingId, authorLimiterId, metaToSummary },
 };
