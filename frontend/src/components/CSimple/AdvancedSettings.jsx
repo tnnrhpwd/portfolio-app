@@ -24,7 +24,7 @@ const TABS = [
   { id: 'network', label: '🌐 Network' },
 ];
 
-function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnline, speech, micDevices, user, cloudSyncStatus, addonConnected }) {
+function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnline, speech, micDevices, user, cloudSyncStatus, addonConnected, initialTab }) {
   const [activeTab, setActiveTab] = useState('general');
   const [behaviors, setBehaviors] = useState([]);
   const [memoryFiles, setMemoryFiles] = useState([]);
@@ -42,6 +42,12 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
   const [showPersonality, setShowPersonality] = useState(false);
   const fileInputRef = useRef(null);
   const autoSaveTimer = useRef(null);
+
+  // Jump straight to the requested tab whenever the modal is opened with one
+  // (e.g. the sidebar's "Manage macros →" link opens directly to Shortcuts).
+  useEffect(() => {
+    if (isOpen && initialTab) setActiveTab(initialTab);
+  }, [isOpen, initialTab]);
 
   // Load behaviors and memory files
   useEffect(() => {

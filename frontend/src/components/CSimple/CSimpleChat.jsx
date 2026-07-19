@@ -167,6 +167,7 @@ function CSimpleChat({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
+  const [advancedSettingsTab, setAdvancedSettingsTab] = useState('general');
   const [pendingConfirmation, setPendingConfirmation] = useState(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const [cloudSyncStatus, setCloudSyncStatus] = useState(null); // null | 'syncing' | 'synced' | 'error'
@@ -1442,7 +1443,7 @@ function CSimpleChat({
           onSelectModel={setSelectedModel}
           settings={settings}
           onSettingsChange={setSettings}
-          onOpenAdvancedSettings={() => setShowAdvancedSettings(true)}
+          onOpenAdvancedSettings={(tab) => { setAdvancedSettingsTab(tab || 'general'); setShowAdvancedSettings(true); }}
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
           isOnline={isOnline}
@@ -1493,6 +1494,7 @@ function CSimpleChat({
 
         <AdvancedSettings
           isOpen={showAdvancedSettings}
+          initialTab={advancedSettingsTab}
           onClose={() => setShowAdvancedSettings(false)}
           settings={settings}
           onSettingsChange={(newSettings) => {

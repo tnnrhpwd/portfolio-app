@@ -1,15 +1,15 @@
 /**
- * AgentLivePanel — "the agent's eyes" live view.
+ * AgentLivePanel — sidebar "Macros & Agent" panel.
  *
- * Subscribes to the local addon's SSE stream (`/api/agent/events`) and renders:
- *   - a live screenshot thumbnail (from `screen.frame` events)
- *   - a rolling activity feed (tool calls, agent steps, recorder + approvals)
- *   - pending approval cards with Approve / Deny buttons
- *   - Start / Stop / Kill-switch controls + a manual "refresh frame" button
+ * Two simple things live here:
+ *   1. Quick Macros — your saved macros (recorded in Advanced Settings →
+ *      Shortcuts) with a one-click "Run" button, so you don't have to open
+ *      a modal just to fire off a macro.
+ *   2. Autonomous Agent — Start/Stop/Kill-switch for the addon's autonomous
+ *      agent, plus any pending approval prompts it needs from you.
  *
- * The addon binds to 127.0.0.1, so the SSE endpoint is reachable directly from
- * the browser when the addon is installed and connected. When it is not, the
- * panel shows a connect hint instead.
+ * Both require the local CSimple desktop addon to be installed and running;
+ * when it isn't, the panel shows a short connect hint instead.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -20,18 +20,15 @@ import {
   getPendingApprovals,
   resolveApproval,
   activateKillSwitch,
-  relayScreenFrame,
   getAutomationPermissions,
   setAutoApproveAll,
-  startWakewordLoop,
-  stopWakewordLoop,
-  getVoiceStatus,
-  getPerceptionFrame,
-  getAgentPredictions,
+  listWorkspace,
+  getWorkspaceItem,
+  runSkill,
 } from '../../services/csimpleApi';
 import './AgentLivePanel.css';
 
-const MAX_FEED = 60;
+const MAX_FEED = 20;
 
 const TYPE_META = {
   'tool.start':         { icon: '▶', cls: 'tool' },
@@ -41,14 +38,7 @@ const TYPE_META = {
   'agent.stopped':      { icon: '⏹', cls: 'agent' },
   'approval.pending':   { icon: '⚠', cls: 'approval' },
   'approval.resolved':  { icon: '✓', cls: 'approval' },
-  'recorder.started':   { icon: '●', cls: 'recorder' },
-  'recorder.stopped':   { icon: '○', cls: 'recorder' },
-  'permissions.changed':{ icon: '🔒', cls: 'perm' },
   'skill.run':          { icon: '🛠', cls: 'skill' },
-  'screen.frame':       { icon: '🖼', cls: 'frame' },
-  'screen.frame.failed':{ icon: '✗', cls: 'frame' },
-  'voice.wakeword':     { icon: '🎙', cls: 'voice' },
-  'voice.transcript':   { icon: '🔊', cls: 'voice' },
 };
 
 function fmtTime(ts) {
@@ -64,47 +54,45 @@ function describe(ev) {
     case 'agent.stopped': return `stopped: ${ev.reason || ''}`;
     case 'approval.pending': return `needs approval: ${ev.toolName}`;
     case 'approval.resolved': return `${ev.approved ? 'approved' : 'denied'} ${ev.id}`;
-    case 'recorder.started': return `recording "${ev.name || ''}"`;
-    case 'recorder.stopped': return `recording stopped · ${ev.eventCount ?? 0} events`;
-    case 'permissions.changed': return `permissions: ${(ev.changedKeys || []).join(', ')}`;
-    case 'skill.run': return `skill ${ev.slug} · ${ev.stepsRun ?? '?'} steps${ev.failed ? ' · failed' : ''}`;
-    case 'screen.frame': return `frame ${ev.w}×${ev.h}${ev.reason ? ` · ${ev.reason}` : ''}`;
-    case 'screen.frame.failed': return `frame relay failed: ${ev.reason || ''}`;
-    case 'voice.wakeword':  return `Wakeword: "${ev.phrase || ''}"${ev.remainder ? ` → "${ev.remainder}"` : ''}`;
-    case 'voice.transcript': return `Heard: "${String(ev.text || '').slice(0, 100)}"`;
+    case 'skill.run': return `macro ${ev.slug} · ${ev.stepsRun ?? '?'} steps${ev.failed ? ' · failed' : ''}`;
     default: return ev.type;
   }
 }
 
-export default function AgentLivePanel({ addonConnected, variant = 'full' }) {
+/** Pull the compiled skill object out of a workspace item's content blob. */
+function parseSkillContent(item) {
+  if (!item) return null;
+  try {
+    return typeof item.content === 'string' ? JSON.parse(item.content) : (item.content || null);
+  } catch {
+    return null;
+  }
+}
+
+export default function AgentLivePanel({ addonConnected, user, onManageMacros, variant = 'sidebar' }) {
   const isSidebar = variant === 'sidebar';
+  const token = user?.token;
+
   const [connected, setConnected] = useState(false);
   const [feed, setFeed] = useState([]);
-  const [frame, setFrame] = useState(null);          // { url, w, h, reason, ts }
   const [approvals, setApprovals] = useState([]);
   const [status, setStatus] = useState(null);
   const [autoApprove, setAutoApprove] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
-  // Voice
-  const [wakewordActive, setWakewordActive] = useState(false);
-  const [lastTranscript, setLastTranscript] = useState(null);
-
-  // Perception
-  const [perceptionCtx, setPerceptionCtx] = useState(null);
-
-  // Predictions
-  const [predictions, setPredictions] = useState([]);
+  // Quick macros
+  const [macros, setMacros] = useState([]);
+  const [macrosLoading, setMacrosLoading] = useState(false);
+  const [macrosError, setMacrosError] = useState(null);
+  const [runningSlug, setRunningSlug] = useState(null);
+  const [runResult, setRunResult] = useState(null); // { slug, ok }
 
   const esRef = useRef(null);
   const lastSeqRef = useRef(0);
 
   const pushEvent = useCallback((ev) => {
     lastSeqRef.current = Math.max(lastSeqRef.current, ev.seq || 0);
-    if (ev.type === 'screen.frame' && ev.url) {
-      setFrame({ url: ev.url, w: ev.w, h: ev.h, reason: ev.reason, ts: ev.ts });
-    }
     if (ev.type === 'approval.pending' && ev.id) {
       setApprovals((prev) => (prev.some((a) => a.id === ev.id) ? prev : [...prev, {
         id: ev.id, toolName: ev.toolName, args: ev.args, createdAt: ev.createdAt || ev.ts,
@@ -115,9 +103,6 @@ export default function AgentLivePanel({ addonConnected, variant = 'full' }) {
     }
     if (ev.type === 'agent.stopped') {
       setStatus((s) => (s ? { ...s, running: false } : s));
-    }
-    if (ev.type === 'voice.transcript' && ev.text) {
-      setLastTranscript({ text: ev.text, wakeword: ev.wakeword, ts: ev.ts || Date.now() });
     }
     setFeed((prev) => {
       const next = [{ ...ev, _k: `${ev.seq}-${ev.ts}` }, ...prev];
@@ -175,35 +160,38 @@ export default function AgentLivePanel({ addonConnected, variant = 'full' }) {
     return () => { cancelled = true; };
   }, [addonConnected]);
 
+  // ── Quick macros list (cloud workspace, independent of the addon) ────────
+  const loadMacros = useCallback(async () => {
+    if (!token) return;
+    setMacrosLoading(true);
+    setMacrosError(null);
+    try {
+      const list = await listWorkspace(token, { kind: 'skill' });
+      const items = list.entries || [];
+      const full = await Promise.all(items.map(async (it) => {
+        try {
+          const one = await getWorkspaceItem(token, 'skill', it.slug);
+          return { item: one || it, skill: parseSkillContent(one) };
+        } catch {
+          return { item: it, skill: null };
+        }
+      }));
+      setMacros(full);
+    } catch (e) {
+      setMacrosError(e.message || 'Failed to load macros');
+    } finally {
+      setMacrosLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => { loadMacros(); }, [loadMacros]);
+
   const withBusy = useCallback(async (fn) => {
     setBusy(true); setError(null);
     try { await fn(); }
     catch (e) { setError(e.message || String(e)); }
     finally { setBusy(false); }
   }, []);
-
-  // Poll voice + perception + predictions every 5s when connected
-  useEffect(() => {
-    if (!addonConnected) return;
-    let cancelled = false;
-    const poll = async () => {
-      if (cancelled) return;
-      try {
-        const [vStatus, pFrame, preds] = await Promise.all([
-          getVoiceStatus().catch(() => null),
-          getPerceptionFrame().catch(() => null),
-          getAgentPredictions().catch(() => null),
-        ]);
-        if (cancelled) return;
-        if (vStatus) setWakewordActive(!!vStatus.wakewordLoop);
-        if (pFrame?.context) setPerceptionCtx(pFrame.context);
-        if (preds?.predictions) setPredictions(preds.predictions.slice(0, 4));
-      } catch { /* best-effort */ }
-    };
-    poll();
-    const id = setInterval(poll, 5000);
-    return () => { cancelled = true; clearInterval(id); };
-  }, [addonConnected]);
 
   const onStart = useCallback(() => withBusy(async () => {
     const r = await startAgent({});
@@ -220,10 +208,6 @@ export default function AgentLivePanel({ addonConnected, variant = 'full' }) {
     setStatus((s) => (s ? { ...s, running: false } : s));
   }), [withBusy]);
 
-  const onRefreshFrame = useCallback(() => withBusy(async () => {
-    await relayScreenFrame({ maxDim: 720, reason: 'manual refresh' });
-  }), [withBusy]);
-
   const onApprove = useCallback((id, approved) => withBusy(async () => {
     await resolveApproval(id, approved);
     setApprovals((prev) => prev.filter((a) => a.id !== id));
@@ -235,15 +219,23 @@ export default function AgentLivePanel({ addonConnected, variant = 'full' }) {
     if (next) setApprovals([]);
   }), [withBusy]);
 
-  const onToggleWakeword = useCallback(() => withBusy(async () => {
-    if (wakewordActive) {
-      await stopWakewordLoop();
-      setWakewordActive(false);
-    } else {
-      await startWakewordLoop();
-      setWakewordActive(true);
+  const onRunMacro = useCallback(async (slug) => {
+    if (!addonConnected || runningSlug) return;
+    setRunningSlug(slug);
+    setRunResult(null);
+    try {
+      const macro = macros.find(m => m.item.slug === slug);
+      const out = await runSkill(slug, {}, macro?.skill || null);
+      if (out?.error) throw new Error(out.error);
+      const failed = !!out?.result?.failed;
+      setRunResult({ slug, ok: !failed });
+    } catch {
+      setRunResult({ slug, ok: false });
+    } finally {
+      setRunningSlug(null);
+      setTimeout(() => setRunResult((r) => (r?.slug === slug ? null : r)), 2500);
     }
-  }), [withBusy, wakewordActive]);
+  }, [addonConnected, runningSlug, macros]);
 
   const running = !!status?.running;
   const goalTitle = status?.currentGoal?.name || status?.currentGoal?.slug || null;
@@ -254,161 +246,146 @@ export default function AgentLivePanel({ addonConnected, variant = 'full' }) {
     return running ? 'Agent running' : 'Idle';
   }, [addonConnected, connected, running]);
 
-  if (!addonConnected) {
-    return (
-      <div className={`agent-live agent-live--disconnected${isSidebar ? ' agent-live--sidebar' : ''}`}>
-        {!isSidebar && (
-          <div className="agent-live__header">
-            <span className="agent-live__title">🖥 Live Agent View</span>
-          </div>
-        )}
-        <div className="agent-live__empty">
-          <p>Install and run the CSimple desktop addon to watch the agent operate your PC in real time.</p>
-          <a className="agent-live__link" href="/blog/csimple-addon">How to install →</a>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className={`agent-live${isSidebar ? ' agent-live--sidebar' : ''}`}>
-      <div className="agent-live__header">
-        {!isSidebar && <span className="agent-live__title">🖥 Live Agent View</span>}
-        <span className={`agent-live__badge ${running ? 'is-running' : connected ? 'is-idle' : 'is-off'}`}>
-          {statusLabel}
-        </span>
-      </div>
-
-      {goalTitle && (
-        <div className="agent-live__goal">
-          <span className="agent-live__goal-label">Goal</span>
-          <span className="agent-live__goal-name">{goalTitle}</span>
-          {status?.step != null && <span className="agent-live__goal-step">step {status.step}</span>}
+      {/* ── Quick Macros ──────────────────────────────────────────────── */}
+      <div className="agent-live__section">
+        <div className="agent-live__section-head">
+          <h4>⚡ Macros</h4>
+          <span className="agent-live__section-hint">Run a saved macro on your PC</span>
         </div>
-      )}
 
-      <div className="agent-live__controls">
-        {running ? (
-          <button className="agent-live__btn agent-live__btn--stop" onClick={onStop} disabled={busy}>Stop</button>
+        {!token ? (
+          <p className="agent-live__hint">Log in to see your saved macros.</p>
+        ) : macrosLoading ? (
+          <p className="agent-live__hint">Loading macros…</p>
+        ) : macrosError ? (
+          <p className="agent-live__hint">{macrosError}</p>
+        ) : macros.length === 0 ? (
+          <p className="agent-live__hint">
+            No macros yet. Record one to replay clicks, keystrokes and app steps with one click.
+          </p>
         ) : (
-          <button className="agent-live__btn agent-live__btn--start" onClick={onStart} disabled={busy}>Start Agent</button>
+          <ul className="agent-live__macros">
+            {macros.map(({ item, skill }) => {
+              const isRunning = runningSlug === item.slug;
+              const result = runResult?.slug === item.slug ? runResult : null;
+              return (
+                <li key={item.slug} className="agent-live__macro">
+                  <span className="agent-live__macro-name" title={item.name || item.slug}>
+                    {item.name || item.slug}
+                  </span>
+                  {skill?.hotkey && <span className="agent-live__macro-hotkey">{skill.hotkey}</span>}
+                  <button
+                    className="agent-live__btn agent-live__macro-run"
+                    onClick={() => onRunMacro(item.slug)}
+                    disabled={!addonConnected || isRunning}
+                    title={!addonConnected ? 'Connect the addon to run macros' : `Run "${item.name || item.slug}"`}
+                  >
+                    {isRunning ? 'Running…' : result ? (result.ok ? '✓ Done' : '✗ Failed') : 'Run'}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         )}
-        <button className="agent-live__btn" onClick={onRefreshFrame} disabled={busy}>Refresh Frame</button>
-        <button className="agent-live__btn agent-live__btn--kill" onClick={onKill} disabled={busy}>Kill Switch</button>
-        <button
-          className={`agent-live__btn agent-live__btn--voice ${wakewordActive ? 'is-active' : ''}`}
-          onClick={onToggleWakeword}
-          disabled={busy}
-          title='Say "Hey CSimple, <instruction>" to create a goal and start the agent'
-        >
-          {wakewordActive ? '🎙 Listening…' : '🎙 Wakeword'}
-        </button>
-        <label className={`agent-live__toggle ${autoApprove ? 'is-on' : ''}`} title="Auto-approve tool actions that would normally prompt. Hard stops (deny, kill switch, blocked shell commands) still apply.">
-          <input
-            type="checkbox"
-            checked={autoApprove}
-            onChange={(e) => onToggleAutoApprove(e.target.checked)}
-            disabled={busy}
-          />
-          <span>Auto-approve</span>
-        </label>
+
+        {token && (
+          <button className="agent-live__link-btn" onClick={onManageMacros}>
+            Manage macros →
+          </button>
+        )}
       </div>
 
-      {autoApprove && (
-        <div className="agent-live__autonote">
-          ⚡ Auto-approve is ON — actions run without prompting. Hard stops (deny, kill switch, blocked shell commands) still apply.
-        </div>
-      )}
-
-      {error && <div className="agent-live__error">{error}</div>}
-
-      {/* Perception strip */}
-      {(perceptionCtx || lastTranscript) && (
-        <div className="agent-live__perception">
-          {lastTranscript && (
-            <div className={`agent-live__transcript ${lastTranscript.wakeword ? 'is-wakeword' : ''}`}>
-              {lastTranscript.wakeword && <span className="agent-live__wake-badge">wake</span>}
-              <span>"{lastTranscript.text?.slice(0, 140)}"</span>
-            </div>
-          )}
-          {perceptionCtx && !isSidebar && (
-            <div className="agent-live__percept-ctx" title="Live environment context fed to the agent">
-              {perceptionCtx}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Predictions panel */}
-      {!isSidebar && predictions.length > 0 && (
-        <div className="agent-live__predictions">
-          <span className="agent-live__predictions-label">Predicted next</span>
-          {predictions.map((p, i) => (
-            <span key={i} className={`agent-live__pred ${p.prefetched ? 'is-prefetched' : ''}`}
-              title={`${Math.round(p.probability * 100)}% confident${p.prefetched ? ' · prefetched' : ''}`}>
-              {p.tool}
-              <span className="agent-live__pred-pct">{Math.round(p.probability * 100)}%</span>
-            </span>
-          ))}
-        </div>
-      )}
-
-      <div className="agent-live__body">
-        <div className="agent-live__screen">
-          {frame ? (
-            <figure className="agent-live__frame">
-              <img src={frame.url} alt="Live agent screenshot" loading="lazy" />
-              <figcaption>
-                {frame.w}×{frame.h}{frame.reason ? ` · ${frame.reason}` : ''} · {fmtTime(frame.ts)}
-              </figcaption>
-            </figure>
-          ) : (
-            <div className="agent-live__noframe">
-              <p>No live frame yet.</p>
-              <p className="agent-live__hint">Click “Refresh Frame” or start the agent to see the screen.</p>
-            </div>
-          )}
+      {/* ── Autonomous Agent ──────────────────────────────────────────── */}
+      <div className="agent-live__section">
+        <div className="agent-live__section-head">
+          <h4>🤖 Autonomous Agent</h4>
+          <span className={`agent-live__badge ${running ? 'is-running' : connected ? 'is-idle' : 'is-off'}`}>
+            {statusLabel}
+          </span>
         </div>
 
-        <div className="agent-live__side">
-          {approvals.length > 0 && (
-            <div className="agent-live__approvals">
-              <h4>Pending approvals</h4>
-              {approvals.map((a) => (
-                <div key={a.id} className="agent-live__approval">
-                  <div className="agent-live__approval-tool">{a.toolName}</div>
-                  {a.args && (
-                    <pre className="agent-live__approval-args">{JSON.stringify(a.args, null, 0).slice(0, 200)}</pre>
-                  )}
-                  <div className="agent-live__approval-actions">
-                    <button className="agent-live__btn agent-live__btn--start" onClick={() => onApprove(a.id, true)} disabled={busy}>Approve</button>
-                    <button className="agent-live__btn agent-live__btn--stop" onClick={() => onApprove(a.id, false)} disabled={busy}>Deny</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="agent-live__feed">
-            <h4>Activity</h4>
-            {feed.length === 0 ? (
-              <p className="agent-live__hint">Waiting for events…</p>
-            ) : (
-              <ul>
-                {feed.map((ev) => {
-                  const meta = TYPE_META[ev.type] || { icon: '·', cls: 'other' };
-                  return (
-                    <li key={ev._k} className={`agent-live__event agent-live__event--${meta.cls}`}>
-                      <span className="agent-live__event-icon">{meta.icon}</span>
-                      <span className="agent-live__event-text">{describe(ev)}</span>
-                      <span className="agent-live__event-time">{fmtTime(ev.ts)}</span>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+        {!addonConnected ? (
+          <div className="agent-live__empty">
+            <p className="agent-live__hint">
+              Lets the desktop addon carry out multi-step goals on its own (with your approval on risky actions). Install the addon to use it.
+            </p>
+            <a className="agent-live__link" href="/blog/csimple-addon">How to install →</a>
           </div>
-        </div>
+        ) : (
+          <>
+            <p className="agent-live__section-hint agent-live__section-hint--block">
+              Give it a goal in chat, then Start it here. It works through the goal step by step and asks you to approve anything risky.
+            </p>
+
+            {goalTitle && (
+              <div className="agent-live__goal">
+                <span className="agent-live__goal-label">Goal</span>
+                <span className="agent-live__goal-name">{goalTitle}</span>
+                {status?.step != null && <span className="agent-live__goal-step">step {status.step}</span>}
+              </div>
+            )}
+
+            <div className="agent-live__controls">
+              {running ? (
+                <button className="agent-live__btn agent-live__btn--stop" onClick={onStop} disabled={busy}>Stop</button>
+              ) : (
+                <button className="agent-live__btn agent-live__btn--start" onClick={onStart} disabled={busy}>Start Agent</button>
+              )}
+              <button className="agent-live__btn agent-live__btn--kill" onClick={onKill} disabled={busy} title="Immediately stop the agent and block further actions">
+                Kill Switch
+              </button>
+              <label className={`agent-live__toggle ${autoApprove ? 'is-on' : ''}`} title="Auto-approve tool actions that would normally prompt. Kill switch and blocked commands still apply.">
+                <input
+                  type="checkbox"
+                  checked={autoApprove}
+                  onChange={(e) => onToggleAutoApprove(e.target.checked)}
+                  disabled={busy}
+                />
+                <span>Auto-approve actions</span>
+              </label>
+            </div>
+
+            {error && <div className="agent-live__error">{error}</div>}
+
+            {approvals.length > 0 && (
+              <div className="agent-live__approvals">
+                <h4>Needs your approval</h4>
+                {approvals.map((a) => (
+                  <div key={a.id} className="agent-live__approval">
+                    <div className="agent-live__approval-tool">{a.toolName}</div>
+                    {a.args && (
+                      <pre className="agent-live__approval-args">{JSON.stringify(a.args, null, 0).slice(0, 200)}</pre>
+                    )}
+                    <div className="agent-live__approval-actions">
+                      <button className="agent-live__btn agent-live__btn--start" onClick={() => onApprove(a.id, true)} disabled={busy}>Approve</button>
+                      <button className="agent-live__btn agent-live__btn--stop" onClick={() => onApprove(a.id, false)} disabled={busy}>Deny</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {feed.length > 0 && (
+              <div className="agent-live__feed">
+                <h4>Recent activity</h4>
+                <ul>
+                  {feed.map((ev) => {
+                    const meta = TYPE_META[ev.type] || { icon: '·', cls: 'other' };
+                    return (
+                      <li key={ev._k} className={`agent-live__event agent-live__event--${meta.cls}`}>
+                        <span className="agent-live__event-icon">{meta.icon}</span>
+                        <span className="agent-live__event-text">{describe(ev)}</span>
+                        <span className="agent-live__event-time">{fmtTime(ev.ts)}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

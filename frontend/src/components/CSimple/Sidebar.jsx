@@ -483,7 +483,7 @@ function Sidebar({
 
               <button
                 className="sidebar__advanced-btn"
-                onClick={onOpenAdvancedSettings}
+                onClick={() => onOpenAdvancedSettings()}
               >
                 🔧 Advanced Settings
               </button>
@@ -494,13 +494,18 @@ function Sidebar({
             className="sidebar__settings-toggle"
             onClick={() => setShowLiveAgent(!showLiveAgent)}
           >
-            🖥 Live Agent View
+            ⚡ Macros & Agent
             <span className={`sidebar__arrow ${showLiveAgent ? 'sidebar__arrow--up' : ''}`}>▾</span>
           </button>
 
           {showLiveAgent && (
             <div className="sidebar__live-agent">
-              <AgentLivePanel addonConnected={isAddonConnected} variant="sidebar" />
+              <AgentLivePanel
+                addonConnected={isAddonConnected}
+                user={user}
+                onManageMacros={() => onOpenAdvancedSettings('shortcuts')}
+                variant="sidebar"
+              />
             </div>
           )}
         </div>
