@@ -264,6 +264,7 @@ Cobblestone Slab,cobblestone_slab
 Cobblestone Stairs,cobblestone_stairs
 Cobblestone Wall,cobblestone_wall
 Cobweb,cobweb
+Closed Eyeblossom,closed_eyeblossom
 Cocoa Beans,cocoa_beans
 Compass,compass
 Composter,composter
@@ -731,6 +732,7 @@ Orange Stained Glass Pane,orange_stained_glass_pane
 Orange Terracotta,orange_terracotta
 Orange Tulip,orange_tulip
 Orange Wool,orange_wool
+Open Eyeblossom,open_eyeblossom
 Oxeye Daisy,oxeye_daisy
 Oxidized Chiseled Copper,oxidized_chiseled_copper
 Oxidized Copper,oxidized_copper
@@ -1209,8 +1211,9 @@ White Stained Glass Pane,white_stained_glass_pane
 White Terracotta,white_terracotta
 White Tulip,white_tulip
 White Wool,white_wool
+Wildflowers,wildflowers
 Wild Armor Trim,wild_armor_trim_smithing_template
-Wind Charge,wildflowers
+Wind Charge,wind_charge
 Wither Rose,wither_rose
 Wither Skeleton Skull,wither_skeleton_skull
 Written Book,wolf_armor
