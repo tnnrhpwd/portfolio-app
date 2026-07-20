@@ -128,6 +128,18 @@ function DeepStorage() {
     return new Date(generatedAt).toLocaleString();
   }, [generatedAt]);
 
+  const alphabetCounts = useMemo(() => {
+    const counts = {};
+    for (const letter of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') counts[letter] = 0;
+    let other = 0;
+    for (const item of items) {
+      const first = (item.displayName || '').trim().charAt(0).toUpperCase();
+      if (counts[first] !== undefined) counts[first] += 1;
+      else other += 1;
+    }
+    return { counts, other };
+  }, [items]);
+
   return (
     <>
       <Header />
@@ -174,6 +186,26 @@ function DeepStorage() {
             )}
           </div>
         </section>
+
+        {!loading && !error && items.length > 0 && (
+          <details className="deepstorage-alphabet">
+            <summary>Items per letter (A–Z)</summary>
+            <div className="deepstorage-alphabet-grid">
+              {Object.entries(alphabetCounts.counts).map(([letter, count]) => (
+                <div key={letter} className="deepstorage-alphabet-cell">
+                  <span className="deepstorage-alphabet-letter">{letter}</span>
+                  <span className="deepstorage-alphabet-count">{count}</span>
+                </div>
+              ))}
+              {alphabetCounts.other > 0 && (
+                <div className="deepstorage-alphabet-cell">
+                  <span className="deepstorage-alphabet-letter">#</span>
+                  <span className="deepstorage-alphabet-count">{alphabetCounts.other}</span>
+                </div>
+              )}
+            </div>
+          </details>
+        )}
 
         <section className="deepstorage-table-section">
           {loading ? (
