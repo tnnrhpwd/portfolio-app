@@ -724,6 +724,19 @@ export async function activateKillSwitch() {
   return res.json();
 }
 
+/**
+ * Turn the global kill switch back off. The kill switch persists to disk
+ * across addon restarts, so once activated it blocks every automation tool
+ * call ("Denied by permission policy") until explicitly cleared here.
+ */
+export async function deactivateKillSwitch() {
+  const res = await addonFetch('/api/automation/permissions', {
+    method: 'PUT',
+    body: JSON.stringify({ globalKillSwitch: false }),
+  });
+  return res.json();
+}
+
 /** Read the addon automation permission config. */
 export async function getAutomationPermissions() {
   const res = await addonFetch('/api/automation/permissions');

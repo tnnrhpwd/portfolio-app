@@ -20,6 +20,7 @@ import {
   getPendingApprovals,
   resolveApproval,
   activateKillSwitch,
+  deactivateKillSwitch,
   getAutomationPermissions,
   setAutoApproveAll,
   listWorkspace,
@@ -78,6 +79,7 @@ export default function AgentLivePanel({ addonConnected, user, onManageMacros, v
   const [approvals, setApprovals] = useState([]);
   const [status, setStatus] = useState(null);
   const [autoApprove, setAutoApprove] = useState(false);
+  const [killSwitchOn, setKillSwitchOn] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -136,6 +138,17 @@ export default function AgentLivePanel({ addonConnected, user, onManageMacros, v
         try { pushEvent(JSON.parse(e.data)); } catch { /* ignore */ }
       });
     }
+    // Kill switch can be flipped from elsewhere (tray icon, another window,
+    // an addon restart with a stale on-disk flag) — listen directly so the
+    // banner below stays in sync without a page refresh.
+    es.addEventListener('permissions.changed', (e) => {
+      try {
+        const ev = JSON.parse(e.data);
+        if (ev.changedKeys?.includes('globalKillSwitch')) {
+          setKillSwitchOn(!!ev.killSwitch);
+        }
+      } catch { /* ignore */ }
+    });
 
     return () => { es.close(); esRef.current = null; };
   }, [addonConnected, pushEvent]);
@@ -154,7 +167,10 @@ export default function AgentLivePanel({ addonConnected, user, onManageMacros, v
         if (cancelled) return;
         if (st) setStatus(st);
         if (ap?.approvals) setApprovals(ap.approvals);
-        if (perms) setAutoApprove(!!perms.autoApproveAll);
+        if (perms) {
+          setAutoApprove(!!perms.autoApproveAll);
+          setKillSwitchOn(!!perms.globalKillSwitch);
+        }
       } catch { /* best-effort */ }
     })();
     return () => { cancelled = true; };
@@ -206,6 +222,12 @@ export default function AgentLivePanel({ addonConnected, user, onManageMacros, v
   const onKill = useCallback(() => withBusy(async () => {
     await activateKillSwitch();
     setStatus((s) => (s ? { ...s, running: false } : s));
+    setKillSwitchOn(true);
+  }), [withBusy]);
+
+  const onResumeFromKillSwitch = useCallback(() => withBusy(async () => {
+    await deactivateKillSwitch();
+    setKillSwitchOn(false);
   }), [withBusy]);
 
   const onApprove = useCallback((id, approved) => withBusy(async () => {
@@ -248,6 +270,27 @@ export default function AgentLivePanel({ addonConnected, user, onManageMacros, v
 
   return (
     <div className={`agent-live${isSidebar ? ' agent-live--sidebar' : ''}`}>
+      {/* ── Kill-switch banner ───────────────────────────────────────────
+          The kill switch persists to disk across addon restarts, so once
+          triggered (e.g. force-stopping a runaway macro) it silently blocks
+          EVERY tool call with "Denied by permission policy" until someone
+          notices and clears it. Surface it loudly and make clearing it a
+          single click instead of a support mystery. */}
+      {addonConnected && killSwitchOn && (
+        <button
+          type="button"
+          className="agent-live__kill-banner"
+          onClick={onResumeFromKillSwitch}
+          disabled={busy}
+          title="Click to turn the kill switch back off and let macros/agent actions run again."
+        >
+          <span className="agent-live__kill-banner-icon">🛑</span>
+          <span className="agent-live__kill-banner-text">
+            Kill switch is ON — all macros and agent actions are blocked. Tap to turn it back off.
+          </span>
+        </button>
+      )}
+
       {/* ── Quick Macros ──────────────────────────────────────────────── */}
       <div className="agent-live__section">
         <div className="agent-live__section-head">

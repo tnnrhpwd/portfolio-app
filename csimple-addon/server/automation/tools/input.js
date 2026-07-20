@@ -99,14 +99,31 @@ public static class Native {
     [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
 }
 "@
+function Set-ForegroundWindowForce($hwnd) {
+    # SetForegroundWindow silently no-ops when called from a background
+    # process (this script) due to Windows' foreground-lock-timeout
+    # heuristic -- the classic cause of automation input landing on
+    # whatever window actually still has focus (e.g. the terminal/editor
+    # that launched the macro) instead of the intended target. That makes
+    # key taps look like they "did nothing" and makes a held mouse button
+    # look like a stray click somewhere else. A synthetic Alt press/release
+    # resets that lock; verify with GetForegroundWindow and retry briefly.
+    for ($i = 0; $i -lt 3; $i++) {
+        if ([Native]::GetForegroundWindow() -eq $hwnd) { return $true }
+        [Native]::keybd_event(0x12, 0, 0x0000, [UIntPtr]::Zero)
+        [Native]::keybd_event(0x12, 0, 0x0002, [UIntPtr]::Zero)
+        [Native]::ShowWindowAsync($hwnd, 9) | Out-Null  # 9 = SW_RESTORE
+        [Native]::SetForegroundWindow($hwnd) | Out-Null
+        Start-Sleep -Milliseconds 100
+    }
+    return [Native]::GetForegroundWindow() -eq $hwnd
+}
 function Focus-WindowByTitle($needle) {
     if (-not $needle) { return $null }
     $p = Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -like "*$needle*" } | Select-Object -First 1
     if (-not $p) { return $null }
-    [Native]::ShowWindowAsync($p.MainWindowHandle, 9) | Out-Null  # 9 = SW_RESTORE
-    Start-Sleep -Milliseconds 80
-    [Native]::SetForegroundWindow($p.MainWindowHandle) | Out-Null
-    return @{ pid = $p.Id; title = $p.MainWindowTitle }
+    $confirmed = Set-ForegroundWindowForce $p.MainWindowHandle
+    return @{ pid = $p.Id; title = $p.MainWindowTitle; focusConfirmed = $confirmed }
 }
 `;
 

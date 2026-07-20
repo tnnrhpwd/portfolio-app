@@ -51,8 +51,27 @@ public static class Native {
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
     [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
 }
 "@
+function Set-ForegroundWindowForce($hwnd) {
+    # SetForegroundWindow silently no-ops when called from a background
+    # process (this script) due to Windows' foreground-lock-timeout
+    # heuristic -- the classic cause of the launched app's window never
+    # actually receiving the input a macro sends right after open_app
+    # (key taps look like they "did nothing", a held mouse button looks
+    # like a stray click landing on whatever WAS focused instead). A
+    # synthetic Alt press/release resets that lock; verify and retry.
+    for ($i = 0; $i -lt 3; $i++) {
+        if ([Native]::GetForegroundWindow() -eq $hwnd) { return $true }
+        [Native]::keybd_event(0x12, 0, 0x0000, [UIntPtr]::Zero)
+        [Native]::keybd_event(0x12, 0, 0x0002, [UIntPtr]::Zero)
+        [Native]::ShowWindowAsync($hwnd, 9) | Out-Null  # 9 = SW_RESTORE
+        [Native]::SetForegroundWindow($hwnd) | Out-Null
+        Start-Sleep -Milliseconds 100
+    }
+    return [Native]::GetForegroundWindow() -eq $hwnd
+}
 `;
 
 function runPsScript(script, { timeoutMs = 65_000 } = {}) {
@@ -211,10 +230,9 @@ if (-not $found) {
     }
 }
 
+$focusConfirmed = $false
 if ($found -and ${doFocus ? '$true' : '$false'}) {
-    [Native]::ShowWindowAsync($found.MainWindowHandle, 9) | Out-Null
-    Start-Sleep -Milliseconds 80
-    [Native]::SetForegroundWindow($found.MainWindowHandle) | Out-Null
+    $focusConfirmed = Set-ForegroundWindowForce $found.MainWindowHandle
 }
 
 $out = @{
@@ -227,6 +245,7 @@ $out = @{
     pid = $(if ($found) { $found.Id } else { $null })
     title = $(if ($found) { $found.MainWindowTitle } else { $null })
     focused = $(if ($found -and ${doFocus ? '$true' : '$false'}) { $true } else { $false })
+    focusConfirmed = $focusConfirmed
 }
 $out | ConvertTo-Json -Compress
 `;

@@ -518,7 +518,37 @@ function _splitKeysAndButtons(keys, existingButtons) {
     return { keys: realKeys, mouseButtons: Array.from(buttons) };
 }
 
-function _normaliseStep(step) {
+// Steps that act on a specific application window (taps, holds, typing) but
+// don't repeat `focusWindowTitle` on every single step of a macro will drift
+// onto whatever window the OS decides is foreground by the time they run —
+// e.g. the terminal/editor that launched the macro, a loading-screen focus
+// hiccup, etc. That's the root cause behind "Escape doesn't unpause the
+// game" and "the mouse click doesn't register in the game at all" (a click
+// sent while some other window is focused just clicks that other window,
+// which looks like nothing happened, or like a stray single click). Carry
+// the most recently established target window (from `open_app.windowTitleContains`
+// or any step's explicit `focusWindowTitle`) forward as the default for
+// every subsequent window-targeted step that doesn't set its own, so a
+// macro only has to name its target window once.
+function _defaultFocusTitle(step, focusCtx) {
+    return step.focusWindowTitle || (focusCtx && focusCtx.title) || undefined;
+}
+
+// Update the shared sticky-focus holder from a raw (un-normalised) step,
+// BEFORE that step is normalised/executed, so its own effect is visible to
+// itself too (e.g. an `open_app` step's `windowTitleContains` becomes the
+// default focus target starting with that very step's own execution).
+function _updateFocusCtx(step, focusCtx) {
+    if (!focusCtx || !step) return;
+    const t = step.type || step.tool;
+    if (t === 'open_app' && step.windowTitleContains) {
+        focusCtx.title = step.windowTitleContains;
+    } else if (step.focusWindowTitle) {
+        focusCtx.title = step.focusWindowTitle;
+    }
+}
+
+function _normaliseStep(step, focusCtx) {
     // Already a legacy recorded-skill step (has `tool` field)
     if (step.tool && !step.type) return { tool: step.tool, args: step.args || {} };
     // Some steps have both — prefer `type` when present (NL compiled)
@@ -526,14 +556,14 @@ function _normaliseStep(step) {
     switch (t) {
         case 'key_tap': {
             const { keys, mouseButtons } = _splitKeysAndButtons(step.keys, step.mouseButtons);
-            return { tool: 'input_tap', args: { keys, mouseButtons, repeat: step.repeat || 1, focusWindowTitle: step.focusWindowTitle } };
+            return { tool: 'input_tap', args: { keys, mouseButtons, repeat: step.repeat || 1, focusWindowTitle: _defaultFocusTitle(step, focusCtx) } };
         }
         case 'key_hold': {
             const { keys, mouseButtons } = _splitKeysAndButtons(step.keys, step.mouseButtons);
-            return { tool: 'input_hold', args: { keys, mouseButtons, durationMs: step.duration_ms || 500, focusWindowTitle: step.focusWindowTitle } };
+            return { tool: 'input_hold', args: { keys, mouseButtons, durationMs: step.duration_ms || 500, focusWindowTitle: _defaultFocusTitle(step, focusCtx) } };
         }
         case 'type_text':
-            return { tool: 'text_type', args: { text: step.text, focusWindowTitle: step.focusWindowTitle, pressEnterAfter: step.pressEnterAfter } };
+            return { tool: 'text_type', args: { text: step.text, focusWindowTitle: _defaultFocusTitle(step, focusCtx), pressEnterAfter: step.pressEnterAfter } };
         case 'wait_ms':
             // No explicit wait tool — use a synthetic shell sleep
             return { tool: 'shell_run', args: { command: `Start-Sleep -Milliseconds ${Math.max(0, step.ms || 500)}`, shell: 'powershell' } };
@@ -610,11 +640,11 @@ function _resolveLoopVirtualKey(keyName) {
     return 27;
 }
 
-function _coalesceLoopHoldSteps(body) {
+function _coalesceLoopHoldSteps(body, focusCtx) {
     const out = [];
     for (let i = 0; i < (body || []).length; i++) {
-        const a = _normaliseStep(body[i]);
-        const b = i + 1 < (body || []).length ? _normaliseStep(body[i + 1]) : null;
+        const a = _normaliseStep(body[i], focusCtx);
+        const b = i + 1 < (body || []).length ? _normaliseStep(body[i + 1], focusCtx) : null;
         if (
             a && b &&
             !a._controlFlow && !b._controlFlow &&
@@ -649,7 +679,7 @@ function _coalesceLoopHoldSteps(body) {
 /**
  * Execute a control-flow step (loop or screenshot check).
  */
-async function _execControlFlow(cf, { params, stepDelay, continueOnError, repairEnabled, maxRepairs, ctx, skill }) {
+async function _execControlFlow(cf, { params, stepDelay, continueOnError, repairEnabled, maxRepairs, ctx, skill, focusCtx }) {
     if (cf.type === 'screenshot_check') {
         if (!permissions.hasCloudVisionConsent()) {
             return {
@@ -689,7 +719,8 @@ async function _execControlFlow(cf, { params, stepDelay, continueOnError, repair
         let failed = false;
         for (let i = 0; i < cf.times; i++) {
             for (const bodyStep of (cf.body || [])) {
-                const n = _normaliseStep(bodyStep);
+                _updateFocusCtx(bodyStep, focusCtx);
+                const n = _normaliseStep(bodyStep, focusCtx);
                 if (!n) continue;
                 if (n._controlFlow) continue; // no nested loops
                 let ra = {};
@@ -735,15 +766,38 @@ public static class Native {
                 return out?.ok && String(out?.result?.stdout || '').trim().toLowerCase() === 'true';
             } catch { return false; }
         };
+        // input_hold already polls GetAsyncKeyState(VK_ESCAPE) internally
+        // every ~50ms for the *entire* duration of its own hold and reports
+        // `reason: "escape-pressed"` the instant it sees it — that is far
+        // lower-latency than a fresh checkKey() poll, which spawns a whole
+        // new PowerShell process (hundreds of ms) and can only observe the
+        // key state at the single instant it happens to run. Re-polling
+        // between every body step also released the held keys/mouse button
+        // for that whole round-trip, which is what made a continuous hold
+        // look like a stutter of separate single clicks. When the loop's
+        // stop key is Escape, trust the hold's own signal instead of
+        // re-checking; only fall back to checkKey() at the top of each
+        // iteration (for non-hold bodies, and to catch a tap that happens
+        // between iterations).
+        const trustHoldEscapeSignal = vk === 0x1B;
 
-        const coalescedBody = _coalesceLoopHoldSteps(cf.body || []);
+        const coalescedBody = _coalesceLoopHoldSteps(cf.body || [], focusCtx);
         while (iteration < MAX_ITER) {
             const pressed = await checkKey();
             if (pressed) { stoppedByKey = true; break; }
             for (const n of coalescedBody) {
-                const stepPressed = await checkKey();
-                if (stepPressed) { stoppedByKey = true; break; }
                 if (!n || n._controlFlow) continue;
+                // Skip the extra poll immediately before an input_hold step —
+                // that hold will detect Escape itself (see above), and an
+                // extra round-trip here would just reintroduce the gap
+                // between held actions that caused the stutter. Non-hold
+                // steps (taps, waits, etc.) keep the eager poll so a stop
+                // request is still honoured promptly between quick actions.
+                const skipPreCheck = trustHoldEscapeSignal && n.tool === 'input_hold';
+                if (!skipPreCheck) {
+                    const stepPressed = await checkKey();
+                    if (stepPressed) { stoppedByKey = true; break; }
+                }
                 let ra = {};
                 try { ra = substituteArgs(n.args || {}, params); } catch {}
                 const out = await _execToolStep(n.tool, ra, ctx);
@@ -754,6 +808,10 @@ public static class Native {
                     error: out.error,
                     compatibility: out.compatibility,
                 });
+                if (trustHoldEscapeSignal && out.tool === 'input_hold' && out.result?.result?.reason === 'escape-pressed') {
+                    stoppedByKey = true;
+                    break;
+                }
                 if (!out.ok && !continueOnError) { failed = true; break; }
                 if (stepDelay > 0) await new Promise(r => setTimeout(r, stepDelay));
             }
@@ -852,6 +910,12 @@ const skillRun = {
         let failed = false;
         let repairsTotal = 0;
         const compatibility = analyzeSkillCompatibility(skill);
+        // Sticky target-window tracker shared across this run and any nested
+        // loop bodies. `open_app.windowTitleContains` (or any step's explicit
+        // `focusWindowTitle`) becomes the default for every subsequent
+        // window-targeted step (key_tap/key_hold/type_text) that doesn't name
+        // its own — see `_defaultFocusTitle` for why this matters.
+        const focusCtx = { title: null };
 
         if (compatibility.hasUnsupported && !allowUnsupported) {
             const blocked = compatibility.findings.filter(f => f.status === 'unsupported');
@@ -875,7 +939,8 @@ const skillRun = {
             // The NL compiler emits steps with a `type` field (e.g. `key_tap`,
             // `loop_until_key`, `speak`) rather than a `tool` field. Map these
             // to tool names or handle them natively (for control-flow types).
-            const normalised = _normaliseStep(step);
+            _updateFocusCtx(step, focusCtx);
+            const normalised = _normaliseStep(step, focusCtx);
             if (!normalised) {
                 results.push({ index: i, tool: step.type || step.tool, args: step, ok: false, error: `unknown step type: ${step.type}` });
                 if (!continueOnError) { failed = true; break; }
@@ -885,7 +950,7 @@ const skillRun = {
 
             // Control-flow steps (loops) are handled recursively, not via the registry.
             if (normalised._controlFlow) {
-                const cfResult = await _execControlFlow(normalised, { params, stepDelay, continueOnError, repairEnabled, maxRepairs, ctx, skill });
+                const cfResult = await _execControlFlow(normalised, { params, stepDelay, continueOnError, repairEnabled, maxRepairs, ctx, skill, focusCtx });
                 results.push({ index: i, ...cfResult });
                 if (!cfResult.ok) { failed = true; if (!continueOnError) break; }
                 continue;

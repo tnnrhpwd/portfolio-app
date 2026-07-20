@@ -239,7 +239,12 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
         for (const k of Object.keys(req.body || {})) {
             if (JSON.stringify(before[k]) !== JSON.stringify(after[k])) changedKeys.push(k);
         }
-        if (changedKeys.length) events.publish('permissions.changed', { changedKeys });
+        if (changedKeys.length) {
+            // Include the resolved kill-switch state directly so subscribers
+            // (e.g. the frontend's kill-switch banner) can react without a
+            // round-trip re-fetch of the full permission config.
+            events.publish('permissions.changed', { changedKeys, killSwitch: !!after.globalKillSwitch });
+        }
         res.json(after);
     });
     app.post('/api/automation/permissions/kill', (req, res) => {

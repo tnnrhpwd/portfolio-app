@@ -412,12 +412,16 @@ asyncTest('run: loop_until_key coalesces adjacent key_hold steps into one simult
             { type: 'key_hold', keys: ['w'], duration_ms: 1000 },
         ],
     }]);
-    // Force one body pass before stopping.
+    // Force one body pass before stopping. Only one shell_run poll happens
+    // per iteration now (the pre-body-step poll is skipped for a merged
+    // input_hold step — see loop_until_key's `skipPreCheck`), so the
+    // "stop" signal needs to arrive on the 2nd per-iteration poll, not the
+    // 3rd, to still exercise exactly one body pass.
     let polls = 0;
     fakeRegistry._handler = (name, args) => {
         if (name === 'shell_run') {
             polls++;
-            return { ok: true, result: { stdout: polls > 2 ? 'True' : 'False' } };
+            return { ok: true, result: { stdout: polls > 1 ? 'True' : 'False' } };
         }
         calls.push({ name, args });
         return { ok: true, result: 'ok' };
@@ -429,6 +433,76 @@ asyncTest('run: loop_until_key coalesces adjacent key_hold steps into one simult
     assert.deepStrictEqual(holds[0].args.keys, ['w']);
     assert.deepStrictEqual(holds[0].args.mouseButtons, ['left']);
     assert.strictEqual(holds[0].args.durationMs, 1000);
+});
+
+asyncTest("run: loop_until_key trusts input_hold's own escape-pressed reason instead of re-polling", async () => {
+    let shellPolls = 0;
+    let holdCalls = 0;
+    fakeRegistry._handler = (name) => {
+        if (name === 'shell_run') {
+            shellPolls++;
+            return { ok: true, result: { stdout: 'False' } }; // the poll itself never reports pressed
+        }
+        if (name === 'input_hold') {
+            holdCalls++;
+            // Simulates input_hold's own internal GetAsyncKeyState poll
+            // catching Escape mid-hold and returning early.
+            return { ok: true, result: { reason: 'escape-pressed', elapsedMs: 42 } };
+        }
+        return { ok: true, result: 'ok' };
+    };
+    const s = makeSkill('loop-hold-signal', [{
+        type: 'loop_until_key',
+        key: 'Escape',
+        body: [{ type: 'key_hold', keys: ['w'], duration_ms: 1000 }],
+    }]);
+    const out = await skillRun.run({ slug: 'loop-hold-signal', cache: s, stepDelayMs: 0 }, {});
+    assert.strictEqual(out.steps[0].stoppedByKey, true);
+    assert.strictEqual(holdCalls, 1, 'should stop right after the first hold reports escape-pressed');
+    assert.strictEqual(shellPolls, 1, 'no extra poll should be needed once the hold itself detected escape');
+});
+
+asyncTest('run: open_app windowTitleContains becomes the sticky default focusWindowTitle for later steps', async () => {
+    // Regression test: a macro that opens an app then taps/holds keys
+    // without repeating focusWindowTitle on every single step used to drift
+    // onto whatever window the OS handed foreground to by the time those
+    // later steps ran — the classic "Escape doesn't unpause the game" /
+    // "the click doesn't land in the game" bug. open_app's target window
+    // should now carry forward automatically.
+    const calls = [];
+    fakeRegistry._handler = (name, args) => {
+        if (name === 'shell_run') return { ok: true, result: { stdout: 'True' } }; // stop loop immediately
+        calls.push({ name, args });
+        return { ok: true, result: 'ok' };
+    };
+    const s = makeSkill('sticky-focus', [
+        { type: 'open_app', name: 'minecraft.exe', windowTitleContains: 'Minecraft', waitMs: 15000 },
+        { type: 'key_tap', keys: ['Escape'], repeat: 1 },
+        { type: 'key_hold', keys: ['left mouse button'], duration_ms: 10000 },
+        { type: 'key_hold', keys: ['w'], duration_ms: 10000 },
+        {
+            type: 'loop_until_key',
+            key: 'Escape',
+            body: [
+                { type: 'key_hold', keys: ['left mouse button'], duration_ms: 1000 },
+                { type: 'key_hold', keys: ['w'], duration_ms: 1000 },
+            ],
+        },
+    ]);
+    const out = await skillRun.run({ slug: 'sticky-focus', cache: s, stepDelayMs: 0 }, {});
+    assert.strictEqual(out.failed, false);
+
+    const openApp = calls.find(c => c.name === 'open_app');
+    assert.strictEqual(openApp.args.windowTitleContains, 'Minecraft');
+
+    const tap = calls.find(c => c.name === 'input_tap');
+    assert.strictEqual(tap.args.focusWindowTitle, 'Minecraft', 'key_tap should inherit the open_app target window');
+
+    const holds = calls.filter(c => c.name === 'input_hold');
+    assert.ok(holds.length >= 1);
+    for (const h of holds) {
+        assert.strictEqual(h.args.focusWindowTitle, 'Minecraft', 'every key_hold should inherit the open_app target window');
+    }
 });
 
 // ── successCriteria-triggered repair (§5.6) ─────────────────────────────────

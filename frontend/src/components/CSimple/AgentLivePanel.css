@@ -20,6 +20,49 @@
   border-top: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
 }
 
+/* ─── Kill-switch banner ───────────────────────────────────────────────── */
+.agent-live__kill-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: left;
+  color: #fff;
+  background: #dc2626;
+  border: 1px solid #b91c1c;
+  border-radius: 10px;
+  padding: 0.55rem 0.75rem;
+  margin-bottom: 0.8rem;
+  cursor: pointer;
+  animation: agent-live-kill-pulse 2s ease-in-out infinite;
+}
+
+.agent-live__kill-banner:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.agent-live__kill-banner:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.agent-live__kill-banner-icon {
+  flex-shrink: 0;
+  font-size: 1rem;
+}
+
+.agent-live__kill-banner-text {
+  min-width: 0;
+}
+
+@keyframes agent-live-kill-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.5); }
+  50% { box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); }
+}
+
 .agent-live__section-head {
   display: flex;
   align-items: center;
@@ -418,6 +461,13 @@
   backdrop-filter: none;
   color: var(--text-primary);
   font-family: inherit;
+}
+
+.agent-live--sidebar .agent-live__kill-banner {
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
 }
 
 .agent-live--sidebar .agent-live__section-head h4 {
