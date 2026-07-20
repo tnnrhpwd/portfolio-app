@@ -42,6 +42,7 @@ const {
   getAdminDashboard, getAdminUsers, getAdminPaginatedData,
   initTestFunnel, resetTestFunnel, getTestFunnelStatus, recordFunnelStep, getTestEmails,
   getStripeConfig,
+  getDeepStorageItems, regenerateDeepStorageItems,
 } = require('../controllers');
 
 // File upload controller
@@ -288,6 +289,12 @@ router.get('/all/admin', protect, requireAdmin, getAllData);
 router.get('/admin/dashboard', protect, requireAdmin, getAdminDashboard);
 router.get('/admin/users', protect, requireAdmin, getAdminUsers);
 router.get('/admin/data', protect, requireAdmin, getAdminPaginatedData);
+
+// ============================================================================
+// DEEP STORAGE (Bedrock Minecraft stackable item catalog)
+// ============================================================================
+router.get('/deepstorage/items', getDeepStorageItems);
+router.post('/deepstorage/regenerate', protect, requireAdmin, regenerateDeepStorageItems);
 
 // Test Funnel Routes
 router.post('/test-funnel/init', protect, initTestFunnel);

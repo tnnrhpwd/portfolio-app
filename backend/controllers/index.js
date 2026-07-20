@@ -17,6 +17,7 @@ const { extractOCR, updateWithOCR } = require('./ocrController'); // OCR functio
 const { getAvailableProviders } = require('../utils/llmProviders'); // LLM providers
 const { getAdminDashboard, getAdminUsers, getAdminPaginatedData } = require('./adminController'); // Admin dashboard
 const { initTestFunnel, resetTestFunnel, getTestFunnelStatus, recordFunnelStep, getTestEmails } = require('./testFunnelController'); // Test funnel
+const { getDeepStorageItems, regenerateDeepStorageItems } = require('./deepStorageController'); // DeepStorage (Bedrock item catalog)
 
 // @desc    Get available LLM providers and models
 // @route   GET /api/data/llm-providers
@@ -73,4 +74,5 @@ module.exports = {
     getStripeConfig,
     getAdminDashboard, getAdminUsers, getAdminPaginatedData,
     initTestFunnel, resetTestFunnel, getTestFunnelStatus, recordFunnelStep, getTestEmails,
+    getDeepStorageItems, regenerateDeepStorageItems,
 };

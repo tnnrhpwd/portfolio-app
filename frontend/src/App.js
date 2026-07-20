@@ -11,6 +11,7 @@ import Home from './pages/Home/Home';
 const Admin = lazy(() => import('./pages/Admin/Admin'));
 const Annuities = lazy(() => import('./pages/Projects/Annuities/Annuities'));
 const Contact = lazy(() => import('./pages/Contact/Contact'));
+const DeepStorage = lazy(() => import('./pages/DeepStorage/DeepStorage'));
 const Ethanol = lazy(() => import('./pages/Projects/Ethanol/Ethanol'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword/ForgotPassword.jsx'));
 const GFreq = lazy(() => import('./pages/Projects/GFreq/GFreq'));
@@ -63,6 +64,7 @@ function App() {
               <Route path='/admin' element={<Admin />} />
               <Route path="/annuities" element={<Annuities/>} />
               <Route path="/contact" element={<Contact/>} />
+              <Route path='/deepstorage' element={<DeepStorage />} />
               <Route path="/ethanol" element={<Ethanol/>} />
               <Route path='/forgot-password' element={<ForgotPassword />} />
               <Route path="/GFreq" element={<GFreq/>} />

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import "./ScrollableTable.css"; // Add styles if needed
 
-const ScrollableTable = ({ headers, data, renderRow, filterFn, getColumnValue }) => {
+const ScrollableTable = ({ headers, data, renderRow, filterFn, getColumnValue, onFilteredDataChange }) => {
   const [searchText, setSearchText] = useState("");
   const [sortBy, setSortBy] = useState(null);
   const [sortOrder, setSortOrder] = useState("asc");
@@ -251,6 +251,12 @@ const ScrollableTable = ({ headers, data, renderRow, filterFn, getColumnValue })
 
     return filteredData;
   }, [data, filterFn, searchText, sortBy, sortOrder, filterSelections, getColumnValue]);
+
+  // Let the parent know what's currently visible (e.g. to power a CSV export
+  // of the filtered/sorted view rather than the whole unfiltered dataset).
+  useEffect(() => {
+    if (onFilteredDataChange) onFilteredDataChange(filteredAndSortedData);
+  }, [filteredAndSortedData, onFilteredDataChange]);
 
   return (
     <>
