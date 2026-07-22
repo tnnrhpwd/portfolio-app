@@ -52,6 +52,10 @@ public static class Native {
     [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
     [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+    [DllImport("user32.dll")] public static extern bool BringWindowToTop(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+    [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+    [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
 }
 "@
 function Set-ForegroundWindowForce($hwnd) {
@@ -60,17 +64,40 @@ function Set-ForegroundWindowForce($hwnd) {
     # heuristic -- the classic cause of the launched app's window never
     # actually receiving the input a macro sends right after open_app
     # (key taps look like they "did nothing", a held mouse button looks
-    # like a stray click landing on whatever WAS focused instead). A
-    # synthetic Alt press/release resets that lock; verify and retry.
-    for ($i = 0; $i -lt 3; $i++) {
-        if ([Native]::GetForegroundWindow() -eq $hwnd) { return $true }
-        [Native]::keybd_event(0x12, 0, 0x0000, [UIntPtr]::Zero)
-        [Native]::keybd_event(0x12, 0, 0x0002, [UIntPtr]::Zero)
-        [Native]::ShowWindowAsync($hwnd, 9) | Out-Null  # 9 = SW_RESTORE
-        [Native]::SetForegroundWindow($hwnd) | Out-Null
-        Start-Sleep -Milliseconds 100
+    # like a stray click landing on whatever WAS focused instead, or a
+    # hold that instantly releases because it never reached the target).
+    #
+    # A synthetic Alt press/release alone is not reliable enough against
+    # fullscreen-exclusive games -- AttachThreadInput to the currently
+    # foreground thread first (the documented Win32 technique to bypass
+    # the foreground-lock outright), then fall back to the Alt-key nudge
+    # too. Retry longer since a freshly-launched game window can take a
+    # beat to actually accept the foreground switch.
+    if ([Native]::GetForegroundWindow() -eq $hwnd) { Start-Sleep -Milliseconds 150; return $true }
+    $curThread = [Native]::GetCurrentThreadId()
+    $fgWin = [Native]::GetForegroundWindow()
+    $fgProcId = 0
+    $fgThread = if ($fgWin -ne [IntPtr]::Zero) { [Native]::GetWindowThreadProcessId($fgWin, [ref]$fgProcId) } else { 0 }
+    $attached = $false
+    if ($fgThread -ne 0 -and $fgThread -ne $curThread) {
+        $attached = [Native]::AttachThreadInput($curThread, $fgThread, $true)
     }
-    return [Native]::GetForegroundWindow() -eq $hwnd
+    try {
+        for ($i = 0; $i -lt 8; $i++) {
+            if ([Native]::GetForegroundWindow() -eq $hwnd) { break }
+            [Native]::keybd_event(0x12, 0, 0x0000, [UIntPtr]::Zero)
+            [Native]::keybd_event(0x12, 0, 0x0002, [UIntPtr]::Zero)
+            [Native]::ShowWindowAsync($hwnd, 9) | Out-Null  # 9 = SW_RESTORE
+            [Native]::BringWindowToTop($hwnd) | Out-Null
+            [Native]::SetForegroundWindow($hwnd) | Out-Null
+            Start-Sleep -Milliseconds 100
+        }
+    } finally {
+        if ($attached) { [Native]::AttachThreadInput($curThread, $fgThread, $false) | Out-Null }
+    }
+    $ok = [Native]::GetForegroundWindow() -eq $hwnd
+    if ($ok) { Start-Sleep -Milliseconds 150 }
+    return $ok
 }
 `;
 

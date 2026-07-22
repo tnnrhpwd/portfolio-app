@@ -97,6 +97,10 @@ public static class Native {
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
     [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] public static extern bool BringWindowToTop(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+    [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+    [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
 }
 "@
 function Set-ForegroundWindowForce($hwnd) {
@@ -106,17 +110,45 @@ function Set-ForegroundWindowForce($hwnd) {
     # whatever window actually still has focus (e.g. the terminal/editor
     # that launched the macro) instead of the intended target. That makes
     # key taps look like they "did nothing" and makes a held mouse button
-    # look like a stray click somewhere else. A synthetic Alt press/release
-    # resets that lock; verify with GetForegroundWindow and retry briefly.
-    for ($i = 0; $i -lt 3; $i++) {
-        if ([Native]::GetForegroundWindow() -eq $hwnd) { return $true }
-        [Native]::keybd_event(0x12, 0, 0x0000, [UIntPtr]::Zero)
-        [Native]::keybd_event(0x12, 0, 0x0002, [UIntPtr]::Zero)
-        [Native]::ShowWindowAsync($hwnd, 9) | Out-Null  # 9 = SW_RESTORE
-        [Native]::SetForegroundWindow($hwnd) | Out-Null
-        Start-Sleep -Milliseconds 100
+    # look like a stray click somewhere else (or a hold releasing instantly
+    # because it never actually reached the target window).
+    #
+    # A synthetic Alt press/release alone is not reliable enough against
+    # fullscreen-exclusive games -- AttachThreadInput to the currently
+    # foreground thread first, which lets this background process's
+    # SetForegroundWindow call bypass the lock outright (the documented
+    # Win32 technique), then fall back to the Alt-key nudge too. Retry
+    # longer (up to ~1s) since a freshly-launched/just-unminimized game
+    # window can take a beat to actually accept the foreground switch.
+    if ([Native]::GetForegroundWindow() -eq $hwnd) { Start-Sleep -Milliseconds 150; return $true }
+    $curThread = [Native]::GetCurrentThreadId()
+    $fgWin = [Native]::GetForegroundWindow()
+    $fgProcId = 0
+    $fgThread = if ($fgWin -ne [IntPtr]::Zero) { [Native]::GetWindowThreadProcessId($fgWin, [ref]$fgProcId) } else { 0 }
+    $attached = $false
+    if ($fgThread -ne 0 -and $fgThread -ne $curThread) {
+        $attached = [Native]::AttachThreadInput($curThread, $fgThread, $true)
     }
-    return [Native]::GetForegroundWindow() -eq $hwnd
+    try {
+        for ($i = 0; $i -lt 8; $i++) {
+            if ([Native]::GetForegroundWindow() -eq $hwnd) { break }
+            [Native]::keybd_event(0x12, 0, 0x0000, [UIntPtr]::Zero)
+            [Native]::keybd_event(0x12, 0, 0x0002, [UIntPtr]::Zero)
+            [Native]::ShowWindowAsync($hwnd, 9) | Out-Null  # 9 = SW_RESTORE
+            [Native]::BringWindowToTop($hwnd) | Out-Null
+            [Native]::SetForegroundWindow($hwnd) | Out-Null
+            Start-Sleep -Milliseconds 100
+        }
+    } finally {
+        if ($attached) { [Native]::AttachThreadInput($curThread, $fgThread, $false) | Out-Null }
+    }
+    $ok = [Native]::GetForegroundWindow() -eq $hwnd
+    # Give the target app's own input loop a moment to actually start
+    # receiving events on the new foreground window before we send any --
+    # otherwise input sent in the same instant as the focus switch can be
+    # dropped by apps (games especially) that only poll input once per frame.
+    if ($ok) { Start-Sleep -Milliseconds 150 }
+    return $ok
 }
 function Focus-WindowByTitle($needle) {
     if (-not $needle) { return $null }
@@ -552,4 +584,31 @@ try {
     },
 };
 
-module.exports = { inputHold, inputTap, clickAt, mousePath, mouseDrag, splitMousePhrasesFromKeys };
+// ─── checkAsyncKeyState ────────────────────────────────────────────────────────
+// Lightweight, permission-gate-free check of whether a given virtual-key is
+// currently down or was pressed since the last poll. Used by skill.js's
+// `loop_until_key` to detect the user's configured stop key (typically
+// Escape).
+//
+// Deliberately bypasses the tool-registry/permission layer: this is not a
+// new user-facing capability, just a native re-check of the very key the
+// skill author already declared as that loop's own stop condition. Routing
+// it through `shell_run` (category 'shell', mode 'ask' by default) meant a
+// permission revocation or a denied approval mid-run would make the poll
+// silently report "not pressed" forever -- Escape would then be unable to
+// ever stop the loop, forcing the user to hit the emergency kill switch
+// instead. That is the bug behind "pressing Escape doesn't end the loop".
+async function checkAsyncKeyState(vk) {
+    const v = Number(vk) || 0x1B;
+    const script = `${NATIVE_PRELUDE}
+(([Native]::GetAsyncKeyState(${v}) -band 0x8001) -ne 0)
+`;
+    try {
+        const out = await runPsScript(script, { timeoutMs: 5_000 });
+        return String(out).trim().toLowerCase() === 'true';
+    } catch {
+        return false;
+    }
+}
+
+module.exports = { inputHold, inputTap, clickAt, mousePath, mouseDrag, splitMousePhrasesFromKeys, checkAsyncKeyState };

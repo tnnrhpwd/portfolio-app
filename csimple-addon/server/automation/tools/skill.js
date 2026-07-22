@@ -24,6 +24,7 @@ const registry = require('../tool-registry');
 const wsClient = require('../workspace-client');
 const events = require('../events');
 const permissions = require('../permissions');
+const { checkAsyncKeyState } = require('./input');
 
 // In-memory cache: slug → skill object. Populated by the compile-and-save
 // route, so newly-created skills are runnable immediately without a round
@@ -751,19 +752,20 @@ async function _execControlFlow(cf, { params, stepDelay, continueOnError, repair
         const MAX_ITER = cf.maxIterations || 10000;
         const keyName = cf.key || 'Escape';
         const vk = _resolveLoopVirtualKey(keyName);
+        // Poll the stop key directly via input.js's checkAsyncKeyState instead
+        // of going through registry.executeTool('shell_run', ...). Checking
+        // whether the loop's OWN declared stop key is pressed is not a new
+        // user-facing action -- it's just re-reading the exact key the skill
+        // author already named as this loop's stop condition -- so it must
+        // never be blockable by the shell/system permission gate. Routing it
+        // through the gated shell_run tool meant a permission denial or
+        // revocation mid-run (e.g. the user's 'shell' category flipping to
+        // 'ask'/'deny') made every poll silently resolve to "not pressed",
+        // so Escape could never stop the loop -- exactly the "pressing
+        // Escape doesn't end the loop" bug reports.
         const checkKey = async () => {
             try {
-                const out = await registry.executeTool('shell_run', {
-                    command: `Add-Type @"
-using System.Runtime.InteropServices;
-public static class Native {
-    [DllImport("user32.dll")] public static extern short GetAsyncKeyState(int vKey);
-}
-"@; (([Native]::GetAsyncKeyState(${vk}) -band 0x8001) -ne 0)`,
-                    shell: 'powershell',
-                    silent: true,
-                }, ctx).catch(() => ({ ok: false }));
-                return out?.ok && String(out?.result?.stdout || '').trim().toLowerCase() === 'true';
+                return await checkAsyncKeyState(vk);
             } catch { return false; }
         };
         // input_hold already polls GetAsyncKeyState(VK_ESCAPE) internally

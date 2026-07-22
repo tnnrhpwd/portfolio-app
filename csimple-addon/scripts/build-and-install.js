@@ -41,17 +41,36 @@ if (buildResult.status !== 0) {
 }
 
 // ─── Step 3: Find the new installer ───────────────────────────────────────────
+// dist/ accumulates one Setup exe per past build (electron-builder never
+// cleans old versions), so picking readdirSync(...)[0] would sort
+// alphabetically and silently install a STALE installer (e.g. "Setup
+// 1.0.0.exe" sorts before the freshly-built "Setup 1.0.8.exe") — this is
+// exactly the "there is an old version installed" bug. Match the NSIS
+// "Setup <currentVersion>.exe" this run's package.json version actually
+// produced, falling back to the most-recently-modified Setup exe if that
+// exact name isn't found (e.g. version string mismatch).
 const distDir = path.join(ROOT, 'dist');
 if (!fs.existsSync(distDir)) {
     console.error('[build:install] No dist/ directory found after build.');
     process.exit(1);
 }
-const installers = fs.readdirSync(distDir).filter(f => f.endsWith('.exe') && f !== 'builder-debug.yml');
-if (installers.length === 0) {
-    console.error('[build:install] No installer .exe found in dist/');
+const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf-8'));
+const expectedName = `CSimple Addon Setup ${pkg.version}.exe`;
+
+let setupInstallers = fs.readdirSync(distDir)
+    .filter(f => /^CSimple Addon Setup .*\.exe$/.test(f))
+    .map(f => ({ name: f, mtime: fs.statSync(path.join(distDir, f)).mtimeMs }));
+
+if (setupInstallers.length === 0) {
+    console.error('[build:install] No "CSimple Addon Setup *.exe" installer found in dist/');
     process.exit(1);
 }
-const installer = installers[0];
+
+let installer = setupInstallers.find(f => f.name === expectedName)?.name;
+if (!installer) {
+    console.warn(`[build:install] Expected "${expectedName}" not found — falling back to most recently built installer.`);
+    installer = setupInstallers.sort((a, b) => b.mtime - a.mtime)[0].name;
+}
 const installerPath = path.join(distDir, installer);
 console.log(`[build:install] Built installer: ${installerPath}`);
 

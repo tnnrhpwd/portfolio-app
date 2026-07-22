@@ -45,6 +45,22 @@ require.cache[permissionsPath] = {
     id: permissionsPath, filename: permissionsPath, loaded: true, exports: fakePermissions,
 };
 
+// loop_until_key polls its stop key via input.js's checkAsyncKeyState
+// directly (bypassing the permission-gated tool registry — see skill.js).
+// Fake it here so tests can script "pressed"/"not pressed" without spawning
+// real PowerShell or depending on permission state.
+const inputPath = require.resolve('./input');
+const fakeInput = {
+    _impl: null, // (vk) => boolean | Promise<boolean>
+    async checkAsyncKeyState(vk) {
+        if (typeof fakeInput._impl === 'function') return fakeInput._impl(vk);
+        return false;
+    },
+};
+require.cache[inputPath] = {
+    id: inputPath, filename: inputPath, loaded: true, exports: fakeInput,
+};
+
 const skill = require('./skill');
 const { skillRun, repairStep, _extractJsonObject, analyzeSkillCompatibility } = skill;
 
@@ -368,14 +384,14 @@ asyncTest('run: screenshot_check proceeds when cloud vision consent exists', asy
 
 asyncTest('run: loop_until_key stops promptly when key poll reports pressed', async () => {
     let pollCount = 0;
+    let pollVk = null;
     let bodyCount = 0;
-    let pollCommand = '';
-    fakeRegistry._handler = (name, args) => {
-        if (name === 'shell_run') {
-            pollCount++;
-            pollCommand = args.command || '';
-            return { ok: true, result: { stdout: pollCount > 1 ? 'True' : 'False' } };
-        }
+    fakeInput._impl = (vk) => {
+        pollCount++;
+        pollVk = vk;
+        return pollCount > 1;
+    };
+    fakeRegistry._handler = (name) => {
         if (name === 'input_tap') {
             bodyCount++;
             return { ok: true, result: 'ok' };
@@ -393,14 +409,22 @@ asyncTest('run: loop_until_key stops promptly when key poll reports pressed', as
     assert.strictEqual(out.steps[0].stoppedByKey, true);
     assert.strictEqual(out.steps[0].iterations, 0);
     assert.strictEqual(bodyCount, 0);
-    assert.ok(pollCommand.includes('GetAsyncKeyState'), 'key poll should use native async key-state API');
-    assert.ok(pollCommand.includes('0x8001'), 'key poll should detect quick key taps, not only sustained holds');
+    assert.strictEqual(pollVk, 27, 'Escape should resolve to VK_ESCAPE (27)');
 });
 
 asyncTest('run: loop_until_key coalesces adjacent key_hold steps into one simultaneous hold', async () => {
     const calls = [];
+    // Force one body pass before stopping: the 1st per-iteration poll (top
+    // of loop) reports "not pressed", the 2nd (start of next iteration)
+    // reports "pressed". Only one poll happens per iteration since the
+    // pre-body-step poll is skipped for a merged input_hold step — see
+    // loop_until_key's `skipPreCheck`.
+    let polls = 0;
+    fakeInput._impl = () => {
+        polls++;
+        return polls > 1;
+    };
     fakeRegistry._handler = (name, args) => {
-        if (name === 'shell_run') return { ok: true, result: { stdout: 'True' } }; // stop immediately after first loop check
         calls.push({ name, args });
         return { ok: true, result: 'ok' };
     };
@@ -412,20 +436,6 @@ asyncTest('run: loop_until_key coalesces adjacent key_hold steps into one simult
             { type: 'key_hold', keys: ['w'], duration_ms: 1000 },
         ],
     }]);
-    // Force one body pass before stopping. Only one shell_run poll happens
-    // per iteration now (the pre-body-step poll is skipped for a merged
-    // input_hold step — see loop_until_key's `skipPreCheck`), so the
-    // "stop" signal needs to arrive on the 2nd per-iteration poll, not the
-    // 3rd, to still exercise exactly one body pass.
-    let polls = 0;
-    fakeRegistry._handler = (name, args) => {
-        if (name === 'shell_run') {
-            polls++;
-            return { ok: true, result: { stdout: polls > 1 ? 'True' : 'False' } };
-        }
-        calls.push({ name, args });
-        return { ok: true, result: 'ok' };
-    };
     const out = await skillRun.run({ slug: 'loop-coalesce', cache: s, stepDelayMs: 0 }, {});
     assert.strictEqual(out.failed, false);
     const holds = calls.filter(c => c.name === 'input_hold');
@@ -436,13 +446,13 @@ asyncTest('run: loop_until_key coalesces adjacent key_hold steps into one simult
 });
 
 asyncTest("run: loop_until_key trusts input_hold's own escape-pressed reason instead of re-polling", async () => {
-    let shellPolls = 0;
+    let pollCalls = 0;
     let holdCalls = 0;
+    fakeInput._impl = () => {
+        pollCalls++;
+        return false; // the poll itself never reports pressed
+    };
     fakeRegistry._handler = (name) => {
-        if (name === 'shell_run') {
-            shellPolls++;
-            return { ok: true, result: { stdout: 'False' } }; // the poll itself never reports pressed
-        }
         if (name === 'input_hold') {
             holdCalls++;
             // Simulates input_hold's own internal GetAsyncKeyState poll
@@ -459,7 +469,7 @@ asyncTest("run: loop_until_key trusts input_hold's own escape-pressed reason ins
     const out = await skillRun.run({ slug: 'loop-hold-signal', cache: s, stepDelayMs: 0 }, {});
     assert.strictEqual(out.steps[0].stoppedByKey, true);
     assert.strictEqual(holdCalls, 1, 'should stop right after the first hold reports escape-pressed');
-    assert.strictEqual(shellPolls, 1, 'no extra poll should be needed once the hold itself detected escape');
+    assert.strictEqual(pollCalls, 1, 'no extra poll should be needed once the hold itself detected escape');
 });
 
 asyncTest('run: open_app windowTitleContains becomes the sticky default focusWindowTitle for later steps', async () => {

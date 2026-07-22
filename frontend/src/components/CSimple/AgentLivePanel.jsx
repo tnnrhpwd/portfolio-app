@@ -176,6 +176,24 @@ export default function AgentLivePanel({ addonConnected, user, onManageMacros, v
     return () => { cancelled = true; };
   }, [addonConnected]);
 
+  // ── Kill-switch safety poll ───────────────────────────────────────────────
+  // The SSE 'permissions.changed' listener above is the primary way the
+  // banner stays in sync, but it can miss updates around reconnects/restarts.
+  // Poll straight from the source periodically so "kill switch is on but no
+  // UI says so" can't persist for long even if an event was dropped.
+  useEffect(() => {
+    if (!addonConnected) return;
+    let cancelled = false;
+    const id = setInterval(() => {
+      getAutomationPermissions().then((perms) => {
+        if (cancelled || !perms) return;
+        setAutoApprove(!!perms.autoApproveAll);
+        setKillSwitchOn(!!perms.globalKillSwitch);
+      }).catch(() => {});
+    }, 10000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [addonConnected]);
+
   // ── Quick macros list (cloud workspace, independent of the addon) ────────
   const loadMacros = useCallback(async () => {
     if (!token) return;
@@ -256,6 +274,19 @@ export default function AgentLivePanel({ addonConnected, user, onManageMacros, v
     } finally {
       setRunningSlug(null);
       setTimeout(() => setRunResult((r) => (r?.slug === slug ? null : r)), 2500);
+      // A macro can fail because the kill switch got engaged elsewhere (tray
+      // menu, eye-tracking e-stop, another window) between our last snapshot
+      // and now. The SSE 'permissions.changed' listener *should* catch that,
+      // but if the stream dropped/reconnected around the same moment the
+      // banner can silently miss it — leaving tool calls denied with no UI
+      // explanation. Re-sync directly off every run attempt as a fallback so
+      // the banner never lies about why a macro just failed.
+      getAutomationPermissions().then((perms) => {
+        if (perms) {
+          setAutoApprove(!!perms.autoApproveAll);
+          setKillSwitchOn(!!perms.globalKillSwitch);
+        }
+      }).catch(() => {});
     }
   }, [addonConnected, runningSlug, macros]);
 
