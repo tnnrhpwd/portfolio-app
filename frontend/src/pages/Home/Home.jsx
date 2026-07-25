@@ -2,8 +2,7 @@ import React, { useEffect, useState } from "react";
 import Header from "../../components/Header/Header.jsx";
 import Footer from "../../components/Footer/Footer.jsx";
 import { useSelector, useDispatch } from 'react-redux';
-import { getPublicData, getUserUsage } from '../../features/data/dataSlice.js';
-import { normalizePlanName, isProTier, isPaidTier, FEATURES, PLAN_IDS } from '../../constants/pricing.js';
+import { getUserUsage } from '../../features/data/dataSlice.js';
 import './Home.css';
 
 const links = {
@@ -26,17 +25,10 @@ function Home() {
     const [displayedText, setDisplayedText] = useState("");
     const [isTyping, setIsTyping] = useState(true);
     const [animationPhase, setAnimationPhase] = useState(0);
-    const [showWordlePopup, setShowWordlePopup] = useState(false);
 
-    const { user, userUsage } = useSelector(
+    const { user } = useSelector(
         (state) => state.data
     );
-
-    // Derive membership info
-    const rawRank = userUsage?.membership || 'Free';
-    const membership = normalizePlanName(rawRank);
-    const isFree = !isPaidTier(rawRank);
-    const isPro = isProTier(rawRank);
 
     const titleText = "It's simple.";
     
@@ -54,29 +46,12 @@ function Home() {
         return () => clearTimeout(timeout);
     }, [displayedText, isTyping, titleText]);
 
-    useEffect(() => {
-        dispatch(getPublicData({ data: { text: "Action" } })).unwrap();
-    }, [dispatch]);
-
     // Fetch user usage/membership when logged in
     useEffect(() => {
         if (user) {
             dispatch(getUserUsage());
         }
     }, [dispatch, user]);
-
-    // Show Wordle popup after 5 seconds
-    // useEffect(() => {
-    //     const timer = setTimeout(() => {
-    //         setShowWordlePopup(true);
-    //     }, 5000);
-        
-    //     return () => clearTimeout(timer);
-    // }, []);
-
-    const handleClosePopup = () => {
-        setShowWordlePopup(false);
-    };
 
     return (
         <>
@@ -163,25 +138,6 @@ function Home() {
                 </section>
                 
                 <Footer />
-                
-                {/* Wordle Welcome Popup */}
-                {showWordlePopup && (
-                    <div className="wordle-popup">
-                        <button className="popup-close" onClick={handleClosePopup}>×</button>
-                        <div className="popup-content">
-                            <div className="popup-icon">🎯</div>
-                            <div className="popup-text">
-                                <span className="popup-title">Try Wordle?</span>
-                                <span className="popup-subtitle">Test your word skills!</span>
-                            </div>
-                        </div>
-                        <div className="popup-buttons">
-                            <a href="/wordle" className="popup-btn primary">
-                                Play
-                            </a>
-                        </div>
-                    </div>
-                )}
             </div>
         </>
     );
