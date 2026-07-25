@@ -20,7 +20,7 @@ const RESULT_LIMIT = 400; // cap how many chips we render for performance
 const KEYBOARD_ROWS = [
   ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
   ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
-  ['ENTER', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', 'DEL'],
+  ['DEL', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', 'ENTER'],
 ];
 
 // Loads and normalises the dictionary text file into an array of upper-case words.
@@ -71,6 +71,56 @@ function candidatePassesRow(candidate, letters, states) {
   return true;
 }
 
+/**
+ * Ranks candidate words by an information-value heuristic: words built from
+ * letters that occur across many *other* remaining candidates narrow the
+ * search down fastest, so they make better next guesses than picking a word
+ * at random. Also gives a small bonus to words with no repeated letters,
+ * since repeats waste a guess slot on redundant information.
+ */
+function rankByInformationValue(words) {
+  const letterDocFreq = {}; // how many candidate words contain each letter at least once
+  words.forEach((word) => {
+    new Set(word.split('')).forEach((letter) => {
+      letterDocFreq[letter] = (letterDocFreq[letter] || 0) + 1;
+    });
+  });
+
+  return words
+    .map((word) => {
+      const uniqueLetters = new Set(word.split(''));
+      let score = 0;
+      uniqueLetters.forEach((letter) => {
+        score += letterDocFreq[letter] || 0;
+      });
+      score += uniqueLetters.size * (words.length / word.length); // reward letter variety
+      return { word, score };
+    })
+    .sort((a, b) => b.score - a.score || a.word.localeCompare(b.word))
+    .map((entry) => entry.word);
+}
+
+/**
+ * Builds a best-known status per letter across every committed guess, the
+ * same way the real Wordle keyboard highlights letters you've already
+ * tried. Correct beats present beats absent, since a letter can be marked
+ * absent in one guess slot but correct/present in another when it repeats.
+ */
+function buildLetterStatus(rows) {
+  const priority = { [ABSENT]: 1, [PRESENT]: 2, [CORRECT]: 3 };
+  const status = {};
+  rows.forEach(({ letters, states }) => {
+    letters.forEach((letter, i) => {
+      const state = states[i];
+      if (!status[letter] || priority[state] > priority[status[letter]]) {
+        status[letter] = state;
+      }
+    });
+  });
+  return status;
+}
+
+
 function WordleSolver() {
   const navigate = useNavigate();
 
@@ -105,7 +155,7 @@ function WordleSolver() {
     committedRows.forEach(({ letters, states }) => {
       pool = pool.filter((word) => candidatePassesRow(word, letters, states));
     });
-    return pool;
+    return rankByInformationValue(pool);
   }, [dictionary, wordLength]);
 
   // ---- Input handlers ----
@@ -191,6 +241,16 @@ function WordleSolver() {
     setMessage('');
   }, []);
 
+  const undoLastGuess = useCallback(() => {
+    setRows((prev) => {
+      if (prev.length === 0) return prev;
+      const nextRows = prev.slice(0, -1);
+      setResults(nextRows.length > 0 ? solve(nextRows) : null);
+      return nextRows;
+    });
+    setMessage('');
+  }, [solve]);
+
   const changeLength = useCallback((len) => {
     setWordLength(len);
     setRows([]);
@@ -232,7 +292,17 @@ function WordleSolver() {
 
   const canSolve = rows.length > 0 || current.letters.length === wordLength;
   const remainingCount = results ? results.length : null;
-  const shownResults = results ? results.slice(0, RESULT_LIMIT) : [];
+  const SUGGESTION_LIMIT = 5;
+  const suggestions = results && results.length > 1 ? results.slice(0, SUGGESTION_LIMIT) : [];
+  // Results are ranked by information value for suggestions; show the rest alphabetically for easy scanning.
+  const shownResults = results ? [...results].sort((a, b) => a.localeCompare(b)).slice(0, RESULT_LIMIT) : [];
+  const letterStatus = buildLetterStatus(rows);
+  const keyStateClass = (key) => {
+    if (key === 'ENTER' || key === 'DEL') return '';
+    const state = letterStatus[key];
+    if (state === undefined) return '';
+    return stateClass(state);
+  };
 
   return (
     <div className="wordle-solver">
@@ -284,7 +354,7 @@ function WordleSolver() {
                 <button
                   key={key}
                   type="button"
-                  className={`solver-key ${key === 'ENTER' || key === 'DEL' ? 'solver-key-wide' : ''}`}
+                  className={`solver-key ${key === 'ENTER' || key === 'DEL' ? 'solver-key-wide' : ''} ${keyStateClass(key)}`}
                   onClick={() => handleKeyInput(key)}
                   onMouseDown={(e) => e.preventDefault()}
                 >
@@ -299,6 +369,9 @@ function WordleSolver() {
         <div className="solver-actions">
           <button type="button" className="solver-btn solver-btn-primary" onClick={commitRow} disabled={current.letters.length !== wordLength}>
             Add guess
+          </button>
+          <button type="button" className="solver-btn solver-btn-ghost" onClick={undoLastGuess} disabled={rows.length === 0}>
+            Undo last guess
           </button>
           <button type="button" className="solver-btn solver-btn-ghost" onClick={reset}>
             Reset
@@ -317,6 +390,19 @@ function WordleSolver() {
                 : `${remainingCount} possible ${remainingCount === 1 ? 'word' : 'words'}`}
               {remainingCount > RESULT_LIMIT && ` (showing first ${RESULT_LIMIT})`}
             </div>
+            {suggestions.length > 0 && (
+              <div className="solver-suggestions">
+                <div className="solver-suggestions-label">Best next guesses</div>
+                <div className="solver-word-list">
+                  {suggestions.map((word, i) => (
+                    <span className="solver-word-chip solver-word-chip-suggested" key={`suggest-${word}-${i}`}>{word}</span>
+                  ))}
+                </div>
+                <p className="solver-suggestions-hint">
+                  Ranked by how much these words narrow down the remaining answers.
+                </p>
+              </div>
+            )}
             {remainingCount > 0 && (
               <div className="solver-word-list">
                 {shownResults.map((word, i) => (
@@ -326,6 +412,7 @@ function WordleSolver() {
             )}
           </div>
         )}
+
 
         {!canSolve && results === null && (
           <div className="solver-hint">

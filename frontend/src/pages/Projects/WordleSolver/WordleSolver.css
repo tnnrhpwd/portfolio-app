@@ -293,6 +293,24 @@
     color: var(--text-color-inv);
 }
 
+/* Keyboard letter hints — mirrors real Wordle's "already tried" coloring */
+.solver-key.state-correct {
+    background: var(--color-correct);
+    color: #fff;
+}
+
+.solver-key.state-present {
+    background: var(--color-present);
+    color: #fff;
+}
+
+.solver-key.state-absent {
+    background: var(--color-absent);
+    color: #fff;
+    opacity: 0.65;
+}
+
+
 /* ---- Actions ---- */
 .solver-actions {
     display: flex;
@@ -397,6 +415,45 @@
     background: var(--bg-1);
     border: 1px solid var(--border-nav);
     border-radius: 6px;
+}
+
+/* ---- Suggested next guesses ---- */
+.solver-suggestions {
+    margin-bottom: var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 1px dashed var(--border-nav);
+}
+
+.solver-suggestions-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: var(--spacing-xs);
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--fg-mint);
+}
+
+.solver-suggestions-label::before {
+    content: '💡';
+    font-size: 1em;
+}
+
+.solver-word-chip-suggested {
+    background: linear-gradient(135deg, var(--fg-mint), var(--fg-blue));
+    color: var(--text-color-inv);
+    border: none;
+    box-shadow: var(--shadow-sm);
+}
+
+.solver-suggestions-hint {
+    margin: var(--spacing-xs) 0 0;
+    font-size: var(--font-size-xs);
+    color: var(--text-color-accent);
+    text-align: center;
 }
 
 /* ---- Hint / source ---- */
