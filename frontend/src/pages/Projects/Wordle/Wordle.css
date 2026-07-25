@@ -377,10 +377,31 @@
     transform: translateY(0) scale(0.98);
 }
 
-/* ---- Settings panel ---- */
+/* ---- Settings modal ---- */
+.settingMenu-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-md);
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(3px);
+    z-index: 50;
+    animation: overlayFadeIn 0.2s ease both;
+}
+
+@keyframes overlayFadeIn {
+    0%   { opacity: 0; }
+    100% { opacity: 1; }
+}
+
 .settingMenu {
+    position: relative;
     width: 100%;
     max-width: 26rem;
+    max-height: min(85vh, 42rem);
+    overflow-y: auto;
     margin: 0 auto;
     padding: var(--spacing-md);
     text-align: center;
@@ -389,8 +410,54 @@
     background: var(--bg-page);
     border: 1px solid var(--border-nav);
     border-radius: var(--border-radius-lg);
-    box-shadow: var(--shadow-lg);
-    animation: fadeInUp 0.25s ease both;
+    box-shadow: var(--shadow-xl);
+    animation: modalPopIn 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+@keyframes modalPopIn {
+    0%   { opacity: 0; transform: translateY(12px) scale(0.96); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.settingMenu-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: calc(var(--spacing-xs) * -1) calc(var(--spacing-xs) * -1) var(--spacing-sm);
+    padding-bottom: var(--spacing-xs);
+    border-bottom: 1px solid var(--border-nav);
+}
+
+.settingMenu-header h2 {
+    margin: 0;
+    font-size: var(--font-size-large);
+    font-weight: var(--font-weight-bold);
+}
+
+.settingMenu-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: calc(var(--nav-size) * 0.7);
+    height: calc(var(--nav-size) * 0.7);
+    min-height: 0;
+    padding: 0;
+    font-size: var(--font-size-base);
+    line-height: 1;
+    color: var(--text-color);
+    background: var(--bg-nav-dropper);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: none;
+    transition: transform 0.12s ease, filter 0.15s ease;
+}
+
+.settingMenu-close:hover {
+    filter: brightness(1.1);
+    transform: rotate(90deg);
+    box-shadow: none;
+    background: var(--bg-nav-dropper);
 }
 
 .settingMenu label {

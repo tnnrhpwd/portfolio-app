@@ -11,7 +11,7 @@ import "./Wordle.css";
 const initialKeys = {
   'Q': '', 'W': '', 'E': '', 'R': '', 'T': '', 'Y': '', 'U': '', 'I': '', 'O': '', 'P': '', 'break': '',
   'A': '', 'S': '', 'D': '', 'F': '', 'G': '', 'H': '', 'J': '', 'K': '', 'L': '', 'break2': '',
-  '⏎': '', 'Z': '', 'X': '', 'C': '', 'V': '', 'B': '', 'N': '', 'M': '', '⌫': ''
+  '⌫': '', 'Z': '', 'X': '', 'C': '', 'V': '', 'B': '', 'N': '', 'M': '', '⏎': ''
 };
 
 const maxGuesses = 6;
@@ -67,6 +67,17 @@ const simpleWords = [
   'ENVIRONMENT', 'TEMPERATURE', 'CELEBRATION', 'CONVERSATION'
 ];
 
+// Adult-language word list for the opt-in "Curse Words Only" mode.
+// Kept to common mainstream profanity - no slurs or hate speech.
+const curseWords = [
+  'ASS',
+  'FUCK', 'SHIT', 'DAMN', 'PISS', 'COCK', 'CUNT', 'TITS', 'SLUT', 'TWAT', 'FART',
+  'BITCH', 'WHORE', 'PISSY', 'DAMNS', 'SHITE', 'PRICK', 'SKANK',
+  'ASSES', 'PISSED', 'DICKED', 'WHORES', 'SUCKER', 'HOOKER',
+  'BASTARD', 'DUMBASS', 'JACKASS', 'SHITTED', 'ASSWIPE', 'DOUCHEY',
+  'ASSHOLE', 'BULLSHIT', 'SHITHEAD', 'DIPSHIT', 'HORNIEST'
+];
+
 function Wordle() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -88,6 +99,7 @@ function Wordle() {
   const [answerVisibility, setAnswerVisibility] = useState(false);
   const [isCreditsExpanded, setIsCreditsExpanded] = useState(false);
   const [useFullDictionary, setUseFullDictionary] = useState(false);
+  const [useCurseWords, setUseCurseWords] = useState(false);
   const [gameStartTime, setGameStartTime] = useState(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [gameActive, setGameActive] = useState(false);
@@ -145,8 +157,9 @@ function Wordle() {
   }, []);
 
   const getActiveDictionary = useCallback(() => {
+    if (useCurseWords) return curseWords;
     return useFullDictionary ? dictionary : simpleWords;
-  }, [useFullDictionary, dictionary]);
+  }, [useFullDictionary, useCurseWords, dictionary]);
 
   const getRandomWordFromDictionary = useCallback((wordLength) => {
     const activeDictionary = getActiveDictionary();
@@ -350,6 +363,7 @@ function Wordle() {
     // GUARD CLAUSE - not a word (check both simple words AND full dictionary for all guesses)
     const isValidWord = simpleWords.includes(guessString) || 
                        dictionary.includes(guessString) || 
+                       curseWords.includes(guessString) ||
                        guessString.toLowerCase() === secretWord.toLowerCase();
     
     if (!isValidWord) {
@@ -540,7 +554,25 @@ function Wordle() {
     setWordLength(newWordLength); // Set word length after reset
 
     try {
-      if (useFullDictionary && user) {
+      if (useCurseWords) {
+        // Curse Words Only mode always uses the local list - never the backend API
+        const randomWord = getRandomWordFromDictionary(newWordLength);
+        if (randomWord) {
+          setSecretWord(randomWord);
+          startTimer();
+          // Only fetch definition if user is logged in
+          if (user) {
+            try {
+              await fetchDefinition(randomWord);
+            } catch (error) {
+              console.log('Could not fetch definition for curse word, continuing without it');
+              setDefinition("");
+            }
+          }
+        } else {
+          setOutputMessage(`No ${newWordLength}-letter curse words available. Please try a different length.`);
+        }
+      } else if (useFullDictionary && user) {
         // Use backend API for full dictionary (only if user is logged in)
         await fetchRandomWordFromBackend(newWordLength);
         // Timer will start when word is received in useEffect
@@ -577,11 +609,24 @@ function Wordle() {
       console.error('Error setting up new game:', error.message);
       setOutputMessage('Error setting up new game. Please try again.');
     }
-  }, [settingMenuText, resetInitialValues, fetchRandomWordFromBackend, useFullDictionary, getRandomWordFromDictionary, fetchDefinition, startTimer, user]);
+  }, [settingMenuText, resetInitialValues, fetchRandomWordFromBackend, useFullDictionary, useCurseWords, getRandomWordFromDictionary, fetchDefinition, startTimer, user]);
 
   const toggleSettings = useCallback(() => {
     setSettingMenu(prev => prev + 1);
   }, []);
+
+  // Close the settings modal with the Escape key
+  useEffect(() => {
+    if (settingMenu % 2 !== 1) return;
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        setSettingMenu(prev => prev + 1);
+      }
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => document.removeEventListener('keydown', onKeyDown, true);
+  }, [settingMenu]);
 
   const GetGuessGrid = useCallback(() => {
     let grid = [];
@@ -771,32 +816,57 @@ function Wordle() {
           </button>
         </div>
         {(settingMenu%2===1)&&
-          <div className='settingMenu'>
-            <label style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 'var(--font-weight-semibold)'}}>
-              Desired Word Length
-              <input type="text" id="settingMenu-text" onChange={e => setSettingMenuText(e.target.value)} value={settingMenuText} />
-            </label>
-            <br/>
-            <label style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 'var(--font-weight-semibold)'}}>
-              <input 
-                type="checkbox" 
-                checked={useFullDictionary} 
-                onChange={e => setUseFullDictionary(e.target.checked)}
-                style={{transform: 'scale(1.2)'}}
-              />
-              Use Full Dictionary (Advanced Words)
-            </label>
-            <div style={{fontSize: 'var(--font-size-xs)', marginTop: '8px', fontStyle: 'italic', opacity: '0.8'}}>
-              {useFullDictionary ? 'Uses API with difficult/uncommon words' : 'Uses simple common words'}
+          <div className='settingMenu-overlay' onClick={toggleSettings}>
+            <div className='settingMenu' role="dialog" aria-modal="true" aria-labelledby="settingMenu-title" onClick={(e) => e.stopPropagation()}>
+              <div className='settingMenu-header'>
+                <h2 id="settingMenu-title">Settings</h2>
+                <button className='settingMenu-close' onClick={toggleSettings} aria-label="Close settings">✕</button>
+              </div>
+              <label style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 'var(--font-weight-semibold)'}}>
+                Desired Word Length
+                <input type="text" id="settingMenu-text" onChange={e => setSettingMenuText(e.target.value)} value={settingMenuText} />
+              </label>
+              <br/>
+              <label style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 'var(--font-weight-semibold)'}}>
+                <input 
+                  type="checkbox" 
+                  checked={useFullDictionary} 
+                  onChange={e => {
+                    setUseFullDictionary(e.target.checked);
+                    if (e.target.checked) setUseCurseWords(false);
+                  }}
+                  style={{transform: 'scale(1.2)'}}
+                />
+                Use Full Dictionary (Advanced Words)
+              </label>
+              <div style={{fontSize: 'var(--font-size-xs)', marginTop: '8px', fontStyle: 'italic', opacity: '0.8'}}>
+                {useFullDictionary ? 'Uses API with difficult/uncommon words' : 'Uses simple common words'}
+              </div>
+              <br/>
+              <label style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 'var(--font-weight-semibold)'}}>
+                <input 
+                  type="checkbox" 
+                  checked={useCurseWords} 
+                  onChange={e => {
+                    setUseCurseWords(e.target.checked);
+                    if (e.target.checked) setUseFullDictionary(false);
+                  }}
+                  style={{transform: 'scale(1.2)'}}
+                />
+                Curse Words Only 🔞
+              </label>
+              <div style={{fontSize: 'var(--font-size-xs)', marginTop: '8px', fontStyle: 'italic', opacity: '0.8'}}>
+                {useCurseWords ? '⚠️ Contains explicit language. Not appropriate for all audiences.' : 'Uses explicit/adult words only'}
+              </div>
+              <br/>
+              <a href="/wordlesolver" target="_blank">
+                <button id="automate-solverbut">Open Wordle Solver</button>
+              </a>
+              <br/>
+              <a href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Wordle" rel="noopener noreferrer" target="_blank">
+                <button id="automate-solverbut">View Source Code</button>
+              </a>
             </div>
-            <br/>
-            <a href="/wordlesolver" target="_blank">
-              <button id="automate-solverbut">Open Wordle Solver</button>
-            </a>
-            <br/>
-            <a href="https://github.com/tnnrhpwd/portfolio-app/tree/master/src/components/Wordle" rel="noopener noreferrer" target="_blank">
-              <button id="automate-solverbut">View Source Code</button>
-            </a>
           </div>
         }  
       </div>
