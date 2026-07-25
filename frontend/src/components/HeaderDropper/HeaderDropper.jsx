@@ -69,8 +69,9 @@ function HeaderDropper(props) {
         <a className='planit-header-dropper-pagelink' href='/about'>◽About</a>
         <a className='planit-header-dropper-pagelink' href='/support'>◽Support</a>
         
-        {/* Financial Tools */}
+        {/* Tools */}
         <a className='planit-header-dropper-pagelink' href='/annuities'>◽Annuities</a>
+        <a className='planit-header-dropper-pagelink' href='/annuities'>◽Wordle</a>
         {user && <a className='planit-header-dropper-pagelink' href='/plans'>◽Plans</a>}
         
         {/* Utilities & Tools */}

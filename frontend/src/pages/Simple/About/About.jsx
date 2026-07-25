@@ -140,8 +140,8 @@ function About() {
             <h2 className='section-title'>Featured Projects</h2>
             <div className='projects-grid'>
               <div className='project-card'>
-                <h3>Simple</h3>
-                <p>Full-stack React application with AI chat, desktop automation, and Node.js backend. Desktop automation application built with C# for streamlining repetitive tasks.</p>
+                <h3>CSimple Addon</h3>
+                <p>Windows desktop automation application for streamlining repetitive tasks.</p>
                 <button 
                   className='project-link'
                   onClick={() => window.open("https://github.com/tnnrhpwd/portfolio-app", "_blank")}
