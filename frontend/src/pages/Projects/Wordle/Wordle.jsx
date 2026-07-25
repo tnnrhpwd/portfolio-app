@@ -115,6 +115,18 @@ function Wordle() {
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   }, []);
 
+  // Trigger an invalid-guess shake animation on the board
+  const triggerShake = useCallback(() => {
+    const el = document.querySelector('.guessGrid');
+    if (el) {
+      el.classList.remove('shake');
+      // Force reflow so the animation can replay
+      void el.offsetWidth;
+      el.classList.add('shake');
+      setTimeout(() => el.classList.remove('shake'), 450);
+    }
+  }, []);
+
   const startTimer = useCallback(() => {
     const startTime = Date.now();
     setGameStartTime(startTime);
@@ -342,6 +354,7 @@ function Wordle() {
     
     if (!isValidWord) {
       toast.info('That is not a word. Please try again.', { autoClose: toastDuration });
+      triggerShake();
       return;
     }
 
@@ -393,7 +406,7 @@ function Wordle() {
     // Update game state
     setGuesses(prev => [...prev, processedGuess]);
     setCurrentGuess([]);
-  }, [currentGuess, wordLength, guesses.length, secretWord, toastDuration, countLetters, endOfGame, dictionary]);
+  }, [currentGuess, wordLength, guesses.length, secretWord, toastDuration, countLetters, endOfGame, dictionary, triggerShake]);
 
   const keyPress = useCallback((key, fromVirtualKeyboard = false) => {
     console.log('keyPress called with:', key, 'currentGuess length:', currentGuess.length, 'wordLength:', wordLength, 'guesses length:', guesses.length, 'inGameState:', inGameState, 'answerVisibility:', answerVisibility);
@@ -573,6 +586,7 @@ function Wordle() {
   const GetGuessGrid = useCallback(() => {
     let grid = [];
     for(let i = 0; i < maxGuesses; i++){
+      let row = [];
       for(let j = 0; j < wordLength; j++){
         let lett = "";
         let lettClass = "key-guess";
@@ -580,9 +594,9 @@ function Wordle() {
           lett = guesses[i][j].key;
           lettClass = "key-guess "+guesses[i][j].result;
         }
-        grid.push(<div id={i+'-'+j} className={lettClass} key={i+'-'+j}>{lett}</div>)
+        row.push(<div id={i+'-'+j} className={lettClass} key={i+'-'+j}>{lett}</div>)
       }
-      grid.push(<br key={i}/>)
+      grid.push(<div className="guess-row" key={'row-'+i}>{row}</div>)
     }
     updateKeyGuessCount(wordLength);
     return grid;
@@ -678,8 +692,10 @@ function Wordle() {
       if (keyID) {
         if (currentGuess[i]) {
           keyID.innerHTML = currentGuess[i].key;
+          keyID.classList.add('filled');
         } else {
           keyID.innerHTML = '';
+          keyID.classList.remove('filled');
         }
       }
     }
@@ -698,12 +714,13 @@ function Wordle() {
       data-answer-visibility={answerVisibility.toString()}
     >
       <Header/>
-      <div className="title">
+      <main className="wordle-main">
+      <h1 className="title">
         Wordle
-      </div>
+      </h1>
       {gameActive && (
         <div className="timer">
-          Time: {formatTime(elapsedTime)}
+          ⏱ {formatTime(elapsedTime)}
         </div>
       )}
       <div className="guessGrid">
@@ -720,13 +737,14 @@ function Wordle() {
         {(inGameState%2===1)&&
           <div className="keyboard-div1" key="keyboard-div1">
             {Object.keys(keys).map((key,index) => (
-              <div className='keyboard-div2' key={"keyboard-div2"+key}>
+              <div className={`keyboard-div2${key.includes("break") ? ' keyboard-break' : ''}`} key={"keyboard-div2"+key}>
                 {(key.includes("break"))?<br key={index} />:
                   <button 
                     id={key} 
                     onClick={() => keyPress(key, true)} 
                     className='key' 
                     key={key}
+                    aria-label={key === '⏎' ? 'Enter' : key === '⌫' ? 'Backspace' : key}
                     onMouseDown={(e) => e.preventDefault()} // Prevent focus on mouse down
                   >
                     {key}
@@ -738,27 +756,28 @@ function Wordle() {
         }
       </div>
       <div className="automate">
-      {(inGameState % 2 === 0 || answerVisibility) ? (
-        <button id="automate-newBut" onClick={newGameButton}>
-          New Game
-        </button>
-      ) : (
-        <button id="automate-solutionBut" onClick={endOfGame}>
-          Reveal Solution
-        </button>
-      )}
-
-        <button id="automate-settingBut" onClick={toggleSettings}>
-          ⚙
-        </button>
-        <br></br>
+        <div className="wordle-controls">
+          {(inGameState % 2 === 0 || answerVisibility) ? (
+            <button id="automate-newBut" onClick={newGameButton}>
+              New Game
+            </button>
+          ) : (
+            <button id="automate-solutionBut" onClick={endOfGame}>
+              Reveal Solution
+            </button>
+          )}
+          <button id="automate-settingBut" onClick={toggleSettings} aria-label="Settings" title="Settings">
+            ⚙
+          </button>
+        </div>
         {(settingMenu%2===1)&&
           <div className='settingMenu'>
-            Desired Word Length
-            <input type="text" id="settingMenu-text" onChange={e => setSettingMenuText(e.target.value)} value={settingMenuText} />
+            <label style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 'var(--font-weight-semibold)'}}>
+              Desired Word Length
+              <input type="text" id="settingMenu-text" onChange={e => setSettingMenuText(e.target.value)} value={settingMenuText} />
+            </label>
             <br/>
-            <br/>
-            <label style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: 'calc(var(--nav-size)*.25)', fontWeight: 'bold'}}>
+            <label style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 'var(--font-weight-semibold)'}}>
               <input 
                 type="checkbox" 
                 checked={useFullDictionary} 
@@ -767,7 +786,7 @@ function Wordle() {
               />
               Use Full Dictionary (Advanced Words)
             </label>
-            <div style={{fontSize: 'calc(var(--nav-size)*.18)', marginTop: '8px', fontStyle: 'italic', opacity: '0.8'}}>
+            <div style={{fontSize: 'var(--font-size-xs)', marginTop: '8px', fontStyle: 'italic', opacity: '0.8'}}>
               {useFullDictionary ? 'Uses API with difficult/uncommon words' : 'Uses simple common words'}
             </div>
             <br/>
@@ -789,6 +808,7 @@ function Wordle() {
         className={`credits ${!user && outputMessage.includes('login') ? 'credits-clickable' : ''}`}
         onClick={!user && outputMessage.includes('login') ? () => navigate('/login') : undefined}
       />
+      </main>
       <Footer/>
     </div>
   );

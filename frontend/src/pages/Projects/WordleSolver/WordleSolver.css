@@ -1,88 +1,431 @@
-.containerq{ /* Container CLASS */
-  color: var(--text-color);
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  height: 100vh;
-  flex-direction: column;
-  padding-top: calc(var(--nav-size)*2);
-  font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
-  padding-left: calc(var(--nav-size)*.2);
-  padding-right: calc(var(--nav-size)*.2);
-  background-color: var(--bg); 
-}
-    
-#title{  /* Title ID */
-  font-family: 'CutiveMono-Regular';
-  font-size: calc(var(--nav-size)*.45);
-  font-weight: bold;
-  text-align: center;
-}
-    
-#description{  /*description ID*/
-  padding: calc(var(--nav-size)*.45);
-  font-family: 'CutiveMono-Regular';
-  font-size: calc(var(--nav-size)*.2);
-}
-  
-#instruction{  /*instruction ID*/
-  font-family: 'CutiveMono-Regular';
-  font-size: calc(var(--nav-size)*.2);
-  margin: calc(var(--nav-size)*.35);
-}
-    
-#inputs{  /*input ID*/
-  background-color: var(--bg);     
-  text-align: center;
-  padding-bottom: calc(var(--nav-size)*.5);
-}
-    
-#inputTEXT{  /* This is the textbox ID */
-  font-family: 'CutiveMono-Regular';
-  font-weight: bold;
-  text-align: center;
-  font-size: calc(var(--nav-size)*.35);
-  padding: calc(var(--nav-size)*.1);
-  color: rgb(0, 0, 0);
-  width: calc(var(--nav-size)*3);
-  height: calc(var(--nav-size)*.3);
-}
-    
-#button{  /*button ID*/  
-  font-family: 'CutiveMono-Regular';
-  font-weight: bold;
-  text-align: center;
-  margin-left: calc(var(--nav-size)*.1);
-  padding: calc(var(--nav-size)*.05);
-  padding-left: calc(var(--nav-size)*.3);
-  padding-right: calc(var(--nav-size)*.3);
-  box-shadow: 0 calc(var(--nav-size)*.1) #999;
-  font-size: calc(var(--nav-size)*.2);
-  border-radius: calc(var(--nav-size)*.1);  
-  cursor: pointer;
-}
-#button:hover {background-color: #f5dcc8}
-#button:active {              /* submit wordle solver button */
-  background-color: #f5dcc8;
-  box-shadow: 0 calc(var(--nav-size)*.1) #666;
-  transform: translateY(calc(var(--nav-size)*.04));
+/* ============================================================
+   Wordle Solver — professional, mobile-first, PC-compatible UI
+   Reuses global design tokens from index.css (theme aware).
+   ============================================================ */
+
+.wordle-solver {
+    --color-correct: #16a34a;
+    --color-present: #d99a25;
+    --color-absent: #6b7280;
+    --st-gap: clamp(4px, 1.4vw, 8px);
+    --st-tile: min(calc(var(--nav-size) * 1.05), calc((min(92vw, 26rem) - 7 * var(--st-gap)) / 8));
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    min-height: 100svh;
+    color: var(--text-color);
+    font-family: var(--font-family-base);
+    background:
+        radial-gradient(circle at 12% 18%, rgba(0, 193, 193, 0.10), transparent 42%),
+        radial-gradient(circle at 88% 12%, rgba(255, 115, 46, 0.10), transparent 40%),
+        radial-gradient(circle at 50% 92%, rgba(56, 56, 255, 0.08), transparent 48%),
+        var(--bg-page);
 }
 
-#postInstruction{
-  font-family: 'Times New Roman', Times, serif;
-  font-size: calc(var(--nav-size)*.25);
-  margin-top: calc(var(--nav-size)*.15);
-  width: calc(var(--nav-size)*5);
-  text-align: center;
-  word-wrap: break-word;
+.dark-theme .wordle-solver {
+    background:
+        radial-gradient(circle at 12% 18%, rgba(0, 255, 255, 0.08), transparent 42%),
+        radial-gradient(circle at 88% 12%, rgba(255, 115, 46, 0.10), transparent 40%),
+        radial-gradient(circle at 50% 92%, rgba(77, 166, 255, 0.10), transparent 48%),
+        var(--bg-page);
 }
-    
-#output{  /*output ID*/
-  font-family: 'Times New Roman', Times, serif;
-  font-size: calc(var(--nav-size)*.25);
-  margin-top: calc(var(--nav-size)*.15);
-  width: calc(var(--nav-size)*5);
-  text-align: center;
-  word-wrap: break-word;
 
+.solver-main {
+    width: 100%;
+    max-width: 34rem;
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: calc(var(--nav-size) * 1.35) var(--spacing-sm) var(--spacing-lg);
+    z-index: 1;
+}
+
+/* ---- Heading ---- */
+.solver-title {
+    margin: 0 0 var(--spacing-xs);
+    font-size: clamp(1.7rem, 7vw, 2.4rem);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: 0.06em;
+    text-align: center;
+    line-height: 1.1;
+}
+
+.solver-subtitle {
+    margin: 0 0 var(--spacing-md);
+    max-width: 30rem;
+    text-align: center;
+    font-size: var(--font-size-small);
+    line-height: var(--line-height-relaxed);
+    color: var(--text-color-accent);
+}
+
+/* ---- Legend ---- */
+.solver-legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+}
+
+.legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-color);
+}
+
+.legend-swatch {
+    width: 1em;
+    height: 1em;
+    border-radius: 3px;
+    display: inline-block;
+}
+
+/* ---- Word length selector ---- */
+.solver-length {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-md);
+}
+
+.solver-length-label {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-color-accent);
+}
+
+.solver-length-options {
+    display: inline-flex;
+    gap: 4px;
+    padding: 4px;
+    background: var(--bg-page-transp);
+    border: 1px solid var(--border-nav);
+    border-radius: 999px;
+    box-shadow: var(--shadow-sm);
+}
+
+.length-chip {
+    width: calc(var(--nav-size) * 0.72);
+    height: calc(var(--nav-size) * 0.72);
+    min-height: 0;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-color);
+    background: transparent;
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+
+.length-chip:hover:not(.active) {
+    background: var(--bg-nav-dropper);
+    transform: none;
+    box-shadow: none;
+}
+
+.length-chip.active {
+    background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
+    color: var(--text-color-inv);
+}
+
+/* ---- Board ---- */
+.solver-board {
+    display: flex;
+    flex-direction: column;
+    gap: var(--st-gap);
+    align-items: center;
+    margin-bottom: var(--spacing-sm);
+}
+
+.solver-row {
+    display: flex;
+    gap: var(--st-gap);
+    justify-content: center;
+}
+
+.solver-tile {
+    width: var(--st-tile);
+    height: var(--st-tile);
+    min-height: 0;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: calc(var(--st-tile) * 0.5);
+    font-weight: var(--font-weight-bold);
+    text-transform: uppercase;
+    line-height: 1;
+    color: var(--text-color);
+    background: transparent;
+    border: 2px solid var(--border-nav);
+    border-radius: 8px;
+    cursor: default;
+    transition: transform 0.1s ease, border-color 0.15s ease, background 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.solver-tile:disabled {
+    opacity: 1;
+    cursor: default;
+}
+
+.solver-tile.filled {
+    border-color: var(--fg-blue);
+    animation: solverPop 0.12s ease-out;
+    cursor: pointer;
+}
+
+.solver-tile.filled:not(:disabled):hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+}
+
+@keyframes solverPop {
+    0%   { transform: scale(0.9); }
+    60%  { transform: scale(1.08); }
+    100% { transform: scale(1); }
+}
+
+.solver-tile.state-correct {
+    background: var(--color-correct);
+    border-color: transparent;
+    color: #fff;
+}
+
+.solver-tile.state-present {
+    background: var(--color-present);
+    border-color: transparent;
+    color: #fff;
+}
+
+.solver-tile.state-absent {
+    background: var(--color-absent);
+    border-color: transparent;
+    color: #fff;
+}
+
+.legend-swatch.state-correct { background: var(--color-correct); }
+.legend-swatch.state-present { background: var(--color-present); }
+.legend-swatch.state-absent  { background: var(--color-absent); }
+
+/* ---- Message ---- */
+.solver-message {
+    margin: var(--spacing-xs) 0 var(--spacing-sm);
+    padding: 0.5em 1em;
+    font-size: var(--font-size-small);
+    color: var(--text-color);
+    background: rgba(217, 154, 37, 0.15);
+    border: 1px solid var(--color-present);
+    border-radius: var(--border-radius);
+    text-align: center;
+}
+
+/* ---- On-screen keyboard ---- */
+.solver-keyboard {
+    width: 100%;
+    max-width: 32rem;
+    margin: var(--spacing-xs) 0 var(--spacing-md);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.solver-key-row {
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+}
+
+.solver-key {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: calc(var(--nav-size) * 0.95);
+    height: calc(var(--nav-size) * 1.1);
+    min-height: 0;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-bold);
+    text-transform: uppercase;
+    color: var(--text-color);
+    background: var(--bg-nav-dropper);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.08s ease, filter 0.15s ease, box-shadow 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.solver-key:hover:not(:disabled) {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+    background: var(--bg-nav-dropper);
+}
+
+.solver-key:active {
+    transform: translateY(0) scale(0.96);
+}
+
+.solver-key-wide {
+    flex: 1.6 1 auto;
+    max-width: calc(var(--nav-size) * 1.8);
+    font-size: var(--font-size-xs);
+    background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
+    color: var(--text-color-inv);
+}
+
+/* ---- Actions ---- */
+.solver-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--spacing-xs);
+    width: 100%;
+    margin-bottom: var(--spacing-md);
+}
+
+.solver-btn {
+    height: calc(var(--nav-size) * 0.95);
+    min-height: 0;
+    padding: 0 var(--spacing-md);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.12s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+
+.solver-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    filter: brightness(1.05);
+}
+
+.solver-btn:active:not(:disabled) {
+    transform: translateY(0) scale(0.98);
+}
+
+.solver-btn-primary {
+    background: linear-gradient(135deg, var(--fg-mint), var(--fg-blue));
+    color: var(--text-color-inv);
+}
+
+.solver-btn-accent {
+    background: linear-gradient(135deg, var(--fg-orange), var(--fg-pink));
+    color: var(--text-color-inv);
+}
+
+.solver-btn-ghost {
+    background: var(--bg-page-transp);
+    color: var(--text-color);
+    border: 1px solid var(--border-nav);
+}
+
+.solver-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+    filter: none;
+}
+
+/* ---- Results ---- */
+.solver-results {
+    width: 100%;
+    max-width: 32rem;
+    padding: var(--spacing-md);
+    background: var(--bg-page-transp);
+    border: 1px solid var(--border-nav);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-md);
+    animation: fadeInUp 0.3s ease both;
+}
+
+@keyframes fadeInUp {
+    0%   { opacity: 0; transform: translateY(10px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+
+.solver-results-header {
+    margin-bottom: var(--spacing-sm);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-bold);
+    text-align: center;
+    color: var(--text-color);
+}
+
+.solver-word-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+    max-height: 40vh;
+    overflow-y: auto;
+    padding: 2px;
+}
+
+.solver-word-chip {
+    padding: 0.35em 0.7em;
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    color: var(--text-color);
+    background: var(--bg-1);
+    border: 1px solid var(--border-nav);
+    border-radius: 6px;
+}
+
+/* ---- Hint / source ---- */
+.solver-hint {
+    margin-top: var(--spacing-xs);
+    font-size: var(--font-size-small);
+    color: var(--text-color-accent);
+    text-align: center;
+}
+
+.solver-source {
+    margin-top: var(--spacing-lg);
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-medium);
+}
+
+/* ---- Reduced motion ---- */
+@media (prefers-reduced-motion: reduce) {
+    .wordle-solver *,
+    .wordle-solver *::before,
+    .wordle-solver *::after {
+        animation-duration: 0.001ms !important;
+        transition-duration: 0.001ms !important;
+    }
+}
+
+/* ---- Larger screens: tidy keyboard + tiles ---- */
+@media (min-width: 600px) {
+    .solver-key {
+        min-width: calc(var(--nav-size) * 0.8);
+    }
 }
