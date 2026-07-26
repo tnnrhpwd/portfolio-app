@@ -252,6 +252,20 @@ function Wordle() {
         keyElement.classList.add('key');
       }
     });
+
+    // Reset guess grid visual state. The in-progress guess row's letters are
+    // written directly into the DOM (see the currentGuess effect) rather than
+    // via React children, so React's diffing won't clear them on its own -
+    // they must be wiped out manually here.
+    for (let i = 0; i < maxGuesses; i++) {
+      for (let j = 0; j < 15; j++) { // 15 = max allowed word length
+        const cell = document.getElementById(`${i}-${j}`);
+        if (cell != null) {
+          cell.innerHTML = '';
+          cell.className = 'key-guess';
+        }
+      }
+    }
   }, [resetTimer]);
 
   // Dictionary loading
@@ -615,6 +629,19 @@ function Wordle() {
     setSettingMenu(prev => prev + 1);
   }, []);
 
+  // Whenever a setting is changed, clear the current game so the player must
+  // press "New Game" to continue (the settings menu itself stays open).
+  const isFirstSettingsRenderRef = useRef(true);
+  useEffect(() => {
+    if (isFirstSettingsRenderRef.current) {
+      isFirstSettingsRenderRef.current = false;
+      return;
+    }
+    resetInitialValues();
+    setInGameState(0);
+    setOutputMessage("");
+  }, [settingMenuText, useFullDictionary, useCurseWords, resetInitialValues]);
+
   // Close the settings modal with the Escape key
   useEffect(() => {
     if (settingMenu % 2 !== 1) return;
@@ -761,7 +788,7 @@ function Wordle() {
       <Header/>
       <main className="wordle-main">
       <h1 className="title">
-        Wordle
+        Wordle{useCurseWords && <span role="img" aria-label="Explicit content, 18+" style={{fontSize: '0.35em', verticalAlign: 'top', position: 'relative', top: '0.1em', marginLeft: '4px'}}>🔞</span>}
       </h1>
       {gameActive && (
         <div className="timer">

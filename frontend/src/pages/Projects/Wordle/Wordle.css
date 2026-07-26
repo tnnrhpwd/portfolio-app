@@ -59,7 +59,7 @@
     margin: 0 0 var(--spacing-xs);
     padding-bottom: var(--spacing-xs);
     color: var(--text-color);
-    font-size: clamp(1.9rem, 8vw, 2.6rem);
+    font-size: clamp(0.9rem, 8vw, 2.6rem);
     font-weight: var(--font-weight-bold);
     letter-spacing: 0.14em;
     text-transform: uppercase;
