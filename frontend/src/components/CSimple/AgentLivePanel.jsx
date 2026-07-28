@@ -389,10 +389,6 @@ export default function AgentLivePanel({ addonConnected, user, onManageMacros, v
           </div>
         ) : (
           <>
-            <p className="agent-live__section-hint agent-live__section-hint--block">
-              Give it a goal in chat, then Start it here. It works through the goal step by step and asks you to approve anything risky.
-            </p>
-
             {goalTitle && (
               <div className="agent-live__goal">
                 <span className="agent-live__goal-label">Goal</span>

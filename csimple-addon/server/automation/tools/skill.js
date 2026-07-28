@@ -784,10 +784,26 @@ async function _execControlFlow(cf, { params, stepDelay, continueOnError, repair
         const trustHoldEscapeSignal = vk === 0x1B;
 
         const coalescedBody = _coalesceLoopHoldSteps(cf.body || [], focusCtx);
+        // Tracks whether the *previous* iteration ended on a trusted input_hold
+        // that ran all the way to its own duration/poll limit without seeing
+        // Escape. When true, the top-of-loop checkKey() below is skipped for
+        // the upcoming iteration — see the loop body's skipPreCheck comment
+        // for why: that hold already polled GetAsyncKeyState(VK_ESCAPE) itself
+        // right up until it finished, so spawning a *fresh* PowerShell process
+        // here just to re-ask the same question is redundant. Worse, that
+        // spawn (hundreds of ms) happens after input_hold's `finally` block
+        // has already released the mouse/keys, so the button sat up for the
+        // whole round-trip before being pressed again -- turning what should
+        // be one continuous hold into a stutter of separate clicks.
+        let skipTopCheck = false;
         while (iteration < MAX_ITER) {
-            const pressed = await checkKey();
-            if (pressed) { stoppedByKey = true; break; }
-            for (const n of coalescedBody) {
+            if (!skipTopCheck) {
+                const pressed = await checkKey();
+                if (pressed) { stoppedByKey = true; break; }
+            }
+            skipTopCheck = false;
+            for (let si = 0; si < coalescedBody.length; si++) {
+                const n = coalescedBody[si];
                 if (!n || n._controlFlow) continue;
                 // Skip the extra poll immediately before an input_hold step —
                 // that hold will detect Escape itself (see above), and an
@@ -815,6 +831,11 @@ async function _execControlFlow(cf, { params, stepDelay, continueOnError, repair
                     break;
                 }
                 if (!out.ok && !continueOnError) { failed = true; break; }
+                // Only trust this hold's own Escape polling to skip next
+                // iteration's top check when it was the LAST step of the
+                // body — if more steps follow, they still need the normal
+                // pre-check machinery above.
+                skipTopCheck = skipPreCheck && si === coalescedBody.length - 1;
                 if (stepDelay > 0) await new Promise(r => setTimeout(r, stepDelay));
             }
             if (failed || stoppedByKey) break;

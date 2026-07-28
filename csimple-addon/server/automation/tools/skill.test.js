@@ -414,15 +414,20 @@ asyncTest('run: loop_until_key stops promptly when key poll reports pressed', as
 
 asyncTest('run: loop_until_key coalesces adjacent key_hold steps into one simultaneous hold', async () => {
     const calls = [];
-    // Force one body pass before stopping: the 1st per-iteration poll (top
-    // of loop) reports "not pressed", the 2nd (start of next iteration)
-    // reports "pressed". Only one poll happens per iteration since the
-    // pre-body-step poll is skipped for a merged input_hold step — see
-    // loop_until_key's `skipPreCheck`.
+    // Cap at a single iteration — this test only cares about the merge
+    // behavior, not about loop termination via polling. (A once-per-iteration
+    // "top of loop" poll used to be required to ever stop this loop, but that
+    // poll spawned a fresh PowerShell process and ran AFTER the previous
+    // iteration's input_hold had already released its keys/buttons in its own
+    // `finally` block — reintroducing, once per iteration, exactly the
+    // release-gap-then-repress stutter this coalescing was meant to remove.
+    // The loop now trusts a trusted input_hold's own escape-pressed signal
+    // and skips that redundant poll instead, so it no longer terminates via
+    // an artificial "polls > 1" trick.)
     let polls = 0;
     fakeInput._impl = () => {
         polls++;
-        return polls > 1;
+        return false;
     };
     fakeRegistry._handler = (name, args) => {
         calls.push({ name, args });
@@ -431,6 +436,7 @@ asyncTest('run: loop_until_key coalesces adjacent key_hold steps into one simult
     const s = makeSkill('loop-coalesce', [{
         type: 'loop_until_key',
         key: 'Escape',
+        maxIterations: 1,
         body: [
             { type: 'key_hold', keys: ['left mouse button'], duration_ms: 1000 },
             { type: 'key_hold', keys: ['w'], duration_ms: 1000 },

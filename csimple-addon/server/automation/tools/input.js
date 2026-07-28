@@ -120,7 +120,14 @@ function Set-ForegroundWindowForce($hwnd) {
     # Win32 technique), then fall back to the Alt-key nudge too. Retry
     # longer (up to ~1s) since a freshly-launched/just-unminimized game
     # window can take a beat to actually accept the foreground switch.
-    if ([Native]::GetForegroundWindow() -eq $hwnd) { Start-Sleep -Milliseconds 150; return $true }
+    # Already focused -- no switch happened, so there's no "new foreground
+    # window" warm-up to wait for. This path is hit on EVERY iteration of a
+    # loop_until_key body that carries a sticky focusWindowTitle (e.g. a
+    # continuous "hold left click" macro), so an unconditional sleep here
+    # was adding a fixed per-iteration gap between the previous hold's
+    # release and the next hold's press -- turning a continuous hold into a
+    # stutter of separate clicks. Return immediately instead.
+    if ([Native]::GetForegroundWindow() -eq $hwnd) { return $true }
     $curThread = [Native]::GetCurrentThreadId()
     $fgWin = [Native]::GetForegroundWindow()
     $fgProcId = 0
@@ -600,8 +607,19 @@ try {
 // instead. That is the bug behind "pressing Escape doesn't end the loop".
 async function checkAsyncKeyState(vk) {
     const v = Number(vk) || 0x1B;
+    // Only check bit 0x8000 ("currently down"), NOT 0x0001 ("was pressed
+    // since the last call to GetAsyncKeyState"). That low bit is a global,
+    // sticky flag shared across the whole system -- any earlier synthetic
+    // keybd_event for this key (e.g. a `key_tap Escape` step run right
+    // before a `loop_until_key: Escape` body, which is exactly the
+    // "unpause the menu, then hold left-click until Escape" pattern) sets
+    // it, and the very first poll here -- a freshly spawned PowerShell
+    // process that never called GetAsyncKeyState before -- would see it
+    // still set and wrongly conclude the user just pressed Escape, ending
+    // the loop instantly before it ever executed a single hold. input_hold's
+    // own internal Escape polling already only checks 0x8000; match that here.
     const script = `${NATIVE_PRELUDE}
-(([Native]::GetAsyncKeyState(${v}) -band 0x8001) -ne 0)
+(([Native]::GetAsyncKeyState(${v}) -band 0x8000) -ne 0)
 `;
     try {
         const out = await runPsScript(script, { timeoutMs: 5_000 });
