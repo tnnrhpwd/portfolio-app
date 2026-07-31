@@ -786,33 +786,6 @@ function Settings() {
                       </div>
                     </div>
                   </div>
-
-                  <aside className="planit-settings-sidebar">
-                    <div className="planit-settings-helper-card">
-                      <span className="planit-settings-section-kicker">Quick access</span>
-                      <h2 className="planit-settings-helper-title">Need profile details?</h2>
-                      <p className="planit-settings-helper-text">
-                        Jump back to your profile to review subscription status, quota usage, and storage totals.
-                      </p>
-                      <button
-                        type="button"
-                        className="planit-settings-profile-button planit-settings-sidebar-button"
-                        onClick={() => navigate('/profile')}
-                      >
-                        👤 View Profile Overview
-                      </button>
-                    </div>
-
-                    <div className="planit-settings-helper-card">
-                      <span className="planit-settings-section-kicker">Helpful notes</span>
-                      <h2 className="planit-settings-helper-title">What updates right away?</h2>
-                      <ul className="planit-settings-helper-list">
-                        <li>Theme changes preview instantly.</li>
-                        <li>Font scaling updates app-wide as you drag the slider.</li>
-                        <li>AI preferences sync with your chat experience automatically.</li>
-                      </ul>
-                    </div>
-                  </aside>
                 </div>
               </section>
 

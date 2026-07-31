@@ -56,8 +56,7 @@
 
 .planit-settings-hero,
 .planit-settings-section,
-.planit-settings-actions,
-.planit-settings-helper-card {
+.planit-settings-actions {
     background: linear-gradient(180deg, var(--bg-1), var(--bg-page-transp));
     border: 1px solid var(--border-nav);
     border-radius: var(--border-radius-xl);
@@ -109,10 +108,7 @@
 .planit-settings-ai-description,
 .planit-settings-ai-note,
 .planit-settings-token-help,
-.planit-settings-toggle-description,
-.planit-settings-helper-text,
-.planit-settings-helper-list,
-.planit-settings-helper-list li {
+.planit-settings-toggle-description {
     margin: 0;
     color: var(--text-color-accent);
     line-height: var(--line-height-relaxed);
@@ -136,8 +132,7 @@
 .planit-settings-item,
 .planit-settings-toggle-card,
 .planit-settings-ai-actions,
-.planit-settings-token-group,
-.planit-settings-helper-card {
+.planit-settings-token-group {
     border: 1px solid var(--border-nav);
     background: var(--bg-page-transp);
     border-radius: var(--border-radius-lg);
@@ -159,7 +154,6 @@
 }
 
 .planit-settings-meta-value,
-.planit-settings-helper-title,
 .planit-settings-toggle-title {
     color: var(--text-color-strong);
     font-weight: var(--font-weight-semibold);
@@ -175,13 +169,7 @@
 
 .planit-settings-layout {
     display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr);
-    gap: var(--spacing-sm);
-}
-
-.planit-settings-sidebar {
-    display: flex;
-    flex-direction: column;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--spacing-sm);
 }
 
@@ -417,35 +405,6 @@
     align-items: center;
 }
 
-.planit-settings-helper-card {
-    padding: var(--spacing-sm);
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-    animation: fadeInSection 0.8s ease both;
-}
-
-.planit-settings-helper-title {
-    margin: 0;
-    font-size: var(--font-size-base);
-}
-
-.planit-settings-helper-list {
-    padding-left: var(--spacing-md);
-    display: flex;
-    flex-direction: column;
-    gap: calc(var(--nav-size) * 0.1);
-    list-style: disc;
-}
-
-.planit-settings-helper-list li {
-    list-style: disc;
-}
-
-.planit-settings-sidebar-button {
-    width: 100%;
-}
-
 .planit-settings-actions {
     padding: var(--spacing-sm);
     align-items: center;
@@ -517,8 +476,7 @@
 
     .planit-settings-hero,
     .planit-settings-section,
-    .planit-settings-actions,
-    .planit-settings-helper-card {
+    .planit-settings-actions {
         padding: var(--spacing-xs);
     }
 
@@ -555,16 +513,14 @@
         font-size: var(--font-size-large);
     }
 
-    .planit-settings-section-title,
-    .planit-settings-helper-title {
+    .planit-settings-section-title {
         font-size: var(--font-size-base);
     }
 
     .planit-settings-meta-item,
     .planit-settings-item,
     .planit-settings-toggle-card,
-    .planit-settings-ai-actions,
-    .planit-settings-helper-card {
+    .planit-settings-ai-actions {
         padding: var(--spacing-xs);
     }
 }
@@ -584,8 +540,7 @@
     .floating-circle,
     .planit-settings-hero,
     .planit-settings-section,
-    .planit-settings-actions,
-    .planit-settings-helper-card {
+    .planit-settings-actions {
         animation: none;
     }
 
