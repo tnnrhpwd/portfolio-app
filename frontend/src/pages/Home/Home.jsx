@@ -10,6 +10,7 @@ const links = {
     net: "/net",
     agenda: "/agenda",
     admin: "/admin",
+    iq: "/iq",
     passgen: "/passgen",
     annuities: "/annuities",
     sonic: "/sonic",
@@ -91,6 +92,9 @@ function Home() {
                             </a>
                             <a className="home-spc-tool animate-in" href={links.support} style={{animationDelay: '0.15s'}}>
                                 <div className="home-spc-tool-text">{links.support}</div>
+                            </a>
+                            <a className="home-spc-tool animate-in" href={links.iq} style={{animationDelay: '0.15s'}}>
+                                <div className="home-spc-tool-text">{links.iq}</div>
                             </a>
                             
                             {/* Financial Tools */}
