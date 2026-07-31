@@ -1,6 +1,6 @@
 ﻿.planit-settings-bg {
     min-height: 100vh;
-    padding: calc(var(--nav-size) * 1.6) var(--spacing-sm) var(--spacing-lg);
+    padding: calc(var(--nav-size) * 1.3) var(--spacing-xs) var(--spacing-md);
     background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
     background-size: 400% 400%;
     animation: gradientShift 12s ease infinite;
@@ -48,11 +48,11 @@
 .planit-settings-shell {
     position: relative;
     z-index: 2;
-    max-width: 900px;
+    max-width: 860px;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
 }
 
 .planit-settings-hero,
@@ -67,17 +67,17 @@
 }
 
 .planit-settings-hero {
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm);
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
     animation: fadeInSection 0.7s ease both;
 }
 
 .planit-settings-hero-main {
     display: flex;
     justify-content: space-between;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
     align-items: flex-start;
 }
 
@@ -171,26 +171,26 @@
 .planit-settings-main {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
 }
 
 .planit-settings-layout {
     display: grid;
     grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr);
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
 }
 
 .planit-settings-sidebar {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
 }
 
 .planit-settings-section {
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm);
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
     animation: slideInUp 0.7s ease both;
 }
 
@@ -218,8 +218,8 @@
     padding: var(--spacing-xs);
     display: flex;
     flex-direction: column;
-    gap: calc(var(--nav-size) * 0.1);
-    min-height: calc(var(--nav-size) * 2.2);
+    gap: calc(var(--nav-size) * 0.06);
+    min-height: calc(var(--nav-size) * 1.8);
 }
 
 .planit-settings-item-full {
@@ -419,10 +419,10 @@
 }
 
 .planit-settings-helper-card {
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm);
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
     animation: fadeInSection 0.8s ease both;
 }
 
@@ -448,7 +448,7 @@
 }
 
 .planit-settings-actions {
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm);
     align-items: center;
     justify-content: flex-end;
     animation: fadeInSection 0.9s ease both;
@@ -509,7 +509,7 @@
 
 @media (max-width: 768px) {
     .planit-settings-bg {
-        padding: calc(var(--nav-size) * 1.2) var(--spacing-xs) var(--spacing-lg);
+        padding: calc(var(--nav-size) * 1.1) var(--spacing-xs) var(--spacing-sm);
     }
 
     .floating-circle {
@@ -520,7 +520,7 @@
     .planit-settings-section,
     .planit-settings-actions,
     .planit-settings-helper-card {
-        padding: var(--spacing-sm);
+        padding: var(--spacing-xs);
     }
 
     .planit-settings-hero-main,
@@ -572,11 +572,11 @@
 
 @media (orientation: portrait) and (max-width: 480px) {
     .planit-settings-bg {
-        padding-top: calc(var(--nav-size) * 1.15);
+        padding-top: calc(var(--nav-size) * 1);
     }
 
     .planit-settings-shell {
-        gap: var(--spacing-md);
+        gap: var(--spacing-xs);
     }
 }
 
