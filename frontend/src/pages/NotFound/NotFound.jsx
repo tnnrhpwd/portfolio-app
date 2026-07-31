@@ -2,11 +2,18 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
+import SEO from '../../components/SEO/SEO.jsx';
 import './NotFound.css';
 
 function NotFound() {
   return (
     <>
+      <SEO
+        title="Page Not Found"
+        description="The page you're looking for doesn't exist or has been moved."
+        path="/404"
+        noindex
+      />
       <Header />
       <main className="not-found">
         <h1 className="not-found__code">404</h1>

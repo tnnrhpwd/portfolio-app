@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Header from "../../components/Header/Header.jsx";
 import Footer from "../../components/Footer/Footer.jsx";
+import SEO, { SITE_URL } from "../../components/SEO/SEO.jsx";
 import { useSelector, useDispatch } from 'react-redux';
 import { getUserUsage } from '../../features/data/dataSlice.js';
 import dataService from '../../features/data/dataService.js';
@@ -82,6 +83,21 @@ function Home() {
 
     return (
         <>
+            <SEO
+                title="Home"
+                description="Steven Tanner Hopwood — Portfolio showcasing web development projects, tools, and experiments."
+                path="/"
+                jsonLd={{
+                    '@context': 'https://schema.org',
+                    '@type': 'WebSite',
+                    name: 'STHopwood',
+                    url: SITE_URL,
+                    author: {
+                        '@type': 'Person',
+                        name: 'Steven Tanner Hopwood',
+                    },
+                }}
+            />
             <Header />
             <div className="container">
                 {/* Floating elements for visual interest */}
@@ -94,7 +110,10 @@ function Home() {
                 <section className="section-tile hero-section">
                     <div id="content-tile">
                         <div id="text-title" className="typewriter">
-                            {displayedText}<span className="cursor">|</span>
+                            <h1 style={{ display: 'inline', font: 'inherit', margin: 0 }}>
+                                {displayedText}
+                            </h1>
+                            <span className="cursor">|</span>
                         </div>
                         <div id="text-body" className={`fade-in-up ${animationPhase >= 1 ? 'visible' : ''}`}>
                             Let's build a brighter tomorrow!

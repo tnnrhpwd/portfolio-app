@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
+import SEO from '../../components/SEO/SEO.jsx';
 import { PLAN_NAMES, PLAN_IDS, QUOTAS, STORAGE_DISPLAY } from '../../constants/pricing';
 import './Terms.css';
 
@@ -17,6 +18,11 @@ const Terms = () => {
     const currentYear = currentDate.getFullYear();
 
     return (<>
+        <SEO
+            title="Terms of Service"
+            description="Review STHopwood's terms of service, including membership plans, quotas, and usage policies."
+            path="/terms"
+        />
         <Header />
         <div className="terms">
             <div className='terms-header'>

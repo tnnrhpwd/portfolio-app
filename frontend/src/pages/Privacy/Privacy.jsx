@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
+import SEO from '../../components/SEO/SEO.jsx';
 import './Privacy.css';
 
 const NAV_ITEMS = [
@@ -37,6 +38,11 @@ const Privacy = () => {
     const currentYear = currentDate.getFullYear();
 
     return (<>
+        <SEO
+            title="Privacy Policy"
+            description="Read STHopwood's privacy policy covering data collection, usage, security, and your privacy rights."
+            path="/privacy"
+        />
         <Header />
         <div className="privacy">
             <div className="privacy-header">

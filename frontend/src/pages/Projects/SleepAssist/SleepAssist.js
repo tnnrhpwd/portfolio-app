@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Footer from '../../../components/Footer/Footer';
 import NavBar from '../../../components/NavBar/NavBar';
+import SEO from '../../../components/SEO/SEO.jsx';
 import './SleepAssist.css';
 
 function SleepAssist() {
@@ -48,11 +49,16 @@ function SleepAssist() {
     };
 
     return (<>
+        <SEO
+            title="SleepAssist"
+            description="Calculate optimal sleep and wake times based on natural sleep cycles."
+            path="/sleepassist"
+        />
         <NavBar/>
         <div className='sleepassist'>
-            <div className="sleepassist-title">
+            <h1 className="sleepassist-title">
                 SleepAssist
-            </div>
+            </h1>
             <div className="sleepassist-description">
                 This calculator inputs alarm time & sleep duration, and it outputs the time to go to sleep. Use the 24 hour time format.
             </div>

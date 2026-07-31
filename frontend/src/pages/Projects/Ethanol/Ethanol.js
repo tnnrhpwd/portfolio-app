@@ -3,6 +3,7 @@ import Footer from '../../../components/Footer/Footer';
 import Dropdown from "react-dropdown";
 import EthanolVisual from "./EthanolVisual.js";
 import NavBar from '../../../components/NavBar/NavBar';
+import SEO from '../../../components/SEO/SEO.jsx';
 import "./Ethanol.css";
 
 
@@ -46,11 +47,16 @@ function Ethanol(){
 
 
     return(<>
+        <SEO
+            title="Ethanol Calculator"
+            description="Calculate standard alcoholic drink equivalents from volume and percent alcohol."
+            path="/ethanol"
+        />
         <NavBar/>
         <div className='ethanol'>
-            <div className="ethanol-title">
+            <h1 className="ethanol-title">
                 Ethanol Content Calculator
-            </div>
+            </h1>
             <div className="ethanol-description">
                 This calculator estimates standard alcoholic drinks.  This page is intended for educational and harm-prevention purposes only.
             </div>

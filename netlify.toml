@@ -7,19 +7,12 @@ image = "ubuntu:noble"
 NODE_VERSION = "22"
 NPM_VERSION = "10"
 
-# ── Plugins ─────────────────────────────────────────────────
-[[plugins]]
-package = "@netlify/plugin-sitemap"
-
-[plugins.inputs]
-buildDir = "frontend/build"
-prettyURLs = true
-exclude = [
-    "./admin",
-    "./payment-success",
-    "./reset-password",
-    "./forgot-password",
-]
+# Note: @netlify/plugin-sitemap was removed. It generates sitemaps by
+# crawling HTML files in the publish directory, but this is a client-side
+# rendered SPA (Vite + React Router) that only outputs a single index.html,
+# so the plugin could only ever discover the "/" route. A complete
+# sitemap.xml covering all public routes is now generated directly by
+# frontend/scripts/generate-sitemap.js as part of `npm run build`.
 
 # ── Deploy-preview context (PRs / branch deploys) ────────
 [context.deploy-preview]
@@ -28,29 +21,25 @@ command = "npm run build:netlify"
 [context.deploy-preview.environment]
 NODE_ENV = "staging"
 
-# ── Prerender hints for static pages (better SEO / FCP) ────
+# ── Cache hints for static pages (better SEO / FCP) ────
 [[headers]]
 for = "/about"
 [headers.values]
-X-Prerender = "1"
 Cache-Control = "public, max-age=3600, stale-while-revalidate=86400"
 
 [[headers]]
 for = "/privacy"
 [headers.values]
-X-Prerender = "1"
 Cache-Control = "public, max-age=3600, stale-while-revalidate=86400"
 
 [[headers]]
 for = "/terms"
 [headers.values]
-X-Prerender = "1"
 Cache-Control = "public, max-age=3600, stale-while-revalidate=86400"
 
 [[headers]]
 for = "/contact"
 [headers.values]
-X-Prerender = "1"
 Cache-Control = "public, max-age=3600, stale-while-revalidate=86400"
 
 # ── Security headers (all pages) ──────────────────────────────

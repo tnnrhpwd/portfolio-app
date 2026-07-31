@@ -3,6 +3,7 @@ import Footer from '../../../components/Footer/Footer';
 import FrequencyAnalyzer from './FrequencyAnalyzer';
 import './Sonic.css';
 import Header from '../../../components/Header/Header';
+import SEO from '../../../components/SEO/SEO.jsx';
 
 function Sonic() {
   const [noteData, setNoteData] = useState({});
@@ -17,9 +18,14 @@ function Sonic() {
 
   return (
     <>
+      <SEO
+        title="Sonic"
+        description="Analyze audio frequencies and musical notes in real time with Sonic."
+        path="/sonic"
+      />
       <Header />
         <div className="Sonic">
-        <div className="Sonic-title">Sonic</div>
+        <h1 className="Sonic-title">Sonic</h1>
         <div className="Sonic-description">
           Audio Frequency and Note Analyzer
         </div>

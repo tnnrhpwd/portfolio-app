@@ -7,6 +7,7 @@
     min-height: 140vh;
 }
 .gfreq-title{
+    margin: 0;
     font-size: calc(var(--nav-size)*.5);
 }
 .gfreq-description{

@@ -6,6 +6,7 @@ import { register } from '../../features/data/dataSlice'     // import functions
 import Spinner from '../../components/Spinner/Spinner.jsx';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
+import SEO from '../../components/SEO/SEO.jsx';
 import './Register.css';
 
 function Register() {
@@ -91,6 +92,7 @@ function Register() {
     }
 
     return (<>
+        <SEO title="Register" description="Create a new STHopwood account." path="/register" noindex />
         <Header />
         <div className="planit-register-bg">
             <div className="floating-shapes">

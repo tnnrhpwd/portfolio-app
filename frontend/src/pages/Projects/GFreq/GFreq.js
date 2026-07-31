@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Footer from '../../../components/Footer/Footer';
 import NavBar from '../../../components/NavBar/NavBar';
+import SEO from '../../../components/SEO/SEO.jsx';
 import './GFreq.css';
 
 // import getUserMedia from "get-user-media-promise";
@@ -119,11 +120,16 @@ function GFreq() {
     }
 
     return (<>
+        <SEO
+            title="GFreq"
+            description="Analyze audio frequency data from your microphone in real time with GFreq."
+            path="/gfreq"
+        />
         <NavBar/>
         <div className='gfreq'>
-            <div className="gfreq-title">
+            <h1 className="gfreq-title">
                 GFreq
-            </div>
+            </h1>
             <div className="gfreq-description">
                 Audio Frequency and Note Analyzer
             </div>

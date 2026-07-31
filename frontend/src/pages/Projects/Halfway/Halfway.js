@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Footer from '../../../components/Footer/Footer';
 import NavBar from '../../../components/NavBar/NavBar';
+import SEO from '../../../components/SEO/SEO.jsx';
 import { getSunrise, getSunset } from 'sunrise-sunset-js';
 import './Halfway.css';
 
@@ -35,11 +36,16 @@ function Halfway() {
     }, [])
     
     return (<>
+        <SEO
+            title="Halfway"
+            description="Find the halfway meeting point in time between sunrise and sunset for two locations."
+            path="/halfway"
+        />
         <NavBar/>
         <div className='halfway'>
-            <div className="halfway-title">
+            <h1 className="halfway-title">
                 Halfway
-            </div>
+            </h1>
             <div className="halfway-description">
                 This calculator estimates the halfway time of any trip. 
             </div>

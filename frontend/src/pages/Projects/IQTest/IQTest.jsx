@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Header from '../../../components/Header/Header';
 import Footer from '../../../components/Footer/Footer';
+import SEO from '../../../components/SEO/SEO.jsx';
 import BANK, { CAT_LABELS, CAT_KEYS, DIFF_TIERS } from './questionBank';
 import { formatTime, ordinal, computeIQ, DIFF_TO_B } from './iqStats';
 import './IQTest.css';
@@ -171,6 +172,11 @@ function IQTest() {
 
   return (
     <>
+      <SEO
+        title="IQ Test"
+        description="Take a free adaptive IQ test with multiple difficulty tiers and instant results."
+        path="/iq"
+      />
       <Header />
       <div className="iq-test">
         <div className="iq-test-floating" aria-hidden="true">
