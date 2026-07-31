@@ -8,6 +8,9 @@
     top: calc(var(--nav-size)*0.27);
     border: calc(var(--nav-size)*0.001) solid ;
     background-color: var(--text-color-inv);
+    /* Keep the theme toggle above the profile link (both are position: fixed
+       and overlap) so it stays clickable even when the profile link is hovered. */
+    z-index: 2;
 }
 .planit-header-dropper-themebutton:hover {
     background-color: var(--bg-pagelink);

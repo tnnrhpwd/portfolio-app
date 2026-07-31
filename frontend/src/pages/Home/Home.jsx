@@ -119,12 +119,12 @@ function Home() {
                             <a className="home-spc-tool animate-in" href={links.support} style={{animationDelay: '0.15s'}}>
                                 <div className="home-spc-tool-text">{links.support}</div>
                             </a>
-                            <a className="home-spc-tool animate-in" href={links.iq} style={{animationDelay: '0.15s'}}>
+                            
+                            {/* Tools & Games */}
+                            <a className="home-spc-tool animate-in" href={links.iq} style={{animationDelay: '0.2s'}}>
                                 <div className="home-spc-tool-text">{links.iq}</div>
                             </a>
-                            
-                            {/* Financial Tools */}
-                            <a className="home-spc-tool animate-in" href={links.annuities} style={{animationDelay: '0.2s'}}>
+                            <a className="home-spc-tool animate-in" href={links.annuities} style={{animationDelay: '0.25s'}}>
                                 <div className="home-spc-tool-text">{links.annuities}</div>
                             </a>
                             {/* {user && 
@@ -132,24 +132,22 @@ function Home() {
                                     <div className="home-spc-tool-text">{links.plans}</div>
                                 </a>
                             } */}
+                            <a className="home-spc-tool animate-in" href={links.wordle} style={{animationDelay: '0.3s'}}>
+                                <div className="home-spc-tool-text">{links.wordle}</div>
+                            </a>
                             
                             {/* Utilities & Tools */}
                             {user && <>
-                                {/* <a className="home-spc-tool animate-in" href={links.passgen} style={{animationDelay: '0.25s'}}>
+                                {/* <a className="home-spc-tool animate-in" href={links.passgen} style={{animationDelay: '0.35s'}}>
                                     <div className="home-spc-tool-text">{links.passgen}</div>
                                 </a> */}
-                                <a className="home-spc-tool animate-in" href={links.net} style={{animationDelay: '0.3s'}}>
+                                <a className="home-spc-tool animate-in" href={links.net} style={{animationDelay: '0.35s'}}>
                                     <div className="home-spc-tool-text">{links.net}</div>
                                 </a>
                             </>}
                             
-                            {/* Games & Entertainment */}
-                            <a className="home-spc-tool animate-in" href={links.wordle} style={{animationDelay: '0.4s'}}>
-                                <div className="home-spc-tool-text">{links.wordle}</div>
-                            </a>
-                            
                             {/* Account (Profile if logged in, else Login) */}
-                            <a className="home-spc-tool animate-in" href={user ? links.profile : links.login} style={{animationDelay: '0.5s'}}>
+                            <a className="home-spc-tool animate-in" href={user ? links.profile : links.login} style={{animationDelay: '0.4s'}}>
                                 <div className="home-spc-tool-text home-spc-tool-text--account">{user ? links.profile : links.login}</div>
                             </a>
 
