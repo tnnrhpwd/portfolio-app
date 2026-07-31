@@ -552,6 +552,23 @@ const getStripeConfig = async () => {
     }
 }
 
+// Get the dynamic homepage title (public, sends auth token if available so
+// nickname/email/plan rules can be evaluated server-side)
+const getHomeTitle = async () => {
+    const headers = {};
+    try {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+            const parsed = JSON.parse(storedUser);
+            if (parsed?.token) {
+                headers.Authorization = `Bearer ${parsed.token}`;
+            }
+        }
+    } catch { /* ignore */ }
+    const response = await axios.get(API_URL + 'home-title', { headers });
+    return response.data;
+}
+
 // Get user API usage statistics
 const getUserUsage = async (token) => {
     console.log('Getting user API usage');
@@ -745,6 +762,30 @@ const getAdminPaginatedData = async (token, { page = 1, limit = 50, type } = {})
     }
 };
 
+// Get raw home-title settings (default title + rules) for the admin UI
+const getAdminHomeTitleSettings = async (token) => {
+    const config = { headers: { Authorization: `Bearer ${token}` } };
+    try {
+        const response = await axios.get(API_URL + 'admin/home-title', config);
+        return response.data;
+    } catch (error) {
+        handleTokenExpiration(error);
+        throw error;
+    }
+};
+
+// Save home-title settings (default title + rules)
+const updateAdminHomeTitleSettings = async (token, settings) => {
+    const config = { headers: { Authorization: `Bearer ${token}` } };
+    try {
+        const response = await axios.put(API_URL + 'admin/home-title', { settings }, config);
+        return response.data;
+    } catch (error) {
+        handleTokenExpiration(error);
+        throw error;
+    }
+};
+
 const dataService = {
     createData,
     createPublicData,
@@ -767,6 +808,7 @@ const dataService = {
     getUserStorage,
     getMembershipPricing,
     getStripeConfig,
+    getHomeTitle,
     getLLMProviders,
     requestUploadUrl,
     uploadFileToS3,
@@ -778,6 +820,8 @@ const dataService = {
     getAdminDashboard,
     getAdminUsers,
     getAdminPaginatedData,
+    getAdminHomeTitleSettings,
+    updateAdminHomeTitleSettings,
     // Test Funnel
     initTestFunnel: async (token) => {
         const res = await axios.post(API_URL + 'test-funnel/init', {}, { headers: { Authorization: `Bearer ${token}` } });

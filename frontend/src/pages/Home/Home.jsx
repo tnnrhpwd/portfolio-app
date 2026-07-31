@@ -3,6 +3,7 @@ import Header from "../../components/Header/Header.jsx";
 import Footer from "../../components/Footer/Footer.jsx";
 import { useSelector, useDispatch } from 'react-redux';
 import { getUserUsage } from '../../features/data/dataSlice.js';
+import dataService from '../../features/data/dataService.js';
 import './Home.css';
 
 const links = {
@@ -31,8 +32,33 @@ function Home() {
         (state) => state.data
     );
 
-    const titleText = "It's simple.";
-    
+    const FALLBACK_TITLE = "It's simple.";
+    const [titleText, setTitleText] = useState(FALLBACK_TITLE);
+
+    // Pull the dynamic homepage title from the backend; keep the hard-coded
+    // fallback if the request fails for any reason (network error, backend
+    // down, etc.) so the homepage never breaks.
+    useEffect(() => {
+        let cancelled = false;
+        dataService.getHomeTitle()
+            .then((res) => {
+                if (!cancelled && res?.title) {
+                    setTitleText(res.title);
+                }
+            })
+            .catch(() => {
+                // Keep FALLBACK_TITLE — no need to surface this to the user.
+            });
+        return () => { cancelled = true; };
+    }, []);
+
+    // Restart the typewriter effect whenever the resolved title changes
+    // (e.g. the fetched title arrives after the fallback already finished typing).
+    useEffect(() => {
+        setDisplayedText("");
+        setIsTyping(true);
+    }, [titleText]);
+
     // Typewriter effect for the main title
     useEffect(() => {
         let timeout;

@@ -18,6 +18,7 @@ const { getAvailableProviders } = require('../utils/llmProviders'); // LLM provi
 const { getAdminDashboard, getAdminUsers, getAdminPaginatedData } = require('./adminController'); // Admin dashboard
 const { initTestFunnel, resetTestFunnel, getTestFunnelStatus, recordFunnelStep, getTestEmails } = require('./testFunnelController'); // Test funnel
 const { getDeepStorageItems, regenerateDeepStorageItems } = require('./deepStorageController'); // DeepStorage (Bedrock item catalog)
+const { getHomeTitle, getHomeTitleSettings, updateHomeTitleSettings } = require('./homeTitleController'); // Dynamic homepage title
 
 // @desc    Get available LLM providers and models
 // @route   GET /api/data/llm-providers
@@ -75,4 +76,5 @@ module.exports = {
     getAdminDashboard, getAdminUsers, getAdminPaginatedData,
     initTestFunnel, resetTestFunnel, getTestFunnelStatus, recordFunnelStep, getTestEmails,
     getDeepStorageItems, regenerateDeepStorageItems,
+    getHomeTitle, getHomeTitleSettings, updateHomeTitleSettings,
 };

@@ -54,6 +54,13 @@
 }
 .admin-no-data { color: var(--text-color-accent); font-style: italic; }
 
+.admin-help-text {
+    font-size: var(--font-size-xs);
+    color: var(--text-color-accent);
+    margin: 0 0 calc(var(--nav-size) * 0.3) 0;
+    line-height: 1.5;
+}
+
 .btn-retry {
     border-color: var(--red0);
     background: var(--red0);

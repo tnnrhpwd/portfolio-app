@@ -43,6 +43,7 @@ const {
   initTestFunnel, resetTestFunnel, getTestFunnelStatus, recordFunnelStep, getTestEmails,
   getStripeConfig,
   getDeepStorageItems, regenerateDeepStorageItems,
+  getHomeTitle, getHomeTitleSettings, updateHomeTitleSettings,
 } = require('../controllers');
 
 // File upload controller
@@ -255,6 +256,9 @@ router.post('/web-vitals', apiLimiter, (req, res) => {
 const { optionalAuth } = require('../middleware/authMiddleware');
 router.get('/stripe-config', optionalAuth, getStripeConfig);
 
+// Dynamic homepage title (public, auth-aware for nickname/email/plan rules)
+router.get('/home-title', optionalAuth, getHomeTitle);
+
 // Stripe Webhook is registered above (before express.json()) to preserve raw body
 
 // ============================================================================
@@ -289,6 +293,9 @@ router.get('/all/admin', protect, requireAdmin, getAllData);
 router.get('/admin/dashboard', protect, requireAdmin, getAdminDashboard);
 router.get('/admin/users', protect, requireAdmin, getAdminUsers);
 router.get('/admin/data', protect, requireAdmin, getAdminPaginatedData);
+router.route('/admin/home-title')
+  .get(protect, requireAdmin, getHomeTitleSettings)
+  .put(protect, requireAdmin, sanitizeInput, updateHomeTitleSettings);
 
 // ============================================================================
 // DEEP STORAGE (Bedrock Minecraft stackable item catalog)
