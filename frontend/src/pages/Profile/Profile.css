@@ -1,6 +1,6 @@
 ﻿.planit-profile-bg {
     min-height: 100vh;
-    padding: calc(var(--nav-size) * 1.8) var(--spacing-md) var(--spacing-2xl);
+    padding: calc(var(--nav-size) * 1.6) var(--spacing-sm) var(--spacing-lg);
     background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
     background-size: 400% 400%;
     animation: gradientShift 12s ease infinite;
@@ -48,11 +48,11 @@
 .planit-profile-shell {
     position: relative;
     z-index: 2;
-    max-width: 1100px;
+    max-width: 800px;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-lg);
+    gap: var(--spacing-md);
 }
 
 .planit-profile-hero,
@@ -66,24 +66,24 @@
 }
 
 .planit-profile-hero {
-    padding: var(--spacing-xl);
+    padding: var(--spacing-md);
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
     animation: fadeInSection 0.7s ease both;
 }
 
 .planit-profile-hero-main {
     display: flex;
     align-items: center;
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
 }
 
 .planit-profile-avatar {
-    width: calc(var(--nav-size) * 2.7);
-    height: calc(var(--nav-size) * 2.7);
+    width: calc(var(--nav-size) * 1.8);
+    height: calc(var(--nav-size) * 1.8);
     border-radius: 50%;
-    padding: calc(var(--nav-size) * 0.18);
+    padding: calc(var(--nav-size) * 0.12);
     background: linear-gradient(135deg, var(--fg-orange), var(--fg-pink));
     box-shadow: var(--shadow-md);
     flex-shrink: 0;
@@ -115,7 +115,7 @@
 
 .planit-profile-heading-title {
     margin: 0;
-    font-size: var(--font-size-heading);
+    font-size: var(--font-size-large);
     line-height: var(--line-height-tight);
     color: var(--text-color-strong);
 }
@@ -138,13 +138,13 @@
 .planit-profile-actions-buttons {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
 }
 
 .planit-profile-meta {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
 }
 
 .planit-profile-meta-item,
@@ -162,10 +162,10 @@
 }
 
 .planit-profile-meta-item {
-    padding: var(--spacing-sm);
+    padding: var(--spacing-xs);
     display: flex;
     flex-direction: column;
-    gap: calc(var(--nav-size) * 0.1);
+    gap: calc(var(--nav-size) * 0.08);
 }
 
 .planit-profile-meta-label,
@@ -195,20 +195,20 @@
 .planit-profile-layout {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--spacing-lg);
+    gap: var(--spacing-md);
 }
 
 .planit-profile-column {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-lg);
+    gap: var(--spacing-md);
 }
 
 .planit-profile-section {
-    padding: var(--spacing-lg);
+    padding: var(--spacing-md);
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
     animation: slideInUp 0.7s ease both;
 }
 
@@ -221,8 +221,8 @@
 
 .planit-profile-section-title,
 .planit-profile-actions-title {
-    margin: calc(var(--nav-size) * 0.12) 0 0;
-    font-size: calc(var(--font-size-large) * 1.05);
+    margin: calc(var(--nav-size) * 0.1) 0 0;
+    font-size: var(--font-size-base);
     line-height: var(--line-height-tight);
     color: var(--text-color-strong);
 }
@@ -232,17 +232,17 @@
 .planit-profile-usage-overview {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
 }
 
 .planit-profile-info-item,
 .planit-profile-setting-item,
 .usage-stat {
-    padding: var(--spacing-sm);
+    padding: var(--spacing-xs);
     display: flex;
     flex-direction: column;
-    gap: calc(var(--nav-size) * 0.1);
-    min-height: calc(var(--nav-size) * 3);
+    gap: calc(var(--nav-size) * 0.08);
+    min-height: calc(var(--nav-size) * 2);
 }
 
 .planit-profile-setting-select {
@@ -272,7 +272,7 @@
 .planit-profile-state,
 .credit-warning,
 .planit-profile-upgrade-prompt {
-    padding: var(--spacing-sm);
+    padding: var(--spacing-xs);
 }
 
 .planit-profile-subscription-details {
@@ -324,7 +324,7 @@
 }
 
 .usage-breakdown-item {
-    padding: var(--spacing-sm);
+    padding: var(--spacing-xs);
     display: flex;
     justify-content: space-between;
     gap: var(--spacing-sm);
@@ -396,11 +396,11 @@
 }
 
 .planit-profile-actions {
-    padding: var(--spacing-lg);
+    padding: var(--spacing-md);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
     animation: fadeInSection 0.9s ease both;
 }
 
@@ -408,7 +408,7 @@
     display: flex;
     flex-direction: column;
     gap: calc(var(--nav-size) * 0.08);
-    max-width: 520px;
+    max-width: 420px;
 }
 
 .planit-profile-upgrade-prompt {
@@ -540,7 +540,7 @@
 
 @media (max-width: 768px) {
     .planit-profile-bg {
-        padding: calc(var(--nav-size) * 1.4) var(--spacing-sm) var(--spacing-xl);
+        padding: calc(var(--nav-size) * 1.2) var(--spacing-xs) var(--spacing-lg);
     }
 
     .floating-circle {
@@ -550,7 +550,7 @@
     .planit-profile-hero,
     .planit-profile-section,
     .planit-profile-actions {
-        padding: var(--spacing-md);
+        padding: var(--spacing-sm);
     }
 
     .planit-profile-hero-main,
@@ -590,17 +590,17 @@
 
 @media (max-width: 480px) {
     .planit-profile-heading-title {
-        font-size: calc(var(--font-size-large) * 1.2);
+        font-size: var(--font-size-large);
     }
 
     .planit-profile-avatar {
-        width: calc(var(--nav-size) * 2.2);
-        height: calc(var(--nav-size) * 2.2);
+        width: calc(var(--nav-size) * 1.5);
+        height: calc(var(--nav-size) * 1.5);
     }
 
     .planit-profile-section-title,
     .planit-profile-actions-title {
-        font-size: var(--font-size-large);
+        font-size: var(--font-size-base);
     }
 
     .planit-profile-meta-item,
