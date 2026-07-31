@@ -353,16 +353,6 @@ function Profile() {
                         </div>
                       </div>
                     )}
-
-                    <div className="planit-profile-subscription-details">
-                      <div>
-                        <span className="planit-profile-info-label">Need more control?</span>
-                        <div className="planit-profile-subscription-product">Visit Settings for AI, font, and accessibility options.</div>
-                      </div>
-                      <button className="planit-profile-settings-button planit-profile-inline-button" onClick={navigateToSettings}>
-                        Go to Settings
-                      </button>
-                    </div>
                   </div>
                 </div>
 

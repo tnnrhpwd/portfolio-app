@@ -48,7 +48,6 @@
 .planit-profile-shell {
     position: relative;
     z-index: 2;
-    max-width: 800px;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
@@ -132,6 +131,7 @@
     margin: 0;
     color: var(--text-color-accent);
     line-height: var(--line-height-relaxed);
+    font-size: var(--font-size-small);
 }
 
 .planit-profile-hero-actions,
@@ -183,7 +183,7 @@
 .planit-profile-info-value,
 .usage-value,
 .planit-profile-subscription-product {
-    font-size: var(--font-size-large);
+    font-size: var(--font-size-base);
     font-weight: var(--font-weight-semibold);
     color: var(--text-color-strong);
 }
