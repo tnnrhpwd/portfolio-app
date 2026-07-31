@@ -253,6 +253,7 @@ button, input[type="submit"], input[type="button"] {
 
 button:hover:not(:disabled), input[type="submit"]:hover:not(:disabled), input[type="button"]:hover:not(:disabled) {
   background: linear-gradient(135deg, var(--fg-mint), var(--fg-blue));
+  color: var(--text-color-inv);
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }

@@ -127,8 +127,8 @@
   box-shadow: 0 4px 15px #00000033;
 }
 .iq-test-mode-btn .mode-label { font-size: calc(var(--nav-size) * 0.32); font-weight: 700; }
-.iq-test-mode-btn .mode-count { font-size: calc(var(--nav-size) * 0.26); font-weight: 600; color: var(--text-color-accent); }
-.iq-test-mode-btn .mode-blurb { font-size: calc(var(--nav-size) * 0.22); color: var(--text-color-accent); }
+.iq-test-mode-btn .mode-count { font-size: calc(var(--nav-size) * 0.26); font-weight: 600; }
+.iq-test-mode-btn .mode-blurb { font-size: calc(var(--nav-size) * 0.22); }
 
 .iq-test-btn, .iq-test-btn.secondary {
   font-weight: 700;
