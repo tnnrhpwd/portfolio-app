@@ -73,6 +73,20 @@ function Admin() {
     }
   }, [user, navigate]);
 
+  // ═══════════════ Close modal on Escape ═══════════════
+  useEffect(() => {
+    if (!showResolutionModal) return;
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setShowResolutionModal(false);
+        setResolutionText("");
+        setClosingBugId(null);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [showResolutionModal]);
+
   // ═══════════════ Fetch aggregated dashboard ═══════════════
   const fetchDashboard = useCallback(async (refresh = false) => {
     if (!user?.token) return;
@@ -328,7 +342,12 @@ function Admin() {
           <h2>Administrator Panel</h2>
 
           {dashLoading && <div className="admin-loading">Loading dashboard...</div>}
-          {dashError && <div className="admin-error">{dashError}</div>}
+          {dashError && (
+            <div className="admin-error">
+              <span>{dashError}</span>
+              <button className="btn-sm btn-retry" onClick={() => fetchDashboard()}>↻ Retry</button>
+            </div>
+          )}
 
           {d && (
             <>
@@ -497,7 +516,9 @@ function Admin() {
                     onChange={(e) => setUsersSearch(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && fetchUsers(1)}
                   />
-                  <button className="btn-sm" onClick={() => fetchUsers(1)}>Search</button>
+                  <button className="btn-sm" onClick={() => fetchUsers(1)} disabled={usersLoading}>
+                    {usersLoading ? 'Searching…' : 'Search'}
+                  </button>
                 </div>
                 {usersLoading && <div className="admin-loading">Loading users...</div>}
                 {!usersLoading && users.length > 0 && (
@@ -704,7 +725,9 @@ function Admin() {
                     <option value="review">Reviews</option>
                     <option value="other">Other</option>
                   </select>
-                  <button className="btn-sm" onClick={() => fetchRawData(1)}>Load</button>
+                  <button className="btn-sm" onClick={() => fetchRawData(1)} disabled={rawLoading}>
+                    {rawLoading ? 'Loading…' : 'Load'}
+                  </button>
                 </div>
                 {rawLoading && <div className="admin-loading">Loading data...</div>}
                 {!rawLoading && rawData.length > 0 && (
@@ -764,7 +787,12 @@ function Admin() {
                     {funnel?.run > 0 && <span className="muted">Run #{funnel.run}</span>}
                   </div>
 
-                  {funnelError && <div className="admin-error">{funnelError}</div>}
+                  {funnelError && (
+                    <div className="admin-error">
+                      <span>{funnelError}</span>
+                      <button className="btn-sm btn-retry" onClick={fetchFunnelStatus}>↻ Retry</button>
+                    </div>
+                  )}
 
                   {!funnel?.initialised && !funnelLoading && (
                     <p className="admin-no-data">
