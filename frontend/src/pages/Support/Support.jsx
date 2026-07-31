@@ -68,9 +68,9 @@ function Support() {
     handleContactSubmit,
     handleBugReportSubmit,
   } = useSupportHandlers(
+    user,
     formData,
     setFormData,
-    user,
     setIsSubmitting,
     activeTab,
     fetchUserBugReports

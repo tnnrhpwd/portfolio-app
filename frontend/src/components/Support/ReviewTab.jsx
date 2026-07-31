@@ -45,22 +45,39 @@ const ReviewTab = ({ formData, handleInputChange, handleStarClick, handleReviewS
         </div>
 
         <div className="support-form-group">
-          <label htmlFor="reviewRating">Rating</label>
+          <label id="reviewRating">Rating</label>
           <div className="support-rating-container">
-            <div className="support-rating-stars">
-              {[...Array(5)].map((_, i) => (
-                <span
-                  key={i}
-                  className={`support-star clickable ${
-                    i < (hoverRating || formData.reviewRating) ? 'filled' : ''
-                  }`}
-                  onClick={() => handleStarClick(i + 1)}
-                  onMouseEnter={() => setHoverRating(i + 1)}
-                  onMouseLeave={() => setHoverRating(0)}
-                >
-                  ⭐
-                </span>
-              ))}
+            <div
+              className="support-rating-stars"
+              role="radiogroup"
+              aria-labelledby="reviewRating"
+              onMouseLeave={() => setHoverRating(0)}
+            >
+              {[...Array(5)].map((_, i) => {
+                const value = i + 1;
+                return (
+                  <span
+                    key={i}
+                    className={`support-star clickable ${
+                      value <= (hoverRating || formData.reviewRating) ? 'filled' : ''
+                    }`}
+                    role="radio"
+                    aria-checked={formData.reviewRating === value}
+                    aria-label={`${value} star${value > 1 ? 's' : ''}`}
+                    tabIndex={0}
+                    onClick={() => handleStarClick(value)}
+                    onMouseEnter={() => setHoverRating(value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleStarClick(value);
+                      }
+                    }}
+                  >
+                    ⭐
+                  </span>
+                );
+              })}
               <span className="support-rating-text">({formData.reviewRating}/5)</span>
             </div>
           </div>
@@ -78,7 +95,7 @@ const ReviewTab = ({ formData, handleInputChange, handleStarClick, handleReviewS
             rows="6"
             maxLength={1000}
           />
-          <small className="support-char-count">
+          <small className="support-char-count" aria-live="polite">
             {formData.reviewContent.length}/1000 characters
           </small>
         </div>
