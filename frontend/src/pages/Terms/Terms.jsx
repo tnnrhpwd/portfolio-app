@@ -127,13 +127,13 @@ const Terms = () => {
                             </p>
                             <ul>
                                 <li>/net AI chat with your own API key (bring-your-own-key only; no included AI credits)</li>
-                                <li>CSimple desktop addon — 14-day free trial</li>
+                                <li>CSimple desktop addon — download and run locally</li>
                                 <li>{QUOTAS[PLAN_IDS.FREE]} addon usage</li>
                                 <li>{STORAGE_DISPLAY[PLAN_IDS.FREE]} cloud storage</li>
                             </ul>
                             <p>
-                                After the 14-day trial the addon will require a paid subscription. The /net AI chat
-                                feature remains available on the Free tier with your own API key at no charge from us.
+                                The /net AI chat feature is available on the Free tier with your own API key at no
+                                charge from us.
                             </p>
                             <h3>3.2 {PLAN_NAMES[PLAN_IDS.PRO]} Membership — $15/month</h3>
                             <p>
@@ -143,10 +143,9 @@ const Terms = () => {
                                 <li>Everything in {PLAN_NAMES[PLAN_IDS.FREE]}</li>
                                 <li>Full CSimple addon access</li>
                                 <li>{QUOTAS[PLAN_IDS.PRO]}</li>
-                                <li>Phone-to-PC remote control</li>
+                                <li>Live screen viewing from your phone</li>
                                 <li>{STORAGE_DISPLAY[PLAN_IDS.PRO]} cloud storage</li>
-                                <li>Full analytics dashboard</li>
-                                <li>Priority email support</li>
+                                <li>Email support</li>
                             </ul>
                             <p>
                                 AI usage on all plans is bring-your-own-key (BYOK). You provide your own API keys

@@ -36,19 +36,12 @@ function Pay() {
     <>
       <Header />
       <div className="planit-pay-bg">
-        {/* Floating background elements for visual appeal */}
-        <div className="floating-shapes">
-          <div className="floating-circle floating-circle-1"></div>
-          <div className="floating-circle floating-circle-2"></div>
-          <div className="floating-circle floating-circle-3"></div>
-        </div>
-        
         <div className="planit-pay-card">
           <section className="planit-pay-heading">
-            <div className="planit-pay-heading-title">💳 Choose Your Plan</div>
-            <div className="planit-pay-heading-description">Unlock AI chat credits, storage, and more</div>
+            <div className="planit-pay-heading-title">Choose your plan</div>
+            <div className="planit-pay-heading-description">Unlock AI chat credits, storage, and more. Cancel anytime.</div>
           </section>
-          
+
           <section className="planit-pay-content">
             <CheckoutForm paymentType="subscription" initialPlan={selectedPlan} />
           </section>
