@@ -394,6 +394,18 @@
     transform: translateY(-3px) scale(1.02);
 }
 
+/* Account link (Profile/Login) stands out with an orange gradient fill, adapting to light/dark theme */
+.home-spc-tool-text--account {
+    background: linear-gradient(45deg, var(--fg-orange), var(--fg-pink));
+    color: var(--text-color-inv);
+    border-color: var(--fg-orange);
+}
+
+.home-spc-tool:hover .home-spc-tool-text--account {
+    background: linear-gradient(45deg, var(--fg-pink), var(--fg-orange));
+    border-color: var(--fg-pink);
+}
+
 /* Section headers with enhanced styling */
 .section-header {
     position: relative;

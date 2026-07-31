@@ -122,16 +122,16 @@ function Home() {
                                 <div className="home-spc-tool-text">{links.wordle}</div>
                             </a>
                             
+                            {/* Account (Profile if logged in, else Login) */}
+                            <a className="home-spc-tool animate-in" href={user ? links.profile : links.login} style={{animationDelay: '0.5s'}}>
+                                <div className="home-spc-tool-text home-spc-tool-text--account">{user ? links.profile : links.login}</div>
+                            </a>
+
                             {/* Admin (Special Access) */}
                             {(user && user._id && user._id.toString() === '6770a067c725cbceab958619') && 
                                 <a className="home-spc-tool animate-in" href={links.admin} style={{animationDelay: '0.45s'}}>
                                     <div className="home-spc-tool-text">{links.admin}</div>
                                 </a>}
-
-                            {/* Account (Profile if logged in, else Login) */}
-                            <a className="home-spc-tool animate-in" href={user ? links.profile : links.login} style={{animationDelay: '0.5s'}}>
-                                <div className="home-spc-tool-text">{user ? links.profile : links.login}</div>
-                            </a>
                         </div>
                     </div>
                 </section>
