@@ -12,7 +12,7 @@ import { createSlice } from '@reduxjs/toolkit';
 
 // Import thunks from categorized files
 import { register, login, logout } from './thunks/authThunks';
-import { createData, getData, getPublicData, getAllData, updateData, deleteData, compressData } from './thunks/dataThunks';
+import { createData, createPublicData, getData, getPublicData, getAllData, updateData, deleteData, compressData } from './thunks/dataThunks';
 import { getUserUsage, getUserStorage, getUserSubscription, getUserBugReports, closeBugReport } from './thunks/userThunks';
 import { getPaymentMethods, deletePaymentMethod, postPaymentMethod, createCustomer, subscribeCustomer } from './thunks/paymentThunks';
 import { getMembershipPricing, getLLMProviders } from './thunks/publicThunks';
@@ -108,6 +108,23 @@ export const dataSlice = createSlice({
         if (action.payload === 'Not authorized, token expired') {
           state.user = null;
         }
+        state.operation = null;
+      })
+      .addCase(createPublicData.pending, (state) => {
+        state.dataIsLoading = true;
+        state.operation = null;
+      })
+      .addCase(createPublicData.fulfilled, (state, action) => {
+        state.dataIsLoading = false;
+        state.dataIsSuccess = true;
+        state.dataMessage = 'Data was successfully saved.';
+        state.data.data.push(action.payload);
+        state.operation = 'create';
+      })
+      .addCase(createPublicData.rejected, (state, action) => {
+        state.dataIsLoading = false;
+        state.dataIsError = true;
+        state.dataMessage = action.payload;
         state.operation = null;
       })
       .addCase(getData.pending, (state) => {
@@ -398,6 +415,7 @@ export {
   logout,
   // Data CRUD
   createData,
+  createPublicData,
   getData,
   getPublicData,
   getAllData,

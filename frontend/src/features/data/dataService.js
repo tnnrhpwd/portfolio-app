@@ -119,6 +119,19 @@ const createData = async (dataData, token) => {
     }
 }
 
+// Create new data without requiring authentication (e.g. reviews, bug reports)
+const createPublicData = async (dataData) => {
+    console.log('Calling public POST URL:', API_URL + 'public');
+    console.log('Calling public POST Data:', dataData);
+
+    try {
+        const response = await axios.post(API_URL + 'public', { data: dataData.text });
+        return response.data;
+    } catch (error) {
+        handleTokenExpiration(error);
+    }
+}
+
 // Get all data
 const getData = async (dataData, token) => {
     const config = {
@@ -734,6 +747,7 @@ const getAdminPaginatedData = async (token, { page = 1, limit = 50, type } = {})
 
 const dataService = {
     createData,
+    createPublicData,
     getData,
     getPublicData,
     getAllData,

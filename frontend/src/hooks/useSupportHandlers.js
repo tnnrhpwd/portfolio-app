@@ -1,6 +1,6 @@
 import { useDispatch } from 'react-redux';
 import { toast } from 'react-toastify';
-import { createData } from '../features/data/dataSlice';
+import { createData, createPublicData } from '../features/data/dataSlice';
 import { getUserIdentifier } from '../utils/supportUtils';
 
 /**
@@ -39,7 +39,7 @@ export const useSupportHandlers = (user, formData, setFormData, setIsSubmitting,
         text: `Review:${formData.reviewTitle}|Category:${formData.reviewCategory}|Rating:${formData.reviewRating}/5|Content:${formData.reviewContent}|User:${user?.email || 'Anonymous'}|Timestamp:${new Date().toISOString()}`
       };
 
-      await dispatch(createData(reviewData)).unwrap();
+      await dispatch(createPublicData(reviewData)).unwrap();
       
       toast.success('Thank you for your review! We appreciate your feedback.', { autoClose: 4000 });
       
@@ -97,11 +97,15 @@ export const useSupportHandlers = (user, formData, setFormData, setIsSubmitting,
 
     try {
       const userId = getUserIdentifier(user);
+      // Prepend the DB user ID as its own Creator field so logged-in users' reports
+      // still show up in "My Reports" (which filters by Creator:<user._id>), while
+      // still allowing anonymous (logged-out) submissions.
+      const creatorPrefix = user?._id ? `Creator:${user._id}|` : '';
       const bugData = {
-        text: `Bug:${formData.bugTitle}|Severity:${formData.bugSeverity}|Description:${formData.bugDescription}|Steps:${formData.bugSteps}|Expected:${formData.bugExpected}|Actual:${formData.bugActual}|Browser:${formData.bugBrowser}|Device:${formData.bugDevice}|Creator:${userId}|Status:Open|Timestamp:${new Date().toISOString()}`
+        text: `${creatorPrefix}Bug:${formData.bugTitle}|Severity:${formData.bugSeverity}|Description:${formData.bugDescription}|Steps:${formData.bugSteps}|Expected:${formData.bugExpected}|Actual:${formData.bugActual}|Browser:${formData.bugBrowser}|Device:${formData.bugDevice}|Creator:${userId}|Status:Open|Timestamp:${new Date().toISOString()}`
       };
 
-      await dispatch(createData(bugData)).unwrap();
+      await dispatch(createPublicData(bugData)).unwrap();
       
       toast.success('Bug report submitted! Thank you for helping us improve.', { autoClose: 4000 });
       

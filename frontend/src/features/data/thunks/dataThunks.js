@@ -25,6 +25,24 @@ export const createData = createAsyncThunk(
   }
 );
 
+// Create new data without requiring authentication (e.g. reviews, bug reports) -- CREATE (public)
+export const createPublicData = createAsyncThunk(
+  'data/createPublic',
+  async (dataData, thunkAPI) => {
+    try {
+      return await dataService.createPublicData(dataData);
+    } catch (error) {
+      const dataMessage =
+        (error.response &&
+          error.response.data &&
+          error.response.data.dataMessage) ||
+        error.dataMessage ||
+        error.toString();
+      return thunkAPI.rejectWithValue(dataMessage);
+    }
+  }
+);
+
 // Get user datas -- READ
 export const getData = createAsyncThunk(
   'data/get',
