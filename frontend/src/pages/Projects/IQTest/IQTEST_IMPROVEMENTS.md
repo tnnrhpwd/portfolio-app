@@ -17,10 +17,11 @@ not a committed roadmap — pick items off as priorities allow.
 - [ ] Printable certificate-style one-pager, distinct from the detailed PDF.
 
 ## 2. Psychometric rigor (industry-standard practices)
-- [ ] Norm-referenced scoring via IRT (Item Response Theory) instead of a
-      simple difficulty-weighted average — each question gets a
-      discrimination/difficulty parameter, ability (θ) is estimated via a
-      logistic model, then mapped to IQ.
+- [x] Norm-referenced scoring via IRT (Item Response Theory) instead of a
+      simple difficulty-weighted average — each question now has a
+      difficulty parameter (`DIFF_TO_B` in [iqStats.js](iqStats.js)), ability
+      (theta) is estimated via a 1PL (Rasch) MAP/Newton-Raphson estimate, then
+      mapped to IQ (mean 100, SD 15).
 - [ ] Computerized Adaptive Testing (CAT) — next question difficulty adjusts
       based on prior answer correctness, converging on ability faster with
       fewer items (like modern GRE/WAIS-style adaptive tests).
@@ -41,11 +42,23 @@ not a committed roadmap — pick items off as priorities allow.
 ## 3. Test content & question bank
 - [x] Expand the question pool significantly to reduce repeat-question
       fatigue and support future adaptive selection.
+- [x] Add a dedicated Math/quantitative-reasoning category (arithmetic,
+      percentages, algebra, ratios, probability, sequences) spanning 5
+      difficulty tiers, directly addressing feedback that the test needed
+      "math and stuff".
+- [x] Add genuinely hard (tier 4/5) items to every category — advanced
+      vocabulary/analogies, argument-flaw reading passages, quantitative
+      science reasoning, and multi-step logic/syllogisms — so a perfect
+      score requires answering expert-level questions correctly, not just
+      trivia.
+- [x] Guarantee a stratified difficulty draw: every attempt now selects one
+      question per difficulty tier (1-5) per category instead of a fully
+      random draw that could accidentally be all-easy or all-hard.
 - [ ] Track "seen" questions per user/session to avoid immediate repeats.
 - [ ] Add image-based / non-verbal reasoning items (pattern completion,
       odd-one-out shapes) to reduce language/cultural bias.
 - [ ] Tag items with richer IRT-style metadata: discrimination index,
-      expected pass-rate — not just a 1–3 difficulty bucket.
+      expected pass-rate — not just a 1–5 difficulty bucket.
 - [ ] Randomize category order and interleave questions rather than block by
       category, to reduce within-category fatigue/practice effects.
 - [ ] Calibrate item difficulty from real aggregate user data over time.
@@ -96,8 +109,9 @@ not a committed roadmap — pick items off as priorities allow.
 ## 9. Technical/architecture
 - [ ] Move the question bank to backend/DB so it can grow without a redeploy,
       and to support server-side adaptive selection.
-- [ ] Unit tests for `computeIQ`/`probit` in
-      [iqStats.js](iqStats.js) — cover edge cases (0%, 100%, NaN).
+- [ ] Unit tests for `computeIQ`/`estimateAbility` in
+      [iqStats.js](iqStats.js) — cover edge cases (all correct, all wrong,
+      no responses).
 - [ ] Analytics on per-question pass rates to catch miscalibrated or broken
       items.
 
