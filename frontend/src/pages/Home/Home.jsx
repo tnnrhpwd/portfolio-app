@@ -101,17 +101,17 @@ function Home() {
                             <a className="home-spc-tool animate-in" href={links.annuities} style={{animationDelay: '0.2s'}}>
                                 <div className="home-spc-tool-text">{links.annuities}</div>
                             </a>
-                            {user && 
+                            {/* {user && 
                                 <a className="home-spc-tool animate-in" href={links.plans} style={{animationDelay: '0.25s'}}>
                                     <div className="home-spc-tool-text">{links.plans}</div>
                                 </a>
-                            }
+                            } */}
                             
                             {/* Utilities & Tools */}
                             {user && <>
-                                <a className="home-spc-tool animate-in" href={links.passgen} style={{animationDelay: '0.25s'}}>
+                                {/* <a className="home-spc-tool animate-in" href={links.passgen} style={{animationDelay: '0.25s'}}>
                                     <div className="home-spc-tool-text">{links.passgen}</div>
-                                </a>
+                                </a> */}
                                 <a className="home-spc-tool animate-in" href={links.net} style={{animationDelay: '0.3s'}}>
                                     <div className="home-spc-tool-text">{links.net}</div>
                                 </a>
@@ -127,6 +127,11 @@ function Home() {
                                 <a className="home-spc-tool animate-in" href={links.admin} style={{animationDelay: '0.45s'}}>
                                     <div className="home-spc-tool-text">{links.admin}</div>
                                 </a>}
+
+                            {/* Account (Profile if logged in, else Login) */}
+                            <a className="home-spc-tool animate-in" href={user ? links.profile : links.login} style={{animationDelay: '0.5s'}}>
+                                <div className="home-spc-tool-text">{user ? links.profile : links.login}</div>
+                            </a>
                         </div>
                     </div>
                 </section>
