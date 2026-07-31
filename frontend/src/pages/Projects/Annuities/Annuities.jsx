@@ -5,6 +5,7 @@ import NewAnnuity from './NewAnnuity';
 import GraphAnnuities from './GraphAnnuities';
 import Footer from '../../../components/Footer/Footer';
 import Header from '../../../components/Header/Header';
+import SEO from '../../../components/SEO/SEO.jsx';
 import "./Annuities.css";
 
 // Engineering Economy Example Problems
@@ -426,6 +427,11 @@ function Annuities() {
 
     return (
         <>
+            <SEO
+                title="Annuities Calculator"
+                description="Calculate the effect of compound interest on your investment with an interactive annuities and engineering economy calculator."
+                path="/annuities"
+            />
             <Header />
             <div className='annuities'>
                 <div className='annuities-header'>

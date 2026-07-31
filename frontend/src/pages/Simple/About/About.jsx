@@ -4,6 +4,7 @@ import './About.css';
 import linkedinimg from "../../Contact/linkedin.png";
 import githubimg from "../../Contact/githubW.png";
 import Footer from '../../../components/Footer/Footer';
+import SEO, { SITE_URL } from '../../../components/SEO/SEO.jsx';
 
 function About() {
   const technicalSkills = [
@@ -32,13 +33,30 @@ function About() {
   };
 
   return (<>
+    <SEO
+      title="About"
+      description="Learn about Steven Tanner Hopwood's background, technical skills, and professional experience in software and engineering."
+      path="/about"
+      jsonLd={{
+        '@context': 'https://schema.org',
+        '@type': 'Person',
+        name: 'Steven Tanner Hopwood',
+        url: `${SITE_URL}/about`,
+        jobTitle: 'Advanced Manufacturing Engineer',
+        sameAs: [
+          'https://www.linkedin.com/in/sthopwood/',
+          'https://github.com/tnnrhpwd',
+        ],
+        knowsAbout: [...technicalSkills, ...engineeringSkills, ...businessSkills],
+      }}
+    />
     <div className='about'>
       <Header />
       <div className='about-container'>
         <div className='about-hero'>
-          <div className='about-title'>
+          <h1 className='about-title'>
             Steven Tanner Hopwood
-          </div>
+          </h1>
           <div className='about-subtitle'>
             Advanced Manufacturing Engineer
           </div>

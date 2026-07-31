@@ -3,16 +3,22 @@ import linkedinimg from "./linkedin.png";
 import githubimg from "./githubW.png";
 import Footer from '../../components/Footer/Footer';
 import Header from "../../components/Header/Header";
+import SEO from "../../components/SEO/SEO.jsx";
 import "./Contact.css";
 
 function Contact() {
     return (
     <>
+        <SEO
+            title="Contact"
+            description="Get in touch with Steven Tanner Hopwood via email, LinkedIn, or GitHub."
+            path="/contact"
+        />
         <Header />
         <div className="contact-space">
-        <div className="contact-title">
+        <h1 className="contact-title">
             Contact
-        </div>
+        </h1>
         <div className="contact-name">
           Steven Tanner Hopwood
         </div>
@@ -21,7 +27,7 @@ function Contact() {
         </div>
         <div className="contact-body">
           <td className="contact-social" onClick={()=> window.open("https://www.linkedin.com/in/sthopwood/", "_blank")}>
-            <img className="contact-linkedin" src={linkedinimg} alt=" linkedin logo" />
+            <img className="contact-linkedin" src={linkedinimg} alt="linkedin logo" />
           </td>
           <td className="contact-social" onClick={()=> window.open("https://github.com/tnnrhpwd", "_blank")}>
             <img className="contact-github" src={githubimg} alt="github logo" />

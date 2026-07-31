@@ -39,6 +39,7 @@
 }
 
 .about-title{
+    margin: 0;
     font-size: var(--font-size-display);
     font-weight: var(--font-weight-bold);
     margin-bottom: var(--spacing-md);

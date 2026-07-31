@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import Spinner from '../../components/Spinner/Spinner.jsx';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
+import SEO from '../../components/SEO/SEO.jsx';
 import HelpFaqTab from '../../components/Support/HelpFaqTab.jsx';
 import ReviewTab from '../../components/Support/ReviewTab.jsx';
 import ContactTab from '../../components/Support/ContactTab.jsx';
@@ -110,6 +111,11 @@ function Support() {
 
   return (
     <>
+      <SEO
+        title="Support"
+        description="Get help, browse FAQs, report bugs, or contact STHopwood support."
+        path="/support"
+      />
       <Header />
       <div className="support-bg">
         <div className="support-container">

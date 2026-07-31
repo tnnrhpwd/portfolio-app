@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { toast } from 'react-toastify';
 import Header from '../../../components/Header/Header';
 import Footer from '../../../components/Footer/Footer';
+import SEO from '../../../components/SEO/SEO.jsx';
 import url from "./../WordleSolver/Dictionary.txt";
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom'              // page redirects
@@ -785,6 +786,11 @@ function Wordle() {
       data-in-game-state={inGameState}
       data-answer-visibility={answerVisibility.toString()}
     >
+      <SEO
+        title="Wordle"
+        description="Play a customizable Wordle clone with adjustable word length and a built-in solver."
+        path="/wordle"
+      />
       <Header/>
       <main className="wordle-main">
       <h1 className="title">

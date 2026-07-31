@@ -8,6 +8,7 @@ import React from 'react';
 import './Login.css';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
+import SEO from '../../components/SEO/SEO.jsx';
 import { isTokenValid } from '../../utils/tokenUtils.js';
 const devMode = (process.env.NODE_ENV === 'development')
 
@@ -251,6 +252,7 @@ function Login() {
     }
 
         return (<>
+            <SEO title="Login" description="Log in to your STHopwood account." path="/login" noindex />
             <Header />
             <div className="planit-login-bg">
                 <div className="floating-shapes">

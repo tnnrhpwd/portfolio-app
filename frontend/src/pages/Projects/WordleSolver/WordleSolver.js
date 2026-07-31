@@ -4,6 +4,7 @@ import url from './Dictionary.txt';
 
 import Footer from '../../../components/Footer/Footer';
 import Header from '../../../components/Header/Header';
+import SEO from '../../../components/SEO/SEO.jsx';
 import './WordleSolver.css';
 
 // Tile colour states
@@ -306,6 +307,11 @@ function WordleSolver() {
 
   return (
     <div className="wordle-solver">
+      <SEO
+        title="Wordle Solver"
+        description="Solve any Wordle puzzle instantly with this interactive Wordle solver tool."
+        path="/wordlesolver"
+      />
       <Header />
       <main className="solver-main">
         <h1 className="solver-title">Wordle Solver</h1>

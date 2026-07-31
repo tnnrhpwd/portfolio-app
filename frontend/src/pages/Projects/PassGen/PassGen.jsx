@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Footer from '../../../components/Footer/Footer';
 import './PassGen.css';
 import Header from '../../../components/Header/Header';
+import SEO from '../../../components/SEO/SEO.jsx';
 
 function PassGen() {
     const [outputPassword, setOutputPassword] = useState("");
@@ -95,6 +96,11 @@ function PassGen() {
     }
 
     return (<>
+        <SEO
+            title="Password Generator"
+            description="Generate secure, random passwords instantly with customizable length and character options."
+            path="/passgen"
+        />
         <Header />
         <div className="container">
             {/* Floating elements for visual interest */}
@@ -107,7 +113,10 @@ function PassGen() {
             <section className="section-tile hero-section">
                 <div id="content-tile">
                     <div id="text-title" className="typewriter">
-                        {displayedTitle}<span className="cursor">|</span>
+                        <h1 style={{ display: 'inline', font: 'inherit', margin: 0 }}>
+                            {displayedTitle}
+                        </h1>
+                        <span className="cursor">|</span>
                     </div>
                     <div id="text-body" className={`fade-in-up ${animationPhase >= 1 ? 'visible' : ''}`}>
                         Generate secure passwords with your custom criteria
