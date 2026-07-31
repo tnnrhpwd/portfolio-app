@@ -1,35 +1,57 @@
-// Statistical helpers for converting a weighted quiz score into a fun,
-// simulated IQ estimate (mean 100, standard deviation 15) and percentile.
+// Statistical helpers for converting IQ-test answers into a simulated IQ
+// estimate (mean 100, standard deviation 15) and percentile using a simple
+// 1-parameter (Rasch) Item Response Theory model.
 // NOTE: this is for entertainment purposes only — not a validated psychometric model.
 
-// Rational approximation of the inverse standard normal CDF (probit function),
-// using Acklam's algorithm.
-export function probit(p) {
-  if (p <= 0) p = 0.0001;
-  if (p >= 1) p = 0.9999;
+// Maps each question's difficulty tier (1..5) to an IRT difficulty parameter
+// "b" on the logit scale. Higher b = harder question. These are chosen so
+// an average test-taker (theta = 0, IQ 100) has roughly an 88% chance on a
+// tier-1 item and only an ~8% chance on a tier-5 item — a realistic spread
+// similar to how real ability tests mix "everyone gets this" items with
+// "almost no one gets this" items.
+export const DIFF_TO_B = { 1: -2.0, 2: -1.0, 3: 0.0, 4: 1.15, 5: 2.3 };
 
-  const a = [-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02, 1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00];
-  const b = [-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02, 6.680131188771972e+01, -1.328068155288572e+01];
-  const c = [-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00, -2.549732539343734e+00, 4.374664141464968e+00, 2.938163982698783e+00];
-  const d = [7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e+00, 3.754408661907416e+00];
-  const plow = 0.02425;
-  const phigh = 1 - plow;
+// Probability of a correct response given ability theta and item difficulty b.
+function pCorrect(theta, b) {
+  return 1 / (1 + Math.exp(-(theta - b)));
+}
 
-  let q, r;
-  if (p < plow) {
-    q = Math.sqrt(-2 * Math.log(p));
-    return (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
-      ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
-  } else if (p <= phigh) {
-    q = p - 0.5;
-    r = q * q;
-    return (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q /
-      (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
-  } else {
-    q = Math.sqrt(-2 * Math.log(1 - p));
-    return -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
-      ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+// Estimates a test-taker's ability (theta) from their pattern of right/wrong
+// answers using maximum a posteriori (MAP) Newton-Raphson with a standard
+// normal N(0,1) prior on theta. The prior regularizes the estimate so a
+// perfect or a zero score still yields a finite, sensible result instead of
+// diverging to +/-Infinity (as pure maximum-likelihood estimation would).
+export function estimateAbility(responses) {
+  if (!responses || responses.length === 0) return 0;
+  let theta = 0;
+  for (let iter = 0; iter < 50; iter++) {
+    let grad = -theta; // d/dtheta of the log N(0,1) prior density
+    let info = 1; // prior contributes unit Fisher information
+    responses.forEach(({ b, correct }) => {
+      const p = pCorrect(theta, b);
+      grad += (correct ? 1 : 0) - p;
+      info += p * (1 - p);
+    });
+    const step = grad / info;
+    theta += step;
+    if (Math.abs(step) < 1e-6) break;
   }
+  return theta;
+}
+
+// Abramowitz & Stegun rational approximation of the error function.
+function erf(x) {
+  const sign = x < 0 ? -1 : 1;
+  const ax = Math.abs(x);
+  const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741, a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
+  const t = 1 / (1 + p * ax);
+  const y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-ax * ax);
+  return sign * y;
+}
+
+// Standard normal cumulative distribution function.
+export function normalCDF(z) {
+  return 0.5 * (1 + erf(z / Math.SQRT2));
 }
 
 export function formatTime(totalSeconds) {
@@ -49,11 +71,17 @@ export function ordinal(n) {
   }
 }
 
-// Converts a difficulty-weighted raw score (0..1) into an IQ estimate and percentile.
-export function computeIQ(weightedFraction) {
-  const clamped = Math.min(0.985, Math.max(0.015, weightedFraction));
-  const z = probit(clamped);
-  const iq = Math.round(100 + 15 * z);
-  const percentile = Math.round(weightedFraction * 100);
-  return { iq, percentile };
+// Converts a list of { b, correct } item responses into an IQ estimate and
+// percentile via a Rasch (1PL IRT) ability estimate. theta is assumed to be
+// distributed N(0,1) across the population by construction of DIFF_TO_B, so
+// it maps linearly onto the IQ scale (mean 100, SD 15) and its own normal
+// CDF gives the percentile directly — no separate raw-score lookup needed.
+export function computeIQ(responses) {
+  const theta = estimateAbility(responses);
+  // Clamp to +/-4 SD, a generous range (about IQ 40-160) that keeps results
+  // sane even for tiny numbers of extreme (all-correct/all-wrong) responses.
+  const clampedTheta = Math.max(-4, Math.min(4, theta));
+  const iq = Math.round(Math.max(55, Math.min(160, 100 + 15 * clampedTheta)));
+  const percentile = Math.max(1, Math.min(99, Math.round(normalCDF(clampedTheta) * 100)));
+  return { iq, percentile, theta: clampedTheta };
 }

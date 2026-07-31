@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Header from '../../../components/Header/Header';
 import Footer from '../../../components/Footer/Footer';
-import BANK, { CAT_LABELS, CAT_KEYS, PER_CATEGORY } from './questionBank';
-import { formatTime, ordinal, computeIQ } from './iqStats';
+import BANK, { CAT_LABELS, CAT_KEYS, DIFF_TIERS } from './questionBank';
+import { formatTime, ordinal, computeIQ, DIFF_TO_B } from './iqStats';
 import './IQTest.css';
 
 function shuffle(arr) {
@@ -17,8 +17,15 @@ function shuffle(arr) {
 function pickQuestions() {
   let selected = [];
   CAT_KEYS.forEach((cat) => {
-    const pool = BANK.filter((q) => q.cat === cat);
-    selected = selected.concat(shuffle(pool).slice(0, PER_CATEGORY));
+    // Draw exactly one question from each difficulty tier per category, so
+    // every attempt is guaranteed a stratified easy-to-expert spread instead
+    // of a fully random (and sometimes accidentally all-easy) draw.
+    DIFF_TIERS.forEach((tier) => {
+      const pool = BANK.filter((q) => q.cat === cat && q.diff === tier);
+      if (pool.length > 0) {
+        selected.push(pool[Math.floor(Math.random() * pool.length)]);
+      }
+    });
   });
   selected = shuffle(selected);
 
@@ -98,24 +105,26 @@ function IQTest() {
   const handleSkip = () => goToNext(null);
 
   // ---- Scoring ----
+  // Ability is estimated with a Rasch (1PL IRT) model: each answer becomes a
+  // { b, correct } response using the item's difficulty parameter, so a
+  // correct answer on a hard (tier 4/5) question raises the estimate far more
+  // than one on an easy (tier 1) question — and getting every question right
+  // (including the expert-tier ones) is what it takes to reach the top scores.
   let correctCount = 0;
-  let totalWeight = 0;
-  let earnedWeight = 0;
   const catStats = {};
   CAT_KEYS.forEach((c) => { catStats[c] = { correct: 0, total: 0 }; });
 
-  userAnswers.forEach((a) => {
-    totalWeight += a.diff;
+  const irtResponses = userAnswers.map((a) => {
     catStats[a.cat].total += 1;
-    if (a.selectedIdx === a.correctIdx) {
-      earnedWeight += a.diff;
+    const correct = a.selectedIdx === a.correctIdx;
+    if (correct) {
       correctCount += 1;
       catStats[a.cat].correct += 1;
     }
+    return { b: DIFF_TO_B[a.diff] ?? 0, correct };
   });
 
-  const weightedFraction = totalWeight > 0 ? earnedWeight / totalWeight : 0;
-  const { iq, percentile } = computeIQ(weightedFraction);
+  const { iq, percentile } = computeIQ(irtResponses);
 
   return (
     <>
@@ -133,9 +142,10 @@ function IQTest() {
               <h1 className="iq-test-title">IQ Test</h1>
               <div className="iq-test-underline" aria-hidden="true" />
               <p className="iq-test-subtitle">
-                A fresh, randomized set of 20 questions every time — English &amp; vocabulary,
-                reading comprehension, science reasoning, and logic/pattern matching. Get your
-                score, an estimated IQ, your percentile, and a full breakdown of every answer.
+                A fresh, randomized set of 25 questions every time, spanning easy to expert
+                difficulty — English &amp; vocabulary, reading comprehension, science reasoning,
+                logic/pattern matching, and math. Get your score, an estimated IQ, your
+                percentile, and a full breakdown of every answer.
               </p>
             </div>
 
@@ -146,11 +156,14 @@ function IQTest() {
                 <div className="iq-test-category-pill"><span className="emoji">📖</span>Reading</div>
                 <div className="iq-test-category-pill"><span className="emoji">🔬</span>Science</div>
                 <div className="iq-test-category-pill"><span className="emoji">🧩</span>Logic</div>
+                <div className="iq-test-category-pill"><span className="emoji">🔢</span>Math</div>
               </div>
               <p className="iq-test-hint">
-                20 questions total (5 per category), multiple choice, no time limit — but we&apos;ll
-                track how long you take just for fun. Questions and answer order are shuffled on
-                every attempt.
+                25 questions total (5 per category, one from each difficulty tier from easy to
+                expert), multiple choice, no time limit — but we&apos;ll track how long you take
+                just for fun. Expect the last question or two in each category to be genuinely
+                hard; getting a perfect score isn&apos;t supposed to be easy. Questions and answer
+                order are shuffled on every attempt.
               </p>
               <div className="iq-test-btn-row">
                 <button className="iq-test-btn" onClick={startTest}>Start Test</button>
@@ -255,8 +268,10 @@ function IQTest() {
               </div>
 
               <p className="iq-test-disclaimer" style={{ marginTop: 0 }}>
-                Estimated IQ assumes a normal distribution (mean 100, SD 15) based on this quiz&apos;s
-                difficulty mix. For entertainment only — not a clinical assessment.
+                Estimated IQ uses an item-response (Rasch) model: each answer is weighted by how
+                hard that specific question is, so correctly answering the expert-level questions
+                counts far more than the easy ones. Scores assume a normal distribution (mean 100,
+                SD 15). For entertainment only — not a clinical assessment.
               </p>
 
               <div className="iq-test-btn-row">
