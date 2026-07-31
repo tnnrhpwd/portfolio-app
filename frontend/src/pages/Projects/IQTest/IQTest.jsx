@@ -103,6 +103,21 @@ function IQTest() {
     setScreen('quiz');
   }, [testMode]);
 
+  // Returns to the start screen instead of immediately restarting with the
+  // same test length, so the user can pick a fresh mode each time — like
+  // reloading the page rather than repeating the last test.
+  const resetToStart = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    setQuestions([]);
+    setCurrentIndex(0);
+    setUserAnswers([]);
+    setSelectedOption(null);
+    setShowReview(false);
+    setElapsed(0);
+    setScreen('start');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
   const goToNext = useCallback((chosenIdx) => {
     const q = questions[currentIndex];
     const newAnswers = [...userAnswers, {
@@ -329,7 +344,7 @@ function IQTest() {
               </p>
 
               <div className="iq-test-btn-row">
-                <button className="iq-test-btn" onClick={startTest}>Take a New Test</button>
+                <button className="iq-test-btn" onClick={resetToStart}>Take a New Test</button>
                 <button className="iq-test-btn secondary" onClick={() => setShowReview((v) => !v)}>
                   {showReview ? 'Hide Answer Review' : 'Show Answer Review'}
                 </button>
