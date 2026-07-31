@@ -983,7 +983,7 @@
 .cancel-button {
   padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.2);
   background-color: transparent;
-  color: var(--text-color);
+  color: var(--text-color-inv);
   border: calc(var(--nav-size) * 0.01) solid rgba(0, 0, 0, 0.15);
   border-radius: var(--border-radius);
   font-size: var(--font-size-base);

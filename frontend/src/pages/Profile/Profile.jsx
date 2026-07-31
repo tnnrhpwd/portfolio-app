@@ -228,30 +228,6 @@ function Profile() {
                   </p>
                 </div>
               </div>
-
-              <div className="planit-profile-hero-actions">
-                <button className="planit-profile-settings-button" onClick={navigateToSettings}>
-                  ⚙️ Advanced Settings
-                </button>
-                <button className="planit-profile-net-button" onClick={() => navigate('/net')}>
-                  🤖 Open AI Chat
-                </button>
-              </div>
-
-              <div className="planit-profile-meta">
-                <div className="planit-profile-meta-item">
-                  <span className="planit-profile-meta-label">Current plan</span>
-                  <span className="planit-profile-meta-value">{currentPlan}</span>
-                </div>
-                <div className="planit-profile-meta-item">
-                  <span className="planit-profile-meta-label">Member since</span>
-                  <span className="planit-profile-meta-value">{profileCreatedLabel}</span>
-                </div>
-                <div className="planit-profile-meta-item">
-                  <span className="planit-profile-meta-label">Theme mode</span>
-                  <span className="planit-profile-meta-value">{themeModeLabel}</span>
-                </div>
-              </div>
             </section>
 
             <section className="planit-profile-content">
