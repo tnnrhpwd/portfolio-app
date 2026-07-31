@@ -1,6 +1,6 @@
 ﻿.planit-profile-bg {
     min-height: 100vh;
-    padding: calc(var(--nav-size) * 1.6) var(--spacing-sm) var(--spacing-lg);
+    padding: calc(var(--nav-size) * 1.3) var(--spacing-xs) var(--spacing-md);
     background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
     background-size: 400% 400%;
     animation: gradientShift 12s ease infinite;
@@ -51,7 +51,7 @@
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
 }
 
 .planit-profile-hero,
@@ -65,10 +65,10 @@
 }
 
 .planit-profile-hero {
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm);
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
     animation: fadeInSection 0.7s ease both;
 }
 
@@ -79,10 +79,10 @@
 }
 
 .planit-profile-avatar {
-    width: calc(var(--nav-size) * 1.8);
-    height: calc(var(--nav-size) * 1.8);
+    width: calc(var(--nav-size) * 1.4);
+    height: calc(var(--nav-size) * 1.4);
     border-radius: 50%;
-    padding: calc(var(--nav-size) * 0.12);
+    padding: calc(var(--nav-size) * 0.1);
     background: linear-gradient(135deg, var(--fg-orange), var(--fg-pink));
     box-shadow: var(--shadow-md);
     flex-shrink: 0;
@@ -195,20 +195,20 @@
 .planit-profile-layout {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
 }
 
 .planit-profile-column {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
 }
 
 .planit-profile-section {
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm);
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
     animation: slideInUp 0.7s ease both;
 }
 
@@ -241,8 +241,8 @@
     padding: var(--spacing-xs);
     display: flex;
     flex-direction: column;
-    gap: calc(var(--nav-size) * 0.08);
-    min-height: calc(var(--nav-size) * 2);
+    gap: calc(var(--nav-size) * 0.06);
+    min-height: calc(var(--nav-size) * 1.6);
 }
 
 .planit-profile-setting-select {
@@ -285,7 +285,7 @@
 .planit-profile-usage-container {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
 }
 
 .planit-profile-state {
@@ -396,7 +396,7 @@
 }
 
 .planit-profile-actions {
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -540,7 +540,7 @@
 
 @media (max-width: 768px) {
     .planit-profile-bg {
-        padding: calc(var(--nav-size) * 1.2) var(--spacing-xs) var(--spacing-lg);
+        padding: calc(var(--nav-size) * 1.1) var(--spacing-xs) var(--spacing-sm);
     }
 
     .floating-circle {
@@ -550,7 +550,7 @@
     .planit-profile-hero,
     .planit-profile-section,
     .planit-profile-actions {
-        padding: var(--spacing-sm);
+        padding: var(--spacing-xs);
     }
 
     .planit-profile-hero-main,
@@ -594,8 +594,8 @@
     }
 
     .planit-profile-avatar {
-        width: calc(var(--nav-size) * 1.5);
-        height: calc(var(--nav-size) * 1.5);
+        width: calc(var(--nav-size) * 1.2);
+        height: calc(var(--nav-size) * 1.2);
     }
 
     .planit-profile-section-title,
@@ -618,11 +618,11 @@
 
 @media (orientation: portrait) and (max-width: 480px) {
     .planit-profile-bg {
-        padding-top: calc(var(--nav-size) * 1.15);
+        padding-top: calc(var(--nav-size) * 1);
     }
 
     .planit-profile-shell {
-        gap: var(--spacing-md);
+        gap: var(--spacing-xs);
     }
 }
 
