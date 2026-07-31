@@ -78,9 +78,14 @@ function Settings() {
       githubToken: stored.githubToken || '',
       defaultTemperature: stored.defaultTemperature ?? 0.7,
       defaultMaxTokens: stored.defaultMaxTokens ?? 500,
+      maxConversationHistory: stored.maxConversationHistory ?? 20,
       sendWithEnter: stored.sendWithEnter ?? true,
       showTimestamps: stored.showTimestamps ?? true,
       enableMarkdown: stored.enableMarkdown ?? true,
+      saveChatsLocally: stored.saveChatsLocally ?? true,
+      cloudSync: stored.cloudSync ?? false,
+      ttsEnabled: stored.ttsEnabled ?? true,
+      sttEnabled: stored.sttEnabled ?? false,
     };
   });
   const [showToken, setShowToken] = useState(false);
@@ -98,8 +103,9 @@ function Settings() {
         if (!cloud) return;
         const pullKeys = [
           'llmProvider', 'githubModel', 'portfolioModel', 'githubToken',
-          'defaultTemperature', 'defaultMaxTokens',
+          'defaultTemperature', 'defaultMaxTokens', 'maxConversationHistory',
           'sendWithEnter', 'showTimestamps', 'enableMarkdown',
+          'saveChatsLocally', 'cloudSync', 'ttsEnabled', 'sttEnabled',
         ];
         setAiSettings(prev => {
           const merged = { ...prev };
@@ -664,6 +670,24 @@ function Settings() {
                             />
                             <span className="planit-settings-hint">Maximum response length (50-4000).</span>
                           </div>
+
+                          <div className="planit-settings-item">
+                            <label className="planit-settings-label" htmlFor="planit-settings-history">🗂️ Conversation History</label>
+                            <div className="planit-settings-range-group">
+                              <input
+                                id="planit-settings-history"
+                                type="range"
+                                min="5"
+                                max="100"
+                                step="5"
+                                value={aiSettings.maxConversationHistory}
+                                onChange={e => updateAISetting('maxConversationHistory', parseInt(e.target.value, 10))}
+                                className="planit-settings-range"
+                              />
+                              <span className="planit-settings-range-value">{aiSettings.maxConversationHistory}</span>
+                            </div>
+                            <span className="planit-settings-hint">Messages of context sent with each request.</span>
+                          </div>
                         </div>
 
                         <div className="planit-settings-checkbox-grid">
@@ -702,6 +726,58 @@ function Settings() {
                               type="checkbox"
                               checked={aiSettings.enableMarkdown}
                               onChange={e => updateAISetting('enableMarkdown', e.target.checked)}
+                              className="planit-settings-checkbox"
+                            />
+                          </label>
+
+                          <label className="planit-settings-toggle-card">
+                            <div className="planit-settings-toggle-copy">
+                              <span className="planit-settings-toggle-title">💾 Save Chats Locally</span>
+                              <span className="planit-settings-toggle-description">Store conversation history in this browser.</span>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={aiSettings.saveChatsLocally}
+                              onChange={e => updateAISetting('saveChatsLocally', e.target.checked)}
+                              className="planit-settings-checkbox"
+                            />
+                          </label>
+
+                          <label className="planit-settings-toggle-card">
+                            <div className="planit-settings-toggle-copy">
+                              <span className="planit-settings-toggle-title">☁️ Cloud Sync</span>
+                              <span className="planit-settings-toggle-description">Sync chats and settings across your devices.</span>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={aiSettings.cloudSync}
+                              onChange={e => updateAISetting('cloudSync', e.target.checked)}
+                              className="planit-settings-checkbox"
+                            />
+                          </label>
+
+                          <label className="planit-settings-toggle-card">
+                            <div className="planit-settings-toggle-copy">
+                              <span className="planit-settings-toggle-title">🔊 Text-to-Speech</span>
+                              <span className="planit-settings-toggle-description">Speak AI responses and action descriptions aloud.</span>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={aiSettings.ttsEnabled}
+                              onChange={e => updateAISetting('ttsEnabled', e.target.checked)}
+                              className="planit-settings-checkbox"
+                            />
+                          </label>
+
+                          <label className="planit-settings-toggle-card">
+                            <div className="planit-settings-toggle-copy">
+                              <span className="planit-settings-toggle-title">🎤 Speech Recognition</span>
+                              <span className="planit-settings-toggle-description">Enable voice commands and wake-word listening.</span>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={aiSettings.sttEnabled}
+                              onChange={e => updateAISetting('sttEnabled', e.target.checked)}
                               className="planit-settings-checkbox"
                             />
                           </label>
