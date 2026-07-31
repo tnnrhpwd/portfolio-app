@@ -17,9 +17,6 @@ function NotFound() {
           <Link to="/" className="not-found__btn not-found__btn--primary">
             Go Home
           </Link>
-          <Link to="/net" className="not-found__btn not-found__btn--secondary">
-            Try CSimple
-          </Link>
         </div>
       </main>
       <Footer />
