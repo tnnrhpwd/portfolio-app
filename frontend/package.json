@@ -14,7 +14,7 @@
     "qrcode.react": "^4.2.0",
     "react": "^18.2.0",
     "react-calendar": "^5.1.0",
-    "react-chartjs-2": "^5.3.1",
+    "react-chartjs-2": "^4.1.0",
     "react-circular-progressbar": "^2.0.4",
     "react-dom": "^18.2.0",
     "react-dropdown": "^1.9.2",
@@ -35,7 +35,7 @@
     "test": "jest"
   },
   "devDependencies": {
-    "@babel/core": "^8.0.1",
+    "@babel/core": "^7.23.0",
     "@babel/plugin-proposal-private-property-in-object": "7.21.11",
     "@babel/preset-env": "^7.22.20",
     "@babel/preset-react": "^7.22.15",
