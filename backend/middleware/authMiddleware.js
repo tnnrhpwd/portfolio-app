@@ -4,6 +4,7 @@ const asyncHandler = require('express-async-handler'); // sends the errors to th
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, QueryCommand, GetCommand } = require('@aws-sdk/lib-dynamodb');
 const { logger, securityLogger } = require('../utils/logger');
+const { redactUser } = require('../utils/sanitizeUserText');
 
 // Configure AWS DynamoDB Client with retry settings
 const client = new DynamoDBClient({
@@ -58,9 +59,11 @@ const getUserById = async (userId) => {
     const result = await dynamodb.send(new GetCommand(getParams));
     
     if (result.Item) {
-      // Cache the result
-      userCache.set(userId, { user: result.Item, timestamp: Date.now() });
-      return result.Item;
+      // Redact the password hash before caching so it never lingers in memory
+      // longer than necessary or leaks through a later log/response.
+      const safeItem = redactUser(result.Item);
+      userCache.set(userId, { user: safeItem, timestamp: Date.now() });
+      return safeItem;
     }
   } catch (getError) {
     // GetCommand failed, try QueryCommand as fallback
@@ -81,8 +84,9 @@ const getUserById = async (userId) => {
     const result = await dynamodb.send(new QueryCommand(queryParams));
     
     if (result.Items && result.Items.length > 0) {
-      userCache.set(userId, { user: result.Items[0], timestamp: Date.now() });
-      return result.Items[0];
+      const safeItem = redactUser(result.Items[0]);
+      userCache.set(userId, { user: safeItem, timestamp: Date.now() });
+      return safeItem;
     }
   } catch (queryError) {
     logger.error('User lookup failed', { userId, error: queryError.message });

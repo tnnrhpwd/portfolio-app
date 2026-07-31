@@ -56,7 +56,12 @@ const putData = asyncHandler(async (req, res) => {
         const item = scanResult.Items[0];
         console.log('Found item via scan');
 
-        // Make sure the logged in user matches the data creator (if the data has a creator field)
+        // Make sure the logged in user matches the data creator. Records without a
+        // "Creator:" tag (e.g. user account rows created during registration) must
+        // NOT be silently allowed through — previously this check was skipped
+        // entirely for such items, letting any authenticated user overwrite
+        // arbitrary rows (including other users' account records) just by
+        // guessing/obtaining their DynamoDB id. Deny by default instead.
         if (item.text && item.text.includes('Creator:')) {
             const dataCreator = item.text.substring(item.text.indexOf("Creator:") + 8, item.text.indexOf("Creator:") + 8 + 24);
             if (dataCreator !== req.user.id) {
@@ -64,6 +69,10 @@ const putData = asyncHandler(async (req, res) => {
                 console.error('User not authorized');
                 throw new Error('User not authorized');
             }
+        } else {
+            res.status(401);
+            console.error('Cannot update item without ownership information');
+            throw new Error('User not authorized');
         }
 
         // Use a simple approach that works with the existing table structure

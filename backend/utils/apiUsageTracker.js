@@ -2,6 +2,7 @@ const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const { getStripe, liveStripe: stripe } = require('./stripeInstance');
 const { PLAN_IDS, isProTier, isSimpleTier, STRIPE_PRODUCT_IDS, STRIPE_PRODUCT_MAP } = require('../constants/pricing');
+const { redactUser } = require('./sanitizeUserText');
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -576,7 +577,7 @@ async function getUserDataCached(userId) {
         return null;
     }
 
-    const userData = scanResult.Items[0];
+    const userData = redactUser(scanResult.Items[0]);
     userDataCache.set(cacheKey, { data: userData, timestamp: Date.now() });
     return userData;
 }
