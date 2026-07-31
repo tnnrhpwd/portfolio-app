@@ -1,6 +1,6 @@
 ﻿.planit-settings-bg {
     min-height: 100vh;
-    padding: calc(var(--nav-size) * 1.8) var(--spacing-md) var(--spacing-2xl);
+    padding: calc(var(--nav-size) * 1.6) var(--spacing-sm) var(--spacing-lg);
     background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
     background-size: 400% 400%;
     animation: gradientShift 12s ease infinite;
@@ -48,11 +48,11 @@
 .planit-settings-shell {
     position: relative;
     z-index: 2;
-    max-width: 1100px;
+    max-width: 900px;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-lg);
+    gap: var(--spacing-md);
 }
 
 .planit-settings-hero,
@@ -67,17 +67,17 @@
 }
 
 .planit-settings-hero {
-    padding: var(--spacing-xl);
+    padding: var(--spacing-md);
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
     animation: fadeInSection 0.7s ease both;
 }
 
 .planit-settings-hero-main {
     display: flex;
     justify-content: space-between;
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
     align-items: flex-start;
 }
 
@@ -99,7 +99,7 @@
 
 .planit-settings-heading-title {
     margin: 0;
-    font-size: var(--font-size-heading);
+    font-size: var(--font-size-large);
     line-height: var(--line-height-tight);
     color: var(--text-color-strong);
 }
@@ -124,13 +124,13 @@
 .planit-settings-ai-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
 }
 
 .planit-settings-meta {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
 }
 
 .planit-settings-meta-item,
@@ -146,10 +146,10 @@
 }
 
 .planit-settings-meta-item {
-    padding: var(--spacing-sm);
+    padding: var(--spacing-xs);
     display: flex;
     flex-direction: column;
-    gap: calc(var(--nav-size) * 0.08);
+    gap: calc(var(--nav-size) * 0.06);
 }
 
 .planit-settings-meta-label,
@@ -171,26 +171,26 @@
 .planit-settings-main {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-lg);
+    gap: var(--spacing-md);
 }
 
 .planit-settings-layout {
     display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
-    gap: var(--spacing-lg);
+    grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr);
+    gap: var(--spacing-md);
 }
 
 .planit-settings-sidebar {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-lg);
+    gap: var(--spacing-md);
 }
 
 .planit-settings-section {
-    padding: var(--spacing-lg);
+    padding: var(--spacing-md);
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
     animation: slideInUp 0.7s ease both;
 }
 
@@ -201,8 +201,8 @@
 }
 
 .planit-settings-section-title {
-    margin: calc(var(--nav-size) * 0.12) 0 0;
-    font-size: calc(var(--font-size-large) * 1.05);
+    margin: calc(var(--nav-size) * 0.1) 0 0;
+    font-size: var(--font-size-base);
     line-height: var(--line-height-tight);
     color: var(--text-color-strong);
 }
@@ -211,15 +211,15 @@
 .planit-settings-checkbox-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
 }
 
 .planit-settings-item {
-    padding: var(--spacing-sm);
+    padding: var(--spacing-xs);
     display: flex;
     flex-direction: column;
-    gap: calc(var(--nav-size) * 0.12);
-    min-height: calc(var(--nav-size) * 3.2);
+    gap: calc(var(--nav-size) * 0.1);
+    min-height: calc(var(--nav-size) * 2.2);
 }
 
 .planit-settings-item-full {
@@ -313,8 +313,8 @@
 .planit-settings-font-preview {
     display: flex;
     flex-direction: column;
-    gap: calc(var(--nav-size) * 0.12);
-    padding: var(--spacing-sm);
+    gap: calc(var(--nav-size) * 0.1);
+    padding: var(--spacing-xs);
     border: 1px dashed var(--border-nav);
     border-radius: var(--border-radius);
     background: var(--bg-page);
@@ -391,7 +391,7 @@
 }
 
 .planit-settings-toggle-card {
-    padding: var(--spacing-sm);
+    padding: var(--spacing-xs);
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
@@ -414,12 +414,12 @@
 }
 
 .planit-settings-ai-actions {
-    padding: var(--spacing-sm);
+    padding: var(--spacing-xs);
     align-items: center;
 }
 
 .planit-settings-helper-card {
-    padding: var(--spacing-lg);
+    padding: var(--spacing-md);
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
@@ -428,14 +428,14 @@
 
 .planit-settings-helper-title {
     margin: 0;
-    font-size: var(--font-size-large);
+    font-size: var(--font-size-base);
 }
 
 .planit-settings-helper-list {
     padding-left: var(--spacing-md);
     display: flex;
     flex-direction: column;
-    gap: calc(var(--nav-size) * 0.12);
+    gap: calc(var(--nav-size) * 0.1);
     list-style: disc;
 }
 
@@ -448,7 +448,7 @@
 }
 
 .planit-settings-actions {
-    padding: var(--spacing-lg);
+    padding: var(--spacing-md);
     align-items: center;
     justify-content: flex-end;
     animation: fadeInSection 0.9s ease both;
@@ -509,7 +509,7 @@
 
 @media (max-width: 768px) {
     .planit-settings-bg {
-        padding: calc(var(--nav-size) * 1.4) var(--spacing-sm) var(--spacing-xl);
+        padding: calc(var(--nav-size) * 1.2) var(--spacing-xs) var(--spacing-lg);
     }
 
     .floating-circle {
@@ -520,7 +520,7 @@
     .planit-settings-section,
     .planit-settings-actions,
     .planit-settings-helper-card {
-        padding: var(--spacing-md);
+        padding: var(--spacing-sm);
     }
 
     .planit-settings-hero-main,
@@ -553,12 +553,12 @@
 
 @media (max-width: 480px) {
     .planit-settings-heading-title {
-        font-size: calc(var(--font-size-large) * 1.2);
+        font-size: var(--font-size-large);
     }
 
     .planit-settings-section-title,
     .planit-settings-helper-title {
-        font-size: var(--font-size-large);
+        font-size: var(--font-size-base);
     }
 
     .planit-settings-meta-item,
