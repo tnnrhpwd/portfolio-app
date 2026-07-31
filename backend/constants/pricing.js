@@ -100,18 +100,17 @@ const QUOTAS = Object.freeze({
 const FEATURES = Object.freeze({
   [PLAN_IDS.FREE]: [
     '🌐 AI chat (bring your own API key)',
-    '🖥️ CSimple addon — 14-day free trial',
-    '⚡ 50 automation commands per day',
+    '🖥️ CSimple desktop addon — download & run locally',
+    '⚡ Up to 50 automation commands per day (fair use)',
     '📁 100 MB cloud storage',
   ],
   [PLAN_IDS.PRO]: [
     '✅ Everything in Free',
     '🖥️ Full CSimple addon access',
-    '⚡ 5,000 automation commands per day',
-    '📱 Phone → PC remote control',
+    '⚡ Up to 5,000 automation commands per day (fair use)',
+    '📱 Live screen viewing from your phone',
     '💾 50 GB cloud storage',
-    '📊 Full analytics dashboard',
-    '⭐ Priority email support',
+    '✉️ Email support',
   ],
 });
 
@@ -119,17 +118,16 @@ const FEATURES = Object.freeze({
 const FEATURES_PLAIN = Object.freeze({
   [PLAN_IDS.FREE]: [
     'AI chat (bring your own API key)',
-    '14-day addon trial',
-    '50 automation commands per day',
+    'CSimple desktop addon — download & run locally',
+    'Up to 50 automation commands per day (fair use)',
     '100 MB cloud storage',
   ],
   [PLAN_IDS.PRO]: [
     'Full CSimple addon access',
-    '5,000 automation commands per day',
-    'Phone to PC remote control',
+    'Up to 5,000 automation commands per day (fair use)',
+    'Live screen viewing from your phone',
     '50 GB cloud storage',
-    'Full analytics dashboard',
-    'Priority email support',
+    'Email support',
   ],
 });
 
@@ -137,8 +135,8 @@ const FEATURES_PLAIN = Object.freeze({
 // Descriptions (used on pricing cards)
 // ──────────────────────────────────────────────
 const DESCRIPTIONS = Object.freeze({
-  [PLAN_IDS.FREE]: 'Try the addon free for 14 days',
-  [PLAN_IDS.PRO]:  'Full Windows automation with priority support',
+  [PLAN_IDS.FREE]: 'Get started with the basics',
+  [PLAN_IDS.PRO]:  'Full Windows automation with expanded limits and storage',
 });
 
 // ──────────────────────────────────────────────

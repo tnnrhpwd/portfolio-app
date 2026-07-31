@@ -14,6 +14,7 @@ import MembershipPlans from '../../../components/Checkout/MembershipPlans';
 import PaymentMethodsList from '../../../components/Checkout/PaymentMethodsList';
 import CheckoutProgressBar from '../../../components/Checkout/CheckoutProgressBar';
 import { LinkBenefits } from '../../../components/Checkout/LinkBenefits';
+import BillingDisclosure from '../../../components/Checkout/BillingDisclosure';
 import './CheckoutForm.css';
 
 let stripeLoadFailed = false;
@@ -189,6 +190,7 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
                     currentSubscription={state.currentSubscription}
                     membershipPricing={membershipPricing}
                   />
+                  <BillingDisclosure />
                   <div className="step-navigation">
                     <button 
                       className="cancel-button" 
@@ -287,6 +289,8 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
                       <span className="value">{userEmail}</span>
                     </div>
                   </div>
+                  
+                  {state.selectedPlan !== 'free' && <BillingDisclosure variant="compact" />}
                   
                   {state.message && (
                     <div className="payment-success">

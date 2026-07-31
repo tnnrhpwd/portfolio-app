@@ -40,8 +40,8 @@ function Pricing() {
         features: [
           'AI chat (bring your own API key)',
           '100 MB storage',
-          '50 automation commands per day',
-          'CSimple addon — 14-day trial',
+          'Up to 50 automation commands per day (fair use)',
+          'CSimple desktop addon — download & run locally',
         ],
       },
       {
@@ -49,14 +49,14 @@ function Pricing() {
         name: 'Pro',
         price: '$15',
         period: 'month',
-        tagline: 'Full Windows automation with priority support',
+        tagline: 'Full Windows automation with expanded limits and storage',
         features: [
           'Everything in Free',
           'Full CSimple addon access',
-          '5,000 automation commands per day',
-          'Phone → PC remote control',
+          'Up to 5,000 automation commands per day (fair use)',
+          'Live screen viewing from your phone',
           '50 GB cloud storage',
-          'Priority email support',
+          'Email support',
         ],
       },
     ];
