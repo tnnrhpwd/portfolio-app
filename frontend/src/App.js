@@ -16,6 +16,7 @@ const Ethanol = lazy(() => import('./pages/Projects/Ethanol/Ethanol'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword/ForgotPassword.jsx'));
 const GFreq = lazy(() => import('./pages/Projects/GFreq/GFreq'));
 const Halfway = lazy(() => import('./pages/Projects/Halfway/Halfway'));
+const IQTest = lazy(() => import('./pages/Projects/IQTest/IQTest'));
 const PassGen = lazy(() => import('./pages/Projects/PassGen/PassGen'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword/ResetPassword.jsx'));
 const SleepAssist = lazy(() => import('./pages/Projects/SleepAssist/SleepAssist'));
@@ -69,6 +70,7 @@ function App() {
               <Route path='/forgot-password' element={<ForgotPassword />} />
               <Route path="/GFreq" element={<GFreq/>} />
               <Route path="/halfway" element={<Halfway/>} />
+              <Route path="/iq" element={<IQTest/>} />
               <Route path='/login' element={<Login />} />
               <Route path='/net' element={<Net />} />
               <Route path='/pay' element={<Pay />} />
