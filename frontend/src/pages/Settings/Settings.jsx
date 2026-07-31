@@ -15,18 +15,12 @@ import {
   FONT_SCALE_DEFAULT,
 } from '../../utils/theme.js';
 import { getCloudSettings, saveCloudSettings } from '../../services/csimpleApi.js';
+import AIWorkflowSettings from '../../components/CSimple/AIWorkflowSettings.jsx';
 import './Settings.css';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
 
 const DEVICE_SETTINGS_KEY = 'csimple_device_settings';
-
-const GITHUB_MODELS = [
-  { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
-  { id: 'gpt-4o', name: 'GPT-4o' },
-  { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini' },
-  { id: 'gpt-4.1-nano', name: 'GPT-4.1 Nano' },
-];
 
 function getAISettings() {
   try {
@@ -88,7 +82,6 @@ function Settings() {
       sttEnabled: stored.sttEnabled ?? false,
     };
   });
-  const [showToken, setShowToken] = useState(false);
   const [fontScale, setFontScale] = useState(() => loadFontSizeScale());
 
   const cloudSyncDebounce = useRef(null);
@@ -549,239 +542,11 @@ function Settings() {
                           Access AI chat powered by GitHub Models at <strong>/net</strong>. For local AI and desktop automation, install the <strong>CSimple addon</strong>.
                         </p>
 
-                        <div className="planit-settings-grid">
-                          <div className="planit-settings-item">
-                            <label className="planit-settings-label" htmlFor="planit-settings-llm-provider">☁️ LLM Provider</label>
-                            <select
-                              id="planit-settings-llm-provider"
-                              value={aiSettings.llmProvider}
-                              onChange={e => updateAISetting('llmProvider', e.target.value)}
-                              className="planit-settings-input"
-                            >
-                              <option value="portfolio">☁️ Cloud (Portfolio)</option>
-                              <option value="github">🐙 GitHub Models</option>
-                              <option value="local">💻 Local (HuggingFace)</option>
-                            </select>
-                            <span className="planit-settings-hint">Switch providers depending on where you want responses generated.</span>
-                          </div>
-
-                          <div className="planit-settings-item">
-                            <label className="planit-settings-label" htmlFor="planit-settings-model">
-                              🧠 Model
-                              {aiSettings.llmProvider === 'github' && <span className="planit-settings-provider-badge">🐙 GitHub</span>}
-                              {aiSettings.llmProvider === 'portfolio' && <span className="planit-settings-provider-badge">☁️ Cloud</span>}
-                              {aiSettings.llmProvider === 'local' && <span className="planit-settings-provider-badge">💻 Local</span>}
-                            </label>
-                            {aiSettings.llmProvider === 'github' ? (
-                              <select
-                                id="planit-settings-model"
-                                value={aiSettings.githubModel}
-                                onChange={e => updateAISetting('githubModel', e.target.value)}
-                                className="planit-settings-input"
-                              >
-                                {GITHUB_MODELS.map(m => (
-                                  <option key={m.id} value={m.id}>{m.name}</option>
-                                ))}
-                              </select>
-                            ) : aiSettings.llmProvider === 'portfolio' ? (
-                              <select
-                                id="planit-settings-model"
-                                value={aiSettings.portfolioModel}
-                                onChange={e => updateAISetting('portfolioModel', e.target.value)}
-                                className="planit-settings-input"
-                              >
-                                <option value="gpt-4o-mini">GPT-4o Mini</option>
-                                <option value="gpt-4o">GPT-4o</option>
-                              </select>
-                            ) : (
-                              <p className="planit-settings-ai-note">
-                                Local models require the CSimple addon to be running.
-                              </p>
-                            )}
-                          </div>
-
-                          <div className="planit-settings-item planit-settings-item-full">
-                            <label className="planit-settings-label" htmlFor="planit-settings-token">🔑 GitHub Personal Access Token</label>
-                            <div className="planit-settings-token-group">
-                              <input
-                                id="planit-settings-token"
-                                type={showToken ? 'text' : 'password'}
-                                value={aiSettings.githubToken}
-                                onChange={e => updateAISetting('githubToken', e.target.value)}
-                                className="planit-settings-input"
-                                placeholder="github_pat_... or ghp_..."
-                                autoComplete="off"
-                              />
-                              <button
-                                type="button"
-                                className="planit-settings-token-toggle"
-                                onClick={() => setShowToken(v => !v)}
-                                aria-label={showToken ? 'Hide token' : 'Show token'}
-                              >
-                                {showToken ? '🙈' : '👁️'}
-                              </button>
-                            </div>
-                            <span className="planit-settings-token-status">
-                              {aiSettings.githubToken
-                                ? (aiSettings.githubToken.startsWith('github_pat_')
-                                  ? '✅ Fine-grained PAT detected'
-                                  : aiSettings.githubToken.startsWith('ghp_')
-                                    ? '✅ Classic PAT detected'
-                                    : '⚠️ Unrecognized token format')
-                                : 'Required for GitHub Models provider'}
-                            </span>
-                            <p className="planit-settings-token-help">
-                              Create a <a href="https://github.com/settings/personal-access-tokens" target="_blank" rel="noopener noreferrer">fine-grained PAT</a> with the <strong>Models: Read-only</strong> account permission, or a <a href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer">classic PAT</a> if your account already has GitHub Models access.
-                            </p>
-                          </div>
-                        </div>
-
-                        <h3 className="planit-settings-subsection-title">💬 Chat preferences</h3>
-                        <div className="planit-settings-grid">
-                          <div className="planit-settings-item">
-                            <label className="planit-settings-label" htmlFor="planit-settings-temperature">🌡️ Temperature</label>
-                            <div className="planit-settings-range-group">
-                              <input
-                                id="planit-settings-temperature"
-                                type="range"
-                                min="0"
-                                max="1"
-                                step="0.1"
-                                value={aiSettings.defaultTemperature}
-                                onChange={e => updateAISetting('defaultTemperature', parseFloat(e.target.value))}
-                                className="planit-settings-range"
-                              />
-                              <span className="planit-settings-range-value">{aiSettings.defaultTemperature}</span>
-                            </div>
-                            <span className="planit-settings-hint">Lower = more focused, higher = more creative.</span>
-                          </div>
-
-                          <div className="planit-settings-item">
-                            <label className="planit-settings-label" htmlFor="planit-settings-max-tokens">📏 Max Tokens</label>
-                            <input
-                              id="planit-settings-max-tokens"
-                              type="number"
-                              min="50"
-                              max="4000"
-                              step="50"
-                              value={aiSettings.defaultMaxTokens}
-                              onChange={e => updateAISetting('defaultMaxTokens', parseInt(e.target.value, 10) || 500)}
-                              className="planit-settings-input"
-                            />
-                            <span className="planit-settings-hint">Maximum response length (50-4000).</span>
-                          </div>
-
-                          <div className="planit-settings-item">
-                            <label className="planit-settings-label" htmlFor="planit-settings-history">🗂️ Conversation History</label>
-                            <div className="planit-settings-range-group">
-                              <input
-                                id="planit-settings-history"
-                                type="range"
-                                min="5"
-                                max="100"
-                                step="5"
-                                value={aiSettings.maxConversationHistory}
-                                onChange={e => updateAISetting('maxConversationHistory', parseInt(e.target.value, 10))}
-                                className="planit-settings-range"
-                              />
-                              <span className="planit-settings-range-value">{aiSettings.maxConversationHistory}</span>
-                            </div>
-                            <span className="planit-settings-hint">Messages of context sent with each request.</span>
-                          </div>
-                        </div>
-
-                        <div className="planit-settings-checkbox-grid">
-                          <label className="planit-settings-toggle-card">
-                            <div className="planit-settings-toggle-copy">
-                              <span className="planit-settings-toggle-title">⏎ Send with Enter</span>
-                              <span className="planit-settings-toggle-description">Press Enter to send and Shift+Enter for a new line.</span>
-                            </div>
-                            <input
-                              type="checkbox"
-                              checked={aiSettings.sendWithEnter}
-                              onChange={e => updateAISetting('sendWithEnter', e.target.checked)}
-                              className="planit-settings-checkbox"
-                            />
-                          </label>
-
-                          <label className="planit-settings-toggle-card">
-                            <div className="planit-settings-toggle-copy">
-                              <span className="planit-settings-toggle-title">🕐 Show Timestamps</span>
-                              <span className="planit-settings-toggle-description">Display sent times in chat conversations.</span>
-                            </div>
-                            <input
-                              type="checkbox"
-                              checked={aiSettings.showTimestamps}
-                              onChange={e => updateAISetting('showTimestamps', e.target.checked)}
-                              className="planit-settings-checkbox"
-                            />
-                          </label>
-
-                          <label className="planit-settings-toggle-card">
-                            <div className="planit-settings-toggle-copy">
-                              <span className="planit-settings-toggle-title">📝 Markdown Rendering</span>
-                              <span className="planit-settings-toggle-description">Render structured AI answers with formatting and code blocks.</span>
-                            </div>
-                            <input
-                              type="checkbox"
-                              checked={aiSettings.enableMarkdown}
-                              onChange={e => updateAISetting('enableMarkdown', e.target.checked)}
-                              className="planit-settings-checkbox"
-                            />
-                          </label>
-
-                          <label className="planit-settings-toggle-card">
-                            <div className="planit-settings-toggle-copy">
-                              <span className="planit-settings-toggle-title">💾 Save Chats Locally</span>
-                              <span className="planit-settings-toggle-description">Store conversation history in this browser.</span>
-                            </div>
-                            <input
-                              type="checkbox"
-                              checked={aiSettings.saveChatsLocally}
-                              onChange={e => updateAISetting('saveChatsLocally', e.target.checked)}
-                              className="planit-settings-checkbox"
-                            />
-                          </label>
-
-                          <label className="planit-settings-toggle-card">
-                            <div className="planit-settings-toggle-copy">
-                              <span className="planit-settings-toggle-title">☁️ Cloud Sync</span>
-                              <span className="planit-settings-toggle-description">Sync chats and settings across your devices.</span>
-                            </div>
-                            <input
-                              type="checkbox"
-                              checked={aiSettings.cloudSync}
-                              onChange={e => updateAISetting('cloudSync', e.target.checked)}
-                              className="planit-settings-checkbox"
-                            />
-                          </label>
-
-                          <label className="planit-settings-toggle-card">
-                            <div className="planit-settings-toggle-copy">
-                              <span className="planit-settings-toggle-title">🔊 Text-to-Speech</span>
-                              <span className="planit-settings-toggle-description">Speak AI responses and action descriptions aloud.</span>
-                            </div>
-                            <input
-                              type="checkbox"
-                              checked={aiSettings.ttsEnabled}
-                              onChange={e => updateAISetting('ttsEnabled', e.target.checked)}
-                              className="planit-settings-checkbox"
-                            />
-                          </label>
-
-                          <label className="planit-settings-toggle-card">
-                            <div className="planit-settings-toggle-copy">
-                              <span className="planit-settings-toggle-title">🎤 Speech Recognition</span>
-                              <span className="planit-settings-toggle-description">Enable voice commands and wake-word listening.</span>
-                            </div>
-                            <input
-                              type="checkbox"
-                              checked={aiSettings.sttEnabled}
-                              onChange={e => updateAISetting('sttEnabled', e.target.checked)}
-                              className="planit-settings-checkbox"
-                            />
-                          </label>
-                        </div>
+                        <AIWorkflowSettings
+                          settings={aiSettings}
+                          onChange={updateAISetting}
+                          user={user}
+                        />
 
                         <div className="planit-settings-ai-actions">
                           <button

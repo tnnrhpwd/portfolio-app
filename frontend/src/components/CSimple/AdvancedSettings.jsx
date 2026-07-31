@@ -11,6 +11,7 @@ import {
   getAddonBaseUrl,
 } from '../../services/csimpleApi';
 import './AdvancedSettings.css';
+import AIWorkflowSettings from './AIWorkflowSettings.jsx';
 import WorkspaceManager from './WorkspaceManager.jsx';
 import ShortcutsManager from './ShortcutsManager.jsx';
 import GoalManager from './GoalManager.jsx';
@@ -365,52 +366,6 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
               <div className="adv-group">
                 <div className="adv-group__row">
                   <div>
-                    <label className="adv-group__label">Save Chats Locally</label>
-                    <p className="adv-group__desc">Store conversation history in your browser</p>
-                  </div>
-                  <label className="adv-toggle">
-                    <input
-                      type="checkbox"
-                      checked={settings.saveChatsLocally ?? true}
-                      onChange={e => updateSetting('saveChatsLocally', e.target.checked)}
-                    />
-                    <span className="adv-toggle__slider" />
-                  </label>
-                </div>
-              </div>
-
-              <div className="adv-group">
-                <div className="adv-group__row">
-                  <div>
-                    <label className="adv-group__label">Cloud Sync</label>
-                    <p className="adv-group__desc">
-                      {user
-                        ? 'Sync settings and conversations across devices'
-                        : 'Log in to enable cloud sync'}
-                    </p>
-                    {cloudSyncStatus && settings.cloudSync && user && (
-                      <p className="adv-group__desc" style={{ marginTop: '4px', fontSize: '11px' }}>
-                        {cloudSyncStatus === 'syncing' && '⟳ Syncing...'}
-                        {cloudSyncStatus === 'synced' && '✓ Synced'}
-                        {cloudSyncStatus === 'error' && '✗ Sync failed'}
-                      </p>
-                    )}
-                  </div>
-                  <label className="adv-toggle">
-                    <input
-                      type="checkbox"
-                      checked={settings.cloudSync ?? false}
-                      onChange={e => updateSetting('cloudSync', e.target.checked)}
-                      disabled={!user}
-                    />
-                    <span className="adv-toggle__slider" />
-                  </label>
-                </div>
-              </div>
-
-              <div className="adv-group">
-                <div className="adv-group__row">
-                  <div>
                     <label className="adv-group__label">Theme</label>
                     <p className="adv-group__desc">Application color scheme</p>
                   </div>
@@ -454,215 +409,15 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
                 </div>
               </div>
 
-              <div className="adv-group">
-                <div className="adv-group__row">
-                  <div>
-                    <label className="adv-group__label">Send with Enter</label>
-                    <p className="adv-group__desc">Press Enter to send messages (Shift+Enter for newline)</p>
-                  </div>
-                  <label className="adv-toggle">
-                    <input
-                      type="checkbox"
-                      checked={settings.sendWithEnter ?? true}
-                      onChange={e => updateSetting('sendWithEnter', e.target.checked)}
-                    />
-                    <span className="adv-toggle__slider" />
-                  </label>
-                </div>
-              </div>
-
-              <div className="adv-group">
-                <div className="adv-group__row">
-                  <div>
-                    <label className="adv-group__label">Show Timestamps</label>
-                    <p className="adv-group__desc">Display time next to each message</p>
-                  </div>
-                  <label className="adv-toggle">
-                    <input
-                      type="checkbox"
-                      checked={settings.showTimestamps ?? true}
-                      onChange={e => updateSetting('showTimestamps', e.target.checked)}
-                    />
-                    <span className="adv-toggle__slider" />
-                  </label>
-                </div>
-              </div>
-
-              <div className="adv-group">
-                <div className="adv-group__row">
-                  <div>
-                    <label className="adv-group__label">Enable Markdown</label>
-                    <p className="adv-group__desc">Render markdown formatting in AI responses</p>
-                  </div>
-                  <label className="adv-toggle">
-                    <input
-                      type="checkbox"
-                      checked={settings.enableMarkdown ?? true}
-                      onChange={e => updateSetting('enableMarkdown', e.target.checked)}
-                    />
-                    <span className="adv-toggle__slider" />
-                  </label>
-                </div>
-              </div>
-
-              <div className="adv-group">
-                <label className="adv-group__label">Default Temperature</label>
-                <p className="adv-group__desc">Controls randomness in AI responses (0 = deterministic, 1 = creative)</p>
-                <div className="adv-group__slider-row">
-                  <input
-                    type="range"
-                    className="adv-range"
-                    min="0"
-                    max="1"
-                    step="0.1"
-                    value={settings.defaultTemperature ?? 0.7}
-                    onChange={e => updateSetting('defaultTemperature', parseFloat(e.target.value))}
-                  />
-                  <span className="adv-group__slider-value">{(settings.defaultTemperature ?? 0.7).toFixed(1)}</span>
-                </div>
-              </div>
-
-              <div className="adv-group">
-                <label className="adv-group__label">Default Max Tokens</label>
-                <p className="adv-group__desc">Maximum length of AI responses</p>
-                <div className="adv-group__slider-row">
-                  <input
-                    type="range"
-                    className="adv-range"
-                    min="50"
-                    max="2000"
-                    step="50"
-                    value={settings.defaultMaxTokens ?? 500}
-                    onChange={e => updateSetting('defaultMaxTokens', parseInt(e.target.value))}
-                  />
-                  <span className="adv-group__slider-value">{settings.defaultMaxTokens ?? 500}</span>
-                </div>
-              </div>
-
-              <div className="adv-group">
-                <label className="adv-group__label">Max Conversation History</label>
-                <p className="adv-group__desc">Number of messages to include as context</p>
-                <div className="adv-group__slider-row">
-                  <input
-                    type="range"
-                    className="adv-range"
-                    min="5"
-                    max="100"
-                    step="5"
-                    value={settings.maxConversationHistory ?? 50}
-                    onChange={e => updateSetting('maxConversationHistory', parseInt(e.target.value))}
-                  />
-                  <span className="adv-group__slider-value">{settings.maxConversationHistory ?? 50}</span>
-                </div>
-              </div>
-
-              {/* ─── LLM Provider ─────────────────────── */}
-              <h3 className="adv-section__subtitle">🧠 LLM Provider</h3>
-
-              <div className="adv-group">
-                <label className="adv-group__label">Provider</label>
-                <p className="adv-group__desc">Choose between local models (slow, private) or GitHub Models API (fast, requires token)</p>
-                <div className="adv-group__row" style={{ gap: '8px', flexWrap: 'wrap' }}>
-                  <button
-                    className={`adv-pill ${(settings.llmProvider || 'local') === 'local' ? 'adv-pill--active' : ''}`}
-                    onClick={() => updateSetting('llmProvider', 'local')}
-                  >
-                    💻 Local (HuggingFace)
-                  </button>
-                  <button
-                    className={`adv-pill ${settings.llmProvider === 'github' ? 'adv-pill--active' : ''}`}
-                    onClick={() => updateSetting('llmProvider', 'github')}
-                  >
-                    🐙 GitHub Models
-                  </button>
-                </div>
-              </div>
-
-              {settings.llmProvider === 'github' && (
-                <>
-                  <div className="adv-group">
-                    <label className="adv-group__label">GitHub Personal Access Token</label>
-                    <p className="adv-group__desc">
-                      Create a <a href="https://github.com/settings/personal-access-tokens" target="_blank" rel="noreferrer" className="adv-link-inline">fine-grained PAT</a> with the <strong>Models: Read-only</strong> account permission (recommended),
-                      or a <a href="https://github.com/settings/tokens" target="_blank" rel="noreferrer" className="adv-link-inline">classic PAT</a> if your account has GitHub Models access.
-                    </p>
-                    <div className="adv-group__row" style={{ gap: '8px' }}>
-                      <input
-                        type="password"
-                        className="adv-input"
-                        placeholder="github_pat_... or ghp_..."
-                        value={settings.githubToken || ''}
-                        onChange={e => updateSetting('githubToken', e.target.value)}
-                        style={{ flex: 1 }}
-                      />
-                      {(() => {
-                        const tok = settings.githubToken || '';
-                        const isFineGrained = tok.startsWith('github_pat_');
-                        const isClassic = tok.startsWith('ghp_');
-                        const ok = isFineGrained || isClassic;
-                        const color = !tok ? 'var(--text-muted)' : (ok ? 'var(--success, #22c55e)' : '#f59e0b');
-                        const label = !tok
-                          ? '✗ Not set'
-                          : isFineGrained ? '✓ Fine-grained PAT'
-                          : isClassic ? '✓ Classic PAT'
-                          : '⚠ Unrecognized format';
-                        return (
-                          <span style={{ fontSize: '12px', color, whiteSpace: 'nowrap' }}>{label}</span>
-                        );
-                      })()}
-                    </div>
-                  </div>
-
-                  <div className="adv-group">
-                    <label className="adv-group__label">GitHub Model</label>
-                    <p className="adv-group__desc">Select which model to use via GitHub Models API</p>
-                    <select
-                      className="adv-select"
-                      value={settings.githubModel || 'gpt-4o-mini'}
-                      onChange={e => updateSetting('githubModel', e.target.value)}
-                    >
-                      <option value="gpt-4o-mini">GPT-4o Mini — fast &amp; cheap</option>
-                      <option value="gpt-4o">GPT-4o — most capable</option>
-                      <option value="gpt-4.1-mini">GPT-4.1 Mini — balanced</option>
-                      <option value="gpt-4.1-nano">GPT-4.1 Nano — fastest</option>
-                    </select>
-                  </div>
-                </>
-              )}
-
-              {/* ─── Voice & Speech ─────────────────────── */}
-              <h3 className="adv-section__subtitle">🎙 Voice &amp; Speech</h3>
-
-              <div className="adv-group">
-                <label className="adv-group__label">Text-to-Speech</label>
-                <p className="adv-group__desc">Speak action descriptions aloud when executing commands</p>
-                <label className="adv-toggle">
-                  <input
-                    type="checkbox"
-                    checked={settings.ttsEnabled ?? true}
-                    onChange={e => updateSetting('ttsEnabled', e.target.checked)}
-                  />
-                  <span className="adv-toggle__slider"></span>
-                  <span className="adv-toggle__text">{(settings.ttsEnabled ?? true) ? 'Enabled' : 'Disabled'}</span>
-                </label>
-              </div>
-
-              <div className="adv-group">
-                <label className="adv-group__label">Speech Recognition (STT)</label>
-                <p className="adv-group__desc">Enable microphone input for voice commands. Say the agent&apos;s name as a wake word.</p>
-                <label className="adv-toggle">
-                  <input
-                    type="checkbox"
-                    checked={settings.sttEnabled ?? false}
-                    onChange={e => updateSetting('sttEnabled', e.target.checked)}
-                    disabled={!speech?.sttSupported}
-                  />
-                  <span className="adv-toggle__slider"></span>
-                  <span className="adv-toggle__text">
-                    {!speech?.sttSupported ? 'Not supported in this browser' : (settings.sttEnabled ? 'Enabled' : 'Disabled')}
-                  </span>
-                </label>
-              </div>
+              {/* ─── Shared AI workflow settings (same data as the Settings page) ─── */}
+              <h3 className="adv-section__subtitle">🧠 AI &amp; chat preferences</h3>
+              <AIWorkflowSettings
+                settings={settings}
+                onChange={updateSetting}
+                user={user}
+                cloudSyncStatus={cloudSyncStatus}
+                sttSupported={speech?.sttSupported}
+              />
 
               {/* ─── Microphone Selection ─────────────────────── */}
               <div className="adv-group">

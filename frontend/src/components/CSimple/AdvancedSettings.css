@@ -155,22 +155,6 @@
   line-height: 1.4;
 }
 
-.adv-group__slider-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 8px;
-}
-
-.adv-group__slider-value {
-  font-size: 13px;
-  color: var(--accent);
-  font-weight: 600;
-  min-width: 40px;
-  text-align: right;
-  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
-}
-
 /* ─── Toggle ──────────────────────────────────────────────────────────────── */
 .adv-toggle {
   position: relative;
@@ -236,29 +220,6 @@
   color: var(--text-muted);
 }
 
-/* ─── Pill Buttons ─────────────── */
-.adv-pill {
-  padding: 6px 14px;
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all var(--transition);
-}
-
-.adv-pill:hover {
-  border-color: var(--accent);
-  color: var(--text-primary);
-}
-
-.adv-pill--active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: white;
-}
-
 /* ─── Input field ─────────────── */
 .adv-input {
   padding: 6px 12px;
@@ -272,43 +233,6 @@
 
 .adv-input:focus {
   border-color: var(--accent);
-}
-
-.adv-link-inline {
-  color: var(--accent);
-  text-decoration: none;
-}
-
-.adv-link-inline:hover {
-  text-decoration: underline;
-}
-
-.adv-range {
-  flex: 1;
-  height: 6px;
-  border-radius: 3px;
-  appearance: none;
-  background: var(--border);
-  outline: none;
-}
-
-.adv-range::-webkit-slider-thumb {
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--accent);
-  cursor: pointer;
-  border: 2px solid var(--bg-secondary);
-}
-
-.adv-range::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--accent);
-  cursor: pointer;
-  border: 2px solid var(--bg-secondary);
 }
 
 /* ─── Agent Cards ─────────────────────────────────────────────────────────── */

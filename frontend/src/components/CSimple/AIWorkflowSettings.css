@@ -1,0 +1,202 @@
+/* AIWorkflowSettings — shared AI chat preference controls used by both
+   the Settings page and the Net chat's Advanced Settings modal. */
+
+.aiw-root {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.aiw-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--spacing-xs);
+}
+
+.aiw-item {
+    padding: var(--spacing-xs);
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.06);
+    min-height: calc(var(--nav-size) * 1.8);
+}
+
+.aiw-item-full {
+    grid-column: 1 / -1;
+}
+
+.aiw-label {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.12);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-color-strong);
+}
+
+.aiw-badge {
+    font-size: var(--font-size-small);
+    padding: calc(var(--nav-size) * 0.06) calc(var(--nav-size) * 0.14);
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--bg-orange), var(--bg-pink));
+    color: var(--text-color);
+}
+
+.aiw-input,
+.aiw-range {
+    width: 100%;
+    border: 1px solid var(--border-nav);
+    background: var(--bg-page);
+    color: var(--text-color);
+    padding: var(--spacing-sm);
+    font-size: var(--font-size-base);
+    border-radius: var(--border-radius-lg);
+}
+
+.aiw-range {
+    padding: 0;
+    accent-color: var(--fg-blue);
+}
+
+.aiw-input:focus,
+.aiw-range:focus {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset);
+}
+
+.aiw-hint {
+    font-size: var(--font-size-small);
+    color: var(--text-color-accent);
+}
+
+.aiw-note {
+    margin: 0;
+    font-size: var(--font-size-small);
+    color: var(--text-color-accent);
+    font-style: italic;
+}
+
+.aiw-range-group {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.aiw-range-value {
+    min-width: calc(var(--nav-size) * 0.9);
+    text-align: right;
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-color-strong);
+}
+
+.aiw-token-group {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--spacing-xs);
+    border: 1px solid var(--border-nav);
+    background: var(--bg-page-transp);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-sm);
+    padding: calc(var(--nav-size) * 0.08);
+}
+
+.aiw-token-group .aiw-input {
+    border: none;
+    box-shadow: none;
+    padding: calc(var(--nav-size) * 0.08);
+}
+
+.aiw-token-group:focus-within {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset);
+}
+
+.aiw-token-group:focus-within .aiw-input {
+    outline: none;
+}
+
+.aiw-token-toggle {
+    border: 1px solid var(--border-nav);
+    background: var(--bg-page);
+    border-radius: var(--border-radius-lg);
+    padding: 0 var(--spacing-sm);
+    cursor: pointer;
+    font-size: var(--font-size-base);
+}
+
+.aiw-token-status {
+    font-size: var(--font-size-small);
+    color: var(--text-color-accent);
+}
+
+.aiw-token-help {
+    margin: 0;
+    font-size: var(--font-size-small);
+    color: var(--text-color-accent);
+    line-height: var(--line-height-relaxed);
+}
+
+.aiw-token-help a {
+    color: var(--fg-blue);
+}
+
+.aiw-subtitle {
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-color-strong);
+}
+
+.aiw-toggle-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--spacing-xs);
+}
+
+.aiw-toggle-card {
+    padding: var(--spacing-xs);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    cursor: pointer;
+    border: 1px solid var(--border-nav);
+    background: var(--bg-page-transp);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-sm);
+}
+
+.aiw-toggle-copy {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.04);
+}
+
+.aiw-toggle-title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-color-strong);
+}
+
+.aiw-toggle-description {
+    font-size: var(--font-size-small);
+    color: var(--text-color-accent);
+}
+
+.aiw-checkbox {
+    accent-color: var(--fg-blue);
+    width: calc(var(--nav-size) * 0.24);
+    height: calc(var(--nav-size) * 0.24);
+    flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+    .aiw-grid,
+    .aiw-toggle-grid,
+    .aiw-token-group,
+    .aiw-toggle-card {
+        grid-template-columns: 1fr;
+        flex-direction: column;
+    }
+}
