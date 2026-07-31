@@ -420,7 +420,8 @@
     content: '';
     position: absolute;
     bottom: -5px;
-    left: 0;
+    left: 50%;
+    transform: translateX(-50%);
     width: 50px;
     height: 2px;
     background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink));
@@ -622,12 +623,12 @@
 /* Portrait phone optimization */
 @media (orientation: portrait) and (max-width: 480px) {
     .hero-section {
-        margin-top: calc(var(--nav-size) * 0.5);
+        margin-top: calc(var(--nav-size) * 1);
     }
 
     #text-title {
         font-size: calc(var(--font-size-heading) * 0.75);
-        margin-top: var(--spacing-sm);
+        margin-top: calc(var(--nav-size)*2.5);
         margin-bottom: var(--spacing-sm);
     }
 
@@ -636,6 +637,14 @@
     }
 
     #text-subtext {
+        padding: var(--spacing-xs);
+    }
+
+    #text-about {
+        padding: var(--spacing-xs);
+    }
+
+    .home-spc {
         padding: var(--spacing-xs);
     }
 
