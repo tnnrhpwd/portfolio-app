@@ -803,6 +803,9 @@ function Settings() {
                         <p className="planit-settings-ai-note">
                           AI preferences sync with the /net chat sidebar automatically.
                         </p>
+                        <p className="planit-settings-ai-note">
+                          Need agents, personas, behaviors, memory, goals, or shortcuts? Install the <strong>CSimple addon</strong> and open <strong>Advanced Settings</strong> inside the <strong>/net</strong> chat for those power-user tools.
+                        </p>
                       </div>
                     </div>
 
