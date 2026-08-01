@@ -152,8 +152,8 @@ function Admin() {
   }, [user, rawType]);
 
   // ═══════════════ Fetch all data for map/bugs (on demand) ═══════════════
-  const fetchAllData = useCallback(async () => {
-    if (!user?.token || allData) return;
+  const fetchAllData = useCallback(async (force = false) => {
+    if (!user?.token || (allData && !force)) return;
     setAllDataLoading(true);
     try {
       const data = await dataService.getAllData(user.token);
@@ -359,11 +359,15 @@ function Admin() {
       setShowResolutionModal(false);
       setResolutionText('');
       setClosingBugId(null);
-      setAllData(null); // force re-fetch
+      // Re-fetch immediately — clearing allData alone doesn't refetch since
+      // fetchAllData only runs on section-expand toggles, which previously
+      // left the table showing "No bug reports found" until the section
+      // was manually collapsed and re-opened.
+      await fetchAllData(true);
     } catch {
       toast.error('Failed to close bug report.');
     }
-  }, [dispatch, resolutionText]);
+  }, [dispatch, resolutionText, fetchAllData]);
 
   // ═══════════════ Test Funnel helpers ═══════════════
   const fetchFunnelStatus = useCallback(async () => {

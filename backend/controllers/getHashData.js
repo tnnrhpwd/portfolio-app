@@ -569,13 +569,24 @@ const getAllData = async (req, res) => {
         if (req.user && req.user.id === process.env.ADMIN_USER_ID) {
             // console.log('Fetching all data from DynamoDB...');
 
-            const params = {
-                TableName: 'Simple',
-        };
+            // A single Scan page is capped at ~1MB by DynamoDB, so once the table
+            // grows past that the results were silently truncated (older/newer
+            // items — including bug reports — would just disappear from the
+            // admin dashboard). Page through with ExclusiveStartKey until the
+            // scan reports no more LastEvaluatedKey.
+            let items = [];
+            let lastEvaluatedKey;
+            do {
+                const params = {
+                    TableName: 'Simple',
+                    ExclusiveStartKey: lastEvaluatedKey,
+                };
+                const result = await dynamodb.send(new ScanCommand(params));
+                items = items.concat(result.Items || []);
+                lastEvaluatedKey = result.LastEvaluatedKey;
+            } while (lastEvaluatedKey);
 
-            const result = await dynamodb.send(new ScanCommand(params));
-
-            res.status(200).json(result.Items.map(item => ({
+            res.status(200).json(items.map(item => ({
                 id: item.id,
                 text: item.text,
                 files: item.files ? item.files.map(f => f.filename).join(', ') : "",

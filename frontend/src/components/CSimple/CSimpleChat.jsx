@@ -58,6 +58,45 @@ const GITHUB_PAT_SETUP_STEPS = `**First-time setup — get C-Simple talking to G
 
 > Classic \`ghp_…\` tokens **cannot** carry the \`models:read\` permission and will fail with 401. Use a fine-grained PAT.`;
 
+// Known, user-actionable configuration/auth errors that already show clear
+// remediation steps in the chat itself. These are not application bugs, so
+// they must not be auto-reported — doing so previously flooded the bug
+// tracker with dozens of duplicate reports for things like an expired PAT.
+const KNOWN_CONFIG_ERROR_PATTERNS = [
+  /not configured/i,
+  /PAT may have expired or been revoked/i,
+  /addon is not running/i,
+  /no access to model/i,
+  /authentication failed \(401\)/i,
+  /rate limit/i,
+  /could not find model/i,
+  /request body too large/i,
+  /\(413\)/,
+];
+
+const isUserConfigError = (message = '') =>
+  KNOWN_CONFIG_ERROR_PATTERNS.some(pattern => pattern.test(message));
+
+// Avoid re-submitting a bug report for the exact same recurring error within
+// this window, even when it isn't a known config error.
+const BUG_REPORT_DEDUPE_WINDOW_MS = 24 * 60 * 60 * 1000;
+const BUG_REPORT_DEDUPE_KEY = 'csimple_last_auto_bug_report';
+
+const shouldSkipDuplicateBugReport = (content) => {
+  const signature = (content || '').slice(0, 200);
+  try {
+    const stored = JSON.parse(localStorage.getItem(BUG_REPORT_DEDUPE_KEY) || '{}');
+    const now = Date.now();
+    if (stored.signature === signature && now - stored.timestamp < BUG_REPORT_DEDUPE_WINDOW_MS) {
+      return true;
+    }
+    localStorage.setItem(BUG_REPORT_DEDUPE_KEY, JSON.stringify({ signature, timestamp: now }));
+  } catch {
+    // localStorage unavailable — fall back to reporting (better a rare dupe than losing reports)
+  }
+  return false;
+};
+
 function getDeviceLocalSettings() {
   try {
     const saved = localStorage.getItem(DEVICE_SETTINGS_KEY);
@@ -1371,6 +1410,13 @@ function CSimpleChat({
     const lastMsg = msgs[msgs.length - 1];
     if (lastMsg && lastMsg.isError && lastMsg.id !== lastReportedRef.current) {
       lastReportedRef.current = lastMsg.id;
+
+      // Skip known user-actionable config/auth errors and duplicate reports
+      // of the same recurring error — see constants above for rationale.
+      if (isUserConfigError(lastMsg.content) || shouldSkipDuplicateBugReport(lastMsg.content)) {
+        return;
+      }
+
       const userId = getUserIdentifier(user);
       const truncated = (lastMsg.content || '').slice(0, 500);
       const bugData = {

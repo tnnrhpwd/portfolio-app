@@ -384,24 +384,35 @@ const closeBugReportHandler = async (req, res) => {
     console.log('Resolution text:', resolutionText);
 
     try {
-        // Find the bug report
-        const scanParams = {
-            TableName: 'Simple',
-            FilterExpression: "id = :searchId",
-            ExpressionAttributeValues: {
-                ":searchId": reportId
-            }
-        };
+        // Find the bug report. A single Scan page is capped at ~1MB by
+        // DynamoDB, so without paging through ExclusiveStartKey/LastEvaluatedKey
+        // any report stored past the first page would be missed and
+        // incorrectly reported as "not found" even though it exists.
+        let item = null;
+        let lastEvaluatedKey;
+        do {
+            const scanParams = {
+                TableName: 'Simple',
+                FilterExpression: "id = :searchId",
+                ExpressionAttributeValues: {
+                    ":searchId": reportId
+                },
+                ExclusiveStartKey: lastEvaluatedKey,
+            };
 
-        const scanResult = await dynamodb.send(new ScanCommand(scanParams));
-        
-        if (!scanResult.Items || scanResult.Items.length === 0) {
+            const scanResult = await dynamodb.send(new ScanCommand(scanParams));
+            if (scanResult.Items && scanResult.Items.length > 0) {
+                item = scanResult.Items[0];
+                break;
+            }
+            lastEvaluatedKey = scanResult.LastEvaluatedKey;
+        } while (lastEvaluatedKey);
+
+        if (!item) {
             console.log('Bug report not found');
             res.status(404).json({ error: 'Bug report not found' });
             return;
         }
-
-        const item = scanResult.Items[0];
 
         // Check if this is actually a bug report
         if (!item.text || !item.text.includes('Bug:') || !item.text.includes('Status:')) {
