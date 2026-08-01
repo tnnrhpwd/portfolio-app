@@ -1,10 +1,26 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { toast } from 'react-toastify';
 import Header from '../../../components/Header/Header';
 import Footer from '../../../components/Footer/Footer';
 import SEO from '../../../components/SEO/SEO.jsx';
+import { createData, createPublicData, getData } from '../../../features/data/dataSlice';
 import BANK, { CAT_LABELS, CAT_KEYS, DIFF_TIERS } from './questionBank';
 import { formatTime, ordinal, computeIQ, DIFF_TO_B } from './iqStats';
 import './IQTest.css';
+
+// Parses a pipe-delimited "Key:Value|Key2:Value2" record (the same convention
+// used across the app's generic Data model, e.g. bug reports/contact forms)
+// back into a plain object.
+function parseRecord(text) {
+  const out = {};
+  (text || '').split('|').forEach((chunk) => {
+    const idx = chunk.indexOf(':');
+    if (idx === -1) return;
+    out[chunk.slice(0, idx)] = chunk.slice(idx + 1);
+  });
+  return out;
+}
 
 function shuffle(arr) {
   const a = arr.slice();
@@ -70,6 +86,9 @@ function pickQuestions(totalCount) {
 const LETTERS = ['A', 'B', 'C', 'D'];
 
 function IQTest() {
+  const dispatch = useDispatch();
+  const { user } = useSelector((state) => state.data);
+
   const [screen, setScreen] = useState('start'); // 'start' | 'quiz' | 'results'
   const [testMode, setTestMode] = useState('normal'); // 'fast' | 'normal' | 'high'
   const [questions, setQuestions] = useState([]);
@@ -78,8 +97,15 @@ function IQTest() {
   const [userAnswers, setUserAnswers] = useState([]);
   const [elapsed, setElapsed] = useState(0);
   const [showReview, setShowReview] = useState(false);
+  const [reportModal, setReportModal] = useState(null); // { index, feedback } | null
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState('');
+  const [historyEntries, setHistoryEntries] = useState([]);
   const startTimeRef = useRef(null);
   const timerRef = useRef(null);
+  const historySavedRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -94,6 +120,7 @@ function IQTest() {
     setSelectedOption(null);
     setShowReview(false);
     setElapsed(0);
+    historySavedRef.current = false;
     startTimeRef.current = Date.now();
 
     if (timerRef.current) clearInterval(timerRef.current);
@@ -182,6 +209,74 @@ function IQTest() {
 
   const { iq, percentile } = computeIQ(irtResponses);
 
+  // Persists a summary of the completed attempt to the user's account (as a
+  // generic Data record, same convention as bug reports/contact messages) so
+  // it can be listed later in the Quiz History modal. Runs once per attempt.
+  useEffect(() => {
+    if (screen !== 'results' || !user?._id || historySavedRef.current) return;
+    historySavedRef.current = true;
+
+    const record = {
+      text: `Creator:${user._id}|Quiz:IQTest|Mode:${testMode}|IQ:${iq}|Percentile:${percentile}|Correct:${correctCount}/${userAnswers.length}|Time:${elapsed}|Timestamp:${new Date().toISOString()}`
+    };
+    dispatch(createData(record)).unwrap().catch((error) => {
+      console.error('Failed to save quiz history:', error);
+    });
+    // Only the values needed to build the record matter here; re-running on
+    // every render (e.g. from userAnswers/testMode identity changes) would
+    // otherwise be harmless since historySavedRef guards duplicate saves.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen, user, iq, percentile]);
+
+  const openReportModal = (index) => setReportModal({ index, feedback: '' });
+  const closeReportModal = () => {
+    if (reportSubmitting) return;
+    setReportModal(null);
+  };
+  const handleReportFeedbackChange = (e) => {
+    setReportModal((prev) => (prev ? { ...prev, feedback: e.target.value } : prev));
+  };
+
+  const submitReport = async () => {
+    if (!reportModal) return;
+    const a = userAnswers[reportModal.index];
+    setReportSubmitting(true);
+    try {
+      const creatorPrefix = user?._id ? `Creator:${user._id}|` : '';
+      const bugData = {
+        text: `${creatorPrefix}Bug:IQ Test Question Issue|Category:${CAT_LABELS[a.cat] || a.cat}|Question:${a.question}|UserFeedback:${reportModal.feedback || '(none provided)'}|Status:Open|Timestamp:${new Date().toISOString()}`
+      };
+      await dispatch(createPublicData(bugData)).unwrap();
+      toast.success('Thanks — this question has been reported.', { autoClose: 4000 });
+      setReportModal(null);
+    } catch (error) {
+      console.error('Error submitting question report:', error);
+      toast.error('Failed to submit report. Please try again.', { autoClose: 3000 });
+    } finally {
+      setReportSubmitting(false);
+    }
+  };
+
+  const openHistoryModal = async () => {
+    setHistoryOpen(true);
+    setHistoryLoading(true);
+    setHistoryError('');
+    try {
+      const result = await dispatch(getData({ data: 'Quiz:IQTest' })).unwrap();
+      const entries = (result?.data || [])
+        .map((item) => ({ ...parseRecord(item.data), _id: item._id }))
+        .filter((entry) => entry.Quiz === 'IQTest')
+        .sort((x, y) => new Date(y.Timestamp || 0) - new Date(x.Timestamp || 0));
+      setHistoryEntries(entries);
+    } catch (error) {
+      console.error('Failed to load quiz history:', error);
+      setHistoryError('Failed to load quiz history. Please try again.');
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+  const closeHistoryModal = () => setHistoryOpen(false);
+
   return (
     <>
       <SEO
@@ -253,6 +348,11 @@ function IQTest() {
               </p>
               <div className="iq-test-btn-row">
                 <button className="iq-test-btn" onClick={startTest}>Start Test</button>
+                {user?._id && (
+                  <button className="iq-test-btn secondary" type="button" onClick={openHistoryModal}>
+                    Quiz History
+                  </button>
+                )}
               </div>
             </div>
 
@@ -368,6 +468,11 @@ function IQTest() {
                 <button className="iq-test-btn secondary" onClick={() => setShowReview((v) => !v)}>
                   {showReview ? 'Hide Answer Review' : 'Show Answer Review'}
                 </button>
+                {user?._id && (
+                  <button className="iq-test-btn secondary" type="button" onClick={openHistoryModal}>
+                    Quiz History
+                  </button>
+                )}
               </div>
             </div>
 
@@ -378,7 +483,16 @@ function IQTest() {
                   const isCorrect = a.selectedIdx === a.correctIdx;
                   return (
                     <div className={`iq-test-review-item ${isCorrect ? 'correct' : 'incorrect'}`} key={i}>
-                      <div className="review-q">{i + 1}. [{CAT_LABELS[a.cat]}] {a.question}</div>
+                      <div className="review-q-row">
+                        <div className="review-q">{i + 1}. [{CAT_LABELS[a.cat]}] {a.question}</div>
+                        <button
+                          type="button"
+                          className="iq-test-report-btn"
+                          onClick={() => openReportModal(i)}
+                        >
+                          🚩 Report Question
+                        </button>
+                      </div>
                       {a.selectedIdx === null ? (
                         <div className="review-ans your-wrong">Your answer: (skipped)</div>
                       ) : (
@@ -398,6 +512,83 @@ function IQTest() {
               </div>
             )}
           </section>
+        )}
+
+        {reportModal && (
+          <div className="iq-test-modal-overlay" role="presentation" onClick={closeReportModal}>
+            <div
+              className="iq-test-modal iq-test-card"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Report question"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 style={{ marginTop: 0 }}>Report Question</h2>
+              <p className="iq-test-modal-question">
+                {userAnswers[reportModal.index]?.question}
+              </p>
+              <label className="iq-test-modal-label" htmlFor="iq-test-report-feedback">
+                What&apos;s wrong with this question? (optional)
+              </label>
+              <textarea
+                id="iq-test-report-feedback"
+                className="iq-test-modal-textarea"
+                rows={4}
+                value={reportModal.feedback}
+                onChange={handleReportFeedbackChange}
+                placeholder="e.g. the correct answer looks wrong, the wording is confusing, a typo, etc."
+              />
+              <div className="iq-test-btn-row">
+                <button className="iq-test-btn secondary" type="button" onClick={closeReportModal} disabled={reportSubmitting}>
+                  Cancel
+                </button>
+                <button className="iq-test-btn" type="button" onClick={submitReport} disabled={reportSubmitting}>
+                  {reportSubmitting ? 'Submitting…' : 'Submit Report'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {historyOpen && (
+          <div className="iq-test-modal-overlay" role="presentation" onClick={closeHistoryModal}>
+            <div
+              className="iq-test-modal iq-test-card"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Quiz history"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 style={{ marginTop: 0 }}>Quiz History</h2>
+              {historyLoading && <p className="iq-test-hint">Loading your past attempts…</p>}
+              {!historyLoading && historyError && <p className="iq-test-hint">{historyError}</p>}
+              {!historyLoading && !historyError && historyEntries.length === 0 && (
+                <p className="iq-test-hint">No past attempts yet — take a test to start your history.</p>
+              )}
+              {!historyLoading && !historyError && historyEntries.length > 0 && (
+                <div className="iq-test-history-list">
+                  {historyEntries.map((entry) => (
+                    <div className="iq-test-history-item" key={entry._id}>
+                      <div className="iq-test-history-main">
+                        <span className="iq-test-history-iq">IQ {entry.IQ}</span>
+                        <span className="iq-test-history-detail">{ordinal(Number(entry.Percentile))} pct</span>
+                        <span className="iq-test-history-detail">{entry.Correct} correct</span>
+                        <span className="iq-test-history-detail">{formatTime(Number(entry.Time) || 0)}</span>
+                      </div>
+                      <div className="iq-test-history-date">
+                        {entry.Timestamp ? new Date(entry.Timestamp).toLocaleString() : ''}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="iq-test-btn-row">
+                <button className="iq-test-btn secondary" type="button" onClick={closeHistoryModal}>
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
       <Footer />
