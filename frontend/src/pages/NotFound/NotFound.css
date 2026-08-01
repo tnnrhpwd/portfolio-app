@@ -1,62 +1,52 @@
-.not-found {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 60vh;
-  text-align: center;
-  padding: 2rem;
-  font-family: 'CutiveMono-Regular', monospace;
+/* 404 page — reuses Home.css's animated container/floating-shapes/content-tile
+ * system so the sizing, spacing, and overall vibe match the homepage. */
+
+.not-found-section {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
 }
 
-.not-found__code {
-  font-size: clamp(5rem, 15vw, 10rem);
-  font-weight: 900;
-  line-height: 1;
-  margin: 0;
-  background: linear-gradient(135deg, var(--light-blue0, #009dff), #7b2ff7);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  user-select: none;
+.not-found-tile {
+    text-align: center;
+    max-width: 800px;
+    margin: 0 auto;
 }
 
-.not-found__message {
-  font-size: clamp(1rem, 2.5vw, 1.25rem);
-  color: var(--text-color, #ccc);
-  max-width: 420px;
-  margin: 1rem 0 2rem;
+.not-found-code {
+    font-family: 'CutiveMono-Regular', monospace;
+    font-weight: 900;
+    font-size: clamp(5rem, 18vw, 10rem);
+    line-height: var(--line-height-tight);
+    margin: 0;
+    background: linear-gradient(135deg, var(--fg-blue), var(--fg-pink));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: none;
+    user-select: none;
 }
 
-.not-found__actions {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-  justify-content: center;
+.not-found-tile .not-found-message {
+    text-align: center;
+    margin: 0 auto;
 }
 
-.not-found__btn {
-  padding: 0.65rem 1.6rem;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-family: inherit;
-  text-decoration: none;
-  transition: opacity 0.2s, transform 0.15s;
-  cursor: pointer;
+.not-found-tile .not-found-subtext {
+    text-align: center;
+    margin: 0 auto var(--spacing-md);
 }
 
-.not-found__btn:hover {
-  opacity: 0.85;
-  transform: translateY(-1px);
+.not-found-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: var(--spacing-md);
 }
 
-.not-found__btn--primary {
-  background: var(--light-blue0, #009dff);
-  color: #fff;
-}
-
-.not-found__btn--secondary {
-  border: 1.5px solid var(--text-color, #ccc);
-  color: var(--text-color, #ccc);
-  background: transparent;
+@media (max-width: 768px) {
+    .not-found-actions {
+        margin-top: var(--spacing-sm);
+    }
 }
