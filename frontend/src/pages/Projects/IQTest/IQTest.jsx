@@ -7,6 +7,7 @@ import SEO from '../../../components/SEO/SEO.jsx';
 import { createData, createPublicData, getData } from '../../../features/data/dataSlice';
 import BANK, { CAT_LABELS, CAT_KEYS, DIFF_TIERS } from './questionBank';
 import { formatTime, ordinal, computeIQ, DIFF_TO_B } from './iqStats';
+import { PatternSequence, PatternGrid, PatternOptionContent } from './PatternVisual';
 import './IQTest.css';
 
 // Parses a pipe-delimited "Key:Value|Key2:Value2" record (the same convention
@@ -153,6 +154,8 @@ function IQTest() {
       diff: q.diff,
       question: q.q,
       passage: q.passage || null,
+      visual: q.visual || null,
+      prompt: q.prompt || null,
       options: q.options,
       correctIdx: q.answer,
       selectedIdx: chosenIdx,
@@ -385,7 +388,14 @@ function IQTest() {
 
               <div className="iq-test-question">{questions[currentIndex].q}</div>
 
-              <div className="iq-test-options" role="radiogroup" aria-label="Answer options">
+              {questions[currentIndex].visual === 'sequence' && (
+                <PatternSequence items={questions[currentIndex].prompt} />
+              )}
+              {questions[currentIndex].visual === 'grid' && (
+                <PatternGrid items={questions[currentIndex].prompt} />
+              )}
+
+              <div className={`iq-test-options${questions[currentIndex].visual ? ' iq-test-options-visual' : ''}`} role="radiogroup" aria-label="Answer options">
                 {questions[currentIndex].options.map((opt, idx) => (
                   <button
                     key={idx}
@@ -395,7 +405,11 @@ function IQTest() {
                     onClick={() => handleSelect(idx)}
                   >
                     <span className="iq-test-letter">{LETTERS[idx]}</span>
-                    <span>{opt}</span>
+                    {questions[currentIndex].visual ? (
+                      <PatternOptionContent token={opt} />
+                    ) : (
+                      <span>{opt}</span>
+                    )}
                   </button>
                 ))}
               </div>
@@ -493,16 +507,20 @@ function IQTest() {
                           🚩 Report Question
                         </button>
                       </div>
+                      {a.visual === 'sequence' && <PatternSequence items={a.prompt} size={40} />}
+                      {a.visual === 'grid' && <PatternGrid items={a.prompt} size={40} />}
                       {a.selectedIdx === null ? (
                         <div className="review-ans your-wrong">Your answer: (skipped)</div>
                       ) : (
                         <div className={`review-ans ${isCorrect ? 'right' : 'your-wrong'}`}>
-                          Your answer: {LETTERS[a.selectedIdx]}. {a.options[a.selectedIdx]}
+                          Your answer: {LETTERS[a.selectedIdx]}.
+                          {a.visual ? <PatternOptionContent token={a.options[a.selectedIdx]} size={32} /> : ` ${a.options[a.selectedIdx]}`}
                         </div>
                       )}
                       {!isCorrect && (
                         <div className="review-ans right">
-                          Correct answer: {LETTERS[a.correctIdx]}. {a.options[a.correctIdx]}
+                          Correct answer: {LETTERS[a.correctIdx]}.
+                          {a.visual ? <PatternOptionContent token={a.options[a.correctIdx]} size={32} /> : ` ${a.options[a.correctIdx]}`}
                         </div>
                       )}
                       <div className="review-explain">{a.exp}</div>

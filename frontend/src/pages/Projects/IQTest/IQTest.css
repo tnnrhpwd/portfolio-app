@@ -241,6 +241,70 @@
   font-size: calc(var(--nav-size) * 0.24);
 }
 
+/* Visual pattern-recognition puzzles (dice, shapes, arrows) */
+.pv-sequence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--nav-size) * 0.15);
+  margin: calc(var(--nav-size) * 0.3) 0;
+  padding: calc(var(--nav-size) * 0.2);
+  background: #ffffff0d;
+  border: 1px solid #ffffff26;
+  border-radius: 10px;
+}
+.pv-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: calc(var(--nav-size) * 0.15);
+  max-width: 320px;
+  margin: calc(var(--nav-size) * 0.3) auto;
+  padding: calc(var(--nav-size) * 0.2);
+  background: #ffffff0d;
+  border: 1px solid #ffffff26;
+  border-radius: 10px;
+}
+.pv-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+}
+.pv-arrow-sep { color: var(--text-color-accent); font-size: calc(var(--nav-size) * 0.3); flex-shrink: 0; }
+.pv-blank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed #ffffff4d;
+  border-radius: 10px;
+  color: var(--text-color-accent);
+  font-weight: 700;
+  font-size: calc(var(--nav-size) * 0.4);
+}
+.pv-shape-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+.iq-test-options-visual {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+.iq-test-options-visual .iq-test-option {
+  flex: 1 1 calc(50% - var(--nav-size) * 0.2);
+  flex-direction: column;
+  justify-content: center;
+  gap: calc(var(--nav-size) * 0.15);
+  min-width: 110px;
+}
+.iq-test-options-visual .iq-test-letter { margin-bottom: 2px; }
+.iq-test-review-item .pv-sequence,
+.iq-test-review-item .pv-grid { transform-origin: left top; }
+.iq-test-review-item .review-ans { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
 /* Results screen */
 .iq-test-score-hero { text-align: center; margin: calc(var(--nav-size) * 0.3) 0 calc(var(--nav-size) * 0.5); }
 .iq-test-iq-number {
