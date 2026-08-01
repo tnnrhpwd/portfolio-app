@@ -39,7 +39,7 @@ function Header() {
             id="planit-header-logo-img"
             src={HeaderLogo}
             onClick={handleThemeToggle}
-            alt="website logo"
+            alt="STHopwood logo"
           />
           <a
             className='planit-header-logo-format'

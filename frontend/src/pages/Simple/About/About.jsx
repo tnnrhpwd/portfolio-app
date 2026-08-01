@@ -41,8 +41,18 @@ function About() {
         '@context': 'https://schema.org',
         '@type': 'Person',
         name: 'Steven Tanner Hopwood',
+        alternateName: ['Steven Hopwood', 'STHopwood', 'sthopwood'],
         url: `${SITE_URL}/about`,
+        image: `${SITE_URL}/STHlogo192.png`,
         jobTitle: 'Advanced Manufacturing Engineer',
+        worksFor: {
+          '@type': 'Organization',
+          name: 'Yanfeng Interiors',
+        },
+        alumniOf: {
+          '@type': 'CollegeOrUniversity',
+          name: 'University of Tennessee at Chattanooga',
+        },
         sameAs: [
           'https://www.linkedin.com/in/sthopwood/',
           'https://github.com/tnnrhpwd',

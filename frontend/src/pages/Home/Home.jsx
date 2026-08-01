@@ -84,17 +84,23 @@ function Home() {
     return (
         <>
             <SEO
-                title="Home"
-                description="Steven Tanner Hopwood — Portfolio showcasing web development projects, tools, and experiments."
+                title="Steven Tanner Hopwood"
+                description="Steven Tanner Hopwood (STHopwood) — Advanced Manufacturing Engineer and full-stack developer. Portfolio showcasing web development projects, tools, and experiments."
                 path="/"
                 jsonLd={{
                     '@context': 'https://schema.org',
                     '@type': 'WebSite',
                     name: 'STHopwood',
+                    alternateName: ['Steven Tanner Hopwood Portfolio', 'sthopwood.com'],
                     url: SITE_URL,
                     author: {
                         '@type': 'Person',
                         name: 'Steven Tanner Hopwood',
+                        alternateName: ['Steven Hopwood', 'STHopwood', 'sthopwood'],
+                        sameAs: [
+                            'https://www.linkedin.com/in/sthopwood/',
+                            'https://github.com/tnnrhpwd',
+                        ],
                     },
                 }}
             />
@@ -109,10 +115,19 @@ function Home() {
                 
                 <section className="section-tile hero-section">
                     <div id="content-tile">
+                        {/*
+                          Visually-hidden but crawlable H1: the visible typewriter
+                          text below is decorative/dynamic (fetched from the
+                          backend) and shouldn't be the page's only H1, since
+                          search engines weight H1 content heavily for topical
+                          relevance. This keeps the real page heading anchored
+                          to the name being searched for.
+                        */}
+                        <h1 className="sr-only">Steven Tanner Hopwood — STHopwood Portfolio</h1>
                         <div id="text-title" className="typewriter">
-                            <h1 style={{ display: 'inline', font: 'inherit', margin: 0 }}>
+                            <span style={{ display: 'inline', font: 'inherit', margin: 0 }}>
                                 {displayedText}
-                            </h1>
+                            </span>
                             <span className="cursor">|</span>
                         </div>
                         <div id="text-body" className={`fade-in-up ${animationPhase >= 1 ? 'visible' : ''}`}>

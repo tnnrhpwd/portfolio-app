@@ -7,8 +7,10 @@
     <meta name="theme-color" content="#000000" />
     <meta
       name="description"
-      content="Steven Tanner Hopwood — Portfolio showcasing web development, projects, and more."
+      content="Steven Tanner Hopwood (STHopwood) — Advanced Manufacturing Engineer &amp; full-stack developer. Portfolio showcasing web development projects, tools, and professional experience."
     />
+    <meta name="author" content="Steven Tanner Hopwood" />
+    <link rel="canonical" href="https://sthopwood.com/" />
 
     <!-- Preconnect to critical third-party origins -->
     <link rel="preconnect" href="https://mern-plan-web-service.onrender.com" crossorigin />
@@ -19,19 +21,59 @@
     <!-- Open Graph / Social Sharing -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://sthopwood.com/" />
-    <meta property="og:title" content="STHopwood — Portfolio" />
-    <meta property="og:description" content="Steven Tanner Hopwood — Portfolio showcasing web development, projects, and more." />
+    <meta property="og:site_name" content="STHopwood" />
+    <meta property="og:title" content="Steven Tanner Hopwood | STHopwood — Portfolio" />
+    <meta property="og:description" content="Steven Tanner Hopwood — Advanced Manufacturing Engineer & full-stack developer. Portfolio showcasing web development projects, tools, and more." />
     <meta property="og:image" content="https://sthopwood.com/STHlogo192.png" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="STHopwood — Portfolio" />
-    <meta name="twitter:description" content="Steven Tanner Hopwood — Portfolio showcasing web development, projects, and more." />
+    <meta name="twitter:title" content="Steven Tanner Hopwood | STHopwood — Portfolio" />
+    <meta name="twitter:description" content="Steven Tanner Hopwood — Advanced Manufacturing Engineer & full-stack developer. Portfolio showcasing web development projects, tools, and more." />
     <meta name="twitter:image" content="https://sthopwood.com/STHlogo192.png" />
 
     <link rel="apple-touch-icon" href="/STHlogo192.png" />
     <link rel="manifest" href="/manifest.json" />
-    <title>STHopwood</title>
+    <title>Steven Tanner Hopwood | STHopwood</title>
+
+    <!--
+      Static Person + WebSite structured data (schema.org). This is rendered
+      in the initial HTML (before React hydrates) so it is visible to every
+      crawler — including ones that don't execute JavaScript — establishing
+      the canonical identity behind "Steven Hopwood" / "Steven Tanner
+      Hopwood" / "STHopwood" / "sthopwood" search queries. React-rendered
+      pages add their own page-specific JSON-LD on top of this via the SEO
+      component (see src/components/SEO/SEO.jsx).
+    -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Person",
+            "@id": "https://sthopwood.com/#person",
+            "name": "Steven Tanner Hopwood",
+            "alternateName": ["Steven Hopwood", "STHopwood", "sthopwood"],
+            "url": "https://sthopwood.com/",
+            "image": "https://sthopwood.com/STHlogo192.png",
+            "jobTitle": "Advanced Manufacturing Engineer",
+            "sameAs": [
+              "https://www.linkedin.com/in/sthopwood/",
+              "https://github.com/tnnrhpwd"
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://sthopwood.com/#website",
+            "name": "STHopwood",
+            "alternateName": ["Steven Tanner Hopwood Portfolio", "sthopwood.com"],
+            "url": "https://sthopwood.com/",
+            "author": { "@id": "https://sthopwood.com/#person" },
+            "publisher": { "@id": "https://sthopwood.com/#person" }
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
