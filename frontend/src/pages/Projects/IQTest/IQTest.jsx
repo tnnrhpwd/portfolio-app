@@ -144,9 +144,21 @@ function IQTest() {
     }
   }, [currentIndex, questions, userAnswers]);
 
+  // Steps back to the previous question, discarding its recorded answer so
+  // the user can reconsider and re-select it via goToNext/handleNext.
+  const goToPrevious = useCallback(() => {
+    if (currentIndex === 0) return;
+    const prevIndex = currentIndex - 1;
+    const prevAnswer = userAnswers[prevIndex];
+    setUserAnswers(userAnswers.slice(0, prevIndex));
+    setCurrentIndex(prevIndex);
+    setSelectedOption(prevAnswer ? prevAnswer.selectedIdx : null);
+  }, [currentIndex, userAnswers]);
+
   const handleSelect = (idx) => setSelectedOption(idx);
   const handleNext = () => goToNext(selectedOption);
   const handleSkip = () => goToNext(null);
+  const handleBack = () => goToPrevious();
 
   // ---- Scoring ----
   // Ability is estimated with a Rasch (1PL IRT) model: each answer becomes a
@@ -193,9 +205,9 @@ function IQTest() {
               <p className="iq-test-subtitle">
                 A fresh, randomized set of questions every time, spanning easy to expert
                 difficulty — English &amp; vocabulary, reading comprehension, science reasoning,
-                logic, math, spatial reasoning, critical reasoning, moral reasoning, and pattern
-                matching. Get your score, an estimated IQ, your percentile, and a full breakdown
-                of every answer.
+                logic, math, spatial reasoning, critical reasoning, and pattern matching. Get
+                your score, an estimated IQ, your percentile, and a full breakdown of every
+                answer.
               </p>
             </div>
 
@@ -229,7 +241,6 @@ function IQTest() {
                 <div className="iq-test-category-pill"><span className="emoji">🔢</span>Math</div>
                 <div className="iq-test-category-pill"><span className="emoji">🧊</span>Spatial Reasoning</div>
                 <div className="iq-test-category-pill"><span className="emoji">🧠</span>Critical Reasoning</div>
-                <div className="iq-test-category-pill"><span className="emoji">⚖️</span>Moral Reasoning</div>
                 <div className="iq-test-category-pill"><span className="emoji">🔷</span>Pattern Matching</div>
               </div>
               <p className="iq-test-hint">
@@ -290,6 +301,9 @@ function IQTest() {
               </div>
 
               <div className="iq-test-btn-row">
+                <button className="iq-test-btn secondary" onClick={handleBack} disabled={currentIndex === 0}>
+                  ← Back
+                </button>
                 <button className="iq-test-btn secondary" onClick={handleSkip}>Skip Question</button>
                 <button className="iq-test-btn" onClick={handleNext} disabled={selectedOption === null}>
                   {currentIndex === questions.length - 1 ? 'Finish →' : 'Next →'}
