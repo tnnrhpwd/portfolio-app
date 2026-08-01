@@ -192,6 +192,9 @@
 .iq-test-cat-science { background: var(--fg-mint); }
 .iq-test-cat-logic { background: var(--fg-pink); }
 .iq-test-cat-math { background: rgb(150, 100, 255); }
+.iq-test-cat-spatial { background: rgb(0, 180, 120); }
+.iq-test-cat-critical { background: rgb(255, 180, 0); }
+.iq-test-cat-pattern { background: rgb(230, 70, 70); }
 
 .iq-test-passage {
   background: #00000033;
