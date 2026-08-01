@@ -151,7 +151,7 @@ app.get('/health', (req, res) => {
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 // Handle 404 for undefined routes
-app.use('*', (req, res) => {
+app.use((req, res) => {
   logger.warn(`404 - Route not found: ${req.originalUrl}`, {
     method: req.method,
     ip: req.ip,
