@@ -472,7 +472,7 @@ router.route('/market/skills')
   .get(protect, marketReadLimiter, searchMarketSkills)
   .post(protect, marketPublishLimiter, sanitizeInput, publishSkill);
 
-router.get('/market/skills/:marketId/:version?', protect, marketReadLimiter, getMarketSkill);
+router.get('/market/skills/:marketId{/:version}', protect, marketReadLimiter, getMarketSkill);
 router.post('/market/skills/:marketId/install', protect, marketWriteLimiter, sanitizeInput, installMarketSkill);
 router.post('/market/skills/:marketId/rate', protect, marketWriteLimiter, sanitizeInput, rateMarketSkill);
 router.post('/market/skills/:marketId/flag', protect, marketWriteLimiter, sanitizeInput, flagMarketSkill);
