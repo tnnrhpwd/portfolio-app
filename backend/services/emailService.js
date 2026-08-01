@@ -27,6 +27,10 @@ if (process.env.POSTMARK_API_TOKEN) {
   console.warn('⚠️  POSTMARK_API_TOKEN not configured. Email functionality will be disabled.');
 }
 
+if (client && !process.env.FROM_EMAIL) {
+  console.warn('⚠️  FROM_EMAIL not configured. Postmark sends will fail with "Invalid \'From\' value".');
+}
+
 /**
  * Send an email using Postmark
  * @param {string} to - Recipient email address
@@ -50,6 +54,10 @@ const sendEmail = async (to, templateName, data) => {
         console.log('Email data:', JSON.stringify(data, null, 2));
       }
       return { MessageID: 'dev-mode-skip', Message: 'Email service not configured' };
+    }
+
+    if (!process.env.FROM_EMAIL) {
+      throw new Error('FROM_EMAIL environment variable is not configured; cannot send email.');
     }
 
     let emailContent;
