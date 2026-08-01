@@ -166,9 +166,15 @@ router.use(express.urlencoded({ extended: false }));
 
 // Diagnostic logging AFTER body parsing
 router.use((req, res, next) => {
+  // req.body is undefined for requests with no matching body (e.g. GET
+  // requests without a JSON content-type) since express.json()/urlencoded()
+  // skip setting it in that case. Guard against that before stringifying,
+  // otherwise JSON.stringify(undefined) returns `undefined` (not a string)
+  // and `.length` throws, 500-ing every bodyless GET request.
+  const bodyJson = req.body ? JSON.stringify(req.body) : '';
   // Only log body for non-sensitive routes and if body is not too large
-  if (!req.originalUrl.includes('login') && !req.originalUrl.includes('register') && 
-      JSON.stringify(req.body).length < 1000) {
+  if (!req.originalUrl.includes('login') && !req.originalUrl.includes('register') &&
+      bodyJson.length > 0 && bodyJson.length < 1000) {
     console.log('[DEBUG] Request Body After Parsing:', JSON.stringify(req.body, null, 2));
   }
   next();
