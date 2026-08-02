@@ -1,5 +1,7 @@
 # API Usage Tracking System - Implementation Summary
 
+> **⚠️ Historical/outdated.** This document describes an early implementation (Free/Flex/Premium tiers with a $10/month platform-paid OpenAI usage cap). The product has since moved to a **BYOK (Bring Your Own Key) model with two tiers, Free and Pro** — see [backend/constants/pricing.js](/c:/Users/tanne/Documents/Github/portfolio-app/backend/constants/pricing.js) and [ACTION_PLAN.md](/c:/Users/tanne/Documents/Github/portfolio-app/docs/guides/ACTION_PLAN.md) for the current model. Under BYOK, users supply their own API key for AI chat, so there is no platform-side spend cap or tier gating on models (`backend/services/llmService.js` explicitly allows all models to all tiers). The `apiUsageTracker.js` utility described below still exists in the codebase, but today it's used for internal cost estimation/logging, not for enforcing a Free/Flex/Premium spending limit. Kept here for historical context only — don't use the tier names or limits below as current fact.
+
 ## Overview
 I've implemented a comprehensive API usage tracking system for your portfolio app that tracks usage of paid external APIs and provides usage limits for Simple and CSimple memberships.
 
