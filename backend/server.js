@@ -166,28 +166,26 @@ app.use((req, res) => {
 
 app.use(errorHandler) // adds middleware that returns errors in json format (regardless of hit url)
 
-  logger.info('Connected to DynamoDB');  // print confirmation
-  const server = app.listen(port, () => {
-    logger.info(`Server started on port ${port}`);
-    console.log(`Server started on port ${port}`.green.bold);
-  }); // listen for incoming http requests on the PORT && print PORT in console
-  
-  server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-      logger.error(`Port ${port} is already in use.`);
-      console.error(`Port ${port} is already in use.`.red);
-      process.exit(1);
-    } else {
-      logger.error('Server error:', err);
-      throw err;
-    }
-  });
+const server = app.listen(port, () => {
+  logger.info(`Server started on port ${port}`);
+}); // listen for incoming http requests on the PORT && print PORT in console
 
-  // Graceful shutdown
-  process.on('SIGTERM', () => {
-    logger.info('SIGTERM received, shutting down gracefully');
-    server.close(() => {
-      logger.info('Process terminated');
-      process.exit(0);
-    });
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    logger.error(`Port ${port} is already in use.`);
+    console.error(`Port ${port} is already in use.`.red);
+    process.exit(1);
+  } else {
+    logger.error('Server error:', err);
+    throw err;
+  }
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM received, shutting down gracefully');
+  server.close(() => {
+    logger.info('Process terminated');
+    process.exit(0);
   });
+});
