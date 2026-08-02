@@ -1,6 +1,5 @@
-﻿const path = require('path'); // module to read file locations
+const path = require('path'); // module to read file locations
 const express = require('express'); // import express to create REST API server
-const colors = require('colors'); // allows the console to print colored text
 const helmet = require('helmet'); // security middleware
 const compression = require('compression'); // compression middleware
 const dotenv = require('dotenv').config();   // import env vars from .env
@@ -40,7 +39,6 @@ if (process.env.NODE_ENV === 'production') {
     contentSecurityPolicy: false, // Disable CSP in development
     hsts: false // Disable HSTS in development
   }));
-  console.log('Helmet configured for development (lenient settings)');
 }
 
 // CORS configuration - simplified for development
@@ -78,7 +76,6 @@ if (process.env.NODE_ENV === 'production') {
   }));
 } else {
   // Permissive CORS for development
-  console.log('Development mode: using permissive CORS');
   app.use(cors({
     origin: true, // Allow all origins in development
     credentials: true,
@@ -166,28 +163,26 @@ app.use((req, res) => {
 
 app.use(errorHandler) // adds middleware that returns errors in json format (regardless of hit url)
 
-  logger.info('Connected to DynamoDB');  // print confirmation
-  const server = app.listen(port, () => {
-    logger.info(`Server started on port ${port}`);
-    console.log(`Server started on port ${port}`.green.bold);
-  }); // listen for incoming http requests on the PORT && print PORT in console
-  
-  server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-      logger.error(`Port ${port} is already in use.`);
-      console.error(`Port ${port} is already in use.`.red);
-      process.exit(1);
-    } else {
-      logger.error('Server error:', err);
-      throw err;
-    }
-  });
+logger.info('Connected to DynamoDB');
+const server = app.listen(port, () => {
+  logger.info(`Server started on port ${port}`);
+}); // listen for incoming http requests on the PORT
 
-  // Graceful shutdown
-  process.on('SIGTERM', () => {
-    logger.info('SIGTERM received, shutting down gracefully');
-    server.close(() => {
-      logger.info('Process terminated');
-      process.exit(0);
-    });
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    logger.error(`Port ${port} is already in use.`);
+    process.exit(1);
+  } else {
+    logger.error('Server error:', err);
+    throw err;
+  }
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM received, shutting down gracefully');
+  server.close(() => {
+    logger.info('Process terminated');
+    process.exit(0);
   });
+});

@@ -25,13 +25,17 @@ const logger = winston.createLogger({
   ],
 });
 
-// If we're not in production then also log to the console
+// If we're not in production then also log to the console. Keep the console
+// output terse (level + message only) — the full JSON with timestamp/service
+// metadata is still written to the log files above for later inspection.
+const consoleFormat = winston.format.combine(
+  winston.format.colorize(),
+  winston.format.printf(({ level, message }) => `${level}: ${message}`)
+);
+
 if (process.env.NODE_ENV !== 'production') {
   logger.add(new winston.transports.Console({
-    format: winston.format.combine(
-      winston.format.colorize(),
-      winston.format.simple()
-    )
+    format: consoleFormat
   }));
 }
 
@@ -50,10 +54,7 @@ const securityLogger = winston.createLogger({
 // In dev, also surface security events on the console so auth failures are visible
 if (process.env.NODE_ENV !== 'production') {
   securityLogger.add(new winston.transports.Console({
-    format: winston.format.combine(
-      winston.format.colorize(),
-      winston.format.simple()
-    )
+    format: consoleFormat
   }));
 }
 
