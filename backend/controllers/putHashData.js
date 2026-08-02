@@ -9,6 +9,7 @@ const { getStripe, liveStripe: stripe } = require('../utils/stripeInstance.js');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand, PutCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
 const { RANK_REGEX } = require('../constants/pricing');
+const { logger } = require('../utils/logger');
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -26,35 +27,35 @@ const dynamodb = DynamoDBDocumentClient.from(client);
 // @access  Private
 const putHashData = asyncHandler(async (req, res) => {
     await checkIP(req);
-    console.log('Update Data Request:', req.body);
-    console.log('Request body keys:', Object.keys(req.body));
-    console.log('Request body data:', req.body.data);
-    console.log('Request body text:', req.body.text);
+    logger.debug('Update Data Request:', req.body);
+    logger.debug('Request body keys:', Object.keys(req.body));
+    logger.debug('Request body data:', req.body.data);
+    logger.debug('Request body text:', req.body.text);
 
     // Check for user
     if (!req.user) {
         res.status(401);
         throw new Error('User not found');
     }
-    // console.log('User:', req.user);
-    console.log('req.params.id:', req.params.id);
+    // logger.debug('User:', req.user);
+    logger.debug('req.params.id:', req.params.id);
 
     try {
         // Debug: log the exact parameter we're trying to use
-        console.log('Attempting to get item with id:', req.params.id);
-        console.log('id type:', typeof req.params.id);
-        console.log('id length:', req.params.id.length);
+        logger.debug('Attempting to get item with id:', req.params.id);
+        logger.debug('id type:', typeof req.params.id);
+        logger.debug('id length:', req.params.id.length);
 
         // Check if this is a bug report close action
         if (req.body.action === 'close_bug_report') {
-            console.log('Processing bug report closure');
+            logger.debug('Processing bug report closure');
             await closeBugReportHandler(req, res);
             return;
         }
 
         // Check if this is an agree/disagree action
         if (req.body.type === 'agree' || req.body.type === 'disagree') {
-            console.log('Processing agree/disagree action:', req.body.type);
+            logger.debug('Processing agree/disagree action:', req.body.type);
             await handleAgreeDisagreeAction(req, res);
             return;
         }
@@ -70,27 +71,27 @@ const putHashData = asyncHandler(async (req, res) => {
 
         let item;
         try {
-            console.log('Using scan instead of get...');
+            logger.debug('Using scan instead of get...');
             const scanResult = await dynamodb.send(new ScanCommand(scanParams));
-            console.log('Scan result count:', scanResult.Items ? scanResult.Items.length : 0);
+            logger.debug('Scan result count:', scanResult.Items ? scanResult.Items.length : 0);
             
             if (!scanResult.Items || scanResult.Items.length === 0) {
-                console.log('No items found via scan');
+                logger.debug('No items found via scan');
                 res.status(404).json({ error: 'Data item not found' });
                 return;
             }
             
             item = scanResult.Items[0];
-            console.log('Found item via scan');
+            logger.debug('Found item via scan');
         } catch (scanError) {
-            console.error('Error scanning item:', scanError);
+            logger.error('Error scanning item:', scanError);
             res.status(500).json({ error: 'Failed to get data from DynamoDB' });
             return;
         }
 
         if (!item) {
             res.status(400);
-            console.error('Data input not found');
+            logger.error('Data input not found');
             throw new Error('Data input not found');
         }
 
@@ -98,7 +99,7 @@ const putHashData = asyncHandler(async (req, res) => {
         const dataCreator = item.text.substring(item.text.indexOf("Creator:") + 8, item.text.indexOf("Creator:") + 8 + 24);
         if (dataCreator !== req.user.id) {
             res.status(401);
-            console.error('User not authorized');
+            logger.error('User not authorized');
             throw new Error('User not authorized');
         }
 
@@ -117,15 +118,15 @@ const putHashData = asyncHandler(async (req, res) => {
         await getPaymentMethods(req, res, async () => {
             const paymentMethods = req.paymentMethods;
             if (!paymentMethods || paymentMethods.length === 0) {
-                console.error('No payment method found');
+                logger.error('No payment method found');
                 res.status(200).json({ redirectToPay: true });
                 return;
             }
-            console.log('Payment methods:', paymentMethods.length);
+            logger.debug('Payment methods:', paymentMethods.length);
             await updateDataHolder(req, res, item);
         });
     } catch (error) {
-        console.error('Error during data update:', error);
+        logger.error('Error during data update:', error);
         res.status(500);
         throw new Error('Server error');
     }
@@ -139,7 +140,7 @@ const handleAgreeDisagreeAction = async (req, res) => {
     try {
         // Decode the URL-encoded ID
         const decodedId = decodeURIComponent(req.params.id);
-        console.log('Decoded ID for agree/disagree:', decodedId);
+        logger.debug('Decoded ID for agree/disagree:', decodedId);
         
         // Find the item using scan
         const scanParams = {
@@ -153,7 +154,7 @@ const handleAgreeDisagreeAction = async (req, res) => {
         const scanResult = await dynamodb.send(new ScanCommand(scanParams));
         
         if (!scanResult.Items || scanResult.Items.length === 0) {
-            console.log('Item not found for agree/disagree action');
+            logger.debug('Item not found for agree/disagree action');
             res.status(404).json({ error: 'Item not found' });
             return;
         }
@@ -211,7 +212,7 @@ const handleAgreeDisagreeAction = async (req, res) => {
             updatedText += `|Disagrees:${disagrees.join(',')}`;
         }
         
-        console.log('Updated text with agrees/disagrees:', updatedText);
+        logger.debug('Updated text with agrees/disagrees:', updatedText);
         
         // Update the item in DynamoDB
         const putParams = {
@@ -234,7 +235,7 @@ const handleAgreeDisagreeAction = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Error processing agree/disagree action:', error);
+        logger.error('Error processing agree/disagree action:', error);
         res.status(500).json({ error: 'Failed to process agree/disagree action' });
     }
 };
@@ -245,11 +246,11 @@ const updateDataHolder = async (req, res, item) => {
     
     // Check if this is a general data update (frontend sends data.text format)
     if (req.body.data && req.body.data.text) {
-        console.log('Processing general data text update');
+        logger.debug('Processing general data text update');
         
         // For general data updates, replace the entire text content
         const updatedText = textContent;
-        console.log('Updated data text:', updatedText);
+        logger.debug('Updated data text:', updatedText);
 
         // Use put operation to update the item
         const putParams = {
@@ -264,10 +265,10 @@ const updateDataHolder = async (req, res, item) => {
         try {
             await dynamodb.send(new PutCommand(putParams));
             const updatedItem = putParams.Item;
-            console.log('Data text updated successfully');
+            logger.debug('Data text updated successfully');
             res.status(200).json(updatedItem);
         } catch (error) {
-            console.error('Error updating data text in DynamoDB:', error);
+            logger.error('Error updating data text in DynamoDB:', error);
             res.status(500).json({ error: 'Failed to update data text in DynamoDB' });
         }
         return;
@@ -275,11 +276,11 @@ const updateDataHolder = async (req, res, item) => {
     
     // Check if this is a Net chat update (contains |Net: content)
     if (textContent.includes('|Net:')) {
-        console.log('Processing Net chat update');
+        logger.debug('Processing Net chat update');
         
         // For Net chats, replace the entire text content
         const updatedText = textContent;
-        console.log('Updated Net chat text:', updatedText);
+        logger.debug('Updated Net chat text:', updatedText);
 
         // Use put operation to update the item
         const putParams = {
@@ -294,10 +295,10 @@ const updateDataHolder = async (req, res, item) => {
         try {
             await dynamodb.send(new PutCommand(putParams));
             const updatedItem = putParams.Item;
-            console.log('Net chat updated successfully');
+            logger.debug('Net chat updated successfully');
             res.status(200).json(updatedItem);
         } catch (error) {
-            console.error('Error updating Net chat in DynamoDB:', error);
+            logger.error('Error updating Net chat in DynamoDB:', error);
             res.status(500).json({ error: 'Failed to update Net chat in DynamoDB' });
         }
         return;
@@ -316,7 +317,7 @@ const updateDataHolder = async (req, res, item) => {
         ? item.text.replace(RANK_REGEX, `$1${textContent}`)
         : `${item.text}|Rank:${textContent}`;
 
-    console.log('Updated text:', updatedText);
+    logger.debug('Updated text:', updatedText);
 
     // Use put operation instead of update since we're working with scan results
     const putParams = {
@@ -360,9 +361,9 @@ const updateDataHolder = async (req, res, item) => {
                             userData: { text: updatedText }
                         });
                     }
-                    console.log(`Subscription email sent to ${userEmail}`);
+                    logger.debug(`Subscription email sent to ${userEmail}`);
                 } catch (error) {
-                    console.error('Failed to send subscription update email:', error);
+                    logger.error('Failed to send subscription update email:', error);
                     // Don't fail the operation if email sending fails
                 }
             }
@@ -370,7 +371,7 @@ const updateDataHolder = async (req, res, item) => {
 
         res.status(200).json(updatedItem);
     } catch (error) {
-        console.error('Error updating data in DynamoDB:', error);
+        logger.error('Error updating data in DynamoDB:', error);
         res.status(500).json({ error: 'Failed to update data in DynamoDB' });
     }
 };
@@ -380,8 +381,8 @@ const closeBugReportHandler = async (req, res) => {
     const { resolutionText } = req.body;
     const reportId = req.params.id;
 
-    console.log('Closing bug report with ID:', reportId);
-    console.log('Resolution text:', resolutionText);
+    logger.debug('Closing bug report with ID:', reportId);
+    logger.debug('Resolution text:', resolutionText);
 
     try {
         // Find the bug report. A single Scan page is capped at ~1MB by
@@ -409,7 +410,7 @@ const closeBugReportHandler = async (req, res) => {
         } while (lastEvaluatedKey);
 
         if (!item) {
-            console.log('Bug report not found');
+            logger.debug('Bug report not found');
             res.status(404).json({ error: 'Bug report not found' });
             return;
         }
@@ -461,7 +462,7 @@ const closeBugReportHandler = async (req, res) => {
         };
 
         await dynamodb.send(new PutCommand(putParams));
-        console.log('Bug report closed successfully');
+        logger.debug('Bug report closed successfully');
         
         res.status(200).json({
             success: true,
@@ -470,7 +471,7 @@ const closeBugReportHandler = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Error closing bug report:', error);
+        logger.error('Error closing bug report:', error);
         res.status(500).json({ error: 'Failed to close bug report' });
     }
 };
@@ -498,7 +499,7 @@ const putPaymentMethod = asyncHandler(async (req, res) => {
 
         res.status(200).json(paymentMethod);
     } catch (error) {
-        console.error('Error updating payment method:', error);
+        logger.error('Error updating payment method:', error);
         res.status(500);
         throw new Error('Server error');
     }

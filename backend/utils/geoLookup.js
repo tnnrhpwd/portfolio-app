@@ -11,6 +11,7 @@ const cache = new Map();
 
 function cleanupCache() {
   const now = Date.now();
+const { logger } = require('./logger');
   for (const [key, value] of cache.entries()) {
     if (now - value.timestamp > CACHE_TTL) cache.delete(key);
   }
@@ -44,7 +45,7 @@ async function getGeoForIp(ip) {
     cache.set(ip, { geo: result, timestamp: Date.now() });
     return result;
   } catch (error) {
-    console.error('[geoLookup] Failed to resolve geo for IP:', ip, error.message);
+    logger.error('[geoLookup] Failed to resolve geo for IP:', ip, error.message);
     return null;
   }
 }

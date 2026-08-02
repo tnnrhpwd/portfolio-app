@@ -3,6 +3,7 @@ const { DynamoDBDocumentClient, ScanCommand, PutCommand } = require('@aws-sdk/li
 const { getStripe, liveStripe: stripe } = require('./stripeInstance');
 const { PLAN_IDS, isProTier, isSimpleTier, STRIPE_PRODUCT_IDS, STRIPE_PRODUCT_MAP } = require('../constants/pricing');
 const { redactUser } = require('./sanitizeUserText');
+const { logger } = require('./logger');
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -88,7 +89,7 @@ function parseUserCredits(userText) {
     try {
         return JSON.parse(creditsMatch[1]);
     } catch (error) {
-        console.error('Error parsing credits data:', error);
+        logger.error('Error parsing credits data:', error);
         return {
             availableCredits: 0,
             customLimit: null,
@@ -143,7 +144,7 @@ function performMonthlyReset(creditsData, membership, subscriptionActive = true)
     
     // Only perform reset if subscription is active
     if (!subscriptionActive) {
-        console.log('Subscription not active, skipping monthly reset');
+        logger.debug('Subscription not active, skipping monthly reset');
         return creditsData; // Return unchanged if subscription cancelled
     }
     
@@ -164,21 +165,21 @@ function performMonthlyReset(creditsData, membership, subscriptionActive = true)
  */
 function parseUsageData(userText) {
     // Debug logging
-    console.log('parseUsageData: Input text length:', userText.length);
-    console.log('parseUsageData: Input text preview:', userText.substring(0, 300) + '...');
+    logger.debug('parseUsageData: Input text length:', userText.length);
+    logger.debug('parseUsageData: Input text preview:', userText.substring(0, 300) + '...');
     
     const usageMatch = userText.match(/\|Usage:([^|]*)/);
     if (!usageMatch || !usageMatch[1]) {
-        console.log('parseUsageData: No usage data found in user text');
+        logger.debug('parseUsageData: No usage data found in user text');
         return { entries: [], totalCost: 0 };
     }
 
     const usageString = usageMatch[1].trim();
-    console.log('parseUsageData: Found usage string:', usageString);
+    logger.debug('parseUsageData: Found usage string:', usageString);
     
     // Handle edge cases where the string might be empty or just whitespace
     if (!usageString || usageString.length === 0) {
-        console.log('parseUsageData: Usage string is empty');
+        logger.debug('parseUsageData: Usage string is empty');
         return { entries: [], totalCost: 0 };
     }
     
@@ -191,12 +192,12 @@ function parseUsageData(userText) {
         ? usageString.split(',').filter(entry => entry.trim()).map(entry => entry.trim())
         : [usageString.trim()]; // If no comma, treat the whole string as a single entry
     
-    console.log('parseUsageData: Usage entries after processing:', usageEntries);
+    logger.debug('parseUsageData: Usage entries after processing:', usageEntries);
     
     for (const entry of usageEntries) {
-        console.log(`Parsing entry: "${entry}"`);
+        logger.debug(`Parsing entry: "${entry}"`);
         const parts = entry.split(':');
-        console.log('Split parts:', parts);
+        logger.debug('Split parts:', parts);
         if (parts.length >= 3) {
             const [apiDate, usage, costStr] = parts;
             // Find the first dash to separate API name from date
@@ -208,7 +209,7 @@ function parseUsageData(userText) {
             const cleanCostStr = costStr.replace('$', '').trim();
             const cost = parseFloat(cleanCostStr);
             
-            console.log(`  - API: ${apiName}, Date: ${fullDate}, Usage: ${usage}, Cost: $${cost}`);
+            logger.debug(`  - API: ${apiName}, Date: ${fullDate}, Usage: ${usage}, Cost: $${cost}`);
             
             if (!isNaN(cost)) {
                 entries.push({
@@ -221,14 +222,14 @@ function parseUsageData(userText) {
                 
                 totalCost += cost;
             } else {
-                console.warn(`  - Failed to parse cost from "${costStr}"`);
+                logger.warn(`  - Failed to parse cost from "${costStr}"`);
             }
         } else {
-            console.warn(`  - Invalid entry format, expected 3 parts but got ${parts.length}: "${entry}"`);
+            logger.warn(`  - Invalid entry format, expected 3 parts but got ${parts.length}: "${entry}"`);
         }
     }
 
-    console.log('parseUsageData: Final result - entries:', entries.length, 'totalCost:', totalCost);
+    logger.debug('parseUsageData: Final result - entries:', entries.length, 'totalCost:', totalCost);
     return { entries, totalCost };
 }
 
@@ -255,7 +256,7 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
     try {
         // Check if user is admin - admins have unlimited access (still track for logging but don't deduct credits)
         if (userId === process.env.ADMIN_USER_ID) {
-            console.log('trackApiUsage: Admin user detected, logging usage but not deducting credits');
+            logger.debug('trackApiUsage: Admin user detected, logging usage but not deducting credits');
             return {
                 cost: 0,
                 creditsRemaining: Infinity,
@@ -267,7 +268,7 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
         // so don't deduct credits for their usage — only track server-key usage.
         const PER_USER_KEY_PROVIDERS = new Set(['github']);
         if (PER_USER_KEY_PROVIDERS.has(apiName)) {
-            console.log(`trackApiUsage: Provider "${apiName}" uses per-user key, skipping credit deduction`);
+            logger.debug(`trackApiUsage: Provider "${apiName}" uses per-user key, skipping credit deduction`);
             return {
                 success: true,
                 cost: 0,
@@ -329,11 +330,11 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
         let userRank;
         try {
             userRank = await getUserRankFromStripe(userId);
-            console.log('trackApiUsage: Got rank from Stripe:', userRank);
+            logger.debug('trackApiUsage: Got rank from Stripe:', userRank);
         } catch (error) {
-            console.error('trackApiUsage: Stripe rank lookup failed, using legacy:', error);
+            logger.error('trackApiUsage: Stripe rank lookup failed, using legacy:', error);
             userRank = getUserRank(userText);
-            console.log('trackApiUsage: Using legacy rank:', userRank);
+            logger.debug('trackApiUsage: Using legacy rank:', userRank);
         }
 
         // Get user credits data
@@ -341,7 +342,7 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
         
         // Check if monthly reset is needed
         if (needsMonthlyReset(creditsData, userRank)) {
-            console.log('trackApiUsage: Performing monthly reset for user');
+            logger.debug('trackApiUsage: Performing monthly reset for user');
             creditsData = performMonthlyReset(creditsData, userRank);
         }
 
@@ -368,7 +369,7 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
         creditsData.availableCredits -= cost;
         creditsData.availableCredits = Math.max(0, creditsData.availableCredits); // Ensure no negative credits
 
-        console.log(`trackApiUsage: Deducted $${cost.toFixed(4)}, Remaining credits: $${creditsData.availableCredits.toFixed(4)}`);
+        logger.debug(`trackApiUsage: Deducted $${cost.toFixed(4)}, Remaining credits: $${creditsData.availableCredits.toFixed(4)}`);
 
         // Parse existing usage data for tracking purposes
         const { entries } = parseUsageData(userText);
@@ -447,7 +448,7 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
         };
 
     } catch (error) {
-        console.error('Error tracking API usage:', error);
+        logger.error('Error tracking API usage:', error);
         throw error;
     }
 }
@@ -461,7 +462,7 @@ async function getUserUsageStats(userId) {
     try {
         // Admin users have unlimited access
         if (userId === process.env.ADMIN_USER_ID) {
-            console.log('getUserUsageStats: Admin user detected, returning unlimited stats');
+            logger.debug('getUserUsageStats: Admin user detected, returning unlimited stats');
             return {
                 totalUsage: 0,
                 availableCredits: Infinity,
@@ -483,19 +484,19 @@ async function getUserUsageStats(userId) {
         }
 
         const userText = user.text || '';
-        console.log('getUserUsageStats: User text contains:', userText.substring(0, 200) + '...');
+        logger.debug('getUserUsageStats: User text contains:', userText.substring(0, 200) + '...');
         const usage = parseUsageData(userText);
-        console.log('getUserUsageStats: Parsed usage:', usage);
+        logger.debug('getUserUsageStats: Parsed usage:', usage);
         
         // Try to get rank from Stripe first, fallback to legacy rank
         let userRank;
         try {
             userRank = await getUserRankFromStripe(userId);
-            console.log('getUserUsageStats: Got rank from Stripe:', userRank);
+            logger.debug('getUserUsageStats: Got rank from Stripe:', userRank);
         } catch (error) {
-            console.error('getUserUsageStats: Stripe rank lookup failed, using legacy:', error);
+            logger.error('getUserUsageStats: Stripe rank lookup failed, using legacy:', error);
             userRank = getUserRank(userText);
-            console.log('getUserUsageStats: Using legacy rank:', userRank);
+            logger.debug('getUserUsageStats: Using legacy rank:', userRank);
         }
 
         // Get credits data
@@ -503,7 +504,7 @@ async function getUserUsageStats(userId) {
         
         // Check if monthly reset is needed and perform it
         if (needsMonthlyReset(creditsData, userRank)) {
-            console.log('getUserUsageStats: Performing monthly reset for user');
+            logger.debug('getUserUsageStats: Performing monthly reset for user');
             creditsData = performMonthlyReset(creditsData, userRank);
             
             // Save updated credits to database
@@ -536,10 +537,10 @@ async function getUserUsageStats(userId) {
             percentUsed: limit > 0 ? ((limit - creditsData.availableCredits) / limit) * 100 : 0
         };
         
-        console.log('getUserUsageStats: Returning result:', result);
+        logger.debug('getUserUsageStats: Returning result:', result);
         return result;
     } catch (error) {
-        console.error('Error getting user usage stats:', error);
+        logger.error('Error getting user usage stats:', error);
         throw error;
     }
 }
@@ -560,7 +561,7 @@ async function getUserDataCached(userId) {
     const cached = userDataCache.get(cacheKey);
     
     if (cached && (Date.now() - cached.timestamp) < USER_DATA_CACHE_DURATION) {
-        console.log(`Using cached user data for ${userId}`);
+        logger.debug(`Using cached user data for ${userId}`);
         return cached.data;
     }
 
@@ -594,35 +595,35 @@ async function getUserRankFromStripe(userId) {
         const cached = userRankCache.get(cacheKey);
         
         if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
-            console.log(`getUserRankFromStripe: Using cached rank for ${userId}: ${cached.rank}`);
+            logger.debug(`getUserRankFromStripe: Using cached rank for ${userId}: ${cached.rank}`);
             return cached.rank;
         }
 
-        console.log('getUserRankFromStripe called for userId:', userId);
+        logger.debug('getUserRankFromStripe called for userId:', userId);
         
         // Get user data with caching
         const user = await getUserDataCached(userId);
         if (!user) {
-            console.log('getUserRankFromStripe: User not found in DynamoDB');
+            logger.debug('getUserRankFromStripe: User not found in DynamoDB');
             const rank = 'Free';
             userRankCache.set(cacheKey, { rank, timestamp: Date.now() });
             return rank;
         }
 
         const userText = user.text || '';
-        console.log('getUserRankFromStripe: User text (first 200 chars):', userText.substring(0, 200));
+        logger.debug('getUserRankFromStripe: User text (first 200 chars):', userText.substring(0, 200));
         
         // Extract Stripe customer ID
         const stripeIdMatch = userText.match(/\|stripeid:([^|]+)/);
         if (!stripeIdMatch || !stripeIdMatch[1]) {
-            console.log('getUserRankFromStripe: No Stripe customer ID found');
+            logger.debug('getUserRankFromStripe: No Stripe customer ID found');
             const rank = 'Free';
             userRankCache.set(cacheKey, { rank, timestamp: Date.now() });
             return rank;
         }
 
         const customerId = stripeIdMatch[1];
-        console.log('getUserRankFromStripe: Customer ID:', customerId);
+        logger.debug('getUserRankFromStripe: Customer ID:', customerId);
         const s = getStripe(userId);
         
         // Optimized: Get only the most recent subscriptions and use a single API call
@@ -633,12 +634,12 @@ async function getUserRankFromStripe(userId) {
             expand: ['data.plan.product']
         });
 
-        console.log('getUserRankFromStripe: Found', recentSubscriptions.data.length, 'recent subscriptions');
+        logger.debug('getUserRankFromStripe: Found', recentSubscriptions.data.length, 'recent subscriptions');
         
         // Only log detailed info if no cached result and in development
         if (process.env.NODE_ENV === 'development' && !cached) {
             recentSubscriptions.data.forEach((sub, index) => {
-                console.log(`getUserRankFromStripe: Subscription ${index + 1}: ID=${sub.id}, Status=${sub.status}, Product=${sub.plan?.product?.name || 'unknown'}`);
+                logger.debug(`getUserRankFromStripe: Subscription ${index + 1}: ID=${sub.id}, Status=${sub.status}, Product=${sub.plan?.product?.name || 'unknown'}`);
             });
         }
 
@@ -652,13 +653,13 @@ async function getUserRankFromStripe(userId) {
             if (subscription) {
                 validSubscription = subscription;
                 foundStatus = status;
-                console.log(`getUserRankFromStripe: Using ${status} subscription: ${subscription.id}`);
+                logger.debug(`getUserRankFromStripe: Using ${status} subscription: ${subscription.id}`);
                 break;
             }
         }
         
         if (!validSubscription) {
-            console.log('getUserRankFromStripe: No valid subscriptions found');
+            logger.debug('getUserRankFromStripe: No valid subscriptions found');
             const rank = 'Free';
             userRankCache.set(cacheKey, { rank, timestamp: Date.now() });
             return rank;
@@ -667,7 +668,7 @@ async function getUserRankFromStripe(userId) {
         // Determine rank from product ID (prefer ID match, fallback to name)
         const product = validSubscription.plan.product;
         const productName = product.name;
-        console.log('getUserRankFromStripe: Product:', product.id, productName, 'Status:', foundStatus);
+        logger.debug('getUserRankFromStripe: Product:', product.id, productName, 'Status:', foundStatus);
         
         let rank = 'Free';
         const planId = STRIPE_PRODUCT_IDS[product.id] || STRIPE_PRODUCT_MAP[productName];
@@ -675,7 +676,7 @@ async function getUserRankFromStripe(userId) {
             rank = planId.charAt(0).toUpperCase() + planId.slice(1); // 'pro' -> 'Pro'
         }
 
-        console.log(`getUserRankFromStripe: Returning ${rank} membership (status: ${foundStatus})`);
+        logger.debug(`getUserRankFromStripe: Returning ${rank} membership (status: ${foundStatus})`);
 
         // Cache the result with longer duration for stable subscriptions
         const cacheDuration = foundStatus === 'active' ? CACHE_DURATION * 2 : CACHE_DURATION;
@@ -684,7 +685,7 @@ async function getUserRankFromStripe(userId) {
         return rank;
         
     } catch (error) {
-        console.error('Error getting user rank from Stripe:', error);
+        logger.error('Error getting user rank from Stripe:', error);
         // Don't cache errors, return default
         return 'Free';
     }
@@ -709,18 +710,18 @@ function getUserRank(userText) {
  */
 async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
     try {
-        console.log('canMakeApiCall called for userId:', userId, 'apiName:', apiName);
+        logger.debug('canMakeApiCall called for userId:', userId, 'apiName:', apiName);
         
         // Check if user is admin - admins have unlimited access
         if (userId === process.env.ADMIN_USER_ID) {
-            console.log('canMakeApiCall: Admin user detected, granting unlimited access');
+            logger.debug('canMakeApiCall: Admin user detected, granting unlimited access');
             return { canMake: true, reason: 'Admin user has unlimited access' };
         }
 
         // Per-user-key providers use the user's own API key — always allow
         const PER_USER_KEY_PROVIDERS = new Set(['github']);
         if (PER_USER_KEY_PROVIDERS.has(apiName)) {
-            console.log(`canMakeApiCall: Provider "${apiName}" uses per-user key, always allowed`);
+            logger.debug(`canMakeApiCall: Provider "${apiName}" uses per-user key, always allowed`);
             return { canMake: true, reason: 'Per-user API key — no credit check needed' };
         }
         
@@ -736,13 +737,13 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
         let userRank;
         try {
             userRank = await getUserRankFromStripe(userId);
-            console.log('canMakeApiCall: Got rank from Stripe:', userRank);
+            logger.debug('canMakeApiCall: Got rank from Stripe:', userRank);
         } catch (error) {
-            console.error('canMakeApiCall: Stripe rank lookup failed, using legacy:', error);
+            logger.error('canMakeApiCall: Stripe rank lookup failed, using legacy:', error);
             userRank = getUserRank(userText);
         }
 
-        console.log('canMakeApiCall: User membership:', userRank);
+        logger.debug('canMakeApiCall: User membership:', userRank);
 
         // BYOK model — all users can make calls (they use their own API key)
         // Only block if explicitly rate-limited elsewhere
@@ -752,7 +753,7 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
         
         // Check if monthly reset is needed
         if (needsMonthlyReset(creditsData, userRank)) {
-            console.log('canMakeApiCall: Checking subscription status for monthly reset...');
+            logger.debug('canMakeApiCall: Checking subscription status for monthly reset...');
             
             // Check if subscription is active
             let subscriptionActive = true;
@@ -763,17 +764,17 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
                         const s2 = getStripe(userId);
                         const subscription = await s2.subscriptions.retrieve(subscriptionId);
                         subscriptionActive = subscription.status === 'active';
-                        console.log(`Subscription ${subscriptionId} status: ${subscription.status}`);
+                        logger.debug(`Subscription ${subscriptionId} status: ${subscription.status}`);
                     }
                 } catch (subError) {
-                    console.error('Error checking subscription status:', subError);
+                    logger.error('Error checking subscription status:', subError);
                     subscriptionActive = false; // Assume cancelled if we can't check
                 }
             } else {
                 subscriptionActive = false; // No subscription ID means no active subscription
             }
             
-            console.log('canMakeApiCall: Performing monthly reset for user, subscription active:', subscriptionActive);
+            logger.debug('canMakeApiCall: Performing monthly reset for user, subscription active:', subscriptionActive);
             creditsData = performMonthlyReset(creditsData, userRank, subscriptionActive);
             
             // Save updated credits to database
@@ -820,7 +821,7 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
         }
 
         // BYOK model — always allow (user pays via their own API key)
-        console.log(`canMakeApiCall: BYOK model — allowing call (estimated cost: $${estimatedCost.toFixed(4)})`);
+        logger.debug(`canMakeApiCall: BYOK model — allowing call (estimated cost: $${estimatedCost.toFixed(4)})`);
         
         return {
             canMake: true,
@@ -833,7 +834,7 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
             canIncreaseLimit: false
         };
     } catch (error) {
-        console.error('Error checking if user can make API call:', error);
+        logger.error('Error checking if user can make API call:', error);
         return { canMake: false, reason: 'Error checking usage limits' };
     }
 }

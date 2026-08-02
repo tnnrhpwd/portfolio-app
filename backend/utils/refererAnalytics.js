@@ -16,6 +16,7 @@ const client = new DynamoDBClient({
 });
 
 const dynamodb = DynamoDBDocumentClient.from(client);
+const { logger } = require('./logger');
 
 /**
  * Extract referer information from access log text
@@ -150,7 +151,7 @@ async function getRefererStats(daysSince = 30) {
         return stats;
 
     } catch (error) {
-        console.error('Error getting referer statistics:', error);
+        logger.error('Error getting referer statistics:', error);
         throw error;
     }
 }
@@ -191,7 +192,7 @@ async function getRefererDataByDateRange(startDate, endDate) {
         }));
 
     } catch (error) {
-        console.error('Error getting referer data by date range:', error);
+        logger.error('Error getting referer data by date range:', error);
         throw error;
     }
 }

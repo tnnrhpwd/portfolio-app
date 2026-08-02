@@ -18,6 +18,7 @@
  */
 
 require('dotenv').config();
+const { logger } = require('../utils/logger');
 const crypto = require('crypto');
 const asyncHandler = require('express-async-handler');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
@@ -108,7 +109,7 @@ const getAddonStatus = asyncHandler(async (req, res) => {
       hostname: heartbeat.hostname,
     });
   } catch (error) {
-    console.error('[AddonRelay] Error checking addon status:', error);
+    logger.error('[AddonRelay] Error checking addon status:', error);
     res.status(200).json({ online: false });
   }
 });
@@ -229,7 +230,7 @@ const getPendingCommands = asyncHandler(async (req, res) => {
 
     res.status(200).json({ commands: pending });
   } catch (error) {
-    console.error('[AddonRelay] Error getting pending commands:', error);
+    logger.error('[AddonRelay] Error getting pending commands:', error);
     res.status(200).json({ commands: [] });
   }
 });
@@ -345,7 +346,7 @@ const getCommandResult = asyncHandler(async (req, res) => {
       cost: data.cost,
     });
   } catch (error) {
-    console.error('[AddonRelay] Error getting command result:', error);
+    logger.error('[AddonRelay] Error getting command result:', error);
     res.status(200).json({ status: 'pending', result: null });
   }
 });

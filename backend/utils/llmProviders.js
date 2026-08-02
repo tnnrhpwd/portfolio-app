@@ -1,6 +1,7 @@
 // llmProviders.js - Unified LLM Provider Interface
 require('dotenv').config();
 const { trackApiUsage, canMakeApiCall } = require('./apiUsageTracker.js');
+const { logger } = require('./logger');
 
 // Available LLM providers and their models
 const PROVIDERS = {
@@ -86,7 +87,7 @@ async function initializeLLMClients() {
             PROVIDERS.openai.client = new openai.OpenAI({ 
                 apiKey: PROVIDERS.openai.apiKey 
             });
-            console.log('✅ OpenAI client initialized');
+            logger.debug('✅ OpenAI client initialized');
         }
 
         // Initialize XAI using OpenAI SDK as per official XAI documentation
@@ -97,12 +98,12 @@ async function initializeLLMClients() {
                 baseURL: PROVIDERS.xai.baseURL,
                 timeout: 360000 // 6 minutes timeout for reasoning models as per XAI docs
             });
-            console.log('✅ XAI client initialized with OpenAI SDK (XAI compatible)');
+            logger.debug('✅ XAI client initialized with OpenAI SDK (XAI compatible)');
         }
 
         return true;
     } catch (error) {
-        console.error('Error initializing LLM clients:', error);
+        logger.error('Error initializing LLM clients:', error);
         throw error;
     }
 }
@@ -200,10 +201,10 @@ async function createCompletionWithKey(provider, model, messages, options = {}, 
         completionParams.tool_choice = options.tool_choice || 'auto';
     }
 
-    console.log(`🤖 Making ${provider.toUpperCase()} API call with model: ${model} (per-user key)${options.tools ? ` [${options.tools.length} tools]` : ''}`);
+    logger.debug(`🤖 Making ${provider.toUpperCase()} API call with model: ${model} (per-user key)${options.tools ? ` [${options.tools.length} tools]` : ''}`);
     const startTime = Date.now();
     const response = await client.chat.completions.create(completionParams);
-    console.log(`🤖 ${provider.toUpperCase()} API call completed in ${Date.now() - startTime}ms`);
+    logger.debug(`🤖 ${provider.toUpperCase()} API call completed in ${Date.now() - startTime}ms`);
     return response;
 }
 
@@ -220,7 +221,7 @@ async function checkApiUsage(userId, provider, model, inputText, estimatedOutput
 
         return canMakeCall;
     } catch (error) {
-        console.error('Error checking API usage:', error);
+        logger.error('Error checking API usage:', error);
         return { canMake: false, reason: 'Usage check failed' };
     }
 }
@@ -262,13 +263,13 @@ async function createCompletion(provider, model, messages, options = {}) {
         }
 
         // Make the API call
-        console.log(`🤖 Making ${provider.toUpperCase()} API call with model: ${model}`);
+        logger.debug(`🤖 Making ${provider.toUpperCase()} API call with model: ${model}`);
         
         // Additional debug for XAI (without printing full image data)
         if (provider === 'xai') {
-            console.log('XAI Debug - Base URL:', PROVIDERS.xai.baseURL);
-            console.log('XAI Debug - API Key length:', PROVIDERS.xai.apiKey?.length || 0);
-            console.log('XAI Debug - Client timeout:', PROVIDERS.xai.client?.timeout);
+            logger.debug('XAI Debug - Base URL:', PROVIDERS.xai.baseURL);
+            logger.debug('XAI Debug - API Key length:', PROVIDERS.xai.apiKey?.length || 0);
+            logger.debug('XAI Debug - Client timeout:', PROVIDERS.xai.client?.timeout);
             
             // Log completion params without full image data
             const debugParams = {
@@ -288,33 +289,33 @@ async function createCompletion(provider, model, messages, options = {}) {
                 });
             }
             
-            console.log('XAI Debug - Completion params:', debugParams);
+            logger.debug('XAI Debug - Completion params:', debugParams);
         }
         
         const startTime = Date.now();
         
         const response = await client.chat.completions.create(completionParams);
         
-        console.log(`🤖 ${provider.toUpperCase()} API call completed in ${Date.now() - startTime}ms`);
+        logger.debug(`🤖 ${provider.toUpperCase()} API call completed in ${Date.now() - startTime}ms`);
         
         // Debug response structure
         if (provider === 'xai') {
-            console.log('=== XAI Unified Provider Response Debug ===');
-            console.log('- Has choices:', !!response.choices);
-            console.log('- Choices length:', response.choices?.length);
-            console.log('- Has message content:', !!response.choices?.[0]?.message?.content);
-            console.log('- Content length:', response.choices?.[0]?.message?.content?.length || 0);
-            console.log('FULL XAI RESPONSE CONTENT:');
-            console.log('---START XAI RESPONSE---');
-            console.log(response.choices?.[0]?.message?.content || 'NO CONTENT IN RESPONSE');
-            console.log('---END XAI RESPONSE---');
-            console.log('=== End XAI Unified Provider Debug ===');
+            logger.debug('=== XAI Unified Provider Response Debug ===');
+            logger.debug('- Has choices:', !!response.choices);
+            logger.debug('- Choices length:', response.choices?.length);
+            logger.debug('- Has message content:', !!response.choices?.[0]?.message?.content);
+            logger.debug('- Content length:', response.choices?.[0]?.message?.content?.length || 0);
+            logger.debug('FULL XAI RESPONSE CONTENT:');
+            logger.debug('---START XAI RESPONSE---');
+            logger.debug(response.choices?.[0]?.message?.content || 'NO CONTENT IN RESPONSE');
+            logger.debug('---END XAI RESPONSE---');
+            logger.debug('=== End XAI Unified Provider Debug ===');
         }
         
         return response;
         
     } catch (error) {
-        console.error(`Error in ${provider} completion:`, {
+        logger.error(`Error in ${provider} completion:`, {
             message: error.message,
             code: error.code,
             status: error.status,
@@ -327,8 +328,8 @@ async function createCompletion(provider, model, messages, options = {}) {
         
         // Add specific handling for network errors
         if (error.code === 'ECONNRESET' || error.code === 'ENOTFOUND' || error.message.includes('socket hang up')) {
-            console.error('Network connectivity issue detected with XAI API');
-            console.error('Verify network connection and firewall settings');
+            logger.error('Network connectivity issue detected with XAI API');
+            logger.error('Verify network connection and firewall settings');
         }
         
         throw error;
@@ -347,11 +348,11 @@ async function trackCompletion(userId, provider, model, response, inputText) {
             outputTokens: outputTokens
         }, model);
 
-        console.log(`📊 ${provider.toUpperCase()} usage tracked: $${usageResult.cost?.toFixed(4)}, Total: $${usageResult.totalUsage?.toFixed(4)}`);
+        logger.debug(`📊 ${provider.toUpperCase()} usage tracked: $${usageResult.cost?.toFixed(4)}, Total: $${usageResult.totalUsage?.toFixed(4)}`);
         
         return usageResult;
     } catch (error) {
-        console.error('Error tracking API usage:', error);
+        logger.error('Error tracking API usage:', error);
         return { success: false, error: error.message };
     }
 }

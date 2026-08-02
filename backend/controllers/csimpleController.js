@@ -14,6 +14,7 @@ const zlib = require('zlib');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, GetCommand, PutCommand, DeleteCommand, ScanCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
 const { encryptString, decryptString } = require('../utils/secretCrypto');
+const { logger } = require('../utils/logger');
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -126,7 +127,7 @@ const getCSimpleSettings = asyncHandler(async (req, res) => {
       updatedAt: Item.updatedAt || Item.createdAt,
     });
   } catch (error) {
-    console.error('[CSimple] Error getting settings:', error);
+    logger.error('[CSimple] Error getting settings:', error);
     res.status(500);
     throw new Error('Failed to retrieve CSimple settings');
   }
@@ -171,7 +172,7 @@ const updateCSimpleSettings = asyncHandler(async (req, res) => {
       updatedAt: now,
     });
   } catch (error) {
-    console.error('[CSimple] Error saving settings:', error);
+    logger.error('[CSimple] Error saving settings:', error);
     res.status(500);
     throw new Error('Failed to save CSimple settings');
   }
@@ -216,7 +217,7 @@ const getCSimpleConversations = asyncHandler(async (req, res) => {
       updatedAt: Item.updatedAt || Item.createdAt,
     });
   } catch (error) {
-    console.error('[CSimple] Error getting conversations:', error);
+    logger.error('[CSimple] Error getting conversations:', error);
     res.status(500);
     throw new Error('Failed to retrieve CSimple conversations');
   }
@@ -281,7 +282,7 @@ const updateCSimpleConversations = asyncHandler(async (req, res) => {
     if (error.message?.includes('too large')) {
       throw error; // Re-throw size errors
     }
-    console.error('[CSimple] Error saving conversations:', error);
+    logger.error('[CSimple] Error saving conversations:', error);
     res.status(500);
     throw new Error('Failed to save CSimple conversations');
   }
@@ -320,7 +321,7 @@ const getCSimpleBehaviors = asyncHandler(async (req, res) => {
 
     res.status(200).json({ behaviors });
   } catch (error) {
-    console.error('[CSimple] Error listing behaviors:', error);
+    logger.error('[CSimple] Error listing behaviors:', error);
     res.status(500);
     throw new Error('Failed to list CSimple behaviors');
   }
@@ -361,7 +362,7 @@ const getCSimpleBehavior = asyncHandler(async (req, res) => {
     });
   } catch (error) {
     if (error.message === 'Behavior file not found') throw error;
-    console.error('[CSimple] Error getting behavior:', error);
+    logger.error('[CSimple] Error getting behavior:', error);
     res.status(500);
     throw new Error('Failed to retrieve behavior file');
   }
@@ -409,7 +410,7 @@ const updateCSimpleBehavior = asyncHandler(async (req, res) => {
       updatedAt: now,
     });
   } catch (error) {
-    console.error('[CSimple] Error saving behavior:', error);
+    logger.error('[CSimple] Error saving behavior:', error);
     res.status(500);
     throw new Error('Failed to save behavior file');
   }
@@ -443,7 +444,7 @@ const deleteCSimpleBehavior = asyncHandler(async (req, res) => {
       name,
     });
   } catch (error) {
-    console.error('[CSimple] Error deleting behavior:', error);
+    logger.error('[CSimple] Error deleting behavior:', error);
     res.status(500);
     throw new Error('Failed to delete behavior file');
   }
@@ -476,7 +477,7 @@ const getCSimpleMemoryFiles = asyncHandler(async (req, res) => {
     }));
     res.status(200).json({ files });
   } catch (error) {
-    console.error('[CSimple] Error listing memory files:', error);
+    logger.error('[CSimple] Error listing memory files:', error);
     res.status(500);
     throw new Error('Failed to list memory files');
   }
@@ -502,7 +503,7 @@ const getCSimpleMemoryFile = asyncHandler(async (req, res) => {
     res.status(200).json({ name, content: Item.text, updatedAt: Item.updatedAt || Item.createdAt });
   } catch (error) {
     if (error.message === 'Memory file not found') throw error;
-    console.error('[CSimple] Error getting memory file:', error);
+    logger.error('[CSimple] Error getting memory file:', error);
     res.status(500);
     throw new Error('Failed to retrieve memory file');
   }
@@ -537,7 +538,7 @@ const updateCSimpleMemoryFile = asyncHandler(async (req, res) => {
     }));
     res.status(200).json({ success: true, name, updatedAt: now });
   } catch (error) {
-    console.error('[CSimple] Error saving memory file:', error);
+    logger.error('[CSimple] Error saving memory file:', error);
     res.status(500);
     throw new Error('Failed to save memory file');
   }
@@ -561,7 +562,7 @@ const deleteCSimpleMemoryFile = asyncHandler(async (req, res) => {
     }));
     res.status(200).json({ success: true, name });
   } catch (error) {
-    console.error('[CSimple] Error deleting memory file:', error);
+    logger.error('[CSimple] Error deleting memory file:', error);
     res.status(500);
     throw new Error('Failed to delete memory file');
   }
@@ -591,7 +592,7 @@ const getCSimplePersonalityFiles = asyncHandler(async (req, res) => {
     }));
     res.status(200).json({ files });
   } catch (error) {
-    console.error('[CSimple] Error listing personality files:', error);
+    logger.error('[CSimple] Error listing personality files:', error);
     res.status(500);
     throw new Error('Failed to list personality files');
   }
@@ -617,7 +618,7 @@ const getCSimplePersonalityFile = asyncHandler(async (req, res) => {
     res.status(200).json({ name, content: Item.text, updatedAt: Item.updatedAt || Item.createdAt });
   } catch (error) {
     if (error.message === 'Personality file not found') throw error;
-    console.error('[CSimple] Error getting personality file:', error);
+    logger.error('[CSimple] Error getting personality file:', error);
     res.status(500);
     throw new Error('Failed to retrieve personality file');
   }
@@ -651,7 +652,7 @@ const updateCSimplePersonalityFile = asyncHandler(async (req, res) => {
     }));
     res.status(200).json({ success: true, name, updatedAt: now });
   } catch (error) {
-    console.error('[CSimple] Error saving personality file:', error);
+    logger.error('[CSimple] Error saving personality file:', error);
     res.status(500);
     throw new Error('Failed to save personality file');
   }
@@ -756,7 +757,7 @@ const getCSimpleUserContext = asyncHandler(async (req, res) => {
       hasBehavior: behaviorContext.length > 0,
     });
   } catch (error) {
-    console.error('[CSimple] Error loading user context:', error);
+    logger.error('[CSimple] Error loading user context:', error);
     res.status(500);
     throw new Error('Failed to load user context');
   }

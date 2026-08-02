@@ -12,6 +12,7 @@ const client = new DynamoDBClient({
 });
 
 const dynamodb = DynamoDBDocumentClient.from(client);
+const { logger } = require('./logger');
 
 /**
  * Calculate the size of an object/data in bytes
@@ -93,7 +94,7 @@ function calculateItemSize(item) {
  */
 async function getUserStorageUsage(userId) {
     try {
-        console.log('getUserStorageUsage: Calculating storage for user:', userId);
+        logger.debug('getUserStorageUsage: Calculating storage for user:', userId);
         
         // Get all items created by this user
         const scanParams = {
@@ -109,7 +110,7 @@ async function getUserStorageUsage(userId) {
         };
 
         const result = await dynamodb.send(new ScanCommand(scanParams));
-        console.log(`getUserStorageUsage: Found ${result.Items.length} items for user`);
+        logger.debug(`getUserStorageUsage: Found ${result.Items.length} items for user`);
         
         let totalStorage = 0;
         let itemCount = 0;
@@ -161,14 +162,14 @@ async function getUserStorageUsage(userId) {
         try {
             userRank = await getUserRankFromStripe(userId);
         } catch (error) {
-            console.error('Error getting user rank for storage:', error);
+            logger.error('Error getting user rank for storage:', error);
             userRank = 'Free';
         }
 
         const storageLimit = STORAGE_LIMITS[userRank];
         const storageUsagePercent = storageLimit ? (totalStorage / storageLimit) * 100 : 0;
 
-        console.log(`getUserStorageUsage: Total storage ${totalStorage} bytes (${formatBytes(totalStorage)}), Limit: ${formatBytes(storageLimit)}, Usage: ${storageUsagePercent.toFixed(1)}%`);
+        logger.debug(`getUserStorageUsage: Total storage ${totalStorage} bytes (${formatBytes(totalStorage)}), Limit: ${formatBytes(storageLimit)}, Usage: ${storageUsagePercent.toFixed(1)}%`);
 
         return {
             totalStorage,
@@ -194,7 +195,7 @@ async function getUserStorageUsage(userId) {
         };
 
     } catch (error) {
-        console.error('Error calculating storage usage:', error);
+        logger.error('Error calculating storage usage:', error);
         throw error;
     }
 }
@@ -252,7 +253,7 @@ async function checkStorageCapacity(userId, additionalSize) {
         };
         
     } catch (error) {
-        console.error('Error checking storage capacity:', error);
+        logger.error('Error checking storage capacity:', error);
         throw error;
     }
 }
@@ -290,7 +291,7 @@ async function trackStorageUsage(userId, itemData) {
         };
         
     } catch (error) {
-        console.error('Error tracking storage usage:', error);
+        logger.error('Error tracking storage usage:', error);
         throw error;
     }
 }

@@ -7,6 +7,7 @@ const { getUserStorageUsage } = require('../utils/storageTracker.js');
 const { getStripe, liveStripe: stripe } = require('../utils/stripeInstance.js');
 const { isTestMode } = require('../utils/stripeInstance.js');
 const { STRIPE_PRODUCT_IDS, STRIPE_PRODUCT_MAP } = require('../constants/pricing');
+const { logger } = require('../utils/logger');
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -82,7 +83,7 @@ const getData = asyncHandler(async (req, res) => {
             data: responseData
         });
     } catch (error) {
-        console.error("Error fetching public data:", error);
+        logger.error("Error fetching public data:", error);
         res.status(500).json({ error: "Internal server error" });
     }
 });
@@ -95,24 +96,24 @@ const getUserSubscription = asyncHandler(async (req, res) => {
     
     // Check for user
     if (!req.user) {
-        console.log('getUserSubscription: No user found in request');
+        logger.debug('getUserSubscription: No user found in request');
         res.status(401);
         throw new Error('User not found');
     }
     
-    console.log('getUserSubscription called for user ID:', req.user.id);
+    logger.debug('getUserSubscription called for user ID:', req.user.id);
 
     try {
         // Extract customer ID using regex for more reliability
         // Make sure we're accessing the text field properly based on DynamoDB structure
         const userText = req.user.text || '';
-        console.log('User text:', userText);
+        logger.debug('User text:', userText);
         
         const stripeIdMatch = userText.match(/\|stripeid:([^|]+)/);
-        console.log('stripeIdMatch:', stripeIdMatch);
+        logger.debug('stripeIdMatch:', stripeIdMatch);
         if (!stripeIdMatch || !stripeIdMatch[1]) {
             // No Stripe ID means they're on free plan
-            console.log('No Stripe ID found');
+            logger.debug('No Stripe ID found');
             return res.status(200).json({ 
                 subscriptionPlan: 'Free',
                 subscriptionDetails: null 
@@ -120,7 +121,7 @@ const getUserSubscription = asyncHandler(async (req, res) => {
         }
         
         const customerId = stripeIdMatch[1];
-        console.log('Customer ID:', customerId);
+        logger.debug('Customer ID:', customerId);
         
         // Use test or live Stripe instance based on user context
         const s = getStripe(req.user.id);
@@ -131,21 +132,21 @@ const getUserSubscription = asyncHandler(async (req, res) => {
         let finalCustomerId = customerId; // Use a mutable variable for updates
         try {
             validatedCustomer = await s.customers.retrieve(customerId);
-            console.log('Customer ID validated successfully for subscription check');
+            logger.debug('Customer ID validated successfully for subscription check');
         } catch (stripeError) {
-            console.error(`Invalid Stripe customer ID ${customerId} during subscription check:`, stripeError.message);
+            logger.error(`Invalid Stripe customer ID ${customerId} during subscription check:`, stripeError.message);
             
             // Fallback: Search by email and update customer ID
             // Skip recovery for test-mode users — their customer ID is test-mode only
             if (userIsTestMode) {
-                console.log('Test-mode user — skipping customer recovery, treating as free');
+                logger.debug('Test-mode user — skipping customer recovery, treating as free');
                 return res.status(200).json({ 
                     subscriptionPlan: 'Free',
                     subscriptionDetails: null
                 });
             }
             try {
-                console.log('Attempting to recover by searching for customer by email...');
+                logger.debug('Attempting to recover by searching for customer by email...');
                 
                 // Extract email and name from user data
                 const userData = req.user.text;
@@ -159,7 +160,7 @@ const getUserSubscription = asyncHandler(async (req, res) => {
                 const email = emailMatch[1].trim();
                 const name = nameMatch && nameMatch[1] ? nameMatch[1].trim() : 'Unknown';
                 
-                console.log('Extracted email:', email, 'name:', name);
+                logger.debug('Extracted email:', email, 'name:', name);
                 
                 // Search for existing customer by email
                 const existingCustomers = await s.customers.list({
@@ -170,16 +171,16 @@ const getUserSubscription = asyncHandler(async (req, res) => {
                 if (existingCustomers.data.length > 0) {
                     // Found existing customer
                     validatedCustomer = existingCustomers.data[0];
-                    console.log('Found existing Stripe customer by email:', validatedCustomer.id);
+                    logger.debug('Found existing Stripe customer by email:', validatedCustomer.id);
                 } else {
                     // Create new customer
                     validatedCustomer = await s.customers.create({ email, name });
-                    console.log('Created new Stripe customer:', validatedCustomer.id);
+                    logger.debug('Created new Stripe customer:', validatedCustomer.id);
                 }
                 
                 // Update user data with correct customer ID
                 const updatedUserData = userData.replace(/\|stripeid:([^|]*)/, `|stripeid:${validatedCustomer.id}`);
-                console.log('Updating user data with correct customer ID:', validatedCustomer.id);
+                logger.debug('Updating user data with correct customer ID:', validatedCustomer.id);
                 
                 // Update in DynamoDB
                 const putParams = {
@@ -192,15 +193,15 @@ const getUserSubscription = asyncHandler(async (req, res) => {
                 };
                 
                 await dynamodb.send(new PutCommand(putParams));
-                console.log('User data updated with correct Stripe customer ID');
+                logger.debug('User data updated with correct Stripe customer ID');
                 
                 // Update customerId for the rest of the function
                 finalCustomerId = validatedCustomer.id;
                 
             } catch (recoveryError) {
-                console.error('Failed to recover customer ID:', recoveryError.message);
+                logger.error('Failed to recover customer ID:', recoveryError.message);
                 // If customer ID is invalid and recovery fails, treat as free plan but log the issue
-                console.log('Treating user as free plan due to failed recovery');
+                logger.debug('Treating user as free plan due to failed recovery');
                 return res.status(200).json({ 
                     subscriptionPlan: 'Free',
                     subscriptionDetails: null,
@@ -225,7 +226,7 @@ const getUserSubscription = asyncHandler(async (req, res) => {
             expand: ['data.plan.product']
         });
         
-        console.log(`Found ${activeSubscriptions.data.length} active and ${incompleteSubscriptions.data.length} incomplete subscriptions`);
+        logger.debug(`Found ${activeSubscriptions.data.length} active and ${incompleteSubscriptions.data.length} incomplete subscriptions`);
         
         // Combine and sort all relevant subscriptions by created date (newest first)
         const allRelevantSubscriptions = [
@@ -234,7 +235,7 @@ const getUserSubscription = asyncHandler(async (req, res) => {
         ].sort((a, b) => b.created - a.created);
 
         if (allRelevantSubscriptions.length === 0) {
-            console.log('No active subscriptions found');
+            logger.debug('No active subscriptions found');
             // No active subscriptions means they're on free plan
             return res.status(200).json({ 
                 subscriptionPlan: 'Free',
@@ -248,13 +249,13 @@ const getUserSubscription = asyncHandler(async (req, res) => {
         // Get the product to determine subscription type (prefer ID match, fallback to name)
         const product = subscription.plan.product;
         const productName = product.name;
-        console.log('Subscription product:', product.id, productName);
+        logger.debug('Subscription product:', product.id, productName);
         let subscriptionPlan = STRIPE_PRODUCT_IDS[product.id]
             ? STRIPE_PRODUCT_IDS[product.id].charAt(0).toUpperCase() + STRIPE_PRODUCT_IDS[product.id].slice(1)
             : (STRIPE_PRODUCT_MAP[productName]
                 ? STRIPE_PRODUCT_MAP[productName].charAt(0).toUpperCase() + STRIPE_PRODUCT_MAP[productName].slice(1)
                 : 'Free');
-        console.log('Subscription plan:', subscriptionPlan);
+        logger.debug('Subscription plan:', subscriptionPlan);
         
         // Return subscription details
         res.status(200).json({
@@ -271,7 +272,7 @@ const getUserSubscription = asyncHandler(async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('Error fetching subscription:', error);
+        logger.error('Error fetching subscription:', error);
         res.status(500).json({ error: error.message || 'Failed to fetch subscription information' });
     }
 });
@@ -284,17 +285,17 @@ const getUserStorage = asyncHandler(async (req, res) => {
     
     // Check for user
     if (!req.user) {
-        console.log('getUserStorage: No user found in request');
+        logger.debug('getUserStorage: No user found in request');
         res.status(401);
         throw new Error('User not found');
     }
     
-    console.log('getUserStorage called for user ID:', req.user.id);
+    logger.debug('getUserStorage called for user ID:', req.user.id);
 
     try {
         const storageData = await getUserStorageUsage(req.user.id);
         
-        console.log(`getUserStorage: Returning storage data for user ${req.user.id}:`, {
+        logger.debug(`getUserStorage: Returning storage data for user ${req.user.id}:`, {
             totalStorage: storageData.totalStorageFormatted,
             storageLimit: storageData.storageLimitFormatted,
             usage: `${storageData.storageUsagePercent.toFixed(1)}%`
@@ -302,7 +303,7 @@ const getUserStorage = asyncHandler(async (req, res) => {
         
         res.status(200).json(storageData);
     } catch (error) {
-        console.error('Error fetching storage usage:', error);
+        logger.error('Error fetching storage usage:', error);
         res.status(500).json({ error: error.message || 'Failed to fetch storage usage' });
     }
 });

@@ -1,6 +1,14 @@
 const winston = require('winston');
 const path = require('path');
 
+// Some test environments (e.g. this repo's Jest config uses jsdom for
+// backend tests) don't provide `setImmediate`, which winston's Console
+// transport relies on internally. Polyfill it before winston is used; real
+// Node runtimes already have `setImmediate`, so this is a no-op there.
+if (typeof setImmediate === 'undefined') {
+  global.setImmediate = (fn, ...args) => setTimeout(fn, 0, ...args);
+}
+
 // Define log format
 const logFormat = winston.format.combine(
   winston.format.timestamp(),
@@ -74,10 +82,16 @@ const requestLogger = (req, res, next) => {
       userId: req.user?.id || 'anonymous'
     };
     
-    if (res.statusCode >= 400) {
+    // Successful requests are debug-level noise during normal development —
+    // enable with LOG_LEVEL=debug for a full request trace. Client errors
+    // (4xx) are warnings; server errors (5xx) are logged as errors so
+    // problems remain visible by default.
+    if (res.statusCode >= 500) {
       logger.error('Request failed', logData);
+    } else if (res.statusCode >= 400) {
+      logger.warn('Request failed', logData);
     } else {
-      logger.info('Request completed', logData);
+      logger.debug('Request completed', logData);
     }
   });
   

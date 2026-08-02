@@ -3,6 +3,7 @@ const asyncHandler = require('express-async-handler'); // sends the errors to th
 const fetch = require('node-fetch');
 const { trackApiUsage, canMakeApiCall } = require('../utils/apiUsageTracker.js');
 const { checkIP } = require('../utils/accessData.js');
+const { logger } = require('../utils/logger');
 const wordBaseUrl = 'https://random-word-api.p.rapidapi.com/L/';
 const defBaseUrl = 'https://mashape-community-urban-dictionary.p.rapidapi.com/define?term=';
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
@@ -44,13 +45,13 @@ const getHashData = asyncHandler(async (req, res) => {
     try {
         await checkIP(req);
     } catch (error) {
-        console.log('Error in checkIP:', error);
+        logger.debug('Error in checkIP:', error);
         // Continue anyway - don't fail the request for IP checking
     }
     
-    console.log('getHashData called');
-    console.log('req.user:', req.user);
-    console.log('req.query:', req.query);
+    logger.debug('getHashData called');
+    logger.debug('req.user:', req.user);
+    logger.debug('req.query:', req.query);
     
     if (!req.user) {
         res.status(401);
@@ -59,7 +60,7 @@ const getHashData = asyncHandler(async (req, res) => {
 
     // Handle bug reports filtering
     if (req.query.filterType === 'bug_reports') {
-        console.log('Filtering bug reports for user:', req.user.id);
+        logger.debug('Filtering bug reports for user:', req.user.id);
         
         try {
             const params = {
@@ -74,10 +75,10 @@ const getHashData = asyncHandler(async (req, res) => {
                 }
             };
 
-            console.log('DynamoDB scan params for bug reports:', JSON.stringify(params, null, 2));
+            logger.debug('DynamoDB scan params for bug reports:', JSON.stringify(params, null, 2));
             const result = await dynamodb.send(new ScanCommand(params));
             
-            console.log(`Found ${result.Items.length} bug reports for user`);
+            logger.debug(`Found ${result.Items.length} bug reports for user`);
             
             // Process the results to extract bug report information
             const processedReports = result.Items.map(item => {
@@ -114,11 +115,11 @@ const getHashData = asyncHandler(async (req, res) => {
                 };
             });
             
-            console.log('Processed bug reports:', processedReports.length);
+            logger.debug('Processed bug reports:', processedReports.length);
             return res.status(200).json({ data: processedReports });
             
         } catch (error) {
-            console.error('Error fetching bug reports:', error);
+            logger.error('Error fetching bug reports:', error);
             res.status(500);
             throw new Error('Failed to fetch bug reports');
         }
@@ -135,11 +136,11 @@ const getHashData = asyncHandler(async (req, res) => {
     try {
         // Try to parse as JSON first
         data = JSON.parse(req.query.data);
-        console.log('Parsed query data as JSON:', data);
+        logger.debug('Parsed query data as JSON:', data);
         dataSearchString = data.text;
     } catch (error) {
         // If JSON parsing fails, treat as plain string
-        console.log('Query data is not JSON, treating as plain string:', req.query.data);
+        logger.debug('Query data is not JSON, treating as plain string:', req.query.data);
         dataSearchString = req.query.data;
     }
 
@@ -150,11 +151,11 @@ const getHashData = asyncHandler(async (req, res) => {
 
     try {
         // Use the search string as provided by the client (case-sensitive)
-        console.log('dataSearchString:', dataSearchString);
+        logger.debug('dataSearchString:', dataSearchString);
         
         // Use the user ID with its original casing
         const userSearchString = `Creator:${req.user.id}`; 
-        console.log('userSearchString:', userSearchString);
+        logger.debug('userSearchString:', userSearchString);
         var randomWord = "";
 
         if (dataSearchString.startsWith("getword:")) { // Check if dataSearchString is "getword"
@@ -163,7 +164,7 @@ const getHashData = asyncHandler(async (req, res) => {
             // Check if user can make RapidAPI word call
             const canMakeCall = await canMakeApiCall(req.user.id, 'rapidword');
             if (!canMakeCall.canMake) {
-                console.log('RapidAPI Word call blocked:', canMakeCall.reason);
+                logger.debug('RapidAPI Word call blocked:', canMakeCall.reason);
                 return res.status(402).json({ 
                     error: 'API usage limit reached', 
                     reason: canMakeCall.reason,
@@ -184,7 +185,7 @@ const getHashData = asyncHandler(async (req, res) => {
             // Track API usage
             const usageResult = await trackApiUsage(req.user.id, 'rapidword', {});
             if (usageResult.success) {
-                console.log(`RapidAPI Word usage tracked: $${usageResult.cost.toFixed(4)}, Total: $${usageResult.totalUsage.toFixed(4)}`);
+                logger.debug(`RapidAPI Word usage tracked: $${usageResult.cost.toFixed(4)}, Total: $${usageResult.totalUsage.toFixed(4)}`);
             }
             
             res.status(200).json({ word: randomWord }); // Return the random word
@@ -195,7 +196,7 @@ const getHashData = asyncHandler(async (req, res) => {
             // Check if user can make RapidAPI definition call
             const canMakeCall = await canMakeApiCall(req.user.id, 'rapiddef');
             if (!canMakeCall.canMake) {
-                console.log('RapidAPI Definition call blocked:', canMakeCall.reason);
+                logger.debug('RapidAPI Definition call blocked:', canMakeCall.reason);
                 return res.status(402).json({ 
                     error: 'API usage limit reached', 
                     reason: canMakeCall.reason,
@@ -216,7 +217,7 @@ const getHashData = asyncHandler(async (req, res) => {
             // Track API usage
             const usageResult = await trackApiUsage(req.user.id, 'rapiddef', {});
             if (usageResult.success) {
-                console.log(`RapidAPI Definition usage tracked: $${usageResult.cost.toFixed(4)}, Total: $${usageResult.totalUsage.toFixed(4)}`);
+                logger.debug(`RapidAPI Definition usage tracked: $${usageResult.cost.toFixed(4)}, Total: $${usageResult.totalUsage.toFixed(4)}`);
             }
             
             // Clean up and format the definitions
@@ -246,13 +247,13 @@ const getHashData = asyncHandler(async (req, res) => {
 
         } else { // Handle database search requests
             try {
-                console.log('dataSearchString:', dataSearchString);
+                logger.debug('dataSearchString:', dataSearchString);
                 // Check if the search string looks like a direct ID (32 hex characters)
                 const isDirectId = /^[a-f0-9]{32}$/i.test(dataSearchString);
-                console.log('isDirectId:', isDirectId);
+                logger.debug('isDirectId:', isDirectId);
                 
                 if (isDirectId) {
-                    console.log('Searching for direct ID:', dataSearchString);
+                    logger.debug('Searching for direct ID:', dataSearchString);
                     // Use scan with filter like auth middleware does
                     const params = {
                         TableName: 'Simple',
@@ -262,24 +263,24 @@ const getHashData = asyncHandler(async (req, res) => {
                         }
                     };
 
-                    console.log('DynamoDB scan params:', params);
+                    logger.debug('DynamoDB scan params:', params);
                     const result = await dynamodb.send(new ScanCommand(params));
-                    console.log('DynamoDB scan result:', JSON.stringify(result).substring(0, 100) + '...');
+                    logger.debug('DynamoDB scan result:', JSON.stringify(result).substring(0, 100) + '...');
 
                     if (result.Items && result.Items.length > 0) {
                         const item = result.Items[0]; // Take the first match
                         // Check if this item belongs to the current user
                         const itemText = item.text || '';
                         const userSearchString = `Creator:${req.user.id}`;
-                        console.log('Checking if item belongs to user:', userSearchString);
-                        console.log('Item text:', itemText.length > 100 ? itemText.substring(0, 100) + '...' : itemText);
+                        logger.debug('Checking if item belongs to user:', userSearchString);
+                        logger.debug('Item text:', itemText.length > 100 ? itemText.substring(0, 100) + '...' : itemText);
                         
                         // Check if item belongs to user OR is public
                         const isUserItem = itemText.includes(userSearchString);
                         const isPublicItem = itemText.includes('Public:true');
                         
                         if (isUserItem || isPublicItem) {
-                            console.log(isUserItem ? 'Item belongs to user' : 'Item is public, returning data');
+                            logger.debug(isUserItem ? 'Item belongs to user' : 'Item is public, returning data');
                             res.status(200).json({
                                 data: [{
                                     data: item.text, // Return the text content as the data field
@@ -293,17 +294,17 @@ const getHashData = asyncHandler(async (req, res) => {
                             });
                         } else {
                             // Item exists but doesn't belong to this user and isn't public
-                            console.log('Item does not belong to user and is not public');
+                            logger.debug('Item does not belong to user and is not public');
                             res.status(200).json({ data: [] }); // Return empty array instead of 403
                         }
                     } else {
                         // Item not found
-                        console.log('Item not found');
+                        logger.debug('Item not found');
                         res.status(200).json({ data: [] });
                     }
                 } else {
                     // Search for data containing the search string (original behavior)
-                    console.log('Searching for text containing:', dataSearchString);
+                    logger.debug('Searching for text containing:', dataSearchString);
                     // Construct filter expressions for DynamoDB
                     let filterExpressions = [];
                     let expressionAttributeValues = {};
@@ -325,7 +326,7 @@ const getHashData = asyncHandler(async (req, res) => {
                         ExpressionAttributeNames: expressionAttributeNames
                     };
 
-                    console.log('DynamoDB scan params:', JSON.stringify(params, null, 2));
+                    logger.debug('DynamoDB scan params:', JSON.stringify(params, null, 2));
                     
                     // First, let's also do a broader search to see if you have ANY data for this user
                     const broadParams = {
@@ -339,30 +340,30 @@ const getHashData = asyncHandler(async (req, res) => {
                         }
                     };
                     
-                    console.log('Checking for ANY user data...');
+                    logger.debug('Checking for ANY user data...');
                     const broadResult = await dynamodb.send(new ScanCommand(broadParams));
-                    console.log('Total items for this user:', broadResult.Items ? broadResult.Items.length : 0);
+                    logger.debug('Total items for this user:', broadResult.Items ? broadResult.Items.length : 0);
                     
                     if (broadResult.Items && broadResult.Items.length > 0) {
-                        console.log('Sample user data items:');
+                        logger.debug('Sample user data items:');
                         broadResult.Items.slice(0, 3).forEach((item, index) => {
-                            console.log(`Item ${index + 1}:`, item.text ? item.text.substring(0, 150) + '...' : 'no text');
+                            logger.debug(`Item ${index + 1}:`, item.text ? item.text.substring(0, 150) + '...' : 'no text');
                         });
                         
                         // Check if any contain "Net:" at all
                         const netItems = broadResult.Items.filter(item => item.text && item.text.includes('Net:'));
-                        console.log('Items containing "Net:":', netItems.length);
+                        logger.debug('Items containing "Net:":', netItems.length);
                         if (netItems.length > 0) {
-                            console.log('First Net item:', netItems[0].text.substring(0, 200) + '...');
+                            logger.debug('First Net item:', netItems[0].text.substring(0, 200) + '...');
                         }
                     }
                     
                     const result = await dynamodb.send(new ScanCommand(params));
-                    console.log('DynamoDB scan completed');
-                    console.log('Items found:', result.Items ? result.Items.length : 0);
+                    logger.debug('DynamoDB scan completed');
+                    logger.debug('Items found:', result.Items ? result.Items.length : 0);
                     
                     if (result.Items && result.Items.length > 0) {
-                        console.log('First item preview:', result.Items[0].text ? result.Items[0].text.substring(0, 100) + '...' : 'no text');
+                        logger.debug('First item preview:', result.Items[0].text ? result.Items[0].text.substring(0, 100) + '...' : 'no text');
                     }
 
                     const responseData = {
@@ -377,16 +378,16 @@ const getHashData = asyncHandler(async (req, res) => {
                         }))
                     };
                     
-                    console.log('Sending response with', responseData.data.length, 'items');
+                    logger.debug('Sending response with', responseData.data.length, 'items');
                     res.status(200).json(responseData);
                 }
             } catch (error) {
-                console.error("Error fetching data from DynamoDB:", error);
+                logger.error("Error fetching data from DynamoDB:", error);
                 res.status(500).json({ error: "Internal server error" });
             }
         }
     } catch (error) {
-        console.error('Error fetching data:', error);
+        logger.error('Error fetching data:', error);
         res.status(500).json({
             error: req.query.data,
             input: req.query.data,
@@ -399,7 +400,7 @@ const getHashData = asyncHandler(async (req, res) => {
 // GET: Fetch previous payment methods
 const getPaymentMethods = asyncHandler(async (req, res, next) => {
     try {
-        console.log('getPaymentMethods called with fromPutHashData:', (req.fromPutHashData ? 'true' : 'false'));
+        logger.debug('getPaymentMethods called with fromPutHashData:', (req.fromPutHashData ? 'true' : 'false'));
         
         if (!req.user) {
             res.status(401).json({ error: 'User not found' });
@@ -420,7 +421,7 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
 
                 // Update user data with the new customer ID
                 req.user.text += `|stripeid:${customer.id}`;
-                console.log(`|stripeid:${customer.id}`);
+                logger.debug(`|stripeid:${customer.id}`);
                 await req.user.save();
 
                 req.paymentMethods = [];
@@ -431,30 +432,30 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
                     return;
                 }
             } catch (error) {
-                console.error('Customer creation failed:', error);
+                logger.error('Customer creation failed:', error);
                 res.status(500).json({ error: 'Customer creation failed' });
                 return;
             }
         }
 
-        // console.log('req.user.text:', req.user.text);
+        // logger.debug('req.user.text:', req.user.text);
 
         const customerId = req.user.text.substring(req.user.text.indexOf('|stripeid:') + 10,
             req.user.text.indexOf('|stripeid:') + 28);
-        console.log('Customer ID:', customerId);
+        logger.debug('Customer ID:', customerId);
         
         // Validate that the customer ID exists in Stripe before attempting to fetch payment methods
         let validatedCustomer;
         const s = getStripe(req.user.id);
         try {
             validatedCustomer = await s.customers.retrieve(customerId);
-            console.log('Customer ID validated successfully for payment methods retrieval');
+            logger.debug('Customer ID validated successfully for payment methods retrieval');
         } catch (stripeError) {
-            console.error(`Invalid Stripe customer ID ${customerId}:`, stripeError.message);
+            logger.error(`Invalid Stripe customer ID ${customerId}:`, stripeError.message);
             
             // Fallback: Search by email and update customer ID
             try {
-                console.log('Attempting to recover by searching for customer by email...');
+                logger.debug('Attempting to recover by searching for customer by email...');
                 
                 // Extract email and name from user data
                 const userData = req.user.text;
@@ -468,7 +469,7 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
                 const email = emailMatch[1].trim();
                 const name = nameMatch && nameMatch[1] ? nameMatch[1].trim() : 'Unknown';
                 
-                console.log('Extracted email:', email, 'name:', name);
+                logger.debug('Extracted email:', email, 'name:', name);
                 
                 // Search for existing customer by email
                 const existingCustomers = await s.customers.list({
@@ -479,16 +480,16 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
                 if (existingCustomers.data.length > 0) {
                     // Found existing customer
                     validatedCustomer = existingCustomers.data[0];
-                    console.log('Found existing Stripe customer by email:', validatedCustomer.id);
+                    logger.debug('Found existing Stripe customer by email:', validatedCustomer.id);
                 } else {
                     // Create new customer
                     validatedCustomer = await s.customers.create({ email, name });
-                    console.log('Created new Stripe customer:', validatedCustomer.id);
+                    logger.debug('Created new Stripe customer:', validatedCustomer.id);
                 }
                 
                 // Update user data with correct customer ID
                 const updatedUserData = userData.replace(/\|stripeid:([^|]*)/, `|stripeid:${validatedCustomer.id}`);
-                console.log('Updating user data with correct customer ID:', validatedCustomer.id);
+                logger.debug('Updating user data with correct customer ID:', validatedCustomer.id);
                 
                 // Update in DynamoDB
                 const putParams = {
@@ -501,10 +502,10 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
                 };
                 
                 await dynamodb.send(new PutCommand(putParams));
-                console.log('User data updated with correct Stripe customer ID');
+                logger.debug('User data updated with correct Stripe customer ID');
                 
             } catch (recoveryError) {
-                console.error('Failed to recover customer ID:', recoveryError.message);
+                logger.error('Failed to recover customer ID:', recoveryError.message);
                 res.status(500).json({ 
                     error: 'Failed to validate or recover customer ID',
                     details: recoveryError.message
@@ -519,12 +520,12 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
         
         // Use the validated customer ID for fetching payment methods
         const finalCustomerId = validatedCustomer.id;
-        console.log('Using customer ID for payment methods:', finalCustomerId);
+        logger.debug('Using customer ID for payment methods:', finalCustomerId);
         
         // Fetch each payment method type
         for (const type of paymentMethodTypes) {
             try {
-                console.log(`Fetching ${type} payment methods for customer: ${finalCustomerId}`);
+                logger.debug(`Fetching ${type} payment methods for customer: ${finalCustomerId}`);
                 const methodsResponse = await s.paymentMethods.list({
                     customer: finalCustomerId,
                     limit: 10,
@@ -532,28 +533,28 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
                 });
                 
                 if (methodsResponse.data && methodsResponse.data.length > 0) {
-                    console.log(`Found ${methodsResponse.data.length} ${type} payment methods`);
+                    logger.debug(`Found ${methodsResponse.data.length} ${type} payment methods`);
                     allPaymentMethods = [...allPaymentMethods, ...methodsResponse.data];
                 }
             } catch (typeError) {
-                console.error(`Error fetching ${type} payment methods:`, typeError.message);
+                logger.error(`Error fetching ${type} payment methods:`, typeError.message);
                 // Continue with other types even if one fails
             }
         }
         
-        console.log('Total payment methods found:', allPaymentMethods.length);
+        logger.debug('Total payment methods found:', allPaymentMethods.length);
         req.paymentMethods = allPaymentMethods;
         
         if (req.fromPutHashData) {
-            console.log('Returning next from GetHashData.GetPaymentMethods with payment methods count:', allPaymentMethods.length);
+            logger.debug('Returning next from GetHashData.GetPaymentMethods with payment methods count:', allPaymentMethods.length);
             return next();
         } else {
-            console.log('Returning payment methods from GetHashData.GetPaymentMethods ...');
-            console.log('Payment methods:', allPaymentMethods);
+            logger.debug('Returning payment methods from GetHashData.GetPaymentMethods ...');
+            logger.debug('Payment methods:', allPaymentMethods);
             res.status(200).json(allPaymentMethods);
         }
     } catch (error) {
-        console.error('Error fetching payment methods:', error);
+        logger.error('Error fetching payment methods:', error);
         if (req.fromPostHashData || req.fromPutHashData) {
             return next(error);
         } else {
@@ -564,10 +565,10 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
 
 const getAllData = async (req, res) => {
     try {
-        console.log('getAllData called. req.body:', req.body, 'req.user:', req.user);
+        logger.debug('getAllData called. req.body:', req.body, 'req.user:', req.user);
         // Check if the user is an admin
         if (req.user && req.user.id === process.env.ADMIN_USER_ID) {
-            // console.log('Fetching all data from DynamoDB...');
+            // logger.debug('Fetching all data from DynamoDB...');
 
             // A single Scan page is capped at ~1MB by DynamoDB, so once the table
             // grows past that the results were silently truncated (older/newer
@@ -594,11 +595,11 @@ const getAllData = async (req, res) => {
                 updatedAt: item.updatedAt
             })));
         } else {
-            console.error("Error: User is not an admin.");
+            logger.error("Error: User is not an admin.");
             res.status(403).json({ message: 'Access denied. Admins only.' });
         }
     } catch (error) {
-        console.error("Error fetching all data from DynamoDB:", error);
+        logger.error("Error fetching all data from DynamoDB:", error);
         res.status(500).json({ message: error.message });
     }
 };
@@ -610,7 +611,7 @@ const getUserUsageData = asyncHandler(async (req, res) => {
     try {
         await checkIP(req);
     } catch (error) {
-        console.log('Error in checkIP:', error);
+        logger.debug('Error in checkIP:', error);
         // Continue anyway - don't fail the request for IP checking
     }
 
@@ -624,7 +625,7 @@ const getUserUsageData = asyncHandler(async (req, res) => {
         const usageStats = await getUserUsageStats(req.user.id);
         res.status(200).json(usageStats);
     } catch (error) {
-        console.error("Error fetching user usage stats:", error);
+        logger.error("Error fetching user usage stats:", error);
         res.status(500).json({ message: error.message });
     }
 });

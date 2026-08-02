@@ -15,17 +15,18 @@ const client = new DynamoDBClient({
 });
 
 const dynamodb = DynamoDBDocumentClient.from(client);
+const { logger } = require('../utils/logger');
 
 // @desc    Delete data
 // @route   DELETE /api/data/:id
 // @access  Private
 const deleteHashData = asyncHandler(async (req, res) => {
     const routeParamId = req.params.id;
-    console.log(`[DELETEHASH] Attempting to delete item with id from route: ${routeParamId}`);
+    logger.debug(`[DELETEHASH] Attempting to delete item with id from route: ${routeParamId}`);
 
     // --- Minimal GetItem Test ---
     try {
-        console.log(`[DELETEHASH_TEST] Performing minimal getItem test for id: ${routeParamId}`);
+        logger.debug(`[DELETEHASH_TEST] Performing minimal getItem test for id: ${routeParamId}`);
 
         // Scan the table to find the item with the given id
         const scanParams = {
@@ -42,12 +43,12 @@ const deleteHashData = asyncHandler(async (req, res) => {
             if (scanResult.Items && scanResult.Items.length > 0) {
                 createdAtValue = scanResult.Items[0].createdAt;
             } else {
-                console.log(`[DELETEHASH_TEST] Minimal GetItem Test: Item with id ${routeParamId} not found during scan.`);
+                logger.debug(`[DELETEHASH_TEST] Minimal GetItem Test: Item with id ${routeParamId} not found during scan.`);
                 // If item not found, set createdAtValue to null or a default value
                 createdAtValue = null;
             }
         } catch (scanError) {
-            console.error(`[DELETEHASH_TEST] Minimal GetItem Test: Scan operation failed for id: ${routeParamId}`, scanError);
+            logger.error(`[DELETEHASH_TEST] Minimal GetItem Test: Scan operation failed for id: ${routeParamId}`, scanError);
             res.status(500).json({
                 error: `Minimal GetItem Test: Scan operation failed: ${scanError.message}`,
                 code: scanError.code,
@@ -65,17 +66,17 @@ const deleteHashData = asyncHandler(async (req, res) => {
             }
         };
 
-        console.log('[DELETEHASH_TEST] Minimal GetItem Test Params:', JSON.stringify(testGetParams, null, 2));
+        logger.debug('[DELETEHASH_TEST] Minimal GetItem Test Params:', JSON.stringify(testGetParams, null, 2));
         const testItemResult = await dynamodb.send(new GetCommand(testGetParams));
-        console.log('[DELETEHASH_TEST] Minimal GetItem Test Result:', JSON.stringify(testItemResult, null, 2));
+        logger.debug('[DELETEHASH_TEST] Minimal GetItem Test Result:', JSON.stringify(testItemResult, null, 2));
 
         if (!testItemResult.Item) {
-            console.log(`[DELETEHASH_TEST] Minimal GetItem Test: Item with id ${routeParamId} not found.`);
+            logger.debug(`[DELETEHASH_TEST] Minimal GetItem Test: Item with id ${routeParamId} not found.`);
         } else {
-            console.log(`[DELETEHASH_TEST] Minimal GetItem Test: Successfully fetched item with id ${routeParamId}.`);
+            logger.debug(`[DELETEHASH_TEST] Minimal GetItem Test: Successfully fetched item with id ${routeParamId}.`);
         }
     } catch (minGetError) {
-        console.error(`[DELETEHASH_TEST] Minimal GetItem Test FAILED for id: ${routeParamId}`, minGetError);
+        logger.error(`[DELETEHASH_TEST] Minimal GetItem Test FAILED for id: ${routeParamId}`, minGetError);
         // If this minimal test fails with ValidationException, the issue is very fundamental.
         // Double-check Table Name, Region, and that 'id' (String) is the *only* part of the primary key.
         res.status(500).json({
@@ -91,7 +92,7 @@ const deleteHashData = asyncHandler(async (req, res) => {
     try {
         await checkIP(req);
         // const id = req.params.id; // Already defined as routeParamId
-        // console.log("delete id=" + routeParamId); // Already logged
+        // logger.debug("delete id=" + routeParamId); // Already logged
 
         // Check for user
         if (!req.user) {
@@ -120,12 +121,12 @@ const deleteHashData = asyncHandler(async (req, res) => {
                 item = scanResult.Items[0];
                 createdAtValue = scanResult.Items[0].createdAt;
             } else {
-                console.log(`[DELETEHASH] Item with id ${routeParamId} not found during scan.`);
+                logger.debug(`[DELETEHASH] Item with id ${routeParamId} not found during scan.`);
                 res.status(400);
                 throw new Error('Data not found.');
             }
         } catch (scanError) {
-            console.error(`[DELETEHASH] Scan operation failed for id: ${routeParamId}`, scanError);
+            logger.error(`[DELETEHASH] Scan operation failed for id: ${routeParamId}`, scanError);
             res.status(500).json({
                 error: `Scan operation failed: ${scanError.message}`,
                 code: scanError.code,
@@ -142,13 +143,13 @@ const deleteHashData = asyncHandler(async (req, res) => {
                 createdAt: createdAtValue // Need to grab the createdAt value to delete
             }
         };
-        // console.log('Attempting to get item with params:', JSON.stringify(getParams, null, 2)); // Logged by minimal test
+        // logger.debug('Attempting to get item with params:', JSON.stringify(getParams, null, 2)); // Logged by minimal test
 
         try {
             const getItemResult = await dynamodb.send(new GetCommand(getParams));
             item = getItemResult.Item;
         } catch (getError) {
-            console.error('Error getting item (after minimal test passed or was skipped):', getError);
+            logger.error('Error getting item (after minimal test passed or was skipped):', getError);
             res.status(500).json({ 
                 error: `Failed to get data from DynamoDB (main logic): ${getError.message}`,
                 code: getError.code,
@@ -187,17 +188,17 @@ const deleteHashData = asyncHandler(async (req, res) => {
                 createdAt: item ? item.createdAt : null //Need to grab the createdAt value to delete
             }
         };
-        console.log('Attempting to delete item with params:', JSON.stringify(deleteParams, null, 2)); // Diagnostic log
+        logger.debug('Attempting to delete item with params:', JSON.stringify(deleteParams, null, 2)); // Diagnostic log
 
         try {
             await dynamodb.send(new DeleteCommand(deleteParams));
             res.status(200).json({ id: routeParamId });
         } catch (deleteError) {
-            console.error('Error deleting data:', deleteError);
+            logger.error('Error deleting data:', deleteError);
             res.status(500).json({ error: 'Failed to delete data' });
         }
     } catch (error) {
-        console.error('Error deleting data (outer try-catch):', error);
+        logger.error('Error deleting data (outer try-catch):', error);
         // Ensure a consistent error structure if it's not a DynamoDB specific error initially
         const errorMessage = error.message || 'An unexpected error occurred during deletion.';
         const statusCode = error.statusCode || 500;

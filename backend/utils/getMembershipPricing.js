@@ -11,14 +11,15 @@ const PRICING_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 // @route   GET /api/data/membership-pricing
 // @access  Public (pricing can be viewed by anyone)
 const getMembershipPricing = asyncHandler(async (req, res) => {
+const { logger } = require('./logger');
     try {
         // Return cached data if still fresh
         if (pricingCache.data && Date.now() - pricingCache.timestamp < PRICING_CACHE_TTL) {
-            console.log('Returning cached membership pricing');
+            logger.debug('Returning cached membership pricing');
             return res.status(200).json({ success: true, data: pricingCache.data });
         }
 
-        console.log('Fetching membership pricing from Stripe...');
+        logger.debug('Fetching membership pricing from Stripe...');
         
         // Define the membership types and their corresponding Stripe product IDs
         const membershipTypes = [
@@ -62,11 +63,11 @@ const getMembershipPricing = asyncHandler(async (req, res) => {
             try {
                 product = await stripe.products.retrieve(membershipType.stripeProductId);
             } catch (err) {
-                console.warn(`Could not retrieve Stripe product ${membershipType.stripeProductId}: ${err.message}`);
+                logger.warn(`Could not retrieve Stripe product ${membershipType.stripeProductId}: ${err.message}`);
             }
             
             if (!product) {
-                console.warn(`Product not found in Stripe: ${membershipType.stripeProductId}`);
+                logger.warn(`Product not found in Stripe: ${membershipType.stripeProductId}`);
                 // Add placeholder data for missing products
                 pricingData.push({
                     id: membershipType.id,
@@ -89,7 +90,7 @@ const getMembershipPricing = asyncHandler(async (req, res) => {
             });
             
             if (prices.data.length === 0) {
-                console.warn(`No active prices found for product: ${membershipType.stripeProductId}`);
+                logger.warn(`No active prices found for product: ${membershipType.stripeProductId}`);
                 pricingData.push({
                     id: membershipType.id,
                     name: membershipType.name,
@@ -125,10 +126,10 @@ const getMembershipPricing = asyncHandler(async (req, res) => {
                 quota: quota
             });
             
-            console.log(`Added pricing for ${membershipType.name}: ${price.unit_amount} ${price.currency}/${price.recurring?.interval || 'month'}`);
+            logger.debug(`Added pricing for ${membershipType.name}: ${price.unit_amount} ${price.currency}/${price.recurring?.interval || 'month'}`);
         }
         
-        console.log('Successfully fetched membership pricing');
+        logger.debug('Successfully fetched membership pricing');
 
         // Cache the result
         pricingCache = { data: pricingData, timestamp: Date.now() };
@@ -139,7 +140,7 @@ const getMembershipPricing = asyncHandler(async (req, res) => {
         });
         
     } catch (error) {
-        console.error('Error fetching membership pricing:', error);
+        logger.error('Error fetching membership pricing:', error);
         res.status(500).json({
             success: false,
             error: 'Failed to fetch membership pricing',

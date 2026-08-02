@@ -1,6 +1,7 @@
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const crypto = require('crypto');
+const { logger } = require('../utils/logger');
 
 // Configure AWS DynamoDB Client
 const awsClient = new DynamoDBClient({
@@ -23,7 +24,7 @@ function validateAndProcessFiles(files) {
         return [];
     }
 
-    console.log('Processing files:', files.length);
+    logger.debug('Processing files:', files.length);
     
     const maxFileSize = 300 * 1024; // 300KB per file
     const maxTotalSize = 350 * 1024; // 350KB total
@@ -32,7 +33,7 @@ function validateAndProcessFiles(files) {
     const oversizedFiles = files.filter(file => file.size > maxFileSize);
     if (oversizedFiles.length > 0) {
         const fileNames = oversizedFiles.map(f => f.originalname).join(', ');
-        console.log('Files rejected - too large:', fileNames);
+        logger.debug('Files rejected - too large:', fileNames);
         const error = new Error(`Files too large: ${fileNames}. Maximum size is 300KB per file.`);
         error.statusCode = 413;
         throw error;
@@ -41,7 +42,7 @@ function validateAndProcessFiles(files) {
     // Validate total size
     const totalFileSize = files.reduce((sum, file) => sum + file.size, 0);
     if (totalFileSize > maxTotalSize) {
-        console.log('Files rejected - total size too large:', Math.round(totalFileSize/1024), 'KB');
+        logger.debug('Files rejected - total size too large:', Math.round(totalFileSize/1024), 'KB');
         const error = new Error(`Total file size (${Math.round(totalFileSize/1024)}KB) exceeds limit of 350KB.`);
         error.statusCode = 413;
         throw error;
@@ -54,7 +55,7 @@ function validateAndProcessFiles(files) {
         data: file.buffer.toString('base64')
     }));
     
-    console.log('Files processed successfully:', filesData.length);
+    logger.debug('Files processed successfully:', filesData.length);
     return filesData;
 }
 
@@ -75,7 +76,7 @@ function parseRequestData(req, processedFiles = []) {
     if (isMultipart) {
         // Handle multipart/form-data
         textContent = req.body.data || req.body.Text;
-        console.log('Extracted textContent from FormData:', textContent);
+        logger.debug('Extracted textContent from FormData:', textContent);
 
         // Parse ActionGroupObject
         if (req.body.ActionGroupObject) {
@@ -83,7 +84,7 @@ function parseRequestData(req, processedFiles = []) {
                 try {
                     actionGroupObjectContent = JSON.parse(req.body.ActionGroupObject);
                 } catch (e) {
-                    console.warn('Failed to parse ActionGroupObject from multipart form field. Value:', req.body.ActionGroupObject);
+                    logger.warn('Failed to parse ActionGroupObject from multipart form field. Value:', req.body.ActionGroupObject);
                     actionGroupObjectContent = null;
                 }
             } else {
@@ -99,7 +100,7 @@ function parseRequestData(req, processedFiles = []) {
                     filesData = parsedFilesField;
                 }
             } catch (e) {
-                console.warn('Failed to parse "Files" field from multipart form data.');
+                logger.warn('Failed to parse "Files" field from multipart form data.');
             }
         }
     } else {
@@ -138,12 +139,12 @@ function parseRequestData(req, processedFiles = []) {
         }
     }
 
-    console.log('Final textContent:', textContent);
-    console.log('Final actionGroupObjectContent:', actionGroupObjectContent);
-    console.log('Final filesData:', filesData);
+    logger.debug('Final textContent:', textContent);
+    logger.debug('Final actionGroupObjectContent:', actionGroupObjectContent);
+    logger.debug('Final filesData:', filesData);
 
     if (!textContent) {
-        console.error('Text content validation failed - textContent is empty or undefined');
+        logger.error('Text content validation failed - textContent is empty or undefined');
         const error = new Error('Text content is missing or could not be determined from the request.');
         error.statusCode = 400;
         throw error;
@@ -161,7 +162,7 @@ function parseRequestData(req, processedFiles = []) {
  * @returns {Object} Created DynamoDB item
  */
 async function createDynamoDBItem(userId, textContent, actionGroupObjectContent, filesData) {
-    console.log('Creating DynamoDB item...');
+    logger.debug('Creating DynamoDB item...');
     
     const params = {
         TableName: 'Simple',
@@ -179,7 +180,7 @@ async function createDynamoDBItem(userId, textContent, actionGroupObjectContent,
     const itemSizeBytes = JSON.stringify(params.Item).length;
     const maxDynamoDBSize = 400 * 1024; // 400KB DynamoDB limit
     
-    console.log('DynamoDB params:', {
+    logger.debug('DynamoDB params:', {
         TableName: params.TableName,
         itemKeys: Object.keys(params.Item),
         textLength: params.Item.text?.length,
@@ -188,23 +189,23 @@ async function createDynamoDBItem(userId, textContent, actionGroupObjectContent,
     });
 
     if (itemSizeBytes > maxDynamoDBSize) {
-        console.error('Item size exceeds DynamoDB limit:', Math.round(itemSizeBytes/1024), 'KB > 400KB');
+        logger.error('Item size exceeds DynamoDB limit:', Math.round(itemSizeBytes/1024), 'KB > 400KB');
         const error = new Error(`Item size (${Math.round(itemSizeBytes/1024)}KB) exceeds DynamoDB limit of 400KB. Please reduce file sizes or content.`);
         error.statusCode = 413;
         throw error;
     }
 
     try {
-        console.log('Sending to DynamoDB...');
+        logger.debug('Sending to DynamoDB...');
         await dynamodb.send(new PutCommand(params));
-        console.log('DynamoDB write successful');
+        logger.debug('DynamoDB write successful');
         return params.Item;
     } catch (error) {
-        console.error('=== DynamoDB Error ===');
-        console.error('Error name:', error.name);
-        console.error('Error message:', error.message);
-        console.error('Error code:', error.code);
-        console.error('Full error:', error);
+        logger.error('=== DynamoDB Error ===');
+        logger.error('Error name:', error.name);
+        logger.error('Error message:', error.message);
+        logger.error('Error code:', error.code);
+        logger.error('Full error:', error);
         const err = new Error('Failed to create data: ' + error.message);
         err.statusCode = 500;
         throw err;

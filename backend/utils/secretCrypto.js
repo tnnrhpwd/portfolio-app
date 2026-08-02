@@ -18,6 +18,7 @@ const ALGO = 'aes-256-gcm';
 const SALT_LEN = 16;
 const IV_LEN = 12;
 const TAG_LEN = 16;
+const { logger } = require('./logger');
 const KEY_LEN = 32;
 const PREFIX = 'enc:v1:';
 
@@ -77,7 +78,7 @@ function decryptString(value) {
         const pt = Buffer.concat([decipher.update(ct), decipher.final()]);
         return pt.toString('utf8');
     } catch (e) {
-        console.error('[secretCrypto] Failed to decrypt value:', e.message);
+        logger.error('[secretCrypto] Failed to decrypt value:', e.message);
         return null;
     }
 }

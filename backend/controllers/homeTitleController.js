@@ -15,6 +15,7 @@ const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, GetCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const { resolveHomeTitle, validateHomeTitleSettings, FALLBACK_TITLE } = require('../utils/homeTitleRules');
 const { getGeoForIp, extractIp } = require('../utils/geoLookup');
+const { logger } = require('../utils/logger');
 
 const client = new DynamoDBClient({
   region: process.env.AWS_REGION,
@@ -84,7 +85,7 @@ const getHomeTitle = asyncHandler(async (req, res) => {
     const { title, matchedRuleId } = resolveHomeTitle(settings, context);
     res.status(200).json({ title, matchedRuleId });
   } catch (error) {
-    console.error('[HomeTitle] Failed to resolve title, using fallback:', error.message);
+    logger.error('[HomeTitle] Failed to resolve title, using fallback:', error.message);
     // Never fail the homepage over this — always return something usable.
     res.status(200).json({ title: FALLBACK_TITLE, matchedRuleId: null, fallback: true });
   }

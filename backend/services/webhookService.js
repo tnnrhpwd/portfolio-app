@@ -18,6 +18,7 @@ function constructWebhookEvent(req, webhookSecret) {
     
     try {
         const event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+const { logger } = require('../utils/logger');
         return { success: true, event };
     } catch (err) {
         return { success: false, error: err.message };
@@ -33,16 +34,16 @@ function processWebhookEvent(event) {
     switch (event.type) {
         case 'invoice.payment_succeeded': {
             const invoice = event.data.object;
-            console.log('Invoice payment succeeded:', invoice.id);
+            logger.debug('Invoice payment succeeded:', invoice.id);
             return { success: true, message: 'Invoice payment succeeded' };
         }
 
         case 'invoice.payment_failed': {
             const invoice = event.data.object;
             const customerId = invoice.customer;
-            console.error(`Invoice payment FAILED for customer ${customerId}:`, invoice.id);
-            console.error(`  Attempt count: ${invoice.attempt_count}`);
-            console.error(`  Next attempt: ${invoice.next_payment_attempt ? new Date(invoice.next_payment_attempt * 1000).toISOString() : 'none'}`);
+            logger.error(`Invoice payment FAILED for customer ${customerId}:`, invoice.id);
+            logger.error(`  Attempt count: ${invoice.attempt_count}`);
+            logger.error(`  Next attempt: ${invoice.next_payment_attempt ? new Date(invoice.next_payment_attempt * 1000).toISOString() : 'none'}`);
             // After final attempt, Stripe will fire customer.subscription.deleted
             return {
                 success: true,
@@ -58,11 +59,11 @@ function processWebhookEvent(event) {
             const customerId = subscription.customer;
             const status = subscription.status;
             const productId = subscription.items?.data?.[0]?.price?.product;
-            console.log(`Subscription updated for customer ${customerId}: status=${status}, product=${productId}`);
+            logger.debug(`Subscription updated for customer ${customerId}: status=${status}, product=${productId}`);
 
             // If subscription went past_due or unpaid, log a warning
             if (status === 'past_due' || status === 'unpaid') {
-                console.warn(`Subscription ${subscription.id} is now ${status} for customer ${customerId}`);
+                logger.warn(`Subscription ${subscription.id} is now ${status} for customer ${customerId}`);
             }
 
             return {
@@ -77,8 +78,8 @@ function processWebhookEvent(event) {
         case 'customer.subscription.deleted': {
             const subscription = event.data.object;
             const customerId = subscription.customer;
-            console.warn(`Subscription DELETED for customer ${customerId}:`, subscription.id);
-            console.warn(`  Cancellation reason: ${subscription.cancellation_details?.reason || 'unknown'}`);
+            logger.warn(`Subscription DELETED for customer ${customerId}:`, subscription.id);
+            logger.warn(`  Cancellation reason: ${subscription.cancellation_details?.reason || 'unknown'}`);
 
             // Return info so the controller can downgrade the user
             return {
@@ -90,7 +91,7 @@ function processWebhookEvent(event) {
         }
 
         default:
-            console.log(`Unhandled event type ${event.type}`);
+            logger.debug(`Unhandled event type ${event.type}`);
             return { success: true, message: 'Event type not handled' };
     }
 }
@@ -120,7 +121,7 @@ async function verifySimpleMembership(userId) {
         const userRank = await getUserRankFromStripe(userId);
         return isSimpleTier(userRank);
     } catch (error) {
-        console.error('Failed to get user rank from Stripe:', error);
+        logger.error('Failed to get user rank from Stripe:', error);
         throw new Error('Unable to verify membership status');
     }
 }
@@ -136,7 +137,7 @@ async function verifySimpleMembership(userId) {
 async function processLimitIncrease(currentLimit, newLimit, stripeCustomerId, frontendUrl) {
     const limitDifference = newLimit - currentLimit;
     
-    console.log(`Current limit: $${currentLimit.toFixed(2)}, New limit: $${newLimit.toFixed(2)}, Difference: $${limitDifference.toFixed(2)}`);
+    logger.debug(`Current limit: $${currentLimit.toFixed(2)}, New limit: $${newLimit.toFixed(2)}, Difference: $${limitDifference.toFixed(2)}`);
     
     if (limitDifference <= 0) {
         return { success: false, error: 'No increase detected' };
@@ -157,10 +158,10 @@ async function processLimitIncrease(currentLimit, newLimit, stripeCustomerId, fr
             return_url: frontendUrl
         }, { idempotencyKey });
         
-        console.log('Payment processed successfully for limit increase:', paymentIntent.id);
+        logger.debug('Payment processed successfully for limit increase:', paymentIntent.id);
         return { success: true, paymentIntent, limitDifference };
     } catch (paymentError) {
-        console.error('Payment processing error:', paymentError);
+        logger.error('Payment processing error:', paymentError);
         throw new Error(`Payment failed: ${paymentError.message}`);
     }
 }
@@ -173,7 +174,7 @@ async function processLimitIncrease(currentLimit, newLimit, stripeCustomerId, fr
  */
 async function updateSubscriptionLimit(subscriptionId, newLimit) {
     if (!subscriptionId) {
-        console.log('No subscription ID found, skipping subscription update');
+        logger.debug('No subscription ID found, skipping subscription update');
         return false;
     }
     
@@ -207,9 +208,9 @@ async function updateSubscriptionLimit(subscriptionId, newLimit) {
                     }
                 }),
             });
-            console.log(`Created new price ${matchingPrice.id} for $${newLimit.toFixed(2)}/month`);
+            logger.debug(`Created new price ${matchingPrice.id} for $${newLimit.toFixed(2)}/month`);
         } else {
-            console.log(`Reusing existing price ${matchingPrice.id} for $${newLimit.toFixed(2)}/month`);
+            logger.debug(`Reusing existing price ${matchingPrice.id} for $${newLimit.toFixed(2)}/month`);
         }
         
         await stripe.subscriptions.update(subscriptionId, {
@@ -220,10 +221,10 @@ async function updateSubscriptionLimit(subscriptionId, newLimit) {
             proration_behavior: 'none'
         });
         
-        console.log(`Updated subscription to monthly charge of $${newLimit.toFixed(2)}`);
+        logger.debug(`Updated subscription to monthly charge of $${newLimit.toFixed(2)}`);
         return true;
     } catch (subscriptionError) {
-        console.error('Error updating subscription:', subscriptionError);
+        logger.error('Error updating subscription:', subscriptionError);
         return false;
     }
 }
@@ -249,10 +250,10 @@ async function saveUserCredits(dynamodb, user, creditsData) {
     
     try {
         await dynamodb.send(new PutCommand(putParams));
-        console.log('Custom limit updated successfully in database');
+        logger.debug('Custom limit updated successfully in database');
         return true;
     } catch (error) {
-        console.error('Error saving user credits:', error);
+        logger.error('Error saving user credits:', error);
         return false;
     }
 }
@@ -324,13 +325,13 @@ async function processCustomLimitUpdate(req, dynamodb) {
         const subscriptionId = userText.match(/subscriptionId:([^|]+)/)?.[1];
         await updateSubscriptionLimit(subscriptionId, customLimit);
         
-        console.log(`Custom limit increased from $${currentLimit.toFixed(2)} to $${customLimit.toFixed(2)}`);
-        console.log(`Added $${limitDifference.toFixed(4)} in credits immediately`);
+        logger.debug(`Custom limit increased from $${currentLimit.toFixed(2)} to $${customLimit.toFixed(2)}`);
+        logger.debug(`Added $${limitDifference.toFixed(4)} in credits immediately`);
     } else {
         // User is decreasing their limit - adjust for next billing cycle
         creditsData.customLimit = customLimit;
-        console.log(`Custom limit decreased from $${currentLimit.toFixed(2)} to $${customLimit.toFixed(2)}`);
-        console.log('Next billing cycle will reflect the lower amount');
+        logger.debug(`Custom limit decreased from $${currentLimit.toFixed(2)} to $${customLimit.toFixed(2)}`);
+        logger.debug('Next billing cycle will reflect the lower amount');
     }
     
     // Save to database

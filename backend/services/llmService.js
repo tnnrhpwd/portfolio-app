@@ -18,6 +18,7 @@ const { decryptString } = require('../utils/secretCrypto');
 // Constants for user context loading
 const CSIMPLE_CREATED_AT = '2000-01-01T00:00:00.000Z';
 const MAX_CONTEXT_BYTES = 16 * 1024;
+const { logger } = require('../utils/logger');
 const MAX_SINGLE_FILE = 32 * 1024;
 const CTX_PRIORITY_PATTERNS = [/^user/i, /profile/i, /preference/i, /identity/i, /name/i];
 
@@ -113,7 +114,7 @@ async function loadUserContextFromDB(dynamodb, userId, behaviorFile = 'default.t
         workspaceSections = ws.sections || [];
         workspaceBytes = ws.bytes || 0;
     } catch (e) {
-        console.warn('[llmService] buildWorkspaceContext failed:', e.message);
+        logger.warn('[llmService] buildWorkspaceContext failed:', e.message);
     }
 
     return {
@@ -137,14 +138,14 @@ async function loadUserContextFromDB(dynamodb, userId, behaviorFile = 'default.t
  */
 function parseCompressionRequest(req) {
     const parsedJSON = JSON.parse(req.body.data);
-    console.log('Request body:', parsedJSON);
+    logger.debug('Request body:', parsedJSON);
 
     const updateId = req.body.updateId;
-    console.log('Update ID:', updateId);
+    logger.debug('Update ID:', updateId);
 
     const itemID = parsedJSON._id;
     const contextInput = parsedJSON.text;
-    console.log('Context input:', contextInput);
+    logger.debug('Context input:', contextInput);
 
     // Get LLM provider and model from request (GitHub Models only)
     const provider = req.body.provider || 'github';
@@ -155,7 +156,7 @@ function parseCompressionRequest(req) {
     }
     const model = req.body.model || 'gpt-4o-mini';
     
-    console.log(`Using ${provider} with model ${model}`);
+    logger.debug(`Using ${provider} with model ${model}`);
 
     if (typeof contextInput !== 'string') {
         const error = new Error('Data input invalid');
@@ -166,7 +167,7 @@ function parseCompressionRequest(req) {
     const netIndex = contextInput.indexOf('Net:');
     const userInput = netIndex >= 0 ? contextInput.substring(netIndex + 4) : contextInput;
 
-    console.log('User input:', userInput);
+    logger.debug('User input:', userInput);
 
     return { updateId, itemID, contextInput, provider, model, userInput };
 }
@@ -323,15 +324,15 @@ function validateModelTierAccess(user, model) {
  * @returns {Object} Usage check result
  */
 async function validateApiUsage(userId, provider, model, userInput) {
-    console.log('🔍 Starting API validation check...');
+    logger.debug('🔍 Starting API validation check...');
     const startValidation = Date.now();
     
     const usageCheck = await checkApiUsage(userId, provider, model, userInput);
 
-    console.log(`✅ API validation completed in ${Date.now() - startValidation}ms`);
+    logger.debug(`✅ API validation completed in ${Date.now() - startValidation}ms`);
 
     if (!usageCheck.canMake) {
-        console.log(`${provider.toUpperCase()} API call blocked:`, usageCheck.reason);
+        logger.debug(`${provider.toUpperCase()} API call blocked:`, usageCheck.reason);
         const error = new Error('API usage limit reached');
         error.statusCode = 402;
         error.details = {
@@ -359,14 +360,14 @@ async function getUserGithubToken(dynamodb, userId) {
             TableName: 'Simple',
             Key: { id: `csimple_settings_${userId}`, createdAt: '2000-01-01T00:00:00.000Z' }
         }));
-        console.log(`[llmService] getUserGithubToken for ${userId}: Item found=${!!Item}, hasText=${!!Item?.text}`);
+        logger.debug(`[llmService] getUserGithubToken for ${userId}: Item found=${!!Item}, hasText=${!!Item?.text}`);
         if (!Item?.text) return null;
         const settings = JSON.parse(Item.text);
         const token = decryptString(settings.githubToken) || null;
-        console.log(`[llmService] getUserGithubToken: hasGithubToken=${!!token}`);
+        logger.debug(`[llmService] getUserGithubToken: hasGithubToken=${!!token}`);
         return token;
     } catch (e) {
-        console.error('[llmService] Failed to fetch user github token:', e);
+        logger.error('[llmService] Failed to fetch user github token:', e);
         return null;
     }
 }
@@ -388,7 +389,7 @@ async function getUserGithubToken(dynamodb, userId) {
 async function callLLMApi(provider, model, userInput, githubToken = null, goalsSummary = null, toolContext = null, userContext = null, maxTokensOverride = null, user = null) {
     await initializeLLMClients();
     
-    console.log(`🤖 Starting ${provider.toUpperCase()} API call...`);
+    logger.debug(`🤖 Starting ${provider.toUpperCase()} API call...`);
     const startLLM = Date.now();
 
     // Build messages array — if userInput is a Net: chat payload, extract conversation history
@@ -468,7 +469,7 @@ async function callLLMApi(provider, model, userInput, githubToken = null, goalsS
         }
 
         round++;
-        console.log(`🔧 Tool call round ${round}: ${choice.message.tool_calls.length} tool(s) requested`);
+        logger.debug(`🔧 Tool call round ${round}: ${choice.message.tool_calls.length} tool(s) requested`);
 
         // Add the assistant's tool-call message to conversation
         messages.push(choice.message);
@@ -483,9 +484,9 @@ async function callLLMApi(provider, model, userInput, githubToken = null, goalsS
                 fnArgs = {};
             }
 
-            console.log(`🔧 Executing tool: ${fnName}`, JSON.stringify(fnArgs));
+            logger.debug(`🔧 Executing tool: ${fnName}`, JSON.stringify(fnArgs));
             const result = await executeTool(fnName, fnArgs, toolContext);
-            console.log(`🔧 Tool result: ${result.substring(0, 200)}`);
+            logger.debug(`🔧 Tool result: ${result.substring(0, 200)}`);
 
             toolResults.push({ tool: fnName, args: fnArgs, result });
 
@@ -501,8 +502,8 @@ async function callLLMApi(provider, model, userInput, githubToken = null, goalsS
         response = await createCompletionWithKey('github', model, messages, llmOptions, githubToken);
     }
 
-    console.log(`🤖 ${provider.toUpperCase()} API call completed in ${Date.now() - startLLM}ms (${round} tool round(s))`);
-    console.log('LLM response:', JSON.stringify(response));
+    logger.debug(`🤖 ${provider.toUpperCase()} API call completed in ${Date.now() - startLLM}ms (${round} tool round(s))`);
+    logger.debug('LLM response:', JSON.stringify(response));
     
     // Attach tool execution metadata to the response for the frontend
     if (toolResults.length > 0) {
@@ -525,15 +526,15 @@ async function callLLMApi(provider, model, userInput, githubToken = null, goalsS
  * @param {string} userInput - User input
  */
 async function trackApiUsageAfterCall(userId, provider, model, response, userInput) {
-    console.log('📊 Starting usage tracking...');
+    logger.debug('📊 Starting usage tracking...');
     const startTracking = Date.now();
     
     const usageResult = await trackCompletion(userId, provider, model, response, userInput);
 
-    console.log(`📊 Usage tracking completed in ${Date.now() - startTracking}ms`);
+    logger.debug(`📊 Usage tracking completed in ${Date.now() - startTracking}ms`);
 
     if (!usageResult.success) {
-        console.log('Usage tracking failed:', usageResult.error);
+        logger.debug('Usage tracking failed:', usageResult.error);
         // Continue anyway - don't fail the request for usage tracking issues
     }
 }
@@ -548,15 +549,15 @@ async function trackApiUsageAfterCall(userId, provider, model, response, userInp
  * @returns {Object} Result object with status and data
  */
 async function saveCompressedData(dynamodb, userId, userInput, compressedData, updateId = null) {
-    console.log('💾 Starting data saving...');
+    logger.debug('💾 Starting data saving...');
     const startSaving = Date.now();
     
     const newData = `Creator:${userId}|Net:${userInput}\n${compressedData}`;
-    console.log('Saving data with format:', newData.substring(0, 100) + '...');
+    logger.debug('Saving data with format:', newData.substring(0, 100) + '...');
 
     if (updateId) {
         // Update existing item in DynamoDB
-        console.log('Updating existing chat with ID:', updateId);
+        logger.debug('Updating existing chat with ID:', updateId);
         const updateParams = {
             TableName: 'Simple',
             Key: { id: updateId },
@@ -571,18 +572,18 @@ async function saveCompressedData(dynamodb, userId, userInput, compressedData, u
 
         try {
             const result = await dynamodb.send(new UpdateCommand(updateParams));
-            console.log(`💾 Data saving completed in ${Date.now() - startSaving}ms`);
-            console.log('Successfully updated existing chat');
+            logger.debug(`💾 Data saving completed in ${Date.now() - startSaving}ms`);
+            logger.debug('Successfully updated existing chat');
             return { status: 200, data: { data: [compressedData] } };
         } catch (dbError) {
-            console.error('Error updating DynamoDB:', dbError);
+            logger.error('Error updating DynamoDB:', dbError);
             const error = new Error('Failed to update data');
             error.statusCode = 500;
             throw error;
         }
     } else {
         // Create new item in DynamoDB
-        console.log('Creating new chat entry');
+        logger.debug('Creating new chat entry');
         const newItemParams = {
             TableName: 'Simple',
             Item: {
@@ -595,11 +596,11 @@ async function saveCompressedData(dynamodb, userId, userInput, compressedData, u
 
         try {
             await dynamodb.send(new PutCommand(newItemParams));
-            console.log(`💾 Data saving completed in ${Date.now() - startSaving}ms`);
-            console.log('Successfully created new chat');
+            logger.debug(`💾 Data saving completed in ${Date.now() - startSaving}ms`);
+            logger.debug('Successfully created new chat');
             return { status: 201, data: { data: [compressedData] } };
         } catch (dbError) {
-            console.error('Error saving to DynamoDB:', dbError);
+            logger.error('Error saving to DynamoDB:', dbError);
             const error = new Error('Failed to save data');
             error.statusCode = 500;
             throw error;
@@ -625,13 +626,13 @@ async function processCloudMemorySaves(dynamodb, userId, responseText) {
 
         // Validate filename (alphanumeric, dots, hyphens, underscores, spaces, parens)
         if (!/^[a-zA-Z0-9_\-. ()]{1,100}$/.test(rawFilename)) {
-            console.log(`[CloudMemory] Rejected invalid filename: "${rawFilename}"`);
+            logger.debug(`[CloudMemory] Rejected invalid filename: "${rawFilename}"`);
             continue;
         }
 
         // Validate content size (max 32KB)
         if (Buffer.byteLength(content, 'utf-8') > 32 * 1024) {
-            console.log(`[CloudMemory] Content too large for "${rawFilename}"`);
+            logger.debug(`[CloudMemory] Content too large for "${rawFilename}"`);
             continue;
         }
 
@@ -660,9 +661,9 @@ async function processCloudMemorySaves(dynamodb, userId, responseText) {
             }));
 
             savedMemories.push({ filename: rawFilename, action: isUpdate ? 'updated' : 'created' });
-            console.log(`[CloudMemory] ${isUpdate ? 'Updated' : 'Created'} memory: ${rawFilename}`);
+            logger.debug(`[CloudMemory] ${isUpdate ? 'Updated' : 'Created'} memory: ${rawFilename}`);
         } catch (err) {
-            console.error(`[CloudMemory] Failed to save "${rawFilename}":`, err.message);
+            logger.error(`[CloudMemory] Failed to save "${rawFilename}":`, err.message);
         }
     }
 
@@ -670,7 +671,7 @@ async function processCloudMemorySaves(dynamodb, userId, responseText) {
     const cleanedContent = responseText.replace(MEMORY_SAVE_REGEX, '').trim();
 
     if (savedMemories.length > 0) {
-        console.log(`[CloudMemory] Processed ${savedMemories.length} memory save(s) for user ${userId}`);
+        logger.debug(`[CloudMemory] Processed ${savedMemories.length} memory save(s) for user ${userId}`);
     }
 
     return { cleanedContent, savedMemories };
@@ -703,16 +704,16 @@ async function processCompressionRequest(req, dynamodb) {
             error.statusCode = 401;
             throw error;
         }
-        console.log('[llmService] Using user\'s GitHub token for GitHub Models API');
+        logger.debug('[llmService] Using user\'s GitHub token for GitHub Models API');
     }
     
     // Fetch user's active goals to inject as context
     let goalsSummary = null;
     try {
         goalsSummary = await getGoalsSummary(req.user.id);
-        if (goalsSummary) console.log('[llmService] Injecting goals context for user');
+        if (goalsSummary) logger.debug('[llmService] Injecting goals context for user');
     } catch (err) {
-        console.warn('[llmService] Failed to fetch goals summary:', err.message);
+        logger.warn('[llmService] Failed to fetch goals summary:', err.message);
     }
     
     // Build tool context for Net: chat messages (enables function calling)
@@ -732,7 +733,7 @@ async function processCompressionRequest(req, dynamodb) {
             behaviorFile = parsed.behaviorFile || 'default.txt';
             activeAgent = parsed.activeAgent || null;
             userMessageForContext = parsed.message || '';
-            console.log('[llmService] Net: chat detected — enabling tool-use');
+            logger.debug('[llmService] Net: chat detected — enabling tool-use');
         }
     } catch {
         // Not a Net: chat payload — no tools
@@ -753,11 +754,11 @@ async function processCompressionRequest(req, dynamodb) {
                 userContext.hasWorkspace ? `workspace(${(userContext.workspaceSections || []).join('|')})` : null,
             ].filter(Boolean);
             if (parts.length > 0) {
-                console.log(`[llmService] Injecting user context: ${parts.join(', ')}`);
+                logger.debug(`[llmService] Injecting user context: ${parts.join(', ')}`);
             }
         }
     } catch (err) {
-        console.warn('[llmService] Failed to load user context:', err.message);
+        logger.warn('[llmService] Failed to load user context:', err.message);
     }
 
     // Call LLM API (with tools if Net: chat)
@@ -795,10 +796,10 @@ async function processCompressionRequest(req, dynamodb) {
             logAction(req.user.id, `Chat: ${actionSummary}`, 'net').catch(() => {});
         } catch {}
         
-        console.log(`💾 Total operation completed in ${Date.now() - startValidation}ms`);
+        logger.debug(`💾 Total operation completed in ${Date.now() - startValidation}ms`);
         return result;
     } else {
-        console.log(`💾 Total operation completed in ${Date.now() - startValidation}ms`);
+        logger.debug(`💾 Total operation completed in ${Date.now() - startValidation}ms`);
         const error = new Error('No response content returned from GitHub Models API.');
         error.statusCode = 500;
         throw error;
@@ -1059,7 +1060,7 @@ async function streamCompressionRequest(req, res, dynamodb) {
     res.write('data: [DONE]\n\n');
     res.end();
 
-    console.log(`🌊 Streamed ${chunkCount} chunks in ${Date.now() - startValidation}ms`);
+    logger.debug(`🌊 Streamed ${chunkCount} chunks in ${Date.now() - startValidation}ms`);
 }
 
 /**

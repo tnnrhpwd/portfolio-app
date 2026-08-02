@@ -16,6 +16,7 @@ const { sendEmail } = require('./emailService');
 const { createMemoryItem, getMemoryItems, getGoalsSummary } = require('./memoryService');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, PutCommand, GetCommand, DeleteCommand } = require('@aws-sdk/lib-dynamodb');
+const { logger } = require('../utils/logger');
 
 // Local DynamoDB client for memory/personality/behavior tool writes.
 // (Mirrors memoryService.js so tools can run without needing the caller
@@ -336,7 +337,7 @@ function enforceArgLimits(args) {
   const safe = { ...args };
   for (const [key, maxLen] of Object.entries(MAX_LENGTHS)) {
     if (typeof safe[key] === 'string' && safe[key].length > maxLen) {
-      console.warn(`[netTools] Truncating argument "${key}" from ${safe[key].length} to ${maxLen} chars`);
+      logger.warn(`[netTools] Truncating argument "${key}" from ${safe[key].length} to ${maxLen} chars`);
       safe[key] = safe[key].slice(0, maxLen);
     }
   }
@@ -352,7 +353,7 @@ async function executeTool(toolName, args, context) {
     const safeArgs = enforceArgLimits(args);
     return await executor(safeArgs, context);
   } catch (err) {
-    console.error(`[netTools] Error executing tool "${toolName}":`, err);
+    logger.error(`[netTools] Error executing tool "${toolName}":`, err);
     return `Error executing ${toolName}: ${err.message}`;
   }
 }
@@ -398,7 +399,7 @@ const TOOL_EXECUTORS = {
         });
       }
     } catch (emailErr) {
-      console.warn('[netTools] Email notification failed:', emailErr.message);
+      logger.warn('[netTools] Email notification failed:', emailErr.message);
       // Don't fail the whole tool — ticket is still logged
     }
 
@@ -516,7 +517,7 @@ const TOOL_EXECUTORS = {
         }
       } catch (err) {
         // Fall through to suggestion fallback
-        console.error('Brave Search API error:', err.message);
+        logger.error('Brave Search API error:', err.message);
       }
     }
 

@@ -12,6 +12,7 @@ const client = new DynamoDBClient({
     region: process.env.AWS_REGION
 });
 const dynamodb = DynamoDBDocumentClient.from(client);
+const { logger } = require('./logger');
 
 /**
  * Get IP address and location information from request
@@ -58,7 +59,7 @@ const getIPLocationInfo = async (req) => {
             const geoInfo = await new Promise((resolve, reject) => {
                 ipinfo(ipAddress, (err, cLoc) => {
                     if (err) {
-                        console.error('Error getting IP info:', err);
+                        logger.error('Error getting IP info:', err);
                         resolve(null);
                     } else {
                         resolve(cLoc);
@@ -75,7 +76,7 @@ const getIPLocationInfo = async (req) => {
                 };
             }
         } catch (geoError) {
-            console.error('Failed to get geolocation data:', geoError);
+            logger.error('Failed to get geolocation data:', geoError);
         }
     } else {
         // For localhost, use local information
@@ -179,9 +180,9 @@ const forgotPassword = asyncHandler(async (req, res) => {
                 requestInfo
             });
             
-            console.log(`Password reset email sent to: ${email}`);
+            logger.debug(`Password reset email sent to: ${email}`);
         } else {
-            console.log(`Password reset attempted for non-existent email: ${email}`);
+            logger.debug(`Password reset attempted for non-existent email: ${email}`);
         }
         
         // Always return success to prevent email enumeration
@@ -191,7 +192,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
         });
         
     } catch (error) {
-        console.error('Error in forgotPassword:', error);
+        logger.error('Error in forgotPassword:', error);
         res.status(500);
         throw new Error('Server error while processing password reset request');
     }
@@ -286,7 +287,7 @@ const resetPassword = asyncHandler(async (req, res) => {
 
         await dynamodb.send(new PutCommand(putParams));
         
-        console.log(`Password reset successful for user: ${user.id}`);
+        logger.debug(`Password reset successful for user: ${user.id}`);
         
         res.status(200).json({
             success: true,
@@ -294,7 +295,7 @@ const resetPassword = asyncHandler(async (req, res) => {
         });
         
     } catch (error) {
-        console.error('Error in resetPassword:', error);
+        logger.error('Error in resetPassword:', error);
         res.status(500);
         throw new Error('Server error while resetting password');
     }
@@ -376,7 +377,7 @@ const forgotPasswordAuthenticated = asyncHandler(async (req, res) => {
             requestInfo
         });
         
-        console.log(`Authenticated password reset email sent to: ${userEmail}`);
+        logger.debug(`Authenticated password reset email sent to: ${userEmail}`);
         
         res.status(200).json({
             success: true,
@@ -384,7 +385,7 @@ const forgotPasswordAuthenticated = asyncHandler(async (req, res) => {
         });
         
     } catch (error) {
-        console.error('Error in forgotPasswordAuthenticated:', error);
+        logger.error('Error in forgotPasswordAuthenticated:', error);
         res.status(500);
         throw new Error('Server error while processing authenticated password reset request');
     }

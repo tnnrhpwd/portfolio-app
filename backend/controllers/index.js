@@ -18,6 +18,7 @@ const { getAvailableProviders } = require('../utils/llmProviders'); // LLM provi
 const { getAdminDashboard, getAdminUsers, getAdminPaginatedData } = require('./adminController'); // Admin dashboard
 const { initTestFunnel, resetTestFunnel, getTestFunnelStatus, recordFunnelStep, getTestEmails } = require('./testFunnelController'); // Test funnel
 const { getDeepStorageItems, regenerateDeepStorageItems } = require('./deepStorageController'); // DeepStorage (Bedrock item catalog)
+const { logger } = require('../utils/logger');
 const { getHomeTitle, getHomeTitleSettings, updateHomeTitleSettings } = require('./homeTitleController'); // Dynamic homepage title
 
 // @desc    Get available LLM providers and models
@@ -31,7 +32,7 @@ const getLLMProviders = (req, res) => {
             providers: providers
         });
     } catch (error) {
-        console.error('Error getting LLM providers:', error);
+        logger.error('Error getting LLM providers:', error);
         res.status(500).json({
             success: false,
             error: 'Failed to get available providers'

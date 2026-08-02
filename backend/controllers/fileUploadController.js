@@ -10,6 +10,7 @@ const {
 } = require('../services/s3Service.js');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, UpdateCommand, GetCommand } = require('@aws-sdk/lib-dynamodb');
+const { logger } = require('../utils/logger');
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -26,26 +27,26 @@ const dynamodb = DynamoDBDocumentClient.from(client);
 // @route   POST /api/data/upload-url
 // @access  Private
 const requestUploadUrl = asyncHandler(async (req, res) => {
-    console.log('Upload URL request received');
+    logger.debug('Upload URL request received');
     
     try {
         await checkIP(req);
     } catch (error) {
-        console.error('IP check failed:', error);
+        logger.error('IP check failed:', error);
         res.status(403);
         throw new Error(`IP check failed: ${error.message}`);
     }
 
     // Check for user authentication
     if (!req.user) {
-        console.error('No user found in request');
+        logger.error('No user found in request');
         res.status(401);
         throw new Error('User not found');
     }
 
     const { filename, contentType, fileSize, fileType = 'general', dataId } = req.body;
 
-    console.log('Upload URL request data:', {
+    logger.debug('Upload URL request data:', {
         userId: req.user.id,
         filename,
         contentType,
@@ -70,7 +71,7 @@ const requestUploadUrl = asyncHandler(async (req, res) => {
             fileType
         );
 
-        console.log('Pre-signed URL generated successfully');
+        logger.debug('Pre-signed URL generated successfully');
 
         // Return upload data to frontend
         res.status(200).json({
@@ -83,7 +84,7 @@ const requestUploadUrl = asyncHandler(async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Upload URL generation error:', error);
+        logger.error('Upload URL generation error:', error);
         res.status(500).json({
             error: `Failed to generate upload URL: ${error.message}`,
             timestamp: new Date().toISOString()
@@ -95,26 +96,26 @@ const requestUploadUrl = asyncHandler(async (req, res) => {
 // @route   POST /api/data/upload-confirm
 // @access  Private
 const confirmUpload = asyncHandler(async (req, res) => {
-    console.log('Upload confirmation received');
+    logger.debug('Upload confirmation received');
     
     try {
         await checkIP(req);
     } catch (error) {
-        console.error('IP check failed:', error);
+        logger.error('IP check failed:', error);
         res.status(403);
         throw new Error(`IP check failed: ${error.message}`);
     }
 
     // Check for user authentication
     if (!req.user) {
-        console.error('No user found in request');
+        logger.error('No user found in request');
         res.status(401);
         throw new Error('User not found');
     }
 
     const { s3Key, dataId, filename, contentType, fileSize, fileType } = req.body;
 
-    console.log('Upload confirmation data:', {
+    logger.debug('Upload confirmation data:', {
         userId: req.user.id,
         s3Key,
         dataId,
@@ -156,7 +157,7 @@ const confirmUpload = asyncHandler(async (req, res) => {
 
         // If dataId is provided, update existing data item
         if (dataId) {
-            console.log(`Updating existing data item: ${dataId}`);
+            logger.debug(`Updating existing data item: ${dataId}`);
             
             // First, get the current item
             const getParams = {
@@ -200,7 +201,7 @@ const confirmUpload = asyncHandler(async (req, res) => {
 
             const result = await dynamodb.send(new UpdateCommand(updateParams));
             
-            console.log(`Successfully updated data item ${dataId} with file`);
+            logger.debug(`Successfully updated data item ${dataId} with file`);
             
             res.status(200).json({
                 success: true,
@@ -211,7 +212,7 @@ const confirmUpload = asyncHandler(async (req, res) => {
 
         } else {
             // Return file data for client to use when creating new data
-            console.log('File upload confirmed, returning file data for new item creation');
+            logger.debug('File upload confirmed, returning file data for new item creation');
             
             res.status(200).json({
                 success: true,
@@ -221,7 +222,7 @@ const confirmUpload = asyncHandler(async (req, res) => {
         }
 
     } catch (error) {
-        console.error('Upload confirmation error:', error);
+        logger.error('Upload confirmation error:', error);
         res.status(500).json({
             error: `Failed to confirm upload: ${error.message}`,
             timestamp: new Date().toISOString()
@@ -233,19 +234,19 @@ const confirmUpload = asyncHandler(async (req, res) => {
 // @route   DELETE /api/data/file/:s3Key
 // @access  Private
 const deleteUploadedFile = asyncHandler(async (req, res) => {
-    console.log('File deletion request received');
+    logger.debug('File deletion request received');
     
     try {
         await checkIP(req);
     } catch (error) {
-        console.error('IP check failed:', error);
+        logger.error('IP check failed:', error);
         res.status(403);
         throw new Error(`IP check failed: ${error.message}`);
     }
 
     // Check for user authentication
     if (!req.user) {
-        console.error('No user found in request');
+        logger.error('No user found in request');
         res.status(401);
         throw new Error('User not found');
     }
@@ -253,7 +254,7 @@ const deleteUploadedFile = asyncHandler(async (req, res) => {
     const s3Key = decodeURIComponent(req.params.s3Key);
     const { dataId } = req.body;
 
-    console.log('File deletion data:', {
+    logger.debug('File deletion data:', {
         userId: req.user.id,
         s3Key,
         dataId
@@ -296,7 +297,7 @@ const deleteUploadedFile = asyncHandler(async (req, res) => {
                 };
 
                 await dynamodb.send(new UpdateCommand(updateParams));
-                console.log(`File reference removed from data item ${dataId}`);
+                logger.debug(`File reference removed from data item ${dataId}`);
             }
         }
 
@@ -306,7 +307,7 @@ const deleteUploadedFile = asyncHandler(async (req, res) => {
         });
 
     } catch (error) {
-        console.error('File deletion error:', error);
+        logger.error('File deletion error:', error);
         res.status(500).json({
             error: `Failed to delete file: ${error.message}`,
             timestamp: new Date().toISOString()

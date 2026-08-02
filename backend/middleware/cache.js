@@ -18,16 +18,17 @@ const authCache = new NodeCache({
 
 // Generic cache middleware factory
 const createCacheMiddleware = (cache, keyGenerator, ttl = null) => {
+const { logger } = require('../utils/logger');
   return (req, res, next) => {
     const cacheKey = keyGenerator(req);
     const cachedData = cache.get(cacheKey);
 
     if (cachedData) {
-      console.log(`Cache hit for key: ${cacheKey}`);
+      logger.debug(`Cache hit for key: ${cacheKey}`);
       return res.json(cachedData);
     }
 
-    console.log(`Cache miss for key: ${cacheKey}`);
+    logger.debug(`Cache miss for key: ${cacheKey}`);
     
     // Store original res.json
     const originalJson = res.json;
@@ -38,7 +39,7 @@ const createCacheMiddleware = (cache, keyGenerator, ttl = null) => {
       if (res.statusCode === 200) {
         const cacheOptions = ttl ? { ttl } : {};
         cache.set(cacheKey, data, cacheOptions);
-        console.log(`Cached data for key: ${cacheKey}`);
+        logger.debug(`Cached data for key: ${cacheKey}`);
       }
       
       // Call original res.json
@@ -65,14 +66,14 @@ const invalidateUserCache = (userId) => {
   const keys = userDataCache.keys();
   const userKeys = keys.filter(key => key.includes(`user_${userId}_`));
   userKeys.forEach(key => userDataCache.del(key));
-  console.log(`Invalidated ${userKeys.length} cache entries for user ${userId}`);
+  logger.debug(`Invalidated ${userKeys.length} cache entries for user ${userId}`);
 };
 
 const invalidatePublicCache = () => {
   const keys = publicDataCache.keys();
   const publicKeys = keys.filter(key => key.includes('public_'));
   publicKeys.forEach(key => publicDataCache.del(key));
-  console.log(`Invalidated ${publicKeys.length} public cache entries`);
+  logger.debug(`Invalidated ${publicKeys.length} public cache entries`);
 };
 
 // Cache statistics

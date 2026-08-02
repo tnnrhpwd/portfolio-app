@@ -3,6 +3,7 @@ const { S3Client, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand } = r
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const { randomUUID } = require('crypto');
 require('dotenv').config();
+const { logger } = require('../utils/logger');
 
 // Enhanced S3 client with configuration
 const s3Client = new S3Client({
@@ -27,7 +28,7 @@ const validateFile = (filename, fileSize, contentType) => {
     const allowedTypes = (process.env.ALLOWED_FILE_TYPES || 'image/jpeg,image/png,image/gif,image/webp,application/pdf').split(',');
     const maxSize = parseInt(process.env.MAX_FILE_SIZE) || 52428800; // 50MB default
 
-    console.log('Validating file:', { filename, fileSize, contentType, allowedTypes, maxSize });
+    logger.debug('Validating file:', { filename, fileSize, contentType, allowedTypes, maxSize });
 
     // Check file type
     if (!allowedTypes.includes(contentType)) {
@@ -42,7 +43,7 @@ const validateFile = (filename, fileSize, contentType) => {
     // Check filename for security
     const sanitizedFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
     if (sanitizedFilename !== filename) {
-        console.warn(`Filename sanitized from "${filename}" to "${sanitizedFilename}"`);
+        logger.warn(`Filename sanitized from "${filename}" to "${sanitizedFilename}"`);
     }
 
     return { isValid: true, sanitizedFilename };
@@ -65,7 +66,7 @@ const generateS3Key = (userId, filename, fileType = 'general') => {
 // Generate pre-signed URL for upload
 const generatePresignedUploadUrl = async (userId, filename, contentType, fileSize, fileType = 'general') => {
     try {
-        console.log('Generating pre-signed URL for:', { userId, filename, contentType, fileSize, fileType });
+        logger.debug('Generating pre-signed URL for:', { userId, filename, contentType, fileSize, fileType });
 
         // Validate file
         const { sanitizedFilename } = validateFile(filename, fileSize, contentType);
@@ -90,7 +91,7 @@ const generatePresignedUploadUrl = async (userId, filename, contentType, fileSiz
         // Generate pre-signed URL with configurable expiration
         const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: PRESIGNED_URL_EXPIRES });
 
-        console.log('Pre-signed URL generated successfully');
+        logger.debug('Pre-signed URL generated successfully');
 
         return {
             uploadUrl: presignedUrl,
@@ -108,7 +109,7 @@ const generatePresignedUploadUrl = async (userId, filename, contentType, fileSiz
         };
 
     } catch (error) {
-        console.error('Error generating pre-signed URL:', error);
+        logger.error('Error generating pre-signed URL:', error);
         throw new Error(`Failed to generate upload URL: ${error.message}`);
     }
 };
@@ -119,7 +120,7 @@ const generateCloudFrontUrl = (s3Key) => {
     
     // Check if CloudFront is enabled and properly configured
     if (USE_CLOUDFRONT && cloudFrontDomain && cloudFrontDomain !== 'your-cloudfront-domain.cloudfront.net') {
-        console.log(`Using CloudFront URL: https://${cloudFrontDomain}/${s3Key}`);
+        logger.debug(`Using CloudFront URL: https://${cloudFrontDomain}/${s3Key}`);
         return `https://${cloudFrontDomain}/${s3Key}`;
     }
     
@@ -150,7 +151,7 @@ const checkFileExists = async (s3Key) => {
 // Delete file from S3
 const deleteFile = async (s3Key) => {
     try {
-        console.log('Deleting file from S3:', s3Key);
+        logger.debug('Deleting file from S3:', s3Key);
 
         const command = new DeleteObjectCommand({
             Bucket: process.env.AWS_S3_BUCKET,
@@ -158,11 +159,11 @@ const deleteFile = async (s3Key) => {
         });
 
         await s3Client.send(command);
-        console.log('File deleted successfully from S3');
+        logger.debug('File deleted successfully from S3');
         return true;
 
     } catch (error) {
-        console.error('Error deleting file from S3:', error);
+        logger.error('Error deleting file from S3:', error);
         throw new Error(`Failed to delete file: ${error.message}`);
     }
 };
@@ -186,7 +187,7 @@ const getFileMetadata = async (s3Key) => {
         };
 
     } catch (error) {
-        console.error('Error getting file metadata:', error);
+        logger.error('Error getting file metadata:', error);
         throw new Error(`Failed to get file metadata: ${error.message}`);
     }
 };

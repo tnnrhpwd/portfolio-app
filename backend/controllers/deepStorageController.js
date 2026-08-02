@@ -16,6 +16,7 @@ const {
 } = require('../services/deepStorageService');
 
 const isAdmin = (req) => req.user && req.user.id === process.env.ADMIN_USER_ID;
+const { logger } = require('../utils/logger');
 
 // ═══════════════════════════════════════════════════════════════
 // GET /api/data/deepstorage/items
@@ -48,7 +49,7 @@ const regenerateDeepStorageItems = asyncHandler(async (req, res) => {
         const list = await regenerateAndSave();
         res.status(200).json(list);
     } catch (error) {
-        console.error('Error regenerating DeepStorage item list:', error);
+        logger.error('Error regenerating DeepStorage item list:', error);
         res.status(502).json({
             error: 'Failed to regenerate item list from source',
             details: error.message,

@@ -18,6 +18,7 @@ const args = process.argv.slice(2);
 const command = args[0];
 
 const findGuestUser = async () => {
+const { logger } = require('./logger');
     const params = {
         TableName: 'Simple',
         FilterExpression: 'contains(#text, :emailValue)',
@@ -30,11 +31,11 @@ const findGuestUser = async () => {
 };
 
 const deleteGuestUser = async () => {
-    console.log('🔍 Looking for existing guest user...');
+    logger.debug('🔍 Looking for existing guest user...');
     const existingUser = await findGuestUser();
     
     if (!existingUser) {
-        console.log('ℹ️  No guest user found to delete.');
+        logger.debug('ℹ️  No guest user found to delete.');
         return;
     }
 
@@ -46,23 +47,23 @@ const deleteGuestUser = async () => {
     };
 
     await dynamodb.send(new DeleteItemCommand(deleteParams));
-    console.log('🗑️  Guest user deleted successfully.');
+    logger.debug('🗑️  Guest user deleted successfully.');
 };
 
 const createGuestUser = async () => {
-    console.log('🔍 Checking for existing guest user...');
+    logger.debug('🔍 Checking for existing guest user...');
     const existingUser = await findGuestUser();
     
     if (existingUser) {
-        console.log('ℹ️  Guest user already exists:');
-        console.log('   ID:', existingUser.id.S);
-        console.log('   Email: guest@gmail.com');
-        console.log('   Password: guest');
-        console.log('   Status: Ready for login!');
+        logger.debug('ℹ️  Guest user already exists:');
+        logger.debug('   ID:', existingUser.id.S);
+        logger.debug('   Email: guest@gmail.com');
+        logger.debug('   Password: guest');
+        logger.debug('   Status: Ready for login!');
         return;
     }
 
-    console.log('🆕 Creating new guest user...');
+    logger.debug('🆕 Creating new guest user...');
     
     // Hash the password
     const salt = await bcrypt.genSalt(10);
@@ -87,12 +88,12 @@ const createGuestUser = async () => {
 
     await dynamodb.send(new PutItemCommand(putParams));
     
-    console.log('✅ Guest user created successfully!');
-    console.log('   ID:', userId);
-    console.log('   Email: guest@gmail.com');
-    console.log('   Password: guest');
-    console.log('   Nickname: Guest User');
-    console.log('   Status: Ready for debugging!');
+    logger.debug('✅ Guest user created successfully!');
+    logger.debug('   ID:', userId);
+    logger.debug('   Email: guest@gmail.com');
+    logger.debug('   Password: guest');
+    logger.debug('   Nickname: Guest User');
+    logger.debug('   Status: Ready for debugging!');
 };
 
 const resetGuestUser = async () => {
@@ -101,23 +102,23 @@ const resetGuestUser = async () => {
 };
 
 const checkGuestUser = async () => {
-    console.log('🔍 Checking guest user status...');
+    logger.debug('🔍 Checking guest user status...');
     const existingUser = await findGuestUser();
     
     if (existingUser) {
-        console.log('✅ Guest user found and ready!');
-        console.log('   ID:', existingUser.id.S);
-        console.log('   Email: guest@gmail.com');
-        console.log('   Password: guest');
-        console.log('   Created:', existingUser.createdAt?.S || 'Unknown');
+        logger.debug('✅ Guest user found and ready!');
+        logger.debug('   ID:', existingUser.id.S);
+        logger.debug('   Email: guest@gmail.com');
+        logger.debug('   Password: guest');
+        logger.debug('   Created:', existingUser.createdAt?.S || 'Unknown');
     } else {
-        console.log('❌ No guest user found.');
-        console.log('   Run: node utils/guestUserManager.js create');
+        logger.debug('❌ No guest user found.');
+        logger.debug('   Run: node utils/guestUserManager.js create');
     }
 };
 
 const showHelp = () => {
-    console.log(`
+    logger.debug(`
 🛠️  Guest User Manager - Development Tool
 
 Usage: node utils/guestUserManager.js <command>
@@ -165,13 +166,13 @@ const main = async () => {
                 if (!command) {
                     await checkGuestUser(); // Default action
                 } else {
-                    console.log(`❌ Unknown command: ${command}`);
+                    logger.debug(`❌ Unknown command: ${command}`);
                     showHelp();
                     process.exit(1);
                 }
         }
     } catch (error) {
-        console.error('❌ Error:', error.message);
+        logger.error('❌ Error:', error.message);
         process.exit(1);
     }
 };

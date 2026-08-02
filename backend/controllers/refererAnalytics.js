@@ -16,6 +16,7 @@ const getRefererAnalytics = asyncHandler(async (req, res) => {
     try {
         const days = parseInt(req.query.days) || 30;
         const stats = await getRefererStats(days);
+const { logger } = require('../utils/logger');
         
         res.status(200).json({
             success: true,
@@ -23,7 +24,7 @@ const getRefererAnalytics = asyncHandler(async (req, res) => {
             message: `Referer analytics for the last ${days} days`
         });
     } catch (error) {
-        console.error('Error fetching referer analytics:', error);
+        logger.error('Error fetching referer analytics:', error);
         res.status(500);
         throw new Error('Failed to fetch referer analytics');
     }
@@ -58,7 +59,7 @@ const getRefererData = asyncHandler(async (req, res) => {
             dateRange: { startDate, endDate }
         });
     } catch (error) {
-        console.error('Error fetching referer data:', error);
+        logger.error('Error fetching referer data:', error);
         res.status(500);
         throw new Error('Failed to fetch referer data');
     }
@@ -98,7 +99,7 @@ const getRefererSummary = asyncHandler(async (req, res) => {
             period: 'Last 7 days'
         });
     } catch (error) {
-        console.error('Error fetching referer summary:', error);
+        logger.error('Error fetching referer summary:', error);
         res.status(500);
         throw new Error('Failed to fetch referer summary');
     }

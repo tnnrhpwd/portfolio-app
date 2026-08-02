@@ -18,6 +18,7 @@ const _ddbClient = new DynamoDBClient({
     maxAttempts: 3
 });
 const _dynamodb = DynamoDBDocumentClient.from(_ddbClient);
+const { logger } = require('../utils/logger');
 
 // Cache for auto-created test-mode product/price IDs so they are only created once
 const testPriceCache = {}; // e.g. { simple: 'price_xxx', pro: 'price_xxx' }
@@ -69,10 +70,10 @@ async function validateOrRecoverCustomer(customerId, email, name, userId) {
     const s = getStripe(userId);
     try {
         const customer = await s.customers.retrieve(customerId);
-        console.log('Customer ID validated successfully');
+        logger.debug('Customer ID validated successfully');
         return customer;
     } catch (stripeError) {
-        console.log(`Invalid Stripe customer ID ${customerId}, attempting recovery...`);
+        logger.debug(`Invalid Stripe customer ID ${customerId}, attempting recovery...`);
         
         // Search for existing customer by email
         const existingCustomers = await s.customers.list({
@@ -81,12 +82,12 @@ async function validateOrRecoverCustomer(customerId, email, name, userId) {
         });
         
         if (existingCustomers.data.length > 0) {
-            console.log('Found existing Stripe customer by email:', existingCustomers.data[0].id);
+            logger.debug('Found existing Stripe customer by email:', existingCustomers.data[0].id);
             return existingCustomers.data[0];
         } else {
             // Create new customer
             const newCustomer = await s.customers.create({ email, name });
-            console.log('Created new Stripe customer:', newCustomer.id);
+            logger.debug('Created new Stripe customer:', newCustomer.id);
             return newCustomer;
         }
     }
@@ -101,7 +102,7 @@ async function validateOrRecoverCustomer(customerId, email, name, userId) {
 async function updateUserCustomerId(dynamodb, user, customerId) {
     const updatedUserData = user.text.replace(/\|stripeid:([^|]*)/, `|stripeid:${customerId}`);
     
-    console.log('Updating user data with customer ID:', customerId);
+    logger.debug('Updating user data with customer ID:', customerId);
     
     const putParams = {
         TableName: 'Simple',
@@ -113,7 +114,7 @@ async function updateUserCustomerId(dynamodb, user, customerId) {
     };
     
     await dynamodb.send(new PutCommand(putParams));
-    console.log('User data updated with Stripe customer ID');
+    logger.debug('User data updated with Stripe customer ID');
 }
 
 /**
@@ -134,18 +135,18 @@ async function createOrValidateCustomer(req, dynamodb) {
     // If user has a Stripe ID, validate it against Stripe
     if (existingStripeId && existingStripeId !== '') {
         try {
-            console.log('Validating existing Stripe customer ID:', existingStripeId);
+            logger.debug('Validating existing Stripe customer ID:', existingStripeId);
             const existingCustomer = await s.customers.retrieve(existingStripeId);
             
             if (existingCustomer.email === email) {
-                console.log('Existing Stripe customer ID is valid and email matches');
+                logger.debug('Existing Stripe customer ID is valid and email matches');
                 customer = existingCustomer;
             } else {
-                console.log(`Email mismatch: DB has ${existingStripeId} with email ${existingCustomer.email}, but user email is ${email}`);
+                logger.debug(`Email mismatch: DB has ${existingStripeId} with email ${existingCustomer.email}, but user email is ${email}`);
                 customer = null;
             }
         } catch (stripeError) {
-            console.log(`Stripe customer ID ${existingStripeId} is invalid or deleted:`, stripeError.message);
+            logger.debug(`Stripe customer ID ${existingStripeId} is invalid or deleted:`, stripeError.message);
             customer = null;
         }
     }
@@ -159,18 +160,18 @@ async function createOrValidateCustomer(req, dynamodb) {
         
         if (existingCustomers.data.length > 0) {
             customer = existingCustomers.data[0];
-            console.log('Found existing Stripe customer by email:', customer.id, 'for email:', email);
+            logger.debug('Found existing Stripe customer by email:', customer.id, 'for email:', email);
             
             if (existingStripeId && existingStripeId !== customer.id) {
-                console.log(`Correcting customer ID mismatch: ${existingStripeId} -> ${customer.id}`);
+                logger.debug(`Correcting customer ID mismatch: ${existingStripeId} -> ${customer.id}`);
             }
         } else {
             const idempotencyKey = crypto.randomUUID();
             customer = await s.customers.create({ email, name }, { idempotencyKey });
-            console.log('Created new Stripe customer:', customer.id, 'for email:', email);
+            logger.debug('Created new Stripe customer:', customer.id, 'for email:', email);
             
             if (existingStripeId) {
-                console.log(`Replacing invalid customer ID: ${existingStripeId} -> ${customer.id}`);
+                logger.debug(`Replacing invalid customer ID: ${existingStripeId} -> ${customer.id}`);
             }
         }
     }
@@ -219,7 +220,7 @@ async function attachPaymentMethod(paymentMethodId, customerId, userId) {
  */
 async function createSetupIntent(customerId, userId) {
     const s = getStripe(userId);
-    console.log('Creating setup intent for customer:', customerId);
+    logger.debug('Creating setup intent for customer:', customerId);
     
     const setupIntent = await s.setupIntents.create({
         customer: customerId,
@@ -227,7 +228,7 @@ async function createSetupIntent(customerId, userId) {
         usage: 'on_session',
     });
     
-    console.log('Setup intent created successfully:', setupIntent.id);
+    logger.debug('Setup intent created successfully:', setupIntent.id);
     return setupIntent;
 }
 
@@ -265,7 +266,7 @@ async function createInvoice(customerId, amount, description, userId) {
 async function updateUserRank(customerId, rank) {
     try {
         const formattedRank = rank.charAt(0).toUpperCase() + rank.slice(1).toLowerCase();
-        console.log(`Updating user rank to: ${formattedRank}`);
+        logger.debug(`Updating user rank to: ${formattedRank}`);
 
         // Use the shared DynamoDB client instead of creating a new one each call
         // Note: This is still a full-table scan filtered by stripeid.
@@ -278,12 +279,12 @@ async function updateUserRank(customerId, rank) {
         }));
 
         if (!scanResult.Items || scanResult.Items.length === 0) {
-            console.error(`No user profile data found for customer ID: ${customerId}`);
+            logger.error(`No user profile data found for customer ID: ${customerId}`);
             return false;
         }
 
         const userData = scanResult.Items[0];
-        console.log(`Found user profile data with ID: ${userData.id}`);
+        logger.debug(`Found user profile data with ID: ${userData.id}`);
 
         let updatedText = userData.text;
 
@@ -302,10 +303,10 @@ async function updateUserRank(customerId, rank) {
             }
         }));
 
-        console.log('Successfully updated user rank in database');
+        logger.debug('Successfully updated user rank in database');
         return true;
     } catch (error) {
-        console.error('Error updating user rank:', error);
+        logger.error('Error updating user rank:', error);
         return false;
     }
 }
@@ -324,7 +325,7 @@ async function getCurrentMembershipType(customerId, userId) {
         limit: 20
     });
     
-    console.log(`Found ${existingSubscriptions.data.length} existing subscriptions for customer`);
+    logger.debug(`Found ${existingSubscriptions.data.length} existing subscriptions for customer`);
     
     let currentMembership = 'free';
     const activeSubscriptions = existingSubscriptions.data.filter(sub => 
@@ -337,7 +338,7 @@ async function getCurrentMembershipType(customerId, userId) {
             // Live mode: direct ID lookup
             if (pid && STRIPE_PRODUCT_IDS[pid]) {
                 currentMembership = STRIPE_PRODUCT_IDS[pid];
-                console.log(`Product ${pid} matched plan: ${currentMembership}`);
+                logger.debug(`Product ${pid} matched plan: ${currentMembership}`);
                 break;
             }
             // Test mode: look up product name to identify plan
@@ -347,11 +348,11 @@ async function getCurrentMembershipType(customerId, userId) {
                     const planId = STRIPE_PRODUCT_MAP[product.name];
                     if (planId) {
                         currentMembership = planId;
-                        console.log(`Test product "${product.name}" (${pid}) matched plan: ${currentMembership}`);
+                        logger.debug(`Test product "${product.name}" (${pid}) matched plan: ${currentMembership}`);
                         break;
                     }
                 } catch (e) {
-                    console.warn(`Could not retrieve test product ${pid}:`, e.message);
+                    logger.warn(`Could not retrieve test product ${pid}:`, e.message);
                 }
             }
         }
@@ -378,14 +379,14 @@ async function cancelActiveSubscriptions(customerId, userId) {
     );
     
     if (activeSubscriptions.length > 0) {
-        console.log(`Cancelling ${activeSubscriptions.length} active subscriptions`);
+        logger.debug(`Cancelling ${activeSubscriptions.length} active subscriptions`);
         
         for (const subscription of activeSubscriptions) {
             try {
                 await s.subscriptions.cancel(subscription.id, { prorate: true });
-                console.log(`Successfully cancelled subscription: ${subscription.id}`);
+                logger.debug(`Successfully cancelled subscription: ${subscription.id}`);
             } catch (cancelError) {
-                console.error(`Error cancelling subscription ${subscription.id}: ${cancelError.message}`);
+                logger.error(`Error cancelling subscription ${subscription.id}: ${cancelError.message}`);
             }
         }
     }
@@ -396,13 +397,13 @@ async function cancelActiveSubscriptions(customerId, userId) {
     );
     
     if (expiredSubscriptions.length > 0) {
-        console.log(`Cleaning up ${expiredSubscriptions.length} expired subscriptions`);
+        logger.debug(`Cleaning up ${expiredSubscriptions.length} expired subscriptions`);
         for (const expSub of expiredSubscriptions) {
             try {
                 await s.subscriptions.cancel(expSub.id);
-                console.log(`Cancelled expired subscription: ${expSub.id}`);
+                logger.debug(`Cancelled expired subscription: ${expSub.id}`);
             } catch (delError) {
-                console.error(`Error deleting subscription ${expSub.id}:`, delError.message);
+                logger.error(`Error deleting subscription ${expSub.id}:`, delError.message);
             }
         }
     }
@@ -426,7 +427,7 @@ async function getOrCreatePriceId(membershipType, customPrice = null, userId) {
         }
         // Check in-memory cache
         if (testPriceCache[membershipType]) {
-            console.log(`Using cached test price for ${membershipType}: ${testPriceCache[membershipType]}`);
+            logger.debug(`Using cached test price for ${membershipType}: ${testPriceCache[membershipType]}`);
             return testPriceCache[membershipType];
         }
     } else {
@@ -447,7 +448,7 @@ async function getOrCreatePriceId(membershipType, customPrice = null, userId) {
         if (prices.data.length === 0) {
             throw new Error(`No pricing available for product ${productId}`);
         }
-        console.log(`Using price ID: ${prices.data[0].id} for ${membershipType} (${productId})`);
+        logger.debug(`Using price ID: ${prices.data[0].id} for ${membershipType} (${productId})`);
         return prices.data[0].id;
     }
 
@@ -460,7 +461,7 @@ async function getOrCreatePriceId(membershipType, customPrice = null, userId) {
     let testProduct = products.data.find(p => p.name === productName);
 
     if (!testProduct) {
-        console.log(`Creating test product: ${productName}`);
+        logger.debug(`Creating test product: ${productName}`);
         testProduct = await s.products.create({ name: productName });
     }
 
@@ -471,7 +472,7 @@ async function getOrCreatePriceId(membershipType, customPrice = null, userId) {
     );
 
     if (!matchingPrice) {
-        console.log(`Creating test price for ${productName}: $${unitAmount / 100}/month`);
+        logger.debug(`Creating test price for ${productName}: $${unitAmount / 100}/month`);
         matchingPrice = await s.prices.create({
             product: testProduct.id,
             unit_amount: unitAmount,
@@ -480,7 +481,7 @@ async function getOrCreatePriceId(membershipType, customPrice = null, userId) {
         });
     }
 
-    console.log(`Using test price ID: ${matchingPrice.id} for ${membershipType} (${testProduct.id})`);
+    logger.debug(`Using test price ID: ${matchingPrice.id} for ${membershipType} (${testProduct.id})`);
     testPriceCache[membershipType] = matchingPrice.id;
     return matchingPrice.id;
 }

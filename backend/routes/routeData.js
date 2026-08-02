@@ -146,9 +146,11 @@ const upload = multer({
   }
 });
 
-// Diagnostic logging for incoming requests BEFORE body parsing
+// Diagnostic logging for incoming requests BEFORE body parsing.
+// Debug-level only — enable with LOG_LEVEL=debug when you need a full
+// per-request trace; not shown in normal dev/prod console output.
 router.use((req, res, next) => {
-  console.log(`[DEBUG] Incoming request: ${req.method} ${req.originalUrl}`);
+  logger.debug(`Incoming request: ${req.method} ${req.originalUrl}`);
   next();
 });
 
@@ -164,7 +166,7 @@ router.use(express.urlencoded({ extended: false }));
 
 // NOTE: apiLimiter is applied globally in server.js — not duplicated here.
 
-// Diagnostic logging AFTER body parsing
+// Diagnostic logging AFTER body parsing (debug-level, see note above)
 router.use((req, res, next) => {
   // req.body is undefined for requests with no matching body (e.g. GET
   // requests without a JSON content-type) since express.json()/urlencoded()
@@ -175,7 +177,7 @@ router.use((req, res, next) => {
   // Only log body for non-sensitive routes and if body is not too large
   if (!req.originalUrl.includes('login') && !req.originalUrl.includes('register') &&
       bodyJson.length > 0 && bodyJson.length < 1000) {
-    console.log('[DEBUG] Request Body After Parsing:', JSON.stringify(req.body, null, 2));
+    logger.debug('Request body after parsing', { url: req.originalUrl, body: req.body });
   }
   next();
 });
@@ -249,8 +251,9 @@ router.get('/llm-providers', getLLMProviders);
 router.post('/web-vitals', apiLimiter, (req, res) => {
   const { url, ttfb, cls, fcp, lcp, fid, connection, deviceMemory, timestamp } = req.body || {};
   if (url && timestamp) {
-    // Log for observability; extend here to persist to DB if needed
-    logger.info('web-vitals', {
+    // Debug-level observability beacon — fires on every page load, so it's
+    // not shown by default; enable with LOG_LEVEL=debug when investigating.
+    logger.debug('web-vitals', {
       url, ttfb, cls, fcp, lcp, fid, connection, deviceMemory, timestamp,
       ip: req.ip,
     });
@@ -367,7 +370,7 @@ router.get('/usage', protect, getUserUsageData);
 const logPaymentAction = (req, res, next) => {
   const { method, originalUrl, ip } = req;
   const userId = req.user?.id || 'anonymous';
-  console.log(`[PAYMENT AUDIT] ${new Date().toISOString()} | ${method} ${originalUrl} | user=${userId} | ip=${ip}`);
+  logger.info('Payment action', { method, url: originalUrl, userId, ip });
   next();
 };
 

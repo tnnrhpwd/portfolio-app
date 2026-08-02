@@ -1,4 +1,7 @@
 /**
+
+const { logger } = require('../utils/logger');
+/**
  * CSimple Workspace Controller
  *
  * Implements an "AI workspace" inspired by the OpenClaw memory-OS pattern.
@@ -210,7 +213,7 @@ async function auditLog(userId, action, details) {
         }));
     } catch (e) {
         // Audit failure must not surface. Log to server console only.
-        console.warn('[workspace] audit failed:', e.message);
+        logger.warn('[workspace] audit failed:', e.message);
     }
 }
 

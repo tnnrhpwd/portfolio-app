@@ -5,6 +5,7 @@ const {
   subscriptionUpdatedTemplate,
   subscriptionCancelledTemplate
 } = require('./emailTemplates');
+const { logger } = require('../utils/logger');
 
 // Lazy-loaded test funnel hook — avoids circular require at module load
 let _interceptTestEmail = null;
@@ -24,11 +25,11 @@ let client = null;
 if (process.env.POSTMARK_API_TOKEN) {
   client = new postmark.ServerClient(process.env.POSTMARK_API_TOKEN);
 } else {
-  console.warn('⚠️  POSTMARK_API_TOKEN not configured. Email functionality will be disabled.');
+  logger.warn('⚠️  POSTMARK_API_TOKEN not configured. Email functionality will be disabled.');
 }
 
 if (client && !process.env.FROM_EMAIL) {
-  console.warn('⚠️  FROM_EMAIL not configured. Postmark sends will fail with "Invalid \'From\' value".');
+  logger.warn('⚠️  FROM_EMAIL not configured. Postmark sends will fail with "Invalid \'From\' value".');
 }
 
 /**
@@ -43,15 +44,15 @@ const sendEmail = async (to, templateName, data) => {
     // Test-funnel intercept — capture instead of sending
     const intercept = getInterceptor();
     if (intercept && intercept(to, templateName, data)) {
-      console.log(`📧 [TEST FUNNEL] Captured email to ${to} (template: ${templateName})`);
+      logger.debug(`📧 [TEST FUNNEL] Captured email to ${to} (template: ${templateName})`);
       return { MessageID: 'test-funnel-captured', Message: 'Captured by test funnel' };
     }
 
     // If email client is not configured, log and skip
     if (!client) {
-      console.warn(`⚠️  Email would be sent to ${to} with template ${templateName}, but Postmark is not configured.`);
+      logger.warn(`⚠️  Email would be sent to ${to} with template ${templateName}, but Postmark is not configured.`);
       if (process.env.NODE_ENV === 'development') {
-        console.log('Email data:', JSON.stringify(data, null, 2));
+        logger.debug('Email data:', JSON.stringify(data, null, 2));
       }
       return { MessageID: 'dev-mode-skip', Message: 'Email service not configured' };
     }
@@ -90,10 +91,10 @@ const sendEmail = async (to, templateName, data) => {
       MessageStream: 'outbound'
     });
     
-    console.log(`Email sent successfully with ID: ${result.MessageID}`);
+    logger.debug(`Email sent successfully with ID: ${result.MessageID}`);
     return result;
   } catch (error) {
-    console.error('Error sending email:', error);
+    logger.error('Error sending email:', error);
     throw error;
   }
 };

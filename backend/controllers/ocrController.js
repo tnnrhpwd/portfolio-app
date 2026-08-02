@@ -14,6 +14,7 @@ const extractOCR = asyncHandler(async (req, res) => {
     try {
         // IP check
         const ipStatus = await checkIP(req);
+const { logger } = require('../utils/logger');
         if (!ipStatus.allowed) {
             return res.status(403).json({ 
                 success: false, 
@@ -85,7 +86,7 @@ const extractOCR = asyncHandler(async (req, res) => {
         });
 
     } catch (error) {
-        console.error('[OCR Controller] Error in extractOCR:', error);
+        logger.error('[OCR Controller] Error in extractOCR:', error);
         res.status(500).json({ 
             success: false, 
             error: error.message || 'OCR extraction failed' 
@@ -165,7 +166,7 @@ const updateWithOCR = asyncHandler(async (req, res) => {
         });
 
     } catch (error) {
-        console.error('[OCR Controller] Error in updateWithOCR:', error);
+        logger.error('[OCR Controller] Error in updateWithOCR:', error);
         res.status(500).json({ 
             success: false, 
             error: error.message || 'Failed to update item with OCR results' 

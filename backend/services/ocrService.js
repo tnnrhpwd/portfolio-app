@@ -9,6 +9,7 @@ const {
     PROVIDERS 
 } = require('../utils/llmProviders.js');
 const { canMakeApiCall } = require('../utils/apiUsageTracker.js');
+const { logger } = require('../utils/logger');
 
 require('dotenv').config();
 
@@ -46,7 +47,7 @@ async function initializeOCRLLMClients() {
  */
 async function processWithGoogleVision(imageData, model = 'default') {
     try {
-        console.log('Processing with Google Vision API, model:', model);
+        logger.debug('Processing with Google Vision API, model:', model);
         
         if (process.env.GOOGLE_CLOUD_KEY_FILE) {
             const vision = require('@google-cloud/vision');
@@ -81,12 +82,12 @@ async function processWithGoogleVision(imageData, model = 'default') {
                 };
             }
         } else {
-            console.log('Google Vision API credentials not configured, using OpenAI Vision as fallback');
+            logger.debug('Google Vision API credentials not configured, using OpenAI Vision as fallback');
             return await processWithOpenAIVision(imageData, model);
         }
     } catch (error) {
-        console.error('Google Vision API error:', error);
-        console.log('Falling back to OpenAI Vision');
+        logger.error('Google Vision API error:', error);
+        logger.debug('Falling back to OpenAI Vision');
         return await processWithOpenAIVision(imageData, model);
     }
 }
@@ -99,7 +100,7 @@ async function processWithGoogleVision(imageData, model = 'default') {
  */
 async function processWithOpenAIVision(imageData, model = 'gpt-4o') {
     try {
-        console.log('Processing with OpenAI Vision API, model:', model);
+        logger.debug('Processing with OpenAI Vision API, model:', model);
         
         if (!process.env.OPENAI_KEY) {
             throw new Error('OpenAI API key not configured');
@@ -143,7 +144,7 @@ async function processWithOpenAIVision(imageData, model = 'gpt-4o') {
             usage: response.usage
         };
     } catch (error) {
-        console.error('OpenAI Vision API error:', error);
+        logger.error('OpenAI Vision API error:', error);
         throw new Error(`OpenAI Vision failed: ${error.message}`);
     }
 }
@@ -156,7 +157,7 @@ async function processWithOpenAIVision(imageData, model = 'gpt-4o') {
  */
 async function processWithXAIVision(imageData, model = 'grok-4') {
     try {
-        console.log('Processing with XAI Vision API, model:', model);
+        logger.debug('Processing with XAI Vision API, model:', model);
         
         if (!process.env.XAI_API_KEY && !process.env.XAI_KEY) {
             throw new Error('XAI API key not configured');
@@ -165,13 +166,13 @@ async function processWithXAIVision(imageData, model = 'grok-4') {
         await initializeLLMClients();
         
         const imageSizeMB = imageData ? (imageData.length * 0.75) / (1024 * 1024) : 0;
-        console.log('Image size (estimated MB):', imageSizeMB.toFixed(2));
+        logger.debug('Image size (estimated MB):', imageSizeMB.toFixed(2));
         
         let processedImageData = imageData;
         if (imageSizeMB > 0.5) {
             const maxLength = Math.floor(700000 * 0.75);
             processedImageData = imageData.substring(0, maxLength);
-            console.log('Compressed image to length:', processedImageData.length);
+            logger.debug('Compressed image to length:', processedImageData.length);
         }
 
         const messageContent = [
@@ -201,7 +202,7 @@ async function processWithXAIVision(imageData, model = 'grok-4') {
         
         const extractedText = completion.choices?.[0]?.message?.content || 'No text detected';
         
-        console.log('XAI Vision OCR completed, text length:', extractedText.length);
+        logger.debug('XAI Vision OCR completed, text length:', extractedText.length);
         
         return {
             extractedText: extractedText,
@@ -211,7 +212,7 @@ async function processWithXAIVision(imageData, model = 'grok-4') {
             usage: completion.usage
         };
     } catch (error) {
-        console.error('XAI Vision API error:', error);
+        logger.error('XAI Vision API error:', error);
         throw new Error(`XAI Vision failed: ${error.message}`);
     }
 }
@@ -224,7 +225,7 @@ async function processWithXAIVision(imageData, model = 'grok-4') {
  */
 async function processWithAzureOCR(imageData, model = 'default') {
     try {
-        console.log('Processing with Azure Computer Vision, model:', model);
+        logger.debug('Processing with Azure Computer Vision, model:', model);
         
         if (process.env.AZURE_COMPUTER_VISION_KEY && process.env.AZURE_COMPUTER_VISION_ENDPOINT) {
             const { ComputerVisionClient } = require('@azure/cognitiveservices-computervision');
@@ -265,11 +266,11 @@ async function processWithAzureOCR(imageData, model = 'default') {
                 throw new Error('Azure OCR operation failed');
             }
         } else {
-            console.log('Azure credentials not configured, using OpenAI Vision as fallback');
+            logger.debug('Azure credentials not configured, using OpenAI Vision as fallback');
             return await processWithOpenAIVision(imageData, model);
         }
     } catch (error) {
-        console.error('Azure Computer Vision error:', error);
+        logger.error('Azure Computer Vision error:', error);
         return await processWithOpenAIVision(imageData, model);
     }
 }
@@ -282,7 +283,7 @@ async function processWithAzureOCR(imageData, model = 'default') {
  */
 async function processWithAWSTextract(imageData, model = 'default') {
     try {
-        console.log('Processing with AWS Textract, model:', model);
+        logger.debug('Processing with AWS Textract, model:', model);
         
         // Placeholder for AWS Textract implementation
         return {
@@ -292,7 +293,7 @@ async function processWithAWSTextract(imageData, model = 'default') {
             model: model
         };
     } catch (error) {
-        console.error('AWS Textract error:', error);
+        logger.error('AWS Textract error:', error);
         throw new Error(`AWS Textract failed: ${error.message}`);
     }
 }
@@ -305,12 +306,12 @@ async function processWithAWSTextract(imageData, model = 'default') {
  */
 async function processWithTesseract(imageData, model = 'default') {
     try {
-        console.log('Processing with Tesseract (local), model:', model);
+        logger.debug('Processing with Tesseract (local), model:', model);
         
         const Tesseract = require('tesseract.js');
         
         let tesseractOptions = {
-            logger: m => console.log(m)
+            logger: m => logger.debug(m)
         };
         
         switch (model) {
@@ -337,8 +338,8 @@ async function processWithTesseract(imageData, model = 'default') {
             model: model
         };
     } catch (error) {
-        console.error('Tesseract error:', error);
-        console.log('Tesseract failed, falling back to OpenAI Vision');
+        logger.error('Tesseract error:', error);
+        logger.debug('Tesseract failed, falling back to OpenAI Vision');
         return await processWithOpenAIVision(imageData, model);
     }
 }
@@ -353,7 +354,7 @@ async function processWithTesseract(imageData, model = 'default') {
  */
 async function postProcessWithLLM(ocrText, llmProvider, llmModel, userId) {
     try {
-        console.log(`Post-processing OCR with ${llmProvider}:${llmModel}`);
+        logger.debug(`Post-processing OCR with ${llmProvider}:${llmModel}`);
         
         const canMakeCall = await canMakeApiCall(userId, 'openai');
         if (!canMakeCall.canMake) {
@@ -406,7 +407,7 @@ Output the structured data now:`;
             originalText: ocrText
         };
     } catch (error) {
-        console.error('LLM post-processing error:', error);
+        logger.error('LLM post-processing error:', error);
         return {
             error: `LLM processing failed: ${error.message}`,
             originalText: ocrText

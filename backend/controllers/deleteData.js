@@ -15,6 +15,7 @@ const client = new DynamoDBClient({
 });
 
 const dynamodb = DynamoDBDocumentClient.from(client);
+const { logger } = require('../utils/logger');
 
 // @desc    Delete data
 // @route   DELETE /api/data/:id
@@ -35,7 +36,7 @@ const deleteData = asyncHandler(async (req, res) => {
 
         res.status(200).json({ id: dataId });
     } catch (error) {
-        console.error('Error deleting data:', error);
+        logger.error('Error deleting data:', error);
         res.status(500).json({ error: error.message });
     }
 });

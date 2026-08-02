@@ -21,6 +21,7 @@ const {
     parseFileInstruction,
     processFile: executeFileProcessing,
 } = require('../services/fileProcessingService.js');
+const { logger } = require('../utils/logger');
 
 const {
     createOrValidateCustomer,
@@ -53,10 +54,10 @@ require('dotenv').config();
 // @route   POST /api/data
 // @access  Private
 const postHashData = asyncHandler(async (req, res) => {
-    console.log('postHashData called');
-    console.log('req.body keys:', Object.keys(req.body));
-    console.log('req.body.data:', req.body.data);
-    console.log('req.files length:', req.files ? req.files.length : 0);
+    logger.debug('postHashData called');
+    logger.debug('req.body keys:', Object.keys(req.body));
+    logger.debug('req.body.data:', req.body.data);
+    logger.debug('req.files length:', req.files ? req.files.length : 0);
     
     await checkIP(req);
 
@@ -87,7 +88,7 @@ const postHashData = asyncHandler(async (req, res) => {
         
         res.status(200).json(item);
     } catch (error) {
-        console.error('Error in postHashData:', error);
+        logger.error('Error in postHashData:', error);
         const statusCode = error.statusCode || 500;
         res.status(statusCode).json({ 
             error: error.message || 'Failed to create data',
@@ -111,7 +112,7 @@ const compressData = asyncHandler(async (req, res) => {
         const result = await processCompressionRequest(req, dynamodb);
         res.status(result.status).json(result.data);
     } catch (error) {
-        console.error('Error in compressData:', error);
+        logger.error('Error in compressData:', error);
         
         if (error.statusCode === 402 && error.details) {
             return res.status(402).json(error.details);
@@ -138,7 +139,7 @@ const compressDataStream = asyncHandler(async (req, res) => {
     try {
         await streamCompressionRequest(req, res, dynamodb);
     } catch (error) {
-        console.error('Error in compressDataStream:', error);
+        logger.error('Error in compressDataStream:', error);
 
         // If headers already sent (streaming started), send error as SSE event
         if (res.headersSent) {
@@ -180,7 +181,7 @@ const createCustomer = asyncHandler(async (req, res) => {
             message: message
         });
     } catch (error) {
-        console.error('Customer creation/assignment failed:', error);
+        logger.error('Customer creation/assignment failed:', error);
         res.status(500);
         throw new Error('Customer creation/assignment failed');
     }
@@ -200,14 +201,14 @@ const postPaymentMethod = asyncHandler(async (req, res) => {
         throw new Error('User data not found or incomplete');
     }
     
-    console.log('Request body:', req.body);
-    console.log('req.user.text:', req.user.text);
+    logger.debug('Request body:', req.body);
+    logger.debug('req.user.text:', req.user.text);
 
     try {
         const customerId = extractCustomerId(req.user.text);
         
         if (!customerId || customerId.trim() === '') {
-            console.log('No Stripe customer ID found');
+            logger.debug('No Stripe customer ID found');
             return res.status(400).json({
                 success: false,
                 message: 'No customer ID found. Please create a customer first.',
@@ -215,7 +216,7 @@ const postPaymentMethod = asyncHandler(async (req, res) => {
             });
         }
         
-        console.log('Extracted Customer ID:', customerId);
+        logger.debug('Extracted Customer ID:', customerId);
         
         // Validate and potentially recover customer ID
         const email = extractEmail(req.user.text);
@@ -231,7 +232,7 @@ const postPaymentMethod = asyncHandler(async (req, res) => {
                 finalCustomerId = validatedCustomer.id;
             }
         } catch (recoveryError) {
-            console.error('Failed to recover customer ID:', recoveryError.message);
+            logger.error('Failed to recover customer ID:', recoveryError.message);
             return res.status(500).json({
                 success: false,
                 message: 'Failed to validate or recover customer ID',
@@ -239,7 +240,7 @@ const postPaymentMethod = asyncHandler(async (req, res) => {
             });
         }
         
-        console.log('Final customer ID:', finalCustomerId);
+        logger.debug('Final customer ID:', finalCustomerId);
         
         // Handle payment method attachment or setup intent creation
         if (req.body.paymentMethodId) {
@@ -247,7 +248,7 @@ const postPaymentMethod = asyncHandler(async (req, res) => {
                 const paymentMethod = await attachPaymentMethod(req.body.paymentMethodId, finalCustomerId, req.user.id);
                 res.status(200).json(paymentMethod);
             } catch (attachError) {
-                console.error('Payment method attachment failed:', attachError.message);
+                logger.error('Payment method attachment failed:', attachError.message);
                 
                 // Retry with recovery if needed
                 if (attachError.code === 'resource_missing') {
@@ -257,7 +258,7 @@ const postPaymentMethod = asyncHandler(async (req, res) => {
                         const paymentMethod = await attachPaymentMethod(req.body.paymentMethodId, recoveredCustomer.id, req.user.id);
                         res.status(200).json(paymentMethod);
                     } catch (recoveryError) {
-                        console.error('Recovery failed:', recoveryError.message);
+                        logger.error('Recovery failed:', recoveryError.message);
                         res.status(500).json({ 
                             error: 'Failed to attach payment method',
                             details: recoveryError.message
@@ -272,7 +273,7 @@ const postPaymentMethod = asyncHandler(async (req, res) => {
                 const setupIntent = await createSetupIntent(finalCustomerId, req.user.id);
                 res.status(200).json(setupIntent);
             } catch (setupIntentError) {
-                console.error('Setup intent creation failed:', setupIntentError.message);
+                logger.error('Setup intent creation failed:', setupIntentError.message);
                 
                 // Retry with recovery if needed
                 if (setupIntentError.code === 'resource_missing') {
@@ -282,7 +283,7 @@ const postPaymentMethod = asyncHandler(async (req, res) => {
                         const setupIntent = await createSetupIntent(recoveredCustomer.id, req.user.id);
                         res.status(200).json(setupIntent);
                     } catch (recoveryError) {
-                        console.error('Recovery failed:', recoveryError.message);
+                        logger.error('Recovery failed:', recoveryError.message);
                         res.status(500).json({ 
                             error: 'Failed to create setup intent',
                             details: recoveryError.message
@@ -294,7 +295,7 @@ const postPaymentMethod = asyncHandler(async (req, res) => {
             }
         }
     } catch (error) {
-        console.error('Payment method operation failed:', error);
+        logger.error('Payment method operation failed:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -322,7 +323,7 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
 
     const { paymentMethodId, planId, membershipType: legacyMembershipType, customPrice } = req.body;
     const membershipType = planId || legacyMembershipType; // Support both planId (new) and membershipType (legacy)
-    console.log('Subscription request:', { membershipType, paymentMethodId, customPrice });
+    logger.debug('Subscription request:', { membershipType, paymentMethodId, customPrice });
     
     const customerId = extractCustomerId(req.user.text);
     if (!customerId) {
@@ -330,7 +331,7 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
         throw new Error('Invalid customer ID format');
     }
     
-    console.log('Customer ID for subscription management:', customerId);
+    logger.debug('Customer ID for subscription management:', customerId);
 
     try {
         // Validate and potentially recover customer ID
@@ -349,7 +350,7 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
         
         // Get current membership type
         const currentMembership = await getCurrentMembershipType(finalCustomerId, req.user.id);
-        console.log(`Current membership: ${currentMembership}, Requested membership: ${membershipType}`);
+        logger.debug(`Current membership: ${currentMembership}, Requested membership: ${membershipType}`);
         
         // Prevent subscribing to current plan
         if (membershipType === currentMembership) {
@@ -373,7 +374,7 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
                         userData: req.user.data
                     });
                 } catch (emailError) {
-                    console.error('Failed to send cancellation email:', emailError);
+                    logger.error('Failed to send cancellation email:', emailError);
                 }
             }
             
@@ -420,7 +421,7 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
                     });
                 }
             } catch (emailError) {
-                console.error('Failed to send subscription email:', emailError);
+                logger.error('Failed to send subscription email:', emailError);
             }
         }
         
@@ -433,14 +434,14 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
         
         res.status(200).json(response);
     } catch (error) {
-        console.error('Error managing subscription:', error);
+        logger.error('Error managing subscription:', error);
         
         if (membershipType === 'free') {
             try {
                 const customerId = extractCustomerId(req.user.text);
                 await updateUserRank(customerId, 'Free');
             } catch (fallbackError) {
-                console.error('Fallback rank update failed:', fallbackError);
+                logger.error('Fallback rank update failed:', fallbackError);
             }
         }
         
@@ -467,7 +468,7 @@ const handleWebhook = asyncHandler(async (req, res) => {
         try {
             const downgraded = await updateUserRank(eventResult.customerId, 'Free');
             if (downgraded) {
-                console.log(`User with customer ${eventResult.customerId} downgraded to Free after subscription deletion`);
+                logger.debug(`User with customer ${eventResult.customerId} downgraded to Free after subscription deletion`);
                 // Invalidate auth cache so the updated rank takes effect immediately
                 try {
                     const { invalidateUserCache } = require('../middleware/authMiddleware');
@@ -475,19 +476,19 @@ const handleWebhook = asyncHandler(async (req, res) => {
                     // The 5-min auth cache TTL will pick it up shortly.
                 } catch (_) { /* cache invalidation is best-effort */ }
             } else {
-                console.error(`Failed to downgrade user with customer ${eventResult.customerId}`);
+                logger.error(`Failed to downgrade user with customer ${eventResult.customerId}`);
             }
         } catch (err) {
-            console.error('Error downgrading user after subscription deletion:', err);
+            logger.error('Error downgrading user after subscription deletion:', err);
         }
     }
 
     // Handle final payment failures (after Stripe exhausts retries)
     if (eventResult.action === 'payment_failed' && eventResult.customerId && eventResult.attemptCount >= 4) {
         try {
-            console.warn(`Final payment attempt failed for customer ${eventResult.customerId} — will be downgraded when Stripe deletes the subscription`);
+            logger.warn(`Final payment attempt failed for customer ${eventResult.customerId} — will be downgraded when Stripe deletes the subscription`);
         } catch (err) {
-            console.error('Error handling final payment failure:', err);
+            logger.error('Error handling final payment failure:', err);
         }
     }
 
@@ -532,7 +533,7 @@ const processFileUpload = asyncHandler(async (req, res) => {
             },
         });
     } catch (error) {
-        console.error('Error in processFileUpload:', error);
+        logger.error('Error in processFileUpload:', error);
         const statusCode = error.statusCode || 500;
         res.status(statusCode).json({
             success: false,
