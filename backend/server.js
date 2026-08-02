@@ -163,7 +163,6 @@ app.use((req, res) => {
 
 app.use(errorHandler) // adds middleware that returns errors in json format (regardless of hit url)
 
-logger.info('Connected to DynamoDB');
 const server = app.listen(port, () => {
   logger.info(`Server started on port ${port}`);
 }); // listen for incoming http requests on the PORT
