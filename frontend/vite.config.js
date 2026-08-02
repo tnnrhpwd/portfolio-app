@@ -2,16 +2,20 @@ import { defineConfig, createLogger } from 'vite';
 import react from '@vitejs/plugin-react';
 import svgr from 'vite-plugin-svgr';
 
-// Silence the noisy AggregateError/ECONNREFUSED stack traces that Vite logs
-// whenever the backend proxy target isn't reachable yet (e.g. during dev
-// server startup before the backend has finished booting, or briefly while
-// nodemon restarts it). Vite already responds to the client with a 500, so
-// this only affects console output: proxy errors are logged as a single
-// concise line instead of a full stack dump.
+// Silence proxy errors that happen while the backend is still booting (e.g.
+// nodemon typically takes a second or two to start listening on port 5000),
+// since those are expected and resolve themselves. Vite already responds to
+// the client with a 500 in this case, so this only affects console output.
+// Once the grace period has passed, proxy errors are logged as a single
+// concise line instead of the full AggregateError stack dump, since a
+// persistent error at that point likely indicates a real problem.
+const STARTUP_GRACE_PERIOD_MS = 5000;
+const startedAt = Date.now();
 const logger = createLogger();
 const loggerError = logger.error.bind(logger);
 logger.error = (msg, options) => {
   if (msg.includes('http proxy error')) {
+    if (Date.now() - startedAt < STARTUP_GRACE_PERIOD_MS) return;
     loggerError(msg.split('\n')[0], options);
     return;
   }
