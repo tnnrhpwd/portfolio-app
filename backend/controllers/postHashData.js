@@ -48,6 +48,7 @@ const {
 } = require('../services/webhookService.js');
 
 const Data = require('../models/dataModel');
+const { arePurchasesEnabled } = require('./purchaseGateController');
 require('dotenv').config();
 
 // @desc    Set data
@@ -324,7 +325,15 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
     const { paymentMethodId, planId, membershipType: legacyMembershipType, customPrice } = req.body;
     const membershipType = planId || legacyMembershipType; // Support both planId (new) and membershipType (legacy)
     logger.debug('Subscription request:', { membershipType, paymentMethodId, customPrice });
-    
+
+    // Purchase gate: admin can instantly pause new/upgraded subscriptions
+    // (docs/guides/ACTION_PLAN.md). Downgrading to free is always allowed so
+    // nobody gets stuck unable to cancel.
+    if (membershipType !== 'free' && !(await arePurchasesEnabled())) {
+        res.status(403);
+        throw new Error('Upgrades are temporarily paused. Please check back soon — your existing plan is not affected.');
+    }
+
     const customerId = extractCustomerId(req.user.text);
     if (!customerId) {
         res.status(400);

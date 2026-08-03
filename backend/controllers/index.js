@@ -20,6 +20,7 @@ const { initTestFunnel, resetTestFunnel, getTestFunnelStatus, recordFunnelStep, 
 const { getDeepStorageItems, regenerateDeepStorageItems } = require('./deepStorageController'); // DeepStorage (Bedrock item catalog)
 const { logger } = require('../utils/logger');
 const { getHomeTitle, getHomeTitleSettings, updateHomeTitleSettings } = require('./homeTitleController'); // Dynamic homepage title
+const { getPurchaseGateStatus, getPurchaseGateSettings, updatePurchaseGateSettings } = require('./purchaseGateController'); // Purchase gate (admin kill switch)
 
 // @desc    Get available LLM providers and models
 // @route   GET /api/data/llm-providers
@@ -78,4 +79,5 @@ module.exports = {
     initTestFunnel, resetTestFunnel, getTestFunnelStatus, recordFunnelStep, getTestEmails,
     getDeepStorageItems, regenerateDeepStorageItems,
     getHomeTitle, getHomeTitleSettings, updateHomeTitleSettings,
+    getPurchaseGateStatus, getPurchaseGateSettings, updatePurchaseGateSettings,
 };

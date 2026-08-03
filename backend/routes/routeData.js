@@ -44,6 +44,7 @@ const {
   getStripeConfig,
   getDeepStorageItems, regenerateDeepStorageItems,
   getHomeTitle, getHomeTitleSettings, updateHomeTitleSettings,
+  getPurchaseGateStatus, getPurchaseGateSettings, updatePurchaseGateSettings,
 } = require('../controllers');
 
 // File upload controller
@@ -268,6 +269,9 @@ router.get('/stripe-config', optionalAuth, getStripeConfig);
 // Dynamic homepage title (public, auth-aware for nickname/email/plan rules)
 router.get('/home-title', optionalAuth, getHomeTitle);
 
+// Purchase gate status (public — used by frontend to hide/disable upgrade CTAs)
+router.get('/purchase-gate', getPurchaseGateStatus);
+
 // Stripe Webhook is registered above (before express.json()) to preserve raw body
 
 // ============================================================================
@@ -305,6 +309,9 @@ router.get('/admin/data', protect, requireAdmin, getAdminPaginatedData);
 router.route('/admin/home-title')
   .get(protect, requireAdmin, getHomeTitleSettings)
   .put(protect, requireAdmin, sanitizeInput, updateHomeTitleSettings);
+router.route('/admin/purchase-gate')
+  .get(protect, requireAdmin, getPurchaseGateSettings)
+  .put(protect, requireAdmin, sanitizeInput, updatePurchaseGateSettings);
 
 // ============================================================================
 // DEEP STORAGE (Bedrock Minecraft stackable item catalog)

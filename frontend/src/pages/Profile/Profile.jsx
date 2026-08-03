@@ -12,6 +12,7 @@ import {
   PLAN_IDS, QUOTA_SHORT, STORAGE_DISPLAY,
   isProTier,
 } from '../../constants/pricing.js';
+import usePurchaseGate from '../../hooks/usePurchaseGate.js';
 import './Profile.css';
 import HeaderLogo from '../../../src/assets/Checkmark512.png';
 
@@ -54,6 +55,7 @@ function Profile() {
   const [currentColorMode, setCurrentColorMode] = useState('system');
   const [subscriptionLoaded, setSubscriptionLoaded] = useState(false);
   const [userSubscription, setUserSubscription] = useState(null);
+  const { purchasesEnabled, message: gateMessage } = usePurchaseGate();
 
   const {
     user,
@@ -165,6 +167,12 @@ function Profile() {
 
     if (newPlan.toLowerCase() === (userSubscription?.subscriptionPlan || 'Free').toLowerCase()) {
       event.target.value = userSubscription?.subscriptionPlan || 'Free';
+      return;
+    }
+
+    if (newPlan.toLowerCase() !== 'free' && !purchasesEnabled) {
+      event.target.value = userSubscription?.subscriptionPlan || 'Free';
+      toast.info(gateMessage || 'Upgrading is temporarily paused. Please check back soon.');
       return;
     }
 
@@ -304,9 +312,13 @@ function Profile() {
                           className="planit-profile-setting-select"
                         >
                           <option value="Free">🆓 Free Plan</option>
-                          <option value="Pro">⚡ Pro Plan</option>
+                          <option value="Pro" disabled={!purchasesEnabled}>⚡ Pro Plan{!purchasesEnabled ? ' (not available yet)' : ''}</option>
                         </select>
-                        <span className="planit-profile-setting-hint">Switch plans to unlock more automation and storage.</span>
+                        <span className="planit-profile-setting-hint">
+                          {purchasesEnabled
+                            ? 'Switch plans to unlock more automation and storage.'
+                            : (gateMessage || 'Upgrading is temporarily paused. Please check back soon.')}
+                        </span>
                       </div>
                     </div>
 
@@ -422,7 +434,7 @@ function Profile() {
                           </div>
                         )}
 
-                        {userUsage.membership === 'Free' && (
+                        {userUsage.membership === 'Free' && purchasesEnabled && (
                           <div className="planit-profile-upgrade-prompt">
                             <div className="upgrade-message">
                               <span className="upgrade-icon">🚀</span>
@@ -512,7 +524,7 @@ function Profile() {
                             <div className="warning-content">
                               <strong>Storage limit exceeded</strong>
                               <p>You&apos;ve exceeded your storage limit. Delete items or upgrade to keep saving new data.</p>
-                              {!isProTier(userStorage.membership) && (
+                              {!isProTier(userStorage.membership) && purchasesEnabled && (
                                 <button
                                   className="upgrade-button"
                                   onClick={() => navigate('/pay?plan=pro')}
@@ -588,7 +600,7 @@ function Profile() {
                           </div>
                         )}
 
-                        {!isProTier(userStorage.membership) && userStorage.storageUsagePercent > 50 && (
+                        {!isProTier(userStorage.membership) && userStorage.storageUsagePercent > 50 && purchasesEnabled && (
                           <div className="planit-profile-upgrade-prompt">
                             <div className="upgrade-message">
                               <span className="upgrade-icon">💾</span>

@@ -85,6 +85,13 @@ function Admin() {
   const [homeTitleError, setHomeTitleError] = useState(null);
   const [homeTitleUpdatedAt, setHomeTitleUpdatedAt] = useState(null);
 
+  // ── Purchase Gate (instant pause on new/upgraded subscriptions) state ──
+  const [purchaseGate, setPurchaseGate] = useState(null); // { purchasesEnabled, message }
+  const [purchaseGateLoading, setPurchaseGateLoading] = useState(true);
+  const [purchaseGateSaving, setPurchaseGateSaving] = useState(false);
+  const [purchaseGateError, setPurchaseGateError] = useState(null);
+  const [purchaseGateUpdatedAt, setPurchaseGateUpdatedAt] = useState(null);
+
   // ═══════════════ Auth gate ═══════════════
   useEffect(() => {
     if (!user) { navigate("/login"); return; }
@@ -124,6 +131,54 @@ function Admin() {
   }, [user]);
 
   useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
+
+  // ═══════════════ Fetch + save Purchase Gate settings ═══════════════
+  const fetchPurchaseGate = useCallback(async () => {
+    if (!user?.token) return;
+    setPurchaseGateLoading(true);
+    setPurchaseGateError(null);
+    try {
+      const res = await dataService.getAdminPurchaseGateSettings(user.token);
+      setPurchaseGate(res.settings || { purchasesEnabled: true, message: "" });
+      setPurchaseGateUpdatedAt(res.updatedAt || null);
+    } catch (err) {
+      setPurchaseGateError(err.message || "Failed to load purchase gate settings");
+    } finally {
+      setPurchaseGateLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => { fetchPurchaseGate(); }, [fetchPurchaseGate]);
+
+  const savePurchaseGate = useCallback(async (nextSettings) => {
+    if (!user?.token) return;
+    setPurchaseGateSaving(true);
+    setPurchaseGateError(null);
+    try {
+      const res = await dataService.updateAdminPurchaseGateSettings(user.token, nextSettings);
+      setPurchaseGate(res.settings || nextSettings);
+      setPurchaseGateUpdatedAt(res.updatedAt || null);
+      toast.success(nextSettings.purchasesEnabled ? "Purchasing re-enabled." : "Purchasing paused — upgrade buttons are now hidden/disabled site-wide.");
+    } catch (err) {
+      const msg = err?.response?.data?.dataMessage || err.message || "Failed to save purchase gate settings";
+      setPurchaseGateError(msg);
+      toast.error(msg);
+    } finally {
+      setPurchaseGateSaving(false);
+    }
+  }, [user]);
+
+  // Toggling applies instantly — this is meant to be a one-click "pause now" switch
+  const handleTogglePurchases = useCallback((checked) => {
+    const next = { ...(purchaseGate || {}), purchasesEnabled: checked };
+    setPurchaseGate(next);
+    savePurchaseGate(next);
+  }, [purchaseGate, savePurchaseGate]);
+
+  const handleSavePurchaseGateMessage = useCallback(() => {
+    if (!purchaseGate) return;
+    savePurchaseGate(purchaseGate);
+  }, [purchaseGate, savePurchaseGate]);
 
   // ═══════════════ Fetch paginated users ═══════════════
   const fetchUsers = useCallback(async (page = 1) => {
@@ -433,6 +488,60 @@ function Admin() {
       <div className="admin-container">
         <section className="admin-section-tile">
           <h2>Administrator Panel</h2>
+
+          {/* ─── Purchase Gate: instant kill switch for new/upgraded subscriptions ─── */}
+          <div className={`purchase-gate-card ${purchaseGate && !purchaseGate.purchasesEnabled ? "purchase-gate-card--paused" : ""}`}>
+            <div className="purchase-gate-header">
+              <div>
+                <h3>Purchase Gate</h3>
+                <p className="admin-help-text">
+                  Instantly pause new/upgraded Pro subscriptions and hide upgrade buttons across the site.
+                  Existing subscribers and switching down to Free are never affected.
+                </p>
+              </div>
+              <label className="purchase-gate-switch" title={purchaseGate?.purchasesEnabled ? "Purchasing is on — click to pause" : "Purchasing is paused — click to re-enable"}>
+                <input
+                  type="checkbox"
+                  checked={!!purchaseGate?.purchasesEnabled}
+                  disabled={purchaseGateLoading || purchaseGateSaving || !purchaseGate}
+                  onChange={(e) => handleTogglePurchases(e.target.checked)}
+                />
+                <span className="purchase-gate-slider" />
+                <span className="purchase-gate-switch-label">
+                  {purchaseGateSaving ? "Saving…" : purchaseGate?.purchasesEnabled ? "Purchasing ON" : "Purchasing PAUSED"}
+                </span>
+              </label>
+            </div>
+
+            {purchaseGateLoading && <div className="admin-loading">Loading purchase gate settings...</div>}
+            {purchaseGateError && (
+              <div className="admin-error">
+                <span>{purchaseGateError}</span>
+                <button className="btn-sm btn-retry" onClick={fetchPurchaseGate}>↻ Retry</button>
+              </div>
+            )}
+
+            {!purchaseGateLoading && purchaseGate && (
+              <div className="purchase-gate-message-row">
+                <label htmlFor="purchase-gate-message">Caveat message shown to visitors while paused:</label>
+                <textarea
+                  id="purchase-gate-message"
+                  rows={2}
+                  value={purchaseGate.message || ""}
+                  onChange={(e) => setPurchaseGate((prev) => ({ ...prev, message: e.target.value }))}
+                  placeholder="Upgrading is temporarily paused while we finish getting the core product ready."
+                />
+                <div className="section-toolbar">
+                  <button className="btn-sm btn-retry" onClick={handleSavePurchaseGateMessage} disabled={purchaseGateSaving}>
+                    {purchaseGateSaving ? "Saving…" : "Save message"}
+                  </button>
+                  {purchaseGateUpdatedAt && (
+                    <span className="admin-no-data">Last saved: {ts(purchaseGateUpdatedAt)}</span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           {dashLoading && <div className="admin-loading">Loading dashboard...</div>}
           {dashError && (

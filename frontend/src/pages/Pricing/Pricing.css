@@ -42,6 +42,18 @@
   line-height: var(--line-height-base);
 }
 
+.pricing-gate-notice {
+  max-width: 700px;
+  margin: 0 auto var(--spacing-xl);
+  padding: var(--spacing-md) var(--spacing-lg);
+  background: rgba(255, 193, 7, 0.12);
+  border: 1px solid rgba(255, 193, 7, 0.4);
+  border-radius: var(--border-radius-md, 8px);
+  color: var(--text-color);
+  text-align: center;
+  font-size: var(--font-size-base);
+}
+
 /* Plans grid */
 .pricing-plans {
   display: grid;
@@ -182,6 +194,13 @@
 .pricing-plan-cta.secondary:hover {
   border-color: var(--fg-blue);
   color: var(--fg-blue);
+}
+
+.pricing-plan-cta:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
 }
 
 /* Loading state */

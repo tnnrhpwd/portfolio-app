@@ -67,6 +67,118 @@
 }
 
 /* ═══════════════════════════════════════════
+   Purchase Gate (instant kill switch)
+   ═══════════════════════════════════════════ */
+
+.purchase-gate-card {
+    background: var(--bg-1);
+    border: 1px solid var(--border-nav);
+    border-radius: 8px;
+    padding: calc(var(--nav-size) * 0.4);
+    margin-bottom: calc(var(--nav-size) * 0.5);
+}
+
+.purchase-gate-card--paused {
+    border-color: var(--red0, #e53e3e);
+    background: rgba(229, 62, 62, 0.08);
+}
+
+.purchase-gate-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: calc(var(--nav-size) * 0.4);
+    flex-wrap: wrap;
+}
+
+.purchase-gate-header h3 {
+    margin: 0 0 4px 0;
+    font-size: var(--font-size-base);
+}
+
+.purchase-gate-header .admin-help-text {
+    margin: 0;
+    max-width: 520px;
+}
+
+.purchase-gate-switch {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.purchase-gate-switch input {
+    display: none;
+}
+
+.purchase-gate-slider {
+    position: relative;
+    width: 46px;
+    height: 24px;
+    border-radius: 999px;
+    background: var(--red0, #e53e3e);
+    transition: background 0.2s ease;
+    flex-shrink: 0;
+}
+
+.purchase-gate-slider::before {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.2s ease;
+}
+
+.purchase-gate-switch input:checked + .purchase-gate-slider {
+    background: #22c55e;
+}
+
+.purchase-gate-switch input:checked + .purchase-gate-slider::before {
+    transform: translateX(22px);
+}
+
+.purchase-gate-switch input:disabled + .purchase-gate-slider {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.purchase-gate-switch-label {
+    font-size: var(--font-size-xs);
+    font-weight: bold;
+}
+
+.purchase-gate-message-row {
+    margin-top: calc(var(--nav-size) * 0.3);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.purchase-gate-message-row label {
+    font-size: var(--font-size-xs);
+    color: var(--text-color-accent);
+}
+
+.purchase-gate-message-row textarea {
+    width: 100%;
+    resize: vertical;
+    font-family: inherit;
+    font-size: var(--font-size-xs);
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border-nav);
+    background: var(--bg-page);
+    color: var(--text-color);
+}
+
+/* ═══════════════════════════════════════════
    KPI Cards
    ═══════════════════════════════════════════ */
 

@@ -7,6 +7,7 @@ import AdvancedSettings from './AdvancedSettings';
 import { useSpeech } from '../../hooks/csimple/useSpeech';
 import { useMicDevices } from '../../hooks/csimple/useMicDevices';
 import { useInactivity } from '../../hooks/csimple/useInactivity';
+import usePurchaseGate from '../../hooks/usePurchaseGate';
 import {
   sendChatMessage,
   confirmAction,
@@ -184,6 +185,7 @@ function CSimpleChat({
 }) {
   const dispatch = useDispatch();
   const rootRef = useRef(null);
+  const { purchasesEnabled: canUpgrade } = usePurchaseGate();
   const isAddonConnected = addonStatus?.isConnected ?? false;
   const isRemoteAddonOnline = !isAddonConnected && (remoteAddonStatus?.online ?? false);
 
@@ -551,13 +553,15 @@ function CSimpleChat({
         const proPrice = proPlan ? `$${(proPlan.price / 100).toFixed(0)}/mo` : '';
         const proQuota = proPlan?.quota?.calls || '';
         const proLine = proPlan ? `- **Pro** (${proPrice})${proQuota ? ` — ${proQuota}` : ''}` : '- **Pro** — more credits and higher limits';
-        content = `**Usage Limit Reached**\n\n${errStr}\n\n---\n💡 **Upgrade your plan** to get more credits and higher limits:\n${proLine}\n\n[Upgrade Now →](/pay?plan=pro)`;
+        const upgradeLine = canUpgrade ? `\n\n[Upgrade Now →](/pay?plan=pro)` : `\n\n_Upgrading is temporarily paused — please check back soon._`;
+        content = `**Usage Limit Reached**\n\n${errStr}\n\n---\n💡 **Upgrade your plan** to get more credits and higher limits:\n${proLine}${upgradeLine}`;
       } else if (errStr.includes('403') || errStr.toLowerCase().includes('requires a')) {
         const isGhModels = /no access to model|models\.github\.ai|github models/i.test(errStr);
         if (isGhModels) {
           content = `**GitHub Models — No Access to Model (403)**\n\n${errStr}\n\n> Your PAT is authenticating fine — GitHub is just refusing this specific model for your account.\n\n---\n${GITHUB_PAT_SETUP_STEPS}`;
         } else {
-          content = `**Model Access Restricted**\n\n${errStr}\n\n---\n🔒 This model requires a higher membership tier.\n\n[View Plans →](/pay?plan=pro)`;
+          const viewPlansLine = canUpgrade ? '[View Plans →](/pay?plan=pro)' : '_Upgrading is temporarily paused — please check back soon._';
+          content = `**Model Access Restricted**\n\n${errStr}\n\n---\n🔒 This model requires a higher membership tier.\n\n${viewPlansLine}`;
         }
       } else if (errStr.includes('401') || errStr.toLowerCase().includes('unauthorized')) {
         content = `**GitHub Models — Authentication Failed (401)**\n\nThe GitHub Models endpoint (\`models.github.ai/inference\`) rejected your PAT.\n\n---\n${GITHUB_PAT_SETUP_STEPS}`;
@@ -1141,13 +1145,15 @@ function CSimpleChat({
                 const proPrice = proPlan ? `$${(proPlan.price / 100).toFixed(0)}/mo` : '';
                 const proQuota = proPlan?.quota?.calls || '';
                 const proLine = proPlan ? `- **Pro** (${proPrice})${proQuota ? ` — ${proQuota}` : ''}` : '- **Pro** — more credits and higher limits';
-                displayContent = `**Usage Limit Reached**\n\n${errMsg}\n\n---\n💡 **Upgrade your plan** to get more credits and higher limits:\n${proLine}\n\n[Upgrade Now →](/pay?plan=pro)`;
+                const upgradeLine = canUpgrade ? `\n\n[Upgrade Now →](/pay?plan=pro)` : `\n\n_Upgrading is temporarily paused — please check back soon._`;
+                displayContent = `**Usage Limit Reached**\n\n${errMsg}\n\n---\n💡 **Upgrade your plan** to get more credits and higher limits:\n${proLine}${upgradeLine}`;
               } else if (statusCode === 403) {
                 const isGhModels = /no access to model|models\.github\.ai|github models/i.test(String(errMsg || ''));
                 if (isGhModels) {
                   displayContent = `**GitHub Models — No Access to Model (403)**\n\n${errMsg}\n\n> Your PAT is authenticating fine — GitHub is just refusing this specific model for your account.\n\n---\n${GITHUB_PAT_SETUP_STEPS}`;
                 } else {
-                  displayContent = `**Model Access Restricted**\n\n${errMsg}\n\n---\n🔒 This model requires a higher membership tier.\n\n[View Plans →](/pay?plan=pro)`;
+                  const viewPlansLine = canUpgrade ? '[View Plans →](/pay?plan=pro)' : '_Upgrading is temporarily paused — please check back soon._';
+                  displayContent = `**Model Access Restricted**\n\n${errMsg}\n\n---\n🔒 This model requires a higher membership tier.\n\n${viewPlansLine}`;
                 }
               } else if (statusCode === 401 || errMsg?.includes?.('401') || errMsg?.toLowerCase?.().includes?.('unauthorized')) {
                 displayContent = `**GitHub Models — Authentication Failed (401)**\n\nThe GitHub Models endpoint (\`models.github.ai/inference\`) rejected your PAT.\n\n---\n${GITHUB_PAT_SETUP_STEPS}`;

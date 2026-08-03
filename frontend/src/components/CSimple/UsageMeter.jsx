@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import usePurchaseGate from '../../hooks/usePurchaseGate.js';
 import './UsageMeter.css';
 
 const TIER_COLORS = {
@@ -18,6 +19,7 @@ function UsageMeter({ user }) {
   const [usage, setUsage] = useState(null);
   const [loading, setLoading] = useState(false);
   const [collapsed, setCollapsed] = useState(null); // null = auto-decide after first fetch
+  const { purchasesEnabled } = usePurchaseGate();
 
   const fetchUsage = useCallback(async () => {
     if (!user?.token) return;
@@ -138,12 +140,12 @@ function UsageMeter({ user }) {
               <span className="usage-meter__stat-value">{dailyUsed} / {dailyLimit}</span>
             </div>
           )}
-          {tier === 'Free' && (
+          {tier === 'Free' && purchasesEnabled && (
             <a className="usage-meter__upgrade" href="/pay?plan=pro">
               Upgrade for more credits →
             </a>
           )}
-          {clampedPercent > 80 && tier !== 'Free' && (
+          {clampedPercent > 80 && tier !== 'Free' && purchasesEnabled && (
             <a className="usage-meter__upgrade" href="/pay?plan=pro">
               Running low — upgrade →
             </a>

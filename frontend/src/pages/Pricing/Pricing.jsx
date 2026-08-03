@@ -5,12 +5,14 @@ import { getMembershipPricing } from '../../features/data/dataSlice';
 import { formatPrice } from '../../utils/checkoutUtils';
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
+import usePurchaseGate from '../../hooks/usePurchaseGate';
 import './Pricing.css';
 
 function Pricing() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { user, membershipPricing, dataIsLoading } = useSelector((state) => state.data);
+  const { purchasesEnabled, message: gateMessage } = usePurchaseGate();
 
   useEffect(() => {
     dispatch(getMembershipPricing());
@@ -65,6 +67,7 @@ function Pricing() {
   const plans = getPlans();
 
   const handleSelectPlan = (planId) => {
+    if (planId !== 'free' && !purchasesEnabled) return; // gated — button is disabled, but guard anyway
     if (!user) {
       // Redirect to login, then they'll be sent to /pay after login
       navigate('/login', { state: { redirectTo: `/pay?plan=${planId}` } });
@@ -89,6 +92,12 @@ function Pricing() {
             <p>Choose the plan that fits your workflow. Upgrade or downgrade anytime.</p>
           </div>
 
+          {!purchasesEnabled && (
+            <div className="pricing-gate-notice" role="status">
+              {gateMessage || 'Upgrading is temporarily paused. Please check back soon.'}
+            </div>
+          )}
+
           {dataIsLoading && !membershipPricing ? (
             <div className="pricing-loading">
               <div className="spinner"></div>
@@ -96,7 +105,9 @@ function Pricing() {
             </div>
           ) : (
             <div className="pricing-plans">
-              {plans.map((plan) => (
+              {plans.map((plan) => {
+                const gated = plan.id !== 'free' && !purchasesEnabled;
+                return (
                 <div
                   key={plan.id}
                   className={`pricing-plan-card ${plan.id === 'pro' ? 'featured' : ''}`}
@@ -118,13 +129,18 @@ function Pricing() {
                   <button
                     className={`pricing-plan-cta ${plan.id === 'pro' ? 'primary' : 'secondary'}`}
                     onClick={() => handleSelectPlan(plan.id)}
+                    disabled={gated}
+                    title={gated ? (gateMessage || 'Upgrading is temporarily paused') : undefined}
                   >
-                    {plan.id === 'free'
-                      ? (user ? 'Current Plan' : 'Get Started Free')
-                      : `Choose ${plan.name}`}
+                    {gated
+                      ? 'Not available yet'
+                      : plan.id === 'free'
+                        ? (user ? 'Current Plan' : 'Get Started Free')
+                        : `Choose ${plan.name}`}
                   </button>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
 

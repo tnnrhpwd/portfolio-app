@@ -786,6 +786,41 @@ const updateAdminHomeTitleSettings = async (token, settings) => {
     }
 };
 
+// Get the public purchase-gate status (used to hide/disable upgrade CTAs). Public, no auth required.
+const getPurchaseGateStatus = async () => {
+    try {
+        const response = await axios.get(API_URL + 'purchase-gate');
+        return response.data;
+    } catch (error) {
+        // Fail open — never let a status-check failure block the page from rendering
+        return { purchasesEnabled: true, message: null };
+    }
+};
+
+// Get raw purchase-gate settings (toggle + caveat message) for the admin UI
+const getAdminPurchaseGateSettings = async (token) => {
+    const config = { headers: { Authorization: `Bearer ${token}` } };
+    try {
+        const response = await axios.get(API_URL + 'admin/purchase-gate', config);
+        return response.data;
+    } catch (error) {
+        handleTokenExpiration(error);
+        throw error;
+    }
+};
+
+// Save purchase-gate settings (toggle + caveat message)
+const updateAdminPurchaseGateSettings = async (token, settings) => {
+    const config = { headers: { Authorization: `Bearer ${token}` } };
+    try {
+        const response = await axios.put(API_URL + 'admin/purchase-gate', { settings }, config);
+        return response.data;
+    } catch (error) {
+        handleTokenExpiration(error);
+        throw error;
+    }
+};
+
 const dataService = {
     createData,
     createPublicData,
@@ -822,6 +857,9 @@ const dataService = {
     getAdminPaginatedData,
     getAdminHomeTitleSettings,
     updateAdminHomeTitleSettings,
+    getPurchaseGateStatus,
+    getAdminPurchaseGateSettings,
+    updateAdminPurchaseGateSettings,
     // Test Funnel
     initTestFunnel: async (token) => {
         const res = await axios.post(API_URL + 'test-funnel/init', {}, { headers: { Authorization: `Bearer ${token}` } });
