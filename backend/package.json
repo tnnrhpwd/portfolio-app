@@ -53,7 +53,7 @@
     "node-fetch": "^2.6.12",
     "openai": "^7.1.0",
     "postmark": "^5.1.0",
-    "sanitize-html": "^2.17.1",
+    "sanitize-html": "^2.17.6",
     "sharp": "^0.34.5",
     "sthopwood": "file:..",
     "sthopwood-backend": "file:",
