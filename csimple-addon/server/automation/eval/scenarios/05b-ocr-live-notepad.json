@@ -1,0 +1,72 @@
+{
+  "id": "05b-ocr-live-notepad",
+  "name": "screen_ocr reads text from a real, visible Notepad window",
+  "description": "LIVE-only companion to 05-ocr-fixture.json: launches a real Notepad window, forces it to a known fixed rectangle via UI Automation's TransformPattern (Move/Resize — no window-manager assumptions), types a marker phrase into it with text_type, then OCRs ONLY that exact rectangle (screen_ocr's `region` arg) rather than the full screen. Only runs under `--live` (npm run eval:live) so the default fast suite doesn't depend on desktop state/focus. IMPORTANT (privacy/safety): this deliberately never does a full-screen OCR capture — a full-screen live capture can pick up unrelated windows and any sensitive content they contain. Always scope live screen_ocr calls to a specific, known region. NOTE: window move/resize uses `Add-Type -AssemblyName UIAutomationClient,UIAutomationTypes` (assembly load only) rather than an inline `Add-Type -TypeDefinition` C# class — the latter was found to silently no-op (exit 0, empty stdout/stderr) when piped through shell_run's stdin `-Command -` invocation; see shell.js's runPowershell(). Keep shell_run steps here to simple one-liners without inline C# type definitions.",
+  "require": { "platform": "win32", "env": { "EVAL_LIVE": "1" } },
+  "permissions": {
+    "categories": { "safe-read": "allow", "shell": "allow", "system": "allow" }
+  },
+  "steps": [
+    {
+      "tool": "shell_run",
+      "args": { "command": "Get-Process notepad -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Process notepad; Start-Sleep -Milliseconds 1200; Write-Output 'launched'" },
+      "expect": {
+        "ok": true,
+        "resultPath": "stdout",
+        "resultContains": "launched",
+        "durationMsLte": 15000
+      }
+    },
+    {
+      "tool": "shell_run",
+      "args": { "command": "Add-Type -AssemblyName UIAutomationClient,UIAutomationTypes; $root = [System.Windows.Automation.AutomationElement]::RootElement; $children = $root.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition); $target = $null; foreach ($w in $children) { if ($w.Current.Name -and $w.Current.Name.ToLower().Contains('notepad')) { $target = $w; break } }; if (-not $target) { Write-Output 'notfound'; exit 1 }; $tp = $target.GetCurrentPattern([System.Windows.Automation.TransformPattern]::Pattern); $tp.Move(100,100); $tp.Resize(800,500); Write-Output 'moved'" },
+      "expect": {
+        "ok": true,
+        "resultPath": "stdout",
+        "resultContains": "moved",
+        "durationMsLte": 15000
+      }
+    },
+    {
+      "tool": "text_type",
+      "args": { "text": "Hello OCR World", "focusWindowTitle": "Notepad" },
+      "expect": {
+        "ok": true,
+        "resultPath": "strategy",
+        "resultEquals": "sendkeys",
+        "durationMsLte": 15000
+      }
+    },
+    {
+      "tool": "shell_run",
+      "args": { "command": "Start-Sleep -Milliseconds 500; Write-Output 'settled'" },
+      "expect": {
+        "ok": true,
+        "resultPath": "stdout",
+        "resultContains": "settled",
+        "durationMsLte": 15000
+      }
+    },
+    {
+      "tool": "screen_ocr",
+      "args": { "includeWords": false, "region": { "x": 100, "y": 100, "width": 800, "height": 500 } },
+      "expect": {
+        "ok": true,
+        "resultPath": "text",
+        "resultMatches": "[Hh]ello OCR [Ww]orld",
+        "durationMsLte": 30000
+      }
+    },
+    {
+      "tool": "shell_run",
+      "args": { "command": "Get-Process notepad -ErrorAction SilentlyContinue | Stop-Process -Force; Write-Output 'closed'" },
+      "expect": {
+        "ok": true,
+        "resultPath": "stdout",
+        "resultContains": "closed",
+        "durationMsLte": 15000
+      }
+    }
+  ],
+  "tags": ["ocr", "smoke", "e2e", "live"]
+}

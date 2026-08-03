@@ -17,6 +17,7 @@
     "test:unit": "node server/automation/recorder/compiler.test.js && node server/automation/recorder/generalize.test.js && node server/automation/recorder/infer-params.test.js && node server/automation/recorder/scrub.test.js && node server/automation/capability-summary.test.js && node server/automation/events.test.js && node server/automation/triggers.test.js && node server/automation/planner.test.js && node server/automation/skill-hotkeys.test.js && node server/automation/nl-compiler.test.js && node server/automation/predictor.test.js && node server/automation/tools/input.test.js && node server/automation/tools/open-app.test.js && node server/automation/permissions.test.js && node server/automation/tools/skill.test.js && node server/automation/vision-fusion.test.js && node server/automation/llm-provider.test.js && node server/automation/eval/runner.test.js",
     "eval": "node server/automation/eval/cli.js",
     "eval:dry": "node server/automation/eval/cli.js --dry",
+    "eval:live": "node server/automation/eval/cli.js --live",
     "validate:core": "node server/automation/eval/validate-core-functionality.js",
     "validate:core:list": "node server/automation/eval/validate-core-functionality.js --list",
     "test": "npm run test:unit && npm run eval",

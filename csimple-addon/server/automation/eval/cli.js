@@ -6,6 +6,7 @@
  *   node csimple-addon/server/automation/eval/cli.js                  # run scenarios/
  *   node csimple-addon/server/automation/eval/cli.js scenarios/foo.yml
  *   node csimple-addon/server/automation/eval/cli.js --dry            # dry-run all
+ *   node csimple-addon/server/automation/eval/cli.js --live           # run visibly (real, watchable windows)
  *
  * Exit code: 0 if all scenarios pass (or are skipped), 1 if any fail.
  */
@@ -14,16 +15,23 @@ const path = require('path');
 const fs = require('fs');
 
 const args = process.argv.slice(2);
-const opts = { dryRun: false };
+const opts = { dryRun: false, live: false };
 const positional = [];
 for (const a of args) {
     if (a === '--dry' || a === '--dry-run') opts.dryRun = true;
+    else if (a === '--live') opts.live = true;
     else if (a === '-h' || a === '--help') {
-        console.log('Usage: cli.js [--dry] [scenario-file-or-dir]');
+        console.log('Usage: cli.js [--dry] [--live] [scenario-file-or-dir]');
         process.exit(0);
     }
     else positional.push(a);
 }
+
+// `--live` runs the same scenarios but visibly: browser steps are forced headed
+// (see runner.js), and it flips on scenarios gated behind require.env.EVAL_LIVE
+// (e.g. a real-desktop OCR test against a live Notepad window instead of an
+// off-screen generated fixture) while skipping their headless-only counterparts.
+if (opts.live) process.env.EVAL_LIVE = '1';
 
 // We need to register tools before the runner can find them.
 // Borrow the registration list from automation/index.js.
@@ -77,9 +85,9 @@ function registerAllTools() {
 
     let summary;
     if (stat.isDirectory()) {
-        summary = await runScenarioDirectory(target, { dryRun: opts.dryRun, log: console.log });
+        summary = await runScenarioDirectory(target, { dryRun: opts.dryRun, live: opts.live, log: console.log });
     } else {
-        const single = await runScenarioFile(target, { dryRun: opts.dryRun, log: console.log });
+        const single = await runScenarioFile(target, { dryRun: opts.dryRun, live: opts.live, log: console.log });
         summary = {
             directory: path.dirname(target), total: 1,
             passed: single.passed ? 1 : 0,

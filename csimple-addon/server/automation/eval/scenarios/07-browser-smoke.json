@@ -1,6 +1,6 @@
 {
   "name": "browser opens, navigates, reads text, closes",
-  "description": "End-to-end smoke test: launches headless Chromium via Edge (or Chrome) channel, navigates to a tiny data: URL, reads the page text, screenshots the page metadata, and closes the session.",
+  "description": "End-to-end smoke test: launches headless Chromium via Edge (or Chrome) channel, navigates to a tiny data: URL, reads the page text, screenshots the page metadata, and closes the session. Run with `--live` (npm run eval:live) to force a VISIBLE browser window instead.",
   "require": { "platform": "win32" },
   "permissions": {
     "categories": { "safe-read": "allow", "sandboxed-write": "allow" }

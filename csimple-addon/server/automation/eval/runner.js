@@ -305,6 +305,8 @@ function expandEnv(value) {
  * @param {object}  scenario  parsed scenario
  * @param {object}  opts
  * @param {boolean} [opts.dryRun=false]  force every tool into dry-run mode
+ * @param {boolean} [opts.live=false]    force browser steps to run headed (visible)
+ *                                        instead of headless, so a human can watch
  * @param {function} [opts.log=console.log]
  */
 async function runScenarioObject(scenario, opts = {}) {
@@ -364,7 +366,13 @@ async function runScenarioObject(scenario, opts = {}) {
                     addAction: async () => {}, // suppress cloud audit during eval
                     userInitiated: true,        // bypass approval prompts
                 };
-                const outcome = await registry.executeTool(step.tool, expandEnv(step.args || {}), ctx);
+                let stepArgs = expandEnv(step.args || {});
+                // `--live` forces any browser step to run headed (visible window)
+                // instead of the default headless mode, so a human can watch it.
+                if (opts.live && step.tool === 'browser_open') {
+                    stepArgs = { ...stepArgs, headless: false };
+                }
+                const outcome = await registry.executeTool(step.tool, stepArgs, ctx);
                 const failures = evaluateExpectations(i, step.expect, outcome);
                 report.steps.push({
                     index: i, tool: step.tool, ok: outcome.ok,

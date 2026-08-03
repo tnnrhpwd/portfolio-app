@@ -1,7 +1,7 @@
 {
   "name": "screen_ocr returns text from a generated bitmap",
-  "description": "Renders a PNG with known text using System.Drawing, OCRs it via Windows.Media.Ocr, and asserts the recognized text contains the known string. Skips on non-Windows or when no OCR language pack is installed.",
-  "require": { "platform": "win32" },
+  "description": "Renders a PNG with known text using System.Drawing, OCRs it via Windows.Media.Ocr, and asserts the recognized text contains the known string. Skips on non-Windows or when no OCR language pack is installed. This is the fast/CI-friendly variant using an off-screen fixture; run with `--live` (npm run eval:live) to instead OCR a real, visible Notepad window (see 05b-ocr-live-notepad.json).",
+  "require": { "platform": "win32", "env": { "EVAL_LIVE": "" } },
   "permissions": {
     "categories": { "safe-read": "allow", "shell": "allow" }
   },
