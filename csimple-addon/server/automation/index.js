@@ -25,6 +25,7 @@
  *   GET    /api/workspace-profiles/:name    - full profile (windows + rects)
  *   POST   /api/workspace-profiles          - { name } → capture current windows, save
  *   POST   /api/workspace-profiles/:name/restore - reposition/relaunch saved windows
+ *   POST   /api/workspace-profiles/:name/update  - re-capture current windows, overwrite existing profile
  *   DELETE /api/workspace-profiles/:name    - delete a saved profile
  */
 
@@ -532,6 +533,13 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
             const result = await workspaceProfiles.restore(req.params.name);
             events.publish('workspace.restored', result);
             res.json(result);
+        } catch (e) { res.status(404).json({ error: e.message }); }
+    });
+    app.post('/api/workspace-profiles/:name/update', async (req, res) => {
+        try {
+            const profile = await workspaceProfiles.update(req.params.name);
+            events.publish('workspace.updated', { name: profile.name, windowCount: profile.windows.length });
+            res.json(profile);
         } catch (e) { res.status(404).json({ error: e.message }); }
     });
     app.delete('/api/workspace-profiles/:name', async (req, res) => {

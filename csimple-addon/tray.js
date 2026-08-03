@@ -43,6 +43,7 @@ class TrayManager {
   * @param {Function} callbacks.onShowEyeTrackingHelp
    * @param {Function} callbacks.onSaveWorkspaceProfile
    * @param {Function} callbacks.onRestoreWorkspaceProfile
+   * @param {Function} callbacks.onUpdateWorkspaceProfile
    * @param {Function} callbacks.onDeleteWorkspaceProfile
    */
   create(callbacks = {}) {
@@ -355,6 +356,10 @@ class TrayManager {
             {
               label: `Restore "${p.name}"`,
               click: () => this.callbacks.onRestoreWorkspaceProfile?.(p.slug),
+            },
+            {
+              label: 'Update (re-save current arrangement)',
+              click: () => this.callbacks.onUpdateWorkspaceProfile?.(p.slug),
             },
             {
               label: 'Delete',

@@ -125,6 +125,17 @@ async function remove(name) {
 }
 
 /**
+ * Re-capture the current window arrangement and overwrite an EXISTING saved
+ * profile with it, keeping its original display name. Distinct from
+ * `save()` (which the tray only exposes as "Save New…" for a fresh name) so
+ * the user can refresh a profile in place without retyping its name.
+ */
+async function update(name) {
+    const existing = await get(name); // throws if the profile doesn't exist
+    return save(existing.name);
+}
+
+/**
  * Best-effort match of a saved window entry against the list of currently
  * running windows, excluding pids already claimed in this restore pass.
  */
@@ -199,4 +210,4 @@ async function restore(name) {
     };
 }
 
-module.exports = { configure, slugify, list, get, save, remove, restore };
+module.exports = { configure, slugify, list, get, save, remove, update, restore };

@@ -44,6 +44,33 @@ async function runPsJson(script) {
     catch { return out.trim(); }
 }
 
+// Shared P-Invoke prelude for reading/writing a window's WINDOWPLACEMENT
+// (position + size + minimized/maximized/normal state). Used by both
+// windowSnapshot (capture) and windowSetRect (restore) so the two always
+// agree on what "the window's position" means — see windowSetRect for why
+// this replaced a plain GetWindowRect/SetWindowPos pair.
+const WIN_PLACEMENT_PRELUDE = `
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public static class WinPlacement {
+    [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X; public int Y; }
+    [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
+    [StructLayout(LayoutKind.Sequential)] public struct WINDOWPLACEMENT {
+        public int length; public int flags; public int showCmd;
+        public POINT ptMinPosition; public POINT ptMaxPosition; public RECT rcNormalPosition;
+    }
+    [DllImport("user32.dll")] public static extern bool GetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
+    [DllImport("user32.dll")] public static extern bool SetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
+    [DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(IntPtr value);
+}
+"@
+# Per-Monitor-V2 DPI awareness (-4) keeps captured/applied coordinates
+# consistent across monitors with different scaling. Best-effort: older
+# Windows builds may not support this context value.
+try { [WinPlacement]::SetProcessDpiAwarenessContext([IntPtr](-4)) | Out-Null } catch {}
+`;
+
 // ──────────────────────────────────────────────────────────────────────────────
 
 const windowList = {
@@ -118,31 +145,23 @@ const windowSnapshot = {
     parameters: { type: 'object', properties: {} },
     async run() {
         const script = `
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public static class WinRect {
-    [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
-    [DllImport("user32.dll")] public static extern bool GetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
-    [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
-    [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X; public int Y; }
-    [StructLayout(LayoutKind.Sequential)] public struct WINDOWPLACEMENT {
-        public int length; public int flags; public int showCmd;
-        public POINT ptMinPosition; public POINT ptMaxPosition; public RECT rcNormalPosition;
-    }
-}
-"@
+${WIN_PLACEMENT_PRELUDE}
 $procs = Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -ne '' }
 $out = @()
 foreach ($p in $procs) {
-    $rect = New-Object WinRect+RECT
-    [void][WinRect]::GetWindowRect($p.MainWindowHandle, [ref]$rect)
-    $wp = New-Object WinRect+WINDOWPLACEMENT
+    $wp = New-Object WinPlacement+WINDOWPLACEMENT
     $wp.length = [System.Runtime.InteropServices.Marshal]::SizeOf($wp)
-    [void][WinRect]::GetWindowPlacement($p.MainWindowHandle, [ref]$wp)
+    $ok = [WinPlacement]::GetWindowPlacement($p.MainWindowHandle, [ref]$wp)
+    if (-not $ok) { continue }
     $exePath = $null
     try { $exePath = $p.Path } catch {}
     $state = switch ($wp.showCmd) { 2 { 'minimized' } 3 { 'maximized' } default { 'normal' } }
+    # rcNormalPosition is the window's RESTORED bounds — the position/size it
+    # returns to when un-minimized/un-maximized. Capturing this (instead of
+    # GetWindowRect's CURRENT bounds, which for a maximized window are just
+    # the whole monitor) is what lets a later restore put a maximized window
+    # back correctly sized on the correct monitor once un-maximized.
+    $rect = $wp.rcNormalPosition
     $out += [pscustomobject]@{
         pid = $p.Id
         processName = $p.ProcessName
@@ -197,27 +216,31 @@ const windowSetRect = {
         const width = Number.isFinite(args.width) ? Math.round(args.width) : 800;
         const height = Number.isFinite(args.height) ? Math.round(args.height) : 600;
         const state = String(args.state || 'normal').toLowerCase();
-        // SW_SHOWMINIMIZED=2, SW_SHOWMAXIMIZED=3, SW_SHOWNORMAL=1, SW_RESTORE=9
+        // SW_SHOWMINIMIZED=2, SW_SHOWMAXIMIZED=3, SW_SHOWNORMAL=1
         const showCmd = state === 'minimized' ? 2 : state === 'maximized' ? 3 : 1;
         const script = `
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public static class WinMove {
-    [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
-    [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
-}
-"@
+${WIN_PLACEMENT_PRELUDE}
 $p = ${sel}
 if (-not $p) { Write-Error 'window not found'; exit 1 }
 $h = $p.MainWindowHandle
-if (${showCmd} -eq 1) {
-    [WinMove]::ShowWindowAsync($h, 9) | Out-Null
-    [WinMove]::SetWindowPos($h, [IntPtr]::Zero, ${x}, ${y}, ${width}, ${height}, 0x0040) | Out-Null
-} else {
-    [WinMove]::SetWindowPos($h, [IntPtr]::Zero, ${x}, ${y}, ${width}, ${height}, 0x0040) | Out-Null
-    [WinMove]::ShowWindowAsync($h, ${showCmd}) | Out-Null
-}
+$wp = New-Object WinPlacement+WINDOWPLACEMENT
+$wp.length = [System.Runtime.InteropServices.Marshal]::SizeOf($wp)
+[WinPlacement]::GetWindowPlacement($h, [ref]$wp) | Out-Null
+# SetWindowPos alone does not reliably move a minimized/maximized window, and
+# moving a maximized window's rect has no visible effect until it's
+# un-maximized — this was the root cause of restored windows landing in the
+# wrong place. SetWindowPlacement instead applies the target "restored" rect
+# (rcNormalPosition) AND the show command atomically in one call, so a
+# window that was maximized on a given monitor comes back maximized there,
+# not stuck wherever SetWindowPos happened to leave it.
+$wp.showCmd = ${showCmd}
+$rect = New-Object WinPlacement+RECT
+$rect.Left = ${x}
+$rect.Top = ${y}
+$rect.Right = ${x} + ${width}
+$rect.Bottom = ${y} + ${height}
+$wp.rcNormalPosition = $rect
+[WinPlacement]::SetWindowPlacement($h, [ref]$wp) | Out-Null
 [pscustomobject]@{ pid = $p.Id; name = $p.ProcessName; title = $p.MainWindowTitle } | ConvertTo-Json -Compress
         `.trim();
         return await runPsJson(script);

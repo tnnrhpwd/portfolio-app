@@ -1506,6 +1506,16 @@ app.on('ready', async () => {
         trayManager?.notify('Workspace', `Restore failed: ${e.message}`);
       }
     },
+    onUpdateWorkspaceProfile: async (slug) => {
+      try {
+        const workspaceProfiles = require('./server/automation/workspace-profiles');
+        const profile = await workspaceProfiles.update(slug);
+        await refreshWorkspaceProfilesTray();
+        trayManager?.notify('Workspace Updated', `"${profile.name}" — re-captured with ${profile.windows.length} window(s).`);
+      } catch (e) {
+        trayManager?.notify('Workspace', `Update failed: ${e.message}`);
+      }
+    },
     onDeleteWorkspaceProfile: async (slug) => {
       try {
         const workspaceProfiles = require('./server/automation/workspace-profiles');
