@@ -21,7 +21,7 @@
     "health-check": "node scripts/health-check.js"
   },
   "devDependencies": {
-    "@babel/preset-env": "^7.14.9",
+    "@babel/preset-env": "^8.0.2",
     "@babel/preset-react": "^7.22.15",
     "@netlify/plugin-sitemap": "^0.8.1",
     "@testing-library/jest-dom": "^5.11.4",
