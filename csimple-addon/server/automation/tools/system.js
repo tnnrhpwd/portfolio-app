@@ -64,12 +64,21 @@ public static class WinPlacement {
     [DllImport("user32.dll")] public static extern bool SetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
     [DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(IntPtr value);
     [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out int pvAttribute, int cbAttribute);
+    [DllImport("user32.dll")] public static extern int GetSystemMetrics(int nIndex);
 }
 "@
 # Per-Monitor-V2 DPI awareness (-4) keeps captured/applied coordinates
 # consistent across monitors with different scaling. Best-effort: older
 # Windows builds may not support this context value.
 try { [WinPlacement]::SetProcessDpiAwarenessContext([IntPtr](-4)) | Out-Null } catch {}
+
+# Full virtual-desktop bounds (spans every monitor), used by
+# Test-CoversVirtualScreen below. SM_XVIRTUALSCREEN=76, SM_YVIRTUALSCREEN=77,
+# SM_CXVIRTUALSCREEN=78, SM_CYVIRTUALSCREEN=79.
+$script:VScreenLeft = [WinPlacement]::GetSystemMetrics(76)
+$script:VScreenTop = [WinPlacement]::GetSystemMetrics(77)
+$script:VScreenWidth = [WinPlacement]::GetSystemMetrics(78)
+$script:VScreenHeight = [WinPlacement]::GetSystemMetrics(79)
 
 # DWMWA_CLOAKED (14): true for windows Windows itself keeps invisible even
 # though they still report a non-zero MainWindowHandle and a non-empty
@@ -86,13 +95,39 @@ function Test-WindowCloaked([IntPtr]$hwnd) {
     [void][WinPlacement]::DwmGetWindowAttribute($hwnd, 14, [ref]$cloaked, 4)
     return $cloaked -ne 0
 }
+# A window reporting show state "normal" (i.e. NOT maximized) whose restored
+# rect (rcNormalPosition) nonetheless covers the entire multi-monitor
+# virtual desktop is not a real user window — a genuinely maximized app
+# reports state "maximized" and its rcNormalPosition is the pre-maximize
+# size, not the full screen. This pattern instead matches desktop-level
+# background hosts (live-wallpaper engines like Bing Wallpaper/Wallpaper
+# Engine/Lively, parented behind the desktop icons via WorkerW). Forcing
+# SetWindowPlacement on one of these was observed to hang/destabilize the
+# app performing the restore (CSimple Addon itself went unresponsive and
+# vanished from Alt-Tab) even though Explorer itself stayed up. Skip them.
+function Test-CoversVirtualScreen([int]$left, [int]$top, [int]$width, [int]$height, [string]$state) {
+    if ($state -eq 'maximized') { return $false }
+    return ($width -ge $script:VScreenWidth -and $height -ge $script:VScreenHeight)
+}
 # Belt-and-suspenders denylist for well-known shell/system host processes
-# that shouldn't ever be treated as restorable app windows, even in the rare
-# case DWM briefly reports them as not cloaked (e.g. mid-animation).
+# and desktop/wallpaper hosts that shouldn't ever be treated as restorable
+# app windows, even in the rare case DWM briefly reports them as not
+# cloaked (e.g. mid-animation).
 $script:ShellHostDenylist = @(
     'ShellExperienceHost', 'ApplicationFrameHost', 'TextInputHost',
-    'SearchHost', 'StartMenuExperienceHost', 'ShellHost'
+    'SearchHost', 'StartMenuExperienceHost', 'ShellHost', 'BingWallpaper',
+    'msedgewebview2'
 )
+# Never touch CSimple Addon's own windows (e.g. the "Save New Workspace"
+# prompt) with SetWindowPlacement. This code runs inside the Electron main
+# process, which owns the native HWND for every BrowserWindow it creates —
+# so $script:OwnPid below is exactly the pid to exclude. Applying an
+# out-of-band win32 placement change to our own window desyncs Electron's
+# internal visible/focused state from the OS's, which can leave the window
+# permanently invisible (not in Alt-Tab, un-recoverable via tray/show())
+# until the whole app is killed and relaunched — this was the second crash
+# reproduction (Explorer survived; CSimple Addon's own window vanished).
+$script:OwnPid = ${process.pid}
 `;
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -106,7 +141,7 @@ const windowList = {
         const filter = (args.titleContains || '').replace(/'/g, "''");
         const script = `
 ${WIN_PLACEMENT_PRELUDE}
-$procs = Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -ne '' -and $_.ProcessName -notin $script:ShellHostDenylist }
+$procs = Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -ne '' -and $_.ProcessName -notin $script:ShellHostDenylist -and $_.Id -ne $script:OwnPid }
 ${filter ? `$procs = $procs | Where-Object { $_.MainWindowTitle -like '*${filter}*' }` : ''}
 $procs = $procs | Where-Object { -not (Test-WindowCloaked $_.MainWindowHandle) }
 $procs | ForEach-Object { [pscustomobject]@{ pid = $_.Id; name = $_.ProcessName; title = $_.MainWindowTitle } } | ConvertTo-Json -Compress -Depth 3
@@ -156,7 +191,7 @@ public static class W {
 }
 "@
 $p = ${sel}
-if ($p -and ($p.ProcessName -in $script:ShellHostDenylist -or (Test-WindowCloaked $p.MainWindowHandle))) { $p = $null }
+if ($p -and ($p.ProcessName -in $script:ShellHostDenylist -or $p.Id -eq $script:OwnPid -or (Test-WindowCloaked $p.MainWindowHandle))) { $p = $null }
 if (-not $p) { Write-Error 'window not found'; exit 1 }
 [W]::ShowWindowAsync($p.MainWindowHandle, 9) | Out-Null  # 9 = SW_RESTORE
 [W]::SetForegroundWindow($p.MainWindowHandle) | Out-Null
@@ -174,7 +209,7 @@ const windowSnapshot = {
     async run() {
         const script = `
 ${WIN_PLACEMENT_PRELUDE}
-$procs = Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -ne '' -and $_.ProcessName -notin $script:ShellHostDenylist }
+$procs = Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -ne '' -and $_.ProcessName -notin $script:ShellHostDenylist -and $_.Id -ne $script:OwnPid }
 $out = @()
 foreach ($p in $procs) {
     # Skip windows the shell itself keeps invisible (see Test-WindowCloaked
@@ -193,6 +228,12 @@ foreach ($p in $procs) {
     # the whole monitor) is what lets a later restore put a maximized window
     # back correctly sized on the correct monitor once un-maximized.
     $rect = $wp.rcNormalPosition
+    $w = $rect.Right - $rect.Left
+    $h = $rect.Bottom - $rect.Top
+    # Skip desktop-level background hosts (live-wallpaper engines, widget
+    # boards) masquerading as a "normal" window the size of the whole
+    # multi-monitor desktop — see Test-CoversVirtualScreen above.
+    if (Test-CoversVirtualScreen $rect.Left $rect.Top $w $h $state) { continue }
     $out += [pscustomobject]@{
         pid = $p.Id
         processName = $p.ProcessName
@@ -200,8 +241,8 @@ foreach ($p in $procs) {
         title = $p.MainWindowTitle
         x = $rect.Left
         y = $rect.Top
-        width = ($rect.Right - $rect.Left)
-        height = ($rect.Bottom - $rect.Top)
+        width = $w
+        height = $h
         state = $state
     }
 }
@@ -252,10 +293,11 @@ const windowSetRect = {
         const script = `
 ${WIN_PLACEMENT_PRELUDE}
 $p = ${sel}
-if ($p -and ($p.ProcessName -in $script:ShellHostDenylist -or (Test-WindowCloaked $p.MainWindowHandle))) {
+if ($p -and ($p.ProcessName -in $script:ShellHostDenylist -or $p.Id -eq $script:OwnPid -or (Test-WindowCloaked $p.MainWindowHandle))) {
     # Defensive backstop for profiles saved before this fix: never apply a
     # placement to a shell/system host window (see Test-WindowCloaked above)
-    # even if one still made it into a saved profile.
+    # or to CSimple Addon's own window (see $script:OwnPid above), even if
+    # one still made it into a saved profile.
     $p = $null
 }
 if (-not $p) { Write-Error 'window not found'; exit 1 }
@@ -263,6 +305,16 @@ $h = $p.MainWindowHandle
 $wp = New-Object WinPlacement+WINDOWPLACEMENT
 $wp.length = [System.Runtime.InteropServices.Marshal]::SizeOf($wp)
 [WinPlacement]::GetWindowPlacement($h, [ref]$wp) | Out-Null
+# Defensive backstop: never apply a placement to (or targeting) a
+# desktop-level background host (live-wallpaper/widget engines — see
+# Test-CoversVirtualScreen above), whether that's the window's current
+# state or the requested target from an older saved profile.
+$curW = $wp.rcNormalPosition.Right - $wp.rcNormalPosition.Left
+$curH = $wp.rcNormalPosition.Bottom - $wp.rcNormalPosition.Top
+$curState = switch ($wp.showCmd) { 2 { 'minimized' } 3 { 'maximized' } default { 'normal' } }
+if ((Test-CoversVirtualScreen $wp.rcNormalPosition.Left $wp.rcNormalPosition.Top $curW $curH $curState) -or (Test-CoversVirtualScreen ${x} ${y} ${width} ${height} '${state}')) {
+    Write-Error 'window not found'; exit 1
+}
 # SetWindowPos alone does not reliably move a minimized/maximized window, and
 # moving a maximized window's rect has no visible effect until it's
 # un-maximized — this was the root cause of restored windows landing in the

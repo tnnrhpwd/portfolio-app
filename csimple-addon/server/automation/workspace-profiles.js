@@ -96,19 +96,45 @@ async function get(name) {
  * window list (non-zero MainWindowHandle + non-empty title) despite not
  * being real, user-visible app windows — e.g. the UWP "ApplicationFrameHost"
  * proxy frame and its hosted pane, ShellExperienceHost (Action Center /
- * Start / widgets host), and TextInputHost (touch keyboard / IME host).
- * tools/system.js excludes these at capture time (via DWM cloak checks),
- * but filter here too — both so save() can never persist one even if that
- * check ever misses a case, and so restore() can neutralize any that were
- * already captured by an older build (the actual cause of a restore
- * appearing to "crash" every open program: forcing SetWindowPlacement on a
- * window the shell intentionally hides desyncs the shell/UWP frame and
- * destabilizes everything on screen).
+ * Start / widgets host), TextInputHost (touch keyboard / IME host),
+ * BingWallpaper (Windows' built-in live-wallpaper widget), and
+ * msedgewebview2 (a generic WebView2 host process — in practice either an
+ * embedded control inside another app's real window, or one of these same
+ * desktop/widget-engine hosts; never a top-level window worth restoring by
+ * name). tools/system.js excludes these at capture time (via DWM cloak
+ * checks and a full-virtual-screen-bounds heuristic for wallpaper/widget
+ * engines), but filter here too — both so save() can never persist one even
+ * if that check ever misses a case, and so restore() can neutralize any
+ * that were already captured by an older build. Two real incidents traced
+ * to this: forcing SetWindowPlacement on a shell/UWP host destabilizes the
+ * shell itself (all open windows appear frozen); forcing it on a
+ * full-screen desktop-parented widget host (e.g. the Bing Wallpaper
+ * msedgewebview2 process) hung/crashed CSimple Addon's own window instead
+ * (vanished from Alt-Tab, unrecoverable without a force-kill), even though
+ * Explorer itself stayed up.
  */
 const SHELL_HOST_DENYLIST = new Set([
     'ShellExperienceHost', 'ApplicationFrameHost', 'TextInputHost',
-    'SearchHost', 'StartMenuExperienceHost', 'ShellHost',
+    'SearchHost', 'StartMenuExperienceHost', 'ShellHost', 'BingWallpaper',
+    'msedgewebview2',
 ]);
+
+/**
+ * CSimple Addon's own process name (e.g. "CSimple Addon" in the packaged
+ * build, "electron" in dev), derived from the running exe rather than
+ * hardcoded so it stays correct if the product is ever renamed.
+ *
+ * tools/system.js already excludes our own pid at the source (it runs
+ * inside the Electron main process, which owns every BrowserWindow's HWND),
+ * but this JS-side check is a backstop for profiles saved by an older build
+ * — e.g. one captured while the "Save New Workspace" prompt itself was on
+ * screen. Applying SetWindowPlacement to our own window desyncs Electron's
+ * internal show/focus state from the OS's: the window can go permanently
+ * invisible (missing from Alt-Tab, un-recoverable via tray/show()) until the
+ * whole app is force-killed and relaunched — the second crash reproduction,
+ * where Explorer itself survived but CSimple Addon's own window vanished.
+ */
+const OWN_PROCESS_NAME = path.basename(process.execPath, path.extname(process.execPath));
 
 /**
  * Capture the current window layout and save it under `name`, overwriting
@@ -127,7 +153,7 @@ async function save(name) {
         name: String(name).trim(),
         savedAt: new Date().toISOString(),
         windows: windows
-            .filter(w => !SHELL_HOST_DENYLIST.has(w.processName))
+            .filter(w => !SHELL_HOST_DENYLIST.has(w.processName) && w.processName !== OWN_PROCESS_NAME)
             .map(w => ({
                 processName: w.processName,
                 exePath: w.exePath || null,
@@ -226,6 +252,10 @@ async function restore(name) {
         try {
             if (SHELL_HOST_DENYLIST.has(entry.processName)) {
                 skipped.push({ processName: entry.processName, title: entry.title, reason: 'shell/system host window — not a restorable app window' });
+                continue;
+            }
+            if (entry.processName === OWN_PROCESS_NAME) {
+                skipped.push({ processName: entry.processName, title: entry.title, reason: 'CSimple Addon\'s own window — never repositioned to avoid desyncing Electron\'s window state' });
                 continue;
             }
             const match = _findMatch(entry, running, claimed);
