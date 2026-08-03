@@ -336,8 +336,9 @@ class TrayManager {
 
   /**
    * Build the "Workspace" submenu: "Save New..." at top, then one item per
-   * saved profile. Each profile item restores on click; a paired "Delete"
-   * item (nested one level further) removes it without restoring.
+   * saved profile, each with a nested submenu offering "Restore" (reposition
+   * windows to the saved layout), "Update" (re-capture the current
+   * arrangement over this profile, keeping its name), and "Delete".
    */
   _buildWorkspaceMenuItems() {
     const items = [
