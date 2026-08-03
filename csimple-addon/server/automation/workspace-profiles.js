@@ -92,6 +92,25 @@ async function get(name) {
 }
 
 /**
+ * Windows shell/system host processes that can appear in Get-Process's
+ * window list (non-zero MainWindowHandle + non-empty title) despite not
+ * being real, user-visible app windows — e.g. the UWP "ApplicationFrameHost"
+ * proxy frame and its hosted pane, ShellExperienceHost (Action Center /
+ * Start / widgets host), and TextInputHost (touch keyboard / IME host).
+ * tools/system.js excludes these at capture time (via DWM cloak checks),
+ * but filter here too — both so save() can never persist one even if that
+ * check ever misses a case, and so restore() can neutralize any that were
+ * already captured by an older build (the actual cause of a restore
+ * appearing to "crash" every open program: forcing SetWindowPlacement on a
+ * window the shell intentionally hides desyncs the shell/UWP frame and
+ * destabilizes everything on screen).
+ */
+const SHELL_HOST_DENYLIST = new Set([
+    'ShellExperienceHost', 'ApplicationFrameHost', 'TextInputHost',
+    'SearchHost', 'StartMenuExperienceHost', 'ShellHost',
+]);
+
+/**
  * Capture the current window layout and save it under `name`, overwriting
  * any existing profile with the same slug.
  */
@@ -100,17 +119,22 @@ async function save(name) {
     const { windows } = await windowSnapshot.run();
     // Drop windows with no exePath AND a title that looks like our own tray
     // helper windows — keep everything else; restore already tolerates
-    // windows it can't relaunch by just skipping them.
+    // windows it can't relaunch by just skipping them. Also drop shell/
+    // system host windows (see SHELL_HOST_DENYLIST) — tools/system.js
+    // already excludes these via DWM cloak checks, but filter here too so
+    // save() can never persist one even if that check ever misses a case.
     const profile = {
         name: String(name).trim(),
         savedAt: new Date().toISOString(),
-        windows: windows.map(w => ({
-            processName: w.processName,
-            exePath: w.exePath || null,
-            title: w.title,
-            x: w.x, y: w.y, width: w.width, height: w.height,
-            state: w.state,
-        })),
+        windows: windows
+            .filter(w => !SHELL_HOST_DENYLIST.has(w.processName))
+            .map(w => ({
+                processName: w.processName,
+                exePath: w.exePath || null,
+                title: w.title,
+                x: w.x, y: w.y, width: w.width, height: w.height,
+                state: w.state,
+            })),
     };
     const full = path.join(_storageDir, `${slug}.json`);
     await fs.mkdir(_storageDir, { recursive: true });
@@ -146,6 +170,43 @@ function _findMatch(entry, running, claimed) {
     return exact || candidates[0];
 }
 
+// Pixel tolerance for treating a running window's current placement as
+// "already matching" the saved entry, so restore() can skip calling
+// SetWindowPlacement on it entirely.
+const PLACEMENT_TOLERANCE_PX = 8;
+
+/**
+ * True when `match` (a currently-running window, as returned by
+ * windowSnapshot) is already close enough to `entry` (the saved target)
+ * that repositioning it would be a visible no-op.
+ *
+ * This exists because repeatedly calling SetWindowPlacement — even with
+ * coordinates identical to the window's current placement — has been
+ * observed to destabilize explorer.exe (Windows Event Log: "The shell
+ * stopped unexpectedly and userinit.exe was restarted", logged at the exact
+ * moment of a restore). When Explorer dies mid-restore every open window
+ * appears frozen/unresponsive (while their processes, and any audio they're
+ * playing, keep running underneath) until Explorer respawns and/or the user
+ * force-kills the confused apps — this is what "restore crashed everything"
+ * actually was. The most common restore case is a no-op (the user's saved
+ * layout is still current), so skipping the call whenever nothing would
+ * actually change eliminates the crash in exactly that scenario and cuts
+ * total SetWindowPlacement calls (and therefore risk) on every other run.
+ */
+function _placementMatches(entry, match) {
+    if (String(entry.state || 'normal') !== String(match.state || 'normal')) return false;
+    const near = (a, b) => Math.abs((Number(a) || 0) - (Number(b) || 0)) <= PLACEMENT_TOLERANCE_PX;
+    return near(entry.x, match.x) && near(entry.y, match.y)
+        && near(entry.width, match.width) && near(entry.height, match.height);
+}
+
+// Small pause between successive SetWindowPlacement calls within one
+// restore pass — a defensive throttle against hammering the shell's window
+// placement notifications back-to-back (see _placementMatches for why that
+// matters).
+const RESTORE_THROTTLE_MS = 200;
+const _sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 /**
  * Restore a saved profile: reposition already-running windows, launch and
  * then reposition missing ones (when an exePath was recorded), and report
@@ -156,20 +217,32 @@ async function restore(name) {
     const { windows: running } = await windowSnapshot.run();
     const claimed = new Set();
     const restored = [];
+    const alreadyInPlace = [];
     const launched = [];
     const skipped = [];
     const errors = [];
 
     for (const entry of profile.windows) {
         try {
+            if (SHELL_HOST_DENYLIST.has(entry.processName)) {
+                skipped.push({ processName: entry.processName, title: entry.title, reason: 'shell/system host window — not a restorable app window' });
+                continue;
+            }
             const match = _findMatch(entry, running, claimed);
             if (match) {
                 claimed.add(match.pid);
+                if (_placementMatches(entry, match)) {
+                    // Nothing to do — see _placementMatches for why we
+                    // deliberately avoid calling SetWindowPlacement here.
+                    alreadyInPlace.push({ processName: entry.processName, title: entry.title });
+                    continue;
+                }
                 await windowSetRect.run({
                     pid: match.pid,
                     x: entry.x, y: entry.y, width: entry.width, height: entry.height,
                     state: entry.state,
                 });
+                await _sleep(RESTORE_THROTTLE_MS);
                 restored.push({ processName: entry.processName, title: entry.title });
                 continue;
             }
@@ -191,6 +264,7 @@ async function restore(name) {
                     x: entry.x, y: entry.y, width: entry.width, height: entry.height,
                     state: entry.state,
                 });
+                await _sleep(RESTORE_THROTTLE_MS);
                 launched.push({ processName: entry.processName, title: entry.title });
             } else {
                 skipped.push({ processName: entry.processName, title: entry.title, reason: 'launched but window did not appear in time' });
@@ -203,10 +277,11 @@ async function restore(name) {
     return {
         name: profile.name,
         restoredCount: restored.length,
+        alreadyInPlaceCount: alreadyInPlace.length,
         launchedCount: launched.length,
         skippedCount: skipped.length,
         errorCount: errors.length,
-        restored, launched, skipped, errors,
+        restored, alreadyInPlace, launched, skipped, errors,
     };
 }
 

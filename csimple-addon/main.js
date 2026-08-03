@@ -1498,6 +1498,7 @@ app.on('ready', async () => {
         const result = await workspaceProfiles.restore(slug);
         const parts = [];
         if (result.restoredCount) parts.push(`${result.restoredCount} repositioned`);
+        if (result.alreadyInPlaceCount) parts.push(`${result.alreadyInPlaceCount} already in place`);
         if (result.launchedCount) parts.push(`${result.launchedCount} relaunched`);
         if (result.skippedCount) parts.push(`${result.skippedCount} skipped`);
         if (result.errorCount) parts.push(`${result.errorCount} failed`);

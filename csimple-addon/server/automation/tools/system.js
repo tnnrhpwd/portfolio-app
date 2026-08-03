@@ -63,12 +63,36 @@ public static class WinPlacement {
     [DllImport("user32.dll")] public static extern bool GetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
     [DllImport("user32.dll")] public static extern bool SetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
     [DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(IntPtr value);
+    [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out int pvAttribute, int cbAttribute);
 }
 "@
 # Per-Monitor-V2 DPI awareness (-4) keeps captured/applied coordinates
 # consistent across monitors with different scaling. Best-effort: older
 # Windows builds may not support this context value.
 try { [WinPlacement]::SetProcessDpiAwarenessContext([IntPtr](-4)) | Out-Null } catch {}
+
+# DWMWA_CLOAKED (14): true for windows Windows itself keeps invisible even
+# though they still report a non-zero MainWindowHandle and a non-empty
+# title — e.g. the UWP "ApplicationFrameHost" proxy frame / its hosted app
+# pane (SystemSettings, etc.), ShellExperienceHost (Action Center / Start /
+# widgets host), and TextInputHost (touch keyboard / IME host). These are
+# NOT real user windows: forcing SetWindowPlacement on them (show/move/
+# resize a window the shell intentionally hides) desyncs the UWP frame from
+# its hosted pane and can destabilize the shell itself, taking down
+# everything on screen — this was the actual cause of "restore crashed all
+# open programs" even though the saved layout hadn't changed. Skip them.
+function Test-WindowCloaked([IntPtr]$hwnd) {
+    $cloaked = 0
+    [void][WinPlacement]::DwmGetWindowAttribute($hwnd, 14, [ref]$cloaked, 4)
+    return $cloaked -ne 0
+}
+# Belt-and-suspenders denylist for well-known shell/system host processes
+# that shouldn't ever be treated as restorable app windows, even in the rare
+# case DWM briefly reports them as not cloaked (e.g. mid-animation).
+$script:ShellHostDenylist = @(
+    'ShellExperienceHost', 'ApplicationFrameHost', 'TextInputHost',
+    'SearchHost', 'StartMenuExperienceHost', 'ShellHost'
+)
 `;
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -81,8 +105,10 @@ const windowList = {
     async run(args) {
         const filter = (args.titleContains || '').replace(/'/g, "''");
         const script = `
-$procs = Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -ne '' }
+${WIN_PLACEMENT_PRELUDE}
+$procs = Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -ne '' -and $_.ProcessName -notin $script:ShellHostDenylist }
 ${filter ? `$procs = $procs | Where-Object { $_.MainWindowTitle -like '*${filter}*' }` : ''}
+$procs = $procs | Where-Object { -not (Test-WindowCloaked $_.MainWindowHandle) }
 $procs | ForEach-Object { [pscustomobject]@{ pid = $_.Id; name = $_.ProcessName; title = $_.MainWindowTitle } } | ConvertTo-Json -Compress -Depth 3
         `.trim();
         const result = await runPsJson(script);
@@ -120,6 +146,7 @@ const windowFocus = {
             throw new Error('window_focus: provide pid, processName, or titleContains');
         }
         const script = `
+${WIN_PLACEMENT_PRELUDE}
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;
@@ -129,6 +156,7 @@ public static class W {
 }
 "@
 $p = ${sel}
+if ($p -and ($p.ProcessName -in $script:ShellHostDenylist -or (Test-WindowCloaked $p.MainWindowHandle))) { $p = $null }
 if (-not $p) { Write-Error 'window not found'; exit 1 }
 [W]::ShowWindowAsync($p.MainWindowHandle, 9) | Out-Null  # 9 = SW_RESTORE
 [W]::SetForegroundWindow($p.MainWindowHandle) | Out-Null
@@ -146,9 +174,12 @@ const windowSnapshot = {
     async run() {
         const script = `
 ${WIN_PLACEMENT_PRELUDE}
-$procs = Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -ne '' }
+$procs = Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -ne '' -and $_.ProcessName -notin $script:ShellHostDenylist }
 $out = @()
 foreach ($p in $procs) {
+    # Skip windows the shell itself keeps invisible (see Test-WindowCloaked
+    # above) — these are never real, restorable app windows.
+    if (Test-WindowCloaked $p.MainWindowHandle) { continue }
     $wp = New-Object WinPlacement+WINDOWPLACEMENT
     $wp.length = [System.Runtime.InteropServices.Marshal]::SizeOf($wp)
     $ok = [WinPlacement]::GetWindowPlacement($p.MainWindowHandle, [ref]$wp)
@@ -221,6 +252,12 @@ const windowSetRect = {
         const script = `
 ${WIN_PLACEMENT_PRELUDE}
 $p = ${sel}
+if ($p -and ($p.ProcessName -in $script:ShellHostDenylist -or (Test-WindowCloaked $p.MainWindowHandle))) {
+    # Defensive backstop for profiles saved before this fix: never apply a
+    # placement to a shell/system host window (see Test-WindowCloaked above)
+    # even if one still made it into a saved profile.
+    $p = $null
+}
 if (-not $p) { Write-Error 'window not found'; exit 1 }
 $h = $p.MainWindowHandle
 $wp = New-Object WinPlacement+WINDOWPLACEMENT

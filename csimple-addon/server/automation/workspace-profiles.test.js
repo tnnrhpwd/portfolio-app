@@ -33,9 +33,10 @@ const systemPath = require.resolve('./tools/system');
 const openAppPath = require.resolve('./tools/open-app');
 
 let fakeWindows = [];
+let windowSetRectCalls = [];
 const fakeSystem = {
     windowSnapshot: { run: async () => ({ count: fakeWindows.length, windows: fakeWindows }) },
-    windowSetRect: { run: async (args) => ({ pid: args.pid }) },
+    windowSetRect: { run: async (args) => { windowSetRectCalls.push(args); return { pid: args.pid }; } },
 };
 const fakeOpenApp = {
     openApp: { run: async () => ({ windowFound: false }) },
@@ -111,6 +112,23 @@ test('slugify rejects empty names', () => {
         assert.strictEqual(result.restoredCount, 2);
         assert.strictEqual(result.skippedCount, 0);
         assert.strictEqual(result.errorCount, 0);
+    });
+
+    await testAsync('restore() skips SetWindowPlacement for windows already in their saved position', async () => {
+        // coding-setup was saved (via update() above) as:
+        //   notepad: x=999, y=888, w=300, h=400, maximized
+        //   code:    x=0,   y=0,   w=1000, h=800, normal
+        // Report them as already sitting exactly there.
+        fakeWindows = [
+            { pid: 42, processName: 'notepad', exePath: 'C:\\notepad.exe', title: 'Untitled', x: 999, y: 888, width: 300, height: 400, state: 'maximized' },
+            { pid: 43, processName: 'code', exePath: 'C:\\code.exe', title: 'main.js', x: 0, y: 0, width: 1000, height: 800, state: 'normal' },
+        ];
+        windowSetRectCalls = [];
+        const result = await workspaceProfiles.restore('coding-setup');
+        assert.strictEqual(result.restoredCount, 0, 'nothing should need repositioning');
+        assert.strictEqual(result.alreadyInPlaceCount, 2);
+        assert.strictEqual(result.errorCount, 0);
+        assert.strictEqual(windowSetRectCalls.length, 0, 'SetWindowPlacement must not be called when placement already matches (crash-safety guard)');
     });
 
     await testAsync('remove() deletes the saved profile', async () => {
