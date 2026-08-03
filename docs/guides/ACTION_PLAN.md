@@ -53,8 +53,74 @@ Until the above is fixed, the app should not be selling something that doesn't w
 
 **Readiness bar for turning purchasing/visibility back on** (a metric worth having, even a rough one, so "ready" isn't just a feeling):
 1. **Hard gate — each of these works at all**, tested manually across at least two different common apps: key simulation executes keystrokes/clicks reliably; the perception loop detects and logs user actions without crashing; auto-execution successfully replays at least one captured sequence end-to-end.
-2. **Reliability gate — once (1) is true**, define ~5-10 representative recorded automations (e.g. "open app X and type Y," "click through a short repeated sequence") and re-run each one repeatedly. Require roughly a **90%+ success rate** across those runs before re-enabling purchases and public-facing mentions. If a scenario consistently fails, fix it and re-test rather than lowering the bar.
+2. **Reliability gate — once (1) is true**, run each of the 10 scenarios defined below at least 10 times (in different sessions/days, not 10 back-to-back identical runs, since flakiness from foreground-focus timing or cold-start launches won't show up in a tight loop). Require roughly a **90%+ success rate per scenario** (9/10 or better) before re-enabling purchases and public-facing mentions. If a scenario consistently fails, fix the underlying cause and re-test from zero — don't average it away against passing scenarios or lower the bar.
 3. Re-run this same check after any significant change to the perception/action pipeline — reliability regressions are easy to introduce silently.
+
+### The 10 validation scenarios, in detail
+
+**Automated runner:** these scenarios can be driven end-to-end (no manual clicking required, except scenario 5) by [validate-core-functionality.js](/c:/Users/tanne/Documents/Github/portfolio-app/csimple-addon/server/automation/eval/validate-core-functionality.js). It's a standalone script, deliberately **not** part of `npm test`/`npm run eval` — it drives the real desktop (opens apps, types, clicks, moves the mouse), so it's an opt-in tool for periodically checking the readiness bar above, not something to run on every commit. From `csimple-addon/`:
+```
+npm run validate:core:list        # list the 10 scenarios without running anything
+npm run validate:core              # run all 10 once (skips scenario 5 unless --interactive; skips scenario 8 without an LLM token)
+node server/automation/eval/validate-core-functionality.js --only=1,2,4   # run a subset
+node server/automation/eval/validate-core-functionality.js --runs=10      # repeat for the reliability gate (item 2 above)
+node server/automation/eval/validate-core-functionality.js --interactive # also run scenario 5 (needs a human typing)
+```
+Each run prints a pass/fail/skip line per scenario and writes a JSON log to `csimple-addon/server/automation/eval/live-results/<timestamp>.json` — use `--runs=10` across a few different sessions/days and tally the JSON logs to compute the 90%+ reliability number from item 2 above, rather than eyeballing a single run.
+
+These exist so "core functionality works" is a checkable fact, not a feeling. Each scenario names the exact tools involved (matching the real addon code — [input.js](/c:/Users/tanne/Documents/Github/portfolio-app/csimple-addon/server/automation/tools/input.js), [open-app.js](/c:/Users/tanne/Documents/Github/portfolio-app/csimple-addon/server/automation/tools/open-app.js), [text-type.js](/c:/Users/tanne/Documents/Github/portfolio-app/csimple-addon/server/automation/tools/text-type.js), [perception.js](/c:/Users/tanne/Documents/Github/portfolio-app/csimple-addon/server/automation/perception.js), [recorder/session.js](/c:/Users/tanne/Documents/Github/portfolio-app/csimple-addon/server/automation/recorder/session.js), [recorder/compiler.js](/c:/Users/tanne/Documents/Github/portfolio-app/csimple-addon/server/automation/recorder/compiler.js), [agent-loop.js](/c:/Users/tanne/Documents/Github/portfolio-app/csimple-addon/server/automation/agent-loop.js), [planner.js](/c:/Users/tanne/Documents/Github/portfolio-app/csimple-addon/server/automation/planner.js)) rather than a vague description, a precise pass/fail check, and what it's actually validating. Scenarios 1-4 isolate **key/mouse simulation**; 5-6 isolate the **perception loop**; 7-8 isolate **record→replay** and **planner-driven auto-execution**; 9-10 are safety/edge cases that matter for an honest reliability number.
+
+1. **Type and save a note in Notepad** (basic key simulation + app launch)
+   - Steps: `open_app { name: "notepad.exe" }` → wait for window/focus confirmation → `text_type` a known multi-line string (e.g. include punctuation, a number, and a capital letter to catch shift-state bugs) → `input_tap { keys: ["ctrl","s"] }` → the Save-As dialog appears → `text_type` a file name → `input_tap { keys: ["enter"] }`.
+   - Pass/fail: the file exists at the expected path afterward, and its contents match the typed string **exactly** (byte-for-byte, including casing/punctuation) — read the file back programmatically rather than eyeballing it.
+   - Validates: `open_app` window-ready polling, `text_type` fidelity (no dropped/duplicated/mis-cased characters), `input_tap` modifier-key combos, and that focus actually landed on the app and then the dialog.
+
+2. **Do arithmetic in Calculator by clicking, not typing** (mouse click simulation)
+   - Steps: `open_app { name: "calc.exe" }` → `click_at` the buttons for `1`, `2`, `+`, `7`, `=` at their on-screen coordinates (or via UIA element bounds from a perception snapshot, not hardcoded pixels, so it survives DPI/window-size differences) → `perception_recent` to read the result display's text/value.
+   - Pass/fail: the displayed result is exactly `19`.
+   - Validates: `click_at` accuracy (right pixel, right window focus before the click), and that perception can read back a specific UI element's value rather than just "some snapshot succeeded."
+
+3. **Rename a file in File Explorer** (click + keyboard combo, real filesystem side effect)
+   - Steps: pre-create a throwaway test file in a known folder → `open_app` File Explorer to that folder → `click_at` the file to select it → `input_tap { keys: ["f2"] }` to enter rename mode → `text_type` a new name → `input_tap { keys: ["enter"] }`.
+   - Pass/fail: the old filename no longer exists, the new filename exists with identical file content/size (nothing corrupted), checked via filesystem stat, not visually.
+   - Validates: click-to-select before a keyboard shortcut actually works (a common failure mode is the click landing on the wrong list item or not registering as a selection), and F2/Enter as non-letter "named keys."
+
+4. **Alt-Tab between two open windows** (held-modifier key combo, focus verification)
+   - Steps: `open_app` Notepad, then `open_app` Calculator (both left open) → `input_hold { keys: ["alt"] }` → `input_tap { keys: ["tab"] }` while alt is held → release alt → `perception_recent` (or a raw foreground-window title check) to confirm which window now has focus.
+   - Pass/fail: the foreground window after the sequence is the one actually expected (not whatever last had focus, not neither) — run it twice, once expecting to land back on Notepad and once on Calculator, to rule out a test that "passes" by coincidence.
+   - Validates: `input_hold` release timing/reliability (a key stuck down or released too early is a classic input-simulation bug) and that the perception loop's "what has focus now" answer matches actual OS state.
+
+5. **Detect what the user just typed, without the addon having sent it** (perception-only, human-in-the-loop)
+   - Steps: a **human**, not the addon, opens Notepad and types a short known sentence → the addon's perception/recording layer (the same `PollingInputSource` used by [RecorderSession](/c:/Users/tanne/Documents/Github/portfolio-app/csimple-addon/server/automation/recorder/session.js)) is running and logging in the background → stop the capture and inspect the resulting JSONL log.
+   - Pass/fail: the logged event stream reconstructs the same sentence the human actually typed, in the same order, with the correct app/window context attached — not just "some events were logged."
+   - Validates: this is the one scenario that's actually about *perceiving what a user does* (the plan's core premise) rather than the addon acting — a prerequisite for "auto action execution" to mean anything, since replay is only as good as what was captured.
+
+6. **Read a non-trivial UI state via perception, not OCR** (perception loop on a real app, not toy text)
+   - Steps: open a Settings-style app or dialog with a checkbox/toggle in a known state (e.g. Windows' own "Notifications" or a similar toggle-heavy panel) → call `perception_recent { mode: "interactive" }` → compare the reported toggle state (on/off) to the actual state (verified independently, e.g. by having set it deliberately beforehand).
+   - Pass/fail: the reported on/off state matches ground truth for every toggle checked, not just "some nodes came back."
+   - Validates: perception returns *usable, correct* state (needed before an agent can safely decide "click this because it's currently off"), not just that a UIA call didn't throw.
+
+7. **Record a short task once, then auto-replay it** (the actual "perceive once, repeat forever" pitch)
+   - Steps: start a recording session → manually perform a short, well-defined task (e.g. open Notepad, type "invoice-draft", save) → stop recording → run it through [compiler.js](/c:/Users/tanne/Documents/Github/portfolio-app/csimple-addon/server/automation/recorder/compiler.js) to produce a replayable skill/macro → close everything, reset state (delete the saved file) → trigger auto-replay of the compiled macro with no human input.
+   - Pass/fail: the replay reproduces the identical end state (same file, same contents) with zero manual intervention, and completes within a reasonable time bound rather than hanging.
+   - Validates: the full record → compile → auto-execute pipeline end-to-end — this is the single most important scenario since it's literally the product's core loop as sold.
+
+8. **Give a plain-English instruction and let the planner figure out the steps** (true "auto action execution," not a canned macro)
+   - Steps: issue a short natural-language instruction to the agent loop (e.g. "open Notepad and type today's date") without hand-authoring the step sequence → let [planner.js](/c:/Users/tanne/Documents/Github/portfolio-app/csimple-addon/server/automation/planner.js) / [agent-loop.js](/c:/Users/tanne/Documents/Github/portfolio-app/csimple-addon/server/automation/agent-loop.js) decide the tool calls.
+   - Pass/fail: the final on-screen/file state matches the instruction's intent (e.g. Notepad actually contains a correctly-formatted current date) — grade the *outcome*, not whether the planner's chosen steps looked reasonable.
+   - Validates: the planner can turn intent into correct tool calls without a human pre-scripting them, which is a materially higher bar than replaying a fixed recording (scenario 7) and is what separates "automation" from "AI agent."
+
+9. **Drag-and-drop with a moving mouse path** (continuous mouse motion, not just clicks)
+   - Steps: `mouse_path`/`mouse_drag` a file icon from one File Explorer location to another (or drag a slider control to a specific value in a settings app) using a multi-point path with timing offsets, not a single instant jump.
+   - Pass/fail: the file actually moved to the target folder (or the slider landed on the intended value, read back via perception) — a drag that "clicks and releases in place" without moving counts as a fail, not a partial pass.
+   - Validates: `mouse_drag`'s point-by-point timing actually produces a real OS-level drag gesture, which is a different code path from a single `click_at` and fails differently (e.g. drag threshold not met, drop target missed).
+
+10. **Verify held input releases safely when focus is lost mid-action** (safety/edge case)
+    - Steps: begin `input_hold` on a movement key (e.g. holding `w` in a simple full-screen app or game) with `releaseOnFocusLoss: true` → while still "held," programmatically switch focus away (e.g. trigger Alt-Tab to another window) mid-hold → check whether the key was actually released at the OS level (e.g. via a follow-up harmless keystroke test, or process/window state) rather than left stuck down.
+    - Pass/fail: the input is released promptly once focus changes — a stuck key (one that keeps "holding" against the wrong window) is a fail even if the initial hold worked, since this is exactly the kind of bug that looks fine in a quick manual test but causes real damage in the field (e.g. a stuck key spamming into whatever the user switches to next).
+    - Validates: the safety behavior explicitly documented in `input.js`'s `releaseOnFocusLoss` option actually works, not just the happy path — this is the kind of scenario that's easy to skip when validating "does it work at all" but is exactly what turns into a bad word-of-mouth story if broken.
+
+**How to log results:** for each scenario, keep a simple running tally (date, pass/fail, and — on failure — which step failed and the observed vs. expected state) rather than a single "works/doesn't work" note. That tally is what the 90%+ figure in the reliability gate above should be computed from, and it's also the raw material for Phase 4's "documented, honest reliability rate."
 
 ## Phase 1 — Describe what it does, plainly (messaging/copy)
 
