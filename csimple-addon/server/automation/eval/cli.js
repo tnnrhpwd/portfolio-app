@@ -44,6 +44,7 @@ function registerAllTools() {
     const { perceptionRecent } = require('../perception');
     const { inputHold, inputTap, clickAt, mousePath, mouseDrag } = require('../tools/input');
     const { skillRun } = require('../tools/skill');
+    const { textType } = require('../tools/text-type');
 
     const all = [
         fsRead, fsList, windowList, processList, clipboardRead, screen, screenOcr, screenSetOfMarks,
@@ -52,7 +53,7 @@ function registerAllTools() {
         fsWrite, clipboardWrite, browserClick, browserFill, browserClose,
         windowFocus, uiaInvoke, inputHold, inputTap, clickAt, mousePath, mouseDrag,
         processKill, shell, browserEval,
-        skillRun, screenRelay,
+        skillRun, screenRelay, textType,
     ];
     for (const t of all) {
         try { registry.register(t); }
