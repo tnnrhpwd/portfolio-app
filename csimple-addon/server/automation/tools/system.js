@@ -69,7 +69,6 @@ public static class WinPlacement {
     [DllImport("user32.dll")] public static extern IntPtr GetShellWindow();
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
-    [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 }
 "@
 # Per-Monitor-V2 DPI awareness (-4) keeps captured/applied coordinates
@@ -134,12 +133,10 @@ function Move-FocusAwayIfForeground([IntPtr]$hwnd) {
         Start-Sleep -Milliseconds 60
     }
 }
-# SWP_ASYNCWINDOWPOS: POSTs the resize instead of blocking on the target's
-# thread (unlike SetWindowPlacement, used until now). See git log for why.
-$script:SWP_ASYNCWINDOWPOS = 0x4000
-$script:SWP_NOZORDER = 0x0004
-$script:SWP_NOACTIVATE = 0x0010
-# GetWindowPlacement is a read-only WM query, safe to poll on any window.
+# Polls the read-only GetWindowPlacement (answered by the window manager,
+# never sent into the target's own queue, so safe regardless of what that
+# thread is doing) until showCmd matches what ShowWindowAsync was just
+# asked to apply, or maxMs elapses.
 function Wait-ForShowState([IntPtr]$hwnd, [int]$wantShowCmd, [int]$maxMs) {
     $deadline = (Get-Date).AddMilliseconds($maxMs)
     while ((Get-Date) -lt $deadline) {
@@ -357,21 +354,43 @@ $curState = switch ($wp.showCmd) { 2 { 'minimized' } 3 { 'maximized' } default {
 if ((Test-CoversVirtualScreen $wp.rcNormalPosition.Left $wp.rcNormalPosition.Top $curW $curH $curState) -or (Test-CoversVirtualScreen ${x} ${y} ${width} ${height} '${state}')) {
     Write-Error 'window not found'; exit 1
 }
-# SetWindowPlacement blocks the CALLING thread on a synchronous message to
-# the target's own thread; if that thread is briefly busy (mid-resize,
-# lazy DLL load) the target can wedge or corrupt its own state — the best
-# explanation found for every restore-crash so far (see git log). Use only
-# the documented async-safe primitives instead: restore to normal first
-# (if needed), wait via the read-only poll above, reposition with
-# SetWindowPos+SWP_ASYNCWINDOWPOS, then apply the final show state.
+# SetWindowPlacement normally sends a SYNCHRONOUS message to the target
+# window's own thread, blocking the caller until that thread's message loop
+# handles it. If that thread is briefly busy (mid-resize, lazy DLL load),
+# this can wedge or corrupt the target — the best explanation found for
+# every restore-crash reproduction so far (see git log). Its documented
+# async flag (WPF_ASYNCWINDOWPLACEMENT) avoids the block, but testing shows
+# it silently drops the new rcNormalPosition whenever the show-state also
+# changes (e.g. maximized -> normal) — only a same-state reposition (normal
+# -> normal) reliably applies the new rect with that flag. So: use
+# ShowWindowAsync (always fully async, never blocks) to first bring the
+# window to "normal" if it isn't already, wait for that using the
+# read-only poll above, THEN reposition via SetWindowPlacement+async-flag
+# while staying in "normal" (the one case proven to apply correctly, and
+# it keeps the same workspace-coordinate space as GetWindowPlacement/
+# capture, unlike plain SetWindowPos which uses screen coordinates and
+# landed windows in the wrong place on multi-monitor setups), and finally
+# apply the real target show-state via ShowWindowAsync again if it isn't
+# "normal" — maximize/minimize then uses the restore bounds just set.
 Move-FocusAwayIfForeground $h
 if ($wp.showCmd -ne 1) {
     [void][WinPlacement]::ShowWindowAsync($h, 9)  # SW_RESTORE
     [void](Wait-ForShowState $h 1 500)
 }
-$posFlags = $script:SWP_ASYNCWINDOWPOS -bor $script:SWP_NOZORDER -bor $script:SWP_NOACTIVATE
-[void][WinPlacement]::SetWindowPos($h, [IntPtr]::Zero, ${x}, ${y}, ${width}, ${height}, $posFlags)
+$wp2 = New-Object WinPlacement+WINDOWPLACEMENT
+$wp2.length = [System.Runtime.InteropServices.Marshal]::SizeOf($wp2)
+[void][WinPlacement]::GetWindowPlacement($h, [ref]$wp2)
+$wp2.showCmd = 1
+$wp2.flags = $wp2.flags -bor 0x0004  # WPF_ASYNCWINDOWPLACEMENT
+$rect = New-Object WinPlacement+RECT
+$rect.Left = ${x}
+$rect.Top = ${y}
+$rect.Right = ${x} + ${width}
+$rect.Bottom = ${y} + ${height}
+$wp2.rcNormalPosition = $rect
+[void][WinPlacement]::SetWindowPlacement($h, [ref]$wp2)
 if (${showCmd} -ne 1) {
+    [void](Wait-ForShowState $h 1 500)
     [void][WinPlacement]::ShowWindowAsync($h, ${showCmd})
 }
 [pscustomobject]@{ pid = $p.Id; name = $p.ProcessName; title = $p.MainWindowTitle } | ConvertTo-Json -Compress
