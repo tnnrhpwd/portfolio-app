@@ -1,0 +1,70 @@
+{
+  "id": "21-mouse-drag-window-titlebar",
+  "name": "mouse_drag actually performs a click-and-hold-and-move drag (not just a click-in-place)",
+  "description": "LIVE-only real-desktop regression test for `mouse_drag`/click-and-hold. Prior to this scenario, NOTHING in the automated suite (npm test / npm run eval) exercised `mouse_drag` or `input_hold` at all, so a fully green run gave zero signal about whether click-and-hold/drag actually works at the OS level. This launches a real Notepad window, uses UI Automation's TransformPattern to place it at an exact, known position (100,100)x(500,300) — same technique as 05b-ocr-live-notepad.json, chosen because it doesn't depend on window-manager/DPI assumptions — then calls `mouse_drag` to press the left button on the title bar, walk a multi-point path with a holdMs dwell at the end (exercising both the 'hold' and the 'move' halves of click-and-hold), and release. It then re-reads the window's actual on-screen position via UI Automation's BoundingRectangle and asserts it moved by (approximately) the exact drag delta. A drag that 'clicks and releases in place' without actually moving the window — the specific failure mode reported in manual testing — fails this scenario instead of passing silently.",
+  "require": { "platform": "win32", "env": { "EVAL_LIVE": "1" } },
+  "permissions": {
+    "categories": { "safe-read": "allow", "shell": "allow", "system": "allow" }
+  },
+  "steps": [
+    {
+      "tool": "shell_run",
+      "args": { "command": "Get-Process notepad -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Process notepad; Start-Sleep -Milliseconds 1200; Write-Output 'launched'" },
+      "expect": {
+        "ok": true,
+        "resultPath": "stdout",
+        "resultContains": "launched",
+        "durationMsLte": 15000
+      }
+    },
+    {
+      "tool": "shell_run",
+      "args": { "command": "Add-Type -AssemblyName UIAutomationClient,UIAutomationTypes; $root = [System.Windows.Automation.AutomationElement]::RootElement; $children = $root.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition); $target = $null; foreach ($w in $children) { if ($w.Current.Name -and $w.Current.Name.ToLower().Contains('notepad')) { $target = $w; break } }; if (-not $target) { Write-Output 'notfound'; exit 1 }; $tp = $target.GetCurrentPattern([System.Windows.Automation.TransformPattern]::Pattern); $tp.Move(100,100); $tp.Resize(500,300); Write-Output 'moved'" },
+      "expect": {
+        "ok": true,
+        "resultPath": "stdout",
+        "resultContains": "moved",
+        "durationMsLte": 15000
+      }
+    },
+    {
+      "tool": "mouse_drag",
+      "args": {
+        "button": "left",
+        "path": [
+          { "x": 250, "y": 115, "tOffsetMs": 0 },
+          { "x": 350, "y": 215, "tOffsetMs": 150 },
+          { "x": 450, "y": 315, "tOffsetMs": 300 }
+        ],
+        "holdMs": 200
+      },
+      "expect": {
+        "ok": true,
+        "resultPath": "reason",
+        "resultEquals": "completed",
+        "durationMsLte": 15000
+      }
+    },
+    {
+      "tool": "shell_run",
+      "args": { "command": "Add-Type -AssemblyName UIAutomationClient,UIAutomationTypes; $root = [System.Windows.Automation.AutomationElement]::RootElement; $children = $root.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition); $target = $null; foreach ($w in $children) { if ($w.Current.Name -and $w.Current.Name.ToLower().Contains('notepad')) { $target = $w; break } }; if (-not $target) { Write-Output 'DRAG_OK:False (window not found)'; exit 0 }; $rect = $target.Current.BoundingRectangle; $dx = [Math]::Round($rect.X) - 100; $dy = [Math]::Round($rect.Y) - 100; $ok = ([Math]::Abs($dx - 200) -le 15) -and ([Math]::Abs($dy - 200) -le 15); Write-Output \"DRAG_OK:$ok dx=$dx dy=$dy\"" },
+      "expect": {
+        "ok": true,
+        "resultPath": "stdout",
+        "resultContains": "DRAG_OK:True",
+        "durationMsLte": 15000
+      }
+    },
+    {
+      "tool": "shell_run",
+      "args": { "command": "Get-Process notepad -ErrorAction SilentlyContinue | Stop-Process -Force; Write-Output 'closed'" },
+      "expect": {
+        "ok": true,
+        "resultPath": "stdout",
+        "resultContains": "closed",
+        "durationMsLte": 15000
+      }
+    }
+  ],
+  "tags": ["input", "mouse", "drag", "click-and-hold", "smoke", "e2e", "live"]
+}

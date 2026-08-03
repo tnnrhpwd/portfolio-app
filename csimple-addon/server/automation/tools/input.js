@@ -398,15 +398,10 @@ const clickAt = {
         const y = Math.round(args.y);
 
         const script = `${NATIVE_PRELUDE}
-Add-Type @"
-using System.Runtime.InteropServices;
-public static class Cursor {
-    [DllImport("user32.dll")] public static extern bool SetCursorPos(int X, int Y);
-}
-"@
+${MOUSE_MOVE_PRELUDE}
 $focused = $null
 if ("${needle}") { $focused = Focus-WindowByTitle "${needle}"; Start-Sleep -Milliseconds ${settle} }
-[Cursor]::SetCursorPos(${x}, ${y}) | Out-Null
+[MouseInput]::MoveTo(${x}, ${y}) | Out-Null
 Start-Sleep -Milliseconds 30
 [Native]::mouse_event(${btn.down}, 0, 0, 0, [UIntPtr]::Zero)
 Start-Sleep -Milliseconds 25
@@ -432,18 +427,85 @@ if (${dbl ? '$true' : '$false'}) {
 // the timing between them. Used for camera-look / drawing / drag replay when
 // the button state is handled elsewhere (or not at all).
 const MAX_PATH_MS = 5 * 60_000;
-const CURSOR_PRELUDE = `
+// Cursor movement: SetCursorPos alone was found (during manual click-and-hold/
+// drag validation) to silently no-op in some session/compositor
+// configurations -- it returns success but the cursor position never
+// actually changes, so a whole "hold, move, release" sequence executes
+// against a single fixed point and looks like a click-in-place rather than a
+// drag. SendInput with MOUSEEVENTF_ABSOLUTE|MOUSEEVENTF_VIRTUALDESK delivers
+// the move through the same synthetic-input queue as a real mouse and is not
+// subject to that same failure mode, so it's used as the primary mechanism,
+// with SetCursorPos + a GetCursorPos verify/retry as a fallback in case
+// SendInput itself is the one blocked in a given environment.
+const MOUSE_MOVE_PRELUDE = `
 Add-Type @"
+using System;
 using System.Runtime.InteropServices;
-public static class Cursor {
-    [DllImport("user32.dll")] public static extern bool SetCursorPos(int X, int Y);
+public static class MouseInput {
+    [StructLayout(LayoutKind.Sequential)]
+    public struct INPUT { public int type; public MOUSEINPUT mi; }
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MOUSEINPUT {
+        public int dx; public int dy; public uint mouseData;
+        public uint dwFlags; public uint time; public IntPtr dwExtraInfo;
+    }
+    [StructLayout(LayoutKind.Sequential)]
+    public struct POINT { public int X; public int Y; }
+
+    const uint INPUT_MOUSE = 0;
+    const uint MOUSEEVENTF_MOVE = 0x0001;
+    const uint MOUSEEVENTF_ABSOLUTE = 0x8000;
+    const uint MOUSEEVENTF_VIRTUALDESK = 0x4000;
+    const int SM_XVIRTUALSCREEN = 76;
+    const int SM_YVIRTUALSCREEN = 77;
+    const int SM_CXVIRTUALSCREEN = 78;
+    const int SM_CYVIRTUALSCREEN = 79;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+    [DllImport("user32.dll")]
+    static extern bool SetCursorPos(int X, int Y);
+    [DllImport("user32.dll")]
+    static extern bool GetCursorPos(out POINT lpPoint);
+    [DllImport("user32.dll")]
+    static extern int GetSystemMetrics(int nIndex);
+
+    // Moves the cursor to an absolute screen pixel (x, y), verifying the
+    // move actually landed and falling back to SetCursorPos if not. Returns
+    // true if the cursor ended up within 2px of the target, false otherwise
+    // (callers can surface that as a diagnostic instead of a silent no-op).
+    public static bool MoveTo(int x, int y) {
+        int vx = GetSystemMetrics(SM_XVIRTUALSCREEN);
+        int vy = GetSystemMetrics(SM_YVIRTUALSCREEN);
+        int vw = Math.Max(1, GetSystemMetrics(SM_CXVIRTUALSCREEN) - 1);
+        int vh = Math.Max(1, GetSystemMetrics(SM_CYVIRTUALSCREEN) - 1);
+        int nx = (int)(((double)(x - vx) * 65535) / vw);
+        int ny = (int)(((double)(y - vy) * 65535) / vh);
+
+        var input = new INPUT[1];
+        input[0].type = (int)INPUT_MOUSE;
+        input[0].mi = new MOUSEINPUT {
+            dx = nx, dy = ny, mouseData = 0,
+            dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK,
+            time = 0, dwExtraInfo = IntPtr.Zero,
+        };
+        SendInput(1, input, Marshal.SizeOf(typeof(INPUT)));
+
+        POINT p;
+        GetCursorPos(out p);
+        if (Math.Abs(p.X - x) > 2 || Math.Abs(p.Y - y) > 2) {
+            SetCursorPos(x, y);
+            GetCursorPos(out p);
+        }
+        return Math.Abs(p.X - x) <= 2 && Math.Abs(p.Y - y) <= 2;
+    }
 }
 "@
 `;
 function _buildWalkScript(path) {
-    // Emit "sleep(delta), SetCursorPos(x,y)" for each point. Sleep between
-    // adjacent points uses the delta of tOffsetMs, so the whole walk takes
-    // approximately the recorded duration.
+    // Emit "sleep(delta), MouseInput.MoveTo(x,y)" for each point. Sleep
+    // between adjacent points uses the delta of tOffsetMs, so the whole walk
+    // takes approximately the recorded duration.
     let prevT = 0;
     const lines = [];
     for (let i = 0; i < path.length; i++) {
@@ -457,7 +519,7 @@ function _buildWalkScript(path) {
         if (capped > 0) lines.push(`Start-Sleep -Milliseconds ${capped}`);
         // Poll Escape between hops so the user can always abort a long path.
         lines.push(`if (([Native]::GetAsyncKeyState(0x1B) -band 0x8000) -ne 0) { $reason = "escape-pressed"; break }`);
-        lines.push(`[Cursor]::SetCursorPos(${x}, ${y}) | Out-Null`);
+        lines.push(`[MouseInput]::MoveTo(${x}, ${y}) | Out-Null`);
         prevT = t;
     }
     // The Escape checks are inside a `while ($true)` wrapper so `break` works;
@@ -501,7 +563,7 @@ const mousePath = {
         const totalMs = Math.min(MAX_PATH_MS, Math.max(0, path[path.length - 1].tOffsetMs || 0));
 
         const script = `${NATIVE_PRELUDE}
-${CURSOR_PRELUDE}
+${MOUSE_MOVE_PRELUDE}
 $focused = $null
 if ("${needle}") { $focused = Focus-WindowByTitle "${needle}"; Start-Sleep -Milliseconds ${settle} }
 ${_buildWalkScript(path)}
@@ -563,10 +625,10 @@ const mouseDrag = {
         const totalMs = Math.min(MAX_PATH_MS, Math.max(0, path[path.length - 1].tOffsetMs || 0));
 
         const script = `${NATIVE_PRELUDE}
-${CURSOR_PRELUDE}
+${MOUSE_MOVE_PRELUDE}
 $focused = $null
 if ("${needle}") { $focused = Focus-WindowByTitle "${needle}"; Start-Sleep -Milliseconds ${settle} }
-[Cursor]::SetCursorPos(${startX}, ${startY}) | Out-Null
+[MouseInput]::MoveTo(${startX}, ${startY}) | Out-Null
 Start-Sleep -Milliseconds 30
 try {
     [Native]::mouse_event(${btn.down}, 0, 0, 0, [UIntPtr]::Zero)
