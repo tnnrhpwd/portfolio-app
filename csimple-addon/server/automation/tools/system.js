@@ -68,6 +68,8 @@ public static class WinPlacement {
     [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] public static extern IntPtr GetShellWindow();
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+    [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 }
 "@
 # Per-Monitor-V2 DPI awareness (-4) keeps captured/applied coordinates
@@ -131,6 +133,23 @@ function Move-FocusAwayIfForeground([IntPtr]$hwnd) {
         [void][WinPlacement]::SetForegroundWindow($shell)
         Start-Sleep -Milliseconds 60
     }
+}
+# SWP_ASYNCWINDOWPOS: POSTs the resize instead of blocking on the target's
+# thread (unlike SetWindowPlacement, used until now). See git log for why.
+$script:SWP_ASYNCWINDOWPOS = 0x4000
+$script:SWP_NOZORDER = 0x0004
+$script:SWP_NOACTIVATE = 0x0010
+# GetWindowPlacement is a read-only WM query, safe to poll on any window.
+function Wait-ForShowState([IntPtr]$hwnd, [int]$wantShowCmd, [int]$maxMs) {
+    $deadline = (Get-Date).AddMilliseconds($maxMs)
+    while ((Get-Date) -lt $deadline) {
+        $chk = New-Object WinPlacement+WINDOWPLACEMENT
+        $chk.length = [System.Runtime.InteropServices.Marshal]::SizeOf($chk)
+        [void][WinPlacement]::GetWindowPlacement($hwnd, [ref]$chk)
+        if ($chk.showCmd -eq $wantShowCmd) { return $true }
+        Start-Sleep -Milliseconds 30
+    }
+    return $false
 }
 # Belt-and-suspenders denylist for well-known shell/system host processes
 # and desktop/wallpaper hosts that shouldn't ever be treated as restorable
@@ -338,22 +357,23 @@ $curState = switch ($wp.showCmd) { 2 { 'minimized' } 3 { 'maximized' } default {
 if ((Test-CoversVirtualScreen $wp.rcNormalPosition.Left $wp.rcNormalPosition.Top $curW $curH $curState) -or (Test-CoversVirtualScreen ${x} ${y} ${width} ${height} '${state}')) {
     Write-Error 'window not found'; exit 1
 }
-# SetWindowPos alone does not reliably move a minimized/maximized window, and
-# moving a maximized window's rect has no visible effect until it's
-# un-maximized — this was the root cause of restored windows landing in the
-# wrong place. SetWindowPlacement instead applies the target "restored" rect
-# (rcNormalPosition) AND the show command atomically in one call, so a
-# window that was maximized on a given monitor comes back maximized there,
-# not stuck wherever SetWindowPos happened to leave it.
+# SetWindowPlacement blocks the CALLING thread on a synchronous message to
+# the target's own thread; if that thread is briefly busy (mid-resize,
+# lazy DLL load) the target can wedge or corrupt its own state — the best
+# explanation found for every restore-crash so far (see git log). Use only
+# the documented async-safe primitives instead: restore to normal first
+# (if needed), wait via the read-only poll above, reposition with
+# SetWindowPos+SWP_ASYNCWINDOWPOS, then apply the final show state.
 Move-FocusAwayIfForeground $h
-$wp.showCmd = ${showCmd}
-$rect = New-Object WinPlacement+RECT
-$rect.Left = ${x}
-$rect.Top = ${y}
-$rect.Right = ${x} + ${width}
-$rect.Bottom = ${y} + ${height}
-$wp.rcNormalPosition = $rect
-[WinPlacement]::SetWindowPlacement($h, [ref]$wp) | Out-Null
+if ($wp.showCmd -ne 1) {
+    [void][WinPlacement]::ShowWindowAsync($h, 9)  # SW_RESTORE
+    [void](Wait-ForShowState $h 1 500)
+}
+$posFlags = $script:SWP_ASYNCWINDOWPOS -bor $script:SWP_NOZORDER -bor $script:SWP_NOACTIVATE
+[void][WinPlacement]::SetWindowPos($h, [IntPtr]::Zero, ${x}, ${y}, ${width}, ${height}, $posFlags)
+if (${showCmd} -ne 1) {
+    [void][WinPlacement]::ShowWindowAsync($h, ${showCmd})
+}
 [pscustomobject]@{ pid = $p.Id; name = $p.ProcessName; title = $p.MainWindowTitle } | ConvertTo-Json -Compress
         `.trim();
         return await runPsJson(script);
