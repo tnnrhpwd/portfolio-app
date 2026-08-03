@@ -111,6 +111,119 @@ if (-not $p) { Write-Error 'window not found'; exit 1 }
     },
 };
 
+const windowSnapshot = {
+    name: 'window_snapshot',
+    category: 'safe-read',
+    description: 'Capture every visible top-level window\'s position, size, and show state (normal/minimized/maximized) — used to save a "workspace" layout that can be restored later.',
+    parameters: { type: 'object', properties: {} },
+    async run() {
+        const script = `
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public static class WinRect {
+    [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+    [DllImport("user32.dll")] public static extern bool GetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
+    [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
+    [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X; public int Y; }
+    [StructLayout(LayoutKind.Sequential)] public struct WINDOWPLACEMENT {
+        public int length; public int flags; public int showCmd;
+        public POINT ptMinPosition; public POINT ptMaxPosition; public RECT rcNormalPosition;
+    }
+}
+"@
+$procs = Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -ne '' }
+$out = @()
+foreach ($p in $procs) {
+    $rect = New-Object WinRect+RECT
+    [void][WinRect]::GetWindowRect($p.MainWindowHandle, [ref]$rect)
+    $wp = New-Object WinRect+WINDOWPLACEMENT
+    $wp.length = [System.Runtime.InteropServices.Marshal]::SizeOf($wp)
+    [void][WinRect]::GetWindowPlacement($p.MainWindowHandle, [ref]$wp)
+    $exePath = $null
+    try { $exePath = $p.Path } catch {}
+    $state = switch ($wp.showCmd) { 2 { 'minimized' } 3 { 'maximized' } default { 'normal' } }
+    $out += [pscustomobject]@{
+        pid = $p.Id
+        processName = $p.ProcessName
+        exePath = $exePath
+        title = $p.MainWindowTitle
+        x = $rect.Left
+        y = $rect.Top
+        width = ($rect.Right - $rect.Left)
+        height = ($rect.Bottom - $rect.Top)
+        state = $state
+    }
+}
+$out | ConvertTo-Json -Compress -Depth 4
+        `.trim();
+        const result = await runPsJson(script);
+        const arr = Array.isArray(result) ? result : (result ? [result] : []);
+        return { count: arr.length, windows: arr };
+    },
+};
+
+const windowSetRect = {
+    name: 'window_set_rect',
+    category: 'system',
+    description: 'Move/resize a window and set its show state (normal/minimized/maximized). Match the window by pid, titleContains, or processName (same precedence as window_focus).',
+    parameters: {
+        type: 'object',
+        properties: {
+            pid: { type: 'integer' },
+            processName: { type: 'string' },
+            titleContains: { type: 'string' },
+            x: { type: 'integer' },
+            y: { type: 'integer' },
+            width: { type: 'integer' },
+            height: { type: 'integer' },
+            state: { type: 'string', description: '"normal" | "minimized" | "maximized"' },
+        },
+    },
+    async run(args) {
+        let sel;
+        if (args.pid) {
+            sel = `Get-Process -Id ${parseInt(args.pid, 10)} -ErrorAction SilentlyContinue`;
+        } else if (args.titleContains) {
+            const needle = String(args.titleContains).replace(/'/g, "''");
+            sel = `Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -like '*${needle}*' } | Select-Object -First 1`;
+        } else if (args.processName) {
+            sel = `Get-Process -Name '${String(args.processName).replace(/'/g, "''")}' -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1`;
+        } else {
+            throw new Error('window_set_rect: provide pid, processName, or titleContains');
+        }
+        const x = Number.isFinite(args.x) ? Math.round(args.x) : 0;
+        const y = Number.isFinite(args.y) ? Math.round(args.y) : 0;
+        const width = Number.isFinite(args.width) ? Math.round(args.width) : 800;
+        const height = Number.isFinite(args.height) ? Math.round(args.height) : 600;
+        const state = String(args.state || 'normal').toLowerCase();
+        // SW_SHOWMINIMIZED=2, SW_SHOWMAXIMIZED=3, SW_SHOWNORMAL=1, SW_RESTORE=9
+        const showCmd = state === 'minimized' ? 2 : state === 'maximized' ? 3 : 1;
+        const script = `
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public static class WinMove {
+    [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+    [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+}
+"@
+$p = ${sel}
+if (-not $p) { Write-Error 'window not found'; exit 1 }
+$h = $p.MainWindowHandle
+if (${showCmd} -eq 1) {
+    [WinMove]::ShowWindowAsync($h, 9) | Out-Null
+    [WinMove]::SetWindowPos($h, [IntPtr]::Zero, ${x}, ${y}, ${width}, ${height}, 0x0040) | Out-Null
+} else {
+    [WinMove]::SetWindowPos($h, [IntPtr]::Zero, ${x}, ${y}, ${width}, ${height}, 0x0040) | Out-Null
+    [WinMove]::ShowWindowAsync($h, ${showCmd}) | Out-Null
+}
+[pscustomobject]@{ pid = $p.Id; name = $p.ProcessName; title = $p.MainWindowTitle } | ConvertTo-Json -Compress
+        `.trim();
+        return await runPsJson(script);
+    },
+};
+
 const processList = {
     name: 'process_list',
     category: 'safe-read',
@@ -171,4 +284,4 @@ const clipboardWrite = {
     },
 };
 
-module.exports = { windowList, windowFocus, processList, processKill, clipboardRead, clipboardWrite };
+module.exports = { windowList, windowFocus, windowSnapshot, windowSetRect, processList, processKill, clipboardRead, clipboardWrite };

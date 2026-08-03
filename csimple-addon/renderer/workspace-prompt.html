@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Save Workspace</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0d1117;
+    --panel: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+  .wrap { padding: 20px; display: flex; flex-direction: column; height: 100%; }
+  h1 { margin: 0 0 6px; font-size: 15px; }
+  p.hint { margin: 0 0 14px; color: var(--muted); font-size: 12px; }
+  input[type="text"] {
+    background: #010409; color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 8px 10px; font-size: 14px; font-family: inherit;
+    width: 100%;
+  }
+  input[type="text"]:focus { outline: 1px solid #58a6ff; }
+  .error { color: #f85149; font-size: 12px; min-height: 16px; margin-top: 6px; }
+  .buttons { margin-top: auto; display: flex; justify-content: flex-end; gap: 8px; }
+  button {
+    background: #21262d; color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 16px; font-size: 13px; cursor: pointer;
+  }
+  button:hover { background: #30363d; }
+  button.primary { background: #238636; border-color: #238636; }
+  button.primary:hover { background: #2ea043; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Save New Workspace</h1>
+    <p class="hint">Captures the position, size, and state of every open window so you can restore this exact layout later.</p>
+    <input id="name" type="text" placeholder="e.g. Coding, Streaming, Research" maxlength="80" autofocus />
+    <div class="error" id="error"></div>
+    <div class="buttons">
+      <button id="cancel">Cancel</button>
+      <button id="save" class="primary">Save</button>
+    </div>
+  </div>
+  <script>
+    const input = document.getElementById('name');
+    const error = document.getElementById('error');
+
+    function submit() {
+      const value = input.value.trim();
+      if (!value) {
+        error.textContent = 'Enter a name for this workspace.';
+        input.focus();
+        return;
+      }
+      window.workspacePromptAPI.save(value);
+    }
+
+    document.getElementById('save').addEventListener('click', submit);
+    document.getElementById('cancel').addEventListener('click', () => window.workspacePromptAPI.cancel());
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submit();
+      if (e.key === 'Escape') window.workspacePromptAPI.cancel();
+    });
+    input.focus();
+  </script>
+</body>
+</html>

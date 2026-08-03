@@ -34,6 +34,7 @@ let eyeOverlayWindow = null;       // transparent click-through gaze dot
 let permissionWindow = null;       // Windows automation permission center
 let eyeOverlayAutoTrain = null;    // {timer, lastSampleAt, lastCursor, lastCursorAt, lastGaze, lastGazeAt}
 let recordingsWindow = null;       // demonstrations & skills browser
+let workspacePromptWindow = null;  // "Save New Workspace" name prompt
 let startAgentStatusPolling = () => {}; // assigned after server ready
 
 // ─── Resource Paths ─────────────────────────────────────────────────────────────
@@ -139,6 +140,66 @@ async function changeResourcesFolder() {
   await restartExpressServer();
 }
 
+// ─── Workspace Profiles (save/restore window layouts) ──────────────────────
+
+/**
+ * Refresh the tray's cached list of saved workspace profiles. Call after
+ * save/delete and once at startup so the "Workspace" submenu stays current.
+ */
+async function refreshWorkspaceProfilesTray() {
+  try {
+    const workspaceProfiles = require('./server/automation/workspace-profiles');
+    const profiles = await workspaceProfiles.list();
+    trayManager?.setWorkspaceProfiles(profiles);
+  } catch (e) {
+    console.warn('[Main] Failed to refresh workspace profiles:', e.message);
+  }
+}
+
+/**
+ * Show a small modal prompting for a workspace name. Resolves with the
+ * trimmed name, or null if the user cancels/closes the window.
+ */
+function openWorkspaceNamePrompt() {
+  return new Promise((resolve) => {
+    if (workspacePromptWindow && !workspacePromptWindow.isDestroyed()) {
+      workspacePromptWindow.focus();
+      resolve(null);
+      return;
+    }
+
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      ipcMain.removeListener('workspace-prompt-save', onSave);
+      ipcMain.removeListener('workspace-prompt-cancel', onCancel);
+      resolve(value);
+      if (workspacePromptWindow && !workspacePromptWindow.isDestroyed()) {
+        workspacePromptWindow.close();
+      }
+      workspacePromptWindow = null;
+    };
+    const onSave = (_event, { name }) => finish(name);
+    const onCancel = () => finish(null);
+    ipcMain.on('workspace-prompt-save', onSave);
+    ipcMain.on('workspace-prompt-cancel', onCancel);
+
+    workspacePromptWindow = new BrowserWindow({
+      width: 420, height: 220, title: 'Save New Workspace',
+      resizable: false, minimizable: false, maximizable: false,
+      backgroundColor: '#0d1117',
+      webPreferences: {
+        contextIsolation: true, nodeIntegration: false,
+        preload: path.join(__dirname, 'renderer', 'workspace-prompt-preload.js'),
+      },
+    });
+    workspacePromptWindow.setMenuBarVisibility(false);
+    workspacePromptWindow.loadFile(path.join(__dirname, 'renderer', 'workspace-prompt.html'));
+    workspacePromptWindow.on('closed', () => finish(null));
+  });
+}
+
 // Make resources path available to server modules
 let RESOURCES_PATH = getResourcesPath();
 global.CSIMPLE_RESOURCES_PATH = RESOURCES_PATH;
@@ -204,6 +265,18 @@ async function startExpressServer() {
       console.log('[Main] Recorder configured at', path.join(CONFIG_DIR, 'recordings'));
     } catch (e) {
       console.warn('[Main] Failed to configure recorder:', e.message);
+    }
+
+    // Configure workspace profiles (saved window-layout snapshots) storage.
+    try {
+      const workspaceProfiles = require('./server/automation/workspace-profiles');
+      workspaceProfiles.configure({
+        storageDir: path.join(CONFIG_DIR, 'workspace-profiles'),
+      });
+      console.log('[Main] Workspace profiles configured at', path.join(CONFIG_DIR, 'workspace-profiles'));
+      refreshWorkspaceProfilesTray();
+    } catch (e) {
+      console.warn('[Main] Failed to configure workspace profiles:', e.message);
     }
 
     // Configure the trigger engine. dispatch() is called when a cron/file/
@@ -1403,6 +1476,44 @@ app.on('ready', async () => {
         recordingsWindow.on('closed', () => { recordingsWindow = null; });
       } catch (e) {
         trayManager?.notify('Recorded Skills', e.message);
+      }
+    },
+
+    // ── Workspace Profiles ──
+    onSaveWorkspaceProfile: async () => {
+      try {
+        const name = await openWorkspaceNamePrompt();
+        if (!name) return; // cancelled
+        const workspaceProfiles = require('./server/automation/workspace-profiles');
+        const profile = await workspaceProfiles.save(name);
+        await refreshWorkspaceProfilesTray();
+        trayManager?.notify('Workspace Saved', `"${profile.name}" — ${profile.windows.length} window(s) captured.`);
+      } catch (e) {
+        trayManager?.notify('Workspace', `Save failed: ${e.message}`);
+      }
+    },
+    onRestoreWorkspaceProfile: async (slug) => {
+      try {
+        const workspaceProfiles = require('./server/automation/workspace-profiles');
+        const result = await workspaceProfiles.restore(slug);
+        const parts = [];
+        if (result.restoredCount) parts.push(`${result.restoredCount} repositioned`);
+        if (result.launchedCount) parts.push(`${result.launchedCount} relaunched`);
+        if (result.skippedCount) parts.push(`${result.skippedCount} skipped`);
+        if (result.errorCount) parts.push(`${result.errorCount} failed`);
+        trayManager?.notify(`Workspace "${result.name}" Restored`, parts.join(', ') || 'Nothing to restore.');
+      } catch (e) {
+        trayManager?.notify('Workspace', `Restore failed: ${e.message}`);
+      }
+    },
+    onDeleteWorkspaceProfile: async (slug) => {
+      try {
+        const workspaceProfiles = require('./server/automation/workspace-profiles');
+        await workspaceProfiles.remove(slug);
+        await refreshWorkspaceProfilesTray();
+        trayManager?.notify('Workspace Deleted', slug);
+      } catch (e) {
+        trayManager?.notify('Workspace', `Delete failed: ${e.message}`);
       }
     },
   });

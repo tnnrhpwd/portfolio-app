@@ -20,6 +20,7 @@ class TrayManager {
     this.agentState = { running: false, currentGoal: null, step: 0, dryRun: false, killSwitch: false };
     this.recorderActive = false;
     this.recorderName = null;
+    this.workspaceProfiles = [];     // [{ slug, name, savedAt, windowCount }]
   }
 
   /**
@@ -40,6 +41,9 @@ class TrayManager {
    * @param {Function} callbacks.onToggleEyeTracking
    * @param {Function} callbacks.onEmergencyStopEyeTracking
   * @param {Function} callbacks.onShowEyeTrackingHelp
+   * @param {Function} callbacks.onSaveWorkspaceProfile
+   * @param {Function} callbacks.onRestoreWorkspaceProfile
+   * @param {Function} callbacks.onDeleteWorkspaceProfile
    */
   create(callbacks = {}) {
     this.callbacks = callbacks;
@@ -138,6 +142,16 @@ class TrayManager {
   }
 
   /**
+   * Update the list of saved workspace (window-layout) profiles shown under
+   * the "Workspace" submenu.
+   * @param {Array<{slug:string, name:string, savedAt?:string, windowCount?:number}>} profiles
+   */
+  setWorkspaceProfiles(profiles = []) {
+    this.workspaceProfiles = Array.isArray(profiles) ? profiles : [];
+    this._updateMenu();
+  }
+
+  /**
    * Show a native notification.
    */
   notify(title, body) {
@@ -180,6 +194,10 @@ class TrayManager {
       {
         label: 'Change Resources Folder...',
         click: () => this.callbacks.onChangeResourcesFolder?.(),
+      },
+      {
+        label: 'Workspace',
+        submenu: this._buildWorkspaceMenuItems(),
       },
       { type: 'separator' },
 
@@ -313,6 +331,40 @@ class TrayManager {
    */
   _buildNum(version) {
     return version ? version.split('.').pop() : '?';
+  }
+
+  /**
+   * Build the "Workspace" submenu: "Save New..." at top, then one item per
+   * saved profile. Each profile item restores on click; a paired "Delete"
+   * item (nested one level further) removes it without restoring.
+   */
+  _buildWorkspaceMenuItems() {
+    const items = [
+      {
+        label: 'Save New…',
+        click: () => this.callbacks.onSaveWorkspaceProfile?.(),
+      },
+    ];
+    if (this.workspaceProfiles.length > 0) {
+      items.push({ type: 'separator' });
+      for (const p of this.workspaceProfiles) {
+        const count = Number.isFinite(p.windowCount) ? ` (${p.windowCount} window${p.windowCount === 1 ? '' : 's'})` : '';
+        items.push({
+          label: `${p.name}${count}`,
+          submenu: [
+            {
+              label: `Restore "${p.name}"`,
+              click: () => this.callbacks.onRestoreWorkspaceProfile?.(p.slug),
+            },
+            {
+              label: 'Delete',
+              click: () => this.callbacks.onDeleteWorkspaceProfile?.(p.slug),
+            },
+          ],
+        });
+      }
+    }
+    return items;
   }
 
   /**
