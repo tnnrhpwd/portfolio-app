@@ -34,7 +34,7 @@
     "@azure/cognitiveservices-computervision": "^8.2.0",
     "@azure/ms-rest-js": "^2.7.0",
     "@google-cloud/vision": "^5.3.7",
-    "bcryptjs": "^2.4.3",
+    "bcryptjs": "^3.0.3",
     "body-parser": "^2.3.0",
     "colors": "^1.4.0",
     "compression": "^1.7.4",
