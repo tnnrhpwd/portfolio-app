@@ -101,12 +101,30 @@ function Set-ForegroundWindowForce($hwnd) {
 }
 `;
 
+// Removes full-line `#`-comments (and blank lines) from a PowerShell script
+// before it's base64-encoded and passed as a command-line argument. Windows
+// enforces a hard command-line length ceiling (~32K chars); this script's
+// NATIVE_PRELUDE documents several tricky Win32 focus-stealing workarounds
+// at length, and stripping comments (which don't affect execution) buys
+// headroom against ever silently hitting that ceiling — see the identical
+// fix in tools/system.js's runPs for the concrete case where a
+// comment-heavy prelude pushed a sibling script over the limit and every
+// call started failing with "spawn ENAMETOOLONG". Only strips lines whose
+// first non-whitespace character is `#`, never inline comments, so nothing
+// inside a string/here-string can be mistaken for one.
+function stripPsComments(script) {
+    return script
+        .split('\n')
+        .filter(line => !/^\s*#/.test(line))
+        .join('\n');
+}
+
 function runPsScript(script, { timeoutMs = 65_000 } = {}) {
     return new Promise((resolve, reject) => {
         // Same transport as tools/input.js: -EncodedCommand (UTF-16LE base64)
         // avoids the stdin-here-string quoting issues that used to silently
         // no-op these scripts.
-        const encoded = Buffer.from(String(script), 'utf16le').toString('base64');
+        const encoded = Buffer.from(stripPsComments(String(script)), 'utf16le').toString('base64');
         const psExe = process.env.SystemRoot
             ? `${process.env.SystemRoot}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`
             : 'powershell.exe';

@@ -20,7 +20,20 @@ function runPs(script) {
         // Transport: -EncodedCommand (UTF-16LE base64). The `-Command -` stdin
         // approach used previously was unreliable — the child would parse the
         // script but exit before executing, producing empty output.
-        const encoded = Buffer.from(String(script), 'utf16le').toString('base64');
+        //
+        // Strip full-line PowerShell comments (and the blank lines around
+        // them) before encoding — spawn on Windows has a hard command-line
+        // length ceiling (~32K chars), and these scripts share a large,
+        // heavily-documented prelude (WIN_PLACEMENT_PRELUDE) that easily
+        // pushes the base64-encoded command over that limit once enough
+        // explanatory comments accumulate. That's not hypothetical: it's
+        // exactly how window_set_rect started silently failing with
+        // "spawn ENAMETOOLONG" for every call after a comment-heavy prelude
+        // addition — no error surfaced in the UI, it just looked like
+        // windows stopped moving at all. Comments only document the *source*
+        // — stripping them here doesn't change what actually executes.
+        const stripped = stripPsComments(String(script));
+        const encoded = Buffer.from(stripped, 'utf16le').toString('base64');
         const child = spawn(PS_EXE, [
             '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
             '-EncodedCommand', encoded,
@@ -36,6 +49,19 @@ function runPs(script) {
         });
         child.on('error', e => { clearTimeout(timer); reject(e); });
     });
+}
+
+// Removes full-line `#`-comments (and the resulting blank lines) from a
+// PowerShell script before it's shipped to the child process. Only strips
+// lines whose FIRST non-whitespace character is `#` — never trailing/inline
+// comments — so nothing inside a string, here-string, or the embedded C#
+// Add-Type block (which uses `//`, never a line-leading `#`) can ever be
+// mistaken for a comment and stripped.
+function stripPsComments(script) {
+    return script
+        .split('\n')
+        .filter(line => !/^\s*#/.test(line))
+        .join('\n');
 }
 
 async function runPsJson(script) {
@@ -69,6 +95,11 @@ public static class WinPlacement {
     [DllImport("user32.dll")] public static extern IntPtr GetShellWindow();
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+    [DllImport("user32.dll")] public static extern bool BringWindowToTop(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+    [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+    [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
+    [DllImport("user32.dll")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
 }
 "@
 # Per-Monitor-V2 DPI awareness (-4) keeps captured/applied coordinates
@@ -125,13 +156,47 @@ function Test-CoversVirtualScreen([int]$left, [int]$top, [int]$width, [int]$heig
 # focus to the desktop shell window first — a plain, always-responsive
 # native Win32 window with no custom message handling — so the resize
 # arrives while the target is no longer the focused/foreground window.
+#
+# A single unverified SetForegroundWindow(shell) call is not reliable
+# enough: Windows silently no-ops SetForegroundWindow calls from a
+# background process (this script) due to its foreground-lock-timeout
+# heuristic — the same limitation documented and worked around in
+# open-app.js's Set-ForegroundWindowForce. When that silent no-op happens
+# here, the target window never actually loses focus, so the placement
+# request that follows can be ignored/dropped by the target instead of
+# applied — this was traced to be the actual cause of a focused VS Code
+# window not moving at all on restore (no crash, no repositioning, and no
+# error — SetWindowPlacement's return value doesn't reflect whether the
+# target's message loop honored it). Use the same AttachThreadInput +
+# retry technique proven there, adapted to move focus AWAY from $hwnd
+# rather than TO a specific window, and verify it actually left foreground
+# before proceeding.
 function Move-FocusAwayIfForeground([IntPtr]$hwnd) {
     if ([WinPlacement]::GetForegroundWindow() -ne $hwnd) { return }
     $shell = [WinPlacement]::GetShellWindow()
-    if ($shell -ne [IntPtr]::Zero) {
-        [void][WinPlacement]::SetForegroundWindow($shell)
-        Start-Sleep -Milliseconds 60
+    if ($shell -eq [IntPtr]::Zero) { return }
+    $curThread = [WinPlacement]::GetCurrentThreadId()
+    $targetProcId = 0
+    $targetThread = [WinPlacement]::GetWindowThreadProcessId($hwnd, [ref]$targetProcId)
+    $attached = $false
+    if ($targetThread -ne 0 -and $targetThread -ne $curThread) {
+        $attached = [WinPlacement]::AttachThreadInput($curThread, $targetThread, $true)
     }
+    try {
+        for ($i = 0; $i -lt 8; $i++) {
+            if ([WinPlacement]::GetForegroundWindow() -ne $hwnd) { break }
+            [WinPlacement]::keybd_event(0x12, 0, 0x0000, [UIntPtr]::Zero)  # Alt down
+            [WinPlacement]::keybd_event(0x12, 0, 0x0002, [UIntPtr]::Zero)  # Alt up
+            [WinPlacement]::BringWindowToTop($shell) | Out-Null
+            [void][WinPlacement]::SetForegroundWindow($shell)
+            Start-Sleep -Milliseconds 60
+        }
+    } finally {
+        if ($attached) { [WinPlacement]::AttachThreadInput($curThread, $targetThread, $false) | Out-Null }
+    }
+    # Give the target's message loop a moment to actually process the
+    # focus-loss notification before the caller posts a placement change.
+    if ([WinPlacement]::GetForegroundWindow() -ne $hwnd) { Start-Sleep -Milliseconds 60 }
 }
 # Polls the read-only GetWindowPlacement (answered by the window manager,
 # never sent into the target's own queue, so safe regardless of what that
