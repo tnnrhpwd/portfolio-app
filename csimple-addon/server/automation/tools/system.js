@@ -65,6 +65,9 @@ public static class WinPlacement {
     [DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(IntPtr value);
     [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out int pvAttribute, int cbAttribute);
     [DllImport("user32.dll")] public static extern int GetSystemMetrics(int nIndex);
+    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] public static extern IntPtr GetShellWindow();
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
 }
 "@
 # Per-Monitor-V2 DPI awareness (-4) keeps captured/applied coordinates
@@ -108,6 +111,26 @@ function Test-WindowCloaked([IntPtr]$hwnd) {
 function Test-CoversVirtualScreen([int]$left, [int]$top, [int]$width, [int]$height, [string]$state) {
     if ($state -eq 'maximized') { return $false }
     return ($width -ge $script:VScreenWidth -and $height -ge $script:VScreenHeight)
+}
+# Repositioning the CURRENTLY FOCUSED window via SetWindowPlacement has been
+# the common thread across every observed hang so far: Electron/Chromium
+# apps with a custom frameless titlebar (VS Code, CSimple Addon itself)
+# going unresponsive and vanishing from Alt-Tab specifically when they were
+# the active/foreground window at the moment a placement change landed —
+# even in a run where every OTHER window was a same-position no-op. An
+# app's own window procedure re-synchronizing its custom non-client area /
+# GPU-compositor frame after a programmatic (not user-drag) resize appears
+# far more prone to wedging while it also owns keyboard/input focus. Shift
+# focus to the desktop shell window first — a plain, always-responsive
+# native Win32 window with no custom message handling — so the resize
+# arrives while the target is no longer the focused/foreground window.
+function Move-FocusAwayIfForeground([IntPtr]$hwnd) {
+    if ([WinPlacement]::GetForegroundWindow() -ne $hwnd) { return }
+    $shell = [WinPlacement]::GetShellWindow()
+    if ($shell -ne [IntPtr]::Zero) {
+        [void][WinPlacement]::SetForegroundWindow($shell)
+        Start-Sleep -Milliseconds 60
+    }
 }
 # Belt-and-suspenders denylist for well-known shell/system host processes
 # and desktop/wallpaper hosts that shouldn't ever be treated as restorable
@@ -322,6 +345,7 @@ if ((Test-CoversVirtualScreen $wp.rcNormalPosition.Left $wp.rcNormalPosition.Top
 # (rcNormalPosition) AND the show command atomically in one call, so a
 # window that was maximized on a given monitor comes back maximized there,
 # not stuck wherever SetWindowPos happened to leave it.
+Move-FocusAwayIfForeground $h
 $wp.showCmd = ${showCmd}
 $rect = New-Object WinPlacement+RECT
 $rect.Left = ${x}
