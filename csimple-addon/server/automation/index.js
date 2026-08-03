@@ -20,6 +20,12 @@
  *   GET  /api/agent/status               - { running, currentGoal, lastTick }
  *   POST /api/agent/approve              - approve/deny a pending tool call
  *                                          (queued by the permission UI)
+ *
+ *   GET    /api/workspace-profiles          - list saved window-layout profiles
+ *   GET    /api/workspace-profiles/:name    - full profile (windows + rects)
+ *   POST   /api/workspace-profiles          - { name } → capture current windows, save
+ *   POST   /api/workspace-profiles/:name/restore - reposition/relaunch saved windows
+ *   DELETE /api/workspace-profiles/:name    - delete a saved profile
  */
 
 const registry = require('./tool-registry');
@@ -28,7 +34,8 @@ const wsClient = require('./workspace-client');
 
 const shell = require('./tools/shell');
 const { fsRead, fsWrite, fsList } = require('./tools/fs');
-const { windowList, windowFocus, processList, processKill, clipboardRead, clipboardWrite } = require('./tools/system');
+const { windowList, windowFocus, windowSnapshot, windowSetRect, processList, processKill, clipboardRead, clipboardWrite } = require('./tools/system');
+const workspaceProfiles = require('./workspace-profiles');
 const screen = require('./tools/screen');
 const screenRelay = require('./tools/screen-relay');
 const { screenOcr } = require('./tools/ocr');
@@ -103,6 +110,8 @@ function registerAllTools() {
 
     // System
     registry.register(windowFocus);
+    registry.register(windowSnapshot);
+    registry.register(windowSetRect);
     registry.register(uiaInvoke);
     registry.register(inputHold);
     registry.register(inputTap);
@@ -497,6 +506,36 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
     });
     app.delete('/api/recorder/:sessionId', async (req, res) => {
         try { res.json(await recorder.remove(req.params.sessionId)); }
+        catch (e) { res.status(404).json({ error: e.message }); }
+    });
+
+    // ─── Workspace Profiles (save/restore window layouts) ──────────────────
+    app.get('/api/workspace-profiles', async (req, res) => {
+        try { res.json({ profiles: await workspaceProfiles.list() }); }
+        catch (e) { res.status(500).json({ error: e.message }); }
+    });
+    app.get('/api/workspace-profiles/:name', async (req, res) => {
+        try { res.json(await workspaceProfiles.get(req.params.name)); }
+        catch (e) { res.status(404).json({ error: e.message }); }
+    });
+    app.post('/api/workspace-profiles', async (req, res) => {
+        const { name } = req.body || {};
+        if (!name || !String(name).trim()) return res.status(400).json({ error: 'name is required' });
+        try {
+            const profile = await workspaceProfiles.save(name);
+            events.publish('workspace.saved', { name: profile.name, windowCount: profile.windows.length });
+            res.json(profile);
+        } catch (e) { res.status(400).json({ error: e.message }); }
+    });
+    app.post('/api/workspace-profiles/:name/restore', async (req, res) => {
+        try {
+            const result = await workspaceProfiles.restore(req.params.name);
+            events.publish('workspace.restored', result);
+            res.json(result);
+        } catch (e) { res.status(404).json({ error: e.message }); }
+    });
+    app.delete('/api/workspace-profiles/:name', async (req, res) => {
+        try { res.json(await workspaceProfiles.remove(req.params.name)); }
         catch (e) { res.status(404).json({ error: e.message }); }
     });
 
