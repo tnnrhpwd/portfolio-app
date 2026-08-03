@@ -393,7 +393,38 @@ if (${showCmd} -ne 1) {
     [void](Wait-ForShowState $h 1 500)
     [void][WinPlacement]::ShowWindowAsync($h, ${showCmd})
 }
-[pscustomobject]@{ pid = $p.Id; name = $p.ProcessName; title = $p.MainWindowTitle } | ConvertTo-Json -Compress
+# Read back whatever actually stuck instead of trusting the fire-and-forget
+# async call above blindly — SetWindowPlacement's async flag means this
+# function can return before the target thread has actually processed the
+# request, and some apps (Electron/Chromium windows especially) reassert
+# their OWN remembered bounds shortly after being shown, silently
+# overwriting what we just set. Poll rcNormalPosition briefly for it to
+# settle (stop changing between reads) before reporting the final values,
+# so the caller can detect a mismatch and retry instead of assuming success.
+[void](Wait-ForShowState $h ${showCmd} 500)
+$prevRect = $null
+$settled = $false
+for ($i = 0; $i -lt 10; $i++) {
+    $chk = New-Object WinPlacement+WINDOWPLACEMENT
+    $chk.length = [System.Runtime.InteropServices.Marshal]::SizeOf($chk)
+    [void][WinPlacement]::GetWindowPlacement($h, [ref]$chk)
+    $cur = "$($chk.rcNormalPosition.Left),$($chk.rcNormalPosition.Top),$($chk.rcNormalPosition.Right),$($chk.rcNormalPosition.Bottom),$($chk.showCmd)"
+    if ($cur -eq $prevRect) { $settled = $true; break }
+    $prevRect = $cur
+    Start-Sleep -Milliseconds 60
+}
+$finalState = switch ($chk.showCmd) { 2 { 'minimized' } 3 { 'maximized' } default { 'normal' } }
+[pscustomobject]@{
+    pid = $p.Id
+    name = $p.ProcessName
+    title = $p.MainWindowTitle
+    settled = $settled
+    actualX = $chk.rcNormalPosition.Left
+    actualY = $chk.rcNormalPosition.Top
+    actualWidth = ($chk.rcNormalPosition.Right - $chk.rcNormalPosition.Left)
+    actualHeight = ($chk.rcNormalPosition.Bottom - $chk.rcNormalPosition.Top)
+    actualState = $finalState
+} | ConvertTo-Json -Compress
         `.trim();
         return await runPsJson(script);
     },

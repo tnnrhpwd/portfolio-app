@@ -1501,6 +1501,7 @@ app.on('ready', async () => {
         if (result.alreadyInPlaceCount) parts.push(`${result.alreadyInPlaceCount} already in place`);
         if (result.launchedCount) parts.push(`${result.launchedCount} relaunched`);
         if (result.skippedCount) parts.push(`${result.skippedCount} skipped`);
+        if (result.inaccurateCount) parts.push(`${result.inaccurateCount} could not be placed accurately`);
         if (result.errorCount) parts.push(`${result.errorCount} failed`);
         trayManager?.notify(`Workspace "${result.name}" Restored`, parts.join(', ') || 'Nothing to restore.');
       } catch (e) {

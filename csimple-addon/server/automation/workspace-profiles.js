@@ -8,14 +8,22 @@
  * named `<slug>.json`, mirroring the pattern used by
  * server/automation/recorder/index.js for on-disk, user-data storage.
  *
- * Restore strategy per saved window:
- *   1. Try to find a currently-running window that matches (same process
- *      name, preferring an exact title match) and hasn't already been
- *      claimed by an earlier entry in this restore pass.
- *   2. If none is running and the profile recorded an `exePath`, launch it
- *      via the existing `open_app` tool (which polls for the new window)
- *      and then apply the saved rect/state once it appears.
+ * Restore strategy:
+ *   1. Match every saved window entry against every currently-running
+ *      window in one pass (see `_matchAll`): candidates must share a
+ *      process name and a compatible exePath, then the best-scoring
+ *      (title-similarity) pairs are committed first so each entry and each
+ *      running window is used at most once — this avoids mis-assigning
+ *      saved rects between multiple windows of the same app (e.g. two VS
+ *      Code windows for different projects).
+ *   2. If a saved entry has no match and it recorded an `exePath`, launch
+ *      it via the existing `open_app` tool (which polls for the new
+ *      window) and then apply the saved rect/state once it appears.
  *   3. Otherwise, report the window as skipped (nothing to restore it from).
+ *
+ * Every placement applied in step 1/2 is verified against what actually
+ * landed (not just trusted from a fire-and-forget async Win32 call) and
+ * retried once if it's off — see `_applyAndVerify`.
  */
 
 const fs = require('fs/promises');
@@ -186,14 +194,96 @@ async function update(name) {
 }
 
 /**
- * Best-effort match of a saved window entry against the list of currently
- * running windows, excluding pids already claimed in this restore pass.
+ * Split a window title into lowercase word-ish tokens for similarity
+ * scoring — punctuation like the " - " separators Windows apps commonly use
+ * between document/workspace name and app name is treated as whitespace.
  */
-function _findMatch(entry, running, claimed) {
-    const candidates = running.filter(w => !claimed.has(w.pid) && w.processName === entry.processName);
-    if (candidates.length === 0) return null;
-    const exact = candidates.find(w => w.title === entry.title);
-    return exact || candidates[0];
+function _titleTokens(title) {
+    return String(title || '')
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter(Boolean);
+}
+
+/**
+ * Jaccard similarity (0..1) between two window titles' token sets. Used to
+ * pick the *closest* running window when a saved entry's title isn't an
+ * exact match (e.g. it changed slightly since save — an unsaved-changes
+ * dot, a different active file) rather than falling back to an arbitrary
+ * "first" candidate that happens to share the same process name.
+ */
+function _titleSimilarity(a, b) {
+    if (a === b) return 1;
+    const ta = new Set(_titleTokens(a));
+    const tb = new Set(_titleTokens(b));
+    if (ta.size === 0 || tb.size === 0) return 0;
+    let intersection = 0;
+    for (const t of ta) if (tb.has(t)) intersection++;
+    const union = new Set([...ta, ...tb]).size;
+    return union === 0 ? 0 : intersection / union;
+}
+
+/**
+ * False only when both sides recorded an exePath and they clearly disagree.
+ * Distinct apps sometimes share a generic processName (many Electron apps
+ * run as "electron" in dev, some run as their packaged name only in
+ * production, PWA-style apps can share "msedge"/"chrome", etc.) — when both
+ * exePaths are known, requiring them to match prevents matching a saved
+ * entry from one app to a same-processName window that's actually a
+ * *different* app. When either side lacks an exePath there's not enough
+ * information to disqualify the pair, so it's left to title similarity.
+ */
+function _exePathsCompatible(entryExePath, candidateExePath) {
+    if (!entryExePath || !candidateExePath) return true;
+    return String(entryExePath).toLowerCase() === String(candidateExePath).toLowerCase();
+}
+
+/**
+ * Match every saved window entry against the currently running windows in
+ * one pass, instead of matching each entry independently in saved order.
+ *
+ * Matching entries one at a time (greedily claiming the first same-
+ * processName candidate) is order-dependent and can easily assign the
+ * wrong saved rect to the wrong window whenever two or more windows share a
+ * processName — e.g. two VS Code windows for different projects: whichever
+ * saved entry happens to be processed first grabs whichever running window
+ * happens to be listed first, and if that isn't an exact title match, the
+ * two windows can get their positions swapped (or worse, "similarly named"
+ * unrelated windows get paired up).
+ *
+ * Instead, this scores every (entry, running window) pair that shares a
+ * processName and has a compatible exePath, then greedily commits pairs
+ * highest-score first — so the best-matching pair overall always wins a
+ * conflict, and every entry gets assigned at most one distinct window (and
+ * vice versa).
+ *
+ * Returns a Map from entry index -> matched running window (or undefined if
+ * unmatched).
+ */
+function _matchAll(entries, running) {
+    const pairs = [];
+    entries.forEach((entry, entryIndex) => {
+        running.forEach((win, winIndex) => {
+            if (win.processName !== entry.processName) return;
+            if (!_exePathsCompatible(entry.exePath, win.exePath)) return;
+            const score = entry.title === win.title ? 1 : _titleSimilarity(entry.title, win.title);
+            pairs.push({ entryIndex, winIndex, score });
+        });
+    });
+    // Highest-confidence pairs first; ties broken by original order so
+    // results stay deterministic.
+    pairs.sort((a, b) => b.score - a.score || a.entryIndex - b.entryIndex || a.winIndex - b.winIndex);
+
+    const matches = new Map();
+    const claimedEntries = new Set();
+    const claimedWindows = new Set();
+    for (const { entryIndex, winIndex, score } of pairs) {
+        if (claimedEntries.has(entryIndex) || claimedWindows.has(winIndex)) continue;
+        matches.set(entryIndex, running[winIndex]);
+        claimedEntries.add(entryIndex);
+        claimedWindows.add(winIndex);
+    }
+    return matches;
 }
 
 // Pixel tolerance for treating a running window's current placement as
@@ -233,6 +323,51 @@ function _placementMatches(entry, match) {
 const RESTORE_THROTTLE_MS = 200;
 const _sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// How many times to re-apply a placement that didn't land where requested
+// before giving up and reporting it as inaccurate, instead of just trusting
+// the first SetWindowPlacement call.
+const MAX_PLACEMENT_ATTEMPTS = 2;
+
+/**
+ * Call window_set_rect for `pid` and verify the placement actually landed
+ * where requested, retrying up to MAX_PLACEMENT_ATTEMPTS times.
+ *
+ * window_set_rect's underlying SetWindowPlacement call is deliberately
+ * async (see tools/system.js for why a synchronous call risks wedging the
+ * target/crashing explorer.exe), which means it can return before the
+ * target thread has actually processed the request. Several real apps
+ * (Electron/Chromium windows especially — VS Code, Slack, Discord, etc.)
+ * also reassert THEIR OWN remembered window bounds shortly after being
+ * shown or focused, silently overwriting whatever we just set. Either way,
+ * trusting a single fire-and-forget call was producing restores that
+ * "looked" successful but actually left the window at the wrong spot —
+ * this re-reads the window's actual resulting placement (reported back by
+ * window_set_rect) and, if it doesn't match the saved target within
+ * tolerance, tries again rather than silently reporting success.
+ *
+ * Returns `{ accurate, result }` where `result` is the last window_set_rect
+ * response and `accurate` is true only if the final attempt's reported
+ * placement matches the target within PLACEMENT_TOLERANCE_PX.
+ */
+async function _applyAndVerify(entry, pid) {
+    let result = null;
+    for (let attempt = 1; attempt <= MAX_PLACEMENT_ATTEMPTS; attempt++) {
+        result = await windowSetRect.run({
+            pid, x: entry.x, y: entry.y, width: entry.width, height: entry.height, state: entry.state,
+        });
+        await _sleep(RESTORE_THROTTLE_MS);
+        // Older/stubbed window_set_rect implementations may not report back
+        // actual* fields (e.g. the test double) — treat that as unverifiable
+        // rather than a mismatch, so behavior for those stays unchanged.
+        if (!result || result.actualX === undefined) return { accurate: true, result };
+        const accurate = _placementMatches(entry, {
+            x: result.actualX, y: result.actualY, width: result.actualWidth, height: result.actualHeight, state: result.actualState,
+        });
+        if (accurate) return { accurate: true, result };
+    }
+    return { accurate: false, result };
+}
+
 /**
  * Restore a saved profile: reposition already-running windows, launch and
  * then reposition missing ones (when an exePath was recorded), and report
@@ -241,14 +376,19 @@ const _sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 async function restore(name) {
     const profile = await get(name);
     const { windows: running } = await windowSnapshot.run();
-    const claimed = new Set();
+    // Resolve all entry-to-window matches up front (see _matchAll) so the
+    // best-fitting pair always wins, rather than matching one entry at a
+    // time in saved order.
+    const matches = _matchAll(profile.windows, running);
     const restored = [];
     const alreadyInPlace = [];
     const launched = [];
     const skipped = [];
     const errors = [];
+    const inaccurate = [];
 
-    for (const entry of profile.windows) {
+    for (let i = 0; i < profile.windows.length; i++) {
+        const entry = profile.windows[i];
         try {
             if (SHELL_HOST_DENYLIST.has(entry.processName)) {
                 skipped.push({ processName: entry.processName, title: entry.title, reason: 'shell/system host window — not a restorable app window' });
@@ -258,22 +398,20 @@ async function restore(name) {
                 skipped.push({ processName: entry.processName, title: entry.title, reason: 'CSimple Addon\'s own window — never repositioned to avoid desyncing Electron\'s window state' });
                 continue;
             }
-            const match = _findMatch(entry, running, claimed);
+            const match = matches.get(i);
             if (match) {
-                claimed.add(match.pid);
                 if (_placementMatches(entry, match)) {
                     // Nothing to do — see _placementMatches for why we
                     // deliberately avoid calling SetWindowPlacement here.
                     alreadyInPlace.push({ processName: entry.processName, title: entry.title });
                     continue;
                 }
-                await windowSetRect.run({
-                    pid: match.pid,
-                    x: entry.x, y: entry.y, width: entry.width, height: entry.height,
-                    state: entry.state,
-                });
-                await _sleep(RESTORE_THROTTLE_MS);
-                restored.push({ processName: entry.processName, title: entry.title });
+                const { accurate } = await _applyAndVerify(entry, match.pid);
+                if (accurate) {
+                    restored.push({ processName: entry.processName, title: entry.title });
+                } else {
+                    inaccurate.push({ processName: entry.processName, title: entry.title, reason: `did not land within ${PLACEMENT_TOLERANCE_PX}px of the saved position after ${MAX_PLACEMENT_ATTEMPTS} attempts — the app may be reasserting its own remembered window bounds` });
+                }
                 continue;
             }
 
@@ -288,14 +426,12 @@ async function restore(name) {
                 focus: false,
             });
             if (launchResult && launchResult.windowFound && launchResult.pid) {
-                claimed.add(launchResult.pid);
-                await windowSetRect.run({
-                    pid: launchResult.pid,
-                    x: entry.x, y: entry.y, width: entry.width, height: entry.height,
-                    state: entry.state,
-                });
-                await _sleep(RESTORE_THROTTLE_MS);
-                launched.push({ processName: entry.processName, title: entry.title });
+                const { accurate } = await _applyAndVerify(entry, launchResult.pid);
+                if (accurate) {
+                    launched.push({ processName: entry.processName, title: entry.title });
+                } else {
+                    inaccurate.push({ processName: entry.processName, title: entry.title, reason: `launched, but did not land within ${PLACEMENT_TOLERANCE_PX}px of the saved position after ${MAX_PLACEMENT_ATTEMPTS} attempts — the app may apply its own remembered window bounds on startup` });
+                }
             } else {
                 skipped.push({ processName: entry.processName, title: entry.title, reason: 'launched but window did not appear in time' });
             }
@@ -310,8 +446,9 @@ async function restore(name) {
         alreadyInPlaceCount: alreadyInPlace.length,
         launchedCount: launched.length,
         skippedCount: skipped.length,
+        inaccurateCount: inaccurate.length,
         errorCount: errors.length,
-        restored, alreadyInPlace, launched, skipped, errors,
+        restored, alreadyInPlace, launched, skipped, inaccurate, errors,
     };
 }
 

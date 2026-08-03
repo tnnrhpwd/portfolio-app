@@ -34,9 +34,22 @@ const openAppPath = require.resolve('./tools/open-app');
 
 let fakeWindows = [];
 let windowSetRectCalls = [];
+// Default: report back exactly what was requested (a "perfect" apply), so
+// existing tests exercise the common case. Tests that need to simulate a
+// placement not landing (e.g. an app reasserting its own remembered bounds)
+// can override this per-call via windowSetRectResponder.
+let windowSetRectResponder = (args) => ({
+    pid: args.pid,
+    actualX: args.x, actualY: args.y, actualWidth: args.width, actualHeight: args.height, actualState: args.state,
+});
 const fakeSystem = {
     windowSnapshot: { run: async () => ({ count: fakeWindows.length, windows: fakeWindows }) },
-    windowSetRect: { run: async (args) => { windowSetRectCalls.push(args); return { pid: args.pid }; } },
+    windowSetRect: {
+        run: async (args) => {
+            windowSetRectCalls.push(args);
+            return windowSetRectResponder(args);
+        },
+    },
 };
 const fakeOpenApp = {
     openApp: { run: async () => ({ windowFound: false }) },
@@ -129,6 +142,120 @@ test('slugify rejects empty names', () => {
         assert.strictEqual(result.alreadyInPlaceCount, 2);
         assert.strictEqual(result.errorCount, 0);
         assert.strictEqual(windowSetRectCalls.length, 0, 'SetWindowPlacement must not be called when placement already matches (crash-safety guard)');
+    });
+
+    await testAsync('restore() does not cross-assign two windows that share a processName', async () => {
+        // Two VS Code windows for different projects, both "code.exe" — this
+        // is the scenario that used to get swapped: matching by processName
+        // alone with an arbitrary "first candidate" fallback.
+        fakeWindows = [
+            { pid: 1, processName: 'code', exePath: 'C:\\code.exe', title: 'index.js - project-alpha - Visual Studio Code', x: 0, y: 0, width: 800, height: 600, state: 'normal' },
+            { pid: 2, processName: 'code', exePath: 'C:\\code.exe', title: 'agent.py - vscode-agents - Visual Studio Code', x: 0, y: 0, width: 800, height: 600, state: 'normal' },
+        ];
+        await workspaceProfiles.save('two-code-windows');
+
+        // Restore against slightly-changed titles (unsaved-changes markers)
+        // so neither is an exact match, forcing the similarity scorer to
+        // pick the right one instead of falling back to declaration order.
+        fakeWindows = [
+            { pid: 20, processName: 'code', exePath: 'C:\\code.exe', title: '● agent.py - vscode-agents - Visual Studio Code', x: 5, y: 5, width: 5, height: 5, state: 'normal' },
+            { pid: 10, processName: 'code', exePath: 'C:\\code.exe', title: '● index.js - project-alpha - Visual Studio Code', x: 5, y: 5, width: 5, height: 5, state: 'normal' },
+        ];
+        windowSetRectCalls = [];
+        const result = await workspaceProfiles.restore('two-code-windows');
+        assert.strictEqual(result.restoredCount, 2);
+        assert.strictEqual(result.errorCount, 0);
+
+        const rectForPid = (pid) => windowSetRectCalls.find(c => c.pid === pid);
+        // pid 10 (project-alpha window) must get project-alpha's saved rect,
+        // and pid 20 (vscode-agents window) must get vscode-agents' saved
+        // rect — not swapped.
+        assert.strictEqual(rectForPid(10).x, 0);
+        assert.strictEqual(rectForPid(20).x, 0);
+        assert.notStrictEqual(rectForPid(10), undefined);
+        assert.notStrictEqual(rectForPid(20), undefined);
+
+        await workspaceProfiles.remove('two-code-windows');
+    });
+
+    await testAsync('restore() does not match windows with a conflicting exePath despite same processName', async () => {
+        // Two unrelated apps that happen to share a generic processName
+        // (e.g. two different Electron apps both reporting "electron" in
+        // dev) must never be paired up just because titles are similar.
+        fakeWindows = [
+            { pid: 1, processName: 'electron', exePath: 'C:\\AppOne\\electron.exe', title: 'App One', x: 0, y: 0, width: 400, height: 300, state: 'normal' },
+        ];
+        await workspaceProfiles.save('exe-path-guard');
+
+        fakeWindows = [
+            { pid: 99, processName: 'electron', exePath: 'C:\\AppTwo\\electron.exe', title: 'App One (different app)', x: 500, y: 500, width: 200, height: 200, state: 'normal' },
+        ];
+        windowSetRectCalls = [];
+        const result = await workspaceProfiles.restore('exe-path-guard');
+        assert.strictEqual(result.restoredCount, 0, 'must not reposition an unrelated app with a conflicting exePath');
+        assert.strictEqual(result.skippedCount, 1);
+        assert.strictEqual(windowSetRectCalls.length, 0);
+
+        await workspaceProfiles.remove('exe-path-guard');
+    });
+
+    await testAsync('restore() retries a placement that did not land, then reports success', async () => {
+        // Simulates SetWindowPlacement's async call returning before an app
+        // (e.g. an Electron app) reasserts its own remembered bounds — the
+        // first apply "sticks" to the wrong spot, but a second attempt
+        // lands correctly.
+        fakeWindows = [
+            { pid: 1, processName: 'notepad', exePath: 'C:\\notepad.exe', title: 'Untitled', x: 10, y: 20, width: 300, height: 400, state: 'normal' },
+        ];
+        await workspaceProfiles.save('retry-then-accurate');
+
+        fakeWindows = [
+            { pid: 55, processName: 'notepad', exePath: 'C:\\notepad.exe', title: 'Untitled', x: 0, y: 0, width: 50, height: 50, state: 'normal' },
+        ];
+        let callCount = 0;
+        windowSetRectResponder = (args) => {
+            callCount++;
+            if (callCount === 1) {
+                // First attempt "fails to stick" — reports back the OLD
+                // position instead of the requested one.
+                return { pid: args.pid, actualX: 0, actualY: 0, actualWidth: 50, actualHeight: 50, actualState: 'normal' };
+            }
+            return { pid: args.pid, actualX: args.x, actualY: args.y, actualWidth: args.width, actualHeight: args.height, actualState: args.state };
+        };
+        windowSetRectCalls = [];
+        const result = await workspaceProfiles.restore('retry-then-accurate');
+        assert.strictEqual(result.restoredCount, 1, 'should succeed after retrying');
+        assert.strictEqual(result.inaccurateCount, 0);
+        assert.strictEqual(windowSetRectCalls.length, 2, 'must retry once after the first attempt did not land');
+
+        windowSetRectResponder = (args) => ({
+            pid: args.pid, actualX: args.x, actualY: args.y, actualWidth: args.width, actualHeight: args.height, actualState: args.state,
+        });
+        await workspaceProfiles.remove('retry-then-accurate');
+    });
+
+    await testAsync('restore() reports a placement as inaccurate when it never lands, instead of falsely claiming success', async () => {
+        fakeWindows = [
+            { pid: 1, processName: 'notepad', exePath: 'C:\\notepad.exe', title: 'Untitled', x: 10, y: 20, width: 300, height: 400, state: 'normal' },
+        ];
+        await workspaceProfiles.save('never-lands');
+
+        fakeWindows = [
+            { pid: 66, processName: 'notepad', exePath: 'C:\\notepad.exe', title: 'Untitled', x: 0, y: 0, width: 50, height: 50, state: 'normal' },
+        ];
+        // Every attempt reports back the same wrong position — e.g. the app
+        // keeps overriding it — so this must never claim "restored".
+        windowSetRectResponder = (args) => ({ pid: args.pid, actualX: 0, actualY: 0, actualWidth: 50, actualHeight: 50, actualState: 'normal' });
+        windowSetRectCalls = [];
+        const result = await workspaceProfiles.restore('never-lands');
+        assert.strictEqual(result.restoredCount, 0, 'must not claim success for a placement that never landed');
+        assert.strictEqual(result.inaccurateCount, 1);
+        assert.strictEqual(result.inaccurate[0].processName, 'notepad');
+
+        windowSetRectResponder = (args) => ({
+            pid: args.pid, actualX: args.x, actualY: args.y, actualWidth: args.width, actualHeight: args.height, actualState: args.state,
+        });
+        await workspaceProfiles.remove('never-lands');
     });
 
     await testAsync('remove() deletes the saved profile', async () => {
