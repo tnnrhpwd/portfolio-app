@@ -5,9 +5,9 @@
   align-items: center;
   gap: 12px;
   padding: 70px 60px 10px 16px;
-  background: var(--simple-surface, #1e1e2e);
-  border-bottom: 1px solid var(--simple-border, #333);
-  color: var(--simple-text, #e0e0e0);
+  background: var(--bg-secondary, #1e1e2e);
+  border-bottom: 1px solid var(--border, #333);
+  color: var(--text-primary, #e0e0e0);
   font-size: var(--font-size-base);
     flex-wrap: wrap;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
@@ -33,7 +33,7 @@
 }
 
 .addon-prompt__text {
-  color: var(--simple-text-secondary, #aaa);
+  color: var(--text-secondary, #aaa);
   font-size: var(--font-size-base);
   line-height: 1.4;
 }
@@ -48,7 +48,7 @@
 .addon-prompt__install-btn {
   padding: 6px 16px;
   border-radius: 6px;
-  background: var(--simple-accent, #2196f3);
+  background: var(--accent, #2196f3);
   color: #fff;
   text-decoration: none;
   font-size: var(--font-size-base);
@@ -58,15 +58,15 @@
 }
 
 .addon-prompt__install-btn:hover {
-  background: var(--simple-accent-hover, #1976d2);
+  background: var(--accent-hover, #1976d2);
 }
 
 .addon-prompt__recheck-btn {
   padding: 6px 12px;
   border-radius: 6px;
-  border: 1px solid var(--simple-border, #555);
+  border: 1px solid var(--border, #555);
   background: transparent;
-  color: var(--simple-text, #e0e0e0);
+  color: var(--text-primary, #e0e0e0);
   font-size: var(--font-size-base);
   cursor: pointer;
   transition: background 0.2s;
@@ -74,7 +74,7 @@
 }
 
 .addon-prompt__recheck-btn:hover {
-  background: var(--simple-surface-hover, rgba(255,255,255,0.05));
+  background: var(--bg-hover, rgba(255,255,255,0.05));
 }
 
 .addon-prompt__recheck-btn:disabled {
@@ -86,7 +86,7 @@
   padding: 4px 8px;
   border: none;
   background: transparent;
-  color: var(--simple-text-secondary, #aaa);
+  color: var(--text-secondary, #aaa);
   font-size: var(--font-size-base);
   cursor: pointer;
   transition: color 0.2s;
@@ -94,7 +94,7 @@
 }
 
 .addon-prompt__dismiss-btn:hover {
-  color: var(--simple-text, #fff);
+  color: var(--text-primary, #fff);
 }
 
 /* Update-available variant — amber accent to differentiate from install */
