@@ -43,7 +43,7 @@ function Pricing() {
           'AI chat (bring your own API key)',
           '100 MB storage',
           'Up to 50 automation commands per day (fair use)',
-          'CSimple desktop addon — download & run locally',
+          'Simple desktop addon — download & run locally',
         ],
       },
       {
@@ -54,7 +54,7 @@ function Pricing() {
         tagline: 'Full Windows automation with expanded limits and storage',
         features: [
           'Everything in Free',
-          'Full CSimple addon access',
+          'Full Simple addon access',
           'Up to 5,000 automation commands per day (fair use)',
           'Live screen viewing from your phone',
           '50 GB cloud storage',

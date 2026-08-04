@@ -61,27 +61,27 @@ const {
   getRefererSummary
 } = require('../controllers/refererAnalytics');
 
-// CSimple sync controller
+// Simple sync controller
 const {
-  getCSimpleSettings,
-  updateCSimpleSettings,
-  getCSimpleConversations,
-  updateCSimpleConversations,
-  getCSimpleBehaviors,
-  getCSimpleBehavior,
-  updateCSimpleBehavior,
-  deleteCSimpleBehavior,
-  getCSimpleMemoryFiles,
-  getCSimpleMemoryFile,
-  updateCSimpleMemoryFile,
-  deleteCSimpleMemoryFile,
-  getCSimplePersonalityFiles,
-  getCSimplePersonalityFile,
-  updateCSimplePersonalityFile,
-  getCSimpleUserContext,
+  getSimpleSettings,
+  updateSimpleSettings,
+  getSimpleConversations,
+  updateSimpleConversations,
+  getSimpleBehaviors,
+  getSimpleBehavior,
+  updateSimpleBehavior,
+  deleteSimpleBehavior,
+  getSimpleMemoryFiles,
+  getSimpleMemoryFile,
+  updateSimpleMemoryFile,
+  deleteSimpleMemoryFile,
+  getSimplePersonalityFiles,
+  getSimplePersonalityFile,
+  updateSimplePersonalityFile,
+  getSimpleUserContext,
 } = require('../controllers/csimpleController');
 
-// CSimple Workspace controller (OpenClaw-style AI workspace)
+// Simple Workspace controller (OpenClaw-style AI workspace)
 const {
   listWorkspace,
   getWorkspaceItem,
@@ -97,7 +97,7 @@ const {
   editMacroNatural,
 } = require('../controllers/workspaceController');
 
-// CSimple Marketplace controller (public/shared skill marketplace, §4)
+// Simple Marketplace controller (public/shared skill marketplace, §4)
 const {
   publishSkill,
   searchMarketSkills,
@@ -418,40 +418,40 @@ router.route('/memory/:id')
 // ============================================================================
 
 router.route('/csimple/settings')
-  .get(protect, getCSimpleSettings)
-  .put(protect, sanitizeInput, updateCSimpleSettings);
+  .get(protect, getSimpleSettings)
+  .put(protect, sanitizeInput, updateSimpleSettings);
 
 router.route('/csimple/conversations')
-  .get(protect, getCSimpleConversations)
-  .put(protect, sanitizeInput, updateCSimpleConversations);
+  .get(protect, getSimpleConversations)
+  .put(protect, sanitizeInput, updateSimpleConversations);
 
 router.route('/csimple/behaviors')
-  .get(protect, getCSimpleBehaviors);
+  .get(protect, getSimpleBehaviors);
 
 router.route('/csimple/behaviors/:name')
-  .get(protect, getCSimpleBehavior)
-  .put(protect, sanitizeInput, updateCSimpleBehavior)
-  .delete(protect, deleteCSimpleBehavior);
+  .get(protect, getSimpleBehavior)
+  .put(protect, sanitizeInput, updateSimpleBehavior)
+  .delete(protect, deleteSimpleBehavior);
 
 // CSIMPLE MEMORY FILES (cloud storage for AI memory)
 router.route('/csimple/memory')
-  .get(protect, getCSimpleMemoryFiles);
+  .get(protect, getSimpleMemoryFiles);
 
 router.route('/csimple/memory/:name')
-  .get(protect, getCSimpleMemoryFile)
-  .put(protect, sanitizeInput, updateCSimpleMemoryFile)
-  .delete(protect, deleteCSimpleMemoryFile);
+  .get(protect, getSimpleMemoryFile)
+  .put(protect, sanitizeInput, updateSimpleMemoryFile)
+  .delete(protect, deleteSimpleMemoryFile);
 
 // CSIMPLE PERSONALITY FILES (cloud storage for AI personality)
 router.route('/csimple/personality')
-  .get(protect, getCSimplePersonalityFiles);
+  .get(protect, getSimplePersonalityFiles);
 
 router.route('/csimple/personality/:name')
-  .get(protect, getCSimplePersonalityFile)
-  .put(protect, sanitizeInput, updateCSimplePersonalityFile);
+  .get(protect, getSimplePersonalityFile)
+  .put(protect, sanitizeInput, updateSimplePersonalityFile);
 
 // CSIMPLE USER CONTEXT (aggregate memory + personality + behavior for LLM)
-router.get('/csimple/context', protect, getCSimpleUserContext);
+router.get('/csimple/context', protect, getSimpleUserContext);
 
 // ============================================================================
 // CSIMPLE WORKSPACE (OpenClaw-style AI workspace: core/agent/knowledge/
@@ -480,7 +480,7 @@ router.route('/csimple/workspace/:kind/:slug')
 
 // ============================================================================
 // CSIMPLE MARKETPLACE (public/shared skill marketplace — §4 of
-//                      docs/new/csimple-agent-prompt.md)
+//                      docs/new/simple-agent-prompt.md)
 // ============================================================================
 
 // Order matters: specific routes BEFORE parameterized ones.

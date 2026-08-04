@@ -1,7 +1,7 @@
 /**
- * CSimple Settings Sync Controller
+ * Simple Settings Sync Controller
  * 
- * Handles cloud sync of CSimple settings, conversations, and behavior files.
+ * Handles cloud sync of Simple settings, conversations, and behavior files.
  * Data is stored in the existing DynamoDB "Simple" table with prefixed IDs:
  *   - csimple_settings_{userId}
  *   - csimple_convos_{userId}
@@ -65,7 +65,7 @@ function decryptSensitive(settings) {
 // Behavior name validation: alphanumeric, hyphens, underscores, dots only
 const VALID_BEHAVIOR_NAME = /^[a-zA-Z0-9_\-. ]{1,100}$/;
 
-// Fixed createdAt sentinel for CSimple items (table has composite key: id + createdAt)
+// Fixed createdAt sentinel for Simple items (table has composite key: id + createdAt)
 // Using a fixed value lets us use GetCommand directly instead of scanning.
 const CSIMPLE_CREATED_AT = '2000-01-01T00:00:00.000Z';
 
@@ -99,10 +99,10 @@ function sanitizeSettings(settings) {
 // SETTINGS ENDPOINTS
 // =============================================================================
 
-// @desc    Get user's synced CSimple settings
+// @desc    Get user's synced Simple settings
 // @route   GET /api/data/csimple/settings
 // @access  Private
-const getCSimpleSettings = asyncHandler(async (req, res) => {
+const getSimpleSettings = asyncHandler(async (req, res) => {
   if (!req.user) {
     res.status(401);
     throw new Error('User not found');
@@ -127,16 +127,16 @@ const getCSimpleSettings = asyncHandler(async (req, res) => {
       updatedAt: Item.updatedAt || Item.createdAt,
     });
   } catch (error) {
-    logger.error('[CSimple] Error getting settings:', error);
+    logger.error('[Simple] Error getting settings:', error);
     res.status(500);
-    throw new Error('Failed to retrieve CSimple settings');
+    throw new Error('Failed to retrieve Simple settings');
   }
 });
 
-// @desc    Save/update user's CSimple settings
+// @desc    Save/update user's Simple settings
 // @route   PUT /api/data/csimple/settings
 // @access  Private
-const updateCSimpleSettings = asyncHandler(async (req, res) => {
+const updateSimpleSettings = asyncHandler(async (req, res) => {
   if (!req.user) {
     res.status(401);
     throw new Error('User not found');
@@ -172,9 +172,9 @@ const updateCSimpleSettings = asyncHandler(async (req, res) => {
       updatedAt: now,
     });
   } catch (error) {
-    logger.error('[CSimple] Error saving settings:', error);
+    logger.error('[Simple] Error saving settings:', error);
     res.status(500);
-    throw new Error('Failed to save CSimple settings');
+    throw new Error('Failed to save Simple settings');
   }
 });
 
@@ -185,7 +185,7 @@ const updateCSimpleSettings = asyncHandler(async (req, res) => {
 // @desc    Get user's synced conversations
 // @route   GET /api/data/csimple/conversations
 // @access  Private
-const getCSimpleConversations = asyncHandler(async (req, res) => {
+const getSimpleConversations = asyncHandler(async (req, res) => {
   if (!req.user) {
     res.status(401);
     throw new Error('User not found');
@@ -217,16 +217,16 @@ const getCSimpleConversations = asyncHandler(async (req, res) => {
       updatedAt: Item.updatedAt || Item.createdAt,
     });
   } catch (error) {
-    logger.error('[CSimple] Error getting conversations:', error);
+    logger.error('[Simple] Error getting conversations:', error);
     res.status(500);
-    throw new Error('Failed to retrieve CSimple conversations');
+    throw new Error('Failed to retrieve Simple conversations');
   }
 });
 
 // @desc    Save/update user's conversations
 // @route   PUT /api/data/csimple/conversations
 // @access  Private
-const updateCSimpleConversations = asyncHandler(async (req, res) => {
+const updateSimpleConversations = asyncHandler(async (req, res) => {
   if (!req.user) {
     res.status(401);
     throw new Error('User not found');
@@ -282,9 +282,9 @@ const updateCSimpleConversations = asyncHandler(async (req, res) => {
     if (error.message?.includes('too large')) {
       throw error; // Re-throw size errors
     }
-    logger.error('[CSimple] Error saving conversations:', error);
+    logger.error('[Simple] Error saving conversations:', error);
     res.status(500);
-    throw new Error('Failed to save CSimple conversations');
+    throw new Error('Failed to save Simple conversations');
   }
 });
 
@@ -295,7 +295,7 @@ const updateCSimpleConversations = asyncHandler(async (req, res) => {
 // @desc    List user's synced behavior files
 // @route   GET /api/data/csimple/behaviors
 // @access  Private
-const getCSimpleBehaviors = asyncHandler(async (req, res) => {
+const getSimpleBehaviors = asyncHandler(async (req, res) => {
   if (!req.user) {
     res.status(401);
     throw new Error('User not found');
@@ -321,16 +321,16 @@ const getCSimpleBehaviors = asyncHandler(async (req, res) => {
 
     res.status(200).json({ behaviors });
   } catch (error) {
-    logger.error('[CSimple] Error listing behaviors:', error);
+    logger.error('[Simple] Error listing behaviors:', error);
     res.status(500);
-    throw new Error('Failed to list CSimple behaviors');
+    throw new Error('Failed to list Simple behaviors');
   }
 });
 
 // @desc    Get a specific behavior file content
 // @route   GET /api/data/csimple/behaviors/:name
 // @access  Private
-const getCSimpleBehavior = asyncHandler(async (req, res) => {
+const getSimpleBehavior = asyncHandler(async (req, res) => {
   if (!req.user) {
     res.status(401);
     throw new Error('User not found');
@@ -362,7 +362,7 @@ const getCSimpleBehavior = asyncHandler(async (req, res) => {
     });
   } catch (error) {
     if (error.message === 'Behavior file not found') throw error;
-    logger.error('[CSimple] Error getting behavior:', error);
+    logger.error('[Simple] Error getting behavior:', error);
     res.status(500);
     throw new Error('Failed to retrieve behavior file');
   }
@@ -371,7 +371,7 @@ const getCSimpleBehavior = asyncHandler(async (req, res) => {
 // @desc    Save/update a behavior file
 // @route   PUT /api/data/csimple/behaviors/:name
 // @access  Private
-const updateCSimpleBehavior = asyncHandler(async (req, res) => {
+const updateSimpleBehavior = asyncHandler(async (req, res) => {
   if (!req.user) {
     res.status(401);
     throw new Error('User not found');
@@ -410,7 +410,7 @@ const updateCSimpleBehavior = asyncHandler(async (req, res) => {
       updatedAt: now,
     });
   } catch (error) {
-    logger.error('[CSimple] Error saving behavior:', error);
+    logger.error('[Simple] Error saving behavior:', error);
     res.status(500);
     throw new Error('Failed to save behavior file');
   }
@@ -419,7 +419,7 @@ const updateCSimpleBehavior = asyncHandler(async (req, res) => {
 // @desc    Delete a behavior file
 // @route   DELETE /api/data/csimple/behaviors/:name
 // @access  Private
-const deleteCSimpleBehavior = asyncHandler(async (req, res) => {
+const deleteSimpleBehavior = asyncHandler(async (req, res) => {
   if (!req.user) {
     res.status(401);
     throw new Error('User not found');
@@ -444,7 +444,7 @@ const deleteCSimpleBehavior = asyncHandler(async (req, res) => {
       name,
     });
   } catch (error) {
-    logger.error('[CSimple] Error deleting behavior:', error);
+    logger.error('[Simple] Error deleting behavior:', error);
     res.status(500);
     throw new Error('Failed to delete behavior file');
   }
@@ -460,7 +460,7 @@ const VALID_FILENAME = /^[a-zA-Z0-9_\-. ()]{1,100}$/;
 // @desc    List user's synced memory files
 // @route   GET /api/data/csimple/memory
 // @access  Private
-const getCSimpleMemoryFiles = asyncHandler(async (req, res) => {
+const getSimpleMemoryFiles = asyncHandler(async (req, res) => {
   if (!req.user) { res.status(401); throw new Error('User not found'); }
 
   const prefix = `csimple_memory_${req.user.id}_`;
@@ -477,7 +477,7 @@ const getCSimpleMemoryFiles = asyncHandler(async (req, res) => {
     }));
     res.status(200).json({ files });
   } catch (error) {
-    logger.error('[CSimple] Error listing memory files:', error);
+    logger.error('[Simple] Error listing memory files:', error);
     res.status(500);
     throw new Error('Failed to list memory files');
   }
@@ -486,7 +486,7 @@ const getCSimpleMemoryFiles = asyncHandler(async (req, res) => {
 // @desc    Get a specific memory file
 // @route   GET /api/data/csimple/memory/:name
 // @access  Private
-const getCSimpleMemoryFile = asyncHandler(async (req, res) => {
+const getSimpleMemoryFile = asyncHandler(async (req, res) => {
   if (!req.user) { res.status(401); throw new Error('User not found'); }
   const { name } = req.params;
   if (!name || !VALID_FILENAME.test(name)) {
@@ -503,7 +503,7 @@ const getCSimpleMemoryFile = asyncHandler(async (req, res) => {
     res.status(200).json({ name, content: Item.text, updatedAt: Item.updatedAt || Item.createdAt });
   } catch (error) {
     if (error.message === 'Memory file not found') throw error;
-    logger.error('[CSimple] Error getting memory file:', error);
+    logger.error('[Simple] Error getting memory file:', error);
     res.status(500);
     throw new Error('Failed to retrieve memory file');
   }
@@ -512,7 +512,7 @@ const getCSimpleMemoryFile = asyncHandler(async (req, res) => {
 // @desc    Create or update a memory file
 // @route   PUT /api/data/csimple/memory/:name
 // @access  Private
-const updateCSimpleMemoryFile = asyncHandler(async (req, res) => {
+const updateSimpleMemoryFile = asyncHandler(async (req, res) => {
   if (!req.user) { res.status(401); throw new Error('User not found'); }
   const { name } = req.params;
   const { content } = req.body;
@@ -538,7 +538,7 @@ const updateCSimpleMemoryFile = asyncHandler(async (req, res) => {
     }));
     res.status(200).json({ success: true, name, updatedAt: now });
   } catch (error) {
-    logger.error('[CSimple] Error saving memory file:', error);
+    logger.error('[Simple] Error saving memory file:', error);
     res.status(500);
     throw new Error('Failed to save memory file');
   }
@@ -547,7 +547,7 @@ const updateCSimpleMemoryFile = asyncHandler(async (req, res) => {
 // @desc    Delete a memory file
 // @route   DELETE /api/data/csimple/memory/:name
 // @access  Private
-const deleteCSimpleMemoryFile = asyncHandler(async (req, res) => {
+const deleteSimpleMemoryFile = asyncHandler(async (req, res) => {
   if (!req.user) { res.status(401); throw new Error('User not found'); }
   const { name } = req.params;
   if (!name || !VALID_FILENAME.test(name)) {
@@ -562,7 +562,7 @@ const deleteCSimpleMemoryFile = asyncHandler(async (req, res) => {
     }));
     res.status(200).json({ success: true, name });
   } catch (error) {
-    logger.error('[CSimple] Error deleting memory file:', error);
+    logger.error('[Simple] Error deleting memory file:', error);
     res.status(500);
     throw new Error('Failed to delete memory file');
   }
@@ -575,7 +575,7 @@ const deleteCSimpleMemoryFile = asyncHandler(async (req, res) => {
 // @desc    List user's synced personality files
 // @route   GET /api/data/csimple/personality
 // @access  Private
-const getCSimplePersonalityFiles = asyncHandler(async (req, res) => {
+const getSimplePersonalityFiles = asyncHandler(async (req, res) => {
   if (!req.user) { res.status(401); throw new Error('User not found'); }
 
   const prefix = `csimple_personality_${req.user.id}_`;
@@ -592,7 +592,7 @@ const getCSimplePersonalityFiles = asyncHandler(async (req, res) => {
     }));
     res.status(200).json({ files });
   } catch (error) {
-    logger.error('[CSimple] Error listing personality files:', error);
+    logger.error('[Simple] Error listing personality files:', error);
     res.status(500);
     throw new Error('Failed to list personality files');
   }
@@ -601,7 +601,7 @@ const getCSimplePersonalityFiles = asyncHandler(async (req, res) => {
 // @desc    Get a specific personality file
 // @route   GET /api/data/csimple/personality/:name
 // @access  Private
-const getCSimplePersonalityFile = asyncHandler(async (req, res) => {
+const getSimplePersonalityFile = asyncHandler(async (req, res) => {
   if (!req.user) { res.status(401); throw new Error('User not found'); }
   const { name } = req.params;
   if (!name || !VALID_FILENAME.test(name)) {
@@ -618,7 +618,7 @@ const getCSimplePersonalityFile = asyncHandler(async (req, res) => {
     res.status(200).json({ name, content: Item.text, updatedAt: Item.updatedAt || Item.createdAt });
   } catch (error) {
     if (error.message === 'Personality file not found') throw error;
-    logger.error('[CSimple] Error getting personality file:', error);
+    logger.error('[Simple] Error getting personality file:', error);
     res.status(500);
     throw new Error('Failed to retrieve personality file');
   }
@@ -627,7 +627,7 @@ const getCSimplePersonalityFile = asyncHandler(async (req, res) => {
 // @desc    Create or update a personality file
 // @route   PUT /api/data/csimple/personality/:name
 // @access  Private
-const updateCSimplePersonalityFile = asyncHandler(async (req, res) => {
+const updateSimplePersonalityFile = asyncHandler(async (req, res) => {
   if (!req.user) { res.status(401); throw new Error('User not found'); }
   const { name } = req.params;
   const { content } = req.body;
@@ -652,7 +652,7 @@ const updateCSimplePersonalityFile = asyncHandler(async (req, res) => {
     }));
     res.status(200).json({ success: true, name, updatedAt: now });
   } catch (error) {
-    logger.error('[CSimple] Error saving personality file:', error);
+    logger.error('[Simple] Error saving personality file:', error);
     res.status(500);
     throw new Error('Failed to save personality file');
   }
@@ -669,7 +669,7 @@ const PRIORITY_PATTERNS = [/^user/i, /profile/i, /preference/i, /identity/i, /na
 // @desc    Get full user context for LLM (memory + personality + behavior)
 // @route   GET /api/data/csimple/context?behavior=default.txt
 // @access  Private
-const getCSimpleUserContext = asyncHandler(async (req, res) => {
+const getSimpleUserContext = asyncHandler(async (req, res) => {
   if (!req.user) { res.status(401); throw new Error('User not found'); }
   const userId = req.user.id;
   const behaviorName = req.query.behavior || 'default.txt';
@@ -757,27 +757,27 @@ const getCSimpleUserContext = asyncHandler(async (req, res) => {
       hasBehavior: behaviorContext.length > 0,
     });
   } catch (error) {
-    logger.error('[CSimple] Error loading user context:', error);
+    logger.error('[Simple] Error loading user context:', error);
     res.status(500);
     throw new Error('Failed to load user context');
   }
 });
 
 module.exports = {
-  getCSimpleSettings,
-  updateCSimpleSettings,
-  getCSimpleConversations,
-  updateCSimpleConversations,
-  getCSimpleBehaviors,
-  getCSimpleBehavior,
-  updateCSimpleBehavior,
-  deleteCSimpleBehavior,
-  getCSimpleMemoryFiles,
-  getCSimpleMemoryFile,
-  updateCSimpleMemoryFile,
-  deleteCSimpleMemoryFile,
-  getCSimplePersonalityFiles,
-  getCSimplePersonalityFile,
-  updateCSimplePersonalityFile,
-  getCSimpleUserContext,
+  getSimpleSettings,
+  updateSimpleSettings,
+  getSimpleConversations,
+  updateSimpleConversations,
+  getSimpleBehaviors,
+  getSimpleBehavior,
+  updateSimpleBehavior,
+  deleteSimpleBehavior,
+  getSimpleMemoryFiles,
+  getSimpleMemoryFile,
+  updateSimpleMemoryFile,
+  deleteSimpleMemoryFile,
+  getSimplePersonalityFiles,
+  getSimplePersonalityFile,
+  updateSimplePersonalityFile,
+  getSimpleUserContext,
 };

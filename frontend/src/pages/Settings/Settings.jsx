@@ -14,8 +14,8 @@ import {
   FONT_SCALE_MAX,
   FONT_SCALE_DEFAULT,
 } from '../../utils/theme.js';
-import { getCloudSettings, saveCloudSettings } from '../../services/csimpleApi.js';
-import AIWorkflowSettings from '../../components/CSimple/AIWorkflowSettings.jsx';
+import { getCloudSettings, saveCloudSettings } from '../../services/simpleAddonApi.js';
+import AIWorkflowSettings from '../../components/SimpleAddon/AIWorkflowSettings.jsx';
 import './Settings.css';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
@@ -530,7 +530,7 @@ function Settings() {
                       <div className="planit-settings-section-header">
                         <div>
                           <span className="planit-settings-section-kicker">AI workflow</span>
-                          <h2 className="planit-settings-section-title">AI &amp; CSimple addon</h2>
+                          <h2 className="planit-settings-section-title">AI &amp; Simple addon</h2>
                           <p className="planit-settings-section-description">
                             Choose your provider, tune chat defaults, and manage GitHub Models access.
                           </p>
@@ -539,7 +539,7 @@ function Settings() {
 
                       <div className="planit-settings-ai-info">
                         <p className="planit-settings-ai-description">
-                          Access AI chat powered by GitHub Models at <strong>/net</strong>. For local AI and desktop automation, install the <strong>CSimple addon</strong>.
+                          Access AI chat powered by GitHub Models at <strong>/net</strong>. For local AI and desktop automation, install the <strong>Simple addon</strong>.
                         </p>
 
                         <AIWorkflowSettings
@@ -562,14 +562,14 @@ function Settings() {
                             rel="noopener noreferrer"
                             className="planit-settings-ai-link"
                           >
-                            📥 Get CSimple Addon
+                            📥 Get Simple Addon
                           </a>
                         </div>
                         <p className="planit-settings-ai-note">
                           AI preferences sync with the /net chat sidebar automatically.
                         </p>
                         <p className="planit-settings-ai-note">
-                          Need agents, personas, behaviors, memory, goals, or shortcuts? Install the <strong>CSimple addon</strong> and open <strong>Advanced Settings</strong> inside the <strong>/net</strong> chat for those power-user tools.
+                          Need agents, personas, behaviors, memory, goals, or shortcuts? Install the <strong>Simple addon</strong> and open <strong>Advanced Settings</strong> inside the <strong>/net</strong> chat for those power-user tools.
                         </p>
                       </div>
                     </div>

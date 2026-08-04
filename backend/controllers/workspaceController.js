@@ -2,7 +2,7 @@
 
 const { logger } = require('../utils/logger');
 /**
- * CSimple Workspace Controller
+ * Simple Workspace Controller
  *
  * Implements an "AI workspace" inspired by the OpenClaw memory-OS pattern.
  * Provides a small filesystem-like abstraction backed by DynamoDB so that
@@ -737,7 +737,7 @@ const compileMacroNatural = asyncHandler(async (req, res) => {
 
     if (!githubToken) {
         res.status(422);
-        throw new Error('No GitHub PAT found. In CSimple → Settings → Advanced, paste your GitHub Personal Access Token and save, then try again.');
+        throw new Error('No GitHub PAT found. In Simple → Settings → Advanced, paste your GitHub Personal Access Token and save, then try again.');
     }
 
     // NL compiler schema documentation (mirrors nl-compiler.js exactly)
@@ -809,7 +809,7 @@ Rules:
     } catch (e) {
         if (e.status === 401 || e.message?.includes('401')) {
             res.status(422);
-            throw new Error('GitHub token is invalid or expired. Update your PAT in CSimple → Settings → Advanced, then try again.');
+            throw new Error('GitHub token is invalid or expired. Update your PAT in Simple → Settings → Advanced, then try again.');
         }
         if (e.status === 403 || e.message?.includes('403')) {
             res.status(422);
@@ -878,7 +878,7 @@ const editMacroNatural = asyncHandler(async (req, res) => {
 
     if (!githubToken) {
         res.status(422);
-        throw new Error('No GitHub PAT found. In CSimple → Settings → Advanced, paste your GitHub Personal Access Token and save, then try again.');
+        throw new Error('No GitHub PAT found. In Simple → Settings → Advanced, paste your GitHub Personal Access Token and save, then try again.');
     }
 
     const STEP_SCHEMA = `
@@ -955,7 +955,7 @@ Valid step types:
     } catch (e) {
         if (e.status === 401 || e.message?.includes('401')) {
             res.status(422);
-            throw new Error('GitHub token is invalid or expired. Update your PAT in CSimple → Settings → Advanced, then try again.');
+            throw new Error('GitHub token is invalid or expired. Update your PAT in Simple → Settings → Advanced, then try again.');
         }
         if (e.status === 403 || e.message?.includes('403')) {
             res.status(422);

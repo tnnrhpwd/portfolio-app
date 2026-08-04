@@ -1,0 +1,513 @@
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import MessageBubble from './MessageBubble';
+import ConfirmationPanel from './ConfirmationPanel';
+import { voiceListen, voiceStopListening } from '../../services/simpleAddonApi';
+import './ChatWindow.css';
+
+// Only allow data: and https: avatar URLs — drop stale /api/agents/... paths
+const safeAvatarUrl = (url) =>
+  url && (url.startsWith('data:') || url.startsWith('https://') || url.startsWith('http://')) ? url : null;
+
+const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/tiff', 'image/avif', 'image/bmp'];
+
+// ── Suggested prompt pool ──────────────────────────────────────────────────
+// Each prompt is tagged: addon = true means it requires the Simple addon to be
+// connected and up-to-date (PC actions, local file ops, memory tools).
+const SUGGESTION_POOL = [
+  // ── Addon-required: PC actions, file creation, memory ──
+  { text: 'Open Notepad, write a grocery list, and save it to my Desktop', addon: true },
+  { text: 'Create a budget tracker spreadsheet and save it to Documents', addon: true },
+  { text: 'Open Chrome and search for the weather in New York', addon: true },
+  { text: 'Remember my name, birthday, and favorite programming language', addon: true },
+  { text: 'Write a Python script that sorts a CSV file and save it to my Desktop', addon: true },
+  { text: 'Minimize all windows and open Task Manager', addon: true },
+  { text: 'Open File Explorer and create a new folder called Projects', addon: true },
+  { text: 'What do you remember about me? Check your memory files.', addon: true },
+  { text: 'Create a daily planner for this week and save it as a text file', addon: true },
+  { text: 'Open Calculator, figure out a 20% tip on $85, then close it', addon: true },
+  { text: 'Update your personality to be more witty and sarcastic', addon: true },
+  { text: 'Write a batch script to organize my Downloads folder by file type', addon: true },
+  { text: 'Open VS Code and create a new HTML file with a boilerplate template', addon: true },
+  { text: 'Create a workout plan for this week and save it to my Desktop', addon: true },
+  { text: 'Launch Spotify and press play on my current playlist', addon: true },
+  // ── General: work without addon ──
+  { text: 'Explain how transformer models work in machine learning', addon: false },
+  { text: 'Write a React hook for debouncing user input', addon: false },
+  { text: 'Compare Docker vs Kubernetes — when should I use each?', addon: false },
+  { text: 'Help me write a professional email requesting a deadline extension', addon: false },
+  { text: 'Create a regex pattern that validates international phone numbers', addon: false },
+  { text: 'Write a Node.js function to recursively traverse a directory tree', addon: false },
+  { text: 'Explain how JWT authentication works step by step', addon: false },
+  { text: 'Debug this: why does my React component keep re-rendering infinitely?', addon: false },
+  { text: 'Write a Python web scraper using BeautifulSoup with error handling', addon: false },
+  { text: 'Explain the SOLID principles with simple code examples', addon: false },
+];
+
+/** Shuffle an array using Fisher-Yates (returns new array). */
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneration, onToggleSidebar, selectedModel, isOnline, agent, speech, sttEnabled, settings, pendingConfirmation, onConfirmOption, onDismissConfirmation, isConfirming, onTogglePassiveListening, isAddonConnected, isAddonOutdated, onReportMessage, onCopyMessage, onExportChat }) {
+  const [input, setInput] = useState('');
+  const [attachedFiles, setAttachedFiles] = useState([]);
+  const [dragActive, setDragActive] = useState(false);
+  const [addonListening, setAddonListening] = useState(false); // Whisper mic active
+  const [addonListenError, setAddonListenError] = useState(null);
+  const messagesContainerRef = useRef(null);
+  const textareaRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const dragCounter = useRef(0);
+
+  // ── Randomised suggested prompts (stable per conversation) ──────────────
+  const addonReady = isAddonConnected && !isAddonOutdated;
+  const suggestions = useMemo(() => {
+    const eligible = SUGGESTION_POOL.filter(s => addonReady || !s.addon);
+    return shuffleArray(eligible).slice(0, 4).map(s => s.text);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversation?.id, addonReady]);
+
+  // Auto-scroll to bottom on new messages (scoped to the messages box, not the page)
+  useEffect(() => {
+    const el = messagesContainerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [conversation?.messages]);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + 'px';
+    }
+  }, [input]);
+
+  // ── File handling ─────────────────────────────────────────────────────────
+  const validateAndAddFiles = useCallback((fileList) => {
+    const newFiles = [];
+    for (const file of fileList) {
+      if (file.size > MAX_FILE_SIZE) {
+        alert(`${file.name} is too large (max 25 MB)`);
+        continue;
+      }
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        alert(`${file.name} is not a supported image type.\nSupported: JPG, PNG, WEBP, GIF, TIFF, AVIF`);
+        continue;
+      }
+      // Avoid duplicates by name
+      if (!attachedFiles.some(f => f.name === file.name && f.size === file.size)) {
+        newFiles.push(file);
+      }
+    }
+    if (newFiles.length > 0) {
+      setAttachedFiles(prev => [...prev, ...newFiles].slice(0, 1)); // single file for now
+    }
+  }, [attachedFiles]);
+
+  const removeFile = useCallback((index) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const handleDragEnter = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current++;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setDragActive(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current === 0) {
+      setDragActive(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    dragCounter.current = 0;
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      validateAndAddFiles(e.dataTransfer.files);
+      e.dataTransfer.clearData();
+    }
+  }, [validateAndAddFiles]);
+
+  const handleFileInputChange = useCallback((e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      validateAndAddFiles(e.target.files);
+      e.target.value = ''; // reset so the same file can be re-selected
+    }
+  }, [validateAndAddFiles]);
+
+  // ── Submit ────────────────────────────────────────────────────────────────
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const hasText = input.trim().length > 0;
+    const hasFiles = attachedFiles.length > 0;
+    if ((!hasText && !hasFiles) || isGenerating) return;
+    onSendMessage(input.trim(), attachedFiles);
+    setInput('');
+    setAttachedFiles([]);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
+  };
+
+  const toggleListening = () => {
+    if (!speech) return;
+    if (speech.isListening) {
+      speech.stopListening();
+    } else {
+      speech.startListening((text) => {
+        if (text.trim()) {
+          onSendMessage(text.trim());
+        }
+      });
+    }
+  };
+
+  // ── Addon (Whisper) voice input ────────────────────────────────────────────
+  const toggleAddonListening = useCallback(async () => {
+    if (addonListening) {
+      setAddonListening(false);
+      voiceStopListening().catch(() => {});
+      return;
+    }
+    setAddonListening(true);
+    setAddonListenError(null);
+    try {
+      const result = await voiceListen({ maxSeconds: 10, silenceMs: 800 });
+      const text = result?.text?.trim();
+      if (text) {
+        setInput(prev => prev ? `${prev} ${text}` : text);
+      } else {
+        setAddonListenError('Nothing heard');
+        setTimeout(() => setAddonListenError(null), 2000);
+      }
+    } catch (e) {
+      const msg = e.message?.slice(0, 80) || 'Mic error';
+      const hint = (msg.includes('Cannot') || msg.includes('404')) ? 'Restart addon (tray → Restart Server)' : msg;
+      setAddonListenError(hint);
+      setTimeout(() => setAddonListenError(null), 4000);
+    } finally {
+      setAddonListening(false);
+    }
+  }, [addonListening]);
+
+  const handleKeyDown = (e) => {
+    const sendWithEnter = settings?.sendWithEnter ?? true;
+    if (e.key === 'Enter' && !e.shiftKey && sendWithEnter) {
+      e.preventDefault();
+      handleSubmit(e);
+    }
+  };
+
+  const messages = conversation?.messages || [];
+
+  return (
+    <main className="chat-window">
+      {/* Header */}
+      <header className="chat-window__header">
+        <button className="chat-window__menu-btn" onClick={onToggleSidebar} title="Toggle sidebar">
+          Menu
+        </button>
+        <div className="chat-window__header-info">
+          <h1 className="chat-window__title">{conversation?.title || 'New Chat'}</h1>
+          <span className="chat-window__model-badge">
+            {settings?.llmProvider === 'github'
+              ? (settings.githubModel || 'gpt-4o-mini')
+              : selectedModel.split('/').pop()}
+          </span>
+        </div>
+        <div className="chat-window__header-spacer" />
+        {onExportChat && conversation?.messages?.length > 0 && (
+          <button className="chat-window__export-btn" onClick={() => onExportChat('markdown')} title="Export chat as Markdown">
+            📥 Export
+          </button>
+        )}
+        <div className={`chat-window__status-badge ${isOnline ? 'chat-window__status-badge--online' : 'chat-window__status-badge--offline'}`}>
+          <span className="chat-window__status-indicator">{isOnline ? '🟢' : '⚫'}</span>
+          <span className="chat-window__status-text">{isOnline ? 'Online' : 'Offline'}</span>
+        </div>
+        <button
+          className={`chat-window__passive-toggle ${sttEnabled ? 'chat-window__passive-toggle--active' : 'chat-window__passive-toggle--inactive'}`}
+          onClick={onTogglePassiveListening}
+          title={sttEnabled ? 'Passive listening is ON — click to disable' : 'Passive listening is OFF — click to enable'}
+        >
+          {sttEnabled ? '🟢' : '⚫'} Passive Listening
+        </button>
+      </header>
+
+      {/* Passive hint — shows when speech was heard but no wake word */}
+      {speech?.passiveHeard && !speech?.isListening && (
+        <div className="chat-window__passive-hint">
+          Heard: “{speech.passiveHeard}” — say <strong>“{agent?.name || 'agent name'}”</strong> first to activate
+        </div>
+      )}
+
+      {/* Listening Banner */}
+      {speech?.isListening && (
+        <div className="chat-window__listening-banner">
+          <div className="chat-window__listening-waves">
+            <span /><span /><span /><span /><span />
+          </div>
+          <div className="chat-window__listening-info">
+            <span className="chat-window__listening-label">🎙 Listening...</span>
+            <div className="chat-window__mic-level" title={`Level: ${((speech.micLevel || 0) * 100).toFixed(0)}%`}>
+              <div
+                className={`chat-window__mic-level-bar${(speech.micLevel || 0) > 0.02 ? ' chat-window__mic-level-bar--active' : ''}`}
+                style={{ width: `${Math.min((speech.micLevel || 0) * 500, 100)}%` }}
+              />
+            </div>
+            {speech.transcript && (
+              <span className="chat-window__listening-transcript">&quot;{speech.transcript}&quot;</span>
+            )}
+          </div>
+          <button
+            className="chat-window__listening-stop"
+            onClick={() => speech.stopListening()}
+            title="Stop listening"
+          >
+            Stop
+          </button>
+        </div>
+      )}
+
+      {/* Messages */}
+      <div className="chat-window__messages" ref={messagesContainerRef}>
+        {messages.length === 0 && (
+          <div className="chat-window__empty">
+            <div className="chat-window__empty-icon">
+              {safeAvatarUrl(agent?.avatarUrl) ? (
+                <img className="chat-window__empty-avatar-img" src={safeAvatarUrl(agent.avatarUrl)} alt="" />
+              ) : (
+                <img className="chat-window__empty-logo" src="/simple_logo.png" alt="Simple" />
+              )}
+            </div>
+            <h2>{agent?.name || 'Simple AI'} Chat</h2>
+            <p>Send a message to start chatting{addonReady ? ' — your PC is connected and ready for actions.' : '.'}</p>
+            <p className="chat-window__empty-hint">📎 Drop an image to convert, resize, or compress it</p>
+            <div className="chat-window__suggestions">
+              {suggestions.map((suggestion, i) => (
+                <button
+                  key={i}
+                  className="chat-window__suggestion"
+                  onClick={() => onSendMessage(suggestion)}
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {messages.map((msg) => (
+          <MessageBubble
+            key={msg.id}
+            message={msg}
+            agent={agent}
+            showTimestamp={settings?.showTimestamps ?? true}
+            enableMarkdown={settings?.enableMarkdown ?? true}
+            onReportMessage={onReportMessage}
+            onCopyMessage={onCopyMessage}
+          />
+        ))}
+
+        {isGenerating && !messages.some(m => m.isStreaming) && (
+          <div className="chat-window__typing">
+            {safeAvatarUrl(agent?.avatarUrl) ? (
+              <img className="chat-window__typing-avatar-img" src={safeAvatarUrl(agent.avatarUrl)} alt="" />
+            ) : (
+              <div className="chat-window__typing-avatar">{(agent?.name || 'C')[0]}</div>
+            )}
+            <div className="chat-window__typing-dots">
+              <span />
+              <span />
+              <span />
+            </div>
+          </div>
+        )}
+
+        <div aria-hidden="true" />
+      </div>
+
+      {/* Input */}
+      <form
+        className={`chat-window__input-form ${dragActive ? 'chat-window__input-form--drag-active' : ''}`}
+        onSubmit={handleSubmit}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
+        {/* Drag overlay */}
+        {dragActive && (
+          <div className="chat-window__drop-overlay">
+            <div className="chat-window__drop-overlay-content">
+              <span className="chat-window__drop-icon">📎</span>
+              <span>Drop file here</span>
+            </div>
+          </div>
+        )}
+
+        {/* Confirmation Panel — slides up when the AI needs user confirmation */}
+        <ConfirmationPanel
+          confirmation={pendingConfirmation}
+          onSelectOption={onConfirmOption}
+          onDismiss={onDismissConfirmation}
+          isLoading={isConfirming}
+        />
+        {speech?.isListening && (
+          <div className="chat-window__listening-bar">
+            <span className="chat-window__listening-pulse" />
+            <span>Listening{speech.transcript ? `: "${speech.transcript}"` : '...'}</span>
+          </div>
+        )}
+
+        {/* Attached file chips */}
+        {attachedFiles.length > 0 && (
+          <div className="chat-window__file-chips">
+            {attachedFiles.map((file, idx) => (
+              <div key={`${file.name}-${idx}`} className="chat-window__file-chip">
+                <span className="chat-window__file-chip-icon">
+                  {file.type.startsWith('image/') ? '🖼️' : '📄'}
+                </span>
+                <span className="chat-window__file-chip-name">{file.name}</span>
+                <span className="chat-window__file-chip-size">{formatFileSize(file.size)}</span>
+                <button
+                  type="button"
+                  className="chat-window__file-chip-remove"
+                  onClick={() => removeFile(idx)}
+                  title="Remove file"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="chat-window__input-wrapper">
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileInputChange}
+            style={{ display: 'none' }}
+          />
+          {/* Attach file button */}
+          <button
+            type="button"
+            className="chat-window__attach-btn"
+            onClick={() => fileInputRef.current?.click()}
+            title="Attach an image file"
+          >
+            File
+          </button>
+          <textarea
+            ref={textareaRef}
+            className="chat-window__input"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={attachedFiles.length > 0 ? 'Describe what to do with the file (e.g. "convert to jpg")...' : isOnline ? "Type a message..." : "Offline - Cannot send messages"}
+            rows={1}
+            disabled={isGenerating || !isOnline}
+          />
+          {speech?.sttSupported && (
+            <button
+              type="button"
+              className={`chat-window__mic-btn ${speech.isListening ? 'chat-window__mic-btn--active' : ''}`}
+              onClick={toggleListening}
+              title={speech.isListening ? 'Stop listening' : 'Voice input (browser)'}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                <line x1="12" y1="19" x2="12" y2="23" />
+                <line x1="8" y1="23" x2="16" y2="23" />
+              </svg>
+            </button>
+          )}
+          {isAddonConnected && !isAddonOutdated && (
+            <button
+              type="button"
+              className={`chat-window__mic-btn chat-window__mic-btn--whisper ${addonListening ? 'chat-window__mic-btn--active' : ''}`}
+              onClick={toggleAddonListening}
+              title={addonListening ? 'Stop Whisper recording' : 'Voice input via Whisper AI (addon)'}
+              disabled={isGenerating}
+            >
+              {addonListening ? (
+                <span className="chat-window__whisper-pulse">🎙</span>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                  <line x1="12" y1="19" x2="12" y2="23" />
+                  <line x1="8" y1="23" x2="16" y2="23" />
+                  <circle cx="12" cy="4" r="1.5" fill="currentColor" stroke="none" />
+                </svg>
+              )}
+            </button>
+          )}
+          {addonListenError && (
+            <span className="chat-window__whisper-err">{addonListenError}</span>
+          )}
+          {isGenerating ? (
+            <button
+              type="button"
+              className="chat-window__stop-btn"
+              onClick={onStopGeneration}
+              title="Stop generation"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff">
+                <rect x="6" y="6" width="12" height="12" rx="2" />
+              </svg>
+            </button>
+          ) : (
+            <button
+              type="submit"
+              className="chat-window__send-btn"
+              disabled={(!input.trim() && attachedFiles.length === 0) || !isOnline}
+              title={isOnline ? "Send message" : "Cannot send while offline"}
+            >
+              Send
+            </button>
+          )}
+        </div>
+        <div className="chat-window__input-hint">
+          {(settings?.sendWithEnter ?? true)
+            ? 'Press Enter to send, Shift+Enter for new line'
+            : 'Press Shift+Enter to send, Enter for new line'
+          }{speech?.sttSupported ? ` · Click 🎤${sttEnabled ? ` or say "${agent?.name || 'agent'}"` : ''}` : ''}
+        </div>
+      </form>
+    </main>
+  );
+}
+
+export default ChatWindow;

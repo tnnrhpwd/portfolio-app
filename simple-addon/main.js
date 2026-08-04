@@ -1,0 +1,1695 @@
+/**
+ * Simple Addon — Electron Main Process
+ * 
+ * System tray application that runs the Simple Express server locally.
+ * No main window — tray-only app with status menu.
+ */
+
+const { app, BrowserWindow, Notification, shell, dialog, ipcMain, globalShortcut } = require('electron');
+const path = require('path');
+const fs = require('fs');
+const os = require('os');
+const { TrayManager } = require('./tray');
+const { PythonManager } = require('./python-manager');
+const { ActionBridge } = require('./server/action-bridge');
+const { UpdateManager } = require('./auto-updater');
+
+// Prevent multiple instances
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+  process.exit(0);
+}
+
+// ─── Globals ────────────────────────────────────────────────────────────────────
+
+let trayManager = null;
+let pythonManager = null;
+let server = null;
+let settingsWindow = null;
+let actionBridge = null;
+let updateManager = null;
+let calibrationWindow = null;
+let eyeOverlayWindow = null;       // transparent click-through gaze dot
+let permissionWindow = null;       // Windows automation permission center
+let eyeOverlayAutoTrain = null;    // {timer, lastSampleAt, lastCursor, lastCursorAt, lastGaze, lastGazeAt}
+let recordingsWindow = null;       // demonstrations & skills browser
+let workspacePromptWindow = null;  // "Save New Workspace" name prompt
+let startAgentStatusPolling = () => {}; // assigned after server ready
+
+// ─── Resource Paths ─────────────────────────────────────────────────────────────
+
+const CONFIG_DIR = app.getPath('userData');
+const RESOURCES_CONFIG_PATH = path.join(CONFIG_DIR, 'resources-path.json');
+const DEFAULT_RESOURCES_PATH = path.join(os.homedir(), 'Documents', 'Simple', 'Resources');
+
+/**
+ * Read the stored resources folder location, or return the default.
+ */
+function getResourcesPath() {
+  try {
+    if (fs.existsSync(RESOURCES_CONFIG_PATH)) {
+      const config = JSON.parse(fs.readFileSync(RESOURCES_CONFIG_PATH, 'utf-8'));
+      if (config.resourcesPath && fs.existsSync(path.dirname(config.resourcesPath))) {
+        return config.resourcesPath;
+      }
+    }
+  } catch (err) {
+    console.error('[Main] Error reading resources config:', err.message);
+  }
+  return DEFAULT_RESOURCES_PATH;
+}
+
+/**
+ * Persist the resources folder location.
+ */
+function saveResourcesPath(resourcesPath) {
+  try {
+    fs.writeFileSync(RESOURCES_CONFIG_PATH, JSON.stringify({ resourcesPath }, null, 2), 'utf-8');
+    console.log(`[Main] Resources path saved: ${resourcesPath}`);
+  } catch (err) {
+    console.error('[Main] Error saving resources config:', err.message);
+  }
+}
+
+/**
+ * Prompt user to choose resources folder (first run only).
+ * Returns the chosen path, or the default if the user cancels.
+ */
+async function promptResourcesFolder() {
+  const result = await dialog.showMessageBox(null, {
+    type: 'question',
+    title: 'Simple Addon — Resources Folder',
+    message: 'Where would you like to store Simple data?',
+    detail: `This folder holds your memory, personality, behavior files, and agents.\n\nDefault: ${DEFAULT_RESOURCES_PATH}`,
+    buttons: ['Use Default', 'Choose Folder', 'Cancel'],
+    defaultId: 0,
+    cancelId: 2,
+  });
+
+  if (result.response === 1) {
+    const folderResult = await dialog.showOpenDialog(null, {
+      title: 'Choose Simple Resources Folder',
+      defaultPath: DEFAULT_RESOURCES_PATH,
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    if (!folderResult.canceled && folderResult.filePaths.length > 0) {
+      return folderResult.filePaths[0];
+    }
+  }
+  return DEFAULT_RESOURCES_PATH;
+}
+
+/**
+ * Let user change resources folder via dialog. Moves existing files.
+ */
+async function changeResourcesFolder() {
+  const currentPath = getResourcesPath();
+  const folderResult = await dialog.showOpenDialog(null, {
+    title: 'Change Simple Resources Folder',
+    defaultPath: currentPath,
+    properties: ['openDirectory', 'createDirectory'],
+  });
+
+  if (folderResult.canceled || folderResult.filePaths.length === 0) return;
+  const newPath = folderResult.filePaths[0];
+  if (newPath === currentPath) return;
+
+  // Move existing files if the old folder exists
+  try {
+    if (fs.existsSync(currentPath)) {
+      const items = fs.readdirSync(currentPath);
+      for (const item of items) {
+        const src = path.join(currentPath, item);
+        const dest = path.join(newPath, item);
+        if (!fs.existsSync(dest)) {
+          fs.cpSync(src, dest, { recursive: true });
+        }
+      }
+      console.log(`[Main] Copied resources from ${currentPath} → ${newPath}`);
+    }
+  } catch (err) {
+    console.error('[Main] Error moving resources:', err.message);
+  }
+
+  saveResourcesPath(newPath);
+  // Expose updated path so the server can pick it up
+  global.SIMPLE_RESOURCES_PATH = newPath;
+
+  trayManager?.notify('Simple Addon', `Resources folder changed to:\n${newPath}\n\nRestarting server...`);
+  await restartExpressServer();
+}
+
+// ─── Workspace Profiles (save/restore window layouts) ──────────────────────
+
+/**
+ * Refresh the tray's cached list of saved workspace profiles. Call after
+ * save/delete and once at startup so the "Workspace" submenu stays current.
+ */
+async function refreshWorkspaceProfilesTray() {
+  try {
+    const workspaceProfiles = require('./server/automation/workspace-profiles');
+    const profiles = await workspaceProfiles.list();
+    trayManager?.setWorkspaceProfiles(profiles);
+  } catch (e) {
+    console.warn('[Main] Failed to refresh workspace profiles:', e.message);
+  }
+}
+
+/**
+ * Show a small modal prompting for a workspace name. Resolves with the
+ * trimmed name, or null if the user cancels/closes the window.
+ */
+function openWorkspaceNamePrompt() {
+  return new Promise((resolve) => {
+    if (workspacePromptWindow && !workspacePromptWindow.isDestroyed()) {
+      workspacePromptWindow.focus();
+      resolve(null);
+      return;
+    }
+
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      ipcMain.removeListener('workspace-prompt-save', onSave);
+      ipcMain.removeListener('workspace-prompt-cancel', onCancel);
+      resolve(value);
+      if (workspacePromptWindow && !workspacePromptWindow.isDestroyed()) {
+        workspacePromptWindow.close();
+      }
+      workspacePromptWindow = null;
+    };
+    const onSave = (_event, { name }) => finish(name);
+    const onCancel = () => finish(null);
+    ipcMain.on('workspace-prompt-save', onSave);
+    ipcMain.on('workspace-prompt-cancel', onCancel);
+
+    workspacePromptWindow = new BrowserWindow({
+      width: 420, height: 220, title: 'Save New Workspace',
+      resizable: false, minimizable: false, maximizable: false,
+      backgroundColor: '#0d1117',
+      webPreferences: {
+        contextIsolation: true, nodeIntegration: false,
+        preload: path.join(__dirname, 'renderer', 'workspace-prompt-preload.js'),
+      },
+    });
+    workspacePromptWindow.setMenuBarVisibility(false);
+    workspacePromptWindow.loadFile(path.join(__dirname, 'renderer', 'workspace-prompt.html'));
+    workspacePromptWindow.on('closed', () => finish(null));
+  });
+}
+
+// Make resources path available to server modules
+let RESOURCES_PATH = getResourcesPath();
+global.SIMPLE_RESOURCES_PATH = RESOURCES_PATH;
+
+const WEBAPP_URL = 'https://sthopwood.com/net';
+const SCRIPTS_PATH = app.isPackaged
+  ? path.join(process.resourcesPath, 'scripts')
+  : path.join(__dirname, 'scripts');
+const REQUIREMENTS_PATH = path.join(SCRIPTS_PATH, 'requirements.txt');
+
+// ─── Directory Setup ────────────────────────────────────────────────────────────
+
+function ensureDirectories() {
+  const rp = getResourcesPath();
+  const dirs = [
+    rp,
+    path.join(rp, 'Behaviors'),
+    path.join(rp, 'Memory'),
+    path.join(rp, 'Personality'),
+    path.join(rp, 'Agents'),
+    path.join(rp, 'Agents', 'avatars'),
+  ];
+
+  for (const dir of dirs) {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+      console.log(`[Main] Created directory: ${dir}`);
+    }
+  }
+
+  // Create default behavior file if missing
+  const defaultBehavior = path.join(rp, 'Behaviors', 'default.txt');
+  if (!fs.existsSync(defaultBehavior)) {
+    fs.writeFileSync(defaultBehavior, 
+      'You are a helpful AI assistant. Be concise and informative in your responses.\n' +
+      'If the user asks you to perform an action on their computer, translate it into a system command.\n',
+      'utf-8'
+    );
+    console.log('[Main] Created default behavior file');
+  }
+}
+
+// ─── Server Management ──────────────────────────────────────────────────────────
+
+async function startExpressServer() {
+  try {
+    // Require the server module (lazy to allow path resolution)
+    server = require('./server/index');
+    const { port, httpsPort } = await server.startServer();
+
+    console.log(`[Main] Server started on port ${port}`);
+    trayManager?.setServerInfo(port, httpsPort);
+    trayManager?.notify('Simple Addon', `Server running on port ${port}`);
+
+    // Configure the demonstration recorder with its on-disk storage location.
+    // Done here because recordings are user-data and we need the Electron app
+    // ready to resolve userData paths.
+    try {
+      const recorder = require('./server/automation/recorder');
+      recorder.configure({
+        recordingsDir: path.join(CONFIG_DIR, 'recordings'),
+      });
+      console.log('[Main] Recorder configured at', path.join(CONFIG_DIR, 'recordings'));
+    } catch (e) {
+      console.warn('[Main] Failed to configure recorder:', e.message);
+    }
+
+    // Configure workspace profiles (saved window-layout snapshots) storage.
+    try {
+      const workspaceProfiles = require('./server/automation/workspace-profiles');
+      workspaceProfiles.configure({
+        storageDir: path.join(CONFIG_DIR, 'workspace-profiles'),
+      });
+      console.log('[Main] Workspace profiles configured at', path.join(CONFIG_DIR, 'workspace-profiles'));
+      refreshWorkspaceProfilesTray();
+    } catch (e) {
+      console.warn('[Main] Failed to configure workspace profiles:', e.message);
+    }
+
+    // Configure the trigger engine. dispatch() is called when a cron/file/
+    // hotkey trigger fires — it asks the agent loop to start on the bound
+    // goal. Hotkey registration is delegated back to Electron's globalShortcut
+    // API via the onHotkeyChange callback.
+    try {
+      const triggers = require('./server/automation/triggers');
+      const triggersFile = path.join(CONFIG_DIR, 'triggers.json');
+      triggers.configure({
+        configPath: triggersFile,
+        dispatch: async (trigger) => {
+          try {
+            const port = server?.serverPort || 3001;
+            await fetch(`http://127.0.0.1:${port}/api/agent/start`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ goalSlug: trigger.goalSlug, _firedBy: trigger.id }),
+            });
+            trayManager?.notify('Trigger fired', `${trigger.kind} → ${trigger.goalSlug}`);
+          } catch (e) {
+            console.warn('[Main] trigger dispatch failed:', e.message);
+          }
+        },
+        onHotkeyChange: ({ action, trigger }) => {
+          try {
+            if (action === 'register') {
+              globalShortcut.register(trigger.accelerator, () => {
+                try { fetch(`http://127.0.0.1:${server?.serverPort || 3001}/api/agent/start`, {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ goalSlug: trigger.goalSlug, _firedBy: trigger.id }),
+                }); } catch {}
+              });
+            } else {
+              globalShortcut.unregister(trigger.accelerator);
+            }
+          } catch (e) {
+            console.warn(`[Main] hotkey ${action} failed for ${trigger.accelerator}:`, e.message);
+          }
+        },
+      });
+      triggers.loadFromDisk();
+      triggers.startAll();
+      console.log('[Main] Triggers loaded from', triggersFile);
+    } catch (e) {
+      console.warn('[Main] Failed to configure triggers:', e.message);
+    }
+
+    // Configure the skill-hotkey registry. The web app binds recorded macros
+    // (skills) to global keyboard shortcuts; it pushes the desired binding map
+    // to the addon (POST /api/skill/hotkeys), which persists it to disk. Actual
+    // OS-level registration happens here via Electron's globalShortcut API. When
+    // a bound hotkey fires we run the skill through the addon's own HTTP surface
+    // so it goes through the permission gate like any other tool call.
+    try {
+      const skillHotkeys = require('./server/automation/skill-hotkeys');
+      const skillHotkeysFile = path.join(CONFIG_DIR, 'skill-hotkeys.json');
+      skillHotkeys.configure({
+        configPath: skillHotkeysFile,
+        onHotkeyChange: ({ action, slug, accelerator }) => {
+          try {
+            if (action === 'register') {
+              // Replace any stale binding on this accelerator first.
+              if (globalShortcut.isRegistered(accelerator)) globalShortcut.unregister(accelerator);
+              const ok = globalShortcut.register(accelerator, () => {
+                try {
+                  fetch(`http://127.0.0.1:${server?.serverPort || 3001}/api/skill/run`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ slug }),
+                  }).catch(() => {});
+                  trayManager?.notify('Macro', `Running "${slug}"`);
+                } catch {}
+              });
+              if (!ok) console.warn(`[Main] globalShortcut.register failed for ${accelerator} (in use?)`);
+            } else {
+              globalShortcut.unregister(accelerator);
+            }
+          } catch (e) {
+            console.warn(`[Main] skill hotkey ${action} failed for ${accelerator}:`, e.message);
+          }
+        },
+      });
+      skillHotkeys.loadFromDisk();
+      console.log('[Main] Skill hotkeys loaded from', skillHotkeysFile);
+    } catch (e) {
+      console.warn('[Main] Failed to configure skill hotkeys:', e.message);
+    }
+
+    // Start the built-in action bridge so PC automation works without a separate app
+    if (!actionBridge) {
+      actionBridge = new ActionBridge(port);
+    }
+    actionBridge.start();
+    console.log('[Main] Built-in ActionBridge started');
+
+    // Wire up eye tracking state changes to tray menu + Escape e-stop
+    if (server.eyeTrackingManager) {
+      // Register a PERSISTENT global emergency-stop hotkey that always works —
+      // even if focus is elsewhere and even when tracking isn't actively running
+      // (so the user can hit it preemptively if the cursor is acting up).
+      try {
+        globalShortcut.register('CommandOrControl+Alt+E', () => {
+          console.log('[EyeTracking] Ctrl+Alt+E — emergency stop');
+          server.eyeTrackingManager.stop().catch(() => {});
+          trayManager?.notify('Eye Tracking', 'Emergency stop (Ctrl+Alt+E) — tracking halted.');
+        });
+      } catch (e) { console.error('[EyeTracking] Failed to register Ctrl+Alt+E:', e.message); }
+
+      server.eyeTrackingManager.onStateChange = (state) => {
+        trayManager?.setEyeTrackingStatus(state);
+        // If tracking stopped while overlay was active, tear the overlay down
+        // (e.g. user hit Escape / Ctrl+Alt+E to emergency-stop).
+        if (state === 'idle' && eyeOverlayWindow) {
+          _stopOverlayAutoTrain();
+          closeEyeOverlayWindow();
+          trayManager?.setEyeOverlayActive(false);
+        }
+        // Register Escape as additional emergency stop while tracking is active
+        if (state === 'running') {
+          try {
+            globalShortcut.register('Escape', () => {
+              console.log('[EyeTracking] ESCAPE pressed — emergency stop');
+              server.eyeTrackingManager.stop();
+            });
+          } catch (e) { console.error('[EyeTracking] Failed to register Escape shortcut:', e.message); }
+          trayManager?.notify(
+            'Eye Tracking Active',
+            'Emergency stop: press Escape or Ctrl+Alt+E anytime to halt cursor control.'
+          );
+        } else {
+          globalShortcut.unregister('Escape');
+        }
+      };
+    }
+
+    // Expose calibration window opener as a global so the server can invoke it
+    global.openCalibrationWindow = () => openCalibrationWindow();
+
+    return { port, httpsPort };
+  } catch (err) {
+    console.error('[Main] Failed to start server:', err);
+    trayManager?.notify('Simple Addon Error', `Server failed to start: ${err.message}`);
+    throw err;
+  }
+}
+
+async function restartExpressServer() {
+  try {
+    trayManager?.setServerInfo(null, null);
+    if (server) {
+      await server.stopServer();
+      server.stopGeneration();
+    }
+
+    // Clear server/index and the entire automation subtree from require cache.
+    // Without this, tool-registry._tools retains all registered tools from the
+    // previous load, causing "Duplicate tool" on registerAllTools() and silently
+    // preventing ALL automation routes (/api/skill/compile-natural, /api/agent/*, etc.)
+    // from being registered on the restarted server.
+    const clearCache = (mod) => {
+      try {
+        const resolved = require.resolve(mod);
+        if (require.cache[resolved]) {
+          // Also clear children first to avoid stale references
+          const children = require.cache[resolved].children || [];
+          delete require.cache[resolved];
+          // Recursively clear only files inside this project (not node_modules)
+          for (const child of children) {
+            if (child.id && child.id.includes('simple-addon') && !child.id.includes('node_modules')) {
+              delete require.cache[child.id];
+            }
+          }
+        }
+      } catch { /* module may not be loaded, ignore */ }
+    };
+
+    clearCache('./server/index');
+    clearCache('./server/automation');
+    clearCache('./server/automation/tool-registry');
+    clearCache('./server/automation/permissions');
+    clearCache('./server/automation/workspace-client');
+    clearCache('./server/automation/nl-compiler');
+    clearCache('./server/automation/pattern-learner');
+    clearCache('./server/automation/predictor');
+    clearCache('./server/automation/perception-bus');
+
+    await startExpressServer();
+  } catch (err) {
+    console.error('[Main] Failed to restart server:', err);
+  }
+}
+
+// ─── Python Setup ───────────────────────────────────────────────────────────────
+
+async function setupPython() {
+  pythonManager = new PythonManager();
+
+  pythonManager.onStatus((status, detail) => {
+    console.log(`[Python] ${status}: ${detail}`);
+    trayManager?.setPythonStatus(`${status}${detail ? ' — ' + detail.substring(0, 50) : ''}`);
+
+    // Show notification for key events
+    if (status === 'error') {
+      trayManager?.notify('Simple — Python Error', detail);
+    } else if (status === 'ready') {
+      trayManager?.notify('Simple — Python Ready', 'AI models can now run locally');
+    }
+  });
+
+  const python = pythonManager.findPython();
+  if (!python) {
+    trayManager?.setPythonStatus('Not found — install Python 3.8+');
+    trayManager?.notify(
+      'Simple — Python Not Found',
+      'Local AI models require Python 3.8+. Download from python.org'
+    );
+    return;
+  }
+
+  trayManager?.setPythonStatus(`Found: ${python}`);
+
+  // Setup venv and dependencies in background (don't block startup)
+  pythonManager.setup(REQUIREMENTS_PATH).then(success => {
+    if (success) {
+      trayManager?.setPythonStatus('Ready');
+    } else {
+      trayManager?.setPythonStatus('Setup incomplete — check logs');
+    }
+  }).catch(err => {
+    console.error('[Main] Python setup error:', err);
+    trayManager?.setPythonStatus('Setup failed');
+  });
+}
+
+// ─── Eye Tracking Calibration ────────────────────────────────────────────────────
+
+/**
+ * Open the fullscreen calibration window and start collecting calibration data.
+ */
+function openCalibrationWindow() {
+  if (calibrationWindow) {
+    calibrationWindow.focus();
+    return;
+  }
+
+  const iconPath = path.join(__dirname, 'resources', 'icon.ico');
+
+  calibrationWindow = new BrowserWindow({
+    fullscreen: true,
+    frame: false,
+    alwaysOnTop: true,
+    backgroundColor: '#0a0a0f',
+    icon: iconPath,
+    webPreferences: {
+      preload: path.join(__dirname, 'renderer', 'calibration-preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  calibrationWindow.loadFile(path.join(__dirname, 'renderer', 'calibration.html'));
+
+  calibrationWindow.on('closed', () => {
+    calibrationWindow = null;
+    // Stop calibration if still running
+    if (server?.eyeTrackingManager?.state === 'calibrating') {
+      server.eyeTrackingManager.stop();
+    }
+  });
+
+  // Forward calibration progress from Python to the renderer
+  if (server?.eyeTrackingManager) {
+    server.eyeTrackingManager.onCalibrationProgress = (data) => {
+      if (calibrationWindow && !calibrationWindow.isDestroyed()) {
+        if (data.calibration === 'complete') {
+          calibrationWindow.webContents.send('calibration-complete', {
+            iris_range_x: data.iris_range_x,
+            iris_range_y: data.iris_range_y,
+            num_points: data.num_points,
+            model_type: data.model_type,
+            mean_residual_px: data.mean_residual_px,
+            max_residual_px: data.max_residual_px,
+            worst_point: data.worst_point,
+            hom_mean_residual_px: data.hom_mean_residual_px,
+            poly_mean_residual_px: data.poly_mean_residual_px,
+          });
+        } else {
+          calibrationWindow.webContents.send('calibration-progress', data);
+        }
+      }
+    };
+  }
+
+  console.log('[Main] Calibration window opened');
+}
+
+// ─── Eye Tracking Overlay (Test Mode) ────────────────────────────────────────────
+//
+// The overlay is a click-through transparent fullscreen-virtual-desktop window
+// that draws a colored dot at the user's predicted gaze location. It does NOT
+// move the OS cursor. While it's active we run an implicit-calibration loop
+// that pairs the OS cursor with the live gaze whenever both have been
+// stationary together — this lets the model continuously refit as the user
+// moves their head into poses the original calibration grid never covered.
+
+function _virtualScreenBounds() {
+  const { screen } = require('electron');
+  const displays = screen.getAllDisplays();
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const d of displays) {
+    const b = d.bounds;
+    if (b.x < minX) minX = b.x;
+    if (b.y < minY) minY = b.y;
+    if (b.x + b.width > maxX) maxX = b.x + b.width;
+    if (b.y + b.height > maxY) maxY = b.y + b.height;
+  }
+  if (!isFinite(minX)) {
+    const p = screen.getPrimaryDisplay().bounds;
+    return { x: p.x, y: p.y, width: p.width, height: p.height };
+  }
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
+
+function openEyeOverlayWindow() {
+  if (eyeOverlayWindow && !eyeOverlayWindow.isDestroyed()) {
+    eyeOverlayWindow.focus();
+    return eyeOverlayWindow;
+  }
+  const bounds = _virtualScreenBounds();
+  eyeOverlayWindow = new BrowserWindow({
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height,
+    transparent: true,
+    frame: false,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    hasShadow: false,
+    focusable: false,
+    show: false,
+    backgroundColor: '#00000000',
+    webPreferences: {
+      preload: path.join(__dirname, 'renderer', 'eye-overlay-preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      backgroundThrottling: false,
+    },
+  });
+  // Make it click-through so it never steals input.
+  eyeOverlayWindow.setIgnoreMouseEvents(true, { forward: false });
+  eyeOverlayWindow.setAlwaysOnTop(true, 'screen-saver');
+  // Don't activate the window or its WebContents.
+  try { eyeOverlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true }); } catch {}
+
+  eyeOverlayWindow.loadFile(path.join(__dirname, 'renderer', 'eye-overlay.html'));
+  eyeOverlayWindow.once('ready-to-show', () => {
+    eyeOverlayWindow.showInactive();
+    // Re-assert after show (some Windows builds reset ignoreMouseEvents).
+    eyeOverlayWindow.setIgnoreMouseEvents(true, { forward: false });
+    // Send virtual screen origin so renderer can map global → window coords.
+    eyeOverlayWindow.webContents.send('overlay-init', { origin: { x: bounds.x, y: bounds.y } });
+  });
+  eyeOverlayWindow.on('closed', () => {
+    eyeOverlayWindow = null;
+  });
+  return eyeOverlayWindow;
+}
+
+function closeEyeOverlayWindow() {
+  if (eyeOverlayWindow && !eyeOverlayWindow.isDestroyed()) {
+    eyeOverlayWindow.close();
+  }
+  eyeOverlayWindow = null;
+}
+
+function _stopOverlayAutoTrain() {
+  if (eyeOverlayAutoTrain && eyeOverlayAutoTrain.timer) {
+    clearInterval(eyeOverlayAutoTrain.timer);
+  }
+  eyeOverlayAutoTrain = null;
+}
+
+// Hotkeys exposed only while the overlay is active. Give the user explicit
+// override over the auto-train heuristic so they can force-capture a sample
+// when they KNOW they're looking at the cursor, or undo a bad capture.
+function _registerOverlayHotkeys() {
+  try {
+    globalShortcut.register('CommandOrControl+Shift+G', () => {
+      const { screen } = require('electron');
+      const cur = screen.getCursorScreenPoint();
+      const res = server?.eyeTrackingManager?.addOnlineTrainingSample(cur.x, cur.y, 0.9);
+      if (res?.success) {
+        if (eyeOverlayAutoTrain) {
+          eyeOverlayAutoTrain.lastSampleAt = Date.now();
+          eyeOverlayAutoTrain.sampleCount++;
+        }
+        if (eyeOverlayWindow && !eyeOverlayWindow.isDestroyed()) {
+          eyeOverlayWindow.webContents.send('train-sample', {
+            x: cur.x, y: cur.y, weight: 0.9,
+            count: eyeOverlayAutoTrain?.sampleCount || 0,
+            forced: true,
+          });
+        }
+      }
+    });
+    globalShortcut.register('CommandOrControl+Shift+U', () => {
+      server?.eyeTrackingManager?.dropRecentOnlineSamples(1);
+      if (eyeOverlayAutoTrain && eyeOverlayAutoTrain.sampleCount > 0) {
+        eyeOverlayAutoTrain.sampleCount--;
+      }
+      if (eyeOverlayWindow && !eyeOverlayWindow.isDestroyed()) {
+        eyeOverlayWindow.webContents.send('train-sample', {
+          x: 0, y: 0, weight: 0,
+          count: eyeOverlayAutoTrain?.sampleCount || 0,
+          undone: true,
+        });
+      }
+    });
+    globalShortcut.register('CommandOrControl+Shift+R', () => {
+      server?.eyeTrackingManager?.clearOnlineSamples();
+      if (eyeOverlayAutoTrain) eyeOverlayAutoTrain.sampleCount = 0;
+      if (eyeOverlayWindow && !eyeOverlayWindow.isDestroyed()) {
+        eyeOverlayWindow.webContents.send('train-sample', {
+          x: 0, y: 0, weight: 0,
+          count: 0,
+          cleared: true,
+        });
+      }
+    });
+  } catch (e) {
+    console.warn('[EyeOverlay] Failed to register hotkeys:', e.message);
+  }
+}
+
+function _unregisterOverlayHotkeys() {
+  try {
+    globalShortcut.unregister('CommandOrControl+Shift+G');
+    globalShortcut.unregister('CommandOrControl+Shift+U');
+    globalShortcut.unregister('CommandOrControl+Shift+R');
+  } catch {}
+}
+
+/**
+ * Implicit-calibration loop. Polls the OS cursor at ~50ms and uses the most
+ * recent gaze emission (fed via onGazeData) to detect "fixation pairs" — the
+ * cursor and the gaze both stationary together. When a stable pair is found
+ * we fire `addOnlineTrainingSample`, which the Python tracker uses to refit.
+ */
+function _startOverlayAutoTrain() {
+  _stopOverlayAutoTrain();
+  const { screen } = require('electron');
+  const POLL_MS = 50;
+  const CURSOR_STILL_MS = 450;          // cursor must be stationary this long
+  const GAZE_STILL_MS = 350;            // gaze must be stationary this long
+  const CURSOR_RADIUS_PX = 6;           // movement under this = "still"
+  const GAZE_RADIUS_PX = 50;            // gaze jitter that still counts as fixation
+  const SAMPLE_COOLDOWN_MS = 1500;      // min interval between fired samples
+  // Stricter trust: the LIVE gaze prediction (i.e. the model's current
+  // estimate) must already be near the cursor. This is much tighter than
+  // "some fraction of the screen" and effectively requires the user to be
+  // looking at the cursor, since otherwise the model wouldn't predict near
+  // the cursor's location. Combined with cursor-movement evidence below,
+  // this rejects the common false-positive of "cursor parked while user
+  // reads something elsewhere on screen".
+  const TRUST_RADIUS_PX = 180;
+  // Cursor-movement evidence: require the cursor to have actually moved a
+  // meaningful distance recently (user intent), then settled. A parked
+  // cursor that the user isn't looking at won't fire samples.
+  const CURSOR_MOVE_WINDOW_MS = 1800;
+  const CURSOR_MOVE_MIN_PX = 80;
+  const CURSOR_MOVE_MAX_PX = 2500;
+
+  eyeOverlayAutoTrain = {
+    timer: null,
+    lastSampleAt: 0,
+    cursorAnchor: null,
+    cursorAnchorAt: 0,
+    gazeAnchor: null,
+    gazeAnchorAt: 0,
+    lastGaze: null,
+    lastGazeAt: 0,
+    sampleCount: 0,
+    cursorTrail: [],   // [{x,y,t}] last few seconds of cursor positions
+  };
+
+  eyeOverlayAutoTrain.timer = setInterval(() => {
+    if (!server?.eyeTrackingManager || server.eyeTrackingManager.state !== 'running') return;
+    const now = Date.now();
+    const cursor = screen.getCursorScreenPoint();
+
+    // Maintain a rolling cursor trail (last ~3s) so we can detect that the
+    // user actually MOVED the cursor to a new target — not just left it
+    // parked while reading something else on screen.
+    const trail = eyeOverlayAutoTrain.cursorTrail;
+    trail.push({ x: cursor.x, y: cursor.y, t: now });
+    while (trail.length && now - trail[0].t > 3000) trail.shift();
+
+    // Cursor stillness
+    const ca = eyeOverlayAutoTrain.cursorAnchor;
+    if (!ca || Math.hypot(cursor.x - ca.x, cursor.y - ca.y) > CURSOR_RADIUS_PX) {
+      eyeOverlayAutoTrain.cursorAnchor = cursor;
+      eyeOverlayAutoTrain.cursorAnchorAt = now;
+    }
+    const cursorStillFor = now - eyeOverlayAutoTrain.cursorAnchorAt;
+
+    // Gaze stillness — must have a recent gaze sample (< 200ms old)
+    const gaze = eyeOverlayAutoTrain.lastGaze;
+    const gazeAge = now - eyeOverlayAutoTrain.lastGazeAt;
+    if (!gaze || gazeAge > 200) return;
+
+    const ga = eyeOverlayAutoTrain.gazeAnchor;
+    if (!ga || Math.hypot(gaze.x - ga.x, gaze.y - ga.y) > GAZE_RADIUS_PX) {
+      eyeOverlayAutoTrain.gazeAnchor = { x: gaze.x, y: gaze.y };
+      eyeOverlayAutoTrain.gazeAnchorAt = now;
+    }
+    const gazeStillFor = now - eyeOverlayAutoTrain.gazeAnchorAt;
+
+    // Distance gaze ↔ cursor
+    const dist = Math.hypot(gaze.x - cursor.x, gaze.y - cursor.y);
+    const cooldownRemaining = Math.max(0, SAMPLE_COOLDOWN_MS - (now - eyeOverlayAutoTrain.lastSampleAt));
+    const inTrust = dist <= TRUST_RADIUS_PX;
+
+    // Cursor-movement evidence: was there a meaningful cursor displacement
+    // within the last CURSOR_MOVE_WINDOW_MS that ended near the current
+    // position? This rejects "cursor parked, user looking elsewhere".
+    let movedRecently = false;
+    let moveDist = 0;
+    for (const p of trail) {
+      if (now - p.t > CURSOR_MOVE_WINDOW_MS) continue;
+      if (now - p.t < 200) continue; // need some history
+      const d = Math.hypot(cursor.x - p.x, cursor.y - p.y);
+      if (d >= CURSOR_MOVE_MIN_PX && d <= CURSOR_MOVE_MAX_PX) {
+        movedRecently = true;
+        moveDist = Math.max(moveDist, d);
+        break;
+      }
+    }
+
+    // Stream live progress to overlay HUD so the user can see what's needed
+    if (eyeOverlayWindow && !eyeOverlayWindow.isDestroyed()) {
+      eyeOverlayWindow.webContents.send('train-status', {
+        cursorStillMs: cursorStillFor,
+        cursorStillTargetMs: CURSOR_STILL_MS,
+        gazeStillMs: gazeStillFor,
+        gazeStillTargetMs: GAZE_STILL_MS,
+        dist,
+        sanityMaxDist: TRUST_RADIUS_PX,
+        inSanity: inTrust,
+        cooldownRemaining,
+        cursor: { x: cursor.x, y: cursor.y },
+        movedRecently,
+      });
+    }
+
+    // Both must have been stationary long enough
+    if (cursorStillFor < CURSOR_STILL_MS) return;
+    if (gazeStillFor < GAZE_STILL_MS) return;
+
+    // Cooldown
+    if (now - eyeOverlayAutoTrain.lastSampleAt < SAMPLE_COOLDOWN_MS) return;
+
+    // Strict trust gate: gaze prediction must already be near the cursor.
+    if (!inTrust) return;
+
+    // Require cursor-movement evidence — user must have intentionally
+    // moved the cursor to this spot recently.
+    if (!movedRecently) return;
+
+    // Weight by closeness — closer pairs get more trust. Range ~0.25–0.6.
+    const closeness = 1.0 - Math.min(1.0, dist / TRUST_RADIUS_PX);
+    const weight = 0.25 + 0.35 * closeness;
+
+    const res = server.eyeTrackingManager.addOnlineTrainingSample(cursor.x, cursor.y, weight);
+    if (res && res.success) {
+      eyeOverlayAutoTrain.lastSampleAt = now;
+      eyeOverlayAutoTrain.sampleCount++;
+      // Notify overlay so it can flash
+      if (eyeOverlayWindow && !eyeOverlayWindow.isDestroyed()) {
+        eyeOverlayWindow.webContents.send('train-sample', {
+          x: cursor.x, y: cursor.y, weight, count: eyeOverlayAutoTrain.sampleCount,
+        });
+      }
+    }
+  }, POLL_MS);
+}
+
+async function startEyeOverlayMode(opts = {}) {
+  if (!server?.eyeTrackingManager) {
+    return { success: false, error: 'Eye tracking manager unavailable' };
+  }
+  const mgr = server.eyeTrackingManager;
+
+  // Force the same camera that was used during calibration. Iris geometry,
+  // FOV, and lens distortion differ between webcams, so the saved gaze model
+  // is only valid for the camera it was trained on. We read cameraIndex from
+  // the calibration JSON unless the caller explicitly overrode it.
+  let cameraIndex = opts.cameraIndex;
+  if (cameraIndex === undefined || cameraIndex === null) {
+    try {
+      const calFile = path.join(getResourcesPath(), 'eye-calibration.json');
+      if (fs.existsSync(calFile)) {
+        const cal = JSON.parse(fs.readFileSync(calFile, 'utf-8'));
+        if (typeof cal.cameraIndex === 'number') {
+          cameraIndex = cal.cameraIndex;
+          console.log(`[EyeOverlay] Using calibration camera index: ${cameraIndex}`);
+        }
+      }
+    } catch (err) {
+      console.warn('[EyeOverlay] Could not read calibration camera index:', err.message);
+    }
+  }
+  if (cameraIndex === undefined || cameraIndex === null) cameraIndex = 0;
+  // If tracking is already running for cursor control, stop it first so we
+  // can re-enter in overlay mode (no cursor, online-train enabled).
+  if (mgr.state === 'running') {
+    await mgr.stop().catch(() => {});
+  }
+
+  // Open the window first so it's ready to receive gaze events.
+  openEyeOverlayWindow();
+
+  // Wire callbacks
+  mgr.overlayMode = true;
+  mgr.onGazeData = (data) => {
+    if (eyeOverlayWindow && !eyeOverlayWindow.isDestroyed()) {
+      eyeOverlayWindow.webContents.send('gaze-data', data);
+    }
+    // Cache for the auto-train loop
+    if (eyeOverlayAutoTrain && typeof data.x === 'number') {
+      eyeOverlayAutoTrain.lastGaze = { x: data.x, y: data.y };
+      eyeOverlayAutoTrain.lastGazeAt = Date.now();
+    }
+  };
+  mgr.onModelUpdated = (info) => {
+    if (eyeOverlayWindow && !eyeOverlayWindow.isDestroyed()) {
+      eyeOverlayWindow.webContents.send('model-updated', info);
+    }
+  };
+
+  const result = await mgr.start({ cameraIndex, duration: 0, ...(opts.cameraOptions || {}) });
+  if (!result.success) {
+    closeEyeOverlayWindow();
+    mgr.overlayMode = false;
+    mgr.onGazeData = null;
+    mgr.onModelUpdated = null;
+    return result;
+  }
+
+  // Tell the tracker to auto-save adapted calibration so adaptation sticks.
+  try {
+    const calFile = path.join(getResourcesPath(), 'eye-calibration.json');
+    mgr.setOnlineCalibrationFile(calFile);
+  } catch {}
+
+  _startOverlayAutoTrain();
+  _registerOverlayHotkeys();
+  trayManager?.setEyeOverlayActive(true);
+  trayManager?.notify('Eye Overlay', 'Overlay active. Move the cursor to a new spot you are looking at and hold still. Ctrl+Shift+G = force-confirm sample, Ctrl+Shift+U = undo last sample.');
+  return { success: true };
+}
+
+async function stopEyeOverlayMode() {
+  _stopOverlayAutoTrain();
+  _unregisterOverlayHotkeys();
+  closeEyeOverlayWindow();
+  if (server?.eyeTrackingManager) {
+    server.eyeTrackingManager.overlayMode = false;
+    if (server.eyeTrackingManager.state === 'running') {
+      await server.eyeTrackingManager.stop().catch(() => {});
+    }
+  }
+  trayManager?.setEyeOverlayActive(false);
+  return { success: true };
+}
+
+// ── Calibration IPC handlers ──────────────────────────────────────────────────
+
+ipcMain.on('calibration-point-ready', (_event, { index, screenX, screenY, opts }) => {
+  if (server?.eyeTrackingManager) {
+    server.eyeTrackingManager.sendCalibrationPoint(index, screenX, screenY, opts || {});
+  }
+});
+
+ipcMain.on('calibration-finish', () => {
+  if (server?.eyeTrackingManager) {
+    server.eyeTrackingManager.finishCalibration();
+  }
+});
+
+ipcMain.on('calibration-close', () => {
+  if (calibrationWindow) {
+    calibrationWindow.close();
+  }
+});
+
+// Start calibration with the user-chosen camera and move window to chosen display
+ipcMain.on('calibration-start', async (_event, { cameraIndex, displayId, optimize, cameraOptions }) => {
+  const { screen } = require('electron');
+  const displays = screen.getAllDisplays();
+  const chosen = displays.find(d => d.id === displayId) || screen.getPrimaryDisplay();
+
+  // Move calibration window to the chosen display and go fullscreen there
+  if (calibrationWindow && !calibrationWindow.isDestroyed()) {
+    calibrationWindow.setBounds(chosen.bounds);
+    calibrationWindow.setFullScreen(true);
+  }
+
+  // Start the Python calibration process with the chosen camera
+  if (server?.eyeTrackingManager) {
+    server.eyeTrackingManager.startCalibration(cameraIndex, {
+      optimize: !!optimize,
+      ...(cameraOptions || {}),
+    });
+  }
+});
+
+ipcMain.handle('get-prior-calibration', async () => {
+  if (server?.eyeTrackingManager) {
+    return server.eyeTrackingManager.getPriorCalibrationSummary();
+  }
+  return { exists: false };
+});
+
+ipcMain.handle('get-cameras', async () => {
+  if (server?.eyeTrackingManager) {
+    return await server.eyeTrackingManager.listCameras();
+  }
+  return [];
+});
+
+ipcMain.handle('get-camera-snapshot', async (_event, { cameraIndex }) => {
+  if (server?.eyeTrackingManager) {
+    return await server.eyeTrackingManager.getCameraSnapshot(cameraIndex);
+  }
+  return { error: 'No eye tracking manager' };
+});
+
+// Stop eye tracking (used from validation screen)
+ipcMain.handle('stop-tracking', async () => {
+  if (server?.eyeTrackingManager) {
+    server.eyeTrackingManager.validationMode = false;
+    server.eyeTrackingManager.onGazeData = null;
+    return await server.eyeTrackingManager.stop();
+  }
+  return { success: false, error: 'No eye tracking manager' };
+});
+
+// Start tracking for validation (uses existing calibration, no cursor movement)
+ipcMain.handle('start-validation-tracking', async (_event, { cameraIndex, cameraOptions }) => {
+  if (server?.eyeTrackingManager) {
+    server.eyeTrackingManager.validationMode = true;
+    // Pipe gaze data to calibration window
+    server.eyeTrackingManager.onGazeData = (data) => {
+      if (calibrationWindow && !calibrationWindow.isDestroyed()) {
+        calibrationWindow.webContents.send('gaze-data', data);
+      }
+    };
+    return await server.eyeTrackingManager.start({
+      cameraIndex,
+      duration: 0,
+      ...(cameraOptions || {}),
+    });
+  }
+  return { success: false, error: 'No eye tracking manager' };
+});
+
+// Get live gaze data for validation display
+ipcMain.handle('get-tracking-status', () => {
+  if (server?.eyeTrackingManager) {
+    return server.eyeTrackingManager.getStatus();
+  }
+  return { state: 'idle' };
+});
+
+ipcMain.handle('get-displays', () => {
+  const { screen } = require('electron');
+  const displays = screen.getAllDisplays();
+  const primary = screen.getPrimaryDisplay();
+  return displays.map(d => ({
+    id: d.id,
+    label: `${d.size.width}x${d.size.height}` + (d.id === primary.id ? ' (Primary)' : ''),
+    width: d.size.width,
+    height: d.size.height,
+    isPrimary: d.id === primary.id,
+  }));
+});
+
+// ── Eye Overlay (Test Mode) IPC ─────────────────────────────────────────────
+
+ipcMain.handle('start-eye-overlay', async (_event, opts) => {
+  return await startEyeOverlayMode(opts || {});
+});
+
+ipcMain.handle('stop-eye-overlay', async () => {
+  return await stopEyeOverlayMode();
+});
+
+// ─── Perception Bus + Predictor Wiring ─────────────────────────────────────────
+//
+// Called once after startExpressServer() so all modules are already loaded.
+// Connects the perception bus to eye tracking, audio, and screen sources;
+// wires the predictor to ingest the recent action log; and sets up the
+// wakeword → goal creation pipeline.
+
+function _initPerceptionAndPrediction() {
+  try {
+    const { getPerceptionBus } = require('./server/automation/perception-bus');
+    const { getPredictor } = require('./server/automation/predictor');
+    const { getAudioStreamManager } = require('./server/audio-stream-manager');
+    const wsClient = require('./server/automation/workspace-client');
+
+    const bus = getPerceptionBus();
+    const predictor = getPredictor();
+    const audioMgr = getAudioStreamManager();
+
+    // Screen capture function (uses existing PowerShell tool, best-effort)
+    const captureScreen = async () => {
+      try {
+        const screen = require('./server/automation/tools/screen');
+        const buf = await screen.run({ returnInline: true });
+        return buf && buf.base64
+          ? { base64: buf.base64, width: buf.width || 0, height: buf.height || 0 }
+          : null;
+      } catch { return null; }
+    };
+
+    bus.configure({
+      wsClient,
+      audioManager: audioMgr,
+      eyeTrackingManager: server?.eyeTrackingManager || null,
+      captureScreen,
+      screenIntervalMs: 8000,   // passive screenshot every 8s
+      actionIntervalMs: 15000,  // action log tail every 15s
+    });
+    bus.start();
+    console.log('[Main] Perception bus started');
+
+    // Forward eye-tracker gaze events to perception bus
+    if (server?.eyeTrackingManager) {
+      const origOnGazeData = server.eyeTrackingManager.onGazeData;
+      server.eyeTrackingManager.onGazeData = (data) => {
+        if (typeof data.x === 'number') bus.pushGaze(data);
+        if (origOnGazeData) origOnGazeData(data);
+      };
+    }
+
+    // Ingest recent action log into predictor (best-effort, non-blocking)
+    wsClient.getRecentActions?.(50).then((actions) => {
+      if (Array.isArray(actions)) predictor.ingestActionLog(actions);
+    }).catch(() => {});
+
+    // ── Wakeword → Goal creation pipeline ──────────────────────────────────
+    // When the user says "hey simple, <instruction>", we:
+    //   1. Extract the instruction after the wakeword (done by voice_pipeline.py)
+    //   2. Create a goal on the workspace API
+    //   3. Start the agent loop to pursue it
+    //   4. Speak a confirmation back to the user
+    audioMgr.on('wakeword', async (msg) => {
+      const instruction = (msg.remainder || '').trim();
+      if (!instruction) {
+        // Just the wakeword with no instruction — speak a prompt
+        audioMgr.speak('Yes? Say a command after "hey simple".', { rate: 175 }).catch(() => {});
+        return;
+      }
+      console.log('[Main] Wakeword detected, instruction:', instruction.slice(0, 100));
+      trayManager?.notify('Hey Simple', `"${instruction.slice(0, 80)}"`);
+      try {
+        // Create a goal for this instruction
+        const port = server?.serverPort || 3001;
+        const goalRes = await fetch(`http://127.0.0.1:${port}/api/data/csimple/workspace/goal/${_slugifyInstruction(instruction)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: instruction.slice(0, 80),
+            content: instruction,
+            status: 'active',
+            priority: 80,
+            successCriteria: 'The spoken instruction has been completed.',
+            createdBy: 'voice',
+          }),
+        });
+        if (goalRes.ok) {
+          // Start the agent loop on the new goal
+          await fetch(`http://127.0.0.1:${port}/api/agent/start`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ _firedBy: 'wakeword' }),
+          });
+          startAgentStatusPolling();
+          audioMgr.speak(`On it. ${instruction.slice(0, 60)}.`, { rate: 175 }).catch(() => {});
+        }
+      } catch (e) {
+        console.warn('[Main] Wakeword goal creation failed:', e.message);
+        audioMgr.speak('Sorry, I could not start that task.', { rate: 175 }).catch(() => {});
+      }
+    });
+
+    // Also forward voice.wakeword SSE events for the live panel
+    audioMgr.on('transcript', (msg) => {
+      try {
+        require('./server/automation/events').publish('voice.transcript', {
+          text: (msg.text || '').slice(0, 200),
+          wakeword: msg.wakeword_detected,
+          confidence: msg.confidence,
+        });
+      } catch {}
+    });
+
+    console.log('[Main] Wakeword pipeline active');
+
+    // ── Ctrl+Win+G: Create goal from clipboard ──────────────────────────────
+    // The most intuitive gesture: copy anything, press the hotkey, it becomes a goal.
+    try {
+      globalShortcut.register('CommandOrControl+Super+G', async () => {
+        const port = server?.serverPort || 3001;
+        try {
+          const r = await fetch(`http://127.0.0.1:${port}/api/agent/goal-from-clipboard`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+          });
+          const json = await r.json();
+          if (json.ok) {
+            trayManager?.notify('Goal Created ⌨ Ctrl+Win+G', `"${(json.text || '').slice(0, 80)}"\nSay "Hey Simple" or click Start Agent to run it.`);
+          } else {
+            trayManager?.notify('Ctrl+Win+G', json.error || 'Copy some text first, then try again.');
+          }
+        } catch (e) {
+          trayManager?.notify('Ctrl+Win+G', `Failed: ${e.message}`);
+        }
+      });
+      console.log('[Main] Ctrl+Win+G hotkey registered (clipboard-to-goal)');
+    } catch (e) {
+      console.warn('[Main] Could not register Ctrl+Win+G:', e.message);
+    }
+  } catch (e) {
+    console.warn('[Main] Perception/prediction init failed:', e.message);
+  }
+}
+
+function _slugifyInstruction(text) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60) || 'voice-goal';
+}
+
+// ─── App Lifecycle ──────────────────────────────────────────────────────────────
+
+app.on('ready', async () => {
+  console.log('[Main] Simple Addon starting...');
+
+  // Don't show in dock/taskbar (tray-only app)
+  if (process.platform === 'darwin') {
+    app.dock?.hide();
+  }
+
+  // 0. First-run: prompt for resources folder location
+  const firstRunConfig = path.join(CONFIG_DIR, '.resources-configured');
+  if (!fs.existsSync(firstRunConfig)) {
+    const chosenPath = await promptResourcesFolder();
+    saveResourcesPath(chosenPath);
+    RESOURCES_PATH = chosenPath;
+    global.SIMPLE_RESOURCES_PATH = chosenPath;
+    fs.writeFileSync(firstRunConfig, new Date().toISOString(), 'utf-8');
+    console.log(`[Main] First-run resources path: ${chosenPath}`);
+  }
+
+  // 1. Ensure directories exist
+  ensureDirectories();
+
+  // 2. Create system tray
+  trayManager = new TrayManager();
+  trayManager.create({
+    onOpenWebApp: () => shell.openExternal(WEBAPP_URL),
+    onOpenResources: () => shell.openPath(getResourcesPath()),
+    onChangeResourcesFolder: () => changeResourcesFolder(),
+    onRestartServer: () => restartExpressServer(),
+    onSetupPython: () => {
+      if (pythonManager) {
+        pythonManager.setup(REQUIREMENTS_PATH);
+      }
+    },
+    onQuit: () => {
+      app.quit();
+    },
+    onCheckForUpdates: () => updateManager?.checkForUpdates(),
+    onInstallUpdate: () => updateManager?.quitAndInstall(),
+    onToggleStartAtLogin: (enabled) => {
+      app.setLoginItemSettings({
+        openAtLogin: enabled,
+        path: app.getPath('exe'),
+      });
+      console.log(`[Main] Start at login: ${enabled}`);
+    },
+    onCalibrateEyeTracking: () => openCalibrationWindow(),
+    onToggleEyeTracking: async (enabled) => {
+      if (!server?.eyeTrackingManager) {
+        trayManager?.notify('Eye Tracking', 'Server is not ready yet.');
+        return;
+      }
+      if (enabled) {
+        const result = await server.eyeTrackingManager.start().catch((e) => ({ success: false, error: e.message }));
+        if (!result?.success) {
+          trayManager?.notify('Eye Tracking', result?.error || 'Failed to start tracking.');
+        }
+      } else {
+        await server.eyeTrackingManager.stop().catch(() => {});
+      }
+    },
+    onToggleEyeOverlay: async (enabled) => {
+      if (!server?.eyeTrackingManager) {
+        trayManager?.notify('Eye Overlay', 'Server is not ready yet.');
+        return;
+      }
+      if (enabled) {
+        const result = await startEyeOverlayMode().catch((e) => ({ success: false, error: e.message }));
+        if (!result?.success) {
+          trayManager?.notify('Eye Overlay', result?.error || 'Failed to start overlay.');
+        }
+      } else {
+        await stopEyeOverlayMode();
+        trayManager?.notify('Eye Overlay', 'Overlay stopped.');
+      }
+    },
+    onEmergencyStopEyeTracking: async () => {
+      if (server?.eyeTrackingManager) {
+        await server.eyeTrackingManager.stop().catch(() => {});
+        trayManager?.notify('Eye Tracking', 'Emergency stop — tracking halted.');
+      }
+    },
+    onShowEyeTrackingHelp: () => {
+      trayManager?.notify(
+        'Eye Tracking Quick Start',
+        '1) Calibrate (tray menu or say "calibrate eye tracking").\n2) Toggle "Enable Eye Tracking" in the tray, or say "track my eyes".\n3) EMERGENCY STOP: Escape or Ctrl+Alt+E (works globally).'
+      );
+    },
+
+    // ── Windows Automation Agent ──
+    onStartAgent: async () => {
+      try {
+        const port = server?.serverPort || 3001;
+        const r = await fetch(`http://127.0.0.1:${port}/api/agent/start`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+        });
+        const json = await r.json();
+        if (json.running) {
+          trayManager?.notify('Agent Started', `Goal: ${json.currentGoal}`);
+          startAgentStatusPolling();
+        } else {
+          trayManager?.notify('Agent', json.reason || 'No active goal to work on.');
+        }
+      } catch (e) {
+        trayManager?.notify('Agent', `Failed to start: ${e.message}`);
+      }
+    },
+    onStopAgent: async () => {
+      try {
+        const port = server?.serverPort || 3001;
+        await fetch(`http://127.0.0.1:${port}/api/agent/stop`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+        });
+        trayManager?.setAgentStatus({ running: false, step: 0, currentGoal: null });
+        trayManager?.notify('Agent Stopped', 'Manual stop.');
+      } catch (e) {
+        trayManager?.notify('Agent', `Stop failed: ${e.message}`);
+      }
+    },
+    onOpenPermissionCenter: () => {
+      try {
+        if (permissionWindow && !permissionWindow.isDestroyed()) {
+          permissionWindow.focus();
+          return;
+        }
+        permissionWindow = new BrowserWindow({
+          width: 880, height: 760, title: 'Simple Permission Center',
+          backgroundColor: '#0d1117',
+          webPreferences: { contextIsolation: true, nodeIntegration: false },
+        });
+        const port = server?.serverPort || 3001;
+        const url = `file://${path.join(__dirname, 'renderer', 'permissions.html').replace(/\\/g, '/')}?port=${port}`;
+        permissionWindow.loadURL(url);
+        permissionWindow.on('closed', () => { permissionWindow = null; });
+      } catch (e) {
+        trayManager?.notify('Permission Center', e.message);
+      }
+    },
+    onToggleDryRun: async (enabled) => {
+      try {
+        const port = server?.serverPort || 3001;
+        await fetch(`http://127.0.0.1:${port}/api/automation/permissions`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dryRunMode: !!enabled }),
+        });
+        trayManager?.setAgentStatus({ dryRun: !!enabled });
+      } catch (e) {
+        trayManager?.notify('Dry-Run', e.message);
+      }
+    },
+    onKillSwitch: async () => {
+      try {
+        const port = server?.serverPort || 3001;
+        await fetch(`http://127.0.0.1:${port}/api/automation/permissions/kill`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+        });
+        trayManager?.setAgentStatus({ running: false, killSwitch: true });
+        trayManager?.notify('Kill Switch', 'All tool execution blocked. Re-enable in Permission Center.');
+      } catch (e) {
+        trayManager?.notify('Kill Switch', e.message);
+      }
+    },
+    onStartWakeword: async () => {
+      try {
+        const port = server?.serverPort || 3001;
+        await fetch(`http://127.0.0.1:${port}/api/voice/wakeword/start`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+        });
+        trayManager?.setAgentStatus({ wakewordActive: true });
+        trayManager?.notify('Hey Simple', 'Wakeword active — say "Hey Simple, <instruction>"');
+      } catch (e) {
+        trayManager?.notify('Wakeword', `Failed: ${e.message}`);
+      }
+    },
+    onStopWakeword: async () => {
+      try {
+        const port = server?.serverPort || 3001;
+        await fetch(`http://127.0.0.1:${port}/api/voice/wakeword/stop`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+        });
+        trayManager?.setAgentStatus({ wakewordActive: false });
+        trayManager?.notify('Hey Simple', 'Wakeword stopped.');
+      } catch (e) {
+        trayManager?.notify('Wakeword', `Failed: ${e.message}`);
+      }
+    },
+    onGoalFromClipboard: async () => {
+      try {
+        const port = server?.serverPort || 3001;
+        const r = await fetch(`http://127.0.0.1:${port}/api/agent/goal-from-clipboard`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+        });
+        const json = await r.json();
+        if (json.ok) {
+          trayManager?.notify('Goal Created', `"${json.text?.slice(0, 80)}"\nAgent will pick it up on next Start.`);
+          startAgentStatusPolling();
+        } else {
+          trayManager?.notify('Goal from Clipboard', json.error || 'Failed');
+        }
+      } catch (e) {
+        trayManager?.notify('Goal from Clipboard', e.message);
+      }
+    },
+    onStartRecording: async () => {
+      try {
+        // Use a simple default name; the user can rename when compiling.
+        const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        const name = `recording-${ts}`;
+        const recorder = require('./server/automation/recorder');
+        const info = await recorder.start({ name });
+        trayManager?.setRecorderStatus({ active: true, name });
+        trayManager?.notify('Recording started', `Capturing input until you stop.\nSession: ${info.sessionId}`);
+      } catch (e) {
+        trayManager?.notify('Recorder', `Start failed: ${e.message}`);
+      }
+    },
+    onStopRecording: async () => {
+      try {
+        const recorder = require('./server/automation/recorder');
+        const result = await recorder.stop();
+        trayManager?.setRecorderStatus({ active: false, name: null });
+        trayManager?.notify(
+          'Recording stopped',
+          `${result.eventCount} events in ${(result.durationMs / 1000).toFixed(1)}s\nSaved to ${path.basename(result.path)}`
+        );
+      } catch (e) {
+        trayManager?.notify('Recorder', `Stop failed: ${e.message}`);
+      }
+    },
+    onOpenRecordedSkills: () => {
+      try {
+        if (recordingsWindow && !recordingsWindow.isDestroyed()) {
+          recordingsWindow.focus();
+          return;
+        }
+        recordingsWindow = new BrowserWindow({
+          width: 980, height: 720, title: 'Recorded Demonstrations & Skills',
+          backgroundColor: '#0d1117',
+          webPreferences: { contextIsolation: true, nodeIntegration: false },
+        });
+        const port = server?.serverPort || 3001;
+        const url = `file://${path.join(__dirname, 'renderer', 'recordings.html').replace(/\\/g, '/')}?port=${port}`;
+        recordingsWindow.loadURL(url);
+        recordingsWindow.on('closed', () => { recordingsWindow = null; });
+      } catch (e) {
+        trayManager?.notify('Recorded Skills', e.message);
+      }
+    },
+
+    // ── Workspace Profiles ──
+    onSaveWorkspaceProfile: async () => {
+      try {
+        const name = await openWorkspaceNamePrompt();
+        if (!name) return; // cancelled
+        const workspaceProfiles = require('./server/automation/workspace-profiles');
+        const profile = await workspaceProfiles.save(name);
+        await refreshWorkspaceProfilesTray();
+        trayManager?.notify('Workspace Saved', `"${profile.name}" — ${profile.windows.length} window(s) captured.`);
+      } catch (e) {
+        trayManager?.notify('Workspace', `Save failed: ${e.message}`);
+      }
+    },
+    onRestoreWorkspaceProfile: async (slug) => {
+      try {
+        const workspaceProfiles = require('./server/automation/workspace-profiles');
+        const result = await workspaceProfiles.restore(slug);
+        const parts = [];
+        if (result.restoredCount) parts.push(`${result.restoredCount} repositioned`);
+        if (result.alreadyInPlaceCount) parts.push(`${result.alreadyInPlaceCount} already in place`);
+        if (result.launchedCount) parts.push(`${result.launchedCount} relaunched`);
+        if (result.skippedCount) parts.push(`${result.skippedCount} skipped`);
+        if (result.inaccurateCount) parts.push(`${result.inaccurateCount} could not be placed accurately`);
+        if (result.errorCount) parts.push(`${result.errorCount} failed`);
+        trayManager?.notify(`Workspace "${result.name}" Restored`, parts.join(', ') || 'Nothing to restore.');
+      } catch (e) {
+        trayManager?.notify('Workspace', `Restore failed: ${e.message}`);
+      }
+    },
+    onUpdateWorkspaceProfile: async (slug) => {
+      try {
+        const workspaceProfiles = require('./server/automation/workspace-profiles');
+        const profile = await workspaceProfiles.update(slug);
+        await refreshWorkspaceProfilesTray();
+        trayManager?.notify('Workspace Updated', `"${profile.name}" — re-captured with ${profile.windows.length} window(s).`);
+      } catch (e) {
+        trayManager?.notify('Workspace', `Update failed: ${e.message}`);
+      }
+    },
+    onDeleteWorkspaceProfile: async (slug) => {
+      try {
+        const workspaceProfiles = require('./server/automation/workspace-profiles');
+        await workspaceProfiles.remove(slug);
+        await refreshWorkspaceProfilesTray();
+        trayManager?.notify('Workspace Deleted', slug);
+      } catch (e) {
+        trayManager?.notify('Workspace', `Delete failed: ${e.message}`);
+      }
+    },
+  });
+
+  // Poll agent status to keep tray in sync.
+  let _agentStatusTimer = null;
+  startAgentStatusPolling = function () {
+    if (_agentStatusTimer) return;
+    _agentStatusTimer = setInterval(async () => {
+      try {
+        const port = server?.serverPort || 3001;
+        const r = await fetch(`http://127.0.0.1:${port}/api/agent/status`);
+        const s = await r.json();
+        trayManager?.setAgentStatus({
+          running: !!s.running,
+          currentGoal: s.currentGoal,
+          step: s.step || 0,
+          dryRun: !!s.dryRun,
+        });
+        if (!s.running) {
+          clearInterval(_agentStatusTimer);
+          _agentStatusTimer = null;
+        }
+      } catch {}
+    }, 2000);
+  };
+
+  // Enable start-at-login by default on first run (use a marker file since
+  // wasOpenedAtLogin is macOS-only and unreliable on Windows)
+  const firstRunMarker = path.join(app.getPath('userData'), '.start-at-login-set');
+  if (!fs.existsSync(firstRunMarker)) {
+    app.setLoginItemSettings({
+      openAtLogin: true,
+      path: app.getPath('exe'),
+    });
+    fs.writeFileSync(firstRunMarker, new Date().toISOString(), 'utf-8');
+    console.log('[Main] Enabled start-at-login (first run)');
+  }
+
+  // 2b. Initialize auto-updater
+  updateManager = new UpdateManager();
+  updateManager.init(trayManager);
+  updateManager.startPeriodicChecks();
+
+  // Bridge the updater into the HTTP surface so the web frontend's
+  // "Update" button can trigger check/download/install with a single click
+  // instead of sending the user to the GitHub releases page.
+  try {
+    require('./server/update-bridge').configure({ updateManager });
+  } catch (e) {
+    console.warn('[Main] Failed to wire update-bridge:', e.message);
+  }
+
+
+  // 3. Start Express server
+  try {
+    await startExpressServer();
+  } catch (err) {
+    console.error('[Main] Server startup failed:', err);
+  }
+
+  // 3b. Wire perception bus + predictor now that server is up
+  _initPerceptionAndPrediction();
+
+  // 4. Setup Python (in background)
+  setupPython();
+});
+
+// Prevent window-all-closed from quitting (tray app stays running)
+app.on('window-all-closed', (e) => {
+  // Do nothing — keep running in tray
+});
+
+app.on('before-quit', async (e) => {
+  console.log('[Main] Shutting down...');
+
+  // Unregister all global shortcuts
+  globalShortcut.unregisterAll();
+
+  // Stop update checks
+  if (updateManager) {
+    updateManager.stopPeriodicChecks();
+  }
+
+  // Stop the built-in action bridge
+  if (actionBridge) {
+    actionBridge.stop();
+  }
+
+  // Stop any running Python processes
+  if (pythonManager) {
+    pythonManager.cancelSetup();
+  }
+
+  // Shutdown audio stream manager (voice pipeline subprocess)
+  try {
+    const { getAudioStreamManager } = require('./server/audio-stream-manager');
+    getAudioStreamManager().shutdown();
+  } catch {}
+
+  // Stop perception bus
+  try {
+    const { getPerceptionBus } = require('./server/automation/perception-bus');
+    getPerceptionBus().stop();
+  } catch {}
+
+  // Stop eye tracking if running
+  if (server?.eyeTrackingManager) {
+    await server.eyeTrackingManager.stop();
+  }
+
+  // Tear down overlay window + auto-train loop
+  _stopOverlayAutoTrain();
+  closeEyeOverlayWindow();
+
+  // Stop the Express server
+  if (server) {
+    server.stopGeneration();
+    await server.stopServer();
+  }
+
+  // Close any active Playwright browser session.
+  try {
+    const browser = require('./server/automation/tools/browser');
+    await browser._closeSession();
+  } catch (e) {
+    // Module may not have been loaded if browser tools were never used. Ignore.
+  }
+
+  // Stop any active demonstration recording.
+  try {
+    const recorder = require('./server/automation/recorder');
+    if (recorder.status().active) {
+      await recorder.stop();
+      console.log('[Main] Stopped active recording before exit');
+    }
+  } catch {}
+
+  // Stop trigger watchers (cron polling, file watchers, hotkey unregistration).
+  try {
+    const triggers = require('./server/automation/triggers');
+    triggers.stopAll();
+  } catch {}
+
+  // Destroy tray so the process can fully exit (no lingering tray icon)
+  trayManager?.destroy();
+  trayManager = null;
+
+  // Release the single-instance lock so the installer/updater can proceed
+  app.releaseSingleInstanceLock();
+});
+
+// Handle second instance launch — just show a notification
+app.on('second-instance', () => {
+  trayManager?.notify('Simple Addon', 'Already running in system tray');
+});
+
+// ─── Error Handling ─────────────────────────────────────────────────────────────
+
+process.on('uncaughtException', (err) => {
+  console.error('[Main] Uncaught exception:', err);
+  trayManager?.notify('Simple Error', err.message);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[Main] Unhandled rejection:', reason);
+});

@@ -2,7 +2,7 @@
  * Global fetch interceptor — detects expired/invalid JWTs on any API response
  * and clears the persisted user so the app reverts to a logged-out state.
  *
- * Many call sites (UsageMeter, csimpleApi, addon polling) use raw `fetch` and
+ * Many call sites (UsageMeter, simpleAddonApi, addon polling) use raw `fetch` and
  * therefore bypass the axios `handleTokenExpiration` helper. This patch makes
  * the behavior uniform for both.
  */

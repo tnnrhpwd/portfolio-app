@@ -1,6 +1,6 @@
 /**
- * Pure, DB-free ranking + trust-gate helpers for the CSimple skill
- * marketplace (docs/new/csimple-agent-prompt.md §4.3 / §4.6).
+ * Pure, DB-free ranking + trust-gate helpers for the Simple skill
+ * marketplace (docs/new/simple-agent-prompt.md §4.3 / §4.6).
  *
  * Kept separate from marketplaceController.js so the ranking/trust logic
  * can be unit tested without a DynamoDB connection, and so the weights

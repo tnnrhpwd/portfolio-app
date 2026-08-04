@@ -23,7 +23,7 @@ const MAX_SINGLE_FILE = 32 * 1024;
 const CTX_PRIORITY_PATTERNS = [/^user/i, /profile/i, /preference/i, /identity/i, /name/i];
 
 /**
- * Load user's CSimple context (memory, personality, behavior) directly from DynamoDB.
+ * Load user's Simple context (memory, personality, behavior) directly from DynamoDB.
  * This is the same logic as the /csimple/context endpoint but called internally.
  */
 async function loadUserContextFromDB(dynamodb, userId, behaviorFile = 'default.txt', opts = {}) {
@@ -351,7 +351,7 @@ async function validateApiUsage(userId, provider, model, userInput) {
 }
 
 /**
- * Fetch a user's GitHub PAT from their CSimple settings in DynamoDB.
+ * Fetch a user's GitHub PAT from their Simple settings in DynamoDB.
  * Returns null if not found.
  */
 async function getUserGithubToken(dynamodb, userId) {
@@ -441,7 +441,7 @@ async function callLLMApi(provider, model, userInput, githubToken = null, goalsS
     });
     
     if (!githubToken) {
-        const error = new Error('GitHub token not configured. Add your GitHub PAT in CSimple → Settings → Advanced → GitHub Personal Access Token.');
+        const error = new Error('GitHub token not configured. Add your GitHub PAT in Simple → Settings → Advanced → GitHub Personal Access Token.');
         error.statusCode = 401;
         throw error;
     }
@@ -695,12 +695,12 @@ async function processCompressionRequest(req, dynamodb) {
     // Validate API usage
     await validateApiUsage(req.user.id, provider, model, userInput);
     
-    // For GitHub provider, look up the user's GitHub PAT from their CSimple settings
+    // For GitHub provider, look up the user's GitHub PAT from their Simple settings
     let githubToken = null;
     if (provider === 'github') {
         githubToken = await getUserGithubToken(dynamodb, req.user.id);
         if (!githubToken) {
-            const error = new Error('GitHub token not configured. Add your GitHub PAT in CSimple → Settings → Advanced.');
+            const error = new Error('GitHub token not configured. Add your GitHub PAT in Simple → Settings → Advanced.');
             error.statusCode = 401;
             throw error;
         }
@@ -828,7 +828,7 @@ async function streamCompressionRequest(req, res, dynamodb) {
     if (provider === 'github') {
         githubToken = await getUserGithubToken(dynamodb, req.user.id);
         if (!githubToken) {
-            const error = new Error('GitHub token not configured. Add your GitHub PAT in CSimple → Settings → Advanced.');
+            const error = new Error('GitHub token not configured. Add your GitHub PAT in Simple → Settings → Advanced.');
             error.statusCode = 401;
             throw error;
         }

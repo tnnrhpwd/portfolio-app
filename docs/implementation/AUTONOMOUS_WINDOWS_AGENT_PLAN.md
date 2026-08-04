@@ -72,15 +72,15 @@ Build the best Windows automation software on the planet: a multimodal, LLM-driv
 **Goal**: mic input → Whisper STT → intent → goal creation → TTS response.
 
 Files:
-- `csimple-addon/scripts/voice_pipeline.py` — Python subprocess: record audio, run Whisper, detect wakeword, return transcript JSON
-- `csimple-addon/server/audio-stream-manager.js` — Node.js manager: spawn/restart voice_pipeline.py, emit events (transcript-ready, wakeword, audio-level)
-- `csimple-addon/server/automation/tools/audio.js` — agent tool: `audio_transcribe` (last N seconds), `audio_listen` (blocking, with timeout)
+- `simple-addon/scripts/voice_pipeline.py` — Python subprocess: record audio, run Whisper, detect wakeword, return transcript JSON
+- `simple-addon/server/audio-stream-manager.js` — Node.js manager: spawn/restart voice_pipeline.py, emit events (transcript-ready, wakeword, audio-level)
+- `simple-addon/server/automation/tools/audio.js` — agent tool: `audio_transcribe` (last N seconds), `audio_listen` (blocking, with timeout)
 - Updated `requirements.txt`: add `openai-whisper`, `sounddevice`, `pyttsx3`
 - Endpoints: `POST /api/voice/listen`, `POST /api/voice/speak`, `GET /api/voice/status`
 
 Voice assistant flow:
 1. Background: continuous audio level monitoring (VAD — voice activity detection)
-2. On wakeword "hey csimple" OR button press → start recording
+2. On wakeword "hey simple" OR button press → start recording
 3. Silence detection (>800ms) → send to Whisper
 4. Intent extraction → create/update goal OR answer question directly
 5. TTS response via pyttsx3
@@ -89,7 +89,7 @@ Voice assistant flow:
 **Goal**: "mine stone in minecraft until I press escape" → structured skill steps.
 
 Files:
-- `csimple-addon/server/automation/nl-compiler.js` — LLM-based compiler
+- `simple-addon/server/automation/nl-compiler.js` — LLM-based compiler
   - Parses English instruction into typed step array
   - Supported step types: `key_tap`, `key_hold`, `type_text`, `wait_ms`, `click_coords`, `loop_until_key`, `loop_N_times`, `condition_check`, `skill_run`, `screenshot_ocr_check`
   - Validates output; rejects unsafe patterns
@@ -101,7 +101,7 @@ Files:
 **Goal**: unified event stream from all input sources, fed into agent context.
 
 Files:
-- `csimple-addon/server/automation/perception-bus.js` — EventEmitter:
+- `simple-addon/server/automation/perception-bus.js` — EventEmitter:
   - Sources: screen (configurable interval), audio (transcript stream), eye gaze (from eye-tracking-manager IPC), UIA (foreground window changes), keyboard patterns (from action log tail)
   - Emits `frame` events with unified snapshot `{ts, screen, audio, gaze, foregroundWindow, recentActions}`
   - Rolling history: last 20 frames
@@ -111,13 +111,13 @@ Files:
 - Endpoint: `GET /api/perception/status`, `GET /api/perception/frame`
 
 Webcam capture tool (extends eye tracker's Python process):
-- `csimple-addon/server/automation/tools/webcam.js` — `webcam_capture`: capture a frame from the webcam (not eye tracker), return base64 JPEG, optionally run face/scene description via multimodal LLM
+- `simple-addon/server/automation/tools/webcam.js` — `webcam_capture`: capture a frame from the webcam (not eye tracker), return base64 JPEG, optionally run face/scene description via multimodal LLM
 
 ### Phase 9 — Behavioral Predictor
 **Goal**: observe action patterns → predict + preemptively execute safe next steps.
 
 Files:
-- `csimple-addon/server/automation/predictor.js`:
+- `simple-addon/server/automation/predictor.js`:
   - Reads last 50 actions from workspace action log
   - Builds n-gram model over (tool, args_fingerprint) sequences
   - Predicts next action with probability
@@ -132,8 +132,8 @@ Files:
 Files:
 - `ShortcutsManager.jsx`: add NL macro textarea with "Compile" button
 - `AgentLivePanel.jsx`: add perception bus status, voice waveform, predictions panel
-- `CSimpleChat.jsx`: voice input button (hold-to-talk or wakeword toggle)
-- `csimpleApi.js`: new helpers for voice, NL compiler, perception, predictor
+- `SimpleChat.jsx`: voice input button (hold-to-talk or wakeword toggle)
+- `simpleAddonApi.js`: new helpers for voice, NL compiler, perception, predictor
 
 ---
 

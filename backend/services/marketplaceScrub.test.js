@@ -1,8 +1,8 @@
 /**
  * Offline unit tests for the backend's server-side scrub re-enforcement
- * (docs/new/csimple-agent-prompt.md §4.5/§6.1). No DynamoDB required.
+ * (docs/new/simple-agent-prompt.md §4.5/§6.1). No DynamoDB required.
  *
- * Mirrors the coverage of csimple-addon/server/automation/recorder/
+ * Mirrors the coverage of simple-addon/server/automation/recorder/
  * scrub.test.js since this module is a deliberate port of that logic — see
  * marketplaceScrub.js's header comment for why it's duplicated rather than
  * required across the repo/deploy boundary.

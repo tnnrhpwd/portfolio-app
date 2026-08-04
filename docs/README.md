@@ -19,11 +19,11 @@ docs/
 │   ├── IMPLEMENTATION_STATUS.md      # Feature implementation status
 │   ├── LLM_IMPLEMENTATION_SUMMARY.md # LLM provider integration
 │   ├── S3_INTEGRATION_SUMMARY.md     # S3 file upload integration
-│   ├── AUTONOMOUS_WINDOWS_AGENT_PLAN.md # CSimple agent architecture plan
+│   ├── AUTONOMOUS_WINDOWS_AGENT_PLAN.md # Simple agent architecture plan
 │   ├── AUTOMATION_ROADMAP.md         # Automation feature roadmap
 │   ├── AUTOMATION_SECURITY.md        # Automation security model
-│   ├── CSIMPLE_MARKETPLACE_PLAN.md   # Marketplace & skill generalization plan
-│   └── csimple-agent-prompt.md       # Agent system prompt reference
+│   ├── SIMPLE_MARKETPLACE_PLAN.md   # Marketplace & skill generalization plan
+│   └── simple-agent-prompt.md       # Agent system prompt reference
 └── debugging/                         # Troubleshooting guides
     └── debug-ocr.md                  # OCR debugging guide
 ```
@@ -42,10 +42,10 @@ docs/
 ### Features
 - [LLM Implementation](./implementation/LLM_IMPLEMENTATION_SUMMARY.md) - OpenAI/XAI integration
 - [S3 Integration](./implementation/S3_INTEGRATION_SUMMARY.md) - File upload system
-- [Autonomous Windows Agent Plan](./implementation/AUTONOMOUS_WINDOWS_AGENT_PLAN.md) - CSimple's perceive→act agent architecture
+- [Autonomous Windows Agent Plan](./implementation/AUTONOMOUS_WINDOWS_AGENT_PLAN.md) - Simple's perceive→act agent architecture
 - [Automation Roadmap](./implementation/AUTOMATION_ROADMAP.md) - Automation feature roadmap
 - [Automation Security](./implementation/AUTOMATION_SECURITY.md) - Automation security model
-- [CSimple Marketplace Plan](./implementation/CSIMPLE_MARKETPLACE_PLAN.md) - Marketplace & skill generalization plan (includes cost-based Free/Pro gating consistent with the Action Plan)
+- [Simple Marketplace Plan](./implementation/SIMPLE_MARKETPLACE_PLAN.md) - Marketplace & skill generalization plan (includes cost-based Free/Pro gating consistent with the Action Plan)
 - [API Usage Tracking](./implementation/API_USAGE_IMPLEMENTATION.md) - ⚠️ Historical document; current model is BYOK (see Action Plan)
 
 ### Troubleshooting

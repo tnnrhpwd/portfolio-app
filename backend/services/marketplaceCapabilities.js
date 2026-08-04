@@ -1,7 +1,7 @@
 /**
  * marketplaceCapabilities.js — server-side re-enforcement of the
  * declared-vs-actual capability/category mismatch check
- * (docs/new/csimple-agent-prompt.md §4.5, §6.2).
+ * (docs/new/simple-agent-prompt.md §4.5, §6.2).
  *
  * §4.5's Definition of Done calls out that the publish endpoint "does not
  * independently re-run summarizeCapabilities's declared-vs-actual category
@@ -13,10 +13,10 @@
  * server-side would ever catch or surface that mismatch.
  *
  * This module is a DELIBERATE, INDEPENDENT PORT of
- * `csimple-addon/server/automation/capability-summary.js`'s
+ * `simple-addon/server/automation/capability-summary.js`'s
  * `summarizeCapabilities` — NOT a cross-project `require()` of the addon's
  * copy, for the same two reasons documented in `marketplaceScrub.js`:
- *   1. `csimple-addon/` and `backend/` deploy independently.
+ *   1. `simple-addon/` and `backend/` deploy independently.
  *   2. The addon's version resolves tool categories dynamically via
  *      `tool-registry.js` (which requires every tool module, Electron/Win32
  *      dependencies and all) and normalises steps via `tools/skill.js`
@@ -27,9 +27,9 @@
  *      `scrubForPublish` operates on (the addon's `type`-based nl-compiler
  *      step shape is resolved to `{tool,args}` client-side before publish).
  *
- * KEEP IN SYNC with `csimple-addon/server/automation/tool-registry.js`'s
+ * KEEP IN SYNC with `simple-addon/server/automation/tool-registry.js`'s
  * registered tool categories (grep every tool file under
- * `csimple-addon/server/automation/tools/` for `category:`) — if a tool's
+ * `simple-addon/server/automation/tools/` for `category:`) — if a tool's
  * category changes there, or a new tool is added, mirror it here too.
  *
  * Server-side usage here is "belt and suspenders" like the scrub pass:
@@ -42,7 +42,7 @@
  */
 
 // Mirrors the category assigned to each tool at registration time in
-// csimple-addon/server/automation/tools/*.js. Unknown/未-registered tool
+// simple-addon/server/automation/tools/*.js. Unknown/未-registered tool
 // names resolve to 'unknown' (treated as most severe by CATEGORY_SEVERITY,
 // same fallback behavior as the addon's summarizeCapabilities).
 const TOOL_CATEGORY_MAP = {
