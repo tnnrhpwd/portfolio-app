@@ -1,6 +1,6 @@
 # Ethical Monetization Strategies (Realistic Version)
 
-The first draft of this doc was too aspirational — it listed things like enterprise SLAs, marketplaces, and developer API licensing that assume a scale of users and team size this project doesn't have yet. This version focuses on **what's actually achievable right now** for a solo/small-team product with a real but modest user base, using infrastructure that already exists (Stripe subscriptions via `Pay.jsx`/`CheckoutForm.jsx`, usage-metered plans in `Pricing.jsx`, the CSimple desktop addon, AI chat, and cloud storage).
+The first draft of this doc was too aspirational — it listed things like enterprise SLAs, marketplaces, and developer API licensing that assume a scale of users and team size this project doesn't have yet. This version focuses on **what's actually achievable right now** for a solo/small-team product with a real but modest user base, using infrastructure that already exists (Stripe subscriptions via `Pay.jsx`/`CheckoutForm.jsx`, usage-metered plans in `Pricing.jsx`, the Simple desktop addon, AI chat, and cloud storage).
 
 Ground rules for "realistic":
 - No new revenue idea should require hiring, a sales team, or building an entirely new product category.
@@ -43,7 +43,7 @@ Some users just dislike recurring billing. Pick **one** feature existing Pro use
 **Why realistic:** low build cost if #3's one-time payment flow already exists; only build if you get real signal, not because it sounds clever.
 
 ### 5. Scheduled/background automation reminders (small paid add-on)
-CSimple runs locally today. A genuinely differentiated paid feature: let a user schedule an automation to run at a specific time, starting with the cheapest possible version — a scheduled notification/email reminder ("time to run your automation") — before ever building actual remote/cloud execution.
+Simple runs locally today. A genuinely differentiated paid feature: let a user schedule an automation to run at a specific time, starting with the cheapest possible version — a scheduled notification/email reminder ("time to run your automation") — before ever building actual remote/cloud execution.
 - Only invest in full server-side execution (a real, ongoing infra cost) once you have paying demand for the lightweight reminder version.
 
 **Why realistic:** staged approach — cheap version first, expensive version only if validated by real usage.
@@ -59,11 +59,11 @@ A $3-5/mo tier with a small non-functional perk (badge, name on a credits page, 
 ## Tier 3 — Longer-term, only after Tier 1/2 are proven
 
 ### 7. Paid 1:1 setup/consulting sessions
-If users ask "can you help me build an automation for X" in support channels, that's real, validated demand — not speculative. Offer a small number of paid 30-60 minute sessions (e.g. $50/session) to set up a custom CSimple automation for someone's specific workflow.
+If users ask "can you help me build an automation for X" in support channels, that's real, validated demand — not speculative. Offer a small number of paid 30-60 minute sessions (e.g. $50/session) to set up a custom Simple automation for someone's specific workflow.
 - Only worth doing once you've had multiple *unprompted* requests for this kind of help — don't invent the demand. This is a side revenue stream, not a business model, unless it grows organically.
 
 ### 8. Revenue share on user-submitted automation templates
-If/when users start sharing their own CSimple automation recipes in a community forum or Discord, consider a simple template library where creators optionally price their templates and you take a modest cut for hosting/payment processing.
+If/when users start sharing their own Simple automation recipes in a community forum or Discord, consider a simple template library where creators optionally price their templates and you take a modest cut for hosting/payment processing.
 - Don't build this speculatively — wait until informal sharing is already happening organically before investing in a marketplace UI.
 
 ---

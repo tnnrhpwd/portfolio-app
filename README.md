@@ -111,7 +111,7 @@ The application is split across multiple hosting providers, with AWS handling da
 
 **Request flow:** Browser → Netlify CDN (static assets + `/api/*` proxy) → Render-hosted Express API → AWS DynamoDB (data) / S3 + CloudFront (files) / SES (email) / Stripe (payments).
 
-The desktop companion ([`csimple-addon/`](csimple-addon/)) is an Electron app that ships independently and talks to the same Render backend.
+The desktop companion ([`simple-addon/`](simple-addon/)) is an Electron app that ships independently and talks to the same Render backend.
 
 ## 🔐 Security
 

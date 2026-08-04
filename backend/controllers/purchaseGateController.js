@@ -4,7 +4,7 @@
  * "upgrade" mentions across the app, without a deploy.
  *
  * Why this exists: see docs/guides/ACTION_PLAN.md ("Gate: hide and disable
- * purchasing until a real readiness bar is met"). Until the core CSimple
+ * purchasing until a real readiness bar is met"). Until the core Simple
  * addon loop is reliable, it should be possible to pause selling it in one
  * click rather than shipping a working checkout for a non-working product.
  *

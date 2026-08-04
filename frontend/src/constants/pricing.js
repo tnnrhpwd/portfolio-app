@@ -57,13 +57,13 @@ export const QUOTA_SHORT = Object.freeze({
 export const FEATURES = Object.freeze({
   [PLAN_IDS.FREE]: [
     '🌐 AI chat (bring your own API key)',
-    '🖥️ CSimple desktop addon — download & run locally',
+    '🖥️ Simple desktop addon — download & run locally',
     '⚡ Up to 50 automation commands per day (fair use)',
     '📁 100 MB cloud storage',
   ],
   [PLAN_IDS.PRO]: [
     '✅ Everything in Free',
-    '🖥️ Full CSimple addon access',
+    '🖥️ Full Simple addon access',
     '⚡ Up to 5,000 automation commands per day (fair use)',
     '📱 Live screen viewing from your phone',
     '💾 50 GB cloud storage',

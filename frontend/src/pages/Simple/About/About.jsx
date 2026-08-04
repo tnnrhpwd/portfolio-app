@@ -168,7 +168,7 @@ function About() {
             <h2 className='section-title'>Featured Projects</h2>
             <div className='projects-grid'>
               <div className='project-card'>
-                <h3>CSimple Addon</h3>
+                <h3>Simple Addon</h3>
                 <p>Windows desktop automation application for streamlining repetitive tasks.</p>
                 <button 
                   className='project-link'

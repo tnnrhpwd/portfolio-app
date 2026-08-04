@@ -1,6 +1,6 @@
 /**
  * Offline unit tests for the marketplace ranking/trust helpers
- * (docs/new/csimple-agent-prompt.md §4.3/§4.6). No DynamoDB required.
+ * (docs/new/simple-agent-prompt.md §4.3/§4.6). No DynamoDB required.
  */
 const {
     computeAuthorReputation,

@@ -3,8 +3,8 @@ import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { compressData, getLLMProviders, getMembershipPricing, resetDataSlice } from '../../../features/data/dataSlice.js';
 import dataService from '../../../features/data/dataService.js';
-import CSimpleChat from '../../../components/CSimple/CSimpleChat.jsx';
-import { useAddonDetection } from '../../../hooks/csimple/useAddonDetection.js';
+import SimpleChat from '../../../components/SimpleAddon/SimpleChat.jsx';
+import { useAddonDetection } from '../../../hooks/simpleAddon/useAddonDetection.js';
 import './Net.css';
 import Header from '../../../components/Header/Header.jsx';
 import Footer from '../../../components/Footer/Footer.jsx';
@@ -30,11 +30,11 @@ function Net() {
     enableAddonOptIn,
   } = useAddonDetection();
 
-  // Track portfolio LLM response and errors for passing to CSimpleChat
+  // Track portfolio LLM response and errors for passing to SimpleChat
   const [portfolioChatResponse, setPortfolioChatResponse] = React.useState(null);
   const [portfolioChatError, setPortfolioChatError] = React.useState(null);
 
-  // Streaming callbacks ref (set by CSimpleChat)
+  // Streaming callbacks ref (set by SimpleChat)
   const streamCallbacksRef = useRef(null);
 
   // Fetch LLM providers on mount if user is logged in
@@ -67,7 +67,7 @@ function Net() {
     }
   }, [dataIsError, dataMessage, dispatch]);
 
-  // Streaming chat handler — streams tokens directly to CSimpleChat callbacks
+  // Streaming chat handler — streams tokens directly to SimpleChat callbacks
   const handlePortfolioChatStream = useCallback(
     async (message, conversationHistory, provider = 'openai', model = 'gpt-4o-mini', extras = {}) => {
       if (!user) return;
@@ -131,7 +131,7 @@ function Net() {
     [user, dispatch]
   );
 
-  // Clear response after CSimpleChat consumes it
+  // Clear response after SimpleChat consumes it
   useEffect(() => {
     if (portfolioChatResponse) {
       const timer = setTimeout(() => setPortfolioChatResponse(null), 100);
@@ -183,7 +183,7 @@ function Net() {
               </div>
             </div>
           ) : (
-          <CSimpleChat
+          <SimpleChat
             addonStatus={addonStatus}
             remoteAddonStatus={remoteAddonStatus}
             user={user}

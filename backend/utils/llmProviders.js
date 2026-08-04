@@ -59,7 +59,7 @@ const PROVIDERS = {
         apiKey: null,       // Per-user GitHub PAT — supplied at call time
         client: null,
         baseURL: 'https://models.github.ai/inference',
-        perUserKey: true    // Token fetched from user's CSimple settings in DynamoDB
+        perUserKey: true    // Token fetched from user's Simple settings in DynamoDB
     }
 };
 

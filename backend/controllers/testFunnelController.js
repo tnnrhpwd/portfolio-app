@@ -33,7 +33,7 @@ const dynamodb = DynamoDBDocumentClient.from(awsClient);
 const TABLE = 'Simple';
 
 // ── Test user defaults ───────────────────────────────────────────────────
-const TEST_EMAIL    = process.env.TEST_FUNNEL_EMAIL    || 'testfunnel@csimple.test';
+const TEST_EMAIL    = process.env.TEST_FUNNEL_EMAIL    || 'testfunnel@simple.test';
 const TEST_PASSWORD = process.env.TEST_FUNNEL_PASSWORD || 'TestFunnel2024!';
 const TEST_NICKNAME = 'Test Funnel User';
 

@@ -75,7 +75,7 @@ const uploadLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// CSimple workspace read endpoints (GET list/item/context/telemetry).
+// Simple workspace read endpoints (GET list/item/context/telemetry).
 // Per-user; generous since the web UI may poll the context preview.
 const workspaceReadLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute window
@@ -86,7 +86,7 @@ const workspaceReadLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// CSimple workspace write endpoints (PUT/DELETE/POST log+action).
+// Simple workspace write endpoints (PUT/DELETE/POST log+action).
 // Tighter: writes also hit DynamoDB + run server-side audit logging.
 const workspaceWriteLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -109,7 +109,7 @@ const workspaceActionLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// CSimple marketplace read endpoints (search/browse/fetch). Per-user;
+// Simple marketplace read endpoints (search/browse/fetch). Per-user;
 // generous since browsing may involve several quick lookups.
 const marketReadLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -120,7 +120,7 @@ const marketReadLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// CSimple marketplace publish endpoint — tighter than generic writes since
+// Simple marketplace publish endpoint — tighter than generic writes since
 // each publish creates an immutable version record; author-scope spam
 // limits are additionally enforced inside marketplaceController itself.
 const marketPublishLimiter = rateLimit({
@@ -132,7 +132,7 @@ const marketPublishLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// CSimple marketplace install/rate/flag endpoints — per-user.
+// Simple marketplace install/rate/flag endpoints — per-user.
 const marketWriteLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 60,

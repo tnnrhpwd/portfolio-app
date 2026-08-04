@@ -1,0 +1,57 @@
+{
+  "name": "browser opens, navigates, reads text, closes",
+  "description": "End-to-end smoke test: launches headless Chromium via Edge (or Chrome) channel, navigates to a tiny data: URL, reads the page text, screenshots the page metadata, and closes the session. Run with `--live` (npm run eval:live) to force a VISIBLE browser window instead.",
+  "require": { "platform": "win32" },
+  "permissions": {
+    "categories": { "safe-read": "allow", "sandboxed-write": "allow" }
+  },
+  "steps": [
+    {
+      "tool": "browser_open",
+      "args": { "headless": true, "profile": "simple-eval" },
+      "expect": {
+        "ok": true,
+        "resultPath": "opened",
+        "resultEquals": true,
+        "durationMsLte": 30000
+      }
+    },
+    {
+      "tool": "browser_goto",
+      "args": { "url": "data:text/html,<title>simple-eval-title</title><h1 id=hello>simple-eval-hello</h1>" },
+      "expect": {
+        "ok": true,
+        "resultPath": "title",
+        "resultContains": "simple-eval-title",
+        "durationMsLte": 15000
+      }
+    },
+    {
+      "tool": "browser_text",
+      "args": { "selector": "#hello" },
+      "expect": {
+        "ok": true,
+        "resultPath": "text",
+        "resultContains": "simple-eval-hello"
+      }
+    },
+    {
+      "tool": "browser_screenshot",
+      "args": { "returnInline": false },
+      "expect": {
+        "ok": true,
+        "resultPath": "mime",
+        "resultEquals": "image/png"
+      }
+    },
+    {
+      "tool": "browser_close",
+      "args": {},
+      "expect": {
+        "ok": true,
+        "resultPath": "closed",
+        "resultEquals": true
+      }
+    }
+  ]
+}

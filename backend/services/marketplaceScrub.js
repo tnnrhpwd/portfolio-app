@@ -1,6 +1,6 @@
 /**
  * marketplaceScrub.js — server-side re-enforcement of the privacy/PII scrub
- * pass (docs/new/csimple-agent-prompt.md §4.5, §6.1).
+ * pass (docs/new/simple-agent-prompt.md §4.5, §6.1).
  *
  * §4.5's Definition of Done calls out that `publishSkill` "does not
  * independently re-run scrubForPublish/summarizeCapabilities server-side —
@@ -10,12 +10,12 @@
  * directly with unscrubbed steps, bypassing the addon entirely.
  *
  * This module is a DELIBERATE, INDEPENDENT PORT of
- * `csimple-addon/server/automation/recorder/scrub.js`'s `scrubForPublish`
+ * `simple-addon/server/automation/recorder/scrub.js`'s `scrubForPublish`
  * (same detection patterns, same "never leak the original value into the
  * report" contract) — NOT a cross-project `require()` of the addon's copy.
  * Two reasons for duplicating rather than importing across the repo
  * boundary:
- *   1. `csimple-addon/` and `backend/` are deployed independently (the addon
+ *   1. `simple-addon/` and `backend/` are deployed independently (the addon
  *      runs on the end-user's PC; the backend is packaged/deployed as this
  *      portfolio's server). Requiring a file from the addon's tree would
  *      make the backend's deploy artifact silently depend on a sibling
@@ -25,7 +25,7 @@
  *      (pure string/regex transforms), which is exactly what makes this
  *      safe to fork as a small, self-contained backend copy instead.
  *
- * KEEP IN SYNC with `csimple-addon/server/automation/recorder/scrub.js` —
+ * KEEP IN SYNC with `simple-addon/server/automation/recorder/scrub.js` —
  * if you change the detection patterns there, mirror the change here too.
  * (A follow-up could extract both into a real shared npm package; out of
  * scope for this pass.)

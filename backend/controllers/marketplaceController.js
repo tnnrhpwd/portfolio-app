@@ -1,5 +1,5 @@
 /**
- * CSimple Marketplace Controller (docs/new/csimple-agent-prompt.md §4).
+ * Simple Marketplace Controller (docs/new/simple-agent-prompt.md §4).
  *
  * Public/shared skill marketplace surface — deliberately a SEPARATE
  * DynamoDB id namespace (`csimple_market_*`) from the private per-user
@@ -523,7 +523,7 @@ const flagMarketSkill = asyncHandler(async (req, res) => {
 //          creations) across every skill they've published. Not an HTTP
 //          route itself — called by workspaceController.getTelemetrySummary
 //          to fold marketplace KPIs into the addon's /telemetry/summary
-//          response (docs/new/csimple-agent-prompt.md §10.2 P0) without
+//          response (docs/new/simple-agent-prompt.md §10.2 P0) without
 //          giving workspaceController.js a direct DynamoDB dependency on
 //          the `csimple_market_*` namespace.
 async function getAuthorMarketplaceTotals(authorUserId) {

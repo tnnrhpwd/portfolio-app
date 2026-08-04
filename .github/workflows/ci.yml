@@ -87,15 +87,15 @@ jobs:
         env:
           CI: true
 
-  test-csimple-addon:
-    name: CSimple Addon Tests + Eval
-    # Windows-hosted: the automation tools under csimple-addon/server/automation
+  test-simple-addon:
+    name: Simple Addon Tests + Eval
+    # Windows-hosted: the automation tools under simple-addon/server/automation
     # shell out to PowerShell/UIA, matching the addon's own build-addon.yml runner.
     runs-on: windows-latest
 
     defaults:
       run:
-        working-directory: csimple-addon
+        working-directory: simple-addon
 
     steps:
       - name: Checkout code
@@ -106,7 +106,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: csimple-addon/package-lock.json
+          cache-dependency-path: simple-addon/package-lock.json
 
       - name: Install dependencies
         run: npm ci

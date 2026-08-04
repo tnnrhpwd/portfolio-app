@@ -1,6 +1,6 @@
-# CSimple Automation — Threat Model & Security Notes
+# Simple Automation — Threat Model & Security Notes
 
-This document captures the security model for the CSimple automation layer
+This document captures the security model for the Simple automation layer
 (the local addon's tool registry, permission gate, and cloud-relay bridge).
 It is meant as a living reference for any change that touches a tool, the
 permission store, the bind host, or the audit pipeline.
@@ -52,7 +52,7 @@ under DPAPI and in process memory only when actively used.
 |---|---|---|
 | Bind host | `127.0.0.1` (loopback) | Only same-machine processes can reach the addon. |
 | LAN mode | `0.0.0.0` opt-in | Any device on the same Wi-Fi can hit `/api/automation/execute`. **No** authentication is currently enforced on local endpoints, so LAN mode effectively trusts every device on the network. |
-| Env override | `CSIMPLE_BIND_HOST` | Lets advanced users pin a specific interface. |
+| Env override | `SIMPLE_BIND_HOST` | Lets advanced users pin a specific interface. |
 
 **Mitigations in place:**
 - Default binding is loopback (changed from `0.0.0.0` in Phase 1).
@@ -61,7 +61,7 @@ under DPAPI and in process memory only when actively used.
   before switching to LAN.
 
 **Open risks / TODO (Phase 4):**
-- Add a per-addon shared-secret header check (e.g. `X-CSimple-Token`) so even
+- Add a per-addon shared-secret header check (e.g. `X-Simple-Token`) so even
   loopback callers must prove they are the paired frontend.
 - Pin a self-signed cert with TOFU for the HTTPS port and require it on LAN.
 - Auto-revert to loopback after N idle minutes if no LAN client connects.
@@ -245,7 +245,7 @@ intentional for regression testing but means:
 
 In rough priority order:
 
-1. **Local auth header** — require `X-CSimple-Token` from the paired frontend.
+1. **Local auth header** — require `X-Simple-Token` from the paired frontend.
 2. **Args redaction** — strip patterns matching common secret shapes before
    logging or appending to telemetry.
 3. **Symlink/junction containment** — resolve real paths in `fs_*` and reject
@@ -260,10 +260,10 @@ In rough priority order:
 
 ## 10. References
 
-- [`csimple-addon/server/automation/permissions.js`](../../csimple-addon/server/automation/permissions.js) — central gate
-- [`csimple-addon/server/automation/tool-registry.js`](../../csimple-addon/server/automation/tool-registry.js) — dispatch + audit hook
-- [`csimple-addon/server/automation/eval/`](../../csimple-addon/server/automation/eval/) — regression scenarios
+- [`simple-addon/server/automation/permissions.js`](../../simple-addon/server/automation/permissions.js) — central gate
+- [`simple-addon/server/automation/tool-registry.js`](../../simple-addon/server/automation/tool-registry.js) — dispatch + audit hook
+- [`simple-addon/server/automation/eval/`](../../simple-addon/server/automation/eval/) — regression scenarios
 - [`backend/utils/secretCrypto.js`](../../backend/utils/secretCrypto.js) — backend secret format
-- [`csimple-addon/server/secret-storage.js`](../../csimple-addon/server/secret-storage.js) — DPAPI wrapper
+- [`simple-addon/server/secret-storage.js`](../../simple-addon/server/secret-storage.js) — DPAPI wrapper
 - [`backend/middleware/rateLimiter.js`](../../backend/middleware/rateLimiter.js) — workspace limiters
 - [`docs/implementation/AUTOMATION_ROADMAP.md`](AUTOMATION_ROADMAP.md) — phased plan

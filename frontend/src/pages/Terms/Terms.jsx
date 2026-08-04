@@ -133,7 +133,7 @@ const Terms = () => {
                             </p>
                             <ul>
                                 <li>/net AI chat with your own API key (bring-your-own-key only; no included AI credits)</li>
-                                <li>CSimple desktop addon — download and run locally</li>
+                                <li>Simple desktop addon — download and run locally</li>
                                 <li>{QUOTAS[PLAN_IDS.FREE]} addon usage</li>
                                 <li>{STORAGE_DISPLAY[PLAN_IDS.FREE]} cloud storage</li>
                             </ul>
@@ -147,7 +147,7 @@ const Terms = () => {
                             </p>
                             <ul>
                                 <li>Everything in {PLAN_NAMES[PLAN_IDS.FREE]}</li>
-                                <li>Full CSimple addon access</li>
+                                <li>Full Simple addon access</li>
                                 <li>{QUOTAS[PLAN_IDS.PRO]}</li>
                                 <li>Live screen viewing from your phone</li>
                                 <li>{STORAGE_DISPLAY[PLAN_IDS.PRO]} cloud storage</li>
