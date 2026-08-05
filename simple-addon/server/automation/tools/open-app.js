@@ -162,7 +162,11 @@ const openApp = {
                 description: 'Executable name or path to launch (e.g. "notepad.exe", "C:\\\\Games\\\\Minecraft\\\\minecraft.exe"). ' +
                     'For Microsoft Store / UWP apps use the "shell:appsFolder\\<AppUserModelId>" form.',
             },
-            args: { type: 'string', description: 'Optional command-line arguments passed to the launched process.' },
+            args: { type: 'string', description: 'Optional command-line arguments passed to the launched process, as a single string.' },
+            argsList: {
+                type: 'array', items: { type: 'string' },
+                description: 'Optional command-line arguments as an array of argv tokens (each element becomes one argument, whitespace and all — no quoting needed for e.g. a folder path with spaces). Takes precedence over `args` when both are given.',
+            },
             windowTitleContains: {
                 type: 'string',
                 description: 'Substring to match against the launched window\'s title. If omitted, matches by process name derived from `name`.',
@@ -178,6 +182,13 @@ const openApp = {
         if (typeof args.name !== 'string' || !args.name.trim()) throw new Error('name is required');
         const name = args.name.replace(/"/g, '');
         const cmdArgs = String(args.args || '').replace(/"/g, '');
+        // Passed through as JSON (like launchHints below) rather than
+        // interpolated into the PS string directly, so an argument
+        // containing spaces (e.g. a workspace folder path) survives as one
+        // argv element without needing fragile re-quoting through PS string
+        // interpolation — see workspace-profiles.js's _extractLaunchArgs.
+        const argsList = Array.isArray(args.argsList) ? args.argsList.map(String).filter(Boolean) : null;
+        const argsListJson = argsList && argsList.length ? JSON.stringify(argsList).replace(/'/g, "''") : null;
         const titleNeedle = String(args.windowTitleContains || '').replace(/"/g, '');
         const launchHints = buildLaunchHintCandidates(name);
         const launchHintsJson = JSON.stringify(launchHints).replace(/'/g, "''");
@@ -193,6 +204,10 @@ $hints = @()
 try {
     $hints = ConvertFrom-Json '${launchHintsJson}'
 } catch { $hints = @("${name}") }
+$argsList = $null
+${argsListJson ? `try {
+    $argsList = @(ConvertFrom-Json '${argsListJson}')
+} catch { $argsList = $null }` : ''}
 $launchCandidates = New-Object System.Collections.Generic.List[string]
 function Add-Candidate([string]$v) {
     if ([string]::IsNullOrWhiteSpace($v)) { return }
@@ -254,7 +269,9 @@ $launchedAs = $null
 if (-not $found) {
     foreach ($candidate in $launchCandidates) {
         try {
-            if ("${cmdArgs}") {
+            if ($argsList -and $argsList.Count -gt 0) {
+                Start-Process -FilePath $candidate -ArgumentList $argsList | Out-Null
+            } elseif ("${cmdArgs}") {
                 Start-Process -FilePath $candidate -ArgumentList "${cmdArgs}" | Out-Null
             } else {
                 Start-Process -FilePath $candidate | Out-Null

@@ -88,6 +88,7 @@ public static class WinPlacement {
     }
     [DllImport("user32.dll")] public static extern bool GetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
     [DllImport("user32.dll")] public static extern bool SetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
+    [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
     [DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(IntPtr value);
     [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out int pvAttribute, int cbAttribute);
     [DllImport("user32.dll")] public static extern int GetSystemMetrics(int nIndex);
@@ -213,6 +214,38 @@ function Wait-ForShowState([IntPtr]$hwnd, [int]$wantShowCmd, [int]$maxMs) {
     }
     return $false
 }
+# True when two rects share any area at all (touching edges with zero
+# overlap width/height still count as NOT overlapping).
+function Test-RectsOverlap([int]$aL, [int]$aT, [int]$aR, [int]$aB, [int]$bL, [int]$bT, [int]$bR, [int]$bB) {
+    return ($aL -lt $bR -and $aR -gt $bL -and $aT -lt $bB -and $aB -gt $bT)
+}
+# SetWindowPlacement's rcNormalPosition is documented as "workspace
+# coordinates" -- in practice this means Windows resolves/clamps the target
+# rect relative to whichever monitor the window CURRENTLY overlaps, not
+# whichever monitor the target rect falls on. Asking to move a window
+# straight to a rect on a monitor it doesn't currently touch at all is the
+# exact case that gets silently reinterpreted/clamped back onto the
+# window's current monitor instead of actually moving it -- this is what
+# was reported as "restore puts every window on one monitor" on a 3-monitor
+# setup. SetWindowPos doesn't have this quirk (it always uses real,
+# absolute virtual-desktop screen coordinates), so priming the move with a
+# same-size SetWindowPos call that gets at least part of the window
+# touching the destination monitor first "teaches" Windows which monitor
+# the window belongs to -- only then does a following SetWindowPlacement
+# resize resolve its workspace coordinates against the correct monitor.
+# Skipped entirely for moves that already overlap their current position
+# (same-monitor moves, which SetWindowPlacement has always handled fine) to
+# avoid an unnecessary extra step/flicker in the common case.
+# SWP_NOZORDER=0x0004, SWP_NOACTIVATE=0x0010, SWP_ASYNCWINDOWPOS=0x4000.
+function Move-ToMonitorIfNeeded([IntPtr]$hwnd, [int]$targetX, [int]$targetY, [int]$targetW, [int]$targetH) {
+    $cur = New-Object WinPlacement+WINDOWPLACEMENT
+    $cur.length = [System.Runtime.InteropServices.Marshal]::SizeOf($cur)
+    [void][WinPlacement]::GetWindowPlacement($hwnd, [ref]$cur)
+    $r = $cur.rcNormalPosition
+    if (Test-RectsOverlap $r.Left $r.Top $r.Right $r.Bottom $targetX $targetY ($targetX + $targetW) ($targetY + $targetH)) { return }
+    [void][WinPlacement]::SetWindowPos($hwnd, [IntPtr]::Zero, $targetX, $targetY, ($r.Right - $r.Left), ($r.Bottom - $r.Top), 0x4014)
+    Start-Sleep -Milliseconds 120
+}
 # Belt-and-suspenders denylist for well-known shell/system host processes
 # and desktop/wallpaper hosts that shouldn't ever be treated as restorable
 # app windows, even in the rare case DWM briefly reports them as not
@@ -314,6 +347,18 @@ const windowSnapshot = {
         const script = `
 ${WIN_PLACEMENT_PRELUDE}
 $procs = Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -ne '' -and $_.ProcessName -notin $script:ShellHostDenylist -and $_.Id -ne $script:OwnPid }
+# Command lines distinguish two windows of the SAME exe launched with
+# different arguments -- e.g. two "Code.exe" windows each opened against a
+# different folder (a normal VS Code project vs. an unrelated one that just
+# happens to also be a VS Code window). exePath/processName alone can't tell
+# those apart, so save()/restore() use this to relaunch the right target
+# instead of a bare, argument-less relaunch that reopens whatever VS Code
+# feels like (usually just the last-used window). One bulk CIM query instead
+# of one-per-window keeps this cheap regardless of window count.
+$cmdLineMap = @{}
+try {
+    Get-CimInstance Win32_Process -ErrorAction Stop | ForEach-Object { $cmdLineMap[[int]$_.ProcessId] = $_.CommandLine }
+} catch {}
 $out = @()
 foreach ($p in $procs) {
     # Skip windows the shell itself keeps invisible (see Test-WindowCloaked
@@ -325,6 +370,8 @@ foreach ($p in $procs) {
     if (-not $ok) { continue }
     $exePath = $null
     try { $exePath = $p.Path } catch {}
+    $commandLine = $null
+    if ($cmdLineMap.ContainsKey([int]$p.Id)) { $commandLine = $cmdLineMap[[int]$p.Id] }
     $state = switch ($wp.showCmd) { 2 { 'minimized' } 3 { 'maximized' } default { 'normal' } }
     # rcNormalPosition is the window's RESTORED bounds — the position/size it
     # returns to when un-minimized/un-maximized. Capturing this (instead of
@@ -342,6 +389,7 @@ foreach ($p in $procs) {
         pid = $p.Id
         processName = $p.ProcessName
         exePath = $exePath
+        commandLine = $commandLine
         title = $p.MainWindowTitle
         x = $rect.Left
         y = $rect.Top
@@ -430,18 +478,21 @@ if ((Test-CoversVirtualScreen $wp.rcNormalPosition.Left $wp.rcNormalPosition.Top
 # -> normal) reliably applies the new rect with that flag. So: use
 # ShowWindowAsync (always fully async, never blocks) to first bring the
 # window to "normal" if it isn't already, wait for that using the
-# read-only poll above, THEN reposition via SetWindowPlacement+async-flag
-# while staying in "normal" (the one case proven to apply correctly, and
-# it keeps the same workspace-coordinate space as GetWindowPlacement/
-# capture, unlike plain SetWindowPos which uses screen coordinates and
-# landed windows in the wrong place on multi-monitor setups), and finally
-# apply the real target show-state via ShowWindowAsync again if it isn't
-# "normal" — maximize/minimize then uses the restore bounds just set.
+# read-only poll above, prime the move onto the destination monitor if
+# needed (see Move-ToMonitorIfNeeded — this is what makes the FINAL
+# SetWindowPlacement below resolve its workspace coordinates against the
+# correct monitor on multi-monitor setups instead of clamping the window
+# back onto whichever monitor it started on), THEN reposition via
+# SetWindowPlacement+async-flag while staying in "normal" (the one case
+# proven to apply correctly), and finally apply the real target show-state
+# via ShowWindowAsync again if it isn't "normal" — maximize/minimize then
+# uses the restore bounds just set.
 Move-FocusAwayIfForeground $h
 if ($wp.showCmd -ne 1) {
     [void][WinPlacement]::ShowWindowAsync($h, 9)  # SW_RESTORE
     [void](Wait-ForShowState $h 1 500)
 }
+Move-ToMonitorIfNeeded $h ${x} ${y} ${width} ${height}
 $wp2 = New-Object WinPlacement+WINDOWPLACEMENT
 $wp2.length = [System.Runtime.InteropServices.Marshal]::SizeOf($wp2)
 [void][WinPlacement]::GetWindowPlacement($h, [ref]$wp2)

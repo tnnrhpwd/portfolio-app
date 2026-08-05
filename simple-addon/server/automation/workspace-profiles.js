@@ -145,6 +145,56 @@ const SHELL_HOST_DENYLIST = new Set([
 const OWN_PROCESS_NAME = path.basename(process.execPath, path.extname(process.execPath));
 
 /**
+ * Quote-aware whitespace tokenizer for a command-line argument tail:
+ * splits on whitespace but keeps a `"..."` quoted run together as one
+ * token (with the quotes stripped), so a saved argument like a workspace
+ * folder path containing spaces round-trips as a single argv element
+ * instead of being split apart.
+ */
+function _tokenizeArgs(str) {
+    const tokens = [];
+    const re = /"([^"]*)"|(\S+)/g;
+    let m;
+    while ((m = re.exec(str))) tokens.push(m[1] !== undefined ? m[1] : m[2]);
+    return tokens;
+}
+
+/**
+ * Pull the launch arguments out of a full process command line, i.e.
+ * everything after the exe path token, as an array of argv-style tokens.
+ * This is what actually distinguishes two windows of the SAME app
+ * relaunched into different targets — e.g. two "Code.exe" windows, one
+ * opened on a normal project folder and one opened on an unrelated folder
+ * that also happens to be a VS Code window. Both share processName/exePath,
+ * so without this, relaunching either from a cold start (nothing running to
+ * match against) can only do a bare `Start-Process Code.exe`, which just
+ * reopens whatever VS Code feels like (usually its own last-used window)
+ * instead of the saved one — collapsing two distinct saved windows into one
+ * on restore.
+ *
+ * Handles both a quoted exe token (`"C:\...\Code.exe" --arg`) and a bare one
+ * (`C:\...\Code.exe --arg`); returns [] when there's nothing after it or the
+ * command line couldn't be read (e.g. access denied to another user's
+ * process — command line capture is best-effort, never required).
+ * Returned as tokens (not a single string) so a workspace path containing
+ * spaces survives being passed back to Start-Process as one argv element
+ * rather than needing fragile re-quoting through an interpolated PS string.
+ */
+function _extractLaunchArgs(commandLine) {
+    const raw = String(commandLine || '').trim();
+    if (!raw) return [];
+    let rest;
+    if (raw[0] === '"') {
+        const closeIdx = raw.indexOf('"', 1);
+        rest = closeIdx === -1 ? '' : raw.slice(closeIdx + 1);
+    } else {
+        const spaceIdx = raw.indexOf(' ');
+        rest = spaceIdx === -1 ? '' : raw.slice(spaceIdx + 1);
+    }
+    return _tokenizeArgs(rest.trim());
+}
+
+/**
  * Capture the current window layout and save it under `name`, overwriting
  * any existing profile with the same slug.
  */
@@ -165,6 +215,7 @@ async function save(name) {
             .map(w => ({
                 processName: w.processName,
                 exePath: w.exePath || null,
+                args: _extractLaunchArgs(w.commandLine),
                 title: w.title,
                 x: w.x, y: w.y, width: w.width, height: w.height,
                 state: w.state,
@@ -328,9 +379,27 @@ const _sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 // the first SetWindowPlacement call.
 const MAX_PLACEMENT_ATTEMPTS = 2;
 
+// A freshly-launched app's window can appear (MainWindowHandle non-zero,
+// title set) well before the app has actually finished its own startup
+// layout — loading extensions/config, restoring its own last-used size,
+// applying DPI scaling, etc. Applying our saved rect the instant the window
+// is *found* races that startup work, and the app's own layout step often
+// wins a moment later, silently undoing what we just set. Giving a
+// just-launched window a beat to settle before the first placement attempt
+// — on top of the existing retry-and-verify loop — cuts down on restores
+// that "worked" but then snapped back to the app's default position/size
+// a second later.
+const LAUNCH_SETTLE_MS = 1500;
+
+// Cold-launched windows get more placement attempts than already-running
+// ones: they're relaunched with no prior warm state, so there's more for
+// the app to still be settling (window chrome, restored panels, etc.) by
+// the time our first attempt lands.
+const LAUNCH_MAX_PLACEMENT_ATTEMPTS = 4;
+
 /**
  * Call window_set_rect for `pid` and verify the placement actually landed
- * where requested, retrying up to MAX_PLACEMENT_ATTEMPTS times.
+ * where requested, retrying up to `attempts` times.
  *
  * window_set_rect's underlying SetWindowPlacement call is deliberately
  * async (see tools/system.js for why a synchronous call risks wedging the
@@ -345,13 +414,18 @@ const MAX_PLACEMENT_ATTEMPTS = 2;
  * window_set_rect) and, if it doesn't match the saved target within
  * tolerance, tries again rather than silently reporting success.
  *
+ * `settleMs` (0 by default) is an extra pause BEFORE the first attempt —
+ * used for just-launched windows (see LAUNCH_SETTLE_MS) that may still be
+ * mid-startup when their window handle first appears.
+ *
  * Returns `{ accurate, result }` where `result` is the last window_set_rect
  * response and `accurate` is true only if the final attempt's reported
  * placement matches the target within PLACEMENT_TOLERANCE_PX.
  */
-async function _applyAndVerify(entry, pid) {
+async function _applyAndVerify(entry, pid, { attempts = MAX_PLACEMENT_ATTEMPTS, settleMs = 0 } = {}) {
+    if (settleMs > 0) await _sleep(settleMs);
     let result = null;
-    for (let attempt = 1; attempt <= MAX_PLACEMENT_ATTEMPTS; attempt++) {
+    for (let attempt = 1; attempt <= attempts; attempt++) {
         result = await windowSetRect.run({
             pid, x: entry.x, y: entry.y, width: entry.width, height: entry.height, state: entry.state,
         });
@@ -366,6 +440,29 @@ async function _applyAndVerify(entry, pid) {
         if (accurate) return { accurate: true, result };
     }
     return { accurate: false, result };
+}
+
+/**
+ * Extra launch arguments to pass to `open_app` for a saved entry that needs
+ * to be (re)launched, on top of whatever args were captured with it.
+ *
+ * When two or more saved entries share an exePath (e.g. two "Code.exe"
+ * windows for different folders — see _extractLaunchArgs), a bare relaunch
+ * of either one risks VS Code's single-instance behavior just reusing/
+ * focusing whichever window it already created for the other entry, instead
+ * of opening a second, distinct window — collapsing two saved windows into
+ * one. `--new-window` is the flag Chromium/Electron apps including VS Code,
+ * Chrome, and Edge use to force a new window instead of reusing an existing
+ * instance, so it's added automatically in that situation (only if the
+ * saved args don't already specify it).
+ */
+function _launchArgsFor(entry, allEntries) {
+    const args = Array.isArray(entry.args) ? entry.args.slice() : (entry.args ? [String(entry.args)] : []);
+    if (!entry.exePath) return args;
+    const sharesExeWithAnother = allEntries.some(e => e !== entry
+        && e.exePath && String(e.exePath).toLowerCase() === String(entry.exePath).toLowerCase());
+    if (!sharesExeWithAnother || args.some(a => /^(--new-window|-n)$/i.test(a))) return args;
+    return [...args, '--new-window'];
 }
 
 /**
@@ -422,15 +519,21 @@ async function restore(name) {
 
             const launchResult = await openApp.run({
                 name: entry.exePath,
+                argsList: _launchArgsFor(entry, profile.windows),
                 windowTitleContains: entry.title,
                 focus: false,
             });
             if (launchResult && launchResult.windowFound && launchResult.pid) {
-                const { accurate } = await _applyAndVerify(entry, launchResult.pid);
+                // Give the freshly-launched window a beat to finish its own
+                // startup layout, and allow it more placement attempts, than
+                // an already-running window gets (see LAUNCH_SETTLE_MS).
+                const { accurate } = await _applyAndVerify(entry, launchResult.pid, {
+                    attempts: LAUNCH_MAX_PLACEMENT_ATTEMPTS, settleMs: LAUNCH_SETTLE_MS,
+                });
                 if (accurate) {
                     launched.push({ processName: entry.processName, title: entry.title });
                 } else {
-                    inaccurate.push({ processName: entry.processName, title: entry.title, reason: `launched, but did not land within ${PLACEMENT_TOLERANCE_PX}px of the saved position after ${MAX_PLACEMENT_ATTEMPTS} attempts — the app may apply its own remembered window bounds on startup` });
+                    inaccurate.push({ processName: entry.processName, title: entry.title, reason: `launched, but did not land within ${PLACEMENT_TOLERANCE_PX}px of the saved position after ${LAUNCH_MAX_PLACEMENT_ATTEMPTS} attempts — the app may apply its own remembered window bounds on startup` });
                 }
             } else {
                 skipped.push({ processName: entry.processName, title: entry.title, reason: 'launched but window did not appear in time' });

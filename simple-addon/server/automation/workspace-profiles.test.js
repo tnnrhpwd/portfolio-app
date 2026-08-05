@@ -51,8 +51,15 @@ const fakeSystem = {
         },
     },
 };
+let openAppCalls = [];
+let openAppResponder = () => ({ windowFound: false });
 const fakeOpenApp = {
-    openApp: { run: async () => ({ windowFound: false }) },
+    openApp: {
+        run: async (args) => {
+            openAppCalls.push(args);
+            return openAppResponder(args);
+        },
+    },
 };
 require.cache[systemPath] = new Module(systemPath);
 require.cache[systemPath].exports = fakeSystem;
@@ -197,6 +204,57 @@ test('slugify rejects empty names', () => {
         assert.strictEqual(windowSetRectCalls.length, 0);
 
         await workspaceProfiles.remove('exe-path-guard');
+    });
+
+    await testAsync('save() captures relaunch args from the process command line', async () => {
+        fakeWindows = [
+            {
+                pid: 1, processName: 'Code', exePath: 'C:\\Code\\Code.exe',
+                commandLine: '"C:\\Code\\Code.exe" "C:\\Projects\\project-alpha"',
+                title: 'project-alpha - Visual Studio Code', x: 0, y: 0, width: 800, height: 600, state: 'normal',
+            },
+        ];
+        const profile = await workspaceProfiles.save('args-capture');
+        assert.deepStrictEqual(profile.windows[0].args, ['C:\\Projects\\project-alpha']);
+        await workspaceProfiles.remove('args-capture');
+    });
+
+    await testAsync('restore() relaunches missing windows with their saved args, adding --new-window when another saved entry shares the exe (so cold-launching both opens two distinct windows instead of collapsing into one)', async () => {
+        fakeWindows = [
+            {
+                pid: 1, processName: 'Code', exePath: 'C:\\Code\\Code.exe',
+                commandLine: '"C:\\Code\\Code.exe" "C:\\Projects\\project-alpha"',
+                title: 'project-alpha - Visual Studio Code', x: 0, y: 0, width: 800, height: 600, state: 'normal',
+            },
+            {
+                pid: 2, processName: 'Code', exePath: 'C:\\Code\\Code.exe',
+                commandLine: '"C:\\Code\\Code.exe" "C:\\Projects\\vscode-agents"',
+                title: 'vscode-agents - Visual Studio Code', x: 900, y: 0, width: 800, height: 600, state: 'normal',
+            },
+        ];
+        await workspaceProfiles.save('cold-start-two-code-windows');
+
+        // Nothing running at all — both entries must be launched.
+        fakeWindows = [];
+        openAppCalls = [];
+        openAppResponder = (args) => ({ windowFound: true, pid: (args.argsList || []).some(a => a.includes('alpha')) ? 101 : 102 });
+        windowSetRectCalls = [];
+        const result = await workspaceProfiles.restore('cold-start-two-code-windows');
+
+        assert.strictEqual(openAppCalls.length, 2, 'both missing windows must be launched');
+        for (const call of openAppCalls) {
+            assert.ok(Array.isArray(call.argsList) && call.argsList.length === 2, 'each launch must carry its saved folder arg plus --new-window');
+            assert.ok(call.argsList.includes('--new-window'), '--new-window must be added since both entries share the same exePath');
+        }
+        const alphaCall = openAppCalls.find(c => c.argsList.includes('C:\\Projects\\project-alpha'));
+        const agentsCall = openAppCalls.find(c => c.argsList.includes('C:\\Projects\\vscode-agents'));
+        assert.ok(alphaCall, 'project-alpha entry must be relaunched with its own saved folder arg');
+        assert.ok(agentsCall, 'vscode-agents entry must be relaunched with its own saved folder arg, not the alpha one');
+        assert.strictEqual(result.launchedCount, 2);
+        assert.strictEqual(result.errorCount, 0);
+
+        openAppResponder = () => ({ windowFound: false });
+        await workspaceProfiles.remove('cold-start-two-code-windows');
     });
 
     await testAsync('restore() retries a placement that did not land, then reports success', async () => {
