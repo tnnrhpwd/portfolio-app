@@ -260,7 +260,7 @@ function Sidebar({
               <div className="sidebar__addon-notice__body">
                 <span className="sidebar__addon-notice__title">Enable local addon?</span>
                 <span className="sidebar__addon-notice__sub">
-                  Connects this page to C‑Simple on your computer for local AI
+                  Connects this page to Simple on your computer for local AI
                   &amp; automation. The browser will mark the page “Not Secure”
                   while connected (self‑signed cert on localhost).
                 </span>

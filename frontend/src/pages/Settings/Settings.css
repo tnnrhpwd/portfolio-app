@@ -122,6 +122,15 @@
     gap: var(--spacing-xs);
 }
 
+.planit-settings-ai-optout {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin-top: var(--spacing-xs);
+    padding-top: var(--spacing-xs);
+    border-top: 1px dashed var(--border-nav);
+}
+
 .planit-settings-meta {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -67,7 +67,7 @@ function UsageMeter({ user }) {
   const percentUsed = usage?.percentUsed || 0;
   const clampedPercent = Math.min(100, Math.max(0, percentUsed));
   const dailyUsed = usage?.dailyCommandsUsed ?? null;
-  const dailyLimit = usage?.dailyCommandLimit ?? (tier === 'Free' ? 50 : tier === 'Pro' ? 5000 : null);
+  const dailyLimit = usage?.dailyCommandLimit ?? null;
 
   // Auto-expand for Free tier on first load
   const isCollapsed = collapsed === null ? tier !== 'Free' : collapsed;

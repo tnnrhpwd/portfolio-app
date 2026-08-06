@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import { getMembershipPricing } from '../../features/data/dataSlice';
+import { getMembershipPricing, getUserStorage } from '../../features/data/dataSlice';
 import { formatPrice } from '../../utils/checkoutUtils';
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
@@ -11,12 +11,20 @@ import './Pricing.css';
 function Pricing() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const { user, membershipPricing, dataIsLoading } = useSelector((state) => state.data);
+  const { user, membershipPricing, dataIsLoading, userStorage } = useSelector((state) => state.data);
   const { purchasesEnabled, message: gateMessage } = usePurchaseGate();
 
   useEffect(() => {
     dispatch(getMembershipPricing());
   }, [dispatch]);
+
+  // Show the visitor their own real usage, if logged in — plain information,
+  // not a nudge, so a storage upgrade decision is based on actual numbers.
+  useEffect(() => {
+    if (user?.token) {
+      dispatch(getUserStorage());
+    }
+  }, [dispatch, user?.token]);
 
   // Build plans from dynamic pricing or fall back to static defaults
   const getPlans = () => {
@@ -92,6 +100,13 @@ function Pricing() {
           {!purchasesEnabled && (
             <div className="pricing-gate-notice" role="status">
               {gateMessage || 'Upgrading is temporarily paused. Please check back soon.'}
+            </div>
+          )}
+
+          {user?.token && userStorage && typeof userStorage === 'object' && userStorage.totalStorageFormatted && (
+            <div className="pricing-usage-notice" role="status">
+              Your current storage use: <strong>{userStorage.totalStorageFormatted}</strong> of{' '}
+              <strong>{userStorage.storageLimitFormatted}</strong> on your plan.
             </div>
           )}
 

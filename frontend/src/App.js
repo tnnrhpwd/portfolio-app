@@ -30,6 +30,7 @@ const Pay = lazy(() => import('./pages/Simple/Pay/Pay.jsx'));
 const PaymentSuccess = lazy(() => import('./pages/Simple/Pay/PaymentSuccess.jsx'));
 const Plans = lazy(() => import('./pages/Simple/Plans/Plans.jsx'));
 const About = lazy(() => import('./pages/Simple/About/About.jsx'));
+const Pricing = lazy(() => import('./pages/Pricing/Pricing.jsx'));
 const Profile = lazy(() => import('./pages/Profile/Profile.jsx'));
 const Register = lazy(() => import('./pages/Register/Register.jsx'));
 const Settings = lazy(() => import('./pages/Settings/Settings.jsx'));
@@ -77,6 +78,7 @@ function App() {
               <Route path='/payment-success' element={<PaymentSuccess />} />
               <Route path="/passgen" element={<PassGen/>} />
               <Route path='/plans' element={<Plans />} />
+              <Route path='/pricing' element={<Pricing />} />
               <Route path='/privacy' element={<Privacy />} />
               <Route path='/profile' element={<Profile />} />
               <Route path='/register' element={<Register />} />

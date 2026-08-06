@@ -14,8 +14,8 @@ import {
   FONT_SCALE_MAX,
   FONT_SCALE_DEFAULT,
 } from '../../utils/theme.js';
-import { getCloudSettings, saveCloudSettings } from '../../services/simpleAddonApi.js';
-import { ADDON_DOWNLOAD_URL } from '../../hooks/simpleAddon/useAddonDetection';
+import { getCloudSettings, saveCloudSettings, isAddonOptedIn, setAddonOptIn } from '../../services/simpleAddonApi.js';
+import { ADDON_DOWNLOAD_URL, useAddonDetection } from '../../hooks/simpleAddon/useAddonDetection';
 import AIWorkflowSettings from '../../components/SimpleAddon/AIWorkflowSettings.jsx';
 import './Settings.css';
 import Header from '../../components/Header/Header.jsx';
@@ -47,6 +47,19 @@ function Settings() {
   const dispatch = useDispatch();
 
   const { user, dataIsLoading } = useSelector((state) => state.data);
+
+  const { addonNeedsCertTrust } = useAddonDetection();
+  const [addonOptedIn, setAddonOptedInState] = useState(() => isAddonOptedIn());
+  const isSecurePage = typeof window !== 'undefined' && window.location?.protocol === 'https:';
+
+  const toggleAddonOptIn = useCallback(() => {
+    const next = !addonOptedIn;
+    setAddonOptIn(next);
+    setAddonOptedInState(next);
+    toast.success(next
+      ? 'Browser will now check for the Simple addon on this page.'
+      : 'Browser integration with the Simple addon turned off for this browser.');
+  }, [addonOptedIn]);
 
   const [settings, setSettings] = useState({
     paymentMethod: '',
@@ -572,6 +585,37 @@ function Settings() {
                         <p className="planit-settings-ai-note">
                           Need agents, personas, behaviors, memory, goals, or shortcuts? Install the <strong>Simple addon</strong> and open <strong>Advanced Settings</strong> inside the <strong>/net</strong> chat for those power-user tools.
                         </p>
+                        {addonNeedsCertTrust && (
+                          <p className="planit-settings-ai-note">
+                            Already installed? Browsers block the addon's self-signed cert on HTTPS sites.{' '}
+                            <a
+                              href="https://localhost:3444/api/status"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ textDecoration: 'underline' }}
+                            >
+                              Click here
+                            </a>
+                            , choose &quot;Advanced → Proceed&quot;, then reload this page.
+                          </p>
+                        )}
+                        {isSecurePage && (
+                          <div className="planit-settings-ai-optout">
+                            <p className="planit-settings-ai-note">
+                              This browser {addonOptedIn ? 'checks' : 'does not check'} for the Simple addon
+                              on this page. Turning this off stops the page from probing your addon's local
+                              cert entirely — no addon features work here until it's back on, but it's easy
+                              to reverse anytime.
+                            </p>
+                            <button
+                              type="button"
+                              className="planit-settings-ai-button"
+                              onClick={toggleAddonOptIn}
+                            >
+                              {addonOptedIn ? '🔌 Turn off browser integration' : '🔌 Turn on browser integration'}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
 
