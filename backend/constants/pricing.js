@@ -89,9 +89,13 @@ const STORAGE_DISPLAY = Object.freeze({
 // ──────────────────────────────────────────────
 // Quotas (displayed on pricing page / emails)
 // ──────────────────────────────────────────────
+// The Simple addon runs entirely on the user's own PC — a locally-run
+// automation command costs us nothing whether it's the 1st or the
+// 5,000th, so there's no cost basis for a Free/Pro difference here.
+// Both tiers get the same generous, anti-abuse-only technical limit.
 const QUOTAS = Object.freeze({
-  [PLAN_IDS.FREE]: '50 automation commands/day',
-  [PLAN_IDS.PRO]:  '5,000 automation commands/day',
+  [PLAN_IDS.FREE]: 'Unlimited automation commands (fair use)',
+  [PLAN_IDS.PRO]:  'Unlimited automation commands (fair use)',
 });
 
 // ──────────────────────────────────────────────
@@ -100,14 +104,11 @@ const QUOTAS = Object.freeze({
 const FEATURES = Object.freeze({
   [PLAN_IDS.FREE]: [
     '🌐 AI chat (bring your own API key)',
-    '🖥️ Simple desktop addon — download & run locally',
-    '⚡ Up to 50 automation commands per day (fair use)',
+    '🖥️ Simple desktop addon — full local automation, no daily cap',
     '📁 100 MB cloud storage',
   ],
   [PLAN_IDS.PRO]: [
     '✅ Everything in Free',
-    '🖥️ Full Simple addon access',
-    '⚡ Up to 5,000 automation commands per day (fair use)',
     '📱 Live screen viewing from your phone',
     '💾 50 GB cloud storage',
     '✉️ Email support',
@@ -118,13 +119,11 @@ const FEATURES = Object.freeze({
 const FEATURES_PLAIN = Object.freeze({
   [PLAN_IDS.FREE]: [
     'AI chat (bring your own API key)',
-    'Simple desktop addon — download & run locally',
-    'Up to 50 automation commands per day (fair use)',
+    'Simple desktop addon — full local automation, no daily cap',
     '100 MB cloud storage',
   ],
   [PLAN_IDS.PRO]: [
-    'Full Simple addon access',
-    'Up to 5,000 automation commands per day (fair use)',
+    'Everything in Free',
     'Live screen viewing from your phone',
     '50 GB cloud storage',
     'Email support',
@@ -136,7 +135,7 @@ const FEATURES_PLAIN = Object.freeze({
 // ──────────────────────────────────────────────
 const DESCRIPTIONS = Object.freeze({
   [PLAN_IDS.FREE]: 'Get started with the basics',
-  [PLAN_IDS.PRO]:  'Full Windows automation with expanded limits and storage',
+  [PLAN_IDS.PRO]:  'More storage, live phone viewing, and email support',
 });
 
 // ──────────────────────────────────────────────

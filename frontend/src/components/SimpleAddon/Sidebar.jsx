@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getLocalModels, testAddonConnection, runAddonSingleClickUpdate } from '../../services/simpleAddonApi';
+import { ADDON_DOWNLOAD_URL } from '../../hooks/simpleAddon/useAddonDetection';
 import UsageMeter from './UsageMeter';
 import AgentLivePanel from './AgentLivePanel';
 import './Sidebar.css';
@@ -356,7 +357,7 @@ function Sidebar({
                 ) : (
                   <a
                     className="sidebar__addon-notice__btn"
-                    href="https://github.com/tnnrhpwd/portfolio-app/releases"
+                    href={ADDON_DOWNLOAD_URL}
                     target="_blank"
                     rel="noopener noreferrer"
                   >

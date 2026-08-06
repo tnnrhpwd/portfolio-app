@@ -41,9 +41,8 @@ function Pricing() {
         tagline: 'Get started with the basics',
         features: [
           'AI chat (bring your own API key)',
-          '100 MB storage',
-          'Up to 50 automation commands per day (fair use)',
-          'Simple desktop addon — download & run locally',
+          'Simple desktop addon — full local automation, no daily cap',
+          '100 MB cloud storage',
         ],
       },
       {
@@ -51,11 +50,9 @@ function Pricing() {
         name: 'Pro',
         price: '$15',
         period: 'month',
-        tagline: 'Full Windows automation with expanded limits and storage',
+        tagline: 'More storage, live phone viewing, and email support',
         features: [
           'Everything in Free',
-          'Full Simple addon access',
-          'Up to 5,000 automation commands per day (fair use)',
           'Live screen viewing from your phone',
           '50 GB cloud storage',
           'Email support',

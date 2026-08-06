@@ -8,6 +8,16 @@ const FALLBACK_REQUIRED_VERSION = '1.0.6';
 /** GitHub tags API — addon versions are tagged as "addon-v1.0.X" */
 const GITHUB_TAGS_API = 'https://api.github.com/repos/tnnrhpwd/portfolio-app/tags';
 
+/**
+ * Direct link to the latest portable-exe asset — GitHub always resolves
+ * this to whatever release currently has an asset with this exact name,
+ * so clicking "Download" grabs the right file immediately instead of
+ * landing on the releases list and asking the user to pick an asset.
+ * Keep the filename in sync with the fixed `portable.artifactName` in
+ * simple-addon/package.json (intentionally has no version in the name).
+ */
+export const ADDON_DOWNLOAD_URL = 'https://github.com/tnnrhpwd/portfolio-app/releases/latest/download/Simple-Addon-portable.exe';
+
 /** Fetch the latest addon version from GitHub tags (cached in sessionStorage for 10 min). */
 async function fetchLatestRelease() {
   const CACHE_KEY = 'simple_latest_version';

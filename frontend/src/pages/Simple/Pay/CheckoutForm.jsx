@@ -1,8 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { useDispatch } from 'react-redux';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
-import { createCustomer } from '../../../features/data/dataSlice';
 import { formatPrice } from '../../../utils/checkoutUtils';
 import { getPaymentElementOptions, getPlanDisplayName, formatPaymentMethodDisplay } from '../../../utils/stripeHelpers';
 import { useCheckoutState } from '../../../hooks/useCheckoutState';
@@ -348,9 +346,8 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
 };
 
 function CheckoutForm({ paymentType, initialPlan }) {
-  const dispatch = useDispatch();
   const [stripeReady, setStripeReady] = useState(!!stripePromise);
-  const { clientSecret, error, isStripeError, setIsStripeError, userEmail, user } = useStripeSetup();
+  const { clientSecret, error, isStripeError, setIsStripeError, userEmail } = useStripeSetup();
 
   // Fetch the Stripe publishable key from the backend on mount
   // Always re-fetch to handle test/live key switching (e.g. funnel test user)
@@ -359,19 +356,6 @@ function CheckoutForm({ paymentType, initialPlan }) {
       if (p) setStripeReady(true);
     });
   }, []);
-
-  const testCustomerCreation = async () => {
-    try {
-      const customerData = {
-        email: userEmail,
-        name: user?.nickname || userEmail.split('@')[0]
-      };
-      await dispatch(createCustomer(customerData)).unwrap();
-      window.location.reload();
-    } catch (error) {
-      console.error('Customer creation test failed:', error);
-    }
-  };
 
   if (stripeLoadFailed && !isStripeError) {
     setIsStripeError(true);
@@ -387,9 +371,6 @@ function CheckoutForm({ paymentType, initialPlan }) {
           <li>Connection issues with our payment provider</li>
         </ul>
         <p>Please try disabling any ad-blockers or privacy extensions, then refresh the page.</p>
-        <button onClick={testCustomerCreation} style={{marginTop: '10px', padding: '10px', backgroundColor: '#007cba', color: 'white', border: 'none', borderRadius: '4px'}}>
-          Test Customer Creation
-        </button>
       </div>
     );
   }
@@ -420,9 +401,6 @@ function CheckoutForm({ paymentType, initialPlan }) {
       <div className="loading-container">
         <div className="spinner"></div>
         <p>Preparing payment options...</p>
-        <button onClick={testCustomerCreation} style={{marginTop: '10px', padding: '10px', backgroundColor: '#007cba', color: 'white', border: 'none', borderRadius: '4px'}}>
-          Test Customer Creation
-        </button>
       </div>
     );
   }

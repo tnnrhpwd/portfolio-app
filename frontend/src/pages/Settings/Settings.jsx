@@ -15,6 +15,7 @@ import {
   FONT_SCALE_DEFAULT,
 } from '../../utils/theme.js';
 import { getCloudSettings, saveCloudSettings } from '../../services/simpleAddonApi.js';
+import { ADDON_DOWNLOAD_URL } from '../../hooks/simpleAddon/useAddonDetection';
 import AIWorkflowSettings from '../../components/SimpleAddon/AIWorkflowSettings.jsx';
 import './Settings.css';
 import Header from '../../components/Header/Header.jsx';
@@ -557,7 +558,7 @@ function Settings() {
                             🤖 Open AI Chat
                           </button>
                           <a
-                            href="https://github.com/tnnrhpwd/portfolio-app/releases"
+                            href={ADDON_DOWNLOAD_URL}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="planit-settings-ai-link"

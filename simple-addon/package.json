@@ -102,7 +102,7 @@
       "warningsAsErrors": false
     },
     "portable": {
-      "artifactName": "Simple-Addon-${version}-portable.exe"
+      "artifactName": "Simple-Addon-portable.exe"
     },
     "publish": [
       {

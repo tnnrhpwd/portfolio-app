@@ -440,7 +440,7 @@ function Profile() {
                               <span className="upgrade-icon">🚀</span>
                               <div className="upgrade-text">
                                 <strong>Upgrade to Pro</strong>
-                                <p>{QUOTA_SHORT[PLAN_IDS.PRO]} + {STORAGE_DISPLAY[PLAN_IDS.PRO]} storage + phone control.</p>
+                                  <p>{STORAGE_DISPLAY[PLAN_IDS.PRO]} storage + live phone viewing + email support.</p>
                               </div>
                             </div>
                             <button

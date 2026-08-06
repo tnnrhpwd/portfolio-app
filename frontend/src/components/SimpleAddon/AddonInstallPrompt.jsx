@@ -1,4 +1,5 @@
 import React from 'react';
+import { ADDON_DOWNLOAD_URL } from '../../hooks/simpleAddon/useAddonDetection';
 import './AddonInstallPrompt.css';
 
 /**
@@ -30,7 +31,7 @@ function AddonInstallPrompt({ isChecking, onDismiss, onRecheck, isOutdated, curr
         <div className="addon-prompt__actions">
           <a
             className="addon-prompt__install-btn"
-            href="https://github.com/tnnrhpwd/portfolio-app/releases"
+            href={ADDON_DOWNLOAD_URL}
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -55,16 +56,16 @@ function AddonInstallPrompt({ isChecking, onDismiss, onRecheck, isOutdated, curr
     <div className="addon-prompt">
       <div className="addon-prompt__icon">🧩</div>
       <div className="addon-prompt__body">
-        <div className="addon-prompt__title">Enhance with Simple Addon</div>
+        <div className="addon-prompt__title">Simple Addon (optional)</div>
         <div className="addon-prompt__text">
-          Install the free desktop addon to unlock local AI models, voice control,
-          and system automation — all running privately on your PC.
+          This adds local AI models, voice control, and system automation, running
+          on your PC. It's free and optional — the rest of the site works without it.
         </div>
       </div>
       <div className="addon-prompt__actions">
         <a
           className="addon-prompt__install-btn"
-          href="https://github.com/tnnrhpwd/portfolio-app/releases"
+          href={ADDON_DOWNLOAD_URL}
           target="_blank"
           rel="noopener noreferrer"
         >

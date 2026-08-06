@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
 import SEO from '../../components/SEO/SEO.jsx';
-import { PLAN_NAMES, PLAN_IDS, QUOTAS, STORAGE_DISPLAY } from '../../constants/pricing';
+import { PLAN_NAMES, PLAN_IDS, STORAGE_DISPLAY } from '../../constants/pricing';
 import './Terms.css';
 
 const Terms = () => {
@@ -133,8 +133,7 @@ const Terms = () => {
                             </p>
                             <ul>
                                 <li>/net AI chat with your own API key (bring-your-own-key only; no included AI credits)</li>
-                                <li>Simple desktop addon — download and run locally</li>
-                                <li>{QUOTAS[PLAN_IDS.FREE]} addon usage</li>
+                                <li>Simple desktop addon — full local automation, no daily cap</li>
                                 <li>{STORAGE_DISPLAY[PLAN_IDS.FREE]} cloud storage</li>
                             </ul>
                             <p>
@@ -147,8 +146,6 @@ const Terms = () => {
                             </p>
                             <ul>
                                 <li>Everything in {PLAN_NAMES[PLAN_IDS.FREE]}</li>
-                                <li>Full Simple addon access</li>
-                                <li>{QUOTAS[PLAN_IDS.PRO]}</li>
                                 <li>Live screen viewing from your phone</li>
                                 <li>{STORAGE_DISPLAY[PLAN_IDS.PRO]} cloud storage</li>
                                 <li>Email support</li>
@@ -215,16 +212,18 @@ const Terms = () => {
                             <h3>5.4 Refund Policy</h3>
                             <p>
                                 Subscription fees are <strong>non-refundable</strong> once a billing cycle has begun,
-                                except where required by applicable law. If you cancel mid-cycle, you will retain 
-                                access to paid features until the end of your current billing period but will not
-                                receive a prorated refund. We may grant discretionary refunds on a case-by-case
+                                except where required by applicable law. Cancelling (switching to {PLAN_NAMES[PLAN_IDS.FREE]})
+                                takes effect <strong>immediately</strong> — your Pro features stop right away and you will
+                                not be charged again, but you will not receive a refund or credit for the unused portion
+                                of the current billing period. We may grant discretionary refunds on a case-by-case
                                 basis within 7 days of an initial subscription purchase.
                             </p>
                             <h3>5.5 Plan Upgrades & Downgrades</h3>
                             <p>
                                 You may upgrade your plan at any time; the new rate takes effect immediately and
                                 any price difference is prorated for the remainder of the current billing period.
-                                Downgrades take effect at the start of the next billing cycle.
+                                Downgrading from {PLAN_NAMES[PLAN_IDS.PRO]} to {PLAN_NAMES[PLAN_IDS.FREE]} also takes effect
+                                immediately, per the Refund Policy above.
                             </p>
                         </div>
                     </section>
@@ -236,14 +235,15 @@ const Terms = () => {
                             <h3>6.1 Purpose</h3>
                             <p>
                                 To maintain quality of service for all users and to protect the sustainability of
-                                our platform, all plans are subject to defined usage caps and a fair-use policy.
+                                our platform, all plans are subject to a fair-use policy and defined storage limits.
                             </p>
                             <h3>6.2 Addon Command Limits</h3>
-                            <ul>
-                                <li><strong>{PLAN_NAMES[PLAN_IDS.FREE]}:</strong> {QUOTAS[PLAN_IDS.FREE]}</li>
-                                <li><strong>{PLAN_NAMES[PLAN_IDS.PRO]}:</strong> {QUOTAS[PLAN_IDS.PRO]}. Automated, scripted, or
-                                    bulk usage that circumvents these limits may result in throttling or suspension.</li>
-                            </ul>
+                            <p>
+                                The Simple desktop addon runs entirely on your own PC, so automation commands are
+                                <strong> unlimited on every tier</strong> — {PLAN_NAMES[PLAN_IDS.FREE]} and {PLAN_NAMES[PLAN_IDS.PRO]} alike, subject to
+                                fair use. Automated, scripted, or bulk usage that abuses this fair-use policy may
+                                result in throttling or suspension.
+                            </p>
                             <h3>6.3 Storage Limits</h3>
                             <ul>
                                 <li><strong>{PLAN_NAMES[PLAN_IDS.FREE]}:</strong> {STORAGE_DISPLAY[PLAN_IDS.FREE]}</li>
