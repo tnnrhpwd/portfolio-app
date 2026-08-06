@@ -285,7 +285,6 @@ function Wordle() {
       }
       setDictionary(dictionaryArray);
       isDictionaryLoadedRef.current = true;
-      console.log("Dictionary loaded successfully");
     } catch (err) {
       console.error("Error loading dictionary:", err);
       toast.error("Failed to load dictionary", { autoClose: toastDuration });
@@ -295,7 +294,6 @@ function Wordle() {
   // API functions
   const getMyData = useCallback(async () => {
     try {
-      console.log("Call the getData action to fetch your experience");
       await dispatch(getData({ data: "Word:" }));
     } catch (error) {
       console.error(error);
@@ -305,7 +303,6 @@ function Wordle() {
 
   const fetchRandomWordFromBackend = useCallback(async (wordLength) => {
     try {
-      console.log("Calling Word API...")
       await dispatch(getData({ data: `getword:${wordLength}` }));
     } catch (error) {
       console.error('Error Calling Word API:', error.message);
@@ -315,7 +312,6 @@ function Wordle() {
 
   const fetchDefinition = useCallback(async (word) => {
     try {
-      console.log(`Fetching definition for ${word}...`);
       await dispatch(getData({ data: `getdef:${word}` }));
     } catch (error) {
       console.error('Error fetching definition:', error.message);
@@ -438,27 +434,19 @@ function Wordle() {
   }, [currentGuess, wordLength, guesses.length, secretWord, toastDuration, countLetters, endOfGame, dictionary, triggerShake]);
 
   const keyPress = useCallback((key, fromVirtualKeyboard = false) => {
-    console.log('keyPress called with:', key, 'currentGuess length:', currentGuess.length, 'wordLength:', wordLength, 'guesses length:', guesses.length, 'inGameState:', inGameState, 'answerVisibility:', answerVisibility);
-    
     switch(key){
       case '⌫': 
-        console.log('Calling backspace');
         backspace(); 
         break; 
       case '⏎': 
-        console.log('Calling enter');
         enter();
         break;
       default:
         if (currentGuess.length < wordLength && guesses.length < maxGuesses) {
-          console.log('Adding letter to current guess:', key);
           setCurrentGuess(prev => {
             const newGuess = [...prev, { key: key, result: '' }];
-            console.log('New current guess:', newGuess);
             return newGuess;
           });
-        } else {
-          console.log('Cannot add letter - currentGuess.length:', currentGuess.length, 'wordLength:', wordLength, 'guesses.length:', guesses.length, 'maxGuesses:', maxGuesses);
         }
     }
     
@@ -474,31 +462,24 @@ function Wordle() {
 
   // Event listeners - SIMPLE APPROACH: just capture all keys during active gameplay
   const keyListener = useCallback((event) => {
-    console.log('Keyboard event:', event.key, 'Game state:', inGameState, 'Answer visible:', answerVisibility);
-    
     // Only process keyboard events during active gameplay
     // Game is active when inGameState is odd AND answer is not visible
     if (inGameState % 2 !== 1 || answerVisibility === true) {
-      console.log('Game not active, ignoring keyboard input');
       return; // Game not active, ignore keyboard input
     }
 
     // Don't prevent default for input fields or other elements that need keyboard input
     if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
-      console.log('Input field focused, ignoring keyboard input');
       return;
     }
 
     // Prevent default behavior for game keys
     event.preventDefault();
-    
-    console.log('Processing keyboard input:', event.key);
 
     const key = event.key.toUpperCase();
     
     // Handle letter keys (A-Z)
     if (key.length === 1 && key >= 'A' && key <= 'Z') {
-      console.log('Letter key pressed:', key);
       keyPress(key);
       return;
     }
@@ -507,16 +488,13 @@ function Wordle() {
     switch(event.code || event.key) {
       case 'Backspace':
       case 'Delete':
-        console.log('Backspace key pressed');
         keyPress('⌫'); 
         break;
       case 'Enter':
       case 'NumpadEnter':
-        console.log('Enter key pressed');
         keyPress('⏎'); 
         break;
       default:
-        console.log('Other key pressed, ignoring:', event.key);
         break;
     }
   }, [keyPress, inGameState, answerVisibility]);
@@ -531,7 +509,6 @@ function Wordle() {
     // Simple document-level listener
     document.addEventListener('keydown', handleKeydown, false);
     keyListenerRef.current = handleKeydown;
-    console.log("Now listening for keyboard inputs");
     
     return () => {
       document.removeEventListener('keydown', handleKeydown, false);
@@ -560,8 +537,7 @@ function Wordle() {
     }
 
     const newWordLength = parseFloat(settingMenuText);
-    console.log('Setting new word length to:', newWordLength);
-    
+
     resetInitialValues();
     setOutputMessage("");
     setButtonPressNum(prev => prev + 1);
@@ -580,7 +556,6 @@ function Wordle() {
             try {
               await fetchDefinition(randomWord);
             } catch (error) {
-              console.log('Could not fetch definition for curse word, continuing without it');
               setDefinition("");
             }
           }
@@ -612,7 +587,6 @@ function Wordle() {
             try {
               await fetchDefinition(randomWord);
             } catch (error) {
-              console.log('Could not fetch definition for simple word, continuing without it');
               setDefinition("");
             }
           }
@@ -714,11 +688,8 @@ function Wordle() {
   }, [dataIsError, dataMessage, toastDuration]);
 
   useEffect(() => {
-    console.log("State data has been updated:", data);
-    
     if(data && data.word){
       const secretTimer = setTimeout(() => {
-        console.log("XXXXXXXXX Secret Word updated.");
         setSecretWord(data.word);
         startTimer(); // Start timer when word is received from backend
         // Only fetch definition if user is logged in
@@ -731,7 +702,6 @@ function Wordle() {
     
     if(data && data.worddef){
       const defTimer = setTimeout(() => {
-        console.log("XXXXXXXXX Definition updated.");
         setDefinition(data.worddef);
       }, 50);
       return () => clearTimeout(defTimer);
