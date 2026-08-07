@@ -35,6 +35,7 @@ let permissionWindow = null;       // Windows automation permission center
 let eyeOverlayAutoTrain = null;    // {timer, lastSampleAt, lastCursor, lastCursorAt, lastGaze, lastGazeAt}
 let recordingsWindow = null;       // demonstrations & skills browser
 let workspacePromptWindow = null;  // "Save New Workspace" name prompt
+let dashboardWindow = null;        // unified lightweight dashboard (Phase 6)
 let startAgentStatusPolling = () => {}; // assigned after server ready
 
 // ─── Resource Paths ─────────────────────────────────────────────────────────────
@@ -200,7 +201,128 @@ function openWorkspaceNamePrompt() {
   });
 }
 
-// Make resources path available to server modules
+// ─── Dashboard (unified lightweight addon UI — Phase 6) ─────────────────────
+
+/**
+ * Push a "something changed" ping to the dashboard renderer (if open) so it
+ * can re-fetch status without waiting for its slow poll interval.
+ */
+function notifyDashboardStatusChanged() {
+  if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+    dashboardWindow.webContents.send('dashboard:status-changed');
+  }
+}
+
+/**
+ * Open (or focus) the single unified dashboard window.
+ */
+function openDashboard() {
+  if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+    dashboardWindow.focus();
+    return;
+  }
+  dashboardWindow = new BrowserWindow({
+    width: 960, height: 720, title: 'Simple Dashboard',
+    backgroundColor: '#0d1117',
+    webPreferences: {
+      contextIsolation: true, nodeIntegration: false,
+      preload: path.join(__dirname, 'renderer', 'dashboard-preload.js'),
+    },
+  });
+  dashboardWindow.setMenuBarVisibility(false);
+  const port = trayManager?.serverPort || 3001;
+  const url = `file://${path.join(__dirname, 'renderer', 'dashboard.html').replace(/\\/g, '/')}?port=${port}`;
+  dashboardWindow.loadURL(url);
+  dashboardWindow.on('closed', () => { dashboardWindow = null; });
+}
+
+ipcMain.handle('dashboard:get-status', () => {
+  const loginSettings = app.getLoginItemSettings();
+  return {
+    serverRunning: !!trayManager?.serverPort,
+    port: trayManager?.serverPort || null,
+    httpsPort: trayManager?.httpsPort || null,
+    pythonStatus: trayManager?.pythonStatus || 'checking...',
+    pythonReady: /^ready$/i.test((trayManager?.pythonStatus || '').trim()) || /^found:/i.test((trayManager?.pythonStatus || '').trim()),
+    resourcesPath: getResourcesPath(),
+    version: app.getVersion(),
+    startAtLogin: loginSettings.openAtLogin,
+  };
+});
+
+ipcMain.handle('dashboard:restart-server', async () => {
+  await restartExpressServer();
+  return { ok: true };
+});
+
+ipcMain.handle('dashboard:setup-python', () => {
+  if (pythonManager) pythonManager.setup(REQUIREMENTS_PATH);
+  return { ok: true };
+});
+
+ipcMain.handle('dashboard:open-resources-folder', () => {
+  shell.openPath(getResourcesPath());
+  return { ok: true };
+});
+
+ipcMain.handle('dashboard:change-resources-folder', async () => {
+  await changeResourcesFolder();
+  return { ok: true };
+});
+
+ipcMain.handle('dashboard:get-start-at-login', () => {
+  return app.getLoginItemSettings().openAtLogin;
+});
+
+ipcMain.handle('dashboard:set-start-at-login', (_event, enabled) => {
+  app.setLoginItemSettings({ openAtLogin: !!enabled, path: app.getPath('exe') });
+  trayManager?._updateMenu?.();
+  return { ok: true };
+});
+
+// ── Eye Tracking (dashboard tab) ──
+ipcMain.handle('dashboard:get-eye-tracking-status', () => {
+  return {
+    state: trayManager?.eyeTrackingState || 'idle',
+    overlayActive: !!trayManager?.eyeOverlayActive,
+  };
+});
+
+ipcMain.handle('dashboard:toggle-eye-tracking', async (_event, enabled) => {
+  if (!server?.eyeTrackingManager) return { ok: false, error: 'Server is not ready yet.' };
+  if (enabled) {
+    const result = await server.eyeTrackingManager.start().catch((e) => ({ success: false, error: e.message }));
+    if (!result?.success) return { ok: false, error: result?.error || 'Failed to start tracking.' };
+  } else {
+    await server.eyeTrackingManager.stop().catch(() => {});
+  }
+  return { ok: true };
+});
+
+ipcMain.handle('dashboard:toggle-eye-overlay', async (_event, enabled) => {
+  if (!server?.eyeTrackingManager) return { ok: false, error: 'Server is not ready yet.' };
+  if (enabled) {
+    const result = await startEyeOverlayMode().catch((e) => ({ success: false, error: e.message }));
+    if (!result?.success) return { ok: false, error: result?.error || 'Failed to start overlay.' };
+  } else {
+    await stopEyeOverlayMode();
+  }
+  return { ok: true };
+});
+
+ipcMain.handle('dashboard:emergency-stop-eye-tracking', async () => {
+  if (server?.eyeTrackingManager) {
+    await server.eyeTrackingManager.stop().catch(() => {});
+  }
+  return { ok: true };
+});
+
+ipcMain.handle('dashboard:calibrate-eye-tracking', () => {
+  openCalibrationWindow();
+  return { ok: true };
+});
+
+
 let RESOURCES_PATH = getResourcesPath();
 global.SIMPLE_RESOURCES_PATH = RESOURCES_PATH;
 
@@ -253,6 +375,7 @@ async function startExpressServer() {
     console.log(`[Main] Server started on port ${port}`);
     trayManager?.setServerInfo(port, httpsPort);
     trayManager?.notify('Simple Addon', `Server running on port ${port}`);
+    notifyDashboardStatusChanged();
 
     // Configure the demonstration recorder with its on-disk storage location.
     // Done here because recordings are user-data and we need the Electron app
@@ -386,12 +509,14 @@ async function startExpressServer() {
 
       server.eyeTrackingManager.onStateChange = (state) => {
         trayManager?.setEyeTrackingStatus(state);
+        notifyDashboardStatusChanged();
         // If tracking stopped while overlay was active, tear the overlay down
         // (e.g. user hit Escape / Ctrl+Alt+E to emergency-stop).
         if (state === 'idle' && eyeOverlayWindow) {
           _stopOverlayAutoTrain();
           closeEyeOverlayWindow();
           trayManager?.setEyeOverlayActive(false);
+          notifyDashboardStatusChanged();
         }
         // Register Escape as additional emergency stop while tracking is active
         if (state === 'running') {
@@ -476,6 +601,7 @@ async function setupPython() {
   pythonManager.onStatus((status, detail) => {
     console.log(`[Python] ${status}: ${detail}`);
     trayManager?.setPythonStatus(`${status}${detail ? ' — ' + detail.substring(0, 50) : ''}`);
+    notifyDashboardStatusChanged();
 
     // Show notification for key events
     if (status === 'error') {
@@ -488,6 +614,7 @@ async function setupPython() {
   const python = pythonManager.findPython();
   if (!python) {
     trayManager?.setPythonStatus('Not found — install Python 3.8+');
+    notifyDashboardStatusChanged();
     trayManager?.notify(
       'Simple — Python Not Found',
       'Local AI models require Python 3.8+. Download from python.org'
@@ -496,6 +623,7 @@ async function setupPython() {
   }
 
   trayManager?.setPythonStatus(`Found: ${python}`);
+  notifyDashboardStatusChanged();
 
   // Setup venv and dependencies in background (don't block startup)
   pythonManager.setup(REQUIREMENTS_PATH).then(success => {
@@ -504,9 +632,11 @@ async function setupPython() {
     } else {
       trayManager?.setPythonStatus('Setup incomplete — check logs');
     }
+    notifyDashboardStatusChanged();
   }).catch(err => {
     console.error('[Main] Python setup error:', err);
     trayManager?.setPythonStatus('Setup failed');
+    notifyDashboardStatusChanged();
   });
 }
 
@@ -1256,6 +1386,7 @@ app.on('ready', async () => {
   trayManager = new TrayManager();
   trayManager.create({
     onOpenWebApp: () => shell.openExternal(WEBAPP_URL),
+    onOpenDashboard: () => openDashboard(),
     onOpenResources: () => shell.openPath(getResourcesPath()),
     onChangeResourcesFolder: () => changeResourcesFolder(),
     onRestartServer: () => restartExpressServer(),

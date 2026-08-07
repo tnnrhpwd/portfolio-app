@@ -28,6 +28,7 @@ class TrayManager {
    * @param {Object} callbacks
    * @param {Function} callbacks.onRestartServer
    * @param {Function} callbacks.onOpenSettings
+   * @param {Function} callbacks.onOpenDashboard
    * @param {Function} callbacks.onSetupPython
    * @param {Function} callbacks.onQuit
    * @param {Function} callbacks.onCheckForUpdates
@@ -184,6 +185,10 @@ class TrayManager {
       { type: 'separator' },
 
       // ── Quick Actions ──
+      {
+        label: 'Open Dashboard',
+        click: () => this.callbacks.onOpenDashboard?.(),
+      },
       {
         label: 'Open Web App',
         click: () => this.callbacks.onOpenWebApp?.(),

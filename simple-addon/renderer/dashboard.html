@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Simple Dashboard</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0d1117;
+    --panel: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.45;
+    display: flex; height: 100vh; overflow: hidden;
+  }
+  h1 { margin: 0 0 4px; font-size: 20px; }
+  .subtitle { color: var(--muted); margin-bottom: 0; font-size: 12px; }
+
+  /* ── Sidebar / tabs ── */
+  #sidebar {
+    width: 200px; flex-shrink: 0; background: var(--panel);
+    border-right: 1px solid var(--border); padding: 16px 0; overflow-y: auto;
+  }
+  #sidebar .brand { padding: 0 16px 16px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+  .tab-btn {
+    display: block; width: 100%; text-align: left; background: none; border: none;
+    color: var(--text); padding: 10px 16px; font-size: 13px; cursor: pointer;
+    border-left: 3px solid transparent;
+  }
+  .tab-btn:hover { background: #1c2128; }
+  .tab-btn.active { background: #1c2128; border-left-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .tab-btn .badge {
+    display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 10px;
+    font-size: 10px; background: var(--border); color: var(--muted);
+  }
+  .tab-btn .badge.on { background: var(--green); color: #04140a; }
+  .tab-btn .badge.warn { background: var(--yellow); color: #241a00; }
+  .tab-btn .badge.err { background: var(--red); color: #2b0704; }
+
+  /* ── Content ── */
+  #content { flex: 1; overflow-y: auto; padding: 24px 28px; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .panel {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px 20px; margin-bottom: 18px;
+  }
+  .panel h2 { margin: 0 0 12px; font-size: 15px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+  .row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #21262d; gap: 12px; }
+  .row:last-child { border-bottom: none; }
+  .row .name { font-weight: 600; font-size: 14px; }
+  .row .desc { color: var(--muted); font-size: 12px; margin-top: 2px; word-break: break-all; }
+  .actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+  input[type="text"], select, textarea {
+    background: #0d1117; color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 10px; font-size: 13px; font-family: inherit;
+  }
+  button {
+    background: #21262d; color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 14px; font-size: 13px; cursor: pointer;
+    transition: background .15s;
+  }
+  button:hover { background: #30363d; }
+  button.primary { background: #238636; border-color: #238636; }
+  button.primary:hover { background: #2ea043; }
+  button.danger { background: #da3633; border-color: #da3633; }
+  button.danger:hover { background: #f85149; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+
+  .status-ok { color: var(--green); }
+  .status-warn { color: var(--yellow); }
+  .status-err { color: var(--red); }
+  .empty { color: var(--muted); padding: 20px; text-align: center; }
+  small.muted { color: var(--muted); font-size: 11px; }
+
+  .dot.active { background: var(--red); animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none;
+    align-items: center; justify-content: center; z-index: 100;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    width: min(720px, 90vw); max-height: 80vh; overflow: auto; padding: 20px;
+  }
+  .modal h3 { margin: 0 0 12px; font-size: 16px; }
+  pre.steps {
+    background: #0d1117; border: 1px solid var(--border); border-radius: 6px;
+    padding: 12px; font-family: "Consolas", monospace; font-size: 12px;
+    max-height: 360px; overflow: auto;
+  }
+
+  /* ── Permissions tab ── */
+  .perm-badge {
+    display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 12px;
+    text-transform: uppercase; font-weight: 600;
+  }
+  .perm-badge.allow { background: rgba(63,185,80,.15); color: var(--green); }
+  .perm-badge.ask   { background: rgba(210,153,34,.15); color: var(--yellow); }
+  .perm-badge.deny  { background: rgba(248,81,73,.15); color: var(--red); }
+  .perm-badge.dry-run { background: rgba(88,166,255,.15); color: var(--accent); }
+  .kill-banner {
+    background: rgba(248,81,73,.1); border: 1px solid var(--red);
+    color: var(--red); padding: 10px 14px; border-radius: 6px; margin-bottom: 16px;
+    display: none; font-weight: 600;
+  }
+  .approval-card {
+    background: rgba(210,153,34,.07); border: 1px solid var(--yellow);
+    border-radius: 6px; padding: 12px 16px; margin-bottom: 12px;
+  }
+  .approval-card pre {
+    background: #0d1117; border: 1px solid var(--border); padding: 8px;
+    border-radius: 4px; overflow: auto; font-size: 11px; margin: 8px 0;
+  }
+  .approval-card .actions { display: flex; gap: 8px; }
+  .flex { display: flex; gap: 10px; align-items: center; }
+  label.toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <div class="brand">
+    <h1>Simple</h1>
+    <p class="subtitle">Local addon dashboard</p>
+  </div>
+  <button class="tab-btn active" data-tab="status">Status</button>
+  <button class="tab-btn" data-tab="agent">Agent <span class="badge" id="tab-badge-agent"></span></button>
+  <button class="tab-btn" data-tab="recorder">Recorder &amp; Skills</button>
+  <button class="tab-btn" data-tab="workspace">Workspace Profiles</button>
+  <button class="tab-btn" data-tab="permissions">Permissions</button>
+  <button class="tab-btn" data-tab="eyetracking">Eye Tracking</button>
+  <button class="tab-btn" data-tab="updates">Updates <span class="badge" id="tab-badge-updates"></span></button>
+</div>
+
+<div id="content">
+
+  <!-- ── Status tab ── -->
+  <section class="tab-panel active" id="panel-status">
+    <div class="panel">
+      <h2>Server</h2>
+      <div class="row">
+        <div>
+          <div class="name" id="status-server-name">Checking...</div>
+          <div class="desc" id="status-server-desc">&nbsp;</div>
+        </div>
+        <div class="actions">
+          <button id="status-restart-server">Restart Server</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Python</h2>
+      <div class="row">
+        <div>
+          <div class="name" id="status-python-name">Checking...</div>
+        </div>
+        <div class="actions">
+          <button id="status-setup-python">Setup Python Environment</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Resources Folder</h2>
+      <div class="row">
+        <div>
+          <div class="name">Current location</div>
+          <div class="desc" id="status-resources-path">—</div>
+        </div>
+        <div class="actions">
+          <button id="status-open-resources">Open Folder</button>
+          <button id="status-change-resources">Change...</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Addon</h2>
+      <div class="row">
+        <div>
+          <div class="name">Version</div>
+          <div class="desc" id="status-version">—</div>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <div class="name">Start at Login</div>
+        </div>
+        <div class="actions">
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
+            <input type="checkbox" id="status-start-at-login" />
+            Launch Simple Addon when Windows starts
+          </label>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Placeholder tabs (implemented in later steps) ── -->
+  <section class="tab-panel" id="panel-agent">
+    <div class="panel">
+      <h2>Automation Agent</h2>
+      <div class="row">
+        <div>
+          <div class="name" id="agent-state-name">Idle</div>
+          <div class="desc" id="agent-goal-desc">Goal: (none)</div>
+        </div>
+        <div class="actions">
+          <button id="agent-toggle-start" class="primary">Start Agent on Next Goal</button>
+          <button id="agent-stop" class="danger" disabled>Stop Agent</button>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <div class="name">Dry-Run Mode</div>
+          <div class="desc">Plan steps without actually executing them.</div>
+        </div>
+        <div class="actions">
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
+            <input type="checkbox" id="agent-dry-run" />
+            Enabled
+          </label>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <div class="name">Emergency Kill Switch</div>
+          <div class="desc">Blocks all tool execution immediately. Re-enable in the Permissions tab.</div>
+        </div>
+        <div class="actions">
+          <button id="agent-kill-switch" class="danger">Kill Switch</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Voice &amp; Clipboard</h2>
+      <div class="row">
+        <div>
+          <div class="name" id="agent-wakeword-name">"Hey Simple" Wakeword: Stopped</div>
+          <div class="desc">Listens in the background and starts a goal from what you say after "Hey Simple".</div>
+        </div>
+        <div class="actions">
+          <button id="agent-wakeword-toggle">Start Wakeword</button>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <div class="name">Create Goal from Clipboard</div>
+          <div class="desc">Turns the current clipboard text into a new goal the agent can pick up.</div>
+        </div>
+        <div class="actions">
+          <button id="agent-goal-from-clipboard">Create Goal</button>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="tab-panel" id="panel-recorder">
+    <div class="panel">
+      <h2>Recorder</h2>
+      <div class="row">
+        <div>
+          <div class="recording-status" style="display:inline-flex; align-items:center; gap:8px; font-weight:600;">
+            <span id="rec-dot" class="dot" style="width:10px; height:10px; border-radius:50%; background: var(--muted); display:inline-block;"></span>
+            <span id="rec-status-label">Idle</span>
+          </div>
+          <div class="desc" id="rec-meta">No active recording.</div>
+        </div>
+        <div class="actions">
+          <button id="rec-start" class="primary">Start recording</button>
+          <button id="rec-marker" disabled>Add marker</button>
+          <button id="rec-stop" class="danger" disabled>Stop</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Saved recordings</h2>
+      <div id="recordings-list"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Compiled skills</h2>
+      <div id="skills-list"></div>
+    </div>
+  </section>
+  <section class="tab-panel" id="panel-workspace">
+    <div class="panel">
+      <h2>Save current window arrangement</h2>
+      <div class="row">
+        <div>
+          <div class="name">New workspace profile</div>
+          <div class="desc">Captures every visible window's position, size, and state so it can be restored later.</div>
+        </div>
+        <div class="actions">
+          <input type="text" id="workspace-new-name" placeholder="e.g. Coding setup" style="width:200px;" />
+          <button id="workspace-save-new" class="primary">Save New…</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Saved profiles</h2>
+      <div id="workspace-list"></div>
+    </div>
+  </section>
+  <section class="tab-panel" id="panel-permissions">
+    <div id="perm-kill-banner" class="kill-banner">
+      KILL SWITCH ACTIVE — All tool execution is blocked.
+      <button id="perm-btn-unkill" class="primary" style="margin-left:12px">Re-enable</button>
+    </div>
+
+    <div class="panel">
+      <h2>Global Controls</h2>
+      <div class="row">
+        <div>
+          <div class="name">Dry-Run Mode</div>
+          <div class="desc">Tools simulate execution and never touch the system. Useful when testing a new goal.</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="perm-cb-dry"> Enabled</label>
+      </div>
+      <div class="row">
+        <div>
+          <div class="name">Network Binding</div>
+          <div class="desc">
+            Loopback = only this PC can reach the addon (safest). LAN = phones/tablets on the same WiFi can connect via the IP shown in /api/network. Requires addon restart.
+          </div>
+        </div>
+        <select id="perm-sel-host-binding">
+          <option value="loopback">Loopback (127.0.0.1)</option>
+          <option value="lan">LAN (0.0.0.0)</option>
+        </select>
+      </div>
+      <div class="row">
+        <div>
+          <div class="name">Emergency Kill Switch</div>
+          <div class="desc">Immediately halts the agent and refuses every tool call until disabled.</div>
+        </div>
+        <button id="perm-btn-kill" class="danger">Activate Kill Switch</button>
+      </div>
+    </div>
+
+    <div class="panel" id="perm-pending-panel" style="display:none">
+      <h2>Pending Approvals</h2>
+      <div id="perm-pending-list"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Category Defaults</h2>
+      <div id="perm-categories"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Per-Tool Overrides</h2>
+      <div class="desc" style="color:var(--muted); font-size:12px; margin-bottom:8px">
+        Override the default mode for individual tools. Leave on "default" to inherit from category.
+      </div>
+      <div id="perm-tools-list">Loading…</div>
+    </div>
+
+    <div class="panel">
+      <h2>Shell Command Filters</h2>
+      <div class="row" style="display:block">
+        <div class="name">Allow-list patterns (regex, one per line)</div>
+        <div class="desc">If a shell command matches any of these, it auto-approves without prompting.</div>
+        <textarea id="perm-shell-allow" style="width:100%;"></textarea>
+      </div>
+      <div class="row" style="display:block">
+        <div class="name">Deny-list patterns (regex, one per line)</div>
+        <div class="desc">Commands matching ANY of these are refused unconditionally, even with approval.</div>
+        <textarea id="perm-shell-deny" style="width:100%;"></textarea>
+      </div>
+      <div class="row" style="justify-content:flex-end">
+        <button id="perm-btn-save-shell" class="primary">Save Shell Filters</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Filesystem Sandbox Roots</h2>
+      <div class="desc" style="color:var(--muted); font-size:12px; margin-bottom:8px">
+        Tools that read/write files are restricted to these directories. Add one absolute path per line.
+      </div>
+      <textarea id="perm-fs-roots" style="width:100%;"></textarea>
+      <div class="row" style="justify-content:flex-end">
+        <button id="perm-btn-save-roots" class="primary">Save Sandbox Roots</button>
+      </div>
+    </div>
+  </section>
+  <section class="tab-panel" id="panel-eyetracking">
+    <div class="panel">
+      <h2>Eye Tracking</h2>
+      <div class="row">
+        <div>
+          <div class="name" id="eye-state-name">Inactive</div>
+          <div class="desc">Tracks where you're looking to help drive automation. Calibrate first for accuracy.</div>
+        </div>
+        <div class="actions">
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
+            <input type="checkbox" id="eye-toggle-tracking" />
+            Enabled
+          </label>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <div class="name">Calibration</div>
+          <div class="desc">Opens the calibration window (look at each on-screen point as prompted).</div>
+        </div>
+        <div class="actions">
+          <button id="eye-calibrate">Calibrate Eye Tracking</button>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <div class="name">Overlay (Test Mode)</div>
+          <div class="desc">Shows a transparent, click-through dot following your gaze — useful for checking accuracy.</div>
+        </div>
+        <div class="actions">
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
+            <input type="checkbox" id="eye-toggle-overlay" />
+            Enabled
+          </label>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <div class="name">Emergency Stop</div>
+          <div class="desc">Also available globally via Escape or Ctrl+Alt+E, even when the dashboard is closed.</div>
+        </div>
+        <div class="actions">
+          <button id="eye-emergency-stop" class="danger">Emergency Stop</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Quick Start</h2>
+      <div class="desc" style="color:var(--muted); font-size:13px;">
+        1) Calibrate above (look at each on-screen point as prompted).<br>
+        2) Toggle "Enabled" above, or say "track my eyes" if voice is set up.<br>
+        3) Emergency stop: Escape or Ctrl+Alt+E — works globally, any time.
+      </div>
+    </div>
+  </section>
+  <section class="tab-panel" id="panel-updates">
+    <div class="panel">
+      <h2>Addon Updates</h2>
+      <div class="row">
+        <div>
+          <div class="name" id="update-state-name">Checking...</div>
+          <div class="desc" id="update-state-desc">&nbsp;</div>
+        </div>
+        <div class="actions">
+          <button id="update-check">Check for Updates</button>
+          <button id="update-install" class="primary" disabled>Restart &amp; Update Now</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<div id="compile-modal" class="modal-backdrop" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3>Review compiled skill</h3>
+    <p class="subtitle" id="compile-source"></p>
+    <div class="row">
+      <div style="flex:1">
+        <label class="meta muted">Skill name (used as slug)</label>
+        <input type="text" id="compile-name" placeholder="my-skill-name" style="width:100%;" />
+      </div>
+    </div>
+    <div class="row">
+      <div style="flex:1">
+        <label class="meta muted">Description (optional)</label>
+        <input type="text" id="compile-desc" placeholder="What does this skill do?" style="width:100%;" />
+      </div>
+    </div>
+    <pre class="steps" id="compile-preview">(no skill compiled yet)</pre>
+    <div class="actions" style="justify-content:flex-end; margin-top:12px;">
+      <button id="compile-cancel">Cancel</button>
+      <button id="compile-save" class="primary">Save skill</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const PORT = new URLSearchParams(location.search).get('port') || '3001';
+const BASE = `http://127.0.0.1:${PORT}`;
+let agentPollTimer = null;
+
+async function api(path, opts = {}) {
+  const r = await fetch(`${BASE}${path}`, {
+    headers: { 'Content-Type': 'application/json' },
+    ...opts,
+  });
+  const text = await r.text();
+  let json = null;
+  try { json = text ? JSON.parse(text) : null; } catch {}
+  if (!r.ok) {
+    const err = (json && (json.error || json.message)) || text || r.statusText;
+    throw new Error(err);
+  }
+  return json;
+}
+
+for (const btn of document.querySelectorAll('.tab-btn')) {
+  btn.addEventListener('click', () => {
+    for (const b of document.querySelectorAll('.tab-btn')) b.classList.remove('active');
+    for (const p of document.querySelectorAll('.tab-panel')) p.classList.remove('active');
+    btn.classList.add('active');
+    document.getElementById(`panel-${btn.dataset.tab}`).classList.add('active');
+  });
+}
+
+// ── Status tab ──
+async function refreshStatus() {
+  try {
+    const s = await window.simpleDashboard.getStatus();
+
+    const serverName = document.getElementById('status-server-name');
+    const serverDesc = document.getElementById('status-server-desc');
+    if (s.serverRunning) {
+      serverName.textContent = `Running on port ${s.port}`;
+      serverName.className = 'name status-ok';
+      serverDesc.textContent = s.httpsPort ? `HTTPS: https://localhost:${s.httpsPort}` : 'HTTPS: Disabled';
+    } else {
+      serverName.textContent = 'Not running';
+      serverName.className = 'name status-err';
+      serverDesc.textContent = '';
+    }
+
+    const pyName = document.getElementById('status-python-name');
+    pyName.textContent = s.pythonStatus || 'Unknown';
+    pyName.className = 'name ' + (s.pythonReady ? 'status-ok' : 'status-warn');
+
+    document.getElementById('status-resources-path').textContent = s.resourcesPath || '—';
+    document.getElementById('status-version').textContent = s.version || '—';
+    document.getElementById('status-start-at-login').checked = !!s.startAtLogin;
+  } catch (e) {
+    console.error('Status check failed:', e);
+  }
+}
+
+document.getElementById('status-restart-server').addEventListener('click', async () => {
+  const btn = document.getElementById('status-restart-server');
+  btn.disabled = true;
+  const nameEl = document.getElementById('status-server-name');
+  nameEl.textContent = 'Restarting...';
+  nameEl.className = 'name status-warn';
+  try {
+    await window.simpleDashboard.restartServer();
+  } finally {
+    setTimeout(() => { refreshStatus(); btn.disabled = false; }, 2000);
+  }
+});
+
+document.getElementById('status-setup-python').addEventListener('click', () => {
+  window.simpleDashboard.setupPython();
+});
+
+document.getElementById('status-open-resources').addEventListener('click', () => {
+  window.simpleDashboard.openResourcesFolder();
+});
+
+document.getElementById('status-change-resources').addEventListener('click', async () => {
+  await window.simpleDashboard.changeResourcesFolder();
+  refreshStatus();
+});
+
+document.getElementById('status-start-at-login').addEventListener('change', async (e) => {
+  await window.simpleDashboard.setStartAtLogin(e.target.checked);
+});
+
+// Live push updates from main process (server/python status changes) plus a
+// slow poll as a fallback in case a push was missed.
+window.simpleDashboard.onStatusChanged(() => refreshStatus());
+refreshStatus();
+setInterval(refreshStatus, 10000);
+
+// ── Agent tab ──
+let agentWakewordActive = false;
+
+async function refreshAgentStatus() {
+  try {
+    const s = await api('/api/agent/status');
+    const nameEl = document.getElementById('agent-state-name');
+    const goalEl = document.getElementById('agent-goal-desc');
+    const startBtn = document.getElementById('agent-toggle-start');
+    const stopBtn = document.getElementById('agent-stop');
+    const running = !!s.running;
+
+    nameEl.textContent = running
+      ? `Running (step ${s.step || 0})${s.dryRun ? ' [DRY-RUN]' : ''}`
+      : 'Idle';
+    goalEl.textContent = s.currentGoal ? `Goal: ${s.currentGoal.name || s.currentGoal}` : 'Goal: (none)';
+    startBtn.textContent = running ? 'Agent Running…' : 'Start Agent on Next Goal';
+    startBtn.disabled = running;
+    stopBtn.disabled = !running;
+    document.getElementById('agent-dry-run').checked = !!s.dryRun;
+
+    if (running && !agentPollTimer) {
+      agentPollTimer = setInterval(refreshAgentStatus, 2000);
+    } else if (!running && agentPollTimer) {
+      clearInterval(agentPollTimer);
+      agentPollTimer = null;
+    }
+
+    const badge = document.getElementById('tab-badge-agent');
+    if (running) {
+      badge.textContent = 'running';
+      badge.className = 'badge on';
+    } else {
+      badge.textContent = '';
+      badge.className = 'badge';
+    }
+  } catch (e) {
+    console.error('Agent status check failed:', e);
+  }
+}
+
+document.getElementById('agent-toggle-start').addEventListener('click', async () => {
+  try {
+    const json = await api('/api/agent/start', { method: 'POST', body: '{}' });
+    if (!json.running) alert(json.reason || 'No active goal to work on.');
+    await refreshAgentStatus();
+  } catch (e) {
+    alert(`Start failed: ${e.message}`);
+  }
+});
+
+document.getElementById('agent-stop').addEventListener('click', async () => {
+  try {
+    await api('/api/agent/stop', { method: 'POST', body: JSON.stringify({ reason: 'user requested stop (dashboard)' }) });
+    await refreshAgentStatus();
+  } catch (e) {
+    alert(`Stop failed: ${e.message}`);
+  }
+});
+
+document.getElementById('agent-dry-run').addEventListener('change', async (e) => {
+  try {
+    await api('/api/automation/permissions', { method: 'PUT', body: JSON.stringify({ dryRunMode: e.target.checked }) });
+  } catch (err) {
+    alert(`Dry-run toggle failed: ${err.message}`);
+    e.target.checked = !e.target.checked;
+  }
+});
+
+document.getElementById('agent-kill-switch').addEventListener('click', async () => {
+  if (!confirm('Block all tool execution immediately? Re-enable it from the Permissions tab.')) return;
+  try {
+    await api('/api/automation/permissions/kill', { method: 'POST', body: '{}' });
+    await refreshAgentStatus();
+    alert('Kill switch engaged. All tool execution is blocked.');
+  } catch (e) {
+    alert(`Kill switch failed: ${e.message}`);
+  }
+});
+
+function setWakewordUi(active) {
+  agentWakewordActive = active;
+  document.getElementById('agent-wakeword-name').textContent = `"Hey Simple" Wakeword: ${active ? 'Active' : 'Stopped'}`;
+  document.getElementById('agent-wakeword-toggle').textContent = active ? 'Stop Wakeword' : 'Start Wakeword';
+}
+
+document.getElementById('agent-wakeword-toggle').addEventListener('click', async () => {
+  try {
+    if (agentWakewordActive) {
+      await api('/api/voice/wakeword/stop', { method: 'POST', body: '{}' });
+      setWakewordUi(false);
+    } else {
+      await api('/api/voice/wakeword/start', { method: 'POST', body: '{}' });
+      setWakewordUi(true);
+    }
+  } catch (e) {
+    alert(`Wakeword toggle failed: ${e.message}`);
+  }
+});
+
+document.getElementById('agent-goal-from-clipboard').addEventListener('click', async () => {
+  try {
+    const json = await api('/api/agent/goal-from-clipboard', { method: 'POST', body: '{}' });
+    if (json.ok) {
+      alert(`Goal created: "${(json.text || '').slice(0, 80)}"\nStart the agent to work on it.`);
+      await refreshAgentStatus();
+    } else {
+      alert(json.error || 'Failed to create goal from clipboard.');
+    }
+  } catch (e) {
+    alert(`Failed: ${e.message}`);
+  }
+});
+
+refreshAgentStatus();
+
+// ── Recorder & Skills tab ──
+let recPollTimer = null;
+let pendingCompiled = null;
+
+function el(tag, props = {}, ...children) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === 'class') e.className = v;
+    else if (k === 'onclick') e.addEventListener('click', v);
+    else if (k === 'html') e.innerHTML = v;
+    else e.setAttribute(k, v);
+  }
+  for (const c of children) {
+    if (c == null) continue;
+    e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+  }
+  return e;
+}
+
+async function refreshRecorderStatus() {
+  try {
+    const s = await api('/api/recorder/status');
+    const active = !!s.active;
+    document.getElementById('rec-dot').classList.toggle('active', active);
+    document.getElementById('rec-status-label').textContent = active ? 'Recording…' : 'Idle';
+    document.getElementById('rec-meta').textContent = active
+      ? `Session ${s.sessionId} — ${s.eventCount} events captured`
+      : 'No active recording.';
+    document.getElementById('rec-start').disabled = active;
+    document.getElementById('rec-stop').disabled = !active;
+    document.getElementById('rec-marker').disabled = !active;
+
+    if (active && !recPollTimer) {
+      recPollTimer = setInterval(refreshRecorderStatus, 1500);
+    } else if (!active && recPollTimer) {
+      clearInterval(recPollTimer);
+      recPollTimer = null;
+    }
+  } catch (e) {
+    document.getElementById('rec-meta').textContent = `Status check failed: ${e.message}`;
+  }
+}
+
+async function refreshRecordingsList() {
+  const container = document.getElementById('recordings-list');
+  container.innerHTML = '';
+  try {
+    const { recordings } = await api('/api/recorder/list');
+    if (!recordings.length) {
+      container.appendChild(el('div', { class: 'empty' }, 'No recordings yet. Hit "Start recording" above.'));
+      return;
+    }
+    for (const r of recordings) {
+      const row = el('div', { class: 'row' },
+        el('div', {},
+          el('div', { class: 'name' }, r.sessionId),
+          el('div', { class: 'desc' }, `${(r.bytes / 1024).toFixed(1)} KB · ${new Date(r.modifiedAt).toLocaleString()}`),
+        ),
+        el('div', { class: 'actions' },
+          el('button', { onclick: () => openCompileModal(r.sessionId) }, 'Compile…'),
+          el('button', { class: 'danger', onclick: () => deleteRecording(r.sessionId) }, 'Delete'),
+        ),
+      );
+      container.appendChild(row);
+    }
+  } catch (e) {
+    container.appendChild(el('div', { class: 'empty' }, `Failed: ${e.message}`));
+  }
+}
+
+async function deleteRecording(id) {
+  if (!confirm(`Delete recording "${id}"? This cannot be undone.`)) return;
+  try {
+    await api(`/api/recorder/${id}`, { method: 'DELETE' });
+    await refreshRecordingsList();
+  } catch (e) {
+    alert(`Delete failed: ${e.message}`);
+  }
+}
+
+async function openCompileModal(sessionId) {
+  try {
+    const { skill } = await api('/api/skill/compile', {
+      method: 'POST', body: JSON.stringify({ sessionId, name: sessionId }),
+    });
+    pendingCompiled = skill;
+    document.getElementById('compile-source').textContent = `From ${sessionId} · ${skill.steps.length} steps`;
+    document.getElementById('compile-name').value = skill.name || sessionId;
+    document.getElementById('compile-desc').value = skill.description || '';
+    document.getElementById('compile-preview').textContent = JSON.stringify(skill.steps, null, 2);
+    document.getElementById('compile-modal').classList.add('open');
+  } catch (e) {
+    alert(`Compile failed: ${e.message}`);
+  }
+}
+
+function closeCompileModal() {
+  document.getElementById('compile-modal').classList.remove('open');
+  pendingCompiled = null;
+}
+
+async function saveCompiled() {
+  if (!pendingCompiled) return;
+  const name = document.getElementById('compile-name').value.trim() || pendingCompiled.name;
+  const description = document.getElementById('compile-desc').value.trim();
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'skill';
+  const skill = { ...pendingCompiled, name, description, slug };
+  try {
+    const res = await api('/api/skill/save', { method: 'POST', body: JSON.stringify({ skill }) });
+    const note = res.persisted && !res.persisted.error
+      ? `Saved as "${slug}" — synced to workspace.`
+      : `Saved as "${slug}" — local only (workspace sync failed: ${res.persisted?.error || 'unknown'}).`;
+    alert(note);
+    closeCompileModal();
+    await refreshSkillsList();
+  } catch (e) {
+    alert(`Save failed: ${e.message}`);
+  }
+}
+
+// No list endpoint exists for the local skill cache — offer a run-by-slug
+// affordance instead (same approach recordings.html used).
+async function refreshSkillsList() {
+  const container = document.getElementById('skills-list');
+  container.innerHTML = '';
+  const row = el('div', { class: 'row' },
+    el('div', {},
+      el('div', { class: 'name' }, 'Run a saved skill'),
+      el('div', { class: 'desc' }, 'Enter the skill slug (lowercase, dashes). The agent looks it up locally first, then in your workspace.'),
+    ),
+    el('div', { class: 'actions' },
+      Object.assign(document.createElement('input'), { id: 'skill-run-slug', type: 'text', placeholder: 'my-skill-slug', style: 'width:200px;' }),
+      el('button', { class: 'primary', onclick: runSavedSkill }, 'Run'),
+    ),
+  );
+  container.appendChild(row);
+}
+
+async function runSavedSkill() {
+  const slug = document.getElementById('skill-run-slug').value.trim();
+  if (!slug) return alert('Enter a skill slug first.');
+  if (!confirm(`Run skill "${slug}"? This will replay UI clicks on your machine.`)) return;
+  try {
+    const out = await api('/api/automation/execute', {
+      method: 'POST', body: JSON.stringify({ name: 'skill_run', args: { slug } }),
+    });
+    alert(`Skill complete. ${out.result?.stepsRun || 0} steps run, failed=${out.result?.failed}`);
+  } catch (e) {
+    alert(`Run failed: ${e.message}`);
+  }
+}
+
+document.getElementById('rec-start').addEventListener('click', async () => {
+  const name = prompt('Name this recording (used as session prefix):', 'recording-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19));
+  if (!name) return;
+  try {
+    await api('/api/recorder/start', { method: 'POST', body: JSON.stringify({ name }) });
+    await refreshRecorderStatus();
+  } catch (e) { alert(`Start failed: ${e.message}`); }
+});
+document.getElementById('rec-stop').addEventListener('click', async () => {
+  try {
+    await api('/api/recorder/stop', { method: 'POST', body: '{}' });
+    await refreshRecorderStatus();
+    await refreshRecordingsList();
+  } catch (e) { alert(`Stop failed: ${e.message}`); }
+});
+document.getElementById('rec-marker').addEventListener('click', async () => {
+  const label = prompt('Marker label:', 'checkpoint');
+  if (!label) return;
+  try { await api('/api/recorder/marker', { method: 'POST', body: JSON.stringify({ label }) }); }
+  catch (e) { alert(`Marker failed: ${e.message}`); }
+});
+document.getElementById('compile-cancel').addEventListener('click', closeCompileModal);
+document.getElementById('compile-save').addEventListener('click', saveCompiled);
+
+refreshRecorderStatus();
+refreshRecordingsList();
+refreshSkillsList();
+
+// ── Workspace Profiles tab ──
+async function refreshWorkspaceList() {
+  const container = document.getElementById('workspace-list');
+  container.innerHTML = '';
+  try {
+    const { profiles } = await api('/api/workspace-profiles');
+    if (!profiles.length) {
+      container.appendChild(el('div', { class: 'empty' }, 'No saved profiles yet. Arrange your windows, then "Save New…" above.'));
+      return;
+    }
+    for (const p of profiles) {
+      const count = Number.isFinite(p.windowCount) ? `${p.windowCount} window${p.windowCount === 1 ? '' : 's'}` : '';
+      const saved = p.savedAt ? new Date(p.savedAt).toLocaleString() : '';
+      const row = el('div', { class: 'row' },
+        el('div', {},
+          el('div', { class: 'name' }, p.name),
+          el('div', { class: 'desc' }, [count, saved].filter(Boolean).join(' · ')),
+        ),
+        el('div', { class: 'actions' },
+          el('button', { class: 'primary', onclick: () => restoreWorkspaceProfile(p.slug, p.name) }, 'Restore'),
+          el('button', { onclick: () => updateWorkspaceProfile(p.slug, p.name) }, 'Update'),
+          el('button', { class: 'danger', onclick: () => deleteWorkspaceProfile(p.slug, p.name) }, 'Delete'),
+        ),
+      );
+      container.appendChild(row);
+    }
+  } catch (e) {
+    container.appendChild(el('div', { class: 'empty' }, `Failed: ${e.message}`));
+  }
+}
+
+async function restoreWorkspaceProfile(slug, name) {
+  try {
+    const result = await api(`/api/workspace-profiles/${slug}/restore`, { method: 'POST', body: '{}' });
+    const parts = [];
+    if (result.restoredCount) parts.push(`${result.restoredCount} repositioned`);
+    if (result.relaunchedCount) parts.push(`${result.relaunchedCount} relaunched`);
+    if (result.skippedCount) parts.push(`${result.skippedCount} skipped`);
+    alert(`"${name}" restored${parts.length ? ' — ' + parts.join(', ') : ''}.`);
+  } catch (e) {
+    alert(`Restore failed: ${e.message}`);
+  }
+}
+
+async function updateWorkspaceProfile(slug, name) {
+  if (!confirm(`Re-save "${name}" with the current window arrangement? This overwrites the saved profile.`)) return;
+  try {
+    await api(`/api/workspace-profiles/${slug}/update`, { method: 'POST', body: '{}' });
+    await refreshWorkspaceList();
+  } catch (e) {
+    alert(`Update failed: ${e.message}`);
+  }
+}
+
+async function deleteWorkspaceProfile(slug, name) {
+  if (!confirm(`Delete workspace profile "${name}"? This cannot be undone.`)) return;
+  try {
+    await api(`/api/workspace-profiles/${slug}`, { method: 'DELETE' });
+    await refreshWorkspaceList();
+  } catch (e) {
+    alert(`Delete failed: ${e.message}`);
+  }
+}
+
+document.getElementById('workspace-save-new').addEventListener('click', async () => {
+  const input = document.getElementById('workspace-new-name');
+  const name = input.value.trim();
+  if (!name) return alert('Enter a name for this workspace profile first.');
+  try {
+    const profile = await api('/api/workspace-profiles', { method: 'POST', body: JSON.stringify({ name }) });
+    input.value = '';
+    alert(`"${profile.name}" saved — ${profile.windows.length} window(s) captured.`);
+    await refreshWorkspaceList();
+  } catch (e) {
+    alert(`Save failed: ${e.message}`);
+  }
+});
+
+refreshWorkspaceList();
+
+// ── Permissions tab ──
+// Uses the addon's automation-specific permission endpoints directly
+// (distinct base path from the general `api()` helper's automation routes
+// used elsewhere), matching permissions.html's original implementation.
+const AUTOMATION_API = `${BASE}/api/automation`;
+let permState = { config: null, tools: [] };
+
+async function automationApi(method, path, body) {
+  const r = await fetch(`${AUTOMATION_API}${path}`, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+  return r.json();
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+}
+
+function permModeBadge(mode) {
+  const cls = mode === 'allow' ? 'allow' : mode === 'deny' ? 'deny' : mode === 'dry-run' ? 'dry-run' : 'ask';
+  return `<span class="perm-badge ${cls}">${mode}</span>`;
+}
+
+async function refreshPermissions() {
+  const [cfg, tools, pending] = await Promise.all([
+    automationApi('GET', '/permissions'),
+    automationApi('GET', '/tools'),
+    automationApi('GET', '/pending-approvals'),
+  ]);
+  permState.config = cfg;
+  permState.tools = tools.tools;
+  renderPermissions(cfg, tools.tools, pending.approvals);
+}
+
+function renderPermissions(cfg, tools, pending) {
+  document.getElementById('perm-kill-banner').style.display = cfg.globalKillSwitch ? 'block' : 'none';
+  document.getElementById('perm-cb-dry').checked = !!cfg.dryRunMode;
+  document.getElementById('perm-sel-host-binding').value = cfg.hostBinding === 'lan' ? 'lan' : 'loopback';
+
+  const pp = document.getElementById('perm-pending-panel');
+  const pl = document.getElementById('perm-pending-list');
+  if (pending && pending.length) {
+    pp.style.display = 'block';
+    pl.innerHTML = pending.map(a => `
+      <div class="approval-card" data-id="${a.id}">
+        <div class="name">${a.toolName} <span class="perm-badge ask">pending</span></div>
+        <pre>${escapeHtml(JSON.stringify(a.args, null, 2))}</pre>
+        <div class="actions">
+          <button class="primary" data-approve="${a.id}">Allow Once</button>
+          <button class="danger"  data-deny="${a.id}">Deny</button>
+        </div>
+      </div>
+    `).join('');
+  } else {
+    pp.style.display = 'none';
+    pl.innerHTML = '';
+  }
+
+  const catEl = document.getElementById('perm-categories');
+  catEl.innerHTML = '';
+  for (const [cat, mode] of Object.entries(cfg.categories || {})) {
+    catEl.insertAdjacentHTML('beforeend', `
+      <div class="row">
+        <div><div class="name">${cat}</div></div>
+        <div class="flex">
+          ${permModeBadge(mode)}
+          <select data-cat="${cat}">
+            ${['allow','ask','dry-run','deny'].map(m => `<option ${m===mode?'selected':''}>${m}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+    `);
+  }
+
+  const toolsEl = document.getElementById('perm-tools-list');
+  toolsEl.innerHTML = tools.map(t => {
+    const override = (cfg.tools || {})[t.name] || 'default';
+    return `
+      <div class="row">
+        <div>
+          <div class="name">${t.name} <span style="font-weight:400;color:var(--muted);font-size:11px">${t.category}</span></div>
+          <div class="desc">${escapeHtml(t.description || '')}</div>
+        </div>
+        <div class="flex">
+          ${permModeBadge(t.effectiveMode)}
+          <select data-tool="${t.name}">
+            ${['default','allow','ask','dry-run','deny'].map(m => `<option ${m===override?'selected':''}>${m}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('perm-shell-allow').value = (cfg.shellAllowPatterns || []).join('\n');
+  document.getElementById('perm-shell-deny').value  = (cfg.shellDenyPatterns  || []).join('\n');
+  document.getElementById('perm-fs-roots').value    = (cfg.fsRoots            || []).join('\n');
+
+  catEl.querySelectorAll('select[data-cat]').forEach(sel => {
+    sel.onchange = async () => {
+      const cat = sel.dataset.cat;
+      const updated = { ...permState.config.categories, [cat]: sel.value };
+      await automationApi('PUT', '/permissions', { categories: updated });
+      refreshPermissions();
+    };
+  });
+  toolsEl.querySelectorAll('select[data-tool]').forEach(sel => {
+    sel.onchange = async () => {
+      const tool = sel.dataset.tool;
+      const updated = { ...(permState.config.tools || {}) };
+      if (sel.value === 'default') delete updated[tool];
+      else updated[tool] = sel.value;
+      await automationApi('PUT', '/permissions', { tools: updated });
+      refreshPermissions();
+    };
+  });
+  pl.querySelectorAll('button[data-approve]').forEach(b => {
+    b.onclick = async () => {
+      await automationApi('POST', '/approve', { id: b.dataset.approve, approved: true });
+      refreshPermissions();
+    };
+  });
+  pl.querySelectorAll('button[data-deny]').forEach(b => {
+    b.onclick = async () => {
+      await automationApi('POST', '/approve', { id: b.dataset.deny, approved: false, reason: 'denied by user' });
+      refreshPermissions();
+    };
+  });
+}
+
+document.getElementById('perm-cb-dry').onchange = async (e) => {
+  await automationApi('PUT', '/permissions', { dryRunMode: e.target.checked });
+  refreshPermissions();
+};
+document.getElementById('perm-sel-host-binding').onchange = async (e) => {
+  const v = e.target.value;
+  if (v === 'lan' && !confirm('Allow ANY device on your local network to control this PC through the addon? Only enable on trusted networks.')) {
+    e.target.value = 'loopback';
+    return;
+  }
+  await automationApi('PUT', '/permissions', { hostBinding: v });
+  alert('Saved. Restart the addon (tray → Quit, then relaunch) for the binding change to take effect.');
+  refreshPermissions();
+};
+document.getElementById('perm-btn-kill').onclick = async () => {
+  if (!confirm('Activate kill switch? All tool execution will be blocked.')) return;
+  await automationApi('POST', '/permissions/kill');
+  refreshPermissions();
+};
+document.getElementById('perm-btn-unkill').onclick = async () => {
+  await automationApi('PUT', '/permissions', { globalKillSwitch: false });
+  refreshPermissions();
+};
+document.getElementById('perm-btn-save-shell').onclick = async () => {
+  const allow = document.getElementById('perm-shell-allow').value.split('\n').map(s => s.trim()).filter(Boolean);
+  const deny  = document.getElementById('perm-shell-deny').value.split('\n').map(s => s.trim()).filter(Boolean);
+  await automationApi('PUT', '/permissions', { shellAllowPatterns: allow, shellDenyPatterns: deny });
+  refreshPermissions();
+};
+document.getElementById('perm-btn-save-roots').onclick = async () => {
+  const roots = document.getElementById('perm-fs-roots').value.split('\n').map(s => s.trim()).filter(Boolean);
+  await automationApi('PUT', '/permissions', { fsRoots: roots });
+  refreshPermissions();
+};
+
+refreshPermissions().catch(e => {
+  document.getElementById('panel-permissions').insertAdjacentHTML('afterbegin',
+    `<div class="kill-banner" style="display:block">Failed to load: ${escapeHtml(e.message)}</div>`);
+});
+setInterval(() => refreshPermissions().catch(() => {}), 4000);
+
+// ── Eye Tracking tab ──
+async function refreshEyeTrackingStatus() {
+  try {
+    const s = await window.simpleDashboard.getEyeTrackingStatus();
+    const nameEl = document.getElementById('eye-state-name');
+    const label = s.state === 'running' ? 'Active' : s.state === 'calibrating' ? 'Calibrating...' : 'Inactive';
+    nameEl.textContent = label;
+    nameEl.className = 'name ' + (s.state === 'running' ? 'status-ok' : s.state === 'calibrating' ? 'status-warn' : '');
+    document.getElementById('eye-toggle-tracking').checked = s.state === 'running';
+    document.getElementById('eye-toggle-tracking').disabled = s.state === 'calibrating';
+    document.getElementById('eye-toggle-overlay').checked = !!s.overlayActive;
+    document.getElementById('eye-emergency-stop').disabled = s.state !== 'running' && s.state !== 'calibrating';
+  } catch (e) {
+    console.error('Eye tracking status check failed:', e);
+  }
+}
+
+document.getElementById('eye-toggle-tracking').addEventListener('change', async (e) => {
+  const enabled = e.target.checked;
+  const result = await window.simpleDashboard.toggleEyeTracking(enabled);
+  if (!result.ok) {
+    alert(result.error || 'Failed to toggle eye tracking.');
+    e.target.checked = !enabled;
+  }
+  await refreshEyeTrackingStatus();
+});
+
+document.getElementById('eye-calibrate').addEventListener('click', () => {
+  window.simpleDashboard.calibrateEyeTracking();
+});
+
+document.getElementById('eye-toggle-overlay').addEventListener('change', async (e) => {
+  const enabled = e.target.checked;
+  const result = await window.simpleDashboard.toggleEyeOverlay(enabled);
+  if (!result.ok) {
+    alert(result.error || 'Failed to toggle overlay.');
+    e.target.checked = !enabled;
+  }
+  await refreshEyeTrackingStatus();
+});
+
+document.getElementById('eye-emergency-stop').addEventListener('click', async () => {
+  await window.simpleDashboard.emergencyStopEyeTracking();
+  await refreshEyeTrackingStatus();
+});
+
+window.simpleDashboard.onStatusChanged(() => refreshEyeTrackingStatus());
+refreshEyeTrackingStatus();
+setInterval(refreshEyeTrackingStatus, 5000);
+
+// ── Updates tab ──
+async function refreshUpdateStatus() {
+  try {
+    const s = await api('/api/update/status');
+    const nameEl = document.getElementById('update-state-name');
+    const descEl = document.getElementById('update-state-desc');
+    const checkBtn = document.getElementById('update-check');
+    const installBtn = document.getElementById('update-install');
+    const badge = document.getElementById('tab-badge-updates');
+
+    if (!s.supported) {
+      nameEl.textContent = 'Not supported in this build';
+      nameEl.className = 'name status-warn';
+      descEl.textContent = `Current version: ${s.currentVersion}`;
+      checkBtn.disabled = true;
+      installBtn.disabled = true;
+      badge.textContent = '';
+      badge.className = 'badge';
+      return;
+    }
+
+    checkBtn.disabled = false;
+    installBtn.disabled = !s.updateDownloaded;
+    badge.className = 'badge';
+    badge.textContent = '';
+
+    switch (s.state) {
+      case 'downloading':
+        nameEl.textContent = `Downloading update... ${s.downloadProgress || 0}%`;
+        nameEl.className = 'name status-warn';
+        badge.textContent = 'downloading';
+        badge.className = 'badge warn';
+        break;
+      case 'ready':
+        nameEl.textContent = `Update ready (v${s.latestVersion || '?'}) — installs on quit`;
+        nameEl.className = 'name status-ok';
+        badge.textContent = 'ready';
+        badge.className = 'badge on';
+        break;
+      case 'error':
+        nameEl.textContent = 'Update check failed';
+        nameEl.className = 'name status-err';
+        badge.textContent = 'error';
+        badge.className = 'badge err';
+        break;
+      case 'up-to-date':
+        nameEl.textContent = 'App is up to date';
+        nameEl.className = 'name status-ok';
+        break;
+      case 'checking':
+        nameEl.textContent = 'Checking for updates...';
+        nameEl.className = 'name status-warn';
+        break;
+      default:
+        nameEl.textContent = 'Idle';
+        nameEl.className = 'name';
+    }
+    descEl.textContent = `Current version: ${s.currentVersion}${s.latestVersion ? ` · Latest: ${s.latestVersion}` : ''}`;
+
+    if (s.state === 'downloading' && !updatePollTimer) {
+      updatePollTimer = setInterval(refreshUpdateStatus, 2000);
+    } else if (s.state !== 'downloading' && updatePollTimer) {
+      clearInterval(updatePollTimer);
+      updatePollTimer = null;
+    }
+  } catch (e) {
+    console.error('Update status check failed:', e);
+  }
+}
+
+let updatePollTimer = null;
+
+document.getElementById('update-check').addEventListener('click', async () => {
+  try {
+    await api('/api/update/check', { method: 'POST', body: '{}' });
+    await refreshUpdateStatus();
+  } catch (e) {
+    alert(`Check failed: ${e.message}`);
+  }
+});
+
+document.getElementById('update-install').addEventListener('click', async () => {
+  if (!confirm('Restart Simple Addon now to install the update?')) return;
+  try {
+    await api('/api/update/install', { method: 'POST', body: '{}' });
+  } catch (e) {
+    alert(`Install failed: ${e.message}`);
+  }
+});
+
+refreshUpdateStatus();
+setInterval(refreshUpdateStatus, 10000);
+</script>
+
+</body>
+</html>
