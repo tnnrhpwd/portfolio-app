@@ -20,12 +20,46 @@
   body {
     margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     background: var(--bg); color: var(--text); line-height: 1.45;
-    display: flex; height: 100vh; overflow: hidden;
+    display: flex; flex-direction: column; height: 100vh; overflow: hidden;
   }
   h1 { margin: 0 0 4px; font-size: 20px; }
   .subtitle { color: var(--muted); margin-bottom: 0; font-size: 12px; }
 
+  /* ── Top bar + nav dropdown ── */
+  #topbar {
+    flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--border);
+    position: relative; z-index: 10;
+  }
+  #topbar .topbar-left { display: flex; align-items: center; gap: 10px; }
+  #topbar .topbar-title { font-weight: 600; font-size: 14px; }
+  #nav-toggle {
+    background: none; border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-size: 16px; padding: 4px 10px; cursor: pointer; line-height: 1;
+  }
+  #nav-toggle:hover { background: #21262d; }
+  #nav-dropdown {
+    position: absolute; top: 100%; left: 16px; margin-top: 6px; min-width: 220px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.4); padding: 6px; display: none; flex-direction: column;
+  }
+  #nav-dropdown.open { display: flex; }
+  #nav-dropdown a, #nav-dropdown button {
+    display: block; width: 100%; text-align: left; background: none; border: none;
+    color: var(--text); padding: 8px 10px; font-size: 13px; cursor: pointer; border-radius: 6px;
+    text-decoration: none;
+  }
+  #nav-dropdown a:hover, #nav-dropdown button:hover { background: #1c2128; }
+  #nav-dropdown .nav-sep { border-top: 1px solid var(--border); margin: 6px 2px; }
+  #nav-dropdown .nav-webapp { color: var(--accent); font-weight: 600; }
+  .btn-webapp {
+    background: var(--accent); color: #04101f; border: none; border-radius: 6px;
+    padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .btn-webapp:hover { background: #79b8ff; }
+
   /* ── Sidebar / tabs ── */
+  #main-row { flex: 1; display: flex; overflow: hidden; }
   #sidebar {
     width: 200px; flex-shrink: 0; background: var(--panel);
     border-right: 1px solid var(--border); padding: 16px 0; overflow-y: auto;
@@ -131,6 +165,26 @@
 </head>
 <body>
 
+<div id="topbar">
+  <div class="topbar-left">
+    <button id="nav-toggle" title="Navigate">☰</button>
+    <span class="topbar-title">Simple Dashboard</span>
+  </div>
+  <button id="topbar-webapp" class="btn-webapp">Open Web App ↗</button>
+  <div id="nav-dropdown">
+    <button data-tab="status">Status</button>
+    <button data-tab="agent">Agent</button>
+    <button data-tab="recorder">Recorder &amp; Skills</button>
+    <button data-tab="workspace">Workspace Profiles</button>
+    <button data-tab="permissions">Permissions</button>
+    <button data-tab="eyetracking">Eye Tracking</button>
+    <button data-tab="updates">Updates</button>
+    <div class="nav-sep"></div>
+    <button id="nav-webapp" class="nav-webapp">Open Web App ↗</button>
+  </div>
+</div>
+
+<div id="main-row">
 <div id="sidebar">
   <div class="brand">
     <h1>Simple</h1>
@@ -473,6 +527,7 @@
   </section>
 
 </div>
+</div>
 
 <div id="compile-modal" class="modal-backdrop" aria-hidden="true">
   <div class="modal" role="dialog" aria-modal="true">
@@ -518,14 +573,48 @@ async function api(path, opts = {}) {
   return json;
 }
 
+function activateTab(tabId) {
+  if (!document.getElementById(`panel-${tabId}`)) return;
+  for (const b of document.querySelectorAll('.tab-btn')) b.classList.remove('active');
+  for (const p of document.querySelectorAll('.tab-panel')) p.classList.remove('active');
+  const sidebarBtn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
+  sidebarBtn?.classList.add('active');
+  document.getElementById(`panel-${tabId}`).classList.add('active');
+}
+
 for (const btn of document.querySelectorAll('.tab-btn')) {
+  btn.addEventListener('click', () => activateTab(btn.dataset.tab));
+}
+
+// ── Top nav dropdown ("header dropper") ──
+const navToggle = document.getElementById('nav-toggle');
+const navDropdown = document.getElementById('nav-dropdown');
+navToggle.addEventListener('click', (e) => {
+  e.stopPropagation();
+  navDropdown.classList.toggle('open');
+});
+document.addEventListener('click', (e) => {
+  if (navDropdown.classList.contains('open') && !navDropdown.contains(e.target) && e.target !== navToggle) {
+    navDropdown.classList.remove('open');
+  }
+});
+for (const btn of navDropdown.querySelectorAll('button[data-tab]')) {
   btn.addEventListener('click', () => {
-    for (const b of document.querySelectorAll('.tab-btn')) b.classList.remove('active');
-    for (const p of document.querySelectorAll('.tab-panel')) p.classList.remove('active');
-    btn.classList.add('active');
-    document.getElementById(`panel-${btn.dataset.tab}`).classList.add('active');
+    activateTab(btn.dataset.tab);
+    navDropdown.classList.remove('open');
   });
 }
+document.getElementById('topbar-webapp').addEventListener('click', () => window.simpleDashboard.openWebApp());
+document.getElementById('nav-webapp').addEventListener('click', () => {
+  window.simpleDashboard.openWebApp();
+  navDropdown.classList.remove('open');
+});
+
+// Jump straight to a tab if the window was opened with ?tab=<id> (e.g. from
+// a tray shortcut), otherwise the default Status tab (already marked active
+// in the HTML) stays selected.
+const initialTab = new URLSearchParams(location.search).get('tab');
+if (initialTab) activateTab(initialTab);
 
 // ── Status tab ──
 async function refreshStatus() {

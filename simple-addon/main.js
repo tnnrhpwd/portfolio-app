@@ -26,17 +26,12 @@ if (!gotLock) {
 let trayManager = null;
 let pythonManager = null;
 let server = null;
-let settingsWindow = null;
 let actionBridge = null;
 let updateManager = null;
 let calibrationWindow = null;
 let eyeOverlayWindow = null;       // transparent click-through gaze dot
-let permissionWindow = null;       // Windows automation permission center
 let eyeOverlayAutoTrain = null;    // {timer, lastSampleAt, lastCursor, lastCursorAt, lastGaze, lastGazeAt}
-let recordingsWindow = null;       // demonstrations & skills browser
-let workspacePromptWindow = null;  // "Save New Workspace" name prompt
 let dashboardWindow = null;        // unified lightweight dashboard (Phase 6)
-let startAgentStatusPolling = () => {}; // assigned after server ready
 
 // ─── Resource Paths ─────────────────────────────────────────────────────────────
 
@@ -143,64 +138,6 @@ async function changeResourcesFolder() {
 
 // ─── Workspace Profiles (save/restore window layouts) ──────────────────────
 
-/**
- * Refresh the tray's cached list of saved workspace profiles. Call after
- * save/delete and once at startup so the "Workspace" submenu stays current.
- */
-async function refreshWorkspaceProfilesTray() {
-  try {
-    const workspaceProfiles = require('./server/automation/workspace-profiles');
-    const profiles = await workspaceProfiles.list();
-    trayManager?.setWorkspaceProfiles(profiles);
-  } catch (e) {
-    console.warn('[Main] Failed to refresh workspace profiles:', e.message);
-  }
-}
-
-/**
- * Show a small modal prompting for a workspace name. Resolves with the
- * trimmed name, or null if the user cancels/closes the window.
- */
-function openWorkspaceNamePrompt() {
-  return new Promise((resolve) => {
-    if (workspacePromptWindow && !workspacePromptWindow.isDestroyed()) {
-      workspacePromptWindow.focus();
-      resolve(null);
-      return;
-    }
-
-    let settled = false;
-    const finish = (value) => {
-      if (settled) return;
-      settled = true;
-      ipcMain.removeListener('workspace-prompt-save', onSave);
-      ipcMain.removeListener('workspace-prompt-cancel', onCancel);
-      resolve(value);
-      if (workspacePromptWindow && !workspacePromptWindow.isDestroyed()) {
-        workspacePromptWindow.close();
-      }
-      workspacePromptWindow = null;
-    };
-    const onSave = (_event, { name }) => finish(name);
-    const onCancel = () => finish(null);
-    ipcMain.on('workspace-prompt-save', onSave);
-    ipcMain.on('workspace-prompt-cancel', onCancel);
-
-    workspacePromptWindow = new BrowserWindow({
-      width: 420, height: 220, title: 'Save New Workspace',
-      resizable: false, minimizable: false, maximizable: false,
-      backgroundColor: '#0d1117',
-      webPreferences: {
-        contextIsolation: true, nodeIntegration: false,
-        preload: path.join(__dirname, 'renderer', 'workspace-prompt-preload.js'),
-      },
-    });
-    workspacePromptWindow.setMenuBarVisibility(false);
-    workspacePromptWindow.loadFile(path.join(__dirname, 'renderer', 'workspace-prompt.html'));
-    workspacePromptWindow.on('closed', () => finish(null));
-  });
-}
-
 // ─── Dashboard (unified lightweight addon UI — Phase 6) ─────────────────────
 
 /**
@@ -215,14 +152,16 @@ function notifyDashboardStatusChanged() {
 
 /**
  * Open (or focus) the single unified dashboard window.
+ * @param {string} [initialTab] — tab id to select on load (e.g. 'permissions').
+ *   Ignored if the dashboard is already open (just focuses the existing window).
  */
-function openDashboard() {
+function openDashboard(initialTab) {
   if (dashboardWindow && !dashboardWindow.isDestroyed()) {
     dashboardWindow.focus();
     return;
   }
   dashboardWindow = new BrowserWindow({
-    width: 960, height: 720, title: 'Simple Dashboard',
+    width: 1020, height: 760, title: 'Simple Dashboard',
     backgroundColor: '#0d1117',
     webPreferences: {
       contextIsolation: true, nodeIntegration: false,
@@ -231,10 +170,17 @@ function openDashboard() {
   });
   dashboardWindow.setMenuBarVisibility(false);
   const port = trayManager?.serverPort || 3001;
-  const url = `file://${path.join(__dirname, 'renderer', 'dashboard.html').replace(/\\/g, '/')}?port=${port}`;
+  const params = new URLSearchParams({ port: String(port) });
+  if (initialTab) params.set('tab', initialTab);
+  const url = `file://${path.join(__dirname, 'renderer', 'dashboard.html').replace(/\\/g, '/')}?${params.toString()}`;
   dashboardWindow.loadURL(url);
   dashboardWindow.on('closed', () => { dashboardWindow = null; });
 }
+
+ipcMain.handle('dashboard:open-web-app', () => {
+  shell.openExternal(WEBAPP_URL);
+  return { ok: true };
+});
 
 ipcMain.handle('dashboard:get-status', () => {
   const loginSettings = app.getLoginItemSettings();
@@ -397,7 +343,6 @@ async function startExpressServer() {
         storageDir: path.join(CONFIG_DIR, 'workspace-profiles'),
       });
       console.log('[Main] Workspace profiles configured at', path.join(CONFIG_DIR, 'workspace-profiles'));
-      refreshWorkspaceProfilesTray();
     } catch (e) {
       console.warn('[Main] Failed to configure workspace profiles:', e.message);
     }
@@ -1300,7 +1245,6 @@ function _initPerceptionAndPrediction() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ _firedBy: 'wakeword' }),
           });
-          startAgentStatusPolling();
           audioMgr.speak(`On it. ${instruction.slice(0, 60)}.`, { rate: 175 }).catch(() => {});
         }
       } catch (e) {
@@ -1386,20 +1330,10 @@ app.on('ready', async () => {
   trayManager = new TrayManager();
   trayManager.create({
     onOpenWebApp: () => shell.openExternal(WEBAPP_URL),
-    onOpenDashboard: () => openDashboard(),
-    onOpenResources: () => shell.openPath(getResourcesPath()),
-    onChangeResourcesFolder: () => changeResourcesFolder(),
-    onRestartServer: () => restartExpressServer(),
-    onSetupPython: () => {
-      if (pythonManager) {
-        pythonManager.setup(REQUIREMENTS_PATH);
-      }
-    },
+    onOpenDashboard: (tab) => openDashboard(tab),
     onQuit: () => {
       app.quit();
     },
-    onCheckForUpdates: () => updateManager?.checkForUpdates(),
-    onInstallUpdate: () => updateManager?.quitAndInstall(),
     onToggleStartAtLogin: (enabled) => {
       app.setLoginItemSettings({
         openAtLogin: enabled,
@@ -1407,34 +1341,19 @@ app.on('ready', async () => {
       });
       console.log(`[Main] Start at login: ${enabled}`);
     },
-    onCalibrateEyeTracking: () => openCalibrationWindow(),
-    onToggleEyeTracking: async (enabled) => {
-      if (!server?.eyeTrackingManager) {
-        trayManager?.notify('Eye Tracking', 'Server is not ready yet.');
-        return;
-      }
-      if (enabled) {
-        const result = await server.eyeTrackingManager.start().catch((e) => ({ success: false, error: e.message }));
-        if (!result?.success) {
-          trayManager?.notify('Eye Tracking', result?.error || 'Failed to start tracking.');
-        }
-      } else {
-        await server.eyeTrackingManager.stop().catch(() => {});
-      }
-    },
-    onToggleEyeOverlay: async (enabled) => {
-      if (!server?.eyeTrackingManager) {
-        trayManager?.notify('Eye Overlay', 'Server is not ready yet.');
-        return;
-      }
-      if (enabled) {
-        const result = await startEyeOverlayMode().catch((e) => ({ success: false, error: e.message }));
-        if (!result?.success) {
-          trayManager?.notify('Eye Overlay', result?.error || 'Failed to start overlay.');
-        }
-      } else {
-        await stopEyeOverlayMode();
-        trayManager?.notify('Eye Overlay', 'Overlay stopped.');
+    // Safety-critical actions kept as one-click tray items even after the
+    // dashboard exists, so they still work if the dashboard window itself
+    // fails to open — everything else moved to the dashboard (see Phase 6
+    // of docs/guides/ACTION_PLAN.md).
+    onKillSwitch: async () => {
+      try {
+        const port = server?.serverPort || 3001;
+        await fetch(`http://127.0.0.1:${port}/api/automation/permissions/kill`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+        });
+        trayManager?.notify('Kill Switch', 'All tool execution blocked. Re-enable in the dashboard\'s Permissions tab.');
+      } catch (e) {
+        trayManager?.notify('Kill Switch', e.message);
       }
     },
     onEmergencyStopEyeTracking: async () => {
@@ -1443,246 +1362,7 @@ app.on('ready', async () => {
         trayManager?.notify('Eye Tracking', 'Emergency stop — tracking halted.');
       }
     },
-    onShowEyeTrackingHelp: () => {
-      trayManager?.notify(
-        'Eye Tracking Quick Start',
-        '1) Calibrate (tray menu or say "calibrate eye tracking").\n2) Toggle "Enable Eye Tracking" in the tray, or say "track my eyes".\n3) EMERGENCY STOP: Escape or Ctrl+Alt+E (works globally).'
-      );
-    },
-
-    // ── Windows Automation Agent ──
-    onStartAgent: async () => {
-      try {
-        const port = server?.serverPort || 3001;
-        const r = await fetch(`http://127.0.0.1:${port}/api/agent/start`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
-        });
-        const json = await r.json();
-        if (json.running) {
-          trayManager?.notify('Agent Started', `Goal: ${json.currentGoal}`);
-          startAgentStatusPolling();
-        } else {
-          trayManager?.notify('Agent', json.reason || 'No active goal to work on.');
-        }
-      } catch (e) {
-        trayManager?.notify('Agent', `Failed to start: ${e.message}`);
-      }
-    },
-    onStopAgent: async () => {
-      try {
-        const port = server?.serverPort || 3001;
-        await fetch(`http://127.0.0.1:${port}/api/agent/stop`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
-        });
-        trayManager?.setAgentStatus({ running: false, step: 0, currentGoal: null });
-        trayManager?.notify('Agent Stopped', 'Manual stop.');
-      } catch (e) {
-        trayManager?.notify('Agent', `Stop failed: ${e.message}`);
-      }
-    },
-    onOpenPermissionCenter: () => {
-      try {
-        if (permissionWindow && !permissionWindow.isDestroyed()) {
-          permissionWindow.focus();
-          return;
-        }
-        permissionWindow = new BrowserWindow({
-          width: 880, height: 760, title: 'Simple Permission Center',
-          backgroundColor: '#0d1117',
-          webPreferences: { contextIsolation: true, nodeIntegration: false },
-        });
-        const port = server?.serverPort || 3001;
-        const url = `file://${path.join(__dirname, 'renderer', 'permissions.html').replace(/\\/g, '/')}?port=${port}`;
-        permissionWindow.loadURL(url);
-        permissionWindow.on('closed', () => { permissionWindow = null; });
-      } catch (e) {
-        trayManager?.notify('Permission Center', e.message);
-      }
-    },
-    onToggleDryRun: async (enabled) => {
-      try {
-        const port = server?.serverPort || 3001;
-        await fetch(`http://127.0.0.1:${port}/api/automation/permissions`, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ dryRunMode: !!enabled }),
-        });
-        trayManager?.setAgentStatus({ dryRun: !!enabled });
-      } catch (e) {
-        trayManager?.notify('Dry-Run', e.message);
-      }
-    },
-    onKillSwitch: async () => {
-      try {
-        const port = server?.serverPort || 3001;
-        await fetch(`http://127.0.0.1:${port}/api/automation/permissions/kill`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
-        });
-        trayManager?.setAgentStatus({ running: false, killSwitch: true });
-        trayManager?.notify('Kill Switch', 'All tool execution blocked. Re-enable in Permission Center.');
-      } catch (e) {
-        trayManager?.notify('Kill Switch', e.message);
-      }
-    },
-    onStartWakeword: async () => {
-      try {
-        const port = server?.serverPort || 3001;
-        await fetch(`http://127.0.0.1:${port}/api/voice/wakeword/start`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
-        });
-        trayManager?.setAgentStatus({ wakewordActive: true });
-        trayManager?.notify('Hey Simple', 'Wakeword active — say "Hey Simple, <instruction>"');
-      } catch (e) {
-        trayManager?.notify('Wakeword', `Failed: ${e.message}`);
-      }
-    },
-    onStopWakeword: async () => {
-      try {
-        const port = server?.serverPort || 3001;
-        await fetch(`http://127.0.0.1:${port}/api/voice/wakeword/stop`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
-        });
-        trayManager?.setAgentStatus({ wakewordActive: false });
-        trayManager?.notify('Hey Simple', 'Wakeword stopped.');
-      } catch (e) {
-        trayManager?.notify('Wakeword', `Failed: ${e.message}`);
-      }
-    },
-    onGoalFromClipboard: async () => {
-      try {
-        const port = server?.serverPort || 3001;
-        const r = await fetch(`http://127.0.0.1:${port}/api/agent/goal-from-clipboard`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
-        });
-        const json = await r.json();
-        if (json.ok) {
-          trayManager?.notify('Goal Created', `"${json.text?.slice(0, 80)}"\nAgent will pick it up on next Start.`);
-          startAgentStatusPolling();
-        } else {
-          trayManager?.notify('Goal from Clipboard', json.error || 'Failed');
-        }
-      } catch (e) {
-        trayManager?.notify('Goal from Clipboard', e.message);
-      }
-    },
-    onStartRecording: async () => {
-      try {
-        // Use a simple default name; the user can rename when compiling.
-        const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-        const name = `recording-${ts}`;
-        const recorder = require('./server/automation/recorder');
-        const info = await recorder.start({ name });
-        trayManager?.setRecorderStatus({ active: true, name });
-        trayManager?.notify('Recording started', `Capturing input until you stop.\nSession: ${info.sessionId}`);
-      } catch (e) {
-        trayManager?.notify('Recorder', `Start failed: ${e.message}`);
-      }
-    },
-    onStopRecording: async () => {
-      try {
-        const recorder = require('./server/automation/recorder');
-        const result = await recorder.stop();
-        trayManager?.setRecorderStatus({ active: false, name: null });
-        trayManager?.notify(
-          'Recording stopped',
-          `${result.eventCount} events in ${(result.durationMs / 1000).toFixed(1)}s\nSaved to ${path.basename(result.path)}`
-        );
-      } catch (e) {
-        trayManager?.notify('Recorder', `Stop failed: ${e.message}`);
-      }
-    },
-    onOpenRecordedSkills: () => {
-      try {
-        if (recordingsWindow && !recordingsWindow.isDestroyed()) {
-          recordingsWindow.focus();
-          return;
-        }
-        recordingsWindow = new BrowserWindow({
-          width: 980, height: 720, title: 'Recorded Demonstrations & Skills',
-          backgroundColor: '#0d1117',
-          webPreferences: { contextIsolation: true, nodeIntegration: false },
-        });
-        const port = server?.serverPort || 3001;
-        const url = `file://${path.join(__dirname, 'renderer', 'recordings.html').replace(/\\/g, '/')}?port=${port}`;
-        recordingsWindow.loadURL(url);
-        recordingsWindow.on('closed', () => { recordingsWindow = null; });
-      } catch (e) {
-        trayManager?.notify('Recorded Skills', e.message);
-      }
-    },
-
-    // ── Workspace Profiles ──
-    onSaveWorkspaceProfile: async () => {
-      try {
-        const name = await openWorkspaceNamePrompt();
-        if (!name) return; // cancelled
-        const workspaceProfiles = require('./server/automation/workspace-profiles');
-        const profile = await workspaceProfiles.save(name);
-        await refreshWorkspaceProfilesTray();
-        trayManager?.notify('Workspace Saved', `"${profile.name}" — ${profile.windows.length} window(s) captured.`);
-      } catch (e) {
-        trayManager?.notify('Workspace', `Save failed: ${e.message}`);
-      }
-    },
-    onRestoreWorkspaceProfile: async (slug) => {
-      try {
-        const workspaceProfiles = require('./server/automation/workspace-profiles');
-        const result = await workspaceProfiles.restore(slug);
-        const parts = [];
-        if (result.restoredCount) parts.push(`${result.restoredCount} repositioned`);
-        if (result.alreadyInPlaceCount) parts.push(`${result.alreadyInPlaceCount} already in place`);
-        if (result.launchedCount) parts.push(`${result.launchedCount} relaunched`);
-        if (result.skippedCount) parts.push(`${result.skippedCount} skipped`);
-        if (result.inaccurateCount) parts.push(`${result.inaccurateCount} could not be placed accurately`);
-        if (result.errorCount) parts.push(`${result.errorCount} failed`);
-        trayManager?.notify(`Workspace "${result.name}" Restored`, parts.join(', ') || 'Nothing to restore.');
-      } catch (e) {
-        trayManager?.notify('Workspace', `Restore failed: ${e.message}`);
-      }
-    },
-    onUpdateWorkspaceProfile: async (slug) => {
-      try {
-        const workspaceProfiles = require('./server/automation/workspace-profiles');
-        const profile = await workspaceProfiles.update(slug);
-        await refreshWorkspaceProfilesTray();
-        trayManager?.notify('Workspace Updated', `"${profile.name}" — re-captured with ${profile.windows.length} window(s).`);
-      } catch (e) {
-        trayManager?.notify('Workspace', `Update failed: ${e.message}`);
-      }
-    },
-    onDeleteWorkspaceProfile: async (slug) => {
-      try {
-        const workspaceProfiles = require('./server/automation/workspace-profiles');
-        await workspaceProfiles.remove(slug);
-        await refreshWorkspaceProfilesTray();
-        trayManager?.notify('Workspace Deleted', slug);
-      } catch (e) {
-        trayManager?.notify('Workspace', `Delete failed: ${e.message}`);
-      }
-    },
   });
-
-  // Poll agent status to keep tray in sync.
-  let _agentStatusTimer = null;
-  startAgentStatusPolling = function () {
-    if (_agentStatusTimer) return;
-    _agentStatusTimer = setInterval(async () => {
-      try {
-        const port = server?.serverPort || 3001;
-        const r = await fetch(`http://127.0.0.1:${port}/api/agent/status`);
-        const s = await r.json();
-        trayManager?.setAgentStatus({
-          running: !!s.running,
-          currentGoal: s.currentGoal,
-          step: s.step || 0,
-          dryRun: !!s.dryRun,
-        });
-        if (!s.running) {
-          clearInterval(_agentStatusTimer);
-          _agentStatusTimer = null;
-        }
-      } catch {}
-    }, 2000);
-  };
 
   // Enable start-at-login by default on first run (use a marker file since
   // wasOpenedAtLogin is macOS-only and unreliable on Windows)

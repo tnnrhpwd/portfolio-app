@@ -1,5 +1,13 @@
 /**
  * System Tray — Creates and manages the tray icon + context menu.
+ *
+ * Most addon functionality lives in the unified Dashboard window (see
+ * renderer/dashboard.html + main.js's openDashboard()) — this menu is
+ * intentionally kept small: quick launchers, passive status glances the
+ * dashboard IPC handlers read directly (serverPort/httpsPort/pythonStatus/
+ * eyeTrackingState/eyeOverlayActive), and a couple of one-click safety
+ * actions that must keep working even if the dashboard window itself fails
+ * to open.
  */
 
 const { Tray, Menu, nativeImage, Notification, shell, app } = require('electron');
@@ -17,35 +25,17 @@ class TrayManager {
     this.updateProgress = 0;
     this.eyeTrackingState = 'idle';   // idle | running | calibrating | error
     this.eyeOverlayActive = false;    // overlay (test mode) on/off
-    this.agentState = { running: false, currentGoal: null, step: 0, dryRun: false, killSwitch: false };
-    this.recorderActive = false;
-    this.recorderName = null;
-    this.workspaceProfiles = [];     // [{ slug, name, savedAt, windowCount }]
   }
 
   /**
    * Create the system tray icon.
    * @param {Object} callbacks
-   * @param {Function} callbacks.onRestartServer
-   * @param {Function} callbacks.onOpenSettings
-   * @param {Function} callbacks.onOpenDashboard
-   * @param {Function} callbacks.onSetupPython
-   * @param {Function} callbacks.onQuit
-   * @param {Function} callbacks.onCheckForUpdates
-   * @param {Function} callbacks.onDownloadUpdate
-   * @param {Function} callbacks.onInstallUpdate
+   * @param {Function} callbacks.onOpenDashboard — called with an optional initial tab id
    * @param {Function} callbacks.onOpenWebApp
-   * @param {Function} callbacks.onOpenResources
-   * @param {Function} callbacks.onChangeResourcesFolder
+   * @param {Function} callbacks.onQuit
    * @param {Function} callbacks.onToggleStartAtLogin
-   * @param {Function} callbacks.onCalibrateEyeTracking
-   * @param {Function} callbacks.onToggleEyeTracking
+   * @param {Function} callbacks.onKillSwitch
    * @param {Function} callbacks.onEmergencyStopEyeTracking
-  * @param {Function} callbacks.onShowEyeTrackingHelp
-   * @param {Function} callbacks.onSaveWorkspaceProfile
-   * @param {Function} callbacks.onRestoreWorkspaceProfile
-   * @param {Function} callbacks.onUpdateWorkspaceProfile
-   * @param {Function} callbacks.onDeleteWorkspaceProfile
    */
   create(callbacks = {}) {
     this.callbacks = callbacks;
@@ -67,7 +57,11 @@ class TrayManager {
     this.tray = new Tray(icon);
     this.tray.setToolTip('Simple Addon — Starting...');
 
-    // Double-click tray icon opens the web app
+    // Single-click opens the dashboard (the primary way into the addon's UI);
+    // double-click keeps opening the web app for anyone used to that gesture.
+    this.tray.on('click', () => {
+      this.callbacks.onOpenDashboard?.();
+    });
     this.tray.on('double-click', () => {
       this.callbacks.onOpenWebApp?.();
     });
@@ -96,7 +90,10 @@ class TrayManager {
   }
 
   /**
-   * Update the update status display and refresh the menu.
+   * Update the update status. Still called by auto-updater.js on every
+   * state transition — kept so that path doesn't need to know the tray
+   * menu no longer displays update state directly (the Dashboard's Updates
+   * tab reads this from the HTTP update-bridge instead).
    * @param {'idle'|'available'|'downloading'|'ready'|'error'|'up-to-date'} state
    * @param {string} [version]
    * @param {number} [progress]
@@ -105,7 +102,6 @@ class TrayManager {
     this.updateState = state;
     if (version) this.updateVersion = version;
     if (progress !== undefined) this.updateProgress = progress;
-    this._updateMenu();
   }
 
   /**
@@ -125,35 +121,6 @@ class TrayManager {
   }
 
   /**
-   * Update the automation/agent status display.
-   * @param {{running:boolean, currentGoal?:{slug:string,name:string}|null, step?:number, dryRun?:boolean, killSwitch?:boolean}} s
-   */
-  setAgentStatus(s = {}) {
-    this.agentState = { ...this.agentState, ...s };
-    this._updateMenu();
-  }
-
-  /**
-   * Update the demonstration-recorder status shown in the tray menu.
-   * @param {{active:boolean, name?:string|null}} s
-   */
-  setRecorderStatus(s = {}) {
-    this.recorderActive = !!s.active;
-    this.recorderName = s.name || null;
-    this._updateMenu();
-  }
-
-  /**
-   * Update the list of saved workspace (window-layout) profiles shown under
-   * the "Workspace" submenu.
-   * @param {Array<{slug:string, name:string, savedAt?:string, windowCount?:number}>} profiles
-   */
-  setWorkspaceProfiles(profiles = []) {
-    this.workspaceProfiles = Array.isArray(profiles) ? profiles : [];
-    this._updateMenu();
-  }
-
-  /**
    * Show a native notification.
    */
   notify(title, body) {
@@ -167,14 +134,6 @@ class TrayManager {
    */
   _updateMenu() {
     if (!this.tray) return;
-
-    const serverLabel = this.serverPort
-      ? `Server: http://localhost:${this.serverPort}`
-      : 'Server: Starting...';
-
-    const httpsLabel = this.httpsPort
-      ? `HTTPS: https://localhost:${this.httpsPort}`
-      : 'HTTPS: Disabled';
 
     // Determine whether the app is set to launch at login
     const loginSettings = app.getLoginItemSettings();
@@ -193,124 +152,18 @@ class TrayManager {
         label: 'Open Web App',
         click: () => this.callbacks.onOpenWebApp?.(),
       },
-      {
-        label: 'Open Resources Folder',
-        click: () => this.callbacks.onOpenResources?.(),
-      },
-      {
-        label: 'Change Resources Folder...',
-        click: () => this.callbacks.onChangeResourcesFolder?.(),
-      },
-      {
-        label: 'Workspace',
-        submenu: this._buildWorkspaceMenuItems(),
-      },
       { type: 'separator' },
 
-      // ── Status ──
-      { label: serverLabel, enabled: false },
-      { label: httpsLabel, enabled: false },
-      { label: `Python: ${this.pythonStatus}`, enabled: false },
-      { type: 'separator' },
-
-      // ── Eye Tracking ──
-      {
-        label: `Eye Tracking: ${this.eyeTrackingState === 'running' ? 'Active' : this.eyeTrackingState === 'calibrating' ? 'Calibrating...' : 'Inactive'}`,
-        enabled: false,
-      },
-      {
-        label: this.eyeTrackingState === 'running' ? 'Disable Eye Tracking' : 'Enable Eye Tracking',
-        type: 'checkbox',
-        checked: this.eyeTrackingState === 'running',
-        enabled: this.eyeTrackingState !== 'calibrating',
-        click: (menuItem) => this.callbacks.onToggleEyeTracking?.(menuItem.checked),
-      },
-      {
-        label: 'Calibrate Eye Tracking',
-        enabled: this.eyeTrackingState !== 'calibrating',
-        click: () => this.callbacks.onCalibrateEyeTracking?.(),
-      },
-      {
-        label: this.eyeOverlayActive ? 'Stop Eye Overlay (Test Mode)' : 'Start Eye Overlay (Test Mode)',
-        type: 'checkbox',
-        checked: this.eyeOverlayActive,
-        enabled: this.eyeTrackingState !== 'calibrating',
-        click: (menuItem) => this.callbacks.onToggleEyeOverlay?.(menuItem.checked),
-      },
-      {
-        label: 'Emergency Stop  (Esc / Ctrl+Alt+E)',
-        enabled: this.eyeTrackingState === 'running' || this.eyeTrackingState === 'calibrating',
-        click: () => this.callbacks.onEmergencyStopEyeTracking?.(),
-      },
-      {
-        label: 'How To Start Eye Tracking',
-        click: () => this.callbacks.onShowEyeTrackingHelp?.(),
-      },
-      { type: 'separator' },
-
-      // ── Server / Python ──
-      {
-        label: 'Restart Server',
-        click: () => this.callbacks.onRestartServer?.(),
-      },
-      {
-        label: 'Setup Python Environment',
-        click: () => this.callbacks.onSetupPython?.(),
-      },
-      { type: 'separator' },
-
-      // ── Windows Automation Agent ──
-      {
-        label: `Agent: ${this.agentState.running ? `Running (step ${this.agentState.step})` : 'Idle'}${this.agentState.dryRun ? ' [DRY-RUN]' : ''}${this.agentState.killSwitch ? ' [KILL]' : ''}`,
-        enabled: false,
-      },
-      this.agentState.currentGoal
-        ? { label: `Goal: ${this.agentState.currentGoal.name}`, enabled: false }
-        : { label: 'Goal: (none)', enabled: false },
-      {
-        label: this.agentState.running ? 'Stop Agent' : 'Start Agent on Next Goal',
-        click: () => this.agentState.running
-          ? this.callbacks.onStopAgent?.()
-          : this.callbacks.onStartAgent?.(),
-      },
-      {
-        label: this.agentState.wakewordActive ? '🎙 Stop "Hey Simple" Wakeword' : '🎙 Start "Hey Simple" Wakeword',
-        click: () => this.agentState.wakewordActive
-          ? this.callbacks.onStopWakeword?.()
-          : this.callbacks.onStartWakeword?.(),
-      },
-      {
-        label: '📋 Create Goal from Clipboard (Ctrl+Win+G)',
-        click: () => this.callbacks.onGoalFromClipboard?.(),
-      },
-      {
-        label: 'Open Permission Center',
-        click: () => this.callbacks.onOpenPermissionCenter?.(),
-      },
-      {
-        label: this.recorderActive ? `Stop Recording${this.recorderName ? ` "${this.recorderName}"` : ''}` : 'Record Demonstration…',
-        click: () => this.recorderActive
-          ? this.callbacks.onStopRecording?.()
-          : this.callbacks.onStartRecording?.(),
-      },
-      {
-        label: 'Recorded Skills…',
-        click: () => this.callbacks.onOpenRecordedSkills?.(),
-      },
-      {
-        label: 'Dry-Run Mode',
-        type: 'checkbox',
-        checked: !!this.agentState.dryRun,
-        click: (mi) => this.callbacks.onToggleDryRun?.(mi.checked),
-      },
+      // ── Safety-critical (kept one-click even if the dashboard fails to open) ──
       {
         label: 'EMERGENCY: Kill Switch (block all tools)',
         click: () => this.callbacks.onKillSwitch?.(),
       },
-      { type: 'separator' },
-
-      // ── Updates ──
-      ...this._buildUpdateMenuItems(),
+      {
+        label: 'Eye Tracking Emergency Stop  (Esc / Ctrl+Alt+E)',
+        enabled: this.eyeTrackingState === 'running' || this.eyeTrackingState === 'calibrating',
+        click: () => this.callbacks.onEmergencyStopEyeTracking?.(),
+      },
       { type: 'separator' },
 
       // ── Settings ──
@@ -330,84 +183,6 @@ class TrayManager {
     ]);
 
     this.tray.setContextMenu(menu);
-  }
-
-  /**
-   * Extract the build number from a version string. "1.0.15" → 15
-   */
-  _buildNum(version) {
-    return version ? version.split('.').pop() : '?';
-  }
-
-  /**
-   * Build the "Workspace" submenu: "Save New..." at top, then one item per
-   * saved profile, each with a nested submenu offering "Restore" (reposition
-   * windows to the saved layout), "Update" (re-capture the current
-   * arrangement over this profile, keeping its name), and "Delete".
-   */
-  _buildWorkspaceMenuItems() {
-    const items = [
-      {
-        label: 'Save New…',
-        click: () => this.callbacks.onSaveWorkspaceProfile?.(),
-      },
-    ];
-    if (this.workspaceProfiles.length > 0) {
-      items.push({ type: 'separator' });
-      for (const p of this.workspaceProfiles) {
-        const count = Number.isFinite(p.windowCount) ? ` (${p.windowCount} window${p.windowCount === 1 ? '' : 's'})` : '';
-        items.push({
-          label: `${p.name}${count}`,
-          submenu: [
-            {
-              label: `Restore "${p.name}"`,
-              click: () => this.callbacks.onRestoreWorkspaceProfile?.(p.slug),
-            },
-            {
-              label: 'Update (re-save current arrangement)',
-              click: () => this.callbacks.onUpdateWorkspaceProfile?.(p.slug),
-            },
-            {
-              label: 'Delete',
-              click: () => this.callbacks.onDeleteWorkspaceProfile?.(p.slug),
-            },
-          ],
-        });
-      }
-    }
-    return items;
-  }
-
-  /**
-   * Build the update-related menu items based on the current update state.
-   */
-  _buildUpdateMenuItems() {
-    const b = this._buildNum(this.updateVersion);
-    switch (this.updateState) {
-      case 'downloading':
-        return [
-          { label: `Downloading Build #${b}... ${this.updateProgress}%`, enabled: false },
-        ];
-      case 'ready':
-        return [
-          { label: `Build #${b} ready — installs on quit`, enabled: false },
-          { label: 'Restart && Update Now', click: () => this.callbacks.onInstallUpdate?.() },
-        ];
-      case 'error':
-        return [
-          { label: 'Update check failed', enabled: false },
-          { label: 'Retry Update Check', click: () => this.callbacks.onCheckForUpdates?.() },
-        ];
-      case 'up-to-date':
-        return [
-          { label: 'App is up to date', enabled: false },
-          { label: 'Check for Updates', click: () => this.callbacks.onCheckForUpdates?.() },
-        ];
-      default: // idle
-        return [
-          { label: 'Check for Updates', click: () => this.callbacks.onCheckForUpdates?.() },
-        ];
-    }
   }
 
   /**

@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('simpleDashboard', {
   changeResourcesFolder: () => ipcRenderer.invoke('dashboard:change-resources-folder'),
   getStartAtLogin: () => ipcRenderer.invoke('dashboard:get-start-at-login'),
   setStartAtLogin: (enabled) => ipcRenderer.invoke('dashboard:set-start-at-login', enabled),
+  openWebApp: () => ipcRenderer.invoke('dashboard:open-web-app'),
   getEyeTrackingStatus: () => ipcRenderer.invoke('dashboard:get-eye-tracking-status'),
   toggleEyeTracking: (enabled) => ipcRenderer.invoke('dashboard:toggle-eye-tracking', enabled),
   toggleEyeOverlay: (enabled) => ipcRenderer.invoke('dashboard:toggle-eye-overlay', enabled),
