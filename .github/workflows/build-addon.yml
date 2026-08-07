@@ -40,6 +40,33 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Stamps this build with a real UTC timestamp, bundled into the app as
+      # build-info.json. auto-updater.js uses it as a secondary safety net:
+      # if a release's own date is newer than what's actually running despite
+      # the version-number check saying "up to date", that's a strong signal
+      # the version bump below was somehow skipped anyway.
+      - name: Write build info
+        run: node scripts/write-build-info.js
+
+      # Guards against the exact mistake that caused an earlier release to
+      # silently ship no changes: publishing a build under a version number
+      # that was already used for a prior build. electron-updater only
+      # compares semver, so a repeated version number is invisible to it —
+      # existing installs would see "up to date" even though the code
+      # differs. Fail fast here instead, before anything gets published.
+      - name: Guard against re-publishing an existing version
+        if: startsWith(github.ref, 'refs/tags/addon-v') || github.event.inputs.publish == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if gh release view "v$VERSION" --repo tnnrhpwd/portfolio-app >/dev/null 2>&1; then
+            echo "::error::A release for version $VERSION (tag v$VERSION) already exists on tnnrhpwd/portfolio-app. Bump the version in simple-addon/package.json (and package-lock.json) before tagging a new addon-v* release — otherwise existing installs' auto-updater sees the same version number and reports 'up to date' even though the code is different."
+            exit 1
+          fi
+          echo "No existing release for v$VERSION — proceeding."
+
       # electron-builder reads the "publish" config in package.json which
       # points to tnnrhpwd/portfolio-app.  Passing --publish always makes it
       # create a GitHub Release on that repo using GH_TOKEN.

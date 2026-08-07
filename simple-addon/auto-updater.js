@@ -14,6 +14,8 @@
 
 const { autoUpdater } = require('electron-updater');
 const log = require('electron-log');
+const fs = require('fs');
+const path = require('path');
 
 // ─── Configure electron-updater ─────────────────────────────────────────────────
 
@@ -28,6 +30,21 @@ autoUpdater.autoInstallOnAppQuit = true;
 // Don't require admin elevation for per-user installs
 autoUpdater.allowDowngrade = false;
 
+/**
+ * Read this build's own build-info.json (written by scripts/write-build-info.js
+ * just before packaging — see that file for why this exists). Returns null in
+ * dev/unpackaged runs, or if an older build predates this file existing.
+ */
+function readOwnBuildInfo() {
+  try {
+    const p = path.join(__dirname, 'build-info.json');
+    if (!fs.existsSync(p)) return null;
+    return JSON.parse(fs.readFileSync(p, 'utf-8'));
+  } catch {
+    return null;
+  }
+}
+
 class UpdateManager {
   constructor() {
     this.trayManager = null;
@@ -41,6 +58,12 @@ class UpdateManager {
     // so the web UI can distinguish "haven't checked yet" from "checked, no
     // update found" — updateAvailable/updateDownloaded alone can't tell them apart.
     this.status = 'idle'; // idle | checking | downloading | ready | up-to-date | error
+    // Secondary safety net alongside the semver check (see readOwnBuildInfo
+    // above): set when a release's own releaseDate is newer than this
+    // build's own builtAt despite electron-updater reporting "up to date" —
+    // a strong sign a release was published without bumping the version.
+    this.possibleStaleVersion = false;
+    this.ownBuildInfo = readOwnBuildInfo();
   }
 
   /**
@@ -50,6 +73,28 @@ class UpdateManager {
   init(trayManager) {
     this.trayManager = trayManager;
     this._registerEvents();
+  }
+
+  /**
+   * Compare a release's own releaseDate (from electron-updater's UpdateInfo)
+   * against this build's own builtAt. Only meaningful when both are present
+   * (i.e. this build has build-info.json, and the release's latest.yml
+   * included a releaseDate) — silently skipped otherwise.
+   */
+  _checkForStaleVersion(info) {
+    if (!this.ownBuildInfo?.builtAt || !info?.releaseDate) return;
+    const released = new Date(info.releaseDate).getTime();
+    const built = new Date(this.ownBuildInfo.builtAt).getTime();
+    if (Number.isFinite(released) && Number.isFinite(built) && released > built) {
+      this.possibleStaleVersion = true;
+      log.warn(
+        `[Updater] Release v${info.version} (published ${info.releaseDate}) is newer than this build ` +
+        `(v${this.ownBuildInfo.version}, built ${this.ownBuildInfo.builtAt}) despite matching version numbers — ` +
+        `the version bump was likely skipped when that release was published.`
+      );
+    } else {
+      this.possibleStaleVersion = false;
+    }
   }
 
   /**
@@ -67,16 +112,18 @@ class UpdateManager {
       this.updateAvailable = true;
       this.updateInfo = info;
       this.status = 'downloading';
+      this.possibleStaleVersion = false; // a genuinely newer version was found
 
       // Silently update tray — no notification yet (download is automatic)
       this.trayManager?.setUpdateStatus('downloading', info.version, 0);
     });
 
-    autoUpdater.on('update-not-available', () => {
+    autoUpdater.on('update-not-available', (info) => {
       log.info('[Updater] App is up to date.');
       this.updateAvailable = false;
       this.updateInfo = null;
       this.status = 'up-to-date';
+      this._checkForStaleVersion(info);
       this.trayManager?.setUpdateStatus('up-to-date');
     });
 

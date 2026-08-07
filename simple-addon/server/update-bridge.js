@@ -32,6 +32,12 @@ function getStatus() {
         downloadProgress: _updateManager.downloadProgress || 0,
         latestVersion: _updateManager.updateInfo?.version || null,
         currentVersion: require('../package.json').version,
+        // Secondary safety net (see auto-updater.js's _checkForStaleVersion):
+        // true if a release with this same version number was published
+        // *after* this build was actually compiled — a sign the version
+        // bump was skipped when that release went out, so "up to date"
+        // above may not actually be true.
+        possibleStaleVersion: !!_updateManager.possibleStaleVersion,
     };
 }
 

@@ -182,6 +182,17 @@ ipcMain.handle('dashboard:open-web-app', () => {
   return { ok: true };
 });
 
+ipcMain.handle('dashboard:open-external', (_event, url) => {
+  // Only allow https:// GitHub URLs through this generic opener — it's meant
+  // for the Updates tab's "GitHub Releases page" link, not an arbitrary
+  // renderer-controlled navigation primitive.
+  if (typeof url === 'string' && /^https:\/\/github\.com\//.test(url)) {
+    shell.openExternal(url);
+    return { ok: true };
+  }
+  return { ok: false, error: 'URL not allowed' };
+});
+
 ipcMain.handle('dashboard:get-status', () => {
   const loginSettings = app.getLoginItemSettings();
   return {
