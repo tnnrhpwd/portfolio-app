@@ -30,6 +30,14 @@ autoUpdater.autoInstallOnAppQuit = true;
 // Don't require admin elevation for per-user installs
 autoUpdater.allowDowngrade = false;
 
+// See _checkForStaleVersion() below for why this grace period exists: it
+// absorbs the normal few-minutes gap between write-build-info.js's prebuild
+// timestamp and electron-builder's own releaseDate stamp within the *same*
+// CI run, so the "possibly stale" warning only fires for genuine same-version
+// republishes (which happen well after the original build, e.g. a manual
+// re-upload), not on every ordinary up-to-date check.
+const STALE_VERSION_GRACE_MS = 60 * 60 * 1000; // 1 hour
+
 /**
  * Read this build's own build-info.json (written by scripts/write-build-info.js
  * just before packaging — see that file for why this exists). Returns null in
@@ -80,16 +88,32 @@ class UpdateManager {
    * against this build's own builtAt. Only meaningful when both are present
    * (i.e. this build has build-info.json, and the release's latest.yml
    * included a releaseDate) — silently skipped otherwise.
+   *
+   * A grace period is required here: `builtAt` is stamped by
+   * write-build-info.js as a *prebuild* step (before electron-builder runs),
+   * while a release's `releaseDate` is stamped by electron-builder itself
+   * *during* packaging (later in the very same CI run that produced this
+   * exact build). That means `releaseDate` is unavoidably a few minutes
+   * after `builtAt` for every normal, correctly-versioned release — without
+   * a grace period this check would report "possibly stale" on every single
+   * up-to-date build, not just genuine same-version republishes. A gap
+   * bigger than a full CI build (well beyond that normal packaging delay)
+   * is what actually indicates someone re-published a release under the
+   * same version number after this build was originally compiled.
    */
   _checkForStaleVersion(info) {
     if (!this.ownBuildInfo?.builtAt || !info?.releaseDate) return;
     const released = new Date(info.releaseDate).getTime();
     const built = new Date(this.ownBuildInfo.builtAt).getTime();
-    if (Number.isFinite(released) && Number.isFinite(built) && released > built) {
+    if (
+      Number.isFinite(released) && Number.isFinite(built) &&
+      released - built > STALE_VERSION_GRACE_MS
+    ) {
       this.possibleStaleVersion = true;
       log.warn(
         `[Updater] Release v${info.version} (published ${info.releaseDate}) is newer than this build ` +
-        `(v${this.ownBuildInfo.version}, built ${this.ownBuildInfo.builtAt}) despite matching version numbers — ` +
+        `(v${this.ownBuildInfo.version}, built ${this.ownBuildInfo.builtAt}) by more than the ` +
+        `${STALE_VERSION_GRACE_MS / 60000}-minute grace period despite matching version numbers — ` +
         `the version bump was likely skipped when that release was published.`
       );
     } else {
@@ -143,7 +167,8 @@ class UpdateManager {
       // Single, non-intrusive notification — the only one the user sees
       this.trayManager?.notify(
         'Simple Addon Update Ready',
-        `Build #${build} will install automatically when you close the app.`
+        `Build #${build} will install automatically when you close the app.`,
+        'updates'
       );
 
       this.trayManager?.setUpdateStatus('ready', info.version);

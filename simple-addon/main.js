@@ -68,6 +68,54 @@ function saveResourcesPath(resourcesPath) {
   }
 }
 
+// ─── Notification Settings ──────────────────────────────────────────────────────
+
+const NOTIFICATION_SETTINGS_PATH = path.join(CONFIG_DIR, 'notification-settings.json');
+
+// Every category the addon can show a Windows notification for. Kill-switch
+// confirmations and uncaught-exception alerts are intentionally NOT part of
+// this list — they're passed to trayManager.notify() without a category so
+// they're always shown regardless of these preferences (see tray.js's notify()).
+const DEFAULT_NOTIFICATION_SETTINGS = {
+  system: true,      // server start/restart, resources folder changes, startup errors
+  updates: true,      // "Update ready" notifications
+  python: true,       // Python environment ready/error/not-found
+  automation: true,   // triggers, macros, Ctrl+Win+G clipboard-to-goal
+  eyeTracking: true,  // eye tracking active/emergency-stop, overlay active
+  voice: true,        // "Hey Simple" wakeword confirmations
+};
+
+/**
+ * Read the stored notification preferences, filling in defaults for any
+ * category missing from the saved file (e.g. after an update adds a new one).
+ */
+function getNotificationSettings() {
+  try {
+    if (fs.existsSync(NOTIFICATION_SETTINGS_PATH)) {
+      const saved = JSON.parse(fs.readFileSync(NOTIFICATION_SETTINGS_PATH, 'utf-8'));
+      return { ...DEFAULT_NOTIFICATION_SETTINGS, ...saved };
+    }
+  } catch (err) {
+    console.error('[Main] Error reading notification settings:', err.message);
+  }
+  return { ...DEFAULT_NOTIFICATION_SETTINGS };
+}
+
+/**
+ * Persist notification preferences and apply them immediately to the tray.
+ */
+function saveNotificationSettings(settings) {
+  const merged = { ...DEFAULT_NOTIFICATION_SETTINGS, ...(settings || {}) };
+  try {
+    fs.writeFileSync(NOTIFICATION_SETTINGS_PATH, JSON.stringify(merged, null, 2), 'utf-8');
+    console.log('[Main] Notification settings saved:', merged);
+  } catch (err) {
+    console.error('[Main] Error saving notification settings:', err.message);
+  }
+  trayManager?.setNotificationSettings(merged);
+  return merged;
+}
+
 /**
  * Prompt user to choose resources folder (first run only).
  * Returns the chosen path, or the default if the user cancels.
@@ -132,7 +180,7 @@ async function changeResourcesFolder() {
   // Expose updated path so the server can pick it up
   global.SIMPLE_RESOURCES_PATH = newPath;
 
-  trayManager?.notify('Simple Addon', `Resources folder changed to:\n${newPath}\n\nRestarting server...`);
+  trayManager?.notify('Simple Addon', `Resources folder changed to:\n${newPath}\n\nRestarting server...`, 'system');
   await restartExpressServer();
 }
 
@@ -237,6 +285,13 @@ ipcMain.handle('dashboard:set-start-at-login', (_event, enabled) => {
   return { ok: true };
 });
 
+// ── Notification Settings (Settings tab) ──
+ipcMain.handle('dashboard:get-notification-settings', () => getNotificationSettings());
+
+ipcMain.handle('dashboard:set-notification-settings', (_event, settings) => {
+  return saveNotificationSettings(settings);
+});
+
 // ── Eye Tracking (dashboard tab) ──
 ipcMain.handle('dashboard:get-eye-tracking-status', () => {
   return {
@@ -331,7 +386,7 @@ async function startExpressServer() {
 
     console.log(`[Main] Server started on port ${port}`);
     trayManager?.setServerInfo(port, httpsPort);
-    trayManager?.notify('Simple Addon', `Server running on port ${port}`);
+    trayManager?.notify('Simple Addon', `Server running on port ${port}`, 'system');
     notifyDashboardStatusChanged();
 
     // Configure the demonstration recorder with its on-disk storage location.
@@ -352,6 +407,12 @@ async function startExpressServer() {
       const workspaceProfiles = require('./server/automation/workspace-profiles');
       workspaceProfiles.configure({
         storageDir: path.join(CONFIG_DIR, 'workspace-profiles'),
+        // Lets save()/restore() track & restore whether the Simple Addon
+        // dashboard window itself was open, when the user opts in via the
+        // "Include Simple Addon dashboard" checkbox on the Workspace
+        // Profiles tab.
+        isDashboardOpen: () => !!dashboardWindow && !dashboardWindow.isDestroyed(),
+        openDashboard: () => openDashboard(),
       });
       console.log('[Main] Workspace profiles configured at', path.join(CONFIG_DIR, 'workspace-profiles'));
     } catch (e) {
@@ -374,7 +435,7 @@ async function startExpressServer() {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ goalSlug: trigger.goalSlug, _firedBy: trigger.id }),
             });
-            trayManager?.notify('Trigger fired', `${trigger.kind} → ${trigger.goalSlug}`);
+            trayManager?.notify('Trigger fired', `${trigger.kind} → ${trigger.goalSlug}`, 'automation');
           } catch (e) {
             console.warn('[Main] trigger dispatch failed:', e.message);
           }
@@ -425,7 +486,7 @@ async function startExpressServer() {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ slug }),
                   }).catch(() => {});
-                  trayManager?.notify('Macro', `Running "${slug}"`);
+                  trayManager?.notify('Macro', `Running "${slug}"`, 'automation');
                 } catch {}
               });
               if (!ok) console.warn(`[Main] globalShortcut.register failed for ${accelerator} (in use?)`);
@@ -459,7 +520,7 @@ async function startExpressServer() {
         globalShortcut.register('CommandOrControl+Alt+E', () => {
           console.log('[EyeTracking] Ctrl+Alt+E — emergency stop');
           server.eyeTrackingManager.stop().catch(() => {});
-          trayManager?.notify('Eye Tracking', 'Emergency stop (Ctrl+Alt+E) — tracking halted.');
+          trayManager?.notify('Eye Tracking', 'Emergency stop (Ctrl+Alt+E) — tracking halted.', 'eyeTracking');
         });
       } catch (e) { console.error('[EyeTracking] Failed to register Ctrl+Alt+E:', e.message); }
 
@@ -484,7 +545,8 @@ async function startExpressServer() {
           } catch (e) { console.error('[EyeTracking] Failed to register Escape shortcut:', e.message); }
           trayManager?.notify(
             'Eye Tracking Active',
-            'Emergency stop: press Escape or Ctrl+Alt+E anytime to halt cursor control.'
+            'Emergency stop: press Escape or Ctrl+Alt+E anytime to halt cursor control.',
+            'eyeTracking'
           );
         } else {
           globalShortcut.unregister('Escape');
@@ -498,7 +560,7 @@ async function startExpressServer() {
     return { port, httpsPort };
   } catch (err) {
     console.error('[Main] Failed to start server:', err);
-    trayManager?.notify('Simple Addon Error', `Server failed to start: ${err.message}`);
+    trayManager?.notify('Simple Addon Error', `Server failed to start: ${err.message}`, 'system');
     throw err;
   }
 }
@@ -561,9 +623,9 @@ async function setupPython() {
 
     // Show notification for key events
     if (status === 'error') {
-      trayManager?.notify('Simple — Python Error', detail);
+      trayManager?.notify('Simple — Python Error', detail, 'python');
     } else if (status === 'ready') {
-      trayManager?.notify('Simple — Python Ready', 'AI models can now run locally');
+      trayManager?.notify('Simple — Python Ready', 'AI models can now run locally', 'python');
     }
   });
 
@@ -573,7 +635,8 @@ async function setupPython() {
     notifyDashboardStatusChanged();
     trayManager?.notify(
       'Simple — Python Not Found',
-      'Local AI models require Python 3.8+. Download from python.org'
+      'Local AI models require Python 3.8+. Download from python.org',
+      'python'
     );
     return;
   }
@@ -1025,7 +1088,7 @@ async function startEyeOverlayMode(opts = {}) {
   _startOverlayAutoTrain();
   _registerOverlayHotkeys();
   trayManager?.setEyeOverlayActive(true);
-  trayManager?.notify('Eye Overlay', 'Overlay active. Move the cursor to a new spot you are looking at and hold still. Ctrl+Shift+G = force-confirm sample, Ctrl+Shift+U = undo last sample.');
+  trayManager?.notify('Eye Overlay', 'Overlay active. Move the cursor to a new spot you are looking at and hold still. Ctrl+Shift+G = force-confirm sample, Ctrl+Shift+U = undo last sample.', 'eyeTracking');
   return { success: true };
 }
 
@@ -1233,7 +1296,7 @@ function _initPerceptionAndPrediction() {
         return;
       }
       console.log('[Main] Wakeword detected, instruction:', instruction.slice(0, 100));
-      trayManager?.notify('Hey Simple', `"${instruction.slice(0, 80)}"`);
+      trayManager?.notify('Hey Simple', `"${instruction.slice(0, 80)}"`, 'voice');
       try {
         // Create a goal for this instruction
         const port = server?.serverPort || 3001;
@@ -1288,12 +1351,12 @@ function _initPerceptionAndPrediction() {
           });
           const json = await r.json();
           if (json.ok) {
-            trayManager?.notify('Goal Created ⌨ Ctrl+Win+G', `"${(json.text || '').slice(0, 80)}"\nSay "Hey Simple" or click Start Agent to run it.`);
+            trayManager?.notify('Goal Created ⌨ Ctrl+Win+G', `"${(json.text || '').slice(0, 80)}"\nSay "Hey Simple" or click Start Agent to run it.`, 'automation');
           } else {
-            trayManager?.notify('Ctrl+Win+G', json.error || 'Copy some text first, then try again.');
+            trayManager?.notify('Ctrl+Win+G', json.error || 'Copy some text first, then try again.', 'automation');
           }
         } catch (e) {
-          trayManager?.notify('Ctrl+Win+G', `Failed: ${e.message}`);
+          trayManager?.notify('Ctrl+Win+G', `Failed: ${e.message}`, 'automation');
         }
       });
       console.log('[Main] Ctrl+Win+G hotkey registered (clipboard-to-goal)');
@@ -1374,6 +1437,10 @@ app.on('ready', async () => {
       }
     },
   });
+
+  // Apply the user's saved notification preferences right away so every
+  // trayManager.notify() call below respects them from the first run.
+  trayManager.setNotificationSettings(getNotificationSettings());
 
   // Enable start-at-login by default on first run (use a marker file since
   // wasOpenedAtLogin is macOS-only and unreliable on Windows)
@@ -1502,7 +1569,7 @@ app.on('before-quit', async (e) => {
 
 // Handle second instance launch — just show a notification
 app.on('second-instance', () => {
-  trayManager?.notify('Simple Addon', 'Already running in system tray');
+  trayManager?.notify('Simple Addon', 'Already running in system tray', 'system');
 });
 
 // ─── Error Handling ─────────────────────────────────────────────────────────────

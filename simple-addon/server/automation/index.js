@@ -520,10 +520,10 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
         catch (e) { res.status(404).json({ error: e.message }); }
     });
     app.post('/api/workspace-profiles', async (req, res) => {
-        const { name } = req.body || {};
+        const { name, includeDashboard } = req.body || {};
         if (!name || !String(name).trim()) return res.status(400).json({ error: 'name is required' });
         try {
-            const profile = await workspaceProfiles.save(name);
+            const profile = await workspaceProfiles.save(name, { includeDashboard: !!includeDashboard });
             events.publish('workspace.saved', { name: profile.name, windowCount: profile.windows.length });
             res.json(profile);
         } catch (e) { res.status(400).json({ error: e.message }); }
@@ -536,8 +536,9 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
         } catch (e) { res.status(404).json({ error: e.message }); }
     });
     app.post('/api/workspace-profiles/:name/update', async (req, res) => {
+        const { includeDashboard } = req.body || {};
         try {
-            const profile = await workspaceProfiles.update(req.params.name);
+            const profile = await workspaceProfiles.update(req.params.name, { includeDashboard });
             events.publish('workspace.updated', { name: profile.name, windowCount: profile.windows.length });
             res.json(profile);
         } catch (e) { res.status(404).json({ error: e.message }); }

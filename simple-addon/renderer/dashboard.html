@@ -179,6 +179,7 @@
     <button data-tab="permissions">Permissions</button>
     <button data-tab="eyetracking">Eye Tracking</button>
     <button data-tab="updates">Updates</button>
+    <button data-tab="settings">Settings</button>
     <div class="nav-sep"></div>
     <button id="nav-webapp" class="nav-webapp">Open Web App ↗</button>
   </div>
@@ -197,6 +198,7 @@
   <button class="tab-btn" data-tab="permissions">Permissions</button>
   <button class="tab-btn" data-tab="eyetracking">Eye Tracking</button>
   <button class="tab-btn" data-tab="updates">Updates <span class="badge" id="tab-badge-updates"></span></button>
+  <button class="tab-btn" data-tab="settings">Settings</button>
 </div>
 
 <div id="content">
@@ -365,6 +367,13 @@
           <button id="workspace-save-new" class="primary">Save New…</button>
         </div>
       </div>
+      <div class="row">
+        <div>
+          <div class="name">Include Simple Addon dashboard</div>
+          <div class="desc">Also remember whether this Dashboard window was open, and reopen it when this profile is restored. (Its position is never changed.)</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="workspace-include-dashboard"> Include</label>
+      </div>
     </div>
 
     <div class="panel">
@@ -527,6 +536,57 @@
           <button id="update-check">Check for Updates</button>
           <button id="update-install" class="primary" disabled>Restart &amp; Update Now</button>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="tab-panel" id="panel-settings">
+    <div class="panel">
+      <h2>Windows Notifications</h2>
+      <div class="desc" style="color:var(--muted); font-size:12px; margin-bottom:8px">
+        Choose which categories of native Windows notifications Simple Addon shows. Kill switch confirmations and crash alerts are always shown for safety.
+      </div>
+      <div class="row">
+        <div>
+          <div class="name">System</div>
+          <div class="desc">Server starting/restarting, resources folder changes, startup errors.</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="notif-cb-system"> Enabled</label>
+      </div>
+      <div class="row">
+        <div>
+          <div class="name">Updates</div>
+          <div class="desc">"Update ready" notification once a new build has finished downloading.</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="notif-cb-updates"> Enabled</label>
+      </div>
+      <div class="row">
+        <div>
+          <div class="name">Python</div>
+          <div class="desc">Local AI environment ready, setup errors, or Python not found.</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="notif-cb-python"> Enabled</label>
+      </div>
+      <div class="row">
+        <div>
+          <div class="name">Automation</div>
+          <div class="desc">Triggers firing, macros running, and clipboard-to-goal (Ctrl+Win+G).</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="notif-cb-automation"> Enabled</label>
+      </div>
+      <div class="row">
+        <div>
+          <div class="name">Eye Tracking</div>
+          <div class="desc">Tracking active, emergency stop, and overlay (test mode) notifications.</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="notif-cb-eyeTracking"> Enabled</label>
+      </div>
+      <div class="row">
+        <div>
+          <div class="name">Voice</div>
+          <div class="desc">"Hey Simple" wakeword confirmations.</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="notif-cb-voice"> Enabled</label>
       </div>
     </div>
   </section>
@@ -995,10 +1055,11 @@ async function refreshWorkspaceList() {
     for (const p of profiles) {
       const count = Number.isFinite(p.windowCount) ? `${p.windowCount} window${p.windowCount === 1 ? '' : 's'}` : '';
       const saved = p.savedAt ? new Date(p.savedAt).toLocaleString() : '';
+      const dashboardNote = p.dashboardTracked ? `Dashboard ${p.dashboardOpen ? 'open' : 'closed'}` : '';
       const row = el('div', { class: 'row' },
         el('div', {},
           el('div', { class: 'name' }, p.name),
-          el('div', { class: 'desc' }, [count, saved].filter(Boolean).join(' · ')),
+          el('div', { class: 'desc' }, [count, dashboardNote, saved].filter(Boolean).join(' · ')),
         ),
         el('div', { class: 'actions' },
           el('button', { class: 'primary', onclick: () => restoreWorkspaceProfile(p.slug, p.name) }, 'Restore'),
@@ -1020,6 +1081,7 @@ async function restoreWorkspaceProfile(slug, name) {
     if (result.restoredCount) parts.push(`${result.restoredCount} repositioned`);
     if (result.relaunchedCount) parts.push(`${result.relaunchedCount} relaunched`);
     if (result.skippedCount) parts.push(`${result.skippedCount} skipped`);
+    if (result.dashboardOpened) parts.push('dashboard reopened');
     alert(`"${name}" restored${parts.length ? ' — ' + parts.join(', ') : ''}.`);
   } catch (e) {
     alert(`Restore failed: ${e.message}`);
@@ -1050,8 +1112,9 @@ document.getElementById('workspace-save-new').addEventListener('click', async ()
   const input = document.getElementById('workspace-new-name');
   const name = input.value.trim();
   if (!name) return alert('Enter a name for this workspace profile first.');
+  const includeDashboard = document.getElementById('workspace-include-dashboard').checked;
   try {
-    const profile = await api('/api/workspace-profiles', { method: 'POST', body: JSON.stringify({ name }) });
+    const profile = await api('/api/workspace-profiles', { method: 'POST', body: JSON.stringify({ name, includeDashboard }) });
     input.value = '';
     alert(`"${profile.name}" saved — ${profile.windows.length} window(s) captured.`);
     await refreshWorkspaceList();
@@ -1397,6 +1460,41 @@ document.getElementById('update-stale-releases-link').addEventListener('click', 
   e.preventDefault();
   window.simpleDashboard.openExternal('https://github.com/tnnrhpwd/portfolio-app/releases');
 });
+
+// ── Settings tab (notification preferences) ──
+const NOTIF_CATEGORIES = ['system', 'updates', 'python', 'automation', 'eyeTracking', 'voice'];
+
+async function refreshNotificationSettings() {
+  try {
+    const settings = await window.simpleDashboard.getNotificationSettings();
+    for (const key of NOTIF_CATEGORIES) {
+      const cb = document.getElementById(`notif-cb-${key}`);
+      if (cb) cb.checked = settings[key] !== false;
+    }
+  } catch (e) {
+    console.error('Failed to load notification settings:', e);
+  }
+}
+
+for (const key of NOTIF_CATEGORIES) {
+  const cb = document.getElementById(`notif-cb-${key}`);
+  if (!cb) continue;
+  cb.addEventListener('change', async () => {
+    try {
+      const settings = {};
+      for (const k of NOTIF_CATEGORIES) {
+        const el2 = document.getElementById(`notif-cb-${k}`);
+        settings[k] = el2 ? el2.checked : true;
+      }
+      await window.simpleDashboard.setNotificationSettings(settings);
+    } catch (e) {
+      alert(`Failed to save notification settings: ${e.message}`);
+      refreshNotificationSettings();
+    }
+  });
+}
+
+refreshNotificationSettings();
 </script>
 
 </body>

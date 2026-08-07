@@ -25,6 +25,7 @@ class TrayManager {
     this.updateProgress = 0;
     this.eyeTrackingState = 'idle';   // idle | running | calibrating | error
     this.eyeOverlayActive = false;    // overlay (test mode) on/off
+    this.notificationSettings = null; // { system, updates, python, automation, eyeTracking, voice } — set via setNotificationSettings()
   }
 
   /**
@@ -121,9 +122,26 @@ class TrayManager {
   }
 
   /**
-   * Show a native notification.
+   * Update the user's notification preferences (see main.js's
+   * get/saveNotificationSettings). Checked on every notify() call so a
+   * change takes effect immediately without needing a restart.
    */
-  notify(title, body) {
+  setNotificationSettings(settings) {
+    this.notificationSettings = settings || null;
+  }
+
+  /**
+   * Show a native notification.
+   * @param {string} title
+   * @param {string} body
+   * @param {string} [category] — one of 'system' | 'updates' | 'python' |
+   *   'automation' | 'eyeTracking' | 'voice'. When provided and the user has
+   *   disabled that category in Settings, the notification is suppressed.
+   *   Omit for safety-critical notifications (kill switch, crashes) that
+   *   should never be suppressible.
+   */
+  notify(title, body, category) {
+    if (category && this.notificationSettings && this.notificationSettings[category] === false) return;
     if (Notification.isSupported()) {
       new Notification({ title, body, silent: false }).show();
     }

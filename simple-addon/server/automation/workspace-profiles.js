@@ -33,10 +33,14 @@ const { windowSnapshot, windowSetRect } = require('./tools/system');
 const { openApp } = require('./tools/open-app');
 
 let _storageDir = null;
+let _isDashboardOpen = null;  // optional () => boolean, supplied by main.js
+let _openDashboard = null;    // optional () => void, supplied by main.js
 
-function configure({ storageDir }) {
+function configure({ storageDir, isDashboardOpen, openDashboard } = {}) {
     if (!storageDir) throw new Error('configure() requires storageDir');
     _storageDir = storageDir;
+    if (typeof isDashboardOpen === 'function') _isDashboardOpen = isDashboardOpen;
+    if (typeof openDashboard === 'function') _openDashboard = openDashboard;
 }
 
 function _requireConfigured() {
@@ -86,6 +90,8 @@ async function list() {
                 name: data.name || f.replace(/\.json$/, ''),
                 savedAt: data.savedAt,
                 windowCount: Array.isArray(data.windows) ? data.windows.length : 0,
+                dashboardTracked: data.dashboardOpen !== undefined,
+                dashboardOpen: !!data.dashboardOpen,
             });
         } catch { /* skip unreadable/corrupt files */ }
     }
@@ -197,8 +203,14 @@ function _extractLaunchArgs(commandLine) {
 /**
  * Capture the current window layout and save it under `name`, overwriting
  * any existing profile with the same slug.
+ * @param {string} name
+ * @param {Object} [opts]
+ * @param {boolean} [opts.includeDashboard] — when true, also records whether
+ *   the Simple Addon dashboard window was open at save time (see restore()).
+ *   The dashboard's own window is otherwise never captured/repositioned like
+ *   a normal app window (see OWN_PROCESS_NAME filtering below).
  */
-async function save(name) {
+async function save(name, { includeDashboard = false } = {}) {
     const slug = slugify(name);
     const { windows } = await windowSnapshot.run();
     // Drop windows with no exePath AND a title that looks like our own tray
@@ -221,6 +233,9 @@ async function save(name) {
                 state: w.state,
             })),
     };
+    if (includeDashboard) {
+        profile.dashboardOpen = typeof _isDashboardOpen === 'function' ? !!_isDashboardOpen() : false;
+    }
     const full = path.join(_storageDir, `${slug}.json`);
     await fs.mkdir(_storageDir, { recursive: true });
     await fs.writeFile(full, JSON.stringify(profile, null, 2), 'utf-8');
@@ -238,10 +253,17 @@ async function remove(name) {
  * profile with it, keeping its original display name. Distinct from
  * `save()` (which the tray only exposes as "Save New…" for a fresh name) so
  * the user can refresh a profile in place without retyping its name.
+ * @param {string} name
+ * @param {Object} [opts]
+ * @param {boolean} [opts.includeDashboard] — defaults to whether the existing
+ *   profile already tracked dashboard state, so a plain re-save preserves it.
  */
-async function update(name) {
+async function update(name, { includeDashboard } = {}) {
     const existing = await get(name); // throws if the profile doesn't exist
-    return save(existing.name);
+    const shouldIncludeDashboard = includeDashboard !== undefined
+        ? includeDashboard
+        : existing.dashboardOpen !== undefined;
+    return save(existing.name, { includeDashboard: shouldIncludeDashboard });
 }
 
 /**
@@ -543,6 +565,21 @@ async function restore(name) {
         }
     }
 
+    // If this profile tracked the Simple Addon dashboard's open/closed state
+    // (see save()'s includeDashboard option), reopen it here when it was
+    // open at save time and isn't already open now. Deliberately just opens
+    // the window (via main.js's own openDashboard()) rather than trying to
+    // reposition it — see the OWN_PROCESS_NAME skip above for why forcing a
+    // position on Electron's own window is avoided.
+    let dashboardOpened = false;
+    if (profile.dashboardOpen && typeof _openDashboard === 'function') {
+        const alreadyOpen = typeof _isDashboardOpen === 'function' ? _isDashboardOpen() : false;
+        if (!alreadyOpen) {
+            _openDashboard();
+            dashboardOpened = true;
+        }
+    }
+
     return {
         name: profile.name,
         restoredCount: restored.length,
@@ -552,6 +589,7 @@ async function restore(name) {
         inaccurateCount: inaccurate.length,
         errorCount: errors.length,
         restored, alreadyInPlace, launched, skipped, inaccurate, errors,
+        dashboardOpened,
     };
 }
 

@@ -26,6 +26,8 @@ contextBridge.exposeInMainWorld('simpleDashboard', {
   toggleEyeOverlay: (enabled) => ipcRenderer.invoke('dashboard:toggle-eye-overlay', enabled),
   emergencyStopEyeTracking: () => ipcRenderer.invoke('dashboard:emergency-stop-eye-tracking'),
   calibrateEyeTracking: () => ipcRenderer.invoke('dashboard:calibrate-eye-tracking'),
+  getNotificationSettings: () => ipcRenderer.invoke('dashboard:get-notification-settings'),
+  setNotificationSettings: (settings) => ipcRenderer.invoke('dashboard:set-notification-settings', settings),
   onStatusChanged: (callback) => {
     const listener = (_event, status) => callback(status);
     ipcRenderer.on('dashboard:status-changed', listener);

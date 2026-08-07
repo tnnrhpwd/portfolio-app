@@ -322,6 +322,90 @@ test('slugify rejects empty names', () => {
         assert.strictEqual(entries.length, 0);
     });
 
+    // ── Dashboard state tracking (Include Simple Addon dashboard checkbox) ──
+    let dashboardOpenState = false;
+    let openDashboardCalls = 0;
+    workspaceProfiles.configure({
+        storageDir: tmpDir,
+        isDashboardOpen: () => dashboardOpenState,
+        openDashboard: () => { openDashboardCalls++; dashboardOpenState = true; },
+    });
+
+    await testAsync('save() omits dashboardOpen when includeDashboard is not requested', async () => {
+        fakeWindows = [];
+        const profile = await workspaceProfiles.save('no-dashboard-tracking');
+        assert.strictEqual(profile.dashboardOpen, undefined);
+        await workspaceProfiles.remove('no-dashboard-tracking');
+    });
+
+    await testAsync('save() records dashboardOpen=true via the isDashboardOpen hook when requested', async () => {
+        dashboardOpenState = true;
+        fakeWindows = [];
+        const profile = await workspaceProfiles.save('with-dashboard-open', { includeDashboard: true });
+        assert.strictEqual(profile.dashboardOpen, true);
+        await workspaceProfiles.remove('with-dashboard-open');
+    });
+
+    await testAsync('save() records dashboardOpen=false when the dashboard was closed at save time', async () => {
+        dashboardOpenState = false;
+        fakeWindows = [];
+        const profile = await workspaceProfiles.save('with-dashboard-closed', { includeDashboard: true });
+        assert.strictEqual(profile.dashboardOpen, false);
+        await workspaceProfiles.remove('with-dashboard-closed');
+    });
+
+    await testAsync('update() preserves dashboard tracking from the existing profile by default', async () => {
+        dashboardOpenState = true;
+        fakeWindows = [];
+        await workspaceProfiles.save('tracked-profile', { includeDashboard: true });
+        dashboardOpenState = false;
+        const updated = await workspaceProfiles.update('tracked-profile');
+        assert.strictEqual(updated.dashboardOpen, false, 'should re-capture the (now closed) dashboard state, not drop tracking');
+        await workspaceProfiles.remove('tracked-profile');
+    });
+
+    await testAsync('update() does not start tracking dashboard state if the original save never opted in', async () => {
+        fakeWindows = [];
+        await workspaceProfiles.save('untracked-profile');
+        const updated = await workspaceProfiles.update('untracked-profile');
+        assert.strictEqual(updated.dashboardOpen, undefined);
+        await workspaceProfiles.remove('untracked-profile');
+    });
+
+    await testAsync('restore() reopens the dashboard when the saved profile had it open and it is currently closed', async () => {
+        dashboardOpenState = true;
+        fakeWindows = [];
+        await workspaceProfiles.save('reopen-dashboard', { includeDashboard: true });
+        dashboardOpenState = false;
+        openDashboardCalls = 0;
+        const result = await workspaceProfiles.restore('reopen-dashboard');
+        assert.strictEqual(openDashboardCalls, 1);
+        assert.strictEqual(result.dashboardOpened, true);
+        await workspaceProfiles.remove('reopen-dashboard');
+    });
+
+    await testAsync('restore() does not reopen the dashboard when it is already open', async () => {
+        dashboardOpenState = true;
+        fakeWindows = [];
+        await workspaceProfiles.save('already-open-dashboard', { includeDashboard: true });
+        openDashboardCalls = 0;
+        const result = await workspaceProfiles.restore('already-open-dashboard');
+        assert.strictEqual(openDashboardCalls, 0);
+        assert.strictEqual(result.dashboardOpened, false);
+        await workspaceProfiles.remove('already-open-dashboard');
+    });
+
+    await testAsync('restore() never reopens the dashboard for a profile that never tracked it', async () => {
+        dashboardOpenState = false;
+        fakeWindows = [];
+        await workspaceProfiles.save('never-tracked-dashboard');
+        openDashboardCalls = 0;
+        const result = await workspaceProfiles.restore('never-tracked-dashboard');
+        assert.strictEqual(openDashboardCalls, 0);
+        assert.strictEqual(result.dashboardOpened, false);
+        await workspaceProfiles.remove('never-tracked-dashboard');
+    });
+
     fs.rmSync(tmpDir, { recursive: true, force: true });
 
     console.log(`\nworkspace-profiles.test: ${passed}/${passed + failed} PASS`);
