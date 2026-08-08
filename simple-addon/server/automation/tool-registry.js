@@ -70,7 +70,7 @@ async function executeTool(name, args, ctx = {}) {
     }
     const safeArgs = args || {};
 
-    events?.publish('tool.start', { tool: name, args: safeArgs, goalSlug: ctx.goalSlug, callId });
+    events?.publish('tool.start', { tool: name, args: safeArgs, goalSlug: ctx.goalSlug, runId: ctx.runId, callId });
 
     // Permission gate
     const approval = await permissions.requestApproval(tool, safeArgs, {
@@ -83,7 +83,7 @@ async function executeTool(name, args, ctx = {}) {
             exitCode: -1, durationMs, approvedBy: 'denied',
         };
         ctx.addAction?.(record).catch(() => {});
-        events?.publish('tool.end', { tool: name, ok: false, error: approval.reason, mode: approval.mode, durationMs, callId });
+        events?.publish('tool.end', { tool: name, ok: false, error: approval.reason, mode: approval.mode, durationMs, runId: ctx.runId, callId });
         return { ok: false, error: approval.reason, mode: approval.mode, durationMs };
     }
 
@@ -99,6 +99,13 @@ async function executeTool(name, args, ctx = {}) {
         // trail against the same goal.
         addAction: ctx.addAction,
         goalSlug: ctx.goalSlug,
+        // Propagate the caller-supplied runId so every nested tool call made
+        // by a composite tool (e.g. skill_run executing its recorded steps)
+        // publishes tool.start/tool.end tagged with the SAME runId. This lets
+        // a UI subscribe to the SSE event stream and reconstruct a live,
+        // step-by-step view of one specific run even while other runs/agent
+        // activity are happening concurrently.
+        runId: ctx.runId,
     };
 
     try {
@@ -118,7 +125,7 @@ async function executeTool(name, args, ctx = {}) {
             goalSlug: ctx.goalSlug,
         };
         ctx.addAction?.(record).catch(() => {});
-        events?.publish('tool.end', { tool: name, ok: true, mode: approval.mode, durationMs, callId });
+        events?.publish('tool.end', { tool: name, ok: true, mode: approval.mode, durationMs, runId: ctx.runId, callId });
         // Notify predictor and other subscribers of successful execution
         for (const fn of _executedListeners) { try { fn(name, safeArgs, result); } catch {} }
         return { ok: true, result, mode: approval.mode, durationMs };
@@ -130,7 +137,7 @@ async function executeTool(name, args, ctx = {}) {
             exitCode: 1, durationMs, approvedBy: approval.approvedBy || 'auto',
             goalSlug: ctx.goalSlug,
         }).catch(() => {});
-        events?.publish('tool.end', { tool: name, ok: false, error, mode: approval.mode, durationMs, callId });
+        events?.publish('tool.end', { tool: name, ok: false, error, mode: approval.mode, durationMs, runId: ctx.runId, callId });
         return { ok: false, error, mode: approval.mode, durationMs };
     }
 }

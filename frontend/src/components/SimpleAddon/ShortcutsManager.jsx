@@ -29,6 +29,7 @@ import {
   compileMacroNaturalViaBackend,
   editMacroNatural,
   editMacroNaturalViaBackend,
+  getAgentEventsUrl,
 } from '../../services/simpleAddonApi';
 import './ShortcutsManager.css';
 
@@ -115,6 +116,59 @@ function summarizeSteps(skill) {
     .join(', ');
 }
 
+/** One-glyph icon per tool "family" — used as a quick visual identifier in the macro list. */
+const TOOL_ICON = {
+  click_at: '🖱️', mouse: '🖱️', input_tap: '⌨️', input_hold: '⌨️', text_type: '⌨️',
+  key_tap: '⌨️', key_hold: '⌨️', shell_run: '💻', open_app: '🚀', uia_invoke: '🎯',
+  find_and_click_visual: '👁️', screenshot_check: '📸', audio_speak: '🔊',
+  skill_run: '🧩', loop_until_key: '🔁', loop_n_times: '🔁', wait: '⏱️', _marker: '📍',
+};
+
+/** Best-effort icon for a compiled skill based on the tools its steps use. */
+function skillIcon(skill) {
+  const first = skill?.steps?.[0];
+  const tool = first?.tool || first?.type;
+  return TOOL_ICON[tool] || '⚡';
+}
+
+/** Where a macro came from — drives the small source badge in the list. */
+function skillSource(skill) {
+  const src = skill?.metadata?.source;
+  if (src === 'nl-compiler') return { label: 'AI', cls: 'ai' };
+  if (src) return { label: src, cls: 'other' };
+  return { label: 'Recorded', cls: 'recorded' };
+}
+
+/** Generate a per-run correlation id used to filter the SSE event stream down
+ * to just this run's tool calls (see getAgentEventsUrl / runSkill runId). */
+function makeRunId() {
+  try {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  } catch { /* fall through */ }
+  return `run-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** HH:MM:SS.mmm clock label for a console line. */
+function fmtClock(ts) {
+  try {
+    const d = new Date(ts);
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}.${String(d.getMilliseconds()).padStart(3, '0')}`;
+  } catch {
+    return '';
+  }
+}
+
+/** Short single-line preview of a tool's args for the console. */
+function previewArgs(args) {
+  if (!args || typeof args !== 'object') return '';
+  try {
+    const s = JSON.stringify(args);
+    return s.length > 80 ? `${s.slice(0, 80)}…` : s;
+  } catch {
+    return '';
+  }
+}
+
 export default function ShortcutsManager({ user, addonConnected, githubToken }) {
   const token = user?.token;
   const [loading, setLoading] = useState(true);
@@ -128,6 +182,17 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
   // unrelated actions (save/compile/delete) can't clobber it mid-run.
   const [runInfo, setRunInfo] = useState(null);
   const [showRunDebug, setShowRunDebug] = useState(false);
+  // Live step-by-step console for the run in progress (or the last run).
+  // Lines are keyed by callId so a tool's `start` and `end` events merge into
+  // a single entry instead of appearing twice.
+  const [consoleLines, setConsoleLines] = useState([]); // [{ callId, tool, args, status, startedAt, durationMs, error }]
+  const [consoleOpen, setConsoleOpen] = useState(false);
+  const runEsRef = useRef(null);
+  const consoleBodyRef = useRef(null);
+
+  // Macro list search / filter
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('all'); // all | recorded | ai | hotkey
 
   // Recorder state
   const [recorder, setRecorder] = useState({ active: false, eventCount: 0, startedAt: null });
@@ -222,6 +287,51 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
     }, 100);
     return () => clearInterval(id);
   }, [runInfo?.phase, runInfo?.startedAt]);
+
+  // Auto-scroll the live console to the newest line as steps stream in.
+  useEffect(() => {
+    if (!consoleOpen || !consoleBodyRef.current) return;
+    consoleBodyRef.current.scrollTop = consoleBodyRef.current.scrollHeight;
+  }, [consoleLines, consoleOpen]);
+
+  // Always close any open run's SSE subscription when the component unmounts.
+  useEffect(() => () => { if (runEsRef.current) { runEsRef.current.close(); runEsRef.current = null; } }, []);
+
+  /**
+   * Subscribe to the addon's live event stream for the duration of one run,
+   * filtering to just this run's tool.start/tool.end pairs (correlated by the
+   * `runId` we generate and pass to runSkill). Builds the step-by-step
+   * console shown under the run banner. The outer `skill_run` call itself is
+   * filtered out — only the nested per-step tool calls are shown.
+   */
+  const subscribeRunConsole = useCallback((runId) => {
+    if (runEsRef.current) { runEsRef.current.close(); runEsRef.current = null; }
+    const url = getAgentEventsUrl({ types: ['tool.start', 'tool.end'] });
+    if (!url) return;
+    const es = new EventSource(url);
+    runEsRef.current = es;
+    const onEvent = (e) => {
+      let ev;
+      try { ev = JSON.parse(e.data); } catch { return; }
+      if (ev.runId !== runId || ev.tool === 'skill_run') return;
+      setConsoleLines((prev) => {
+        const idx = prev.findIndex(l => l.callId === ev.callId);
+        if (ev.type === 'tool.start') {
+          const line = { callId: ev.callId, tool: ev.tool, args: ev.args, status: 'running', startedAt: ev.ts };
+          if (idx >= 0) { const next = [...prev]; next[idx] = { ...next[idx], ...line }; return next; }
+          return [...prev, line];
+        }
+        // tool.end
+        const patch = { status: ev.ok ? 'ok' : 'error', durationMs: ev.durationMs, error: ev.error };
+        if (idx >= 0) { const next = [...prev]; next[idx] = { ...next[idx], ...patch }; return next; }
+        return [...prev, { callId: ev.callId, tool: ev.tool, ...patch }];
+      });
+    };
+    es.addEventListener('tool.start', onEvent);
+    es.addEventListener('tool.end', onEvent);
+    es.onerror = () => { /* EventSource auto-reconnects; ignore transient drops */ };
+    return () => { es.close(); if (runEsRef.current === es) runEsRef.current = null; };
+  }, []);
 
   // ── Recording pipeline ─────────────────────────────────────────────────
   const handleStartRecording = useCallback(async () => {
@@ -382,12 +492,15 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
     setError(null);
     const startedAt = Date.now();
     setShowRunDebug(false);
-    setRunInfo({ slug, phase: 'running', startedAt, elapsedMs: 0 });
+    setConsoleLines([]);
+    const macro = macros.find(m => m.item.slug === slug);
+    const runId = makeRunId();
+    subscribeRunConsole(runId);
+    setRunInfo({ slug, phase: 'running', startedAt, elapsedMs: 0, stepsEstimate: macro?.skill?.steps?.length || null });
     try {
       // Pass the inline skill so the addon can execute without needing to
       // resolve it from the workspace API (works after addon restart / no auth).
-      const macro = macros.find(m => m.item.slug === slug);
-      const out = await runSkill(slug, {}, macro?.skill || null);
+      const out = await runSkill(slug, {}, macro?.skill || null, { runId });
       const elapsedMs = Date.now() - startedAt;
       // The addon's tool-registry ALWAYS wraps a tool's return value as
       // { ok, result, error, mode, durationMs } (see tool-registry.js
@@ -428,7 +541,7 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
       setRunInfo({ slug, phase: 'failed', startedAt, elapsedMs, error: msg });
       setError(msg);
     }
-  }, [addonConnected, macros]);
+  }, [addonConnected, macros, subscribeRunConsole]);
 
   const handleDelete = useCallback(async (slug) => {
     if (!token) return;
@@ -651,12 +764,28 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
   }, [captureFor]);
 
   const rows = useMemo(() => {
-    return [...macros].sort((a, b) => {
+    const sorted = [...macros].sort((a, b) => {
       const an = (a.skill?.name || a.item.name || a.item.slug).toLowerCase();
       const bn = (b.skill?.name || b.item.name || b.item.slug).toLowerCase();
       return an.localeCompare(bn);
     });
-  }, [macros]);
+    const q = search.trim().toLowerCase();
+    return sorted.filter(({ item, skill }) => {
+      if (filter === 'recorded' && skill?.metadata?.source === 'nl-compiler') return false;
+      if (filter === 'ai' && skill?.metadata?.source !== 'nl-compiler') return false;
+      if (filter === 'hotkey' && !skill?.hotkey) return false;
+      if (!q) return true;
+      const haystack = `${skill?.name || item.name || item.slug} ${item.slug} ${skill?.description || ''} ${summarizeSteps(skill)}`.toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [macros, search, filter]);
+
+  const filterCounts = useMemo(() => ({
+    all: macros.length,
+    recorded: macros.filter(m => m.skill?.metadata?.source !== 'nl-compiler').length,
+    ai: macros.filter(m => m.skill?.metadata?.source === 'nl-compiler').length,
+    hotkey: macros.filter(m => !!m.skill?.hotkey).length,
+  }), [macros]);
 
   if (!token) {
     return (
@@ -669,10 +798,11 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
   return (
     <div className="short">
       <div className="short__intro">
-        <p className="short__intro-title">Keyboard Macros</p>
+        <p className="short__intro-title">🧩 Skills &amp; Macros</p>
         <p className="short__intro-desc">
-          Record desktop actions and bind them to global keyboard shortcuts. Macros are stored in your
-          cloud workspace and run through the Simple addon on this machine.
+          Teach the Simple addon new skills by recording desktop actions or describing them in plain English,
+          then bind them to global keyboard shortcuts. Skills are stored in your cloud workspace and run
+          through the Simple addon on this machine.
         </p>
         {!addonConnected && (
           <p className="short__banner short__banner--warn">
@@ -681,10 +811,64 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
         )}
       </div>
 
-      {/* Recorder */}
+      {/* Natural Language Macro Compiler — primary creation path */}
+      <div className="short__group short__group--hero">
+        <div className="short__group-header">
+          <span className="short__group-title short__group-title--hero">✨ Create a skill with natural language</span>
+          <span className="short__group-badge">AI</span>
+        </div>
+        <p className="short__hint">
+          Describe what you want done and the AI compiles it into an executable skill — no recording required.
+          <br />Examples: <em>"mine stone in minecraft until I press Escape"</em> · <em>"open Notepad, type hello, save"</em>
+        </p>
+        <textarea
+          className="adv-input short__nl-textarea"
+          placeholder="Describe what you want the skill to do…"
+          rows={3}
+          value={nlText}
+          onChange={e => setNlText(e.target.value)}
+          disabled={nlBusy}
+        />
+        <div className="short__recorder" style={{ marginTop: '6px' }}>
+          <input
+            type="text"
+            className="adv-input short__name-input"
+            placeholder="Skill name (optional)"
+            value={nlName}
+            onChange={e => setNlName(e.target.value)}
+            disabled={nlBusy}
+          />
+          <button
+            className="short__btn short__btn--primary"
+            onClick={handleCompileNl}
+            disabled={nlBusy || !nlText.trim()}
+          >
+            {nlBusy ? '⏳ Compiling…' : '⚡ Compile'}
+          </button>
+        </div>
+        {nlResult && (
+          <div className="short__nl-result">
+            <div className="short__nl-result-header">
+              <span>{nlResult.steps?.length} steps compiled</span>
+              <button
+                className="short__btn short__btn--primary"
+                onClick={handleSaveNl}
+                disabled={nlBusy || !token}
+              >
+                💾 Save skill
+              </button>
+            </div>
+            <pre className="short__nl-preview">
+              {JSON.stringify(nlResult.steps, null, 2)}
+            </pre>
+          </div>
+        )}
+      </div>
+
+      {/* Recorder — alternate way to create a skill by demonstrating it */}
       <div className="short__group">
         <div className="short__group-header">
-          <span className="short__group-title">Recorder</span>
+          <span className="short__group-title">⏺ Or record one by demonstrating it</span>
           {recorder.active && (
             <span className="short__rec-indicator" aria-live="polite">
               <span className="short__rec-dot" /> Recording · {recorder.eventCount} events
@@ -724,60 +908,6 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
         </p>
       </div>
 
-      {/* Natural Language Macro Compiler */}
-      <div className="short__group">
-        <div className="short__group-header">
-          <span className="short__group-title">✨ Natural Language Macro</span>
-          <span className="short__group-badge">AI</span>
-        </div>
-        <p className="short__hint">
-          Describe a macro in plain English and the AI will compile it into executable steps.
-          <br />Examples: <em>"mine stone in minecraft until I press Escape"</em> · <em>"open Notepad, type hello, save"</em>
-        </p>
-        <textarea
-          className="adv-input short__nl-textarea"
-          placeholder="Describe what you want the macro to do…"
-          rows={3}
-          value={nlText}
-          onChange={e => setNlText(e.target.value)}
-          disabled={nlBusy}
-        />
-        <div className="short__recorder" style={{ marginTop: '6px' }}>
-          <input
-            type="text"
-            className="adv-input short__name-input"
-            placeholder="Macro name (optional)"
-            value={nlName}
-            onChange={e => setNlName(e.target.value)}
-            disabled={nlBusy}
-          />
-          <button
-            className="short__btn short__btn--primary"
-            onClick={handleCompileNl}
-            disabled={nlBusy || !nlText.trim()}
-          >
-            {nlBusy ? '⏳ Compiling…' : '⚡ Compile'}
-          </button>
-        </div>
-        {nlResult && (
-          <div className="short__nl-result">
-            <div className="short__nl-result-header">
-              <span>{nlResult.steps?.length} steps compiled</span>
-              <button
-                className="short__btn short__btn--primary"
-                onClick={handleSaveNl}
-                disabled={nlBusy || !token}
-              >
-                💾 Save macro
-              </button>
-            </div>
-            <pre className="short__nl-preview">
-              {JSON.stringify(nlResult.steps, null, 2)}
-            </pre>
-          </div>
-        )}
-      </div>
-
       {/* Status / error banners */}
       {error && (
         <div className="short__banner short__banner--err" role="alert" onClick={() => setError(null)}>
@@ -790,35 +920,87 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
         </div>
       )}
       {runInfo && (
-        <div
-          className={`short__banner short__run short__run--${runInfo.phase}`}
-          role="status"
-        >
-          <span>
-            {runInfo.phase === 'running' && (
-              <><span className="short__run-spinner" aria-hidden="true" /> Running "{runInfo.slug}"… {formatDuration(runInfo.elapsedMs)}</>
+        <div className="short__run-wrap">
+          <div
+            className={`short__banner short__run short__run--${runInfo.phase}`}
+            role="status"
+          >
+            <span>
+              {runInfo.phase === 'running' && (
+                <><span className="short__run-spinner" aria-hidden="true" /> Running "{runInfo.slug}"… {formatDuration(runInfo.elapsedMs)}</>
+              )}
+              {runInfo.phase === 'done' && (
+                <>✓ "{runInfo.slug}" done in {formatDuration(runInfo.elapsedMs)} ({runInfo.stepsRun}/{runInfo.stepsTotal} steps)</>
+              )}
+              {runInfo.phase === 'failed' && runInfo.failedStep && (
+                <>
+                  ✕ "{runInfo.slug}" failed at step {runInfo.failedStep.index + 1}/{runInfo.stepsTotal} ({runInfo.failedStep.tool}) after {formatDuration(runInfo.elapsedMs)}: {runInfo.failedStep.error}
+                  <button
+                    type="button"
+                    className="short__run-debug-toggle"
+                    onClick={() => setShowRunDebug(v => !v)}
+                  >
+                    {showRunDebug ? 'Hide debug details' : 'Show debug details'}
+                  </button>
+                </>
+              )}
+              {runInfo.phase === 'failed' && !runInfo.failedStep && (
+                <>✕ "{runInfo.slug}" failed after {formatDuration(runInfo.elapsedMs)}{runInfo.error ? `: ${runInfo.error}` : ''}</>
+              )}
+            </span>
+            {runInfo.phase !== 'running' && (
+              <span className="short__banner-dismiss" onClick={() => setRunInfo(null)}>✕</span>
             )}
-            {runInfo.phase === 'done' && (
-              <>✓ "{runInfo.slug}" done in {formatDuration(runInfo.elapsedMs)} ({runInfo.stepsRun}/{runInfo.stepsTotal} steps)</>
-            )}
-            {runInfo.phase === 'failed' && runInfo.failedStep && (
-              <>
-                ✕ "{runInfo.slug}" failed at step {runInfo.failedStep.index + 1}/{runInfo.stepsTotal} ({runInfo.failedStep.tool}) after {formatDuration(runInfo.elapsedMs)}: {runInfo.failedStep.error}
+          </div>
+
+          {/* Compact live progress bar — always visible while a console exists */}
+          {consoleLines.length > 0 && (() => {
+            const total = runInfo.stepsTotal ?? runInfo.stepsEstimate ?? consoleLines.length;
+            const doneCount = consoleLines.filter(l => l.status === 'ok' || l.status === 'error').length;
+            const current = [...consoleLines].reverse().find(l => l.status === 'running');
+            const pct = total ? Math.min(100, Math.round((doneCount / total) * 100)) : 0;
+            return (
+              <div className="short__progress">
+                <div className="short__progress-track">
+                  <div
+                    className={`short__progress-fill${runInfo.phase === 'failed' ? ' is-failed' : ''}`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <span className="short__progress-label">
+                  {runInfo.phase === 'running' && current
+                    ? `Step ${doneCount + 1}${total ? `/${total}` : ''} · ${current.tool}`
+                    : `${doneCount}${total ? `/${total}` : ''} steps`}
+                </span>
                 <button
                   type="button"
                   className="short__run-debug-toggle"
-                  onClick={() => setShowRunDebug(v => !v)}
+                  onClick={() => setConsoleOpen(v => !v)}
                 >
-                  {showRunDebug ? 'Hide debug details' : 'Show debug details'}
+                  {consoleOpen ? 'Hide console' : 'View console'}
                 </button>
-              </>
-            )}
-            {runInfo.phase === 'failed' && !runInfo.failedStep && (
-              <>✕ "{runInfo.slug}" failed after {formatDuration(runInfo.elapsedMs)}{runInfo.error ? `: ${runInfo.error}` : ''}</>
-            )}
-          </span>
-          {runInfo.phase !== 'running' && (
-            <span className="short__banner-dismiss" onClick={() => setRunInfo(null)}>✕</span>
+              </div>
+            );
+          })()}
+
+          {/* Full terminal-style step log */}
+          {consoleOpen && consoleLines.length > 0 && (
+            <div className="short__console" ref={consoleBodyRef}>
+              {consoleLines.map((line, i) => (
+                <div key={line.callId || i} className={`short__console-line short__console-line--${line.status}`}>
+                  <span className="short__console-time">{fmtClock(line.startedAt)}</span>
+                  <span className="short__console-glyph">
+                    {line.status === 'running' ? '▶' : line.status === 'ok' ? '✓' : '✗'}
+                  </span>
+                  <span className="short__console-tool">{line.tool}</span>
+                  {line.args && <span className="short__console-args">{previewArgs(line.args)}</span>}
+                  {line.status !== 'running' && typeof line.durationMs === 'number' && (
+                    <span className="short__console-duration">{formatDuration(line.durationMs)}</span>
+                  )}
+                  {line.error && <span className="short__console-error">{line.error}</span>}
+                </div>
+              ))}
+            </div>
           )}
         </div>
       )}
@@ -852,13 +1034,41 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
       {/* Macro list */}
       <div className="short__group">
         <div className="short__group-header">
-          <span className="short__group-title">Your macros ({rows.length})</span>
+          <span className="short__group-title">Your skills ({rows.length}{rows.length !== macros.length ? ` of ${macros.length}` : ''})</span>
           <button className="short__btn short__btn--muted" onClick={loadMacros} disabled={loading}>Refresh</button>
+        </div>
+        <div className="short__toolbar">
+          <input
+            type="search"
+            className="adv-input short__search"
+            placeholder="Search skills by name, slug, or step…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          <div className="short__chips" role="tablist" aria-label="Filter skills">
+            {[
+              ['all', 'All'],
+              ['recorded', 'Recorded'],
+              ['ai', 'AI-generated'],
+              ['hotkey', 'Hotkey-bound'],
+            ].map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                className={`short__chip${filter === id ? ' is-active' : ''}`}
+                onClick={() => setFilter(id)}
+              >
+                {label} <span className="short__chip-count">{filterCounts[id]}</span>
+              </button>
+            ))}
+          </div>
         </div>
         {loading ? (
           <div className="short__empty">Loading…</div>
+        ) : macros.length === 0 ? (
+          <div className="short__empty">No skills yet. Create one above with natural language or by recording.</div>
         ) : rows.length === 0 ? (
-          <div className="short__empty">No macros yet. Record one above to get started.</div>
+          <div className="short__empty">No skills match your search/filter.</div>
         ) : (
           <ul className="short__list">
             {rows.map(({ item, skill }) => {
@@ -866,11 +1076,15 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
               const hotkey = skill?.hotkey;
               const summary = skill ? summarizeSteps(skill) : 'Content unavailable';
               const stepCount = skill?.steps?.length || 0;
+              const source = skillSource(skill);
+              const isRunningThis = runInfo?.phase === 'running' && runInfo?.slug === item.slug;
               return (
-                <li key={item.slug} className="short__item">
+                <li key={item.slug} className={`short__item${isRunningThis ? ' is-running' : ''}`}>
+                  <span className="short__item-icon" aria-hidden="true">{skillIcon(skill)}</span>
                   <div className="short__item-main">
                     <div className="short__item-title">
                       <span className="short__item-name">{name}</span>
+                      <span className={`short__badge short__badge--${source.cls}`}>{source.label}</span>
                       <span className="short__item-slug">/{item.slug}</span>
                     </div>
                     <div className="short__item-meta">
@@ -906,10 +1120,10 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
                     <button
                       className="short__btn short__btn--sm"
                       onClick={() => handleRun(item.slug)}
-                      disabled={!addonConnected || !skill}
+                      disabled={!addonConnected || !skill || (runInfo?.phase === 'running')}
                       title={!addonConnected ? 'Connect the addon to run macros' : 'Run now'}
                     >
-                      ▶ Run
+                      {isRunningThis ? '⏳ Running…' : '▶ Run'}
                     </button>
                     <button
                       className="short__btn short__btn--sm short__btn--muted"

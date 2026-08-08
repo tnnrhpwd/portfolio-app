@@ -13,8 +13,8 @@
  *   { ts, type, ...data }
  *
  * Known types:
- *   tool.start        { tool, args, goalSlug?, callId }
- *   tool.end          { tool, ok, error?, durationMs, callId, mode }
+ *   tool.start        { tool, args, goalSlug?, runId?, callId }
+ *   tool.end          { tool, ok, error?, durationMs, callId, mode, runId? }
  *   agent.step        { goalSlug, step, lastTickAt, modelId }
  *   agent.message     { goalSlug, role, content }      // assistant text
  *   agent.stopped     { goalSlug, reason }

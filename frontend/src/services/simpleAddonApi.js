@@ -850,10 +850,16 @@ export async function saveSkill(skill) {
  *   in-memory cache before lookup. Recommended when the caller already has the
  *   compiled skill loaded — it avoids a workspace round-trip and works even
  *   when the addon just restarted (empty cache) or has no cloud auth token yet.
+ * @param {object} [opts]
+ *   @param {string} [opts.runId] client-generated correlation id. When set,
+ *     every tool.start/tool.end SSE event for this run (and its nested steps)
+ *     is tagged with the same runId — subscribe to getAgentEventsUrl() and
+ *     filter on it to build a live step-by-step execution view.
  */
-export async function runSkill(slug, params = {}, inlineSkill = null) {
+export async function runSkill(slug, params = {}, inlineSkill = null, opts = {}) {
   const body = { slug, params: params || {} };
   if (inlineSkill && inlineSkill.slug === slug) body.skill = inlineSkill;
+  if (opts?.runId) body.runId = opts.runId;
   const res = await addonFetch('/api/skill/run', {
     method: 'POST',
     body: JSON.stringify(body),

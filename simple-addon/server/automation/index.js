@@ -584,9 +584,17 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
     // tool can execute without needing to hit the workspace API. This makes
     // Run-from-web work immediately after an addon restart (empty local cache)
     // and independent of cloud auth state.
+    //
+    // If the caller passes `runId` (a client-generated correlation id), it's
+    // threaded through ctx → every tool.start/tool.end event published for
+    // this run AND each of its nested steps (skill_run re-enters the registry
+    // per step, and runId flows through runCtx — see tool-registry.js). This
+    // lets a UI subscribe to /api/agent/events and reconstruct a live,
+    // step-by-step console for exactly this run, even if other runs or agent
+    // activity are happening at the same time.
     app.post('/api/skill/run', async (req, res) => {
         try {
-            const { slug, params, skill, marketplaceInstalled, confirmCapabilities } = req.body || {};
+            const { slug, params, skill, marketplaceInstalled, confirmCapabilities, runId } = req.body || {};
             if (!slug) return res.status(400).json({ error: 'slug is required' });
             if (marketplaceInstalled && !confirmCapabilities) {
                 const preview = (skill && Array.isArray(skill.steps)) ? summarizeCapabilities(skill) : null;
@@ -596,12 +604,13 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
                     preview,
                 });
             }
-            const ctx = ctxFactory({ goalSlug: null, userInitiated: true });
+            const ctx = ctxFactory({ goalSlug: null, userInitiated: true, runId: runId || undefined });
             const args = { slug, params: params || {} };
             if (skill && skill.slug === slug) args.cache = skill;
             const out = await registry.executeTool('skill_run', args, ctx);
             events.publish('skill.run', {
                 slug,
+                runId: runId || undefined,
                 stepsRun: out?.result?.stepsRun,
                 failed: !!out?.result?.failed,
                 outcome: out?.result?.outcome || null,
