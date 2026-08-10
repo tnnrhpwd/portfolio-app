@@ -44,11 +44,42 @@ function runPs(script) {
         const timer = setTimeout(() => { try { child.kill('SIGKILL'); } catch {} }, PS_TIMEOUT);
         child.on('close', code => {
             clearTimeout(timer);
-            if (code !== 0) return reject(new Error(stderr.trim() || `powershell exited with ${code}`));
+            if (code !== 0) return reject(new Error(parseCliXmlError(stderr.trim()) || `powershell exited with ${code}`));
             resolve(stdout);
         });
         child.on('error', e => { clearTimeout(timer); reject(e); });
     });
+}
+
+// Windows PowerShell (powershell.exe, unlike pwsh) serializes the *error*
+// stream as CLIXML whenever stderr isn't an interactive console — which is
+// always true here since it's redirected to a pipe for spawn() to capture.
+// That means every `Write-Error` (used throughout these scripts for
+// "not found"-style failures, e.g. window_focus when no window matches)
+// surfaces as a multi-KB "#< CLIXML ..." blob instead of the actual message
+// — this is exactly what turned "window not found" into an unreadable dump
+// in the skill-run failure UI. Unwrap it back to plain text so callers (and
+// the skill-run failedStep.error shown to users) get the real message.
+function parseCliXmlError(stderr) {
+    if (typeof stderr !== 'string' || !stderr.startsWith('#< CLIXML')) return stderr;
+    // CLIXML line-wraps each error record across many `<S S="Error">` chunks
+    // purely for XML readability — concatenate them back into one string
+    // before decoding, then decode the `_xHHHH_` char escapes it uses in
+    // place of literal control characters (notably `_x000D__x000A_` = \r\n).
+    const raw = [...stderr.matchAll(/<S S="Error">([^<]*)<\/S>/g)].map(m => m[1]).join('');
+    if (!raw) return stderr;
+    const decoded = raw.replace(/_x([0-9A-Fa-f]{4})_/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+    const lines = decoded.split(/\r\n/);
+    // The actual error message is the line immediately before the
+    // "+ CategoryInfo" boilerplate; everything before it may be the entire
+    // source script (PowerShell reports the whole invocation as "the line"
+    // when there's no separate script file to attribute a line number to).
+    const catIdx = lines.findIndex(l => l.trim().startsWith('+ CategoryInfo'));
+    let message = catIdx > 0 ? lines[catIdx - 1] : lines[0];
+    const sepIdx = message.lastIndexOf(' : ');
+    if (sepIdx !== -1) message = message.slice(sepIdx + 3);
+    message = message.trim();
+    return message || decoded.trim().slice(0, 500);
 }
 
 // Removes full-line `#`-comments (and the resulting blank lines) from a
@@ -606,4 +637,4 @@ const clipboardWrite = {
     },
 };
 
-module.exports = { windowList, windowFocus, windowSnapshot, windowSetRect, processList, processKill, clipboardRead, clipboardWrite };
+module.exports = { windowList, windowFocus, windowSnapshot, windowSetRect, processList, processKill, clipboardRead, clipboardWrite, parseCliXmlError };
