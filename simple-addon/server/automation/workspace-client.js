@@ -156,6 +156,14 @@ const listSkills = () => {
     return req('GET', `?${q.toString()}`);
 };
 
+// ─── Settings kind (small per-user JSON blobs, e.g. permission consents) ──
+// Source of truth for state that must follow the user across addon installs
+// and devices (the local `automation-permissions.json` file is a per-machine
+// cache, not the source of truth). Same generic workspace item shape as
+// skills — `content` is a JSON string we parse/stringify at the call site.
+const getSettings = (slug) => req('GET', `/settings/${encodeURIComponent(slug)}`);
+const upsertSettings = (slug, body) => req('PUT', `/settings/${encodeURIComponent(slug)}`, body);
+
 // ─── Goal list + recent actions ────────────────────────────────────────────
 const listGoals = ({ status } = {}) => {
     const q = new URLSearchParams({ kind: 'goal' });
@@ -195,6 +203,8 @@ module.exports = {
     upsertSkill,
     deleteSkill,
     listSkills,
+    getSettings,
+    upsertSettings,
     listGoals,
     getRecentActions,
     compileNaturalViaBackend,

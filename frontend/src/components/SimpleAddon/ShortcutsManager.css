@@ -147,6 +147,22 @@
   cursor: pointer;
 }
 
+.short__link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent, #4a90e2);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.short__link-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .short__run--running {
   background: color-mix(in srgb, var(--accent, #4a90e2) 12%, var(--bg-primary));
   border: 1px solid color-mix(in srgb, var(--accent, #4a90e2) 40%, var(--border));

@@ -68,6 +68,10 @@ const ALLOWED_KINDS = new Set([
     'project',    // active-project state
     'goal',       // agent goal: { status, priority, successCriteria, ... } (see GOAL_STATUSES)
     'action',     // append-only execution log of automation tool calls
+    'settings',   // small per-user JSON blobs (e.g. automation permission/consent
+                  // state) that need to follow the user across addon installs and
+                  // devices — source of truth lives here, addon/webapp UIs both
+                  // read+write it via the generic workspace endpoints below.
 ]);
 
 // Allowed goal lifecycle states.
@@ -98,6 +102,7 @@ const KIND_SIZE_CAP_BYTES = {
     project:   32 * 1024,
     goal:      16 * 1024,
     action:    256 * 1024, // append-only ring buffer
+    settings:  8 * 1024,
 };
 
 // Hard cap on an `action` item's text — older entries trimmed when exceeded.

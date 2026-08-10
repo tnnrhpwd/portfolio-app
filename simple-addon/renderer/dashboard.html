@@ -417,6 +417,29 @@
       </div>
     </div>
 
+    <div class="panel">
+      <h2>Sensitive Data Consents</h2>
+      <div class="desc" style="color:var(--muted); font-size:12px; margin-bottom:8px">
+        Synced to your account — granting or revoking here applies on every device/addon install signed into the same account.
+      </div>
+      <div class="row">
+        <div>
+          <div class="name">Keyboard Capture While Recording</div>
+          <div class="desc">Lets the macro recorder capture keystrokes (e.g. typed text) so recorded macros can replay them. Required to record any macro that involves typing.</div>
+          <div class="desc" id="perm-consent-kb-status" style="font-size:11px"></div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="perm-cb-kb-consent"> Enabled</label>
+      </div>
+      <div class="row">
+        <div>
+          <div class="name">Cloud Vision (screenshot analysis)</div>
+          <div class="desc">Allows sending screenshots to a cloud AI model when local screen understanding needs help (e.g. finding a UI element visually).</div>
+          <div class="desc" id="perm-consent-cv-status" style="font-size:11px"></div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="perm-cb-cv-consent"> Enabled</label>
+      </div>
+    </div>
+
     <div class="panel" id="perm-pending-panel" style="display:none">
       <h2>Pending Approvals</h2>
       <div id="perm-pending-list"></div>
@@ -1154,14 +1177,31 @@ function permModeBadge(mode) {
 }
 
 async function refreshPermissions() {
-  const [cfg, tools, pending] = await Promise.all([
+  const [cfg, tools, pending, consents] = await Promise.all([
     automationApi('GET', '/permissions'),
     automationApi('GET', '/tools'),
     automationApi('GET', '/pending-approvals'),
+    automationApi('GET', '/consents'),
   ]);
   permState.config = cfg;
   permState.tools = tools.tools;
+  permState.consents = consents;
   renderPermissions(cfg, tools.tools, pending.approvals);
+  renderConsents(consents);
+}
+
+function fmtWhen(ts) {
+  if (!ts) return 'not granted';
+  try { return `granted ${new Date(ts).toLocaleString()}`; } catch { return ''; }
+}
+
+function renderConsents(consents) {
+  const kb = consents?.dataCapture || { keyboard: false, keyboardGrantedAt: null };
+  const cv = consents?.cloudVision || { granted: false, grantedAt: null };
+  document.getElementById('perm-cb-kb-consent').checked = !!kb.keyboard;
+  document.getElementById('perm-consent-kb-status').textContent = fmtWhen(kb.keyboardGrantedAt);
+  document.getElementById('perm-cb-cv-consent').checked = !!cv.granted;
+  document.getElementById('perm-consent-cv-status').textContent = fmtWhen(cv.grantedAt);
 }
 
 function renderPermissions(cfg, tools, pending) {
@@ -1261,6 +1301,22 @@ function renderPermissions(cfg, tools, pending) {
 
 document.getElementById('perm-cb-dry').onchange = async (e) => {
   await automationApi('PUT', '/permissions', { dryRunMode: e.target.checked });
+  refreshPermissions();
+};
+document.getElementById('perm-cb-kb-consent').onchange = async (e) => {
+  try {
+    await automationApi('PUT', '/consents', { keyboardCapture: e.target.checked });
+  } catch (err) {
+    alert(`Failed to update consent: ${err.message}`);
+  }
+  refreshPermissions();
+};
+document.getElementById('perm-cb-cv-consent').onchange = async (e) => {
+  try {
+    await automationApi('PUT', '/consents', { cloudVision: e.target.checked });
+  } catch (err) {
+    alert(`Failed to update consent: ${err.message}`);
+  }
   refreshPermissions();
 };
 document.getElementById('perm-sel-host-binding').onchange = async (e) => {

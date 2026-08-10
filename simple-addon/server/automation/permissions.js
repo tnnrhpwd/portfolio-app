@@ -70,16 +70,38 @@ const DEFAULTS = {
     //                          directly via the LAN IP shown in /api/network. Opt-in.
     hostBinding: 'loopback',
     // Sensitive capture consents (revocable via permissions save API).
+    // `*UpdatedAt` is set on every grant AND revoke (unlike `*GrantedAt`,
+    // which is cleared on revoke) so cloud sync can last-write-wins merge
+    // across devices/addon reinstalls without losing "this was just revoked"
+    // information.
     dataCapture: {
         keyboard: false,
         keyboardGrantedAt: null,
+        keyboardUpdatedAt: null,
     },
     cloudVision: {
         granted: false,
         grantedAt: null,
         policyVersion: '2026-07',
+        updatedAt: null,
     },
 };
+
+// Cloud sync (source of truth): consents are pushed to and pulled from the
+// user's backend workspace (kind='settings', slug='automation-consents') so
+// granting consent once (on any addon install, any device, signed into the
+// same account) is honored everywhere — see workspace-client.js. All of this
+// is strictly best-effort: no token, no network, or a backend error must
+// never block a local consent grant/revoke or crash the caller.
+const CONSENTS_SETTINGS_SLUG = 'automation-consents';
+let _workspaceClient = null;
+function _wc() {
+    if (_workspaceClient === null) {
+        try { _workspaceClient = require('./workspace-client'); }
+        catch { _workspaceClient = false; }
+    }
+    return _workspaceClient || null;
+}
 
 function configPath() {
     const userData = process.env.APPDATA
@@ -205,21 +227,28 @@ function hasKeyboardCaptureConsent() {
 }
 
 function grantKeyboardCaptureConsent() {
-    return save({
+    const now = Date.now();
+    const next = save({
         dataCapture: {
             keyboard: true,
-            keyboardGrantedAt: Date.now(),
+            keyboardGrantedAt: now,
+            keyboardUpdatedAt: now,
         },
     });
+    _pushConsentsToCloud(next);
+    return next;
 }
 
 function revokeKeyboardCaptureConsent() {
-    return save({
+    const next = save({
         dataCapture: {
             keyboard: false,
             keyboardGrantedAt: null,
+            keyboardUpdatedAt: Date.now(),
         },
     });
+    _pushConsentsToCloud(next);
+    return next;
 }
 
 function hasCloudVisionConsent() {
@@ -227,37 +256,45 @@ function hasCloudVisionConsent() {
 }
 
 function grantCloudVisionConsent(policyVersion = '2026-07') {
-    return save({
+    const next = save({
         cloudVision: {
             granted: true,
             grantedAt: Date.now(),
             policyVersion: String(policyVersion || '2026-07'),
+            updatedAt: Date.now(),
         },
     });
+    _pushConsentsToCloud(next);
+    return next;
 }
 
 function revokeCloudVisionConsent() {
     const current = load().cloudVision || {};
-    return save({
+    const next = save({
         cloudVision: {
             granted: false,
             grantedAt: null,
             policyVersion: current.policyVersion || '2026-07',
+            updatedAt: Date.now(),
         },
     });
+    _pushConsentsToCloud(next);
+    return next;
 }
 
 function updateConsents({ keyboardCapture, cloudVision, cloudVisionPolicyVersion } = {}) {
     const cur = load();
     const patch = {};
     const changes = [];
+    const now = Date.now();
 
     if (typeof keyboardCapture === 'boolean') {
         const before = !!cur.dataCapture?.keyboard;
         if (before !== keyboardCapture) {
             patch.dataCapture = {
                 keyboard: keyboardCapture,
-                keyboardGrantedAt: keyboardCapture ? Date.now() : null,
+                keyboardGrantedAt: keyboardCapture ? now : null,
+                keyboardUpdatedAt: now,
             };
             changes.push({
                 key: 'dataCapture.keyboard',
@@ -275,8 +312,9 @@ function updateConsents({ keyboardCapture, cloudVision, cloudVisionPolicyVersion
         if (before !== cloudVision || nextPolicy !== currentPolicy) {
             patch.cloudVision = {
                 granted: cloudVision,
-                grantedAt: cloudVision ? Date.now() : null,
+                grantedAt: cloudVision ? now : null,
                 policyVersion: nextPolicy,
+                updatedAt: now,
             };
             changes.push({
                 key: 'cloudVision.granted',
@@ -289,7 +327,87 @@ function updateConsents({ keyboardCapture, cloudVision, cloudVisionPolicyVersion
     }
 
     if (!changes.length) return { config: cur, changes: [] };
-    return { config: save(patch), changes };
+    const config = save(patch);
+    _pushConsentsToCloud(config);
+    return { config, changes };
+}
+
+/**
+ * Fire-and-forget push of the current consent state to the user's backend
+ * workspace. Never throws, never awaited by callers — a slow/offline/
+ * unauthenticated backend must never delay a local grant/revoke.
+ */
+function _pushConsentsToCloud(cfg) {
+    const wc = _wc();
+    if (!wc) return;
+    const payload = {
+        dataCapture: cfg.dataCapture || DEFAULTS.dataCapture,
+        cloudVision: cfg.cloudVision || DEFAULTS.cloudVision,
+    };
+    Promise.resolve()
+        .then(() => wc.upsertSettings(CONSENTS_SETTINGS_SLUG, {
+            name: 'Automation consents',
+            content: JSON.stringify(payload),
+        }))
+        .catch((e) => console.warn('[permissions] cloud consent push skipped:', e.message));
+}
+
+/**
+ * Pull the cloud consent snapshot and merge it into the local config,
+ * last-write-wins per field (compares `keyboardUpdatedAt` / cloudVision's
+ * `updatedAt`). Called once at addon startup so granting consent on one
+ * device/addon-install is honored on every other one signed into the same
+ * account — without ever overwriting a MORE recent local change.
+ * Best-effort: swallows all errors (offline, signed out, new user w/ no
+ * saved settings yet, etc).
+ */
+async function pullAndMergeConsentsFromCloud() {
+    const wc = _wc();
+    if (!wc) return null;
+    let remote;
+    try {
+        const item = await wc.getSettings(CONSENTS_SETTINGS_SLUG);
+        remote = item?.content ? JSON.parse(item.content) : null;
+    } catch {
+        return null; // not found / offline / signed out — nothing to merge
+    }
+    if (!remote) return null;
+
+    const cur = load();
+    const patch = {};
+    let changed = false;
+
+    const localKbUpdated = cur.dataCapture?.keyboardUpdatedAt || 0;
+    const remoteKbUpdated = remote.dataCapture?.keyboardUpdatedAt || 0;
+    if (remoteKbUpdated > localKbUpdated) {
+        patch.dataCapture = {
+            keyboard: !!remote.dataCapture?.keyboard,
+            keyboardGrantedAt: remote.dataCapture?.keyboardGrantedAt || null,
+            keyboardUpdatedAt: remoteKbUpdated,
+        };
+        changed = true;
+    }
+
+    const localCvUpdated = cur.cloudVision?.updatedAt || 0;
+    const remoteCvUpdated = remote.cloudVision?.updatedAt || 0;
+    if (remoteCvUpdated > localCvUpdated) {
+        patch.cloudVision = {
+            granted: !!remote.cloudVision?.granted,
+            grantedAt: remote.cloudVision?.grantedAt || null,
+            policyVersion: remote.cloudVision?.policyVersion || cur.cloudVision?.policyVersion || '2026-07',
+            updatedAt: remoteCvUpdated,
+        };
+        changed = true;
+    }
+
+    if (!changed) {
+        // Local is at least as fresh — push it up so cloud never regresses
+        // (covers the case where cloud never had a snapshot, or is stale).
+        _pushConsentsToCloud(cur);
+        return null;
+    }
+
+    return save(patch);
 }
 
 module.exports = {
@@ -306,6 +424,7 @@ module.exports = {
     grantCloudVisionConsent,
     revokeCloudVisionConsent,
     updateConsents,
+    pullAndMergeConsentsFromCloud,
     DEFAULTS,
     _reset: _resetCache,
 };

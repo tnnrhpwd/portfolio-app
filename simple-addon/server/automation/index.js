@@ -201,6 +201,14 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
     // Wire the workspace client to whichever token the cloud relay holds.
     wsClient.setTokenGetter(() => cloudRelay?._token || null);
 
+    // Best-effort: if a token is already present at mount time (e.g. the
+    // automation router was re-mounted after a settings change while the
+    // user stayed signed in), pull+merge cloud consent state once so this
+    // mount reflects grants/revokes made elsewhere. Never blocks mounting.
+    if (cloudRelay?._token) {
+        permissions.pullAndMergeConsentsFromCloud().catch(() => {});
+    }
+
     permissions.setApprovalRequester(
         defaultApprovalRequester({
             pendingApprovals: _pendingApprovals,

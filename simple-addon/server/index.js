@@ -706,6 +706,12 @@ app.post('/api/cloud/auth', (req, res) => {
   }
   cloudRelay.setToken(token);
   res.json({ ok: true, message: 'Cloud relay activated' });
+  // Now that we have a token, pull+merge any permission/consent state saved
+  // to this user's backend workspace from another device/addon install —
+  // fire-and-forget, must never delay the response above.
+  try {
+    require('./automation/permissions').pullAndMergeConsentsFromCloud().catch(() => {});
+  } catch { /* automation module not loaded yet — safe to skip */ }
 });
 
 app.delete('/api/cloud/auth', (req, res) => {

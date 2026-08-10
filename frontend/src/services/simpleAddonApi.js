@@ -309,7 +309,16 @@ async function addonFetch(path, options = {}) {
     });
     if (!res.ok) {
       const text = await res.text().catch(() => res.statusText);
-      throw new Error(_parseErrorBody(text, res.status));
+      const err = new Error(_parseErrorBody(text, res.status));
+      err.status = res.status;
+      // Surface structured fields (e.g. `consentRequired`) from JSON error
+      // bodies so callers can react (offer a one-click consent grant)
+      // instead of just showing raw error text.
+      try {
+        const j = JSON.parse(text);
+        if (j && typeof j === 'object') Object.assign(err, j);
+      } catch { /* not JSON — plain text/HTML error, nothing to attach */ }
+      throw err;
     }
     return res;
   };
@@ -757,6 +766,30 @@ export async function setAutoApproveAll(enabled) {
 }
 
 /**
+ * Read sensitive-data consent state (keyboard capture, cloud vision). This is
+ * the same source of truth the recorder's consent gate checks — and it's
+ * synced to the signed-in user's backend account, so a grant/revoke made here,
+ * in the addon's own Permissions tab, or on another device/addon install, is
+ * reflected everywhere.
+ */
+export async function getAutomationConsents() {
+  const res = await addonFetch('/api/automation/consents');
+  return res.json();
+}
+
+/**
+ * Grant or revoke sensitive-data consents. Pass only the fields you want to
+ * change: `{ keyboardCapture?: boolean, cloudVision?: boolean, cloudVisionPolicyVersion?: string }`.
+ */
+export async function setAutomationConsents(patch = {}) {
+  const res = await addonFetch('/api/automation/consents', {
+    method: 'PUT',
+    body: JSON.stringify(patch),
+  });
+  return res.json();
+}
+
+/**
  * Capture + upload a live screenshot thumbnail via the addon, which publishes a
  * `screen.frame` SSE event with the resulting URL.
  */
@@ -774,11 +807,21 @@ export async function relayScreenFrame(opts = {}) {
 // macro itself lives in the cloud workspace (kind='skill'); these helpers cover
 // the local, foreground record → compile → run pipeline plus hotkey sync.
 
-/** Begin recording a demonstration. Requires a connected local addon. */
-export async function startRecording(name) {
+/**
+ * Begin recording a demonstration. Requires a connected local addon.
+ * @param {string} name
+ * @param {{ confirmSensitiveCapture?: boolean }} [opts] - pass
+ *   `confirmSensitiveCapture: true` to grant keyboard-capture consent inline
+ *   as part of starting this recording (used by the one-click "Enable &
+ *   Retry" flow after a 403 `consentRequired` response).
+ */
+export async function startRecording(name, opts = {}) {
   const res = await addonFetch('/api/recorder/start', {
     method: 'POST',
-    body: JSON.stringify({ name: name || 'macro' }),
+    body: JSON.stringify({
+      name: name || 'macro',
+      ...(opts.confirmSensitiveCapture ? { confirmSensitiveCapture: true } : {}),
+    }),
   });
   return res.json();
 }

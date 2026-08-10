@@ -15,6 +15,7 @@ import AIWorkflowSettings from './AIWorkflowSettings.jsx';
 import WorkspaceManager from './WorkspaceManager.jsx';
 import ShortcutsManager from './ShortcutsManager.jsx';
 import GoalManager from './GoalManager.jsx';
+import PermissionsManager from './PermissionsManager.jsx';
 
 const TABS = [
   { id: 'general', label: '⚙ General' },
@@ -22,6 +23,7 @@ const TABS = [
   { id: 'goals', label: '🎯 Goals' },
   { id: 'shortcuts', label: '⌨ Shortcuts' },
   { id: 'workspace', label: '🧠 Workspace' },
+  { id: 'permissions', label: '🔒 Permissions' },
   { id: 'network', label: '🌐 Network' },
 ];
 
@@ -859,6 +861,12 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
           {activeTab === 'workspace' && (
             <div className="adv-section">
               <WorkspaceManager user={user} />
+            </div>
+          )}
+
+          {activeTab === 'permissions' && (
+            <div className="adv-section">
+              <PermissionsManager addonConnected={!!addonConnected} />
             </div>
           )}
 

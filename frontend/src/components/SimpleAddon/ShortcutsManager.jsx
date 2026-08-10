@@ -30,6 +30,7 @@ import {
   editMacroNatural,
   editMacroNaturalViaBackend,
   getAgentEventsUrl,
+  setAutomationConsents,
 } from '../../services/simpleAddonApi';
 import './ShortcutsManager.css';
 
@@ -198,6 +199,11 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
   const [recorder, setRecorder] = useState({ active: false, eventCount: 0, startedAt: null });
   const [pendingName, setPendingName] = useState('');
   const [recorderBusy, setRecorderBusy] = useState(false);
+  // Set when startRecording 403s because a sensitive-data consent (currently
+  // just keyboard capture) hasn't been granted yet. Previously this was a
+  // dead end — no UI anywhere ever granted it — so surface a one-click fix
+  // right where the user hit the wall, instead of a raw error message.
+  const [consentNeeded, setConsentNeeded] = useState(null); // { field, label } | null
 
   // Natural language compiler state
   const [nlText, setNlText] = useState('');
@@ -334,20 +340,43 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
   }, []);
 
   // ── Recording pipeline ─────────────────────────────────────────────────
-  const handleStartRecording = useCallback(async () => {
+  const handleStartRecording = useCallback(async (opts = {}) => {
     if (!addonConnected) return;
     setRecorderBusy(true);
     setError(null);
+    setConsentNeeded(null);
     try {
       const name = pendingName.trim() || `macro-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}`;
-      await startRecording(name);
+      await startRecording(name, opts);
       flashStatus(`Recording "${name}"…`, 0);
     } catch (e) {
-      setError(e.message || 'Failed to start recording');
+      if (e.status === 403 && e.consentRequired === 'dataCapture.keyboard') {
+        setConsentNeeded({ field: 'keyboardCapture', label: 'keyboard capture' });
+      } else {
+        setError(e.message || 'Failed to start recording');
+      }
     } finally {
       setRecorderBusy(false);
     }
   }, [addonConnected, pendingName, flashStatus]);
+
+  // One-click resolution for the consent dead-end above: grant the consent
+  // (synced to the user's account — see PermissionsManager/permissions.js)
+  // then immediately retry the recording the user actually asked for.
+  const handleGrantConsentAndRetry = useCallback(async () => {
+    if (!consentNeeded) return;
+    setRecorderBusy(true);
+    setError(null);
+    try {
+      await setAutomationConsents({ [consentNeeded.field]: true });
+      setConsentNeeded(null);
+      await handleStartRecording();
+    } catch (e) {
+      setError(e.message || 'Failed to grant consent');
+    } finally {
+      setRecorderBusy(false);
+    }
+  }, [consentNeeded, handleStartRecording]);
 
   const handleStopRecording = useCallback(async () => {
     if (!addonConnected) return;
@@ -887,7 +916,7 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
           {!recorder.active ? (
             <button
               className="short__btn short__btn--primary"
-              onClick={handleStartRecording}
+              onClick={() => handleStartRecording()}
               disabled={!addonConnected || recorderBusy}
             >
               ● Start recording
@@ -909,6 +938,15 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
       </div>
 
       {/* Status / error banners */}
+      {consentNeeded && (
+        <div className="short__banner short__banner--err" role="alert">
+          Recording needs {consentNeeded.label} consent to capture typed text — it was never granted (and there was no
+          way to grant it before). <button type="button" className="short__link-btn" onClick={handleGrantConsentAndRetry} disabled={recorderBusy}>
+            Enable &amp; retry
+          </button> or manage it later in Advanced Settings → Permissions.
+          <span className="short__banner-dismiss" onClick={() => setConsentNeeded(null)}>✕</span>
+        </div>
+      )}
       {error && (
         <div className="short__banner short__banner--err" role="alert" onClick={() => setError(null)}>
           {error} <span className="short__banner-dismiss">✕</span>
