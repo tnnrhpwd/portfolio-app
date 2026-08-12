@@ -30,14 +30,27 @@ function buildRateLimitHandler(limiterId, friendlyMessage) {
 // any feature-specific limiter (e.g. `llmLimiter`) further down the chain.
 // The message calls that out explicitly so a user hitting this cap while
 // using one feature doesn't assume that feature itself is over its limit.
+//
+// IMPORTANT sizing note: this bucket is keyed by IP (not by user), so it is
+// SHARED across everyone behind the same NAT/egress IP (corporate networks,
+// mobile carrier CGNAT, cloud dev sandboxes, etc.) — traffic from unrelated
+// users can silently consume your share. It's also easy for a single user to
+// exhaust on their own: e.g. the Shortcuts Manager fetches full content for
+// every saved skill on each mount (1 list + 1-per-skill request), so a user
+// with 20+ skills burns 20+ requests just opening that tab once. Combined
+// with routine polling (usage meter, hotkey sync, telemetry beacons), a
+// low ceiling here causes false-positive 429s on completely legitimate
+// traffic before any single feature's own (properly-scoped, per-user)
+// limiter would ever trip. Keep this high — its job is to catch genuine
+// floods, not to double-gate normal interactive usage.
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 1000, // ~66 req/min per IP — generous headroom for shared IPs / N+1 UI fetches
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   handler: buildRateLimitHandler(
     'global-ip',
-    'Too many requests from this network (general site-wide limit of 100 requests / 15 min, shared across all API calls — not specific to any one feature). Please wait a few minutes and try again.'
+    'Too many requests from this network (general site-wide limit shared across all API calls from your network — not specific to any one feature). Please wait a few minutes and try again.'
   ),
 });
 
