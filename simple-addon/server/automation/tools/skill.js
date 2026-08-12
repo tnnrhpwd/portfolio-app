@@ -60,6 +60,10 @@ function getCachedSkill(slug) {
     return _localCache.get(slug) || null;
 }
 
+function uncacheSkill(slug) {
+    _localCache.delete(slug);
+}
+
 async function loadSkill(slug) {
     const cached = _localCache.get(slug);
     if (cached) return cached;
@@ -1236,7 +1240,7 @@ const skillRun = {
     },
 };
 
-module.exports = { skillRun, cacheSkill, getCachedSkill, loadSkill, substituteArgs,
+module.exports = { skillRun, cacheSkill, getCachedSkill, uncacheSkill, loadSkill, substituteArgs,
     repairStep, _extractJsonObject, _resolveLlm, _normaliseStep, analyzeSkillCompatibility,
     getAllCachedSkills: () => Array.from(_localCache.values()),
 };

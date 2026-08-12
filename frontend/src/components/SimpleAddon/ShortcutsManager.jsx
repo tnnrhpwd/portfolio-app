@@ -589,6 +589,7 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
   const openEditor = useCallback(({ item, skill }) => {
     setEditNlText('');
     setEditor({
+      isNew: false,
       originalSlug: item.slug,
       slug: item.slug,
       name: skill?.name || item.name || item.slug,
@@ -600,6 +601,22 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
     });
   }, []);
 
+  /** Open the same editor dialog blank, for creating a brand-new skill by hand. */
+  const openNewEditor = useCallback(() => {
+    setEditNlText('');
+    setEditor({
+      isNew: true,
+      originalSlug: null,
+      slug: '',
+      name: '',
+      description: '',
+      hotkey: '',
+      stepsJson: '[]',
+      skill: null,
+      expectedUpdatedAt: null,
+    });
+  }, []);
+
   const saveEditor = useCallback(async () => {
     if (!editor || !token) return;
     setEditorBusy(true);
@@ -607,6 +624,9 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
     try {
       if (!SLUG_RE.test(editor.slug)) {
         throw new Error('Slug must be lowercase alphanumeric with - or _, 1–100 chars, starting with letter/digit.');
+      }
+      if (editor.isNew && macros.some(m => m.item.slug === editor.slug)) {
+        throw new Error(`A skill with slug "${editor.slug}" already exists. Choose a different slug.`);
       }
       let steps;
       try { steps = JSON.parse(editor.stepsJson); }
@@ -648,7 +668,74 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
     } finally {
       setEditorBusy(false);
     }
-  }, [editor, token, addonConnected, flashStatus, loadMacros]);
+  }, [editor, token, addonConnected, flashStatus, loadMacros, macros]);
+
+  /** Clone a macro under a new (auto-suffixed) slug, without its hotkey. */
+  const handleDuplicate = useCallback(async ({ item, skill }) => {
+    if (!token || !skill) return;
+    setError(null);
+    try {
+      const existingSlugs = new Set(macros.map(m => m.item.slug));
+      let candidate = `${item.slug}-copy`;
+      let n = 2;
+      while (existingSlugs.has(candidate)) candidate = `${item.slug}-copy-${n++}`;
+      const copy = {
+        ...skill,
+        slug: candidate,
+        name: `${skill.name || item.slug} (copy)`,
+        hotkey: undefined,
+        metadata: { ...(skill.metadata || {}), updatedAt: new Date().toISOString() },
+      };
+      await upsertWorkspaceItem(token, 'skill', candidate, {
+        name: copy.name,
+        content: JSON.stringify(copy),
+        tags: [],
+      });
+      if (addonConnected) {
+        try { await saveSkill(copy); } catch { /* non-fatal */ }
+      }
+      flashStatus(`Duplicated as "${candidate}"`);
+      await loadMacros();
+    } catch (e) {
+      setError(e.message || 'Duplicate failed');
+    }
+  }, [token, macros, addonConnected, flashStatus, loadMacros]);
+
+  /** Rename a macro in place: prompts for a new name and re-slugs it. */
+  const handleRename = useCallback(async ({ item, skill }) => {
+    if (!token || !skill) return;
+    const currentName = skill.name || item.name || item.slug;
+    // eslint-disable-next-line no-alert
+    const newName = window.prompt('New name for this skill:', currentName);
+    if (!newName || !newName.trim() || newName.trim() === currentName) return;
+    const newSlug = slugify(newName.trim());
+    setError(null);
+    try {
+      const updated = {
+        ...skill,
+        slug: newSlug,
+        name: newName.trim(),
+        metadata: { ...(skill.metadata || {}), updatedAt: new Date().toISOString() },
+      };
+      const tags = updated.hotkey ? [`hotkey:${updated.hotkey}`] : [];
+      await upsertWorkspaceItem(token, 'skill', newSlug, {
+        name: updated.name,
+        content: JSON.stringify(updated),
+        tags,
+      });
+      if (newSlug !== item.slug) {
+        try { await deleteWorkspaceItem(token, 'skill', item.slug); } catch { /* soft delete may 404 if already gone */ }
+      }
+      if (addonConnected) {
+        try { await saveSkill(updated); } catch { /* non-fatal */ }
+      }
+      flashStatus(`Renamed to "${updated.name}"`);
+      await loadMacros();
+    } catch (e) {
+      setError(e.message || 'Rename failed');
+    }
+  }, [token, addonConnected, flashStatus, loadMacros]);
+
 
   // ── Natural-language macro editing ──────────────────────────────────────
   // Lets the user describe a change to an already-open macro in plain
@@ -1073,7 +1160,10 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
       <div className="short__group">
         <div className="short__group-header">
           <span className="short__group-title">Your skills ({rows.length}{rows.length !== macros.length ? ` of ${macros.length}` : ''})</span>
-          <button className="short__btn short__btn--muted" onClick={loadMacros} disabled={loading}>Refresh</button>
+          <div className="short__group-actions">
+            <button className="short__btn short__btn--muted" onClick={loadMacros} disabled={loading}>Refresh</button>
+            <button className="short__btn short__btn--primary" onClick={openNewEditor} disabled={!token}>+ New skill</button>
+          </div>
         </div>
         <div className="short__toolbar">
           <input
@@ -1171,6 +1261,22 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
                       Edit
                     </button>
                     <button
+                      className="short__btn short__btn--sm short__btn--muted"
+                      onClick={() => handleDuplicate({ item, skill })}
+                      disabled={!skill}
+                      title="Clone this skill under a new name"
+                    >
+                      Duplicate
+                    </button>
+                    <button
+                      className="short__btn short__btn--sm short__btn--muted"
+                      onClick={() => handleRename({ item, skill })}
+                      disabled={!skill}
+                      title="Rename this skill"
+                    >
+                      Rename
+                    </button>
+                    <button
                       className="short__btn short__btn--sm short__btn--danger-ghost"
                       onClick={() => handleDelete(item.slug)}
                     >
@@ -1189,7 +1295,7 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
         <div className="short__editor-overlay" onClick={() => !editorBusy && setEditor(null)}>
           <div className="short__editor" onClick={e => e.stopPropagation()}>
             <div className="short__editor-header">
-              <h3 className="short__editor-title">Edit macro</h3>
+              <h3 className="short__editor-title">{editor.isNew ? 'New skill' : 'Edit macro'}</h3>
               <button className="short__editor-close" onClick={() => setEditor(null)} disabled={editorBusy}>✕</button>
             </div>
             <div className="short__editor-body">

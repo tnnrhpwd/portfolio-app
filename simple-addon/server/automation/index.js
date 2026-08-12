@@ -58,7 +58,7 @@ const { generalizeSkill } = require('./recorder/generalize');
 const { inferParams } = require('./recorder/infer-params');
 const { scrubForPublish } = require('./recorder/scrub');
 const { summarizeCapabilities } = require('./capability-summary');
-const { skillRun, cacheSkill, getCachedSkill, analyzeSkillCompatibility } = require('./tools/skill');
+const { skillRun, cacheSkill, getCachedSkill, uncacheSkill, getAllCachedSkills, analyzeSkillCompatibility } = require('./tools/skill');
 
 const events = require('./events');
 const triggers = require('./triggers');
@@ -751,6 +751,50 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
                 persisted = { error: e.message };
             }
             res.json({ ok: true, slug: skill.slug, persisted });
+        } catch (e) {
+            res.status(400).json({ error: e.message });
+        }
+    });
+
+    // List all of the user's skills (cloud workspace, kind='skill'), with full
+    // content resolved for each so the dashboard can render step counts,
+    // hotkeys, and source badges without a per-row round trip. Falls back to
+    // whatever's in the local in-memory cache when there's no cloud auth
+    // token yet (e.g. addon launched before signing in on the web app) or the
+    // backend is unreachable — locally-created-but-unsynced skills still show.
+    app.get('/api/skill', async (req, res) => {
+        try {
+            const list = await wsClient.listSkills();
+            const entries = list?.entries || [];
+            const skills = await Promise.all(entries.map(async (it) => {
+                try {
+                    const item = await wsClient.getSkill(it.slug);
+                    const content = item?.content || item?.attrs?.content;
+                    const skill = typeof content === 'string' ? JSON.parse(content) : content;
+                    if (skill) cacheSkill(skill);
+                    return { item: item || it, skill: skill || null };
+                } catch {
+                    return { item: it, skill: null };
+                }
+            }));
+            res.json({ source: 'workspace', skills });
+        } catch (e) {
+            const skills = getAllCachedSkills().map(skill => ({
+                item: { slug: skill.slug, name: skill.name || skill.slug },
+                skill,
+            }));
+            res.json({ source: 'local', skills, error: e.message });
+        }
+    });
+
+    // Delete a skill: drop the local cache entry + soft-delete the workspace
+    // record (kind='skill'). Mirrors the web app's delete behaviour.
+    app.delete('/api/skill/:slug', async (req, res) => {
+        const slug = req.params.slug;
+        try {
+            uncacheSkill(slug);
+            const result = await wsClient.deleteSkill(slug);
+            res.json({ ok: true, slug, result });
         } catch (e) {
             res.status(400).json({ error: e.message });
         }

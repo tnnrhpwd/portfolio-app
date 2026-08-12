@@ -135,6 +135,9 @@
     padding: 12px; font-family: "Consolas", monospace; font-size: 12px;
     max-height: 360px; overflow: auto;
   }
+  textarea.steps {
+    width: 100%; box-sizing: border-box; resize: vertical; min-height: 200px;
+  }
 
   /* ── Permissions tab ── */
   .perm-badge {
@@ -350,7 +353,17 @@
     </div>
 
     <div class="panel">
-      <h2>Compiled skills</h2>
+      <h2>Your skills</h2>
+      <div class="row" style="border-bottom:none;">
+        <div>
+          <div class="name">Synced with the web app</div>
+          <div class="desc">Skills created here or on the web app are stored in your cloud workspace and show up in both places.</div>
+        </div>
+        <div class="actions">
+          <button id="skills-refresh">Refresh</button>
+          <button id="skills-new" class="primary">+ New skill</button>
+        </div>
+      </div>
       <div id="skills-list"></div>
     </div>
   </section>
@@ -617,26 +630,34 @@
 </div>
 </div>
 
-<div id="compile-modal" class="modal-backdrop" aria-hidden="true">
+<div id="skill-modal" class="modal-backdrop" aria-hidden="true">
   <div class="modal" role="dialog" aria-modal="true">
-    <h3>Review compiled skill</h3>
-    <p class="subtitle" id="compile-source"></p>
-    <div class="row">
+    <h3 id="skill-modal-title">New skill</h3>
+    <p class="subtitle" id="skill-modal-source"></p>
+    <div class="row" style="border-bottom:none;">
       <div style="flex:1">
-        <label class="meta muted">Skill name (used as slug)</label>
-        <input type="text" id="compile-name" placeholder="my-skill-name" style="width:100%;" />
+        <label class="meta muted">Name</label>
+        <input type="text" id="skill-modal-name" placeholder="My skill" style="width:100%;" />
       </div>
     </div>
-    <div class="row">
+    <div class="row" style="border-bottom:none;">
+      <div style="flex:1">
+        <label class="meta muted">Slug</label>
+        <input type="text" id="skill-modal-slug" placeholder="my-skill-name" style="width:100%;" />
+        <small class="muted">Changing the slug creates a new record and removes the old one.</small>
+      </div>
+    </div>
+    <div class="row" style="border-bottom:none;">
       <div style="flex:1">
         <label class="meta muted">Description (optional)</label>
-        <input type="text" id="compile-desc" placeholder="What does this skill do?" style="width:100%;" />
+        <input type="text" id="skill-modal-desc" placeholder="What does this skill do?" style="width:100%;" />
       </div>
     </div>
-    <pre class="steps" id="compile-preview">(no skill compiled yet)</pre>
+    <label class="meta muted">Steps (JSON)</label>
+    <textarea class="steps" id="skill-modal-steps" rows="12" spellcheck="false"></textarea>
     <div class="actions" style="justify-content:flex-end; margin-top:12px;">
-      <button id="compile-cancel">Cancel</button>
-      <button id="compile-save" class="primary">Save skill</button>
+      <button id="skill-modal-cancel">Cancel</button>
+      <button id="skill-modal-save" class="primary">Save skill</button>
     </div>
   </div>
 </div>
@@ -887,7 +908,11 @@ refreshAgentStatus();
 
 // ── Recorder & Skills tab ──
 let recPollTimer = null;
-let pendingCompiled = null;
+// Skill editor modal state — shared by "New skill", "Edit", and "Convert to
+// skill" (reviewing a freshly-compiled recording before it's saved).
+let skillModalMode = null; // 'new' | 'edit' | 'review'
+let skillModalSource = null; // the skill object being edited/reviewed (carries metadata forward)
+let skillModalOriginalSlug = null; // set when editing an existing skill, so a slug change deletes the old record
 
 function el(tag, props = {}, ...children) {
   const e = document.createElement(tag);
@@ -944,7 +969,7 @@ async function refreshRecordingsList() {
           el('div', { class: 'desc' }, `${(r.bytes / 1024).toFixed(1)} KB · ${new Date(r.modifiedAt).toLocaleString()}`),
         ),
         el('div', { class: 'actions' },
-          el('button', { onclick: () => openCompileModal(r.sessionId) }, 'Compile…'),
+          el('button', { onclick: () => openReviewModal(r.sessionId) }, 'Convert to skill'),
           el('button', { class: 'danger', onclick: () => deleteRecording(r.sessionId) }, 'Delete'),
         ),
       );
@@ -965,67 +990,134 @@ async function deleteRecording(id) {
   }
 }
 
-async function openCompileModal(sessionId) {
+/** Slugify a name the same way the web app does. */
+function slugifyName(str) {
+  return String(str || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60) || 'skill';
+}
+
+/** Open the shared skill editor modal in "review" mode after compiling a recording. */
+async function openReviewModal(sessionId) {
   try {
     const { skill } = await api('/api/skill/compile', {
       method: 'POST', body: JSON.stringify({ sessionId, name: sessionId }),
     });
-    pendingCompiled = skill;
-    document.getElementById('compile-source').textContent = `From ${sessionId} · ${skill.steps.length} steps`;
-    document.getElementById('compile-name').value = skill.name || sessionId;
-    document.getElementById('compile-desc').value = skill.description || '';
-    document.getElementById('compile-preview').textContent = JSON.stringify(skill.steps, null, 2);
-    document.getElementById('compile-modal').classList.add('open');
+    openSkillModal({ mode: 'review', skill, sourceLabel: `From recording "${sessionId}" · ${skill.steps.length} steps` });
   } catch (e) {
-    alert(`Compile failed: ${e.message}`);
+    alert(`Convert failed: ${e.message}`);
   }
 }
 
-function closeCompileModal() {
-  document.getElementById('compile-modal').classList.remove('open');
-  pendingCompiled = null;
+/** Open the shared skill editor modal blank, for creating a new skill by hand. */
+function openNewSkillModal() {
+  openSkillModal({
+    mode: 'new',
+    skill: { slug: '', name: '', description: '', steps: [] },
+    sourceLabel: 'Create a new skill from scratch, or record one and hit "Convert to skill".',
+  });
 }
 
-async function saveCompiled() {
-  if (!pendingCompiled) return;
-  const name = document.getElementById('compile-name').value.trim() || pendingCompiled.name;
-  const description = document.getElementById('compile-desc').value.trim();
-  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'skill';
-  const skill = { ...pendingCompiled, name, description, slug };
+/** Open the shared skill editor modal pre-filled with an existing skill. */
+function openEditSkillModal(item, skill) {
+  openSkillModal({
+    mode: 'edit',
+    skill: skill || { slug: item.slug, name: item.name, description: '', steps: [] },
+    sourceLabel: `Editing "${item.slug}"`,
+  });
+}
+
+function openSkillModal({ mode, skill, sourceLabel }) {
+  skillModalMode = mode;
+  skillModalSource = skill;
+  skillModalOriginalSlug = mode === 'edit' ? (skill.slug || null) : null;
+  document.getElementById('skill-modal-title').textContent =
+    mode === 'new' ? 'New skill' : mode === 'edit' ? 'Edit skill' : 'Review skill';
+  document.getElementById('skill-modal-source').textContent = sourceLabel || '';
+  document.getElementById('skill-modal-name').value = skill.name || skill.slug || '';
+  document.getElementById('skill-modal-slug').value = skill.slug || '';
+  document.getElementById('skill-modal-desc').value = skill.description || '';
+  document.getElementById('skill-modal-steps').value = JSON.stringify(skill.steps || [], null, 2);
+  document.getElementById('skill-modal').classList.add('open');
+}
+
+function closeSkillModal() {
+  document.getElementById('skill-modal').classList.remove('open');
+  skillModalMode = null;
+  skillModalSource = null;
+  skillModalOriginalSlug = null;
+}
+
+async function saveSkillModal() {
+  const nameInput = document.getElementById('skill-modal-name').value.trim();
+  const slugInput = document.getElementById('skill-modal-slug').value.trim();
+  const description = document.getElementById('skill-modal-desc').value.trim();
+  let steps;
+  try {
+    steps = JSON.parse(document.getElementById('skill-modal-steps').value || '[]');
+  } catch (e) {
+    return alert(`Steps JSON is invalid: ${e.message}`);
+  }
+  if (!Array.isArray(steps)) return alert('Steps must be a JSON array.');
+  const name = nameInput || slugInput || 'Untitled skill';
+  const slug = slugifyName(slugInput || name);
+  const skill = { ...(skillModalSource || {}), slug, name, description, steps };
   try {
     const res = await api('/api/skill/save', { method: 'POST', body: JSON.stringify({ skill }) });
+    // Renaming an existing skill (slug changed) → remove the old record.
+    if (skillModalOriginalSlug && skillModalOriginalSlug !== slug) {
+      try { await api(`/api/skill/${encodeURIComponent(skillModalOriginalSlug)}`, { method: 'DELETE' }); } catch {}
+    }
     const note = res.persisted && !res.persisted.error
       ? `Saved as "${slug}" — synced to workspace.`
       : `Saved as "${slug}" — local only (workspace sync failed: ${res.persisted?.error || 'unknown'}).`;
     alert(note);
-    closeCompileModal();
+    closeSkillModal();
     await refreshSkillsList();
   } catch (e) {
     alert(`Save failed: ${e.message}`);
   }
 }
 
-// No list endpoint exists for the local skill cache — offer a run-by-slug
-// affordance instead (same approach recordings.html used).
+/** Load and render the user's skills from the cloud workspace (kind='skill'). */
 async function refreshSkillsList() {
   const container = document.getElementById('skills-list');
   container.innerHTML = '';
-  const row = el('div', { class: 'row' },
-    el('div', {},
-      el('div', { class: 'name' }, 'Run a saved skill'),
-      el('div', { class: 'desc' }, 'Enter the skill slug (lowercase, dashes). The agent looks it up locally first, then in your workspace.'),
-    ),
-    el('div', { class: 'actions' },
-      Object.assign(document.createElement('input'), { id: 'skill-run-slug', type: 'text', placeholder: 'my-skill-slug', style: 'width:200px;' }),
-      el('button', { class: 'primary', onclick: runSavedSkill }, 'Run'),
-    ),
-  );
-  container.appendChild(row);
+  try {
+    const { skills, error } = await api('/api/skill');
+    if (error) {
+      container.appendChild(el('div', { class: 'empty' }, `Couldn't reach the workspace (${error}) — showing locally cached skills only.`));
+    }
+    if (!skills.length) {
+      container.appendChild(el('div', { class: 'empty' }, 'No skills yet. Create one with "+ New skill" above, or record one and convert it.'));
+      return;
+    }
+    for (const { item, skill } of skills) {
+      const name = skill?.name || item.name || item.slug;
+      const stepCount = skill?.steps?.length || 0;
+      const row = el('div', { class: 'row' },
+        el('div', {},
+          el('div', { class: 'name' }, name),
+          el('div', { class: 'desc' }, `/${item.slug} · ${stepCount} step${stepCount === 1 ? '' : 's'}${skill ? '' : ' · content unavailable'}`),
+        ),
+        el('div', { class: 'actions' },
+          el('button', { class: 'primary', onclick: () => runSkillBySlug(item.slug) }, '▶ Run'),
+          el('button', { onclick: () => openEditSkillModal(item, skill) }, 'Edit'),
+          el('button', { onclick: () => duplicateSkill(item, skill) }, 'Duplicate'),
+          el('button', { onclick: () => renameSkill(item, skill) }, 'Rename'),
+          el('button', { class: 'danger', onclick: () => deleteSkill(item.slug) }, 'Delete'),
+        ),
+      );
+      container.appendChild(row);
+    }
+  } catch (e) {
+    container.appendChild(el('div', { class: 'empty' }, `Failed to load skills: ${e.message}`));
+  }
 }
 
-async function runSavedSkill() {
-  const slug = document.getElementById('skill-run-slug').value.trim();
-  if (!slug) return alert('Enter a skill slug first.');
+async function runSkillBySlug(slug) {
   if (!confirm(`Run skill "${slug}"? This will replay UI clicks on your machine.`)) return;
   try {
     const out = await api('/api/automation/execute', {
@@ -1034,6 +1126,54 @@ async function runSavedSkill() {
     alert(`Skill complete. ${out.result?.stepsRun || 0} steps run, failed=${out.result?.failed}`);
   } catch (e) {
     alert(`Run failed: ${e.message}`);
+  }
+}
+
+async function deleteSkill(slug) {
+  if (!confirm(`Delete skill "${slug}"? This is a soft delete (30-day recovery).`)) return;
+  try {
+    await api(`/api/skill/${encodeURIComponent(slug)}`, { method: 'DELETE' });
+    await refreshSkillsList();
+  } catch (e) {
+    alert(`Delete failed: ${e.message}`);
+  }
+}
+
+/** Clone a skill under a new (auto-suffixed) slug, without a hotkey. */
+async function duplicateSkill(item, skill) {
+  if (!skill) return alert('Skill content unavailable — cannot duplicate.');
+  try {
+    const { skills } = await api('/api/skill');
+    const existingSlugs = new Set((skills || []).map(s => s.item.slug));
+    let candidate = `${item.slug}-copy`;
+    let n = 2;
+    while (existingSlugs.has(candidate)) candidate = `${item.slug}-copy-${n++}`;
+    const copy = { ...skill, slug: candidate, name: `${skill.name || item.slug} (copy)` };
+    delete copy.hotkey;
+    await api('/api/skill/save', { method: 'POST', body: JSON.stringify({ skill: copy }) });
+    alert(`Duplicated as "${candidate}".`);
+    await refreshSkillsList();
+  } catch (e) {
+    alert(`Duplicate failed: ${e.message}`);
+  }
+}
+
+/** Rename a skill in place: prompts for a new name and re-slugs it. */
+async function renameSkill(item, skill) {
+  if (!skill) return alert('Skill content unavailable — use Edit instead.');
+  const currentName = skill.name || item.name || item.slug;
+  const newName = prompt('New name for this skill:', currentName);
+  if (!newName || !newName.trim() || newName.trim() === currentName) return;
+  const newSlug = slugifyName(newName.trim());
+  const updated = { ...skill, slug: newSlug, name: newName.trim() };
+  try {
+    await api('/api/skill/save', { method: 'POST', body: JSON.stringify({ skill: updated }) });
+    if (newSlug !== item.slug) {
+      try { await api(`/api/skill/${encodeURIComponent(item.slug)}`, { method: 'DELETE' }); } catch {}
+    }
+    await refreshSkillsList();
+  } catch (e) {
+    alert(`Rename failed: ${e.message}`);
   }
 }
 
@@ -1058,8 +1198,10 @@ document.getElementById('rec-marker').addEventListener('click', async () => {
   try { await api('/api/recorder/marker', { method: 'POST', body: JSON.stringify({ label }) }); }
   catch (e) { alert(`Marker failed: ${e.message}`); }
 });
-document.getElementById('compile-cancel').addEventListener('click', closeCompileModal);
-document.getElementById('compile-save').addEventListener('click', saveCompiled);
+document.getElementById('skill-modal-cancel').addEventListener('click', closeSkillModal);
+document.getElementById('skill-modal-save').addEventListener('click', saveSkillModal);
+document.getElementById('skills-refresh').addEventListener('click', refreshSkillsList);
+document.getElementById('skills-new').addEventListener('click', openNewSkillModal);
 
 refreshRecorderStatus();
 refreshRecordingsList();
