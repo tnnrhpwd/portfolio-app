@@ -139,6 +139,36 @@
     width: 100%; box-sizing: border-box; resize: vertical; min-height: 200px;
   }
 
+  /* ── Recorder & Skills tab — card list ── */
+  .rs-intro { color: var(--muted); font-size: 12px; margin: -4px 0 12px; line-height: 1.5; }
+  .rs-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .rs-search { flex: 1 1 220px; min-width: 160px; }
+  .rs-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .rs-item {
+    display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px;
+    background: #0d1117; border: 1px solid var(--border); border-radius: 8px;
+    transition: border-color .15s ease;
+  }
+  .rs-item.is-running { border-color: var(--accent); }
+  .rs-item-icon { font-size: 18px; line-height: 1; flex-shrink: 0; margin-top: 1px; }
+  .rs-item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+  .rs-item-title { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; min-width: 0; }
+  .rs-item-name { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rs-badge {
+    flex-shrink: 0; font-size: 9.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    padding: 2px 6px; border-radius: 4px;
+  }
+  .rs-badge--cloud { background: rgba(88,166,255,.15); color: var(--accent); }
+  .rs-badge--local { background: var(--border); color: var(--muted); }
+  .rs-item-slug { font-family: "Consolas", monospace; font-size: 11px; color: var(--muted); opacity: .8; }
+  .rs-item-meta { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rs-item-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; flex-shrink: 0; }
+  .rs-item-actions button { padding: 4px 10px; font-size: 12px; }
+  @media (max-width: 720px) {
+    .rs-item { flex-direction: column; }
+    .rs-item-actions { justify-content: flex-start; }
+  }
+
   /* ── Permissions tab ── */
   .perm-badge {
     display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 12px;
@@ -348,23 +378,29 @@
     </div>
 
     <div class="panel">
-      <h2>Saved recordings</h2>
-      <div id="recordings-list"></div>
-    </div>
-
-    <div class="panel">
-      <h2>Your skills</h2>
-      <div class="row" style="border-bottom:none;">
+      <div class="row" style="border-bottom:none; padding-top:0;">
         <div>
-          <div class="name">Synced with the web app</div>
-          <div class="desc">Skills created here or on the web app are stored in your cloud workspace and show up in both places.</div>
+          <h2 style="margin-bottom:2px;">🧩 Your skills</h2>
+          <div class="rs-intro" style="margin-top:0;">Synced to your cloud workspace — created here, on the web app, or converted from a recording below. Available on every device signed into your account.</div>
         </div>
         <div class="actions">
           <button id="skills-refresh">Refresh</button>
           <button id="skills-new" class="primary">+ New skill</button>
         </div>
       </div>
-      <div id="skills-list"></div>
+      <div class="rs-toolbar">
+        <input type="text" id="skills-search" class="rs-search" placeholder="Search skills by name, slug, or step…">
+      </div>
+      <ul id="skills-list" class="rs-list"></ul>
+    </div>
+
+    <div class="panel">
+      <h2>⏺ Saved recordings</h2>
+      <div class="rs-intro">Raw demonstrations captured on this machine — stored locally only. Edit one to compile it into a skill and save it to your cloud workspace above.</div>
+      <div class="rs-toolbar">
+        <input type="text" id="recordings-search" class="rs-search" placeholder="Search recordings by name…">
+      </div>
+      <ul id="recordings-list" class="rs-list"></ul>
     </div>
   </section>
   <section class="tab-panel" id="panel-workspace">
@@ -953,30 +989,77 @@ async function refreshRecorderStatus() {
   }
 }
 
+/**
+ * Render one skill/recording as a card list item — the shared visual
+ * language for both lists (icon, name, source badge, slug/meta line, and a
+ * right-aligned action button row). `badge` is { label, cls } and `actions`
+ * is an array of `el('button', ...)` nodes already built by the caller.
+ */
+function itemCard({ icon, name, badge, slugText, metaText, actions, running }) {
+  const title = el('div', { class: 'rs-item-title' },
+    el('span', { class: 'rs-item-name' }, name),
+    badge ? el('span', { class: `rs-badge rs-badge--${badge.cls}` }, badge.label) : null,
+    slugText ? el('span', { class: 'rs-item-slug' }, slugText) : null,
+  );
+  return el('li', { class: `rs-item${running ? ' is-running' : ''}` },
+    el('span', { class: 'rs-item-icon' }, icon || '⚡'),
+    el('div', { class: 'rs-item-main' },
+      title,
+      el('div', { class: 'rs-item-meta', title: metaText }, metaText),
+    ),
+    el('div', { class: 'rs-item-actions' }, ...actions),
+  );
+}
+
+// Cached last-fetched lists so the search boxes can filter client-side
+// without re-hitting the API on every keystroke.
+let recordingsData = [];
+let recordingsLoadError = null;
+
+/** Load and render locally-saved recordings (never leaves this machine). */
 async function refreshRecordingsList() {
-  const container = document.getElementById('recordings-list');
-  container.innerHTML = '';
   try {
     const { recordings } = await api('/api/recorder/list');
-    if (!recordings.length) {
-      container.appendChild(el('div', { class: 'empty' }, 'No recordings yet. Hit "Start recording" above.'));
-      return;
-    }
-    for (const r of recordings) {
-      const row = el('div', { class: 'row' },
-        el('div', {},
-          el('div', { class: 'name' }, r.sessionId),
-          el('div', { class: 'desc' }, `${(r.bytes / 1024).toFixed(1)} KB · ${new Date(r.modifiedAt).toLocaleString()}`),
-        ),
-        el('div', { class: 'actions' },
-          el('button', { onclick: () => openReviewModal(r.sessionId) }, 'Convert to skill'),
-          el('button', { class: 'danger', onclick: () => deleteRecording(r.sessionId) }, 'Delete'),
-        ),
-      );
-      container.appendChild(row);
-    }
+    recordingsData = recordings || [];
+    recordingsLoadError = null;
   } catch (e) {
-    container.appendChild(el('div', { class: 'empty' }, `Failed: ${e.message}`));
+    recordingsData = null;
+    recordingsLoadError = e.message;
+  }
+  renderRecordingsList();
+}
+
+function renderRecordingsList() {
+  const container = document.getElementById('recordings-list');
+  container.innerHTML = '';
+  if (recordingsData === null) {
+    container.appendChild(el('div', { class: 'empty' }, `Failed to load recordings: ${recordingsLoadError}`));
+    return;
+  }
+  if (!recordingsData.length) {
+    container.appendChild(el('div', { class: 'empty' }, 'No recordings yet. Hit "Start recording" above.'));
+    return;
+  }
+  const q = (document.getElementById('recordings-search')?.value || '').trim().toLowerCase();
+  const rows = recordingsData.filter(r => !q || r.sessionId.toLowerCase().includes(q));
+  if (!rows.length) {
+    container.appendChild(el('div', { class: 'empty' }, 'No recordings match your search.'));
+    return;
+  }
+  for (const r of rows) {
+    container.appendChild(itemCard({
+      icon: '⏺',
+      name: r.sessionId,
+      badge: { label: 'Local', cls: 'local' },
+      metaText: `${(r.bytes / 1024).toFixed(1)} KB · ${new Date(r.modifiedAt).toLocaleString()}`,
+      actions: [
+        el('button', { class: 'primary', onclick: () => runRecording(r.sessionId) }, '▶ Run'),
+        el('button', { onclick: () => openReviewModal(r.sessionId) }, 'Edit'),
+        el('button', { onclick: () => duplicateRecording(r.sessionId) }, 'Duplicate'),
+        el('button', { onclick: () => renameRecording(r.sessionId) }, 'Rename'),
+        el('button', { class: 'danger', onclick: () => deleteRecording(r.sessionId) }, 'Delete'),
+      ],
+    }));
   }
 }
 
@@ -987,6 +1070,50 @@ async function deleteRecording(id) {
     await refreshRecordingsList();
   } catch (e) {
     alert(`Delete failed: ${e.message}`);
+  }
+}
+
+/** Clone a recording under a new name, leaving the original untouched. */
+async function duplicateRecording(id) {
+  const newName = prompt('Name for the duplicate:', `${id.replace(/-\d+$/, '')}-copy`);
+  if (!newName || !newName.trim()) return;
+  try {
+    await api(`/api/recorder/${encodeURIComponent(id)}/duplicate`, {
+      method: 'POST', body: JSON.stringify({ name: newName.trim() }),
+    });
+    await refreshRecordingsList();
+  } catch (e) {
+    alert(`Duplicate failed: ${e.message}`);
+  }
+}
+
+/** Rename a recording in place (renames the underlying local file). */
+async function renameRecording(id) {
+  const newName = prompt('New name for this recording:', id.replace(/-\d+$/, ''));
+  if (!newName || !newName.trim()) return;
+  try {
+    await api(`/api/recorder/${encodeURIComponent(id)}/rename`, {
+      method: 'POST', body: JSON.stringify({ name: newName.trim() }),
+    });
+    await refreshRecordingsList();
+  } catch (e) {
+    alert(`Rename failed: ${e.message}`);
+  }
+}
+
+/** Compile a recording ad-hoc and run it immediately, without saving it as a skill. */
+async function runRecording(sessionId) {
+  if (!confirm(`Run recording "${sessionId}"? This will replay UI actions on your machine.`)) return;
+  try {
+    const { skill } = await api('/api/skill/compile', {
+      method: 'POST', body: JSON.stringify({ sessionId, name: sessionId }),
+    });
+    const out = await api('/api/skill/run', {
+      method: 'POST', body: JSON.stringify({ slug: skill.slug, skill, params: {} }),
+    });
+    alert(`Recording complete. ${out.result?.stepsRun || 0} steps run, failed=${!!out.result?.failed}`);
+  } catch (e) {
+    alert(`Run failed: ${e.message}`);
   }
 }
 
@@ -1007,7 +1134,7 @@ async function openReviewModal(sessionId) {
     });
     openSkillModal({ mode: 'review', skill, sourceLabel: `From recording "${sessionId}" · ${skill.steps.length} steps` });
   } catch (e) {
-    alert(`Convert failed: ${e.message}`);
+    alert(`Edit failed: ${e.message}`);
   }
 }
 
@@ -1016,7 +1143,7 @@ function openNewSkillModal() {
   openSkillModal({
     mode: 'new',
     skill: { slug: '', name: '', description: '', steps: [] },
-    sourceLabel: 'Create a new skill from scratch, or record one and hit "Convert to skill".',
+    sourceLabel: 'Create a new skill from scratch, or record one and hit "Edit" below to compile and save it.',
   });
 }
 
@@ -1082,38 +1209,61 @@ async function saveSkillModal() {
 }
 
 /** Load and render the user's skills from the cloud workspace (kind='skill'). */
+let skillsData = null; // null = not loaded/error, [] = loaded-empty, [...] = loaded
+let skillsLoadError = null;
 async function refreshSkillsList() {
-  const container = document.getElementById('skills-list');
-  container.innerHTML = '';
   try {
     const { skills, error } = await api('/api/skill');
-    if (error) {
-      container.appendChild(el('div', { class: 'empty' }, `Couldn't reach the workspace (${error}) — showing locally cached skills only.`));
-    }
-    if (!skills.length) {
-      container.appendChild(el('div', { class: 'empty' }, 'No skills yet. Create one with "+ New skill" above, or record one and convert it.'));
-      return;
-    }
-    for (const { item, skill } of skills) {
-      const name = skill?.name || item.name || item.slug;
-      const stepCount = skill?.steps?.length || 0;
-      const row = el('div', { class: 'row' },
-        el('div', {},
-          el('div', { class: 'name' }, name),
-          el('div', { class: 'desc' }, `/${item.slug} · ${stepCount} step${stepCount === 1 ? '' : 's'}${skill ? '' : ' · content unavailable'}`),
-        ),
-        el('div', { class: 'actions' },
-          el('button', { class: 'primary', onclick: () => runSkillBySlug(item.slug) }, '▶ Run'),
-          el('button', { onclick: () => openEditSkillModal(item, skill) }, 'Edit'),
-          el('button', { onclick: () => duplicateSkill(item, skill) }, 'Duplicate'),
-          el('button', { onclick: () => renameSkill(item, skill) }, 'Rename'),
-          el('button', { class: 'danger', onclick: () => deleteSkill(item.slug) }, 'Delete'),
-        ),
-      );
-      container.appendChild(row);
-    }
+    skillsData = skills || [];
+    skillsLoadError = error || null;
   } catch (e) {
-    container.appendChild(el('div', { class: 'empty' }, `Failed to load skills: ${e.message}`));
+    skillsData = null;
+    skillsLoadError = e.message;
+  }
+  renderSkillsList();
+}
+
+function renderSkillsList() {
+  const container = document.getElementById('skills-list');
+  container.innerHTML = '';
+  if (skillsData === null) {
+    container.appendChild(el('div', { class: 'empty' }, `Failed to load skills: ${skillsLoadError}`));
+    return;
+  }
+  if (skillsLoadError) {
+    container.appendChild(el('div', { class: 'empty' }, `Couldn't reach the workspace (${skillsLoadError}) — showing locally cached skills only.`));
+  }
+  if (!skillsData.length) {
+    container.appendChild(el('div', { class: 'empty' }, 'No skills yet. Create one with "+ New skill" above, or record and edit one below.'));
+    return;
+  }
+  const q = (document.getElementById('skills-search')?.value || '').trim().toLowerCase();
+  const rows = skillsData.filter(({ item, skill }) => {
+    if (!q) return true;
+    const haystack = `${skill?.name || item.name || item.slug} ${item.slug} ${skill?.description || ''}`.toLowerCase();
+    return haystack.includes(q);
+  });
+  if (!rows.length) {
+    container.appendChild(el('div', { class: 'empty' }, 'No skills match your search.'));
+    return;
+  }
+  for (const { item, skill } of rows) {
+    const name = skill?.name || item.name || item.slug;
+    const stepCount = skill?.steps?.length || 0;
+    container.appendChild(itemCard({
+      icon: '🧩',
+      name,
+      badge: { label: 'Cloud', cls: 'cloud' },
+      slugText: `/${item.slug}`,
+      metaText: `${stepCount} step${stepCount === 1 ? '' : 's'}${skill ? '' : ' · content unavailable'}`,
+      actions: [
+        el('button', { class: 'primary', onclick: () => runSkillBySlug(item.slug) }, '▶ Run'),
+        el('button', { onclick: () => openEditSkillModal(item, skill) }, 'Edit'),
+        el('button', { onclick: () => duplicateSkill(item, skill) }, 'Duplicate'),
+        el('button', { onclick: () => renameSkill(item, skill) }, 'Rename'),
+        el('button', { class: 'danger', onclick: () => deleteSkill(item.slug) }, 'Delete'),
+      ],
+    }));
   }
 }
 
@@ -1202,6 +1352,8 @@ document.getElementById('skill-modal-cancel').addEventListener('click', closeSki
 document.getElementById('skill-modal-save').addEventListener('click', saveSkillModal);
 document.getElementById('skills-refresh').addEventListener('click', refreshSkillsList);
 document.getElementById('skills-new').addEventListener('click', openNewSkillModal);
+document.getElementById('skills-search').addEventListener('input', renderSkillsList);
+document.getElementById('recordings-search').addEventListener('input', renderRecordingsList);
 
 refreshRecorderStatus();
 refreshRecordingsList();

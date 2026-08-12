@@ -517,6 +517,20 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
         try { res.json(await recorder.remove(req.params.sessionId)); }
         catch (e) { res.status(404).json({ error: e.message }); }
     });
+    // Rename/duplicate a saved recording (local-only, mirrors the skill
+    // rename/duplicate actions so recordings get the same list actions).
+    app.post('/api/recorder/:sessionId/rename', async (req, res) => {
+        try {
+            const { name } = req.body || {};
+            res.json(await recorder.rename(req.params.sessionId, name));
+        } catch (e) { res.status(400).json({ error: e.message }); }
+    });
+    app.post('/api/recorder/:sessionId/duplicate', async (req, res) => {
+        try {
+            const { name } = req.body || {};
+            res.json(await recorder.duplicate(req.params.sessionId, name || req.params.sessionId));
+        } catch (e) { res.status(400).json({ error: e.message }); }
+    });
 
     // ─── Workspace Profiles (save/restore window layouts) ──────────────────
     app.get('/api/workspace-profiles', async (req, res) => {

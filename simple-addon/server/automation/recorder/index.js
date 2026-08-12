@@ -103,6 +103,60 @@ async function remove(sessionId) {
     return { ok: true, sessionId };
 }
 
+/** Sanitize a user-supplied name the same way RecorderSession does. */
+function _sanitizeName(name) {
+    return String(name || 'recording').replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 80);
+}
+
+/**
+ * Shared implementation for rename() and duplicate(): writes the source
+ * recording's content to a freshly-named file (rewriting the header's
+ * `name`/`sessionId` so the compiler picks up the new name), then optionally
+ * removes the original.
+ */
+async function _cloneTo(sessionId, newName, { removeOriginal }) {
+    _requireConfigured();
+    if (!sessionId || /[\\/]/.test(sessionId)) throw new Error('Invalid sessionId');
+    if (!newName || !String(newName).trim()) throw new Error('newName is required');
+    const srcFull = path.join(_recordingsDir, `${sessionId}.jsonl`);
+    const baseName = _sanitizeName(newName);
+
+    let newSessionId = `${baseName}-${Date.now()}`;
+    let destFull = path.join(_recordingsDir, `${newSessionId}.jsonl`);
+    let n = 2;
+    // Guard against the (unlikely) case of two ops landing in the same ms.
+    while (await fs.access(destFull).then(() => true).catch(() => false)) {
+        newSessionId = `${baseName}-${Date.now()}-${n++}`;
+        destFull = path.join(_recordingsDir, `${newSessionId}.jsonl`);
+    }
+
+    const raw = await fs.readFile(srcFull, 'utf-8');
+    const lines = raw.split(/\r?\n/);
+    const headerIdx = lines.findIndex(l => l.trim());
+    if (headerIdx >= 0) {
+        try {
+            const header = JSON.parse(lines[headerIdx]);
+            if (header.type === 'header') {
+                header.data = { ...header.data, name: baseName, sessionId: newSessionId };
+                lines[headerIdx] = JSON.stringify(header);
+            }
+        } catch { /* leave header untouched if unparsable */ }
+    }
+    await fs.writeFile(destFull, lines.join('\n'));
+    if (removeOriginal) await fs.unlink(srcFull);
+    return { ok: true, sessionId: newSessionId };
+}
+
+/** Rename a recording in place (implemented as clone-then-delete-original). */
+async function rename(sessionId, newName) {
+    return _cloneTo(sessionId, newName, { removeOriginal: true });
+}
+
+/** Clone a recording under a new name, leaving the original untouched. */
+async function duplicate(sessionId, newName) {
+    return _cloneTo(sessionId, newName, { removeOriginal: false });
+}
+
 module.exports = {
     configure,
     start,
@@ -112,4 +166,6 @@ module.exports = {
     list,
     read,
     remove,
+    rename,
+    duplicate,
 };
