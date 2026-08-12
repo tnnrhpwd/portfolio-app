@@ -415,8 +415,20 @@ ${WIN_PLACEMENT_PRELUDE}
 $wins = Get-CandidateWindows
 $p = ${filterExpr}
 if (-not $p) { Write-Error 'window not found'; exit 1 }
-[WinPlacement]::ShowWindowAsync($p.Hwnd, 9) | Out-Null  # 9 = SW_RESTORE
-[WinPlacement]::SetForegroundWindow($p.Hwnd) | Out-Null
+$h = $p.Hwnd
+$wp = New-Object WinPlacement+WINDOWPLACEMENT
+$wp.length = [System.Runtime.InteropServices.Marshal]::SizeOf($wp)
+[void][WinPlacement]::GetWindowPlacement($h, [ref]$wp)
+# Only un-minimize when the window IS minimized. Unconditionally calling
+# SW_RESTORE (9) here used to also un-maximize an already-maximized
+# window, snapping it back down to its smaller pre-maximize size/position
+# purely as a side effect of focusing it — a maximized window doesn't need
+# "restoring" to be focused at all, and a normal window is a no-op either
+# way, so only the minimized case actually needs this call.
+if ($wp.showCmd -eq 2) {
+    [void][WinPlacement]::ShowWindowAsync($h, 9)  # 9 = SW_RESTORE
+}
+[WinPlacement]::SetForegroundWindow($h) | Out-Null
 [pscustomobject]@{ pid = $p.Pid; name = $p.ProcessName; title = $p.Title } | ConvertTo-Json -Compress
         `.trim();
         return await runPsJson(script);
