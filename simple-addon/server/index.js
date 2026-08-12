@@ -706,6 +706,12 @@ app.post('/api/cloud/auth', (req, res) => {
   }
   cloudRelay.setToken(token);
   res.json({ ok: true, message: 'Cloud relay activated' });
+  // Persist the token to disk (DPAPI-encrypted, see settings API below) so a
+  // fresh addon launch can restore cloud relay + workspace access itself —
+  // the user shouldn't have to open the web app every time just to re-push
+  // it over loopback. Best-effort: never let a write failure affect the
+  // in-memory auth we already applied above.
+  try { persistAuthToken(token); } catch (e) { console.warn('[Server] Failed to persist auth token:', e.message); }
   // Now that we have a token, pull+merge any permission/consent state saved
   // to this user's backend workspace from another device/addon install —
   // fire-and-forget, must never delay the response above.
@@ -716,6 +722,7 @@ app.post('/api/cloud/auth', (req, res) => {
 
 app.delete('/api/cloud/auth', (req, res) => {
   cloudRelay.clearToken();
+  try { persistAuthToken(''); } catch (e) { console.warn('[Server] Failed to clear persisted auth token:', e.message); }
   res.json({ ok: true, message: 'Cloud relay deactivated' });
 });
 
@@ -1911,6 +1918,48 @@ const SENSITIVE_WEBAPP_KEYS = ['githubToken'];
 // re-encrypted lazily on next write.
 const localSecrets = require('./secret-storage');
 
+// ─── Persisted cloud-relay auth token ──────────────────────────────────────
+// The web app pushes the user's JWT to POST /api/cloud/auth over loopback
+// whenever it detects the addon (see registerCloudRelay in
+// frontend/simpleAddonApi.js) — but that only happens while a web app tab is
+// open. Without persistence, a fresh addon launch (tray icon, reboot, etc.)
+// has NO token until the user opens the web app again, breaking workspace
+// sync ("Couldn't reach the workspace... sign in on the web app first") even
+// though the user is already signed in. We cache the token here — DPAPI
+// encrypted, under its own top-level settings.json key (deliberately NOT
+// merged into `data.webapp`, since writeWebappSettings() above replaces that
+// whole sub-object wholesale on every save and would silently drop it) — and
+// restore it into cloudRelay on the next startup. The JWT is backend-issued
+// with a 7-day expiry (see backend/utils/generateToken.js); if it has since
+// expired, the very first heartbeat/API call 401s and CloudRelayService
+// already handles that by clearing the token and stopping quietly, so this
+// degrades to exactly today's "please open the web app" behavior.
+function persistAuthToken(token) {
+  let data = {};
+  if (fs.existsSync(SETTINGS_PATH)) {
+    try { data = JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf-8')); } catch { data = {}; }
+  }
+  if (token) {
+    data.cloudAuth = { token: localSecrets.encryptSecret(token), savedAt: new Date().toISOString() };
+  } else {
+    delete data.cloudAuth;
+  }
+  fs.writeFileSync(SETTINGS_PATH, JSON.stringify(data, null, 2), 'utf-8');
+}
+
+function restoreAuthToken() {
+  if (!fs.existsSync(SETTINGS_PATH)) return null;
+  try {
+    const data = JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf-8'));
+    const raw = data.cloudAuth?.token;
+    if (!raw) return null;
+    const pt = localSecrets.isEncrypted(raw) ? localSecrets.decryptSecret(raw) : raw;
+    return pt || null;
+  } catch {
+    return null;
+  }
+}
+
 function scrubEncryptedSecrets(settings) {
   if (!settings || typeof settings !== 'object') return settings;
   let mutated = false;
@@ -2413,6 +2462,21 @@ function startServer(options = {}) {
         activePort = tryPort;
         activeHttpsPort = tryPort + 443;
         console.log(`[Server] HTTP listening on ${host}:${activePort}`);
+
+        // Restore any previously-persisted cloud-relay auth token so
+        // workspace/skill sync + remote relay work immediately on launch,
+        // without requiring the web app to be opened first (see
+        // persistAuthToken/restoreAuthToken above for why this is stored
+        // separately from the general webapp settings blob).
+        try {
+          const savedToken = restoreAuthToken();
+          if (savedToken) {
+            cloudRelay.setToken(savedToken);
+            console.log('[Server] Restored cloud relay auth from local settings.');
+          }
+        } catch (e) {
+          console.warn('[Server] Could not restore saved auth token:', e.message);
+        }
 
         // Try HTTPS
         const sslCreds = ensureSelfSignedCert();
