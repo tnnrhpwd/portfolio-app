@@ -8,7 +8,7 @@ const multer = require('multer');
 // Middleware Imports
 // ============================================================================
 const { protect } = require('../middleware/authMiddleware');
-const { apiLimiter, authLimiter, paymentLimiter, llmLimiter, ocrLimiter, uploadLimiter, workspaceReadLimiter, workspaceWriteLimiter, workspaceActionLimiter, marketReadLimiter, marketPublishLimiter, marketWriteLimiter } = require('../middleware/rateLimiter');
+const { authLimiter, paymentLimiter, llmLimiter, ocrLimiter, uploadLimiter, workspaceReadLimiter, workspaceWriteLimiter, workspaceActionLimiter, marketReadLimiter, marketPublishLimiter, marketWriteLimiter } = require('../middleware/rateLimiter');
 const { 
   validateRegistration, 
   validateLogin, 
@@ -248,8 +248,13 @@ router.route('/public/:id')
 router.get('/membership-pricing', getMembershipPricing);
 router.get('/llm-providers', getLLMProviders);
 
-// Web Vitals (analytics beacon — public, fire-and-forget)
-router.post('/web-vitals', apiLimiter, (req, res) => {
+// Web Vitals (analytics beacon — public, fire-and-forget).
+// NOTE: apiLimiter is already applied globally in server.js for every /api/
+// route — do NOT pass it here too. Doing so double-incremented the shared
+// IP bucket (2 tokens consumed per beacon instead of 1) since it's the same
+// limiter instance/store, quietly burning through user budget on every page
+// load/tab-close.
+router.post('/web-vitals', (req, res) => {
   const { url, ttfb, cls, fcp, lcp, fid, connection, deviceMemory, timestamp } = req.body || {};
   if (url && timestamp) {
     // Debug-level observability beacon — fires on every page load, so it's
