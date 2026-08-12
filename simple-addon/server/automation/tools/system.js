@@ -110,6 +110,7 @@ const WIN_PLACEMENT_PRELUDE = `
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
 public static class WinPlacement {
     [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X; public int Y; }
     [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
@@ -117,6 +118,7 @@ public static class WinPlacement {
         public int length; public int flags; public int showCmd;
         public POINT ptMinPosition; public POINT ptMaxPosition; public RECT rcNormalPosition;
     }
+    public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
     [DllImport("user32.dll")] public static extern bool GetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
     [DllImport("user32.dll")] public static extern bool SetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
     [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
@@ -132,6 +134,10 @@ public static class WinPlacement {
     [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
     [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
     [DllImport("user32.dll")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+    [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+    [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern int GetWindowTextLength(IntPtr hWnd);
+    [DllImport("user32.dll", CharSet=CharSet.Auto)] public static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);
 }
 "@
 # Per-Monitor-V2 DPI awareness (-4) keeps captured/applied coordinates
@@ -296,6 +302,61 @@ $script:ShellHostDenylist = @(
 # until the whole app is killed and relaunched — this was the second crash
 # reproduction (Explorer survived; Simple Addon's own window vanished).
 $script:OwnPid = ${process.pid}
+# Get-Process's MainWindowHandle/MainWindowTitle exposes only ONE window per
+# process. That's harmless for the common case of one top-level window per
+# process, but silently wrong for a process that owns several — most
+# notably explorer.exe, which every File Explorer folder window normally
+# shares (a new Start-Process explorer.exe reuses the existing process
+# instead of spawning a new one). Which single window Get-Process surfaces
+# for a multi-window process is an internal OS heuristic, not necessarily
+# the one a titleContains match means — this is exactly why window_focus
+# reported "window not found" for an Explorer window that was plainly open
+# on screen: the needle matched that window's title, but Get-Process's
+# MainWindowTitle for the shared explorer.exe pid was some OTHER Explorer
+# window's title (or none of them). EnumWindows walks every top-level
+# window regardless of how many share an owning process, in Z-order
+# (topmost first), so matching against this list finds the right window
+# even when several live under one pid, and ties resolve to whichever is
+# nearest the front.
+function Get-CandidateWindows {
+    $procNames = @{}
+    Get-Process | ForEach-Object { $procNames[[int]$_.Id] = $_.ProcessName }
+    $list = New-Object System.Collections.Generic.List[object]
+    $callback = [WinPlacement+EnumWindowsProc]{
+        param([IntPtr]$hwnd, [IntPtr]$lparam)
+        if (-not [WinPlacement]::IsWindowVisible($hwnd)) { return $true }
+        $len = [WinPlacement]::GetWindowTextLength($hwnd)
+        if ($len -le 0) { return $true }
+        $sb = New-Object System.Text.StringBuilder ($len + 1)
+        [void][WinPlacement]::GetWindowText($hwnd, $sb, $sb.Capacity)
+        $title = $sb.ToString()
+        if (-not $title) { return $true }
+        # GetWindowThreadProcessId's [ref] out-param forces $rawProcId to be
+        # declared [uint32] — and PowerShell's [type]$var = value syntax
+        # doesn't just set an initial type, it PINS that variable to the
+        # type for the rest of its scope, silently re-coercing every later
+        # assignment back to it. Reassigning $rawProcId itself to an int
+        # (instead of assigning into a separate variable) would get
+        # silently re-coerced right back to UInt32 by that pin — then a
+        # UInt32 key looked up against $procNames' Int32 keys never
+        # matches (different boxed type, so Equals/GetHashCode disagree),
+        # so EVERY window in the list would get skipped as "no matching
+        # process name" even though the pid is right there. Cast into a
+        # separate, plain (untyped) variable instead so it's a genuine
+        # Int32 usable as a hashtable key.
+        [uint32]$rawProcId = 0
+        [void][WinPlacement]::GetWindowThreadProcessId($hwnd, [ref]$rawProcId)
+        $procId = [int]$rawProcId
+        if ($procId -eq $script:OwnPid) { return $true }
+        $name = $procNames[$procId]
+        if (-not $name -or $name -in $script:ShellHostDenylist) { return $true }
+        if (Test-WindowCloaked $hwnd) { return $true }
+        $list.Add([pscustomobject]@{ Hwnd = $hwnd; Pid = $procId; ProcessName = $name; Title = $title })
+        return $true
+    }
+    [void][WinPlacement]::EnumWindows($callback, [IntPtr]::Zero)
+    return $list
+}
 `;
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -309,10 +370,9 @@ const windowList = {
         const filter = (args.titleContains || '').replace(/'/g, "''");
         const script = `
 ${WIN_PLACEMENT_PRELUDE}
-$procs = Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -ne '' -and $_.ProcessName -notin $script:ShellHostDenylist -and $_.Id -ne $script:OwnPid }
-${filter ? `$procs = $procs | Where-Object { $_.MainWindowTitle -like '*${filter}*' }` : ''}
-$procs = $procs | Where-Object { -not (Test-WindowCloaked $_.MainWindowHandle) }
-$procs | ForEach-Object { [pscustomobject]@{ pid = $_.Id; name = $_.ProcessName; title = $_.MainWindowTitle } } | ConvertTo-Json -Compress -Depth 3
+$wins = Get-CandidateWindows
+${filter ? `$wins = $wins | Where-Object { $_.Title -like '*${filter}*' }` : ''}
+$wins | ForEach-Object { [pscustomobject]@{ pid = $_.Pid; name = $_.ProcessName; title = $_.Title } } | ConvertTo-Json -Compress -Depth 3
         `.trim();
         const result = await runPsJson(script);
         const arr = Array.isArray(result) ? result : (result ? [result] : []);
@@ -337,33 +397,27 @@ const windowFocus = {
         // is the field the skill-recorder compiler emits (window titles are
         // more identifying than process names for browsers/editors that share
         // one host process across many docs).
-        let sel;
+        let filterExpr;
         if (args.pid) {
-            sel = `Get-Process -Id ${parseInt(args.pid, 10)}`;
+            const pid = parseInt(args.pid, 10);
+            filterExpr = `$wins | Where-Object { $_.Pid -eq ${pid} } | Select-Object -First 1`;
         } else if (args.titleContains) {
             const needle = String(args.titleContains).replace(/'/g, "''");
-            sel = `Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -like '*${needle}*' } | Select-Object -First 1`;
+            filterExpr = `$wins | Where-Object { $_.Title -like '*${needle}*' } | Select-Object -First 1`;
         } else if (args.processName) {
-            sel = `Get-Process -Name '${String(args.processName).replace(/'/g, "''")}' -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1`;
+            const name = String(args.processName).replace(/'/g, "''");
+            filterExpr = `$wins | Where-Object { $_.ProcessName -eq '${name}' } | Select-Object -First 1`;
         } else {
             throw new Error('window_focus: provide pid, processName, or titleContains');
         }
         const script = `
 ${WIN_PLACEMENT_PRELUDE}
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public static class W {
-  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
-  [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr h, int n);
-}
-"@
-$p = ${sel}
-if ($p -and ($p.ProcessName -in $script:ShellHostDenylist -or $p.Id -eq $script:OwnPid -or (Test-WindowCloaked $p.MainWindowHandle))) { $p = $null }
+$wins = Get-CandidateWindows
+$p = ${filterExpr}
 if (-not $p) { Write-Error 'window not found'; exit 1 }
-[W]::ShowWindowAsync($p.MainWindowHandle, 9) | Out-Null  # 9 = SW_RESTORE
-[W]::SetForegroundWindow($p.MainWindowHandle) | Out-Null
-[pscustomobject]@{ pid = $p.Id; name = $p.ProcessName; title = $p.MainWindowTitle } | ConvertTo-Json -Compress
+[WinPlacement]::ShowWindowAsync($p.Hwnd, 9) | Out-Null  # 9 = SW_RESTORE
+[WinPlacement]::SetForegroundWindow($p.Hwnd) | Out-Null
+[pscustomobject]@{ pid = $p.Pid; name = $p.ProcessName; title = $p.Title } | ConvertTo-Json -Compress
         `.trim();
         return await runPsJson(script);
     },
@@ -455,14 +509,16 @@ const windowSetRect = {
         },
     },
     async run(args) {
-        let sel;
+        let filterExpr;
         if (args.pid) {
-            sel = `Get-Process -Id ${parseInt(args.pid, 10)} -ErrorAction SilentlyContinue`;
+            const pid = parseInt(args.pid, 10);
+            filterExpr = `$wins | Where-Object { $_.Pid -eq ${pid} } | Select-Object -First 1`;
         } else if (args.titleContains) {
             const needle = String(args.titleContains).replace(/'/g, "''");
-            sel = `Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -like '*${needle}*' } | Select-Object -First 1`;
+            filterExpr = `$wins | Where-Object { $_.Title -like '*${needle}*' } | Select-Object -First 1`;
         } else if (args.processName) {
-            sel = `Get-Process -Name '${String(args.processName).replace(/'/g, "''")}' -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1`;
+            const name = String(args.processName).replace(/'/g, "''");
+            filterExpr = `$wins | Where-Object { $_.ProcessName -eq '${name}' } | Select-Object -First 1`;
         } else {
             throw new Error('window_set_rect: provide pid, processName, or titleContains');
         }
@@ -475,16 +531,10 @@ const windowSetRect = {
         const showCmd = state === 'minimized' ? 2 : state === 'maximized' ? 3 : 1;
         const script = `
 ${WIN_PLACEMENT_PRELUDE}
-$p = ${sel}
-if ($p -and ($p.ProcessName -in $script:ShellHostDenylist -or $p.Id -eq $script:OwnPid -or (Test-WindowCloaked $p.MainWindowHandle))) {
-    # Defensive backstop for profiles saved before this fix: never apply a
-    # placement to a shell/system host window (see Test-WindowCloaked above)
-    # or to Simple Addon's own window (see $script:OwnPid above), even if
-    # one still made it into a saved profile.
-    $p = $null
-}
+$wins = Get-CandidateWindows
+$p = ${filterExpr}
 if (-not $p) { Write-Error 'window not found'; exit 1 }
-$h = $p.MainWindowHandle
+$h = $p.Hwnd
 $wp = New-Object WinPlacement+WINDOWPLACEMENT
 $wp.length = [System.Runtime.InteropServices.Marshal]::SizeOf($wp)
 [WinPlacement]::GetWindowPlacement($h, [ref]$wp) | Out-Null
@@ -562,9 +612,9 @@ for ($i = 0; $i -lt 10; $i++) {
 }
 $finalState = switch ($chk.showCmd) { 2 { 'minimized' } 3 { 'maximized' } default { 'normal' } }
 [pscustomobject]@{
-    pid = $p.Id
+    pid = $p.Pid
     name = $p.ProcessName
-    title = $p.MainWindowTitle
+    title = $p.Title
     settled = $settled
     actualX = $chk.rcNormalPosition.Left
     actualY = $chk.rcNormalPosition.Top
