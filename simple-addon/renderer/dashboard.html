@@ -205,6 +205,52 @@
   }
   .rs-rec-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); animation: pulse 1s infinite; }
 
+  /* ── In-app skill/recording run status (replaces confirm()/alert() popups) ── */
+  .rs-run {
+    margin-bottom: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; line-height: 1.5;
+  }
+  .rs-run.running { background: rgba(88,166,255,.10); border: 1px solid rgba(88,166,255,.4); }
+  .rs-run.done { background: rgba(63,185,80,.10); border: 1px solid rgba(63,185,80,.4); }
+  .rs-run.failed { background: rgba(248,81,73,.10); border: 1px solid rgba(248,81,73,.4); }
+  .rs-run-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .rs-run-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .rs-run-spinner {
+    display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 50%;
+    border: 2px solid rgba(88,166,255,.4); border-top-color: var(--accent);
+    animation: rs-run-spin .7s linear infinite; vertical-align: -1px;
+  }
+  @keyframes rs-run-spin { to { transform: rotate(360deg); } }
+  .rs-run-debug-toggle {
+    padding: 2px 8px; font-size: 11px; border-radius: 4px; border: 1px solid var(--border);
+    background: var(--bg, #0d1117); color: var(--text); cursor: pointer;
+  }
+  .rs-run-dismiss { opacity: .6; font-size: 12px; cursor: pointer; }
+  .rs-run-progress { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+  .rs-run-progress-track {
+    flex: 1; height: 5px; border-radius: 3px; background: #0d1117; border: 1px solid var(--border); overflow: hidden;
+  }
+  .rs-run-progress-fill { height: 100%; background: var(--accent); transition: width .25s ease; }
+  .rs-run.failed .rs-run-progress-fill { background: var(--red); }
+  .rs-run-progress-label { font-size: 11px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .rs-run-debug {
+    margin: 10px 0 0; padding: 10px 12px; border-radius: 6px; border: 1px solid rgba(248,81,73,.4);
+    background: #0d1117; font-size: 11px; line-height: 1.45; overflow: auto; max-height: 240px;
+  }
+  .rs-console {
+    margin-top: 8px; max-height: 220px; overflow-y: auto; background: #0d1117; border: 1px solid var(--border);
+    border-radius: 6px; padding: 8px 10px; font-family: "Consolas", monospace; font-size: 11.5px; line-height: 1.7;
+  }
+  .rs-console-line { display: flex; align-items: baseline; gap: 8px; color: #c9d1d9; white-space: nowrap; overflow: hidden; }
+  .rs-console-time { color: #6e7681; flex-shrink: 0; }
+  .rs-console-glyph { flex-shrink: 0; width: 12px; text-align: center; }
+  .rs-console-line--running .rs-console-glyph { color: var(--accent); animation: pulse 1s ease-in-out infinite; }
+  .rs-console-line--ok .rs-console-glyph { color: var(--green); }
+  .rs-console-line--error .rs-console-glyph, .rs-console-line--error .rs-console-error { color: var(--red); }
+  .rs-console-tool { flex-shrink: 0; color: #e6edf3; font-weight: 600; }
+  .rs-console-args { color: #8b949e; overflow: hidden; text-overflow: ellipsis; }
+  .rs-console-duration { flex-shrink: 0; margin-left: auto; color: #6e7681; }
+  .rs-console-error { overflow: hidden; text-overflow: ellipsis; }
+
   /* ── Permissions tab ── */
   .perm-badge {
     display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 12px;
@@ -431,6 +477,23 @@
         After starting, perform the actions you want captured. Recording covers mouse clicks, focus changes,
         and typed text. Click <b>Stop &amp; save</b> to compile into a runnable macro.
       </p>
+    </div>
+
+    <div id="run-banner" class="rs-run" style="display:none;">
+      <div class="rs-run-head">
+        <span id="run-banner-text"></span>
+        <span class="rs-run-actions">
+          <button id="run-banner-debug-toggle" class="rs-run-debug-toggle" style="display:none;">Show debug details</button>
+          <span id="run-banner-dismiss" class="rs-run-dismiss">✕</span>
+        </span>
+      </div>
+      <div id="run-banner-progress" class="rs-run-progress" style="display:none;">
+        <div class="rs-run-progress-track"><div id="run-banner-progress-fill" class="rs-run-progress-fill"></div></div>
+        <span id="run-banner-progress-label" class="rs-run-progress-label"></span>
+        <button id="run-console-toggle" class="rs-run-debug-toggle">Show console</button>
+      </div>
+      <div id="run-console" class="rs-console" style="display:none;"></div>
+      <pre id="run-banner-debug" class="rs-run-debug" style="display:none;"></pre>
     </div>
 
     <div class="panel">
@@ -1021,6 +1084,207 @@ function el(tag, props = {}, ...children) {
   return e;
 }
 
+// ── Skill / recording run status ──
+// Replaces the old confirm()-before / alert()-after popups with an in-app
+// banner (running → done/failed) plus a live step-by-step console fed from
+// the addon's SSE event stream, matching the web app's macro-run UX.
+let runInfo = null; // { label, phase: 'running'|'done'|'failed', startedAt, elapsedMs, stepsTotal, stepsRun, failedStep, error }
+let runTimer = null;
+let runEs = null; // active EventSource for the current run's console
+let runConsoleLines = []; // [{ callId, tool, args, status, startedAt, durationMs, error }]
+let runConsoleOpen = false;
+
+function makeRunId() {
+  try { if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID(); } catch {}
+  return `run-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function formatDuration(ms) {
+  if (!Number.isFinite(ms) || ms < 0) return '0ms';
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function fmtClock(ts) {
+  try {
+    const d = new Date(ts);
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}.${String(d.getMilliseconds()).padStart(3, '0')}`;
+  } catch { return ''; }
+}
+
+function previewArgs(args) {
+  if (!args || typeof args !== 'object') return '';
+  try {
+    const s = JSON.stringify(args);
+    return s.length > 80 ? `${s.slice(0, 80)}…` : s;
+  } catch { return ''; }
+}
+
+/** Subscribe to the addon's live event stream, filtered to this run's tool.start/tool.end pairs. */
+function subscribeRunConsole(runId) {
+  if (runEs) { runEs.close(); runEs = null; }
+  runConsoleLines = [];
+  const url = `${BASE}/api/agent/events?types=${encodeURIComponent('tool.start,tool.end')}`;
+  const es = new EventSource(url);
+  runEs = es;
+  const onEvent = (e) => {
+    let ev;
+    try { ev = JSON.parse(e.data); } catch { return; }
+    if (ev.runId !== runId || ev.tool === 'skill_run') return;
+    const idx = runConsoleLines.findIndex(l => l.callId === ev.callId);
+    if (ev.type === 'tool.start') {
+      const line = { callId: ev.callId, tool: ev.tool, args: ev.args, status: 'running', startedAt: ev.ts };
+      if (idx >= 0) runConsoleLines[idx] = { ...runConsoleLines[idx], ...line };
+      else runConsoleLines.push(line);
+    } else {
+      const patch = { status: ev.ok ? 'ok' : 'error', durationMs: ev.durationMs, error: ev.error };
+      if (idx >= 0) runConsoleLines[idx] = { ...runConsoleLines[idx], ...patch };
+      else runConsoleLines.push({ callId: ev.callId, tool: ev.tool, ...patch });
+    }
+    renderRunBanner();
+  };
+  es.addEventListener('tool.start', onEvent);
+  es.addEventListener('tool.end', onEvent);
+  es.onerror = () => { /* EventSource auto-reconnects; ignore transient drops */ };
+}
+
+function stopRunConsole() {
+  if (runEs) { runEs.close(); runEs = null; }
+}
+
+function renderRunBanner() {
+  const banner = document.getElementById('run-banner');
+  if (!runInfo) { banner.style.display = 'none'; return; }
+  banner.style.display = 'block';
+  banner.className = `rs-run ${runInfo.phase}`;
+
+  const textEl = document.getElementById('run-banner-text');
+  const debugToggle = document.getElementById('run-banner-debug-toggle');
+  if (runInfo.phase === 'running') {
+    textEl.innerHTML = `<span class="rs-run-spinner"></span> Running "${runInfo.label}"… ${formatDuration(runInfo.elapsedMs)}`;
+    debugToggle.style.display = 'none';
+  } else if (runInfo.phase === 'done') {
+    textEl.textContent = `✓ "${runInfo.label}" done in ${formatDuration(runInfo.elapsedMs)} (${runInfo.stepsRun}/${runInfo.stepsTotal} steps)`;
+    debugToggle.style.display = 'none';
+  } else {
+    textEl.textContent = runInfo.failedStep
+      ? `✕ "${runInfo.label}" failed at step ${runInfo.failedStep.index + 1}/${runInfo.stepsTotal} (${runInfo.failedStep.tool}) after ${formatDuration(runInfo.elapsedMs)}: ${runInfo.failedStep.error}`
+      : `✕ "${runInfo.label}" failed after ${formatDuration(runInfo.elapsedMs)}${runInfo.error ? `: ${runInfo.error}` : ''}`;
+    debugToggle.style.display = runInfo.failedStep ? 'inline-block' : 'none';
+  }
+
+  const progress = document.getElementById('run-banner-progress');
+  if (runConsoleLines.length) {
+    progress.style.display = 'flex';
+    const total = runInfo.stepsTotal ?? runInfo.stepsEstimate ?? runConsoleLines.length;
+    const doneCount = runConsoleLines.filter(l => l.status === 'ok' || l.status === 'error').length;
+    const current = [...runConsoleLines].reverse().find(l => l.status === 'running');
+    const pct = total ? Math.min(100, Math.round((doneCount / total) * 100)) : 0;
+    document.getElementById('run-banner-progress-fill').style.width = `${pct}%`;
+    document.getElementById('run-banner-progress-label').textContent = runInfo.phase === 'running' && current
+      ? `Step ${doneCount + 1}${total ? `/${total}` : ''} · ${current.tool}`
+      : `${doneCount}${total ? `/${total}` : ''} steps`;
+  } else {
+    progress.style.display = 'none';
+  }
+
+  const consoleEl = document.getElementById('run-console');
+  consoleEl.style.display = runConsoleOpen && runConsoleLines.length ? 'block' : 'none';
+  if (runConsoleOpen && runConsoleLines.length) {
+    consoleEl.innerHTML = '';
+    for (const line of runConsoleLines) {
+      const glyph = line.status === 'running' ? '▶' : line.status === 'ok' ? '✓' : '✗';
+      consoleEl.appendChild(el('div', { class: `rs-console-line rs-console-line--${line.status}` },
+        el('span', { class: 'rs-console-time' }, fmtClock(line.startedAt)),
+        el('span', { class: 'rs-console-glyph' }, glyph),
+        el('span', { class: 'rs-console-tool' }, line.tool),
+        line.args ? el('span', { class: 'rs-console-args' }, previewArgs(line.args)) : null,
+        (line.status !== 'running' && typeof line.durationMs === 'number') ? el('span', { class: 'rs-console-duration' }, formatDuration(line.durationMs)) : null,
+        line.error ? el('span', { class: 'rs-console-error' }, line.error) : null,
+      ));
+    }
+    consoleEl.scrollTop = consoleEl.scrollHeight;
+  }
+
+  const debugEl = document.getElementById('run-banner-debug');
+  debugEl.style.display = (runInfo.phase === 'failed' && runInfo.failedStep && runInfo.showDebug) ? 'block' : 'none';
+  if (runInfo.phase === 'failed' && runInfo.failedStep) {
+    debugEl.textContent = JSON.stringify({ label: runInfo.label, failedStep: runInfo.failedStep }, null, 2);
+  }
+}
+
+function dismissRunBanner() {
+  runInfo = null;
+  runConsoleLines = [];
+  runConsoleOpen = false;
+  stopRunConsole();
+  renderRunBanner();
+}
+
+document.getElementById('run-banner-dismiss').addEventListener('click', dismissRunBanner);
+document.getElementById('run-banner-debug-toggle').addEventListener('click', () => {
+  if (!runInfo) return;
+  runInfo.showDebug = !runInfo.showDebug;
+  document.getElementById('run-banner-debug-toggle').textContent = runInfo.showDebug ? 'Hide debug details' : 'Show debug details';
+  renderRunBanner();
+});
+document.getElementById('run-console-toggle').addEventListener('click', () => {
+  runConsoleOpen = !runConsoleOpen;
+  document.getElementById('run-console-toggle').textContent = runConsoleOpen ? 'Hide console' : 'Show console';
+  renderRunBanner();
+});
+
+/**
+ * Execute a compiled skill via /api/skill/run with in-app progress/result
+ * reporting — no confirm() before starting and no alert() when it finishes;
+ * failures surface inline with an expandable debug panel + live console
+ * instead, matching the web app's macro-run UX.
+ */
+async function executeSkillRun(slug, label, cacheSkill) {
+  stopRunConsole();
+  runConsoleLines = [];
+  runConsoleOpen = false;
+  const startedAt = Date.now();
+  const runId = makeRunId();
+  runInfo = { label, phase: 'running', startedAt, elapsedMs: 0, stepsTotal: cacheSkill?.steps?.length || null };
+  renderRunBanner();
+  subscribeRunConsole(runId);
+  if (runTimer) clearInterval(runTimer);
+  runTimer = setInterval(() => {
+    if (runInfo?.phase === 'running') {
+      runInfo.elapsedMs = Date.now() - startedAt;
+      renderRunBanner();
+    }
+  }, 100);
+
+  try {
+    const body = { slug, params: {}, runId };
+    if (cacheSkill && cacheSkill.slug === slug) body.skill = cacheSkill;
+    const out = await api('/api/skill/run', { method: 'POST', body: JSON.stringify(body) });
+    if (out?.error) throw new Error(out.error);
+    const summary = out?.result || {};
+    const steps = summary.steps || [];
+    const failedStep = steps.find(s => s.error);
+    const failed = !!summary.failed || !!failedStep;
+    clearInterval(runTimer);
+    runInfo = {
+      label,
+      phase: failed ? 'failed' : 'done',
+      startedAt,
+      elapsedMs: Date.now() - startedAt,
+      stepsTotal: summary.stepsTotal ?? steps.length,
+      stepsRun: summary.stepsRun ?? steps.length,
+      failedStep: failedStep
+        ? { index: failedStep.index, tool: failedStep.tool, error: failedStep.error, args: failedStep.args, compatibility: failedStep.compatibility, repairs: failedStep.repairs, result: failedStep.result }
+        : null,
+    };
+  } catch (e) {
+    clearInterval(runTimer);
+    runInfo = { label, phase: 'failed', startedAt, elapsedMs: Date.now() - startedAt, error: e.message };
+  }
+  renderRunBanner();
+}
+
 // ── Natural language macro compiler ──
 let nlResult = null; // { steps, meta } from the last successful compile
 
@@ -1218,17 +1482,14 @@ async function renameRecording(id) {
 
 /** Compile a recording ad-hoc and run it immediately, without saving it as a skill. */
 async function runRecording(sessionId) {
-  if (!confirm(`Run recording "${sessionId}"? This will replay UI actions on your machine.`)) return;
   try {
     const { skill } = await api('/api/skill/compile', {
       method: 'POST', body: JSON.stringify({ sessionId, name: sessionId }),
     });
-    const out = await api('/api/skill/run', {
-      method: 'POST', body: JSON.stringify({ slug: skill.slug, skill, params: {} }),
-    });
-    alert(`Recording complete. ${out.result?.stepsRun || 0} steps run, failed=${!!out.result?.failed}`);
+    await executeSkillRun(skill.slug, sessionId, skill);
   } catch (e) {
-    alert(`Run failed: ${e.message}`);
+    runInfo = { label: sessionId, phase: 'failed', startedAt: Date.now(), elapsedMs: 0, error: e.message };
+    renderRunBanner();
   }
 }
 
@@ -1372,7 +1633,7 @@ function renderSkillsList() {
       slugText: `/${item.slug}`,
       metaText: `${stepCount} step${stepCount === 1 ? '' : 's'}${skill ? '' : ' · content unavailable'}`,
       actions: [
-        el('button', { class: 'primary', onclick: () => runSkillBySlug(item.slug) }, '▶ Run'),
+        el('button', { class: 'primary', onclick: () => runSkillBySlug(item.slug, name, skill) }, '▶ Run'),
         el('button', { onclick: () => openEditSkillModal(item, skill) }, 'Edit'),
         el('button', { onclick: () => duplicateSkill(item, skill) }, 'Duplicate'),
         el('button', { onclick: () => renameSkill(item, skill) }, 'Rename'),
@@ -1382,16 +1643,8 @@ function renderSkillsList() {
   }
 }
 
-async function runSkillBySlug(slug) {
-  if (!confirm(`Run skill "${slug}"? This will replay UI clicks on your machine.`)) return;
-  try {
-    const out = await api('/api/automation/execute', {
-      method: 'POST', body: JSON.stringify({ name: 'skill_run', args: { slug } }),
-    });
-    alert(`Skill complete. ${out.result?.stepsRun || 0} steps run, failed=${out.result?.failed}`);
-  } catch (e) {
-    alert(`Run failed: ${e.message}`);
-  }
+async function runSkillBySlug(slug, label, cacheSkill) {
+  await executeSkillRun(slug, label || slug, cacheSkill || null);
 }
 
 async function deleteSkill(slug) {
