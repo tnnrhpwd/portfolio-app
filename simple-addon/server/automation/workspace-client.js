@@ -42,6 +42,8 @@ async function compileNaturalViaBackend(description, context) {
         const msg = json?.dataMessage || json?.message || json?.error || text || `backend error ${res.status}`;
         const e = new Error(msg);
         e.status = res.status;
+        if (json?.limiter) e.limiter = json.limiter;
+        if (json?.retryAfterSeconds !== undefined) e.retryAfterSeconds = json.retryAfterSeconds;
         throw e;
     }
     return json;

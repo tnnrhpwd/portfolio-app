@@ -296,6 +296,27 @@ function _formatAddonUnavailableMessage(baseUrl) {
   return `Could not reach the Simple addon at ${where}. It is likely not running or was restarted during the request.\n\nStart/relaunch "Simple Addon" and try again.`;
 }
 
+/**
+ * Turn a non-2xx JSON error body into an Error with rate-limit metadata
+ * attached (status, limiter id, retryAfterSeconds), and append a human
+ * "(retry in Xm)" hint to the message when the server told us how long to
+ * wait — so 429s are actionable instead of just a raw generic string.
+ */
+function _errorFromResponse(res, json, text, fallback) {
+  const msg = json?.dataMessage || json?.message || json?.error || text || fallback;
+  const retryAfterSeconds = json?.retryAfterSeconds;
+  let fullMsg = msg;
+  if (retryAfterSeconds && !/retry in|try again in/i.test(msg)) {
+    const mins = Math.ceil(retryAfterSeconds / 60);
+    fullMsg = `${msg} (retry in ~${mins} minute${mins === 1 ? '' : 's'})`;
+  }
+  const err = new Error(fullMsg);
+  err.status = res.status;
+  if (json?.limiter) err.limiter = json.limiter;
+  if (retryAfterSeconds !== undefined) err.retryAfterSeconds = retryAfterSeconds;
+  return err;
+}
+
 async function addonFetch(path, options = {}) {
   if (!_addonStatus.isConnected || !_addonStatus.baseUrl) {
     throw new Error('Simple addon is not connected');
@@ -309,15 +330,27 @@ async function addonFetch(path, options = {}) {
     });
     if (!res.ok) {
       const text = await res.text().catch(() => res.statusText);
-      const err = new Error(_parseErrorBody(text, res.status));
+      let baseMsg = _parseErrorBody(text, res.status);
+      let parsedJson = null;
+      try { parsedJson = JSON.parse(text); } catch { /* not JSON — plain text/HTML error */ }
+      // Append a human retry hint when the server told us how long to wait
+      // (e.g. rate-limit 429s), so the message is actionable instead of just
+      // a raw string that leaves the user guessing when to try again.
+      if (parsedJson?.retryAfterSeconds && !/retry in|try again in/i.test(baseMsg)) {
+        const mins = Math.ceil(parsedJson.retryAfterSeconds / 60);
+        baseMsg = `${baseMsg} (retry in ~${mins} minute${mins === 1 ? '' : 's'})`;
+      }
+      const err = new Error(baseMsg);
       err.status = res.status;
-      // Surface structured fields (e.g. `consentRequired`) from JSON error
-      // bodies so callers can react (offer a one-click consent grant)
-      // instead of just showing raw error text.
-      try {
-        const j = JSON.parse(text);
-        if (j && typeof j === 'object') Object.assign(err, j);
-      } catch { /* not JSON — plain text/HTML error, nothing to attach */ }
+      // Surface structured fields (e.g. `consentRequired`, `limiter`,
+      // `retryAfterSeconds`) from JSON error bodies so callers can react
+      // (offer a one-click consent grant, show a countdown, etc.) instead of
+      // just showing raw error text. Skip `message`/`error` so we don't
+      // clobber the composed `baseMsg` (which includes the retry hint).
+      if (parsedJson && typeof parsedJson === 'object') {
+        const { message: _m, error: _e, ...rest } = parsedJson;
+        Object.assign(err, rest);
+      }
       throw err;
     }
     return res;
@@ -1284,15 +1317,12 @@ export async function compileMacroNaturalViaBackend(token, description, context)
   } catch (networkErr) {
     throw new Error(`Network error: ${networkErr.message}`);
   }
-  // IMPORTANT: never let a 401 bubble up — the global auth interceptor would
-  // log the user out. Instead, convert all non-2xx to descriptive Error objects.
   const text = await res.text().catch(() => '');
   let json;
   try { json = JSON.parse(text); } catch { json = null; }
   if (!res.ok) {
-    const msg = json?.dataMessage || json?.message || json?.error || text || `Compiler error (${res.status})`;
     // Rethrow as plain Error — NOT as a 401 that triggers app-level logout
-    throw new Error(msg);
+    throw _errorFromResponse(res, json, text, `Compiler error (${res.status})`);
   }
   return json;
 }
@@ -1327,8 +1357,7 @@ export async function editMacroNaturalViaBackend(token, steps, instruction, cont
   let json;
   try { json = JSON.parse(text); } catch { json = null; }
   if (!res.ok) {
-    const msg = json?.dataMessage || json?.message || json?.error || text || `Editor error (${res.status})`;
-    throw new Error(msg);
+    throw _errorFromResponse(res, json, text, `Editor error (${res.status})`);
   }
   return json;
 }

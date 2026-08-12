@@ -963,14 +963,26 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
                 });
                 const backendText = await backendRes.text();
                 let backendJson; try { backendJson = JSON.parse(backendText); } catch { backendJson = null; }
-                if (!backendRes.ok) throw new Error(backendJson?.dataMessage || backendJson?.message || backendJson?.error || backendText || `backend error ${backendRes.status}`);
+                if (!backendRes.ok) {
+                    const proxyErr = new Error(backendJson?.dataMessage || backendJson?.message || backendJson?.error || backendText || `backend error ${backendRes.status}`);
+                    // Preserve the backend's real status (e.g. 429 rate-limited) and any
+                    // rate-limit metadata instead of letting the outer catch flatten it to 400.
+                    proxyErr.status = backendRes.status;
+                    if (backendJson?.limiter) proxyErr.limiter = backendJson.limiter;
+                    if (backendJson?.retryAfterSeconds !== undefined) proxyErr.retryAfterSeconds = backendJson.retryAfterSeconds;
+                    throw proxyErr;
+                }
                 result = backendJson;
             }
 
             events.publish('skill.compiled-natural', { stepCount: result.steps?.length || 0 });
             res.json({ ok: true, ...result });
         } catch (e) {
-            res.status(400).json({ error: e.message });
+            res.status(e.status || 400).json({
+                error: e.message,
+                ...(e.limiter ? { limiter: e.limiter } : {}),
+                ...(e.retryAfterSeconds !== undefined ? { retryAfterSeconds: e.retryAfterSeconds } : {}),
+            });
         }
     });
 
@@ -1019,14 +1031,24 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
                 });
                 const backendText = await backendRes.text();
                 let backendJson; try { backendJson = JSON.parse(backendText); } catch { backendJson = null; }
-                if (!backendRes.ok) throw new Error(backendJson?.dataMessage || backendJson?.message || backendJson?.error || backendText || `backend error ${backendRes.status}`);
+                if (!backendRes.ok) {
+                    const proxyErr = new Error(backendJson?.dataMessage || backendJson?.message || backendJson?.error || backendText || `backend error ${backendRes.status}`);
+                    proxyErr.status = backendRes.status;
+                    if (backendJson?.limiter) proxyErr.limiter = backendJson.limiter;
+                    if (backendJson?.retryAfterSeconds !== undefined) proxyErr.retryAfterSeconds = backendJson.retryAfterSeconds;
+                    throw proxyErr;
+                }
                 result = backendJson;
             }
 
             events.publish('skill.edited-natural', { stepCount: result.steps?.length || 0 });
             res.json({ ok: true, ...result });
         } catch (e) {
-            res.status(400).json({ error: e.message });
+            res.status(e.status || 400).json({
+                error: e.message,
+                ...(e.limiter ? { limiter: e.limiter } : {}),
+                ...(e.retryAfterSeconds !== undefined ? { retryAfterSeconds: e.retryAfterSeconds } : {}),
+            });
         }
     });
 
