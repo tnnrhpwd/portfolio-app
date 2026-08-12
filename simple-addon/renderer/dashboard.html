@@ -169,6 +169,42 @@
     .rs-item-actions { justify-content: flex-start; }
   }
 
+  /* ── NL macro compiler + recorder hero panels ── */
+  .rs-hero {
+    background: linear-gradient(160deg, rgba(124,58,237,.10), rgba(37,99,235,.07));
+    border: 1px solid rgba(124,58,237,.35);
+  }
+  .rs-hero-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .rs-hero-header h2 { margin: 0; }
+  .rs-ai-badge {
+    font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+    background: linear-gradient(135deg, #7c3aed, #2563eb); color: #fff; border-radius: 4px; padding: 2px 6px;
+  }
+  .rs-hint { margin: 0 0 10px; font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .rs-nl-textarea {
+    width: 100%; box-sizing: border-box; resize: vertical; font-family: inherit; font-size: 13px;
+    padding: 8px 10px; min-height: 64px; margin-bottom: 8px;
+  }
+  .rs-nl-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .rs-nl-row input[type="text"] { flex: 1 1 220px; min-width: 180px; }
+  .rs-nl-result {
+    margin-top: 12px; background: #0d1117; border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+  }
+  .rs-nl-result-header {
+    display: flex; align-items: center; justify-content: space-between; padding: 8px 12px;
+    background: var(--panel); border-bottom: 1px solid var(--border); font-size: 12px; color: var(--muted); font-weight: 500;
+  }
+  .rs-nl-preview {
+    margin: 0; padding: 10px 12px; font-size: 11px; font-family: "Consolas", monospace;
+    max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;
+  }
+  .rs-recorder-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+  .rs-recorder-row input[type="text"] { flex: 1 1 220px; min-width: 180px; }
+  .rs-rec-indicator {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--red); font-weight: 500; margin-left: 8px;
+  }
+  .rs-rec-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); animation: pulse 1s infinite; }
+
   /* ── Permissions tab ── */
   .perm-badge {
     display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 12px;
@@ -359,22 +395,42 @@
     </div>
   </section>
   <section class="tab-panel" id="panel-recorder">
-    <div class="panel">
-      <h2>Recorder</h2>
-      <div class="row">
-        <div>
-          <div class="recording-status" style="display:inline-flex; align-items:center; gap:8px; font-weight:600;">
-            <span id="rec-dot" class="dot" style="width:10px; height:10px; border-radius:50%; background: var(--muted); display:inline-block;"></span>
-            <span id="rec-status-label">Idle</span>
-          </div>
-          <div class="desc" id="rec-meta">No active recording.</div>
-        </div>
-        <div class="actions">
-          <button id="rec-start" class="primary">Start recording</button>
-          <button id="rec-marker" disabled>Add marker</button>
-          <button id="rec-stop" class="danger" disabled>Stop</button>
-        </div>
+    <div class="panel rs-hero">
+      <div class="rs-hero-header">
+        <h2 style="margin:0;">✨ Create a skill with natural language</h2>
+        <span class="rs-ai-badge">AI</span>
       </div>
+      <p class="rs-hint">
+        Describe what you want done and the AI compiles it into an executable skill — no recording required.
+        <br>Examples: <em>"mine stone in minecraft until I press Escape"</em> · <em>"open Notepad, type hello, save"</em>
+      </p>
+      <textarea id="nl-desc" class="rs-nl-textarea" rows="3" spellcheck="false" placeholder="Describe what you want the skill to do…"></textarea>
+      <div class="rs-nl-row">
+        <input type="text" id="nl-name" placeholder="Skill name (optional)">
+        <button id="nl-compile" class="primary">⚡ Compile</button>
+      </div>
+      <div id="nl-result" class="rs-nl-result" style="display:none;">
+        <div class="rs-nl-result-header">
+          <span id="nl-result-summary"></span>
+          <button id="nl-save" class="primary">💾 Save skill</button>
+        </div>
+        <pre id="nl-preview" class="rs-nl-preview"></pre>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>⏺ Or record one by demonstrating it</h2>
+      <div class="rs-recorder-row">
+        <input type="text" id="rec-name" placeholder="Macro name (optional)">
+        <button id="rec-start" class="primary">● Start recording</button>
+        <button id="rec-marker" disabled>Add marker</button>
+        <button id="rec-stop" class="danger" disabled style="display:none;">■ Stop &amp; save</button>
+        <span id="rec-indicator" class="rs-rec-indicator" style="display:none;"><span class="rs-rec-dot"></span> <span id="rec-status-label">Recording…</span></span>
+      </div>
+      <p class="rs-hint" id="rec-meta">
+        After starting, perform the actions you want captured. Recording covers mouse clicks, focus changes,
+        and typed text. Click <b>Stop &amp; save</b> to compile into a runnable macro.
+      </p>
     </div>
 
     <div class="panel">
@@ -965,17 +1021,75 @@ function el(tag, props = {}, ...children) {
   return e;
 }
 
+// ── Natural language macro compiler ──
+let nlResult = null; // { steps, meta } from the last successful compile
+
+async function compileNl() {
+  const descEl = document.getElementById('nl-desc');
+  const description = descEl.value.trim();
+  if (!description) return;
+  const btn = document.getElementById('nl-compile');
+  btn.disabled = true;
+  btn.textContent = '⏳ Compiling…';
+  document.getElementById('nl-result').style.display = 'none';
+  try {
+    const result = await api('/api/skill/compile-natural', {
+      method: 'POST', body: JSON.stringify({ description }),
+    });
+    nlResult = result;
+    if (!document.getElementById('nl-name').value.trim()) {
+      document.getElementById('nl-name').value = description.slice(0, 40).replace(/[^a-zA-Z0-9 ]/g, '').trim() || 'nl-macro';
+    }
+    document.getElementById('nl-result-summary').textContent =
+      `${result.steps?.length || 0} steps compiled${result.fromCache ? ' (cached)' : ''}`;
+    document.getElementById('nl-preview').textContent = JSON.stringify(result.steps, null, 2);
+    document.getElementById('nl-result').style.display = 'block';
+  } catch (e) {
+    alert(`Compile failed: ${e.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⚡ Compile';
+  }
+}
+
+async function saveNlSkill() {
+  if (!nlResult) return;
+  const description = document.getElementById('nl-desc').value.trim();
+  const name = (document.getElementById('nl-name').value || '').trim() || 'nl-macro';
+  const slug = slugifyName(name);
+  const skill = {
+    slug,
+    name,
+    description: description.slice(0, 200),
+    steps: nlResult.steps,
+    metadata: { source: 'nl-compiler', compiledAt: nlResult.meta?.compiledAt || new Date().toISOString() },
+  };
+  try {
+    await api('/api/skill/save', { method: 'POST', body: JSON.stringify({ skill }) });
+    alert(`Saved skill "${name}" (${skill.steps.length} steps).`);
+    document.getElementById('nl-desc').value = '';
+    document.getElementById('nl-name').value = '';
+    document.getElementById('nl-result').style.display = 'none';
+    nlResult = null;
+    await refreshSkillsList();
+  } catch (e) {
+    alert(`Save failed: ${e.message}`);
+  }
+}
+
+document.getElementById('nl-compile').addEventListener('click', compileNl);
+document.getElementById('nl-save').addEventListener('click', saveNlSkill);
+
 async function refreshRecorderStatus() {
   try {
     const s = await api('/api/recorder/status');
     const active = !!s.active;
-    document.getElementById('rec-dot').classList.toggle('active', active);
-    document.getElementById('rec-status-label').textContent = active ? 'Recording…' : 'Idle';
-    document.getElementById('rec-meta').textContent = active
-      ? `Session ${s.sessionId} — ${s.eventCount} events captured`
-      : 'No active recording.';
-    document.getElementById('rec-start').disabled = active;
-    document.getElementById('rec-stop').disabled = !active;
+    document.getElementById('rec-indicator').style.display = active ? 'inline-flex' : 'none';
+    document.getElementById('rec-status-label').textContent = active ? `Recording · ${s.eventCount} events` : '';
+    document.getElementById('rec-start').style.display = active ? 'none' : '';
+    document.getElementById('rec-stop').style.display = active ? '' : 'none';
+    document.getElementById('rec-name').disabled = active;
+    document.getElementById('rec-stop').disabled = false;
     document.getElementById('rec-marker').disabled = !active;
 
     if (active && !recPollTimer) {
@@ -985,7 +1099,8 @@ async function refreshRecorderStatus() {
       recPollTimer = null;
     }
   } catch (e) {
-    document.getElementById('rec-meta').textContent = `Status check failed: ${e.message}`;
+    document.getElementById('rec-indicator').style.display = 'inline-flex';
+    document.getElementById('rec-status-label').textContent = `Status check failed: ${e.message}`;
   }
 }
 
@@ -1328,8 +1443,8 @@ async function renameSkill(item, skill) {
 }
 
 document.getElementById('rec-start').addEventListener('click', async () => {
-  const name = prompt('Name this recording (used as session prefix):', 'recording-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19));
-  if (!name) return;
+  const name = (document.getElementById('rec-name').value || '').trim()
+    || 'macro-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   try {
     await api('/api/recorder/start', { method: 'POST', body: JSON.stringify({ name }) });
     await refreshRecorderStatus();
@@ -1338,6 +1453,7 @@ document.getElementById('rec-start').addEventListener('click', async () => {
 document.getElementById('rec-stop').addEventListener('click', async () => {
   try {
     await api('/api/recorder/stop', { method: 'POST', body: '{}' });
+    document.getElementById('rec-name').value = '';
     await refreshRecorderStatus();
     await refreshRecordingsList();
   } catch (e) { alert(`Stop failed: ${e.message}`); }
