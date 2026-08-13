@@ -26,33 +26,6 @@ const API_COSTS = {
         'o1-mini': { input: 0.003/1000, output: 0.012/1000 }, // per token
         'o1-preview': { input: 0.015/1000, output: 0.06/1000 } // per token
     },
-    github: {
-        // GitHub Models (Azure inference) — free with Copilot subscription (rate-limited)
-        // Costs below reflect the underlying model cost if billed (used for internal tracking)
-        'gpt-4o': { input: 0.0025/1000, output: 0.01/1000 },
-        'gpt-4o-mini': { input: 0.00015/1000, output: 0.0006/1000 },
-        'gpt-4.1': { input: 0.002/1000, output: 0.008/1000 },
-        'gpt-4.1-mini': { input: 0.0004/1000, output: 0.0016/1000 },
-        'gpt-4.1-nano': { input: 0.0001/1000, output: 0.0004/1000 },
-        'o3-mini': { input: 0.0011/1000, output: 0.0044/1000 },
-        'o4-mini': { input: 0.0011/1000, output: 0.0044/1000 },
-        // Anthropic Claude
-        'claude-3.5-sonnet': { input: 0.003/1000, output: 0.015/1000 },
-        'claude-3.5-haiku': { input: 0.0008/1000, output: 0.004/1000 },
-        // Meta Llama
-        'Llama-3.3-70B-Instruct': { input: 0.00037/1000, output: 0.00037/1000 },
-        'Meta-Llama-3.1-405B-Instruct': { input: 0.001/1000, output: 0.002/1000 },
-        // Mistral
-        'Mistral-large-2411': { input: 0.002/1000, output: 0.006/1000 },
-        'Mistral-small': { input: 0.001/1000, output: 0.003/1000 },
-        // DeepSeek
-        'DeepSeek-R1': { input: 0.00055/1000, output: 0.0022/1000 },
-        // Microsoft
-        'Phi-4': { input: 0.00007/1000, output: 0.00028/1000 },
-        // Cohere
-        'Cohere-command-r-plus': { input: 0.0025/1000, output: 0.01/1000 },
-        'default': { input: 0.001/1000, output: 0.003/1000 } // fallback for unknown models
-    },
     xai: {
         'grok-4': { input: 0.001/1000, output: 0.003/1000 }, // per token (estimated pricing)
         'grok-4-fast-reasoning': { input: 0.001/1000, output: 0.003/1000 } // per token (estimated pricing)
@@ -62,8 +35,7 @@ const API_COSTS = {
         // us.anthropic.claude-haiku-4-5-20251001-v1:0). Rates per
         // platform.claude.com/docs/en/about-claude/pricing ($1/MTok in, $5/MTok out),
         // which Bedrock on-demand pricing mirrors. This is a server-key (app-paid)
-        // provider — NOT bring-your-own-key like `github` was — so usage IS
-        // deducted from the user's credit balance below.
+        // provider, so usage IS deducted from the user's credit balance below.
         'us.anthropic.claude-haiku-4-5-20251001-v1:0': { input: 1/1000000, output: 5/1000000 },
         'default': { input: 1/1000000, output: 5/1000000 }
     },
@@ -73,11 +45,30 @@ const API_COSTS = {
     }
 };
 
-// Membership limits — BYOK model, no platform credits
+// Monthly credit limits (USD) for METERED, server-paid providers (currently
+// just `bedrock` — Claude Haiku 4.5). Per-user-key (BYOK) providers, if any
+// are ever added again, are exempt from this via PER_USER_KEY_PROVIDERS below.
+//
+// Sized against Bedrock's actual per-token cost (API_COSTS.bedrock: $1/$5 per
+// million input/output tokens): $0.50/mo covers roughly 500K Haiku tokens —
+// generous for typical chat usage while still bounding worst-case cost per
+// free account. Tune these to taste; they're just plain USD caps.
 const MEMBERSHIP_LIMITS = {
-    Free: 0,
-    Pro: 0,
+    Free: 0.50,
+    Pro: 10.00,
 };
+
+/**
+ * Resolve a membership rank string to its monthly credit limit. Normalizes
+ * via isProTier() so legacy rank strings still stored in some users' text
+ * (Simple/Premium/Flex — see pricing.js RANK_REGEX) map to the Pro limit
+ * instead of silently falling through to Free.
+ * @param {string} rank
+ * @returns {number} USD monthly credit limit
+ */
+function getMembershipLimit(rank) {
+    return isProTier(rank) ? MEMBERSHIP_LIMITS.Pro : MEMBERSHIP_LIMITS.Free;
+}
 
 /**
  * Get or create user credits data
@@ -151,20 +142,24 @@ function needsMonthlyReset(creditsData, membership) {
  */
 function performMonthlyReset(creditsData, membership, subscriptionActive = true) {
     const now = new Date().toISOString();
-    
-    // Only perform reset if subscription is active
-    if (!subscriptionActive) {
+
+    // The subscription-active check only makes sense for paid (Pro) tiers —
+    // it exists to stop a lapsed Pro subscription from still receiving fresh
+    // Pro-tier credits every month. Free tier has no subscription at all, so
+    // it must always reset/top-off regardless of this flag.
+    if (membership !== 'Free' && !subscriptionActive) {
         logger.debug('Subscription not active, skipping monthly reset');
         return creditsData; // Return unchanged if subscription cancelled
     }
-    
-    // BYOK model — no platform credits to reset
-    creditsData.availableCredits = 0;
-    creditsData.customLimit = null;
-    
+
+    // Top off to the plan's monthly credit limit (or a previously-set custom
+    // limit, if one exists) — see MEMBERSHIP_LIMITS/getMembershipLimit above.
+    const planLimit = getMembershipLimit(membership);
+    creditsData.availableCredits = typeof creditsData.customLimit === 'number' ? creditsData.customLimit : planLimit;
+
     creditsData.lastReset = now;
     creditsData.membershipLevel = membership;
-    
+
     return creditsData;
 }
 
@@ -274,9 +269,11 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
             };
         }
 
-        // Per-user-key providers (e.g. github) use the user's own API key,
-        // so don't deduct credits for their usage — only track server-key usage.
-        const PER_USER_KEY_PROVIDERS = new Set(['github']);
+        // Per-user-key (BYOK) providers use the user's own API key, so don't
+        // deduct credits for their usage — only track server-key usage. None
+        // remain today (GitHub Models was retired by GitHub on 2026-07-30);
+        // kept as an extension point for a future BYOK provider.
+        const PER_USER_KEY_PROVIDERS = new Set([]);
         if (PER_USER_KEY_PROVIDERS.has(apiName)) {
             logger.debug(`trackApiUsage: Provider "${apiName}" uses per-user key, skipping credit deduction`);
             return {
@@ -307,14 +304,6 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
                 const outputTokens = usageData.outputTokens || 0;
                 cost = (inputTokens * modelCosts.input) + (outputTokens * modelCosts.output);
                 usageString = `${inputTokens + outputTokens}t`;
-                break;
-            case 'github':
-                const ghModelKey = model || 'gpt-4o-mini';
-                const ghModelCosts = API_COSTS.github[ghModelKey] || API_COSTS.github['default'];
-                const ghInputTokens = usageData.inputTokens || 0;
-                const ghOutputTokens = usageData.outputTokens || 0;
-                cost = (ghInputTokens * ghModelCosts.input) + (ghOutputTokens * ghModelCosts.output);
-                usageString = `${ghInputTokens + ghOutputTokens}t`;
                 break;
             case 'xai':
                 const xaiModelKey = model || 'grok-4';
@@ -364,16 +353,9 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
             creditsData = performMonthlyReset(creditsData, userRank);
         }
 
-        // Check if user has enough credits for this call
-        if (userRank === 'Free') {
-            return {
-                success: false,
-                error: 'Free users cannot use paid APIs',
-                currentCredits: 0,
-                requestCost: cost
-            };
-        }
-
+        // Check if user has enough credits for this call. Free tier now gets
+        // its own modest monthly allowance (see MEMBERSHIP_LIMITS) instead of
+        // being blanket-denied — the check below handles both tiers uniformly.
         if (creditsData.availableCredits < cost) {
             return {
                 success: false,
@@ -539,8 +521,7 @@ async function getUserUsageStats(userId) {
         }
 
         // Calculate limit based on membership type
-        let limit;
-        limit = MEMBERSHIP_LIMITS[userRank] || 0;
+        const limit = getMembershipLimit(userRank);
 
         const result = {
             totalUsage: usage.totalCost,
@@ -736,8 +717,10 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
             return { canMake: true, reason: 'Admin user has unlimited access' };
         }
 
-        // Per-user-key providers use the user's own API key — always allow
-        const PER_USER_KEY_PROVIDERS = new Set(['github']);
+        // Per-user-key (BYOK) providers use the user's own API key — always
+        // allow. None remain today (GitHub Models was retired by GitHub on
+        // 2026-07-30); kept as an extension point for a future BYOK provider.
+        const PER_USER_KEY_PROVIDERS = new Set([]);
         if (PER_USER_KEY_PROVIDERS.has(apiName)) {
             logger.debug(`canMakeApiCall: Provider "${apiName}" uses per-user key, always allowed`);
             return { canMake: true, reason: 'Per-user API key — no credit check needed' };
@@ -762,9 +745,6 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
         }
 
         logger.debug('canMakeApiCall: User membership:', userRank);
-
-        // BYOK model — all users can make calls (they use their own API key)
-        // Only block if explicitly rate-limited elsewhere
 
         // Get user credits data
         let creditsData = parseUserCredits(userText);
@@ -818,13 +798,6 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
                 const outputTokens = estimatedUsage.outputTokens || 200; // Default estimate
                 estimatedCost = (inputTokens * modelCosts.input) + (outputTokens * modelCosts.output);
                 break;
-            case 'github':
-                const ghModelKey = estimatedUsage.model || 'gpt-4o-mini';
-                const ghModelCosts = API_COSTS.github[ghModelKey] || API_COSTS.github['default'];
-                const ghInputTokens = estimatedUsage.inputTokens || 100;
-                const ghOutputTokens = estimatedUsage.outputTokens || 200;
-                estimatedCost = (ghInputTokens * ghModelCosts.input) + (ghOutputTokens * ghModelCosts.output);
-                break;
             case 'xai':
                 const xaiModelKey = estimatedUsage.model || 'grok-4-fast-reasoning';
                 const xaiModelCosts = API_COSTS.xai[xaiModelKey] || API_COSTS.xai['grok-4-fast-reasoning'];
@@ -845,15 +818,35 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
                 break;
         }
 
-        // BYOK model — always allow (user pays via their own API key)
-        logger.debug(`canMakeApiCall: BYOK model — allowing call (estimated cost: $${estimatedCost.toFixed(4)})`);
-        
+        // Enforce real per-tier monthly credit limits for METERED, server-paid
+        // providers (bedrock, and openai/xai if ever wired to a server key
+        // again). Per-user-key (BYOK) providers already returned early above
+        // and never reach this point.
+        if (creditsData.availableCredits < estimatedCost) {
+            logger.debug(`canMakeApiCall: Insufficient credits ($${creditsData.availableCredits.toFixed(4)} < $${estimatedCost.toFixed(4)})`);
+            const planLimit = getMembershipLimit(userRank);
+            return {
+                canMake: false,
+                reason: `Monthly AI usage limit reached for your ${userRank} plan. Available: $${creditsData.availableCredits.toFixed(4)}, this request needs ~$${estimatedCost.toFixed(4)}.`,
+                currentUsage: planLimit - creditsData.availableCredits,
+                limit: planLimit,
+                currentCredits: creditsData.availableCredits,
+                estimatedCost,
+                customLimit: creditsData.customLimit,
+                membership: userRank,
+                isFrozen: false,
+                canIncreaseLimit: false,
+            };
+        }
+
+        logger.debug(`canMakeApiCall: Within monthly limit — allowing call (estimated cost: $${estimatedCost.toFixed(4)}, remaining: $${creditsData.availableCredits.toFixed(4)})`);
+
         return {
             canMake: true,
-            reason: 'BYOK — user provides their own API key',
-            currentCredits: 0,
+            reason: 'Within monthly usage limit',
+            currentCredits: creditsData.availableCredits,
             estimatedCost: estimatedCost,
-            customLimit: null,
+            customLimit: creditsData.customLimit,
             membership: userRank,
             isFrozen: false,
             canIncreaseLimit: false

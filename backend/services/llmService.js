@@ -305,9 +305,21 @@ function validateModelTierAccess(user, model) {
     const rankMatch = text.match(/\|Rank:(\w+)/);
     const rank = rankMatch ? rankMatch[1] : 'Free';
 
-    // BYOK model — no tier gating on models (users pay via their own API key)
-    // All models are available to all users
-    return;
+    // Actually enforce the tier requirement (MODEL_TIER_REQUIREMENTS is empty
+    // today so this is currently a no-op, but must gate for real once/if a
+    // model is added there — see utils/llmProviders.js MODEL_TIER_REQUIREMENTS).
+    if (requiredTier === 'pro' && !isProTier(rank)) {
+        const error = new Error(`Model "${model}" requires a Pro membership.`);
+        error.statusCode = 403;
+        error.details = {
+            error: 'Model requires upgrade',
+            model,
+            requiredTier,
+            currentTier: rank,
+            requiresUpgrade: true,
+        };
+        throw error;
+    }
 }
 
 /**

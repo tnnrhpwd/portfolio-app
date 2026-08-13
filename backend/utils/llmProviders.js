@@ -28,39 +28,6 @@ const PROVIDERS = {
         client: null,
         baseURL: 'https://api.x.ai/v1'
     },
-    github: {
-        name: 'GitHub Models',
-        // Model IDs use the publisher/model format required by the current
-        // GitHub Models inference endpoint. legacyId tracks bare names from
-        // older clients so requests still resolve after the migration off
-        // https://models.inference.ai.azure.com (which now returns 401).
-        models: {
-            // OpenAI
-            'openai/gpt-4o': { name: 'GPT-4o', contextWindow: 128000, legacyId: ['gpt-4o'] },
-            'openai/gpt-4o-mini': { name: 'GPT-4o Mini', contextWindow: 128000, legacyId: ['gpt-4o-mini'] },
-            'openai/gpt-4.1': { name: 'GPT-4.1', contextWindow: 128000, legacyId: ['gpt-4.1'] },
-            'openai/gpt-4.1-mini': { name: 'GPT-4.1 Mini', contextWindow: 128000, legacyId: ['gpt-4.1-mini'] },
-            'openai/gpt-4.1-nano': { name: 'GPT-4.1 Nano', contextWindow: 128000, legacyId: ['gpt-4.1-nano'] },
-            'openai/o3-mini': { name: 'o3-mini', contextWindow: 200000, legacyId: ['o3-mini'] },
-            'openai/o4-mini': { name: 'o4-mini', contextWindow: 200000, legacyId: ['o4-mini'] },
-            // Meta Llama
-            'meta/Llama-3.3-70B-Instruct': { name: 'Llama 3.3 70B', contextWindow: 131072, legacyId: ['Llama-3.3-70B-Instruct'] },
-            'meta/Meta-Llama-3.1-405B-Instruct': { name: 'Llama 3.1 405B', contextWindow: 131072, legacyId: ['Meta-Llama-3.1-405B-Instruct'] },
-            // Mistral
-            'mistral-ai/Mistral-large-2411': { name: 'Mistral Large', contextWindow: 128000, legacyId: ['Mistral-large-2411'] },
-            'mistral-ai/Mistral-small': { name: 'Mistral Small', contextWindow: 128000, legacyId: ['Mistral-small'] },
-            // DeepSeek
-            'deepseek/DeepSeek-R1': { name: 'DeepSeek R1', contextWindow: 64000, legacyId: ['DeepSeek-R1'] },
-            // Microsoft
-            'microsoft/Phi-4': { name: 'Phi-4', contextWindow: 16384, legacyId: ['Phi-4'] },
-            // Cohere
-            'cohere/Cohere-command-r-plus': { name: 'Command R+', contextWindow: 128000, legacyId: ['Cohere-command-r-plus'] },
-        },
-        apiKey: null,       // Per-user GitHub PAT — supplied at call time
-        client: null,
-        baseURL: 'https://models.github.ai/inference',
-        perUserKey: true    // Token fetched from user's Simple settings in DynamoDB
-    },
     bedrock: {
         name: 'AWS Bedrock',
         // Cross-region inference profile ID for Claude Haiku 4.5 (verified against
@@ -69,30 +36,19 @@ const PROVIDERS = {
         models: {
             'us.anthropic.claude-haiku-4-5-20251001-v1:0': { name: 'Claude Haiku 4.5', contextWindow: 200000 },
         },
-        // Bedrock authenticates via the app's existing AWS SigV4 credentials (the
-        // same AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY used for DynamoDB in
-        // accessData.js) — not a bearer apiKey string. This flag just marks the
-        // provider "configured" for getAvailableProviders()/validateProviderModel().
-        apiKey: !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY),
+        // Bedrock authenticates via AWS SigV4 credentials — either a dedicated,
+        // least-privilege AWS_BEDROCK_ACCESS_KEY_ID/AWS_BEDROCK_SECRET_ACCESS_KEY
+        // pair, or (fallback) the same AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY used
+        // for DynamoDB in accessData.js — not a bearer apiKey string. This flag
+        // just marks the provider "configured" for
+        // getAvailableProviders()/validateProviderModel(); see
+        // services/bedrockService.js#isBedrockConfigured() for the real check.
+        apiKey: !!((process.env.AWS_BEDROCK_ACCESS_KEY_ID && process.env.AWS_BEDROCK_SECRET_ACCESS_KEY) ||
+            (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY)),
         client: null,
-        region: process.env.AWS_REGION || 'us-east-1',
+        region: process.env.AWS_BEDROCK_REGION || process.env.AWS_REGION || 'us-east-1',
     }
 };
-
-/**
- * Resolve a possibly-legacy GitHub Models model ID (e.g. "gpt-4o-mini") to the
- * current publisher-prefixed form (e.g. "openai/gpt-4o-mini"). Returns the
- * input unchanged if it already looks publisher-prefixed or is unknown.
- */
-function resolveGithubModelId(modelId) {
-    if (!modelId || typeof modelId !== 'string') return modelId;
-    if (modelId.includes('/')) return modelId;
-    const models = PROVIDERS.github?.models || {};
-    for (const [fullId, info] of Object.entries(models)) {
-        if (info.legacyId && info.legacyId.includes(modelId)) return fullId;
-    }
-    return modelId;
-}
 
 // Initialize LLM clients
 async function initializeLLMClients() {
@@ -125,9 +81,11 @@ async function initializeLLMClients() {
 }
 
 // Get available providers and models (with rate info)
-// Model tier requirements: which minimum tier is needed for each model
-// Models not listed here are available to all tiers (Free+)
-// BYOK model — all models available to all tiers (users pay via their own API key)
+// Model tier requirements: which minimum tier is needed for each model.
+// Models not listed here are available to all tiers (Free+). Empty today —
+// Bedrock's single Claude Haiku 4.5 model is available to Free and Pro alike
+// (each tier's *usage* is instead capped by MEMBERSHIP_LIMITS in
+// apiUsageTracker.js, since Bedrock is a metered, server-paid provider).
 const MODEL_TIER_REQUIREMENTS = {};
 
 function getAvailableProviders() {
@@ -167,15 +125,13 @@ function validateProviderModel(provider, model) {
         throw new Error(`Unsupported provider: ${provider}`);
     }
 
-    // Accept legacy bare GitHub Models IDs by mapping them to the current
-    // publisher-prefixed equivalents before validation.
-    const resolvedModel = provider === 'github' ? resolveGithubModelId(model) : model;
-
-    if (!PROVIDERS[provider].models[resolvedModel]) {
+    if (!PROVIDERS[provider].models[model]) {
         throw new Error(`Unsupported model: ${model} for provider: ${provider}`);
     }
     
-    // Per-user-key providers (e.g. github) don't have a server-level apiKey
+    // Per-user-key providers (none remain today — GitHub Models was retired
+    // by GitHub on 2026-07-30; this flag is kept for a future BYOK provider)
+    // don't have a server-level apiKey.
     if (!PROVIDERS[provider].apiKey && !PROVIDERS[provider].perUserKey) {
         throw new Error(`API key not configured for provider: ${provider}`);
     }
@@ -184,56 +140,15 @@ function validateProviderModel(provider, model) {
 }
 
 /**
- * Create a completion using a caller-supplied API key (for per-user-key providers like GitHub Models).
- * Creates a temporary OpenAI-compatible client — no singleton state is modified.
- */
-async function createCompletionWithKey(provider, model, messages, options = {}, apiKey) {
-    const providerConfig = PROVIDERS[provider];
-    if (!providerConfig) throw new Error(`Unsupported provider: ${provider}`);
-    // Auto-migrate legacy GitHub Models IDs (e.g. "gpt-4o-mini" → "openai/gpt-4o-mini")
-    if (provider === 'github') {
-        model = resolveGithubModelId(model);
-    }
-    if (!providerConfig.models[model]) throw new Error(`Unsupported model: ${model} for provider: ${provider}`);
-    if (!apiKey) throw new Error(`No API key provided for provider: ${provider}`);
-
-    const { default: OpenAI } = await import('openai');
-    const client = new OpenAI({
-        apiKey,
-        ...(providerConfig.baseURL ? { baseURL: providerConfig.baseURL } : {})
-    });
-
-    const completionParams = {
-        model,
-        messages,
-        temperature: options.temperature ?? 0.7,
-        max_tokens: options.maxTokens || options.max_tokens || 1000,
-        stream: false
-    };
-
-    // Add tools (function calling) if provided
-    if (options.tools && options.tools.length > 0) {
-        completionParams.tools = options.tools;
-        completionParams.tool_choice = options.tool_choice || 'auto';
-    }
-
-    logger.debug(`🤖 Making ${provider.toUpperCase()} API call with model: ${model} (per-user key)${options.tools ? ` [${options.tools.length} tools]` : ''}`);
-    const startTime = Date.now();
-    const response = await client.chat.completions.create(completionParams);
-    logger.debug(`🤖 ${provider.toUpperCase()} API call completed in ${Date.now() - startTime}ms`);
-    return response;
-}
-
-/**
  * Create a completion via AWS Bedrock (Claude Haiku 4.5).
  *
- * Unlike createCompletionWithKey/createCompletion above, Bedrock is NOT an
- * OpenAI-compatible HTTP API and does not take a per-user bearer apiKey — it
- * authenticates with the app's own AWS SigV4 credentials (same
- * AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY used for DynamoDB). All shape
- * translation (OpenAI messages/tools <-> Bedrock Converse) lives in
- * services/bedrockService.js; this is a thin, dedicated entry point so
- * call sites don't have to reach into that module directly.
+ * Bedrock is NOT an OpenAI-compatible HTTP API and does not take a per-user
+ * bearer apiKey — it authenticates with AWS SigV4 credentials (see
+ * services/bedrockService.js#resolveBedrockCredentials for the dedicated vs.
+ * shared credential resolution). All shape translation (OpenAI
+ * messages/tools <-> Bedrock Converse) lives in services/bedrockService.js;
+ * this is a thin, dedicated entry point so call sites don't have to reach
+ * into that module directly.
  *
  * @param {Array} messages - OpenAI-style messages (system/user/assistant/tool)
  * @param {Object} [options] - { maxTokens, temperature, tools, tool_choice }
@@ -431,9 +346,7 @@ module.exports = {
     validateProviderModel,
     checkApiUsage,
     createCompletion,
-    createCompletionWithKey,
     createBedrockChatCompletion,
     trackCompletion,
     testXAIConnection,
-    resolveGithubModelId
 };
