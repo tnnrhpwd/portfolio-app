@@ -91,30 +91,18 @@ except ImportError as e:
 
 async function _describeFrame(base64Jpeg, query, llmClient) {
     if (!llmClient) {
-        try {
-            const { createLlmProvider } = require('../llm-provider');
-            llmClient = createLlmProvider();
-            const cfgPath = path.join(os.homedir(), 'Documents', 'Simple', 'Resources', 'settings.json');
-            if (fs.existsSync(cfgPath)) {
-                const s = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
-                if (s.githubToken) llmClient.setToken(s.githubToken);
-            }
-        } catch (e) {
-            throw new Error('No LLM client for webcam description: ' + e.message);
-        }
+        // Routed through the §7.1 provider seam (llm-provider.js), which
+        // ALWAYS proxies through the backend's HTTP API using the user's JWT.
+        const { createLlmProvider } = require('../llm-provider');
+        llmClient = createLlmProvider();
     }
-    const response = await llmClient.chat({
-        model: 'openai/gpt-4o-mini',
-        messages: [{
-            role: 'user',
-            content: [
-                { type: 'text', text: query || 'Describe what you see in this webcam frame briefly (2-3 sentences). Focus on the person and their activity.' },
-                { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64Jpeg}`, detail: 'low' } },
-            ],
-        }],
-        max_tokens: 256,
+    const response = await llmClient.chatMultimodal({
+        prompt: query || 'Describe what you see in this webcam frame briefly (2-3 sentences). Focus on the person and their activity.',
+        imageBase64: base64Jpeg,
+        mimeType: 'image/jpeg',
+        maxLength: 256,
     });
-    return (response?.choices?.[0]?.message?.content || '').trim().slice(0, MAX_DESCRIBE_CHARS);
+    return (response?.text || '').trim().slice(0, MAX_DESCRIBE_CHARS);
 }
 
 // ─── Agent tool ───────────────────────────────────────────────────────────────

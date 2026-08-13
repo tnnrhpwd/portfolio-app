@@ -1,28 +1,37 @@
+'use strict';
+
 const assert = require('assert');
 
-const ghModelsPath = require.resolve('../github-models-service');
+// Fake the addon's ONE network dependency (workspace-client.js) so llm-provider.js's
+// default backend-proxy adapter can be exercised with no real HTTP calls. This
+// replaces the old require.cache fake for github-models-service.js — GitHub
+// Models is retired, and every LLM call now proxies through the backend via
+// workspace-client.js's agentChat/agentVision.
+const wsClientPath = require.resolve('./workspace-client');
 
 let chatCallCount = 0;
 let chatShouldFailTimes = 0;
 let chatFailError = new Error('network timeout');
 
-class FakeGitHubModelsService {
-    setToken(token) { this._token = token; }
-    async chat(opts) {
+const fakeWsClient = {
+    setTokenGetter() {},
+    getToken() { return 'fake-jwt'; },
+    async agentChat({ messages } = {}) {
         chatCallCount++;
         if (chatShouldFailTimes > 0) {
             chatShouldFailTimes--;
             throw chatFailError;
         }
-        return { text: `echo:${opts && opts.message}`, generationTime: '1ms', toolCalls: null };
-    }
-    async chatWithImage(opts) {
-        return { text: `image-echo:${opts && opts.prompt}`, generationTime: '1ms' };
-    }
-}
+        const last = Array.isArray(messages) ? messages[messages.length - 1] : null;
+        return { ok: true, text: `echo:${last && last.content}`, toolCalls: null };
+    },
+    async agentVision({ prompt } = {}) {
+        return { ok: true, text: `image-echo:${prompt}` };
+    },
+};
 
-require.cache[ghModelsPath] = {
-    id: ghModelsPath, filename: ghModelsPath, loaded: true, exports: { GitHubModelsService: FakeGitHubModelsService },
+require.cache[wsClientPath] = {
+    id: wsClientPath, filename: wsClientPath, loaded: true, exports: fakeWsClient,
 };
 
 const { createLlmProvider, createLocalStubProvider, withRetries, CAPABILITIES } = require('./llm-provider');
@@ -50,16 +59,26 @@ test('passes an injected llmClient straight through unchanged', () => {
     assert.strictEqual(provider, injected);
 });
 
-test('default mode wraps GitHubModelsService with providerName/capabilities/chatMultimodal', async () => {
+test('default mode is backend-proxy — chat()/chatMultimodal() proxy through workspace-client (never GitHub Models directly)', async () => {
     chatShouldFailTimes = 0;
     const provider = createLlmProvider();
-    assert.strictEqual(provider.providerName, 'github-models');
-    assert.deepStrictEqual(provider.capabilities, CAPABILITIES['github-models']);
+    assert.strictEqual(provider.providerName, 'backend-proxy');
+    assert.deepStrictEqual(provider.capabilities, CAPABILITIES['backend-proxy']);
     assert.strictEqual(typeof provider.setToken, 'function');
     const chatResult = await provider.chat({ message: 'hi' });
     assert.strictEqual(chatResult.text, 'echo:hi');
     const imgResult = await provider.chatMultimodal({ prompt: 'describe' });
     assert.strictEqual(imgResult.text, 'image-echo:describe');
+    // chatWithImage is an alias for chatMultimodal (vision-fusion.js et al).
+    const imgResult2 = await provider.chatWithImage({ prompt: 'describe again' });
+    assert.strictEqual(imgResult2.text, 'image-echo:describe again');
+});
+
+test('setToken() is accepted (interface-compat no-op / explicit override) and never throws', async () => {
+    const provider = createLlmProvider();
+    assert.doesNotThrow(() => provider.setToken('some-token'));
+    const result = await provider.chat({ message: 'still works' });
+    assert.strictEqual(result.text, 'echo:still works');
 });
 
 test('local-stub mode never touches the network and echoes deterministically', async () => {
@@ -96,10 +115,10 @@ test('withRetries does NOT retry a non-retryable (auth/config) error', async () 
     let calls = 0;
     const alwaysAuthFails = async () => {
         calls++;
-        throw new Error('GitHub token not configured. Go to Settings...');
+        throw new Error('No auth token — sign in on the web app first, then try again.');
     };
     const wrapped = withRetries(alwaysAuthFails, { retries: 3, backoffMs: 1 });
-    await assert.rejects(() => wrapped(), /token not configured/);
+    await assert.rejects(() => wrapped(), /no auth token/i);
     assert.strictEqual(calls, 1);
 });
 
@@ -116,7 +135,7 @@ test('withRetries gives up after exhausting the retry budget and throws the last
 
 test('createLlmProvider({ retries }) transparently applies retry policy to chat()', async () => {
     chatShouldFailTimes = 2;
-    chatFailError = new Error('ECONNRESET while calling model host');
+    chatFailError = new Error('ECONNRESET while calling backend');
     chatCallCount = 0;
     const provider = createLlmProvider({ retries: 3, backoffMs: 1 });
     const result = await provider.chat({ message: 'retried' });

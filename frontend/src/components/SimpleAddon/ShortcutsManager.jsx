@@ -170,7 +170,7 @@ function previewArgs(args) {
   }
 }
 
-export default function ShortcutsManager({ user, addonConnected, githubToken }) {
+export default function ShortcutsManager({ user, addonConnected }) {
   const token = user?.token;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -430,11 +430,11 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
     };
 
     try {
-      // Tier 1: Try local addon directly — pass githubToken so the addon doesn't
-      // need to find it in settings.json (avoids DPAPI issues on fresh dev runs).
+      // Tier 1: Try local addon directly — the addon proxies compile-natural
+      // through the backend itself now (no per-user token to pass through).
       if (addonConnected) {
         try {
-          const result = await compileNaturalMacro(nlText.trim(), { githubToken });
+          const result = await compileNaturalMacro(nlText.trim());
           applyResult(result);
           return;
         } catch (addonErr) {
@@ -445,7 +445,7 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
             try {
               flashStatus('Reconnecting addon routes…', 0);
               await remountAutomation();
-              const result2 = await compileNaturalMacro(nlText.trim(), { githubToken });
+              const result2 = await compileNaturalMacro(nlText.trim());
               applyResult(result2);
               return;
             } catch {
@@ -458,7 +458,7 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
         }
       }
 
-      // Tier 3: Backend cloud compiler (works without addon, requires login + GitHub PAT)
+      // Tier 3: Backend cloud compiler (works without addon, requires login)
       if (token) {
         flashStatus('Using cloud compiler…', 0);
         const result3 = await compileMacroNaturalViaBackend(token, nlText.trim());
@@ -476,7 +476,7 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
     } finally {
       setNlBusy(false);
     }
-  }, [nlText, nlName, addonConnected, token, githubToken, flashStatus]);
+  }, [nlText, nlName, addonConnected, token, flashStatus]);
 
   const handleSaveNl = useCallback(async () => {
     if (!nlResult || !token) return;
@@ -764,7 +764,7 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
       // Tier 1: local addon
       if (addonConnected) {
         try {
-          const result = await editMacroNatural(currentSteps, instruction, { githubToken });
+          const result = await editMacroNatural(currentSteps, instruction);
           applyResult(result);
           return;
         } catch (addonErr) {
@@ -774,7 +774,7 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
             try {
               flashStatus('Reconnecting addon routes…', 0);
               await remountAutomation();
-              const result2 = await editMacroNatural(currentSteps, instruction, { githubToken });
+              const result2 = await editMacroNatural(currentSteps, instruction);
               applyResult(result2);
               return;
             } catch {
@@ -804,7 +804,7 @@ export default function ShortcutsManager({ user, addonConnected, githubToken }) 
     } finally {
       setEditNlBusy(false);
     }
-  }, [editor, editNlText, addonConnected, token, githubToken, flashStatus]);
+  }, [editor, editNlText, addonConnected, token, flashStatus]);
 
   // ── Hotkey capture (keydown handler bound while `captureFor` is set) ──
   useEffect(() => {

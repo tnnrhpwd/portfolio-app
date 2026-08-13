@@ -53,6 +53,37 @@ const dynamodb = DynamoDBDocumentClient.from(client);
 const TABLE_NAME = 'Simple';
 const CSIMPLE_CREATED_AT = '2000-01-01T00:00:00.000Z';
 
+// ─── Shared LLM call helper (compile-natural/edit-natural/agent-chat/agent-vision) ──
+// All four routes below proxy to AWS Bedrock (Claude Haiku 4.5) via the
+// generic `createCompletion()` seam in utils/llmProviders.js — server-side
+// only, using the operator's own AWS credentials. No per-user token is
+// needed (unlike the old GitHub Models per-user PAT this replaces): the
+// user's JWT (checked by the `protect` middleware upstream) is enough to
+// authorize the call; Bedrock usage is billed to the app operator's account.
+const DEFAULT_AGENT_MODEL = 'claude-haiku-4.5';
+
+/**
+ * Call the shared Bedrock-backed completion seam and normalize the response
+ * to `{ text, toolCalls, message, usage }` — the shape every caller of this
+ * file's agent* functions (and the addon's llm-provider.js backend-proxy)
+ * already expects.
+ */
+async function _callAgentLlm(messages, { temperature, maxTokens, tools, tool_choice, model } = {}) {
+    const { createCompletion } = require('../utils/llmProviders');
+    const response = await createCompletion('bedrock', model || DEFAULT_AGENT_MODEL, messages, {
+        temperature: typeof temperature === 'number' ? temperature : 0.7,
+        maxTokens: typeof maxTokens === 'number' ? maxTokens : 1000,
+        ...(Array.isArray(tools) && tools.length ? { tools, tool_choice: tool_choice || 'auto' } : {}),
+    });
+    const choice = response?.choices?.[0];
+    return {
+        text: choice?.message?.content?.trim() || '',
+        toolCalls: choice?.message?.tool_calls || null,
+        message: choice?.message || null,
+        usage: response?.usage || null,
+    };
+}
+
 // ─── Allow-lists & validation ────────────────────────────────────────────────
 
 const ALLOWED_KINDS = new Set([
@@ -733,16 +764,6 @@ const compileMacroNatural = asyncHandler(async (req, res) => {
     }
     if (description.length > 2000) badRequest(res, 'description too long (max 2000 chars)');
 
-    // Use the same token-fetching function as the chat endpoint
-    // (handles encryption correctly via secretCrypto)
-    const { getUserGithubToken } = require('../services/llmService');
-    const githubToken = await getUserGithubToken(dynamodb, req.user.id);
-
-    if (!githubToken) {
-        res.status(422);
-        throw new Error('No GitHub PAT found. In Simple → Settings → Advanced, paste your GitHub Personal Access Token and save, then try again.');
-    }
-
     // NL compiler schema documentation (mirrors nl-compiler.js exactly)
     const STEP_SCHEMA = `
 Valid step types:
@@ -783,24 +804,15 @@ Rules:
         'Reply with ONLY valid JSON. No prose. No markdown fences.',
     ].filter(Boolean).join('\n');
 
-    // Call GitHub Models using the same pattern as llmService
+    // Call Bedrock (Claude Haiku 4.5) using the operator's own AWS
+    // credentials — no per-user token needed (GitHub PAT support retired).
     let steps;
     try {
-        const { default: OpenAI } = await import('openai');
-        const client = new OpenAI({
-            baseURL: 'https://models.github.ai/inference',
-            apiKey: githubToken,
-        });
-        const response = await client.chat.completions.create({
-            model: 'openai/gpt-4o-mini',
-            messages: [
-                { role: 'system', content: 'You are a Windows macro compiler. Output only valid JSON.' },
-                { role: 'user', content: prompt },
-            ],
-            temperature: 0.1,
-            max_tokens: 2048,
-        });
-        const text = response?.choices?.[0]?.message?.content || '';
+        const messages = [
+            { role: 'system', content: 'You are a Windows macro compiler. Output only valid JSON.' },
+            { role: 'user', content: prompt },
+        ];
+        const { text } = await _callAgentLlm(messages, { temperature: 0.1, maxTokens: 2048 });
         // Extract JSON from the response
         const match = text.match(/\{[\s\S]*\}/);
         if (!match) throw new Error('No JSON found in LLM response');
@@ -810,21 +822,12 @@ Rules:
         if (steps.length === 0) throw new Error('Compiled macro has no steps');
         if (steps.length > 30) steps = steps.slice(0, 30);
     } catch (e) {
-        if (e.status === 401 || e.message?.includes('401')) {
-            res.status(422);
-            throw new Error('GitHub token is invalid or expired. Update your PAT in Simple → Settings → Advanced, then try again.');
-        }
-        if (e.status === 403 || e.message?.includes('403')) {
-            res.status(422);
-            throw new Error('GitHub token lacks GitHub Models access. Visit github.com/marketplace/models, accept the terms, then try again.');
-        }
         if (e.status === 429 || e.message?.includes('429')) {
             res.status(429);
-            throw new Error('GitHub Models rate limit reached for your account (this is separate from your PAT itself — the PAT can be perfectly valid). Please wait a minute and try again.');
+            throw new Error('AI service rate limit reached. Please wait a minute and try again.');
         }
-        // Any other failure (malformed/non-JSON LLM output, timeout, network error,
-        // upstream 5xx, etc.) — surface the real cause instead of incorrectly
-        // blaming a valid PAT, which was misleading and unhelpful for debugging.
+        // Any other failure (malformed/non-JSON LLM output, timeout, network
+        // error, upstream 5xx, etc.) — surface the real cause.
         res.status(502);
         throw new Error(`Macro compilation failed: ${e.message}`);
     }
@@ -883,14 +886,6 @@ const editMacroNatural = asyncHandler(async (req, res) => {
     }
     if (instruction.length > 1000) badRequest(res, 'instruction too long (max 1000 chars)');
 
-    const { getUserGithubToken } = require('../services/llmService');
-    const githubToken = await getUserGithubToken(dynamodb, req.user.id);
-
-    if (!githubToken) {
-        res.status(422);
-        throw new Error('No GitHub PAT found. In Simple → Settings → Advanced, paste your GitHub Personal Access Token and save, then try again.');
-    }
-
     const STEP_SCHEMA = `
 Valid step types:
   {"type":"key_tap","keys":["w"],"repeat":1}
@@ -935,21 +930,11 @@ Valid step types:
 
     let newSteps;
     try {
-        const { default: OpenAI } = await import('openai');
-        const client = new OpenAI({
-            baseURL: 'https://models.github.ai/inference',
-            apiKey: githubToken,
-        });
-        const response = await client.chat.completions.create({
-            model: 'openai/gpt-4o-mini',
-            messages: [
-                { role: 'system', content: 'You are a Windows macro editor. Output only valid JSON.' },
-                { role: 'user', content: prompt },
-            ],
-            temperature: 0.1,
-            max_tokens: 2048,
-        });
-        const text = response?.choices?.[0]?.message?.content || '';
+        const messages = [
+            { role: 'system', content: 'You are a Windows macro editor. Output only valid JSON.' },
+            { role: 'user', content: prompt },
+        ];
+        const { text } = await _callAgentLlm(messages, { temperature: 0.1, maxTokens: 2048 });
         const match = text.match(/\{[\s\S]*\}/);
         if (!match) throw new Error('No JSON found in LLM response');
         const parsed = JSON.parse(match[0]);
@@ -963,17 +948,9 @@ Valid step types:
         });
         scanForForbiddenCommands(newSteps);
     } catch (e) {
-        if (e.status === 401 || e.message?.includes('401')) {
-            res.status(422);
-            throw new Error('GitHub token is invalid or expired. Update your PAT in Simple → Settings → Advanced, then try again.');
-        }
-        if (e.status === 403 || e.message?.includes('403')) {
-            res.status(422);
-            throw new Error('GitHub token lacks GitHub Models access. Visit github.com/marketplace/models, accept the terms, then try again.');
-        }
         if (e.status === 429 || e.message?.includes('429')) {
             res.status(429);
-            throw new Error('GitHub Models rate limit reached for your account (this is separate from your PAT itself — the PAT can be perfectly valid). Please wait a minute and try again.');
+            throw new Error('AI service rate limit reached. Please wait a minute and try again.');
         }
         res.status(422);
         throw new Error(`Macro edit failed: ${e.message}`);
@@ -992,6 +969,98 @@ Valid step types:
     });
 });
 
+// @desc    Generic tool-calling chat completion for the Simple Addon's
+//          automation agent loop (agent-loop.js / tools/skill.js repair /
+//          screenshot_check via the §7.1 llm-provider.js backend-proxy
+//          seam). Unlike compile-natural/edit-natural above (which build
+//          their own fixed prompt), this accepts an arbitrary messages
+//          array + tool schemas from the caller and returns the raw
+//          tool-call decision — the addon's own agent loop executes any
+//          tool calls locally (these are Windows-automation tools, not
+//          server-side tools) and may call this endpoint again with the
+//          tool results appended.
+// @route   POST /api/data/csimple/agent-chat
+// @access  Private
+const agentChatProxy = asyncHandler(async (req, res) => {
+    if (!req.user) unauthorized(res);
+
+    const { messages, systemPrompt, tools, tool_choice, temperature, maxTokens, model } = req.body || {};
+    if (!Array.isArray(messages) || messages.length === 0) {
+        badRequest(res, 'messages must be a non-empty array');
+    }
+    if (JSON.stringify(messages).length > 100000) badRequest(res, 'messages payload too large');
+    if (tools !== undefined && !Array.isArray(tools)) badRequest(res, 'tools must be an array');
+
+    // Prepend systemPrompt as a system message unless the caller already put
+    // one at messages[0] (avoids double system messages).
+    const fullMessages = (systemPrompt && messages[0]?.role !== 'system')
+        ? [{ role: 'system', content: String(systemPrompt).slice(0, 8000) }, ...messages]
+        : messages;
+
+    let result;
+    try {
+        result = await _callAgentLlm(fullMessages, {
+            temperature: typeof temperature === 'number' ? temperature : 0.7,
+            maxTokens: typeof maxTokens === 'number' ? maxTokens : 1000,
+            tools,
+            tool_choice,
+            model,
+        });
+    } catch (e) {
+        if (e.status === 429 || e.message?.includes('429')) {
+            res.status(429);
+            throw new Error('AI service rate limit reached. Please wait a minute and try again.');
+        }
+        res.status(502);
+        throw new Error(`Agent chat failed: ${e.message}`);
+    }
+
+    res.status(200).json({ ok: true, ...result });
+});
+
+// @desc    Multimodal (vision) completion for the addon's vision-fusion /
+//          screenshot-check / webcam-description call sites, proxied
+//          through the backend so Bedrock (Claude Haiku 4.5, which supports
+//          image input) never needs to be reachable from the addon.
+// @route   POST /api/data/csimple/agent-vision
+// @access  Private
+const agentVisionProxy = asyncHandler(async (req, res) => {
+    if (!req.user) unauthorized(res);
+
+    const { prompt, imageBase64, mimeType, temperature, maxTokens, model } = req.body || {};
+    if (!prompt || typeof prompt !== 'string') badRequest(res, 'prompt is required');
+    if (!imageBase64 || typeof imageBase64 !== 'string') badRequest(res, 'imageBase64 is required');
+    // Base64 JPEG/PNG screenshots are typically well under 2MB; cap well above
+    // that (base64 inflates size ~33%) to block abuse without blocking legit use.
+    if (imageBase64.length > 8_000_000) badRequest(res, 'image too large');
+
+    const messages = [{
+        role: 'user',
+        content: [
+            { type: 'text', text: prompt.slice(0, 2000) },
+            { type: 'image_url', image_url: { url: `data:${mimeType || 'image/jpeg'};base64,${imageBase64}` } },
+        ],
+    }];
+
+    let result;
+    try {
+        result = await _callAgentLlm(messages, {
+            temperature: typeof temperature === 'number' ? temperature : 0.1,
+            maxTokens: typeof maxTokens === 'number' ? maxTokens : 300,
+            model,
+        });
+    } catch (e) {
+        if (e.status === 429 || e.message?.includes('429')) {
+            res.status(429);
+            throw new Error('AI service rate limit reached. Please wait a minute and try again.');
+        }
+        res.status(502);
+        throw new Error(`Agent vision failed: ${e.message}`);
+    }
+
+    res.status(200).json({ ok: true, text: result.text });
+});
+
 module.exports = {
     listWorkspace,
     getWorkspaceItem,
@@ -1005,6 +1074,8 @@ module.exports = {
     getWorkspaceTemplates,
     compileMacroNatural,
     editMacroNatural,
+    agentChatProxy,
+    agentVisionProxy,
     // Exported for use by llmService when assembling system prompts:
     _internal: {
         ALLOWED_KINDS,

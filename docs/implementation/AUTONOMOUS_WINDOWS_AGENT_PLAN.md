@@ -175,7 +175,7 @@ log         <YYYY-MM-DD>             Audit log for all workspace mutations
 |-----------|---------------|-------|
 | STT (Whisper tiny) | <500ms | Local CPU; tiny model ~39M params |
 | STT (Whisper base) | <1.5s | Better accuracy; base model ~74M params |
-| NL compiler (LLM) | <3s | GitHub Models API; cached for same description |
+| NL compiler (LLM) | <3s | Backend-proxied AWS Bedrock call; cached for same description |
 | Agent step | <5s | Including tool execution |
 | Perception bus frame | 100ms–5s | Configurable per source |
 | UIA snapshot | ~700ms | Cached, reused for 4s |
@@ -187,12 +187,11 @@ log         <YYYY-MM-DD>             Audit log for all workspace mutations
 
 ## LLM Cost Strategy
 
-- Default model: `openai/gpt-4o-mini` (~$0.15/M input tokens) for agent reasoning
+- Default model: AWS Bedrock Claude Haiku 4.5, called server-side only via the portfolio backend (`/api/data/csimple/agent-chat` / `/agent-vision`) — the addon never calls an LLM provider directly, and never holds any AWS credential
 - Whisper: local inference (free, runs in Python venv)
-- Vision tasks (webcam description, SOM): `openai/gpt-4o-mini` with image
-- Heavy planning: `openai/gpt-4o` only when explicitly requested
+- Vision tasks (webcam description, SOM): same backend-proxied Bedrock call, with image input
 - Prediction: zero LLM cost (n-gram pattern matching)
-- NL compiler: one-shot LLM call, result cached by description hash
+- NL compiler: one-shot backend call, result cached locally by description hash
 
 ---
 
@@ -200,7 +199,7 @@ log         <YYYY-MM-DD>             Audit log for all workspace mutations
 
 - **Injection**: All shell commands piped through stdin (no string interpolation); NL compiler output validated against schema before execution
 - **Broken Access Control**: All write endpoints require signed-in user token; addon endpoints bound to 127.0.0.1
-- **Cryptographic failures**: GitHub token stored in Electron keychain (secret-storage.js); never in logs
-- **SSRF**: Webcam/audio data never sent to arbitrary URLs; only to GitHub Models API
+- **Cryptographic failures**: No per-user LLM credential is stored client-side anymore (GitHub PAT support retired along with GitHub Models) — the addon authenticates to the backend with the user's own JWT, and AWS Bedrock credentials live only on the backend, under the operator's AWS account
+- **SSRF**: Webcam/audio/screen data never sent to arbitrary URLs; only to the portfolio backend's own `/api/data/csimple/agent-*` routes, which call AWS Bedrock server-side
 - **Security Misconfiguration**: Kill switch always accessible; no default admin credentials
 - **Logging**: All tool executions audit-logged; PII (transcripts) logged locally only, never cloud

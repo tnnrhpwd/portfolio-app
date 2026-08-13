@@ -22,9 +22,17 @@ let _tokenGetter = () => null;
 function setTokenGetter(fn) { _tokenGetter = fn || (() => null); }
 
 /**
+ * Read the current auth JWT (same one used for every other workspace call).
+ * Exposed so other addon modules that need to call the backend directly
+ * (e.g. automation/llm-provider.js's backend-proxy adapter) can reuse the
+ * single already-wired token source instead of re-plumbing their own.
+ */
+function getToken() { return _tokenGetter(); }
+
+/**
  * Call the backend compile-natural endpoint using the user's JWT.
- * This is the fallback when the local addon doesn't have a GitHub PAT
- * in settings.json (e.g. fresh dev run, PAT only saved via the web UI).
+ * Now the ONLY compile path (see nl-compiler.js) — GitHub Models is gone,
+ * so there is no more "local" LLM call to fall back from.
  */
 async function compileNaturalViaBackend(description, context) {
     const token = _tokenGetter();
@@ -34,6 +42,87 @@ async function compileNaturalViaBackend(description, context) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ description, context }),
+    });
+    const text = await res.text();
+    let json = null;
+    try { json = text ? JSON.parse(text) : null; } catch {}
+    if (!res.ok) {
+        const msg = json?.dataMessage || json?.message || json?.error || text || `backend error ${res.status}`;
+        const e = new Error(msg);
+        e.status = res.status;
+        if (json?.limiter) e.limiter = json.limiter;
+        if (json?.retryAfterSeconds !== undefined) e.retryAfterSeconds = json.retryAfterSeconds;
+        throw e;
+    }
+    return json;
+}
+
+/**
+ * Call the backend edit-natural endpoint using the user's JWT. Sibling of
+ * compileNaturalViaBackend above — same error-shape handling.
+ */
+async function editNaturalViaBackend(steps, instruction, context) {
+    const token = _tokenGetter();
+    if (!token) throw new Error('No auth token — sign in on the web app first, then try again.');
+    const url = `${BACKEND_URL}/api/data/csimple/edit-natural`;
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ steps, instruction, context }),
+    });
+    const text = await res.text();
+    let json = null;
+    try { json = text ? JSON.parse(text) : null; } catch {}
+    if (!res.ok) {
+        const msg = json?.dataMessage || json?.message || json?.error || text || `backend error ${res.status}`;
+        const e = new Error(msg);
+        e.status = res.status;
+        if (json?.limiter) e.limiter = json.limiter;
+        if (json?.retryAfterSeconds !== undefined) e.retryAfterSeconds = json.retryAfterSeconds;
+        throw e;
+    }
+    return json;
+}
+
+/**
+ * §7.1 LLM provider seam backend calls (see automation/llm-provider.js).
+ *
+ * Every LLM call the addon makes — agent-loop tool-calling, skill repair,
+ * vision/multimodal lookups — is proxied through these two backend routes
+ * using the user's JWT. Bedrock (and its AWS IAM credentials) lives ONLY on
+ * the backend; the addon never talks to any LLM provider directly.
+ */
+async function agentChat({ messages, systemPrompt, tools, tool_choice, temperature, maxTokens, model } = {}) {
+    const token = _tokenGetter();
+    if (!token) throw new Error('No auth token — sign in on the web app first, then try again.');
+    const url = `${BACKEND_URL}/api/data/csimple/agent-chat`;
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ messages, systemPrompt, tools, tool_choice, temperature, maxTokens, model }),
+    });
+    const text = await res.text();
+    let json = null;
+    try { json = text ? JSON.parse(text) : null; } catch {}
+    if (!res.ok) {
+        const msg = json?.dataMessage || json?.message || json?.error || text || `backend error ${res.status}`;
+        const e = new Error(msg);
+        e.status = res.status;
+        if (json?.limiter) e.limiter = json.limiter;
+        if (json?.retryAfterSeconds !== undefined) e.retryAfterSeconds = json.retryAfterSeconds;
+        throw e;
+    }
+    return json;
+}
+
+async function agentVision({ prompt, imageBase64, mimeType, temperature, maxTokens, model } = {}) {
+    const token = _tokenGetter();
+    if (!token) throw new Error('No auth token — sign in on the web app first, then try again.');
+    const url = `${BACKEND_URL}/api/data/csimple/agent-vision`;
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ prompt, imageBase64, mimeType, temperature, maxTokens, model }),
     });
     const text = await res.text();
     let json = null;
@@ -193,6 +282,7 @@ const getRecentActions = async (n = 20) => {
 
 module.exports = {
     setTokenGetter,
+    getToken,
     getNextGoal,
     getGoal,
     upsertGoal,
@@ -210,6 +300,9 @@ module.exports = {
     listGoals,
     getRecentActions,
     compileNaturalViaBackend,
+    editNaturalViaBackend,
+    agentChat,
+    agentVision,
     publishMarketSkill,
     searchMarketSkills,
     getMarketSkill,

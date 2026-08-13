@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Automation entry point — wires the tool registry, permission store, and
  * Express endpoints into the existing Simple addon server.
  *
@@ -919,61 +919,22 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
 
     // ─── NL Macro Compiler ─────────────────────────────────────────────────
     // Converts English macro descriptions into executable skill step arrays.
-    // The frontend passes its githubToken in the request body so the addon
-    // doesn't need to find it in settings.json (avoids DPAPI issues).
+    // Always proxied through the backend (compileNaturalViaBackend, via
+    // nl-compiler.js) using the user's JWT -- Bedrock runs server-side only.
     app.post('/api/skill/compile-natural', async (req, res) => {
         try {
-            const { description, context, noCache, githubToken: inlineToken } = req.body || {};
+            const { description, context, noCache } = req.body || {};
             if (!description || typeof description !== 'string' || !description.trim()) {
                 return res.status(400).json({ error: 'description is required' });
             }
             if (description.length > 2000) {
                 return res.status(400).json({ error: 'description too long (max 2000 chars)' });
             }
-            // Only use inline token if it's plaintext (not a backend-encrypted enc:v1: blob)
-            const safeInlineToken = (typeof inlineToken === 'string' && inlineToken.length > 10 &&
-                !inlineToken.startsWith('enc:') && !inlineToken.startsWith('v10')) ? inlineToken : undefined;
 
-            let result;
-            try {
-                result = await nlCompile(description.trim(), {
-                    context: typeof context === 'string' ? context.slice(0, 500) : undefined,
-                    noCache: !!noCache,
-                    inlineToken: safeInlineToken,
-                });
-            } catch (localErr) {
-                const isTokenErr = /token|GitHub|LLM client|not configured|401/i.test(localErr.message || '');
-                if (!isTokenErr) throw localErr;
-                // Local PAT unavailable or invalid — wait for cloud relay token then proxy to backend
-                let backendToken = cloudRelay?._token || null;
-                if (!backendToken) {
-                    for (let i = 0; i < 25; i++) {
-                        await new Promise(r => setTimeout(r, 200));
-                        backendToken = cloudRelay?._token || null;
-                        if (backendToken) break;
-                    }
-                }
-                if (!backendToken) throw new Error('Sign in to sthopwood.com/net first, then try again.');
-                log('[compile-natural] proxying to backend');
-                const BACKEND_URL_NL = process.env.BACKEND_URL || 'https://mern-plan-web-service.onrender.com';
-                const backendRes = await fetch(`${BACKEND_URL_NL}/api/data/csimple/compile-natural`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${backendToken}` },
-                    body: JSON.stringify({ description: description.trim(), context }),
-                });
-                const backendText = await backendRes.text();
-                let backendJson; try { backendJson = JSON.parse(backendText); } catch { backendJson = null; }
-                if (!backendRes.ok) {
-                    const proxyErr = new Error(backendJson?.dataMessage || backendJson?.message || backendJson?.error || backendText || `backend error ${backendRes.status}`);
-                    // Preserve the backend's real status (e.g. 429 rate-limited) and any
-                    // rate-limit metadata instead of letting the outer catch flatten it to 400.
-                    proxyErr.status = backendRes.status;
-                    if (backendJson?.limiter) proxyErr.limiter = backendJson.limiter;
-                    if (backendJson?.retryAfterSeconds !== undefined) proxyErr.retryAfterSeconds = backendJson.retryAfterSeconds;
-                    throw proxyErr;
-                }
-                result = backendJson;
-            }
+            const result = await nlCompile(description.trim(), {
+                context: typeof context === 'string' ? context.slice(0, 500) : undefined,
+                noCache: !!noCache,
+            });
 
             events.publish('skill.compiled-natural', { stepCount: result.steps?.length || 0 });
             res.json({ ok: true, ...result });
@@ -987,11 +948,11 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
     });
 
     // Modify an EXISTING macro's steps via English instruction, e.g.
-    // "press z after the shift click". Reuses the same local→backend
-    // fallback strategy as compile-natural.
+    // "press z after the shift click". Same backend-proxy-only path as
+    // compile-natural.
     app.post('/api/skill/edit-natural', async (req, res) => {
         try {
-            const { steps, instruction, context, githubToken: inlineToken } = req.body || {};
+            const { steps, instruction, context } = req.body || {};
             if (!Array.isArray(steps) || steps.length === 0) {
                 return res.status(400).json({ error: 'steps must be a non-empty array' });
             }
@@ -1001,45 +962,10 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
             if (instruction.length > 1000) {
                 return res.status(400).json({ error: 'instruction too long (max 1000 chars)' });
             }
-            const safeInlineToken = (typeof inlineToken === 'string' && inlineToken.length > 10 &&
-                !inlineToken.startsWith('enc:') && !inlineToken.startsWith('v10')) ? inlineToken : undefined;
 
-            let result;
-            try {
-                result = await nlEditSteps(steps, instruction.trim(), {
-                    context: typeof context === 'string' ? context.slice(0, 500) : undefined,
-                    inlineToken: safeInlineToken,
-                });
-            } catch (localErr) {
-                const isTokenErr = /token|GitHub|LLM client|not configured|401/i.test(localErr.message || '');
-                if (!isTokenErr) throw localErr;
-                let backendToken = cloudRelay?._token || null;
-                if (!backendToken) {
-                    for (let i = 0; i < 25; i++) {
-                        await new Promise(r => setTimeout(r, 200));
-                        backendToken = cloudRelay?._token || null;
-                        if (backendToken) break;
-                    }
-                }
-                if (!backendToken) throw new Error('Sign in to sthopwood.com/net first, then try again.');
-                log('[edit-natural] proxying to backend');
-                const BACKEND_URL_NL = process.env.BACKEND_URL || 'https://mern-plan-web-service.onrender.com';
-                const backendRes = await fetch(`${BACKEND_URL_NL}/api/data/csimple/edit-natural`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${backendToken}` },
-                    body: JSON.stringify({ steps, instruction: instruction.trim(), context }),
-                });
-                const backendText = await backendRes.text();
-                let backendJson; try { backendJson = JSON.parse(backendText); } catch { backendJson = null; }
-                if (!backendRes.ok) {
-                    const proxyErr = new Error(backendJson?.dataMessage || backendJson?.message || backendJson?.error || backendText || `backend error ${backendRes.status}`);
-                    proxyErr.status = backendRes.status;
-                    if (backendJson?.limiter) proxyErr.limiter = backendJson.limiter;
-                    if (backendJson?.retryAfterSeconds !== undefined) proxyErr.retryAfterSeconds = backendJson.retryAfterSeconds;
-                    throw proxyErr;
-                }
-                result = backendJson;
-            }
+            const result = await nlEditSteps(steps, instruction.trim(), {
+                context: typeof context === 'string' ? context.slice(0, 500) : undefined,
+            });
 
             events.publish('skill.edited-natural', { stepCount: result.steps?.length || 0 });
             res.json({ ok: true, ...result });

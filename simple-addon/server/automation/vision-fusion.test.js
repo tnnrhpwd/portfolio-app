@@ -3,7 +3,11 @@ const assert = require('assert');
 const screenPath = require.resolve('./tools/screen');
 const permissionsPath = require.resolve('./permissions');
 const eventsPath = require.resolve('./events');
-const ghModelsPath = require.resolve('../github-models-service');
+// Fake the addon's ONE network dependency (workspace-client.js) — GitHub
+// Models is retired; vision-fusion.js's LLM call now proxies through the
+// backend via llm-provider.js's backend-proxy adapter (chatWithImage ->
+// wsClient.agentVision).
+const wsClientPath = require.resolve('./workspace-client');
 
 const fakeScreen = {
     async _captureBuffer() {
@@ -31,12 +35,14 @@ const fakeEvents = {
     },
 };
 
-class FakeGitHubModelsService {
-    setToken() {}
-    async chatWithImage() {
-        return { text: '{"x":10,"y":20,"confidence":0.9,"note":"ok"}' };
-    }
-}
+const fakeWsClient = {
+    setTokenGetter() {},
+    getToken() { return 'fake-jwt'; },
+    async agentVision() {
+        return { ok: true, text: '{"x":10,"y":20,"confidence":0.9,"note":"ok"}' };
+    },
+    async agentChat() { return { ok: true, text: '' }; },
+};
 
 require.cache[screenPath] = {
     id: screenPath, filename: screenPath, loaded: true, exports: fakeScreen,
@@ -47,8 +53,8 @@ require.cache[permissionsPath] = {
 require.cache[eventsPath] = {
     id: eventsPath, filename: eventsPath, loaded: true, exports: fakeEvents,
 };
-require.cache[ghModelsPath] = {
-    id: ghModelsPath, filename: ghModelsPath, loaded: true, exports: { GitHubModelsService: FakeGitHubModelsService },
+require.cache[wsClientPath] = {
+    id: wsClientPath, filename: wsClientPath, loaded: true, exports: fakeWsClient,
 };
 
 const { findVisualTarget } = require('./vision-fusion');

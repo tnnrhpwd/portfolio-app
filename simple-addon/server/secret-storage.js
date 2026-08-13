@@ -12,7 +12,10 @@
  *   - If safeStorage is loadable but `isEncryptionAvailable()` returns false
  *     (rare — e.g. Linux without libsecret), same fallback.
  *
- * Used by `server/index.js` to protect `webapp.githubToken` in `settings.json`.
+ * Used by `server/index.js` to protect the persisted cloud-relay auth token
+ * (`data.cloudAuth.token`) in `settings.json`. GitHub PAT support (the
+ * original use case — `webapp.githubToken`) has been retired along with
+ * GitHub Models; this helper stays generic for any future sensitive value.
  */
 
 const PREFIX = 'dpapi:v1:';

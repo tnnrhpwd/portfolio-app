@@ -370,8 +370,8 @@ asyncTest('run: screenshot_check proceeds when cloud vision consent exists', asy
         return { ok: true, result: {} };
     };
     const llm = {
-        async chat() {
-            return { choices: [{ message: { content: 'YES' } }] };
+        async chatMultimodal() {
+            return { text: 'YES' };
         },
     };
     const s = makeSkill('with-consent', [{ type: 'screenshot_check', condition: 'Is app open?' }]);
