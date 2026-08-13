@@ -376,6 +376,11 @@ async function callBedrock(messages, options) {
             error.statusCode = 502;
             throw error;
         }
+        if (e.code === 'BEDROCK_USE_CASE_NOT_SUBMITTED') {
+            const error = new Error('Anthropic requires a one-time "use case details" form before this AWS account can invoke Claude models on Bedrock. An operator needs to open the Bedrock console model catalog, select Claude Haiku 4.5, and submit the form (access is granted within a few minutes).');
+            error.statusCode = 502;
+            throw error;
+        }
         throw e;
     }
 }
@@ -981,6 +986,8 @@ async function streamCompressionRequest(req, res, dynamodb) {
             res.write(`data: ${JSON.stringify({ type: 'error', error: 'Bedrock is rate limited right now — please try again shortly.' })}\n\n`);
         } else if (e.code === 'BEDROCK_ACCESS_DENIED') {
             res.write(`data: ${JSON.stringify({ type: 'error', error: 'Bedrock model access not enabled for this AWS account/region.' })}\n\n`);
+        } else if (e.code === 'BEDROCK_USE_CASE_NOT_SUBMITTED') {
+            res.write(`data: ${JSON.stringify({ type: 'error', error: 'Anthropic requires a one-time "use case details" form before this AWS account can invoke Claude models on Bedrock. Submit it in the Bedrock console model catalog, then retry in a few minutes.' })}\n\n`);
         } else {
             res.write(`data: ${JSON.stringify({ type: 'error', error: e.message })}\n\n`);
         }

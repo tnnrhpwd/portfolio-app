@@ -829,6 +829,10 @@ Rules:
             res.status(502);
             throw new Error('Bedrock model access not enabled for this AWS account/region. An operator needs to enable "Claude Haiku 4.5" in the Bedrock console (us-east-1) and grant bedrock:InvokeModel to the backend\'s IAM user.');
         }
+        if (e.code === 'BEDROCK_USE_CASE_NOT_SUBMITTED') {
+            res.status(502);
+            throw new Error('Anthropic requires a one-time "use case details" form before this AWS account can invoke Claude models on Bedrock. An operator needs to open the Bedrock console model catalog, select Claude Haiku 4.5, and submit the form (access is granted within a few minutes).');
+        }
         // Any other failure (malformed/non-JSON LLM output, timeout, network error,
         // upstream 5xx, etc.) — surface the real cause instead of guessing.
         res.status(502);
@@ -960,6 +964,10 @@ Valid step types:
             res.status(502);
             throw new Error('Bedrock model access not enabled for this AWS account/region. An operator needs to enable "Claude Haiku 4.5" in the Bedrock console (us-east-1) and grant bedrock:InvokeModel to the backend\'s IAM user.');
         }
+        if (e.code === 'BEDROCK_USE_CASE_NOT_SUBMITTED') {
+            res.status(502);
+            throw new Error('Anthropic requires a one-time "use case details" form before this AWS account can invoke Claude models on Bedrock. An operator needs to open the Bedrock console model catalog, select Claude Haiku 4.5, and submit the form (access is granted within a few minutes).');
+        }
         res.status(422);
         throw new Error(`Macro edit failed: ${e.message}`);
     }
@@ -1022,6 +1030,10 @@ const agentChatProxy = asyncHandler(async (req, res) => {
             res.status(502);
             throw new Error('Bedrock model access not enabled for this AWS account/region. An operator needs to enable "Claude Haiku 4.5" in the Bedrock console (us-east-1) and grant bedrock:InvokeModel to the backend\'s IAM user.');
         }
+        if (e.code === 'BEDROCK_USE_CASE_NOT_SUBMITTED') {
+            res.status(502);
+            throw new Error('Anthropic requires a one-time "use case details" form before this AWS account can invoke Claude models on Bedrock. An operator needs to open the Bedrock console model catalog, select Claude Haiku 4.5, and submit the form (access is granted within a few minutes).');
+        }
         res.status(502);
         throw new Error(`Agent chat failed: ${e.message}`);
     }
@@ -1067,6 +1079,10 @@ const agentVisionProxy = asyncHandler(async (req, res) => {
         if (e.code === 'BEDROCK_ACCESS_DENIED') {
             res.status(502);
             throw new Error('Bedrock model access not enabled for this AWS account/region. An operator needs to enable "Claude Haiku 4.5" in the Bedrock console (us-east-1) and grant bedrock:InvokeModel to the backend\'s IAM user.');
+        }
+        if (e.code === 'BEDROCK_USE_CASE_NOT_SUBMITTED') {
+            res.status(502);
+            throw new Error('Anthropic requires a one-time "use case details" form before this AWS account can invoke Claude models on Bedrock. An operator needs to open the Bedrock console model catalog, select Claude Haiku 4.5, and submit the form (access is granted within a few minutes).');
         }
         res.status(502);
         throw new Error(`Agent vision failed: ${e.message}`);

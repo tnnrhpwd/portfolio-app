@@ -201,4 +201,16 @@ describe('bedrockService — createBedrockCompletion (mocked client)', () => {
         await expect(createBedrockCompletion([{ role: 'user', content: 'hi' }]))
             .rejects.toMatchObject({ code: 'BEDROCK_ACCESS_DENIED' });
     });
+
+    it('tags the Anthropic "use case details" ValidationException with BEDROCK_USE_CASE_NOT_SUBMITTED', async () => {
+        const err = new Error(
+            'Model use case details have not been submitted for this account. Fill out the Anthropic ' +
+            'use case details form before using the model. If you have already filled out the form, try again in 15 minutes.'
+        );
+        err.name = 'ValidationException';
+        mockSend.mockRejectedValue(err);
+
+        await expect(createBedrockCompletion([{ role: 'user', content: 'hi' }]))
+            .rejects.toMatchObject({ code: 'BEDROCK_USE_CASE_NOT_SUBMITTED' });
+    });
 });

@@ -274,10 +274,20 @@ function fromBedrockResponse(bedrockResponse) {
  */
 function classifyBedrockError(error) {
     const name = error?.name || '';
+    const message = error?.message || '';
     if (name === 'ThrottlingException' || error?.$metadata?.httpStatusCode === 429) {
         error.code = 'BEDROCK_THROTTLED';
     } else if (name === 'AccessDeniedException') {
         error.code = 'BEDROCK_ACCESS_DENIED';
+    } else if (/use case details/i.test(message)) {
+        // Anthropic-on-Bedrock's one-time-per-AWS-account "First Time Use" gate:
+        // AWS surfaces this as a ValidationException whose message literally says
+        // "Model use case details have not been submitted for this account." — not
+        // a distinct error name, so match on message content. Fixed by an operator
+        // submitting the use-case form once in the Bedrock console's model catalog
+        // (or via the PutUseCaseForModelAccess API); no retry/backoff on our end
+        // will resolve it faster than that.
+        error.code = 'BEDROCK_USE_CASE_NOT_SUBMITTED';
     }
     return error;
 }
