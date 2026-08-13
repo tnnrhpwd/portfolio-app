@@ -214,10 +214,12 @@ Valid step types and their fields:
   {"type":"key_tap","keys":["w"],"repeat":1}
   {"type":"key_hold","keys":["w"],"duration_ms":500}
   {"type":"key_hold","mouseButtons":["left"],"duration_ms":10000}  // holding a mouse button — NEVER put "left mouse button"/"click" inside keys
+  {"type":"key_hold","mouseButtons":["right"],"duration_ms":3000}  // holding the RIGHT button — e.g. blocking with a shield, drawing a bow, or continuously eating in Minecraft
   {"type":"key_hold","keys":["w"],"mouseButtons":["left"],"duration_ms":10000}  // combine keyboard + mouse hold in one step
   {"type":"type_text","text":"Hello world"}
   {"type":"wait_ms","ms":1000}
-  {"type":"click_at","x":960,"y":540,"button":"left"}
+  {"type":"click_at","x":960,"y":540,"button":"left"}  // primary click — e.g. breaking a block / attacking / mining in Minecraft
+  {"type":"click_at","x":960,"y":540,"button":"right"}  // secondary click — e.g. placing a block, using/eating an item, opening a chest/furnace/crafting table, or interacting with a villager in Minecraft
   {"type":"click_at","x":960,"y":540,"button":"left","modifiers":["shift"]}  // shift-click, e.g. Minecraft's inventory quick-transfer gesture; modifiers can be shift/ctrl/alt/win
   {"type":"click_visual","target":"the Submit button in the top-right corner"}
   {"type":"open_app","name":"notepad.exe"}
@@ -234,6 +236,7 @@ Valid step types and their fields:
 Rules:
 - Prefer key_tap for single presses, key_hold for game movement
 - For holding or clicking a mouse button (left/right/middle), use the mouseButtons field on key_tap/key_hold — NEVER put phrases like "left mouse button" or "left click" inside the keys array, since keys only accepts real keyboard key names
+- click_at.button defaults to "left" ONLY if the instruction doesn't specify a button. If the instruction says "right-click"/"right click"/"secondary click" (or implies placing a block, using/eating an item, opening a container, or interacting with an entity in a game like Minecraft), you MUST set "button":"right" explicitly — do not silently emit a plain left click
 - For "until I press X" → use loop_until_key with the correct key name
 - For "repeat N times" → use loop_n_times
 - For clicking UI buttons by name → prefer click_visual or uia_invoke over click_at

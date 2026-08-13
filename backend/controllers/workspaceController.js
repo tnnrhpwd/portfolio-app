@@ -768,10 +768,13 @@ const compileMacroNatural = asyncHandler(async (req, res) => {
 Valid step types:
   {"type":"key_tap","keys":["w"],"repeat":1}
   {"type":"key_hold","keys":["w"],"duration_ms":500}
+  {"type":"key_hold","mouseButtons":["left"],"duration_ms":10000}
+  {"type":"key_hold","mouseButtons":["right"],"duration_ms":3000}
   {"type":"type_text","text":"Hello world"}
   {"type":"wait_ms","ms":1000}
-  {"type":"click_at","x":960,"y":540}
-  {"type":"click_at","x":960,"y":540,"modifiers":["shift"]}
+  {"type":"click_at","x":960,"y":540,"button":"left"}
+  {"type":"click_at","x":960,"y":540,"button":"right"}
+  {"type":"click_at","x":960,"y":540,"button":"left","modifiers":["shift"]}
   {"type":"click_visual","target":"the Submit button"}
   {"type":"open_app","name":"notepad.exe"}
   {"type":"shell_run","command":"dir C:\\\\Users"}
@@ -788,6 +791,7 @@ Rules:
 - For "repeat N times" → use loop_n_times
 - Prefer click_visual or uia_invoke over click_at for named UI elements
 - click_at.modifiers is an optional array of shift/ctrl/alt/win held down for the click (e.g. a shift-click)
+- click_at.button and key_hold.mouseButtons default to "left" ONLY if the instruction doesn't specify a button. If the instruction says "right-click"/"right click"/"secondary click" (or implies placing a block, using/eating an item, opening a container, or interacting with an entity in a game like Minecraft), you MUST set "button":"right" (or "mouseButtons":["right"]) explicitly — do not silently emit a plain left click
 - For opening apps → use open_app, not shell_run
 - Do NOT use shell_run for destructive operations (rm, del, format, shutdown, etc.)
 - Max 30 steps total, no nested loops
@@ -899,10 +903,13 @@ const editMacroNatural = asyncHandler(async (req, res) => {
 Valid step types:
   {"type":"key_tap","keys":["w"],"repeat":1}
   {"type":"key_hold","keys":["w"],"duration_ms":500}
+  {"type":"key_hold","mouseButtons":["left"],"duration_ms":10000}
+  {"type":"key_hold","mouseButtons":["right"],"duration_ms":3000}
   {"type":"type_text","text":"Hello world"}
   {"type":"wait_ms","ms":1000}
-  {"type":"click_at","x":960,"y":540}
-  {"type":"click_at","x":960,"y":540,"modifiers":["shift"]}
+  {"type":"click_at","x":960,"y":540,"button":"left"}
+  {"type":"click_at","x":960,"y":540,"button":"right"}
+  {"type":"click_at","x":960,"y":540,"button":"left","modifiers":["shift"]}
   {"type":"click_visual","target":"the Submit button"}
   {"type":"open_app","name":"notepad.exe"}
   {"type":"shell_run","command":"dir C:\\\\Users"}
@@ -915,6 +922,7 @@ Valid step types:
   {"type":"goal_done"}
 
 click_at.modifiers is an optional array of shift/ctrl/alt/win held down for the click (e.g. a shift-click).
+click_at.button and key_hold.mouseButtons default to "left" ONLY if the instruction doesn't specify a button. If the instruction says "right-click"/"right click"/"secondary click" (or implies placing a block, using/eating an item, opening a container, or interacting with an entity in a game like Minecraft), set "button":"right" (or "mouseButtons":["right"]) explicitly — do not silently keep a plain left click.
 `;
 
     const stepsJson = JSON.stringify(steps).slice(0, 12000);
