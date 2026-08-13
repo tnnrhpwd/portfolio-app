@@ -771,6 +771,7 @@ Valid step types:
   {"type":"type_text","text":"Hello world"}
   {"type":"wait_ms","ms":1000}
   {"type":"click_at","x":960,"y":540}
+  {"type":"click_at","x":960,"y":540,"modifiers":["shift"]}
   {"type":"click_visual","target":"the Submit button"}
   {"type":"open_app","name":"notepad.exe"}
   {"type":"shell_run","command":"dir C:\\\\Users"}
@@ -786,6 +787,7 @@ Rules:
 - For "until I press X" → use loop_until_key with the correct key name
 - For "repeat N times" → use loop_n_times
 - Prefer click_visual or uia_invoke over click_at for named UI elements
+- click_at.modifiers is an optional array of shift/ctrl/alt/win held down for the click (e.g. a shift-click)
 - For opening apps → use open_app, not shell_run
 - Do NOT use shell_run for destructive operations (rm, del, format, shutdown, etc.)
 - Max 30 steps total, no nested loops
@@ -900,6 +902,7 @@ Valid step types:
   {"type":"type_text","text":"Hello world"}
   {"type":"wait_ms","ms":1000}
   {"type":"click_at","x":960,"y":540}
+  {"type":"click_at","x":960,"y":540,"modifiers":["shift"]}
   {"type":"click_visual","target":"the Submit button"}
   {"type":"open_app","name":"notepad.exe"}
   {"type":"shell_run","command":"dir C:\\\\Users"}
@@ -910,6 +913,8 @@ Valid step types:
   {"type":"screenshot_check","condition":"Is the dialog closed?"}
   {"type":"speak","text":"Done!"}
   {"type":"goal_done"}
+
+click_at.modifiers is an optional array of shift/ctrl/alt/win held down for the click (e.g. a shift-click).
 `;
 
     const stepsJson = JSON.stringify(steps).slice(0, 12000);
