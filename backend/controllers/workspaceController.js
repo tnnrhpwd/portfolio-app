@@ -733,16 +733,6 @@ const compileMacroNatural = asyncHandler(async (req, res) => {
     }
     if (description.length > 2000) badRequest(res, 'description too long (max 2000 chars)');
 
-    // Use the same token-fetching function as the chat endpoint
-    // (handles encryption correctly via secretCrypto)
-    const { getUserGithubToken } = require('../services/llmService');
-    const githubToken = await getUserGithubToken(dynamodb, req.user.id);
-
-    if (!githubToken) {
-        res.status(422);
-        throw new Error('No GitHub PAT found. In Simple → Settings → Advanced, paste your GitHub Personal Access Token and save, then try again.');
-    }
-
     // NL compiler schema documentation (mirrors nl-compiler.js exactly)
     const STEP_SCHEMA = `
 Valid step types:
@@ -783,23 +773,14 @@ Rules:
         'Reply with ONLY valid JSON. No prose. No markdown fences.',
     ].filter(Boolean).join('\n');
 
-    // Call GitHub Models using the same pattern as llmService
+    // Call AWS Bedrock (Claude Haiku 4.5) using the shared adapter
     let steps;
     try {
-        const { default: OpenAI } = await import('openai');
-        const client = new OpenAI({
-            baseURL: 'https://models.github.ai/inference',
-            apiKey: githubToken,
-        });
-        const response = await client.chat.completions.create({
-            model: 'openai/gpt-4o-mini',
-            messages: [
-                { role: 'system', content: 'You are a Windows macro compiler. Output only valid JSON.' },
-                { role: 'user', content: prompt },
-            ],
-            temperature: 0.1,
-            max_tokens: 2048,
-        });
+        const { createBedrockCompletion } = require('../services/bedrockService');
+        const response = await createBedrockCompletion([
+            { role: 'system', content: 'You are a Windows macro compiler. Output only valid JSON.' },
+            { role: 'user', content: prompt },
+        ], { temperature: 0.1, maxTokens: 2048 });
         const text = response?.choices?.[0]?.message?.content || '';
         // Extract JSON from the response
         const match = text.match(/\{[\s\S]*\}/);
@@ -810,21 +791,16 @@ Rules:
         if (steps.length === 0) throw new Error('Compiled macro has no steps');
         if (steps.length > 30) steps = steps.slice(0, 30);
     } catch (e) {
-        if (e.status === 401 || e.message?.includes('401')) {
-            res.status(422);
-            throw new Error('GitHub token is invalid or expired. Update your PAT in Simple → Settings → Advanced, then try again.');
-        }
-        if (e.status === 403 || e.message?.includes('403')) {
-            res.status(422);
-            throw new Error('GitHub token lacks GitHub Models access. Visit github.com/marketplace/models, accept the terms, then try again.');
-        }
-        if (e.status === 429 || e.message?.includes('429')) {
+        if (e.code === 'BEDROCK_THROTTLED') {
             res.status(429);
-            throw new Error('GitHub Models rate limit reached for your account (this is separate from your PAT itself — the PAT can be perfectly valid). Please wait a minute and try again.');
+            throw new Error('Bedrock is rate limiting requests right now. Please wait a minute and try again.');
+        }
+        if (e.code === 'BEDROCK_ACCESS_DENIED') {
+            res.status(502);
+            throw new Error('Bedrock model access not enabled for this AWS account/region. An operator needs to enable "Claude Haiku 4.5" in the Bedrock console (us-east-1) and grant bedrock:InvokeModel to the backend\'s IAM user.');
         }
         // Any other failure (malformed/non-JSON LLM output, timeout, network error,
-        // upstream 5xx, etc.) — surface the real cause instead of incorrectly
-        // blaming a valid PAT, which was misleading and unhelpful for debugging.
+        // upstream 5xx, etc.) — surface the real cause instead of guessing.
         res.status(502);
         throw new Error(`Macro compilation failed: ${e.message}`);
     }
@@ -883,14 +859,6 @@ const editMacroNatural = asyncHandler(async (req, res) => {
     }
     if (instruction.length > 1000) badRequest(res, 'instruction too long (max 1000 chars)');
 
-    const { getUserGithubToken } = require('../services/llmService');
-    const githubToken = await getUserGithubToken(dynamodb, req.user.id);
-
-    if (!githubToken) {
-        res.status(422);
-        throw new Error('No GitHub PAT found. In Simple → Settings → Advanced, paste your GitHub Personal Access Token and save, then try again.');
-    }
-
     const STEP_SCHEMA = `
 Valid step types:
   {"type":"key_tap","keys":["w"],"repeat":1}
@@ -935,20 +903,11 @@ Valid step types:
 
     let newSteps;
     try {
-        const { default: OpenAI } = await import('openai');
-        const client = new OpenAI({
-            baseURL: 'https://models.github.ai/inference',
-            apiKey: githubToken,
-        });
-        const response = await client.chat.completions.create({
-            model: 'openai/gpt-4o-mini',
-            messages: [
-                { role: 'system', content: 'You are a Windows macro editor. Output only valid JSON.' },
-                { role: 'user', content: prompt },
-            ],
-            temperature: 0.1,
-            max_tokens: 2048,
-        });
+        const { createBedrockCompletion } = require('../services/bedrockService');
+        const response = await createBedrockCompletion([
+            { role: 'system', content: 'You are a Windows macro editor. Output only valid JSON.' },
+            { role: 'user', content: prompt },
+        ], { temperature: 0.1, maxTokens: 2048 });
         const text = response?.choices?.[0]?.message?.content || '';
         const match = text.match(/\{[\s\S]*\}/);
         if (!match) throw new Error('No JSON found in LLM response');
@@ -963,17 +922,13 @@ Valid step types:
         });
         scanForForbiddenCommands(newSteps);
     } catch (e) {
-        if (e.status === 401 || e.message?.includes('401')) {
-            res.status(422);
-            throw new Error('GitHub token is invalid or expired. Update your PAT in Simple → Settings → Advanced, then try again.');
-        }
-        if (e.status === 403 || e.message?.includes('403')) {
-            res.status(422);
-            throw new Error('GitHub token lacks GitHub Models access. Visit github.com/marketplace/models, accept the terms, then try again.');
-        }
-        if (e.status === 429 || e.message?.includes('429')) {
+        if (e.code === 'BEDROCK_THROTTLED') {
             res.status(429);
-            throw new Error('GitHub Models rate limit reached for your account (this is separate from your PAT itself — the PAT can be perfectly valid). Please wait a minute and try again.');
+            throw new Error('Bedrock is rate limiting requests right now. Please wait a minute and try again.');
+        }
+        if (e.code === 'BEDROCK_ACCESS_DENIED') {
+            res.status(502);
+            throw new Error('Bedrock model access not enabled for this AWS account/region. An operator needs to enable "Claude Haiku 4.5" in the Bedrock console (us-east-1) and grant bedrock:InvokeModel to the backend\'s IAM user.');
         }
         res.status(422);
         throw new Error(`Macro edit failed: ${e.message}`);

@@ -60,6 +60,22 @@ const PROVIDERS = {
         client: null,
         baseURL: 'https://models.github.ai/inference',
         perUserKey: true    // Token fetched from user's Simple settings in DynamoDB
+    },
+    bedrock: {
+        name: 'AWS Bedrock',
+        // Cross-region inference profile ID for Claude Haiku 4.5 (verified against
+        // docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-haiku-4-5.html).
+        // NOT Claude 3.5 Haiku — that model's Bedrock EOL has already passed.
+        models: {
+            'us.anthropic.claude-haiku-4-5-20251001-v1:0': { name: 'Claude Haiku 4.5', contextWindow: 200000 },
+        },
+        // Bedrock authenticates via the app's existing AWS SigV4 credentials (the
+        // same AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY used for DynamoDB in
+        // accessData.js) — not a bearer apiKey string. This flag just marks the
+        // provider "configured" for getAvailableProviders()/validateProviderModel().
+        apiKey: !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY),
+        client: null,
+        region: process.env.AWS_REGION || 'us-east-1',
     }
 };
 
@@ -206,6 +222,26 @@ async function createCompletionWithKey(provider, model, messages, options = {}, 
     const response = await client.chat.completions.create(completionParams);
     logger.debug(`🤖 ${provider.toUpperCase()} API call completed in ${Date.now() - startTime}ms`);
     return response;
+}
+
+/**
+ * Create a completion via AWS Bedrock (Claude Haiku 4.5).
+ *
+ * Unlike createCompletionWithKey/createCompletion above, Bedrock is NOT an
+ * OpenAI-compatible HTTP API and does not take a per-user bearer apiKey — it
+ * authenticates with the app's own AWS SigV4 credentials (same
+ * AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY used for DynamoDB). All shape
+ * translation (OpenAI messages/tools <-> Bedrock Converse) lives in
+ * services/bedrockService.js; this is a thin, dedicated entry point so
+ * call sites don't have to reach into that module directly.
+ *
+ * @param {Array} messages - OpenAI-style messages (system/user/assistant/tool)
+ * @param {Object} [options] - { maxTokens, temperature, tools, tool_choice }
+ * @returns {Promise<Object>} OpenAI chat.completions.create()-shaped response
+ */
+async function createBedrockChatCompletion(messages, options = {}) {
+    const { createBedrockCompletion } = require('../services/bedrockService');
+    return createBedrockCompletion(messages, options);
 }
 
 // Check if user can make API call
@@ -396,6 +432,7 @@ module.exports = {
     checkApiUsage,
     createCompletion,
     createCompletionWithKey,
+    createBedrockChatCompletion,
     trackCompletion,
     testXAIConnection,
     resolveGithubModelId

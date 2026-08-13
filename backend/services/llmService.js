@@ -1,19 +1,15 @@
 const { DynamoDBDocumentClient, PutCommand, UpdateCommand, GetCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
 const crypto = require('crypto');
-const { 
-    initializeLLMClients, 
-    checkApiUsage, 
-    createCompletionWithKey,
+const {
+    checkApiUsage,
     trackCompletion,
-    PROVIDERS,
     MODEL_TIER_REQUIREMENTS,
-    resolveGithubModelId,
 } = require('../utils/llmProviders.js');
+const { createBedrockCompletion, streamBedrockCompletion, BEDROCK_MODEL_ID } = require('./bedrockService.js');
 const { isProTier, isSimpleTier } = require('../constants/pricing.js');
 const { getGoalsSummary, logAction } = require('./memoryService.js');
 const { TOOL_SCHEMAS, executeTool } = require('./netTools.js');
 const { buildWorkspaceContext } = require('./workspaceContext.js');
-const { decryptString } = require('../utils/secretCrypto');
 
 // Constants for user context loading
 const CSIMPLE_CREATED_AT = '2000-01-01T00:00:00.000Z';
@@ -147,16 +143,16 @@ function parseCompressionRequest(req) {
     const contextInput = parsedJSON.text;
     logger.debug('Context input:', contextInput);
 
-    // Get LLM provider and model from request (GitHub Models only)
-    const provider = req.body.provider || 'github';
-    if (provider !== 'github') {
-        const error = new Error(`Provider "${provider}" is not supported. Only GitHub Models is available.`);
-        error.statusCode = 400;
-        throw error;
-    }
-    const model = req.body.model || 'gpt-4o-mini';
-    
-    logger.debug(`Using ${provider} with model ${model}`);
+    // GitHub Models (models.github.ai) was retired 2026-07-30 — every request is
+    // now served by AWS Bedrock (Claude Haiku 4.5) instead. `provider`/`model`
+    // are still accepted from the client (existing clients still send legacy
+    // values like provider: 'github', model: 'gpt-4o-mini') but are normalized
+    // here so downstream cost tracking/dashboards reflect what's actually used.
+    const requestedProvider = req.body.provider;
+    const provider = 'bedrock';
+    const model = BEDROCK_MODEL_ID;
+
+    logger.debug(`Using ${provider} with model ${model}${requestedProvider ? ` (client requested "${requestedProvider}")` : ''}`);
 
     if (typeof contextInput !== 'string') {
         const error = new Error('Data input invalid');
@@ -283,14 +279,13 @@ function estimateCost(provider, model, promptTokens, completionTokens) {
 /**
  * Generate a smart conversation title from the first exchange.
  */
-async function generateConversationTitle(message, response, githubToken) {
+async function generateConversationTitle(message, response) {
     try {
-        await initializeLLMClients();
         const titleMessages = [
             { role: 'system', content: 'Generate a concise 3-6 word title for this conversation. Return ONLY the title text, no quotes or punctuation.' },
             { role: 'user', content: `User said: "${message.substring(0, 200)}"\nAssistant replied about: "${response.substring(0, 200)}"` },
         ];
-        const titleResp = await createCompletionWithKey('github', 'gpt-4.1-nano', titleMessages, { maxTokens: 20, temperature: 0.5 }, githubToken);
+        const titleResp = await createBedrockCompletion(titleMessages, { maxTokens: 20, temperature: 0.5 });
         const title = titleResp?.choices?.[0]?.message?.content?.trim();
         return title && title.length > 0 && title.length < 60 ? title : null;
     } catch {
@@ -351,24 +346,25 @@ async function validateApiUsage(userId, provider, model, userInput) {
 }
 
 /**
- * Fetch a user's GitHub PAT from their Simple settings in DynamoDB.
- * Returns null if not found.
+ * Call Bedrock and translate its own throttling/access-denied errors into
+ * accurate, actionable HTTP errors — instead of a generic 500, or (the bug
+ * this migration fixes) mislabeling them as an auth/token problem.
  */
-async function getUserGithubToken(dynamodb, userId) {
+async function callBedrock(messages, options) {
     try {
-        const { Item } = await dynamodb.send(new GetCommand({
-            TableName: 'Simple',
-            Key: { id: `csimple_settings_${userId}`, createdAt: '2000-01-01T00:00:00.000Z' }
-        }));
-        logger.debug(`[llmService] getUserGithubToken for ${userId}: Item found=${!!Item}, hasText=${!!Item?.text}`);
-        if (!Item?.text) return null;
-        const settings = JSON.parse(Item.text);
-        const token = decryptString(settings.githubToken) || null;
-        logger.debug(`[llmService] getUserGithubToken: hasGithubToken=${!!token}`);
-        return token;
+        return await createBedrockCompletion(messages, options);
     } catch (e) {
-        logger.error('[llmService] Failed to fetch user github token:', e);
-        return null;
+        if (e.code === 'BEDROCK_THROTTLED') {
+            const error = new Error('Bedrock is rate limited right now — please try again shortly.');
+            error.statusCode = 429;
+            throw error;
+        }
+        if (e.code === 'BEDROCK_ACCESS_DENIED') {
+            const error = new Error('Bedrock model access not enabled for this AWS account/region. An operator needs to enable "Claude Haiku 4.5" in the Bedrock console (us-east-1) and grant bedrock:InvokeModel to the backend\'s IAM user.');
+            error.statusCode = 502;
+            throw error;
+        }
+        throw e;
     }
 }
 
@@ -380,16 +376,13 @@ async function getUserGithubToken(dynamodb, userId) {
  * @param {string} provider - LLM provider
  * @param {string} model - Model name
  * @param {string} userInput - User input
- * @param {string|null} githubToken - Per-user GitHub PAT (only for provider='github')
  * @param {string|null} goalsSummary - User's goals context
  * @param {object|null} toolContext - { userId, userEmail, userName } for tool execution
  * @param {object|null} userContext - { memoryContext, personalityContext, behaviorContext } from DB
  * @returns {Object} LLM response (final, after any tool calls are resolved)
  */
-async function callLLMApi(provider, model, userInput, githubToken = null, goalsSummary = null, toolContext = null, userContext = null, maxTokensOverride = null, user = null) {
-    await initializeLLMClients();
-    
-    logger.debug(`🤖 Starting ${provider.toUpperCase()} API call...`);
+async function callLLMApi(provider, model, userInput, goalsSummary = null, toolContext = null, userContext = null, maxTokensOverride = null, user = null) {
+    logger.debug('🤖 Starting Bedrock (Claude Haiku 4.5) API call...');
     const startLLM = Date.now();
 
     // Build messages array — if userInput is a Net: chat payload, extract conversation history
@@ -439,12 +432,6 @@ async function callLLMApi(provider, model, userInput, githubToken = null, goalsS
         role: 'system',
         content: systemParts.join(' ')
     });
-    
-    if (!githubToken) {
-        const error = new Error('GitHub token not configured. Add your GitHub PAT in Simple → Settings → Advanced → GitHub Personal Access Token.');
-        error.statusCode = 401;
-        throw error;
-    }
 
     // Determine if we should send tools (only for Net: chat, not plain compression)
     const useTools = toolContext !== null;
@@ -455,7 +442,7 @@ async function callLLMApi(provider, model, userInput, githubToken = null, goalsS
     }
 
     // Initial LLM call
-    let response = await createCompletionWithKey('github', model, messages, llmOptions, githubToken);
+    let response = await callBedrock(messages, llmOptions);
     
     // ─── Tool-call loop (max 3 rounds to prevent runaway) ────────────────
     const MAX_TOOL_ROUNDS = 3;
@@ -499,10 +486,10 @@ async function callLLMApi(provider, model, userInput, githubToken = null, goalsS
         }
 
         // Call LLM again with tool results so it can produce a final response
-        response = await createCompletionWithKey('github', model, messages, llmOptions, githubToken);
+        response = await callBedrock(messages, llmOptions);
     }
 
-    logger.debug(`🤖 ${provider.toUpperCase()} API call completed in ${Date.now() - startLLM}ms (${round} tool round(s))`);
+    logger.debug(`🤖 Bedrock API call completed in ${Date.now() - startLLM}ms (${round} tool round(s))`);
     logger.debug('LLM response:', JSON.stringify(response));
     
     // Attach tool execution metadata to the response for the frontend
@@ -694,19 +681,7 @@ async function processCompressionRequest(req, dynamodb) {
     
     // Validate API usage
     await validateApiUsage(req.user.id, provider, model, userInput);
-    
-    // For GitHub provider, look up the user's GitHub PAT from their Simple settings
-    let githubToken = null;
-    if (provider === 'github') {
-        githubToken = await getUserGithubToken(dynamodb, req.user.id);
-        if (!githubToken) {
-            const error = new Error('GitHub token not configured. Add your GitHub PAT in Simple → Settings → Advanced.');
-            error.statusCode = 401;
-            throw error;
-        }
-        logger.debug('[llmService] Using user\'s GitHub token for GitHub Models API');
-    }
-    
+
     // Fetch user's active goals to inject as context
     let goalsSummary = null;
     try {
@@ -763,7 +738,7 @@ async function processCompressionRequest(req, dynamodb) {
 
     // Call LLM API (with tools if Net: chat)
     const maxTokens = getMaxTokensForRequest(req.user, model);
-    const response = await callLLMApi(provider, model, userInput, githubToken, goalsSummary, toolContext, userContext, maxTokens, req.user);
+    const response = await callLLMApi(provider, model, userInput, goalsSummary, toolContext, userContext, maxTokens, req.user);
     
     // Track API usage
     await trackApiUsageAfterCall(req.user.id, provider, model, response, userInput);
@@ -800,7 +775,7 @@ async function processCompressionRequest(req, dynamodb) {
         return result;
     } else {
         logger.debug(`💾 Total operation completed in ${Date.now() - startValidation}ms`);
-        const error = new Error('No response content returned from GitHub Models API.');
+        const error = new Error('No response content returned from Bedrock.');
         error.statusCode = 500;
         throw error;
     }
@@ -822,17 +797,6 @@ async function streamCompressionRequest(req, res, dynamodb) {
 
     // Validate API usage
     await validateApiUsage(req.user.id, provider, model, userInput);
-
-    // Get GitHub PAT
-    let githubToken = null;
-    if (provider === 'github') {
-        githubToken = await getUserGithubToken(dynamodb, req.user.id);
-        if (!githubToken) {
-            const error = new Error('GitHub token not configured. Add your GitHub PAT in Simple → Settings → Advanced.');
-            error.statusCode = 401;
-            throw error;
-        }
-    }
 
     // Fetch goals context
     let goalsSummary = null;
@@ -869,8 +833,6 @@ async function streamCompressionRequest(req, res, dynamodb) {
     } catch {}
 
     // ── Build messages (same logic as callLLMApi) ─────────────────────────
-    await initializeLLMClients();
-
     let messages;
     try {
         const parsed = JSON.parse(userInput);
@@ -900,12 +862,6 @@ async function streamCompressionRequest(req, res, dynamodb) {
     }
     messages.unshift({ role: 'system', content: systemParts.join(' ') });
 
-    if (!githubToken) {
-        const error = new Error('GitHub token not configured.');
-        error.statusCode = 401;
-        throw error;
-    }
-
     const useTools = toolContext !== null;
 
     // Determine max tokens based on tier + model
@@ -926,7 +882,7 @@ async function streamCompressionRequest(req, res, dynamodb) {
 
     if (useTools) {
         // Do an initial non-streaming call to check for tool calls
-        const initResponse = await createCompletionWithKey('github', model, messages, llmOptions, githubToken);
+        const initResponse = await callBedrock(messages, llmOptions);
         let choice = initResponse?.choices?.[0];
 
         while (choice?.message?.tool_calls && choice.message.tool_calls.length > 0 && round < MAX_TOOL_ROUNDS) {
@@ -943,7 +899,7 @@ async function streamCompressionRequest(req, res, dynamodb) {
             }
 
             // Check if the follow-up also has tool calls
-            const followUp = await createCompletionWithKey('github', model, messages, llmOptions, githubToken);
+            const followUp = await callBedrock(messages, llmOptions);
             choice = followUp?.choices?.[0];
 
             // If no more tools, we'll stream the final response from scratch
@@ -993,39 +949,40 @@ async function streamCompressionRequest(req, res, dynamodb) {
     // Remove tools for the streaming call (tools don't work with streaming)
     const streamOptions = { maxTokens, temperature: 0.7 };
 
-    const providerConfig = PROVIDERS[provider];
-    const { default: OpenAI } = await import('openai');
-    const client = new OpenAI({
-        apiKey: githubToken,
-        ...(providerConfig.baseURL ? { baseURL: providerConfig.baseURL } : {})
-    });
-
-    const stream = await client.chat.completions.create({
-        model: provider === 'github' ? resolveGithubModelId(model) : model,
-        messages,
-        temperature: streamOptions.temperature,
-        max_tokens: streamOptions.maxTokens,
-        stream: true,
-    });
-
     let fullContent = '';
     let chunkCount = 0;
+    let streamUsage = null;
 
-    for await (const chunk of stream) {
-        const delta = chunk.choices?.[0]?.delta?.content;
-        if (delta) {
-            fullContent += delta;
+    try {
+        const streamGenerator = streamBedrockCompletion(messages, streamOptions);
+        let next = await streamGenerator.next();
+        while (!next.done) {
+            const { text } = next.value;
+            fullContent += text;
             chunkCount++;
-            res.write(`data: ${JSON.stringify({ type: 'token', text: delta })}\n\n`);
+            res.write(`data: ${JSON.stringify({ type: 'token', text })}\n\n`);
+            next = await streamGenerator.next();
         }
+        streamUsage = next.value?.usage || null;
+    } catch (e) {
+        if (e.code === 'BEDROCK_THROTTLED') {
+            res.write(`data: ${JSON.stringify({ type: 'error', error: 'Bedrock is rate limited right now — please try again shortly.' })}\n\n`);
+        } else if (e.code === 'BEDROCK_ACCESS_DENIED') {
+            res.write(`data: ${JSON.stringify({ type: 'error', error: 'Bedrock model access not enabled for this AWS account/region.' })}\n\n`);
+        } else {
+            res.write(`data: ${JSON.stringify({ type: 'error', error: e.message })}\n\n`);
+        }
+        res.write('data: [DONE]\n\n');
+        res.end();
+        return;
     }
 
     // Process memory saves and finalize
     const { cleanedContent, savedMemories } = await processCloudMemorySaves(dynamodb, req.user.id, fullContent);
 
-    // Build a synthetic response for usage tracking
-    const promptTokens = Math.ceil(userInput.length / 4);
-    const completionTokens = Math.ceil(fullContent.length / 4);
+    // Build a synthetic response for usage tracking (prefer Bedrock's own usage totals)
+    const promptTokens = streamUsage?.prompt_tokens || Math.ceil(userInput.length / 4);
+    const completionTokens = streamUsage?.completion_tokens || Math.ceil(fullContent.length / 4);
     const syntheticResponse = {
         choices: [{ message: { content: fullContent } }],
         usage: { prompt_tokens: promptTokens, completion_tokens: completionTokens },
@@ -1044,7 +1001,7 @@ async function streamCompressionRequest(req, res, dynamodb) {
         try { const p = JSON.parse(userInput); return !p.conversationHistory || p.conversationHistory.length <= 1; } catch { return true; }
     })();
     if (isFirstExchange && userMessage && cleanedContent) {
-        const title = await generateConversationTitle(userMessage, cleanedContent, githubToken);
+        const title = await generateConversationTitle(userMessage, cleanedContent);
         if (title) {
             res.write(`data: ${JSON.stringify({ type: 'title', title })}\n\n`);
         }
@@ -1076,18 +1033,10 @@ function getMaxTokensForRequest(user, model) {
     const tierLimits = { Free: 1000, Pro: 2000, Flex: 2000, Simple: 4000, Premium: 4000 };
     const tierMax = tierLimits[rank] || 1000;
 
-    // Model-specific ceilings (some smaller models shouldn't get huge token budgets)
-    const modelCeilings = {
-        'gpt-4.1-nano': 1500,
-        'Phi-4': 1500,
-        'Mistral-small': 2000,
-        'gpt-4o-mini': 3000,
-        'gpt-4.1-mini': 3000,
-        'claude-3.5-haiku': 3000,
-    };
-
-    const ceiling = modelCeilings[model];
-    return ceiling ? Math.min(tierMax, ceiling) : tierMax;
+    // `model` is currently always the Bedrock Claude Haiku 4.5 model ID (there's
+    // only one downstream model since the GitHub Models migration), so no
+    // per-model ceiling is needed — the tier limit applies directly.
+    return tierMax;
 }
 
 module.exports = {
@@ -1100,5 +1049,4 @@ module.exports = {
     streamCompressionRequest,
     getMaxTokensForRequest,
     generateConversationTitle,
-    getUserGithubToken,
 };

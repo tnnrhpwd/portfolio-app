@@ -57,6 +57,16 @@ const API_COSTS = {
         'grok-4': { input: 0.001/1000, output: 0.003/1000 }, // per token (estimated pricing)
         'grok-4-fast-reasoning': { input: 0.001/1000, output: 0.003/1000 } // per token (estimated pricing)
     },
+    bedrock: {
+        // AWS Bedrock — Claude Haiku 4.5 (cross-region inference profile
+        // us.anthropic.claude-haiku-4-5-20251001-v1:0). Rates per
+        // platform.claude.com/docs/en/about-claude/pricing ($1/MTok in, $5/MTok out),
+        // which Bedrock on-demand pricing mirrors. This is a server-key (app-paid)
+        // provider — NOT bring-your-own-key like `github` was — so usage IS
+        // deducted from the user's credit balance below.
+        'us.anthropic.claude-haiku-4-5-20251001-v1:0': { input: 1/1000000, output: 5/1000000 },
+        'default': { input: 1/1000000, output: 5/1000000 }
+    },
     rapidapi: {
         word: 0.002, // per call
         definition: 0.002 // per call
@@ -313,6 +323,14 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
                 const xaiOutputTokens = usageData.outputTokens || 0;
                 cost = (xaiInputTokens * xaiModelCosts.input) + (xaiOutputTokens * xaiModelCosts.output);
                 usageString = `${xaiInputTokens + xaiOutputTokens}t`;
+                break;
+            case 'bedrock':
+                const bedrockModelKey = model || 'default';
+                const bedrockModelCosts = API_COSTS.bedrock[bedrockModelKey] || API_COSTS.bedrock['default'];
+                const bedrockInputTokens = usageData.inputTokens || 0;
+                const bedrockOutputTokens = usageData.outputTokens || 0;
+                cost = (bedrockInputTokens * bedrockModelCosts.input) + (bedrockOutputTokens * bedrockModelCosts.output);
+                usageString = `${bedrockInputTokens + bedrockOutputTokens}t`;
                 break;
             case 'rapidword':
                 cost = API_COSTS.rapidapi.word;
@@ -813,6 +831,13 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
                 const xaiInputTokens = estimatedUsage.inputTokens || 100; // Default estimate
                 const xaiOutputTokens = estimatedUsage.outputTokens || 200; // Default estimate
                 estimatedCost = (xaiInputTokens * xaiModelCosts.input) + (xaiOutputTokens * xaiModelCosts.output);
+                break;
+            case 'bedrock':
+                const bedrockModelKey = estimatedUsage.model || 'default';
+                const bedrockModelCosts = API_COSTS.bedrock[bedrockModelKey] || API_COSTS.bedrock['default'];
+                const bedrockInputTokens = estimatedUsage.inputTokens || 100;
+                const bedrockOutputTokens = estimatedUsage.outputTokens || 200;
+                estimatedCost = (bedrockInputTokens * bedrockModelCosts.input) + (bedrockOutputTokens * bedrockModelCosts.output);
                 break;
             case 'rapidword':
             case 'rapiddef':
