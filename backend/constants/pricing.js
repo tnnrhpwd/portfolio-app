@@ -6,7 +6,9 @@
  * instead of hard-coding values.
  *
  * Two tiers: Free and Pro ($15/mo).
- * AI usage is BYOK (Bring Your Own Key) — no platform credits.
+ * AI usage (AWS Bedrock / Claude Haiku 4.5) is metered and server-paid, with
+ * monthly per-tier credit limits — see MEMBERSHIP_LIMITS in
+ * backend/utils/apiUsageTracker.js.
  *
  * Stripe product names are set in the Stripe dashboard and mapped
  * to internal plan IDs here.

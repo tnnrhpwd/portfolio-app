@@ -470,7 +470,7 @@ router.post('/csimple/workspace/log/append', protect, workspaceWriteLimiter, san
 router.post('/csimple/workspace/action/append', protect, workspaceActionLimiter, sanitizeInput, appendAction);
 router.get('/csimple/workspace/goals/next', protect, workspaceReadLimiter, getNextGoal);
 router.get('/csimple/workspace/telemetry/summary', protect, workspaceReadLimiter, getTelemetrySummary);
-// NL macro compiler — works without the addon installed (uses backend GitHub Models call)
+// NL macro compiler — works without the addon installed (uses backend AWS Bedrock call)
 router.post('/csimple/compile-natural', protect, llmLimiter, sanitizeInput, compileMacroNatural);
 // NL macro editor — modify an existing macro's steps via English instruction
 router.post('/csimple/edit-natural', protect, llmLimiter, sanitizeInput, editMacroNatural);

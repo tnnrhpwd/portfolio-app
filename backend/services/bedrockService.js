@@ -3,10 +3,15 @@
  *
  * GitHub Models (models.github.ai) was fully retired by GitHub on 2026-07-30, which
  * permanently broke every backend feature that called it. This adapter replaces it
- * with AWS Bedrock, reusing the app's EXISTING AWS credentials (the same
- * AWS_REGION / AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY env vars that
- * backend/utils/accessData.js already uses for DynamoDB) — no BYOK, no per-user
- * token, no new secret.
+ * with AWS Bedrock.
+ *
+ * Credentials: prefers a DEDICATED, least-privilege IAM credential
+ * (AWS_BEDROCK_ACCESS_KEY_ID / AWS_BEDROCK_SECRET_ACCESS_KEY / AWS_BEDROCK_REGION)
+ * scoped to just bedrock:InvokeModel + bedrock:InvokeModelWithResponseStream, so a
+ * leak of this key can't touch DynamoDB/S3. Falls back to the app's existing
+ * AWS_REGION / AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY (shared with
+ * backend/utils/accessData.js) if the dedicated pair isn't configured, so this
+ * still works out-of-the-box without a second secret.
  *
  * Model: Claude Haiku 4.5 via Bedrock's cross-region inference profile
  * "us.anthropic.claude-haiku-4-5-20251001-v1:0" (verified against
@@ -16,8 +21,8 @@
  * Two AWS-console prerequisites the human operator must do (not doable from code):
  *   1. Enable "Claude Haiku 4.5" model access in the Bedrock console, us-east-1.
  *   2. Attach bedrock:InvokeModel (and bedrock:InvokeModelWithResponseStream, used by
- *      streamBedrockCompletion below) permission to the IAM user identified by the
- *      existing AWS_ACCESS_KEY_ID.
+ *      streamBedrockCompletion below) permission to the IAM user identified by
+ *      AWS_BEDROCK_ACCESS_KEY_ID (or AWS_ACCESS_KEY_ID if using the shared fallback).
  *
  * This module isolates ALL Bedrock-specific request/response translation so call
  * sites (workspaceController.js, llmService.js) can keep working against the
@@ -31,15 +36,45 @@ const { logger } = require('../utils/logger');
 
 const BEDROCK_MODEL_ID = 'us.anthropic.claude-haiku-4-5-20251001-v1:0';
 
+/**
+ * Resolve the AWS credentials Bedrock should authenticate with. Prefers a
+ * dedicated, least-privilege Bedrock-only credential pair; falls back to the
+ * shared app-wide AWS credentials (same ones DynamoDB/S3 use) when the
+ * dedicated pair isn't set, so this keeps working without a second secret.
+ */
+function resolveBedrockCredentials() {
+    const dedicatedKeyId = process.env.AWS_BEDROCK_ACCESS_KEY_ID;
+    const dedicatedSecret = process.env.AWS_BEDROCK_SECRET_ACCESS_KEY;
+    if (dedicatedKeyId && dedicatedSecret) {
+        return {
+            region: process.env.AWS_BEDROCK_REGION || process.env.AWS_REGION,
+            accessKeyId: dedicatedKeyId,
+            secretAccessKey: dedicatedSecret,
+            dedicated: true,
+        };
+    }
+    return {
+        region: process.env.AWS_BEDROCK_REGION || process.env.AWS_REGION,
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        dedicated: false,
+    };
+}
+
+/** True once either the dedicated or shared AWS credential pair is present. */
+function isBedrockConfigured() {
+    const creds = resolveBedrockCredentials();
+    return !!(creds.accessKeyId && creds.secretAccessKey);
+}
+
 let _client = null;
 function getBedrockClient() {
     if (!_client) {
+        const { region, accessKeyId, secretAccessKey, dedicated } = resolveBedrockCredentials();
+        logger.debug(`🪨 Bedrock client using ${dedicated ? 'dedicated AWS_BEDROCK_*' : 'shared AWS_*'} credentials (region: ${region})`);
         _client = new BedrockRuntimeClient({
-            region: process.env.AWS_REGION,
-            credentials: {
-                accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-                secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-            },
+            region,
+            credentials: { accessKeyId, secretAccessKey },
         });
     }
     return _client;
@@ -293,6 +328,7 @@ async function* streamBedrockCompletion(messages, options = {}) {
 module.exports = {
     BEDROCK_MODEL_ID,
     getBedrockClient,
+    isBedrockConfigured,
     createBedrockCompletion,
     streamBedrockCompletion,
     toBedrockMessages,
