@@ -818,8 +818,15 @@ Rules:
             res.status(422);
             throw new Error('GitHub token lacks GitHub Models access. Visit github.com/marketplace/models, accept the terms, then try again.');
         }
-        res.status(500);
-        throw new Error('Macro compilation failed. Check that your GitHub PAT is valid and try again.');
+        if (e.status === 429 || e.message?.includes('429')) {
+            res.status(429);
+            throw new Error('GitHub Models rate limit reached for your account (this is separate from your PAT itself — the PAT can be perfectly valid). Please wait a minute and try again.');
+        }
+        // Any other failure (malformed/non-JSON LLM output, timeout, network error,
+        // upstream 5xx, etc.) — surface the real cause instead of incorrectly
+        // blaming a valid PAT, which was misleading and unhelpful for debugging.
+        res.status(502);
+        throw new Error(`Macro compilation failed: ${e.message}`);
     }
 
     res.status(200).json({
@@ -963,6 +970,10 @@ Valid step types:
         if (e.status === 403 || e.message?.includes('403')) {
             res.status(422);
             throw new Error('GitHub token lacks GitHub Models access. Visit github.com/marketplace/models, accept the terms, then try again.');
+        }
+        if (e.status === 429 || e.message?.includes('429')) {
+            res.status(429);
+            throw new Error('GitHub Models rate limit reached for your account (this is separate from your PAT itself — the PAT can be perfectly valid). Please wait a minute and try again.');
         }
         res.status(422);
         throw new Error(`Macro edit failed: ${e.message}`);
