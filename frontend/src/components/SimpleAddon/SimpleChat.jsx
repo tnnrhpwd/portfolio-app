@@ -36,36 +36,12 @@ const ACTIVE_CHAT_KEY = 'csimple_active_chat';
 const DEVICE_LOCAL_KEYS = ['micDeviceId', 'sttEnabled'];
 const DEVICE_SETTINGS_KEY = 'csimple_device_settings';
 
-// Full first-time setup walkthrough appended to GitHub-Models error messages
-// (401 / 403). Keeps the four error sites consistent.
-const GITHUB_PAT_SETUP_STEPS = `**First-time setup — get Simple talking to GitHub Models:**
-
-1. **Accept the GitHub Models terms** (one-time, per account)
-   Open [github.com/marketplace/models](https://github.com/marketplace/models), pick any model (e.g. *GPT-4o mini*), and click **Use this model** to accept the ToS prompt. Without this, every model returns 403.
-
-2. **Create a fine-grained Personal Access Token**
-   Go to [github.com/settings/personal-access-tokens](https://github.com/settings/personal-access-tokens) → **Generate new token** → **Fine-grained**.
-   - *Token name:* anything (e.g. \`simple-models\`)
-   - *Resource owner:* your own user account (not an org, unless that org has GitHub Models enabled)
-   - *Repository access:* **Public repositories (read-only)** is fine — no repos are actually used
-   - *Permissions → Account permissions:* set **\`Models\`** to **Read-only**
-
-3. **Copy the token** (\`github_pat_…\`) — you only see it once.
-
-4. **Paste it into Simple**
-   Open **Settings → Simple → GitHub Personal Access Token**, paste, then **Save**.
-
-5. **Reload this page** (Ctrl + Shift + R) and retry the chat.
-
-> Classic \`ghp_…\` tokens **cannot** carry the \`models:read\` permission and will fail with 401. Use a fine-grained PAT.`;
-
 // Known, user-actionable configuration/auth errors that already show clear
 // remediation steps in the chat itself. These are not application bugs, so
 // they must not be auto-reported — doing so previously flooded the bug
-// tracker with dozens of duplicate reports for things like an expired PAT.
+// tracker with dozens of duplicate reports for things like a rate limit.
 const KNOWN_CONFIG_ERROR_PATTERNS = [
   /not configured/i,
-  /PAT may have expired or been revoked/i,
   /addon is not running/i,
   /no access to model/i,
   /authentication failed \(401\)/i,
@@ -127,8 +103,6 @@ const DEFAULT_SETTINGS = {
   sttEnabled: false,
   micDeviceId: '',
   llmProvider: 'portfolio',   // Default to portfolio cloud when no addon
-  githubToken: '',
-  githubModel: 'gpt-4o-mini',
   portfolioModel: 'gpt-4o-mini',
   cloudSync: false,
 };
@@ -137,10 +111,9 @@ const DEFAULT_SETTINGS = {
  * SimpleChat — the main AI chat interface.
  * 
  * This is the Simple.Webapp UI integrated into the portfolio app.
- * It supports three LLM providers:
+ * It supports two LLM providers:
  *   1. Portfolio backend (cloud) — uses Redux compressData
  *   2. Local addon (HuggingFace) — direct fetch to localhost
- *   3. GitHub Models — via addon or direct
  * 
  * @param {object} props
  * @param {object} props.addonStatus - { isConnected, baseUrl, version }
@@ -310,10 +283,6 @@ function SimpleChat({
             for (const key of DEVICE_LOCAL_KEYS) {
               if (key in deviceLocal) merged[key] = deviceLocal[key];
             }
-            // One-time migration: if server doesn't have githubToken yet but localStorage does, use it
-            if (!merged.githubToken && deviceLocal.githubToken) {
-              merged.githubToken = deviceLocal.githubToken;
-            }
             setSettings(prev => ({ ...prev, ...merged }));
           }
           setIsSettingsLoaded(true);
@@ -398,14 +367,9 @@ function SimpleChat({
             for (const key of DEVICE_LOCAL_KEYS) {
               if (key in deviceLocal) merged[key] = deviceLocal[key];
             }
-            // One-time migration: if cloud doesn't have githubToken yet but localStorage does, use it
-            if (!merged.githubToken && deviceLocal.githubToken) {
-              merged.githubToken = deviceLocal.githubToken;
-            }
             setSettings(merged);
 
-            // Push merged settings (including githubToken) down to the local addon
-            // so the addon's GitHub Models calls use the same PAT.
+            // Push merged settings down to the local addon so it stays in sync.
             if (isAddonConnected) {
               const toAddon = { ...merged };
               DEVICE_LOCAL_KEYS.forEach(k => delete toAddon[k]);
@@ -433,19 +397,6 @@ function SimpleChat({
             }
 
             setCloudSyncStatus('synced');
-          } else {
-            // Cloud sync is NOT enabled, but still pull the githubToken from cloud
-            // so the user doesn't have to re-enter it on every new device
-            if (cloudSettings.githubToken && !settings.githubToken) {
-              setSettings(prev => ({ ...prev, githubToken: cloudSettings.githubToken }));
-              // Also push the token down to the local addon if it's connected,
-              // since the addon stores its own settings file and won't have it yet.
-              if (isAddonConnected) {
-                saveAddonSettings({ githubToken: cloudSettings.githubToken }).catch(err => {
-                  console.warn('[Simple] Failed to push githubToken to addon:', err);
-                });
-              }
-            }
           }
         } else if (settings.cloudSync && user.token) {
           // Cloud is empty but local has sync enabled — push local settings up
@@ -543,7 +494,7 @@ function SimpleChat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [portfolioChatResponse, portfolioChatLoading]);
 
-  // Handle portfolio chat errors (e.g. missing GitHub token, server errors)
+  // Handle portfolio chat errors (e.g. auth/session errors, server errors)
   useEffect(() => {
     if (portfolioChatError && !portfolioChatLoading) {
       let content;
@@ -556,15 +507,10 @@ function SimpleChat({
         const upgradeLine = canUpgrade ? `\n\n[Upgrade Now →](/pay?plan=pro)` : `\n\n_Upgrading is temporarily paused — please check back soon._`;
         content = `**Usage Limit Reached**\n\n${errStr}\n\n---\n💡 **Upgrade your plan** to get more credits and higher limits:\n${proLine}${upgradeLine}`;
       } else if (errStr.includes('403') || errStr.toLowerCase().includes('requires a')) {
-        const isGhModels = /no access to model|models\.github\.ai|github models/i.test(errStr);
-        if (isGhModels) {
-          content = `**GitHub Models — No Access to Model (403)**\n\n${errStr}\n\n> Your PAT is authenticating fine — GitHub is just refusing this specific model for your account.\n\n---\n${GITHUB_PAT_SETUP_STEPS}`;
-        } else {
-          const viewPlansLine = canUpgrade ? '[View Plans →](/pay?plan=pro)' : '_Upgrading is temporarily paused — please check back soon._';
-          content = `**Model Access Restricted**\n\n${errStr}\n\n---\n🔒 This model requires a higher membership tier.\n\n${viewPlansLine}`;
-        }
+        const viewPlansLine = canUpgrade ? '[View Plans →](/pay?plan=pro)' : '_Upgrading is temporarily paused — please check back soon._';
+        content = `**Model Access Restricted**\n\n${errStr}\n\n---\n🔒 This model requires a higher membership tier.\n\n${viewPlansLine}`;
       } else if (errStr.includes('401') || errStr.toLowerCase().includes('unauthorized')) {
-        content = `**GitHub Models — Authentication Failed (401)**\n\nThe GitHub Models endpoint (\`models.github.ai/inference\`) rejected your PAT.\n\n---\n${GITHUB_PAT_SETUP_STEPS}`;
+        content = `**Authentication Failed (401)**\n\nYour session may have expired. Please sign in again and retry.`;
       } else {
         content = `**Error:** ${errStr}`;
       }
@@ -902,15 +848,6 @@ function SimpleChat({
 
       const provider = settings.llmProvider || 'portfolio';
 
-      // If user picked GitHub Models but no addon is reachable (e.g. mobile,
-      // or desktop without the addon installed), route through the backend
-      // cloud path instead — it talks to GitHub Models on the user's behalf
-      // using the same encrypted PAT that was synced to their account. This
-      // lets the chat work everywhere; addon-only features (local HF models,
-      // screen actions, etc.) still require the addon.
-      const useCloudFallback =
-        provider === 'github' && !isAddonConnected && !isRemoteAddonOnline;
-
       // ── Scan-to-Connect guard ────────────────────────────────────────
       // If the user arrived via the QR code (?addon=... saved in localStorage)
       // their intent is explicitly "control my PC from this device". The
@@ -943,13 +880,11 @@ function SimpleChat({
         return;
       }
 
-      if (provider === 'portfolio' || useCloudFallback) {
+      if (provider === 'portfolio') {
         if (!onPortfolioChat && !onPortfolioChatStream) {
           throw new Error('Portfolio chat not available. Please log in.');
         }
-        const portfolioModel = useCloudFallback
-          ? (settings.githubModel || 'gpt-4o-mini')
-          : (settings.portfolioModel || 'gpt-4o-mini');
+        const portfolioModel = settings.portfolioModel || 'gpt-4o-mini';
 
         // ── /compare handler — send last user message to a second model ──
         const slashCmd = handleSlashCommand(text);
@@ -1148,15 +1083,10 @@ function SimpleChat({
                 const upgradeLine = canUpgrade ? `\n\n[Upgrade Now →](/pay?plan=pro)` : `\n\n_Upgrading is temporarily paused — please check back soon._`;
                 displayContent = `**Usage Limit Reached**\n\n${errMsg}\n\n---\n💡 **Upgrade your plan** to get more credits and higher limits:\n${proLine}${upgradeLine}`;
               } else if (statusCode === 403) {
-                const isGhModels = /no access to model|models\.github\.ai|github models/i.test(String(errMsg || ''));
-                if (isGhModels) {
-                  displayContent = `**GitHub Models — No Access to Model (403)**\n\n${errMsg}\n\n> Your PAT is authenticating fine — GitHub is just refusing this specific model for your account.\n\n---\n${GITHUB_PAT_SETUP_STEPS}`;
-                } else {
-                  const viewPlansLine = canUpgrade ? '[View Plans →](/pay?plan=pro)' : '_Upgrading is temporarily paused — please check back soon._';
-                  displayContent = `**Model Access Restricted**\n\n${errMsg}\n\n---\n🔒 This model requires a higher membership tier.\n\n${viewPlansLine}`;
-                }
+                const viewPlansLine = canUpgrade ? '[View Plans →](/pay?plan=pro)' : '_Upgrading is temporarily paused — please check back soon._';
+                displayContent = `**Model Access Restricted**\n\n${errMsg}\n\n---\n🔒 This model requires a higher membership tier.\n\n${viewPlansLine}`;
               } else if (statusCode === 401 || errMsg?.includes?.('401') || errMsg?.toLowerCase?.().includes?.('unauthorized')) {
-                displayContent = `**GitHub Models — Authentication Failed (401)**\n\nThe GitHub Models endpoint (\`models.github.ai/inference\`) rejected your PAT.\n\n---\n${GITHUB_PAT_SETUP_STEPS}`;
+                displayContent = `**Authentication Failed (401)**\n\nYour session may have expired. Please sign in again and retry.`;
               } else {
                 displayContent = `**Error:** ${errMsg}`;
               }
@@ -1190,21 +1120,16 @@ function SimpleChat({
         return; // Don't set isGenerating to false yet — wait for response
       }
 
-      // Local addon or GitHub Models — direct fetch (requires addon)
-      // Note: github+no-addon already fell through to the cloud path above,
-      // so reaching here with provider === 'github' is impossible. Only the
-      // 'local' provider can still trip this guard.
+      // Local addon — direct fetch (requires addon)
       if (!isAddonConnected && !isRemoteAddonOnline) {
         throw new Error(
           'Cannot use the local provider — the Simple addon is not running. ' +
-          'Switch to **GitHub Models** or **Cloud (Portfolio)** in Settings to chat without the addon, ' +
+          'Switch to **Cloud (Portfolio)** in Settings to chat without the addon, ' +
           'or install and start the desktop addon to run local models.'
         );
       }
 
-      const model = provider === 'github'
-        ? (settings.githubModel || 'gpt-4o-mini')
-        : selectedModel;
+      const model = selectedModel;
 
       // ── Remote addon relay path (phone → cloud → desktop) ──
       if (!isAddonConnected && isRemoteAddonOnline) {
@@ -1326,7 +1251,7 @@ function SimpleChat({
     } catch (err) {
       let errContent = `**Error:** ${err.message}`;
       if (err.message?.includes('401') || err.message?.toLowerCase()?.includes('unauthorized')) {
-        errContent = `**GitHub Models — Authentication Failed (401)**\n\nThe GitHub Models endpoint (\`models.github.ai/inference\`) rejected your PAT.\n\n---\n${GITHUB_PAT_SETUP_STEPS}`;
+        errContent = `**Authentication Failed (401)**\n\nYour session may have expired. Please sign in again and retry.`;
       }
       const errorMessage = {
         id: (Date.now() + 1).toString(),
@@ -1550,28 +1475,12 @@ function SimpleChat({
           onClose={() => setShowAdvancedSettings(false)}
           settings={settings}
           onSettingsChange={(newSettings) => {
-            const prevSettings = settings;
             setSettings(newSettings);
             // Sync to addon if connected
             if (isAddonConnected) {
               const toSync = { ...newSettings };
               DEVICE_LOCAL_KEYS.forEach(k => delete toSync[k]);
               saveAddonSettings(toSync).catch(() => {});
-            }
-            // Always persist githubToken to cloud when logged in (backend needs it for GitHub Models API)
-            // even if full cloudSync is not enabled
-            if (user?.token && newSettings.githubToken !== prevSettings.githubToken) {
-              // Fetch existing cloud settings, merge the new token in, and save
-              getCloudSettings(user.token).then(cloudData => {
-                const existing = cloudData?.settings || {};
-                saveCloudSettings(user.token, { ...existing, githubToken: newSettings.githubToken }).catch(err => {
-                  console.warn('[Simple] Failed to persist githubToken to cloud:', err);
-                });
-              }).catch(err => {
-                // If we can't fetch existing, just save the token
-                saveCloudSettings(user.token, { githubToken: newSettings.githubToken }).catch(() => {});
-                console.warn('[Simple] Failed to fetch cloud settings for token persist:', err);
-              });
             }
           }}
           isOnline={isOnline}

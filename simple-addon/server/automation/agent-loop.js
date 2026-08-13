@@ -25,14 +25,17 @@
  *        - stop() called externally
  *        - kill switch activated
  *
- * The loop uses the addon's existing GitHubModelsService for LLM calls
- * (injected via opts.llmClient OR pulled from server/github-models-service).
+ * The loop talks to an LLM via the §7.1 provider seam (llm-provider.js),
+ * which ALWAYS proxies through the portfolio backend's HTTP API using the
+ * user's JWT — the addon never calls an LLM provider directly (injected via
+ * opts.llmClient for tests, or pulled from ./llm-provider otherwise).
  */
 
-const path = require('path');
-
 const DEFAULT_MAX_STEPS = 20;
-const DEFAULT_MODEL_ID = 'openai/gpt-4o-mini';
+// No default model id — the backend picks its own default (Claude Haiku 4.5
+// via Bedrock) when `modelId` isn't set. Model selection is a backend
+// concern now that all LLM calls are proxied.
+const DEFAULT_MODEL_ID = undefined;
 const REFLECT_EVERY = 5;
 const STEP_DELAY_MS = 400;
 
@@ -182,22 +185,13 @@ function createAgentLoop({ wsClient, registry, contextFactory, log = console.log
     function _lazyLoadLlm() {
         if (llmClient) return llmClient;
         // Lazy require to avoid circular deps at server boot. Routed through the
-        // §7.1 provider seam (llm-provider.js) instead of instantiating
-        // GitHubModelsService directly — same returned shape, so nothing below
-        // this line changes.
+        // §7.1 provider seam (llm-provider.js), which ALWAYS proxies through the
+        // backend's HTTP API using the user's JWT (already wired via
+        // workspace-client's cloud-relay token getter) — no local token
+        // discovery needed here anymore.
         try {
             const { createLlmProvider } = require('./llm-provider');
             llmClient = createLlmProvider();
-            // Token: pull from webapp settings (same pattern the chat endpoint uses).
-            try {
-                const fs = require('fs');
-                const os = require('os');
-                const cfgPath = path.join(os.homedir(), 'Documents', 'Simple', 'Resources', 'settings.json');
-                if (fs.existsSync(cfgPath)) {
-                    const s = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
-                    if (s.githubToken) llmClient.setToken(s.githubToken);
-                }
-            } catch {}
             return llmClient;
         } catch (e) {
             throw new Error('No LLM client available: ' + e.message);

@@ -978,7 +978,8 @@ export async function remountAutomation() {
 
 /**
  * Compile an English macro description into structured skill steps via the
- * addon's NL compiler (LLM-backed). Results are cached by description hash.
+ * addon's NL compiler (proxied through the backend to Bedrock server-side).
+ * Results are cached by description hash.
  *
  * @param {string} description - e.g. "mine stone in minecraft until I press escape"
  * @param {object} [opts]
@@ -986,10 +987,10 @@ export async function remountAutomation() {
  *   @param {boolean} [opts.noCache] - skip cache and always re-compile
  * @returns {Promise<{ steps: Array, meta: object }>}
  */
-export async function compileNaturalMacro(description, { context, noCache, githubToken } = {}) {
+export async function compileNaturalMacro(description, { context, noCache } = {}) {
   const res = await addonFetch('/api/skill/compile-natural', {
     method: 'POST',
-    body: JSON.stringify({ description, context, noCache: !!noCache, githubToken }),
+    body: JSON.stringify({ description, context, noCache: !!noCache }),
   });
   return res.json();
 }
@@ -1002,13 +1003,12 @@ export async function compileNaturalMacro(description, { context, noCache, githu
  * @param {string} instruction - description of the desired change
  * @param {object} [opts]
  *   @param {string} [opts.context]
- *   @param {string} [opts.githubToken]
  * @returns {Promise<{ ok: boolean, steps: Array, meta: object }>}
  */
-export async function editMacroNatural(steps, instruction, { context, githubToken } = {}) {
+export async function editMacroNatural(steps, instruction, { context } = {}) {
   const res = await addonFetch('/api/skill/edit-natural', {
     method: 'POST',
-    body: JSON.stringify({ steps, instruction, context, githubToken }),
+    body: JSON.stringify({ steps, instruction, context }),
   });
   return res.json();
 }
@@ -1375,13 +1375,12 @@ export async function getPortfolioLLMProviders(token) {
 
 // ─── Cloud Settings Sync API Methods ────────────────────────────────────────
 
-// Backend-side ciphertext marker for secrets-at-rest. If we ever see one of
-// these on the wire it means the backend failed to decrypt (stale deploy,
-// JWT_SECRET mismatch, etc.). The frontend MUST refuse to use such a value
-// as if it were the real secret — otherwise we'd send ciphertext to GitHub
-// and the user would see a confusing "PAT expired" 401.
+// Backend-side ciphertext marker for secrets-at-rest. GitHub PAT support has
+// been fully retired along with GitHub Models — this list is now empty, but
+// the scrub machinery is kept generic so any future sensitive setting can
+// opt in the same way.
 const ENCRYPTED_PREFIX = 'enc:v1:';
-const SENSITIVE_SETTING_KEYS = ['githubToken'];
+const SENSITIVE_SETTING_KEYS = [];
 
 function scrubEncryptedSecrets(settings) {
   if (!settings || typeof settings !== 'object') return settings;

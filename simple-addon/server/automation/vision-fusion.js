@@ -65,18 +65,12 @@ const findVisualTarget = {
             width: args.region?.width, height: args.region?.height,
         });
 
-        // 2) Ask vision model for coords
+        // 2) Ask vision model for coords — proxied through the backend
+        // (chatWithImage → backend-proxy provider), never a direct LLM call.
         let coords = null;
         try {
             const { createLlmProvider } = require('./llm-provider');
             const llm = createLlmProvider();
-            // Reuse the token loading pattern from agent-loop
-            const path = require('path'); const fs = require('fs'); const os = require('os');
-            const cfgPath = path.join(os.homedir(), 'Documents', 'Simple', 'Resources', 'settings.json');
-            if (fs.existsSync(cfgPath)) {
-                const s = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
-                if (s.githubToken) llm.setToken(s.githubToken);
-            }
             const prompt = [
                 `Find this UI element in the screenshot: "${args.description}".`,
                 'Reply with ONLY a JSON object: {"x": <pixel>, "y": <pixel>, "confidence": 0-1, "note": "<short>"}',
@@ -87,7 +81,6 @@ const findVisualTarget = {
                 prompt,
                 imageBase64: cap.base64 || cap.buffer.toString('base64'),
                 mimeType: 'image/png',
-                modelId: 'openai/gpt-4o-mini',
                 temperature: 0,
                 maxLength: 200,
             });

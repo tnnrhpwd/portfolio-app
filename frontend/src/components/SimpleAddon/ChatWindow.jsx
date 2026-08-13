@@ -237,9 +237,7 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
         <div className="chat-window__header-info">
           <h1 className="chat-window__title">{conversation?.title || 'New Chat'}</h1>
           <span className="chat-window__model-badge">
-            {settings?.llmProvider === 'github'
-              ? (settings.githubModel || 'gpt-4o-mini')
-              : selectedModel.split('/').pop()}
+            {selectedModel.split('/').pop()}
           </span>
         </div>
         <div className="chat-window__header-spacer" />

@@ -53,6 +53,36 @@ const dynamodb = DynamoDBDocumentClient.from(client);
 const TABLE_NAME = 'Simple';
 const CSIMPLE_CREATED_AT = '2000-01-01T00:00:00.000Z';
 
+// ─── Shared LLM call helper (agent-chat/agent-vision) ──────────────────────
+// Both routes below proxy to AWS Bedrock (Claude Haiku 4.5) via the same
+// bedrockService.js adapter compileMacroNatural/editMacroNatural use below —
+// server-side only, using the operator's own AWS credentials. No per-user
+// token is needed (unlike the old GitHub Models per-user PAT this replaces):
+// the user's JWT (checked by the `protect` middleware upstream) is enough to
+// authorize the call; Bedrock usage is billed to the app operator's account.
+
+/**
+ * Call the shared Bedrock-backed completion adapter and normalize the
+ * response to `{ text, toolCalls, message, usage }` — the shape every caller
+ * of this file's agent* functions (and the addon's llm-provider.js
+ * backend-proxy) already expects.
+ */
+async function _callAgentLlm(messages, { temperature, maxTokens, tools, tool_choice } = {}) {
+    const { createBedrockCompletion } = require('../services/bedrockService');
+    const response = await createBedrockCompletion(messages, {
+        temperature: typeof temperature === 'number' ? temperature : 0.7,
+        maxTokens: typeof maxTokens === 'number' ? maxTokens : 1000,
+        ...(Array.isArray(tools) && tools.length ? { tools, tool_choice: tool_choice || 'auto' } : {}),
+    });
+    const choice = response?.choices?.[0];
+    return {
+        text: choice?.message?.content?.trim() || '',
+        toolCalls: choice?.message?.tool_calls || null,
+        message: choice?.message || null,
+        usage: response?.usage || null,
+    };
+}
+
 // ─── Allow-lists & validation ────────────────────────────────────────────────
 
 const ALLOWED_KINDS = new Set([
@@ -947,6 +977,104 @@ Valid step types:
     });
 });
 
+// @desc    Generic tool-calling chat completion for the Simple Addon's
+//          automation agent loop (agent-loop.js / tools/skill.js repair /
+//          screenshot_check via the §7.1 llm-provider.js backend-proxy
+//          seam). Unlike compile-natural/edit-natural above (which build
+//          their own fixed prompt), this accepts an arbitrary messages
+//          array + tool schemas from the caller and returns the raw
+//          tool-call decision — the addon's own agent loop executes any
+//          tool calls locally (these are Windows-automation tools, not
+//          server-side tools) and may call this endpoint again with the
+//          tool results appended.
+// @route   POST /api/data/csimple/agent-chat
+// @access  Private
+const agentChatProxy = asyncHandler(async (req, res) => {
+    if (!req.user) unauthorized(res);
+
+    const { messages, systemPrompt, tools, tool_choice, temperature, maxTokens } = req.body || {};
+    if (!Array.isArray(messages) || messages.length === 0) {
+        badRequest(res, 'messages must be a non-empty array');
+    }
+    if (JSON.stringify(messages).length > 100000) badRequest(res, 'messages payload too large');
+    if (tools !== undefined && !Array.isArray(tools)) badRequest(res, 'tools must be an array');
+
+    // Prepend systemPrompt as a system message unless the caller already put
+    // one at messages[0] (avoids double system messages).
+    const fullMessages = (systemPrompt && messages[0]?.role !== 'system')
+        ? [{ role: 'system', content: String(systemPrompt).slice(0, 8000) }, ...messages]
+        : messages;
+
+    let result;
+    try {
+        result = await _callAgentLlm(fullMessages, {
+            temperature: typeof temperature === 'number' ? temperature : 0.7,
+            maxTokens: typeof maxTokens === 'number' ? maxTokens : 1000,
+            tools,
+            tool_choice,
+        });
+    } catch (e) {
+        if (e.code === 'BEDROCK_THROTTLED') {
+            res.status(429);
+            throw new Error('Bedrock is rate limiting requests right now. Please wait a minute and try again.');
+        }
+        if (e.code === 'BEDROCK_ACCESS_DENIED') {
+            res.status(502);
+            throw new Error('Bedrock model access not enabled for this AWS account/region. An operator needs to enable "Claude Haiku 4.5" in the Bedrock console (us-east-1) and grant bedrock:InvokeModel to the backend\'s IAM user.');
+        }
+        res.status(502);
+        throw new Error(`Agent chat failed: ${e.message}`);
+    }
+
+    res.status(200).json({ ok: true, ...result });
+});
+
+// @desc    Multimodal (vision) completion for the addon's vision-fusion /
+//          screenshot-check / webcam-description call sites, proxied
+//          through the backend so Bedrock (Claude Haiku 4.5, which supports
+//          image input) never needs to be reachable from the addon.
+// @route   POST /api/data/csimple/agent-vision
+// @access  Private
+const agentVisionProxy = asyncHandler(async (req, res) => {
+    if (!req.user) unauthorized(res);
+
+    const { prompt, imageBase64, mimeType, temperature, maxTokens } = req.body || {};
+    if (!prompt || typeof prompt !== 'string') badRequest(res, 'prompt is required');
+    if (!imageBase64 || typeof imageBase64 !== 'string') badRequest(res, 'imageBase64 is required');
+    // Base64 JPEG/PNG screenshots are typically well under 2MB; cap well above
+    // that (base64 inflates size ~33%) to block abuse without blocking legit use.
+    if (imageBase64.length > 8_000_000) badRequest(res, 'image too large');
+
+    const messages = [{
+        role: 'user',
+        content: [
+            { type: 'text', text: prompt.slice(0, 2000) },
+            { type: 'image_url', image_url: { url: `data:${mimeType || 'image/jpeg'};base64,${imageBase64}` } },
+        ],
+    }];
+
+    let result;
+    try {
+        result = await _callAgentLlm(messages, {
+            temperature: typeof temperature === 'number' ? temperature : 0.1,
+            maxTokens: typeof maxTokens === 'number' ? maxTokens : 300,
+        });
+    } catch (e) {
+        if (e.code === 'BEDROCK_THROTTLED') {
+            res.status(429);
+            throw new Error('Bedrock is rate limiting requests right now. Please wait a minute and try again.');
+        }
+        if (e.code === 'BEDROCK_ACCESS_DENIED') {
+            res.status(502);
+            throw new Error('Bedrock model access not enabled for this AWS account/region. An operator needs to enable "Claude Haiku 4.5" in the Bedrock console (us-east-1) and grant bedrock:InvokeModel to the backend\'s IAM user.');
+        }
+        res.status(502);
+        throw new Error(`Agent vision failed: ${e.message}`);
+    }
+
+    res.status(200).json({ ok: true, text: result.text });
+});
+
 module.exports = {
     listWorkspace,
     getWorkspaceItem,
@@ -960,6 +1088,8 @@ module.exports = {
     getWorkspaceTemplates,
     compileMacroNatural,
     editMacroNatural,
+    agentChatProxy,
+    agentVisionProxy,
     // Exported for use by llmService when assembling system prompts:
     _internal: {
         ALLOWED_KINDS,

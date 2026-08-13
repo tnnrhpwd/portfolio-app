@@ -127,11 +127,10 @@ function _withMetadata(skill, patch) {
  * @param {object} opts
  *   @param {string}  [opts.goalDescription] - short user-provided goal text
  *   @param {object}  [opts.llmClient]       - injectable LLM client (tests)
- *   @param {string}  [opts.inlineToken]     - GitHub Models token override
  *   @param {boolean} [opts.noCache]         - skip cache lookup
  * @returns {Promise<object>} a new skill object (never mutates the input)
  */
-async function generalizeSkill(skill, { goalDescription, llmClient, inlineToken, noCache } = {}) {
+async function generalizeSkill(skill, { goalDescription, llmClient, noCache } = {}) {
     if (!skill || !Array.isArray(skill.steps)) {
         throw new Error('generalizeSkill: invalid skill (expected .steps array)');
     }
@@ -163,7 +162,7 @@ async function generalizeSkill(skill, { goalDescription, llmClient, inlineToken,
     let steps;
     try {
         const prompt = _buildPrompt(literalSteps, goalDescription);
-        const raw = await _callLlm(prompt, llmClient, inlineToken, GENERALIZE_SYSTEM_PROMPT);
+        const raw = await _callLlm(prompt, llmClient, GENERALIZE_SYSTEM_PROMPT);
         const parsed = _extractJson(raw);
         steps = parsed.steps || parsed;
         if (!Array.isArray(steps)) throw new Error('LLM did not return a steps array');

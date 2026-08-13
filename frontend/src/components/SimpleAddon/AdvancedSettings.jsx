@@ -872,7 +872,7 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
 
           {activeTab === 'shortcuts' && (
             <div className="adv-section">
-              <ShortcutsManager user={user} addonConnected={!!addonConnected} githubToken={settings?.githubToken || ''} />
+              <ShortcutsManager user={user} addonConnected={!!addonConnected} />
             </div>
           )}
 

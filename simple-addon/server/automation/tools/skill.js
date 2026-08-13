@@ -18,8 +18,6 @@
  *   { skill, steps: [ { tool, args, ok, error?, result? } ], failed }
  */
 
-const path = require('path');
-
 const registry = require('../tool-registry');
 const wsClient = require('../workspace-client');
 const events = require('../events');
@@ -99,30 +97,18 @@ function substituteArgs(args, params) {
 
 /**
  * Resolve an LLM client for the repair fallback. Prefers a client injected via
- * `ctx.llm` (tests / explicit wiring); otherwise lazily constructs the addon's
- * GitHubModelsService the same way agent-loop.js does. Returns null when no
- * client can be built (repair then silently no-ops).
+ * `ctx.llm` (tests / explicit wiring); otherwise lazily constructs the §7.1
+ * backend-proxy provider (llm-provider.js), which ALWAYS proxies through the
+ * backend's HTTP API using the user's JWT. Returns null when no client can be
+ * built (repair then silently no-ops).
  */
 function _resolveLlm(ctx) {
-    if (ctx && ctx.llm && typeof ctx.llm.chat === 'function') return ctx.llm;
+    if (ctx && ctx.llm && (typeof ctx.llm.chat === 'function' || typeof ctx.llm.chatMultimodal === 'function')) return ctx.llm;
     if (_sharedLlm) return _sharedLlm;
     try {
-        // Routed through the §7.1 provider seam (llm-provider.js) instead of
-        // instantiating GitHubModelsService directly — same returned shape
-        // (`.setToken`/`.chat`), so the token-resolution logic below is unchanged.
         const { createLlmProvider } = require('../llm-provider');
-        const client = createLlmProvider();
-        try {
-            const fs = require('fs');
-            const os = require('os');
-            const cfgPath = path.join(os.homedir(), 'Documents', 'Simple', 'Resources', 'settings.json');
-            if (fs.existsSync(cfgPath)) {
-                const s = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
-                if (s.githubToken) client.setToken(s.githubToken);
-            }
-        } catch {}
-        _sharedLlm = client;
-        return client;
+        _sharedLlm = createLlmProvider();
+        return _sharedLlm;
     } catch {
         return null;
     }
@@ -697,21 +683,18 @@ async function _execControlFlow(cf, { params, stepDelay, continueOnError, repair
         try {
             const screenOut = await registry.executeTool('screen_capture', { returnInline: true }, ctx);
             if (!screenOut?.ok) return { tool: 'screenshot_check', ok: true, skipped: 'screen capture failed', condition: cf.condition };
-            // Use vision description to check condition
+            // Use vision description to check condition — proxied through the
+            // backend (chatMultimodal), never a direct LLM call.
             const { createLlmProvider } = require('../llm-provider');
             const llm = _resolveLlm(ctx) || createLlmProvider();
-            const resp = await llm.chat({
-                model: 'openai/gpt-4o-mini',
-                messages: [{
-                    role: 'user',
-                    content: [
-                        { type: 'text', text: `Answer YES or NO only: ${cf.condition}` },
-                        { type: 'image_url', image_url: { url: `data:image/png;base64,${screenOut.result?.base64}`, detail: 'low' } },
-                    ],
-                }],
-                max_tokens: 10,
+            const resp = await llm.chatMultimodal({
+                prompt: `Answer YES or NO only: ${cf.condition}`,
+                imageBase64: screenOut.result?.base64,
+                mimeType: 'image/png',
+                temperature: 0,
+                maxLength: 10,
             });
-            const answer = (resp?.choices?.[0]?.message?.content || '').trim().toUpperCase();
+            const answer = (resp?.text || '').trim().toUpperCase();
             const passed = answer.startsWith('YES');
             return { tool: 'screenshot_check', ok: true, condition: cf.condition, passed, answer };
         } catch (e) {

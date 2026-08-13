@@ -9,18 +9,26 @@
  * into a structured skill step array that can be executed by the skill_run
  * tool or saved as a workspace skill.
  *
- * Pipeline:
- *   1. Hash the input text → check LRU cache (avoids repeat LLM calls)
- *   2. Build a structured prompt with type schema + examples
- *   3. Call LLM (gpt-4o-mini) with JSON-mode output
- *   4. Validate + sanitize the output schema
- *   5. Return validated step array + meta
+ * Pipeline (production):
+ *   1. Hash the input text → check LRU cache (avoids repeat backend calls)
+ *   2. Proxy the raw description/instruction to the portfolio backend's
+ *      compile-natural / edit-natural endpoints (workspace-client.js), which
+ *      build the prompt AND call the LLM (AWS Bedrock) server-side — the
+ *      addon never talks to an LLM provider directly.
+ *   3. Validate + sanitize the returned step array against the schema below
+ *      (defense in depth — the backend already validates too).
+ *   4. Return validated step array + meta.
+ *
+ * Tests inject an `opts.llmClient` to exercise the prompt-building +
+ * validation logic locally without any network call (see nl-compiler.test.js)
+ * — that path still builds a prompt and calls `llmClient.chat()` directly.
  *
  * Security: output is validated against a strict schema before it can be
  * executed; no raw shell commands can be injected through NL input.
  */
 
 const crypto = require('crypto');
+const wsClient = require('./workspace-client');
 
 // ─── Step type definitions ────────────────────────────────────────────────────
 // Keep in sync with tools/skill.js executor.
@@ -247,67 +255,36 @@ function _buildPrompt(description, context) {
 }
 
 // ─── LLM call ─────────────────────────────────────────────────────────────────
-
-async function _callLlm(prompt, llmClient, inlineToken, systemPrompt) {
+// Used directly only when a test injects `opts.llmClient`, or by
+// recorder/generalize.js's skill-generalization pass. Production compile()/
+// editSteps() below bypass this entirely and proxy straight to the backend's
+// compile-natural/edit-natural endpoints (which build their own prompt and
+// call Bedrock server-side).
+async function _callLlm(prompt, llmClient, systemPrompt) {
     if (!llmClient) {
-        try {
-            // Routed through the §7.1 provider seam (llm-provider.js) instead of
-            // instantiating GitHubModelsService directly — same returned shape
-            // (`.setToken`/`.chat`), so the token-resolution logic below is unchanged.
-            const { createLlmProvider } = require('./llm-provider');
-            llmClient = createLlmProvider();
-
-            // Priority 1: Inline token passed directly from the frontend (most reliable —
-            // bypasses DPAPI decryption issues between installed and dev builds).
-            if (inlineToken) {
-                llmClient.setToken(inlineToken);
-            } else {
-                // Priority 2: readWebappSettings() from server/index.js (handles DPAPI decryption)
-                try {
-                    const serverMod = require('../../index');
-                    const settings = serverMod?.readWebappSettings?.();
-                    if (settings?.githubToken) llmClient.setToken(settings.githubToken);
-                } catch {}
-
-                // Priority 3: settings.json direct read (plaintext fallback)
-                if (!llmClient._token) {
-                    const fs = require('fs');
-                    const os = require('os');
-                    const path = require('path');
-                    const cfgPath = path.join(os.homedir(), 'Documents', 'Simple', 'Resources', 'settings.json');
-                    if (fs.existsSync(cfgPath)) {
-                        try {
-                            const s = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
-                            const raw = s?.webapp?.githubToken || s?.githubToken || '';
-                            if (raw && !raw.startsWith('v10') && !raw.startsWith('enc:')) {
-                                llmClient.setToken(raw);
-                            }
-                        } catch {}
-                    }
-                }
-            }
-        } catch (e) {
-            throw new Error('No LLM client available for NL compiler: ' + e.message);
-        }
+        // Routed through the §7.1 provider seam (llm-provider.js), which
+        // ALWAYS proxies through the backend's HTTP API using the user's JWT
+        // — no local token discovery, no direct LLM call.
+        const { createLlmProvider } = require('./llm-provider');
+        llmClient = createLlmProvider();
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
-    try {
-        const response = await llmClient.chat({
-            model: 'openai/gpt-4o-mini',
-            messages: [
-                { role: 'system', content: systemPrompt || 'You are a Windows macro compiler. Output only valid JSON.' },
-                { role: 'user', content: prompt },
-            ],
+    const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('LLM call timed out')), LLM_TIMEOUT_MS);
+    });
+    const response = await Promise.race([
+        llmClient.chat({
+            message: prompt,
+            systemPrompt: systemPrompt || 'You are a Windows macro compiler. Output only valid JSON.',
             temperature: 0.1,
-            max_tokens: 2048,
-            signal: controller.signal,
-        });
-        return response?.choices?.[0]?.message?.content || '';
-    } finally {
-        clearTimeout(timeout);
-    }
+            maxLength: 2048,
+        }),
+        timeoutPromise,
+    ]);
+    // Support both the current provider-seam shape (`.text`) and the raw
+    // OpenAI-style shape (`.choices[0].message.content`) some test doubles
+    // and legacy callers use.
+    return response?.text ?? response?.choices?.[0]?.message?.content ?? '';
 }
 
 function _extractJson(text) {
@@ -322,6 +299,11 @@ function _extractJson(text) {
 /**
  * Compile a natural language description into skill steps.
  *
+ * Production (no `opts.llmClient`): proxies the raw description straight to
+ * the backend's compile-natural endpoint (Bedrock runs server-side; prompt
+ * building happens there too). Tests inject `opts.llmClient` to exercise the
+ * local prompt-building + validation path without any network call.
+ *
  * @param {string} description  - English instruction (e.g. "mine stone until escape")
  * @param {object} opts
  *   @param {string} [opts.context]   - Optional context (e.g. foreground window title)
@@ -329,7 +311,7 @@ function _extractJson(text) {
  *   @param {boolean} [opts.noCache]  - Skip cache lookup
  * @returns {Promise<{steps: Array, meta: {description, cachedAt?, tokens?}}>}
  */
-async function compile(description, { context, llmClient, noCache, inlineToken } = {}) {
+async function compile(description, { context, llmClient, noCache } = {}) {
     if (!description || typeof description !== 'string' || !description.trim()) {
         throw new Error('description is required');
     }
@@ -341,31 +323,33 @@ async function compile(description, { context, llmClient, noCache, inlineToken }
         if (cached) return { steps: cached.steps, meta: { ...cached.meta, fromCache: true } };
     }
 
-    const prompt = _buildPrompt(text, context);
-    const raw = await _callLlm(prompt, llmClient, inlineToken);
-
-    let parsed;
-    try {
-        parsed = _extractJson(raw);
-    } catch (e) {
-        throw new Error(`NL compiler: LLM returned invalid JSON — ${e.message}\nRaw: ${raw.slice(0, 200)}`);
+    let steps;
+    let meta;
+    if (llmClient) {
+        // Test path: build the prompt locally and call the injected fake client.
+        const prompt = _buildPrompt(text, context);
+        const raw = await _callLlm(prompt, llmClient);
+        let parsed;
+        try {
+            parsed = _extractJson(raw);
+        } catch (e) {
+            throw new Error(`NL compiler: LLM returned invalid JSON — ${e.message}\nRaw: ${raw.slice(0, 200)}`);
+        }
+        steps = parsed.steps || parsed;
+        if (!Array.isArray(steps)) throw new Error('NL compiler: LLM did not return a steps array');
+        meta = { description: text, stepCount: steps.length, compiledAt: new Date().toISOString() };
+    } else {
+        // Production path: the backend builds its own prompt and calls Bedrock.
+        const backendResult = await wsClient.compileNaturalViaBackend(text, context);
+        steps = backendResult?.steps;
+        if (!Array.isArray(steps)) throw new Error('NL compiler: backend did not return a steps array');
+        meta = { description: text, ...backendResult?.meta, stepCount: steps.length };
     }
 
-    const steps = parsed.steps || parsed;
-    if (!Array.isArray(steps)) throw new Error('NL compiler: LLM did not return a steps array');
-
-    // Validate
+    // Validate (defense in depth — the backend already validates too).
     validateSteps(steps);
 
-    const result = {
-        steps,
-        meta: {
-            description: text,
-            stepCount: steps.length,
-            compiledAt: new Date().toISOString(),
-        },
-    };
-
+    const result = { steps, meta };
     _cacheSet(hash, result);
     return result;
 }
@@ -461,44 +445,49 @@ function _buildEditPrompt(stepsJson, instruction, context) {
  * Modify an existing compiled macro's steps using a natural-language
  * instruction (e.g. "press z after the shift click").
  *
+ * Production (no `opts.llmClient`): proxies straight to the backend's
+ * edit-natural endpoint. Tests inject `opts.llmClient` for a local,
+ * no-network prompt-building + validation path.
+ *
  * @param {Array} steps        - current step array (either schema)
  * @param {string} instruction - English description of the desired change
  * @param {object} opts
  *   @param {string} [opts.context]   - optional env context
  *   @param {object} [opts.llmClient] - injectable LLM client (tests)
- *   @param {string} [opts.inlineToken]
  * @returns {Promise<{steps: Array, meta: object}>}
  */
-async function editSteps(steps, instruction, { context, llmClient, inlineToken } = {}) {
+async function editSteps(steps, instruction, { context, llmClient } = {}) {
     if (!Array.isArray(steps) || steps.length === 0) throw new Error('steps must be a non-empty array');
     if (!instruction || typeof instruction !== 'string' || !instruction.trim()) {
         throw new Error('instruction is required');
     }
     const text = instruction.trim().slice(0, 1000);
-    const stepsJson = JSON.stringify(steps).slice(0, 12_000);
 
-    const prompt = _buildEditPrompt(stepsJson, text, context);
-    const raw = await _callLlm(prompt, llmClient, inlineToken, 'You are a Windows macro editor. Output only valid JSON.');
-
-    let parsed;
-    try {
-        parsed = _extractJson(raw);
-    } catch (e) {
-        throw new Error(`NL editor: LLM returned invalid JSON — ${e.message}\nRaw: ${raw.slice(0, 200)}`);
+    let newSteps;
+    let meta;
+    if (llmClient) {
+        // Test path: build the prompt locally and call the injected fake client.
+        const stepsJson = JSON.stringify(steps).slice(0, 12_000);
+        const prompt = _buildEditPrompt(stepsJson, text, context);
+        const raw = await _callLlm(prompt, llmClient, 'You are a Windows macro editor. Output only valid JSON.');
+        let parsed;
+        try {
+            parsed = _extractJson(raw);
+        } catch (e) {
+            throw new Error(`NL editor: LLM returned invalid JSON — ${e.message}\nRaw: ${raw.slice(0, 200)}`);
+        }
+        newSteps = parsed.steps || parsed;
+        meta = { instruction: text, stepCount: Array.isArray(newSteps) ? newSteps.length : 0, previousStepCount: steps.length, editedAt: new Date().toISOString() };
+    } else {
+        // Production path: the backend builds its own prompt and calls Bedrock.
+        const backendResult = await wsClient.editNaturalViaBackend(steps, text, context);
+        newSteps = backendResult?.steps;
+        meta = { instruction: text, ...backendResult?.meta, previousStepCount: steps.length };
     }
 
-    const newSteps = parsed.steps || parsed;
     _validateEditedSteps(newSteps);
 
-    return {
-        steps: newSteps,
-        meta: {
-            instruction: text,
-            stepCount: newSteps.length,
-            previousStepCount: steps.length,
-            editedAt: new Date().toISOString(),
-        },
-    };
+    return { steps: newSteps, meta: { ...meta, stepCount: newSteps.length } };
 }
 
 module.exports = {

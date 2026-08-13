@@ -25,9 +25,9 @@
  *     real mouse cursor. Don't run this while doing other work on the box.
  *   - Scenario 5 (perceive human-typed input) needs a human at the keyboard;
  *     it's skipped unless --interactive is passed.
- *   - Scenario 8 (planner/NL-driven auto-execution) needs an LLM token; it's
- *     skipped (not failed) unless one is resolvable via the GITHUB_TOKEN env
- *     var or ~/Documents/Simple/Resources/settings.json's `githubToken`.
+ *   - Scenario 8 (planner/NL-driven auto-execution) needs a signed-in JWT
+ *     (this addon proxies all LLM calls through the backend); it's skipped
+ *     (not failed) unless one is resolvable — sign in via the web app once.
  *
  * Output: a human-readable summary to stdout, a JSON results log appended to
  * eval/live-results/<timestamp>.json, and a non-zero exit code if any
@@ -372,28 +372,22 @@ async function scenario7() {
 
 // ─── Scenario 8: plain-English instruction -> planner decides the steps ───
 function _resolveLlmToken() {
-    if (process.env.GITHUB_TOKEN) return process.env.GITHUB_TOKEN;
     try {
-        const cfgPath = path.join(os.homedir(), 'Documents', 'Simple', 'Resources', 'settings.json');
-        if (fs.existsSync(cfgPath)) {
-            const s = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
-            if (s.githubToken) return s.githubToken;
-        }
-    } catch (e) { /* best-effort */ }
-    return null;
+        const wsClient = require('../workspace-client');
+        return wsClient.getToken();
+    } catch { return null; }
 }
 
 async function scenario8() {
     const token = _resolveLlmToken();
     if (!token) {
-        return { skipped: 'no LLM token resolvable (set GITHUB_TOKEN or Documents/Simple/Resources/settings.json githubToken) — planner scenario requires a real model call' };
+        return { skipped: 'no auth token resolvable — sign in via the web app once, then re-run (all LLM calls proxy through the backend)' };
     }
     const targetFile = sandboxPath('s8', 'date-note-' + Date.now() + '.txt');
     await cleanDesktop();
 
     const { createLlmProvider } = require('../llm-provider');
     const llm = createLlmProvider();
-    llm.setToken(token);
 
     const instruction = 'Open Notepad, type today\'s date in YYYY-MM-DD format, then save the file to exactly this path: ' + targetFile + ' — use the open_app, text_type, and input_tap tools as needed. When done, reply with the text <<GOAL_DONE>>.';
     const toolSchemas = registry.toolSchemasForLlm();

@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import './AIWorkflowSettings.css';
 
 /**
@@ -20,8 +19,6 @@ import './AIWorkflowSettings.css';
  * @param {boolean} [props.sttSupported] - Whether speech recognition is supported in this browser.
  */
 function AIWorkflowSettings({ settings, onChange, user, cloudSyncStatus, sttSupported = true }) {
-  const [showToken, setShowToken] = useState(false);
-
   const update = (key, value) => onChange?.(key, value);
 
   return (
@@ -36,7 +33,6 @@ function AIWorkflowSettings({ settings, onChange, user, cloudSyncStatus, sttSupp
             className="aiw-input"
           >
             <option value="portfolio">☁️ Cloud (Portfolio)</option>
-            <option value="github">🐙 GitHub Models</option>
             <option value="local">💻 Local (HuggingFace)</option>
           </select>
           <span className="aiw-hint">Switch providers depending on where you want responses generated.</span>
@@ -45,23 +41,10 @@ function AIWorkflowSettings({ settings, onChange, user, cloudSyncStatus, sttSupp
         <div className="aiw-item">
           <label className="aiw-label" htmlFor="aiw-model">
             🧠 Model
-            {settings.llmProvider === 'github' && <span className="aiw-badge">🐙 GitHub</span>}
             {(settings.llmProvider === 'portfolio' || !settings.llmProvider) && <span className="aiw-badge">☁️ Cloud</span>}
             {settings.llmProvider === 'local' && <span className="aiw-badge">💻 Local</span>}
           </label>
-          {settings.llmProvider === 'github' ? (
-            <select
-              id="aiw-model"
-              value={settings.githubModel || 'gpt-4o-mini'}
-              onChange={e => update('githubModel', e.target.value)}
-              className="aiw-input"
-            >
-              <option value="gpt-4o-mini">GPT-4o Mini — fast &amp; cheap</option>
-              <option value="gpt-4o">GPT-4o — most capable</option>
-              <option value="gpt-4.1-mini">GPT-4.1 Mini — balanced</option>
-              <option value="gpt-4.1-nano">GPT-4.1 Nano — fastest</option>
-            </select>
-          ) : settings.llmProvider === 'local' ? (
+          {settings.llmProvider === 'local' ? (
             <p className="aiw-note">Local models require the Simple addon to be running.</p>
           ) : (
             <select
@@ -75,43 +58,6 @@ function AIWorkflowSettings({ settings, onChange, user, cloudSyncStatus, sttSupp
             </select>
           )}
         </div>
-
-        {settings.llmProvider === 'github' && (
-          <div className="aiw-item aiw-item-full">
-            <label className="aiw-label" htmlFor="aiw-token">🔑 GitHub Personal Access Token</label>
-            <div className="aiw-token-group">
-              <input
-                id="aiw-token"
-                type={showToken ? 'text' : 'password'}
-                value={settings.githubToken || ''}
-                onChange={e => update('githubToken', e.target.value)}
-                className="aiw-input"
-                placeholder="github_pat_... or ghp_..."
-                autoComplete="off"
-              />
-              <button
-                type="button"
-                className="aiw-token-toggle"
-                onClick={() => setShowToken(v => !v)}
-                aria-label={showToken ? 'Hide token' : 'Show token'}
-              >
-                {showToken ? '🙈' : '👁️'}
-              </button>
-            </div>
-            <span className="aiw-token-status">
-              {settings.githubToken
-                ? (settings.githubToken.startsWith('github_pat_')
-                  ? '✅ Fine-grained PAT detected'
-                  : settings.githubToken.startsWith('ghp_')
-                    ? '✅ Classic PAT detected'
-                    : '⚠️ Unrecognized token format')
-                : 'Required for GitHub Models provider'}
-            </span>
-            <p className="aiw-token-help">
-              Create a <a href="https://github.com/settings/personal-access-tokens" target="_blank" rel="noopener noreferrer">fine-grained PAT</a> with the <strong>Models: Read-only</strong> account permission, or a <a href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer">classic PAT</a> if your account already has GitHub Models access.
-            </p>
-          </div>
-        )}
       </div>
 
       <h3 className="aiw-subtitle">💬 Chat preferences</h3>

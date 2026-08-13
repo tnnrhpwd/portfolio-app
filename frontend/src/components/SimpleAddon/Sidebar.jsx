@@ -80,43 +80,12 @@ function Sidebar({
 
   const agents = settings?.agents || [];
   const selectedAgentId = settings?.selectedAgentId || 'default';
-  const isGitHub = settings?.llmProvider === 'github';
   const isPortfolio = settings?.llmProvider === 'portfolio';
 
   // The effective model depends on the provider
-  const effectiveModel = isGitHub
-    ? (settings?.githubModel || 'gpt-4o-mini')
-    : isPortfolio
-      ? (settings?.portfolioModel || 'gpt-4o-mini')
-      : selectedModel;
-
-  // GitHub Models available client-side (via GitHub PAT / Copilot subscription)
-  // All free with Copilot — rate differs: low ≈ 150 req/day, high ≈ 1500 req/day
-  const GITHUB_MODELS = [
-    // OpenAI
-    { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'github', rate: 'Free · 150/day' },
-    { id: 'gpt-4o', name: 'GPT-4o', provider: 'github', rate: 'Free · 50/day' },
-    { id: 'gpt-4.1', name: 'GPT-4.1', provider: 'github', rate: 'Free · 50/day' },
-    { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini', provider: 'github', rate: 'Free · 150/day' },
-    { id: 'gpt-4.1-nano', name: 'GPT-4.1 Nano', provider: 'github', rate: 'Free · 150/day' },
-    { id: 'o3-mini', name: 'o3-mini', provider: 'github', rate: 'Free · 50/day' },
-    { id: 'o4-mini', name: 'o4-mini', provider: 'github', rate: 'Free · 50/day' },
-    // Anthropic Claude
-    { id: 'claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', provider: 'github', rate: 'Free · 50/day' },
-    { id: 'claude-3.5-haiku', name: 'Claude 3.5 Haiku', provider: 'github', rate: 'Free · 150/day' },
-    // Meta Llama
-    { id: 'Llama-3.3-70B-Instruct', name: 'Llama 3.3 70B', provider: 'github', rate: 'Free · 150/day' },
-    { id: 'Meta-Llama-3.1-405B-Instruct', name: 'Llama 3.1 405B', provider: 'github', rate: 'Free · 50/day' },
-    // Mistral
-    { id: 'Mistral-large-2411', name: 'Mistral Large', provider: 'github', rate: 'Free · 50/day' },
-    { id: 'Mistral-small', name: 'Mistral Small', provider: 'github', rate: 'Free · 150/day' },
-    // DeepSeek
-    { id: 'DeepSeek-R1', name: 'DeepSeek R1', provider: 'github', rate: 'Free · 50/day' },
-    // Microsoft
-    { id: 'Phi-4', name: 'Phi-4', provider: 'github', rate: 'Free · 150/day' },
-    // Cohere
-    { id: 'Cohere-command-r-plus', name: 'Command R+', provider: 'github', rate: 'Free · 50/day' },
-  ];
+  const effectiveModel = isPortfolio
+    ? (settings?.portfolioModel || 'gpt-4o-mini')
+    : selectedModel;
 
   // Derive the user's membership tier from the user prop
   const userTier = React.useMemo(() => {
@@ -415,28 +384,16 @@ function Sidebar({
                 >
                   <option value="portfolio">☁️ Cloud (Portfolio)</option>
                   {isAddonConnected && <option value="local">💻 Local (HuggingFace)</option>}
-                  <option value="github">🐙 GitHub Models</option>
                 </select>
               </div>
 
               <div className="sidebar__setting-group">
                 <label className="sidebar__label">
                   Model
-                  {isGitHub && <span style={{ fontSize: '10px', color: 'var(--accent)', marginLeft: '4px' }}>🐙 GitHub</span>}
                   {isPortfolio && <span style={{ fontSize: '10px', color: 'var(--accent)', marginLeft: '4px' }}>☁️ Cloud</span>}
-                  {!isGitHub && !isPortfolio && <span style={{ fontSize: '10px', color: 'var(--accent)', marginLeft: '4px' }}>💻 Local</span>}
+                  {!isPortfolio && <span style={{ fontSize: '10px', color: 'var(--accent)', marginLeft: '4px' }}>💻 Local</span>}
                 </label>
-                {isGitHub ? (
-                  <select
-                    className="sidebar__select"
-                    value={effectiveModel}
-                    onChange={e => onSettingsChange({ ...settings, githubModel: e.target.value })}
-                  >
-                    {GITHUB_MODELS.map(m => (
-                      <option key={m.id} value={m.id}>{m.name} — {m.rate || 'Free'}</option>
-                    ))}
-                  </select>
-                ) : isPortfolio ? (
+                {isPortfolio ? (
                   <select
                     className="sidebar__select"
                     value={effectiveModel}

@@ -81,9 +81,7 @@ function Settings() {
     const stored = getAISettings();
     return {
       llmProvider: stored.llmProvider || 'portfolio',
-      githubModel: stored.githubModel || 'gpt-4o-mini',
       portfolioModel: stored.portfolioModel || 'gpt-4o-mini',
-      githubToken: stored.githubToken || '',
       defaultTemperature: stored.defaultTemperature ?? 0.7,
       defaultMaxTokens: stored.defaultMaxTokens ?? 500,
       maxConversationHistory: stored.maxConversationHistory ?? 20,
@@ -109,7 +107,7 @@ function Settings() {
         const cloud = cloudData?.settings;
         if (!cloud) return;
         const pullKeys = [
-          'llmProvider', 'githubModel', 'portfolioModel', 'githubToken',
+          'llmProvider', 'portfolioModel',
           'defaultTemperature', 'defaultMaxTokens', 'maxConversationHistory',
           'sendWithEnter', 'showTimestamps', 'enableMarkdown',
           'saveChatsLocally', 'cloudSync', 'ttsEnabled', 'sttEnabled',

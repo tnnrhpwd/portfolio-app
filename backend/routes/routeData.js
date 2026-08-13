@@ -95,6 +95,8 @@ const {
   getWorkspaceTemplates,
   compileMacroNatural,
   editMacroNatural,
+  agentChatProxy,
+  agentVisionProxy,
 } = require('../controllers/workspaceController');
 
 // Simple Marketplace controller (public/shared skill marketplace, §4)
@@ -470,10 +472,15 @@ router.post('/csimple/workspace/log/append', protect, workspaceWriteLimiter, san
 router.post('/csimple/workspace/action/append', protect, workspaceActionLimiter, sanitizeInput, appendAction);
 router.get('/csimple/workspace/goals/next', protect, workspaceReadLimiter, getNextGoal);
 router.get('/csimple/workspace/telemetry/summary', protect, workspaceReadLimiter, getTelemetrySummary);
-// NL macro compiler — works without the addon installed (uses backend GitHub Models call)
+// NL macro compiler — works without the addon installed (Bedrock, server-side only)
 router.post('/csimple/compile-natural', protect, llmLimiter, sanitizeInput, compileMacroNatural);
 // NL macro editor — modify an existing macro's steps via English instruction
 router.post('/csimple/edit-natural', protect, llmLimiter, sanitizeInput, editMacroNatural);
+// §7.1 addon LLM provider seam backend routes — the Simple Addon's agent
+// loop / skill repair / vision lookups ALWAYS proxy through these (never a
+// direct LLM call from the addon). See simple-addon/server/automation/llm-provider.js.
+router.post('/csimple/agent-chat', protect, llmLimiter, sanitizeInput, agentChatProxy);
+router.post('/csimple/agent-vision', protect, llmLimiter, sanitizeInput, agentVisionProxy);
 
 router.route('/csimple/workspace')
   .get(protect, workspaceReadLimiter, listWorkspace);

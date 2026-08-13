@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Simple Addon Express Server
  * 
  * Adapted from Simple/src/Simple.Webapp/server/index.js for Electron packaging.
@@ -20,7 +20,7 @@ const { execSync } = require('child_process');
 const multer = require('multer');
 const { LlmService } = require('./llm-service');
 const { ActionService } = require('./action-service');
-const { GitHubModelsService, GITHUB_MODELS } = require('./github-models-service');
+const { createLlmProvider } = require('./automation/llm-provider');
 const { checkMessage, checkActionPlan, checkScriptContent } = require('./security-guard');
 const { stepsToPS, runPowerShell } = require('./action-bridge');
 const { ADDON_TOOL_SCHEMAS, toolCallToActionPlan, executeMemoryTool, isMemoryTool, isEyeTrackingTool } = require('./addon-tools');
@@ -601,8 +601,10 @@ async function executeActionDirect(action) {
   }
 }
 
-// Initialize GitHub Models service
-const githubModelsService = new GitHubModelsService();
+// Cloud LLM client — ALWAYS proxies through the portfolio backend's HTTP API
+// (using the user's JWT), which talks to AWS Bedrock server-side. Never a
+// direct LLM call from the addon (see automation/llm-provider.js).
+const cloudLlm = createLlmProvider();
 
 // Initialize Cloud Relay — enables phone→cloud→desktop command execution.
 // The chatHandler makes a local HTTP request to the addon's own /api/chat endpoint.
@@ -799,13 +801,12 @@ app.get('/api/network', (req, res) => {
   });
 });
 
-// List available models (scan local HFModels directory + defaults + GitHub Models)
+// List available models (scan local HFModels directory + defaults). Cloud
+// model selection is a backend concern now — the addon just proxies.
 app.get('/api/models', async (req, res) => {
   try {
     const localModels = await llmService.listAvailableModels();
-    const webappSettings = readWebappSettings();
-    const ghModels = (webappSettings.githubToken) ? GITHUB_MODELS : [];
-    res.json({ models: [...localModels, ...ghModels] });
+    res.json({ models: localModels });
   } catch (err) {
     console.error('Error listing models:', err);
     res.json({ models: llmService.getDefaultModels() });
@@ -857,13 +858,13 @@ app.post('/api/chat', async (req, res) => {
     const augmentedPrompt = (systemPrompt || '') + personalityContext + behaviorContext + memoryContext + capabilitiesNote + autoMemoryInstructions + memoryInstructions;
 
     // ── Token budget management ─────────────────────────────────
-    // GitHub Models free tier hard-caps at 8000 tokens per request for gpt-4o-mini.
-    // We account for system prompt + ALL tool schemas + message, and trim history
-    // and automation tools to fit. Automation tools (~4000 tokens for 42 tools)
+    // Cloud models have a hard per-request input token cap. We account for
+    // system prompt + ALL tool schemas + message, and trim history and
+    // automation tools to fit. Automation tools (~4000 tokens for 42 tools)
     // are only included when the message pattern actually warrants PC actions.
-    const GITHUB_MODELS_HARD_LIMIT = 7500; // leave 500 buffer below the 8000 cap
-    const MODEL_INPUT_BUDGETS = { 'gpt-4o-mini': GITHUB_MODELS_HARD_LIMIT, 'gpt-4o': GITHUB_MODELS_HARD_LIMIT, 'gpt-4.1-mini': GITHUB_MODELS_HARD_LIMIT, 'gpt-4.1-nano': 7000 };
-    const inputBudget = MODEL_INPUT_BUDGETS[modelId] || GITHUB_MODELS_HARD_LIMIT;
+    const CLOUD_MODEL_TOKEN_LIMIT = 7500; // leave buffer below typical 8000 caps
+    const MODEL_INPUT_BUDGETS = { 'gpt-4o-mini': CLOUD_MODEL_TOKEN_LIMIT, 'gpt-4o': CLOUD_MODEL_TOKEN_LIMIT, 'gpt-4.1-mini': CLOUD_MODEL_TOKEN_LIMIT, 'gpt-4.1-nano': 7000 };
+    const inputBudget = MODEL_INPUT_BUDGETS[modelId] || CLOUD_MODEL_TOKEN_LIMIT;
     const systemTokens = estimateTokens(augmentedPrompt);
     const baseToolTokens = estimateToolSchemaTokens(ADDON_TOOL_SCHEMAS);
     const msgTokens = estimateTokens(message);
@@ -875,21 +876,14 @@ app.post('/api/chat', async (req, res) => {
 
     console.log(`[TokenBudget] system=${systemTokens} tools=${baseToolTokens} msg=${msgTokens} histBudget=${historyBudget} histMsgs=${conversationHistory.length}→${trimmedHistory.length}`);
 
-    // Match either the current publisher-prefixed id (e.g. "openai/gpt-4o-mini")
-    // or any legacy bare id (e.g. "gpt-4o-mini") that older webapp settings/
-    // localStorage may still send.
-    const isGitHubModel = GITHUB_MODELS.some(
-      m => m.id === modelId || (Array.isArray(m.legacyId) && m.legacyId.includes(modelId))
-    );
+    // Any modelId that isn't one of the addon's known local (on-device) models
+    // is treated as a cloud request — proxied through the backend (Bedrock),
+    // never called directly. Defaults to local ('gpt2') when unspecified.
+    const localModelIds = new Set(llmService.getDefaultModels().map(m => m.id));
+    const isCloudModel = !!modelId && !localModelIds.has(modelId);
 
-    // ── GitHub Models path: LLM with function-calling tools ──────────────
-    if (isGitHubModel) {
-      const webappSettings = readWebappSettings();
-      if (!webappSettings.githubToken) {
-        return res.status(400).json({ error: 'GitHub token not configured. Go to Settings → General → LLM Provider to add your token.' });
-      }
-      githubModelsService.setToken(webappSettings.githubToken);
-
+    // ── Cloud path: LLM with function-calling tools (proxied through backend) ──
+    if (isCloudModel) {
       // Determine which tools to offer the LLM.
       // If the message looks like content generation (write/create/code/etc.),
       // strip type_text so the model literally cannot choose it.
@@ -954,7 +948,7 @@ app.post('/api/chat', async (req, res) => {
         : 'auto';
 
       // Send message to LLM with action tools — LLM decides whether to act or chat
-      const result = await githubModelsService.chat({
+      const result = await cloudLlm.chat({
         message,
         modelId,
         systemPrompt: augmentedPrompt,
@@ -983,7 +977,7 @@ app.post('/api/chat', async (req, res) => {
         // If all tool calls were filtered out, fall through to text response
         if (filteredToolCalls.length === 0) {
           // Re-call LLM without tools to get a proper text response
-          const textResult = await githubModelsService.chat({
+          const textResult = await cloudLlm.chat({
             message,
             modelId,
             systemPrompt: augmentedPrompt,
@@ -1228,7 +1222,7 @@ app.post('/api/chat', async (req, res) => {
               ...toolResultMessages,
             ];
 
-            const followUp = await githubModelsService.chatRaw({
+            const followUp = await cloudLlm.chatRaw({
               messages: followUpMessages,
               modelId,
               temperature,
@@ -1259,7 +1253,7 @@ app.post('/api/chat', async (req, res) => {
           // ── Confirmation check: ask user before destructive actions ──
           try {
             const callLLM = async (prompt, sysPrompt) => {
-              const r = await githubModelsService.chat({
+              const r = await cloudLlm.chat({
                 message: prompt,
                 modelId,
                 systemPrompt: sysPrompt,
@@ -1471,18 +1465,17 @@ app.post('/api/chat/confirm', async (req, res) => {
   }
 
   try {
-    const webappSettings = readWebappSettings();
     let resolution = { action: 'execute' };
 
-    if (webappSettings.githubToken) {
-      githubModelsService.setToken(webappSettings.githubToken);
+    // LLM-assisted confirmation resolution requires the backend proxy (JWT
+    // sign-in); without it, fall back to a simple keyword match below.
+    if (cloudRelay?._token) {
       resolution = await actionService.resolveConfirmation(
         confirmation,
         selectedOption,
         async (msg, sysPrompt) => {
-          const result = await githubModelsService.chat({
+          const result = await cloudLlm.chat({
             message: msg,
-            modelId: 'gpt-4o-mini',
             systemPrompt: sysPrompt,
             temperature: 0.1,
             maxLength: 100,
@@ -1852,13 +1845,6 @@ app.post('/api/vision/find-text', async (req, res) => {
   }
 
   try {
-    const webappSettings = readWebappSettings();
-    if (!webappSettings.githubToken) {
-      return res.status(400).json({ found: false, error: 'GitHub token not configured' });
-    }
-
-    githubModelsService.setToken(webappSettings.githubToken);
-
     const prompt = `You are a VISUAL ELEMENT DETECTOR for mouse automation.
 Task: Find the clickable BUTTON containing "${target}" by detecting its VISUAL BOUNDARIES.
 Screenshot: ${width} × ${height} px
@@ -1868,11 +1854,10 @@ Return ONLY this JSON (NO markdown):
 
 If not visible: {"found":false}`;
 
-    const result = await githubModelsService.chatWithImage({
+    const result = await cloudLlm.chatWithImage({
       prompt,
       imageBase64: image,
       mimeType: 'image/jpeg',
-      modelId: 'gpt-4o-mini',
       temperature: 0.1,
       maxLength: 100,
     });
@@ -1904,13 +1889,11 @@ If not visible: {"found":false}`;
 // ─── Settings API ──────────────────────────────────────────────────────────────
 
 // Backend-side ciphertext marker for secrets-at-rest (see backend/utils/secretCrypto.js).
-// If we ever see one of these in the addon's settings file it means a stale
-// cloud-pull leaked ciphertext into local storage. Such a value would be sent
-// to GitHub as a Bearer token and produce a misleading 401 ("PAT may have
-// expired"). Strip it on both read and write so the user gets a clean
-// "token not configured" message instead.
+// GitHub PAT support has been fully retired along with GitHub Models -- this
+// list is now empty, but the DPAPI encrypt/decrypt machinery below is kept
+// generic so any future sensitive webapp setting can opt in the same way.
 const ENCRYPTED_SECRET_PREFIX = 'enc:v1:';
-const SENSITIVE_WEBAPP_KEYS = ['githubToken'];
+const SENSITIVE_WEBAPP_KEYS = [];
 
 // Local secret-at-rest layer (Windows DPAPI via Electron safeStorage).
 // We encrypt sensitive webapp keys before writing settings.json and decrypt
@@ -1966,7 +1949,7 @@ function scrubEncryptedSecrets(settings) {
   for (const key of SENSITIVE_WEBAPP_KEYS) {
     const v = settings[key];
     if (typeof v === 'string' && v.startsWith(ENCRYPTED_SECRET_PREFIX)) {
-      console.warn(`[settings] Refusing ciphertext for ${key} — clearing. Re-enter your GitHub PAT in the webapp.`);
+      console.warn(`[settings] Refusing ciphertext for ${key} — clearing.`);
       settings[key] = '';
       mutated = true;
     }

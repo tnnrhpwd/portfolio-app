@@ -46,6 +46,47 @@ function getBedrockClient() {
 }
 
 /**
+ * Convert a single OpenAI-style message `content` value (string, or an array
+ * of `{type:'text'|'image_url', ...}` blocks — the vision/multimodal shape
+ * used by webcam/screenshot/vision-fusion call sites) into Bedrock Converse
+ * content blocks.
+ */
+function toBedrockUserContent(content) {
+    if (typeof content !== 'object' || content === null) {
+        return [{ text: String(content ?? '') }];
+    }
+    if (!Array.isArray(content)) {
+        return [{ text: String(content) }];
+    }
+
+    const blocks = [];
+    for (const part of content) {
+        if (!part || typeof part !== 'object') continue;
+        if (part.type === 'text') {
+            blocks.push({ text: String(part.text ?? '') });
+        } else if (part.type === 'image_url') {
+            const url = part.image_url?.url || '';
+            // data:<mime>;base64,<data>
+            const match = /^data:image\/(\w+);base64,(.+)$/.exec(url);
+            if (match) {
+                const [, subtype, base64Data] = match;
+                // Bedrock only accepts a fixed set of image formats.
+                const format = ['png', 'jpeg', 'jpg', 'gif', 'webp'].includes(subtype)
+                    ? (subtype === 'jpg' ? 'jpeg' : subtype)
+                    : 'png';
+                blocks.push({
+                    image: {
+                        format,
+                        source: { bytes: Buffer.from(base64Data, 'base64') },
+                    },
+                });
+            }
+        }
+    }
+    return blocks.length > 0 ? blocks : [{ text: '' }];
+}
+
+/**
  * Convert an OpenAI-style messages array (roles: system/user/assistant/tool) into
  * Bedrock Converse `messages` turns. `system` messages are excluded here — callers
  * should pass them via the `system` param instead (see createBedrockCompletion).
@@ -54,6 +95,11 @@ function getBedrockClient() {
  * `toolResult` content block referencing the original `toolUseId`. Consecutive tool
  * results (from the same round) are merged into a single user turn so the
  * conversation still strictly alternates user/assistant, as Converse requires.
+ *
+ * `user` message `content` may be a plain string OR an OpenAI-style multimodal
+ * array (`[{type:'text',...},{type:'image_url',image_url:{url:'data:...'}}]`),
+ * used by the addon's vision/screenshot/webcam call sites (proxied through
+ * `/api/data/csimple/agent-vision`).
  */
 function toBedrockMessages(messages) {
     const bedrockMessages = [];
@@ -99,8 +145,8 @@ function toBedrockMessages(messages) {
             continue;
         }
 
-        // user (and anything else) — treat as plain text user turn.
-        bedrockMessages.push({ role: 'user', content: [{ text: String(msg.content ?? '') }] });
+        // user (and anything else) — text-only or multimodal (text + image).
+        bedrockMessages.push({ role: 'user', content: toBedrockUserContent(msg.content) });
     }
 
     // Converse requires the turn sequence to start with a 'user' message.
@@ -296,6 +342,7 @@ module.exports = {
     createBedrockCompletion,
     streamBedrockCompletion,
     toBedrockMessages,
+    toBedrockUserContent,
     toBedrockToolConfig,
     fromBedrockResponse,
 };
