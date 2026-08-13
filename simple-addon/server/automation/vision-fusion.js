@@ -47,7 +47,16 @@ const findVisualTarget = {
         required: ['description'],
     },
     async run(args, ctx) {
-        if (!args.description) throw new Error('description is required');
+        // Some callers (the legacy `click_visual`/`vision_click` step aliases in
+        // tools/skill.js's `_normaliseStep`, and their compatibility-downgrade
+        // path) name the visual target `target`/`query` rather than
+        // `description` — that's the field name the NL-compiled `click_visual`
+        // step type and capability-summary.js already use. Accept any of the
+        // three so those steps don't fail with "description is required" once
+        // resolved to this tool.
+        const description = args.description || args.target || args.query;
+        if (!description) throw new Error('description is required');
+        args = { ...args, description };
         if (!permissions.hasCloudVisionConsent()) {
             if (!args.confirmCloudVisionCapture) {
                 throw new Error(

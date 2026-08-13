@@ -561,7 +561,10 @@ function _normaliseStep(step, focusCtx) {
         case 'click_at':
             return { tool: 'click_at', args: { x: step.x, y: step.y, button: step.button || 'left' } };
         case 'click_visual':
-            return { tool: 'find_and_click_visual', args: { target: step.target, query: step.target } };
+            // `find_and_click_visual` requires a `description` arg (see
+            // vision-fusion.js); keep `target`/`query` too since
+            // capability-summary.js reads those for the human-readable label.
+            return { tool: 'find_and_click_visual', args: { description: step.target, target: step.target, query: step.target } };
         case 'open_app':
             // open_app is a real registered tool (tools/open-app.js) that
             // launches the process and POLLS for its main window before
