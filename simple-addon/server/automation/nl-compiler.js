@@ -124,6 +124,10 @@ function _validateStep(step, index) {
         case 'click_at': {
             if (typeof step.x !== 'number' || typeof step.y !== 'number')
                 throw new Error(`step[${index}]: click_at requires x and y`);
+            if (step.modifiers !== undefined) {
+                if (!Array.isArray(step.modifiers) || step.modifiers.some(m => !['shift', 'ctrl', 'alt', 'win'].includes(m)))
+                    throw new Error(`step[${index}]: click_at.modifiers must be an array of shift/ctrl/alt/win`);
+            }
             break;
         }
         case 'click_visual': {
@@ -214,6 +218,7 @@ Valid step types and their fields:
   {"type":"type_text","text":"Hello world"}
   {"type":"wait_ms","ms":1000}
   {"type":"click_at","x":960,"y":540,"button":"left"}
+  {"type":"click_at","x":960,"y":540,"button":"left","modifiers":["shift"]}  // shift-click, e.g. Minecraft's inventory quick-transfer gesture; modifiers can be shift/ctrl/alt/win
   {"type":"click_visual","target":"the Submit button in the top-right corner"}
   {"type":"open_app","name":"notepad.exe"}
   {"type":"open_app","name":"minecraft.exe","windowTitleContains":"Minecraft","waitMs":15000}  // open_app already POLLS for the window and focuses it — do NOT add a wait_ms step after it
