@@ -559,7 +559,7 @@ function _normaliseStep(step, focusCtx) {
             // No explicit wait tool — use a synthetic shell sleep
             return { tool: 'shell_run', args: { command: `Start-Sleep -Milliseconds ${Math.max(0, step.ms || 500)}`, shell: 'powershell' } };
         case 'click_at':
-            return { tool: 'click_at', args: { x: step.x, y: step.y, button: step.button || 'left' } };
+            return { tool: 'click_at', args: { x: step.x, y: step.y, button: step.button || 'left', modifiers: step.modifiers } };
         case 'click_visual':
             // `find_and_click_visual` requires a `description` arg (see
             // vision-fusion.js); keep `target`/`query` too since

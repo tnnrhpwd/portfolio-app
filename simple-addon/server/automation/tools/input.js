@@ -59,6 +59,29 @@ function resolveButton(name) {
     return MOUSE_FLAGS[b];
 }
 
+// Modifier keys held down for the duration of a click (shift-click,
+// ctrl-click, alt-click, and combinations thereof — e.g. Minecraft's
+// inventory "shift-click to quick-transfer" gesture). Reuses the same VK map
+// as input_hold/input_tap so "shift"/"ctrl"/"alt" (or their aliases below)
+// resolve consistently everywhere.
+const MODIFIER_ALIASES = {
+    shift: 'shift', shiftkey: 'shift',
+    ctrl: 'ctrl', control: 'ctrl', ctrlkey: 'ctrl',
+    alt: 'alt', altkey: 'alt', option: 'alt',
+    win: 'lwin', windows: 'lwin', meta: 'lwin', cmd: 'lwin', super: 'lwin',
+};
+function resolveModifiers(modifiers) {
+    if (!Array.isArray(modifiers) || modifiers.length === 0) return [];
+    const seen = new Set();
+    for (const m of modifiers) {
+        const key = String(m || '').trim().toLowerCase();
+        const canonical = MODIFIER_ALIASES[key];
+        if (!canonical) throw new Error(`unknown modifier: ${m} (expected shift, ctrl, alt, or win)`);
+        seen.add(canonical);
+    }
+    return [...seen].map(resolveKey);
+}
+
 // Defense-in-depth: some callers (older compiled skills, or steps normalised
 // upstream in tools/skill.js before that fix existed) pass a mouse-button
 // phrase like "left mouse button" / "left click" inside `keys` instead of the
@@ -384,6 +407,10 @@ const clickAt = {
             doubleClick: { type: 'boolean', default: false },
             focusWindowTitle: { type: 'string' },
             settleMs: { type: 'integer', description: 'Pause after focusing window. Default 80.' },
+            modifiers: {
+                type: 'array', items: { type: 'string', enum: ['shift', 'ctrl', 'alt', 'win'] },
+                description: 'Modifier keys to hold down for the duration of the click (e.g. ["shift"] for a shift-click, such as Minecraft\'s inventory quick-transfer gesture).',
+            },
         },
     },
     async run(args, ctx) {
@@ -391,11 +418,15 @@ const clickAt = {
             throw new Error('x and y are required integers');
         }
         const btn = resolveButton(args.button || 'left');
+        const modVks = resolveModifiers(args.modifiers);
         const settle = Math.max(0, args.settleMs ?? 80);
         const needle = (args.focusWindowTitle || '').replace(/"/g, '');
         const dbl = !!args.doubleClick;
         const x = Math.round(args.x);
         const y = Math.round(args.y);
+
+        const downMods = modVks.map(v => `[Native]::keybd_event(${v}, 0, 0x0000, [UIntPtr]::Zero)`).join('; ');
+        const upMods   = modVks.map(v => `[Native]::keybd_event(${v}, 0, 0x0002, [UIntPtr]::Zero)`).join('; ');
 
         const script = `${NATIVE_PRELUDE}
 ${MOUSE_MOVE_PRELUDE}
@@ -403,16 +434,22 @@ $focused = $null
 if ("${needle}") { $focused = Focus-WindowByTitle "${needle}"; Start-Sleep -Milliseconds ${settle} }
 [MouseInput]::MoveTo(${x}, ${y}) | Out-Null
 Start-Sleep -Milliseconds 30
-[Native]::mouse_event(${btn.down}, 0, 0, 0, [UIntPtr]::Zero)
-Start-Sleep -Milliseconds 25
-[Native]::mouse_event(${btn.up}, 0, 0, 0, [UIntPtr]::Zero)
-if (${dbl ? '$true' : '$false'}) {
-    Start-Sleep -Milliseconds 80
+try {
+    ${downMods ? downMods + '; Start-Sleep -Milliseconds 20' : '# no modifiers'}
     [Native]::mouse_event(${btn.down}, 0, 0, 0, [UIntPtr]::Zero)
     Start-Sleep -Milliseconds 25
     [Native]::mouse_event(${btn.up}, 0, 0, 0, [UIntPtr]::Zero)
+    if (${dbl ? '$true' : '$false'}) {
+        Start-Sleep -Milliseconds 80
+        [Native]::mouse_event(${btn.down}, 0, 0, 0, [UIntPtr]::Zero)
+        Start-Sleep -Milliseconds 25
+        [Native]::mouse_event(${btn.up}, 0, 0, 0, [UIntPtr]::Zero)
+    }
 }
-@{ ok = $true; x = ${x}; y = ${y}; button = "${args.button || 'left'}"; doubleClick = ${dbl ? '$true' : '$false'}; focused = $focused } | ConvertTo-Json -Compress
+finally {
+    ${upMods ? upMods : '# no modifiers'}
+}
+@{ ok = $true; x = ${x}; y = ${y}; button = "${args.button || 'left'}"; doubleClick = ${dbl ? '$true' : '$false'}; modifiers = @(${(args.modifiers || []).map(m => `"${String(m).replace(/"/g, '')}"`).join(',')}); focused = $focused } | ConvertTo-Json -Compress
 `;
         const out = await runPsScript(script, { timeoutMs: 5000 });
         let parsed = null;
@@ -691,4 +728,4 @@ async function checkAsyncKeyState(vk) {
     }
 }
 
-module.exports = { inputHold, inputTap, clickAt, mousePath, mouseDrag, splitMousePhrasesFromKeys, checkAsyncKeyState };
+module.exports = { inputHold, inputTap, clickAt, mousePath, mouseDrag, splitMousePhrasesFromKeys, resolveModifiers, checkAsyncKeyState };

@@ -62,7 +62,7 @@ require.cache[inputPath] = {
 };
 
 const skill = require('./skill');
-const { skillRun, repairStep, _extractJsonObject, analyzeSkillCompatibility } = skill;
+const { skillRun, repairStep, _extractJsonObject, analyzeSkillCompatibility, _normaliseStep } = skill;
 
 let pass = 0, fail = 0;
 // Queue of async test thunks. They MUST run sequentially because they share a
@@ -110,6 +110,17 @@ test('_extractJsonObject: no json → null', () => {
 });
 test('_extractJsonObject: non-string → null', () => {
     assert.strictEqual(_extractJsonObject(null), null);
+});
+
+// ── _normaliseStep: click_at.modifiers pass-through (shift-click support) ───
+test('_normaliseStep: click_at carries modifiers through to the click_at tool args', () => {
+    const n = _normaliseStep({ type: 'click_at', x: 960, y: 540, modifiers: ['shift'] });
+    assert.strictEqual(n.tool, 'click_at');
+    assert.deepStrictEqual(n.args, { x: 960, y: 540, button: 'left', modifiers: ['shift'] });
+});
+test('_normaliseStep: click_at without modifiers leaves it undefined (no forced shift-click)', () => {
+    const n = _normaliseStep({ type: 'click_at', x: 10, y: 20 });
+    assert.strictEqual(n.args.modifiers, undefined);
 });
 
 // ── repairStep ──────────────────────────────────────────────────────────────

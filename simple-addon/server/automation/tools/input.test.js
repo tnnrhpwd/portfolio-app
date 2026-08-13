@@ -11,7 +11,7 @@
  */
 
 const assert = require('assert');
-const { splitMousePhrasesFromKeys } = require('./input');
+const { splitMousePhrasesFromKeys, resolveModifiers } = require('./input');
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -86,6 +86,38 @@ test('merges with pre-existing mouseButtons and de-dupes', () => {
 test('empty/undefined inputs do not throw', () => {
     assert.deepStrictEqual(splitMousePhrasesFromKeys(undefined, undefined), { keys: [], mouseButtons: [] });
     assert.deepStrictEqual(splitMousePhrasesFromKeys([], []), { keys: [], mouseButtons: [] });
+});
+
+console.log('\ninput.test: click_at resolveModifiers (shift-click support)');
+
+test('resolveModifiers: shift resolves to VK_SHIFT (0x10)', () => {
+    assert.deepStrictEqual(resolveModifiers(['shift']), [0x10]);
+});
+
+test('resolveModifiers: ctrl/alt/win resolve to their VK codes', () => {
+    assert.deepStrictEqual(resolveModifiers(['ctrl']), [0x11]);
+    assert.deepStrictEqual(resolveModifiers(['alt']), [0x12]);
+    assert.deepStrictEqual(resolveModifiers(['win']), [0x5B]);
+});
+
+test('resolveModifiers: aliases normalise to the same canonical modifier', () => {
+    assert.deepStrictEqual(resolveModifiers(['control']), [0x11]);
+    assert.deepStrictEqual(resolveModifiers(['windows']), [0x5B]);
+    assert.deepStrictEqual(resolveModifiers(['Shift']), [0x10]);
+});
+
+test('resolveModifiers: combination + de-dupe', () => {
+    const vks = resolveModifiers(['shift', 'ctrl', 'shift']);
+    assert.deepStrictEqual(vks, [0x10, 0x11]);
+});
+
+test('resolveModifiers: empty/undefined → no modifiers', () => {
+    assert.deepStrictEqual(resolveModifiers(undefined), []);
+    assert.deepStrictEqual(resolveModifiers([]), []);
+});
+
+test('resolveModifiers: unknown modifier throws', () => {
+    assert.throws(() => resolveModifiers(['banana']), /unknown modifier/);
 });
 
 console.log(`\ninput.test: ${passed}/${passed + failed} PASS`);
