@@ -26,7 +26,7 @@ import {
 } from '../../services/simpleAddonApi';
 import { createData } from '../../features/data/dataSlice';
 import { getUserIdentifier } from '../../utils/supportUtils';
-import { DEFAULT_CLOUD_MODEL_ID } from '../../utils/llmProviderOptions.js';
+import { DEFAULT_CLOUD_MODEL_ID, FALLBACK_CLOUD_MODEL, buildCloudModelList, getEffectiveCloudModelId } from '../../utils/llmProviderOptions.js';
 import './SimpleChat.css';
 import './SimpleTheme.css';
 import { checkMessage as securityCheckMessage } from '../../utils/simpleAddon/securityGuard';
@@ -196,6 +196,22 @@ function SimpleChat({
 
   const activeConversation = conversations.find(c => c.id === activeConversationId);
   const activeAgent = settings.agents?.find(a => a.id === settings.selectedAgentId) || settings.agents?.[0];
+
+  // The chat window header shows "the current model" — but `selectedModel`
+  // only ever tracks the *local* addon model picker (defaulting to Qwen), so
+  // it used to render that local default even while actually chatting
+  // through Cloud (Bedrock). Resolve the header label per the active
+  // provider instead, and always via the validated cloud model id/name so a
+  // stale stored `portfolioModel` (e.g. a retired 'gpt-4o-mini') can't leak
+  // a GPT model name into the header either.
+  const isPortfolioProvider = settings.llmProvider === 'portfolio';
+  const cloudModels = React.useMemo(
+    () => buildCloudModelList(portfolioLLMProviders),
+    [portfolioLLMProviders]
+  );
+  const headerModelLabel = isPortfolioProvider
+    ? ((cloudModels.find(m => m.id === getEffectiveCloudModelId(settings.portfolioModel, portfolioLLMProviders))?.name) || FALLBACK_CLOUD_MODEL.name)
+    : selectedModel;
 
   // Initialize speech
   const speech = useSpeech({
@@ -478,7 +494,7 @@ function SimpleChat({
         role: 'assistant',
         content: portfolioChatResponse,
         timestamp: new Date().toISOString(),
-        modelId: settings.portfolioModel || 'cloud',
+        modelId: getEffectiveCloudModelId(settings.portfolioModel, portfolioLLMProviders),
       };
 
       setConversations(prev => prev.map(c => {
@@ -885,7 +901,7 @@ function SimpleChat({
         if (!onPortfolioChat && !onPortfolioChatStream) {
           throw new Error('Portfolio chat not available. Please log in.');
         }
-        const portfolioModel = settings.portfolioModel || DEFAULT_CLOUD_MODEL_ID;
+        const portfolioModel = getEffectiveCloudModelId(settings.portfolioModel, portfolioLLMProviders);
 
         // ── /compare handler — send last user message to a second model ──
         const slashCmd = handleSlashCommand(text);
@@ -1446,7 +1462,7 @@ function SimpleChat({
           onSendMessage={sendMessage}
           onStopGeneration={stopGeneration}
           onToggleSidebar={() => setSidebarOpen(prev => !prev)}
-          selectedModel={selectedModel}
+          selectedModel={headerModelLabel}
           isOnline={isOnline}
           agent={activeAgent}
           speech={speech}

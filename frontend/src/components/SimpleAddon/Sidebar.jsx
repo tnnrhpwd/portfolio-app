@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getLocalModels, testAddonConnection, runAddonSingleClickUpdate } from '../../services/simpleAddonApi';
 import { ADDON_DOWNLOAD_URL } from '../../hooks/simpleAddon/useAddonDetection';
-import { buildCloudModelList, FALLBACK_CLOUD_MODEL } from '../../utils/llmProviderOptions.js';
+import { buildCloudModelList, FALLBACK_CLOUD_MODEL, getEffectiveCloudModelId } from '../../utils/llmProviderOptions.js';
 import UsageMeter from './UsageMeter';
 import AgentLivePanel from './AgentLivePanel';
 import './Sidebar.css';
@@ -90,13 +90,11 @@ function Sidebar({
   );
 
   // The effective model depends on the provider. Older stored settings may
-  // still carry a retired model id (e.g. 'gpt-4o-mini') — fall back to the
-  // first live cloud model instead of a <select> whose value matches no
-  // <option> once the real provider list has loaded.
+  // still carry a retired model id (e.g. 'gpt-4o-mini') — validate against
+  // the live cloud model list instead of trusting a stored id just because
+  // it's truthy.
   const effectiveModel = isPortfolio
-    ? (portfolioModels.some(m => m.id === settings?.portfolioModel)
-        ? settings.portfolioModel
-        : (settings?.portfolioModel || FALLBACK_CLOUD_MODEL.id))
+    ? getEffectiveCloudModelId(settings?.portfolioModel, portfolioLLMProviders)
     : selectedModel;
 
   // Fetch local models from addon when connected
