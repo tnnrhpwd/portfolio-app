@@ -90,7 +90,7 @@ function saveDeviceLocalSetting(key, value) {
 
 const DEFAULT_SETTINGS = {
   saveChatsLocally: true,
-  theme: 'dark',
+  theme: 'system',
   fontSize: 'medium',
   sendWithEnter: true,
   showTimestamps: true,
@@ -315,14 +315,30 @@ function SimpleChat({
     const root = rootRef.current;
     if (!root) return;
 
-    const theme = settings.theme || 'dark';
+    const theme = settings.theme || 'system';
     if (theme === 'system') {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      root.setAttribute('data-simple-theme', prefersDark ? 'dark' : 'light');
-      const handler = (e) => root.setAttribute('data-simple-theme', e.matches ? 'dark' : 'light');
+      // "System" means "match the portfolio site's own theme toggle" first,
+      // since that reflects the user's explicit choice for this site. Only
+      // fall back to the OS-level color-scheme preference if the portfolio
+      // hasn't set an explicit light/dark class (e.g. still on its default).
+      const resolve = () => {
+        const body = document.body;
+        if (body.classList.contains('light-theme')) return 'light';
+        if (body.classList.contains('dark-theme')) return 'dark';
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      };
+      root.setAttribute('data-simple-theme', resolve());
+
+      const handler = () => root.setAttribute('data-simple-theme', resolve());
       const mq = window.matchMedia('(prefers-color-scheme: dark)');
       mq.addEventListener('change', handler);
-      return () => mq.removeEventListener('change', handler);
+      // Watch the portfolio's theme toggle so Simple stays in sync live.
+      const observer = new MutationObserver(handler);
+      observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+      return () => {
+        mq.removeEventListener('change', handler);
+        observer.disconnect();
+      };
     } else {
       root.setAttribute('data-simple-theme', theme);
     }

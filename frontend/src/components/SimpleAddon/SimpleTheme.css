@@ -72,6 +72,11 @@
 }
 
 /* ─── Simple theme overrides (when user picks a Simple-specific theme) */
+/* NOTE: Each override below must restate EVERY custom property (not just a
+   subset), because it shares specificity with `.light-theme .simple-root`
+   above. If a property is omitted here, the light-theme value leaks through
+   whenever the portfolio site is in light mode, producing broken color
+   combinations (e.g. light bubbles with unreadable dark-theme text). */
 .simple-root[data-simple-theme="dark"] {
   --bg-primary: #0f0f1a;
   --bg-secondary: #1a1a2e;
@@ -84,6 +89,16 @@
   --text-primary: #e8e8f0;
   --text-secondary: #a0a0c0;
   --text-muted: #6e6e9e;
+  --accent: #6c63ff;
+  --accent-hover: #5a52e0;
+  --accent-light: rgba(108, 99, 255, 0.15);
+  --user-bubble: #6c63ff;
+  --user-bubble-text: #ffffff;
+  --assistant-bubble: #1e1e3a;
+  --assistant-bubble-text: #e8e8f0;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --error: #f87171;
   --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
 }
 
@@ -106,6 +121,9 @@
   --user-bubble-text: #ffffff;
   --assistant-bubble: #2e1418;
   --assistant-bubble-text: #f0e0e2;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --error: #f87171;
   --shadow: 0 4px 24px rgba(150, 0, 0, 0.25);
 }
 
@@ -128,6 +146,9 @@
   --user-bubble-text: #ffffff;
   --assistant-bubble: #0f2d1c;
   --assistant-bubble-text: #e0f5e8;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --error: #f87171;
   --shadow: 0 4px 24px rgba(0, 100, 50, 0.25);
 }
 
@@ -150,6 +171,9 @@
   --user-bubble-text: #ffffff;
   --assistant-bubble: #fce7f3;
   --assistant-bubble-text: #4a1942;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --error: #ef4444;
   --shadow: 0 4px 24px rgba(200, 50, 130, 0.1);
 }
 
@@ -172,6 +196,9 @@
   --user-bubble-text: #ffffff;
   --assistant-bubble: #141e3c;
   --assistant-bubble-text: #d0daf0;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --error: #f87171;
   --shadow: 0 4px 24px rgba(0, 20, 80, 0.4);
 }
 
@@ -194,6 +221,9 @@
   --user-bubble-text: #ffffff;
   --assistant-bubble: #2e1c14;
   --assistant-bubble-text: #f5e8d8;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --error: #f87171;
   --shadow: 0 4px 24px rgba(150, 60, 0, 0.3);
 }
 
@@ -216,6 +246,9 @@
   --user-bubble-text: #ffffff;
   --assistant-bubble: #122435;
   --assistant-bubble-text: #d5eaf5;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --error: #f87171;
   --shadow: 0 4px 24px rgba(0, 60, 100, 0.3);
 }
 
@@ -238,6 +271,9 @@
   --user-bubble-text: #000000;
   --assistant-bubble: #141422;
   --assistant-bubble-text: #e0e0ff;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --error: #f87171;
   --shadow: 0 4px 24px rgba(224, 64, 251, 0.2);
 }
 
@@ -260,7 +296,60 @@
   --user-bubble-text: #272822;
   --assistant-bubble: #33332c;
   --assistant-bubble-text: #f8f8f2;
+  --success: #a6e22e;
+  --warning: #e6db74;
+  --error: #f92672;
   --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+.simple-root[data-simple-theme="usa"] {
+  --bg-primary: #0a0e1a;
+  --bg-secondary: #10182c;
+  --bg-tertiary: #0d1424;
+  --bg-hover: #1a2440;
+  --surface: #131c34;
+  --surface-hover: #1c2a4a;
+  --border: #2a3a60;
+  --border-light: #3a4d78;
+  --text-primary: #f5f7fa;
+  --text-secondary: #a8b4cc;
+  --text-muted: #6e7a98;
+  --accent: #b22234;
+  --accent-hover: #8f1b29;
+  --accent-light: rgba(178, 34, 52, 0.15);
+  --user-bubble: #3c3b6e;
+  --user-bubble-text: #ffffff;
+  --assistant-bubble: #131c34;
+  --assistant-bubble-text: #f5f7fa;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --error: #f87171;
+  --shadow: 0 4px 24px rgba(0, 20, 60, 0.35);
+}
+
+.simple-root[data-simple-theme="forest"] {
+  --bg-primary: #0e1a10;
+  --bg-secondary: #16261a;
+  --bg-tertiary: #122015;
+  --bg-hover: #1e3524;
+  --surface: #182c1d;
+  --surface-hover: #223a29;
+  --border: #2f5138;
+  --border-light: #3f6a4a;
+  --text-primary: #e6f0e6;
+  --text-secondary: #a8c4a8;
+  --text-muted: #6e8e70;
+  --accent: #4d8c57;
+  --accent-hover: #3e7346;
+  --accent-light: rgba(77, 140, 87, 0.15);
+  --user-bubble: #4d8c57;
+  --user-bubble-text: #ffffff;
+  --assistant-bubble: #182c1d;
+  --assistant-bubble-text: #e6f0e6;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --error: #f87171;
+  --shadow: 0 4px 24px rgba(0, 40, 10, 0.3);
 }
 
 /* ─── Font Size Overrides ─────────────────────────────────────────── */
