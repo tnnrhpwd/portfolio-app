@@ -410,10 +410,11 @@ function Profile() {
                                 <div key={index} className="usage-breakdown-item">
                                   <div className="usage-api-info">
                                     <span className="api-name">
-                                      {(entry.api === 'openai' || entry.api === 'github') && '🤖 GitHub Models'}
+                                      {entry.api === 'bedrock' && '☁️ AWS Bedrock'}
+                                      {(entry.api === 'openai' || entry.api === 'github') && '🤖 GitHub Models (legacy)'}
                                       {entry.api === 'rapidword' && '📝 Word Generator'}
                                       {entry.api === 'rapiddef' && '📚 Dictionary'}
-                                      {!['openai', 'github', 'rapidword', 'rapiddef'].includes(entry.api) && `🔧 ${entry.api}`}
+                                      {!['bedrock', 'openai', 'github', 'rapidword', 'rapiddef'].includes(entry.api) && `🔧 ${entry.api}`}
                                     </span>
                                     <span className="api-date">{entry.fullDate}</span>
                                   </div>

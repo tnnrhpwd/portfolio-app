@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getLocalModels, testAddonConnection, runAddonSingleClickUpdate } from '../../services/simpleAddonApi';
 import { ADDON_DOWNLOAD_URL } from '../../hooks/simpleAddon/useAddonDetection';
+import { buildCloudModelList, FALLBACK_CLOUD_MODEL } from '../../utils/llmProviderOptions.js';
 import UsageMeter from './UsageMeter';
 import AgentLivePanel from './AgentLivePanel';
 import './Sidebar.css';
@@ -82,9 +83,20 @@ function Sidebar({
   const selectedAgentId = settings?.selectedAgentId || 'default';
   const isPortfolio = settings?.llmProvider === 'portfolio';
 
-  // The effective model depends on the provider
+  // Build portfolio models list from providers (currently AWS Bedrock).
+  const portfolioModels = React.useMemo(
+    () => buildCloudModelList(portfolioLLMProviders),
+    [portfolioLLMProviders]
+  );
+
+  // The effective model depends on the provider. Older stored settings may
+  // still carry a retired model id (e.g. 'gpt-4o-mini') — fall back to the
+  // first live cloud model instead of a <select> whose value matches no
+  // <option> once the real provider list has loaded.
   const effectiveModel = isPortfolio
-    ? (settings?.portfolioModel || 'gpt-4o-mini')
+    ? (portfolioModels.some(m => m.id === settings?.portfolioModel)
+        ? settings.portfolioModel
+        : (settings?.portfolioModel || FALLBACK_CLOUD_MODEL.id))
     : selectedModel;
 
   // Derive the user's membership tier from the user prop
@@ -100,38 +112,6 @@ function Sidebar({
     if (requiredTier === 'simple') return userTier === 'simple';
     return true;
   };
-
-  // Build portfolio models list from providers
-  // config.models may be an array OR an object keyed by model ID
-  const portfolioModels = React.useMemo(() => {
-    if (!portfolioLLMProviders) return [];
-    const result = [];
-    Object.entries(portfolioLLMProviders).forEach(([provider, config]) => {
-      if (!config.models) return;
-      if (Array.isArray(config.models)) {
-        config.models.forEach(m => {
-          result.push({
-            id: typeof m === 'string' ? m : m.id,
-            name: typeof m === 'string' ? m : (m.name || m.id),
-            provider,
-            rate: (typeof m === 'object' && m.rate) ? m.rate : null,
-            requiredTier: (typeof m === 'object' && m.requiredTier) ? m.requiredTier : null,
-          });
-        });
-      } else {
-        Object.entries(config.models).forEach(([modelId, modelInfo]) => {
-          result.push({
-            id: modelId,
-            name: (modelInfo && modelInfo.name) ? modelInfo.name : modelId,
-            provider,
-            rate: modelInfo?.rate || null,
-            requiredTier: modelInfo?.requiredTier || null,
-          });
-        });
-      }
-    });
-    return result;
-  }, [portfolioLLMProviders]);
 
   // Fetch local models from addon when connected
   useEffect(() => {
@@ -382,7 +362,7 @@ function Sidebar({
                   value={settings?.llmProvider || 'portfolio'}
                   onChange={e => onSettingsChange({ ...settings, llmProvider: e.target.value })}
                 >
-                  <option value="portfolio">☁️ Cloud (Portfolio)</option>
+                  <option value="portfolio">☁️ Cloud (AWS Bedrock)</option>
                   {isAddonConnected && <option value="local">💻 Local (HuggingFace)</option>}
                 </select>
               </div>
@@ -414,10 +394,7 @@ function Sidebar({
                         );
                       })
                     ) : (
-                      <>
-                        <option value="gpt-4o-mini">gpt-4o-mini</option>
-                        <option value="gpt-4o-mini">gpt-4o-mini</option>
-                      </>
+                      <option value={FALLBACK_CLOUD_MODEL.id}>{FALLBACK_CLOUD_MODEL.name}</option>
                     )}
                   </select>
                 ) : (

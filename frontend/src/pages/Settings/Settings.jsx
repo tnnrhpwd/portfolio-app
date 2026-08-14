@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { logout, resetDataSlice } from './../../features/data/dataSlice.js';
+import { logout, resetDataSlice, getLLMProviders } from './../../features/data/dataSlice.js';
 import Spinner from '../../components/Spinner/Spinner.jsx';
 import { toast } from 'react-toastify';
 import {
@@ -17,6 +17,7 @@ import {
 import { getCloudSettings, saveCloudSettings, isAddonOptedIn, setAddonOptIn } from '../../services/simpleAddonApi.js';
 import { ADDON_DOWNLOAD_URL, useAddonDetection } from '../../hooks/simpleAddon/useAddonDetection';
 import AIWorkflowSettings from '../../components/SimpleAddon/AIWorkflowSettings.jsx';
+import { DEFAULT_CLOUD_MODEL_ID } from '../../utils/llmProviderOptions.js';
 import './Settings.css';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
@@ -46,7 +47,11 @@ function Settings() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const { user, dataIsLoading } = useSelector((state) => state.data);
+  const { user, dataIsLoading, llmProviders } = useSelector((state) => state.data);
+
+  useEffect(() => {
+    dispatch(getLLMProviders());
+  }, [dispatch]);
 
   const { addonNeedsCertTrust } = useAddonDetection();
   const [addonOptedIn, setAddonOptedInState] = useState(() => isAddonOptedIn());
@@ -81,7 +86,7 @@ function Settings() {
     const stored = getAISettings();
     return {
       llmProvider: stored.llmProvider || 'portfolio',
-      portfolioModel: stored.portfolioModel || 'gpt-4o-mini',
+      portfolioModel: stored.portfolioModel || DEFAULT_CLOUD_MODEL_ID,
       defaultTemperature: stored.defaultTemperature ?? 0.7,
       defaultMaxTokens: stored.defaultMaxTokens ?? 500,
       maxConversationHistory: stored.maxConversationHistory ?? 20,
@@ -544,20 +549,21 @@ function Settings() {
                           <span className="planit-settings-section-kicker">AI workflow</span>
                           <h2 className="planit-settings-section-title">AI &amp; Simple addon</h2>
                           <p className="planit-settings-section-description">
-                            Choose your provider, tune chat defaults, and manage GitHub Models access.
+                            Choose your provider, tune chat defaults, and manage AWS Bedrock access.
                           </p>
                         </div>
                       </div>
 
                       <div className="planit-settings-ai-info">
                         <p className="planit-settings-ai-description">
-                          Access AI chat powered by GitHub Models at <strong>/net</strong>. For local AI and desktop automation, install the <strong>Simple addon</strong>.
+                          Access AI chat powered by AWS Bedrock at <strong>/net</strong>. For local AI and desktop automation, install the <strong>Simple addon</strong>.
                         </p>
 
                         <AIWorkflowSettings
                           settings={aiSettings}
                           onChange={updateAISetting}
                           user={user}
+                          portfolioLLMProviders={llmProviders}
                         />
 
                         <div className="planit-settings-ai-actions">

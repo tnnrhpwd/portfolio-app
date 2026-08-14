@@ -197,7 +197,7 @@ const Privacy = () => {
                                 submit &mdash; for example, generating suggestions, summarizing text, or extracting
                                 text from uploaded images and documents (OCR). To provide these features, the text or
                                 files you submit for that purpose may be sent to third-party AI providers, which may
-                                include OpenAI, xAI, and GitHub Models, for processing.
+                                include OpenAI, xAI, and AWS Bedrock (Anthropic Claude models), for processing.
                             </p>
                             <ul>
                                 <li>Only the content necessary to complete your request is sent to these providers.</li>

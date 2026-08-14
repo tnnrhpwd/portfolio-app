@@ -5,6 +5,7 @@ import { compressData, getLLMProviders, getMembershipPricing, resetDataSlice } f
 import dataService from '../../../features/data/dataService.js';
 import SimpleChat from '../../../components/SimpleAddon/SimpleChat.jsx';
 import { useAddonDetection } from '../../../hooks/simpleAddon/useAddonDetection.js';
+import { DEFAULT_CLOUD_MODEL_ID } from '../../../utils/llmProviderOptions.js';
 import './Net.css';
 import Header from '../../../components/Header/Header.jsx';
 import Footer from '../../../components/Footer/Footer.jsx';
@@ -69,7 +70,7 @@ function Net() {
 
   // Streaming chat handler — streams tokens directly to SimpleChat callbacks
   const handlePortfolioChatStream = useCallback(
-    async (message, conversationHistory, provider = 'openai', model = 'gpt-4o-mini', extras = {}) => {
+    async (message, conversationHistory, provider = 'bedrock', model = DEFAULT_CLOUD_MODEL_ID, extras = {}) => {
       if (!user) return;
 
       const payload = {
@@ -112,7 +113,7 @@ function Net() {
 
   // Legacy non-streaming handler (fallback)
   const handlePortfolioChat = useCallback(
-    (message, conversationHistory, provider = 'openai', model = 'gpt-4o-mini', extras = {}) => {
+    (message, conversationHistory, provider = 'bedrock', model = DEFAULT_CLOUD_MODEL_ID, extras = {}) => {
       if (!user) return;
       const payload = {
         message,

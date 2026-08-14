@@ -13,6 +13,7 @@ import {
 import './AdvancedSettings.css';
 import AIWorkflowSettings from './AIWorkflowSettings.jsx';
 import WorkspaceManager from './WorkspaceManager.jsx';
+import WorkspaceProfilesManager from './WorkspaceProfilesManager.jsx';
 import ShortcutsManager from './ShortcutsManager.jsx';
 import GoalManager from './GoalManager.jsx';
 import PermissionsManager from './PermissionsManager.jsx';
@@ -27,8 +28,9 @@ const TABS = [
   { id: 'network', label: '🌐 Network' },
 ];
 
-function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnline, speech, micDevices, user, cloudSyncStatus, addonConnected, initialTab }) {
+function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnline, speech, micDevices, user, cloudSyncStatus, addonConnected, initialTab, portfolioLLMProviders }) {
   const [activeTab, setActiveTab] = useState('general');
+  const [workspaceSubTab, setWorkspaceSubTab] = useState('profiles');
   const [behaviors, setBehaviors] = useState([]);
   const [memoryFiles, setMemoryFiles] = useState([]);
   const [personalityFiles, setPersonalityFiles] = useState([]);
@@ -419,6 +421,7 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
                 user={user}
                 cloudSyncStatus={cloudSyncStatus}
                 sttSupported={speech?.sttSupported}
+                portfolioLLMProviders={portfolioLLMProviders}
               />
 
               {/* ─── Microphone Selection ─────────────────────── */}
@@ -860,7 +863,33 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
 
           {activeTab === 'workspace' && (
             <div className="adv-section">
-              <WorkspaceManager user={user} />
+              <div className="adv-subtabs">
+                <button
+                  type="button"
+                  className={`adv-subtabs__tab ${workspaceSubTab === 'profiles' ? 'adv-subtabs__tab--active' : ''}`}
+                  onClick={() => setWorkspaceSubTab('profiles')}
+                >
+                  🗂 Saved Workspaces
+                </button>
+                <button
+                  type="button"
+                  className={`adv-subtabs__tab ${workspaceSubTab === 'memory' ? 'adv-subtabs__tab--active' : ''}`}
+                  onClick={() => setWorkspaceSubTab('memory')}
+                >
+                  📚 AI Memory &amp; Skills
+                </button>
+              </div>
+
+              {workspaceSubTab === 'profiles' ? (
+                <>
+                  <p className="adv-section__intro">
+                    Save the current arrangement of every open window on this PC, then restore it with one click later — e.g. a "Coding setup" or "Streaming setup" profile.
+                  </p>
+                  <WorkspaceProfilesManager addonConnected={!!addonConnected} />
+                </>
+              ) : (
+                <WorkspaceManager user={user} />
+              )}
             </div>
           )}
 

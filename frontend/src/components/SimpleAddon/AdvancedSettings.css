@@ -99,6 +99,38 @@
   color: var(--accent);
 }
 
+/* ─── Sub-tabs (within a single tab's content, e.g. Workspace) ────────────── */
+.adv-subtabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.adv-subtabs__tab {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all var(--transition);
+}
+
+.adv-subtabs__tab:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.adv-subtabs__tab--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
 /* ─── Content ─────────────────────────────────────────────────────────────── */
 .adv-content {
   flex: 1;
@@ -685,6 +717,53 @@
 
 .adv-network-item__link:hover {
   text-decoration: underline;
+}
+
+/* ─── Buttons ──────────────────────────────────────────────────────────────
+   Base button styling — previously only the `--active` modifier had rules,
+   so every plain `.adv-btn` (Connect/Clear, QR interface picker, workspace
+   profile actions, etc.) rendered as an unstyled default browser button. */
+.adv-btn {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.adv-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.adv-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.adv-btn--sm {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.adv-btn--muted {
+  color: var(--text-muted);
+}
+
+.adv-btn--danger {
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+}
+
+.adv-btn--danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: #ef4444;
+  color: #ef4444;
 }
 
 /* ─── Custom addon host / manual IP entry ──────────────────────────────────── */

@@ -1,4 +1,5 @@
 import './AIWorkflowSettings.css';
+import { buildCloudModelList, FALLBACK_CLOUD_MODEL, cloudProviderLabel } from '../../utils/llmProviderOptions.js';
 
 /**
  * AIWorkflowSettings — the single source of truth for the AI chat preferences
@@ -17,9 +18,21 @@ import './AIWorkflowSettings.css';
  * @param {object} [props.user] - Logged-in user, used to gate Cloud Sync.
  * @param {string} [props.cloudSyncStatus] - null | 'syncing' | 'synced' | 'error'
  * @param {boolean} [props.sttSupported] - Whether speech recognition is supported in this browser.
+ * @param {object} [props.portfolioLLMProviders] - `/llm-providers` response (cloud models actually
+ *   configured on the backend — currently AWS Bedrock). Falls back to a single Bedrock entry while
+ *   loading so the dropdown never shows retired GitHub Models-era options like GPT-4o.
  */
-function AIWorkflowSettings({ settings, onChange, user, cloudSyncStatus, sttSupported = true }) {
+function AIWorkflowSettings({ settings, onChange, user, cloudSyncStatus, sttSupported = true, portfolioLLMProviders }) {
   const update = (key, value) => onChange?.(key, value);
+
+  const cloudModels = buildCloudModelList(portfolioLLMProviders);
+  const modelOptions = cloudModels.length > 0 ? cloudModels : [FALLBACK_CLOUD_MODEL];
+  // Older stored settings may still carry a retired GitHub Models-era id
+  // (e.g. 'gpt-4o-mini') — fall back to the first live model instead of
+  // rendering a <select> whose value matches none of its <option>s.
+  const selectedModelId = modelOptions.some(m => m.id === settings.portfolioModel)
+    ? settings.portfolioModel
+    : modelOptions[0].id;
 
   return (
     <div className="aiw-root">
@@ -32,7 +45,7 @@ function AIWorkflowSettings({ settings, onChange, user, cloudSyncStatus, sttSupp
             onChange={e => update('llmProvider', e.target.value)}
             className="aiw-input"
           >
-            <option value="portfolio">☁️ Cloud (Portfolio)</option>
+            <option value="portfolio">☁️ Cloud (AWS Bedrock)</option>
             <option value="local">💻 Local (HuggingFace)</option>
           </select>
           <span className="aiw-hint">Switch providers depending on where you want responses generated.</span>
@@ -47,15 +60,23 @@ function AIWorkflowSettings({ settings, onChange, user, cloudSyncStatus, sttSupp
           {settings.llmProvider === 'local' ? (
             <p className="aiw-note">Local models require the Simple addon to be running.</p>
           ) : (
-            <select
-              id="aiw-model"
-              value={settings.portfolioModel || 'gpt-4o-mini'}
-              onChange={e => update('portfolioModel', e.target.value)}
-              className="aiw-input"
-            >
-              <option value="gpt-4o-mini">GPT-4o Mini</option>
-              <option value="gpt-4o">GPT-4o</option>
-            </select>
+            <>
+              <select
+                id="aiw-model"
+                value={selectedModelId}
+                onChange={e => update('portfolioModel', e.target.value)}
+                className="aiw-input"
+              >
+                {modelOptions.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}{m.rate ? ` — ${m.rate}` : ''}
+                  </option>
+                ))}
+              </select>
+              <span className="aiw-hint">
+                Served by {cloudProviderLabel(modelOptions[0]?.provider)} — no API key needed, usage is metered against your plan.
+              </span>
+            </>
           )}
         </div>
       </div>

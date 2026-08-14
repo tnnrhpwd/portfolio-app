@@ -26,6 +26,7 @@ import {
 } from '../../services/simpleAddonApi';
 import { createData } from '../../features/data/dataSlice';
 import { getUserIdentifier } from '../../utils/supportUtils';
+import { DEFAULT_CLOUD_MODEL_ID } from '../../utils/llmProviderOptions.js';
 import './SimpleChat.css';
 import './SimpleTheme.css';
 import { checkMessage as securityCheckMessage } from '../../utils/simpleAddon/securityGuard';
@@ -103,7 +104,7 @@ const DEFAULT_SETTINGS = {
   sttEnabled: false,
   micDeviceId: '',
   llmProvider: 'portfolio',   // Default to portfolio cloud when no addon
-  portfolioModel: 'gpt-4o-mini',
+  portfolioModel: DEFAULT_CLOUD_MODEL_ID,
   cloudSync: false,
 };
 
@@ -884,7 +885,7 @@ function SimpleChat({
         if (!onPortfolioChat && !onPortfolioChatStream) {
           throw new Error('Portfolio chat not available. Please log in.');
         }
-        const portfolioModel = settings.portfolioModel || 'gpt-4o-mini';
+        const portfolioModel = settings.portfolioModel || DEFAULT_CLOUD_MODEL_ID;
 
         // ── /compare handler — send last user message to a second model ──
         const slashCmd = handleSlashCommand(text);
@@ -984,7 +985,7 @@ function SimpleChat({
             },
           };
 
-          onPortfolioChatStream(lastUserMsg.content, trimmedHistory, 'github', compareModel, {
+          onPortfolioChatStream(lastUserMsg.content, trimmedHistory, 'bedrock', compareModel, {
             activeAgent: activeAgent?.id || null,
             behaviorFile: activeAgent?.behaviorFile || 'default.txt',
           });
@@ -1105,7 +1106,7 @@ function SimpleChat({
             },
           };
 
-          onPortfolioChatStream(text, trimmedHistory, 'github', portfolioModel, {
+          onPortfolioChatStream(text, trimmedHistory, 'bedrock', portfolioModel, {
             activeAgent: activeAgent?.id || null,
             behaviorFile: activeAgent?.behaviorFile || 'default.txt',
           });
@@ -1113,7 +1114,7 @@ function SimpleChat({
         }
 
         // ── Legacy non-streaming fallback ──
-        onPortfolioChat(text, trimmedHistory, 'github', portfolioModel, {
+        onPortfolioChat(text, trimmedHistory, 'bedrock', portfolioModel, {
           activeAgent: activeAgent?.id || null,
           behaviorFile: activeAgent?.behaviorFile || 'default.txt',
         });
@@ -1124,7 +1125,7 @@ function SimpleChat({
       if (!isAddonConnected && !isRemoteAddonOnline) {
         throw new Error(
           'Cannot use the local provider — the Simple addon is not running. ' +
-          'Switch to **Cloud (Portfolio)** in Settings to chat without the addon, ' +
+          'Switch to **Cloud (AWS Bedrock)** in Settings to chat without the addon, ' +
           'or install and start the desktop addon to run local models.'
         );
       }
@@ -1489,6 +1490,7 @@ function SimpleChat({
           user={user}
           cloudSyncStatus={cloudSyncStatus}
           addonConnected={isAddonConnected}
+          portfolioLLMProviders={portfolioLLMProviders}
         />
 
         {isInactive && (

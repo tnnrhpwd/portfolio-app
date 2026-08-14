@@ -103,30 +103,28 @@ export default function PermissionsManager({ addonConnected }) {
     <div className="perms-root">
       {error && <div className="perms-error">{error}</div>}
 
-      <div className="adv-group">
-        <div className="adv-group__row">
-          <div>
-            <label className="adv-group__label">Emergency Kill Switch</label>
-            <p className="adv-group__desc">Immediately blocks every tool call and stops the agent. Persists across addon restarts until turned back off.</p>
-          </div>
-          <label className={`perms-toggle ${killOn ? 'is-on is-danger' : ''}`}>
-            <input type="checkbox" checked={killOn} disabled={busy} onChange={(e) => onToggleKillSwitch(e.target.checked)} />
-            <span>{killOn ? 'Active' : 'Off'}</span>
-          </label>
+      <div className={`perms-card ${killOn ? 'perms-card--on perms-card--danger' : ''}`}>
+        <div>
+          <label className="adv-group__label">Emergency Kill Switch</label>
+          <p className="adv-group__desc">Immediately blocks every tool call and stops the agent. Persists across addon restarts until turned back off.</p>
         </div>
+        <label className={`perms-switch ${killOn ? 'perms-switch--danger' : ''}`}>
+          <input type="checkbox" checked={killOn} disabled={busy} onChange={(e) => onToggleKillSwitch(e.target.checked)} />
+          <span className="perms-switch__track" />
+          <span className="perms-switch__label">{killOn ? 'On' : 'Off'}</span>
+        </label>
       </div>
 
-      <div className="adv-group">
-        <div className="adv-group__row">
-          <div>
-            <label className="adv-group__label">Auto-approve actions</label>
-            <p className="adv-group__desc">Runs tool calls that would normally prompt ("ask" mode) without a popup. The kill switch and hard-blocked commands are unaffected.</p>
-          </div>
-          <label className={`perms-toggle ${autoApprove ? 'is-on' : ''}`}>
-            <input type="checkbox" checked={autoApprove} disabled={busy} onChange={(e) => onToggleAutoApprove(e.target.checked)} />
-            <span>{autoApprove ? 'On' : 'Off'}</span>
-          </label>
+      <div className={`perms-card ${autoApprove ? 'perms-card--on' : ''}`}>
+        <div>
+          <label className="adv-group__label">Auto-approve actions</label>
+          <p className="adv-group__desc">Runs tool calls that would normally prompt ("ask" mode) without a popup. The kill switch and hard-blocked commands are unaffected.</p>
         </div>
+        <label className="perms-switch">
+          <input type="checkbox" checked={autoApprove} disabled={busy} onChange={(e) => onToggleAutoApprove(e.target.checked)} />
+          <span className="perms-switch__track" />
+          <span className="perms-switch__label">{autoApprove ? 'On' : 'Off'}</span>
+        </label>
       </div>
 
       <h3 className="adv-section__subtitle">🔐 Sensitive data consents</h3>
@@ -134,32 +132,30 @@ export default function PermissionsManager({ addonConnected }) {
         Synced to your account — granting or revoking here applies on every device and addon install signed in as you.
       </p>
 
-      <div className="adv-group">
-        <div className="adv-group__row">
-          <div>
-            <label className="adv-group__label">Keyboard capture while recording</label>
-            <p className="adv-group__desc">Lets the macro recorder capture keystrokes so recorded macros can replay typed text. Required to record any macro that involves typing.</p>
-            <p className="perms-status">{fmtWhen(kb.keyboardGrantedAt)}</p>
-          </div>
-          <label className={`perms-toggle ${kb.keyboard ? 'is-on' : ''}`}>
-            <input type="checkbox" checked={!!kb.keyboard} disabled={busy} onChange={(e) => onToggleConsent('keyboardCapture', e.target.checked)} />
-            <span>{kb.keyboard ? 'Enabled' : 'Disabled'}</span>
-          </label>
+      <div className={`perms-card ${kb.keyboard ? 'perms-card--on' : ''}`}>
+        <div>
+          <label className="adv-group__label">Keyboard capture while recording</label>
+          <p className="adv-group__desc">Lets the macro recorder capture keystrokes so recorded macros can replay typed text. Required to record any macro that involves typing.</p>
+          <p className="perms-status">{fmtWhen(kb.keyboardGrantedAt)}</p>
         </div>
+        <label className="perms-switch">
+          <input type="checkbox" checked={!!kb.keyboard} disabled={busy} onChange={(e) => onToggleConsent('keyboardCapture', e.target.checked)} />
+          <span className="perms-switch__track" />
+          <span className="perms-switch__label">{kb.keyboard ? 'On' : 'Off'}</span>
+        </label>
       </div>
 
-      <div className="adv-group">
-        <div className="adv-group__row">
-          <div>
-            <label className="adv-group__label">Cloud vision (screenshot analysis)</label>
-            <p className="adv-group__desc">Allows sending screenshots to a cloud AI model when local screen understanding needs help (e.g. visually locating a UI element).</p>
-            <p className="perms-status">{fmtWhen(cv.grantedAt)}</p>
-          </div>
-          <label className={`perms-toggle ${cv.granted ? 'is-on' : ''}`}>
-            <input type="checkbox" checked={!!cv.granted} disabled={busy} onChange={(e) => onToggleConsent('cloudVision', e.target.checked)} />
-            <span>{cv.granted ? 'Enabled' : 'Disabled'}</span>
-          </label>
+      <div className={`perms-card ${cv.granted ? 'perms-card--on' : ''}`}>
+        <div>
+          <label className="adv-group__label">Cloud vision (screenshot analysis)</label>
+          <p className="adv-group__desc">Allows sending screenshots to a cloud AI model when local screen understanding needs help (e.g. visually locating a UI element).</p>
+          <p className="perms-status">{fmtWhen(cv.grantedAt)}</p>
         </div>
+        <label className="perms-switch">
+          <input type="checkbox" checked={!!cv.granted} disabled={busy} onChange={(e) => onToggleConsent('cloudVision', e.target.checked)} />
+          <span className="perms-switch__track" />
+          <span className="perms-switch__label">{cv.granted ? 'On' : 'Off'}</span>
+        </label>
       </div>
 
       <p className="perms-hint">

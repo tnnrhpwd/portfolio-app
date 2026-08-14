@@ -822,6 +822,57 @@ export async function setAutomationConsents(patch = {}) {
   return res.json();
 }
 
+// ─── Workspace Profiles (save/restore window layouts, local addon only) ─────
+// Mirrors the desktop dashboard's "Workspace Profiles" tab (simple-addon/
+// renderer/dashboard.html) — each profile captures every visible window's
+// position, size, and state on this PC so it can be restored later. This is
+// local-only OS window management, so it always talks to the connected addon
+// directly (never the cloud backend) and is unavailable unless addonConnected.
+
+/** List saved window-layout profiles (metadata only, sorted newest first). */
+export async function listWorkspaceProfiles() {
+  const res = await addonFetch('/api/workspace-profiles');
+  return res.json();
+}
+
+/**
+ * Capture the current window arrangement and save it as a new profile.
+ * `includeDashboard` also remembers whether the addon dashboard window was
+ * open so it's reopened (never repositioned) on restore.
+ */
+export async function saveWorkspaceProfile(name, { includeDashboard = false } = {}) {
+  const res = await addonFetch('/api/workspace-profiles', {
+    method: 'POST',
+    body: JSON.stringify({ name, includeDashboard }),
+  });
+  return res.json();
+}
+
+/** Reposition/relaunch the windows saved in a profile. */
+export async function restoreWorkspaceProfile(name) {
+  const res = await addonFetch(`/api/workspace-profiles/${encodeURIComponent(name)}/restore`, {
+    method: 'POST',
+  });
+  return res.json();
+}
+
+/** Re-capture the current windows, overwriting an existing profile. */
+export async function updateWorkspaceProfile(name, { includeDashboard } = {}) {
+  const res = await addonFetch(`/api/workspace-profiles/${encodeURIComponent(name)}/update`, {
+    method: 'POST',
+    body: JSON.stringify({ includeDashboard }),
+  });
+  return res.json();
+}
+
+/** Delete a saved workspace profile. */
+export async function deleteWorkspaceProfile(name) {
+  const res = await addonFetch(`/api/workspace-profiles/${encodeURIComponent(name)}`, {
+    method: 'DELETE',
+  });
+  return res.json();
+}
+
 /**
  * Capture + upload a live screenshot thumbnail via the addon, which publishes a
  * `screen.frame` SSE event with the resulting URL.
