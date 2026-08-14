@@ -194,10 +194,6 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
           <h1 className="chat-window__title">{conversation?.title || 'New Chat'}</h1>
         </div>
         <div className="chat-window__header-spacer" />
-        <div className={`chat-window__status-badge ${isOnline ? 'chat-window__status-badge--online' : 'chat-window__status-badge--offline'}`}>
-          <span className="chat-window__status-indicator">{isOnline ? '🟢' : '⚫'}</span>
-          <span className="chat-window__status-text">{isOnline ? 'Online' : 'Offline'}</span>
-        </div>
       </header>
 
       {/* Passive hint — shows when speech was heard but no wake word */}
