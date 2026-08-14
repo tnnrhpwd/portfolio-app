@@ -375,12 +375,12 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
                   </div>
                   <select
                     className="adv-select"
-                    value={settings.theme || 'dark'}
+                    value={settings.theme || 'system'}
                     onChange={e => updateSetting('theme', e.target.value)}
                   >
                     <option value="dark">🌑 Dark</option>
                     <option value="light">☀️ Light</option>
-                    <option value="system">💻 System</option>
+                    <option value="system">💻 System (matches site theme)</option>
                     <option value="crimson">❤️ Crimson</option>
                     <option value="emerald">💎 Emerald</option>
                     <option value="sakura">🌸 Sakura</option>
