@@ -11,7 +11,7 @@
 
 const asyncHandler = require('express-async-handler');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, ScanCommand, QueryCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const { normalizePlanName, isPaidTier, PLAN_IDS, MONTHLY_PRICES } = require('../constants/pricing');
 const { isSpecialUser, refreshUserDataCache } = require('../utils/apiUsageTracker');
 
@@ -45,6 +45,29 @@ async function fullScan() {
         lastKey = result.LastEvaluatedKey;
     } while (lastKey);
     return items;
+}
+
+/**
+ * Fetch a single 'Simple' table record by its `id` partition key.
+ *
+ * The `Simple` table's primary key is composite (`id` + `createdAt` sort
+ * key) for most item types (workspace/marketplace/csimple records, etc.), so
+ * a plain GetCommand keyed on `id` alone throws a ValidationException — see
+ * the same issue already handled via a Query fallback in
+ * authMiddleware.getUserById and apiUsageTracker.getRawUserRecord. A
+ * QueryCommand only needs the partition key, so it works regardless of
+ * whether the sort key is present.
+ * @param {string} id
+ * @returns {Promise<Object|null>}
+ */
+async function getRecordById(id) {
+    const { Items } = await dynamodb.send(new QueryCommand({
+        TableName: 'Simple',
+        KeyConditionExpression: 'id = :id',
+        ExpressionAttributeValues: { ':id': id },
+        Limit: 1,
+    }));
+    return (Items && Items[0]) || null;
 }
 
 /** Parse a pipe-delimited text value safely. */
@@ -434,7 +457,7 @@ const updateUserSpecial = asyncHandler(async (req, res) => {
         throw new Error('User id is required.');
     }
 
-    const { Item: userItem } = await dynamodb.send(new GetCommand({ TableName: 'Simple', Key: { id } }));
+    const userItem = await getRecordById(id);
     if (!userItem) {
         res.status(404);
         throw new Error('User not found.');
