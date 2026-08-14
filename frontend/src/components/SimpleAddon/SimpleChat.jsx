@@ -26,7 +26,7 @@ import {
 } from '../../services/simpleAddonApi';
 import { createData } from '../../features/data/dataSlice';
 import { getUserIdentifier } from '../../utils/supportUtils';
-import { DEFAULT_CLOUD_MODEL_ID, FALLBACK_CLOUD_MODEL, buildCloudModelList, getEffectiveCloudModelId } from '../../utils/llmProviderOptions.js';
+import { DEFAULT_CLOUD_MODEL_ID, getEffectiveCloudModelId } from '../../utils/llmProviderOptions.js';
 import './SimpleChat.css';
 import './SimpleTheme.css';
 import { checkMessage as securityCheckMessage } from '../../utils/simpleAddon/securityGuard';
@@ -80,12 +80,6 @@ function getDeviceLocalSettings() {
     const saved = localStorage.getItem(DEVICE_SETTINGS_KEY);
     return saved ? JSON.parse(saved) : {};
   } catch { return {}; }
-}
-
-function saveDeviceLocalSetting(key, value) {
-  const current = getDeviceLocalSettings();
-  current[key] = value;
-  localStorage.setItem(DEVICE_SETTINGS_KEY, JSON.stringify(current));
 }
 
 const DEFAULT_SETTINGS = {
@@ -196,22 +190,6 @@ function SimpleChat({
 
   const activeConversation = conversations.find(c => c.id === activeConversationId);
   const activeAgent = settings.agents?.find(a => a.id === settings.selectedAgentId) || settings.agents?.[0];
-
-  // The chat window header shows "the current model" — but `selectedModel`
-  // only ever tracks the *local* addon model picker (defaulting to Qwen), so
-  // it used to render that local default even while actually chatting
-  // through Cloud (Bedrock). Resolve the header label per the active
-  // provider instead, and always via the validated cloud model id/name so a
-  // stale stored `portfolioModel` (e.g. a retired 'gpt-4o-mini') can't leak
-  // a GPT model name into the header either.
-  const isPortfolioProvider = settings.llmProvider === 'portfolio';
-  const cloudModels = React.useMemo(
-    () => buildCloudModelList(portfolioLLMProviders),
-    [portfolioLLMProviders]
-  );
-  const headerModelLabel = isPortfolioProvider
-    ? ((cloudModels.find(m => m.id === getEffectiveCloudModelId(settings.portfolioModel, portfolioLLMProviders))?.name) || FALLBACK_CLOUD_MODEL.name)
-    : selectedModel;
 
   // Initialize speech
   const speech = useSpeech({
@@ -1478,7 +1456,6 @@ function SimpleChat({
           onSendMessage={sendMessage}
           onStopGeneration={stopGeneration}
           onToggleSidebar={() => setSidebarOpen(prev => !prev)}
-          selectedModel={headerModelLabel}
           isOnline={isOnline}
           agent={activeAgent}
           speech={speech}
@@ -1490,16 +1467,8 @@ function SimpleChat({
           isConfirming={isConfirming}
           isAddonConnected={isAddonConnected}
           isAddonOutdated={addonPromptOutdated}
-          onTogglePassiveListening={() => {
-            setSettings(prev => {
-              const newVal = !prev.sttEnabled;
-              saveDeviceLocalSetting('sttEnabled', newVal);
-              return { ...prev, sttEnabled: newVal };
-            });
-          }}
           onReportMessage={handleReportMessage}
           onCopyMessage={handleCopyMessage}
-          onExportChat={exportChat}
         />
 
         <AdvancedSettings
@@ -1522,7 +1491,11 @@ function SimpleChat({
           user={user}
           cloudSyncStatus={cloudSyncStatus}
           addonConnected={isAddonConnected}
+          isAddonOutdated={addonPromptOutdated}
           portfolioLLMProviders={portfolioLLMProviders}
+          onSendMessage={sendMessage}
+          onExportChat={exportChat}
+          hasMessages={(activeConversation?.messages?.length || 0) > 0}
         />
 
         {isInactive && (

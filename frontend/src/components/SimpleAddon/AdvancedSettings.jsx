@@ -9,6 +9,7 @@ import {
   updatePersonality,
   getCustomAddonHost, setCustomAddonHost,
   getAddonBaseUrl,
+  voiceListen, voiceStopListening,
 } from '../../services/simpleAddonApi';
 import './AdvancedSettings.css';
 import AIWorkflowSettings from './AIWorkflowSettings.jsx';
@@ -28,7 +29,7 @@ const TABS = [
   { id: 'network', label: '🌐 Network' },
 ];
 
-function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnline, speech, micDevices, user, cloudSyncStatus, addonConnected, initialTab, portfolioLLMProviders }) {
+function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnline, speech, micDevices, user, cloudSyncStatus, addonConnected, isAddonOutdated, initialTab, portfolioLLMProviders, onSendMessage, onExportChat, hasMessages }) {
   const [activeTab, setActiveTab] = useState('general');
   const [workspaceSubTab, setWorkspaceSubTab] = useState('profiles');
   const [behaviors, setBehaviors] = useState([]);
@@ -45,6 +46,8 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
   const [showBehaviors, setShowBehaviors] = useState(false);
   const [showMemory, setShowMemory] = useState(false);
   const [showPersonality, setShowPersonality] = useState(false);
+  const [addonListening, setAddonListening] = useState(false); // Whisper mic active
+  const [addonListenError, setAddonListenError] = useState(null);
   const fileInputRef = useRef(null);
   const autoSaveTimer = useRef(null);
 
@@ -102,6 +105,45 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
       autoSave(newSettings);
     }
   }, [settings, autoSave, onSettingsChange]);
+
+  // ── Quick voice-to-message (moved here from the chat header) ────────────
+  const toggleVoiceMessage = useCallback(() => {
+    if (!speech) return;
+    if (speech.isListening) {
+      speech.stopListening();
+    } else {
+      speech.startListening((text) => {
+        if (text.trim()) onSendMessage?.(text.trim());
+      });
+    }
+  }, [speech, onSendMessage]);
+
+  const toggleWhisperVoiceMessage = useCallback(async () => {
+    if (addonListening) {
+      setAddonListening(false);
+      voiceStopListening().catch(() => {});
+      return;
+    }
+    setAddonListening(true);
+    setAddonListenError(null);
+    try {
+      const result = await voiceListen({ maxSeconds: 10, silenceMs: 800 });
+      const text = result?.text?.trim();
+      if (text) {
+        onSendMessage?.(text);
+      } else {
+        setAddonListenError('Nothing heard');
+        setTimeout(() => setAddonListenError(null), 2000);
+      }
+    } catch (e) {
+      const msg = e.message?.slice(0, 80) || 'Mic error';
+      const hint = (msg.includes('Cannot') || msg.includes('404')) ? 'Restart addon (tray → Restart Server)' : msg;
+      setAddonListenError(hint);
+      setTimeout(() => setAddonListenError(null), 4000);
+    } finally {
+      setAddonListening(false);
+    }
+  }, [addonListening, onSendMessage]);
 
   // Agent management
   const addAgent = useCallback(() => {
@@ -411,6 +453,53 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
                     <option value="large">Large</option>
                   </select>
                 </div>
+              </div>
+
+              {/* ─── Chat Tools (moved from the chat header) ─────────── */}
+              <div className="adv-group">
+                <label className="adv-group__label">Chat Tools</label>
+                <p className="adv-group__desc">Export the current chat or send a message using your voice.</p>
+                <div className="adv-mic-list">
+                  <button
+                    type="button"
+                    className="adv-mic-item"
+                    onClick={() => onExportChat?.('markdown')}
+                    disabled={!onExportChat || !hasMessages}
+                    title="Export chat as Markdown"
+                  >
+                    <span className="adv-mic-item__radio" aria-hidden="true">📥</span>
+                    <span className="adv-mic-item__label">Export Chat</span>
+                  </button>
+                  {speech?.sttSupported && (
+                    <button
+                      type="button"
+                      className={`adv-mic-item ${speech.isListening ? 'adv-mic-item--selected' : ''}`}
+                      onClick={toggleVoiceMessage}
+                      title={speech.isListening ? 'Stop listening' : 'Speak a message (browser voice input)'}
+                    >
+                      <span className="adv-mic-item__radio" aria-hidden="true">🎤</span>
+                      <span className="adv-mic-item__label">
+                        {speech.isListening ? 'Listening… click to stop' : 'Voice Message (Browser)'}
+                      </span>
+                    </button>
+                  )}
+                  {addonConnected && !isAddonOutdated && (
+                    <button
+                      type="button"
+                      className={`adv-mic-item ${addonListening ? 'adv-mic-item--selected' : ''}`}
+                      onClick={toggleWhisperVoiceMessage}
+                      title={addonListening ? 'Stop Whisper recording' : 'Speak a message via Whisper AI (addon)'}
+                    >
+                      <span className="adv-mic-item__radio" aria-hidden="true">{addonListening ? '🎙' : '🎙️'}</span>
+                      <span className="adv-mic-item__label">
+                        {addonListening ? 'Listening… click to stop' : 'Voice Message (Whisper)'}
+                      </span>
+                    </button>
+                  )}
+                </div>
+                {addonListenError && (
+                  <p className="adv-mic-list__empty">{addonListenError}</p>
+                )}
               </div>
 
               {/* ─── Shared AI workflow settings (same data as the Settings page) ─── */}

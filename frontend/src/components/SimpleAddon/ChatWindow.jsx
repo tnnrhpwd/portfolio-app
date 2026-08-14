@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import MessageBubble from './MessageBubble';
 import ConfirmationPanel from './ConfirmationPanel';
-import { voiceListen, voiceStopListening } from '../../services/simpleAddonApi';
 import './ChatWindow.css';
 
 // Only allow data: and https: avatar URLs — drop stale /api/agents/... paths
@@ -62,12 +61,10 @@ function formatFileSize(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneration, onToggleSidebar, selectedModel, isOnline, agent, speech, sttEnabled, settings, pendingConfirmation, onConfirmOption, onDismissConfirmation, isConfirming, onTogglePassiveListening, isAddonConnected, isAddonOutdated, onReportMessage, onCopyMessage, onExportChat }) {
+function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneration, onToggleSidebar, isOnline, agent, speech, sttEnabled, settings, pendingConfirmation, onConfirmOption, onDismissConfirmation, isConfirming, isAddonConnected, isAddonOutdated, onReportMessage, onCopyMessage }) {
   const [input, setInput] = useState('');
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [dragActive, setDragActive] = useState(false);
-  const [addonListening, setAddonListening] = useState(false); // Whisper mic active
-  const [addonListenError, setAddonListenError] = useState(null);
   const messagesContainerRef = useRef(null);
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -176,47 +173,6 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
     }
   };
 
-  const toggleListening = () => {
-    if (!speech) return;
-    if (speech.isListening) {
-      speech.stopListening();
-    } else {
-      speech.startListening((text) => {
-        if (text.trim()) {
-          onSendMessage(text.trim());
-        }
-      });
-    }
-  };
-
-  // ── Addon (Whisper) voice input ────────────────────────────────────────────
-  const toggleAddonListening = useCallback(async () => {
-    if (addonListening) {
-      setAddonListening(false);
-      voiceStopListening().catch(() => {});
-      return;
-    }
-    setAddonListening(true);
-    setAddonListenError(null);
-    try {
-      const result = await voiceListen({ maxSeconds: 10, silenceMs: 800 });
-      const text = result?.text?.trim();
-      if (text) {
-        setInput(prev => prev ? `${prev} ${text}` : text);
-      } else {
-        setAddonListenError('Nothing heard');
-        setTimeout(() => setAddonListenError(null), 2000);
-      }
-    } catch (e) {
-      const msg = e.message?.slice(0, 80) || 'Mic error';
-      const hint = (msg.includes('Cannot') || msg.includes('404')) ? 'Restart addon (tray → Restart Server)' : msg;
-      setAddonListenError(hint);
-      setTimeout(() => setAddonListenError(null), 4000);
-    } finally {
-      setAddonListening(false);
-    }
-  }, [addonListening]);
-
   const handleKeyDown = (e) => {
     const sendWithEnter = settings?.sendWithEnter ?? true;
     if (e.key === 'Enter' && !e.shiftKey && sendWithEnter) {
@@ -236,27 +192,12 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
         </button>
         <div className="chat-window__header-info">
           <h1 className="chat-window__title">{conversation?.title || 'New Chat'}</h1>
-          <span className="chat-window__model-badge">
-            {selectedModel.split('/').pop()}
-          </span>
         </div>
         <div className="chat-window__header-spacer" />
-        {onExportChat && conversation?.messages?.length > 0 && (
-          <button className="chat-window__export-btn" onClick={() => onExportChat('markdown')} title="Export chat as Markdown">
-            📥 Export
-          </button>
-        )}
         <div className={`chat-window__status-badge ${isOnline ? 'chat-window__status-badge--online' : 'chat-window__status-badge--offline'}`}>
           <span className="chat-window__status-indicator">{isOnline ? '🟢' : '⚫'}</span>
           <span className="chat-window__status-text">{isOnline ? 'Online' : 'Offline'}</span>
         </div>
-        <button
-          className={`chat-window__passive-toggle ${sttEnabled ? 'chat-window__passive-toggle--active' : 'chat-window__passive-toggle--inactive'}`}
-          onClick={onTogglePassiveListening}
-          title={sttEnabled ? 'Passive listening is ON — click to disable' : 'Passive listening is OFF — click to enable'}
-        >
-          {sttEnabled ? '🟢' : '⚫'} Passive Listening
-        </button>
       </header>
 
       {/* Passive hint — shows when speech was heard but no wake word */}
@@ -437,34 +378,6 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
             rows={1}
             disabled={isGenerating || !isOnline}
           />
-          {speech?.sttSupported && (
-            <button
-              type="button"
-              className={`chat-window__mic-btn ${speech.isListening ? 'chat-window__mic-btn--active' : ''}`}
-              onClick={toggleListening}
-              title={speech.isListening ? 'Stop listening' : 'Voice input (browser)'}
-            >
-              <span aria-hidden="true">🎤</span>
-            </button>
-          )}
-          {isAddonConnected && !isAddonOutdated && (
-            <button
-              type="button"
-              className={`chat-window__mic-btn chat-window__mic-btn--whisper ${addonListening ? 'chat-window__mic-btn--active' : ''}`}
-              onClick={toggleAddonListening}
-              title={addonListening ? 'Stop Whisper recording' : 'Voice input via Whisper AI (addon)'}
-              disabled={isGenerating}
-            >
-              {addonListening ? (
-                <span className="chat-window__whisper-pulse">🎙</span>
-              ) : (
-                <span aria-hidden="true">🎙️</span>
-              )}
-            </button>
-          )}
-          {addonListenError && (
-            <span className="chat-window__whisper-err">{addonListenError}</span>
-          )}
           {isGenerating ? (
             <button
               type="button"
@@ -490,7 +403,7 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
           {(settings?.sendWithEnter ?? true)
             ? 'Press Enter to send, Shift+Enter for new line'
             : 'Press Shift+Enter to send, Enter for new line'
-          }{speech?.sttSupported ? ` · Click 🎤${sttEnabled ? ` or say "${agent?.name || 'agent'}"` : ''}` : ''}
+          }{(speech?.sttSupported && sttEnabled) ? ` · Say "${agent?.name || 'agent'}" for voice input` : ''}
         </div>
       </form>
     </main>
