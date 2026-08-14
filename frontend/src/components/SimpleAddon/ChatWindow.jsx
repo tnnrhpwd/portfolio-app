@@ -424,7 +424,8 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
             onClick={() => fileInputRef.current?.click()}
             title="Attach an image file"
           >
-            File
+            <span className="chat-window__btn-icon" aria-hidden="true">📎</span>
+            <span className="chat-window__btn-label">File</span>
           </button>
           <textarea
             ref={textareaRef}
@@ -443,12 +444,7 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
               onClick={toggleListening}
               title={speech.isListening ? 'Stop listening' : 'Voice input (browser)'}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                <line x1="12" y1="19" x2="12" y2="23" />
-                <line x1="8" y1="23" x2="16" y2="23" />
-              </svg>
+              <span aria-hidden="true">🎤</span>
             </button>
           )}
           {isAddonConnected && !isAddonOutdated && (
@@ -462,13 +458,7 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
               {addonListening ? (
                 <span className="chat-window__whisper-pulse">🎙</span>
               ) : (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                  <line x1="12" y1="19" x2="12" y2="23" />
-                  <line x1="8" y1="23" x2="16" y2="23" />
-                  <circle cx="12" cy="4" r="1.5" fill="currentColor" stroke="none" />
-                </svg>
+                <span aria-hidden="true">🎙️</span>
               )}
             </button>
           )}
@@ -482,9 +472,7 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
               onClick={onStopGeneration}
               title="Stop generation"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff">
-                <rect x="6" y="6" width="12" height="12" rx="2" />
-              </svg>
+              <span aria-hidden="true">⏹️</span>
             </button>
           ) : (
             <button
@@ -493,7 +481,8 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
               disabled={(!input.trim() && attachedFiles.length === 0) || !isOnline}
               title={isOnline ? "Send message" : "Cannot send while offline"}
             >
-              Send
+              <span className="chat-window__btn-icon" aria-hidden="true">➤</span>
+              <span className="chat-window__btn-label">Send</span>
             </button>
           )}
         </div>

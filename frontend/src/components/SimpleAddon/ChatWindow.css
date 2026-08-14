@@ -462,20 +462,34 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
+  gap: 6px;
+  width: auto;
   height: 36px;
-  border: none;
+  padding: 0 12px;
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   cursor: pointer;
   flex-shrink: 0;
   background: transparent;
   color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
   transition: all var(--transition);
 }
 
 .chat-window__attach-btn:hover {
   background: var(--hover);
   color: var(--accent);
+  border-color: var(--accent);
+}
+
+.chat-window__btn-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.chat-window__btn-label {
+  line-height: 1;
 }
 
 .chat-window__input-wrapper {
@@ -521,12 +535,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   width: 36px;
   height: 36px;
   border: none;
   border-radius: var(--radius-sm);
   cursor: pointer;
   flex-shrink: 0;
+  font-size: 16px;
   transition: all var(--transition);
 }
 
@@ -539,9 +555,8 @@
   width: auto;
 }
 
-.chat-window__send-btn svg {
-  stroke: #fff;
-  fill: none;
+.chat-window__send-btn .chat-window__btn-icon {
+  font-size: 14px;
 }
 
 .chat-window__send-btn:hover:not(:disabled) {
@@ -559,10 +574,6 @@
   color: #fff;
 }
 
-.chat-window__stop-btn svg {
-  fill: #fff;
-}
-
 .chat-window__stop-btn:hover {
   background: #ef4444;
 }
@@ -578,6 +589,7 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
   flex-shrink: 0;
+  font-size: 16px;
   transition: all var(--transition);
   background: transparent;
   color: var(--text-secondary);
@@ -912,17 +924,22 @@
     font-size: 14px;
   }
 
-  .chat-window__attach-btn,
   .chat-window__mic-btn,
-  .chat-window__send-btn,
   .chat-window__stop-btn {
     width: 32px;
     height: 32px;
   }
 
+  /* Icon-only buttons on small screens to save space */
+  .chat-window__btn-label {
+    display: none;
+  }
+
+  .chat-window__attach-btn,
   .chat-window__send-btn {
-    padding: 0 12px;
-    font-size: 12px;
+    width: 32px;
+    height: 32px;
+    padding: 0;
   }
 
   .chat-window__input-hint {
