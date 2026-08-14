@@ -60,8 +60,9 @@ function UsageMeter({ user }) {
   if (!user?.token || loading && !usage) return null;
 
   const isAdmin = usage?.isAdmin === true;
-  const tier = isAdmin ? 'Admin' : (TIER_LABELS[usage?.membership] || 'Free');
-  const tierColor = isAdmin ? '#f59e0b' : (TIER_COLORS[tier] || TIER_COLORS.Free);
+  const isSpecial = usage?.isSpecial === true;
+  const tier = isAdmin ? 'Admin' : isSpecial ? 'Special' : (TIER_LABELS[usage?.membership] || 'Free');
+  const tierColor = (isAdmin || isSpecial) ? '#f59e0b' : (TIER_COLORS[tier] || TIER_COLORS.Free);
   const limit = usage?.limit || 0;
   const credits = usage?.availableCredits || 0;
   const percentUsed = usage?.percentUsed || 0;
@@ -74,12 +75,13 @@ function UsageMeter({ user }) {
 
   const barColor = clampedPercent > 90 ? '#ef4444' : clampedPercent > 70 ? '#f59e0b' : '#10b981';
 
-  // Admin gets a simplified unlimited view
-  if (isAdmin) {
+  // Admin/Special users get a simplified unlimited view
+  if (isAdmin || isSpecial) {
+    const label = isAdmin ? 'Admin' : 'Special';
     return (
       <div className="usage-meter">
-        <div className="usage-meter__toggle" title="Admin — unlimited access">
-          <span className="usage-meter__tier-badge" style={{ background: tierColor }}>Admin</span>
+        <div className="usage-meter__toggle" title={`${label} — unlimited access`}>
+          <span className="usage-meter__tier-badge" style={{ background: tierColor }}>{label}</span>
           <span className="usage-meter__summary">Unlimited</span>
         </div>
       </div>

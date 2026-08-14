@@ -315,7 +315,19 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
         }
 
         const userText = user.text || '';
-        
+
+        // Check if user has been flagged "Special" by an admin - unlimited
+        // access, same as ADMIN_USER_ID (still track for logging but don't
+        // deduct credits).
+        if (isSpecialUser(userText)) {
+            logger.debug('trackApiUsage: Special user detected, logging usage but not deducting credits');
+            return {
+                cost: 0,
+                creditsRemaining: Infinity,
+                isSpecial: true
+            };
+        }
+
         // Calculate cost for this usage
         let cost = 0;
         let usageString = '';
@@ -516,6 +528,25 @@ async function getUserUsageStats(userId) {
 
         const userText = user.text || '';
         logger.debug('getUserUsageStats: User text contains:', userText.substring(0, 200) + '...');
+
+        // Users flagged "Special" by an admin get unlimited access, same as
+        // ADMIN_USER_ID, without changing their underlying plan rank.
+        if (isSpecialUser(userText)) {
+            logger.debug('getUserUsageStats: Special user detected, returning unlimited stats');
+            return {
+                totalUsage: 0,
+                availableCredits: Infinity,
+                limit: Infinity,
+                customLimit: null,
+                usageBreakdown: [],
+                membership: 'Special',
+                lastReset: null,
+                remainingBalance: Infinity,
+                percentUsed: 0,
+                isSpecial: true,
+            };
+        }
+
         const usage = parseUsageData(userText);
         logger.debug('getUserUsageStats: Parsed usage:', usage);
         
@@ -777,6 +808,18 @@ function getUserRank(userText) {
 }
 
 /**
+ * Check whether a user has been manually flagged "Special" by an admin via
+ * the User Management toggle on the admin dashboard. Special users get
+ * unlimited API credits just like the ADMIN_USER_ID account, without
+ * changing their underlying Free/Pro plan rank.
+ * @param {string} userText - User text field
+ * @returns {boolean}
+ */
+function isSpecialUser(userText) {
+    return /(?:^|\|)Special:true/i.test(userText || '');
+}
+
+/**
  * Check if user can make an API call using the new credit system
  * @param {string} userId - User ID
  * @param {string} apiName - API name
@@ -809,7 +852,14 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
         }
 
         const userText = user.text || '';
-        
+
+        // Users flagged "Special" by an admin get unlimited access, same as
+        // ADMIN_USER_ID, without changing their underlying plan rank.
+        if (isSpecialUser(userText)) {
+            logger.debug('canMakeApiCall: Special user detected, granting unlimited access');
+            return { canMake: true, reason: 'Special user has unlimited access' };
+        }
+
         // Get membership level
         let userRank;
         try {
@@ -945,7 +995,9 @@ module.exports = {
     parseUsageData,
     getUserRankFromStripe,
     getUserRank,
+    isSpecialUser,
     getUserDataCached,
+    refreshUserDataCache,
     API_COSTS,
     MEMBERSHIP_LIMITS,
     // New credit system functions

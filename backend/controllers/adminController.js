@@ -11,8 +11,9 @@
 
 const asyncHandler = require('express-async-handler');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, ScanCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const { normalizePlanName, isPaidTier, PLAN_IDS, MONTHLY_PRICES } = require('../constants/pricing');
+const { isSpecialUser, refreshUserDataCache } = require('../utils/apiUsageTracker');
 
 // ── DynamoDB client (matches existing getHashData.js pattern) ──
 const client = new DynamoDBClient({
@@ -344,6 +345,7 @@ const getAdminUsers = asyncHandler(async (req, res) => {
                 nickname:  parseField(text, 'Nickname'),
                 rank:      normalizePlanName(parseField(text, 'Rank') || 'Free'),
                 stripeid:  parseField(text, 'stripeid'),
+                special:   isSpecialUser(text),
                 createdAt: item.createdAt,
                 updatedAt: item.updatedAt,
             };
@@ -413,4 +415,62 @@ const getAdminPaginatedData = asyncHandler(async (req, res) => {
     });
 });
 
-module.exports = { getAdminDashboard, getAdminUsers, getAdminPaginatedData };
+// ═══════════════════════════════════════════════════════════════
+// PUT /api/data/admin/users/:id/special
+// Toggle (or explicitly set) a user's "Special" flag — grants unlimited
+// API credits, same as the ADMIN_USER_ID account, without changing their
+// underlying Free/Pro plan rank.
+// ═══════════════════════════════════════════════════════════════
+
+const updateUserSpecial = asyncHandler(async (req, res) => {
+    if (!isAdmin(req)) {
+        res.status(403);
+        throw new Error('Access denied.');
+    }
+
+    const { id } = req.params;
+    if (!id) {
+        res.status(400);
+        throw new Error('User id is required.');
+    }
+
+    const { Item: userItem } = await dynamodb.send(new GetCommand({ TableName: 'Simple', Key: { id } }));
+    if (!userItem) {
+        res.status(404);
+        throw new Error('User not found.');
+    }
+
+    const text = userItem.text || '';
+    if (!text.includes('Email:') || !text.includes('Password:')) {
+        res.status(400);
+        throw new Error('Target record is not a user account.');
+    }
+
+    // Toggle unless the caller explicitly requested a boolean value
+    const currentlySpecial = isSpecialUser(text);
+    const nextSpecial = typeof req.body?.special === 'boolean' ? req.body.special : !currentlySpecial;
+
+    let updatedText = text;
+    if (text.includes('|Special:')) {
+        updatedText = text.replace(/\|Special:[^|]*/, `|Special:${nextSpecial}`);
+    } else if (nextSpecial) {
+        updatedText = `${text}|Special:true`;
+    }
+
+    const updatedAt = new Date().toISOString();
+    const updatedItem = { ...userItem, text: updatedText, updatedAt };
+
+    await dynamodb.send(new PutCommand({ TableName: 'Simple', Item: updatedItem }));
+
+    // Invalidate the API usage tracker's cached copy so the new Special
+    // status takes effect on the user's very next request instead of
+    // waiting out its cache window.
+    refreshUserDataCache(id, updatedItem);
+
+    // Invalidate the admin dashboard cache since it aggregates user records.
+    dashboardCache = { data: null, timestamp: 0 };
+
+    res.status(200).json({ id, special: nextSpecial });
+});
+
+module.exports = { getAdminDashboard, getAdminUsers, getAdminPaginatedData, updateUserSpecial };
