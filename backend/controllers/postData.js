@@ -11,6 +11,7 @@ const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, PutCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
 const { checkIP } = require('../utils/accessData.js');
 const { logger } = require('../utils/logger');
+const { GUEST_EMAIL, GUEST_PASSWORD, GUEST_NICKNAME } = require('../constants/guestAccount.js');
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -139,6 +140,58 @@ const registerUser = asyncHandler(async (req, res) => {
     }
 })
 
+/**
+ * (Re)provision the public "Login as Guest" demo account in DynamoDB with the
+ * canonical GUEST_EMAIL/GUEST_PASSWORD credentials.
+ *
+ * The guest login button ships hardcoded credentials, but the underlying
+ * DynamoDB record can drift out of sync with them (deleted, never created in
+ * an environment, or overwritten with a different password hash by manual
+ * DB tooling) — when that happens every guest login attempt fails with a
+ * "user not found" or "invalid password" error that no end user can recover
+ * from. Self-healing here means guest login always works regardless of the
+ * record's current state.
+ * @returns {Promise<{id: string, text: string}>} The (re)created guest item.
+ */
+async function provisionGuestUser() {
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(GUEST_PASSWORD, salt);
+    const creationDate = new Date().toISOString();
+
+    const item = {
+        id: require('crypto').randomBytes(16).toString('hex'),
+        text: `Nickname:${GUEST_NICKNAME}|Email:${GUEST_EMAIL}|Password:${hashedPassword}|Birth:${creationDate}|stripeid:guest_customer_id`,
+        createdAt: creationDate,
+        updatedAt: creationDate,
+    };
+
+    await dynamodb.send(new PutCommand({ TableName: 'Simple', Item: item }));
+    logger.warn('provisionGuestUser: guest account was missing — auto-created it');
+    return item;
+}
+
+/**
+ * Reset an existing guest account's stored password hash back to
+ * GUEST_PASSWORD. Used when the record exists but its password field no
+ * longer matches the canonical guest credentials (see provisionGuestUser).
+ * @param {{id: string, text: string}} user - Existing guest DynamoDB item.
+ * @returns {Promise<void>}
+ */
+async function resetGuestUserPassword(user) {
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(GUEST_PASSWORD, salt);
+
+    const updatedText = user.text.includes('|Password:')
+        ? user.text.replace(/\|Password:[^|]*/, `|Password:${hashedPassword}`)
+        : `${user.text}|Password:${hashedPassword}`;
+
+    await dynamodb.send(new PutCommand({
+        TableName: 'Simple',
+        Item: { ...user, text: updatedText, updatedAt: new Date().toISOString() },
+    }));
+    logger.warn('resetGuestUserPassword: guest account password was out of sync — reset it');
+}
+
 // @desc    Authenticate a user
 // @route   POST /api/data/login
 // @access  Public
@@ -159,6 +212,12 @@ const loginUser = asyncHandler(async (req, res) => {
     }
 
     logger.debug('Attempting login for email:', email);
+
+    // The "Login as Guest" button submits fixed, publicly-known credentials.
+    // If those exact credentials are what's being submitted, the DB record
+    // backing them is allowed to self-heal below (auto-create/reset) instead
+    // of ever surfacing an error for something no end user can fix.
+    const isGuestLoginAttempt = email.toLowerCase() === GUEST_EMAIL && password === GUEST_PASSWORD;
 
     // Query DynamoDB for the user with the given email
     const params = {
@@ -181,6 +240,18 @@ const loginUser = asyncHandler(async (req, res) => {
         });
 
         if (!result.Items || result.Items.length === 0) {
+            if (isGuestLoginAttempt) {
+                logger.debug('Guest account missing — auto-provisioning it');
+                const guestUser = await provisionGuestUser();
+                return res.status(200).json({
+                    _id: guestUser.id,
+                    email: GUEST_EMAIL,
+                    nickname: GUEST_NICKNAME,
+                    stripe: 'guest_customer_id',
+                    createdAt: guestUser.createdAt,
+                    token: generateToken(String(guestUser.id)),
+                });
+            }
             logger.debug('No user found with email:', email);
             res.status(400);
             throw new Error("Could not find that user.");
@@ -215,8 +286,14 @@ const loginUser = asyncHandler(async (req, res) => {
 
         // Check if the password matches
         logger.debug('Comparing password...');
-        const passwordMatch = await bcrypt.compare(password, userPassword);
+        let passwordMatch = await bcrypt.compare(password, userPassword);
         logger.debug('Password match result:', passwordMatch);
+
+        if (!passwordMatch && isGuestLoginAttempt) {
+            logger.debug('Guest account password out of sync — resetting it to the canonical guest password');
+            await resetGuestUserPassword(user);
+            passwordMatch = true;
+        }
 
         if (passwordMatch) {
             logger.debug('Login successful for user:', userNickname);

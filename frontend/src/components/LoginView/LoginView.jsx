@@ -24,8 +24,8 @@ function LoginView(props) {
         e.preventDefault()
 
         const userData = {     // get data from input form
-            email: "Guest@gmail.com",
-            password: "Guest",
+            email: "guest@gmail.com",
+            password: "guest",
         }
 
         dispatch(login(userData))   // dispatch connects to the store, then calls the async register function passing userdata as input. 
