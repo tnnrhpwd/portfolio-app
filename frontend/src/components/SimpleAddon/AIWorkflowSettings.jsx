@@ -1,5 +1,4 @@
 import './AIWorkflowSettings.css';
-import { buildCloudModelList, FALLBACK_CLOUD_MODEL } from '../../utils/llmProviderOptions.js';
 
 /**
  * AIWorkflowSettings — the single source of truth for the AI chat preferences
@@ -12,26 +11,26 @@ import { buildCloudModelList, FALLBACK_CLOUD_MODEL } from '../../utils/llmProvid
  * pairing, mic device selection) are intentionally NOT part of this shared
  * component — those stay in the Net Advanced Settings modal only.
  *
+ * Cloud mode is a single fixed model (AWS Bedrock Claude Haiku) with no
+ * tunable parameters, so the model/temperature/max-tokens/history controls
+ * are only rendered once the user switches the LLM Provider to Local.
+ *
  * @param {object} props
  * @param {object} props.settings - Current settings object (subset of csimple_device_settings).
  * @param {function} props.onChange - (key, value) => void — called on every field change.
  * @param {object} [props.user] - Logged-in user, used to gate Cloud Sync.
  * @param {string} [props.cloudSyncStatus] - null | 'syncing' | 'synced' | 'error'
  * @param {boolean} [props.sttSupported] - Whether speech recognition is supported in this browser.
- * @param {object} [props.portfolioLLMProviders] - `/llm-providers` response (cloud models actually
- *   configured on the backend — currently a single fixed AWS Bedrock model). There's nothing to pick
- *   between in cloud mode, so this is only used to display the model's real name, never a selector.
  */
-function AIWorkflowSettings({ settings, onChange, user, cloudSyncStatus, sttSupported = true, portfolioLLMProviders }) {
+function AIWorkflowSettings({ settings, onChange, user, cloudSyncStatus, sttSupported = true }) {
   const update = (key, value) => onChange?.(key, value);
 
-  const cloudModels = buildCloudModelList(portfolioLLMProviders);
-  const modelOptions = cloudModels.length > 0 ? cloudModels : [FALLBACK_CLOUD_MODEL];
+  const isLocal = settings.llmProvider === 'local';
 
   return (
     <div className="aiw-root">
       <div className="aiw-grid">
-        <div className="aiw-item">
+        <div className={isLocal ? 'aiw-item' : 'aiw-item aiw-item-full'}>
           <label className="aiw-label" htmlFor="aiw-llm-provider">☁️ LLM Provider</label>
           <select
             id="aiw-llm-provider"
@@ -45,75 +44,77 @@ function AIWorkflowSettings({ settings, onChange, user, cloudSyncStatus, sttSupp
           <span className="aiw-hint">Switch providers depending on where you want responses generated.</span>
         </div>
 
-        <div className="aiw-item">
-          <label className="aiw-label" htmlFor="aiw-model">
-            🧠 Model
-            {(settings.llmProvider === 'portfolio' || !settings.llmProvider) && <span className="aiw-badge">☁️ Cloud</span>}
-            {settings.llmProvider === 'local' && <span className="aiw-badge">💻 Local</span>}
-          </label>
-          {settings.llmProvider === 'local' ? (
+        {/* Cloud mode is a single fixed model (AWS Bedrock Claude Haiku) with no
+            tunable parameters, so the model/temperature/token/history controls
+            below are only shown once the user switches to a Local provider. */}
+        {isLocal && (
+          <div className="aiw-item">
+            <label className="aiw-label" htmlFor="aiw-model">
+              🧠 Model
+              <span className="aiw-badge">💻 Local</span>
+            </label>
             <p className="aiw-note">Local models require the Simple addon to be running. Pick a model from the addon's sidebar once connected.</p>
-          ) : (
-            // Cloud is a single fixed model (AWS Bedrock Claude Haiku 4.5) — no
-            // selector needed since there's nothing else to pick.
-            <p id="aiw-model" className="aiw-static-value">{modelOptions[0]?.name || FALLBACK_CLOUD_MODEL.name}</p>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
-      <h3 className="aiw-subtitle">💬 Chat preferences</h3>
-      <div className="aiw-grid">
-        <div className="aiw-item">
-          <label className="aiw-label" htmlFor="aiw-temperature">🌡️ Temperature</label>
-          <div className="aiw-range-group">
-            <input
-              id="aiw-temperature"
-              type="range"
-              min="0"
-              max="1"
-              step="0.1"
-              value={settings.defaultTemperature ?? 0.7}
-              onChange={e => update('defaultTemperature', parseFloat(e.target.value))}
-              className="aiw-range"
-            />
-            <span className="aiw-range-value">{(settings.defaultTemperature ?? 0.7).toFixed(1)}</span>
-          </div>
-          <span className="aiw-hint">Lower = more focused, higher = more creative.</span>
-        </div>
+      {isLocal && (
+        <>
+          <h3 className="aiw-subtitle">💬 Chat preferences</h3>
+          <div className="aiw-grid">
+            <div className="aiw-item">
+              <label className="aiw-label" htmlFor="aiw-temperature">🌡️ Temperature</label>
+              <div className="aiw-range-group">
+                <input
+                  id="aiw-temperature"
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={settings.defaultTemperature ?? 0.7}
+                  onChange={e => update('defaultTemperature', parseFloat(e.target.value))}
+                  className="aiw-range"
+                />
+                <span className="aiw-range-value">{(settings.defaultTemperature ?? 0.7).toFixed(1)}</span>
+              </div>
+              <span className="aiw-hint">Lower = more focused, higher = more creative.</span>
+            </div>
 
-        <div className="aiw-item">
-          <label className="aiw-label" htmlFor="aiw-max-tokens">📏 Max Tokens</label>
-          <input
-            id="aiw-max-tokens"
-            type="number"
-            min="50"
-            max="4000"
-            step="50"
-            value={settings.defaultMaxTokens ?? 500}
-            onChange={e => update('defaultMaxTokens', parseInt(e.target.value, 10) || 500)}
-            className="aiw-input"
-          />
-          <span className="aiw-hint">Maximum response length (50-4000).</span>
-        </div>
+            <div className="aiw-item">
+              <label className="aiw-label" htmlFor="aiw-max-tokens">📏 Max Tokens</label>
+              <input
+                id="aiw-max-tokens"
+                type="number"
+                min="50"
+                max="4000"
+                step="50"
+                value={settings.defaultMaxTokens ?? 500}
+                onChange={e => update('defaultMaxTokens', parseInt(e.target.value, 10) || 500)}
+                className="aiw-input"
+              />
+              <span className="aiw-hint">Maximum response length (50-4000).</span>
+            </div>
 
-        <div className="aiw-item">
-          <label className="aiw-label" htmlFor="aiw-history">🗂️ Conversation History</label>
-          <div className="aiw-range-group">
-            <input
-              id="aiw-history"
-              type="range"
-              min="5"
-              max="100"
-              step="5"
-              value={settings.maxConversationHistory ?? 20}
-              onChange={e => update('maxConversationHistory', parseInt(e.target.value, 10))}
-              className="aiw-range"
-            />
-            <span className="aiw-range-value">{settings.maxConversationHistory ?? 20}</span>
+            <div className="aiw-item">
+              <label className="aiw-label" htmlFor="aiw-history">🗂️ Conversation History</label>
+              <div className="aiw-range-group">
+                <input
+                  id="aiw-history"
+                  type="range"
+                  min="5"
+                  max="100"
+                  step="5"
+                  value={settings.maxConversationHistory ?? 20}
+                  onChange={e => update('maxConversationHistory', parseInt(e.target.value, 10))}
+                  className="aiw-range"
+                />
+                <span className="aiw-range-value">{settings.maxConversationHistory ?? 20}</span>
+              </div>
+              <span className="aiw-hint">Messages of context sent with each request.</span>
+            </div>
           </div>
-          <span className="aiw-hint">Messages of context sent with each request.</span>
-        </div>
-      </div>
+        </>
+      )}
 
       <div className="aiw-toggle-grid">
         <label className="aiw-toggle-card">
