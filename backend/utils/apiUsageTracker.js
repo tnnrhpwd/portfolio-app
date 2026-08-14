@@ -1,5 +1,5 @@
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, ScanCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, ScanCommand, PutCommand, GetCommand } = require('@aws-sdk/lib-dynamodb');
 const { getStripe, liveStripe: stripe } = require('./stripeInstance');
 const { PLAN_IDS, isProTier, isSimpleTier, STRIPE_PRODUCT_IDS, STRIPE_PRODUCT_MAP } = require('../constants/pricing');
 const { redactUser } = require('./sanitizeUserText');
@@ -83,7 +83,8 @@ function parseUserCredits(userText) {
             availableCredits: 0,
             customLimit: null,
             lastReset: null,
-            membershipLevel: 'Free'
+            membershipLevel: 'Free',
+            appliedLimit: null
         };
     }
 
@@ -95,7 +96,8 @@ function parseUserCredits(userText) {
             availableCredits: 0,
             customLimit: null,
             lastReset: null,
-            membershipLevel: 'Free'
+            membershipLevel: 'Free',
+            appliedLimit: null
         };
     }
 }
@@ -117,14 +119,33 @@ function updateUserCredits(userText, creditsData) {
 }
 
 /**
- * Check if user needs monthly credit reset
+ * Check if user needs a credit reset/top-off.
+ *
+ * Two independent triggers:
+ *  1. The normal monthly rollover (lastReset missing, or >= 1 calendar month old).
+ *  2. The plan's limit has changed since it was last applied to this user
+ *     (e.g. MEMBERSHIP_LIMITS.Free was raised from $0 to $0.50 — see
+ *     getMembershipLimit/performMonthlyReset). Without this, a user whose
+ *     `lastReset` already falls in the current month would be stuck on the
+ *     stale (lower) balance until next month's rollover, even though every
+ *     *other* Free user created afterward gets the new allowance immediately.
+ *     This makes sure EVERY user — not just brand-new ones — benefits from a
+ *     plan limit increase right away. Skipped when a custom limit is set,
+ *     since that's a user-specific override, not the plan default.
  * @param {Object} creditsData - User credits data
  * @param {string} membership - User membership level
+ * @param {number} currentLimit - The plan's current monthly credit limit (see getMembershipLimit)
  * @returns {boolean} True if reset is needed
  */
-function needsMonthlyReset(creditsData, membership) {
+function needsMonthlyReset(creditsData, membership, currentLimit) {
     if (!creditsData.lastReset) return true;
-    
+
+    if (typeof creditsData.customLimit !== 'number' &&
+        typeof currentLimit === 'number' &&
+        creditsData.appliedLimit !== currentLimit) {
+        return true;
+    }
+
     const lastReset = new Date(creditsData.lastReset);
     const now = new Date();
     const monthsDiff = (now.getFullYear() - lastReset.getFullYear()) * 12 + 
@@ -159,6 +180,10 @@ function performMonthlyReset(creditsData, membership, subscriptionActive = true)
 
     creditsData.lastReset = now;
     creditsData.membershipLevel = membership;
+    // Record the plan limit applied so a future limit change (raising/lowering
+    // MEMBERSHIP_LIMITS) is detected and topped off immediately for this user
+    // instead of waiting for the next calendar month — see needsMonthlyReset.
+    creditsData.appliedLimit = planLimit;
 
     return creditsData;
 }
@@ -347,8 +372,8 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
         // Get user credits data
         let creditsData = parseUserCredits(userText);
         
-        // Check if monthly reset is needed
-        if (needsMonthlyReset(creditsData, userRank)) {
+        // Check if monthly reset (or a plan-limit top-off) is needed
+        if (needsMonthlyReset(creditsData, userRank, getMembershipLimit(userRank))) {
             logger.debug('trackApiUsage: Performing monthly reset for user');
             creditsData = performMonthlyReset(creditsData, userRank);
         }
@@ -410,14 +435,19 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
             entries.push(newEntry);
         }
 
-        // Update user text with new usage data and credits
+        // Update user text with new usage data and credits. Rebuild from the
+        // RAW (unredacted) record, not the cached `userText`, so this write
+        // doesn't permanently replace the real password hash with
+        // "[redacted]" — see getRawUserRecord.
         const newUsageString = formatUsageData(entries);
+        const rawUser = (await getRawUserRecord(userId)) || user;
+        const rawText = rawUser.text || '';
         let updatedText;
         
-        if (userText.includes('|Usage:')) {
-            updatedText = userText.replace(/\|Usage:[^|]*/, `|Usage:${newUsageString}`);
+        if (rawText.includes('|Usage:')) {
+            updatedText = rawText.replace(/\|Usage:[^|]*/, `|Usage:${newUsageString}`);
         } else {
-            updatedText = `${userText}|Usage:${newUsageString}`;
+            updatedText = `${rawText}|Usage:${newUsageString}`;
         }
 
         // Update credits in user text
@@ -427,13 +457,14 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
         const putParams = {
             TableName: 'Simple',
             Item: {
-                ...user,
+                ...rawUser,
                 text: updatedText,
                 updatedAt: new Date().toISOString()
             }
         };
 
         await dynamodb.send(new PutCommand(putParams));
+        refreshUserDataCache(userId, putParams.Item);
 
         const newTotalUsage = parseUsageData(updatedText);
         
@@ -502,22 +533,27 @@ async function getUserUsageStats(userId) {
         // Get credits data
         let creditsData = parseUserCredits(userText);
         
-        // Check if monthly reset is needed and perform it
-        if (needsMonthlyReset(creditsData, userRank)) {
+        // Check if monthly reset (or a plan-limit top-off) is needed and perform it
+        if (needsMonthlyReset(creditsData, userRank, getMembershipLimit(userRank))) {
             logger.debug('getUserUsageStats: Performing monthly reset for user');
             creditsData = performMonthlyReset(creditsData, userRank);
             
-            // Save updated credits to database
-            const updatedText = updateUserCredits(userText, creditsData);
+            // Save updated credits to database. Rebuild from the RAW
+            // (unredacted) record, not `userText`, so this doesn't
+            // permanently replace the real password hash with
+            // "[redacted]" — see getRawUserRecord.
+            const rawUser = (await getRawUserRecord(userId)) || user;
+            const updatedText = updateUserCredits(rawUser.text || '', creditsData);
             const putParams = {
                 TableName: 'Simple',
                 Item: {
-                    ...user,
+                    ...rawUser,
                     text: updatedText,
                     updatedAt: new Date().toISOString()
                 }
             };
             await dynamodb.send(new PutCommand(putParams));
+            refreshUserDataCache(userId, putParams.Item);
         }
 
         // Calculate limit based on membership type
@@ -580,6 +616,46 @@ async function getUserDataCached(userId) {
     const userData = redactUser(scanResult.Items[0]);
     userDataCache.set(cacheKey, { data: userData, timestamp: Date.now() });
     return userData;
+}
+
+/**
+ * Refresh the cached user data immediately after this module writes a new
+ * `text` value to DynamoDB (credit deductions/resets). Without this, any
+ * other call for the same user within USER_DATA_CACHE_DURATION would keep
+ * reading the pre-write snapshot via getUserDataCached, recompute a reset or
+ * deduction from stale state, and clobber the write that was just made.
+ * Always redacts before caching — never store the real password hash here.
+ * @param {string} userId - User ID
+ * @param {Object} userData - The freshly-written user record
+ */
+function refreshUserDataCache(userId, userData) {
+    userDataCache.set(`user_data_${userId}`, { data: redactUser(userData), timestamp: Date.now() });
+}
+
+/**
+ * Fetch the user's *unredacted* DynamoDB record directly (bypassing the
+ * password-redacted cache) via an efficient GetCommand on the primary key.
+ *
+ * This exists ONLY to serve as the base text when writing an updated
+ * Usage:/Credits: segment back to DynamoDB. getUserDataCached intentionally
+ * returns a copy with `|Password:<hash>` replaced by `|Password:[redacted]`
+ * (see sanitizeUserText.js) so the real hash never lingers in memory/logs —
+ * but that also means building a write payload from that redacted text would
+ * PERMANENTLY overwrite the user's real password hash with the literal
+ * string "[redacted]" in the database. Always re-fetch the raw record here
+ * immediately before a write instead. Never cache or return this outside
+ * this module.
+ * @param {string} userId - User ID
+ * @returns {Promise<Object|null>} Raw (unredacted) DynamoDB item, or null if not found
+ */
+async function getRawUserRecord(userId) {
+    try {
+        const result = await dynamodb.send(new GetCommand({ TableName: 'Simple', Key: { id: String(userId) } }));
+        return result.Item || null;
+    } catch (error) {
+        logger.error('getRawUserRecord: GetCommand failed:', error);
+        return null;
+    }
 }
 
 /**
@@ -749,8 +825,8 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
         // Get user credits data
         let creditsData = parseUserCredits(userText);
         
-        // Check if monthly reset is needed
-        if (needsMonthlyReset(creditsData, userRank)) {
+        // Check if monthly reset (or a plan-limit top-off) is needed
+        if (needsMonthlyReset(creditsData, userRank, getMembershipLimit(userRank))) {
             logger.debug('canMakeApiCall: Checking subscription status for monthly reset...');
             
             // Check if subscription is active
@@ -775,17 +851,22 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
             logger.debug('canMakeApiCall: Performing monthly reset for user, subscription active:', subscriptionActive);
             creditsData = performMonthlyReset(creditsData, userRank, subscriptionActive);
             
-            // Save updated credits to database
-            const updatedText = updateUserCredits(userText, creditsData);
+            // Save updated credits to database. Rebuild from the RAW
+            // (unredacted) record, not `userText`, so this doesn't
+            // permanently replace the real password hash with
+            // "[redacted]" — see getRawUserRecord.
+            const rawUser = (await getRawUserRecord(userId)) || user;
+            const updatedText = updateUserCredits(rawUser.text || '', creditsData);
             const putParams = {
                 TableName: 'Simple',
                 Item: {
-                    ...user,
+                    ...rawUser,
                     text: updatedText,
                     updatedAt: new Date().toISOString()
                 }
             };
             await dynamodb.send(new PutCommand(putParams));
+            refreshUserDataCache(userId, putParams.Item);
         }
 
         // Calculate estimated cost for this call
