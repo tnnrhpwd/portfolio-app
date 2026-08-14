@@ -192,6 +192,22 @@ function Admin() {
     finally { setUsersLoading(false); }
   }, [user, usersSearch]);
 
+  // ═══════════════ Toggle a user's Special status (unlimited API credits) ═══════════════
+  const [togglingSpecialId, setTogglingSpecialId] = useState(null);
+  const handleToggleSpecial = useCallback(async (u) => {
+    if (!user?.token || togglingSpecialId) return;
+    setTogglingSpecialId(u.id);
+    try {
+      const result = await dataService.toggleUserSpecial(user.token, u.id, !u.special);
+      setUsers((prev) => prev.map((row) => (row.id === u.id ? { ...row, special: result.special } : row)));
+      toast.success(`${u.nickname || u.email || 'User'} is now ${result.special ? '⭐ Special' : 'Normal'}`);
+    } catch {
+      toast.error('Failed to update special status');
+    } finally {
+      setTogglingSpecialId(null);
+    }
+  }, [user, togglingSpecialId]);
+
   // ═══════════════ Fetch paginated raw data ═══════════════
   const fetchRawData = useCallback(async (page = 1) => {
     if (!user?.token) return;
@@ -734,7 +750,19 @@ function Admin() {
                           <tr key={u.id || i}>
                             <td>{u.nickname || '—'}</td>
                             <td>{u.email}</td>
-                            <td><span className={`plan-badge plan-${u.rank?.toLowerCase()}`}>{u.rank}</span></td>
+                            <td>
+                              <span
+                                className={`plan-badge plan-badge--clickable ${u.special ? 'plan-special' : `plan-${u.rank?.toLowerCase()}`}`}
+                                onClick={() => handleToggleSpecial(u)}
+                                role="button"
+                                tabIndex={0}
+                                title={u.special
+                                  ? 'Special — unlimited API credits. Click to revert to normal.'
+                                  : 'Click to grant Special status (unlimited API credits)'}
+                              >
+                                {togglingSpecialId === u.id ? '…' : (u.special ? '⭐ Special' : u.rank)}
+                              </span>
+                            </td>
                             <td className="mono">{u.stripeid ? u.stripeid.substring(0, 18) + '...' : '—'}</td>
                             <td>{ts(u.createdAt)}</td>
                           </tr>

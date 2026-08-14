@@ -39,7 +39,7 @@ const {
   forgotPassword, resetPassword, forgotPasswordAuthenticated,
   extractOCR, updateWithOCR,
   getLLMProviders,
-  getAdminDashboard, getAdminUsers, getAdminPaginatedData,
+  getAdminDashboard, getAdminUsers, getAdminPaginatedData, updateUserSpecial,
   initTestFunnel, resetTestFunnel, getTestFunnelStatus, recordFunnelStep, getTestEmails,
   getStripeConfig,
   getDeepStorageItems, regenerateDeepStorageItems,
@@ -312,6 +312,7 @@ const requireAdmin = (req, res, next) => {
 router.get('/all/admin', protect, requireAdmin, getAllData);
 router.get('/admin/dashboard', protect, requireAdmin, getAdminDashboard);
 router.get('/admin/users', protect, requireAdmin, getAdminUsers);
+router.put('/admin/users/:id/special', protect, requireAdmin, sanitizeInput, updateUserSpecial);
 router.get('/admin/data', protect, requireAdmin, getAdminPaginatedData);
 router.route('/admin/home-title')
   .get(protect, requireAdmin, getHomeTitleSettings)

@@ -436,6 +436,25 @@
 .plan-badge.plan-free   { background: var(--bg-1); color: var(--text-color-accent); border: 1px solid var(--border-nav); }
 .plan-badge.plan-pro    { background: rgba(59, 130, 246, 0.15); color: var(--fg-blue); border: 1px solid var(--fg-blue); }
 .plan-badge.plan-simple { background: rgba(168, 85, 247, 0.15); color: #a855f7; border: 1px solid #a855f7; }
+.plan-badge.plan-special {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: 1px solid #f59e0b;
+}
+
+.plan-badge--clickable {
+    cursor: pointer;
+    user-select: none;
+    transition: transform 0.1s ease, box-shadow 0.15s ease;
+}
+
+.plan-badge--clickable:hover {
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.35);
+}
+
+.plan-badge--clickable:active {
+    transform: scale(0.96);
+}
 
 /* ═══════════════════════════════════════════
    Traffic Analytics

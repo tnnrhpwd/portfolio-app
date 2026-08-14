@@ -748,6 +748,23 @@ const getAdminUsers = async (token, { page = 1, limit = 50, search = '' } = {}) 
     }
 };
 
+// Toggle (or explicitly set) a user's "Special" status — grants unlimited
+// API credits, same as the admin account. Admin only.
+const toggleUserSpecial = async (token, userId, special) => {
+    const config = { headers: { Authorization: `Bearer ${token}` } };
+    try {
+        const response = await axios.put(
+            API_URL + `admin/users/${userId}/special`,
+            typeof special === 'boolean' ? { special } : {},
+            config
+        );
+        return response.data;
+    } catch (error) {
+        handleTokenExpiration(error);
+        throw error;
+    }
+};
+
 // Get paginated raw data (admin)
 const getAdminPaginatedData = async (token, { page = 1, limit = 50, type } = {}) => {
     const config = {
@@ -854,6 +871,7 @@ const dataService = {
     logout,
     getAdminDashboard,
     getAdminUsers,
+    toggleUserSpecial,
     getAdminPaginatedData,
     getAdminHomeTitleSettings,
     updateAdminHomeTitleSettings,
