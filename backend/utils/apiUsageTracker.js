@@ -1,5 +1,5 @@
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, ScanCommand, PutCommand, GetCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, ScanCommand, PutCommand, GetCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
 const { getStripe, liveStripe: stripe } = require('./stripeInstance');
 const { PLAN_IDS, isProTier, isSimpleTier, STRIPE_PRODUCT_IDS, STRIPE_PRODUCT_MAP } = require('../constants/pricing');
 const { redactUser } = require('./sanitizeUserText');
@@ -665,7 +665,7 @@ function refreshUserDataCache(userId, userData) {
 
 /**
  * Fetch the user's *unredacted* DynamoDB record directly (bypassing the
- * password-redacted cache) via an efficient GetCommand on the primary key.
+ * password-redacted cache) via the primary key.
  *
  * This exists ONLY to serve as the base text when writing an updated
  * Usage:/Credits: segment back to DynamoDB. getUserDataCached intentionally
@@ -676,15 +676,38 @@ function refreshUserDataCache(userId, userData) {
  * string "[redacted]" in the database. Always re-fetch the raw record here
  * immediately before a write instead. Never cache or return this outside
  * this module.
+ *
+ * The `Simple` table's primary key is composite (`id` partition key +
+ * `createdAt` sort key) for most item types, so a plain GetCommand keyed on
+ * `id` alone throws a ValidationException — it was silently caught here and
+ * treated as "not found", which made every caller of this function fall
+ * back to the stale/redacted `user` object instead (defeating the whole
+ * point of fetching the raw record, and re-introducing the exact
+ * password-corruption + stale-write bug this function was added to fix).
+ * Query on the partition key alone instead — it works regardless of
+ * whether a sort key is present.
  * @param {string} userId - User ID
  * @returns {Promise<Object|null>} Raw (unredacted) DynamoDB item, or null if not found
  */
 async function getRawUserRecord(userId) {
     try {
         const result = await dynamodb.send(new GetCommand({ TableName: 'Simple', Key: { id: String(userId) } }));
-        return result.Item || null;
+        if (result.Item) return result.Item;
     } catch (error) {
-        logger.error('getRawUserRecord: GetCommand failed:', error);
+        // Falls through to the Query fallback below — expected when the
+        // table's key schema includes a sort key this Key omits.
+    }
+
+    try {
+        const result = await dynamodb.send(new QueryCommand({
+            TableName: 'Simple',
+            KeyConditionExpression: 'id = :userId',
+            ExpressionAttributeValues: { ':userId': String(userId) },
+            Limit: 1,
+        }));
+        return (result.Items && result.Items[0]) || null;
+    } catch (error) {
+        logger.error('getRawUserRecord: Query fallback failed:', error);
         return null;
     }
 }
