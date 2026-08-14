@@ -1,5 +1,5 @@
 import './AIWorkflowSettings.css';
-import { buildCloudModelList, FALLBACK_CLOUD_MODEL, cloudProviderLabel } from '../../utils/llmProviderOptions.js';
+import { buildCloudModelList, FALLBACK_CLOUD_MODEL } from '../../utils/llmProviderOptions.js';
 
 /**
  * AIWorkflowSettings — the single source of truth for the AI chat preferences
@@ -19,20 +19,14 @@ import { buildCloudModelList, FALLBACK_CLOUD_MODEL, cloudProviderLabel } from '.
  * @param {string} [props.cloudSyncStatus] - null | 'syncing' | 'synced' | 'error'
  * @param {boolean} [props.sttSupported] - Whether speech recognition is supported in this browser.
  * @param {object} [props.portfolioLLMProviders] - `/llm-providers` response (cloud models actually
- *   configured on the backend — currently AWS Bedrock). Falls back to a single Bedrock entry while
- *   loading so the dropdown never shows retired GitHub Models-era options like GPT-4o.
+ *   configured on the backend — currently a single fixed AWS Bedrock model). There's nothing to pick
+ *   between in cloud mode, so this is only used to display the model's real name, never a selector.
  */
 function AIWorkflowSettings({ settings, onChange, user, cloudSyncStatus, sttSupported = true, portfolioLLMProviders }) {
   const update = (key, value) => onChange?.(key, value);
 
   const cloudModels = buildCloudModelList(portfolioLLMProviders);
   const modelOptions = cloudModels.length > 0 ? cloudModels : [FALLBACK_CLOUD_MODEL];
-  // Older stored settings may still carry a retired GitHub Models-era id
-  // (e.g. 'gpt-4o-mini') — fall back to the first live model instead of
-  // rendering a <select> whose value matches none of its <option>s.
-  const selectedModelId = modelOptions.some(m => m.id === settings.portfolioModel)
-    ? settings.portfolioModel
-    : modelOptions[0].id;
 
   return (
     <div className="aiw-root">
@@ -58,25 +52,11 @@ function AIWorkflowSettings({ settings, onChange, user, cloudSyncStatus, sttSupp
             {settings.llmProvider === 'local' && <span className="aiw-badge">💻 Local</span>}
           </label>
           {settings.llmProvider === 'local' ? (
-            <p className="aiw-note">Local models require the Simple addon to be running.</p>
+            <p className="aiw-note">Local models require the Simple addon to be running. Pick a model from the addon's sidebar once connected.</p>
           ) : (
-            <>
-              <select
-                id="aiw-model"
-                value={selectedModelId}
-                onChange={e => update('portfolioModel', e.target.value)}
-                className="aiw-input"
-              >
-                {modelOptions.map(m => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}{m.rate ? ` — ${m.rate}` : ''}
-                  </option>
-                ))}
-              </select>
-              <span className="aiw-hint">
-                Served by {cloudProviderLabel(modelOptions[0]?.provider)} — no API key needed, usage is metered against your plan.
-              </span>
-            </>
+            // Cloud is a single fixed model (AWS Bedrock Claude Haiku 4.5) — no
+            // selector needed since there's nothing else to pick.
+            <p id="aiw-model" className="aiw-static-value">{modelOptions[0]?.name || FALLBACK_CLOUD_MODEL.name}</p>
           )}
         </div>
       </div>

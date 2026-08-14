@@ -57,13 +57,3 @@ export function buildCloudModelList(portfolioLLMProviders) {
   });
   return result;
 }
-
-/** Human label for a provider key, e.g. for a "powered by" badge. */
-export function cloudProviderLabel(providerKey) {
-  switch (providerKey) {
-    case 'bedrock': return 'AWS Bedrock';
-    case 'openai': return 'OpenAI';
-    case 'xai': return 'XAI';
-    default: return providerKey || 'Cloud';
-  }
-}

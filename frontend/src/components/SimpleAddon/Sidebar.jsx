@@ -99,20 +99,6 @@ function Sidebar({
         : (settings?.portfolioModel || FALLBACK_CLOUD_MODEL.id))
     : selectedModel;
 
-  // Derive the user's membership tier from the user prop
-  const userTier = React.useMemo(() => {
-    const text = user?.text || '';
-    const match = text.match(/\|Rank:(\w+)/);
-    return match ? match[1].toLowerCase() : 'free';
-  }, [user?.text]);
-
-  const canAccessTier = (requiredTier) => {
-    if (!requiredTier || requiredTier === 'free') return true;
-    if (requiredTier === 'pro') return userTier === 'pro' || userTier === 'simple';
-    if (requiredTier === 'simple') return userTier === 'simple';
-    return true;
-  };
-
   // Fetch local models from addon when connected
   useEffect(() => {
     if (isAddonConnected) {
@@ -374,29 +360,11 @@ function Sidebar({
                   {!isPortfolio && <span style={{ fontSize: '10px', color: 'var(--accent)', marginLeft: '4px' }}>💻 Local</span>}
                 </label>
                 {isPortfolio ? (
-                  <select
-                    className="sidebar__select"
-                    value={effectiveModel}
-                    onChange={e => {
-                      const m = portfolioModels.find(pm => pm.id === e.target.value);
-                      if (m && !canAccessTier(m.requiredTier)) return;
-                      onSettingsChange({ ...settings, portfolioModel: e.target.value });
-                    }}
-                  >
-                    {portfolioModels.length > 0 ? (
-                      portfolioModels.map(m => {
-                        const locked = !canAccessTier(m.requiredTier);
-                        const tierLabel = m.requiredTier === 'simple' ? '🔒 Simple' : m.requiredTier === 'pro' ? '🔒 Pro' : '';
-                        return (
-                          <option key={m.id} value={m.id} disabled={locked}>
-                            {locked ? `${tierLabel} · ` : ''}{m.name} ({m.provider}) — {m.rate || '—'}
-                          </option>
-                        );
-                      })
-                    ) : (
-                      <option value={FALLBACK_CLOUD_MODEL.id}>{FALLBACK_CLOUD_MODEL.name}</option>
-                    )}
-                  </select>
+                  // Cloud is a single fixed model (AWS Bedrock Claude Haiku 4.5) — no
+                  // selector needed, just show what's actually being used.
+                  <div className="sidebar__static-value">
+                    {(portfolioModels.find(m => m.id === effectiveModel)?.name) || FALLBACK_CLOUD_MODEL.name}
+                  </div>
                 ) : (
                   <select
                     className="sidebar__select"

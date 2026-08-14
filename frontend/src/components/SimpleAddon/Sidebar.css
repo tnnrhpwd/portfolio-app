@@ -244,6 +244,17 @@
   border-color: var(--accent);
 }
 
+.sidebar__static-value {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
 .sidebar__textarea {
   width: 100%;
   padding: 8px 12px;

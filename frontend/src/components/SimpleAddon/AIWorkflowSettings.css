@@ -76,6 +76,18 @@
     font-style: italic;
 }
 
+.aiw-static-value {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--border-nav);
+    background: var(--bg-page-transp);
+    color: var(--text-color-accent);
+    padding: var(--spacing-sm);
+    font-size: var(--font-size-base);
+    border-radius: var(--border-radius-lg);
+    margin: 0;
+}
+
 .aiw-range-group {
     display: flex;
     align-items: center;
