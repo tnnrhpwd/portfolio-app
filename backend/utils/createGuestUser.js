@@ -3,6 +3,7 @@ require('dotenv').config();
 const bcrypt = require('bcryptjs');
 const { DynamoDBClient, PutItemCommand, ScanCommand } = require('@aws-sdk/client-dynamodb');
 const { randomUUID } = require('crypto');
+const { GUEST_EMAIL, GUEST_PASSWORD, GUEST_NICKNAME } = require('../constants/guestAccount.js');
 
 // DynamoDB client configuration
 const dynamodb = new DynamoDBClient({
@@ -25,7 +26,7 @@ const createGuestUser = async () => {
                 '#text': 'text'
             },
             ExpressionAttributeValues: {
-                ':emailValue': { S: 'Email:guest@gmail.com' }
+                ':emailValue': { S: `Email:${GUEST_EMAIL}` }
             }
         };
 
@@ -41,7 +42,7 @@ const createGuestUser = async () => {
         
         // Hash the password
         const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash('guest', salt);
+        const hashedPassword = await bcrypt.hash(GUEST_PASSWORD, salt);
         
         // Generate unique ID
         const userId = randomUUID();
@@ -51,7 +52,7 @@ const createGuestUser = async () => {
         
         // Create user text in the expected format
         // Format: Nickname:xxx|Email:xxx|Password:xxx|Birth:xxx|stripeid:xxx
-        const userText = `Nickname:Guest User|Email:guest@gmail.com|Password:${hashedPassword}|Birth:${currentTime}|stripeid:guest_customer_id`;
+        const userText = `Nickname:${GUEST_NICKNAME}|Email:${GUEST_EMAIL}|Password:${hashedPassword}|Birth:${currentTime}|stripeid:guest_customer_id`;
         
         // Create the user item
         const putParams = {
@@ -68,9 +69,9 @@ const createGuestUser = async () => {
         
         console.log('✅ Guest user created successfully!');
         console.log('User ID:', userId);
-        console.log('Email: guest@gmail.com');
-        console.log('Password: guest');
-        console.log('Nickname: Guest User');
+        console.log(`Email: ${GUEST_EMAIL}`);
+        console.log(`Password: ${GUEST_PASSWORD}`);
+        console.log(`Nickname: ${GUEST_NICKNAME}`);
         
     } catch (error) {
         console.error('❌ Error creating guest user:', error);

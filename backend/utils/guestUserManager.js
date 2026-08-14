@@ -4,6 +4,8 @@ require('dotenv').config();
 const bcrypt = require('bcryptjs');
 const { DynamoDBClient, PutItemCommand, ScanCommand, DeleteItemCommand } = require('@aws-sdk/client-dynamodb');
 const { randomUUID } = require('crypto');
+const { GUEST_EMAIL, GUEST_PASSWORD, GUEST_NICKNAME } = require('../constants/guestAccount.js');
+const { logger } = require('./logger');
 
 // DynamoDB client configuration
 const dynamodb = new DynamoDBClient({
@@ -18,12 +20,11 @@ const args = process.argv.slice(2);
 const command = args[0];
 
 const findGuestUser = async () => {
-const { logger } = require('./logger');
     const params = {
         TableName: 'Simple',
         FilterExpression: 'contains(#text, :emailValue)',
         ExpressionAttributeNames: { '#text': 'text' },
-        ExpressionAttributeValues: { ':emailValue': { S: 'Email:guest@gmail.com' } }
+        ExpressionAttributeValues: { ':emailValue': { S: `Email:${GUEST_EMAIL}` } }
     };
     
     const result = await dynamodb.send(new ScanCommand(params));
@@ -57,8 +58,8 @@ const createGuestUser = async () => {
     if (existingUser) {
         logger.debug('ℹ️  Guest user already exists:');
         logger.debug('   ID:', existingUser.id.S);
-        logger.debug('   Email: guest@gmail.com');
-        logger.debug('   Password: guest');
+        logger.debug(`   Email: ${GUEST_EMAIL}`);
+        logger.debug(`   Password: ${GUEST_PASSWORD}`);
         logger.debug('   Status: Ready for login!');
         return;
     }
@@ -67,14 +68,14 @@ const createGuestUser = async () => {
     
     // Hash the password
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash('guest', salt);
+    const hashedPassword = await bcrypt.hash(GUEST_PASSWORD, salt);
     
     // Generate unique ID
     const userId = randomUUID();
     const currentTime = new Date().toISOString();
     
     // Create user text in the expected format
-    const userText = `Nickname:Guest User|Email:guest@gmail.com|Password:${hashedPassword}|Birth:${currentTime}|stripeid:guest_customer_id`;
+    const userText = `Nickname:${GUEST_NICKNAME}|Email:${GUEST_EMAIL}|Password:${hashedPassword}|Birth:${currentTime}|stripeid:guest_customer_id`;
     
     const putParams = {
         TableName: 'Simple',
@@ -90,9 +91,9 @@ const createGuestUser = async () => {
     
     logger.debug('✅ Guest user created successfully!');
     logger.debug('   ID:', userId);
-    logger.debug('   Email: guest@gmail.com');
-    logger.debug('   Password: guest');
-    logger.debug('   Nickname: Guest User');
+    logger.debug(`   Email: ${GUEST_EMAIL}`);
+    logger.debug(`   Password: ${GUEST_PASSWORD}`);
+    logger.debug(`   Nickname: ${GUEST_NICKNAME}`);
     logger.debug('   Status: Ready for debugging!');
 };
 
@@ -108,8 +109,8 @@ const checkGuestUser = async () => {
     if (existingUser) {
         logger.debug('✅ Guest user found and ready!');
         logger.debug('   ID:', existingUser.id.S);
-        logger.debug('   Email: guest@gmail.com');
-        logger.debug('   Password: guest');
+        logger.debug(`   Email: ${GUEST_EMAIL}`);
+        logger.debug(`   Password: ${GUEST_PASSWORD}`);
         logger.debug('   Created:', existingUser.createdAt?.S || 'Unknown');
     } else {
         logger.debug('❌ No guest user found.');
@@ -136,8 +137,8 @@ Example:
   node utils/guestUserManager.js reset
 
 The guest user credentials are:
-  Email: guest@gmail.com
-  Password: guest
+  Email: ${GUEST_EMAIL}
+  Password: ${GUEST_PASSWORD}
     `);
 };
 
