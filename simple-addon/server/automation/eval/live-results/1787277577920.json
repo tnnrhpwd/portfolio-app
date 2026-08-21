@@ -1,0 +1,81 @@
+[
+  {
+    "run": 1,
+    "at": "2026-08-21T01:59:37.918Z",
+    "results": [
+      {
+        "id": 1,
+        "name": "Type and save a note in Notepad",
+        "status": "fail",
+        "durationMs": 11317,
+        "error": "expected file was not created: C:\\Users\\tanne\\.simple-eval\\core-functionality\\s1\\note-1787277407068.txt"
+      },
+      {
+        "id": 2,
+        "name": "Do arithmetic in Calculator by clicking",
+        "status": "fail",
+        "durationMs": 6466,
+        "error": "Cannot read properties of null (reading 'text')"
+      },
+      {
+        "id": 3,
+        "name": "Rename a file in File Explorer",
+        "status": "fail",
+        "durationMs": 9751,
+        "error": "could not find file item \"orig-1787277424853.txt\" in Explorer's UIA tree"
+      },
+      {
+        "id": 4,
+        "name": "Alt-Tab between two open windows",
+        "status": "pass",
+        "durationMs": 7929,
+        "detail": {
+          "before": "Calculator",
+          "after": "*Partially -- I don't think the emai.txt - Notepad"
+        }
+      },
+      {
+        "id": 5,
+        "name": "Detect what the user just typed (perception-only)",
+        "status": "skipped",
+        "durationMs": 0,
+        "reason": "requires a human typing at the keyboard — run with --interactive to include this scenario"
+      },
+      {
+        "id": 6,
+        "name": "Read a non-trivial UI state via perception",
+        "status": "fail",
+        "durationMs": 112366,
+        "error": "input_tap failed: powershell exited with null"
+      },
+      {
+        "id": 7,
+        "name": "Record a short task once, then auto-replay it",
+        "status": "fail",
+        "durationMs": 10487,
+        "error": "recording phase did not produce the expected file: C:\\Users\\tanne\\.simple-eval\\core-functionality\\s7\\invoice-draft-1787277554900.txt"
+      },
+      {
+        "id": 8,
+        "name": "Plain-English instruction -> planner decides steps",
+        "status": "skipped",
+        "durationMs": 1,
+        "reason": "no auth token resolvable — sign in via the web app once, then re-run (all LLM calls proxy through the backend)"
+      },
+      {
+        "id": 9,
+        "name": "Drag-and-drop with a moving mouse path",
+        "status": "fail",
+        "durationMs": 5240,
+        "error": "could not find source file item in Explorer"
+      },
+      {
+        "id": 10,
+        "name": "Held input releases safely on focus loss",
+        "status": "fail",
+        "durationMs": 7290,
+        "error": "window_focus failed: found"
+      }
+    ]
+  }
+]
