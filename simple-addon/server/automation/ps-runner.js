@@ -24,6 +24,18 @@ const os = require('os');
 
 const DEFAULT_TIMEOUT_MS = 20_000;
 
+function _killTree(child) {
+    // Kill the whole process tree, not just this immediate child -- a
+    // lingering grandchild (e.g. csc.exe compiling an Add-Type block) can
+    // keep this child's stdout/stderr pipes open even after SIGKILL, so
+    // 'close' wouldn't fire until that grandchild finished on its own,
+    // turning an intended short timeout into a much longer real-world hang.
+    try {
+        spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' });
+    } catch { /* best-effort */ }
+    try { child.kill('SIGKILL'); } catch {}
+}
+
 function runPsJson(script, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
     return new Promise((resolve, reject) => {
         const child = spawn('powershell.exe', [
@@ -31,11 +43,13 @@ function runPsJson(script, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
             '-Command', '-',
         ], { windowsHide: true });
         let stdout = '', stderr = '';
+        let timedOut = false;
         child.stdout.on('data', d => stdout += d.toString('utf-8'));
         child.stderr.on('data', d => stderr += d.toString('utf-8'));
-        const timer = setTimeout(() => { try { child.kill('SIGKILL'); } catch {} }, timeoutMs);
+        const timer = setTimeout(() => { timedOut = true; _killTree(child); }, timeoutMs);
         child.on('close', code => {
             clearTimeout(timer);
+            if (timedOut) return reject(new Error(`timed out after ${timeoutMs}ms (process killed)`));
             if (code !== 0) return reject(new Error(stderr.trim() || `powershell exited with ${code}`));
             try { resolve(JSON.parse(stdout || 'null')); } catch { resolve(stdout.trim()); }
         });
@@ -55,12 +69,14 @@ function runPsJsonFile(script, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
             '-File', tmp,
         ], { windowsHide: true });
         let stdout = '', stderr = '';
+        let timedOut = false;
         child.stdout.on('data', d => stdout += d.toString('utf-8'));
         child.stderr.on('data', d => stderr += d.toString('utf-8'));
-        const timer = setTimeout(() => { try { child.kill('SIGKILL'); } catch {} }, timeoutMs);
+        const timer = setTimeout(() => { timedOut = true; _killTree(child); }, timeoutMs);
         child.on('close', code => {
             clearTimeout(timer);
             try { fs.unlinkSync(tmp); } catch {}
+            if (timedOut) return reject(new Error(`timed out after ${timeoutMs}ms (process killed)`));
             if (code !== 0) return reject(new Error(stderr.trim() || `powershell exited with ${code}`));
             try { resolve(JSON.parse(stdout || 'null')); } catch { resolve(stdout.trim()); }
         });

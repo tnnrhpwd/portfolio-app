@@ -48,7 +48,7 @@ function registerAllTools() {
     const registry = require('../tool-registry');
     const shell = require('../tools/shell');
     const { fsRead, fsWrite, fsList } = require('../tools/fs');
-    const { windowList, windowFocus, processList, processKill, clipboardRead, clipboardWrite } = require('../tools/system');
+    const { windowList, windowFocus, windowSetRect, processList, processKill, clipboardRead, clipboardWrite } = require('../tools/system');
     const screen = require('../tools/screen');
     const screenRelay = require('../tools/screen-relay');
     const { screenOcr } = require('../tools/ocr');
@@ -69,7 +69,7 @@ function registerAllTools() {
         uiaFind, uiaGetText, uiaSnapshot, perceptionRecent,
         browserOpen, browserGoto, browserText, browserScreenshot, browserStatus,
         fsWrite, clipboardWrite, browserClick, browserFill, browserClose,
-        windowFocus, uiaInvoke, inputHold, inputTap, clickAt, mousePath, mouseDrag,
+        windowFocus, uiaInvoke, inputHold, inputTap, clickAt, mousePath, mouseDrag, windowSetRect,
         processKill, shell, browserEval,
         skillRun, screenRelay, openApp, textType,
     ];
@@ -114,7 +114,56 @@ async function killByName(nameContains) {
 async function cleanDesktop() {
     await killByName('notepad');
     await killByName('calculatorapp');
+    await _clearNotepadSessionState();
     await sleep(400);
+}
+
+// Modern (packaged) Notepad restores its previous tab session on next
+// launch, straight from LocalState\TabState\WindowState -- across enough
+// kill+relaunch cycles (every scenario here force-kills it between runs)
+// that piles up several restored tabs, each carrying whatever stale text
+// (or reference to a since-deleted sandbox file) an earlier run left
+// behind. That silently breaks the "type into a known-blank document"
+// premise every scenario here depends on -- typed text lands appended
+// after old content instead of alone, and a restored tab already pointing
+// at a real path makes Ctrl+S save in place with no Save-As dialog at all.
+// Clearing this state (only ever right after force-killing the process
+// this same function just killed) guarantees the next launch is a genuine
+// blank Untitled document, which no amount of in-scenario Ctrl+N/Ctrl+A
+// defensive-typing fully guaranteed on its own.
+async function _clearNotepadSessionState() {
+    const base = process.env.LOCALAPPDATA
+        ? path.join(process.env.LOCALAPPDATA, 'Packages', 'Microsoft.WindowsNotepad_8wekyb3d8bbwe', 'LocalState')
+        : null;
+    if (!base) return;
+    for (const sub of ['TabState', 'WindowState']) {
+        const dir = path.join(base, sub);
+        let entries = [];
+        try { entries = fs.readdirSync(dir); } catch { continue; }
+        for (const f of entries) {
+            try { fs.unlinkSync(path.join(dir, f)); } catch { /* best-effort */ }
+        }
+    }
+}
+
+// A restored tab can also point at a file that no longer exists (e.g. a
+// sandbox file a previous run already cleaned up), which pops a blocking
+// "Notepad — Cannot find the <path> file." modal that steals focus from
+// everything after it (Ctrl+N, typing, etc. all get swallowed). Its window
+// title is the bare app name "Notepad" (real documents are titled "<name>
+// - Notepad"), so it's cheaply distinguishable and safe to dismiss with
+// Enter (its only button is "OK"). _clearNotepadSessionState() above
+// should make this unreachable going forward, but this stays as a
+// defensive backstop against whatever state existed before this fix.
+async function _dismissStrayNotepadDialog() {
+    const wl = await exec('window_list', { titleContains: 'Notepad' });
+    const dialog = (wl.windows || []).find(w => w.title === 'Notepad');
+    if (!dialog) return false;
+    await exec('window_focus', { titleContains: 'Notepad' });
+    await sleep(100);
+    await exec('input_tap', { keys: ['enter'] });
+    await sleep(200);
+    return true;
 }
 
 function sandboxPath() {
@@ -153,11 +202,32 @@ async function scenario1() {
     await cleanDesktop();
     await exec('open_app', { name: 'notepad.exe', waitMs: 8000 });
     await sleep(300);
+    await _dismissStrayNotepadDialog();
+    // Modern Notepad doesn't just restore stray unsaved TEXT from its last
+    // session -- it can reopen the exact file that was previously open,
+    // asterisk and all. If that happens, this scenario's Ctrl+S would
+    // silently re-save that OLD file in place (no Save-As dialog at all,
+    // since it's no longer untitled), and the brand-new `filePath` below
+    // would never receive anything. Ctrl+N forces a guaranteed-blank,
+    // guaranteed-untitled new tab regardless of whatever the previous
+    // session left behind, so Ctrl+S below is guaranteed to hit Save-As.
+    await exec('input_tap', { keys: ['ctrl', 'n'], focusWindowTitle: 'Notepad' });
+    await sleep(300);
+    await exec('input_tap', { keys: ['ctrl', 'a'], focusWindowTitle: 'Notepad' });
+    await sleep(100);
+    await exec('input_tap', { keys: ['delete'] });
+    await sleep(150);
     await exec('text_type', { text: text, focusWindowTitle: 'Notepad' });
     await sleep(200);
     await exec('input_tap', { keys: ['ctrl', 's'], focusWindowTitle: 'Notepad' });
     await sleep(700); // Save-As dialog for a new/untitled document
-    await exec('text_type', { text: filePath });
+    // The Save-As dialog is a separate top-level window from Notepad's own
+    // (same process, different HWND) -- it doesn't automatically take OS
+    // foreground/keyboard focus just because it appeared, so the filename
+    // typed next needs to explicitly target it by title, or it silently
+    // lands back in Notepad's own document instead of the dialog's filename
+    // box (which is exactly why no file ever used to get created here).
+    await exec('text_type', { text: filePath, focusWindowTitle: 'Save' });
     await sleep(200);
     await exec('input_tap', { keys: ['enter'] });
     await sleep(600);
@@ -285,44 +355,97 @@ async function scenario5(opts) {
 }
 
 // ─── Scenario 6: read a real UI toggle state via perception ───────────────
-// Uses Notepad's Format > Word Wrap checkbox as a deterministic toggle we can
+// Uses Notepad's View > Word wrap checkbox as a deterministic toggle we can
 // set ourselves beforehand, then verify perception reports the same state.
+// (Modern Windows 11 Notepad moved this out of a "Format" menu -- there
+// isn't one anymore -- and into "View"; the item's accessible name is also
+// lowercase "Word wrap", not "Word Wrap".)
+//
+// Sending Alt and the mnemonic letter as two SEPARATE input_tap calls (tap
+// Alt, release, then tap the letter) doesn't reliably engage this WinUI
+// MenuBar's accelerator handling -- unlike a classic Win32 menu, it seems to
+// need the letter delivered while Alt is still down within one input event
+// batch, and a synthetic key from a brand-new process a beat later can miss
+// that window entirely (observed failure: "v" fell through and was typed
+// as a literal character into the document instead of opening the View
+// menu). Sending them as one held-Alt-plus-letter combo (same pattern
+// scenario4 already uses for Alt+Tab) opens the menu reliably instead.
+async function _openViewMenu() {
+    await exec('input_tap', { keys: ['alt', 'v'], holdMs: 100 });
+    await sleep(400);
+}
+
 async function scenario6() {
     await cleanDesktop();
     await exec('open_app', { name: 'notepad.exe', waitMs: 8000 });
     await sleep(400);
 
-    // Open Format menu and read Word Wrap's checked state via UIA (perception),
+    // Open View menu and read Word wrap's checked state via UIA (perception),
     // twice — toggling in between — so we verify perception tracks a real
     // state change rather than just returning a static/cached answer.
-    await exec('input_tap', { keys: ['alt'] });
-    await sleep(150);
-    await exec('input_tap', { keys: ['o'] }); // Format menu mnemonic
-    await sleep(300);
-    const before = await exec('uia_find', { name: 'Word Wrap', max: 1 });
+    await _openViewMenu();
+    const before = await exec('uia_find', { name: 'Word wrap', max: 1 });
     if (!before.elements || !before.elements.length) {
-        throw new Error('could not find "Word Wrap" menu item via perception');
+        throw new Error('could not find "Word wrap" menu item via perception');
     }
-    // Close the menu without toggling (Escape), then invoke via uia_invoke
-    // (the intended perceive-then-act pattern) to flip the state.
+    // Close the menu without toggling (Escape) to prove the perceive step
+    // above didn't itself need to leave anything open, then re-open it and
+    // invoke via uia_invoke (the intended perceive-then-act pattern) to flip
+    // the state — the menu (and therefore its "Word wrap" item) doesn't
+    // exist in the UIA tree while closed, so invoking it has to happen with
+    // the menu open again, not against the now-stale reference from above.
     await exec('input_tap', { keys: ['escape'] });
     await sleep(150);
-    await exec('uia_invoke', { name: 'Word Wrap', action: 'invoke' });
+    await _openViewMenu();
+    const readyToToggle = await exec('uia_find', { name: 'Word wrap', max: 1 });
+    if (!readyToToggle.elements || !readyToToggle.elements.length) {
+        throw new Error('could not re-find "Word wrap" menu item before toggling');
+    }
+    await exec('uia_invoke', { name: 'Word wrap', action: 'invoke' });
     await sleep(200);
 
-    await exec('input_tap', { keys: ['alt'] });
-    await sleep(150);
-    await exec('input_tap', { keys: ['o'] });
-    await sleep(300);
-    const after = await exec('uia_find', { name: 'Word Wrap', max: 1 });
+    await _openViewMenu();
+    const after = await exec('uia_find', { name: 'Word wrap', max: 1 });
     await exec('input_tap', { keys: ['escape'] });
     if (!after.elements || !after.elements.length) {
-        throw new Error('could not re-find "Word Wrap" menu item after toggling');
+        throw new Error('could not re-find "Word wrap" menu item after toggling');
     }
     return { foundBeforeToggle: true, foundAfterToggle: true };
 }
 
 // ─── Scenario 7: record a short task once, then auto-replay it ────────────
+// Types text one real keystroke at a time via input_tap (down, hold, up),
+// instead of SendKeys -- SendKeys' per-character keydown/keyup pulse is
+// sub-millisecond regardless of any delay *between* characters, which is
+// far too brief for the PollingInputSource capturing this recording to
+// reliably sample (see _PollingInputSource's own doc comment on this exact
+// limitation). A real key held down for `holdMs` is what an actual human
+// keystroke looks like at the OS level, and is what this scenario is
+// actually meant to be testing the recorder against.
+const _CHAR_KEY_MAP = {
+    '-': 'minus', '.': 'period', '\\': 'backslash', '/': 'slash',
+    '_': { key: 'minus', shift: true }, ':': { key: 'semicolon', shift: true },
+};
+async function _typeViaHeldKeys(text, { focusWindowTitle, holdMs = 45 } = {}) {
+    for (const ch of String(text)) {
+        let key, shift = false;
+        if (/[a-z0-9]/.test(ch)) { key = ch; }
+        else if (/[A-Z]/.test(ch)) { key = ch.toLowerCase(); shift = true; }
+        else if (_CHAR_KEY_MAP[ch] !== undefined) {
+            const mapped = _CHAR_KEY_MAP[ch];
+            if (typeof mapped === 'string') { key = mapped; }
+            else { key = mapped.key; shift = mapped.shift; }
+        } else {
+            throw new Error('_typeViaHeldKeys: unsupported character ' + JSON.stringify(ch));
+        }
+        await exec('input_tap', {
+            keys: shift ? ['shift', key] : [key],
+            focusWindowTitle,
+            holdMs,
+        });
+    }
+}
+
 async function scenario7() {
     const recordingsDir = sandboxPath('s7-recordings');
     recorder.configure({ recordingsDir: recordingsDir });
@@ -332,13 +455,24 @@ async function scenario7() {
     await cleanDesktop();
     await exec('open_app', { name: 'notepad.exe', waitMs: 8000 });
     await sleep(400);
+    await _dismissStrayNotepadDialog();
     await recorder.start({ name: 's7-record-once' });
     await sleep(300);
-    await exec('text_type', { text: text, focusWindowTitle: 'Notepad' });
+    // Force a guaranteed-blank, guaranteed-untitled tab before typing --
+    // see scenario1's comment: modern Notepad can reopen whatever file (or
+    // unsaved buffer) was open last session, which would make Ctrl+S below
+    // silently save in place instead of opening the Save-As dialog this
+    // scenario depends on.
+    await exec('input_tap', { keys: ['ctrl', 'n'], focusWindowTitle: 'Notepad' });
+    await sleep(300);
+    await _typeViaHeldKeys(text, { focusWindowTitle: 'Notepad' });
     await sleep(200);
     await exec('input_tap', { keys: ['ctrl', 's'] });
     await sleep(700);
-    await exec('text_type', { text: targetFile });
+    // Same dialog-focus fix as scenario1: the Save-As dialog is a separate
+    // top-level window that doesn't automatically take OS focus, so the
+    // target path needs to be typed directly at it by title.
+    await _typeViaHeldKeys(targetFile, { focusWindowTitle: 'Save' });
     await sleep(200);
     await exec('input_tap', { keys: ['enter'] });
     await sleep(500);
@@ -359,6 +493,7 @@ async function scenario7() {
 
     await exec('open_app', { name: 'notepad.exe', waitMs: 8000 });
     await sleep(400);
+    await _dismissStrayNotepadDialog();
     // Passing `cache: skill` lets skill_run register it in its local cache
     // and run it immediately, without needing a workspace round-trip.
     await exec('skill_run', { slug: skill.slug, cache: skill });
@@ -443,27 +578,39 @@ async function scenario9() {
     await killByName('explorer');
     await exec('open_app', { name: 'explorer.exe', args: srcDir, windowTitleContains: path.basename(srcDir), waitMs: 8000 });
     await sleep(700);
+    // Tile src/dst into non-overlapping halves of the screen *before* reading
+    // any coordinates. Both windows previously opened at (or near) the same
+    // default position, so the destination point computed below ended up
+    // physically underneath the source window — re-focusing src right before
+    // the drag (needed so the mouse-down originates on the right window) then
+    // brought src on top of that point, turning every "drop" into a no-op
+    // click back inside src itself (dropped in place, never arriving at dst).
+    await exec('window_set_rect', { titleContains: path.basename(srcDir), x: 0, y: 0, width: 700, height: 700, state: 'normal' });
+    await sleep(200);
 
-    // Find the file's on-screen position and the destination folder shortcut
-    // isn't available in a single Explorer window, so this drag targets a
-    // second, docked Explorer window at the destination folder instead —
-    // simpler and just as valid a test of mouse_drag's real OS-level drag.
+    await exec('open_app', { name: 'explorer.exe', args: dstDir, windowTitleContains: path.basename(dstDir), waitMs: 8000 });
+    await sleep(700);
+    await exec('window_set_rect', { titleContains: path.basename(dstDir), x: 900, y: 0, width: 700, height: 700, state: 'normal' });
+    await sleep(200);
+
+    // Re-focus src now that the two windows are physically apart, then find
+    // the file's on-screen position — reading it only after both windows
+    // have their final position/size keeps these coordinates accurate.
+    await exec('window_focus', { titleContains: path.basename(srcDir) });
+    await sleep(200);
     const found = await exec('uia_find', { name: fileName, controlType: 'ListItem', max: 1 });
     if (!found.elements || !found.elements.length) throw new Error('could not find source file item in Explorer');
     const srcEl = found.elements[0];
     const startX = srcEl.x + Math.round(srcEl.width / 2);
     const startY = srcEl.y + Math.round(srcEl.height / 2);
 
-    await exec('open_app', { name: 'explorer.exe', args: dstDir, windowTitleContains: path.basename(dstDir), waitMs: 8000 });
-    await sleep(700);
-    const dstWindows = await exec('uia_find', { controlType: 'Window', name: path.basename(dstDir), max: 1 });
-    // Fallback: use a fixed offset in the destination window's client area if
-    // uia_find can't resolve exact bounds for the window chrome itself.
-    const dstX = (dstWindows.elements && dstWindows.elements[0] && dstWindows.elements[0].x) ? dstWindows.elements[0].x + 200 : startX + 400;
-    const dstY = (dstWindows.elements && dstWindows.elements[0] && dstWindows.elements[0].y) ? dstWindows.elements[0].y + 200 : startY;
+    // Drop target: center of the dst window's known (just-applied) rect —
+    // more reliable than re-deriving it via uia_find, since AutomationElement
+    // Name-property matching is an exact-equality condition and a window's
+    // title here is a full path ("...\dst - File Explorer"), never just "dst".
+    const dstX = 900 + 350;
+    const dstY = 350;
 
-    await exec('window_focus', { titleContains: path.basename(srcDir) });
-    await sleep(200);
     await exec('mouse_drag', {
         path: [
             { x: startX, y: startY, tOffsetMs: 0 },

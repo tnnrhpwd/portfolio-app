@@ -1,0 +1,82 @@
+[
+  {
+    "run": 1,
+    "at": "2026-08-21T23:15:24.271Z",
+    "results": [
+      {
+        "id": 1,
+        "name": "Type and save a note in Notepad",
+        "status": "pass",
+        "durationMs": 13340,
+        "detail": {
+          "filePath": "C:\\Users\\tanne\\.simple-eval\\core-functionality\\s1\\note-1787354052532.txt",
+          "bytes": 31
+        }
+      },
+      {
+        "id": 2,
+        "name": "Do arithmetic in Calculator by clicking",
+        "status": "pass",
+        "durationMs": 9121,
+        "detail": {
+          "displayed": "Display is 19"
+        }
+      },
+      {
+        "id": 3,
+        "name": "Rename a file in File Explorer",
+        "status": "pass",
+        "durationMs": 11596,
+        "detail": {
+          "from": "C:\\Users\\tanne\\.simple-eval\\core-functionality\\s3\\orig-1787354074994.txt",
+          "to": "C:\\Users\\tanne\\.simple-eval\\core-functionality\\s3\\renamed-1787354074994.txt"
+        }
+      },
+      {
+        "id": 4,
+        "name": "Alt-Tab between two open windows",
+        "status": "pass",
+        "durationMs": 7188,
+        "detail": {
+          "before": "Calculator",
+          "after": "Untitled - Notepad"
+        }
+      },
+      {
+        "id": 6,
+        "name": "Read a non-trivial UI state via perception",
+        "status": "pass",
+        "durationMs": 10813,
+        "detail": {
+          "foundBeforeToggle": true,
+          "foundAfterToggle": true
+        }
+      },
+      {
+        "id": 9,
+        "name": "Drag-and-drop with a moving mouse path",
+        "status": "pass",
+        "durationMs": 12491,
+        "detail": {
+          "from": "C:\\Users\\tanne\\.simple-eval\\core-functionality\\s9\\src\\drag-me-1787354104591.txt",
+          "to": "C:\\Users\\tanne\\.simple-eval\\core-functionality\\s9\\dst\\drag-me-1787354104591.txt"
+        }
+      },
+      {
+        "id": 10,
+        "name": "Held input releases safely on focus loss",
+        "status": "pass",
+        "durationMs": 7190,
+        "detail": {
+          "keys": [
+            "w"
+          ],
+          "mouseButtons": [],
+          "reason": "foreground-changed",
+          "elapsedMs": 446,
+          "focused": null
+        }
+      }
+    ]
+  }
+]

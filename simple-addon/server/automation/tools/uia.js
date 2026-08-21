@@ -12,7 +12,7 @@
  * Snippets are kept short and emit JSON via ConvertTo-Json.
  */
 
-const { runPsJson, runPsJsonFile } = require('../ps-runner');
+const { runPsJsonFile } = require('../ps-runner');
 
 const UIA_PRELUDE = `
 Add-Type -AssemblyName UIAutomationClient
@@ -78,7 +78,13 @@ const uiaFind = {
 $r = Find-Elements ${quote(args.name)} ${quote(args.automationId)} ${quote(args.controlType)} ${max}
 $r | ConvertTo-Json -Compress -Depth 4
         `.trim();
-        const res = await runPsJson(script);
+        // The multi-line Find-Elements function (plus its Add-Type calls)
+        // does not survive being piped over stdin via runPsJson -- it
+        // silently comes back empty (see runPsJsonFile's doc comment in
+        // ps-runner.js), which made uia_find look like it "worked" but
+        // never actually matched anything. Use the file-based runner, same
+        // as uia_snapshot already does below.
+        const res = await runPsJsonFile(script);
         const arr = Array.isArray(res) ? res : (res ? [res] : []);
         return { count: arr.length, elements: arr };
     },
@@ -123,7 +129,9 @@ switch ('${action}') {
 }
 [pscustomobject]@{ ok = $true; name = $el.Current.Name; action = '${action}' } | ConvertTo-Json -Compress
         `.trim();
-        return await runPsJson(script);
+        // Same stdin-vs-file issue as uia_find above (Find-Elements + Add-Type
+        // don't survive runPsJson's stdin transport).
+        return await runPsJsonFile(script);
     },
     async dryRun(args) { return { dryRun: true, would: { action: args.action || 'invoke', filters: args } }; },
 };
@@ -154,7 +162,8 @@ if (-not $text) { try { $p = $el.GetCurrentPattern([System.Windows.Automation.Te
 if (-not $text) { $text = $el.Current.Name }
 [pscustomobject]@{ name = $el.Current.Name; text = $text } | ConvertTo-Json -Compress
         `.trim();
-        return await runPsJson(script);
+        // Same stdin-vs-file issue as uia_find above.
+        return await runPsJsonFile(script);
     },
 };
 

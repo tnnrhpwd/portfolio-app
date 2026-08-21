@@ -5,7 +5,7 @@
  * efficient, but they require platform-specific native modules. For the MVP
  * recorder we ship a PowerShell polling source that:
  *
- *   - Samples the mouse position + button state every `pollMs` (default 50ms)
+ *   - Samples the mouse position + button state every `pollMs` (default 15ms)
  *     via [System.Windows.Forms.Cursor] and Win32 GetAsyncKeyState.
  *   - Polls a curated set of keyboard virtual-key codes each cycle and
  *     emits keydown / keyup events on edge transitions.
@@ -22,9 +22,11 @@
  *     type = 'focus_change'  { windowTitle, processName, hwnd }
  *
  * Notes on keyboard capture:
- *   - Polling at 50 ms means a very fast tap (< ~40 ms) can be missed, and
- *     rapid alternating repeats are collapsed. This is acceptable for macro
- *     recording of deliberate keystrokes; if we need to capture typing at full
+ *   - Polling at 15 ms narrows, but doesn't eliminate, the classic
+ *     polling-vs-edge problem: a key held for less than one poll interval
+ *     can still be missed, and rapid alternating repeats are collapsed.
+ *     This is acceptable for macro recording of deliberate (human-paced)
+ *     keystrokes; if we need to capture typing at full programmatic-SendKeys
  *     speed we should switch to a native hook (SetWindowsHookEx / uiohook).
  *   - Names use the same vocabulary that the `input_tap` tool's resolveKey()
  *     accepts (letters a-z lowercased, digits, plus 'shift', 'ctrl', 'alt',
@@ -35,7 +37,17 @@
 
 const { spawn } = require('child_process');
 
-const DEFAULT_POLL_MS = 50;
+// 50ms was too coarse for a lot of ordinary "deliberate keystroke" macro
+// recording -- e.g. any text typed via the addon's own text_type tool
+// (SendKeys, no artificial delay) blasts characters through in low
+// single-digit milliseconds each, so a 50ms sampling interval reliably
+// missed nearly all of them (only the odd one that happened to land under
+// a poll survived), silently dropping recorded text entirely rather than
+// producing a garbled-but-present capture. This doesn't make polling
+// capture truly instantaneous input (nothing sub-poll-interval ever will,
+// short of a real low-level hook -- see the file doc comment above), but it
+// meaningfully narrows the miss window for realistic fast-typing speeds.
+const DEFAULT_POLL_MS = 15;
 const MOVE_THRESHOLD_PX = 3;   // ignore micro-jitter
 
 // Keys we poll each cycle. Values are the names input_tap's resolveKey()

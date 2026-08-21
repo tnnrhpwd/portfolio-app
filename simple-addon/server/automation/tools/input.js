@@ -113,6 +113,8 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
+public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 public static class Native {
     [DllImport("user32.dll")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
     [DllImport("user32.dll")] public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint cButtons, UIntPtr dwExtraInfo);
@@ -124,6 +126,10 @@ public static class Native {
     [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
     [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
     [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
+    [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+    [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern int GetWindowTextLength(IntPtr hWnd);
+    [DllImport("user32.dll", CharSet=CharSet.Auto)] public static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);
 }
 "@
 function Set-ForegroundWindowForce($hwnd) {
@@ -177,15 +183,57 @@ function Set-ForegroundWindowForce($hwnd) {
     # receiving events on the new foreground window before we send any --
     # otherwise input sent in the same instant as the focus switch can be
     # dropped by apps (games especially) that only poll input once per frame.
-    if ($ok) { Start-Sleep -Milliseconds 150 }
+    # 150ms wasn't long enough for some real dialogs: a Windows common
+    # Save-As/file-picker dialog can report itself as the foreground window
+    # noticeably before its filename edit control is actually accepting
+    # keystrokes (observed: the first several characters typed right after
+    # such a dialog appeared were silently dropped -- not corrupted or
+    # reordered, just gone -- while everything typed a couple seconds later
+    # landed fine). 400ms costs little (paid once per genuine focus switch,
+    # not per keystroke) and reliably covers that gap.
+    if ($ok) { Start-Sleep -Milliseconds 400 }
     return $ok
+}
+function Find-WindowByTitle([string]$needle) {
+    # Get-Process's MainWindowHandle only ever points at a process's ONE
+    # "main" window -- it can never resolve to a modal dialog the same
+    # process opens afterward (e.g. Notepad's Ctrl+S "Save As" dialog is a
+    # separate top-level HWND owned by the same pid, not a new process).
+    # That silently broke every focusWindowTitle call aimed at a dialog:
+    # Focus-WindowByTitle would report "not found" (or worse, silently
+    # focus nothing) even with the dialog plainly open on screen, because
+    # Get-Process never even considered it a candidate. Walk every real
+    # top-level window via EnumWindows instead (same technique window_focus
+    # in system.js already uses), which sees dialogs too.
+    if (-not $needle) { return [IntPtr]::Zero }
+    $script:_foundHwnd = [IntPtr]::Zero
+    $callback = [EnumWindowsProc]{
+        param([IntPtr]$hwnd, [IntPtr]$lparam)
+        if (-not [Native]::IsWindowVisible($hwnd)) { return $true }
+        $len = [Native]::GetWindowTextLength($hwnd)
+        if ($len -le 0) { return $true }
+        $sb = New-Object System.Text.StringBuilder ($len + 1)
+        [void][Native]::GetWindowText($hwnd, $sb, $sb.Capacity)
+        if ($sb.ToString() -like "*$needle*") {
+            $script:_foundHwnd = $hwnd
+            return $false
+        }
+        return $true
+    }
+    [void][Native]::EnumWindows($callback, [IntPtr]::Zero)
+    return $script:_foundHwnd
 }
 function Focus-WindowByTitle($needle) {
     if (-not $needle) { return $null }
-    $p = Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -like "*$needle*" } | Select-Object -First 1
-    if (-not $p) { return $null }
-    $confirmed = Set-ForegroundWindowForce $p.MainWindowHandle
-    return @{ pid = $p.Id; title = $p.MainWindowTitle; focusConfirmed = $confirmed }
+    $hwnd = Find-WindowByTitle $needle
+    if ($hwnd -eq [IntPtr]::Zero) { return $null }
+    [uint32]$rawProcId = 0
+    [void][Native]::GetWindowThreadProcessId($hwnd, [ref]$rawProcId)
+    $len = [Native]::GetWindowTextLength($hwnd)
+    $sb = New-Object System.Text.StringBuilder ([Math]::Max($len, 0) + 1)
+    [void][Native]::GetWindowText($hwnd, $sb, $sb.Capacity)
+    $confirmed = Set-ForegroundWindowForce $hwnd
+    return @{ pid = [int]$rawProcId; title = $sb.ToString(); focusConfirmed = $confirmed }
 }
 `;
 
@@ -204,11 +252,31 @@ function runPsScript(script, { timeoutMs = 65 * 60_000 } = {}) {
             '-EncodedCommand', encoded,
         ], { windowsHide: true });
         let stdout = '', stderr = '';
+        let timedOut = false;
         child.stdout.on('data', d => { stdout += d.toString('utf-8'); });
         child.stderr.on('data', d => { stderr += d.toString('utf-8'); });
-        const timer = setTimeout(() => { try { child.kill('SIGKILL'); } catch {} }, timeoutMs);
+        const timer = setTimeout(() => {
+            timedOut = true;
+            // child.kill('SIGKILL') only terminates THIS process, not any
+            // descendant it may have spawned (Add-Type's first-ever
+            // compile of the NATIVE_PRELUDE C# shim invokes csc.exe as a
+            // grandchild, and that grandchild can inherit this child's
+            // stdout/stderr pipe handles). If the timeout fires while that
+            // grandchild is still running, killing only the immediate
+            // child leaves those pipes open, so Node's 'close' event -- and
+            // therefore this whole promise -- doesn't actually settle until
+            // the grandchild finishes on its own, which silently turned an
+            // intended ~5s timeout into a real ~112s hang in one observed
+            // run. `taskkill /T` kills the whole process tree so the
+            // timeout is what it says it is.
+            try {
+                spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' });
+            } catch { /* best-effort */ }
+            try { child.kill('SIGKILL'); } catch {}
+        }, timeoutMs);
         child.on('close', code => {
             clearTimeout(timer);
+            if (timedOut) return reject(new Error(`timed out after ${timeoutMs}ms (process killed)`));
             if (code !== 0) return reject(new Error(stderr.trim() || `powershell exited with ${code}`));
             resolve(stdout.trim());
         });
@@ -451,7 +519,7 @@ finally {
 }
 @{ ok = $true; x = ${x}; y = ${y}; button = "${args.button || 'left'}"; doubleClick = ${dbl ? '$true' : '$false'}; modifiers = @(${(args.modifiers || []).map(m => `"${String(m).replace(/"/g, '')}"`).join(',')}); focused = $focused } | ConvertTo-Json -Compress
 `;
-        const out = await runPsScript(script, { timeoutMs: 5000 });
+        const out = await runPsScript(script, { timeoutMs: 8000 });
         let parsed = null;
         try { parsed = JSON.parse(out); } catch { parsed = { raw: out }; }
         try { ctx?.addAction?.({ tool: 'click_at', args, result: parsed }); } catch {}

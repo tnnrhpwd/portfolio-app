@@ -39,11 +39,26 @@ function runPs(script) {
             '-EncodedCommand', encoded,
         ], { windowsHide: true });
         let stdout = '', stderr = '';
+        let timedOut = false;
         child.stdout.on('data', d => stdout += d.toString('utf-8'));
         child.stderr.on('data', d => stderr += d.toString('utf-8'));
-        const timer = setTimeout(() => { try { child.kill('SIGKILL'); } catch {} }, PS_TIMEOUT);
+        const timer = setTimeout(() => {
+            timedOut = true;
+            // Kill the whole process tree, not just this immediate child --
+            // see input.js's runPsScript for why: a lingering grandchild
+            // (e.g. csc.exe compiling an Add-Type block) can keep this
+            // child's stdout/stderr pipes open after SIGKILL, so 'close'
+            // (and this promise) wouldn't fire until that grandchild
+            // finished on its own, turning an intended short timeout into a
+            // much longer real-world hang.
+            try {
+                spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' });
+            } catch { /* best-effort */ }
+            try { child.kill('SIGKILL'); } catch {}
+        }, PS_TIMEOUT);
         child.on('close', code => {
             clearTimeout(timer);
+            if (timedOut) return reject(new Error(`timed out after ${PS_TIMEOUT}ms (process killed)`));
             if (code !== 0) return reject(new Error(parseCliXmlError(stderr.trim()) || `powershell exited with ${code}`));
             resolve(stdout);
         });
@@ -69,15 +84,25 @@ function parseCliXmlError(stderr) {
     const raw = [...stderr.matchAll(/<S S="Error">([^<]*)<\/S>/g)].map(m => m[1]).join('');
     if (!raw) return stderr;
     const decoded = raw.replace(/_x([0-9A-Fa-f]{4})_/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
-    const lines = decoded.split(/\r\n/);
-    // The actual error message is the line immediately before the
-    // "+ CategoryInfo" boilerplate; everything before it may be the entire
-    // source script (PowerShell reports the whole invocation as "the line"
-    // when there's no separate script file to attribute a line number to).
-    const catIdx = lines.findIndex(l => l.trim().startsWith('+ CategoryInfo'));
-    let message = catIdx > 0 ? lines[catIdx - 1] : lines[0];
-    const sepIdx = message.lastIndexOf(' : ');
-    if (sepIdx !== -1) message = message.slice(sepIdx + 3);
+    // The wrap-induced \r\n above is NOT necessarily a real line break in the
+    // original message — it's purely where PowerShell's XML writer happened
+    // to fold a long <S> chunk. Naively splitting on \r\n and grabbing "the
+    // line right before + CategoryInfo" silently truncated the message to
+    // whatever text fell after the LAST such fold, which is exactly how a
+    // Write-Error 'window not found' turned into a bare "found" here: the
+    // fold landed between "not" and "found", so the "line before CategoryInfo"
+    // was just "found" with no ' : ' separator left to find the real message
+    // after. Instead, locate the "+ CategoryInfo" boilerplate directly in the
+    // still-folded text, then flatten everything before it back into one
+    // logical line (folds only ever insert whitespace-adjacent breaks, so
+    // collapsing \r\n to a space is always safe here) before splitting on the
+    // real "<offending line> : <message>" separator PowerShell emits when the
+    // whole -EncodedCommand script (not a file) is "the line" being reported.
+    const catMatch = /\r\n\s*\+\s*CategoryInfo/.exec(decoded);
+    const head = catMatch ? decoded.slice(0, catMatch.index) : decoded;
+    const flat = head.replace(/\r\n/g, ' ').replace(/\s+/g, ' ').trim();
+    const sepIdx = flat.lastIndexOf(' : ');
+    let message = sepIdx !== -1 ? flat.slice(sepIdx + 3) : flat;
     message = message.trim();
     return message || decoded.trim().slice(0, 500);
 }
@@ -135,6 +160,7 @@ public static class WinPlacement {
     [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
     [DllImport("user32.dll")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
     [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+    [DllImport("user32.dll")] public static extern bool EnumChildWindows(IntPtr hWndParent, EnumWindowsProc lpEnumFunc, IntPtr lParam);
     [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
     [DllImport("user32.dll")] public static extern int GetWindowTextLength(IntPtr hWnd);
     [DllImport("user32.dll", CharSet=CharSet.Auto)] public static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);
@@ -287,8 +313,21 @@ function Move-ToMonitorIfNeeded([IntPtr]$hwnd, [int]$targetX, [int]$targetY, [in
 # and desktop/wallpaper hosts that shouldn't ever be treated as restorable
 # app windows, even in the rare case DWM briefly reports them as not
 # cloaked (e.g. mid-animation).
+#
+# ApplicationFrameHost is deliberately NOT in this list even though it's a
+# "host" process, unlike the others here: it's the real owning thread for
+# EVERY classic UWP app's top-level window (Calculator, Settings, Alarms &
+# Clock, etc.), not just its own background/invisible proxy windows. Denying
+# it outright made window_focus/window_list/window_set_rect blind to those
+# apps entirely -- e.g. window_focus({processName:'calculatorapp'}) reported
+# "window not found" even with Calculator plainly open and its "Calculator"-
+# titled window very much visible, because that window's owning PID resolved
+# to ApplicationFrameHost and got filtered before the processName match ever
+# ran. Test-WindowCloaked below already correctly excludes
+# ApplicationFrameHost's own truly-hidden housekeeping windows (which have no
+# real, user-facing title anyway), so it's the right and sufficient gate here.
 $script:ShellHostDenylist = @(
-    'ShellExperienceHost', 'ApplicationFrameHost', 'TextInputHost',
+    'ShellExperienceHost', 'TextInputHost',
     'SearchHost', 'StartMenuExperienceHost', 'ShellHost', 'BingWallpaper',
     'msedgewebview2'
 )
@@ -331,6 +370,17 @@ function Get-CandidateWindows {
         [void][WinPlacement]::GetWindowText($hwnd, $sb, $sb.Capacity)
         $title = $sb.ToString()
         if (-not $title) { return $true }
+        # WinUI3/Xaml Islands apps (modern Notepad, Calculator, etc.) spawn
+        # small auxiliary top-level windows -- literally titled "PopupHost",
+        # class "Xaml_WindowedPopupClass" or "Microsoft.UI.Content.
+        # PopupWindowSiteBridge" -- for tooltips/flyouts. These are visible
+        # per IsWindowVisible and share the same owning process as the real
+        # app window, so without this filter a titleContains/processName
+        # match can land on one of these tiny (~40px) decoys instead of the
+        # actual app window EnumWindows was meant to find (e.g. window_focus
+        # bringing a Calculator "PopupHost" sliver to the foreground instead
+        # of the real Calculator window it was asked for).
+        if ($title -eq 'PopupHost') { return $true }
         # GetWindowThreadProcessId's [ref] out-param forces $rawProcId to be
         # declared [uint32] — and PowerShell's [type]$var = value syntax
         # doesn't just set an initial type, it PINS that variable to the
@@ -349,6 +399,31 @@ function Get-CandidateWindows {
         $procId = [int]$rawProcId
         if ($procId -eq $script:OwnPid) { return $true }
         $name = $procNames[$procId]
+        if ($name -eq 'ApplicationFrameHost') {
+            # ApplicationFrameHost owns the actual top-level window (frame)
+            # for classic UWP apps, but the app's own logic -- and the
+            # process name callers actually expect, e.g. "CalculatorApp" --
+            # runs in a separate child-window process. Without resolving
+            # that here, window_focus/window_list/window_set_rect only ever
+            # report "ApplicationFrameHost" as the pid/processName for
+            # Calculator, Settings, etc., so a caller asking for processName
+            # "calculatorapp" never matches even with the window plainly
+            # open and visible on screen.
+            $script:_hostedPid = $null
+            $childCb = [WinPlacement+EnumWindowsProc]{
+                param([IntPtr]$childHwnd, [IntPtr]$lp)
+                [uint32]$childRawProcId = 0
+                [void][WinPlacement]::GetWindowThreadProcessId($childHwnd, [ref]$childRawProcId)
+                $childProcId = [int]$childRawProcId
+                if ($childProcId -ne 0 -and $childProcId -ne $procId) { $script:_hostedPid = $childProcId; return $false }
+                return $true
+            }
+            [void][WinPlacement]::EnumChildWindows($hwnd, $childCb, [IntPtr]::Zero)
+            if ($script:_hostedPid -and $procNames.ContainsKey($script:_hostedPid)) {
+                $procId = $script:_hostedPid
+                $name = $procNames[$procId]
+            }
+        }
         if (-not $name -or $name -in $script:ShellHostDenylist) { return $true }
         if (Test-WindowCloaked $hwnd) { return $true }
         $list.Add([pscustomobject]@{ Hwnd = $hwnd; Pid = $procId; ProcessName = $name; Title = $title })
