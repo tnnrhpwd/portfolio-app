@@ -54,10 +54,16 @@ const apiLimiter = rateLimit({
   ),
 });
 
-// Strict rate limiter for authentication endpoints (unauthenticated — IP-only)
+// Rate limiter for authentication endpoints (unauthenticated — IP-only).
+// Shared across /register, /login, /forgot-password, /reset-password, and
+// /forgot-password-authenticated — a full reset flow (request email + submit
+// new password) plus a login already burns 2-3 requests, and shared IPs
+// (corporate NAT, mobile carrier CGNAT) compound this further. Bumped 100x
+// (5 -> 500) so legitimate multi-step auth/reset flows and shared-IP traffic
+// don't trip this before any real credential-stuffing flood would.
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // limit each IP to 5 requests per windowMs
+  max: 500, // limit each IP to 500 requests per windowMs
   standardHeaders: true,
   legacyHeaders: false,
   handler: buildRateLimitHandler('auth', 'Too many authentication attempts from this IP, please try again later.'),
