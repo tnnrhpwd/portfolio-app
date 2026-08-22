@@ -83,6 +83,14 @@
     color: #fff;
 }
 
+/* The active tab is intentionally `disabled` (see Game2048.jsx) since
+   clicking it would be a no-op, but it must still read as "selected" rather
+   than the grayed-out look browsers give plain disabled buttons. */
+.g2048-subnav button:disabled {
+    cursor: default;
+    opacity: 1;
+}
+
 /* ---- Scoreboard ---- */
 .g2048-scoreboard {
     display: flex;

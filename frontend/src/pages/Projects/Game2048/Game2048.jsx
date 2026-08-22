@@ -394,11 +394,34 @@ function Game2048() {
       <main className="g2048-main">
         <h1 className="g2048-title">2048</h1>
 
+        {/*
+          Sub-nav tabs. The board is always rendered by default (view starts
+          as 'play'), so a tab labeled "Play" sitting next to an
+          already-visible board read as a confusing "start" button. Renaming
+          it to "Game" makes clear it's just the section label, and disabling
+          + aria-current'ing whichever tab is already active (instead of
+          leaving every tab clickable all the time) makes the current
+          section obvious and stops clicks on an already-open tab from
+          looking like they should do something.
+        */}
         <nav className="g2048-subnav" aria-label="2048 sections">
-          <button type="button" className={view === 'play' ? 'active' : ''} onClick={() => setView('play')}>Play</button>
-          <button type="button" className={view === 'leaderboard' ? 'active' : ''} onClick={() => setView('leaderboard')}>Leaderboard</button>
-          <button type="button" className={view === 'saved' ? 'active' : ''} onClick={() => setView('saved')}>Saved Games</button>
-          <button type="button" className={view === 'help' ? 'active' : ''} onClick={() => setView('help')}>How to Play</button>
+          {[
+            { key: 'play', label: 'Game' },
+            { key: 'leaderboard', label: 'Leaderboard' },
+            { key: 'saved', label: 'Saved Games' },
+            { key: 'help', label: 'How to Play' },
+          ].map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              className={view === key ? 'active' : ''}
+              aria-current={view === key ? 'page' : undefined}
+              disabled={view === key}
+              onClick={() => setView(key)}
+            >
+              {label}
+            </button>
+          ))}
         </nav>
 
         {view === 'play' && (
