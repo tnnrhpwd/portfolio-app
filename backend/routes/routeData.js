@@ -39,7 +39,7 @@ const {
   forgotPassword, resetPassword, forgotPasswordAuthenticated,
   extractOCR, updateWithOCR,
   getLLMProviders,
-  getAdminDashboard, getAdminUsers, getAdminPaginatedData, updateUserSpecial,
+  getAdminDashboard, getAdminUsers, getAdminPaginatedData, updateUserSpecial, getEmailStatus,
   initTestFunnel, resetTestFunnel, getTestFunnelStatus, recordFunnelStep, getTestEmails,
   getStripeConfig,
   getDeepStorageItems, regenerateDeepStorageItems,
@@ -314,6 +314,7 @@ router.get('/admin/dashboard', protect, requireAdmin, getAdminDashboard);
 router.get('/admin/users', protect, requireAdmin, getAdminUsers);
 router.put('/admin/users/:id/special', protect, requireAdmin, sanitizeInput, updateUserSpecial);
 router.get('/admin/data', protect, requireAdmin, getAdminPaginatedData);
+router.get('/admin/email-status', protect, requireAdmin, getEmailStatus);
 router.route('/admin/home-title')
   .get(protect, requireAdmin, getHomeTitleSettings)
   .put(protect, requireAdmin, sanitizeInput, updateHomeTitleSettings);

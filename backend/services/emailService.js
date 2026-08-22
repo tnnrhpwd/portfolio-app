@@ -33,6 +33,43 @@ if (client && !process.env.FROM_EMAIL) {
 }
 
 /**
+ * Report whether email sending is actually configured and reachable, without
+ * exposing the API token itself. Lets an admin confirm production env vars
+ * (POSTMARK_API_TOKEN / FROM_EMAIL) are set correctly and Postmark accepts
+ * them, without needing dashboard/host access or sending a real email.
+ * @returns {Promise<Object>} Sanitized status — no secrets included.
+ */
+const getEmailServiceStatus = async () => {
+  const status = {
+    tokenConfigured: !!process.env.POSTMARK_API_TOKEN,
+    fromEmailConfigured: !!process.env.FROM_EMAIL,
+    fromEmail: process.env.FROM_EMAIL || null,
+    postmarkReachable: false,
+    serverName: null,
+    deliveryType: null,
+    error: null
+  };
+
+  if (!client) {
+    status.error = 'POSTMARK_API_TOKEN not configured; client not initialized.';
+    return status;
+  }
+
+  try {
+    // getServer() is a read-only call — confirms the token is valid and the
+    // account is reachable without sending any email.
+    const server = await client.getServer();
+    status.postmarkReachable = true;
+    status.serverName = server.Name;
+    status.deliveryType = server.DeliveryType;
+  } catch (error) {
+    status.error = error.message || String(error);
+  }
+
+  return status;
+};
+
+/**
  * Send an email using Postmark
  * @param {string} to - Recipient email address
  * @param {string} templateName - Name of the email template to use
@@ -99,4 +136,4 @@ const sendEmail = async (to, templateName, data) => {
   }
 };
 
-module.exports = { sendEmail };
+module.exports = { sendEmail, getEmailServiceStatus };

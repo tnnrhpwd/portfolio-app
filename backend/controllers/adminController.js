@@ -496,4 +496,23 @@ const updateUserSpecial = asyncHandler(async (req, res) => {
     res.status(200).json({ id, special: nextSpecial });
 });
 
-module.exports = { getAdminDashboard, getAdminUsers, getAdminPaginatedData, updateUserSpecial };
+// ═══════════════════════════════════════════════════════════════
+// GET /api/data/admin/email-status
+// Confirms the production POSTMARK_API_TOKEN / FROM_EMAIL are set and that
+// Postmark accepts them — without sending an email or exposing the token.
+// Lets an admin diagnose "reset emails aren't arriving" reports directly
+// through the app instead of needing Render/Postmark dashboard access.
+// ═══════════════════════════════════════════════════════════════
+
+const getEmailStatus = asyncHandler(async (req, res) => {
+    if (!isAdmin(req)) {
+        res.status(403);
+        throw new Error('Access denied.');
+    }
+
+    const { getEmailServiceStatus } = require('../services/emailService');
+    const status = await getEmailServiceStatus();
+    res.status(200).json(status);
+});
+
+module.exports = { getAdminDashboard, getAdminUsers, getAdminPaginatedData, updateUserSpecial, getEmailStatus };
