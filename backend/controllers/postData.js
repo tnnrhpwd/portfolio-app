@@ -108,6 +108,51 @@ const registerUser = asyncHandler(async (req, res) => {
       res.status(400)
       throw new Error('Please add all fields')
     }
+
+    // Guard against duplicate accounts: scan for any existing user whose
+    // Email or Nickname field matches (case-insensitively) before creating a
+    // new record. Without this, nothing stopped the same person (or a typo'd
+    // resubmit) from registering twice, leaving two DynamoDB rows for one
+    // email — which broke login outright (loginUser explicitly 400s with
+    // "Multiple accounts found" the moment a Scan returns >1 match) and
+    // required a manual DB consolidation to fix.
+    // The `contains` filter is a cheap pre-filter (same pattern used by
+    // loginUser/forgotPassword/resetPassword); the exact-match check below
+    // guards against a false-positive substring match.
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedNickname = nickname.trim().toLowerCase();
+
+    const dupeCheckParams = {
+        TableName: 'Simple',
+        FilterExpression: 'contains(#text, :emailValue) OR contains(#text, :nicknameValue)',
+        ExpressionAttributeNames: { '#text': 'text' },
+        ExpressionAttributeValues: {
+            ':emailValue': `Email:${email}`,
+            ':nicknameValue': `Nickname:${nickname}|`
+        }
+    };
+
+    try {
+        const dupeResult = await dynamodb.send(new ScanCommand(dupeCheckParams));
+        const existing = (dupeResult.Items || []).find((item) => {
+            const text = item.text || '';
+            const existingEmail = text.substring(text.indexOf('Email:') + 6, text.indexOf('|Password:')).trim().toLowerCase();
+            const existingNickname = text.substring(text.indexOf('Nickname:') + 9, text.indexOf('|Email:')).trim().toLowerCase();
+            return existingEmail === normalizedEmail || existingNickname === normalizedNickname;
+        });
+
+        if (existing) {
+            res.status(409);
+            throw new Error('An account with that email or nickname already exists.');
+        }
+    } catch (error) {
+        if (error.message.includes('already exists')) {
+            throw error;
+        }
+        logger.error('Error checking for duplicate user during registration:', error);
+        res.status(500);
+        throw new Error('Server error while checking for existing account.');
+    }
   
     // Hash password
     const salt = await bcrypt.genSalt(10)
