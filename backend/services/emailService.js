@@ -20,12 +20,17 @@ function getInterceptor() {
   return _interceptTestEmail || null;
 }
 
-// Create a client using the server token (only if token is provided)
+// Create a client using the server token (only if token is provided).
+// Accepts either POSTMARK_API_TOKEN (original name) or POSTMARK_SERVER_API_TOKEN
+// (the name Postmark's own docs/dashboard use to distinguish it from an
+// Account API token) so a env-var rename on one side (local .env vs. the
+// Render dashboard) can't silently disable email sending.
+const POSTMARK_SERVER_TOKEN = process.env.POSTMARK_API_TOKEN || process.env.POSTMARK_SERVER_API_TOKEN;
 let client = null;
-if (process.env.POSTMARK_API_TOKEN) {
-  client = new postmark.ServerClient(process.env.POSTMARK_API_TOKEN);
+if (POSTMARK_SERVER_TOKEN) {
+  client = new postmark.ServerClient(POSTMARK_SERVER_TOKEN);
 } else {
-  logger.warn('⚠️  POSTMARK_API_TOKEN not configured. Email functionality will be disabled.');
+  logger.warn('⚠️  POSTMARK_API_TOKEN / POSTMARK_SERVER_API_TOKEN not configured. Email functionality will be disabled.');
 }
 
 if (client && !process.env.FROM_EMAIL) {
@@ -41,7 +46,7 @@ if (client && !process.env.FROM_EMAIL) {
  */
 const getEmailServiceStatus = async () => {
   const status = {
-    tokenConfigured: !!process.env.POSTMARK_API_TOKEN,
+    tokenConfigured: !!POSTMARK_SERVER_TOKEN,
     fromEmailConfigured: !!process.env.FROM_EMAIL,
     fromEmail: process.env.FROM_EMAIL || null,
     postmarkReachable: false,
@@ -51,7 +56,7 @@ const getEmailServiceStatus = async () => {
   };
 
   if (!client) {
-    status.error = 'POSTMARK_API_TOKEN not configured; client not initialized.';
+    status.error = 'POSTMARK_API_TOKEN / POSTMARK_SERVER_API_TOKEN not configured; client not initialized.';
     return status;
   }
 
