@@ -377,8 +377,9 @@ const TOOL_EXECUTORS = {
     try {
       const postmark = require('postmark');
       let client = null;
-      if (process.env.POSTMARK_API_TOKEN) {
-        client = new postmark.ServerClient(process.env.POSTMARK_API_TOKEN);
+      const postmarkToken = process.env.POSTMARK_API_TOKEN || process.env.POSTMARK_SERVER_API_TOKEN;
+      if (postmarkToken) {
+        client = new postmark.ServerClient(postmarkToken);
         await client.sendEmail({
           From: adminEmail,
           To: adminEmail,
