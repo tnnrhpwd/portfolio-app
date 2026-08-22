@@ -498,10 +498,10 @@ const updateUserSpecial = asyncHandler(async (req, res) => {
 
 // ═══════════════════════════════════════════════════════════════
 // GET /api/data/admin/email-status
-// Confirms the production POSTMARK_API_TOKEN / FROM_EMAIL are set and that
-// Postmark accepts them — without sending an email or exposing the token.
-// Lets an admin diagnose "reset emails aren't arriving" reports directly
-// through the app instead of needing Render/Postmark dashboard access.
+// Confirms FROM_EMAIL is set and AWS SES is reachable and out of sandbox
+// mode — without sending an email or exposing any credentials. Lets an
+// admin diagnose "reset emails aren't arriving" reports directly through
+// the app instead of needing AWS console access.
 // ═══════════════════════════════════════════════════════════════
 
 const getEmailStatus = asyncHandler(async (req, res) => {
@@ -518,7 +518,7 @@ const getEmailStatus = asyncHandler(async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 // POST /api/data/admin/email-test
 // Runs the exact same sendEmail()+passwordResetTemplate() code path that
-// forgotPassword() uses (real Postmark call, real template rendering) and
+// forgotPassword() uses (real AWS SES call, real template rendering) and
 // returns the raw success/error result directly in the response. Unlike
 // forgotPassword(), which always returns a generic "sent" message to avoid
 // account-enumeration, this is admin-only and surfaces the real exception

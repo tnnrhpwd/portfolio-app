@@ -1,4 +1,4 @@
-const postmark = require('postmark');
+const { SESv2Client, SendEmailCommand, GetAccountCommand } = require('@aws-sdk/client-sesv2');
 const {
   passwordResetTemplate,
   subscriptionCreatedTemplate,
@@ -20,53 +20,47 @@ function getInterceptor() {
   return _interceptTestEmail || null;
 }
 
-// Create a client using the server token (only if token is provided).
-// Accepts either POSTMARK_API_TOKEN (original name) or POSTMARK_SERVER_API_TOKEN
-// (the name Postmark's own docs/dashboard use to distinguish it from an
-// Account API token) so a env-var rename on one side (local .env vs. the
-// Render dashboard) can't silently disable email sending.
-const POSTMARK_SERVER_TOKEN = process.env.POSTMARK_API_TOKEN || process.env.POSTMARK_SERVER_API_TOKEN;
-let client = null;
-if (POSTMARK_SERVER_TOKEN) {
-  client = new postmark.ServerClient(POSTMARK_SERVER_TOKEN);
-} else {
-  logger.warn('⚠️  POSTMARK_API_TOKEN / POSTMARK_SERVER_API_TOKEN not configured. Email functionality will be disabled.');
-}
+// Reuses the same AWS credentials already configured for DynamoDB/S3 (see
+// backend/config/.env / Render env vars) — no separate SES-specific
+// credential is required, though AWS_SES_REGION lets SES run in a different
+// region than the rest of the app if ever needed (defaults to AWS_REGION).
+const client = new SESv2Client({
+  region: process.env.AWS_SES_REGION || process.env.AWS_REGION,
+});
 
-if (client && !process.env.FROM_EMAIL) {
-  logger.warn('⚠️  FROM_EMAIL not configured. Postmark sends will fail with "Invalid \'From\' value".');
+if (!process.env.FROM_EMAIL) {
+  logger.warn('⚠️  FROM_EMAIL not configured. SES sends will fail — no verified sender identity to use.');
 }
 
 /**
  * Report whether email sending is actually configured and reachable, without
- * exposing the API token itself. Lets an admin confirm production env vars
- * (POSTMARK_API_TOKEN / FROM_EMAIL) are set correctly and Postmark accepts
- * them, without needing dashboard/host access or sending a real email.
+ * exposing any credentials. Lets an admin confirm SES is out of sandbox mode
+ * and reachable, without needing AWS console access or sending a real email.
  * @returns {Promise<Object>} Sanitized status — no secrets included.
  */
 const getEmailServiceStatus = async () => {
   const status = {
-    tokenConfigured: !!POSTMARK_SERVER_TOKEN,
     fromEmailConfigured: !!process.env.FROM_EMAIL,
     fromEmail: process.env.FROM_EMAIL || null,
-    postmarkReachable: false,
-    serverName: null,
-    deliveryType: null,
+    sesReachable: false,
+    sendingEnabled: null,
+    productionAccessEnabled: null,
+    max24HourSend: null,
+    sentLast24Hours: null,
     error: null
   };
 
-  if (!client) {
-    status.error = 'POSTMARK_API_TOKEN / POSTMARK_SERVER_API_TOKEN not configured; client not initialized.';
-    return status;
-  }
-
   try {
-    // getServer() is a read-only call — confirms the token is valid and the
-    // account is reachable without sending any email.
-    const server = await client.getServer();
-    status.postmarkReachable = true;
-    status.serverName = server.Name;
-    status.deliveryType = server.DeliveryType;
+    // GetAccount is a read-only call — confirms credentials are valid and
+    // reachable, and reports sandbox vs. production status without sending
+    // any email. While ProductionAccessEnabled is false, SES can only send
+    // to recipient addresses/domains that have themselves been verified.
+    const account = await client.send(new GetAccountCommand({}));
+    status.sesReachable = true;
+    status.sendingEnabled = account.SendingEnabled ?? null;
+    status.productionAccessEnabled = account.ProductionAccessEnabled ?? null;
+    status.max24HourSend = account.SendQuota?.Max24HourSend ?? null;
+    status.sentLast24Hours = account.SendQuota?.SentLast24Hours ?? null;
   } catch (error) {
     status.error = error.message || String(error);
   }
@@ -75,7 +69,7 @@ const getEmailServiceStatus = async () => {
 };
 
 /**
- * Send an email using Postmark
+ * Send an email using AWS SES
  * @param {string} to - Recipient email address
  * @param {string} templateName - Name of the email template to use
  * @param {Object} data - Data to be used in the template
@@ -87,16 +81,7 @@ const sendEmail = async (to, templateName, data) => {
     const intercept = getInterceptor();
     if (intercept && intercept(to, templateName, data)) {
       logger.debug(`📧 [TEST FUNNEL] Captured email to ${to} (template: ${templateName})`);
-      return { MessageID: 'test-funnel-captured', Message: 'Captured by test funnel' };
-    }
-
-    // If email client is not configured, log and skip
-    if (!client) {
-      logger.warn(`⚠️  Email would be sent to ${to} with template ${templateName}, but Postmark is not configured.`);
-      if (process.env.NODE_ENV === 'development') {
-        logger.debug('Email data:', JSON.stringify(data, null, 2));
-      }
-      return { MessageID: 'dev-mode-skip', Message: 'Email service not configured' };
+      return { MessageId: 'test-funnel-captured', Message: 'Captured by test funnel' };
     }
 
     if (!process.env.FROM_EMAIL) {
@@ -104,7 +89,7 @@ const sendEmail = async (to, templateName, data) => {
     }
 
     let emailContent;
-    
+
     // Select template based on template name
     switch (templateName) {
       case 'passwordReset':
@@ -122,18 +107,23 @@ const sendEmail = async (to, templateName, data) => {
       default:
         throw new Error(`Unknown email template: ${templateName}`);
     }
-    
-    // Send the email using Postmark
-    const result = await client.sendEmail({
-      From: process.env.FROM_EMAIL,
-      To: to,
-      Subject: emailContent.subject,
-      HtmlBody: emailContent.html,
-      TextBody: emailContent.text,
-      MessageStream: 'outbound'
-    });
-    
-    logger.debug(`Email sent successfully with ID: ${result.MessageID}`);
+
+    // Send the email using AWS SES
+    const result = await client.send(new SendEmailCommand({
+      FromEmailAddress: process.env.FROM_EMAIL,
+      Destination: { ToAddresses: [to] },
+      Content: {
+        Simple: {
+          Subject: { Data: emailContent.subject, Charset: 'UTF-8' },
+          Body: {
+            Html: { Data: emailContent.html, Charset: 'UTF-8' },
+            Text: { Data: emailContent.text, Charset: 'UTF-8' },
+          },
+        },
+      },
+    }));
+
+    logger.debug(`Email sent successfully with ID: ${result.MessageId}`);
     return result;
   } catch (error) {
     logger.error('Error sending email:', error);

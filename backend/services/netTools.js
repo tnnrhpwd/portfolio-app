@@ -373,18 +373,22 @@ const TOOL_EXECUTORS = {
       timestamp: new Date().toISOString(),
     });
 
-    // Send email notification to admin
+    // Send email notification to admin via AWS SES (shares the SESv2Client
+    // pattern/config from emailService.js — see that file for FROM_EMAIL and
+    // AWS_SES_REGION/AWS_REGION requirements).
     try {
-      const postmark = require('postmark');
-      let client = null;
-      const postmarkToken = process.env.POSTMARK_API_TOKEN || process.env.POSTMARK_SERVER_API_TOKEN;
-      if (postmarkToken) {
-        client = new postmark.ServerClient(postmarkToken);
-        await client.sendEmail({
-          From: adminEmail,
-          To: adminEmail,
-          Subject: `[${category.toUpperCase()}] ${subject}`,
-          HtmlBody: `
+      const { SESv2Client, SendEmailCommand } = require('@aws-sdk/client-sesv2');
+      const sesClient = new SESv2Client({ region: process.env.AWS_SES_REGION || process.env.AWS_REGION });
+      await sesClient.send(new SendEmailCommand({
+        FromEmailAddress: adminEmail,
+        Destination: { ToAddresses: [adminEmail] },
+        Content: {
+          Simple: {
+            Subject: { Data: `[${category.toUpperCase()}] ${subject}`, Charset: 'UTF-8' },
+            Body: {
+              Html: {
+                Charset: 'UTF-8',
+                Data: `
             <h2>Support Ticket from /net</h2>
             <p><strong>From:</strong> ${context.userName || 'Unknown'} (${context.userEmail || 'no email'})</p>
             <p><strong>User ID:</strong> ${context.userId}</p>
@@ -395,10 +399,15 @@ const TOOL_EXECUTORS = {
             <hr />
             <p><em>Submitted via /net AI chat tool</em></p>
           `,
-          TextBody: `Support Ticket from /net\n\nFrom: ${context.userName || 'Unknown'} (${context.userEmail || 'no email'})\nUser ID: ${context.userId}\nCategory: ${category}\nPriority: ${priority}\n\n${description}\n\nSubmitted via /net AI chat tool`,
-          MessageStream: 'outbound',
-        });
-      }
+              },
+              Text: {
+                Charset: 'UTF-8',
+                Data: `Support Ticket from /net\n\nFrom: ${context.userName || 'Unknown'} (${context.userEmail || 'no email'})\nUser ID: ${context.userId}\nCategory: ${category}\nPriority: ${priority}\n\n${description}\n\nSubmitted via /net AI chat tool`,
+              },
+            },
+          },
+        },
+      }));
     } catch (emailErr) {
       logger.warn('[netTools] Email notification failed:', emailErr.message);
       // Don't fail the whole tool — ticket is still logged
