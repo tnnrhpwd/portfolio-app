@@ -28,17 +28,33 @@ function featuresText(plan) {
 const passwordResetTemplate = (data) => {
   const { resetLink, userNickname, requestInfo } = data;
   
-  // Format timestamp for display
+  // Format timestamp for display. Wrapped in try/catch because an invalid
+  // IANA zone name (e.g. a stale/placeholder value like 'Unknown' from a
+  // failed geolocation lookup) makes toLocaleString() throw a RangeError,
+  // which would otherwise abort the whole password-reset email silently.
   const formatTimestamp = (timestamp) => {
-    return new Date(timestamp).toLocaleString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: requestInfo?.location?.timezone || 'UTC'
-    });
+    const timeZone = requestInfo?.location?.timezone || 'UTC';
+    try {
+      return new Date(timestamp).toLocaleString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone
+      });
+    } catch (error) {
+      return new Date(timestamp).toLocaleString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'UTC'
+      });
+    }
   };
 
   const formattedTime = requestInfo ? formatTimestamp(requestInfo.timestamp) : 'Unknown time';

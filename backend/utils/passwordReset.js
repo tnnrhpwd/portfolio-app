@@ -45,12 +45,17 @@ const getIPLocationInfo = async (req) => {
         device: agent.device.toString()
     };
 
-    // Default location info
+    // Default location info. NOTE: timezone must always be a valid IANA zone
+    // name (e.g. 'UTC') — unlike city/region/country, it's passed straight
+    // into Intl/toLocaleString() by the email template, and a display
+    // placeholder like 'Unknown' throws a RangeError there, silently
+    // aborting the whole password-reset email send before it ever reaches
+    // Postmark.
     let locationInfo = {
         city: 'Unknown',
         region: 'Unknown',
         country: 'Unknown',
-        timezone: 'Unknown'
+        timezone: 'UTC'
     };
 
     // Get geolocation information (skip for localhost)
@@ -72,7 +77,7 @@ const getIPLocationInfo = async (req) => {
                     city: geoInfo.city || 'Unknown',
                     region: geoInfo.region || 'Unknown',
                     country: geoInfo.country || 'Unknown',
-                    timezone: geoInfo.timezone || 'Unknown'
+                    timezone: geoInfo.timezone || 'UTC'
                 };
             }
         } catch (geoError) {
