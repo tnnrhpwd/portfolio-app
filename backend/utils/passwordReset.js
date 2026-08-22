@@ -173,14 +173,24 @@ const forgotPassword = asyncHandler(async (req, res) => {
             
             const resetLink = `${getBaseUrl()}/reset-password?token=${resetToken}`;
             
-            // Send password reset email
-            await sendEmail(email, 'passwordReset', {
-                resetLink,
-                userNickname: userNickname.trim(),
-                requestInfo
-            });
-            
-            logger.debug(`Password reset email sent to: ${email}`);
+            // Send password reset email. This is isolated in its own try/catch so that
+            // a Postmark failure (bad/expired API token, suspended account, rate limit,
+            // etc.) never bubbles up to the outer catch below. If it did, an existing
+            // account would get a 500 error while a non-existent email still gets 200 —
+            // an account-enumeration oracle, and it makes the endpoint look "broken" to
+            // real users whenever the email provider hiccups instead of failing silently
+            // like the "user not found" branch does. The real error is still logged
+            // server-side for diagnosis.
+            try {
+                await sendEmail(email, 'passwordReset', {
+                    resetLink,
+                    userNickname: userNickname.trim(),
+                    requestInfo
+                });
+                logger.debug(`Password reset email sent to: ${email}`);
+            } catch (emailError) {
+                logger.error(`Failed to send password reset email to ${email}:`, emailError);
+            }
         } else {
             logger.debug(`Password reset attempted for non-existent email: ${email}`);
         }
