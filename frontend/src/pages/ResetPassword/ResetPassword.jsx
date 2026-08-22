@@ -66,11 +66,6 @@ function ResetPassword() {
             return;
         }
 
-        if (!/(?=.*[@$!%*?&])/.test(password)) {
-            toast.error("Password must contain at least one special character (@$!%*?&).", { autoClose: 4000 });
-            return;
-        }
-
         if (password !== confirmPassword) {
             toast.error("Passwords do not match.", { autoClose: 3000 });
             return;
@@ -101,7 +96,7 @@ function ResetPassword() {
                 // Validation failures (400) come back as { error, details: [...] }
                 // from handleValidationErrors, not { message } — fall back through
                 // both shapes so the user actually sees why it failed instead of
-                // a generic message that hides e.g. "must contain a special character".
+                // a generic message that hides the actual reason (e.g. missing a digit).
                 const backendMessage = data.details?.[0]?.message || data.message || data.error;
                 toast.error(backendMessage || "Failed to reset password. Please try again.", {
                     autoClose: 4000
@@ -164,7 +159,7 @@ function ResetPassword() {
                                     </button>
                                 </div>
                                 <div className="planit-reset-password-requirements">
-                                    Password must contain: 8+ characters, lowercase, uppercase, number, and special character (@$!%*?&)
+                                    Password must contain: 8+ characters, lowercase, uppercase, and number
                                 </div>
                             </div>
                             <div className="planit-reset-form-group">

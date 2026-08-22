@@ -20,8 +20,8 @@ const validateRegistration = [
   body('password')
     .isLength({ min: 8, max: 128 })
     .withMessage('Password must be between 8 and 128 characters')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
-    .withMessage('Password must contain at least one lowercase letter, one uppercase letter, one number, and one special character'),
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .withMessage('Password must contain at least one lowercase letter, one uppercase letter, and one number'),
 ];
 
 // Validation rules for user login
@@ -57,8 +57,8 @@ const validatePasswordReset = [
   body('password')
     .isLength({ min: 8, max: 128 })
     .withMessage('Password must be between 8 and 128 characters')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
-    .withMessage('Password must contain at least one lowercase letter, one uppercase letter, one number, and one special character'),
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .withMessage('Password must contain at least one lowercase letter, one uppercase letter, and one number'),
 ];
 
 // Validation rules for data creation

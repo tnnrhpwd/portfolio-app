@@ -74,8 +74,6 @@ function Register() {
             toast.error('Password must contain at least one uppercase letter.', { autoClose: 3000 })
         } else if (!/(?=.*\d)/.test(password)) {
             toast.error('Password must contain at least one number.', { autoClose: 3000 })
-        } else if (!/(?=.*[@$!%*?&])/.test(password)) {
-            toast.error('Password must contain at least one special character (@$!%*?&).', { autoClose: 4000 })
         } else {
             const userData = {  // get data from input form
             nickname,
@@ -144,7 +142,7 @@ function Register() {
                                 required
                             />
                             <div className="planit-register-password-requirements">
-                                Password must contain: lowercase, uppercase, number, and special character (@$!%*?&)
+                                Password must contain: lowercase, uppercase, and number
                             </div>
                         </div>
                         <div className="planit-register-form-group">
