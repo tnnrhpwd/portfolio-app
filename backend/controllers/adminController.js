@@ -515,4 +515,57 @@ const getEmailStatus = asyncHandler(async (req, res) => {
     res.status(200).json(status);
 });
 
-module.exports = { getAdminDashboard, getAdminUsers, getAdminPaginatedData, updateUserSpecial, getEmailStatus };
+// ═══════════════════════════════════════════════════════════════
+// POST /api/data/admin/email-test
+// Runs the exact same sendEmail()+passwordResetTemplate() code path that
+// forgotPassword() uses (real Postmark call, real template rendering) and
+// returns the raw success/error result directly in the response. Unlike
+// forgotPassword(), which always returns a generic "sent" message to avoid
+// account-enumeration, this is admin-only and surfaces the real exception
+// message/stack so a delivery failure can be diagnosed without needing
+// Render's log dashboard.
+// Body: { to: "someone@example.com" } — defaults to FROM_EMAIL if omitted.
+// ═══════════════════════════════════════════════════════════════
+
+const testEmailSend = asyncHandler(async (req, res) => {
+    if (!isAdmin(req)) {
+        res.status(403);
+        throw new Error('Access denied.');
+    }
+
+    const to = req.body?.to || process.env.FROM_EMAIL;
+    if (!to) {
+        res.status(400);
+        throw new Error('No recipient provided and FROM_EMAIL is not configured.');
+    }
+
+    const { sendEmail } = require('../services/emailService');
+
+    // Mirrors the exact requestInfo shape forgotPassword() builds, using the
+    // failure-mode default (unresolved geolocation) that was the original bug.
+    const requestInfo = {
+        ipAddress: req.ip || '0.0.0.0',
+        location: { city: 'Unknown', region: 'Unknown', country: 'Unknown', timezone: 'UTC' },
+        device: { browser: 'Diagnostic', os: 'Diagnostic', device: 'Diagnostic' },
+        timestamp: new Date().toISOString()
+    };
+
+    try {
+        const result = await sendEmail(to, 'passwordReset', {
+            resetLink: 'https://example.com/reset-password?token=diagnostic-test',
+            userNickname: 'Diagnostic Test',
+            requestInfo
+        });
+        res.status(200).json({ success: true, to, result });
+    } catch (error) {
+        res.status(200).json({
+            success: false,
+            to,
+            error: error.message || String(error),
+            stack: error.stack || null
+        });
+    }
+});
+
+
+module.exports = { getAdminDashboard, getAdminUsers, getAdminPaginatedData, updateUserSpecial, getEmailStatus, testEmailSend };
