@@ -42,11 +42,35 @@ function ResetPassword() {
             return;
         }
         
-        if (password.length < 6) {
-            toast.error("Password must be at least 6 characters long.", { autoClose: 3000 });
+        // Keep in sync with the backend's validatePasswordReset rule
+        // (backend/middleware/validation.js) — a weaker frontend check here
+        // just means the user fills the form successfully and only then
+        // discovers, via an opaque 400, that the backend disagreed.
+        if (password.length < 8) {
+            toast.error("Password must be at least 8 characters long.", { autoClose: 3000 });
             return;
         }
-        
+
+        if (!/(?=.*[a-z])/.test(password)) {
+            toast.error("Password must contain at least one lowercase letter.", { autoClose: 3000 });
+            return;
+        }
+
+        if (!/(?=.*[A-Z])/.test(password)) {
+            toast.error("Password must contain at least one uppercase letter.", { autoClose: 3000 });
+            return;
+        }
+
+        if (!/(?=.*\d)/.test(password)) {
+            toast.error("Password must contain at least one number.", { autoClose: 3000 });
+            return;
+        }
+
+        if (!/(?=.*[@$!%*?&])/.test(password)) {
+            toast.error("Password must contain at least one special character (@$!%*?&).", { autoClose: 4000 });
+            return;
+        }
+
         if (password !== confirmPassword) {
             toast.error("Passwords do not match.", { autoClose: 3000 });
             return;
@@ -74,7 +98,12 @@ function ResetPassword() {
                 });
                 navigate('/login');
             } else {
-                toast.error(data.message || "Failed to reset password. Please try again.", {
+                // Validation failures (400) come back as { error, details: [...] }
+                // from handleValidationErrors, not { message } — fall back through
+                // both shapes so the user actually sees why it failed instead of
+                // a generic message that hides e.g. "must contain a special character".
+                const backendMessage = data.details?.[0]?.message || data.message || data.error;
+                toast.error(backendMessage || "Failed to reset password. Please try again.", {
                     autoClose: 4000
                 });
             }
@@ -133,6 +162,9 @@ function ResetPassword() {
                                     >
                                         {showPassword ? "🙈" : "👁️"}
                                     </button>
+                                </div>
+                                <div className="planit-reset-password-requirements">
+                                    Password must contain: 8+ characters, lowercase, uppercase, number, and special character (@$!%*?&)
                                 </div>
                             </div>
                             <div className="planit-reset-form-group">
