@@ -14,6 +14,7 @@ const Contact = lazy(() => import('./pages/Contact/Contact'));
 const DeepStorage = lazy(() => import('./pages/DeepStorage/DeepStorage'));
 const Ethanol = lazy(() => import('./pages/Projects/Ethanol/Ethanol'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword/ForgotPassword.jsx'));
+const Game2048 = lazy(() => import('./pages/Projects/Game2048/Game2048'));
 const GFreq = lazy(() => import('./pages/Projects/GFreq/GFreq'));
 const Halfway = lazy(() => import('./pages/Projects/Halfway/Halfway'));
 const IQTest = lazy(() => import('./pages/Projects/IQTest/IQTest'));
@@ -69,6 +70,7 @@ function App() {
               <Route path='/deepstorage' element={<DeepStorage />} />
               <Route path="/ethanol" element={<Ethanol/>} />
               <Route path='/forgot-password' element={<ForgotPassword />} />
+              <Route path="/2048" element={<Game2048/>} />
               <Route path="/GFreq" element={<GFreq/>} />
               <Route path="/halfway" element={<Halfway/>} />
               <Route path="/iq" element={<IQTest/>} />

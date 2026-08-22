@@ -1,0 +1,470 @@
+/* ============================================================
+   2048 — professional, mobile-first, PC-compatible UI
+   Reuses global design tokens from index.css (theme aware),
+   following the same conventions as Wordle.css.
+   ============================================================ */
+
+.g2048-space {
+    color: var(--text-color);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    min-height: 100svh;
+    position: relative;
+    overflow-x: hidden;
+    font-family: var(--font-family-base);
+    background:
+        radial-gradient(circle at 12% 18%, rgba(255, 176, 59, 0.10), transparent 42%),
+        radial-gradient(circle at 88% 12%, rgba(255, 115, 46, 0.10), transparent 40%),
+        radial-gradient(circle at 50% 92%, rgba(56, 56, 255, 0.08), transparent 48%),
+        var(--bg-page);
+}
+
+.dark-theme .g2048-space {
+    background:
+        radial-gradient(circle at 12% 18%, rgba(255, 196, 0, 0.08), transparent 42%),
+        radial-gradient(circle at 88% 12%, rgba(255, 115, 46, 0.10), transparent 40%),
+        radial-gradient(circle at 50% 92%, rgba(77, 166, 255, 0.10), transparent 48%),
+        var(--bg-page);
+}
+
+.g2048-main {
+    width: 100%;
+    max-width: 34rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: calc(var(--nav-size) * 1.35) var(--spacing-sm) var(--spacing-lg);
+    flex: 1 0 auto;
+    z-index: 1;
+}
+
+.g2048-title {
+    margin: 0 0 var(--spacing-sm);
+    color: var(--text-color);
+    font-size: clamp(1.8rem, 10vw, 3rem);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: 0.04em;
+    text-align: center;
+    line-height: 1;
+}
+
+/* ---- Sub-navigation ---- */
+.g2048-subnav {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-md);
+    width: 100%;
+}
+
+.g2048-subnav button {
+    font-family: inherit;
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-color);
+    background: var(--bg-page-transp);
+    border: 2px solid var(--border-nav);
+    border-radius: var(--border-radius);
+    padding: 0.5em 1em;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+.g2048-subnav button:hover {
+    border-color: var(--fg-blue);
+}
+
+.g2048-subnav button.active {
+    background: linear-gradient(135deg, var(--fg-orange), var(--fg-pink));
+    border-color: transparent;
+    color: #fff;
+}
+
+/* ---- Scoreboard ---- */
+.g2048-scoreboard {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+    width: 100%;
+    justify-content: center;
+}
+
+.g2048-score-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 5.5em;
+    padding: 0.4em 0.9em;
+    background: var(--bg-page-transp);
+    border: 1px solid var(--border-nav);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-sm);
+}
+
+.g2048-score-box__label {
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-color-accent);
+}
+
+.g2048-score-box__value {
+    font-size: var(--font-size-large);
+    font-weight: var(--font-weight-bold);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---- Board ---- */
+.g2048-board-wrap {
+    position: relative;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-bottom: var(--spacing-md);
+}
+
+.g2048-board {
+    --g2048-gap: clamp(6px, 2vw, 10px);
+    --g2048-cell: min(calc((min(94vw, 28rem) - 5 * var(--g2048-gap)) / 4), 84px);
+    position: relative;
+    width: calc(4 * var(--g2048-cell) + 5 * var(--g2048-gap));
+    height: calc(4 * var(--g2048-cell) + 5 * var(--g2048-gap));
+    padding: var(--g2048-gap);
+    background: var(--bg-page-transp);
+    border: 1px solid var(--border-nav);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-md);
+    touch-action: none;
+    user-select: none;
+    cursor: grab;
+}
+
+.g2048-board:active {
+    cursor: grabbing;
+}
+
+.g2048-board--locked {
+    pointer-events: none;
+}
+
+.g2048-board__grid {
+    position: absolute;
+    inset: var(--g2048-gap);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+    gap: var(--g2048-gap);
+}
+
+.g2048-board__cell {
+    background: var(--bg-1);
+    border-radius: var(--border-radius-sm);
+}
+
+.g2048-board__tiles {
+    position: absolute;
+    inset: var(--g2048-gap);
+}
+
+.g2048-tile {
+    position: absolute;
+    left: calc(var(--col) * (var(--g2048-cell) + var(--g2048-gap)));
+    top: calc(var(--row) * (var(--g2048-cell) + var(--g2048-gap)));
+    width: var(--g2048-cell);
+    height: var(--g2048-cell);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--border-radius-sm);
+    font-weight: var(--font-weight-bold);
+    font-variant-numeric: tabular-nums;
+    font-size: calc(var(--g2048-cell) * 0.42);
+    color: #ffffff;
+    background: var(--bg-accent);
+    box-shadow: var(--shadow-sm);
+    transition: left 120ms ease, top 120ms ease, transform 100ms ease;
+    animation: g2048TileSpawn 160ms ease;
+    will-change: left, top, transform;
+}
+
+.g2048-tile--merged {
+    animation: g2048TileMerge 160ms ease;
+    z-index: 2;
+}
+
+@keyframes g2048TileSpawn {
+    from { transform: scale(0.3); opacity: 0.4; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes g2048TileMerge {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+    100% { transform: scale(1); }
+}
+
+/* Tile color scale — distinct per value, readable in both themes since the
+   text is always white/near-white against a saturated background. Values
+   beyond 8192 fall back to a shared "high value" gradient + smaller font. */
+.g2048-tile--v2 { background: #eee4da; color: #776e65; }
+.g2048-tile--v4 { background: #ede0c8; color: #776e65; }
+.g2048-tile--v8 { background: #f2b179; }
+.g2048-tile--v16 { background: #f59563; }
+.g2048-tile--v32 { background: #f67c5f; }
+.g2048-tile--v64 { background: #f65e3b; }
+.g2048-tile--v128 { background: #edcf72; font-size: calc(var(--g2048-cell) * 0.36); }
+.g2048-tile--v256 { background: #edcc61; font-size: calc(var(--g2048-cell) * 0.36); }
+.g2048-tile--v512 { background: #edc850; font-size: calc(var(--g2048-cell) * 0.36); }
+.g2048-tile--v1024 { background: #edc53f; font-size: calc(var(--g2048-cell) * 0.3); }
+.g2048-tile--v2048 { background: #edc22e; font-size: calc(var(--g2048-cell) * 0.3); box-shadow: 0 0 12px rgba(237, 194, 46, 0.7); }
+.g2048-tile--v4096 { background: linear-gradient(135deg, #6c5ce7, #a29bfe); font-size: calc(var(--g2048-cell) * 0.3); }
+.g2048-tile--v8192 { background: linear-gradient(135deg, #00b894, #55efc4); font-size: calc(var(--g2048-cell) * 0.3); }
+.g2048-tile--vhigh { background: linear-gradient(135deg, #2d3436, #636e72); font-size: calc(var(--g2048-cell) * 0.24); }
+
+/* ---- Game over overlay ---- */
+.g2048-gameover-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.45);
+    border-radius: var(--border-radius-lg);
+    animation: g2048FadeIn 200ms ease;
+}
+
+@keyframes g2048FadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.g2048-gameover-card {
+    background: var(--bg-page);
+    color: var(--text-color);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-md);
+    text-align: center;
+    box-shadow: var(--shadow-xl);
+    max-width: 85%;
+}
+
+.g2048-gameover-card h2 {
+    margin: 0 0 var(--spacing-xs);
+}
+
+.g2048-gameover-actions {
+    display: flex;
+    gap: var(--spacing-xs);
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: var(--spacing-sm);
+}
+
+/* ---- Buttons (shared by controls + sub-panels) ---- */
+.g2048-controls {
+    display: flex;
+    gap: var(--spacing-xs);
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: var(--spacing-xs);
+}
+
+.g2048-hint {
+    font-size: var(--font-size-small);
+    color: var(--text-color-accent);
+    text-align: center;
+}
+
+.g2048-btn {
+    font-family: inherit;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    border-radius: var(--border-radius);
+    padding: 0.6em 1.2em;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.1s ease, opacity 0.15s ease;
+}
+
+.g2048-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.g2048-btn:not(:disabled):hover {
+    transform: translateY(-1px);
+}
+
+.g2048-btn--primary {
+    background: linear-gradient(135deg, var(--fg-orange), var(--fg-pink));
+    color: #fff;
+}
+
+.g2048-btn--ghost {
+    background: var(--bg-page-transp);
+    color: var(--text-color);
+    border: 2px solid var(--border-nav);
+}
+
+.g2048-btn--danger {
+    background: var(--red2);
+    color: #fff;
+}
+
+/* ---- Shared panel (Leaderboard / Saved Games / How to Play) ---- */
+.g2048-panel {
+    width: 100%;
+    background: var(--bg-page-transp);
+    border: 1px solid var(--border-nav);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-md);
+    box-shadow: var(--shadow-sm);
+}
+
+.g2048-panel h2 {
+    margin: 0 0 var(--spacing-xs);
+}
+
+.g2048-panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-xs);
+}
+
+.g2048-panel__hint {
+    color: var(--text-color-accent);
+    font-size: var(--font-size-small);
+    margin: 0 0 var(--spacing-sm);
+}
+
+.g2048-alert {
+    padding: 0.6em 0.9em;
+    border-radius: var(--border-radius);
+    margin-bottom: var(--spacing-sm);
+}
+
+.g2048-alert--error {
+    background: var(--bg-orange1);
+    color: var(--red3);
+}
+
+.g2048-empty {
+    text-align: center;
+    color: var(--text-color-accent);
+    padding: var(--spacing-md) 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+/* ---- Leaderboard ---- */
+.g2048-leaderboard {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35em;
+}
+
+.g2048-leaderboard__row {
+    display: grid;
+    grid-template-columns: 2.2em 1fr auto auto;
+    align-items: center;
+    gap: 0.6em;
+    padding: 0.5em 0.7em;
+    border-radius: var(--border-radius-sm);
+    background: var(--bg-1);
+}
+
+.g2048-leaderboard__row:nth-child(1) { background: linear-gradient(135deg, rgba(237, 194, 46, 0.35), transparent); }
+
+.g2048-leaderboard__rank {
+    font-weight: var(--font-weight-bold);
+    color: var(--fg-orange);
+}
+
+.g2048-leaderboard__name {
+    font-weight: var(--font-weight-semibold);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.g2048-leaderboard__tile {
+    font-size: var(--font-size-xs);
+    color: var(--text-color-accent);
+}
+
+.g2048-leaderboard__score {
+    font-weight: var(--font-weight-bold);
+    font-variant-numeric: tabular-nums;
+}
+
+.g2048-leaderboard__date {
+    grid-column: 1 / -1;
+    font-size: var(--font-size-xs);
+    color: var(--text-color-accent);
+}
+
+/* ---- Saved games ---- */
+.g2048-saves {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.g2048-saves__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-xs);
+    flex-wrap: wrap;
+    padding: 0.6em 0.8em;
+    border-radius: var(--border-radius-sm);
+    background: var(--bg-1);
+}
+
+.g2048-saves__score {
+    font-weight: var(--font-weight-bold);
+}
+
+.g2048-saves__meta {
+    font-size: var(--font-size-xs);
+    color: var(--text-color-accent);
+}
+
+.g2048-saves__actions {
+    display: flex;
+    gap: 0.5em;
+}
+
+/* ---- How to play ---- */
+.g2048-help-list {
+    margin: 0;
+    padding-left: 1.2em;
+    line-height: var(--line-height-relaxed);
+}
+
+.g2048-help-list li + li {
+    margin-top: 0.6em;
+}
+
+/* ---- Small screens ---- */
+@media (max-width: 420px) {
+    .g2048-score-box { min-width: 4.5em; }
+    .g2048-leaderboard__row { grid-template-columns: 1.8em 1fr auto; }
+    .g2048-leaderboard__tile { display: none; }
+}

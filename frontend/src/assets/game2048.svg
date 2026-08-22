@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img" aria-label="2048 tile grid preview">
+  <rect width="400" height="300" fill="#faf8ef"/>
+  <rect x="40" y="30" width="320" height="240" rx="10" fill="#bbada0"/>
+  <!-- 4x4 tile grid -->
+  <g font-family="Helvetica, Arial, sans-serif" font-weight="bold" text-anchor="middle">
+    <rect x="52" y="42" width="70" height="70" rx="6" fill="#eee4da"/>
+    <text x="87" y="86" font-size="28" fill="#776e65">2</text>
+
+    <rect x="128" y="42" width="70" height="70" rx="6" fill="#ede0c8"/>
+    <text x="163" y="86" font-size="28" fill="#776e65">4</text>
+
+    <rect x="204" y="42" width="70" height="70" rx="6" fill="#bbada0"/>
+
+    <rect x="280" y="42" width="70" height="70" rx="6" fill="#f2b179"/>
+    <text x="315" y="86" font-size="28" fill="#fff">8</text>
+
+    <rect x="52" y="118" width="70" height="70" rx="6" fill="#bbada0"/>
+
+    <rect x="128" y="118" width="70" height="70" rx="6" fill="#f59563"/>
+    <text x="163" y="162" font-size="28" fill="#fff">16</text>
+
+    <rect x="204" y="118" width="70" height="70" rx="6" fill="#f67c5f"/>
+    <text x="239" y="162" font-size="28" fill="#fff">32</text>
+
+    <rect x="280" y="118" width="70" height="70" rx="6" fill="#bbada0"/>
+
+    <rect x="52" y="194" width="70" height="70" rx="6" fill="#edc22e"/>
+    <text x="87" y="238" font-size="26" fill="#fff">2048</text>
+
+    <rect x="128" y="194" width="70" height="70" rx="6" fill="#bbada0"/>
+
+    <rect x="204" y="194" width="70" height="70" rx="6" fill="#f65e3b"/>
+    <text x="239" y="238" font-size="28" fill="#fff">64</text>
+
+    <rect x="280" y="194" width="70" height="70" rx="6" fill="#bbada0"/>
+  </g>
+</svg>

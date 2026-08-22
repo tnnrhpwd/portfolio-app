@@ -17,6 +17,7 @@ const links = {
     annuities: "/annuities",
     sonic: "/sonic",
     wordle: "/wordle",
+    game2048: "/2048",
     plans: "/plans",
     login: "/login",
     profile: "/profile",
@@ -168,6 +169,9 @@ function Home() {
                             } */}
                             <a className="home-spc-tool animate-in" href={links.wordle} style={{animationDelay: '0.3s'}}>
                                 <div className="home-spc-tool-text">{links.wordle}</div>
+                            </a>
+                            <a className="home-spc-tool animate-in" href={links.game2048} style={{animationDelay: '0.32s'}}>
+                                <div className="home-spc-tool-text">{links.game2048}</div>
                             </a>
                             
                             {/* Utilities & Tools */}

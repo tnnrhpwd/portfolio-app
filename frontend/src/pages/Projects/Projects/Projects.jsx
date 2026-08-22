@@ -38,6 +38,14 @@ const projectData = [
     description: "Wordle game clone with custom word length. Wordle Solver included.",
     utilities: ["code", "html", "react", "css", "netlify"],
   },
+  {
+    id: 6,
+    imgSrc: require("../../../assets/game2048.svg"),
+    alt: "the display for 2048",
+    url: "/2048",
+    description: "2048 tile-merging puzzle game with swipe/drag/keyboard controls, save games, and a public leaderboard.",
+    utilities: ["code", "html", "react", "css", "netlify"],
+  },
 ];
 
 function Projects() {
