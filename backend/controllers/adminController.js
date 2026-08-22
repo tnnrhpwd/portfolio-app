@@ -540,15 +540,11 @@ const testEmailSend = asyncHandler(async (req, res) => {
     }
 
     const { sendEmail } = require('../services/emailService');
-
-    // Mirrors the exact requestInfo shape forgotPassword() builds, using the
-    // failure-mode default (unresolved geolocation) that was the original bug.
-    const requestInfo = {
-        ipAddress: req.ip || '0.0.0.0',
-        location: { city: 'Unknown', region: 'Unknown', country: 'Unknown', timezone: 'UTC' },
-        device: { browser: 'Diagnostic', os: 'Diagnostic', device: 'Diagnostic' },
-        timestamp: new Date().toISOString()
-    };
+    // Use the real getIPLocationInfo(req) — same call forgotPassword() makes —
+    // instead of a hardcoded mock, so this test exercises the exact same
+    // live IP-geolocation path (ipinfo() call, its failure modes, etc.).
+    const { getIPLocationInfo } = require('../utils/passwordReset');
+    const requestInfo = await getIPLocationInfo(req);
 
     try {
         const result = await sendEmail(to, 'passwordReset', {
@@ -556,11 +552,12 @@ const testEmailSend = asyncHandler(async (req, res) => {
             userNickname: 'Diagnostic Test',
             requestInfo
         });
-        res.status(200).json({ success: true, to, result });
+        res.status(200).json({ success: true, to, requestInfo, result });
     } catch (error) {
         res.status(200).json({
             success: false,
             to,
+            requestInfo,
             error: error.message || String(error),
             stack: error.stack || null
         });

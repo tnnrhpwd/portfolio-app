@@ -409,5 +409,6 @@ const forgotPasswordAuthenticated = asyncHandler(async (req, res) => {
 module.exports = {
     forgotPassword,
     resetPassword,
-    forgotPasswordAuthenticated
+    forgotPasswordAuthenticated,
+    getIPLocationInfo
 };
