@@ -1,237 +1,290 @@
-.ethanol{
-    font-family: 'Times New Roman', Times, serif;
-    padding-top: calc(var(--nav-size)*1);
-    background-color: var(--bg);
-    color: var(--text-color);
-    text-align: center;
-    min-height: 140vh;
-}
-.ethanol-title{
-    margin: 0;
-    font-size: calc(var(--nav-size)*.5);
-}
-.ethanol-description{
-    padding-left: calc(var(--nav-size)*.75);
-    padding-right: calc(var(--nav-size)*.75);
-    margin-bottom: calc(var(--nav-size)*.5);
-    font-size: calc(var(--nav-size)*.2);
-}
-.ethanol-col1{
-    text-align: left;
-    vertical-align: top;
-    display: inline-block;
-    width: min(calc(var(--nav-size)*7),100%);
-    margin-bottom: calc(var(--nav-size)*.2);
-    /* padding: calc(var(--nav-size)*.5); */
-}
-.ethanol-col2{
-    text-align: left;
-    vertical-align: top;
-    display: inline-block;
-    width: min(calc(var(--nav-size)*7),97%);
-    /* margin: calc(var(--nav-size)*.25); */
-    border-style: groove;
+/* Ethanol Calculator page — styled to match the site's dark gradient theme (see IQTest.css / Annuities.css) */
+
+.ethanol {
+  color: var(--text-color);
+  min-height: 100vh;
+  padding: calc(var(--nav-size) * 2) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.5);
+  background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
+  background-size: 400% 400%;
+  animation: ethanolGradientShift 12s ease infinite;
+  position: relative;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-.ethanol-niaaa{
-    text-align: center;
-    font-size: calc(var(--nav-size)*.2);
-    width: 100%;
-}
-#ethanol-niaaa-img{
-    width: min(calc(var(--nav-size)*7),90%);
-}
-.ethanol-niaaa-inside{
-    
+.light-theme .ethanol { animation-duration: 15s; }
+.dark-theme .ethanol { animation-duration: 10s; }
+
+@keyframes ethanolGradientShift {
+  0% { background-position: 0% 50%; }
+  25% { background-position: 100% 50%; }
+  50% { background-position: 100% 100%; }
+  75% { background-position: 0% 100%; }
+  100% { background-position: 0% 50%; }
 }
 
-#ethanol-niaaa-button{
-    font-family: 'Times New Roman', Times, serif;
-    font-weight: bold;
-    border-radius: calc(var(--nav-size)*.05);
-    color: rgb(0, 0, 0);
-    cursor: pointer;
-    box-shadow: 0 calc(var(--nav-size)*.1) #999;
-    /* width: calc(var(--nav-size)*3); */
-    font-size: calc(var(--nav-size)*.2);
-    padding: calc(var(--nav-size)*.05);
+.ethanol-floating { pointer-events: none; position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+.ethanol-circle {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--white1-transp, #f4f7fd33) 0%, transparent 70%);
+  animation: ethanolFloat 6s ease-in-out infinite;
 }
-#ethanol-niaaa-button:hover {background-color: #f5dcc8}
-#ethanol-niaaa-button:active {              /* ADD NEW POLL toggle button */
-  background-color: #f5dcc8;
-  box-shadow: 0 4px #666;
-  transform: translateY(calc(var(--nav-size)*.04));
-}
-.ethanol-calculator{
-    padding: calc(var(--nav-size)*.75);
-
+.ethanol-circle-1 { width: 180px; height: 180px; top: 8%; left: 6%; animation-duration: 9s; }
+.ethanol-circle-2 { width: 120px; height: 120px; top: 55%; right: 8%; animation-duration: 11s; animation-delay: -2s; }
+.ethanol-circle-3 { width: 220px; height: 220px; bottom: 5%; left: 55%; animation-duration: 13s; animation-delay: -4s; }
+@keyframes ethanolFloat {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-24px) rotate(180deg); }
 }
 
-.ethanol-calculator-volume{
-    padding-top: calc(var(--nav-size)*.1);
-    padding-bottom: calc(var(--nav-size)*.2);
-    font-size: calc(var(--nav-size)*.3);
-    border-bottom: calc(var(--nav-size)*.0001) dashed var(--bg-accent);
+.ethanol-section { position: relative; z-index: 2; width: 100%; max-width: 760px; display: flex; flex-direction: column; align-items: center; }
+
+.ethanol-title-wrap { text-align: center; max-width: 900px; margin: calc(var(--nav-size) * 0.3) auto calc(var(--nav-size) * 0.5); }
+.ethanol-title {
+  font-weight: bold;
+  letter-spacing: 0.04em;
+  font-size: calc(var(--nav-size) * 0.85);
+  margin: 0 0 calc(var(--nav-size) * 0.2) 0;
+  text-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.02) var(--grey3-transp);
 }
-.ethanol-calculator-title{
-    font-size: calc(var(--nav-size)*.35);
+.ethanol-underline {
+  height: 4px;
+  width: 70px;
+  margin: 0 auto calc(var(--nav-size) * 0.3);
+  background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink));
+  border-radius: 2px;
 }
-.ethanol-calculator-input-title{
-    /* margin-top: calc(var(--nav-size)*.1); */
-    font-size: calc(var(--nav-size)*.19);
-    display: inline-block;
-    vertical-align: middle;
-}
-#ethanol-calculator-input{
-    margin-left: calc(var(--nav-size)*.2);
-    max-width: 15%;
-    vertical-align: middle;
-    text-align: center;
-    font-size: calc(var(--nav-size)*.17);
-    font-family: 'Times New Roman', Times, serif;
-    font-weight: bolder;
+.ethanol-subtitle {
+  color: var(--text-color-accent);
+  font-size: calc(var(--nav-size) * 0.3);
+  line-height: 1.6;
+  max-width: 640px;
+  margin: 0 auto;
 }
 
-.ethanol-calculator-dropdown{
-    display: inline-block;
-    text-align: center;
-    font-size: calc(var(--nav-size)*.17);
-    vertical-align: middle;
-    /* width: calc(var(--nav-size)*1.4); */
-    
-    margin-left: calc(var(--nav-size)*.15);
-    vertical-align: bottom;
+.ethanol-card {
+  background: var(--bg-1);
+  border: 1px solid #ffffff26;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px #00000026;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  width: 100%;
+  max-width: 720px;
+  padding: calc(var(--nav-size) * 0.5);
+  margin-top: calc(var(--nav-size) * 0.3);
+  text-align: left;
 }
-.Dropdown-control{
-    /* height: calc(var(--nav-size)*.3); */
-    vertical-align: bottom;
-    font-weight: bold;
-    padding: 0;
-    padding-top: calc(var(--nav-size)*.05);
-    padding-left: calc(var(--nav-size)*.17);
-    padding-right: calc(var(--nav-size)*.4);
-    padding-bottom: calc(var(--nav-size)*.05);
-    background-color: var(--text-color);
-    color: var(--text-color-inv);
-    border: calc(var(--nav-size)*.0001) solid rgba(255, 255, 255, 0.885);
-    border-radius: 5%;
-    cursor: pointer;
+.ethanol-card h2 { font-size: calc(var(--nav-size) * 0.38); margin: 0 0 calc(var(--nav-size) * 0.25); }
+
+/* Beverage preset buttons */
+.ethanol-preset-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: calc(var(--nav-size) * 0.2);
 }
-.Dropdown-arrow{
-    top: calc(var(--nav-size)*.075);
-    
-    right: calc(var(--nav-size)*.075);
-    border-width: calc(var(--nav-size)*.1) calc(var(--nav-size)*.1) 0;
+.ethanol-preset-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  padding: calc(var(--nav-size) * 0.25);
+  border-radius: 8px;
+  border: 2px solid #ffffff26;
+  background: #ffffff0d;
+  color: var(--text-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
 }
-.is-open .Dropdown-arrow{
-    border-width: 0 calc(var(--nav-size)*.1) calc(var(--nav-size)*.1);
+.ethanol-preset-btn:hover { background: #ffffff1a; }
+.ethanol-preset-btn.selected {
+  border-color: var(--fg-blue);
+  background: linear-gradient(45deg, #ffffff1f, #ffffff0d);
+  box-shadow: 0 4px 15px #00000033;
+}
+.ethanol-preset-btn .preset-icon { font-size: 1.6rem; }
+.ethanol-preset-btn .preset-label { font-size: calc(var(--nav-size) * 0.3); font-weight: 700; }
+.ethanol-preset-btn .preset-abv { font-size: calc(var(--nav-size) * 0.22); color: var(--text-color-accent); }
+
+/* Input fields */
+.ethanol-field { margin-bottom: calc(var(--nav-size) * 0.35); }
+.ethanol-field:last-child { margin-bottom: 0; }
+.ethanol-label {
+  display: block;
+  font-size: calc(var(--nav-size) * 0.26);
+  font-weight: 700;
+  margin-bottom: calc(var(--nav-size) * 0.1);
+}
+.ethanol-field-row { display: flex; align-items: center; gap: calc(var(--nav-size) * 0.2); flex-wrap: wrap; }
+.ethanol-input {
+  flex: 1;
+  min-width: 120px;
+  font-family: inherit;
+  font-size: calc(var(--nav-size) * 0.3);
+  padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.2);
+  border-radius: 8px;
+  border: 2px solid var(--border-nav);
+  background: var(--bg);
+  color: var(--text-color);
+}
+.ethanol-input:focus { outline: none; border-color: var(--fg-blue); }
+.ethanol-input-sm { max-width: 120px; flex: none; }
+
+.ethanol-unit-toggle { display: inline-flex; border-radius: 8px; overflow: hidden; border: 2px solid var(--border-nav); }
+.ethanol-unit-btn {
+  font-family: inherit;
+  font-weight: 700;
+  font-size: calc(var(--nav-size) * 0.26);
+  padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.25);
+  border: none;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-color);
+  transition: all 0.2s ease;
+}
+.ethanol-unit-btn.selected {
+  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+  color: var(--text-color-inv);
 }
 
+.ethanol-field-hint { font-size: calc(var(--nav-size) * 0.24); color: var(--text-color-accent); }
+.ethanol-field-hint-full { font-size: calc(var(--nav-size) * 0.22); color: var(--text-color-accent); margin: calc(var(--nav-size) * 0.1) 0 0; line-height: 1.5; }
+.ethanol-inline-link { color: var(--fg-blue); font-size: calc(var(--nav-size) * 0.24); font-weight: 700; text-decoration: none; }
+.ethanol-inline-link:hover { text-decoration: underline; }
 
-
-
-.ethanol-calculator-standard{
-    padding-top: calc(var(--nav-size)*.1);
-    padding-bottom: calc(var(--nav-size)*.3);
-    font-size: calc(var(--nav-size)*.3);
-    border-bottom: calc(var(--nav-size)*.0001) dashed var(--bg-accent);
-}
-.ethanol-calculator-standard-description{
-    font-size: calc(var(--nav-size)*.15);
-    display: inline-block;
-}
-.ethanol-calculator-standard-button{
-    word-wrap: normal;
-    color: white;
-    border: calc(var(--nav-size)*.0001) solid var(--text-color);
-    border-radius: 5%;
-    cursor: pointer;
-    margin-left: calc(var(--nav-size)*.15);
-    font-size: calc(var(--nav-size)*.15);
-    display: inline-block;
-    background-color: var(--bg);
-    color: var(--text-color);
-    padding: calc(var(--nav-size)*.03);
-}
-.ethanol-calculator-percent{
-    padding-top: calc(var(--nav-size)*.1);
-    font-size: calc(var(--nav-size)*.3);
-}
-#ethanol-calculator-submit{
-    font-family: 'Times New Roman', Times, serif;
-    font-weight: bold;
-    border-radius: calc(var(--nav-size)*.05);
-    color: rgb(0, 0, 0);
-    cursor: pointer;
-    box-shadow: 0 calc(var(--nav-size)*.1) #999;
-    /* width: calc(var(--nav-size)*3); */
-    font-size: calc(var(--nav-size)*.2);
-    padding: calc(var(--nav-size)*.05);
-    vertical-align: middle;
-}
-#ethanol-calculator-submit:hover {background-color: #f5dcc8}
-#ethanol-calculator-submit:active {              /* ADD NEW POLL toggle button */
-  background-color: #f5dcc8;
-  box-shadow: 0 4px #666;
-  transform: translateY(calc(var(--nav-size)*.04));
-}
-.ethanol-col3{
-    text-align: center;
-    vertical-align: top;
-    display: inline-block;
-    width: min(calc(var(--nav-size)*7),80%);
-    border-style: groove;
-    font-size: calc(var(--nav-size)*.4);
-    padding: calc(var(--nav-size)*.4);
+.ethanol-error {
+  margin-top: calc(var(--nav-size) * 0.2);
+  padding: calc(var(--nav-size) * 0.2);
+  border-radius: 8px;
+  background: rgba(230, 70, 70, 0.16);
+  border: 1px solid rgb(230, 70, 70);
+  color: var(--text-color);
+  font-size: calc(var(--nav-size) * 0.26);
+  font-weight: 600;
 }
 
-.ethanolvisual{
+/* Buttons */
+.ethanol-btn-row { display: flex; gap: calc(var(--nav-size) * 0.2); justify-content: center; flex-wrap: wrap; margin-top: calc(var(--nav-size) * 0.3); }
+.ethanol-btn, .ethanol-btn.secondary {
+  font-family: inherit;
+  font-weight: 700;
+  font-size: calc(var(--nav-size) * 0.3);
+  border-radius: 8px;
+  padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.5);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  border: 2px solid transparent;
+}
+.ethanol-btn {
+  color: var(--text-color-inv);
+  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+  box-shadow: 0 4px 15px #00000033;
+}
+.ethanol-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 25px #0000004d; }
+.ethanol-btn.secondary {
+  background: transparent;
+  color: var(--text-color);
+  border: 2px solid var(--border-nav);
+}
+.ethanol-btn.secondary:hover { background: #ffffff1a; }
+.ethanol-log-btn { margin-top: calc(var(--nav-size) * 0.3); width: 100%; }
 
-    color: var(--text-color);
-    font-size: calc(var(--nav-size)*.3);
+/* Result card */
+.ethanol-result-card { text-align: center; }
+.ethanol-result-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: calc(var(--nav-size) * 0.3);
+  margin-bottom: calc(var(--nav-size) * 0.2);
 }
-.ethanolvisual-circles{
-    /* background-color: aqua; */
-    width: calc(var(--nav-size)*.3);
-    margin-left: 1px;
-    border-radius: 50%;
-    display: inline-block;
-    word-wrap: break-word;
+.ethanol-result-stat { display: flex; flex-direction: column; align-items: center; }
+.ethanol-result-value { font-size: calc(var(--nav-size) * 0.7); font-weight: 800; line-height: 1.1; }
+.ethanol-result-label { font-size: calc(var(--nav-size) * 0.24); color: var(--text-color-accent); text-transform: uppercase; letter-spacing: 0.05em; }
+.ethanol-visual-wrap { color: var(--text-color); }
+.ethanolvisual { color: var(--text-color); font-size: calc(var(--nav-size)*.3); }
+.ethanolvisual-circles { width: calc(var(--nav-size)*.3); margin: 2px; border-radius: 50%; display: inline-block; word-wrap: break-word; }
+.CircularProgressbar .CircularProgressbar-trail { stroke: var(--bg); }
+.CircularProgressbar .CircularProgressbar-path { stroke: var(--fg-blue); }
+
+/* Drink log */
+.ethanol-log-summary {
+  display: flex;
+  gap: calc(var(--nav-size) * 0.4);
+  justify-content: center;
+  flex-wrap: wrap;
+  font-size: calc(var(--nav-size) * 0.28);
+  margin-bottom: calc(var(--nav-size) * 0.3);
+  text-align: center;
 }
-.CircularProgressbar .CircularProgressbar-trail{
-    stroke: var(--bg);
+.ethanol-log-list { list-style: none; margin: 0 0 calc(var(--nav-size) * 0.3); padding: 0; display: flex; flex-direction: column; gap: calc(var(--nav-size) * 0.15); }
+.ethanol-log-item {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.2);
+  flex-wrap: wrap;
+  padding: calc(var(--nav-size) * 0.2);
+  border-radius: 8px;
+  background: #ffffff0d;
+  border: 1px solid #ffffff26;
+  font-size: calc(var(--nav-size) * 0.24);
 }
-.CircularProgressbar .CircularProgressbar-path{
-    stroke: var(--text-color);
+.ethanol-log-time { color: var(--text-color-accent); min-width: 70px; }
+.ethanol-log-detail { flex: 1; min-width: 140px; }
+.ethanol-log-drinks { font-weight: 700; }
+.ethanol-log-remove {
+  background: transparent;
+  border: none;
+  color: var(--text-color-accent);
+  cursor: pointer;
+  font-size: calc(var(--nav-size) * 0.26);
+  line-height: 1;
+  padding: 4px 8px;
+}
+.ethanol-log-remove:hover { color: rgb(230, 70, 70); }
+
+/* Info grid */
+.ethanol-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: calc(var(--nav-size) * 0.3);
+  width: 100%;
+  max-width: 720px;
+}
+.ethanol-info-card { margin-top: calc(var(--nav-size) * 0.3); }
+.ethanol-niaaa-img { width: 100%; border-radius: 8px; margin-bottom: calc(var(--nav-size) * 0.2); display: block; }
+.ethanol-formula-text {
+  font-family: 'CutiveMono-Regular', monospace;
+  font-size: calc(var(--nav-size) * 0.24);
+  background: #ffffff0d;
+  border-radius: 8px;
+  padding: calc(var(--nav-size) * 0.2);
+  margin: 0 0 calc(var(--nav-size) * 0.15);
+  word-wrap: break-word;
+}
+.ethanol-hint { color: var(--text-color-accent); font-size: calc(var(--nav-size) * 0.22); line-height: 1.6; margin: 0; }
+
+.ethanol-disclaimer {
+  font-size: calc(var(--nav-size) * 0.22);
+  color: var(--text-color-accent);
+  text-align: center;
+  max-width: 640px;
+  margin: calc(var(--nav-size) * 0.3) auto 0;
+  line-height: 1.6;
 }
 
-#ethanol-sourcecode{
-    margin-top: calc(var(--nav-size)*.45);
-    margin-bottom: calc(var(--nav-size)*.45);
-    vertical-align: bottom;
-    height: calc(var(--nav-size)*.45);
-    font-size: calc(var(--nav-size)*.19);
-    width: calc(var(--nav-size)*2.5);
-    font-weight: bold;
-    background-color: var(--text-color);
-    color:  var(--text-color-inv);
-    border: calc(var(--nav-size)*.0001) solid rgba(255, 255, 255, 0.885);
-    border-radius: 5%;
-    cursor: pointer;
-    /* display: block; */
-    /* text-align: center; */
+@media (max-width: 768px) {
+  .ethanol-circle { display: none; }
+  .ethanol-title { font-size: calc(var(--nav-size) * 0.65); }
+  .ethanol-card { padding: calc(var(--nav-size) * 0.35); }
+  .ethanol-log-item { font-size: calc(var(--nav-size) * 0.3); }
 }
-#ethanol-sourcecode:hover{
 
-    filter: brightness(1.2);
-    border: calc(var(--nav-size)*.001) solid white;
-}
-#ethanol-sourcecode:active{
-    height: calc(var(--nav-size)*.55);
-    transition-duration: .1s;
-}
-@media (orientation: landscape) {
-    .ethanol{
-        min-height: 100vh;
-    }
+@media (prefers-reduced-motion: reduce) {
+  .ethanol, .ethanol-circle { animation: none; }
+  .ethanol * { transition-duration: 0.01ms !important; }
 }
