@@ -50,7 +50,7 @@ const getIPLocationInfo = async (req) => {
     // into Intl/toLocaleString() by the email template, and a display
     // placeholder like 'Unknown' throws a RangeError there, silently
     // aborting the whole password-reset email send before it ever reaches
-    // Postmark.
+    // the email provider.
     let locationInfo = {
         city: 'Unknown',
         region: 'Unknown',
@@ -179,7 +179,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
             const resetLink = `${getBaseUrl()}/reset-password?token=${resetToken}`;
             
             // Send password reset email. This is isolated in its own try/catch so that
-            // a Postmark failure (bad/expired API token, suspended account, rate limit,
+            // an email-provider failure (bad credentials, service outage, rate limit,
             // etc.) never bubbles up to the outer catch below. If it did, an existing
             // account would get a 500 error while a non-existent email still gets 200 —
             // an account-enumeration oracle, and it makes the endpoint look "broken" to
