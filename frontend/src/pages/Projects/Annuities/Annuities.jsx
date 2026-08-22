@@ -321,6 +321,21 @@ function Annuities() {
         }));
     }, [computeSingleAnnuity]);
 
+    // Cache one stable onNewAnnuity handler per cash flow id so NewAnnuity
+    // (a child component) doesn't receive a brand-new function reference on
+    // every Annuities render. A fresh reference each render would re-trigger
+    // NewAnnuity's value-reporting effect for every cash flow whenever any
+    // one of them changed, causing a render loop that starved the combined
+    // graph of updates.
+    const newAnnuityHandlersRef = React.useRef(new Map());
+    const getNewAnnuityHandler = useCallback((id) => {
+        const handlers = newAnnuityHandlersRef.current;
+        if (!handlers.has(id)) {
+            handlers.set(id, (newValues) => updateAnnuityValues(id, newValues));
+        }
+        return handlers.get(id);
+    }, [updateAnnuityValues]);
+
     // Update a specific annuity's time (find type)
     const updateAnnuityTime = useCallback((id, newTime) => {
         setAnnuities(prev => prev.map(a => {
@@ -343,6 +358,7 @@ function Annuities() {
     const removeAnnuity = useCallback((id) => {
         if (annuities.length > 1) {
             setAnnuities(prev => prev.filter(a => a.id !== id));
+            newAnnuityHandlersRef.current.delete(id);
         }
     }, [annuities.length]);
 
@@ -554,7 +570,7 @@ function Annuities() {
                                 <div className='annuities-newannuity'>
                                     <NewAnnuity 
                                         tenseAnnuity={annuity.time} 
-                                        onNewAnnuity={(values) => updateAnnuityValues(annuity.id, values)}
+                                        onNewAnnuity={getNewAnnuityHandler(annuity.id)}
                                         initialValues={annuity.initialValues}
                                     />
                                 </div>

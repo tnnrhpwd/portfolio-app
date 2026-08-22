@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import "./NewAnnuity.css";
 
 function NewAnnuity({ tenseAnnuity, onNewAnnuity, initialValues }) {
@@ -38,11 +38,23 @@ function NewAnnuity({ tenseAnnuity, onNewAnnuity, initialValues }) {
         }
     }, [initialValues]);
 
+    // Keep a ref to the latest onNewAnnuity callback so the effect below only
+    // needs to depend on `values`. The parent (Annuities.jsx) passes a new
+    // inline function on every render, so including it in the dependency
+    // array here would re-fire this effect on every parent re-render and
+    // cause an infinite update loop (parent state update -> re-render ->
+    // new callback identity -> effect fires -> parent state update -> ...),
+    // which previously froze the combined graph instead of updating it.
+    const onNewAnnuityRef = useRef(onNewAnnuity);
+    useEffect(() => {
+        onNewAnnuityRef.current = onNewAnnuity;
+    }, [onNewAnnuity]);
+
     useEffect(() => {
         // Immediately notify parent of value changes for real-time updates
         const annuit = Object.values(values).map(val => parseFloat(val) || 0);
-        onNewAnnuity(annuit);
-    }, [values, onNewAnnuity]);
+        onNewAnnuityRef.current(annuit);
+    }, [values]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
