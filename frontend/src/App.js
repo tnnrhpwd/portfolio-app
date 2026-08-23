@@ -18,6 +18,7 @@ const Game2048 = lazy(() => import('./pages/Projects/Game2048/Game2048'));
 const GFreq = lazy(() => import('./pages/Projects/GFreq/GFreq'));
 const Halfway = lazy(() => import('./pages/Projects/Halfway/Halfway'));
 const IQTest = lazy(() => import('./pages/Projects/IQTest/IQTest'));
+const Muse = lazy(() => import('./pages/Muse/Muse'));
 const PassGen = lazy(() => import('./pages/Projects/PassGen/PassGen'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword/ResetPassword.jsx'));
 const SleepAssist = lazy(() => import('./pages/Projects/SleepAssist/SleepAssist'));
@@ -75,6 +76,7 @@ function App() {
               <Route path="/halfway" element={<Halfway/>} />
               <Route path="/iq" element={<IQTest/>} />
               <Route path='/login' element={<Login />} />
+              <Route path='/muse' element={<Muse />} />
               <Route path='/net' element={<Net />} />
               <Route path='/pay' element={<Pay />} />
               <Route path='/payment-success' element={<PaymentSuccess />} />

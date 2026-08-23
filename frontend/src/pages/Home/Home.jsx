@@ -13,6 +13,7 @@ const links = {
     agenda: "/agenda",
     admin: "/admin",
     iq: "/iq",
+    muse: "/muse",
     passgen: "/passgen",
     annuities: "/annuities",
     sonic: "/sonic",
@@ -24,6 +25,11 @@ const links = {
     support: "/support",
 };
 
+// Same hardcoded admin id used to gate the /admin page — the girlfriend's
+// account nickname (case-insensitive) also unlocks the /muse link.
+const ADMIN_USER_ID = '6770a067c725cbceab958619';
+const GIRLFRIEND_NICKNAME = 'girlfriend';
+
 function Home() {
     const dispatch = useDispatch();
     const [displayedText, setDisplayedText] = useState("");
@@ -32,6 +38,11 @@ function Home() {
 
     const { user } = useSelector(
         (state) => state.data
+    );
+
+    const isMuseVisitor = !!user && (
+        (user._id && user._id.toString() === ADMIN_USER_ID)
+        || String(user.nickname || '').trim().toLowerCase() === GIRLFRIEND_NICKNAME
     );
 
     const FALLBACK_TITLE = "It's simple.";
@@ -193,6 +204,12 @@ function Home() {
                             {(user && user._id && user._id.toString() === '6770a067c725cbceab958619') && 
                                 <a className="home-spc-tool animate-in" href={links.admin} style={{animationDelay: '0.45s'}}>
                                     <div className="home-spc-tool-text">{links.admin}</div>
+                                </a>}
+
+                            {/* Muse (Girlfriend + Admin Only) */}
+                            {isMuseVisitor &&
+                                <a className="home-spc-tool animate-in" href={links.muse} style={{animationDelay: '0.5s'}}>
+                                    <div className="home-spc-tool-text">{links.muse} 💕</div>
                                 </a>}
                         </div>
                     </div>
