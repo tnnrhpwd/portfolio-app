@@ -15,8 +15,8 @@ const GIRLFRIEND_NICKNAME = 'girlfriend';
 // "time together" counters and story timeline always stay accurate.
 const FIRST_MESSAGE_DATE = new Date(2026, 6, 17); // July 17
 const FIRST_TEXT_DATE = new Date(2026, 6, 20); // July 20
-const SAID_LOVE_DATE = new Date(2026, 6, 29); // July 29
-const ASKED_OUT_DATE = new Date(2026, 6, 30); // July 30
+const ASKED_OUT_DATE = new Date(2026, 6, 29); // July 29
+const SAID_LOVE_DATE = new Date(2026, 6, 30); // July 30
 const FIRST_DATE_DATE = new Date(2026, 7, 1); // August 1
 
 const TIMELINE = [
@@ -24,7 +24,7 @@ const TIMELINE = [
     date: FIRST_MESSAGE_DATE,
     emoji: '💬',
     title: 'The First Message',
-    description: 'A "hi" that I had no idea would turn into everything.',
+    description: 'I reached out on purpose, hoping you\'d write back.',
   },
   {
     date: FIRST_TEXT_DATE,
@@ -33,16 +33,16 @@ const TIMELINE = [
     description: 'Our conversation moved to texting — and it never really stopped since.',
   },
   {
-    date: SAID_LOVE_DATE,
-    emoji: '❤️',
-    title: 'Three Words',
-    description: 'I told you I loved you, and I meant every letter of it.',
-  },
-  {
     date: ASKED_OUT_DATE,
     emoji: '💌',
     title: 'Will You Be My Girlfriend?',
     description: 'You said yes. Easiest, best decision I\'ve ever watched you make.',
+  },
+  {
+    date: SAID_LOVE_DATE,
+    emoji: '❤️',
+    title: 'Three Words',
+    description: 'I told you I loved you, and I meant every letter of it.',
   },
   {
     date: FIRST_DATE_DATE,
@@ -138,7 +138,7 @@ function Muse() {
 
           <div className="muse-content">
             <section className="muse-section muse-counter-section">
-              <h2 className="muse-section-title">Officially Together Since July 30</h2>
+              <h2 className="muse-section-title">Officially Together Since July 29</h2>
               <div className="muse-counter">
                 <div className="muse-counter-unit">
                   <span className="muse-counter-value">{elapsed.days}</span>
@@ -196,10 +196,10 @@ function Muse() {
             <section className="muse-section muse-note-section">
               <div className="muse-note">
                 <p>
-                  Dakota, you turned a random message into the best part of my summer.
+                  Dakota, I messaged you on purpose because I wanted to know you — and I'm so glad I did.
                   I can't wait for every date, every text, and every "I love you" still ahead of us.
                 </p>
-                <p className="muse-note-signature">Yours always, Tanner</p>
+                <p className="muse-note-signature">Yours always, Steven</p>
               </div>
             </section>
           </div>
