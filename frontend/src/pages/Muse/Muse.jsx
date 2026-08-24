@@ -52,6 +52,51 @@ const TIMELINE = [
   },
 ];
 
+// The deeper, everyday truths about who she is — always visible, not just
+// part of the shuffled reasons below, because they matter too much to miss.
+const QUALITIES = [
+  {
+    emoji: '🤝',
+    title: 'Always In My Corner',
+    text: 'No matter what kind of day I\'m having, you\'re there — steady, patient, and completely on my side.',
+  },
+  {
+    emoji: '🌱',
+    title: 'You Help Me Grow',
+    text: 'Being with you makes me want to be better. You push me to grow in ways I didn\'t even know I needed.',
+  },
+  {
+    emoji: '📚',
+    title: 'You Teach Me Things',
+    text: 'You\'re always showing me something new — a fact, a skill, a way of seeing the world I hadn\'t considered.',
+  },
+  {
+    emoji: '👩\u200d👦',
+    title: 'An Incredible, Responsible Mom',
+    text: 'Watching you love and raise your child with so much patience and care is one of the most beautiful things I\'ve ever witnessed.',
+  },
+  {
+    emoji: '⭐',
+    title: 'You Give It Your All',
+    text: 'Every single day, you show up and do your best — even on the hard days. That kind of effort never goes unnoticed.',
+  },
+  {
+    emoji: '🗣️',
+    title: 'You Tell the Truth',
+    text: 'Even when honesty is uncomfortable, you choose it anyway. I always know exactly where I stand with you.',
+  },
+  {
+    emoji: '🧭',
+    title: 'You Do What\'s Right',
+    text: 'You choose the right thing over the easy thing, every time — even when no one would blame you for taking the shortcut.',
+  },
+  {
+    emoji: '🏆',
+    title: 'I Am So Proud of You',
+    text: 'For everything you carry, everything you overcome, and everyone you are — I am endlessly proud to know you.',
+  },
+];
+
 const REASONS = [
   'The way you laugh at your own jokes before you even finish telling them.',
   'How you make ordinary, boring days feel like an adventure.',
@@ -60,8 +105,10 @@ const REASONS = [
   'You\'re kind to people who can never repay you for it.',
   'How easy it is to talk to you about absolutely anything.',
   'That look right before you\'re about to tease me.',
-  'You make me want to be a better version of myself, every single day.',
   'You feel like home, and we\'ve barely even started.',
+  'How you get excited over the smallest things — it\'s contagious.',
+  'You remember the little details I mention once, weeks later.',
+  'How hard you work to give your child a good life, without ever asking for credit.',
   'Simply put — you\'re my favorite person.',
 ];
 
@@ -132,7 +179,7 @@ function Muse() {
             <div className="muse-eyebrow">For my muse</div>
             <h1 className="muse-title">Dakota Jade Prince</h1>
             <div className="muse-subtitle">
-              Every version of "us" so far, kept somewhere safe.
+              Every version of "us" so far — and a few of the countless reasons I'm proud to be yours.
             </div>
           </div>
 
@@ -179,6 +226,19 @@ function Muse() {
               </div>
             </section>
 
+            <section className="muse-section muse-qualities-section">
+              <h2 className="muse-section-title">Why I'm So Proud of You</h2>
+              <div className="muse-qualities-grid">
+                {QUALITIES.map((quality) => (
+                  <div className="muse-quality-card" key={quality.title}>
+                    <div className="muse-quality-icon" aria-hidden="true">{quality.emoji}</div>
+                    <div className="muse-quality-title">{quality.title}</div>
+                    <div className="muse-quality-text">{quality.text}</div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
             <section className="muse-section muse-reasons-section">
               <h2 className="muse-section-title">Reasons I Adore You</h2>
               <div className="muse-reason-card">
@@ -196,7 +256,10 @@ function Muse() {
             <section className="muse-section muse-note-section">
               <div className="muse-note">
                 <p>
-                  Dakota, I messaged you on purpose because I wanted to know you — and I'm so glad I did.
+                  Dakota, I messaged you on purpose because I wanted to know you — and getting to know you
+                  has been one of the best decisions I've ever made. You're steady when I need steady, honest
+                  even when honesty is hard, and endlessly good to the people you love — especially your child.
+                  I am so proud of the woman you are and the mother you keep choosing to be, every single day.
                   I can't wait for every date, every text, and every "I love you" still ahead of us.
                 </p>
                 <p className="muse-note-signature">Yours always, Steven</p>
