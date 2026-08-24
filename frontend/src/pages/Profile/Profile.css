@@ -48,6 +48,7 @@
 .planit-profile-shell {
     position: relative;
     z-index: 2;
+    max-width: 1200px;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
@@ -195,13 +196,32 @@
 .planit-profile-layout {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
     gap: var(--spacing-sm);
 }
 
-.planit-profile-column {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
+/* Explicitly pair one content-dense section with one compact section per
+   column so the two columns end up roughly equal height instead of the
+   natural DOM order (identity+preferences vs usage+storage) leaving one
+   column much shorter than the other on desktop/tablet widths. */
+.planit-profile-section-identity {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+.planit-profile-section-storage {
+    grid-column: 1;
+    grid-row: 2;
+}
+
+.planit-profile-section-preferences {
+    grid-column: 2;
+    grid-row: 1;
+}
+
+.planit-profile-section-usage {
+    grid-column: 2;
+    grid-row: 2;
 }
 
 .planit-profile-section {
@@ -214,9 +234,10 @@
 
 .planit-profile-section-header {
     display: flex;
+    flex-wrap: wrap;
     align-items: flex-start;
     justify-content: space-between;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs) var(--spacing-sm);
 }
 
 .planit-profile-section-title,
@@ -364,7 +385,13 @@
     border-radius: var(--border-radius);
     border: 1px solid transparent;
     font-weight: var(--font-weight-semibold);
+    white-space: nowrap;
     transition: transform var(--speed) ease, box-shadow var(--speed) ease, border-color var(--speed) ease;
+}
+
+.planit-profile-refresh-button {
+    flex-shrink: 0;
+    padding: 0 var(--spacing-sm);
 }
 
 .planit-profile-settings-button,
@@ -570,6 +597,14 @@
         grid-template-columns: 1fr;
     }
 
+    .planit-profile-section-identity,
+    .planit-profile-section-preferences,
+    .planit-profile-section-usage,
+    .planit-profile-section-storage {
+        grid-column: auto;
+        grid-row: auto;
+    }
+
     .planit-profile-actions-buttons,
     .planit-profile-hero-actions {
         width: 100%;
@@ -578,6 +613,7 @@
     .planit-profile-actions-buttons button,
     .planit-profile-hero-actions button,
     .planit-profile-inline-button,
+    .planit-profile-refresh-button,
     .upgrade-button {
         width: 100%;
     }

@@ -351,9 +351,15 @@ const loginUser = asyncHandler(async (req, res) => {
                 token: generateToken(String(user.id)),
             };
             
-            // Include birth date if available
-            if (userBirth) {
-                responseData.createdAt = userBirth;
+            // The "Birth" field in the text blob doubles as the account
+            // creation timestamp for accounts created after that field was
+            // introduced. Older accounts never got a "Birth:" value written,
+            // so fall back to the DynamoDB item's own `createdAt` attribute
+            // (always set at registration) instead of showing "Unknown" on
+            // the profile page for no reason.
+            const accountCreatedAt = userBirth || user.createdAt;
+            if (accountCreatedAt) {
+                responseData.createdAt = accountCreatedAt;
             }
             
             logger.debug('Sending login response with keys:', Object.keys(responseData));

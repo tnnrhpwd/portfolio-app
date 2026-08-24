@@ -240,8 +240,7 @@ function Profile() {
 
             <section className="planit-profile-content">
               <div className="planit-profile-layout">
-                <div className="planit-profile-column">
-                  <div className="planit-profile-section">
+                  <div className="planit-profile-section planit-profile-section-identity">
                     <div className="planit-profile-section-header">
                       <div>
                         <span className="planit-profile-section-kicker">Identity</span>
@@ -276,7 +275,7 @@ function Profile() {
                     </div>
                   </div>
 
-                  <div className="planit-profile-section">
+                  <div className="planit-profile-section planit-profile-section-preferences">
                     <div className="planit-profile-section-header">
                       <div>
                         <span className="planit-profile-section-kicker">Experience</span>
@@ -312,7 +311,7 @@ function Profile() {
                           className="planit-profile-setting-select"
                         >
                           <option value="Free">🆓 Free Plan</option>
-                          <option value="Pro" disabled={!purchasesEnabled}>⚡ Pro Plan{!purchasesEnabled ? ' (not available yet)' : ''}</option>
+                          <option value="Pro" disabled={!purchasesEnabled}>⚡ Pro Plan</option>
                         </select>
                         <span className="planit-profile-setting-hint">
                           {purchasesEnabled
@@ -342,10 +341,8 @@ function Profile() {
                       </div>
                     )}
                   </div>
-                </div>
 
-                <div className="planit-profile-column">
-                  <div className="planit-profile-section">
+                  <div className="planit-profile-section planit-profile-section-usage">
                     <div className="planit-profile-section-header">
                       <div>
                         <span className="planit-profile-section-kicker">Activity</span>
@@ -467,7 +464,7 @@ function Profile() {
                     )}
                   </div>
 
-                  <div className="planit-profile-section">
+                  <div className="planit-profile-section planit-profile-section-storage">
                     <div className="planit-profile-section-header">
                       <div>
                         <span className="planit-profile-section-kicker">Storage</span>
@@ -632,7 +629,6 @@ function Profile() {
                       </div>
                     )}
                   </div>
-                </div>
               </div>
             </section>
 
