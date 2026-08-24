@@ -24,10 +24,12 @@
 .not-found-code {
     font-family: 'CutiveMono-Regular', monospace;
     font-weight: 900;
-    /* vw-driven so the digits always scale with the actual viewport width,
-     * with a small px floor/ceiling instead of rem so it can't be inflated
-     * by a browser's root font-size auto-boosting on narrow screens. */
-    font-size: clamp(3.5rem, 18vw, 10rem);
+    /* vw-driven so the digits scale with the viewport, but capped well
+     * below the old 10rem ceiling — the tile itself maxes out at 800px
+     * wide, so letting the text keep growing with vw past that point
+     * made it balloon (and force extra vertical scrolling) on large
+     * desktop and ultra-wide screens. */
+    font-size: clamp(3.5rem, 18vw, 7rem);
     line-height: var(--line-height-tight);
     margin: 0;
     background: linear-gradient(135deg, var(--fg-blue), var(--fg-pink));
@@ -93,5 +95,45 @@
     .not-found-btn {
         width: 100%;
         max-width: 280px;
+    }
+}
+
+/* Landscape phones (short viewport height) — Home.css's landscape rules only
+ * add horizontal padding, so on a ~375-430px-tall phone in landscape the tile
+ * still needed ~2x the viewport height to scroll through. Compress the
+ * vertical rhythm so the whole card fits without scrolling. */
+@media (orientation: landscape) and (max-height: 500px) {
+    .not-found-section.hero-section {
+        margin-top: calc(var(--nav-size) * 0.5);
+    }
+
+    #content-tile.not-found-tile {
+        padding-top: calc(var(--nav-size) * 0.3);
+    }
+
+    .not-found-code {
+        font-size: clamp(2.25rem, 9vw, 3.5rem);
+    }
+
+    .not-found-tile .not-found-message,
+    #text-body.not-found-message {
+        padding: calc(var(--spacing-xs) * 0.5) 0;
+        font-size: var(--font-size-base);
+    }
+
+    .not-found-tile .not-found-subtext,
+    #text-subtext.not-found-subtext {
+        padding: calc(var(--spacing-xs) * 0.5) 0;
+        margin-bottom: var(--spacing-xs);
+        font-size: var(--font-size-small);
+    }
+
+    .not-found-actions {
+        margin-top: var(--spacing-xs);
+    }
+
+    #content-button.not-found-btn {
+        padding: calc(var(--spacing-xs) * 0.75) var(--spacing-md);
+        min-height: 36px;
     }
 }
