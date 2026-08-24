@@ -9,16 +9,25 @@
     padding: 0;
 }
 
-.not-found-tile {
+/* #content-tile is a shared id from Home.css that forces text-align: left
+ * (including in its landscape media query); combine id + class so this
+ * still wins on specificity and the 404 tile stays centered everywhere. */
+.not-found-tile,
+#content-tile.not-found-tile {
     text-align: center;
     max-width: 800px;
+    width: 100%;
     margin: 0 auto;
+    box-sizing: border-box;
 }
 
 .not-found-code {
     font-family: 'CutiveMono-Regular', monospace;
     font-weight: 900;
-    font-size: clamp(5rem, 18vw, 10rem);
+    /* vw-driven so the digits always scale with the actual viewport width,
+     * with a small px floor/ceiling instead of rem so it can't be inflated
+     * by a browser's root font-size auto-boosting on narrow screens. */
+    font-size: clamp(3.5rem, 18vw, 10rem);
     line-height: var(--line-height-tight);
     margin: 0;
     background: linear-gradient(135deg, var(--fg-blue), var(--fg-pink));
@@ -27,16 +36,26 @@
     background-clip: text;
     text-shadow: none;
     user-select: none;
+    overflow-wrap: anywhere;
 }
 
-.not-found-tile .not-found-message {
+/* #text-body / #text-subtext are shared ids from Home.css that force
+ * text-align: left; combine the id with the local class so this rule wins
+ * on specificity and the 404 copy stays centered like the rest of the tile. */
+.not-found-tile .not-found-message,
+#text-body.not-found-message {
     text-align: center;
     margin: 0 auto;
+    padding-left: 0;
+    padding-right: 0;
 }
 
-.not-found-tile .not-found-subtext {
+.not-found-tile .not-found-subtext,
+#text-subtext.not-found-subtext {
     text-align: center;
     margin: 0 auto var(--spacing-md);
+    padding-left: 0;
+    padding-right: 0;
 }
 
 .not-found-actions {
@@ -45,8 +64,34 @@
     margin-top: var(--spacing-md);
 }
 
+.not-found-btn {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
 @media (max-width: 768px) {
     .not-found-actions {
         margin-top: var(--spacing-sm);
+    }
+}
+
+@media (max-width: 480px) {
+    .not-found-code {
+        font-size: clamp(3rem, 22vw, 6rem);
+    }
+
+    .not-found-tile {
+        padding: 0 var(--spacing-xs);
+    }
+
+    .not-found-actions {
+        width: 100%;
+    }
+
+    .not-found-btn {
+        width: 100%;
+        max-width: 280px;
     }
 }

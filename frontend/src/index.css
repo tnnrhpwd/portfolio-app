@@ -18,6 +18,10 @@ body, html {
   text-rendering: optimizeLegibility;
   background-color: var(--bg-page);
   scroll-behavior: smooth;
+  /* Prevent mobile browsers from auto-boosting the root font-size, which
+     would otherwise inflate every rem-based value on narrow viewports. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 * {
