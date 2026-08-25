@@ -231,9 +231,6 @@ function Profile() {
                 <div className="planit-profile-heading-copy">
                   <span className="planit-profile-eyebrow">Account hub</span>
                   <h1 className="planit-profile-heading-title">Welcome back, {user.nickname}!</h1>
-                  <p className="planit-profile-heading-description">
-                    Review your membership, monitor usage, and fine-tune how the app feels across devices.
-                  </p>
                 </div>
               </div>
             </section>
@@ -245,9 +242,6 @@ function Profile() {
                       <div>
                         <span className="planit-profile-section-kicker">Identity</span>
                         <h2 className="planit-profile-section-title">Account information</h2>
-                        <p className="planit-profile-section-description">
-                          The essentials tied to your membership and sign-in experience.
-                        </p>
                       </div>
                     </div>
 
@@ -255,22 +249,18 @@ function Profile() {
                       <div className="planit-profile-info-item">
                         <span className="planit-profile-info-label">👤 Profile name</span>
                         <span className="planit-profile-info-value">{user.nickname}</span>
-                        <span className="planit-profile-info-detail">How your account is labeled in the app.</span>
                       </div>
                       <div className="planit-profile-info-item">
                         <span className="planit-profile-info-label">📧 Email</span>
                         <span className="planit-profile-info-value">{user.email || 'Not provided'}</span>
-                        <span className="planit-profile-info-detail">Used for sign-in, billing, and password recovery.</span>
                       </div>
                       <div className="planit-profile-info-item">
                         <span className="planit-profile-info-label">📅 Account created</span>
                         <span className="planit-profile-info-value">{profileCreatedLabel}</span>
-                        <span className="planit-profile-info-detail">Your original signup date.</span>
                       </div>
                       <div className="planit-profile-info-item">
                         <span className="planit-profile-info-label">⏰ Account age</span>
                         <span className="planit-profile-info-value">{accountAgeLabel}</span>
-                        <span className="planit-profile-info-detail">A quick view of how long you&apos;ve been using the app.</span>
                       </div>
                     </div>
                   </div>
@@ -280,9 +270,6 @@ function Profile() {
                       <div>
                         <span className="planit-profile-section-kicker">Experience</span>
                         <h2 className="planit-profile-section-title">Preferences</h2>
-                        <p className="planit-profile-section-description">
-                          Adjust your current look and membership path without leaving the profile page.
-                        </p>
                       </div>
                     </div>
 
@@ -299,7 +286,6 @@ function Profile() {
                           <option value="dark">🌙 Dark</option>
                           <option value="system">💻 System</option>
                         </select>
-                        <span className="planit-profile-setting-hint">Applies instantly across the interface.</span>
                       </div>
 
                       <div className="planit-profile-setting-item">
@@ -313,11 +299,11 @@ function Profile() {
                           <option value="Free">🆓 Free Plan</option>
                           <option value="Pro" disabled={!purchasesEnabled}>⚡ Pro Plan</option>
                         </select>
-                        <span className="planit-profile-setting-hint">
-                          {purchasesEnabled
-                            ? 'Switch plans to unlock more automation and storage.'
-                            : (gateMessage || 'Upgrading is temporarily paused. Please check back soon.')}
-                        </span>
+                        {!purchasesEnabled && (
+                          <span className="planit-profile-setting-hint">
+                            {gateMessage || 'Upgrading is temporarily paused. Please check back soon.'}
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -347,9 +333,6 @@ function Profile() {
                       <div>
                         <span className="planit-profile-section-kicker">Activity</span>
                         <h2 className="planit-profile-section-title">Usage &amp; quota</h2>
-                        <p className="planit-profile-section-description">
-                          Track plan limits and recent automation activity at a glance.
-                        </p>
                       </div>
                       <button
                         onClick={refreshUsageData}
@@ -383,19 +366,16 @@ function Profile() {
                           <div className="usage-stat">
                             <span className="usage-label">🎯 Plan</span>
                             <span className="usage-value">{userUsage.membership || 'Free'}</span>
-                            <span className="usage-detail">Your active automation tier.</span>
                           </div>
                           <div className="usage-stat">
                             <span className="usage-label">⚡ Automation quota</span>
                             <span className="usage-value">
                               {isProTier(userUsage.membership) ? QUOTA_SHORT[PLAN_IDS.PRO] : QUOTA_SHORT[PLAN_IDS.FREE]}
                             </span>
-                            <span className="usage-detail">Available requests on your current plan.</span>
                           </div>
                           <div className="usage-stat">
                             <span className="usage-label">🔑 AI usage</span>
                             <span className="usage-value">Bring Your Own Key</span>
-                            <span className="usage-detail">Manage providers and tokens from Settings.</span>
                           </div>
                         </div>
 
@@ -469,9 +449,6 @@ function Profile() {
                       <div>
                         <span className="planit-profile-section-kicker">Storage</span>
                         <h2 className="planit-profile-section-title">Database storage</h2>
-                        <p className="planit-profile-section-description">
-                          Keep tabs on saved data, limits, and the largest items in your account.
-                        </p>
                       </div>
                     </div>
 
@@ -497,22 +474,18 @@ function Profile() {
                           <div className="usage-stat">
                             <span className="usage-label">📊 Total used</span>
                             <span className="usage-value">{userStorage.totalStorageFormatted}</span>
-                            <span className="usage-detail">Current storage footprint.</span>
                           </div>
                           <div className="usage-stat">
                             <span className="usage-label">🎯 Storage limit</span>
                             <span className="usage-value">{userStorage.storageLimitFormatted}</span>
-                            <span className="usage-detail">Your available capacity on this plan.</span>
                           </div>
                           <div className="usage-stat">
                             <span className="usage-label">📁 Total items</span>
                             <span className="usage-value">{userStorage.itemCount}</span>
-                            <span className="usage-detail">Saved records across your account.</span>
                           </div>
                           <div className="usage-stat">
                             <span className="usage-label">📄 Files stored</span>
                             <span className="usage-value">{userStorage.fileCount}</span>
-                            <span className="usage-detail">Uploads currently attached to your data.</span>
                           </div>
                         </div>
 

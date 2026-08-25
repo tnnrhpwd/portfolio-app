@@ -52,7 +52,7 @@
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
 }
 
 .planit-profile-hero,
@@ -66,7 +66,7 @@
 }
 
 .planit-profile-hero {
-    padding: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
     display: flex;
     flex-direction: column;
     gap: var(--spacing-xs);
@@ -120,12 +120,8 @@
     color: var(--text-color-strong);
 }
 
-.planit-profile-heading-description,
-.planit-profile-section-description,
 .planit-profile-actions-description,
-.planit-profile-info-detail,
 .planit-profile-setting-hint,
-.usage-detail,
 .warning-content p,
 .upgrade-text p,
 .planit-profile-state p {
@@ -197,7 +193,7 @@
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
 }
 
 /* Explicitly pair one content-dense section with one compact section per
@@ -225,10 +221,10 @@
 }
 
 .planit-profile-section {
-    padding: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-xs);
+    gap: calc(var(--spacing-xs) * 0.75);
     animation: slideInUp 0.7s ease both;
 }
 
@@ -253,17 +249,36 @@
 .planit-profile-usage-overview {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--spacing-xs);
+    gap: calc(var(--spacing-xs) * 0.6);
 }
 
 .planit-profile-info-item,
-.planit-profile-setting-item,
 .usage-stat {
+    padding: calc(var(--spacing-xs) * 0.75) var(--spacing-xs);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: calc(var(--spacing-xs) * 0.5) var(--spacing-xs);
+}
+
+.planit-profile-info-label,
+.usage-label {
+    flex-shrink: 0;
+}
+
+.planit-profile-info-value,
+.usage-value {
+    text-align: right;
+    overflow-wrap: anywhere;
+    min-width: 0;
+}
+
+.planit-profile-setting-item {
     padding: var(--spacing-xs);
     display: flex;
     flex-direction: column;
     gap: calc(var(--nav-size) * 0.06);
-    min-height: calc(var(--nav-size) * 1.6);
 }
 
 .planit-profile-setting-select {
@@ -306,7 +321,7 @@
 .planit-profile-usage-container {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
 }
 
 .planit-profile-state {
@@ -329,7 +344,7 @@
 .planit-profile-usage-breakdown {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
 }
 
 .usage-breakdown-title {
@@ -423,7 +438,7 @@
 }
 
 .planit-profile-actions {
-    padding: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
     display: flex;
     align-items: center;
     justify-content: space-between;
