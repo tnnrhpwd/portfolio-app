@@ -237,6 +237,7 @@ function Profile() {
 
             <section className="planit-profile-content">
               <div className="planit-profile-layout">
+                <div className="planit-profile-column">
                   <div className="planit-profile-section planit-profile-section-identity">
                     <div className="planit-profile-section-header">
                       <div>
@@ -265,6 +266,167 @@ function Profile() {
                     </div>
                   </div>
 
+                  <div className="planit-profile-section planit-profile-section-storage">
+                    <div className="planit-profile-section-header">
+                      <div>
+                        <span className="planit-profile-section-kicker">Storage</span>
+                        <h2 className="planit-profile-section-title">Database storage</h2>
+                      </div>
+                    </div>
+
+                    {userStorageIsLoading ? (
+                      <div className="planit-profile-state">
+                        <span className="planit-profile-state-icon">💾</span>
+                        <div>
+                          <strong>Loading storage details</strong>
+                          <p>We&apos;re measuring the latest files and saved data totals.</p>
+                        </div>
+                      </div>
+                    ) : userStorageIsError ? (
+                      <div className="planit-profile-state planit-profile-state-error">
+                        <span className="planit-profile-state-icon">⚠️</span>
+                        <div>
+                          <strong>Unable to load storage</strong>
+                          <p>{userStorageMessage}</p>
+                        </div>
+                      </div>
+                    ) : userStorage && typeof userStorage === 'object' ? (
+                      <div className="planit-profile-usage-container">
+                        <div className="planit-profile-usage-overview">
+                          <div className="usage-stat">
+                            <span className="usage-label">📊 Total used</span>
+                            <span className="usage-value">{userStorage.totalStorageFormatted}</span>
+                          </div>
+                          <div className="usage-stat">
+                            <span className="usage-label">🎯 Storage limit</span>
+                            <span className="usage-value">{userStorage.storageLimitFormatted}</span>
+                          </div>
+                          <div className="usage-stat">
+                            <span className="usage-label">📁 Total items</span>
+                            <span className="usage-value">{userStorage.itemCount}</span>
+                          </div>
+                          <div className="usage-stat">
+                            <span className="usage-label">📄 Files stored</span>
+                            <span className="usage-value">{userStorage.fileCount}</span>
+                          </div>
+                        </div>
+
+                        {userStorage.isOverLimit && (
+                          <div className="credit-warning frozen">
+                            <span className="warning-icon">🚨</span>
+                            <div className="warning-content">
+                              <strong>Storage limit exceeded</strong>
+                              <p>You&apos;ve exceeded your storage limit. Delete items or upgrade to keep saving new data.</p>
+                              {!isProTier(userStorage.membership) && purchasesEnabled && (
+                                <button
+                                  className="upgrade-button"
+                                  onClick={() => navigate('/pay?plan=pro')}
+                                >
+                                  Upgrade to Pro
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {userStorage.isNearLimit && !userStorage.isOverLimit && (
+                          <div className="credit-warning low">
+                            <span className="warning-icon">⚠️</span>
+                            <div className="warning-content">
+                              <strong>Storage nearly full</strong>
+                              <p>You&apos;re using {userStorage.storageUsagePercent.toFixed(1)}% of your storage limit.</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {userStorage.storageLimit && (
+                          <div className="planit-profile-usage-bar">
+                            <div className="usage-bar-track">
+                              <div
+                                className={`usage-bar-fill ${
+                                  userStorage.storageUsagePercent >= 100 ? 'danger' :
+                                  userStorage.storageUsagePercent >= 80 ? 'warning' :
+                                  'normal'
+                                }`}
+                                style={{
+                                  width: `${Math.min(userStorage.storageUsagePercent, 100)}%`
+                                }}
+                              ></div>
+                            </div>
+                            <div className="usage-bar-label">
+                              {userStorage.storageUsagePercent.toFixed(1)}% used
+                            </div>
+                          </div>
+                        )}
+
+                        {storageBreakdown.length > 0 ? (
+                          <div className="planit-profile-usage-breakdown">
+                            <h3 className="usage-breakdown-title">Largest items</h3>
+                            <div className="usage-breakdown-list">
+                              {storageBreakdown.map((item, index) => (
+                                <div key={index} className="usage-breakdown-item">
+                                  <div className="usage-api-info">
+                                    <span className="api-name">
+                                      {item.hasFiles ? '📎 File data' : '📝 Text data'}
+                                    </span>
+                                    <span className="api-date">
+                                      {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'Unknown date'}
+                                    </span>
+                                  </div>
+                                  <div className="usage-details">
+                                    <span className="usage-amount">
+                                      {item.fileCount > 0 ? `${item.fileCount} files` : 'Text only'}
+                                    </span>
+                                    <span className="usage-cost">{item.sizeFormatted}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="planit-profile-state">
+                            <span className="planit-profile-state-icon">🗂️</span>
+                            <div>
+                              <strong>No large items to highlight</strong>
+                              <p>As you add more saved data, we&apos;ll surface the biggest entries here.</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {!isProTier(userStorage.membership) && userStorage.storageUsagePercent > 50 && purchasesEnabled && (
+                          <div className="planit-profile-upgrade-prompt">
+                            <div className="upgrade-message">
+                              <span className="upgrade-icon">💾</span>
+                              <div className="upgrade-text">
+                                <strong>Need more storage?</strong>
+                                <p>Pro membership includes 50 GB of storage for all your data and files.</p>
+                              </div>
+                            </div>
+                            <button
+                              className="upgrade-button"
+                              onClick={() => navigate('/pay?plan=pro')}
+                            >
+                              Upgrade Now
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="planit-profile-state">
+                        <span className="planit-profile-state-icon">📦</span>
+                        <div>
+                          <strong>Storage summary unavailable</strong>
+                          <p>
+                            Your current plan includes{' '}
+                            {isProTier(currentPlan) ? STORAGE_DISPLAY[PLAN_IDS.PRO] : STORAGE_DISPLAY[PLAN_IDS.FREE]} of storage.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="planit-profile-column">
                   <div className="planit-profile-section planit-profile-section-preferences">
                     <div className="planit-profile-section-header">
                       <div>
@@ -450,164 +612,7 @@ function Profile() {
                     )}
                   </div>
 
-                  <div className="planit-profile-section planit-profile-section-storage">
-                    <div className="planit-profile-section-header">
-                      <div>
-                        <span className="planit-profile-section-kicker">Storage</span>
-                        <h2 className="planit-profile-section-title">Database storage</h2>
-                      </div>
-                    </div>
-
-                    {userStorageIsLoading ? (
-                      <div className="planit-profile-state">
-                        <span className="planit-profile-state-icon">💾</span>
-                        <div>
-                          <strong>Loading storage details</strong>
-                          <p>We&apos;re measuring the latest files and saved data totals.</p>
-                        </div>
-                      </div>
-                    ) : userStorageIsError ? (
-                      <div className="planit-profile-state planit-profile-state-error">
-                        <span className="planit-profile-state-icon">⚠️</span>
-                        <div>
-                          <strong>Unable to load storage</strong>
-                          <p>{userStorageMessage}</p>
-                        </div>
-                      </div>
-                    ) : userStorage && typeof userStorage === 'object' ? (
-                      <div className="planit-profile-usage-container">
-                        <div className="planit-profile-usage-overview">
-                          <div className="usage-stat">
-                            <span className="usage-label">📊 Total used</span>
-                            <span className="usage-value">{userStorage.totalStorageFormatted}</span>
-                          </div>
-                          <div className="usage-stat">
-                            <span className="usage-label">🎯 Storage limit</span>
-                            <span className="usage-value">{userStorage.storageLimitFormatted}</span>
-                          </div>
-                          <div className="usage-stat">
-                            <span className="usage-label">📁 Total items</span>
-                            <span className="usage-value">{userStorage.itemCount}</span>
-                          </div>
-                          <div className="usage-stat">
-                            <span className="usage-label">📄 Files stored</span>
-                            <span className="usage-value">{userStorage.fileCount}</span>
-                          </div>
-                        </div>
-
-                        {userStorage.isOverLimit && (
-                          <div className="credit-warning frozen">
-                            <span className="warning-icon">🚨</span>
-                            <div className="warning-content">
-                              <strong>Storage limit exceeded</strong>
-                              <p>You&apos;ve exceeded your storage limit. Delete items or upgrade to keep saving new data.</p>
-                              {!isProTier(userStorage.membership) && purchasesEnabled && (
-                                <button
-                                  className="upgrade-button"
-                                  onClick={() => navigate('/pay?plan=pro')}
-                                >
-                                  Upgrade to Pro
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {userStorage.isNearLimit && !userStorage.isOverLimit && (
-                          <div className="credit-warning low">
-                            <span className="warning-icon">⚠️</span>
-                            <div className="warning-content">
-                              <strong>Storage nearly full</strong>
-                              <p>You&apos;re using {userStorage.storageUsagePercent.toFixed(1)}% of your storage limit.</p>
-                            </div>
-                          </div>
-                        )}
-
-                        {userStorage.storageLimit && (
-                          <div className="planit-profile-usage-bar">
-                            <div className="usage-bar-track">
-                              <div
-                                className={`usage-bar-fill ${
-                                  userStorage.storageUsagePercent >= 100 ? 'danger' :
-                                  userStorage.storageUsagePercent >= 80 ? 'warning' :
-                                  'normal'
-                                }`}
-                                style={{
-                                  width: `${Math.min(userStorage.storageUsagePercent, 100)}%`
-                                }}
-                              ></div>
-                            </div>
-                            <div className="usage-bar-label">
-                              {userStorage.storageUsagePercent.toFixed(1)}% used
-                            </div>
-                          </div>
-                        )}
-
-                        {storageBreakdown.length > 0 ? (
-                          <div className="planit-profile-usage-breakdown">
-                            <h3 className="usage-breakdown-title">Largest items</h3>
-                            <div className="usage-breakdown-list">
-                              {storageBreakdown.map((item, index) => (
-                                <div key={index} className="usage-breakdown-item">
-                                  <div className="usage-api-info">
-                                    <span className="api-name">
-                                      {item.hasFiles ? '📎 File data' : '📝 Text data'}
-                                    </span>
-                                    <span className="api-date">
-                                      {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'Unknown date'}
-                                    </span>
-                                  </div>
-                                  <div className="usage-details">
-                                    <span className="usage-amount">
-                                      {item.fileCount > 0 ? `${item.fileCount} files` : 'Text only'}
-                                    </span>
-                                    <span className="usage-cost">{item.sizeFormatted}</span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="planit-profile-state">
-                            <span className="planit-profile-state-icon">🗂️</span>
-                            <div>
-                              <strong>No large items to highlight</strong>
-                              <p>As you add more saved data, we&apos;ll surface the biggest entries here.</p>
-                            </div>
-                          </div>
-                        )}
-
-                        {!isProTier(userStorage.membership) && userStorage.storageUsagePercent > 50 && purchasesEnabled && (
-                          <div className="planit-profile-upgrade-prompt">
-                            <div className="upgrade-message">
-                              <span className="upgrade-icon">💾</span>
-                              <div className="upgrade-text">
-                                <strong>Need more storage?</strong>
-                                <p>Pro membership includes 50 GB of storage for all your data and files.</p>
-                              </div>
-                            </div>
-                            <button
-                              className="upgrade-button"
-                              onClick={() => navigate('/pay?plan=pro')}
-                            >
-                              Upgrade Now
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="planit-profile-state">
-                        <span className="planit-profile-state-icon">📦</span>
-                        <div>
-                          <strong>Storage summary unavailable</strong>
-                          <p>
-                            Your current plan includes{' '}
-                            {isProTier(currentPlan) ? STORAGE_DISPLAY[PLAN_IDS.PRO] : STORAGE_DISPLAY[PLAN_IDS.FREE]} of storage.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                </div>
               </div>
             </section>
 
@@ -615,9 +620,6 @@ function Profile() {
               <div className="planit-profile-actions-copy">
                 <span className="planit-profile-section-kicker">Next steps</span>
                 <h2 className="planit-profile-actions-title">Keep your workspace tuned up</h2>
-                <p className="planit-profile-actions-description">
-                  Jump into chat, manage deeper settings, or sign out when you&apos;re done.
-                </p>
               </div>
               <div className="planit-profile-actions-buttons">
                 <button className="planit-profile-net-button" onClick={() => navigate('/net')}>

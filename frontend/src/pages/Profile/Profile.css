@@ -120,7 +120,6 @@
     color: var(--text-color-strong);
 }
 
-.planit-profile-actions-description,
 .planit-profile-setting-hint,
 .warning-content p,
 .upgrade-text p,
@@ -145,7 +144,6 @@
 }
 
 .planit-profile-meta-item,
-.planit-profile-subscription-details,
 .planit-profile-state,
 .credit-warning {
     border: 1px solid var(--border-nav);
@@ -192,28 +190,15 @@
     gap: var(--spacing-xs);
 }
 
-/* Explicitly pair one content-dense section with one compact section per
-   column so the two columns end up roughly equal height instead of the
-   natural DOM order (identity+preferences vs usage+storage) leaving one
-   column much shorter than the other on desktop/tablet widths. */
-.planit-profile-section-identity {
-    grid-column: 1;
-    grid-row: 1;
-}
-
-.planit-profile-section-storage {
-    grid-column: 1;
-    grid-row: 2;
-}
-
-.planit-profile-section-preferences {
-    grid-column: 2;
-    grid-row: 1;
-}
-
-.planit-profile-section-usage {
-    grid-column: 2;
-    grid-row: 2;
+/* Column pairing (Identity+Storage / Preferences+Usage) is set by DOM order
+   inside two independent .planit-profile-column flex stacks below, so each
+   column's height is only ever as tall as its own content -- no shared
+   grid-row track to create dead space when the paired sections differ in
+   height. */
+.planit-profile-column {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
 }
 
 .planit-profile-section {
@@ -295,7 +280,7 @@
     background: var(--bg-page);
     color: var(--text-color);
     font-size: var(--font-size-base);
-    padding: var(--spacing-sm);
+    padding: calc(var(--spacing-xs) * 0.6) var(--spacing-sm);
     min-height: 44px;
     transition: border-color var(--speed) ease, box-shadow var(--speed) ease, transform var(--speed) ease;
 }
@@ -311,7 +296,6 @@
     border-color: var(--fg-blue);
 }
 
-.planit-profile-subscription-details,
 .planit-profile-state,
 .credit-warning,
 .planit-profile-upgrade-prompt {
@@ -323,6 +307,8 @@
     justify-content: space-between;
     align-items: center;
     gap: var(--spacing-sm);
+    padding-top: calc(var(--spacing-xs) * 0.5);
+    border-top: 1px solid var(--border-nav);
 }
 
 .planit-profile-usage-container {
@@ -450,7 +436,7 @@
 }
 
 .planit-profile-actions {
-    padding: var(--spacing-xs) var(--spacing-sm);
+    padding: calc(var(--spacing-xs) * 0.75) var(--spacing-sm);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -621,14 +607,6 @@
     .planit-profile-settings-grid,
     .planit-profile-usage-overview {
         grid-template-columns: 1fr;
-    }
-
-    .planit-profile-section-identity,
-    .planit-profile-section-preferences,
-    .planit-profile-section-usage,
-    .planit-profile-section-storage {
-        grid-column: auto;
-        grid-row: auto;
     }
 
     .planit-profile-actions-buttons,
