@@ -130,6 +130,10 @@
     font-size: var(--font-size-small);
 }
 
+.planit-profile-setting-hint {
+    display: block;
+}
+
 .planit-profile-hero-actions,
 .planit-profile-actions-buttons {
     display: flex;
@@ -395,6 +399,10 @@
 .planit-profile-logout-button,
 .upgrade-button {
     min-height: 44px;
+    padding: 0 var(--spacing-md);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     border-radius: var(--border-radius);
     border: 1px solid transparent;
     font-weight: var(--font-weight-semibold);

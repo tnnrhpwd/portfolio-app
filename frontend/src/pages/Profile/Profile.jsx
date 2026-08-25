@@ -461,13 +461,14 @@ function Profile() {
                           <option value="Free">🆓 Free Plan</option>
                           <option value="Pro" disabled={!purchasesEnabled}>⚡ Pro Plan</option>
                         </select>
-                        {!purchasesEnabled && (
-                          <span className="planit-profile-setting-hint">
-                            {gateMessage || 'Upgrading is temporarily paused. Please check back soon.'}
-                          </span>
-                        )}
                       </div>
                     </div>
+
+                    {!purchasesEnabled && (
+                      <span className="planit-profile-setting-hint">
+                        {gateMessage || 'Upgrading is temporarily paused. Please check back soon.'}
+                      </span>
+                    )}
 
                     {subscriptionDetails ? (
                       <div className="planit-profile-subscription-details">
