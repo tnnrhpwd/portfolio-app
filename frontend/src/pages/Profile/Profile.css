@@ -145,10 +145,6 @@
 }
 
 .planit-profile-meta-item,
-.usage-stat,
-.planit-profile-info-item,
-.planit-profile-setting-item,
-.usage-breakdown-item,
 .planit-profile-subscription-details,
 .planit-profile-state,
 .credit-warning {
@@ -245,21 +241,32 @@
 }
 
 .planit-profile-info-grid,
-.planit-profile-settings-grid,
 .planit-profile-usage-overview {
+    display: flex;
+    flex-direction: column;
+}
+
+.planit-profile-settings-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: calc(var(--spacing-xs) * 0.6);
+    gap: var(--spacing-xs);
 }
 
 .planit-profile-info-item,
 .usage-stat {
-    padding: calc(var(--spacing-xs) * 0.75) var(--spacing-xs);
+    padding: calc(var(--spacing-xs) * 0.55) 0;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: calc(var(--spacing-xs) * 0.5) var(--spacing-xs);
+    border-bottom: 1px solid var(--border-nav);
+}
+
+.planit-profile-info-item:last-child,
+.usage-stat:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
 }
 
 .planit-profile-info-label,
@@ -275,7 +282,7 @@
 }
 
 .planit-profile-setting-item {
-    padding: var(--spacing-xs);
+    padding: 0;
     display: flex;
     flex-direction: column;
     gap: calc(var(--nav-size) * 0.06);
@@ -356,25 +363,35 @@
 .usage-breakdown-list {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-xs);
 }
 
 .usage-breakdown-item {
-    padding: var(--spacing-xs);
+    padding: calc(var(--spacing-xs) * 0.6) 0;
     display: flex;
     justify-content: space-between;
     gap: var(--spacing-sm);
-    align-items: center;
+    align-items: baseline;
+    border-bottom: 1px solid var(--border-nav);
 }
 
-.usage-api-info,
-.usage-details,
+.usage-breakdown-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
 .upgrade-message,
 .warning-content,
 .upgrade-text {
     display: flex;
     flex-direction: column;
     gap: calc(var(--nav-size) * 0.08);
+}
+
+.usage-api-info,
+.usage-details {
+    display: flex;
+    align-items: baseline;
+    gap: calc(var(--nav-size) * 0.2);
 }
 
 .api-name,
@@ -384,11 +401,6 @@
 .upgrade-text strong {
     color: var(--text-color-strong);
     font-weight: var(--font-weight-semibold);
-}
-
-.usage-details {
-    text-align: right;
-    align-items: flex-end;
 }
 
 .planit-profile-refresh-button,
@@ -598,8 +610,7 @@
     .planit-profile-hero-main,
     .planit-profile-actions,
     .planit-profile-subscription-details,
-    .planit-profile-upgrade-prompt,
-    .usage-breakdown-item {
+    .planit-profile-upgrade-prompt {
         flex-direction: column;
         align-items: flex-start;
     }
@@ -632,11 +643,6 @@
     .upgrade-button {
         width: 100%;
     }
-
-    .usage-details {
-        align-items: flex-start;
-        text-align: left;
-    }
 }
 
 @media (max-width: 480px) {
@@ -655,10 +661,6 @@
     }
 
     .planit-profile-meta-item,
-    .planit-profile-info-item,
-    .planit-profile-setting-item,
-    .usage-stat,
-    .usage-breakdown-item,
     .planit-profile-state,
     .planit-profile-subscription-details,
     .planit-profile-upgrade-prompt,

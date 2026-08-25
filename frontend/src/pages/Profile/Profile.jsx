@@ -374,8 +374,14 @@ function Profile() {
                             </span>
                           </div>
                           <div className="usage-stat">
-                            <span className="usage-label">🔑 AI usage</span>
-                            <span className="usage-value">Bring Your Own Key</span>
+                            <span className="usage-label">🔑 AI credits</span>
+                            <span className="usage-value">
+                              {userUsage.isAdmin || userUsage.isSpecial
+                                ? 'Unlimited'
+                                : userUsage.limit > 0
+                                  ? `$${(userUsage.availableCredits || 0).toFixed(2)} of $${userUsage.limit.toFixed(2)} left`
+                                  : 'No credits'}
+                            </span>
                           </div>
                         </div>
 
