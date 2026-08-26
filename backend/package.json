@@ -4,7 +4,7 @@
   "description": "backend for sthopwood.com",
   "main": "server.js",
   "scripts": {
-    "build": "npm i",
+    "build": "node -e \"console.log('No build step required for backend')\"",
     "server": "nodemon server.js",
     "dev": "nodemon server.js",
     "start": "node server.js",
@@ -57,8 +57,6 @@
     "openai": "^7.1.0",
     "sanitize-html": "^2.17.1",
     "sharp": "^0.34.5",
-    "sthopwood": "file:..",
-    "sthopwood-backend": "file:",
     "stripe": "^14.14.0",
     "tesseract.js": "^7.0.0",
     "useragent": "^2.3.0",
