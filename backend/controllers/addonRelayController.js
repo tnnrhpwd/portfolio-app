@@ -168,6 +168,16 @@ const addonHeartbeat = asyncHandler(async (req, res) => {
       platform: platform || prev.platform || null,
       firstSeen: prev.firstSeen || lastSeen,
     };
+    // Migration: addon builds older than the deviceId change heartbeated as
+    // "unknown-device". Once the same PC re-registers under its real UUID
+    // (after upgrading), drop the stale placeholder so it doesn't linger as a
+    // second, offline copy of the same hostname.
+    if (deviceId !== 'unknown-device' && hostname) {
+      const legacy = registry['unknown-device'];
+      if (legacy && legacy.hostname === hostname) {
+        delete registry['unknown-device'];
+      }
+    }
     await writeDevicesRegistry(req.user.id, registry);
   } catch (err) {
     logger.warn('[AddonRelay] Registry update failed (heartbeat still recorded):', err.message);
@@ -187,7 +197,18 @@ const getAddonDevices = asyncHandler(async (req, res) => {
 
   try {
     const registry = await readDevicesRegistry(req.user.id);
-    const devices = Object.values(registry)
+    const entries = Object.values(registry);
+    // Hide the legacy "unknown-device" placeholder whenever a real device
+    // with the same hostname exists (the same PC after upgrading past the
+    // deviceId change). This cleans the list immediately, without waiting for
+    // the next heartbeat's registry cleanup to run.
+    const realHostnames = new Set(
+      entries
+        .filter(d => d.deviceId !== 'unknown-device' && d.hostname)
+        .map(d => d.hostname)
+    );
+    const devices = entries
+      .filter(d => d.deviceId !== 'unknown-device' || !(d.hostname && realHostnames.has(d.hostname)))
       .map(deviceToStatus)
       .filter(Boolean)
       .sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
