@@ -108,13 +108,16 @@ const sendEmail = async (to, templateName, data) => {
         throw new Error(`Unknown email template: ${templateName}`);
     }
 
-    // Send the email using AWS SES. ConfigurationSetName routes bounce/
-    // complaint events to the SNS topic set up for suppression/monitoring
-    // (see docs/guides or AWS SES console: configuration set "default").
+    // Send the email using AWS SES. When SES_CONFIGURATION_SET is configured,
+    // route bounce/complaint events to that configuration set (see
+    // docs/guides or the AWS SES console). If it's unset, omit the field —
+    // falling back to a hardcoded "default" name would point at a set that
+    // may not exist in the account.
+    const configSetName = process.env.SES_CONFIGURATION_SET;
     const result = await client.send(new SendEmailCommand({
       FromEmailAddress: process.env.FROM_EMAIL,
       Destination: { ToAddresses: [to] },
-      ConfigurationSetName: process.env.SES_CONFIGURATION_SET || 'default',
+      ...(configSetName ? { ConfigurationSetName: configSetName } : {}),
       Content: {
         Simple: {
           Subject: { Data: emailContent.subject, Charset: 'UTF-8' },

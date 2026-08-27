@@ -382,7 +382,7 @@ const TOOL_EXECUTORS = {
       await sesClient.send(new SendEmailCommand({
         FromEmailAddress: adminEmail,
         Destination: { ToAddresses: [adminEmail] },
-        ConfigurationSetName: process.env.SES_CONFIGURATION_SET || 'default',
+        ...(process.env.SES_CONFIGURATION_SET ? { ConfigurationSetName: process.env.SES_CONFIGURATION_SET } : {}),
         Content: {
           Simple: {
             Subject: { Data: `[${category.toUpperCase()}] ${subject}`, Charset: 'UTF-8' },

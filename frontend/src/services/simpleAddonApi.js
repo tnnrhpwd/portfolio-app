@@ -1345,6 +1345,31 @@ export function getPortfolioApiUrl() {
 }
 
 /**
+ * fetch() with retry/backoff for cloud bootstrap requests. During local
+ * development Vite's proxy answers 500 while the backend is still booting
+ * (or nodemon is restarting), so retry network failures and 5xx responses a
+ * few times before giving up.
+ */
+async function fetchWithRetry(url, options, { retries = 4, delayMs = 500 } = {}) {
+  let lastRes = null;
+  let lastErr = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, options);
+      if (res.ok || res.status < 500) return res;
+      lastRes = res; // 5xx — backend likely still booting; retry
+    } catch (err) {
+      lastErr = err; // network error — backend not reachable yet
+    }
+    if (attempt < retries) {
+      await new Promise((r) => setTimeout(r, delayMs * 2 ** attempt));
+    }
+  }
+  if (lastRes) return lastRes; // surface the final 5xx response to the caller
+  throw lastErr || new Error('fetch failed');
+}
+
+/**
  * Compile an English macro description via the PORTFOLIO BACKEND.
  * This is the fallback path used when the addon's automation layer is not mounted.
  * Requires the user to be signed in (uses their stored GitHub PAT from DynamoDB).
@@ -1417,7 +1442,7 @@ export async function editMacroNaturalViaBackend(token, steps, instruction, cont
  * Get LLM providers from the portfolio backend.
  */
 export async function getPortfolioLLMProviders(token) {
-  const res = await fetch(`${getPortfolioApiUrl()}/llm-providers`, {
+  const res = await fetchWithRetry(`${getPortfolioApiUrl()}/llm-providers`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
   if (!res.ok) throw new Error('Failed to fetch LLM providers');
@@ -1980,7 +2005,7 @@ export async function listAddonDevices(token) {
   }
 
   try {
-    const res = await fetch(`${getPortfolioApiUrl()}/addon/devices`, {
+    const res = await fetchWithRetry(`${getPortfolioApiUrl()}/addon/devices`, {
       headers: { Authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(5000),
     });

@@ -6,6 +6,26 @@ import { getApiBase } from '../../config/api';
 
 const API_URL = getApiBase();
 
+// Retry a request with exponential backoff to ride out the brief window where
+// the backend hasn't finished booting (or nodemon is restarting) during local
+// development. Vite's proxy answers 500 while the backend isn't listening yet,
+// so retry on network errors and on 5xx responses only (never on 4xx).
+const withRetry = async (fn, { retries = 4, delayMs = 500 } = {}) => {
+    let lastError;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            return await fn();
+        } catch (error) {
+            lastError = error;
+            const status = error.response?.status;
+            const retryable = !error.response || (status >= 500 && status < 600);
+            if (!retryable || attempt === retries) throw error;
+            await new Promise((resolve) => setTimeout(resolve, delayMs * 2 ** attempt));
+        }
+    }
+    throw lastError;
+}
+
 const handleTokenExpiration = (error) => {
     console.log('DataService Error:', error);
     console.log('Error response:', error.response?.data);
@@ -522,7 +542,7 @@ const login = async (userData) => {
 // Get membership pricing (public endpoint)
 const getMembershipPricing = async () => {
     try {
-        const response = await axios.get(API_URL + 'membership-pricing');
+        const response = await withRetry(() => axios.get(API_URL + 'membership-pricing'));
         return response.data;
     } catch (error) {
         console.error('Error fetching membership pricing:', error);
@@ -626,7 +646,7 @@ const getUserStorage = async (token) => {
 // Get available LLM providers
 const getLLMProviders = async () => {
     try {
-        const response = await axios.get(API_URL + 'llm-providers');
+        const response = await withRetry(() => axios.get(API_URL + 'llm-providers'));
         return response.data;
     } catch (error) {
         console.error('Error getting LLM providers:', error);

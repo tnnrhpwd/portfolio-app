@@ -6,16 +6,25 @@ import svgr from 'vite-plugin-svgr';
 // nodemon typically takes a second or two to start listening on port 5000),
 // since those are expected and resolve themselves. Vite already responds to
 // the client with a 500 in this case, so this only affects console output.
-// Once the grace period has passed, proxy errors are logged as a single
-// concise line instead of the full AggregateError stack dump, since a
-// persistent error at that point likely indicates a real problem.
+//
+// Connection-level errors (ECONNREFUSED while the backend is booting or a
+// nodemon restart is in progress, ECONNRESET when it dies mid-request) are
+// transient by nature during development — the bootstrap requests in the app
+// retry automatically, so we suppress them entirely rather than spamming the
+// console. Any other proxy error is logged as a single concise line instead
+// of the full stack dump, since a persistent error at that point likely
+// indicates a real problem.
 const STARTUP_GRACE_PERIOD_MS = 5000;
+const TRANSIENT_PROXY_ERROR = /ECONNREFUSED|ECONNRESET|ECONNABORTED|socket hang up/i;
 const startedAt = Date.now();
 const logger = createLogger();
 const loggerError = logger.error.bind(logger);
 logger.error = (msg, options) => {
   if (msg.includes('http proxy error')) {
     if (Date.now() - startedAt < STARTUP_GRACE_PERIOD_MS) return;
+    const err = options?.error;
+    const detail = `${err?.code || ''} ${err?.message || ''}`;
+    if (TRANSIENT_PROXY_ERROR.test(detail)) return;
     loggerError(msg.split('\n')[0], options);
     return;
   }
@@ -57,9 +66,11 @@ export default defineConfig({
     port: 3000,
     host: '127.0.0.1',
     proxy: {
-      // Proxy API requests to the backend (replaces package.json "proxy" field)
+      // Proxy API requests to the backend (replaces package.json "proxy" field).
+      // Use 127.0.0.1 (not localhost) to avoid IPv6 (::1) resolution ambiguity
+      // on Windows, which can otherwise cause ECONNREFUSED proxy errors.
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'http://127.0.0.1:5000',
         changeOrigin: true,
       },
     },
