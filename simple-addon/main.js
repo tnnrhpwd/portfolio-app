@@ -382,6 +382,21 @@ async function startExpressServer() {
   try {
     // Require the server module (lazy to allow path resolution)
     server = require('./server/index');
+
+    // (Re)wire the update bridge every time the server module is (re)loaded.
+    // restartExpressServer() evicts server/index + its children (including
+    // update-bridge.js) from the require cache, so a freshly-loaded server gets
+    // a FRESH update-bridge instance whose _updateManager is null — which made
+    // the dashboard's Updates tab report "Not supported in this build" and
+    // disable "Check for Updates" after any server restart. Re-configuring here
+    // keeps the bridge pointed at the live UpdateManager regardless of cache
+    // eviction/load order.
+    try {
+      require('./server/update-bridge').configure({ updateManager });
+    } catch (e) {
+      console.warn('[Main] Failed to wire update-bridge:', e.message);
+    }
+
     const { port, httpsPort } = await server.startServer();
 
     console.log(`[Main] Server started on port ${port}`);
