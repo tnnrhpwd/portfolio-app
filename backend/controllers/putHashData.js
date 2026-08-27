@@ -469,7 +469,54 @@ const closeBugReportHandler = async (req, res) => {
 
         await dynamodb.send(new PutCommand(putParams));
         logger.debug('Bug report closed successfully');
-        
+
+        // Notify the reporter by email that their report was resolved.
+        // Best-effort — a lookup/send failure is logged but never fails the
+        // close itself (same pattern as the welcome/subscription emails).
+        try {
+            const creatorId = (item.text.match(/Creator:([^|]+)/) || [])[1]?.trim() || null;
+            const bugTitle = (item.text.match(/Bug:([^|]+)/) || [])[1]?.trim() || 'Your bug report';
+
+            let reporterText = null;
+            let reporterEmail = null;
+
+            if (isCreator) {
+                // The reporter is closing their own report — their record is
+                // already on req.user.
+                reporterText = req.user?.text || null;
+                reporterEmail = req.user?.email
+                    || (reporterText?.match(/Email:([^|]*)/)?.[1]?.trim())
+                    || null;
+            } else if (creatorId) {
+                // An admin resolved it — look up the reporter's account.
+                try {
+                    const scanResult = await dynamodb.send(new ScanCommand({
+                        TableName: 'Simple',
+                        FilterExpression: 'id = :id AND contains(#text, :emailMarker)',
+                        ExpressionAttributeNames: { '#text': 'text' },
+                        ExpressionAttributeValues: { ':id': creatorId, ':emailMarker': 'Email:' },
+                    }));
+                    reporterText = (scanResult.Items || [])[0]?.text || null;
+                    reporterEmail = reporterText?.match(/Email:([^|]*)/)?.[1]?.trim() || null;
+                } catch (lookupErr) {
+                    logger.warn('Failed to look up bug reporter for email:', lookupErr.message);
+                }
+            }
+
+            const reporterNickname = reporterText?.match(/Nickname:([^|]*)/)?.[1]?.trim() || 'there';
+
+            if (reporterEmail && shouldSendEmail(reporterText, 'product')) {
+                await sendEmail(reporterEmail, 'bugReportResolved', {
+                    userNickname: reporterNickname,
+                    bugTitle,
+                    resolutionText: resolutionText || 'Your report has been reviewed and resolved.',
+                });
+                logger.debug(`Bug resolution email sent to ${reporterEmail}`);
+            }
+        } catch (emailError) {
+            logger.error('Failed to send bug resolution email:', emailError);
+        }
+
         res.status(200).json({
             success: true,
             message: 'Bug report closed successfully',

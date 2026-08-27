@@ -4,7 +4,8 @@ const {
   subscriptionCreatedTemplate,
   subscriptionUpdatedTemplate,
   subscriptionCancelledTemplate,
-  welcomeTemplate
+  welcomeTemplate,
+  bugReportResolvedTemplate
 } = require('./emailTemplates');
 const { shouldSendEmail } = require('./emailPreferences');
 const { logger } = require('../utils/logger');
@@ -108,6 +109,9 @@ const sendEmail = async (to, templateName, data) => {
         break;
       case 'welcome':
         emailContent = welcomeTemplate(data);
+        break;
+      case 'bugReportResolved':
+        emailContent = bugReportResolvedTemplate(data);
         break;
       default:
         throw new Error(`Unknown email template: ${templateName}`);

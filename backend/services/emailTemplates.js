@@ -726,10 +726,81 @@ You received this email because you created an ST Hopwood account.`
   };
 };
 
+// Template for when an admin resolves a user's bug report
+const bugReportResolvedTemplate = (data) => {
+  const { userNickname, bugTitle, resolutionText } = data;
+  const name = userNickname || 'there';
+  const title = bugTitle || 'Your bug report';
+  const resolution = resolutionText || 'Your report has been reviewed and resolved.';
+
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[c]);
+
+  return {
+    subject: 'Your bug report has been resolved',
+    html: `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Bug report resolved</title>
+      <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; }
+        .header { background-color: #4a6fa5; padding: 20px; text-align: center; color: white; border-radius: 5px 5px 0 0; }
+        .content { padding: 20px; border: 1px solid #e9e9e9; border-top: none; border-radius: 0 0 5px 5px; }
+        .footer { margin-top: 20px; text-align: center; font-size: 12px; color: #999; }
+        .resolution { background-color: #f8f9fa; border-left: 4px solid #4a6fa5; padding: 15px; margin: 20px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header"><h1>Bug report resolved</h1></div>
+        <div class="content">
+          <h2>Hello ${name},</h2>
+          <p>Good news — a bug report you submitted has been reviewed and resolved.</p>
+
+          <div class="resolution">
+            <p><strong>Report:</strong> ${esc(title)}</p>
+            <p><strong>Resolution:</strong> ${esc(resolution)}</p>
+          </div>
+
+          <p>Thanks for helping us improve. If anything still looks wrong, just reply to this email — we read every message.</p>
+
+          <p>Best regards,<br>The ST Hopwood Team</p>
+        </div>
+        <div class="footer">
+          <p>&copy; ${new Date().getFullYear()} ST Hopwood. All rights reserved.</p>
+          <p>You received this email because a bug report you filed was resolved.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+    `,
+    text: `Hello ${name},
+
+Good news — a bug report you submitted has been reviewed and resolved.
+
+Report: ${title}
+Resolution: ${resolution}
+
+Thanks for helping us improve. If anything still looks wrong, just reply to this email — we read every message.
+
+Best regards,
+The ST Hopwood Team
+
+© ${new Date().getFullYear()} ST Hopwood. All rights reserved.
+You received this email because a bug report you filed was resolved.`
+  };
+};
+
 module.exports = {
   passwordResetTemplate,
   subscriptionCreatedTemplate,
   subscriptionUpdatedTemplate,
   subscriptionCancelledTemplate,
-  welcomeTemplate
+  welcomeTemplate,
+  bugReportResolvedTemplate
 };
