@@ -324,7 +324,11 @@ export const dataSlice = createSlice({
       .addCase(getUserStorage.rejected, (state, action) => {
         state.userStorageIsLoading = false;
         state.userStorageIsError = true;
-        
+        state.userStorageMessage = action.payload;
+        if (action.payload === 'Not authorized, token expired') {
+          state.user = null;
+        }
+      })
       // Email notification preferences
       .addCase(getEmailPreferences.pending, (state) => {
         state.emailPrefsIsLoading = true;
@@ -342,10 +346,6 @@ export const dataSlice = createSlice({
       })
       .addCase(updateEmailPreferences.fulfilled, (state, action) => {
         state.emailPrefs = action.payload?.preferences || state.emailPrefs;
-      })state.userStorageMessage = action.payload;
-        if (action.payload === 'Not authorized, token expired') {
-          state.user = null;
-        }
       })
       // Auth operations
       .addCase(register.pending, (state) => {
