@@ -10,6 +10,8 @@ import {
   getCustomAddonHost, setCustomAddonHost,
   getAddonBaseUrl,
   voiceListen, voiceStopListening,
+  listAddonDevices, onAddonDevicesChange, getAddonDevices,
+  getSelectedRemoteDeviceId, setSelectedRemoteDeviceId,
 } from '../../services/simpleAddonApi';
 import './AdvancedSettings.css';
 import AIWorkflowSettings from './AIWorkflowSettings.jsx';
@@ -48,6 +50,8 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
   const [showPersonality, setShowPersonality] = useState(false);
   const [addonListening, setAddonListening] = useState(false); // Whisper mic active
   const [addonListenError, setAddonListenError] = useState(null);
+  const [remoteDevices, setRemoteDevices] = useState(getAddonDevices());
+  const [selectedRemoteDevice, setSelectedRemoteDevice] = useState(getSelectedRemoteDeviceId() || '');
   const fileInputRef = useRef(null);
   const autoSaveTimer = useRef(null);
 
@@ -76,6 +80,18 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
       .then(data => setNetworkInfo(data))
       .catch(() => {});
   }, [isOpen]);
+
+  // Cloud-relay device directory — lists every PC with the addon signed into
+  // this account, so a phone/tablet can target a specific device remotely.
+  useEffect(() => {
+    const unsub = onAddonDevicesChange(setRemoteDevices);
+    if (isOpen && user?.token) {
+      listAddonDevices(user.token).catch(() => {});
+      const id = setInterval(() => listAddonDevices(user.token).catch(() => {}), 15000);
+      return () => { unsub(); clearInterval(id); };
+    }
+    return unsub;
+  }, [isOpen, user?.token]);
 
   // Auto-save settings when they change
   const autoSave = useCallback((newSettings) => {
@@ -1043,6 +1059,58 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
                     </button>
                   )}
                 </div>
+              </div>
+
+              {/* ── Your Devices (cloud relay — works on any network) ─ */}
+              <div className="adv-group">
+                <label className="adv-group__label">Your Devices</label>
+                <p className="adv-group__desc">
+                  PCs running the Simple addon and signed into this account. Pick one to control it remotely —
+                  from this device or your phone — even when you're not on the same WiFi.
+                </p>
+                {!user ? (
+                  <p className="adv-mic-list__empty">Log in to see your addon devices.</p>
+                ) : remoteDevices.length === 0 ? (
+                  <p className="adv-mic-list__empty">No addon devices seen yet. Start the addon on a PC and wait a moment.</p>
+                ) : (
+                  <div className="adv-device-list">
+                    {remoteDevices.map(dev => {
+                      const selected = selectedRemoteDevice === dev.deviceId;
+                      const lastSeen = dev.lastSeen ? new Date(dev.lastSeen).toLocaleString() : '—';
+                      return (
+                        <button
+                          key={dev.deviceId}
+                          type="button"
+                          className={`adv-device-item ${selected ? 'adv-device-item--selected' : ''}`}
+                          onClick={() => {
+                            const next = selected ? null : dev.deviceId;
+                            setSelectedRemoteDevice(next || '');
+                            setSelectedRemoteDeviceId(next);
+                          }}
+                          title={selected ? 'Click to deselect this device' : 'Use this device for remote control'}
+                        >
+                          <span className={`adv-device-item__dot ${dev.online ? 'adv-device-item__dot--online' : ''}`} />
+                          <span className="adv-device-item__main">
+                            <span className="adv-device-item__name">{dev.hostname || 'Unknown PC'}</span>
+                            <span className="adv-device-item__meta">
+                              {dev.online ? 'Online' : 'Offline'} · v{dev.version || '?'} · last seen {lastSeen}
+                            </span>
+                          </span>
+                          {selected && <span className="adv-device-item__badge">✓ Selected</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {selectedRemoteDevice && (
+                  <p className="adv-group__desc" style={{ marginTop: 8 }}>
+                    Remote control is targeting{' '}
+                    <strong>
+                      {remoteDevices.find(d => d.deviceId === selectedRemoteDevice)?.hostname || selectedRemoteDevice}
+                    </strong>
+                    .
+                  </p>
+                )}
               </div>
 
               {/* ── QR Code for Phone Access ──────────────────────── */}

@@ -23,6 +23,7 @@ import {
   getRemoteCommandResult,
   getCustomAddonHost,
   upsertWorkspaceItem,
+  getSelectedRemoteDeviceId,
 } from '../../services/simpleAddonApi';
 import { createData } from '../../features/data/dataSlice';
 import { getUserIdentifier } from '../../utils/supportUtils';
@@ -1157,7 +1158,7 @@ function SimpleChat({
           behaviorFile: activeAgent?.behaviorFile || 'default.txt',
         };
 
-        const { commandId } = await queueRemoteCommand(user.token, payload);
+        const { commandId } = await queueRemoteCommand(user.token, payload, getSelectedRemoteDeviceId());
 
         // Poll for result (max ~60s)
         const POLL_INTERVAL = 2000;

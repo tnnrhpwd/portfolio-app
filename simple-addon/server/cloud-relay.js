@@ -27,13 +27,19 @@ const POLL_INTERVAL_IDLE = 3000;   // 3s when no active commands
 const POLL_INTERVAL_ACTIVE = 1000; // 1s during active execution (unused for now)
 
 class CloudRelayService {
-  constructor(chatHandler) {
+  constructor(chatHandler, options = {}) {
     this._token = null;  // User JWT for backend auth
     this._chatHandler = chatHandler; // Function to process chat locally
     this._heartbeatTimer = null;
     this._pollTimer = null;
     this._running = false;
     this._version = null;
+    // Stable per-install identifier + platform info, supplied by the server
+    // entrypoint so multiple PCs on one account can be told apart.
+    this._getDeviceId = options.getDeviceId || (() => null);
+    this._hostname = os.hostname();
+    this._platform = os.platform();
+    this._arch = os.arch();
 
     try {
       const pkg = JSON.parse(fs.readFileSync(
@@ -113,8 +119,10 @@ class CloudRelayService {
           'Authorization': `Bearer ${this._token}`,
         },
         body: JSON.stringify({
+          deviceId: this._getDeviceId(),
           version: this._version,
-          hostname: os.hostname(),
+          hostname: this._hostname,
+          platform: `${this._platform}/${this._arch}`,
         }),
       });
 
@@ -141,8 +149,13 @@ class CloudRelayService {
   async _pollForCommands() {
     if (!this._token || !this._running) return;
 
+    // Identify this install so the backend only hands us commands addressed
+    // to THIS device (multi-device support).
+    const deviceId = this._getDeviceId();
+    const qs = deviceId ? `?deviceId=${encodeURIComponent(deviceId)}` : '';
+
     try {
-      const res = await fetch(`${API_BASE}/addon/pending`, {
+      const res = await fetch(`${API_BASE}/addon/pending${qs}`, {
         headers: {
           'Authorization': `Bearer ${this._token}`,
         },

@@ -16,6 +16,7 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 const https = require('https');
+const crypto = require('crypto');
 const { execSync } = require('child_process');
 const multer = require('multer');
 const { LlmService } = require('./llm-service');
@@ -620,7 +621,7 @@ const cloudRelay = new CloudRelayService(async (payload) => {
     throw new Error(`Addon chat failed: ${res.status} ${text}`);
   }
   return res.json();
-});
+}, { getDeviceId });
 
 // ─── Middleware ─────────────────────────────────────────────────────────────────
 
@@ -652,6 +653,7 @@ app.get('/api/status', (req, res) => {
     pythonScript: HF_SCRIPT,
     timestamp: new Date().toISOString(),
     version: require('../package.json').version,
+    deviceId: getDeviceId(),
     automationMounted: _automationMounted,
     automationError: _automationMountError || undefined,
     routes: {
@@ -1917,6 +1919,36 @@ const localSecrets = require('./secret-storage');
 // expired, the very first heartbeat/API call 401s and CloudRelayService
 // already handles that by clearing the token and stopping quietly, so this
 // degrades to exactly today's "please open the web app" behavior.
+// ─── Stable device identity ────────────────────────────────────────────────
+// A per-install UUID persisted to settings.json. The cloud relay sends it with
+// every heartbeat so the backend can list + address each of the user's PCs
+// separately (multi-device remote control).
+let _deviceIdCache = null;
+
+function getDeviceId() {
+  if (_deviceIdCache) return _deviceIdCache;
+  _deviceIdCache = getOrCreateDeviceId();
+  return _deviceIdCache;
+}
+
+function getOrCreateDeviceId() {
+  let data = {};
+  if (fs.existsSync(SETTINGS_PATH)) {
+    try { data = JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf-8')); } catch { data = {}; }
+  }
+  if (data.deviceId && typeof data.deviceId === 'string' && data.deviceId.length > 0) {
+    return data.deviceId;
+  }
+  const deviceId = crypto.randomUUID();
+  data.deviceId = deviceId;
+  try {
+    fs.writeFileSync(SETTINGS_PATH, JSON.stringify(data, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('[Server] Could not persist deviceId:', err.message);
+  }
+  return deviceId;
+}
+
 function persistAuthToken(token) {
   let data = {};
   if (fs.existsSync(SETTINGS_PATH)) {

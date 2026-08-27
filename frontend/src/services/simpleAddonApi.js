@@ -1814,6 +1814,7 @@ let _remoteAddonStatus = {
   lastSeen: null,
   version: null,
   hostname: null,
+  deviceId: null,
 };
 
 /** Remote addon status listeners */
@@ -1848,7 +1849,7 @@ export function getRemoteAddonStatus() {
  */
 export async function checkRemoteAddon(token) {
   if (!token) {
-    _remoteAddonStatus = { online: false, lastSeen: null, version: null, hostname: null };
+    _remoteAddonStatus = { online: false, lastSeen: null, version: null, hostname: null, deviceId: null };
     _notifyRemoteListeners(_remoteAddonStatus);
     return _remoteAddonStatus;
   }
@@ -1865,9 +1866,10 @@ export async function checkRemoteAddon(token) {
       lastSeen: data.lastSeen ?? null,
       version: data.version ?? null,
       hostname: data.hostname ?? null,
+      deviceId: data.deviceId ?? null,
     };
   } catch {
-    _remoteAddonStatus = { online: false, lastSeen: null, version: null, hostname: null };
+    _remoteAddonStatus = { online: false, lastSeen: null, version: null, hostname: null, deviceId: null };
   }
 
   _notifyRemoteListeners(_remoteAddonStatus);
@@ -1900,16 +1902,20 @@ export async function registerCloudRelay(token) {
  * Queue a chat command for remote addon execution via the backend.
  * @param {string} token - JWT auth token
  * @param {object} payload - Chat payload (message, modelId, conversationHistory, etc.)
- * @returns {{ commandId: string }}
+ * @param {string} [deviceId] - Target addon device. Defaults to the user's
+ *   selected device (set in Advanced Settings → Network) or the backend's
+ *   most-recently-seen device when omitted.
+ * @returns {{ commandId: string, deviceId: string }}
  */
-export async function queueRemoteCommand(token, payload) {
+export async function queueRemoteCommand(token, payload, deviceId) {
+  const target = deviceId || getSelectedRemoteDeviceId() || undefined;
   const res = await fetch(`${getPortfolioApiUrl()}/addon/command`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ type: 'chat', payload }),
+    body: JSON.stringify({ type: 'chat', payload, ...(target ? { deviceId: target } : {}) }),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
@@ -1930,4 +1936,91 @@ export async function getRemoteCommandResult(token, commandId) {
   });
   if (!res.ok) throw new Error('Failed to get command result');
   return res.json();
+}
+
+// ─── Addon device directory (multi-device cloud relay) ─────────────────────
+
+/** Cached list of the user's addon devices. */
+let _addonDevices = [];
+
+/** Device list listeners. */
+const _deviceListeners = new Set();
+
+function _notifyDeviceListeners(devices) {
+  _deviceListeners.forEach(fn => {
+    try { fn(devices); } catch (e) { console.error('[SimpleAPI] Device listener error:', e); }
+  });
+}
+
+/**
+ * Subscribe to addon device list changes.
+ * @param {function} listener - Called with the latest device array
+ * @returns {function} Unsubscribe function
+ */
+export function onAddonDevicesChange(listener) {
+  _deviceListeners.add(listener);
+  return () => _deviceListeners.delete(listener);
+}
+
+/** Get the current cached addon device list. */
+export function getAddonDevices() {
+  return [..._addonDevices];
+}
+
+/**
+ * Fetch the user's addon devices (cloud relay) and update the cached list.
+ * @param {string} token - JWT auth token
+ * @returns {Promise<Array>} Device array
+ */
+export async function listAddonDevices(token) {
+  if (!token) {
+    _addonDevices = [];
+    _notifyDeviceListeners(_addonDevices);
+    return _addonDevices;
+  }
+
+  try {
+    const res = await fetch(`${getPortfolioApiUrl()}/addon/devices`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) throw new Error('Failed to list addon devices');
+    const data = await res.json();
+    _addonDevices = Array.isArray(data.devices) ? data.devices : [];
+  } catch {
+    // Keep the last-known list on transient failure (don't flash to empty).
+  }
+
+  _notifyDeviceListeners(_addonDevices);
+  return _addonDevices;
+}
+
+// ─── Selected remote device (which PC the phone controls) ──────────────────
+
+const SELECTED_DEVICE_KEY = 'csimple_selected_remote_device';
+
+/**
+ * Get the deviceId the user selected as the remote-control target.
+ * @returns {string|null}
+ */
+export function getSelectedRemoteDeviceId() {
+  try {
+    return localStorage.getItem(SELECTED_DEVICE_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Persist the selected remote-control target device.
+ * @param {string|null} deviceId
+ */
+export function setSelectedRemoteDeviceId(deviceId) {
+  try {
+    if (deviceId) {
+      localStorage.setItem(SELECTED_DEVICE_KEY, deviceId);
+    } else {
+      localStorage.removeItem(SELECTED_DEVICE_KEY);
+    }
+  } catch { /* localStorage unavailable */ }
 }

@@ -42,6 +42,80 @@ const HEARTBEAT_TTL_MS = 60000;
 const COMMAND_TTL_MS = 300000;
 // Results expire after 10 minutes
 const RESULT_TTL_MS = 600000;
+// Devices are pruned from the registry after 7 days without a heartbeat
+const DEVICE_REGISTRY_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+// ─── Item id helpers ─────────────────────────────────────────────────────────
+// Each addon install has a stable deviceId; heartbeats are stored per-device
+// so multiple PCs on the same account show up independently. The registry item
+// (`addon_devices_${userId}`) holds a small JSON map of deviceId → metadata so
+// we can list devices without a DynamoDB scan/GSI.
+const heartbeatItemId = (userId, deviceId) => `addon_heartbeat_${userId}_${deviceId}`;
+const legacyHeartbeatItemId = (userId) => `addon_heartbeat_${userId}`;
+const devicesRegistryId = (userId) => `addon_devices_${userId}`;
+const queueIdFor = (userId) => `addon_queue_${userId}`;
+const resultIdFor = (commandId) => `addon_result_${commandId}`;
+
+/** Read the per-user device registry. Returns a plain object { deviceId: meta }. */
+async function readDevicesRegistry(userId) {
+  try {
+    const { Item } = await dynamodb.send(new GetCommand({
+      TableName: TABLE_NAME,
+      Key: { id: devicesRegistryId(userId), createdAt: CREATED_AT },
+    }));
+    if (Item?.text) {
+      const parsed = JSON.parse(Item.text);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    }
+  } catch { /* no registry yet */ }
+  return {};
+}
+
+/** Persist the per-user device registry (pruned to devices seen recently). */
+async function writeDevicesRegistry(userId, devices) {
+  const now = Date.now();
+  const pruned = {};
+  for (const [id, meta] of Object.entries(devices || {})) {
+    if (meta?.lastSeen && (now - meta.lastSeen) < DEVICE_REGISTRY_TTL_MS) {
+      pruned[id] = meta;
+    }
+  }
+  await dynamodb.send(new PutCommand({
+    TableName: TABLE_NAME,
+    Item: {
+      id: devicesRegistryId(userId),
+      createdAt: CREATED_AT,
+      text: JSON.stringify(pruned),
+      updatedAt: new Date().toISOString(),
+    },
+  }));
+  return pruned;
+}
+
+/** Convert a device registry entry into the API-facing status shape. */
+function deviceToStatus(device) {
+  if (!device) return null;
+  const lastSeen = device.lastSeen || null;
+  return {
+    deviceId: device.deviceId || null,
+    hostname: device.hostname || null,
+    version: device.version || null,
+    platform: device.platform || null,
+    lastSeen,
+    firstSeen: device.firstSeen || null,
+    online: !!lastSeen && (Date.now() - lastSeen) < HEARTBEAT_TTL_MS,
+  };
+}
+
+/** Pick the most relevant device for the legacy single-device /status endpoint. */
+function pickDefaultDevice(devices) {
+  const list = Object.values(devices || {})
+    .filter(d => d?.lastSeen)
+    .sort((a, b) => b.lastSeen - a.lastSeen);
+  if (list.length === 0) return null;
+  // Prefer the most-recently-seen ONLINE device, else the most recent overall.
+  return list.find(d => (Date.now() - d.lastSeen) < HEARTBEAT_TTL_MS) || list[0];
+}
 
 // ============================================================================
 // HEARTBEAT — addon registers itself as online
@@ -56,26 +130,72 @@ const addonHeartbeat = asyncHandler(async (req, res) => {
     throw new Error('User not found');
   }
 
-  const { version, hostname } = req.body;
-  const itemId = `addon_heartbeat_${req.user.id}`;
+  const { version, hostname, deviceId: rawDeviceId, platform } = req.body;
+  // Older addons don't send a deviceId — collapse them under a single key so
+  // they keep working, but new installs always send a stable id.
+  const deviceId = (rawDeviceId && String(rawDeviceId).trim()) || 'unknown-device';
   const now = new Date().toISOString();
+  const lastSeen = Date.now();
 
   await dynamodb.send(new PutCommand({
     TableName: TABLE_NAME,
     Item: {
-      id: itemId,
+      id: heartbeatItemId(req.user.id, deviceId),
       createdAt: CREATED_AT,
       text: JSON.stringify({
-        lastSeen: Date.now(),
+        deviceId,
+        lastSeen,
         version: version || null,
         hostname: hostname || null,
+        platform: platform || null,
         updatedAt: now,
       }),
       updatedAt: now,
     },
   }));
 
-  res.status(200).json({ success: true, timestamp: now });
+  // Keep the per-user registry up to date so /addon/devices can list all
+  // installs without scanning. Best-effort: a heartbeat must never fail
+  // because the registry write raced or the item grew.
+  try {
+    const registry = await readDevicesRegistry(req.user.id);
+    const prev = registry[deviceId] || {};
+    registry[deviceId] = {
+      deviceId,
+      lastSeen,
+      version: version || prev.version || null,
+      hostname: hostname || prev.hostname || null,
+      platform: platform || prev.platform || null,
+      firstSeen: prev.firstSeen || lastSeen,
+    };
+    await writeDevicesRegistry(req.user.id, registry);
+  } catch (err) {
+    logger.warn('[AddonRelay] Registry update failed (heartbeat still recorded):', err.message);
+  }
+
+  res.status(200).json({ success: true, timestamp: now, deviceId });
+});
+
+// @desc    List all of the user's addon devices (cloud relay)
+// @route   GET /api/data/addon/devices
+// @access  Private
+const getAddonDevices = asyncHandler(async (req, res) => {
+  if (!req.user) {
+    res.status(401);
+    throw new Error('User not found');
+  }
+
+  try {
+    const registry = await readDevicesRegistry(req.user.id);
+    const devices = Object.values(registry)
+      .map(deviceToStatus)
+      .filter(Boolean)
+      .sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
+    return res.status(200).json({ devices });
+  } catch (error) {
+    logger.error('[AddonRelay] Error listing addon devices:', error);
+    res.status(200).json({ devices: [] });
+  }
 });
 
 // @desc    Check if user's addon is online
@@ -87,27 +207,31 @@ const getAddonStatus = asyncHandler(async (req, res) => {
     throw new Error('User not found');
   }
 
-  const itemId = `addon_heartbeat_${req.user.id}`;
-
   try {
-    const { Item } = await dynamodb.send(new GetCommand({
-      TableName: TABLE_NAME,
-      Key: { id: itemId, createdAt: CREATED_AT },
-    }));
+    const registry = await readDevicesRegistry(req.user.id);
+    const device = pickDefaultDevice(registry);
 
-    if (!Item?.text) {
+    // Fall back to the legacy single heartbeat item (pre-deviceId addons).
+    if (!device) {
+      const { Item } = await dynamodb.send(new GetCommand({
+        TableName: TABLE_NAME,
+        Key: { id: legacyHeartbeatItemId(req.user.id), createdAt: CREATED_AT },
+      }));
+      if (Item?.text) {
+        const heartbeat = JSON.parse(Item.text);
+        const isOnline = (Date.now() - heartbeat.lastSeen) < HEARTBEAT_TTL_MS;
+        return res.status(200).json({
+          online: isOnline,
+          lastSeen: heartbeat.lastSeen,
+          version: heartbeat.version,
+          hostname: heartbeat.hostname,
+          deviceId: null,
+        });
+      }
       return res.status(200).json({ online: false });
     }
 
-    const heartbeat = JSON.parse(Item.text);
-    const isOnline = (Date.now() - heartbeat.lastSeen) < HEARTBEAT_TTL_MS;
-
-    res.status(200).json({
-      online: isOnline,
-      lastSeen: heartbeat.lastSeen,
-      version: heartbeat.version,
-      hostname: heartbeat.hostname,
-    });
+    res.status(200).json(deviceToStatus(device));
   } catch (error) {
     logger.error('[AddonRelay] Error checking addon status:', error);
     res.status(200).json({ online: false });
@@ -127,7 +251,7 @@ const queueCommand = asyncHandler(async (req, res) => {
     throw new Error('User not found');
   }
 
-  const { type, payload } = req.body;
+  const { type, payload, deviceId: requestedDeviceId } = req.body;
   if (!type || !payload) {
     res.status(400);
     throw new Error('type and payload are required');
@@ -140,11 +264,26 @@ const queueCommand = asyncHandler(async (req, res) => {
     throw new Error(`Invalid command type. Must be one of: ${VALID_TYPES.join(', ')}`);
   }
 
+  // Resolve the target device: explicit deviceId wins, else the most recently
+  // seen device (preferring an online one) so a phone with no selection still
+  // reaches the user's primary PC.
+  let deviceId = requestedDeviceId ? String(requestedDeviceId).trim() : null;
+  if (!deviceId) {
+    try {
+      const registry = await readDevicesRegistry(req.user.id);
+      deviceId = pickDefaultDevice(registry)?.deviceId || null;
+    } catch { deviceId = null; }
+  }
+  if (!deviceId) {
+    res.status(409);
+    throw new Error('No addon devices online. Start the desktop addon on at least one device first.');
+  }
+
   const commandId = crypto.randomUUID();
   const now = Date.now();
 
   // Read existing queue
-  const queueId = `addon_queue_${req.user.id}`;
+  const queueId = queueIdFor(req.user.id);
   let commands = [];
   try {
     const { Item } = await dynamodb.send(new GetCommand({
@@ -163,6 +302,7 @@ const queueCommand = asyncHandler(async (req, res) => {
     id: commandId,
     type,
     payload,
+    deviceId,
     status: 'pending',
     createdAt: now,
   });
@@ -178,7 +318,7 @@ const queueCommand = asyncHandler(async (req, res) => {
     },
   }));
 
-  res.status(201).json({ commandId, status: 'pending' });
+  res.status(201).json({ commandId, deviceId, status: 'pending' });
 });
 
 // @desc    Addon polls for pending commands
@@ -190,7 +330,8 @@ const getPendingCommands = asyncHandler(async (req, res) => {
     throw new Error('User not found');
   }
 
-  const queueId = `addon_queue_${req.user.id}`;
+  const { deviceId } = req.query;
+  const queueId = queueIdFor(req.user.id);
   const now = Date.now();
 
   try {
@@ -204,9 +345,13 @@ const getPendingCommands = asyncHandler(async (req, res) => {
     }
 
     let commands = JSON.parse(Item.text);
-    // Filter to only pending, non-expired commands
+    // Filter to only pending, non-expired commands. When the addon identifies
+    // itself with `?deviceId=`, only return commands addressed to it (this is
+    // what lets multiple PCs on one account each pick up their own commands).
     const pending = commands.filter(c =>
-      c.status === 'pending' && (now - c.createdAt) < COMMAND_TTL_MS
+      c.status === 'pending' &&
+      (now - c.createdAt) < COMMAND_TTL_MS &&
+      (!deviceId || c.deviceId === deviceId)
     );
 
     // Mark fetched commands as 'processing' so they aren't picked up again
@@ -255,7 +400,7 @@ const postCommandResult = asyncHandler(async (req, res) => {
   }
 
   const { result, error: resultError, tokens, cost } = req.body;
-  const resultId = `addon_result_${commandId}`;
+  const resultId = resultIdFor(commandId);
 
   await dynamodb.send(new PutCommand({
     TableName: TABLE_NAME,
@@ -276,7 +421,7 @@ const postCommandResult = asyncHandler(async (req, res) => {
   }));
 
   // Remove the command from the queue
-  const queueId = `addon_queue_${req.user.id}`;
+  const queueId = queueIdFor(req.user.id);
   try {
     const { Item } = await dynamodb.send(new GetCommand({
       TableName: TABLE_NAME,
@@ -310,7 +455,7 @@ const getCommandResult = asyncHandler(async (req, res) => {
   }
 
   const { commandId } = req.params;
-  const resultId = `addon_result_${commandId}`;
+  const resultId = resultIdFor(commandId);
 
   try {
     const { Item } = await dynamodb.send(new GetCommand({
@@ -354,6 +499,7 @@ const getCommandResult = asyncHandler(async (req, res) => {
 module.exports = {
   addonHeartbeat,
   getAddonStatus,
+  getAddonDevices,
   queueCommand,
   getPendingCommands,
   postCommandResult,

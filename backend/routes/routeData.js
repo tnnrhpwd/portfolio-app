@@ -113,6 +113,7 @@ const {
 const {
   addonHeartbeat,
   getAddonStatus,
+  getAddonDevices,
   queueCommand,
   getPendingCommands,
   postCommandResult,
@@ -514,6 +515,7 @@ router.post('/market/skills/:marketId/flag', protect, marketWriteLimiter, saniti
 
 router.post('/addon/heartbeat', protect, addonHeartbeat);
 router.get('/addon/status', protect, getAddonStatus);
+router.get('/addon/devices', protect, getAddonDevices);
 router.post('/addon/command', protect, sanitizeInput, queueCommand);
 router.get('/addon/pending', protect, getPendingCommands);
 router.post('/addon/result/:commandId', protect, sanitizeInput, postCommandResult);
