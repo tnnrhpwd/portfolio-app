@@ -3,6 +3,7 @@
 const asyncHandler = require('express-async-handler');
 const { checkIP } = require('../utils/accessData.js');
 const { sendEmail } = require('../services/emailService.js');
+const { shouldSendEmail } = require('../services/emailPreferences');
 
 // Import service modules
 const { 
@@ -376,11 +377,11 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
         if (membershipType === 'free') {
             await updateUserRank(finalCustomerId, 'Free');
             
-            if (userEmail) {
+            if (userEmail && shouldSendEmail(req.user.text, 'billing')) {
                 try {
                     await sendEmail(userEmail, 'subscriptionCancelled', {
                         plan: oldPlan,
-                        userData: req.user.data
+                        userData: { text: req.user.text }
                     });
                 } catch (emailError) {
                     logger.error('Failed to send cancellation email:', emailError);
@@ -415,18 +416,18 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
         await updateUserRank(finalCustomerId, membershipType);
         
         // Send subscription confirmation email
-        if (userEmail) {
+        if (userEmail && shouldSendEmail(req.user.text, 'billing')) {
             try {
                 if (currentMembership === 'free') {
                     await sendEmail(userEmail, 'subscriptionCreated', {
                         plan: membershipType.charAt(0).toUpperCase() + membershipType.slice(1),
-                        userData: req.user.data
+                        userData: { text: req.user.text }
                     });
                 } else {
                     await sendEmail(userEmail, 'subscriptionUpdated', {
                         oldPlan: oldPlan,
                         newPlan: membershipType.charAt(0).toUpperCase() + membershipType.slice(1),
-                        userData: req.user.data
+                        userData: { text: req.user.text }
                     });
                 }
             } catch (emailError) {

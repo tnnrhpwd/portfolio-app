@@ -651,9 +651,85 @@ This email was sent to you because you cancelled your subscription.`
   };
 };
 
+// Template for new account registration (transactional — always sent)
+const welcomeTemplate = (data) => {
+  const { userNickname } = data;
+  const name = userNickname || 'there';
+
+  return {
+    subject: 'Welcome to ST Hopwood! 🎉',
+    html: `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Welcome to ST Hopwood</title>
+      <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; }
+        .header { background-color: #4a6fa5; padding: 20px; text-align: center; color: white; border-radius: 5px 5px 0 0; }
+        .content { padding: 20px; border: 1px solid #e9e9e9; border-top: none; border-radius: 0 0 5px 5px; }
+        .footer { margin-top: 20px; text-align: center; font-size: 12px; color: #999; }
+        .button { display: inline-block; padding: 12px 24px; background-color: #4a6fa5; color: white; text-decoration: none; border-radius: 4px; margin-top: 15px; font-weight: bold; }
+        .highlights { background-color: #f8f9fa; border-left: 4px solid #4a6fa5; padding: 15px; margin: 20px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header"><h1>Welcome aboard!</h1></div>
+        <div class="content">
+          <h2>Hello ${name},</h2>
+          <p>Thanks for creating your ST Hopwood account — we're glad to have you.</p>
+
+          <div class="highlights">
+            <h3>What you can do next:</h3>
+            <ul>
+              <li>Explore the AI chat at <strong>/net</strong>, powered by AWS Bedrock</li>
+              <li>Manage your data, storage, and files from your profile</li>
+              <li>Upgrade to a paid plan for more automation and storage</li>
+            </ul>
+          </div>
+
+          <p>Questions or feedback? Just reply to this email — we read every message.</p>
+
+          <a href="https://www.sthopwood.com/net" class="button">Open AI Chat</a>
+
+          <p>Best regards,<br>The ST Hopwood Team</p>
+        </div>
+        <div class="footer">
+          <p>&copy; ${new Date().getFullYear()} ST Hopwood. All rights reserved.</p>
+          <p>You received this email because you created an ST Hopwood account.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+    `,
+    text: `Hello ${name},
+
+Thanks for creating your ST Hopwood account — we're glad to have you.
+
+What you can do next:
+- Explore the AI chat at /net, powered by AWS Bedrock
+- Manage your data, storage, and files from your profile
+- Upgrade to a paid plan for more automation and storage
+
+Questions or feedback? Just reply to this email — we read every message.
+
+Open AI Chat: https://www.sthopwood.com/net
+
+Best regards,
+The ST Hopwood Team
+
+© ${new Date().getFullYear()} ST Hopwood. All rights reserved.
+You received this email because you created an ST Hopwood account.`
+  };
+};
+
 module.exports = {
   passwordResetTemplate,
   subscriptionCreatedTemplate,
   subscriptionUpdatedTemplate,
-  subscriptionCancelledTemplate
+  subscriptionCancelledTemplate,
+  welcomeTemplate
 };

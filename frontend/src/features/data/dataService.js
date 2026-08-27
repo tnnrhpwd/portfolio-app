@@ -654,6 +654,30 @@ const getLLMProviders = async () => {
     }
 };
 
+// Get the current user's email notification preferences
+const getEmailPreferences = async (token) => {
+    const config = { headers: { Authorization: `Bearer ${token}` } };
+    try {
+        const response = await axios.get(API_URL + 'email-preferences', config);
+        return response.data;
+    } catch (error) {
+        handleTokenExpiration(error);
+        throw error;
+    }
+};
+
+// Update the current user's email notification preferences
+const updateEmailPreferences = async (token, preferences) => {
+    const config = { headers: { Authorization: `Bearer ${token}` } };
+    try {
+        const response = await axios.put(API_URL + 'email-preferences', { preferences }, config);
+        return response.data;
+    } catch (error) {
+        handleTokenExpiration(error);
+        throw error;
+    }
+};
+
 // Request pre-signed upload URL for S3
 const requestUploadUrl = async (fileData, token) => {
     const config = {
@@ -882,6 +906,8 @@ const dataService = {
     getStripeConfig,
     getHomeTitle,
     getLLMProviders,
+    getEmailPreferences,
+    updateEmailPreferences,
     requestUploadUrl,
     uploadFileToS3,
     confirmFileUpload,

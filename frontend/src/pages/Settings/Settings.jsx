@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { logout, resetDataSlice, getLLMProviders } from './../../features/data/dataSlice.js';
+import { logout, resetDataSlice, getLLMProviders, getEmailPreferences, updateEmailPreferences } from './../../features/data/dataSlice.js';
 import Spinner from '../../components/Spinner/Spinner.jsx';
 import { toast } from 'react-toastify';
 import {
@@ -47,7 +47,7 @@ function Settings() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const { user, dataIsLoading, llmProviders } = useSelector((state) => state.data);
+  const { user, dataIsLoading, llmProviders, emailPrefs } = useSelector((state) => state.data);
 
   useEffect(() => {
     dispatch(getLLMProviders());
@@ -81,6 +81,43 @@ function Settings() {
   });
 
   const [isResetPasswordLoading, setIsResetPasswordLoading] = useState(false);
+
+  // Email notification preferences (defaults match the backend: billing and
+  // product on, marketing off, account always on and not toggleable).
+  const [emailPrefsLocal, setEmailPrefsLocal] = useState({
+    account: true,
+    billing: true,
+    product: true,
+    marketing: false,
+  });
+
+  useEffect(() => {
+    if (user?.token) dispatch(getEmailPreferences());
+  }, [user?.token, dispatch]);
+
+  useEffect(() => {
+    if (emailPrefs) {
+      setEmailPrefsLocal((prev) => ({
+        account: true,
+        billing: emailPrefs.billing ?? prev.billing,
+        product: emailPrefs.product ?? prev.product,
+        marketing: emailPrefs.marketing ?? prev.marketing,
+      }));
+    }
+  }, [emailPrefs]);
+
+  const handleEmailPrefToggle = useCallback((key) => (e) => {
+    const value = e.target.checked;
+    setEmailPrefsLocal((prev) => ({ ...prev, [key]: value }));
+    dispatch(updateEmailPreferences({ [key]: value }))
+      .unwrap()
+      .then(() => toast.success('Email preferences updated.', { autoClose: 2000 }))
+      .catch(() => {
+        // Revert on failure so the UI stays truthful
+        setEmailPrefsLocal((prev) => ({ ...prev, [key]: !value }));
+        toast.error('Failed to update email preferences.', { autoClose: 3000 });
+      });
+  }, [dispatch]);
 
   const [aiSettings, setAiSettings] = useState(() => {
     const stored = getAISettings();
@@ -474,6 +511,72 @@ function Settings() {
                             name="pushNotifications"
                             checked={settings.pushNotifications}
                             onChange={handleChange}
+                            className="planit-settings-checkbox"
+                          />
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="planit-settings-section">
+                      <div className="planit-settings-section-header">
+                        <div>
+                          <span className="planit-settings-section-kicker">Email</span>
+                          <h2 className="planit-settings-section-title">Email notifications</h2>
+                          <p className="planit-settings-section-description">
+                            Choose which emails you receive. Account &amp; security emails always stay on.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="planit-settings-checkbox-grid">
+                        <label className="planit-settings-toggle-card">
+                          <div className="planit-settings-toggle-copy">
+                            <span className="planit-settings-toggle-title">🔐 Account &amp; Security</span>
+                            <span className="planit-settings-toggle-description">Password resets, welcome, and security alerts. Always on.</span>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={emailPrefsLocal.account}
+                            disabled
+                            className="planit-settings-checkbox"
+                          />
+                        </label>
+
+                        <label className="planit-settings-toggle-card">
+                          <div className="planit-settings-toggle-copy">
+                            <span className="planit-settings-toggle-title">💳 Plan &amp; Billing</span>
+                            <span className="planit-settings-toggle-description">Plan changes, subscription updates, and receipts.</span>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={emailPrefsLocal.billing}
+                            onChange={handleEmailPrefToggle('billing')}
+                            className="planit-settings-checkbox"
+                          />
+                        </label>
+
+                        <label className="planit-settings-toggle-card">
+                          <div className="planit-settings-toggle-copy">
+                            <span className="planit-settings-toggle-title">✨ Product Updates</span>
+                            <span className="planit-settings-toggle-description">New features, improvements, and product announcements.</span>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={emailPrefsLocal.product}
+                            onChange={handleEmailPrefToggle('product')}
+                            className="planit-settings-checkbox"
+                          />
+                        </label>
+
+                        <label className="planit-settings-toggle-card">
+                          <div className="planit-settings-toggle-copy">
+                            <span className="planit-settings-toggle-title">📣 Marketing &amp; Promotions</span>
+                            <span className="planit-settings-toggle-description">Offers, discounts, and newsletter. Opt-in only.</span>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={emailPrefsLocal.marketing}
+                            onChange={handleEmailPrefToggle('marketing')}
                             className="planit-settings-checkbox"
                           />
                         </label>

@@ -45,6 +45,7 @@ const {
   getDeepStorageItems, regenerateDeepStorageItems,
   getHomeTitle, getHomeTitleSettings, updateHomeTitleSettings,
   getPurchaseGateStatus, getPurchaseGateSettings, updatePurchaseGateSettings,
+  getEmailPrefs, updateEmailPrefs,
 } = require('../controllers');
 
 // File upload controller
@@ -379,6 +380,11 @@ router.put('/ocr-update/:id', protect, ocrLimiter, updateWithOCR);
 router.get('/subscription', protect, getUserSubscription);
 router.get('/storage', protect, getUserStorage);
 router.get('/usage', protect, getUserUsageData);
+
+// Email notification preferences (per-user opt-in/opt-out)
+router.route('/email-preferences')
+  .get(protect, getEmailPrefs)
+  .put(protect, sanitizeInput, updateEmailPrefs);
 
 // ============================================================================
 // PAYMENT & BILLING (Stripe)

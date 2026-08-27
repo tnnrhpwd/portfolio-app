@@ -13,7 +13,7 @@ import { createSlice } from '@reduxjs/toolkit';
 // Import thunks from categorized files
 import { register, login, logout } from './thunks/authThunks';
 import { createData, createPublicData, getData, getPublicData, getAllData, updateData, deleteData, compressData } from './thunks/dataThunks';
-import { getUserUsage, getUserStorage, getUserSubscription, getUserBugReports, closeBugReport } from './thunks/userThunks';
+import { getUserUsage, getUserStorage, getUserSubscription, getUserBugReports, closeBugReport, getEmailPreferences, updateEmailPreferences } from './thunks/userThunks';
 import { getPaymentMethods, deletePaymentMethod, postPaymentMethod, createCustomer, subscribeCustomer } from './thunks/paymentThunks';
 import { getMembershipPricing, getLLMProviders } from './thunks/publicThunks';
 
@@ -69,6 +69,10 @@ const initialState = {
   paymentMethodsIsError: false,
   paymentMethodsMessage: '',
   currentSubscription: null,
+  emailPrefs: null,
+  emailPrefsIsLoading: false,
+  emailPrefsIsError: false,
+  emailPrefsMessage: '',
 };
 
 // Create slice
@@ -320,7 +324,25 @@ export const dataSlice = createSlice({
       .addCase(getUserStorage.rejected, (state, action) => {
         state.userStorageIsLoading = false;
         state.userStorageIsError = true;
-        state.userStorageMessage = action.payload;
+        
+      // Email notification preferences
+      .addCase(getEmailPreferences.pending, (state) => {
+        state.emailPrefsIsLoading = true;
+        state.emailPrefsIsError = false;
+        state.emailPrefsMessage = '';
+      })
+      .addCase(getEmailPreferences.fulfilled, (state, action) => {
+        state.emailPrefsIsLoading = false;
+        state.emailPrefs = action.payload?.preferences || null;
+      })
+      .addCase(getEmailPreferences.rejected, (state, action) => {
+        state.emailPrefsIsLoading = false;
+        state.emailPrefsIsError = true;
+        state.emailPrefsMessage = action.payload;
+      })
+      .addCase(updateEmailPreferences.fulfilled, (state, action) => {
+        state.emailPrefs = action.payload?.preferences || state.emailPrefs;
+      })state.userStorageMessage = action.payload;
         if (action.payload === 'Not authorized, token expired') {
           state.user = null;
         }
@@ -410,6 +432,8 @@ export default dataSlice.reducer;
 // Re-export all thunks for convenience
 export {
   // Auth
+  getEmailPreferences,
+  updateEmailPreferences,
   register,
   login,
   logout,

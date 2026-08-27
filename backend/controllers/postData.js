@@ -12,6 +12,7 @@ const { DynamoDBDocumentClient, PutCommand, ScanCommand } = require('@aws-sdk/li
 const { checkIP } = require('../utils/accessData.js');
 const { logger } = require('../utils/logger');
 const { GUEST_EMAIL, GUEST_PASSWORD, GUEST_NICKNAME } = require('../constants/guestAccount.js');
+const { sendEmail } = require('../services/emailService');
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -172,6 +173,16 @@ const registerUser = asyncHandler(async (req, res) => {
   
     try {
         await dynamodb.send(new PutCommand(params));
+
+        // Send welcome email (transactional — always sent, independent of the
+        // user's marketing/notification preferences). Best-effort: an email
+        // failure is logged but must never fail or delay a successful signup.
+        try {
+            await sendEmail(email, 'welcome', { userNickname: nickname });
+        } catch (emailError) {
+            logger.error('Failed to send welcome email:', emailError);
+        }
+
         res.status(201).json({
             _id: params.Item.id,
             nickname,

@@ -5,6 +5,7 @@ require('dotenv').config();
 const { checkIP } = require('../utils/accessData.js');
 const { getPaymentMethods } = require('./getHashData.js');
 const { sendEmail } = require('../services/emailService.js');
+const { shouldSendEmail } = require('../services/emailPreferences');
 const { getStripe, liveStripe: stripe } = require('../utils/stripeInstance.js');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand, PutCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
@@ -340,31 +341,36 @@ const updateDataHolder = async (req, res, item) => {
             if (emailMatch && emailMatch[1]) {
                 const userEmail = emailMatch[1].trim();
 
-                try {
-                    if (textContent.toLowerCase() === 'free') {
-                        // Downgrade to free plan
-                        await sendEmail(userEmail, 'subscriptionCancelled', {
-                            plan: currentRank,
-                            userData: { text: updatedText }
-                        });
-                    } else if (currentRank.toLowerCase() === 'free') {
-                        // New subscription
-                        await sendEmail(userEmail, 'subscriptionCreated', {
-                            plan: textContent,
-                            userData: { text: updatedText }
-                        });
-                    } else {
-                        // Plan change
-                        await sendEmail(userEmail, 'subscriptionUpdated', {
-                            oldPlan: currentRank,
-                            newPlan: textContent,
-                            userData: { text: updatedText }
-                        });
+                // Honor the user's billing-notification preference (default on).
+                if (!shouldSendEmail(updatedText, 'billing')) {
+                    logger.debug('Subscription email suppressed by user preferences');
+                } else {
+                    try {
+                        if (textContent.toLowerCase() === 'free') {
+                            // Downgrade to free plan
+                            await sendEmail(userEmail, 'subscriptionCancelled', {
+                                plan: currentRank,
+                                userData: { text: updatedText }
+                            });
+                        } else if (currentRank.toLowerCase() === 'free') {
+                            // New subscription
+                            await sendEmail(userEmail, 'subscriptionCreated', {
+                                plan: textContent,
+                                userData: { text: updatedText }
+                            });
+                        } else {
+                            // Plan change
+                            await sendEmail(userEmail, 'subscriptionUpdated', {
+                                oldPlan: currentRank,
+                                newPlan: textContent,
+                                userData: { text: updatedText }
+                            });
+                        }
+                        logger.debug(`Subscription email sent to ${userEmail}`);
+                    } catch (error) {
+                        logger.error('Failed to send subscription update email:', error);
+                        // Don't fail the operation if email sending fails
                     }
-                    logger.debug(`Subscription email sent to ${userEmail}`);
-                } catch (error) {
-                    logger.error('Failed to send subscription update email:', error);
-                    // Don't fail the operation if email sending fails
                 }
             }
         }

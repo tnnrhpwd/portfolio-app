@@ -3,8 +3,10 @@ const {
   passwordResetTemplate,
   subscriptionCreatedTemplate,
   subscriptionUpdatedTemplate,
-  subscriptionCancelledTemplate
+  subscriptionCancelledTemplate,
+  welcomeTemplate
 } = require('./emailTemplates');
+const { shouldSendEmail } = require('./emailPreferences');
 const { logger } = require('../utils/logger');
 
 // Lazy-loaded test funnel hook — avoids circular require at module load
@@ -104,6 +106,9 @@ const sendEmail = async (to, templateName, data) => {
       case 'subscriptionCancelled':
         emailContent = subscriptionCancelledTemplate(data);
         break;
+      case 'welcome':
+        emailContent = welcomeTemplate(data);
+        break;
       default:
         throw new Error(`Unknown email template: ${templateName}`);
     }
@@ -137,4 +142,24 @@ const sendEmail = async (to, templateName, data) => {
   }
 };
 
-module.exports = { sendEmail, getEmailServiceStatus };
+/**
+ * Send an email only if the user's notification preferences allow the given
+ * category. `account` (transactional) always sends; the others honor the
+ * user's stored opt-in/opt-out. Returns a synthetic result when suppressed so
+ * callers can treat every outcome uniformly.
+ * @param {string} userText - User record `text` field (pipe-delimited)
+ * @param {string} to - Recipient email address
+ * @param {string} category - 'account' | 'billing' | 'product' | 'marketing'
+ * @param {string} templateName - Email template to use
+ * @param {Object} data - Template data
+ * @returns {Promise<Object>}
+ */
+const sendEmailToUser = async (userText, to, category, templateName, data) => {
+  if (!shouldSendEmail(userText, category)) {
+    logger.debug(`Email suppressed by user preferences (category=${category}, to=${to})`);
+    return { MessageId: null, suppressed: true };
+  }
+  return sendEmail(to, templateName, data);
+};
+
+module.exports = { sendEmail, sendEmailToUser, getEmailServiceStatus };

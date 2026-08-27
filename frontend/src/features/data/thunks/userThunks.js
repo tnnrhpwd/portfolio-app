@@ -96,3 +96,39 @@ export const closeBugReport = createAsyncThunk(
     }
   }
 );
+
+// Get the current user's email notification preferences
+export const getEmailPreferences = createAsyncThunk(
+  'data/getEmailPreferences',
+  async (_, thunkAPI) => {
+    try {
+      const token = thunkAPI.getState().data.user.token;
+      return await dataService.getEmailPreferences(token);
+    } catch (error) {
+      const dataMessage =
+        (error.response && error.response.data && error.response.data.dataMessage) ||
+        (error.response && error.response.data && error.response.data.error) ||
+        error.dataMessage ||
+        error.toString();
+      return thunkAPI.rejectWithValue(dataMessage);
+    }
+  }
+);
+
+// Update the current user's email notification preferences
+export const updateEmailPreferences = createAsyncThunk(
+  'data/updateEmailPreferences',
+  async (preferences, thunkAPI) => {
+    try {
+      const token = thunkAPI.getState().data.user.token;
+      return await dataService.updateEmailPreferences(token, preferences);
+    } catch (error) {
+      const dataMessage =
+        (error.response && error.response.data && error.response.data.dataMessage) ||
+        (error.response && error.response.data && error.response.data.error) ||
+        error.dataMessage ||
+        error.toString();
+      return thunkAPI.rejectWithValue(dataMessage);
+    }
+  }
+);
