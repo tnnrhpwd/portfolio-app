@@ -1,6 +1,6 @@
 {
   "name": "simple-addon",
-  "version": "1.0.31",
+  "version": "1.0.32",
   "description": "Simple AI Addon — Local AI assistant with system tray integration",
   "main": "main.js",
   "author": "tnnrhpwd",
