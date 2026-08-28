@@ -157,6 +157,24 @@ function userPrefix(userId, kind) {
         : `csimple_ws_${userId}_`;
 }
 
+/**
+ * Normalize the slug for the `log` and `action` kinds so any of the
+ * historical / design-doc date forms resolve to the single canonical
+ * `YYYYMMDD` item. The design doc originally specified `log-<YYYY-MM-DD>`
+ * for the action ring buffer and `<YYYY-MM-DD>` for the daily log, but the
+ * canonical storage slug is the compact `YYYYMMDD` form written by
+ * appendLog / appendAction. Accepting the aliases prevents duplicate items
+ * and stops polled reads from 404-spamming the logs.
+ */
+function canonicalizeSlug(kind, slug) {
+    if (kind !== 'log' && kind !== 'action') return slug;
+    if (typeof slug !== 'string') return slug;
+    // log-2026-08-28 | log-20260828 | 2026-08-28 | 20260828 → 20260828
+    const m = /^(?:log-)?(\d{4})-?(\d{2})-?(\d{2})$/.exec(slug);
+    if (m) return `${m[1]}${m[2]}${m[3]}`;
+    return slug;
+}
+
 function badRequest(res, msg) {
     res.status(400);
     throw new Error(msg);
@@ -323,12 +341,25 @@ const getWorkspaceItem = asyncHandler(async (req, res) => {
     validateKind(res, kind);
     validateSlug(res, slug);
 
+    const canonicalSlug = canonicalizeSlug(kind, slug);
+
     const { Item } = await dynamodb.send(new GetCommand({
         TableName: TABLE_NAME,
-        Key: { id: itemId(req.user.id, kind, slug), createdAt: CSIMPLE_CREATED_AT },
+        Key: { id: itemId(req.user.id, kind, canonicalSlug), createdAt: CSIMPLE_CREATED_AT },
     }));
 
     if (!Item || Item.deletedAt) {
+        // The daily log is polled by the addon; a day with no writes yet is
+        // an empty result, not an error — same "never 404 on a polled read"
+        // rule as /action/recent.
+        if (kind === 'log') {
+            return res.status(200).json(toFullEntry({
+                kind: 'log',
+                slug: canonicalSlug,
+                name: canonicalSlug,
+                text: '',
+            }));
+        }
         res.status(404);
         throw new Error('Workspace item not found');
     }
@@ -380,7 +411,8 @@ const upsertWorkspaceItem = asyncHandler(async (req, res) => {
         throw new Error(`Content too large for kind=${kind} (max ${cap} bytes, got ${sizeBytes})`);
     }
 
-    const id = itemId(req.user.id, kind, slug);
+    const canonicalSlug = canonicalizeSlug(kind, slug);
+    const id = itemId(req.user.id, kind, canonicalSlug);
 
     // Fetch current for concurrency check + version increment.
     const { Item: existing } = await dynamodb.send(new GetCommand({
@@ -395,13 +427,13 @@ const upsertWorkspaceItem = asyncHandler(async (req, res) => {
 
     const now = new Date().toISOString();
     const nextVersion = (existing?.version || 0) + 1;
-    const displayName = clampName(name, slug);
+    const displayName = clampName(name, canonicalSlug);
 
     const Item = {
         id,
         createdAt: CSIMPLE_CREATED_AT,
         kind,
-        slug,
+        slug: canonicalSlug,
         name: displayName,
         text: content,
         sizeBytes,
@@ -426,7 +458,7 @@ const upsertWorkspaceItem = asyncHandler(async (req, res) => {
 
     // Skip auditing audit-log writes themselves to prevent recursion.
     if (kind !== 'log') {
-        auditLog(req.user.id, existing ? 'update' : 'create', { kind, slug, version: nextVersion });
+        auditLog(req.user.id, existing ? 'update' : 'create', { kind, slug: canonicalSlug, version: nextVersion });
     }
 
     res.status(200).json(toFullEntry(Item));
@@ -442,7 +474,8 @@ const deleteWorkspaceItem = asyncHandler(async (req, res) => {
     validateKind(res, kind);
     validateSlug(res, slug);
 
-    const id = itemId(req.user.id, kind, slug);
+    const canonicalSlug = canonicalizeSlug(kind, slug);
+    const id = itemId(req.user.id, kind, canonicalSlug);
 
     if (hard) {
         await dynamodb.send(new DeleteCommand({
@@ -458,8 +491,8 @@ const deleteWorkspaceItem = asyncHandler(async (req, res) => {
         }));
     }
 
-    if (kind !== 'log') auditLog(req.user.id, hard ? 'purge' : 'delete', { kind, slug });
-    res.status(200).json({ success: true, kind, slug, hard });
+    if (kind !== 'log') auditLog(req.user.id, hard ? 'purge' : 'delete', { kind, slug: canonicalSlug });
+    res.status(200).json({ success: true, kind, slug: canonicalSlug, hard });
 });
 
 // @desc    Append a line to today's daily log (auto-creates the log file).
