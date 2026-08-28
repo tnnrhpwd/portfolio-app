@@ -692,6 +692,9 @@ function Settings() {
                         <p className="planit-settings-ai-note">
                           Need agents, personas, behaviors, memory, goals, or shortcuts? Install the <strong>Simple addon</strong> and open <strong>Advanced Settings</strong> inside the <strong>/net</strong> chat for those power-user tools.
                         </p>
+                        <p className="planit-settings-ai-note">
+                          Removing it later is just as easy: right-click the Simple tray icon, turn off <strong>Start at Login</strong> if it&apos;s on, choose <strong>Quit Simple Addon</strong>, then delete the downloaded <code>Simple-Addon-portable.exe</code>. Nothing is left installed in Windows.
+                        </p>
                         {addonNeedsCertTrust && (
                           <p className="planit-settings-ai-note">
                             Already installed? Browsers block the addon's self-signed cert on HTTPS sites.{' '}
