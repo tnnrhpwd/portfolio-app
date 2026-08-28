@@ -227,6 +227,11 @@ async function createCompletion(provider, model, messages, options = {}) {
             stream: false
         };
 
+        // Pass through function-calling params when provided (OpenAI-compatible
+        // providers: openai/xai/deepseek all support tools + tool_choice).
+        if (options.tools) completionParams.tools = options.tools;
+        if (options.tool_choice) completionParams.tool_choice = options.tool_choice;
+
         // Provider-specific adjustments
         if (provider === 'openai') {
             // For o1 models, use max_completion_tokens instead of max_tokens

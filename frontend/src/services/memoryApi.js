@@ -31,6 +31,16 @@ export async function fetchMemoryItems(token, type = null) {
 }
 
 /**
+ * Fetch a single memory item by id (includes its `data.agent` run state).
+ */
+export async function fetchMemoryItem(token, itemId) {
+  const res = await fetch(`${getApiBase()}memory/${itemId}`, { headers: headers(token) });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || json.error || 'Failed to fetch memory item');
+  return json.item;
+}
+
+/**
  * Create a new memory item.
  * @param {string} token
  * @param {'goal'|'plan'|'action'} type

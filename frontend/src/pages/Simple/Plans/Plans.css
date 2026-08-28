@@ -646,6 +646,65 @@
   white-space: nowrap;
 }
 
+/* Clickable goal title */
+.memory-card-title--link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-color);
+  text-align: left;
+  cursor: pointer;
+}
+.memory-card-title--link:hover {
+  color: var(--fg-mint);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Goal agent badge */
+.memory-card-badge.agent {
+  background: rgba(var(--fg-mint-rgb,0,193,193), 0.14);
+  color: var(--fg-mint);
+  text-transform: none;
+}
+.memory-card-badge.agent.agent-running   { background: rgba(var(--fg-mint-rgb,0,193,193), 0.18); color: var(--fg-mint); }
+.memory-card-badge.agent.agent-done      { background: rgba(var(--fg-blue-rgb,56,56,255), 0.14); color: var(--fg-blue); }
+.memory-card-badge.agent.agent-failed    { background: rgba(var(--fg-pink-rgb,255,55,155), 0.16); color: var(--fg-pink); }
+.memory-card-badge.agent.agent-stopped   { background: rgba(var(--fg-orange-rgb,255,165,0), 0.16); color: var(--fg-orange); }
+
+/* Goal card footer (enlist agent) */
+.memory-card-footer {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.25);
+  margin-top: calc(var(--nav-size) * 0.3);
+  padding-top: calc(var(--nav-size) * 0.25);
+  border-top: 1px dashed var(--border-nav);
+}
+.memory-card-agent-btn {
+  background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint));
+  color: #fff;
+  border: none;
+  border-radius: var(--border-radius-md);
+  padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.4);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+}
+.memory-card-agent-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.memory-card-agent-btn:disabled { opacity: 0.6; cursor: progress; transform: none; }
+.memory-card-agent-link {
+  background: none;
+  border: none;
+  color: var(--fg-blue);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  padding: 0;
+}
+.memory-card-agent-link:hover { text-decoration: underline; }
+
 /* ── Info note ────────────────────────────────────────────────────────────── */
 
 .plans-info-note {

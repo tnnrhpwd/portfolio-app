@@ -655,16 +655,19 @@
   color: var(--text-secondary);
 }
 
-/* ─── Plans shortcut button ─────────────────────────────────────────────── */
+/* ─── Plans shortcut button ───────────────────────────────────────────────
+   Scoped under .agent-live with enough specificity to beat the global
+   `button` / `button:hover:not(:disabled)` rules from index.css. */
 .agent-live__section--plans {
   padding-top: 10px;
 }
 
-.agent-live__plans-btn {
+.agent-live .agent-live__plans-btn {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
+  min-height: 0;
   font: inherit;
   text-align: left;
   background: var(--bg-secondary, #f3f4f6);
@@ -673,15 +676,21 @@
   border-radius: 10px;
   padding: 10px 12px;
   cursor: pointer;
+  box-shadow: none;
+  transform: none;
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
 }
 
-.agent-live__plans-btn:hover {
+.agent-live .agent-live__plans-btn:hover,
+.agent-live .agent-live__plans-btn:focus {
   background: var(--bg-hover, #e5e7eb);
+  color: var(--text-primary, #111827);
   border-color: var(--accent, #6c63ff);
+  transform: none;
+  box-shadow: none;
 }
 
-.agent-live__plans-btn:active {
+.agent-live .agent-live__plans-btn:active {
   transform: translateY(1px);
 }
 
@@ -725,4 +734,5 @@
 .agent-live--sidebar .agent-live__plans-btn:hover {
   background: var(--bg-hover);
   border-color: var(--accent);
+  color: var(--text-primary);
 }

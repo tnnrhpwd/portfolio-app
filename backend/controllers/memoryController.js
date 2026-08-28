@@ -5,6 +5,7 @@
 const asyncHandler = require('express-async-handler');
 const {
   getMemoryItems,
+  getMemoryItem,
   createMemoryItem,
   updateMemoryItem,
   deleteMemoryItem,
@@ -19,6 +20,14 @@ const getMemory = asyncHandler(async (req, res) => {
 
   const items = await getMemoryItems(userId, type);
   res.status(200).json({ success: true, items });
+});
+
+// @desc    Get a single memory item
+// @route   GET /api/data/memory/:id
+// @access  Protected
+const getMemoryOne = asyncHandler(async (req, res) => {
+  const item = await getMemoryItem(req.user.id, req.params.id);
+  res.status(200).json({ success: true, item });
 });
 
 // @desc    Create a new memory item
@@ -70,4 +79,4 @@ const deleteMemory = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, deleted: true });
 });
 
-module.exports = { getMemory, createMemory, updateMemory, deleteMemory };
+module.exports = { getMemory, getMemoryOne, createMemory, updateMemory, deleteMemory };

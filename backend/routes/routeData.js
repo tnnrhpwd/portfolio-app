@@ -126,10 +126,18 @@ const {
 // Memory controller (Goals / Plans / Actions)
 const {
   getMemory,
+  getMemoryOne,
   createMemory,
   updateMemory,
   deleteMemory,
 } = require('../controllers/memoryController');
+
+// Goal Agent controller (LLM agent that works on a goal)
+const {
+  startGoalAgent,
+  getGoalAgentStatus,
+  stopGoalAgent,
+} = require('../controllers/goalAgentController');
 
 // Configure multer for memory storage (or disk storage if preferred)
 const storage = multer.memoryStorage();
@@ -429,8 +437,17 @@ router.route('/memory')
   .post(protect, createMemory);
 
 router.route('/memory/:id')
+  .get(protect, getMemoryOne)
   .put(protect, updateMemory)
   .delete(protect, deleteMemory);
+
+// ============================================================================
+// GOAL AGENT (LLM agent that autonomously works on a user goal)
+// ============================================================================
+
+router.post('/goal-agent/start', protect, llmLimiter, sanitizeInput, startGoalAgent);
+router.get('/goal-agent/status/:goalId', protect, workspaceReadLimiter, getGoalAgentStatus);
+router.post('/goal-agent/stop', protect, workspaceWriteLimiter, sanitizeInput, stopGoalAgent);
 
 // ============================================================================
 // CSIMPLE SETTINGS SYNC

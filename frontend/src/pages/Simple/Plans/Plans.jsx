@@ -11,6 +11,7 @@ import {
   updateMemoryItem,
   deleteMemoryItem,
 } from '../../../services/memoryApi.js';
+import { startGoalAgent } from '../../../services/goalAgentApi.js';
 import './Plans.css';
 
 // -- Configuration ------------------------------------------------------------
@@ -108,6 +109,9 @@ function Plans() {
   const [newDeadline, setNewDeadline] = useState('');
   const [newStatus, setNewStatus] = useState('active');
   const [saving, setSaving] = useState(false);
+
+  // Goal-agent enlistment state (which goal is currently being enlisted)
+  const [enlisting, setEnlisting] = useState(null);
 
   // -- Data fetching ----------------------------------------------------------
 
@@ -301,6 +305,26 @@ function Plans() {
       setItems((prev) => prev.filter((i) => i._id !== item._id));
       toast.success('Deleted');
     } catch (err) { toast.error(err.message); }
+  };
+
+  // -- Goal agent -------------------------------------------------------------
+
+  const openGoal = (item) => {
+    if (item.type === 'goal') navigate(`/plans/goal/${item._id}`);
+  };
+
+  const handleEnlistAgent = async (item) => {
+    if (enlisting === item._id) return;
+    setEnlisting(item._id);
+    try {
+      await startGoalAgent(user.token, item._id);
+      toast.success('Agent enlisted — working on it now!');
+      navigate(`/plans/goal/${item._id}`);
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setEnlisting(null);
+    }
   };
 
   // -- Render -----------------------------------------------------------------
@@ -597,6 +621,9 @@ function Plans() {
                         onStatusChange={handleStatusChange}
                         onDelete={handleDelete}
                         onEdit={openEdit}
+                        onOpen={openGoal}
+                        onEnlist={handleEnlistAgent}
+                        enlisting={enlisting}
                       />
                     ))}
                   </div>
@@ -615,6 +642,9 @@ function Plans() {
                         onStatusChange={handleStatusChange}
                         onDelete={handleDelete}
                         onEdit={openEdit}
+                        onOpen={openGoal}
+                        onEnlist={handleEnlistAgent}
+                        enlisting={enlisting}
                       />
                     ))}
                   </div>
@@ -636,12 +666,14 @@ function Plans() {
 
 // -- Memory Card --------------------------------------------------------------
 
-function MemoryCard({ item, onStatusChange, onDelete, onEdit }) {
+function MemoryCard({ item, onStatusChange, onDelete, onEdit, onOpen, onEnlist, enlisting }) {
   const { data, type, createdAt } = item;
   const isTask = TASK_TYPES.includes(type);
+  const isGoal = type === 'goal';
   const isCompleted = data?.status === 'completed';
   const overdue = isOverdue(data?.deadline, data?.status);
   const priority = PRIORITY_LABELS[data?.priority] || data?.priority;
+  const agentStatus = data?.agent?.status;
 
   return (
     <div className={`memory-card type-${type} ${isCompleted ? 'completed' : ''} ${overdue ? 'is-overdue' : ''}`}>
@@ -657,9 +689,15 @@ function MemoryCard({ item, onStatusChange, onDelete, onEdit }) {
               {isCompleted ? '✓' : ''}
             </button>
           )}
-          <span className={`memory-card-title ${isCompleted ? 'strike' : ''}`}>
-            {data?.title || (type === 'note' ? 'Untitled note' : 'Untitled')}
-          </span>
+          {isGoal ? (
+            <button className="memory-card-title memory-card-title--link" onClick={() => onOpen(item)} title="Open goal">
+              {data?.title || 'Untitled'}
+            </button>
+          ) : (
+            <span className={`memory-card-title ${isCompleted ? 'strike' : ''}`}>
+              {data?.title || (type === 'note' ? 'Untitled note' : 'Untitled')}
+            </span>
+          )}
         </div>
         <div className="memory-card-actions">
           <button className="memory-card-icon-btn" onClick={() => onEdit(item)} title="Edit" aria-label="Edit">
@@ -695,8 +733,26 @@ function MemoryCard({ item, onStatusChange, onDelete, onEdit }) {
         {data?.source && (
           <span className="memory-card-badge source">from /{data.source}</span>
         )}
+        {agentStatus && agentStatus !== 'idle' && (
+          <span className={`memory-card-badge agent agent-${agentStatus}`}>🤖 {agentStatus}</span>
+        )}
         <span className="memory-card-time">{timeSince(createdAt)}</span>
       </div>
+
+      {isGoal && (
+        <div className="memory-card-footer">
+          <button
+            className="memory-card-agent-btn"
+            onClick={() => onEnlist(item)}
+            disabled={enlisting === item._id}
+          >
+            {enlisting === item._id ? '🤖 Enlisting…' : '🤖 Enlist agent'}
+          </button>
+          <button className="memory-card-agent-link" onClick={() => onOpen(item)}>
+            View progress →
+          </button>
+        </div>
+      )}
     </div>
   );
 }

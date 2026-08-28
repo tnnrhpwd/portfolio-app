@@ -10,7 +10,7 @@
  */
 
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, ScanCommand, PutCommand, UpdateCommand, DeleteCommand, GetCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, ScanCommand, PutCommand, UpdateCommand, DeleteCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
 const crypto = require('crypto');
 
 const client = new DynamoDBClient({
@@ -87,6 +87,51 @@ async function getMemoryItems(userId, type = null) {
   return items;
 }
 
+// ── Get a single memory item (verifies ownership) ───────────────────────────
+
+/**
+ * Fetch the raw DynamoDB row for a memory item by its partition key (id).
+ *
+ * The "Simple" table has a COMPOSITE primary key: partition key `id` (String)
+ * + sort key `createdAt` (String). Memory items are created with a random hex
+ * `id` and a single real `createdAt` timestamp, so a Query on `id` returns
+ * exactly one row (or none). We use Query — not Get — because Get requires the
+ * full composite key and the caller only ever has the `id`.
+ */
+async function findMemoryRow(itemId) {
+  const result = await dynamodb.send(new QueryCommand({
+    TableName: TABLE,
+    KeyConditionExpression: '#id = :id',
+    ExpressionAttributeNames: { '#id': 'id' },
+    ExpressionAttributeValues: { ':id': itemId },
+  }));
+  return (result.Items && result.Items[0]) || null;
+}
+
+function requireOwnership(Item, userId, action) {
+  if (!Item) {
+    throw Object.assign(new Error('Memory item not found'), { statusCode: 404 });
+  }
+  const parsed = parseMemoryText(Item.text || '');
+  if (!parsed || parsed.userId !== userId) {
+    throw Object.assign(new Error(`Not authorized to ${action} this item`), { statusCode: 403 });
+  }
+  return parsed;
+}
+
+async function getMemoryItem(userId, itemId) {
+  const Item = await findMemoryRow(itemId);
+  const parsed = requireOwnership(Item, userId, 'access');
+
+  return {
+    _id: itemId,
+    type: parsed.type,
+    data: parsed.payload,
+    createdAt: Item.createdAt,
+    updatedAt: Item.updatedAt,
+  };
+}
+
 // ── Create a new memory item ────────────────────────────────────────────────
 
 async function createMemoryItem(userId, type, payload) {
@@ -115,20 +160,9 @@ async function createMemoryItem(userId, type, payload) {
 // ── Update an existing memory item ─────────────────────────────────────────
 
 async function updateMemoryItem(userId, itemId, updates) {
-  // Fetch item first to verify ownership
-  const { Item } = await dynamodb.send(new GetCommand({
-    TableName: TABLE,
-    Key: { id: itemId },
-  }));
-
-  if (!Item) {
-    throw Object.assign(new Error('Memory item not found'), { statusCode: 404 });
-  }
-
-  const parsed = parseMemoryText(Item.text || '');
-  if (!parsed || parsed.userId !== userId) {
-    throw Object.assign(new Error('Not authorized to update this item'), { statusCode: 403 });
-  }
+  // Fetch item first to verify ownership (and to learn its sort key).
+  const Item = await findMemoryRow(itemId);
+  const parsed = requireOwnership(Item, userId, 'update');
 
   // Merge updates into existing payload
   const newPayload = { ...parsed.payload, ...updates };
@@ -137,7 +171,7 @@ async function updateMemoryItem(userId, itemId, updates) {
 
   await dynamodb.send(new UpdateCommand({
     TableName: TABLE,
-    Key: { id: itemId },
+    Key: { id: itemId, createdAt: Item.createdAt },
     UpdateExpression: 'SET #text = :text, updatedAt = :now',
     ExpressionAttributeNames: { '#text': 'text' },
     ExpressionAttributeValues: { ':text': newText, ':now': now },
@@ -149,23 +183,12 @@ async function updateMemoryItem(userId, itemId, updates) {
 // ── Delete a memory item ────────────────────────────────────────────────────
 
 async function deleteMemoryItem(userId, itemId) {
-  const { Item } = await dynamodb.send(new GetCommand({
-    TableName: TABLE,
-    Key: { id: itemId },
-  }));
-
-  if (!Item) {
-    throw Object.assign(new Error('Memory item not found'), { statusCode: 404 });
-  }
-
-  const parsed = parseMemoryText(Item.text || '');
-  if (!parsed || parsed.userId !== userId) {
-    throw Object.assign(new Error('Not authorized to delete this item'), { statusCode: 403 });
-  }
+  const Item = await findMemoryRow(itemId);
+  requireOwnership(Item, userId, 'delete');
 
   await dynamodb.send(new DeleteCommand({
     TableName: TABLE,
-    Key: { id: itemId },
+    Key: { id: itemId, createdAt: Item.createdAt },
   }));
 
   return { deleted: true };
@@ -202,6 +225,7 @@ async function logAction(userId, summary, source = 'net') {
 
 module.exports = {
   getMemoryItems,
+  getMemoryItem,
   createMemoryItem,
   updateMemoryItem,
   deleteMemoryItem,

@@ -31,6 +31,7 @@ const Net = lazy(() => import('./pages/Simple/Net/Net.jsx'));
 const Pay = lazy(() => import('./pages/Simple/Pay/Pay.jsx'));
 const PaymentSuccess = lazy(() => import('./pages/Simple/Pay/PaymentSuccess.jsx'));
 const Plans = lazy(() => import('./pages/Simple/Plans/Plans.jsx'));
+const GoalDetail = lazy(() => import('./pages/Simple/Plans/GoalDetail.jsx'));
 const About = lazy(() => import('./pages/Simple/About/About.jsx'));
 const Pricing = lazy(() => import('./pages/Pricing/Pricing.jsx'));
 const Profile = lazy(() => import('./pages/Profile/Profile.jsx'));
@@ -82,6 +83,7 @@ function App() {
               <Route path='/payment-success' element={<PaymentSuccess />} />
               <Route path="/passgen" element={<PassGen/>} />
               <Route path='/plans' element={<Plans />} />
+              <Route path='/plans/goal/:id' element={<GoalDetail />} />
               <Route path='/pricing' element={<Pricing />} />
               <Route path='/privacy' element={<Privacy />} />
               <Route path='/profile' element={<Profile />} />

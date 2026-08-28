@@ -215,19 +215,6 @@ function Home() {
                     </div>
                 </section>
 
-                <section className="section-tile simple-section">
-                    <div id="content-tile">
-                        <div className="section-header home-simple-heading">Simple</div>
-                        <p className="home-simple-desc">
-                            Simple is an AI agent that runs on your Windows PC. Describe a task in
-                            plain English — like “open Notepad and type today’s date” — and it
-                            moves the mouse, types, and clicks on your behalf. Show it once how you
-                            rename and file invoices, and afterward saying “do the invoices”
-                            repeats those steps. AI chat and cloud storage support that core loop.
-                        </p>
-                    </div>
-                </section>
-
                 <section className="section-tile thank-you-section">
                     <div id="content-tile">
                         <div id="text-body" className="thank-you-text">
