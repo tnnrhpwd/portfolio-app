@@ -15,6 +15,7 @@ const {
   _mergeConversationLists,
   _mergeConversation,
   _mergeMessageLists,
+  _unionTombstones,
 } = require('../../controllers/csimpleController');
 
 describe('conversation merge helpers', () => {
@@ -81,5 +82,15 @@ describe('conversation merge helpers', () => {
     ];
     const merged = _mergeConversationLists([], incoming);
     expect(merged.map(c => c.id)).toEqual(['a', 'b']);
+  });
+
+  test('unionTombstones unions server + client tombstones and dedupes', () => {
+    expect(_unionTombstones(['1', '2'], ['2', '3'])).toEqual(['1', '2', '3']);
+  });
+
+  test('unionTombstones tolerates missing/undefined inputs', () => {
+    expect(_unionTombstones(undefined, undefined)).toEqual([]);
+    expect(_unionTombstones(null, ['7'])).toEqual(['7']);
+    expect(_unionTombstones([7], [])).toEqual(['7']);
   });
 });

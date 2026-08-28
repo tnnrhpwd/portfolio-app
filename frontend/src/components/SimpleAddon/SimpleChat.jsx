@@ -20,6 +20,7 @@ import {
   mergeCloudConversations,
   getDeletedConversationIds,
   addDeletedConversationId,
+  setDeletedConversationIds,
   queueRemoteCommand,
   queueRemoteConfirm,
   getRemoteCommandResult,
@@ -197,6 +198,9 @@ function SimpleChat({
   const lastCloudSettingsUpdate = useRef(null);
   const lastCloudConvosUpdate = useRef(null);
   const cloudSyncInitialized = useRef(false);
+  const conversationsRef = useRef(conversations);
+  const syncInFlight = useRef(false);
+  const isGeneratingRef = useRef(false);
 
   const activeConversation = conversations.find(c => c.id === activeConversationId);
   const activeAgent = settings.agents?.find(a => a.id === settings.selectedAgentId) || settings.agents?.[0];
@@ -363,6 +367,59 @@ function SimpleChat({
     localStorage.setItem(ACTIVE_CHAT_KEY, activeConversationId);
   }, [activeConversationId]);
 
+  // Keep refs in sync with live state so sync callbacks can read fresh values
+  // without adding the state to their dependency arrays.
+  useEffect(() => { conversationsRef.current = conversations; }, [conversations]);
+  useEffect(() => { isGeneratingRef.current = isGenerating; }, [isGenerating]);
+
+  // If the active conversation was deleted on another device (or merged away),
+  // point at the first remaining conversation instead of rendering an empty one.
+  useEffect(() => {
+    if (conversations.length === 0) return;
+    if (!conversations.some(c => c.id === activeConversationId)) {
+      setActiveConversationId(conversations[0].id);
+    }
+  }, [conversations, activeConversationId]);
+
+  // ─── Cloud conversation sync (shared by the debounced save and the
+  // ─── cross-device poll). `overrideConversations` lets create/delete push
+  // ─── the exact next state immediately instead of waiting for the ref to
+  // ─── update on the next render.
+  const runConversationSync = useCallback(async (overrideConversations) => {
+    const token = user?.token;
+    if (!settings.cloudSync || !token || !cloudSyncInitialized.current) return;
+    if (syncInFlight.current) return;
+    syncInFlight.current = true;
+    try {
+      setCloudSyncStatus('syncing');
+      const local = Array.isArray(overrideConversations) ? overrideConversations : conversationsRef.current;
+      const result = await mergeCloudConversations(token, local, getDeletedConversationIds());
+      lastCloudConvosUpdate.current = result.updatedAt;
+
+      // Adopt the authoritative server tombstone set so a delete on any device
+      // stays deleted on every device (not just the one that issued it).
+      if (Array.isArray(result.deletedIds)) setDeletedConversationIds(result.deletedIds);
+
+      // Adopt the authoritative merged list if it differs (e.g. another device
+      // added/updated/deleted a conversation). Deep-equality guard prevents an
+      // identical result from retriggering the debounced save.
+      if (result?.conversations && Array.isArray(result.conversations)) {
+        setConversations(prev => {
+          if (JSON.stringify(result.conversations) === JSON.stringify(prev)) {
+            return prev;
+          }
+          return result.conversations;
+        });
+      }
+      setCloudSyncStatus('synced');
+    } catch (err) {
+      console.warn('[Simple] Cloud conversations sync failed:', err);
+      setCloudSyncStatus('error');
+    } finally {
+      syncInFlight.current = false;
+    }
+  }, [user?.token, settings.cloudSync]);
+
   // ─── Cloud Sync: Initial load on login ────────────────────────────────────
   useEffect(() => {
     if (!user?.token || !isSettingsLoaded || cloudSyncInitialized.current) return;
@@ -410,6 +467,7 @@ function SimpleChat({
                 conversations,
                 getDeletedConversationIds()
               );
+              if (Array.isArray(merged.deletedIds)) setDeletedConversationIds(merged.deletedIds);
               if (merged?.conversations && Array.isArray(merged.conversations)) {
                 setConversations(prev => {
                   if (JSON.stringify(merged.conversations) === JSON.stringify(prev)) {
@@ -472,41 +530,40 @@ function SimpleChat({
     if (!settings.cloudSync || !user?.token || !cloudSyncInitialized.current) return;
 
     if (cloudConvosTimer.current) clearTimeout(cloudConvosTimer.current);
-    cloudConvosTimer.current = setTimeout(async () => {
-      try {
-        setCloudSyncStatus('syncing');
-        // Merge (not blind overwrite) so conversations from other devices
-        // are preserved instead of lost to a last-write-wins race.
-        const result = await mergeCloudConversations(
-          user.token,
-          conversations,
-          getDeletedConversationIds()
-        );
-        lastCloudConvosUpdate.current = result.updatedAt;
-        setCloudSyncStatus('synced');
-
-        // Adopt the authoritative merged list if it differs (e.g. another
-        // device added/updated a conversation). Guard with a deep-equality
-        // check so an identical result doesn't retrigger this effect.
-        if (result?.conversations && Array.isArray(result.conversations)) {
-          setConversations(prev => {
-            if (JSON.stringify(result.conversations) === JSON.stringify(prev)) {
-              return prev;
-            }
-            return result.conversations;
-          });
-        }
-      } catch (err) {
-        console.warn('[Simple] Cloud conversations sync failed:', err);
-        setCloudSyncStatus('error');
-      }
-    }, 2000);
+    cloudConvosTimer.current = setTimeout(() => { runConversationSync(); }, 2000);
 
     return () => {
       if (cloudConvosTimer.current) clearTimeout(cloudConvosTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversations, user?.token, settings.cloudSync]);
+  }, [conversations, user?.token, settings.cloudSync, runConversationSync]);
+
+  // ─── Cloud Sync: Cross-device poll (pull) ────────────────────────────────
+  // A device that makes no local change still needs to pick up conversations
+  // created/updated/deleted on other devices. Poll the merge endpoint on an
+  // interval (and on tab focus) so every device converges without a refresh.
+  useEffect(() => {
+    if (!settings.cloudSync || !user?.token || !cloudSyncInitialized.current) return;
+
+    const SYNC_POLL_MS = 30000;
+    const poll = () => {
+      if (document.visibilityState === 'visible' && !isGeneratingRef.current) {
+        runConversationSync();
+      }
+    };
+
+    const interval = setInterval(poll, SYNC_POLL_MS);
+    const onVisible = () => { if (document.visibilityState === 'visible') runConversationSync(); };
+    window.addEventListener('focus', onVisible);
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onVisible);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.cloudSync, user?.token, runConversationSync]);
 
   // Connection status — online if addon connected or if we can reach the portfolio
   useEffect(() => {
@@ -580,29 +637,33 @@ function SimpleChat({
   const createNewChat = useCallback(() => {
     const newId = Date.now().toString();
     const newConv = { id: newId, title: 'New Chat', messages: [], createdAt: new Date().toISOString() };
-    setConversations(prev => [newConv, ...prev]);
+    const next = [newConv, ...conversationsRef.current];
+    conversationsRef.current = next;
+    setConversations(next);
     setActiveConversationId(newId);
     setSidebarOpen(false);
-  }, []);
+    // Push the new chat to the cloud immediately so it appears on other
+    // devices right away, not just after the debounce window.
+    runConversationSync(next);
+  }, [runConversationSync]);
 
   const deleteConversation = useCallback((id) => {
     // Record a deletion tombstone so the conversation stays deleted on other
     // devices (otherwise the next sync from another device would resurrect it).
     addDeletedConversationId(id);
-    setConversations(prev => {
-      const updated = prev.filter(c => c.id !== id);
-      if (updated.length === 0) {
-        return [{ id: Date.now().toString(), title: 'New Chat', messages: [], createdAt: new Date().toISOString() }];
-      }
-      return updated;
-    });
-    if (activeConversationId === id) {
-      setConversations(prev => {
-        setActiveConversationId(prev[0]?.id);
-        return prev;
-      });
+    const current = conversationsRef.current;
+    let updated = current.filter(c => c.id !== id);
+    if (updated.length === 0) {
+      updated = [{ id: Date.now().toString(), title: 'New Chat', messages: [], createdAt: new Date().toISOString() }];
     }
-  }, [activeConversationId]);
+    conversationsRef.current = updated;
+    setConversations(updated);
+    if (activeConversationId === id) {
+      setActiveConversationId(updated[0]?.id);
+    }
+    // Push the deletion (tombstone + filtered list) to the cloud immediately.
+    runConversationSync(updated);
+  }, [activeConversationId, runConversationSync]);
 
   // ── Chat export ──────────────────────────────────────────────────────────
   const exportChat = useCallback((format = 'markdown') => {

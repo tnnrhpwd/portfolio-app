@@ -199,7 +199,7 @@ const getSimpleConversations = asyncHandler(async (req, res) => {
     }));
 
     if (!Item) {
-      return res.status(200).json({ conversations: null, updatedAt: null });
+      return res.status(200).json({ conversations: null, deletedIds: [], updatedAt: null });
     }
 
     // Conversations may be compressed
@@ -213,6 +213,7 @@ const getSimpleConversations = asyncHandler(async (req, res) => {
 
     res.status(200).json({
       conversations,
+      deletedIds: Array.isArray(Item.deletedIds) ? Item.deletedIds.map(String) : [],
       updatedAt: Item.updatedAt || Item.createdAt,
     });
   } catch (error) {
@@ -231,7 +232,7 @@ const updateSimpleConversations = asyncHandler(async (req, res) => {
     throw new Error('User not found');
   }
 
-  const { conversations } = req.body;
+  const { conversations, deletedIds } = req.body;
 
   if (!Array.isArray(conversations)) {
     res.status(400);
@@ -242,7 +243,23 @@ const updateSimpleConversations = asyncHandler(async (req, res) => {
   const now = new Date().toISOString();
 
   try {
-    const jsonStr = JSON.stringify(conversations);
+    // Preserve any server-persisted deletion tombstones and union them with
+    // the ones this request may carry, so a full overwrite can't resurrect a
+    // conversation another device deleted.
+    let existingDeletedIds = [];
+    try {
+      const { Item } = await dynamodb.send(new GetCommand({
+        TableName: TABLE_NAME,
+        Key: { id: itemId, createdAt: CSIMPLE_CREATED_AT },
+      }));
+      if (Array.isArray(Item?.deletedIds)) existingDeletedIds = Item.deletedIds.map(String);
+    } catch { /* no stored copy yet */ }
+
+    const allDeletedIds = unionTombstones(existingDeletedIds, deletedIds);
+    const tombstone = new Set(allDeletedIds);
+    const filtered = conversations.filter(c => c && c.id != null && !tombstone.has(String(c.id)));
+
+    const jsonStr = JSON.stringify(filtered);
 
     // Compress if data is large (>100KB uncompressed) or approaching DynamoDB 400KB limit
     let text, compressed;
@@ -266,6 +283,7 @@ const updateSimpleConversations = asyncHandler(async (req, res) => {
         id: itemId,
         text,
         compressed,
+        deletedIds: allDeletedIds,
         createdAt: CSIMPLE_CREATED_AT,
         updatedAt: now,
       },
@@ -274,6 +292,7 @@ const updateSimpleConversations = asyncHandler(async (req, res) => {
     res.status(200).json({
       success: true,
       updatedAt: now,
+      deletedIds: allDeletedIds,
       compressed,
       sizeBytes: text.length,
     });
@@ -308,6 +327,7 @@ const mergeSimpleConversations = asyncHandler(async (req, res) => {
   try {
     // Read the existing cloud copy (if any).
     let existing = [];
+    let existingDeletedIds = [];
     try {
       const { Item } = await dynamodb.send(new GetCommand({
         TableName: TABLE_NAME,
@@ -318,9 +338,15 @@ const mergeSimpleConversations = asyncHandler(async (req, res) => {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) existing = parsed;
       }
+      if (Array.isArray(Item?.deletedIds)) existingDeletedIds = Item.deletedIds.map(String);
     } catch { /* no cloud copy yet — start from scratch */ }
 
-    const merged = mergeConversationLists(existing, conversations, deletedIds);
+    // Union the server-persisted tombstones with the client's, so a delete on
+    // any device stays deleted everywhere instead of being resurrected by a
+    // stale device that never saw it.
+    const allDeletedIds = unionTombstones(existingDeletedIds, deletedIds);
+
+    const merged = mergeConversationLists(existing, conversations, allDeletedIds);
 
     const jsonStr = JSON.stringify(merged);
     let text, compressed;
@@ -343,6 +369,7 @@ const mergeSimpleConversations = asyncHandler(async (req, res) => {
         id: itemId,
         text,
         compressed,
+        deletedIds: allDeletedIds,
         createdAt: CSIMPLE_CREATED_AT,
         updatedAt: now,
       },
@@ -351,6 +378,7 @@ const mergeSimpleConversations = asyncHandler(async (req, res) => {
     res.status(200).json({
       success: true,
       conversations: merged,
+      deletedIds: allDeletedIds,
       updatedAt: now,
       compressed,
       sizeBytes: text.length,
@@ -447,6 +475,20 @@ function mergeConversation(a, b) {
     title: pickConversationTitle(a, b),
     updatedAt: new Date(Math.max(recencyA, recencyB)).toISOString(),
   };
+}
+
+/**
+ * Union of deletion tombstones from the server-persisted set and the
+ * client's set. Tombstones are stored server-side so a delete made on one
+ * device stays deleted on every other device — otherwise a stale device that
+ * never saw the delete would resurrect the conversation on its next sync.
+ * Pure helper (exported for tests as `_unionTombstones`).
+ */
+function unionTombstones(existingDeletedIds, clientDeletedIds) {
+  const set = new Set();
+  (Array.isArray(existingDeletedIds) ? existingDeletedIds : []).forEach(id => set.add(String(id)));
+  (Array.isArray(clientDeletedIds) ? clientDeletedIds : []).forEach(id => set.add(String(id)));
+  return Array.from(set);
 }
 
 /**
@@ -982,4 +1024,5 @@ module.exports = {
   _mergeConversationLists: mergeConversationLists,
   _mergeConversation: mergeConversation,
   _mergeMessageLists: mergeMessageLists,
+  _unionTombstones: unionTombstones,
 };

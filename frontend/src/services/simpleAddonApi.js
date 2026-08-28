@@ -1569,6 +1569,19 @@ export function addDeletedConversationId(id) {
 }
 
 /**
+ * Replace the locally-recorded deletion tombstones with the authoritative
+ * server-persisted set. Called after every merge so every device converges on
+ * the same deleted-conversation list (server wins on the union).
+ * @param {Array<string|number>} ids - Deletion tombstones
+ */
+export function setDeletedConversationIds(ids) {
+  try {
+    const clean = Array.isArray(ids) ? ids.map(String) : [];
+    localStorage.setItem(DELETED_CONVOS_KEY, JSON.stringify(clean));
+  } catch { /* localStorage unavailable */ }
+}
+
+/**
  * Merge local conversations with the cloud copy (server-side union by
  * conversation id + per-message id), returning the authoritative merged list.
  * This is used for BOTH initial pull and debounced save so that:
