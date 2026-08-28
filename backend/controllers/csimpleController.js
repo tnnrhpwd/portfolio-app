@@ -257,7 +257,12 @@ const updateSimpleConversations = asyncHandler(async (req, res) => {
 
     const allDeletedIds = unionTombstones(existingDeletedIds, deletedIds);
     const tombstone = new Set(allDeletedIds);
-    const filtered = conversations.filter(c => c && c.id != null && !tombstone.has(String(c.id)));
+    const filtered = conversations
+      .filter(c => c && c.id != null && !tombstone.has(String(c.id)))
+      // Empty conversations (no messages) carry nothing worth persisting. The
+      // client always keeps a local "New Chat" placeholder and used to eagerly
+      // sync it, which accumulated dozens of empty chats across devices.
+      .filter(c => Array.isArray(c?.messages) && c.messages.length > 0);
 
     const jsonStr = JSON.stringify(filtered);
 
@@ -348,7 +353,12 @@ const mergeSimpleConversations = asyncHandler(async (req, res) => {
 
     const merged = mergeConversationLists(existing, conversations, allDeletedIds);
 
-    const jsonStr = JSON.stringify(merged);
+    // Drop empty conversations (no messages) — they carry nothing worth
+    // persisting and previously accumulated from each device's fresh
+    // "New Chat" placeholder being eagerly synced.
+    const nonEmpty = merged.filter(c => Array.isArray(c?.messages) && c.messages.length > 0);
+
+    const jsonStr = JSON.stringify(nonEmpty);
     let text, compressed;
     if (jsonStr.length > 100 * 1024) {
       text = compressString(jsonStr);
@@ -377,7 +387,7 @@ const mergeSimpleConversations = asyncHandler(async (req, res) => {
 
     res.status(200).json({
       success: true,
-      conversations: merged,
+      conversations: nonEmpty,
       deletedIds: allDeletedIds,
       updatedAt: now,
       compressed,

@@ -93,6 +93,16 @@ function getDeviceLocalSettings() {
   } catch { return {}; }
 }
 
+/** True when a conversation has at least one message (i.e. worth syncing). */
+const hasMessages = (c) => Array.isArray(c?.messages) && c.messages.length > 0;
+
+/**
+ * Drop empty "New Chat" placeholders before syncing. Every device keeps a
+ * fresh empty placeholder locally, and eagerly syncing it was accumulating
+ * duplicate empty chats on other devices.
+ */
+const nonEmptyConversations = (list) => (Array.isArray(list) ? list : []).filter(hasMessages);
+
 const DEFAULT_SETTINGS = {
   saveChatsLocally: true,
   theme: 'system',
@@ -392,7 +402,9 @@ function SimpleChat({
     syncInFlight.current = true;
     try {
       setCloudSyncStatus('syncing');
-      const local = Array.isArray(overrideConversations) ? overrideConversations : conversationsRef.current;
+      const local = nonEmptyConversations(
+        Array.isArray(overrideConversations) ? overrideConversations : conversationsRef.current
+      );
       const result = await mergeCloudConversations(token, local, getDeletedConversationIds());
       lastCloudConvosUpdate.current = result.updatedAt;
 
@@ -405,10 +417,16 @@ function SimpleChat({
       // identical result from retriggering the debounced save.
       if (result?.conversations && Array.isArray(result.conversations)) {
         setConversations(prev => {
-          if (JSON.stringify(result.conversations) === JSON.stringify(prev)) {
+          // The server never returns empty conversations. If the merged list
+          // is empty it just means there are no real (non-empty) chats yet —
+          // keep the current local state (including the local "New Chat"
+          // placeholder) instead of collapsing to zero.
+          const merged = result.conversations;
+          if (merged.length === 0) return prev;
+          if (JSON.stringify(merged) === JSON.stringify(prev)) {
             return prev;
           }
-          return result.conversations;
+          return merged;
         });
       }
       setCloudSyncStatus('synced');
@@ -464,16 +482,18 @@ function SimpleChat({
             try {
               const merged = await mergeCloudConversations(
                 user.token,
-                conversations,
+                nonEmptyConversations(conversations),
                 getDeletedConversationIds()
               );
               if (Array.isArray(merged.deletedIds)) setDeletedConversationIds(merged.deletedIds);
               if (merged?.conversations && Array.isArray(merged.conversations)) {
                 setConversations(prev => {
-                  if (JSON.stringify(merged.conversations) === JSON.stringify(prev)) {
+                  const next = merged.conversations;
+                  if (next.length === 0) return prev;
+                  if (JSON.stringify(next) === JSON.stringify(prev)) {
                     return prev;
                   }
-                  return merged.conversations;
+                  return next;
                 });
               }
             } catch (convErr) {
