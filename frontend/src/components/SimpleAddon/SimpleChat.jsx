@@ -21,6 +21,7 @@ import {
   getDeletedConversationIds,
   addDeletedConversationId,
   queueRemoteCommand,
+  queueRemoteConfirm,
   getRemoteCommandResult,
   getCustomAddonHost,
   upsertWorkspaceItem,
@@ -61,7 +62,7 @@ const isUserConfigError = (message = '') =>
 // "open edge on pc", "open edge on my computer", "on the desktop". Used to
 // route a message through the remote addon relay (phone → cloud → PC) even
 // when the chat provider is otherwise the tool-less cloud LLM.
-const PC_CONTROL_RE = /\b(?:on\s+(?:my\s+|the\s+)?(?:pc|computer|desktop|windows\s+(?:pc|machine)))\b/i;
+const PC_CONTROL_RE = /\b(?:on\s+(?:my\s+|the\s+)?|(?:my|the)\s+)(?:pc|computer|desktop|windows\s+(?:pc|machine))\b/i;
 const isPcControlRequest = (text = '') => PC_CONTROL_RE.test(text);
 
 // Avoid re-submitting a bug report for the exact same recurring error within
@@ -736,6 +737,26 @@ function SimpleChat({
       throw new Error('Remote addon did not respond in time. Is the addon running on your desktop?');
     }
 
+    // Destructive actions (sleep/shutdown/etc.) return a confirmation prompt
+    // from the desktop addon. Surface it as an interactive confirmation rather
+    // than a dead-end text reply — the PC won't act until the user confirms.
+    if (result.confirmation) {
+      setPendingConfirmation({ ...result.confirmation, remote: true });
+      const confirmMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: result.response || result.confirmation.question || 'Confirm this action?',
+        timestamp: new Date().toISOString(),
+        modelId: result.modelId || model,
+        isRemote: true,
+      };
+      setConversations(prev => prev.map(c => {
+        if (c.id !== activeConversationId) return c;
+        return { ...c, messages: [...c.messages, confirmMessage] };
+      }));
+      return;
+    }
+
     const assistantMessage = {
       id: (Date.now() + 1).toString(),
       role: 'assistant',
@@ -758,6 +779,31 @@ function SimpleChat({
       speech.speak(result.action.description);
     }
   }, [user, settings, activeAgent, activeConversationId, speech]);
+
+  // ── Remote confirmation (phone → cloud → desktop) ────────────────────────
+  // Relays a confirmation choice (e.g. "Yes, sleep") back to the desktop
+  // addon's /api/chat/confirm and polls for the resulting action response.
+  const runRemoteConfirm = useCallback(async (confirmationId, selectedOption) => {
+    if (!user?.token) throw new Error('Please log in to confirm this action.');
+
+    const { commandId } = await queueRemoteConfirm(
+      user.token,
+      { confirmationId, selectedOption },
+      getSelectedRemoteDeviceId()
+    );
+
+    const POLL_INTERVAL = 1500;
+    const MAX_POLLS = 20;
+    let result = null;
+    for (let i = 0; i < MAX_POLLS; i++) {
+      await new Promise(r => setTimeout(r, POLL_INTERVAL));
+      const poll = await getRemoteCommandResult(user.token, commandId);
+      if (poll.status === 'completed') { result = poll.result; break; }
+      if (poll.status === 'error') throw new Error(poll.error || 'Remote confirmation failed');
+    }
+    if (!result) throw new Error('Remote addon did not respond in time.');
+    return result;
+  }, [user]);
 
   const sendMessage = useCallback(async (text, files = []) => {
     const hasFiles = files && files.length > 0;
@@ -1395,7 +1441,12 @@ function SimpleChat({
     }));
 
     try {
-      const data = await confirmAction(confirmationId, selectedOption);
+      // Remote confirmations (issued by the desktop addon via the cloud
+      // relay) must be sent back through the relay, not the local addon.
+      const isRemote = pendingConfirmation?.remote === true;
+      const data = isRemote
+        ? await runRemoteConfirm(confirmationId, selectedOption)
+        : await confirmAction(confirmationId, selectedOption);
 
       const assistantMessage = {
         id: (Date.now() + 1).toString(),
@@ -1403,6 +1454,7 @@ function SimpleChat({
         content: data.response,
         timestamp: new Date().toISOString(),
         action: data.action || null,
+        ...(isRemote && { isRemote: true }),
       };
 
       setConversations(prev => prev.map(c => {
@@ -1429,7 +1481,7 @@ function SimpleChat({
       setPendingConfirmation(null);
       setIsConfirming(false);
     }
-  }, [activeConversationId, isConfirming, settings, speech]);
+  }, [activeConversationId, isConfirming, settings, speech, pendingConfirmation, runRemoteConfirm]);
 
   handleConfirmRef.current = handleConfirmOption;
 

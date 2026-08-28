@@ -279,7 +279,7 @@ const queueCommand = asyncHandler(async (req, res) => {
   }
 
   // Validate type
-  const VALID_TYPES = ['chat', 'chat_stream'];
+  const VALID_TYPES = ['chat', 'chat_stream', 'confirm'];
   if (!VALID_TYPES.includes(type)) {
     res.status(400);
     throw new Error(`Invalid command type. Must be one of: ${VALID_TYPES.join(', ')}`);

@@ -30,6 +30,7 @@ class CloudRelayService {
   constructor(chatHandler, options = {}) {
     this._token = null;  // User JWT for backend auth
     this._chatHandler = chatHandler; // Function to process chat locally
+    this._confirmHandler = options.confirmHandler || null; // Resolve confirmations locally
     this._heartbeatTimer = null;
     this._pollTimer = null;
     this._running = false;
@@ -198,6 +199,11 @@ class CloudRelayService {
       if (type === 'chat' || type === 'chat_stream') {
         // Use the addon's chat handler to process the message
         result = await this._chatHandler(payload);
+      } else if (type === 'confirm') {
+        // Resolve a pending action confirmation (e.g. "Yes, sleep") locally
+        // and post the resulting action response back to the backend.
+        if (!this._confirmHandler) throw new Error('Confirm handler not configured');
+        result = await this._confirmHandler(payload);
       } else {
         throw new Error(`Unknown command type: ${type}`);
       }

@@ -2003,6 +2003,32 @@ export async function queueRemoteCommand(token, payload, deviceId) {
 }
 
 /**
+ * Queue a confirmation choice for remote addon execution via the backend.
+ * Used to resolve a pending power-action confirmation (e.g. "Yes, sleep")
+ * that the desktop addon returned during a remote chat command.
+ * @param {string} token - JWT auth token
+ * @param {object} payload - { confirmationId, selectedOption }
+ * @param {string} [deviceId] - Target addon device.
+ * @returns {{ commandId: string, deviceId: string }}
+ */
+export async function queueRemoteConfirm(token, payload, deviceId) {
+  const target = deviceId || getSelectedRemoteDeviceId() || undefined;
+  const res = await fetch(`${getPortfolioApiUrl()}/addon/command`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ type: 'confirm', payload, ...(target ? { deviceId: target } : {}) }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new Error(`Failed to queue confirmation: ${text}`);
+  }
+  return res.json();
+}
+
+/**
  * Poll for a remote command result.
  * @param {string} token - JWT auth token
  * @param {string} commandId - Command ID to check

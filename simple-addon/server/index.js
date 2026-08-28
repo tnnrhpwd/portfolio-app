@@ -621,7 +621,22 @@ const cloudRelay = new CloudRelayService(async (payload) => {
     throw new Error(`Addon chat failed: ${res.status} ${text}`);
   }
   return res.json();
-}, { getDeviceId });
+}, {
+  getDeviceId,
+  confirmHandler: async (payload) => {
+    const port = activePort || DEFAULT_PORT;
+    const res = await fetch(`http://127.0.0.1:${port}/api/chat/confirm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => res.statusText);
+      throw new Error(`Addon confirm failed: ${res.status} ${text}`);
+    }
+    return res.json();
+  },
+});
 
 // ─── Middleware ─────────────────────────────────────────────────────────────────
 

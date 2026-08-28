@@ -60,6 +60,7 @@ function ConfirmationPanel({ confirmation, onSelectOption, onDismiss, isLoading 
         </div>
         <p className="confirmation-panel__question">{question}</p>
         <button
+          type="button"
           className="confirmation-panel__close"
           onClick={onDismiss}
           title="Dismiss (Esc)"
@@ -83,6 +84,7 @@ function ConfirmationPanel({ confirmation, onSelectOption, onDismiss, isLoading 
         {options.map((option, index) => (
           <button
             key={index}
+            type="button"
             className="confirmation-panel__option"
             onClick={() => onSelectOption?.(id, option)}
             disabled={isLoading}
