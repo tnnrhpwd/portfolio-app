@@ -105,7 +105,7 @@ const QUOTAS = Object.freeze({
 // ──────────────────────────────────────────────
 const FEATURES = Object.freeze({
   [PLAN_IDS.FREE]: [
-    '🌐 AI chat (bring your own API key)',
+    '🌐 AI chat (included monthly cloud credits)',
     '🖥️ Simple desktop addon — full local automation, no daily cap',
     '📁 100 MB cloud storage',
   ],
@@ -120,7 +120,7 @@ const FEATURES = Object.freeze({
 /** Plain-text feature bullets (no emoji) for emails */
 const FEATURES_PLAIN = Object.freeze({
   [PLAN_IDS.FREE]: [
-    'AI chat (bring your own API key)',
+    'AI chat (included monthly cloud credits)',
     'Simple desktop addon — full local automation, no daily cap',
     '100 MB cloud storage',
   ],

@@ -27,6 +27,7 @@ import {
   deactivateKillSwitch,
   setAutoApproveAll,
 } from '../../services/simpleAddonApi';
+import { ADDON_DOWNLOAD_URL } from '../../hooks/simpleAddon/useAddonDetection';
 import './PermissionsManager.css';
 
 function fmtWhen(ts) {
@@ -87,7 +88,7 @@ export default function PermissionsManager({ addonConnected }) {
     return (
       <div className="perms-empty">
         <p>Install and connect the Simple addon to manage automation permissions and data consents.</p>
-        <a className="perms-link" href="/blog/simple-addon">How to install →</a>
+        <a className="perms-link" href={ADDON_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer">Download the Simple addon →</a>
       </div>
     );
   }

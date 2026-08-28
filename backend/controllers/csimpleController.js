@@ -32,8 +32,7 @@ const TABLE_NAME = 'Simple';
 const NEVER_SYNC_KEYS = ['micDeviceId', 'sttEnabled'];
 
 // Keys whose values are sensitive secrets — encrypted at rest before persisting
-// to DynamoDB and decrypted when read back. Currently just the GitHub PAT, but
-// designed to grow (e.g. anthropic/openai keys if we ever support BYOK there).
+// to DynamoDB and decrypted when read back. Currently just the GitHub PAT.
 const SENSITIVE_KEYS = ['githubToken'];
 
 /**

@@ -414,7 +414,7 @@ router.delete('/pay-methods/:id', protect, paymentLimiter, logPaymentAction, del
 // Billing & Subscriptions
 router.post('/create-invoice', protect, paymentLimiter, logPaymentAction, sanitizeInput, createInvoice);
 router.post('/subscribe-customer', protect, paymentLimiter, logPaymentAction, validateSubscription, handleValidationErrors, subscribeCustomer);
-// custom-limit route removed — BYOK model, no credit limits
+// custom-limit route removed — no per-user custom credit limits
 
 
 

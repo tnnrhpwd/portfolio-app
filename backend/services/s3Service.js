@@ -1,5 +1,5 @@
 // S3 Service for handling file uploads with pre-signed URLs
-const { S3Client, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const { randomUUID } = require('crypto');
 require('dotenv').config();
@@ -192,12 +192,32 @@ const getFileMetadata = async (s3Key) => {
     }
 };
 
+// Download a file from S3 and return its contents as a base64 string.
+const getFileBuffer = async (s3Key) => {
+    try {
+        logger.debug('Fetching file from S3:', s3Key);
+
+        const command = new GetObjectCommand({
+            Bucket: process.env.AWS_S3_BUCKET,
+            Key: s3Key,
+        });
+
+        const response = await s3Client.send(command);
+        return await response.Body.transformToString('base64');
+
+    } catch (error) {
+        logger.error('Error fetching file from S3:', error);
+        throw new Error(`Failed to fetch file from S3: ${error.message}`);
+    }
+};
+
 module.exports = {
     generatePresignedUploadUrl,
     generateCloudFrontUrl,
     checkFileExists,
     deleteFile,
     getFileMetadata,
+    getFileBuffer,
     validateFile,
     generateS3Key
 };

@@ -20,6 +20,7 @@ import {
   updateWorkspaceProfile,
   deleteWorkspaceProfile,
 } from '../../services/simpleAddonApi';
+import { ADDON_DOWNLOAD_URL } from '../../hooks/simpleAddon/useAddonDetection';
 import './WorkspaceProfilesManager.css';
 
 function fmtSavedAt(ts) {
@@ -106,7 +107,7 @@ export default function WorkspaceProfilesManager({ addonConnected }) {
     return (
       <div className="perms-empty">
         <p>Install and connect the Simple addon to save and restore window arrangements on this PC.</p>
-        <a className="perms-link" href="/blog/simple-addon">How to install →</a>
+        <a className="perms-link" href={ADDON_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer">Download the Simple addon →</a>
       </div>
     );
   }

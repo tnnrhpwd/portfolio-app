@@ -216,8 +216,8 @@ function injectMembershipContext(systemParts, user) {
     }
 
     const tierFeatures = {
-        Free: 'Free tier (unlimited local automation commands, 100MB storage, bring your own API key).',
-        Pro: 'Pro tier ($15/mo — unlimited local automation commands, 50GB storage, all models, phone-to-PC remote, priority support).',
+        Free: 'Free tier (unlimited local automation commands, 100MB storage, included monthly cloud AI credits).',
+        Pro: 'Pro tier ($15/mo — unlimited local automation commands, 50GB storage, included monthly cloud AI credits, phone-to-PC remote, priority support).',
     };
 
     const tierDesc = tierFeatures[rank] || tierFeatures.Free;

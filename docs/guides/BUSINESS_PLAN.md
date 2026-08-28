@@ -43,8 +43,8 @@ Pick **one** of these to focus your messaging, onboarding, and first outreach on
 
 ## Why someone would pay (the actual value exchange)
 
-- **Free tier** exists to let people experience "it actually works" firsthand — with their own AI API key so it costs you nothing, and a daily automation cap that's generous enough to solve a real small task.
-- **Pro tier ($15/mo)** is worth paying once someone hits the free daily automation cap regularly — i.e., once the tool has already proven it saves them real time, they pay to remove the ceiling. This is the honest reason people upgrade: **proven value first, payment second.** Concretely, per the current [pricing config](/c:/Users/tanne/Documents/Github/portfolio-app/frontend/src/constants/pricing.js), Pro raises the daily automation limit (50 → 5,000/day), raises cloud storage (100 MB → 50 GB), adds live screen viewing from your phone, and adds email support — it does not add more AI capability, since AI chat is bring-your-own-key on both tiers.
+- **Free tier** exists to let people experience "it actually works" firsthand — with a small included monthly AI-credit allowance and full local automation, so there's no cost barrier to trying the core loop.
+- **Pro tier ($15/mo)** is worth paying once someone has already felt real value from the free tier. Concretely, per the current [pricing config](/c:/Users/tanne/Documents/Github/portfolio-app/frontend/src/constants/pricing.js), Pro raises cloud storage (100 MB → 50 GB), adds live screen viewing from your phone, adds email support, and raises the included monthly AI-credit allowance — automation commands are unlimited on both tiers.
 - This is why Tier 1 of the [monetization strategies doc](./ETHICAL_MONETIZATION_STRATEGIES.md) (perfecting the free→pro funnel) matters more than inventing new revenue streams: the entire business model depends on the free experience being good enough to convince someone the paid ceiling is worth removing.
 
 ---

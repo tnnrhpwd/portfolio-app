@@ -3,7 +3,8 @@
  *
  * Keep in sync with backend/constants/pricing.js.
  * Two tiers: Free and Pro ($15/mo).
- * AI usage is BYOK (Bring Your Own Key) — no platform credits.
+ * AI usage is metered and server-paid (AWS Bedrock / Claude Haiku 4.5) with
+ * per-tier monthly credit limits — there is no bring-your-own-key (BYOK) option.
  */
 
 // ──────────────────────────────────────────────
@@ -60,7 +61,7 @@ export const QUOTA_SHORT = Object.freeze({
 // ──────────────────────────────────────────────
 export const FEATURES = Object.freeze({
   [PLAN_IDS.FREE]: [
-    '🌐 AI chat (bring your own API key)',
+    '🌐 AI chat (included monthly cloud credits)',
     '🖥️ Simple desktop addon — full local automation, no daily cap',
     '📁 100 MB cloud storage',
   ],

@@ -47,7 +47,7 @@ const Terms = () => {
                             <button onClick={() => scrollToSection("subscriptions")}>3. Subscription Plans</button>
                         </li>
                         <li className={activeSection === "credits" ? "active" : ""}>
-                            <button onClick={() => scrollToSection("credits")}>4. AI Usage (BYOK)</button>
+                            <button onClick={() => scrollToSection("credits")}>4. AI Usage (Cloud Credits)</button>
                         </li>
                         <li className={activeSection === "payments" ? "active" : ""}>
                             <button onClick={() => scrollToSection("payments")}>5. Payments & Billing</button>
@@ -132,13 +132,14 @@ const Terms = () => {
                                 Our {PLAN_NAMES[PLAN_IDS.FREE]} tier provides limited access for evaluation and personal use:
                             </p>
                             <ul>
-                                <li>/net AI chat with your own API key (bring-your-own-key only; no included AI credits)</li>
+                                <li>/net AI chat with included monthly cloud credits (see §4)</li>
                                 <li>Simple desktop addon — full local automation, no daily cap</li>
                                 <li>{STORAGE_DISPLAY[PLAN_IDS.FREE]} cloud storage</li>
                             </ul>
                             <p>
-                                The /net AI chat feature is available on the Free tier with your own API key at no
-                                charge from us.
+                                The /net AI chat feature is included on the Free tier with a monthly cloud-credit
+                                allowance; usage beyond that allowance is unavailable until the next monthly cycle
+                                (see §4).
                             </p>
                             <h3>3.2 {PLAN_NAMES[PLAN_IDS.PRO]} Membership — $15/month</h3>
                             <p>
@@ -151,8 +152,8 @@ const Terms = () => {
                                 <li>Email support</li>
                             </ul>
                             <p>
-                                AI usage on all plans is bring-your-own-key (BYOK). You provide your own API keys
-                                from providers like OpenAI or XAI, and API costs are billed directly by the provider.
+                                AI usage on all plans is metered against an included monthly cloud-credit allowance
+                                (see §4). There is no bring-your-own-key option.
                             </p>
                             <h3>3.3 Pricing Changes</h3>
                             <p>
@@ -166,24 +167,25 @@ const Terms = () => {
                     <section id="credits" className="terms-section">
                         <div className="section-icon">⚡</div>
                         <div className="section-content">
-                            <h2>4. AI Usage (Bring Your Own Key)</h2>
-                            <h3>4.1 BYOK Model</h3>
+                            <h2>4. AI Usage (Cloud Credits)</h2>
+                            <h3>4.1 Metered Cloud AI</h3>
                             <p>
-                                All AI features on our platform operate under a bring-your-own-key (BYOK) model.
-                                You must supply your own API keys from third-party AI providers (e.g., OpenAI, XAI/Grok).
-                                We do not provide, resell, or subsidize AI API credits.
+                                AI features on our platform are provided by us and metered against a monthly
+                                cloud-credit allowance included with each plan. There is no bring-your-own-key
+                                (BYOK) option — you do not supply, and we do not accept, third-party API keys.
                             </p>
-                            <h3>4.2 Third-Party Billing</h3>
+                            <h3>4.2 Monthly Allowances</h3>
                             <p>
-                                API usage costs are billed directly by the respective third-party provider according
-                                to their pricing terms. We are not responsible for charges incurred through your
-                                API keys.
+                                The Free tier includes a $0.50 monthly credit allowance and the Pro tier includes a
+                                $10.00 monthly credit allowance. Usage is measured against the cost of each request;
+                                when your allowance for the current cycle is exhausted, further AI requests are
+                                paused until the next monthly cycle.
                             </p>
-                            <h3>4.3 Key Security</h3>
+                            <h3>4.3 Fair Use</h3>
                             <p>
-                                Your API keys are transmitted securely and are not stored on our servers beyond the
-                                duration of the request. You are responsible for safeguarding your API keys and
-                                monitoring usage with your providers.
+                                Allowances are provided as part of your subscription and are subject to our fair-use
+                                policy (§6). We may adjust allowance amounts with reasonable notice as described in
+                                §3.3.
                             </p>
                         </div>
                     </section>

@@ -197,7 +197,7 @@ module.exports = {
   validateDataCreation,
   validatePaymentData,
   validateSubscription,
-  // validateCustomLimit, // removed — BYOK model, no credit limits
+  // validateCustomLimit, // removed — no per-user custom credit limits
   handleValidationErrors,
   sanitizeInput
 };

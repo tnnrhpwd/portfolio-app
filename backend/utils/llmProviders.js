@@ -129,10 +129,9 @@ function validateProviderModel(provider, model) {
         throw new Error(`Unsupported model: ${model} for provider: ${provider}`);
     }
     
-    // Per-user-key providers (none remain today — GitHub Models was retired
-    // by GitHub on 2026-07-30; this flag is kept for a future BYOK provider)
-    // don't have a server-level apiKey.
-    if (!PROVIDERS[provider].apiKey && !PROVIDERS[provider].perUserKey) {
+    // Every provider requires a server-level credential. There is no
+    // per-user-key (BYOK) path.
+    if (!PROVIDERS[provider].apiKey) {
         throw new Error(`API key not configured for provider: ${provider}`);
     }
     

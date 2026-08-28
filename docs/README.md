@@ -16,7 +16,7 @@ docs/
 │   ├── BUSINESS_PLAN.md              # What value the product provides customers
 │   └── ETHICAL_MONETIZATION_STRATEGIES.md # Ethical, ad-free revenue ideas
 ├── implementation/                    # Technical implementation details
-│   ├── API_USAGE_IMPLEMENTATION.md   # ⚠️ Historical — superseded by BYOK, see current pricing.js
+│   ├── API_USAGE_IMPLEMENTATION.md   # ⚠️ Historical — superseded by metered credits, see current pricing.js
 │   ├── IMPLEMENTATION_STATUS.md      # Feature implementation status
 │   ├── LLM_IMPLEMENTATION_SUMMARY.md # LLM provider integration
 │   ├── S3_INTEGRATION_SUMMARY.md     # S3 file upload integration
@@ -48,7 +48,7 @@ docs/
 - [Automation Roadmap](./implementation/AUTOMATION_ROADMAP.md) - Automation feature roadmap
 - [Automation Security](./implementation/AUTOMATION_SECURITY.md) - Automation security model
 - [Simple Marketplace Plan](./implementation/SIMPLE_MARKETPLACE_PLAN.md) - Marketplace & skill generalization plan (includes cost-based Free/Pro gating consistent with the Action Plan)
-- [API Usage Tracking](./implementation/API_USAGE_IMPLEMENTATION.md) - ⚠️ Historical document; current model is BYOK (see Action Plan)
+- [API Usage Tracking](./implementation/API_USAGE_IMPLEMENTATION.md) - ⚠️ Historical document; current model is metered cloud credits (see Action Plan)
 
 ### Troubleshooting
 - [OCR Debugging](./debugging/debug-ocr.md) - Fix OCR issues

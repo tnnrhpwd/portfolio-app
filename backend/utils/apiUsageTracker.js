@@ -46,8 +46,9 @@ const API_COSTS = {
 };
 
 // Monthly credit limits (USD) for METERED, server-paid providers (currently
-// just `bedrock` — Claude Haiku 4.5). Per-user-key (BYOK) providers, if any
-// are ever added again, are exempt from this via PER_USER_KEY_PROVIDERS below.
+// `bedrock` — Claude Haiku 4.5 — for chat, plus the platform's own OpenAI key
+// for OCR post-processing). All AI usage is server-paid and metered; there is
+// no bring-your-own-key (BYOK) option.
 //
 // Sized against Bedrock's actual per-token cost (API_COSTS.bedrock: $1/$5 per
 // million input/output tokens): $0.50/mo covers roughly 500K Haiku tokens —
@@ -294,20 +295,6 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
             };
         }
 
-        // Per-user-key (BYOK) providers use the user's own API key, so don't
-        // deduct credits for their usage — only track server-key usage. None
-        // remain today (GitHub Models was retired by GitHub on 2026-07-30);
-        // kept as an extension point for a future BYOK provider.
-        const PER_USER_KEY_PROVIDERS = new Set([]);
-        if (PER_USER_KEY_PROVIDERS.has(apiName)) {
-            logger.debug(`trackApiUsage: Provider "${apiName}" uses per-user key, skipping credit deduction`);
-            return {
-                success: true,
-                cost: 0,
-                skippedReason: 'per-user-key',
-            };
-        }
-        
         // Use cached user data
         const user = await getUserDataCached(userId);
         if (!user) {
@@ -859,15 +846,6 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
             return { canMake: true, reason: 'Admin user has unlimited access' };
         }
 
-        // Per-user-key (BYOK) providers use the user's own API key — always
-        // allow. None remain today (GitHub Models was retired by GitHub on
-        // 2026-07-30); kept as an extension point for a future BYOK provider.
-        const PER_USER_KEY_PROVIDERS = new Set([]);
-        if (PER_USER_KEY_PROVIDERS.has(apiName)) {
-            logger.debug(`canMakeApiCall: Provider "${apiName}" uses per-user key, always allowed`);
-            return { canMake: true, reason: 'Per-user API key — no credit check needed' };
-        }
-        
         // Get user data
         const user = await getUserDataCached(userId);
         if (!user) {
@@ -973,9 +951,7 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
         }
 
         // Enforce real per-tier monthly credit limits for METERED, server-paid
-        // providers (bedrock, and openai/xai if ever wired to a server key
-        // again). Per-user-key (BYOK) providers already returned early above
-        // and never reach this point.
+        // providers (bedrock for chat, openai for OCR post-processing).
         if (creditsData.availableCredits < estimatedCost) {
             logger.debug(`canMakeApiCall: Insufficient credits ($${creditsData.availableCredits.toFixed(4)} < $${estimatedCost.toFixed(4)})`);
             const planLimit = getMembershipLimit(userRank);

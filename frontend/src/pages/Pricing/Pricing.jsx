@@ -48,7 +48,7 @@ function Pricing() {
         period: 'month',
         tagline: 'Get started with the basics',
         features: [
-          'AI chat (bring your own API key)',
+          'AI chat (included monthly cloud credits)',
           'Simple desktop addon — full local automation, no daily cap',
           '100 MB cloud storage',
         ],
