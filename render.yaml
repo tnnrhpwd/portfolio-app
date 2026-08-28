@@ -1,0 +1,26 @@
+# Render Blueprint — defines the backend web service declaratively.
+#
+# This is the single source of truth for how the backend should be built and
+# run on Render. Use it with Render's "Blueprint" flow (New + → Blueprint),
+# or mirror these exact values in the existing service's
+# Settings → Build & Deploy:
+#
+#   Root Directory   : backend
+#   Build Command    : npm run build
+#   Start Command    : npm run server
+#   Install Command  : npm install        <-- this is the one that was missing
+#
+# Do NOT commit secrets here. Add env vars (AWS keys, Stripe, JWT secret,
+# DEEPSEEK_API_KEY, etc.) in the Render dashboard — they stay encrypted there.
+services:
+  - type: web
+    name: mern-plan-web-service
+    runtime: node
+    rootDir: backend
+    plan: free
+    # Node version is read from the repo-root .nvmrc (currently 22).
+    buildCommand: npm run build
+    # Must be `npm run server` — it resolves to `node server.js` in backend/package.json
+    # (nodemon is a devDependency and is NOT installed in production).
+    startCommand: npm run server
+    healthCheckPath: /health
