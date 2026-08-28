@@ -46,7 +46,7 @@ function Pricing() {
         name: 'Free',
         price: '$0',
         period: 'month',
-        tagline: 'Get started with the basics',
+        tagline: 'AI chat, full local automation, and 100 MB storage',
         features: [
           'AI chat (included monthly cloud credits)',
           'Simple desktop addon — full local automation, no daily cap',
@@ -95,6 +95,10 @@ function Pricing() {
           <div className="pricing-hero">
             <h1>Simple, Transparent Pricing</h1>
             <p>Choose the plan that fits your workflow. Upgrade or downgrade anytime.</p>
+            <p className="pricing-hero-example">
+              Simple is an AI agent for your Windows PC: show it once how you rename and file
+              invoices, and afterward saying “do the invoices” repeats those steps.
+            </p>
           </div>
 
           {!purchasesEnabled && (

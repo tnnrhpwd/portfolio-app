@@ -489,6 +489,28 @@
         transform: translateY(0);
     }
 }
+
+/* Simple (addon) description section */
+.simple-section {
+    animation: fadeInSection 1s ease-out 0.7s both;
+}
+
+.home-simple-heading {
+    font-size: var(--font-size-large);
+    font-weight: bold;
+}
+
+.home-simple-desc {
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-relaxed);
+    color: var(--text-color);
+    max-width: 800px;
+    margin: 0 auto;
+    text-align: left;
+    padding: var(--spacing-sm) 0;
+    text-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.02) var(--grey3-transp);
+}
+
 @media (orientation: landscape) {
     #content-tile{
         text-align: left;

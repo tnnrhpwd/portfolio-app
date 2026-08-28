@@ -77,7 +77,7 @@ export const FEATURES = Object.freeze({
 // Descriptions (pricing cards)
 // ──────────────────────────────────────────────
 export const DESCRIPTIONS = Object.freeze({
-  [PLAN_IDS.FREE]: 'Get started with the basics',
+  [PLAN_IDS.FREE]: 'AI chat, full local automation, and 100 MB storage',
   [PLAN_IDS.PRO]:  'More storage, live phone viewing, and email support',
 });
 
