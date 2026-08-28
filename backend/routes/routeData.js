@@ -91,6 +91,7 @@ const {
   deleteWorkspaceItem,
   appendLog,
   appendAction,
+  getRecentActions,
   getNextGoal,
   getTelemetrySummary,
   getWorkspaceContextPreview,
@@ -482,6 +483,7 @@ router.get('/csimple/workspace/templates', protect, workspaceReadLimiter, getWor
 router.get('/csimple/workspace/context',   protect, workspaceReadLimiter, getWorkspaceContextPreview);
 router.post('/csimple/workspace/log/append', protect, workspaceWriteLimiter, sanitizeInput, appendLog);
 router.post('/csimple/workspace/action/append', protect, workspaceActionLimiter, sanitizeInput, appendAction);
+router.get('/csimple/workspace/action/recent', protect, workspaceReadLimiter, getRecentActions);
 router.get('/csimple/workspace/goals/next', protect, workspaceReadLimiter, getNextGoal);
 router.get('/csimple/workspace/telemetry/summary', protect, workspaceReadLimiter, getTelemetrySummary);
 // NL macro compiler — works without the addon installed (Bedrock, server-side only)

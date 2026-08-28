@@ -264,17 +264,15 @@ const listGoals = ({ status } = {}) => {
 
 /**
  * Fetch the tail of the action log (most recent N entries).
- * The action log is stored as JSONL in a log kind item. We parse it here.
+ * The action log is stored as JSONL in the `action` kind (YYYYMMDD slug);
+ * the backend's /action/recent endpoint parses it server-side and returns
+ * 200 with an empty array when nothing is recorded yet (no 404 spam on
+ * this frequent poll).
  */
 const getRecentActions = async (n = 20) => {
     try {
-        const today = new Date().toISOString().slice(0, 10);
-        const item = await req('GET', `/log/${encodeURIComponent(`log-${today}`)}`).catch(() => null);
-        const content = item?.content || item?.attrs?.content || '';
-        if (!content) return [];
-        const lines = content.trim().split('\n').filter(Boolean);
-        const recent = lines.slice(-Math.max(1, n));
-        return recent.map(l => { try { return JSON.parse(l); } catch { return { summary: l }; } });
+        const out = await req('GET', `/action/recent?n=${encodeURIComponent(String(n))}`);
+        return Array.isArray(out?.entries) ? out.entries : [];
     } catch {
         return [];
     }

@@ -94,26 +94,16 @@ class PatternLearner extends EventEmitter {
 
     async _fetchEntries() {
         if (!this._wsClient) return [];
-        const all = [];
-        // Fetch the last 7 days of logs
-        for (let i = 0; i < 7; i++) {
-            const d = new Date(Date.now() - i * 86400000);
-            const dateStr = d.toISOString().slice(0, 10);
-            try {
-                const slug = `log-${dateStr}`;
-                const item = await this._wsClient.req('GET', `/log/${encodeURIComponent(slug)}`).catch(() => null);
-                const content = item?.content || item?.text || '';
-                if (!content) continue;
-                const lines = content.trim().split('\n').filter(Boolean);
-                for (const line of lines) {
-                    try {
-                        const entry = JSON.parse(line);
-                        if (entry.tool) all.push(entry);
-                    } catch {}
-                }
-            } catch {}
+        try {
+            // The action ring buffer lives in the `action` kind (YYYYMMDD
+            // slug), not `log`; /action/recent returns parsed entries (200
+            // with an empty array when nothing is recorded yet).
+            const out = await this._wsClient.req('GET', '/action/recent?days=7&n=500');
+            const entries = Array.isArray(out?.entries) ? out.entries : [];
+            return entries.filter(e => e && e.tool).slice(-MAX_LOG_ENTRIES);
+        } catch {
+            return [];
         }
-        return all.slice(-MAX_LOG_ENTRIES);
     }
 
     _fingerprint(entry) {

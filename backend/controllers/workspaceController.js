@@ -634,6 +634,51 @@ const appendAction = asyncHandler(async (req, res) => {
     res.status(200).json({ success: true, slug, sizeBytes, version: nextVersion });
 });
 
+// @desc    Read the tail of the user's action ring buffer (JSONL action
+//          records, most recent first across the last `days` days).
+//          Returns 200 with an empty `entries` array when nothing has been
+//          recorded yet — the addon's perception bus polls this every ~15s,
+//          so an empty/not-yet-written state is a normal empty result, never
+//          a 404 (which previously spammed backend logs).
+// @route   GET /api/data/csimple/workspace/action/recent?n=20&days=1
+// @access  Private
+const getRecentActions = asyncHandler(async (req, res) => {
+    if (!req.user) unauthorized(res);
+    const n = Math.min(500, Math.max(1, parseInt(req.query.n, 10) || 20));
+    const days = Math.min(30, Math.max(1, parseInt(req.query.days, 10) || 1));
+
+    const now = new Date();
+    const slugs = [];
+    for (let i = 0; i < days; i++) {
+        const d = new Date(now.getTime() - i * 86_400_000);
+        slugs.push(d.toISOString().slice(0, 10).replace(/-/g, ''));
+    }
+
+    // Each daily ring buffer is a separate action item keyed by YYYYMMDD.
+    const items = await Promise.all(slugs.map(async (slug) => {
+        try {
+            const { Item } = await dynamodb.send(new GetCommand({
+                TableName: TABLE_NAME,
+                Key: { id: itemId(req.user.id, 'action', slug), createdAt: CSIMPLE_CREATED_AT },
+            }));
+            return Item;
+        } catch { return null; }
+    }));
+
+    const entries = [];
+    for (const item of items) {
+        if (!item || !item.text || item.deletedAt) continue;
+        for (const ln of String(item.text).split('\n')) {
+            const trimmed = ln.trim();
+            if (!trimmed) continue;
+            try { entries.push(JSON.parse(trimmed)); }
+            catch { entries.push({ summary: trimmed }); }
+        }
+    }
+
+    res.status(200).json({ entries: entries.slice(-n) });
+});
+
 // @desc    Aggregate per-tool execution telemetry from the user's `action`
 //          ring-buffer items. Cheap server-side rollup of recent activity
 //          so the web UI can show "what your agent has been doing".
@@ -1111,6 +1156,7 @@ module.exports = {
     deleteWorkspaceItem,
     appendLog,
     appendAction,
+    getRecentActions,
     getNextGoal,
     getTelemetrySummary,
     getWorkspaceContextPreview,
