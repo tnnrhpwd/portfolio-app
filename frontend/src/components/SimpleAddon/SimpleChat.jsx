@@ -30,7 +30,7 @@ import {
 } from '../../services/simpleAddonApi';
 import { createData } from '../../features/data/dataSlice';
 import { getUserIdentifier } from '../../utils/supportUtils';
-import { DEFAULT_CLOUD_MODEL_ID, getEffectiveCloudModelId } from '../../utils/llmProviderOptions.js';
+import { DEFAULT_CLOUD_MODEL_ID, getEffectiveCloudModelId, resolveCloudModelProvider } from '../../utils/llmProviderOptions.js';
 import './SimpleChat.css';
 import './SimpleTheme.css';
 import { checkMessage as securityCheckMessage } from '../../utils/simpleAddon/securityGuard';
@@ -1152,6 +1152,7 @@ function SimpleChat({
           throw new Error('Portfolio chat not available. Please log in.');
         }
         const portfolioModel = getEffectiveCloudModelId(settings.portfolioModel, portfolioLLMProviders);
+        const portfolioProvider = resolveCloudModelProvider(portfolioModel, portfolioLLMProviders);
 
         // ── /compare handler — send last user message to a second model ──
         const slashCmd = handleSlashCommand(text);
@@ -1251,7 +1252,7 @@ function SimpleChat({
             },
           };
 
-          onPortfolioChatStream(lastUserMsg.content, trimmedHistory, 'bedrock', compareModel, {
+          onPortfolioChatStream(lastUserMsg.content, trimmedHistory, resolveCloudModelProvider(compareModel, portfolioLLMProviders), compareModel, {
             activeAgent: activeAgent?.id || null,
             behaviorFile: activeAgent?.behaviorFile || 'default.txt',
           });
@@ -1372,7 +1373,7 @@ function SimpleChat({
             },
           };
 
-          onPortfolioChatStream(text, trimmedHistory, 'bedrock', portfolioModel, {
+          onPortfolioChatStream(text, trimmedHistory, portfolioProvider, portfolioModel, {
             activeAgent: activeAgent?.id || null,
             behaviorFile: activeAgent?.behaviorFile || 'default.txt',
           });
@@ -1380,7 +1381,7 @@ function SimpleChat({
         }
 
         // ── Legacy non-streaming fallback ──
-        onPortfolioChat(text, trimmedHistory, 'bedrock', portfolioModel, {
+        onPortfolioChat(text, trimmedHistory, portfolioProvider, portfolioModel, {
           activeAgent: activeAgent?.id || null,
           behaviorFile: activeAgent?.behaviorFile || 'default.txt',
         });

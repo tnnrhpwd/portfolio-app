@@ -28,6 +28,16 @@ const PROVIDERS = {
         client: null,
         baseURL: 'https://api.x.ai/v1'
     },
+    deepseek: {
+        name: 'DeepSeek',
+        models: {
+            'deepseek-chat': { name: 'DeepSeek-V3 (Chat)', contextWindow: 64000 },
+            'deepseek-reasoner': { name: 'DeepSeek-R1 (Reasoner)', contextWindow: 64000 }
+        },
+        apiKey: process.env.DEEPSEEK_API_KEY,
+        client: null,
+        baseURL: 'https://api.deepseek.com'
+    },
     bedrock: {
         name: 'AWS Bedrock',
         // Cross-region inference profile ID for Claude Haiku 4.5 (verified against
@@ -71,6 +81,17 @@ async function initializeLLMClients() {
                 timeout: 360000 // 6 minutes timeout for reasoning models as per XAI docs
             });
             logger.debug('✅ XAI client initialized with OpenAI SDK (XAI compatible)');
+        }
+
+        // Initialize DeepSeek using the OpenAI SDK (DeepSeek exposes an
+        // OpenAI-compatible API at https://api.deepseek.com).
+        if (PROVIDERS.deepseek.apiKey && !PROVIDERS.deepseek.client) {
+            const openai = await import('openai');
+            PROVIDERS.deepseek.client = new openai.OpenAI({
+                apiKey: PROVIDERS.deepseek.apiKey,
+                baseURL: PROVIDERS.deepseek.baseURL
+            });
+            logger.debug('✅ DeepSeek client initialized with OpenAI SDK (DeepSeek compatible)');
         }
 
         return true;
@@ -210,6 +231,12 @@ async function createCompletion(provider, model, messages, options = {}) {
                 delete completionParams.max_tokens;
                 delete completionParams.temperature; // o1 models don't support temperature
             }
+        } else if (provider === 'deepseek') {
+            // deepseek-reasoner does not accept temperature/top_p/penalty
+            // params — strip them so the request isn't rejected.
+            if (model === 'deepseek-reasoner') {
+                delete completionParams.temperature;
+            }
         }
 
         // Make the API call
@@ -337,6 +364,63 @@ async function testXAIConnection() {
     }
 }
 
+/**
+ * Stream a completion for OpenAI-compatible providers (openai/xai/deepseek).
+ *
+ * Mirrors services/bedrockService.js#streamBedrockCompletion's contract: an
+ * async generator that yields `{ text }` for each token delta and, when the
+ * stream ends, returns `{ usage }` as the generator's final value (read via
+ * `next.value` once `next.done` is true).
+ *
+ * @param {string} provider - provider key (openai/xai/deepseek)
+ * @param {string} model - model id
+ * @param {Array} messages - OpenAI-style messages
+ * @param {Object} [options] - { maxTokens, temperature }
+ * @returns {AsyncGenerator<{text:string}, {usage:Object|null}>}
+ */
+async function* streamCompletion(provider, model, messages, options = {}) {
+    await initializeLLMClients();
+
+    const client = PROVIDERS[provider]?.client;
+    if (!client) {
+        throw new Error(`Client not available for provider: ${provider}`);
+    }
+
+    const params = {
+        model,
+        messages,
+        temperature: options.temperature ?? 0.7,
+        max_tokens: options.maxTokens || options.max_tokens || 1000,
+        stream: true,
+    };
+
+    if (provider === 'openai' && model.startsWith('o1-')) {
+        params.max_completion_tokens = params.max_tokens;
+        delete params.max_tokens;
+        delete params.temperature;
+    } else if (provider === 'deepseek' && model === 'deepseek-reasoner') {
+        delete params.temperature;
+    }
+
+    const stream = await client.chat.completions.create(params);
+    let usage = null;
+
+    for await (const chunk of stream) {
+        const delta = chunk?.choices?.[0]?.delta?.content;
+        if (delta) {
+            yield { text: delta };
+        }
+        if (chunk?.usage) {
+            usage = {
+                prompt_tokens: chunk.usage.prompt_tokens,
+                completion_tokens: chunk.usage.completion_tokens,
+            };
+        }
+    }
+
+    return { usage };
+}
+
 module.exports = {
     PROVIDERS,
     MODEL_TIER_REQUIREMENTS,
@@ -345,6 +429,7 @@ module.exports = {
     validateProviderModel,
     checkApiUsage,
     createCompletion,
+    streamCompletion,
     createBedrockChatCompletion,
     trackCompletion,
     testXAIConnection,

@@ -9,6 +9,7 @@ const { apiLimiter } = require('./middleware/rateLimiter'); // rate limiting
 const { sanitizeInput } = require('./middleware/validation'); // input sanitization
 const port = process.env.PORT || 5000;  //set port to hold api server
 var cors = require('cors')
+const { loadDeepSeekKey } = require('./utils/awsSecrets'); // DeepSeek key from AWS Secrets Manager (fallback to env)
 
 const app = express() // Calls the express function "express()" and puts new Express application inside the app variable
 
@@ -122,66 +123,78 @@ app.use(sanitizeInput);
 const funnelTimingMiddleware = require('./middleware/funnelTiming');
 app.use('/api/data', funnelTimingMiddleware);
 
-app.use('/api/data', require('./routes/routeData')) // serve all data at /api/data (regardless of hit url)
+// Route registration + server start are deferred so AWS Secrets Manager can
+// populate process.env.DEEPSEEK_API_KEY before any route is loaded (routes
+// transitively require llmProviders.js, which reads that env var at load).
+async function start() {
+  await loadDeepSeekKey();
 
-// Root endpoint for deployment health checks
-app.get('/', (req, res) => {
-  res.status(200).json({
-    message: 'Backend is running!',
-    service: 'portfolio-app-backend',
-    timestamp: new Date().toISOString(),
-    version: '1.0.0'
+  app.use('/api/data', require('./routes/routeData')) // serve all data at /api/data (regardless of hit url)
+
+  // Root endpoint for deployment health checks
+  app.get('/', (req, res) => {
+    res.status(200).json({
+      message: 'Backend is running!',
+      service: 'portfolio-app-backend',
+      timestamp: new Date().toISOString(),
+      version: '1.0.0'
+    });
   });
-});
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'OK',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    environment: process.env.NODE_ENV || 'development'
+  // Health check endpoint
+  app.get('/health', (req, res) => {
+    res.status(200).json({
+      status: 'OK',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || 'development'
+    });
   });
-});
 
-// Silently handle common browser requests that aren't real API routes
-app.get('/favicon.ico', (req, res) => res.status(204).end());
+  // Silently handle common browser requests that aren't real API routes
+  app.get('/favicon.ico', (req, res) => res.status(204).end());
 
-// Handle 404 for undefined routes
-app.use((req, res) => {
-  logger.warn(`404 - Route not found: ${req.originalUrl}`, {
-    method: req.method,
-    ip: req.ip,
-    userAgent: req.get('User-Agent')
+  // Handle 404 for undefined routes
+  app.use((req, res) => {
+    logger.warn(`404 - Route not found: ${req.originalUrl}`, {
+      method: req.method,
+      ip: req.ip,
+      userAgent: req.get('User-Agent')
+    });
+    
+    res.status(404).json({
+      error: 'Route not found',
+      path: req.originalUrl
+    });
   });
-  
-  res.status(404).json({
-    error: 'Route not found',
-    path: req.originalUrl
+
+  app.use(errorHandler) // adds middleware that returns errors in json format (regardless of hit url)
+
+  const server = app.listen(port, () => {
+    logger.info(`Server started on port ${port}`);
+  }); // listen for incoming http requests on the PORT
+
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      logger.error(`Port ${port} is already in use.`);
+      process.exit(1);
+    } else {
+      logger.error('Server error:', err);
+      throw err;
+    }
   });
-});
 
-app.use(errorHandler) // adds middleware that returns errors in json format (regardless of hit url)
-
-const server = app.listen(port, () => {
-  logger.info(`Server started on port ${port}`);
-}); // listen for incoming http requests on the PORT
-
-server.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    logger.error(`Port ${port} is already in use.`);
-    process.exit(1);
-  } else {
-    logger.error('Server error:', err);
-    throw err;
-  }
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM received, shutting down gracefully');
-  server.close(() => {
-    logger.info('Process terminated');
-    process.exit(0);
+  // Graceful shutdown
+  process.on('SIGTERM', () => {
+    logger.info('SIGTERM received, shutting down gracefully');
+    server.close(() => {
+      logger.info('Process terminated');
+      process.exit(0);
+    });
   });
+}
+
+start().catch((err) => {
+  logger.error('Failed to start server:', err);
+  process.exit(1);
 });

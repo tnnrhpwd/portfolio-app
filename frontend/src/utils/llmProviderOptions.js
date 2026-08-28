@@ -23,16 +23,17 @@ export const FALLBACK_CLOUD_MODEL = {
 
 export const DEFAULT_CLOUD_MODEL_ID = FALLBACK_CLOUD_MODEL.id;
 
-// The Simple Addon's "Cloud" mode is wired server-side to AWS Bedrock only
-// (see backend/services/llmService.js and controllers/workspaceController.js,
-// which call createBedrockCompletion() unconditionally for cloud requests).
-// The backend's /llm-providers endpoint, however, reports *every* provider
-// that happens to have server credentials configured — including legacy
-// OpenAI/XAI keys that are still set for unrelated features (e.g. OCR vision
-// extraction). Filtering to 'bedrock' here keeps every cloud-model surface
-// (Simple Addon sidebar, Advanced Settings, /settings page) from ever
-// showing a GPT/Grok model as a "cloud" option a user could select.
-const CLOUD_PROVIDER_KEY = 'bedrock';
+// The Simple Addon's "Cloud" mode is wired server-side to AWS Bedrock by
+// default, with DeepSeek now selectable as an additional cloud provider (see
+// backend/services/llmService.js, which routes non-Bedrock providers through
+// the OpenAI-compatible createCompletion/streamCompletion). The backend's
+// /llm-providers endpoint reports *every* provider that has server
+// credentials configured — including legacy OpenAI/XAI keys that are still
+// set for unrelated features (e.g. OCR vision extraction). Filtering to this
+// allowlist keeps every cloud-model surface (Simple Addon sidebar, Advanced
+// Settings, /settings page) from showing a GPT/Grok model as a "cloud"
+// option a user could select.
+const CLOUD_PROVIDERS = ['bedrock', 'deepseek'];
 
 /**
  * Flatten `{ providerKey: { name, models: { modelId: { name, rate, requiredTier } } } }`
@@ -44,7 +45,7 @@ export function buildCloudModelList(portfolioLLMProviders) {
   if (!portfolioLLMProviders || typeof portfolioLLMProviders !== 'object') return [];
   const result = [];
   Object.entries(portfolioLLMProviders).forEach(([provider, config]) => {
-    if (provider !== CLOUD_PROVIDER_KEY) return;
+    if (!CLOUD_PROVIDERS.includes(provider)) return;
     if (!config?.models) return;
     if (Array.isArray(config.models)) {
       config.models.forEach(m => {
@@ -87,4 +88,14 @@ export function getEffectiveCloudModelId(storedModelId, portfolioLLMProviders) {
   const cloudModels = buildCloudModelList(portfolioLLMProviders);
   if (cloudModels.some(m => m.id === storedModelId)) return storedModelId;
   return FALLBACK_CLOUD_MODEL.id;
+}
+
+/**
+ * Resolve which provider backs a given cloud model id (e.g. 'deepseek-chat'
+ * → 'deepseek', the Bedrock model id → 'bedrock'). Defaults to Bedrock so a
+ * stale/unknown id never routes to a decommissioned provider.
+ */
+export function resolveCloudModelProvider(modelId, portfolioLLMProviders) {
+  const match = buildCloudModelList(portfolioLLMProviders).find(m => m.id === modelId);
+  return match?.provider || FALLBACK_CLOUD_MODEL.provider;
 }

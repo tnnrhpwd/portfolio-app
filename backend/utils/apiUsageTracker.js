@@ -30,6 +30,13 @@ const API_COSTS = {
         'grok-4': { input: 0.001/1000, output: 0.003/1000 }, // per token (estimated pricing)
         'grok-4-fast-reasoning': { input: 0.001/1000, output: 0.003/1000 } // per token (estimated pricing)
     },
+    deepseek: {
+        // DeepSeek official per-token pricing (USD per 1M tokens, cache-miss):
+        // deepseek-chat $0.27 in / $1.10 out; deepseek-reasoner $0.55 in / $2.19 out.
+        'deepseek-chat': { input: 0.27/1000000, output: 1.10/1000000 },
+        'deepseek-reasoner': { input: 0.55/1000000, output: 2.19/1000000 },
+        'default': { input: 0.27/1000000, output: 1.10/1000000 }
+    },
     bedrock: {
         // AWS Bedrock — Claude Haiku 4.5 (cross-region inference profile
         // us.anthropic.claude-haiku-4-5-20251001-v1:0). Rates per

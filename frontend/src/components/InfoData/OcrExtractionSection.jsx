@@ -98,6 +98,7 @@ const OcrExtractionSection = ({
             >
               <option value="xai">XAI (Grok) - Default</option>
               <option value="openai">OpenAI</option>
+              <option value="deepseek">DeepSeek</option>
               <option value="anthropic">Anthropic</option>
               <option value="google">Google</option>
             </select>
@@ -125,6 +126,12 @@ const OcrExtractionSection = ({
                 <>
                   <option value="grok-4">Grok 4 (Default)</option>
                   <option value="grok-4-fast-reasoning">Grok 4 Fast Reasoning</option>
+                </>
+              )}
+              {llmProvider === 'deepseek' && (
+                <>
+                  <option value="deepseek-chat">DeepSeek-V3 Chat (Default)</option>
+                  <option value="deepseek-reasoner">DeepSeek-R1 Reasoner</option>
                 </>
               )}
               {llmProvider === 'anthropic' && (

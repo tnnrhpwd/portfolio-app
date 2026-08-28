@@ -6,6 +6,7 @@ const { canMakeApiCall, trackApiUsage } = require('../utils/apiUsageTracker.js')
 const { logger } = require('../utils/logger');
 const ocrService = require('../services/ocrService.js');
 const s3Service = require('../services/s3Service.js');
+const { PROVIDERS } = require('../utils/llmProviders');
 
 // Rough token estimate for a single OCR vision call, used to gate + meter the
 // platform-paid providers against the per-tier AI credit allowance. Sized so a
@@ -50,7 +51,7 @@ const extractOCR = asyncHandler(async (req, res) => {
             });
         }
 
-        const { imageData, imageUrl, s3Key, method, ocrProvider, model, ocrModel } = req.body || {};
+        const { imageData, imageUrl, s3Key, method, ocrProvider, model, ocrModel, llmProvider, llmModel } = req.body || {};
         const provider = method || ocrProvider || 'xai-vision';
         const modelArg = model || ocrModel;
 
@@ -96,6 +97,23 @@ const extractOCR = asyncHandler(async (req, res) => {
         // Perform OCR processing using service
         const ocrResult = await ocrService.processOCR(resolvedImageData, provider, modelArg);
 
+        // Optional LLM post-processing (opt-in): the client picks a text LLM
+        // provider/model (e.g. DeepSeek) to convert raw OCR text into structured
+        // datetime + action lines. Only runs when that provider is configured.
+        let enhancedText = ocrResult.extractedText;
+        let postProvider = null;
+        let postModel = null;
+        if (llmProvider && llmModel && PROVIDERS[llmProvider]?.apiKey) {
+            const enhanced = await ocrService.postProcessWithLLM(
+                ocrResult.extractedText, llmProvider, llmModel, userId
+            );
+            if (enhanced && enhanced.enhancedText && !enhanced.error) {
+                enhancedText = enhanced.enhancedText;
+                postProvider = enhanced.provider;
+                postModel = enhanced.model;
+            }
+        }
+
         // Deduct the estimated cost after a successful extraction.
         if (meter) {
             await trackApiUsage(userId, meter.apiName, {
@@ -106,9 +124,12 @@ const extractOCR = asyncHandler(async (req, res) => {
 
         res.status(200).json({
             success: true,
-            extractedText: ocrResult.extractedText,
+            extractedText: enhancedText,
             provider: ocrResult.provider,
             model: ocrResult.model,
+            postProcessed: !!postProvider,
+            postProvider,
+            postModel,
             confidence: ocrResult.confidence
         });
 

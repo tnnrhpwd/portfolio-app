@@ -159,6 +159,10 @@ const NNetChatView = () => {
       setSelectedModel('grok-4-fast-reasoning');
     } else if (selectedProvider === 'openai') {
       setSelectedModel('o1-mini');
+    } else if (selectedProvider === 'deepseek') {
+      setSelectedModel('deepseek-chat');
+    } else if (selectedProvider === 'bedrock') {
+      setSelectedModel('us.anthropic.claude-haiku-4-5-20251001-v1:0');
     }
   }, [selectedProvider]);
 

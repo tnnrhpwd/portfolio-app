@@ -4,6 +4,9 @@ const {
     checkApiUsage,
     trackCompletion,
     MODEL_TIER_REQUIREMENTS,
+    PROVIDERS,
+    createCompletion,
+    streamCompletion,
 } = require('../utils/llmProviders.js');
 const { createBedrockCompletion, streamBedrockCompletion, BEDROCK_MODEL_ID } = require('./bedrockService.js');
 const { isProTier, isSimpleTier } = require('../constants/pricing.js');
@@ -143,14 +146,27 @@ function parseCompressionRequest(req) {
     const contextInput = parsedJSON.text;
     logger.debug('Context input:', contextInput);
 
-    // GitHub Models (models.github.ai) was retired 2026-07-30 — every request is
-    // now served by AWS Bedrock (Claude Haiku 4.5) instead. `provider`/`model`
-    // are still accepted from the client (existing clients still send legacy
-    // values like provider: 'github', model: 'gpt-4o-mini') but are normalized
-    // here so downstream cost tracking/dashboards reflect what's actually used.
+    // AWS Bedrock (Claude Haiku 4.5) is the default. GitHub Models was retired
+    // 2026-07-30, so legacy `provider: 'github'` requests still fall through to
+    // Bedrock. DeepSeek is also selectable when a DEEPSEEK_API_KEY is
+    // configured; the client's `provider`/`model` are honored only for that
+    // provider. Everything else normalizes to Bedrock so cost tracking and
+    // dashboards reflect what's actually used.
     const requestedProvider = req.body.provider;
-    const provider = 'bedrock';
-    const model = BEDROCK_MODEL_ID;
+    const requestedModel = req.body.model;
+
+    let provider = 'bedrock';
+    let model = BEDROCK_MODEL_ID;
+
+    if (requestedProvider === 'deepseek') {
+        const cfg = PROVIDERS.deepseek;
+        if (cfg?.apiKey && cfg?.models) {
+            provider = 'deepseek';
+            model = (requestedModel && cfg.models[requestedModel])
+                ? requestedModel
+                : Object.keys(cfg.models)[0];
+        }
+    }
 
     logger.debug(`Using ${provider} with model ${model}${requestedProvider ? ` (client requested "${requestedProvider}")` : ''}`);
 
@@ -387,6 +403,26 @@ async function callBedrock(messages, options) {
 }
 
 /**
+ * Route a non-streaming LLM call to the right backend.
+ * Bedrock uses its dedicated Converse path; everything else (OpenAI/XAI/
+ * DeepSeek) uses the OpenAI-compatible `createCompletion`.
+ */
+async function makeLLMCall(provider, model, messages, options) {
+    if (provider === 'bedrock') return callBedrock(messages, options);
+    return createCompletion(provider, model, messages, options);
+}
+
+/**
+ * Route a streaming LLM call to the right backend, returning an async
+ * generator that yields `{ text }` chunks and ends with `{ usage }` (same
+ * contract as streamBedrockCompletion).
+ */
+function streamLLMCall(provider, model, messages, options) {
+    if (provider === 'bedrock') return streamBedrockCompletion(messages, options);
+    return streamCompletion(provider, model, messages, options);
+}
+
+/**
  * Call LLM API with tool-use support.
  * The LLM decides whether to reply in text, call tools, or both.
  * Handles the tool-call loop: LLM → tool calls → feed results back → final text.
@@ -400,7 +436,7 @@ async function callBedrock(messages, options) {
  * @returns {Object} LLM response (final, after any tool calls are resolved)
  */
 async function callLLMApi(provider, model, userInput, goalsSummary = null, toolContext = null, userContext = null, maxTokensOverride = null, user = null) {
-    logger.debug('🤖 Starting Bedrock (Claude Haiku 4.5) API call...');
+    logger.debug(`🤖 Starting ${provider.toUpperCase()} (${model}) API call...`);
     const startLLM = Date.now();
 
     // Build messages array — if userInput is a Net: chat payload, extract conversation history
@@ -460,7 +496,7 @@ async function callLLMApi(provider, model, userInput, goalsSummary = null, toolC
     }
 
     // Initial LLM call
-    let response = await callBedrock(messages, llmOptions);
+    let response = await makeLLMCall(provider, model, messages, llmOptions);
     
     // ─── Tool-call loop (max 3 rounds to prevent runaway) ────────────────
     const MAX_TOOL_ROUNDS = 3;
@@ -504,10 +540,10 @@ async function callLLMApi(provider, model, userInput, goalsSummary = null, toolC
         }
 
         // Call LLM again with tool results so it can produce a final response
-        response = await callBedrock(messages, llmOptions);
+        response = await makeLLMCall(provider, model, messages, llmOptions);
     }
 
-    logger.debug(`🤖 Bedrock API call completed in ${Date.now() - startLLM}ms (${round} tool round(s))`);
+    logger.debug(`🤖 ${provider.toUpperCase()} API call completed in ${Date.now() - startLLM}ms (${round} tool round(s))`);
     logger.debug('LLM response:', JSON.stringify(response));
     
     // Attach tool execution metadata to the response for the frontend
@@ -793,7 +829,7 @@ async function processCompressionRequest(req, dynamodb) {
         return result;
     } else {
         logger.debug(`💾 Total operation completed in ${Date.now() - startValidation}ms`);
-        const error = new Error('No response content returned from Bedrock.');
+        const error = new Error(`No response content returned from ${provider}.`);
         error.statusCode = 500;
         throw error;
     }
@@ -900,7 +936,7 @@ async function streamCompressionRequest(req, res, dynamodb) {
 
     if (useTools) {
         // Do an initial non-streaming call to check for tool calls
-        const initResponse = await callBedrock(messages, llmOptions);
+        const initResponse = await makeLLMCall(provider, model, messages, llmOptions);
         let choice = initResponse?.choices?.[0];
 
         while (choice?.message?.tool_calls && choice.message.tool_calls.length > 0 && round < MAX_TOOL_ROUNDS) {
@@ -917,7 +953,7 @@ async function streamCompressionRequest(req, res, dynamodb) {
             }
 
             // Check if the follow-up also has tool calls
-            const followUp = await callBedrock(messages, llmOptions);
+            const followUp = await makeLLMCall(provider, model, messages, llmOptions);
             choice = followUp?.choices?.[0];
 
             // If no more tools, we'll stream the final response from scratch
@@ -972,7 +1008,7 @@ async function streamCompressionRequest(req, res, dynamodb) {
     let streamUsage = null;
 
     try {
-        const streamGenerator = streamBedrockCompletion(messages, streamOptions);
+        const streamGenerator = streamLLMCall(provider, model, messages, streamOptions);
         let next = await streamGenerator.next();
         while (!next.done) {
             const { text } = next.value;

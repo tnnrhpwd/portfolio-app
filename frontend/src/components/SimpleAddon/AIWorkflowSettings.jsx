@@ -1,4 +1,5 @@
 import './AIWorkflowSettings.css';
+import { buildCloudModelList, getEffectiveCloudModelId } from '../../utils/llmProviderOptions.js';
 
 /**
  * AIWorkflowSettings — the single source of truth for the AI chat preferences
@@ -22,7 +23,7 @@ import './AIWorkflowSettings.css';
  * @param {string} [props.cloudSyncStatus] - null | 'syncing' | 'synced' | 'error'
  * @param {boolean} [props.sttSupported] - Whether speech recognition is supported in this browser.
  */
-function AIWorkflowSettings({ settings, onChange, user, cloudSyncStatus, sttSupported = true }) {
+function AIWorkflowSettings({ settings, onChange, user, cloudSyncStatus, sttSupported = true, portfolioLLMProviders }) {
   const update = (key, value) => onChange?.(key, value);
 
   const isLocal = settings.llmProvider === 'local';
@@ -44,16 +45,37 @@ function AIWorkflowSettings({ settings, onChange, user, cloudSyncStatus, sttSupp
           <span className="aiw-hint">Switch providers depending on where you want responses generated.</span>
         </div>
 
-        {/* Cloud mode is a single fixed model (AWS Bedrock Claude Haiku) with no
-            tunable parameters, so the model/temperature/token/history controls
-            below are only shown once the user switches to a Local provider. */}
-        {isLocal && (
+        {/* Cloud mode offers selectable models (AWS Bedrock Claude Haiku 4.5,
+            plus DeepSeek when configured). Local mode delegates model choice
+            to the addon, so the temperature/token/history controls below are
+            only shown once the user switches to Local. */}
+        {isLocal ? (
           <div className="aiw-item">
             <label className="aiw-label" htmlFor="aiw-model">
               🧠 Model
               <span className="aiw-badge">💻 Local</span>
             </label>
             <p className="aiw-note">Local models require the Simple addon to be running. Pick a model from the addon's sidebar once connected.</p>
+          </div>
+        ) : (
+          <div className="aiw-item">
+            <label className="aiw-label" htmlFor="aiw-model">
+              🧠 Model
+              <span className="aiw-badge">☁️ Cloud</span>
+            </label>
+            <select
+              id="aiw-model"
+              value={getEffectiveCloudModelId(settings.portfolioModel, portfolioLLMProviders)}
+              onChange={e => update('portfolioModel', e.target.value)}
+              className="aiw-input"
+            >
+              {buildCloudModelList(portfolioLLMProviders).map(m => (
+                <option key={m.id} value={m.id}>
+                  {m.name} ({m.provider === 'deepseek' ? 'DeepSeek' : 'AWS Bedrock'})
+                </option>
+              ))}
+            </select>
+            <span className="aiw-hint">Cloud model used for responses.</span>
           </div>
         )}
       </div>

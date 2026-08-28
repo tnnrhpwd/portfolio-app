@@ -356,7 +356,13 @@ async function postProcessWithLLM(ocrText, llmProvider, llmModel, userId) {
     try {
         logger.debug(`Post-processing OCR with ${llmProvider}:${llmModel}`);
         
-        const canMakeCall = await canMakeApiCall(userId, 'openai');
+        const modelUsed = llmModel || (llmProvider === 'xai' ? 'grok-4' : (llmProvider === 'deepseek' ? 'deepseek-chat' : 'o1-mini'));
+
+        const canMakeCall = await canMakeApiCall(userId, llmProvider, {
+            model: modelUsed,
+            inputTokens: Math.ceil(ocrText.length / 4),
+            outputTokens: 4000,
+        });
         if (!canMakeCall.canMake) {
             return {
                 error: 'API usage limit reached',
@@ -390,7 +396,6 @@ Example format:
 
 Output the structured data now:`;
 
-        const modelUsed = llmModel || (llmProvider === 'xai' ? 'grok-4' : 'o1-mini');
         const response = await createCompletion(llmProvider, modelUsed, [
             { role: 'user', content: prompt }
         ], {

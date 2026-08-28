@@ -208,6 +208,8 @@ function InfoData() {
       setLlmModel('o1-mini');
     } else if (provider === 'xai') {
       setLlmModel('grok-4');
+    } else if (provider === 'deepseek') {
+      setLlmModel('deepseek-chat');
     } else if (provider === 'anthropic') {
       setLlmModel('claude-3-sonnet');
     } else if (provider === 'google') {
