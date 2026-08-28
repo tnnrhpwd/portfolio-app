@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "build": "node -e \"console.log('No build step required for backend')\"",
-    "server": "nodemon server.js",
+    "server": "node server.js",
     "dev": "nodemon server.js",
     "start": "node server.js",
     "test": "jest",
