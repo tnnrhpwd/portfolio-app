@@ -131,7 +131,7 @@ function Settings() {
       showTimestamps: stored.showTimestamps ?? true,
       enableMarkdown: stored.enableMarkdown ?? true,
       saveChatsLocally: stored.saveChatsLocally ?? true,
-      cloudSync: stored.cloudSync ?? false,
+      cloudSync: stored.cloudSync ?? true,
       ttsEnabled: stored.ttsEnabled ?? true,
       sttEnabled: stored.sttEnabled ?? false,
     };

@@ -101,6 +101,46 @@ const TOOL_SCHEMAS = [
   {
     type: 'function',
     function: {
+      name: 'save_goals',
+      description: 'Save MULTIPLE goals at once. Use this when the user asks to add several goals in a single request (e.g. "add these goals: A, B, C"). Call this ONE time with every goal in the goals array instead of calling save_goal repeatedly.',
+      parameters: {
+        type: 'object',
+        properties: {
+          goals: {
+            type: 'array',
+            description: 'Array of goals to create. Each element has a title plus optional description, priority, and deadline.',
+            items: {
+              type: 'object',
+              properties: {
+                title: {
+                  type: 'string',
+                  description: 'Short title for the goal (max 120 chars)',
+                },
+                description: {
+                  type: 'string',
+                  description: 'Detailed description of what the user wants to achieve',
+                },
+                priority: {
+                  type: 'string',
+                  enum: ['low', 'medium', 'high'],
+                  description: 'Priority level of the goal',
+                },
+                deadline: {
+                  type: 'string',
+                  description: 'Optional deadline in ISO 8601 format or natural language',
+                },
+              },
+              required: ['title'],
+            },
+          },
+        },
+        required: ['goals'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'save_note',
       description: 'Save a note or piece of information the user wants to remember. Use this when the user asks to remember something, save a note, bookmark an idea, or store information for later.',
       parameters: {
@@ -431,6 +471,31 @@ const TOOL_EXECUTORS = {
     });
 
     return `Goal saved: "${title}"${deadline ? ` (deadline: ${deadline})` : ''}. You can view your goals on the /plans page.`;
+  },
+
+  // ── Save multiple goals ────────────────────────────────────────────────────
+  async save_goals(args, context) {
+    const goals = Array.isArray(args.goals) ? args.goals : [];
+    if (goals.length === 0) return 'Error: no goals provided.';
+
+    const saved = [];
+    for (const g of goals) {
+      const title = typeof g?.title === 'string' ? g.title.trim() : String(g?.title || '').trim();
+      if (!title || title.length > 200) continue;
+      await createMemoryItem(context.userId, 'goal', {
+        title,
+        description: typeof g.description === 'string' ? g.description : '',
+        priority: ['low', 'medium', 'high'].includes(g.priority) ? g.priority : 'medium',
+        deadline: g.deadline || null,
+        status: 'active',
+        timestamp: new Date().toISOString(),
+      });
+      saved.push(title);
+    }
+
+    if (saved.length === 0) return 'Error: no valid goals provided (each goal needs a title).';
+    const list = saved.map((t, i) => `${i + 1}. ${t}`).join('\n');
+    return `Saved ${saved.length} goal${saved.length === 1 ? '' : 's'}:\n${list}\n\nYou can view and manage them on the /plans page.`;
   },
 
   // ── Save note ─────────────────────────────────────────────────────────────

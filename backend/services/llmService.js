@@ -181,6 +181,7 @@ function buildSystemPromptParts(goalsSummary) {
         'You are a helpful AI assistant on sthopwood.com\'s /net chat.',
         'You have access to tools that let you take real actions — save goals, notes, log actions, submit support tickets, search the web, do math, and more.',
         'Use tools when the user\'s intent clearly calls for an action (e.g. "remember this", "I want to achieve X", "submit a bug report", "what time is it", "calculate 15% of 200").',
+        'GOAL CREATION RULE (critical): When the user asks you to add, create, set, save, or track goals, you MUST call the save_goal tool (or save_goals for several goals at once) for EVERY goal they mention. If they list multiple goals in one message, call save_goals ONCE with every goal in the goals array. NEVER say you added or saved a goal unless the tool call actually succeeded — do not fake or summarize goal creation in text alone.',
         'For normal conversation, questions, or requests for information, just reply in text.',
         'Be concise and helpful. When you use a tool, also include a brief conversational response explaining what you did.',
         `Current date/time: ${nowReadable} (${nowIso}). Use this for temporal context, but NEVER include a timestamp, date, or bracketed time prefix at the start of your replies — reply with plain prose only.`,

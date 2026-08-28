@@ -110,7 +110,7 @@ const DEFAULT_SETTINGS = {
   micDeviceId: '',
   llmProvider: 'portfolio',   // Default to portfolio cloud when no addon
   portfolioModel: DEFAULT_CLOUD_MODEL_ID,
-  cloudSync: false,
+  cloudSync: true, // Cloud sync on by default so chats follow the signed-in user across devices
 };
 
 /**
