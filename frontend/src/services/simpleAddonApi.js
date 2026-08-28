@@ -1540,6 +1540,59 @@ export async function saveCloudConversations(token, conversations) {
   return res.json();
 }
 
+// ─── Cloud conversation merge (bidirectional sync) ─────────────────────────
+
+const DELETED_CONVOS_KEY = 'csimple_deleted_convo_ids';
+
+/** Get locally-recorded conversation deletion tombstones (array of ids). */
+export function getDeletedConversationIds() {
+  try {
+    const raw = localStorage.getItem(DELETED_CONVOS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Record a conversation id as deleted so it stays deleted across devices. */
+export function addDeletedConversationId(id) {
+  if (id == null) return;
+  try {
+    const ids = getDeletedConversationIds();
+    const sid = String(id);
+    if (!ids.includes(sid)) {
+      ids.push(sid);
+      localStorage.setItem(DELETED_CONVOS_KEY, JSON.stringify(ids));
+    }
+  } catch { /* localStorage unavailable */ }
+}
+
+/**
+ * Merge local conversations with the cloud copy (server-side union by
+ * conversation id + per-message id), returning the authoritative merged list.
+ * This is used for BOTH initial pull and debounced save so that:
+ *   - conversations created on other devices appear here, and
+ *   - same-id conversations (e.g. the default "New Chat") merge messages
+ *     instead of one device silently overwriting the other.
+ * @param {string} token - JWT auth token
+ * @param {Array} conversations - Local conversations array
+ * @param {Array<string>} [deletedIds] - Deletion tombstones
+ * @returns {{ conversations: Array, updatedAt: string }}
+ */
+export async function mergeCloudConversations(token, conversations, deletedIds = []) {
+  const res = await fetch(`${getPortfolioApiUrl()}/csimple/conversations/merge`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ conversations, deletedIds }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new Error(`Failed to merge conversations: ${text}`);
+  }
+  return res.json();
+}
+
 /**
  * Get user's synced behavior files list from the cloud.
  * @param {string} token - JWT auth token

@@ -68,6 +68,7 @@ const {
   updateSimpleSettings,
   getSimpleConversations,
   updateSimpleConversations,
+  mergeSimpleConversations,
   getSimpleBehaviors,
   getSimpleBehavior,
   updateSimpleBehavior,
@@ -440,7 +441,8 @@ router.route('/csimple/settings')
 
 router.route('/csimple/conversations')
   .get(protect, getSimpleConversations)
-  .put(protect, sanitizeInput, updateSimpleConversations);
+  .put(protect, sanitizeInput, updateSimpleConversations)
+  .post(protect, sanitizeInput, mergeSimpleConversations);
 
 router.route('/csimple/behaviors')
   .get(protect, getSimpleBehaviors);

@@ -287,6 +287,203 @@ const updateSimpleConversations = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Merge local conversations with the cloud copy (bidirectional sync)
+// @route   POST /api/data/csimple/conversations/merge
+// @access  Private
+const mergeSimpleConversations = asyncHandler(async (req, res) => {
+  if (!req.user) {
+    res.status(401);
+    throw new Error('User not found');
+  }
+
+  const { conversations, deletedIds } = req.body;
+  if (!Array.isArray(conversations)) {
+    res.status(400);
+    throw new Error('Conversations array is required');
+  }
+
+  const itemId = `csimple_convos_${req.user.id}`;
+  const now = new Date().toISOString();
+
+  try {
+    // Read the existing cloud copy (if any).
+    let existing = [];
+    try {
+      const { Item } = await dynamodb.send(new GetCommand({
+        TableName: TABLE_NAME,
+        Key: { id: itemId, createdAt: CSIMPLE_CREATED_AT },
+      }));
+      if (Item?.text) {
+        const raw = Item.compressed ? decompressString(Item.text) : Item.text;
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) existing = parsed;
+      }
+    } catch { /* no cloud copy yet — start from scratch */ }
+
+    const merged = mergeConversationLists(existing, conversations, deletedIds);
+
+    const jsonStr = JSON.stringify(merged);
+    let text, compressed;
+    if (jsonStr.length > 100 * 1024) {
+      text = compressString(jsonStr);
+      compressed = true;
+    } else {
+      text = jsonStr;
+      compressed = false;
+    }
+
+    if (text.length > 380 * 1024) {
+      res.status(413);
+      throw new Error('Conversation data too large. Try clearing old conversations.');
+    }
+
+    await dynamodb.send(new PutCommand({
+      TableName: TABLE_NAME,
+      Item: {
+        id: itemId,
+        text,
+        compressed,
+        createdAt: CSIMPLE_CREATED_AT,
+        updatedAt: now,
+      },
+    }));
+
+    res.status(200).json({
+      success: true,
+      conversations: merged,
+      updatedAt: now,
+      compressed,
+      sizeBytes: text.length,
+    });
+  } catch (error) {
+    if (error.message?.includes('too large')) {
+      throw error; // Re-throw size errors
+    }
+    logger.error('[Simple] Error merging conversations:', error);
+    res.status(500);
+    throw new Error('Failed to merge Simple conversations');
+  }
+});
+
+// =============================================================================
+// CONVERSATION MERGE HELPERS
+// =============================================================================
+
+/**
+ * Best-effort recency timestamp (ms) for a conversation. Prefers an explicit
+ * `updatedAt`, then the latest message timestamp, then `createdAt`. Used to
+ * pick which copy of a same-id conversation is newer without trusting clock
+ * skew across devices.
+ */
+function conversationRecency(conv) {
+  if (!conv || typeof conv !== 'object') return 0;
+  const updated = conv.updatedAt ? Date.parse(conv.updatedAt) : NaN;
+  if (!Number.isNaN(updated)) return updated;
+
+  const msgs = Array.isArray(conv.messages) ? conv.messages : [];
+  let max = NaN;
+  for (const m of msgs) {
+    const t = m?.timestamp ? Date.parse(m.timestamp) : NaN;
+    if (!Number.isNaN(t) && (Number.isNaN(max) || t > max)) max = t;
+  }
+  if (!Number.isNaN(max)) return max;
+
+  const created = conv.createdAt ? Date.parse(conv.createdAt) : NaN;
+  return Number.isNaN(created) ? 0 : created;
+}
+
+/** Prefer a meaningful title over the default "New Chat" placeholder. */
+function pickConversationTitle(a, b) {
+  const newer = conversationRecency(b) > conversationRecency(a) ? b : a;
+  const older = newer === a ? b : a;
+  const meaningful = (c) =>
+    typeof c?.title === 'string' &&
+    c.title.trim() !== '' &&
+    !/^new chat$/i.test(c.title.trim());
+  if (meaningful(newer)) return newer.title;
+  if (meaningful(older)) return older.title;
+  return newer?.title || older?.title || 'New Chat';
+}
+
+/** Stable key for a message — id when present, else a content hash. */
+function messageKey(m) {
+  if (m && m.id != null) return `id:${m.id}`;
+  return `hash:${m?.role || ''}|${m?.timestamp || ''}|${String(m?.content || '').slice(0, 200)}`;
+}
+
+/**
+ * Merge two message arrays: union by key, ordered by timestamp (stable for
+ * ties). This is what lets the default "New Chat" (id '1') that exists on
+ * every device actually merge its messages instead of one side clobbering it.
+ */
+function mergeMessageLists(a, b) {
+  const listA = Array.isArray(a) ? a : [];
+  const listB = Array.isArray(b) ? b : [];
+  const byKey = new Map();
+  for (const m of listA) if (m && typeof m === 'object') byKey.set(messageKey(m), m);
+  for (const m of listB) if (m && typeof m === 'object') byKey.set(messageKey(m), m);
+  const msgs = Array.from(byKey.values());
+  msgs.sort((x, y) => {
+    const tx = x?.timestamp ? Date.parse(x.timestamp) : NaN;
+    const ty = y?.timestamp ? Date.parse(y.timestamp) : NaN;
+    if (!Number.isNaN(tx) && !Number.isNaN(ty) && tx !== ty) return tx - ty;
+    if (Number.isNaN(tx) !== Number.isNaN(ty)) return Number.isNaN(tx) ? 1 : -1;
+    return 0;
+  });
+  return msgs;
+}
+
+/** Merge two same-id conversations: union messages, keep the newer metadata. */
+function mergeConversation(a, b) {
+  const recencyA = conversationRecency(a);
+  const recencyB = conversationRecency(b);
+  const newer = recencyB > recencyA ? b : a;
+  const older = newer === a ? b : a;
+
+  return {
+    ...older,
+    ...newer,
+    messages: mergeMessageLists(a.messages, b.messages),
+    title: pickConversationTitle(a, b),
+    updatedAt: new Date(Math.max(recencyA, recencyB)).toISOString(),
+  };
+}
+
+/**
+ * Merge two full conversation lists: union by conversation id, merging any
+ * same-id conversations message-by-message. Removes conversations whose id is
+ * in `deletedIds` (deletion tombstones) so a delete on one device isn't
+ * resurrected by another device's next sync. Order is deterministic
+ * (newest-first by recency).
+ */
+function mergeConversationLists(existing, incoming, deletedIds = []) {
+  const tombstone = new Set((deletedIds || []).map(String));
+  const byId = new Map();
+
+  for (const c of existing) {
+    if (!c || typeof c !== 'object' || c.id == null) continue;
+    const id = String(c.id);
+    if (tombstone.has(id)) continue;
+    byId.set(id, c);
+  }
+  for (const c of incoming) {
+    if (!c || typeof c !== 'object' || c.id == null) continue;
+    const id = String(c.id);
+    if (tombstone.has(id)) continue;
+    const prev = byId.get(id);
+    byId.set(id, prev ? mergeConversation(prev, c) : c);
+  }
+
+  const merged = Array.from(byId.values());
+  merged.sort((a, b) => {
+    const ra = conversationRecency(a);
+    const rb = conversationRecency(b);
+    if (ra !== rb) return rb - ra;
+    return String(a.id).localeCompare(String(b.id));
+  });
+  return merged;
+}
+
 // =============================================================================
 // BEHAVIORS ENDPOINTS
 // =============================================================================
@@ -767,6 +964,7 @@ module.exports = {
   updateSimpleSettings,
   getSimpleConversations,
   updateSimpleConversations,
+  mergeSimpleConversations,
   getSimpleBehaviors,
   getSimpleBehavior,
   updateSimpleBehavior,
@@ -779,4 +977,9 @@ module.exports = {
   getSimplePersonalityFile,
   updateSimplePersonalityFile,
   getSimpleUserContext,
+
+  // Test-only exports of the pure conversation-merge helpers.
+  _mergeConversationLists: mergeConversationLists,
+  _mergeConversation: mergeConversation,
+  _mergeMessageLists: mergeMessageLists,
 };

@@ -17,8 +17,9 @@ import {
   getBehaviorContent,
   getCloudSettings,
   saveCloudSettings,
-  getCloudConversations,
-  saveCloudConversations,
+  mergeCloudConversations,
+  getDeletedConversationIds,
+  addDeletedConversationId,
   queueRemoteCommand,
   getRemoteCommandResult,
   getCustomAddonHost,
@@ -55,6 +56,13 @@ const KNOWN_CONFIG_ERROR_PATTERNS = [
 
 const isUserConfigError = (message = '') =>
   KNOWN_CONFIG_ERROR_PATTERNS.some(pattern => pattern.test(message));
+
+// Detect explicit "control my desktop from this device" phrasing, e.g.
+// "open edge on pc", "open edge on my computer", "on the desktop". Used to
+// route a message through the remote addon relay (phone → cloud → PC) even
+// when the chat provider is otherwise the tool-less cloud LLM.
+const PC_CONTROL_RE = /\b(?:on\s+(?:my\s+|the\s+)?(?:pc|computer|desktop|windows\s+(?:pc|machine)))\b/i;
+const isPcControlRequest = (text = '') => PC_CONTROL_RE.test(text);
 
 // Avoid re-submitting a bug report for the exact same recurring error within
 // this window, even when it isn't a known config error.
@@ -390,18 +398,23 @@ function SimpleChat({
               });
             }
 
-            // Also load cloud conversations if enabled
+            // Also load cloud conversations if enabled. Use the server-side
+            // merge (bidirectional) so conversations made on OTHER devices
+            // appear here AND same-id conversations (e.g. the default
+            // "New Chat" every device starts with) merge their messages
+            // instead of one copy silently overwriting the other.
             try {
-              const convData = await getCloudConversations(user.token);
-              if (convData?.conversations && Array.isArray(convData.conversations)) {
-                // Merge: add cloud conversations that don't exist locally (by ID)
+              const merged = await mergeCloudConversations(
+                user.token,
+                conversations,
+                getDeletedConversationIds()
+              );
+              if (merged?.conversations && Array.isArray(merged.conversations)) {
                 setConversations(prev => {
-                  const localIds = new Set(prev.map(c => c.id));
-                  const cloudOnly = convData.conversations.filter(c => !localIds.has(c.id));
-                  if (cloudOnly.length > 0) {
-                    return [...prev, ...cloudOnly];
+                  if (JSON.stringify(merged.conversations) === JSON.stringify(prev)) {
+                    return prev;
                   }
-                  return prev;
+                  return merged.conversations;
                 });
               }
             } catch (convErr) {
@@ -461,9 +474,27 @@ function SimpleChat({
     cloudConvosTimer.current = setTimeout(async () => {
       try {
         setCloudSyncStatus('syncing');
-        const result = await saveCloudConversations(user.token, conversations);
+        // Merge (not blind overwrite) so conversations from other devices
+        // are preserved instead of lost to a last-write-wins race.
+        const result = await mergeCloudConversations(
+          user.token,
+          conversations,
+          getDeletedConversationIds()
+        );
         lastCloudConvosUpdate.current = result.updatedAt;
         setCloudSyncStatus('synced');
+
+        // Adopt the authoritative merged list if it differs (e.g. another
+        // device added/updated a conversation). Guard with a deep-equality
+        // check so an identical result doesn't retrigger this effect.
+        if (result?.conversations && Array.isArray(result.conversations)) {
+          setConversations(prev => {
+            if (JSON.stringify(result.conversations) === JSON.stringify(prev)) {
+              return prev;
+            }
+            return result.conversations;
+          });
+        }
       } catch (err) {
         console.warn('[Simple] Cloud conversations sync failed:', err);
         setCloudSyncStatus('error');
@@ -554,6 +585,9 @@ function SimpleChat({
   }, []);
 
   const deleteConversation = useCallback((id) => {
+    // Record a deletion tombstone so the conversation stays deleted on other
+    // devices (otherwise the next sync from another device would resurrect it).
+    addDeletedConversationId(id);
     setConversations(prev => {
       const updated = prev.filter(c => c.id !== id);
       if (updated.length === 0) {
@@ -659,6 +693,71 @@ function SimpleChat({
     }
     return null;
   }, [exportChat]);
+
+  // ── Remote addon relay (phone → cloud → desktop) ─────────────────────────
+  // Queues a chat command for the desktop addon to execute (with its full PC
+  // automation toolset), polls for the result, and appends it to the active
+  // conversation. Used both by the explicit "on pc" routing and the regular
+  // remote-relay path when the chat provider is the local addon.
+  const runRemoteRelay = useCallback(async (message, history, model) => {
+    if (!user?.token) {
+      throw new Error('Please log in to use the remote addon relay.');
+    }
+
+    const payload = {
+      message,
+      modelId: model,
+      conversationHistory: history,
+      temperature: settings.defaultTemperature ?? 0.7,
+      maxLength: settings.defaultMaxTokens ?? 500,
+      behaviorFile: activeAgent?.behaviorFile || 'default.txt',
+    };
+
+    const { commandId } = await queueRemoteCommand(user.token, payload, getSelectedRemoteDeviceId());
+
+    // Poll for result (max ~60s)
+    const POLL_INTERVAL = 2000;
+    const MAX_POLLS = 30;
+    let result = null;
+    for (let i = 0; i < MAX_POLLS; i++) {
+      await new Promise(r => setTimeout(r, POLL_INTERVAL));
+      const poll = await getRemoteCommandResult(user.token, commandId);
+      if (poll.status === 'completed') {
+        result = poll.result;
+        break;
+      }
+      if (poll.status === 'error') {
+        throw new Error(poll.error || 'Remote addon execution failed');
+      }
+      // status === 'pending' → keep polling
+    }
+
+    if (!result) {
+      throw new Error('Remote addon did not respond in time. Is the addon running on your desktop?');
+    }
+
+    const assistantMessage = {
+      id: (Date.now() + 1).toString(),
+      role: 'assistant',
+      content: result.response || (typeof result === 'string' ? result : JSON.stringify(result)),
+      timestamp: new Date().toISOString(),
+      generationTime: result.generationTime || null,
+      modelId: result.modelId || model,
+      action: result.action || null,
+      operations: result.operations || null,
+      tokenUsage: result.tokenUsage || null,
+      isRemote: true,
+    };
+
+    setConversations(prev => prev.map(c => {
+      if (c.id !== activeConversationId) return c;
+      return { ...c, messages: [...c.messages, assistantMessage] };
+    }));
+
+    if (result.action?.description && (settings.ttsEnabled ?? true)) {
+      speech.speak(result.action.description);
+    }
+  }, [user, settings, activeAgent, activeConversationId, speech]);
 
   const sendMessage = useCallback(async (text, files = []) => {
     const hasFiles = files && files.length > 0;
@@ -859,6 +958,55 @@ function SimpleChat({
       const trimmedHistory = history.slice(-(settings.maxConversationHistory ?? 50));
 
       const provider = settings.llmProvider || 'portfolio';
+
+      // ── Phone → PC remote-control routing ──────────────────────────────
+      // Explicit "on pc" / "on my computer" phrasing means the user wants the
+      // DESKTOP addon to act — even when the chat provider is otherwise the
+      // tool-less cloud LLM. Route it through the cloud relay when a remote
+      // addon is online, and surface a clear error when no PC is reachable.
+      if (isPcControlRequest(text) && !isAddonConnected) {
+        if (isRemoteAddonOnline && user?.token) {
+          const cloudModel = getEffectiveCloudModelId(settings.portfolioModel, portfolioLLMProviders);
+          try {
+            await runRemoteRelay(text, trimmedHistory, cloudModel);
+          } catch (err) {
+            const errorMessage = {
+              id: (Date.now() + 1).toString(),
+              role: 'assistant',
+              content: `**Error:** ${err.message}`,
+              timestamp: new Date().toISOString(),
+              isError: true,
+            };
+            setConversations(prev => prev.map(c => {
+              if (c.id !== activeConversationId) return c;
+              return { ...c, messages: [...c.messages, errorMessage] };
+            }));
+          }
+        } else {
+          const reasons = [];
+          if (!user?.token) reasons.push('Log in to your sthopwood.com account on this device.');
+          reasons.push('Make sure the Simple addon is running on the target PC.');
+          reasons.push('Open the Simple webapp on that PC at least once while logged in so it registers with the cloud relay.');
+          const errMsg = {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content:
+              "**Can't reach your PC**\n\n" +
+              "You asked to control your desktop, but the addon isn't currently reachable " +
+              "through the cloud relay.\n\n" +
+              reasons.map((r, i) => `${i + 1}. ${r}`).join('\n') +
+              "\n\nOnce the addon is online, retry your message.",
+            timestamp: new Date().toISOString(),
+            isError: true,
+          };
+          setConversations(prev => prev.map(c => {
+            if (c.id !== activeConversationId) return c;
+            return { ...c, messages: [...c.messages, errMsg] };
+          }));
+        }
+        setIsGenerating(false);
+        return;
+      }
 
       // ── Scan-to-Connect guard ────────────────────────────────────────
       // If the user arrived via the QR code (?addon=... saved in localStorage)
@@ -1145,63 +1293,7 @@ function SimpleChat({
 
       // ── Remote addon relay path (phone → cloud → desktop) ──
       if (!isAddonConnected && isRemoteAddonOnline) {
-        if (!user?.token) {
-          throw new Error('Please log in to use the remote addon relay.');
-        }
-
-        const payload = {
-          message: text,
-          modelId: model,
-          conversationHistory: trimmedHistory,
-          temperature: settings.defaultTemperature ?? 0.7,
-          maxLength: settings.defaultMaxTokens ?? 500,
-          behaviorFile: activeAgent?.behaviorFile || 'default.txt',
-        };
-
-        const { commandId } = await queueRemoteCommand(user.token, payload, getSelectedRemoteDeviceId());
-
-        // Poll for result (max ~60s)
-        const POLL_INTERVAL = 2000;
-        const MAX_POLLS = 30;
-        let result = null;
-        for (let i = 0; i < MAX_POLLS; i++) {
-          await new Promise(r => setTimeout(r, POLL_INTERVAL));
-          const poll = await getRemoteCommandResult(user.token, commandId);
-          if (poll.status === 'completed') {
-            result = poll.result;
-            break;
-          }
-          if (poll.status === 'error') {
-            throw new Error(poll.error || 'Remote addon execution failed');
-          }
-          // status === 'pending' → keep polling
-        }
-
-        if (!result) {
-          throw new Error('Remote addon did not respond in time. Is the addon running on your desktop?');
-        }
-
-        const assistantMessage = {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: result.response || (typeof result === 'string' ? result : JSON.stringify(result)),
-          timestamp: new Date().toISOString(),
-          generationTime: result.generationTime || null,
-          modelId: result.modelId || model,
-          action: result.action || null,
-          operations: result.operations || null,
-          tokenUsage: result.tokenUsage || null,
-          isRemote: true,
-        };
-
-        setConversations(prev => prev.map(c => {
-          if (c.id !== activeConversationId) return c;
-          return { ...c, messages: [...c.messages, assistantMessage] };
-        }));
-
-        if (result.action?.description && (settings.ttsEnabled ?? true)) {
-          speech.speak(result.action.description);
-        }
+        await runRemoteRelay(text, trimmedHistory, model);
         return;
       }
 
