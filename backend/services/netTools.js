@@ -163,7 +163,7 @@ const TOOL_SCHEMAS = [
     type: 'function',
     function: {
       name: 'get_my_goals',
-      description: 'Retrieve the user\'s current goals and plans. Use this when the user asks about their goals, progress, plans, or what they\'re working on.',
+      description: 'Retrieve the user\'s currently saved goals. Use this to CHECK or VERIFY what goals are actually saved before claiming any goal is "already saved" — never rely on your own previous messages or the conversation text. Also use this when the user asks about their goals, progress, or what they\'re working on.',
       parameters: {
         type: 'object',
         properties: {},

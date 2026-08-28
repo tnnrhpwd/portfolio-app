@@ -239,9 +239,6 @@ function GoalDetail() {
                         </div>
                         <div className="goal-detail-step-text">
                           {step.text}
-                          {isToolCall && step.meta?.tool && (
-                            <span className="goal-detail-step-tool">{step.meta.tool}</span>
-                          )}
                         </div>
                         {isToolCall && step.meta?.args && Object.keys(step.meta.args).length > 0 && (
                           <pre className="goal-detail-step-args">{JSON.stringify(step.meta.args, null, 2)}</pre>

@@ -17,10 +17,24 @@
  * to DynamoDB after each loop round so the frontend can poll it live.
  */
 
+const crypto = require('crypto');
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocumentClient, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const { createCompletion, createBedrockChatCompletion, PROVIDERS } = require('../utils/llmProviders');
 const { BEDROCK_MODEL_ID } = require('./bedrockService');
 const { updateMemoryItem } = require('./memoryService');
 const { logger } = require('../utils/logger');
+
+// Local DynamoDB client for the bug-report tool (writes to the same "Simple"
+// table the Support page uses — see controllers/postData.js).
+const _ddbClient = new DynamoDBClient({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
+});
+const _ddb = DynamoDBDocumentClient.from(_ddbClient);
 
 // ── Configuration ───────────────────────────────────────────────────────────
 
@@ -183,6 +197,25 @@ const TOOL_SCHEMAS = [
   {
     type: 'function',
     function: {
+      name: 'submit_bug_report',
+      description: 'Submit a bug report or improvement idea directly to the user\'s website (sthopwood.com Support → My Reports). Use this for goals about bug reports, feature requests, or improvement ideas. This does NOT require GitHub access and is preferred over editing the repo for reporting/idea goals.',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'Short title of the bug or improvement idea' },
+          description: { type: 'string', description: 'Detailed description of the issue or idea' },
+          severity: { type: 'string', enum: ['low', 'medium', 'high'], description: 'Severity/priority of the bug or idea' },
+          steps: { type: 'string', description: 'Steps to reproduce (bugs) or proposed implementation steps (ideas)' },
+          expected: { type: 'string', description: 'What was expected to happen' },
+          actual: { type: 'string', description: 'What actually happened' },
+        },
+        required: ['title', 'description'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'propose_plan',
       description: 'Record a step-by-step plan you will follow so the user can see it in the progress view.',
       parameters: {
@@ -286,6 +319,45 @@ const TOOL_EXECUTORS = {
     ].join('\n');
   },
 
+  async submit_bug_report(args, ctx) {
+    // Strip pipe characters and newlines so the pipe-delimited `text` format
+    // (used by the Support page's bug reports) parses cleanly.
+    const clean = (v) => String(v ?? '').replace(/[\n\r|]+/g, ' ').trim().slice(0, 2000);
+    const title = clean(args?.title).slice(0, 200);
+    if (!title) return 'Error: a title is required for a bug report.';
+
+    const user = ctx.user || {};
+    const creatorField = clean(user.email || user.nickname || user.name) || 'Anonymous';
+    const creatorPrefix = ctx.userId ? `Creator:${ctx.userId}|` : '';
+    const severity = ['low', 'medium', 'high'].includes(args?.severity) ? args.severity : 'medium';
+
+    const text = [
+      `${creatorPrefix}Bug:${title}`,
+      `Severity:${severity}`,
+      `Description:${clean(args?.description)}`,
+      `Steps:${clean(args?.steps)}`,
+      `Expected:${clean(args?.expected)}`,
+      `Actual:${clean(args?.actual)}`,
+      `Creator:${creatorField}`,
+      'Status:Open',
+      `Timestamp:${new Date().toISOString()}`,
+    ].join('|');
+
+    const id = crypto.randomBytes(16).toString('hex');
+    const now = new Date().toISOString();
+    await _ddb.send(new PutCommand({
+      TableName: 'Simple',
+      Item: { id, text, createdAt: now, updatedAt: now },
+    }));
+
+    return [
+      `Bug report submitted to sthopwood.com:`,
+      `- Title: ${title}`,
+      `- Severity: ${severity}`,
+      `It is now visible under Support → My Reports.`,
+    ].join('\n');
+  },
+
   async propose_plan(args, ctx) {
     const steps = (Array.isArray(args?.steps) ? args.steps : [])
       .filter((s) => typeof s === 'string' && s.trim())
@@ -367,8 +439,9 @@ function buildSystemPrompt() {
     'You are the Goal Agent for a user\'s sthopwood.com workspace. You autonomously make progress on ONE goal without asking the user questions.',
     '',
     'Determine the nature of the goal:',
-    `- If it involves changing or improving the user's website code (repo: ${REPO}), inspect files with list_repo_tree and read_repo_file, then make minimal, correct edits with write_repo_file. Each write_repo_file call commits directly to the default branch.`,
-    '- If the goal is NOT about the website repo (budgets, research, writing, advice, planning), DO NOT touch the repo. Produce the actual deliverable and call deliver_result with the full content in `details`.',
+    '- If the goal is about submitting a bug report, feature request, or improvement idea on the website, use submit_bug_report. It files the report directly in the site\'s Support → My Reports page and works WITHOUT GitHub access. Never edit the repo for a reporting/idea goal.',
+    `- Only if the goal requires changing the user's website CODE (repo: ${REPO}), inspect files with list_repo_tree and read_repo_file, then make minimal, correct edits with write_repo_file. Each write_repo_file call commits directly to the default branch.`,
+    '- If the goal is NOT about code and NOT a bug report/idea (budgets, research, writing, advice, planning), DO NOT touch the repo. Produce the actual deliverable and call deliver_result with the full content in `details`.',
     '',
     'Rules:',
     '- Inspect before editing. Prefer small, correct, minimal changes over large rewrites.',
@@ -391,7 +464,7 @@ function buildUserPrompt(goal) {
 
 // ── Main loop ───────────────────────────────────────────────────────────────
 
-async function _loop(userId, goalId, goal, state, runCtx) {
+async function _loop(userId, goalId, goal, state, runCtx, user) {
   const sel = pickProvider();
   if (!sel) {
     state.status = 'failed';
@@ -446,7 +519,7 @@ async function _loop(userId, goalId, goal, state, runCtx) {
 
       pushStep(state, { kind: 'tool', text: `Calling ${name}`, meta: { tool: name, args: summarizeArgs(args) } });
 
-      const result = await executeTool(name, args, { userId, goalId, state, runCtx });
+      const result = await executeTool(name, args, { userId, goalId, state, runCtx, user });
       pushStep(state, { kind: 'tool-result', text: truncate(result, STEP_TEXT_MAX), meta: { tool: name } });
 
       messages.push({ role: 'tool', tool_call_id: tc.id, content: result });
@@ -473,7 +546,7 @@ async function _loop(userId, goalId, goal, state, runCtx) {
  * failed). The caller may fire-and-forget this; progress is persisted to the
  * goal item throughout.
  */
-async function runGoalAgent({ userId, goalId, goal }) {
+async function runGoalAgent({ userId, goalId, goal, user = null }) {
   if (_runs.has(goalId)) {
     throw Object.assign(new Error('An agent is already working on this goal.'), { statusCode: 409 });
   }
@@ -485,7 +558,7 @@ async function runGoalAgent({ userId, goalId, goal }) {
   await persistState(userId, goalId, state);
 
   try {
-    await _loop(userId, goalId, goal, state, runCtx);
+    await _loop(userId, goalId, goal, state, runCtx, user);
   } catch (err) {
     state.status = 'failed';
     state.error = err.message;

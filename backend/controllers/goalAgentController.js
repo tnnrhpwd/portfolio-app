@@ -34,8 +34,9 @@ const startGoalAgent = asyncHandler(async (req, res) => {
   }
 
   // Run asynchronously — progress is persisted to the goal item as the run
-  // proceeds, so the client polls /status for updates.
-  runGoalAgent({ userId: req.user.id, goalId, goal }).catch((err) => {
+  // proceeds, so the client polls /status for updates. Pass the user record
+  // so the agent can file bug reports with the right identity.
+  runGoalAgent({ userId: req.user.id, goalId, goal, user: req.user }).catch((err) => {
     logger.error('[goalAgent] run error:', err.message);
   });
 
