@@ -13,6 +13,21 @@ const { TrayManager } = require('./tray');
 const { PythonManager } = require('./python-manager');
 const { ActionBridge } = require('./server/action-bridge');
 const { UpdateManager } = require('./auto-updater');
+const log = require('electron-log');
+
+// ─── Logging ────────────────────────────────────────────────────────────────────
+// Route ALL main-process console output to electron-log so packaged builds write
+// a durable log file at %APPDATA%/Simple Addon/logs/main.log. Previously console
+// output in a packaged app went nowhere, so the "check logs" error had no log.
+log.transports.file.level = 'info';
+log.transports.file.maxSize = 5 * 1024 * 1024;
+log.transports.console.level = 'silly';
+
+console.log = (...args) => log.info(...args);
+console.info = (...args) => log.info(...args);
+console.warn = (...args) => log.warn(...args);
+console.error = (...args) => log.error(...args);
+console.debug = (...args) => log.debug(...args);
 
 // Prevent multiple instances
 const gotLock = app.requestSingleInstanceLock();
@@ -32,6 +47,7 @@ let calibrationWindow = null;
 let eyeOverlayWindow = null;       // transparent click-through gaze dot
 let eyeOverlayAutoTrain = null;    // {timer, lastSampleAt, lastCursor, lastCursorAt, lastGaze, lastGazeAt}
 let dashboardWindow = null;        // unified lightweight dashboard (Phase 6)
+let pythonStatusDetail = '';       // full text of the last Python setup error
 
 // ─── Resource Paths ─────────────────────────────────────────────────────────────
 
@@ -248,6 +264,8 @@ ipcMain.handle('dashboard:get-status', () => {
     port: trayManager?.serverPort || null,
     httpsPort: trayManager?.httpsPort || null,
     pythonStatus: trayManager?.pythonStatus || 'checking...',
+    pythonError: pythonStatusDetail,
+    logFile: log.transports.file.getFile().path,
     pythonReady: /^ready$/i.test((trayManager?.pythonStatus || '').trim()) || /^found:/i.test((trayManager?.pythonStatus || '').trim()),
     resourcesPath: getResourcesPath(),
     version: app.getVersion(),
@@ -268,6 +286,15 @@ ipcMain.handle('dashboard:setup-python', () => {
 ipcMain.handle('dashboard:open-resources-folder', () => {
   shell.openPath(getResourcesPath());
   return { ok: true };
+});
+
+ipcMain.handle('dashboard:open-log-file', () => {
+  try {
+    shell.openPath(log.transports.file.getFile().path);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
 });
 
 ipcMain.handle('dashboard:change-resources-folder', async () => {
@@ -633,6 +660,7 @@ async function setupPython() {
 
   pythonManager.onStatus((status, detail) => {
     console.log(`[Python] ${status}: ${detail}`);
+    pythonStatusDetail = status === 'error' ? detail : '';
     trayManager?.setPythonStatus(`${status}${detail ? ' — ' + detail.substring(0, 50) : ''}`);
     notifyDashboardStatusChanged();
 

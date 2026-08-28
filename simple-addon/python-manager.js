@@ -246,9 +246,10 @@ class PythonManager {
           this._emit('ready', 'All dependencies installed');
           resolve(true);
         } else {
-          console.error(`[PythonManager] pip install failed (code ${code})`);
-          console.error(stderr.substring(0, 500));
-          this._emit('error', `Dependency installation failed. Check logs for details.`);
+          const tail = (stderr || '').trim().split(/\r?\n/).filter(Boolean).slice(-3).join(' | ');
+          const reason = tail ? tail.substring(0, 400) : `pip exited with code ${code}`;
+          console.error(`[PythonManager] pip install failed (code ${code}): ${tail}`);
+          this._emit('error', `Dependency installation failed: ${reason}`);
           resolve(false);
         }
       });

@@ -338,8 +338,10 @@
       <div class="row">
         <div>
           <div class="name" id="status-python-name">Checking...</div>
+          <div class="desc" id="status-python-desc" style="display:none;"></div>
         </div>
         <div class="actions">
+          <button id="status-open-log">Open Log</button>
           <button id="status-setup-python">Setup Python Environment</button>
         </div>
       </div>
@@ -901,6 +903,15 @@ async function refreshStatus() {
     pyName.textContent = s.pythonStatus || 'Unknown';
     pyName.className = 'name ' + (s.pythonReady ? 'status-ok' : 'status-warn');
 
+    const pyDesc = document.getElementById('status-python-desc');
+    if (s.pythonError) {
+      pyDesc.textContent = s.pythonError;
+      pyDesc.style.display = '';
+      pyDesc.style.color = '#f07178';
+    } else {
+      pyDesc.style.display = 'none';
+    }
+
     document.getElementById('status-resources-path').textContent = s.resourcesPath || '—';
     document.getElementById('status-version').textContent = s.version || '—';
     document.getElementById('status-start-at-login').checked = !!s.startAtLogin;
@@ -924,6 +935,10 @@ document.getElementById('status-restart-server').addEventListener('click', async
 
 document.getElementById('status-setup-python').addEventListener('click', () => {
   window.simpleDashboard.setupPython();
+});
+
+document.getElementById('status-open-log').addEventListener('click', () => {
+  window.simpleDashboard.openLogFile();
 });
 
 document.getElementById('status-open-resources').addEventListener('click', () => {

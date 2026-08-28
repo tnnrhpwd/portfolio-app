@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('simpleDashboard', {
   restartServer: () => ipcRenderer.invoke('dashboard:restart-server'),
   setupPython: () => ipcRenderer.invoke('dashboard:setup-python'),
   openResourcesFolder: () => ipcRenderer.invoke('dashboard:open-resources-folder'),
+  openLogFile: () => ipcRenderer.invoke('dashboard:open-log-file'),
   changeResourcesFolder: () => ipcRenderer.invoke('dashboard:change-resources-folder'),
   getStartAtLogin: () => ipcRenderer.invoke('dashboard:get-start-at-login'),
   setStartAtLogin: (enabled) => ipcRenderer.invoke('dashboard:set-start-at-login', enabled),
