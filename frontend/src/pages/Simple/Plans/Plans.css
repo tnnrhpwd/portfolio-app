@@ -1006,7 +1006,35 @@
 
 /* Info note */
 .plans-info-note {
-  background: rgba(0, 102, 204, 0.07);
+  background: color-mix(in srgb, var(--fg-blue) 8%, transparent);
   color: var(--text-color);
   opacity: 0.85;
+}
+
+/* ── Theme-aware text on gradient accents ────────────────────────────────────
+   The base rules hardcode #fff on gradient fills. In dark mode those gradients
+   turn light (e.g. --fg-blue → #4da6ff), so we use --text-color-inv — dark in
+   dark mode, white in light mode — matching the global button treatment in
+   index.css and keeping the contrast readable in both themes. */
+
+.plans-tab.active,
+.plans-btn--primary,
+.plans-hero-cta,
+.plans-quickadd-btn,
+.plans-chip.active,
+.plans-chip--priority.active {
+  color: var(--text-color-inv);
+}
+
+.plans-tab.active .plans-tab-count {
+  background: rgba(0, 0, 0, 0.16);
+  color: var(--text-color-inv);
+}
+
+/* Checkbox checkmark + hover tint follow the active theme's mint color */
+.memory-card-check.checked {
+  color: var(--text-color-inv);
+}
+.memory-card-check:hover {
+  background: color-mix(in srgb, var(--fg-mint) 12%, transparent);
 }

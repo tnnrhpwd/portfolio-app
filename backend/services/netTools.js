@@ -72,7 +72,7 @@ const TOOL_SCHEMAS = [
     type: 'function',
     function: {
       name: 'save_goal',
-      description: 'Save a new goal for the user. Use this when the user expresses a goal, objective, resolution, or something they want to achieve or track progress on.',
+      description: 'Save a new goal for the user. Use ONLY when the user explicitly states a goal they want to add, achieve, or track. Never invent, infer, or fabricate goals, and never re-add goals that are already saved.',
       parameters: {
         type: 'object',
         properties: {
@@ -102,7 +102,7 @@ const TOOL_SCHEMAS = [
     type: 'function',
     function: {
       name: 'save_goals',
-      description: 'Save MULTIPLE goals at once. Use this when the user asks to add several goals in a single request (e.g. "add these goals: A, B, C"). Call this ONE time with every goal in the goals array instead of calling save_goal repeatedly.',
+      description: 'Save MULTIPLE goals at once. Use ONLY when the user explicitly asks to add several goals in a single request (e.g. "add these goals: A, B, C"). Call this ONE time with every goal in the goals array instead of calling save_goal repeatedly. Only include goals the user explicitly wrote — never invent, infer, guess, or re-add goals that already exist.',
       parameters: {
         type: 'object',
         properties: {
@@ -398,6 +398,29 @@ async function executeTool(toolName, args, context) {
   }
 }
 
+/**
+ * Normalize a goal title for case-insensitive, whitespace-insensitive
+ * duplicate detection.
+ */
+function normalizeGoalTitle(title) {
+  return String(title || '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Load the set of normalized titles for the user's existing goals so new
+ * goals can be deduplicated. Prevents the LLM from re-adding goals that are
+ * already saved — e.g. when the user says "add all the goals in the chat above".
+ */
+async function getExistingGoalTitles(userId) {
+  try {
+    const items = await getMemoryItems(userId, 'goal');
+    return new Set(items.map(i => normalizeGoalTitle(i.data?.title)).filter(Boolean));
+  } catch (err) {
+    logger.warn('[netTools] Unable to load existing goals for dedupe:', err.message);
+    return new Set();
+  }
+}
+
 const TOOL_EXECUTORS = {
   // ── Submit support ticket ───────────────────────────────────────────────
   async submit_support_ticket(args, context) {
@@ -460,6 +483,15 @@ const TOOL_EXECUTORS = {
   // ── Save goal ─────────────────────────────────────────────────────────────
   async save_goal(args, context) {
     const { title, description = '', priority = 'medium', deadline = null } = args;
+    const normalizedTitle = normalizeGoalTitle(title);
+
+    // Dedupe: don't create a second copy of a goal the user already has.
+    if (normalizedTitle) {
+      const existing = await getExistingGoalTitles(context.userId);
+      if (existing.has(normalizedTitle)) {
+        return `Goal "${title}" was not saved because it already exists. You can view and manage it on the /plans page.`;
+      }
+    }
 
     await createMemoryItem(context.userId, 'goal', {
       title,
@@ -478,10 +510,20 @@ const TOOL_EXECUTORS = {
     const goals = Array.isArray(args.goals) ? args.goals : [];
     if (goals.length === 0) return 'Error: no goals provided.';
 
+    const existing = await getExistingGoalTitles(context.userId);
+    const seenInBatch = new Set();
     const saved = [];
+    const skipped = [];
+
     for (const g of goals) {
       const title = typeof g?.title === 'string' ? g.title.trim() : String(g?.title || '').trim();
       if (!title || title.length > 200) continue;
+      const key = normalizeGoalTitle(title);
+      if (!key) continue;
+      if (existing.has(key) || seenInBatch.has(key)) {
+        skipped.push(title);
+        continue;
+      }
       await createMemoryItem(context.userId, 'goal', {
         title,
         description: typeof g.description === 'string' ? g.description : '',
@@ -490,12 +532,22 @@ const TOOL_EXECUTORS = {
         status: 'active',
         timestamp: new Date().toISOString(),
       });
+      seenInBatch.add(key);
       saved.push(title);
     }
 
-    if (saved.length === 0) return 'Error: no valid goals provided (each goal needs a title).';
-    const list = saved.map((t, i) => `${i + 1}. ${t}`).join('\n');
-    return `Saved ${saved.length} goal${saved.length === 1 ? '' : 's'}:\n${list}\n\nYou can view and manage them on the /plans page.`;
+    if (saved.length === 0 && skipped.length === 0) {
+      return 'Error: no valid goals provided (each goal needs a title).';
+    }
+
+    const parts = [];
+    if (saved.length > 0) {
+      parts.push(`Saved ${saved.length} goal${saved.length === 1 ? '' : 's'}:\n${saved.map((t, i) => `${i + 1}. ${t}`).join('\n')}`);
+    }
+    if (skipped.length > 0) {
+      parts.push(`Skipped ${skipped.length} already-existing goal${skipped.length === 1 ? '' : 's'}:\n${skipped.map((t, i) => `${i + 1}. ${t}`).join('\n')}`);
+    }
+    return `${parts.join('\n\n')}\n\nYou can view and manage your goals on the /plans page.`;
   },
 
   // ── Save note ─────────────────────────────────────────────────────────────
