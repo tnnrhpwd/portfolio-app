@@ -445,6 +445,13 @@ router.route('/csimple/conversations')
   .put(protect, sanitizeInput, updateSimpleConversations)
   .post(protect, sanitizeInput, mergeSimpleConversations);
 
+// Dedicated merge route matching the frontend's `/csimple/conversations/merge`
+// URL. Without this alias the client's POST to `/merge` 404s and chats never
+// sync across devices. (The POST on `/csimple/conversations` above is kept for
+// backward compatibility with any older client.)
+router.route('/csimple/conversations/merge')
+  .post(protect, sanitizeInput, mergeSimpleConversations);
+
 router.route('/csimple/behaviors')
   .get(protect, getSimpleBehaviors);
 

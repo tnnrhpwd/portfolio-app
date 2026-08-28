@@ -498,9 +498,10 @@
   height: 3px;
   transition: background 0.3s;
 }
-.memory-card.goal::before   { background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint)); }
-.memory-card.plan::before   { background: linear-gradient(90deg, var(--fg-mint), var(--fg-pink)); }
-.memory-card.action::before { background: linear-gradient(90deg, var(--fg-pink), var(--fg-orange)); }
+.memory-card.type-goal::before   { background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint)); }
+.memory-card.type-plan::before   { background: linear-gradient(90deg, var(--fg-mint), var(--fg-pink)); }
+.memory-card.type-action::before { background: linear-gradient(90deg, var(--fg-pink), var(--fg-orange)); }
+.memory-card.type-note::before   { background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink)); }
 
 .memory-card:hover {
   transform: translateY(-2px);
@@ -689,4 +690,174 @@
   .plans-create-form { animation: none; }
   .plans-skeleton { animation: none; }
   .plans-hero { animation: none; }
+}
+
+/* ── Hero enhancements ────────────────────────────────────────────────────── */
+
+.plans-eyebrow {
+  margin: 0 0 calc(var(--nav-size) * 0.12);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-blue);
+}
+
+.plans-progress {
+  margin-top: var(--spacing-xs);
+  max-width: 340px;
+}
+.plans-progress-track {
+  height: calc(var(--nav-size) * 0.2);
+  border-radius: 999px;
+  background: var(--grey3-transp);
+  overflow: hidden;
+}
+.plans-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint));
+  transition: width 0.5s ease;
+}
+.plans-progress-label {
+  display: block;
+  margin-top: calc(var(--nav-size) * 0.1);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  opacity: 0.75;
+}
+
+.plans-hero-cta {
+  flex-shrink: 0;
+  padding: calc(var(--nav-size) * 0.32) calc(var(--nav-size) * 0.6);
+  background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
+  border: none;
+  border-radius: var(--border-radius-lg);
+  color: #fff;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-bold);
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(var(--fg-blue-rgb, 56, 56, 255), 0.3);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.plans-hero-cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px rgba(var(--fg-blue-rgb, 56, 56, 255), 0.38);
+}
+
+/* ── Tabs label ───────────────────────────────────────────────────────────── */
+
+.plans-tab-label { white-space: nowrap; }
+
+/* ── Quick-add command bar ────────────────────────────────────────────────── */
+
+.plans-quickadd {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.15);
+  padding: calc(var(--nav-size) * 0.18);
+  background: linear-gradient(180deg, var(--bg-1), var(--bg-page-transp));
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--border-nav);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.plans-quickadd:focus-within {
+  border-color: var(--fg-blue);
+  box-shadow: 0 4px 16px rgba(var(--fg-blue-rgb, 56, 56, 255), 0.2);
+}
+.plans-quickadd-icon { font-size: var(--font-size-base); flex-shrink: 0; }
+.plans-quickadd-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-color);
+  font-size: var(--font-size-small);
+  font-family: inherit;
+  padding: calc(var(--nav-size) * 0.2) 0;
+  outline: none;
+}
+.plans-quickadd-input::placeholder { opacity: 0.55; }
+.plans-quickadd-select {
+  flex-shrink: 0;
+  padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.25);
+  background: var(--bg-page);
+  border: 1px solid var(--border-nav);
+  border-radius: var(--border-radius);
+  color: var(--text-color);
+  font-size: var(--font-size-xs);
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+}
+.plans-quickadd-btn {
+  flex-shrink: 0;
+  padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.5);
+  background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
+  border: none;
+  border-radius: var(--border-radius);
+  color: #fff;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-bold);
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 0.15s, opacity 0.15s;
+}
+.plans-quickadd-btn:hover:not(:disabled) { transform: translateY(-1px); }
+.plans-quickadd-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* ── Filter chips ─────────────────────────────────────────────────────────── */
+
+.plans-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.12);
+}
+.plans-chip {
+  padding: calc(var(--nav-size) * 0.14) calc(var(--nav-size) * 0.32);
+  background: var(--bg-page-transp);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border-nav);
+  border-radius: 999px;
+  color: var(--text-color);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.plans-chip:hover { border-color: var(--fg-mint); transform: translateY(-1px); }
+.plans-chip.active {
+  background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
+  border-color: transparent;
+  color: #fff;
+}
+.plans-chip--priority.active {
+  background: linear-gradient(135deg, var(--fg-orange), var(--fg-pink));
+}
+.plans-chip--clear {
+  background: transparent;
+  border-style: dashed;
+  opacity: 0.75;
+}
+.plans-chip--clear:hover { opacity: 1; border-color: var(--fg-pink); color: var(--fg-pink); }
+
+/* ── Card: overdue emphasis ───────────────────────────────────────────────── */
+
+.memory-card.is-overdue {
+  border-color: rgba(var(--fg-pink-rgb, 255, 55, 155), 0.5);
+}
+.memory-card.is-overdue::before {
+  background: linear-gradient(90deg, var(--fg-pink), var(--fg-orange));
+}
+
+/* ── Responsive (new elements) ────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .plans-quickadd { flex-wrap: wrap; }
+  .plans-quickadd-input { flex-basis: 100%; }
+  .plans-hero-cta { width: 100%; }
 }

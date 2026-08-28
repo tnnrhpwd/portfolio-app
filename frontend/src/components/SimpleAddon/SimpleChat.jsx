@@ -543,24 +543,29 @@ function SimpleChat({
   // created/updated/deleted on other devices. Poll the merge endpoint on an
   // interval (and on tab focus) so every device converges without a refresh.
   useEffect(() => {
-    if (!settings.cloudSync || !user?.token || !cloudSyncInitialized.current) return;
+    if (!settings.cloudSync || !user?.token) return;
 
     const SYNC_POLL_MS = 30000;
-    const poll = () => {
+    // runConversationSync already no-ops until cloudSyncInitialized flips
+    // true, so these listeners can be registered eagerly without racing the
+    // initial load's own merge. Previously the early return above bailed out
+    // while cloudSyncInitialized was still false (its deps never re-trigger
+    // after it flips), so the interval/focus handlers were never installed
+    // and other devices' chats never appeared without a manual refresh.
+    const pull = () => {
       if (document.visibilityState === 'visible' && !isGeneratingRef.current) {
         runConversationSync();
       }
     };
 
-    const interval = setInterval(poll, SYNC_POLL_MS);
-    const onVisible = () => { if (document.visibilityState === 'visible') runConversationSync(); };
-    window.addEventListener('focus', onVisible);
-    document.addEventListener('visibilitychange', onVisible);
+    const interval = setInterval(pull, SYNC_POLL_MS);
+    window.addEventListener('focus', pull);
+    document.addEventListener('visibilitychange', pull);
 
     return () => {
       clearInterval(interval);
-      window.removeEventListener('focus', onVisible);
-      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', pull);
+      document.removeEventListener('visibilitychange', pull);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings.cloudSync, user?.token, runConversationSync]);

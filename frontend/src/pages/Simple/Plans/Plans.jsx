@@ -16,14 +16,19 @@ import './Plans.css';
 // -- Configuration ------------------------------------------------------------
 
 const TABS = [
-  { key: 'goal',   label: 'Goals',   icon: '🎯', empty: 'No goals yet — what are you working toward?' },
-  { key: 'plan',   label: 'Plans',   icon: '📋', empty: 'No plans yet — break a goal into steps!' },
-  { key: 'action', label: 'Actions', icon: '⚡', empty: 'No actions logged yet — start chatting on /net!' },
+  { key: 'goal',   label: 'Goals',   icon: '🎯', empty: 'No goals yet — what are you working toward?', quick: 'Add a goal…',       titlePlaceholder: 'What do you want to achieve?' },
+  { key: 'plan',   label: 'Plans',   icon: '📋', empty: 'No plans yet — break a goal into steps!',   quick: 'Add a plan…',       titlePlaceholder: 'What is your plan?' },
+  { key: 'action', label: 'Actions', icon: '⚡', empty: 'No actions logged yet — start chatting on /net!', quick: 'Log an action…', titlePlaceholder: 'Describe the action…' },
+  { key: 'note',   label: 'Notes',   icon: '📝', empty: 'No notes yet — ask your AI to save one on /net!', quick: 'Add a note…',  titlePlaceholder: 'Note title…' },
 ];
+
+// Types that carry a completion status, priority, and optional deadline.
+const TASK_TYPES = ['goal', 'plan'];
 
 const PRIORITY_OPTIONS = ['low', 'medium', 'high'];
 const STATUS_OPTIONS = ['active', 'completed', 'paused'];
 const STATUS_FILTERS = ['all', 'active', 'completed', 'paused'];
+const PRIORITY_FILTERS = ['all', 'low', 'medium', 'high'];
 
 const STATUS_LABELS = {
   active: 'Active',
@@ -36,6 +41,8 @@ const PRIORITY_LABELS = {
   medium: 'Medium',
   high: 'High',
 };
+
+const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
 
 // -- Helpers ------------------------------------------------------------------
 
@@ -60,6 +67,19 @@ function isOverdue(deadline, status) {
   return d.getTime() < Date.now();
 }
 
+/** Human-friendly deadline copy for the card badge. */
+function deadlineLabel(deadline) {
+  if (!deadline) return '';
+  const d = new Date(deadline);
+  if (Number.isNaN(d.getTime())) return String(deadline);
+  const days = Math.round((d.getTime() - Date.now()) / 86400000);
+  if (days < 0) return 'Overdue';
+  if (days === 0) return 'Due today';
+  if (days === 1) return 'Due tomorrow';
+  if (days < 30) return `${days} days left`;
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
 // -- Main component -----------------------------------------------------------
 
 function Plans() {
@@ -74,6 +94,12 @@ function Plans() {
   const [editingId, setEditingId] = useState(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('newest');
+
+  // Quick-add bar state
+  const [quickTitle, setQuickTitle] = useState('');
+  const [quickPriority, setQuickPriority] = useState('medium');
 
   // Form state
   const [newTitle, setNewTitle] = useState('');
@@ -89,7 +115,9 @@ function Plans() {
     if (!user?.token) { setLoading(false); return; }
     setLoading(true);
     try {
-      const data = await fetchMemoryItems(user.token, activeTab);
+      // Fetch all memory types once and filter client-side so tab switches
+      // are instant and every tab can show its own live count badge.
+      const data = await fetchMemoryItems(user.token);
       setItems(Array.isArray(data) ? data : []);
     } catch (err) {
       if (err.message?.includes('token') || err.message?.includes('authorized')) {
@@ -101,7 +129,7 @@ function Plans() {
     } finally {
       setLoading(false);
     }
-  }, [user, activeTab, dispatch, navigate]);
+  }, [user, dispatch, navigate]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -111,6 +139,8 @@ function Plans() {
     setEditingId(null);
     setSearch('');
     setStatusFilter('all');
+    setPriorityFilter('all');
+    setQuickTitle('');
     resetForm();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
@@ -125,30 +155,61 @@ function Plans() {
 
   // -- Derived data -----------------------------------------------------------
 
+  const tabItems = useMemo(
+    () => items.filter((i) => i.type === activeTab),
+    [items, activeTab]
+  );
+
+  const tabCount = useCallback(
+    (key) => items.filter((i) => i.type === key).length,
+    [items]
+  );
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return items.filter((item) => {
+    const list = tabItems.filter((item) => {
       const d = item.data || {};
       if (statusFilter !== 'all' && (d.status || 'active') !== statusFilter) return false;
+      if (priorityFilter !== 'all' && (d.priority || 'medium') !== priorityFilter) return false;
       if (!q) return true;
       return (
         (d.title || '').toLowerCase().includes(q) ||
         (d.description || '').toLowerCase().includes(q)
       );
     });
-  }, [items, search, statusFilter]);
+
+    const sorted = [...list];
+    if (sortBy === 'priority') {
+      sorted.sort((a, b) => {
+        const pa = PRIORITY_ORDER[a.data?.priority] ?? 3;
+        const pb = PRIORITY_ORDER[b.data?.priority] ?? 3;
+        return pa - pb;
+      });
+    } else if (sortBy === 'deadline') {
+      sorted.sort((a, b) => {
+        const ad = a.data?.deadline ? new Date(a.data.deadline).getTime() : NaN;
+        const bd = b.data?.deadline ? new Date(b.data.deadline).getTime() : NaN;
+        if (Number.isNaN(ad) && Number.isNaN(bd)) return 0;
+        if (Number.isNaN(ad)) return 1;
+        if (Number.isNaN(bd)) return -1;
+        return ad - bd;
+      });
+    }
+    return sorted;
+  }, [tabItems, search, statusFilter, priorityFilter, sortBy]);
 
   const activeItems = filtered.filter((i) => (i.data?.status || 'active') !== 'completed');
   const doneItems = filtered.filter((i) => i.data?.status === 'completed');
 
   const stats = useMemo(() => {
-    const total = items.length;
-    const active = items.filter((i) => (i.data?.status || 'active') !== 'completed').length;
+    const total = tabItems.length;
+    const active = tabItems.filter((i) => (i.data?.status || 'active') !== 'completed').length;
     const done = total - active;
     return { total, active, done, pct: total > 0 ? Math.round((done / total) * 100) : 0 };
-  }, [items]);
+  }, [tabItems]);
 
-  const currentTab = TABS.find((t) => t.key === activeTab);
+  const currentTab = TABS.find((t) => t.key === activeTab) || TABS[0];
+  const isTaskTab = TASK_TYPES.includes(activeTab);
 
   // -- CRUD handlers ----------------------------------------------------------
 
@@ -177,22 +238,45 @@ function Plans() {
     try {
       const payload = { title: newTitle.trim() };
       if (newDescription.trim()) payload.description = newDescription.trim();
-      if (activeTab !== 'action') {
+      if (isTaskTab) {
         payload.priority = newPriority;
         if (newDeadline) payload.deadline = newDeadline;
         payload.status = editingId ? newStatus : 'active';
       }
 
+      const noun = currentTab.label.slice(0, -1);
       if (editingId) {
         await updateMemoryItem(user.token, editingId, payload);
-        toast.success(`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} updated!`);
+        toast.success(`${noun} updated!`);
       } else {
         await createMemoryItem(user.token, activeTab, payload);
-        toast.success(`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} created!`);
+        toast.success(`${noun} created!`);
       }
       resetForm();
       setShowForm(false);
       setEditingId(null);
+      load();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleQuickAdd = async (e) => {
+    if (e?.preventDefault) e.preventDefault();
+    const title = quickTitle.trim();
+    if (!title || saving) return;
+    setSaving(true);
+    try {
+      const payload = { title };
+      if (isTaskTab) {
+        payload.priority = quickPriority;
+        payload.status = 'active';
+      }
+      await createMemoryItem(user.token, activeTab, payload);
+      setQuickTitle('');
+      toast.success(`${currentTab.label.slice(0, -1)} added!`);
       load();
     } catch (err) {
       toast.error(err.message);
@@ -235,26 +319,48 @@ function Plans() {
           {/* Hero */}
           <section className="plans-hero">
             <div className="plans-hero-copy">
+              <p className="plans-eyebrow">Simple · Workspace</p>
               <h1 className="plans-page-title">Your Plans</h1>
               <p className="plans-page-subtitle">
-                Goals, plans, and actions — shared as context with your AI on <strong>/net</strong>.
+                Goals, plans, notes, and actions — kept in sync with your account and shared as context with your AI on <strong>/net</strong>.
               </p>
+              {!loading && user && isTaskTab && (
+                <div className="plans-progress" aria-label="Progress">
+                  <div className="plans-progress-track">
+                    <div className="plans-progress-fill" style={{ width: `${stats.pct}%` }} />
+                  </div>
+                  <span className="plans-progress-label">
+                    {stats.done} of {stats.total} done · {stats.pct}%
+                  </span>
+                </div>
+              )}
             </div>
+
             {!loading && user && (
               <div className="plans-stats" aria-label="Summary">
                 <div className="plans-stat">
                   <span className="plans-stat-value">{stats.total}</span>
                   <span className="plans-stat-label">Total</span>
                 </div>
-                <div className="plans-stat">
-                  <span className="plans-stat-value">{stats.active}</span>
-                  <span className="plans-stat-label">Active</span>
-                </div>
-                <div className="plans-stat">
-                  <span className="plans-stat-value">{stats.done}</span>
-                  <span className="plans-stat-label">Done</span>
-                </div>
+                {isTaskTab && (
+                  <>
+                    <div className="plans-stat">
+                      <span className="plans-stat-value">{stats.active}</span>
+                      <span className="plans-stat-label">Active</span>
+                    </div>
+                    <div className="plans-stat">
+                      <span className="plans-stat-value">{stats.done}</span>
+                      <span className="plans-stat-label">Done</span>
+                    </div>
+                  </>
+                )}
               </div>
+            )}
+
+            {user && (
+              <button className="plans-hero-cta" onClick={openCreate}>
+                + New {currentTab.label.slice(0, -1)}
+              </button>
             )}
           </section>
 
@@ -263,7 +369,7 @@ function Plans() {
               className="plans-login-prompt"
               onClick={() => { dispatch(logout()); navigate('/login'); }}
             >
-              Log in to manage your memory
+              Log in to manage your plans
             </div>
           ) : (
             <>
@@ -278,14 +384,46 @@ function Plans() {
                       className={`plans-tab ${activeTab === tab.key ? 'active' : ''}`}
                       onClick={() => setActiveTab(tab.key)}
                     >
-                      <span className="plans-tab-icon">{tab.icon}</span>
-                      <span>{tab.label}</span>
-                      {!loading && activeTab === tab.key && (
-                        <span className="plans-tab-count">{items.length}</span>
+                      <span className="plans-tab-icon" aria-hidden="true">{tab.icon}</span>
+                      <span className="plans-tab-label">{tab.label}</span>
+                      {!loading && (
+                        <span className="plans-tab-count">{tabCount(tab.key)}</span>
                       )}
                     </button>
                   ))}
                 </div>
+
+                {/* Quick add */}
+                <form className="plans-quickadd" onSubmit={handleQuickAdd}>
+                  <span className="plans-quickadd-icon" aria-hidden="true">{currentTab.icon}</span>
+                  <input
+                    className="plans-quickadd-input"
+                    type="text"
+                    placeholder={currentTab.quick}
+                    value={quickTitle}
+                    onChange={(e) => setQuickTitle(e.target.value)}
+                    maxLength={200}
+                  />
+                  {isTaskTab && (
+                    <select
+                      className="plans-quickadd-select"
+                      value={quickPriority}
+                      onChange={(e) => setQuickPriority(e.target.value)}
+                      aria-label="Priority"
+                    >
+                      {PRIORITY_OPTIONS.map((p) => (
+                        <option key={p} value={p}>{PRIORITY_LABELS[p]}</option>
+                      ))}
+                    </select>
+                  )}
+                  <button
+                    type="submit"
+                    className="plans-quickadd-btn"
+                    disabled={saving || !quickTitle.trim()}
+                  >
+                    {saving ? '…' : 'Add'}
+                  </button>
+                </form>
 
                 <div className="plans-controls-row">
                   <div className="plans-search">
@@ -293,7 +431,7 @@ function Plans() {
                     <input
                       className="plans-search-input"
                       type="text"
-                      placeholder={`Search ${activeTab}s…`}
+                      placeholder={`Search ${currentTab.label.toLowerCase()}…`}
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                     />
@@ -304,25 +442,51 @@ function Plans() {
                     )}
                   </div>
 
-                  {activeTab !== 'action' && (
-                    <select
-                      className="plans-filter-select"
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                      aria-label="Filter by status"
-                    >
-                      {STATUS_FILTERS.map((s) => (
-                        <option key={s} value={s}>
-                          {s === 'all' ? 'All statuses' : STATUS_LABELS[s]}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-
-                  <button className="plans-create-btn" onClick={openCreate}>
-                    + New {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
-                  </button>
+                  <select
+                    className="plans-filter-select"
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    aria-label="Sort by"
+                  >
+                    <option value="newest">Newest first</option>
+                    <option value="priority">Priority</option>
+                    <option value="deadline">Deadline</option>
+                  </select>
                 </div>
+
+                {/* Status + priority filter chips */}
+                {(isTaskTab || search) && (
+                  <div className="plans-chips">
+                    {isTaskTab && STATUS_FILTERS.map((s) => (
+                      <button
+                        key={s}
+                        className={`plans-chip ${statusFilter === s ? 'active' : ''}`}
+                        onClick={() => setStatusFilter(s)}
+                        aria-pressed={statusFilter === s}
+                      >
+                        {s === 'all' ? 'All' : STATUS_LABELS[s]}
+                      </button>
+                    ))}
+                    {isTaskTab && PRIORITY_FILTERS.map((p) => (
+                      <button
+                        key={p}
+                        className={`plans-chip plans-chip--priority ${priorityFilter === p ? 'active' : ''}`}
+                        onClick={() => setPriorityFilter(p)}
+                        aria-pressed={priorityFilter === p}
+                      >
+                        {p === 'all' ? 'All priorities' : PRIORITY_LABELS[p]}
+                      </button>
+                    ))}
+                    {(search || statusFilter !== 'all' || priorityFilter !== 'all') && (
+                      <button
+                        className="plans-chip plans-chip--clear"
+                        onClick={() => { setSearch(''); setStatusFilter('all'); setPriorityFilter('all'); }}
+                      >
+                        ✕ Clear filters
+                      </button>
+                    )}
+                  </div>
+                )}
               </section>
 
               {/* Create / Edit form */}
@@ -330,7 +494,7 @@ function Plans() {
                 <form className="plans-create-form" onSubmit={handleSubmit}>
                   <div className="plans-form-head">
                     <h2 className="plans-form-title">
-                      {editingId ? `Edit ${activeTab}` : `New ${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}`}
+                      {editingId ? `Edit ${currentTab.label.slice(0, -1)}` : `New ${currentTab.label.slice(0, -1)}`}
                     </h2>
                     <button
                       type="button"
@@ -345,7 +509,7 @@ function Plans() {
                   <input
                     className="plans-input"
                     type="text"
-                    placeholder={activeTab === 'goal' ? 'What do you want to achieve?' : activeTab === 'plan' ? 'What is your plan?' : 'Describe the action…'}
+                    placeholder={currentTab.titlePlaceholder}
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
                     autoFocus
@@ -359,7 +523,7 @@ function Plans() {
                     rows={2}
                     maxLength={1000}
                   />
-                  {activeTab !== 'action' && (
+                  {isTaskTab && (
                     <div className="plans-form-row">
                       <select
                         className="plans-select"
@@ -400,7 +564,7 @@ function Plans() {
                       Cancel
                     </button>
                     <button type="submit" className="plans-btn plans-btn--primary" disabled={saving || !newTitle.trim()}>
-                      {saving ? 'Saving…' : editingId ? 'Save changes' : `Create ${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}`}
+                      {saving ? 'Saving…' : editingId ? 'Save changes' : `Create ${currentTab.label.slice(0, -1)}`}
                     </button>
                   </div>
                 </form>
@@ -422,22 +586,22 @@ function Plans() {
               {/* Empty state */}
               {!loading && filtered.length === 0 && (
                 <div className="plans-empty">
-                  <div className="plans-empty-icon" aria-hidden="true">{currentTab?.icon}</div>
+                  <div className="plans-empty-icon" aria-hidden="true">{currentTab.icon}</div>
                   <p className="plans-empty-title">
-                    {search || statusFilter !== 'all'
+                    {search || statusFilter !== 'all' || priorityFilter !== 'all'
                       ? 'No matches found'
-                      : currentTab?.empty}
+                      : currentTab.empty}
                   </p>
-                  {search || statusFilter !== 'all' ? (
+                  {search || statusFilter !== 'all' || priorityFilter !== 'all' ? (
                     <button
                       className="plans-btn plans-btn--ghost"
-                      onClick={() => { setSearch(''); setStatusFilter('all'); }}
+                      onClick={() => { setSearch(''); setStatusFilter('all'); setPriorityFilter('all'); }}
                     >
                       Clear filters
                     </button>
                   ) : (
                     <button className="plans-btn plans-btn--primary" onClick={openCreate}>
-                      + Create your first {activeTab}
+                      + Create your first {currentTab.label.slice(0, -1).toLowerCase()}
                     </button>
                   )}
                 </div>
@@ -446,7 +610,7 @@ function Plans() {
               {/* Active section */}
               {!loading && activeItems.length > 0 && (
                 <section className="plans-section">
-                  {activeTab !== 'action' && doneItems.length > 0 && (
+                  {isTaskTab && doneItems.length > 0 && (
                     <h3 className="plans-section-title">Active</h3>
                   )}
                   <div className="plans-items">
@@ -483,8 +647,7 @@ function Plans() {
 
               {/* Info note */}
               <div className="plans-info-note">
-                💡 Your active goals are automatically shared as context with your AI on <strong>/net</strong>.
-                Actions are logged automatically from conversations.
+                💡 Your active goals are automatically shared as context with your AI on <strong>/net</strong>. Actions and notes are logged automatically from conversations.
               </div>
             </>
           )}
@@ -499,14 +662,16 @@ function Plans() {
 
 function MemoryCard({ item, onStatusChange, onDelete, onEdit }) {
   const { data, type, createdAt } = item;
+  const isTask = TASK_TYPES.includes(type);
   const isCompleted = data?.status === 'completed';
   const overdue = isOverdue(data?.deadline, data?.status);
+  const priority = PRIORITY_LABELS[data?.priority] || data?.priority;
 
   return (
-    <div className={`memory-card ${type} ${isCompleted ? 'completed' : ''}`}>
+    <div className={`memory-card type-${type} ${isCompleted ? 'completed' : ''} ${overdue ? 'is-overdue' : ''}`}>
       <div className="memory-card-header">
         <div className="memory-card-title-row">
-          {type !== 'action' && (
+          {isTask && (
             <button
               className={`memory-card-check ${isCompleted ? 'checked' : ''}`}
               onClick={() => onStatusChange(item, isCompleted ? 'active' : 'completed')}
@@ -517,7 +682,7 @@ function MemoryCard({ item, onStatusChange, onDelete, onEdit }) {
             </button>
           )}
           <span className={`memory-card-title ${isCompleted ? 'strike' : ''}`}>
-            {data?.title || 'Untitled'}
+            {data?.title || (type === 'note' ? 'Untitled note' : 'Untitled')}
           </span>
         </div>
         <div className="memory-card-actions">
@@ -535,20 +700,20 @@ function MemoryCard({ item, onStatusChange, onDelete, onEdit }) {
       )}
 
       <div className="memory-card-meta">
-        {type !== 'action' && data?.status && (
+        {isTask && data?.status && (
           <span className={`memory-card-status status-${data.status}`}>
             <span className="memory-card-status-dot" aria-hidden="true" />
             {STATUS_LABELS[data.status] || data.status}
           </span>
         )}
-        {data?.priority && type !== 'action' && (
+        {isTask && priority && (
           <span className={`memory-card-badge priority-${data.priority}`}>
-            {PRIORITY_LABELS[data.priority] || data.priority}
+            {priority}
           </span>
         )}
         {data?.deadline && (
-          <span className={`memory-card-badge deadline ${overdue ? 'overdue' : ''}`}>
-            📅 {data.deadline}{overdue ? ' · Overdue' : ''}
+          <span className={`memory-card-badge deadline ${overdue ? 'overdue' : ''}`} title={data.deadline}>
+            📅 {deadlineLabel(data.deadline)}
           </span>
         )}
         {data?.source && (

@@ -173,11 +173,11 @@ function Home() {
                             <a className="home-spc-tool animate-in" href={links.annuities} style={{animationDelay: '0.25s'}}>
                                 <div className="home-spc-tool-text">{links.annuities}</div>
                             </a>
-                            {/* {user && 
+                            {user && 
                                 <a className="home-spc-tool animate-in" href={links.plans} style={{animationDelay: '0.25s'}}>
                                     <div className="home-spc-tool-text">{links.plans}</div>
                                 </a>
-                            } */}
+                            }
                             <a className="home-spc-tool animate-in" href={links.wordle} style={{animationDelay: '0.3s'}}>
                                 <div className="home-spc-tool-text">{links.wordle}</div>
                             </a>
