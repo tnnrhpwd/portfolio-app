@@ -3,6 +3,7 @@ import { getLocalModels, testAddonConnection, runAddonSingleClickUpdate } from '
 import { ADDON_DOWNLOAD_URL } from '../../hooks/simpleAddon/useAddonDetection';
 import { buildCloudModelList, FALLBACK_CLOUD_MODEL, getEffectiveCloudModelId } from '../../utils/llmProviderOptions.js';
 import UsageMeter from './UsageMeter';
+import StorageMeter from './StorageMeter';
 import AgentLivePanel from './AgentLivePanel';
 import './Sidebar.css';
 
@@ -412,6 +413,7 @@ function Sidebar({
         </div>
 
         <UsageMeter user={user} />
+        <StorageMeter user={user} />
       </aside>
     </>
   );

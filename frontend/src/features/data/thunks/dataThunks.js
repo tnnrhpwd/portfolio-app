@@ -14,10 +14,15 @@ export const createData = createAsyncThunk(
       const token = thunkAPI.getState().data.user.token;
       return await dataService.createData(dataData, token);
     } catch (error) {
+      const serverData = error.response && error.response.data;
+      // Surface the backend's plain, factual message when present (e.g. a 413
+      // "Storage limit exceeded" response carries `details`/`error`), falling
+      // back to the legacy `dataMessage` field and then a generic string.
       const dataMessage =
-        (error.response &&
-          error.response.data &&
-          error.response.data.dataMessage) ||
+        (serverData && serverData.dataMessage) ||
+        (serverData && serverData.details) ||
+        (serverData && serverData.error) ||
+        (serverData && serverData.message) ||
         error.dataMessage ||
         error.toString();
       return thunkAPI.rejectWithValue(dataMessage);

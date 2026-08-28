@@ -136,6 +136,10 @@ const createData = async (dataData, token) => {
         return response.data
     } catch (error) {
         handleTokenExpiration(error);
+        // Re-throw so the thunk rejects and surfaces the error (e.g. a 413
+        // "Storage limit exceeded") instead of silently swallowing it and
+        // leaving callers to assume the save succeeded.
+        throw error;
     }
 }
 
