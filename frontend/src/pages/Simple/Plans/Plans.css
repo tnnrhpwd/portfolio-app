@@ -861,3 +861,152 @@
   .plans-quickadd-input { flex-basis: 100%; }
   .plans-hero-cta { width: 100%; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Simplified refresh — cleaner, calmer Plans dashboard.
+   These overrides sit after the base rules so they win the cascade.
+═══════════════════════════════════════════════════════════════════════════ */
+
+.plans-page {
+  background:
+    radial-gradient(1100px 480px at 100% -10%, var(--bg-mint) 0%, transparent 55%),
+    radial-gradient(900px 480px at -10% 0%, var(--bg-blue) 0%, transparent 50%),
+    var(--bg-page);
+  animation: none;
+  padding-top: calc(var(--nav-size) * 1.05);
+}
+
+.plans-shell {
+  max-width: 760px;
+  gap: var(--spacing-xs);
+}
+
+/* Hero — one clean card, no stat boxes, no progress bar */
+.plans-hero {
+  background: var(--bg-1);
+  border: 1px solid var(--border-nav);
+  border-radius: var(--border-radius-xl);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: none;
+  padding: var(--spacing-md);
+  animation: none;
+}
+
+.plans-page-title {
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  background-clip: initial;
+  color: var(--text-color);
+  margin-bottom: calc(var(--nav-size) * 0.12);
+}
+
+.plans-page-subtitle {
+  opacity: 0.72;
+}
+
+.plans-hero-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.12);
+  margin-top: var(--spacing-xs);
+  font-size: var(--font-size-small);
+  color: var(--text-color);
+  opacity: 0.85;
+}
+.plans-hero-stats strong {
+  color: var(--fg-blue);
+  font-weight: var(--font-weight-bold);
+}
+.plans-hero-stat-dot { opacity: 0.4; }
+
+.plans-hero-cta {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.14);
+}
+
+/* Login prompt */
+.plans-login-prompt {
+  background: var(--bg-1);
+  backdrop-filter: none;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Tabs — round pills, clean surfaces */
+.plans-tab {
+  background: var(--bg-1);
+  backdrop-filter: none;
+  border-radius: 999px;
+  box-shadow: none;
+  padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.3);
+}
+.plans-tab:hover {
+  box-shadow: var(--shadow-sm);
+}
+.plans-tab:not(.active) .plans-tab-count {
+  background: var(--bg-page);
+}
+
+/* Quick add + search + selects — flat, clean surfaces */
+.plans-quickadd,
+.plans-search,
+.plans-filter-select,
+.plans-chip,
+.plans-create-form {
+  background: var(--bg-1);
+  backdrop-filter: none;
+}
+
+.plans-quickadd { box-shadow: var(--shadow-sm); }
+.plans-search { box-shadow: var(--shadow-sm); }
+
+.plans-filter-select,
+.plans-chip {
+  border-radius: 999px;
+}
+
+/* Create / edit form */
+.plans-create-form {
+  box-shadow: var(--shadow-md);
+}
+
+/* Empty state */
+.plans-empty {
+  background: var(--bg-1);
+  backdrop-filter: none;
+}
+
+/* Memory cards — flat cards with a colored left edge instead of top bars */
+.memory-card {
+  background: var(--bg-1);
+  border: 1px solid var(--border-nav);
+  border-left: 4px solid var(--fg-blue);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-sm);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: none;
+}
+.memory-card::before { display: none; }
+.memory-card.type-goal   { border-left-color: var(--fg-blue); }
+.memory-card.type-plan   { border-left-color: var(--fg-mint); }
+.memory-card.type-action { border-left-color: var(--fg-pink); }
+.memory-card.type-note   { border-left-color: var(--fg-orange); }
+
+.memory-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-nav);
+  border-left-color: var(--fg-mint);
+}
+
+.memory-card.is-overdue {
+  border-left-color: var(--fg-pink);
+}
+
+.memory-card-actions { opacity: 0.45; }
+.memory-card:hover .memory-card-actions { opacity: 1; }
+
+/* Info note */
+.plans-info-note {
+  background: rgba(0, 102, 204, 0.07);
+  color: var(--text-color);
+  opacity: 0.85;
+}

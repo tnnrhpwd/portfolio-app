@@ -309,12 +309,6 @@ function Plans() {
     <>
       <Header />
       <div className="plans-page">
-        <div className="floating-shapes" aria-hidden="true">
-          <div className="floating-circle floating-circle-1"></div>
-          <div className="floating-circle floating-circle-2"></div>
-          <div className="floating-circle floating-circle-3"></div>
-        </div>
-
         <div className="plans-shell">
           {/* Hero */}
           <section className="plans-hero">
@@ -324,38 +318,20 @@ function Plans() {
               <p className="plans-page-subtitle">
                 Goals, plans, notes, and actions — kept in sync with your account and shared as context with your AI on <strong>/net</strong>.
               </p>
-              {!loading && user && isTaskTab && (
-                <div className="plans-progress" aria-label="Progress">
-                  <div className="plans-progress-track">
-                    <div className="plans-progress-fill" style={{ width: `${stats.pct}%` }} />
-                  </div>
-                  <span className="plans-progress-label">
-                    {stats.done} of {stats.total} done · {stats.pct}%
-                  </span>
+              {!loading && user && (
+                <div className="plans-hero-stats" aria-label="Summary">
+                  <span><strong>{stats.total}</strong> total</span>
+                  {isTaskTab && (
+                    <>
+                      <span className="plans-hero-stat-dot" aria-hidden="true">·</span>
+                      <span><strong>{stats.active}</strong> active</span>
+                      <span className="plans-hero-stat-dot" aria-hidden="true">·</span>
+                      <span><strong>{stats.done}</strong> done</span>
+                    </>
+                  )}
                 </div>
               )}
             </div>
-
-            {!loading && user && (
-              <div className="plans-stats" aria-label="Summary">
-                <div className="plans-stat">
-                  <span className="plans-stat-value">{stats.total}</span>
-                  <span className="plans-stat-label">Total</span>
-                </div>
-                {isTaskTab && (
-                  <>
-                    <div className="plans-stat">
-                      <span className="plans-stat-value">{stats.active}</span>
-                      <span className="plans-stat-label">Active</span>
-                    </div>
-                    <div className="plans-stat">
-                      <span className="plans-stat-value">{stats.done}</span>
-                      <span className="plans-stat-label">Done</span>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
 
             {user && (
               <button className="plans-hero-cta" onClick={openCreate}>

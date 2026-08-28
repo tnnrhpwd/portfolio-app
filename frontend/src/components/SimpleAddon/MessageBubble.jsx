@@ -15,6 +15,7 @@ function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = 
   const hasOperations = !isUser && message.operations?.length > 0;
   const hasFileDownload = !isUser && message.fileDownload;
   const hasAttachedFile = isUser && message.attachedFile;
+  const hasAttachedImage = isUser && message.attachedImage;
   const msgDate = new Date(message.timestamp);
   const today = new Date();
   const isToday = msgDate.toDateString() === today.toDateString();
@@ -140,6 +141,13 @@ function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = 
             )}
             {isUser ? (
               <>
+                {hasAttachedImage && (
+                  <img
+                    className="message__attached-image"
+                    src={message.attachedImage.dataUrl}
+                    alt={message.attachedImage.name || 'Attached image'}
+                  />
+                )}
                 {hasAttachedFile && (
                   <div className="message__attached-file">
                     <span className="message__attached-file-icon">📎</span>

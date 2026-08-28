@@ -78,6 +78,7 @@ function Net() {
         conversationHistory,
         activeAgent: extras.activeAgent || null,
         behaviorFile: extras.behaviorFile || 'default.txt',
+        image: extras.image || null,
       };
       const combinedData = JSON.stringify(payload);
       try {
@@ -120,6 +121,7 @@ function Net() {
         conversationHistory,
         activeAgent: extras.activeAgent || null,
         behaviorFile: extras.behaviorFile || 'default.txt',
+        image: extras.image || null,
       };
       const combinedData = JSON.stringify(payload);
       dispatch(

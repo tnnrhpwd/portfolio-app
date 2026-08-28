@@ -244,7 +244,7 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
             </div>
             <h2>{agent?.name || 'Simple AI'} Chat</h2>
             <p>Send a message to start chatting{addonReady ? ' — your PC is connected and ready for actions.' : '.'}</p>
-            <p className="chat-window__empty-hint">📎 Drop an image to convert, resize, or compress it</p>
+            <p className="chat-window__empty-hint">📎 Drop an image to read it (e.g. "add these goals"), or convert / resize / compress it</p>
             <div className="chat-window__suggestions">
               {suggestions.map((suggestion, i) => (
                 <button
@@ -370,7 +370,7 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={attachedFiles.length > 0 ? 'Describe what to do with the file (e.g. "convert to jpg")...' : isOnline ? "Type a message..." : "Offline - Cannot send messages"}
+            placeholder={attachedFiles.length > 0 ? 'Ask about the image or edit it (e.g. "add these goals" or "convert to jpg")...' : isOnline ? "Type a message..." : "Offline - Cannot send messages"}
             rows={1}
             disabled={isGenerating || !isOnline}
           />

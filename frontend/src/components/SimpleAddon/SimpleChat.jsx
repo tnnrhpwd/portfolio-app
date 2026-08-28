@@ -86,6 +86,54 @@ const shouldSkipDuplicateBugReport = (content) => {
   return false;
 };
 
+// Image-editing verbs that should keep routing to the server-side file
+// processor instead of the chat LLM. Anything else (read/extract/goals/…)
+// is treated as a vision request so the LLM can read the screenshot.
+const IMAGE_EDIT_RE = /\b(convert|resize|scale|compress|optimi[sz]e|rotate|grayscale|greyscale|blur|sharpen|crop|flip|mirror|upscale|thumbnail)\b/i;
+const IMAGE_CHAT_HINT_RE = /\b(goal|goals|read|extract|transcrib|ocr|what\s+(does|is|says)|summar|describe|from\s+(this|the)\s+(screenshot|image|picture)|into\s+my)\b/i;
+
+const isImageEditInstruction = (text = '') =>
+  IMAGE_EDIT_RE.test(text) && !IMAGE_CHAT_HINT_RE.test(text);
+
+// Longest edge (px) we send to the vision model. Downscaling keeps the base64
+// payload small enough to ride in the JSON request body and within the vision
+// model's recommended input size.
+const VISION_MAX_EDGE = 1568;
+
+/**
+ * Read a File and return a downscaled JPEG data URL suitable for the cloud
+ * vision model. Falls back to the original data URL if canvas isn't available.
+ */
+function readImageForVision(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onerror = () => resolve({ error: 'Could not read the image file.' });
+    reader.onload = () => {
+      const originalDataUrl = reader.result;
+      const img = new Image();
+      img.onerror = () => resolve({ error: 'Could not decode the image.' });
+      img.onload = () => {
+        try {
+          const scale = Math.min(1, VISION_MAX_EDGE / Math.max(img.width || 1, img.height || 1));
+          const w = Math.max(1, Math.round((img.width || 1) * scale));
+          const h = Math.max(1, Math.round((img.height || 1) * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          resolve({ dataUrl, mimeType: 'image/jpeg', name: file.name, size: file.size });
+        } catch {
+          resolve({ dataUrl: originalDataUrl, mimeType: file.type || 'image/jpeg', name: file.name, size: file.size });
+        }
+      };
+      img.src = originalDataUrl;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function getDeviceLocalSettings() {
   try {
     const saved = localStorage.getItem(DEVICE_SETTINGS_KEY);
@@ -102,6 +150,25 @@ const hasMessages = (c) => Array.isArray(c?.messages) && c.messages.length > 0;
  * duplicate empty chats on other devices.
  */
 const nonEmptyConversations = (list) => (Array.isArray(list) ? list : []).filter(hasMessages);
+
+/**
+ * Combine the server's authoritative (non-empty) conversation list with any
+ * local empty conversations (fresh "New Chat" placeholders) so a sync never
+ * deletes a just-created chat. Empty chats are local-only and never sync.
+ * If a local empty chat's id already exists server-side as a non-empty chat,
+ * drop the empty copy in favor of the server's version.
+ */
+function adoptSyncedConversations(prev, serverConversations) {
+  const merged = Array.isArray(serverConversations) ? serverConversations : [];
+  const mergedIds = new Set(merged.map(c => String(c.id)));
+  const localEmpty = prev.filter(c => !hasMessages(c) && !mergedIds.has(String(c.id)));
+  const next = [...localEmpty, ...merged];
+  if (next.length === 0) {
+    return [{ id: Date.now().toString(), title: 'New Chat', messages: [], createdAt: new Date().toISOString() }];
+  }
+  if (JSON.stringify(next) === JSON.stringify(prev)) return prev;
+  return next;
+}
 
 const DEFAULT_SETTINGS = {
   saveChatsLocally: true,
@@ -416,18 +483,7 @@ function SimpleChat({
       // added/updated/deleted a conversation). Deep-equality guard prevents an
       // identical result from retriggering the debounced save.
       if (result?.conversations && Array.isArray(result.conversations)) {
-        setConversations(prev => {
-          // The server never returns empty conversations. If the merged list
-          // is empty it just means there are no real (non-empty) chats yet —
-          // keep the current local state (including the local "New Chat"
-          // placeholder) instead of collapsing to zero.
-          const merged = result.conversations;
-          if (merged.length === 0) return prev;
-          if (JSON.stringify(merged) === JSON.stringify(prev)) {
-            return prev;
-          }
-          return merged;
-        });
+        setConversations(prev => adoptSyncedConversations(prev, result.conversations));
       }
       setCloudSyncStatus('synced');
     } catch (err) {
@@ -487,14 +543,7 @@ function SimpleChat({
               );
               if (Array.isArray(merged.deletedIds)) setDeletedConversationIds(merged.deletedIds);
               if (merged?.conversations && Array.isArray(merged.conversations)) {
-                setConversations(prev => {
-                  const next = merged.conversations;
-                  if (next.length === 0) return prev;
-                  if (JSON.stringify(next) === JSON.stringify(prev)) {
-                    return prev;
-                  }
-                  return next;
-                });
+                setConversations(prev => adoptSyncedConversations(prev, merged.conversations));
               }
             } catch (convErr) {
               console.warn('[Simple] Failed to load cloud conversations:', convErr);
@@ -896,8 +945,35 @@ function SimpleChat({
     if (!text.trim() && !hasFiles) return;
     if (isGenerating) return;
 
+    // ── Image → chat (vision) ───────────────────────────────────────────────
+    // A screenshot with a natural-language request ("read this", "add the goals
+    // from the screenshot") is sent to the chat LLM so it can read the image
+    // and act on it (e.g. call save_goals). Pure image-editing commands
+    // (convert/resize/compress/…) still route to the file processor below.
+    let chatImage = null;
+    if (hasFiles && files[0].type.startsWith('image/') && !isImageEditInstruction(text)) {
+      const file = files[0];
+      const vision = await readImageForVision(file);
+      if (vision.error) {
+        const errorMsg = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: `❌ ${vision.error}`,
+          timestamp: new Date().toISOString(),
+          isError: true,
+        };
+        setConversations(prev => prev.map(c => {
+          if (c.id !== activeConversationId) return c;
+          return { ...c, messages: [...c.messages, errorMsg] };
+        }));
+        return;
+      }
+      chatImage = vision;
+      if (!text.trim()) text = 'Look at this image.';
+    }
+
     // ── File processing branch — entirely separate from chat ────────────────
-    if (hasFiles) {
+    if (hasFiles && !chatImage) {
       const file = files[0]; // single file for now
       const displayText = text.trim() || `Process ${file.name}`;
 
@@ -1065,6 +1141,14 @@ function SimpleChat({
       id: Date.now().toString(),
       role: 'user',
       content: text,
+      ...(chatImage ? {
+        attachedImage: {
+          name: chatImage.name,
+          size: chatImage.size,
+          dataUrl: chatImage.dataUrl,
+          mimeType: chatImage.mimeType,
+        },
+      } : {}),
       timestamp: new Date().toISOString(),
     };
 
@@ -1090,6 +1174,25 @@ function SimpleChat({
       const trimmedHistory = history.slice(-(settings.maxConversationHistory ?? 50));
 
       const provider = settings.llmProvider || 'portfolio';
+
+      // ── Vision requires the cloud provider ─────────────────────────────
+      // The local addon's HuggingFace models can't accept image input, so an
+      // attached screenshot must go through Cloud (AWS Bedrock).
+      if (chatImage && provider !== 'portfolio') {
+        const errMsg = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: "**Vision requires the cloud provider.**\n\nI can read screenshots over **Cloud (AWS Bedrock)**, but this chat is currently set to a local model. Open **Settings → Model** and switch to a cloud model, then retry.",
+          timestamp: new Date().toISOString(),
+          isError: true,
+        };
+        setConversations(prev => prev.map(c => {
+          if (c.id !== activeConversationId) return c;
+          return { ...c, messages: [...c.messages, errMsg] };
+        }));
+        setIsGenerating(false);
+        return;
+      }
 
       // ── Phone → PC remote-control routing ──────────────────────────────
       // Explicit "on pc" / "on my computer" phrasing means the user wants the
@@ -1401,6 +1504,7 @@ function SimpleChat({
           onPortfolioChatStream(text, trimmedHistory, portfolioProvider, portfolioModel, {
             activeAgent: activeAgent?.id || null,
             behaviorFile: activeAgent?.behaviorFile || 'default.txt',
+            image: chatImage ? { dataUrl: chatImage.dataUrl } : null,
           });
           return; // Don't set isGenerating to false — streaming callbacks handle it
         }
@@ -1409,6 +1513,7 @@ function SimpleChat({
         onPortfolioChat(text, trimmedHistory, portfolioProvider, portfolioModel, {
           activeAgent: activeAgent?.id || null,
           behaviorFile: activeAgent?.behaviorFile || 'default.txt',
+          image: chatImage ? { dataUrl: chatImage.dataUrl } : null,
         });
         return; // Don't set isGenerating to false yet — wait for response
       }

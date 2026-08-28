@@ -12,6 +12,7 @@
  * when it isn't, the panel shows a short connect hint instead.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   getAgentEventsUrl,
   getAgentStatus,
@@ -71,6 +72,7 @@ function parseSkillContent(item) {
 }
 
 export default function AgentLivePanel({ addonConnected, user, onManageMacros, variant = 'sidebar' }) {
+  const navigate = useNavigate();
   const isSidebar = variant === 'sidebar';
   const token = user?.token;
 
@@ -369,6 +371,23 @@ export default function AgentLivePanel({ addonConnected, user, onManageMacros, v
             Manage macros →
           </button>
         )}
+      </div>
+
+      {/* ── Plans shortcut ─────────────────────────────────────────────── */}
+      <div className="agent-live__section agent-live__section--plans">
+        <button
+          type="button"
+          className="agent-live__plans-btn"
+          onClick={() => navigate('/plans')}
+          title="Open your Plans dashboard — goals, plans, notes & actions"
+        >
+          <span className="agent-live__plans-btn-icon" aria-hidden="true">📋</span>
+          <span className="agent-live__plans-btn-text">
+            <span className="agent-live__plans-btn-title">Plans</span>
+            <span className="agent-live__plans-btn-sub">Goals, plans, notes &amp; actions</span>
+          </span>
+          <span className="agent-live__plans-btn-arrow" aria-hidden="true">→</span>
+        </button>
       </div>
     </div>
   );

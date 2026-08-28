@@ -654,3 +654,75 @@
   text-align: left;
   color: var(--text-secondary);
 }
+
+/* ─── Plans shortcut button ─────────────────────────────────────────────── */
+.agent-live__section--plans {
+  padding-top: 10px;
+}
+
+.agent-live__plans-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  background: var(--bg-secondary, #f3f4f6);
+  color: var(--text-primary, #111827);
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.12));
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
+}
+
+.agent-live__plans-btn:hover {
+  background: var(--bg-hover, #e5e7eb);
+  border-color: var(--accent, #6c63ff);
+}
+
+.agent-live__plans-btn:active {
+  transform: translateY(1px);
+}
+
+.agent-live__plans-btn-icon {
+  font-size: 1.15rem;
+  flex-shrink: 0;
+}
+
+.agent-live__plans-btn-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.agent-live__plans-btn-title {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.agent-live__plans-btn-sub {
+  font-size: 11px;
+  opacity: 0.65;
+}
+
+.agent-live__plans-btn-arrow {
+  flex-shrink: 0;
+  font-size: 14px;
+  color: var(--accent, #6c63ff);
+  font-weight: 700;
+}
+
+.agent-live--sidebar .agent-live__plans-btn {
+  background: var(--bg-primary);
+  border-color: var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+
+.agent-live--sidebar .agent-live__plans-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+}

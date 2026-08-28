@@ -34,7 +34,11 @@ const PROVIDERS = {
             'deepseek-chat': { name: 'DeepSeek-V3 (Chat)', contextWindow: 64000 },
             'deepseek-reasoner': { name: 'DeepSeek-R1 (Reasoner)', contextWindow: 64000 }
         },
-        apiKey: process.env.DEEPSEEK_API_KEY,
+        // Read lazily (not captured at module load): server.js loads the key
+        // from AWS Secrets Manager before routes require this module, but other
+        // entry points (tests, scripts, tools) may require it first. A getter
+        // always reflects the current env, so the key is never stale.
+        get apiKey() { return process.env.DEEPSEEK_API_KEY; },
         client: null,
         baseURL: 'https://api.deepseek.com'
     },

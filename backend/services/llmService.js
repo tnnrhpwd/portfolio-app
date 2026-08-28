@@ -185,6 +185,57 @@ function parseCompressionRequest(req) {
 }
 
 /**
+ * Build the content for a Net: chat user turn. Plain text by default; when the
+ * frontend attaches an image (`extras.image = { dataUrl }`) it becomes an
+ * OpenAI-style multimodal content array so Bedrock (Claude Haiku 4.5) receives
+ * the image. The existing toBedrockUserContent() in bedrockService.js already
+ * converts this shape to Bedrock Converse image blocks.
+ */
+function buildUserMessageContent(message, image) {
+    const text = typeof message === 'string' ? message : String(message ?? '');
+    const hasImage = image && typeof image === 'object' &&
+        typeof image.dataUrl === 'string' &&
+        /^data:image\//.test(image.dataUrl);
+    if (hasImage) {
+        const parts = [];
+        if (text) parts.push({ type: 'text', text });
+        parts.push({ type: 'image_url', image_url: { url: image.dataUrl } });
+        return parts;
+    }
+    return text;
+}
+
+const IMAGE_DATA_URL_RE = /^data:image\/[a-z0-9.+-]+;base64,/i;
+
+/**
+ * Replace inline image data URLs with a placeholder before a chat is persisted
+ * to DynamoDB. Without this a large screenshot embedded in `userInput` could
+ * push the stored item past DynamoDB's 400KB item limit. The live LLM call
+ * still receives the full image — this only affects what gets saved.
+ */
+function stripImagesFromUserInput(userInput) {
+    try {
+        const parsed = JSON.parse(userInput);
+        let changed = false;
+        const scrub = (value) => {
+            if (!value || typeof value !== 'object') return;
+            for (const [key, val] of Object.entries(value)) {
+                if (typeof val === 'string' && IMAGE_DATA_URL_RE.test(val)) {
+                    value[key] = '[image omitted]';
+                    changed = true;
+                } else if (val && typeof val === 'object') {
+                    scrub(val);
+                }
+            }
+        };
+        scrub(parsed);
+        return changed ? JSON.stringify(parsed) : userInput;
+    } catch {
+        return userInput;
+    }
+}
+
+/**
  * Build the base system prompt parts used by both callLLMApi and streamCompressionRequest.
  */
 function buildSystemPromptParts(goalsSummary) {
@@ -444,10 +495,11 @@ async function callLLMApi(provider, model, userInput, goalsSummary = null, toolC
     try {
         const parsed = JSON.parse(userInput);
         if (parsed.message && Array.isArray(parsed.conversationHistory)) {
-            // Reconstruct proper multi-turn conversation
+            // Reconstruct proper multi-turn conversation. The latest user turn
+            // may carry an attached image (multimodal) for vision requests.
             messages = [
                 ...parsed.conversationHistory.map(m => ({ role: m.role, content: m.content })),
-                { role: 'user', content: parsed.message }
+                { role: 'user', content: buildUserMessageContent(parsed.message, parsed.image) }
             ];
         } else {
             messages = [{ role: 'user', content: userInput }];
@@ -593,7 +645,8 @@ async function saveCompressedData(dynamodb, userId, userInput, compressedData, u
     logger.debug('💾 Starting data saving...');
     const startSaving = Date.now();
     
-    const newData = `Creator:${userId}|Net:${userInput}\n${compressedData}`;
+    const storedUserInput = stripImagesFromUserInput(userInput);
+    const newData = `Creator:${userId}|Net:${storedUserInput}\n${compressedData}`;
     logger.debug('Saving data with format:', newData.substring(0, 100) + '...');
 
     if (updateId) {
@@ -733,8 +786,10 @@ async function processCompressionRequest(req, dynamodb) {
     // Check tier access for the requested model
     validateModelTierAccess(req.user, model);
     
-    // Validate API usage
-    await validateApiUsage(req.user.id, provider, model, userInput);
+    // Validate API usage (strip inline images so a screenshot's base64 isn't
+    // miscounted as ~100K text tokens by the length-based pre-call estimate —
+    // Bedrock's real prompt_tokens are charged accurately after the call).
+    await validateApiUsage(req.user.id, provider, model, stripImagesFromUserInput(userInput));
 
     // Fetch user's active goals to inject as context
     let goalsSummary = null;
@@ -849,8 +904,8 @@ async function streamCompressionRequest(req, res, dynamodb) {
     // Check tier access for the requested model
     validateModelTierAccess(req.user, model);
 
-    // Validate API usage
-    await validateApiUsage(req.user.id, provider, model, userInput);
+    // Validate API usage (strip inline images — see processCompressionRequest)
+    await validateApiUsage(req.user.id, provider, model, stripImagesFromUserInput(userInput));
 
     // Fetch goals context
     let goalsSummary = null;
@@ -893,7 +948,7 @@ async function streamCompressionRequest(req, res, dynamodb) {
         if (parsed.message && Array.isArray(parsed.conversationHistory)) {
             messages = [
                 ...parsed.conversationHistory.map(m => ({ role: m.role, content: m.content })),
-                { role: 'user', content: parsed.message }
+                { role: 'user', content: buildUserMessageContent(parsed.message, parsed.image) }
             ];
         } else {
             messages = [{ role: 'user', content: userInput }];
