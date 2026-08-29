@@ -85,11 +85,14 @@ const requestLogger = (req, res, next) => {
     // Successful requests are debug-level noise during normal development —
     // enable with LOG_LEVEL=debug for a full request trace. Client errors
     // (4xx) are warnings; server errors (5xx) are logged as errors so
-    // problems remain visible by default.
+    // problems remain visible by default. 404s are skipped here because the
+    // catch-all route handler in server.js already logs them with a
+    // descriptive message — logging them again only produced a redundant,
+    // alarming "Request failed" line for healthy scanner/typo traffic.
     if (res.statusCode >= 500) {
       logger.error('Request failed', logData);
-    } else if (res.statusCode >= 400) {
-      logger.warn('Request failed', logData);
+    } else if (res.statusCode >= 400 && res.statusCode !== 404) {
+      logger.warn(`Client error ${res.statusCode}`, logData);
     } else {
       logger.debug('Request completed', logData);
     }
