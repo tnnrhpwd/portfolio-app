@@ -432,6 +432,30 @@ function summarizeArgs(args) {
   return out;
 }
 
+/**
+ * Parse a tool call's JSON arguments, flagging truncated/invalid JSON.
+ *
+ * When the model's output is cut off at the max-token ceiling mid-call, the
+ * arguments string can be empty or invalid JSON. Detect that and flag it so the
+ * caller can feed a corrective message back instead of silently running with
+ * `{}` (which previously made tools like write_repo_file silently no-op).
+ */
+function parseToolArgs(tc) {
+  const raw = tc?.function?.arguments;
+  if (typeof raw !== 'string' || raw.trim() === '') {
+    return { args: {}, truncated: true };
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return { args: parsed, truncated: false };
+    }
+    return { args: {}, truncated: true };
+  } catch {
+    return { args: {}, truncated: true };
+  }
+}
+
 // ── Prompts ─────────────────────────────────────────────────────────────────
 
 function buildSystemPrompt() {
@@ -514,12 +538,17 @@ async function _loop(userId, goalId, goal, state, runCtx, user) {
       }
 
       const name = tc.function?.name;
-      let args = {};
-      try { args = JSON.parse(tc.function?.arguments || '{}'); } catch { args = {}; }
+      const { args, truncated } = parseToolArgs(tc);
 
-      pushStep(state, { kind: 'tool', text: `Calling ${name}`, meta: { tool: name, args: summarizeArgs(args) } });
+      let result;
+      if (truncated) {
+        result = `Error: the arguments for "${name || 'unknown'}" were empty or cut off (invalid JSON) — this usually means the output hit the length limit. Retry with a smaller payload (e.g. a shorter file content or fewer plan steps).`;
+        pushStep(state, { kind: 'tool', text: `Calling ${name} (arguments truncated — retrying)`, meta: { tool: name, truncated: true } });
+      } else {
+        pushStep(state, { kind: 'tool', text: `Calling ${name}`, meta: { tool: name, args: summarizeArgs(args) } });
+        result = await executeTool(name, args, { userId, goalId, state, runCtx, user });
+      }
 
-      const result = await executeTool(name, args, { userId, goalId, state, runCtx, user });
       pushStep(state, { kind: 'tool-result', text: truncate(result, STEP_TEXT_MAX), meta: { tool: name } });
 
       messages.push({ role: 'tool', tool_call_id: tc.id, content: result });
