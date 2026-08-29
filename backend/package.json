@@ -57,7 +57,7 @@
     "node-cache": "^5.1.2",
     "node-fetch": "^2.6.12",
     "openai": "^7.1.0",
-    "sanitize-html": "^2.17.1",
+    "sanitize-html": "^2.17.7",
     "sharp": "^0.34.5",
     "sthopwood": "file:..",
     "stripe": "^14.14.0",
