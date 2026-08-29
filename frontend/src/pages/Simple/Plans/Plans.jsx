@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import Header from '../../../components/Header/Header.jsx';
 import Footer from '../../../components/Footer/Footer.jsx';
@@ -334,6 +334,10 @@ function Plans() {
       <Header />
       <div className="plans-page">
         <div className="plans-shell">
+          <nav className="plans-breadcrumb">
+            <Link to="/net">← Back to /net</Link>
+          </nav>
+
           {/* Hero */}
           <section className="plans-hero">
             <div className="plans-hero-copy">

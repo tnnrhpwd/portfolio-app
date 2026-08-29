@@ -56,6 +56,26 @@
   gap: var(--spacing-sm);
 }
 
+/* ── Breadcrumb ──────────────────────────────────────────────────────────── */
+
+.plans-breadcrumb {
+  display: flex;
+  align-items: center;
+}
+
+.plans-breadcrumb a {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.12);
+  color: var(--fg-blue);
+  text-decoration: none;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  min-height: 32px;
+}
+
+.plans-breadcrumb a:hover { text-decoration: underline; }
+
 /* ── Hero ─────────────────────────────────────────────────────────────────── */
 
 .plans-hero {

@@ -508,7 +508,9 @@ const TOOL_EXECUTORS = {
   // ── Save multiple goals ────────────────────────────────────────────────────
   async save_goals(args, context) {
     const goals = Array.isArray(args.goals) ? args.goals : [];
-    if (goals.length === 0) return 'Error: no goals provided.';
+    if (goals.length === 0) {
+      return 'Error: no goals were received. If you were trying to save several goals at once, the goal list may have been cut off — retry with a smaller batch (a few goals per call).';
+    }
 
     const existing = await getExistingGoalTitles(context.userId);
     const seenInBatch = new Set();

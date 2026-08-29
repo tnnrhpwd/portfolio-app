@@ -474,6 +474,32 @@ function streamLLMCall(provider, model, messages, options) {
 }
 
 /**
+ * Parse a tool call's JSON arguments.
+ *
+ * Bedrock/Claude emits tool-call arguments as a JSON string. When the model's
+ * output is cut off at the max-token ceiling mid-call (stop reason "length"),
+ * that string can be empty or invalid JSON. Detect that case and flag it so the
+ * caller can feed a corrective message back to the model instead of silently
+ * treating the call as `{}` — the old behaviour made tools like save_goals no-op
+ * while the model still claimed it had saved everything.
+ */
+function parseToolArguments(toolCall) {
+    const raw = toolCall?.function?.arguments;
+    if (typeof raw !== 'string' || raw.trim() === '') {
+        return { args: null, truncated: true };
+    }
+    try {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            return { args: parsed, truncated: false };
+        }
+        return { args: null, truncated: true };
+    } catch {
+        return { args: null, truncated: true };
+    }
+}
+
+/**
  * Call LLM API with tool-use support.
  * The LLM decides whether to reply in text, call tools, or both.
  * Handles the tool-call loop: LLM → tool calls → feed results back → final text.
@@ -545,6 +571,9 @@ async function callLLMApi(provider, model, userInput, goalsSummary = null, toolC
     if (useTools) {
         llmOptions.tools = TOOL_SCHEMAS;
         llmOptions.tool_choice = 'auto';
+        // Tool-call arguments can be large (e.g. save_goals with many goals);
+        // give the model headroom so its JSON isn't cut off at the text budget.
+        llmOptions.maxTokens = Math.max(llmOptions.maxTokens, 4096);
     }
 
     // Initial LLM call
@@ -569,17 +598,17 @@ async function callLLMApi(provider, model, userInput, goalsSummary = null, toolC
 
         // Execute each tool call and collect results
         for (const toolCall of choice.message.tool_calls) {
-            const fnName = toolCall.function.name;
-            let fnArgs;
-            try {
-                fnArgs = JSON.parse(toolCall.function.arguments);
-            } catch {
-                fnArgs = {};
-            }
+            const fnName = toolCall.function?.name || 'unknown';
+            const { args: fnArgs, truncated } = parseToolArguments(toolCall);
 
-            logger.debug(`🔧 Executing tool: ${fnName}`, JSON.stringify(fnArgs));
-            const result = await executeTool(fnName, fnArgs, toolContext);
-            logger.debug(`🔧 Tool result: ${result.substring(0, 200)}`);
+            let result;
+            if (truncated) {
+                result = `Error: the arguments for "${fnName}" were empty or cut off (invalid JSON) — this usually means the output hit the length limit. Please retry with a smaller batch (for save_goals, split into a few goals per call).`;
+            } else {
+                logger.debug(`🔧 Executing tool: ${fnName}`, JSON.stringify(fnArgs));
+                result = await executeTool(fnName, fnArgs, toolContext);
+                logger.debug(`🔧 Tool result: ${result.substring(0, 200)}`);
+            }
 
             toolResults.push({ tool: fnName, args: fnArgs, result });
 
@@ -980,6 +1009,9 @@ async function streamCompressionRequest(req, res, dynamodb) {
     if (useTools) {
         llmOptions.tools = TOOL_SCHEMAS;
         llmOptions.tool_choice = 'auto';
+        // Tool-call arguments can be large (e.g. save_goals with many goals);
+        // give the model headroom so its JSON isn't cut off at the text budget.
+        llmOptions.maxTokens = Math.max(llmOptions.maxTokens, 4096);
     }
 
     // ── Tool-call phase (non-streamed, same as before) ─────────────────────
@@ -999,10 +1031,15 @@ async function streamCompressionRequest(req, res, dynamodb) {
             messages.push(choice.message);
 
             for (const toolCall of choice.message.tool_calls) {
-                const fnName = toolCall.function.name;
-                let fnArgs;
-                try { fnArgs = JSON.parse(toolCall.function.arguments); } catch { fnArgs = {}; }
-                const result = await executeTool(fnName, fnArgs, toolContext);
+                const fnName = toolCall.function?.name || 'unknown';
+                const { args: fnArgs, truncated } = parseToolArguments(toolCall);
+
+                let result;
+                if (truncated) {
+                    result = `Error: the arguments for "${fnName}" were empty or cut off (invalid JSON) — this usually means the output hit the length limit. Please retry with a smaller batch (for save_goals, split into a few goals per call).`;
+                } else {
+                    result = await executeTool(fnName, fnArgs, toolContext);
+                }
                 toolResults.push({ tool: fnName, args: fnArgs, result });
                 messages.push({ role: 'tool', tool_call_id: toolCall.id, content: result });
             }
