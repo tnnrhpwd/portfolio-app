@@ -68,10 +68,28 @@ async function getMemoryItems(userId, type = null) {
     FilterExpression: filterParts.join(' AND '),
     ExpressionAttributeNames: { '#text': 'text' },
     ExpressionAttributeValues: exprValues,
+    // Strongly-consistent read so a goal saved moments ago is visible on the
+    // next /plans load (and to the dedupe check) instead of lagging behind.
+    ConsistentRead: true,
   };
 
-  const result = await dynamodb.send(new ScanCommand(params));
-  const items = (result.Items || []).map(item => {
+  // DynamoDB Scan returns at most 1MB of data per call, and the filter is
+  // applied AFTER that read. Without pagination, memory items beyond the first
+  // 1MB scanned are silently dropped — which made /plans, get_my_goals and the
+  // save_goals dedupe all return incomplete (and non-deterministic) results on
+  // the shared "Simple" table. Loop over LastEvaluatedKey to read everything.
+  const rows = [];
+  let lastEvaluatedKey;
+  do {
+    const result = await dynamodb.send(new ScanCommand({
+      ...params,
+      ...(lastEvaluatedKey ? { ExclusiveStartKey: lastEvaluatedKey } : {}),
+    }));
+    if (result.Items) rows.push(...result.Items);
+    lastEvaluatedKey = result.LastEvaluatedKey;
+  } while (lastEvaluatedKey);
+
+  const items = rows.map(item => {
     const parsed = parseMemoryText(item.text || '');
     return {
       _id: item.id,
