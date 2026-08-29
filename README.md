@@ -113,7 +113,27 @@ The application is split across multiple hosting providers, with AWS handling da
 
 The desktop companion ([`simple-addon/`](simple-addon/)) is an Electron app that ships independently and talks to the same Render backend.
 
-## 🔐 Security
+## � Environment Variables & Secrets
+
+Environment variables are never committed to this repository.
+
+- **Templates** — `backend/.env.example` (and `backend/config/.env.example`) document every supported variable with safe placeholder values. `backend/.env` is the live, git-ignored file.
+- **Encrypted backups** — `backend/.env` is encrypted with [age](https://github.com/FiloSottile/age) and pushed to the **private** [`tnnrhpwd/portfolio-app-secrets`](https://github.com/tnnrhpwd/portfolio-app-secrets) repo as `backend.env.age`. Only holders of an authorized SSH/age private key can decrypt it.
+
+  ```bash
+  npm run env:backup     # encrypt local .env files and push ciphertext to the secrets repo
+  npm run env:restore    # decrypt and restore .env files from the secrets repo
+  ```
+
+- **Recipients** — authorized keys live in `scripts/env-backup/recipients.txt`; the file mapping lives in `scripts/env-backup/manifest.json`. To authorize a new device:
+
+  ```bash
+  npm run env:add-recipient -- -PublicKey "C:\path\to\new-device_id_ed25519.pub"
+  ```
+
+- **Production (Render)** — live secrets (AWS, Stripe, JWT, `GITHUB_TOKEN`, …) are set in the Render dashboard (service → Environment) and injected at runtime; `.env` is not read in production.
+
+## �🔐 Security
 
 Found a security vulnerability? Please see our [Security Policy](./.github/SECURITY.md) for responsible disclosure guidelines.
 
