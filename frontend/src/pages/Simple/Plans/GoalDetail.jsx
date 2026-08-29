@@ -46,6 +46,7 @@ function GoalDetail() {
   const [starting, setStarting] = useState(false);
   const [stopping, setStopping] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [loadError, setLoadError] = useState(null);
 
   const feedRef = useRef(null);
   const agentRef = useRef(agent);
@@ -68,9 +69,17 @@ function GoalDetail() {
       const item = await fetchMemoryItem(user.token, id);
       setGoal(item);
       setAgent(item.data?.agent || { status: 'idle', steps: [] });
+      setNotFound(false);
+      setLoadError(null);
     } catch (err) {
       if (handleAuthError(err)) return;
-      setNotFound(true);
+      if (/not found/i.test(err.message || '')) {
+        setNotFound(true);
+        setLoadError(null);
+      } else {
+        setNotFound(false);
+        setLoadError(err.message || 'Failed to load this goal.');
+      }
     } finally {
       setLoading(false);
     }
@@ -169,6 +178,13 @@ function GoalDetail() {
           ) : notFound ? (
             <div className="goal-detail-empty">
               <p>Goal not found.</p>
+              <p className="goal-detail-empty-hint">It may have been deleted, or the link is incorrect.</p>
+            </div>
+          ) : loadError ? (
+            <div className="goal-detail-empty">
+              <p>Couldn't load this goal.</p>
+              <p className="goal-detail-empty-hint">{loadError}</p>
+              <button className="goal-detail-login" onClick={load}>Try again</button>
             </div>
           ) : (
             <>

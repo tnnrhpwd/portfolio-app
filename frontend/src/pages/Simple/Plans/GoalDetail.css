@@ -38,6 +38,12 @@
   padding: var(--spacing-md);
   opacity: 0.75;
 }
+.goal-detail-empty-hint {
+  font-size: var(--font-size-small);
+  opacity: 0.75;
+  margin: var(--spacing-xs) 0;
+  overflow-wrap: anywhere;
+}
 .goal-detail-login {
   display: block;
   margin: var(--spacing-md) auto;

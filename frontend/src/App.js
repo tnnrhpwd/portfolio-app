@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
 import { loadFontSizeScale } from './utils/theme';
@@ -56,10 +56,21 @@ function RouteSpinner() {
   );
 }
 
+// Keys the error boundary by the current location so navigating to a new
+// route clears a transient error instead of leaving the app bricked.
+function RouteErrorBoundary({ children }) {
+  const location = useLocation();
+  return (
+    <ErrorBoundary resetKey={location.pathname + location.search}>
+      {children}
+    </ErrorBoundary>
+  );
+}
+
 function App() {
   return (
-    <ErrorBoundary>
-      <Router>
+    <Router>
+      <RouteErrorBoundary>
         <div className="App">
           <Suspense fallback={<RouteSpinner />}>
             <Routes>
@@ -100,7 +111,7 @@ function App() {
             </Routes>
           </Suspense>
         </div>
-      </Router>
+      </RouteErrorBoundary>
       <ToastContainer
         position="top-right"
         autoClose={5000}
@@ -112,7 +123,7 @@ function App() {
         draggable
         pauseOnHover
       />
-    </ErrorBoundary>
+    </Router>
   );
 }
 

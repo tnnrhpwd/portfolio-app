@@ -1,5 +1,6 @@
 .error-boundary {
   min-height: 100vh;
+  min-height: 100svh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -13,44 +14,6 @@
   overflow-x: hidden;
 }
 
-/* Floating decorative elements for visual appeal */
-.error-boundary::before,
-.error-boundary::after {
-  content: '';
-  position: absolute;
-  border-radius: 50%;
-  opacity: 0.1;
-  animation: float 8s ease-in-out infinite;
-  pointer-events: none;
-}
-
-.error-boundary::before {
-  width: 200px;
-  height: 200px;
-  background: var(--bg-accent);
-  top: 10%;
-  right: 10%;
-  animation-delay: -2s;
-}
-
-.error-boundary::after {
-  width: 150px;
-  height: 150px;
-  background: var(--fg-mint);
-  bottom: 20%;
-  left: 5%;
-  animation-delay: -4s;
-}
-
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0px) rotate(0deg);
-  }
-  50% {
-    transform: translateY(-20px) rotate(180deg);
-  }
-}
-
 @keyframes gradientShift {
   0% { background-position: 0% 50%; }
   25% { background-position: 100% 50%; }
@@ -59,37 +22,123 @@
   100% { background-position: 0% 50%; }
 }
 
+/* Floating background elements (same family as Home / 404) */
+.error-boundary-shapes {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.error-boundary-circle {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--white1-transp) 0%, transparent 70%);
+  animation: errorBoundaryFloat 6s ease-in-out infinite;
+}
+
+.error-boundary-circle-1 {
+  width: 120px;
+  height: 120px;
+  top: 18%;
+  left: 8%;
+  animation-duration: 8s;
+}
+
+.error-boundary-circle-2 {
+  width: 80px;
+  height: 80px;
+  top: 58%;
+  right: 12%;
+  animation-delay: -2s;
+  animation-duration: 10s;
+}
+
+.error-boundary-circle-3 {
+  width: 150px;
+  height: 150px;
+  bottom: 14%;
+  left: 58%;
+  animation-delay: -4s;
+  animation-duration: 12s;
+}
+
+@keyframes errorBoundaryFloat {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+    opacity: 0.3;
+  }
+  33% {
+    transform: translateY(-14px) rotate(120deg);
+    opacity: 0.55;
+  }
+  66% {
+    transform: translateY(8px) rotate(240deg);
+    opacity: 0.4;
+  }
+}
+
+/* Centered, vertically-filling section so the tile sits mid-screen */
+.error-boundary-section {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
 .error-boundary-content {
   background: rgba(255, 255, 255, 0.1);
   border-radius: var(--border-radius-lg);
   padding: var(--spacing-2xl);
   max-width: 600px;
   width: 100%;
+  box-sizing: border-box;
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border: 2px solid rgba(255, 255, 255, 0.2);
   box-shadow: var(--shadow-lg);
   text-align: center;
-  position: relative;
-  z-index: 2;
   opacity: 0;
   transform: translateY(30px);
-  animation: fadeInUp 0.8s ease 0.3s forwards;
+  animation: errorBoundaryFadeInUp 0.8s ease 0.3s forwards;
 }
 
-@keyframes fadeInUp {
+@keyframes errorBoundaryFadeInUp {
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
 
+/* Big gradient exclamation mark — the 404 page's ".not-found-code" equivalent */
+.error-boundary-code {
+  font-family: 'CutiveMono-Regular', monospace;
+  font-weight: 900;
+  font-size: clamp(3rem, 16vw, 5.5rem);
+  line-height: var(--line-height-tight);
+  margin: 0 0 var(--spacing-xs) 0;
+  background: linear-gradient(135deg, var(--fg-blue), var(--fg-pink));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: none;
+  user-select: none;
+}
+
 .error-boundary-title {
   color: var(--red0);
-  font-size: var(--font-size-display);
+  font-size: var(--font-size-heading);
   font-weight: var(--font-weight-bold);
   margin: 0 0 var(--spacing-md) 0;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
   line-height: var(--line-height-tight);
+  overflow-wrap: anywhere;
 }
 
 .error-boundary-message {
@@ -170,6 +219,7 @@
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   min-width: 120px;
+  min-height: 44px;
   position: relative;
   overflow: hidden;
   line-height: var(--line-height-base);
@@ -221,6 +271,7 @@
   padding-top: var(--spacing-md);
   border-top: 1px solid rgba(255, 255, 255, 0.2);
   opacity: 0.8;
+  overflow-wrap: anywhere;
 }
 
 /* Responsive design */
@@ -234,7 +285,7 @@
   }
 
   .error-boundary-title {
-    font-size: calc(var(--font-size-display) * 0.8);
+    font-size: calc(var(--font-size-heading) * 0.85);
   }
 
   .error-boundary-message {
@@ -251,10 +302,11 @@
     max-width: 250px;
   }
 
-  .error-boundary::before,
-  .error-boundary::after {
-    width: 100px;
-    height: 100px;
+  .error-boundary-circle-1,
+  .error-boundary-circle-2,
+  .error-boundary-circle-3 {
+    width: 90px;
+    height: 90px;
   }
 }
 
@@ -265,10 +317,61 @@
 
   .error-boundary-content {
     padding: var(--spacing-md);
+    border-radius: var(--border-radius-xl);
+  }
+
+  .error-boundary-code {
+    font-size: clamp(2.5rem, 22vw, 4.5rem);
   }
 
   .error-boundary-title {
-    font-size: calc(var(--font-size-display) * 0.6);
+    font-size: calc(var(--font-size-heading) * 0.7);
+  }
+
+  .error-boundary-actions {
+    margin-top: var(--spacing-lg);
+  }
+}
+
+/* Landscape phones (short viewport) — compress vertical rhythm so the tile
+ * fits without scrolling. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .error-boundary {
+    padding: calc(var(--spacing-sm) * 0.5);
+  }
+
+  .error-boundary-content {
+    padding: var(--spacing-sm) var(--spacing-md);
+  }
+
+  .error-boundary-code {
+    font-size: clamp(1.75rem, 8vw, 3rem);
+    margin-bottom: 0;
+  }
+
+  .error-boundary-title {
+    font-size: var(--font-size-large);
+    margin-bottom: var(--spacing-xs);
+  }
+
+  .error-boundary-message {
+    font-size: var(--font-size-small);
+    margin-bottom: var(--spacing-sm);
+  }
+
+  .error-boundary-actions {
+    flex-direction: row;
+    margin: var(--spacing-sm) 0 var(--spacing-xs) 0;
+  }
+
+  .error-boundary-button {
+    padding: calc(var(--spacing-xs) * 0.75) var(--spacing-md);
+    min-height: 36px;
+  }
+
+  .error-boundary-error-id {
+    margin-top: var(--spacing-xs);
+    padding-top: var(--spacing-xs);
   }
 }
 
@@ -293,12 +396,11 @@
     animation: none;
     background: var(--bg-1);
   }
-  
-  .error-boundary::before,
-  .error-boundary::after {
+
+  .error-boundary-circle {
     animation: none;
   }
-  
+
   .error-boundary-content {
     animation: none;
     opacity: 1;
