@@ -3,34 +3,55 @@
 This guide explains the recommended workflow so you never copy secrets across
 local `.env`, the secrets repo, Render, and AWS by hand again.
 
-## The model
+## The source of truth (and what `.env` is for)
 
-- **AWS Secrets Manager** holds one JSON secret, `portfolio-app/production`,
-  whose keys are env-var names:
+**AWS Secrets Manager is the single source of truth for non-AWS secrets.** One
+JSON secret, `portfolio-app/production`, holds everything that isn't AWS config:
 
-  ```json
-  {
-    "JWT_SECRET": "...",
-    "STRIPE_KEY": "sk_live_...",
-    "OPENAI_KEY": "sk-...",
-    "XAI_API_KEY": "...",
-    "GITHUB_TOKEN": "ghp_...",
-    "FROM_EMAIL": "..."
-  }
-  ```
+```json
+{
+  "JWT_SECRET": "...",
+  "STRIPE_KEY": "sk_live_...",
+  "STRIPE_WEBHOOK_SECRET": "whsec_...",
+  "OPENAI_KEY": "sk-...",
+  "XAI_API_KEY": "...",
+  "GITHUB_TOKEN": "ghp_..."
+}
+```
 
-- The backend hydrates these into `process.env` at boot via
-  [`backend/utils/awsSecrets.js`](../../backend/utils/awsSecrets.js)
-  (`loadAllSecrets`, called from `server.js` before routes load).
-- **Local `.env` values win.** The loader never overwrites a variable that is
-  already set, so local dev keeps working offline and you can override anything
-  locally without touching the cloud.
-- **Render only needs 3 vars**, set once, so the service can reach Secrets
-  Manager: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`.
-- The [`portfolio-app-secrets`](https://github.com/tnnrhpwd/portfolio-app-secrets)
-  repo remains an optional, age-encrypted **backup** of `backend/.env` (see
-  [ENV_BACKUP_GUIDE.md](./ENV_BACKUP_GUIDE.md)). It is no longer a required step
-  in the secret-change workflow.
+The backend hydrates these into `process.env` at boot via
+[`backend/utils/awsSecrets.js`](../../backend/utils/awsSecrets.js)
+(`loadAllSecrets`, called from `server.js` before routes load).
+
+### Is `backend/.env` still used? Yes.
+
+It's loaded **first** (by `dotenv` at the top of `server.js`) and its values
+**win over** Secrets Manager — the loader never overwrites a variable that is
+already set. `.env` has two jobs:
+
+1. **Bootstrap credentials** — it holds the `AWS_ACCESS_KEY_ID` /
+   `AWS_SECRET_ACCESS_KEY` / `AWS_REGION` needed to *reach* Secrets Manager in
+   the first place.
+2. **Local overrides** — while developing, whatever you put in `.env` is used
+   as-is; Secrets Manager only fills in the gaps. This lets you work offline or
+   override a value locally without touching the cloud.
+
+### How a variable resolves
+
+| Step | Where the value comes from |
+|---|---|
+| 1 | `dotenv` loads `backend/.env` into `process.env` (local) — or Render injects its env vars (production) |
+| 2 | `loadAllSecrets()` fetches `portfolio-app/production` and sets any variable **not already set** |
+| 3 | Result: local `.env` wins locally; on Render, Secrets Manager supplies everything except the AWS bootstrap creds |
+
+### Where each thing lives
+
+| Store | Contents | Role |
+|---|---|---|
+| AWS Secrets Manager (`portfolio-app/production`) | All non-AWS secrets | **Source of truth** in production |
+| `backend/.env` (local, gitignored) | AWS bootstrap creds + local dev values | Loaded first, wins locally, restored from backup |
+| Render environment | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` + non-secret config | Bootstrap creds + config only |
+| [`portfolio-app-secrets`](https://github.com/tnnrhpwd/portfolio-app-secrets) | age-encrypted copy of `.env` | Optional offline backup (see [ENV_BACKUP_GUIDE.md](./ENV_BACKUP_GUIDE.md)) |
 
 ## Add or rotate a secret
 
@@ -89,5 +110,6 @@ npm run env:backup
 |---|---|
 | New laptop setup | `npm run bootstrap` (then authorize key once) |
 | Add/rotate a secret | `npm run secret:put -- -Name KEY -Value "value"` |
+| Seed all secrets from `.env` | `npm run secret:seed` |
 | Render variables | Only `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` (set once) |
 | Encrypted backup (optional) | `npm run env:backup` |

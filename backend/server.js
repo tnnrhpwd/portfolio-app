@@ -112,6 +112,11 @@ app.use('/api/', (req, res, next) => {
   return res.status(403).json({ error: 'Forbidden: missing required request headers.' });
 });
 
+// Stripe webhooks must be read as RAW bytes for signature verification —
+// register this before the global JSON parser, which would otherwise consume
+// the request stream and break `stripe.webhooks.constructEvent`.
+app.use('/api/data/webhook', express.raw({ type: 'application/json' }));
+
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' })); // Reduced from 50mb for security
 app.use(express.urlencoded({ limit: '10mb', extended: true }));

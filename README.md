@@ -116,11 +116,13 @@ Environment variables are never committed to this repository.
   npm run env:add-recipient -- -PublicKey "C:\path\to\new-device_id_ed25519.pub"
   ```
 
-- **Single source of truth (AWS Secrets Manager)** — all non-AWS secrets (Stripe, JWT, OpenAI/XAI, DeepSeek, `GITHUB_TOKEN`, …) live in one JSON secret (`portfolio-app/production`) and are hydrated into `process.env` at boot by `backend/utils/awsSecrets.js`. Set or rotate a secret with:
+- **Source of truth (AWS Secrets Manager)** — all non-AWS secrets (Stripe, JWT, OpenAI/XAI, DeepSeek, `GITHUB_TOKEN`, …) live in one JSON secret (`portfolio-app/production`) and are hydrated into `process.env` at boot by `backend/utils/awsSecrets.js`. Set or rotate a secret with:
 
   ```bash
   npm run secret:put -- -Name STRIPE_KEY -Value "sk_live_..."
   ```
+
+- **Is `.env` still used? Yes — locally.** `backend/.env` is loaded first and its values **win** over Secrets Manager (the loader never overwrites a value that's already set). It's your local dev copy plus the AWS bootstrap credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`). On Render, `.env` is not read — Secrets Manager is authoritative there.
 
 - **Production (Render)** — Render only needs the AWS bootstrap credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`) so the service can reach Secrets Manager; every other secret comes from the secret above. See [docs/guides/SECRETS_MANAGEMENT.md](docs/guides/SECRETS_MANAGEMENT.md).
 

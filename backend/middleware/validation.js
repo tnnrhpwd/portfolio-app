@@ -162,6 +162,12 @@ const handleValidationErrors = (req, res, next) => {
 const sanitizeHtml = require('sanitize-html');
 
 const sanitizeInput = (req, res, next) => {
+  // Raw request bodies (Stripe webhooks, parsed by express.raw) are Buffers —
+  // sanitizeValue would mangle them into a plain object. Leave them untouched.
+  if (Buffer.isBuffer(req.body)) {
+    return next();
+  }
+
   const sanitizeValue = (value) => {
     if (typeof value === 'string') {
       // Strip ALL HTML tags and dangerous attributes using a proven library
