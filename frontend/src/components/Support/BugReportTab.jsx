@@ -57,14 +57,13 @@ const BugReportTab = ({ formData, handleInputChange, handleBugReportSubmit, isSu
         </div>
 
         <div className="support-form-group">
-          <label htmlFor="bugSteps">Steps to Reproduce *</label>
+          <label htmlFor="bugSteps">Steps to Reproduce (optional)</label>
           <textarea
             id="bugSteps"
             name="bugSteps"
             value={formData.bugSteps}
             onChange={handleInputChange}
             placeholder="1. Go to...&#10;2. Click on...&#10;3. See error..."
-            required
             rows="4"
             maxLength={1000}
           />
@@ -72,27 +71,25 @@ const BugReportTab = ({ formData, handleInputChange, handleBugReportSubmit, isSu
 
         <div className="support-form-row">
           <div className="support-form-group">
-            <label htmlFor="bugExpected">Expected Result *</label>
+            <label htmlFor="bugExpected">Expected Result (optional)</label>
             <textarea
               id="bugExpected"
               name="bugExpected"
               value={formData.bugExpected}
               onChange={handleInputChange}
               placeholder="What should have happened..."
-              required
               rows="3"
               maxLength={500}
             />
           </div>
           <div className="support-form-group">
-            <label htmlFor="bugActual">Actual Result *</label>
+            <label htmlFor="bugActual">Actual Result (optional)</label>
             <textarea
               id="bugActual"
               name="bugActual"
               value={formData.bugActual}
               onChange={handleInputChange}
               placeholder="What actually happened..."
-              required
               rows="3"
               maxLength={500}
             />
@@ -110,7 +107,7 @@ const BugReportTab = ({ formData, handleInputChange, handleBugReportSubmit, isSu
         <button
           type="submit"
           className="support-submit-btn"
-          disabled={isSubmitting || !formData.bugTitle.trim() || !formData.bugDescription.trim() || !formData.bugSteps.trim() || !formData.bugExpected.trim() || !formData.bugActual.trim()}
+          disabled={isSubmitting || !formData.bugTitle.trim() || !formData.bugDescription.trim()}
         >
           {isSubmitting ? '📤 Submitting...' : '🐛 Submit Bug Report'}
         </button>
