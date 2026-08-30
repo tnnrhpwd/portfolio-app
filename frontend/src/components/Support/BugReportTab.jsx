@@ -57,7 +57,7 @@ const BugReportTab = ({ formData, handleInputChange, handleBugReportSubmit, isSu
         </div>
 
         <div className="support-form-group">
-          <label htmlFor="bugSteps">Steps to Reproduce *</label>
+          <label htmlFor="bugSteps">Steps to Reproduce (optional)</label>
           <textarea
             id="bugSteps"
             name="bugSteps"
@@ -71,7 +71,7 @@ const BugReportTab = ({ formData, handleInputChange, handleBugReportSubmit, isSu
 
         <div className="support-form-row">
           <div className="support-form-group">
-            <label htmlFor="bugExpected">Expected Result *</label>
+            <label htmlFor="bugExpected">Expected Result (optional)</label>
             <textarea
               id="bugExpected"
               name="bugExpected"
@@ -83,7 +83,7 @@ const BugReportTab = ({ formData, handleInputChange, handleBugReportSubmit, isSu
             />
           </div>
           <div className="support-form-group">
-            <label htmlFor="bugActual">Actual Result *</label>
+            <label htmlFor="bugActual">Actual Result (optional)</label>
             <textarea
               id="bugActual"
               name="bugActual"
