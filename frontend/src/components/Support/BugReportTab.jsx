@@ -8,7 +8,7 @@ const BugReportTab = ({ formData, handleInputChange, handleBugReportSubmit, isSu
     <div className="support-form-section">
       <h2>🐛 Report a Bug</h2>
       <p className="support-form-description">
-        Help us improve by reporting bugs or technical issues. The more details you provide, the faster we can fix it!
+        Help us improve by reporting bugs or technical issues. Only a title and description are required — everything else is optional, but more detail helps us fix it faster.
       </p>
 
       <form onSubmit={handleBugReportSubmit} className="support-form">
@@ -57,14 +57,13 @@ const BugReportTab = ({ formData, handleInputChange, handleBugReportSubmit, isSu
         </div>
 
         <div className="support-form-group">
-          <label htmlFor="bugSteps">Steps to Reproduce *</label>
+          <label htmlFor="bugSteps">Steps to Reproduce (Optional)</label>
           <textarea
             id="bugSteps"
             name="bugSteps"
             value={formData.bugSteps}
             onChange={handleInputChange}
             placeholder="1. Go to...&#10;2. Click on...&#10;3. See error..."
-            required
             rows="4"
             maxLength={1000}
           />
@@ -72,27 +71,25 @@ const BugReportTab = ({ formData, handleInputChange, handleBugReportSubmit, isSu
 
         <div className="support-form-row">
           <div className="support-form-group">
-            <label htmlFor="bugExpected">Expected Result *</label>
+            <label htmlFor="bugExpected">Expected Result (Optional)</label>
             <textarea
               id="bugExpected"
               name="bugExpected"
               value={formData.bugExpected}
               onChange={handleInputChange}
               placeholder="What should have happened..."
-              required
               rows="3"
               maxLength={500}
             />
           </div>
           <div className="support-form-group">
-            <label htmlFor="bugActual">Actual Result *</label>
+            <label htmlFor="bugActual">Actual Result (Optional)</label>
             <textarea
               id="bugActual"
               name="bugActual"
               value={formData.bugActual}
               onChange={handleInputChange}
               placeholder="What actually happened..."
-              required
               rows="3"
               maxLength={500}
             />
