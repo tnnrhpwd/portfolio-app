@@ -22,8 +22,8 @@ const NNetChatView = () => {
   const [archivedChats, setArchivedChats] = useState([]);
   const [viewingArchived, setViewingArchived] = useState(false); // New state for prior chats
   const [activeChat, setActiveChat] = useState(null);
-  const [selectedProvider, setSelectedProvider] = useState('openai');
-  const [selectedModel, setSelectedModel] = useState('o1-mini');
+  const [selectedProvider, setSelectedProvider] = useState('bedrock');
+  const [selectedModel, setSelectedModel] = useState('us.anthropic.claude-haiku-4-5-20251001-v1:0');
 
   // Get the relevant data from the state
   const { user, data, dataIsSuccess, dataIsLoading, dataIsError, dataMessage, operation, llmProviders } = useSelector(
@@ -155,11 +155,7 @@ const NNetChatView = () => {
 
   // Update model when provider changes
   useEffect(() => {
-    if (selectedProvider === 'xai') {
-      setSelectedModel('grok-4-fast-reasoning');
-    } else if (selectedProvider === 'openai') {
-      setSelectedModel('o1-mini');
-    } else if (selectedProvider === 'deepseek') {
+    if (selectedProvider === 'deepseek') {
       setSelectedModel('deepseek-chat');
     } else if (selectedProvider === 'bedrock') {
       setSelectedModel('us.anthropic.claude-haiku-4-5-20251001-v1:0');
@@ -228,7 +224,7 @@ const NNetChatView = () => {
       // Don't show toast for API limit errors as they're handled by dataService
       if (error?.response?.status !== 402 && 
           !error?.message?.includes('Request failed with status code 402')) {
-        toast.error('An error occurred while fetching data from OpenAI.', { autoClose: toastDuration });
+        toast.error('An error occurred while fetching data from the AI provider.', { autoClose: toastDuration });
       }
     }
   };

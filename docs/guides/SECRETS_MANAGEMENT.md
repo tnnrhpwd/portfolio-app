@@ -14,8 +14,7 @@ the AWS bootstrap credentials:
   "JWT_SECRET": "...",
   "STRIPE_KEY": "sk_live_...",
   "STRIPE_WEBHOOK_SECRET": "whsec_...",
-  "OPENAI_KEY": "sk-...",
-  "XAI_API_KEY": "...",
+  "DEEPSEEK_API_KEY": "...",
   "GITHUB_TOKEN": "ghp_...",
   "AWS_S3_BUCKET": "sthopwood",
   "AWS_CLOUDFRONT_DOMAIN": "....cloudfront.net",
@@ -64,7 +63,7 @@ already set. Add any other var here to override it locally.
 One command — no Render dashboard, no local `.env` edit, no secrets-repo push:
 
 ```powershell
-npm run secret:put -- -Name OPENAI_KEY -Value "sk-..."
+npm run secret:put -- -Name DEEPSEEK_API_KEY -Value "sk-..."
 
 # or directly:
 node backend/scripts/put-secret.js -Name GITHUB_TOKEN -Value "ghp_..." -Region us-east-1

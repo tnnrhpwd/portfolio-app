@@ -13,7 +13,6 @@ console.log('Installing OCR dependencies for production...\n');
 
 const dependencies = [
     'tesseract.js@^5.1.0',              // Local OCR fallback
-    '@google-cloud/vision@^4.0.0',      // Google Vision API
     '@azure/cognitiveservices-computervision@^8.2.0', // Azure Computer Vision
     '@azure/ms-rest-js@^2.7.0',         // Azure auth
     '@aws-sdk/client-textract@^3.0.0'   // AWS Textract (for future use)
@@ -36,17 +35,12 @@ try {
     console.log('\n✅ OCR dependencies installed successfully!\n');
     
     console.log('📋 Next steps:');
-    console.log('1. Set up Google Cloud Vision API credentials (optional):');
-    console.log('   - Create a service account key file');
-    console.log('   - Set GOOGLE_CLOUD_KEY_FILE environment variable');
-    console.log('');
-    console.log('2. Set up Azure Computer Vision credentials (optional):');
+    console.log('1. Set up Azure Computer Vision credentials (optional):');
     console.log('   - Set AZURE_COMPUTER_VISION_KEY environment variable');
     console.log('   - Set AZURE_COMPUTER_VISION_ENDPOINT environment variable');
     console.log('');
-    console.log('3. OpenAI Vision is now the default production method');
-    console.log('   - Uses your existing OPENAI_KEY');
-    console.log('   - Falls back to Tesseract if OpenAI fails');
+    console.log('2. Tesseract (local) is now the default production method');
+    console.log('   - No API key required — runs fully on AWS');
     console.log('');
     console.log('🚀 Your OCR backend is now production-ready!');
 

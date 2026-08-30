@@ -5,29 +5,6 @@ const { logger } = require('./logger');
 
 // Available LLM providers and their models
 const PROVIDERS = {
-    openai: {
-        name: 'OpenAI',
-        models: {
-            'gpt-4o': { name: 'GPT-4o', contextWindow: 128000 },
-            'gpt-4o-mini': { name: 'GPT-4o Mini', contextWindow: 128000 },
-            'gpt-4': { name: 'GPT-4', contextWindow: 8192 },
-            'gpt-3.5-turbo': { name: 'GPT-3.5 Turbo', contextWindow: 16385 },
-            'o1-preview': { name: 'o1-preview', contextWindow: 32768 },
-            'o1-mini': { name: 'o1-mini', contextWindow: 65536 }
-        },
-        apiKey: process.env.OPENAI_KEY,
-        client: null
-    },
-    xai: {
-        name: 'XAI',
-        models: {
-            'grok-4': { name: 'Grok 4', contextWindow: 65536 },
-            'grok-4-fast-reasoning': { name: 'Grok 4 Fast Reasoning', contextWindow: 65536 }
-        },
-        apiKey: process.env.XAI_API_KEY || process.env.XAI_KEY, // Try both environment variable names
-        client: null,
-        baseURL: 'https://api.x.ai/v1'
-    },
     deepseek: {
         name: 'DeepSeek',
         models: {
@@ -67,26 +44,6 @@ const PROVIDERS = {
 // Initialize LLM clients
 async function initializeLLMClients() {
     try {
-        // Initialize OpenAI
-        if (PROVIDERS.openai.apiKey && !PROVIDERS.openai.client) {
-            const openai = await import('openai');
-            PROVIDERS.openai.client = new openai.OpenAI({ 
-                apiKey: PROVIDERS.openai.apiKey 
-            });
-            logger.debug('✅ OpenAI client initialized');
-        }
-
-        // Initialize XAI using OpenAI SDK as per official XAI documentation
-        if (PROVIDERS.xai.apiKey && !PROVIDERS.xai.client) {
-            const openai = await import('openai');
-            PROVIDERS.xai.client = new openai.OpenAI({ 
-                apiKey: PROVIDERS.xai.apiKey,
-                baseURL: PROVIDERS.xai.baseURL,
-                timeout: 360000 // 6 minutes timeout for reasoning models as per XAI docs
-            });
-            logger.debug('✅ XAI client initialized with OpenAI SDK (XAI compatible)');
-        }
-
         // Initialize DeepSeek using the OpenAI SDK (DeepSeek exposes an
         // OpenAI-compatible API at https://api.deepseek.com).
         if (PROVIDERS.deepseek.apiKey && !PROVIDERS.deepseek.client) {
@@ -228,19 +185,12 @@ async function createCompletion(provider, model, messages, options = {}) {
         };
 
         // Pass through function-calling params when provided (OpenAI-compatible
-        // providers: openai/xai/deepseek all support tools + tool_choice).
+        // providers: deepseek supports tools + tool_choice).
         if (options.tools) completionParams.tools = options.tools;
         if (options.tool_choice) completionParams.tool_choice = options.tool_choice;
 
         // Provider-specific adjustments
-        if (provider === 'openai') {
-            // For o1 models, use max_completion_tokens instead of max_tokens
-            if (model.startsWith('o1-')) {
-                completionParams.max_completion_tokens = completionParams.max_tokens;
-                delete completionParams.max_tokens;
-                delete completionParams.temperature; // o1 models don't support temperature
-            }
-        } else if (provider === 'deepseek') {
+        if (provider === 'deepseek') {
             // deepseek-reasoner does not accept temperature/top_p/penalty
             // params — strip them so the request isn't rejected.
             if (model === 'deepseek-reasoner') {
@@ -251,52 +201,11 @@ async function createCompletion(provider, model, messages, options = {}) {
         // Make the API call
         logger.debug(`🤖 Making ${provider.toUpperCase()} API call with model: ${model}`);
         
-        // Additional debug for XAI (without printing full image data)
-        if (provider === 'xai') {
-            logger.debug('XAI Debug - Base URL:', PROVIDERS.xai.baseURL);
-            logger.debug('XAI Debug - API Key length:', PROVIDERS.xai.apiKey?.length || 0);
-            logger.debug('XAI Debug - Client timeout:', PROVIDERS.xai.client?.timeout);
-            
-            // Log completion params without full image data
-            const debugParams = {
-                model: completionParams.model,
-                messagesCount: completionParams.messages?.length || 0,
-                temperature: completionParams.temperature,
-                max_tokens: completionParams.max_tokens
-            };
-            
-            // Check message content types without printing full content
-            if (completionParams.messages) {
-                debugParams.messageTypes = completionParams.messages.map((m, i) => {
-                    if (Array.isArray(m.content)) {
-                        return `Message ${i}: [${m.content.map(c => c.type).join(', ')}]`;
-                    }
-                    return `Message ${i}: text`;
-                });
-            }
-            
-            logger.debug('XAI Debug - Completion params:', debugParams);
-        }
-        
         const startTime = Date.now();
         
         const response = await client.chat.completions.create(completionParams);
         
         logger.debug(`🤖 ${provider.toUpperCase()} API call completed in ${Date.now() - startTime}ms`);
-        
-        // Debug response structure
-        if (provider === 'xai') {
-            logger.debug('=== XAI Unified Provider Response Debug ===');
-            logger.debug('- Has choices:', !!response.choices);
-            logger.debug('- Choices length:', response.choices?.length);
-            logger.debug('- Has message content:', !!response.choices?.[0]?.message?.content);
-            logger.debug('- Content length:', response.choices?.[0]?.message?.content?.length || 0);
-            logger.debug('FULL XAI RESPONSE CONTENT:');
-            logger.debug('---START XAI RESPONSE---');
-            logger.debug(response.choices?.[0]?.message?.content || 'NO CONTENT IN RESPONSE');
-            logger.debug('---END XAI RESPONSE---');
-            logger.debug('=== End XAI Unified Provider Debug ===');
-        }
         
         return response;
         
@@ -314,7 +223,7 @@ async function createCompletion(provider, model, messages, options = {}) {
         
         // Add specific handling for network errors
         if (error.code === 'ECONNRESET' || error.code === 'ENOTFOUND' || error.message.includes('socket hang up')) {
-            logger.error('Network connectivity issue detected with XAI API');
+            logger.error('Network connectivity issue detected with the LLM API');
             logger.error('Verify network connection and firewall settings');
         }
         
@@ -343,45 +252,15 @@ async function trackCompletion(userId, provider, model, response, inputText) {
     }
 }
 
-// Test XAI connectivity
-async function testXAIConnection() {
-    try {
-        if (!PROVIDERS.xai.apiKey) {
-            return { success: false, error: 'XAI API key not configured' };
-        }
-        
-        await initializeLLMClients();
-        
-        const testResponse = await PROVIDERS.xai.client.chat.completions.create({
-            model: 'grok-4',
-            messages: [{ role: 'user', content: 'Test connection. Reply with "OK".' }],
-            max_tokens: 10
-        });
-        
-        return { 
-            success: true, 
-            response: testResponse.choices[0]?.message?.content,
-            usage: testResponse.usage 
-        };
-    } catch (error) {
-        return { 
-            success: false, 
-            error: error.message,
-            code: error.code,
-            type: error.constructor.name
-        };
-    }
-}
-
 /**
- * Stream a completion for OpenAI-compatible providers (openai/xai/deepseek).
+ * Stream a completion for OpenAI-compatible providers (deepseek).
  *
  * Mirrors services/bedrockService.js#streamBedrockCompletion's contract: an
  * async generator that yields `{ text }` for each token delta and, when the
  * stream ends, returns `{ usage }` as the generator's final value (read via
  * `next.value` once `next.done` is true).
  *
- * @param {string} provider - provider key (openai/xai/deepseek)
+ * @param {string} provider - provider key (deepseek)
  * @param {string} model - model id
  * @param {Array} messages - OpenAI-style messages
  * @param {Object} [options] - { maxTokens, temperature }
@@ -403,11 +282,7 @@ async function* streamCompletion(provider, model, messages, options = {}) {
         stream: true,
     };
 
-    if (provider === 'openai' && model.startsWith('o1-')) {
-        params.max_completion_tokens = params.max_tokens;
-        delete params.max_tokens;
-        delete params.temperature;
-    } else if (provider === 'deepseek' && model === 'deepseek-reasoner') {
+    if (provider === 'deepseek' && model === 'deepseek-reasoner') {
         delete params.temperature;
     }
 
@@ -441,5 +316,4 @@ module.exports = {
     streamCompletion,
     createBedrockChatCompletion,
     trackCompletion,
-    testXAIConnection,
 };

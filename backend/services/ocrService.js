@@ -6,15 +6,11 @@ const {
     initializeLLMClients, 
     createCompletion, 
     trackCompletion,
-    PROVIDERS 
 } = require('../utils/llmProviders.js');
 const { canMakeApiCall } = require('../utils/apiUsageTracker.js');
 const { logger } = require('../utils/logger');
 
 require('dotenv').config();
-
-// LLM Clients for OCR
-let openaiClient, anthropicClient, googleClient;
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -26,196 +22,6 @@ const client = new DynamoDBClient({
 });
 
 const dynamodb = DynamoDBDocumentClient.from(client);
-
-/**
- * Initialize OCR-specific LLM clients
- */
-async function initializeOCRLLMClients() {
-    if (!openaiClient) {
-        const { OpenAI } = require('openai');
-        openaiClient = new OpenAI({
-            apiKey: process.env.OPENAI_KEY
-        });
-    }
-}
-
-/**
- * Process image with Google Vision API
- * @param {string} imageData - Base64 encoded image
- * @param {string} model - Model variant
- * @returns {Object} OCR result
- */
-async function processWithGoogleVision(imageData, model = 'default') {
-    try {
-        logger.debug('Processing with Google Vision API, model:', model);
-        
-        if (process.env.GOOGLE_CLOUD_KEY_FILE) {
-            const vision = require('@google-cloud/vision');
-            const client = new vision.ImageAnnotatorClient({
-                keyFilename: process.env.GOOGLE_CLOUD_KEY_FILE
-            });
-            
-            const request = { 
-                image: { content: Buffer.from(imageData, 'base64') },
-                features: [
-                    { type: 'TEXT_DETECTION' },
-                    { type: 'DOCUMENT_TEXT_DETECTION' }
-                ]
-            };
-            
-            const [result] = await client.annotateImage(request);
-            const textAnnotations = result.textAnnotations;
-            
-            if (textAnnotations && textAnnotations.length > 0) {
-                return {
-                    extractedText: textAnnotations[0].description,
-                    confidence: textAnnotations[0].confidence || 0.9,
-                    provider: 'google-vision',
-                    model: model
-                };
-            } else {
-                return {
-                    extractedText: "No text detected in image",
-                    confidence: 0.0,
-                    provider: 'google-vision',
-                    model: model
-                };
-            }
-        } else {
-            logger.debug('Google Vision API credentials not configured, using OpenAI Vision as fallback');
-            return await processWithOpenAIVision(imageData, model);
-        }
-    } catch (error) {
-        logger.error('Google Vision API error:', error);
-        logger.debug('Falling back to OpenAI Vision');
-        return await processWithOpenAIVision(imageData, model);
-    }
-}
-
-/**
- * Process image with OpenAI Vision API
- * @param {string} imageData - Base64 encoded image
- * @param {string} model - Model variant (default: gpt-4o)
- * @returns {Object} OCR result
- */
-async function processWithOpenAIVision(imageData, model = 'gpt-4o') {
-    try {
-        logger.debug('Processing with OpenAI Vision API, model:', model);
-        
-        if (!process.env.OPENAI_KEY) {
-            throw new Error('OpenAI API key not configured');
-        }
-        
-        await initializeOCRLLMClients();
-        
-        if (!openaiClient) {
-            throw new Error('OpenAI client not initialized');
-        }
-        
-        const response = await openaiClient.chat.completions.create({
-            model: model || 'gpt-4o',
-            messages: [
-                {
-                    role: 'user',
-                    content: [
-                        {
-                            type: 'text',
-                            text: 'Extract all text from this image. Focus on handwritten notes, printed text, schedules, tasks, and any productivity-related content. Maintain the original structure and formatting as much as possible. If there are time entries, meetings, or action items, preserve their format.'
-                        },
-                        {
-                            type: 'image_url',
-                            image_url: {
-                                url: `data:image/jpeg;base64,${imageData}`
-                            }
-                        }
-                    ]
-                }
-            ],
-            max_tokens: 1000
-        });
-        
-        const extractedText = response.choices[0]?.message?.content || 'No text detected';
-        
-        return {
-            extractedText: extractedText,
-            confidence: 0.95,
-            provider: 'openai-vision',
-            model: model || 'gpt-4o',
-            usage: response.usage
-        };
-    } catch (error) {
-        logger.error('OpenAI Vision API error:', error);
-        throw new Error(`OpenAI Vision failed: ${error.message}`);
-    }
-}
-
-/**
- * Process image with XAI Vision API
- * @param {string} imageData - Base64 encoded image
- * @param {string} model - Model variant (default: grok-4)
- * @returns {Object} OCR result
- */
-async function processWithXAIVision(imageData, model = 'grok-4') {
-    try {
-        logger.debug('Processing with XAI Vision API, model:', model);
-        
-        if (!process.env.XAI_API_KEY && !process.env.XAI_KEY) {
-            throw new Error('XAI API key not configured');
-        }
-        
-        await initializeLLMClients();
-        
-        const imageSizeMB = imageData ? (imageData.length * 0.75) / (1024 * 1024) : 0;
-        logger.debug('Image size (estimated MB):', imageSizeMB.toFixed(2));
-        
-        let processedImageData = imageData;
-        if (imageSizeMB > 0.5) {
-            const maxLength = Math.floor(700000 * 0.75);
-            processedImageData = imageData.substring(0, maxLength);
-            logger.debug('Compressed image to length:', processedImageData.length);
-        }
-
-        const messageContent = [
-            {
-                type: 'image_url',
-                image_url: {
-                    url: `data:image/jpeg;base64,${processedImageData}`,
-                    detail: 'high'
-                }
-            },
-            {
-                type: 'text',
-                text: 'Extract all text from this image and convert it to a structured datetime + action format. For each time entry and associated task/activity, output one line in this exact format: MM/DD/YYYY H:MM:SS\tactionname (tab-separated). Convert times to 24-hour format with full dates. Combine related activities into concise action names (no spaces, use camelCase or concatenation). Focus on extracting: time entries, meetings, tasks, activities, breaks, meals. Output should be clean lines of datetime\\taction pairs only.'
-            }
-        ];
-
-        const completion = await PROVIDERS.xai.client.chat.completions.create({
-            model: model || 'grok-4',
-            messages: [
-                {
-                    role: 'user',
-                    content: messageContent
-                }
-            ],
-            max_tokens: 4000
-        });
-        
-        const extractedText = completion.choices?.[0]?.message?.content || 'No text detected';
-        
-        logger.debug('XAI Vision OCR completed, text length:', extractedText.length);
-        
-        return {
-            extractedText: extractedText,
-            confidence: 0.95,
-            provider: 'xai-vision',
-            model: model || 'grok-4',
-            usage: completion.usage
-        };
-    } catch (error) {
-        logger.error('XAI Vision API error:', error);
-        throw new Error(`XAI Vision failed: ${error.message}`);
-    }
-}
 
 /**
  * Process image with Azure Computer Vision
@@ -266,12 +72,11 @@ async function processWithAzureOCR(imageData, model = 'default') {
                 throw new Error('Azure OCR operation failed');
             }
         } else {
-            logger.debug('Azure credentials not configured, using OpenAI Vision as fallback');
-            return await processWithOpenAIVision(imageData, model);
+            throw new Error('Azure Computer Vision credentials not configured');
         }
     } catch (error) {
         logger.error('Azure Computer Vision error:', error);
-        return await processWithOpenAIVision(imageData, model);
+        throw new Error(`Azure Computer Vision failed: ${error.message}`);
     }
 }
 
@@ -339,8 +144,7 @@ async function processWithTesseract(imageData, model = 'default') {
         };
     } catch (error) {
         logger.error('Tesseract error:', error);
-        logger.debug('Tesseract failed, falling back to OpenAI Vision');
-        return await processWithOpenAIVision(imageData, model);
+        throw new Error(`Tesseract OCR failed: ${error.message}`);
     }
 }
 
@@ -356,7 +160,7 @@ async function postProcessWithLLM(ocrText, llmProvider, llmModel, userId) {
     try {
         logger.debug(`Post-processing OCR with ${llmProvider}:${llmModel}`);
         
-        const modelUsed = llmModel || (llmProvider === 'xai' ? 'grok-4' : (llmProvider === 'deepseek' ? 'deepseek-chat' : 'o1-mini'));
+        const modelUsed = llmModel || 'deepseek-chat';
 
         const canMakeCall = await canMakeApiCall(userId, llmProvider, {
             model: modelUsed,
@@ -429,12 +233,6 @@ Output the structured data now:`;
  */
 async function processOCR(imageData, method, model) {
     switch (method) {
-        case 'xai-vision':
-            return await processWithXAIVision(imageData, model);
-        case 'openai-vision':
-            return await processWithOpenAIVision(imageData, model);
-        case 'google-vision':
-            return await processWithGoogleVision(imageData, model);
         case 'azure-ocr':
             return await processWithAzureOCR(imageData, model);
         case 'aws-textract':
@@ -442,7 +240,7 @@ async function processOCR(imageData, method, model) {
         case 'tesseract':
             return await processWithTesseract(imageData, model);
         default:
-            return await processWithXAIVision(imageData, model);
+            return await processWithTesseract(imageData, model);
     }
 }
 
@@ -516,9 +314,6 @@ module.exports = {
     postProcessWithLLM,
     updateItemWithOCR,
     // Export individual processors for testing
-    processWithOpenAIVision,
-    processWithXAIVision,
-    processWithGoogleVision,
     processWithAzureOCR,
     processWithAWSTextract,
     processWithTesseract

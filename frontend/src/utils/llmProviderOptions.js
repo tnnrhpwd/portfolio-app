@@ -7,7 +7,7 @@
  * Net sidebar quick-picker, the Advanced Settings modal, and the /settings
  * page) reads the same live data instead of each hardcoding its own list —
  * which is exactly how they drifted out of sync with reality across the
- * GitHub Models → OpenAI/XAI → AWS Bedrock migrations.
+ * GitHub Models → AWS Bedrock migration.
  */
 
 // Shown only until the real `/llm-providers` response arrives (or if the
@@ -28,11 +28,10 @@ export const DEFAULT_CLOUD_MODEL_ID = FALLBACK_CLOUD_MODEL.id;
 // backend/services/llmService.js, which routes non-Bedrock providers through
 // the OpenAI-compatible createCompletion/streamCompletion). The backend's
 // /llm-providers endpoint reports *every* provider that has server
-// credentials configured — including legacy OpenAI/XAI keys that are still
-// set for unrelated features (e.g. OCR vision extraction). Filtering to this
-// allowlist keeps every cloud-model surface (Simple Addon sidebar, Advanced
-// Settings, /settings page) from showing a GPT/Grok model as a "cloud"
-// option a user could select.
+// credentials configured. Filtering to this allowlist keeps every
+// cloud-model surface (Simple Addon sidebar, Advanced Settings, /settings
+// page) from showing a non-cloud model as a "cloud" option a user could
+// select.
 const CLOUD_PROVIDERS = ['bedrock', 'deepseek'];
 
 /**
@@ -76,8 +75,7 @@ export function buildCloudModelList(portfolioLLMProviders) {
  * Resolve the model id that should actually be used/displayed for Cloud mode.
  *
  * Stored settings (local or synced from an older client) can carry a retired
- * model id — e.g. 'gpt-4o-mini' from before the OpenAI/XAI → AWS Bedrock
- * migration. Trusting that id just because it's set previously caused GPT
+ * model id — e.g. 'gpt-4o-mini' from before the AWS Bedrock migration. Trusting that id just because it's set previously caused GPT
  * model names to reappear in the model badge on every chat message and in
  * the sidebar's "current model" readout, even though the request was always
  * served by Bedrock. This always validates the stored id against the live

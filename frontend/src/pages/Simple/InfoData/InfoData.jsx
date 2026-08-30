@@ -191,29 +191,15 @@ function InfoData() {
   const handleOcrMethodChange = (method) => {
     setOcrMethod(method);
     // Auto-set appropriate model for each method
-    if (method === 'openai-vision') {
-      setOcrModel('gpt-4o');
-    } else if (method === 'xai-vision') {
-      setOcrModel('grok-4');
-    } else {
-      setOcrModel('default');
-    }
+    setOcrModel('default');
   };
 
   // Handle LLM provider change
   const handleLlmProviderChange = (provider) => {
     setLlmProvider(provider);
     // Reset model to default when provider changes
-    if (provider === 'openai') {
-      setLlmModel('o1-mini');
-    } else if (provider === 'xai') {
-      setLlmModel('grok-4');
-    } else if (provider === 'deepseek') {
+    if (provider === 'deepseek') {
       setLlmModel('deepseek-chat');
-    } else if (provider === 'anthropic') {
-      setLlmModel('claude-3-sonnet');
-    } else if (provider === 'google') {
-      setLlmModel('gemini-pro');
     }
   };
 

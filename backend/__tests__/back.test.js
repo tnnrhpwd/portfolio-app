@@ -330,41 +330,6 @@ describe('Portfolio Application - Backend Tests', () => {
     // EXTERNAL API INTEGRATION TESTS
     // ==========================================
     describe('External API Integration', () => {
-        it('should handle OpenAI API returning no choices', async () => {
-            const axios = require('axios');
-            jest.spyOn(axios, 'post').mockResolvedValue({ data: { choices: [] } });
-            const response = await axios.post('https://api.openai.com/v1/completions', {
-                prompt: 'Say nothing',
-                max_tokens: 5
-            }, {
-                headers: { Authorization: 'Bearer test' }
-            });
-            expect(response.data.choices).toEqual([]);
-        });
-
-        it('should send a prompt to the OpenAI API and receive a valid response', async () => {
-            // Mock OpenAI API call
-            const axios = require('axios');
-            jest.spyOn(axios, 'post').mockResolvedValue({ data: { choices: [{ text: 'Hello, world!' }] } });
-            // Simulate a call to OpenAI API
-            const response = await axios.post('https://api.openai.com/v1/completions', {
-                prompt: 'Say hello',
-                max_tokens: 5
-            }, {
-                headers: { Authorization: 'Bearer test' }
-            });
-            expect(response.data).toBeDefined();
-            expect(response.data.choices[0].text).toBe('Hello, world!');
-        });
-
-        it('should handle OpenAI API errors gracefully', async () => {
-            const axios = require('axios');
-            jest.spyOn(axios, 'post').mockRejectedValue(new Error('OpenAI API error'));
-            await expect(
-                axios.post('https://api.openai.com/v1/completions', { prompt: 'fail', max_tokens: 5 }, { headers: { Authorization: 'Bearer test' } })
-            ).rejects.toThrow('OpenAI API error');
-        });
-
         it('should handle Stripe webhook events', () => {
             const mockWebhookEvent = {
                 type: 'payment_intent.succeeded',

@@ -296,8 +296,8 @@ const compressData = async (dataData, token, options = {}) => {
     // Add LLM provider options to the request
     const requestData = {
         ...dataData,
-        provider: options.provider || 'openai',
-        model: options.model || (options.provider === 'xai' ? 'grok-4-fast-reasoning' : 'gpt-4o-mini')
+        provider: options.provider || 'bedrock',
+        model: options.model || 'us.anthropic.claude-haiku-4-5-20251001-v1:0'
     };
 
     console.log('Calling POST URL:', API_URL + 'compress');
@@ -318,8 +318,8 @@ const compressData = async (dataData, token, options = {}) => {
 const compressDataStream = async function* (dataData, token, options = {}) {
     const requestData = {
         ...dataData,
-        provider: options.provider || 'openai',
-        model: options.model || (options.provider === 'xai' ? 'grok-4-fast-reasoning' : 'gpt-4o-mini')
+        provider: options.provider || 'bedrock',
+        model: options.model || 'us.anthropic.claude-haiku-4-5-20251001-v1:0'
     };
 
     const response = await fetch(API_URL + 'compress/stream', {

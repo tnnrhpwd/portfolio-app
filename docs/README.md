@@ -44,7 +44,7 @@ docs/
 - [Ethical Monetization Strategies](./guides/ETHICAL_MONETIZATION_STRATEGIES.md) - Ad-free, course-free ways to provide value and generate revenue
 
 ### Features
-- [LLM Implementation](./implementation/LLM_IMPLEMENTATION_SUMMARY.md) - OpenAI/XAI integration
+- [LLM Implementation](./implementation/LLM_IMPLEMENTATION_SUMMARY.md) - Bedrock/DeepSeek integration
 - [S3 Integration](./implementation/S3_INTEGRATION_SUMMARY.md) - File upload system
 - [Autonomous Windows Agent Plan](./implementation/AUTONOMOUS_WINDOWS_AGENT_PLAN.md) - Simple's perceive→act agent architecture
 - [Automation Roadmap](./implementation/AUTOMATION_ROADMAP.md) - Automation feature roadmap

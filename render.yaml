@@ -13,14 +13,13 @@
 # Do NOT commit secrets here.
 #
 # Secrets strategy: AWS Secrets Manager is the single source of truth for all
-# non-AWS secrets (Stripe, JWT, OpenAI/XAI, DeepSeek, GitHub token, ...). The
+# non-AWS secrets (Stripe, JWT, DeepSeek, GitHub token, ...). The
 # backend hydrates them into process.env at boot via backend/utils/awsSecrets.js
 # (loadAllSecrets). Render therefore only needs the AWS bootstrap credentials so
 # the service can reach Secrets Manager:
 #
 #   AWS_ACCESS_KEY_ID      — Render env var (set once)
 #   AWS_SECRET_ACCESS_KEY  — Render env var (set once)
-#   AWS_REGION             — Render env var (e.g. us-east-1)
 #
 # Add or rotate any other secret with:
 #   npm run secret:put -- -Name SECRET_NAME -Value "value"

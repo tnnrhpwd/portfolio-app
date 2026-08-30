@@ -1,11 +1,9 @@
 require('dotenv').config();
 const asyncHandler = require('express-async-handler'); // sends the errors to the errorhandler
-const fetch = require('node-fetch');
 const { trackApiUsage, canMakeApiCall } = require('../utils/apiUsageTracker.js');
 const { checkIP } = require('../utils/accessData.js');
 const { logger } = require('../utils/logger');
-const wordBaseUrl = 'https://random-word-api.p.rapidapi.com/L/';
-const defBaseUrl = 'https://mashape-community-urban-dictionary.p.rapidapi.com/define?term=';
+const { createBedrockCompletion, BEDROCK_MODEL_ID } = require('../services/bedrockService');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
 
@@ -20,20 +18,46 @@ const client = new DynamoDBClient({
 
 const dynamodb = DynamoDBDocumentClient.from(client);
 
-const rapidapiwordoptions = {
-    method: 'GET',
-    headers: {
-        'X-RapidAPI-Key': process.env.RAPIDAPI_KEY,
-        'X-RapidAPI-Host': 'random-word-api.p.rapidapi.com'
+/**
+ * Generate a single random English word of an exact length via Bedrock
+ * (Claude Haiku 4.5). Retries a few times if the model returns a word of the
+ * wrong length, since the game needs an exact-length secret word.
+ */
+async function generateRandomWord(wordLength) {
+    const messages = [
+        { role: 'system', content: 'You are a word generator for a Wordle-style game. Respond with exactly one random English word, lowercase, with no punctuation, no spaces, and no explanation.' },
+        { role: 'user', content: `Generate one random English word that is exactly ${wordLength} letters long.` },
+    ];
+
+    let lastResponse = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+        lastResponse = await createBedrockCompletion(messages, { maxTokens: 24, temperature: 1.2 });
+        const raw = lastResponse?.choices?.[0]?.message?.content || '';
+        const word = raw.trim().toLowerCase().replace(/[^a-z]/g, '');
+        if (word.length === wordLength) {
+            return { word, response: lastResponse };
+        }
+        logger.debug(`LLM random word length mismatch (got "${word}", length ${word.length}, wanted ${wordLength}), retrying`);
     }
-};
-const rapidapidefoptions = {
-    method: 'GET',
-    headers: {
-        'X-RapidAPI-Key': process.env.RAPIDAPI_KEY,
-        'X-RapidAPI-Host': 'mashape-community-urban-dictionary.p.rapidapi.com'
-    }
-};
+
+    const fallbackRaw = lastResponse?.choices?.[0]?.message?.content || '';
+    return { word: fallbackRaw.trim().toLowerCase().replace(/[^a-z]/g, ''), response: lastResponse };
+}
+
+/**
+ * Generate a short, clear, family-friendly dictionary-style definition for a
+ * word via Bedrock (Claude Haiku 4.5).
+ */
+async function generateDefinition(word) {
+    const response = await createBedrockCompletion([
+        { role: 'system', content: 'You are a dictionary. Write one short, clear, family-friendly definition of the word provided. Respond with ONLY the definition text — no numbering, no quotes, no extra commentary.' },
+        { role: 'user', content: word },
+    ], { maxTokens: 120, temperature: 0.3 });
+
+    const raw = response?.choices?.[0]?.message?.content || '';
+    return { definition: raw.replace(/\s+/g, ' ').trim(), response };
+}
+
 const { getUserUsageStats } = require('../utils/apiUsageTracker.js');
 const { getStripe, liveStripe: stripe } = require('../utils/stripeInstance.js');
 const { createCustomer } = require('./postHashData.js');
@@ -159,12 +183,21 @@ const getHashData = asyncHandler(async (req, res) => {
         var randomWord = "";
 
         if (dataSearchString.startsWith("getword:")) { // Check if dataSearchString is "getword"
-            const wordLength = dataSearchString.substring(8); // returns "5" before a user modifies it to other custom numbers
-            
-            // Check if user can make RapidAPI word call
-            const canMakeCall = await canMakeApiCall(req.user.id, 'rapidword');
+            const wordLength = parseInt(dataSearchString.substring(8), 10); // returns 5 before a user modifies it to other custom numbers
+
+            if (!Number.isInteger(wordLength) || wordLength < 3 || wordLength > 15) {
+                res.status(400);
+                throw new Error('Invalid word length');
+            }
+
+            // Check if user can make an LLM (Bedrock) word call
+            const canMakeCall = await canMakeApiCall(req.user.id, 'bedrock', {
+                model: BEDROCK_MODEL_ID,
+                inputTokens: 90,
+                outputTokens: 30,
+            });
             if (!canMakeCall.canMake) {
-                logger.debug('RapidAPI Word call blocked:', canMakeCall.reason);
+                logger.debug('LLM Word call blocked:', canMakeCall.reason);
                 return res.status(402).json({ 
                     error: 'API usage limit reached', 
                     reason: canMakeCall.reason,
@@ -173,30 +206,41 @@ const getHashData = asyncHandler(async (req, res) => {
                     requiresUpgrade: true
                 });
             }
-            
-            const ranwordapiurl = `${wordBaseUrl}${wordLength}`;
-            const response = await fetch(ranwordapiurl, rapidapiwordoptions);
-            if (!response.ok) {
-                throw new Error('Failed to fetch random word from rapidapi.');
+
+            const { word: generatedWord, response } = await generateRandomWord(wordLength);
+            if (!generatedWord) {
+                throw new Error('Failed to generate a random word from the LLM.');
             }
-            const data = await response.json();
-            randomWord = data.word.toLowerCase(); // Convert to lowercase - this is specific to the word API
-            
+            randomWord = generatedWord;
+
             // Track API usage
-            const usageResult = await trackApiUsage(req.user.id, 'rapidword', {});
+            const usage = response?.usage || {};
+            const usageResult = await trackApiUsage(req.user.id, 'bedrock', {
+                inputTokens: usage.prompt_tokens || 0,
+                outputTokens: usage.completion_tokens || 0,
+            }, BEDROCK_MODEL_ID);
             if (usageResult.success) {
-                logger.debug(`RapidAPI Word usage tracked: $${usageResult.cost.toFixed(4)}, Total: $${usageResult.totalUsage.toFixed(4)}`);
+                logger.debug(`LLM Word usage tracked: $${usageResult.cost.toFixed(4)}, Total: $${usageResult.totalUsage.toFixed(4)}`);
             }
-            
+
             res.status(200).json({ word: randomWord }); // Return the random word
 
         } else if (dataSearchString.startsWith("getdef:")) { // Handle "getdef:" request
             const word = dataSearchString.substring(7); // Extract the word from dataSearchString
-            
-            // Check if user can make RapidAPI definition call
-            const canMakeCall = await canMakeApiCall(req.user.id, 'rapiddef');
+
+            if (!word) {
+                res.status(400);
+                throw new Error('Invalid request query parameter - no word found');
+            }
+
+            // Check if user can make an LLM (Bedrock) definition call
+            const canMakeCall = await canMakeApiCall(req.user.id, 'bedrock', {
+                model: BEDROCK_MODEL_ID,
+                inputTokens: 120,
+                outputTokens: 120,
+            });
             if (!canMakeCall.canMake) {
-                logger.debug('RapidAPI Definition call blocked:', canMakeCall.reason);
+                logger.debug('LLM Definition call blocked:', canMakeCall.reason);
                 return res.status(402).json({ 
                     error: 'API usage limit reached', 
                     reason: canMakeCall.reason,
@@ -205,45 +249,24 @@ const getHashData = asyncHandler(async (req, res) => {
                     requiresUpgrade: true
                 });
             }
-            
-            const defUrl = `${defBaseUrl}${word}`;
 
-            const response = await fetch(defUrl, rapidapidefoptions);
-            if (!response.ok) {
-                throw new Error('Failed to fetch definition from rapidapi');
-            }
-            const data = await response.json();
-            
+            const { definition, response } = await generateDefinition(word);
+
             // Track API usage
-            const usageResult = await trackApiUsage(req.user.id, 'rapiddef', {});
+            const usage = response?.usage || {};
+            const usageResult = await trackApiUsage(req.user.id, 'bedrock', {
+                inputTokens: usage.prompt_tokens || 0,
+                outputTokens: usage.completion_tokens || 0,
+            }, BEDROCK_MODEL_ID);
             if (usageResult.success) {
-                logger.debug(`RapidAPI Definition usage tracked: $${usageResult.cost.toFixed(4)}, Total: $${usageResult.totalUsage.toFixed(4)}`);
+                logger.debug(`LLM Definition usage tracked: $${usageResult.cost.toFixed(4)}, Total: $${usageResult.totalUsage.toFixed(4)}`);
             }
-            
-            // Clean up and format the definitions
-            let definitions = [];
-            if (data.list && data.list.length > 0) {
-                // Take up to 3 definitions and clean them
-                for (let i = 0; i < Math.min(3, data.list.length); i++) {
-                    if (data.list[i] && data.list[i].definition) {
-                        let def = data.list[i].definition
-                            .replace(/\[|\]/g, '') // Remove brackets
-                            .replace(/\r\n/g, ' ') // Replace line breaks
-                            .replace(/\s+/g, ' ')  // Replace multiple spaces
-                            .trim();
-                        
-                        if (def && def.length > 0) {
-                            definitions.push(`${i + 1}. ${def}`);
-                        }
-                    }
-                }
-            }
-            
-            const definition = definitions.length > 0 
-                ? definitions.join(' | ') 
+
+            const finalDefinition = definition && definition.length > 0
+                ? definition
                 : 'Definition not available.';
-                
-            res.status(200).json({ worddef: definition }); // Return the definition
+
+            res.status(200).json({ worddef: finalDefinition }); // Return the definition
 
         } else { // Handle database search requests
             try {

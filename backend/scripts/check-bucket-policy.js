@@ -93,7 +93,7 @@ aws s3api put-bucket-policy --bucket ${bucketName} --policy file://bucket-policy
         console.log('\n🚀 What Works Right Now:');
         console.log('✅ File uploads via pre-signed URLs (direct to S3)');
         console.log('✅ File display via direct S3 URLs');
-        console.log('✅ XAI OCR processing (main issue solved!)');
+        console.log('✅ OCR processing (main issue solved!)');
         
         console.log('\n⚡ After Bucket Policy (Optional Performance Boost):');
         console.log('🚀 Files served globally via CloudFront CDN');
