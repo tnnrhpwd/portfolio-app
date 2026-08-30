@@ -57,7 +57,7 @@ const BugReportTab = ({ formData, handleInputChange, handleBugReportSubmit, isSu
         </div>
 
         <div className="support-form-group">
-          <label htmlFor="bugSteps">Steps to Reproduce (Optional)</label>
+          <label htmlFor="bugSteps">Steps to Reproduce *</label>
           <textarea
             id="bugSteps"
             name="bugSteps"
@@ -71,7 +71,7 @@ const BugReportTab = ({ formData, handleInputChange, handleBugReportSubmit, isSu
 
         <div className="support-form-row">
           <div className="support-form-group">
-            <label htmlFor="bugExpected">Expected Result (Optional)</label>
+            <label htmlFor="bugExpected">Expected Result *</label>
             <textarea
               id="bugExpected"
               name="bugExpected"
@@ -83,7 +83,7 @@ const BugReportTab = ({ formData, handleInputChange, handleBugReportSubmit, isSu
             />
           </div>
           <div className="support-form-group">
-            <label htmlFor="bugActual">Actual Result (Optional)</label>
+            <label htmlFor="bugActual">Actual Result *</label>
             <textarea
               id="bugActual"
               name="bugActual"
@@ -107,7 +107,7 @@ const BugReportTab = ({ formData, handleInputChange, handleBugReportSubmit, isSu
         <button
           type="submit"
           className="support-submit-btn"
-          disabled={isSubmitting || !formData.bugTitle.trim() || !formData.bugDescription.trim() || !formData.bugSteps.trim() || !formData.bugExpected.trim() || !formData.bugActual.trim()}
+          disabled={isSubmitting || !formData.bugTitle.trim() || !formData.bugDescription.trim()}
         >
           {isSubmitting ? '📤 Submitting...' : '🐛 Submit Bug Report'}
         </button>
