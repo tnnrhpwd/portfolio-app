@@ -12,7 +12,8 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "lint": "eslint . --ext .js",
-    "lint:fix": "eslint . --ext .js --fix"
+    "lint:fix": "eslint . --ext .js --fix",
+    "pull-support-tickets": "node scripts/pull-support-tickets.js"
   },
   "author": "Steven Tanner Hopwood",
   "license": "UNLICENSED",
