@@ -167,7 +167,7 @@ code {
   --text-color-accent-dark-strong: var(--grey3-accessible);
   --text-color-small: var(--text-small-contrast);
   --text-color-inv: var(--button-text-contrast);
-  --bg-accent:rgb(126, 126, 126);
+  --bg-accent: rgb(216, 219, 226);
   --border-nav: var(--input-border-accessible);
   --border-plan: var(--grey5-transp);
   --bg-nav-dropper: var(--grey1);
@@ -202,7 +202,7 @@ code {
   --bg-plan: var(--grey3-transp);
   --text-color: var(--white0);
   --text-color-inv: var(--dark-blue0);
-  --bg-accent:rgb(126, 126, 126);
+  --bg-accent: rgb(58, 58, 61);
   --border-nav: var(--input-border-accessible);
   --border-plan: var(--grey3-transp);
   --bg-nav-dropper: var(--grey4);
