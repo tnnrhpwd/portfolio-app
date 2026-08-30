@@ -47,7 +47,7 @@
     "dotenv": "^16.3.1",
     "express": "^5.2.1",
     "express-async-handler": "^1.2.0",
-    "express-rate-limit": "^6.10.0",
+    "express-rate-limit": "^8.6.2",
     "express-validator": "^7.0.1",
     "helmet": "^8.3.0",
     "ipinfo": "^1.5.2",
