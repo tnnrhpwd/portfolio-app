@@ -5,8 +5,9 @@ local `.env`, the secrets repo, Render, and AWS by hand again.
 
 ## The source of truth (and what `.env` is for)
 
-**AWS Secrets Manager is the single source of truth for non-AWS secrets.** One
-JSON secret, `portfolio-app/production`, holds everything that isn't AWS config:
+**AWS Secrets Manager is the single source of truth — for secrets *and* app
+config.** One JSON secret, `portfolio-app/production`, holds everything except
+the AWS bootstrap credentials:
 
 ```json
 {
@@ -15,7 +16,12 @@ JSON secret, `portfolio-app/production`, holds everything that isn't AWS config:
   "STRIPE_WEBHOOK_SECRET": "whsec_...",
   "OPENAI_KEY": "sk-...",
   "XAI_API_KEY": "...",
-  "GITHUB_TOKEN": "ghp_..."
+  "GITHUB_TOKEN": "ghp_...",
+  "AWS_S3_BUCKET": "sthopwood",
+  "AWS_CLOUDFRONT_DOMAIN": "....cloudfront.net",
+  "USE_CLOUDFRONT": "true",
+  "FROM_EMAIL": "admin@yourdomain.com",
+  "ADMIN_USER_ID": "..."
 }
 ```
 
@@ -23,18 +29,18 @@ The backend hydrates these into `process.env` at boot via
 [`backend/utils/awsSecrets.js`](../../backend/utils/awsSecrets.js)
 (`loadAllSecrets`, called from `server.js` before routes load).
 
-### Is `backend/.env` still used? Yes.
+### `backend/.env` is just the AWS bootstrap credentials
+
+Exactly two lines:
+
+```dotenv
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+```
 
 It's loaded **first** (by `dotenv` at the top of `server.js`) and its values
 **win over** Secrets Manager — the loader never overwrites a variable that is
-already set. `.env` has two jobs:
-
-1. **Bootstrap credentials** — it holds the `AWS_ACCESS_KEY_ID` /
-   `AWS_SECRET_ACCESS_KEY` / `AWS_REGION` needed to *reach* Secrets Manager in
-   the first place.
-2. **Local overrides** — while developing, whatever you put in `.env` is used
-   as-is; Secrets Manager only fills in the gaps. This lets you work offline or
-   override a value locally without touching the cloud.
+already set. Add any other var here to override it locally.
 
 ### How a variable resolves
 
@@ -48,9 +54,9 @@ already set. `.env` has two jobs:
 
 | Store | Contents | Role |
 |---|---|---|
-| AWS Secrets Manager (`portfolio-app/production`) | All non-AWS secrets | **Source of truth** in production |
-| `backend/.env` (local, gitignored) | AWS bootstrap creds + local dev values | Loaded first, wins locally, restored from backup |
-| Render environment | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` + non-secret config | Bootstrap creds + config only |
+| AWS Secrets Manager (`portfolio-app/production`) | All secrets + app config (region, S3, email, admin id) | **Source of truth** |
+| `backend/.env` (local, gitignored) | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Bootstrap creds only |
+| Render environment | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `NODE_ENV`, `PORT`, `FRONTEND_URL`, publishable Stripe keys | Bootstrap + runtime config |
 | [`portfolio-app-secrets`](https://github.com/tnnrhpwd/portfolio-app-secrets) | age-encrypted copy of `.env` | Optional offline backup (see [ENV_BACKUP_GUIDE.md](./ENV_BACKUP_GUIDE.md)) |
 
 ## Add or rotate a secret

@@ -116,15 +116,15 @@ Environment variables are never committed to this repository.
   npm run env:add-recipient -- -PublicKey "C:\path\to\new-device_id_ed25519.pub"
   ```
 
-- **Source of truth (AWS Secrets Manager)** — all non-AWS secrets (Stripe, JWT, OpenAI/XAI, DeepSeek, `GITHUB_TOKEN`, …) live in one JSON secret (`portfolio-app/production`) and are hydrated into `process.env` at boot by `backend/utils/awsSecrets.js`. Set or rotate a secret with:
+- **Source of truth (AWS Secrets Manager)** — all secrets *and app config* (Stripe, JWT, OpenAI/XAI, `GITHUB_TOKEN`, S3 bucket, `FROM_EMAIL`, `ADMIN_USER_ID`, …) live in one JSON secret (`portfolio-app/production`) and are hydrated into `process.env` at boot by `backend/utils/awsSecrets.js`. Set or rotate any value with:
 
   ```bash
   npm run secret:put -- -Name STRIPE_KEY -Value "sk_live_..."
   ```
 
-- **Is `.env` still used? Yes — locally.** `backend/.env` is loaded first and its values **win** over Secrets Manager (the loader never overwrites a value that's already set). It's your local dev copy plus the AWS bootstrap credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`). On Render, `.env` is not read — Secrets Manager is authoritative there.
+- **Is `.env` still used? Yes — 2 lines.** `backend/.env` holds just the AWS access key pair (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) needed to reach Secrets Manager. On Render, `.env` is not read — Render injects the same bootstrap creds plus runtime config (`AWS_REGION`, `NODE_ENV`, `PORT`, `FRONTEND_URL`).
 
-- **Production (Render)** — Render only needs the AWS bootstrap credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`) so the service can reach Secrets Manager; every other secret comes from the secret above. See [docs/guides/SECRETS_MANAGEMENT.md](docs/guides/SECRETS_MANAGEMENT.md).
+- **Production (Render)** — Render only needs the AWS bootstrap credentials plus runtime config; every secret and app-config value comes from the secret above. See [docs/guides/SECRETS_MANAGEMENT.md](docs/guides/SECRETS_MANAGEMENT.md).
 
 ## �🔐 Security
 

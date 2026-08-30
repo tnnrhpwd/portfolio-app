@@ -27,9 +27,12 @@ dotenv.config({ path: envPath });
 const SECRET_ID = process.env.SECRETS_MANAGER_SECRET_ID || 'portfolio-app/production';
 const REGION = process.env.AWS_REGION || 'us-east-1';
 
-// Third-party secret keys to seed. Everything else (config, AWS bootstrap
-// creds, publishable keys) intentionally stays out of the secret.
+// Keys to seed into the single source-of-truth secret: non-AWS secrets plus
+// the app config that lives alongside them (region, S3, email, admin id). Only
+// the AWS access key pair stays out of the secret — it's the bootstrap needed
+// to reach Secrets Manager in the first place. Publishable keys stay out too.
 const SECRET_KEYS = [
+    // Secrets
     'JWT_SECRET',
     'OPENAI_KEY',
     'XAI_API_KEY',
@@ -41,8 +44,15 @@ const SECRET_KEYS = [
     'STRIPE_KEY',
     'TEST_STRIPE_KEY',
     'STRIPE_WEBHOOK_SECRET',
-    'GOOGLE_KEY',
     'SECRETS_ENCRYPTION_KEY',
+    // App config
+    'AWS_REGION',
+    'AWS_S3_BUCKET',
+    'AWS_S3_REGION',
+    'AWS_CLOUDFRONT_DOMAIN',
+    'USE_CLOUDFRONT',
+    'FROM_EMAIL',
+    'ADMIN_USER_ID',
 ];
 
 function isResourceNotFound(err) {
