@@ -40,7 +40,7 @@ One command — no Render dashboard, no local `.env` edit, no secrets-repo push:
 npm run secret:put -- -Name OPENAI_KEY -Value "sk-..."
 
 # or directly:
-.\scripts\put-secret.ps1 -Name GITHUB_TOKEN -Value "ghp_..." -Region us-east-1
+node backend/scripts/put-secret.js -Name GITHUB_TOKEN -Value "ghp_..." -Region us-east-1
 ```
 
 Then **redeploy or restart the backend**. Local dev: restart `npm run dev`.
