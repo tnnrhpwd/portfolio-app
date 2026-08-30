@@ -39,7 +39,6 @@ See the [`/docs`](./docs) folder for detailed documentation:
 - **CI/CD Pipelines**: Automated testing and security scanning
 
 ### 🛠️ Development Experience
-- **Docker Support**: Complete containerization with docker-compose
 - **Health Checks**: Automated service health monitoring
 - **Environment Templates**: Clear environment variable documentation (`.env.example`)
 - **Enhanced Testing**: Better test structure and coverage tools
@@ -80,20 +79,6 @@ See the [`/docs`](./docs) folder for detailed documentation:
 
 The application will start on http://localhost:3000.
 
-### Docker Setup
-
-```bash
-# Build and run with Docker
-npm run docker:build
-npm run docker:up
-
-# View logs
-npm run docker:logs
-
-# Stop containers
-npm run docker:down
-```
-
 ## ☁️ Deployment & Cloud Architecture
 
 The application is split across multiple hosting providers, with AWS handling data, storage, and email infrastructure.
@@ -131,7 +116,13 @@ Environment variables are never committed to this repository.
   npm run env:add-recipient -- -PublicKey "C:\path\to\new-device_id_ed25519.pub"
   ```
 
-- **Production (Render)** — live secrets (AWS, Stripe, JWT, `GITHUB_TOKEN`, …) are set in the Render dashboard (service → Environment) and injected at runtime; `.env` is not read in production.
+- **Single source of truth (AWS Secrets Manager)** — all non-AWS secrets (Stripe, JWT, OpenAI/XAI, DeepSeek, `GITHUB_TOKEN`, …) live in one JSON secret (`portfolio-app/production`) and are hydrated into `process.env` at boot by `backend/utils/awsSecrets.js`. Set or rotate a secret with:
+
+  ```bash
+  npm run secret:put -- -Name STRIPE_KEY -Value "sk_live_..."
+  ```
+
+- **Production (Render)** — Render only needs the AWS bootstrap credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`) so the service can reach Secrets Manager; every other secret comes from the secret above. See [docs/guides/SECRETS_MANAGEMENT.md](docs/guides/SECRETS_MANAGEMENT.md).
 
 ## �🔐 Security
 

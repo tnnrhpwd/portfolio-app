@@ -1,4 +1,4 @@
-const { parseUsageData } = require('./backend/utils/apiUsageTracker');
+const { parseUsageData } = require('../backend/utils/apiUsageTracker');
 
 console.log('Testing parseUsageData function...');
 

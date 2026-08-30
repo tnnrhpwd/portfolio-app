@@ -13,6 +13,7 @@ docs/
 │   ├── REFERER_TRACKING_README.md    # Analytics and tracking setup
 │   ├── ACTION_PLAN.md                # Consolidated next-steps plan (start here)
 │   ├── ENV_BACKUP_GUIDE.md           # Encrypted .env backup/restore workflow
+│   ├── SECRETS_MANAGEMENT.md         # Single source of truth for secrets (Secrets Manager)
 │   ├── BUSINESS_PLAN.md              # What value the product provides customers
 │   └── ETHICAL_MONETIZATION_STRATEGIES.md # Ethical, ad-free revenue ideas
 ├── implementation/                    # Technical implementation details
@@ -35,6 +36,7 @@ docs/
 - [AWS Setup Guide](./guides/AWS_SETUP_GUIDE.md) - Set up S3 and CloudFront
 - [Static Assets Guide](./guides/STATIC_ASSETS_GUIDE.md) - Manage images and files
 - [Env Backup Guide](./guides/ENV_BACKUP_GUIDE.md) - Back up/restore `.env` secrets without ever exposing them in the repo
+- [Secrets Management](./guides/SECRETS_MANAGEMENT.md) - Single source of truth for secrets (AWS Secrets Manager)
 
 ### Business
 - [Action Plan](./guides/ACTION_PLAN.md) - **Start here.** Consolidated next steps: messaging, payment page accuracy, and funnel tuning

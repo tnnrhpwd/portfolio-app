@@ -9,7 +9,7 @@ const { apiLimiter } = require('./middleware/rateLimiter'); // rate limiting
 const { sanitizeInput } = require('./middleware/validation'); // input sanitization
 const port = process.env.PORT || 5000;  //set port to hold api server
 var cors = require('cors')
-const { loadDeepSeekKey } = require('./utils/awsSecrets'); // DeepSeek key from AWS Secrets Manager (fallback to env)
+const { loadDeepSeekKey, loadAllSecrets } = require('./utils/awsSecrets'); // Secrets Manager: all secrets + DeepSeek fallback
 
 const app = express() // Calls the express function "express()" and puts new Express application inside the app variable
 
@@ -127,6 +127,12 @@ app.use('/api/data', funnelTimingMiddleware);
 // populate process.env.DEEPSEEK_API_KEY before any route is loaded (routes
 // transitively require llmProviders.js, which reads that env var at load).
 async function start() {
+  // Hydrate all non-AWS secrets from AWS Secrets Manager (single source of
+  // truth). Values already in process.env — e.g. from the local `.env` loaded
+  // by dotenv above — win; Secrets Manager only fills gaps.
+  await loadAllSecrets();
+  // DeepSeek-specific fallback (legacy `portfolio-app/deepseek` secret). This
+  // is a no-op when loadAllSecrets already populated DEEPSEEK_API_KEY.
   await loadDeepSeekKey();
 
   app.use('/api/data', require('./routes/routeData')) // serve all data at /api/data (regardless of hit url)

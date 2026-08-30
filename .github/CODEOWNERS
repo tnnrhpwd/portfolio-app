@@ -28,7 +28,5 @@
 /docs/ @tnnrhpwd
 *.md @tnnrhpwd
 
-# Docker and deployment
-Dockerfile* @tnnrhpwd
-docker-compose.yml @tnnrhpwd
+# Deployment
 netlify.toml @tnnrhpwd

@@ -15,6 +15,10 @@ const { logger } = require('./logger');
 // Secret id in AWS Secrets Manager. Overridable via DEEPSEEK_API_KEY_SECRET_ID.
 const DEFAULT_SECRET_ID = 'portfolio-app/deepseek';
 
+// Secret id for the single "all secrets" JSON object hydrated at boot.
+// Overridable via SECRETS_MANAGER_SECRET_ID.
+const DEFAULT_ALL_SECRET_ID = 'portfolio-app/production';
+
 let secretsManagerClient = null;
 
 function getSecretsManagerClient() {
@@ -49,6 +53,23 @@ function getSecretsManagerClient() {
 }
 
 /**
+ * Fetch the raw SecretString for a secret id, with no interpretation.
+ * Returns null when no AWS credentials are configured (local dev / CI), so
+ * callers can fall back to process.env.
+ *
+ * @param {string} secretId
+ * @returns {Promise<string|null>}
+ */
+async function fetchRawSecretString(secretId) {
+    const client = getSecretsManagerClient();
+    if (!client) return null;
+
+    const { GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
+    const result = await client.send(new GetSecretValueCommand({ SecretId: secretId }));
+    return result.SecretString || null;
+}
+
+/**
  * Fetch a secret string from AWS Secrets Manager.
  * Accepts either a plain-string secret or a JSON object secret whose value is
  * under `DEEPSEEK_API_KEY`, `deepseek_api_key`, or `key`.
@@ -57,13 +78,7 @@ function getSecretsManagerClient() {
  * @returns {Promise<string|null>}
  */
 async function fetchSecretString(secretId) {
-    const client = getSecretsManagerClient();
-    if (!client) return null;
-
-    const { GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
-    const result = await client.send(new GetSecretValueCommand({ SecretId: secretId }));
-
-    const raw = result.SecretString;
+    const raw = await fetchRawSecretString(secretId);
     if (!raw) return null;
 
     try {
@@ -106,8 +121,69 @@ async function loadDeepSeekKey() {
     }
 }
 
+/**
+ * Hydrate process.env from the single source-of-truth secret (default:
+ * `portfolio-app/production`), which must be a JSON object whose keys are
+ * env-var names. Existing env vars (e.g. a local `.env` in dev, or the AWS
+ * bootstrap credentials on Render) are never overwritten — the Secrets Manager
+ * value only fills gaps. This makes Secrets Manager the authority in
+ * production while keeping local dev free of any AWS dependency beyond the
+ * credentials already present in `.env`.
+ *
+ * @returns {Promise<{secretId: string, loaded: number, source: string}>}
+ */
+async function loadAllSecrets() {
+    const secretId = process.env.SECRETS_MANAGER_SECRET_ID || DEFAULT_ALL_SECRET_ID;
+
+    try {
+        const raw = await fetchRawSecretString(secretId);
+        if (!raw) {
+            return { secretId, loaded: 0, source: 'unavailable' };
+        }
+
+        let parsed;
+        try {
+            parsed = JSON.parse(raw);
+        } catch {
+            logger.warn(
+                `[awsSecrets] ${secretId} is not valid JSON; expected an object of env vars.`
+            );
+            return { secretId, loaded: 0, source: 'invalid-json' };
+        }
+
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+            logger.warn(
+                `[awsSecrets] ${secretId} must be a JSON object of env vars; skipped.`
+            );
+            return { secretId, loaded: 0, source: 'not-an-object' };
+        }
+
+        let loaded = 0;
+        for (const [key, value] of Object.entries(parsed)) {
+            if (value === null || value === undefined || value === '') continue;
+            if (process.env[key] === undefined || process.env[key] === '') {
+                process.env[key] = String(value);
+                loaded += 1;
+            }
+        }
+
+        if (loaded > 0) {
+            logger.info(`[awsSecrets] Hydrated ${loaded} env var(s) from ${secretId}`);
+        }
+        return { secretId, loaded, source: 'secrets-manager' };
+    } catch (error) {
+        logger.warn(
+            `[awsSecrets] Could not load secrets from ${secretId}: ${error.message}`
+        );
+        return { secretId, loaded: 0, source: 'error' };
+    }
+}
+
 module.exports = {
     DEFAULT_SECRET_ID,
+    DEFAULT_ALL_SECRET_ID,
+    fetchRawSecretString,
     fetchSecretString,
     loadDeepSeekKey,
+    loadAllSecrets,
 };
