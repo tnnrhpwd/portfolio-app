@@ -333,7 +333,7 @@ function Wordle() {
         setOutputMessage(`Time: ${timeString}\n\nWant to see definitions? Click here to login and unlock word definitions!`);
       } else if (definition) {
         // User logged in and definition available
-        setOutputMessage(`Time: ${timeString}\n\nDefinition (from Urban Dictionary): ${definition}\n\n⚠️ Note: Definitions are sourced from Urban Dictionary and may contain inappropriate, offensive, or non-professional content. We are not responsible for the content of these definitions.`);
+        setOutputMessage(`Time: ${timeString}\n\nDefinition (AI-generated): ${definition}`);
       } else {
         // User logged in but no definition available
         setOutputMessage(`Time: ${timeString}\n\nThanks for playing! Definition not available.`);

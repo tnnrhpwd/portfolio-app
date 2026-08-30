@@ -128,7 +128,7 @@ async function getDefaultBranch() {
 
 function pickProvider() {
   if (PROVIDERS.deepseek.apiKey) {
-    return { kind: 'openai', provider: 'deepseek', model: 'deepseek-chat' };
+    return { kind: 'completion', provider: 'deepseek', model: 'deepseek-chat' };
   }
   if (PROVIDERS.bedrock.apiKey) {
     return { kind: 'bedrock', provider: 'bedrock', model: BEDROCK_MODEL_ID };

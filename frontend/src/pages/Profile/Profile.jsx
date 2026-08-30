@@ -558,9 +558,7 @@ function Profile() {
                                     <span className="api-name">
                                       {entry.api === 'bedrock' && '☁️ AWS Bedrock'}
                                       {(entry.api === 'openai' || entry.api === 'github') && '🤖 GitHub Models (legacy)'}
-                                      {entry.api === 'rapidword' && '📝 Word Generator'}
-                                      {entry.api === 'rapiddef' && '📚 Dictionary'}
-                                      {!['bedrock', 'openai', 'github', 'rapidword', 'rapiddef'].includes(entry.api) && `🔧 ${entry.api}`}
+                                      {!['bedrock', 'openai', 'github'].includes(entry.api) && `🔧 ${entry.api}`}
                                     </span>
                                     <span className="api-date">{entry.fullDate}</span>
                                   </div>

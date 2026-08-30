@@ -455,8 +455,8 @@ async function callBedrock(messages, options) {
 
 /**
  * Route a non-streaming LLM call to the right backend.
- * Bedrock uses its dedicated Converse path; everything else (OpenAI/XAI/
- * DeepSeek) uses the OpenAI-compatible `createCompletion`.
+ * Bedrock uses its dedicated Converse path; everything else (DeepSeek)
+ * uses the OpenAI-compatible `createCompletion`.
  */
 async function makeLLMCall(provider, model, messages, options) {
     if (provider === 'bedrock') return callBedrock(messages, options);

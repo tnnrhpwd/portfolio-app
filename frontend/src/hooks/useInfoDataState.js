@@ -11,10 +11,10 @@ export const useInfoDataState = () => {
   const [comments, setComments] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [ocrLoading, setOcrLoading] = useState(false);
-  const [ocrMethod, setOcrMethod] = useState('xai-vision');
-  const [ocrModel, setOcrModel] = useState('grok-4');
-  const [llmProvider, setLlmProvider] = useState('xai');
-  const [llmModel, setLlmModel] = useState('grok-4');
+  const [ocrMethod, setOcrMethod] = useState('tesseract');
+  const [ocrModel, setOcrModel] = useState('default');
+  const [llmProvider, setLlmProvider] = useState('deepseek');
+  const [llmModel, setLlmModel] = useState('deepseek-chat');
   const [editedDataText, setEditedDataText] = useState('');
   const [showFileUpload, setShowFileUpload] = useState(false);
 

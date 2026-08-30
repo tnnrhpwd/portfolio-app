@@ -368,7 +368,7 @@ const Terms = () => {
                             <h3>11.2 Third-Party Services</h3>
                             <p>
                                 Our platform relies on third-party services including, but not limited to, AI model
-                                providers (OpenAI, Anthropic, etc.), cloud infrastructure (AWS), and payment processing
+                                providers (Anthropic, DeepSeek, etc.), cloud infrastructure (AWS), and payment processing
                                 (Stripe). We are not responsible for outages, changes, or discontinuations of these
                                 third-party services. Changes in third-party pricing may be reflected in our cost tables.
                             </p>

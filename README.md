@@ -116,7 +116,7 @@ Environment variables are never committed to this repository.
   npm run env:add-recipient -- -PublicKey "C:\path\to\new-device_id_ed25519.pub"
   ```
 
-- **Source of truth (AWS Secrets Manager)** — all secrets *and app config* (Stripe, JWT, OpenAI/XAI, `GITHUB_TOKEN`, S3 bucket, `FROM_EMAIL`, `ADMIN_USER_ID`, …) live in one JSON secret (`portfolio-app/production`) and are hydrated into `process.env` at boot by `backend/utils/awsSecrets.js`. Set or rotate any value with:
+- **Source of truth (AWS Secrets Manager)** — all secrets *and app config* (Stripe, JWT, DeepSeek, `GITHUB_TOKEN`, S3 bucket, `FROM_EMAIL`, `ADMIN_USER_ID`, …) live in one JSON secret (`portfolio-app/production`) and are hydrated into `process.env` at boot by `backend/utils/awsSecrets.js`. Set or rotate any value with:
 
   ```bash
   npm run secret:put -- -Name STRIPE_KEY -Value "sk_live_..."

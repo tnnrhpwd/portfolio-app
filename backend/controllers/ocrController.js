@@ -2,38 +2,10 @@
 
 const asyncHandler = require('express-async-handler');
 const { checkIP } = require('../utils/accessData.js');
-const { canMakeApiCall, trackApiUsage } = require('../utils/apiUsageTracker.js');
 const { logger } = require('../utils/logger');
 const ocrService = require('../services/ocrService.js');
 const s3Service = require('../services/s3Service.js');
 const { PROVIDERS } = require('../utils/llmProviders');
-
-// Rough token estimate for a single OCR vision call, used to gate + meter the
-// platform-paid providers against the per-tier AI credit allowance. Sized so a
-// typical image extraction costs a few cents at Bedrock/OpenAI/XAI rates.
-const OCR_INPUT_TOKENS = 1500;
-const OCR_OUTPUT_TOKENS = 500;
-
-// Map an OCR method to the metering bucket it bills against. `tesseract` runs
-// locally and is never metered.
-function getOcrMeter(method, model) {
-    switch (method) {
-        case 'xai-vision':
-            return { apiName: 'xai', model: model || 'grok-4' };
-        case 'openai-vision':
-            return { apiName: 'openai', model: model || 'gpt-4o' };
-        case 'google-vision':
-        case 'azure-ocr':
-        case 'aws-textract':
-            // No dedicated cost table for these rarely-configured providers;
-            // meter them against the OpenAI bucket as a flat per-call proxy.
-            return { apiName: 'openai', model: 'gpt-4o' };
-        case 'tesseract':
-            return null;
-        default:
-            return { apiName: 'xai', model: model || 'grok-4' };
-    }
-}
 
 /**
  * @route   POST /api/data/ocr-extract
@@ -52,7 +24,7 @@ const extractOCR = asyncHandler(async (req, res) => {
         }
 
         const { imageData, imageUrl, s3Key, method, ocrProvider, model, ocrModel, llmProvider, llmModel } = req.body || {};
-        const provider = method || ocrProvider || 'xai-vision';
+        const provider = method || ocrProvider || 'tesseract';
         const modelArg = model || ocrModel;
 
         // Resolve the image: the frontend sends an S3 key/URL; legacy callers
@@ -77,23 +49,6 @@ const extractOCR = asyncHandler(async (req, res) => {
 
         const userId = req.user.email;
 
-        // Gate metered (server-paid) providers against the per-tier AI credit
-        // allowance before doing the work. `tesseract` is local and free.
-        const meter = getOcrMeter(provider, modelArg);
-        if (meter) {
-            const gate = await canMakeApiCall(userId, meter.apiName, {
-                model: meter.model,
-                inputTokens: OCR_INPUT_TOKENS,
-                outputTokens: OCR_OUTPUT_TOKENS,
-            });
-            if (!gate.canMake) {
-                return res.status(402).json({
-                    success: false,
-                    error: gate.reason || 'Monthly AI usage limit reached'
-                });
-            }
-        }
-
         // Perform OCR processing using service
         const ocrResult = await ocrService.processOCR(resolvedImageData, provider, modelArg);
 
@@ -112,14 +67,6 @@ const extractOCR = asyncHandler(async (req, res) => {
                 postProvider = enhanced.provider;
                 postModel = enhanced.model;
             }
-        }
-
-        // Deduct the estimated cost after a successful extraction.
-        if (meter) {
-            await trackApiUsage(userId, meter.apiName, {
-                inputTokens: OCR_INPUT_TOKENS,
-                outputTokens: OCR_OUTPUT_TOKENS,
-            }, meter.model);
         }
 
         res.status(200).json({

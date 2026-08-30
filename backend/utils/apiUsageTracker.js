@@ -18,18 +18,6 @@ const dynamodb = DynamoDBDocumentClient.from(client);
 
 // API cost configuration (in USD)
 const API_COSTS = {
-    openai: {
-        'gpt-4': { input: 0.03/1000, output: 0.06/1000 }, // per token
-        'gpt-4o': { input: 0.0025/1000, output: 0.01/1000 }, // per token
-        'gpt-4o-mini': { input: 0.00015/1000, output: 0.0006/1000 }, // per token
-        'gpt-3.5-turbo': { input: 0.0015/1000, output: 0.002/1000 }, // per token
-        'o1-mini': { input: 0.003/1000, output: 0.012/1000 }, // per token
-        'o1-preview': { input: 0.015/1000, output: 0.06/1000 } // per token
-    },
-    xai: {
-        'grok-4': { input: 0.001/1000, output: 0.003/1000 }, // per token (estimated pricing)
-        'grok-4-fast-reasoning': { input: 0.001/1000, output: 0.003/1000 } // per token (estimated pricing)
-    },
     deepseek: {
         // DeepSeek official per-token pricing (USD per 1M tokens, cache-miss):
         // deepseek-chat $0.27 in / $1.10 out; deepseek-reasoner $0.55 in / $2.19 out.
@@ -46,16 +34,11 @@ const API_COSTS = {
         'us.anthropic.claude-haiku-4-5-20251001-v1:0': { input: 1/1000000, output: 5/1000000 },
         'default': { input: 1/1000000, output: 5/1000000 }
     },
-    rapidapi: {
-        word: 0.002, // per call
-        definition: 0.002 // per call
-    }
 };
 
 // Monthly credit limits (USD) for METERED, server-paid providers (currently
-// `bedrock` — Claude Haiku 4.5 — for chat, plus the platform's own OpenAI key
-// for OCR post-processing). All AI usage is server-paid and metered; there is
-// no bring-your-own-key (BYOK) option.
+// `bedrock` — Claude Haiku 4.5 — for chat). All AI usage is server-paid and
+// metered; there is no bring-your-own-key (BYOK) option.
 //
 // Sized against Bedrock's actual per-token cost (API_COSTS.bedrock: $1/$5 per
 // million input/output tokens): $0.50/mo covers roughly 500K Haiku tokens —
@@ -224,8 +207,8 @@ function parseUsageData(userText) {
     const entries = [];
     let totalCost = 0;
 
-    // Parse entries like: openai-2024-08-30:150t:$0.05,rapidword-2024-08-30:5c:$0.01
-    // But also handle single entries without commas: openai-2025-08-30:1664t:$0.0196
+    // Parse entries like: bedrock-2024-08-30:150t:$0.05,bedrock-2025-08-30:500t:$0.003
+    // But also handle single entries without commas: bedrock-2025-08-30:1664t:$0.0196
     const usageEntries = usageString.includes(',') 
         ? usageString.split(',').filter(entry => entry.trim()).map(entry => entry.trim())
         : [usageString.trim()]; // If no comma, treat the whole string as a single entry
@@ -285,9 +268,9 @@ function formatUsageData(entries) {
 /**
  * Track API usage for a user using the new credit system
  * @param {string} userId - User ID
- * @param {string} apiName - API name (openai, rapidword, rapiddef)
+ * @param {string} apiName - API name (openai, bedrock)
  * @param {Object} usageData - Usage data (tokens, calls, etc.)
- * @param {string} model - Model used (for OpenAI)
+ * @param {string} model - Model used
  * @returns {Promise} Updated usage info
  */
 async function trackApiUsage(userId, apiName, usageData, model = null) {
@@ -328,22 +311,6 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
         const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
 
         switch (apiName) {
-            case 'openai':
-                const modelKey = model || 'o1-mini';
-                const modelCosts = API_COSTS.openai[modelKey] || API_COSTS.openai['o1-mini'];
-                const inputTokens = usageData.inputTokens || 0;
-                const outputTokens = usageData.outputTokens || 0;
-                cost = (inputTokens * modelCosts.input) + (outputTokens * modelCosts.output);
-                usageString = `${inputTokens + outputTokens}t`;
-                break;
-            case 'xai':
-                const xaiModelKey = model || 'grok-4';
-                const xaiModelCosts = API_COSTS.xai[xaiModelKey] || API_COSTS.xai['grok-4'];
-                const xaiInputTokens = usageData.inputTokens || 0;
-                const xaiOutputTokens = usageData.outputTokens || 0;
-                cost = (xaiInputTokens * xaiModelCosts.input) + (xaiOutputTokens * xaiModelCosts.output);
-                usageString = `${xaiInputTokens + xaiOutputTokens}t`;
-                break;
             case 'bedrock':
                 const bedrockModelKey = model || 'default';
                 const bedrockModelCosts = API_COSTS.bedrock[bedrockModelKey] || API_COSTS.bedrock['default'];
@@ -351,14 +318,6 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
                 const bedrockOutputTokens = usageData.outputTokens || 0;
                 cost = (bedrockInputTokens * bedrockModelCosts.input) + (bedrockOutputTokens * bedrockModelCosts.output);
                 usageString = `${bedrockInputTokens + bedrockOutputTokens}t`;
-                break;
-            case 'rapidword':
-                cost = API_COSTS.rapidapi.word;
-                usageString = '1c';
-                break;
-            case 'rapiddef':
-                cost = API_COSTS.rapidapi.definition;
-                usageString = '1c';
                 break;
             default:
                 throw new Error(`Unknown API: ${apiName}`);
@@ -425,8 +384,9 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
             const existingCost = existingEntry.cost;
             const existingUsage = existingEntry.usage;
             
-            // Combine usage
-            if (apiName === 'openai') {
+            // Combine usage: token-metered APIs (bedrock, openai) append
+            // tokens; per-call APIs append calls.
+            if (usageString.endsWith('t')) {
                 const existingTokens = parseInt(existingUsage.replace('t', '')) || 0;
                 const newTokens = parseInt(usageString.replace('t', '')) || 0;
                 newEntry.usage = `${existingTokens + newTokens}t`;
@@ -930,20 +890,6 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
         // Calculate estimated cost for this call
         let estimatedCost = 0;
         switch (apiName) {
-            case 'openai':
-                const modelKey = estimatedUsage.model || 'o1-mini';
-                const modelCosts = API_COSTS.openai[modelKey] || API_COSTS.openai['o1-mini'];
-                const inputTokens = estimatedUsage.inputTokens || 100; // Default estimate
-                const outputTokens = estimatedUsage.outputTokens || 200; // Default estimate
-                estimatedCost = (inputTokens * modelCosts.input) + (outputTokens * modelCosts.output);
-                break;
-            case 'xai':
-                const xaiModelKey = estimatedUsage.model || 'grok-4-fast-reasoning';
-                const xaiModelCosts = API_COSTS.xai[xaiModelKey] || API_COSTS.xai['grok-4-fast-reasoning'];
-                const xaiInputTokens = estimatedUsage.inputTokens || 100; // Default estimate
-                const xaiOutputTokens = estimatedUsage.outputTokens || 200; // Default estimate
-                estimatedCost = (xaiInputTokens * xaiModelCosts.input) + (xaiOutputTokens * xaiModelCosts.output);
-                break;
             case 'bedrock':
                 const bedrockModelKey = estimatedUsage.model || 'default';
                 const bedrockModelCosts = API_COSTS.bedrock[bedrockModelKey] || API_COSTS.bedrock['default'];
@@ -951,14 +897,10 @@ async function canMakeApiCall(userId, apiName, estimatedUsage = {}) {
                 const bedrockOutputTokens = estimatedUsage.outputTokens || 200;
                 estimatedCost = (bedrockInputTokens * bedrockModelCosts.input) + (bedrockOutputTokens * bedrockModelCosts.output);
                 break;
-            case 'rapidword':
-            case 'rapiddef':
-                estimatedCost = API_COSTS.rapidapi[apiName === 'rapidword' ? 'word' : 'definition'];
-                break;
         }
 
         // Enforce real per-tier monthly credit limits for METERED, server-paid
-        // providers (bedrock for chat, openai for OCR post-processing).
+        // providers (bedrock for chat).
         if (creditsData.availableCredits < estimatedCost) {
             logger.debug(`canMakeApiCall: Insufficient credits ($${creditsData.availableCredits.toFixed(4)} < $${estimatedCost.toFixed(4)})`);
             const planLimit = getMembershipLimit(userRank);

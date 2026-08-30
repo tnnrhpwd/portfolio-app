@@ -9,7 +9,6 @@ InfoData.jsx:526  Error extracting OCR: Error: OCR processing failed: 500
 ## Step 1: Check Backend Environment Variables
 
 The OCR controller requires these environment variables:
-- `OPENAI_KEY` - OpenAI API key (primary OCR provider)
 - `AWS_REGION` - AWS region for DynamoDB
 - `AWS_ACCESS_KEY_ID` - AWS credentials
 - `AWS_SECRET_ACCESS_KEY` - AWS credentials
@@ -26,17 +25,17 @@ The frontend is sending:
   imageData: base64String,
   contentType: "image/jpeg" (or similar),
   filename: "filename.jpg",
-  method: "openai-vision" (default),
-  model: "gpt-4o" (default),
-  llmProvider: undefined,
-  llmModel: undefined
+  method: "tesseract" (default),
+  model: "default",
+  llmProvider: "deepseek",
+  llmModel: "deepseek-chat"
 }
 ```
 
 ## Step 4: Common Issues & Solutions
 
-### Issue 1: Missing OpenAI API Key
-**Solution**: Add `OPENAI_KEY` to your backend `.env` file
+### Issue 1: Missing Tesseract Dependency
+**Solution**: Run `npm install tesseract.js` in the backend
 
 ### Issue 2: Invalid Image Data
 **Solution**: Check if the base64 image data is properly formatted
@@ -55,7 +54,7 @@ Try testing with a simple API client (like Postman) with this payload:
   "imageData": "valid_base64_image_data",
   "contentType": "image/jpeg",
   "filename": "test.jpg",
-  "method": "openai-vision"
+  "method": "tesseract"
 }
 ```
 
@@ -63,5 +62,5 @@ Try testing with a simple API client (like Postman) with this payload:
 
 1. **Add Error Logging**: Add console.error in the backend controller
 2. **Check Environment**: Verify all required env vars are set
-3. **Test API Keys**: Verify OpenAI API key is working
+3. **Test OCR**: Verify Tesseract (local OCR) is installed and working
 4. **Simplify Request**: Remove optional parameters (llmProvider, llmModel)

@@ -34,11 +34,7 @@ const REGION = process.env.AWS_REGION || 'us-east-1';
 const SECRET_KEYS = [
     // Secrets
     'JWT_SECRET',
-    'OPENAI_KEY',
-    'XAI_API_KEY',
-    'XAI_KEY',
     'DEEPSEEK_API_KEY',
-    'RAPIDAPI_KEY',
     'BRAVE_SEARCH_API_KEY',
     'GITHUB_TOKEN',
     'STRIPE_KEY',
