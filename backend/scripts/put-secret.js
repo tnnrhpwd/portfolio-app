@@ -6,6 +6,7 @@
 //
 // Usage:
 //   npm run secret:put -- -Name KEY -Value "value"
+//   npm run secret:remove -- -Name KEY
 //   node backend/scripts/put-secret.js -Name KEY -Value "value" [-SecretId id] [-Region us-east-1]
 
 const path = require('path');
@@ -31,16 +32,18 @@ function parseArgs() {
         const a = args[i];
         if (a === '-Name') opts.name = args[++i];
         else if (a === '-Value') opts.value = args[++i];
+        else if (a === '-Delete') opts.delete = true;
         else if (a === '-SecretId') opts.secretId = args[++i];
         else if (a === '-Region') opts.region = args[++i];
     }
     return opts;
 }
 
-const { name, value, secretId, region } = parseArgs();
+const { name, value, delete: deleteKey, secretId, region } = parseArgs();
 
-if (!name || value === undefined || value === '') {
-    console.error('Usage: npm run secret:put -- -Name KEY -Value "value" [-SecretId portfolio-app/production] [-Region us-east-1]');
+if (!name || (!deleteKey && (value === undefined || value === ''))) {
+    console.error('Usage: npm run secret:put -- -Name KEY -Value "value" [-SecretId id] [-Region us-east-1]');
+    console.error('       npm run secret:remove -- -Name KEY');
     process.exit(1);
 }
 
@@ -84,7 +87,11 @@ async function main() {
         if (!isResourceNotFound(err)) throw err;
     }
 
-    existing[name] = value;
+    if (deleteKey) {
+        delete existing[name];
+    } else {
+        existing[name] = value;
+    }
     const secretString = JSON.stringify(existing);
     if (exists) {
         await client.send(new PutSecretValueCommand({ SecretId: SECRET_ID, SecretString: secretString }));
@@ -93,7 +100,8 @@ async function main() {
         await client.send(new CreateSecretCommand({ Name: SECRET_ID, SecretString: secretString }));
     }
 
-    console.log(`Updated '${name}' in secret '${SECRET_ID}' (${REGION}).`);
+    const action = deleteKey ? 'Removed' : 'Updated';
+    console.log(`${action} '${name}' ${deleteKey ? 'from' : 'in'} secret '${SECRET_ID}' (${REGION}).`);
     console.log('Redeploy (or restart) the backend to pick it up.');
 }
 

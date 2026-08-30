@@ -19,6 +19,7 @@
     "env:restore": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/restore-env.ps1",
     "env:add-recipient": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/add-env-recipient.ps1",
     "secret:put": "node backend/scripts/put-secret.js",
+    "secret:remove": "node backend/scripts/put-secret.js -Delete",
     "secret:seed": "node backend/scripts/seed-secrets.js",
     "secret:list": "node backend/scripts/list-secret.js",
     "bootstrap": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bootstrap.ps1"
