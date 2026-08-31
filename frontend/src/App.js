@@ -21,6 +21,7 @@ const Annuities = lazy(() => import('./pages/Projects/Annuities/Annuities'));
 const Contact = lazy(() => import('./pages/Contact/Contact'));
 const DeepStorage = lazy(() => import('./pages/DeepStorage/DeepStorage'));
 const Ethanol = lazy(() => import('./pages/Projects/Ethanol/Ethanol'));
+const Fluid = lazy(() => import('./pages/Projects/Fluid/Fluid'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword/ForgotPassword.jsx'));
 const Game2048 = lazy(() => import('./pages/Projects/Game2048/Game2048'));
 const GFreq = lazy(() => import('./pages/Projects/GFreq/GFreq'));
@@ -40,6 +41,7 @@ const Pay = lazy(() => import('./pages/Simple/Pay/Pay.jsx'));
 const PaymentSuccess = lazy(() => import('./pages/Simple/Pay/PaymentSuccess.jsx'));
 const Plans = lazy(() => import('./pages/Simple/Plans/Plans.jsx'));
 const GoalDetail = lazy(() => import('./pages/Simple/Plans/GoalDetail.jsx'));
+const Polls = lazy(() => import('./pages/Simple/Polls/Polls.jsx'));
 const About = lazy(() => import('./pages/Simple/About/About.jsx'));
 const Pricing = lazy(() => import('./pages/Pricing/Pricing.jsx'));
 const Profile = lazy(() => import('./pages/Profile/Profile.jsx'));
@@ -99,6 +101,7 @@ function App() {
               <Route path="/contact" element={<Contact/>} />
               <Route path='/deepstorage' element={<DeepStorage />} />
               <Route path="/ethanol" element={<Ethanol/>} />
+              <Route path="/fluid" element={<Fluid/>} />
               <Route path='/forgot-password' element={<ForgotPassword />} />
               <Route path="/2048" element={<Game2048/>} />
               <Route path="/GFreq" element={<GFreq/>} />
@@ -112,6 +115,7 @@ function App() {
               <Route path="/passgen" element={<PassGen/>} />
               <Route path='/plans' element={<Plans />} />
               <Route path='/plans/goal/:id' element={<GoalDetail />} />
+              <Route path='/polls' element={<Polls />} />
               <Route path='/pricing' element={<Pricing />} />
               <Route path='/privacy' element={<Privacy />} />
               <Route path='/profile' element={<Profile />} />

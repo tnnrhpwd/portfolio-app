@@ -3,11 +3,12 @@
   height: 500px;
   position: relative;
   z-index: 0; /* isolate Leaflet's internal stacking so panes don't overlap the admin header */
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  margin: 15px 0;
+  border: 1px solid var(--border-nav);
+  border-radius: var(--border-radius-xl, 16px);
+  margin: calc(var(--nav-size) * 0.25) 0;
   overflow: hidden;
   background-color: var(--bg-1);
+  box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.15));
 }
 
 /* Dark-theme adjustments for Leaflet's built-in controls */

@@ -139,6 +139,15 @@ const {
   stopGoalAgent,
 } = require('../controllers/goalAgentController');
 
+// Pets controller (Nintendogs-style virtual pets)
+const {
+  getPets,
+  adopt,
+  getPetOne,
+  doAction,
+  removePet,
+} = require('../controllers/petsController');
+
 // Configure multer for memory storage (or disk storage if preferred)
 const storage = multer.memoryStorage();
 const upload = multer({ 
@@ -449,6 +458,17 @@ router.route('/memory/:id')
 router.post('/goal-agent/start', protect, llmLimiter, sanitizeInput, startGoalAgent);
 router.get('/goal-agent/status/:goalId', protect, workspaceReadLimiter, getGoalAgentStatus);
 router.post('/goal-agent/stop', protect, workspaceWriteLimiter, sanitizeInput, stopGoalAgent);
+
+// ============================================================================
+// PETS (Nintendogs-style virtual pets — per-user, stats decay in real time)
+// ============================================================================
+
+// Order matters: register the specific /adopt route before /:petId.
+router.get('/pets', protect, workspaceReadLimiter, getPets);
+router.post('/pets/adopt', protect, workspaceWriteLimiter, sanitizeInput, adopt);
+router.get('/pets/:petId', protect, workspaceReadLimiter, getPetOne);
+router.post('/pets/:petId/action', protect, workspaceActionLimiter, sanitizeInput, doAction);
+router.delete('/pets/:petId', protect, workspaceWriteLimiter, removePet);
 
 // ============================================================================
 // CSIMPLE SETTINGS SYNC

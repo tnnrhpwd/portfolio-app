@@ -55,6 +55,7 @@ function Reviews() {
 
       {allDataLoading && <div className="admin-loading">Loading...</div>}
       {!allDataLoading && ratingsAndReviews.length > 0 ? (
+        <div className="table-scroll-container">
         <table className="admin-table compact-table">
           <thead><tr>
             <th>Title</th><th>Rating</th><th>Category</th><th>User</th><th>Content</th><th>Date</th>
@@ -72,6 +73,7 @@ function Reviews() {
             ))}
           </tbody>
         </table>
+        </div>
       ) : (
         !allDataLoading && <p className="admin-no-data">No ratings or reviews found</p>
       )}

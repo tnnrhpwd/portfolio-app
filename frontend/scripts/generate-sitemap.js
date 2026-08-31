@@ -30,6 +30,7 @@ const ROUTES = [
   { path: '/terms', priority: 0.3, changefreq: 'yearly' },
   { path: '/annuities', priority: 0.6, changefreq: 'monthly' },
   { path: '/ethanol', priority: 0.5, changefreq: 'monthly' },
+  { path: '/fluid', priority: 0.6, changefreq: 'monthly' },
   { path: '/gfreq', priority: 0.5, changefreq: 'monthly' },
   { path: '/halfway', priority: 0.5, changefreq: 'monthly' },
   { path: '/iq', priority: 0.6, changefreq: 'monthly' },

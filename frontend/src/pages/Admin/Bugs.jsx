@@ -185,6 +185,7 @@ function Bugs() {
 
       {allDataLoading && <div className="admin-loading">Loading...</div>}
       {!allDataLoading && bugReports.length > 0 ? (
+        <div className="table-scroll-container">
         <table className="admin-table compact-table">
           <thead><tr>
             <th>Title</th><th>Status</th><th>Reporter</th><th>Description</th><th>Date</th><th>Actions</th>
@@ -235,6 +236,7 @@ function Bugs() {
             ))}
           </tbody>
         </table>
+        </div>
       ) : (
         !allDataLoading && <p className="admin-no-data">No bug reports found</p>
       )}

@@ -169,6 +169,7 @@ function VisitorMapPage() {
           {filteredVisitorLocations.length > 0 && (
             <div className="visitor-list">
               <h4>Visitor details {refererFilter && <span className="muted">(filtered)</span>}</h4>
+              <div className="table-scroll-container">
               <table className="admin-table compact-table">
                 <thead><tr>
                   <th>When</th><th>IP</th><th>Location</th><th>Browser / OS</th><th>Referer</th><th>Category</th>
@@ -194,6 +195,7 @@ function VisitorMapPage() {
                     ))}
                 </tbody>
               </table>
+              </div>
               {filteredVisitorLocations.length > 200 && (
                 <p className="muted">Showing 200 most recent of {filteredVisitorLocations.length}</p>
               )}

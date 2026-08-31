@@ -1,0 +1,155 @@
+/* Fluid — interactive in-browser fluid simulation, styled to match the site's dark gradient theme */
+
+.fluid {
+  color: var(--text-color);
+  min-height: 100vh;
+  padding: calc(var(--nav-size) * 2) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.5);
+  background: linear-gradient(-45deg, var(--bg-blue), var(--bg-mint), var(--bg-orange), var(--bg-pink));
+  background-size: 400% 400%;
+  animation: fluidGradientShift 14s ease infinite;
+  position: relative;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.light-theme .fluid { animation-duration: 18s; }
+.dark-theme .fluid { animation-duration: 10s; }
+
+@keyframes fluidGradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.fluid-section {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 920px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.fluid-title-wrap {
+  text-align: center;
+  max-width: 900px;
+  margin: calc(var(--nav-size) * 0.3) auto calc(var(--nav-size) * 0.5);
+}
+.fluid-title {
+  font-weight: bold;
+  letter-spacing: 0.04em;
+  font-size: calc(var(--nav-size) * 0.85);
+  margin: 0 0 calc(var(--nav-size) * 0.2) 0;
+  text-shadow: calc(var(--nav-size) * 0.025) calc(var(--nav-size) * 0.02) var(--grey3-transp);
+}
+.fluid-underline {
+  height: 4px;
+  width: 70px;
+  margin: 0 auto calc(var(--nav-size) * 0.3);
+  background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink));
+  border-radius: 2px;
+}
+.fluid-subtitle {
+  color: var(--text-color-accent);
+  font-size: calc(var(--nav-size) * 0.3);
+  line-height: 1.6;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.fluid-card {
+  background: var(--bg-1);
+  border: 1px solid #ffffff26;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px #00000026;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  width: 100%;
+  padding: calc(var(--nav-size) * 0.4);
+  margin-top: calc(var(--nav-size) * 0.3);
+  text-align: left;
+}
+
+/* Controls */
+.fluid-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--nav-size) * 0.3);
+  flex-wrap: wrap;
+  margin-bottom: calc(var(--nav-size) * 0.3);
+}
+
+.fluid-swatches { display: flex; align-items: center; gap: calc(var(--nav-size) * 0.14); flex-wrap: wrap; }
+
+.fluid-swatch {
+  width: calc(var(--nav-size) * 0.5);
+  height: calc(var(--nav-size) * 0.5);
+  border-radius: 50%;
+  border: 2px solid #ffffff30;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.fluid-swatch:hover { transform: scale(1.12); }
+.fluid-swatch.active {
+  border-color: #fff;
+  box-shadow: 0 0 0 3px var(--bg-1), 0 0 0 5px #ffffffcc;
+}
+.fluid-swatch--rainbow {
+  background: conic-gradient(
+    #f43f5e, #f59e0b, #84cc16, #10b981, #06b6d4, #6366f1, #a855f7, #f43f5e
+  );
+}
+
+.fluid-actions { display: flex; gap: calc(var(--nav-size) * 0.18); flex-wrap: wrap; }
+
+.fluid-btn {
+  font-family: inherit;
+  font-weight: 700;
+  font-size: calc(var(--nav-size) * 0.26);
+  border-radius: 8px;
+  padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.4);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  border: 2px solid var(--border-nav);
+  color: var(--text-color);
+  background: transparent;
+}
+.fluid-btn:hover { background: #ffffff1a; transform: translateY(-1px); }
+.fluid-btn.on { border-color: var(--fg-mint); color: var(--fg-mint); }
+
+/* Canvas */
+.fluid-canvas-wrap {
+  width: 100%;
+  height: min(62vh, 620px);
+  min-height: 340px;
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid #ffffff1f;
+  background: #05070d;
+}
+.fluid-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+}
+
+.fluid-hint {
+  color: var(--text-color-accent);
+  font-size: calc(var(--nav-size) * 0.24);
+  text-align: center;
+  margin: calc(var(--nav-size) * 0.3) 0 0;
+}
+
+@media (max-width: 640px) {
+  .fluid-controls { flex-direction: column; align-items: stretch; }
+  .fluid-swatches { justify-content: center; }
+  .fluid-actions { justify-content: center; }
+  .fluid-canvas-wrap { height: 55vh; min-height: 300px; }
+}

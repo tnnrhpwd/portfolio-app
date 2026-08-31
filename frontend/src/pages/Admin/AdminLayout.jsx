@@ -9,14 +9,14 @@ import "./Admin.css";
 
 // ── Navigation items for the admin sub-pages ──────────────────────────
 const NAV_ITEMS = [
-  { to: "/admin", label: "Dashboard", end: true },
-  { to: "/admin/users", label: "Users" },
-  { to: "/admin/bugs", label: "Bugs" },
-  { to: "/admin/map", label: "Visitor Map" },
-  { to: "/admin/reviews", label: "Reviews" },
-  { to: "/admin/data", label: "Data Explorer" },
-  { to: "/admin/home-title", label: "Home Title" },
-  { to: "/admin/funnel-tester", label: "Funnel Tester" },
+  { to: "/admin", label: "Dashboard", icon: "📊", end: true },
+  { to: "/admin/users", label: "Users", icon: "👥" },
+  { to: "/admin/bugs", label: "Bugs", icon: "🐞" },
+  { to: "/admin/map", label: "Visitor Map", icon: "🗺️" },
+  { to: "/admin/reviews", label: "Reviews", icon: "⭐" },
+  { to: "/admin/data", label: "Data Explorer", icon: "🗄️" },
+  { to: "/admin/home-title", label: "Home Title", icon: "🏷️" },
+  { to: "/admin/funnel-tester", label: "Funnel Tester", icon: "🧪" },
 ];
 
 /**
@@ -48,7 +48,20 @@ function AdminLayout() {
     <>
       <Header />
       <div className="admin-container">
+        <div className="admin-ambient" aria-hidden="true">
+          <span className="admin-orb admin-orb--1" />
+          <span className="admin-orb admin-orb--2" />
+          <span className="admin-orb admin-orb--3" />
+        </div>
         <div className="admin-page">
+          <header className="admin-hero">
+            <p className="admin-hero__eyebrow">Admin Console</p>
+            <h1 className="admin-hero__title">Control Center</h1>
+            <p className="admin-hero__subtitle">
+              Manage users, bugs, visitors, reviews and site-wide settings — all in one place.
+            </p>
+          </header>
+
           <nav className="admin-nav" aria-label="Admin navigation">
             {NAV_ITEMS.map((item) => (
               <NavLink
@@ -59,10 +72,12 @@ function AdminLayout() {
                   `admin-nav-link${isActive ? " admin-nav-link--active" : ""}`
                 }
               >
-                {item.label}
+                <span className="admin-nav-link__icon" aria-hidden="true">{item.icon}</span>
+                <span className="admin-nav-link__label">{item.label}</span>
               </NavLink>
             ))}
           </nav>
+
           <div className="admin-content">
             <Outlet />
           </div>

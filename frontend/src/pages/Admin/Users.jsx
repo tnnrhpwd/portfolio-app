@@ -69,6 +69,7 @@ function Users() {
       {usersLoading && <div className="admin-loading">Loading users...</div>}
       {!usersLoading && users.length > 0 && (
         <>
+          <div className="table-scroll-container">
           <table className="admin-table compact-table">
             <thead><tr>
               <th>Nickname</th><th>Email</th><th>Plan</th><th>Stripe ID</th><th>Joined</th>
@@ -97,6 +98,7 @@ function Users() {
               ))}
             </tbody>
           </table>
+          </div>
           <div className="pagination">
             <button disabled={usersPagination.page <= 1} onClick={() => fetchUsers(usersPagination.page - 1)}>← Prev</button>
             <span>Page {usersPagination.page} of {usersPagination.totalPages} ({usersPagination.total} users)</span>
