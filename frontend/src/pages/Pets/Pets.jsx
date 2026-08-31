@@ -60,9 +60,11 @@ function StatBar({ label, emoji, value }) {
   const tone = statColor(value);
   return (
     <div className="pets-stat">
-      <div className="pets-stat__label">
-        <span className="pets-stat__emoji" aria-hidden="true">{emoji}</span>
-        <span>{label}</span>
+      <div className="pets-stat__top">
+        <span className="pets-stat__label">
+          <span className="pets-stat__emoji" aria-hidden="true">{emoji}</span>
+          <span>{label}</span>
+        </span>
         <span className="pets-stat__value">{Math.round(value)}</span>
       </div>
       <div

@@ -117,7 +117,7 @@ function App() {
               <Route path="/pets" element={<Pets/>} />
               <Route path='/plans' element={<Plans />} />
               <Route path='/plans/goal/:id' element={<GoalDetail />} />
-              {/* <Route path='/polls' element={<Polls />} /> */}
+              <Route path='/polls' element={<Polls />} />
               <Route path='/pricing' element={<Pricing />} />
               <Route path='/privacy' element={<Privacy />} />
               <Route path='/profile' element={<Profile />} />

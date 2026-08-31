@@ -2,7 +2,7 @@
 const jwt = require('jsonwebtoken');                   // import web token library to get user's token
 const asyncHandler = require('express-async-handler'); // sends the errors to the errorhandler
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, QueryCommand, GetCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, QueryCommand } = require('@aws-sdk/lib-dynamodb');
 const { logger, securityLogger } = require('../utils/logger');
 const { redactUser } = require('../utils/sanitizeUserText');
 
@@ -49,28 +49,10 @@ const getUserById = async (userId) => {
     return cached.user;
   }
 
-  // Try direct GetCommand first (most efficient)
-  try {
-    const getParams = {
-      TableName: 'Simple',
-      Key: { id: String(userId) }
-    };
-    
-    const result = await dynamodb.send(new GetCommand(getParams));
-    
-    if (result.Item) {
-      // Redact the password hash before caching so it never lingers in memory
-      // longer than necessary or leaks through a later log/response.
-      const safeItem = redactUser(result.Item);
-      userCache.set(userId, { user: safeItem, timestamp: Date.now() });
-      return safeItem;
-    }
-  } catch (getError) {
-    // GetCommand failed, try QueryCommand as fallback
-    logger.debug('GetCommand failed, trying QueryCommand', { userId, error: getError.message });
-  }
-
-  // Fallback to QueryCommand if table uses different key structure
+  // The Simple table uses a composite primary key (partition `id` + sort
+  // `createdAt`). Auth only knows the partition key, so a GetItem would need
+  // both keys and would always throw ValidationException here. Query on the
+  // partition key is the correct lookup and returns the record directly.
   try {
     const queryParams = {
       TableName: 'Simple',
@@ -84,6 +66,8 @@ const getUserById = async (userId) => {
     const result = await dynamodb.send(new QueryCommand(queryParams));
     
     if (result.Items && result.Items.length > 0) {
+      // Redact the password hash before caching so it never lingers in memory
+      // longer than necessary or leaks through a later log/response.
       const safeItem = redactUser(result.Items[0]);
       userCache.set(userId, { user: safeItem, timestamp: Date.now() });
       return safeItem;

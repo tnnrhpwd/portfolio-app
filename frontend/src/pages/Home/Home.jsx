@@ -19,6 +19,9 @@ const links = {
     sonic: "/sonic",
     wordle: "/wordle",
     game2048: "/2048",
+    fluid: "/fluid",
+    pets: "/pets",
+    polls: "/polls",
     plans: "/plans",
     login: "/login",
     profile: "/profile",
@@ -183,6 +186,15 @@ function Home() {
                             </a>
                             <a className="home-spc-tool animate-in" href={links.game2048} style={{animationDelay: '0.32s'}}>
                                 <div className="home-spc-tool-text">{links.game2048}</div>
+                            </a>
+                            <a className="home-spc-tool animate-in" href={links.fluid} style={{animationDelay: '0.34s'}}>
+                                <div className="home-spc-tool-text">{links.fluid}</div>
+                            </a>
+                            <a className="home-spc-tool animate-in" href={links.pets} style={{animationDelay: '0.36s'}}>
+                                <div className="home-spc-tool-text">{links.pets}</div>
+                            </a>
+                            <a className="home-spc-tool animate-in" href={links.polls} style={{animationDelay: '0.38s'}}>
+                                <div className="home-spc-tool-text">{links.polls}</div>
                             </a>
                             
                             {/* Utilities & Tools */}
