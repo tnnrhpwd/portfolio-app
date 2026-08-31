@@ -176,6 +176,26 @@ const marketWriteLimiter = rateLimit({
   handler: buildRateLimitHandler('market-write', 'Too many marketplace requests. Please slow down.'),
 });
 
+// Polls read endpoints (list) — public, so keyed by IP. Generous because the
+// UI lists all polls on each visit and may re-fetch after voting.
+const pollsReadLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: buildRateLimitHandler('polls-read', 'Too many poll requests. Slow down.'),
+});
+
+// Polls write endpoints (create / vote / close / delete) — public, IP-keyed.
+// Tighter than reads since each write hits DynamoDB.
+const pollsWriteLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: buildRateLimitHandler('polls-write', 'Too many poll actions. Slow down.'),
+});
+
 module.exports = {
   apiLimiter,
   authLimiter,
@@ -189,4 +209,6 @@ module.exports = {
   marketReadLimiter,
   marketPublishLimiter,
   marketWriteLimiter,
+  pollsReadLimiter,
+  pollsWriteLimiter,
 };

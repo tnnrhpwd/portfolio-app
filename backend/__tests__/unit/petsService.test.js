@@ -56,8 +56,10 @@ describe('petsService.applyDecay', () => {
   });
 
   test('health never exceeds 100 when regenerating', () => {
+    // 3 hours elapse; all tracked stats stay above the 50 "thrive" threshold
+    // so the pet is still regenerating when the +18 health would overshoot.
     const stats = { hunger: 80, happiness: 80, energy: 80, cleanliness: 85, health: 99 };
-    const result = applyDecay(stats, new Date(NOW - 5 * hourMs).toISOString(), NOW);
+    const result = applyDecay(stats, new Date(NOW - 3 * hourMs).toISOString(), NOW);
     expect(result.health).toBe(100);
   });
 });

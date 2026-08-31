@@ -29,6 +29,7 @@ const Halfway = lazy(() => import('./pages/Projects/Halfway/Halfway'));
 const IQTest = lazy(() => import('./pages/Projects/IQTest/IQTest'));
 const Muse = lazy(() => import('./pages/Muse/Muse'));
 const PassGen = lazy(() => import('./pages/Projects/PassGen/PassGen'));
+const Pets = lazy(() => import('./pages/Pets/Pets'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword/ResetPassword.jsx'));
 const SleepAssist = lazy(() => import('./pages/Projects/SleepAssist/SleepAssist'));
 const Sonic = lazy(() => import('./pages/Projects/Sonic/Sonic'));
@@ -113,9 +114,10 @@ function App() {
               <Route path='/pay' element={<Pay />} />
               <Route path='/payment-success' element={<PaymentSuccess />} />
               <Route path="/passgen" element={<PassGen/>} />
+              <Route path="/pets" element={<Pets/>} />
               <Route path='/plans' element={<Plans />} />
               <Route path='/plans/goal/:id' element={<GoalDetail />} />
-              <Route path='/polls' element={<Polls />} />
+              {/* <Route path='/polls' element={<Polls />} /> */}
               <Route path='/pricing' element={<Pricing />} />
               <Route path='/privacy' element={<Privacy />} />
               <Route path='/profile' element={<Profile />} />

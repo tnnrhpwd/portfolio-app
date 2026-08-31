@@ -1,0 +1,316 @@
+/* Pets page — Nintendogs-style virtual pet game */
+
+.pets-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 24px 64px;
+  min-height: 60vh;
+}
+
+/* ── Shared buttons ─────────────────────────────────────────── */
+.pets-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 22px;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  text-decoration: none;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+.pets-btn:active { transform: translateY(1px); }
+.pets-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.pets-btn--primary {
+  background: linear-gradient(135deg, #6d5dfc, #8a5cf6);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(109, 93, 252, 0.3);
+}
+.pets-btn--primary:hover { box-shadow: 0 8px 24px rgba(109, 93, 252, 0.45); }
+
+.pets-btn--ghost {
+  background: transparent;
+  color: var(--text-primary, #1f2430);
+  border-color: var(--border, #d9dce3);
+}
+
+/* ── Empty / loading states ─────────────────────────────────── */
+.pets-empty {
+  text-align: center;
+  padding: 80px 24px;
+}
+.pets-empty__emoji { font-size: 72px; line-height: 1; margin-bottom: 16px; }
+.pets-empty h1 { font-size: 2rem; margin: 0 0 12px; }
+.pets-empty p {
+  max-width: 520px;
+  margin: 0 auto 24px;
+  color: var(--text-secondary, #5b6270);
+  line-height: 1.6;
+}
+.pets-empty__actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.pets-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 100px 0;
+  color: var(--text-secondary, #5b6270);
+}
+.pets-loading__spinner {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid var(--border, #d9dce3);
+  border-top-color: #6d5dfc;
+  animation: pets-spin 0.8s linear infinite;
+}
+@keyframes pets-spin { to { transform: rotate(360deg); } }
+
+/* ── Adoption form ──────────────────────────────────────────── */
+.pets-adopt { max-width: 720px; margin: 0 auto; }
+.pets-adopt h1 { text-align: center; margin-bottom: 28px; }
+
+.pets-adopt__species { border: none; margin: 0 0 24px; padding: 0; }
+.pets-adopt__species legend {
+  font-weight: 600;
+  margin-bottom: 12px;
+  padding: 0;
+}
+.pets-adopt__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
+}
+.pets-species-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 12px;
+  border-radius: 14px;
+  border: 2px solid var(--border, #d9dce3);
+  background: var(--bg-card, #fff);
+  cursor: pointer;
+  transition: border-color 0.12s ease, transform 0.12s ease;
+}
+.pets-species-card:hover { transform: translateY(-2px); }
+.pets-species-card.is-selected {
+  border-color: #6d5dfc;
+  box-shadow: 0 0 0 3px rgba(109, 93, 252, 0.18);
+}
+.pets-species-card__emoji { font-size: 42px; }
+.pets-species-card__label { font-weight: 600; }
+
+.pets-adopt__name { display: block; margin-bottom: 24px; }
+.pets-adopt__name span {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.pets-adopt__name input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border, #d9dce3);
+  font-size: 1rem;
+  background: var(--bg-card, #fff);
+  color: var(--text-primary, #1f2430);
+}
+.pets-adopt__name input:focus {
+  outline: none;
+  border-color: #6d5dfc;
+  box-shadow: 0 0 0 3px rgba(109, 93, 252, 0.18);
+}
+.pets-adopt__actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+/* ── Main view ──────────────────────────────────────────────── */
+.pets-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+}
+.pets-heading h1 { margin: 0; }
+.pets-heading__sub { margin: 4px 0 0; color: var(--text-secondary, #5b6270); }
+
+.pets-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 820px) {
+  .pets-layout { grid-template-columns: 1fr; }
+}
+
+/* ── Roster ─────────────────────────────────────────────────── */
+.pets-roster { display: flex; flex-direction: column; gap: 10px; }
+@media (max-width: 820px) {
+  .pets-roster { flex-direction: row; flex-wrap: wrap; }
+  .pets-roster-card { flex: 1 1 140px; }
+}
+.pets-roster-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border, #d9dce3);
+  background: var(--bg-card, #fff);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.12s ease, transform 0.12s ease;
+}
+.pets-roster-card:hover { transform: translateY(-1px); }
+.pets-roster-card.is-active {
+  border-color: #6d5dfc;
+  box-shadow: 0 0 0 3px rgba(109, 93, 252, 0.18);
+}
+.pets-roster-card__emoji { font-size: 32px; }
+.pets-roster-card__info { display: flex; flex-direction: column; }
+.pets-roster-card__name { font-weight: 700; }
+.pets-roster-card__mood { font-size: 0.85rem; color: var(--text-secondary, #5b6270); }
+
+/* ── Detail panel ───────────────────────────────────────────── */
+.pets-detail {
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border, #d9dce3);
+  border-radius: 18px;
+  padding: 28px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+}
+.pets-detail__hero {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.pets-detail__avatar {
+  width: 96px;
+  height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f3f0ff, #e7e2ff);
+}
+.pets-detail__avatar.is-passed { filter: grayscale(1); opacity: 0.75; }
+.pets-detail__id { flex: 1; min-width: 160px; }
+.pets-detail__id h2 { margin: 0 0 4px; }
+.pets-detail__mood { margin: 0; font-size: 1.1rem; font-weight: 600; }
+.pets-detail__meta { margin: 4px 0 0; color: var(--text-secondary, #5b6270); }
+
+.pets-detail__level { min-width: 120px; text-align: right; }
+.pets-detail__level-num {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.pets-detail__xp {
+  height: 8px;
+  border-radius: 6px;
+  background: var(--border, #e3e5ea);
+  overflow: hidden;
+}
+.pets-detail__xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6d5dfc, #8a5cf6);
+  transition: width 0.3s ease;
+}
+
+.pets-detail__stats { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+.pets-stat__label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+  font-size: 0.9rem;
+}
+.pets-stat__emoji { font-size: 1rem; }
+.pets-stat__value { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pets-stat__track {
+  height: 10px;
+  border-radius: 6px;
+  background: var(--border, #e3e5ea);
+  overflow: hidden;
+}
+.pets-stat__fill { height: 100%; border-radius: 6px; transition: width 0.3s ease; }
+.pets-stat__track--good .pets-stat__fill { background: #22c55e; }
+.pets-stat__track--warn .pets-stat__fill { background: #f59e0b; }
+.pets-stat__track--bad .pets-stat__fill { background: #ef4444; }
+
+.pets-detail__actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.pets-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 72px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border, #d9dce3);
+  background: var(--bg-card, #fff);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+.pets-action-btn:hover { transform: translateY(-2px); border-color: #6d5dfc; }
+.pets-action-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.pets-action-btn__emoji { font-size: 24px; }
+.pets-action-btn--danger:hover { border-color: #ef4444; }
+
+/* ── Banners ────────────────────────────────────────────────── */
+.pets-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  margin-top: 8px;
+}
+.pets-banner--warn { background: #fff7ed; border: 1px solid #fdba74; color: #9a3412; }
+.pets-banner--passed { background: #f8fafc; border: 1px solid #cbd5e1; color: #475569; align-items: flex-start; }
+.pets-banner--passed p { margin: 4px 0 12px; }
+
+/* ── Care log ───────────────────────────────────────────────── */
+.pets-carelog { margin-top: 20px; }
+.pets-carelog h3 { margin: 0 0 10px; font-size: 1rem; }
+.pets-carelog ul { list-style: none; margin: 0; padding: 0; }
+.pets-carelog li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border, #eef0f3);
+  font-size: 0.9rem;
+}
+.pets-carelog li:last-child { border-bottom: none; }
+.pets-carelog__icon { font-size: 1.1rem; }
+.pets-carelog__action { font-weight: 600; }
+.pets-carelog__time { margin-left: auto; color: var(--text-secondary, #5b6270); }

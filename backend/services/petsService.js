@@ -128,8 +128,8 @@ function applyDecay(stats, lastTouchedAt, now = Date.now()) {
  */
 function deriveMood(stats, alive) {
   if (!alive) return 'passed';
-  if (stats.health <= 0) return 'critical';
-  if (stats.health < 30) return 'sick';
+  if (stats.health < 15) return 'critical';
+  if (stats.health < 35) return 'sick';
   if (stats.hunger <= 0) return 'starving';
   if (stats.energy <= 0) return 'exhausted';
   if (stats.happiness <= 0) return 'lonely';

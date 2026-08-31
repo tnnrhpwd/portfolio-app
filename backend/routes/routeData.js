@@ -8,7 +8,7 @@ const multer = require('multer');
 // Middleware Imports
 // ============================================================================
 const { protect } = require('../middleware/authMiddleware');
-const { authLimiter, paymentLimiter, llmLimiter, ocrLimiter, uploadLimiter, workspaceReadLimiter, workspaceWriteLimiter, workspaceActionLimiter, marketReadLimiter, marketPublishLimiter, marketWriteLimiter } = require('../middleware/rateLimiter');
+const { authLimiter, paymentLimiter, llmLimiter, ocrLimiter, uploadLimiter, workspaceReadLimiter, workspaceWriteLimiter, workspaceActionLimiter, marketReadLimiter, marketPublishLimiter, marketWriteLimiter, pollsReadLimiter, pollsWriteLimiter } = require('../middleware/rateLimiter');
 const { 
   validateRegistration, 
   validateLogin, 
@@ -147,6 +147,15 @@ const {
   doAction,
   removePet,
 } = require('../controllers/petsController');
+
+// Polls controller (public — no sign-in required)
+const {
+  getPolls,
+  createPoll,
+  votePoll,
+  closePoll,
+  deletePoll,
+} = require('../controllers/pollsController');
 
 // Configure multer for memory storage (or disk storage if preferred)
 const storage = multer.memoryStorage();
@@ -575,6 +584,16 @@ router.post('/addon/command', protect, sanitizeInput, queueCommand);
 router.get('/addon/pending', protect, getPendingCommands);
 router.post('/addon/result/:commandId', protect, sanitizeInput, postCommandResult);
 router.get('/addon/result/:commandId', protect, getCommandResult);
+
+// ============================================================================
+// POLLS (public — no sign-in required)
+// ============================================================================
+
+router.get('/polls', pollsReadLimiter, getPolls);
+router.post('/polls', pollsWriteLimiter, sanitizeInput, createPoll);
+router.post('/polls/:id/vote', pollsWriteLimiter, sanitizeInput, votePoll);
+router.post('/polls/:id/close', pollsWriteLimiter, sanitizeInput, closePoll);
+router.post('/polls/:id/delete', pollsWriteLimiter, sanitizeInput, deletePoll);
 
 // ============================================================================
 // ANALYTICS (Admin Only)
