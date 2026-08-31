@@ -8,7 +8,15 @@ import { loadFontSizeScale } from './utils/theme';
 import Home from './pages/Home/Home';
 
 // ── Lazy-loaded routes (loaded on demand) ──────────────────────────
-const Admin = lazy(() => import('./pages/Admin/Admin'));
+const Admin = lazy(() => import('./pages/Admin/AdminLayout'));
+const AdminDashboard = lazy(() => import('./pages/Admin/Dashboard'));
+const AdminUsers = lazy(() => import('./pages/Admin/Users'));
+const AdminBugs = lazy(() => import('./pages/Admin/Bugs'));
+const AdminMap = lazy(() => import('./pages/Admin/VisitorMapPage'));
+const AdminReviews = lazy(() => import('./pages/Admin/Reviews'));
+const AdminData = lazy(() => import('./pages/Admin/DataExplorer'));
+const AdminHomeTitle = lazy(() => import('./pages/Admin/HomeTitle'));
+const AdminFunnelTester = lazy(() => import('./pages/Admin/FunnelTester'));
 const Annuities = lazy(() => import('./pages/Projects/Annuities/Annuities'));
 const Contact = lazy(() => import('./pages/Contact/Contact'));
 const DeepStorage = lazy(() => import('./pages/DeepStorage/DeepStorage'));
@@ -77,7 +85,16 @@ function App() {
               <Route path='/' element={<Home/>} />
               <Route path='/home' element={<Home/>} />
               <Route path='/about' element={<About />} />
-              <Route path='/admin' element={<Admin />} />
+              <Route path='/admin' element={<Admin />}>
+                <Route index element={<AdminDashboard />} />
+                <Route path='users' element={<AdminUsers />} />
+                <Route path='bugs' element={<AdminBugs />} />
+                <Route path='map' element={<AdminMap />} />
+                <Route path='reviews' element={<AdminReviews />} />
+                <Route path='data' element={<AdminData />} />
+                <Route path='home-title' element={<AdminHomeTitle />} />
+                <Route path='funnel-tester' element={<AdminFunnelTester />} />
+              </Route>
               <Route path="/annuities" element={<Annuities/>} />
               <Route path="/contact" element={<Contact/>} />
               <Route path='/deepstorage' element={<DeepStorage />} />

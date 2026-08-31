@@ -370,6 +370,13 @@ function validateModelTierAccess(user, model) {
     if (!requiredTier || requiredTier === 'free') return; // No restriction
 
     const text = user?.text || '';
+
+    // Users flagged "Special" by an admin bypass tier restrictions, same as
+    // ADMIN_USER_ID — special is distinct from admin (it does not grant admin
+    // page access), but it does remove paid-tier requirements.
+    const { isSpecialUser } = require('../utils/apiUsageTracker');
+    if (isSpecialUser(text)) return;
+
     const rankMatch = text.match(/\|Rank:(\w+)/);
     const rank = rankMatch ? rankMatch[1] : 'Free';
 

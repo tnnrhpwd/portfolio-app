@@ -2,7 +2,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const asyncHandler = require('express-async-handler');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, ScanCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, ScanCommand, PutCommand, GetCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
 const { sendEmail } = require('../services/emailService');
 const useragent = require('useragent');
 const ipinfo = require('ipinfo');
@@ -13,6 +13,56 @@ const client = new DynamoDBClient({
 });
 const dynamodb = DynamoDBDocumentClient.from(client);
 const { logger } = require('./logger');
+
+/**
+ * Fetch the user's *unredacted* DynamoDB record by primary key.
+ *
+ * `req.user` (set by authMiddleware) intentionally carries a redacted `text`
+ * where `|Password:<hash>` has been replaced with `|Password:[redacted]`.
+ * Building a write payload from that redacted text would PERMANENTLY
+ * overwrite the user's real bcrypt hash and lock them out of their account —
+ * the exact failure this helper exists to prevent. Always re-fetch the raw
+ * record immediately before any write that touches `text`.
+ *
+ * The `Simple` table's primary key is composite (`id` + `createdAt` sort
+ * key) for most item types, so a plain GetCommand keyed on `id` alone throws
+ * a ValidationException; fall back to a Query on the partition key alone.
+ * @param {string} userId
+ * @returns {Promise<Object|null>} Raw (unredacted) DynamoDB item, or null.
+ */
+async function getRawUserRecord(userId) {
+    try {
+        const result = await dynamodb.send(new GetCommand({ TableName: 'Simple', Key: { id: String(userId) } }));
+        if (result.Item) return result.Item;
+    } catch (error) {
+        // Expected when the table's key schema includes a sort key — fall through.
+    }
+
+    try {
+        const result = await dynamodb.send(new QueryCommand({
+            TableName: 'Simple',
+            KeyConditionExpression: 'id = :userId',
+            ExpressionAttributeValues: { ':userId': String(userId) },
+            Limit: 1,
+        }));
+        return (result.Items && result.Items[0]) || null;
+    } catch (error) {
+        logger.error('getRawUserRecord: Query fallback failed:', error);
+        return null;
+    }
+}
+
+/**
+ * Extract the user nickname from a pipe-delimited user `text` blob.
+ * Regex-based so it is immune to field ordering and trailing fields
+ * (e.g. `|Special:true`) that the older substring slicing choked on.
+ * @param {string} userText
+ * @returns {string}
+ */
+function extractNickname(userText) {
+    const match = (userText || '').match(/(?:^|\|)Nickname:([^|]*)/);
+    return match ? match[1].trim() : '';
+}
 
 /**
  * Get IP address and location information from request
@@ -138,8 +188,8 @@ const forgotPassword = asyncHandler(async (req, res) => {
             const user = result.Items[0];
             const userText = user.text; // DynamoDBDocumentClient automatically handles the format
             
-            // Extract user nickname
-            const userNickname = userText.substring(userText.indexOf('Nickname:') + 9, userText.indexOf('|Email:'));
+            // Extract user nickname (regex — safe for any field ordering)
+            const userNickname = extractNickname(userText);
             
             // Generate reset token
             const resetToken = crypto.randomBytes(32).toString('hex');
@@ -274,18 +324,11 @@ const resetPassword = asyncHandler(async (req, res) => {
         // Update user's password and remove reset token fields
         let updatedText = userText;
         
-        // Replace the password
-        if (updatedText.includes('|Birth:')) {
-            // New format: Nickname:xxx|Email:xxx|Password:xxx|Birth:xxx|stripeid:xxx
-            const passwordStart = updatedText.indexOf('|Password:') + 10;
-            const passwordEnd = updatedText.indexOf('|Birth:');
-            updatedText = updatedText.substring(0, passwordStart) + hashedPassword + updatedText.substring(passwordEnd);
-        } else {
-            // Old format: Nickname:xxx|Email:xxx|Password:xxx|stripeid:xxx
-            const passwordStart = updatedText.indexOf('|Password:') + 10;
-            const passwordEnd = updatedText.indexOf('|stripeid:');
-            updatedText = updatedText.substring(0, passwordStart) + hashedPassword + updatedText.substring(passwordEnd);
-        }
+        // Replace the password field. Regex-based so it works regardless of
+        // field ordering and trailing fields (e.g. |Special:true), unlike the
+        // old Birth:/stripeid: substring slicing which corrupted text when a
+        // field was absent.
+        updatedText = updatedText.replace(/\|Password:[^|]*/, `|Password:${hashedPassword}`);
         
         // Remove reset token fields
         updatedText = updatedText.replace(/\|ResetToken:[^|]*/, '');
@@ -322,15 +365,25 @@ const resetPassword = asyncHandler(async (req, res) => {
  * @access  Private
  */
 const forgotPasswordAuthenticated = asyncHandler(async (req, res) => {
-    const user = req.user; // Get user from auth middleware
+    const user = req.user; // Get user from auth middleware (text is REDACTED)
     
-    if (!user || !user.text) {
+    if (!user || !user.id) {
         res.status(400);
         throw new Error('User authentication required');
     }
 
-    // Extract email from user text field
-    const userText = user.text;
+    // req.user.text is the REDACTED copy (authMiddleware replaced the real
+    // password hash with "[redacted]"). Writing it back to DynamoDB would
+    // destroy the real hash and permanently lock the user out — re-fetch the
+    // raw record before mutating anything.
+    const rawUser = await getRawUserRecord(user.id);
+    if (!rawUser || !rawUser.text) {
+        res.status(404);
+        throw new Error('User record not found.');
+    }
+
+    // Extract email from the raw user text field
+    const userText = rawUser.text;
     const emailMatch = userText.match(/\|Email:([^|]+)/);
     
     if (!emailMatch) {
@@ -344,9 +397,8 @@ const forgotPasswordAuthenticated = asyncHandler(async (req, res) => {
     const requestInfo = await getIPLocationInfo(req);
 
     try {
-        // We already have the user record from auth middleware, no need to search again
-        // Extract user nickname
-        const userNickname = userText.substring(userText.indexOf('Nickname:') + 9, userText.indexOf('|Email:'));
+        // Extract user nickname (regex — safe for any field ordering)
+        const userNickname = extractNickname(userText);
         
         // Generate reset token
         const resetToken = crypto.randomBytes(32).toString('hex');
@@ -366,7 +418,7 @@ const forgotPasswordAuthenticated = asyncHandler(async (req, res) => {
         const putParams = {
             TableName: 'Simple',
             Item: {
-                ...user, // Keep all existing data
+                ...rawUser, // Keep all existing data (real password hash intact)
                 text: updatedText, // Update the text
                 updatedAt: new Date().toISOString() // Update timestamp
             }

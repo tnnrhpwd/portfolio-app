@@ -8,6 +8,7 @@ const { getStripe, liveStripe: stripe } = require('../utils/stripeInstance.js');
 const { isTestMode } = require('../utils/stripeInstance.js');
 const { STRIPE_PRODUCT_IDS, STRIPE_PRODUCT_MAP } = require('../constants/pricing');
 const { logger } = require('../utils/logger');
+const { fetchRawUserRecord } = require('../utils/dynamoUser');
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -182,12 +183,16 @@ const getUserSubscription = asyncHandler(async (req, res) => {
                 const updatedUserData = userData.replace(/\|stripeid:([^|]*)/, `|stripeid:${validatedCustomer.id}`);
                 logger.debug('Updating user data with correct customer ID:', validatedCustomer.id);
                 
+                // Re-fetch the raw record — req.user.text is REDACTED and
+                // writing it back would destroy the real password hash.
+                const rawUser = (await fetchRawUserRecord(dynamodb, req.user.id)) || req.user;
+                
                 // Update in DynamoDB
                 const putParams = {
                     TableName: 'Simple',
                     Item: {
-                        ...req.user,
-                        text: updatedUserData,
+                        ...rawUser,
+                        text: rawUser.text.replace(/\|stripeid:([^|]*)/, `|stripeid:${validatedCustomer.id}`),
                         updatedAt: new Date().toISOString()
                     }
                 };

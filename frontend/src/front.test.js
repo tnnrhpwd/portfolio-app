@@ -48,7 +48,7 @@ jest.mock('react-toastify', () => {
 });
 
 // Mock individual page components explicitly (using correct file extensions)
-jest.mock('./pages/Admin/Admin', () => {
+jest.mock('./pages/Admin/AdminLayout', () => {
   const React = require('react');
   return () => React.createElement('div', null, 'Admin');
 });

@@ -10,12 +10,13 @@
 
 const asyncHandler = require('express-async-handler');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, GetCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const {
   getEmailPreferences,
   updateEmailPreferencesInText,
   TOGGLEABLE_CATEGORIES,
 } = require('../services/emailPreferences');
+const { fetchRawUserRecord } = require('../utils/dynamoUser');
 const { logger } = require('../utils/logger');
 
 const client = new DynamoDBClient({
@@ -65,17 +66,15 @@ const updateEmailPrefs = asyncHandler(async (req, res) => {
   }
 
   // Re-fetch the full (non-redacted) record so the password hash survives.
-  const result = await dynamodb.send(new GetCommand({
-    TableName: 'Simple',
-    Key: { id: String(req.user.id) },
-  }));
+  // Use the Query-fallback helper — the `Simple` table's key is composite
+  // (`id` + `createdAt`), so a plain GetCommand keyed on `id` alone throws.
+  const fullItem = await fetchRawUserRecord(dynamodb, req.user.id);
 
-  if (!result.Item) {
+  if (!fullItem) {
     res.status(404);
     throw new Error('User record not found.');
   }
 
-  const fullItem = result.Item;
   const updatedText = updateEmailPreferencesInText(fullItem.text, updates);
 
   await dynamodb.send(new PutCommand({

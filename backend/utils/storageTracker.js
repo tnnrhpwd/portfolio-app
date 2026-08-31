@@ -157,13 +157,27 @@ async function getUserStorageUsage(userId) {
         const topItems = storageBreakdown.slice(0, 10);
 
         // Get user's membership level for storage limits
-        const { getUserRankFromStripe } = require('./apiUsageTracker');
+        const { getUserRankFromStripe, getUserDataCached, isSpecialUser } = require('./apiUsageTracker');
         let userRank;
         try {
             userRank = await getUserRankFromStripe(userId);
         } catch (error) {
             logger.error('Error getting user rank for storage:', error);
             userRank = 'Free';
+        }
+
+        // Users flagged "Special" by an admin get the Pro storage allowance
+        // regardless of their underlying plan rank — the same escape hatch as
+        // unlimited AI credits (see isSpecialUser). This also flows through
+        // checkStorageCapacity/trackStorageUsage, so writes are enforced
+        // against the Pro limit rather than the Free one.
+        try {
+            const userData = await getUserDataCached(userId);
+            if (isSpecialUser(userData?.text || '')) {
+                userRank = 'Pro';
+            }
+        } catch (error) {
+            logger.debug('getUserStorageUsage: special-user check skipped:', error);
         }
 
         const storageLimit = STORAGE_LIMITS[userRank];

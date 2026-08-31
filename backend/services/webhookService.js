@@ -2,6 +2,8 @@ const { getStripe, liveStripe } = require('../utils/stripeInstance');
 const { DynamoDBDocumentClient, PutCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
 const { getUserRankFromStripe, parseUserCredits, updateUserCredits } = require('../utils/apiUsageTracker.js');
 const { PLAN_IDS, PLAN_NAMES, isSimpleTier, STRIPE_PRODUCT_IDS } = require('../constants/pricing');
+const { fetchRawUserRecord } = require('../utils/dynamoUser');
+const { logger } = require('../utils/logger');
 
 // Use the live Stripe instance for webhook processing (webhooks always come from live mode)
 // TODO: If you add test-mode webhook support, use getStripe() with appropriate context
@@ -18,7 +20,6 @@ function constructWebhookEvent(req, webhookSecret) {
     
     try {
         const event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
-const { logger } = require('../utils/logger');
         return { success: true, event };
     } catch (err) {
         return { success: false, error: err.message };
@@ -237,17 +238,20 @@ async function updateSubscriptionLimit(subscriptionId, newLimit) {
  * @returns {boolean} Success status
  */
 async function saveUserCredits(dynamodb, user, creditsData) {
-    const updatedText = updateUserCredits(user.text, creditsData);
-    
+    // `user` is typically req.user (REDACTED text). Writing that back would
+    // destroy the real password hash — re-fetch the raw record first.
+    const rawUser = (await fetchRawUserRecord(dynamodb, user.id)) || user;
+    const updatedText = updateUserCredits(rawUser.text, creditsData);
+
     const putParams = {
         TableName: 'Simple',
         Item: {
-            ...user,
+            ...rawUser,
             text: updatedText,
             updatedAt: new Date().toISOString()
         }
     };
-    
+
     try {
         await dynamodb.send(new PutCommand(putParams));
         logger.debug('Custom limit updated successfully in database');

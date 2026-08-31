@@ -336,38 +336,6 @@ function Settings() {
                     Personalize how the app looks, feels, and connects to AI-powered workflows.
                   </p>
                 </div>
-
-                <div className="planit-settings-hero-actions">
-                  <button
-                    type="button"
-                    className="planit-settings-profile-button"
-                    onClick={() => navigate('/profile')}
-                  >
-                    👤 Back to Profile
-                  </button>
-                  <button
-                    type="button"
-                    className="planit-settings-net-button"
-                    onClick={() => navigate('/net')}
-                  >
-                    🤖 Open AI Chat
-                  </button>
-                </div>
-              </div>
-
-              <div className="planit-settings-meta">
-                <div className="planit-settings-meta-item">
-                  <span className="planit-settings-meta-label">Theme</span>
-                  <span className="planit-settings-meta-value">{settings.theme}</span>
-                </div>
-                <div className="planit-settings-meta-item">
-                  <span className="planit-settings-meta-label">Font scale</span>
-                  <span className="planit-settings-meta-value">{Math.round(fontScale * 100)}%</span>
-                </div>
-                <div className="planit-settings-meta-item">
-                  <span className="planit-settings-meta-label">AI provider</span>
-                  <span className="planit-settings-meta-value">{aiSettings.llmProvider}</span>
-                </div>
               </div>
             </section>
 
@@ -473,20 +441,6 @@ function Settings() {
                       </div>
 
                       <div className="planit-settings-checkbox-grid">
-                        <label className="planit-settings-toggle-card">
-                          <div className="planit-settings-toggle-copy">
-                            <span className="planit-settings-toggle-title">📧 Email Notifications</span>
-                            <span className="planit-settings-toggle-description">Receive updates and reminders in your inbox.</span>
-                          </div>
-                          <input
-                            type="checkbox"
-                            name="emailNotifications"
-                            checked={settings.emailNotifications}
-                            onChange={handleChange}
-                            className="planit-settings-checkbox"
-                          />
-                        </label>
-
                         <label className="planit-settings-toggle-card">
                           <div className="planit-settings-toggle-copy">
                             <span className="planit-settings-toggle-title">📱 SMS Notifications</span>
@@ -757,20 +711,6 @@ function Settings() {
 
                         <label className="planit-settings-toggle-card">
                           <div className="planit-settings-toggle-copy">
-                            <span className="planit-settings-toggle-title">🔊 Text-to-Speech</span>
-                            <span className="planit-settings-toggle-description">Prepare spoken assistance for supported experiences.</span>
-                          </div>
-                          <input
-                            type="checkbox"
-                            name="textToSpeech"
-                            checked={settings.textToSpeech}
-                            onChange={handleChange}
-                            className="planit-settings-checkbox"
-                          />
-                        </label>
-
-                        <label className="planit-settings-toggle-card">
-                          <div className="planit-settings-toggle-copy">
                             <span className="planit-settings-toggle-title">⌨️ Keyboard Navigation</span>
                             <span className="planit-settings-toggle-description">Make focus cues and keyboard-friendly navigation easier to follow.</span>
                           </div>
@@ -791,13 +731,6 @@ function Settings() {
               <section className="planit-settings-actions">
                 <button type="submit" className="planit-settings-save-button">
                   💾 Update Settings
-                </button>
-                <button
-                  type="button"
-                  className="planit-settings-net-button"
-                  onClick={() => navigate('/net')}
-                >
-                  🤖 Open AI Chat
                 </button>
                 <button
                   type="button"

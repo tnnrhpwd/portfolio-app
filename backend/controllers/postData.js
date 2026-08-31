@@ -322,9 +322,14 @@ const loginUser = asyncHandler(async (req, res) => {
         const user = result.Items[0];
         logger.debug('User found in database, verifying password...');
         
-        // Extract password, nickname, birth, and stripe from the stored data
+        // Extract password, nickname, birth, and stripe from the stored data.
+        // stripeid is parsed with a regex so trailing fields appended later
+        // (e.g. `|Special:true` from the admin toggle) don't leak into the
+        // login response — the old `substring(indexOf('|stripeid:') + 10)`
+        // included everything after the field, not just its value.
         const userText = user.text;
-        const userStripe = userText.substring(userText.indexOf('|stripeid:') + 10);
+        const stripeMatch = userText.match(/\|stripeid:([^|]*)/);
+        const userStripe = stripeMatch ? stripeMatch[1] : '';
         
         // Handle both old format (without Birth) and new format (with Birth)
         let userPassword, userBirth;

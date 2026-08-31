@@ -73,6 +73,52 @@
     animation: fadeInSection 0.7s ease both;
 }
 
+.planit-profile-special-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    border: 1px solid var(--fg-orange);
+    border-radius: var(--border-radius-xl);
+    background: linear-gradient(135deg, var(--bg-orange), var(--bg-pink));
+    box-shadow: var(--shadow-lg);
+    backdrop-filter: blur(14px);
+    animation: fadeInSection 0.7s ease both;
+}
+
+.planit-profile-special-icon {
+    font-size: var(--font-size-large);
+    flex-shrink: 0;
+}
+
+.planit-profile-special-copy {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--spacing-xs) * 0.5);
+}
+
+.planit-profile-special-kicker {
+    font-size: var(--font-size-small);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-color-accent);
+    font-weight: var(--font-weight-semibold);
+}
+
+.planit-profile-special-title {
+    margin: 0;
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-tight);
+    color: var(--text-color-strong);
+}
+
+.planit-profile-special-text {
+    margin: 0;
+    color: var(--text-color-accent);
+    line-height: var(--line-height-relaxed);
+    font-size: var(--font-size-small);
+}
+
 .planit-profile-hero-main {
     display: flex;
     align-items: center;

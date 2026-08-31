@@ -13,7 +13,6 @@ const {
   GetCommand,
   DeleteCommand,
   ScanCommand,
-  UpdateCommand,
 } = require('@aws-sdk/lib-dynamodb');
 
 // Use test Stripe keys for the funnel tester — keeps live keys untouched
@@ -166,12 +165,12 @@ const initTestFunnel = asyncHandler(async (req, res) => {
     } else {
       updatedText += `|Rank:Free`;
     }
-    await dynamodb.send(new UpdateCommand({
+    // Write the full item back with PutCommand — the `Simple` table's primary
+    // key is composite (`id` + `createdAt`), so an UpdateCommand keyed on `id`
+    // alone throws a ValidationException. `user` already carries `createdAt`.
+    await dynamodb.send(new PutCommand({
       TableName: TABLE,
-      Key: { id: user.id },
-      UpdateExpression: 'SET #t = :t, updatedAt = :u',
-      ExpressionAttributeNames: { '#t': 'text' },
-      ExpressionAttributeValues: { ':t': updatedText, ':u': now },
+      Item: { ...user, text: updatedText, updatedAt: now },
     }));
     user.text = updatedText;
   }

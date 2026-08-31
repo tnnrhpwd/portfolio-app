@@ -7,6 +7,7 @@ const { DynamoDBDocumentClient, PutCommand, ScanCommand } = require('@aws-sdk/li
 const { sendEmail } = require('./emailService.js');
 const Data = require('../models/dataModel');
 const { STRIPE_PRODUCT_IDS, PLAN_TO_STRIPE_PRODUCT, STRIPE_PRODUCT_MAP } = require('../constants/pricing');
+const { fetchRawUserRecord } = require('../utils/dynamoUser');
 
 // Shared DynamoDB client — reused across all calls to avoid creating new clients each invocation
 const _ddbClient = new DynamoDBClient({
@@ -96,23 +97,27 @@ async function validateOrRecoverCustomer(customerId, email, name, userId) {
 /**
  * Update user's Stripe customer ID in database
  * @param {Object} dynamodb - DynamoDB client
- * @param {Object} user - User object
+ * @param {Object} user - User object (may be the REDACTED req.user copy)
  * @param {string} customerId - New customer ID
  */
 async function updateUserCustomerId(dynamodb, user, customerId) {
-    const updatedUserData = user.text.replace(/\|stripeid:([^|]*)/, `|stripeid:${customerId}`);
-    
+    // `user` is usually req.user, whose `text` has the password hash redacted
+    // to "[redacted]". Writing that back would destroy the real hash, so
+    // always re-fetch the raw record before mutating it.
+    const rawUser = (await fetchRawUserRecord(dynamodb, user.id)) || user;
+    const updatedUserData = rawUser.text.replace(/\|stripeid:([^|]*)/, `|stripeid:${customerId}`);
+
     logger.debug('Updating user data with customer ID:', customerId);
-    
+
     const putParams = {
         TableName: 'Simple',
         Item: {
-            ...user,
+            ...rawUser,
             text: updatedUserData,
             updatedAt: new Date().toISOString()
         }
     };
-    
+
     await dynamodb.send(new PutCommand(putParams));
     logger.debug('User data updated with Stripe customer ID');
 }

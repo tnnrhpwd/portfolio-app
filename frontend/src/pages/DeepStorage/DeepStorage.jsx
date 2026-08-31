@@ -7,7 +7,7 @@ import ScrollableTable from '../../components/Admin/ScrollableTable.jsx';
 import deepStorageApi from '../../services/deepStorageApi';
 import './DeepStorage.css';
 
-// Same hardcoded admin id used to gate the /admin page (Admin.jsx) — the
+// Same hardcoded admin id used to gate the /admin pages (AdminLayout) — the
 // server independently enforces this via ADMIN_USER_ID, this is only used
 // to decide whether to render the "Regenerate" button.
 const ADMIN_USER_ID = '6770a067c725cbceab958619';

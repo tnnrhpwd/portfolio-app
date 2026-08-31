@@ -30,6 +30,57 @@
 }
 
 /* ═══════════════════════════════════════════
+   Admin sub-page layout (sidebar-free nav)
+   ═══════════════════════════════════════════ */
+
+.admin-page {
+    width: 92%;
+    max-width: 1300px;
+    margin: calc(var(--nav-size) * 1.6) auto calc(var(--nav-size) * 1) auto;
+    position: relative;
+    z-index: 2;
+}
+
+.admin-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: calc(var(--nav-size) * 0.15);
+    margin-bottom: calc(var(--nav-size) * 0.4);
+}
+
+.admin-nav-link {
+    padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.25);
+    border: 1px solid var(--border-nav);
+    border-radius: 999px;
+    background: var(--bg-1);
+    color: var(--text-color);
+    text-decoration: none;
+    font-size: var(--font-size-xs);
+    font-family: 'CutiveMono-Regular', monospace;
+    white-space: nowrap;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.admin-nav-link:hover {
+    background: var(--bg-mint);
+}
+
+.admin-nav-link--active {
+    background: var(--fg-blue);
+    color: #fff;
+    border-color: var(--fg-blue);
+}
+
+/* The sub-pages render their own `.admin-section-tile`; drop the old
+   centered layout so they flow inside `.admin-page` instead. */
+.admin-page .admin-section-tile {
+    margin: 0;
+    width: 100%;
+    max-width: none;
+}
+
+
+/* ═══════════════════════════════════════════
    Loading / Error / Empty states
    ═══════════════════════════════════════════ */
 
@@ -1351,6 +1402,14 @@
     .admin-section-tile {
         width: 96%;
         margin: calc(var(--nav-size) * 1.5) auto calc(var(--nav-size) * 0.5) auto;
+    }
+
+    .admin-page {
+        width: 96%;
+    }
+
+    .admin-nav {
+        gap: 6px;
     }
 
     .kpi-grid {

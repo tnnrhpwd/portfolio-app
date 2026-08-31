@@ -1,23 +1,31 @@
-# Admin "Special" user flag (unlimited AI credits)
+# Admin "Special" user flag (unlimited AI credits + paid-tier bypass)
 
-A per-user, admin-only escape hatch that grants unlimited AI credits without
-changing the user's Free/Pro rank.
+A per-user, admin-only escape hatch that grants unlimited AI credits and
+bypasses paid (Pro) requirements without changing the user's Free/Pro rank.
+Special is **distinct from admin** — only `ADMIN_USER_ID` can open the admin
+page; `Special:true` never grants admin access.
 
 ## What it is
 
 - A `Special:true` field on a user's `text` record in DynamoDB.
 - Read by `isSpecialUser()` in `backend/utils/apiUsageTracker.js` (regex
   `/(?:^|\|)Special:true/i`).
-- When set, `canMakeApiCall()` and `trackApiUsage()` treat the user like an
-  admin: unlimited access, no credit deduction — usage is still logged.
+- When set, the user is treated as paid-equivalent for feature gates:
+  - `canMakeApiCall()` and `trackApiUsage()` treat the user like an admin:
+    unlimited access, no credit deduction — usage is still logged.
+  - `getUserStorageUsage()` (via `storageTracker.js`) applies the Pro storage
+    allowance (50 GB) and reports `membership: 'Pro'`, so both display and
+    write-capacity enforcement use the Pro limit.
+  - `validateModelTierAccess()` (`llmService.js`) skips model-tier gates.
 
 ## How to set / clear it
 
 - Toggled from the Admin user-management table (frontend `Admin.jsx` →
   backend `adminController.js`). No direct DB edit is needed.
-- It is a **rank-independent override**: a Free user with `Special:true` has
-  unlimited credits but is still Free everywhere else (storage, phone relay,
-  support).
+- It is a **rank-independent override**: a Free user with `Special:true` gets
+  Pro-level AI credits and storage while their underlying `Rank` stays Free.
+  It does not create a real Stripe subscription and does not grant admin
+  page access.
 
 ## Why it must be documented
 

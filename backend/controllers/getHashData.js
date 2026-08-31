@@ -6,6 +6,7 @@ const { logger } = require('../utils/logger');
 const { createBedrockCompletion, BEDROCK_MODEL_ID } = require('../services/bedrockService');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
+const { fetchRawUserRecord } = require('../utils/dynamoUser');
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -60,7 +61,6 @@ async function generateDefinition(word) {
 
 const { getUserUsageStats } = require('../utils/apiUsageTracker.js');
 const { getStripe, liveStripe: stripe } = require('../utils/stripeInstance.js');
-const { createCustomer } = require('./postHashData.js');
 
 // @desc    Get Data
 // @route   GET /api/data
@@ -432,20 +432,29 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
 
         if (!req.user.text.includes("|stripeid:")) {
             try {
-                // Create a new customer if the customer ID is not found
-                const customer = await createCustomer({
-                    body: {
-                        email: req.user.text.substring(req.user.text.indexOf('Email:') + 6,
-                            req.user.text.indexOf('.com|') + 4),
-                        name: req.user.text.substring(req.user.text.indexOf('Nickname:') + 9,
-                            req.user.text.indexOf('|Email:')),
-                    }
-                }, res);
+                // Create a new customer if the customer ID is not found.
+                // Extract email/name with regex — safe for any field ordering
+                // and trailing fields (e.g. |Special:true).
+                const emailMatch = req.user.text.match(/(?:^|\|)Email:([^|]*)/);
+                const nameMatch = req.user.text.match(/(?:^|\|)Nickname:([^|]*)/);
+                const email = emailMatch ? emailMatch[1].trim() : '';
+                const name = nameMatch ? nameMatch[1].trim() : 'Unknown';
+                const s = getStripe(req.user.id);
+                const customer = await s.customers.create({ email, name });
 
-                // Update user data with the new customer ID
-                req.user.text += `|stripeid:${customer.id}`;
+                // Persist the new customer ID. req.user.text is REDACTED, so
+                // re-fetch the raw record before writing to avoid destroying
+                // the real password hash.
+                const rawUser = (await fetchRawUserRecord(dynamodb, req.user.id)) || req.user;
+                const rawText = rawUser.text || '';
+                const updatedRawText = rawText.includes('|stripeid:')
+                    ? rawText.replace(/\|stripeid:([^|]*)/, `|stripeid:${customer.id}`)
+                    : `${rawText}|stripeid:${customer.id}`;
+                await dynamodb.send(new PutCommand({
+                    TableName: 'Simple',
+                    Item: { ...rawUser, text: updatedRawText, updatedAt: new Date().toISOString() },
+                }));
                 logger.debug(`|stripeid:${customer.id}`);
-                await req.user.save();
 
                 req.paymentMethods = [];
                 if (req.fromPostHashData) {
@@ -463,8 +472,8 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
 
         // logger.debug('req.user.text:', req.user.text);
 
-        const customerId = req.user.text.substring(req.user.text.indexOf('|stripeid:') + 10,
-            req.user.text.indexOf('|stripeid:') + 28);
+        const stripeIdMatch = req.user.text.match(/\|stripeid:([^|]*)/);
+        const customerId = stripeIdMatch ? stripeIdMatch[1] : '';
         logger.debug('Customer ID:', customerId);
         
         // Validate that the customer ID exists in Stripe before attempting to fetch payment methods
@@ -514,12 +523,16 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
                 const updatedUserData = userData.replace(/\|stripeid:([^|]*)/, `|stripeid:${validatedCustomer.id}`);
                 logger.debug('Updating user data with correct customer ID:', validatedCustomer.id);
                 
+                // Re-fetch the raw record — req.user.text is REDACTED and
+                // writing it back would destroy the real password hash.
+                const rawUser = (await fetchRawUserRecord(dynamodb, req.user.id)) || req.user;
+                
                 // Update in DynamoDB
                 const putParams = {
                     TableName: 'Simple',
                     Item: {
-                        ...req.user,
-                        text: updatedUserData,
+                        ...rawUser,
+                        text: rawUser.text.replace(/\|stripeid:([^|]*)/, `|stripeid:${validatedCustomer.id}`),
                         updatedAt: new Date().toISOString()
                     }
                 };

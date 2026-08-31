@@ -235,6 +235,22 @@ function Profile() {
               </div>
             </section>
 
+            {userUsage?.isSpecial && (
+              <section className="planit-profile-special-banner" aria-live="polite">
+                <span className="planit-profile-special-icon" aria-hidden="true">⭐</span>
+                <div className="planit-profile-special-copy">
+                  <span className="planit-profile-special-kicker">Admin selection</span>
+                  <h2 className="planit-profile-special-title">You&apos;re a special member</h2>
+                  <p className="planit-profile-special-text">
+                    The site admin has hand-picked your account as a special member.
+                    This unlocks unlimited AI credits — your AI usage is never capped
+                    and nothing is deducted from your balance. Your regular plan,
+                    storage, and all other limits stay exactly the same.
+                  </p>
+                </div>
+              </section>
+            )}
+
             <section className="planit-profile-content">
               <div className="planit-profile-layout">
                 <div className="planit-profile-column">
