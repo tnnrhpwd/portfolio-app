@@ -21,6 +21,7 @@ function VisitorMapPage() {
   const [fromDate, setFromDate] = useState(lastWeek.toISOString().split("T")[0]);
   const [toDate, setToDate] = useState(today);
   const [refererFilter, setRefererFilter] = useState(location.state?.refererFilter || "");
+  const [hideOwnVisits, setHideOwnVisits] = useState(true);
 
   // ═══════════════ Fetch all data ═══════════════
   const fetchAllData = useCallback(async (force = false) => {
@@ -41,10 +42,13 @@ function VisitorMapPage() {
   // ═══════════════ Derived data from allData ═══════════════
   const visitorLocations = useMemo(() => {
     if (!allData) return [];
+    const ownId = user?._id ? String(user._id) : null;
     const visitorMap = new Map();
     allData.forEach(item => {
       const visitor = parseVisitorData(item.text);
       if (visitor?.country && visitor?.ip) {
+        // Skip visits from the account we're logged in with (e.g. own VPN IPs)
+        if (hideOwnVisits && ownId && String(visitor.userId) === ownId) return;
         const existing = visitorMap.get(visitor.ip);
         if (!existing || new Date(item.createdAt) > new Date(existing.timestamp)) {
           visitor.timestamp = item.createdAt || visitor.timestamp;
@@ -56,7 +60,7 @@ function VisitorMapPage() {
       v => v.ip && v.country && v.city && v.region &&
            v.country !== "undefined" && v.city !== "undefined" && v.region !== "undefined"
     );
-  }, [allData]);
+  }, [allData, user, hideOwnVisits]);
 
   const filteredVisitorLocations = useMemo(() => {
     return visitorLocations.filter(v => {
@@ -77,6 +81,13 @@ function VisitorMapPage() {
       return true;
     });
   }, [visitorLocations, fromDate, toDate, refererFilter]);
+
+  // Only locations with real coordinates can be plotted on the map
+  const mapLocations = useMemo(() => {
+    return filteredVisitorLocations.filter(
+      (v) => Number.isFinite(v.lat) && Number.isFinite(v.lon)
+    );
+  }, [filteredVisitorLocations]);
 
   // Build dropdown options: hosts + categories with counts, sorted by frequency
   const refererOptions = useMemo(() => {
@@ -140,12 +151,21 @@ function VisitorMapPage() {
             {refererFilter && (
               <button className="btn-sm" onClick={() => setRefererFilter("")}>Clear</button>
             )}
+            <label className="hide-own-visits" title="Hide visits from the account you're logged in with">
+              <input
+                type="checkbox"
+                checked={hideOwnVisits}
+                onChange={(e) => setHideOwnVisits(e.target.checked)}
+              />
+              Hide my visits
+            </label>
             <span className="visit-counter">{filteredVisitorLocations.length} visit{filteredVisitorLocations.length !== 1 ? 's' : ''}</span>
           </div>
-          {filteredVisitorLocations.length > 0
-            ? <VisitorMap locations={filteredVisitorLocations} />
-            : <p className="admin-no-data">No visitor location data available</p>
-          }
+          {filteredVisitorLocations.length > 0 && (
+            mapLocations.length > 0
+              ? <VisitorMap locations={mapLocations} />
+              : <p className="admin-no-data">No geo-coordinate data for these visits yet. New visits will appear here once coordinates are recorded.</p>
+          )}
           {filteredVisitorLocations.length > 0 && (
             <div className="visitor-list">
               <h4>Visitor details {refererFilter && <span className="muted">(filtered)</span>}</h4>

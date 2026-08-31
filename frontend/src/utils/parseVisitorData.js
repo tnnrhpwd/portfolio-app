@@ -16,6 +16,9 @@ export default function parseVisitorData(text) {
     const refererHostMatch = text.match(/\|RefererHost:([^|]+)/);
     const refererPathMatch = text.match(/\|RefererPath:([^|]+)/);
     const refererCategoryMatch = text.match(/\|RefererCategory:([^|]+)/);
+    const latMatch = text.match(/\|Lat:([^|]+)/);
+    const lonMatch = text.match(/\|Lon:([^|]+)/);
+    const userMatch = text.match(/\|User:([^|]+)/);
 
     if (!ipMatch) return null;
 
@@ -37,6 +40,9 @@ export default function parseVisitorData(text) {
       refererHost: refererHostMatch ? refererHostMatch[1].trim().replace(/^www\./, "") : "",
       refererPath: refererPathMatch ? refererPathMatch[1].trim() : "",
       refererCategory: refererCategoryMatch ? refererCategoryMatch[1].trim() : "",
+      lat: latMatch ? parseFloat(latMatch[1].trim()) : null,
+      lon: lonMatch ? parseFloat(lonMatch[1].trim()) : null,
+      userId: userMatch ? userMatch[1].trim() : "",
       timestamp,
     };
   } catch (error) {

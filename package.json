@@ -61,6 +61,8 @@
     "semver": "^7.6.0"
   },
   "dependencies": {
-    "concurrently": "^10.0.4"
+    "concurrently": "^10.0.4",
+    "leaflet": "^1.9.4",
+    "leaflet.markercluster": "^1.5.3"
   }
 }

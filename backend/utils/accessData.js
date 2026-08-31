@@ -227,6 +227,19 @@ async function checkIP(req) {
                 const locationInfo = `|City:${geoInfo.city}|Region:${geoInfo.region}|Country:${geoInfo.country}`;
                 logger.debug('Location info:', locationInfo);
                 text += locationInfo;
+
+                // Capture real coordinates for the admin visitor map.
+                // ipinfo returns `loc` as a "lat,lng" string (e.g. "37.3860,-122.0838").
+                const locParts = geoInfo.loc && String(geoInfo.loc).includes(',')
+                    ? String(geoInfo.loc).split(',').map((s) => s.trim())
+                    : null;
+                if (locParts && locParts.length === 2) {
+                    const lat = parseFloat(locParts[0]);
+                    const lon = parseFloat(locParts[1]);
+                    if (!Number.isNaN(lat) && !Number.isNaN(lon)) {
+                        text += `|Lat:${lat}|Lon:${lon}`;
+                    }
+                }
             } else {
                 logger.debug('No geolocation data available');
             }
