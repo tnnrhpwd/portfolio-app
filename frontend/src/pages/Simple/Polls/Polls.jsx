@@ -462,13 +462,13 @@ function Polls() {
         description="Create and vote in quick polls. No sign-in required — make a poll and share the link with your friends."
         path="/polls"
       />
+      <Header />
       <div className="polls-page">
         <div className="polls-ambient" aria-hidden="true">
           <span className="polls-orb polls-orb--1" />
           <span className="polls-orb polls-orb--2" />
           <span className="polls-orb polls-orb--3" />
         </div>
-        <Header />
         <main className="polls-container">
           <header className="polls-hero">
             <p className="polls-eyebrow">Interactive · No sign-in required</p>
