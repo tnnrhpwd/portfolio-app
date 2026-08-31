@@ -14,6 +14,9 @@ const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand, QueryCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const { normalizePlanName, isPaidTier, PLAN_IDS, MONTHLY_PRICES } = require('../constants/pricing');
 const { isSpecialUser, refreshUserDataCache } = require('../utils/apiUsageTracker');
+const { createMemoryItem } = require('../services/memoryService');
+const { runGoalAgent } = require('../services/goalAgentService');
+const { logger } = require('../utils/logger');
 
 // ── DynamoDB client (matches existing getHashData.js pattern) ──
 const client = new DynamoDBClient({
@@ -565,4 +568,83 @@ const testEmailSend = asyncHandler(async (req, res) => {
 });
 
 
-module.exports = { getAdminDashboard, getAdminUsers, getAdminPaginatedData, updateUserSpecial, getEmailStatus, testEmailSend };
+// ═══════════════════════════════════════════════════════════════
+// POST /api/data/admin/agent-fix
+// Enlist the Goal Agent to autonomously fix an open bug report. It
+// inspects the repo, makes a minimal fix with write_repo_file (commits
+// to the default branch), and delivers a summary. The run is persisted
+// as a goal memory item owned by the admin, so its progress can be
+// polled with GET /api/data/goal-agent/status/:goalId.
+// Body: { bugId, instruction? }
+// ═══════════════════════════════════════════════════════════════
+
+const enlistAgentForBug = asyncHandler(async (req, res) => {
+    if (!isAdmin(req)) {
+        res.status(403);
+        throw new Error('Access denied. Admin privileges required.');
+    }
+
+    const bugId = req.body?.bugId;
+    const instruction = String(req.body?.instruction || '').trim().slice(0, 500);
+    if (!bugId) {
+        res.status(400);
+        throw new Error('bugId is required.');
+    }
+
+    const item = await getRecordById(bugId);
+    if (!item) {
+        res.status(404);
+        throw new Error('Bug report not found.');
+    }
+    const text = item.text || '';
+    if (!(text.includes('Bug:') && text.includes('Status:') && text.includes('Creator:'))) {
+        res.status(400);
+        throw new Error('Target record is not a bug report.');
+    }
+
+    const title       = parseField(text, 'Bug') || 'Untitled Bug Report';
+    const severity    = parseField(text, 'Severity') || 'medium';
+    const description = parseField(text, 'Description');
+    const steps       = parseField(text, 'Steps');
+    const expected    = parseField(text, 'Expected');
+    const actual      = parseField(text, 'Actual');
+
+    const descriptionParts = [
+        'The admin enlisted an autonomous agent to fix this bug report on sthopwood.com.',
+        '',
+        `Bug title: ${title}`,
+        `Severity: ${severity}`,
+    ];
+    if (description) descriptionParts.push(`Description: ${description}`);
+    if (steps)       descriptionParts.push(`Steps to reproduce: ${steps}`);
+    if (expected)    descriptionParts.push(`Expected behavior: ${expected}`);
+    if (actual)      descriptionParts.push(`Actual behavior: ${actual}`);
+    if (instruction) descriptionParts.push(`Admin instruction: ${instruction}`);
+    descriptionParts.push(
+        '',
+        'Inspect the repository code, find the root cause, and make a minimal, correct fix with write_repo_file. Then call deliver_result with a summary of what you changed.',
+    );
+
+    // Create the fix goal (owned by the admin) so the run reuses the whole
+    // Goal Agent pipeline — tool schemas, progress persistence, and the
+    // existing /goal-agent/status polling endpoint.
+    const goal = await createMemoryItem(req.user.id, 'goal', {
+        title: `Fix bug: ${title}`.slice(0, 200),
+        description: descriptionParts.join('\n').slice(0, 4000),
+        priority: severity === 'high' ? 'high' : 'medium',
+        status: 'active',
+    });
+
+    // Fire-and-forget: progress persists to the goal item as the run proceeds.
+    runGoalAgent({ userId: req.user.id, goalId: goal._id, goal, user: req.user })
+        .catch((err) => logger.error('[adminAgent] run error:', err.message));
+
+    res.status(202).json({
+        success: true,
+        message: 'Agent enlisted — it will fix the bug and commit the change.',
+        goalId: goal._id,
+    });
+});
+
+
+module.exports = { getAdminDashboard, getAdminUsers, getAdminPaginatedData, updateUserSpecial, getEmailStatus, testEmailSend, enlistAgentForBug };

@@ -15,6 +15,22 @@ function headers(token) {
   };
 }
 
+/**
+ * Enlist the Goal Agent to autonomously fix an open bug report from the
+ * admin panel. The backend creates a fix goal owned by the admin and starts
+ * the agent; the returned `goalId` can be polled with getGoalAgentStatus().
+ */
+export async function enlistAgentForBug(token, bugId, instruction = '') {
+  const res = await fetch(`${getApiBase()}admin/agent-fix`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({ bugId, ...(instruction ? { instruction } : {}) }),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || json.error || json.dataMessage || 'Failed to enlist agent');
+  return json;
+}
+
 /** Start an LLM agent run on a goal. */
 export async function startGoalAgent(token, goalId) {
   const res = await fetch(`${getApiBase()}goal-agent/start`, {

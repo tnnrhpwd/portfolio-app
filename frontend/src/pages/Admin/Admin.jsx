@@ -5,6 +5,7 @@ import Footer from "../../components/Footer/Footer.jsx";
 import { useNavigate } from "react-router-dom";
 import { closeBugReport } from "../../features/data/dataSlice";
 import dataService from "../../features/data/dataService.js";
+import { enlistAgentForBug, getGoalAgentStatus } from "../../services/goalAgentApi.js";
 import CollapsibleSection from "../../components/Admin/CollapsibleSection.jsx";
 import ScrollableTable from "../../components/Admin/ScrollableTable.jsx";
 import VisitorMap from "../../components/Admin/VisitorMap.jsx";
@@ -30,10 +31,40 @@ const HOME_TITLE_RULE_TYPES = [
 ];
 const homeTitleRuleTypeInfo = (type) => HOME_TITLE_RULE_TYPES.find((t) => t.value === type) || HOME_TITLE_RULE_TYPES[0];
 
+// Compact inline feed showing the live state of an enlisted agent run.
+function AgentRunFeed({ run }) {
+  const agent = run?.agent || {};
+  const status = agent.status || (run?.running ? "running" : "idle");
+  const steps = (agent.steps || []).slice(-5);
+
+  const statusLabel = {
+    running: ["🤖 Agent working…", "agent-run-status--running"],
+    done: [`✅ Agent finished${agent.summary ? `: ${agent.summary}` : ""}`, "agent-run-status--done"],
+    failed: [`❌ Agent failed${agent.error ? `: ${agent.error}` : ""}`, "agent-run-status--failed"],
+    stopped: ["⏹ Agent stopped", "agent-run-status--failed"],
+    idle: ["🤖 Agent enlisted", "agent-run-status--running"],
+  }[status] || ["🤖 Agent working…", "agent-run-status--running"];
+
+  return (
+    <div className="agent-run-feed">
+      <span className={`agent-run-status ${statusLabel[1]}`}>{statusLabel[0]}</span>
+      {steps.map((s, i) => (
+        <div key={i} className={`agent-step agent-step--${s.kind || "thought"}`} title={s.ts}>
+          {s.text}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function Admin() {
   const { user } = useSelector((state) => state.data);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+
+  // ── Autonomous agent fix runs (bugId → run state) ──
+  const [agentRuns, setAgentRuns] = useState({}); // { [bugId]: { goalId, running, agent } }
+  const [enlistingBugId, setEnlistingBugId] = useState(null);
 
   // ── Dashboard state (aggregated from server) ──
   const [dashboard, setDashboard] = useState(null);
@@ -439,6 +470,62 @@ function Admin() {
       toast.error('Failed to close bug report.');
     }
   }, [dispatch, resolutionText, fetchAllData]);
+
+  // ═══════════════ Enlist agent to fix a bug report ═══════════════
+  const handleEnlistAgent = useCallback(async (report) => {
+    if (!user?.token || enlistingBugId) return;
+    setEnlistingBugId(report.id);
+    try {
+      const res = await enlistAgentForBug(user.token, report.id);
+      setAgentRuns((prev) => ({
+        ...prev,
+        [report.id]: { goalId: res.goalId, running: true, agent: { status: 'running', steps: [] } },
+      }));
+      toast.success('Agent enlisted — it will fix the bug and commit the change.');
+    } catch (err) {
+      toast.error(err.message || 'Failed to enlist agent.');
+    } finally {
+      setEnlistingBugId(null);
+    }
+  }, [user, enlistingBugId]);
+
+  // ── Poll live agent runs until they finish ──
+  // `activeAgentKey` is a stable string of "bugId:goalId" pairs, so the
+  // interval only restarts when a run starts or ends — not on every poll.
+  const activeAgentKey = useMemo(() => {
+    return Object.entries(agentRuns)
+      .filter(([, r]) => r.running && r.goalId)
+      .map(([bugId, r]) => `${bugId}:${r.goalId}`)
+      .sort()
+      .join('|');
+  }, [agentRuns]);
+
+  useEffect(() => {
+    if (!activeAgentKey || !user?.token) return undefined;
+    const entries = activeAgentKey.split('|').map((s) => {
+      const idx = s.lastIndexOf(':');
+      return { bugId: s.slice(0, idx), goalId: s.slice(idx + 1) };
+    });
+    let cancelled = false;
+
+    const poll = async () => {
+      await Promise.all(entries.map(async ({ bugId, goalId }) => {
+        try {
+          const res = await getGoalAgentStatus(user.token, goalId);
+          if (cancelled) return;
+          setAgentRuns((prev) => {
+            const cur = prev[bugId];
+            if (!cur) return prev;
+            return { ...prev, [bugId]: { ...cur, running: !!res.running, agent: res.agent || cur.agent } };
+          });
+        } catch { /* transient — retry next tick */ }
+      }));
+    };
+
+    poll();
+    const timer = setInterval(poll, 2500);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [activeAgentKey, user?.token]);
 
   // ═══════════════ Test Funnel helpers ═══════════════
   const fetchFunnelStatus = useCallback(async () => {
@@ -881,6 +968,7 @@ function Admin() {
                         <tr key={report.id}>
                           <td>
                             <strong>{report.title}</strong>
+                            {agentRuns[report.id] && <AgentRunFeed run={agentRuns[report.id]} />}
                             {report.resolution && (
                               <div className="report-resolution">
                                 <strong>Resolution:</strong> {report.resolution}
@@ -893,13 +981,29 @@ function Admin() {
                           <td>{report.description.length > 100 ? report.description.substring(0, 100) + '...' : report.description}</td>
                           <td>{ts(report.createdAt)}</td>
                           <td>
-                            {report.status === 'Open' ? (
-                              <button className="btn-close-report" onClick={() => { setClosingBugId(report.id); setShowResolutionModal(true); setResolutionText(''); }}>
-                                ✅ Close
-                              </button>
-                            ) : (
-                              <span className="muted">Resolved</span>
-                            )}
+                            <div className="bug-actions">
+                              {report.status === 'Open' && (
+                                <button
+                                  className="btn-agent-fix"
+                                  onClick={() => handleEnlistAgent(report)}
+                                  disabled={enlistingBugId === report.id || !!agentRuns[report.id]?.running}
+                                  title="Enlist an LLM agent to autonomously fix this bug and commit the change"
+                                >
+                                  {agentRuns[report.id]?.running
+                                    ? '🤖 Fixing…'
+                                    : enlistingBugId === report.id
+                                      ? '🤖 Enlisting…'
+                                      : '🤖 Auto-fix'}
+                                </button>
+                              )}
+                              {report.status === 'Open' ? (
+                                <button className="btn-close-report" onClick={() => { setClosingBugId(report.id); setShowResolutionModal(true); setResolutionText(''); }}>
+                                  ✅ Close
+                                </button>
+                              ) : (
+                                <span className="muted">Resolved</span>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}

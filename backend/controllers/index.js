@@ -15,7 +15,7 @@ const { putHashData, updateCustomer, putPaymentMethod } = require('./putHashData
 const { forgotPassword, resetPassword, forgotPasswordAuthenticated } = require('../utils/passwordReset'); // Password reset functionality
 const { extractOCR, updateWithOCR } = require('./ocrController'); // OCR functionality
 const { getAvailableProviders } = require('../utils/llmProviders'); // LLM providers
-const { getAdminDashboard, getAdminUsers, getAdminPaginatedData, updateUserSpecial, getEmailStatus, testEmailSend } = require('./adminController'); // Admin dashboard
+const { getAdminDashboard, getAdminUsers, getAdminPaginatedData, updateUserSpecial, getEmailStatus, testEmailSend, enlistAgentForBug } = require('./adminController'); // Admin dashboard
 const { initTestFunnel, resetTestFunnel, getTestFunnelStatus, recordFunnelStep, getTestEmails } = require('./testFunnelController'); // Test funnel
 const { getDeepStorageItems, regenerateDeepStorageItems } = require('./deepStorageController'); // DeepStorage (Bedrock item catalog)
 const { logger } = require('../utils/logger');
@@ -76,7 +76,7 @@ module.exports = {
     extractOCR, updateWithOCR,
     getLLMProviders,
     getStripeConfig,
-    getAdminDashboard, getAdminUsers, getAdminPaginatedData, updateUserSpecial, getEmailStatus, testEmailSend,
+    getAdminDashboard, getAdminUsers, getAdminPaginatedData, updateUserSpecial, getEmailStatus, testEmailSend, enlistAgentForBug,
     initTestFunnel, resetTestFunnel, getTestFunnelStatus, recordFunnelStep, getTestEmails,
     getDeepStorageItems, regenerateDeepStorageItems,
     getHomeTitle, getHomeTitleSettings, updateHomeTitleSettings,

@@ -770,6 +770,69 @@
     font-style: italic;
 }
 
+.bug-actions {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.12);
+    flex-wrap: wrap;
+}
+
+.btn-agent-fix {
+    background: var(--fg-blue);
+    color: #fff;
+    border: none;
+    padding: calc(var(--nav-size) * 0.08) calc(var(--nav-size) * 0.15);
+    border-radius: 4px;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.btn-agent-fix:hover:not(:disabled) {
+    filter: brightness(1.1);
+}
+
+.btn-agent-fix:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ── Autonomous agent run feed (bug reports) ── */
+.agent-run-feed {
+    margin-top: calc(var(--nav-size) * 0.12);
+    padding: calc(var(--nav-size) * 0.12);
+    background: var(--bg-2);
+    border-left: 3px solid var(--fg-blue);
+    border-radius: 4px;
+    font-size: var(--font-size-xs);
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.06);
+    max-width: 480px;
+}
+
+.agent-run-status {
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.agent-run-status--running { color: var(--fg-blue); }
+.agent-run-status--done    { color: #22c55e; }
+.agent-run-status--failed  { color: #ef4444; }
+
+.agent-step {
+    color: var(--text-color-accent);
+    line-height: 1.35;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.agent-step--tool        { color: var(--text-color); }
+.agent-step--tool-result { color: var(--text-color-accent); font-size: 90%; }
+.agent-step--error       { color: #ef4444; }
+.agent-step--thought     { color: var(--text-color-accent); font-style: italic; }
+
 /* ═══════════════════════════════════════════
    Date filter (map section)
    ═══════════════════════════════════════════ */

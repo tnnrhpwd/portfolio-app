@@ -24,6 +24,7 @@ docs/
 │   ├── AUTONOMOUS_WINDOWS_AGENT_PLAN.md # Simple agent architecture plan
 │   ├── AUTOMATION_ROADMAP.md         # Automation feature roadmap
 │   ├── AUTOMATION_SECURITY.md        # Automation security model
+│   ├── SUPPORT_TICKETS.md            # Support tickets & bug reports system (pull script + future auto-fix vision)
 │   ├── SIMPLE_MARKETPLACE_PLAN.md   # Marketplace & skill generalization plan
 │   └── simple-agent-prompt.md       # Agent system prompt reference
 └── debugging/                         # Troubleshooting guides
@@ -50,6 +51,7 @@ docs/
 - [Automation Roadmap](./implementation/AUTOMATION_ROADMAP.md) - Automation feature roadmap
 - [Automation Security](./implementation/AUTOMATION_SECURITY.md) - Automation security model
 - [Simple Marketplace Plan](./implementation/SIMPLE_MARKETPLACE_PLAN.md) - Marketplace & skill generalization plan (includes cost-based Free/Pro gating consistent with the Action Plan)
+- [Support Tickets](./implementation/SUPPORT_TICKETS.md) - Bug reports, `/net` support tickets & contact messages; the `pull-support-tickets` export script, and the future-state plan for autonomous agent-driven fixes
 - [API Usage Tracking](./implementation/API_USAGE_IMPLEMENTATION.md) - ⚠️ Historical document; current model is metered cloud credits (see Action Plan)
 
 ### Troubleshooting
