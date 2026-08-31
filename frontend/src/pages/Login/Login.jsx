@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux'      // useSelector-brings in user,iserror,isloading from state | useDispatch-brings in reset,register,login from state
 import { useNavigate, useLocation } from 'react-router-dom'              // page redirects
 import { toast } from 'react-toastify'                        // visible error notifications
-import { login, resetDataSlice } from '../../features/data/dataSlice'     // import functions from authslice
+import { login, logout, resetDataSlice, resetDataSuccess } from '../../features/data/dataSlice'     // import functions from authslice
 import Spinner from '../../components/Spinner/Spinner.jsx';
 import React from 'react';
 import './Login.css';
@@ -30,9 +30,23 @@ function Login() {
     const loadingStartTimeRef = useRef(null);
 
     // select values from state
-    const { user, dataIsLoading, dataIsError, dataIsSuccess, dataMessage } = useSelector(
+    const { user, dataIsLoading, dataIsError, dataIsSuccess, dataMessage, operation } = useSelector(
         (state) => state.data
     )
+
+    // Visiting the login page means starting a fresh sign-in. Clear any stale
+    // persisted session (e.g. a token whose user record was deleted) and reset
+    // auth state so the form always starts clean — the user isn't bounced
+    // through 401 loops from an orphaned token and can just log in.
+    useEffect(() => {
+        if (localStorage.getItem('user')) {
+            localStorage.removeItem('user');
+        }
+        // `logout` is the one action that actually nulls `state.user`;
+        // `resetDataSlice` would instead restore the module-load-time user.
+        dispatch(logout());
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // called on state changes
     useEffect(() => {
@@ -124,7 +138,7 @@ function Login() {
             
             setAttemptedSubmit(true);
         }
-        if (user && user._id) {  // if registered or logged in
+        if (user && user._id && operation === 'login') {  // only after a successful login submission
             // Don't show toast if coming from an expired session redirect
             if (!location.state?.sessionExpired) {
                 const welcomeMessage = user.nickname === 'Guest User' 
@@ -142,9 +156,11 @@ function Login() {
             const redirectTo = location.state?.redirectTo || '/';
             navigate(redirectTo);           // send user to intended destination
         } else {
-            dispatch(resetDataSlice());   // reset state values( data, dataisloading, dataiserror, datamessage, and dataissuccess ) on each state change
+            // Reset only the data flags (so error toasts don't repeat) without
+            // touching `user` — resetDataSlice would restore a stale user.
+            dispatch(resetDataSuccess());
         }
-    }, [user, dataIsError, dataIsSuccess, dataIsLoading, dataMessage, navigate, dispatch, location.state?.sessionExpired])
+    }, [user, operation, dataIsError, dataIsSuccess, dataIsLoading, dataMessage, navigate, dispatch, location.state?.sessionExpired])
 
     // Show a one-time toast when redirected here from an expired session
     useEffect(() => {

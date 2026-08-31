@@ -15,6 +15,24 @@ const dynamodb = DynamoDBDocumentClient.from(client);
 const { logger } = require('./logger');
 
 /**
+ * Run a DynamoDB Scan with full pagination.
+ *
+ * A single ScanCommand examines at most 1MB and stops with a LastEvaluatedKey,
+ * silently skipping rows beyond that boundary. The `Simple` table is well over
+ * that limit, so an unpaginated email scan can miss the user's row entirely.
+ */
+async function paginatedScan(params) {
+    const items = [];
+    let lastKey;
+    do {
+        const result = await dynamodb.send(new ScanCommand({ ...params, ExclusiveStartKey: lastKey }));
+        items.push(...(result.Items || []));
+        lastKey = result.LastEvaluatedKey;
+    } while (lastKey);
+    return items;
+}
+
+/**
  * Fetch the user's *unredacted* DynamoDB record by primary key.
  *
  * `req.user` (set by authMiddleware) intentionally carries a redacted `text`
@@ -180,12 +198,12 @@ const forgotPassword = asyncHandler(async (req, res) => {
             }
         };
 
-        const result = await dynamodb.send(new ScanCommand(params));
+        const items = await paginatedScan(params);
         
         // Always return success to prevent email enumeration attacks
         // But only send email if user exists
-        if (result.Items.length === 1) {
-            const user = result.Items[0];
+        if (items.length === 1) {
+            const user = items[0];
             const userText = user.text; // DynamoDBDocumentClient automatically handles the format
             
             // Extract user nickname (regex — safe for any field ordering)
@@ -294,14 +312,14 @@ const resetPassword = asyncHandler(async (req, res) => {
             }
         };
 
-        const result = await dynamodb.send(new ScanCommand(params));
+        const items = await paginatedScan(params);
         
-        if (result.Items.length !== 1) {
+        if (items.length !== 1) {
             res.status(400);
             throw new Error('Invalid or expired reset token');
         }
 
-        const user = result.Items[0];
+        const user = items[0];
         const userText = user.text; // DynamoDBDocumentClient automatically handles the format
         
         // Extract reset token expiry

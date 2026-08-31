@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useDispatch } from 'react-redux';
 import { toast } from 'react-toastify';
 import React from 'react';
+import { logout } from '../../features/data/dataSlice';
 import './ForgotPassword.css';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
@@ -13,6 +15,15 @@ function ForgotPassword() {
     const [emailSent, setEmailSent] = useState(false);
 
     const { email } = formData;
+
+    const dispatch = useDispatch();
+
+    // Clear any stale session so the page starts fresh.
+    useEffect(() => {
+        localStorage.removeItem('user');
+        dispatch(logout());
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const onChange = (e) => {
         setFormData((prevState) => ({

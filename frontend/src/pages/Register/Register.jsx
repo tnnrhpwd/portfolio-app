@@ -2,7 +2,7 @@ import { useState, useEffect }  from 'react';
 import { useSelector, useDispatch } from 'react-redux'      // useSelector-brings in user,iserror,isloading from state | useDispatch-brings in reset,register,login from state
 import { useNavigate, useLocation } from 'react-router-dom'              // page redirects
 import { toast } from 'react-toastify'                        // visible error notifications
-import { register } from '../../features/data/dataSlice'     // import functions from authslice
+import { register, logout } from '../../features/data/dataSlice'     // import functions from authslice
 import Spinner from '../../components/Spinner/Spinner.jsx';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
@@ -27,9 +27,17 @@ function Register() {
     const toastDuration = parseInt(rootStyle.getPropertyValue('--toast-duration'), 10);
     
     // select values from state
-    const { user, dataIsLoading, dataIsError, dataIsSuccess, dataMessage } = useSelector(
+    const { user, dataIsLoading, dataIsError, dataIsSuccess, dataMessage, operation } = useSelector(
         (state) => state.data
     )
+
+    // Visiting the register page means starting a fresh sign-up. Clear any
+    // stale persisted session so the page always starts clean.
+    useEffect(() => {
+        localStorage.removeItem('user');
+        dispatch(logout());
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // called on state changes
     useEffect(() => {
@@ -43,14 +51,14 @@ function Register() {
             // if registered,
             toast.success("Successfully Registered", { autoClose: 2000 }); // print success to toast
         }
-        if (user && user._id) {
-            // if logged in, redirect to intended page if provided, otherwise home
+        if (user && user._id && operation === 'register') {
+            // only redirect after a successful registration
             const redirectTo = location.state?.redirectTo || '/';
             navigate(redirectTo);
         }
 
         // dispatch(resetDataSlice())   // reset state values( authMessage, isloading, iserror, and issuccess ) on each state change
-    }, [user, dataIsError, dataIsSuccess, dataMessage, navigate, dispatch, toastDuration])
+    }, [user, operation, dataIsError, dataIsSuccess, dataMessage, navigate, dispatch, toastDuration])
 
     // called on each letter typed into input field
     const onChange = (e) => {

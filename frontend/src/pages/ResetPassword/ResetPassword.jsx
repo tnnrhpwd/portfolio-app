@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
 import { toast } from 'react-toastify';
 import React from 'react';
+import { logout } from '../../features/data/dataSlice';
 import './ResetPassword.css';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
@@ -16,9 +18,17 @@ function ResetPassword() {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
+    const dispatch = useDispatch();
 
     const { password, confirmPassword } = formData;
     const token = searchParams.get('token');
+
+    // Clear any stale session so the page starts fresh.
+    useEffect(() => {
+        localStorage.removeItem('user');
+        dispatch(logout());
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
         if (!token) {

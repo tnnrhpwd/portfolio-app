@@ -27,6 +27,28 @@ const dynamodb = DynamoDBDocumentClient.from(client);
 const storage = multer.memoryStorage();// Set up multer for memory storage
 const upload = multer({ storage: storage });
 
+/**
+ * Run a DynamoDB Scan with full pagination.
+ *
+ * A single ScanCommand only examines up to 1MB of data and stops with a
+ * LastEvaluatedKey — any rows beyond that boundary are silently skipped. The
+ * `Simple` table holds thousands of records (many with base64 file blobs), so
+ * an unpaginated scan routinely misses records, which made login/register
+ * return "Could not find that user" / miss duplicates for users whose row
+ * happened to fall past the 1MB cutoff. This helper loops until the table is
+ * fully scanned.
+ */
+async function paginatedScan(params) {
+    const items = [];
+    let lastKey;
+    do {
+        const result = await dynamodb.send(new ScanCommand({ ...params, ExclusiveStartKey: lastKey }));
+        items.push(...(result.Items || []));
+        lastKey = result.LastEvaluatedKey;
+    } while (lastKey);
+    return items;
+}
+
 
 // @desc    post data
 // @route   POST /api/data
@@ -134,8 +156,8 @@ const registerUser = asyncHandler(async (req, res) => {
     };
 
     try {
-        const dupeResult = await dynamodb.send(new ScanCommand(dupeCheckParams));
-        const existing = (dupeResult.Items || []).find((item) => {
+        const dupeItems = await paginatedScan(dupeCheckParams);
+        const existing = dupeItems.find((item) => {
             const text = item.text || '';
             const existingEmail = text.substring(text.indexOf('Email:') + 6, text.indexOf('|Password:')).trim().toLowerCase();
             const existingNickname = text.substring(text.indexOf('Nickname:') + 9, text.indexOf('|Email:')).trim().toLowerCase();
@@ -289,13 +311,13 @@ const loginUser = asyncHandler(async (req, res) => {
 
     try {
         logger.debug('Querying DynamoDB for user...');
-        const result = await dynamodb.send(new ScanCommand(params));
+        const items = await paginatedScan(params);
         logger.debug('DynamoDB query result:', {
-            itemCount: result.Items?.length || 0,
-            hasItems: !!result.Items && result.Items.length > 0
+            itemCount: items.length,
+            hasItems: items.length > 0
         });
 
-        if (!result.Items || result.Items.length === 0) {
+        if (items.length === 0) {
             if (isGuestLoginAttempt) {
                 logger.debug('Guest account missing — auto-provisioning it');
                 const guestUser = await provisionGuestUser();
@@ -313,13 +335,13 @@ const loginUser = asyncHandler(async (req, res) => {
             throw new Error("Could not find that user.");
         }
 
-        if (result.Items.length > 1) {
+        if (items.length > 1) {
             logger.warn('Multiple users found with same email:', email);
             res.status(400);
             throw new Error("Multiple accounts found. Please contact support.");
         }
 
-        const user = result.Items[0];
+        const user = items[0];
         logger.debug('User found in database, verifying password...');
         
         // Extract password, nickname, birth, and stripe from the stored data.
