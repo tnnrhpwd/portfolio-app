@@ -20,12 +20,14 @@ const DEFAULT_IMAGE = `${SITE_URL}/STHlogo192.png`;
  */
 function SEO({ title, description, path = '', image = DEFAULT_IMAGE, noindex = false, jsonLd }) {
   const fullTitle = title ? `${title} | ${SITE_NAME}` : SITE_NAME;
+  // Browser tab title: clean brand name in production, "Dev" on the local dev server.
+  const tabTitle = import.meta.env.DEV ? 'Dev' : SITE_NAME;
   const url = `${SITE_URL}${path}`;
   const jsonLdItems = jsonLd ? (Array.isArray(jsonLd) ? jsonLd : [jsonLd]) : [];
 
   return (
     <Helmet>
-      <title>{fullTitle}</title>
+      <title>{tabTitle}</title>
       <meta name="description" content={description} />
       <link rel="canonical" href={url} />
       {noindex && <meta name="robots" content="noindex, nofollow" />}
