@@ -460,20 +460,35 @@ function Polls() {
         path="/polls"
       />
       <div className="polls-page">
+        <div className="polls-ambient" aria-hidden="true">
+          <span className="polls-orb polls-orb--1" />
+          <span className="polls-orb polls-orb--2" />
+          <span className="polls-orb polls-orb--3" />
+        </div>
         <Header />
         <main className="polls-container">
           <header className="polls-hero">
+            <p className="polls-eyebrow">Interactive · No sign-in required</p>
             <h1 className="polls-title">Polls</h1>
             <p className="polls-subtitle">
-              No sign-in required. Make a poll and share the link with your friends.
+              Make a poll and share the link with your friends. Vote, watch results update live, and keep the conversation going.
             </p>
-            <button
-              type="button"
-              className="polls-toggle"
-              onClick={() => setShowForm((v) => !v)}
-            >
-              {showForm ? 'Hide creator' : '+ Create a poll'}
-            </button>
+            <div className="polls-hero__actions">
+              <button
+                type="button"
+                className="polls-toggle"
+                onClick={() => setShowForm((v) => !v)}
+              >
+                {showForm ? 'Hide creator' : '+ Create a poll'}
+              </button>
+            </div>
+            {!loading && !error && polls.length > 0 && (
+              <div className="polls-stats" aria-label="Poll statistics">
+                <span className="polls-stats__item"><strong>{activePolls.length}</strong> active</span>
+                <span className="polls-stats__item"><strong>{closedPolls.length}</strong> closed</span>
+                <span className="polls-stats__item"><strong>{polls.reduce((n, p) => n + (p.totalVotes || 0), 0)}</strong> votes</span>
+              </div>
+            )}
           </header>
 
           {showForm && (
@@ -504,7 +519,10 @@ function Polls() {
 
           {!loading && !error && activePolls.length > 0 && (
             <section className="polls-section">
-              <h2 className="polls-section__title">Active polls</h2>
+              <h2 className="polls-section__title">
+                Active polls
+                <span className="polls-section__count">{activePolls.length}</span>
+              </h2>
               <div className="polls-grid">
                 {activePolls.map((poll) => (
                   <PollCard
@@ -526,7 +544,10 @@ function Polls() {
 
           {!loading && !error && closedPolls.length > 0 && (
             <section className="polls-section">
-              <h2 className="polls-section__title">Closed polls</h2>
+              <h2 className="polls-section__title">
+                Closed polls
+                <span className="polls-section__count">{closedPolls.length}</span>
+              </h2>
               <div className="polls-grid">
                 {closedPolls.map((poll) => (
                   <PollCard

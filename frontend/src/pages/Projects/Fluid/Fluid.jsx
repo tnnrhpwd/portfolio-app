@@ -286,17 +286,35 @@ function Fluid() {
       />
       <Header />
       <div className="fluid">
+        <div className="fluid-ambient" aria-hidden="true">
+          <span className="fluid-orb fluid-orb--1" />
+          <span className="fluid-orb fluid-orb--2" />
+          <span className="fluid-orb fluid-orb--3" />
+        </div>
         <div className="fluid-section">
           <div className="fluid-title-wrap">
+            <p className="fluid-eyebrow">Interactive · In-browser simulation</p>
             <h1 className="fluid-title">Fluid</h1>
             <div className="fluid-underline" aria-hidden="true" />
             <p className="fluid-subtitle">
               Click or drag across the canvas to inject glowing fluid and push it around. A real-time
               Navier–Stokes solver runs entirely in your browser — no GPU, no server, just pixels and physics.
             </p>
+            <ul className="fluid-tags" aria-label="Highlights">
+              <li>Real-time</li>
+              <li>No GPU needed</li>
+              <li>Touch-friendly</li>
+            </ul>
           </div>
 
           <div className="fluid-card">
+            <div className="fluid-card__bar">
+              <span className="fluid-card__bar-title">Simulation</span>
+              <span className={`fluid-live${paused ? ' fluid-live--paused' : ''}`}>
+                <span className="fluid-live__dot" aria-hidden="true" />
+                {paused ? 'Paused' : 'Live'}
+              </span>
+            </div>
             <div className="fluid-controls" role="group" aria-label="Fluid controls">
               <div className="fluid-swatches" aria-label="Paint color">
                 {COLORS.map((c, i) => (
