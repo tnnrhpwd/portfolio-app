@@ -55,7 +55,7 @@ const LIMITS = {
   minOptions: 2,
   maxOptions: 8,
   durationMin: 1,       // minutes
-  durationMax: 10080,   // 7 days
+  durationMax: 525600,  // 365 days
   creatorMax: 32,
   voterIdMax: 64,
   listMax: 100,         // most recent polls returned by listPolls()

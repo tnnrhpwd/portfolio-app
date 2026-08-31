@@ -88,6 +88,9 @@ const DURATIONS = [
   { value: 1440, label: '1 day' },
   { value: 4320, label: '3 days' },
   { value: 10080, label: '7 days' },
+  { value: 43200, label: '30 days' },
+  { value: 129600, label: '90 days' },
+  { value: 525600, label: '365 days' },
 ];
 
 const MAX_OPTIONS = 8;
