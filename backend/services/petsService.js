@@ -172,6 +172,9 @@ function applyDecay(stats, lastTouchedAt, now = Date.now()) {
     next.health = clamp(next.health + HEALTH.regenPerHour * hours);
   }
 
+  // Pets never pass away — health can sink to "critical", but never to zero.
+  next.health = Math.max(1, next.health);
+
   return next;
 }
 
@@ -355,7 +358,8 @@ function toPetView(row, now = Date.now()) {
   const payload = parsed?.payload || {};
   const stats = applyDecay(payload.stats || freshStats(), payload.lastTouchedAt || row.createdAt, now);
 
-  // A living pet whose health has fully decayed has passed away.
+  // A pet only shows as "passed" if it was explicitly recorded as such —
+  // health is floored at 1 in applyDecay so neglect can no longer kill a pet.
   const alive = !!(payload.alive !== false) && stats.health > 0;
   const mood = deriveMood(stats, alive);
   const levelInfo = computeLevel(payload.xp || 0);

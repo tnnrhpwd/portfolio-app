@@ -57,6 +57,12 @@ describe('petsService.applyDecay', () => {
     expect(result.health).toBeCloseTo(70, 5); // 100 - 10*3
   });
 
+  test('health never drops to zero — pets cannot die', () => {
+    const stats = { hunger: 0, happiness: 0, energy: 0, cleanliness: 0, health: 5 };
+    const result = applyDecay(stats, new Date(NOW - 100 * hourMs).toISOString(), NOW);
+    expect(result.health).toBe(1);
+  });
+
   test('regenerates health while thriving', () => {
     const stats = { hunger: 80, happiness: 80, energy: 80, cleanliness: 85, health: 50 };
     const result = applyDecay(stats, new Date(NOW - 2 * hourMs).toISOString(), NOW);
