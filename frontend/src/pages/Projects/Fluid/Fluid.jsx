@@ -39,6 +39,7 @@ function Fluid() {
   const solverRef = useRef(null);
   const offRef = useRef(null);
   const imgRef = useRef(null);
+  const lumRef = useRef(null);
   const bgGradRef = useRef(null);
   const rafRef = useRef(0);
   const lastRef = useRef(0);
@@ -81,11 +82,11 @@ function Fluid() {
       canvas.style.width = `${cssW}px`;
       canvas.style.height = `${cssH}px`;
 
-      // ~150 cells across the widest edge, capped so the solver stays fast.
-      let cell = Math.max(4, cssW / 150);
+      // ~230 cells across the widest edge, capped so the solver stays fast.
+      let cell = Math.max(4, cssW / 230);
       simW = Math.max(16, Math.floor(cssW / cell));
       simH = Math.max(16, Math.floor(cssH / cell));
-      const maxCells = 280 * 180;
+      const maxCells = 380 * 240;
       while (simW * simH > maxCells && cell < 32) {
         cell *= 1.5;
         simW = Math.max(16, Math.floor(cssW / cell));
@@ -95,15 +96,23 @@ function Fluid() {
       solverRef.current = new FluidSolver(simW, simH, {
         dt: 0.04,
         iter: 8,
-        vorticity: 0.6,
-        dissipation: 0.985,
+        vorticity: 0.32,
+        dissipation: 0.997,
+        viscosity: 0.0002,
+        diffusion: 0.00005,
       });
+
+      // A brand-new solver has no ink — re-seed it once the first frame
+      // runs (a ResizeObserver callback can recreate the solver at any
+      // time, including right after mount).
+      seededRef.current = false;
 
       const off = document.createElement('canvas');
       off.width = simW;
       off.height = simH;
       offRef.current = off;
       imgRef.current = off.getContext('2d').createImageData(simW, simH);
+      lumRef.current = new Float32Array(simW * simH);
 
       const g = ctx.createLinearGradient(0, 0, 0, canvas.height);
       g.addColorStop(0, '#0c1226');
@@ -172,42 +181,66 @@ function Fluid() {
     window.addEventListener('pointerup', onUp);
     canvas.style.touchAction = 'none';
 
-    // ── Idle "stirring" so the fluid stays alive without input ──────────
+    // ── Idle "currents" so the fluid keeps flowing without input ────────
+    // Two counter-rotating swirls around the centre (with a slow wander) so
+    // the fluid circulates organically without drifting off to one side.
     const idle = () => {
       if (!autoplayRef.current || pointerRef.current.down || pausedRef.current) return;
       const s = solverRef.current;
       const t = timeRef.current;
+      const min = Math.min(s.w, s.h);
       const cx = s.w * 0.5;
       const cy = s.h * 0.5;
-      const r = Math.min(s.w, s.h) * 0.32;
-      const a1 = t * 0.5;
-      const a2 = -t * 0.35 + 2;
+      const r1 = min * 0.34;
+      const r2 = min * 0.2;
+      const a1 = t * 0.45;
+      const a2 = -t * 0.33 + 2.1;
+      // Slow wander of the swirl centre so the motion stays organic.
+      const wob = Math.sin(t * 0.07) * 0.04;
       s.addForce(
-        cx + Math.cos(a1) * r,
-        cy + Math.sin(a1) * r,
-        -Math.sin(a1) * 2.5,
-        Math.cos(a1) * 2.5,
-        6
+        cx + Math.cos(a1) * r1,
+        cy + Math.sin(a1) * r1,
+        -Math.sin(a1) * 1.6,
+        Math.cos(a1) * 1.6,
+        Math.max(5, r1 * 0.5)
       );
       s.addForce(
-        cx + Math.cos(a2) * r * 0.6,
-        cy + Math.sin(a2) * r * 0.6,
-        -Math.sin(a2) * 2.5,
-        Math.cos(a2) * 2.5,
-        6
+        cx + Math.cos(a2) * r2 + wob * s.w,
+        cy + Math.sin(a2) * r2 + wob * s.h,
+        -Math.sin(a2) * 1.6,
+        Math.cos(a2) * 1.6,
+        Math.max(4, r2 * 0.5)
       );
+    };
+
+    // ── Continuous dye source ─────────────────────────────────────────────
+    // A slowly drifting "spring" keeps injecting fresh pigment so the fluid
+    // never fades out, even with no pointer input.
+    const source = () => {
+      if (!autoplayRef.current || pointerRef.current.down || pausedRef.current) return;
+      const s = solverRef.current;
+      const t = timeRef.current;
+      const c = paintColor();
+      const fx = 0.5 + Math.sin(t * 0.09) * 0.32;
+      const fy = 0.5 + Math.cos(t * 0.12) * 0.28;
+      const x = fx * s.w;
+      const y = fy * s.h;
+      s.splat(x, y, c.r, c.g, c.b, 7, 0.5);
+      // Gentle radial push so the fresh ink actually flows outward.
+      s.addForce(x, y, Math.cos(t * 0.6) * 1.5, Math.sin(t * 0.6) * 1.5, 7);
     };
 
     const seed = () => {
       const s = solverRef.current;
       const seeds = [
-        [0.5, 0.5, 0.25, 0.85, 1],
-        [0.35, 0.4, 1, 0.35, 0.75],
-        [0.65, 0.6, 0.35, 1, 0.6],
-        [0.45, 0.65, 1, 0.6, 0.2],
+        [0.5, 0.5, 0.25, 0.85, 1],    // cyan
+        [0.32, 0.38, 0.3, 0.55, 1],   // blue
+        [0.68, 0.6, 0.7, 0.45, 1],    // violet
+        [0.42, 0.68, 1, 0.4, 0.85],   // magenta
+        [0.6, 0.28, 0.2, 0.9, 0.9],   // azure
       ];
       for (const [fx, fy, r, g, b] of seeds) {
-        s.splat(s.w * fx, s.h * fy, r, g, b, 14, 2.0);
+        s.splat(s.w * fx, s.h * fy, r, g, b, 16, 1.8);
       }
       seededRef.current = true;
     };
@@ -217,21 +250,86 @@ function Fluid() {
       const s = solverRef.current;
       const off = offRef.current;
       const img = imgRef.current;
-      if (!s || !off || !img) return;
+      const lum = lumRef.current;
+      if (!s || !off || !img || !lum) return;
 
+      const { w, h, dye } = s;
       const data = img.data;
-      const dye = s.dye;
-      const total = s.w * s.h;
+      const total = w * h;
+
+      // Treat dye density (mean of RGB) as the height of a fluid surface;
+      // its gradient gives a surface normal we can light.
       for (let i = 0; i < total; i++) {
         const i3 = i * 3;
-        const i4 = i * 4;
-        let r = dye[i3] * 255;
-        let g = dye[i3 + 1] * 255;
-        let b = dye[i3 + 2] * 255;
-        data[i4] = r > 255 ? 255 : r;
-        data[i4 + 1] = g > 255 ? 255 : g;
-        data[i4 + 2] = b > 255 ? 255 : b;
-        data[i4 + 3] = 255;
+        lum[i] = (dye[i3] + dye[i3 + 1] + dye[i3 + 2]) * 0.33333334;
+      }
+
+      // Key light from the upper-left, slightly toward the viewer, plus a
+      // fixed half-vector for a glossy specular term.
+      const lInv = 1 / Math.hypot(0.38, -0.5, 0.78);
+      const lx = 0.38 * lInv, ly = -0.5 * lInv, lz = 0.78 * lInv;
+      const hInv = 1 / Math.hypot(0.18, -0.24, 0.95);
+      const Hx = 0.18 * hInv, Hy = -0.24 * hInv, Hz = 0.95 * hInv;
+
+      const ambient = 0.12;
+      const diffuse = 1.05;
+      const specular = 0.55;
+      const shininess = 30;
+      const densityScale = 2.8;
+
+      for (let y = 0; y < h; y++) {
+        const row = y * w;
+        const rowU = (y > 0 ? y - 1 : 0) * w;
+        const rowD = (y < h - 1 ? y + 1 : h - 1) * w;
+        for (let x = 0; x < w; x++) {
+          const i = row + x;
+          const d = lum[i];
+          const i3 = i * 3;
+          const i4 = i * 4;
+          if (d < 0.002) {
+            data[i4] = 0; data[i4 + 1] = 0; data[i4 + 2] = 0; data[i4 + 3] = 0;
+            continue;
+          }
+          const xL = x > 0 ? x - 1 : 0;
+          const xR = x < w - 1 ? x + 1 : w - 1;
+
+          // Central-difference gradient of the density field (3-tap for a
+          // smoother normal than a raw one-sided difference).
+          const gx = lum[rowU + xR] + lum[row + xR] + lum[rowD + xR]
+                   - lum[rowU + xL] - lum[row + xL] - lum[rowD + xL];
+          const gy = lum[rowD + xL] + lum[rowD + x] + lum[rowD + xR]
+                   - lum[rowU + xL] - lum[rowU + x] - lum[rowU + xR];
+
+          const invN = 1 / Math.sqrt(gx * gx + gy * gy + 1);
+          const nx = -gx * invN;
+          const ny = -gy * invN;
+          const nz = invN;
+
+          let ndl = nx * lx + ny * ly + nz * lz;
+          if (ndl < 0) ndl = 0;
+          let ndh = nx * Hx + ny * Hy + nz * Hz;
+          if (ndh < 0) ndh = 0;
+          const spec = Math.pow(ndh, shininess) * specular * (1 - Math.exp(-d * 3));
+
+          // Normalized hue (colour independent of density) so pigment keeps
+          // its identity as it concentrates or thins.
+          const maxC = Math.max(dye[i3], dye[i3 + 1], dye[i3 + 2]);
+          const invMax = 1 / (maxC + 1e-5);
+          const cr = dye[i3] * invMax;
+          const cg = dye[i3 + 1] * invMax;
+          const cb = dye[i3 + 2] * invMax;
+
+          const shade = (ambient + ndl * diffuse) * densityScale;
+          // Beer–Lambert-ish tone mapping: dense dye saturates, thin wisps
+          // stay translucent — instead of the old flat additive glow.
+          const lit = 1 - Math.exp(-maxC * shade);
+          const alpha = 1 - Math.exp(-d * 3.6);
+
+          data[i4]     = Math.min(255, cr * lit * 255 + spec * 255);
+          data[i4 + 1] = Math.min(255, cg * lit * 255 + spec * 255);
+          data[i4 + 2] = Math.min(255, cb * lit * 255 + spec * 255);
+          data[i4 + 3] = alpha * 255;
+        }
       }
       off.getContext('2d').putImageData(img, 0, 0);
 
@@ -239,11 +337,22 @@ function Fluid() {
       ctx.fillStyle = bgGradRef.current || '#05070d';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      ctx.globalCompositeOperation = 'lighter';
       ctx.imageSmoothingEnabled = true;
-      ctx.drawImage(off, 0, 0, canvas.width, canvas.height);
+      ctx.imageSmoothingQuality = 'high';
 
+      // Soft bloom: a blurred additive pass under the crisp fluid gives the
+      // highlights a gentle halo, like light scattering through liquid.
+      const blur = Math.max(3, canvas.width / 200);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.3;
+      ctx.filter = `blur(${blur.toFixed(1)}px)`;
+      ctx.drawImage(off, 0, 0, canvas.width, canvas.height);
+      ctx.filter = 'none';
+      ctx.globalAlpha = 1;
+
+      // Crisp fluid pass on top.
       ctx.globalCompositeOperation = 'source-over';
+      ctx.drawImage(off, 0, 0, canvas.width, canvas.height);
     };
 
     const loop = (now) => {
@@ -255,6 +364,7 @@ function Fluid() {
       if (!pausedRef.current) {
         if (!seededRef.current) seed();
         idle();
+        source();
         solverRef.current.step();
       }
       render();
@@ -297,8 +407,9 @@ function Fluid() {
             <h1 className="fluid-title">Fluid</h1>
             <div className="fluid-underline" aria-hidden="true" />
             <p className="fluid-subtitle">
-              Click or drag across the canvas to inject glowing fluid and push it around. A real-time
-              Navier–Stokes solver runs entirely in your browser — no GPU, no server, just pixels and physics.
+              Click or drag to inject pigment and push it around. A real-time Navier–Stokes solver
+              simulates incompressible flow, then shades the density like a lit liquid surface —
+              no GPU, no server, just pixels and physics.
             </p>
             <ul className="fluid-tags" aria-label="Highlights">
               <li>Real-time</li>
@@ -363,7 +474,6 @@ function Fluid() {
                       solverRef.current.v0.fill(0);
                       solverRef.current.dye.fill(0);
                       solverRef.current.dye0.fill(0);
-                      seededRef.current = false;
                     }
                   }}
                 >
@@ -377,7 +487,8 @@ function Fluid() {
             </div>
 
             <p className="fluid-hint">
-              Drag to swirl · click to splat · pick a color to change the ink. Best with a mouse or touchscreen.
+              Drag to swirl · click to splat · pick a color to change the pigment. Watch the light catch the
+              surface as it settles. Best with a mouse or touchscreen.
             </p>
           </div>
         </div>

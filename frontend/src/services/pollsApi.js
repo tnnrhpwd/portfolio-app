@@ -32,12 +32,16 @@ function jsonHeaders() {
   return { 'Content-Type': 'application/json' };
 }
 
-/** List recent polls (active + closed). */
+/**
+ * List recent polls (active + closed) plus the weekly AI poll state.
+ * Returns the full response: { polls, weekly, generated, lastWeekResults,
+ * lastWeekHadPoll, lastWeekVotes }.
+ */
 export async function fetchPolls() {
   const res = await fetch(`${getApiBase()}polls`);
   const json = await parseJson(res);
   if (!res.ok) throw new Error(json.dataMessage || json.message || json.error || 'Failed to load polls');
-  return json.polls || [];
+  return json;
 }
 
 /** Create a new poll. Returns the created poll including its `ownerKey`. */

@@ -523,3 +523,143 @@
   color: var(--text-color-accent);
   font-size: var(--font-size-xs);
 }
+
+/* ── Treat balance ──────────────────────────────────────────── */
+.pets-detail__treats {
+  display: inline-block;
+  margin-top: calc(var(--nav-size) * 0.12);
+  padding: calc(var(--nav-size) * 0.06) calc(var(--nav-size) * 0.18);
+  border-radius: 6px;
+  background: var(--bg-mint);
+  border: 1px solid var(--border-nav);
+  font-size: var(--font-size-small);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ── Panels (tricks + challenges) ───────────────────────────── */
+.pets-panel {
+  background: var(--bg-accent);
+  border: 1px solid var(--border-nav);
+  border-radius: 8px;
+  padding: calc(var(--nav-size) * 0.3);
+  margin-bottom: calc(var(--nav-size) * 0.3);
+}
+.pets-panel__title {
+  margin: 0 0 calc(var(--nav-size) * 0.2);
+  font-size: var(--font-size-small);
+  border-bottom: 1px solid var(--border-nav);
+  padding-bottom: calc(var(--nav-size) * 0.12);
+}
+
+/* ── Tricks ─────────────────────────────────────────────────── */
+.pets-tricks {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.18);
+}
+.pets-trick {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.22);
+}
+.pets-trick__emoji {
+  font-size: calc(var(--nav-size) * 0.45);
+  line-height: 1;
+  flex-shrink: 0;
+}
+.pets-trick__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.1);
+}
+.pets-trick__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--nav-size) * 0.2);
+  font-size: var(--font-size-xs);
+}
+.pets-trick__label {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pets-trick__status {
+  color: var(--text-color-accent);
+  flex-shrink: 0;
+}
+.pets-trick__track {
+  height: calc(var(--nav-size) * 0.14);
+  border-radius: 4px;
+  background: var(--bg-page);
+  border: 1px solid var(--border-nav);
+  overflow: hidden;
+}
+.pets-trick__fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--fg-blue);
+  transition: width 0.3s ease;
+}
+.pets-trick.is-mastered .pets-trick__fill {
+  background: #22c55e;
+}
+.pets-trick__train {
+  flex-shrink: 0;
+  padding: calc(var(--nav-size) * 0.08) calc(var(--nav-size) * 0.18);
+  font-size: var(--font-size-xs);
+}
+
+/* ── Challenges ─────────────────────────────────────────────── */
+.pets-challenges {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.18);
+}
+.pets-challenge {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.1);
+}
+.pets-challenge__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--nav-size) * 0.2);
+  font-size: var(--font-size-xs);
+}
+.pets-challenge__label {
+  font-weight: 700;
+}
+.pets-challenge__reward {
+  color: var(--text-color-accent);
+  white-space: nowrap;
+}
+.pets-challenge__track {
+  height: calc(var(--nav-size) * 0.14);
+  border-radius: 4px;
+  background: var(--bg-page);
+  border: 1px solid var(--border-nav);
+  overflow: hidden;
+}
+.pets-challenge__fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--fg-orange);
+  transition: width 0.3s ease;
+}
+.pets-challenge.is-completed .pets-challenge__fill {
+  background: #22c55e;
+}
+.pets-challenge__count {
+  font-size: var(--font-size-xs);
+  color: var(--text-color-accent);
+}
+.pets-challenge.is-completed .pets-challenge__count {
+  color: #22c55e;
+  font-weight: 700;
+}

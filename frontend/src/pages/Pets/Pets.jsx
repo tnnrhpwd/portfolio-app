@@ -9,21 +9,53 @@ import './Pets.css';
 
 // ── Local constants (mirror the backend catalog for instant, offline UI) ────
 const CARE_ACTIONS = [
-  { key: 'feed', label: 'Feed', emoji: '🍖' },
-  { key: 'play', label: 'Play', emoji: '🎾' },
-  { key: 'groom', label: 'Groom', emoji: '🛁' },
-  { key: 'rest', label: 'Rest', emoji: '😴' },
-  { key: 'heal', label: 'Vet', emoji: '💊' },
+  { key: 'feed', label: 'Feed', emoji: '🍖', hint: 'Feed your pet to fill its hunger' },
+  { key: 'play', label: 'Play', emoji: '🎾', hint: 'Play to boost happiness (costs a little energy)' },
+  { key: 'walk', label: 'Walk', emoji: '🚶', hint: 'Go for a walk — you never know what you might find' },
+  { key: 'groom', label: 'Groom', emoji: '🛁', hint: 'Bathe and groom your pet to restore cleanliness' },
+  { key: 'rest', label: 'Rest', emoji: '😴', hint: 'Let your pet sleep to restore energy' },
+  { key: 'heal', label: 'Vet', emoji: '💊', hint: 'Visit the vet to restore health' },
 ];
+
+const TREAT_COST = 5; // mirrors backend TREAT_COST / TRAIN_COST
+
+const TRICK_META = [
+  { id: 'sit', label: 'Sit', emoji: '🪑' },
+  { id: 'shake', label: 'Shake', emoji: '🤝' },
+  { id: 'roll', label: 'Roll Over', emoji: '🌀' },
+  { id: 'fetch', label: 'Fetch', emoji: '🎾' },
+  { id: 'highfive', label: 'High Five', emoji: '✋' },
+];
+
+const ACTION_META = {
+  feed: { label: 'Fed', emoji: '🍖' },
+  play: { label: 'Played', emoji: '🎾' },
+  walk: { label: 'Walked', emoji: '🚶' },
+  groom: { label: 'Groomed', emoji: '🛁' },
+  rest: { label: 'Rested', emoji: '😴' },
+  heal: { label: 'Vet visit', emoji: '💊' },
+  treat: { label: 'Treat', emoji: '🍪' },
+};
+
+/** Map a care-log action key (e.g. "train:sit") to a display label + emoji. */
+function actionMeta(action) {
+  if (typeof action === 'string' && action.startsWith('train:')) {
+    const id = action.slice('train:'.length);
+    const trick = TRICK_META.find((t) => t.id === id);
+    return { label: `Trained ${trick ? trick.label : id}`, emoji: trick ? trick.emoji : '🎓' };
+  }
+  return ACTION_META[action] || { label: action, emoji: '🐾' };
+}
 
 const POLL_INTERVAL_MS = 30000; // refresh decayed stats every 30s
 
 const STAT_META = [
-  { key: 'hunger', label: 'Fullness', emoji: '🍽️' },
-  { key: 'happiness', label: 'Happiness', emoji: '😊' },
-  { key: 'energy', label: 'Energy', emoji: '⚡' },
-  { key: 'cleanliness', label: 'Cleanliness', emoji: '✨' },
-  { key: 'health', label: 'Health', emoji: '❤️' },
+  { key: 'hunger', label: 'Fullness', emoji: '🍽️', hint: 'Fullness — how well-fed your pet is. Feed to raise it; it drops over time.' },
+  { key: 'happiness', label: 'Happiness', emoji: '😊', hint: 'Happiness — your pet\'s mood. Play and treats raise it; neglect lowers it.' },
+  { key: 'energy', label: 'Energy', emoji: '⚡', hint: 'Energy — how rested your pet is. Rest to restore it; activity drains it.' },
+  { key: 'cleanliness', label: 'Cleanliness', emoji: '✨', hint: 'Cleanliness — how clean your pet is. Groom to raise it; it drops over time.' },
+  { key: 'health', label: 'Health', emoji: '❤️', hint: 'Health — your pet\'s overall wellbeing. Drops when needs are ignored, recovers when they\'re met.' },
+  { key: 'bond', label: 'Bond', emoji: '🤝', hint: 'Bond — your friendship level. It grows every time you interact with your pet.' },
 ];
 
 /** Human-friendly age string from an ISO timestamp. */
@@ -56,26 +88,27 @@ function statColor(value) {
 
 // ── Small presentational pieces ──────────────────────────────────────────────
 
-function StatBar({ label, emoji, value }) {
-  const tone = statColor(value);
+function StatBar({ label, emoji, value, hint }) {
+  const val = Number.isFinite(value) ? value : 0;
+  const tone = statColor(val);
   return (
-    <div className="pets-stat">
+    <div className="pets-stat" title={hint}>
       <div className="pets-stat__top">
         <span className="pets-stat__label">
           <span className="pets-stat__emoji" aria-hidden="true">{emoji}</span>
           <span>{label}</span>
         </span>
-        <span className="pets-stat__value">{Math.round(value)}</span>
+        <span className="pets-stat__value">{Math.round(val)}</span>
       </div>
       <div
         className={`pets-stat__track pets-stat__track--${tone}`}
         role="progressbar"
-        aria-valuenow={Math.round(value)}
+        aria-valuenow={Math.round(val)}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-label={`${label}: ${Math.round(value)}%`}
+        aria-label={`${label}: ${Math.round(val)}%`}
       >
-        <div className="pets-stat__fill" style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
+        <div className="pets-stat__fill" style={{ width: `${Math.min(100, Math.max(0, val))}%` }} />
       </div>
     </div>
   );
@@ -161,11 +194,26 @@ function Pets() {
   }, [adoptSpecies, adoptName, token, loadPets]);
 
   const handleAction = useCallback(
-    async (pet, action) => {
+    async (pet, action, extra = {}) => {
       setBusyAction(action);
       try {
-        const updated = await petsApi.petAction(token, pet._id, action);
+        const updated = await petsApi.petAction(token, pet._id, action, extra);
         setPets((prev) => prev.map((p) => (p._id === updated._id ? updated : p)));
+
+        if (updated.walkEvent) {
+          toast.info(
+            `${pet.emoji} ${pet.name} ${updated.walkEvent.label}` +
+              (updated.walkEvent.treats ? ` (+${updated.walkEvent.treats} treats)` : ''),
+            { autoClose: 4500 }
+          );
+        }
+        if (updated.newlyCompleted?.length) {
+          toast.success('🎯 Daily challenge complete!');
+        }
+        if (action === 'train' && extra.trickId) {
+          const trick = updated.tricks?.find((t) => t.id === extra.trickId);
+          if (trick?.mastered) toast.success(`${pet.name} mastered “${trick.label}”! 🎓`);
+        }
       } catch (err) {
         toast.error(err.message || 'Action failed');
       } finally {
@@ -269,6 +317,7 @@ function Pets() {
               type="button"
               className="pets-btn pets-btn--primary"
               onClick={() => setShowAdopt(true)}
+              title="Choose a species and name to adopt a pet"
             >
               🐾 Adopt a pet
             </button>
@@ -298,6 +347,7 @@ function Pets() {
                       className={`pets-species-card ${adoptSpecies === s.key ? 'is-selected' : ''}`}
                       onClick={() => setAdoptSpecies(s.key)}
                       aria-pressed={adoptSpecies === s.key}
+                      title={`Adopt a ${s.label}`}
                     >
                       <span className="pets-species-card__emoji" aria-hidden="true">{s.emoji}</span>
                       <span className="pets-species-card__label">{s.label}</span>
@@ -361,6 +411,7 @@ function Pets() {
               type="button"
               className="pets-btn pets-btn--primary"
               onClick={() => setShowAdopt(true)}
+              title="Adopt another pet into your family"
             >
               🐾 Adopt another
             </button>
@@ -403,7 +454,9 @@ function Pets() {
                     {selectedPet.moodMeta?.emoji} {selectedPet.moodMeta?.label}
                   </p>
                   <p className="pets-detail__meta">
-                    {selectedPet.speciesLabel} · {formatAge(selectedPet.bornAt)}
+                    {[selectedPet.speciesLabel, selectedPet.stageLabel, formatAge(selectedPet.bornAt)]
+                      .filter(Boolean)
+                      .join(' · ')}
                   </p>
                 </div>
                 <div className="pets-detail__level">
@@ -419,6 +472,13 @@ function Pets() {
                       style={{ width: `${(selectedPet.xpIntoLevel / selectedPet.xpForLevel) * 100}%` }}
                     />
                   </div>
+                  <span
+                    className="pets-detail__treats"
+                    title="Treats are your in-game currency. Earn +2 every time you Feed, Play, Walk, Groom, or Rest your pet — plus more from walks and daily challenges. Spend them on snacks and training."
+                    aria-label={`${selectedPet.treats || 0} treats. Earn more by feeding, playing, walking, grooming, or resting your pet.`}
+                  >
+                    🍪 {selectedPet.treats || 0}
+                  </span>
                 </div>
               </div>
 
@@ -431,6 +491,7 @@ function Pets() {
                         label={s.label}
                         emoji={s.emoji}
                         value={selectedPet.stats[s.key]}
+                        hint={s.hint}
                       />
                     ))}
                   </div>
@@ -443,11 +504,88 @@ function Pets() {
                         className="pets-action-btn"
                         onClick={() => handleAction(selectedPet, a.key)}
                         disabled={busyAction !== null}
+                        title={a.hint}
+                        aria-label={a.hint}
                       >
                         <span className="pets-action-btn__emoji" aria-hidden="true">{a.emoji}</span>
                         <span>{a.label}</span>
                       </button>
                     ))}
+                    <button
+                      type="button"
+                      className="pets-action-btn"
+                      onClick={() => handleAction(selectedPet, 'treat')}
+                      disabled={busyAction !== null || (selectedPet.treats || 0) < TREAT_COST}
+                      title={`Give a treat snack (−${TREAT_COST} treats) to boost happiness and bond`}
+                      aria-label={`Give a treat snack for ${TREAT_COST} treats`}
+                    >
+                      <span className="pets-action-btn__emoji" aria-hidden="true">🍪</span>
+                      <span>Treat (−{TREAT_COST})</span>
+                    </button>
+                  </div>
+
+                  <div className="pets-panel">
+                    <h3 className="pets-panel__title">Tricks</h3>
+                    <div className="pets-tricks">
+                      {(selectedPet.tricks || []).map((t) => (
+                        <div key={t.id} className={`pets-trick ${t.mastered ? 'is-mastered' : ''}`}>
+                          <span className="pets-trick__emoji" aria-hidden="true">{t.emoji}</span>
+                          <div className="pets-trick__body">
+                            <div className="pets-trick__top">
+                              <span className="pets-trick__label">{t.label}</span>
+                              <span className="pets-trick__status">{t.mastered ? 'Mastered' : `${t.progress}%`}</span>
+                            </div>
+                            <div
+                              className="pets-trick__track"
+                              role="progressbar"
+                              aria-valuenow={t.progress}
+                              aria-valuemin={0}
+                              aria-valuemax={100}
+                              aria-label={`${t.label} progress ${t.progress}%`}
+                            >
+                              <div className="pets-trick__fill" style={{ width: `${t.progress}%` }} />
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="pets-btn pets-btn--ghost pets-trick__train"
+                            onClick={() => handleAction(selectedPet, 'train', { trickId: t.id })}
+                            disabled={busyAction !== null || t.mastered || (selectedPet.treats || 0) < TREAT_COST}
+                            title={t.mastered ? `${t.label} mastered` : `Practice ${t.label} (−${TREAT_COST} treats)`}
+                            aria-label={t.mastered ? `${t.label} mastered` : `Practice ${t.label}`}
+                          >
+                            {t.mastered ? '✓' : 'Train'}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="pets-panel">
+                    <h3 className="pets-panel__title">Daily challenges</h3>
+                    <div className="pets-challenges">
+                      {(selectedPet.challenges || []).map((c) => (
+                        <div key={c.id} className={`pets-challenge ${c.completed ? 'is-completed' : ''}`}>
+                          <div className="pets-challenge__top">
+                            <span className="pets-challenge__label">{c.label}</span>
+                            <span className="pets-challenge__reward">+{c.reward.treats} 🍪</span>
+                          </div>
+                          <div
+                            className="pets-challenge__track"
+                            role="progressbar"
+                            aria-valuenow={c.progress}
+                            aria-valuemin={0}
+                            aria-valuemax={c.target}
+                            aria-label={`${c.label}: ${c.progress} of ${c.target}`}
+                          >
+                            <div className="pets-challenge__fill" style={{ width: `${(c.progress / c.target) * 100}%` }} />
+                          </div>
+                          <span className="pets-challenge__count">
+                            {c.completed ? '✓ Done' : `${c.progress}/${c.target}`}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
                   {selectedPet.mood === 'sick' || selectedPet.mood === 'critical' ? (
@@ -471,6 +609,8 @@ function Pets() {
                         className="pets-action-btn"
                         onClick={() => handleAction(selectedPet, 'revive')}
                         disabled={busyAction !== null || selectedPet.reviveCount >= 3}
+                        title="Bring your pet back to life (uses one of 3 lives)"
+                        aria-label="Revive this pet"
                       >
                         <span className="pets-action-btn__emoji" aria-hidden="true">💖</span>
                         <span>Revive</span>
@@ -479,6 +619,8 @@ function Pets() {
                         type="button"
                         className="pets-action-btn pets-action-btn--danger"
                         onClick={() => handleRelease(selectedPet)}
+                        title="Permanently release this pet — this cannot be undone"
+                        aria-label="Release this pet"
                       >
                         <span className="pets-action-btn__emoji" aria-hidden="true">🕊️</span>
                         <span>Release</span>
@@ -492,17 +634,16 @@ function Pets() {
                 <div className="pets-carelog">
                   <h3>Recent care</h3>
                   <ul>
-                    {selectedPet.careLog.slice(0, 6).map((entry, i) => (
-                      <li key={i}>
-                        <span className="pets-carelog__icon" aria-hidden="true">
-                          {CARE_ACTIONS.find((a) => a.key === entry.action)?.emoji || '🐾'}
-                        </span>
-                        <span className="pets-carelog__action">
-                          {CARE_ACTIONS.find((a) => a.key === entry.action)?.label || entry.action}
-                        </span>
-                        <span className="pets-carelog__time">{formatLogTime(entry.at)}</span>
-                      </li>
-                    ))}
+                    {selectedPet.careLog.slice(0, 8).map((entry, i) => {
+                      const meta = actionMeta(entry.action);
+                      return (
+                        <li key={i}>
+                          <span className="pets-carelog__icon" aria-hidden="true">{meta.emoji}</span>
+                          <span className="pets-carelog__action">{meta.label}</span>
+                          <span className="pets-carelog__time">{formatLogTime(entry.at)}</span>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               )}

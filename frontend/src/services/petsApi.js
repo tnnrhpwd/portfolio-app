@@ -58,12 +58,12 @@ export async function fetchPet(token, petId) {
   return json.pet;
 }
 
-/** Perform a care action (feed / play / groom / rest / heal / revive). */
-export async function petAction(token, petId, action) {
+/** Perform a care action (feed / play / groom / rest / heal / walk / treat / train / revive). */
+export async function petAction(token, petId, action, extra = {}) {
   const res = await fetch(`${getApiBase()}pets/${encodeURIComponent(petId)}/action`, {
     method: 'POST',
     headers: headers(token),
-    body: JSON.stringify({ action }),
+    body: JSON.stringify({ action, ...extra }),
   });
   const json = await parseJson(res);
   if (!res.ok) throw new Error(json.message || json.error || 'Failed to update pet');

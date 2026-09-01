@@ -78,7 +78,9 @@ const doAction = asyncHandler(async (req, res) => {
     throw new Error('An action is required');
   }
 
-  const pet = await performAction(req.user.id, req.params.petId, action.trim().toLowerCase());
+  const pet = await performAction(req.user.id, req.params.petId, action.trim().toLowerCase(), {
+    trickId: req.body?.trickId,
+  });
   res.status(200).json({ success: true, pet });
 });
 

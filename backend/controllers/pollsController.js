@@ -17,6 +17,7 @@ const {
   votePoll,
   closePoll,
   deletePoll,
+  ensureWeeklyAiPoll,
 } = require('../services/pollsService');
 
 function fail(res, statusCode, message) {
@@ -28,8 +29,11 @@ function fail(res, statusCode, message) {
 // @route   GET /api/data/polls
 // @access  Public
 const getPolls = asyncHandler(async (req, res) => {
+  // Lazy generation: a new weekly AI poll is only made while a visitor is
+  // actually here (no cron). This also resolves last week's results.
+  const weekly = await ensureWeeklyAiPoll();
   const polls = await listPolls();
-  res.status(200).json({ success: true, polls });
+  res.status(200).json({ success: true, polls, ...weekly });
 });
 
 // @desc    Create a new poll

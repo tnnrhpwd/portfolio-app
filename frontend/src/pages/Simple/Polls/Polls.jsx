@@ -342,6 +342,11 @@ function Polls() {
   const [ownerKeys, setOwnerKeys] = useState({});
   const [highlightId, setHighlightId] = useState(null);
   const [now, setNow] = useState(Date.now());
+  const [weekly, setWeekly] = useState(null);
+  const [weeklyLabel, setWeeklyLabel] = useState('');
+  const [lastWeekResults, setLastWeekResults] = useState(null);
+  const [lastWeekHadPoll, setLastWeekHadPoll] = useState(false);
+  const [lastWeekVotes, setLastWeekVotes] = useState(0);
   const [searchParams] = useSearchParams();
 
   const voterId = useMemo(getVoterId, []);
@@ -353,16 +358,23 @@ function Polls() {
       try {
         const data = await fetchPolls();
         if (cancelled) return;
-        setPolls(data);
+        setPolls(data.polls || []);
+        setWeekly(data.weekly || null);
+        setWeeklyLabel(data.weeklyLabel || '');
+        setLastWeekResults(data.lastWeekResults || null);
+        setLastWeekHadPoll(!!data.lastWeekHadPoll);
+        setLastWeekVotes(data.lastWeekVotes || 0);
 
         const votedMap = {};
         const ownerMap = {};
-        data.forEach((p) => {
-          const v = getVotedOption(p._id);
-          if (v != null) votedMap[p._id] = v;
-          const o = getOwnerKey(p._id);
-          if (o) ownerMap[p._id] = o;
-        });
+        [data.weekly, data.lastWeekResults, ...(data.polls || [])]
+          .filter(Boolean)
+          .forEach((p) => {
+            const v = getVotedOption(p._id);
+            if (v != null) votedMap[p._id] = v;
+            const o = getOwnerKey(p._id);
+            if (o) ownerMap[p._id] = o;
+          });
         setVoted(votedMap);
         setOwnerKeys(ownerMap);
       } catch (e) {
@@ -393,8 +405,21 @@ function Polls() {
     }
   }, [pollParam, loading]);
 
-  const activePolls = useMemo(() => polls.filter((p) => !p.closed), [polls]);
-  const closedPolls = useMemo(() => polls.filter((p) => p.closed), [polls]);
+  const featuredIds = useMemo(() => {
+    const ids = new Set();
+    if (weekly) ids.add(weekly._id);
+    if (lastWeekResults) ids.add(lastWeekResults._id);
+    return ids;
+  }, [weekly, lastWeekResults]);
+
+  const activePolls = useMemo(
+    () => polls.filter((p) => !p.closed && !featuredIds.has(p._id)),
+    [polls, featuredIds],
+  );
+  const closedPolls = useMemo(
+    () => polls.filter((p) => p.closed && !featuredIds.has(p._id)),
+    [polls, featuredIds],
+  );
 
   const handleVote = async (poll, optionIndex) => {
     if (voted[poll._id] != null) return;
@@ -402,6 +427,8 @@ function Polls() {
     try {
       const updated = await votePoll(poll._id, optionIndex, voterId);
       setPolls((prev) => prev.map((p) => (p._id === updated._id ? updated : p)));
+      setWeekly((prev) => (prev && prev._id === updated._id ? updated : prev));
+      setLastWeekResults((prev) => (prev && prev._id === updated._id ? updated : prev));
       setVotedOption(poll._id, optionIndex);
       setVoted((prev) => ({ ...prev, [poll._id]: optionIndex }));
       toast.success('Vote recorded!');
@@ -496,6 +523,64 @@ function Polls() {
 
           {showForm && (
             <CreatePollForm onSubmit={handleCreate} submitting={submitting} />
+          )}
+
+          {!loading && !error && (
+            <section className="polls-section polls-section--weekly">
+              <h2 className="polls-section__title">
+                <span className="polls-weekly-badge">🤖 AI Poll of the Week</span>
+                {weeklyLabel && <span className="polls-weekly-range">{weeklyLabel}</span>}
+              </h2>
+              {weekly ? (
+                <div className="polls-grid">
+                  <PollCard
+                    poll={weekly}
+                    votedOption={voted[weekly._id] ?? null}
+                    ownerKey={ownerKeys[weekly._id] || null}
+                    busy={busyPollId === weekly._id}
+                    highlight={highlightId === weekly._id}
+                    now={now}
+                    onVote={handleVote}
+                    onClose={handleClose}
+                    onDelete={handleDelete}
+                  />
+                </div>
+              ) : (
+                <div className="polls-weekly-note">
+                  The AI is hungover this week. Check back later — or just make your own poll below.
+                </div>
+              )}
+            </section>
+          )}
+
+          {!loading && !error && lastWeekHadPoll && (
+            <section className="polls-section polls-section--verdict">
+              <h2 className="polls-section__title">
+                <span className="polls-weekly-badge polls-weekly-badge--verdict">
+                  📉 Last Week's Verdict
+                </span>
+              </h2>
+              {lastWeekResults ? (
+                <div className="polls-grid">
+                  <PollCard
+                    poll={lastWeekResults}
+                    votedOption={voted[lastWeekResults._id] ?? null}
+                    ownerKey={ownerKeys[lastWeekResults._id] || null}
+                    busy={false}
+                    highlight={highlightId === lastWeekResults._id}
+                    now={now}
+                    onVote={handleVote}
+                    onClose={handleClose}
+                    onDelete={handleDelete}
+                  />
+                </div>
+              ) : (
+                <div className="polls-weekly-note">
+                  Last week's AI poll got {lastWeekVotes} vote{lastWeekVotes === 1 ? '' : 's'}.
+                  Not enough of you showed up — the AI is taking it personally.
+                </div>
+              )}
+            </section>
           )}
 
           {loading && (
