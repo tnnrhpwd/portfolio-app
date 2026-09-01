@@ -26,13 +26,16 @@ const ForgotPassword = lazy(() => import('./pages/ForgotPassword/ForgotPassword.
 const Game2048 = lazy(() => import('./pages/Projects/Game2048/Game2048'));
 const GFreq = lazy(() => import('./pages/Projects/GFreq/GFreq'));
 const Halfway = lazy(() => import('./pages/Projects/Halfway/Halfway'));
+const Hype = lazy(() => import('./pages/Hype/Hype'));
 const IQTest = lazy(() => import('./pages/Projects/IQTest/IQTest'));
 const Muse = lazy(() => import('./pages/Muse/Muse'));
 const PassGen = lazy(() => import('./pages/Projects/PassGen/PassGen'));
 const Pets = lazy(() => import('./pages/Pets/Pets'));
+const Projects = lazy(() => import('./pages/Projects/Projects/Projects.jsx'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword/ResetPassword.jsx'));
 const SleepAssist = lazy(() => import('./pages/Projects/SleepAssist/SleepAssist'));
 const Sonic = lazy(() => import('./pages/Projects/Sonic/Sonic'));
+const TypeTest = lazy(() => import('./pages/TypeTest/TypeTest'));
 const Wordle = lazy(() => import('./pages/Projects/Wordle/Wordle'));
 const WordleSolver = lazy(() => import('./pages/Projects/WordleSolver/WordleSolver'));
 const Login = lazy(() => import('./pages/Login/Login.jsx'));
@@ -107,6 +110,7 @@ function App() {
               <Route path="/2048" element={<Game2048/>} />
               <Route path="/GFreq" element={<GFreq/>} />
               <Route path="/halfway" element={<Halfway/>} />
+              <Route path='/hype' element={<Hype />} />
               <Route path="/iq" element={<IQTest/>} />
               <Route path='/login' element={<Login />} />
               <Route path='/muse' element={<Muse />} />
@@ -115,6 +119,7 @@ function App() {
               <Route path='/payment-success' element={<PaymentSuccess />} />
               <Route path="/passgen" element={<PassGen/>} />
               <Route path="/pets" element={<Pets/>} />
+              <Route path='/projects' element={<Projects />} />
               <Route path='/plans' element={<Plans />} />
               <Route path='/plans/goal/:id' element={<GoalDetail />} />
               <Route path='/polls' element={<Polls />} />
@@ -127,7 +132,8 @@ function App() {
               <Route path="/sleepassist" element={<SleepAssist/>} />
               <Route path="/sonic" element={<Sonic/>} />
               <Route path='/support' element={<Support />} />
-              <Route path='/terms' element={<Terms />} />
+              <Route path='/type' element={<TypeTest/>} />
+              <Route path="/terms" element={<Terms />} />
               <Route path="/wordle" element={<Wordle/>} />
               <Route path="/wordlesolver" element={<WordleSolver/>} />
               <Route path="*" element={<NotFound />} />

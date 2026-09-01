@@ -18,6 +18,13 @@ function HeaderDropper(props) {
   const toggleButtonRef = useRef(null);
   const insideComponentRef = useRef(null);
 
+  // Same hardcoded admin id used to gate the /admin page — the girlfriend's
+  // account nickname (case-insensitive) also unlocks the /muse link.
+  const isMuseVisitor = !!user && (
+    (user._id && user._id.toString() === '6770a067c725cbceab958619')
+    || String(user.nickname || '').trim().toLowerCase() === 'girlfriend'
+  );
+
   // Show animation only once on homepage load
   useEffect(() => {
     if (window.location.pathname === '/') {
@@ -67,29 +74,24 @@ function HeaderDropper(props) {
         
         {/* Core Information */}
         <a className='planit-header-dropper-pagelink' href='/about'>◽About</a>
+        <a className='planit-header-dropper-pagelink' href='/privacy'>◽Privacy</a>
+        <a className='planit-header-dropper-pagelink' href='/terms'>◽TOS</a>
         <a className='planit-header-dropper-pagelink' href='/support'>◽Support</a>
         
-        {/* Tools & Games */}
-        <a className='planit-header-dropper-pagelink' href='/iq'>◽IQ Test</a>
-        <a className='planit-header-dropper-pagelink' href='/annuities'>◽Annuities</a>
-        <a className='planit-header-dropper-pagelink' href='/wordle'>◽Wordle</a>
-        <a className='planit-header-dropper-pagelink' href='/2048'>◽2048</a>
-        <a className='planit-header-dropper-pagelink' href='/fluid'>◽Fluid</a>
-        <a className='planit-header-dropper-pagelink' href='/pets'>◽Pets</a>
-        <a className='planit-header-dropper-pagelink' href='/polls'>◽Polls</a>
+        {/* Member tools */}
+        {user && <a className='planit-header-dropper-pagelink' href='/net'>◽Net</a>}
         {user && <a className='planit-header-dropper-pagelink' href='/plans'>◽Plans</a>}
         
-        {/* Utilities & Tools */}
-        {user && (
-          <>
-            {/* <a className='planit-header-dropper-pagelink' href='/passgen'>◽Passwords</a> */}
-            <a className='planit-header-dropper-pagelink' href='/net'>◽Net</a>
-          </>
-        )}
+        {/* Projects hub */}
+        <a className='planit-header-dropper-pagelink' href='/projects'>◽Projects</a>
         
         {/* Admin (Special Access) */}
         {(user && user._id && user._id.toString() === '6770a067c725cbceab958619') && 
           <a className='planit-header-dropper-pagelink' href='/admin'>◽Admin</a>}
+
+        {/* Muse (Girlfriend + Admin Only) */}
+        {isMuseVisitor && 
+          <a className='planit-header-dropper-pagelink' href='/muse'>◽Muse 💕</a>}
       </ul>
     </div>
   )

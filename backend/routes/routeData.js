@@ -157,6 +157,11 @@ const {
   deletePoll,
 } = require('../controllers/pollsController');
 
+// Hype controller (public — LLM motivational quotes for /hype)
+const {
+  generateHypeQuote,
+} = require('../controllers/hypeController');
+
 // Configure multer for memory storage (or disk storage if preferred)
 const storage = multer.memoryStorage();
 const upload = multer({ 
@@ -279,6 +284,9 @@ router.route('/public/:id')
 // Membership & LLM Info
 router.get('/membership-pricing', getMembershipPricing);
 router.get('/llm-providers', getLLMProviders);
+
+// Hype — public motivational quote generator (LLM-backed, IP rate-limited)
+router.post('/hype/quote', llmLimiter, sanitizeInput, generateHypeQuote);
 
 // Web Vitals (analytics beacon — public, fire-and-forget).
 // NOTE: apiLimiter is already applied globally in server.js for every /api/

@@ -10,22 +10,15 @@ import './Home.css';
 const links = {
     about: "/about",
     net: "/net",
-    agenda: "/agenda",
     admin: "/admin",
-    iq: "/iq",
     muse: "/muse",
-    passgen: "/passgen",
-    annuities: "/annuities",
-    sonic: "/sonic",
-    wordle: "/wordle",
-    game2048: "/2048",
-    fluid: "/fluid",
-    pets: "/pets",
-    polls: "/polls",
     plans: "/plans",
     login: "/login",
     profile: "/profile",
     support: "/support",
+    privacy: "/privacy",
+    terms: "/terms",
+    projects: "/projects",
 };
 
 // Same hardcoded admin id used to gate the /admin page — the girlfriend's
@@ -165,64 +158,49 @@ function Home() {
                             <a className="home-spc-tool animate-in" href={links.about} style={{animationDelay: '0.1s'}}>
                                 <div className="home-spc-tool-text">{links.about}</div>
                             </a>
-                            <a className="home-spc-tool animate-in" href={links.support} style={{animationDelay: '0.15s'}}>
+                            <a className="home-spc-tool animate-in" href={links.privacy} style={{animationDelay: '0.14s'}}>
+                                <div className="home-spc-tool-text">{links.privacy}</div>
+                            </a>
+                            <a className="home-spc-tool animate-in" href={links.terms} style={{animationDelay: '0.18s'}}>
+                                <div className="home-spc-tool-text">{links.terms}</div>
+                            </a>
+                            <a className="home-spc-tool animate-in" href={links.support} style={{animationDelay: '0.22s'}}>
                                 <div className="home-spc-tool-text">{links.support}</div>
                             </a>
                             
-                            {/* Tools & Games */}
-                            <a className="home-spc-tool animate-in" href={links.iq} style={{animationDelay: '0.2s'}}>
-                                <div className="home-spc-tool-text">{links.iq}</div>
-                            </a>
-                            <a className="home-spc-tool animate-in" href={links.annuities} style={{animationDelay: '0.25s'}}>
-                                <div className="home-spc-tool-text">{links.annuities}</div>
-                            </a>
+                            {/* Member tools */}
                             {user && 
-                                <a className="home-spc-tool animate-in" href={links.plans} style={{animationDelay: '0.25s'}}>
+                                <a className="home-spc-tool animate-in" href={links.net} style={{animationDelay: '0.26s'}}>
+                                    <div className="home-spc-tool-text">{links.net}</div>
+                                </a>
+                            }
+                            {user && 
+                                <a className="home-spc-tool animate-in" href={links.plans} style={{animationDelay: '0.3s'}}>
                                     <div className="home-spc-tool-text">{links.plans}</div>
                                 </a>
                             }
-                            <a className="home-spc-tool animate-in" href={links.wordle} style={{animationDelay: '0.3s'}}>
-                                <div className="home-spc-tool-text">{links.wordle}</div>
-                            </a>
-                            <a className="home-spc-tool animate-in" href={links.game2048} style={{animationDelay: '0.32s'}}>
-                                <div className="home-spc-tool-text">{links.game2048}</div>
-                            </a>
-                            <a className="home-spc-tool animate-in" href={links.fluid} style={{animationDelay: '0.34s'}}>
-                                <div className="home-spc-tool-text">{links.fluid}</div>
-                            </a>
-                            <a className="home-spc-tool animate-in" href={links.pets} style={{animationDelay: '0.36s'}}>
-                                <div className="home-spc-tool-text">{links.pets}</div>
-                            </a>
-                            <a className="home-spc-tool animate-in" href={links.polls} style={{animationDelay: '0.38s'}}>
-                                <div className="home-spc-tool-text">{links.polls}</div>
-                            </a>
-                            
-                            {/* Utilities & Tools */}
-                            {user && <>
-                                {/* <a className="home-spc-tool animate-in" href={links.passgen} style={{animationDelay: '0.35s'}}>
-                                    <div className="home-spc-tool-text">{links.passgen}</div>
-                                </a> */}
-                                <a className="home-spc-tool animate-in" href={links.net} style={{animationDelay: '0.35s'}}>
-                                    <div className="home-spc-tool-text">{links.net}</div>
-                                </a>
-                            </>}
                             
                             {/* Account (Profile if logged in, else Login) */}
-                            <a className="home-spc-tool animate-in" href={user ? links.profile : links.login} style={{animationDelay: '0.4s'}}>
+                            <a className="home-spc-tool animate-in" href={user ? links.profile : links.login} style={{animationDelay: '0.34s'}}>
                                 <div className="home-spc-tool-text home-spc-tool-text--account">{user ? links.profile : links.login}</div>
                             </a>
 
                             {/* Admin (Special Access) */}
                             {(user && user._id && user._id.toString() === '6770a067c725cbceab958619') && 
-                                <a className="home-spc-tool animate-in" href={links.admin} style={{animationDelay: '0.45s'}}>
+                                <a className="home-spc-tool animate-in" href={links.admin} style={{animationDelay: '0.38s'}}>
                                     <div className="home-spc-tool-text">{links.admin}</div>
                                 </a>}
 
                             {/* Muse (Girlfriend + Admin Only) */}
                             {isMuseVisitor &&
-                                <a className="home-spc-tool animate-in" href={links.muse} style={{animationDelay: '0.5s'}}>
+                                <a className="home-spc-tool animate-in" href={links.muse} style={{animationDelay: '0.42s'}}>
                                     <div className="home-spc-tool-text">{links.muse} 💕</div>
                                 </a>}
+
+                            {/* Projects */}
+                            <a className="home-spc-tool animate-in" href={links.projects} style={{animationDelay: '0.46s'}}>
+                                <div className="home-spc-tool-text">{links.projects}</div>
+                            </a>
                         </div>
                     </div>
                 </section>
