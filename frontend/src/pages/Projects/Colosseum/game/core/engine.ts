@@ -34,7 +34,8 @@ const EMPTY_LOADOUT: Loadout = {
 export interface CreateFighterOptions {
   id?: string;
   name?: string;
-  style?: StyleKey;
+  /** Any string is accepted; unknown values fall back to the default style. */
+  style?: string;
   level?: number;
 }
 

@@ -38,8 +38,10 @@ export default defineConfig({
     svgr(), // enables: import { ReactComponent as X } from './icon.svg'
   ],
   esbuild: {
-    loader: 'jsx',
-    include: /src\/.*\.jsx?$/,
+    // `tsx` parses both TypeScript (strips types) and JSX (used by .js files
+    // that contain JSX, which the React plugin leaves to esbuild in builds).
+    loader: 'tsx',
+    include: /src\/.*\.(jsx?|tsx?)$/,
     exclude: [],
   },
   optimizeDeps: {

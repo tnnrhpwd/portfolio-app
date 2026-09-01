@@ -36,7 +36,8 @@
     "start": "vite",
     "build": "vite build && node scripts/generate-sitemap.js",
     "preview": "vite preview",
-    "test": "jest"
+    "test": "jest",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@babel/core": "^7.23.0",

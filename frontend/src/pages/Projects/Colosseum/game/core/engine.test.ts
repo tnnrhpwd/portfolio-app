@@ -96,9 +96,12 @@ describe('armor', () => {
     expect(result.toFlesh).toBe(0);
     expect(zone.hp).toBe(50);
 
-    const second = applyZoneDamage(zone, 30); // remaining effective armor = 5
-    expect(second.toFlesh).toBe(30 - zone.armor * 2);
-    expect(zone.hp).toBeLessThan(50);
+    // After the first hit, 2 displayed armor remains → 4 effective in combat.
+    const second = applyZoneDamage(zone, 30);
+    expect(second.absorbed).toBe(4);
+    expect(second.toFlesh).toBe(26);
+    expect(zone.armor).toBe(0);
+    expect(zone.hp).toBe(24);
   });
 });
 
