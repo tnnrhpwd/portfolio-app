@@ -1,77 +1,356 @@
-.sleepassist{
-    font-family: 'Times New Roman', Times, serif;
-    padding-top: calc(var(--nav-size)*1);
-    background-color: var(--bg);
-    color: var(--text-color);
-    text-align: center;
-    min-height: 140vh;
-}
-.sleepassist-title{
-    margin: 0;
-    font-size: calc(var(--nav-size)*.5);
-}
-.sleepassist-description{
-    padding-left: calc(var(--nav-size)*.75);
-    padding-right: calc(var(--nav-size)*.75);
-    margin-bottom: calc(var(--nav-size)*.5);
-    font-size: calc(var(--nav-size)*.2);
-}
-.sleepassist-col1{
-    text-align: center;
-    vertical-align: top;
-    display: inline-block;
-    width: min(calc(var(--nav-size)*7),100%);
-    margin-bottom: calc(var(--nav-size)*.2);
-    /* padding: calc(var(--nav-size)*.5); */
-}
-#sleepassist-calculator-input{
-    padding: calc(var(--nav-size)*.125);
-    border-radius: calc(var(--nav-size)*.07);
-    border:  calc(var(--nav-size)*.1) var(--text-color);
-    text-align: center;;
-    font-size: calc(var(--nav-size)*.2);
-    margin-bottom: calc(var(--nav-size)*.1);
-} 
-#sleepassist-calculator-submit{
-    padding: calc(var(--nav-size)*.15) calc(var(--nav-size)*.3);
-    border-radius: calc(var(--nav-size)*.1);
-    background-color: #3498db;
-    color: white;
-    border: none;
-    font-size: calc(var(--nav-size)*.2);
-    cursor: pointer;
-}
-#sleepassist-calculator-output{
-    padding: calc(var(--nav-size)*.5);
-    font-size: calc(var(--nav-size)*.3);
-}
-#sleepassist-sourcecode{
-    margin-top: calc(var(--nav-size)*.45);
-    margin-bottom: calc(var(--nav-size)*.45);
-    vertical-align: bottom;
-    height: calc(var(--nav-size)*.45);
-    font-size: calc(var(--nav-size)*.19);
-    width: calc(var(--nav-size)*2.5);
-    font-weight: bold;
-    background-color: var(--text-color);
-    color:  var(--text-color-inv);
-    border: calc(var(--nav-size)*.0001) solid rgba(255, 255, 255, 0.885);
-    border-radius: 5%;
-    cursor: pointer;
-    /* display: block; */
-    /* text-align: center; */
-}
-#sleepassist-sourcecode:hover{
+/* SleepAssist — bedtime/wake-time calculator, styled to match the site's gradient theme (see Ethanol.css / Sonic.css) */
 
-    filter: brightness(1.2);
-    border: calc(var(--nav-size)*.001) solid white;
+.sleepassist {
+  color: var(--text-color);
+  min-height: 100vh;
+  padding: calc(var(--nav-size) * 2) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.5);
+  background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
+  background-size: 400% 400%;
+  animation: sleepassistGradientShift 12s ease infinite;
+  position: relative;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
-#sleepassist-sourcecode:active{
-    height: calc(var(--nav-size)*.55);
-    transition-duration: .1s;
+
+.light-theme .sleepassist { animation-duration: 15s; }
+.dark-theme .sleepassist { animation-duration: 10s; }
+
+@keyframes sleepassistGradientShift {
+  0% { background-position: 0% 50%; }
+  25% { background-position: 100% 50%; }
+  50% { background-position: 100% 100%; }
+  75% { background-position: 0% 100%; }
+  100% { background-position: 0% 50%; }
 }
-@media (orientation: landscape) {
-    .sleepassist{
-        min-height: 100vh;
-    }
+
+.sleepassist-floating { pointer-events: none; position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+.sleepassist-circle {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--white1-transp, #f4f7fd33) 0%, transparent 70%);
+  animation: sleepassistFloat 6s ease-in-out infinite;
+}
+.sleepassist-circle-1 { width: 180px; height: 180px; top: 8%; left: 6%; animation-duration: 9s; }
+.sleepassist-circle-2 { width: 120px; height: 120px; top: 55%; right: 8%; animation-duration: 11s; animation-delay: -2s; }
+.sleepassist-circle-3 { width: 220px; height: 220px; bottom: 5%; left: 55%; animation-duration: 13s; animation-delay: -4s; }
+@keyframes sleepassistFloat {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-24px) rotate(180deg); }
+}
+
+.sleepassist-section { position: relative; z-index: 2; width: 100%; max-width: 760px; display: flex; flex-direction: column; align-items: center; }
+
+.sleepassist-title-wrap { text-align: center; max-width: 900px; margin: calc(var(--nav-size) * 0.3) auto calc(var(--nav-size) * 0.5); }
+.sleepassist-title {
+  font-weight: bold;
+  letter-spacing: 0.04em;
+  font-size: calc(var(--nav-size) * 0.85);
+  margin: 0 0 calc(var(--nav-size) * 0.2) 0;
+  text-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.02) var(--grey3-transp);
+}
+.sleepassist-underline {
+  height: 4px;
+  width: 70px;
+  margin: 0 auto calc(var(--nav-size) * 0.3);
+  background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink));
+  border-radius: 2px;
+}
+.sleepassist-subtitle {
+  color: var(--text-color-accent);
+  font-size: calc(var(--nav-size) * 0.3);
+  line-height: 1.6;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+/* Mode switcher (segmented control) */
+.sleepassist-modes {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: calc(var(--nav-size) * 0.1);
+  padding: calc(var(--nav-size) * 0.08);
+  border-radius: 999px;
+  background: var(--bg-1);
+  border: 1px solid #ffffff26;
+  margin-bottom: calc(var(--nav-size) * 0.3);
+}
+.sleepassist-mode {
+  font-family: inherit;
+  font-weight: 700;
+  font-size: calc(var(--nav-size) * 0.24);
+  padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.4);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background: transparent;
+  color: var(--text-color-accent);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.sleepassist-mode:hover { color: var(--text-color); }
+.sleepassist-mode.is-active {
+  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+  color: var(--text-color-inv);
+}
+
+.sleepassist-card {
+  background: var(--bg-1);
+  border: 1px solid #ffffff26;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px #00000026;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  width: 100%;
+  max-width: 720px;
+  padding: calc(var(--nav-size) * 0.5);
+  margin-top: calc(var(--nav-size) * 0.3);
+  text-align: left;
+}
+.sleepassist-card h2 { font-size: calc(var(--nav-size) * 0.38); margin: 0 0 calc(var(--nav-size) * 0.25); }
+
+.sleepassist-field { margin-bottom: calc(var(--nav-size) * 0.35); }
+.sleepassist-field:last-child { margin-bottom: 0; }
+.sleepassist-label {
+  display: block;
+  font-size: calc(var(--nav-size) * 0.26);
+  font-weight: 700;
+  margin-bottom: calc(var(--nav-size) * 0.1);
+}
+.sleepassist-field-row { display: flex; align-items: center; gap: calc(var(--nav-size) * 0.2); flex-wrap: wrap; }
+.sleepassist-input {
+  flex: 1;
+  min-width: 120px;
+  font-family: inherit;
+  font-size: calc(var(--nav-size) * 0.3);
+  padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.2);
+  border-radius: 8px;
+  border: 2px solid var(--border-nav);
+  background: var(--bg);
+  color: var(--text-color);
+}
+.sleepassist-input:focus { outline: none; border-color: var(--fg-blue); }
+.sleepassist-input-sm { flex: none; width: 90px; text-align: center; }
+.sleepassist-duration-sep { font-size: calc(var(--nav-size) * 0.28); font-weight: 700; color: var(--text-color-accent); }
+
+.sleepassist-slider-value {
+  display: flex;
+  align-items: baseline;
+  gap: calc(var(--nav-size) * 0.15);
+}
+.sleepassist-slider-duration {
+  font-size: calc(var(--nav-size) * 0.4);
+  font-weight: 800;
+}
+.sleepassist-slider-cycles {
+  font-size: calc(var(--nav-size) * 0.22);
+  font-weight: 700;
+  color: var(--fg-mint);
+}
+.sleepassist-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: calc(var(--nav-size) * 0.45);
+  margin: calc(var(--nav-size) * 0.05) 0;
+  background: transparent;
+  cursor: pointer;
+}
+.sleepassist-slider::-webkit-slider-runnable-track {
+  height: calc(var(--nav-size) * 0.12);
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--bg-blue), var(--bg-mint));
+}
+.sleepassist-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: calc(var(--nav-size) * 0.45);
+  height: calc(var(--nav-size) * 0.45);
+  margin-top: calc(var(--nav-size) * -0.165);
+  border-radius: 50%;
+  background: var(--text-color-inv);
+  border: 3px solid var(--fg-blue);
+  box-shadow: 0 2px 8px #00000033;
+}
+.sleepassist-slider::-moz-range-track {
+  height: calc(var(--nav-size) * 0.12);
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--bg-blue), var(--bg-mint));
+}
+.sleepassist-slider::-moz-range-thumb {
+  width: calc(var(--nav-size) * 0.45);
+  height: calc(var(--nav-size) * 0.45);
+  border-radius: 50%;
+  background: var(--text-color-inv);
+  border: 3px solid var(--fg-blue);
+  box-shadow: 0 2px 8px #00000033;
+}
+
+.sleepassist-preset-row { display: flex; flex-wrap: wrap; gap: calc(var(--nav-size) * 0.15); margin-top: calc(var(--nav-size) * 0.2); }
+.sleepassist-preset {
+  font-family: inherit;
+  font-weight: 700;
+  font-size: calc(var(--nav-size) * 0.24);
+  padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.3);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--text-color);
+  background: transparent;
+  border: 2px solid var(--border-nav);
+}
+.sleepassist-preset:hover { border-color: var(--fg-blue); color: var(--fg-blue); }
+
+/* Fall-asleep buffer toggle */
+.sleepassist-buffer {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.15);
+  margin-top: calc(var(--nav-size) * 0.25);
+  font-size: calc(var(--nav-size) * 0.24);
+  font-weight: 600;
+  color: var(--text-color);
+  cursor: pointer;
+}
+.sleepassist-buffer input { width: 18px; height: 18px; accent-color: var(--fg-blue); cursor: pointer; }
+
+/* "Sleep now" live clock */
+.sleepassist-now { text-align: center; padding: calc(var(--nav-size) * 0.2) 0; }
+.sleepassist-now-clock {
+  font-size: calc(var(--nav-size) * 1.3);
+  font-weight: 800;
+  line-height: 1;
+}
+.sleepassist-now-hint { font-size: calc(var(--nav-size) * 0.24); color: var(--text-color-accent); margin: calc(var(--nav-size) * 0.2) 0 0; }
+
+.sleepassist-error {
+  margin-top: calc(var(--nav-size) * 0.2);
+  padding: calc(var(--nav-size) * 0.2);
+  border-radius: 8px;
+  background: rgba(230, 70, 70, 0.16);
+  border: 1px solid rgb(230, 70, 70);
+  color: var(--text-color);
+  font-size: calc(var(--nav-size) * 0.26);
+  font-weight: 600;
+}
+
+.sleepassist-btn-row { display: flex; gap: calc(var(--nav-size) * 0.2); justify-content: center; flex-wrap: wrap; margin-top: calc(var(--nav-size) * 0.3); }
+.sleepassist-btn {
+  font-family: inherit;
+  font-weight: 700;
+  font-size: calc(var(--nav-size) * 0.3);
+  border-radius: 8px;
+  padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.5);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  border: 2px solid transparent;
+  color: var(--text-color-inv);
+  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+  box-shadow: 0 4px 15px #00000033;
+}
+.sleepassist-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 25px #0000004d; }
+.sleepassist-btn.secondary {
+  background: transparent;
+  color: var(--text-color);
+  border: 2px solid var(--border-nav);
+  padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.35);
+  font-size: calc(var(--nav-size) * 0.24);
+}
+.sleepassist-btn.secondary:hover { background: #ffffff1a; }
+
+.sleepassist-result {
+  margin-top: calc(var(--nav-size) * 0.35);
+  padding: calc(var(--nav-size) * 0.3);
+  border-radius: 12px;
+  text-align: center;
+  background: linear-gradient(45deg, #ffffff1f, #ffffff0d);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sleepassist-result-label {
+  font-size: calc(var(--nav-size) * 0.22);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-color-accent);
+}
+.sleepassist-result-time {
+  font-size: calc(var(--nav-size) * 0.85);
+  font-weight: 800;
+  line-height: 1;
+}
+.sleepassist-result-time-alt {
+  font-size: calc(var(--nav-size) * 0.3);
+  font-weight: 600;
+  color: var(--text-color-accent);
+}
+
+/* Cycle recommendations */
+.sleepassist-recommendations {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: calc(var(--nav-size) * 0.2);
+  margin-top: calc(var(--nav-size) * 0.2);
+}
+.sleepassist-recommendation {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: calc(var(--nav-size) * 0.25);
+  border-radius: 12px;
+  background: #ffffff0d;
+  border: 1px solid #ffffff26;
+  color: var(--text-color);
+  font-family: inherit;
+  font-weight: 600;
+  min-height: 0;
+  width: 100%;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+.sleepassist-recommendation:hover {
+  border-color: var(--fg-blue);
+  transform: translateY(-2px);
+}
+.sleepassist-recommendation.is-ideal {
+  background: linear-gradient(45deg, #ffffff1f, #ffffff0d);
+  border-color: var(--fg-mint);
+  box-shadow: 0 4px 15px #00000033;
+}
+.sleepassist-recommendation-badge {
+  font-size: calc(var(--nav-size) * 0.18);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-mint);
+}
+.sleepassist-recommendation-time {
+  font-size: calc(var(--nav-size) * 0.5);
+  font-weight: 800;
+  line-height: 1;
+}
+.sleepassist-recommendation-meta {
+  font-size: calc(var(--nav-size) * 0.2);
+  font-weight: 600;
+  color: var(--text-color-accent);
+}
+
+.sleepassist-cycle-hint { font-size: calc(var(--nav-size) * 0.24); color: var(--text-color-accent); line-height: 1.6; margin: 0 0 calc(var(--nav-size) * 0.2); }
+
+.sleepassist-source-link {
+  margin-top: calc(var(--nav-size) * 0.5);
+  font-family: inherit;
+  font-weight: 700;
+  font-size: calc(var(--nav-size) * 0.26);
+  color: var(--fg-blue);
+  text-decoration: none;
+}
+.sleepassist-source-link:hover { text-decoration: underline; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sleepassist { animation: none; }
+  .sleepassist-circle { animation: none; }
 }

@@ -76,10 +76,6 @@ jest.mock('./pages/Terms/Terms.jsx', () => {
   const React = require('react');
   return () => React.createElement('div', null, 'Terms');
 });
-jest.mock('./pages/LegalTerms.jsx', () => {
-  const React = require('react');
-  return () => React.createElement('div', null, 'LegalTerms');
-});
 
 // Mock additional components that exist in App.js
 jest.mock('./pages/ForgotPassword/ForgotPassword.jsx', () => {
