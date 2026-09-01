@@ -65,7 +65,7 @@ const MAX_CARE_LOG = 30;
 // Points lost per hour of neglect (0–100 scale). Tuned so a pet needs a few
 // interactions per day but won't instantly starve if the user misses a meal.
 const DECAY = {
-  hunger: 6,
+  hunger: 4,
   happiness: 5,
   energy: 4,
   cleanliness: 3,

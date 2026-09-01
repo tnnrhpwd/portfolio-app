@@ -38,7 +38,7 @@ describe('petsService.applyDecay', () => {
   test('decays tracked stats linearly over time', () => {
     const stats = { hunger: 70, happiness: 80, energy: 80, cleanliness: 85, health: 100, bond: 60 };
     const result = applyDecay(stats, new Date(NOW - 2 * hourMs).toISOString(), NOW);
-    expect(result.hunger).toBeCloseTo(58, 5); // 70 - 6*2
+    expect(result.hunger).toBeCloseTo(62, 5); // 70 - 4*2
     expect(result.happiness).toBeCloseTo(70, 5); // 80 - 5*2
     expect(result.energy).toBeCloseTo(72, 5); // 80 - 4*2
     expect(result.cleanliness).toBeCloseTo(79, 5); // 85 - 3*2

@@ -104,6 +104,13 @@
     font-size: calc(var(--nav-size) * 0.25);
     text-wrap: wrap;
   }
+  .planit-nnet-chat-image {
+    max-width: 100%;
+    max-height: calc(var(--nav-size) * 4);
+    border-radius: 8px;
+    display: block;
+    margin: calc(var(--nav-size) * 0.1) 0;
+  }
   .planit-nnet-chat-history-edit {
     border: none;
     font-size: calc(var(--nav-size) * 0.25);

@@ -800,9 +800,22 @@
   flex-direction: column;
   align-items: center;
   gap: calc(var(--nav-size) * 0.14);
-  transition: transform 0.2s ease;
 }
-.pets-room-pet:hover { transform: translateX(-50%) translateY(-4px); }
+/* Exempt pets from the global button:hover styles in index.css, which would
+   replace the centering transform and re-add a gradient background on hover. */
+.pets-room-pet.pets-room-pet:hover {
+  background: transparent;
+  color: inherit;
+  border: none;
+  transform: translateX(-50%);
+  box-shadow: none;
+}
+/* Hover: grow the pet toward the cursor instead of sliding it away.
+   The extra is-active selector keeps this winning over the active scale. */
+.pets-room-pet:hover .pets-room-pet__body,
+.pets-room-pet.is-active:hover .pets-room-pet__body {
+  transform: scale(calc(var(--depth, 1) * 1.07));
+}
 .pets-room-pet:focus-visible {
   outline: var(--focus-outline);
   outline-offset: var(--focus-outline-offset);
@@ -912,6 +925,7 @@
   max-width: calc(var(--nav-size) * 3);
 }
 .pets-room-pet__name {
+  color: var(--text-color);
   font-size: var(--font-size-small);
   font-weight: var(--font-weight-bold);
   white-space: nowrap;

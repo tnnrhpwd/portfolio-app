@@ -178,10 +178,11 @@ function parseCompressionRequest(req) {
 
     const netIndex = contextInput.indexOf('Net:');
     const userInput = netIndex >= 0 ? contextInput.substring(netIndex + 4) : contextInput;
+    const isNetChat = netIndex >= 0;
 
     logger.debug('User input:', userInput);
 
-    return { updateId, itemID, contextInput, provider, model, userInput };
+    return { updateId, itemID, contextInput, provider, model, userInput, isNetChat };
 }
 
 /**
@@ -247,6 +248,7 @@ function buildSystemPromptParts(goalsSummary) {
     const parts = [
         'You are a helpful AI assistant on sthopwood.com\'s /net chat.',
         'You have access to tools that let you take real actions — save goals, notes, log actions, submit support tickets, search the web, do math, and more.',
+        'IMAGE GENERATION: When the user asks you to generate, create, draw, render, or imagine an image, picture, photo, artwork, or illustration, call the generate_image tool with a detailed prompt. The tool returns markdown image links — include those links verbatim in your reply so the user sees the image.',
         'Use tools when the user\'s intent clearly calls for an action (e.g. "remember this", "I want to achieve X", "submit a bug report", "what time is it", "calculate 15% of 200").',
         'GOAL CREATION RULE (critical): When the user asks to add, create, set, save, or track goals, you MUST call save_goal (or save_goals for several goals at once) for every goal they explicitly state. save_goals deduplicates automatically and reports exactly what was saved vs. skipped — so call it even if you think some goals may already exist. The ONLY source of truth for whether goals are already saved is a tool result: to check, call get_my_goals. NEVER claim goals are "already saved" from your own previous messages or from reading the chat — if you have not called get_my_goals or save_goals in THIS turn, you do not actually know. When the user says something like "add all the goals in the chat above", identify the goals they explicitly listed in the preceding messages and call save_goals for them, then report the tool\'s actual result (how many saved, how many skipped). ONLY save goals the user has explicitly and unambiguously written in THIS conversation — never invent, infer, guess, or fabricate goals, and never turn general chatter, bug reports, feature ideas, or requests for help into goals. NEVER say you added or saved a goal unless the tool call actually succeeded — do not fake or summarize goal creation in text alone.',
         'For normal conversation, questions, or requests for information, just reply in text.',
@@ -817,7 +819,7 @@ async function processCompressionRequest(req, dynamodb) {
     const startValidation = Date.now();
     
     // Parse request
-    const { updateId, userInput, provider, model } = parseCompressionRequest(req);
+    const { updateId, userInput, provider, model, isNetChat } = parseCompressionRequest(req);
     
     // Check tier access for the requested model
     validateModelTierAccess(req.user, model);
@@ -857,6 +859,19 @@ async function processCompressionRequest(req, dynamodb) {
         }
     } catch {
         // Not a Net: chat payload — no tools
+    }
+
+    // The web /net chat posts plain "Net:…" text (not the addon's JSON shape),
+    // so it won't match the { message, conversationHistory } branch above —
+    // enable tools for it too so image generation and other tools work there.
+    if (!toolContext && isNetChat) {
+        toolContext = {
+            userId: req.user.id,
+            userEmail: req.user.email || null,
+            userName: req.user.nickname || req.user.name || null,
+        };
+        userMessageForContext = userInput;
+        logger.debug('[llmService] Net: chat (text form) detected — enabling tool-use');
     }
 
     // Load user context (memory, personality, behavior, workspace) from cloud DB
@@ -935,7 +950,7 @@ async function streamCompressionRequest(req, res, dynamodb) {
     const startValidation = Date.now();
 
     // Parse request
-    const { updateId, userInput, provider, model } = parseCompressionRequest(req);
+    const { updateId, userInput, provider, model, isNetChat } = parseCompressionRequest(req);
 
     // Check tier access for the requested model
     validateModelTierAccess(req.user, model);
@@ -967,6 +982,17 @@ async function streamCompressionRequest(req, res, dynamodb) {
             userMessageForContext = parsed.message || '';
         }
     } catch {}
+
+    // Enable tools for the web /net chat's plain "Net:…" text form (see
+    // processCompressionRequest for the same treatment).
+    if (!toolContext && isNetChat) {
+        toolContext = {
+            userId: req.user.id,
+            userEmail: req.user.email || null,
+            userName: req.user.nickname || req.user.name || null,
+        };
+        userMessageForContext = userInput;
+    }
 
     // Load user context (memory, personality, behavior, workspace)
     let userContext = null;

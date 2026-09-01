@@ -58,7 +58,8 @@ const generateS3Key = (userId, filename, fileType = 'general') => {
     // Create organized folder structure
     const folder = fileType === 'profile' ? 'profiles' : 
                    fileType === 'ocr' ? 'ocr-images' : 
-                   fileType === 'attachment' ? 'attachments' : 'general';
+                   fileType === 'attachment' ? 'attachments' :
+                   fileType === 'generated' ? 'generated' : 'general';
     
     return `users/${userId}/${folder}/${timestamp}_${uniqueId}.${fileExtension}`;
 };
@@ -192,6 +193,44 @@ const getFileMetadata = async (s3Key) => {
     }
 };
 
+// Upload an in-memory buffer (e.g. a freshly generated image) directly to S3.
+// Returns the s3Key, a public CloudFront/S3 URL, and the byte size so callers
+// can record storage usage without a second HeadObject round-trip.
+const uploadImageBuffer = async (userId, buffer, contentType, fileType = 'generated', filename) => {
+    try {
+        const ext = contentType === 'image/png' ? 'png'
+            : contentType === 'image/jpeg' || contentType === 'image/jpg' ? 'jpg'
+            : 'png';
+        const name = filename || `image-${Date.now()}.${ext}`;
+        const s3Key = generateS3Key(userId, name, fileType);
+
+        const command = new PutObjectCommand({
+            Bucket: process.env.AWS_S3_BUCKET,
+            Key: s3Key,
+            Body: buffer,
+            ContentType: contentType,
+            ContentLength: buffer.length,
+            Metadata: {
+                'uploaded-by': userId,
+                'file-type': fileType,
+                'upload-timestamp': new Date().toISOString(),
+            },
+        });
+
+        await s3Client.send(command);
+
+        return {
+            s3Key,
+            url: generateCloudFrontUrl(s3Key),
+            bytes: buffer.length,
+            contentType,
+        };
+    } catch (error) {
+        logger.error('Error uploading image buffer to S3:', error);
+        throw new Error(`Failed to upload generated image: ${error.message}`);
+    }
+};
+
 // Download a file from S3 and return its contents as a base64 string.
 const getFileBuffer = async (s3Key) => {
     try {
@@ -218,6 +257,7 @@ module.exports = {
     deleteFile,
     getFileMetadata,
     getFileBuffer,
+    uploadImageBuffer,
     validateFile,
     generateS3Key
 };

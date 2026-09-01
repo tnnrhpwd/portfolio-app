@@ -17,6 +17,7 @@ const { createMemoryItem, getMemoryItems, getGoalsSummary } = require('./memoryS
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, PutCommand, GetCommand, DeleteCommand } = require('@aws-sdk/lib-dynamodb');
 const { logger } = require('../utils/logger');
+const { randomUUID } = require('crypto');
 
 // Local DynamoDB client for memory/personality/behavior tool writes.
 // (Mirrors memoryService.js so tools can run without needing the caller
@@ -337,6 +338,38 @@ const TOOL_SCHEMAS = [
           reason: { type: 'string', description: 'Brief note for why this behavior is being updated.' },
         },
         required: ['filename', 'content'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'generate_image',
+      description: 'Generate an image from a text prompt using AI. Use this whenever the user asks to generate, create, draw, render, or imagine an image, picture, photo, artwork, or illustration. Provide a detailed, vivid prompt describing exactly what should appear (subject, style, setting, lighting, mood, composition).',
+      parameters: {
+        type: 'object',
+        properties: {
+          prompt: {
+            type: 'string',
+            description: 'Detailed description of the image to generate. Be specific and vivid about subject, style, setting, lighting, mood, and composition.',
+          },
+          aspectRatio: {
+            type: 'string',
+            // Keep in sync with the default model (SD3.5 Large) so the LLM
+            // never picks a ratio the model rejects. Executor re-validates.
+            enum: ['1:1', '16:9', '21:9', '2:3', '3:2', '4:5', '5:4', '9:16', '9:21'],
+            description: 'Aspect ratio of the generated image. Default 1:1.',
+          },
+          numberOfImages: {
+            type: 'integer',
+            description: 'Number of images to generate (1 or 2). Default 1.',
+          },
+          negativePrompt: {
+            type: 'string',
+            description: 'Optional: what to avoid in the image (e.g. "blurry, low quality, extra fingers").',
+          },
+        },
+        required: ['prompt'],
       },
     },
   },
@@ -852,6 +885,84 @@ const TOOL_EXECUTORS = {
     } catch (err) {
       return `Error saving behavior "${filename}": ${err.message}`;
     }
+  },
+
+  // ── Generate image (AWS Bedrock) ─────────────────────────────────────────
+  async generate_image(args, context) {
+    const { prompt, aspectRatio = '1:1', numberOfImages = 1, negativePrompt } = args;
+    if (!context?.userId) return 'Error: user context missing.';
+
+    const promptStr = String(prompt || '').trim();
+    if (!promptStr) return 'Error: a prompt is required to generate an image.';
+    if (promptStr.length > 2000) return 'Error: prompt is too long (max 2000 characters).';
+
+    const count = Math.max(1, Math.min(2, parseInt(numberOfImages, 10) || 1));
+
+    const { generateImage, IMAGE_MODELS } = require('./bedrockImageService');
+    const modelId = process.env.BEDROCK_IMAGE_MODEL_ID || 'stability.sd3-5-large-v1:0';
+    const model = IMAGE_MODELS[modelId];
+    if (!model) return `Error: image model "${modelId}" is not available.`;
+    if (!model.aspectRatios.includes(aspectRatio)) {
+      return `Error: aspect ratio "${aspectRatio}" is not supported by ${modelId}. Supported: ${model.aspectRatios.join(', ')}.`;
+    }
+
+    // Credit pre-check (read-only) — refuse before spending money on Bedrock.
+    const { checkImageCredits, trackImageUsage } = require('../utils/apiUsageTracker');
+    const afford = await checkImageCredits(context.userId, count);
+    if (!afford.canMake) {
+      return `Error: image generation requires cloud AI credits. ${afford.reason || 'Not enough credits.'} The user may need to upgrade on /pay.`;
+    }
+
+    // Storage pre-check using a conservative per-image estimate (SD3.5 PNGs
+    // are typically ~1.5MB) so we don't spend credits then fail on storage.
+    const { checkStorageCapacity } = require('../utils/storageTracker');
+    const ESTIMATED_BYTES_PER_IMAGE = 1600000;
+    const storageCheck = await checkStorageCapacity(context.userId, count * ESTIMATED_BYTES_PER_IMAGE);
+    if (!storageCheck.canStore) {
+      return `Error: not enough storage space for the generated image(s). ${storageCheck.reason}`;
+    }
+
+    let result;
+    try {
+      result = await generateImage({ prompt: promptStr, modelId, aspectRatio, numberOfImages: count, negativePrompt });
+    } catch (err) {
+      logger.error('[netTools] Image generation failed:', err);
+      return `Error generating image: ${err.message}`;
+    }
+
+    const { uploadImageBuffer } = require('./s3Service');
+    const now = new Date().toISOString();
+    const urls = [];
+    for (const img of result.images) {
+      const buffer = Buffer.from(img.base64, 'base64');
+      const uploaded = await uploadImageBuffer(context.userId, buffer, img.mimeType);
+      urls.push(uploaded.url);
+      // Record a lightweight DynamoDB item so getUserStorageUsage() counts the
+      // real image byte size (via files[].size) under this user's storage quota.
+      await _dynamodb.send(new PutCommand({
+        TableName: 'Simple',
+        Item: {
+          id: `net_image_${context.userId}_${Date.now()}_${randomUUID().slice(0, 8)}`,
+          text: `Creator:${context.userId}|NetImage|${JSON.stringify({
+            s3Key: uploaded.s3Key,
+            url: uploaded.url,
+            bytes: uploaded.bytes,
+            model: modelId,
+            prompt: promptStr.slice(0, 200),
+            createdAt: now,
+          })}`,
+          files: [{ filename: uploaded.s3Key.split('/').pop(), contentType: img.mimeType, size: uploaded.bytes }],
+          createdAt: now,
+          updatedAt: now,
+        },
+      }));
+    }
+
+    // Deduct credits for the actual number of images generated.
+    await trackImageUsage(context.userId, urls.length);
+
+    const markdown = urls.map((u, i) => `![Generated image ${i + 1}](${u})`).join('\n');
+    return `Generated ${urls.length} image${urls.length === 1 ? '' : 's'} successfully. Include the markdown below verbatim in your reply so the user sees the image(s):\n\n${markdown}`;
   },
 };
 

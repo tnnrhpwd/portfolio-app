@@ -34,6 +34,11 @@ const API_COSTS = {
         'us.anthropic.claude-haiku-4-5-20251001-v1:0': { input: 1/1000000, output: 5/1000000 },
         'default': { input: 1/1000000, output: 5/1000000 }
     },
+    'bedrock-image': {
+        // Image generation via Stability (SD3.5 Large / Core / Ultra) on
+        // Bedrock. Flat server-side price per generated image (~$0.035/img).
+        perImage: 0.04,
+    },
 };
 
 // Monthly credit limits (USD) for METERED, server-paid providers (currently
@@ -319,6 +324,12 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
                 cost = (bedrockInputTokens * bedrockModelCosts.input) + (bedrockOutputTokens * bedrockModelCosts.output);
                 usageString = `${bedrockInputTokens + bedrockOutputTokens}t`;
                 break;
+            case 'bedrock-image':
+                const perImage = API_COSTS['bedrock-image']?.perImage || 0.04;
+                const imageCount = usageData.imageCount || 1;
+                cost = imageCount * perImage;
+                usageString = `${imageCount}i`;
+                break;
             default:
                 throw new Error(`Unknown API: ${apiName}`);
         }
@@ -390,6 +401,10 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
                 const existingTokens = parseInt(existingUsage.replace('t', '')) || 0;
                 const newTokens = parseInt(usageString.replace('t', '')) || 0;
                 newEntry.usage = `${existingTokens + newTokens}t`;
+            } else if (usageString.endsWith('i')) {
+                const existingImages = parseInt(existingUsage.replace(/i/g, '')) || 0;
+                const newImages = parseInt(usageString.replace(/i/g, '')) || 0;
+                newEntry.usage = `${existingImages + newImages}i`;
             } else {
                 const existingCalls = parseInt(existingUsage.replace('c', '')) || 0;
                 newEntry.usage = `${existingCalls + 1}c`;
@@ -952,5 +967,63 @@ module.exports = {
     parseUserCredits,
     updateUserCredits,
     needsMonthlyReset,
-    performMonthlyReset
+    performMonthlyReset,
+    // Image generation (bedrock-image) credit helpers
+    getImageGenerationCost,
+    checkImageCredits,
+    trackImageUsage,
 };
+
+/**
+ * Flat server-side price for a single generated image (USD), rounded up
+ * slightly from Stability SD3.5 Large's ~$0.035/image on-demand price.
+ */
+function getImageGenerationCost(imageCount) {
+    return (imageCount || 1) * (API_COSTS['bedrock-image']?.perImage || 0.04);
+}
+
+/**
+ * Pre-flight credit check for image generation — read-only, deducts nothing.
+ * Returns { canMake, cost, currentCredits } plus an admin/special fast path.
+ */
+async function checkImageCredits(userId, imageCount) {
+    const cost = getImageGenerationCost(imageCount);
+    if (userId === process.env.ADMIN_USER_ID) {
+        return { canMake: true, cost: 0, currentCredits: Infinity, isAdmin: true };
+    }
+
+    const user = await getUserDataCached(userId);
+    if (!user) return { canMake: false, reason: 'User not found', cost };
+    const userText = user.text || '';
+
+    if (isSpecialUser(userText)) {
+        return { canMake: true, cost: 0, currentCredits: Infinity, isSpecial: true };
+    }
+
+    let userRank;
+    try { userRank = await getUserRankFromStripe(userId); } catch { userRank = getUserRank(userText); }
+
+    let creditsData = parseUserCredits(userText);
+    if (needsMonthlyReset(creditsData, userRank, getMembershipLimit(userRank))) {
+        creditsData = performMonthlyReset(creditsData, userRank);
+    }
+
+    if (creditsData.availableCredits < cost) {
+        return {
+            canMake: false,
+            cost,
+            currentCredits: creditsData.availableCredits,
+            reason: `Insufficient credits. Available: $${creditsData.availableCredits.toFixed(4)}, required: $${cost.toFixed(4)}.`,
+        };
+    }
+
+    return { canMake: true, cost, currentCredits: creditsData.availableCredits };
+}
+
+/**
+ * Deduct credits for generated images and record the usage entry
+ * (api 'bedrock-image', usage `${count}i`).
+ */
+async function trackImageUsage(userId, imageCount) {
+    return trackApiUsage(userId, 'bedrock-image', { imageCount }, 'default');
+}

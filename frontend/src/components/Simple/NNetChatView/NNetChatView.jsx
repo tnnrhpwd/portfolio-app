@@ -353,6 +353,29 @@ const NNetChatView = () => {
     }
   };
 
+  // Render chat content, converting markdown images (![alt](url)) and bare
+  // image URLs into <img> elements so AI-generated images appear inline.
+  const renderMessageContent = (content) => {
+    if (!content || typeof content !== 'string') return null;
+    const parts = [];
+    const imageRegex = /!\[([^\]]*)\]\(([^)\s]+)\)|(https?:\/\/[^\s)]+\.(?:png|jpe?g|gif|webp)(?:\?[^\s)]*)?)/gi;
+    let lastIndex = 0;
+    let match;
+    while ((match = imageRegex.exec(content)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(content.slice(lastIndex, match.index));
+      }
+      if (match[2]) {
+        parts.push(<img key={`img-${match.index}`} src={match[2]} alt={match[1] || 'Generated image'} className='planit-nnet-chat-image' />);
+      } else if (match[3]) {
+        parts.push(<img key={`img-${match.index}`} src={match[3]} alt='Attached image' className='planit-nnet-chat-image' />);
+      }
+      lastIndex = imageRegex.lastIndex;
+    }
+    if (lastIndex < content.length) parts.push(content.slice(lastIndex));
+    return parts.length > 0 ? parts : content;
+  };
+
   return (
     <div className='planit-nnet-chat'>
       {/* LLM Provider Selection */}
@@ -408,7 +431,7 @@ const NNetChatView = () => {
               </>
             ) : (
               <>
-                <div className='planit-nnet-chat-history-message-content'>{item.content}</div>
+                <div className='planit-nnet-chat-history-message-content'>{renderMessageContent(item.content)}</div>
                 <div className='planit-nnet-chat-history-buttons'>
                   <button onClick={() => handleEdit(index)}>Edit</button>
                   <button onClick={() => handleDelete(index)}>Delete</button>

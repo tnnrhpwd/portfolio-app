@@ -49,8 +49,13 @@ function calculateFilesSize(files) {
         if (file.filename) fileSize += Buffer.byteLength(file.filename, 'utf8');
         if (file.contentType) fileSize += Buffer.byteLength(file.contentType, 'utf8');
         
-        // Calculate size of file data (base64 encoded)
-        if (file.data) {
+        // Explicit byte size (e.g. S3-stored generated images) takes priority
+        // over inline base64 data — generated images live in S3 and are
+        // referenced here by size, not by a base64 payload.
+        if (typeof file.size === 'number' && file.size > 0) {
+            fileSize += file.size;
+        } else if (file.data) {
+            // Calculate size of file data (base64 encoded)
             if (typeof file.data === 'string') {
                 // If it's base64, calculate the original size
                 const base64Size = Buffer.byteLength(file.data, 'utf8');
