@@ -89,6 +89,18 @@ const llmLimiter = rateLimit({
   handler: buildRateLimitHandler('llm', 'Too many AI requests for your account. Please wait a few minutes before trying again.'),
 });
 
+// Image generation rate limiter — per-user. Tighter than text LLM calls since
+// each image is a metered, server-paid Bedrock invocation that costs far more
+// than a text completion.
+const imageGenLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 image-generation requests per 15 min per user
+  keyGenerator: userKeyGenerator,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: buildRateLimitHandler('image-gen', 'Too many image generation requests. Please wait a few minutes before trying again.'),
+});
+
 // OCR rate limiter — per-user, CPU-intensive
 const ocrLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -201,6 +213,7 @@ module.exports = {
   authLimiter,
   paymentLimiter,
   llmLimiter,
+  imageGenLimiter,
   ocrLimiter,
   uploadLimiter,
   workspaceReadLimiter,

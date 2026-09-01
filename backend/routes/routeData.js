@@ -8,7 +8,7 @@ const multer = require('multer');
 // Middleware Imports
 // ============================================================================
 const { protect } = require('../middleware/authMiddleware');
-const { authLimiter, paymentLimiter, llmLimiter, ocrLimiter, uploadLimiter, workspaceReadLimiter, workspaceWriteLimiter, workspaceActionLimiter, marketReadLimiter, marketPublishLimiter, marketWriteLimiter, pollsReadLimiter, pollsWriteLimiter } = require('../middleware/rateLimiter');
+const { authLimiter, paymentLimiter, llmLimiter, imageGenLimiter, ocrLimiter, uploadLimiter, workspaceReadLimiter, workspaceWriteLimiter, workspaceActionLimiter, marketReadLimiter, marketPublishLimiter, marketWriteLimiter, pollsReadLimiter, pollsWriteLimiter } = require('../middleware/rateLimiter');
 const { 
   validateRegistration, 
   validateLogin, 
@@ -162,6 +162,12 @@ const {
   generateHypeQuote,
 } = require('../controllers/hypeController');
 
+// Image generation controller (AWS Bedrock — Stability / Gemini)
+const {
+  getImageModels,
+  generateImage,
+} = require('../controllers/imageGenController');
+
 // Configure multer for memory storage (or disk storage if preferred)
 const storage = multer.memoryStorage();
 const upload = multer({ 
@@ -284,6 +290,9 @@ router.route('/public/:id')
 // Membership & LLM Info
 router.get('/membership-pricing', getMembershipPricing);
 router.get('/llm-providers', getLLMProviders);
+
+// Image generation — model catalog (public, static metadata only)
+router.get('/image/models', getImageModels);
 
 // Hype — public motivational quote generator (LLM-backed, IP rate-limited)
 router.post('/hype/quote', llmLimiter, sanitizeInput, generateHypeQuote);
@@ -467,6 +476,12 @@ router.route('/memory/:id')
   .get(protect, getMemoryOne)
   .put(protect, updateMemory)
   .delete(protect, deleteMemory);
+
+// ============================================================================
+// IMAGE GENERATION (AWS Bedrock — Stability / Gemini)
+// ============================================================================
+
+router.post('/image/generate', protect, imageGenLimiter, sanitizeInput, generateImage);
 
 // ============================================================================
 // GOAL AGENT (LLM agent that autonomously works on a user goal)

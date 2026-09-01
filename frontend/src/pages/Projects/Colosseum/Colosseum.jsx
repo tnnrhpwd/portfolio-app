@@ -3,6 +3,9 @@ import { toast } from 'react-toastify';
 import Header from '../../../components/Header/Header';
 import Footer from '../../../components/Footer/Footer';
 import SEO from '../../../components/SEO/SEO.jsx';
+import ArenaCanvas from './ArenaCanvas';
+import { WeaponIcon, ArmorIcon } from './ColosseumArt';
+import { sfx, isMuted, setMuted as setMutedPref } from './sfx';
 import artHero from '../../../assets/art/Hero banner.jpg';
 import artIcon from '../../../assets/art/App icon.jpg';
 import artBg from '../../../assets/art/Background texture.jpg';
@@ -34,10 +37,18 @@ import {
 import './Colosseum.css';
 
 const SAVE_KEY = 'colosseumSave';
-const TABS = ['Roster', 'Arena', 'Recruit', 'Train', 'Forge', 'Rest'];
-const MAX_LOG_LINES = 200;
+const TABS = ['Arena', 'Roster', 'Recruit', 'Train', 'Forge', 'Rest'];
+const MAX_LOG_LINES = 120;
 
-// ── Small presentational helpers ───────────────────────────────────────────
+const CLASS_IMAGES = {
+  murmillo: artMurmillo,
+  retiarius: artRetiarius,
+  thraex: artThraex,
+  secutor: artSecutor,
+  hoplomachus: artHoplomachus,
+};
+
+// ── Presentational helpers ─────────────────────────────────────────────────
 function Bar({ value, max, tone = 'hp' }) {
   const pct = max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
   return (
@@ -60,23 +71,27 @@ function ClassChip({ classKey }) {
   return <span className={`col-chip col-chip--${classKey}`}>{CLASSES[classKey].label}</span>;
 }
 
-const CLASS_IMAGES = {
-  murmillo: artMurmillo,
-  retiarius: artRetiarius,
-  thraex: artThraex,
-  secutor: artSecutor,
-  hoplomachus: artHoplomachus,
-};
-
-function Portrait({ classKey, alt }) {
+function Portrait({ classKey, alt, small }) {
   return (
     <img
-      className="col-portrait"
+      className={`col-portrait${small ? ' col-portrait--small' : ''}`}
       src={CLASS_IMAGES[classKey] || artMurmillo}
       alt={alt || CLASSES[classKey].label}
       loading="lazy"
     />
   );
+}
+
+function playRoundSfx(events) {
+  if (!events || !events.length) return;
+  const crit = events.some((e) => e.kind === 'attack' && e.crit);
+  const heavy = events.some((e) => e.kind === 'attack' && e.label === 'heavy' && !e.miss);
+  const landed = events.some((e) => e.kind === 'attack' && !e.miss);
+  const skill = events.some((e) => e.kind === 'skill');
+  if (crit) sfx.crit();
+  else if (heavy) sfx.heavyHit();
+  else if (landed) sfx.hit();
+  if (skill) sfx.skill();
 }
 
 // ── Main page ──────────────────────────────────────────────────────────────
@@ -85,7 +100,7 @@ export default function Colosseum() {
   const [gold, setGold] = useState(START_GOLD);
   const [fame, setFame] = useState(START_FAME);
   const [arenaPower, setArenaPower] = useState(1);
-  const [tab, setTab] = useState('Roster');
+  const [tab, setTab] = useState('Arena');
   const [loaded, setLoaded] = useState(false);
 
   // Battle state
@@ -93,13 +108,21 @@ export default function Colosseum() {
   const [battleActive, setBattleActive] = useState(false);
   const [round, setRound] = useState(0);
   const [log, setLog] = useState([]);
+  const [lastEvents, setLastEvents] = useState([]);
   const [selectedActions, setSelectedActions] = useState({});
   const [pendingTarget, setPendingTarget] = useState(null);
   const [battleResult, setBattleResult] = useState(null);
   const [lastReward, setLastReward] = useState(null);
 
-  // Recruit pool
   const [recruitPool, setRecruitPool] = useState([]);
+  const [muted, setMutedState] = useState(isMuted());
+
+  function toggleMute() {
+    setMutedState((prev) => {
+      setMutedPref(!prev);
+      return !prev;
+    });
+  }
 
   // ── Persistence ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -107,15 +130,15 @@ export default function Colosseum() {
       const raw = localStorage.getItem(SAVE_KEY);
       if (raw) {
         const save = JSON.parse(raw);
-        if (Array.isArray(save.roster) && save.roster.length >= 0) {
-          setRoster(save.roster || []);
+        if (Array.isArray(save.roster)) {
+          setRoster(save.roster);
           setGold(typeof save.gold === 'number' ? save.gold : START_GOLD);
           setFame(typeof save.fame === 'number' ? save.fame : START_FAME);
           setArenaPower(save.arenaPower || 1);
         }
       }
     } catch {
-      // Corrupt save — fall through to a fresh game.
+      // Corrupt save — start fresh.
     }
     setLoaded(true);
   }, []);
@@ -125,18 +148,17 @@ export default function Colosseum() {
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify({ roster, gold, fame, arenaPower }));
     } catch {
-      // Storage full / unavailable — gameplay continues in-memory.
+      // Storage unavailable — continue in memory.
     }
   }, [roster, gold, fame, arenaPower, loaded]);
 
-  // ── Core actions ─────────────────────────────────────────────────────────
+  // ── Actions ──────────────────────────────────────────────────────────────
   function newGame() {
-    const starter = makeGladiator(randomName(), 'murmillo');
-    setRoster([starter]);
+    setRoster([makeGladiator(randomName(), 'murmillo')]);
     setGold(START_GOLD);
     setFame(START_FAME);
     setArenaPower(1);
-    setTab('Roster');
+    setTab('Arena');
     toast('A new ludus rises from the sands. Hail, lanista!');
   }
 
@@ -145,7 +167,8 @@ export default function Colosseum() {
     setEnemies(rollEnemyTeam(arenaPower));
     setSelectedActions({});
     setPendingTarget(null);
-    setLog([`Round 1 — the crowd roars as ${roster.filter(isAlive).length} gladiator(s) enter the arena.`]);
+    setLastEvents([]);
+    setLog([`Round 1 — the crowd roars!`]);
     setRound(1);
     setBattleActive(true);
     setBattleResult(null);
@@ -153,17 +176,18 @@ export default function Colosseum() {
   }
 
   function selectAction(gladId, action) {
+    sfx.select();
     if (action === 'defend' || action === 'rest') {
       setSelectedActions((prev) => ({ ...prev, [gladId]: { action, targetId: null } }));
       setPendingTarget((prev) => (prev === gladId ? null : prev));
       return;
     }
-    // attack actions require a target
     setSelectedActions((prev) => ({ ...prev, [gladId]: { action, targetId: prev[gladId]?.targetId || null } }));
     setPendingTarget(gladId);
   }
 
   function pickTarget(enemyId) {
+    sfx.click();
     if (!pendingTarget) return;
     setSelectedActions((prev) => ({
       ...prev,
@@ -202,7 +226,6 @@ export default function Colosseum() {
       newPower = arenaPower + 1;
       kind = 'win';
       reward = r;
-      toast.success(`Victory! +${r.gold} gold, +${r.fame} fame, +${r.xp} XP each survivor.`);
     } else if (result.enemyWon) {
       newFame = Math.max(0, fame - arenaPower * 5);
       newRoster = result.playerTeam.map((g) => ({
@@ -210,7 +233,6 @@ export default function Colosseum() {
         hp: Math.max(1, Math.round(effectiveStats(g).maxHp * 0.3)),
       }));
       kind = 'loss';
-      toast.error('Defeat! Your gladiators are dragged from the sands, bloodied but alive.');
     }
 
     setRoster(newRoster);
@@ -220,8 +242,19 @@ export default function Colosseum() {
     setArenaPower(newPower);
     setSelectedActions({});
     setPendingTarget(null);
+    setLastEvents(result.events || []);
     setRound((r) => r + 1);
     setLog((prev) => [`— Round ${round} —`, ...result.log, ...prev].slice(0, MAX_LOG_LINES));
+
+    playRoundSfx(result.events);
+
+    if (result.playerWon) {
+      sfx.victory();
+      toast.success(`Victory! +${reward.gold} gold, +${reward.fame} fame.`);
+    } else if (result.enemyWon) {
+      sfx.defeat();
+      toast.error('Defeat! Your gladiators were dragged from the sands.');
+    }
 
     if (result.playerWon || result.enemyWon) {
       setBattleActive(false);
@@ -232,14 +265,17 @@ export default function Colosseum() {
 
   function generateRecruits() {
     const level = Math.max(1, Math.floor(arenaPower / 2));
-    const pool = Array.from({ length: 3 }, () => makeGladiator(randomName(), pickClass(), { level }));
+    const keys = Object.keys(CLASSES);
+    const pool = Array.from(
+      { length: 3 },
+      () => makeGladiator(randomName(), keys[Math.floor(Math.random() * keys.length)], { level }),
+    );
     setRecruitPool(pool);
     setTab('Recruit');
   }
 
-  function pickClass() {
-    const keys = Object.keys(CLASSES);
-    return keys[Math.floor(Math.random() * keys.length)];
+  function recruitCost(g) {
+    return 40 + (g.level - 1) * 25;
   }
 
   function hire(g) {
@@ -256,10 +292,6 @@ export default function Colosseum() {
     setRoster((prev) => [...prev, { ...g }]);
     setRecruitPool((prev) => prev.filter((r) => r.id !== g.id));
     toast.success(`${g.name} joins your ludus!`);
-  }
-
-  function recruitCost(g) {
-    return 40 + (g.level - 1) * 25;
   }
 
   function train(gladId, stat) {
@@ -345,19 +377,17 @@ export default function Colosseum() {
       />
       <Header />
       <main className="col-main">
-        <img className="col-hero" src={artHero} alt="Sunlit Roman colosseum arena" />
         <h1 className="col-title">
           <img className="col-emblem" src={artIcon} alt="" aria-hidden="true" />
           Colosseum
         </h1>
-        <p className="col-subtitle">Recruit, train, and equip gladiators — then send them into the arena.</p>
 
         {loaded && roster.length === 0 ? (
           <section className="col-panel col-panel--start">
             <h2 className="col-panel__title">A new ludus awaits</h2>
             <p>
-              You are a lanista — the owner of a gladiator school. Recruit fighters, hone their skills, buy them
-              arms and armor, and climb the arena ranks for gold and glory.
+              You are a lanista — the owner of a gladiator school. Recruit fighters, hone their skills, buy them arms
+              and armor, and climb the arena ranks for gold and glory.
             </p>
             <button className="col-btn col-btn--primary" onClick={newGame}>
               ⚔️ Begin Your Ludus
@@ -379,6 +409,9 @@ export default function Colosseum() {
                 <span className="col-topbar__icon">🏛️</span>
                 <span>Arena {arenaPower}</span>
               </div>
+              <button className="col-mute" onClick={toggleMute} aria-label={muted ? 'Unmute sound' : 'Mute sound'}>
+                {muted ? '🔇' : '🔊'}
+              </button>
             </div>
 
             {/* Tabs */}
@@ -393,6 +426,130 @@ export default function Colosseum() {
                 </button>
               ))}
             </nav>
+
+            {/* ── Arena ── */}
+            {tab === 'Arena' && (
+              <section className="col-panel col-panel--arena">
+                {!battleActive && (
+                  <div className="col-arena-lobby" style={{ backgroundImage: `url(${artHero})` }}>
+                    <div className="col-arena-lobby__veil">
+                      <h2 className="col-panel__title">The Arena</h2>
+                      {battleResult === 'win' && lastReward && (
+                        <div className="col-result col-result--win">
+                          🏆 Victory! +{lastReward.gold} gold · +{lastReward.fame} fame · +{lastReward.xp} XP per
+                          survivor. Next opponent at Arena {arenaPower}.
+                        </div>
+                      )}
+                      {battleResult === 'loss' && (
+                        <div className="col-result col-result--loss">
+                          💀 Defeat. Your gladiators survive with a sliver of health and some fame lost. Rest and
+                          re-arm before trying again.
+                        </div>
+                      )}
+                      <button className="col-btn col-btn--primary col-btn--big" onClick={startBattle}>
+                        ⚔️ Enter the Arena (Rank {arenaPower})
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {battleActive && (
+                  <>
+                    <div className="col-battle-round">Round {round}</div>
+
+                    <ArenaCanvas key={round} playerTeam={roster} enemyTeam={enemies} events={lastEvents} round={round} />
+
+                    {/* Target picker */}
+                    {pendingTarget && (
+                      <div className="col-target-strip">
+                        <span className="col-target-strip__label">Choose a target:</span>
+                        {enemies
+                          .filter(isAlive)
+                          .map((e) => (
+                            <button key={e.id} className="col-target" onClick={() => pickTarget(e.id)}>
+                              <ClassChip classKey={e.classKey} /> {e.name}
+                            </button>
+                          ))}
+                      </div>
+                    )}
+
+                    {/* Command bar */}
+                    <div className="col-command">
+                      {roster.map((g) => {
+                        const chosen = selectedActions[g.id];
+                        const skill = CLASSES[g.classKey].skill;
+                        if (!isAlive(g)) {
+                          return (
+                            <div key={g.id} className="col-command__card col-command__card--down">
+                              <Portrait classKey={g.classKey} alt={g.name} small />
+                              <strong>{g.name}</strong>
+                              <span className="col-command__note">Down</span>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div key={g.id} className="col-command__card">
+                            <div className="col-command__head">
+                              <Portrait classKey={g.classKey} alt={g.name} small />
+                              <div>
+                                <strong>{g.name}</strong>
+                                <div className="col-command__hp">
+                                  {g.hp}/{effectiveStats(g).maxHp} HP
+                                </div>
+                              </div>
+                            </div>
+                            <div className="col-actions">
+                              {['strike', 'heavy', 'defend', 'skill', 'rest'].map((a) => {
+                                const isSkill = a === 'skill';
+                                const disabled = isSkill ? g.skillCd > 0 : false;
+                                return (
+                                  <button
+                                    key={a}
+                                    disabled={disabled}
+                                    title={isSkill ? skill.desc : ACTIONS[a].desc}
+                                    className={`col-action col-action--${a} ${chosen?.action === a ? 'col-action--selected' : ''}`}
+                                    onClick={() => selectAction(g.id, a)}
+                                  >
+                                    {ACTIONS[a].label}
+                                    {isSkill && g.skillCd > 0 ? ` (${g.skillCd})` : ''}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            {chosen && (
+                              <div className="col-action-summary">
+                                {chosen.action === 'defend' || chosen.action === 'rest'
+                                  ? `${ACTIONS[chosen.action].label} ready.`
+                                  : chosen.targetId
+                                    ? `${ACTIONS[chosen.action].label} → ${
+                                        enemies.find((e) => e.id === chosen.targetId)?.name || 'target'
+                                      }`
+                                    : 'Choose a target.'}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <button className="col-btn col-btn--primary col-btn--big" disabled={!everyReady} onClick={resolve}>
+                      ⚔️ Fight Round
+                    </button>
+                    {!everyReady && (
+                      <p className="col-hint">Pick an action for every standing gladiator (attacks need a target).</p>
+                    )}
+
+                    <div className="col-log" aria-live="polite">
+                      {log.map((line, i) => (
+                        <div key={i} className={line.startsWith('—') ? 'col-log__round' : 'col-log__line'}>
+                          {line}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </section>
+            )}
 
             {/* ── Roster ── */}
             {tab === 'Roster' && (
@@ -414,8 +571,14 @@ export default function Colosseum() {
                         <StatLine label="Attack" value={s.atk} />
                         <StatLine label="Defense" value={s.def} />
                         <StatLine label="Speed" value={s.spd} />
-                        <StatLine label="Weapon" value={weaponLabel(g)} />
-                        <StatLine label="Armor" value={armorLabel(g)} />
+                        <div className="col-loadout">
+                          <WeaponIcon tierId={g.weaponId} size={22} title={weaponLabel(g)} />
+                          <span>{weaponLabel(g)}</span>
+                        </div>
+                        <div className="col-loadout">
+                          <ArmorIcon tierId={g.armorId} size={22} title={armorLabel(g)} />
+                          <span>{armorLabel(g)}</span>
+                        </div>
                         {!isAlive(g) && <div className="col-card__down-badge">Down — heal to fight again</div>}
                       </div>
                     );
@@ -427,149 +590,13 @@ export default function Colosseum() {
               </section>
             )}
 
-            {/* ── Arena ── */}
-            {tab === 'Arena' && (
-              <section className="col-panel">
-                <h2 className="col-panel__title">The Arena</h2>
-
-                {!battleActive && (
-                  <div className="col-arena-intro">
-                    {battleResult === 'win' && lastReward && (
-                      <div className="col-result col-result--win">
-                        🏆 Victory! +{lastReward.gold} gold · +{lastReward.fame} fame · +{lastReward.xp} XP per survivor.
-                        Your next opponent awaits at Arena {arenaPower}.
-                      </div>
-                    )}
-                    {battleResult === 'loss' && (
-                      <div className="col-result col-result--loss">
-                        💀 Defeat. Your gladiators survive with a sliver of health and some fame lost. Rest and re-arm
-                        before trying again.
-                      </div>
-                    )}
-                    <button className="col-btn col-btn--primary" onClick={startBattle}>
-                      ⚔️ Enter the Arena (Rank {arenaPower})
-                    </button>
-                  </div>
-                )}
-
-                {battleActive && (
-                  <>
-                    <div className="col-battle-round">Round {round}</div>
-
-                    {/* Enemies */}
-                    <h3 className="col-section-label">Enemies</h3>
-                    <div className="col-grid col-grid--enemies">
-                      {enemies.map((e) => {
-                        const s = effectiveStats(e);
-                        const targeted = selectedActions[pendingTarget]?.targetId === e.id;
-                        const isTarget = pendingTarget && isAlive(e) && targeted;
-                        const isChosen = pendingTarget && isAlive(e);
-                        return (
-                          <button
-                            key={e.id}
-                            disabled={!pendingTarget || !isAlive(e)}
-                            onClick={() => pickTarget(e.id)}
-                            className={`col-card col-card--enemy ${isTarget ? 'col-card--targeting' : ''} ${isChosen ? 'col-card--choosable' : ''} ${!isAlive(e) ? 'col-card--down' : ''}`}
-                          >
-                            <Portrait classKey={e.classKey} alt={e.name} />
-                            <div className="col-card__head">
-                              <strong>{e.name}</strong>
-                              <ClassChip classKey={e.classKey} />
-                            </div>
-                            <div className="col-card__level">Level {e.level}</div>
-                            <Bar value={e.hp} max={s.maxHp} tone="hp" />
-                            <div className="col-card__hp">{e.hp} / {s.maxHp} HP</div>
-                            <StatLine label="Attack" value={s.atk} />
-                            <StatLine label="Defense" value={s.def} />
-                            <StatLine label="Speed" value={s.spd} />
-                            {pendingTarget && isAlive(e) && <div className="col-card__hint">Tap to target</div>}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Players */}
-                    <h3 className="col-section-label">Your Gladiators</h3>
-                    <div className="col-grid">
-                      {roster.map((g) => {
-                        const s = effectiveStats(g);
-                        const chosen = selectedActions[g.id];
-                        const skill = CLASSES[g.classKey].skill;
-                        return (
-                          <div key={g.id} className={`col-card ${!isAlive(g) ? 'col-card--down' : ''}`}>
-                            <Portrait classKey={g.classKey} alt={g.name} />
-                            <div className="col-card__head">
-                              <strong>{g.name}</strong>
-                              <ClassChip classKey={g.classKey} />
-                            </div>
-                            <Bar value={g.hp} max={s.maxHp} tone="hp" />
-                            <div className="col-card__hp">{g.hp} / {s.maxHp} HP</div>
-                            {isAlive(g) ? (
-                              <div className="col-actions">
-                                {['strike', 'heavy', 'defend', 'skill', 'rest'].map((a) => {
-                                  const isSkill = a === 'skill';
-                                  const disabled =
-                                    a === 'skill' ? g.skillCd > 0 : false;
-                                  return (
-                                    <button
-                                      key={a}
-                                      disabled={disabled}
-                                      title={a === 'skill' ? skill.desc : ACTIONS[a].desc}
-                                      className={`col-action ${chosen?.action === a ? 'col-action--selected' : ''}`}
-                                      onClick={() => selectAction(g.id, a)}
-                                    >
-                                      {ACTIONS[a].label}
-                                      {isSkill && g.skillCd > 0 && ` (${g.skillCd})`}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            ) : (
-                              <div className="col-card__down-badge">Down</div>
-                            )}
-                            {chosen && (
-                              <div className="col-action-summary">
-                                {chosen.action === 'defend' || chosen.action === 'rest'
-                                  ? `${ACTIONS[chosen.action].label} ready.`
-                                  : chosen.targetId
-                                    ? `${ACTIONS[chosen.action].label} → ${
-                                        enemies.find((e) => e.id === chosen.targetId)?.name || 'target'
-                                      }`
-                                    : 'Choose a target above.'}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <button
-                      className="col-btn col-btn--primary"
-                      disabled={!everyReady}
-                      onClick={resolve}
-                    >
-                      ⚔️ Fight Round
-                    </button>
-                    {!everyReady && <p className="col-hint">Choose an action for every standing gladiator (attacks need a target).</p>}
-
-                    {/* Battle log */}
-                    <div className="col-log" aria-live="polite">
-                      {log.map((line, i) => (
-                        <div key={i} className={line.startsWith('—') ? 'col-log__round' : 'col-log__line'}>
-                          {line}
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </section>
-            )}
-
             {/* ── Recruit ── */}
             {tab === 'Recruit' && (
               <section className="col-panel">
                 <h2 className="col-panel__title">Recruit Gladiators</h2>
-                {roster.length >= MAX_ROSTER && <p className="col-hint">Your ludus is full. You own {roster.length}/{MAX_ROSTER}.</p>}
+                {roster.length >= MAX_ROSTER && (
+                  <p className="col-hint">Your ludus is full. You own {roster.length}/{MAX_ROSTER}.</p>
+                )}
                 <div className="col-grid">
                   {recruitPool.map((g) => {
                     const s = effectiveStats(g);
@@ -601,7 +628,9 @@ export default function Colosseum() {
                     );
                   })}
                 </div>
-                <button className="col-btn" onClick={generateRecruits}>Refresh Recruits</button>
+                <button className="col-btn" onClick={generateRecruits}>
+                  Refresh Recruits
+                </button>
               </section>
             )}
 
@@ -609,7 +638,9 @@ export default function Colosseum() {
             {tab === 'Train' && (
               <section className="col-panel">
                 <h2 className="col-panel__title">Train</h2>
-                <p className="col-hint">Each session costs more than the last. A gladiator can train up to {`level × 6`} total points.</p>
+                <p className="col-hint">
+                  Each session costs more than the last. A gladiator can train up to level × 6 total points.
+                </p>
                 <div className="col-grid">
                   {roster.map((g) => {
                     const cost = trainCost(totalTrained(g));
@@ -653,12 +684,20 @@ export default function Colosseum() {
                     const nextA = ARMOR_TIERS[aIdx + 1];
                     return (
                       <div key={g.id} className="col-card">
-                        <div className="col-card__head"><strong>{g.name}</strong></div>
-                        <StatLine label="Weapon" value={`${weaponLabel(g)} (+${WEAPON_TIERS[wIdx].atk})`} />
+                        <div className="col-card__head">
+                          <strong>{g.name}</strong>
+                        </div>
+                        <div className="col-loadout">
+                          <WeaponIcon tierId={g.weaponId} title={weaponLabel(g)} />
+                          <span>{weaponLabel(g)} <em>(+{WEAPON_TIERS[wIdx].atk})</em></span>
+                        </div>
                         <button className="col-btn" disabled={!nextW || gold < nextW.cost} onClick={() => forgeWeapon(g.id)}>
                           {nextW ? `Forge ${nextW.label} — ${nextW.cost} gold` : 'Best weapon owned'}
                         </button>
-                        <StatLine label="Armor" value={`${armorLabel(g)} (+${ARMOR_TIERS[aIdx].def})`} />
+                        <div className="col-loadout">
+                          <ArmorIcon tierId={g.armorId} title={armorLabel(g)} />
+                          <span>{armorLabel(g)} <em>(+{ARMOR_TIERS[aIdx].def})</em></span>
+                        </div>
                         <button className="col-btn" disabled={!nextA || gold < nextA.cost} onClick={() => forgeArmor(g.id)}>
                           {nextA ? `Forge ${nextA.label} — ${nextA.cost} gold` : 'Best armor owned'}
                         </button>
@@ -680,7 +719,9 @@ export default function Colosseum() {
                     const cost = healCost(g);
                     return (
                       <div key={g.id} className="col-card">
-                        <div className="col-card__head"><strong>{g.name}</strong></div>
+                        <div className="col-card__head">
+                          <strong>{g.name}</strong>
+                        </div>
                         <Bar value={g.hp} max={s.maxHp} tone="hp" />
                         <div className="col-card__hp">{g.hp} / {s.maxHp} HP</div>
                         <button className="col-btn" disabled={g.hp >= s.maxHp || gold < cost} onClick={() => heal(g.id)}>

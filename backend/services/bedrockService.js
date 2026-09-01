@@ -384,7 +384,9 @@ async function* streamBedrockCompletion(messages, options = {}) {
 module.exports = {
     BEDROCK_MODEL_ID,
     getBedrockClient,
+    resolveBedrockCredentials,
     isBedrockConfigured,
+    classifyBedrockError,
     createBedrockCompletion,
     streamBedrockCompletion,
     toBedrockMessages,

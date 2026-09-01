@@ -262,13 +262,14 @@ function applyDefenderReduction(damage, defender) {
  * @param {Object} playerActions - map of gladiatorId -> { action, targetId }.
  * @param {number} arenaPower - used to scale enemy AI choices (unused for now).
  * @param {Function} rand     - RNG (defaults to Math.random).
- * @returns {{ playerTeam, enemyTeam, log: string[], playerWon, enemyWon }}
+ * @returns {{ playerTeam, enemyTeam, log: string[], events: object[], playerWon, enemyWon }}
  */
 export function resolveRound(playerTeam, enemyTeam, playerActions, arenaPower = 1, rand = Math.random) {
   const players = playerTeam.map((g) => cloneFighter(g));
   const enemies = enemyTeam.map((g) => cloneFighter(g));
 
   const log = [];
+  const events = [];
   const targets = { player: players, enemy: enemies };
 
   // Build actor list with their chosen actions.
@@ -294,13 +295,14 @@ export function resolveRound(playerTeam, enemyTeam, playerActions, arenaPower = 
     if (fighter.status.stun > 0) {
       fighter.status.stun -= 1;
       log.push(`${fighter.name} is staggered and loses a turn.`);
+      events.push({ kind: 'stun', targetId: fighter.id, targetSide: side });
       return;
     }
     const enemySide = side === 'player' ? 'enemy' : 'player';
     const pool = targets[enemySide].filter(isAlive);
     if (pool.length === 0) return;
 
-    performAction(fighter, action, targetId, pool, players, enemies, log, rand);
+    performAction(fighter, action, targetId, pool, side, log, events, rand);
   });
 
   // End-of-round upkeep.
@@ -314,7 +316,7 @@ export function resolveRound(playerTeam, enemyTeam, playerActions, arenaPower = 
   const playerWon = isTeamDefeated(enemies);
   const enemyWon = isTeamDefeated(players);
 
-  return { playerTeam: players, enemyTeam: enemies, log, playerWon, enemyWon };
+  return { playerTeam: players, enemyTeam: enemies, log, events, playerWon, enemyWon };
 }
 
 function cloneFighter(g) {
@@ -338,39 +340,47 @@ function chooseEnemyAction(self, allEnemies, players, rand) {
   return { action: 'defend', targetId: null };
 }
 
-function performAction(fighter, action, targetId, pool, players, enemies, log, rand) {
+function performAction(fighter, action, targetId, pool, side, log, events, rand) {
   const stats = effectiveStats(fighter);
+  const targetSide = side === 'player' ? 'enemy' : 'player';
 
   switch (action) {
     case 'strike': {
       const target = findTarget(targetId, pool);
       if (!target) return;
       const { hit, damage, crit } = computeDamage(fighter, target, 1.0, 0.95, rand);
-      applyAttack(fighter, target, hit, damage, crit, log, rand);
+      applyAttack(fighter, side, target, targetSide, hit, damage, crit, 'strike', log, events, rand);
       break;
     }
     case 'heavy': {
       const target = findTarget(targetId, pool);
       if (!target) return;
       const { hit, damage, crit } = computeDamage(fighter, target, 1.55, 0.75, rand);
-      if (!hit) log.push(`${fighter.name} winds up a heavy blow and misses ${target.name}.`);
-      else applyAttack(fighter, target, true, damage, crit, log, rand);
+      if (!hit) {
+        log.push(`${fighter.name} winds up a heavy blow and misses ${target.name}.`);
+        events.push({ kind: 'attack', label: 'heavy', actorId: fighter.id, actorSide: side, targetId: target.id, targetSide, damage: 0, crit: false, miss: true });
+      } else {
+        applyAttack(fighter, side, target, targetSide, true, damage, crit, 'heavy', log, events, rand);
+      }
       break;
     }
     case 'defend': {
       fighter.status.defending = true;
       log.push(`${fighter.name} raises a guard, bracing for the next blow.`);
+      events.push({ kind: 'defend', actorId: fighter.id, actorSide: side });
       break;
     }
     case 'rest': {
       const heal = Math.round(stats.maxHp * 0.08);
       const before = fighter.hp;
       fighter.hp = Math.min(stats.maxHp, fighter.hp + heal);
-      log.push(`${fighter.name} catches a breath and recovers ${fighter.hp - before} health.`);
+      const healed = fighter.hp - before;
+      log.push(`${fighter.name} catches a breath and recovers ${healed} health.`);
+      events.push({ kind: 'rest', actorId: fighter.id, actorSide: side, healed });
       break;
     }
     case 'skill': {
-      useSkill(fighter, targetId, pool, log, rand);
+      useSkill(fighter, targetId, pool, side, targetSide, log, events, rand);
       break;
     }
     default:
@@ -386,35 +396,50 @@ function findTarget(targetId, pool) {
   return pool.find(isAlive) || null;
 }
 
-function applyAttack(attacker, target, hit, damage, crit, log, rand) {
+function applyAttack(attacker, attackerSide, target, targetSide, hit, damage, crit, label, log, events, rand) {
   if (!hit || !isAlive(target)) return;
   let finalDamage = damage;
   let reflected = 0;
 
   if (target.status.counter && isAlive(attacker)) {
     reflected = Math.max(1, Math.round(finalDamage * 0.5));
-    applyDamage(attacker, reflected, log, `${target.name} braces and turns the blow back on ${attacker.name}`);
+    applyDamage(attacker, reflected, attackerSide, log, events, `${target.name} braces and turns the blow back on ${attacker.name}`);
+    events.push({ kind: 'reflect', actorId: target.id, actorSide: targetSide, targetId: attacker.id, targetSide: attackerSide, damage: reflected });
   }
 
   finalDamage = applyDefenderReduction(finalDamage, target);
-  applyDamage(target, finalDamage, log, null);
+  applyDamage(target, finalDamage, targetSide, log, events, null);
 
   const critLabel = crit ? ' — a critical hit!' : '';
   if (reflected === 0) {
     log.push(`${attacker.name} hits ${target.name} for ${finalDamage} damage${critLabel}.`);
   }
+  events.push({
+    kind: 'attack',
+    label,
+    actorId: attacker.id,
+    actorSide: attackerSide,
+    targetId: target.id,
+    targetSide,
+    damage: finalDamage,
+    crit,
+    miss: false,
+  });
 }
 
-function applyDamage(target, amount, log, overrideLine) {
+function applyDamage(target, amount, targetSide, log, events, overrideLine) {
   target.hp = Math.max(0, target.hp - amount);
   if (overrideLine) {
     log.push(`${overrideLine} for ${amount} damage.`);
   } else if (target.hp <= 0) {
     log.push(`${target.name} falls!`);
   }
+  if (target.hp <= 0) {
+    events.push({ kind: 'death', targetId: target.id, targetSide });
+  }
 }
 
-function useSkill(fighter, targetId, pool, log, rand) {
+function useSkill(fighter, targetId, pool, side, targetSide, log, events, rand) {
   const cls = CLASSES[fighter.classKey];
   const skill = cls.skill;
   if (fighter.skillCd > 0) {
@@ -422,7 +447,7 @@ function useSkill(fighter, targetId, pool, log, rand) {
     const target = findTarget(targetId, pool);
     if (target) {
       const { hit, damage, crit } = computeDamage(fighter, target, 1.0, 0.95, rand);
-      applyAttack(fighter, target, hit, damage, crit, log, rand);
+      applyAttack(fighter, side, target, targetSide, hit, damage, crit, 'strike', log, events, rand);
     }
     return;
   }
@@ -430,6 +455,7 @@ function useSkill(fighter, targetId, pool, log, rand) {
   const target = findTarget(targetId, pool);
   fighter.skillCd = skill.cooldown;
   log.push(`${fighter.name} uses ${skill.name}!`);
+  events.push({ kind: 'skill', actorId: fighter.id, actorSide: side, name: skill.name, targetId: target ? target.id : null, targetSide, effect: skill.effect });
 
   switch (skill.effect) {
     case 'stun': {
@@ -437,9 +463,11 @@ function useSkill(fighter, targetId, pool, log, rand) {
         const { hit, damage, crit } = computeDamage(fighter, target, skill.power, 0.9, rand);
         if (hit) {
           target.status.stun = 1;
-          applyAttack(fighter, target, true, damage, crit, log, rand);
+          applyAttack(fighter, side, target, targetSide, true, damage, crit, 'skill', log, events, rand);
+          events.push({ kind: 'stun', targetId: target.id, targetSide });
         } else {
           log.push(`${fighter.name} misses ${target.name} with ${skill.name}.`);
+          events.push({ kind: 'attack', label: 'skill', actorId: fighter.id, actorSide: side, targetId: target.id, targetSide, damage: 0, crit: false, miss: true });
         }
       }
       break;
@@ -449,7 +477,8 @@ function useSkill(fighter, targetId, pool, log, rand) {
         const { hit, damage, crit } = computeDamage(fighter, target, skill.power, 0.95, rand);
         if (hit) {
           target.status.slow = 2;
-          applyAttack(fighter, target, true, damage, crit, log, rand);
+          applyAttack(fighter, side, target, targetSide, true, damage, crit, 'skill', log, events, rand);
+          events.push({ kind: 'slow', targetId: target.id, targetSide });
         }
       }
       break;
@@ -458,12 +487,14 @@ function useSkill(fighter, targetId, pool, log, rand) {
       if (target) {
         const { hit, damage, crit } = computeDamage(fighter, target, skill.power, 0.9, rand);
         if (hit) {
-          applyAttack(fighter, target, true, damage, crit, log, rand);
+          applyAttack(fighter, side, target, targetSide, true, damage, crit, 'skill', log, events, rand);
           const selfCost = Math.max(1, Math.round(damage * 0.15));
           fighter.hp = Math.max(1, fighter.hp - selfCost);
           log.push(`${fighter.name} pays ${selfCost} of their own health in the frenzy.`);
+          events.push({ kind: 'selfDamage', actorId: fighter.id, actorSide: side, amount: selfCost });
         } else {
           log.push(`${fighter.name}'s fury swings wide.`);
+          events.push({ kind: 'attack', label: 'skill', actorId: fighter.id, actorSide: side, targetId: target.id, targetSide, damage: 0, crit: false, miss: true });
         }
       }
       break;
@@ -471,11 +502,14 @@ function useSkill(fighter, targetId, pool, log, rand) {
     case 'double': {
       if (target) {
         const { hit, damage, crit } = computeDamage(fighter, target, skill.power, 0.9, rand);
-        if (hit) applyAttack(fighter, target, true, damage, crit, log, rand);
-        else log.push(`${fighter.name} misses the first of two strikes.`);
+        if (hit) applyAttack(fighter, side, target, targetSide, true, damage, crit, 'skill', log, events, rand);
+        else {
+          log.push(`${fighter.name} misses the first of two strikes.`);
+          events.push({ kind: 'attack', label: 'skill', actorId: fighter.id, actorSide: side, targetId: target.id, targetSide, damage: 0, crit: false, miss: true });
+        }
         if (isAlive(target)) {
           const second = computeDamage(fighter, target, skill.power, 0.9, rand);
-          if (second.hit) applyAttack(fighter, target, true, second.damage, second.crit, log, rand);
+          if (second.hit) applyAttack(fighter, side, target, targetSide, true, second.damage, second.crit, 'skill', log, events, rand);
         }
       }
       break;
@@ -483,7 +517,7 @@ function useSkill(fighter, targetId, pool, log, rand) {
     case 'counter': {
       if (target) {
         const { hit, damage, crit } = computeDamage(fighter, target, skill.power, 0.9, rand);
-        if (hit) applyAttack(fighter, target, true, damage, crit, log, rand);
+        if (hit) applyAttack(fighter, side, target, targetSide, true, damage, crit, 'skill', log, events, rand);
       }
       fighter.status.counter = true;
       break;
