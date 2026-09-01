@@ -224,10 +224,6 @@ function Home() {
                         <div className="home-hero-circle home-hero-circle-3" />
                     </div>
                     <div className="home-hero-wrap">
-                        <p className="home-eyebrow">
-                            <span className="home-eyebrow-dot" aria-hidden="true" />
-                            Portfolio · Full-stack developer
-                        </p>
                         {/* Visually-hidden but crawlable H1: the typewriter below is decorative. */}
                         <h1 className="sr-only">Steven Tanner Hopwood — STHopwood Portfolio</h1>
                         <div className="home-title">

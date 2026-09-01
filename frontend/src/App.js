@@ -18,6 +18,7 @@ const AdminData = lazy(() => import('./pages/Admin/DataExplorer'));
 const AdminHomeTitle = lazy(() => import('./pages/Admin/HomeTitle'));
 const AdminFunnelTester = lazy(() => import('./pages/Admin/FunnelTester'));
 const Annuities = lazy(() => import('./pages/Projects/Annuities/Annuities'));
+const Colosseum = lazy(() => import('./pages/Projects/Colosseum/Colosseum'));
 const Contact = lazy(() => import('./pages/Contact/Contact'));
 const DeepStorage = lazy(() => import('./pages/DeepStorage/DeepStorage'));
 const Ethanol = lazy(() => import('./pages/Projects/Ethanol/Ethanol'));
@@ -107,6 +108,8 @@ function App() {
               <Route path="/fluid" element={<Fluid/>} />
               <Route path='/forgot-password' element={<ForgotPassword />} />
               <Route path="/2048" element={<Game2048/>} />
+              <Route path="/colosseum" element={<Colosseum/>} />
+              <Route path="/Colosseum" element={<Colosseum/>} />
               <Route path="/halfway" element={<Halfway/>} />
               <Route path='/hype' element={<Hype />} />
               <Route path="/iq" element={<IQTest/>} />

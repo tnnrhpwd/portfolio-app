@@ -41,6 +41,7 @@ const ROUTES = [
   { path: '/type', priority: 0.6, changefreq: 'monthly' },
   { path: '/wordlesolver', priority: 0.6, changefreq: 'monthly' },
   { path: '/2048', priority: 0.6, changefreq: 'monthly' },
+  { path: '/colosseum', priority: 0.6, changefreq: 'monthly' },
   { path: '/polls', priority: 0.6, changefreq: 'weekly' },
 ];
 

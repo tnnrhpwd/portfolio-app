@@ -1,9 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
+import SEO from '../../components/SEO/SEO.jsx';
+import useScrollReveal from '../../hooks/useScrollReveal.js';
 import * as petsApi from '../../services/petsApi';
 import './Pets.css';
 
@@ -86,6 +88,62 @@ function statColor(value) {
   return 'bad';
 }
 
+// ── AI artwork + visual reactions ──────────────────────────────────────────
+// Artwork is auto-discovered from frontend/src/assets/art/pets/.
+// Filename convention:  pet-<species>.<ext>  (one per species) and  room.<ext>
+// (the room background). Missing files gracefully fall back to the emoji.
+const petArtModules = import.meta.glob('../../assets/art/pets/*.{jpg,jpeg,png,webp}', {
+  eager: true,
+  import: 'default',
+});
+
+const petArt = {};
+let roomArt = null;
+Object.entries(petArtModules).forEach(([path, url]) => {
+  const file = path.split('/').pop().toLowerCase();
+  if (file.startsWith('room')) {
+    roomArt = url;
+  } else {
+    const match = file.match(/^pet-([a-z]+)\./);
+    if (match) petArt[match[1]] = url;
+  }
+});
+
+// Floating emoji + particle burst shown when a pet reacts (fed, played, mood
+// change, etc.) — each mood has its own signature.
+const MOOD_REACTION = {
+  ecstatic: { emoji: '🤩', burst: ['💖', '✨', '🌟', '💖', '✨'] },
+  happy: { emoji: '😊', burst: ['💖', '✨', '💖'] },
+  content: { emoji: '🙂', burst: ['✨'] },
+  sleepy: { emoji: '😴', burst: ['💤', '💤'] },
+  hungry: { emoji: '😋', burst: ['🍖'] },
+  sad: { emoji: '😢', burst: ['💧'] },
+  lonely: { emoji: '🥺', burst: ['💧'] },
+  messy: { emoji: '😅', burst: ['💧'] },
+  dirty: { emoji: '😰', burst: ['💧'] },
+  exhausted: { emoji: '😮‍💨', burst: ['💤'] },
+  starving: { emoji: '😫', burst: ['🍖'] },
+  sick: { emoji: '🤒', burst: ['💊'] },
+  critical: { emoji: '🚨', burst: ['🚨'] },
+  passed: { emoji: '🌈', burst: ['🌈'] },
+};
+
+// Ranked worst → best, so we can tell whether a mood change is an improvement.
+const MOOD_RANK = {
+  passed: 0, critical: 1, sick: 2, starving: 3, exhausted: 4, lonely: 5,
+  dirty: 6, messy: 7, sad: 8, hungry: 9, sleepy: 10, content: 11, happy: 12, ecstatic: 13,
+};
+
+// Place the Nth pet along the room floor with a touch of depth variation.
+function roomSpot(index, count) {
+  const total = Math.max(1, count);
+  const t = total === 1 ? 0.5 : index / (total - 1);
+  const left = 12 + t * 76;
+  const depth = (1 - Math.abs(t - 0.5) * 0.18).toFixed(2);
+  const bottom = Math.max(5, 8 + Math.sin(index * 1.9) * 2.5);
+  return { left: `${left}%`, bottom: `${bottom}%`, '--depth': depth };
+}
+
 // ── Small presentational pieces ──────────────────────────────────────────────
 
 function StatBar({ label, emoji, value, hint }) {
@@ -127,6 +185,19 @@ function Pets() {
   const [error, setError] = useState(null);
   const [busyAction, setBusyAction] = useState(null);
   const [selectedPetId, setSelectedPetId] = useState(null);
+  const [reaction, setReaction] = useState(null);
+  const reactionTimer = useRef(null);
+  const [detailRef, detailVisible] = useScrollReveal();
+
+  const selectPet = useCallback(
+    (petId) => {
+      setSelectedPetId(petId);
+      if (detailRef.current) {
+        detailRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    },
+    [detailRef]
+  );
 
   // Adoption form state
   const [showAdopt, setShowAdopt] = useState(false);
@@ -166,6 +237,14 @@ function Pets() {
     return () => clearInterval(id);
   }, [token, loadPets]);
 
+  // Clear any in-flight reaction animation on unmount.
+  useEffect(
+    () => () => {
+      if (reactionTimer.current) clearTimeout(reactionTimer.current);
+    },
+    []
+  );
+
   const livingPets = useMemo(() => pets.filter((p) => p.alive), [pets]);
   const selectedPet = useMemo(
     () => pets.find((p) => p._id === selectedPetId) || pets[0] || null,
@@ -195,10 +274,23 @@ function Pets() {
 
   const handleAction = useCallback(
     async (pet, action, extra = {}) => {
+      const prevMood = pet.mood;
       setBusyAction(action);
       try {
         const updated = await petsApi.petAction(token, pet._id, action, extra);
         setPets((prev) => prev.map((p) => (p._id === updated._id ? updated : p)));
+
+        // Visual reaction — show exactly how the pet is feeling right now.
+        const improved = (MOOD_RANK[updated.mood] || 0) > (MOOD_RANK[prevMood] || 0);
+        const react = MOOD_REACTION[updated.mood] || { emoji: '🐾', burst: ['✨'] };
+        const burst = improved ? ['💖', ...react.burst] : react.burst;
+        const nonce = Date.now();
+        setReaction({ petId: updated._id, emoji: react.emoji, burst, nonce, improved });
+        if (reactionTimer.current) clearTimeout(reactionTimer.current);
+        reactionTimer.current = setTimeout(
+          () => setReaction((r) => (r && r.nonce === nonce ? null : r)),
+          1600
+        );
 
         if (updated.walkEvent) {
           toast.info(
@@ -397,15 +489,20 @@ function Pets() {
   // ── Main pets view ─────────────────────────────────────────────────────────
   return (
     <>
+      <SEO
+        title="The Pet House"
+        description="Adopt a virtual pet, keep it fed and happy, and watch its mood change in real time."
+        path="/pets"
+      />
       <Header />
       <main className="pets-page">
-        <header className="pets-heading">
-          <div>
-            <h1>Your Pets</h1>
-            <p className="pets-heading__sub">
-              {livingPets.length} of {maxPets} living companions · stats update in real time
-            </p>
-          </div>
+        <header className="pets-hero">
+          <p className="pets-eyebrow">Virtual Pets</p>
+          <h1 className="pets-title">The Pet House</h1>
+          <p className="pets-subtitle">
+            {livingPets.length} of {maxPets} living companions · stats update in real time.
+            Feed, play, and care for them — they'll show you exactly how they feel.
+          </p>
           {canAdoptMore && (
             <button
               type="button"
@@ -418,35 +515,82 @@ function Pets() {
           )}
         </header>
 
-        <div className="pets-layout">
-          {/* Pet roster */}
-          <aside className="pets-roster" aria-label="Your pets">
-            {pets.map((pet) => (
+        <section className="pets-room" aria-label={`${pets.length} pets in their room`}>
+          {roomArt ? (
+            <img className="pets-room__bg" src={roomArt} alt="" aria-hidden="true" />
+          ) : null}
+          <div className="pets-room__floor" aria-hidden="true" />
+          {pets.map((pet, i) => {
+            const spot = roomSpot(i, pets.length);
+            const image = petArt[pet.species];
+            const isSelected = selectedPet?._id === pet._id;
+            const isReacting = reaction?.petId === pet._id;
+            return (
               <button
                 key={pet._id}
                 type="button"
-                className={`pets-roster-card ${selectedPet?._id === pet._id ? 'is-active' : ''}`}
-                onClick={() => setSelectedPetId(pet._id)}
+                className={`pets-room-pet is-${pet.mood}${isSelected ? ' is-active' : ''}${pet.alive ? '' : ' is-passed'}`}
+                style={{
+                  left: spot.left,
+                  bottom: spot.bottom,
+                  '--depth': spot['--depth'],
+                  zIndex: isSelected ? 4 : 2,
+                }}
+                onClick={() => selectPet(pet._id)}
+                aria-pressed={isSelected}
+                title={`${pet.name} — ${pet.moodMeta?.label || ''}`}
               >
-                <span className="pets-roster-card__emoji" aria-hidden="true">{pet.emoji}</span>
-                <span className="pets-roster-card__info">
-                  <span className="pets-roster-card__name">
-                    {pet.name} {pet.alive ? '' : '🌈'}
+                <span className="pets-room-pet__body">
+                  {image ? (
+                    <img className="pets-room-pet__img" src={image} alt={pet.name} loading="lazy" />
+                  ) : (
+                    <span className="pets-room-pet__emoji" aria-hidden="true">{pet.emoji}</span>
+                  )}
+                  {isReacting && (
+                    <span
+                      key={reaction.nonce}
+                      className={`pets-room-pet__reaction${reaction.improved ? ' is-improved' : ''}`}
+                      aria-hidden="true"
+                    >
+                      <span className="pets-room-pet__reaction-mood">{reaction.emoji}</span>
+                      {reaction.burst.map((b, bi) => (
+                        <span key={bi} className="pets-room-pet__burst" style={{ '--bi': bi }}>
+                          {b}
+                        </span>
+                      ))}
+                    </span>
+                  )}
+                </span>
+                <span className="pets-room-pet__badge">
+                  <span className="pets-room-pet__name">
+                    {pet.name}
+                    {pet.alive ? '' : ' 🌈'}
                   </span>
-                  <span className="pets-roster-card__mood">
+                  <span className="pets-room-pet__mood">
                     {pet.moodMeta?.emoji} {pet.moodMeta?.label}
                   </span>
                 </span>
               </button>
-            ))}
-          </aside>
+            );
+          })}
+        </section>
+
+        <div className="pets-detail-wrap">
 
           {/* Selected pet detail */}
           {selectedPet && (
-            <section className="pets-detail" aria-live="polite">
+            <section
+              ref={detailRef}
+              className={`pets-detail pets-reveal ${detailVisible ? 'is-visible' : ''}`}
+              aria-live="polite"
+            >
               <div className="pets-detail__hero">
-                <div className={`pets-detail__avatar ${!selectedPet.alive ? 'is-passed' : ''}`}>
-                  <span aria-hidden="true">{selectedPet.emoji}</span>
+                <div className={`pets-detail__avatar is-${selectedPet.mood} ${!selectedPet.alive ? 'is-passed' : ''}`}>
+                  {petArt[selectedPet.species] ? (
+                    <img src={petArt[selectedPet.species]} alt={selectedPet.name} />
+                  ) : (
+                    <span aria-hidden="true">{selectedPet.emoji}</span>
+                  )}
                 </div>
                 <div className="pets-detail__id">
                   <h2>{selectedPet.name}</h2>

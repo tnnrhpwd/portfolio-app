@@ -9,6 +9,7 @@ import './Projects.css';
 import artHero from '../../../assets/art/hero.jpg';
 import artFluid from '../../../assets/art/project-fluid.jpg';
 import art2048 from '../../../assets/art/project-2048.jpg';
+import artColosseum from '../../../assets/art/Hero banner.jpg';
 import artSonic from '../../../assets/art/project-sonic.jpg';
 import artWordle from '../../../assets/art/project-wordle.jpg';
 import artEthanol from '../../../assets/art/project-ethanol.jpg';
@@ -50,6 +51,13 @@ const PROJECTS = [
     art: art2048,
     category: "Games",
     description: "Play a custom 2048 tile-merging game with swipe, drag, or keyboard controls, saved progress, and a public leaderboard.",
+  },
+  {
+    name: "Colosseum",
+    path: "/colosseum",
+    art: artColosseum,
+    category: "Games",
+    description: "Recruit, train, and equip gladiators, then battle through the arena in this free turn-based strategy game.",
   },
   {
     name: "Halfway",
