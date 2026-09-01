@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 1200 900"
+     preserveAspectRatio="xMidYMid slice">
+    <defs>
+        <linearGradient id="bg"
+                        x1="0"
+                        y1="0"
+                        x2="1"
+                        y2="1">
+            <stop offset="0"
+                  stop-color="#ff732e" />
+            <stop offset="1"
+                  stop-color="#ff379b" />
+        </linearGradient>
+    </defs>
+    <rect width="1200"
+          height="900"
+          fill="url(#bg)" />
+    <g fill="#ffffff">
+        <rect x="180"
+              y="180"
+              width="620"
+              height="120"
+              rx="60"
+              opacity="0.9" />
+        <rect x="180"
+              y="180"
+              width="360"
+              height="120"
+              rx="60"
+              fill="#2f6bff"
+              opacity="0.9" />
+        <rect x="180"
+              y="380"
+              width="520"
+              height="120"
+              rx="60"
+              opacity="0.7" />
+        <rect x="180"
+              y="380"
+              width="250"
+              height="120"
+              rx="60"
+              fill="#7cf7c9"
+              opacity="0.9" />
+        <rect x="180"
+              y="580"
+              width="740"
+              height="120"
+              rx="60"
+              opacity="0.55" />
+        <rect x="180"
+              y="580"
+              width="480"
+              height="120"
+              rx="60"
+              fill="#ffd166"
+              opacity="0.9" />
+    </g>
+    <circle cx="950"
+            cy="250"
+            r="70"
+            fill="#ffffff"
+            opacity="0.35" />
+    <circle cx="960"
+            cy="450"
+            r="46"
+            fill="#ffffff"
+            opacity="0.5" />
+</svg>

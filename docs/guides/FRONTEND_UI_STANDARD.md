@@ -9,8 +9,8 @@
 ## 1. The goal
 
 Our visual language is **"vibrant editorial"** — Squarespace's structure and feel (typography-led
-hierarchy, eyebrow labels, pill buttons, hairline borders, generous sizing, subtle motion) layered on
-top of our own **vibrant gradient** palette.
+hierarchy, eyebrow labels, uppercase letter-spaced buttons, full-bleed color bands, generous sizing,
+subtle motion) layered on top of our own **vibrant gradient** palette.
 
 Every page should be **"very very very good UI"** — meaning:
 
@@ -18,7 +18,7 @@ Every page should be **"very very very good UI"** — meaning:
 2. **Responsive by token** — nothing is sized in raw pixels; everything scales off one unit (`--nav-size`).
 3. **Vibrant + animated** — the animated four-color gradient background is our signature; keep it.
 4. **Typography-led** — clear hierarchy: eyebrow label → big heading → subtitle → content.
-5. **Structured feel** — hairline borders, soft shadows, pill buttons, and subtle hover motion (Squarespace's feel, not its colors).
+5. **Structured feel** — flat color-to-color band transitions, soft shadows, uppercase letter-spaced buttons, and subtle hover motion (Squarespace's feel, not its colors).
 6. **Consistent anatomy** — every page follows the same structural template (section 4).
 7. **Accessible** — semantic markup, visible focus states, `aria-*` where useful, and `prefers-reduced-motion` support.
 
@@ -273,83 +273,93 @@ export default Foo;
 
 ---
 
-## 5. Squarespace-inspired motion & card polish
+## 5. Squarespace-inspired layout & motion
 
 Our benchmark for "very very very good UI" is [Squarespace's website-design showcase](https://www.squarespace.com/website-design) —
-**its structure and motion, not its monochrome palette.** Borrow the oversized cards, generous
-whitespace, scroll-triggered reveals, and confident hover states; keep our own vibrant gradient
-palette everywhere a color decision is made.
+**its structure and motion, not its monochrome palette.** The signature moves we borrow: full-bleed
+color bands that meet edge-to-edge with *no card borders*, oversized media blocks (photos or artwork,
+not emojis), uppercase letter-spaced buttons, paginated horizontal carousels, alternating media/text
+rows, and scroll-triggered reveals. Keep our own vibrant gradient palette everywhere a color decision
+is made.
+
+### Full-bleed bands, not bordered cards
+
+Squarespace separates content with flat color changes, not boxes — but on our pages the signature
+**animated four-color gradient runs across the entire page** (applied to the page root), and the
+`*-band` sections sit transparently on top of it. The gradient is our "color-to-color transition,"
+not grey slabs: only the CTA gets its own solid gradient block, and surfaces that need contrast use
+a *translucent* `color-mix(... transparent)` instead of an opaque fill. Drop card borders and
+`border-radius` for anything that isn't a compact control:
+
+```css
+.foo {
+  background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
+  background-size: 400% 400%;
+  animation: fooGradientShift 12s ease infinite;
+}
+.foo-band { padding: calc(var(--nav-size) * 1.6) calc(var(--nav-size) * 0.3); width: 100%; }
+.foo-band--surface { background: transparent; }
+.foo-band--tint { background: color-mix(in srgb, var(--fg-mint) 14%, transparent); }
+.foo-band--cta { background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint)); color: var(--text-color-inv); }
+/* translucent surface for cards/tiles that need contrast */
+.foo-tile { background: color-mix(in srgb, var(--bg-1) 55%, transparent); }
+```
+
+### Imagery over emoji
+
+Every card/feature should carry a real **media block** — an `<img>` of AI-generated artwork or a
+photo — not an emoji or icon tile. Artwork lives in `frontend/src/assets/art/` (`project-*.jpg`,
+`feature-*.jpg`, `hero.jpg`), imported at the top of the page component and passed through the data
+arrays, so imagery can be swapped without touching markup. Image rules:
+
+- `aspect-ratio: 4 / 3` with `object-fit: cover` so every block crops consistently.
+- `border-radius: var(--border-radius-2xl)` on the media itself (rounded image, not a bordered card).
+- `loading="lazy"` and `alt=""` when decorative.
+
+### Horizontal carousel with pagination dots
+
+Featured collections scroll horizontally (snap points) and show a dot per page — the active dot
+stretches into a pill. Reuse the `scrollToCard` / `handleTemplatesScroll` pattern from
+`frontend/src/pages/Home/Home.jsx`: measure card width + gap, compute
+`Math.round(scrollLeft / step)` for the active index, and render one dot per item plus prev/next
+arrows. Hide the native scrollbar (`scrollbar-width: none`).
+
+### Alternating media rows
+
+For feature lists, pair a full-width media block with its copy and flip every other row, the way
+Squarespace pairs photography with editorial text:
+
+```css
+.foo-feature-row { display: grid; grid-template-columns: 1fr 1fr; gap: calc(var(--nav-size) * 0.8); align-items: center; }
+.foo-feature-row.is-flipped .foo-feature-media { order: 2; }
+/* collapse to a single column under 768px */
+```
+
+### Buttons & type
+
+Primary actions are uppercase, letter-spaced pills (`letter-spacing: 0.1em; text-transform: uppercase`)
+with a vibrant gradient fill and a trailing arrow glyph. Secondary actions are plain text links whose
+arrow slides right on hover — not a second bordered button.
 
 ### Scroll reveal
 
-Sections should fade + rise into view the first time they're scrolled into the viewport (not on
-every page — once per mount is enough; Squarespace doesn't re-animate on scroll-up). Use the shared
-`useScrollReveal` hook (`frontend/src/hooks/useScrollReveal.js`) instead of hand-rolling
-`IntersectionObserver` per page:
+Sections fade + rise the first time they enter the viewport (once per mount — Squarespace doesn't
+re-animate on scroll-up). Use the shared `useScrollReveal` hook
+(`frontend/src/hooks/useScrollReveal.js`):
 
 ```jsx
 import useScrollReveal from '../../hooks/useScrollReveal';
-
-const [statsRef, statsVisible] = useScrollReveal();
-
-<section ref={statsRef} className={`foo-section foo-reveal ${statsVisible ? 'is-visible' : ''}`}>
+const [ref, visible] = useScrollReveal();
+<section ref={ref} className={`foo-band foo-reveal ${visible ? 'is-visible' : ''}`}>
 ```
 
 ```css
-.foo-reveal {
-  opacity: 0;
-  transform: translateY(24px);
-  transition: opacity 0.6s ease, transform 0.6s ease;
-}
+.foo-reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.7s ease, transform 0.7s ease; }
 .foo-reveal.is-visible { opacity: 1; transform: translateY(0); }
-
-/* Stagger a grid's children by giving each card an increasing delay */
-.foo-reveal.is-visible .foo-tile:nth-child(1) { transition-delay: 0ms; }
-.foo-reveal.is-visible .foo-tile:nth-child(2) { transition-delay: 80ms; }
-.foo-reveal.is-visible .foo-tile:nth-child(3) { transition-delay: 160ms; }
 ```
 
-`prefers-reduced-motion: reduce` must always disable this (see the reduced-motion block in section 4's
-CSS skeleton) — set opacity/transform back to their resting state and drop the transition.
-
-### Oversized, confident cards
-
-Squarespace's cards feel big and tactile: tall color/preview blocks, bold titles, lots of internal
-padding, and a strong hover response. Prefer:
-
-- **`--border-radius-xl` or `--border-radius-2xl`** for hero-level cards (template previews, feature
-  tiles, the final CTA card) instead of the smaller `--border-radius`/`--border-radius-lg` used for
-  inputs and small chips.
-- A **tall, colorful preview block** at the top of a card (`linear-gradient(135deg, var(--bg-orange), var(--bg-pink))`
-  etc., cycling through the four gradient corners per card) standing in for Squarespace's photography —
-  this is exactly where our vibrant palette should shine instead of their grayscale thumbnails.
-- **Generous padding** — `calc(var(--nav-size) * 0.4)` to `calc(var(--nav-size) * 0.6)` inside cards,
-  not the tighter spacing used for compact UI (tags, table rows).
-
-### Hover interactions
-
-Every interactive card/tile should respond with a combined **lift + subtle scale + shadow escalation +
-accent border**, not just one of those:
-
-```css
-.foo-tile {
-  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
-}
-.foo-tile:hover {
-  transform: translateY(-4px) scale(1.015);
-  box-shadow: var(--shadow-lg);
-  border-color: var(--fg-blue);
-}
-```
-
-Buttons keep the lighter `translateY(-1px)` + `--shadow-md` treatment from section 5's button recipe —
-reserve the stronger lift/scale combo for cards and tiles so buttons don't feel jumpy.
-
-### Section rhythm
-
-Give major sections room to breathe, the way Squarespace's showcase separates each feature block:
-`margin-bottom: calc(var(--nav-size) * 1.2)` to `calc(var(--nav-size) * 1.4)` between top-level
-`*-section`s is the target on desktop; let it compress naturally under `--nav-size`'s portrait value.
+`prefers-reduced-motion: reduce` must reset these to their resting state (see the reduced-motion block
+in section 4's CSS skeleton).
 
 ---
 

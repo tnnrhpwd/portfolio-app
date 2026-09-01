@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 /**
  * Contact Tab Component
@@ -106,7 +107,8 @@ const ContactTab = ({ formData, handleInputChange, handleContactSubmit, isSubmit
         <div className="support-contact-info">
           <h4>Alternative Contact Methods:</h4>
           <p>📧 Email: <a href="mailto:Admin@STHopwood.com">Admin@STHopwood.com</a></p>
-          <p>🕒 Response Time: Within 24 hours (1-2 hours for critical issues)</p>
+          <p>� Full contact page: <Link to="/contact">sthopwood.com/contact</Link></p>
+          <p>�🕒 Response Time: Within 24 hours (1-2 hours for critical issues)</p>
         </div>
 
         <button
