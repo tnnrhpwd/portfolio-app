@@ -140,10 +140,6 @@ jest.mock('./pages/Projects/Ethanol/Ethanol', () => {
   const React = require('react');
   return () => React.createElement('div', null, 'Ethanol');
 });
-jest.mock('./pages/Projects/GFreq/GFreq', () => {
-  const React = require('react');
-  return () => React.createElement('div', null, 'GFreq');
-});
 jest.mock('./pages/Projects/Halfway/Halfway', () => {
   const React = require('react');
   return () => React.createElement('div', null, 'Halfway');

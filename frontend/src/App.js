@@ -24,7 +24,6 @@ const Ethanol = lazy(() => import('./pages/Projects/Ethanol/Ethanol'));
 const Fluid = lazy(() => import('./pages/Projects/Fluid/Fluid'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword/ForgotPassword.jsx'));
 const Game2048 = lazy(() => import('./pages/Projects/Game2048/Game2048'));
-const GFreq = lazy(() => import('./pages/Projects/GFreq/GFreq'));
 const Halfway = lazy(() => import('./pages/Projects/Halfway/Halfway'));
 const Hype = lazy(() => import('./pages/Hype/Hype'));
 const IQTest = lazy(() => import('./pages/Projects/IQTest/IQTest'));
@@ -108,7 +107,6 @@ function App() {
               <Route path="/fluid" element={<Fluid/>} />
               <Route path='/forgot-password' element={<ForgotPassword />} />
               <Route path="/2048" element={<Game2048/>} />
-              <Route path="/GFreq" element={<GFreq/>} />
               <Route path="/halfway" element={<Halfway/>} />
               <Route path='/hype' element={<Hype />} />
               <Route path="/iq" element={<IQTest/>} />

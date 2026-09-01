@@ -154,15 +154,13 @@ function Home() {
                     <div id="content-tile">
                         <div id="text-body" className="section-header"> Pages: </div>
                         <div className="home-spc">
+                            {/* Account (Profile if logged in, else Login) */}
+                            <a className="home-spc-tool animate-in" href={user ? links.profile : links.login} style={{animationDelay: '0.34s'}}>
+                                <div className="home-spc-tool-text home-spc-tool-text--account">{user ? links.profile : links.login}</div>
+                            </a>
                             {/* Core Information */}
                             <a className="home-spc-tool animate-in" href={links.about} style={{animationDelay: '0.1s'}}>
                                 <div className="home-spc-tool-text">{links.about}</div>
-                            </a>
-                            <a className="home-spc-tool animate-in" href={links.privacy} style={{animationDelay: '0.14s'}}>
-                                <div className="home-spc-tool-text">{links.privacy}</div>
-                            </a>
-                            <a className="home-spc-tool animate-in" href={links.terms} style={{animationDelay: '0.18s'}}>
-                                <div className="home-spc-tool-text">{links.terms}</div>
                             </a>
                             <a className="home-spc-tool animate-in" href={links.support} style={{animationDelay: '0.22s'}}>
                                 <div className="home-spc-tool-text">{links.support}</div>
@@ -179,12 +177,6 @@ function Home() {
                                     <div className="home-spc-tool-text">{links.plans}</div>
                                 </a>
                             }
-                            
-                            {/* Account (Profile if logged in, else Login) */}
-                            <a className="home-spc-tool animate-in" href={user ? links.profile : links.login} style={{animationDelay: '0.34s'}}>
-                                <div className="home-spc-tool-text home-spc-tool-text--account">{user ? links.profile : links.login}</div>
-                            </a>
-
                             {/* Admin (Special Access) */}
                             {(user && user._id && user._id.toString() === '6770a067c725cbceab958619') && 
                                 <a className="home-spc-tool animate-in" href={links.admin} style={{animationDelay: '0.38s'}}>

@@ -74,8 +74,6 @@ function HeaderDropper(props) {
         
         {/* Core Information */}
         <a className='planit-header-dropper-pagelink' href='/about'>◽About</a>
-        <a className='planit-header-dropper-pagelink' href='/privacy'>◽Privacy</a>
-        <a className='planit-header-dropper-pagelink' href='/terms'>◽TOS</a>
         <a className='planit-header-dropper-pagelink' href='/support'>◽Support</a>
         
         {/* Member tools */}

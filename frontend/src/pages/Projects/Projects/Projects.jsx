@@ -37,13 +37,6 @@ const PROJECTS = [
     description: "Play a custom 2048 tile-merging game with swipe, drag, or keyboard controls, saved progress, and a public leaderboard.",
   },
   {
-    name: "GFreq",
-    path: "/GFreq",
-    emoji: "🎛️",
-    category: "Audio",
-    description: "Analyze audio frequency data from your microphone in real time.",
-  },
-  {
     name: "Halfway",
     path: "/halfway",
     emoji: "🌅",
