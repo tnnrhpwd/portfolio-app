@@ -12,7 +12,6 @@ import art2048 from '../../../assets/art/project-2048.jpg';
 import artColosseum from '../../../assets/art/Hero banner.jpg';
 import artSonic from '../../../assets/art/project-sonic.jpg';
 import artWordle from '../../../assets/art/project-wordle.jpg';
-import artEthanol from '../../../assets/art/project-ethanol.jpg';
 import artPolls from '../../../assets/art/project-polls.jpg';
 import artGames from '../../../assets/art/feature-games.jpg';
 import artEngineering from '../../../assets/art/feature-engineering.jpg';
@@ -30,13 +29,6 @@ const PROJECTS = [
     art: artEngineering,
     category: "Finance",
     description: "Calculate the effect of compound interest on your investment with an interactive annuities and engineering-economy calculator.",
-  },
-  {
-    name: "Ethanol",
-    path: "/ethanol",
-    art: artEthanol,
-    category: "Health",
-    description: "Calculate standard alcoholic drink equivalents from volume and percent alcohol, and track your drinks with a built-in log.",
   },
   {
     name: "Fluid",

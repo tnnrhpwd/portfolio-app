@@ -145,6 +145,7 @@ function Ethanol() {
             title="Ethanol Calculator"
             description="Calculate standard alcoholic drink equivalents from volume and percent alcohol, and track your drinks with a built-in log."
             path="/ethanol"
+            noindex
         />
         <Header />
         <div className="ethanol">

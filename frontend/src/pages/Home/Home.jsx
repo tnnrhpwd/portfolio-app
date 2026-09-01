@@ -13,7 +13,6 @@ import artFluid from '../../assets/art/project-fluid.jpg';
 import art2048 from '../../assets/art/project-2048.jpg';
 import artSonic from '../../assets/art/project-sonic.jpg';
 import artWordle from '../../assets/art/project-wordle.jpg';
-import artEthanol from '../../assets/art/project-ethanol.jpg';
 import artPolls from '../../assets/art/project-polls.jpg';
 import artGames from '../../assets/art/feature-games.jpg';
 import artEngineering from '../../assets/art/feature-engineering.jpg';
@@ -33,14 +32,13 @@ const FEATURED_PROJECTS = [
   { name: "2048", path: "/2048", art: art2048, category: "Games", description: "A tile-merging game with swipe, drag, or keyboard controls." },
   { name: "Sonic", path: "/sonic", art: artSonic, category: "Audio", description: "A real-time pitch detector and musical note tuner." },
   { name: "Wordle", path: "/wordle", art: artWordle, category: "Games", description: "A customizable Wordle clone with adjustable word length." },
-  { name: "Ethanol", path: "/ethanol", art: artEthanol, category: "Health", description: "Standard drink equivalents plus a built-in drink log." },
   { name: "Polls", path: "/polls", art: artPolls, category: "Tools", description: "Create and share quick polls — no sign-in required." },
 ];
 
 // The site's offerings, shown as a feature grid (Squarespace-style).
 const WHATS_INSIDE = [
   { art: artGames, title: "Games & puzzles", desc: "2048, Wordle, IQ Test, and more to pass the time.", path: "/projects?category=Games" },
-  { art: artEngineering, title: "Engineering tools", desc: "Annuities, ethanol, and fluid calculators built for engineers.", path: "/projects" },
+  { art: artEngineering, title: "Engineering tools", desc: "Annuities, fluid, and other calculators built for engineers.", path: "/projects" },
   { art: artProductivity, title: "Productivity", desc: "Polls, goals, and plans to organize your day.", path: "/plans" },
   { art: artSurprises, title: "Little surprises", desc: "Virtual pets, Hype, and other fun experiments.", path: "/projects?category=Fun" },
 ];
