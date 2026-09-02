@@ -101,6 +101,14 @@ describe('shop', () => {
     const item = generateShopStock(4, 1, mulberry32(7))[0];
     expect(() => buyItem(state, item)).toThrow();
   });
+
+  it('scales stock with shop tier — later cities sell better, pricier gear', () => {
+    const cheap = generateShopStock(0, 20, mulberry32(11));
+    const pricey = generateShopStock(9, 20, mulberry32(11));
+    const avg = (items: ReturnType<typeof generateShopStock>) =>
+      items.reduce((sum, item) => sum + itemPrice(item), 0) / items.length;
+    expect(avg(pricey)).toBeGreaterThan(avg(cheap));
+  });
 });
 
 describe('campaign start', () => {

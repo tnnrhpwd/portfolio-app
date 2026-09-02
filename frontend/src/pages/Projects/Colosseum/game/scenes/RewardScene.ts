@@ -1,16 +1,28 @@
 import { BaseScene } from './BaseScene';
 import { addText } from '../ui/button';
-import { addXp, postBattleRewards, recomputeDerived, victoryRewards, type MetalId, type Verdict } from '../core';
+import {
+  addXp,
+  advanceColiseumRank,
+  postBattleRewards,
+  recomputeDerived,
+  victoryRewards,
+  type MetalId,
+  type Verdict,
+} from '../core';
 
 export class RewardScene extends BaseScene {
   private enemyLevel = 1;
+  private cityId = '';
+  private ladderRank = 0;
 
   constructor() {
     super('Reward');
   }
 
-  create(data: { enemyLevel?: number }): void {
+  create(data: { enemyLevel?: number; cityId?: string; ladderRank?: number }): void {
     this.enemyLevel = data?.enemyLevel ?? 1;
+    this.cityId = data?.cityId ?? '';
+    this.ladderRank = data?.ladderRank ?? 0;
     this.render();
   }
 
@@ -51,6 +63,9 @@ export class RewardScene extends BaseScene {
       metals,
       fame: this.gameState.fame + 1,
     };
+    if (this.cityId && this.ladderRank > 0) {
+      this.gameState = advanceColiseumRank(this.gameState, this.cityId, this.ladderRank);
+    }
     this.applyAchievements();
     this.scene.start('Main');
   }

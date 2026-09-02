@@ -28,6 +28,8 @@ export interface GameState {
   tutorialSeen: boolean;
   gold: number;
   fame: number;
+  /** Current ladder rank per city id (16 = weakest, 1 = champion). */
+  coliseumRanks: Record<string, number>;
 }
 
 export const EMPTY_METALS: Record<MetalId, number> = { bronze: 0, iron: 0, silver: 0, gold: 0 };
@@ -88,6 +90,7 @@ export function createGameState(rand: Rng = Math.random): GameState {
     tutorialSeen: true,
     gold: START_GOLD,
     fame: START_FAME,
+    coliseumRanks: {},
   };
 }
 
@@ -106,6 +109,7 @@ export function createCampaignStart(rand: Rng = Math.random): GameState {
     tutorialSeen: false,
     gold: 500,
     fame: START_FAME,
+    coliseumRanks: {},
   };
 }
 

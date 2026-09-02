@@ -41,12 +41,16 @@ export class BattleScene extends BaseScene {
   private playerId = '';
   private enemyId = '';
   private speedFast = false;
+  private cityId = '';
+  private ladderRank = 0;
 
   constructor() {
     super('Battle');
   }
 
-  create(data: { enemyRank?: number } = {}): void {
+  create(data: { enemyRank?: number; cityId?: string; ladderRank?: number } = {}): void {
+    this.cityId = data?.cityId ?? '';
+    this.ladderRank = data?.ladderRank ?? 0;
     this.applyBackground(this.theme.bgAlt);
     const player = this.gameState.roster[0];
     const enemy = generateOpponent(data?.enemyRank ?? this.gameState.fame + 1, Math.random);
@@ -328,7 +332,11 @@ export class BattleScene extends BaseScene {
     if (this.snap.playerWon) {
       playVictory();
       setFighter(this.snap.player);
-      this.scene.start('Reward', { enemyLevel: this.snap.enemy.level });
+      this.scene.start('Reward', {
+        enemyLevel: this.snap.enemy.level,
+        cityId: this.cityId,
+        ladderRank: this.ladderRank,
+      });
       return;
     }
     if (this.snap.enemyWon) {

@@ -14,12 +14,12 @@ const STOCK_SLOTS: readonly EquipmentSlot[] = [
   'offHand',
 ];
 
-/** Rolls `count` items for a city-tier shop. */
+/** Rolls `count` items for a city-tier shop (tier 0..9, higher = better & pricier). */
 export function generateShopStock(tier: number, count: number, rand: Rng = Math.random): Equipment[] {
   const items: Equipment[] = [];
   for (let i = 0; i < count; i += 1) {
     const slot = pick(STOCK_SLOTS, rand);
-    const itemTier = Math.max(0, Math.min(4, tier + Math.floor(rand() * 2)));
+    const itemTier = Math.max(0, Math.min(9, tier + Math.floor(rand() * 2)));
     items.push(createEquipment(slot, itemTier, { rand }));
   }
   return items;

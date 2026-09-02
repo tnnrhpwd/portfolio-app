@@ -1,10 +1,36 @@
 import { BaseScene } from './BaseScene';
 import { addText, createTooltip } from '../ui/button';
-import { buyItem, equipItem, generateShopStock, itemPrice, type Equipment, type Fighter } from '../core';
+import {
+  buyItem,
+  cityById,
+  currentHp,
+  equipItem,
+  generateShopStock,
+  itemPrice,
+  totalHp,
+  type Equipment,
+  type EquipmentSlot,
+  type Fighter,
+} from '../core';
+
+const STOCK_COUNT = 8;
+
+const FILTERS: Array<{ id: EquipmentSlot | 'all'; label: string }> = [
+  { id: 'all', label: 'ALL' },
+  { id: 'head', label: 'HEAD' },
+  { id: 'torso', label: 'TORSO' },
+  { id: 'leftArm', label: 'L ARM' },
+  { id: 'rightArm', label: 'R ARM' },
+  { id: 'legs', label: 'LEGS' },
+  { id: 'mainHand', label: 'WEAPON' },
+  { id: 'offHand', label: 'SHIELD' },
+];
 
 export class ShopScene extends BaseScene {
   private tier = 1;
   private cityId = '';
+  private stock: Equipment[] = [];
+  private filter: EquipmentSlot | 'all' = 'all';
 
   constructor() {
     super('Shop');
@@ -13,6 +39,8 @@ export class ShopScene extends BaseScene {
   create(data: { tier?: number; cityId?: string } = {}): void {
     this.tier = data?.tier ?? 1;
     this.cityId = data?.cityId ?? '';
+    this.filter = 'all';
+    this.stock = generateShopStock(this.tier, STOCK_COUNT, Math.random);
     this.render();
   }
 
@@ -23,46 +51,62 @@ export class ShopScene extends BaseScene {
   private render(): void {
     this.clearScreen();
     this.applyBackground();
-    this.header('ARMORY');
+    const city = cityById(this.cityId);
     this.cityBack(this.cityId);
     this.goldText();
 
-    const stock = generateShopStock(this.tier, 6);
+    this.header(city ? `SHOP — ${city.name.toUpperCase()}` : 'SHOP');
     const tip = createTooltip(this);
     const compact = this.compact;
 
-    addText(this, this.cx, 100, 'For sale — buy into inventory', {
+    addText(this, this.cx, 90, 'Sort by:', { fontSize: '15px', color: '#f2d98c' });
+    this.renderFilters(compact);
+
+    // ── Stock grid ──
+    const visible = this.filter === 'all' ? this.stock : this.stock.filter((i) => i.slot === this.filter);
+    const stockTop = compact ? 208 : 158;
+    addText(this, this.cx, stockTop - 14, `For sale — ${visible.length} item${visible.length === 1 ? '' : 's'}`, {
       fontSize: '18px',
       color: '#f2d98c',
     });
 
-    stock.forEach((item: Equipment, i: number) => {
-      const y = 140 + i * (compact ? 66 : 46);
-      const stat = this.describeItem(item);
-      addText(
-        this,
-        compact ? this.cx : this.cx - 240,
-        compact ? y - 20 : y,
-        `${item.name} · ${stat} · ${itemPrice(item)} gp`,
-        { fontSize: '16px' },
-      ).setOrigin(compact ? 0.5 : 0, 0.5);
-      this.button(compact ? this.cx : this.cx + 210, compact ? y + 20 : y, 'BUY', () => this.buy(item), {
-        width: 96,
-        height: 38,
-        fontSize: 15,
+    const cols = compact ? 2 : 4;
+    const cellW = compact ? 168 : 250;
+    const cellH = compact ? 52 : 50;
+    const gapX = compact ? 176 : 264;
+    const gapY = compact ? 60 : 58;
+    visible.forEach((item: Equipment, i: number) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x = this.cx - ((cols - 1) * gapX) / 2 + col * gapX;
+      const y = stockTop + row * gapY;
+      const price = itemPrice(item);
+      const btn = this.button(x, y, `${item.name} · ${price}gp`, () => this.buy(item), {
+        width: cellW,
+        height: cellH,
+        fontSize: compact ? 13 : 15,
         hover: () => tip.show(this.cx, y - 40, this.preview(item)),
         blur: () => tip.hide(),
       });
+      if (this.gameState.gold < price) btn.setEnabled(false);
     });
 
-    const invY = 140 + stock.length * (compact ? 66 : 46) + 20;
-    addText(this, this.cx, invY, 'Inventory — equip to your fighter', {
+    const rows = Math.max(1, Math.ceil(visible.length / cols));
+    const restockY = stockTop + rows * gapY + 18;
+    this.button(this.cx, restockY, 'NEW STOCK', () => this.restock(), {
+      width: 180,
+      height: 40,
+      fontSize: 16,
+    });
+
+    // ── Inventory ──
+    const invY = restockY + 50;
+    addText(this, this.cx, invY, `Inventory (${this.gameState.inventory.length}) — equip to your fighter`, {
       fontSize: '18px',
       color: '#f2d98c',
     });
-
     this.gameState.inventory.forEach((item: Equipment, i: number) => {
-      const y = invY + 36 + i * (compact ? 60 : 40);
+      const y = invY + 40 + i * (compact ? 56 : 42);
       addText(
         this,
         compact ? this.cx : this.cx - 240,
@@ -77,17 +121,42 @@ export class ShopScene extends BaseScene {
       });
     });
 
-    addText(this, this.cx, this.h - 30, `Equipped: ${this.describeFighter(this.gameState.roster[0])}`, {
+    // ── Fighter summary ──
+    const fighter = this.gameState.roster[0];
+    addText(this, this.cx, this.h - 28, this.describeFighter(fighter), {
       fontSize: '14px',
       color: '#b8aa94',
       wordWrap: { width: this.w - 40 },
     });
   }
 
-  private describeItem(item: Equipment): string {
-    if (item.armor > 0) return `armor ${item.armor}`;
-    if (item.minDamage !== undefined) return `dmg ${item.minDamage}-${item.maxDamage}`;
-    return `block ${item.blockChance}%`;
+  private renderFilters(compact: boolean): void {
+    const cols = compact ? 4 : 8;
+    const width = compact ? 80 : 94;
+    const gapX = compact ? 88 : 100;
+    FILTERS.forEach((f, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x = this.cx - ((cols - 1) * gapX) / 2 + col * gapX;
+      const y = compact ? 118 + row * 46 : 118;
+      const active = this.filter === f.id;
+      this.button(x, y, f.label, () => {
+        this.filter = f.id;
+        this.render();
+      }, {
+        width,
+        height: 36,
+        fontSize: compact ? 12 : 14,
+        fill: active ? 0xe8b84b : undefined,
+        hoverFill: active ? 0xf0c858 : undefined,
+        textColor: active ? '#3a2f24' : undefined,
+      });
+    });
+  }
+
+  private restock(): void {
+    this.stock = generateShopStock(this.tier, STOCK_COUNT, Math.random);
+    this.render();
   }
 
   /** Equipping preview: current → new for each stat the item carries. */
@@ -105,18 +174,19 @@ export class ShopScene extends BaseScene {
   }
 
   private describeFighter(fighter: Fighter): string {
-    const parts: string[] = [];
-    if (fighter.loadout.mainHand) parts.push(fighter.loadout.mainHand.name);
-    if (fighter.loadout.offHand) parts.push(fighter.loadout.offHand.name);
-    if (fighter.loadout.head) parts.push(fighter.loadout.head.name);
-    return parts.join(', ') || 'nothing';
+    const armor = Object.values(fighter.loadout).reduce((acc, item) => acc + (item?.armor ?? 0), 0);
+    const equipped = Object.values(fighter.loadout)
+      .filter(Boolean)
+      .map((item) => (item as Equipment).name)
+      .join(', ');
+    return `${fighter.name} · Lv ${fighter.level} · HP ${currentHp(fighter)}/${totalHp(fighter)} · MP ${fighter.morale}/${fighter.maxMorale} · Armor ${armor} · Equipped: ${equipped || 'nothing'}`;
   }
 
   private buy(item: Equipment): void {
     try {
       this.gameState = buyItem(this.gameState, item);
     } catch {
-      // not enough gold — ignore
+      // not enough gold — button is disabled anyway
     }
     this.render();
   }

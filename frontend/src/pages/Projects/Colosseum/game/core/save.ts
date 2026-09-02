@@ -12,6 +12,7 @@ export function deserializeState(json: string): GameState | null {
     const parsed = JSON.parse(json) as GameState;
     if (!parsed || !Array.isArray(parsed.roster) || parsed.roster.length === 0) return null;
     if (typeof parsed.gold !== 'number' || typeof parsed.fame !== 'number') return null;
+    if (!parsed.coliseumRanks || typeof parsed.coliseumRanks !== 'object') parsed.coliseumRanks = {};
     return parsed;
   } catch {
     return null;

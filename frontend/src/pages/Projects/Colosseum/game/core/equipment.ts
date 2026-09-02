@@ -44,9 +44,12 @@ export function nextEquipId(): string {
   return `eq_${equipSeq}`;
 }
 
+const TIER_NAMES = [
+  'Worn', 'Bronze', 'Iron', 'Steel', 'Silver', 'Gold', 'Ornate', 'Masterwork', 'Royal', 'Legendary',
+] as const;
+
 function tierName(tier: number): string {
-  const names = ['Worn', 'Bronze', 'Iron', 'Silver', 'Gold'];
-  return names[Math.max(0, Math.min(names.length - 1, tier))];
+  return TIER_NAMES[Math.max(0, Math.min(TIER_NAMES.length - 1, tier))];
 }
 
 function slotName(slot: EquipmentSlot): string {

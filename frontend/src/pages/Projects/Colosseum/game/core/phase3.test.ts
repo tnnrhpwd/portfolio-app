@@ -1,6 +1,10 @@
 import {
+  advanceColiseumRank,
+  canChallenge,
   CITIES,
+  coliseumOpponentLevel,
   coliseumOpponentLevels,
+  coliseumRank,
   createCampaignStart,
   createFighter,
   effectiveAttributes,
@@ -132,8 +136,26 @@ describe('cities campaign', () => {
     expect(isCityUnlocked(CITIES[1], 2)).toBe(true);
   });
 
-  it('builds ascending coliseum ladders', () => {
-    expect(coliseumOpponentLevels(CITIES[0])).toEqual([1, 2, 3]);
+  it('builds a 16-team ladder per city, progressively harder', () => {
+    expect(coliseumOpponentLevels(CITIES[0])).toEqual(Array.from({ length: 16 }, (_, i) => i + 1));
+    expect(coliseumOpponentLevel(CITIES[0], 16)).toBe(1); // weakest slot
+    expect(coliseumOpponentLevel(CITIES[0], 1)).toBe(16); // champion slot
+    expect(coliseumOpponentLevel(CITIES[9], 16)).toBe(29); // final city is harder
+  });
+
+  it('gates fights by rank reach and advances on victory', () => {
+    const state = createCampaignStart(mulberry32(1));
+    expect(coliseumRank(state, 'londinium')).toBe(16);
+    expect(canChallenge(state, 'londinium', 16)).toBe(true);
+    expect(canChallenge(state, 'londinium', 14)).toBe(true);
+    expect(canChallenge(state, 'londinium', 13)).toBe(false);
+
+    const advanced = advanceColiseumRank(state, 'londinium', 14);
+    expect(coliseumRank(advanced, 'londinium')).toBe(14);
+    expect(canChallenge(advanced, 'londinium', 12)).toBe(true);
+    expect(canChallenge(advanced, 'londinium', 11)).toBe(false);
+    // re-beating a weaker team never moves you back down the ladder
+    expect(coliseumRank(advanceColiseumRank(advanced, 'londinium', 15), 'londinium')).toBe(14);
   });
 });
 
