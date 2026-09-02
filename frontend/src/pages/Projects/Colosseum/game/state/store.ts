@@ -38,6 +38,7 @@ function migrate(state: GameState): GameState {
         baseAttributes: fighter.baseAttributes ?? { ...fighter.attributes },
         skills: fighter.skills ?? {},
         row: fighter.row ?? 'front',
+        auto: fighter.auto ?? false,
         status: {
           stun: status.stun ?? 0,
           slow: status.slow ?? 0,

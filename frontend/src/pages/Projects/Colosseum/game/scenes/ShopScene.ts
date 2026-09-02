@@ -1,11 +1,13 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
 import { addText, createTooltip, type Tooltip } from '../ui/button';
-import { addStyleSprite } from '../assets/textures';
+import { EquipTargets } from '../ui/equipTargets';
+import { addEquipmentIcon, addLayeredFighter, addMannequinFrame } from '../assets/textures';
 import {
   buyItem,
   cityById,
   currentHp,
+  displacedByEquip,
   effectiveAttributes,
   equipItem,
   generateShopStock,
@@ -13,6 +15,7 @@ import {
   sellItem,
   sellPrice,
   totalHp,
+  unequipAll,
   xpToNext,
   type Equipment,
   type EquipmentSlot,
@@ -59,6 +62,8 @@ export class ShopScene extends BaseScene {
   private restockDeadline = 0;
   private countdownText: Phaser.GameObjects.Text | null = null;
   private mannequinBounds: Bounds | null = null;
+  private equipTargets: EquipTargets | null = null;
+  private dragging = false;
   private inventoryBounds: Bounds | null = null;
   private sellBounds: Bounds | null = null;
 
@@ -84,8 +89,10 @@ export class ShopScene extends BaseScene {
   private render(): void {
     this.clearScreen();
     this.applyBackground();
+    this.menuBackground();
     this.countdownText = null;
     this.mannequinBounds = null;
+    this.equipTargets = null;
     this.inventoryBounds = null;
     this.sellBounds = null;
 
@@ -126,23 +133,36 @@ export class ShopScene extends BaseScene {
     this.button(x + 230, bodyY, '▶', () => this.shiftFighter(1), { width: 44, height: 76, fontSize: 26 });
 
     // Active fighter sprite on a pedestal.
-    addStyleSprite(this, x - 110, bodyY, f.style, scale);
+    addLayeredFighter(this, x - 110, bodyY, f, scale);
     this.add.ellipse(x - 110, feetY, 110, 22, 0x000000, 0.35);
 
-    // Mannequin: a ghost of the same sprite inside a glowing outline = drop target.
-    const ghost = addStyleSprite(this, x + 110, bodyY, f.style, scale);
-    ghost.setAlpha(0.2);
+    // Mannequin: a wireframe figure with eight always-visible drop slots.
+    addMannequinFrame(this, x + 110, bodyY, scale);
     this.add.ellipse(x + 110, feetY, 110, 22, 0x000000, 0.25);
     const manW = 120 * scale + 26;
     const manH = 180 * scale + 18;
-    this.add.rectangle(x + 110, bodyY, manW, manH, 0x000000, 0).setStrokeStyle(2, 0xf2d98c, 0.85);
-    addText(this, x + 110, bodyY - manH / 2 - 14, 'EQUIP', { fontSize: '13px', color: '#f2d98c' });
+    const hitArea = this.add
+      .rectangle(x + 110, bodyY, manW, manH, 0x000000, 0)
+      .setInteractive({ useHandCursor: true });
+    hitArea.on('pointerover', () => {
+      if (!this.dragging) this.equipTargets?.setHover(true);
+    });
+    hitArea.on('pointerout', () => {
+      if (!this.dragging) this.equipTargets?.setHover(false);
+    });
+    this.button(x + 110, bodyY - manH / 2 - 16, 'UNEQUIP ALL', () => this.unequipAllGear(), {
+      width: 118,
+      height: 26,
+      fontSize: 11,
+    });
     this.mannequinBounds = {
       x0: x + 110 - manW / 2,
       y0: bodyY - manH / 2,
       x1: x + 110 + manW / 2,
       y1: bodyY + manH / 2,
     };
+    this.equipTargets = new EquipTargets(this, { cx: x + 110, cy: bodyY, w: 120 * scale, h: 180 * scale });
+    this.equipTargets.drawSlots(f.loadout);
 
     // Equipped gear summary.
     const equipped = SLOTS.map((slot) => f.loadout[slot]).filter(Boolean) as Equipment[];
@@ -335,6 +355,9 @@ export class ShopScene extends BaseScene {
     footer: string | null,
   ): Phaser.GameObjects.Container {
     const rect = this.add.rectangle(0, 0, size, size, fill).setStrokeStyle(2, stroke);
+    const objs: Phaser.GameObjects.GameObject[] = [rect];
+    const icon = addEquipmentIcon(this, 0, footer ? -size * 0.28 : -size * 0.16, item, size * 0.42);
+    if (icon) objs.push(icon);
     const label = this.add
       .text(0, footer ? -8 : 0, item.name, {
         fontFamily: 'Arial, sans-serif',
@@ -344,7 +367,7 @@ export class ShopScene extends BaseScene {
         align: 'center',
       })
       .setOrigin(0.5);
-    const objs: Phaser.GameObjects.GameObject[] = [rect, label];
+    objs.push(label);
     if (footer) {
       objs.push(
         this.add
@@ -363,8 +386,14 @@ export class ShopScene extends BaseScene {
     container.on('dragstart', () => {
       container.setDepth(950);
       container.setScale(1.06);
+      this.dragging = true;
+      this.equipTargets?.highlight(item);
     });
-    container.on('drag', (pointer: Phaser.Input.Pointer) => container.setPosition(pointer.x, pointer.y));
+    container.on('drag', (pointer: Phaser.Input.Pointer) => {
+      container.setPosition(pointer.x, pointer.y);
+      if (this.pointIn(this.mannequinBounds, pointer.x, pointer.y)) this.equipTargets?.setHover(true);
+      else this.equipTargets?.setHover(false);
+    });
     return container;
   }
 
@@ -375,6 +404,8 @@ export class ShopScene extends BaseScene {
     cell.on('dragend', (pointer: Phaser.Input.Pointer) => {
       cell.setScale(1);
       cell.setDepth(0);
+      this.dragging = false;
+      this.equipTargets?.hide();
       let handled = false;
       if (this.pointIn(this.mannequinBounds, pointer.x, pointer.y)) {
         this.buyAndEquip(item);
@@ -394,6 +425,8 @@ export class ShopScene extends BaseScene {
     cell.on('dragend', (pointer: Phaser.Input.Pointer) => {
       cell.setScale(1);
       cell.setDepth(0);
+      this.dragging = false;
+      this.equipTargets?.hide();
       let handled = false;
       if (this.pointIn(this.mannequinBounds, pointer.x, pointer.y)) {
         this.equipFromInventory(item);
@@ -439,10 +472,9 @@ export class ShopScene extends BaseScene {
     }
     const roster = [...state.roster];
     const fighter = roster[this.fighterIndex];
-    const previous = fighter.loadout[item.slot];
+    const displaced = displacedByEquip(fighter, item);
     roster[this.fighterIndex] = equipItem(fighter, item);
-    let inventory = [...state.inventory];
-    if (previous) inventory = [...inventory, previous];
+    const inventory = [...state.inventory, ...displaced];
     this.gameState = { ...state, gold: state.gold - itemPrice(item), roster, inventory };
     this.stock = this.stock.filter((s) => s.id !== item.id);
     this.toast(`Equipped ${item.name}.`);
@@ -453,10 +485,9 @@ export class ShopScene extends BaseScene {
     const state = this.gameState;
     const roster = [...state.roster];
     const fighter = roster[this.fighterIndex];
-    const previous = fighter.loadout[item.slot];
+    const displaced = displacedByEquip(fighter, item);
     roster[this.fighterIndex] = equipItem(fighter, item);
-    let inventory = state.inventory.filter((i) => i.id !== item.id);
-    if (previous) inventory = [...inventory, previous];
+    const inventory = [...state.inventory.filter((i) => i.id !== item.id), ...displaced];
     this.gameState = { ...state, roster, inventory };
     this.toast(`Equipped ${item.name}.`);
     this.render();
@@ -466,6 +497,20 @@ export class ShopScene extends BaseScene {
     const price = sellPrice(item);
     this.gameState = sellItem(this.gameState, item);
     this.toast(`Sold ${item.name} for ${price} gp.`);
+    this.render();
+  }
+
+  private unequipAllGear(): void {
+    const state = this.gameState;
+    const { fighter: next, displaced } = unequipAll(state.roster[this.fighterIndex]);
+    if (displaced.length === 0) {
+      this.toast('Nothing equipped.');
+      return;
+    }
+    const roster = [...state.roster];
+    roster[this.fighterIndex] = next;
+    this.gameState = { ...state, roster, inventory: [...state.inventory, ...displaced] };
+    this.toast('Unequipped all.');
     this.render();
   }
 

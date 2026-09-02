@@ -18,6 +18,7 @@ export class AchievementsScene extends BaseScene {
   private render(): void {
     this.clearScreen();
     this.applyBackground();
+    this.menuBackground();
     this.header('TROPHIES');
     this.backButton('Main');
 

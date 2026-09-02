@@ -3,6 +3,7 @@ import {
   createCampaignStart,
   createEquipment,
   createFighter,
+  displacedByEquip,
   equipItem,
   generateOpponent,
   generateRecruit,
@@ -73,6 +74,25 @@ describe('loadout', () => {
     const removed = unequipItem(equipped, 'head');
     expect(removed.loadout.head).toBeNull();
     expect(removed.zones.head.armor).toBe(0);
+  });
+
+  it('dequips both hands when a two-handed weapon is equipped', () => {
+    const fighter = createFighter({ style: 'murmillo' });
+    fighter.loadout.mainHand = createEquipment('mainHand', 1, { kind: 'gladius' });
+    fighter.loadout.offHand = createEquipment('offHand', 1, { kind: 'tower' });
+    const next = equipItem(fighter, createEquipment('mainHand', 2, { kind: 'greatsword' }));
+    expect(next.loadout.mainHand?.kind).toBe('greatsword');
+    expect(next.loadout.offHand).toBeNull();
+  });
+
+  it('returns both displaced hands for a two-handed equip', () => {
+    const fighter = createFighter({ style: 'murmillo' });
+    const gladius = createEquipment('mainHand', 1, { kind: 'gladius' });
+    const tower = createEquipment('offHand', 1, { kind: 'tower' });
+    fighter.loadout.mainHand = gladius;
+    fighter.loadout.offHand = tower;
+    const displaced = displacedByEquip(fighter, createEquipment('mainHand', 2, { kind: 'greatsword' }));
+    expect(displaced.map((d) => d.id).sort()).toEqual([gladius.id, tower.id].sort());
   });
 });
 

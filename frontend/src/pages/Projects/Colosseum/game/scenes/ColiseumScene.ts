@@ -74,6 +74,7 @@ export class ColiseumScene extends BaseScene {
   private render(): void {
     this.clearScreen();
     this.applyBackground();
+    this.menuBackground();
     const city = cityById(this.cityId);
     if (!city) {
       this.scene.start('Main');

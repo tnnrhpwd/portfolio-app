@@ -26,7 +26,7 @@ import {
   type Fighter,
 } from '../core';
 import { playBlock, playClick, playCrit, playDefeat, playHit, playVictory } from '../audio/sfx';
-import { addArenaBackground, addStyleSprite } from '../assets/textures';
+import { addArenaBackground, addLayeredFighter } from '../assets/textures';
 import { getSettings } from '../settings';
 import { announce } from '../accessibility';
 
@@ -415,7 +415,7 @@ export class BattleScene extends BaseScene {
 
   private drawFighter(f: Fighter, x: number, y: number, s: number, mode: 'idle' | 'target' | 'zone'): void {
     const dead = !f.alive || isDefeated(f);
-    const sprite = addStyleSprite(this, x, y, f.style, s);
+    const sprite = addLayeredFighter(this, x, y, f, s);
     sprite.setAlpha(dead ? 0.3 : f.row === 'back' ? 0.7 : 1);
 
     addText(this, x, y + 98 * s, `${f.name}${f.row === 'back' ? ' (back)' : ''}`, {

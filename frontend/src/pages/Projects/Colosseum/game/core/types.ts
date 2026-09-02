@@ -99,6 +99,8 @@ export interface Fighter {
   status: StatusEffects;
   alive: boolean;
   row: RowPosition;
+  /** AI-controlled (auto-battle) flag, toggled from the team screen. */
+  auto: boolean;
 }
 
 export interface Action {

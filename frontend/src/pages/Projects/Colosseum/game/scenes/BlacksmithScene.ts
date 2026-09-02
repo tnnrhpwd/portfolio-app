@@ -25,6 +25,7 @@ export class BlacksmithScene extends BaseScene {
   private render(): void {
     this.clearScreen();
     this.applyBackground();
+    this.menuBackground();
     this.header('BLACKSMITH');
     this.cityBack(this.cityId);
     this.goldText();

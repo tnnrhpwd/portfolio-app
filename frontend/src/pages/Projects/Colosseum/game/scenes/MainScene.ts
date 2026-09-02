@@ -49,6 +49,7 @@ export class MainScene extends BaseScene {
   private render(): void {
     this.clearScreen();
     this.applyBackground();
+    this.mapBackground();
     this.header('COLOSSEUM');
 
     const fighter = this.gameState.roster[0];

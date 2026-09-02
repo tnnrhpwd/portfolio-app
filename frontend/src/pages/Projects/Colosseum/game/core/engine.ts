@@ -80,6 +80,7 @@ export function createFighter(opts: CreateFighterOptions = {}): Fighter {
     status: { stun: 0, slow: 0, defending: false, bleeding: 0, buffed: 0 },
     alive: true,
     row: 'front',
+    auto: false,
     zones: {} as ZoneMap,
   };
   fighter.zones = buildZones(fighter);

@@ -28,6 +28,7 @@ export class RecruitScene extends BaseScene {
   private render(): void {
     this.clearScreen();
     this.applyBackground();
+    this.menuBackground();
     this.header('SLAVE MARKET');
     this.cityBack(this.cityId);
     this.goldText();

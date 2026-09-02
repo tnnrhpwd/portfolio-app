@@ -185,3 +185,8 @@ export function createEquipment(
 export function randomTwoHandedWeapon(rand: Rng = Math.random): WeaponKind {
   return pick(TWO_HAND_WEAPONS, rand);
 }
+
+/** True when the item is a two-handed weapon (occupies both hands). */
+export function isTwoHandedWeapon(item: Equipment): boolean {
+  return item.minDamage !== undefined && (WEAPON_KINDS[item.kind ?? '']?.twoHanded ?? false);
+}

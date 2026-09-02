@@ -6,6 +6,7 @@ import { addText, createButton, type ButtonOpts, type GameButton } from '../ui/b
 import { getSettings } from '../settings';
 import { getThemeColors, type ThemeColors } from '../theme';
 import { announce } from '../accessibility';
+import { addMapBackground, addMenuBackground } from '../assets/textures';
 
 /** Shared helpers for the menu scenes, including keyboard navigation. */
 export abstract class BaseScene extends Phaser.Scene {
@@ -40,6 +41,16 @@ export abstract class BaseScene extends Phaser.Scene {
     // camera can already be destroyed.
     if (!this.cameras?.main) return;
     this.cameras.main.setBackgroundColor(color ?? this.theme.bg);
+  }
+
+  /** Draws the shared dark-red marbled backdrop behind the scene content. */
+  protected menuBackground(): void {
+    addMenuBackground(this);
+  }
+
+  /** Draws the parchment world-map backdrop behind the scene content. */
+  protected mapBackground(): void {
+    addMapBackground(this);
   }
 
   // ── Responsive layout (the canvas resizes to the device via Scale.RESIZE) ──
