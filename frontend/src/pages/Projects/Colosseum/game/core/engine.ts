@@ -28,11 +28,16 @@ export interface GameState {
   tutorialSeen: boolean;
   gold: number;
   fame: number;
+  /** The player's gladiator school name (shown on the map and arena ladder). */
+  teamName: string;
   /** Current ladder rank per city id (16 = weakest, 1 = champion). */
   coliseumRanks: Record<string, number>;
 }
 
 export const EMPTY_METALS: Record<MetalId, number> = { bronze: 0, iron: 0, silver: 0, gold: 0 };
+
+/** Default gladiator-school name before the player renames it. */
+export const DEFAULT_TEAM_NAME = 'The Untamed';
 
 const EMPTY_LOADOUT: Loadout = {
   head: null,
@@ -91,6 +96,7 @@ export function createGameState(rand: Rng = Math.random): GameState {
     tutorialSeen: true,
     gold: START_GOLD,
     fame: START_FAME,
+    teamName: DEFAULT_TEAM_NAME,
     coliseumRanks: {},
   };
 }
@@ -110,6 +116,7 @@ export function createCampaignStart(rand: Rng = Math.random): GameState {
     tutorialSeen: false,
     gold: 500,
     fame: START_FAME,
+    teamName: DEFAULT_TEAM_NAME,
     coliseumRanks: {},
   };
 }

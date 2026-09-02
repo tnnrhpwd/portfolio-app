@@ -10,15 +10,19 @@ import {
   STAT_CAPS,
   styleSkills,
   type AttributeKey,
+  type Fighter,
 } from '../core';
 
 /** Combined training + skill screen: allocate attribute points, then skill points. */
 export class SkillScene extends BaseScene {
+  private fighterIndex = 0;
+
   constructor() {
     super('Skill');
   }
 
   create(): void {
+    this.fighterIndex = 0;
     this.render();
   }
 
@@ -32,11 +36,15 @@ export class SkillScene extends BaseScene {
     this.header('SKILLS');
     this.backButton('Main');
 
-    const fighter = this.gameState.roster[0];
+    const roster = this.gameState.roster;
+    this.fighterIndex = Math.max(0, Math.min(this.fighterIndex, roster.length - 1));
+    const fighter = roster[this.fighterIndex];
     const tip = createTooltip(this);
     const compact = this.compact;
 
-    addText(this, this.cx, 98, `${fighter.name} — ${fighter.style.toUpperCase()}`, {
+    this.button(this.cx - 130, 98, '◀', () => this.shiftFighter(-1), { width: 44, height: 44, fontSize: 22 });
+    this.button(this.cx + 130, 98, '▶', () => this.shiftFighter(1), { width: 44, height: 44, fontSize: 22 });
+    addText(this, this.cx, 98, `${fighter.name} — ${fighter.style.toUpperCase()} (${this.fighterIndex + 1}/${roster.length})`, {
       fontSize: '20px',
       color: '#f2d98c',
     });
@@ -115,10 +123,22 @@ export class SkillScene extends BaseScene {
     if (skillSpent <= 0) skillReset.setEnabled(false);
   }
 
+  private shiftFighter(delta: number): void {
+    const n = this.gameState.roster.length;
+    if (n <= 1) return;
+    this.fighterIndex = (this.fighterIndex + delta + n) % n;
+    this.render();
+  }
+
+  private replaceFighter(next: Fighter): void {
+    const roster = [...this.gameState.roster];
+    roster[this.fighterIndex] = next;
+    this.gameState = { ...this.gameState, roster };
+  }
+
   private spendAttribute(key: AttributeKey): void {
     try {
-      const next = spendAttributePoint(this.gameState.roster[0], key);
-      this.gameState = { ...this.gameState, roster: [next, ...this.gameState.roster.slice(1)] };
+      this.replaceFighter(spendAttributePoint(this.gameState.roster[this.fighterIndex], key));
     } catch {
       // no points or at cap — button is disabled anyway
     }
@@ -127,16 +147,14 @@ export class SkillScene extends BaseScene {
 
   private resetAttributePoints(): void {
     this.confirm('Reset attributes?', 'Refund all spent attribute points.', () => {
-      const next = resetAttributesCore(this.gameState.roster[0]);
-      this.gameState = { ...this.gameState, roster: [next, ...this.gameState.roster.slice(1)] };
+      this.replaceFighter(resetAttributesCore(this.gameState.roster[this.fighterIndex]));
       this.render();
     });
   }
 
   private spendSkill(skillId: string): void {
     try {
-      const next = spendSkillPoint(this.gameState.roster[0], skillId);
-      this.gameState = { ...this.gameState, roster: [next, ...this.gameState.roster.slice(1)] };
+      this.replaceFighter(spendSkillPoint(this.gameState.roster[this.fighterIndex], skillId));
     } catch {
       // no points or maxed — button is disabled anyway
     }
@@ -145,8 +163,7 @@ export class SkillScene extends BaseScene {
 
   private resetSkillPoints(): void {
     this.confirm('Reset skills?', 'Refund all spent skill points.', () => {
-      const next = resetSkillsCore(this.gameState.roster[0]);
-      this.gameState = { ...this.gameState, roster: [next, ...this.gameState.roster.slice(1)] };
+      this.replaceFighter(resetSkillsCore(this.gameState.roster[this.fighterIndex]));
       this.render();
     });
   }

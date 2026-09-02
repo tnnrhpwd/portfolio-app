@@ -14,6 +14,12 @@ export abstract class BaseScene extends Phaser.Scene {
   private focusRing: Phaser.GameObjects.Rectangle | null = null;
   private backAction: (() => void) | null = null;
   private keyHandler: ((event: KeyboardEvent) => void) | null = null;
+  private textPromptActive = false;
+  private textPromptTitle = '';
+  private textPromptValue = '';
+  private textPromptTextObj: Phaser.GameObjects.Text | null = null;
+  private textPromptObjects: Phaser.GameObjects.GameObject[] = [];
+  private textPromptOnDone: ((value: string | null) => void) | null = null;
 
   protected get gameState(): GameState {
     return getState();
@@ -76,6 +82,10 @@ export abstract class BaseScene extends Phaser.Scene {
       // Ignore keys delivered while this scene is being torn down (a resize
       // or scene transition can race the listener's removal).
       if (!this.scene.isActive()) return;
+      if (this.textPromptActive) {
+        this.handleTextPromptKey(event);
+        return;
+      }
       switch (event.key) {
         case 'ArrowUp':
         case 'ArrowLeft':
@@ -168,6 +178,12 @@ export abstract class BaseScene extends Phaser.Scene {
     this.focusIndex = -1;
     this.focusRing?.destroy();
     this.focusRing = null;
+    // A text prompt can't survive a re-render (its display objects were just
+    // removed) — reset it so typing doesn't keep mutating stale state.
+    this.textPromptActive = false;
+    this.textPromptOnDone = null;
+    this.textPromptObjects = [];
+    this.textPromptTextObj = null;
   }
 
   /** Shows a temporary toast banner near the top of the screen. */
@@ -245,6 +261,90 @@ export abstract class BaseScene extends Phaser.Scene {
       yesBtn.container.destroy();
       noBtn.container.destroy();
     };
+  }
+
+  /** Shows a canvas-native text prompt (used for renaming). Returns via `onDone`. */
+  protected promptText(title: string, current: string, onDone: (value: string | null) => void): void {
+    this.textPromptActive = true;
+    this.textPromptTitle = title;
+    this.textPromptValue = current ?? '';
+    this.textPromptOnDone = onDone;
+    this.renderTextPrompt();
+  }
+
+  private renderTextPrompt(): void {
+    this.destroyTextPrompt();
+    const { width, height } = this.scale;
+    const depth = 1000;
+    const overlay = this.add
+      .rectangle(width / 2, height / 2, width, height, 0x000000, 0.7)
+      .setDepth(depth)
+      .setInteractive();
+    const panel = this.add
+      .rectangle(width / 2, height / 2, 560, 240, this.theme.panel, 1)
+      .setStrokeStyle(2, this.theme.panelStroke)
+      .setDepth(depth + 1);
+    const titleText = addText(this, width / 2, height / 2 - 70, this.textPromptTitle, {
+      fontSize: '24px',
+      color: '#e8b84b',
+      fontStyle: 'bold',
+    }).setDepth(depth + 2);
+    this.textPromptTextObj = addText(this, width / 2, height / 2 - 8, this.textPromptValue + '|', {
+      fontSize: '30px',
+      color: '#f2d98c',
+      align: 'center',
+      wordWrap: { width: 480 },
+    }).setDepth(depth + 2);
+    const ok = createButton(this, width / 2 - 100, height / 2 + 82, 'OK', () => this.commitTextPrompt(true), {
+      width: 140,
+      height: 48,
+      fontSize: 18,
+    });
+    const cancel = createButton(this, width / 2 + 100, height / 2 + 82, 'CANCEL', () => this.commitTextPrompt(false), {
+      width: 140,
+      height: 48,
+      fontSize: 18,
+    });
+    ok.container.setDepth(depth + 2);
+    cancel.container.setDepth(depth + 2);
+    this.textPromptObjects = [overlay, panel, titleText, this.textPromptTextObj, ok.container, cancel.container];
+  }
+
+  private destroyTextPrompt(): void {
+    this.textPromptObjects.forEach((o) => o.destroy());
+    this.textPromptObjects = [];
+    this.textPromptTextObj = null;
+  }
+
+  private commitTextPrompt(ok: boolean): void {
+    const value = ok ? this.textPromptValue.trim() : '';
+    const onDone = this.textPromptOnDone;
+    this.destroyTextPrompt();
+    this.textPromptActive = false;
+    this.textPromptOnDone = null;
+    if (onDone) onDone(value.length > 0 ? value.slice(0, 24) : null);
+  }
+
+  private handleTextPromptKey(event: KeyboardEvent): void {
+    event.preventDefault();
+    const key = event.key;
+    if (key === 'Enter') {
+      this.commitTextPrompt(true);
+    } else if (key === 'Escape') {
+      this.commitTextPrompt(false);
+    } else if (key === 'Backspace') {
+      this.textPromptValue = this.textPromptValue.slice(0, -1);
+      this.refreshTextPromptValue();
+    } else if (key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      if (this.textPromptValue.length < 24) {
+        this.textPromptValue += key;
+        this.refreshTextPromptValue();
+      }
+    }
+  }
+
+  private refreshTextPromptValue(): void {
+    if (this.textPromptTextObj) this.textPromptTextObj.setText(this.textPromptValue + '|');
   }
 
   private moveFocus(delta: number): void {

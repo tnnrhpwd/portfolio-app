@@ -94,6 +94,12 @@ export class MainScene extends BaseScene {
 
     // ── Center: fighter summary + campaign cities (the world map lives here) ──
     const contentX = compact ? (this.w - menuW) / 2 - m : this.cx;
+    addText(this, contentX, compact ? 112 : 86, this.gameState.teamName, {
+      fontSize: compact ? '18px' : '24px',
+      color: '#e8b84b',
+      fontStyle: 'bold',
+      wordWrap: { width: compact ? menuW + 60 : 420 },
+    });
     if (compact) {
       addText(this, contentX, 140, `${fighter.name} — Lv ${fighter.level} ${fighter.style.toUpperCase()}`, {
         fontSize: '20px',

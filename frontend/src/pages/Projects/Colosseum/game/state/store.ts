@@ -1,5 +1,5 @@
 import type { Fighter, GameState } from '../core';
-import { createCampaignStart } from '../core';
+import { createCampaignStart, DEFAULT_TEAM_NAME } from '../core';
 import { cloudLoad, cloudSave, isLoggedIn } from './cloudSync';
 
 const SAVE_KEY = 'colosseum.save.v1';
@@ -29,6 +29,7 @@ function migrate(state: GameState): GameState {
     metals: state.metals ?? { bronze: 0, iron: 0, silver: 0, gold: 0 },
     unlockedAchievements: state.unlockedAchievements ?? [],
     tutorialSeen: state.tutorialSeen ?? true,
+    teamName: state.teamName ?? DEFAULT_TEAM_NAME,
     coliseumRanks: state.coliseumRanks ?? {},
     roster: state.roster.map((fighter) => {
       const status = fighter.status ?? {};

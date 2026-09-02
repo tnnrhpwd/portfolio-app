@@ -137,7 +137,7 @@ export class ColiseumScene extends BaseScene {
   /** The player's own team, slotted at its current ladder rank. */
   private playerRow(rank: number, y: number, compact: boolean): void {
     const lead = this.gameState.roster[0];
-    const name = lead?.name ?? 'Your Team';
+    const name = this.gameState.teamName || lead?.name || 'Your Team';
     const level = lead?.level ?? 1;
     const labelX = compact ? this.cx - 150 : this.cx - 280;
     const lvX = compact ? this.cx + 40 : this.cx;

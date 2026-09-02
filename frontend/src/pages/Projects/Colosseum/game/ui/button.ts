@@ -141,12 +141,20 @@ export function addText(
 ): Phaser.GameObjects.Text {
   const settings = getSettings();
   const colors = getThemeColors();
+  const defaultColor = settings.highContrast ? (colors.isLight ? '#000000' : '#ffffff') : colors.text;
   const merged: Phaser.Types.GameObjects.Text.TextStyle = {
     fontFamily: 'Arial, sans-serif',
     fontSize: '20px',
-    color: settings.highContrast ? (colors.isLight ? '#000000' : '#ffffff') : colors.text,
+    color: defaultColor,
     ...style,
   };
+  // Conditional styles often pass `color: undefined` to mean "use the default".
+  // Phaser's TextStyle keeps an explicit `undefined` instead of falling back,
+  // which fills glyphs with an invalid color and renders them invisible on dark
+  // backgrounds — restore the default whenever no real color is supplied.
+  if (merged.color === undefined || merged.color === null) {
+    merged.color = defaultColor;
+  }
   if (typeof merged.color === 'string') {
     merged.color = translateColor(merged.color, colors);
   }
