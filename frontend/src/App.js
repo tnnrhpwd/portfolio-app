@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
 import { loadFontSizeScale } from './utils/theme';
@@ -20,7 +20,6 @@ const AdminHomeTitle = lazy(() => import('./pages/Admin/HomeTitle'));
 const AdminFunnelTester = lazy(() => import('./pages/Admin/FunnelTester'));
 const Annuities = lazy(() => import('./pages/Projects/Annuities/Annuities'));
 const Colosseum = lazy(() => import('./pages/Projects/Colosseum/Colosseum'));
-const Contact = lazy(() => import('./pages/Contact/Contact'));
 const DeepStorage = lazy(() => import('./pages/DeepStorage/DeepStorage'));
 const Ethanol = lazy(() => import('./pages/Projects/Ethanol/Ethanol'));
 const Fluid = lazy(() => import('./pages/Projects/Fluid/Fluid'));
@@ -114,7 +113,7 @@ function App() {
                 <Route path='funnel-tester' element={<AdminFunnelTester />} />
               </Route>
               <Route path="/annuities" element={<Annuities/>} />
-              <Route path="/contact" element={<Contact/>} />
+              <Route path="/contact" element={<Navigate to="/support?tab=contact" replace />} />
               <Route path='/deepstorage' element={<DeepStorage />} />
               <Route path="/ethanol" element={<Ethanol/>} />
               <Route path="/fluid" element={<Fluid/>} />

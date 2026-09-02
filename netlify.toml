@@ -37,10 +37,10 @@ for = "/terms"
 [headers.values]
 Cache-Control = "public, max-age=3600, stale-while-revalidate=86400"
 
-[[headers]]
-for = "/contact"
-[headers.values]
-Cache-Control = "public, max-age=3600, stale-while-revalidate=86400"
+[[redirects]]
+from = "/contact"
+to = "/support?tab=contact"
+status = 301
 
 # ── Security headers (all pages) ──────────────────────────────
 [[headers]]

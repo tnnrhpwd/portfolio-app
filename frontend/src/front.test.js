@@ -52,10 +52,6 @@ jest.mock('./pages/Admin/AdminLayout', () => {
   const React = require('react');
   return () => React.createElement('div', null, 'Admin');
 });
-jest.mock('./pages/Contact/Contact', () => {
-  const React = require('react');
-  return () => React.createElement('div', null, 'Contact');
-});
 jest.mock('./pages/Register/Register.jsx', () => {
   const React = require('react');
   return () => React.createElement('div', null, 'Register');

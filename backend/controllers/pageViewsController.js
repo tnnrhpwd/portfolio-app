@@ -32,6 +32,29 @@ const PAGEVIEW_PREFIX = 'PageView:';
 let countsCache = { days: null, counts: null, timestamp: 0 };
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// Hosts that indicate the beacon came from a local dev frontend (e.g. Vite at
+// http://127.0.0.1:3000). Mirror the same guard used by accessData.js so dev
+// browsing never pollutes production page-view counts.
+const DEV_ORIGIN_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1']);
+
+function isDevOrigin(req) {
+    const candidates = [
+        req.headers['origin'],
+        req.headers['referer'],
+        req.headers['referrer'],
+    ].filter(Boolean);
+
+    for (const raw of candidates) {
+        try {
+            const { hostname } = new URL(raw);
+            if (DEV_ORIGIN_HOSTS.has(hostname)) return true;
+        } catch {
+            // Ignore malformed values.
+        }
+    }
+    return false;
+}
+
 /** Normalize a frontend path so `/colosseum` and `/Colosseum` count together. */
 function normalizePath(rawPath) {
     if (typeof rawPath !== 'string') return '/';
@@ -88,6 +111,13 @@ async function getPageViewCounts(days) {
  * @access  Public
  */
 const recordPageView = asyncHandler(async (req, res) => {
+    // Skip local dev frontends hitting the production backend (same rule as
+    // checkIP) so self-testing doesn't inflate real page-view counts.
+    if (isDevOrigin(req)) {
+        res.status(204).end();
+        return;
+    }
+
     const path = normalizePath(req.body?.path);
     const now = new Date().toISOString();
 

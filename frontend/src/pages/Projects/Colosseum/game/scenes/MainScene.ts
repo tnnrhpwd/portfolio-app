@@ -55,13 +55,18 @@ export class MainScene extends BaseScene {
     this.button(cx, 410, 'SKILL', () => this.scene.start('Skill'));
     this.button(cx, 480, 'WORLD MAP', () => this.scene.start('WorldMap'));
     this.button(cx, 550, 'FIGHT', () => this.scene.start('Battle'));
-    this.button(cx - 130, 640, 'TROPHIES', () => this.scene.start('Achievements'), {
-      width: 200,
+    this.button(cx - 180, 640, 'TROPHIES', () => this.scene.start('Achievements'), {
+      width: 160,
       height: 48,
-      fontSize: 18,
+      fontSize: 16,
+    });
+    this.button(cx, 640, 'SETTINGS', () => this.scene.start('Settings'), {
+      width: 160,
+      height: 48,
+      fontSize: 16,
     });
     this.button(
-      cx + 130,
+      cx + 180,
       640,
       'RESET SAVE',
       () =>
@@ -73,7 +78,7 @@ export class MainScene extends BaseScene {
             this.scene.start('Tutorial');
           },
         ),
-      { width: 200, height: 48, fontSize: 18 },
+      { width: 160, height: 48, fontSize: 16 },
     );
   }
 }

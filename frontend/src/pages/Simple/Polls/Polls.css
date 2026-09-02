@@ -235,6 +235,7 @@
 
 .poll-option__text {
   overflow-wrap: break-word;
+  color: var(--text-color);
 }
 
 .poll-option__arrow {

@@ -1,6 +1,7 @@
 import { BaseScene } from './BaseScene';
 import { addText } from '../ui/button';
 import { setState } from '../state/store';
+import { announce } from '../accessibility';
 
 const STEPS = [
   {
@@ -37,12 +38,13 @@ export class TutorialScene extends BaseScene {
   }
 
   private render(): void {
-    this.children.removeAll();
+    this.clearScreen();
     this.cameras.main.setBackgroundColor('#120e0a');
     const { width, height } = this.scale;
     const step = STEPS[this.step];
 
     this.header('TUTORIAL');
+    announce(`${step.title}. ${step.body}`);
     addText(this, width / 2, 130, `${this.step + 1} / ${STEPS.length}`, {
       fontSize: '16px',
       color: '#b8aa94',

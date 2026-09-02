@@ -18,6 +18,8 @@ import {
   type Fighter,
 } from '../core';
 import { playBlock, playClick, playCrit, playDefeat, playHit, playVictory } from '../audio/sfx';
+import { getSettings } from '../settings';
+import { announce } from '../accessibility';
 
 const ZONE_LABELS: Record<BodyZone, string> = {
   head: 'HEAD',
@@ -56,7 +58,7 @@ export class BattleScene extends BaseScene {
   }
 
   private render(): void {
-    this.children.removeAll();
+    this.clearScreen();
     const { width, height } = this.scale;
     const cx = width / 2;
 
@@ -198,15 +200,18 @@ export class BattleScene extends BaseScene {
     }
     this.snap = stepBattle(this.snap, autoStrategy(this.snap.player, this.snap.enemy), Math.random);
     this.summary = this.describeEvents();
+    announce(this.summary);
     this.render();
     if (this.snap.playerWon || this.snap.enemyWon) {
       this.finishBattle();
       return;
     }
-    this.time.delayedCall(this.speedFast ? 200 : 650, () => this.runAutoStep());
+    const delay = getSettings().reducedMotion ? 1 : this.speedFast ? 200 : 650;
+    this.time.delayedCall(delay, () => this.runAutoStep());
   }
 
   private afterStep(): void {
+    announce(this.summary);
     if (this.snap.playerWon || this.snap.enemyWon) {
       this.finishBattle();
       return;

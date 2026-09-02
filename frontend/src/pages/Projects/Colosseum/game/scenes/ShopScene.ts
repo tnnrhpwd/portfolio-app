@@ -17,7 +17,7 @@ export class ShopScene extends BaseScene {
   }
 
   private render(): void {
-    this.children.removeAll();
+    this.clearScreen();
     this.cameras.main.setBackgroundColor('#120e0a');
     this.header('ARMORY');
     this.cityBack(this.cityId);

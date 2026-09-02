@@ -5,7 +5,7 @@
  * Router) that only produces a single `index.html` in the build output.
  * @netlify/plugin-sitemap discovers URLs by scanning HTML files in the
  * publish directory, so on a pure SPA build it can only ever find "/" —
- * every other route (About, Contact, Projects, tools, etc.) is invisible
+ * every other route (About, Projects, tools, etc.) is invisible
  * to it. This script writes a complete sitemap.xml directly instead,
  * covering all real indexable routes.
  *
@@ -24,7 +24,6 @@ const BUILD_DIR = path.resolve(__dirname, '..', 'build');
 const ROUTES = [
   { path: '/', priority: 1.0, changefreq: 'weekly' },
   { path: '/about', priority: 0.9, changefreq: 'monthly' },
-  { path: '/contact', priority: 0.7, changefreq: 'monthly' },
   { path: '/support', priority: 0.6, changefreq: 'monthly' },
   { path: '/privacy', priority: 0.3, changefreq: 'yearly' },
   { path: '/terms', priority: 0.3, changefreq: 'yearly' },

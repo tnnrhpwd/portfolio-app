@@ -3,8 +3,8 @@ import { useState } from 'react';
 /**
  * Custom hook to manage all state for Support component
  */
-export const useSupportState = () => {
-  const [activeTab, setActiveTab] = useState('help');
+export const useSupportState = (initialTab = 'help') => {
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [formData, setFormData] = useState({
     // Review Submission Form
     reviewTitle: '',

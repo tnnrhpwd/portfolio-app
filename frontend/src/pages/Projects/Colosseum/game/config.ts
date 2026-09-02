@@ -14,6 +14,7 @@ import { InfirmaryScene } from './scenes/InfirmaryScene';
 import { BattleScene } from './scenes/BattleScene';
 import { RewardScene } from './scenes/RewardScene';
 import { AchievementsScene } from './scenes/AchievementsScene';
+import { SettingsScene } from './scenes/SettingsScene';
 
 export const GAME_WIDTH = 1280;
 export const GAME_HEIGHT = 720;
@@ -45,6 +46,7 @@ export function createGameConfig(parent: HTMLElement): Phaser.Types.Core.GameCon
       BattleScene,
       RewardScene,
       AchievementsScene,
+      SettingsScene,
     ],
     title: 'Colosseum',
   };

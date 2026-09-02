@@ -79,7 +79,7 @@ function NavBar() {
           </ReactTooltip>
         }
         <div className="tooltip-space" data-tip="" data-for="tooltip-contact" >
-          <NavItem  text="Contact" icon={contactLogo} page="/contact"/>
+          <NavItem  text="Contact" icon={contactLogo} page="/support?tab=contact"/>
         </div>
         { (portraitState) &&  
           <ReactTooltip id="tooltip-contact" place="bottom" effect="solid">

@@ -28,3 +28,12 @@ root.render(
 // ── Post-render performance & warming ──────────────────────
 initWebVitals();   // collect Core Web Vitals (LCP, FID, CLS, FCP, TTFB)
 warmBackend();     // fire-and-forget ping to wake the Render backend
+
+// ── Offline support (service worker) ──────────────────────
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      // Offline support is best-effort; never block the app on failure.
+    });
+  });
+}

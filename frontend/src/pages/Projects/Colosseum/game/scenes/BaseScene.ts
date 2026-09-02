@@ -3,9 +3,17 @@ import type { GameState } from '../core';
 import { achievementById, evaluateAchievements } from '../core';
 import { getState, setState } from '../state/store';
 import { addText, createButton, type ButtonOpts, type GameButton } from '../ui/button';
+import { getSettings } from '../settings';
+import { announce } from '../accessibility';
 
-/** Shared helpers for the menu scenes. */
+/** Shared helpers for the menu scenes, including keyboard navigation. */
 export abstract class BaseScene extends Phaser.Scene {
+  private focusables: GameButton[] = [];
+  private focusIndex = -1;
+  private focusRing: Phaser.GameObjects.Rectangle | null = null;
+  private backAction: (() => void) | null = null;
+  private keyHandler: ((event: KeyboardEvent) => void) | null = null;
+
   protected get gameState(): GameState {
     return getState();
   }
@@ -14,13 +22,61 @@ export abstract class BaseScene extends Phaser.Scene {
     setState(next);
   }
 
+  init(): void {
+    this.focusables = [];
+    this.focusIndex = -1;
+    this.backAction = null;
+    this.focusRing = null;
+
+    this.keyHandler = (event: KeyboardEvent) => {
+      switch (event.key) {
+        case 'ArrowUp':
+        case 'ArrowLeft':
+          this.moveFocus(-1);
+          break;
+        case 'ArrowDown':
+        case 'ArrowRight':
+          this.moveFocus(1);
+          break;
+        case 'Enter':
+        case ' ':
+          this.activateFocus();
+          break;
+        case 'Escape':
+          this.onBack();
+          break;
+        case 'Tab':
+          event.preventDefault();
+          this.moveFocus(1);
+          break;
+        default:
+          break;
+      }
+    };
+    window.addEventListener('keydown', this.keyHandler);
+    this.input?.on('pointerdown', () => this.clearFocus());
+  }
+
+  shutdown(): void {
+    if (this.keyHandler) {
+      window.removeEventListener('keydown', this.keyHandler);
+      this.keyHandler = null;
+    }
+  }
+
   protected header(text: string): void {
-    const { width } = this.scale;
+    const { width, height } = this.scale;
     addText(this, width / 2, 40, text, {
       fontSize: '36px',
       color: '#e8b84b',
       fontStyle: 'bold',
     });
+    if (typeof window !== 'undefined' && window.innerHeight > window.innerWidth) {
+      addText(this, width / 2, height - 14, 'Tip: landscape works best', {
+        fontSize: '13px',
+        color: '#6a6258',
+      });
+    }
   }
 
   protected goldText(): void {
@@ -38,10 +94,13 @@ export abstract class BaseScene extends Phaser.Scene {
     onClick: () => void,
     opts?: ButtonOpts,
   ): GameButton {
-    return createButton(this, x, y, label, onClick, opts);
+    const btn = createButton(this, x, y, label, onClick, opts);
+    this.focusables.push(btn);
+    return btn;
   }
 
   protected backButton(sceneKey: string): GameButton {
+    this.backAction = () => this.scene.start(sceneKey);
     return this.button(96, 40, 'BACK', () => this.scene.start(sceneKey), {
       width: 120,
       height: 44,
@@ -51,10 +110,24 @@ export abstract class BaseScene extends Phaser.Scene {
 
   /** Returns to the owning city (or the hub when launched directly). */
   protected cityBack(cityId: string): GameButton {
-    return this.button(96, 40, 'BACK', () => {
+    this.backAction = () => {
       if (cityId) this.scene.start('City', { cityId });
       else this.scene.start('Main');
-    }, { width: 120, height: 44, fontSize: 18 });
+    };
+    return this.button(96, 40, 'BACK', () => this.backAction?.(), {
+      width: 120,
+      height: 44,
+      fontSize: 18,
+    });
+  }
+
+  /** Clears the display list and resets keyboard-focus tracking. */
+  protected clearScreen(): void {
+    this.children.removeAll();
+    this.focusables = [];
+    this.focusIndex = -1;
+    this.focusRing?.destroy();
+    this.focusRing = null;
   }
 
   /** Shows a temporary toast banner near the top of the screen. */
@@ -66,13 +139,17 @@ export abstract class BaseScene extends Phaser.Scene {
       backgroundColor: '#000000cc',
       padding: { x: 12, y: 8 },
     }).setDepth(950);
-    this.tweens.add({
-      targets: text,
-      alpha: { from: 1, to: 0 },
-      duration: 900,
-      delay: 1600,
-      onComplete: () => text.destroy(),
-    });
+    if (getSettings().reducedMotion) {
+      this.time.delayedCall(2200, () => text.destroy());
+    } else {
+      this.tweens.add({
+        targets: text,
+        alpha: { from: 1, to: 0 },
+        duration: 900,
+        delay: 1600,
+        onComplete: () => text.destroy(),
+      });
+    }
   }
 
   /** Records and toasts any newly unlocked achievements. */
@@ -82,7 +159,10 @@ export abstract class BaseScene extends Phaser.Scene {
     this.gameState = next;
     for (const id of unlocked) {
       const achievement = achievementById(id);
-      if (achievement) this.toast(`Achievement unlocked: ${achievement.label}`);
+      if (achievement) {
+        this.toast(`Achievement unlocked: ${achievement.label}`);
+        announce(`Achievement unlocked: ${achievement.label}`);
+      }
     }
   }
 
@@ -125,5 +205,47 @@ export abstract class BaseScene extends Phaser.Scene {
       yesBtn.container.destroy();
       noBtn.container.destroy();
     };
+  }
+
+  private moveFocus(delta: number): void {
+    const list = this.focusables;
+    if (list.length === 0) return;
+    let next = this.focusIndex;
+    for (let i = 0; i < list.length; i += 1) {
+      next = (next + delta + list.length) % list.length;
+      if (list[next].isEnabled()) break;
+    }
+    this.focusIndex = next;
+    this.drawFocusRing();
+  }
+
+  private drawFocusRing(): void {
+    const btn = this.focusables[this.focusIndex];
+    if (!btn) return;
+    if (!this.focusRing) {
+      this.focusRing = this.add
+        .rectangle(0, 0, 10, 10, 0x000000, 0)
+        .setStrokeStyle(3, 0xffffff)
+        .setDepth(999);
+    }
+    this.focusRing
+      .setPosition(btn.container.x, btn.container.y)
+      .setSize(btn.container.width + 8, btn.container.height + 8)
+      .setVisible(true);
+  }
+
+  private clearFocus(): void {
+    this.focusIndex = -1;
+    this.focusRing?.setVisible(false);
+  }
+
+  private activateFocus(): void {
+    const btn = this.focusables[this.focusIndex];
+    if (btn && btn.isEnabled()) btn.activate();
+  }
+
+  private onBack(): void {
+    if (this.backAction) this.backAction();
+    else if (this.scene.key !== 'Main') this.scene.start('Main');
   }
 }

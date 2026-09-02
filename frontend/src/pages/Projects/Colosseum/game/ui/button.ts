@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { getSettings } from '../settings';
 
 export interface ButtonOpts {
   width?: number;
@@ -16,6 +17,8 @@ export interface ButtonOpts {
 export interface GameButton {
   container: Phaser.GameObjects.Container;
   setEnabled: (enabled: boolean) => void;
+  isEnabled: () => boolean;
+  activate: () => void;
 }
 
 /** A themed ribbon-style button drawn entirely inside the game frame. */
@@ -29,7 +32,7 @@ export function createButton(
 ): GameButton {
   const width = opts.width ?? 260;
   const height = opts.height ?? 56;
-  const fontSize = opts.fontSize ?? 24;
+  const fontSize = Math.round((opts.fontSize ?? 24) * getSettings().textScale);
   const fill = opts.fill ?? 0x8c1f28;
   const hoverFill = opts.hoverFill ?? 0xa52a34;
   const disabledFill = opts.disabledFill ?? 0x555555;
@@ -83,7 +86,12 @@ export function createButton(
 
   setEnabled(true);
 
-  return { container, setEnabled };
+  const activate = (): void => {
+    if (enabled) onClick();
+  };
+  const isEnabled = (): boolean => enabled;
+
+  return { container, setEnabled, activate, isEnabled };
 }
 
 export function addText(
@@ -93,14 +101,18 @@ export function addText(
   text: string,
   style: Phaser.Types.GameObjects.Text.TextStyle = {},
 ): Phaser.GameObjects.Text {
-  return scene.add
-    .text(x, y, text, {
-      fontFamily: 'Arial, sans-serif',
-      fontSize: '20px',
-      color: '#e8dcc8',
-      ...style,
-    })
-    .setOrigin(0.5);
+  const settings = getSettings();
+  const merged: Phaser.Types.GameObjects.Text.TextStyle = {
+    fontFamily: 'Arial, sans-serif',
+    fontSize: '20px',
+    color: settings.highContrast ? '#ffffff' : '#e8dcc8',
+    ...style,
+  };
+  if (typeof merged.fontSize === 'string' && merged.fontSize.endsWith('px')) {
+    const base = parseInt(merged.fontSize, 10) || 20;
+    merged.fontSize = `${Math.round(base * settings.textScale)}px`;
+  }
+  return scene.add.text(x, y, text, merged).setOrigin(0.5);
 }
 
 export interface Tooltip {

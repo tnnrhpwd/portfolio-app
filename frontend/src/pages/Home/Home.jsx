@@ -7,6 +7,8 @@ import { useSelector, useDispatch } from 'react-redux';
 import { getUserUsage } from '../../features/data/dataSlice.js';
 import dataService from '../../features/data/dataService.js';
 import useScrollReveal from '../../hooks/useScrollReveal.js';
+import { PROJECTS } from '../../constants/projects';
+import { fetchProjectRankings } from '../../services/projectRankingsApi';
 
 import artHero from '../../assets/art/hero.jpg';
 import artFluid from '../../assets/art/project-fluid.jpg';
@@ -16,8 +18,8 @@ import artWordle from '../../assets/art/project-wordle.jpg';
 import artPolls from '../../assets/art/project-polls.jpg';
 import artGames from '../../assets/art/feature-games.jpg';
 import artEngineering from '../../assets/art/feature-engineering.jpg';
-import artProductivity from '../../assets/art/feature-productivity.jpg';
 import artSurprises from '../../assets/art/feature-surprises.jpg';
+import artNet from '../../assets/art/project-net.jpg';
 import './Home.css';
 
 // Same hardcoded admin id used to gate the /admin page — the girlfriend's
@@ -39,7 +41,7 @@ const FEATURED_PROJECTS = [
 const WHATS_INSIDE = [
   { art: artGames, title: "Games & puzzles", desc: "2048, Wordle, IQ Test, and more to pass the time.", path: "/projects?category=Games" },
   { art: artEngineering, title: "Engineering tools", desc: "Annuities, fluid, and other calculators built for engineers.", path: "/projects" },
-  { art: artProductivity, title: "Productivity", desc: "Polls, goals, and plans to organize your day.", path: "/plans" },
+  { art: artNet, title: "Net AI Chat", desc: "Your AI-powered assistant for automation, coding, and more.", path: "/net" },
   { art: artSurprises, title: "Little surprises", desc: "Virtual pets, Hype, and other fun experiments.", path: "/projects?category=Fun" },
 ];
 
@@ -48,7 +50,7 @@ const STEPS = [
   { num: "01", title: "Browse the playground", desc: "Pick a tool or game that catches your eye.", path: "/projects" },
   { num: "02", title: "Jump right in", desc: "Most things work instantly — no account needed.", path: "/projects" },
   { num: "03", title: "Create an account", desc: "Save progress, track goals, and unlock member tools.", path: "/register" },
-  { num: "04", title: "Say hello", desc: "Questions, ideas, or bugs? Drop a line anytime.", path: "/contact" },
+  { num: "04", title: "Say hello", desc: "Questions, ideas, or bugs? Drop a line anytime.", path: "/support?tab=contact" },
 ];
 
 function Home() {
@@ -71,6 +73,7 @@ function Home() {
     // Horizontal carousel pagination (Squarespace-style dots + arrows).
     const templatesRowRef = useRef(null);
     const [activeIndex, setActiveIndex] = useState(0);
+    const [topProjects, setTopProjects] = useState([]);
 
     const scrollToCard = (index) => {
         const row = templatesRowRef.current;
@@ -139,6 +142,34 @@ function Home() {
         return () => { cancelled = true; };
     }, []);
 
+    // Load per-project visit counts and surface the top 5 most-visited
+    // projects in the "Start with a tool you'll love" carousel. Falls back to
+    // the curated FEATURED_PROJECTS list when there's no traffic data yet.
+    useEffect(() => {
+        let cancelled = false;
+        fetchProjectRankings(PROJECTS.map((project) => project.path))
+            .then(({ pages = [] }) => {
+                if (cancelled) return;
+                const counts = {};
+                pages.forEach((page) => {
+                    counts[page.path] = page.visits;
+                });
+                const hasAnyVisits = pages.some((page) => page.visits > 0);
+                if (!hasAnyVisits) {
+                    setTopProjects([]);
+                    return;
+                }
+                const ranked = PROJECTS
+                    .slice()
+                    .sort((a, b) => (counts[b.path] || 0) - (counts[a.path] || 0));
+                setTopProjects(ranked.slice(0, 5));
+            })
+            .catch(() => {
+                // Ignore — keep the curated fallback.
+            });
+        return () => { cancelled = true; };
+    }, []);
+
     // Restart the typewriter effect whenever the resolved title changes
     // (e.g. the fetched title arrives after the fallback already finished typing).
     useEffect(() => {
@@ -172,7 +203,7 @@ function Home() {
         { label: user ? "Profile" : "Login", path: user ? "/profile" : "/login" },
         { label: "About", path: "/about" },
         { label: "Projects", path: "/projects" },
-        { label: "Contact", path: "/contact" },
+        { label: "Contact", path: "/support?tab=contact" },
         { label: "Support", path: "/support" },
         { label: "Pricing", path: "/pricing" },
     ];
@@ -186,6 +217,10 @@ function Home() {
     if (isMuseVisitor) {
         siteLinks.push({ label: "Muse", path: "/muse" });
     }
+
+    // Show the top 5 most-visited projects once traffic data exists; otherwise
+    // fall back to the hand-curated list.
+    const featuredProjects = topProjects.length > 0 ? topProjects : FEATURED_PROJECTS;
 
     return (
         <>
@@ -250,7 +285,7 @@ function Home() {
                             <p className="home-lead">Pick a project, open it, and start playing — no downloads, no accounts.</p>
                         </div>
                         <div className="home-templates-row" ref={templatesRowRef} role="list" aria-label="Featured projects">
-                            {FEATURED_PROJECTS.map((project) => (
+                            {featuredProjects.map((project) => (
                                 <Link key={project.path} to={project.path} className="home-template-card" role="listitem">
                                     <img className="home-template-media" src={project.art} alt="" loading="lazy" aria-hidden="true" />
                                     <span className="home-template-body">
@@ -267,7 +302,7 @@ function Home() {
                         <div className="home-carousel-nav">
                             <button type="button" className="home-carousel-arrow" onClick={() => scrollToCard(Math.max(0, activeIndex - 1))} aria-label="Previous project">←</button>
                             <div className="home-dots" role="tablist" aria-label="Featured project pages">
-                                {FEATURED_PROJECTS.map((project, i) => (
+                                {featuredProjects.map((project, i) => (
                                     <button
                                         key={project.path}
                                         type="button"
@@ -279,7 +314,7 @@ function Home() {
                                     />
                                 ))}
                             </div>
-                            <button type="button" className="home-carousel-arrow" onClick={() => scrollToCard(Math.min(FEATURED_PROJECTS.length - 1, activeIndex + 1))} aria-label="Next project">→</button>
+                            <button type="button" className="home-carousel-arrow" onClick={() => scrollToCard(Math.min(featuredProjects.length - 1, activeIndex + 1))} aria-label="Next project">→</button>
                         </div>
                     </div>
                 </section>
@@ -338,7 +373,7 @@ function Home() {
                         <p className="home-cta-sub">Jump in and start building something fun.</p>
                         <div className="home-actions">
                             <Link className="home-btn home-btn--inv" to="/projects">Start exploring <span aria-hidden="true">→</span></Link>
-                            <Link className="home-btn home-btn--ghost" to="/contact">Get in touch</Link>
+                            <Link className="home-btn home-btn--ghost" to="/support?tab=contact">Get in touch</Link>
                         </div>
                     </div>
                 </section>

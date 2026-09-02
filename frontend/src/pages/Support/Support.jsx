@@ -1,5 +1,6 @@
 import React from 'react';
 import { useSelector } from 'react-redux';
+import { useSearchParams } from 'react-router-dom';
 import Spinner from '../../components/Spinner/Spinner.jsx';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
@@ -17,6 +18,8 @@ import { faqData } from '../../data/supportData.js';
 import { scrollToContent } from '../../utils/supportUtils.js';
 import './Support.css';
 
+const SUPPORT_TABS = ['help', 'review', 'contact', 'reports', 'bug'];
+
 /**
  * Support Page Component - Main orchestrator for all support functionality
  * 
@@ -29,6 +32,11 @@ import './Support.css';
  */
 function Support() {
   const { user, dataIsLoading } = useSelector((state) => state.data);
+  const [searchParams] = useSearchParams();
+
+  // Deep links like /support?tab=contact auto-select a tab.
+  const requestedTab = searchParams.get('tab');
+  const initialTab = SUPPORT_TABS.includes(requestedTab) ? requestedTab : 'help';
 
   // State management
   const {
@@ -48,7 +56,7 @@ function Support() {
     setLoadingReports,
     hoverRating,
     setHoverRating,
-  } = useSupportState();
+  } = useSupportState(initialTab);
 
   // Browser detection (runs on mount)
   useBrowserDetection(user, setFormData, setActiveTab);

@@ -10,7 +10,7 @@ export class RecruitScene extends BaseScene {
   }
 
   create(data: { tier?: number; cityId?: string } = {}): void {
-    this.children.removeAll();
+    this.clearScreen();
     this.cameras.main.setBackgroundColor('#120e0a');
     this.header('SLAVE MARKET');
     this.cityBack(data?.cityId ?? '');

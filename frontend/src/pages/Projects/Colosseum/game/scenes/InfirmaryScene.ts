@@ -15,7 +15,7 @@ export class InfirmaryScene extends BaseScene {
   }
 
   private render(): void {
-    this.children.removeAll();
+    this.clearScreen();
     this.cameras.main.setBackgroundColor('#120e0a');
     this.header('INFIRMARY');
     this.cityBack(this.cityId);

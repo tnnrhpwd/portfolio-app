@@ -14,12 +14,23 @@ import './Colosseum.css';
  */
 export default function Colosseum() {
   const containerRef = useRef(null);
+  const liveRegionRef = useRef(null);
 
   useEffect(() => {
     if (!containerRef.current) return undefined;
     const handle = createGame(containerRef.current);
     return () => {
       handle.destroy();
+    };
+  }, []);
+
+  useEffect(() => {
+    // Bridge so the Phaser core can announce events to screen readers.
+    window.__colosseumAnnounce = (message) => {
+      if (liveRegionRef.current) liveRegionRef.current.textContent = message;
+    };
+    return () => {
+      delete window.__colosseumAnnounce;
     };
   }, []);
 
@@ -38,6 +49,7 @@ export default function Colosseum() {
           role="application"
           aria-label="Colosseum game"
         />
+        <div ref={liveRegionRef} className="colosseum-sr" aria-live="polite" role="status" />
       </main>
       <Footer />
     </div>

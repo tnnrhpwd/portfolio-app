@@ -12,7 +12,7 @@ export class SkillScene extends BaseScene {
   }
 
   private render(): void {
-    this.children.removeAll();
+    this.clearScreen();
     this.cameras.main.setBackgroundColor('#120e0a');
     this.header('SKILLS');
     this.backButton('Main');
