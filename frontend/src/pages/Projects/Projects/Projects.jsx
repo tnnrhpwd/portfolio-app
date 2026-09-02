@@ -17,6 +17,7 @@ import artGames from '../../../assets/art/feature-games.jpg';
 import artEngineering from '../../../assets/art/feature-engineering.jpg';
 import artProductivity from '../../../assets/art/feature-productivity.jpg';
 import artSurprises from '../../../assets/art/feature-surprises.jpg';
+import artHype from '../../../assets/art/project-hype.jpg';
 
 // ── Project catalog ────────────────────────────────────────────────────────
 // Every project/tool that lives under the /projects umbrella. Keep the paths
@@ -106,6 +107,13 @@ const PROJECTS = [
     art: artSurprises,
     category: "Fun",
     description: "Adopt, feed, train, and care for virtual pets with daily challenges.",
+  },
+  {
+    name: "Hype",
+    path: "/hype",
+    art: artHype,
+    category: "Fun",
+    description: "Get fired up with AI-generated hype quotes, a hype meter, confetti bursts, and a hidden hype-song Easter egg.",
   },
   {
     name: "Polls",
