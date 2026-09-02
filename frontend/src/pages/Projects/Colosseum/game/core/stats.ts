@@ -1,6 +1,7 @@
-import type { BodyZone, Fighter, Loadout, ZoneMap } from './types';
+import type { Attributes, BodyZone, Fighter, Loadout, ZoneMap } from './types';
 import { ARMOR_COMBAT_MULTIPLIER, BLOCK_CAP, BODY_ZONES, ZONE_HP_SPLIT } from './constants';
 import { clamp } from './rng';
+import { getSkill } from './skills';
 
 /** HP granted per point of Vitality at a given level.
  *  ~50 at level 1 and ~56 at level 70 (tuning target refined in Phase 3). */
@@ -8,9 +9,33 @@ export function hpPerVitality(level: number): number {
   return 50 + 0.1 * (level - 1);
 }
 
-/** Total maximum HP for a fighter, before any Life Boost skill bonus. */
-export function totalHp(fighter: Fighter, lifeBoost = 0): number {
-  return Math.floor(fighter.attributes.vitality * hpPerVitality(fighter.level)) + lifeBoost;
+/** Attributes with passive skill bonuses applied. */
+export function effectiveAttributes(fighter: Fighter): Attributes {
+  const out: Attributes = { ...fighter.attributes };
+  for (const [id, rank] of Object.entries(fighter.skills)) {
+    const node = getSkill(id);
+    if (node?.effect.kind === 'passive') out[node.effect.stat] += node.effect.perRank * rank;
+  }
+  return out;
+}
+
+/** Total flat HP granted by Life Boost ranks. */
+export function lifeBoostTotal(fighter: Fighter): number {
+  let total = 0;
+  for (const [id, rank] of Object.entries(fighter.skills)) {
+    const node = getSkill(id);
+    if (node?.effect.kind === 'lifeBoost') total += node.effect.perRank * rank;
+  }
+  return total;
+}
+
+/** Total maximum HP, including Vitality scaling and Life Boost. */
+export function totalHp(fighter: Fighter, extraLifeBoost = 0): number {
+  return (
+    Math.floor(effectiveAttributes(fighter).vitality * hpPerVitality(fighter.level)) +
+    lifeBoostTotal(fighter) +
+    extraLifeBoost
+  );
 }
 
 /** Sum of current flesh HP across all zones. */
@@ -96,4 +121,26 @@ export function blockChance(fighter: Fighter): number {
 export function blockValue(fighter: Fighter): number {
   const shield = fighter.loadout.offHand;
   return shield?.blockValue ?? 0;
+}
+
+/** Rebuilds derived values (max HP and armor) after attribute/gear changes,
+ *  preserving each zone's current HP fraction. */
+export function recomputeDerived(fighter: Fighter, lifeBoost = 0): Fighter {
+  const fresh = buildZones(fighter, lifeBoost);
+  const zones = {} as ZoneMap;
+  for (const zone of BODY_ZONES) {
+    const oldMax = fighter.zones[zone].maxHp || 1;
+    const ratio = fighter.zones[zone].hp / oldMax;
+    const maxHp = fresh[zone].maxHp;
+    zones[zone] = {
+      ...fresh[zone],
+      hp: Math.max(0, Math.min(maxHp, Math.round(maxHp * ratio))),
+    };
+  }
+  return { ...fighter, zones };
+}
+
+/** Fully heals a fighter: max HP and refreshed armor. Returns a new fighter. */
+export function restoreFighter(fighter: Fighter): Fighter {
+  return { ...fighter, zones: buildZones(fighter) };
 }

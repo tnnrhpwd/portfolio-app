@@ -68,6 +68,8 @@ export interface StatusEffects {
   slow: number;
   defending: boolean;
   bleeding: number;
+  /** Rounds of remaining war-cry damage buff. */
+  buffed: number;
 }
 
 export interface Fighter {
@@ -79,6 +81,8 @@ export interface Fighter {
   attributes: Attributes;
   attributePoints: number;
   skillPoints: number;
+  /** Skill node id → rank invested. */
+  skills: Record<string, number>;
   morale: number;
   maxMorale: number;
   loadout: Loadout;
@@ -88,10 +92,11 @@ export interface Fighter {
 }
 
 export interface Action {
-  kind: 'attack' | 'block' | 'crowdAppeal' | 'pass';
+  kind: 'attack' | 'block' | 'crowdAppeal' | 'pass' | 'skill';
   precision?: AttackPrecision;
   targetId?: string;
   targetZone?: BodyZone;
+  skillId?: string;
 }
 
 export interface AttackOutcome {
@@ -105,11 +110,12 @@ export interface AttackOutcome {
 }
 
 export interface TurnEvent {
-  kind: 'attack' | 'block' | 'restore' | 'death' | 'miss';
+  kind: 'attack' | 'block' | 'restore' | 'death' | 'miss' | 'skill';
   actorId: string;
   targetId?: string;
   zone?: BodyZone;
   damage?: number;
   crit?: boolean;
   blocked?: boolean;
+  skillId?: string;
 }

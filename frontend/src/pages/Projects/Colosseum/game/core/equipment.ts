@@ -72,6 +72,8 @@ export interface CreateEquipmentOptions {
   crafted?: boolean;
   rand?: Rng;
   name?: string;
+  /** When true, an off-hand item is a second weapon instead of a shield. */
+  weapon?: boolean;
 }
 
 export function createEquipment(
@@ -83,8 +85,9 @@ export function createEquipment(
   const crafted = opts.crafted ?? false;
   const quality = crafted ? rollQuality(rand) : 1;
 
-  const isHand = slot === 'mainHand' || slot === 'offHand';
-  const isShield = slot === 'offHand';
+  const isWeapon = slot === 'mainHand' || (slot === 'offHand' && opts.weapon === true);
+  const isShield = slot === 'offHand' && opts.weapon !== true;
+  const isHand = isWeapon || isShield;
   const armor = isHand ? 0 : Math.round((10 + tier * 8) * quality);
 
   const affixCount = rollAffixCount(crafted, rand);
@@ -97,7 +100,7 @@ export function createEquipment(
   const item: Equipment = {
     id: nextEquipId(),
     slot,
-    name: opts.name ?? `${tierName(tier)} ${slotName(slot)}`,
+    name: opts.name ?? `${tierName(tier)} ${isWeapon && slot === 'offHand' ? 'Blade' : slotName(slot)}`,
     tier,
     quality,
     armor,
@@ -105,7 +108,7 @@ export function createEquipment(
     affixCount,
   };
 
-  if (slot === 'mainHand') {
+  if (isWeapon) {
     item.minDamage = Math.round((6 + tier * 4) * quality);
     item.maxDamage = Math.round((12 + tier * 6) * quality);
   }

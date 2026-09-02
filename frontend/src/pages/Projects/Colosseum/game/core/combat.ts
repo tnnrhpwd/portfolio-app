@@ -2,11 +2,11 @@ import type { AttackOutcome, AttackPrecision, BodyZone, Fighter } from './types'
 import type { Rng } from './rng';
 import { CRIT_CHANCE, CRIT_MULTIPLIER, PRECISION } from './constants';
 import { clamp } from './rng';
-import { applyZoneDamage, blockChance, blockValue } from './stats';
+import { applyZoneDamage, blockChance, blockValue, effectiveAttributes } from './stats';
 
-/** Effective initiative, halved while slowed. */
+/** Effective initiative (Speed + passives), halved while slowed. */
 export function initiative(fighter: Fighter): number {
-  const base = fighter.attributes.speed;
+  const base = effectiveAttributes(fighter).speed;
   return fighter.status.slow > 0 ? base * 0.5 : base;
 }
 
@@ -36,41 +36,67 @@ export interface RawDamage {
   crit: boolean;
 }
 
-/** Rolls raw damage for a precision tier (strength-scaled, with variance). */
-export function rollDamage(
+/** Rolls raw damage with optional multipliers (used by skills and war cry). */
+export function rollDamageWith(
   fighter: Fighter,
   precision: AttackPrecision,
   rand: Rng = Math.random,
+  damageMult = 1,
+  critBonus = 0,
 ): RawDamage {
   const weapon = fighter.loadout.mainHand;
   const minDamage = weapon?.minDamage ?? 5;
   const maxDamage = weapon?.maxDamage ?? 10;
   const base = minDamage + rand() * (maxDamage - minDamage);
   const variance = 0.85 + rand() * 0.3;
-  const crit = rand() < CRIT_CHANCE;
-  const mult = PRECISION[precision].damage * (crit ? CRIT_MULTIPLIER : 1);
-  const raw = (base + fighter.attributes.strength) * mult * variance;
+  const crit = rand() < CRIT_CHANCE + critBonus;
+  const warcry = fighter.status.buffed > 0 ? 1.2 : 1;
+  const mult = PRECISION[precision].damage * (crit ? CRIT_MULTIPLIER : 1) * damageMult * warcry;
+  const raw = (base + effectiveAttributes(fighter).strength) * mult * variance;
   return { raw: Math.max(1, Math.round(raw)), crit };
 }
 
-/** Resolves a full attack against a single zone, including hit/block/armor. */
-export function resolveAttack(
+/** Rolls raw damage for a precision tier (strength-scaled, with variance). */
+export function rollDamage(
+  fighter: Fighter,
+  precision: AttackPrecision,
+  rand: Rng = Math.random,
+): RawDamage {
+  return rollDamageWith(fighter, precision, rand);
+}
+
+export interface HitMods {
+  damageMult?: number;
+  critBonus?: number;
+  hitMult?: number;
+}
+
+/** Resolves a hit against a zone with optional multipliers (used by skills). */
+export function resolveHit(
   attacker: Fighter,
   defender: Fighter,
   precision: AttackPrecision,
   zone: BodyZone,
   rand: Rng = Math.random,
+  mods: HitMods = {},
 ): AttackOutcome {
-  const chance = precisionHitChance(
-    attacker.attributes.dexterity,
-    defender.attributes.defense,
-    precision,
-  );
+  const chance =
+    precisionHitChance(
+      effectiveAttributes(attacker).dexterity,
+      effectiveAttributes(defender).defense,
+      precision,
+    ) * (mods.hitMult ?? 1);
   if (rand() > chance) {
     return { hit: false, blocked: false, crit: false, damage: 0, armorAbsorbed: 0 };
   }
 
-  let { raw, crit } = rollDamage(attacker, precision, rand);
+  let { raw, crit } = rollDamageWith(
+    attacker,
+    precision,
+    rand,
+    mods.damageMult ?? 1,
+    mods.critBonus ?? 0,
+  );
 
   let blocked = false;
   const bc = blockChance(defender);
@@ -81,4 +107,15 @@ export function resolveAttack(
 
   const { toFlesh, absorbed } = applyZoneDamage(defender.zones[zone], raw);
   return { hit: true, blocked, crit, damage: toFlesh, armorAbsorbed: absorbed };
+}
+
+/** Resolves a full attack against a single zone, including hit/block/armor. */
+export function resolveAttack(
+  attacker: Fighter,
+  defender: Fighter,
+  precision: AttackPrecision,
+  zone: BodyZone,
+  rand: Rng = Math.random,
+): AttackOutcome {
+  return resolveHit(attacker, defender, precision, zone, rand);
 }

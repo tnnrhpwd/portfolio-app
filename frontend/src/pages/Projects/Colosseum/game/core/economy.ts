@@ -1,6 +1,7 @@
 import type { Fighter } from './types';
+import type { GameState } from './engine';
 import { ATTRIBUTE_POINTS_PER_LEVEL, SKILL_POINTS_PER_LEVEL } from './constants';
-import { currentHp, totalHp } from './stats';
+import { currentHp, restoreFighter, totalHp } from './stats';
 
 /** XP required to advance from `level` to `level + 1`. */
 export function xpToNext(level: number): number {
@@ -26,6 +27,16 @@ export function addXp(fighter: Fighter, amount: number): Fighter {
 export function healCost(fighter: Fighter): number {
   const missing = Math.max(0, totalHp(fighter) - currentHp(fighter));
   return Math.max(1, Math.ceil(missing * 0.5));
+}
+
+/** Heals a fighter to full, deducting the cost. Returns a new state; throws if unaffordable. */
+export function healToFull(state: GameState, index = 0): GameState {
+  const fighter = state.roster[index];
+  const cost = healCost(fighter);
+  if (state.gold < cost) throw new Error('Not enough gold');
+  const roster = [...state.roster];
+  roster[index] = restoreFighter(fighter);
+  return { ...state, gold: state.gold - cost, roster };
 }
 
 /** Gold cost of the next training point, growing with points already trained. */

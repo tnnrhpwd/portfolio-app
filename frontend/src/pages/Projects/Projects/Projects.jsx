@@ -167,9 +167,9 @@ function Projects() {
   }, [query, category]);
 
   // Scroll-triggered reveal for the project grid (see FRONTEND_UI_STANDARD.md §5).
-  // The grid stacks into one tall column on mobile, so use a low threshold — the
-  // default 0.15 can never be reached when a section is taller than the viewport.
-  const [gridRef, gridVisible] = useScrollReveal({ threshold: 0.05, rootMargin: '0px' });
+  // The grid stacks into one tall column on mobile, so it relies on the hook's
+  // fast defaults (threshold 0 + a bottom rootMargin) to reveal as soon as it nears.
+  const [gridRef, gridVisible] = useScrollReveal();
 
   return (
     <>
