@@ -14,10 +14,33 @@ function load(): GameState | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as GameState;
     if (!parsed || !Array.isArray(parsed.roster) || parsed.roster.length === 0) return null;
-    return parsed;
+    return migrate(parsed);
   } catch {
     return null;
   }
+}
+
+/** Back-fills fields added in later phases so old saves keep working. */
+function migrate(state: GameState): GameState {
+  return {
+    ...state,
+    inventory: state.inventory ?? [],
+    metals: state.metals ?? { bronze: 0, iron: 0, silver: 0, gold: 0 },
+    roster: state.roster.map((fighter) => {
+      const status = fighter.status ?? {};
+      return {
+        ...fighter,
+        skills: fighter.skills ?? {},
+        status: {
+          stun: status.stun ?? 0,
+          slow: status.slow ?? 0,
+          defending: status.defending ?? false,
+          bleeding: status.bleeding ?? 0,
+          buffed: status.buffed ?? 0,
+        },
+      };
+    }),
+  };
 }
 
 let state: GameState = load() ?? createCampaignStart();
