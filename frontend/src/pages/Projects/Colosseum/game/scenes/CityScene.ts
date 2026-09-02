@@ -21,7 +21,7 @@ export class CityScene extends BaseScene {
   private render(): void {
     this.clearScreen();
     this.applyBackground();
-    this.backButton('WorldMap');
+    this.backButton('Main');
     const city = cityById(this.cityId);
     if (!city) {
       this.scene.start('WorldMap');

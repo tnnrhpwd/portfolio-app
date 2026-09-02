@@ -4,6 +4,8 @@ import { BootScene } from './scenes/BootScene';
 import { TutorialScene } from './scenes/TutorialScene';
 import { MainScene } from './scenes/MainScene';
 import { TrainScene } from './scenes/TrainScene';
+import { InventoryScene } from './scenes/InventoryScene';
+import { TeamScene } from './scenes/TeamScene';
 import { SkillScene } from './scenes/SkillScene';
 import { WorldMapScene } from './scenes/WorldMapScene';
 import { CityScene } from './scenes/CityScene';
@@ -41,6 +43,8 @@ export function createGameConfig(parent: HTMLElement): Phaser.Types.Core.GameCon
       TutorialScene,
       MainScene,
       TrainScene,
+      InventoryScene,
+      TeamScene,
       SkillScene,
       WorldMapScene,
       CityScene,

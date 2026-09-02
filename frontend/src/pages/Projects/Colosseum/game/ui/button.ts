@@ -42,6 +42,8 @@ export interface ButtonOpts {
   fill?: number;
   hoverFill?: number;
   disabledFill?: number;
+  /** Label color (defaults to the light-gold used across menus). */
+  textColor?: string;
   /** Called when the pointer enters (for tooltips). */
   hover?: () => void;
   /** Called when the pointer leaves. */
@@ -71,13 +73,14 @@ export function createButton(
   const fill = opts.fill ?? 0x8c1f28;
   const hoverFill = opts.hoverFill ?? 0xa52a34;
   const disabledFill = opts.disabledFill ?? 0x555555;
+  const textColor = opts.textColor ?? '#f2d98c';
 
   const bg = scene.add.rectangle(0, 0, width, height, fill).setStrokeStyle(2, 0xe8b84b);
   const text = scene.add
     .text(0, 0, label, {
       fontFamily: 'Arial, sans-serif',
       fontSize: `${fontSize}px`,
-      color: '#f2d98c',
+      color: textColor,
       fontStyle: 'bold',
     })
     .setOrigin(0.5);

@@ -14,7 +14,9 @@
   flex: 1;
   display: flex;
   align-items: stretch;
-  padding: clamp(0px, 1.5vw, 16px);
+  /* Clear the fixed site header (nav-size tall) so the game frame never sits
+     underneath the hamburger / home / theme-toggle controls. */
+  padding: var(--nav-size) clamp(0px, 1.5vw, 16px) clamp(0px, 1.5vw, 16px);
   min-height: 0;
 }
 
