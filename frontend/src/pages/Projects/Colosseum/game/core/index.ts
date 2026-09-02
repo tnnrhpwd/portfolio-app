@@ -14,6 +14,7 @@ export * from './shop';
 export * from './blacksmith';
 export * from './cities';
 export * from './achievements';
+export * from './save';
 export * from './combat';
 export * from './battle';
 export * from './engine';

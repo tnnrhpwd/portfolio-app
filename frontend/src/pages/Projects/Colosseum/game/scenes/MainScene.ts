@@ -1,5 +1,6 @@
 import { BaseScene } from './BaseScene';
 import { addText } from '../ui/button';
+import { isLoggedIn } from '../state/cloudSync';
 import { createCampaignStart, currentHp, totalHp } from '../core';
 
 export class MainScene extends BaseScene {
@@ -79,6 +80,16 @@ export class MainScene extends BaseScene {
           },
         ),
       { width: 160, height: 48, fontSize: 16 },
+    );
+
+    addText(
+      this,
+      width / 2,
+      690,
+      isLoggedIn()
+        ? 'Cloud save on — progress syncs automatically.'
+        : 'Log in to save your progress across devices.',
+      { fontSize: '14px', color: '#6a6258' },
     );
   }
 }

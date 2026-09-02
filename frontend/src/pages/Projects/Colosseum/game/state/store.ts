@@ -1,5 +1,6 @@
 import type { Fighter, GameState } from '../core';
 import { createCampaignStart } from '../core';
+import { cloudLoad, cloudSave, isLoggedIn } from './cloudSync';
 
 const SAVE_KEY = 'colosseum.save.v1';
 
@@ -46,7 +47,20 @@ function migrate(state: GameState): GameState {
   };
 }
 
-let state: GameState = load() ?? createCampaignStart();
+const persisted = load();
+let state: GameState = persisted ?? createCampaignStart();
+let hasLocalSave = persisted !== null;
+
+let cloudTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleCloudSave(): void {
+  if (!isLoggedIn()) return;
+  if (cloudTimer) clearTimeout(cloudTimer);
+  cloudTimer = setTimeout(() => {
+    cloudTimer = null;
+    void cloudSave(state);
+  }, 2000);
+}
 
 export function getState(): GameState {
   return state;
@@ -54,12 +68,15 @@ export function getState(): GameState {
 
 export function setState(next: GameState): void {
   state = next;
-  if (!storageAvailable()) return;
-  try {
-    window.localStorage.setItem(SAVE_KEY, JSON.stringify(next));
-  } catch {
-    // Storage may be unavailable (private mode) — in-memory state still works.
+  hasLocalSave = true;
+  if (storageAvailable()) {
+    try {
+      window.localStorage.setItem(SAVE_KEY, JSON.stringify(next));
+    } catch {
+      // Storage may be unavailable (private mode) — in-memory state still works.
+    }
   }
+  scheduleCloudSave();
 }
 
 export function resetState(): void {
@@ -69,4 +86,32 @@ export function resetState(): void {
 /** Replaces the active fighter (roster[0]) — used to persist battle wounds. */
 export function setFighter(fighter: Fighter): void {
   setState({ ...state, roster: [fighter, ...state.roster.slice(1)] });
+}
+
+/**
+ * One-time cloud sync on startup. Offline-first: local progress always wins;
+ * the cloud save is only adopted when there is no local save yet.
+ */
+export async function syncCloud(): Promise<void> {
+  if (!isLoggedIn()) return;
+  try {
+    const remote = await cloudLoad();
+    if (!remote) return;
+    if (!hasLocalSave) {
+      state = migrate(remote);
+      hasLocalSave = true;
+      if (storageAvailable()) {
+        try {
+          window.localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+        } catch {
+          // ignore
+        }
+      }
+    } else {
+      // Local save wins — push it up so other devices stay in sync.
+      scheduleCloudSave();
+    }
+  } catch {
+    // Never let a network failure disrupt local play.
+  }
 }
