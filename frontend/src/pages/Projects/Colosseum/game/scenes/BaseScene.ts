@@ -4,6 +4,7 @@ import { achievementById, evaluateAchievements } from '../core';
 import { getState, setState } from '../state/store';
 import { addText, createButton, type ButtonOpts, type GameButton } from '../ui/button';
 import { getSettings } from '../settings';
+import { getThemeColors, type ThemeColors } from '../theme';
 import { announce } from '../accessibility';
 
 /** Shared helpers for the menu scenes, including keyboard navigation. */
@@ -22,6 +23,49 @@ export abstract class BaseScene extends Phaser.Scene {
     setState(next);
   }
 
+  /** The resolved color palette for the current theme. */
+  protected get theme(): ThemeColors {
+    return getThemeColors();
+  }
+
+  /** Paints the scene background with the theme color (or a custom one). */
+  protected applyBackground(color?: string): void {
+    // Guard against a resize/render racing a scene teardown, where the main
+    // camera can already be destroyed.
+    if (!this.cameras?.main) return;
+    this.cameras.main.setBackgroundColor(color ?? this.theme.bg);
+  }
+
+  // ── Responsive layout (the canvas resizes to the device via Scale.RESIZE) ──
+  protected get w(): number {
+    return this.scale.width;
+  }
+
+  protected get h(): number {
+    return this.scale.height;
+  }
+
+  protected get cx(): number {
+    return this.w / 2;
+  }
+
+  protected get cy(): number {
+    return this.h / 2;
+  }
+
+  /** True on narrow (portrait) screens, where rows should stack vertically. */
+  protected get compact(): boolean {
+    return this.w < 720;
+  }
+
+  private handleResize = (): void => {
+    // Only re-render while the scene is actually running.
+    if (this.scene.isActive()) this.onResize();
+  };
+
+  /** Override to re-render when the device is resized or rotated. */
+  protected onResize(): void {}
+
   init(): void {
     this.focusables = [];
     this.focusIndex = -1;
@@ -29,6 +73,9 @@ export abstract class BaseScene extends Phaser.Scene {
     this.focusRing = null;
 
     this.keyHandler = (event: KeyboardEvent) => {
+      // Ignore keys delivered while this scene is being torn down (a resize
+      // or scene transition can race the listener's removal).
+      if (!this.scene.isActive()) return;
       switch (event.key) {
         case 'ArrowUp':
         case 'ArrowLeft':
@@ -54,6 +101,7 @@ export abstract class BaseScene extends Phaser.Scene {
       }
     };
     window.addEventListener('keydown', this.keyHandler);
+    this.scale.on(Phaser.Scale.Events.RESIZE, this.handleResize);
     this.input?.on('pointerdown', () => this.clearFocus());
   }
 
@@ -62,21 +110,15 @@ export abstract class BaseScene extends Phaser.Scene {
       window.removeEventListener('keydown', this.keyHandler);
       this.keyHandler = null;
     }
+    this.scale.off(Phaser.Scale.Events.RESIZE, this.handleResize);
   }
 
   protected header(text: string): void {
-    const { width, height } = this.scale;
-    addText(this, width / 2, 40, text, {
+    addText(this, this.cx, 40, text, {
       fontSize: '36px',
       color: '#e8b84b',
       fontStyle: 'bold',
     });
-    if (typeof window !== 'undefined' && window.innerHeight > window.innerWidth) {
-      addText(this, width / 2, height - 14, 'Tip: landscape works best', {
-        fontSize: '13px',
-        color: '#6a6258',
-      });
-    }
   }
 
   protected goldText(): void {
@@ -175,8 +217,8 @@ export abstract class BaseScene extends Phaser.Scene {
       .setDepth(depth)
       .setInteractive();
     const panel = this.add
-      .rectangle(width / 2, height / 2, 560, 260, 0x1c1610, 1)
-      .setStrokeStyle(2, 0xe8b84b)
+      .rectangle(width / 2, height / 2, 560, 260, this.theme.panel, 1)
+      .setStrokeStyle(2, this.theme.panelStroke)
       .setDepth(depth + 1);
     const titleText = addText(this, width / 2, height / 2 - 78, title, {
       fontSize: '28px',
@@ -225,7 +267,7 @@ export abstract class BaseScene extends Phaser.Scene {
     if (!this.focusRing) {
       this.focusRing = this.add
         .rectangle(0, 0, 10, 10, 0x000000, 0)
-        .setStrokeStyle(3, 0xffffff)
+        .setStrokeStyle(3, this.theme.focusStroke)
         .setDepth(999);
     }
     this.focusRing

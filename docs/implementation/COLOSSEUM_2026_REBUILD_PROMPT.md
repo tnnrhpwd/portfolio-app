@@ -303,3 +303,59 @@ follow-ups. Keep commits small and descriptive.
 - Tests pass, TypeScript compiles cleanly, and there are no console errors.
 - Every asset's license is recorded; nothing in the project is copied from the
   reference game.
+
+## Current status (2026-09-01)
+
+Phases 1–6 are implemented and verified in `master`:
+
+- Pure, framework-free TS core with a deterministic, RNG-injected engine — 61
+  Jest tests pinning the numeric rules (stat caps, HP split, hit resolution,
+  blocking, skills, economy, battle loop).
+- Phaser presentation layer (thin React shell mounts the canvas) with the full
+  management loop: hub → world map → city facilities (coliseum/shop/slave
+  market/blacksmith/infirmary) → recruit → gear → train → fight → rewards.
+- Five weapon-defined skill trees, a 10-city fame-gated campaign, persistent
+  wounds + infirmary, smarter enemy AI, and the post-battle verdict.
+- Onboarding (tutorial), achievements, tooltips/previews, auto-battle + speed
+  controls, undo/confirmations.
+- Accessibility: keyboard nav + focus ring, ARIA live region, reduced-motion,
+  high-contrast and text-size options, colorblind-safe cues, PWA service worker.
+- Offline-first cloud saves (single JSON per user via the DynamoDB "Simple"
+  convention), debounced autosave, local-always-wins merge.
+
+Assumed complete (outside the game's code): the Projects catalog refactor that
+unblocked the production build, and the Netlify deploy to sthopwood.com/colosseum.
+
+## Next steps (remaining to reach the full definition of done)
+
+Progress as of 2026-09-02:
+
+1. **Final art/audio pass** — PARTIAL. Original vector sprite art is in place:
+   `game/assets/art.ts` + `game/assets/textures.ts` render five original,
+   flat-shaded gladiator figures (one per weapon style) and an original arena
+   backdrop, preloaded in `BootScene` so scenes never flash `__MISSING`
+   placeholders. `ASSET-LICENSES.md` records provenance and the asset budget.
+   Audio remains the original synthesized WebAudio SFX (license-free); a stock
+   audio intake manifest in `ASSET-LICENSES.md` defines how to layer licensed
+   royalty-free files later. Remaining: actually source + record stock SFX/music,
+   and richer animated atlases + original menu UI chrome if desired.
+2. **Performance pass** — DONE. The game + Phaser are lazy-loaded behind a
+   "Play" gate (`Colosseum.jsx` dynamic-imports `./game` on tap), and Phaser is
+   split into its own `phaser-*.js` vendor chunk via `vite.config.js`
+   `manualChunks`. Measured: Colosseum route chunk 1.81 kB (was ~1.43 MB);
+   Phaser chunk 1,387 kB / 371.5 kB gzip, fetched only on demand. Still open:
+   a real-device 60 FPS measurement.
+3. **QA / ship gate** — PARTIAL. `npm run typecheck`, 61 Jest tests, and
+   `npm run build` (Vite + sitemap) all pass; a browser smoke test confirmed the
+   gate → boot → tutorial → battle flow with zero console errors. Remaining:
+   real phone/tablet verification (portrait + touch) and a formal memory-leak
+   profile (scene teardown is already reviewed: window keydown listener removed
+   in `BaseScene.shutdown`, cloud timer debounced/cleared).
+4. **Cloud-save end-to-end** — CODE VERIFIED, LIVE TEST OPEN. `cloudLoad`/
+   `cloudSave` follow the DynamoDB "Simple" convention (marker + delete-then-POST,
+   one record per user) and save round-trips are unit-tested. Live two-device
+   verification (sign-in → save on A → load on B + offline fallback) needs real
+   credentials and is a manual follow-up.
+5. **Balance & content polish (optional)** — NOT STARTED. Multi-fighter teams
+   (3v3, Protect + team skills, roster selection) and a difficulty/stat-curve
+   tuning pass remain future work.

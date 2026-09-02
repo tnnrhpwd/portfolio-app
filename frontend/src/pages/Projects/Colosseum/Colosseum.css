@@ -5,25 +5,88 @@
   background: #0c0a08;
 }
 
+/* Follow the site's light theme for the shell + letterbox area. */
+.light-theme .colosseum-page {
+  background: #f4ecdc;
+}
+
 .colosseum-shell {
   flex: 1;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
+  align-items: stretch;
+  padding: clamp(0px, 1.5vw, 16px);
+  min-height: 0;
 }
 
 .colosseum-game {
-  width: 100%;
-  max-width: 1280px;
-  aspect-ratio: 16 / 9;
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
   background: #0c0a08;
+}
+
+.light-theme .colosseum-game {
+  background: #f4ecdc;
 }
 
 .colosseum-game canvas {
   display: block;
   margin: 0 auto;
   border-radius: 4px;
+}
+
+/* Pre-mount "tap to play" gate. Original, minimal styling that matches the
+   game's own dark + red/gold palette. It disappears once the Phaser canvas
+   mounts, so no DOM is ever layered above the running game. */
+.colosseum-play {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: min(320px, 70%);
+  height: 112px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  background: #8c1f28;
+  border: 2px solid #e8b84b;
+  border-radius: 8px;
+  color: #f2d98c;
+  font-family: Arial, sans-serif;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
+  transition: background 0.15s ease, transform 0.05s ease;
+}
+
+.colosseum-play:hover:not(:disabled) {
+  background: #a52a34;
+}
+
+.colosseum-play:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.colosseum-play:disabled {
+  cursor: progress;
+  opacity: 0.8;
+}
+
+.colosseum-play:focus-visible {
+  outline: 3px solid #f2d98c;
+  outline-offset: 3px;
+}
+
+.colosseum-play-title {
+  font-size: 22px;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+.colosseum-play-sub {
+  font-size: 14px;
+  opacity: 0.9;
 }
 
 /* Screen-reader-only live region for game announcements. */

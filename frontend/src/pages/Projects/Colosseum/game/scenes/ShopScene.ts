@@ -16,58 +16,71 @@ export class ShopScene extends BaseScene {
     this.render();
   }
 
+  protected onResize(): void {
+    this.render();
+  }
+
   private render(): void {
     this.clearScreen();
-    this.cameras.main.setBackgroundColor('#120e0a');
+    this.applyBackground();
     this.header('ARMORY');
     this.cityBack(this.cityId);
     this.goldText();
 
-    const { width, height } = this.scale;
     const stock = generateShopStock(this.tier, 6);
     const tip = createTooltip(this);
+    const compact = this.compact;
 
-    addText(this, width / 2, 100, 'For sale — buy into inventory', {
+    addText(this, this.cx, 100, 'For sale — buy into inventory', {
       fontSize: '18px',
       color: '#f2d98c',
     });
 
     stock.forEach((item: Equipment, i: number) => {
-      const y = 140 + i * 46;
+      const y = 140 + i * (compact ? 66 : 46);
       const stat = this.describeItem(item);
-      addText(this, width / 2 - 240, y, `${item.name} · ${stat} · ${itemPrice(item)} gp`, {
-        fontSize: '16px',
-      }).setOrigin(0, 0.5);
-      this.button(width / 2 + 210, y, 'BUY', () => this.buy(item), {
+      addText(
+        this,
+        compact ? this.cx : this.cx - 240,
+        compact ? y - 20 : y,
+        `${item.name} · ${stat} · ${itemPrice(item)} gp`,
+        { fontSize: '16px' },
+      ).setOrigin(compact ? 0.5 : 0, 0.5);
+      this.button(compact ? this.cx : this.cx + 210, compact ? y + 20 : y, 'BUY', () => this.buy(item), {
         width: 96,
         height: 38,
         fontSize: 15,
-        hover: () => tip.show(width / 2, y - 40, this.preview(item)),
+        hover: () => tip.show(this.cx, y - 40, this.preview(item)),
         blur: () => tip.hide(),
       });
     });
 
-    const invY = 140 + stock.length * 46 + 20;
-    addText(this, width / 2, invY, 'Inventory — equip to your fighter', {
+    const invY = 140 + stock.length * (compact ? 66 : 46) + 20;
+    addText(this, this.cx, invY, 'Inventory — equip to your fighter', {
       fontSize: '18px',
       color: '#f2d98c',
     });
 
     this.gameState.inventory.forEach((item: Equipment, i: number) => {
-      const y = invY + 36 + i * 40;
-      addText(this, width / 2 - 240, y, `${item.name} (${item.slot})`, {
-        fontSize: '15px',
-      }).setOrigin(0, 0.5);
-      this.button(width / 2 + 210, y, 'EQUIP', () => this.equip(item), {
+      const y = invY + 36 + i * (compact ? 60 : 40);
+      addText(
+        this,
+        compact ? this.cx : this.cx - 240,
+        compact ? y - 18 : y,
+        `${item.name} (${item.slot})`,
+        { fontSize: '15px' },
+      ).setOrigin(compact ? 0.5 : 0, 0.5);
+      this.button(compact ? this.cx : this.cx + 210, compact ? y + 18 : y, 'EQUIP', () => this.equip(item), {
         width: 96,
         height: 36,
         fontSize: 14,
       });
     });
 
-    addText(this, width / 2, height - 30, `Equipped: ${this.describeFighter(this.gameState.roster[0])}`, {
+    addText(this, this.cx, this.h - 30, `Equipped: ${this.describeFighter(this.gameState.roster[0])}`, {
       fontSize: '14px',
       color: '#b8aa94',
+      wordWrap: { width: this.w - 40 },
     });
   }
 

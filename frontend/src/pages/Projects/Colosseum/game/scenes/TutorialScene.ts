@@ -37,35 +37,49 @@ export class TutorialScene extends BaseScene {
     this.render();
   }
 
+  protected onResize(): void {
+    this.render();
+  }
+
   private render(): void {
     this.clearScreen();
-    this.cameras.main.setBackgroundColor('#120e0a');
-    const { width, height } = this.scale;
+    this.applyBackground();
     const step = STEPS[this.step];
+    const compact = this.compact;
 
     this.header('TUTORIAL');
     announce(`${step.title}. ${step.body}`);
-    addText(this, width / 2, 130, `${this.step + 1} / ${STEPS.length}`, {
+    addText(this, this.cx, 130, `${this.step + 1} / ${STEPS.length}`, {
       fontSize: '16px',
       color: '#b8aa94',
     });
-    addText(this, width / 2, 230, step.title, {
+    addText(this, this.cx, compact ? 210 : 230, step.title, {
       fontSize: '30px',
       color: '#e8b84b',
       fontStyle: 'bold',
     });
-    addText(this, width / 2, 320, step.body, { fontSize: '20px', wordWrap: { width: 720 } });
+    addText(this, this.cx, compact ? 300 : 320, step.body, {
+      fontSize: '20px',
+      wordWrap: { width: Math.max(260, this.w - 60) },
+    });
 
-    const bottom = height - 80;
+    const bottom = this.h - 80;
     const isLast = this.step === STEPS.length - 1;
+    const backY = compact ? bottom - 120 : bottom;
+    const skipY = compact ? bottom - 60 : bottom;
+    const nextY = bottom;
     if (this.step > 0) {
-      this.button(width / 2 - 180, bottom, 'BACK', () => {
+      this.button(compact ? this.cx : this.cx - 180, backY, 'BACK', () => {
         this.step -= 1;
         this.render();
       }, { width: 150, height: 52, fontSize: 20 });
     }
-    this.button(width / 2, bottom, 'SKIP', () => this.finish(), { width: 100, height: 44, fontSize: 16 });
-    this.button(width / 2 + 180, bottom, isLast ? 'START' : 'NEXT', () => this.next(), {
+    this.button(compact ? this.cx : this.cx, skipY, 'SKIP', () => this.finish(), {
+      width: 100,
+      height: 44,
+      fontSize: 16,
+    });
+    this.button(compact ? this.cx : this.cx + 180, nextY, isLast ? 'START' : 'NEXT', () => this.next(), {
       width: 150,
       height: 52,
       fontSize: 20,

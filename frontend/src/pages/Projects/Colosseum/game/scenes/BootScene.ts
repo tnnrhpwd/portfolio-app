@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { getState, syncCloud } from '../state/store';
 import { getSettings } from '../settings';
 import { setMuted } from '../audio/sfx';
+import { ensureTextures, waitForArtTextures } from '../assets/textures';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -10,8 +11,12 @@ export class BootScene extends Phaser.Scene {
 
   create(): void {
     setMuted(getSettings().muted);
-    // Sync (adopt cloud save if none locally, else push local) before routing.
-    void syncCloud().finally(() => {
+    // Register the original vector art and wait for the async SVG loads to
+    // finish so the first rendered frame already has real textures (no
+    // `__MISSING` placeholder flicker). Route once art + cloud sync settle.
+    ensureTextures(this);
+    const artReady = waitForArtTextures(this);
+    void Promise.all([artReady, syncCloud()]).finally(() => {
       this.scene.start(getState().tutorialSeen ? 'Main' : 'Tutorial');
     });
   }

@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { to: "/admin/data", label: "Data Explorer", icon: "🗄️" },
   { to: "/admin/home-title", label: "Home Title", icon: "🏷️" },
   { to: "/admin/funnel-tester", label: "Funnel Tester", icon: "🧪" },
+  { to: "/admin/rankings", label: "Page Rankings", icon: "📈" },
 ];
 
 /**

@@ -8,25 +8,38 @@ export class AchievementsScene extends BaseScene {
   }
 
   create(): void {
-    this.cameras.main.setBackgroundColor('#120e0a');
+    this.render();
+  }
+
+  protected onResize(): void {
+    this.render();
+  }
+
+  private render(): void {
+    this.clearScreen();
+    this.applyBackground();
     this.header('TROPHIES');
     this.backButton('Main');
 
-    const { width } = this.scale;
+    const compact = this.compact;
     const unlocked = this.gameState.unlockedAchievements;
     ACHIEVEMENTS.forEach((achievement, i) => {
-      const y = 140 + i * 72;
+      const y = 140 + i * (compact ? 92 : 72);
       const done = unlocked.includes(achievement.id);
-      addText(this, width / 2 - 220, y, `${done ? '✔' : '—'} ${achievement.label}`, {
-        fontSize: '20px',
-        color: done ? '#f2d98c' : '#6a6258',
-      }).setOrigin(0, 0.5);
-      addText(this, width / 2 + 140, y, achievement.blurb, {
+      addText(
+        this,
+        compact ? this.cx : this.cx - 220,
+        compact ? y - 20 : y,
+        `${done ? '✔' : '—'} ${achievement.label}`,
+        { fontSize: '20px', color: done ? '#f2d98c' : '#6a6258' },
+      ).setOrigin(compact ? 0.5 : 0, 0.5);
+      addText(this, compact ? this.cx : this.cx + 140, compact ? y + 22 : y, achievement.blurb, {
         fontSize: '15px',
         color: done ? '#b8aa94' : '#55504a',
-      }).setOrigin(0, 0.5);
+        wordWrap: { width: this.w - 60 },
+      }).setOrigin(compact ? 0.5 : 0, 0.5);
     });
-    addText(this, width / 2, 600, `${unlocked.length}/${ACHIEVEMENTS.length} unlocked`, {
+    addText(this, this.cx, this.h - 30, `${unlocked.length}/${ACHIEVEMENTS.length} unlocked`, {
       fontSize: '16px',
       color: '#b8aa94',
     });

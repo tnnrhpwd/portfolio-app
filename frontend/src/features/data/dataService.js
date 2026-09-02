@@ -827,6 +827,21 @@ const getAdminPaginatedData = async (token, { page = 1, limit = 50, type } = {})
     }
 };
 
+// Get page-view rankings (most → least visited pages). Admin only.
+const getPageRankings = async (token, { days = 30, refresh = false } = {}) => {
+    const config = {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { days, ...(refresh ? { refresh: 'true' } : {}) },
+    };
+    try {
+        const response = await axios.get(API_URL + 'analytics/page-rankings', config);
+        return response.data;
+    } catch (error) {
+        handleTokenExpiration(error);
+        throw error;
+    }
+};
+
 // Get raw home-title settings (default title + rules) for the admin UI
 const getAdminHomeTitleSettings = async (token) => {
     const config = { headers: { Authorization: `Bearer ${token}` } };
@@ -923,6 +938,7 @@ const dataService = {
     getAdminUsers,
     toggleUserSpecial,
     getAdminPaginatedData,
+    getPageRankings,
     getAdminHomeTitleSettings,
     updateAdminHomeTitleSettings,
     getPurchaseGateStatus,

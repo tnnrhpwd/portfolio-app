@@ -210,9 +210,23 @@ const getAdminDashboard = asyncHandler(async (req, res) => {
     }, 0);
 
     // ── Visitor stats ──
+    // `checkIP` writes one access-log record per request, so the raw counts
+    // below are hits/requests, NOT unique visitors. Unique visitors are
+    // derived from distinct IPs in each window.
     const visitorsToday   = visitors.filter(v => v.createdAt && new Date(v.createdAt) >= oneDayAgo).length;
     const visitorsWeek    = visitors.filter(v => v.createdAt && new Date(v.createdAt) >= sevenDaysAgo).length;
     const visitorsMonth   = visitors.filter(v => v.createdAt && new Date(v.createdAt) >= thirtyDaysAgo).length;
+
+    // Unique visitors (distinct IPs) per window
+    const uniqueIpsInWindow = (cutoff) => new Set(
+        visitors
+            .filter(v => v.createdAt && new Date(v.createdAt) >= cutoff && v.ip)
+            .map(v => v.ip)
+    ).size;
+    const uniqueIpsToday   = uniqueIpsInWindow(oneDayAgo);
+    const uniqueIpsWeek    = uniqueIpsInWindow(sevenDaysAgo);
+    const uniqueIpsMonth   = uniqueIpsInWindow(thirtyDaysAgo);
+    const uniqueIpsTotal   = new Set(visitors.filter(v => v.ip).map(v => v.ip)).size;
 
     // Top countries
     const countryCounts = {};
@@ -225,13 +239,6 @@ const getAdminDashboard = asyncHandler(async (req, res) => {
         .sort(([, a], [, b]) => b - a)
         .slice(0, 10)
         .map(([country, count]) => ({ country, count }));
-
-    // Unique IPs this week
-    const uniqueIpsWeek = new Set(
-        visitors
-            .filter(v => v.createdAt && new Date(v.createdAt) >= sevenDaysAgo && v.ip)
-            .map(v => v.ip)
-    ).size;
 
     // Visitors per day (last 30 days) for chart
     const visitsByDay = {};
@@ -312,7 +319,10 @@ const getAdminDashboard = asyncHandler(async (req, res) => {
             today:       visitorsToday,
             thisWeek:    visitorsWeek,
             thisMonth:   visitorsMonth,
+            uniqueToday: uniqueIpsToday,
             uniqueWeek:  uniqueIpsWeek,
+            uniqueMonth: uniqueIpsMonth,
+            uniqueTotal: uniqueIpsTotal,
             topCountries,
             topReferers,
             byDay: visitsByDay,

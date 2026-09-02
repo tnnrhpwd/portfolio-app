@@ -18,34 +18,45 @@ export class BlacksmithScene extends BaseScene {
     this.render();
   }
 
+  protected onResize(): void {
+    this.render();
+  }
+
   private render(): void {
     this.clearScreen();
-    this.cameras.main.setBackgroundColor('#120e0a');
+    this.applyBackground();
     this.header('BLACKSMITH');
     this.cityBack(this.cityId);
     this.goldText();
 
-    const { width } = this.scale;
-    addText(this, width / 2, 105, `Forge slot: ${this.slot}`, { fontSize: '20px', color: '#f2d98c' });
+    const compact = this.compact;
+    addText(this, this.cx, 105, `Forge slot: ${this.slot}`, { fontSize: '20px', color: '#f2d98c' });
 
+    const cols = compact ? 2 : 4;
+    const slotGap = compact ? 190 : 230;
     SLOTS.forEach((slot, i) => {
-      const x = 180 + (i % 4) * 230;
-      const y = 165 + Math.floor(i / 4) * 50;
+      const x = this.cx - ((cols - 1) / 2) * slotGap + (i % cols) * slotGap;
+      const y = 165 + Math.floor(i / cols) * 50;
       const btn = this.button(x, y, slot, () => {
         this.slot = slot;
         this.render();
-      }, { width: 200, height: 40, fontSize: 15 });
+      }, { width: compact ? 170 : 200, height: 40, fontSize: 15 });
       if (slot !== this.slot) btn.container.setAlpha(0.55);
     });
 
-    addText(this, width / 2, 260, 'Metals:', { fontSize: '18px', color: '#f2d98c' });
+    const metalsY = 165 + Math.ceil(SLOTS.length / cols) * 50 + 30;
+    addText(this, this.cx, metalsY, 'Metals:', { fontSize: '18px', color: '#f2d98c' });
     METALS.forEach((metal, i) => {
-      const y = 310 + i * 50;
+      const y = metalsY + 50 + i * (compact ? 78 : 50);
       const have = this.gameState.metals[metal] ?? 0;
-      addText(this, width / 2 - 240, y, `${metal} x${have} — ${forgeCost(metal)} gp`, {
-        fontSize: '17px',
-      }).setOrigin(0, 0.5);
-      const btn = this.button(width / 2 + 220, y, 'FORGE', () =>
+      addText(
+        this,
+        compact ? this.cx : this.cx - 240,
+        compact ? y - 22 : y,
+        `${metal} x${have} — ${forgeCost(metal)} gp`,
+        { fontSize: '17px' },
+      ).setOrigin(compact ? 0.5 : 0, 0.5);
+      const btn = this.button(compact ? this.cx : this.cx + 220, compact ? y + 22 : y, 'FORGE', () =>
         this.confirm(
           'Forge item?',
           `Forge a ${this.slot} using ${metal} for ${forgeCost(metal)} gp?`,

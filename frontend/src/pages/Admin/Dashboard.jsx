@@ -174,8 +174,8 @@ function Dashboard() {
             </div>
             <div className="kpi-card">
               <span className="kpi-label">Visitors (7d)</span>
-              <span className="kpi-value">{fmt(d.visitors.thisWeek)}</span>
-              <span className="kpi-sub">{fmt(d.visitors.uniqueWeek)} unique IPs</span>
+              <span className="kpi-value">{fmt(d.visitors.uniqueWeek)}</span>
+              <span className="kpi-sub">{fmt(d.visitors.thisWeek)} hits</span>
             </div>
             <div className="kpi-card">
               <span className="kpi-label">Open Bugs</span>
@@ -264,10 +264,10 @@ function Dashboard() {
               <div className="traffic-card">
                 <h4>Visitor Summary</h4>
                 <div className="stat-rows">
-                  <div className="stat-row"><span>Today</span><strong>{fmt(d.visitors.today)}</strong></div>
-                  <div className="stat-row"><span>This Week</span><strong>{fmt(d.visitors.thisWeek)}</strong></div>
-                  <div className="stat-row"><span>This Month</span><strong>{fmt(d.visitors.thisMonth)}</strong></div>
-                  <div className="stat-row"><span>All Time</span><strong>{fmt(d.visitors.total)}</strong></div>
+                  <div className="stat-row"><span>Today</span><span><strong>{fmt(d.visitors.uniqueToday)}</strong> <small className="muted">{fmt(d.visitors.today)} hits</small></span></div>
+                  <div className="stat-row"><span>This Week</span><span><strong>{fmt(d.visitors.uniqueWeek)}</strong> <small className="muted">{fmt(d.visitors.thisWeek)} hits</small></span></div>
+                  <div className="stat-row"><span>This Month</span><span><strong>{fmt(d.visitors.uniqueMonth)}</strong> <small className="muted">{fmt(d.visitors.thisMonth)} hits</small></span></div>
+                  <div className="stat-row"><span>All Time</span><span><strong>{fmt(d.visitors.uniqueTotal)}</strong> <small className="muted">{fmt(d.visitors.total)} hits</small></span></div>
                 </div>
               </div>
               <div className="traffic-card">

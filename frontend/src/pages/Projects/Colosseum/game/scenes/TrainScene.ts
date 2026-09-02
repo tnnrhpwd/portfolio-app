@@ -18,33 +18,41 @@ export class TrainScene extends BaseScene {
     this.render();
   }
 
+  protected onResize(): void {
+    this.render();
+  }
+
   private render(): void {
     this.clearScreen();
-    this.cameras.main.setBackgroundColor('#120e0a');
+    this.applyBackground();
     this.header('TRAIN');
     this.backButton('Main');
     this.goldText();
 
-    const { width, height } = this.scale;
     const fighter = this.gameState.roster[0];
     const tip = createTooltip(this);
+    const compact = this.compact;
 
-    addText(this, width / 2, 110, `Unspent attribute points: ${fighter.attributePoints}`, {
+    addText(this, this.cx, 110, `Unspent attribute points: ${fighter.attributePoints}`, {
       fontSize: '22px',
       color: '#f2d98c',
     });
 
     const startY = 170;
     ATTRIBUTE_KEYS.forEach((key: AttributeKey, i: number) => {
-      const y = startY + i * 68;
-      addText(this, width / 2 - 220, y, `${ATTRIBUTE_DEFS[key].label}: ${fighter.attributes[key]}`, {
+      const y = startY + i * (compact ? 84 : 68);
+      const labelX = compact ? this.cx : this.cx - 220;
+      const btnX = compact ? this.cx : this.cx + 200;
+      const labelY = compact ? y - 22 : y;
+      const btnY = compact ? y + 22 : y;
+      addText(this, labelX, labelY, `${ATTRIBUTE_DEFS[key].label}: ${fighter.attributes[key]}`, {
         fontSize: '22px',
-      }).setOrigin(0, 0.5);
-      const btn = this.button(width / 2 + 200, y, '+', () => this.spend(key), {
+      }).setOrigin(compact ? 0.5 : 0, 0.5);
+      const btn = this.button(btnX, btnY, '+', () => this.spend(key), {
         width: 64,
         height: 48,
         fontSize: 22,
-        hover: () => tip.show(width / 2, y - 42, ATTRIBUTE_DEFS[key].blurb),
+        hover: () => tip.show(this.cx, y - 42, ATTRIBUTE_DEFS[key].blurb),
         blur: () => tip.hide(),
       });
       if (fighter.attributePoints <= 0 || fighter.attributes[key] >= STAT_CAPS[key]) {
@@ -56,7 +64,7 @@ export class TrainScene extends BaseScene {
       (acc, key) => acc + (fighter.attributes[key] - fighter.baseAttributes[key]),
       0,
     );
-    const resetBtn = this.button(width / 2, height - 56, `RESET (${spent} spent)`, () => this.reset(), {
+    const resetBtn = this.button(this.cx, this.h - 56, `RESET (${spent} spent)`, () => this.reset(), {
       width: 240,
       height: 48,
       fontSize: 18,

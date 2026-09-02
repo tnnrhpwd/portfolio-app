@@ -18,6 +18,7 @@ import {
   type Fighter,
 } from '../core';
 import { playBlock, playClick, playCrit, playDefeat, playHit, playVictory } from '../audio/sfx';
+import { addArenaBackground, addStyleSprite } from '../assets/textures';
 import { getSettings } from '../settings';
 import { announce } from '../accessibility';
 
@@ -46,7 +47,7 @@ export class BattleScene extends BaseScene {
   }
 
   create(data: { enemyRank?: number } = {}): void {
-    this.cameras.main.setBackgroundColor('#1a1410');
+    this.applyBackground(this.theme.bgAlt);
     const player = this.gameState.roster[0];
     const enemy = generateOpponent(data?.enemyRank ?? this.gameState.fame + 1, Math.random);
     this.snap = startBattle(player, enemy);
@@ -57,91 +58,179 @@ export class BattleScene extends BaseScene {
     this.render();
   }
 
+  protected onResize(): void {
+    this.render();
+  }
+
   private render(): void {
     this.clearScreen();
-    const { width, height } = this.scale;
-    const cx = width / 2;
+    addArenaBackground(this);
+    const compact = this.compact;
+    const cx = this.cx;
+    const bottom = this.h - 70;
 
-    this.drawCard(this.snap.player, cx - 320);
-    this.drawCard(this.snap.enemy, cx + 320);
-    addText(this, cx, 120, this.summary, { fontSize: '18px', color: '#f2d98c' });
+    if (compact) {
+      this.drawCard(this.snap.player, cx, 110, true);
+      this.drawCard(this.snap.enemy, cx, 310, true);
+      addText(this, cx, 492, this.summary, {
+        fontSize: '16px',
+        color: '#f2d98c',
+        wordWrap: { width: this.w - 40 },
+      });
+    } else {
+      this.drawCard(this.snap.player, cx - 320, 120, false);
+      this.drawCard(this.snap.enemy, cx + 320, 120, false);
+      addText(this, cx, 120, this.summary, { fontSize: '18px', color: '#f2d98c' });
+    }
 
-    const bottom = height - 70;
     if (this.phase === 'action') {
-      this.button(cx - 270, bottom, 'ATTACK', () => {
-        this.phase = 'precision';
-        this.render();
-      }, { width: 180 });
-      const technique = this.button(cx - 90, bottom, 'TECHNIQUE', () => {
-        this.phase = 'skill';
-        this.render();
-      }, { width: 180 });
-      if (this.activeSkills().length === 0) technique.setEnabled(false);
-      this.button(cx + 90, bottom, 'BLOCK', () => this.resolve({ kind: 'block' }), { width: 180 });
-      this.button(cx + 270, bottom, 'CROWD APPEAL', () => this.resolve({ kind: 'crowdAppeal' }), {
-        width: 180,
-      });
-      this.button(cx - 160, bottom - 70, 'AUTO-BATTLE', () => this.startAuto(), {
-        width: 180,
-        height: 44,
-        fontSize: 17,
-      });
-      this.button(cx + 160, bottom - 70, this.speedFast ? 'SPEED: FAST' : 'SPEED: NORMAL', () => {
-        this.speedFast = !this.speedFast;
-        this.render();
-      }, { width: 180, height: 44, fontSize: 17 });
+      if (compact) {
+        this.button(cx - 95, bottom - 150, 'ATTACK', () => {
+          this.phase = 'precision';
+          this.render();
+        }, { width: 170, height: 46, fontSize: 16 });
+        const technique = this.button(cx + 95, bottom - 150, 'TECHNIQUE', () => {
+          this.phase = 'skill';
+          this.render();
+        }, { width: 170, height: 46, fontSize: 16 });
+        if (this.activeSkills().length === 0) technique.setEnabled(false);
+        this.button(cx - 95, bottom - 92, 'BLOCK', () => this.resolve({ kind: 'block' }), {
+          width: 170,
+          height: 46,
+          fontSize: 16,
+        });
+        this.button(cx + 95, bottom - 92, 'CROWD APPEAL', () => this.resolve({ kind: 'crowdAppeal' }), {
+          width: 170,
+          height: 46,
+          fontSize: 15,
+        });
+        this.button(cx - 95, bottom - 34, 'AUTO-BATTLE', () => this.startAuto(), {
+          width: 170,
+          height: 38,
+          fontSize: 15,
+        });
+        this.button(cx + 95, bottom - 34, this.speedFast ? 'SPEED: FAST' : 'SPEED: NORMAL', () => {
+          this.speedFast = !this.speedFast;
+          this.render();
+        }, { width: 170, height: 38, fontSize: 15 });
+      } else {
+        this.button(cx - 270, bottom, 'ATTACK', () => {
+          this.phase = 'precision';
+          this.render();
+        }, { width: 180 });
+        const technique = this.button(cx - 90, bottom, 'TECHNIQUE', () => {
+          this.phase = 'skill';
+          this.render();
+        }, { width: 180 });
+        if (this.activeSkills().length === 0) technique.setEnabled(false);
+        this.button(cx + 90, bottom, 'BLOCK', () => this.resolve({ kind: 'block' }), { width: 180 });
+        this.button(cx + 270, bottom, 'CROWD APPEAL', () => this.resolve({ kind: 'crowdAppeal' }), {
+          width: 180,
+        });
+        this.button(cx - 160, bottom - 70, 'AUTO-BATTLE', () => this.startAuto(), {
+          width: 180,
+          height: 44,
+          fontSize: 17,
+        });
+        this.button(cx + 160, bottom - 70, this.speedFast ? 'SPEED: FAST' : 'SPEED: NORMAL', () => {
+          this.speedFast = !this.speedFast;
+          this.render();
+        }, { width: 180, height: 44, fontSize: 17 });
+      }
     } else if (this.phase === 'precision') {
-      this.button(cx - 180, bottom, 'WEAK', () => {
-        this.precision = 'weak';
-        this.phase = 'zone';
-        this.render();
-      });
-      this.button(cx, bottom, 'MEDIUM', () => {
-        this.precision = 'medium';
-        this.phase = 'zone';
-        this.render();
-      });
-      this.button(cx + 180, bottom, 'STRONG', () => {
-        this.precision = 'strong';
-        this.phase = 'zone';
-        this.render();
-      });
-      this.button(96, bottom, 'BACK', () => {
-        this.phase = 'action';
-        this.render();
-      }, { width: 120, height: 44, fontSize: 18 });
+      if (compact) {
+        this.button(cx, bottom - 140, 'WEAK', () => {
+          this.precision = 'weak';
+          this.phase = 'zone';
+          this.render();
+        }, { width: 170 });
+        this.button(cx, bottom - 82, 'MEDIUM', () => {
+          this.precision = 'medium';
+          this.phase = 'zone';
+          this.render();
+        }, { width: 170 });
+        this.button(cx, bottom - 24, 'STRONG', () => {
+          this.precision = 'strong';
+          this.phase = 'zone';
+          this.render();
+        }, { width: 170 });
+        this.button(cx, bottom, 'BACK', () => {
+          this.phase = 'action';
+          this.render();
+        }, { width: 120, height: 44, fontSize: 18 });
+      } else {
+        this.button(cx - 180, bottom, 'WEAK', () => {
+          this.precision = 'weak';
+          this.phase = 'zone';
+          this.render();
+        });
+        this.button(cx, bottom, 'MEDIUM', () => {
+          this.precision = 'medium';
+          this.phase = 'zone';
+          this.render();
+        });
+        this.button(cx + 180, bottom, 'STRONG', () => {
+          this.precision = 'strong';
+          this.phase = 'zone';
+          this.render();
+        });
+        this.button(96, bottom, 'BACK', () => {
+          this.phase = 'action';
+          this.render();
+        }, { width: 120, height: 44, fontSize: 18 });
+      }
     } else if (this.phase === 'zone') {
-      addText(this, cx, height - 120, 'Choose a body part to strike:', {
+      addText(this, cx, this.h - 170, 'Choose a body part to strike:', {
         fontSize: '18px',
         color: '#f2d98c',
       });
-      BODY_ZONES.forEach((zone: BodyZone, i: number) => {
-        const bx = cx - 200 + (i % 3) * 200;
-        const by = height - 70 + Math.floor(i / 3) * 60;
-        this.button(bx, by, ZONE_LABELS[zone], () => this.resolve(this.attackAction(zone)), {
-          width: 170,
-          height: 48,
-          fontSize: 17,
+      if (compact) {
+        BODY_ZONES.forEach((zone: BodyZone, i: number) => {
+          const col = i % 2;
+          const row = Math.floor(i / 2);
+          this.button(cx - 95 + col * 190, bottom - 140 + row * 62, ZONE_LABELS[zone], () =>
+            this.resolve(this.attackAction(zone)),
+          { width: 170, height: 44, fontSize: 16 });
         });
-      });
-      this.button(96, bottom, 'BACK', () => {
-        this.phase = 'precision';
-        this.render();
-      }, { width: 120, height: 44, fontSize: 18 });
+        this.button(cx, bottom, 'BACK', () => {
+          this.phase = 'precision';
+          this.render();
+        }, { width: 120, height: 44, fontSize: 18 });
+      } else {
+        BODY_ZONES.forEach((zone: BodyZone, i: number) => {
+          const bx = cx - 200 + (i % 3) * 200;
+          const by = bottom + Math.floor(i / 3) * 60;
+          this.button(bx, by, ZONE_LABELS[zone], () => this.resolve(this.attackAction(zone)), {
+            width: 170,
+            height: 48,
+            fontSize: 17,
+          });
+        });
+        this.button(96, bottom, 'BACK', () => {
+          this.phase = 'precision';
+          this.render();
+        }, { width: 120, height: 44, fontSize: 18 });
+      }
     } else {
-      addText(this, cx, 180, 'Choose a technique:', { fontSize: '18px', color: '#f2d98c' });
+      addText(this, cx, compact ? 520 : 180, 'Choose a technique:', { fontSize: '18px', color: '#f2d98c' });
       const skills = this.activeSkills();
       skills.forEach((skillId, i) => {
         const node = getSkill(skillId);
         if (!node) return;
         const rank = this.snap.player.skills[skillId] ?? 0;
         const affordable = this.snap.player.morale >= node.mpCost;
-        const btn = this.button(cx, 230 + i * 52, `${node.label} (${rank}) — ${node.mpCost} MP`, () => {
-          this.resolve({ kind: 'skill', skillId });
-        }, { width: 280, height: 44, fontSize: 16 });
+        const btn = this.button(
+          cx,
+          (compact ? 520 : 180) + 48 + i * 52,
+          `${node.label} (${rank}) — ${node.mpCost} MP`,
+          () => {
+            this.resolve({ kind: 'skill', skillId });
+          },
+          { width: 280, height: 44, fontSize: 16 },
+        );
         if (!affordable) btn.setEnabled(false);
       });
-      this.button(96, bottom, 'BACK', () => {
+      this.button(compact ? cx : 96, compact ? bottom : bottom, 'BACK', () => {
         this.phase = 'action';
         this.render();
       }, { width: 120, height: 44, fontSize: 18 });
@@ -155,26 +244,41 @@ export class BattleScene extends BaseScene {
     });
   }
 
-  private drawCard(fighter: Fighter, x: number): void {
-    addText(this, x, 120, `${fighter.name}  Lv${fighter.level}`, {
-      fontSize: '20px',
+  private drawCard(fighter: Fighter, x: number, y: number, compact: boolean): void {
+    addText(this, x, y, `${fighter.name}  Lv${fighter.level}`, {
+      fontSize: compact ? '18px' : '20px',
       color: '#f2d98c',
       fontStyle: 'bold',
     });
     addText(
       this,
       x,
-      150,
+      y + (compact ? 24 : 30),
       `HP ${currentHp(fighter)}/${totalHp(fighter)}  MP ${fighter.morale}/${fighter.maxMorale}`,
-      { fontSize: '16px' },
+      { fontSize: compact ? '14px' : '16px' },
     );
-    BODY_ZONES.forEach((zone: BodyZone, i: number) => {
-      const z = fighter.zones[zone];
-      addText(this, x, 180 + i * 26, `${ZONE_LABELS[zone]}: ${z.hp}/${z.maxHp}`, {
-        fontSize: '14px',
-        color: z.hp <= 0 ? '#c0392b' : '#b8aa94',
+    const zonesY = y + (compact ? 48 : 60);
+    if (compact) {
+      BODY_ZONES.forEach((zone: BodyZone, i: number) => {
+        const z = fighter.zones[zone];
+        const col = i % 2;
+        const row = Math.floor(i / 2);
+        addText(this, x - 90 + col * 180, zonesY + row * 24, `${ZONE_LABELS[zone]}: ${z.hp}/${z.maxHp}`, {
+          fontSize: '13px',
+          color: z.hp <= 0 ? '#c0392b' : '#b8aa94',
+        }).setOrigin(0.5);
       });
-    });
+    } else {
+      BODY_ZONES.forEach((zone: BodyZone, i: number) => {
+        const z = fighter.zones[zone];
+        addText(this, x, zonesY + i * 26, `${ZONE_LABELS[zone]}: ${z.hp}/${z.maxHp}`, {
+          fontSize: '14px',
+          color: z.hp <= 0 ? '#c0392b' : '#b8aa94',
+        });
+      });
+      // Original stylized figure for this fighter's weapon style.
+      addStyleSprite(this, x, y + 330, fighter.style);
+    }
   }
 
   private attackAction(zone: BodyZone): Action {

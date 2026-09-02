@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { getThemeColors } from './theme';
 import { BootScene } from './scenes/BootScene';
 import { TutorialScene } from './scenes/TutorialScene';
 import { MainScene } from './scenes/MainScene';
@@ -25,10 +26,15 @@ export function createGameConfig(parent: HTMLElement): Phaser.Types.Core.GameCon
     parent,
     width: GAME_WIDTH,
     height: GAME_HEIGHT,
-    backgroundColor: '#0c0a08',
+    backgroundColor: getThemeColors().bg,
     scale: {
-      mode: Phaser.Scale.FIT,
+      // RESIZE makes the canvas fill its container exactly, so the game's
+      // aspect ratio follows the device (portrait, landscape, tablet, …) with
+      // no letterboxing. Scenes lay out from `scale.width`/`scale.height`.
+      mode: Phaser.Scale.RESIZE,
       autoCenter: Phaser.Scale.CENTER_BOTH,
+      width: GAME_WIDTH,
+      height: GAME_HEIGHT,
     },
     scene: [
       BootScene,

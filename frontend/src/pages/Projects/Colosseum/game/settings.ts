@@ -1,9 +1,13 @@
+/** 'system' follows the site's light/dark theme (body class). */
+export type ThemeMode = 'dark' | 'light' | 'system';
+
 export interface GameSettings {
   /** Global text scale (0.85 small, 1 normal, 1.2 large). */
   textScale: number;
   highContrast: boolean;
   reducedMotion: boolean;
   muted: boolean;
+  theme: ThemeMode;
 }
 
 const KEY = 'colosseum.settings.v1';
@@ -18,6 +22,7 @@ const DEFAULTS: GameSettings = {
   highContrast: false,
   reducedMotion: detectReducedMotion(),
   muted: false,
+  theme: 'system',
 };
 
 function load(): GameSettings {

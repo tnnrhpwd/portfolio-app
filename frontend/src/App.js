@@ -18,6 +18,7 @@ const AdminReviews = lazy(() => import('./pages/Admin/Reviews'));
 const AdminData = lazy(() => import('./pages/Admin/DataExplorer'));
 const AdminHomeTitle = lazy(() => import('./pages/Admin/HomeTitle'));
 const AdminFunnelTester = lazy(() => import('./pages/Admin/FunnelTester'));
+const AdminPageRankings = lazy(() => import('./pages/Admin/PageRankings'));
 const Annuities = lazy(() => import('./pages/Projects/Annuities/Annuities'));
 const Colosseum = lazy(() => import('./pages/Projects/Colosseum/Colosseum'));
 const DeepStorage = lazy(() => import('./pages/DeepStorage/DeepStorage'));
@@ -111,6 +112,7 @@ function App() {
                 <Route path='data' element={<AdminData />} />
                 <Route path='home-title' element={<AdminHomeTitle />} />
                 <Route path='funnel-tester' element={<AdminFunnelTester />} />
+                <Route path='rankings' element={<AdminPageRankings />} />
               </Route>
               <Route path="/annuities" element={<Annuities/>} />
               <Route path="/contact" element={<Navigate to="/support?tab=contact" replace />} />

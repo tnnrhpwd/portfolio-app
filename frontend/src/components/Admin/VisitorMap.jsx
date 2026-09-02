@@ -5,7 +5,8 @@ import "./VisitorMap.css";
 
 /**
  * Interactive Leaflet map plotting real visitor coordinates on
- * OpenStreetMap/CARTO dark tiles (no API key or billing required).
+ * OpenStreetMap tiles (no API key or billing required).
+ * The map is dark-styled via CSS (see VisitorMap.css).
  * Replaces the old static SVG + hardcoded-coordinate approach.
  */
 const VisitorMap = ({ locations }) => {
@@ -23,11 +24,10 @@ const VisitorMap = ({ locations }) => {
       worldCopyJump: true,
     });
 
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-      subdomains: "abcd",
-      maxZoom: 20,
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19,
     }).addTo(map);
 
     mapRef.current = map;

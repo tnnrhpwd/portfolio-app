@@ -9,12 +9,19 @@
   overflow: hidden;
   background-color: var(--bg-1);
   box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.15));
+  color: var(--text-color-inv);
+}
+
+/* Standard OSM tiles are light; invert them for the dark admin theme.
+   Scoped to the tile pane so markers/popups/controls keep their colors. */
+.visitor-map-leaflet .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9);
 }
 
 /* Dark-theme adjustments for Leaflet's built-in controls */
 .visitor-map-leaflet .leaflet-control-zoom a {
   background-color: var(--bg-2);
-  color: var(--text-color);
+  color: var(--text-color-inv);
   border-color: var(--border);
 }
 
@@ -31,17 +38,19 @@
 .visitor-map-leaflet .leaflet-popup-content-wrapper,
 .visitor-map-leaflet .leaflet-popup-tip {
   background-color: var(--bg-2);
-  color: var(--text-color);
+  color: var(--text-color-inv);
+  font-size: 14px;
 }
 
 .visitor-map-leaflet .leaflet-popup-content-wrapper .leaflet-popup-content {
-  color: var(--text-color);
+  color: var(--text-color-inv);
 }
 
 .visitor-map-leaflet .leaflet-tooltip {
   background-color: var(--bg-2);
-  color: var(--text-color);
+  color: var(--text-color-inv);
   border-color: var(--border);
+  font-size: 12px;
 }
 
 .visitor-map-leaflet .leaflet-tooltip-top::before {
@@ -50,6 +59,6 @@
 
 @media (orientation: portrait) {
   .visitor-map-leaflet {
-    height: 300px;
+    height: 450px;
   }
 }

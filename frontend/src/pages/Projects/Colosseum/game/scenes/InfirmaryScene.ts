@@ -14,9 +14,13 @@ export class InfirmaryScene extends BaseScene {
     this.render();
   }
 
+  protected onResize(): void {
+    this.render();
+  }
+
   private render(): void {
     this.clearScreen();
-    this.cameras.main.setBackgroundColor('#120e0a');
+    this.applyBackground();
     this.header('INFIRMARY');
     this.cityBack(this.cityId);
     this.goldText();
