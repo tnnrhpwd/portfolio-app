@@ -2,6 +2,7 @@ import { BaseScene } from './BaseScene';
 import { addText } from '../ui/button';
 import { setFighter } from '../state/store';
 import {
+  autoStrategy,
   BODY_ZONES,
   currentHp,
   generateOpponent,
@@ -36,6 +37,7 @@ export class BattleScene extends BaseScene {
   private summary = '';
   private playerId = '';
   private enemyId = '';
+  private speedFast = false;
 
   constructor() {
     super('Battle');
@@ -77,6 +79,15 @@ export class BattleScene extends BaseScene {
       this.button(cx + 270, bottom, 'CROWD APPEAL', () => this.resolve({ kind: 'crowdAppeal' }), {
         width: 180,
       });
+      this.button(cx - 160, bottom - 70, 'AUTO-BATTLE', () => this.startAuto(), {
+        width: 180,
+        height: 44,
+        fontSize: 17,
+      });
+      this.button(cx + 160, bottom - 70, this.speedFast ? 'SPEED: FAST' : 'SPEED: NORMAL', () => {
+        this.speedFast = !this.speedFast;
+        this.render();
+      }, { width: 180, height: 44, fontSize: 17 });
     } else if (this.phase === 'precision') {
       this.button(cx - 180, bottom, 'WEAK', () => {
         this.precision = 'weak';
@@ -171,17 +182,40 @@ export class BattleScene extends BaseScene {
   private resolve(action: Action): void {
     this.snap = stepBattle(this.snap, action, Math.random);
     this.summary = this.describeEvents();
-    for (const event of this.snap.events) {
-      if (event.kind === 'miss') playClick();
-      else if (event.kind === 'block') playBlock();
-      else if (event.kind === 'attack') {
-        if (event.crit) playCrit();
-        else playHit();
-      } else if (event.kind === 'restore') playClick();
-      else if (event.kind === 'skill') playBlock();
-      else if (event.kind === 'death') playHit();
-    }
+    this.playEventSounds();
+    this.afterStep();
+  }
 
+  private startAuto(): void {
+    this.phase = 'action';
+    this.runAutoStep();
+  }
+
+  private runAutoStep(): void {
+    if (this.snap.playerWon || this.snap.enemyWon) {
+      this.finishBattle();
+      return;
+    }
+    this.snap = stepBattle(this.snap, autoStrategy(this.snap.player, this.snap.enemy), Math.random);
+    this.summary = this.describeEvents();
+    this.render();
+    if (this.snap.playerWon || this.snap.enemyWon) {
+      this.finishBattle();
+      return;
+    }
+    this.time.delayedCall(this.speedFast ? 200 : 650, () => this.runAutoStep());
+  }
+
+  private afterStep(): void {
+    if (this.snap.playerWon || this.snap.enemyWon) {
+      this.finishBattle();
+      return;
+    }
+    this.phase = 'action';
+    this.render();
+  }
+
+  private finishBattle(): void {
     if (this.snap.playerWon) {
       playVictory();
       setFighter(this.snap.player);
@@ -192,10 +226,20 @@ export class BattleScene extends BaseScene {
       playDefeat();
       setFighter(stabilize(this.snap.player));
       this.scene.start('Main');
-      return;
     }
-    this.phase = 'action';
-    this.render();
+  }
+
+  private playEventSounds(): void {
+    for (const event of this.snap.events) {
+      if (event.kind === 'miss') playClick();
+      else if (event.kind === 'block') playBlock();
+      else if (event.kind === 'attack') {
+        if (event.crit) playCrit();
+        else playHit();
+      } else if (event.kind === 'restore') playClick();
+      else if (event.kind === 'skill') playBlock();
+      else if (event.kind === 'death') playHit();
+    }
   }
 
   private describeEvents(): string {

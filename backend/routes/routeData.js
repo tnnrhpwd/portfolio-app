@@ -62,6 +62,13 @@ const {
   getRefererSummary
 } = require('../controllers/refererAnalytics');
 
+// Page views controller (tracks + ranks page visits)
+const {
+  recordPageView,
+  getPageRankings,
+  getProjectRankings
+} = require('../controllers/pageViewsController');
+
 // Simple sync controller
 const {
   getSimpleSettings,
@@ -620,6 +627,12 @@ router.post('/polls/:id/delete', pollsWriteLimiter, sanitizeInput, deletePoll);
 
 // ============================================================================
 // ANALYTICS (Admin Only)
+// Page views — record beacon is public (fire-and-forget), rankings are admin-only
+router.post('/analytics/pageview', recordPageView);
+router.get('/analytics/page-rankings', protect, requireAdmin, getPageRankings);
+// Public counts for a specific set of paths (e.g. the /projects catalog)
+router.get('/analytics/project-rankings', getProjectRankings);
+
 // ============================================================================
 
 router.get('/analytics/referer-stats', protect, requireAdmin, getRefererAnalytics);

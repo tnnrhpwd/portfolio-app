@@ -7,6 +7,10 @@ export interface ButtonOpts {
   fill?: number;
   hoverFill?: number;
   disabledFill?: number;
+  /** Called when the pointer enters (for tooltips). */
+  hover?: () => void;
+  /** Called when the pointer leaves. */
+  blur?: () => void;
 }
 
 export interface GameButton {
@@ -45,10 +49,16 @@ export function createButton(
 
   let enabled = true;
   const onOver = (): void => {
-    if (enabled) bg.setFillStyle(hoverFill);
+    if (enabled) {
+      bg.setFillStyle(hoverFill);
+      opts.hover?.();
+    }
   };
   const onOut = (): void => {
-    if (enabled) bg.setFillStyle(fill);
+    if (enabled) {
+      bg.setFillStyle(fill);
+      opts.blur?.();
+    }
   };
   const onDown = (): void => {
     if (enabled) onClick();
@@ -91,4 +101,43 @@ export function addText(
       ...style,
     })
     .setOrigin(0.5);
+}
+
+export interface Tooltip {
+  show: (x: number, y: number, text: string) => void;
+  hide: () => void;
+  destroy: () => void;
+}
+
+/** A floating description box for hover previews. */
+export function createTooltip(scene: Phaser.Scene): Tooltip {
+  const bg = scene.add
+    .rectangle(0, 0, 10, 10, 0x1c1610, 1)
+    .setStrokeStyle(1, 0xe8b84b)
+    .setDepth(800)
+    .setVisible(false);
+  const text = scene.add
+    .text(0, 0, '', {
+      fontFamily: 'Arial, sans-serif',
+      fontSize: '14px',
+      color: '#e8dcc8',
+      wordWrap: { width: 320 },
+    })
+    .setDepth(801)
+    .setVisible(false);
+
+  const show = (x: number, y: number, content: string): void => {
+    text.setText(content).setPosition(x, y).setOrigin(0.5).setVisible(true);
+    bg.setPosition(x, y).setSize(text.width + 24, text.height + 16).setVisible(true);
+  };
+  const hide = (): void => {
+    bg.setVisible(false);
+    text.setVisible(false);
+  };
+  const destroy = (): void => {
+    bg.destroy();
+    text.destroy();
+  };
+
+  return { show, hide, destroy };
 }

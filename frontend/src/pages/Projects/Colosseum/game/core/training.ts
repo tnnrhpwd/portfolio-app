@@ -1,5 +1,5 @@
-import type { AttributeKey, Fighter } from './types';
-import { STAT_CAPS } from './constants';
+import type { AttributeKey, Attributes, Fighter } from './types';
+import { ATTRIBUTE_KEYS, STAT_CAPS } from './constants';
 import { recomputeDerived } from './stats';
 import { getSkill, STYLE_TREES } from './skills';
 
@@ -29,4 +29,24 @@ export function spendSkillPoint(fighter: Fighter, skillId: string): Fighter {
     skillPoints: fighter.skillPoints - 1,
   };
   return recomputeDerived(next);
+}
+
+/** Refunds all spent attribute points, restoring the creation baseline. */
+export function resetAttributes(fighter: Fighter): Fighter {
+  let spent = 0;
+  for (const key of ATTRIBUTE_KEYS) {
+    spent += fighter.attributes[key] - (fighter.baseAttributes[key] ?? 0);
+  }
+  const next: Fighter = {
+    ...fighter,
+    attributes: { ...(fighter.baseAttributes as Attributes) },
+    attributePoints: fighter.attributePoints + spent,
+  };
+  return recomputeDerived(next);
+}
+
+/** Refunds all spent skill points. */
+export function resetSkills(fighter: Fighter): Fighter {
+  const spent = Object.values(fighter.skills).reduce((acc, rank) => acc + rank, 0);
+  return { ...fighter, skills: {}, skillPoints: fighter.skillPoints + spent };
 }

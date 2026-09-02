@@ -51,19 +51,29 @@ export class MainScene extends BaseScene {
     );
 
     const cx = width / 2;
-    this.button(cx, 350, 'TRAIN', () => this.scene.start('Train'));
-    this.button(cx, 420, 'SKILL', () => this.scene.start('Skill'));
-    this.button(cx, 490, 'WORLD MAP', () => this.scene.start('WorldMap'));
-    this.button(cx, 560, 'FIGHT', () => this.scene.start('Battle'));
+    this.button(cx, 340, 'TRAIN', () => this.scene.start('Train'));
+    this.button(cx, 410, 'SKILL', () => this.scene.start('Skill'));
+    this.button(cx, 480, 'WORLD MAP', () => this.scene.start('WorldMap'));
+    this.button(cx, 550, 'FIGHT', () => this.scene.start('Battle'));
+    this.button(cx - 130, 640, 'TROPHIES', () => this.scene.start('Achievements'), {
+      width: 200,
+      height: 48,
+      fontSize: 18,
+    });
     this.button(
-      cx,
-      660,
+      cx + 130,
+      640,
       'RESET SAVE',
-      () => {
-        this.gameState = createCampaignStart();
-        this.scene.restart();
-      },
-      { width: 180, height: 44, fontSize: 16 },
+      () =>
+        this.confirm(
+          'Reset save?',
+          'This wipes your school and starts a new game.',
+          () => {
+            this.gameState = createCampaignStart();
+            this.scene.start('Tutorial');
+          },
+        ),
+      { width: 200, height: 48, fontSize: 18 },
     );
   }
 }

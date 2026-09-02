@@ -79,6 +79,8 @@ export interface Fighter {
   level: number;
   xp: number;
   attributes: Attributes;
+  /** Attribute values at creation — the baseline for attribute reset. */
+  baseAttributes: Attributes;
   attributePoints: number;
   skillPoints: number;
   /** Skill node id → rank invested. */

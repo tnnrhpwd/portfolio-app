@@ -4,6 +4,7 @@ import Footer from '../../../components/Footer/Footer';
 import Header from '../../../components/Header/Header';
 import SEO from '../../../components/SEO/SEO.jsx';
 import useScrollReveal from '../../../hooks/useScrollReveal.js';
+import { fetchProjectRankings } from '../../../services/projectRankingsApi';
 import './Projects.css';
 
 import artHero from '../../../assets/art/hero.jpg';
@@ -132,6 +133,7 @@ function Projects() {
   const [category, setCategory] = useState(
     () => CATEGORIES.find((c) => c === searchParams.get("category")) || "All"
   );
+  const [visitCounts, setVisitCounts] = useState({});
 
   // Keep the active filter in sync with the URL so deep links from the home
   // page (e.g. /projects?category=Fun) open with that filter applied.
@@ -141,6 +143,28 @@ function Projects() {
       setCategory(cat);
     }
   }, [searchParams]);
+
+  // Load per-project visit counts so the catalog can be ranked by traffic.
+  // This is a progressive enhancement — if it fails, we fall back to the
+  // static catalog order without disturbing the page.
+  useEffect(() => {
+    let cancelled = false;
+    fetchProjectRankings(PROJECTS.map((project) => project.path))
+      .then(({ pages = [] }) => {
+        if (cancelled) return;
+        const counts = {};
+        pages.forEach((page) => {
+          counts[page.path] = page.visits;
+        });
+        setVisitCounts(counts);
+      })
+      .catch(() => {
+        // Ignore — keep the default ordering.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleCategory = (cat) => {
     setCategory(cat);
@@ -155,7 +179,7 @@ function Projects() {
 
   const filteredProjects = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return PROJECTS.filter((project) => {
+    const matches = PROJECTS.filter((project) => {
       const matchesCategory = category === "All" || project.category === category;
       const matchesQuery =
         !needle ||
@@ -164,7 +188,11 @@ function Projects() {
         project.category.toLowerCase().includes(needle);
       return matchesCategory && matchesQuery;
     });
-  }, [query, category]);
+
+    // Rank by visits (highest first). Array.prototype.sort is stable, so
+    // projects with equal visits keep their original catalog order.
+    return matches.slice().sort((a, b) => (visitCounts[b.path] || 0) - (visitCounts[a.path] || 0));
+  }, [query, category, visitCounts]);
 
   // Scroll-triggered reveal for the project grid (see FRONTEND_UI_STANDARD.md §5).
   // The grid stacks into one tall column on mobile, so it relies on the hook's
@@ -263,6 +291,11 @@ function Projects() {
                         <span className="projects-card-arrow" aria-hidden="true">→</span>
                       </span>
                       <span className="projects-card-desc">{project.description}</span>
+                      {visitCounts[project.path] > 0 && (
+                        <span className="projects-card-visits" aria-label={`${visitCounts[project.path]} visits`}>
+                          {visitCounts[project.path].toLocaleString()} visit{visitCounts[project.path] === 1 ? '' : 's'}
+                        </span>
+                      )}
                     </span>
                   </Link>
                 ))}

@@ -1,8 +1,9 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
 import { loadFontSizeScale } from './utils/theme';
+import { trackPageView } from './utils/pageViews';
 
 // ── Eagerly loaded (critical path – always needed on first paint) ──
 import Home from './pages/Home/Home';
@@ -81,9 +82,20 @@ function RouteErrorBoundary({ children }) {
   );
 }
 
+// Fires a page-view beacon on initial load and every subsequent route change
+// so the backend can rank pages by visit count.
+function PageViewTracker() {
+  const location = useLocation();
+  useEffect(() => {
+    trackPageView(location.pathname);
+  }, [location.pathname]);
+  return null;
+}
+
 function App() {
   return (
     <Router>
+      <PageViewTracker />
       <RouteErrorBoundary>
         <div className="App">
           <Suspense fallback={<RouteSpinner />}>

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene';
+import { TutorialScene } from './scenes/TutorialScene';
 import { MainScene } from './scenes/MainScene';
 import { TrainScene } from './scenes/TrainScene';
 import { SkillScene } from './scenes/SkillScene';
@@ -12,6 +13,7 @@ import { BlacksmithScene } from './scenes/BlacksmithScene';
 import { InfirmaryScene } from './scenes/InfirmaryScene';
 import { BattleScene } from './scenes/BattleScene';
 import { RewardScene } from './scenes/RewardScene';
+import { AchievementsScene } from './scenes/AchievementsScene';
 
 export const GAME_WIDTH = 1280;
 export const GAME_HEIGHT = 720;
@@ -29,6 +31,7 @@ export function createGameConfig(parent: HTMLElement): Phaser.Types.Core.GameCon
     },
     scene: [
       BootScene,
+      TutorialScene,
       MainScene,
       TrainScene,
       SkillScene,
@@ -41,6 +44,7 @@ export function createGameConfig(parent: HTMLElement): Phaser.Types.Core.GameCon
       InfirmaryScene,
       BattleScene,
       RewardScene,
+      AchievementsScene,
     ],
     title: 'Colosseum',
   };

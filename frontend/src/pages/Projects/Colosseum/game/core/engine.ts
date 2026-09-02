@@ -24,6 +24,8 @@ export interface GameState {
   roster: Fighter[];
   inventory: Equipment[];
   metals: Record<MetalId, number>;
+  unlockedAchievements: string[];
+  tutorialSeen: boolean;
   gold: number;
   fame: number;
 }
@@ -61,6 +63,7 @@ export function createFighter(opts: CreateFighterOptions = {}): Fighter {
     level: opts.level ?? 1,
     xp: 0,
     attributes: { ...STYLES[style].base },
+    baseAttributes: { ...STYLES[style].base },
     attributePoints: 0,
     skillPoints: 0,
     skills: {},
@@ -81,6 +84,8 @@ export function createGameState(rand: Rng = Math.random): GameState {
     roster: [createFighter({ style: 'murmillo', name: 'Recruit' })],
     inventory: [],
     metals: { ...EMPTY_METALS },
+    unlockedAchievements: [],
+    tutorialSeen: true,
     gold: START_GOLD,
     fame: START_FAME,
   };
@@ -93,7 +98,15 @@ export function createCampaignStart(rand: Rng = Math.random): GameState {
   fighter.loadout.mainHand = createEquipment('mainHand', 0, { rand });
   fighter.loadout.offHand = createEquipment('offHand', 0, { rand });
   fighter.zones = buildZones(fighter);
-  return { roster: [fighter], inventory: [], metals: { ...EMPTY_METALS }, gold: 500, fame: START_FAME };
+  return {
+    roster: [fighter],
+    inventory: [],
+    metals: { ...EMPTY_METALS },
+    unlockedAchievements: [],
+    tutorialSeen: false,
+    gold: 500,
+    fame: START_FAME,
+  };
 }
 
 export interface RoundResult {
@@ -114,6 +127,7 @@ export function cloneFighter(fighter: Fighter): Fighter {
   return {
     ...fighter,
     attributes: { ...fighter.attributes },
+    baseAttributes: { ...fighter.baseAttributes },
     skills: { ...fighter.skills },
     loadout: { ...fighter.loadout },
     status: { ...fighter.status },
@@ -126,6 +140,7 @@ export function weakestZone(fighter: Fighter): BodyZone {
   let lowest = Number.POSITIVE_INFINITY;
   for (const zone of BODY_ZONES) {
     const z = fighter.zones[zone];
+    if (z.hp <= 0) continue; // never re-target a destroyed zone
     const score = z.hp + z.armor * ARMOR_COMBAT_MULTIPLIER;
     if (score < lowest) {
       lowest = score;

@@ -26,10 +26,13 @@ function migrate(state: GameState): GameState {
     ...state,
     inventory: state.inventory ?? [],
     metals: state.metals ?? { bronze: 0, iron: 0, silver: 0, gold: 0 },
+    unlockedAchievements: state.unlockedAchievements ?? [],
+    tutorialSeen: state.tutorialSeen ?? true,
     roster: state.roster.map((fighter) => {
       const status = fighter.status ?? {};
       return {
         ...fighter,
+        baseAttributes: fighter.baseAttributes ?? { ...fighter.attributes },
         skills: fighter.skills ?? {},
         status: {
           stun: status.stun ?? 0,

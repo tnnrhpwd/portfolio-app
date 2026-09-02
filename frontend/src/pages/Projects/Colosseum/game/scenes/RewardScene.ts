@@ -41,6 +41,7 @@ export class RewardScene extends BaseScene {
       metals,
       fame: this.gameState.fame + 1,
     };
+    this.applyAchievements();
     this.scene.start('Main');
   }
 }

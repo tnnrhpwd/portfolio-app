@@ -49,6 +49,9 @@ const dynamodb = DynamoDBDocumentClient.from(client);
 const TABLE = 'Simple';
 const POLL_MARKER = '|Poll:';
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+// Bump this whenever the weekly AI prompt changes so the current week's poll
+// (generated against the old prompt) gets thrown away and regenerated.
+const WEEKLY_PROMPT_VERSION = 2;
 
 // ── Validation limits (shared with the controller) ──────────────────────────
 const LIMITS = {
@@ -186,6 +189,7 @@ function toPublicPoll(row) {
     kind: payload.kind || null,
     weekStart: payload.weekStart || null,
     isAi: payload.kind === 'weekly',
+    promptVersion: payload.promptVersion || 1,
   };
 }
 
@@ -200,6 +204,14 @@ async function findPollRow(pollId) {
   const row = (result.Items && result.Items[0]) || null;
   if (!row || !parsePollText(row.text)) return null;
   return row;
+}
+
+/** Delete a weekly poll row by composite key (used to replace stale weeks). */
+async function deleteWeeklyPollRow(pollId, createdAt) {
+  await dynamodb.send(new DeleteCommand({
+    TableName: TABLE,
+    Key: { id: pollId, createdAt },
+  }));
 }
 
 // ── Public API ───────────────────────────────────────────────────────────────
@@ -260,7 +272,13 @@ async function generateWeeklyAiQuestion() {
       role: 'system',
       content: [
         'You are the house comedian for a personal portfolio site.',
-        'Every week you write ONE poll question for the site visitors.',
+        'Every week you write ONE poll question that ANY visitor can answer —',
+        'software engineers, moms, teenagers, grandparents, office workers alike.',
+        'Stick to universal human material: food, sleep, chores, money, family,',
+        'friends, school, work, weekends, holidays, mild social anxiety.',
+        'NEVER write about programming, coding, tech, computers, AI, or anything',
+        'that needs special knowledge. If someone has to ask what the question',
+        'means, it is wrong.',
         'The tone is edgy, funny, and a little unhinged — but never hateful,',
         'bigoted, sexual, or genuinely mean. Think late-night comedy, not shock',
         'content. Nothing that would get a normal person fired from a normal job.',
@@ -273,7 +291,9 @@ async function generateWeeklyAiQuestion() {
         'Return ONLY valid JSON, no markdown, no commentary, shaped exactly like:',
         '{"question": "...", "options": ["...", "...", "..."]}',
         'Rules: 2 to 4 options. Question under 200 characters. Each option under 80 characters.',
-        'Make it a question you would actually argue about with friends. Avoid overused internet poll cliches.',
+        'Make it a question you would actually argue about at a dinner table.',
+        'It must land equally with a 14-year-old, a 40-year-old mom, and a software engineer.',
+        'NO programming, coding, computers, or tech topics. Avoid overused internet poll cliches.',
       ].join(' '),
     },
   ], { temperature: 0.95, maxTokens: 300 });
@@ -303,6 +323,7 @@ async function putWeeklyAiPoll({ question, options, weekStart }) {
     voterIds: [],
     kind: 'weekly',
     weekStart,
+    promptVersion: WEEKLY_PROMPT_VERSION,
   };
 
   await dynamodb.send(new PutCommand({
@@ -339,6 +360,13 @@ async function ensureWeeklyAiPoll() {
 
       let weekly = weeklyPolls.find((p) => p.weekStart === currentWeek) || null;
       let generated = false;
+
+      // If this week's poll was written against an older prompt, drop it so a
+      // fresh one is generated on this visit.
+      if (weekly && weekly.promptVersion !== WEEKLY_PROMPT_VERSION) {
+        await deleteWeeklyPollRow(weekly._id, weekly.createdAt);
+        weekly = null;
+      }
 
       if (!weekly) {
         const idea = await generateWeeklyAiQuestion().catch((err) => {

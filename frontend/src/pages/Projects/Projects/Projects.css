@@ -238,6 +238,13 @@
   color: var(--text-color-accent);
   line-height: var(--line-height-base);
 }
+.projects-card-visits {
+  margin-top: calc(var(--nav-size) * 0.08);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.04em;
+  color: var(--text-color-accent);
+}
 
 .projects-empty {
   max-width: 640px;

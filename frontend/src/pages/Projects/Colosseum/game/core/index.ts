@@ -13,6 +13,7 @@ export * from './training';
 export * from './shop';
 export * from './blacksmith';
 export * from './cities';
+export * from './achievements';
 export * from './combat';
 export * from './battle';
 export * from './engine';

@@ -1,8 +1,9 @@
 import type { Action, Fighter, TurnEvent } from './types';
 import type { MetalId } from './equipment';
 import type { Rng } from './rng';
-import { cloneFighter, resolveRound } from './engine';
+import { cloneFighter, resolveRound, weakestZone } from './engine';
 import { victoryRewards } from './economy';
+import { currentHp, totalHp } from './stats';
 
 export interface BattleSnapshot {
   player: Fighter;
@@ -38,6 +39,23 @@ export function stepBattle(snap: BattleSnapshot, action: Action, rand: Rng = Mat
 }
 
 export type PlayerStrategy = (player: Fighter, enemy: Fighter) => Action;
+
+/** A simple player AI used by auto-battle. */
+export function autoStrategy(player: Fighter, enemy: Fighter): Action {
+  if ((player.skills.heal ?? 0) > 0 && player.morale >= 10 && currentHp(player) < totalHp(player) * 0.5) {
+    return { kind: 'skill', skillId: 'heal' };
+  }
+  return { kind: 'attack', precision: 'medium', targetId: enemy.id, targetZone: weakestZone(enemy) };
+}
+
+/** Runs a full battle with the built-in player AI (for auto-battle). */
+export function autoBattle(
+  player: Fighter,
+  enemy: Fighter,
+  rand: Rng = Math.random,
+): { playerWon: boolean; rounds: number } {
+  return simulateBattle(player, enemy, autoStrategy, rand);
+}
 
 /** Runs a battle to completion with a fixed strategy (for tests/auto-battle). */
 export function simulateBattle(

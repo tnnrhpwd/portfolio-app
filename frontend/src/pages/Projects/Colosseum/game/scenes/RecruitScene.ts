@@ -45,7 +45,11 @@ export class RecruitScene extends BaseScene {
     );
 
     const affordable = this.gameState.gold >= cost && this.gameState.roster.length < 12;
-    const btn = this.button(width / 2, 300, 'RECRUIT', () => this.recruit(recruit, cost));
+    const btn = this.button(width / 2, 300, 'RECRUIT', () =>
+      this.confirm('Recruit gladiator?', `Hire ${recruit.name} for ${cost} gp?`, () =>
+        this.recruit(recruit, cost),
+      ),
+    );
     if (!affordable) btn.setEnabled(false);
 
     addText(this, width / 2, 370, `Roster: ${this.gameState.roster.length}/12`, {
@@ -61,6 +65,7 @@ export class RecruitScene extends BaseScene {
       gold: this.gameState.gold - cost,
       roster: [...this.gameState.roster, fighter],
     };
+    this.applyAchievements();
     if (this.cityId) this.scene.start('City', { cityId: this.cityId });
     else this.scene.start('Main');
   }

@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { getState } from '../state/store';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -6,7 +7,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
-    // Phase 1: nothing to preload yet — hand off to the playable shell.
-    this.scene.start('Main');
+    // First-time players get the guided tutorial; everyone else goes to the hub.
+    this.scene.start(getState().tutorialSeen ? 'Main' : 'Tutorial');
   }
 }

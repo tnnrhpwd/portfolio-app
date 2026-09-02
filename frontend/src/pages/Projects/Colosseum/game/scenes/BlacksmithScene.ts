@@ -45,11 +45,13 @@ export class BlacksmithScene extends BaseScene {
       addText(this, width / 2 - 240, y, `${metal} x${have} — ${forgeCost(metal)} gp`, {
         fontSize: '17px',
       }).setOrigin(0, 0.5);
-      const btn = this.button(width / 2 + 220, y, 'FORGE', () => this.forgeItem(metal), {
-        width: 130,
-        height: 44,
-        fontSize: 17,
-      });
+      const btn = this.button(width / 2 + 220, y, 'FORGE', () =>
+        this.confirm(
+          'Forge item?',
+          `Forge a ${this.slot} using ${metal} for ${forgeCost(metal)} gp?`,
+          () => this.forgeItem(metal),
+        ),
+      { width: 130, height: 44, fontSize: 17 });
       if (have < 1 || this.gameState.gold < forgeCost(metal)) btn.setEnabled(false);
     });
   }
@@ -57,6 +59,7 @@ export class BlacksmithScene extends BaseScene {
   private forgeItem(metal: MetalId): void {
     try {
       this.gameState = forge(this.gameState, this.slot, metal);
+      this.applyAchievements();
     } catch {
       // missing gold or metal — button is disabled anyway
     }

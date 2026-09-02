@@ -1,5 +1,5 @@
 import { BaseScene } from './BaseScene';
-import { addText } from '../ui/button';
+import { addText, createTooltip } from '../ui/button';
 import { buyItem, equipItem, generateShopStock, itemPrice, type Equipment, type Fighter } from '../core';
 
 export class ShopScene extends BaseScene {
@@ -25,6 +25,7 @@ export class ShopScene extends BaseScene {
 
     const { width, height } = this.scale;
     const stock = generateShopStock(this.tier, 6);
+    const tip = createTooltip(this);
 
     addText(this, width / 2, 100, 'For sale — buy into inventory', {
       fontSize: '18px',
@@ -41,6 +42,8 @@ export class ShopScene extends BaseScene {
         width: 96,
         height: 38,
         fontSize: 15,
+        hover: () => tip.show(width / 2, y - 40, this.preview(item)),
+        blur: () => tip.hide(),
       });
     });
 
@@ -72,6 +75,20 @@ export class ShopScene extends BaseScene {
     if (item.armor > 0) return `armor ${item.armor}`;
     if (item.minDamage !== undefined) return `dmg ${item.minDamage}-${item.maxDamage}`;
     return `block ${item.blockChance}%`;
+  }
+
+  /** Equipping preview: current → new for each stat the item carries. */
+  private preview(item: Equipment): string {
+    const equipped = this.gameState.roster[0].loadout[item.slot];
+    const parts: string[] = [];
+    if (item.armor > 0) parts.push(`armor ${equipped?.armor ?? 0} → ${item.armor}`);
+    if (item.minDamage !== undefined) {
+      parts.push(`dmg ${equipped?.minDamage ?? 0}-${equipped?.maxDamage ?? 0} → ${item.minDamage}-${item.maxDamage}`);
+    }
+    if (item.blockChance !== undefined) {
+      parts.push(`block ${equipped?.blockChance ?? 0}% → ${item.blockChance}%`);
+    }
+    return parts.join(' · ') || 'No stat change';
   }
 
   private describeFighter(fighter: Fighter): string {

@@ -59,6 +59,7 @@ export function generateRecruit(
   const { main, off } = starterWeapons(style, tier, rand);
   fighter = equipItem(fighter, main);
   if (off) fighter = equipItem(fighter, off);
+  fighter.baseAttributes = { ...fighter.attributes };
   return recomputeDerived(fighter);
 }
 
