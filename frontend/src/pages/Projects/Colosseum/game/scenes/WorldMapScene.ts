@@ -37,7 +37,7 @@ export class WorldMapScene extends BaseScene {
       const row = Math.floor(i / cols);
       const x = this.cx - ((cols - 1) * gapX) / 2 + col * gapX;
       const y = 170 + row * rowH;
-      const unlocked = isCityUnlocked(city, this.gameState.fame);
+      const unlocked = isCityUnlocked(this.gameState, city.id);
       const label = unlocked ? city.name : `${city.name}  (rank ${city.rank})`;
       const btn = this.button(x, y, label, () => this.scene.start('City', { cityId: city.id }), {
         width: 260,

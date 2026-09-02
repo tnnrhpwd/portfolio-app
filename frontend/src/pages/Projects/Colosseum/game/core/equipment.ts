@@ -52,7 +52,7 @@ function tierName(tier: number): string {
   return TIER_NAMES[Math.max(0, Math.min(TIER_NAMES.length - 1, tier))];
 }
 
-function slotName(slot: EquipmentSlot): string {
+function armorSlotName(slot: EquipmentSlot): string {
   switch (slot) {
     case 'head':
       return 'Helm';
@@ -64,12 +64,56 @@ function slotName(slot: EquipmentSlot): string {
       return 'Vambrace';
     case 'legs':
       return 'Greaves';
-    case 'mainHand':
-      return 'Weapon';
-    case 'offHand':
-      return 'Shield';
+    default:
+      return 'Gear';
   }
 }
+
+// ── Weapon & shield archetypes (historical gladiator gear) ──
+
+interface WeaponKindDef {
+  label: string;
+  /** Base minimum damage; max = min + spread, both scaled by tier + quality. */
+  min: number;
+  spread: number;
+  /** Extra critical-hit chance this weapon grants. */
+  critBonus: number;
+  twoHanded: boolean;
+}
+
+const WEAPON_KINDS: Record<string, WeaponKindDef> = {
+  gladius: { label: 'Gladius', min: 6, spread: 6, critBonus: 0, twoHanded: false },
+  axe: { label: 'Axe', min: 4, spread: 12, critBonus: 0.04, twoHanded: false },
+  mace: { label: 'Mace', min: 8, spread: 4, critBonus: 0, twoHanded: false },
+  spear: { label: 'Spear', min: 5, spread: 6, critBonus: 0.06, twoHanded: false },
+  dagger: { label: 'Dagger', min: 4, spread: 4, critBonus: 0.03, twoHanded: false },
+  trident: { label: 'Trident', min: 6, spread: 6, critBonus: 0.05, twoHanded: false },
+  greatsword: { label: 'Greatsword', min: 10, spread: 8, critBonus: 0, twoHanded: true },
+  maul: { label: 'Maul', min: 12, spread: 6, critBonus: 0, twoHanded: true },
+  halberd: { label: 'Halberd', min: 9, spread: 7, critBonus: 0.02, twoHanded: true },
+};
+
+const ONE_HAND_WEAPONS = ['gladius', 'axe', 'mace', 'spear', 'dagger', 'trident'] as const;
+const OFFHAND_WEAPONS = ['dagger', 'gladius'] as const;
+const TWO_HAND_WEAPONS = ['greatsword', 'maul', 'halberd'] as const;
+
+interface ShieldKindDef {
+  label: string;
+  blockBase: number;
+  blockPerTier: number;
+  valueBase: number;
+  valuePerTier: number;
+}
+
+const SHIELD_KINDS: Record<string, ShieldKindDef> = {
+  buckler: { label: 'Buckler', blockBase: 12, blockPerTier: 8, valueBase: 3, valuePerTier: 2 },
+  round: { label: 'Round Shield', blockBase: 18, blockPerTier: 9, valueBase: 4, valuePerTier: 3 },
+  tower: { label: 'Tower Shield', blockBase:24, blockPerTier: 10, valueBase: 6, valuePerTier: 3 },
+  net: { label: 'Net', blockBase: 8, blockPerTier: 4, valueBase: 2, valuePerTier: 1 },
+};
+
+export type WeaponKind = keyof typeof WEAPON_KINDS;
+export type ShieldKind = keyof typeof SHIELD_KINDS;
 
 export interface CreateEquipmentOptions {
   crafted?: boolean;
@@ -77,6 +121,8 @@ export interface CreateEquipmentOptions {
   name?: string;
   /** When true, an off-hand item is a second weapon instead of a shield. */
   weapon?: boolean;
+  /** Force a specific weapon/shield archetype (e.g. 'spear', 'tower', 'net'). */
+  kind?: string;
 }
 
 export function createEquipment(
@@ -103,7 +149,7 @@ export function createEquipment(
   const item: Equipment = {
     id: nextEquipId(),
     slot,
-    name: opts.name ?? `${tierName(tier)} ${isWeapon && slot === 'offHand' ? 'Blade' : slotName(slot)}`,
+    name: '',
     tier,
     quality,
     armor,
@@ -112,13 +158,30 @@ export function createEquipment(
   };
 
   if (isWeapon) {
-    item.minDamage = Math.round((6 + tier * 4) * quality);
-    item.maxDamage = Math.round((12 + tier * 6) * quality);
-  }
-  if (isShield) {
-    item.blockChance = Math.min(BLOCK_CAP, 20 + tier * 10);
-    item.blockValue = 4 + tier * 3;
+    const kind = opts.kind ?? pick(slot === 'mainHand' ? ONE_HAND_WEAPONS : OFFHAND_WEAPONS, rand);
+    const def = WEAPON_KINDS[kind] ?? WEAPON_KINDS.gladius;
+    item.kind = kind;
+    item.minDamage = Math.round((def.min + tier * 4) * quality);
+    item.maxDamage = Math.round((def.min + def.spread + tier * 6) * quality);
+    item.critBonus = def.critBonus;
+    item.name = `${tierName(tier)} ${def.label}`;
+  } else if (isShield) {
+    const kind = opts.kind ?? pick(['buckler', 'round', 'tower'] as const, rand);
+    const def = SHIELD_KINDS[kind] ?? SHIELD_KINDS.round;
+    item.kind = kind;
+    item.blockChance = Math.min(BLOCK_CAP, def.blockBase + tier * def.blockPerTier);
+    item.blockValue = def.valueBase + tier * def.valuePerTier;
+    item.name = `${tierName(tier)} ${def.label}`;
+  } else {
+    item.kind = slot;
+    item.name = `${tierName(tier)} ${armorSlotName(slot)}`;
   }
 
+  item.name = opts.name ?? item.name;
   return item;
+}
+
+/** Picks a two-handed weapon archetype (used by the Thraex style). */
+export function randomTwoHandedWeapon(rand: Rng = Math.random): WeaponKind {
+  return pick(TWO_HAND_WEAPONS, rand);
 }

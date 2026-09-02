@@ -2,7 +2,7 @@ import type { AttackOutcome, AttackPrecision, BodyZone, Fighter } from './types'
 import type { Rng } from './rng';
 import { CRIT_CHANCE, CRIT_MULTIPLIER, PRECISION } from './constants';
 import { clamp } from './rng';
-import { applyZoneDamage, blockChance, blockValue, effectiveAttributes } from './stats';
+import { applyZoneDamage, blockChance, blockValue, effectiveAttributes, usableMainHand, usableOffHandWeapon } from './stats';
 
 /** Effective initiative (Speed + passives), halved while slowed. */
 export function initiative(fighter: Fighter): number {
@@ -44,12 +44,12 @@ export function rollDamageWith(
   damageMult = 1,
   critBonus = 0,
 ): RawDamage {
-  const weapon = fighter.loadout.mainHand;
+  const weapon = usableMainHand(fighter) ?? usableOffHandWeapon(fighter);
   const minDamage = weapon?.minDamage ?? 5;
   const maxDamage = weapon?.maxDamage ?? 10;
   const base = minDamage + rand() * (maxDamage - minDamage);
   const variance = 0.85 + rand() * 0.3;
-  const crit = rand() < CRIT_CHANCE + critBonus;
+  const crit = rand() < CRIT_CHANCE + critBonus + (weapon?.critBonus ?? 0);
   const warcry = fighter.status.buffed > 0 ? 1.2 : 1;
   const mult = PRECISION[precision].damage * (crit ? CRIT_MULTIPLIER : 1) * damageMult * warcry;
   const raw = (base + effectiveAttributes(fighter).strength) * mult * variance;

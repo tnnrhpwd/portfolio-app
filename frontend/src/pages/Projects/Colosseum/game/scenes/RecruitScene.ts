@@ -80,7 +80,6 @@ export class RecruitScene extends BaseScene {
       roster: [...this.gameState.roster, fighter],
     };
     this.applyAchievements();
-    if (this.cityId) this.scene.start('City', { cityId: this.cityId });
-    else this.scene.start('Main');
+    this.scene.start('Main');
   }
 }

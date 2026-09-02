@@ -1,4 +1,4 @@
-import type { Attributes, BodyZone, Fighter, Loadout, ZoneMap } from './types';
+import type { Attributes, BodyZone, Equipment, Fighter, Loadout, ZoneMap } from './types';
 import { ARMOR_COMBAT_MULTIPLIER, BLOCK_CAP, BODY_ZONES, ZONE_HP_SPLIT } from './constants';
 import { clamp } from './rng';
 import { getSkill } from './skills';
@@ -106,19 +106,64 @@ export function isZoneDestroyed(fighter: Fighter, zone: BodyZone): boolean {
   return fighter.zones[zone].hp <= 0;
 }
 
-/** A fighter is defeated when head or torso is destroyed. */
+/** The four destroyable limbs (arms + legs). */
+export const LIMB_ZONES: readonly BodyZone[] = ['leftArm', 'rightArm', 'leftLeg', 'rightLeg'];
+
+const TWO_HANDED_KINDS = new Set(['greatsword', 'maul', 'halberd']);
+
+/** How many limbs (arms/legs) have been destroyed. */
+export function destroyedLimbCount(fighter: Fighter): number {
+  return LIMB_ZONES.filter((zone) => isZoneDestroyed(fighter, zone)).length;
+}
+
+/** True when either leg is destroyed — the fighter can no longer move into melee. */
+export function legsCrippled(fighter: Fighter): boolean {
+  return isZoneDestroyed(fighter, 'leftLeg') || isZoneDestroyed(fighter, 'rightLeg');
+}
+
+/** The main-hand weapon is usable only while its arm (and, for two-handers, both arms) is intact. */
+export function usableMainHand(fighter: Fighter): Equipment | null {
+  const weapon = fighter.loadout.mainHand;
+  if (!weapon) return null;
+  if (isZoneDestroyed(fighter, 'rightArm')) return null;
+  if (TWO_HANDED_KINDS.has(weapon.kind ?? '') && isZoneDestroyed(fighter, 'leftArm')) return null;
+  return weapon;
+}
+
+/** An off-hand weapon (not a shield) usable while the left arm is intact. */
+export function usableOffHandWeapon(fighter: Fighter): Equipment | null {
+  const weapon = fighter.loadout.offHand;
+  if (!weapon || weapon.minDamage === undefined) return null;
+  if (isZoneDestroyed(fighter, 'leftArm')) return null;
+  return weapon;
+}
+
+/** Whether a fighter can still deliver a melee attack at all. */
+export function canMeleeAttack(fighter: Fighter): boolean {
+  // Legs gate movement; a destroyed arm only disables that hand's weapon
+  // (rollDamageWith falls back to the other hand or an unarmed strike).
+  return !legsCrippled(fighter);
+}
+
+/** A fighter is defeated when the head or torso is destroyed, or two limbs are lost. */
 export function isDefeated(fighter: Fighter): boolean {
-  return isZoneDestroyed(fighter, 'head') || isZoneDestroyed(fighter, 'torso');
+  return (
+    isZoneDestroyed(fighter, 'head') ||
+    isZoneDestroyed(fighter, 'torso') ||
+    destroyedLimbCount(fighter) >= 2
+  );
 }
 
 /** Shield block chance, clamped to the 72% cap. */
 export function blockChance(fighter: Fighter): number {
+  if (isZoneDestroyed(fighter, 'leftArm')) return 0;
   const shield = fighter.loadout.offHand;
   if (!shield || shield.blockChance === undefined) return 0;
   return clamp(shield.blockChance, 0, BLOCK_CAP);
 }
 
 export function blockValue(fighter: Fighter): number {
+  if (isZoneDestroyed(fighter, 'leftArm')) return 0;
   const shield = fighter.loadout.offHand;
   return shield?.blockValue ?? 0;
 }

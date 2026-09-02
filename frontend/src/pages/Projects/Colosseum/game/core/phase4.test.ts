@@ -49,9 +49,10 @@ describe('achievements', () => {
     expect(again.unlocked).toHaveLength(0);
   });
 
-  it('unlocks champion at 28 fame', () => {
+  it('unlocks champion after defeating a city champion', () => {
     const base = createCampaignStart(mulberry32(2));
-    expect(evaluateAchievements({ ...base, fame: 28 }).unlocked).toContain('champion');
+    expect(evaluateAchievements({ ...base, coliseumRanks: { londinium: 2 } }).unlocked).not.toContain('champion');
+    expect(evaluateAchievements({ ...base, coliseumRanks: { londinium: 1 } }).unlocked).toContain('champion');
   });
 
   it('unlocks schooled at 3 roster members', () => {

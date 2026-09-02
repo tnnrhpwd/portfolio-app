@@ -1,16 +1,24 @@
 import { BaseScene } from './BaseScene';
 import { addText } from '../ui/button';
-import { setFighter } from '../state/store';
+import { setFighters } from '../state/store';
 import {
-  autoStrategy,
+  autoTeamActions,
   BODY_ZONES,
+  canMeleeAttack,
+  crowdWish,
   currentHp,
-  generateOpponent,
+  effectiveAttributes,
+  generateOpponentTeam,
   getSkill,
+  isDefeated,
+  isZoneDestroyed,
+  precisionHitChance,
+  sortTurnOrder,
   stabilize,
   startBattle,
   stepBattle,
   totalHp,
+  weakestZone,
   type Action,
   type AttackPrecision,
   type BattleSnapshot,
@@ -31,34 +39,38 @@ const ZONE_LABELS: Record<BodyZone, string> = {
   rightLeg: 'R LEG',
 };
 
-type Phase = 'action' | 'precision' | 'zone' | 'skill';
+type Phase = 'action' | 'precision' | 'target' | 'zone' | 'skill';
 
 export class BattleScene extends BaseScene {
   private snap!: BattleSnapshot;
+  private actions: Record<string, Action> = {};
+  private queue: Fighter[] = [];
+  private currentId = '';
   private phase: Phase = 'action';
   private precision: AttackPrecision = 'medium';
+  private targetEnemyId = '';
   private summary = '';
-  private playerId = '';
-  private enemyId = '';
-  private speedFast = false;
+  private enemyRank = 1;
   private cityId = '';
   private ladderRank = 0;
+  private speedFast = false;
+  private tooltip: Phaser.GameObjects.Text | null = null;
 
   constructor() {
     super('Battle');
   }
 
   create(data: { enemyRank?: number; cityId?: string; ladderRank?: number } = {}): void {
+    this.enemyRank = data?.enemyRank ?? this.gameState.fame + 1;
     this.cityId = data?.cityId ?? '';
     this.ladderRank = data?.ladderRank ?? 0;
-    this.applyBackground(this.theme.bgAlt);
-    const player = this.gameState.roster[0];
-    const enemy = generateOpponent(data?.enemyRank ?? this.gameState.fame + 1, Math.random);
-    this.snap = startBattle(player, enemy);
-    this.playerId = this.snap.player.id;
-    this.enemyId = this.snap.enemy.id;
-    this.phase = 'action';
+    this.speedFast = false;
+
+    const playerTeam = this.gameState.roster.slice(0, 3);
+    const enemyTeam = generateOpponentTeam(this.enemyRank, Math.random);
+    this.snap = startBattle(playerTeam, enemyTeam);
     this.summary = 'Your turn — pick an action.';
+    this.beginRound();
     this.render();
   }
 
@@ -66,284 +78,452 @@ export class BattleScene extends BaseScene {
     this.render();
   }
 
-  private render(): void {
-    this.clearScreen();
-    addArenaBackground(this);
-    const compact = this.compact;
-    const cx = this.cx;
-    const bottom = this.h - 70;
+  // ── Round / command plumbing ──
+  private livingPlayers(): Fighter[] {
+    return this.snap.playerTeam.filter((f) => f.alive && !isDefeated(f));
+  }
 
-    if (compact) {
-      this.drawCard(this.snap.player, cx, 110, true);
-      this.drawCard(this.snap.enemy, cx, 310, true);
-      addText(this, cx, 492, this.summary, {
-        fontSize: '16px',
-        color: '#f2d98c',
-        wordWrap: { width: this.w - 40 },
-      });
-    } else {
-      this.drawCard(this.snap.player, cx - 320, 120, false);
-      this.drawCard(this.snap.enemy, cx + 320, 120, false);
-      addText(this, cx, 120, this.summary, { fontSize: '18px', color: '#f2d98c' });
+  private livingEnemies(): Fighter[] {
+    return this.snap.enemyTeam.filter((f) => f.alive && !isDefeated(f));
+  }
+
+  /** Enemies that can be hit by a melee attack (front row, or everyone if none). */
+  private meleeTargets(): Fighter[] {
+    const living = this.livingEnemies();
+    const front = living.filter((f) => f.row === 'front');
+    return front.length > 0 ? front : living;
+  }
+
+  private currentFighter(): Fighter | undefined {
+    return this.snap.playerTeam.find((f) => f.id === this.currentId);
+  }
+
+  private beginRound(): void {
+    this.actions = {};
+    this.queue = [...sortTurnOrder(this.livingPlayers())];
+    this.nextCommand();
+  }
+
+  private nextCommand(): void {
+    if (this.queue.length === 0) {
+      this.runRound();
+      return;
     }
-
-    if (this.phase === 'action') {
-      if (compact) {
-        this.button(cx - 95, bottom - 150, 'ATTACK', () => {
-          this.phase = 'precision';
-          this.render();
-        }, { width: 170, height: 46, fontSize: 16 });
-        const technique = this.button(cx + 95, bottom - 150, 'TECHNIQUE', () => {
-          this.phase = 'skill';
-          this.render();
-        }, { width: 170, height: 46, fontSize: 16 });
-        if (this.activeSkills().length === 0) technique.setEnabled(false);
-        this.button(cx - 95, bottom - 92, 'BLOCK', () => this.resolve({ kind: 'block' }), {
-          width: 170,
-          height: 46,
-          fontSize: 16,
-        });
-        this.button(cx + 95, bottom - 92, 'CROWD APPEAL', () => this.resolve({ kind: 'crowdAppeal' }), {
-          width: 170,
-          height: 46,
-          fontSize: 15,
-        });
-        this.button(cx - 95, bottom - 34, 'AUTO-BATTLE', () => this.startAuto(), {
-          width: 170,
-          height: 38,
-          fontSize: 15,
-        });
-        this.button(cx + 95, bottom - 34, this.speedFast ? 'SPEED: FAST' : 'SPEED: NORMAL', () => {
-          this.speedFast = !this.speedFast;
-          this.render();
-        }, { width: 170, height: 38, fontSize: 15 });
-      } else {
-        this.button(cx - 270, bottom, 'ATTACK', () => {
-          this.phase = 'precision';
-          this.render();
-        }, { width: 180 });
-        const technique = this.button(cx - 90, bottom, 'TECHNIQUE', () => {
-          this.phase = 'skill';
-          this.render();
-        }, { width: 180 });
-        if (this.activeSkills().length === 0) technique.setEnabled(false);
-        this.button(cx + 90, bottom, 'BLOCK', () => this.resolve({ kind: 'block' }), { width: 180 });
-        this.button(cx + 270, bottom, 'CROWD APPEAL', () => this.resolve({ kind: 'crowdAppeal' }), {
-          width: 180,
-        });
-        this.button(cx - 160, bottom - 70, 'AUTO-BATTLE', () => this.startAuto(), {
-          width: 180,
-          height: 44,
-          fontSize: 17,
-        });
-        this.button(cx + 160, bottom - 70, this.speedFast ? 'SPEED: FAST' : 'SPEED: NORMAL', () => {
-          this.speedFast = !this.speedFast;
-          this.render();
-        }, { width: 180, height: 44, fontSize: 17 });
-      }
-    } else if (this.phase === 'precision') {
-      if (compact) {
-        this.button(cx, bottom - 140, 'WEAK', () => {
-          this.precision = 'weak';
-          this.phase = 'zone';
-          this.render();
-        }, { width: 170 });
-        this.button(cx, bottom - 82, 'MEDIUM', () => {
-          this.precision = 'medium';
-          this.phase = 'zone';
-          this.render();
-        }, { width: 170 });
-        this.button(cx, bottom - 24, 'STRONG', () => {
-          this.precision = 'strong';
-          this.phase = 'zone';
-          this.render();
-        }, { width: 170 });
-        this.button(cx, bottom, 'BACK', () => {
-          this.phase = 'action';
-          this.render();
-        }, { width: 120, height: 44, fontSize: 18 });
-      } else {
-        this.button(cx - 180, bottom, 'WEAK', () => {
-          this.precision = 'weak';
-          this.phase = 'zone';
-          this.render();
-        });
-        this.button(cx, bottom, 'MEDIUM', () => {
-          this.precision = 'medium';
-          this.phase = 'zone';
-          this.render();
-        });
-        this.button(cx + 180, bottom, 'STRONG', () => {
-          this.precision = 'strong';
-          this.phase = 'zone';
-          this.render();
-        });
-        this.button(96, bottom, 'BACK', () => {
-          this.phase = 'action';
-          this.render();
-        }, { width: 120, height: 44, fontSize: 18 });
-      }
-    } else if (this.phase === 'zone') {
-      addText(this, cx, this.h - 170, 'Choose a body part to strike:', {
-        fontSize: '18px',
-        color: '#f2d98c',
-      });
-      if (compact) {
-        BODY_ZONES.forEach((zone: BodyZone, i: number) => {
-          const col = i % 2;
-          const row = Math.floor(i / 2);
-          this.button(cx - 95 + col * 190, bottom - 140 + row * 62, ZONE_LABELS[zone], () =>
-            this.resolve(this.attackAction(zone)),
-          { width: 170, height: 44, fontSize: 16 });
-        });
-        this.button(cx, bottom, 'BACK', () => {
-          this.phase = 'precision';
-          this.render();
-        }, { width: 120, height: 44, fontSize: 18 });
-      } else {
-        BODY_ZONES.forEach((zone: BodyZone, i: number) => {
-          const bx = cx - 200 + (i % 3) * 200;
-          const by = bottom + Math.floor(i / 3) * 60;
-          this.button(bx, by, ZONE_LABELS[zone], () => this.resolve(this.attackAction(zone)), {
-            width: 170,
-            height: 48,
-            fontSize: 17,
-          });
-        });
-        this.button(96, bottom, 'BACK', () => {
-          this.phase = 'precision';
-          this.render();
-        }, { width: 120, height: 44, fontSize: 18 });
-      }
-    } else {
-      addText(this, cx, compact ? 520 : 180, 'Choose a technique:', { fontSize: '18px', color: '#f2d98c' });
-      const skills = this.activeSkills();
-      skills.forEach((skillId, i) => {
-        const node = getSkill(skillId);
-        if (!node) return;
-        const rank = this.snap.player.skills[skillId] ?? 0;
-        const affordable = this.snap.player.morale >= node.mpCost;
-        const btn = this.button(
-          cx,
-          (compact ? 520 : 180) + 48 + i * 52,
-          `${node.label} (${rank}) — ${node.mpCost} MP`,
-          () => {
-            this.resolve({ kind: 'skill', skillId });
-          },
-          { width: 280, height: 44, fontSize: 16 },
-        );
-        if (!affordable) btn.setEnabled(false);
-      });
-      this.button(compact ? cx : 96, compact ? bottom : bottom, 'BACK', () => {
-        this.phase = 'action';
-        this.render();
-      }, { width: 120, height: 44, fontSize: 18 });
-    }
+    this.currentId = this.queue.shift()?.id ?? '';
+    this.phase = 'action';
+    this.precision = 'medium';
+    this.targetEnemyId = '';
+    this.render();
   }
 
-  private activeSkills(): string[] {
-    return Object.keys(this.snap.player.skills).filter((id) => {
-      const node = getSkill(id);
-      return node && node.mpCost > 0 && (this.snap.player.skills[id] ?? 0) > 0;
-    });
+  private commit(action: Action): void {
+    this.actions[this.currentId] = action;
+    this.nextCommand();
   }
 
-  private drawCard(fighter: Fighter, x: number, y: number, compact: boolean): void {
-    addText(this, x, y, `${fighter.name}  Lv${fighter.level}`, {
-      fontSize: compact ? '18px' : '20px',
-      color: '#f2d98c',
-      fontStyle: 'bold',
-    });
-    addText(
-      this,
-      x,
-      y + (compact ? 24 : 30),
-      `HP ${currentHp(fighter)}/${totalHp(fighter)}  MP ${fighter.morale}/${fighter.maxMorale}`,
-      { fontSize: compact ? '14px' : '16px' },
-    );
-    const zonesY = y + (compact ? 48 : 60);
-    if (compact) {
-      BODY_ZONES.forEach((zone: BodyZone, i: number) => {
-        const z = fighter.zones[zone];
-        const col = i % 2;
-        const row = Math.floor(i / 2);
-        addText(this, x - 90 + col * 180, zonesY + row * 24, `${ZONE_LABELS[zone]}: ${z.hp}/${z.maxHp}`, {
-          fontSize: '13px',
-          color: z.hp <= 0 ? '#c0392b' : '#b8aa94',
-        }).setOrigin(0.5);
-      });
-    } else {
-      BODY_ZONES.forEach((zone: BodyZone, i: number) => {
-        const z = fighter.zones[zone];
-        addText(this, x, zonesY + i * 26, `${ZONE_LABELS[zone]}: ${z.hp}/${z.maxHp}`, {
-          fontSize: '14px',
-          color: z.hp <= 0 ? '#c0392b' : '#b8aa94',
-        });
-      });
-      // Original stylized figure for this fighter's weapon style.
-      addStyleSprite(this, x, y + 330, fighter.style);
-    }
-  }
-
-  private attackAction(zone: BodyZone): Action {
-    return { kind: 'attack', precision: this.precision, targetId: this.enemyId, targetZone: zone };
-  }
-
-  private resolve(action: Action): void {
-    this.snap = stepBattle(this.snap, action, Math.random);
+  private runRound(): void {
+    this.snap = stepBattle(this.snap, this.actions, Math.random);
     this.summary = this.describeEvents();
     this.playEventSounds();
-    this.afterStep();
+    announce(this.summary);
+    if (this.snap.playerWon) {
+      this.finish(true);
+      return;
+    }
+    if (this.snap.enemyWon) {
+      this.finish(false);
+      return;
+    }
+    this.beginRound();
   }
 
+  private finish(won: boolean): void {
+    if (won) {
+      playVictory();
+      setFighters(this.snap.playerTeam);
+      this.scene.start('Reward', {
+        enemyLevel: this.enemyRank,
+        cityId: this.cityId,
+        ladderRank: this.ladderRank,
+        crowdWish: crowdWish(this.snap.playerTeam),
+      });
+    } else {
+      playDefeat();
+      setFighters(this.snap.playerTeam.map(stabilize));
+      this.scene.start('Reward', { enemyLevel: this.enemyRank, won: false });
+    }
+  }
+
+  private activeSkills(fighter: Fighter | undefined): string[] {
+    if (!fighter) return [];
+    return Object.keys(fighter.skills).filter((id) => {
+      const node = getSkill(id);
+      return node && node.mpCost > 0 && (fighter.skills[id] ?? 0) > 0;
+    });
+  }
+
+  // ── Rendering ──
+  private render(): void {
+    this.clearScreen();
+    this.tooltip = null;
+    addArenaBackground(this);
+    const compact = this.compact;
+
+    // Top-left utility: auto-battle + speed.
+    this.button(compact ? this.cx - 70 : 110, 24, 'AUTO-BATTLE', () => this.startAuto(), {
+      width: 120,
+      height: 32,
+      fontSize: 13,
+    });
+    this.button(
+      compact ? this.cx + 70 : 250,
+      24,
+      this.speedFast ? 'SPEED: FAST' : 'SPEED: NORMAL',
+      () => {
+        this.speedFast = !this.speedFast;
+        this.render();
+      },
+      { width: 130, height: 32, fontSize: 13 },
+    );
+
+    if (this.phase === 'action') {
+      this.button(compact ? this.w - 70 : this.w - 100, 24, 'NEXT TURN', () => this.commit({ kind: 'pass' }), {
+        width: 110,
+        height: 32,
+        fontSize: 12,
+      });
+    }
+
+    this.renderActionMenu(compact);
+    this.renderTurnOrder(compact);
+    this.renderTeamTray(compact);
+    this.renderSurrender(compact);
+    this.renderArena(compact);
+
+    addText(this, this.cx, 48, this.summary, {
+      fontSize: '15px',
+      color: '#f2d98c',
+      wordWrap: { width: this.w - 280 },
+    });
+  }
+
+  private renderActionMenu(compact: boolean): void {
+    const x = compact ? this.cx : 110;
+
+    if (this.phase === 'action') {
+      const cur = this.currentFighter();
+      addText(this, x, 70, cur ? `${cur.name}'s turn` : '', {
+        fontSize: '18px',
+        color: '#f2d98c',
+        fontStyle: 'bold',
+      });
+      const y0 = compact ? 150 : 105;
+      const step = compact ? 54 : 50;
+      const attack = this.button(x, y0, 'ATTACK', () => {
+        this.phase = 'precision';
+        this.render();
+      }, { width: 170, height: 44, fontSize: 16 });
+      if (!cur || !canMeleeAttack(cur)) attack.setEnabled(false);
+      const tech = this.button(x, y0 + step, 'TECHNIQUE', () => {
+        this.phase = 'skill';
+        this.render();
+      }, { width: 170, height: 44, fontSize: 16 });
+      if (this.activeSkills(cur).length === 0) tech.setEnabled(false);
+      this.button(x, y0 + step * 2, 'BLOCK', () => this.commit({ kind: 'block' }), { width: 170, height: 44, fontSize: 16 });
+      this.button(x, y0 + step * 3, 'CROWD APPEAL', () => this.commit({ kind: 'crowdAppeal' }), { width: 170, height: 44, fontSize: 15 });
+      this.button(x, y0 + step * 4, 'ROW', () => this.commit({ kind: 'row' }), { width: 170, height: 44, fontSize: 16 });
+      return;
+    }
+
+    if (this.phase === 'precision') {
+      addText(this, x, 70, 'Attack strength:', { fontSize: '16px', color: '#f2d98c' });
+      const y0 = compact ? 150 : 110;
+      this.button(x, y0, 'WEAK', () => this.pickPrecision('weak'), { width: 170, height: 44, fontSize: 16 });
+      this.button(x, y0 + 50, 'MEDIUM', () => this.pickPrecision('medium'), { width: 170, height: 44, fontSize: 16 });
+      this.button(x, y0 + 100, 'STRONG', () => this.pickPrecision('strong'), { width: 170, height: 44, fontSize: 16 });
+      this.button(x, y0 + 150, 'BACK', () => {
+        this.phase = 'action';
+        this.render();
+      }, { width: 120, height: 40, fontSize: 15 });
+      return;
+    }
+
+    if (this.phase === 'target') {
+      addText(this, x, 70, 'Choose a target:', { fontSize: '16px', color: '#f2d98c' });
+      addText(this, x, compact ? 102 : 94, 'Click an enemy in the arena.', {
+        fontSize: '13px',
+        color: '#b8aa94',
+        wordWrap: { width: 200 },
+      });
+      this.button(x, compact ? 160 : 140, 'BACK', () => {
+        this.phase = 'precision';
+        this.render();
+      }, { width: 120, height: 40, fontSize: 15 });
+      return;
+    }
+
+    if (this.phase === 'zone') {
+      const target = this.snap.enemyTeam.find((f) => f.id === this.targetEnemyId);
+      addText(this, x, 70, `Target: ${target?.name ?? ''}`, { fontSize: '16px', color: '#f2d98c' });
+      addText(this, x, compact ? 102 : 94, 'Click a body part on them.', {
+        fontSize: '13px',
+        color: '#b8aa94',
+        wordWrap: { width: 200 },
+      });
+      this.button(x, compact ? 160 : 140, 'BACK', () => {
+        this.phase = 'precision';
+        this.render();
+      }, { width: 120, height: 40, fontSize: 15 });
+      return;
+    }
+
+    // phase === 'skill'
+    const cur = this.currentFighter();
+    addText(this, x, 70, 'Choose a technique:', { fontSize: '16px', color: '#f2d98c' });
+    const skills = this.activeSkills(cur);
+    const y0 = compact ? 150 : 110;
+    skills.forEach((skillId, i) => {
+      if (!cur) return;
+      const node = getSkill(skillId);
+      if (!node) return;
+      const rank = cur.skills[skillId] ?? 0;
+      const affordable = cur.morale >= node.mpCost;
+      const meleeSkill = node.effect.kind === 'strike' || node.effect.kind === 'combo';
+      const shieldSkill = node.effect.kind === 'shieldBash';
+      const usable =
+        (!meleeSkill || canMeleeAttack(cur)) &&
+        (!shieldSkill || (canMeleeAttack(cur) && !isZoneDestroyed(cur, 'leftArm')));
+      const btn = this.button(
+        x,
+        y0 + i * 52,
+        `${node.label} (${rank}) — ${node.mpCost} MP`,
+        () =>
+          this.commit({
+            kind: 'skill',
+            skillId,
+            targetId: this.livingEnemies()[0]?.id,
+            targetZone: this.livingEnemies()[0] ? weakestZone(this.livingEnemies()[0]) : 'torso',
+          }),
+        { width: 280, height: 44, fontSize: 15 },
+      );
+      if (!affordable || !usable) btn.setEnabled(false);
+    });
+    this.button(x, y0 + skills.length * 52 + 8, 'BACK', () => {
+      this.phase = 'action';
+      this.render();
+    }, { width: 120, height: 40, fontSize: 15 });
+  }
+
+  private pickPrecision(precision: AttackPrecision): void {
+    this.precision = precision;
+    const targets = this.meleeTargets();
+    if (targets.length > 1) {
+      this.phase = 'target';
+    } else {
+      this.targetEnemyId = targets[0]?.id ?? '';
+      this.phase = 'zone';
+    }
+    this.render();
+  }
+
+  private pickTarget(enemyId: string): void {
+    this.targetEnemyId = enemyId;
+    this.phase = 'zone';
+    this.render();
+  }
+
+  private pickZone(zone: BodyZone): void {
+    this.commit({
+      kind: 'attack',
+      precision: this.precision,
+      targetId: this.targetEnemyId,
+      targetZone: zone,
+    });
+  }
+
+  private renderTurnOrder(compact: boolean): void {
+    const order = sortTurnOrder([...this.livingPlayers(), ...this.livingEnemies()]);
+    const x = compact ? this.w - 70 : this.w - 100;
+    addText(this, x, 70, 'TURN ORDER', { fontSize: '14px', color: '#f2d98c' }).setOrigin(0.5, 0.5);
+    order.forEach((f, i) => {
+      const isPlayer = this.snap.playerTeam.some((p) => p.id === f.id);
+      addText(this, x, 102 + i * 28, `${f.name}${f.row === 'back' ? ' (B)' : ''}`, {
+        fontSize: '12px',
+        color: isPlayer ? '#f2d98c' : '#e8dcc8',
+        backgroundColor: f.id === this.currentId ? '#8c1f28' : undefined,
+        padding: { x: 6, y: 2 },
+      }).setOrigin(0.5, 0.5);
+    });
+  }
+
+  private renderTeamTray(compact: boolean): void {
+    const bottom = this.h - 24;
+    const playerX = compact ? this.cx - 130 : 200;
+    const enemyX = compact ? this.cx + 130 : this.w - 200;
+
+    this.snap.playerTeam.forEach((f, i) => {
+      const y = bottom - (this.snap.playerTeam.length - 1 - i) * 42;
+      this.drawFighterCard(f, playerX, y);
+    });
+    this.snap.enemyTeam.forEach((f, i) => {
+      const y = bottom - (this.snap.enemyTeam.length - 1 - i) * 42;
+      this.drawFighterCard(f, enemyX, y);
+    });
+  }
+
+  private drawFighterCard(f: Fighter, x: number, y: number): void {
+    const dead = !f.alive || isDefeated(f);
+    addText(this, x, y, `${f.name} Lv${f.level}${f.row === 'back' ? ' (back)' : ''}`, {
+      fontSize: '14px',
+      color: dead ? '#c0392b' : '#f2d98c',
+      fontStyle: 'bold',
+    });
+    addText(this, x, y + 20, `HP ${currentHp(f)}/${totalHp(f)}  MP ${f.morale}/${f.maxMorale}`, {
+      fontSize: '12px',
+      color: dead ? '#c0392b' : '#e8dcc8',
+    });
+  }
+
+  // ── Arena rendering: visible fighters + click-to-target body zones ──
+  private renderArena(compact: boolean): void {
+    const s = compact ? 0.7 : 1;
+    const players = this.snap.playerTeam;
+    const enemies = this.snap.enemyTeam;
+    const py = this.teamYs(players.length);
+    const ey = this.teamYs(enemies.length);
+    const px = compact ? this.cx - 130 : this.cx - 200;
+    const ex = compact ? this.cx + 130 : this.cx + 200;
+    const targetable = new Set(this.meleeTargets().map((f) => f.id));
+
+    players.forEach((f, i) => this.drawFighter(f, px, py[i], s, 'idle'));
+    enemies.forEach((f, i) => {
+      let mode: 'idle' | 'target' | 'zone' = 'idle';
+      if (this.phase === 'target' && targetable.has(f.id)) mode = 'target';
+      if (this.phase === 'zone' && f.id === this.targetEnemyId) mode = 'zone';
+      this.drawFighter(f, ex, ey[i], s, mode);
+    });
+  }
+
+  private teamYs(n: number): number[] {
+    if (n <= 1) return [this.h * 0.48];
+    const top = this.h * 0.34;
+    const bottom = this.h * 0.62;
+    const ys: number[] = [];
+    for (let i = 0; i < n; i += 1) ys.push(top + ((bottom - top) * i) / (n - 1));
+    return ys;
+  }
+
+  private drawFighter(f: Fighter, x: number, y: number, s: number, mode: 'idle' | 'target' | 'zone'): void {
+    const dead = !f.alive || isDefeated(f);
+    const sprite = addStyleSprite(this, x, y, f.style, s);
+    sprite.setAlpha(dead ? 0.3 : f.row === 'back' ? 0.7 : 1);
+
+    addText(this, x, y + 98 * s, `${f.name}${f.row === 'back' ? ' (back)' : ''}`, {
+      fontSize: `${Math.round(13 * s)}px`,
+      color: dead ? '#c0392b' : '#e8dcc8',
+    }).setOrigin(0.5, 0.5);
+
+    if (mode === 'target' && !dead) {
+      const hitbox = this.add
+        .rectangle(x, y, 120 * s, 180 * s, 0x000000, 0.001)
+        .setInteractive({ useHandCursor: true });
+      hitbox.on('pointerdown', () => this.pickTarget(f.id));
+      this.add.rectangle(x, y, 120 * s, 180 * s, 0x000000, 0).setStrokeStyle(2, 0xf2d98c, 0.9);
+      return;
+    }
+
+    if (mode === 'zone' && !dead) {
+      this.add.rectangle(x, y, 124 * s, 184 * s, 0x000000, 0).setStrokeStyle(2, 0xf2d98c, 0.9);
+      this.drawZoneTargets(f, x, y, s);
+    }
+  }
+
+  private drawZoneTargets(f: Fighter, x: number, y: number, s: number): void {
+    const W = 120 * s;
+    const H = 180 * s;
+    const geom: Record<BodyZone, { gx: number; gy: number; w: number; h: number }> = {
+      head: { gx: x, gy: y - H * 0.30, w: W * 0.30, h: H * 0.18 },
+      torso: { gx: x, gy: y - H * 0.02, w: W * 0.42, h: H * 0.30 },
+      leftArm: { gx: x - W * 0.26, gy: y - H * 0.04, w: W * 0.16, h: H * 0.32 },
+      rightArm: { gx: x + W * 0.26, gy: y - H * 0.04, w: W * 0.16, h: H * 0.32 },
+      leftLeg: { gx: x - W * 0.11, gy: y + H * 0.20, w: W * 0.18, h: H * 0.30 },
+      rightLeg: { gx: x + W * 0.11, gy: y + H * 0.20, w: W * 0.18, h: H * 0.30 },
+    };
+    BODY_ZONES.forEach((zone) => {
+      const z = geom[zone];
+      const destroyed = isZoneDestroyed(f, zone);
+      const base = destroyed ? 0x555555 : 0xffffff;
+      const shape = this.add
+        .rectangle(z.gx, z.gy, z.w, z.h, base, 0.14)
+        .setStrokeStyle(1, destroyed ? 0x555555 : 0xf2d98c, 0.8)
+        .setInteractive({ useHandCursor: true });
+      shape.on('pointerover', () => {
+        shape.setFillStyle(0xf2d98c, 0.55);
+        this.showZoneTooltip(z.gx, z.gy - 28, zone, f);
+      });
+      shape.on('pointerout', () => {
+        shape.setFillStyle(base, 0.14);
+        this.hideZoneTooltip();
+      });
+      shape.on('pointerdown', () => this.pickZone(zone));
+    });
+  }
+
+  private showZoneTooltip(x: number, y: number, zone: BodyZone, f: Fighter): void {
+    this.hideZoneTooltip();
+    const hp = f.zones[zone].hp;
+    const max = f.zones[zone].maxHp;
+    const cur = this.currentFighter();
+    const pct = cur
+      ? Math.round(
+          precisionHitChance(effectiveAttributes(cur).dexterity, effectiveAttributes(f).defense, this.precision) * 100,
+        )
+      : 0;
+    this.tooltip = addText(this, x, y, `${ZONE_LABELS[zone]}  HP ${hp}/${max}  Hit ${pct}%`, {
+      fontSize: '13px',
+      color: '#f2d98c',
+      backgroundColor: '#000000cc',
+      padding: { x: 8, y: 4 },
+    }).setOrigin(0.5, 1);
+  }
+
+  private hideZoneTooltip(): void {
+    this.tooltip?.destroy();
+    this.tooltip = null;
+  }
+
+  /** Bottom-right forfeit control. */
+  private renderSurrender(compact: boolean): void {
+    this.button(
+      compact ? this.w - 70 : this.w - 90,
+      this.h - 30,
+      'SURRENDER',
+      () => this.finish(false),
+      { width: 130, height: 36, fontSize: 14, fill: 0x5b1420 },
+    );
+  }
+
+  // ── Auto-battle ──
   private startAuto(): void {
-    this.phase = 'action';
     this.runAutoStep();
   }
 
   private runAutoStep(): void {
     if (this.snap.playerWon || this.snap.enemyWon) {
-      this.finishBattle();
+      this.finish(this.snap.playerWon);
       return;
     }
-    this.snap = stepBattle(this.snap, autoStrategy(this.snap.player, this.snap.enemy), Math.random);
+    const actions = autoTeamActions(this.livingPlayers(), this.livingEnemies(), Math.random);
+    this.snap = stepBattle(this.snap, actions, Math.random);
     this.summary = this.describeEvents();
     announce(this.summary);
     this.render();
     if (this.snap.playerWon || this.snap.enemyWon) {
-      this.finishBattle();
+      this.finish(this.snap.playerWon);
       return;
     }
     const delay = getSettings().reducedMotion ? 1 : this.speedFast ? 200 : 650;
     this.time.delayedCall(delay, () => this.runAutoStep());
-  }
-
-  private afterStep(): void {
-    announce(this.summary);
-    if (this.snap.playerWon || this.snap.enemyWon) {
-      this.finishBattle();
-      return;
-    }
-    this.phase = 'action';
-    this.render();
-  }
-
-  private finishBattle(): void {
-    if (this.snap.playerWon) {
-      playVictory();
-      setFighter(this.snap.player);
-      this.scene.start('Reward', {
-        enemyLevel: this.snap.enemy.level,
-        cityId: this.cityId,
-        ladderRank: this.ladderRank,
-      });
-      return;
-    }
-    if (this.snap.enemyWon) {
-      playDefeat();
-      setFighter(stabilize(this.snap.player));
-      this.scene.start('Main');
-    }
   }
 
   private playEventSounds(): void {
@@ -356,24 +536,33 @@ export class BattleScene extends BaseScene {
       } else if (event.kind === 'restore') playClick();
       else if (event.kind === 'skill') playBlock();
       else if (event.kind === 'death') playHit();
+      else if (event.kind === 'row') playClick();
+      else if (event.kind === 'unable') playClick();
     }
   }
 
   private describeEvents(): string {
+    const name = (id: string | undefined): string => {
+      if (!id) return '?';
+      const p = this.snap.playerTeam.find((f) => f.id === id);
+      if (p) return p.name;
+      const e = this.snap.enemyTeam.find((f) => f.id === id);
+      return e ? e.name : '?';
+    };
     const lines = this.snap.events.map((event) => {
-      const actor = event.actorId === this.playerId ? 'You' : 'Foe';
-      const target = event.targetId === this.playerId ? 'you' : 'the foe';
       if (event.kind === 'attack') {
-        return `${actor} hit ${target} (${event.zone}) for ${event.damage}${event.crit ? ' — CRIT' : ''}${event.blocked ? ' — blocked' : ''}`;
+        return `${name(event.actorId)} hit ${name(event.targetId)} (${event.zone}) for ${event.damage}${event.crit ? ' — CRIT' : ''}${event.blocked ? ' — blocked' : ''}`;
       }
-      if (event.kind === 'miss') return `${actor} missed`;
-      if (event.kind === 'block') return `${actor} guarded`;
-      if (event.kind === 'restore') return `${actor} restored ${event.damage} MP`;
+      if (event.kind === 'miss') return `${name(event.actorId)} missed`;
+      if (event.kind === 'block') return `${name(event.actorId)} guarded`;
+      if (event.kind === 'restore') return `${name(event.actorId)} restored ${event.damage} MP`;
       if (event.kind === 'skill') {
         const node = event.skillId ? getSkill(event.skillId) : undefined;
-        return `${actor} used ${node?.label ?? 'a technique'}${event.damage ? ` (${event.damage})` : ''}`;
+        return `${name(event.actorId)} used ${node?.label ?? 'a technique'}${event.damage ? ` (${event.damage})` : ''}`;
       }
-      if (event.kind === 'death') return `${target} is defeated!`;
+      if (event.kind === 'death') return `${name(event.targetId)} is defeated!`;
+      if (event.kind === 'row') return `${name(event.actorId)} moved to the ${event.row ?? 'front'} row`;
+      if (event.kind === 'unable') return `${name(event.actorId)} couldn't act (${event.reason ?? 'crippled'})`;
       return '';
     });
     return lines.join('   ·   ') || 'Nothing happened.';

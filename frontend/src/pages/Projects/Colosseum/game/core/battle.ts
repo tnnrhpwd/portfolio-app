@@ -1,23 +1,23 @@
-import type { Action, Fighter, TurnEvent } from './types';
-import type { MetalId } from './equipment';
-import type { Rng } from './rng';
+import type { Action, Equipment, EquipmentSlot, Fighter, TurnEvent } from './types';
+import { createEquipment, type MetalId } from './equipment';
+import { pick, type Rng } from './rng';
 import { cloneFighter, resolveRound, weakestZone } from './engine';
 import { victoryRewards } from './economy';
-import { currentHp, totalHp } from './stats';
+import { canMeleeAttack, currentHp, totalHp } from './stats';
 
 export interface BattleSnapshot {
-  player: Fighter;
-  enemy: Fighter;
+  playerTeam: Fighter[];
+  enemyTeam: Fighter[];
   round: number;
   playerWon: boolean;
   enemyWon: boolean;
   events: TurnEvent[];
 }
 
-export function startBattle(player: Fighter, enemy: Fighter): BattleSnapshot {
+export function startBattle(playerTeam: Fighter[], enemyTeam: Fighter[]): BattleSnapshot {
   return {
-    player: cloneFighter(player),
-    enemy: cloneFighter(enemy),
+    playerTeam: playerTeam.map(cloneFighter),
+    enemyTeam: enemyTeam.map(cloneFighter),
     round: 0,
     playerWon: false,
     enemyWon: false,
@@ -25,12 +25,16 @@ export function startBattle(player: Fighter, enemy: Fighter): BattleSnapshot {
   };
 }
 
-/** Resolves one round using the player's action; the enemy acts via built-in AI. */
-export function stepBattle(snap: BattleSnapshot, action: Action, rand: Rng = Math.random): BattleSnapshot {
-  const result = resolveRound([snap.player], [snap.enemy], { [snap.player.id]: action }, rand);
+/** Resolves one round for the given player actions; enemies act via built-in AI. */
+export function stepBattle(
+  snap: BattleSnapshot,
+  playerActions: Readonly<Record<string, Action>>,
+  rand: Rng = Math.random,
+): BattleSnapshot {
+  const result = resolveRound(snap.playerTeam, snap.enemyTeam, playerActions, rand);
   return {
-    player: result.playerTeam[0],
-    enemy: result.enemyTeam[0],
+    playerTeam: result.playerTeam,
+    enemyTeam: result.enemyTeam,
     round: snap.round + 1,
     playerWon: result.playerWon,
     enemyWon: result.enemyWon,
@@ -45,7 +49,49 @@ export function autoStrategy(player: Fighter, enemy: Fighter): Action {
   if ((player.skills.heal ?? 0) > 0 && player.morale >= 10 && currentHp(player) < totalHp(player) * 0.5) {
     return { kind: 'skill', skillId: 'heal' };
   }
+  if (!canMeleeAttack(player)) {
+    if ((player.skills.throw ?? 0) > 0 && player.morale >= 6) {
+      return { kind: 'skill', skillId: 'throw', targetId: enemy.id, targetZone: weakestZone(enemy) };
+    }
+    if ((player.skills.demoralize ?? 0) > 0 && player.morale >= 12) {
+      return { kind: 'skill', skillId: 'demoralize', targetId: enemy.id, targetZone: weakestZone(enemy) };
+    }
+    return { kind: 'block' };
+  }
   return { kind: 'attack', precision: 'medium', targetId: enemy.id, targetZone: weakestZone(enemy) };
+}
+
+/** Auto-battle actions for a whole team (each living player attacks a living enemy). */
+export function autoTeamActions(
+  playerTeam: Fighter[],
+  enemyTeam: Fighter[],
+  rand: Rng = Math.random,
+): Record<string, Action> {
+  const actions: Record<string, Action> = {};
+  const targets = enemyTeam.filter((f) => f.alive);
+  for (const fighter of playerTeam) {
+    if (!fighter.alive) continue;
+    if ((fighter.skills.heal ?? 0) > 0 && fighter.morale >= 10 && currentHp(fighter) < totalHp(fighter) * 0.5) {
+      actions[fighter.id] = { kind: 'skill', skillId: 'heal' };
+      continue;
+    }
+    const target = targets.length > 0 ? pick(targets, rand) : enemyTeam[0];
+    if (!canMeleeAttack(fighter)) {
+      if ((fighter.skills.throw ?? 0) > 0 && fighter.morale >= 6) {
+        actions[fighter.id] = { kind: 'skill', skillId: 'throw', targetId: target.id, targetZone: weakestZone(target) };
+      } else {
+        actions[fighter.id] = { kind: 'block' };
+      }
+      continue;
+    }
+    actions[fighter.id] = {
+      kind: 'attack',
+      precision: 'medium',
+      targetId: target.id,
+      targetZone: weakestZone(target),
+    };
+  }
+  return actions;
 }
 
 /** Runs a full battle with the built-in player AI (for auto-battle). */
@@ -64,15 +110,31 @@ export function simulateBattle(
   strategy: PlayerStrategy,
   rand: Rng = Math.random,
 ): { playerWon: boolean; rounds: number } {
-  let snap = startBattle(player, enemy);
+  let snap = startBattle([player], [enemy]);
   for (let i = 0; i < 200; i += 1) {
     if (snap.playerWon || snap.enemyWon) break;
-    snap = stepBattle(snap, strategy(snap.player, snap.enemy), rand);
+    snap = stepBattle(
+      snap,
+      { [player.id]: strategy(snap.playerTeam[0], snap.enemyTeam[0]) },
+      rand,
+    );
   }
   return { playerWon: snap.playerWon, rounds: snap.round };
 }
 
 export type Verdict = 'mercy' | 'execute';
+
+/**
+ * The crowd's wish at match end, driven by leftover Crowd Appeal (morale).
+ * A team that ends the fight flush with morale has worked the crowd into a
+ * bloodlust and the crowd calls for BLOOD; a spent team earns a MERCY call.
+ */
+export function crowdWish(playerTeam: readonly Fighter[]): Verdict {
+  const total = playerTeam.reduce((sum, f) => sum + f.morale, 0);
+  const max = playerTeam.reduce((sum, f) => sum + f.maxMorale, 0);
+  const share = max > 0 ? total / max : 0;
+  return share >= 0.5 ? 'execute' : 'mercy';
+}
 
 export interface BattleRewards {
   gold: number;
@@ -95,4 +157,28 @@ export function postBattleRewards(enemyLevel: number, verdict: Verdict): BattleR
     maxMoraleGain: 0,
     metals: { [metal]: 1 },
   };
+}
+
+const LOOT_SLOTS: readonly EquipmentSlot[] = [
+  'head',
+  'torso',
+  'leftArm',
+  'rightArm',
+  'legs',
+  'mainHand',
+  'offHand',
+];
+
+/** Equipment dropped by a defeated opponent. Executing yields extra loot. */
+export function rollLoot(enemyLevel: number, verdict: Verdict, rand: Rng = Math.random): Equipment[] {
+  const tier = Math.max(0, Math.min(9, Math.floor(enemyLevel / 2)));
+  let count = 1 + Math.floor(rand() * 2); // 1–2 base drops
+  if (verdict === 'execute') count += 2; // execution: +2 extra loot
+  const items: Equipment[] = [];
+  for (let i = 0; i < count; i += 1) {
+    const slot = pick(LOOT_SLOTS, rand);
+    const itemTier = Math.max(0, Math.min(9, tier - 1 + Math.floor(rand() * 2)));
+    items.push(createEquipment(slot, itemTier, { rand }));
+  }
+  return items;
 }

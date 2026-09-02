@@ -3,7 +3,7 @@ import type { GameState } from './engine';
 export interface City {
   id: string;
   name: string;
-  /** Fame rank required to unlock this city. */
+  /** Base difficulty tier for this city's coliseum opponents. */
   rank: number;
   /** Shop stock tier (0..9; higher = better, pricier gear). */
   shopTier: number;
@@ -26,12 +26,25 @@ export const CITIES: readonly City[] = [
   { id: 'elysium', name: 'Elysium', rank: 28, shopTier: 9, opponents: 10, description: 'A mythic final proving ground beyond the mortal world.' },
 ];
 
-export function unlockedCities(fame: number): City[] {
-  return CITIES.filter((c) => c.rank <= fame);
+export function unlockedCities(state: GameState): City[] {
+  return CITIES.filter((c) => isCityUnlocked(state, c.id));
 }
 
-export function isCityUnlocked(city: City, fame: number): boolean {
-  return city.rank <= fame;
+/**
+ * A city is unlocked when it is the first on the map, or when the previous
+ * city's #1 contender (champion) has been defeated.
+ */
+export function isCityUnlocked(state: GameState, cityId: string): boolean {
+  const index = CITIES.findIndex((c) => c.id === cityId);
+  if (index < 0) return false;
+  if (index === 0) return true;
+  return coliseumRank(state, CITIES[index - 1].id) === 1;
+}
+
+/** The city whose champion must fall to open the given city (undefined for the first). */
+export function cityUnlockRequirement(cityId: string): City | undefined {
+  const index = CITIES.findIndex((c) => c.id === cityId);
+  return index > 0 ? CITIES[index - 1] : undefined;
 }
 
 export function cityById(id: string): City | undefined {

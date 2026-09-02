@@ -36,3 +36,18 @@ export function buyItem(state: GameState, item: Equipment): GameState {
   if (state.gold < price) throw new Error('Not enough gold');
   return { ...state, gold: state.gold - price, inventory: [...state.inventory, item] };
 }
+
+/** Sells an inventory item for half its shop price. Returns a new state. */
+export function sellItem(state: GameState, item: Equipment): GameState {
+  const price = sellPrice(item);
+  return {
+    ...state,
+    gold: state.gold + price,
+    inventory: state.inventory.filter((i) => i.id !== item.id),
+  };
+}
+
+/** Gold refunded when selling an item (50% of its shop price). */
+export function sellPrice(item: Equipment): number {
+  return Math.max(1, Math.floor(itemPrice(item) / 2));
+}

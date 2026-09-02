@@ -49,6 +49,12 @@ export const BLOCK_CAP = 72;
 /** Displayed armor value effectively doubles in combat application. */
 export const ARMOR_COMBAT_MULTIPLIER = 2;
 
+/** HP the torso loses each round for every destroyed limb (bleeding out). */
+export const LIMB_BLEED_PER_TURN = 8;
+
+/** A fighter dies outright once this many limbs are destroyed. */
+export const LIMBS_TO_DIE = 2;
+
 export const PRECISION: Record<AttackPrecision, { damage: number; hitChance: number }> = {
   weak: { damage: 0.7, hitChance: 1.0 },
   medium: { damage: 1.0, hitChance: 0.9 },

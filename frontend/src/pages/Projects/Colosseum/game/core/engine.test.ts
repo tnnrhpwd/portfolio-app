@@ -4,6 +4,7 @@ import {
   BODY_ZONES,
   BLOCK_CAP,
   ARMOR_COMBAT_MULTIPLIER,
+  LIMB_BLEED_PER_TURN,
   clampAttribute,
   hpPerVitality,
   totalHp,
@@ -13,6 +14,11 @@ import {
   applyZoneDamage,
   blockChance,
   isDefeated,
+  canMeleeAttack,
+  destroyedLimbCount,
+  legsCrippled,
+  usableMainHand,
+  usableOffHandWeapon,
   hitChance,
   initiative,
   sortTurnOrder,
@@ -29,6 +35,7 @@ import {
   victoryRewards,
   healCost,
   resolveRound,
+  crowdWish,
 } from './index';
 
 describe('stat caps', () => {
@@ -240,5 +247,68 @@ describe('round resolution', () => {
     const snapshot = JSON.stringify([player, enemy]);
     resolveRound([player], [enemy], {}, mulberry32(3));
     expect(JSON.stringify([player, enemy])).toBe(snapshot);
+  });
+});
+
+describe('limb mechanics', () => {
+  it('dies when two limbs are destroyed', () => {
+    const f = createFighter({ style: 'murmillo' });
+    f.zones.leftArm.hp = 0;
+    expect(isDefeated(f)).toBe(false);
+    f.zones.rightLeg.hp = 0;
+    expect(destroyedLimbCount(f)).toBe(2);
+    expect(isDefeated(f)).toBe(true);
+  });
+
+  it('cannot melee when a leg is destroyed, but an arm wound still allows fists', () => {
+    const f = createFighter({ style: 'murmillo' });
+    expect(canMeleeAttack(f)).toBe(true);
+    f.zones.leftLeg.hp = 0;
+    expect(legsCrippled(f)).toBe(true);
+    expect(canMeleeAttack(f)).toBe(false);
+    const g = createFighter({ style: 'murmillo' });
+    g.zones.rightArm.hp = 0;
+    expect(canMeleeAttack(g)).toBe(true);
+  });
+
+  it('disables the weapon in the destroyed hand', () => {
+    const f = createFighter({ style: 'dimachaerus' });
+    f.loadout.mainHand = createEquipment('mainHand', 1, { rand: mulberry32(1), kind: 'gladius' });
+    f.loadout.offHand = createEquipment('offHand', 1, { rand: mulberry32(1), weapon: true, kind: 'dagger' });
+    expect(usableMainHand(f)).not.toBeNull();
+    expect(usableOffHandWeapon(f)).not.toBeNull();
+    f.zones.rightArm.hp = 0;
+    expect(usableMainHand(f)).toBeNull();
+    expect(usableOffHandWeapon(f)).not.toBeNull();
+    f.zones.leftArm.hp = 0;
+    expect(usableOffHandWeapon(f)).toBeNull();
+  });
+
+  it('drops block when the shield arm is destroyed', () => {
+    const f = createFighter({ style: 'murmillo' });
+    f.loadout.offHand = createEquipment('offHand', 1, { rand: mulberry32(1), kind: 'tower' });
+    expect(blockChance(f)).toBeGreaterThan(0);
+    f.zones.leftArm.hp = 0;
+    expect(blockChance(f)).toBe(0);
+  });
+
+  it('bleeds the torso each round for every destroyed limb', () => {
+    const player = createFighter({ style: 'murmillo', id: 'p1' });
+    player.attributes.defense = 40; // enemy always misses
+    player.zones.leftArm.hp = 0;
+    const before = player.zones.torso.hp;
+    const enemy = createFighter({ style: 'murmillo', id: 'e1' });
+    const result = resolveRound([player], [enemy], { p1: { kind: 'block' } }, mulberry32(4));
+    expect(result.playerTeam[0].zones.torso.hp).toBe(before - LIMB_BLEED_PER_TURN);
+  });
+});
+
+describe('crowd wish', () => {
+  it('craves blood with high leftover morale and mercy when spent', () => {
+    const full = createFighter({ style: 'murmillo' });
+    const drained = createFighter({ style: 'murmillo' });
+    drained.morale = 0;
+    expect(crowdWish([full])).toBe('execute');
+    expect(crowdWish([drained])).toBe('mercy');
   });
 });

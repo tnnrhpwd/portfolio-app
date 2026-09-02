@@ -3,6 +3,7 @@ import { addText, type ButtonOpts } from '../ui/button';
 import { isLoggedIn } from '../state/cloudSync';
 import {
   CITIES,
+  cityUnlockRequirement,
   createCampaignStart,
   currentHp,
   isCityUnlocked,
@@ -35,13 +36,13 @@ export class MainScene extends BaseScene {
 
   /** The furthest city unlocked so far. */
   private latestUnlockedCity(): City {
-    const unlocked = unlockedCities(this.gameState.fame);
+    const unlocked = unlockedCities(this.gameState);
     return unlocked[unlocked.length - 1] ?? CITIES[0];
   }
 
   /** The city currently selected to drive coliseum / shop / market power. */
   private selectedCity(): City {
-    const unlocked = unlockedCities(this.gameState.fame);
+    const unlocked = unlockedCities(this.gameState);
     return unlocked.find((c) => c.id === this.selectedCityId) ?? this.latestUnlockedCity();
   }
 
@@ -144,9 +145,10 @@ export class MainScene extends BaseScene {
       const row = Math.floor(i / cols);
       const bx = x - ((cols - 1) * gapX) / 2 + col * gapX;
       const by = topY + row * rowH;
-      const unlocked = isCityUnlocked(city, this.gameState.fame);
+      const unlocked = isCityUnlocked(this.gameState, city.id);
       const selected = city.id === this.selectedCityId;
-      const label = selected ? `★ ${city.name}` : unlocked ? city.name : `${city.name}  (rank ${city.rank})`;
+      const req = cityUnlockRequirement(city.id);
+      const label = selected ? `★ ${city.name}` : unlocked ? city.name : req ? `${city.name} (beat ${req.name})` : city.name;
       const opts: ButtonOpts = {
         width: compact ? 230 : 260,
         height: compact ? 40 : 48,

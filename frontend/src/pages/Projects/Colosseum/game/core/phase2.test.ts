@@ -12,6 +12,8 @@ import {
   postBattleRewards,
   recomputeDerived,
   recruitCost,
+  sellItem,
+  sellPrice,
   simulateBattle,
   spendAttributePoint,
   totalHp,
@@ -108,6 +110,34 @@ describe('shop', () => {
     const avg = (items: ReturnType<typeof generateShopStock>) =>
       items.reduce((sum, item) => sum + itemPrice(item), 0) / items.length;
     expect(avg(pricey)).toBeGreaterThan(avg(cheap));
+  });
+
+  it('sells inventory items back for half their price', () => {
+    const state = createCampaignStart(mulberry32(10));
+    const item = generateShopStock(1, 1, mulberry32(12))[0];
+    const bought = buyItem(state, item);
+    const sold = sellItem(bought, item);
+    expect(sold.inventory).toHaveLength(bought.inventory.length - 1);
+    expect(sold.gold).toBe(bought.gold + sellPrice(item));
+    expect(sellPrice(item)).toBeLessThan(itemPrice(item));
+  });
+});
+
+describe('equipment archetypes', () => {
+  it('gives weapons distinct names, damage and crit bonuses', () => {
+    const spear = createEquipment('mainHand', 2, { kind: 'spear', rand: mulberry32(1) });
+    const axe = createEquipment('mainHand', 2, { kind: 'axe', rand: mulberry32(1) });
+    expect(spear.name).toContain('Spear');
+    expect(axe.name).toContain('Axe');
+    expect(spear.critBonus).toBeGreaterThan(axe.critBonus ?? 0);
+    expect(axe.minDamage).toBeLessThan(axe.maxDamage ?? 0);
+  });
+
+  it('tower shields block more than bucklers', () => {
+    const tower = createEquipment('offHand', 4, { kind: 'tower', rand: mulberry32(1) });
+    const buckler = createEquipment('offHand', 4, { kind: 'buckler', rand: mulberry32(1) });
+    expect(tower.name).toContain('Tower');
+    expect(tower.blockChance ?? 0).toBeGreaterThan(buckler.blockChance ?? 0);
   });
 });
 

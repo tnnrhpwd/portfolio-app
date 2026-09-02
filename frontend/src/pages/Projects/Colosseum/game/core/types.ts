@@ -16,6 +16,9 @@ export type BodyZone = 'head' | 'torso' | 'leftArm' | 'rightArm' | 'leftLeg' | '
 /** Attack strength tiers that trade damage for hit chance. */
 export type AttackPrecision = 'weak' | 'medium' | 'strong';
 
+/** Front/back arena row — back-row fighters are shielded from melee. */
+export type RowPosition = 'front' | 'back';
+
 /** Equipment slots, including the two hands. */
 export type EquipmentSlot =
   | 'head'
@@ -31,6 +34,8 @@ export type Attributes = Record<AttributeKey, number>;
 export interface Equipment {
   id: string;
   slot: EquipmentSlot;
+  /** Weapon/shield archetype (e.g. 'gladius', 'spear', 'tower'), armor uses its slot name. */
+  kind?: string;
   name: string;
   /** Material tier of the item, 0..4 (higher = better base stats). */
   tier: number;
@@ -41,6 +46,8 @@ export interface Equipment {
   /** Weapon damage range (hands only). */
   minDamage?: number;
   maxDamage?: number;
+  /** Extra critical-hit chance this weapon grants (0–1). */
+  critBonus?: number;
   /** Shield block chance (0–72) and damage absorbed on a block. */
   blockChance?: number;
   blockValue?: number;
@@ -91,10 +98,11 @@ export interface Fighter {
   zones: ZoneMap;
   status: StatusEffects;
   alive: boolean;
+  row: RowPosition;
 }
 
 export interface Action {
-  kind: 'attack' | 'block' | 'crowdAppeal' | 'pass' | 'skill';
+  kind: 'attack' | 'block' | 'crowdAppeal' | 'pass' | 'skill' | 'row';
   precision?: AttackPrecision;
   targetId?: string;
   targetZone?: BodyZone;
@@ -112,7 +120,7 @@ export interface AttackOutcome {
 }
 
 export interface TurnEvent {
-  kind: 'attack' | 'block' | 'restore' | 'death' | 'miss' | 'skill';
+  kind: 'attack' | 'block' | 'restore' | 'death' | 'miss' | 'skill' | 'row' | 'unable';
   actorId: string;
   targetId?: string;
   zone?: BodyZone;
@@ -120,4 +128,6 @@ export interface TurnEvent {
   crit?: boolean;
   blocked?: boolean;
   skillId?: string;
+  row?: RowPosition;
+  reason?: string;
 }

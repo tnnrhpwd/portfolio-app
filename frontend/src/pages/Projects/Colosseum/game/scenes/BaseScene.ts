@@ -150,13 +150,11 @@ export abstract class BaseScene extends Phaser.Scene {
     });
   }
 
-  /** Returns to the owning city (or the hub when launched directly). */
+  /** Returns to the hub (Main), since facilities are entered from there directly. */
   protected cityBack(cityId: string): GameButton {
-    this.backAction = () => {
-      if (cityId) this.scene.start('City', { cityId });
-      else this.scene.start('Main');
-    };
-    return this.button(96, 40, 'BACK', () => this.backAction?.(), {
+    void cityId;
+    this.backAction = () => this.scene.start('Main');
+    return this.button(96, 40, 'BACK', () => this.scene.start('Main'), {
       width: 120,
       height: 44,
       fontSize: 18,

@@ -36,6 +36,7 @@ function migrate(state: GameState): GameState {
         ...fighter,
         baseAttributes: fighter.baseAttributes ?? { ...fighter.attributes },
         skills: fighter.skills ?? {},
+        row: fighter.row ?? 'front',
         status: {
           stun: status.stun ?? 0,
           slow: status.slow ?? 0,
@@ -87,6 +88,13 @@ export function resetState(): void {
 /** Replaces the active fighter (roster[0]) — used to persist battle wounds. */
 export function setFighter(fighter: Fighter): void {
   setState({ ...state, roster: [fighter, ...state.roster.slice(1)] });
+}
+
+/** Replaces the first N roster fighters (the battle team) with post-battle state. */
+export function setFighters(fighters: Fighter[]): void {
+  const roster = [...state.roster];
+  for (let i = 0; i < fighters.length; i += 1) roster[i] = fighters[i];
+  setState({ ...state, roster });
 }
 
 /**

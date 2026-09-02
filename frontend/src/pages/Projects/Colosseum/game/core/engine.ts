@@ -15,10 +15,10 @@ import type { Rng } from './rng';
 import { pick } from './rng';
 import { isStyleKey, STYLES } from './classes';
 import { createEquipment } from './equipment';
-import { buildZones, currentHp, effectiveAttributes, isDefeated, totalHp } from './stats';
+import { buildZones, canMeleeAttack, currentHp, destroyedLimbCount, effectiveAttributes, isDefeated, isZoneDestroyed, legsCrippled, totalHp } from './stats';
 import { hitChance, initiative, resolveAttack, resolveHit, type HitMods } from './combat';
 import { getSkill } from './skills';
-import { ARMOR_COMBAT_MULTIPLIER, BODY_ZONES, START_FAME, START_GOLD } from './constants';
+import { ARMOR_COMBAT_MULTIPLIER, BODY_ZONES, LIMB_BLEED_PER_TURN, START_FAME, START_GOLD } from './constants';
 
 export interface GameState {
   roster: Fighter[];
@@ -59,7 +59,7 @@ export function createFighter(opts: CreateFighterOptions = {}): Fighter {
   fighterSeq += 1;
 
   const fighter: Fighter = {
-    id: opts.id ?? `fighter_${fighterSeq}`,
+    id: opts.id ?? `fighter_${fighterSeq}_${Math.random().toString(36).slice(2, 8)}`,
     name: opts.name ?? 'Recruit',
     style,
     level: opts.level ?? 1,
@@ -74,6 +74,7 @@ export function createFighter(opts: CreateFighterOptions = {}): Fighter {
     loadout: { ...EMPTY_LOADOUT },
     status: { stun: 0, slow: 0, defending: false, bleeding: 0, buffed: 0 },
     alive: true,
+    row: 'front',
     zones: {} as ZoneMap,
   };
   fighter.zones = buildZones(fighter);
@@ -154,6 +155,13 @@ export function weakestZone(fighter: Fighter): BodyZone {
   return weakest;
 }
 
+/** Living fighters that may be hit by melee: the front row, or everyone when no front row remains. */
+function validMeleeTargets(team: Fighter[]): Fighter[] {
+  const living = team.filter((f) => f.alive && !isDefeated(f));
+  const front = living.filter((f) => f.row === 'front');
+  return front.length > 0 ? front : living;
+}
+
 function emitHit(
   events: TurnEvent[],
   actor: Fighter,
@@ -197,6 +205,7 @@ function healTorso(fighter: Fighter, amount: number): number {
 function applySkill(
   fighter: Fighter,
   defenders: Fighter[],
+  meleeTargets: Fighter[],
   action: Action,
   rand: Rng,
   events: TurnEvent[],
@@ -216,11 +225,30 @@ function applySkill(
     return;
   }
   const scale = 1 + 0.04 * (rank - 1);
-  const defender =
-    (action.targetId ? defenders.find((f) => f.id === action.targetId) : undefined) ??
-    defenders[0];
-  const zone: BodyZone = action.targetZone ?? weakestZone(defender);
   const eff = node.effect;
+
+  // Crippled fighters can't swing a weapon, but shouts/thrown/ranged skills still work.
+  const needsMelee = eff.kind === 'strike' || eff.kind === 'combo';
+  const needsShield = eff.kind === 'shieldBash';
+  if (needsMelee && !canMeleeAttack(fighter)) {
+    events.push({
+      kind: 'unable',
+      actorId: fighter.id,
+      reason: legsCrippled(fighter) ? 'legs crippled' : 'weapon arm disabled',
+    });
+    return;
+  }
+  if (needsShield && (legsCrippled(fighter) || isZoneDestroyed(fighter, 'leftArm'))) {
+    events.push({ kind: 'unable', actorId: fighter.id, reason: 'shield arm disabled' });
+    return;
+  }
+
+  const ranged = eff.kind === 'throw' || eff.kind === 'demoralize';
+  const pool = ranged ? defenders : meleeTargets;
+  const defender =
+    (action.targetId ? pool.find((f) => f.id === action.targetId) : undefined) ??
+    pool[0];
+  const zone: BodyZone = action.targetZone ?? weakestZone(defender);
 
   if (eff.kind === 'combo') {
     for (let i = 0; i < eff.hits; i += 1) {
@@ -272,6 +300,26 @@ function enemyAction(actor: Fighter, targets: Fighter[], rand: Rng): Action {
   const target = pick(targets, rand);
 
   if (currentHp(actor) < totalHp(actor) * 0.3 && rand() < 0.3) {
+    return { kind: 'block' };
+  }
+
+  const canMelee = canMeleeAttack(actor);
+
+  // Ranged / support skills remain usable even when the legs are gone.
+  const utilityIds = Object.keys(actor.skills).filter((id) => {
+    const node = getSkill(id);
+    if (!node || node.mpCost <= 0) return false;
+    return node.effect.kind === 'throw' || node.effect.kind === 'demoralize';
+  });
+
+  if (!canMelee) {
+    if (utilityIds.length > 0 && rand() < 0.6) {
+      const skillId = pick(utilityIds, rand);
+      const node = getSkill(skillId);
+      if (node && actor.morale >= node.mpCost) {
+        return { kind: 'skill', skillId, targetId: target.id, targetZone: weakestZone(target) };
+      }
+    }
     return { kind: 'block' };
   }
 
@@ -335,11 +383,12 @@ export function resolveRound(
       (f) => f.alive && !isDefeated(f),
     );
     if (opposing.length === 0) continue;
+    const meleeTargets = validMeleeTargets(opposing);
 
     const action: Action =
       side === 'player'
         ? (playerActions[fighter.id] ?? { kind: 'attack', precision: 'medium', targetZone: 'torso' })
-        : enemyAction(fighter, opposing, rand);
+        : enemyAction(fighter, meleeTargets, rand);
 
     if (action.kind === 'block') {
       fighter.status.defending = true;
@@ -354,16 +403,31 @@ export function resolveRound(
       continue;
     }
 
+    if (action.kind === 'row') {
+      fighter.row = fighter.row === 'front' ? 'back' : 'front';
+      events.push({ kind: 'row', actorId: fighter.id, row: fighter.row });
+      continue;
+    }
+
     if (action.kind === 'skill') {
-      applySkill(fighter, opposing, action, rand, events);
+      applySkill(fighter, opposing, meleeTargets, action, rand, events);
       continue;
     }
 
     if (action.kind !== 'attack') continue;
 
+    if (!canMeleeAttack(fighter)) {
+      events.push({
+        kind: 'unable',
+        actorId: fighter.id,
+        reason: legsCrippled(fighter) ? 'legs crippled' : 'weapon arm disabled',
+      });
+      continue;
+    }
+
     const defender =
-      (action.targetId ? opposing.find((f) => f.id === action.targetId) : undefined) ??
-      opposing[0];
+      (action.targetId ? meleeTargets.find((f) => f.id === action.targetId) : undefined) ??
+      meleeTargets[0];
     const zone: BodyZone = action.targetZone ?? 'torso';
     const precision: AttackPrecision = action.precision ?? 'medium';
 
@@ -404,8 +468,13 @@ export function resolveRound(
     if (fighter.status.bleeding > 0) {
       fighter.status.bleeding -= 1;
       fighter.zones.torso.hp = Math.max(0, fighter.zones.torso.hp - 2);
-      if (isDefeated(fighter)) fighter.alive = false;
     }
+    // Destroyed limbs bleed the torso every round.
+    const limbs = destroyedLimbCount(fighter);
+    if (limbs > 0) {
+      fighter.zones.torso.hp = Math.max(0, fighter.zones.torso.hp - limbs * LIMB_BLEED_PER_TURN);
+    }
+    if (isDefeated(fighter)) fighter.alive = false;
   }
 
   return {

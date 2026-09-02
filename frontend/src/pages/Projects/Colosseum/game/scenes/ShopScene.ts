@@ -7,6 +7,8 @@ import {
   equipItem,
   generateShopStock,
   itemPrice,
+  sellItem,
+  sellPrice,
   totalHp,
   type Equipment,
   type EquipmentSlot,
@@ -109,16 +111,18 @@ export class ShopScene extends BaseScene {
       const y = invY + 40 + i * (compact ? 56 : 42);
       addText(
         this,
-        compact ? this.cx : this.cx - 240,
+        compact ? this.cx : this.cx - 260,
         compact ? y - 18 : y,
         `${item.name} (${item.slot})`,
         { fontSize: '15px' },
       ).setOrigin(compact ? 0.5 : 0, 0.5);
-      this.button(compact ? this.cx : this.cx + 210, compact ? y + 18 : y, 'EQUIP', () => this.equip(item), {
-        width: 96,
-        height: 36,
-        fontSize: 14,
-      });
+      if (compact) {
+        this.button(this.cx - 70, y + 18, 'EQUIP', () => this.equip(item), { width: 90, height: 34, fontSize: 13 });
+        this.button(this.cx + 70, y + 18, 'SELL', () => this.sell(item), { width: 90, height: 34, fontSize: 13 });
+      } else {
+        this.button(this.cx + 150, y, 'EQUIP', () => this.equip(item), { width: 96, height: 36, fontSize: 14 });
+        this.button(this.cx + 260, y, 'SELL', () => this.sell(item), { width: 96, height: 36, fontSize: 14 });
+      }
     });
 
     // ── Fighter summary ──
@@ -167,6 +171,7 @@ export class ShopScene extends BaseScene {
     if (item.minDamage !== undefined) {
       parts.push(`dmg ${equipped?.minDamage ?? 0}-${equipped?.maxDamage ?? 0} → ${item.minDamage}-${item.maxDamage}`);
     }
+    if (item.critBonus) parts.push(`crit +${Math.round(item.critBonus * 100)}%`);
     if (item.blockChance !== undefined) {
       parts.push(`block ${equipped?.blockChance ?? 0}% → ${item.blockChance}%`);
     }
@@ -189,6 +194,13 @@ export class ShopScene extends BaseScene {
       // not enough gold — button is disabled anyway
     }
     this.render();
+  }
+
+  private sell(item: Equipment): void {
+    this.confirm('Sell item?', `Sell ${item.name} for ${sellPrice(item)} gp?`, () => {
+      this.gameState = sellItem(this.gameState, item);
+      this.render();
+    });
   }
 
   private equip(item: Equipment): void {

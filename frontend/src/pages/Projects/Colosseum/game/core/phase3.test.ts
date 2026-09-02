@@ -1,5 +1,6 @@
 import {
   advanceColiseumRank,
+  autoTeamActions,
   canChallenge,
   CITIES,
   coliseumOpponentLevel,
@@ -10,6 +11,7 @@ import {
   effectiveAttributes,
   forge,
   forgeCost,
+  generateOpponentTeam,
   getSkill,
   healCost,
   healToFull,
@@ -19,9 +21,12 @@ import {
   mulberry32,
   postBattleRewards,
   resolveRound,
+  rollLoot,
   simulateBattle,
   spendSkillPoint,
   stabilize,
+  startBattle,
+  stepBattle,
   styleSkills,
   totalHp,
   unlockedCities,
@@ -129,11 +134,16 @@ describe('skill combat', () => {
 });
 
 describe('cities campaign', () => {
-  it('gates cities by fame rank', () => {
-    expect(unlockedCities(0).map((c) => c.id)).toEqual(['londinium']);
-    expect(unlockedCities(28)).toHaveLength(10);
-    expect(isCityUnlocked(CITIES[1], 1)).toBe(false);
-    expect(isCityUnlocked(CITIES[1], 2)).toBe(true);
+  it('unlocks cities by defeating the previous city champion', () => {
+    const start = createCampaignStart(mulberry32(1));
+    expect(unlockedCities(start).map((c) => c.id)).toEqual(['londinium']);
+    expect(isCityUnlocked(start, 'eboracum')).toBe(false);
+
+    // Beat Londinium's #1 contender → Eboracum unlocks.
+    const progressed = advanceColiseumRank(start, 'londinium', 1);
+    expect(unlockedCities(progressed).map((c) => c.id)).toEqual(['londinium', 'eboracum']);
+    expect(isCityUnlocked(progressed, 'eboracum')).toBe(true);
+    expect(isCityUnlocked(progressed, 'lugdunum')).toBe(false);
   });
 
   it('builds a 16-team ladder per city, progressively harder', () => {
@@ -214,5 +224,43 @@ describe('battle rewards', () => {
     expect(postBattleRewards(5, 'mercy').metals).toEqual({});
     expect(postBattleRewards(5, 'execute').metals.silver).toBe(1);
     expect(postBattleRewards(1, 'execute').metals.bronze).toBe(1);
+  });
+
+  it('executing drops more equipment loot than mercy', () => {
+    const mercy = rollLoot(6, 'mercy', mulberry32(21));
+    const execute = rollLoot(6, 'execute', mulberry32(21));
+    expect(execute.length).toBeGreaterThan(mercy.length);
+    for (const item of [...mercy, ...execute]) {
+      expect(item.id).toBeTruthy();
+    }
+  });
+});
+
+describe('team battles', () => {
+  it('fields more opponents at higher ranks', () => {
+    expect(generateOpponentTeam(1, mulberry32(1))).toHaveLength(1);
+    expect(generateOpponentTeam(6, mulberry32(1))).toHaveLength(2);
+    expect(generateOpponentTeam(12, mulberry32(1))).toHaveLength(3);
+  });
+
+  it('resolves a 3v2 team battle deterministically', () => {
+    const make = (id: string) => {
+      const f = createFighter({ style: 'murmillo' });
+      f.id = id;
+      f.attributes.strength = 300;
+      f.attributes.dexterity = 500;
+      f.attributes.speed = 30;
+      return f;
+    };
+    const team = [make('p1'), make('p2'), make('p3')];
+    const enemies = generateOpponentTeam(6, mulberry32(7));
+    let snap = startBattle(team, enemies);
+    let guard = 0;
+    while (!snap.playerWon && !snap.enemyWon && guard < 100) {
+      snap = stepBattle(snap, autoTeamActions(snap.playerTeam, snap.enemyTeam, mulberry32(5)), mulberry32(5));
+      guard += 1;
+    }
+    expect(snap.playerWon).toBe(true);
+    expect(snap.round).toBeGreaterThan(0);
   });
 });
