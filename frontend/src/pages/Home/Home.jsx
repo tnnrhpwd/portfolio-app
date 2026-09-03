@@ -75,31 +75,61 @@ function Home() {
     const [activeIndex, setActiveIndex] = useState(0);
     const [topProjects, setTopProjects] = useState([]);
 
+    // Width of a single carousel "page" — one card plus the row gap. This is
+    // the shared unit used to translate card indices into pixel offsets and to
+    // move the arrows exactly one card at a time.
+    const getCarouselStep = () => {
+        const row = templatesRowRef.current;
+        if (!row || !row.children.length) return 0;
+        const card = row.children[0];
+        const gap = parseFloat(getComputedStyle(row).columnGap || getComputedStyle(row).gap || '0');
+        return card.getBoundingClientRect().width + (Number.isFinite(gap) ? gap : 0);
+    };
+
+    const getCarouselMaxScroll = () => {
+        const row = templatesRowRef.current;
+        if (!row) return 0;
+        return row.scrollWidth - row.clientWidth;
+    };
+
+    // Bring the card at `index` to the leading edge. The target is clamped to
+    // the scrollable range so trailing cards simply park at the far right.
     const scrollToCard = (index) => {
         const row = templatesRowRef.current;
-        if (!row) return;
-        const card = row.children[index];
-        if (!card) return;
-        const maxScroll = row.scrollWidth - row.clientWidth;
-        const rowLeft = row.getBoundingClientRect().left;
-        const target = row.scrollLeft + (card.getBoundingClientRect().left - rowLeft);
-        row.scrollTo({ left: Math.max(0, Math.min(target, maxScroll)), behavior: 'smooth' });
+        const step = getCarouselStep();
+        if (!row || !step) return;
+        row.scrollTo({
+            left: Math.max(0, Math.min(index * step, getCarouselMaxScroll())),
+            behavior: 'smooth',
+        });
+    };
+
+    // Move exactly one card-width in the given direction (+1 next, -1 prev).
+    // Pixel-based rather than index-based so the previous arrow always moves
+    // even when parked at the far-right end, where the last card index has no
+    // distinct leading-edge position of its own.
+    const stepCarousel = (direction) => {
+        const row = templatesRowRef.current;
+        const step = getCarouselStep();
+        if (!row || !step) return;
+        row.scrollTo({
+            left: Math.max(0, Math.min(row.scrollLeft + direction * step, getCarouselMaxScroll())),
+            behavior: 'smooth',
+        });
     };
 
     const handleTemplatesScroll = () => {
         const row = templatesRowRef.current;
         if (!row || !row.children.length) return;
         const last = row.children.length - 1;
-        const maxScroll = row.scrollWidth - row.clientWidth;
+        const maxScroll = getCarouselMaxScroll();
         // The last card can't align to the left edge, so at the far right snap
         // the indicator to the last dot instead of rounding down short of it.
         if (row.scrollLeft >= maxScroll - 1) {
             setActiveIndex(last);
             return;
         }
-        const card = row.children[0];
-        const gap = parseFloat(getComputedStyle(row).columnGap || getComputedStyle(row).gap || '0');
-        const step = card.getBoundingClientRect().width + (Number.isFinite(gap) ? gap : 0);
+        const step = getCarouselStep();
         if (!step) return;
         const index = Math.round(row.scrollLeft / step);
         setActiveIndex(Math.max(0, Math.min(index, last)));
@@ -300,7 +330,7 @@ function Home() {
                             ))}
                         </div>
                         <div className="home-carousel-nav">
-                            <button type="button" className="home-carousel-arrow" onClick={() => scrollToCard(Math.max(0, activeIndex - 1))} aria-label="Previous project">←</button>
+                            <button type="button" className="home-carousel-arrow" onClick={() => stepCarousel(-1)} aria-label="Previous project">←</button>
                             <div className="home-dots" role="tablist" aria-label="Featured project pages">
                                 {featuredProjects.map((project, i) => (
                                     <button
@@ -314,7 +344,7 @@ function Home() {
                                     />
                                 ))}
                             </div>
-                            <button type="button" className="home-carousel-arrow" onClick={() => scrollToCard(Math.min(featuredProjects.length - 1, activeIndex + 1))} aria-label="Next project">→</button>
+                            <button type="button" className="home-carousel-arrow" onClick={() => stepCarousel(1)} aria-label="Next project">→</button>
                         </div>
                     </div>
                 </section>

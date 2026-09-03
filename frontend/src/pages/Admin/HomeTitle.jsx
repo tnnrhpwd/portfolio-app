@@ -100,54 +100,68 @@ function HomeTitle() {
             condition matches the visitor wins. If nothing matches, the default title below is used.
           </p>
 
-          <div className="section-toolbar">
-            <label htmlFor="home-title-default" style={{ marginRight: 8 }}>Default title:</label>
+          {/* Default title */}
+          <div className="ht-default">
+            <label className="ht-label" htmlFor="home-title-default">Default title</label>
             <input
               id="home-title-default"
               type="text"
-              className="admin-search"
+              className="admin-search ht-default__input"
               value={homeTitleSettings.defaultTitle}
               onChange={(e) => setHomeTitleSettings((prev) => ({ ...prev, defaultTitle: e.target.value }))}
               placeholder="It's simple."
             />
+            <p className="admin-help-text ht-default__hint">Shown to visitors when none of the rules below match.</p>
           </div>
 
-          <div className="table-scroll-container">
-            <table className="admin-table compact-table">
-              <thead>
-                <tr>
-                  <th>Enabled</th>
-                  <th>Priority</th>
-                  <th>Rule Type</th>
-                  <th>Match Value</th>
-                  <th>Title To Show</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {homeTitleSettings.rules.map((rule) => {
-                  const info = homeTitleRuleTypeInfo(rule.type);
-                  return (
-                    <tr key={rule.id}>
-                      <td>
+          {/* Rule cards */}
+          {homeTitleSettings.rules.length === 0 ? (
+            <p className="admin-no-data ht-empty">No custom rules yet — add one below, or leave empty to always show the default title.</p>
+          ) : (
+            <div className="ht-rule-grid">
+              {homeTitleSettings.rules.map((rule, idx) => {
+                const info = homeTitleRuleTypeInfo(rule.type);
+                return (
+                  <div className={`ht-rule-card ${rule.enabled === false ? "ht-rule-card--disabled" : ""}`} key={rule.id}>
+                    <div className="ht-rule-card__head">
+                      <span className="ht-rule-card__index">Rule {idx + 1}</span>
+                      <label className="ht-toggle" title={rule.enabled === false ? "Rule is disabled" : "Rule is enabled"}>
                         <input
                           type="checkbox"
                           checked={rule.enabled !== false}
                           onChange={(e) => updateHomeTitleRule(rule.id, { enabled: e.target.checked })}
                         />
-                      </td>
-                      <td>
+                        <span>{rule.enabled === false ? "Disabled" : "Enabled"}</span>
+                      </label>
+                      <button
+                        type="button"
+                        className="ht-rule-card__remove"
+                        onClick={() => removeHomeTitleRule(rule.id)}
+                        title="Remove rule"
+                        aria-label="Remove rule"
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    <div className="ht-rule-card__body">
+                      <div className="ht-field">
+                        <label className="ht-label" htmlFor={`ht-priority-${rule.id}`}>Priority</label>
                         <input
+                          id={`ht-priority-${rule.id}`}
                           type="number"
-                          className="mono"
-                          style={{ width: 60 }}
+                          className="ht-input mono"
+                          min="0"
                           value={rule.priority ?? 0}
                           onChange={(e) => updateHomeTitleRule(rule.id, { priority: Number(e.target.value) })}
                         />
-                      </td>
-                      <td>
+                      </div>
+
+                      <div className="ht-field">
+                        <label className="ht-label" htmlFor={`ht-type-${rule.id}`}>Rule type</label>
                         <select
-                          className="type-select"
+                          id={`ht-type-${rule.id}`}
+                          className="ht-input"
                           value={rule.type}
                           onChange={(e) => updateHomeTitleRule(rule.id, { type: e.target.value })}
                         >
@@ -155,46 +169,44 @@ function HomeTitle() {
                             <option key={t.value} value={t.value}>{t.label}</option>
                           ))}
                         </select>
-                      </td>
-                      <td>
-                        {info.needsMatch ? (
+                      </div>
+
+                      {info.needsMatch && (
+                        <div className="ht-field">
+                          <label className="ht-label" htmlFor={`ht-match-${rule.id}`}>Match value</label>
                           <input
+                            id={`ht-match-${rule.id}`}
                             type="text"
+                            className="ht-input"
                             value={rule.match || ""}
                             placeholder={info.matchPlaceholder}
                             onChange={(e) => updateHomeTitleRule(rule.id, { match: e.target.value })}
                           />
-                        ) : (
-                          <span className="admin-no-data">n/a</span>
-                        )}
-                      </td>
-                      <td>
+                        </div>
+                      )}
+
+                      <div className="ht-field ht-field--full">
+                        <label className="ht-label" htmlFor={`ht-title-${rule.id}`}>Title to show</label>
                         <input
+                          id={`ht-title-${rule.id}`}
                           type="text"
+                          className="ht-input"
                           value={rule.title || ""}
                           placeholder="Title shown to matching visitors"
                           onChange={(e) => updateHomeTitleRule(rule.id, { title: e.target.value })}
                         />
-                      </td>
-                      <td>
-                        <button className="btn-sm btn-retry" onClick={() => removeHomeTitleRule(rule.id)}>
-                          ✕
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          {homeTitleSettings.rules.length === 0 && (
-            <p className="admin-no-data">No custom rules yet — add one below, or leave empty to always show the default title.</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
 
-          <div className="section-toolbar">
-            <button className="btn-sm" onClick={addHomeTitleRule}>+ Add Rule</button>
+          <div className="section-toolbar ht-actions">
+            <button className="btn-sm btn-outline" onClick={addHomeTitleRule}>+ Add Rule</button>
             <button
-              className="btn-sm btn-retry"
+              className="btn-sm"
               onClick={handleSaveHomeTitleSettings}
               disabled={homeTitleSaving}
             >

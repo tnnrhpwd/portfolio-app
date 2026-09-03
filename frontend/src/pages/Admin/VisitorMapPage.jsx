@@ -23,6 +23,9 @@ function VisitorMapPage() {
   const [refererFilter, setRefererFilter] = useState(location.state?.refererFilter || "");
   const [hideOwnVisits, setHideOwnVisits] = useState(true);
 
+  // Logged-in visitor nicknames, resolved from the admin users endpoint
+  const [nicknameById, setNicknameById] = useState(new Map());
+
   // ═══════════════ Fetch all data ═══════════════
   const fetchAllData = useCallback(async (force = false) => {
     if (!user?.token || (allData && !force)) return;
@@ -36,6 +39,27 @@ function VisitorMapPage() {
 
   useEffect(() => {
     fetchAllData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ═══════════════ Nickname lookup (from the users endpoint) ═══════════════
+  // The Users admin page already exposes a paginated user list with `id` +
+  // `nickname`. Pull one page (up to 200) and build a userId → nickname map so
+  // the visitor table can show who a logged-in visitor is.
+  const fetchNicknames = useCallback(async () => {
+    if (!user?.token) return;
+    try {
+      const res = await dataService.getAdminUsers(user.token, { page: 1, limit: 200 });
+      const map = new Map();
+      (res?.data || []).forEach((u) => {
+        if (u?.id && u?.nickname) map.set(String(u.id), u.nickname);
+      });
+      setNicknameById(map);
+    } catch { /* handled by service */ }
+  }, [user]);
+
+  useEffect(() => {
+    fetchNicknames();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -172,7 +196,7 @@ function VisitorMapPage() {
               <div className="table-scroll-container">
               <table className="admin-table compact-table">
                 <thead><tr>
-                  <th>When</th><th>IP</th><th>Location</th><th>Browser / OS</th><th>Referer</th><th>Category</th>
+                  <th>When</th><th>User</th><th>IP</th><th>Location</th><th>Browser / OS</th><th>Referer</th><th>Category</th>
                 </tr></thead>
                 <tbody>
                   {filteredVisitorLocations
@@ -182,6 +206,11 @@ function VisitorMapPage() {
                     .map((v, i) => (
                       <tr key={`${v.ip}-${i}`}>
                         <td>{ts(v.timestamp)}</td>
+                        <td>
+                          {v.userId
+                            ? <span className="user-badge user-badge--in" title={`User ID: ${v.userId}`}>✓ {nicknameById.get(String(v.userId)) || "Logged in"}</span>
+                            : <span className="user-badge user-badge--out" title="No user logged in">Guest</span>}
+                        </td>
                         <td className="mono">{v.ip}</td>
                         <td>{[v.city, v.region, v.country].filter(Boolean).join(", ")}</td>
                         <td>{v.browser} / {v.os}</td>

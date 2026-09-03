@@ -2694,3 +2694,226 @@
         transition: none !important;
     }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   ── Multi-device polish (tables, touch targets, visitor "user" badge)
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Wide data tables keep readable column widths on small screens by
+   scrolling horizontally inside .table-scroll-container instead of
+   crushing their columns together. */
+.admin-table {
+    min-width: 720px;
+}
+
+/* Logged-in / guest visitor badge (visitor map table) */
+.user-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+
+.user-badge--in {
+    background: rgba(59, 130, 246, 0.16);
+    color: var(--fg-blue);
+    border-color: var(--fg-blue);
+}
+
+.user-badge--out {
+    background: var(--bg-accent);
+    color: var(--text-color-accent);
+    border-color: var(--admin-line);
+}
+
+/* ── Home Title editor (card-based rules) ─────────────────────── */
+.ht-default {
+    background: var(--admin-card);
+    border: 1px solid var(--admin-line);
+    border-radius: var(--admin-r-xl);
+    box-shadow: var(--admin-shadow-sm);
+    padding: calc(var(--nav-size) * 0.4);
+    margin-bottom: calc(var(--nav-size) * 0.5);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+}
+
+.ht-default__input {
+    width: 100%;
+    box-sizing: border-box;
+    flex: none;
+}
+
+.ht-default__hint {
+    margin: calc(var(--nav-size) * 0.2) 0 0 0;
+}
+
+.ht-label {
+    display: block;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-color-accent);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: calc(var(--nav-size) * 0.12);
+}
+
+.ht-rule-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: calc(var(--nav-size) * 0.35);
+    margin-bottom: calc(var(--nav-size) * 0.4);
+}
+
+.ht-rule-card {
+    background: var(--admin-card);
+    border: 1px solid var(--admin-line);
+    border-radius: var(--admin-r-xl);
+    box-shadow: var(--admin-shadow-sm);
+    padding: calc(var(--nav-size) * 0.35);
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.25);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    transition: box-shadow 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
+}
+
+.ht-rule-card:hover {
+    box-shadow: var(--admin-shadow);
+    transform: translateY(-2px);
+}
+
+.ht-rule-card--disabled {
+    opacity: 0.55;
+}
+
+.ht-rule-card__head {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.2);
+    padding-bottom: calc(var(--nav-size) * 0.2);
+    border-bottom: 1px solid var(--admin-line);
+}
+
+.ht-rule-card__index {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-bold);
+    color: var(--text-color-strong);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-right: auto;
+}
+
+.ht-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-color);
+    white-space: nowrap;
+}
+
+.ht-toggle input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--fg-blue);
+    cursor: pointer;
+}
+
+.ht-rule-card__remove {
+    display: grid;
+    place-items: center;
+    width: calc(var(--nav-size) * 0.5);
+    height: calc(var(--nav-size) * 0.5);
+    min-width: 32px;
+    min-height: 32px;
+    border: 1px solid var(--admin-line);
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-color-accent);
+    cursor: pointer;
+    font-size: var(--font-size-xs);
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.ht-rule-card__remove:hover {
+    background: var(--red0, #e53e3e);
+    color: #fff;
+    border-color: transparent;
+}
+
+.ht-rule-card__body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.25);
+}
+
+.ht-field {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.08);
+    min-width: 0;
+}
+
+.ht-field--full {
+    grid-column: 1 / -1;
+}
+
+.ht-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.25);
+    border: 1px solid var(--admin-line);
+    border-radius: 999px;
+    background: var(--bg-1);
+    color: var(--text-color);
+    font-size: var(--font-size-small);
+    font-family: 'CutiveMono-Regular', monospace;
+    min-height: 44px;
+}
+
+.ht-input:focus {
+    outline: none;
+    border-color: var(--fg-blue);
+    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.12);
+}
+
+.ht-empty {
+    margin: calc(var(--nav-size) * 0.4) 0;
+}
+
+.ht-actions {
+    justify-content: flex-start;
+}
+
+/* Phones: stack home-title rule cards in a single column */
+@media (max-width: 480px) {
+    .ht-rule-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .ht-rule-card__body {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Touch-friendly nav + table readability on tablets/phones */
+@media (max-width: 768px) {
+    .admin-nav-link {
+        min-height: 44px;
+        align-items: center;
+    }
+
+    .table-scroll-container {
+        -webkit-overflow-scrolling: touch;
+    }
+}

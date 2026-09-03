@@ -240,14 +240,12 @@
   display: flex;
   gap: calc(var(--nav-size) * 0.35);
   overflow-x: auto;
-  scroll-snap-type: x mandatory;
   width: 100%;
   padding-bottom: calc(var(--nav-size) * 0.3);
   scrollbar-width: none;
 }
 .home-templates-row::-webkit-scrollbar { display: none; }
 .home-template-card {
-  scroll-snap-align: start;
   flex: 0 0 calc(var(--nav-size) * 6);
   display: flex;
   flex-direction: column;
