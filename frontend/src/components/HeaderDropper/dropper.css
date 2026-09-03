@@ -1,0 +1,155 @@
+/* HeaderDropper — slide-in navigation drawer (vibrant editorial). */
+
+.dropper-space {
+  width: 0;
+  height: 0;
+}
+
+#planit-header-dropper__toggle {
+  opacity: 0;
+  position: fixed;
+}
+
+/* Hamburger button */
+.dropper-btn {
+  position: fixed;
+  top: calc(var(--nav-size) * 0.3);
+  right: calc(var(--nav-size) * 0.3);
+  width: calc(var(--nav-size) * 0.45);
+  padding-top: calc(var(--nav-size) * 0.2);
+  padding-bottom: calc(var(--nav-size) * 0.3);
+  cursor: pointer;
+  z-index: 10000000;
+}
+.dropper-btn > span,
+.dropper-btn > span::before,
+.dropper-btn > span::after {
+  display: block;
+  position: absolute;
+  width: 100%;
+  height: calc(var(--nav-size) * 0.05);
+  border-radius: 999px;
+  background-color: var(--text-color);
+  transition: transform 0.25s ease, top 0.25s ease, background-color 0.25s ease;
+}
+.dropper-btn > span::before { content: ''; top: calc(var(--nav-size) * -0.12); }
+.dropper-btn > span::after { content: ''; top: calc(var(--nav-size) * 0.13); }
+.dropper-btn:hover > span,
+.dropper-btn:hover > span::before,
+.dropper-btn:hover > span::after { background-color: var(--fg-blue); }
+#planit-header-dropper__toggle:checked + .dropper-btn > span { transform: rotate(45deg); }
+#planit-header-dropper__toggle:checked + .dropper-btn > span::before { top: 0; transform: rotate(0deg); }
+#planit-header-dropper__toggle:checked + .dropper-btn > span::after { top: 0; transform: rotate(90deg); }
+
+/* Drawer */
+.dropper-box {
+  position: fixed;
+  top: 0;
+  right: -100%;
+  width: min(calc(var(--nav-size) * 5.5), 88vw);
+  height: 100%;
+  margin: 0;
+  padding: calc(var(--nav-size) * 1.4) calc(var(--nav-size) * 0.4) calc(var(--nav-size) * 0.6);
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.5);
+  overflow-y: auto;
+  background: var(--bg-page);
+  box-shadow: var(--shadow-xl);
+  transition: right 0.3s cubic-bezier(0.22, 0.61, 0.36, 1);
+  z-index: 9999999;
+}
+#planit-header-dropper__toggle:checked ~ .dropper-box { right: 0 !important; }
+
+/* Groups + eyebrow labels */
+.dropper-group {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.08);
+}
+.dropper-group--theme { margin-top: auto; }
+
+/* Links */
+.dropper-link {
+  font-family: inherit;
+  width: 100%;
+  text-align: left;
+  appearance: none;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--nav-size) * 0.2);
+  padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.24);
+  border-radius: var(--border-radius);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-color);
+  font-size: var(--font-size-base);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+.dropper-link::after {
+  content: '→';
+  color: var(--text-color-accent);
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.dropper-link:hover {
+  background: var(--bg-accent);
+  transform: translateX(2px);
+}
+.dropper-link:focus {
+  outline: none;
+  background: var(--bg-accent);
+}
+.dropper-link:hover::after { opacity: 1; transform: translateX(0); }
+.dropper-link--strong { font-weight: var(--font-weight-semibold); }
+
+/* Theme toggle */
+.dropper-themebutton {
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--nav-size) * 0.12);
+  width: 100%;
+  padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.3);
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+  color: var(--text-color-inv);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.dropper-themebutton:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* One-time pulse on homepage load */
+.hamburger-animate { border-radius: 50%; animation: dropperPulse 2.2s ease; }
+@keyframes dropperPulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--fg-mint) 70%, transparent); }
+  70% { box-shadow: 0 0 0 calc(var(--nav-size) * 0.4) transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .dropper-box,
+  .dropper-btn > span,
+  .dropper-btn > span::before,
+  .dropper-btn > span::after,
+  .hamburger-animate {
+    transition: none;
+    animation: none !important;
+  }
+}

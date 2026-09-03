@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
 import SEO from '../../components/SEO/SEO.jsx';
-import './Privacy.css';
+import useScrollReveal from '../../hooks/useScrollReveal';
+import '../legal/legal.css';
 
 const NAV_ITEMS = [
     { id: 'introduction', label: 'Introduction', icon: '👋' },
@@ -22,6 +23,7 @@ const NAV_ITEMS = [
 
 const Privacy = () => {
     const [activeSection, setActiveSection] = useState('introduction');
+    const [ref, visible] = useScrollReveal();
 
     const scrollToSection = (sectionId) => {
         setActiveSection(sectionId);
@@ -45,18 +47,23 @@ const Privacy = () => {
         />
         <Header />
         <div className="privacy">
+            <div className="legal-floating" aria-hidden="true">
+                <div className="legal-circle legal-circle-1" />
+                <div className="legal-circle legal-circle-2" />
+                <div className="legal-circle legal-circle-3" />
+            </div>
             <div className="privacy-header">
                 <span className="privacy-eyebrow">STHopwood.com</span>
                 <h1 className="privacy-title">Privacy Policy</h1>
                 <p className="privacy-subtitle">Last Updated: {currentMonth} {currentYear}</p>
                 <div className="privacy-badges">
-                    <span className="privacy-badge badge-orange">🔐 Data encrypted in transit</span>
-                    <span className="privacy-badge badge-blue">🚫 We never sell your data</span>
-                    <span className="privacy-badge badge-mint">🧾 Payments handled by Stripe</span>
+                    <span className="privacy-badge badge-orange">Data encrypted in transit</span>
+                    <span className="privacy-badge badge-blue">We never sell your data</span>
+                    <span className="privacy-badge badge-mint">Payments handled by Stripe</span>
                 </div>
             </div>
 
-            <div className="privacy-container">
+            <div ref={ref} className={`privacy-container legal-reveal ${visible ? 'is-visible' : ''}`}>
                 <div className="privacy-navigation">
                     <h3>Contents</h3>
                     <ul>

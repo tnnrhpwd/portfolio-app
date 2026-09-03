@@ -3,10 +3,12 @@ import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
 import SEO from '../../components/SEO/SEO.jsx';
 import { PLAN_NAMES, PLAN_IDS, STORAGE_DISPLAY } from '../../constants/pricing';
-import './Terms.css';
+import useScrollReveal from '../../hooks/useScrollReveal';
+import '../legal/legal.css';
 
 const Terms = () => {
     const [activeSection, setActiveSection] = useState("introduction");
+    const [ref, visible] = useScrollReveal();
 
     const scrollToSection = (sectionId) => {
         setActiveSection(sectionId);
@@ -25,12 +27,18 @@ const Terms = () => {
         />
         <Header />
         <div className="terms">
+            <div className="legal-floating" aria-hidden="true">
+                <div className="legal-circle legal-circle-1" />
+                <div className="legal-circle legal-circle-2" />
+                <div className="legal-circle legal-circle-3" />
+            </div>
             <div className='terms-header'>
+                <span className="terms-eyebrow">STHopwood.com</span>
                 <h1 className='terms-title'>Terms of Service</h1>
                 <p className='terms-subtitle'>Last Updated: {currentMonth} {currentYear}</p>
             </div>
 
-            <div className="terms-container">
+            <div ref={ref} className={`terms-container legal-reveal ${visible ? 'is-visible' : ''}`}>
                 <div className="terms-navigation">
                     <h3>Contents</h3>
                     <ul>
