@@ -1,7 +1,7 @@
 /**
  * projectRankingsApi.js — fetches page-view counts for the /projects catalog.
  *
- *   GET /api/data/analytics/project-rankings?paths=/fluid,/2048,/colosseum
+ *   GET /api/data/analytics/project-rankings?paths=/fluid,/2048,/coliseum
  *
  * Returns `{ success, days, pages: [{ path, visits }] }`. The endpoint is
  * public and only returns counts for the paths we explicitly ask for.

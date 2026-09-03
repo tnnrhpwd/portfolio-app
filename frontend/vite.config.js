@@ -60,7 +60,7 @@ export default defineConfig({
           vendor: ['react', 'react-dom', 'react-router-dom'],
           redux: ['@reduxjs/toolkit', 'react-redux'],
           charts: ['chart.js', 'react-chartjs-2'],
-          // Phaser is huge (~1.4 MB) and only used by the Colosseum route,
+          // Phaser is huge (~1.4 MB) and only used by the Coliseum route,
           // which lazy-loads it. Its own chunk lets the browser cache it
           // independently and keeps it out of every other route's graph.
           phaser: ['phaser'],

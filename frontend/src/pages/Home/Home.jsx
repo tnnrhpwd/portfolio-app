@@ -117,12 +117,13 @@ function Home() {
         (state) => state.data
     );
 
-    // Rounded years of manufacturing experience, kept in sync with the About
-    // page's start date (2021-09-12).
-    const yearsExperience = Math.max(
-        4,
-        Math.ceil((Date.now() - new Date('2021-09-12').getTime()) / (1000 * 60 * 60 * 24 * 365.25))
-    );
+    // Years of manufacturing experience, kept in sync with the About page's
+    // start date (2021-09-12) — one decimal place so it never needs a manual
+    // yearly update.
+    const yearsExperience = (
+        (Date.now() - new Date('2021-09-12').getTime()) /
+        (1000 * 60 * 60 * 24 * 365.25)
+    ).toFixed(1);
 
     // Scroll-triggered reveals (see FRONTEND_UI_STANDARD.md §5) — one per major section.
     const [introRef, introVisible] = useScrollReveal();
@@ -386,7 +387,7 @@ function Home() {
                             <div className="home-stats">
                                 <AnimatedStat value={250} prefix="$" suffix="K+" label="Cost savings I've led" />
                                 <AnimatedStat value={PROJECTS.length} suffix="+" label="Projects shipped" />
-                                <AnimatedStat value={yearsExperience} suffix="+" label="Years of experience" />
+                                <AnimatedStat value={yearsExperience} label="Years of experience" />
                                 <AnimatedStat value="Tier 1" label="Automotive supplier" />
                             </div>
                         </div>

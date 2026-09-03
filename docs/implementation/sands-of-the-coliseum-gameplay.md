@@ -1,10 +1,10 @@
-# Sands of the Colosseum: Complete Gameplay & Mechanics Manual
+# Sands of the Coliseum: Complete Gameplay & Mechanics Manual
 
 ---
 
 ## 1. Overview & Core Game Loop
 
-**Sands of the Colosseum** is a turn-based tactical gladiator management RPG set across the ancient Roman Empire and its mythological fringes. The core gameplay loop revolves around managing a gladiator stable (*Ludus*), recruiting and training slaves, outfitting fighters with precision-targeted armor and weaponry, and entering gladiatorial combats across multiple historical coliseums to climb both single-player campaigns and multiplayer rankings.
+**Sands of the Coliseum** is a turn-based tactical gladiator management RPG set across the ancient Roman Empire and its mythological fringes. The core gameplay loop revolves around managing a gladiator stable (*Ludus*), recruiting and training slaves, outfitting fighters with precision-targeted armor and weaponry, and entering gladiatorial combats across multiple historical coliseums to climb both single-player campaigns and multiplayer rankings.
 
 ```
        ┌────────────────────────────────────────────────────────┐
@@ -264,7 +264,7 @@ The campaign spans historical and mythic Roman territories, progressing through 
         │
   8. Athena (Greece)
         │
-  9. Rome (The Grand Colosseum)
+  9. Rome (The Grand Coliseum)
         │
  10. Olympus (Mythic Final Frontier)
 ```
@@ -278,7 +278,7 @@ Each city introduces:
 
 ## 8. Multiplayer & Competitive PvP
 
-Sands of the Colosseum includes an asynchronous and ranked multiplayer system where players pit their best gladiator teams against other players' builds.
+Sands of the Coliseum includes an asynchronous and ranked multiplayer system where players pit their best gladiator teams against other players' builds.
 
 ### Ranked Ladder Tiers
 
@@ -587,7 +587,7 @@ This section describes exactly what the game *looks* like — colors, shapes, te
 
 ### 18.1 Overall Art Style
 
-Sands of the Colosseum uses a **hand-painted, semi-realistic illustrated art style** for its "camera-facing" character portraits (the large head-and-shoulders bust shown during combat and dialogue), combined with **flat-shaded, simplified cartoon-style sprites** for the small full-body characters that actually move around the arena floor. This creates two distinct visual "layers" on screen at once:
+Sands of the Coliseum uses a **hand-painted, semi-realistic illustrated art style** for its "camera-facing" character portraits (the large head-and-shoulders bust shown during combat and dialogue), combined with **flat-shaded, simplified cartoon-style sprites** for the small full-body characters that actually move around the arena floor. This creates two distinct visual "layers" on screen at once:
 
 1. **Portrait layer** — painterly, almost photo-real digital painting with soft shading, wrinkles, stubble, and moody lighting. Used for the trainer, opponents, and dialogue "talking head" shots.
 2. **Sprite layer** — small, simplified, brightly colored 2D animated figures (the actual gladiators fighting), styled more like a flash-animation cartoon: thick smooth limbs, minimal facial detail, and bold simple color blocking (skin tone, tunic color, hair color) rather than fine texture.
@@ -600,7 +600,7 @@ The overall mood is **gritty, blood-and-sand Roman epic** — think "history-cha
 |---|---|---|
 | **Title screen** | Cream/tan, blood-red, gold, black | A bloodied gladiator helmet (tan/cream metal streaked with dark red blood) sits beside large gold-and-red ornate lettering reading "SPQR" over "SANDS OF THE COLISEUM." Background is a dim, blurred stone arena with indistinct crowd silhouettes. |
 | **Studio splash screen** | Pure black & white | A stark, high-contrast viking/warrior skull emblem with dangling chain and skull ornaments, presented like a stencil/woodcut, on a plain white background. No color at all — a deliberate contrast to every other screen. |
-| **Intro cinematic** | Warm gold-orange sky gradient, gray-blue silhouette, tan stone | A bold black-outlined silhouette of a crouched gladiator figure in the foreground, positioned in front of sunlit stone Colosseum exterior arches. The sky graduates from deep gold at the horizon to lighter orange/cream higher up, evoking sunrise or sunset over Rome. |
+| **Intro cinematic** | Warm gold-orange sky gradient, gray-blue silhouette, tan stone | A bold black-outlined silhouette of a crouched gladiator figure in the foreground, positioned in front of sunlit stone Coliseum exterior arches. The sky graduates from deep gold at the horizon to lighter orange/cream higher up, evoking sunrise or sunset over Rome. |
 | **Main menu** | Black background, orange/gold fire-glow, bronze armor tones | A full-color painted gladiator in ornate bronze/steel plate armor and a horsehair-crested helmet stands to the right in a dramatic action pose, lit from below by an orange-gold fire glow that fills the bottom third of the screen like embers or torchlight. A gold-and-bronze eagle (the SPQR eagle) with outstretched wings spans the top of the screen. Menu buttons ("START," "CREDITS," "MORE GAMES") are rendered as red ribbon-banners with gold winged accents and gold rope/rivet borders, cream-white all-caps text. |
 | **Gender-select screen** | Black background, orange-red fire glow at base, cream/red/brown character colors | A muscular red-haired male gladiator in a white toga-like tunic with a brown leather belt stands on a round stone pedestal/column, sword drawn, silhouetted against the same gold eagle emblem. Orange-red flame/ember glow fills the bottom of the screen beneath the pedestal. Two option panels (MALE/FEMALE) use the same red-ribbon-and-gold styling as the main menu. |
 | **Character customization** | Black background, red ribbon UI, orange fire-glow base | Same red-haired male gladiator sprite as above, now larger and posed mid-action (crouched, blade forward). To the right, a stack of red ribbon-style option bars (SKIN / HEAD / HAIR / CLOTH) each with gold left/right triangle arrow buttons for cycling choices, and text-entry ribbons for Team Name and gladiator Name at the top. |

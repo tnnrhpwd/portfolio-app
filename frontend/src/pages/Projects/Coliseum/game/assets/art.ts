@@ -1,5 +1,5 @@
 /**
- * Original vector art for the Colosseum rebuild.
+ * Original vector art for the Coliseum rebuild.
  *
  * Every SVG here is original work: a stylized, flat-shaded cartoon gladiator
  * figure drawn from scratch (no tracing, no copied reference art). The five

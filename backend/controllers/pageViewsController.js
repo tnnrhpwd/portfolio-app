@@ -55,7 +55,7 @@ function isDevOrigin(req) {
     return false;
 }
 
-/** Normalize a frontend path so `/colosseum` and `/Colosseum` count together. */
+/** Normalize a frontend path so `/coliseum` and `/Coliseum` count together. */
 function normalizePath(rawPath) {
     if (typeof rawPath !== 'string') return '/';
     let p = rawPath.trim();
@@ -168,7 +168,7 @@ const getPageRankings = asyncHandler(async (req, res) => {
 
 /**
  * @desc    Get visit counts for a specific set of pages (e.g. the /projects catalog)
- * @route   GET /api/data/analytics/project-rankings?paths=/fluid,/2048,/colosseum
+ * @route   GET /api/data/analytics/project-rankings?paths=/fluid,/2048,/coliseum
  * @access  Public — only returns counts for the paths the caller asked for
  */
 const getProjectRankings = asyncHandler(async (req, res) => {

@@ -5,7 +5,7 @@ import { announce } from '../accessibility';
 
 const STEPS = [
   {
-    title: 'Welcome to Colosseum',
+    title: 'Welcome to Coliseum',
     body: 'You run a school of gladiators. Recruit fighters, equip them, train them, and climb the arena ladder.',
   },
   {

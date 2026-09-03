@@ -1,6 +1,6 @@
-# Colosseum — Functional Specification (2026 rebuild)
+# Coliseum — Functional Specification (2026 rebuild)
 
-> Clean-room functional spec for the rebuild at `sthopwood.com/colosseum`.
+> Clean-room functional spec for the rebuild at `sthopwood.com/coliseum`.
 > This document describes **what** the game does, in our own words. It is
 > derived from observing the reference game's behavior and contains no copied
 > text, names, lore, art, or code. All wording here is original. Functional

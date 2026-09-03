@@ -1,14 +1,14 @@
-# Colosseum — Asset Licenses
+# Coliseum — Asset Licenses
 
-The Colosseum rebuild is original. This file records the provenance and
+The Coliseum rebuild is original. This file records the provenance and
 licensing of every non-code asset and of the audio layer. Nothing here is
-copied from the reference game (see `docs/implementation/COLOSSEUM-SPEC.md`).
+copied from the reference game (see `docs/implementation/COLISEUM-SPEC.md`).
 
 ## Art / Visuals
 
 ### Shipped: original vector sprites + arena backdrop
 
-- **Source:** `frontend/src/pages/Projects/Colosseum/game/assets/art.ts`
+- **Source:** `frontend/src/pages/Projects/Coliseum/game/assets/art.ts`
   (inline SVG, generated as code; registered as Phaser textures by
   `game/assets/textures.ts`).
 - **What it contains:** five stylized, flat-shaded gladiator figures (one per
@@ -37,7 +37,7 @@ copied from the reference game (see `docs/implementation/COLOSSEUM-SPEC.md`).
 
 ### Shipped: original synthesized SFX
 
-- **Source:** `frontend/src/pages/Projects/Colosseum/game/audio/sfx.ts`
+- **Source:** `frontend/src/pages/Projects/Coliseum/game/audio/sfx.ts`
   (WebAudio oscillators, generated at runtime).
 - **Provenance:** all sounds are synthesized in code. They contain no sampled,
   purchased, or copied audio, so they are original works with no third-party

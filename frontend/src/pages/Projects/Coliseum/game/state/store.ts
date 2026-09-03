@@ -2,7 +2,8 @@ import type { Fighter, GameState } from '../core';
 import { createCampaignStart, DEFAULT_TEAM_NAME } from '../core';
 import { cloudLoad, cloudSave, isLoggedIn } from './cloudSync';
 
-const SAVE_KEY = 'colosseum.save.v1';
+const SAVE_KEY = 'coliseum.save.v1';
+const LEGACY_SAVE_KEY = 'colosseum.save.v1';
 
 function storageAvailable(): boolean {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
@@ -11,7 +12,9 @@ function storageAvailable(): boolean {
 function load(): GameState | null {
   if (!storageAvailable()) return null;
   try {
-    const raw = window.localStorage.getItem(SAVE_KEY);
+    const raw =
+      window.localStorage.getItem(SAVE_KEY) ??
+      window.localStorage.getItem(LEGACY_SAVE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as GameState;
     if (!parsed || !Array.isArray(parsed.roster) || parsed.roster.length === 0) return null;

@@ -1,7 +1,8 @@
 import type { GameState } from '../core';
 import { deserializeState, serializeState } from '../core';
 
-const MARKER = 'ColosseumSave';
+const MARKER = 'ColiseumSave';
+const LEGACY_MARKER = 'ColosseumSave';
 
 // The backend is reachable via the Vite dev proxy (localhost) and the Netlify
 // proxy in production, so a relative base works for both deployment targets.
@@ -33,9 +34,13 @@ function buildText(state: GameState): string {
 }
 
 function parseText(text: string): GameState | null {
-  const idx = text.indexOf(MARKER);
-  if (idx < 0) return null;
-  return deserializeState(text.slice(idx + MARKER.length).replace(/^\|/, ''));
+  for (const marker of [MARKER, LEGACY_MARKER]) {
+    const idx = text.indexOf(marker);
+    if (idx >= 0) {
+      return deserializeState(text.slice(idx + marker.length).replace(/^\|/, ''));
+    }
+  }
+  return null;
 }
 
 async function request(path: string, init: RequestInit = {}): Promise<Response> {
@@ -53,18 +58,24 @@ interface CloudItem {
   text?: string;
 }
 
-async function fetchSaves(): Promise<CloudItem[]> {
-  const res = await request(`?data=${encodeURIComponent(JSON.stringify({ text: MARKER }))}`);
+async function fetchSaves(marker: string): Promise<CloudItem[]> {
+  const res = await request(`?data=${encodeURIComponent(JSON.stringify({ text: marker }))}`);
   if (!res.ok) return [];
   const json = (await res.json()) as { data?: CloudItem[] };
-  return (json.data ?? []).filter((item) => (item.text ?? '').includes(MARKER));
+  return (json.data ?? []).filter((item) => (item.text ?? '').includes(marker));
+}
+
+async function fetchAllSaves(): Promise<CloudItem[]> {
+  const current = await fetchSaves(MARKER);
+  const legacy = await fetchSaves(LEGACY_MARKER);
+  return [...current, ...legacy];
 }
 
 /** Pulls the logged-in user's cloud save, or null when none exists. */
 export async function cloudLoad(): Promise<GameState | null> {
   if (!readAuth()) return null;
   try {
-    const items = await fetchSaves();
+    const items = await fetchAllSaves();
     for (const item of items) {
       const parsed = parseText(item.text ?? '');
       if (parsed) return parsed;
@@ -79,7 +90,7 @@ export async function cloudLoad(): Promise<GameState | null> {
 export async function cloudSave(state: GameState): Promise<boolean> {
   if (!readAuth()) return false;
   try {
-    const items = await fetchSaves();
+    const items = await fetchAllSaves();
     await Promise.all(
       items.map((item) => (item.id ? request(`${item.id}`, { method: 'DELETE' }) : Promise.resolve())),
     );

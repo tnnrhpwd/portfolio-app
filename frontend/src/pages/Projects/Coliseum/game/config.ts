@@ -58,6 +58,6 @@ export function createGameConfig(parent: HTMLElement): Phaser.Types.Core.GameCon
       AchievementsScene,
       SettingsScene,
     ],
-    title: 'Colosseum',
+    title: 'Coliseum',
   };
 }

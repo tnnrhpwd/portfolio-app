@@ -50,7 +50,7 @@ export class MainScene extends BaseScene {
     this.clearScreen();
     this.applyBackground();
     this.mapBackground();
-    this.header('COLOSSEUM');
+    this.header('COLISEUM');
 
     const fighter = this.gameState.roster[0];
     const compact = this.compact;

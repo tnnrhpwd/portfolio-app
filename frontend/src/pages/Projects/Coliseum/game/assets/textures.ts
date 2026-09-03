@@ -31,24 +31,24 @@ import {
   type HumanVariant,
 } from './art';
 
-const ARENA_KEY = 'colosseum-arena';
-const MENU_KEY = 'colosseum-menu';
-const MAP_KEY = 'colosseum-map';
-const MANNEQUIN_KEY = 'colosseum-mannequin';
-const HUMAN_KEY = 'colosseum-human-';
-const ARMOR_OVERLAY_KEY = 'colosseum-armor-';
-const ARMOR_ICON_KEY = 'colosseum-armor-icon-';
-const WEAPON_OVERLAY_KEY = 'colosseum-weapon-';
-const WEAPON_ICON_KEY = 'colosseum-weapon-icon-';
-const SHIELD_OVERLAY_KEY = 'colosseum-shield-';
-const SHIELD_ICON_KEY = 'colosseum-shield-icon-';
+const ARENA_KEY = 'coliseum-arena';
+const MENU_KEY = 'coliseum-menu';
+const MAP_KEY = 'coliseum-map';
+const MANNEQUIN_KEY = 'coliseum-mannequin';
+const HUMAN_KEY = 'coliseum-human-';
+const ARMOR_OVERLAY_KEY = 'coliseum-armor-';
+const ARMOR_ICON_KEY = 'coliseum-armor-icon-';
+const WEAPON_OVERLAY_KEY = 'coliseum-weapon-';
+const WEAPON_ICON_KEY = 'coliseum-weapon-icon-';
+const SHIELD_OVERLAY_KEY = 'coliseum-shield-';
+const SHIELD_ICON_KEY = 'coliseum-shield-icon-';
 const SPRITE_W = 120;
 const SPRITE_H = 180;
 
 const registered = new WeakMap<Phaser.Textures.TextureManager, Set<string>>();
 
 function textureKey(style: StyleKey): string {
-  return `colosseum-style-${style}`;
+  return `coliseum-style-${style}`;
 }
 
 function registerOnce(

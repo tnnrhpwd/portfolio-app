@@ -1,5 +1,5 @@
 /**
- * Theme palette for the Colosseum game (dark + light modes).
+ * Theme palette for the Coliseum game (dark + light modes).
  *
  * Scenes and shared UI helpers read colors from here instead of hardcoding
  * hex values, so a single resolved palette drives every screen. The `system`

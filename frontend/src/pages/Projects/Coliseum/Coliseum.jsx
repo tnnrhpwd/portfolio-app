@@ -2,10 +2,10 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Header from '../../../components/Header/Header';
 import Footer from '../../../components/Footer/Footer';
 import SEO from '../../../components/SEO/SEO.jsx';
-import './Colosseum.css';
+import './Coliseum.css';
 
 /**
- * Colosseum — thin React shell.
+ * Coliseum — thin React shell.
  *
  * SEO, header, and footer stay in React; the game itself is a Phaser canvas
  * mounted into a single container. Every in-game menu, button, and HUD element
@@ -17,7 +17,7 @@ import './Colosseum.css';
  * the AudioContext is unlocked by a real user gesture.
  */
 
-export default function Colosseum() {
+export default function Coliseum() {
   const containerRef = useRef(null);
   const liveRegionRef = useRef(null);
   const handleRef = useRef(null);
@@ -33,7 +33,7 @@ export default function Colosseum() {
       handleRef.current = createGame(containerRef.current);
       setPhase('playing');
     } catch (err) {
-      console.error('Colosseum failed to load:', err);
+      console.error('Coliseum failed to load:', err);
       setPhase('error');
     }
   }, [phase]);
@@ -51,11 +51,11 @@ export default function Colosseum() {
 
   useEffect(() => {
     // Bridge so the Phaser core can announce events to screen readers.
-    window.__colosseumAnnounce = (message) => {
+    window.__coliseumAnnounce = (message) => {
       if (liveRegionRef.current) liveRegionRef.current.textContent = message;
     };
     return () => {
-      delete window.__colosseumAnnounce;
+      delete window.__coliseumAnnounce;
     };
   }, []);
 
@@ -64,37 +64,37 @@ export default function Colosseum() {
       ? 'Loading the arena…'
       : phase === 'error'
         ? 'Could not load the game — tap to retry'
-        : 'Play Colosseum';
+        : 'Play Coliseum';
 
   return (
-    <div className="colosseum-page">
+    <div className="coliseum-page">
       <SEO
-        title="Colosseum"
+        title="Coliseum"
         description="A gladiator-management RPG: recruit, train, and fight turn-based arena battles."
-        path="/colosseum"
+        path="/coliseum"
       />
       <Header />
-      <main className="colosseum-shell">
+      <main className="coliseum-shell">
         <div
           ref={containerRef}
-          className="colosseum-game"
+          className="coliseum-game"
           role="application"
-          aria-label="Colosseum game"
+          aria-label="Coliseum game"
         >
           {phase !== 'playing' && (
             <button
               type="button"
-              className="colosseum-play"
+              className="coliseum-play"
               onClick={startGame}
               disabled={phase === 'loading'}
               aria-busy={phase === 'loading'}
             >
-              <span className="colosseum-play-title">Colosseum</span>
-              <span className="colosseum-play-sub">{gateLabel}</span>
+              <span className="coliseum-play-title">Coliseum</span>
+              <span className="coliseum-play-sub">{gateLabel}</span>
             </button>
           )}
         </div>
-        <div ref={liveRegionRef} className="colosseum-sr" aria-live="polite" role="status" />
+        <div ref={liveRegionRef} className="coliseum-sr" aria-live="polite" role="status" />
       </main>
       <Footer />
     </div>

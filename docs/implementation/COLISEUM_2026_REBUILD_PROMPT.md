@@ -1,4 +1,4 @@
-# Build "Colosseum" — a 2026 rebuild of a gladiator-management game
+# Build "Coliseum" — a 2026 rebuild of a gladiator-management game
 
 ## Your role
 You are a senior game engineer and game designer shipping a production-quality,
@@ -6,7 +6,7 @@ cross-platform HTML5 game. You write clean, tested, maintainable TypeScript. You
 deliver in reviewable phases and never gold-plate.
 
 ## Objective
-Rebuild the game that lives at https://sthopwood.com/colosseum from scratch as a
+Rebuild the game that lives at https://sthopwood.com/coliseum from scratch as a
 modern web game. It is a gladiator-management game: run a school (ludus) of
 gladiators, recruit and train them, buy equipment, and fight turn-based arena
 battles to earn gold and fame while climbing the rank ladder.
@@ -44,7 +44,7 @@ clean-slate rewrite of the game itself.
    words.
 3. All code, text, names, and assets in the deliverable must be original or
    correctly licensed.
-4. The game title stays "Colosseum" (a generic historical word).
+4. The game title stays "Coliseum" (a generic historical word).
 
 ## Reference material
 - Functional reference: `sandsofthecoliseum.swf` (legacy Flash; its online
@@ -61,13 +61,13 @@ clean-slate rewrite of the game itself.
   Use these ONLY to understand screen layout, pacing, and function — do not
   trace or copy the art; recreate it in the new stylized direction below.
 - Existing repo context (portfolio-app, branch `master`):
-  - Route + wiring already exist: `frontend/src/App.js` (`/colosseum` and
-    `/Colosseum`), catalog card in `frontend/src/pages/Projects/Projects/Projects.jsx`,
+  - Route + wiring already exist: `frontend/src/App.js` (`/coliseum` and
+    `/Coliseum`), catalog card in `frontend/src/pages/Projects/Projects/Projects.jsx`,
     sitemap entry in `frontend/scripts/generate-sitemap.js`. Keep these; replace
     the page content.
-  - Old implementation to reference/salvage: `frontend/src/pages/Projects/Colosseum/`
-    (a pure deterministic engine `colosseumEngine.js` with 17 Jest tests,
-    `ArenaCanvas.jsx`, SVG icons in `ColosseumArt.jsx`, synthesized SFX in
+  - Old implementation to reference/salvage: `frontend/src/pages/Projects/Coliseum/`
+    (a pure deterministic engine `coliseumEngine.js` with 17 Jest tests,
+    `ArenaCanvas.jsx`, SVG icons in `ColiseumArt.jsx`, synthesized SFX in
     `sfx.js`). You may keep the pure-engine ideas and tests, but you are
     rebuilding presentation from scratch.
   - Reusable art: `frontend/src/assets/art/` (banner, icon, background texture,
@@ -82,7 +82,7 @@ cross-check it against the reference SWF
 (`C:\Users\tanne\Downloads\sands-of-the-coliseum\sandsofthecoliseum.swf`, playable
 offline via Ruffle) and the reference screenshots
 (`C:\Users\tanne\Downloads\sands-of-the-coliseum\export\md\`). Then produce
-`COLOSSEUM-SPEC.md` — a plain-English, implementation-ready functional
+`COLISEUM-SPEC.md` — a plain-English, implementation-ready functional
 specification in your own words that catalogs:
 - the core loop and every screen/state the player moves through;
 - each system: character creation, roster/team management, attribute + skill
@@ -264,13 +264,13 @@ Deliver in phases. At the end of each phase, stop for review/approval before the
 next. Each phase must leave the game playable (no giant "big bang" that only
 works at the end).
 
-- Phase 0 — Spec: play the reference, write `COLOSSEUM-SPEC.md` (functional
+- Phase 0 — Spec: play the reference, write `COLISEUM-SPEC.md` (functional
   spec in your own words) and a short tech/asset plan. Gate: spec approved.
 - Phase 1 — Foundations: project scaffold (TypeScript + Phaser + Vite + strict
   config), pure game core with data model (gladiators, classes, stats,
   equipment, economy), RNG-injected deterministic engine, Jest/Vitest harness,
   and the thin React mount replacing the old page. Gate: core unit-tested and
-  the route renders an empty playable shell at /colosseum.
+  the route renders an empty playable shell at /coliseum.
 - Phase 2 — Vertical slice: one weapon style / class, recruit → gear → train →
   fight → rewards loop, end-to-end, with placeholder art and stock SFX. Gate:
   the loop is fun and runs on desktop + mobile.
@@ -285,7 +285,7 @@ works at the end).
   touch tuning, PWA/offline, keyboard + screen-reader + reduced-motion +
   colorblind support. Gate: accessibility checklist passes.
 - Phase 6 — Persistence & ship: accounts + cloud saves (offline-first sync),
-  final art/audio pass, performance pass, QA, deploy to sthopwood.com/colosseum
+  final art/audio pass, performance pass, QA, deploy to sthopwood.com/coliseum
   via the existing Netlify setup. Gate: production-ready.
 
 ## Deliverables per phase
@@ -295,7 +295,7 @@ changed, any new dependencies (with justification), updated
 follow-ups. Keep commits small and descriptive.
 
 ## Definition of done (final)
-- The game is live at sthopwood.com/colosseum and runs on desktop, tablet, and
+- The game is live at sthopwood.com/coliseum and runs on desktop, tablet, and
   mobile.
 - The full reference-matching management loop is present, original, and polished.
 - All playability and accessibility improvements are implemented.
@@ -324,7 +324,7 @@ Phases 1–6 are implemented and verified in `master`:
   convention), debounced autosave, local-always-wins merge.
 
 Assumed complete (outside the game's code): the Projects catalog refactor that
-unblocked the production build, and the Netlify deploy to sthopwood.com/colosseum.
+unblocked the production build, and the Netlify deploy to sthopwood.com/coliseum.
 
 ## Next steps (remaining to reach the full definition of done)
 
@@ -340,9 +340,9 @@ Progress as of 2026-09-02:
    royalty-free files later. Remaining: actually source + record stock SFX/music,
    and richer animated atlases + original menu UI chrome if desired.
 2. **Performance pass** — DONE. The game + Phaser are lazy-loaded behind a
-   "Play" gate (`Colosseum.jsx` dynamic-imports `./game` on tap), and Phaser is
+   "Play" gate (`Coliseum.jsx` dynamic-imports `./game` on tap), and Phaser is
    split into its own `phaser-*.js` vendor chunk via `vite.config.js`
-   `manualChunks`. Measured: Colosseum route chunk 1.81 kB (was ~1.43 MB);
+   `manualChunks`. Measured: Coliseum route chunk 1.81 kB (was ~1.43 MB);
    Phaser chunk 1,387 kB / 371.5 kB gzip, fetched only on demand. Still open:
    a real-device 60 FPS measurement.
 3. **QA / ship gate** — PARTIAL. `npm run typecheck`, 61 Jest tests, and

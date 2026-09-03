@@ -14,11 +14,19 @@ const EMAIL = 'Steven.T.Hopwood@gmail.com';
 const LINKEDIN = 'https://www.linkedin.com/in/sthopwood/';
 const GITHUB = 'https://github.com/tnnrhpwd';
 
+// Starting the timer on '2021-09-12' ensures the years-in-manufacturing number
+// stays accurate (computed to one decimal place) without a yearly manual update.
+const MANUFACTURING_START_DATE = new Date('2021-09-12');
+const yearsInManufacturing = (
+  (Date.now() - MANUFACTURING_START_DATE.getTime()) /
+  (1000 * 60 * 60 * 24 * 365.25)
+).toFixed(1);
+
 const ACHIEVEMENTS = [
   { value: '$239K+', label: 'Direct cost savings' },
   { value: '$45K', label: 'Annual materials savings' },
   { value: '3.44', label: 'College GPA' },
-  { value: '5+', label: 'Years in manufacturing' },
+  { value: yearsInManufacturing, label: 'Years in manufacturing' },
 ];
 
 const SKILLS = [

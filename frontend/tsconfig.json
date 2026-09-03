@@ -16,5 +16,5 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src/pages/Projects/Colosseum/game/**/*.ts"]
+  "include": ["src/pages/Projects/Coliseum/game/**/*.ts"]
 }

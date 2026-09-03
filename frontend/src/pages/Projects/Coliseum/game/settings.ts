@@ -10,7 +10,8 @@ export interface GameSettings {
   theme: ThemeMode;
 }
 
-const KEY = 'colosseum.settings.v1';
+const KEY = 'coliseum.settings.v1';
+const LEGACY_KEY = 'colosseum.settings.v1';
 
 function detectReducedMotion(): boolean {
   if (typeof window === 'undefined') return false;
@@ -27,7 +28,8 @@ const DEFAULTS: GameSettings = {
 
 function load(): GameSettings {
   try {
-    const raw = window.localStorage.getItem(KEY);
+    const raw =
+      window.localStorage.getItem(KEY) ?? window.localStorage.getItem(LEGACY_KEY);
     if (!raw) return { ...DEFAULTS };
     return { ...DEFAULTS, ...(JSON.parse(raw) as Partial<GameSettings>) };
   } catch {
