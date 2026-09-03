@@ -4,7 +4,7 @@
  * same-origin static assets are cache-first (populating the cache on first
  * load) so repeat visits work offline.
  */
-const CACHE = 'sthopwood-v1';
+const CACHE = 'sthopwood-v2';
 
 self.addEventListener('install', () => {
   self.skipWaiting();
@@ -24,6 +24,15 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+
+  // Never intercept API requests. They are dynamic and auth-aware — e.g.
+  // /api/data/home-title resolves a different title per visitor, and
+  // /api/data/admin/home-title must always reflect the latest saved rules.
+  // Caching them (even cache-first) would serve stale admin data and could
+  // leak one user's personalized response to another.
+  if (url.pathname.startsWith('/api/')) {
+    return;
+  }
 
   if (request.mode === 'navigate') {
     event.respondWith(

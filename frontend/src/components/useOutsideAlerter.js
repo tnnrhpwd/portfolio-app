@@ -7,19 +7,26 @@ function useOutsideAlerter( alertType, insideComponentRef, toggleButtonRef, Comp
     useEffect(() => {
       // RUNS ON EVERY CLICK && RUNS ON EACH TOGGLE  => RUNS TWICE ON TOGGLE
       function handleOutsideClick(event){
+        const toggleEl = toggleButtonRef.current;
+        const insideEl = insideComponentRef.current;
+        const target = event.target;
+
+        // The refs can be null while the component is (un)mounting or when the
+        // toggle/container elements aren't rendered — bail out rather than throw.
+        if (!toggleEl || !insideEl || !target) return;
 
         // if dropper button pressed && dropper was closed
-        if((toggleButtonRef.current.contains(event.target)) && !ComponentVisibility()){
+        if((toggleEl.contains(target)) && !ComponentVisibility()){
           dropperNumRef.current = 1;
           clickNumRef.current = 0;
         }else if((alertType === "share") && (dropperNumRef.current === 0)){
           dropperNumRef.current=1;
           clickNumRef.current++;
         // else if dropper button pressed && dropper was open
-        }else if((toggleButtonRef.current.contains(event.target)) && ComponentVisibility()){
+        }else if((toggleEl.contains(target)) && ComponentVisibility()){
           dropperNumRef.current=0;
         // else if outside space was clicked && dropper button wasnt pressed
-        }else if((!insideComponentRef.current.contains(event.target)) && (!toggleButtonRef.current.contains(event.target))){
+        }else if((!insideEl.contains(target)) && (!toggleEl.contains(target))){
           // if dropper is open
           if(dropperNumRef.current===1){
 

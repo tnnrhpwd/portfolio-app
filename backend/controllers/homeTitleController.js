@@ -83,6 +83,7 @@ const getHomeTitle = asyncHandler(async (req, res) => {
     }
 
     const { title, matchedRuleId } = resolveHomeTitle(settings, context);
+    res.set('Cache-Control', 'no-store');
     res.status(200).json({ title, matchedRuleId });
   } catch (error) {
     logger.error('[HomeTitle] Failed to resolve title, using fallback:', error.message);
@@ -96,6 +97,7 @@ const getHomeTitle = asyncHandler(async (req, res) => {
 // @access  Private (admin only — requireAdmin middleware applied in routes)
 const getHomeTitleSettings = asyncHandler(async (req, res) => {
   const { settings, updatedAt } = await loadSettings();
+  res.set('Cache-Control', 'no-store');
   res.status(200).json({ settings, updatedAt });
 });
 
