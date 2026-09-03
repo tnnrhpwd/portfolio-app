@@ -22,7 +22,9 @@ import {
   type Fighter,
 } from '../core';
 
-const STOCK_COUNT = 8;
+const STOCK_COUNT = 36;
+/** Items per shop page (6 columns × 2 rows, matching the reference). */
+const SHOP_PAGE_SIZE = 12;
 /** Shop restock cadence in ms (matches the reference's ~15-minute timer). */
 const RESTOCK_MS = 15 * 60 * 1000;
 
@@ -58,6 +60,7 @@ export class ShopScene extends BaseScene {
   private cityId = '';
   private stock: Equipment[] = [];
   private filter = 'all';
+  private shopPage = 0;
   private fighterIndex = 0;
   private restockDeadline = 0;
   private countdownText: Phaser.GameObjects.Text | null = null;
@@ -75,6 +78,7 @@ export class ShopScene extends BaseScene {
     this.tier = data?.tier ?? 1;
     this.cityId = data?.cityId ?? '';
     this.filter = 'all';
+    this.shopPage = 0;
     this.fighterIndex = 0;
     this.stock = generateShopStock(this.tier, STOCK_COUNT, Math.random);
     if (!this.restockDeadline) this.restockDeadline = Date.now() + RESTOCK_MS;
@@ -97,7 +101,6 @@ export class ShopScene extends BaseScene {
     this.sellBounds = null;
 
     const city = cityById(this.cityId);
-    this.cityBack(this.cityId);
     this.goldText();
     this.header(city ? `SHOP — ${city.name.toUpperCase()}` : 'SHOP');
 
@@ -111,8 +114,8 @@ export class ShopScene extends BaseScene {
       return;
     }
 
-    const leftX = this.w * 0.3;
-    const rightX = this.w * 0.7;
+    const leftX = this.w * 0.26;
+    const rightX = this.w * 0.74;
     const tip = createTooltip(this);
     this.renderFighterPanel(fighter, leftX);
     this.renderShopPanel(rightX, tip);
@@ -121,16 +124,20 @@ export class ShopScene extends BaseScene {
   // ── Left column: active fighter, arrows, and the mannequin equip target ──
   private renderFighterPanel(f: Fighter, x: number): void {
     const scale = 1.3;
-    const bodyY = 330;
+    const h = this.h;
+    const bodyY = h * 0.28; // figures near the top, like the reference
+    const nameY = h * 0.57; // nameplate below the figures
+    const statsY = h * 0.7; // stats near the bottom
     const feetY = bodyY + 90 * scale + 8;
+    const manW = 120 * scale + 26;
+    const manH = 180 * scale + 18;
 
-    // Nameplate.
-    this.add.rectangle(x, 96, 340, 40, 0x8c1f28).setStrokeStyle(2, 0xe8b84b);
-    addText(this, x, 96, f.name.toUpperCase(), { fontSize: '20px', color: '#f2d98c', fontStyle: 'bold' });
-
-    // Fighter selector arrows.
-    this.button(x - 230, bodyY, '◀', () => this.shiftFighter(-1), { width: 44, height: 76, fontSize: 26 });
-    this.button(x + 230, bodyY, '▶', () => this.shiftFighter(1), { width: 44, height: 76, fontSize: 26 });
+    // UNEQUIP ALL (top-left of the panel).
+    this.button(x - 150, h * 0.05, 'UNEQUIP ALL', () => this.unequipAllGear(), {
+      width: 118,
+      height: 30,
+      fontSize: 11,
+    });
 
     // Active fighter sprite on a pedestal.
     addLayeredFighter(this, x - 110, bodyY, f, scale);
@@ -139,8 +146,6 @@ export class ShopScene extends BaseScene {
     // Mannequin: a wireframe figure with eight always-visible drop slots.
     addMannequinFrame(this, x + 110, bodyY, scale);
     this.add.ellipse(x + 110, feetY, 110, 22, 0x000000, 0.25);
-    const manW = 120 * scale + 26;
-    const manH = 180 * scale + 18;
     const hitArea = this.add
       .rectangle(x + 110, bodyY, manW, manH, 0x000000, 0)
       .setInteractive({ useHandCursor: true });
@@ -149,11 +154,6 @@ export class ShopScene extends BaseScene {
     });
     hitArea.on('pointerout', () => {
       if (!this.dragging) this.equipTargets?.setHover(false);
-    });
-    this.button(x + 110, bodyY - manH / 2 - 16, 'UNEQUIP ALL', () => this.unequipAllGear(), {
-      width: 118,
-      height: 26,
-      fontSize: 11,
     });
     this.mannequinBounds = {
       x0: x + 110 - manW / 2,
@@ -164,20 +164,28 @@ export class ShopScene extends BaseScene {
     this.equipTargets = new EquipTargets(this, { cx: x + 110, cy: bodyY, w: 120 * scale, h: 180 * scale });
     this.equipTargets.drawSlots(f.loadout);
 
+    // Nameplate below the figures.
+    this.add.rectangle(x, nameY, 340, 40, 0x8c1f28).setStrokeStyle(2, 0xe8b84b);
+    addText(this, x, nameY, f.name.toUpperCase(), { fontSize: '20px', color: '#f2d98c', fontStyle: 'bold' });
+
+    // Fighter selector arrows flank the stats panel, like the reference.
+    this.button(x - 230, statsY + 70, '◀', () => this.shiftFighter(-1), { width: 44, height: 60, fontSize: 24 });
+    this.button(x + 230, statsY + 70, '▶', () => this.shiftFighter(1), { width: 44, height: 60, fontSize: 24 });
+
     // Equipped gear summary.
     const equipped = SLOTS.map((slot) => f.loadout[slot]).filter(Boolean) as Equipment[];
     addText(
       this,
       x,
-      455,
+      statsY - 14,
       equipped.length ? `Equipped: ${equipped.map((e) => e.name).join(', ')}` : 'Equipped: nothing',
       { fontSize: '13px', color: '#b8aa94', wordWrap: { width: 360 } },
     );
 
-    this.renderStats(f, x);
+    this.renderStats(f, x, statsY);
   }
 
-  private renderStats(f: Fighter, x: number): void {
+  private renderStats(f: Fighter, x: number, y: number): void {
     const attrs = effectiveAttributes(f);
     const main = f.loadout.mainHand;
     const off = f.loadout.offHand;
@@ -186,10 +194,19 @@ export class ShopScene extends BaseScene {
     const dmgMax = (weapon?.maxDamage ?? 10) + attrs.strength;
     const armor = SLOTS.reduce((acc, slot) => acc + (f.loadout[slot]?.armor ?? 0), 0);
 
+    this.add.rectangle(x, y + 86, 380, 184, 0x000000, 0.28).setStrokeStyle(1, 0x6a6258);
+    const leftX = x - 160;
+
+    // Level + progress bars (EXP light, FAME red — matching the reference).
+    addText(this, leftX, y, `LEVEL: ${f.level}`, { fontSize: '13px', color: '#e8dcc8' }).setOrigin(0, 0);
+    const expNeed = Math.max(1, xpToNext(f.level));
+    this.drawBar(leftX, y + 20, 170, 10, Math.min(1, f.xp / expNeed), 0xd9d4c8);
+    addText(this, leftX + 178, y + 20, 'EXP', { fontSize: '11px', color: '#b8aa94' }).setOrigin(0, 0.5);
+    this.drawBar(leftX, y + 36, 170, 10, Math.min(1, this.gameState.fame / 100), 0x8c1f28);
+    addText(this, leftX + 178, y + 36, 'FAME', { fontSize: '11px', color: '#b8aa94' }).setOrigin(0, 0.5);
+
+    // Attribute columns.
     const left = [
-      `LEVEL: ${f.level}`,
-      `EXP: ${f.xp}/${xpToNext(f.level)}`,
-      `FAME: ${this.gameState.fame}`,
       `CHARISMA: ${attrs.charisma}`,
       `STRENGTH: ${attrs.strength}`,
       `DEXTERITY: ${attrs.dexterity}`,
@@ -203,11 +220,15 @@ export class ShopScene extends BaseScene {
       `HP: ${currentHp(f)}/${totalHp(f)}`,
       `MP: ${f.maxMorale}`,
     ].join('\n');
+    addText(this, leftX, y + 56, left, { fontSize: '13px', color: '#e8dcc8', align: 'left', lineSpacing: 5 }).setOrigin(0, 0);
+    addText(this, x + 30, y + 56, right, { fontSize: '13px', color: '#e8dcc8', align: 'left', lineSpacing: 5 }).setOrigin(0, 0);
+  }
 
-    const y = 505;
-    this.add.rectangle(x, y + 82, 380, 172, 0x000000, 0.28).setStrokeStyle(1, 0x6a6258);
-    addText(this, x - 120, y, left, { fontSize: '13px', color: '#e8dcc8', align: 'left', lineSpacing: 5 }).setOrigin(0, 0);
-    addText(this, x + 60, y, right, { fontSize: '13px', color: '#e8dcc8', align: 'left', lineSpacing: 5 }).setOrigin(0, 0);
+  private drawBar(x: number, y: number, w: number, h: number, frac: number, fill: number): void {
+    this.add.rectangle(x + w / 2, y, w, h, 0x1c1610).setStrokeStyle(1, 0x6a6258);
+    if (frac > 0) {
+      this.add.rectangle(x, y, Math.max(2, w * Math.min(1, frac)), h, fill).setOrigin(0, 0.5);
+    }
   }
 
   // ── Right column: sort / shop / inventory / sell ──
@@ -217,38 +238,51 @@ export class ShopScene extends BaseScene {
 
     addText(this, x, 164, 'SHOP', { fontSize: '22px', color: '#e8b84b', fontStyle: 'bold' });
     this.countdownText = addText(this, x, 188, this.countdownLabel(), { fontSize: '14px', color: '#f2d98c' });
-    addText(this, x, 206, 'PAGE 1/1', { fontSize: '11px', color: '#6a6258' });
-    addText(this, x, 222, 'Drag gear to buy — onto your fighter to equip, or into inventory to store.', {
+    addText(this, x, 208, 'Drag gear to buy — onto your fighter to equip, or into inventory to store.', {
       fontSize: '11px',
       color: '#b8aa94',
     });
 
-    // Shop grid (4 × 2).
+    // Shop grid (6 columns × 2 rows, paginated like the reference).
     const visible = this.stock.filter((item) => !!FILTERS.find((flt) => flt.id === this.filter)?.match(item.slot));
-    const cell = 84;
-    const gap = 10;
-    const cols = 4;
+    const totalPages = Math.max(1, Math.ceil(visible.length / SHOP_PAGE_SIZE));
+    const page = Math.min(this.shopPage, totalPages - 1);
+    const pageItems = visible.slice(page * SHOP_PAGE_SIZE, page * SHOP_PAGE_SIZE + SHOP_PAGE_SIZE);
+
+    const cols = 6;
+    const cell = 78;
+    const gap = 8;
     const gridW = cols * cell + (cols - 1) * gap;
     const x0 = x - gridW / 2 + cell / 2;
-    const y0 = 250;
-    visible.forEach((item, i) => {
+    const y0 = 232;
+    for (let i = 0; i < SHOP_PAGE_SIZE; i += 1) {
+      const item = pageItems[i] ?? null;
       const col = i % cols;
       const row = Math.floor(i / cols);
-      this.addShopCell(item, x0 + col * (cell + gap), y0 + row * (cell + gap), cell, tip);
-    });
+      const cx = x0 + col * (cell + gap);
+      const cy = y0 + row * (cell + gap);
+      if (item) this.addShopCell(item, cx, cy, cell, tip);
+      else this.addEmptyCell(cx, cy, cell);
+    }
 
-    // Inventory grid (up to 8 visible; the rest live in the Inventory scene).
-    const invLabelY = y0 + 2 * (cell + gap) + 20;
+    // Pagination row.
+    const pageY = y0 + 2 * (cell + gap) + 22;
+    this.button(x - 60, pageY, '◀', () => this.changePage(-1), { width: 36, height: 26, fontSize: 14 });
+    addText(this, x, pageY, `PAGE ${page + 1}/${totalPages}`, { fontSize: '13px', color: '#f2d98c' });
+    this.button(x + 60, pageY, '▶', () => this.changePage(1), { width: 36, height: 26, fontSize: 14 });
+
+    // Inventory grid (6 columns × 2 rows).
+    const invLabelY = pageY + 34;
     addText(this, x, invLabelY, `INVENTORY (${this.gameState.inventory.length})`, { fontSize: '16px', color: '#f2d98c' });
     const invY0 = invLabelY + 34;
-    const invItems = this.gameState.inventory.slice(0, 8);
+    const invItems = this.gameState.inventory.slice(0, 12);
     this.inventoryBounds = {
       x0: x - gridW / 2,
       y0: invY0 - cell / 2,
       x1: x + gridW / 2,
       y1: invY0 + (Math.ceil(invItems.length / cols) || 1) * (cell + gap) - gap,
     };
-    for (let i = 0; i < 8; i += 1) {
+    for (let i = 0; i < 12; i += 1) {
       const item = invItems[i] ?? null;
       const col = i % cols;
       const row = Math.floor(i / cols);
@@ -257,8 +291,8 @@ export class ShopScene extends BaseScene {
       if (item) this.addInventoryCell(item, cx, cy, cell, tip);
       else this.addEmptyCell(cx, cy, cell);
     }
-    if (this.gameState.inventory.length > 8) {
-      addText(this, x, invY0 + 2 * (cell + gap) + 8, `+${this.gameState.inventory.length - 8} more in storage`, {
+    if (this.gameState.inventory.length > 12) {
+      addText(this, x, invY0 + 2 * (cell + gap) + 8, `+${this.gameState.inventory.length - 12} more in storage`, {
         fontSize: '12px',
         color: '#b8aa94',
       });
@@ -271,6 +305,19 @@ export class ShopScene extends BaseScene {
     this.add.rectangle(x, sellY, sellW, sellH, 0x2a241d).setStrokeStyle(2, 0xe8b84b);
     addText(this, x, sellY, 'SELL — drop loot here', { fontSize: '15px', color: '#f2d98c' });
     this.sellBounds = { x0: x - sellW / 2, y0: sellY - sellH / 2, x1: x + sellW / 2, y1: sellY + sellH / 2 };
+
+    // BACK (bottom-right, like the reference).
+    this.backAction = () => this.scene.start('Main');
+    this.button(this.w * 0.92, this.h * 0.93, 'BACK', () => this.scene.start('Main'), {
+      width: 110,
+      height: 44,
+      fontSize: 18,
+    });
+  }
+
+  private changePage(delta: number): void {
+    this.shopPage = Math.max(0, this.shopPage + delta);
+    this.render();
   }
 
   private renderFilters(x: number, y: number): void {
@@ -319,7 +366,9 @@ export class ShopScene extends BaseScene {
     });
     y += 84;
 
-    const visible = this.stock.filter((item) => !!FILTERS.find((flt) => flt.id === this.filter)?.match(item.slot));
+    const visible = this.stock
+      .filter((item) => !!FILTERS.find((flt) => flt.id === this.filter)?.match(item.slot))
+      .slice(0, 20);
     addText(this, x, y, 'SHOP — tap to buy', { fontSize: '14px', color: '#f2d98c' });
     y += 26;
     visible.forEach((item) => {

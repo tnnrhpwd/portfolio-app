@@ -37,6 +37,7 @@ const ResetPassword = lazy(() => import('./pages/ResetPassword/ResetPassword.jsx
 const SleepAssist = lazy(() => import('./pages/Projects/SleepAssist/SleepAssist'));
 const Sonic = lazy(() => import('./pages/Projects/Sonic/Sonic'));
 const TypeTest = lazy(() => import('./pages/TypeTest/TypeTest'));
+const UIMapper = lazy(() => import('./pages/UIMapper/UIMapper'));
 const Wordle = lazy(() => import('./pages/Projects/Wordle/Wordle'));
 const WordleSolver = lazy(() => import('./pages/Projects/WordleSolver/WordleSolver'));
 const Login = lazy(() => import('./pages/Login/Login.jsx'));
@@ -147,6 +148,7 @@ function App() {
               <Route path="/sonic" element={<Sonic/>} />
               <Route path='/support' element={<Support />} />
               <Route path='/type' element={<TypeTest/>} />
+              <Route path="/uimapper" element={<UIMapper />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/wordle" element={<Wordle/>} />
               <Route path="/wordlesolver" element={<WordleSolver/>} />

@@ -127,4 +127,11 @@ export const PROJECTS = [
     category: "Tools",
     description: "Chat with an AI assistant that can automate tasks, write code, and generate images.",
   },
+  {
+    name: "UI Mapper",
+    path: "/uimapper",
+    art: artEngineering,
+    category: "Tools",
+    description: "Upload a reference screenshot and draw named boxes around components to build a layout spec.",
+  },
 ];

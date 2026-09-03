@@ -21,14 +21,14 @@ interface ZoneDef {
 
 /** Normalized rects (0..1 of figure width/height) matching the art anchors. */
 const ZONES: Record<ZoneId, ZoneDef> = {
-  head: { nx: 0.5, ny: 0.13, nw: 0.36, nh: 0.24, slot: 'head' },
-  chest: { nx: 0.5, ny: 0.42, nw: 0.46, nh: 0.34, slot: 'torso' },
-  rightArm: { nx: 0.72, ny: 0.42, nw: 0.24, nh: 0.34, slot: 'rightArm' },
-  leftArm: { nx: 0.28, ny: 0.42, nw: 0.24, nh: 0.34, slot: 'leftArm' },
-  rightLeg: { nx: 0.62, ny: 0.73, nw: 0.22, nh: 0.3, slot: 'legs' },
-  leftLeg: { nx: 0.38, ny: 0.73, nw: 0.22, nh: 0.3, slot: 'legs' },
-  mainHand: { nx: 0.76, ny: 0.4, nw: 0.24, nh: 0.3, slot: 'mainHand' },
-  offHand: { nx: 0.24, ny: 0.4, nw: 0.24, nh: 0.3, slot: 'offHand' },
+  head: { nx: 0.5, ny: 0.15, nw: 0.3, nh: 0.2, slot: 'head' },
+  chest: { nx: 0.5, ny: 0.45, nw: 0.34, nh: 0.22, slot: 'torso' },
+  rightArm: { nx: 0.72, ny: 0.31, nw: 0.24, nh: 0.2, slot: 'rightArm' },
+  leftArm: { nx: 0.28, ny: 0.31, nw: 0.24, nh: 0.2, slot: 'leftArm' },
+  rightLeg: { nx: 0.62, ny: 0.83, nw: 0.22, nh: 0.2, slot: 'legs' },
+  leftLeg: { nx: 0.38, ny: 0.83, nw: 0.22, nh: 0.2, slot: 'legs' },
+  mainHand: { nx: 0.72, ny: 0.57, nw: 0.24, nh: 0.2, slot: 'mainHand' },
+  offHand: { nx: 0.28, ny: 0.57, nw: 0.24, nh: 0.2, slot: 'offHand' },
 };
 
 const ZONE_ORDER: ZoneId[] = ['head', 'chest', 'rightArm', 'leftArm', 'rightLeg', 'leftLeg', 'mainHand', 'offHand'];

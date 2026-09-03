@@ -13,7 +13,7 @@ export abstract class BaseScene extends Phaser.Scene {
   private focusables: GameButton[] = [];
   private focusIndex = -1;
   private focusRing: Phaser.GameObjects.Rectangle | null = null;
-  private backAction: (() => void) | null = null;
+  protected backAction: (() => void) | null = null;
   private keyHandler: ((event: KeyboardEvent) => void) | null = null;
   private textPromptActive = false;
   private textPromptTitle = '';
