@@ -20,10 +20,37 @@ const HYPE_SONGS = [
   { title: "Sia — Unstoppable", id: 'cxjvTXo9WWM' },
 ];
 
-const RICKROLL = { title: '…a surprise 🎵', id: 'dQw4w9WgXcQ' };
+const RICKROLL = { title: 'Rick Astley — Never Gonna Give You Up', id: 'dQw4w9WgXcQ' };
 
 // ~1 in 5 presses gets the rickroll — funny, but still mostly real hype.
 const RICKROLL_CHANCE = 0.2;
+
+// ── Where the hype song opens ────────────────────────────────────────────
+const MUSIC_SERVICES = [
+  { id: 'youtube', label: 'YouTube' },
+  { id: 'spotify', label: 'Spotify' },
+  { id: 'apple', label: 'Apple Music' },
+  { id: 'soundcloud', label: 'SoundCloud' },
+  { id: 'tidal', label: 'Tidal' },
+];
+
+// Build the destination URL for a given song + streaming service.
+function buildSongUrl(service, song) {
+  const query = encodeURIComponent(song.title.replace(/ — /g, ' '));
+  switch (service) {
+    case 'spotify':
+      return `https://open.spotify.com/search/${query}`;
+    case 'apple':
+      return `https://music.apple.com/us/search?term=${query}`;
+    case 'soundcloud':
+      return `https://soundcloud.com/search?q=${query}`;
+    case 'tidal':
+      return `https://listen.tidal.com/search/${query}`;
+    case 'youtube':
+    default:
+      return `https://www.youtube.com/watch?v=${song.id}`;
+  }
+}
 
 const MOODS = ['On fire', 'Tired', 'Focused', 'Nervous', 'Unstoppable', 'Chill'];
 
@@ -49,6 +76,7 @@ export default function Hype() {
   const [loading, setLoading] = useState(false);
   const [mood, setMood] = useState('');
   const [hypeLevel, setHypeLevel] = useState(0);
+  const [musicService, setMusicService] = useState('youtube');
   const [total, setTotal] = useState(readTotal);
   const [quoteKey, setQuoteKey] = useState(0); // re-triggers the fade-in animation
   const confettiRef = useRef(null);
@@ -117,9 +145,16 @@ export default function Hype() {
 
   const handleHypeSong = useCallback(() => {
     const song = Math.random() < RICKROLL_CHANCE ? RICKROLL : HYPE_SONGS[Math.floor(Math.random() * HYPE_SONGS.length)];
-    window.open(`https://www.youtube.com/watch?v=${song.id}`, '_blank', 'noopener,noreferrer');
-    toast.info(song === RICKROLL ? "Never gonna give you up…" : `Now playing: ${song.title}`);
-  }, []);
+    window.open(buildSongUrl(musicService, song), '_blank', 'noopener,noreferrer');
+    if (song === RICKROLL) {
+      toast.info('Never gonna give you up…');
+    } else if (musicService === 'youtube') {
+      toast.info(`Now playing: ${song.title}`);
+    } else {
+      const label = MUSIC_SERVICES.find((s) => s.id === musicService)?.label || 'music';
+      toast.info(`Opening ${song.title} on ${label}`);
+    }
+  }, [musicService]);
 
   return (
     <>
@@ -194,6 +229,23 @@ export default function Hype() {
             <button className="hype-btn hype-btn--song" onClick={handleHypeSong} disabled={loading}>
               🎧 Hype Song
             </button>
+          </div>
+
+          <div className="hype-song-picker">
+            <label className="hype-song-picker__label" htmlFor="hype-music-service">
+              🎧 Stream on
+            </label>
+            <select
+              id="hype-music-service"
+              className="hype-song-picker__select"
+              value={musicService}
+              onChange={(e) => setMusicService(e.target.value)}
+              aria-label="Choose which music service the hype song opens in"
+            >
+              {MUSIC_SERVICES.map((s) => (
+                <option key={s.id} value={s.id}>{s.label}</option>
+              ))}
+            </select>
           </div>
 
           <p className="hype-card__song-hint">The song button is mostly fire. Sometimes it's a classic.</p>

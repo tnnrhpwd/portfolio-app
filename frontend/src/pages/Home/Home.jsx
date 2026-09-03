@@ -31,7 +31,7 @@ const FALLBACK_TITLE = "It's simple.";
 
 // Curated projects surfaced on the homepage (paths match the routes in App.js).
 const FEATURED_PROJECTS = [
-  { name: "Fluid", path: "/fluid", art: artFluid, category: "Interactive", description: "Paint glowing, mouse-reactive fluid that swirls in real time." },
+  { name: "Fluid", path: "/fluid", art: artFluid, category: "Interactive", description: "A falling-sand powder playground — pour, burn, dissolve and watch elements react." },
   { name: "2048", path: "/2048", art: art2048, category: "Games", description: "A tile-merging game with swipe, drag, or keyboard controls." },
   { name: "Sonic", path: "/sonic", art: artSonic, category: "Audio", description: "A real-time pitch detector and musical note tuner." },
   { name: "Wordle", path: "/wordle", art: artWordle, category: "Games", description: "A customizable Wordle clone with adjustable word length." },

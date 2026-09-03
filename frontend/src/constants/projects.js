@@ -34,7 +34,7 @@ export const PROJECTS = [
     path: "/fluid",
     art: artFluid,
     category: "Tools",
-    description: "Paint glowing, mouse-reactive fluid that swirls and flows in real time — a free incompressible fluid simulation.",
+    description: "A falling-sand powder playground — pour sand, water, oil, fire and more, then watch them tumble, flow and react.",
   },
   {
     name: "2048",

@@ -264,6 +264,54 @@
   text-align: center;
 }
 
+/* ── Music service picker ── */
+.hype-song-picker {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-sm);
+}
+
+.hype-song-picker__label {
+  font-family: 'CutiveMono-Regular', monospace;
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-color-accent);
+}
+
+.hype-song-picker__select {
+  flex: 1 1 220px;
+  min-width: 180px;
+  max-width: 100%;
+  font-family: 'CutiveMono-Regular', monospace;
+  font-size: var(--font-size-small);
+  letter-spacing: 0.03em;
+  padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.45);
+  background: var(--bg-1);
+  color: var(--text-color);
+  border: 1px solid var(--border-nav);
+  border-radius: var(--border-radius-lg);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
+}
+
+.hype-song-picker__select:hover { border-color: var(--fg-blue); }
+
+.hype-song-picker__select:focus {
+  outline: none;
+  border-color: var(--fg-blue);
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.2);
+}
+
+.hype-song-picker__select option {
+  background: var(--bg-1);
+  color: var(--text-color);
+}
+
 /* ── Buttons ── */
 .hype-btn {
   flex: 1 1 auto;
@@ -468,6 +516,12 @@
   .hype-total { min-width: 0; flex-direction: row; gap: var(--spacing-xs); }
 
   .hype-subtitle__br { display: none; }
+
+  .hype-song-picker { align-items: stretch; }
+
+  .hype-song-picker__label { width: 100%; }
+
+  .hype-song-picker__select { flex: 1 1 100%; min-width: 100%; }
 }
 
 /* Respect users who prefer reduced motion. */
