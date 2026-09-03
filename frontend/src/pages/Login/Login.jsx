@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux'      // useSelector-brings in user,iserror,isloading from state | useDispatch-brings in reset,register,login from state
-import { useNavigate, useLocation } from 'react-router-dom'              // page redirects
+import { useNavigate, useLocation, Link } from 'react-router-dom'              // page redirects
 import { toast } from 'react-toastify'                        // visible error notifications
 import { login, logout, resetDataSlice, resetDataSuccess } from '../../features/data/dataSlice'     // import functions from authslice
 import Spinner from '../../components/Spinner/Spinner.jsx';
@@ -268,83 +268,87 @@ function Login() {
     }
 
         return (<>
-            <SEO title="Login" description="Log in to your STHopwood account." path="/login" noindex />
+            <SEO title="Login" description="Log in to your STHopwood account to save, create, and share." path="/login" noindex />
             <Header />
-            <div className="planit-login-bg">
-                <div className="floating-shapes">
-                    <div className="floating-circle floating-circle-1"></div>
-                    <div className="floating-circle floating-circle-2"></div>
-                    <div className="floating-circle floating-circle-3"></div>
+            <div className="login">
+                <div className="login-floating" aria-hidden="true">
+                    <div className="login-circle login-circle-1"></div>
+                    <div className="login-circle login-circle-2"></div>
+                    <div className="login-circle login-circle-3"></div>
                 </div>
-                <div className="planit-login-card">
-                    <section className="planit-login-heading">
-                        <div className="planit-login-heading-title">Welcome Back!</div>
-                        <div className="planit-login-heading-description">Log in to save, create, and share!</div>
-                    </section>
-                    <section className="planit-login-form">
+
+                <section className="login-hero">
+                    <div className="login-title-wrap">
+                        <p className="login-eyebrow">Account</p>
+                        <h1 className="login-title">Welcome Back</h1>
+                        <p className="login-subtitle">Log in to save, create, and share.</p>
+                    </div>
+                </section>
+
+                <main id="main" className="login-section">
+                    <div className="login-card">
                         <form onSubmit={onSubmit} autoComplete="on">
-                            <div className="planit-login-form-group">
+                            <div className="login-form-group">
+                                <label className="login-label" htmlFor="login-email">Email</label>
                                 <input
                                     type="email"
-                                    className={`planit-login-form-control ${attemptedSubmit && dataIsError && (dataMessage.includes('email') || dataMessage.includes('Could not find that user')) ? 'error' : ''}`}
-                                    id="planit-email"
+                                    className={`login-input ${attemptedSubmit && dataIsError && (dataMessage.includes('email') || dataMessage.includes('Could not find that user')) ? 'error' : ''}`}
+                                    id="login-email"
                                     name="email"
                                     value={email}
-                                    placeholder="Enter your email"
+                                    placeholder="you@example.com"
                                     onChange={onChange}
                                     autoFocus
                                     required
                                 />
                             </div>
-                            <div className="planit-login-form-group">
-                                <div className="planit-login-password-wrapper">
+                            <div className="login-form-group">
+                                <label className="login-label" htmlFor="login-password">Password</label>
+                                <div className="login-password-wrapper">
                                     <input
                                         type={showPassword ? "text" : "password"}
-                                        className={`planit-login-form-control ${attemptedSubmit && dataIsError && (dataMessage.includes('password') || dataMessage.includes('Invalid password')) ? 'error' : ''}`}
-                                        id="planit-password"
+                                        className={`login-input ${attemptedSubmit && dataIsError && (dataMessage.includes('password') || dataMessage.includes('Invalid password')) ? 'error' : ''}`}
+                                        id="login-password"
                                         name="password"
                                         value={password}
-                                        placeholder="Enter password"
+                                        placeholder="Enter your password"
                                         onChange={onChange}
                                         required
                                     />
                                     <button
                                         type="button"
-                                        className="planit-login-showhide"
+                                        className="login-showhide"
                                         onClick={() => setShowPassword((show) => !show)}
-                                        tabIndex={0}
                                         aria-label={showPassword ? "Hide password" : "Show password"}
                                     >
-                                        {showPassword ? "🙈" : "👁️"}
+                                        {showPassword ? 'Hide' : 'Show'}
                                     </button>
                                 </div>
                             </div>
-                            <div className="planit-login-form-group">
-                                <button type="submit" className="planit-login-form-submit" disabled={dataIsLoading}>
-                                    {dataIsLoading ? 'Logging In...' : 'Log In'}
-                                </button>
-                            </div>
-                        </form>
-                    </section>
-                    
-                    <div className="planit-login-actions">
-                        <button className="planit-login-register" onClick={() => navigate('/register', { state: { redirectTo: location.state?.redirectTo } })}>
-                            Register
-                        </button>
-                        <a href="/forgot-password">
-                            <button className="planit-login-forgot">Forgot Password?</button>
-                        </a>
-                        {devMode && (
-                            <button 
-                                onClick={handleGuestLogin} 
-                                className="planit-login-guest"
-                                disabled={dataIsLoading}
-                            >
-                                {dataIsLoading ? 'Logging in as Guest...' : 'Login as Guest'}
+                            <button type="submit" className="login-submit" disabled={dataIsLoading}>
+                                {dataIsLoading ? 'Logging In…' : 'Log In'}
                             </button>
-                        )}
+                        </form>
+
+                        <div className="login-actions">
+                            <Link className="login-link" to="/register" state={{ redirectTo: location.state?.redirectTo }}>
+                                Create an account <span aria-hidden="true">→</span>
+                            </Link>
+                            <Link className="login-link" to="/forgot-password">
+                                Forgot password?
+                            </Link>
+                            {devMode && (
+                                <button
+                                    onClick={handleGuestLogin}
+                                    className="login-guest"
+                                    disabled={dataIsLoading}
+                                >
+                                    {dataIsLoading ? 'Logging in as Guest…' : 'Continue as Guest'}
+                                </button>
+                            )}
+                        </div>
                     </div>
-                </div>
+                </main>
             </div>
             <Footer />
         </>);

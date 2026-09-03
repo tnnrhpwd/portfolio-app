@@ -9,12 +9,8 @@
   display: flex;
   flex-direction: column;
   position: relative;
-  background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
-  background-size: 400% 400%;
-  animation: homeGradientShift 12s ease infinite;
+  background: var(--bg-page);
 }
-.light-theme .home { animation-duration: 15s; }
-.dark-theme .home { animation-duration: 10s; }
 
 /* ── Full-bleed bands: the page is a sequence of flat color blocks ── */
 .home-band {
@@ -25,8 +21,8 @@
   align-items: center;
   padding: calc(var(--nav-size) * 1.6) calc(var(--nav-size) * 0.3);
 }
-.home-band--surface { background: transparent; }
-.home-band--tint { background: color-mix(in srgb, var(--fg-mint) 14%, transparent); }
+.home-band--surface { background: var(--bg-page); }
+.home-band--tint { background: color-mix(in srgb, var(--fg-mint) 12%, var(--bg-page)); }
 .home-wrap { width: 100%; max-width: 1080px; }
 
 /* ── Promo bar: flat, vibrant, borderless ── */
@@ -52,7 +48,7 @@
 }
 .home-promo-link:hover { opacity: 0.85; }
 
-/* ── Hero: sits on the page-wide animated gradient ── */
+/* ── Hero: the signature animated vibrant gradient (bookends the calm page) ── */
 .home-hero {
   position: relative;
   overflow: hidden;
@@ -61,7 +57,12 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
+  background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
+  background-size: 400% 400%;
+  animation: homeGradientShift 12s ease infinite;
 }
+.light-theme .home-hero { animation-duration: 15s; }
+.dark-theme .home-hero { animation-duration: 10s; }
 @keyframes homeGradientShift {
   0% { background-position: 0% 50%; }
   25% { background-position: 100% 50%; }

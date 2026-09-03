@@ -394,7 +394,7 @@ function Home() {
                 </section>
 
                 {/* ── Featured projects (horizontal carousel) ── */}
-                <section ref={templatesRef} className={`home-band home-band--surface home-projects home-reveal ${templatesVisible ? 'is-visible' : ''}`}>
+                <section ref={templatesRef} className={`home-band home-band--tint home-projects home-reveal ${templatesVisible ? 'is-visible' : ''}`}>
                     <div className="home-wrap">
                         <div className="home-section-head">
                             <p className="home-eyebrow">The playground</p>
@@ -437,7 +437,7 @@ function Home() {
                 </section>
                 
                 {/* ── Open source ── */}
-                <section ref={openSourceRef} className={`home-band home-band--tint home-open-source home-reveal ${openSourceVisible ? 'is-visible' : ''}`}>
+                <section ref={openSourceRef} className={`home-band home-band--surface home-open-source home-reveal ${openSourceVisible ? 'is-visible' : ''}`}>
                     <div className="home-wrap home-open-source-inner">
                         <p className="home-eyebrow">
                             <span className="home-eyebrow-dot" aria-hidden="true" />
@@ -466,7 +466,7 @@ function Home() {
                 </section>
 
                 {/* ── What's inside (alternating media rows) ── */}
-                <section ref={featuresRef} className={`home-band home-band--surface home-features home-reveal ${featuresVisible ? 'is-visible' : ''}`}>
+                <section ref={featuresRef} className={`home-band home-band--tint home-features home-reveal ${featuresVisible ? 'is-visible' : ''}`}>
                     <div className="home-wrap">
                         <div className="home-section-head">
                             <p className="home-eyebrow">Explore</p>

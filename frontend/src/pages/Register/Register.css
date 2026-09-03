@@ -1,570 +1,191 @@
 
-.planit-register-bg {
-    min-height: 100vh;
-    background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
-    background-size: 400% 400%;
-    animation: gradientShift 15s ease infinite;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    overflow: hidden;
-    padding: var(--spacing-md);
-    box-sizing: border-box;
+/* ── Register — vibrant editorial (docs/guides/FRONTEND_UI_STANDARD.md) ── */
+
+.register {
+  color: var(--text-color);
+  min-height: 100vh;
+  padding: calc(var(--nav-size) * 1.8) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.5);
+  background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
+  background-size: 400% 400%;
+  animation: registerGradientShift 12s ease infinite;
+  position: relative;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.light-theme .register { animation-duration: 15s; }
+.dark-theme .register { animation-duration: 10s; }
+
+@keyframes registerGradientShift {
+  0% { background-position: 0% 50%; }
+  25% { background-position: 100% 50%; }
+  50% { background-position: 100% 100%; }
+  75% { background-position: 0% 100%; }
+  100% { background-position: 0% 50%; }
 }
 
-@keyframes gradientShift {
-    0% { background-position: 0% 50%; }
-    25% { background-position: 100% 50%; }
-    50% { background-position: 100% 100%; }
-    75% { background-position: 0% 100%; }
-    100% { background-position: 0% 50%; }
+/* Decorative floating circles */
+.register-floating { pointer-events: none; position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+.register-circle {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--white1-transp, #f4f7fd33) 0%, transparent 70%);
+  animation: registerFloat 6s ease-in-out infinite;
+}
+.register-circle-1 { width: 180px; height: 180px; top: 8%; left: 6%; animation-duration: 9s; }
+.register-circle-2 { width: 120px; height: 120px; top: 55%; right: 8%; animation-duration: 11s; animation-delay: -2s; }
+.register-circle-3 { width: 220px; height: 220px; bottom: 5%; left: 55%; animation-duration: 13s; animation-delay: -4s; }
+@keyframes registerFloat {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-24px) rotate(180deg); }
 }
 
-.floating-shapes {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 1;
+/* Hero: eyebrow → title → subtitle */
+.register-hero {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 760px;
+  padding: calc(var(--nav-size) * 1.2) 0 calc(var(--nav-size) * 0.6);
+  text-align: center;
 }
-.floating-circle {
-    position: absolute;
-    border-radius: 50%;
-    background: radial-gradient(circle, var(--white1-transp) 0%, transparent 70%);
-    animation: float 6s ease-in-out infinite;
+.register-title-wrap { max-width: 900px; margin: 0 auto; }
+.register-eyebrow {
+  margin: 0 0 calc(var(--nav-size) * 0.2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-color-accent);
 }
-.floating-circle-1 {
-    width: 80px;
-    height: 80px;
-    top: 10%;
-    left: 15%;
-    animation-delay: 0s;
-    animation-duration: 8s;
+.register-title {
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.01em;
+  font-size: var(--font-size-display);
+  line-height: var(--line-height-tight);
+  margin: 0 0 calc(var(--nav-size) * 0.25);
 }
-.floating-circle-2 {
-    width: 60px;
-    height: 60px;
-    top: 70%;
-    right: 10%;
-    animation-delay: -2s;
-    animation-duration: 10s;
-}
-.floating-circle-3 {
-    width: 100px;
-    height: 100px;
-    bottom: 15%;
-    left: 60%;
-    animation-delay: -4s;
-    animation-duration: 12s;
-}
-@keyframes float {
-    0%, 100% {
-        transform: translateY(0px) rotate(0deg);
-        opacity: 0.3;
-    }
-    33% {
-        transform: translateY(-20px) rotate(120deg);
-        opacity: 0.6;
-    }
-    66% {
-        transform: translateY(-10px) rotate(240deg);
-        opacity: 0.4;
-    }
+.register-subtitle {
+  color: var(--text-color-accent);
+  font-size: var(--font-size-large);
+  line-height: var(--line-height-relaxed);
+  max-width: 640px;
+  margin: 0 auto;
 }
 
-.planit-register-card {
-    background: var(--bg-1);
-    backdrop-filter: blur(20px);
-    border-radius: calc(var(--border-radius) * 2);
-    box-shadow: 
-        0 20px 60px rgba(0, 0, 0, 0.15),
-        0 0 0 1px var(--border-nav);
-    padding: var(--spacing-xl) var(--spacing-lg);
-    z-index: 2;
-    min-width: 380px;
-    max-width: 480px;
-    width: 100%;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    position: relative;
-    border: 1px solid var(--border-nav);
+/* Card: translucent surface, hairline border, soft shadow */
+.register-section {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.register-card {
+  background: color-mix(in srgb, var(--bg-1) 55%, transparent);
+  border: 1px solid var(--border-nav);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-md);
+  width: 100%;
+  max-width: 440px;
+  padding: calc(var(--nav-size) * 0.6);
+  margin-top: calc(var(--nav-size) * 0.3);
+  text-align: left;
+}
+.register-card form {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.3);
+}
+.register-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.12);
+}
+.register-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-color-accent);
+  text-align: left;
+}
+.register-input {
+  min-height: 0;
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.3);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-nav);
+  background: var(--bg-1);
+  color: var(--text-color);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.register-input::placeholder { color: var(--text-color-accent); opacity: 0.7; }
+.register-input:focus {
+  outline: none;
+  border-color: var(--fg-blue);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--fg-blue) 22%, transparent);
+}
+.register-input.error { border-color: var(--red0); }
+.register-hint {
+  font-size: var(--font-size-small);
+  color: var(--text-color-accent);
+  line-height: var(--line-height-base);
+  margin: 0;
 }
 
-.planit-register-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, var(--fg-orange), var(--fg-pink), var(--fg-mint));
-    border-radius: calc(var(--border-radius) * 2) calc(var(--border-radius) * 2) 0 0;
+/* Primary pill button */
+.register-submit {
+  min-height: 0;
+  font-family: inherit;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.55);
+  cursor: pointer;
+  border: 1px solid transparent;
+  color: var(--text-color-inv);
+  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  margin-top: calc(var(--nav-size) * 0.15);
 }
-.planit-register-heading {
-    text-align: center;
-    color: var(--text-color);
-    margin-bottom: var(--spacing-lg);
-    width: 100%;
+.register-submit:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.register-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Secondary action */
+.register-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.25);
+  margin-top: calc(var(--nav-size) * 0.5);
+  padding-top: calc(var(--nav-size) * 0.4);
+  border-top: 1px solid var(--border-nav);
+}
+.register-link {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--fg-blue);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.1);
+}
+.register-link span { transition: transform 0.2s ease; }
+.register-link:hover { color: var(--fg-mint); }
+.register-link:hover span { transform: translateX(4px); }
+
+@media (orientation: portrait) {
+  .register-card { max-width: 100%; }
 }
 
-.planit-register-heading-title {
-    font-size: var(--font-size-heading);
-    font-weight: 700;
-    margin-bottom: var(--spacing-sm);
-    line-height: var(--line-height-tight);
-    color: var(--text-color);
-    letter-spacing: -0.02em;
-}
-
-.planit-register-heading-description {
-    font-size: var(--font-size-base);
-    color: var(--text-color-accent);
-    line-height: var(--line-height-base);
-    margin-bottom: 0;
-}
-.planit-register-form {
-    width: 100%;
-    margin-top: var(--spacing-md);
-}
-
-.planit-register-form-group {
-    margin-bottom: var(--spacing-md);
-    width: 100%;
-    position: relative;
-}
-
-.planit-register-form-label {
-    display: block;
-    font-size: var(--font-size-small);
-    font-weight: 600;
-    color: var(--text-color);
-    margin-bottom: var(--spacing-xs);
-    line-height: var(--line-height-base);
-}
-
-.planit-register-form-control {
-    font-size: var(--font-size-base);
-    background: var(--bg-1);
-    color: var(--text-color);
-    border: 2px solid var(--border-nav);
-    border-radius: var(--border-radius);
-    padding: var(--spacing-sm);
-    width: 100%;
-    box-sizing: border-box;
-    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    outline: none;
-    line-height: var(--line-height-base);
-    font-family: inherit;
-}
-
-.planit-register-form-control::placeholder {
-    color: var(--text-color-accent);
-    opacity: 0.7;
-}
-
-.planit-register-form-control:focus {
-    border-color: var(--fg-blue);
-    outline: var(--focus-outline);
-    outline-offset: var(--focus-outline-offset);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.planit-register-form-control.error {
-    border-color: var(--red0);
-    background: rgba(220, 0, 0, 0.05);
-    animation: shake 0.4s ease-in-out;
-}
-
-.planit-register-form-control.success {
-    border-color: var(--green2);
-    background: rgba(5, 107, 50, 0.05);
-}
-
-@keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-5px); }
-    75% { transform: translateX(5px); }
-}
-
-.planit-register-form-error-message {
-    display: block;
-    color: var(--red0);
-    font-size: var(--font-size-small);
-    margin-top: var(--spacing-xs);
-    line-height: var(--line-height-base);
-    font-weight: 500;
-}
-
-.planit-register-form-success-message {
-    display: block;
-    color: var(--green2);
-    font-size: var(--font-size-small);
-    margin-top: var(--spacing-xs);
-    line-height: var(--line-height-base);
-    font-weight: 500;
-}
-.planit-register-password-requirements {
-    font-size: var(--font-size-small);
-    color: var(--text-color-accent);
-    margin-top: var(--spacing-sm);
-    padding: var(--spacing-sm);
-    background: var(--bg-accent);
-    border-radius: var(--border-radius);
-    border: 1px solid var(--border-nav);
-    line-height: var(--line-height-base);
-}
-
-.planit-register-password-requirements h4 {
-    margin: 0 0 var(--spacing-xs) 0;
-    font-size: var(--font-size-small);
-    font-weight: 600;
-    color: var(--text-color);
-}
-
-.planit-register-password-requirements ul {
-    margin: 0;
-    padding-left: var(--spacing-md);
-    list-style: none;
-}
-
-.planit-register-password-requirements li {
-    margin-bottom: var(--spacing-xs);
-    position: relative;
-    padding-left: var(--spacing-md);
-    font-size: var(--font-size-small);
-    transition: color 0.3s ease;
-}
-
-.planit-register-password-requirements li::before {
-    content: '✗';
-    position: absolute;
-    left: 0;
-    color: var(--red0);
-    font-weight: bold;
-    transition: all 0.3s ease;
-}
-
-.planit-register-password-requirements li.valid {
-    color: var(--green2);
-}
-
-.planit-register-password-requirements li.valid::before {
-    content: '✓';
-    color: var(--green2);
-}
-
-/* Password strength indicator */
-.password-strength-indicator {
-    margin-top: var(--spacing-xs);
-    height: 4px;
-    background: var(--bg-accent);
-    border-radius: 2px;
-    overflow: hidden;
-}
-
-.password-strength-bar {
-    height: 100%;
-    width: 0%;
-    transition: all 0.3s ease;
-    border-radius: 2px;
-}
-
-.password-strength-bar.weak {
-    width: 25%;
-    background: var(--red0);
-}
-
-.password-strength-bar.fair {
-    width: 50%;
-    background: #f59e0b;
-}
-
-.password-strength-bar.good {
-    width: 75%;
-    background: #10b981;
-}
-
-.password-strength-bar.strong {
-    width: 100%;
-    background: var(--green2);
-}
-.planit-register-form-submit {
-    width: 100%;
-    padding: var(--spacing-md);
-    font-size: var(--font-size-base);
-    background: linear-gradient(135deg, var(--fg-orange), var(--fg-pink));
-    color: var(--text-color-inv);
-    border: none;
-    border-radius: var(--border-radius);
-    cursor: pointer;
-    font-weight: 600;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    position: relative;
-    overflow: hidden;
-    line-height: var(--line-height-base);
-    margin-top: var(--spacing-lg);
-}
-
-.planit-register-form-submit::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-    transition: left 0.5s ease;
-}
-
-.planit-register-form-submit:hover:not(:disabled)::before {
-    left: 100%;
-}
-
-.planit-register-form-submit:hover:not(:disabled) {
-    background: linear-gradient(135deg, var(--fg-pink), var(--fg-orange));
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-}
-
-.planit-register-form-submit:focus {
-    outline: var(--focus-outline);
-    outline-offset: var(--focus-outline-offset);
-}
-
-.planit-register-form-submit:active:not(:disabled) {
-    transform: translateY(0);
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-}
-
-.planit-register-form-submit:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    background: var(--bg-accent);
-    transform: none;
-    box-shadow: none;
-}
-
-.planit-register-form-submit:disabled::before {
-    display: none;
-}
-
-/* Loading state for form submission */
-.planit-register-form-submit.loading {
-    position: relative;
-    color: transparent;
-}
-
-.planit-register-form-submit.loading::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 20px;
-    height: 20px;
-    border: 2px solid transparent;
-    border-top: 2px solid var(--text-color-inv);
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    to {
-        transform: translate(-50%, -50%) rotate(360deg);
-    }
-}
-.planit-register-actions {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-    margin-top: var(--spacing-lg);
-    width: 100%;
-}
-
-.planit-register-divider {
-    position: relative;
-    text-align: center;
-    margin: var(--spacing-lg) 0;
-    color: var(--text-color-accent);
-    font-size: var(--font-size-small);
-}
-
-.planit-register-divider::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: var(--border-nav);
-    z-index: 1;
-}
-
-.planit-register-divider span {
-    background: var(--bg-1);
-    padding: 0 var(--spacing-md);
-    position: relative;
-    z-index: 2;
-}
-
-.planit-register-login {
-    width: 100%;
-    padding: var(--spacing-sm) var(--spacing-md);
-    font-size: var(--font-size-base);
-    background: transparent;
-    color: var(--text-color);
-    border: 2px solid var(--border-nav);
-    border-radius: var(--border-radius);
-    cursor: pointer;
-    font-weight: 500;
-    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    text-decoration: none;
-    display: inline-block;
-    text-align: center;
-    line-height: var(--line-height-base);
-    position: relative;
-    overflow: hidden;
-}
-
-.planit-register-login:hover:not(:disabled) {
-    background: var(--bg-accent);
-    color: var(--text-color-inv);
-    border-color: var(--fg-blue);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.planit-register-login:focus {
-    outline: var(--focus-outline);
-    outline-offset: var(--focus-outline-offset);
-}
-
-/* Terms and Privacy Policy */
-.planit-register-terms {
-    margin-top: var(--spacing-md);
-    padding: var(--spacing-sm);
-    background: var(--bg-accent);
-    border-radius: var(--border-radius);
-    border: 1px solid var(--border-nav);
-    font-size: var(--font-size-small);
-    line-height: var(--line-height-base);
-    color: var(--text-color-accent);
-    text-align: center;
-}
-
-.planit-register-terms a {
-    color: var(--fg-blue);
-    text-decoration: underline;
-    font-weight: 500;
-    transition: color 0.2s ease;
-}
-
-.planit-register-terms a:hover {
-    color: var(--fg-mint);
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-    .planit-register-bg {
-        padding: var(--spacing-sm);
-    }
-    
-    .planit-register-card {
-        min-width: 320px;
-        max-width: 100%;
-        padding: var(--spacing-lg) var(--spacing-md);
-    }
-    
-    .planit-register-heading-title {
-        font-size: calc(var(--font-size-heading) * 0.9);
-    }
-    
-    .planit-register-heading-description {
-        font-size: var(--font-size-small);
-    }
-    
-    .floating-circle {
-        display: none; /* Hide floating elements on mobile for performance */
-    }
-    
-    .planit-register-bg {
-        animation-duration: 20s; /* Slower animation on mobile */
-    }
-}
-
-@media (max-width: 480px) {
-    .planit-register-bg {
-        padding: var(--spacing-xs);
-    }
-    
-    .planit-register-card {
-        min-width: 300px;
-        padding: var(--spacing-md) var(--spacing-sm);
-    }
-    
-    .planit-register-heading-title {
-        font-size: calc(var(--font-size-heading) * 0.8);
-    }
-    
-    .planit-register-form-control {
-        font-size: var(--font-size-small);
-        padding: var(--spacing-sm);
-    }
-    
-    .planit-register-form-submit {
-        padding: var(--spacing-sm);
-        font-size: var(--font-size-small);
-    }
-    
-    .planit-register-login {
-        padding: var(--spacing-sm);
-        font-size: var(--font-size-small);
-    }
-}
-
-/* High contrast mode support */
-@media (prefers-contrast: high) {
-    .planit-register-card {
-        border: 3px solid var(--text-color);
-        box-shadow: none;
-    }
-    
-    .planit-register-form-control {
-        border-width: 3px;
-    }
-    
-    .planit-register-form-submit {
-        background: var(--text-color);
-        color: var(--bg-1);
-        border: 2px solid var(--text-color);
-    }
-}
-
-/* Reduced motion preferences */
 @media (prefers-reduced-motion: reduce) {
-    .planit-register-bg {
-        animation: none;
-        background: var(--bg-page);
-    }
-    
-    .floating-circle {
-        animation: none;
-        display: none;
-    }
-    
-    .planit-register-form-control.error {
-        animation: none;
-    }
-    
-    .planit-register-form-submit::before,
-    .planit-register-form-submit:hover:not(:disabled)::before {
-        display: none;
-    }
+  .register { animation: none; }
+  .register-circle { animation: none; }
 }

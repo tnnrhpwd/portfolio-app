@@ -1,6 +1,6 @@
 import { useState, useEffect }  from 'react';
 import { useSelector, useDispatch } from 'react-redux'      // useSelector-brings in user,iserror,isloading from state | useDispatch-brings in reset,register,login from state
-import { useNavigate, useLocation } from 'react-router-dom'              // page redirects
+import { useNavigate, useLocation, Link } from 'react-router-dom'              // page redirects
 import { toast } from 'react-toastify'                        // visible error notifications
 import { register, logout } from '../../features/data/dataSlice'     // import functions from authslice
 import Spinner from '../../components/Spinner/Spinner.jsx';
@@ -98,74 +98,79 @@ function Register() {
     }
 
     return (<>
-        <SEO title="Register" description="Create a new STHopwood account." path="/register" noindex />
+        <SEO title="Register" description="Create a new STHopwood account to save, create, and share." path="/register" noindex />
         <Header />
-        <div className="planit-register-bg">
-            <div className="floating-shapes">
-                <div className="floating-circle floating-circle-1"></div>
-                <div className="floating-circle floating-circle-2"></div>
-                <div className="floating-circle floating-circle-3"></div>
+        <div className="register">
+            <div className="register-floating" aria-hidden="true">
+                <div className="register-circle register-circle-1"></div>
+                <div className="register-circle register-circle-2"></div>
+                <div className="register-circle register-circle-3"></div>
             </div>
-            <div className="planit-register-card">
-                <section className="planit-register-heading">
-                    <div className="planit-register-heading-title">Create Your Account</div>
-                    <div className="planit-register-heading-description">Register to save, create, and share goals and plans!</div>
-                </section>
-                <section className="planit-register-form">
+
+            <section className="register-hero">
+                <div className="register-title-wrap">
+                    <p className="register-eyebrow">Get started</p>
+                    <h1 className="register-title">Create Your Account</h1>
+                    <p className="register-subtitle">Register to save, create, and share goals and plans.</p>
+                </div>
+            </section>
+
+            <main id="main" className="register-section">
+                <div className="register-card">
                     <form onSubmit={onSubmit} autoComplete="on">
-                        <div className="planit-register-form-group">
+                        <div className="register-form-group">
+                            <label className="register-label" htmlFor="register-nickname">Nickname</label>
                             <input
                                 type="text"
-                                className="planit-register-form-control"
-                                id="nickname"
+                                className="register-input"
+                                id="register-nickname"
                                 name="nickname"
                                 value={nickname}
-                                placeholder="Enter nickname"
+                                placeholder="How should we greet you?"
                                 onChange={onChange}
                                 autoFocus
                                 required
                             />
                         </div>
-                        <div className="planit-register-form-group">
+                        <div className="register-form-group">
+                            <label className="register-label" htmlFor="register-email">Email</label>
                             <input
                                 type="email"
-                                className="planit-register-form-control"
-                                id="email"
+                                className="register-input"
+                                id="register-email"
                                 name="email"
                                 value={email}
-                                placeholder="Enter your email"
+                                placeholder="you@example.com"
                                 onChange={onChange}
                                 required
                             />
                         </div>
-                        <div className="planit-register-form-group">
+                        <div className="register-form-group">
+                            <label className="register-label" htmlFor="register-password">Password</label>
                             <input
                                 type="password"
-                                className="planit-register-form-control"
-                                id="password"
+                                className="register-input"
+                                id="register-password"
                                 name="password"
                                 value={password}
-                                placeholder="Enter password"
+                                placeholder="At least 8 characters"
                                 onChange={onChange}
                                 required
                             />
-                            <div className="planit-register-password-requirements">
-                                Password must contain: lowercase, uppercase, and number
-                            </div>
+                            <p className="register-hint">Password must contain lowercase, uppercase, and number.</p>
                         </div>
-                        <div className="planit-register-form-group">
-                            <button type="submit" className="planit-register-form-submit">
-                                Register
-                            </button>
-                        </div>
+                        <button type="submit" className="register-submit">
+                            Create Account
+                        </button>
                     </form>
-                </section>
-                <div className="planit-register-actions">
-                    <button className="planit-register-login" onClick={() => navigate('/login', { state: { redirectTo: location.state?.redirectTo } })}>
-                        Log In Instead
-                    </button>
+
+                    <div className="register-actions">
+                        <Link className="register-link" to="/login" state={{ redirectTo: location.state?.redirectTo }}>
+                            Already have an account? Log in <span aria-hidden="true">→</span>
+                        </Link>
+                    </div>
                 </div>
-            </div>
+            </main>
         </div>
         <Footer />
     </>);

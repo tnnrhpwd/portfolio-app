@@ -1,10 +1,11 @@
 import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { getMembershipPricing, getUserStorage } from '../../features/data/dataSlice';
 import { formatPrice } from '../../utils/checkoutUtils';
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
+import SEO from '../../components/SEO/SEO.jsx';
 import usePurchaseGate from '../../hooks/usePurchaseGate';
 import './Pricing.css';
 
@@ -83,24 +84,32 @@ function Pricing() {
 
   return (
     <>
+      <SEO
+        title="Pricing"
+        description="Simple, transparent pricing for the Simple AI agent — upgrade or downgrade anytime."
+        path="/pricing"
+      />
       <Header />
-      <div className="pricing-page">
-        <div className="floating-shapes">
-          <div className="floating-circle floating-circle-1"></div>
-          <div className="floating-circle floating-circle-2"></div>
-          <div className="floating-circle floating-circle-3"></div>
+      <div className="pricing">
+        <div className="pricing-floating" aria-hidden="true">
+          <div className="pricing-circle pricing-circle-1"></div>
+          <div className="pricing-circle pricing-circle-2"></div>
+          <div className="pricing-circle pricing-circle-3"></div>
         </div>
 
-        <div className="pricing-content">
-          <div className="pricing-hero">
-            <h1>Simple, Transparent Pricing</h1>
-            <p>Choose the plan that fits your workflow. Upgrade or downgrade anytime.</p>
-            <p className="pricing-hero-example">
+        <section className="pricing-hero">
+          <div className="pricing-title-wrap">
+            <p className="pricing-eyebrow">Membership</p>
+            <h1 className="pricing-title">Simple, Transparent Pricing</h1>
+            <p className="pricing-subtitle">Choose the plan that fits your workflow. Upgrade or downgrade anytime.</p>
+            <p className="pricing-lead">
               Simple is an AI agent for your Windows PC: show it once how you rename and file
               invoices, and afterward saying “do the invoices” repeats those steps.
             </p>
           </div>
+        </section>
 
+        <main id="main" className="pricing-section">
           {!purchasesEnabled && (
             <div className="pricing-gate-notice" role="status">
               {gateMessage || 'Upgrading is temporarily paused. Please check back soon.'}
@@ -116,7 +125,7 @@ function Pricing() {
 
           {dataIsLoading && !membershipPricing ? (
             <div className="pricing-loading">
-              <div className="spinner"></div>
+              <div className="pricing-spinner" aria-hidden="true"></div>
               <p>Loading plans...</p>
             </div>
           ) : (
@@ -124,37 +133,37 @@ function Pricing() {
               {plans.map((plan) => {
                 const gated = plan.id !== 'free' && !purchasesEnabled;
                 return (
-                <div
-                  key={plan.id}
-                  className={`pricing-plan-card ${plan.id === 'pro' ? 'featured' : ''}`}
-                >
-                  {plan.id === 'pro' && (
-                    <div className="pricing-plan-badge">Best Value</div>
-                  )}
-                  <div className="pricing-plan-name">{plan.name}</div>
-                  <div className="pricing-plan-price">
-                    {plan.price}
-                    <span className="period">/{plan.period}</span>
-                  </div>
-                  <div className="pricing-plan-tagline">{plan.tagline}</div>
-                  <ul className="pricing-plan-features">
-                    {plan.features.map((feature, i) => (
-                      <li key={i}>{feature}</li>
-                    ))}
-                  </ul>
-                  <button
-                    className={`pricing-plan-cta ${plan.id === 'pro' ? 'primary' : 'secondary'}`}
-                    onClick={() => handleSelectPlan(plan.id)}
-                    disabled={gated}
-                    title={gated ? (gateMessage || 'Upgrading is temporarily paused') : undefined}
+                  <div
+                    key={plan.id}
+                    className={`pricing-plan-card ${plan.id === 'pro' ? 'featured' : ''}`}
                   >
-                    {gated
-                      ? 'Not available yet'
-                      : plan.id === 'free'
-                        ? (user ? 'Current Plan' : 'Get Started Free')
-                        : `Choose ${plan.name}`}
-                  </button>
-                </div>
+                    {plan.id === 'pro' && (
+                      <div className="pricing-plan-badge">Best Value</div>
+                    )}
+                    <div className="pricing-plan-name">{plan.name}</div>
+                    <div className="pricing-plan-price">
+                      {plan.price}
+                      <span className="period">/{plan.period}</span>
+                    </div>
+                    <div className="pricing-plan-tagline">{plan.tagline}</div>
+                    <ul className="pricing-plan-features">
+                      {plan.features.map((feature, i) => (
+                        <li key={i}>{feature}</li>
+                      ))}
+                    </ul>
+                    <button
+                      className={`pricing-plan-cta ${plan.id === 'pro' ? 'primary' : 'secondary'}`}
+                      onClick={() => handleSelectPlan(plan.id)}
+                      disabled={gated}
+                      title={gated ? (gateMessage || 'Upgrading is temporarily paused') : undefined}
+                    >
+                      {gated
+                        ? 'Not available yet'
+                        : plan.id === 'free'
+                          ? (user ? 'Current Plan' : 'Get Started Free')
+                          : `Choose ${plan.name}`}
+                    </button>
+                  </div>
                 );
               })}
             </div>
@@ -162,13 +171,13 @@ function Pricing() {
 
           <div className="pricing-bottom">
             <p>
-              All plans include access to the AI chat on <a href="/net">/net</a>.
-              Questions? Visit <a href="/support">/support</a>.
+              All plans include access to the AI chat on <Link to="/net">/net</Link>.
+              Questions? Visit <Link to="/support">/support</Link>.
             </p>
           </div>
-        </div>
-        <Footer />
+        </main>
       </div>
+      <Footer />
     </>
   );
 }

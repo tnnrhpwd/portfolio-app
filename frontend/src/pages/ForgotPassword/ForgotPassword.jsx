@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { toast } from 'react-toastify';
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { logout } from '../../features/data/dataSlice';
 import './ForgotPassword.css';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
+import SEO from '../../components/SEO/SEO.jsx';
 
 function ForgotPassword() {
     const [formData, setFormData] = useState({
@@ -82,69 +84,69 @@ function ForgotPassword() {
 
     return (
         <>
+            <SEO title="Forgot Password" description="Reset your STHopwood account password." path="/forgot-password" noindex />
             <Header />
-            <div className="planit-forgot-bg">
-                <div className="floating-shapes">
-                    <div className="floating-circle floating-circle-1"></div>
-                    <div className="floating-circle floating-circle-2"></div>
-                    <div className="floating-circle floating-circle-3"></div>
+            <div className="forgot">
+                <div className="forgot-floating" aria-hidden="true">
+                    <div className="forgot-circle forgot-circle-1"></div>
+                    <div className="forgot-circle forgot-circle-2"></div>
+                    <div className="forgot-circle forgot-circle-3"></div>
                 </div>
-                <div className="planit-forgot-card">
-                    <section className="planit-forgot-heading">
-                        <div className="planit-forgot-heading-title">
+
+                <section className="forgot-hero">
+                    <div className="forgot-title-wrap">
+                        <p className="forgot-eyebrow">Account recovery</p>
+                        <h1 className="forgot-title">
                             {emailSent ? 'Email Sent!' : 'Forgot Password?'}
-                        </div>
-                        <div className="planit-forgot-heading-description">
-                            {emailSent 
+                        </h1>
+                        <p className="forgot-subtitle">
+                            {emailSent
                                 ? 'Check your inbox for password reset instructions.'
-                                : 'Enter your email address and we\'ll send you a link to reset your password.'
+                                : "Enter your email address and we'll send you a link to reset your password."
                             }
-                        </div>
-                    </section>
-                    
-                    {!emailSent ? (
-                        <section className="planit-forgot-form">
+                        </p>
+                    </div>
+                </section>
+
+                <main id="main" className="forgot-section">
+                    <div className="forgot-card">
+                        {!emailSent ? (
                             <form onSubmit={onSubmit} autoComplete="on">
-                                <div className="planit-forgot-form-group">
+                                <div className="forgot-form-group">
+                                    <label className="forgot-label" htmlFor="forgot-email">Email</label>
                                     <input
                                         type="email"
-                                        className="planit-forgot-form-control"
-                                        id="planit-email"
+                                        className="forgot-input"
+                                        id="forgot-email"
                                         name="email"
                                         value={email}
-                                        placeholder="Enter your email"
+                                        placeholder="you@example.com"
                                         onChange={onChange}
                                         autoFocus
                                         required
                                     />
                                 </div>
-                                <div className="planit-forgot-form-group">
-                                    <button 
-                                        type="submit" 
-                                        className="planit-forgot-form-submit" 
-                                        disabled={isLoading}
-                                    >
-                                        {isLoading ? 'Sending...' : 'Send Reset Email'}
-                                    </button>
-                                </div>
+                                <button
+                                    type="submit"
+                                    className="forgot-submit"
+                                    disabled={isLoading}
+                                >
+                                    {isLoading ? 'Sending…' : 'Send Reset Email'}
+                                </button>
                             </form>
-                        </section>
-                    ) : (
-                        <div className="planit-forgot-success">
-                            <p>If an account exists with that email address, you will receive a password reset link shortly.</p>
-                            <p>Didn't receive an email? Check your spam folder or try again with a different email address.</p>
+                        ) : (
+                            <div className="forgot-success">
+                                <p>If an account exists with that email address, you will receive a password reset link shortly.</p>
+                                <p>Didn't receive an email? Check your spam folder or try again with a different email address.</p>
+                            </div>
+                        )}
+
+                        <div className="forgot-actions">
+                            <Link className="forgot-link" to="/login">Back to Login</Link>
+                            <Link className="forgot-link" to="/register">Don't have an account? Register</Link>
                         </div>
-                    )}
-                    
-                    <div className="planit-forgot-actions">
-                        <a href="/login">
-                            <button className="planit-forgot-back">Back to Login</button>
-                        </a>
-                        <a href="/register">
-                            <button className="planit-forgot-register">Don't have an account? Register</button>
-                        </a>
                     </div>
-                </div>
+                </main>
             </div>
             <Footer />
         </>
