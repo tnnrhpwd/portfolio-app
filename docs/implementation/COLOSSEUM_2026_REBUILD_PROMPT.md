@@ -86,7 +86,7 @@ offline via Ruffle) and the reference screenshots
 specification in your own words that catalogs:
 - the core loop and every screen/state the player moves through;
 - each system: character creation, roster/team management, attribute + skill
-  allocation, blacksmith crafting, shop, slave market, infirmary, campaign map,
+  allocation, blacksmith crafting, shop, recruit, infirmary, campaign map,
   and combat;
 - combat rules at the behavioral level (turn order, body-part targeting,
   per-zone armor/health, attack precision tiers, blocking, MP/Morale skills,
@@ -212,12 +212,12 @@ be original. At minimum:
 - Blacksmith: craft/upgrade gear with quality multipliers and random bonuses,
   consuming gold and metal materials.
 - Shop: rotating, tiered equipment stock that scales per city.
-- Slave market: recruit new gladiators of varying starting stats and level.
+- Recruit: hire new gladiators of varying starting stats and level.
 - Infirmary/rest: heal injuries and restore HP between fights.
 
 **Campaign & progression**
 - A world map of cities unlocked in sequence by rank; each city has a coliseum
-  with a ladder of opponent teams plus shops and a slave market that scale up.
+  with a ladder of opponent teams plus shops and a recruit facility that scale up.
 - Gold, XP, and loot rewards; a fame/rank ladder; meta unlockables.
 
 You may add new systems or smooth rough edges, but the reference's loop
@@ -275,7 +275,7 @@ works at the end).
   fight → rewards loop, end-to-end, with placeholder art and stock SFX. Gate:
   the loop is fun and runs on desktop + mobile.
 - Phase 3 — Content & balance: all five weapon-style skill trees, per-zone armor
-  and equipment slots, blacksmith/shop/slave-market/infirmary facilities, the
+  and equipment slots, blacksmith/shop/recruit/infirmary facilities, the
   multi-city campaign map with rank-gated coliseums, smarter enemy AI, and a
   balance pass. Gate: full management loop at feature parity with the reference.
 - Phase 4 — Meta & onboarding: tutorial, tooltips/previews, auto-battle and

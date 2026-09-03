@@ -15,8 +15,8 @@ campaign of rank-gated cities.
 
 ## 2. Core loop
 1. Manage the school: inspect fighters, spend stat/skill points, equip gear.
-2. Visit city facilities: shop (buy), blacksmith (craft/upgrade), slave market
-   (recruit), infirmary (heal).
+2. Visit city facilities: shop (buy), blacksmith (craft/upgrade), recruit
+   (hire), infirmary (heal).
 3. Enter the coliseum: pick an opponent team, fight.
 4. Win → earn gold, XP, and loot; make a post-battle verdict (spare or execute).
 5. Heal, re-equip, train, repeat; unlock the next city by climbing rank.
@@ -118,7 +118,7 @@ gladiator type names — these are factual categories, not game-invented):
   ingots (bronze/iron/silver/gold); rare "true gem" outcomes.
 - **Shop:** rotating stock that scales per city; filter by slot; buy/sell/equip
   by dragging onto the fighter or inventory.
-- **Slave market:** recruit fighters of varying starting level and stats.
+- **Recruit:** hire fighters of varying starting level and stats.
 - **Infirmary:** heal wounds and restore HP between fights (gold cost).
 
 ## 8. Campaign & progression
@@ -126,7 +126,7 @@ gladiator type names — these are factual categories, not game-invented):
   northern frontier to the capital and a mythic final city. (Original city
   names to be chosen from the historical Roman world.)
 - Each city has a coliseum (a ladder of opponent teams, some rank-locked), a
-  shop, and a slave market; later cities scale up in power and stock.
+  shop, and a recruit facility; later cities scale up in power and stock.
 - Rewards: gold, XP, loot; a fame/rank ladder; meta unlockables (trophies).
 
 ## 9. Economy & risk

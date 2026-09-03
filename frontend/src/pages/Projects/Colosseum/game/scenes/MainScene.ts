@@ -84,10 +84,10 @@ export class MainScene extends BaseScene {
     const rightCy = rightTop + (20 + rightItems.length * itemH) / 2;
     this.menuPanel(this.w - m - menuW / 2, rightCy, menuW, itemH, itemFont, rightItems);
 
-    // ── Bottom-left: city actions (coliseum / slave market / shop) ──
+    // ── Bottom-left: city actions (coliseum / recruit / shop) ──
     const leftItems: MenuItem[] = [
       { label: 'COLISEUM', onClick: () => this.scene.start('Coliseum', { cityId: city.id }) },
-      { label: 'SLAVE MARKET', onClick: () => this.scene.start('Recruit', { tier: city.shopTier, cityId: city.id }) },
+      { label: 'RECRUIT', onClick: () => this.scene.start('Recruit', { tier: city.shopTier, cityId: city.id }) },
       { label: 'SHOP', onClick: () => this.scene.start('Shop', { tier: city.shopTier, cityId: city.id }) },
     ];
     const leftCy = this.h - m - (20 + leftItems.length * itemH) / 2;

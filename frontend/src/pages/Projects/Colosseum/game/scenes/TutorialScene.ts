@@ -14,7 +14,7 @@ const STEPS = [
   },
   {
     title: 'The World Map',
-    body: 'Travel between cities. Each has a coliseum, shop, slave market, blacksmith, and infirmary. Win fights to earn fame and unlock the next city.',
+    body: 'Travel between cities. Each has a coliseum, shop, recruit, blacksmith, and infirmary. Win fights to earn fame and unlock the next city.',
   },
   {
     title: 'Combat',

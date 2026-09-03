@@ -38,7 +38,7 @@ export class CityScene extends BaseScene {
 
     this.button(this.cx, 220, 'COLISEUM', () => this.scene.start('Coliseum', { cityId: city.id }));
     this.button(this.cx, 300, 'SHOP', () => this.scene.start('Shop', { tier: city.shopTier, cityId: city.id }));
-    this.button(this.cx, 380, 'SLAVE MARKET', () => this.scene.start('Recruit', { tier: city.shopTier, cityId: city.id }));
+    this.button(this.cx, 380, 'RECRUIT', () => this.scene.start('Recruit', { tier: city.shopTier, cityId: city.id }));
     this.button(this.cx, 460, 'BLACKSMITH', () => this.scene.start('Blacksmith', { cityId: city.id }));
     this.button(this.cx, 540, 'INFIRMARY', () => this.scene.start('Infirmary', { cityId: city.id }));
   }
