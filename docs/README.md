@@ -10,6 +10,7 @@ docs/
 ├── guides/                            # Setup and usage guides
 │   ├── AWS_SETUP_GUIDE.md            # AWS S3 + CloudFront configuration
 │   ├── STATIC_ASSETS_GUIDE.md        # Static asset management
+│   ├── AI_IMAGE_GENERATOR_GUIDE.md  # Generate images via AWS Bedrock and wire them in as assets
 │   ├── REFERER_TRACKING_README.md    # Analytics and tracking setup
 │   ├── ACTION_PLAN.md                # Consolidated next-steps plan (start here)
 │   ├── ENV_BACKUP_GUIDE.md           # Encrypted .env backup/restore workflow
@@ -38,6 +39,7 @@ docs/
 - [Frontend UI Standard](./guides/FRONTEND_UI_STANDARD.md) - **Read before building pages.** Theming, responsive sizing, and the canonical page template
 - [AWS Setup Guide](./guides/AWS_SETUP_GUIDE.md) - Set up S3 and CloudFront
 - [Static Assets Guide](./guides/STATIC_ASSETS_GUIDE.md) - Manage images and files
+- [AI Image Generator Guide](./guides/AI_IMAGE_GENERATOR_GUIDE.md) - Generate images via AWS Bedrock and use them as repo assets
 - [Env Backup Guide](./guides/ENV_BACKUP_GUIDE.md) - Back up/restore `.env` secrets without ever exposing them in the repo
 - [Secrets Management](./guides/SECRETS_MANAGEMENT.md) - Single source of truth for secrets (AWS Secrets Manager)
 

@@ -20,6 +20,7 @@ import artGames from '../../assets/art/feature-games.jpg';
 import artEngineering from '../../assets/art/feature-engineering.jpg';
 import artSurprises from '../../assets/art/feature-surprises.jpg';
 import artNet from '../../assets/art/project-net.jpg';
+import headshot from '../../assets/1788391647406.jpg';
 import './Home.css';
 
 // Same hardcoded admin id used to gate the /admin page — the girlfriend's
@@ -53,6 +54,59 @@ const STEPS = [
   { num: "04", title: "Say hello", desc: "Questions, ideas, or bugs? Drop a line anytime.", path: "/support?tab=contact" },
 ];
 
+// Counts from 0 to `target` the first time the element scrolls into view, then
+// stops. Respects prefers-reduced-motion by jumping straight to the target.
+function useCountUp(target) {
+    const ref = useRef(null);
+    const [value, setValue] = useState(0);
+
+    useEffect(() => {
+        const el = ref.current;
+        if (!el) return undefined;
+        if (
+            typeof IntersectionObserver === 'undefined'
+            || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ) {
+            setValue(target);
+            return undefined;
+        }
+        let rafId = 0;
+        const observer = new IntersectionObserver(([entry]) => {
+            if (!entry.isIntersecting) return;
+            observer.disconnect();
+            const start = performance.now();
+            const duration = 1400;
+            const tick = (now) => {
+                const p = Math.min(1, (now - start) / duration);
+                const eased = 1 - Math.pow(1 - p, 3); // ease-out cubic
+                setValue(Math.round(target * eased));
+                if (p < 1) rafId = requestAnimationFrame(tick);
+            };
+            rafId = requestAnimationFrame(tick);
+        }, { threshold: 0.5 });
+        observer.observe(el);
+        return () => {
+            observer.disconnect();
+            cancelAnimationFrame(rafId);
+        };
+    }, [target]);
+
+    return [ref, value];
+}
+
+// A single stat in the "about me" band. Numeric values count up on scroll;
+// string values (e.g. "Green Belt") render as-is.
+function AnimatedStat({ value, prefix = '', suffix = '', label }) {
+    const numeric = typeof value === 'number';
+    const [ref, count] = useCountUp(numeric ? value : 0);
+    return (
+        <div className="home-stat" ref={ref}>
+            <span className="home-stat-value">{numeric ? `${prefix}${count}${suffix}` : value}</span>
+            <span className="home-stat-label">{label}</span>
+        </div>
+    );
+}
+
 function Home() {
     const dispatch = useDispatch();
     const [displayedText, setDisplayedText] = useState("");
@@ -63,12 +117,20 @@ function Home() {
         (state) => state.data
     );
 
+    // Rounded years of manufacturing experience, kept in sync with the About
+    // page's start date (2021-09-12).
+    const yearsExperience = Math.max(
+        4,
+        Math.ceil((Date.now() - new Date('2021-09-12').getTime()) / (1000 * 60 * 60 * 24 * 365.25))
+    );
+
     // Scroll-triggered reveals (see FRONTEND_UI_STANDARD.md §5) — one per major section.
+    const [introRef, introVisible] = useScrollReveal();
     const [templatesRef, templatesVisible] = useScrollReveal();
     const [featuresRef, featuresVisible] = useScrollReveal();
-    const [howtoRef, howtoVisible] = useScrollReveal();
     const [linksRef, linksVisible] = useScrollReveal();
     const [ctaRef, ctaVisible] = useScrollReveal();
+    const [openSourceRef, openSourceVisible] = useScrollReveal();
 
     // Horizontal carousel pagination (Squarespace-style dots + arrows).
     const templatesRowRef = useRef(null);
@@ -296,12 +358,37 @@ function Home() {
                         <p className={`home-subtitle ${animationPhase >= 1 ? 'is-visible' : ''}`}>
                             Let's build a brighter tomorrow!
                         </p>
-                        <p className={`home-kicker ${animationPhase >= 1 ? 'is-visible' : ''}`}>
-                            Manufacturing, Engineering, and Process Development
-                        </p>
-                        <div className={`home-actions ${animationPhase >= 1 ? 'is-visible' : ''}`}>
-                            <Link className="home-btn" to="/projects">Explore projects <span aria-hidden="true">→</span></Link>
-                            <Link className="home-btn home-btn-text" to="/about">Learn more about us <span aria-hidden="true">→</span></Link>
+                    </div>
+                </section>
+
+                {/* ── About me (personal intro) ── */}
+                <section ref={introRef} className={`home-band home-band--surface home-intro home-reveal ${introVisible ? 'is-visible' : ''}`}>
+                    <div className="home-wrap home-intro-grid">
+                        <div className="home-intro-media">
+                            <div className="home-portrait">
+                                <img className="home-portrait-img" src={headshot} alt="Portrait of Steven Tanner Hopwood" />
+                            </div>
+                            <div className="home-intro-tag">
+                                <span className="home-intro-tag-dot" aria-hidden="true" />
+                                Steven Tanner Hopwood
+                            </div>
+                        </div>
+                        <div className="home-intro-copy">
+                            <p className="home-eyebrow">About me</p>
+                            <h2 className="home-heading home-intro-heading">Engineering leadership, process, and product development</h2>
+                            <p className="home-lead home-intro-lead">
+                                I'm Steven Hopwood — an Advanced Manufacturing Engineer at Yanfeng Interiors and the full-stack developer behind everything on this site. I connect the shop floor to the cloud: leading cost-savings initiatives, building the tools my teams use, and owning projects from first sketch to shipped result.
+                            </p>
+                            <div className="home-intro-actions">
+                                <Link className="home-btn" to="/about">Read my story <span aria-hidden="true">→</span></Link>
+                                <a className="home-btn home-btn-text" href="https://www.linkedin.com/in/sthopwood/" target="_blank" rel="noreferrer">LinkedIn <span aria-hidden="true">→</span></a>
+                            </div>
+                            <div className="home-stats">
+                                <AnimatedStat value={250} prefix="$" suffix="K+" label="Cost savings I've led" />
+                                <AnimatedStat value={PROJECTS.length} suffix="+" label="Projects shipped" />
+                                <AnimatedStat value={yearsExperience} suffix="+" label="Years of experience" />
+                                <AnimatedStat value="Tier 1" label="Automotive supplier" />
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -348,6 +435,35 @@ function Home() {
                         </div>
                     </div>
                 </section>
+                
+                {/* ── Open source ── */}
+                <section ref={openSourceRef} className={`home-band home-band--tint home-open-source home-reveal ${openSourceVisible ? 'is-visible' : ''}`}>
+                    <div className="home-wrap home-open-source-inner">
+                        <p className="home-eyebrow">
+                            <span className="home-eyebrow-dot" aria-hidden="true" />
+                            100% open source
+                        </p>
+                        <h2 className="home-heading home-open-source-heading">Every line of code is public</h2>
+                        <p className="home-lead home-open-source-lead">
+                            No black boxes, no paywalled source. This entire webapp — frontend, backend,
+                            tools, and games — is free to read, fork, and learn from on GitHub.
+                        </p>
+                        <div className="home-code-window" aria-hidden="true">
+                            <div className="home-code-bar">
+                                <span className="home-code-dot home-code-dot--red" />
+                                <span className="home-code-dot home-code-dot--yellow" />
+                                <span className="home-code-dot home-code-dot--green" />
+                                <span className="home-code-path">github.com/tnnrhpwd/portfolio-app</span>
+                            </div>
+                            <pre className="home-code-line"><code><span className="home-code-muted">$</span> git clone https://github.com/tnnrhpwd/portfolio-app.git</code></pre>
+                        </div>
+                        <div className="home-open-source-actions">
+                            <a className="home-btn" href="https://github.com/tnnrhpwd/portfolio-app" target="_blank" rel="noopener noreferrer">
+                                View the source code <span aria-hidden="true">→</span>
+                            </a>
+                        </div>
+                    </div>
+                </section>
 
                 {/* ── What's inside (alternating media rows) ── */}
                 <section ref={featuresRef} className={`home-band home-band--surface home-features home-reveal ${featuresVisible ? 'is-visible' : ''}`}>
@@ -372,14 +488,17 @@ function Home() {
                     </div>
                 </section>
 
-                {/* ── How to get started ── */}
-                <section ref={howtoRef} className={`home-band home-band--tint home-howto home-reveal ${howtoVisible ? 'is-visible' : ''}`}>
-                    <div className="home-wrap">
-                        <div className="home-section-head">
-                            <p className="home-eyebrow">Getting started</p>
-                            <h2 className="home-heading">How to get around</h2>
+                {/* ── Final CTA + getting started ── */}
+                <section ref={ctaRef} className={`home-band home-cta home-reveal ${ctaVisible ? 'is-visible' : ''}`}>
+                    <div className="home-wrap home-cta-inner">
+                        <p className="home-eyebrow home-eyebrow--inv">No credit card required</p>
+                        <h2 className="home-cta-title">Ready to explore?</h2>
+                        <p className="home-cta-sub">Jump in and start building something fun.</p>
+                        <div className="home-actions">
+                            <Link className="home-btn home-btn--inv" to="/projects">Start exploring <span aria-hidden="true">→</span></Link>
+                            <Link className="home-btn home-btn--ghost" to="/support?tab=contact">Get in touch</Link>
                         </div>
-                        <ol className="home-steps">
+                        <ol className="home-steps home-steps--inverse">
                             {STEPS.map((step) => (
                                 <li className="home-step" key={step.num}>
                                     <span className="home-step-num" aria-hidden="true">{step.num}</span>
@@ -392,19 +511,6 @@ function Home() {
                                 </li>
                             ))}
                         </ol>
-                    </div>
-                </section>
-
-                {/* ── Final CTA ── */}
-                <section ref={ctaRef} className={`home-band home-cta home-reveal ${ctaVisible ? 'is-visible' : ''}`}>
-                    <div className="home-wrap home-cta-inner">
-                        <p className="home-eyebrow home-eyebrow--inv">No credit card required</p>
-                        <h2 className="home-cta-title">Ready to explore?</h2>
-                        <p className="home-cta-sub">Jump in and start building something fun.</p>
-                        <div className="home-actions">
-                            <Link className="home-btn home-btn--inv" to="/projects">Start exploring <span aria-hidden="true">→</span></Link>
-                            <Link className="home-btn home-btn--ghost" to="/support?tab=contact">Get in touch</Link>
-                        </div>
                     </div>
                 </section>
 
