@@ -100,6 +100,8 @@ const QUALITIES = [
 
 const REASONS = [
   'You always make me smile when I am around you.',
+  'We both have great ambitions of building a happy family and home.',
+  'You\'re long-term goal oriented and focused on building a meaningful future.',
   'You make me sweet treats, and always find ways to make me happy.',
   'You have an incredible memory about the things that I say.',
   'I love hearing you say my name.',
