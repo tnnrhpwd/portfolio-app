@@ -406,6 +406,7 @@
   padding: 0;
   width: 100%;
   max-width: 760px;
+  text-align: left;
   display: flex;
   flex-direction: column;
   gap: calc(var(--nav-size) * 0.6);
@@ -413,18 +414,15 @@
 .home-step {
   display: flex;
   align-items: flex-start;
-  gap: calc(var(--nav-size) * 0.4);
+  gap: calc(var(--nav-size) * 0.35);
 }
 .home-step-num {
-  font-size: var(--font-size-heading);
+  flex: 0 0 calc(var(--nav-size) * 0.7);
+  font-size: var(--font-size-large);
   font-weight: var(--font-weight-bold);
-  line-height: 1;
-  min-width: calc(var(--nav-size) * 1.1);
+  line-height: 1.2;
   color: var(--fg-blue);
-  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  transition: transform 0.2s ease;
 }
 .home-step-title { font-size: var(--font-size-large); font-weight: var(--font-weight-semibold); line-height: 1.2; margin: 0 0 calc(var(--nav-size) * 0.08); }
 .home-step-title a {
@@ -439,6 +437,24 @@
 .home-step-title a:hover { color: var(--fg-blue); }
 .home-step-title a:hover span { transform: translateX(4px); }
 .home-step-desc { font-size: var(--font-size-small); line-height: var(--line-height-base); color: var(--text-color-accent); margin: 0; }
+
+/* Number scales up on step hover */
+.home-step:hover .home-step-num { transform: scale(1.08); }
+
+/* Staggered entrance for the numbered steps */
+.home-cta .home-step {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.home-cta.is-visible .home-step {
+  opacity: 1;
+  transform: translateY(0);
+}
+.home-cta.is-visible .home-step:nth-child(1) { transition-delay: 0.05s; }
+.home-cta.is-visible .home-step:nth-child(2) { transition-delay: 0.15s; }
+.home-cta.is-visible .home-step:nth-child(3) { transition-delay: 0.25s; }
+.home-cta.is-visible .home-step:nth-child(4) { transition-delay: 0.35s; }
 
 /* Steps rendered on the vibrant CTA gradient (inverse) */
 .home-steps--inverse {
@@ -778,7 +794,8 @@
   .home-subtitle,
   .home-kicker,
   .home-actions,
-  .home-stat {
+  .home-stat,
+  .home-cta .home-step {
     opacity: 1;
     transform: none;
     transition: none;
