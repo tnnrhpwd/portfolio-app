@@ -14,18 +14,22 @@ import artColosseum from '../assets/art/Hero banner.jpg';
 import artSonic from '../assets/art/project-sonic.jpg';
 import artWordle from '../assets/art/project-wordle.jpg';
 import artPolls from '../assets/art/project-polls.jpg';
-import artGames from '../assets/art/feature-games.jpg';
-import artEngineering from '../assets/art/feature-engineering.jpg';
-import artProductivity from '../assets/art/feature-productivity.jpg';
-import artSurprises from '../assets/art/feature-surprises.jpg';
 import artHype from '../assets/art/project-hype.jpg';
 import artNet from '../assets/art/project-net.jpg';
+import artAnnuities from '../assets/art/project-annuities.jpg';
+import artHalfway from '../assets/art/project-halfway.jpg';
+import artIQ from '../assets/art/project-iqtest.jpg';
+import artPassGen from '../assets/art/project-passgen.jpg';
+import artSleepAssist from '../assets/art/project-sleepassist.jpg';
+import artWordleSolver from '../assets/art/project-wordlesolver.jpg';
+import artPets from '../assets/art/project-pets.jpg';
+import artUIMapper from '../assets/art/project-uimapper.jpg';
 
 export const PROJECTS = [
   {
     name: "Annuities",
     path: "/annuities",
-    art: artEngineering,
+    art: artAnnuities,
     category: "Tools",
     description: "Calculate the effect of compound interest on your investment with an interactive annuities and engineering-economy calculator.",
   },
@@ -53,28 +57,28 @@ export const PROJECTS = [
   {
     name: "Halfway",
     path: "/halfway",
-    art: artEngineering,
+    art: artHalfway,
     category: "Tools",
     description: "Find the halfway meeting point in time between sunrise and sunset for two locations.",
   },
   {
     name: "IQ Test",
     path: "/iq",
-    art: artGames,
+    art: artIQ,
     category: "Games",
     description: "Take a free adaptive IQ test with multiple difficulty tiers and instant results.",
   },
   {
     name: "PassGen",
     path: "/passgen",
-    art: artEngineering,
+    art: artPassGen,
     category: "Tools",
     description: "Generate secure, random passwords instantly with customizable length and character options.",
   },
   {
     name: "SleepAssist",
     path: "/sleepassist",
-    art: artProductivity,
+    art: artSleepAssist,
     category: "Tools",
     description: "Calculate optimal sleep and wake times based on natural sleep cycles.",
   },
@@ -95,14 +99,14 @@ export const PROJECTS = [
   {
     name: "Wordle Solver",
     path: "/wordlesolver",
-    art: artGames,
+    art: artWordleSolver,
     category: "Tools",
     description: "Solve any Wordle puzzle instantly with this interactive solver.",
   },
   {
     name: "Pets",
     path: "/pets",
-    art: artSurprises,
+    art: artPets,
     category: "Fun",
     description: "Adopt, feed, train, and care for virtual pets with daily challenges.",
   },
@@ -130,7 +134,7 @@ export const PROJECTS = [
   {
     name: "UI Mapper",
     path: "/uimapper",
-    art: artEngineering,
+    art: artUIMapper,
     category: "Tools",
     description: "Upload a reference screenshot and draw named boxes around components to build a layout spec.",
   },

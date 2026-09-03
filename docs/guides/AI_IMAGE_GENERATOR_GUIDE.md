@@ -9,6 +9,12 @@ models. It returns **base64-encoded PNG data URLs**, so there is no S3
 round-trip required just to get the pixels — but you can optionally persist the
 result to S3/CloudFront if the asset should be served from the CDN.
 
+> **🤖 Agent TL;DR — generating a repo asset.** You usually do **not** need the
+> HTTP API, a JWT, or a running server. A reusable script already exists:
+> `backend/scripts/generate-project-art.js`. It reads `backend/.env` and calls
+> `services/bedrockImageService.generateImage` directly. See §4.6 for the full
+> recipe (generation, PNG→JPG conversion, and wiring into the projects catalog).
+
 ---
 
 ## 1. Overview
@@ -68,6 +74,10 @@ needs a Bearer token.
    });
    const { token } = await res.json();
    ```
+
+3. **Guest demo account** — the app ships a public guest login
+   (`guest@gmail.com` / `guest`, see `backend/constants/guestAccount.js`), which
+   scripts like `backend/scripts/test-net-image.js` use programmatically.
 
 ---
 
@@ -163,6 +173,54 @@ async function generate(prompt, token, { model, aspectRatio = '1:1', numberOfIma
 The `base64` field is the raw PNG. Decode it with
 `Buffer.from(img.base64, 'base64')` (Node) or `atob(img.base64)` (browser).
 
+### 4.6 Generate directly from a Node script (recommended for repo assets)
+
+For wiring an image into the repo, skip the HTTP API entirely — no server, no
+JWT, no rate limit. Require the service directly; it reads the AWS credentials
+from `backend/.env` (gitignored, and already carries `AWS_ACCESS_KEY_ID` /
+`AWS_SECRET_ACCESS_KEY` in this repo).
+
+```js
+// save-art.js — run from the repo root:  node save-art.js "prompt" out-name
+const fs = require('fs');
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, 'backend', '.env') });
+const { generateImage, getDefaultImageModelId } = require('./backend/services/bedrockImageService');
+
+(async () => {
+  const { images, model, seed } = await generateImage({
+    prompt: process.argv[2],
+    modelId: getDefaultImageModelId(), // stability.sd3-5-large-v1:0 by default
+    aspectRatio: '3:2',                // see the 4:3 card-crop note below
+    numberOfImages: 1,
+  });
+  const out = path.resolve('frontend', 'src', 'assets', 'art', `${process.argv[3]}.png`);
+  fs.writeFileSync(out, Buffer.from(images[0].base64, 'base64'));
+  console.log(`✅ ${out} (${model}, seed ${seed})`);
+})().catch((e) => { console.error('ERROR:', e.message); process.exit(1); });
+```
+
+A ready-made version ships in the repo: `backend/scripts/generate-project-art.js`.
+It holds one prompt per project card and accepts optional slugs to limit the run:
+
+```bash
+node backend/scripts/generate-project-art.js               # regenerate all
+node backend/scripts/generate-project-art.js pets iqtest   # just these
+```
+
+**Prompt & style tips** (matches the site's "vibrant editorial" look — see
+`docs/guides/FRONTEND_UI_STANDARD.md`):
+
+- Ask for a *glossy 3D render* / product mockup, shallow depth of field, with a
+  blurred bokeh background in the site palette: **mint/cyan, hot pink, orange, blue**.
+- End every prompt with `no text` — Stability garbles words, and the existing
+  art is text-free (or a single clean glyph).
+- Project cards render at **4:3** with `object-fit: cover`, so a source at
+  **3:2** (the closest supported landscape ratio for SD3.5 Large) fills the card
+  with minimal cropping.
+- The default model (`stability.sd3-5-large-v1:0`) gives the best quality; one
+  image takes ~15–30 s, so a batch of ~8 is a couple of minutes.
+
 ---
 
 ## 5. Implement the image as a repo asset
@@ -197,8 +255,39 @@ directly and fingerprinted them at build time.
    }
    ```
 
-3. **Check it in** so it becomes a permanent part of the repo. Keep PNGs small
-   (compress with TinyPNG/ImageOptim first) to avoid bloating the bundle.
+3. **Convert PNG → JPG, then check it in.** The generator always returns PNG,
+   but the repo's art directory is all `.jpg`. Convert with `sharp` (already in
+   `backend/node_modules`) at quality ~90 and delete the PNG:
+
+   ```js
+   // run from backend/ so `require('sharp')` resolves
+   const sharp = require('sharp');
+   await sharp('../frontend/src/assets/art/foo.png')
+     .jpeg({ quality: 90, mozjpeg: true })
+     .toFile('../frontend/src/assets/art/foo.jpg');
+   fs.unlinkSync('../frontend/src/assets/art/foo.png');
+   ```
+
+   Raw SD3.5 PNGs land around **1.2–1.8 MB**; the existing art JPGs are 2–4 MB,
+   so this is in line with what's already committed. JPG quality 90 shrinks each
+   file to a few hundred KB.
+
+4. **Wire it into the catalog.** Project cards aren't hardcoded in a page — they
+   come from `frontend/src/constants/projects.js` (the `PROJECTS` array). Add an
+   import and set `art` on the entry:
+
+   ```js
+   import artFoo from '../assets/art/project-foo.jpg';
+   // …
+   { name: "Foo", path: "/foo", art: artFoo, category: "Tools", description: "…" },
+   ```
+
+   - The same `PROJECTS` array drives the `/projects` page **and** the homepage
+     "Start with a tool" carousel, so new art propagates to both automatically.
+   - Keep each project's `path` in sync with the routes in `App.js`.
+   - The homepage's `FEATURED_PROJECTS` curated tiles use the `feature-*.jpg`
+     category images (imported directly in `Home.jsx`). Don't delete those when
+     deduplicating project cards — they're intentional.
 
 ### Path B — Upload to S3 and serve via CloudFront (CDN asset)
 
@@ -302,6 +391,7 @@ APP_EMAIL=you@example.com APP_PASSWORD='••••' node generate-and-save.js 
 | `401 Not authorized` | Missing/expired JWT. Re-login and pass `Authorization: Bearer <token>`. |
 | "The provided model identifier is invalid" | Model not active in the region. Stability generators need **us-west-2**, not us-east-1. |
 | First call hangs / access error | New-region first invoke triggers an AWS account-verification gate (~2h). |
+| Terminal "returns" after only one image | The script is still running in the background. Confirm with `Get-Process node` and re-list the art directory before assuming it failed. |
 
 ### Diagnostics
 
@@ -309,6 +399,9 @@ APP_EMAIL=you@example.com APP_PASSWORD='••••' node generate-and-save.js 
   models are active in a region.
 - `node backend/scripts/test-net-image.js "generate an image of …"` — end-to-end
   net-chat image test (logs in as the guest account).
+- `npx vite build` (from `frontend/`) — verify the new imports bundle. PowerShell
+  may print a `node.exe` `NativeCommandError` at the end; that's just Vite's
+  chunk-size warning on stderr, not a build failure.
 
 ### Region gotcha (important)
 
@@ -328,3 +421,5 @@ active.
   credentials live in production.
 - `backend/services/bedrockImageService.js` — model catalog + generation logic.
 - `backend/controllers/imageGenController.js` — HTTP endpoint validation.
+- `backend/scripts/generate-project-art.js` — reusable repo-asset generator (§4.6).
+- `docs/guides/FRONTEND_UI_STANDARD.md` — the visual style prompts should match.
