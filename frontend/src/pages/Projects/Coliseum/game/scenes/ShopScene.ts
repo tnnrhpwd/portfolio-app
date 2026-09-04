@@ -16,6 +16,7 @@ import {
   sellPrice,
   totalHp,
   unequipAll,
+  unequipItem,
   xpToNext,
   type Equipment,
   type EquipmentSlot,
@@ -28,24 +29,27 @@ const SHOP_PAGE_SIZE = 12;
 /** Shop restock cadence in ms (matches the reference's ~15-minute timer). */
 const RESTOCK_MS = 15 * 60 * 1000;
 
+/** Items per inventory page in the shop (6 columns × 2 rows). */
+const SHOP_INV_PAGE_SIZE = 12;
+
 /** The seven equipment slots, in body order for the equipped-gear summary. */
 const SLOTS: EquipmentSlot[] = ['head', 'torso', 'leftArm', 'rightArm', 'legs', 'mainHand', 'offHand'];
 
 interface FilterDef {
   id: string;
   label: string;
-  match: (slot: EquipmentSlot) => boolean;
+  match: (item: Equipment) => boolean;
 }
 
-/** Shop categories. "ARMS" matches both arm slots (armor + gauntlet). */
+/** Shop categories. "WEAPON" covers any weapon (main or off hand); "SHIELD" only shields. */
 const FILTERS: FilterDef[] = [
   { id: 'all', label: 'ALL', match: () => true },
-  { id: 'weapon', label: 'WEAPON', match: (s) => s === 'mainHand' },
-  { id: 'shield', label: 'SHIELD', match: (s) => s === 'offHand' },
-  { id: 'helm', label: 'HELMET', match: (s) => s === 'head' },
-  { id: 'torso', label: 'TORSO', match: (s) => s === 'torso' },
-  { id: 'arms', label: 'ARMS', match: (s) => s === 'leftArm' || s === 'rightArm' },
-  { id: 'legs', label: 'LEGS', match: (s) => s === 'legs' },
+  { id: 'weapon', label: 'WEAPON', match: (i) => i.minDamage !== undefined },
+  { id: 'shield', label: 'SHIELD', match: (i) => i.blockChance !== undefined },
+  { id: 'helm', label: 'HELMET', match: (i) => i.slot === 'head' },
+  { id: 'torso', label: 'TORSO', match: (i) => i.slot === 'torso' },
+  { id: 'arms', label: 'ARMS', match: (i) => i.slot === 'leftArm' || i.slot === 'rightArm' },
+  { id: 'legs', label: 'LEGS', match: (i) => i.slot === 'legs' },
 ];
 
 interface Bounds {
@@ -69,6 +73,7 @@ export class ShopScene extends BaseScene {
   private dragging = false;
   private inventoryBounds: Bounds | null = null;
   private sellBounds: Bounds | null = null;
+  private inventoryPage = 0;
 
   constructor() {
     super('Shop');
@@ -79,6 +84,7 @@ export class ShopScene extends BaseScene {
     this.cityId = data?.cityId ?? '';
     this.filter = 'all';
     this.shopPage = 0;
+    this.inventoryPage = 0;
     this.fighterIndex = 0;
     this.stock = generateShopStock(this.tier, STOCK_COUNT, Math.random);
     if (!this.restockDeadline) this.restockDeadline = Date.now() + RESTOCK_MS;
@@ -162,6 +168,17 @@ export class ShopScene extends BaseScene {
       y1: bodyY + manH / 2,
     };
     this.equipTargets = new EquipTargets(this, { cx: x + 110, cy: bodyY, w: 120 * scale, h: 180 * scale });
+    this.equipTargets.setDragCallbacks({
+      onDragStart: () => {
+        this.dragging = true;
+      },
+      onDragEnd: (slot, px, py) => {
+        this.dragging = false;
+        if (this.pointIn(this.inventoryBounds, px, py)) this.unequipToInventory(slot);
+        else if (this.pointIn(this.sellBounds, px, py)) this.sellEquipped(slot);
+        this.render();
+      },
+    });
     this.equipTargets.drawSlots(f.loadout);
 
     // Nameplate below the figures.
@@ -244,7 +261,7 @@ export class ShopScene extends BaseScene {
     });
 
     // Shop grid (6 columns × 2 rows, paginated like the reference).
-    const visible = this.stock.filter((item) => !!FILTERS.find((flt) => flt.id === this.filter)?.match(item.slot));
+    const visible = this.stock.filter((item) => !!FILTERS.find((flt) => flt.id === this.filter)?.match(item));
     const totalPages = Math.max(1, Math.ceil(visible.length / SHOP_PAGE_SIZE));
     const page = Math.min(this.shopPage, totalPages - 1);
     const pageItems = visible.slice(page * SHOP_PAGE_SIZE, page * SHOP_PAGE_SIZE + SHOP_PAGE_SIZE);
@@ -271,18 +288,27 @@ export class ShopScene extends BaseScene {
     addText(this, x, pageY, `PAGE ${page + 1}/${totalPages}`, { fontSize: '13px', color: '#f2d98c' });
     this.button(x + 60, pageY, '▶', () => this.changePage(1), { width: 36, height: 26, fontSize: 14 });
 
-    // Inventory grid (6 columns × 2 rows).
+    // Inventory grid (6 columns × 2 rows, paginated).
     const invLabelY = pageY + 34;
+    const invTotalPages = Math.max(1, Math.ceil(this.gameState.inventory.length / SHOP_INV_PAGE_SIZE));
+    this.inventoryPage = Math.min(this.inventoryPage, invTotalPages - 1);
     addText(this, x, invLabelY, `INVENTORY (${this.gameState.inventory.length})`, { fontSize: '16px', color: '#f2d98c' });
+    const prevBtn = this.button(x - 120, invLabelY, '\u25C0', () => this.changeInventoryPage(-1), { width: 36, height: 30, fontSize: 14 });
+    const nextBtn = this.button(x + 120, invLabelY, '\u25B6', () => this.changeInventoryPage(1), { width: 36, height: 30, fontSize: 14 });
+    if (this.inventoryPage <= 0) prevBtn.setEnabled(false);
+    if (this.inventoryPage >= invTotalPages - 1) nextBtn.setEnabled(false);
     const invY0 = invLabelY + 34;
-    const invItems = this.gameState.inventory.slice(0, 12);
+    const invItems = this.gameState.inventory.slice(
+      this.inventoryPage * SHOP_INV_PAGE_SIZE,
+      this.inventoryPage * SHOP_INV_PAGE_SIZE + SHOP_INV_PAGE_SIZE,
+    );
     this.inventoryBounds = {
       x0: x - gridW / 2,
       y0: invY0 - cell / 2,
       x1: x + gridW / 2,
-      y1: invY0 + (Math.ceil(invItems.length / cols) || 1) * (cell + gap) - gap,
+      y1: invY0 + 2 * (cell + gap) - gap,
     };
-    for (let i = 0; i < 12; i += 1) {
+    for (let i = 0; i < SHOP_INV_PAGE_SIZE; i += 1) {
       const item = invItems[i] ?? null;
       const col = i % cols;
       const row = Math.floor(i / cols);
@@ -290,12 +316,6 @@ export class ShopScene extends BaseScene {
       const cy = invY0 + row * (cell + gap);
       if (item) this.addInventoryCell(item, cx, cy, cell, tip);
       else this.addEmptyCell(cx, cy, cell);
-    }
-    if (this.gameState.inventory.length > 12) {
-      addText(this, x, invY0 + 2 * (cell + gap) + 8, `+${this.gameState.inventory.length - 12} more in storage`, {
-        fontSize: '12px',
-        color: '#b8aa94',
-      });
     }
 
     // Sell drop zone.
@@ -367,7 +387,7 @@ export class ShopScene extends BaseScene {
     y += 84;
 
     const visible = this.stock
-      .filter((item) => !!FILTERS.find((flt) => flt.id === this.filter)?.match(item.slot))
+      .filter((item) => !!FILTERS.find((flt) => flt.id === this.filter)?.match(item))
       .slice(0, 20);
     addText(this, x, y, 'SHOP — tap to buy', { fontSize: '14px', color: '#f2d98c' });
     y += 26;
@@ -549,6 +569,12 @@ export class ShopScene extends BaseScene {
     this.render();
   }
 
+  private changeInventoryPage(delta: number): void {
+    const totalPages = Math.max(1, Math.ceil(this.gameState.inventory.length / SHOP_INV_PAGE_SIZE));
+    this.inventoryPage = Math.max(0, Math.min(this.inventoryPage + delta, totalPages - 1));
+    this.render();
+  }
+
   private unequipAllGear(): void {
     const state = this.gameState;
     const { fighter: next, displaced } = unequipAll(state.roster[this.fighterIndex]);
@@ -561,6 +587,29 @@ export class ShopScene extends BaseScene {
     this.gameState = { ...state, roster, inventory: [...state.inventory, ...displaced] };
     this.toast('Unequipped all.');
     this.render();
+  }
+
+  private unequipToInventory(slot: EquipmentSlot): void {
+    const state = this.gameState;
+    const fighter = state.roster[this.fighterIndex];
+    const item = fighter.loadout[slot];
+    if (!item) return;
+    const roster = [...state.roster];
+    roster[this.fighterIndex] = unequipItem(fighter, slot);
+    this.gameState = { ...state, roster, inventory: [...state.inventory, item] };
+    this.toast(`Unequipped ${item.name}.`);
+  }
+
+  private sellEquipped(slot: EquipmentSlot): void {
+    const state = this.gameState;
+    const fighter = state.roster[this.fighterIndex];
+    const item = fighter.loadout[slot];
+    if (!item) return;
+    const price = sellPrice(item);
+    const roster = [...state.roster];
+    roster[this.fighterIndex] = unequipItem(fighter, slot);
+    this.gameState = { ...state, roster, gold: state.gold + price };
+    this.toast(`Sold ${item.name} for ${price} gp.`);
   }
 
   // ── Helpers ──

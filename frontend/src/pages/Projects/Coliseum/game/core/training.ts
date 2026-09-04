@@ -1,7 +1,7 @@
 import type { AttributeKey, Attributes, Fighter } from './types';
 import { ATTRIBUTE_KEYS, STAT_CAPS } from './constants';
 import { recomputeDerived } from './stats';
-import { getSkill } from './skills';
+import { getSkill, isSkillUnlocked } from './skills';
 
 /** Spends one attribute point. Returns a new fighter; throws if none remain or at cap. */
 export function spendAttributePoint(fighter: Fighter, attr: AttributeKey): Fighter {
@@ -20,6 +20,7 @@ export function spendSkillPoint(fighter: Fighter, skillId: string): Fighter {
   if (fighter.skillPoints <= 0) throw new Error('No skill points remaining');
   const node = getSkill(skillId);
   if (!node) throw new Error('Unknown skill');
+  if (!isSkillUnlocked(fighter, skillId)) throw new Error('Skill is locked');
   const current = fighter.skills[skillId] ?? 0;
   if (current >= node.maxRank) throw new Error('Skill is already maxed');
   const next: Fighter = {

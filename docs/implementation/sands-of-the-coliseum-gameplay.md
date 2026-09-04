@@ -4,11 +4,11 @@
 
 ## 1. Overview & Core Game Loop
 
-**Sands of the Coliseum** is a turn-based tactical gladiator management RPG set across the ancient Roman Empire and its mythological fringes. The core gameplay loop revolves around managing a gladiator stable (*Ludus*), recruiting and training slaves, outfitting fighters with precision-targeted armor and weaponry, and entering gladiatorial combats across multiple historical coliseums to climb both single-player campaigns and multiplayer rankings.
+**Sands of the Coliseum** is a turn-based tactical gladiator management RPG set across the ancient Roman Empire and its mythological fringes. The core gameplay loop revolves around managing a gladiator stable, recruiting and training slaves, outfitting fighters with precision-targeted armor and weaponry, and entering gladiatorial combats across multiple historical coliseums to climb both single-player campaigns and multiplayer rankings.
 
 ```
        ┌────────────────────────────────────────────────────────┐
-       │                   THE LUDUS (HUB)                      │
+       │                   THE (HUB)                      │
        │  • Manage Roster & Stats    • Skill Tree Allocation    │
        │  • Blacksmith (Craft/Forge) • Slave Market (Recruit)   │
        │  • Shop (Gear/Consumables)  • Travel Map (Cities)      │

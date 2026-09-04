@@ -43,6 +43,10 @@ export const MAX_ROSTER = 12;
 export const START_GOLD = 120;
 export const START_FAME = 0;
 
+/** Character-creation gender bonuses: males start stronger, females win the crowd. */
+export const GENDER_STRENGTH_BONUS = 3;
+export const GENDER_CHARISMA_BONUS = 3;
+
 /** Highest obtainable shield block chance/value. */
 export const BLOCK_CAP = 72;
 

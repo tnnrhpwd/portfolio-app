@@ -8,6 +8,7 @@ import {
   coliseumRank,
   createCampaignStart,
   createFighter,
+  currentHp,
   effectiveAttributes,
   forge,
   forgeCost,
@@ -34,7 +35,7 @@ import {
 
 describe('skill catalog', () => {
   it('exposes every skill in one shared catalog', () => {
-    expect(allSkills()).toHaveLength(14);
+    expect(allSkills()).toHaveLength(29);
     expect(allSkills().every((node) => !!getSkill(node.id))).toBe(true);
   });
 
@@ -55,14 +56,26 @@ describe('skill points', () => {
     expect(after.skillPoints).toBe(2);
   });
 
-  it('allows any skill and rejects unknown or exhausted spends', () => {
+  it('unlocks column skills bottom-to-top and rejects unknown/exhausted spends', () => {
     const fighter = createFighter({ style: 'murmillo' });
-    fighter.skillPoints = 2;
-    const after = spendSkillPoint(fighter, 'quadCombo'); // formerly dimachaerus-only
-    expect(after.skills.quadCombo).toBe(1);
+    fighter.skillPoints = 10;
+
+    // The bottom rung of a column is immediately purchasable.
+    const first = spendSkillPoint(fighter, 'doubleStrike');
+    expect(first.skills.doubleStrike).toBe(1);
+
+    // A higher rung is locked until enough points land in that column.
+    expect(() => spendSkillPoint(fighter, 'quadCombo')).toThrow();
+
+    // Five points in the column unlock the next rung.
+    let f = fighter;
+    for (let i = 0; i < 5; i += 1) f = spendSkillPoint(f, 'doubleStrike');
+    const unlocked = spendSkillPoint(f, 'quadCombo');
+    expect(unlocked.skills.quadCombo).toBe(1);
+
     expect(() => spendSkillPoint(fighter, 'notASkill')).toThrow();
     const broke = { ...fighter, skillPoints: 0 };
-    expect(() => spendSkillPoint(broke, 'shieldBash')).toThrow();
+    expect(() => spendSkillPoint(broke, 'doubleStrike')).toThrow();
   });
 });
 
@@ -200,6 +213,14 @@ describe('infirmary', () => {
     const healed = healToFull(s2);
     expect(healed.roster[0].zones.torso.hp).toBe(healed.roster[0].zones.torso.maxHp);
     expect(healed.gold).toBe(s2.gold - healCost(wounded));
+  });
+
+  it('reaches exactly full HP after healing (no unhealable remainder)', () => {
+    const state = createCampaignStart(mulberry32(7));
+    const fighter = { ...state.roster[0] };
+    fighter.zones.torso.hp = Math.max(0, fighter.zones.torso.hp - 5);
+    const healed = healToFull({ ...state, roster: [fighter] });
+    expect(currentHp(healed.roster[0])).toBe(totalHp(healed.roster[0]));
   });
 
   it('rejects healing without gold', () => {

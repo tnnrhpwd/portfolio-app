@@ -74,7 +74,7 @@ export class TeamScene extends BaseScene {
 
     this.button(x + 100, y - 28, '◀', () => this.cycleSlot(i, -1), { width: 40, height: 40, fontSize: 20 });
     this.button(x + 150, y - 28, '▶', () => this.cycleSlot(i, 1), { width: 40, height: 40, fontSize: 20 });
-    this.button(x - 40, y + 34, 'RENAME', () => this.renameFighter(i), { width: 90, height: 30, fontSize: 11 });
+    this.button(x - 40, y + 34, 'CUSTOMIZE', () => this.customizeFighter(i), { width: 90, height: 30, fontSize: 10 });
     this.button(x + 100, y + 34, `ROW ${f.row.toUpperCase()}`, () => this.toggleRow(i), { width: 72, height: 30, fontSize: 11 });
     this.button(x + 178, y + 34, f.auto ? 'AUTO' : 'MANUAL', () => this.toggleAuto(i), { width: 68, height: 30, fontSize: 11 });
   }
@@ -137,7 +137,7 @@ export class TeamScene extends BaseScene {
       });
       this.button(x - 110, y + 20, '◀', () => this.cycleSlot(i, -1), { width: 40, height: 30, fontSize: 16 });
       this.button(x - 60, y + 20, '▶', () => this.cycleSlot(i, 1), { width: 40, height: 30, fontSize: 16 });
-      this.button(x + 20, y + 20, 'RENAME', () => this.renameFighter(i), { width: 80, height: 30, fontSize: 11 });
+      this.button(x + 20, y + 20, 'CUSTOMIZE', () => this.customizeFighter(i), { width: 80, height: 30, fontSize: 10 });
       this.button(x + 115, y + 20, `ROW:${f.row}`, () => this.toggleRow(i), { width: 80, height: 30, fontSize: 11 });
       y += 54;
     });
@@ -196,15 +196,8 @@ export class TeamScene extends BaseScene {
     });
   }
 
-  private renameFighter(index: number): void {
-    const fighter = this.gameState.roster[index];
-    this.promptText(`Rename ${fighter.name}`, fighter.name, (value) => {
-      if (value) {
-        const roster = [...this.gameState.roster];
-        roster[index] = { ...fighter, name: value };
-        this.gameState = { ...this.gameState, roster };
-        this.render();
-      }
-    });
+  /** Opens the customize screen on the given fighter (looks + name). */
+  private customizeFighter(index: number): void {
+    this.scene.start('Creation', { customize: true, fighterIndex: index });
   }
 }

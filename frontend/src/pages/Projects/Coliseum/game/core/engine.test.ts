@@ -67,11 +67,11 @@ describe('body-part HP split', () => {
     expect(ZONE_HP_SPLIT.rightLeg).toBeCloseTo(0.15);
   });
 
-  it('splits a total across zones within flooring error', () => {
+  it('splits a total across zones so the parts sum exactly to the total', () => {
     const split = zoneMaxHp(1000);
     const sum = BODY_ZONES.reduce((acc, z) => acc + split[z], 0);
-    expect(sum).toBeLessThanOrEqual(1000);
-    expect(sum).toBeGreaterThanOrEqual(1000 - BODY_ZONES.length);
+    expect(sum).toBe(1000);
+    BODY_ZONES.forEach((z) => expect(split[z]).toBeGreaterThan(0));
   });
 });
 

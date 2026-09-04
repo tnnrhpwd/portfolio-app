@@ -109,6 +109,11 @@ const {
   agentVisionProxy,
 } = require('../controllers/workspaceController');
 
+// UI Mapper controller (AI auto-mapping for the /uimapper internal tool)
+const {
+  autoMap,
+} = require('../controllers/uiMapperController');
+
 // Simple Marketplace controller (public/shared skill marketplace, §4)
 const {
   publishSkill,
@@ -489,6 +494,9 @@ router.route('/memory/:id')
 // ============================================================================
 
 router.post('/image/generate', protect, imageGenLimiter, sanitizeInput, generateImage);
+
+// UI Mapper AI auto-map (vision — same metered Bedrock path as agent-vision)
+router.post('/uimapper/automap', protect, llmLimiter, sanitizeInput, autoMap);
 
 // ============================================================================
 // GOAL AGENT (LLM agent that autonomously works on a user goal)

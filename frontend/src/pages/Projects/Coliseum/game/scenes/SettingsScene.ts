@@ -41,6 +41,8 @@ export class SettingsScene extends BaseScene {
     this.row(180 + gap * 2, 'Reduced motion', settings.reducedMotion ? 'ON' : 'OFF', () => this.toggle('reducedMotion'));
     this.row(180 + gap * 3, 'Sound', settings.muted ? 'OFF' : 'ON', () => this.toggleSound());
     this.row(180 + gap * 4, 'Theme', THEME_LABELS[settings.theme], () => this.cycleTheme());
+    // ── TEMPORARY DEBUG (remove later) ──
+    this.row(180 + gap * 5, 'Debug gold', '+1000 GOLD', () => this.addDebugGold());
   }
 
   private row(y: number, label: string, value: string, onToggle: () => void): void {
@@ -81,6 +83,12 @@ export class SettingsScene extends BaseScene {
     const index = THEME_ORDER.indexOf(current);
     const next = THEME_ORDER[(index + 1) % THEME_ORDER.length];
     setSetting('theme', next);
+    this.render();
+  }
+
+  /** TEMPORARY DEBUG: grant 1000 gold (remove later). */
+  private addDebugGold(): void {
+    this.gameState = { ...this.gameState, gold: this.gameState.gold + 1000 };
     this.render();
   }
 }

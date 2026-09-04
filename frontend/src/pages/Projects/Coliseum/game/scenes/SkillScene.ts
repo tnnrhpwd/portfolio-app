@@ -2,12 +2,15 @@ import { BaseScene } from './BaseScene';
 import { addText, createTooltip, type Tooltip } from '../ui/button';
 import { addLayeredFighter } from '../assets/textures';
 import {
-  allSkills,
   ATTRIBUTE_DEFS,
   ATTRIBUTE_KEYS,
   currentHp,
+  getSkill,
+  isSkillUnlocked,
   resetAttributes as resetAttributesCore,
   resetSkills as resetSkillsCore,
+  SKILL_TREES,
+  skillUnlockRemaining,
   spendAttributePoint,
   spendSkillPoint,
   STAT_CAPS,
@@ -114,13 +117,26 @@ export class SkillScene extends BaseScene {
     });
   }
 
-  // ── Right column: the shared skill list (any fighter can learn any skill) ──
+  // ── Right column: five weapon-class skill trees, each unlocked bottom → top ──
   private renderSkillTree(f: Fighter, x: number, tip: Tooltip): void {
-    const skills = allSkills();
-    const techniques = skills.filter((node) => node.mpCost > 0);
-    const passives = skills.filter((node) => node.mpCost === 0);
-    this.renderSkillColumn(f, x - 120, 84, 'TECHNIQUES', techniques, tip);
-    this.renderSkillColumn(f, x + 120, 84, 'PASSIVES', passives, tip);
+    const gap = 92;
+    const startX = x - ((SKILL_TREES.length - 1) * gap) / 2;
+    SKILL_TREES.forEach((col, ci) => {
+      const colX = startX + ci * gap;
+      addText(this, colX, 84, col.label, {
+        fontSize: '13px',
+        color: '#e8b84b',
+        fontStyle: 'bold',
+        align: 'center',
+        wordWrap: { width: 92 },
+      });
+      col.skills.forEach((skillId, ri) => {
+        const node = getSkill(skillId);
+        if (!node) return;
+        const rank = f.skills[skillId] ?? 0;
+        this.drawNode(colX, 134 + ri * 64, node, rank, f, tip);
+      });
+    });
 
     const skillSpent = Object.values(f.skills).reduce((acc, rank) => acc + rank, 0);
     addText(this, x, 606, `REMAINING POINTS: ${f.skillPoints}`, { fontSize: '18px', color: '#f2d98c' });
@@ -135,27 +151,6 @@ export class SkillScene extends BaseScene {
     this.button(x + 70, 686, 'BACK', () => this.scene.start('Main'), { width: 120, height: 44, fontSize: 16 });
   }
 
-  private renderSkillColumn(
-    f: Fighter,
-    x: number,
-    y: number,
-    title: string,
-    nodes: SkillNode[],
-    tip: Tooltip,
-  ): void {
-    addText(this, x, y, title, {
-      fontSize: '13px',
-      color: '#e8b84b',
-      fontStyle: 'bold',
-      align: 'center',
-      wordWrap: { width: 140 },
-    });
-    nodes.forEach((node, ri) => {
-      const rank = f.skills[node.id] ?? 0;
-      this.drawNode(x, y + 42 + ri * 58, node, rank, f, tip);
-    });
-  }
-
   private drawNode(
     x: number,
     y: number,
@@ -165,15 +160,17 @@ export class SkillScene extends BaseScene {
     tip: Tooltip,
   ): void {
     const r = 20;
-    const canSpend = f.skillPoints > 0 && rank < node.maxRank;
-    const fill = 0x8c1f28;
-    const stroke = 0xe8b84b;
+    const locked = !isSkillUnlocked(f, node.id);
+    const maxed = rank >= node.maxRank;
+    const canSpend = f.skillPoints > 0 && !maxed && !locked;
+    const fill = locked ? 0x2b2623 : 0x8c1f28;
+    const stroke = locked ? 0x6a6258 : 0xe8b84b;
 
     const hex = this.add.polygon(x, y, hexPoints(r), fill, 1).setStrokeStyle(2, stroke);
     hex.setInteractive({ useHandCursor: canSpend });
     hex.on('pointerover', () => {
-      hex.setFillStyle(canSpend ? 0xa52a34 : 0x8c1f28);
-      tip.show(x, y - 44, this.nodeTooltip(node, rank));
+      hex.setFillStyle(canSpend ? 0xa52a34 : fill);
+      tip.show(x, y - 44, this.nodeTooltip(node, rank, locked, skillUnlockRemaining(f, node.id)));
     });
     hex.on('pointerout', () => {
       hex.setFillStyle(fill);
@@ -181,13 +178,17 @@ export class SkillScene extends BaseScene {
     });
     if (canSpend) hex.on('pointerdown', () => this.spendSkill(node.id));
 
-    addText(this, x, y + r + 12, `${rank}/${node.maxRank}`, {
+    const sub = locked ? `LOCK ${skillUnlockRemaining(f, node.id)}` : `${rank}/${node.maxRank}`;
+    addText(this, x, y + r + 12, sub, {
       fontSize: '11px',
-      color: '#f2d98c',
+      color: locked ? '#8b8277' : '#f2d98c',
     });
   }
 
-  private nodeTooltip(node: SkillNode, rank: number): string {
+  private nodeTooltip(node: SkillNode, rank: number, locked: boolean, remaining: number): string {
+    if (locked) {
+      return `${node.label}\nLocked — ${remaining} more pts in this column\n${node.blurb}`;
+    }
     const cost = node.mpCost > 0 ? `${node.mpCost} MP` : 'Passive';
     return `${node.label} — ${rank}/${node.maxRank}\n${cost}\n${node.blurb}`;
   }
@@ -216,15 +217,25 @@ export class SkillScene extends BaseScene {
 
     addText(this, x, y, `Skill points: ${f.skillPoints}`, { fontSize: '14px', color: '#f2d98c' });
     y += 26;
-    allSkills().forEach((node) => {
-      const rank = f.skills[node.id] ?? 0;
-      const btn = this.button(x, y, `${node.label} ${rank}/${node.maxRank}  +`, () => this.spendSkill(node.id), {
-        width: 260,
-        height: 30,
-        fontSize: 12,
+    SKILL_TREES.forEach((col) => {
+      addText(this, x, y, col.label, { fontSize: '12px', color: '#e8b84b', fontStyle: 'bold' });
+      y += 22;
+      col.skills.forEach((skillId) => {
+        const node = getSkill(skillId);
+        if (!node) return;
+        const rank = f.skills[skillId] ?? 0;
+        const locked = !isSkillUnlocked(f, skillId);
+        const label = locked
+          ? `${node.label} (LOCK ${skillUnlockRemaining(f, skillId)})`
+          : `${node.label} ${rank}/${node.maxRank}  +`;
+        const btn = this.button(x, y, label, () => this.spendSkill(skillId), {
+          width: 280,
+          height: 30,
+          fontSize: 12,
+        });
+        if (f.skillPoints <= 0 || rank >= node.maxRank || locked) btn.setEnabled(false);
+        y += 34;
       });
-      if (f.skillPoints <= 0 || rank >= node.maxRank) btn.setEnabled(false);
-      y += 34;
     });
     this.button(x, y, 'RESET SKILLS', () => this.resetSkillPoints(), { width: 200, height: 32, fontSize: 13 });
 

@@ -544,11 +544,18 @@
 }
 .home-open-source-heading {
   max-width: 620px;
-  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint), var(--fg-orange), var(--fg-pink));
+  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint), var(--fg-orange), var(--fg-pink), var(--fg-blue));
+  background-size: 300% 300%;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   color: transparent;
+  animation: home-gradient-shift 8s ease-in-out infinite;
+}
+@keyframes home-gradient-shift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 .home-open-source-lead {
   max-width: 560px;

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { getThemeColors } from './theme';
 import { BootScene } from './scenes/BootScene';
+import { CreationScene } from './scenes/CreationScene';
 import { TutorialScene } from './scenes/TutorialScene';
 import { MainScene } from './scenes/MainScene';
 import { TrainScene } from './scenes/TrainScene';
@@ -40,6 +41,7 @@ export function createGameConfig(parent: HTMLElement): Phaser.Types.Core.GameCon
     },
     scene: [
       BootScene,
+      CreationScene,
       TutorialScene,
       MainScene,
       TrainScene,

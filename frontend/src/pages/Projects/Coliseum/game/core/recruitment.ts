@@ -2,6 +2,7 @@ import type { Equipment, Fighter, StyleKey } from './types';
 import type { Rng } from './rng';
 import { pick } from './rng';
 import { ATTRIBUTE_KEYS } from './constants';
+import { randomAppearance, randomGender } from './appearance';
 import { STYLE_KEYS } from './classes';
 import { createFighter } from './engine';
 import { createEquipment, randomTwoHandedWeapon } from './equipment';
@@ -66,10 +67,8 @@ export function generateRecruit(
   for (let i = 0; i < bonus; i += 1) {
     fighter.attributes[pick(ATTRIBUTE_KEYS, rand)] += 1;
   }
-  const tier = Math.max(0, Math.min(4, Math.floor(level / 2)));
-  const { main, off } = starterWeapons(style, tier, rand);
-  fighter = equipItem(fighter, main);
-  if (off) fighter = equipItem(fighter, off);
+  fighter.gender = randomGender(rand);
+  fighter.appearance = randomAppearance(rand);
   fighter.baseAttributes = { ...fighter.attributes };
   return recomputeDerived(fighter);
 }
@@ -88,6 +87,8 @@ export function generateOpponent(rank: number, rand: Rng = Math.random, style: S
     shieldBash: Math.min(5, 1 + Math.floor(level / 2)),
     powerStrike: Math.min(5, 1 + Math.floor(level / 3)),
   };
+  fighter.gender = randomGender(rand);
+  fighter.appearance = randomAppearance(rand);
   return recomputeDerived(fighter);
 }
 

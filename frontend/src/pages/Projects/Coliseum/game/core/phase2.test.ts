@@ -22,12 +22,12 @@ import {
 } from './index';
 
 describe('recruitment', () => {
-  it('rolls a murmillo recruit with gear and valid zones', () => {
+  it('rolls an unarmed murmillo recruit with valid zones', () => {
     const recruit = generateRecruit(2, mulberry32(1));
     expect(recruit.style).toBe('murmillo');
     expect(recruit.level).toBe(2);
-    expect(recruit.loadout.mainHand).not.toBeNull();
-    expect(recruit.loadout.offHand).not.toBeNull();
+    expect(recruit.loadout.mainHand).toBeNull();
+    expect(recruit.loadout.offHand).toBeNull();
     expect(recruit.zones.torso.hp).toBeGreaterThan(0);
   });
 
@@ -162,11 +162,11 @@ describe('equipment archetypes', () => {
 });
 
 describe('campaign start', () => {
-  it('starts with an equipped fighter, points, and gold', () => {
+  it('starts with an unarmed fighter, points, and gold', () => {
     const state = createCampaignStart(mulberry32(8));
     expect(state.gold).toBeGreaterThan(0);
-    expect(state.roster[0].loadout.mainHand).not.toBeNull();
-    expect(state.roster[0].loadout.offHand).not.toBeNull();
+    expect(state.roster[0].loadout.mainHand).toBeNull();
+    expect(state.roster[0].loadout.offHand).toBeNull();
     expect(state.roster[0].attributePoints).toBeGreaterThan(0);
     expect(state.inventory).toEqual([]);
   });

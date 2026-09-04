@@ -2,6 +2,7 @@ export * from './rng';
 export * from './types';
 export * from './constants';
 export * from './attributes';
+export * from './appearance';
 export * from './classes';
 export * from './skills';
 export * from './equipment';

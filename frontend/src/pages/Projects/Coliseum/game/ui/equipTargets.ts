@@ -63,6 +63,11 @@ export interface EquipTargetFigure {
   h: number;
 }
 
+export interface EquipDragCallbacks {
+  onDragStart?: (slot: EquipmentSlot) => void;
+  onDragEnd?: (slot: EquipmentSlot, x: number, y: number) => void;
+}
+
 /**
  * Draws the eight drop-location boxes over the mannequin: all eight are always
  * visible (with the equipped item's icon inside), they brighten while the
@@ -73,12 +78,17 @@ export class EquipTargets {
   private readonly scene: Phaser.Scene;
   private readonly figure: EquipTargetFigure;
   private boxes: Phaser.GameObjects.Rectangle[] = [];
-  private icons: Phaser.GameObjects.Image[] = [];
   private highlights: Phaser.GameObjects.Rectangle[] = [];
+  private callbacks: EquipDragCallbacks = {};
 
   constructor(scene: Phaser.Scene, figure: EquipTargetFigure) {
     this.scene = scene;
     this.figure = figure;
+  }
+
+  /** Wire drag callbacks for equipped-item icons. */
+  setDragCallbacks(cb: EquipDragCallbacks): void {
+    this.callbacks = cb;
   }
 
   private zoneRect(z: ZoneId): { x: number; y: number; w: number; h: number } {
@@ -91,7 +101,7 @@ export class EquipTargets {
     };
   }
 
-  /** Draw the eight persistent slot boxes, each with its equipped item icon. */
+  /** Draw the eight persistent slot boxes, each with its equipped item icon (draggable off). */
   drawSlots(loadout: Loadout): void {
     for (const z of ZONE_ORDER) {
       const r = this.zoneRect(z);
@@ -103,14 +113,31 @@ export class EquipTargets {
           .setDepth(930),
       );
       const item = loadout[slot];
-      if (item) {
-        const icon = addEquipmentIcon(this.scene, r.x, r.y, item, Math.min(r.w, r.h) * 0.78);
-        if (icon) {
-          icon.setDepth(932);
-          this.icons.push(icon);
-        }
-      }
+      if (item) this.addEquippedIcon(r.x, r.y, r.w, r.h, slot, item);
     }
+  }
+
+  private addEquippedIcon(x: number, y: number, w: number, h: number, slot: EquipmentSlot, item: Equipment): void {
+    const size = Math.min(w, h) * 0.78;
+    const icon = addEquipmentIcon(this.scene, 0, 0, item, size);
+    const container = this.scene.add.container(x, y, icon ? [icon] : []);
+    container.setSize(w, h);
+    container.setDepth(932);
+    container.setInteractive({ draggable: true, useHandCursor: true });
+    this.scene.input.setDraggable(container);
+    container.on('dragstart', () => {
+      container.setDepth(950);
+      container.setScale(1.12);
+      this.callbacks.onDragStart?.(slot);
+    });
+    container.on('drag', (pointer: Phaser.Input.Pointer) => {
+      container.setPosition(pointer.x, pointer.y);
+    });
+    container.on('dragend', (pointer: Phaser.Input.Pointer) => {
+      container.setScale(1);
+      container.setDepth(932);
+      this.callbacks.onDragEnd?.(slot, pointer.x, pointer.y);
+    });
   }
 
   /** Brighten every slot box while the pointer hovers the general drop area. */

@@ -10,8 +10,10 @@ import {
   equipItem,
   totalHp,
   unequipAll,
+  unequipItem,
   xpToNext,
   type Equipment,
+  type EquipmentSlot,
   type Fighter,
 } from '../core';
 
@@ -23,7 +25,7 @@ interface Bounds {
 }
 
 /** Inventory grid dimensions. */
-const COLS = 5;
+const COLS = 6;
 const ROWS = 4;
 const CELL = 72;
 const GAP = 8;
@@ -37,7 +39,9 @@ const MAX_VISIBLE = COLS * ROWS;
  */
 export class InventoryScene extends BaseScene {
   private fighterIndex = 0;
+  private inventoryPage = 0;
   private mannequinBounds: Bounds | null = null;
+  private inventoryBounds: Bounds | null = null;
   private equipTargets: EquipTargets | null = null;
   private dragging = false;
 
@@ -47,6 +51,7 @@ export class InventoryScene extends BaseScene {
 
   create(): void {
     this.fighterIndex = 0;
+    this.inventoryPage = 0;
     this.render();
   }
 
@@ -60,6 +65,7 @@ export class InventoryScene extends BaseScene {
     this.menuBackground();
     this.backButton('Main');
     this.mannequinBounds = null;
+    this.inventoryBounds = null;
     this.equipTargets = null;
 
     const roster = this.gameState.roster;
@@ -123,6 +129,16 @@ export class InventoryScene extends BaseScene {
       y1: bodyY + manH / 2,
     };
     this.equipTargets = new EquipTargets(this, { cx: x + 110, cy: bodyY, w: 120 * scale, h: 180 * scale });
+    this.equipTargets.setDragCallbacks({
+      onDragStart: () => {
+        this.dragging = true;
+      },
+      onDragEnd: (slot, px, py) => {
+        this.dragging = false;
+        if (this.pointIn(this.inventoryBounds, px, py)) this.unequipToInventory(slot);
+        this.render();
+      },
+    });
     this.equipTargets.drawSlots(f.loadout);
 
     this.renderStats(f, x);
@@ -168,7 +184,18 @@ export class InventoryScene extends BaseScene {
     const gridW = COLS * CELL + (COLS - 1) * GAP;
     const x0 = x - gridW / 2 + CELL / 2;
     const y0 = 110;
-    const items = this.gameState.inventory.slice(0, MAX_VISIBLE);
+    const totalPages = Math.max(1, Math.ceil(this.gameState.inventory.length / MAX_VISIBLE));
+    this.inventoryPage = Math.min(this.inventoryPage, totalPages - 1);
+    const items = this.gameState.inventory.slice(
+      this.inventoryPage * MAX_VISIBLE,
+      this.inventoryPage * MAX_VISIBLE + MAX_VISIBLE,
+    );
+    this.inventoryBounds = {
+      x0: x - gridW / 2,
+      y0: y0 - CELL / 2,
+      x1: x + gridW / 2,
+      y1: y0 + ROWS * (CELL + GAP) - GAP,
+    };
 
     for (let i = 0; i < MAX_VISIBLE; i += 1) {
       const item = items[i] ?? null;
@@ -179,12 +206,14 @@ export class InventoryScene extends BaseScene {
       if (item) this.addInventoryCell(item, cx, cy, CELL, tip);
       else this.addEmptyCell(cx, cy, CELL);
     }
-    if (this.gameState.inventory.length > MAX_VISIBLE) {
-      addText(this, x, y0 + ROWS * (CELL + GAP) + 8, `+${this.gameState.inventory.length - MAX_VISIBLE} more`, {
-        fontSize: '12px',
-        color: '#b8aa94',
-      });
-    }
+
+    // Inventory pager.
+    const pageY = y0 + ROWS * (CELL + GAP) + 16;
+    const prevBtn = this.button(x - 80, pageY, '\u25C0', () => this.changeInventoryPage(-1), { width: 44, height: 36, fontSize: 18 });
+    addText(this, x, pageY, `PAGE ${this.inventoryPage + 1}/${totalPages}`, { fontSize: '14px', color: '#f2d98c' });
+    const nextBtn = this.button(x + 80, pageY, '\u25B6', () => this.changeInventoryPage(1), { width: 44, height: 36, fontSize: 18 });
+    if (this.inventoryPage <= 0) prevBtn.setEnabled(false);
+    if (this.inventoryPage >= totalPages - 1) nextBtn.setEnabled(false);
 
     addText(this, x, 596, `Gold: ${this.gameState.gold}`, { fontSize: '20px', color: '#f2d98c' });
     this.button(x - 70, 652, 'SKILL', () => this.scene.start('Skill'), { width: 120, height: 44, fontSize: 16 });
@@ -297,6 +326,23 @@ export class InventoryScene extends BaseScene {
     roster[this.fighterIndex] = next;
     this.gameState = { ...state, roster, inventory: [...state.inventory, ...displaced] };
     this.toast('Unequipped all.');
+    this.render();
+  }
+
+  private unequipToInventory(slot: EquipmentSlot): void {
+    const state = this.gameState;
+    const fighter = state.roster[this.fighterIndex];
+    const item = fighter.loadout[slot];
+    if (!item) return;
+    const roster = [...state.roster];
+    roster[this.fighterIndex] = unequipItem(fighter, slot);
+    this.gameState = { ...state, roster, inventory: [...state.inventory, item] };
+    this.toast(`Unequipped ${item.name}.`);
+  }
+
+  private changeInventoryPage(delta: number): void {
+    const totalPages = Math.max(1, Math.ceil(this.gameState.inventory.length / MAX_VISIBLE));
+    this.inventoryPage = Math.max(0, Math.min(this.inventoryPage + delta, totalPages - 1));
     this.render();
   }
 

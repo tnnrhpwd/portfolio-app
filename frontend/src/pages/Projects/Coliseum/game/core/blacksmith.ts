@@ -21,11 +21,16 @@ export function forge(
   slot: EquipmentSlot,
   metal: MetalId,
   rand: Rng = Math.random,
+  weapon = false,
 ): GameState {
   const cost = forgeCost(metal);
   if (state.gold < cost) throw new Error('Not enough gold');
   if ((state.metals[metal] ?? 0) < 1) throw new Error('No such metal');
-  const item = createEquipment(slot, METAL_TIER[metal], { crafted: true, rand });
+  const item = createEquipment(slot, METAL_TIER[metal], {
+    crafted: true,
+    rand,
+    weapon: slot === 'offHand' ? weapon : undefined,
+  });
   return {
     ...state,
     gold: state.gold - cost,

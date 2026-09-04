@@ -20,7 +20,9 @@ export function generateShopStock(tier: number, count: number, rand: Rng = Math.
   for (let i = 0; i < count; i += 1) {
     const slot = pick(STOCK_SLOTS, rand);
     const itemTier = Math.max(0, Math.min(9, tier + Math.floor(rand() * 2)));
-    items.push(createEquipment(slot, itemTier, { rand }));
+    // Off-hand slots can roll a shield or a second single-handed weapon.
+    const opts = slot === 'offHand' ? { rand, weapon: rand() < 0.5 } : { rand };
+    items.push(createEquipment(slot, itemTier, opts));
   }
   return items;
 }

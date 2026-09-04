@@ -1,8 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
 import SEO from '../../components/SEO/SEO';
 import useScrollReveal from '../../hooks/useScrollReveal';
+import { autoMapImage } from '../../services/uiMapperApi';
+import { HANDLES, applyResize } from './geometry';
 import './UIMapper.css';
 
 // Rotating palette so each new box gets a distinct color.
@@ -35,12 +40,18 @@ export default function UIMapper() {
   const [selectedId, setSelectedId] = useState(null);
   const [drawing, setDrawing] = useState(null); // { x0, y0, x1, y1 } in image px
   const [copied, setCopied] = useState(false);
+  const [autoMapping, setAutoMapping] = useState(false);
   const [error, setError] = useState('');
+
+  const { user } = useSelector((state) => state.data);
+  const navigate = useNavigate();
 
   const scrollRef = useRef(null);
   const imgRef = useRef(null);
   const fileRef = useRef(null);
   const drawingRef = useRef(null);
+  const [drag, setDrag] = useState(null); // { kind, id, handle?, startX, startY, orig, moved, ... }
+  const dragRef = useRef(null);
 
   // Scroll-triggered reveals (see FRONTEND_UI_STANDARD.md §5).
   const [heroRef, heroVisible] = useScrollReveal();
@@ -157,6 +168,110 @@ export default function UIMapper() {
     };
   }, [isDrawing, toImageCoords]);
 
+  // ── Move / resize / cycle-select existing regions ──
+  const beginDrag = (d) => {
+    dragRef.current = d;
+    setDrag(d);
+  };
+
+  const endDrag = () => {
+    dragRef.current = null;
+    setDrag(null);
+  };
+
+  // Regions whose box contains the given image-space point, in data order
+  // (bottom-most first, top-most last — later siblings render on top).
+  const hitTestRegions = (x, y) =>
+    regions
+      .filter((r) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h)
+      .map((r) => r.id);
+
+  // Repeated clicks at the same point walk DOWN through overlapping regions.
+  const cycleSelect = (overlappingIds, selectedAtMousedown) => {
+    if (!overlappingIds.length) return;
+    const i = overlappingIds.indexOf(selectedAtMousedown);
+    const next = i >= 0
+      ? overlappingIds[(i + 1) % overlappingIds.length]
+      : overlappingIds[overlappingIds.length - 1];
+    setSelectedId(next);
+  };
+
+  const onBoxMouseDown = (e, r) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const p = toImageCoords(e.clientX, e.clientY);
+    const overlappingIds = hitTestRegions(p.x, p.y);
+    const selectedAtMousedown = selectedId;
+    setSelectedId(r.id); // immediate feedback; also brings it to the front
+    beginDrag({
+      kind: 'move',
+      id: r.id,
+      startX: p.x,
+      startY: p.y,
+      orig: { x: r.x, y: r.y },
+      moved: false,
+      overlappingIds,
+      selectedAtMousedown,
+    });
+  };
+
+  const onHandleMouseDown = (e, id, handle) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const r = regions.find((x) => x.id === id);
+    if (!r) return;
+    const p = toImageCoords(e.clientX, e.clientY);
+    setSelectedId(id);
+    beginDrag({
+      kind: 'resize',
+      id,
+      handle,
+      startX: p.x,
+      startY: p.y,
+      orig: { x: r.x, y: r.y, w: r.w, h: r.h },
+      moved: false,
+    });
+  };
+
+  // Track the pointer on the window while moving/resizing; on mouseup either
+  // finalize the drag or (for a clean click) cycle selection down the stack.
+  useEffect(() => {
+    if (!drag) return undefined;
+    const move = (e) => {
+      const d = dragRef.current;
+      if (!d) return;
+      const p = toImageCoords(e.clientX, e.clientY);
+      const dx = p.x - d.startX;
+      const dy = p.y - d.startY;
+      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) d.moved = true;
+      if (d.kind === 'move') {
+        setRegions((rs) =>
+          rs.map((r) => (r.id === d.id ? { ...r, x: d.orig.x + dx, y: d.orig.y + dy } : r)),
+        );
+      } else if (d.kind === 'resize') {
+        const next = applyResize(d.orig, d.handle, dx, dy);
+        setRegions((rs) =>
+          rs.map((r) => (r.id === d.id ? { ...r, x: next.x, y: next.y, w: next.w, h: next.h } : r)),
+        );
+      }
+    };
+    const up = () => {
+      const d = dragRef.current;
+      if (d && d.kind === 'move' && !d.moved) {
+        cycleSelect(d.overlappingIds, d.selectedAtMousedown);
+      }
+      endDrag();
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    return () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+    };
+  }, [drag, toImageCoords]);
+
   // Delete key removes the selected region.
   useEffect(() => {
     if (!selectedId) return undefined;
@@ -182,6 +297,72 @@ export default function UIMapper() {
   const clearAll = () => {
     setRegions([]);
     setSelectedId(null);
+  };
+
+  // ── AI auto-mapping ──
+  // Downscale the loaded image (if needed) before sending it to Bedrock, to
+  // keep token cost low. Coordinates are scaled back to natural pixels after.
+  const captureDownscaledDataUrl = useCallback(() => {
+    return new Promise((resolve, reject) => {
+      const img = imgRef.current;
+      if (!img || !image) {
+        reject(new Error('Load an image first.'));
+        return;
+      }
+      const MAX_AI_DIM = 1568;
+      const scale = Math.min(1, MAX_AI_DIM / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.max(1, Math.round(img.naturalWidth * scale));
+      const h = Math.max(1, Math.round(img.naturalHeight * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      try {
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve({ dataUrl: canvas.toDataURL('image/jpeg', 0.85), w, h });
+      } catch {
+        reject(new Error('Could not read the image for analysis.'));
+      }
+    });
+  }, [image]);
+
+  const handleAutoMap = async () => {
+    if (!image) return;
+    if (!user?.token) {
+      toast.info('Sign in to use AI auto-mapping.', { autoClose: 4000 });
+      navigate('/login');
+      return;
+    }
+    setAutoMapping(true);
+    setError('');
+    try {
+      const { dataUrl, w, h } = await captureDownscaledDataUrl();
+      const aiRegions = await autoMapImage(dataUrl, w, h, user.token);
+      if (!aiRegions.length) {
+        toast.info('No UI components detected in that image.', { autoClose: 4000 });
+        return;
+      }
+      const scaleX = image.naturalWidth / w;
+      const scaleY = image.naturalHeight / h;
+      setRegions((rs) => {
+        const startIndex = rs.length;
+        const mapped = aiRegions.map((r, i) => ({
+          id: nextId(),
+          name: (r.name && r.name.trim()) || `Region ${startIndex + i + 1}`,
+          x: r.x * scaleX,
+          y: r.y * scaleY,
+          w: r.w * scaleX,
+          h: r.h * scaleY,
+          color: PALETTE[(startIndex + i) % PALETTE.length],
+        }));
+        return [...rs, ...mapped];
+      });
+      toast.success(`Detected ${aiRegions.length} components.`, { autoClose: 3000 });
+    } catch (err) {
+      setError(err.message || 'AI auto-mapping failed.');
+    } finally {
+      setAutoMapping(false);
+    }
   };
 
   // ── Zoom ──
@@ -249,6 +430,12 @@ export default function UIMapper() {
         return { left: x, top: y, width: w, height: h };
       })()
     : null;
+
+  // Render the selected region last so its body + resize handles sit on top
+  // of any overlapping boxes (the data/export order stays unchanged).
+  const orderedRegions = selectedId
+    ? [...regions.filter((r) => r.id !== selectedId), ...regions.filter((r) => r.id === selectedId)]
+    : regions;
 
   return (
     <div className="uim-page">
@@ -352,6 +539,15 @@ export default function UIMapper() {
                 <button
                   type="button"
                   className="uim-btn"
+                  onClick={handleAutoMap}
+                  disabled={autoMapping}
+                  title="Auto-detect UI components and name them with AI"
+                >
+                  {autoMapping ? 'Mapping…' : 'Auto map (AI)'}
+                </button>
+                <button
+                  type="button"
+                  className="uim-btn"
                   onClick={copyJson}
                   disabled={regions.length === 0}
                 >
@@ -380,7 +576,7 @@ export default function UIMapper() {
                     draggable={false}
                   />
                   <div className="uim-draw" onMouseDown={onDrawMouseDown}>
-                    {regions.map((r) => (
+                    {orderedRegions.map((r) => (
                       <div
                         key={r.id}
                         className={selectedId === r.id ? 'uim-box uim-box--sel' : 'uim-box'}
@@ -391,14 +587,19 @@ export default function UIMapper() {
                           height: r.h * zoom,
                           borderColor: r.color,
                         }}
-                        onMouseDown={(e) => {
-                          e.stopPropagation();
-                          setSelectedId(r.id);
-                        }}
+                        onMouseDown={(e) => onBoxMouseDown(e, r)}
                       >
                         <span className="uim-box__label" style={{ background: r.color }}>
                           {r.name || '—'}
                         </span>
+                        {selectedId === r.id &&
+                          HANDLES.map((h) => (
+                            <span
+                              key={h}
+                              className={`uim-handle uim-handle--${h}`}
+                              onMouseDown={(e) => onHandleMouseDown(e, r.id, h)}
+                            />
+                          ))}
                       </div>
                     ))}
                     {drawing && previewStyle && <div className="uim-preview" style={previewStyle} />}

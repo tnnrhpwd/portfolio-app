@@ -10,7 +10,7 @@
  * See docs/implementation/ASSET-LICENSES.md for provenance + the asset budget.
  */
 
-import type { StyleKey } from '../core';
+import type { Appearance, BodyZone, Gender, HairStyle, SkinTone, StyleKey } from '../core';
 
 /** Body template shared by all five styles (original, stylized front view). */
 const BODY = `
@@ -185,9 +185,6 @@ export const MENU_BACKGROUND = `<svg xmlns="http://www.w3.org/2000/svg" width="1
 // SVGs for the shop / inventory / loot boxes.
 // ─────────────────────────────────────────────────────────────────────────
 
-export type SkinTone = 'light' | 'tan' | 'brown' | 'dark';
-export type HairStyle = 'short' | 'long' | 'tied' | 'curly' | 'bald';
-
 const SKIN: Record<SkinTone, { base: string; shade: string }> = {
   light: { base: '#e8b78a', shade: '#c9945f' },
   tan: { base: '#d9a066', shade: '#b07842' },
@@ -213,6 +210,7 @@ function hairMarkup(style: HairStyle, color: string): string {
 
 export interface HumanVariant {
   id: string;
+  gender?: Gender;
   skin: SkinTone;
   hairStyle: HairStyle;
   hairColor: string;
@@ -232,15 +230,23 @@ export const HUMAN_VARIANTS: HumanVariant[] = [
   { id: 'h7', skin: 'dark', hairStyle: 'tied', hairColor: '#3a2416', robe: '#4a3a2b', robeShade: '#332818' },
 ];
 
-function buildHumanSprite(v: HumanVariant): string {
+function buildAppearanceSprite(v: Appearance, gender: Gender = 'male'): string {
   const skin = SKIN[v.skin].base;
   const shade = SKIN[v.skin].shade;
+  // Female gladiators wear a longer, slightly flared tunic; males keep the
+  // short straight tunic. The body template is otherwise shared.
+  const robePath =
+    gender === 'female'
+      ? `<path d="M55 80 Q53 58 80 58 Q107 58 105 80 L113 170 L47 170 Z" fill="${v.robe}" stroke="${v.robeShade}" stroke-width="2"/>`
+      : `<path d="M52 80 Q50 60 80 58 Q110 60 108 80 L116 152 L44 152 Z" fill="${v.robe}" stroke="${v.robeShade}" stroke-width="2"/>`;
+  const legY = gender === 'female' ? 164 : 150;
+  const legH = gender === 'female' ? 34 : 48;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="240" viewBox="0 0 160 240">
-  <rect x="60" y="150" width="15" height="48" rx="6" fill="${skin}" stroke="${shade}" stroke-width="2"/>
-  <rect x="85" y="150" width="15" height="48" rx="6" fill="${skin}" stroke="${shade}" stroke-width="2"/>
+  <rect x="60" y="${legY}" width="15" height="${legH}" rx="6" fill="${skin}" stroke="${shade}" stroke-width="2"/>
+  <rect x="85" y="${legY}" width="15" height="${legH}" rx="6" fill="${skin}" stroke="${shade}" stroke-width="2"/>
   <rect x="58" y="196" width="19" height="9" rx="3" fill="#5d3b1b"/>
   <rect x="83" y="196" width="19" height="9" rx="3" fill="#5d3b1b"/>
-  <path d="M52 80 Q50 60 80 58 Q110 60 108 80 L116 152 L44 152 Z" fill="${v.robe}" stroke="${v.robeShade}" stroke-width="2"/>
+  ${robePath}
   <rect x="44" y="74" width="12" height="44" rx="6" fill="${skin}" stroke="${shade}" stroke-width="2"/>
   <rect x="104" y="74" width="12" height="44" rx="6" fill="${skin}" stroke="${shade}" stroke-width="2"/>
   <rect x="48" y="116" width="64" height="8" rx="2" fill="#5d3b1b"/>
@@ -251,7 +257,7 @@ function buildHumanSprite(v: HumanVariant): string {
 }
 
 export const HUMAN_SPRITES: Record<string, string> = {};
-for (const v of HUMAN_VARIANTS) HUMAN_SPRITES[v.id] = buildHumanSprite(v);
+for (const v of HUMAN_VARIANTS) HUMAN_SPRITES[v.id] = buildAppearanceSprite(v);
 
 // ── Armor (head / torso / arms / legs), tinted by material tier ──
 
@@ -338,6 +344,12 @@ for (const kind of WEAPON_KIND_LIST) {
   WEAPON_ICONS[kind] = iconSvg(`<g transform="translate(60,60) scale(1.5)">${weaponMarkup(kind)}</g>`);
 }
 
+// Off-hand (left-hand) weapon overlays — a dual wielder holds a second blade.
+export const OFFHAND_WEAPON_OVERLAYS: Record<string, string> = {};
+for (const kind of WEAPON_KIND_LIST) {
+  OFFHAND_WEAPON_OVERLAYS[kind] = fullSvg(`<g transform="translate(44,100)">${weaponMarkup(kind)}</g>`);
+}
+
 // ── Shields (off hand) ──
 
 function shieldMarkup(kind: string): string {
@@ -362,6 +374,44 @@ for (const kind of SHIELD_KIND_LIST) {
   SHIELD_ICONS[kind] = iconSvg(`<g transform="translate(60,60) scale(1.4)">${shieldMarkup(kind)}</g>`);
 }
 
+// ── Damage / wound overlays (one per body zone) ──
+
+const ZONE_GEOM: Record<BodyZone, { cx: number; cy: number; w: number; h: number }> = {
+  head: { cx: 80, cy: 36, w: 46, h: 46 },
+  torso: { cx: 80, cy: 98, w: 66, h: 96 },
+  leftArm: { cx: 50, cy: 96, w: 20, h: 52 },
+  rightArm: { cx: 110, cy: 96, w: 20, h: 52 },
+  leftLeg: { cx: 68, cy: 174, w: 22, h: 54 },
+  rightLeg: { cx: 92, cy: 174, w: 22, h: 54 },
+};
+
+function bloodSplatter(cx: number, cy: number, w: number, h: number): string {
+  const rx = w * 0.62;
+  const ry = h * 0.34;
+  return `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="#a31621" opacity="0.8"/>
+  <ellipse cx="${cx - rx * 0.3}" cy="${cy - ry * 0.3}" rx="${rx * 0.45}" ry="${ry * 0.45}" fill="#7c1018" opacity="0.9"/>
+  <path d="M${cx - rx * 0.4} ${cy + ry * 0.7} q3 ${h * 0.5} ${cx} ${cy + h * 0.62} q-3 ${h * 0.5} ${cx - rx * 0.4} ${cy + ry * 0.7}" fill="#a31621" opacity="0.7"/>`;
+}
+
+function severedMarkup(z: BodyZone): string {
+  const g = ZONE_GEOM[z];
+  const x0 = g.cx - g.w / 2;
+  const y0 = g.cy - g.h / 2;
+  const rx = Math.max(4, g.w * 0.45);
+  // A destroyed part simply vanishes — a dark, neutral gap is left behind
+  // (no red, so blood only ever appears on parts that are still injured).
+  return `<rect x="${x0}" y="${y0}" width="${g.w}" height="${g.h}" rx="${rx}" fill="#1b1412" opacity="0.97"/>
+  <rect x="${x0 + 2}" y="${y0 + 2}" width="${g.w - 4}" height="${g.h - 4}" rx="${Math.max(3, rx - 2)}" fill="#0e0a09" opacity="0.94"/>`;
+}
+
+export const BLOOD_OVERLAYS: Record<string, string> = {};
+export const SEVERED_OVERLAYS: Record<string, string> = {};
+for (const z of Object.keys(ZONE_GEOM) as BodyZone[]) {
+  const g = ZONE_GEOM[z];
+  BLOOD_OVERLAYS[z] = fullSvg(bloodSplatter(g.cx, g.cy, g.w, g.h));
+  SEVERED_OVERLAYS[z] = fullSvg(severedMarkup(z));
+}
+
 // ── Mannequin wireframe (the drop-target silhouette) ──
 
 export const MANNEQUIN_FRAME = `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="240" viewBox="0 0 160 240">
@@ -379,3 +429,5 @@ export const MANNEQUIN_FRAME = `<svg xmlns="http://www.w3.org/2000/svg" width="1
 export function svgDataUri(svg: string): string {
   return `data:image/svg+xml;base64,${btoa(svg)}`;
 }
+
+export { buildAppearanceSprite };

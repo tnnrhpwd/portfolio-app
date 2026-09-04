@@ -1,6 +1,7 @@
 import { BaseScene } from './BaseScene';
 import { addText, type ButtonOpts } from '../ui/button';
 import { isLoggedIn } from '../state/cloudSync';
+import { addMapBackgroundRaster } from '../assets/textures';
 import {
   CITIES,
   cityUnlockRequirement,
@@ -49,7 +50,7 @@ export class MainScene extends BaseScene {
   private render(): void {
     this.clearScreen();
     this.applyBackground();
-    this.mapBackground();
+    addMapBackgroundRaster(this);
     this.header('COLISEUM');
 
     const fighter = this.gameState.roster[0];
@@ -78,7 +79,9 @@ export class MainScene extends BaseScene {
       { label: 'SKILL', onClick: () => this.scene.start('Skill') },
       { label: 'TEAM', onClick: () => this.scene.start('Team') },
       { label: 'BLACKSMITH', onClick: () => this.scene.start('Blacksmith', { cityId: city.id }) },
+      { label: 'CUSTOMIZE', onClick: () => this.scene.start('Creation', { customize: true }) },
       { label: 'TROPHIES', onClick: () => this.scene.start('Achievements') },
+      { label: 'INFIRMARY', onClick: () => this.scene.start('Infirmary') },
     ];
     const rightTop = compact ? 110 : 96;
     const rightCy = rightTop + (20 + rightItems.length * itemH) / 2;
@@ -231,7 +234,7 @@ export class MainScene extends BaseScene {
   private resetSave(): void {
     this.confirm('Reset save?', 'This wipes your school and starts a new game.', () => {
       this.gameState = createCampaignStart();
-      this.scene.start('Tutorial');
+      this.scene.start('Creation');
     });
   }
 }

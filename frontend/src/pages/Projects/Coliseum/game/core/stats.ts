@@ -29,6 +29,16 @@ export function lifeBoostTotal(fighter: Fighter): number {
   return total;
 }
 
+/** Torso HP mended each turn by Regeneration ranks. */
+export function regenTotal(fighter: Fighter): number {
+  let total = 0;
+  for (const [id, rank] of Object.entries(fighter.skills)) {
+    const node = getSkill(id);
+    if (node?.effect.kind === 'regen') total += node.effect.perRank * rank;
+  }
+  return total;
+}
+
 /** Total maximum HP, including Vitality scaling and Life Boost. */
 export function totalHp(fighter: Fighter, extraLifeBoost = 0): number {
   return (
@@ -38,6 +48,17 @@ export function totalHp(fighter: Fighter, extraLifeBoost = 0): number {
   );
 }
 
+/**
+ * Morale restored by a single Crowd Appeal, driven by Charisma.
+ * The reference balance fits ~2.2 MP restored per point of Charisma,
+ * capped at the fighter's maximum MP pool (see the Charisma→MP table:
+ * 760 MP needs ~365 Charisma, 440 MP needs ~204, 320 MP needs ~145).
+ */
+export function crowdAppealRestore(fighter: Fighter): number {
+  const charisma = effectiveAttributes(fighter).charisma;
+  return Math.min(fighter.maxMorale, Math.max(0, Math.round(charisma * 2.2)));
+}
+
 /** Sum of current flesh HP across all zones. */
 export function currentHp(fighter: Fighter): number {
   let sum = 0;
@@ -45,10 +66,20 @@ export function currentHp(fighter: Fighter): number {
   return sum;
 }
 
-/** Splits total HP into per-zone maximums using the fixed fractions. */
+/**
+ * Splits total HP into per-zone maximums using the fixed fractions, then
+ * gives any flooring remainder to the torso so the six parts sum exactly to
+ * `total`. Without this, a fully-healed fighter sits a few HP below its
+ * displayed total and the infirmary keeps charging for the unhealable gap.
+ */
 export function zoneMaxHp(total: number): Record<BodyZone, number> {
   const out = {} as Record<BodyZone, number>;
-  for (const zone of BODY_ZONES) out[zone] = Math.max(1, Math.floor(total * ZONE_HP_SPLIT[zone]));
+  let sum = 0;
+  for (const zone of BODY_ZONES) {
+    out[zone] = Math.max(1, Math.floor(total * ZONE_HP_SPLIT[zone]));
+    sum += out[zone];
+  }
+  out.torso = Math.max(1, out.torso + (total - sum));
   return out;
 }
 

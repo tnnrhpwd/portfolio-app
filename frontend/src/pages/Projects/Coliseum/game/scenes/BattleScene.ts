@@ -2,7 +2,7 @@ import { BaseScene } from './BaseScene';
 import { addText } from '../ui/button';
 import { setFighters } from '../state/store';
 import {
-  autoTeamActions,
+  autoStrategy,
   BODY_ZONES,
   canMeleeAttack,
   crowdWish,
@@ -10,13 +10,14 @@ import {
   effectiveAttributes,
   generateOpponentTeam,
   getSkill,
+  initTurnQueue,
   isDefeated,
   isZoneDestroyed,
+  nextActor,
   precisionHitChance,
-  sortTurnOrder,
   stabilize,
   startBattle,
-  stepBattle,
+  stepTurn,
   totalHp,
   weakestZone,
   type Action,
@@ -24,9 +25,10 @@ import {
   type BattleSnapshot,
   type BodyZone,
   type Fighter,
+  type TurnQueue,
 } from '../core';
 import { playBlock, playClick, playCrit, playDefeat, playHit, playVictory } from '../audio/sfx';
-import { addArenaBackground, addLayeredFighter } from '../assets/textures';
+import { addArenaBackgroundRaster, addLayeredFighter } from '../assets/textures';
 import { getSettings } from '../settings';
 import { announce } from '../accessibility';
 
@@ -43,8 +45,8 @@ type Phase = 'action' | 'precision' | 'target' | 'zone' | 'skill';
 
 export class BattleScene extends BaseScene {
   private snap!: BattleSnapshot;
-  private actions: Record<string, Action> = {};
-  private queue: Fighter[] = [];
+  private turnQueue: TurnQueue = {};
+  private autoActive = false;
   private currentId = '';
   private phase: Phase = 'action';
   private precision: AttackPrecision = 'medium';
@@ -69,8 +71,10 @@ export class BattleScene extends BaseScene {
     const playerTeam = this.gameState.roster.slice(0, 3);
     const enemyTeam = generateOpponentTeam(this.enemyRank, Math.random);
     this.snap = startBattle(playerTeam, enemyTeam);
+    this.turnQueue = initTurnQueue(this.snap.playerTeam, this.snap.enemyTeam);
+    this.autoActive = false;
     this.summary = 'Your turn — pick an action.';
-    this.beginRound();
+    this.beginTurn();
     this.render();
   }
 
@@ -98,34 +102,40 @@ export class BattleScene extends BaseScene {
     return this.snap.playerTeam.find((f) => f.id === this.currentId);
   }
 
-  private beginRound(): void {
-    this.actions = {};
-    this.queue = [...sortTurnOrder(this.livingPlayers())];
-    this.nextCommand();
-  }
-
-  private nextCommand(): void {
-    if (this.queue.length === 0) {
-      this.runRound();
+  private beginTurn(): void {
+    const actor = nextActor(this.snap.playerTeam, this.snap.enemyTeam, this.turnQueue);
+    if (!actor) {
+      this.finish(this.snap.playerWon);
       return;
     }
-    this.currentId = this.queue.shift()?.id ?? '';
+    if (actor.side === 'enemy') {
+      this.currentId = '';
+      this.phase = 'action';
+      this.summary = `${actor.fighter.name} moves…`;
+      this.render();
+      const delay = getSettings().reducedMotion ? 1 : this.speedFast ? 160 : 520;
+      this.time.delayedCall(delay, () => this.resolveEnemyTurn());
+      return;
+    }
+    this.currentId = actor.fighter.id;
     this.phase = 'action';
     this.precision = 'medium';
     this.targetEnemyId = '';
     this.render();
   }
 
-  private commit(action: Action): void {
-    this.actions[this.currentId] = action;
-    this.nextCommand();
+  private resolveEnemyTurn(): void {
+    this.advance(undefined);
   }
 
-  private runRound(): void {
-    this.snap = stepBattle(this.snap, this.actions, Math.random);
-    this.summary = this.describeEvents();
-    this.playEventSounds();
-    announce(this.summary);
+  private commit(action: Action): void {
+    this.advance(action);
+  }
+
+  /** Resolves the pending turn immediately, then hands control to the next actor. */
+  private advance(playerAction: Action | undefined): void {
+    this.resolveStep(playerAction);
+    this.currentId = ''; // pause input while the result is shown
     if (this.snap.playerWon) {
       this.finish(true);
       return;
@@ -134,7 +144,29 @@ export class BattleScene extends BaseScene {
       this.finish(false);
       return;
     }
-    this.beginRound();
+    if (this.autoActive) return;
+    // Repaint right away so the opponent's updated health/armor is visible,
+    // then hand control to the next actor after a short beat.
+    this.render();
+    const delay = getSettings().reducedMotion ? 1 : this.speedFast ? 120 : 360;
+    this.time.delayedCall(delay, () => this.beginTurn());
+  }
+
+  private resolveStep(playerAction: Action | undefined): void {
+    const result = stepTurn(this.snap.playerTeam, this.snap.enemyTeam, this.turnQueue, playerAction, Math.random);
+    this.snap = {
+      ...this.snap,
+      playerTeam: result.playerTeam,
+      enemyTeam: result.enemyTeam,
+      events: result.events,
+      playerWon: result.playerWon,
+      enemyWon: result.enemyWon,
+      round: this.snap.round + 1,
+    };
+    this.turnQueue = result.queue;
+    this.summary = this.describeEvents();
+    this.playEventSounds();
+    announce(this.summary);
   }
 
   private finish(won: boolean): void {
@@ -166,7 +198,7 @@ export class BattleScene extends BaseScene {
   private render(): void {
     this.clearScreen();
     this.tooltip = null;
-    addArenaBackground(this);
+    addArenaBackgroundRaster(this);
     const compact = this.compact;
 
     // Top-left utility: auto-battle + speed.
@@ -186,14 +218,6 @@ export class BattleScene extends BaseScene {
       { width: 130, height: 32, fontSize: 13 },
     );
 
-    if (this.phase === 'action') {
-      this.button(compact ? this.w - 70 : this.w - 100, 24, 'NEXT TURN', () => this.commit({ kind: 'pass' }), {
-        width: 110,
-        height: 32,
-        fontSize: 12,
-      });
-    }
-
     this.renderActionMenu(compact);
     this.renderTurnOrder(compact);
     this.renderTeamTray(compact);
@@ -208,6 +232,7 @@ export class BattleScene extends BaseScene {
   }
 
   private renderActionMenu(compact: boolean): void {
+    if (!this.currentFighter()) return; // enemy turn (or none) — no player input
     const x = compact ? this.cx : 110;
 
     if (this.phase === 'action') {
@@ -342,7 +367,9 @@ export class BattleScene extends BaseScene {
   }
 
   private renderTurnOrder(compact: boolean): void {
-    const order = sortTurnOrder([...this.livingPlayers(), ...this.livingEnemies()]);
+    const order = [...this.livingPlayers(), ...this.livingEnemies()].sort(
+      (a, b) => (this.turnQueue[a.id] ?? 0) - (this.turnQueue[b.id] ?? 0),
+    );
     const x = compact ? this.w - 70 : this.w - 100;
     addText(this, x, 70, 'TURN ORDER', { fontSize: '14px', color: '#f2d98c' }).setOrigin(0.5, 0.5);
     order.forEach((f, i) => {
@@ -362,26 +389,37 @@ export class BattleScene extends BaseScene {
     const enemyX = compact ? this.cx + 130 : this.w - 200;
 
     this.snap.playerTeam.forEach((f, i) => {
-      const y = bottom - (this.snap.playerTeam.length - 1 - i) * 42;
-      this.drawFighterCard(f, playerX, y);
+      const y = bottom - (this.snap.playerTeam.length - 1 - i) * 58;
+      this.drawFighterCard(f, playerX, y, 'player');
     });
     this.snap.enemyTeam.forEach((f, i) => {
-      const y = bottom - (this.snap.enemyTeam.length - 1 - i) * 42;
-      this.drawFighterCard(f, enemyX, y);
+      const y = bottom - (this.snap.enemyTeam.length - 1 - i) * 58;
+      this.drawFighterCard(f, enemyX, y, 'enemy');
     });
   }
 
-  private drawFighterCard(f: Fighter, x: number, y: number): void {
+  private drawFighterCard(f: Fighter, x: number, y: number, side: 'player' | 'enemy'): void {
     const dead = !f.alive || isDefeated(f);
+    const armor = BODY_ZONES.reduce((sum, z) => sum + f.zones[z].armor, 0);
     addText(this, x, y, `${f.name} Lv${f.level}${f.row === 'back' ? ' (back)' : ''}`, {
       fontSize: '14px',
       color: dead ? '#c0392b' : '#f2d98c',
       fontStyle: 'bold',
     });
-    addText(this, x, y + 20, `HP ${currentHp(f)}/${totalHp(f)}  MP ${f.morale}/${f.maxMorale}`, {
+    addText(this, x, y + 20, `HP ${currentHp(f)}/${totalHp(f)}`, {
       fontSize: '12px',
       color: dead ? '#c0392b' : '#e8dcc8',
     });
+    addText(this, x, y + 38, `AR ${armor}  ·  MP ${f.morale}/${f.maxMorale}`, {
+      fontSize: '12px',
+      color: '#b8aa94',
+    });
+
+    // Small body sprite beside the card — hover a body part to see its armor + health.
+    const compact = this.compact;
+    const s = compact ? 0.34 : 0.42;
+    const sx = side === 'player' ? (compact ? x + 80 : x - 110) : (compact ? x - 80 : x + 110);
+    this.drawTrayFighter(f, sx, y + 19, s);
   }
 
   // ── Arena rendering: visible fighters + click-to-target body zones ──
@@ -439,16 +477,7 @@ export class BattleScene extends BaseScene {
   }
 
   private drawZoneTargets(f: Fighter, x: number, y: number, s: number): void {
-    const W = 120 * s;
-    const H = 180 * s;
-    const geom: Record<BodyZone, { gx: number; gy: number; w: number; h: number }> = {
-      head: { gx: x, gy: y - H * 0.30, w: W * 0.30, h: H * 0.18 },
-      torso: { gx: x, gy: y - H * 0.02, w: W * 0.42, h: H * 0.30 },
-      leftArm: { gx: x - W * 0.26, gy: y - H * 0.04, w: W * 0.16, h: H * 0.32 },
-      rightArm: { gx: x + W * 0.26, gy: y - H * 0.04, w: W * 0.16, h: H * 0.32 },
-      leftLeg: { gx: x - W * 0.11, gy: y + H * 0.20, w: W * 0.18, h: H * 0.30 },
-      rightLeg: { gx: x + W * 0.11, gy: y + H * 0.20, w: W * 0.18, h: H * 0.30 },
-    };
+    const geom = this.zoneGeometry(x, y, s);
     BODY_ZONES.forEach((zone) => {
       const z = geom[zone];
       const destroyed = isZoneDestroyed(f, zone);
@@ -467,6 +496,60 @@ export class BattleScene extends BaseScene {
       });
       shape.on('pointerdown', () => this.pickZone(zone));
     });
+  }
+
+  /** Body-zone hit rectangles centered on (x, y), sized for a 120×180 sprite at scale s. */
+  private zoneGeometry(
+    x: number,
+    y: number,
+    s: number,
+  ): Record<BodyZone, { gx: number; gy: number; w: number; h: number }> {
+    const W = 120 * s;
+    const H = 180 * s;
+    return {
+      head: { gx: x, gy: y - H * 0.30, w: W * 0.30, h: H * 0.18 },
+      torso: { gx: x, gy: y - H * 0.02, w: W * 0.42, h: H * 0.30 },
+      leftArm: { gx: x - W * 0.26, gy: y - H * 0.04, w: W * 0.16, h: H * 0.32 },
+      rightArm: { gx: x + W * 0.26, gy: y - H * 0.04, w: W * 0.16, h: H * 0.32 },
+      leftLeg: { gx: x - W * 0.11, gy: y + H * 0.20, w: W * 0.18, h: H * 0.30 },
+      rightLeg: { gx: x + W * 0.11, gy: y + H * 0.20, w: W * 0.18, h: H * 0.30 },
+    };
+  }
+
+  /** A small, hoverable full-body sprite for the bottom tray (armor + HP per limb). */
+  private drawTrayFighter(f: Fighter, x: number, y: number, s: number): void {
+    const sprite = addLayeredFighter(this, x, y, f, s);
+    const dead = !f.alive || isDefeated(f);
+    sprite.setAlpha(dead ? 0.35 : 1);
+    if (dead) return;
+    const geom = this.zoneGeometry(x, y, s);
+    BODY_ZONES.forEach((zone) => {
+      const z = geom[zone];
+      const shape = this.add
+        .rectangle(z.gx, z.gy, z.w, z.h, 0x000000, 0.001)
+        .setInteractive({ useHandCursor: true });
+      shape.on('pointerover', () => {
+        shape.setFillStyle(0xf2d98c, 0.35);
+        this.showTrayZoneTooltip(z.gx, z.gy - 12, zone, f);
+      });
+      shape.on('pointerout', () => {
+        shape.setFillStyle(0x000000, 0.001);
+        this.hideZoneTooltip();
+      });
+    });
+  }
+
+  private showTrayZoneTooltip(x: number, y: number, zone: BodyZone, f: Fighter): void {
+    this.hideZoneTooltip();
+    const hp = f.zones[zone].hp;
+    const max = f.zones[zone].maxHp;
+    const armor = f.zones[zone].armor;
+    this.tooltip = addText(this, x, y, `${ZONE_LABELS[zone]}  ARMOR ${armor}  HP ${hp}/${max}`, {
+      fontSize: '13px',
+      color: '#f2d98c',
+      backgroundColor: '#000000cc',
+      padding: { x: 8, y: 4 },
+    }).setOrigin(0.5, 1);
   }
 
   private showZoneTooltip(x: number, y: number, zone: BodyZone, f: Fighter): void {
@@ -492,10 +575,10 @@ export class BattleScene extends BaseScene {
     this.tooltip = null;
   }
 
-  /** Bottom-right forfeit control. */
+  /** Bottom-right forfeit control (centered on desktop so it never covers the enemy tray). */
   private renderSurrender(compact: boolean): void {
     this.button(
-      compact ? this.w - 70 : this.w - 90,
+      compact ? this.w - 70 : this.cx,
       this.h - 30,
       'SURRENDER',
       () => this.finish(false),
@@ -505,6 +588,8 @@ export class BattleScene extends BaseScene {
 
   // ── Auto-battle ──
   private startAuto(): void {
+    this.autoActive = true;
+    this.currentId = '';
     this.runAutoStep();
   }
 
@@ -513,16 +598,22 @@ export class BattleScene extends BaseScene {
       this.finish(this.snap.playerWon);
       return;
     }
-    const actions = autoTeamActions(this.livingPlayers(), this.livingEnemies(), Math.random);
-    this.snap = stepBattle(this.snap, actions, Math.random);
-    this.summary = this.describeEvents();
-    announce(this.summary);
+    const actor = nextActor(this.snap.playerTeam, this.snap.enemyTeam, this.turnQueue);
+    const playerAction =
+      actor && actor.side === 'player'
+        ? autoStrategy(actor.fighter, this.livingEnemies()[0] ?? this.snap.enemyTeam[0])
+        : undefined;
+    this.resolveStep(playerAction);
     this.render();
-    if (this.snap.playerWon || this.snap.enemyWon) {
-      this.finish(this.snap.playerWon);
+    if (this.snap.playerWon) {
+      this.finish(true);
       return;
     }
-    const delay = getSettings().reducedMotion ? 1 : this.speedFast ? 200 : 650;
+    if (this.snap.enemyWon) {
+      this.finish(false);
+      return;
+    }
+    const delay = getSettings().reducedMotion ? 1 : this.speedFast ? 180 : 600;
     this.time.delayedCall(delay, () => this.runAutoStep());
   }
 
@@ -551,7 +642,15 @@ export class BattleScene extends BaseScene {
     };
     const lines = this.snap.events.map((event) => {
       if (event.kind === 'attack') {
-        return `${name(event.actorId)} hit ${name(event.targetId)} (${event.zone}) for ${event.damage}${event.crit ? ' — CRIT' : ''}${event.blocked ? ' — blocked' : ''}`;
+        const flesh = event.damage ?? 0;
+        const armor = event.armorAbsorbed ?? 0;
+        const bits: string[] = [];
+        if (flesh > 0) bits.push(`for ${flesh}`);
+        if (armor > 0) bits.push(`armor soaked ${armor}`);
+        if (event.crit) bits.push('CRIT');
+        if (event.blocked) bits.push('blocked');
+        const tail = bits.length > 0 ? ` — ${bits.join(', ')}` : '';
+        return `${name(event.actorId)} hit ${name(event.targetId)} (${event.zone})${tail}`;
       }
       if (event.kind === 'miss') return `${name(event.actorId)} missed`;
       if (event.kind === 'block') return `${name(event.actorId)} guarded`;

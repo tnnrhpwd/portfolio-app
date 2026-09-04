@@ -40,6 +40,8 @@ function migrate(state: GameState): GameState {
         ...fighter,
         baseAttributes: fighter.baseAttributes ?? { ...fighter.attributes },
         skills: fighter.skills ?? {},
+        gender: fighter.gender ?? 'male',
+        appearance: fighter.appearance ?? null,
         row: fighter.row ?? 'front',
         auto: fighter.auto ?? false,
         status: {
@@ -48,6 +50,7 @@ function migrate(state: GameState): GameState {
           defending: status.defending ?? false,
           bleeding: status.bleeding ?? 0,
           buffed: status.buffed ?? 0,
+          guarding: status.guarding ?? 0,
         },
       };
     }),

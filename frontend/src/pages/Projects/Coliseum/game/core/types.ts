@@ -7,6 +7,21 @@ export type AttributeKey =
   | 'vitality'
   | 'charisma';
 
+/** Gladiator gender, chosen at character creation (males gain STR, females CHA). */
+export type Gender = 'male' | 'female';
+
+/** Base-human appearance options (skin, hair, and starting cloth). */
+export type SkinTone = 'light' | 'tan' | 'brown' | 'dark';
+export type HairStyle = 'short' | 'long' | 'tied' | 'curly' | 'bald';
+
+export interface Appearance {
+  skin: SkinTone;
+  hairStyle: HairStyle;
+  hairColor: string;
+  robe: string;
+  robeShade: string;
+}
+
 /** Starting archetype (base stats + starter gear + sprite). Does NOT restrict which skills a fighter can learn. */
 export type StyleKey = 'provocator' | 'murmillo' | 'retiarius' | 'dimachaerus' | 'thraex';
 
@@ -77,12 +92,18 @@ export interface StatusEffects {
   bleeding: number;
   /** Rounds of remaining war-cry damage buff. */
   buffed: number;
+  /** Rounds of remaining Protect stance — intercepts blows meant for teammates. */
+  guarding: number;
 }
 
 export interface Fighter {
   id: string;
   name: string;
   style: StyleKey;
+  /** Chosen at character creation; drives the STR/CHA starting bonus. */
+  gender: Gender;
+  /** Base-human look (skin/hair/cloth); null until customized. */
+  appearance: Appearance | null;
   level: number;
   xp: number;
   attributes: Attributes;
@@ -127,6 +148,7 @@ export interface TurnEvent {
   targetId?: string;
   zone?: BodyZone;
   damage?: number;
+  armorAbsorbed?: number;
   crit?: boolean;
   blocked?: boolean;
   skillId?: string;

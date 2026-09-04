@@ -7,6 +7,7 @@ const METALS: MetalId[] = ['bronze', 'iron', 'silver', 'gold'];
 
 export class BlacksmithScene extends BaseScene {
   private slot: EquipmentSlot = 'head';
+  private offhandWeapon = false;
   private cityId = '';
 
   constructor() {
@@ -45,7 +46,21 @@ export class BlacksmithScene extends BaseScene {
       if (slot !== this.slot) btn.container.setAlpha(0.55);
     });
 
-    const metalsY = 165 + Math.ceil(SLOTS.length / cols) * 50 + 30;
+    let metalsY = 165 + Math.ceil(SLOTS.length / cols) * 50 + 30;
+    if (this.slot === 'offHand') {
+      metalsY += 48;
+      const toggleY = 165 + Math.ceil(SLOTS.length / cols) * 50 + 6;
+      this.button(
+        this.cx,
+        toggleY,
+        this.offhandWeapon ? 'FORGE: SECOND WEAPON' : 'FORGE: SHIELD',
+        () => {
+          this.offhandWeapon = !this.offhandWeapon;
+          this.render();
+        },
+        { width: 240, height: 36, fontSize: 13 },
+      );
+    }
     addText(this, this.cx, metalsY, 'Metals:', { fontSize: '18px', color: '#f2d98c' });
     METALS.forEach((metal, i) => {
       const y = metalsY + 50 + i * (compact ? 78 : 50);
@@ -70,7 +85,7 @@ export class BlacksmithScene extends BaseScene {
 
   private forgeItem(metal: MetalId): void {
     try {
-      this.gameState = forge(this.gameState, this.slot, metal);
+      this.gameState = forge(this.gameState, this.slot, metal, Math.random, this.slot === 'offHand' && this.offhandWeapon);
       this.applyAchievements();
     } catch {
       // missing gold or metal — button is disabled anyway

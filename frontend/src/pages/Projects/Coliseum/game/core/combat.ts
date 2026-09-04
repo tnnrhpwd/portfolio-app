@@ -1,4 +1,4 @@
-import type { AttackOutcome, AttackPrecision, BodyZone, Fighter } from './types';
+import type { AttackOutcome, AttackPrecision, BodyZone, Equipment, Fighter } from './types';
 import type { Rng } from './rng';
 import { CRIT_CHANCE, CRIT_MULTIPLIER, PRECISION } from './constants';
 import { clamp } from './rng';
@@ -36,15 +36,15 @@ export interface RawDamage {
   crit: boolean;
 }
 
-/** Rolls raw damage with optional multipliers (used by skills and war cry). */
-export function rollDamageWith(
+/** Rolls raw damage for a specific weapon (or unarmed when null), with multipliers. */
+export function rollDamageWithWeapon(
   fighter: Fighter,
+  weapon: Equipment | null,
   precision: AttackPrecision,
   rand: Rng = Math.random,
   damageMult = 1,
   critBonus = 0,
 ): RawDamage {
-  const weapon = usableMainHand(fighter) ?? usableOffHandWeapon(fighter);
   const minDamage = weapon?.minDamage ?? 5;
   const maxDamage = weapon?.maxDamage ?? 10;
   const base = minDamage + rand() * (maxDamage - minDamage);
@@ -54,6 +54,18 @@ export function rollDamageWith(
   const mult = PRECISION[precision].damage * (crit ? CRIT_MULTIPLIER : 1) * damageMult * warcry;
   const raw = (base + effectiveAttributes(fighter).strength) * mult * variance;
   return { raw: Math.max(1, Math.round(raw)), crit };
+}
+
+/** Rolls raw damage with the fighter's usable weapon (main hand, then off hand). */
+export function rollDamageWith(
+  fighter: Fighter,
+  precision: AttackPrecision,
+  rand: Rng = Math.random,
+  damageMult = 1,
+  critBonus = 0,
+): RawDamage {
+  const weapon = usableMainHand(fighter) ?? usableOffHandWeapon(fighter);
+  return rollDamageWithWeapon(fighter, weapon, precision, rand, damageMult, critBonus);
 }
 
 /** Rolls raw damage for a precision tier (strength-scaled, with variance). */
@@ -69,6 +81,8 @@ export interface HitMods {
   damageMult?: number;
   critBonus?: number;
   hitMult?: number;
+  /** Force a specific weapon for this hit (dual-wield combos alternate hands). */
+  weapon?: Equipment | null;
 }
 
 /** Resolves a hit against a zone with optional multipliers (used by skills). */
@@ -90,8 +104,11 @@ export function resolveHit(
     return { hit: false, blocked: false, crit: false, damage: 0, armorAbsorbed: 0 };
   }
 
-  let { raw, crit } = rollDamageWith(
+  const weapon =
+    mods.weapon !== undefined ? mods.weapon : usableMainHand(attacker) ?? usableOffHandWeapon(attacker);
+  let { raw, crit } = rollDamageWithWeapon(
     attacker,
+    weapon,
     precision,
     rand,
     mods.damageMult ?? 1,
