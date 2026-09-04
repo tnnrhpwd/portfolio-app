@@ -2,28 +2,21 @@ import { BaseScene } from './BaseScene';
 import { addText, createTooltip, type Tooltip } from '../ui/button';
 import { addLayeredFighter } from '../assets/textures';
 import {
+  allSkills,
   ATTRIBUTE_DEFS,
   ATTRIBUTE_KEYS,
   currentHp,
-  getSkill,
   resetAttributes as resetAttributesCore,
   resetSkills as resetSkillsCore,
   spendAttributePoint,
   spendSkillPoint,
   STAT_CAPS,
-  STYLES,
-  STYLE_TREES,
-  styleSkills,
   totalHp,
   xpToNext,
   type AttributeKey,
   type Fighter,
   type SkillNode,
-  type StyleKey,
 } from '../core';
-
-/** Display order for the five class columns (matches the reference screen). */
-const COLUMN_ORDER: StyleKey[] = ['retiarius', 'thraex', 'provocator', 'murmillo', 'dimachaerus'];
 
 /** Pointy-top hexagon vertices for a skill node of radius `r`. */
 function hexPoints(r: number): { x: number; y: number }[] {
@@ -37,7 +30,7 @@ function hexPoints(r: number): { x: number; y: number }[] {
   ];
 }
 
-/** Training + skill tree: allocate attributes on the left, unlock techniques in the five class trees on the right. */
+/** Training + skill tree: allocate attributes on the left, unlock techniques from the shared skill list on the right. */
 export class SkillScene extends BaseScene {
   private fighterIndex = 0;
 
@@ -110,7 +103,7 @@ export class SkillScene extends BaseScene {
 
     const infoY = 660;
     this.add.rectangle(x, infoY, 360, 72, 0x000000, 0.3).setStrokeStyle(1, 0x6a6258);
-    addText(this, x, infoY - 20, `${f.name} · ${f.style.toUpperCase()}`, { fontSize: '14px', color: '#e8b84b', fontStyle: 'bold' });
+    addText(this, x, infoY - 20, f.name, { fontSize: '14px', color: '#e8b84b', fontStyle: 'bold' });
     addText(this, x, infoY + 2, `Lv ${f.level} · HP ${currentHp(f)}/${totalHp(f)} · MP ${f.morale}/${f.maxMorale}`, {
       fontSize: '12px',
       color: '#e8dcc8',
@@ -121,30 +114,13 @@ export class SkillScene extends BaseScene {
     });
   }
 
-  // ── Right column: the five weapon-class skill trees ──
+  // ── Right column: the shared skill list (any fighter can learn any skill) ──
   private renderSkillTree(f: Fighter, x: number, tip: Tooltip): void {
-    const cols = COLUMN_ORDER.length;
-    const gapX = 130;
-
-    COLUMN_ORDER.forEach((style, ci) => {
-      const colX = x - ((cols - 1) * gapX) / 2 + ci * gapX;
-      const isOwn = style === f.style;
-      addText(this, colX, 74, STYLES[style].label.toUpperCase(), {
-        fontSize: '12px',
-        color: isOwn ? '#e8b84b' : '#6a6258',
-        fontStyle: 'bold',
-        align: 'center',
-        wordWrap: { width: 120 },
-      });
-
-      STYLE_TREES[style].forEach((id, ri) => {
-        const y = 116 + ri * 58;
-        const node = getSkill(id);
-        if (!node) return;
-        const rank = f.skills[id] ?? 0;
-        this.drawNode(colX, y, node, rank, isOwn, f, tip);
-      });
-    });
+    const skills = allSkills();
+    const techniques = skills.filter((node) => node.mpCost > 0);
+    const passives = skills.filter((node) => node.mpCost === 0);
+    this.renderSkillColumn(f, x - 120, 84, 'TECHNIQUES', techniques, tip);
+    this.renderSkillColumn(f, x + 120, 84, 'PASSIVES', passives, tip);
 
     const skillSpent = Object.values(f.skills).reduce((acc, rank) => acc + rank, 0);
     addText(this, x, 606, `REMAINING POINTS: ${f.skillPoints}`, { fontSize: '18px', color: '#f2d98c' });
@@ -159,37 +135,55 @@ export class SkillScene extends BaseScene {
     this.button(x + 70, 686, 'BACK', () => this.scene.start('Main'), { width: 120, height: 44, fontSize: 16 });
   }
 
+  private renderSkillColumn(
+    f: Fighter,
+    x: number,
+    y: number,
+    title: string,
+    nodes: SkillNode[],
+    tip: Tooltip,
+  ): void {
+    addText(this, x, y, title, {
+      fontSize: '13px',
+      color: '#e8b84b',
+      fontStyle: 'bold',
+      align: 'center',
+      wordWrap: { width: 140 },
+    });
+    nodes.forEach((node, ri) => {
+      const rank = f.skills[node.id] ?? 0;
+      this.drawNode(x, y + 42 + ri * 58, node, rank, f, tip);
+    });
+  }
+
   private drawNode(
     x: number,
     y: number,
     node: SkillNode,
     rank: number,
-    isOwn: boolean,
     f: Fighter,
     tip: Tooltip,
   ): void {
     const r = 20;
-    const canSpend = isOwn && f.skillPoints > 0 && rank < node.maxRank;
-    const fill = isOwn ? 0x8c1f28 : 0x2a241d;
-    const stroke = isOwn ? 0xe8b84b : 0x6a6258;
+    const canSpend = f.skillPoints > 0 && rank < node.maxRank;
+    const fill = 0x8c1f28;
+    const stroke = 0xe8b84b;
 
     const hex = this.add.polygon(x, y, hexPoints(r), fill, 1).setStrokeStyle(2, stroke);
-    if (isOwn) {
-      hex.setInteractive({ useHandCursor: canSpend });
-      hex.on('pointerover', () => {
-        hex.setFillStyle(canSpend ? 0xa52a34 : 0x8c1f28);
-        tip.show(x, y - 44, this.nodeTooltip(node, rank));
-      });
-      hex.on('pointerout', () => {
-        hex.setFillStyle(fill);
-        tip.hide();
-      });
-      if (canSpend) hex.on('pointerdown', () => this.spendSkill(node.id));
-    }
+    hex.setInteractive({ useHandCursor: canSpend });
+    hex.on('pointerover', () => {
+      hex.setFillStyle(canSpend ? 0xa52a34 : 0x8c1f28);
+      tip.show(x, y - 44, this.nodeTooltip(node, rank));
+    });
+    hex.on('pointerout', () => {
+      hex.setFillStyle(fill);
+      tip.hide();
+    });
+    if (canSpend) hex.on('pointerdown', () => this.spendSkill(node.id));
 
     addText(this, x, y + r + 12, `${rank}/${node.maxRank}`, {
       fontSize: '11px',
-      color: isOwn ? '#f2d98c' : '#6a6258',
+      color: '#f2d98c',
     });
   }
 
@@ -201,7 +195,7 @@ export class SkillScene extends BaseScene {
   // ── Compact (portrait) fallback ──
   private renderCompact(f: Fighter): void {
     const x = this.cx;
-    addText(this, x, 76, `${f.name} — ${f.style.toUpperCase()}`, { fontSize: '18px', color: '#f2d98c', fontStyle: 'bold' });
+    addText(this, x, 76, f.name, { fontSize: '18px', color: '#f2d98c', fontStyle: 'bold' });
     this.button(x - 70, 76, '◀', () => this.shiftFighter(-1), { width: 40, height: 40, fontSize: 20 });
     this.button(x + 70, 76, '▶', () => this.shiftFighter(1), { width: 40, height: 40, fontSize: 20 });
 
@@ -222,7 +216,7 @@ export class SkillScene extends BaseScene {
 
     addText(this, x, y, `Skill points: ${f.skillPoints}`, { fontSize: '14px', color: '#f2d98c' });
     y += 26;
-    styleSkills(f.style).forEach((node) => {
+    allSkills().forEach((node) => {
       const rank = f.skills[node.id] ?? 0;
       const btn = this.button(x, y, `${node.label} ${rank}/${node.maxRank}  +`, () => this.spendSkill(node.id), {
         width: 260,

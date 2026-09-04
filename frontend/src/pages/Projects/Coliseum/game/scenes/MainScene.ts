@@ -102,7 +102,7 @@ export class MainScene extends BaseScene {
       wordWrap: { width: compact ? menuW + 60 : 420 },
     });
     if (compact) {
-      addText(this, contentX, 140, `${fighter.name} — Lv ${fighter.level} ${fighter.style.toUpperCase()}`, {
+      addText(this, contentX, 140, `${fighter.name} — Lv ${fighter.level}`, {
         fontSize: '20px',
         color: '#f2d98c',
         fontStyle: 'bold',
@@ -182,7 +182,7 @@ export class MainScene extends BaseScene {
       color: '#f2d98c',
       fontStyle: 'bold',
     });
-    addText(this, x, 168, `Level ${fighter.level} · ${fighter.style.toUpperCase()}`, {
+    addText(this, x, 168, `Level ${fighter.level}`, {
       fontSize: '18px',
       color: '#b8aa94',
     });

@@ -1,4 +1,4 @@
-import type { AttributeKey, StyleKey } from './types';
+import type { AttributeKey } from './types';
 
 export type SkillEffect =
   | { kind: 'strike'; multiplier: number }
@@ -136,21 +136,31 @@ export const SKILL_CATALOG: Record<string, SkillNode> = {
   },
 };
 
-/** Skill-tree layout per weapon-defined style. */
-export const STYLE_TREES: Record<StyleKey, string[]> = {
-  provocator: ['demoralize', 'warCry', 'heal', 'throw', 'doubleStrike', 'speedBoost', 'vitalityBoost', 'lifeBoost'],
-  murmillo: ['shieldBash', 'powerStrike', 'heal', 'defenseBoost', 'vitalityBoost', 'lifeBoost', 'strengthBoost', 'speedBoost'],
-  retiarius: ['throw', 'heal', 'demoralize', 'doubleStrike', 'powerStrike', 'dexterityBoost', 'speedBoost', 'lifeBoost'],
-  dimachaerus: ['quadCombo', 'doubleStrike', 'powerStrike', 'dexterityBoost', 'strengthBoost', 'speedBoost', 'lifeBoost', 'vitalityBoost'],
-  thraex: ['powerStrike', 'doubleStrike', 'heal', 'strengthBoost', 'lifeBoost', 'vitalityBoost', 'speedBoost', 'dexterityBoost'],
-};
+/** Every learnable skill, in display order (active techniques first, then passives). */
+export const ALL_SKILL_IDS: readonly string[] = [
+  'powerStrike',
+  'doubleStrike',
+  'quadCombo',
+  'throw',
+  'shieldBash',
+  'heal',
+  'demoralize',
+  'warCry',
+  'speedBoost',
+  'vitalityBoost',
+  'strengthBoost',
+  'dexterityBoost',
+  'defenseBoost',
+  'lifeBoost',
+];
 
 export function getSkill(id: string): SkillNode | undefined {
   return SKILL_CATALOG[id];
 }
 
-export function styleSkills(style: StyleKey): SkillNode[] {
-  return STYLE_TREES[style].map((id) => SKILL_CATALOG[id]);
+/** Every skill in the shared catalog — any fighter can learn any of these. */
+export function allSkills(): SkillNode[] {
+  return ALL_SKILL_IDS.map((id) => SKILL_CATALOG[id]);
 }
 
 /** True when a skill costs MP (i.e. is a usable active, not a passive). */

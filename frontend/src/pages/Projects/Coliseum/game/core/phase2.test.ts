@@ -147,8 +147,8 @@ describe('equipment archetypes', () => {
   it('gives weapons distinct names, damage and crit bonuses', () => {
     const spear = createEquipment('mainHand', 2, { kind: 'spear', rand: mulberry32(1) });
     const axe = createEquipment('mainHand', 2, { kind: 'axe', rand: mulberry32(1) });
-    expect(spear.name).toContain('Spear');
-    expect(axe.name).toContain('Axe');
+    expect(spear.name).toContain('Hasta');
+    expect(axe.name).toContain('Securis');
     expect(spear.critBonus).toBeGreaterThan(axe.critBonus ?? 0);
     expect(axe.minDamage).toBeLessThan(axe.maxDamage ?? 0);
   });

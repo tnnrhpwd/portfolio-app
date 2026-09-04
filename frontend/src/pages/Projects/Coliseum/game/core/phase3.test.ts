@@ -27,16 +27,15 @@ import {
   stabilize,
   startBattle,
   stepBattle,
-  styleSkills,
+  allSkills,
   totalHp,
   unlockedCities,
 } from './index';
 
 describe('skill catalog', () => {
-  it('has eight nodes per style tree', () => {
-    for (const style of ['provocator', 'murmillo', 'retiarius', 'dimachaerus', 'thraex'] as const) {
-      expect(styleSkills(style)).toHaveLength(8);
-    }
+  it('exposes every skill in one shared catalog', () => {
+    expect(allSkills()).toHaveLength(14);
+    expect(allSkills().every((node) => !!getSkill(node.id))).toBe(true);
   });
 
   it('distinguishes active skills from passives', () => {
@@ -56,10 +55,12 @@ describe('skill points', () => {
     expect(after.skillPoints).toBe(2);
   });
 
-  it('rejects unknown, out-of-style, or exhausted spends', () => {
+  it('allows any skill and rejects unknown or exhausted spends', () => {
     const fighter = createFighter({ style: 'murmillo' });
-    fighter.skillPoints = 1;
-    expect(() => spendSkillPoint(fighter, 'quadCombo')).toThrow(); // dimachaerus skill
+    fighter.skillPoints = 2;
+    const after = spendSkillPoint(fighter, 'quadCombo'); // formerly dimachaerus-only
+    expect(after.skills.quadCombo).toBe(1);
+    expect(() => spendSkillPoint(fighter, 'notASkill')).toThrow();
     const broke = { ...fighter, skillPoints: 0 };
     expect(() => spendSkillPoint(broke, 'shieldBash')).toThrow();
   });

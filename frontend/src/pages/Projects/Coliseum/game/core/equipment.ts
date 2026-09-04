@@ -55,13 +55,13 @@ function tierName(tier: number): string {
 function armorSlotName(slot: EquipmentSlot): string {
   switch (slot) {
     case 'head':
-      return 'Helm';
+      return 'Helmet';
     case 'torso':
       return 'Cuirass';
     case 'leftArm':
-      return 'Arm Guard';
+      return 'Pauldron';
     case 'rightArm':
-      return 'Vambrace';
+      return 'Gauntlet';
     case 'legs':
       return 'Greaves';
     default:
@@ -83,12 +83,12 @@ interface WeaponKindDef {
 
 const WEAPON_KINDS: Record<string, WeaponKindDef> = {
   gladius: { label: 'Gladius', min: 6, spread: 6, critBonus: 0, twoHanded: false },
-  axe: { label: 'Axe', min: 4, spread: 12, critBonus: 0.04, twoHanded: false },
-  mace: { label: 'Mace', min: 8, spread: 4, critBonus: 0, twoHanded: false },
-  spear: { label: 'Spear', min: 5, spread: 6, critBonus: 0.06, twoHanded: false },
-  dagger: { label: 'Dagger', min: 4, spread: 4, critBonus: 0.03, twoHanded: false },
+  axe: { label: 'Securis', min: 4, spread: 12, critBonus: 0.04, twoHanded: false },
+  mace: { label: 'Clava', min: 8, spread: 4, critBonus: 0, twoHanded: false },
+  spear: { label: 'Hasta', min: 5, spread: 6, critBonus: 0.06, twoHanded: false },
+  dagger: { label: 'Pugio', min: 4, spread: 4, critBonus: 0.03, twoHanded: false },
   trident: { label: 'Trident', min: 6, spread: 6, critBonus: 0.05, twoHanded: false },
-  greatsword: { label: 'Greatsword', min: 10, spread: 8, critBonus: 0, twoHanded: true },
+  greatsword: { label: 'Spatha', min: 10, spread: 8, critBonus: 0, twoHanded: true },
   maul: { label: 'Maul', min: 12, spread: 6, critBonus: 0, twoHanded: true },
   halberd: { label: 'Halberd', min: 9, spread: 7, critBonus: 0.02, twoHanded: true },
 };

@@ -41,7 +41,7 @@ export class RecruitScene extends BaseScene {
       color: '#f2d98c',
       fontStyle: 'bold',
     });
-    addText(this, this.cx, 172, `${recruit.style.toUpperCase()} · Level ${recruit.level} · ${this.cost} gp`, {
+    addText(this, this.cx, 172, `Level ${recruit.level} · ${this.cost} gp`, {
       fontSize: '20px',
     });
     addText(

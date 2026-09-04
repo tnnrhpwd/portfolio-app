@@ -7,7 +7,7 @@ export type AttributeKey =
   | 'vitality'
   | 'charisma';
 
-/** The five weapon-defined play styles. */
+/** Starting archetype (base stats + starter gear + sprite). Does NOT restrict which skills a fighter can learn. */
 export type StyleKey = 'provocator' | 'murmillo' | 'retiarius' | 'dimachaerus' | 'thraex';
 
 /** The six targetable anatomical zones. */

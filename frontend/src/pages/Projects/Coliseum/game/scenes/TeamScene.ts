@@ -66,7 +66,7 @@ export class TeamScene extends BaseScene {
 
     addLayeredFighter(this, x - 150, y, f, 0.62);
     addText(this, x - 92, y - 42, f.name.toUpperCase(), { fontSize: '15px', color: '#f2d98c', fontStyle: 'bold' }).setOrigin(0, 0.5);
-    addText(this, x - 92, y - 20, `${f.style.toUpperCase()} · Lv ${f.level}`, { fontSize: '12px' }).setOrigin(0, 0.5);
+    addText(this, x - 92, y - 20, `Lv ${f.level}`, { fontSize: '12px' }).setOrigin(0, 0.5);
     addText(this, x - 92, y + 0, `HP ${currentHp(f)}/${totalHp(f)} · MP ${f.morale}/${f.maxMorale}`, {
       fontSize: '12px',
       color: '#b8aa94',
@@ -131,7 +131,7 @@ export class TeamScene extends BaseScene {
     const activeCount = Math.min(3, this.gameState.roster.length);
     this.gameState.roster.forEach((f, i) => {
       const active = i < activeCount;
-      addText(this, x, y, `${active ? '★ ' : ''}${f.name} — Lv ${f.level} ${f.style.toUpperCase()}`, {
+      addText(this, x, y, `${active ? '★ ' : ''}${f.name} — Lv ${f.level}`, {
         fontSize: '13px',
         color: active ? '#f2d98c' : undefined,
       });

@@ -10,7 +10,7 @@ const STEPS = [
   },
   {
     title: 'Train & Skills',
-    body: 'Spend attribute points to raise stats, and skill points in your weapon-style tree to unlock techniques.',
+    body: 'Spend attribute points to raise stats, and skill points to unlock techniques — any fighter can learn any skill.',
   },
   {
     title: 'The World Map',

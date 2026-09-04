@@ -37,12 +37,12 @@ interface FilterDef {
   match: (slot: EquipmentSlot) => boolean;
 }
 
-/** Shop categories. "ARMS" matches both arm slots (armor + vambrace). */
+/** Shop categories. "ARMS" matches both arm slots (armor + gauntlet). */
 const FILTERS: FilterDef[] = [
   { id: 'all', label: 'ALL', match: () => true },
   { id: 'weapon', label: 'WEAPON', match: (s) => s === 'mainHand' },
   { id: 'shield', label: 'SHIELD', match: (s) => s === 'offHand' },
-  { id: 'helm', label: 'HELM', match: (s) => s === 'head' },
+  { id: 'helm', label: 'HELMET', match: (s) => s === 'head' },
   { id: 'torso', label: 'TORSO', match: (s) => s === 'torso' },
   { id: 'arms', label: 'ARMS', match: (s) => s === 'leftArm' || s === 'rightArm' },
   { id: 'legs', label: 'LEGS', match: (s) => s === 'legs' },
