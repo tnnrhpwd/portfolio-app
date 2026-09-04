@@ -177,7 +177,7 @@ export function createTooltip(scene: Phaser.Scene): Tooltip {
   const bg = scene.add
     .rectangle(0, 0, 10, 10, colors.panel, 1)
     .setStrokeStyle(1, colors.panelStroke)
-    .setDepth(800)
+    .setDepth(960)
     .setVisible(false);
   const text = scene.add
     .text(0, 0, '', {
@@ -186,7 +186,7 @@ export function createTooltip(scene: Phaser.Scene): Tooltip {
       color: colors.text,
       wordWrap: { width: 320 },
     })
-    .setDepth(801)
+    .setDepth(961)
     .setVisible(false);
 
   const show = (x: number, y: number, content: string): void => {

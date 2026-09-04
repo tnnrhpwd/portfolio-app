@@ -3,7 +3,7 @@ import { createEquipment, type MetalId } from './equipment';
 import { pick, type Rng } from './rng';
 import { cloneFighter, resolveRound, weakestZone } from './engine';
 import { victoryRewards } from './economy';
-import { canMeleeAttack, currentHp, totalHp } from './stats';
+import { canMeleeAttack, clearZoneWounds, currentHp, destroyedLimbCount, totalHp } from './stats';
 
 export interface BattleSnapshot {
   playerTeam: Fighter[];
@@ -16,8 +16,8 @@ export interface BattleSnapshot {
 
 export function startBattle(playerTeam: Fighter[], enemyTeam: Fighter[]): BattleSnapshot {
   return {
-    playerTeam: playerTeam.map(cloneFighter),
-    enemyTeam: enemyTeam.map(cloneFighter),
+    playerTeam: playerTeam.map((f) => clearZoneWounds({ ...cloneFighter(f), startLimbsLost: destroyedLimbCount(f) })),
+    enemyTeam: enemyTeam.map((f) => clearZoneWounds({ ...cloneFighter(f), startLimbsLost: destroyedLimbCount(f) })),
     round: 0,
     playerWon: false,
     enemyWon: false,
@@ -125,15 +125,12 @@ export function simulateBattle(
 export type Verdict = 'mercy' | 'execute';
 
 /**
- * The crowd's wish at match end, driven by leftover Crowd Appeal (morale).
- * A team that ends the fight flush with morale has worked the crowd into a
- * bloodlust and the crowd calls for BLOOD; a spent team earns a MERCY call.
+ * The crowd's wish at match end: the mob always pleads for mercy over a
+ * fallen foe (the reference's "THE CROWD ASKS FOR MERCY"). The player may
+ * still choose blood (execute) for extra loot instead.
  */
-export function crowdWish(playerTeam: readonly Fighter[]): Verdict {
-  const total = playerTeam.reduce((sum, f) => sum + f.morale, 0);
-  const max = playerTeam.reduce((sum, f) => sum + f.maxMorale, 0);
-  const share = max > 0 ? total / max : 0;
-  return share >= 0.5 ? 'execute' : 'mercy';
+export function crowdWish(): Verdict {
+  return 'mercy';
 }
 
 export interface BattleRewards {
@@ -144,13 +141,15 @@ export interface BattleRewards {
 }
 
 /** Post-battle rewards: mercy favors XP + MP growth, execute favors gold + metal loot. */
-export function postBattleRewards(enemyLevel: number, verdict: Verdict): BattleRewards {
+export function postBattleRewards(enemyLevel: number, verdict: Verdict, cityTier = 0): BattleRewards {
   const base = victoryRewards(enemyLevel);
   if (verdict === 'mercy') {
     return { gold: base.gold, xp: base.xp + Math.round(base.xp * 0.5), maxMoraleGain: 2, metals: {} };
   }
+  // Metal tier follows the CITY (0..9), not the opponent level, so early
+  // arenas can't hand out end-game ingots.
   const metal: MetalId =
-    enemyLevel >= 8 ? 'gold' : enemyLevel >= 5 ? 'silver' : enemyLevel >= 3 ? 'iron' : 'bronze';
+    cityTier >= 8 ? 'gold' : cityTier >= 5 ? 'silver' : cityTier >= 3 ? 'iron' : 'bronze';
   return {
     gold: base.gold + Math.round(base.gold * 0.6),
     xp: base.xp,
@@ -169,14 +168,17 @@ const LOOT_SLOTS: readonly EquipmentSlot[] = [
   'offHand',
 ];
 
-/** Equipment dropped by a defeated opponent. Executing yields extra loot. */
-export function rollLoot(enemyLevel: number, verdict: Verdict, rand: Rng = Math.random): Equipment[] {
-  const tier = Math.max(0, Math.min(9, Math.floor(enemyLevel / 2)));
+/** Equipment dropped by a defeated opponent. Executing yields extra loot.
+ *  Drop tier follows the city's gear tier, so an early arena's champion can't
+ *  hand out end-game gear. */
+export function rollLoot(cityTier: number, verdict: Verdict, rand: Rng = Math.random): Equipment[] {
+  const tier = Math.max(0, Math.min(9, cityTier));
   let count = 1 + Math.floor(rand() * 2); // 1–2 base drops
   if (verdict === 'execute') count += 2; // execution: +2 extra loot
   const items: Equipment[] = [];
   for (let i = 0; i < count; i += 1) {
     const slot = pick(LOOT_SLOTS, rand);
+    // Drops match the city's gear tier (a rung below its shop, never ahead).
     const itemTier = Math.max(0, Math.min(9, tier - 1 + Math.floor(rand() * 2)));
     items.push(createEquipment(slot, itemTier, { rand }));
   }

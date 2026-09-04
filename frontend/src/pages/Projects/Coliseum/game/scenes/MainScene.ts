@@ -6,12 +6,9 @@ import {
   CITIES,
   cityUnlockRequirement,
   createCampaignStart,
-  currentHp,
   isCityUnlocked,
-  totalHp,
   unlockedCities,
   type City,
-  type Fighter,
 } from '../core';
 
 interface MenuItem {
@@ -53,7 +50,6 @@ export class MainScene extends BaseScene {
     addMapBackgroundRaster(this);
     this.header('COLISEUM');
 
-    const fighter = this.gameState.roster[0];
     const compact = this.compact;
     const m = compact ? 12 : 20;
     const menuW = compact ? 160 : 210;
@@ -96,24 +92,8 @@ export class MainScene extends BaseScene {
     const leftCy = this.h - m - (20 + leftItems.length * itemH) / 2;
     this.menuPanel(m + menuW / 2, leftCy, menuW, itemH, itemFont, leftItems);
 
-    // ── Center: fighter summary + campaign cities (the world map lives here) ──
+    // ── Center: campaign cities (the world map lives here) ──
     const contentX = compact ? (this.w - menuW) / 2 - m : this.cx;
-    addText(this, contentX, compact ? 112 : 86, this.gameState.teamName, {
-      fontSize: compact ? '18px' : '24px',
-      color: '#e8b84b',
-      fontStyle: 'bold',
-      wordWrap: { width: compact ? menuW + 60 : 420 },
-    });
-    if (compact) {
-      addText(this, contentX, 140, `${fighter.name} — Lv ${fighter.level}`, {
-        fontSize: '20px',
-        color: '#f2d98c',
-        fontStyle: 'bold',
-        wordWrap: { width: menuW + 60 },
-      });
-    } else {
-      this.fighterCard(fighter, contentX);
-    }
     this.cityGrid(contentX, compact);
 
     if (compact) {
@@ -145,11 +125,7 @@ export class MainScene extends BaseScene {
     const cols = compact ? 1 : 2;
     const gapX = compact ? 0 : 300;
     const rowH = compact ? 46 : 54;
-    const topY = compact ? 190 : 310;
-    addText(this, x, topY - 26, `Arena: ${this.selectedCity().name}`, {
-      fontSize: '16px',
-      color: '#f2d98c',
-    });
+    const topY = compact ? 140 : 180;
     CITIES.forEach((city, i) => {
       const col = i % cols;
       const row = Math.floor(i / cols);
@@ -177,31 +153,6 @@ export class MainScene extends BaseScene {
   private selectCity(city: City): void {
     this.selectedCityId = city.id;
     this.render();
-  }
-
-  private fighterCard(fighter: Fighter, x: number): void {
-    addText(this, x, 130, fighter.name, {
-      fontSize: '28px',
-      color: '#f2d98c',
-      fontStyle: 'bold',
-    });
-    addText(this, x, 168, `Level ${fighter.level}`, {
-      fontSize: '18px',
-      color: '#b8aa94',
-    });
-    addText(this, x, 202, `HP ${currentHp(fighter)}/${totalHp(fighter)}    MP ${fighter.morale}/${fighter.maxMorale}`, {
-      fontSize: '18px',
-    });
-    addText(
-      this,
-      x,
-      232,
-      `STR ${fighter.attributes.strength}  DEX ${fighter.attributes.dexterity}  SPD ${fighter.attributes.speed}  DEF ${fighter.attributes.defense}  VIT ${fighter.attributes.vitality}  CHA ${fighter.attributes.charisma}`,
-      { fontSize: '16px', color: '#b8aa94', wordWrap: { width: this.w - 60 } },
-    );
-    addText(this, x, 262, `Unspent: ${fighter.attributePoints} attribute pts · ${fighter.skillPoints} skill pts`, {
-      fontSize: '16px',
-    });
   }
 
   /** A bordered panel of vertical menu buttons (matches the reference's ribbon list). */

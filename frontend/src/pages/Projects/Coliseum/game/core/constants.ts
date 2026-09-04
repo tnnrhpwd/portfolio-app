@@ -56,6 +56,9 @@ export const ARMOR_COMBAT_MULTIPLIER = 2;
 /** HP the torso loses each round for every destroyed limb (bleeding out). */
 export const LIMB_BLEED_PER_TURN = 8;
 
+/** HP a wounded (below-half) body part loses each turn it keeps bleeding. */
+export const WOUND_BLEED_PER_TURN = 2;
+
 /** A fighter dies outright once this many limbs are destroyed. */
 export const LIMBS_TO_DIE = 2;
 

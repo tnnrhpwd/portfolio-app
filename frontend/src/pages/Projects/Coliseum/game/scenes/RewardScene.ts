@@ -4,6 +4,7 @@ import { addText } from '../ui/button';
 import {
   addXp,
   advanceColiseumRank,
+  cityById,
   postBattleRewards,
   recomputeDerived,
   rollLoot,
@@ -104,20 +105,26 @@ export class RewardScene extends BaseScene {
   }
 
   private applyVerdict(verdict: Verdict): void {
-    const rewards = postBattleRewards(this.enemyLevel, verdict);
+    const cityTier = cityById(this.cityId)?.shopTier ?? 0;
+    const rewards = postBattleRewards(this.enemyLevel, verdict, cityTier);
     const grantedWish = verdict === this.wish;
     const crowdBonus = grantedWish ? Math.round(victoryRewards(this.enemyLevel).gold * 0.25) : 0;
-    let fighter = this.gameState.roster[0];
-    const newMaxMorale = fighter.maxMorale + rewards.maxMoraleGain;
-    fighter = { ...fighter, maxMorale: newMaxMorale, morale: newMaxMorale };
-    fighter = recomputeDerived(addXp(fighter, rewards.xp));
+
+    // Every fighter who fought earns XP and the MP-level boost.
+    const team = this.gameState.roster.slice(0, 3).map((f) => {
+      const newMaxMorale = f.maxMorale + rewards.maxMoraleGain;
+      const leveled = addXp({ ...f, maxMorale: newMaxMorale, morale: newMaxMorale }, rewards.xp);
+      return recomputeDerived(leveled);
+    });
+    const roster = [...team, ...this.gameState.roster.slice(3)];
+
     const metals = { ...this.gameState.metals };
     for (const [key, value] of Object.entries(rewards.metals)) {
       metals[key as MetalId] = (metals[key as MetalId] ?? 0) + (value ?? 0);
     }
     this.gameState = {
       ...this.gameState,
-      roster: [fighter, ...this.gameState.roster.slice(1)],
+      roster,
       gold: this.gameState.gold + rewards.gold + crowdBonus,
       metals,
       fame: this.gameState.fame + 1,
@@ -129,7 +136,7 @@ export class RewardScene extends BaseScene {
 
     this.goldEarned = rewards.gold + crowdBonus;
     this.xpEarned = rewards.xp;
-    this.loot = rollLoot(this.enemyLevel, verdict, Math.random);
+    this.loot = rollLoot(cityTier, verdict, Math.random);
     if (grantedWish) this.toast('The crowd is pleased!');
     this.phase = 'loot';
     this.render();

@@ -244,8 +244,8 @@ describe('stabilize', () => {
 describe('battle rewards', () => {
   it('execute grants metal loot, mercy does not', () => {
     expect(postBattleRewards(5, 'mercy').metals).toEqual({});
-    expect(postBattleRewards(5, 'execute').metals.silver).toBe(1);
-    expect(postBattleRewards(1, 'execute').metals.bronze).toBe(1);
+    expect(postBattleRewards(5, 'execute', 5).metals.silver).toBe(1);
+    expect(postBattleRewards(1, 'execute', 1).metals.bronze).toBe(1);
   });
 
   it('executing drops more equipment loot than mercy', () => {
@@ -255,6 +255,15 @@ describe('battle rewards', () => {
     for (const item of [...mercy, ...execute]) {
       expect(item.id).toBeTruthy();
     }
+  });
+
+  it('drops gear matching the city tier (no end-game loot in early arenas)', () => {
+    for (const item of rollLoot(0, 'execute', mulberry32(21))) {
+      expect(item.tier).toBe(0); // a tier-0 city never drops masterwork gear
+    }
+    // Even a high-level opponent in a tier-0 city only yields bronze metal.
+    expect(postBattleRewards(16, 'execute', 0).metals.bronze).toBe(1);
+    expect(postBattleRewards(16, 'execute', 0).metals.gold).toBeUndefined();
   });
 });
 

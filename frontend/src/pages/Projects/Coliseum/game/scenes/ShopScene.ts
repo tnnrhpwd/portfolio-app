@@ -123,12 +123,12 @@ export class ShopScene extends BaseScene {
     const leftX = this.w * 0.26;
     const rightX = this.w * 0.74;
     const tip = createTooltip(this);
-    this.renderFighterPanel(fighter, leftX);
+    this.renderFighterPanel(fighter, leftX, tip);
     this.renderShopPanel(rightX, tip);
   }
 
   // ── Left column: active fighter, arrows, and the mannequin equip target ──
-  private renderFighterPanel(f: Fighter, x: number): void {
+  private renderFighterPanel(f: Fighter, x: number, tip: Tooltip): void {
     const scale = 1.3;
     const h = this.h;
     const bodyY = h * 0.28; // figures near the top, like the reference
@@ -171,6 +171,7 @@ export class ShopScene extends BaseScene {
     this.equipTargets.setDragCallbacks({
       onDragStart: () => {
         this.dragging = true;
+        tip.hide();
       },
       onDragEnd: (slot, px, py) => {
         this.dragging = false;
@@ -178,6 +179,10 @@ export class ShopScene extends BaseScene {
         else if (this.pointIn(this.sellBounds, px, py)) this.sellEquipped(slot);
         this.render();
       },
+      onItemHover: (item, hx, hy) => {
+        if (!this.dragging) tip.show(hx, hy - 40, this.itemTooltip(item, false));
+      },
+      onItemHoverOut: () => tip.hide(),
     });
     this.equipTargets.drawSlots(f.loadout);
 

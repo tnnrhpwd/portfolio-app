@@ -7,6 +7,7 @@ import {
   canMeleeAttack,
   crowdWish,
   currentHp,
+  displayedArmor,
   effectiveAttributes,
   generateOpponentTeam,
   getSkill,
@@ -19,7 +20,6 @@ import {
   startBattle,
   stepTurn,
   totalHp,
-  weakestZone,
   type Action,
   type AttackPrecision,
   type BattleSnapshot,
@@ -57,6 +57,8 @@ export class BattleScene extends BaseScene {
   private ladderRank = 0;
   private speedFast = false;
   private tooltip: Phaser.GameObjects.Text | null = null;
+  /** The technique currently being aimed (empty when none). */
+  private pendingSkillId = '';
 
   constructor() {
     super('Battle');
@@ -99,7 +101,8 @@ export class BattleScene extends BaseScene {
   }
 
   private currentFighter(): Fighter | undefined {
-    return this.snap.playerTeam.find((f) => f.id === this.currentId);
+    const f = this.snap.playerTeam.find((f) => f.id === this.currentId);
+    return f && f.alive && !isDefeated(f) ? f : undefined;
   }
 
   private beginTurn(): void {
@@ -121,6 +124,7 @@ export class BattleScene extends BaseScene {
     this.phase = 'action';
     this.precision = 'medium';
     this.targetEnemyId = '';
+    this.pendingSkillId = '';
     this.render();
   }
 
@@ -177,7 +181,7 @@ export class BattleScene extends BaseScene {
         enemyLevel: this.enemyRank,
         cityId: this.cityId,
         ladderRank: this.ladderRank,
-        crowdWish: crowdWish(this.snap.playerTeam),
+        crowdWish: crowdWish(),
       });
     } else {
       playDefeat();
@@ -280,10 +284,7 @@ export class BattleScene extends BaseScene {
         color: '#b8aa94',
         wordWrap: { width: 200 },
       });
-      this.button(x, compact ? 160 : 140, 'BACK', () => {
-        this.phase = 'precision';
-        this.render();
-      }, { width: 120, height: 40, fontSize: 15 });
+      this.button(x, compact ? 160 : 140, 'BACK', () => this.cancelTargeting(), { width: 120, height: 40, fontSize: 15 });
       return;
     }
 
@@ -295,10 +296,7 @@ export class BattleScene extends BaseScene {
         color: '#b8aa94',
         wordWrap: { width: 200 },
       });
-      this.button(x, compact ? 160 : 140, 'BACK', () => {
-        this.phase = 'precision';
-        this.render();
-      }, { width: 120, height: 40, fontSize: 15 });
+      this.button(x, compact ? 160 : 140, 'BACK', () => this.cancelTargeting(), { width: 120, height: 40, fontSize: 15 });
       return;
     }
 
@@ -313,7 +311,7 @@ export class BattleScene extends BaseScene {
       if (!node) return;
       const rank = cur.skills[skillId] ?? 0;
       const affordable = cur.morale >= node.mpCost;
-      const meleeSkill = node.effect.kind === 'strike' || node.effect.kind === 'combo';
+      const meleeSkill = node.effect.kind === 'strike' || node.effect.kind === 'combo' || node.effect.kind === 'cleave';
       const shieldSkill = node.effect.kind === 'shieldBash';
       const usable =
         (!meleeSkill || canMeleeAttack(cur)) &&
@@ -322,18 +320,13 @@ export class BattleScene extends BaseScene {
         x,
         y0 + i * 52,
         `${node.label} (${rank}) — ${node.mpCost} MP`,
-        () =>
-          this.commit({
-            kind: 'skill',
-            skillId,
-            targetId: this.livingEnemies()[0]?.id,
-            targetZone: this.livingEnemies()[0] ? weakestZone(this.livingEnemies()[0]) : 'torso',
-          }),
+        () => this.chooseSkill(skillId),
         { width: 280, height: 44, fontSize: 15 },
       );
       if (!affordable || !usable) btn.setEnabled(false);
     });
     this.button(x, y0 + skills.length * 52 + 8, 'BACK', () => {
+      this.pendingSkillId = '';
       this.phase = 'action';
       this.render();
     }, { width: 120, height: 40, fontSize: 15 });
@@ -353,17 +346,95 @@ export class BattleScene extends BaseScene {
 
   private pickTarget(enemyId: string): void {
     this.targetEnemyId = enemyId;
-    this.phase = 'zone';
+    if (this.pendingSkillId) {
+      if (this.skillNeedsZone(this.pendingSkillId)) {
+        this.phase = 'zone';
+      } else {
+        this.commitSkill(this.pendingSkillId, enemyId);
+        return;
+      }
+    } else {
+      this.phase = 'zone';
+    }
     this.render();
   }
 
   private pickZone(zone: BodyZone): void {
-    this.commit({
-      kind: 'attack',
-      precision: this.precision,
-      targetId: this.targetEnemyId,
-      targetZone: zone,
-    });
+    if (this.pendingSkillId) {
+      this.commitSkill(this.pendingSkillId, this.targetEnemyId, zone);
+    } else {
+      this.commit({
+        kind: 'attack',
+        precision: this.precision,
+        targetId: this.targetEnemyId,
+        targetZone: zone,
+      });
+    }
+  }
+
+  /** Begin resolving a chosen technique: prompt for a target/zone where needed. */
+  private chooseSkill(skillId: string): void {
+    if (!this.skillNeedsTarget(skillId)) {
+      this.commitSkill(skillId);
+      return;
+    }
+    this.pendingSkillId = skillId;
+    const targets = this.skillTargets(skillId);
+    if (targets.length > 1) {
+      this.phase = 'target';
+    } else if (targets.length === 1) {
+      this.targetEnemyId = targets[0].id;
+      if (this.skillNeedsZone(skillId)) {
+        this.phase = 'zone';
+      } else {
+        this.commitSkill(skillId, this.targetEnemyId);
+        return;
+      }
+    } else {
+      this.pendingSkillId = '';
+      this.phase = 'action';
+    }
+    this.render();
+  }
+
+  /** True for techniques that must be aimed at a specific enemy. */
+  private skillNeedsTarget(skillId: string): boolean {
+    const node = getSkill(skillId);
+    if (!node) return false;
+    const k = node.effect.kind;
+    return k === 'strike' || k === 'combo' || k === 'throw' || k === 'shieldBash' || k === 'net' || k === 'demoralize';
+  }
+
+  /** True for techniques that also require a body part to be chosen. */
+  private skillNeedsZone(skillId: string): boolean {
+    const node = getSkill(skillId);
+    if (!node) return false;
+    const k = node.effect.kind;
+    return k === 'strike' || k === 'combo' || k === 'throw' || k === 'shieldBash';
+  }
+
+  /** Valid targets for a technique: melee respects rows, ranged hits anyone. */
+  private skillTargets(skillId: string): Fighter[] {
+    const node = getSkill(skillId);
+    if (!node) return [];
+    const k = node.effect.kind;
+    const melee = k === 'strike' || k === 'combo' || k === 'shieldBash';
+    return melee ? this.meleeTargets() : this.livingEnemies();
+  }
+
+  private commitSkill(skillId: string, targetId?: string, targetZone?: BodyZone): void {
+    this.commit({ kind: 'skill', skillId, targetId, targetZone });
+  }
+
+  /** Back out of target/zone selection to the correct previous step. */
+  private cancelTargeting(): void {
+    if (this.pendingSkillId) {
+      this.pendingSkillId = '';
+      this.phase = 'skill';
+    } else {
+      this.phase = 'precision';
+    }
+    this.render();
   }
 
   private renderTurnOrder(compact: boolean): void {
@@ -406,7 +477,7 @@ export class BattleScene extends BaseScene {
       color: dead ? '#c0392b' : '#f2d98c',
       fontStyle: 'bold',
     });
-    addText(this, x, y + 20, `HP ${currentHp(f)}/${totalHp(f)}`, {
+    addText(this, x, y + 20, dead ? 'DEFEATED' : `HP ${currentHp(f)}/${totalHp(f)}`, {
       fontSize: '12px',
       color: dead ? '#c0392b' : '#e8dcc8',
     });
@@ -431,7 +502,11 @@ export class BattleScene extends BaseScene {
     const ey = this.teamYs(enemies.length);
     const px = compact ? this.cx - 130 : this.cx - 200;
     const ex = compact ? this.cx + 130 : this.cx + 200;
-    const targetable = new Set(this.meleeTargets().map((f) => f.id));
+    const targetable = new Set(
+      this.pendingSkillId
+        ? this.skillTargets(this.pendingSkillId).map((f) => f.id)
+        : this.meleeTargets().map((f) => f.id),
+    );
 
     players.forEach((f, i) => this.drawFighter(f, px, py[i], s, 'idle'));
     enemies.forEach((f, i) => {
@@ -544,7 +619,8 @@ export class BattleScene extends BaseScene {
     const hp = f.zones[zone].hp;
     const max = f.zones[zone].maxHp;
     const armor = f.zones[zone].armor;
-    this.tooltip = addText(this, x, y, `${ZONE_LABELS[zone]}  ARMOR ${armor}  HP ${hp}/${max}`, {
+    const maxArmor = displayedArmor(f, zone);
+    this.tooltip = addText(this, x, y, `${ZONE_LABELS[zone]}  ARMOR ${armor}/${maxArmor}  HP ${hp}/${max}`, {
       fontSize: '13px',
       color: '#f2d98c',
       backgroundColor: '#000000cc',
@@ -556,13 +632,15 @@ export class BattleScene extends BaseScene {
     this.hideZoneTooltip();
     const hp = f.zones[zone].hp;
     const max = f.zones[zone].maxHp;
+    const armor = f.zones[zone].armor;
+    const maxArmor = displayedArmor(f, zone);
     const cur = this.currentFighter();
     const pct = cur
       ? Math.round(
           precisionHitChance(effectiveAttributes(cur).dexterity, effectiveAttributes(f).defense, this.precision) * 100,
         )
       : 0;
-    this.tooltip = addText(this, x, y, `${ZONE_LABELS[zone]}  HP ${hp}/${max}  Hit ${pct}%`, {
+    this.tooltip = addText(this, x, y, `${ZONE_LABELS[zone]}  ARMOR ${armor}/${maxArmor}  HP ${hp}/${max}  Hit ${pct}%`, {
       fontSize: '13px',
       color: '#f2d98c',
       backgroundColor: '#000000cc',

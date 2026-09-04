@@ -412,16 +412,12 @@ for (const z of Object.keys(ZONE_GEOM) as BodyZone[]) {
   SEVERED_OVERLAYS[z] = fullSvg(severedMarkup(z));
 }
 
-// ── Mannequin wireframe (the drop-target silhouette) ──
+// ── Mannequin (the drop-target silhouette) ──
 
 export const MANNEQUIN_FRAME = `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="240" viewBox="0 0 160 240">
-  <g fill="none" stroke="#e8b84b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.8">
-    <circle cx="80" cy="36" r="16"/>
-    <path d="M56 68 L104 68 L114 150 L46 150 Z"/>
-    <path d="M54 72 L42 112 L40 146"/>
-    <path d="M106 72 L118 112 L120 146"/>
-    <path d="M62 150 L60 196 L57 204"/>
-    <path d="M98 150 L100 196 L103 204"/>
+  <g fill="#4a3320" stroke="#e8b84b" stroke-width="2.5" stroke-linejoin="round">
+    <circle cx="80" cy="34" r="15"/>
+    <path d="M76 48 L84 48 L110 64 L118 86 L118 124 L112 144 L106 148 L108 130 L104 104 L96 86 L96 146 L99 178 L100 202 L88 202 L86 178 L84 146 L76 146 L74 178 L72 202 L60 202 L61 178 L64 146 L64 86 L56 104 L52 130 L54 148 L48 144 L42 124 L42 86 L50 64 Z"/>
   </g>
 </svg>`;
 

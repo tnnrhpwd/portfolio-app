@@ -16,10 +16,10 @@ import type { MetalId } from './equipment';
 import type { Rng } from './rng';
 import { pick } from './rng';
 import { isStyleKey, STYLES } from './classes';
-import { buildZones, canMeleeAttack, crowdAppealRestore, currentHp, destroyedLimbCount, effectiveAttributes, isDefeated, isZoneDestroyed, legsCrippled, recomputeDerived, regenTotal, totalHp, usableMainHand, usableOffHandWeapon } from './stats';
+import { bleedZone, buildZones, canMeleeAttack, clearZoneWounds, crowdAppealRestore, currentHp, destroyedLimbCount, effectiveAttributes, isDefeated, isZoneDestroyed, legsCrippled, recomputeDerived, regenTotal, totalHp, usableMainHand, usableOffHandWeapon } from './stats';
 import { hitChance, initiative, resolveAttack, resolveHit, type HitMods } from './combat';
 import { getSkill } from './skills';
-import { ARMOR_COMBAT_MULTIPLIER, BODY_ZONES, GENDER_CHARISMA_BONUS, GENDER_STRENGTH_BONUS, LIMB_BLEED_PER_TURN, START_FAME, START_GOLD } from './constants';
+import { ARMOR_COMBAT_MULTIPLIER, BODY_ZONES, GENDER_CHARISMA_BONUS, GENDER_STRENGTH_BONUS, LIMB_BLEED_PER_TURN, START_FAME, START_GOLD, WOUND_BLEED_PER_TURN } from './constants';
 
 export interface GameState {
   roster: Fighter[];
@@ -564,10 +564,16 @@ function runUpkeep(players: Fighter[], enemies: Fighter[]): void {
       fighter.status.bleeding -= 1;
       fighter.zones.torso.hp = Math.max(0, fighter.zones.torso.hp - 2);
     }
-    // Destroyed limbs bleed the torso every turn.
+    // Limbs severed THIS match bleed the torso every turn; limbs lost before
+    // the match don't (the wound is already sealed).
     const limbs = destroyedLimbCount(fighter);
-    if (limbs > 0) {
-      fighter.zones.torso.hp = Math.max(0, fighter.zones.torso.hp - limbs * LIMB_BLEED_PER_TURN);
+    const bleedingLimbs = Math.max(0, limbs - (fighter.startLimbsLost ?? 0));
+    if (bleedingLimbs > 0) {
+      fighter.zones.torso.hp = Math.max(0, fighter.zones.torso.hp - bleedingLimbs * LIMB_BLEED_PER_TURN);
+    }
+    // A body part hit this match and below half HP bleeds out a little each turn.
+    for (const zone of BODY_ZONES) {
+      bleedZone(fighter.zones[zone], WOUND_BLEED_PER_TURN);
     }
     if (isDefeated(fighter)) fighter.alive = false;
   }
@@ -584,8 +590,8 @@ export function resolveRound(
   playerActions: Readonly<Record<string, Action>>,
   rand: Rng = Math.random,
 ): RoundResult {
-  const players = playerTeam.map(cloneFighter);
-  const enemies = enemyTeam.map(cloneFighter);
+  const players = playerTeam.map((f) => clearZoneWounds({ ...cloneFighter(f), startLimbsLost: f.startLimbsLost ?? destroyedLimbCount(f) }));
+  const enemies = enemyTeam.map((f) => clearZoneWounds({ ...cloneFighter(f), startLimbsLost: f.startLimbsLost ?? destroyedLimbCount(f) }));
   const events: TurnEvent[] = [];
 
   const actors: { fighter: Fighter; side: 'player' | 'enemy' }[] = [];

@@ -81,6 +81,8 @@ export interface ZoneState {
   hp: number;
   /** Maximum flesh HP for this zone. */
   maxHp: number;
+  /** Hit (took flesh damage) during the current match — below half HP it bleeds. */
+  wounded?: boolean;
 }
 
 export type ZoneMap = Record<BodyZone, ZoneState>;
@@ -122,6 +124,8 @@ export interface Fighter {
   row: RowPosition;
   /** AI-controlled (auto-battle) flag, toggled from the team screen. */
   auto: boolean;
+  /** Limbs already destroyed when this match started (bleed baseline). */
+  startLimbsLost?: number;
 }
 
 export interface Action {

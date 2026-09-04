@@ -130,7 +130,26 @@ export function applyZoneDamage(zone: ZoneMap[BodyZone], amount: number): ZoneDa
   const toFlesh = amount - effective;
   zone.armor = 0;
   zone.hp = Math.max(0, zone.hp - toFlesh);
+  zone.wounded = true; // hit this match — below half HP it starts bleeding
   return { absorbed: effective, toFlesh };
+}
+
+/** Applies one turn of wound bleed to a zone (mutates); returns HP drained. */
+export function bleedZone(zone: ZoneMap[BodyZone], perTurn: number): number {
+  if (zone.wounded && zone.hp > 0 && zone.hp * 2 < zone.maxHp) {
+    zone.hp = Math.max(0, zone.hp - perTurn);
+    return perTurn;
+  }
+  return 0;
+}
+
+/** Clears per-match wound flags so pre-existing damage doesn't count as fresh. */
+export function clearZoneWounds(fighter: Fighter): Fighter {
+  const zones = {} as ZoneMap;
+  for (const zone of BODY_ZONES) {
+    zones[zone] = { ...fighter.zones[zone], wounded: false };
+  }
+  return { ...fighter, zones };
 }
 
 export function isZoneDestroyed(fighter: Fighter, zone: BodyZone): boolean {

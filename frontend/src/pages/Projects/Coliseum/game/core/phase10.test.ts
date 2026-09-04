@@ -99,4 +99,23 @@ describe('speed-weighted turn queue', () => {
     expect(first).toEqual(second);
     expect(first.length).toBe(8);
   });
+
+  it('never returns a defeated fighter as the next actor', () => {
+    const p1 = createFighter({ style: 'murmillo' });
+    const p2 = createFighter({ style: 'murmillo' });
+    p2.alive = false; // fell earlier in the match
+    const enemy = createFighter({ style: 'murmillo', level: 1 });
+    let players = [p1, p2];
+    let enemies = [enemy];
+    let queue = initTurnQueue(players, enemies);
+    for (let i = 0; i < 8; i += 1) {
+      const actor = nextActor(players, enemies, queue);
+      if (!actor) break;
+      expect(actor.fighter.id).not.toBe(p2.id);
+      const result = stepTurn(players, enemies, queue, { kind: 'pass' }, mulberry32(1));
+      players = result.playerTeam;
+      enemies = result.enemyTeam;
+      queue = result.queue;
+    }
+  });
 });

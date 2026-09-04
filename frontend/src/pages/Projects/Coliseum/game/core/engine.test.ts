@@ -5,6 +5,7 @@ import {
   BLOCK_CAP,
   ARMOR_COMBAT_MULTIPLIER,
   LIMB_BLEED_PER_TURN,
+  WOUND_BLEED_PER_TURN,
   clampAttribute,
   hpPerVitality,
   totalHp,
@@ -12,7 +13,9 @@ import {
   displayedArmor,
   combatArmor,
   applyZoneDamage,
+  bleedZone,
   blockChance,
+  clearZoneWounds,
   isDefeated,
   canMeleeAttack,
   destroyedLimbCount,
@@ -292,23 +295,65 @@ describe('limb mechanics', () => {
     expect(blockChance(f)).toBe(0);
   });
 
-  it('bleeds the torso each round for every destroyed limb', () => {
+  it('does not bleed for a limb lost before the match', () => {
     const player = createFighter({ style: 'murmillo', id: 'p1' });
     player.attributes.defense = 40; // enemy always misses
-    player.zones.leftArm.hp = 0;
+    player.zones.leftArm.hp = 0; // lost BEFORE the match
     const before = player.zones.torso.hp;
     const enemy = createFighter({ style: 'murmillo', id: 'e1' });
     const result = resolveRound([player], [enemy], { p1: { kind: 'block' } }, mulberry32(4));
-    expect(result.playerTeam[0].zones.torso.hp).toBe(before - LIMB_BLEED_PER_TURN);
+    expect(result.playerTeam[0].zones.torso.hp).toBe(before);
+  });
+
+  it('bleeds the torso after losing a limb during the match', () => {
+    const player = createFighter({ style: 'murmillo', id: 'p1' });
+    player.attributes.defense = 0; // enemy always hits
+    player.zones.leftArm.hp = 1; // on the verge of being severed
+    const before = player.zones.torso.hp;
+    const enemy = createFighter({ style: 'murmillo', id: 'e1' });
+    const result = resolveRound([player], [enemy], { p1: { kind: 'block' } }, () => 0);
+    const after = result.playerTeam[0];
+    expect(after.zones.leftArm.hp).toBe(0); // severed during the round
+    expect(after.zones.torso.hp).toBe(before - LIMB_BLEED_PER_TURN);
+  });
+});
+
+describe('wound bleed', () => {
+  it('marks a zone wounded only when flesh is damaged', () => {
+    const armored = { armor: 10, hp: 50, maxHp: 100, wounded: false };
+    applyZoneDamage(armored, 5); // fully absorbed by armor
+    expect(armored.wounded).toBe(false);
+
+    const flesh = { armor: 0, hp: 50, maxHp: 100, wounded: false };
+    applyZoneDamage(flesh, 5);
+    expect(flesh.wounded).toBe(true);
+  });
+
+  it('bleeds a wounded zone only while below half HP', () => {
+    const belowHalf = { armor: 0, hp: 49, maxHp: 100, wounded: true };
+    expect(bleedZone(belowHalf, WOUND_BLEED_PER_TURN)).toBe(WOUND_BLEED_PER_TURN);
+    expect(belowHalf.hp).toBe(49 - WOUND_BLEED_PER_TURN);
+
+    const aboveHalf = { armor: 0, hp: 51, maxHp: 100, wounded: true };
+    expect(bleedZone(aboveHalf, WOUND_BLEED_PER_TURN)).toBe(0);
+    expect(aboveHalf.hp).toBe(51);
+
+    const notWounded = { armor: 0, hp: 40, maxHp: 100 };
+    expect(bleedZone(notWounded, WOUND_BLEED_PER_TURN)).toBe(0);
+    expect(notWounded.hp).toBe(40);
+  });
+
+  it('clears wound flags at the start of a new battle', () => {
+    const f = createFighter({ style: 'murmillo' });
+    f.zones.torso.wounded = true;
+    const cleared = clearZoneWounds(f);
+    expect(cleared.zones.torso.wounded).toBe(false);
+    expect(cleared.zones.head.wounded).toBe(false);
   });
 });
 
 describe('crowd wish', () => {
-  it('craves blood with high leftover morale and mercy when spent', () => {
-    const full = createFighter({ style: 'murmillo' });
-    const drained = createFighter({ style: 'murmillo' });
-    drained.morale = 0;
-    expect(crowdWish([full])).toBe('execute');
-    expect(crowdWish([drained])).toBe('mercy');
+  it('always pleads for mercy over a fallen foe', () => {
+    expect(crowdWish()).toBe('mercy');
   });
 });

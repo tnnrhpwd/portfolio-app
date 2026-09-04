@@ -66,6 +66,9 @@ export interface EquipTargetFigure {
 export interface EquipDragCallbacks {
   onDragStart?: (slot: EquipmentSlot) => void;
   onDragEnd?: (slot: EquipmentSlot, x: number, y: number) => void;
+  /** Pointer hovered an equipped item's icon. */
+  onItemHover?: (item: Equipment, x: number, y: number) => void;
+  onItemHoverOut?: () => void;
 }
 
 /**
@@ -138,6 +141,8 @@ export class EquipTargets {
       container.setDepth(932);
       this.callbacks.onDragEnd?.(slot, pointer.x, pointer.y);
     });
+    container.on('pointerover', () => this.callbacks.onItemHover?.(item, x, y));
+    container.on('pointerout', () => this.callbacks.onItemHoverOut?.());
   }
 
   /** Brighten every slot box while the pointer hovers the general drop area. */
