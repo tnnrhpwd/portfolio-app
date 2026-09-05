@@ -386,9 +386,9 @@ function Home() {
                             </div>
                             <div className="home-stats">
                                 <AnimatedStat value={250} prefix="$" suffix="K+" label="Cost savings I've led" />
-                                <AnimatedStat value={PROJECTS.length} suffix="+" label="Projects shipped" />
+                                <AnimatedStat value="Leadership" label="Cross-functional teams" />
                                 <AnimatedStat value={yearsExperience} label="Years of experience" />
-                                <AnimatedStat value="Tier 1" label="Automotive supplier" />
+                                <AnimatedStat value="Ownership" label="CAPEX & supplier timelines" />
                             </div>
                         </div>
                     </div>

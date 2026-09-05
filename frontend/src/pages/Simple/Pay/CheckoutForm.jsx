@@ -67,6 +67,7 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
     userEmail,
     selectedPlan: state.selectedPlan,
     customPrice: state.customPrice,
+    billingInterval: state.billingInterval,
     selectedPaymentMethod: state.selectedPaymentMethod,
     subscriptionStep: state.subscriptionStep,
     setMessage: state.setMessage,
@@ -187,6 +188,8 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
                     }}
                     currentSubscription={state.currentSubscription}
                     membershipPricing={membershipPricing}
+                    billingInterval={state.billingInterval}
+                    onSelectInterval={state.setBillingInterval}
                   />
                   <BillingDisclosure />
                   <div className="step-navigation">
@@ -263,7 +266,7 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
                     <div className="confirmation-item">
                       <span className="label">Membership:</span>
                       <span className="value">
-                        {getPlanDisplayName(state.selectedPlan, membershipPricing, state.customPrice, formatPrice)}
+                        {getPlanDisplayName(state.selectedPlan, membershipPricing, state.customPrice, formatPrice, state.billingInterval)}
                       </span>
                     </div>
                     {state.selectedPlan !== 'free' && (

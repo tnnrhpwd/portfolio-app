@@ -17,6 +17,7 @@ export const useCheckoutHandlers = ({
   userEmail,
   selectedPlan,
   customPrice,
+  billingInterval,
   selectedPaymentMethod,
   subscriptionStep,
   setMessage,
@@ -108,6 +109,7 @@ export const useCheckoutHandlers = ({
       const subscriptionData = {
         planId: selectedPlan,
         paymentMethodId: selectedPaymentMethod,
+        billingInterval,
       };
 
       await dispatch(subscribeCustomer(subscriptionData)).unwrap();
@@ -123,7 +125,7 @@ export const useCheckoutHandlers = ({
     } finally {
       setLoading(false);
     }
-  }, [dispatch, navigate, selectedPlan, selectedPaymentMethod, setError, setLoading, setMessage]);
+  }, [dispatch, navigate, selectedPlan, selectedPaymentMethod, billingInterval, setError, setLoading, setMessage]);
 
   // Handle next step in subscription flow
   const handleNextStep = useCallback(async () => {

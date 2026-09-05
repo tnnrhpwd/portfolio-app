@@ -922,6 +922,29 @@
   margin-left: calc(var(--nav-size) * 0.0625);
 }
 
+.billing-interval-toggle {
+  display: inline-flex;
+  gap: calc(var(--nav-size) * 0.0625);
+  margin-top: calc(var(--nav-size) * 0.1);
+}
+
+.billing-interval-option {
+  border: calc(var(--nav-size) * 0.025) solid var(--border-color);
+  background-color: transparent;
+  color: var(--text-color);
+  border-radius: var(--border-radius);
+  padding: calc(var(--nav-size) * 0.0375) calc(var(--nav-size) * 0.12);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.billing-interval-option.active {
+  background-color: var(--fg-mint);
+  border-color: var(--fg-mint);
+  color: var(--text-color-inv);
+}
+
 .plan-features {
   list-style-type: none;
   padding: 0;

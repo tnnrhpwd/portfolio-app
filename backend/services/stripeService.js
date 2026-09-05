@@ -367,6 +367,26 @@ async function getCurrentMembershipType(customerId, userId) {
 }
 
 /**
+ * List all active (non-cancelled) subscriptions for a customer.
+ * Shared by getCurrentMembershipType, cancelActiveSubscriptions, and the
+ * deferred-cancellation / reactivation paths below.
+ * @param {string} customerId - Customer ID
+ * @param {string} userId - User ID (selects test vs live Stripe instance)
+ * @returns {Promise<Array>} Active subscription objects
+ */
+async function listActiveSubscriptions(customerId, userId) {
+    const s = getStripe(userId);
+    const existingSubscriptions = await s.subscriptions.list({
+        customer: customerId,
+        status: 'all',
+        limit: 20
+    });
+    return existingSubscriptions.data.filter(sub =>
+        ['active', 'trialing', 'past_due', 'incomplete'].includes(sub.status)
+    );
+}
+
+/**
  * Cancel all active subscriptions for a customer
  * @param {string} customerId - Customer ID
  * @returns {boolean} Success status
@@ -417,49 +437,99 @@ async function cancelActiveSubscriptions(customerId, userId) {
 }
 
 /**
- * Get or create price ID for membership
- * @param {string} membershipType - Membership type
- * @param {number|null} customPrice - Custom price (optional)
- * @returns {string} Price ID
+ * Schedule all active subscriptions to cancel at the end of the current
+ * billing period (cancel_at_period_end) instead of immediately. The user
+ * keeps paid features they've already paid for until the period ends; Stripe
+ * then fires customer.subscription.deleted, which the webhook uses to flip
+ * their rank to Free.
+ * @param {string} customerId - Customer ID
+ * @param {string} userId - User ID
+ * @returns {Promise<number>} Number of subscriptions scheduled for cancellation
  */
-async function getOrCreatePriceId(membershipType, customPrice = null, userId) {
+async function deferActiveSubscriptionsToPeriodEnd(customerId, userId) {
+    const s = getStripe(userId);
+    const activeSubscriptions = await listActiveSubscriptions(customerId, userId);
+    let deferred = 0;
+
+    for (const subscription of activeSubscriptions) {
+        if (subscription.cancel_at_period_end) continue; // already scheduled
+        try {
+            await s.subscriptions.update(subscription.id, { cancel_at_period_end: true });
+            logger.debug(`Scheduled subscription ${subscription.id} to cancel at period end`);
+            deferred++;
+        } catch (deferError) {
+            logger.error(`Error scheduling cancellation for subscription ${subscription.id}: ${deferError.message}`);
+        }
+    }
+
+    return deferred;
+}
+
+/**
+ * Un-cancel a subscription that was scheduled to cancel at period end. Used
+ * when a user downgrades and then re-upgrades within the same billing period,
+ * so they resume the existing subscription instead of stacking a second,
+ * overlapping one (which would double-bill).
+ * @param {string} subscriptionId - Subscription ID
+ * @param {string} userId - User ID
+ * @returns {Promise<Object>} Updated subscription
+ */
+async function reactivateSubscription(subscriptionId, userId) {
+    const s = getStripe(userId);
+    return await s.subscriptions.update(subscriptionId, { cancel_at_period_end: false });
+}
+
+/**
+ * Get or create price ID for membership.
+ * @param {string} membershipType - Membership type ('pro')
+ * @param {number|null} customPrice - Custom price (optional; unused for fixed plans)
+ * @param {string} userId - User ID (selects test vs live Stripe instance)
+ * @param {string} billingInterval - 'month' or 'year'
+ * @returns {Promise<string>} Price ID
+ */
+async function getOrCreatePriceId(membershipType, customPrice = null, userId, billingInterval = 'month') {
+    const interval = billingInterval === 'year' ? 'year' : 'month';
+    const annual = interval === 'year';
     const testMode = isTestMode(userId);
 
     // ── env-var overrides (test keys checked first when in test mode) ──
+    const envKey = annual
+        ? (testMode ? 'TEST_STRIPE_PRO_ANNUAL_PRICE_ID' : 'STRIPE_PRO_ANNUAL_PRICE_ID')
+        : (testMode ? 'TEST_STRIPE_PRO_PRICE_ID' : 'STRIPE_PRO_PRICE_ID');
+
+    if (membershipType === 'pro' && process.env[envKey]) {
+        return process.env[envKey];
+    }
+
+    // Check in-memory cache (test mode only; live mode always lists prices)
     if (testMode) {
-        if (membershipType === 'pro' && process.env.TEST_STRIPE_PRO_PRICE_ID) {
-            return process.env.TEST_STRIPE_PRO_PRICE_ID;
-        }
-        // Check in-memory cache
-        if (testPriceCache[membershipType]) {
-            logger.debug(`Using cached test price for ${membershipType}: ${testPriceCache[membershipType]}`);
-            return testPriceCache[membershipType];
-        }
-    } else {
-        if (membershipType === 'pro' && process.env.STRIPE_PRO_PRICE_ID) {
-            return process.env.STRIPE_PRO_PRICE_ID;
+        const cacheKey = annual ? 'pro_annual' : membershipType;
+        if (testPriceCache[cacheKey]) {
+            logger.debug(`Using cached test price for ${membershipType} (${interval}): ${testPriceCache[cacheKey]}`);
+            return testPriceCache[cacheKey];
         }
     }
 
     const s = getStripe(userId);
 
-    // ── Live mode: look up by hardcoded product ID ──
+    // ── Live mode: look up by hardcoded product ID, matching the interval ──
     if (!testMode) {
         const productId = PLAN_TO_STRIPE_PRODUCT[membershipType];
         if (!productId) {
             throw new Error('Invalid membership type');
         }
-        const prices = await s.prices.list({ product: productId, active: true, limit: 1 });
-        if (prices.data.length === 0) {
-            throw new Error(`No pricing available for product ${productId}`);
+        const prices = await s.prices.list({ product: productId, active: true, limit: 100 });
+        const matchingPrice = prices.data.find(p => p.recurring?.interval === interval);
+        if (!matchingPrice) {
+            throw new Error(`No ${interval}ly pricing available for product ${productId}`);
         }
-        logger.debug(`Using price ID: ${prices.data[0].id} for ${membershipType} (${productId})`);
-        return prices.data[0].id;
+        logger.debug(`Using price ID: ${matchingPrice.id} for ${membershipType} (${productId}, ${interval})`);
+        return matchingPrice.id;
     }
 
     // ── Test mode: find or create product & price ──
     const productName = 'Pro Membership';
-    const unitAmount  = 1500; // $15/mo in cents
+    const unitAmount = annual ? 14400 : 1500; // $15/mo or $144/yr in cents
 
     // Search for existing test product by name
     const products = await s.products.list({ limit: 100, active: true });
@@ -470,24 +540,24 @@ async function getOrCreatePriceId(membershipType, customPrice = null, userId) {
         testProduct = await s.products.create({ name: productName });
     }
 
-    // Look for an existing active recurring price on this product
-    const prices = await s.prices.list({ product: testProduct.id, active: true, limit: 10 });
+    // Look for an existing active recurring price at this amount + interval
+    const prices = await s.prices.list({ product: testProduct.id, active: true, limit: 100 });
     let matchingPrice = prices.data.find(
-        p => p.unit_amount === unitAmount && p.recurring?.interval === 'month'
+        p => p.unit_amount === unitAmount && p.recurring?.interval === interval
     );
 
     if (!matchingPrice) {
-        logger.debug(`Creating test price for ${productName}: $${unitAmount / 100}/month`);
+        logger.debug(`Creating test price for ${productName}: $${unitAmount / 100}/${interval}`);
         matchingPrice = await s.prices.create({
             product: testProduct.id,
             unit_amount: unitAmount,
             currency: 'usd',
-            recurring: { interval: 'month' },
+            recurring: { interval },
         });
     }
 
-    logger.debug(`Using test price ID: ${matchingPrice.id} for ${membershipType} (${testProduct.id})`);
-    testPriceCache[membershipType] = matchingPrice.id;
+    logger.debug(`Using test price ID: ${matchingPrice.id} for ${membershipType} (${testProduct.id}, ${interval})`);
+    testPriceCache[annual ? 'pro_annual' : membershipType] = matchingPrice.id;
     return matchingPrice.id;
 }
 
@@ -527,7 +597,10 @@ module.exports = {
     createInvoice,
     updateUserRank,
     getCurrentMembershipType,
+    listActiveSubscriptions,
     cancelActiveSubscriptions,
+    deferActiveSubscriptionsToPeriodEnd,
+    reactivateSubscription,
     getOrCreatePriceId,
     createSubscription
 };

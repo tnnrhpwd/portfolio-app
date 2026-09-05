@@ -3,7 +3,8 @@
  * Live core-functionality validation script.
  *
  * Automates the 10 scenarios described in docs/guides/ACTION_PLAN.md's
- * Phase 0 readiness bar ("The 10 validation scenarios, in detail"). Unlike
+ * Phase 0 readiness bar ("The 10 validation scenarios, in detail"), plus a
+ * workspace-profile capture/restore regression (scenario 11). Unlike
  * server/automation/eval/scenarios/ (safe to run in CI — dry-run, mocked, or
  * purely read-only), THIS script drives the REAL Windows desktop: it opens
  * real apps, types real keystrokes, moves the real mouse, and reads back
@@ -663,6 +664,52 @@ async function scenario10() {
     return holdResult;
 }
 
+// ─── Scenario 11: workspace capture → move → restore ─────────────────────
+// Exercises the two primitives the Workspace Profiles feature is built on
+// (window_snapshot to capture a layout, window_set_rect to apply one), which
+// the ACTION_PLAN explicitly notes lack an automated regression test.
+async function scenario11() {
+    await cleanDesktop();
+    await exec('open_app', { name: 'notepad.exe', waitMs: 8000 });
+    await sleep(400);
+
+    const findNotepad = (windows) => (windows || []).find(w =>
+        String(w.processName || '').toLowerCase().includes('notepad')
+    );
+
+    const before = await exec('window_snapshot', {});
+    const winBefore = findNotepad(before.windows);
+    if (!winBefore) throw new Error('window_snapshot did not report a Notepad window');
+
+    const orig = { x: winBefore.x, y: winBefore.y, width: winBefore.width, height: winBefore.height };
+    const moved = { x: orig.x + 120, y: orig.y + 120, width: Math.max(400, orig.width - 40), height: Math.max(300, orig.height - 40) };
+    const match = { processName: winBefore.processName };
+
+    // Move the window somewhere clearly different.
+    await exec('window_set_rect', { ...match, ...moved });
+    await sleep(700);
+    const snapMoved = await exec('window_snapshot', {});
+    const winMoved = findNotepad(snapMoved.windows);
+    if (!winMoved) throw new Error('window_snapshot did not report the Notepad window after move');
+    const movedDelta = Math.abs(winMoved.x - orig.x) + Math.abs(winMoved.y - orig.y);
+    if (movedDelta < 80) {
+        throw new Error('window did not move as expected: original=' + JSON.stringify(orig) + ' after-move=' + JSON.stringify({ x: winMoved.x, y: winMoved.y }));
+    }
+
+    // Restore it to the captured bounds and confirm it came back.
+    await exec('window_set_rect', { ...match, ...orig });
+    await sleep(700);
+    const snapRestored = await exec('window_snapshot', {});
+    const winRestored = findNotepad(snapRestored.windows);
+    if (!winRestored) throw new Error('window_snapshot did not report the Notepad window after restore');
+    const restoreDelta = Math.abs(winRestored.x - orig.x) + Math.abs(winRestored.y - orig.y);
+    if (restoreDelta > 12) {
+        throw new Error('window did not restore to original position: original=' + JSON.stringify(orig) + ' restored=' + JSON.stringify({ x: winRestored.x, y: winRestored.y }));
+    }
+
+    return { original: orig, restored: { x: winRestored.x, y: winRestored.y, width: winRestored.width, height: winRestored.height } };
+}
+
 const SCENARIOS = [
     { id: 1, name: 'Type and save a note in Notepad', fn: scenario1 },
     { id: 2, name: 'Do arithmetic in Calculator by clicking', fn: scenario2 },
@@ -674,6 +721,7 @@ const SCENARIOS = [
     { id: 8, name: 'Plain-English instruction -> planner decides steps', fn: scenario8, needsLlm: true },
     { id: 9, name: 'Drag-and-drop with a moving mouse path', fn: scenario9 },
     { id: 10, name: 'Held input releases safely on focus loss', fn: scenario10 },
+    { id: 11, name: 'Workspace capture, move, restore (window_snapshot + window_set_rect)', fn: scenario11 },
 ];
 
 function parseArgs(argv) {
@@ -788,5 +836,6 @@ module.exports = {
     applyPermissiveConfig: applyPermissiveConfig, killByName: killByName,
     scenario1: scenario1, scenario2: scenario2, scenario3: scenario3, scenario4: scenario4, scenario5: scenario5,
     scenario6: scenario6, scenario7: scenario7, scenario8: scenario8, scenario9: scenario9, scenario10: scenario10,
+    scenario11: scenario11,
     SCENARIOS: SCENARIOS,
 };

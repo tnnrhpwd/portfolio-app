@@ -35,7 +35,9 @@ const {
     extractName,
     updateUserRank,
     getCurrentMembershipType,
-    cancelActiveSubscriptions,
+    listActiveSubscriptions,
+    deferActiveSubscriptionsToPeriodEnd,
+    reactivateSubscription,
     getOrCreatePriceId,
     createSubscription,
     stripe
@@ -323,9 +325,9 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
         throw new Error('User not found');
     }
 
-    const { paymentMethodId, planId, membershipType: legacyMembershipType, customPrice } = req.body;
+    const { paymentMethodId, planId, membershipType: legacyMembershipType, customPrice, billingInterval } = req.body;
     const membershipType = planId || legacyMembershipType; // Support both planId (new) and membershipType (legacy)
-    logger.debug('Subscription request:', { membershipType, paymentMethodId, customPrice });
+    logger.debug('Subscription request:', { membershipType, paymentMethodId, customPrice, billingInterval });
 
     // Purchase gate: admin can instantly pause new/upgraded subscriptions
     // (docs/guides/ACTION_PLAN.md). Downgrading to free is always allowed so
@@ -358,24 +360,40 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
         
         const userEmail = extractEmail(req.user.text);
         
-        // Get current membership type
+        // Get current membership type and the customer's active subscriptions
         const currentMembership = await getCurrentMembershipType(finalCustomerId, req.user.id);
+        const activeSubscriptions = await listActiveSubscriptions(finalCustomerId, req.user.id);
         logger.debug(`Current membership: ${currentMembership}, Requested membership: ${membershipType}`);
         
-        // Prevent subscribing to current plan
+        // Reactivation: the user asked for the plan they already have, but a
+        // previous downgrade scheduled it to cancel at period end. Un-cancel
+        // it instead of creating a duplicate (overlapping) subscription, which
+        // would double-bill.
         if (membershipType === currentMembership) {
+            const pendingCancellation = activeSubscriptions.find(sub => sub.cancel_at_period_end === true);
+            if (pendingCancellation) {
+                logger.debug(`Reactivating pending-cancellation subscription ${pendingCancellation.id}`);
+                await reactivateSubscription(pendingCancellation.id, req.user.id);
+                res.status(200).json({
+                    success: true,
+                    membershipType,
+                    message: `Your ${membershipType} subscription has been reactivated`
+                });
+                return;
+            }
             res.status(400);
             throw new Error(`You are already subscribed to the ${membershipType} plan`);
         }
         
         const oldPlan = currentMembership.charAt(0).toUpperCase() + currentMembership.slice(1);
         
-        // Cancel active subscriptions
-        await cancelActiveSubscriptions(finalCustomerId, req.user.id);
-        
-        // Handle free membership type
+        // Handle free membership type: schedule cancellation for the end of the
+        // current billing period instead of cancelling immediately. The user
+        // keeps paid features they've already paid for until then, and the
+        // webhook (customer.subscription.deleted) flips their rank to Free at
+        // period end — so we deliberately do NOT flip the rank here.
         if (membershipType === 'free') {
-            await updateUserRank(finalCustomerId, 'Free');
+            await deferActiveSubscriptionsToPeriodEnd(finalCustomerId, req.user.id);
             
             if (userEmail && shouldSendEmail(req.user.text, 'billing')) {
                 try {
@@ -391,7 +409,7 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
             res.status(200).json({ 
                 success: true, 
                 membershipType: 'free',
-                message: 'Successfully switched to free plan'
+                message: 'Your subscription will be cancelled at the end of the current billing period'
             });
             return;
         }
@@ -406,8 +424,8 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
             });
         }
         
-        // Get or create price ID
-        const priceId = await getOrCreatePriceId(membershipType, customPrice, req.user.id);
+        // Get or create price ID (honoring the requested monthly/annual cadence)
+        const priceId = await getOrCreatePriceId(membershipType, customPrice, req.user.id, billingInterval);
         
         // Create subscription
         const subscription = await createSubscription(finalCustomerId, priceId, req.user.id);
@@ -445,16 +463,6 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
         res.status(200).json(response);
     } catch (error) {
         logger.error('Error managing subscription:', error);
-        
-        if (membershipType === 'free') {
-            try {
-                const customerId = extractCustomerId(req.user.text);
-                await updateUserRank(customerId, 'Free');
-            } catch (fallbackError) {
-                logger.error('Fallback rank update failed:', fallbackError);
-            }
-        }
-        
         res.status(500).json({ error: error.message });
     }
 });

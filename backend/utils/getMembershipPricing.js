@@ -86,7 +86,7 @@ const { logger } = require('./logger');
             const prices = await stripe.prices.list({
                 product: product.id,
                 active: true,
-                limit: 10
+                limit: 100
             });
             
             if (prices.data.length === 0) {
@@ -105,28 +105,44 @@ const { logger } = require('./logger');
                 continue;
             }
             
-            // Use the first active price (or you could add logic to select a specific price)
-            const price = prices.data[0];
+            // Separate recurring prices by cadence so the checkout can offer a
+            // monthly/annual choice when both exist. Monthly is the default;
+            // fall back to any price if no monthly price is configured.
+            const recurringPrices = prices.data.filter(
+                p => p.recurring?.interval === 'month' || p.recurring?.interval === 'year'
+            );
+            const monthly = recurringPrices.find(p => p.recurring.interval === 'month');
+            const annual = recurringPrices.find(p => p.recurring.interval === 'year');
+            const primaryPrice = monthly || recurringPrices[0] || prices.data[0];
             
             // Add membership-specific features and descriptions from centralized config
             let features = FEATURES[membershipType.id] || [];
             let description = DESCRIPTIONS[membershipType.id] || '';
             let quota = { calls: QUOTAS[membershipType.id] || 'N/A' };
 
+            const intervals = [];
+            if (monthly) {
+                intervals.push({ interval: 'month', price: monthly.unit_amount, currency: monthly.currency, priceId: monthly.id });
+            }
+            if (annual) {
+                intervals.push({ interval: 'year', price: annual.unit_amount, currency: annual.currency, priceId: annual.id });
+            }
+
             pricingData.push({
                 id: membershipType.id,
                 name: membershipType.name,
-                price: price.unit_amount, // Amount in cents
-                currency: price.currency,
-                interval: price.recurring?.interval || 'month',
-                priceId: price.id,
+                price: primaryPrice.unit_amount, // Amount in cents
+                currency: primaryPrice.currency,
+                interval: primaryPrice.recurring?.interval || 'month',
+                priceId: primaryPrice.id,
                 productId: product.id,
                 description: description || product.description || '',
                 features: features,
-                quota: quota
+                quota: quota,
+                intervals
             });
             
-            logger.debug(`Added pricing for ${membershipType.name}: ${price.unit_amount} ${price.currency}/${price.recurring?.interval || 'month'}`);
+            logger.debug(`Added pricing for ${membershipType.name}: ${primaryPrice.unit_amount} ${primaryPrice.currency}/${primaryPrice.recurring?.interval || 'month'}`);
         }
         
         logger.debug('Successfully fetched membership pricing');

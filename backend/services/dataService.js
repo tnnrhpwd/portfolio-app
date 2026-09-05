@@ -2,6 +2,7 @@ const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const crypto = require('crypto');
 const { logger } = require('../utils/logger');
+const { trackStorageUsage } = require('../utils/storageTracker');
 
 // Configure AWS DynamoDB Client
 const awsClient = new DynamoDBClient({
@@ -193,6 +194,36 @@ async function createDynamoDBItem(userId, textContent, actionGroupObjectContent,
         const error = new Error(`Item size (${Math.round(itemSizeBytes/1024)}KB) exceeds DynamoDB limit of 400KB. Please reduce file sizes or content.`);
         error.statusCode = 413;
         throw error;
+    }
+
+    // Enforce the user's tier storage limit (100 MB Free / 50 GB Pro) before
+    // writing. The authenticated save path must honor the same limit the
+    // public path (postData.js) attempts to, and which getUserStorageUsage()
+    // reports in the UI. A failure in the storage *check itself* (e.g. a
+    // transient DynamoDB/Stripe error) is logged but does not block the save,
+    // matching postData.js's behavior, so users can't be locked out of saving
+    // by an unrelated outage — only an explicit over-limit result blocks.
+    try {
+        const storageCheck = await trackStorageUsage(userId, params.Item);
+        if (!storageCheck.success) {
+            logger.debug('createDynamoDBItem: storage limit exceeded:', storageCheck.error);
+            const storageError = new Error('Storage limit exceeded');
+            storageError.statusCode = 413;
+            storageError.details = {
+                error: 'Storage limit exceeded',
+                details: storageCheck.error,
+                currentUsage: storageCheck.currentUsageFormatted,
+                itemSize: storageCheck.itemSizeFormatted,
+                storageLimit: storageCheck.storageLimitFormatted
+            };
+            throw storageError;
+        }
+        logger.debug('createDynamoDBItem: storage check passed. Item size:', storageCheck.itemSizeFormatted);
+    } catch (storageError) {
+        if (storageError.statusCode === 413) {
+            throw storageError;
+        }
+        logger.error('createDynamoDBItem: storage check failed (continuing with save):', storageError);
     }
 
     try {

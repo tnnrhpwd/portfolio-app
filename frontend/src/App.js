@@ -20,6 +20,7 @@ const AdminHomeTitle = lazy(() => import('./pages/Admin/HomeTitle'));
 const AdminFunnelTester = lazy(() => import('./pages/Admin/FunnelTester'));
 const AdminPageRankings = lazy(() => import('./pages/Admin/PageRankings'));
 const Annuities = lazy(() => import('./pages/Projects/Annuities/Annuities'));
+const Chess = lazy(() => import('./pages/Chess/Chess'));
 const Coliseum = lazy(() => import('./pages/Projects/Coliseum/Coliseum'));
 const DeepStorage = lazy(() => import('./pages/DeepStorage/DeepStorage'));
 const Ethanol = lazy(() => import('./pages/Projects/Ethanol/Ethanol'));
@@ -124,6 +125,7 @@ function App() {
               <Route path="/2048" element={<Game2048/>} />
               <Route path="/coliseum" element={<Coliseum/>} />
               <Route path="/Coliseum" element={<Coliseum/>} />
+              <Route path="/chess" element={<Chess/>} />
               <Route path="/halfway" element={<Halfway/>} />
               <Route path='/hype' element={<Hype />} />
               <Route path="/iq" element={<IQTest/>} />

@@ -29,10 +29,14 @@ export const getPaymentElementOptions = (userEmail) => ({
 /**
  * Get plan display name for confirmation
  */
-export const getPlanDisplayName = (selectedPlan, membershipPricing, customPrice, formatPrice) => {
+export const getPlanDisplayName = (selectedPlan, membershipPricing, customPrice, formatPrice, billingInterval = 'month') => {
   if (membershipPricing && membershipPricing.success && membershipPricing.data && membershipPricing.data.length > 0) {
     const dynamicPlan = membershipPricing.data.find(plan => plan.id === selectedPlan);
     if (dynamicPlan) {
+      if (dynamicPlan.intervals && dynamicPlan.intervals.length > 0) {
+        const selected = dynamicPlan.intervals.find(i => i.interval === billingInterval) || dynamicPlan.intervals[0];
+        return `${dynamicPlan.name} (${formatPrice(selected.price)} per ${selected.interval})`;
+      }
       const price = dynamicPlan.price ? formatPrice(dynamicPlan.price) : 'Custom Pricing';
       const period = dynamicPlan.interval || 'month';
       return `${dynamicPlan.name} (${price} per ${period})`;

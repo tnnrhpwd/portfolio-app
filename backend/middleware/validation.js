@@ -122,6 +122,10 @@ const validateSubscription = [
     .withMessage('Membership type is required')
     .isIn(['free', 'pro'])
     .withMessage('Membership type must be free or pro'),
+  body('billingInterval')
+    .optional()
+    .isIn(['month', 'year'])
+    .withMessage('Billing interval must be month or year'),
 ];
 
 // Validation rules for custom limit updates

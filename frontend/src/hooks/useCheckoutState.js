@@ -7,6 +7,7 @@ import { useSelector } from 'react-redux';
 export const useCheckoutState = (initialPlan) => {
   const currentSubscription = useSelector(state => state.data?.currentSubscription ?? null);
   const [selectedPlan, setSelectedPlan] = useState(initialPlan || 'free');
+  const [billingInterval, setBillingInterval] = useState('month');
   const [customPrice, setCustomPrice] = useState(9999);
   const [customPriceError, setCustomPriceError] = useState('');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(null);
@@ -32,6 +33,8 @@ export const useCheckoutState = (initialPlan) => {
   return {
     selectedPlan,
     setSelectedPlan,
+    billingInterval,
+    setBillingInterval,
     customPrice,
     setCustomPrice,
     customPriceError,

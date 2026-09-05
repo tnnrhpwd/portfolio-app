@@ -223,17 +223,18 @@ const Terms = () => {
                             <p>
                                 Subscription fees are <strong>non-refundable</strong> once a billing cycle has begun,
                                 except where required by applicable law. Cancelling (switching to {PLAN_NAMES[PLAN_IDS.FREE]})
-                                takes effect <strong>immediately</strong> — your Pro features stop right away and you will
-                                not be charged again, but you will not receive a refund or credit for the unused portion
-                                of the current billing period. We may grant discretionary refunds on a case-by-case
-                                basis within 7 days of an initial subscription purchase.
+                                takes effect <strong>at the end of your current billing period</strong> — you keep your
+                                Pro features until then and will not be charged again after, but you will not receive a
+                                refund or credit for the unused portion of the current billing period. We may grant
+                                discretionary refunds on a case-by-case basis within 7 days of an initial subscription purchase.
                             </p>
                             <h3>5.5 Plan Upgrades & Downgrades</h3>
                             <p>
                                 You may upgrade your plan at any time; the new rate takes effect immediately and
                                 any price difference is prorated for the remainder of the current billing period.
-                                Downgrading from {PLAN_NAMES[PLAN_IDS.PRO]} to {PLAN_NAMES[PLAN_IDS.FREE]} also takes effect
-                                immediately, per the Refund Policy above.
+                                Downgrading from {PLAN_NAMES[PLAN_IDS.PRO]} to {PLAN_NAMES[PLAN_IDS.FREE]} schedules your
+                                subscription to end at the end of the current billing period, per the Refund Policy
+                                above — your Pro features remain available until then.
                             </p>
                         </div>
                     </section>
