@@ -43,6 +43,8 @@ class EyeTrackingManager extends EventEmitter {
     this.validationMode = false; // when true, don't move cursor
     this.overlayMode = false; // when true, don't move cursor + accept online_train
     this.onModelUpdated = null; // callback when online refit succeeds
+    this._onlineSamples = 0;     // online-training samples added this session
+    this._lastModelUpdate = null; // timestamp of the last successful refit
   }
 
   /**
@@ -137,7 +139,12 @@ while ($true) {
    */
   _moveCursor(x, y) {
     if (!this.cursorProcess || !this.cursorProcess.stdin.writable) return;
-    this.cursorProcess.stdin.write(`${Math.round(x)},${Math.round(y)}\n`);
+    // The tracker emits DIP coordinates (the same space as the calibration
+    // dots); SetCursorPos needs physical pixels, so apply the display scale
+    // factor. Without this, gaze lands compressed toward the top-left on any
+    // Windows display with scaling enabled (125%/150%).
+    const s = this._screenScaleFactor || 1;
+    this.cursorProcess.stdin.write(`${Math.round(x * s)},${Math.round(y * s)}\n`);
   }
 
   /**
@@ -172,6 +179,23 @@ while ($true) {
   }
 
   /**
+   * The display's OS scale factor (e.g. 1.25 for 125% Windows scaling).
+   * `screen.size`/`bounds` are in DIPs, but the OS cursor API (SetCursorPos)
+   * operates in physical pixels — so the tracked DIP coordinates must be
+   * multiplied by this at the cursor-move boundary. Returns 1.0 (no scaling)
+   * when the display is at 100% or the value can't be resolved.
+   */
+  _getScreenScaleFactor() {
+    try {
+      const { screen } = require('electron');
+      const sf = screen.getPrimaryDisplay().scaleFactor;
+      return (Number.isFinite(sf) && sf > 0) ? sf : 1;
+    } catch {
+      return 1;
+    }
+  }
+
+  /**
    * Start eye tracking.
    * @param {Object} options
    * @param {number} options.cameraIndex - Webcam index (default: 0)
@@ -194,6 +218,7 @@ while ($true) {
     this.duration = options.duration ?? 0;
 
     const screen = this._getScreenSize();
+    this._screenScaleFactor = this._getScreenScaleFactor();
     const scriptPath = path.join(resolveScriptsPath(), 'eye_tracker.py');
 
     if (!fs.existsSync(scriptPath)) {
@@ -272,8 +297,11 @@ while ($true) {
               return;
             }
 
-            if (data.status === 'model_updated' && this.onModelUpdated) {
-              try { this.onModelUpdated(data); } catch {}
+            if (data.status === 'model_updated') {
+              this._lastModelUpdate = Date.now();
+              if (this.onModelUpdated) {
+                try { this.onModelUpdated(data); } catch {}
+              }
             }
 
             if (data.error) {
@@ -590,6 +618,7 @@ while ($true) {
         screen_y: Math.round(screenY),
         weight,
       }) + '\n');
+      this._onlineSamples += 1;
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
@@ -624,6 +653,7 @@ while ($true) {
         cmd: 'drop_recent_online_sample',
         count,
       }) + '\n');
+      this._onlineSamples = Math.max(0, this._onlineSamples - count);
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
@@ -639,6 +669,7 @@ while ($true) {
       this._stdinWriter.write(JSON.stringify({
         cmd: 'clear_online_samples',
       }) + '\n');
+      this._onlineSamples = 0;
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
@@ -689,6 +720,8 @@ while ($true) {
       cameraIndex: this.cameraIndex,
       hasCalibration,
       lastError: this.lastError,
+      onlineSamples: this._onlineSamples,
+      lastModelUpdate: this._lastModelUpdate,
     };
   }
 

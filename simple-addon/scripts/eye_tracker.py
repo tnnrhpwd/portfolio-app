@@ -1747,14 +1747,17 @@ class EyeTracker:
                 self.last_yaw = yaw
                 self.last_pitch = pitch
 
-                # Compute a simple confidence based on landmark visibility
-                left_vis = landmarks[LEFT_IRIS_CENTER].visibility if hasattr(landmarks[LEFT_IRIS_CENTER], 'visibility') else 1.0
-                right_vis = landmarks[RIGHT_IRIS_CENTER].visibility if hasattr(landmarks[RIGHT_IRIS_CENTER], 'visibility') else 1.0
-                confidence = (left_vis + right_vis) / 2.0
-                # MediaPipe doesn't always provide meaningful visibility for iris,
-                # so we use presence as a proxy — if we got landmarks, confidence is high
-                if confidence < 0.01:
-                    confidence = 0.85
+                # ── Real tracking confidence (0..1) ──
+                # Blend iris-landmark visibility (when MediaPipe provides it),
+                # eye openness (from EAR), and binocularity so the host can gate
+                # genuinely low-quality frames. The old code emitted a hardcoded
+                # ~0.85 that never varied, which made the host's
+                # confidence_threshold meaningless.
+                left_vis = getattr(landmarks[LEFT_IRIS_CENTER], 'visibility', 1.0)
+                right_vis = getattr(landmarks[RIGHT_IRIS_CENTER], 'visibility', 1.0)
+                iris_conf = float(np.clip((left_vis + right_vis) / 2.0, 0.0, 1.0))
+                openness = float(np.clip(ear / (EAR_BLINK_THRESHOLD * 2.0), 0.0, 1.0))
+                confidence = float(np.clip(iris_conf * openness, 0.0, 1.0))
 
                 if mode == "test":
                     # Raw output without calibration mapping

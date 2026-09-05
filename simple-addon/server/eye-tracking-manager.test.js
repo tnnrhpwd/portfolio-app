@@ -52,5 +52,21 @@ check('online train no-op when not running', mgr.addOnlineTrainingSample(0, 0).s
 check('drop online samples no-op when not running', mgr.dropRecentOnlineSamples(1).success === false);
 check('clear online samples no-op when not running', mgr.clearOnlineSamples().success === false);
 
+// ── Online adaptation state tracking ────────────────────────────────────────
+{
+    mgr.state = 'running';
+    mgr._stdinWriter = { writable: true, write: () => true };
+    check('online train increments sample count', mgr.addOnlineTrainingSample(100, 200).success === true && mgr.getStatus().onlineSamples === 1);
+    mgr.addOnlineTrainingSample(300, 400);
+    check('second sample increments to 2', mgr.getStatus().onlineSamples === 2);
+    mgr.dropRecentOnlineSamples(1);
+    check('drop recent decrements to 1', mgr.getStatus().onlineSamples === 1);
+    mgr.clearOnlineSamples();
+    check('clear resets to 0', mgr.getStatus().onlineSamples === 0);
+    check('lastModelUpdate defaults null', mgr.getStatus().lastModelUpdate === null);
+    mgr.state = 'idle';
+    mgr._stdinWriter = null;
+}
+
 console.log(`\neye-tracking-manager.test: ${pass}/${pass + fail} PASS`);
 process.exit(fail > 0 ? 1 : 0);

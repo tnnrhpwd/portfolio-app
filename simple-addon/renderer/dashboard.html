@@ -726,6 +726,7 @@
             <option value="cron">Schedule (cron)</option>
             <option value="file">Folder watch</option>
             <option value="hotkey">Hotkey</option>
+            <option value="startup">Startup</option>
           </select>
         </div>
       </div>
@@ -758,6 +759,13 @@
         </div>
         <div class="actions">
           <input type="text" id="trg-accelerator" placeholder="Ctrl+Alt+G" style="width:220px;" />
+        </div>
+      </div>
+
+      <div class="row" id="trg-row-startup" style="display:none">
+        <div>
+          <div class="name">On startup</div>
+          <div class="desc">Fires once each time Simple launches — e.g. run your setup macro automatically when you start Simple.</div>
         </div>
       </div>
 
@@ -971,6 +979,17 @@
             <input type="checkbox" id="eye-toggle-overlay" />
             Enabled
           </label>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <div class="name">Adaptation</div>
+          <div class="desc">The gaze model auto-refines from overlay usage. Undo a bad sample or reset back to your calibrated baseline.</div>
+          <div class="desc" id="eye-adaptation-status" style="display:none; color:var(--muted);"></div>
+        </div>
+        <div class="actions">
+          <button id="eye-undo-sample" disabled>Undo last</button>
+          <button id="eye-reset-adaptation" disabled>Reset</button>
         </div>
       </div>
       <div class="row">
@@ -2679,7 +2698,7 @@ document.getElementById('workspace-save-new').addEventListener('click', async ()
 refreshWorkspaceList();
 
 // ── Triggers tab ──
-const TRIGGER_KIND_ROWS = { cron: 'trg-row-cron', file: 'trg-row-file', hotkey: 'trg-row-hotkey' };
+const TRIGGER_KIND_ROWS = { cron: 'trg-row-cron', file: 'trg-row-file', hotkey: 'trg-row-hotkey', startup: 'trg-row-startup' };
 
 function trgShowKindFields() {
   const kind = document.getElementById('trg-kind').value;
@@ -2751,6 +2770,7 @@ function trgKindLabel(t) {
     case 'cron': return `Schedule: ${t.cron || ''}`;
     case 'file': return `Folder: ${t.path || ''}${t.glob ? ` (${t.glob})` : ''}`;
     case 'hotkey': return `Hotkey: ${t.accelerator || ''}`;
+    case 'startup': return 'At startup';
     default: return t.kind;
   }
 }
@@ -3328,6 +3348,21 @@ async function refreshEyeTrackingStatus() {
     const gazeEl = document.getElementById('eye-gaze');
     if (gazeEl && s.state !== 'running') gazeEl.style.display = 'none';
 
+    // Online adaptation state + Undo/Reset controls.
+    const adaptStatus = document.getElementById('eye-adaptation-status');
+    const undoSample = document.getElementById('eye-undo-sample');
+    const resetAdapt = document.getElementById('eye-reset-adaptation');
+    const n = s.onlineSamples || 0;
+    undoSample.disabled = n === 0;
+    resetAdapt.disabled = n === 0;
+    if (n > 0) {
+      const updated = s.lastModelUpdate ? ` · last adapted ${new Date(s.lastModelUpdate).toLocaleTimeString()}` : '';
+      adaptStatus.textContent = `${n} online sample${n === 1 ? '' : 's'}${updated}`;
+      adaptStatus.style.display = '';
+    } else {
+      adaptStatus.style.display = 'none';
+    }
+
     // Last error, so a silent failure (e.g. no calibration) is visible.
     const errEl = document.getElementById('eye-last-error');
     if (s.lastError) {
@@ -3353,6 +3388,7 @@ async function refreshEyeCalibrationSummary() {
     if (c.pointCount) parts.push(`${c.pointCount} point${c.pointCount === 1 ? '' : 's'}`);
     if (typeof c.meanResidualPx === 'number') parts.push(`mean error ${c.meanResidualPx.toFixed(1)}px`);
     if (c.modelType) parts.push(c.modelType);
+    if (c.screenResolution && c.screenResolution.width) parts.push(`${c.screenResolution.width}×${c.screenResolution.height}`);
     if (c.timestamp) {
       const d = new Date(c.timestamp);
       if (!Number.isNaN(d.getTime())) parts.push(`calibrated ${d.toLocaleString()}`);
@@ -3421,6 +3457,17 @@ document.getElementById('eye-calibrate').addEventListener('click', () => {
 });
 
 document.getElementById('eye-camera-preview-btn').addEventListener('click', previewEyeCamera);
+
+document.getElementById('eye-undo-sample').addEventListener('click', async () => {
+  await window.simpleDashboard.undoEyeSample();
+  await refreshEyeTrackingStatus();
+});
+
+document.getElementById('eye-reset-adaptation').addEventListener('click', async () => {
+  if (!confirm('Reset the gaze model back to your calibrated baseline?')) return;
+  await window.simpleDashboard.resetEyeAdaptation();
+  await refreshEyeTrackingStatus();
+});
 
 document.getElementById('eye-toggle-overlay').addEventListener('change', async (e) => {
   const enabled = e.target.checked;

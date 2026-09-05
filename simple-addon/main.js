@@ -330,6 +330,8 @@ ipcMain.handle('dashboard:get-eye-tracking-status', () => {
     elapsed: mgr.elapsed || 0,
     duration: mgr.duration || 0,
     cameraIndex: mgr.cameraIndex ?? 0,
+    onlineSamples: mgr.onlineSamples || 0,
+    lastModelUpdate: mgr.lastModelUpdate || null,
   };
 });
 
@@ -365,6 +367,16 @@ ipcMain.handle('dashboard:emergency-stop-eye-tracking', async () => {
 ipcMain.handle('dashboard:calibrate-eye-tracking', () => {
   openCalibrationWindow();
   return { ok: true };
+});
+
+ipcMain.handle('dashboard:undo-eye-sample', () => {
+  if (!server?.eyeTrackingManager) return { ok: false, error: 'Server is not ready yet.' };
+  return server.eyeTrackingManager.dropRecentOnlineSamples(1);
+});
+
+ipcMain.handle('dashboard:reset-eye-adaptation', () => {
+  if (!server?.eyeTrackingManager) return { ok: false, error: 'Server is not ready yet.' };
+  return server.eyeTrackingManager.clearOnlineSamples();
 });
 
 

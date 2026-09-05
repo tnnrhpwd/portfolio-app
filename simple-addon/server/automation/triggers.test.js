@@ -81,6 +81,22 @@ function assert(name, cond, detail) {
     assert('fileTriggerParams: file falls back to filename', p2.file === 'x.pdf' && p2.filename === 'x.pdf');
 }
 
+// ─── startup trigger kind ─────────────────────────────────────────────────
+{
+    const fired = [];
+    triggers.configure({ configPath: null, dispatch: (t) => { fired.push(t.id); } });
+    const t = triggers.add({ kind: 'startup', skillSlug: 'boot-setup' });
+    assert('startup: add() does not fire immediately', fired.length === 0);
+    triggers.startAll();
+    assert('startup: startAll() fires enabled startup once', fired.length === 1 && fired[0] === t.id);
+    triggers.update(t.id, { enabled: false });
+    fired.length = 0;
+    triggers.startAll();
+    assert('startup: disabled trigger does not fire', fired.length === 0);
+    triggers.remove(t.id);
+    assert('startup: remove() clears the trigger', triggers.list().length === 0);
+}
+
 console.log('');
 if (failed === 0) {
     console.log(`triggers.test: ${total}/${total} PASS`);

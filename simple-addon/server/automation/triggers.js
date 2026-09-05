@@ -12,6 +12,8 @@
  *               Electron `globalShortcut` API which lives in main.js, so this
  *               engine only stores the desired binding and emits a registration
  *               event; main.js performs the actual `globalShortcut.register`.
+ *   - `startup`: fires exactly once when the addon starts (inside startAll()).
+ *               Has no extra fields; targets the same goalSlug/skillSlug.
  *
  * Each trigger, when fired, calls a user-supplied `dispatch(trigger)` function
  * (wired from main.js — it either starts the trigger's `goalSlug` in the agent
@@ -248,6 +250,10 @@ function _start(trigger) {
         case 'cron':   handle = _startCronWatcher(trigger);   break;
         case 'file':   handle = _startFileWatcher(trigger);   break;
         case 'hotkey': handle = _startHotkeyWatcher(trigger); break;
+        case 'startup':
+            // No watcher — fires once inside startAll() at process launch.
+            handle = { type: 'startup', stop: () => {} };
+            break;
         default: throw new Error(`unknown trigger kind: ${trigger.kind}`);
     }
     _watchers.set(trigger.id, handle);
@@ -263,6 +269,20 @@ function _stop(id) {
 
 function startAll() {
     for (const t of _triggers.values()) if (t.enabled) _start(t);
+    // Startup triggers fire exactly once, now (process launch). Fire-and-forget:
+    // dispatch() is async in main.js (it makes an HTTP call to /api/skill/run or
+    // /api/agent/start), so we don't block startup on it.
+    for (const t of _triggers.values()) {
+        if (t.enabled && t.kind === 'startup') {
+            try {
+                Promise.resolve(_dispatchFn(t)).catch((e) => {
+                    console.warn(`[triggers] startup dispatch failed for ${t.id}:`, e?.message || e);
+                });
+            } catch (e) {
+                console.warn(`[triggers] startup dispatch threw for ${t.id}:`, e?.message || e);
+            }
+        }
+    }
 }
 
 function stopAll() {
