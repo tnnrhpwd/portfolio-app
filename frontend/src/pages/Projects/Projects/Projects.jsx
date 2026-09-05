@@ -200,14 +200,14 @@ function Projects() {
             >
               STH Resume <span aria-hidden="true">↗</span>
             </a>
-            <a
+            {/* <a
               className="projects-meta-link"
               href="https://github.com/tnnrhpwd/portfolio-app"
               rel="noopener noreferrer"
               target="_blank"
             >
               This Website's GitHub Repo <span aria-hidden="true">↗</span>
-            </a>
+            </a> */}
           </div>
         </section>
 

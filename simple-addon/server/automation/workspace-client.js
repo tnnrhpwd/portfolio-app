@@ -278,6 +278,20 @@ const getRecentActions = async (n = 20) => {
     }
 };
 
+/**
+ * Fetch action-log entries across `days` days (the backend keeps one ring
+ * buffer item per YYYYMMDD day). Used by the pattern learner to mine repeated
+ * sequences. Returns [] on any error (including signed-out).
+ */
+const getActionLog = async ({ days = 7, n = 500 } = {}) => {
+    try {
+        const out = await req('GET', `/action/recent?days=${encodeURIComponent(days)}&n=${encodeURIComponent(n)}`);
+        return Array.isArray(out?.entries) ? out.entries : [];
+    } catch {
+        return [];
+    }
+};
+
 module.exports = {
     setTokenGetter,
     getToken,
@@ -297,6 +311,7 @@ module.exports = {
     upsertSettings,
     listGoals,
     getRecentActions,
+    getActionLog,
     compileNaturalViaBackend,
     editNaturalViaBackend,
     agentChat,

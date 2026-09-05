@@ -131,7 +131,7 @@ function Home() {
     const [featuresRef, featuresVisible] = useScrollReveal();
     const [linksRef, linksVisible] = useScrollReveal();
     const [ctaRef, ctaVisible] = useScrollReveal();
-    const [openSourceRef, openSourceVisible] = useScrollReveal();
+    // const [openSourceRef, openSourceVisible] = useScrollReveal(); // open-source band temporarily removed
 
     // Horizontal carousel pagination (Squarespace-style dots + arrows).
     const templatesRowRef = useRef(null);
@@ -437,7 +437,7 @@ function Home() {
                     </div>
                 </section>
                 
-                {/* ── Open source ── */}
+                {/* Open-source band temporarily removed — repo is no longer public.
                 <section ref={openSourceRef} className={`home-band home-band--surface home-open-source home-reveal ${openSourceVisible ? 'is-visible' : ''}`}>
                     <div className="home-wrap home-open-source-inner">
                         <p className="home-eyebrow">
@@ -465,6 +465,7 @@ function Home() {
                         </div>
                     </div>
                 </section>
+                */}
 
                 {/* ── What's inside (alternating media rows) ── */}
                 <section ref={featuresRef} className={`home-band home-band--tint home-features home-reveal ${featuresVisible ? 'is-visible' : ''}`}>

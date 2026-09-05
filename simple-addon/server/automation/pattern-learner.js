@@ -97,10 +97,17 @@ class PatternLearner extends EventEmitter {
         try {
             // The action ring buffer lives in the `action` kind (YYYYMMDD
             // slug), not `log`; /action/recent returns parsed entries (200
-            // with an empty array when nothing is recorded yet).
-            const out = await this._wsClient.req('GET', '/action/recent?days=7&n=500');
-            const entries = Array.isArray(out?.entries) ? out.entries : [];
-            return entries.filter(e => e && e.tool).slice(-MAX_LOG_ENTRIES);
+            // with an empty array when nothing is recorded yet). Use the
+            // exported client method — the raw `req` helper is not part of
+            // the module's public surface, which silently broke this call
+            // (this._wsClient.req was undefined, so every analysis returned
+            // zero entries and suggestions never appeared).
+            const entries = typeof this._wsClient.getActionLog === 'function'
+                ? await this._wsClient.getActionLog({ days: 7, n: 500 })
+                : [];
+            return Array.isArray(entries)
+                ? entries.filter(e => e && e.tool).slice(-MAX_LOG_ENTRIES)
+                : [];
         } catch {
             return [];
         }

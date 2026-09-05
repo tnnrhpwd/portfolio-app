@@ -14,8 +14,8 @@
  *               event; main.js performs the actual `globalShortcut.register`.
  *
  * Each trigger, when fired, calls a user-supplied `dispatch(trigger)` function
- * (wired from main.js / automation/index.js — typically it enqueues the
- * trigger's `goalSlug` into the agent loop).
+ * (wired from main.js — it either starts the trigger's `goalSlug` in the agent
+ * loop, or runs the trigger's `skillSlug` as a recorded macro).
  *
  * Triggers are persisted as workspace items with kind='project' under the slug
  * `triggers` (a single JSON document with an array). They survive addon
@@ -25,9 +25,9 @@
  * Persistence shape (one workspace item):
  *   {
  *     triggers: [
- *       { id, kind: 'cron',   cron: '0 9 * * *',         goalSlug: 'daily-standup', enabled: true },
- *       { id, kind: 'file',   path: 'C:/Downloads',      glob: '*.pdf', goalSlug: 'process-pdfs', enabled: true },
- *       { id, kind: 'hotkey', accelerator: 'Ctrl+Alt+G', goalSlug: 'quick-goal', enabled: true },
+ *       { id, kind: 'cron',   cron: '0 9 * * *',         goalSlug:  'daily-standup', enabled: true },
+ *       { id, kind: 'file',   path: 'C:/Downloads',      glob: '*.pdf', skillSlug: 'process-pdfs', enabled: true },
+ *       { id, kind: 'hotkey', accelerator: 'Ctrl+Alt+G', skillSlug: 'quick-macro', enabled: true },
  *     ]
  *   }
  */
@@ -138,6 +138,23 @@ function _globToRegex(glob) {
     return new RegExp('^' + esc + '$', 'i');
 }
 
+/**
+ * Build the skill `params` a file trigger passes when it fires a recorded
+ * skill, so the skill can use `${param.file}` / `${param.filename}` /
+ * `${param.eventType}` placeholders to act on the exact file that triggered
+ * it (see tools/skill.js substitution). Empty when the trigger wasn't fired
+ * by a file event.
+ * @param {Object} firedBy - the trigger's `_firedBy` ({ file, fullPath, eventType })
+ */
+function fileTriggerParams(firedBy) {
+    if (!firedBy || !firedBy.file) return {};
+    return {
+        file: firedBy.fullPath || firedBy.file,
+        filename: firedBy.file,
+        eventType: firedBy.eventType || '',
+    };
+}
+
 function _startFileWatcher(trigger) {
     if (!trigger.path || !fs.existsSync(trigger.path)) {
         return { type: 'file', stop: () => {}, error: `path not found: ${trigger.path}` };
@@ -155,7 +172,7 @@ function _startFileWatcher(trigger) {
                 const prev = seen.get(filename) || 0;
                 if (stat.mtimeMs - prev < 1500) return; // debounce burst writes
                 seen.set(filename, stat.mtimeMs);
-                _dispatchFn({ ...trigger, _firedBy: { file: filename, eventType } })
+                _dispatchFn({ ...trigger, _firedBy: { file: filename, fullPath: full, eventType } })
                     .catch(e => console.warn('[triggers] file dispatch failed:', e.message));
             } catch {
                 // The file may be transient (renamed during write). Ignore.
@@ -195,7 +212,7 @@ function add(trigger) {
     if (full.kind === 'cron') parseCron(full.cron);              // throws if invalid
     if (full.kind === 'file' && !full.path) throw new Error('file trigger needs `path`');
     if (full.kind === 'hotkey' && !full.accelerator) throw new Error('hotkey trigger needs `accelerator`');
-    if (!full.goalSlug) throw new Error('trigger needs `goalSlug`');
+    if (!full.goalSlug && !full.skillSlug) throw new Error('trigger needs `goalSlug` or `skillSlug`');
 
     _triggers.set(id, full);
     if (full.enabled) _start(full);
@@ -217,6 +234,7 @@ function update(id, patch) {
     if (!t) throw new Error(`trigger not found: ${id}`);
     const next = { ...t, ...patch, id };
     if (next.kind === 'cron') parseCron(next.cron);
+    if (!next.goalSlug && !next.skillSlug) throw new Error('trigger needs `goalSlug` or `skillSlug`');
     _stop(id);
     _triggers.set(id, next);
     if (next.enabled) _start(next);
@@ -277,5 +295,5 @@ module.exports = {
     configure, list, add, remove, update,
     startAll, stopAll, loadFromDisk,
     // exposed for unit tests
-    parseCron, _matchesNow, _globToRegex,
+    parseCron, _matchesNow, _globToRegex, fileTriggerParams,
 };

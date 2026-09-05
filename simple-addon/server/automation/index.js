@@ -63,6 +63,7 @@ const { skillRun, cacheSkill, getCachedSkill, uncacheSkill, getAllCachedSkills, 
 const events = require('./events');
 const triggers = require('./triggers');
 const skillHotkeys = require('./skill-hotkeys');
+const runHistory = require('./run-history');
 
 const { createAgentLoop } = require('./agent-loop');
 const { compile: nlCompile, editSteps: nlEditSteps } = require('./nl-compiler');
@@ -384,6 +385,24 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
     app.get('/api/agent/status', (req, res) => {
         res.json(_poolStatus());
     });
+    // List goals available to bind a trigger to (workspace items of kind='goal').
+    // Used by the Triggers tab so users pick a goal by name instead of typing
+    // its slug by hand.
+    app.get('/api/agent/goals', async (req, res) => {
+        try {
+            const list = await wsClient.listGoals();
+            const entries = (list && list.entries) || (Array.isArray(list) ? list : []);
+            res.json({
+                goals: entries.map(g => ({
+                    slug: g.slug,
+                    name: g.name || g.title || g.slug,
+                    status: g.status,
+                })),
+            });
+        } catch (e) {
+            res.status(502).json({ error: e.message });
+        }
+    });
     // Stop a specific worker by goal slug
     app.delete('/api/agent/worker/:goalSlug', (req, res) => {
         const slug = req.params.goalSlug;
@@ -595,6 +614,20 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
         }
     });
 
+    // ─── Local run history (recent skill runs, manual + trigger-fired) ─────
+    // Must be declared before `/api/skill/:slug` so `/api/skill/runs` isn't
+    // swallowed as a slug lookup. Durable on-device record of the last N skill
+    // runs, so the dashboard can answer "did my 9am trigger actually run?"
+    // after the fact — the live run console only covers a run while it's in
+    // flight, and the event ring buffer doesn't survive a restart.
+    app.get('/api/skill/runs', (req, res) => {
+        const limit = Number.parseInt(req.query.limit, 10) || 50;
+        res.json({ runs: runHistory.list({ limit }) });
+    });
+    app.delete('/api/skill/runs', (req, res) => {
+        res.json(runHistory.clear());
+    });
+
     // Run a saved skill by slug (resolves local cache → workspace). Goes through
     // the permission-gated tool registry exactly like the agent would — but with
     // `userInitiated: true` because this endpoint is only reachable from the
@@ -615,6 +648,8 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
     // step-by-step console for exactly this run, even if other runs or agent
     // activity are happening at the same time.
     app.post('/api/skill/run', async (req, res) => {
+        const startedAt = Date.now();
+        const firedBy = req.body && req.body._firedBy; // trigger id when fired by the trigger engine
         try {
             const { slug, params, skill, marketplaceInstalled, confirmCapabilities, runId } = req.body || {};
             if (!slug) return res.status(400).json({ error: 'slug is required' });
@@ -630,15 +665,42 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
             const args = { slug, params: params || {} };
             if (skill && skill.slug === slug) args.cache = skill;
             const out = await registry.executeTool('skill_run', args, ctx);
+            const summary = out?.result || {};
+            const failedStep = Array.isArray(summary.steps) ? summary.steps.find(s => s && s.error) : null;
             events.publish('skill.run', {
                 slug,
                 runId: runId || undefined,
-                stepsRun: out?.result?.stepsRun,
-                failed: !!out?.result?.failed,
-                outcome: out?.result?.outcome || null,
+                stepsRun: summary.stepsRun,
+                failed: !!summary.failed,
+                outcome: summary.outcome || null,
+            });
+            runHistory.append({
+                runId: runId || null,
+                slug,
+                startedAt,
+                finishedAt: Date.now(),
+                durationMs: Date.now() - startedAt,
+                stepsRun: summary.stepsRun ?? null,
+                stepsTotal: summary.stepsTotal ?? (Array.isArray(summary.steps) ? summary.steps.length : null),
+                failed: !!summary.failed || !!failedStep,
+                outcome: summary.outcome || null,
+                error: failedStep ? (failedStep.error || `${failedStep.tool || 'step'} failed`) : (out?.error || null),
+                triggerId: firedBy ? String(firedBy) : null,
+                source: firedBy ? 'trigger' : 'manual',
             });
             res.json(out);
         } catch (e) {
+            runHistory.append({
+                runId: null,
+                slug: (req.body && req.body.slug) || 'unknown',
+                startedAt,
+                finishedAt: Date.now(),
+                durationMs: Date.now() - startedAt,
+                failed: true,
+                error: e.message,
+                triggerId: firedBy ? String(firedBy) : null,
+                source: firedBy ? 'trigger' : 'manual',
+            });
             res.status(400).json({ error: e.message });
         }
     });
@@ -1089,6 +1151,36 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
             const force = req.query.force === 'true';
             const suggestions = await _learner.analyze({ force });
             res.json({ suggestions, count: suggestions.length });
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
+    // Accept a suggestion: turn the detected repeated pattern into a goal the
+    // agent can pick up. We deliberately create a GOAL (agent-planned) rather
+    // than fabricating a deterministic skill — the learner only keeps tool
+    // fingerprints, not the exact args, so rebuilding precise steps would be
+    // guesswork. A goal is the honest translation of "I do X → Y → Z often."
+    app.post('/api/agent/suggestions/accept', async (req, res) => {
+        try {
+            const { title, description, tools } = req.body || {};
+            if (!title && !description) return res.status(400).json({ error: 'suggestion title/description required' });
+            const name = String(title || description || 'Automation').slice(0, 80);
+            const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || `suggestion-${Date.now()}`;
+            const content = [
+                description,
+                Array.isArray(tools) && tools.length ? `Repeated steps: ${tools.join(' → ')}` : '',
+            ].filter(Boolean).join('\n');
+            await wsClient.upsertGoal(slug, {
+                name,
+                content,
+                status: 'active',
+                priority: 70,
+                createdBy: 'suggestion',
+                successCriteria: 'The task described has been completed.',
+            });
+            events.publish('goal.created', { slug, name, createdBy: 'suggestion' });
+            res.json({ ok: true, slug, name });
         } catch (e) {
             res.status(500).json({ error: e.message });
         }

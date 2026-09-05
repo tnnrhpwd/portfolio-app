@@ -4,7 +4,7 @@
  */
 
 const triggers = require('./triggers');
-const { parseCron, _matchesNow, _globToRegex } = triggers;
+const { parseCron, _matchesNow, _globToRegex, fileTriggerParams } = triggers;
 
 let failed = 0, total = 0;
 function assert(name, cond, detail) {
@@ -69,6 +69,16 @@ function assert(name, cond, detail) {
 {
     const re = _globToRegex('*'); // catch-all
     assert('glob: * catches all', re.test('anything.zip'));
+}
+
+// ─── fileTriggerParams ──────────────────────────────────────────────────────
+{
+    assert('fileTriggerParams: empty for no firedBy', Object.keys(fileTriggerParams(null)).length === 0);
+    assert('fileTriggerParams: empty for no file', Object.keys(fileTriggerParams({ eventType: 'change' })).length === 0);
+    const p = fileTriggerParams({ file: 'report.pdf', fullPath: 'C:/Downloads/report.pdf', eventType: 'rename' });
+    assert('fileTriggerParams: maps file/filename/eventType', p.file === 'C:/Downloads/report.pdf' && p.filename === 'report.pdf' && p.eventType === 'rename');
+    const p2 = fileTriggerParams({ file: 'x.pdf' });
+    assert('fileTriggerParams: file falls back to filename', p2.file === 'x.pdf' && p2.filename === 'x.pdf');
 }
 
 console.log('');

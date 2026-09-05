@@ -473,11 +473,19 @@ async function startExpressServer() {
         dispatch: async (trigger) => {
           try {
             const port = server?.serverPort || 3001;
-            await fetch(`http://127.0.0.1:${port}/api/agent/start`, {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ goalSlug: trigger.goalSlug, _firedBy: trigger.id }),
-            });
-            trayManager?.notify('Trigger fired', `${trigger.kind} → ${trigger.goalSlug}`, 'automation');
+            const base = `http://127.0.0.1:${port}`;
+            if (trigger.skillSlug) {
+              await fetch(`${base}/api/skill/run`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ slug: trigger.skillSlug, params: triggers.fileTriggerParams(trigger._firedBy), _firedBy: trigger.id }),
+              });
+            } else {
+              await fetch(`${base}/api/agent/start`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ goalSlug: trigger.goalSlug, _firedBy: trigger.id }),
+              });
+            }
+            trayManager?.notify('Trigger fired', `${trigger.kind} → ${trigger.skillSlug || trigger.goalSlug}`, 'automation');
           } catch (e) {
             console.warn('[Main] trigger dispatch failed:', e.message);
           }
@@ -486,10 +494,20 @@ async function startExpressServer() {
           try {
             if (action === 'register') {
               globalShortcut.register(trigger.accelerator, () => {
-                try { fetch(`http://127.0.0.1:${server?.serverPort || 3001}/api/agent/start`, {
-                  method: 'POST', headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ goalSlug: trigger.goalSlug, _firedBy: trigger.id }),
-                }); } catch {}
+                try {
+                  const base = `http://127.0.0.1:${server?.serverPort || 3001}`;
+                  if (trigger.skillSlug) {
+                    fetch(`${base}/api/skill/run`, {
+                      method: 'POST', headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ slug: trigger.skillSlug, _firedBy: trigger.id }),
+                    });
+                  } else {
+                    fetch(`${base}/api/agent/start`, {
+                      method: 'POST', headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ goalSlug: trigger.goalSlug, _firedBy: trigger.id }),
+                    });
+                  }
+                } catch {}
               });
             } else {
               globalShortcut.unregister(trigger.accelerator);

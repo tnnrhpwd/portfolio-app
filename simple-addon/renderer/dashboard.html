@@ -160,6 +160,26 @@
   }
   .rs-badge--cloud { background: rgba(88,166,255,.15); color: var(--accent); }
   .rs-badge--local { background: var(--border); color: var(--muted); }
+  .rs-badge--params { background: rgba(210,153,34,.15); color: var(--yellow); }
+  .rs-badge--ok { background: rgba(63,185,80,.15); color: var(--green); }
+  .rs-badge--fail { background: rgba(248,81,73,.15); color: var(--red); }
+  .param-grid { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+  .param-field label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+  .param-field input { width: 100%; }
+  .skill-summary { margin-top: 12px; border: 1px solid var(--border); border-radius: 6px; padding: 12px; background: #0d1117; }
+  .skill-summary h4 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+  .skill-summary ul { margin: 0 0 8px; padding-left: 18px; }
+  .skill-summary li { font-size: 13px; margin: 2px 0; }
+  .cap-badge { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 1px 7px; border-radius: 4px; margin-right: 4px; }
+  .cap-badge.safe-read { background: rgba(63,185,80,.15); color: var(--green); }
+  .cap-badge.sandboxed-write { background: rgba(88,166,255,.15); color: var(--accent); }
+  .cap-badge.shell { background: rgba(210,153,34,.15); color: var(--yellow); }
+  .cap-badge.destructive { background: rgba(248,81,73,.15); color: var(--red); }
+  .cap-badge.system { background: rgba(163,113,247,.18); color: #bc8cff; }
+  .cap-badge.unknown { background: var(--border); color: var(--muted); }
+  .cap-warn { color: var(--yellow); font-size: 12px; margin-top: 4px; }
+  .cap-err { color: var(--red); font-size: 12px; margin-top: 4px; }
+  .cap-note { color: var(--muted); font-size: 12px; margin-top: 4px; }
   .rs-item-slug { font-family: "Consolas", monospace; font-size: 11px; color: var(--muted); opacity: .8; }
   .rs-item-meta { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .rs-item-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; flex-shrink: 0; }
@@ -289,8 +309,11 @@
   <div id="nav-dropdown">
     <button data-tab="status">Status</button>
     <button data-tab="agent">Agent</button>
+    <button data-tab="voice">Voice</button>
+    <button data-tab="perception">Perception</button>
     <button data-tab="recorder">Recorder &amp; Skills</button>
     <button data-tab="workspace">Workspace Profiles</button>
+    <button data-tab="triggers">Triggers</button>
     <button data-tab="permissions">Permissions</button>
     <button data-tab="eyetracking">Eye Tracking</button>
     <button data-tab="updates">Updates</button>
@@ -308,8 +331,11 @@
   </div>
   <button class="tab-btn active" data-tab="status">Status</button>
   <button class="tab-btn" data-tab="agent">Agent <span class="badge" id="tab-badge-agent"></span></button>
+  <button class="tab-btn" data-tab="voice">Voice</button>
+  <button class="tab-btn" data-tab="perception">Perception</button>
   <button class="tab-btn" data-tab="recorder">Recorder &amp; Skills</button>
   <button class="tab-btn" data-tab="workspace">Workspace Profiles</button>
+  <button class="tab-btn" data-tab="triggers">Triggers</button>
   <button class="tab-btn" data-tab="permissions">Permissions</button>
   <button class="tab-btn" data-tab="eyetracking">Eye Tracking</button>
   <button class="tab-btn" data-tab="updates">Updates <span class="badge" id="tab-badge-updates"></span></button>
@@ -418,6 +444,7 @@
           <button id="agent-kill-switch" class="danger">Kill Switch</button>
         </div>
       </div>
+      <div id="agent-workers"></div>
     </div>
 
     <div class="panel">
@@ -440,6 +467,108 @@
           <button id="agent-goal-from-clipboard">Create Goal</button>
         </div>
       </div>
+    </div>
+
+    <div class="panel">
+      <div class="row" style="border-bottom:none; padding-top:0;">
+        <div>
+          <h2 style="margin-bottom:2px;">🎯 Goals</h2>
+          <div class="rs-intro" style="margin-top:0;">Your workspace goals (needs the web-app sign-in). Run the agent on a specific goal, or start it normally to work on the next active one.</div>
+        </div>
+        <div class="actions">
+          <button id="agent-goals-refresh">Refresh</button>
+        </div>
+      </div>
+      <ul id="agent-goals-list" class="rs-list"></ul>
+    </div>
+
+    <div class="panel">
+      <h2>Automation suggestions</h2>
+      <p class="desc">Simple looks for tasks you repeat and suggests automating them. (Needs the web-app sign-in so the action log is available.)</p>
+      <div class="row">
+        <div class="actions">
+          <button id="agent-suggest-refresh" class="primary">Check for patterns</button>
+        </div>
+      </div>
+      <div id="agent-suggestions"></div>
+    </div>
+
+    <div class="panel">
+      <div class="row" style="border-bottom:none; padding-top:0;">
+        <div>
+          <h2 style="margin-bottom:2px;">Live activity</h2>
+          <div class="rs-intro" style="margin-top:0;">What the agent is doing right now — steps, messages, and completed skill runs.</div>
+        </div>
+        <div class="actions">
+          <button id="agent-feed-clear">Clear</button>
+        </div>
+      </div>
+      <ul id="agent-feed" class="rs-list"></ul>
+    </div>
+  </section>
+  <section class="tab-panel" id="panel-voice">
+    <div class="panel">
+      <h2>Voice</h2>
+      <div class="row">
+        <div>
+          <div class="name" id="voice-status-name">Idle</div>
+          <div class="desc" id="voice-status-desc">Checking…</div>
+        </div>
+        <div class="actions">
+          <button id="voice-listen" class="primary">Start Listening</button>
+          <button id="voice-stop">Stop</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Transcription</h2>
+      <p class="desc">Click "Start Listening", speak, and the recognized text appears here. (Wakeword control lives in the Agent tab.)</p>
+      <div id="voice-transcript" style="min-height:56px; padding:10px; border:1px solid var(--border-color); border-radius:var(--border-radius); white-space:pre-wrap; font-family:monospace;">—</div>
+    </div>
+
+    <div class="panel">
+      <h2>Speak (text-to-speech)</h2>
+      <div class="row">
+        <div>
+          <div class="name">Say something</div>
+          <div class="desc">Simple will speak this text aloud.</div>
+        </div>
+        <div class="actions">
+          <input type="text" id="voice-speak-text" placeholder="Hello from Simple" style="width:260px;" />
+          <button id="voice-speak" class="primary">Speak</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Audio devices</h2>
+      <div id="voice-devices"></div>
+    </div>
+  </section>
+  <section class="tab-panel" id="panel-perception">
+    <div class="panel">
+      <h2>Perception</h2>
+      <div class="row">
+        <div>
+          <div class="name" id="perception-status-name">Checking…</div>
+          <div class="desc" id="perception-status-desc">&nbsp;</div>
+        </div>
+        <div class="actions">
+          <button id="perception-refresh">Refresh</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Current view</h2>
+      <p class="desc">What Simple currently perceives — the foreground window, last-heard audio, gaze, and recent actions.</p>
+      <div id="perception-frame" style="min-height:48px; padding:10px; border:1px solid var(--border-color); border-radius:var(--border-radius); white-space:pre-wrap; font-family:monospace;">—</div>
+    </div>
+
+    <div class="panel">
+      <h2>Recent perception</h2>
+      <div id="perception-history"></div>
     </div>
   </section>
   <section class="tab-panel" id="panel-recorder">
@@ -523,6 +652,20 @@
       </div>
       <ul id="recordings-list" class="rs-list"></ul>
     </div>
+
+    <div class="panel">
+      <div class="row" style="border-bottom:none; padding-top:0;">
+        <div>
+          <h2 style="margin-bottom:2px;">🕘 Recent runs</h2>
+          <div class="rs-intro" style="margin-top:0;">The last skill runs on this machine — manual, hotkey, or trigger-fired — with pass/fail. Useful for confirming a scheduled trigger actually ran.</div>
+        </div>
+        <div class="actions">
+          <button id="runs-refresh">Refresh</button>
+          <button id="runs-clear" class="danger">Clear</button>
+        </div>
+      </div>
+      <ul id="runs-list" class="rs-list"></ul>
+    </div>
   </section>
   <section class="tab-panel" id="panel-workspace">
     <div class="panel">
@@ -549,6 +692,107 @@
     <div class="panel">
       <h2>Saved profiles</h2>
       <div id="workspace-list"></div>
+    </div>
+  </section>
+  <section class="tab-panel" id="panel-triggers">
+    <div class="panel">
+      <h2>New automation trigger</h2>
+      <p class="desc">Automatically start a goal on a schedule, when a file lands in a folder, or on a hotkey. Goals are created from the Agent tab or the web app.</p>
+
+      <div class="row">
+        <div>
+          <div class="name">When to fire</div>
+          <div class="desc">Pick the trigger kind, then fill in its details below.</div>
+        </div>
+        <div class="actions">
+          <select id="trg-kind">
+            <option value="cron">Schedule (cron)</option>
+            <option value="file">Folder watch</option>
+            <option value="hotkey">Hotkey</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row" id="trg-row-cron">
+        <div>
+          <div class="name">Cron expression</div>
+          <div class="desc">Five fields: minute hour day-of-month month day-of-week. "0 9 * * *" = every day at 9:00&nbsp;AM.</div>
+        </div>
+        <div class="actions">
+          <input type="text" id="trg-cron" placeholder="0 9 * * *" style="width:220px;" />
+        </div>
+      </div>
+
+      <div class="row" id="trg-row-file" style="display:none">
+        <div>
+          <div class="name">Folder + file pattern</div>
+          <div class="desc">Fire when a matching file is created or changed in this folder. Use * for "any file". Skills can read the file via ${param.file} / ${param.filename} / ${param.eventType}.</div>
+        </div>
+        <div class="actions">
+          <input type="text" id="trg-path" placeholder="C:\Users\you\Downloads" style="width:220px;" />
+          <input type="text" id="trg-glob" placeholder="*.pdf" style="width:90px;" />
+        </div>
+      </div>
+
+      <div class="row" id="trg-row-hotkey" style="display:none">
+        <div>
+          <div class="name">Global hotkey</div>
+          <div class="desc">e.g. CommandOrControl+Alt+1. Must include at least one non-shift modifier.</div>
+        </div>
+        <div class="actions">
+          <input type="text" id="trg-accelerator" placeholder="Ctrl+Alt+G" style="width:220px;" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <div class="name">Run what</div>
+          <div class="desc">A goal (agent-planned) or a recorded skill (macro). Skills run locally, even signed out.</div>
+        </div>
+        <div class="actions">
+          <select id="trg-target">
+            <option value="goal">Goal</option>
+            <option value="skill">Recorded skill</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row" id="trg-row-goal">
+        <div>
+          <div class="name">Goal</div>
+          <div class="desc">The goal that starts when this trigger fires.</div>
+        </div>
+        <div class="actions">
+          <select id="trg-goal-select" style="max-width:260px">
+            <option value="">— choose a goal —</option>
+          </select>
+          <input type="text" id="trg-goal-slug" placeholder="or type a goal slug" style="width:180px; display:none" />
+        </div>
+      </div>
+
+      <div class="row" id="trg-row-skill" style="display:none">
+        <div>
+          <div class="name">Recorded skill</div>
+          <div class="desc">The skill (macro) to run when this trigger fires.</div>
+        </div>
+        <div class="actions">
+          <select id="trg-skill-select" style="max-width:260px">
+            <option value="">— choose a skill —</option>
+          </select>
+          <input type="text" id="trg-skill-slug" placeholder="or type a skill slug" style="width:180px; display:none" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="actions">
+          <button id="trg-add" class="primary">Add trigger</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Active triggers</h2>
+      <div id="trg-list"></div>
     </div>
   </section>
   <section class="tab-panel" id="panel-permissions">
@@ -812,9 +1056,40 @@
     </div>
     <label class="meta muted">Steps (JSON)</label>
     <textarea class="steps" id="skill-modal-steps" rows="12" spellcheck="false"></textarea>
+    <div id="skill-modal-summary" class="skill-summary" style="display:none;"></div>
+    <div class="actions" style="margin-top:12px;">
+      <button id="skill-modal-review">What will this do?</button>
+      <button id="skill-modal-generalize">🤖 Make robust with AI</button>
+      <button id="skill-modal-edit">✏️ Modify with AI</button>
+    </div>
     <div class="actions" style="justify-content:flex-end; margin-top:12px;">
       <button id="skill-modal-cancel">Cancel</button>
       <button id="skill-modal-save" class="primary">Save skill</button>
+    </div>
+  </div>
+</div>
+
+<div id="run-params-modal" class="modal-backdrop" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3>Run with parameters</h3>
+    <p class="subtitle" id="run-params-source"></p>
+    <div class="param-grid" id="run-params-fields"></div>
+    <div class="actions" style="justify-content:flex-end; margin-top:12px;">
+      <button id="run-params-cancel">Cancel</button>
+      <button id="run-params-go" class="primary">Run</button>
+    </div>
+  </div>
+</div>
+
+<div id="parametrize-modal" class="modal-backdrop" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3>Parametrize a skill</h3>
+    <p class="subtitle" id="parametrize-source"></p>
+    <p class="subtitle" style="margin-top:6px;">Pick the matching demonstration of the same task. Simple diffs the two recordings and turns what varies (names, values, text) into <code>${param.…}</code> placeholders you fill in at run time.</p>
+    <div id="parametrize-list" style="margin-top:10px; max-height:300px; overflow:auto;"></div>
+    <div class="actions" style="justify-content:flex-end; margin-top:12px;">
+      <button id="parametrize-cancel">Cancel</button>
+      <button id="parametrize-go" class="primary" disabled>Parametrize</button>
     </div>
   </div>
 </div>
@@ -996,6 +1271,7 @@ async function refreshAgentStatus() {
       badge.textContent = '';
       badge.className = 'badge';
     }
+    renderAgentWorkers(s.workers || []);
   } catch (e) {
     console.error('Agent status check failed:', e);
   }
@@ -1066,6 +1342,7 @@ document.getElementById('agent-goal-from-clipboard').addEventListener('click', a
     if (json.ok) {
       alert(`Goal created: "${(json.text || '').slice(0, 80)}"\nStart the agent to work on it.`);
       await refreshAgentStatus();
+      await refreshAgentGoals();
     } else {
       alert(json.error || 'Failed to create goal from clipboard.');
     }
@@ -1075,6 +1352,178 @@ document.getElementById('agent-goal-from-clipboard').addEventListener('click', a
 });
 
 refreshAgentStatus();
+
+// ── Agent workers (multi-agent pool) ──
+// `/api/agent/status` returns up to MAX_CONCURRENT_AGENTS goal-bound workers;
+// surface them with a per-worker Stop so a customer can kill one without
+// stopping the whole pool.
+function renderAgentWorkers(workers) {
+  const container = document.getElementById('agent-workers');
+  container.innerHTML = '';
+  if (!Array.isArray(workers) || !workers.length) return;
+  for (const w of workers) {
+    container.appendChild(el('div', { class: 'row' },
+      el('div', {},
+        el('div', { class: 'name' }, `Worker: ${w.goalSlug || '(unknown)'}`),
+        el('div', { class: 'desc' }, w.running ? `step ${w.step ?? 0}` : 'finished'),
+      ),
+      el('div', { class: 'actions' },
+        el('button', { class: 'danger', onclick: () => stopWorker(w.goalSlug) }, 'Stop'),
+      ),
+    ));
+  }
+}
+
+async function stopWorker(goalSlug) {
+  try {
+    await api(`/api/agent/worker/${encodeURIComponent(goalSlug)}`, { method: 'DELETE' });
+    await refreshAgentStatus();
+  } catch (e) {
+    alert(`Stop worker failed: ${e.message}`);
+  }
+}
+
+// ── Agent live activity feed (SSE) ──
+// The web app's live panel needs a browser tab; this gives the same
+// "watch the agent work" signal natively in the dashboard via the existing
+// /api/agent/events stream, filtered to the meaningful agent-lifecycle types.
+const AGENT_FEED_MAX = 60;
+let agentFeedLines = []; // newest first: { ts, icon, text }
+let agentFeedEs = null;
+
+function agentFeedIcon(type) {
+  switch (type) {
+    case 'agent.step': return '🤖';
+    case 'agent.message': return '💬';
+    case 'agent.stopped': return '⏹';
+    case 'skill.run': return '▶';
+    case 'goal.created': return '🎯';
+    case 'approval.pending': return '🔒';
+    default: return '•';
+  }
+}
+
+function agentFeedText(ev) {
+  switch (ev.type) {
+    case 'agent.step': return `${ev.step ? `step ${ev.step}` : ''}${ev.goalSlug ? ` · ${ev.goalSlug}` : ''}`.trim();
+    case 'agent.message': return `${ev.role === 'user' ? 'You' : 'Agent'}: ${String(ev.content || '').slice(0, 160)}`;
+    case 'agent.stopped': return `${ev.goalSlug ? ev.goalSlug + ' ' : ''}stopped — ${ev.reason || 'done'}`;
+    case 'skill.run': return `${ev.slug} ${ev.failed ? 'failed' : 'done'}${ev.stepsRun != null ? ` (${ev.stepsRun} step${ev.stepsRun === 1 ? '' : 's'})` : ''}`;
+    case 'goal.created': return `goal created: ${ev.name || ev.slug || ''}`;
+    case 'approval.pending': return `approval needed: ${ev.toolName || ''}`;
+    default: return ev.type;
+  }
+}
+
+function renderAgentFeed() {
+  const container = document.getElementById('agent-feed');
+  container.innerHTML = '';
+  if (!agentFeedLines.length) {
+    container.appendChild(el('div', { class: 'empty' }, 'No activity yet. Start the agent, or run a skill.'));
+    return;
+  }
+  for (const line of agentFeedLines) {
+    container.appendChild(el('li', { class: 'rs-item' },
+      el('span', { class: 'rs-item-icon' }, line.icon),
+      el('div', { class: 'rs-item-main' },
+        el('div', { class: 'rs-item-meta' }, `${fmtClock(line.ts)} · ${line.text}`),
+      ),
+    ));
+  }
+}
+
+function pushAgentFeed(ev) {
+  agentFeedLines.unshift({ ts: ev.ts || Date.now(), icon: agentFeedIcon(ev.type), text: agentFeedText(ev) });
+  if (agentFeedLines.length > AGENT_FEED_MAX) agentFeedLines.length = AGENT_FEED_MAX;
+  renderAgentFeed();
+}
+
+function startAgentFeed() {
+  if (agentFeedEs) return;
+  const url = `${BASE}/api/agent/events?types=${encodeURIComponent('agent.step,agent.message,agent.stopped,skill.run,goal.created,approval.pending')}`;
+  const es = new EventSource(url);
+  agentFeedEs = es;
+  const onEvent = (e) => {
+    let ev; try { ev = JSON.parse(e.data); } catch { return; }
+    pushAgentFeed(ev);
+  };
+  es.addEventListener('agent.step', onEvent);
+  es.addEventListener('agent.message', onEvent);
+  es.addEventListener('agent.stopped', onEvent);
+  es.addEventListener('skill.run', onEvent);
+  es.addEventListener('goal.created', onEvent);
+  es.addEventListener('approval.pending', onEvent);
+  es.onerror = () => { /* EventSource auto-reconnects */ };
+}
+
+function clearAgentFeed() {
+  agentFeedLines = [];
+  renderAgentFeed();
+}
+
+document.getElementById('agent-feed-clear').addEventListener('click', clearAgentFeed);
+renderAgentFeed();
+startAgentFeed();
+
+// ── Agent goals (workspace, run-on-specific) ──
+// The web app's GoalManager owns full CRUD; this is the local-execution
+// complement — list the user's goals and start the agent on a SPECIFIC one
+// (the multi-agent pool runs it as a goal-bound worker), rather than only
+// ever "next active goal".
+function goalStatusCls(status) {
+  switch (status) {
+    case 'active': return 'ok';
+    case 'done': return 'cloud';
+    case 'failed': return 'fail';
+    case 'paused': return 'params';
+    default: return 'local'; // blocked, unknown, etc.
+  }
+}
+
+async function refreshAgentGoals() {
+  const container = document.getElementById('agent-goals-list');
+  container.innerHTML = '';
+  try {
+    const { goals } = await api('/api/agent/goals');
+    if (!goals.length) {
+      container.appendChild(el('div', { class: 'empty' }, 'No goals yet. Create one from the web app, or use "Create Goal from Clipboard" above.'));
+      return;
+    }
+    for (const g of goals) {
+      container.appendChild(itemCard({
+        icon: g.status === 'done' ? '✅' : '🎯',
+        name: g.name || g.slug,
+        badge: { label: g.status || 'active', cls: goalStatusCls(g.status) },
+        slugText: `/${g.slug}`,
+        metaText: g.status === 'active' ? 'Ready to run' : `Status: ${g.status}`,
+        actions: [
+          g.status === 'active'
+            ? el('button', { class: 'primary', onclick: () => runGoal(g.slug, g.name || g.slug) }, '▶ Run')
+            : null,
+        ],
+      }));
+    }
+  } catch (e) {
+    container.appendChild(el('div', { class: 'empty' }, `Couldn't load goals (${e.message}). Sign in on the web app to see them.`));
+  }
+}
+
+async function runGoal(slug, name) {
+  try {
+    const json = await api('/api/agent/start', { method: 'POST', body: JSON.stringify({ goalSlug: slug }) });
+    if (json.running) {
+      await refreshAgentStatus();
+      await refreshAgentGoals();
+    } else {
+      alert(json.reason || 'Could not start that goal.');
+    }
+  } catch (e) {
+    alert(`Run goal failed: ${e.message}`);
+  }
+}
+
+document.getElementById('agent-goals-refresh').addEventListener('click', refreshAgentGoals);
+refreshAgentGoals();
 
 // ── Recorder & Skills tab ──
 let recPollTimer = null;
@@ -1255,7 +1704,7 @@ document.getElementById('run-console-toggle').addEventListener('click', () => {
  * failures surface inline with an expandable debug panel + live console
  * instead, matching the web app's macro-run UX.
  */
-async function executeSkillRun(slug, label, cacheSkill) {
+async function executeSkillRun(slug, label, cacheSkill, params) {
   stopRunConsole();
   runConsoleLines = [];
   runConsoleOpen = false;
@@ -1273,7 +1722,7 @@ async function executeSkillRun(slug, label, cacheSkill) {
   }, 100);
 
   try {
-    const body = { slug, params: {}, runId };
+    const body = { slug, params: params || {}, runId };
     if (cacheSkill && cacheSkill.slug === slug) body.skill = cacheSkill;
     const out = await api('/api/skill/run', { method: 'POST', body: JSON.stringify(body) });
     if (out?.error) throw new Error(out.error);
@@ -1298,6 +1747,7 @@ async function executeSkillRun(slug, label, cacheSkill) {
     runInfo = { label, phase: 'failed', startedAt, elapsedMs: Date.now() - startedAt, error: e.message };
   }
   renderRunBanner();
+  refreshRunsList();
 }
 
 // ── Natural language macro compiler ──
@@ -1449,6 +1899,9 @@ function renderRecordingsList() {
       actions: [
         el('button', { class: 'primary', onclick: () => runRecording(r.sessionId) }, '▶ Run'),
         el('button', { onclick: () => openReviewModal(r.sessionId) }, 'Edit'),
+        ...(recordingsData.length >= 2
+          ? [el('button', { onclick: () => openParametrizeModal(r.sessionId) }, 'Parametrize')]
+          : []),
         el('button', { onclick: () => duplicateRecording(r.sessionId) }, 'Duplicate'),
         el('button', { onclick: () => renameRecording(r.sessionId) }, 'Rename'),
         el('button', { class: 'danger', onclick: () => deleteRecording(r.sessionId) }, 'Delete'),
@@ -1558,6 +2011,9 @@ function openSkillModal({ mode, skill, sourceLabel }) {
   document.getElementById('skill-modal-slug').value = skill.slug || '';
   document.getElementById('skill-modal-desc').value = skill.description || '';
   document.getElementById('skill-modal-steps').value = JSON.stringify(skill.steps || [], null, 2);
+  const summaryEl = document.getElementById('skill-modal-summary');
+  summaryEl.style.display = 'none';
+  summaryEl.innerHTML = '';
   document.getElementById('skill-modal').classList.add('open');
 }
 
@@ -1596,6 +2052,138 @@ async function saveSkillModal() {
     await refreshSkillsList();
   } catch (e) {
     alert(`Save failed: ${e.message}`);
+  }
+}
+
+// ── Skill modal: capability review + AI generalization ──
+// "What will this do?" surfaces the pre-run capability summary (local, free,
+// deterministic — capability-summary.js). "Make robust with AI" re-derives a
+// literal recording into UI-level steps via the backend LLM (Bedrock, same
+// path as the NL compiler — needs a signed-in user). Both operate on whatever
+// is currently in the editor, so the user reviews the result before saving.
+function readModalSkill() {
+  const name = document.getElementById('skill-modal-name').value.trim();
+  const slug = document.getElementById('skill-modal-slug').value.trim();
+  const description = document.getElementById('skill-modal-desc').value.trim();
+  let steps;
+  try {
+    steps = JSON.parse(document.getElementById('skill-modal-steps').value || '[]');
+  } catch (e) {
+    return null;
+  }
+  if (!Array.isArray(steps)) return null;
+  return { ...(skillModalSource || {}), slug: slug || skillModalSource?.slug || '', name, description, steps };
+}
+
+async function showCapabilities() {
+  const skill = readModalSkill();
+  if (!skill) return alert('Steps JSON is invalid — fix it before reviewing.');
+  const box = document.getElementById('skill-modal-summary');
+  box.style.display = 'block';
+  box.innerHTML = '';
+  if (!skill.steps.length) {
+    box.appendChild(el('div', { class: 'cap-err' }, 'This skill has no steps to review yet.'));
+    return;
+  }
+  const btn = document.getElementById('skill-modal-review');
+  btn.disabled = true;
+  btn.textContent = '⏳ Analyzing…';
+  try {
+    const res = await api('/api/skill/capabilities', { method: 'POST', body: JSON.stringify({ skill }) });
+    const actions = res.summary || [];
+    const cats = res.actualCategories || [];
+    const mismatches = res.mismatches || [];
+    box.appendChild(el('h4', {}, 'What this skill will do'));
+    if (actions.length) {
+      const ul = el('ul');
+      for (const a of actions) ul.appendChild(el('li', {}, a));
+      box.appendChild(ul);
+    }
+    if (cats.length) {
+      box.appendChild(el('div', {}, ...cats.map(c => el('span', { class: `cap-badge ${c}` }, c))));
+    }
+    for (const m of mismatches) {
+      box.appendChild(el('div', { class: 'cap-warn' },
+        `⚠ This skill claims only "${m.category}"-class steps, but a step actually runs "${m.tool}".`));
+    }
+  } catch (e) {
+    box.appendChild(el('div', { class: 'cap-err' }, `Couldn't analyze: ${e.message}`));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'What will this do?';
+  }
+}
+
+async function generalizeInModal() {
+  const skill = readModalSkill();
+  if (!skill) return alert('Steps JSON is invalid — fix it before generalizing.');
+  const box = document.getElementById('skill-modal-summary');
+  box.style.display = 'block';
+  box.innerHTML = '';
+  if (!skill.steps.length) {
+    box.appendChild(el('div', { class: 'cap-err' }, 'Nothing to generalize — record or create steps first.'));
+    return;
+  }
+  const btn = document.getElementById('skill-modal-generalize');
+  btn.disabled = true;
+  btn.textContent = '⏳ Rewriting…';
+  try {
+    const { skill: generalized } = await api('/api/skill/generalize', {
+      method: 'POST',
+      body: JSON.stringify({ skill, goalDescription: skill.description || '' }),
+    });
+    const meta = generalized.metadata || {};
+    skillModalSource = generalized;
+    document.getElementById('skill-modal-steps').value = JSON.stringify(generalized.steps || [], null, 2);
+    if (!document.getElementById('skill-modal-name').value.trim()) {
+      document.getElementById('skill-modal-name').value = generalized.name || skill.name || '';
+    }
+    if (meta.generalized) {
+      box.appendChild(el('div', { class: 'cap-note' },
+        `✅ Rewritten into ${generalized.steps.length} robust steps${meta.fromCache ? ' (cached)' : ''} from ${meta.literalStepCount || skill.steps.length} literal steps. Review the steps, then Save.`));
+    } else {
+      box.appendChild(el('div', { class: 'cap-warn' },
+        `⚠ Couldn't generalize (${meta.generalizeError || 'no changes'}) — the original steps are kept unchanged.`));
+    }
+  } catch (e) {
+    box.appendChild(el('div', { class: 'cap-err' }, `Generalize failed: ${e.message}`));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🤖 Make robust with AI';
+  }
+}
+
+async function editNaturalInModal() {
+  const skill = readModalSkill();
+  if (!skill) return alert('Steps JSON is invalid — fix it before modifying.');
+  const box = document.getElementById('skill-modal-summary');
+  box.style.display = 'block';
+  box.innerHTML = '';
+  if (!skill.steps.length) {
+    box.appendChild(el('div', { class: 'cap-err' }, 'Nothing to modify — record or create steps first.'));
+    return;
+  }
+  const instruction = prompt('Describe the change in plain English:', '');
+  if (!instruction || !instruction.trim()) return;
+  const btn = document.getElementById('skill-modal-edit');
+  btn.disabled = true;
+  btn.textContent = '⏳ Editing…';
+  try {
+    const res = await api('/api/skill/edit-natural', {
+      method: 'POST',
+      body: JSON.stringify({ steps: skill.steps, instruction: instruction.trim() }),
+    });
+    const steps = res.steps;
+    if (!Array.isArray(steps)) throw new Error('No modified steps returned');
+    document.getElementById('skill-modal-steps').value = JSON.stringify(steps, null, 2);
+    const prev = (res.meta && res.meta.previousStepCount) || skill.steps.length;
+    box.appendChild(el('div', { class: 'cap-note' },
+      `✅ Modified: ${steps.length} step${steps.length === 1 ? '' : 's'} (was ${prev}). Review the steps, then Save.`));
+  } catch (e) {
+    box.appendChild(el('div', { class: 'cap-err' }, `Modify failed: ${e.message}`));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✏️ Modify with AI';
   }
 }
 
@@ -1641,12 +2229,17 @@ function renderSkillsList() {
   for (const { item, skill } of rows) {
     const name = skill?.name || item.name || item.slug;
     const stepCount = skill?.steps?.length || 0;
+    const paramCount = Array.isArray(skill?.params) ? skill.params.length : 0;
     container.appendChild(itemCard({
       icon: '🧩',
       name,
       badge: { label: 'Cloud', cls: 'cloud' },
       slugText: `/${item.slug}`,
-      metaText: `${stepCount} step${stepCount === 1 ? '' : 's'}${skill ? '' : ' · content unavailable'}`,
+      metaText: [
+        `${stepCount} step${stepCount === 1 ? '' : 's'}`,
+        paramCount ? `${paramCount} param${paramCount === 1 ? '' : 's'}` : '',
+        skill ? '' : 'content unavailable',
+      ].filter(Boolean).join(' · '),
       actions: [
         el('button', { class: 'primary', onclick: () => runSkillBySlug(item.slug, name, skill) }, '▶ Run'),
         el('button', { onclick: () => openEditSkillModal(item, skill) }, 'Edit'),
@@ -1659,7 +2252,126 @@ function renderSkillsList() {
 }
 
 async function runSkillBySlug(slug, label, cacheSkill) {
-  await executeSkillRun(slug, label || slug, cacheSkill || null);
+  const skill = cacheSkill || null;
+  const paramList = Array.isArray(skill?.params) && skill.params.length ? skill.params : [];
+  if (paramList.length) {
+    openRunParamsModal(slug, label || slug, skill, paramList);
+  } else {
+    await executeSkillRun(slug, label || slug, skill);
+  }
+}
+
+// ── Run-with-parameters ──
+// A skill with `${param.x}` placeholders (from the "Parametrize" flow below,
+// or authored by hand) needs concrete values before it can run. This modal
+// collects one input per declared param and passes them to /api/skill/run.
+let runParamsContext = null; // { slug, label, skill, params }
+
+function openRunParamsModal(slug, label, skill, params) {
+  runParamsContext = { slug, label, skill, params };
+  document.getElementById('run-params-source').textContent =
+    `"${label}" expects ${params.length} parameter${params.length === 1 ? '' : 's'}:`;
+  const fields = document.getElementById('run-params-fields');
+  fields.innerHTML = '';
+  for (const p of params) {
+    const name = String((p && p.name) || p).trim();
+    const input = el('input', { type: 'text', 'data-param': name, placeholder: name });
+    fields.appendChild(el('div', { class: 'param-field' },
+      el('label', {}, name + (p && p.description ? ` — ${p.description}` : '')),
+      input,
+    ));
+  }
+  document.getElementById('run-params-modal').classList.add('open');
+  const first = fields.querySelector('input');
+  if (first) first.focus();
+}
+
+function closeRunParamsModal() {
+  document.getElementById('run-params-modal').classList.remove('open');
+  runParamsContext = null;
+}
+
+function submitRunParams() {
+  if (!runParamsContext) return;
+  const values = {};
+  const inputs = document.getElementById('run-params-fields').querySelectorAll('input');
+  for (const input of inputs) values[input.getAttribute('data-param')] = input.value.trim();
+  const { slug, label, skill } = runParamsContext;
+  closeRunParamsModal();
+  executeSkillRun(slug, label, skill, values);
+}
+
+// ── Parametrize (demonstrate again) ──
+// Diffs two recordings of the same task and promotes what varies into
+// `${param.x}` placeholders via /api/skill/infer-params. The result opens in
+// the shared review modal so the user can inspect and save it.
+let parametrizeSourceId = null;
+let parametrizeChoice = null;
+
+function openParametrizeModal(sourceId) {
+  if (!Array.isArray(recordingsData) || recordingsData.length < 2) {
+    alert('Parametrize needs at least two recordings of the same task. Record the task twice, then try again.');
+    return;
+  }
+  parametrizeSourceId = sourceId;
+  parametrizeChoice = null;
+  document.getElementById('parametrize-source').textContent =
+    `Diffing "${sourceId}" against another recording of the same task.`;
+  const listEl = document.getElementById('parametrize-list');
+  listEl.innerHTML = '';
+  const others = recordingsData.filter(r => r.sessionId !== sourceId);
+  for (const r of others) {
+    listEl.appendChild(el('label', { class: 'rs-item', style: 'cursor:pointer;', onclick: () => selectParametrizeChoice(r.sessionId) },
+      el('input', { type: 'radio', name: 'parametrize-choice', value: r.sessionId }),
+      el('div', { class: 'rs-item-main' },
+        el('div', { class: 'rs-item-name' }, r.sessionId),
+        el('div', { class: 'rs-item-meta' }, `${(r.bytes / 1024).toFixed(1)} KB · ${new Date(r.modifiedAt).toLocaleString()}`),
+      ),
+    ));
+  }
+  document.getElementById('parametrize-go').disabled = true;
+  document.getElementById('parametrize-modal').classList.add('open');
+}
+
+function selectParametrizeChoice(id) {
+  parametrizeChoice = id;
+  document.getElementById('parametrize-go').disabled = false;
+}
+
+function closeParametrizeModal() {
+  document.getElementById('parametrize-modal').classList.remove('open');
+  parametrizeSourceId = null;
+  parametrizeChoice = null;
+}
+
+async function submitParametrize() {
+  if (!parametrizeSourceId || !parametrizeChoice) return;
+  const goBtn = document.getElementById('parametrize-go');
+  goBtn.disabled = true;
+  goBtn.textContent = '⏳ Diffing…';
+  try {
+    const { skill, report } = await api('/api/skill/infer-params', {
+      method: 'POST',
+      body: JSON.stringify({ sessionIds: [parametrizeSourceId, parametrizeChoice] }),
+    });
+    const params = Array.isArray(skill && skill.params) ? skill.params : [];
+    const skipped = ((report && report.findings) || []).filter(f => f.skipped).length;
+    let label = `From "${parametrizeSourceId}" + "${parametrizeChoice}" · ${(skill && skill.steps && skill.steps.length) || 0} steps`;
+    if (params.length) {
+      label += ` · ${params.length} inferred param${params.length === 1 ? '' : 's'}: ${params.map(p => p.name || p).join(', ')}`;
+    } else if (skipped) {
+      label += ` · no params inferred (${skipped} step${skipped === 1 ? '' : 's'} differed)`;
+    } else {
+      label += ' · no varying values found';
+    }
+    closeParametrizeModal();
+    openSkillModal({ mode: 'review', skill, sourceLabel: label });
+  } catch (e) {
+    alert(`Parametrize failed: ${e.message}`);
+  } finally {
+    goBtn.disabled = false;
+    goBtn.textContent = 'Parametrize';
+  }
 }
 
 async function deleteSkill(slug) {
@@ -1734,14 +2446,67 @@ document.getElementById('rec-marker').addEventListener('click', async () => {
 });
 document.getElementById('skill-modal-cancel').addEventListener('click', closeSkillModal);
 document.getElementById('skill-modal-save').addEventListener('click', saveSkillModal);
+document.getElementById('skill-modal-review').addEventListener('click', showCapabilities);
+document.getElementById('skill-modal-generalize').addEventListener('click', generalizeInModal);
+document.getElementById('skill-modal-edit').addEventListener('click', editNaturalInModal);
+document.getElementById('run-params-cancel').addEventListener('click', closeRunParamsModal);
+document.getElementById('run-params-go').addEventListener('click', submitRunParams);
+document.getElementById('parametrize-cancel').addEventListener('click', closeParametrizeModal);
+document.getElementById('parametrize-go').addEventListener('click', submitParametrize);
 document.getElementById('skills-refresh').addEventListener('click', refreshSkillsList);
 document.getElementById('skills-new').addEventListener('click', openNewSkillModal);
 document.getElementById('skills-search').addEventListener('input', renderSkillsList);
 document.getElementById('recordings-search').addEventListener('input', renderRecordingsList);
+document.getElementById('runs-refresh').addEventListener('click', refreshRunsList);
+document.getElementById('runs-clear').addEventListener('click', clearRuns);
+
+// ── Recent runs (local run history) ──
+// Durable on-device log of the last N skill runs (manual, hotkey, or
+// trigger-fired). Complements the live run console, which only covers a run
+// while it's in flight — this is how a customer checks that a scheduled
+// trigger actually fired and succeeded.
+async function refreshRunsList() {
+  const container = document.getElementById('runs-list');
+  container.innerHTML = '';
+  try {
+    const { runs } = await api('/api/skill/runs?limit=50');
+    if (!runs.length) {
+      container.appendChild(el('div', { class: 'empty' }, 'No runs recorded yet. Run a skill (or let a trigger fire one) and it will show up here.'));
+      return;
+    }
+    for (const r of runs) {
+      const when = new Date(r.startedAt).toLocaleString();
+      const dur = Number.isFinite(r.durationMs) ? formatDuration(r.durationMs) : '';
+      const steps = r.stepsRun != null ? `${r.stepsRun}${r.stepsTotal != null ? `/${r.stepsTotal}` : ''} step${r.stepsRun === 1 ? '' : 's'}` : '';
+      const metaParts = [when, dur, steps].filter(Boolean).join(' · ');
+      container.appendChild(itemCard({
+        icon: r.failed ? '❌' : '✅',
+        name: r.slug,
+        badge: r.failed ? { label: 'Failed', cls: 'fail' } : { label: 'Done', cls: 'ok' },
+        slugText: r.source === 'trigger' ? `trigger ${r.triggerId || ''}` : r.source,
+        metaText: r.error ? `${metaParts} · ${r.error}` : metaParts,
+        actions: [],
+      }));
+    }
+  } catch (e) {
+    container.appendChild(el('div', { class: 'empty' }, `Failed to load runs: ${e.message}`));
+  }
+}
+
+async function clearRuns() {
+  if (!confirm('Clear the local run history?')) return;
+  try {
+    await api('/api/skill/runs', { method: 'DELETE' });
+    await refreshRunsList();
+  } catch (e) {
+    alert(`Clear failed: ${e.message}`);
+  }
+}
 
 refreshRecorderStatus();
 refreshRecordingsList();
 refreshSkillsList();
+refreshRunsList();
 
 // ── Workspace Profiles tab ──
 async function refreshWorkspaceList() {
@@ -1825,6 +2590,363 @@ document.getElementById('workspace-save-new').addEventListener('click', async ()
 });
 
 refreshWorkspaceList();
+
+// ── Triggers tab ──
+const TRIGGER_KIND_ROWS = { cron: 'trg-row-cron', file: 'trg-row-file', hotkey: 'trg-row-hotkey' };
+
+function trgShowKindFields() {
+  const kind = document.getElementById('trg-kind').value;
+  for (const [k, id] of Object.entries(TRIGGER_KIND_ROWS)) {
+    document.getElementById(id).style.display = (k === kind) ? '' : 'none';
+  }
+}
+document.getElementById('trg-kind').addEventListener('change', trgShowKindFields);
+
+function trgShowTarget() {
+  const target = document.getElementById('trg-target').value;
+  document.getElementById('trg-row-goal').style.display = (target === 'goal') ? '' : 'none';
+  document.getElementById('trg-row-skill').style.display = (target === 'skill') ? '' : 'none';
+}
+
+document.getElementById('trg-target').addEventListener('change', trgShowTarget);
+
+document.getElementById('trg-goal-select').addEventListener('change', (e) => {
+  document.getElementById('trg-goal-slug').style.display = (e.target.value === '__manual__') ? '' : 'none';
+});
+
+document.getElementById('trg-skill-select').addEventListener('change', (e) => {
+  document.getElementById('trg-skill-slug').style.display = (e.target.value === '__manual__') ? '' : 'none';
+});
+
+async function refreshTriggerGoals() {
+  const select = document.getElementById('trg-goal-select');
+  const prev = select.value;
+  select.innerHTML = '';
+  select.appendChild(el('option', { value: '' }, '— choose a goal —'));
+  try {
+    const { goals } = await api('/api/agent/goals');
+    for (const g of goals || []) {
+      const label = g.status && g.status !== 'active' ? `${g.name} (${g.status})` : g.name;
+      select.appendChild(el('option', { value: g.slug }, label));
+    }
+    select.appendChild(el('option', { value: '__manual__' }, '— type a slug manually —'));
+    if ([...select.options].some(o => o.value === prev)) select.value = prev;
+  } catch (e) {
+    select.appendChild(el('option', { value: '' }, 'Sign in on the web app to list goals'));
+    select.appendChild(el('option', { value: '__manual__' }, '— type a slug manually —'));
+  }
+}
+
+async function refreshTriggerSkills() {
+  const select = document.getElementById('trg-skill-select');
+  const prev = select.value;
+  select.innerHTML = '';
+  select.appendChild(el('option', { value: '' }, '— choose a skill —'));
+  try {
+    const data = await api('/api/skill');
+    const skills = data.skills || [];
+    for (const s of skills) {
+      const slug = s.item?.slug || s.skill?.slug;
+      if (!slug) continue;
+      const name = s.skill?.name || s.item?.name || slug;
+      select.appendChild(el('option', { value: slug }, name));
+    }
+    select.appendChild(el('option', { value: '__manual__' }, '— type a slug manually —'));
+    if ([...select.options].some(o => o.value === prev)) select.value = prev;
+  } catch (e) {
+    select.appendChild(el('option', { value: '' }, 'No skills found'));
+    select.appendChild(el('option', { value: '__manual__' }, '— type a slug manually —'));
+  }
+}
+
+function trgKindLabel(t) {
+  switch (t.kind) {
+    case 'cron': return `Schedule: ${t.cron || ''}`;
+    case 'file': return `Folder: ${t.path || ''}${t.glob ? ` (${t.glob})` : ''}`;
+    case 'hotkey': return `Hotkey: ${t.accelerator || ''}`;
+    default: return t.kind;
+  }
+}
+
+async function refreshTriggersList() {
+  const container = document.getElementById('trg-list');
+  container.innerHTML = '';
+  try {
+    const { triggers } = await api('/api/triggers');
+    if (!triggers.length) {
+      container.appendChild(el('div', { class: 'empty' }, 'No triggers yet. Add one above to automate a goal.'));
+      return;
+    }
+    for (const t of triggers) {
+      const row = el('div', { class: 'row' },
+        el('div', {},
+          el('div', { class: 'name' }, t.skillSlug || t.goalSlug),
+          el('div', { class: 'desc' }, `${t.skillSlug ? 'Skill · ' : 'Goal · '}${trgKindLabel(t)}`),
+        ),
+        el('div', { class: 'actions' },
+          el('button', { onclick: () => toggleTrigger(t) }, t.enabled ? 'Disable' : 'Enable'),
+          el('button', { class: 'danger', onclick: () => deleteTrigger(t) }, 'Delete'),
+        ),
+      );
+      container.appendChild(row);
+    }
+  } catch (e) {
+    container.appendChild(el('div', { class: 'empty' }, `Failed: ${e.message}`));
+  }
+}
+
+async function toggleTrigger(t) {
+  try {
+    await api(`/api/triggers/${encodeURIComponent(t.id)}`, { method: 'PUT', body: JSON.stringify({ enabled: !t.enabled }) });
+    await refreshTriggersList();
+  } catch (e) {
+    alert(`Update failed: ${e.message}`);
+  }
+}
+
+async function deleteTrigger(t) {
+  if (!confirm(`Delete trigger for "${t.skillSlug || t.goalSlug}"?`)) return;
+  try {
+    await api(`/api/triggers/${encodeURIComponent(t.id)}`, { method: 'DELETE' });
+    await refreshTriggersList();
+  } catch (e) {
+    alert(`Delete failed: ${e.message}`);
+  }
+}
+
+document.getElementById('trg-add').addEventListener('click', async () => {
+  const kind = document.getElementById('trg-kind').value;
+  const target = document.getElementById('trg-target').value;
+  const payload = { kind };
+  if (target === 'skill') {
+    const select = document.getElementById('trg-skill-select');
+    const manual = document.getElementById('trg-skill-slug');
+    payload.skillSlug = select.value === '__manual__' ? manual.value.trim() : select.value;
+    if (!payload.skillSlug) return alert('Choose a skill (or type a slug) first.');
+  } else {
+    const select = document.getElementById('trg-goal-select');
+    const manual = document.getElementById('trg-goal-slug');
+    payload.goalSlug = select.value === '__manual__' ? manual.value.trim() : select.value;
+    if (!payload.goalSlug) return alert('Choose a goal (or type a slug) first.');
+  }
+  if (kind === 'cron') {
+    payload.cron = document.getElementById('trg-cron').value.trim();
+    if (!payload.cron) return alert('Enter a cron expression (e.g. 0 9 * * *).');
+  } else if (kind === 'file') {
+    payload.path = document.getElementById('trg-path').value.trim();
+    payload.glob = document.getElementById('trg-glob').value.trim() || '*';
+    if (!payload.path) return alert('Enter a folder path to watch.');
+  } else if (kind === 'hotkey') {
+    payload.accelerator = document.getElementById('trg-accelerator').value.trim();
+    if (!payload.accelerator) return alert('Enter a hotkey (e.g. Ctrl+Alt+G).');
+  }
+  try {
+    await api('/api/triggers', { method: 'POST', body: JSON.stringify(payload) });
+    document.getElementById('trg-cron').value = '';
+    document.getElementById('trg-path').value = '';
+    document.getElementById('trg-glob').value = '';
+    document.getElementById('trg-accelerator').value = '';
+    document.getElementById('trg-goal-slug').value = '';
+    document.getElementById('trg-skill-slug').value = '';
+    await refreshTriggersList();
+  } catch (e) {
+    alert(`Add failed: ${e.message}`);
+  }
+});
+
+refreshTriggerGoals();
+refreshTriggerSkills();
+refreshTriggersList();
+
+// ── Voice tab ──
+async function refreshVoiceStatus() {
+  try {
+    const s = await api('/api/voice/status');
+    const nameEl = document.getElementById('voice-status-name');
+    const descEl = document.getElementById('voice-status-desc');
+    const active = !!(s.listening || s.wakewordLoop);
+    nameEl.textContent = active ? 'Active' : 'Idle';
+    const parts = [];
+    if (s.listening) parts.push('listening');
+    if (s.wakewordLoop) parts.push('wakeword active');
+    if (s.model) parts.push(`model: ${s.model}`);
+    if (s.device != null && s.device !== '') parts.push(`device: ${s.device}`);
+    descEl.textContent = parts.length ? parts.join(' · ') : 'Not listening';
+    renderVoiceDevices(s.devices || []);
+  } catch (e) {
+    document.getElementById('voice-status-desc').textContent = `Failed: ${e.message}`;
+  }
+}
+
+function renderVoiceDevices(devices) {
+  const container = document.getElementById('voice-devices');
+  container.innerHTML = '';
+  if (!devices || !devices.length) {
+    container.appendChild(el('div', { class: 'empty' }, 'No audio devices reported yet.'));
+    return;
+  }
+  for (const d of devices) {
+    const name = d.name || d.label || d.device || `Device ${d.index ?? ''}`;
+    const meta = [d.kind, Number.isFinite(d.channels) ? `${d.channels} ch` : ''].filter(Boolean).join(' · ');
+    container.appendChild(el('div', { class: 'row' },
+      el('div', {},
+        el('div', { class: 'name' }, String(name)),
+        el('div', { class: 'desc' }, meta || ' '),
+      ),
+    ));
+  }
+}
+
+document.getElementById('voice-listen').addEventListener('click', async () => {
+  const btn = document.getElementById('voice-listen');
+  const box = document.getElementById('voice-transcript');
+  btn.disabled = true;
+  box.textContent = 'Listening… speak now.';
+  try {
+    const result = await api('/api/voice/listen', { method: 'POST', body: JSON.stringify({ maxSeconds: 10 }) });
+    box.textContent = (result && (result.text || result.transcript)) || '(no speech detected)';
+  } catch (e) {
+    box.textContent = `Listen failed: ${e.message}`;
+  } finally {
+    btn.disabled = false;
+    refreshVoiceStatus();
+  }
+});
+
+document.getElementById('voice-stop').addEventListener('click', async () => {
+  try { await api('/api/voice/stop', { method: 'POST', body: '{}' }); } catch {}
+  refreshVoiceStatus();
+});
+
+document.getElementById('voice-speak').addEventListener('click', async () => {
+  const input = document.getElementById('voice-speak-text');
+  const text = input.value.trim();
+  if (!text) return alert('Enter something to say first.');
+  try {
+    await api('/api/voice/speak', { method: 'POST', body: JSON.stringify({ text }) });
+  } catch (e) {
+    alert(`Speak failed: ${e.message}`);
+  }
+});
+
+refreshVoiceStatus();
+
+// ── Perception tab ──
+async function refreshPerception() {
+  await Promise.allSettled([refreshPerceptionStatus(), refreshPerceptionFrame(), refreshPerceptionHistory()]);
+}
+
+async function refreshPerceptionStatus() {
+  try {
+    const s = await api('/api/perception/status');
+    const nameEl = document.getElementById('perception-status-name');
+    const descEl = document.getElementById('perception-status-desc');
+    nameEl.textContent = s.running ? 'Running' : 'Idle';
+    const sensors = [];
+    if (s.hasWindow) sensors.push('window');
+    if (s.hasScreen) sensors.push('screen');
+    if (s.hasAudio) sensors.push('audio');
+    if (s.hasGaze) sensors.push('gaze');
+    const age = Number.isFinite(s.latestFrameAge) ? `${Math.round(s.latestFrameAge / 1000)}s ago` : 'no frames yet';
+    descEl.textContent = `Sensors: ${sensors.length ? sensors.join(', ') : 'none'} · last frame ${age}`;
+  } catch (e) {
+    document.getElementById('perception-status-desc').textContent = `Failed: ${e.message}`;
+  }
+}
+
+async function refreshPerceptionFrame() {
+  const box = document.getElementById('perception-frame');
+  try {
+    const { frame, context } = await api('/api/perception/frame');
+    if (!frame) { box.textContent = '(no perception data yet)'; return; }
+    box.textContent = context || '(no meaningful data)';
+  } catch (e) {
+    box.textContent = `Failed: ${e.message}`;
+  }
+}
+
+async function refreshPerceptionHistory() {
+  const container = document.getElementById('perception-history');
+  container.innerHTML = '';
+  try {
+    const { history } = await api('/api/perception/history');
+    if (!history || !history.length) {
+      container.appendChild(el('div', { class: 'empty' }, 'No perception frames yet.'));
+      return;
+    }
+    for (const f of history) {
+      const when = f.ts ? new Date(f.ts).toLocaleTimeString() : (f.seq ? `seq ${f.seq}` : '');
+      const bits = [];
+      if (f.window?.title) bits.push(f.window.title);
+      if (f.audio?.transcript) bits.push(`heard: "${f.audio.transcript}"`);
+      if (f.gaze) bits.push(`gaze (${Math.round(f.gaze.x)},${Math.round(f.gaze.y)})`);
+      if (f.recentActions?.length) bits.push(f.recentActions.slice(-3).join(' → '));
+      container.appendChild(el('div', { class: 'row' },
+        el('div', {},
+          el('div', { class: 'name' }, when),
+          el('div', { class: 'desc' }, bits.join(' · ') || '—'),
+        ),
+      ));
+    }
+  } catch (e) {
+    container.appendChild(el('div', { class: 'empty' }, `Failed: ${e.message}`));
+  }
+}
+
+document.getElementById('perception-refresh').addEventListener('click', refreshPerception);
+
+refreshPerception();
+setInterval(refreshPerception, 5000);
+
+// ── Agent suggestions (pattern learner) ──
+async function refreshAgentSuggestions(force) {
+  const container = document.getElementById('agent-suggestions');
+  container.innerHTML = '';
+  try {
+    const data = await api(`/api/agent/suggestions${force ? '?force=true' : ''}`);
+    const suggestions = data.suggestions || [];
+    if (!suggestions.length) {
+      container.appendChild(el('div', { class: 'empty' }, 'No repeated patterns found yet. Use Simple for a while (and sign in on the web app), then check again.'));
+      return;
+    }
+    for (const s of suggestions) {
+      const meta = [];
+      if (Number.isFinite(s.repeatCount)) meta.push(`repeated ${s.repeatCount}×`);
+      if (Number.isFinite(s.confidence)) meta.push(`${Math.round(s.confidence * 100)}% confidence`);
+      if (Array.isArray(s.tools) && s.tools.length) meta.push(s.tools.join(' → '));
+      container.appendChild(el('div', { class: 'row' },
+        el('div', {},
+          el('div', { class: 'name' }, s.title),
+          el('div', { class: 'desc' }, s.description || 'Repeated task detected.'),
+          el('div', { class: 'desc' }, meta.join(' · ')),
+        ),
+        el('div', { class: 'actions' },
+          el('button', { class: 'primary', onclick: () => acceptSuggestion(s) }, 'Accept'),
+        ),
+      ));
+    }
+  } catch (e) {
+    container.appendChild(el('div', { class: 'empty' }, `Failed: ${e.message}`));
+  }
+}
+
+async function acceptSuggestion(s) {
+  if (!confirm(`Create a goal from "${s.title}"? The agent can then pick it up from the Agent tab.`)) return;
+  try {
+    const result = await api('/api/agent/suggestions/accept', {
+      method: 'POST',
+      body: JSON.stringify({ id: s.id, title: s.title, description: s.description, tools: s.tools }),
+    });
+    alert(`Goal "${result.name}" created. Start the agent on the Agent tab to run it.`);
+    await refreshAgentSuggestions(true);
+  } catch (e) {
+    alert(`Accept failed: ${e.message}`);
+  }
+}
+
+document.getElementById('agent-suggest-refresh').addEventListener('click', () => refreshAgentSuggestions(true));
+
+refreshAgentSuggestions(false);
 
 // ── Permissions tab ──
 // Uses the addon's automation-specific permission endpoints directly
