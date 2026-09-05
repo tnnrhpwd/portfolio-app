@@ -321,16 +321,22 @@ ipcMain.handle('dashboard:set-notification-settings', (_event, settings) => {
 
 // ── Eye Tracking (dashboard tab) ──
 ipcMain.handle('dashboard:get-eye-tracking-status', () => {
+  const mgr = server?.eyeTrackingManager?.getStatus?.() || {};
   return {
-    state: trayManager?.eyeTrackingState || 'idle',
+    state: mgr.state || trayManager?.eyeTrackingState || 'idle',
     overlayActive: !!trayManager?.eyeOverlayActive,
+    hasCalibration: !!mgr.hasCalibration,
+    lastError: mgr.lastError || null,
+    elapsed: mgr.elapsed || 0,
+    duration: mgr.duration || 0,
+    cameraIndex: mgr.cameraIndex ?? 0,
   };
 });
 
 ipcMain.handle('dashboard:toggle-eye-tracking', async (_event, enabled) => {
   if (!server?.eyeTrackingManager) return { ok: false, error: 'Server is not ready yet.' };
   if (enabled) {
-    const result = await server.eyeTrackingManager.start().catch((e) => ({ success: false, error: e.message }));
+    const result = await server.eyeTrackingManager.start({ cameraIndex: resolveCalibrationCameraIndex() }).catch((e) => ({ success: false, error: e.message }));
     if (!result?.success) return { ok: false, error: result?.error || 'Failed to start tracking.' };
   } else {
     await server.eyeTrackingManager.stop().catch(() => {});
@@ -1078,32 +1084,33 @@ function _startOverlayAutoTrain() {
   }, POLL_MS);
 }
 
+/**
+ * Resolve which camera tracking should use. Iris geometry, FOV, and lens
+ * distortion differ between webcams, so the saved gaze model is only valid for
+ * the camera it was trained on — read that from the calibration file, falling
+ * back to camera 0. Callers may still override it explicitly.
+ */
+function resolveCalibrationCameraIndex() {
+  try {
+    const calFile = path.join(getResourcesPath(), 'eye-calibration.json');
+    if (fs.existsSync(calFile)) {
+      const cal = JSON.parse(fs.readFileSync(calFile, 'utf-8'));
+      if (typeof cal.cameraIndex === 'number') return cal.cameraIndex;
+    }
+  } catch (err) {
+    console.warn('[EyeTracking] Could not read calibration camera index:', err.message);
+  }
+  return 0;
+}
+
 async function startEyeOverlayMode(opts = {}) {
   if (!server?.eyeTrackingManager) {
     return { success: false, error: 'Eye tracking manager unavailable' };
   }
   const mgr = server.eyeTrackingManager;
 
-  // Force the same camera that was used during calibration. Iris geometry,
-  // FOV, and lens distortion differ between webcams, so the saved gaze model
-  // is only valid for the camera it was trained on. We read cameraIndex from
-  // the calibration JSON unless the caller explicitly overrode it.
-  let cameraIndex = opts.cameraIndex;
-  if (cameraIndex === undefined || cameraIndex === null) {
-    try {
-      const calFile = path.join(getResourcesPath(), 'eye-calibration.json');
-      if (fs.existsSync(calFile)) {
-        const cal = JSON.parse(fs.readFileSync(calFile, 'utf-8'));
-        if (typeof cal.cameraIndex === 'number') {
-          cameraIndex = cal.cameraIndex;
-          console.log(`[EyeOverlay] Using calibration camera index: ${cameraIndex}`);
-        }
-      }
-    } catch (err) {
-      console.warn('[EyeOverlay] Could not read calibration camera index:', err.message);
-    }
-  }
-  if (cameraIndex === undefined || cameraIndex === null) cameraIndex = 0;
+  // Force the same camera that was used during calibration (caller may override).
+  let cameraIndex = opts.cameraIndex ?? resolveCalibrationCameraIndex();
   // If tracking is already running for cursor control, stop it first so we
   // can re-enter in overlay mode (no cursor, online-train enabled).
   if (mgr.state === 'running') {
@@ -1329,13 +1336,16 @@ function _initPerceptionAndPrediction() {
     bus.start();
     console.log('[Main] Perception bus started');
 
-    // Forward eye-tracker gaze events to perception bus
+    // The perception bus subscribes to the eye tracker's 'gaze' event in its
+    // own start() (the manager is now an EventEmitter, so that subscription
+    // actually fires). Also forward live gaze to an open dashboard so the
+    // Eye Tracking tab can show it in real time.
     if (server?.eyeTrackingManager) {
-      const origOnGazeData = server.eyeTrackingManager.onGazeData;
-      server.eyeTrackingManager.onGazeData = (data) => {
-        if (typeof data.x === 'number') bus.pushGaze(data);
-        if (origOnGazeData) origOnGazeData(data);
-      };
+      server.eyeTrackingManager.on('gaze', (data) => {
+        if (typeof data.x === 'number' && dashboardWindow && !dashboardWindow.isDestroyed()) {
+          dashboardWindow.webContents.send('dashboard:gaze', data);
+        }
+      });
     }
 
     // Ingest recent action log into predictor (best-effort, non-blocking)

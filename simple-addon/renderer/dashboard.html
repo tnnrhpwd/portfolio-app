@@ -543,6 +543,20 @@
 
     <div class="panel">
       <h2>Audio devices</h2>
+      <div class="row" style="border-bottom:none; padding-top:0;">
+        <div>
+          <div class="name">Speech model</div>
+          <div class="desc">Smaller models are faster but less accurate. Runs fully offline.</div>
+        </div>
+        <div class="actions">
+          <select id="voice-model-select">
+            <option value="tiny">tiny (fastest)</option>
+            <option value="base">base</option>
+            <option value="small">small</option>
+            <option value="medium">medium (most accurate)</option>
+          </select>
+        </div>
+      </div>
       <div id="voice-devices"></div>
     </div>
   </section>
@@ -635,9 +649,12 @@
         </div>
         <div class="actions">
           <button id="skills-refresh">Refresh</button>
+          <button id="skills-export" title="Download all skills as a JSON backup">Export all</button>
+          <button id="skills-import" title="Restore skills from a JSON backup">Import</button>
           <button id="skills-new" class="primary">+ New skill</button>
         </div>
       </div>
+      <input type="file" id="skills-import-file" accept=".json,application/json" style="display:none;">
       <div class="rs-toolbar">
         <input type="text" id="skills-search" class="rs-search" placeholder="Search skills by name, slug, or step…">
       </div>
@@ -907,6 +924,9 @@
         <div>
           <div class="name" id="eye-state-name">Inactive</div>
           <div class="desc">Tracks where you're looking to help drive automation. Calibrate first for accuracy.</div>
+          <div class="desc" id="eye-state-detail" style="display:none;"></div>
+          <div class="desc" id="eye-gaze" style="display:none; color:var(--accent);"></div>
+          <div class="desc" id="eye-last-error" style="display:none; color:var(--danger);"></div>
         </div>
         <div class="actions">
           <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
@@ -919,9 +939,26 @@
         <div>
           <div class="name">Calibration</div>
           <div class="desc">Opens the calibration window (look at each on-screen point as prompted).</div>
+          <div class="desc" id="eye-calib-summary" style="color:var(--muted); font-size:12px;">Loading…</div>
         </div>
         <div class="actions">
           <button id="eye-calibrate">Calibrate Eye Tracking</button>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <div class="name">Camera</div>
+          <div class="desc">Tracking uses the camera you calibrated with. Preview it here to confirm it's pointed at you.</div>
+        </div>
+        <div class="actions">
+          <select id="eye-camera-select" style="max-width:240px;"></select>
+          <button id="eye-camera-preview-btn">Preview</button>
+        </div>
+      </div>
+      <div class="row" id="eye-camera-preview-row" style="display:none;">
+        <div>
+          <div class="desc" id="eye-camera-preview-status" style="color:var(--muted);"></div>
+          <img id="eye-camera-preview" alt="Camera preview" style="max-width:320px; border-radius:8px; margin-top:6px;">
         </div>
       </div>
       <div class="row">
@@ -2455,6 +2492,9 @@ document.getElementById('parametrize-cancel').addEventListener('click', closePar
 document.getElementById('parametrize-go').addEventListener('click', submitParametrize);
 document.getElementById('skills-refresh').addEventListener('click', refreshSkillsList);
 document.getElementById('skills-new').addEventListener('click', openNewSkillModal);
+document.getElementById('skills-export').addEventListener('click', exportAllSkills);
+document.getElementById('skills-import').addEventListener('click', () => document.getElementById('skills-import-file').click());
+document.getElementById('skills-import-file').addEventListener('change', onImportFileChosen);
 document.getElementById('skills-search').addEventListener('input', renderSkillsList);
 document.getElementById('recordings-search').addEventListener('input', renderRecordingsList);
 document.getElementById('runs-refresh').addEventListener('click', refreshRunsList);
@@ -2500,6 +2540,53 @@ async function clearRuns() {
     await refreshRunsList();
   } catch (e) {
     alert(`Clear failed: ${e.message}`);
+  }
+}
+
+// ── Skill export / import (local backup, portability, sharing) ──
+// Fully local: exports whatever's in the skill cache (memory + on-disk), so a
+// signed-out customer can back up or move their skills to another PC. Free on
+// both tiers (no server cost) per the cost-based tiering rule.
+async function exportAllSkills() {
+  try {
+    const data = await api('/api/skill/export');
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `simple-skills-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert(`Export failed: ${e.message}`);
+  }
+}
+
+function onImportFileChosen(evt) {
+  const file = evt.target.files && evt.target.files[0];
+  if (!file) return;
+  importSkillsFromFile(file);
+  evt.target.value = ''; // allow re-selecting the same file later
+}
+
+async function importSkillsFromFile(file) {
+  let data;
+  try { data = JSON.parse(await file.text()); }
+  catch { alert('That file is not valid JSON.'); return; }
+  try {
+    const result = await api('/api/skill/import', { method: 'POST', body: JSON.stringify(data) });
+    const imported = result.imported || [];
+    const skipped = result.skipped || [];
+    const syncErrors = result.syncErrors || [];
+    let msg = `Imported ${imported.length} skill${imported.length === 1 ? '' : 's'}.`;
+    if (skipped.length) msg += ` Skipped ${skipped.length} (${skipped.map(s => s.slug || s.reason).join(', ')}).`;
+    if (syncErrors.length) msg += ` ${syncErrors.length} failed to sync to cloud (kept locally).`;
+    alert(msg);
+    await refreshSkillsList();
+  } catch (e) {
+    alert(`Import failed: ${e.message}`);
   }
 }
 
@@ -2684,6 +2771,7 @@ async function refreshTriggersList() {
           el('div', { class: 'desc' }, `${t.skillSlug ? 'Skill · ' : 'Goal · '}${trgKindLabel(t)}`),
         ),
         el('div', { class: 'actions' },
+          el('button', { class: 'primary', onclick: () => testTrigger(t) }, '▶ Test'),
           el('button', { onclick: () => toggleTrigger(t) }, t.enabled ? 'Disable' : 'Enable'),
           el('button', { class: 'danger', onclick: () => deleteTrigger(t) }, 'Delete'),
         ),
@@ -2711,6 +2799,34 @@ async function deleteTrigger(t) {
     await refreshTriggersList();
   } catch (e) {
     alert(`Delete failed: ${e.message}`);
+  }
+}
+
+/** Fire a trigger's target now, without waiting for the real event. */
+async function testTrigger(t) {
+  let file = null;
+  if (t.kind === 'file') {
+    file = prompt(`Simulate a file for "${t.skillSlug || t.goalSlug}"? (leave blank to test with no file)`, '');
+    if (file === null) return; // user cancelled
+  }
+  try {
+    const res = await api(`/api/triggers/${encodeURIComponent(t.id)}/test`, {
+      method: 'POST',
+      body: JSON.stringify(file && file.trim() ? { file: file.trim() } : {}),
+    });
+    if (res.ran === 'goal') {
+      alert(res.ok ? `Goal "${res.slug}" started — watch the Agent tab.` : (res.error || 'Could not start goal.'));
+      if (res.ok) refreshAgentStatus();
+    } else if (res.ran === 'skill') {
+      if (!res.ok) alert(res.error || 'Could not run the skill.');
+      else if (res.failed) alert(`Skill "${res.slug}" ran but FAILED${res.error ? `: ${res.error}` : ''}. See Recent runs.`);
+      else alert(`Skill "${res.slug}" ran OK${res.stepsRun != null ? ` (${res.stepsRun} step${res.stepsRun === 1 ? '' : 's'})` : ''}.`);
+      refreshRunsList();
+    } else {
+      alert(res.error || 'Test failed.');
+    }
+  } catch (e) {
+    alert(`Test failed: ${e.message}`);
   }
 }
 
@@ -2772,13 +2888,17 @@ async function refreshVoiceStatus() {
     if (s.model) parts.push(`model: ${s.model}`);
     if (s.device != null && s.device !== '') parts.push(`device: ${s.device}`);
     descEl.textContent = parts.length ? parts.join(' · ') : 'Not listening';
-    renderVoiceDevices(s.devices || []);
+    const modelSel = document.getElementById('voice-model-select');
+    if (modelSel && s.model && Array.from(modelSel.options).some((o) => o.value === s.model)) {
+      modelSel.value = s.model;
+    }
+    renderVoiceDevices(s.devices || [], s.device);
   } catch (e) {
     document.getElementById('voice-status-desc').textContent = `Failed: ${e.message}`;
   }
 }
 
-function renderVoiceDevices(devices) {
+function renderVoiceDevices(devices, currentDevice) {
   const container = document.getElementById('voice-devices');
   container.innerHTML = '';
   if (!devices || !devices.length) {
@@ -2786,15 +2906,38 @@ function renderVoiceDevices(devices) {
     return;
   }
   for (const d of devices) {
-    const name = d.name || d.label || d.device || `Device ${d.index ?? ''}`;
+    const idx = d.index ?? null;
+    const name = d.name || d.label || d.device || `Device ${idx ?? ''}`;
     const meta = [d.kind, Number.isFinite(d.channels) ? `${d.channels} ch` : ''].filter(Boolean).join(' · ');
+    const isActive = idx != null && idx === currentDevice;
     container.appendChild(el('div', { class: 'row' },
       el('div', {},
-        el('div', { class: 'name' }, String(name)),
+        el('div', { class: 'name' }, String(name) + (isActive ? '  ✓' : '')),
         el('div', { class: 'desc' }, meta || ' '),
+      ),
+      el('div', { class: 'actions' },
+        el('button', { disabled: isActive, onclick: () => setVoiceDevice(idx) }, isActive ? 'In use' : 'Use'),
       ),
     ));
   }
+}
+
+async function setVoiceDevice(index) {
+  try {
+    await api('/api/voice/device', { method: 'POST', body: JSON.stringify({ index }) });
+  } catch (e) {
+    alert(`Could not set device: ${e.message}`);
+  }
+  await refreshVoiceStatus();
+}
+
+async function setVoiceModel(size) {
+  try {
+    await api('/api/voice/model', { method: 'POST', body: JSON.stringify({ size }) });
+  } catch (e) {
+    alert(`Could not set model: ${e.message}`);
+  }
+  await refreshVoiceStatus();
 }
 
 document.getElementById('voice-listen').addEventListener('click', async () => {
@@ -2828,6 +2971,8 @@ document.getElementById('voice-speak').addEventListener('click', async () => {
     alert(`Speak failed: ${e.message}`);
   }
 });
+
+document.getElementById('voice-model-select').addEventListener('change', (e) => setVoiceModel(e.target.value));
 
 refreshVoiceStatus();
 
@@ -3168,8 +3313,96 @@ async function refreshEyeTrackingStatus() {
     document.getElementById('eye-toggle-tracking').disabled = s.state === 'calibrating';
     document.getElementById('eye-toggle-overlay').checked = !!s.overlayActive;
     document.getElementById('eye-emergency-stop').disabled = s.state !== 'running' && s.state !== 'calibrating';
+
+    // Live detail line while tracking: elapsed, duration cap, and camera.
+    const detailEl = document.getElementById('eye-state-detail');
+    if (s.state === 'running') {
+      const cap = s.duration > 0 ? ` · ${s.duration}s max` : '';
+      detailEl.textContent = `Tracking for ${s.elapsed}s${cap} · camera ${s.cameraIndex}`;
+      detailEl.style.display = '';
+    } else {
+      detailEl.style.display = 'none';
+    }
+
+    // Hide the live gaze readout when not actively tracking.
+    const gazeEl = document.getElementById('eye-gaze');
+    if (gazeEl && s.state !== 'running') gazeEl.style.display = 'none';
+
+    // Last error, so a silent failure (e.g. no calibration) is visible.
+    const errEl = document.getElementById('eye-last-error');
+    if (s.lastError) {
+      errEl.textContent = `Last error: ${s.lastError}`;
+      errEl.style.display = '';
+    } else {
+      errEl.style.display = 'none';
+    }
   } catch (e) {
     console.error('Eye tracking status check failed:', e);
+  }
+}
+
+async function refreshEyeCalibrationSummary() {
+  const el = document.getElementById('eye-calib-summary');
+  try {
+    const c = await window.simpleDashboard.getEyeCalibrationSummary();
+    if (!c || !c.exists) {
+      el.textContent = 'Not calibrated yet — click "Calibrate Eye Tracking" first.';
+      return;
+    }
+    const parts = [];
+    if (c.pointCount) parts.push(`${c.pointCount} point${c.pointCount === 1 ? '' : 's'}`);
+    if (typeof c.meanResidualPx === 'number') parts.push(`mean error ${c.meanResidualPx.toFixed(1)}px`);
+    if (c.modelType) parts.push(c.modelType);
+    if (c.timestamp) {
+      const d = new Date(c.timestamp);
+      if (!Number.isNaN(d.getTime())) parts.push(`calibrated ${d.toLocaleString()}`);
+    }
+    el.textContent = parts.length ? parts.join(' · ') : 'Calibration exists.';
+  } catch (e) {
+    el.textContent = 'Could not read calibration summary.';
+  }
+}
+
+async function refreshEyeCameras() {
+  const sel = document.getElementById('eye-camera-select');
+  sel.innerHTML = '';
+  try {
+    const cams = await window.simpleDashboard.getEyeCameras();
+    if (!Array.isArray(cams) || !cams.length) {
+      sel.appendChild(el('option', { value: '0' }, 'Camera 0'));
+      return;
+    }
+    for (const c of cams) {
+      const idx = c.index ?? 0;
+      const opt = el('option', { value: String(idx) }, `${c.name || `Camera ${idx}`} (index ${idx})`);
+      sel.appendChild(opt);
+    }
+    // Default to the camera tracking actually uses (from status).
+    const s = await window.simpleDashboard.getEyeTrackingStatus();
+    sel.value = String(s.cameraIndex ?? 0);
+  } catch (e) {
+    sel.appendChild(el('option', { value: '0' }, 'Cameras unavailable'));
+  }
+}
+
+async function previewEyeCamera() {
+  const idx = parseInt(document.getElementById('eye-camera-select').value, 10) || 0;
+  const row = document.getElementById('eye-camera-preview-row');
+  const status = document.getElementById('eye-camera-preview-status');
+  const img = document.getElementById('eye-camera-preview');
+  row.style.display = '';
+  status.textContent = `Loading preview for camera ${idx}…`;
+  img.removeAttribute('src');
+  try {
+    const data = await window.simpleDashboard.getEyeCameraSnapshot(idx);
+    if (!data || data.error || !data.snapshot || !data.snapshot.image) {
+      status.textContent = data?.error || 'Camera preview unavailable';
+      return;
+    }
+    img.src = data.snapshot.image;
+    status.textContent = `${data.snapshot.name || `Camera ${idx}`} preview ready`;
+  } catch (e) {
+    status.textContent = `Preview failed: ${e.message}`;
   }
 }
 
@@ -3187,6 +3420,8 @@ document.getElementById('eye-calibrate').addEventListener('click', () => {
   window.simpleDashboard.calibrateEyeTracking();
 });
 
+document.getElementById('eye-camera-preview-btn').addEventListener('click', previewEyeCamera);
+
 document.getElementById('eye-toggle-overlay').addEventListener('change', async (e) => {
   const enabled = e.target.checked;
   const result = await window.simpleDashboard.toggleEyeOverlay(enabled);
@@ -3203,8 +3438,18 @@ document.getElementById('eye-emergency-stop').addEventListener('click', async ()
 });
 
 window.simpleDashboard.onStatusChanged(() => refreshEyeTrackingStatus());
+window.simpleDashboard.onGazeData((data) => {
+  const el = document.getElementById('eye-gaze');
+  if (!el || !data || typeof data.x !== 'number') return;
+  const conf = typeof data.confidence === 'number' ? ` · confidence ${data.confidence.toFixed(2)}` : '';
+  el.textContent = `Gaze (${Math.round(data.x)}, ${Math.round(data.y)})${conf}${data.blink ? ' · blinking' : ''}`;
+  el.style.display = '';
+});
 refreshEyeTrackingStatus();
+refreshEyeCalibrationSummary();
+refreshEyeCameras();
 setInterval(refreshEyeTrackingStatus, 5000);
+setInterval(refreshEyeCalibrationSummary, 30000); // calibration changes rarely
 
 // ── Updates tab ──
 async function refreshUpdateStatus() {

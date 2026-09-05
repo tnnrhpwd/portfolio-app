@@ -18,6 +18,10 @@
  *   { skill, steps: [ { tool, args, ok, error?, result? } ], failed }
  */
 
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+
 const registry = require('../tool-registry');
 const wsClient = require('../workspace-client');
 const events = require('../events');
@@ -26,8 +30,39 @@ const { checkAsyncKeyState } = require('./input');
 
 // In-memory cache: slug → skill object. Populated by the compile-and-save
 // route, so newly-created skills are runnable immediately without a round
-// trip to the backend.
+// trip to the backend. Also mirrored to a local disk cache so a skill saved
+// while signed out survives an addon restart (the workspace is the only other
+// store, and it is unreachable without a token).
 const _localCache = new Map();
+let _diskLoaded = false;
+
+function _skillDir() {
+    const base = process.env.APPDATA
+        ? path.join(process.env.APPDATA, 'simple-addon')
+        : path.join(os.homedir(), '.simple-addon');
+    return path.join(base, 'skills');
+}
+
+function _skillFile(slug) {
+    return path.join(_skillDir(), `${slug}.json`);
+}
+
+// Lazy one-time load of any skills persisted to disk, so a skill saved while
+// signed out is still runnable after an addon restart. Best-effort: unreadable
+// or corrupt files are skipped rather than throwing.
+function _ensureDiskLoaded() {
+    if (_diskLoaded) return;
+    _diskLoaded = true;
+    let files = [];
+    try { files = fs.readdirSync(_skillDir()); } catch { return; }
+    for (const f of files) {
+        if (!f.endsWith('.json')) continue;
+        try {
+            const skill = JSON.parse(fs.readFileSync(path.join(_skillDir(), f), 'utf8'));
+            if (skill && skill.slug && !_localCache.has(skill.slug)) _localCache.set(skill.slug, skill);
+        } catch { /* skip unreadable/corrupt files */ }
+    }
+}
 
 // Lazily-constructed shared LLM client for the repair fallback. Mirrors the
 // pattern in agent-loop.js so a step that fails can ask the model to amend its
@@ -51,18 +86,29 @@ const TOOL_FALLBACKS = Object.freeze({
 
 function cacheSkill(skill) {
     if (!skill || !skill.slug) throw new Error('cacheSkill requires .slug');
+    _ensureDiskLoaded();
     _localCache.set(skill.slug, skill);
+    try {
+        fs.mkdirSync(_skillDir(), { recursive: true });
+        fs.writeFileSync(_skillFile(skill.slug), JSON.stringify(skill), 'utf8');
+    } catch (e) {
+        console.warn('[skill] disk cache write failed:', e.message);
+    }
 }
 
 function getCachedSkill(slug) {
+    _ensureDiskLoaded();
     return _localCache.get(slug) || null;
 }
 
 function uncacheSkill(slug) {
+    _ensureDiskLoaded();
     _localCache.delete(slug);
+    try { fs.unlinkSync(_skillFile(slug)); } catch { /* already gone */ }
 }
 
 async function loadSkill(slug) {
+    _ensureDiskLoaded();
     const cached = _localCache.get(slug);
     if (cached) return cached;
     try {
@@ -1228,5 +1274,5 @@ const skillRun = {
 
 module.exports = { skillRun, cacheSkill, getCachedSkill, uncacheSkill, loadSkill, substituteArgs,
     repairStep, _extractJsonObject, _resolveLlm, _normaliseStep, analyzeSkillCompatibility,
-    getAllCachedSkills: () => Array.from(_localCache.values()),
+    getAllCachedSkills: () => { _ensureDiskLoaded(); return Array.from(_localCache.values()); },
 };

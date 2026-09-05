@@ -6,6 +6,7 @@
  */
 
 const { spawn } = require('child_process');
+const { EventEmitter } = require('events');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -26,8 +27,9 @@ function resolveResourcesPath() {
   return path.join(os.homedir(), 'Documents', 'Simple', 'Resources');
 }
 
-class EyeTrackingManager {
+class EyeTrackingManager extends EventEmitter {
   constructor() {
+    super();
     this.state = 'idle'; // idle | running | calibrating | error
     this.pythonProcess = null;
     this.cursorProcess = null;
@@ -284,6 +286,10 @@ while ($true) {
               if (this.onGazeData) {
                 this.onGazeData({ x: data.x, y: data.y, confidence: data.confidence, blink: data.blink });
               }
+              // Also emit as an EventEmitter event so the perception bus (and any
+              // other subscriber) receives gaze regardless of who owns the
+              // onGazeData callback (overlay/validation overwrite it directly).
+              this.emit('gaze', { x: data.x, y: data.y, confidence: data.confidence, blink: data.blink });
               // Skip cursor movement during blinks or held (grace period) low-confidence frames
               const isBlink = data.blink === true;
               const suppressCursor = this.validationMode || this.overlayMode;

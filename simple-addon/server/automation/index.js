@@ -29,6 +29,8 @@
  *   DELETE /api/workspace-profiles/:name    - delete a saved profile
  */
 
+const path = require('path');
+
 const registry = require('./tool-registry');
 const permissions = require('./permissions');
 const wsClient = require('./workspace-client');
@@ -628,6 +630,71 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
         res.json(runHistory.clear());
     });
 
+    // ─── Skill export / import (local backup, portability, sharing) ────────
+    // Must be declared before `/api/skill/:slug` so `/api/skill/export` and
+    // `/api/skill/import` aren't swallowed as slug lookups. Fully local —
+    // exports whatever's in the skill cache (memory + on-disk), so a signed-out
+    // customer can back up or move their skills to another PC with no cloud
+    // round trip. Import re-uses cacheSkill() so imported skills land in memory
+    // AND on disk, then best-effort syncs to the workspace when signed in.
+    app.get('/api/skill/export', (req, res) => {
+        const slug = req.query.slug;
+        const all = getAllCachedSkills();
+        if (slug) {
+            const skill = all.find(s => s.slug === slug);
+            if (!skill) return res.status(404).json({ error: `skill not found: ${slug}` });
+            return res.json({ format: 'simple-skill', version: 1, skill });
+        }
+        res.json({
+            format: 'simple-skills-export',
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            count: all.length,
+            skills: all,
+        });
+    });
+
+    app.post('/api/skill/import', async (req, res) => {
+        const body = req.body || {};
+        // Accept a single skill object, an export bundle {skills:[...]}, a
+        // {skill:{...}} wrapper, or a plain array.
+        let incoming = [];
+        if (Array.isArray(body)) incoming = body;
+        else if (Array.isArray(body.skills)) incoming = body.skills;
+        else if (body.slug) incoming = [body];
+        else if (body.skill && body.skill.slug) incoming = [body.skill];
+        else return res.status(400).json({ error: 'expected a skill object, an array, or {skills:[...]}' });
+
+        const imported = [];
+        const skipped = [];
+        for (const skill of incoming) {
+            if (!skill || !skill.slug) { skipped.push({ reason: 'missing slug' }); continue; }
+            if (!Array.isArray(skill.steps)) { skipped.push({ slug: skill.slug, reason: 'malformed steps' }); continue; }
+            try {
+                cacheSkill(skill); // memory + on-disk persistence (overwrites same-slug)
+                imported.push(skill.slug);
+            } catch (e) {
+                skipped.push({ slug: skill.slug, reason: e.message });
+            }
+        }
+        // Best-effort sync to the workspace so imported skills are also usable
+        // from the web app (no-op when signed out).
+        const syncErrors = [];
+        for (const slug of imported) {
+            const skill = getCachedSkill(slug);
+            try {
+                await wsClient.upsertSkill(slug, {
+                    name: skill.name,
+                    content: JSON.stringify(skill),
+                    tags: ['imported'],
+                });
+            } catch (e) {
+                syncErrors.push({ slug, error: e.message });
+            }
+        }
+        res.json({ ok: true, imported, skipped, syncErrors });
+    });
+
     // Run a saved skill by slug (resolves local cache → workspace). Goes through
     // the permission-gated tool registry exactly like the agent would — but with
     // `userInitiated: true` because this endpoint is only reachable from the
@@ -979,6 +1046,56 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
         res.json({ ok });
     });
 
+    // ─── Trigger "test now" ─────────────────────────────────────────────
+    // Fire a trigger's target immediately so a customer can verify a
+    // schedule/file-watch/hotkey trigger works without waiting for the real
+    // event. An optional `file` body param simulates a file-watch firing with
+    // that exact path (so `${param.file}` placeholders can be tested).
+    app.post('/api/triggers/:id/test', async (req, res) => {
+        const trigger = triggers.list().find(t => t.id === req.params.id);
+        if (!trigger) return res.status(404).json({ error: 'trigger not found' });
+        const file = req.body && req.body.file ? String(req.body.file) : null;
+        const firedBy = file ? { file: path.basename(file), fullPath: file, eventType: 'test' } : null;
+        try {
+            if (trigger.skillSlug) {
+                const startedAt = Date.now();
+                const runId = `trgtest-${Date.now()}`;
+                const ctx = ctxFactory({ goalSlug: null, userInitiated: true, runId });
+                const out = await registry.executeTool('skill_run', {
+                    slug: trigger.skillSlug,
+                    params: triggers.fileTriggerParams(firedBy),
+                }, ctx);
+                const toolOk = !!(out && out.ok !== false);
+                const summary = out?.result || {};
+                const failedStep = Array.isArray(summary.steps) ? summary.steps.find(s => s && s.error) : null;
+                const failed = !!summary.failed || !!failedStep;
+                const error = toolOk
+                    ? (failedStep ? (failedStep.error || `${failedStep.tool || 'step'} failed`) : null)
+                    : (out?.error || 'skill run failed');
+                events.publish('skill.run', { slug: trigger.skillSlug, runId, stepsRun: summary.stepsRun, failed, outcome: summary.outcome || null });
+                runHistory.append({
+                    runId, slug: trigger.skillSlug, startedAt, finishedAt: Date.now(), durationMs: Date.now() - startedAt,
+                    stepsRun: summary.stepsRun ?? null,
+                    stepsTotal: summary.stepsTotal ?? (Array.isArray(summary.steps) ? summary.steps.length : null),
+                    failed: failed || !toolOk,
+                    outcome: summary.outcome || null,
+                    error,
+                    triggerId: trigger.id,
+                    source: 'trigger-test',
+                });
+                res.json({ ok: toolOk, ran: 'skill', slug: trigger.skillSlug, failed, stepsRun: summary.stepsRun ?? null, error });
+            } else if (trigger.goalSlug) {
+                const loop = _getOrCreateLoop(trigger.goalSlug);
+                const started = await loop.start({ goalSlug: trigger.goalSlug });
+                res.json({ ok: !!started.running, ran: 'goal', slug: trigger.goalSlug, running: !!started.running, error: started.running ? null : (started.reason || 'could not start goal') });
+            } else {
+                res.status(400).json({ error: 'trigger has no goalSlug or skillSlug target' });
+            }
+        } catch (e) {
+            res.status(400).json({ error: e.message });
+        }
+    });
+
     // ─── NL Macro Compiler ─────────────────────────────────────────────────
     // Converts English macro descriptions into executable skill step arrays.
     // Always proxied through the backend (compileNaturalViaBackend, via
@@ -1081,6 +1198,30 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
         try {
             const devices = await _audioMgr.listDevices();
             res.json({ devices });
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
+    app.post('/api/voice/device', async (req, res) => {
+        try {
+            const index = Number(req.body?.index);
+            if (!Number.isInteger(index) || index < 0) return res.status(400).json({ error: 'valid device index required' });
+            await _audioMgr.setDevice(index);
+            res.json({ ok: true, device: index });
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
+    app.post('/api/voice/model', async (req, res) => {
+        try {
+            const size = req.body?.size;
+            if (!['tiny', 'base', 'small', 'medium'].includes(size)) {
+                return res.status(400).json({ error: `invalid model size: ${size} (use tiny|base|small|medium)` });
+            }
+            await _audioMgr.setModel(size);
+            res.json({ ok: true, model: size });
         } catch (e) {
             res.status(500).json({ error: e.message });
         }

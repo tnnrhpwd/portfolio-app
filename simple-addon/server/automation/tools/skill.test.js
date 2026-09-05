@@ -7,6 +7,21 @@
 
 const assert = require('assert');
 
+// Isolate the on-disk skill cache from real user data. skill.js now persists
+// its local cache under %APPDATA%/simple-addon/skills so a skill saved while
+// signed out survives a restart; point APPDATA at a fresh temp dir first.
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+process.env.APPDATA = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-test-'));
+
+// Pre-seed one skill on disk BEFORE skill.js is required, to prove that a
+// fresh process (i.e. an addon restart) reloads signed-out skills from disk.
+const _seedDir = path.join(process.env.APPDATA, 'simple-addon', 'skills');
+fs.mkdirSync(_seedDir, { recursive: true });
+fs.writeFileSync(path.join(_seedDir, 'pre-seeded.json'),
+    JSON.stringify({ slug: 'pre-seeded', name: 'Seeded', steps: [] }), 'utf8');
+
 // ── Inject fakes before requiring skill.js ──────────────────────────────────
 const registryPath = require.resolve('../tool-registry');
 const wsPath = require.resolve('../workspace-client');
@@ -588,6 +603,32 @@ asyncTest('run: maxCriteriaRepairs=0 disables criteria-triggered repair entirely
     assert.strictEqual(out.failed, true);
     assert.strictEqual(out.criteriaRepairsAttempted, undefined);
     assert.strictEqual(llm.calls.length, 0, 'LLM must not be consulted when maxCriteriaRepairs=0');
+});
+
+// ── on-disk skill cache (signed-out persistence) ───────────────────────────
+test('disk cache reloads skills that existed before this process (restart survival)', () => {
+    assert.ok(skill.getCachedSkill('pre-seeded'), 'getCachedSkill should load a skill persisted by a previous process');
+});
+
+test('cacheSkill persists to disk and getCachedSkill reads it back', () => {
+    skill.cacheSkill({ slug: 'disk-roundtrip', name: 'Disk', steps: [] });
+    const file = path.join(process.env.APPDATA, 'simple-addon', 'skills', 'disk-roundtrip.json');
+    assert.ok(fs.existsSync(file), 'cacheSkill should write the skill JSON to disk');
+    assert.ok(skill.getCachedSkill('disk-roundtrip'), 'getCachedSkill should return the cached skill');
+});
+
+test('uncacheSkill removes the disk file', () => {
+    skill.cacheSkill({ slug: 'disk-delete', name: 'D', steps: [] });
+    skill.uncacheSkill('disk-delete');
+    const file = path.join(process.env.APPDATA, 'simple-addon', 'skills', 'disk-delete.json');
+    assert.ok(!fs.existsSync(file), 'uncacheSkill should remove the disk file');
+});
+
+test('getAllCachedSkills includes disk-persisted skills', () => {
+    skill.cacheSkill({ slug: 'disk-list', name: 'L', steps: [] });
+    const all = skill.getAllCachedSkills();
+    assert.ok(all.some(s => s.slug === 'disk-list'), 'getAllCachedSkills should include the disk-persisted skill');
+    skill.uncacheSkill('disk-list');
 });
 
 // ── Summary ─────────────────────────────────────────────────────────────────
