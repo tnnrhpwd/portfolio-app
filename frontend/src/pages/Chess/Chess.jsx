@@ -160,53 +160,55 @@ function PlayBotPanel() {
   return (
     <section className="chess-panel chess-play">
       <div className="chess-play-controls">
-        <div className="chess-control-group" role="group" aria-label="Bot difficulty">
-          {DIFFICULTIES.map((d) => (
-            <button
-              type="button"
-              key={d.id}
-              className={difficulty === d.id ? 'chess-seg is-active' : 'chess-seg'}
-              onClick={() => setDifficulty(d.id)}
-              aria-pressed={difficulty === d.id}
-            >
-              {d.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="chess-control-group" role="group" aria-label="Play as">
-          <button
-            type="button"
-            className={playerColor === 'w' ? 'chess-seg is-active' : 'chess-seg'}
-            onClick={() => newGame('w')}
-            aria-pressed={playerColor === 'w'}
+        <label className="chess-select-label">
+          <span className="chess-select-caption">Difficulty</span>
+          <select
+            className="chess-select"
+            value={difficulty}
+            onChange={(e) => setDifficulty(e.target.value)}
           >
-            Play White
-          </button>
-          <button
-            type="button"
-            className={playerColor === 'b' ? 'chess-seg is-active' : 'chess-seg'}
-            onClick={() => newGame('b')}
-            aria-pressed={playerColor === 'b'}
-          >
-            Play Black
-          </button>
-        </div>
+            {DIFFICULTIES.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.label}
+              </option>
+            ))}
+          </select>
+        </label>
 
-        <div className="chess-control-group" role="group" aria-label="Game actions">
+        <label className="chess-select-label">
+          <span className="chess-select-caption">Play as</span>
+          <select
+            className="chess-select"
+            value={playerColor}
+            onChange={(e) => newGame(e.target.value)}
+          >
+            <option value="w">White</option>
+            <option value="b">Black</option>
+          </select>
+        </label>
+
+        <div className="chess-control-group">
           <button type="button" className="chess-btn" onClick={() => newGame()}>
             New Game
           </button>
           <button
             type="button"
-            className="chess-btn chess-btn--outline"
+            className="chess-btn chess-btn--icon chess-btn--outline"
             onClick={undoMove}
             disabled={!moveHistory.length}
+            aria-label="Undo move"
+            title="Undo"
           >
-            Undo
+            {'\u21B6'}
           </button>
-          <button type="button" className="chess-btn chess-btn--outline" onClick={flipBoard}>
-            Flip
+          <button
+            type="button"
+            className="chess-btn chess-btn--icon chess-btn--outline"
+            onClick={flipBoard}
+            aria-label="Flip board"
+            title="Flip"
+          >
+            {'\u21C5'}
           </button>
         </div>
       </div>
@@ -366,35 +368,43 @@ function OpeningsPanel() {
           <div className="chess-opening-nav">
             <button
               type="button"
-              className="chess-btn chess-btn--outline"
+              className="chess-btn chess-btn--icon chess-btn--outline"
               onClick={() => setStep(0)}
               disabled={step === 0}
+              aria-label="Reset"
+              title="Reset"
             >
-              {'\u23EE'} Reset
+              {'\u21BA'}
             </button>
             <button
               type="button"
-              className="chess-btn chess-btn--outline"
+              className="chess-btn chess-btn--icon chess-btn--outline"
               onClick={() => setStep((s) => Math.max(0, s - 1))}
               disabled={step === 0}
+              aria-label="Previous move"
+              title="Previous"
             >
-              {'\u25C0'} Prev
+              {'\u25C0'}
             </button>
             <button
               type="button"
-              className="chess-btn"
+              className="chess-btn chess-btn--icon"
               onClick={() => setPlaying((p) => !p)}
               disabled={step === opening.moves.length}
+              aria-label={playing ? 'Pause' : 'Play'}
+              title={playing ? 'Pause' : 'Play'}
             >
-              {playing ? '\u23F8 Pause' : '\u25B6 Play'}
+              {playing ? '\u23F8' : '\u25B6'}
             </button>
             <button
               type="button"
-              className="chess-btn chess-btn--outline"
+              className="chess-btn chess-btn--icon chess-btn--outline"
               onClick={() => setStep((s) => Math.min(opening.moves.length, s + 1))}
               disabled={step === opening.moves.length}
+              aria-label="Next move"
+              title="Next"
             >
-              Next {'\u25B6'}
+              {'\u23E9'}
             </button>
           </div>
 
