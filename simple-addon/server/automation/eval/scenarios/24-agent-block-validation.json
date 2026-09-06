@@ -1,0 +1,15 @@
+{
+  "id": "24-agent-block-validation",
+  "name": "agent block — POST /api/agent/block (offline validation)",
+  "description": "Asserts POST /api/agent/block rejects a missing goalSlug with 400 and an error message mentioning goalSlug (offline/deterministic — validation runs before any backend round-trip).",
+  "http": {
+    "method": "POST",
+    "path": "/api/agent/block",
+    "body": {}
+  },
+  "expect": {
+    "status": 400,
+    "error": { "contains": "goalSlug" }
+  },
+  "tags": ["agent", "http", "offline", "oogpa", "smoke"]
+}

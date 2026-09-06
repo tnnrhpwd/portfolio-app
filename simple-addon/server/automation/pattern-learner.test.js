@@ -108,6 +108,22 @@ async function main() {
         const draft = await L.draftSkillFromSequence('nonexistent→key');
         assert('promote: unknown sequenceKey → null', draft === null);
     }
+    {
+        // T5.1 refinement: `generalize` without an LLM client is a safe no-op
+        // (the draft stays literal rather than crashing or dropping steps).
+        const L = makeLearner();
+        const canned = [];
+        for (let r = 0; r < 3; r++) {
+            canned.push({ tool: 'shell_run', args: { command: 'echo hi' } });
+            canned.push({ tool: 'text_type', args: { text: 'secret-pii' } });
+            canned.push({ tool: 'uia_invoke', args: { name: 'OK' } });
+        }
+        L.configure({ wsClient: { getActionLog: async () => canned, upsertSkill: async () => ({}) } });
+        const suggestions = await L.analyze({ force: true });
+        const key = suggestions[0].sequenceKey;
+        const draft = await L.draftSkillFromSequence(key, { generalize: true });
+        assert('promote: generalize without llmClient → literal draft', draft !== null && draft.skill.steps[0].tool === 'shell_run');
+    }
 
     console.log('');
     if (failed === 0) {

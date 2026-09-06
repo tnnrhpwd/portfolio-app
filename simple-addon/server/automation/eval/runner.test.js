@@ -107,6 +107,14 @@ function check(name, cond, detail) {
     const oogpaReport = await runScenarioFile(oogpaStatusPath);
     check('offline agent-status-extended HTTP scenario passes (stage/loop/stallCount/lastOutcomeDelta/lastLesson)', oogpaReport.passed === true, JSON.stringify(oogpaReport.failures));
 
+    const lessonsPath = path.join(__dirname, 'scenarios', '23-agent-lessons-empty.json');
+    const lessonsReport = await runScenarioFile(lessonsPath);
+    check('offline agent-lessons HTTP scenario passes (empty lessons array when signed out)', lessonsReport.passed === true, JSON.stringify(lessonsReport.failures));
+
+    const blockPath = path.join(__dirname, 'scenarios', '24-agent-block-validation.json');
+    const blockReport = await runScenarioFile(blockPath);
+    check('offline agent-block HTTP scenario passes (400 on missing goalSlug)', blockReport.passed === true, JSON.stringify(blockReport.failures));
+
     // A deliberately-failing HTTP scenario (wrong expected status) should
     // report failures without throwing.
     const failingReport = await runScenarioObject({

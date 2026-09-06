@@ -1,0 +1,13 @@
+{
+  "id": "23-agent-lessons-empty",
+  "name": "agent lessons — GET /api/agent/lessons (offline, empty)",
+  "description": "Asserts the critic-lessons read endpoint responds 200 with a lessons array even when signed out (offline/deterministic — no backend round-trip succeeds, so the handler degrades to an empty list rather than erroring).",
+  "http": {
+    "method": "GET",
+    "path": "/api/agent/lessons"
+  },
+  "expect": {
+    "lessons": { "type": "array" }
+  },
+  "tags": ["agent", "http", "offline", "oogpa", "critic", "smoke"]
+}

@@ -224,10 +224,10 @@ class PatternLearner extends EventEmitter {
      * in a draft.
      *
      * @param {string} sequenceKey - a suggestion's `sequenceKey`
-     * @param {object} opts - { save: boolean } (default false)
+     * @param {object} opts - { save: boolean, generalize: boolean } (both default false)
      * @returns {Promise<{skill, source}|null>}
      */
-    async draftSkillFromSequence(sequenceKey, { save = false } = {}) {
+    async draftSkillFromSequence(sequenceKey, { save = false, generalize = false } = {}) {
         const suggestion = this._suggestions.find((s) => s.sequenceKey === sequenceKey);
         if (!suggestion) return null;
 
@@ -253,7 +253,7 @@ class PatternLearner extends EventEmitter {
         });
 
         const slug = 'pattern-' + crypto.createHash('sha1').update(sequenceKey).digest('hex').slice(0, 10);
-        const skill = {
+        let skill = {
             slug,
             name: suggestion.title || `Learned ${seqTokens.length}-step skill`,
             description: suggestion.description || `Auto-drafted from ${suggestion.repeatCount} repeats`,
@@ -267,6 +267,24 @@ class PatternLearner extends EventEmitter {
                 draft: true,
             },
         };
+
+        // Optional generalization (T5.1 refinement): rewrite the literal
+        // {tool,args} steps into the abstracted NL-compiler schema via the
+        // existing generalize pipeline. Only attempted when saving AND an LLM
+        // client is configured; best-effort — on failure the literal draft is
+        // kept (the dashboard's "Make robust with AI" can generalize later).
+        if (save && generalize && this._llmClient) {
+            try {
+                const { generalizeSkill } = require('./recorder/generalize');
+                const generalized = await generalizeSkill(skill, {
+                    goalDescription: skill.description,
+                    llmClient: this._llmClient,
+                });
+                if (generalized && Array.isArray(generalized.steps)) skill = generalized;
+            } catch (e) {
+                this.emit('error', e);
+            }
+        }
 
         if (save && this._wsClient && typeof this._wsClient.upsertSkill === 'function') {
             await this._wsClient.upsertSkill(slug, {

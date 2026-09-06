@@ -440,6 +440,28 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
             res.json({ lessons: [] });
         }
     });
+    // Mark a goal `blocked` with a reason (O-O-G-P-A §7.3/§7.5). Also stops any
+    // running worker for that goal so a blocked goal isn't picked back up
+    // mid-run. This is the manual/human path — the loop itself blocks via
+    // wsClient.upsertGoal + the goal.blocked event inside selectGoal().
+    app.post('/api/agent/block', async (req, res) => {
+        const { goalSlug, reason } = req.body || {};
+        if (!goalSlug || typeof goalSlug !== 'string') {
+            return res.status(400).json({ error: 'goalSlug is required' });
+        }
+        try {
+            await wsClient.upsertGoal(goalSlug, { status: 'blocked' });
+            if (_agentPool.has(goalSlug)) {
+                _agentPool.get(goalSlug).stop(reason || 'goal blocked');
+                _agentPool.delete(goalSlug);
+            }
+            const payload = { goalSlug, reason: reason || 'user blocked goal' };
+            events.publish('goal.blocked', payload);
+            res.json({ ok: true, slug: goalSlug, status: 'blocked', reason: payload.reason });
+        } catch (e) {
+            res.status(502).json({ error: e.message });
+        }
+    });
     // Stop a specific worker by goal slug
     app.delete('/api/agent/worker/:goalSlug', (req, res) => {
         const slug = req.params.goalSlug;
