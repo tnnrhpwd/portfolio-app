@@ -52,6 +52,7 @@ const { perceptionRecent } = require('./perception');
 const { goalUpdate, goalCreate, goalAskUser } = require('./tools/goal');
 const { inputHold, inputTap, clickAt, mousePath, mouseDrag } = require('./tools/input');
 const { openApp } = require('./tools/open-app');
+const { waitFor } = require('./tools/wait-for');
 const { findVisualTarget } = require('./vision-fusion');
 
 const recorder = require('./recorder');
@@ -123,6 +124,7 @@ function registerAllTools() {
     registry.register(mousePath);
     registry.register(mouseDrag);
     registry.register(openApp);
+    registry.register(waitFor);
 
     // Destructive
     registry.register(processKill);

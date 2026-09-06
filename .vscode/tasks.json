@@ -1,0 +1,17 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "addon-test-unit",
+			"type": "shell",
+			"command": "npm --prefix \"c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon\" run test:unit",
+			"problemMatcher": []
+		},
+		{
+			"label": "addon-nl-compiler-test",
+			"type": "shell",
+			"command": "node \"c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon\\server\\automation\\nl-compiler.test.js\"",
+			"problemMatcher": []
+		}
+	]
+}

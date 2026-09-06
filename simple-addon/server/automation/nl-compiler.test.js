@@ -92,6 +92,14 @@ test('accepts open_app step', () => {
     validateSteps([{ type: 'open_app', name: 'notepad.exe' }]);
 });
 
+test('accepts wait_for windowTitle step', () => {
+    validateSteps([{ type: 'wait_for', windowTitle: 'Save As' }]);
+});
+
+test('accepts wait_for processName step', () => {
+    validateSteps([{ type: 'wait_for', processName: 'minecraft', timeoutMs: 20000 }]);
+});
+
 test('accepts uia_invoke step', () => {
     validateSteps([{ type: 'uia_invoke', name: 'OK' }]);
 });
@@ -165,6 +173,18 @@ test('rejects wait_ms over 5 minutes', () => {
 
 test('rejects open_app with shell injection characters', () => {
     assertThrows(() => validateSteps([{ type: 'open_app', name: 'calc; rm -rf /' }]), 'forbidden');
+});
+
+test('rejects wait_for with neither windowTitle nor processName', () => {
+    assertThrows(() => validateSteps([{ type: 'wait_for', timeoutMs: 1000 }]), 'requires windowTitle or processName');
+});
+
+test('rejects wait_for with both windowTitle and processName', () => {
+    assertThrows(() => validateSteps([{ type: 'wait_for', windowTitle: 'x', processName: 'y' }]), 'accepts only one');
+});
+
+test('rejects wait_for with excessive timeoutMs', () => {
+    assertThrows(() => validateSteps([{ type: 'wait_for', processName: 'p', timeoutMs: 999999 }]), 'timeoutMs');
 });
 
 test('rejects shell_run with rm command', () => {

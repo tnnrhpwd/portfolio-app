@@ -24,6 +24,7 @@ docs/
 │   ├── LLM_IMPLEMENTATION_SUMMARY.md # LLM provider integration
 │   ├── S3_INTEGRATION_SUMMARY.md     # S3 file upload integration
 │   ├── AUTONOMOUS_WINDOWS_AGENT_PLAN.md # Simple agent architecture plan
+│   ├── OBSERVE-ORIENT-GOAL-PLAN-ACTION.md # Continuous agent loop — implementation plan
 │   ├── AUTOMATION_ROADMAP.md         # Automation feature roadmap
 │   ├── AUTOMATION_SECURITY.md        # Automation security model
 │   ├── SUPPORT_TICKETS.md            # Support tickets & bug reports system (pull script + future auto-fix vision)
@@ -52,6 +53,7 @@ docs/
 - [LLM Implementation](./implementation/LLM_IMPLEMENTATION_SUMMARY.md) - Bedrock/DeepSeek integration
 - [S3 Integration](./implementation/S3_INTEGRATION_SUMMARY.md) - File upload system
 - [Autonomous Windows Agent Plan](./implementation/AUTONOMOUS_WINDOWS_AGENT_PLAN.md) - Simple's perceive→act agent architecture
+- [Observe → Orient → Goal → Plan → Action](./implementation/OBSERVE-ORIENT-GOAL-PLAN-ACTION.md) - Implementation plan for the continuous agent loop
 - [Automation Roadmap](./implementation/AUTOMATION_ROADMAP.md) - Automation feature roadmap
 - [Automation Security](./implementation/AUTOMATION_SECURITY.md) - Automation security model
 - [Simple Marketplace Plan](./implementation/SIMPLE_MARKETPLACE_PLAN.md) - Marketplace & skill generalization plan (includes cost-based Free/Pro gating consistent with the Action Plan)

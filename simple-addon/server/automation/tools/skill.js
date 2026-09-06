@@ -626,6 +626,8 @@ function _normaliseStep(step, focusCtx) {
                     waitMs: step.waitMs,
                 },
             };
+        case 'wait_for':
+            return { tool: 'wait_for', args: { windowTitle: step.windowTitle, processName: step.processName, timeoutMs: step.timeoutMs, pollMs: step.pollMs, optional: step.optional } };
         case 'shell_run':
             return { tool: 'shell_run', args: { command: step.command, shell: step.shell } };
         case 'uia_invoke':

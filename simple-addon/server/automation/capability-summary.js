@@ -55,6 +55,9 @@ function _describeAction(tool, args) {
             return 'run 1 shell command';
         }
         case 'open_app': return `open ${args?.name || 'an application'}`;
+        case 'wait_for': return args?.windowTitle
+            ? `wait for the window "${args.windowTitle}" to appear`
+            : `wait for the process "${args?.processName}" to start`;
         case 'skill_run': return `run another skill ("${args?.slug || 'unknown'}")`;
         case 'audio_speak': return 'speak out loud';
         case 'goal_update': return 'update the goal status';

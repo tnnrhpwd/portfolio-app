@@ -41,6 +41,7 @@ const VALID_STEP_TYPES = new Set([
     'click_at',         // click at screen coordinates
     'click_visual',     // find_and_click_visual — LLM-powered click by description
     'open_app',         // shell: start an application by name
+    'wait_for',         // wait for a window title or running process
     'shell_run',        // run a shell command (read-only preferred)
     'uia_invoke',       // click a UI element by name/controlType
     'skill_run',        // run another saved skill
@@ -147,6 +148,17 @@ function _validateStep(step, index) {
                 throw new Error(`step[${index}]: open_app.waitMs must be 0-60000`);
             break;
         }
+        case 'wait_for': {
+            if (!step.windowTitle && !step.processName)
+                throw new Error(`step[${index}]: wait_for requires windowTitle or processName`);
+            if (step.windowTitle && step.processName)
+                throw new Error(`step[${index}]: wait_for accepts only one of windowTitle or processName`);
+            if (step.timeoutMs !== undefined && (typeof step.timeoutMs !== 'number' || step.timeoutMs < 0 || step.timeoutMs > 60_000))
+                throw new Error(`step[${index}]: wait_for.timeoutMs must be 0-60000`);
+            if (step.pollMs !== undefined && (typeof step.pollMs !== 'number' || step.pollMs < 50 || step.pollMs > 2_000))
+                throw new Error(`step[${index}]: wait_for.pollMs must be 50-2000`);
+            break;
+        }
         case 'shell_run': {
             if (typeof step.command !== 'string' || !step.command.trim())
                 throw new Error(`step[${index}]: shell_run requires command`);
@@ -224,6 +236,8 @@ Valid step types and their fields:
   {"type":"click_visual","target":"the Submit button in the top-right corner"}
   {"type":"open_app","name":"notepad.exe"}
   {"type":"open_app","name":"minecraft.exe","windowTitleContains":"Minecraft","waitMs":15000}  // open_app already POLLS for the window and focuses it — do NOT add a wait_ms step after it
+  {"type":"wait_for","windowTitle":"Save As","timeoutMs":10000}  // wait for a dialog/window by title substring
+  {"type":"wait_for","processName":"minecraft","timeoutMs":20000}  // wait for a process to be running
   {"type":"shell_run","command":"dir C:\\\\Users"}
   {"type":"uia_invoke","name":"OK","controlType":"Button"}
   {"type":"skill_run","slug":"my-saved-skill"}
@@ -241,6 +255,7 @@ Rules:
 - For "repeat N times" → use loop_n_times
 - For clicking UI buttons by name → prefer click_visual or uia_invoke over click_at
 - For opening apps → use open_app, not shell_run. open_app already waits for the app's window to appear and focuses it (default up to 10s) — do NOT follow it with a wait_ms guess. For slow-launching apps (games, IDEs) set open_app.waitMs higher (e.g. 15000-20000) and set windowTitleContains to the expected window title substring so it doesn't match the wrong process
+- For waiting on a dialog/window/process that hasn't appeared yet → use wait_for (windowTitle or processName), NOT a fixed wait_ms guess
 - Do NOT use shell_run for destructive operations
 - Keep wait_ms realistic (100–2000ms typical)
 - Do NOT nest loops
