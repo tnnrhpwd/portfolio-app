@@ -59,6 +59,28 @@ class EyeTrackingManager extends EventEmitter {
     let hiresIris = false;
     let captureWidth = 0;
     let captureHeight = 0;
+
+    // Baseline: the camera pipeline the user actually calibrated with. The
+    // calibration window lets them pick a profile (auto / IR / hi-res) that
+    // changes iris precision; tracking MUST reuse the same pipeline or the
+    // accuracy measured at calibration won't hold in the field. eye_tracker.py
+    // now stamps this pipeline into eye-calibration.json on every save.
+    try {
+      const calPath = path.join(resolveResourcesPath(), 'eye-calibration.json');
+      if (fs.existsSync(calPath)) {
+        const cal = JSON.parse(fs.readFileSync(calPath, 'utf-8'));
+        if (cal.pipeline && typeof cal.pipeline === 'object') {
+          irMode = cal.pipeline.irMode ?? irMode;
+          processWidth = cal.pipeline.processWidth ?? processWidth;
+          processHeight = cal.pipeline.processHeight ?? processHeight;
+          hiresIris = cal.pipeline.hiresIris ?? hiresIris;
+          captureWidth = cal.pipeline.captureWidth ?? captureWidth;
+          captureHeight = cal.pipeline.captureHeight ?? captureHeight;
+        }
+      }
+    } catch {}
+
+    // User-level overrides (settings.json) win over the calibration baseline.
     try {
       const settingsPath = path.join(resolveResourcesPath(), 'settings.json');
       if (fs.existsSync(settingsPath)) {
@@ -73,6 +95,7 @@ class EyeTrackingManager extends EventEmitter {
         }
       }
     } catch {}
+    // Per-call overrides win over everything (explicit caller intent).
     if (options.irMode !== undefined) irMode = !!options.irMode;
     if (options.processWidth) processWidth = options.processWidth;
     if (options.processHeight) processHeight = options.processHeight;
@@ -196,9 +219,28 @@ while ($true) {
   }
 
   /**
+   * Resolve which camera tracking should use. Iris geometry, FOV, and lens
+   * distortion differ between webcams, so the saved gaze model is only valid
+   * for the camera it was trained on — read that from the calibration file,
+   * falling back to camera 0. Callers may still override it explicitly.
+   */
+  resolveCalibrationCameraIndex() {
+    try {
+      const calFile = path.join(resolveResourcesPath(), 'eye-calibration.json');
+      if (fs.existsSync(calFile)) {
+        const cal = JSON.parse(fs.readFileSync(calFile, 'utf-8'));
+        if (typeof cal.cameraIndex === 'number') return cal.cameraIndex;
+      }
+    } catch (err) {
+      console.warn('[EyeTracking] Could not read calibration camera index:', err.message);
+    }
+    return 0;
+  }
+
+  /**
    * Start eye tracking.
    * @param {Object} options
-   * @param {number} options.cameraIndex - Webcam index (default: 0)
+   * @param {number} options.cameraIndex - Webcam index (default: calibration camera, else 0)
    * @param {number} options.duration - Duration in seconds (0 = indefinite)
    * @param {string} options.calibrationFile - Path to calibration JSON
    */
@@ -214,7 +256,7 @@ while ($true) {
       return { success: false, error: 'No calibration data found. Please calibrate first.' };
     }
 
-    this.cameraIndex = options.cameraIndex ?? 0;
+    this.cameraIndex = options.cameraIndex ?? this.resolveCalibrationCameraIndex();
     this.duration = options.duration ?? 0;
 
     const screen = this._getScreenSize();
@@ -248,6 +290,8 @@ while ($true) {
     if (typeof options.oneEuroMinCutoff === 'number') oeMinCutoff = options.oneEuroMinCutoff;
     if (typeof options.oneEuroBeta === 'number') oeBeta = options.oneEuroBeta;
     if (typeof options.deadzonePx === 'number') deadzonePx = options.deadzonePx;
+    if (typeof options.confidenceThreshold === 'number') confidence = options.confidenceThreshold;
+    if (typeof options.smoothingAlpha === 'number') smoothing = options.smoothingAlpha;
 
     // Camera pipeline options (IR, processing/capture resolution, hires iris)
     const camOpts = this._resolveCameraOptions(options);

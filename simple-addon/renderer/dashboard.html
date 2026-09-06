@@ -96,6 +96,24 @@
   .row .desc { color: var(--muted); font-size: 12px; margin-top: 2px; word-break: break-all; }
   .actions { display: flex; gap: 8px; flex-shrink: 0; }
 
+  /* ── Collapsible panels (de-clutter: secondary sections collapsed by default) ── */
+  .panel--collapsible { padding: 0; }
+  .panel--collapsible > summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 16px 20px;
+    user-select: none;
+  }
+  .panel--collapsible > summary::-webkit-details-marker { display: none; }
+  .panel--collapsible > summary h2 { margin: 0; }
+  .panel--collapsible > summary .collapse-caret { color: var(--muted); font-size: 11px; transition: transform .15s ease; }
+  .panel--collapsible[open] > summary .collapse-caret { transform: rotate(90deg); }
+  .panel--collapsible > .panel-body { padding: 0 20px 16px; }
+
   input[type="text"], select, textarea {
     background: #0d1117; color: var(--text); border: 1px solid var(--border);
     border-radius: 6px; padding: 6px 10px; font-size: 13px; font-family: inherit;
@@ -482,29 +500,39 @@
       <ul id="agent-goals-list" class="rs-list"></ul>
     </div>
 
-    <div class="panel">
-      <h2>Automation suggestions</h2>
-      <p class="desc">Simple looks for tasks you repeat and suggests automating them. (Needs the web-app sign-in so the action log is available.)</p>
-      <div class="row">
-        <div class="actions">
-          <button id="agent-suggest-refresh" class="primary">Check for patterns</button>
+    <details class="panel panel--collapsible">
+      <summary>
+        <h2>Automation suggestions</h2>
+        <span class="collapse-caret">▶</span>
+      </summary>
+      <div class="panel-body">
+        <p class="desc">Simple looks for tasks you repeat and suggests automating them. (Needs the web-app sign-in so the action log is available.)</p>
+        <div class="row">
+          <div class="actions">
+            <button id="agent-suggest-refresh" class="primary">Check for patterns</button>
+          </div>
         </div>
+        <div id="agent-suggestions"></div>
       </div>
-      <div id="agent-suggestions"></div>
-    </div>
+    </details>
 
-    <div class="panel">
-      <div class="row" style="border-bottom:none; padding-top:0;">
-        <div>
-          <h2 style="margin-bottom:2px;">Live activity</h2>
-          <div class="rs-intro" style="margin-top:0;">What the agent is doing right now — steps, messages, and completed skill runs.</div>
+    <details class="panel panel--collapsible">
+      <summary>
+        <h2>Live activity</h2>
+        <span class="collapse-caret">▶</span>
+      </summary>
+      <div class="panel-body">
+        <div class="row" style="border-bottom:none; padding-top:0;">
+          <div>
+            <div class="rs-intro" style="margin-top:0;">What the agent is doing right now — steps, messages, and completed skill runs.</div>
+          </div>
+          <div class="actions">
+            <button id="agent-feed-clear">Clear</button>
+          </div>
         </div>
-        <div class="actions">
-          <button id="agent-feed-clear">Clear</button>
-        </div>
+        <ul id="agent-feed" class="rs-list"></ul>
       </div>
-      <ul id="agent-feed" class="rs-list"></ul>
-    </div>
+    </details>
   </section>
   <section class="tab-panel" id="panel-voice">
     <div class="panel">
@@ -527,38 +555,48 @@
       <div id="voice-transcript" style="min-height:56px; padding:10px; border:1px solid var(--border-color); border-radius:var(--border-radius); white-space:pre-wrap; font-family:monospace;">—</div>
     </div>
 
-    <div class="panel">
-      <h2>Speak (text-to-speech)</h2>
-      <div class="row">
-        <div>
-          <div class="name">Say something</div>
-          <div class="desc">Simple will speak this text aloud.</div>
-        </div>
-        <div class="actions">
-          <input type="text" id="voice-speak-text" placeholder="Hello from Simple" style="width:260px;" />
-          <button id="voice-speak" class="primary">Speak</button>
+    <details class="panel panel--collapsible">
+      <summary>
+        <h2>Speak (text-to-speech)</h2>
+        <span class="collapse-caret">▶</span>
+      </summary>
+      <div class="panel-body">
+        <div class="row">
+          <div>
+            <div class="name">Say something</div>
+            <div class="desc">Simple will speak this text aloud.</div>
+          </div>
+          <div class="actions">
+            <input type="text" id="voice-speak-text" placeholder="Hello from Simple" style="width:260px;" />
+            <button id="voice-speak" class="primary">Speak</button>
+          </div>
         </div>
       </div>
-    </div>
+    </details>
 
-    <div class="panel">
-      <h2>Audio devices</h2>
-      <div class="row" style="border-bottom:none; padding-top:0;">
-        <div>
-          <div class="name">Speech model</div>
-          <div class="desc">Smaller models are faster but less accurate. Runs fully offline.</div>
+    <details class="panel panel--collapsible">
+      <summary>
+        <h2>Audio devices</h2>
+        <span class="collapse-caret">▶</span>
+      </summary>
+      <div class="panel-body">
+        <div class="row" style="border-bottom:none; padding-top:0;">
+          <div>
+            <div class="name">Speech model</div>
+            <div class="desc">Smaller models are faster but less accurate. Runs fully offline.</div>
+          </div>
+          <div class="actions">
+            <select id="voice-model-select">
+              <option value="tiny">tiny (fastest)</option>
+              <option value="base">base</option>
+              <option value="small">small</option>
+              <option value="medium">medium (most accurate)</option>
+            </select>
+          </div>
         </div>
-        <div class="actions">
-          <select id="voice-model-select">
-            <option value="tiny">tiny (fastest)</option>
-            <option value="base">base</option>
-            <option value="small">small</option>
-            <option value="medium">medium (most accurate)</option>
-          </select>
-        </div>
+        <div id="voice-devices"></div>
       </div>
-      <div id="voice-devices"></div>
-    </div>
+    </details>
   </section>
   <section class="tab-panel" id="panel-perception">
     <div class="panel">
@@ -661,28 +699,38 @@
       <ul id="skills-list" class="rs-list"></ul>
     </div>
 
-    <div class="panel">
-      <h2>⏺ Saved recordings</h2>
-      <div class="rs-intro">Raw demonstrations captured on this machine — stored locally only. Edit one to compile it into a skill and save it to your cloud workspace above.</div>
-      <div class="rs-toolbar">
-        <input type="text" id="recordings-search" class="rs-search" placeholder="Search recordings by name…">
+    <details class="panel panel--collapsible">
+      <summary>
+        <h2>⏺ Saved recordings</h2>
+        <span class="collapse-caret">▶</span>
+      </summary>
+      <div class="panel-body">
+        <div class="rs-intro">Raw demonstrations captured on this machine — stored locally only. Edit one to compile it into a skill and save it to your cloud workspace above.</div>
+        <div class="rs-toolbar">
+          <input type="text" id="recordings-search" class="rs-search" placeholder="Search recordings by name…">
+        </div>
+        <ul id="recordings-list" class="rs-list"></ul>
       </div>
-      <ul id="recordings-list" class="rs-list"></ul>
-    </div>
+    </details>
 
-    <div class="panel">
-      <div class="row" style="border-bottom:none; padding-top:0;">
-        <div>
-          <h2 style="margin-bottom:2px;">🕘 Recent runs</h2>
-          <div class="rs-intro" style="margin-top:0;">The last skill runs on this machine — manual, hotkey, or trigger-fired — with pass/fail. Useful for confirming a scheduled trigger actually ran.</div>
+    <details class="panel panel--collapsible">
+      <summary>
+        <h2>🕘 Recent runs</h2>
+        <span class="collapse-caret">▶</span>
+      </summary>
+      <div class="panel-body">
+        <div class="row" style="border-bottom:none; padding-top:0;">
+          <div>
+            <div class="rs-intro" style="margin-top:0;">The last skill runs on this machine — manual, hotkey, or trigger-fired — with pass/fail. Useful for confirming a scheduled trigger actually ran.</div>
+          </div>
+          <div class="actions">
+            <button id="runs-refresh">Refresh</button>
+            <button id="runs-clear" class="danger">Clear</button>
+          </div>
         </div>
-        <div class="actions">
-          <button id="runs-refresh">Refresh</button>
-          <button id="runs-clear" class="danger">Clear</button>
-        </div>
+        <ul id="runs-list" class="rs-list"></ul>
       </div>
-      <ul id="runs-list" class="rs-list"></ul>
-    </div>
+    </details>
   </section>
   <section class="tab-panel" id="panel-workspace">
     <div class="panel">

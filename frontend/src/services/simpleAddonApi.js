@@ -1139,6 +1139,55 @@ export async function getPerceptionFrame() {
   return res.json();
 }
 
+// ─── Eye tracking control (local addon) ─────────────────────────────────────
+
+/**
+ * Current eye-tracking status.
+ * @returns {Promise<{ state: string, active: boolean, calibrating: boolean,
+ *   cameraIndex: number, hasCalibration: boolean, lastError: string|null,
+ *   onlineSamples: number, lastModelUpdate: string|null }>}
+ */
+export async function getEyeTrackingStatus() {
+  const res = await addonFetch('/api/eye-tracking/status');
+  return res.json();
+}
+
+/**
+ * Start eye-tracking cursor control (requires a prior calibration).
+ * When cameraIndex is omitted the addon reuses the camera that was
+ * calibrated, so multi-camera setups keep the correct gaze model.
+ * @param {{ cameraIndex?: number, duration?: number }} opts duration 0 = indefinite
+ */
+export async function startEyeTracking({ cameraIndex, duration } = {}) {
+  const res = await addonFetch('/api/eye-tracking/start', {
+    method: 'POST',
+    body: JSON.stringify({
+      ...(cameraIndex != null ? { cameraIndex } : {}),
+      duration: duration ?? 0,
+    }),
+  });
+  return res.json();
+}
+
+/** Stop eye-tracking cursor control. */
+export async function stopEyeTracking() {
+  const res = await addonFetch('/api/eye-tracking/stop', { method: 'POST' });
+  return res.json();
+}
+
+/**
+ * Open the calibration window on the desktop (only works when the addon
+ * desktop app is running — the webapp routes through the addon).
+ * @param {number} cameraIndex
+ */
+export async function calibrateEyeTracking(cameraIndex = 0) {
+  const res = await addonFetch('/api/eye-tracking/calibrate', {
+    method: 'POST',
+    body: JSON.stringify({ cameraIndex }),
+  });
+  return res.json();
+}
+
 // ─── Behavioral Predictor ─────────────────────────────────────────────────────
 
 /**

@@ -1659,7 +1659,7 @@ app.get('/api/eye-tracking/status', (req, res) => {
 app.post('/api/eye-tracking/start', async (req, res) => {
   const { cameraIndex, duration } = req.body || {};
   const result = await eyeTrackingManager.start({
-    cameraIndex: cameraIndex ?? 0,
+    ...(cameraIndex != null ? { cameraIndex } : {}),
     duration: duration ?? 0,
   });
   if (result.success) {

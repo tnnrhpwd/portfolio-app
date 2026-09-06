@@ -27,6 +27,10 @@ import {
   listWorkspace,
   getWorkspaceItem,
   runSkill,
+  getEyeTrackingStatus,
+  startEyeTracking,
+  stopEyeTracking,
+  calibrateEyeTracking,
 } from '../../services/simpleAddonApi';
 import './AgentLivePanel.css';
 
@@ -91,6 +95,10 @@ export default function AgentLivePanel({ addonConnected, user, onManageMacros, v
   const [macrosError, setMacrosError] = useState(null);
   const [runningSlug, setRunningSlug] = useState(null);
   const [runResult, setRunResult] = useState(null); // { slug, ok }
+
+  // Eye tracking
+  const [eyeStatus, setEyeStatus] = useState(null);
+  const [eyeBusy, setEyeBusy] = useState(false);
 
   const esRef = useRef(null);
   const lastSeqRef = useRef(0);
@@ -195,6 +203,76 @@ export default function AgentLivePanel({ addonConnected, user, onManageMacros, v
     }, 10000);
     return () => { cancelled = true; clearInterval(id); };
   }, [addonConnected]);
+
+  // ── Eye tracking status + controls ──────────────────────────────────────
+  // The addon exposes /api/eye-tracking/* so the webapp can drive it wherever
+  // the user actually is. Poll status on a light cadence and keep a local
+  // busy flag so Start/Stop/Calibrate don't fight each other.
+  useEffect(() => {
+    if (!addonConnected) { setEyeStatus(null); return; }
+    let cancelled = false;
+    const refresh = () => {
+      getEyeTrackingStatus()
+        .then((s) => { if (!cancelled) setEyeStatus(s); })
+        .catch(() => { if (!cancelled) setEyeStatus(null); });
+    };
+    refresh();
+    const id = setInterval(refresh, 4000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [addonConnected]);
+
+  const onEyeStart = useCallback(async () => {
+    if (eyeBusy) return;
+    setEyeBusy(true);
+    try {
+      const r = await startEyeTracking({});
+      if (r?.error) throw new Error(r.error);
+      setEyeStatus((s) => ({ ...(s || {}), active: true, state: 'running', lastError: null }));
+    } catch (e) {
+      setEyeStatus((s) => ({ ...(s || {}), lastError: e.message || String(e) }));
+    } finally {
+      setEyeBusy(false);
+    }
+  }, [eyeBusy]);
+
+  const onEyeStop = useCallback(async () => {
+    if (eyeBusy) return;
+    setEyeBusy(true);
+    try {
+      const r = await stopEyeTracking();
+      if (r?.error) throw new Error(r.error);
+      setEyeStatus((s) => ({ ...(s || {}), active: false, state: 'idle', lastError: null }));
+    } catch (e) {
+      setEyeStatus((s) => ({ ...(s || {}), lastError: e.message || String(e) }));
+    } finally {
+      setEyeBusy(false);
+    }
+  }, [eyeBusy]);
+
+  const onEyeCalibrate = useCallback(async () => {
+    if (eyeBusy) return;
+    setEyeBusy(true);
+    try {
+      const r = await calibrateEyeTracking();
+      if (r?.error) throw new Error(r.error);
+      // Calibration happens in a desktop window; the next poll will pick up
+      // the state change, but nudge an immediate refresh so the UI is snappy.
+      getEyeTrackingStatus().then((s) => setEyeStatus(s)).catch(() => {});
+    } catch (e) {
+      setEyeStatus((s) => ({ ...(s || {}), lastError: e.message || String(e) }));
+    } finally {
+      setEyeBusy(false);
+    }
+  }, [eyeBusy]);
+
+  const eyeLabel = useMemo(() => {
+    if (!addonConnected) return '';
+    if (!eyeStatus) return 'Checking…';
+    if (eyeStatus.calibrating) return 'Calibrating…';
+    if (eyeStatus.active) return 'Active — moving your cursor';
+    if (eyeStatus.lastError) return `Error: ${eyeStatus.lastError}`;
+    return eyeStatus.hasCalibration ? 'Calibrated — ready' : 'Not calibrated yet';
+  }, [addonConnected, eyeStatus]);
 
   // ── Quick macros list (cloud workspace, independent of the addon) ────────
   const loadMacros = useCallback(async () => {
@@ -370,6 +448,55 @@ export default function AgentLivePanel({ addonConnected, user, onManageMacros, v
           <button className="agent-live__link-btn" onClick={onManageMacros}>
             Manage macros →
           </button>
+        )}
+      </div>
+
+      {/* ── Eye tracking ───────────────────────────────────────────────── */}
+      <div className="agent-live__section">
+        <div className="agent-live__section-head">
+          <h4>👁 Eye Tracking</h4>
+          <span className="agent-live__section-hint">{eyeLabel}</span>
+        </div>
+
+        {!addonConnected ? (
+          <p className="agent-live__hint">Connect the addon to control eye tracking.</p>
+        ) : (
+          <>
+            <div className="agent-live__eye-actions">
+              {eyeStatus?.active ? (
+                <button
+                  type="button"
+                  className="agent-live__btn agent-live__btn--stop"
+                  onClick={onEyeStop}
+                  disabled={eyeBusy}
+                >
+                  Stop
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="agent-live__btn agent-live__btn--start"
+                  onClick={onEyeStart}
+                  disabled={eyeBusy || eyeStatus?.calibrating}
+                  title={!eyeStatus?.hasCalibration ? 'Calibrate first' : 'Move the cursor with your eyes'}
+                >
+                  {eyeStatus?.calibrating ? 'Calibrating…' : 'Start'}
+                </button>
+              )}
+              <button
+                type="button"
+                className="agent-live__btn"
+                onClick={onEyeCalibrate}
+                disabled={eyeBusy || eyeStatus?.calibrating}
+                title="Open the calibration window on your PC"
+              >
+                Calibrate
+              </button>
+            </div>
+            {!eyeStatus?.hasCalibration && !eyeStatus?.active && (
+              <p className="agent-live__hint">Not calibrated yet — click Calibrate first, then Start.</p>
+            )}
+          </>
         )}
       </div>
 
