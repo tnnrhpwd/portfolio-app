@@ -27,6 +27,9 @@ import {
   getCustomAddonHost,
   upsertWorkspaceItem,
   getSelectedRemoteDeviceId,
+  startAgent,
+  stopAgent,
+  getAgentStatus,
 } from '../../services/simpleAddonApi';
 import { createData } from '../../features/data/dataSlice';
 import { getUserIdentifier } from '../../utils/supportUtils';
@@ -829,11 +832,25 @@ function SimpleChat({
       if (!description) return { handled: true, message: '**Usage:** `/goal <description>` — e.g. `/goal Open Chrome and search for the weather`' };
       return { handled: false, _createGoal: description };
     }
+    // /run <description> — create the goal if needed, then start the loop.
+    if (trimmed.startsWith('/run ') || trimmed.startsWith('/run\n')) {
+      const description = raw.slice(5).trim();
+      if (!description) return { handled: true, message: '**Usage:** `/run <description>` — e.g. `/run Open Notepad and type hello`' };
+      return { handled: false, _runGoal: description };
+    }
+    // /agent [status|start|stop] — direct loop control in-chat.
+    if (trimmed === '/agent' || trimmed.startsWith('/agent ')) {
+      const sub = trimmed.replace('/agent', '').trim();
+      const action = ['status', 'start', 'stop'].includes(sub) ? sub : 'status';
+      return { handled: false, _agentCmd: action };
+    }
     if (trimmed === '/help') {
       return {
         handled: true,
         message: '**Available Commands:**\n\n' +
           '`/goal <description>` — Create an automation goal (e.g. `/goal Open Notepad`)\n' +
+          '`/run <description>` — Create a goal and start the agent on it now\n' +
+          '`/agent [status|start|stop]` — Check or control the agent loop\n' +
           '`/goals` — Show your saved goals\n' +
           '`/notes` — Show your saved notes\n' +
           '`/usage` — Show your plan & credit usage\n' +
@@ -1125,6 +1142,62 @@ function SimpleChat({
             replyContent = `🎯 **Goal created:** "${description.slice(0, 80)}"\n\nThe agent will pick it up next time you click **Start Agent** in the Live Agent View, or say *"hey simple"*.`;
           } catch (e) {
             replyContent = `**Could not create goal:** ${e.message}. Make sure you are signed in.`;
+          }
+          const replyMsg = { id: (Date.now() + 1).toString(), role: 'assistant', content: replyContent, timestamp: new Date().toISOString() };
+          setConversations(prev => prev.map(c => c.id !== activeConversationId ? c : { ...c, messages: [...c.messages, userMsg, replyMsg] }));
+          return;
+        }
+        if (cmd._runGoal) {
+          // Create the goal then start the agent on it (addon must be connected).
+          const description = cmd._runGoal;
+          const slug = description.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'goal';
+          const userMsg = { id: Date.now().toString(), role: 'user', content: text, timestamp: new Date().toISOString() };
+          let replyContent;
+          try {
+            if (!isAddonConnected) {
+              replyContent = '**The desktop addon is not connected.** Start Simple Addon on your PC first, then retry `/run`.';
+            } else {
+              await upsertWorkspaceItem(user?.token, 'goal', slug, {
+                name: description.slice(0, 80),
+                content: description,
+                status: 'active',
+                priority: 70,
+                createdBy: 'chat',
+              });
+              const started = await startAgent({ goalSlug: slug });
+              replyContent = started?.running
+                ? `▶ **Agent started** on goal "${description.slice(0, 80)}". Watch it in the Live Agent View.`
+                : `🎯 Goal created, but the agent could not start: ${started?.reason || 'no active goal'}.`;
+            }
+          } catch (e) {
+            replyContent = `**Could not run:** ${e.message}.`;
+          }
+          const replyMsg = { id: (Date.now() + 1).toString(), role: 'assistant', content: replyContent, timestamp: new Date().toISOString() };
+          setConversations(prev => prev.map(c => c.id !== activeConversationId ? c : { ...c, messages: [...c.messages, userMsg, replyMsg] }));
+          return;
+        }
+        if (cmd._agentCmd) {
+          const userMsg = { id: Date.now().toString(), role: 'user', content: text, timestamp: new Date().toISOString() };
+          let replyContent;
+          try {
+            if (!isAddonConnected) {
+              replyContent = '**The desktop addon is not connected.** Start Simple Addon on your PC first.';
+            } else if (cmd._agentCmd === 'start') {
+              const started = await startAgent({});
+              replyContent = started?.running
+                ? '▶ **Agent started.**'
+                : `**Could not start:** ${started?.reason || 'no active goal'}.`;
+            } else if (cmd._agentCmd === 'stop') {
+              await stopAgent();
+              replyContent = '⏹ **Agent stopped.**';
+            } else {
+              const s = await getAgentStatus();
+              replyContent = s?.running
+                ? `🤖 **Agent is running** — step ${s.step ?? 0} · stage ${s.stage ?? '?'} · stall ${s.stallCount ?? 0}.`
+                : '🤖 **Agent is idle.** Use `/run <description>` or `/agent start` to start it.';
+            }
+          } catch (e) {
+            replyContent = `**Agent command failed:** ${e.message}.`;
           }
           const replyMsg = { id: (Date.now() + 1).toString(), role: 'assistant', content: replyContent, timestamp: new Date().toISOString() };
           setConversations(prev => prev.map(c => c.id !== activeConversationId ? c : { ...c, messages: [...c.messages, userMsg, replyMsg] }));

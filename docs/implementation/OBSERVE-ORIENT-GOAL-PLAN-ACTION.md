@@ -1,3 +1,9 @@
+
+0.
+0.
+0.
+0.
+0.0.
 # Observe → Orient → Goal → Plan → Action — Implementation Plan
 
 > Status: **Implementation plan** (replaces the earlier analysis). This
@@ -818,3 +824,66 @@ self-directed behavior (T3.x, T5.x) — same rationale as §12.
 **Rollback:** every task is independently shippable and T0 freezes baseline
 behavior, so rolling back any task = revert that task's commit. No task
 migrates data destructively.
+
+---
+
+## 16. Progress log (live)
+
+> Executing-agent notes — updated as each task lands. Keep this section current
+> so a resume can pick up exactly where the last run stopped.
+
+### 2026-09-06 — Phase 0 & 1 complete
+
+- **T0.1** ✅ `agent-loop.baseline.test.js` added + registered in `simple-addon/package.json` `test:unit`. Freezes the exact ReAct behavior: canned goal + mocked llm/registry → exactly 2 `llm.chat` calls and tool sequence `[toolA, toolB]`, stop reason `goal-done-sentinel`, 2 steps.
+- **T0.2** ✅ Injectable `ctx` seam: `agent-loop.js` refactored into an `AgentLoop` class whose constructor takes `{ wsClient, registry, contextFactory, log, llmClient, events, perception, planner, skillModule, config }`. `_lazyLoadLlm`/`_events`/`_perception`/`_planner`/`_skillModule` accessors fall back to lazy `require()` only when an override isn't supplied. `DEFAULT_CONFIG` added (§7.4 knobs) but not yet consumed.
+- **T1.1** ✅ `tick()` split into named stage methods `observe()` → Frame, `orient(frame)` → Situation, `selectGoal()` → Decision, `plan(frame, situation)` → Action, `act(action)` → Outcome, `reflect(action, outcome)` → `{stop, reason}`. `state.stage` added; `_setStage()` publishes `agent.stage` events; `status()` now includes `stage`. `AgentLoop` is exported alongside `createAgentLoop` (public `createAgentLoop` signature unchanged — `index.js` untouched).
+- **Tests:** `agent-loop.test.js` (11 cases) added + registered. Stage shapes verified; happy-path `agent.stage` order per tick = `SELECTING_GOAL, OBSERVING, ORIENTING, PLANNING, ACTING, REFLECTING`, ending `IDLE`.
+- **Full `test:unit` green** after the refactor (0 failures).
+
+### Notes / decisions
+
+- Stage order is **honest to current behavior**: `selectGoal()` (goal refresh) runs *before* `observe()` each tick, not after `orient()` as the §3 state machine sketches. Phase 3 will promote `selectGoal` to the outer-loop cadence; keep the refresh-first order until then to avoid a behavior change.
+- `MAX_STEPS_DEFAULT: 60` is defined in `DEFAULT_CONFIG` but the loop still uses the legacy `DEFAULT_MAX_STEPS = 20` default — Phase 3 wires per-goal `maxSteps`/`autoAbandon` and will decide whether to adopt 60.
+- Dead code removed during the refactor: the unused `messages` array in the old `_stepOnce`, and the unused `_cacheMap` IIFE in `findRelevantSkills`.
+
+### 2026-09-06 — Phases 2, 3, 4, 6 complete
+
+- **T2.1** ✅ `orient()` now assembles a bounded, priority-ordered situation block (perception → recent actions → goals → lessons → suggestions), capped at `ORIENT_CAP_BYTES`, dropping the lowest-priority part first when over cap. `AgentLoop` gained an injectable `memory` seam (`recallEpisodes`/`recallLessons`/`recallSuggestions`, best-effort defaults via `wsClient.getRecentActions` / `wsClient.listLessons` / pattern-learner).
+- **T2.2** ✅ Drift detection: `orient()` computes a token-set signature over the *semantic* parts (priority ≥ 2 — perception excluded) and sets `drifted` when Jaccard similarity < `1 - DRIFT_THRESHOLD`.
+- **T3.2** ✅ Goal stage: per-goal `maxSteps` (additive `goal.maxSteps`) is honored and an exhausted goal is marked `failed` (`goal.failed` event). Self-block on stall is gated by `goal.autoAbandon` (default false — never permanently block a human's goal without opt-in).
+- **T4.1/T4.2** ✅ Critic: new `critic.js` (`score` → -1..1, `buildLesson`, `writeLesson` idempotent on `hashPattern`, `recall` token-overlap ranker). `plan()` records `action.expected`; `reflect()` scores via the critic, writes one `lesson` workspace item per failing tick, and sets `lastLesson`. Lessons are recalled into the next Orient block, so the next plan prompt contains them.
+- **T6.1** ✅ `plan()` returns `{type:'idle'}` when the LLM returns no tool call and no sentinel; an idle tick sleeps `IDLE_SLEEP_MS` and calls no tool.
+- **T6.2** ✅ Stall/boredom detector: `stallCount` increments when `lastOutcomeDelta ≤ 0`; at `STALL_THRESHOLD` the loop stops (`stopReason='stalled'`), publishing `goal.blocked` (autoAbandon) or `goal.stalled` (otherwise). Hard `deny` results surface as tool errors and simply feed the critic — never auto-block.
+- **Backend (additive):** `workspaceController.js` `ALLOWED_KINDS` + `KIND_SIZE_CAP_BYTES` now include `lesson` (16 KB). `workspace-client.js` gained `listLessons`/`getLesson`/`upsertLesson`.
+- **Tests:** `agent-loop.test.js` (22 cases), `critic.test.js` (14 cases) added + registered; `agent-loop.baseline.test.js` (7) still green. Full `test:unit` green (0 failures).
+
+### Notes / decisions (continued)
+
+- **Drift excludes perception** deliberately: screen/UIA changes every tick, so drift is measured only on the semantic orientation (episodes/goals/lessons/suggestions). This keeps `drifted` from firing on every tick.
+- **`selectGoal()` is cadence-gated; `refreshGoalStatus()` runs every tick** — see the T3.1 entry below. The per-tick status/stall check was kept out of the cadence gate so a user pause/block/done (or a stall) is caught on the very tick it happens.
+- **`MAX_STEPS_DEFAULT: 60` is still unused** — the loop keeps the legacy `DEFAULT_MAX_STEPS = 20` unless a goal sets `maxSteps` or `start()` gets an override. Bump deliberately in a follow-up once stall/abandon behaviour is tuned from real usage.
+- **Lesson recall is recent-first** (backend lists by `updatedAt` desc); `critic.recall` (token-overlap ranking) exists and is testable but the loop currently injects the `LESSON_TOPK` most-recent lessons. Semantic ranking can be wired later without an API change.
+
+### 2026-09-06 — Phases 5, 7, 8 + goal-field persistence complete
+
+- **Backend (additive goal fields):** `workspaceController.js` now persists + validates the §7.1 `maxSteps` (int 1–1000) and `autoAbandon` (bool) goal fields, and `toListEntry` surfaces them — so the loop's `goal.maxSteps`/`goal.autoAbandon` reads actually round-trip through the workspace API (previously they only existed in unit-test fakes).
+- **T5.1** ✅ Meta-loop: `PatternLearner.draftSkillFromSequence(sequenceKey, { save })` promotes a 3+× repeated sequence into a skill **draft** (deterministic `pattern-<hash>` slug, PII-tool args stripped). Nothing is persisted unless `{ save: true }` — promotion is consent-gated. Fixed the no-LLM `_nameSuggestions` fallback to include `sequenceKey`. Tests: `pattern-learner.test.js` now 17 cases.
+- **T7.1** ✅ (partial) Eval scenario `22-agent-status-extended.json` added — offline HTTP `GET /api/agent/status` asserting `stage`/`loop`/`stallCount`/`lastOutcomeDelta`/`lastLesson` (plus `workerCount`/`workers`); wired into `runner.test.js` (now 32 cases). The other three proposed scenarios (goal-block-on-stall, critic-lesson-roundtrip, orient-bound-cap) are covered by unit tests (`agent-loop.test.js`, `critic.test.js`) — runner.js's offline tool-step/HTTP format can't deterministically drive the LLM loop.
+- **T8.1** ✅ (dashboard) `renderer/dashboard.html` Agent tab now shows a live `Stage · loop · stall · Δ · last lesson` line under the running status, an **Auto-abandon** checkbox per active goal, and a **📚 Learned lessons** panel. New addon endpoints: `POST /api/agent/goal/:slug/auto-abandon`, `GET /api/agent/lessons?goal=`. DASHCHECK clean (extracted `<script>` `node --check` exit 0; `<details>` 7/7, `<ul>` 6/6 balanced).
+- **T8.2** ✅ Chat commands: `SimpleChat.jsx` handles `/run <description>` (create goal + `startAgent`) and `/agent [status|start|stop]` (loop control), with `/help` updated. Reuses the existing `simpleAddonApi.js` helpers (`startAgent`/`stopAgent`/`getAgentStatus`) — no new API surface needed. `get_errors` clean.
+
+### 2026-09-06 — T3.1 + T8.1 (webapp) complete
+
+- **T3.1** ✅ Goal re-eval cadence. The old per-tick `selectGoal()` is split into:
+  - `refreshGoalStatus()` — the cheap **every-tick** safety core (goal fetch + terminal-status check + stall/boredom detector). A user pause/block/done or a stall is still caught on the very tick it happens (never cadence-gated — a runaway must not wait 8 ticks to be noticed).
+  - `selectGoal()` — the cadence-gated outer-loop step: runs `refreshGoalStatus()` then resets the cadence (`stepsSinceReeval = 0`, `nextReevaluateAt = now + REEVAL_MS`). Future intent re-derivation (higher-priority goal, done/abandon) slots in here.
+  - `_shouldReevaluate()` — true on start, when `stepsSinceReeval ≥ REEVAL_STEPS`, when `nextReevaluateAt` has passed, or on drift (`_lastDrifted`, set by `orient()`).
+  - `_runLoop()` calls `selectGoal()` on re-eval ticks and `refreshGoalStatus()` otherwise; `observe()` increments `stepsSinceReeval`.
+  - Tests: `agent-loop.test.js` now 27 cases (adds `_shouldReevaluate` + cadence-reset cases).
+- **T8.1 (webapp)** ✅ `AgentLivePanel.jsx` now renders an **🤖 Agent** section (the Start/Stop/approvals handlers + CSS already existed but had no JSX): running/idle badge, goal + step, a live `Stage · loop · stall · Δ · last lesson` line, pending-approval cards, and Start/Stop + Auto-approve controls. `get_errors` clean.
+- **Full `test:unit` green** after these changes (0 failures).
+
+### Remaining (not yet implemented)
+
+- **T7.1 (remainder)** goal-block-on-stall, critic-lesson-roundtrip and orient-bound-cap are unit-tested (`agent-loop.test.js`, `critic.test.js`) but not runner.js scenarios — the offline tool-step/HTTP format can't deterministically drive the LLM loop.
+- **T5.1 (refinement)** Draft promotion is literal (`{tool,args}`); routing through `recorder/generalize.js` for abstracted-schema skills is a follow-up (the dashboard's "Make robust with AI" already generalizes on demand).

@@ -402,6 +402,73 @@ export default function AgentLivePanel({ addonConnected, user, onManageMacros, v
         </button>
       )}
 
+      {/* ── Autonomous Agent ──────────────────────────────────────────── */}
+      <div className="agent-live__section">
+        <div className="agent-live__section-head">
+          <h4>🤖 Agent</h4>
+          <span className={`agent-live__badge ${!addonConnected ? 'is-off' : running ? 'is-running' : 'is-idle'}`}>
+            {!addonConnected ? 'off' : running ? 'running' : 'idle'}
+          </span>
+        </div>
+
+        {addonConnected && running && (
+          <>
+            {goalTitle && (
+              <div className="agent-live__goal">
+                <span className="agent-live__goal-label">Goal</span>
+                <span className="agent-live__goal-name">{goalTitle}</span>
+                {status?.step != null && <span className="agent-live__goal-step">step {status.step}</span>}
+              </div>
+            )}
+            <p className="agent-live__section-hint agent-live__section-hint--block">
+              Stage {status?.stage || '?'} · loop {status?.loop || '?'} · stall {status?.stallCount ?? 0} · Δ {status?.lastOutcomeDelta ?? 0}
+              {status?.lastLesson ? ` · lesson ${status.lastLesson}` : ''}
+            </p>
+          </>
+        )}
+
+        {approvals.length > 0 && (
+          <div className="agent-live__approvals">
+            <h4>Needs your approval</h4>
+            {approvals.map((a) => (
+              <div key={a.id} className="agent-live__approval">
+                <div className="agent-live__approval-tool">{a.toolName}</div>
+                <div className="agent-live__approval-args">{(a.args ? JSON.stringify(a.args) : '').slice(0, 200)}</div>
+                <div className="agent-live__approval-actions">
+                  <button className="agent-live__btn agent-live__btn--start" onClick={() => onApprove(a.id, true)} disabled={busy}>Approve</button>
+                  <button className="agent-live__btn agent-live__btn--stop" onClick={() => onApprove(a.id, false)} disabled={busy}>Deny</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="agent-live__controls">
+          <button
+            type="button"
+            className="agent-live__btn agent-live__btn--start"
+            onClick={onStart}
+            disabled={busy || !addonConnected || running}
+          >
+            {running ? 'Running…' : 'Start Agent'}
+          </button>
+          <button
+            type="button"
+            className="agent-live__btn agent-live__btn--stop"
+            onClick={onStop}
+            disabled={busy || !addonConnected || !running}
+          >
+            Stop
+          </button>
+          <label className={`agent-live__toggle${autoApprove ? ' is-on' : ''}`}>
+            <input type="checkbox" checked={autoApprove} onChange={(e) => onToggleAutoApprove(e.target.checked)} />
+            Auto-approve
+          </label>
+        </div>
+
+        {error && <div className="agent-live__error">{error}</div>}
+      </div>
+
       {/* ── Quick Macros ──────────────────────────────────────────────── */}
       <div className="agent-live__section">
         <div className="agent-live__section-head">

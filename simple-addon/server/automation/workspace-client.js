@@ -292,6 +292,16 @@ const getActionLog = async ({ days = 7, n = 500 } = {}) => {
     }
 };
 
+// ─── Lesson kind (critic's semantic memory, Phase 4 of the O-O-G-P-A plan) ──
+// Lessons are workspace items with kind='lesson'; the critic's lesson object is
+// JSON-stringified into the item's `content` field.
+const listLessons = () => {
+    const q = new URLSearchParams({ kind: 'lesson' });
+    return req('GET', `?${q.toString()}`);
+};
+const getLesson = (slug) => req('GET', `/lesson/${encodeURIComponent(slug)}`);
+const upsertLesson = (slug, body) => req('PUT', `/lesson/${encodeURIComponent(slug)}`, body);
+
 module.exports = {
     setTokenGetter,
     getToken,
@@ -312,6 +322,9 @@ module.exports = {
     listGoals,
     getRecentActions,
     getActionLog,
+    listLessons,
+    getLesson,
+    upsertLesson,
     compileNaturalViaBackend,
     editNaturalViaBackend,
     agentChat,

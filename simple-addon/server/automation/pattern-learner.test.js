@@ -73,6 +73,42 @@ async function main() {
         assert('fetchEntries: no getActionLog → []', Array.isArray(entries) && entries.length === 0);
     }
 
+    // ─── Phase 5 (meta-loop): draftSkillFromSequence ─────────────────────────
+    {
+        const L = makeLearner();
+        const saved = [];
+        const canned = [];
+        for (let r = 0; r < 3; r++) {
+            canned.push({ tool: 'shell_run', args: { command: 'echo hi' } });
+            canned.push({ tool: 'text_type', args: { text: 'secret-pii' } });
+            canned.push({ tool: 'uia_invoke', args: { name: 'OK' } });
+        }
+        L.configure({
+            wsClient: {
+                getActionLog: async () => canned,
+                upsertSkill: async (slug, body) => { saved.push({ slug, body }); return {}; },
+            },
+        });
+
+        const suggestions = await L.analyze({ force: true });
+        assert('promote: analyze finds a 3× repeated 3-step sequence', suggestions.length >= 1 && !!suggestions[0].sequenceKey);
+
+        const key = suggestions[0].sequenceKey;
+        const draft = await L.draftSkillFromSequence(key);
+        assert('promote: 3+ repeats → draft with 3 steps', draft !== null && Array.isArray(draft.skill.steps) && draft.skill.steps.length === 3);
+        assert('promote: draft slug is deterministic + prefixed', !!draft && draft.skill.slug.startsWith('pattern-'));
+        assert('promote: PII tool args stripped from draft', !!draft && JSON.stringify(draft.skill.steps[1].args) === '{}');
+        assert('promote: nothing saved without consent (save=false)', saved.length === 0);
+
+        await L.draftSkillFromSequence(key, { save: true });
+        assert('promote: save=true persists one draft via upsertSkill', saved.length === 1 && saved[0].body.content.includes('"draft":true'));
+    }
+    {
+        const L = makeLearner();
+        const draft = await L.draftSkillFromSequence('nonexistent→key');
+        assert('promote: unknown sequenceKey → null', draft === null);
+    }
+
     console.log('');
     if (failed === 0) {
         console.log(`pattern-learner.test: ${total}/${total} PASS`);

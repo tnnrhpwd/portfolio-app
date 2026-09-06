@@ -46,6 +46,7 @@ class PatternLearner extends EventEmitter {
         super();
         this._lastAnalysis = 0;
         this._suggestions = [];
+        this._lastEntries = [];
         this._wsClient = null;
         this._llmClient = null;
         this._running = false;
@@ -105,9 +106,11 @@ class PatternLearner extends EventEmitter {
             const entries = typeof this._wsClient.getActionLog === 'function'
                 ? await this._wsClient.getActionLog({ days: 7, n: 500 })
                 : [];
-            return Array.isArray(entries)
+            const filtered = Array.isArray(entries)
                 ? entries.filter(e => e && e.tool).slice(-MAX_LOG_ENTRIES)
                 : [];
+            this._lastEntries = filtered;
+            return filtered;
         } catch {
             return [];
         }
@@ -169,6 +172,7 @@ class PatternLearner extends EventEmitter {
                 confidence: Math.min(1, s.count / 10),
                 tools: s.seq.map(t => t.split(':')[0]),
                 repeatCount: s.count,
+                sequenceKey: s.key,
             }));
         }
 
@@ -208,6 +212,74 @@ class PatternLearner extends EventEmitter {
                 sequenceKey: s.key,
             };
         });
+    }
+
+    /**
+     * Phase 5 (meta-loop): promote a repeated-sequence suggestion into a
+     * reusable skill DRAFT. Nothing is persisted or run unless the caller
+     * opts in via `{ save: true }` — promotion is always consent-gated.
+     *
+     * The draft is built from the actual action-log entries matching the
+     * sequence; PII-tool args are stripped so captured content never lands
+     * in a draft.
+     *
+     * @param {string} sequenceKey - a suggestion's `sequenceKey`
+     * @param {object} opts - { save: boolean } (default false)
+     * @returns {Promise<{skill, source}|null>}
+     */
+    async draftSkillFromSequence(sequenceKey, { save = false } = {}) {
+        const suggestion = this._suggestions.find((s) => s.sequenceKey === sequenceKey);
+        if (!suggestion) return null;
+
+        const tokens = this._tokenize(this._lastEntries);
+        const seqTokens = String(sequenceKey).split('→');
+
+        // Locate the first contiguous run whose fingerprints match the sequence.
+        let start = -1;
+        for (let i = 0; i <= tokens.length - seqTokens.length; i++) {
+            let match = true;
+            for (let j = 0; j < seqTokens.length; j++) {
+                if (tokens[i + j] !== seqTokens[j]) { match = false; break; }
+            }
+            if (match) { start = i; break; }
+        }
+        if (start < 0) return null;
+
+        const windowEntries = this._lastEntries.slice(start, start + seqTokens.length);
+        const steps = windowEntries.map((e) => {
+            const tool = e.tool || e.name;
+            // PII tools: never persist captured content into a draft.
+            return { tool, args: PII_TOOLS.has(tool) ? {} : (e.args || {}) };
+        });
+
+        const slug = 'pattern-' + crypto.createHash('sha1').update(sequenceKey).digest('hex').slice(0, 10);
+        const skill = {
+            slug,
+            name: suggestion.title || `Learned ${seqTokens.length}-step skill`,
+            description: suggestion.description || `Auto-drafted from ${suggestion.repeatCount} repeats`,
+            steps,
+            params: [],
+            metadata: {
+                source: 'pattern-learner',
+                sequenceKey,
+                repeatCount: suggestion.repeatCount,
+                confidence: suggestion.confidence,
+                draft: true,
+            },
+        };
+
+        if (save && this._wsClient && typeof this._wsClient.upsertSkill === 'function') {
+            await this._wsClient.upsertSkill(slug, {
+                name: skill.name,
+                content: JSON.stringify(skill),
+                tags: ['learned', 'draft'],
+            }).catch(() => { /* persistence is best-effort */ });
+        }
+
+        return {
+            skill,
+            source: { sequenceKey, repeatCount: suggestion.repeatCount, confidence: suggestion.confidence },
+        };
     }
 }
 

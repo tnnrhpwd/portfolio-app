@@ -435,6 +435,7 @@
         <div>
           <div class="name" id="agent-state-name">Idle</div>
           <div class="desc" id="agent-goal-desc">Goal: (none)</div>
+          <div class="desc" id="agent-loop-desc" style="margin-top:2px;"></div>
         </div>
         <div class="actions">
           <button id="agent-toggle-start" class="primary">Start Agent on Next Goal</button>
@@ -499,6 +500,22 @@
       </div>
       <ul id="agent-goals-list" class="rs-list"></ul>
     </div>
+
+    <details class="panel panel--collapsible">
+      <summary>
+        <h2>📚 Learned lessons</h2>
+        <span class="collapse-caret">▶</span>
+      </summary>
+      <div class="panel-body">
+        <p class="desc">What the agent's critic has learned from failed steps. (Needs the web-app sign-in so lessons can be stored.)</p>
+        <div class="row" style="border-bottom:none; padding-top:0;">
+          <div class="actions">
+            <button id="agent-lessons-refresh">Refresh</button>
+          </div>
+        </div>
+        <ul id="agent-lessons-list" class="rs-list"></ul>
+      </div>
+    </details>
 
     <details class="panel panel--collapsible">
       <summary>
@@ -1355,6 +1372,10 @@ async function refreshAgentStatus() {
       ? `Running (step ${s.step || 0})${s.dryRun ? ' [DRY-RUN]' : ''}`
       : 'Idle';
     goalEl.textContent = s.currentGoal ? `Goal: ${s.currentGoal.name || s.currentGoal}` : 'Goal: (none)';
+    const loopEl = document.getElementById('agent-loop-desc');
+    loopEl.textContent = running
+      ? `Stage: ${s.stage || '?'} · loop: ${s.loop || '?'} · stall: ${s.stallCount ?? 0} · Δ: ${s.lastOutcomeDelta ?? 0}${s.lastLesson ? ` · last lesson: ${s.lastLesson}` : ''}`
+      : '';
     startBtn.textContent = running ? 'Agent Running…' : 'Start Agent on Next Goal';
     startBtn.disabled = running;
     stopBtn.disabled = !running;
@@ -1604,6 +1625,10 @@ async function refreshAgentGoals() {
           g.status === 'active'
             ? el('button', { class: 'primary', onclick: () => runGoal(g.slug, g.name || g.slug) }, '▶ Run')
             : null,
+          el('label', { style: 'display:flex; align-items:center; gap:5px; font-size:12px;' },
+            el('input', { type: 'checkbox', checked: !!g.autoAbandon, onchange: (e) => setGoalAutoAbandon(g.slug, e.target.checked) }),
+            'Auto-abandon',
+          ),
         ],
       }));
     }
@@ -1626,8 +1651,43 @@ async function runGoal(slug, name) {
   }
 }
 
+async function setGoalAutoAbandon(slug, enabled) {
+  try {
+    await api(`/api/agent/goal/${encodeURIComponent(slug)}/auto-abandon`, { method: 'POST', body: JSON.stringify({ enabled }) });
+    await refreshAgentGoals();
+  } catch (e) {
+    alert(`Toggle auto-abandon failed: ${e.message}`);
+  }
+}
+
+async function refreshAgentLessons() {
+  const container = document.getElementById('agent-lessons-list');
+  container.innerHTML = '';
+  try {
+    const { lessons } = await api('/api/agent/lessons');
+    if (!lessons || !lessons.length) {
+      container.appendChild(el('div', { class: 'empty' }, 'No lessons yet. They appear here after the agent fails a step and the critic writes one.'));
+      return;
+    }
+    for (const l of lessons) {
+      const c = l.content || {};
+      const bits = [c.do ? `Do: ${c.do}` : '', c.avoid ? `Avoid: ${c.avoid}` : ''].filter(Boolean);
+      container.appendChild(el('div', { class: 'row' },
+        el('div', {},
+          el('div', { class: 'name' }, c.pattern || l.name || l.slug),
+          el('div', { class: 'desc' }, bits.join(' · ') || '—'),
+        ),
+      ));
+    }
+  } catch (e) {
+    container.appendChild(el('div', { class: 'empty' }, `Couldn't load lessons (${e.message}).`));
+  }
+}
+
 document.getElementById('agent-goals-refresh').addEventListener('click', refreshAgentGoals);
+document.getElementById('agent-lessons-refresh').addEventListener('click', refreshAgentLessons);
 refreshAgentGoals();
+refreshAgentLessons();
 
 // ── Recorder & Skills tab ──
 let recPollTimer = null;
@@ -1642,6 +1702,8 @@ function el(tag, props = {}, ...children) {
   for (const [k, v] of Object.entries(props)) {
     if (k === 'class') e.className = v;
     else if (k === 'onclick') e.addEventListener('click', v);
+    else if (k === 'onchange') e.addEventListener('change', v);
+    else if (k === 'checked') { if (v) e.setAttribute('checked', ''); }
     else if (k === 'html') e.innerHTML = v;
     else e.setAttribute(k, v);
   }

@@ -100,6 +100,9 @@ const ALLOWED_KINDS = new Set([
                   // state) that need to follow the user across addon installs and
                   // devices — source of truth lives here, addon/webapp UIs both
                   // read+write it via the generic workspace endpoints below.
+    'lesson',     // critic-written semantic memory (O-O-G-P-A loop): { pattern,
+                  // context, do, avoid, confidence, sourceGoal } stored as JSON
+                  // in the item `content` string.
 ]);
 
 // Allowed goal lifecycle states.
@@ -131,6 +134,7 @@ const KIND_SIZE_CAP_BYTES = {
     goal:      16 * 1024,
     action:    256 * 1024, // append-only ring buffer
     settings:  8 * 1024,
+    lesson:    16 * 1024,
 };
 
 // Hard cap on an `action` item's text — older entries trimmed when exceeded.
@@ -283,6 +287,9 @@ function toListEntry(item) {
         status: item.status || null,
         priority: typeof item.priority === 'number' ? item.priority : null,
         parentGoalId: item.parentGoalId || null,
+        // Additive O-O-G-P-A goal fields (null/false when absent):
+        maxSteps: typeof item.maxSteps === 'number' ? item.maxSteps : null,
+        autoAbandon: !!item.autoAbandon,
     };
 }
 
@@ -388,6 +395,8 @@ const upsertWorkspaceItem = asyncHandler(async (req, res) => {
     const goalSuccess   = req.body?.successCriteria;
     const goalConstraints = req.body?.constraints;
     const goalCreatedBy = req.body?.createdBy;
+    const goalMaxSteps  = req.body?.maxSteps;
+    const goalAutoAbandon = req.body?.autoAbandon;
     if (kind === 'goal') {
         if (goalStatus != null && !GOAL_STATUSES.has(goalStatus)) {
             badRequest(res, `Invalid goal status. Allowed: ${[...GOAL_STATUSES].join(', ')}`);
@@ -400,6 +409,12 @@ const upsertWorkspaceItem = asyncHandler(async (req, res) => {
         }
         if (goalParent != null && typeof goalParent !== 'string') {
             badRequest(res, 'parentGoalId must be a string');
+        }
+        if (goalMaxSteps != null && (typeof goalMaxSteps !== 'number' || !Number.isInteger(goalMaxSteps) || goalMaxSteps < 1 || goalMaxSteps > 1000)) {
+            badRequest(res, 'goal maxSteps must be an integer 1-1000');
+        }
+        if (goalAutoAbandon != null && typeof goalAutoAbandon !== 'boolean') {
+            badRequest(res, 'goal autoAbandon must be a boolean');
         }
     }
 
@@ -450,6 +465,8 @@ const upsertWorkspaceItem = asyncHandler(async (req, res) => {
             ...(goalParent      ? { parentGoalId: goalParent }      : (existing?.parentGoalId   ? { parentGoalId: existing.parentGoalId }   : {})),
             ...(goalSuccess     ? { successCriteria: goalSuccess }  : (existing?.successCriteria? { successCriteria: existing.successCriteria }: {})),
             ...(goalConstraints ? { constraints: goalConstraints }  : (existing?.constraints    ? { constraints: existing.constraints }     : {})),
+            ...(goalMaxSteps != null ? { maxSteps: goalMaxSteps }   : (existing?.maxSteps != null ? { maxSteps: existing.maxSteps } : {})),
+            ...(goalAutoAbandon != null ? { autoAbandon: !!goalAutoAbandon } : (existing?.autoAbandon != null ? { autoAbandon: existing.autoAbandon } : {})),
             createdBy:     existing?.createdBy || goalCreatedBy || 'user',
         } : {}),
     };

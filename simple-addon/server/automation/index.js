@@ -401,10 +401,43 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
                     slug: g.slug,
                     name: g.name || g.title || g.slug,
                     status: g.status,
+                    autoAbandon: !!g.autoAbandon,
+                    maxSteps: typeof g.maxSteps === 'number' ? g.maxSteps : null,
                 })),
             });
         } catch (e) {
             res.status(502).json({ error: e.message });
+        }
+    });
+    // Toggle per-goal auto-abandon (O-O-G-P-A §7.1 additive field). When true,
+    // the agent may self-block the goal after repeated stalls.
+    app.post('/api/agent/goal/:slug/auto-abandon', async (req, res) => {
+        try {
+            const enabled = !!(req.body && req.body.enabled);
+            await wsClient.upsertGoal(req.params.slug, { autoAbandon: enabled });
+            res.json({ ok: true, slug: req.params.slug, autoAbandon: enabled });
+        } catch (e) {
+            res.status(502).json({ error: e.message });
+        }
+    });
+    // List critic lessons (workspace kind='lesson'), optionally filtered to a
+    // goal via the sourceGoal tag (O-O-G-P-A §7.2/§7.3).
+    app.get('/api/agent/lessons', async (req, res) => {
+        try {
+            const goal = req.query.goal;
+            const out = await wsClient.listLessons();
+            const entries = (out && out.entries) || (Array.isArray(out) ? out : []);
+            const lessons = entries
+                .map((l) => {
+                    let content = {};
+                    try { content = l.content ? JSON.parse(l.content) : {}; }
+                    catch { content = { pattern: l.content || l.name || '' }; }
+                    return { slug: l.slug, name: l.name, content, tags: l.tags || [] };
+                })
+                .filter((l) => !goal || l.content?.sourceGoal === goal || (l.tags || []).includes(`sourceGoal:${goal}`));
+            res.json({ lessons });
+        } catch (e) {
+            res.json({ lessons: [] });
         }
     });
     // Stop a specific worker by goal slug
