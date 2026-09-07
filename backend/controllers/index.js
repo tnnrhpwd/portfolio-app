@@ -56,6 +56,11 @@ const getStripeConfig = (req, res) => {
         : process.env.STRIPE_PUBLIC_KEY;
 
     if (!publishableKey) {
+        logger.error(
+            'STRIPE_PUBLIC_KEY is not set (and TEST_STRIPE_PUBLIC_KEY was not found for a test user) — ' +
+            'GET /api/data/stripe-config will 500 and the /pay page will show "Payment Processing Unavailable". ' +
+            'Add STRIPE_PUBLIC_KEY (pk_live_…) to Secrets Manager (portfolio-app/production) or backend/.env.'
+        );
         return res.status(500).json({ success: false, error: 'Stripe is not configured' });
     }
     res.status(200).json({ success: true, publishableKey, testMode: !!isTestUser });

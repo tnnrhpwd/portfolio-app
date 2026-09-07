@@ -94,10 +94,6 @@ jest.mock('./components/ErrorBoundary/ErrorBoundary', () => {
 });
 
 // Mock Simple pages (only the ones that actually exist)
-jest.mock('./pages/Simple/Simple/Simple.jsx', () => {
-  const React = require('react');
-  return () => React.createElement('div', null, 'Simple');
-});
 jest.mock('./pages/Simple/About/About.jsx', () => {
   const React = require('react');
   return () => React.createElement('div', null, 'About');

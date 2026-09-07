@@ -287,7 +287,7 @@ function injectMembershipContext(systemParts, user) {
 
     const tierFeatures = {
         Free: 'Free tier (unlimited local automation commands, 100MB storage, included monthly cloud AI credits).',
-        Pro: 'Pro tier ($15/mo — unlimited local automation commands, 50GB storage, included monthly cloud AI credits, phone-to-PC remote, priority support).',
+        Pro: 'Pro tier ($15/mo — unlimited local automation commands, 50GB storage, included monthly cloud AI credits, phone-to-PC remote, email support).',
     };
 
     const tierDesc = tierFeatures[rank] || tierFeatures.Free;

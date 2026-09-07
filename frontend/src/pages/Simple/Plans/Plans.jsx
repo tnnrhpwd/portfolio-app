@@ -330,6 +330,8 @@ function Plans() {
         <div className="plans-shell">
           <nav className="plans-breadcrumb">
             <Link to="/net">← Back to /net</Link>
+            <span className="plans-breadcrumb-sep" aria-hidden="true">·</span>
+            <Link to="/simple">Learn about Simple →</Link>
           </nav>
 
           {/* Hero */}

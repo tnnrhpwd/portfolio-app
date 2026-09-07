@@ -9,7 +9,6 @@ const { shouldSendEmail } = require('../services/emailPreferences');
 const { getStripe, liveStripe: stripe } = require('../utils/stripeInstance.js');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand, PutCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
-const { RANK_REGEX } = require('../constants/pricing');
 const { logger } = require('../utils/logger');
 
 // Configure AWS DynamoDB Client
@@ -305,81 +304,15 @@ const updateDataHolder = async (req, res, item) => {
         return;
     }
 
-    // Original logic for subscription plan updates
-    // Extract current rank for email notification
-    let currentRank = 'Free';
-    const rankMatch = item.text.match(/\|Rank:([^|]+)/);
-    if (rankMatch && rankMatch[1]) {
-        currentRank = rankMatch[1].trim();
-    }
-
-    // Update subscription plan
-    const updatedText = item.text.includes('|Rank:')
-        ? item.text.replace(RANK_REGEX, `$1${textContent}`)
-        : `${item.text}|Rank:${textContent}`;
-
-    logger.debug('Updated text:', updatedText);
-
-    // Use put operation instead of update since we're working with scan results
-    const putParams = {
-        TableName: 'Simple',
-        Item: {
-            ...item, // Keep all existing data
-            text: updatedText, // Update the text
-            updatedAt: new Date().toISOString() // Update timestamp
-        }
-    };
-
-    try {
-        await dynamodb.send(new PutCommand(putParams));
-        const updatedItem = putParams.Item;
-
-        // Send email notification if rank was changed and we have an email address
-        if (currentRank.toLowerCase() !== textContent.toLowerCase()) {
-            // Extract email address from user data
-            const emailMatch = updatedText.match(/Email:([^|]+)/);
-            if (emailMatch && emailMatch[1]) {
-                const userEmail = emailMatch[1].trim();
-
-                // Honor the user's billing-notification preference (default on).
-                if (!shouldSendEmail(updatedText, 'billing')) {
-                    logger.debug('Subscription email suppressed by user preferences');
-                } else {
-                    try {
-                        if (textContent.toLowerCase() === 'free') {
-                            // Downgrade to free plan
-                            await sendEmail(userEmail, 'subscriptionCancelled', {
-                                plan: currentRank,
-                                userData: { text: updatedText }
-                            });
-                        } else if (currentRank.toLowerCase() === 'free') {
-                            // New subscription
-                            await sendEmail(userEmail, 'subscriptionCreated', {
-                                plan: textContent,
-                                userData: { text: updatedText }
-                            });
-                        } else {
-                            // Plan change
-                            await sendEmail(userEmail, 'subscriptionUpdated', {
-                                oldPlan: currentRank,
-                                newPlan: textContent,
-                                userData: { text: updatedText }
-                            });
-                        }
-                        logger.debug(`Subscription email sent to ${userEmail}`);
-                    } catch (error) {
-                        logger.error('Failed to send subscription update email:', error);
-                        // Don't fail the operation if email sending fails
-                    }
-                }
-            }
-        }
-
-        res.status(200).json(updatedItem);
-    } catch (error) {
-        logger.error('Error updating data in DynamoDB:', error);
-        res.status(500).json({ error: 'Failed to update data in DynamoDB' });
-    }
+    // Direct rank/plan changes through this endpoint are no longer supported.
+    // Plan changes must go through POST /subscribe-customer (Stripe), which
+    // enforces the purchase gate and actually creates/charges a subscription.
+    // This guards against a user with a saved payment method writing
+    // `|Rank:Pro` into their own record and self-promoting without paying.
+    logger.warn(`Blocked legacy direct rank update attempt for item ${item.id}`);
+    res.status(400).json({
+        error: 'Plan changes must be made through checkout (/pay). Direct rank updates are not supported.'
+    });
 };
 
 // Handle bug report closure with resolution text

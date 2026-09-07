@@ -8,8 +8,6 @@ export const useCheckoutState = (initialPlan) => {
   const currentSubscription = useSelector(state => state.data?.currentSubscription ?? null);
   const [selectedPlan, setSelectedPlan] = useState(initialPlan || 'free');
   const [billingInterval, setBillingInterval] = useState('month');
-  const [customPrice, setCustomPrice] = useState(9999);
-  const [customPriceError, setCustomPriceError] = useState('');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(null);
   const [subscriptionStep, setSubscriptionStep] = useState('plan-selection');
   const [showPaymentForm, setShowPaymentForm] = useState(false);
@@ -25,20 +23,11 @@ export const useCheckoutState = (initialPlan) => {
     }
   }, [initialPlan]);
 
-  // Set default custom price based on selected plan - no longer needed with fixed pricing
-  useEffect(() => {
-    // No custom pricing needed - plans use fixed Stripe prices
-  }, [selectedPlan]);
-
   return {
     selectedPlan,
     setSelectedPlan,
     billingInterval,
     setBillingInterval,
-    customPrice,
-    setCustomPrice,
-    customPriceError,
-    setCustomPriceError,
     selectedPaymentMethod,
     setSelectedPaymentMethod,
     subscriptionStep,

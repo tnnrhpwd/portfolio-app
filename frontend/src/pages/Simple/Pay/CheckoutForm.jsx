@@ -66,7 +66,6 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
     elements,
     userEmail,
     selectedPlan: state.selectedPlan,
-    customPrice: state.customPrice,
     billingInterval: state.billingInterval,
     selectedPaymentMethod: state.selectedPaymentMethod,
     subscriptionStep: state.subscriptionStep,
@@ -75,8 +74,6 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
     setLoading: state.setLoading,
     setSubscriptionStep: state.setSubscriptionStep,
     setSelectedPaymentMethod: state.setSelectedPaymentMethod,
-    setCustomPrice: state.setCustomPrice,
-    setCustomPriceError: state.setCustomPriceError,
     setShowPaymentForm: state.setShowPaymentForm,
     checkoutContainerRef
   });
@@ -266,7 +263,7 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
                     <div className="confirmation-item">
                       <span className="label">Membership:</span>
                       <span className="value">
-                        {getPlanDisplayName(state.selectedPlan, membershipPricing, state.customPrice, formatPrice, state.billingInterval)}
+                        {getPlanDisplayName(state.selectedPlan, membershipPricing, formatPrice, state.billingInterval)}
                       </span>
                     </div>
                     {state.selectedPlan !== 'free' && (

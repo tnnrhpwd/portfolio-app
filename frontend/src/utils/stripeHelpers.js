@@ -29,7 +29,7 @@ export const getPaymentElementOptions = (userEmail) => ({
 /**
  * Get plan display name for confirmation
  */
-export const getPlanDisplayName = (selectedPlan, membershipPricing, customPrice, formatPrice, billingInterval = 'month') => {
+export const getPlanDisplayName = (selectedPlan, membershipPricing, formatPrice, billingInterval = 'month') => {
   if (membershipPricing && membershipPricing.success && membershipPricing.data && membershipPricing.data.length > 0) {
     const dynamicPlan = membershipPricing.data.find(plan => plan.id === selectedPlan);
     if (dynamicPlan) {
@@ -37,14 +37,14 @@ export const getPlanDisplayName = (selectedPlan, membershipPricing, customPrice,
         const selected = dynamicPlan.intervals.find(i => i.interval === billingInterval) || dynamicPlan.intervals[0];
         return `${dynamicPlan.name} (${formatPrice(selected.price)} per ${selected.interval})`;
       }
-      const price = dynamicPlan.price ? formatPrice(dynamicPlan.price) : 'Custom Pricing';
+      const price = formatPrice(dynamicPlan.price);
       const period = dynamicPlan.interval || 'month';
       return `${dynamicPlan.name} (${price} per ${period})`;
     }
   }
   
   if (selectedPlan === PLAN_IDS.PRO) {
-    return `${PLAN_NAMES[PLAN_IDS.PRO]} (Full automation)`;
+    return `${PLAN_NAMES[PLAN_IDS.PRO]} Membership`;
   } else {
     return PLAN_NAMES[PLAN_IDS.FREE];
   }

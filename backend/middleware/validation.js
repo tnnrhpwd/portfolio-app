@@ -115,13 +115,26 @@ const validatePaymentData = [
     .withMessage('Payment data validation failed'),
 ];
 
-// Validation rules for subscription creation
+// Validation rules for subscription creation.
+//
+// The frontend sends `planId` (new) while older clients sent `membershipType`.
+// Accept either so a real checkout isn't rejected with "Membership type is
+// required" before it ever reaches subscribeCustomer.
 const validateSubscription = [
   body('membershipType')
-    .notEmpty()
-    .withMessage('Membership type is required')
+    .optional()
     .isIn(['free', 'pro'])
     .withMessage('Membership type must be free or pro'),
+  body('planId')
+    .optional()
+    .isIn(['free', 'pro'])
+    .withMessage('Plan ID must be free or pro'),
+  body().custom((value, { req }) => {
+    if (!req.body?.planId && !req.body?.membershipType) {
+      throw new Error('Plan ID or membership type is required');
+    }
+    return true;
+  }),
   body('billingInterval')
     .optional()
     .isIn(['month', 'year'])

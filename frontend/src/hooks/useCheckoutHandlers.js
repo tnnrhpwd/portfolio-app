@@ -16,7 +16,6 @@ export const useCheckoutHandlers = ({
   elements,
   userEmail,
   selectedPlan,
-  customPrice,
   billingInterval,
   selectedPaymentMethod,
   subscriptionStep,
@@ -25,8 +24,6 @@ export const useCheckoutHandlers = ({
   setLoading,
   setSubscriptionStep,
   setSelectedPaymentMethod,
-  setCustomPrice,
-  setCustomPriceError,
   setShowPaymentForm,
   checkoutContainerRef
 }) => {
@@ -204,9 +201,6 @@ export const useCheckoutHandlers = ({
     }, 100);
   }, [setShowPaymentForm, setMessage, setError, checkoutContainerRef]);
 
-  // Handle custom price change - no longer needed with fixed pricing
-  const handleCustomPriceChange = useCallback(() => {}, []);
-
   // Handle plan selection
   const handlePlanSelection = useCallback((planId) => {
     setSelectedPaymentMethod(null);
@@ -219,7 +213,6 @@ export const useCheckoutHandlers = ({
     handleBackStep,
     handleCancel,
     handleAddPaymentMethod,
-    handleCustomPriceChange,
     handlePlanSelection
   };
 };

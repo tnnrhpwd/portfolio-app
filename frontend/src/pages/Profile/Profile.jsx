@@ -501,7 +501,7 @@ function Profile() {
                         <span className="planit-profile-state-icon">✨</span>
                         <div>
                           <strong>Free plan ready to go</strong>
-                          <p>Upgrade whenever you want more quota, storage, and premium automation controls.</p>
+                          <p>Upgrade for more storage, live phone screen viewing, and email support.</p>
                         </div>
                       </div>
                     )}
@@ -547,7 +547,7 @@ function Profile() {
                             <span className="usage-value">{userUsage.membership || 'Free'}</span>
                           </div>
                           <div className="usage-stat">
-                            <span className="usage-label">⚡ Automation quota</span>
+                            <span className="usage-label">⚡ Automation commands</span>
                             <span className="usage-value">
                               {isProTier(userUsage.membership) ? QUOTA_SHORT[PLAN_IDS.PRO] : QUOTA_SHORT[PLAN_IDS.FREE]}
                             </span>
@@ -573,7 +573,8 @@ function Profile() {
                                   <div className="usage-api-info">
                                     <span className="api-name">
                                       {entry.api === 'bedrock' && '☁️ AWS Bedrock'}
-                                      {(entry.api === 'openai' || entry.api === 'github') && '🤖 GitHub Models (legacy)'}
+                                      {entry.api === 'openai' && '🧾 OpenAI (OCR)'}
+                                      {entry.api === 'github' && '🤖 GitHub Models (legacy)'}
                                       {!['bedrock', 'openai', 'github'].includes(entry.api) && `🔧 ${entry.api}`}
                                     </span>
                                     <span className="api-date">{entry.fullDate}</span>
@@ -620,7 +621,7 @@ function Profile() {
                           <strong>Usage summary unavailable</strong>
                           <p>
                             Your plan still includes{' '}
-                            {isProTier(currentPlan) ? QUOTA_SHORT[PLAN_IDS.PRO] : QUOTA_SHORT[PLAN_IDS.FREE]} of automation quota.
+                            {isProTier(currentPlan) ? QUOTA_SHORT[PLAN_IDS.PRO] : QUOTA_SHORT[PLAN_IDS.FREE]} of automation commands.
                           </p>
                         </div>
                       </div>

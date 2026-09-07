@@ -61,6 +61,12 @@
 .plans-breadcrumb {
   display: flex;
   align-items: center;
+  gap: calc(var(--nav-size) * 0.2);
+}
+
+.plans-breadcrumb-sep {
+  color: var(--text-color-accent);
+  font-weight: var(--font-weight-semibold);
 }
 
 .plans-breadcrumb a {

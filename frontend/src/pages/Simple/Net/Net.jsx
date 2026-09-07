@@ -159,9 +159,9 @@ function Net() {
               <div className="net-login-card">
                 <h2 className="net-login-title">◻ Net AI Chat</h2>
                 <p className="net-login-subtitle">Your AI-powered assistant for automation, coding, and more.</p>
-                {membershipPricing?.length > 0 && (
+                {membershipPricing?.success && membershipPricing?.data?.length > 0 && (
                   <div className="net-login-plans">
-                    {membershipPricing.map((plan) => (
+                    {membershipPricing.data.map((plan) => (
                       <div key={plan.id} className={`net-plan-chip ${plan.id === 'pro' ? 'net-plan-chip--featured' : ''}`}>
                         <span className="net-plan-chip__name">{plan.name}</span>
                         <span className="net-plan-chip__price">
@@ -182,7 +182,10 @@ function Net() {
                     Sign Up
                   </button>
                 </div>
-                <a className="net-login-link" href="/pricing">View all plans →</a>
+                <div className="net-login-links">
+                  <a className="net-login-link" href="/pricing">View all plans →</a>
+                  <a className="net-login-link" href="/simple">Learn how Simple works →</a>
+                </div>
               </div>
             </div>
           ) : (

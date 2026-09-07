@@ -595,13 +595,13 @@ const subscriptionCancelledTemplate = (data) => {
         </div>
         <div class="content">
           <h2>Hello ${userNickname},</h2>
-          <p>Your ${plan} subscription has been successfully cancelled. Your account has been downgraded to the free plan.</p>
+          <p>Your ${plan} subscription has been cancelled and will end at the end of your current billing period. You'll keep ${plan} features until then.</p>
           
           <div class="message-box">
             <h3>What This Means:</h3>
             <ul>
-              <li>You will no longer be billed for the ${plan} plan</li>
-              <li>You now have access to free plan features only</li>
+              <li>You will not be billed again after this billing period</li>
+              <li>Your ${plan} features stay active until the period ends, then switch to the Free plan</li>
               <li>Your account data has been preserved</li>
             </ul>
           </div>
@@ -628,11 +628,11 @@ const subscriptionCancelledTemplate = (data) => {
     `,
     text: `Hello ${userNickname},
 
-Your ${plan} subscription has been successfully cancelled. Your account has been downgraded to the free plan.
+Your ${plan} subscription has been cancelled and will end at the end of your current billing period. You'll keep ${plan} features until then.
 
 What This Means:
-- You will no longer be billed for the ${plan} plan
-- You now have access to free plan features only
+- You will not be billed again after this billing period
+- Your ${plan} features stay active until the period ends, then switch to the Free plan
 - Your account data has been preserved
 
 We're sorry to see you go! If you have a moment, we'd appreciate it if you could let us know why you decided to cancel so we can continue to improve our service.

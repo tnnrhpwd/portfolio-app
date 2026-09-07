@@ -14,7 +14,7 @@ const BillingDisclosure = ({ variant = 'full' }) => {
     <div className="billing-disclosure">
       <h4 className="billing-disclosure-title">How billing works</h4>
       <ul className="billing-disclosure-list">
-        <li>Billed monthly on the anniversary of your sign-up date.</li>
+        <li>Billed on your sign-up anniversary (monthly or yearly, whichever you choose).</li>
         <li>Cancelling schedules your subscription to end at the end of the current billing period — you keep Pro features until then and won't be charged again after. Fees already charged are non-refundable, including for any unused portion of that period.</li>
         <li>Subscription fees already charged are non-refundable, except where required by law.</li>
         <li>Payments are processed securely by Stripe. We never see or store your full card number.</li>

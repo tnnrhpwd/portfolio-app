@@ -11,17 +11,6 @@ export const formatPrice = (priceInCents) => {
 };
 
 /**
- * Validate custom price based on membership type
- * @param {string} membershipType - Type of membership (pro or simple)
- * @param {number} customPrice - Custom price value
- * @returns {Object} Validation result with valid flag and error message
- */
-export const validateCustomPrice = (membershipType, customPrice) => {
-  // Fixed pricing — no custom price validation needed for pro/simple
-  return { valid: true, error: '' };
-};
-
-/**
  * Parse error object to extract meaningful error message
  * @param {Object} error - Error object from API call
  * @returns {Object} Parsed error with message and status
@@ -64,11 +53,3 @@ export const needsCustomerCreation = (errorMessage, errorStatus) => {
          (errorStatus === 400 && errorMessage.includes('customer'));
 };
 
-/**
- * Get default custom price based on membership type
- * @param {string} membershipType - Type of membership
- * @returns {number} Default price
- */
-export const getDefaultCustomPrice = (membershipType) => {
-  return 0;
-};
