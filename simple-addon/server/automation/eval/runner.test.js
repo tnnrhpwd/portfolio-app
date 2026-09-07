@@ -115,6 +115,10 @@ function check(name, cond, detail) {
     const blockReport = await runScenarioFile(blockPath);
     check('offline agent-block HTTP scenario passes (400 on missing goalSlug)', blockReport.passed === true, JSON.stringify(blockReport.failures));
 
+    const runPath = path.join(__dirname, 'scenarios', '25-agent-run-nonactionable.json');
+    const runReport = await runScenarioFile(runPath);
+    check('offline agent-run HTTP scenario passes (actionable:false fast path)', runReport.passed === true, JSON.stringify(runReport.failures));
+
     // A deliberately-failing HTTP scenario (wrong expected status) should
     // report failures without throwing.
     const failingReport = await runScenarioObject({

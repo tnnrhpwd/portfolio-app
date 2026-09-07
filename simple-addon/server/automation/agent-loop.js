@@ -230,6 +230,7 @@ class AgentLoop {
             stallCount: 0,
             lastOutcomeDelta: 0,
             lastLesson: null,
+            finalAnswer: null,
             stepsSinceReeval: 0,
             nextReevaluateAt: null,
         };
@@ -626,8 +627,12 @@ class AgentLoop {
 
     /** REFLECT — sentinel stop check, outcome delta + stall tracking, periodic reflection. */
     async reflect(action, outcome) {
-        // Stop sentinel
+        // Stop sentinel: the loop declared the goal finished. Capture the final
+        // answer (the text the model wrote before the sentinel) so callers can
+        // report it back to the user (chat / run / relay).
         if (action.text.includes('<<GOAL_DONE>>')) {
+            this.state.finalAnswer = String(action.text || '')
+                .replace(/<<GOAL_DONE>>/gi, '').trim() || null;
             return { stop: true, reason: 'goal-done-sentinel' };
         }
 
@@ -731,6 +736,21 @@ class AgentLoop {
         }
         this.state.running = false;
         this._setStage('IDLE');
+
+        // On a sentinel-done run, persist the goal status and surface the final
+        // answer so chat / run / relay callers can report it back to the user.
+        if (this.state.stopReason === 'goal-done-sentinel') {
+            const slug = this.state.currentGoal?.slug;
+            if (slug) {
+                if (this.state.finalAnswer) {
+                    this._publish('agent.reply', { goalSlug: slug, text: this.state.finalAnswer, steps: this.state.step });
+                }
+                this._publish('goal.done', { goalSlug: slug, steps: this.state.step, result: this.state.finalAnswer || null });
+                try { await this.wsClient.upsertGoal(slug, { status: 'done' }); }
+                catch (e) { this.log('[agent] goal done persist failed:', e.message); }
+            }
+        }
+
         this._publish('agent.stopped', { goalSlug: this.state.currentGoal?.slug, reason: this.state.stopReason });
         this.log(`[agent] loop exited: ${this.state.stopReason} (steps=${this.state.step})`);
     }
@@ -800,6 +820,7 @@ class AgentLoop {
             stallCount: 0,
             lastOutcomeDelta: 0,
             lastLesson: null,
+            finalAnswer: null,
             stepsSinceReeval: this.config.REEVAL_STEPS,
             nextReevaluateAt: null,
         };
@@ -835,6 +856,7 @@ class AgentLoop {
             stallCount: this.state.stallCount,
             lastOutcomeDelta: this.state.lastOutcomeDelta,
             lastLesson: this.state.lastLesson,
+            finalAnswer: this.state.finalAnswer || null,
         };
     }
 

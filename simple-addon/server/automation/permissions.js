@@ -32,6 +32,11 @@ const DEFAULTS = {
     // switch, shell deny-list) are unaffected. Off by default — enabling this
     // lets the agent act unattended, so it's an explicit, user-set choice.
     autoApproveAll: false,
+    // Continuous listener (O-O-G-P-A "continuous" autonomy level): when true,
+    // the addon autonomously starts the loop on waiting goals and promotes
+    // high-confidence, non-destructive suggestions into running goals. Off by
+    // default — an explicit, user-set choice.
+    continuousMode: false,
     categories: {
         'safe-read':       'allow',
         'sandboxed-write': 'ask',

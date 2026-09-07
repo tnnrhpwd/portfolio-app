@@ -69,6 +69,7 @@ const skillHotkeys = require('./skill-hotkeys');
 const runHistory = require('./run-history');
 
 const { createAgentLoop } = require('./agent-loop');
+const { ContinuousListener } = require('./listener');
 const { compile: nlCompile, editSteps: nlEditSteps } = require('./nl-compiler');
 const { getPerceptionBus, frameToContextString } = require('./perception-bus');
 const { getPredictor } = require('./predictor');
@@ -79,6 +80,7 @@ const { textType } = require('./tools/text-type');
 const { getAudioStreamManager } = require('../audio-stream-manager');
 
 let _agentLoop = null;             // primary (legacy) agent loop
+let _listener = null;              // continuous listener (always-on feedback loop)
 const _agentPool = new Map();       // goalSlug → AgentLoop (multi-agent pool)
 const MAX_CONCURRENT_AGENTS = 3;
 let _pendingApprovals = new Map(); // id -> { resolve, toolName, args, createdAt }
@@ -362,6 +364,117 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
         }
         return { ...primary, workers, workerCount: workers.length };
     }
+
+    // ─── Chat-driven run (logic mode) ──────────────────────────────────────
+    // Runs one user message through the full O-O-G-P-A loop and returns the
+    // final answer. The webapp chat uses this as its default "logic mode": try
+    // the loop first, fall back to conversational chat only when the message is
+    // judged non-actionable (see classifyActionable below).
+
+    const _slugify = (text) => String(text || '')
+        .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'goal';
+
+    const ACTION_HINT_RE = /\b(open|close|click|press|type|enter|hold|run|launch|start|stop|minimize|maximize|focus|kill|shutdown|restart|move|resize|copy|paste|scroll|drag|screenshot|list|count|show|check|create|delete|write|read|rename|organize|download|convert|save|find|search|watch|record|navigate|browse|set|change|enable|disable|install|uninstall|update|build)\b/i;
+    const CHAT_HINT_RE = /\b(what|who|where|when|why|how|explain|tell me|define|summarize|describe|compare|meaning|recommend|suggest|advice|opinion|story|joke|poem|translate|help me understand)\b/i;
+
+    /**
+     * Decide whether a chat message is an actionable task for the agent loop.
+     * Cheap heuristic first (action verbs vs. questions), then an LLM verdict
+     * for the ambiguous middle. Returns { actionable, source }.
+     */
+    async function classifyActionable(text) {
+        const trimmed = String(text || '').trim();
+        const isQuestion = /\?\s*$/.test(trimmed);
+        const actionHit = ACTION_HINT_RE.test(trimmed);
+        const chatHit = CHAT_HINT_RE.test(trimmed);
+        if (actionHit && !chatHit) return { actionable: true, source: 'heuristic' };
+        if ((chatHit || isQuestion) && !actionHit) return { actionable: false, source: 'heuristic' };
+
+        try {
+            const { createLlmProvider } = require('./llm-provider');
+            const res = await createLlmProvider().chat({
+                message: trimmed,
+                systemPrompt: 'Decide whether the user message is an actionable task for a Windows automation agent. Reply with exactly one word: ACT if the user wants the agent to DO something on the computer (list/count/open/create/read/write files, run apps/commands, control windows, type, click), or CHAT if it is purely conversational or informational (a question, explanation, or chitchat).',
+                temperature: 0,
+                maxLength: 8,
+            });
+            const verdict = String(res?.text || '').trim().toUpperCase();
+            return { actionable: verdict.startsWith('ACT'), source: 'llm' };
+        } catch {
+            return { actionable: actionHit, source: 'heuristic-fallback' };
+        }
+    }
+
+    /**
+     * Create (or reuse) a goal for `description` and run the loop to completion,
+     * returning the final answer. Non-actionable messages short-circuit before
+     * any goal is created or any tool runs.
+     */
+    async function runGoalToCompletion({ description, timeoutMs = 180000 } = {}) {
+        const text = String(description || '').trim();
+        if (!text) return { actionable: false, error: 'empty description' };
+
+        const decision = await classifyActionable(text);
+        if (!decision.actionable) return { actionable: false, source: decision.source };
+
+        const slug = _slugify(text);
+        try {
+            await wsClient.upsertGoal(slug, {
+                name: text.slice(0, 80),
+                content: text,
+                status: 'active',
+                priority: 70,
+                maxSteps: 60,
+                autoAbandon: false,
+            });
+        } catch (e) {
+            return { actionable: true, goalSlug: slug, error: `goal create failed: ${e.message}` };
+        }
+
+        let loop;
+        try { loop = _getOrCreateLoop(slug); }
+        catch (e) { return { actionable: true, goalSlug: slug, error: e.message }; }
+
+        const started = await loop.start({ goalSlug: slug });
+        if (!started.running) {
+            return { actionable: true, goalSlug: slug, error: started.reason || 'no-active-goal' };
+        }
+
+        const deadline = Date.now() + timeoutMs;
+        while (loop.status().running) {
+            if (Date.now() > deadline) {
+                loop.stop('run-timeout');
+                return { actionable: true, goalSlug: slug, status: 'timeout', reason: 'run-timeout', steps: loop.status().step, result: null };
+            }
+            await new Promise((r) => setTimeout(r, 500));
+        }
+
+        const s = loop.status();
+        const done = s.stopReason === 'goal-done-sentinel';
+        return {
+            actionable: true,
+            goalSlug: slug,
+            status: done ? 'done' : (s.stopReason || 'stopped'),
+            result: s.finalAnswer || null,
+            steps: s.step,
+            reason: s.stopReason,
+        };
+    }
+
+    // Expose the runner to the cloud relay so remote `agent_run` commands can
+    // drive the same loop end-to-end (phone → cloud → desktop).
+    if (cloudRelay && typeof cloudRelay.setAgentHandler === 'function') {
+        cloudRelay.setAgentHandler(runGoalToCompletion);
+    }
+
+    app.post('/api/agent/run', async (req, res) => {
+        try {
+            const result = await runGoalToCompletion({ description: req.body?.description });
+            res.json(result);
+        } catch (e) {
+            res.status(500).json({ actionable: true, error: e.message });
+        }
+    });
 
     app.post('/api/agent/start', async (req, res) => {
         try {
@@ -1379,6 +1492,56 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
             });
             events.publish('goal.created', { slug, name, createdBy: 'suggestion' });
             res.json({ ok: true, slug, name });
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
+    // ─── Continuous listener (always-on feedback loop) ─────────────────────
+    // When enabled, autonomously starts the loop on waiting goals and promotes
+    // high-confidence, non-destructive pattern suggestions into running goals.
+    // Safety: the kill switch blocks every tick; only safe-read/sandboxed-write
+    // suggestions are ever auto-started; per-goal cooldowns prevent tight loops.
+    if (_listener) _listener.dispose();
+    _listener = new ContinuousListener({
+        permissions,
+        learner: _learner,
+        wsClient,
+        registry,
+        events,
+        log,
+        startLoop: (slug) => {
+            try {
+                if (slug) _getOrCreateLoop(slug).start({ goalSlug: slug });
+                else _agentLoop.start({});
+            } catch (e) { log('[listener] start failed:', e.message); }
+        },
+        getRunningCount: () => {
+            let n = _agentLoop.status().running ? 1 : 0;
+            for (const loop of _agentPool.values()) if (loop.status().running) n++;
+            return n;
+        },
+        llmClient: (() => { try { return require('./llm-provider').createLlmProvider(); } catch { return null; } })(),
+        perception: () => {
+            try {
+                const f = getPerceptionBus().getLatestFrame();
+                return f ? frameToContextString(f) : '';
+            } catch { return ''; }
+        },
+    });
+    _listener.initFromConfig();
+
+    app.get('/api/agent/listener', (req, res) => res.json(_listener.status()));
+    app.post('/api/agent/listener', (req, res) => {
+        const enabled = !!(req.body && req.body.enabled);
+        res.json(_listener.setEnabled(enabled));
+    });
+    app.get('/api/agent/proposed', (req, res) => res.json({ proposals: _listener.proposed() }));
+    app.post('/api/agent/proposed/accept', async (req, res) => {
+        try {
+            const result = await _listener.acceptProposal(req.body?.id);
+            if (result.ok) res.json(result);
+            else res.status(404).json(result);
         } catch (e) {
             res.status(500).json({ error: e.message });
         }

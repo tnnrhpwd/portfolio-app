@@ -1,0 +1,14 @@
+{
+  "id": "25-agent-run-nonactionable",
+  "name": "agent run — POST /api/agent/run (offline non-actionable fast path)",
+  "description": "Asserts POST /api/agent/run returns actionable:false without any LLM call for a clearly conversational message — the heuristic fast path short-circuits before creating a goal or running any tool (offline/deterministic).",
+  "http": {
+    "method": "POST",
+    "path": "/api/agent/run",
+    "body": { "description": "what is the capital of France?" }
+  },
+  "expect": {
+    "actionable": { "equals": false }
+  },
+  "tags": ["agent", "http", "offline", "oogpa", "logic-mode"]
+}

@@ -24,6 +24,7 @@ import {
   deactivateKillSwitch,
   getAutomationPermissions,
   setAutoApproveAll,
+  setAgentListener,
   listWorkspace,
   getWorkspaceItem,
   runSkill,
@@ -85,6 +86,7 @@ export default function AgentLivePanel({ addonConnected, user, onManageMacros, v
   const [approvals, setApprovals] = useState([]);
   const [status, setStatus] = useState(null);
   const [autoApprove, setAutoApprove] = useState(false);
+  const [listenerEnabled, setListenerEnabled] = useState(false);
   const [killSwitchOn, setKillSwitchOn] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -180,6 +182,7 @@ export default function AgentLivePanel({ addonConnected, user, onManageMacros, v
         if (perms) {
           setAutoApprove(!!perms.autoApproveAll);
           setKillSwitchOn(!!perms.globalKillSwitch);
+          setListenerEnabled(!!perms.continuousMode);
         }
       } catch { /* best-effort */ }
     })();
@@ -199,6 +202,7 @@ export default function AgentLivePanel({ addonConnected, user, onManageMacros, v
         if (cancelled || !perms) return;
         setAutoApprove(!!perms.autoApproveAll);
         setKillSwitchOn(!!perms.globalKillSwitch);
+        setListenerEnabled(!!perms.continuousMode);
       }).catch(() => {});
     }, 10000);
     return () => { cancelled = true; clearInterval(id); };
@@ -339,6 +343,11 @@ export default function AgentLivePanel({ addonConnected, user, onManageMacros, v
     if (next) setApprovals([]);
   }), [withBusy]);
 
+  const onToggleListener = useCallback((next) => withBusy(async () => {
+    const s = await setAgentListener(next);
+    setListenerEnabled(!!s?.enabled);
+  }), [withBusy]);
+
   const onRunMacro = useCallback(async (slug) => {
     if (!addonConnected || runningSlug) return;
     setRunningSlug(slug);
@@ -463,6 +472,10 @@ export default function AgentLivePanel({ addonConnected, user, onManageMacros, v
           <label className={`agent-live__toggle${autoApprove ? ' is-on' : ''}`}>
             <input type="checkbox" checked={autoApprove} onChange={(e) => onToggleAutoApprove(e.target.checked)} />
             Auto-approve
+          </label>
+          <label className={`agent-live__toggle${listenerEnabled ? ' is-on' : ''}`} title="Continuously watch for work: start the loop on waiting goals and auto-run safe, high-confidence suggestions.">
+            <input type="checkbox" checked={listenerEnabled} onChange={(e) => onToggleListener(e.target.checked)} />
+            Listener
           </label>
         </div>
 

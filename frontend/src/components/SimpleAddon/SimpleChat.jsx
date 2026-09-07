@@ -27,9 +27,13 @@ import {
   getCustomAddonHost,
   upsertWorkspaceItem,
   getSelectedRemoteDeviceId,
+  runAgentMessage,
   startAgent,
   stopAgent,
   getAgentStatus,
+  getAgentListener,
+  setAgentListener,
+  getAgentProposals,
 } from '../../services/simpleAddonApi';
 import { createData } from '../../features/data/dataSlice';
 import { getUserIdentifier } from '../../utils/supportUtils';
@@ -838,9 +842,17 @@ function SimpleChat({
       if (!description) return { handled: true, message: '**Usage:** `/run <description>` — e.g. `/run Open Notepad and type hello`' };
       return { handled: false, _runGoal: description };
     }
-    // /agent [status|start|stop] — direct loop control in-chat.
+    // /agent [status|start|stop|listen on|off] — direct loop control in-chat.
     if (trimmed === '/agent' || trimmed.startsWith('/agent ')) {
       const sub = trimmed.replace('/agent', '').trim();
+      if (sub === 'listen' || sub.startsWith('listen ')) {
+        const val = sub.replace(/^listen\s*/, '').trim();
+        const mode = val === 'on' ? 'on' : (val === 'off' ? 'off' : 'status');
+        return { handled: false, _listenerCmd: mode };
+      }
+      if (sub === 'propose' || sub.startsWith('propose')) {
+        return { handled: false, _proposeCmd: true };
+      }
       const action = ['status', 'start', 'stop'].includes(sub) ? sub : 'status';
       return { handled: false, _agentCmd: action };
     }
@@ -851,6 +863,8 @@ function SimpleChat({
           '`/goal <description>` — Create an automation goal (e.g. `/goal Open Notepad`)\n' +
           '`/run <description>` — Create a goal and start the agent on it now\n' +
           '`/agent [status|start|stop]` — Check or control the agent loop\n' +
+          '`/agent listen on|off` — Toggle the always-on listener\n' +
+          '`/agent propose` — Show goals the listener formed\n' +
           '`/goals` — Show your saved goals\n' +
           '`/notes` — Show your saved notes\n' +
           '`/usage` — Show your plan & credit usage\n' +
@@ -1176,6 +1190,54 @@ function SimpleChat({
           setConversations(prev => prev.map(c => c.id !== activeConversationId ? c : { ...c, messages: [...c.messages, userMsg, replyMsg] }));
           return;
         }
+        if (cmd._proposeCmd) {
+          const userMsg = { id: Date.now().toString(), role: 'user', content: text, timestamp: new Date().toISOString() };
+          let replyContent;
+          try {
+            if (!isAddonConnected) {
+              replyContent = '**The desktop addon is not connected.** Start Simple Addon on your PC first.';
+            } else {
+              const { proposals } = await getAgentProposals();
+              if (!proposals || !proposals.length) {
+                replyContent = '💡 **No proposals yet.** Turn on the listener (`/agent listen on`) and it will form goals from your context every few minutes.';
+              } else {
+                const lines = proposals.map((p, i) =>
+                  `${i + 1}. **${p.title}** — ${p.description} (${Math.round((p.confidence ?? 0) * 100)}%)`
+                );
+                replyContent = `💡 **Proposed goals** (accept in the Agent panel):\n\n${lines.join('\n')}`;
+              }
+            }
+          } catch (e) {
+            replyContent = `**Could not load proposals:** ${e.message}.`;
+          }
+          const replyMsg = { id: (Date.now() + 1).toString(), role: 'assistant', content: replyContent, timestamp: new Date().toISOString() };
+          setConversations(prev => prev.map(c => c.id !== activeConversationId ? c : { ...c, messages: [...c.messages, userMsg, replyMsg] }));
+          return;
+        }
+        if (cmd._listenerCmd) {
+          const userMsg = { id: Date.now().toString(), role: 'user', content: text, timestamp: new Date().toISOString() };
+          let replyContent;
+          try {
+            if (!isAddonConnected) {
+              replyContent = '**The desktop addon is not connected.** Start Simple Addon on your PC first.';
+            } else if (cmd._listenerCmd === 'on' || cmd._listenerCmd === 'off') {
+              const s = await setAgentListener(cmd._listenerCmd === 'on');
+              replyContent = s?.enabled
+                ? '👂 **Listener on** — continuously watching for waiting goals and safe, high-confidence suggestions.'
+                : '🔇 **Listener off.**';
+            } else {
+              const s = await getAgentListener();
+              replyContent = s?.enabled
+                ? '👂 **Listener is on.** Use `/agent listen off` to disable.'
+                : '🔇 **Listener is off.** Use `/agent listen on` to enable.';
+            }
+          } catch (e) {
+            replyContent = `**Listener command failed:** ${e.message}.`;
+          }
+          const replyMsg = { id: (Date.now() + 1).toString(), role: 'assistant', content: replyContent, timestamp: new Date().toISOString() };
+          setConversations(prev => prev.map(c => c.id !== activeConversationId ? c : { ...c, messages: [...c.messages, userMsg, replyMsg] }));
+          return;
+        }
         if (cmd._agentCmd) {
           const userMsg = { id: Date.now().toString(), role: 'user', content: text, timestamp: new Date().toISOString() };
           let replyContent;
@@ -1366,6 +1428,56 @@ function SimpleChat({
         }));
         setIsGenerating(false);
         return;
+      }
+
+      // ── Logic mode (default): run the O-O-G-P-A loop first ────────────────
+      // Every plain-text message is tried through the agent loop. The addon
+      // classifies it (heuristic, then LLM); non-actionable messages fall
+      // through to normal chat below, and actionable ones report their final
+      // answer back into the conversation here.
+      if (!chatImage && (isAddonConnected || isRemoteAddonOnline)) {
+        try {
+          const agentResult = await runAgentMessage(text, {
+            token: user?.token,
+            deviceId: getSelectedRemoteDeviceId(),
+          });
+          if (agentResult?.actionable) {
+            const stepNote = typeof agentResult.steps === 'number'
+              ? `\n\n_(ran ${agentResult.steps} step${agentResult.steps === 1 ? '' : 's'})_`
+              : '';
+            const content = agentResult.result
+              ? `${agentResult.result}${stepNote}`
+              : `🤖 **Agent stopped** — ${agentResult.status || 'no result'}${agentResult.reason ? ` (${agentResult.reason})` : ''}.`;
+            const assistantMessage = {
+              id: (Date.now() + 1).toString(),
+              role: 'assistant',
+              content,
+              timestamp: new Date().toISOString(),
+              agentRun: { goalSlug: agentResult.goalSlug, status: agentResult.status, steps: agentResult.steps },
+            };
+            setConversations(prev => prev.map(c => {
+              if (c.id !== activeConversationId) return c;
+              return { ...c, messages: [...c.messages, assistantMessage] };
+            }));
+            setIsGenerating(false);
+            return;
+          }
+          // actionable === false → fall through to normal chat below
+        } catch (err) {
+          const errorMessage = {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: `**Agent error:** ${err.message}`,
+            timestamp: new Date().toISOString(),
+            isError: true,
+          };
+          setConversations(prev => prev.map(c => {
+            if (c.id !== activeConversationId) return c;
+            return { ...c, messages: [...c.messages, errorMessage] };
+          }));
+          setIsGenerating(false);
+          return;
+        }
       }
 
       if (provider === 'portfolio') {

@@ -727,6 +727,36 @@ export async function getAgentStatus() {
   return res.json();
 }
 
+/** Continuous listener status: { enabled, lastCheck, actedOn, goalCooldowns }. */
+export async function getAgentListener() {
+  const res = await addonFetch('/api/agent/listener');
+  return res.json();
+}
+
+/** Enable/disable the continuous listener. Returns the new listener status. */
+export async function setAgentListener(enabled) {
+  const res = await addonFetch('/api/agent/listener', {
+    method: 'POST',
+    body: JSON.stringify({ enabled: !!enabled }),
+  });
+  return res.json();
+}
+
+/** Self-formed goal proposals surfaced by the continuous listener. */
+export async function getAgentProposals() {
+  const res = await addonFetch('/api/agent/proposed');
+  return res.json();
+}
+
+/** Accept a proposal → create the goal and start the loop on it. */
+export async function acceptAgentProposal(id) {
+  const res = await addonFetch('/api/agent/proposed/accept', {
+    method: 'POST',
+    body: JSON.stringify({ id }),
+  });
+  return res.json();
+}
+
 /** Start the autonomous agent loop. Optional { goalSlug, modelId, maxSteps }. */
 export async function startAgent(opts = {}) {
   const res = await addonFetch('/api/agent/start', {
@@ -743,6 +773,43 @@ export async function stopAgent(reason = 'user requested stop') {
     body: JSON.stringify({ reason }),
   });
   return res.json();
+}
+
+/**
+ * Run one message through the O-O-G-P-A agent loop and return the final answer.
+ * Local (addon connected): POST /api/agent/run. Remote: `agent_run` relay command.
+ *
+ * @param {string} description - The user's message/instruction.
+ * @param {object} [opts]
+ * @param {string} [opts.token] - Auth token (required for the remote relay).
+ * @param {string} [opts.deviceId] - Target addon device (remote relay).
+ * @returns {Promise<{actionable:boolean, goalSlug?:string, status?:string, result?:string|null, steps?:number, reason?:string}>}
+ *   `{ actionable: false }` means the loop judged the message non-actionable —
+ *   the caller should fall back to normal chat.
+ */
+export async function runAgentMessage(description, { token, deviceId } = {}) {
+  if (_addonStatus.isConnected && _addonStatus.baseUrl) {
+    const res = await addonFetch('/api/agent/run', {
+      method: 'POST',
+      body: JSON.stringify({ description }),
+    });
+    return res.json();
+  }
+
+  if (!token) throw new Error('Please log in to run automation remotely.');
+  const { commandId } = await queueRemoteCommand(token, { description }, deviceId, 'agent_run');
+
+  const POLL_INTERVAL = 2000;
+  const MAX_POLLS = 150; // ~5 minutes
+  let result = null;
+  for (let i = 0; i < MAX_POLLS; i++) {
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+    const poll = await getRemoteCommandResult(token, commandId);
+    if (poll.status === 'completed') { result = poll.result; break; }
+    if (poll.status === 'error') throw new Error(poll.error || 'Remote agent run failed');
+  }
+  if (!result) throw new Error('Remote addon did not respond in time.');
+  return result;
 }
 
 /** Pending tool approvals awaiting user decision. */
@@ -2047,7 +2114,7 @@ export async function registerCloudRelay(token) {
  *   most-recently-seen device when omitted.
  * @returns {{ commandId: string, deviceId: string }}
  */
-export async function queueRemoteCommand(token, payload, deviceId) {
+export async function queueRemoteCommand(token, payload, deviceId, type = 'chat') {
   const target = deviceId || getSelectedRemoteDeviceId() || undefined;
   const res = await fetch(`${getPortfolioApiUrl()}/addon/command`, {
     method: 'POST',
@@ -2055,7 +2122,7 @@ export async function queueRemoteCommand(token, payload, deviceId) {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ type: 'chat', payload, ...(target ? { deviceId: target } : {}) }),
+    body: JSON.stringify({ type, payload, ...(target ? { deviceId: target } : {}) }),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);

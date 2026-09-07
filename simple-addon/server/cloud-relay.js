@@ -31,6 +31,8 @@ class CloudRelayService {
     this._token = null;  // User JWT for backend auth
     this._chatHandler = chatHandler; // Function to process chat locally
     this._confirmHandler = options.confirmHandler || null; // Resolve confirmations locally
+    this._agentHandler = options.agentHandler || null;      // Run the agent loop locally
+    this._inFlight = new Set();  // command ids currently executing (dedupe)
     this._heartbeatTimer = null;
     this._pollTimer = null;
     this._running = false;
@@ -71,6 +73,15 @@ class CloudRelayService {
     this._token = null;
     this.stop();
     console.log('[CloudRelay] Auth cleared, relay stopped');
+  }
+
+  /**
+   * Register the agent-run handler (wired by mountAutomation after the
+   * automation layer boots). Accepts { description } and returns the loop's
+   * final result.
+   */
+  setAgentHandler(fn) {
+    this._agentHandler = fn;
   }
 
   /**
@@ -191,6 +202,13 @@ class CloudRelayService {
    */
   async _executeCommand(command) {
     const { id, type, payload } = command;
+
+    // Guard against re-delivery: the backend only removes a command once its
+    // result is posted, and our poll interval is far shorter than a long-running
+    // agent command. Track in-flight ids so a command is never executed twice.
+    if (this._inFlight.has(id)) return;
+    this._inFlight.add(id);
+
     console.log(`[CloudRelay] Executing command ${id}: type=${type}`);
 
     try {
@@ -204,6 +222,11 @@ class CloudRelayService {
         // and post the resulting action response back to the backend.
         if (!this._confirmHandler) throw new Error('Confirm handler not configured');
         result = await this._confirmHandler(payload);
+      } else if (type === 'agent_run') {
+        // Run one message through the O-O-G-P-A loop to completion and return
+        // the final answer (see automation/index.js runGoalToCompletion).
+        if (!this._agentHandler) throw new Error('Agent handler not configured');
+        result = await this._agentHandler(payload);
       } else {
         throw new Error(`Unknown command type: ${type}`);
       }
@@ -214,6 +237,8 @@ class CloudRelayService {
     } catch (err) {
       console.error(`[CloudRelay] Command ${id} failed:`, err.message);
       await this._postResult(id, { error: err.message });
+    } finally {
+      this._inFlight.delete(id);
     }
   }
 

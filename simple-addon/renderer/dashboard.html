@@ -456,6 +456,18 @@
       </div>
       <div class="row">
         <div>
+          <div class="name">Continuous Listener</div>
+          <div class="desc">Always-on: start the loop on waiting goals and auto-run safe, high-confidence suggestions.</div>
+        </div>
+        <div class="actions">
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
+            <input type="checkbox" id="agent-listener" />
+            Enabled
+          </label>
+        </div>
+      </div>
+      <div class="row">
+        <div>
           <div class="name">Emergency Kill Switch</div>
           <div class="desc">Blocks all tool execution immediately. Re-enable in the Permissions tab.</div>
         </div>
@@ -499,6 +511,19 @@
         </div>
       </div>
       <ul id="agent-goals-list" class="rs-list"></ul>
+    </div>
+
+    <div class="panel">
+      <div class="row" style="border-bottom:none; padding-top:0;">
+        <div>
+          <h2 style="margin-bottom:2px;">💡 Proposed goals</h2>
+          <div class="rs-intro" style="margin-top:0;">Goals the listener formed from your context. Safe, high-confidence ones auto-run; the rest wait here for you to accept.</div>
+        </div>
+        <div class="actions">
+          <button id="agent-proposed-refresh">Refresh</button>
+        </div>
+      </div>
+      <ul id="agent-proposed-list" class="rs-list"></ul>
     </div>
 
     <details class="panel panel--collapsible">
@@ -1430,6 +1455,23 @@ document.getElementById('agent-dry-run').addEventListener('change', async (e) =>
   }
 });
 
+async function refreshAgentListener() {
+  try {
+    const s = await api('/api/agent/listener');
+    document.getElementById('agent-listener').checked = !!s.enabled;
+  } catch { /* listener endpoint unavailable (older addon) — leave unchecked */ }
+}
+
+document.getElementById('agent-listener').addEventListener('change', async (e) => {
+  try {
+    const s = await api('/api/agent/listener', { method: 'POST', body: JSON.stringify({ enabled: e.target.checked }) });
+    e.target.checked = !!s.enabled;
+  } catch (err) {
+    e.target.checked = !e.target.checked;
+    alert(`Toggle listener failed: ${err.message}`);
+  }
+});
+
 document.getElementById('agent-kill-switch').addEventListener('click', async () => {
   if (!confirm('Block all tool execution immediately? Re-enable it from the Permissions tab.')) return;
   try {
@@ -1477,6 +1519,7 @@ document.getElementById('agent-goal-from-clipboard').addEventListener('click', a
 });
 
 refreshAgentStatus();
+refreshAgentListener();
 
 // ── Agent workers (multi-agent pool) ──
 // `/api/agent/status` returns up to MAX_CONCURRENT_AGENTS goal-bound workers;
@@ -1684,10 +1727,47 @@ async function refreshAgentLessons() {
   }
 }
 
+async function refreshAgentProposed() {
+  const container = document.getElementById('agent-proposed-list');
+  container.innerHTML = '';
+  try {
+    const { proposals } = await api('/api/agent/proposed');
+    if (!proposals || !proposals.length) {
+      container.appendChild(el('div', { class: 'empty' }, 'No proposals yet. The listener forms them every few minutes while it is on.'));
+      return;
+    }
+    for (const p of proposals) {
+      container.appendChild(el('div', { class: 'row' },
+        el('div', {},
+          el('div', { class: 'name' }, p.title || 'Untitled'),
+          el('div', { class: 'desc' }, `${p.description || ''} · ${Math.round((p.confidence ?? 0) * 100)}% confidence`),
+        ),
+        el('div', { class: 'actions' },
+          el('button', { onclick: () => acceptProposedGoal(p.id) }, 'Accept'),
+        ),
+      ));
+    }
+  } catch (e) {
+    container.appendChild(el('div', { class: 'empty' }, `Couldn't load proposals (${e.message}).`));
+  }
+}
+
+async function acceptProposedGoal(id) {
+  try {
+    const r = await api('/api/agent/proposed/accept', { method: 'POST', body: JSON.stringify({ id }) });
+    if (r.ok) { await refreshAgentProposed(); await refreshAgentGoals(); }
+    else alert(r.error || 'Proposal not found.');
+  } catch (e) {
+    alert(`Accept failed: ${e.message}`);
+  }
+}
+
 document.getElementById('agent-goals-refresh').addEventListener('click', refreshAgentGoals);
 document.getElementById('agent-lessons-refresh').addEventListener('click', refreshAgentLessons);
+document.getElementById('agent-proposed-refresh').addEventListener('click', refreshAgentProposed);
 refreshAgentGoals();
 refreshAgentLessons();
+refreshAgentProposed();
 
 // ── Recorder & Skills tab ──
 let recPollTimer = null;

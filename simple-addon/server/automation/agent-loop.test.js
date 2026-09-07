@@ -427,6 +427,33 @@ function newLoop(overrides = {}) {
         assert.strictEqual(failed, true, 'goal marked failed on maxSteps');
     });
 
+    // ── Chat-driven run: final answer capture + result surfacing ────────
+    await asyncTest('reflect() captures finalAnswer on the sentinel', async () => {
+        const { loop } = newLoop();
+        const r = await loop.reflect({ text: 'The count is 28. <<GOAL_DONE>>', toolCalls: [], expected: 'finish' }, { outcomes: [] });
+        assert.deepStrictEqual(r, { stop: true, reason: 'goal-done-sentinel' });
+        assert.strictEqual(loop.state.finalAnswer, 'The count is 28.');
+    });
+
+    await asyncTest('a completed goal persists done + publishes agent.reply and goal.done', async () => {
+        const fakes = makeFakes({
+            llmClient: { async chat() { return { text: 'There are 28 files. <<GOAL_DONE>>', toolCalls: [] }; } },
+        });
+        const done = [];
+        fakes.wsClient.upsertGoal = async (slug, patch) => { done.push({ slug, patch }); return {}; };
+        const loop = new AgentLoop(fakes);
+
+        const started = await loop.start({ goalSlug: 'g', skipPlanner: true });
+        assert.strictEqual(started.running, true);
+        await waitFor(() => loop.status().running === false, { label: 'loop to finish' });
+
+        assert.strictEqual(loop.status().stopReason, 'goal-done-sentinel');
+        assert.strictEqual(loop.status().finalAnswer, 'There are 28 files.');
+        assert.ok(done.some((d) => d.slug === 'g' && d.patch.status === 'done'), 'goal persisted as done');
+        assert.ok(fakes.events._log.some((e) => e.type === 'agent.reply' && e.data.text === 'There are 28 files.'), 'agent.reply published');
+        assert.ok(fakes.events._log.some((e) => e.type === 'goal.done' && e.data.result === 'There are 28 files.'), 'goal.done published');
+    });
+
     // ── Summary ──────────────────────────────────────────────────────────
     console.log(`\n${passed} passed, ${failed} failed`);
     process.exit(failed === 0 ? 0 : 1);
