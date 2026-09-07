@@ -67,7 +67,7 @@ export const getPaymentIcon = (type) => {
  * Format payment method display for confirmation
  */
 export const formatPaymentMethodDisplay = (paymentMethods, selectedPaymentMethod) => {
-  if (!paymentMethods || !selectedPaymentMethod) {
+  if (!Array.isArray(paymentMethods) || !selectedPaymentMethod) {
     return { icon: '💰', text: 'Selected payment method' };
   }
 
@@ -78,7 +78,7 @@ export const formatPaymentMethodDisplay = (paymentMethods, selectedPaymentMethod
 
   const icon = getPaymentIcon(method.type);
 
-  if (method.type === 'card') {
+  if (method.type === 'card' && method.card) {
     return {
       icon,
       text: `${method.card.brand.toUpperCase()} •••• ${method.card.last4}`
@@ -86,7 +86,7 @@ export const formatPaymentMethodDisplay = (paymentMethods, selectedPaymentMethod
   } else {
     return {
       icon,
-      text: method.type.charAt(0).toUpperCase() + method.type.slice(1).replace('_', ' ')
+      text: (method.type || 'payment').charAt(0).toUpperCase() + (method.type || 'payment').slice(1).replace('_', ' ')
     };
   }
 };

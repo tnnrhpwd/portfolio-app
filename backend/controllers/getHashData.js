@@ -460,7 +460,12 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
                 if (req.fromPostHashData) {
                     return next();
                 } else {
-                    res.status(200).json({ message: 'Customer created and updated successfully', customer });
+                    // GET /pay-methods: keep the array contract with the rest of
+                    // this endpoint. The freshly created customer has no saved
+                    // payment methods yet, so return an empty list (previously
+                    // returned `{ message, customer }`, which crashed the
+                    // frontend's `paymentMethods.map(...)`).
+                    res.status(200).json([]);
                     return;
                 }
             } catch (error) {

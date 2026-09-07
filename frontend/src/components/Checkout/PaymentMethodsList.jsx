@@ -5,7 +5,7 @@ import React from 'react';
  * Displays saved payment methods with selection
  */
 const PaymentMethodsList = ({ paymentMethods, selectedMethod, onSelectMethod, onAddNew }) => {
-  if (!paymentMethods || paymentMethods.length === 0) {
+  if (!Array.isArray(paymentMethods) || paymentMethods.length === 0) {
     return (
       <div className="no-payment-methods">
         <p>No payment methods found. Please add a payment method to continue.</p>

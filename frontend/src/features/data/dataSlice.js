@@ -400,7 +400,18 @@ export const dataSlice = createSlice({
       })
       .addCase(getPaymentMethods.fulfilled, (state, action) => {
         state.paymentMethodsIsLoading = false;
-        state.paymentMethods = action.payload?.paymentMethods || action.payload || [];
+        // Normalize to an array. The backend normally returns an array, but the
+        // first-visit path (no Stripe customer yet) historically returned
+        // `{ message, customer }` — never let that object reach components that
+        // call `.map()`/`.find()` on the list.
+        const payload = action.payload;
+        if (Array.isArray(payload?.paymentMethods)) {
+          state.paymentMethods = payload.paymentMethods;
+        } else if (Array.isArray(payload)) {
+          state.paymentMethods = payload;
+        } else {
+          state.paymentMethods = [];
+        }
       })
       .addCase(getPaymentMethods.rejected, (state, action) => {
         state.paymentMethodsIsLoading = false;

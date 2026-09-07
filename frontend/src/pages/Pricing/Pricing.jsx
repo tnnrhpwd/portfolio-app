@@ -32,6 +32,14 @@ const FAQ_ITEMS = [
   },
 ];
 
+const COMPARISON = [
+  { feature: 'AI chat (cloud credits)', free: '$0.50/month', pro: '$10.00/month' },
+  { feature: 'Local automation (Simple addon)', free: 'Unlimited', pro: 'Unlimited' },
+  { feature: 'Cloud storage', free: '100 MB', pro: '50 GB' },
+  { feature: 'Live screen viewing from phone', free: '—', pro: 'Included' },
+  { feature: 'Email support', free: 'Self-serve', pro: 'Included' },
+];
+
 function Pricing() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -228,6 +236,29 @@ function Pricing() {
               })}
             </div>
           )}
+
+          <section className="pricing-compare" aria-label="Plan comparison">
+            <h2 className="pricing-compare-title">What&apos;s included</h2>
+            <div className="pricing-compare-table">
+              <div className="pricing-compare-row pricing-compare-head">
+                <span>Feature</span>
+                <span>Free</span>
+                <span>Pro</span>
+              </div>
+              {COMPARISON.map((row) => (
+                <div className="pricing-compare-row" key={row.feature}>
+                  <span className="pricing-compare-feature">{row.feature}</span>
+                  <span>{row.free}</span>
+                  <span className="pricing-compare-pro">{row.pro}</span>
+                </div>
+              ))}
+            </div>
+            <p className="pricing-compare-note">
+              AI chat runs on our servers and is metered against a monthly cloud-credit allowance —
+              when it runs out, AI requests pause until the next monthly cycle. Local automation runs
+              on your PC and is unlimited on every plan.
+            </p>
+          </section>
 
           <div className="pricing-bottom">
             <p>

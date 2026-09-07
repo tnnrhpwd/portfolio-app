@@ -48,7 +48,6 @@ const MembershipPlans = ({
 
   return (
     <div className="membership-plans">
-      <h3>Choose Your Membership</h3>
       <div className="plans-container">
         {plans.map(plan => {
           const isCurrentPlan = plan.id === currentSubscription;
