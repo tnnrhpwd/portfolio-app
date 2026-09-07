@@ -2,6 +2,10 @@
  * Centralized pricing & plan configuration – frontend mirror.
  *
  * Keep in sync with backend/constants/pricing.js.
+ * The shared, user-facing subset (PLAN_IDS, PLAN_NAMES, STORAGE_DISPLAY,
+ * QUOTAS, FEATURES, DESCRIPTIONS) is pinned by
+ * backend/__tests__/unit/pricingSync.test.js — CI fails if it drifts.
+ * Everything else below is frontend-only (QUOTA_SHORT, PLAN_BADGE, helpers).
  * Two tiers: Free and Pro ($15/mo).
  * AI usage is metered and server-paid (AWS Bedrock / Claude Haiku 4.5) with
  * per-tier monthly credit limits — there is no bring-your-own-key (BYOK) option.

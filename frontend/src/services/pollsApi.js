@@ -12,25 +12,7 @@
  */
 
 import { getApiBase } from '../config/api';
-
-/**
- * Safely read a JSON body. The Netlify SPA catch-all / proxy can occasionally
- * return an HTML error page instead of JSON; parse defensively so we surface a
- * clear error instead of a confusing SyntaxError.
- */
-async function parseJson(res) {
-  const text = await res.text();
-  if (!text) return {};
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new Error(`Unexpected response from server (${res.status}). Please try again.`);
-  }
-}
-
-function jsonHeaders() {
-  return { 'Content-Type': 'application/json' };
-}
+import { jsonHeaders, parseJson } from './apiClient';
 
 /**
  * List recent polls (active + closed) plus the weekly AI poll state.

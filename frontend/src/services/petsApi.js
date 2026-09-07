@@ -9,24 +9,7 @@
  */
 
 import { getApiBase } from '../config/api';
-
-function headers(token) {
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
-  };
-}
-
-/** Safely parse a JSON body; surface a clear error on non-JSON responses. */
-async function parseJson(res) {
-  const text = await res.text();
-  if (!text) return {};
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new Error(`Unexpected response from server (${res.status}). Please try again.`);
-  }
-}
+import { authHeaders as headers, parseJson } from './apiClient';
 
 /** List the current user's pets (stats already decayed server-side). */
 export async function fetchPets(token) {

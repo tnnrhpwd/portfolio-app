@@ -1,7 +1,7 @@
 # Coliseum — Blender Authoring Spec (build the `.blend`)
 
 Companion to `Coliseum-Sprite-Pipeline.md`. This is the step-by-step checklist to
-author the Blender file that `scripts/blender/render_fighter_layers.py` renders.
+author the Blender file that `scripts/coliseum/blender/render_fighter_layers.py` renders.
 Follow it in order; the script and the Phaser integration assume these exact
 names and structure.
 
@@ -34,7 +34,7 @@ On Windows, Blender installs to
 render script from this repo's root, use the full path:
 
 ```powershell
-& "C:\Program Files\Blender Foundation\Blender 4.2\blender.exe" --background coliseum-fighters.blend --python scripts/blender/render_fighter_layers.py
+& "C:\Program Files\Blender Foundation\Blender 4.2\blender.exe" --background coliseum-fighters.blend --python scripts/coliseum/blender/render_fighter_layers.py
 ```
 
 (If you add Blender's folder to PATH you can type `blender` instead.)
@@ -325,7 +325,7 @@ prototype minimum, then add the rest:
 From the repo root, in PowerShell:
 
 ```powershell
-& "C:\Program Files\Blender Foundation\Blender 4.2\blender.exe" --background coliseum-fighters.blend --python scripts/blender/render_fighter_layers.py
+& "C:\Program Files\Blender Foundation\Blender 4.2\blender.exe" --background coliseum-fighters.blend --python scripts/coliseum/blender/render_fighter_layers.py
 ```
 
 - Replace the Blender path with your installed version.

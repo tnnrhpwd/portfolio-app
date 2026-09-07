@@ -5,6 +5,10 @@
  * are defined here.  Every other file should import from this module
  * instead of hard-coding values.
  *
+ * The frontend mirror (frontend/src/constants/pricing.js) must keep the shared,
+ * user-facing subset in sync — backend/__tests__/unit/pricingSync.test.js fails
+ * CI if it drifts.
+ *
  * Two tiers: Free and Pro ($15/mo).
  * AI usage (AWS Bedrock / Claude Haiku 4.5) is metered and server-paid, with
  * monthly per-tier credit limits — see MEMBERSHIP_LIMITS in

@@ -9,29 +9,7 @@
  */
 
 import { getApiBase } from '../config/api';
-
-function headers(token) {
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
-  };
-}
-
-/**
- * Safely read a JSON body. The Netlify SPA catch-all / proxy can occasionally
- * return an HTML error page (e.g. a 502 or a warmed-but-mid-restart backend)
- * instead of JSON; calling `res.json()` on that throws a confusing SyntaxError
- * and hides the real status. Parse defensively so we surface a clear error.
- */
-async function parseJson(res) {
-  const text = await res.text();
-  if (!text) return {};
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new Error(`Unexpected response from server (${res.status}). Please try again.`);
-  }
-}
+import { authHeaders as headers, parseJson } from './apiClient';
 
 /**
  * Fetch memory items. Pass type='goal'|'plan'|'action' to filter.

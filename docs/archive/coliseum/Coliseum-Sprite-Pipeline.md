@@ -72,7 +72,7 @@ flowchart LR
   **`Coliseum-Blender-Authoring.md`**.
 
 ### Phase 2 — Scripted render
-- `scripts/blender/render_fighter_layers.py` (scaffolded) renders each layer
+- `scripts/coliseum/blender/render_fighter_layers.py` (scaffolded) renders each layer
   pass with only that layer visible, body hidden where appropriate, weapon
   parented to the hand bone so it already carries the correct per-frame
   position/rotation.

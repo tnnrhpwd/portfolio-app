@@ -10,9 +10,8 @@ A professional portfolio application with React frontend and Node.js backend, fe
 See the [`/docs`](./docs) folder for detailed documentation:
 - **[Guides](./docs/guides/)** - Setup and configuration guides
 - **[Implementation](./docs/implementation/)** - Technical implementation details
-- **[Coliseum](./docs/coliseum/)** - Coliseum game design & art pipeline
 - **[Debugging](./docs/debugging/)** - Troubleshooting guides
-- **[Archive](./docs/archive/)** - Historical / superseded docs
+- **[Archive](./docs/archive/)** - Historical / superseded docs (incl. Coliseum game)
 
 ## 🚀 Recent Improvements
 

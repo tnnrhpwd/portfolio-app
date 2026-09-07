@@ -17,6 +17,7 @@ docs/
 │   ├── SECRETS_MANAGEMENT.md         # Single source of truth for secrets
 │   ├── ENV_BACKUP_GUIDE.md           # Encrypted .env backup/restore
 │   ├── REFERER_TRACKING_README.md    # Analytics and tracking setup
+│   ├── DEPLOYMENT.md                # Netlify + Render deployment topology
 │   ├── BUSINESS_PLAN.md              # What value the product provides
 │   └── ETHICAL_MONETIZATION_STRATEGIES.md # Ad-free revenue ideas
 ├── implementation/                    # Architecture + feature plans (current)
@@ -28,21 +29,21 @@ docs/
 │   ├── SUPPORT_TICKETS.md            # Support tickets & bug reports system
 │   ├── special-user-flag.md          # Admin "Special" unlimited-credits flag
 │   └── simple-agent-prompt.md        # Agent system prompt reference
-├── coliseum/                          # Coliseum game design + art pipeline
-│   ├── README.md                     # Index + reading order
-│   ├── COLISEUM-SPEC.md              # Implementation-ready functional spec
-│   ├── sands-of-the-coliseum-gameplay.md # Detailed gameplay design
-│   ├── COLISEUM_2026_REBUILD_PROMPT.md # Phased rebuild plan
-│   ├── ASSET-LICENSES.md             # Asset provenance + budget
-│   ├── Coliseum-Sprite-Pipeline.md   # 3D→2D sprite pipeline
-│   ├── Coliseum-Blender-Authoring.md # Blender authoring checklist
-│   └── Paperdoll.md                  # AI modular paperdoll rigging idea
-├── archive/                           # Historical / superseded docs (reference only)
+├── archive/                           # Historical / archived (reference only)
 │   ├── README.md                     # What each archived doc covered
 │   ├── API_USAGE_IMPLEMENTATION.md
 │   ├── IMPLEMENTATION_STATUS.md
 │   ├── LLM_IMPLEMENTATION_SUMMARY.md
-│   └── S3_INTEGRATION_SUMMARY.md
+│   ├── S3_INTEGRATION_SUMMARY.md
+│   └── coliseum/                     # Coliseum game design + art pipeline (archived)
+│       ├── README.md                 # Index + reading order
+│       ├── COLISEUM-SPEC.md          # Implementation-ready functional spec
+│       ├── sands-of-the-coliseum-gameplay.md # Detailed gameplay design
+│       ├── COLISEUM_2026_REBUILD_PROMPT.md # Phased rebuild plan
+│       ├── ASSET-LICENSES.md         # Asset provenance + budget
+│       ├── Coliseum-Sprite-Pipeline.md # 3D→2D sprite pipeline
+│       ├── Coliseum-Blender-Authoring.md # Blender authoring checklist
+│       └── Paperdoll.md              # AI modular paperdoll rigging idea
 ├── debugging/                         # Troubleshooting guides
 │   └── debug-ocr.md                  # OCR debugging guide
 └── images/                            # Referenced images (UI + Coliseum assets)
@@ -57,6 +58,7 @@ docs/
 - [AI Image Generator Guide](./guides/AI_IMAGE_GENERATOR_GUIDE.md) - Generate images via AWS Bedrock and use them as repo assets
 - [Env Backup Guide](./guides/ENV_BACKUP_GUIDE.md) - Back up/restore `.env` secrets without ever exposing them in the repo
 - [Secrets Management](./guides/SECRETS_MANAGEMENT.md) - Single source of truth for secrets (AWS Secrets Manager)
+- [Deployment Topology](./guides/DEPLOYMENT.md) - How Netlify (frontend + keep-warm) and Render (backend) fit together
 
 ### Business
 - [Action Plan](./guides/ACTION_PLAN.md) - **Start here.** Consolidated next steps: messaging, payment page accuracy, and funnel tuning
@@ -73,12 +75,9 @@ docs/
 - [Special User Flag](./implementation/special-user-flag.md) - Admin "Special" unlimited-credits flag (distinct from admin)
 - [DeepSeek Setup](./guides/DEEPSEEK_SETUP.md) - DeepSeek API configuration
 
-### Coliseum game
-- [Coliseum index](./coliseum/README.md) - **Start here** — reading order + all Coliseum docs
-- [Coliseum Spec](./coliseum/COLISEUM-SPEC.md) - Implementation-ready functional spec
-
 ### Historical (reference only)
 - [Archive index](./archive/README.md) - Superseded docs (old LLM/S3/usage/status summaries)
+- [Coliseum index](./archive/coliseum/README.md) - Coliseum game design + art pipeline (archived)
 
 ### Troubleshooting
 - [OCR Debugging](./debugging/debug-ocr.md) - Fix OCR issues

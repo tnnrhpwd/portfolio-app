@@ -8,17 +8,7 @@
  */
 
 import { getApiBase } from '../config/api';
-
-/** Safely read a JSON body (Netlify can occasionally return an HTML page). */
-async function parseJson(res) {
-  const text = await res.text();
-  if (!text) return {};
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new Error(`Unexpected response from server (${res.status}). Please try again.`);
-  }
-}
+import { parseJson } from './apiClient';
 
 /**
  * Fetch visit counts for the given paths.

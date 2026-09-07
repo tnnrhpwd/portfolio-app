@@ -7,13 +7,7 @@
  */
 
 import { getApiBase } from '../config/api';
-
-function headers(token) {
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
-  };
-}
+import { authHeaders as headers } from './apiClient';
 
 /**
  * Enlist the Goal Agent to autonomously fix an open bug report from the
