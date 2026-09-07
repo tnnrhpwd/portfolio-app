@@ -468,6 +468,24 @@
       </div>
       <div class="row">
         <div>
+          <div class="name">Local Memory Mirror</div>
+          <div class="desc">Export the cloud workspace to plain Markdown files you can grep, edit, and commit.</div>
+        </div>
+        <div class="actions">
+          <button id="agent-workspace-mirror">Export to Markdown</button>
+        </div>
+      </div>
+      <div class="row" id="agent-skill-draft-row" style="display:none;">
+        <div>
+          <div class="name">Skill from last successful run</div>
+          <div class="desc" id="agent-skill-draft-desc">The agent recorded a reusable sequence. Save it as a draft skill.</div>
+        </div>
+        <div class="actions">
+          <button id="agent-skill-draft-save">Save as skill</button>
+        </div>
+      </div>
+      <div class="row">
+        <div>
           <div class="name">Emergency Kill Switch</div>
           <div class="desc">Blocks all tool execution immediately. Re-enable in the Permissions tab.</div>
         </div>
@@ -1383,6 +1401,7 @@ setInterval(refreshStatus, 10000);
 
 // ── Agent tab ──
 let agentWakewordActive = false;
+let lastSkillDraft = null;
 
 async function refreshAgentStatus() {
   try {
@@ -1405,6 +1424,17 @@ async function refreshAgentStatus() {
     startBtn.disabled = running;
     stopBtn.disabled = !running;
     document.getElementById('agent-dry-run').checked = !!s.dryRun;
+
+    const draftRow = document.getElementById('agent-skill-draft-row');
+    if (s.lastSkillDraft && Array.isArray(s.lastSkillDraft.steps) && s.lastSkillDraft.steps.length >= 2) {
+      lastSkillDraft = s.lastSkillDraft;
+      draftRow.style.display = '';
+      document.getElementById('agent-skill-draft-desc').textContent =
+        `${s.lastSkillDraft.name} — ${s.lastSkillDraft.steps.length} steps`;
+    } else {
+      lastSkillDraft = null;
+      draftRow.style.display = 'none';
+    }
 
     if (running && !agentPollTimer) {
       agentPollTimer = setInterval(refreshAgentStatus, 2000);
@@ -1469,6 +1499,25 @@ document.getElementById('agent-listener').addEventListener('change', async (e) =
   } catch (err) {
     e.target.checked = !e.target.checked;
     alert(`Toggle listener failed: ${err.message}`);
+  }
+});
+
+document.getElementById('agent-workspace-mirror').addEventListener('click', async () => {
+  try {
+    const out = await api('/api/workspace/mirror', { method: 'POST', body: '{}' });
+    alert(`Workspace exported to Markdown:\n${out.dir}\n\n${out.files.length} file(s), ${out.errors} error(s).`);
+  } catch (e) {
+    alert(`Export failed: ${e.message}`);
+  }
+});
+
+document.getElementById('agent-skill-draft-save').addEventListener('click', async () => {
+  if (!lastSkillDraft) return;
+  try {
+    const r = await api('/api/agent/skill-draft/save', { method: 'POST', body: JSON.stringify({ draft: lastSkillDraft }) });
+    if (r.ok) { alert(`Skill draft saved: ${r.name}`); document.getElementById('agent-skill-draft-row').style.display = 'none'; }
+  } catch (e) {
+    alert(`Save failed: ${e.message}`);
   }
 });
 

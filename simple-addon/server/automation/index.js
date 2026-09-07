@@ -70,6 +70,7 @@ const runHistory = require('./run-history');
 
 const { createAgentLoop } = require('./agent-loop');
 const { ContinuousListener } = require('./listener');
+const { mirrorWorkspace } = require('./workspace-mirror');
 const { compile: nlCompile, editSteps: nlEditSteps } = require('./nl-compiler');
 const { getPerceptionBus, frameToContextString } = require('./perception-bus');
 const { getPredictor } = require('./predictor');
@@ -1542,6 +1543,42 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
             const result = await _listener.acceptProposal(req.body?.id);
             if (result.ok) res.json(result);
             else res.status(404).json(result);
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
+    // ─── Local Markdown mirror (OpenClaw-style local-first memory) ─────────
+    app.post('/api/workspace/mirror', async (req, res) => {
+        try {
+            const base = process.env.APPDATA || require('os').homedir();
+            const dir = path.join(base, 'simple-addon', 'workspace');
+            const out = await mirrorWorkspace({ wsClient, dir, log });
+            res.json(out);
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
+    // ─── Save a success-run skill draft (consent-gated: explicit save only) ─
+    app.post('/api/agent/skill-draft/save', async (req, res) => {
+        try {
+            const draft = req.body?.draft || req.body || {};
+            const steps = Array.isArray(draft.steps) ? draft.steps : null;
+            if (!draft.name && !draft.title) return res.status(400).json({ error: 'draft name/title required' });
+            if (!steps || steps.length < 2) return res.status(400).json({ error: 'draft needs at least 2 steps' });
+            const name = String(draft.name || draft.title).slice(0, 80);
+            const slug = draft.slug || ('skill-' + require('crypto').createHash('sha1').update(steps.map((s) => s.tool).join('→')).digest('hex').slice(0, 10));
+            const skill = {
+                slug,
+                name,
+                description: draft.description || 'Recorded from a successful run',
+                steps,
+                params: [],
+                metadata: { source: 'success-run', goalSlug: draft.metadata?.goalSlug || null, draft: true },
+            };
+            await wsClient.upsertSkill(slug, { name, content: JSON.stringify(skill), tags: ['learned', 'draft'] });
+            res.json({ ok: true, slug, name });
         } catch (e) {
             res.status(500).json({ error: e.message });
         }

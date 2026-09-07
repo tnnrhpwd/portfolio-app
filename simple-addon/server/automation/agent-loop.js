@@ -38,6 +38,10 @@ const DEFAULT_MAX_STEPS = 20;
 const DEFAULT_MODEL_ID = undefined;
 const REFLECT_EVERY = 5;
 const STEP_DELAY_MS = 400;
+const crypto = require('crypto');
+// Tools whose args contain human/PII content — never captured into a
+// success-run skill draft (mirrors pattern-learner.js PII_TOOLS).
+const PII_TOOLS = new Set(['text_type', 'clipboard_write', 'audio_speak']);
 
 // Future-phase tunables (docs/implementation/OBSERVE-ORIENT-GOAL-PLAN-ACTION.md
 // §7.4). Not yet consumed by the loop — wired in Phases 2–6. Present here so
@@ -230,6 +234,10 @@ class AgentLoop {
             stallCount: 0,
             lastOutcomeDelta: 0,
             lastLesson: null,
+            lastMetaStep: 0,
+            lastMeta: null,
+            runSteps: [],
+            lastSkillDraft: null,
             finalAnswer: null,
             stepsSinceReeval: 0,
             nextReevaluateAt: null,
@@ -621,6 +629,9 @@ class AgentLoop {
             });
             this.log(`[agent] step ${this.state.step} tool=${tc.function.name} ok=${out.ok}`);
             outcomes.push({ name: tc.function.name, args: argsObj, out });
+            if (out.ok) {
+                this.state.runSteps.push({ tool: tc.function.name, args: PII_TOOLS.has(tc.function.name) ? {} : argsObj });
+            }
         }
         return { outcomes };
     }
@@ -728,6 +739,13 @@ class AgentLoop {
             }
             const sleepMs = r.idle ? this.config.IDLE_SLEEP_MS : STEP_DELAY_MS;
             await new Promise(res => setTimeout(res, sleepMs));
+
+            // Meta-loop (OpenClaw-style self-reflection): every META_EVERY_ACTIONS
+            // steps, review the recent action log and append a written note.
+            if (this.state.step - this.state.lastMetaStep >= this.config.META_EVERY_ACTIONS) {
+                this.state.lastMetaStep = this.state.step;
+                await this._runMetaReflection();
+            }
         }
 
         if (this.state.step >= this.state.maxSteps && !this.state.stopReason) {
@@ -748,6 +766,15 @@ class AgentLoop {
                 this._publish('goal.done', { goalSlug: slug, steps: this.state.step, result: this.state.finalAnswer || null });
                 try { await this.wsClient.upsertGoal(slug, { status: 'done' }); }
                 catch (e) { this.log('[agent] goal done persist failed:', e.message); }
+
+                // Success-run skill draft (OpenClaw-style self-authored skills).
+                // Consent-gated: only an explicit save persists it — here we just
+                // build the draft and surface it via status() + an event.
+                const draft = this._buildSkillDraft();
+                if (draft) {
+                    this.state.lastSkillDraft = draft;
+                    this._publish('agent.skill-draft', { goalSlug: slug, slug: draft.slug, title: draft.name, steps: draft.steps.length });
+                }
             }
         }
 
@@ -765,6 +792,71 @@ class AgentLoop {
         } catch (e) {
             this.log('[agent] max-steps goal persist failed:', e.message);
         }
+    }
+
+    /**
+     * Meta-loop self-reflection (OpenClaw-style): every META_EVERY_ACTIONS
+     * steps, review the recent action log, ask the LLM for a short written
+     * self-assessment, and append it to the daily workspace log. Best-effort —
+     * a missing token, empty log, or LLM failure never blocks the loop.
+     */
+    async _runMetaReflection() {
+        if (!this.wsClient || typeof this.wsClient.appendLog !== 'function') return;
+
+        let actions = [];
+        try { actions = await this.wsClient.getRecentActions(this.config.META_EVERY_ACTIONS); }
+        catch { return; }
+        const toolLine = (Array.isArray(actions) ? actions : [])
+            .map((a) => a.tool || a.name).filter(Boolean).slice(-this.config.META_EVERY_ACTIONS)
+            .join(' → ');
+        if (!toolLine) return;
+
+        let summary = null;
+        try {
+            const res = await this._lazyLoadLlm().chat({
+                message: `Recent actions (oldest → newest): ${toolLine}`,
+                systemPrompt: 'You are the agent reviewing its own recent work. In ONE short paragraph, summarize what it did, what is working, and what it should stop doing. Be concise and factual.',
+                temperature: 0,
+                maxLength: 200,
+            });
+            summary = (res?.text || '').trim();
+        } catch (e) {
+            this.log('[agent] meta reflection LLM failed:', e.message);
+            return;
+        }
+        if (!summary) return;
+
+        try {
+            await this.wsClient.appendLog(`[agent meta] ${summary}`);
+        } catch (e) {
+            this.log('[agent] meta reflection write failed:', e.message);
+            return;
+        }
+
+        this.state.lastMeta = summary;
+        this._publish('agent.meta', { goalSlug: this.state.currentGoal?.slug, step: this.state.step, summary });
+        this.log(`[agent] meta reflection at step ${this.state.step}`);
+    }
+
+    /**
+     * Build a skill DRAFT from the successful tool sequence of the run that
+     * just finished. Returns null when fewer than 2 steps were executed.
+     * Never persisted here — the caller surfaces it for the user to save.
+     */
+    _buildSkillDraft() {
+        const steps = Array.isArray(this.state.runSteps) ? this.state.runSteps : [];
+        if (steps.length < 2) return null;
+        const goal = this.state.currentGoal || {};
+        const seq = steps.map((s) => s.tool).join('→');
+        const slug = 'skill-' + crypto.createHash('sha1').update(seq).digest('hex').slice(0, 10);
+        return {
+            slug,
+            name: `${goal.name || 'Automation'} (learned)`,
+            description: `Recorded from a successful run: ${seq}`,
+            steps,
+            params: [],
+            metadata: { source: 'success-run', goalSlug: goal.slug || null, draft: true },
+        };
     }
 
     async start(opts = {}) {
@@ -820,6 +912,10 @@ class AgentLoop {
             stallCount: 0,
             lastOutcomeDelta: 0,
             lastLesson: null,
+            lastMetaStep: 0,
+            lastMeta: null,
+            runSteps: [],
+            lastSkillDraft: null,
             finalAnswer: null,
             stepsSinceReeval: this.config.REEVAL_STEPS,
             nextReevaluateAt: null,
@@ -857,6 +953,8 @@ class AgentLoop {
             lastOutcomeDelta: this.state.lastOutcomeDelta,
             lastLesson: this.state.lastLesson,
             finalAnswer: this.state.finalAnswer || null,
+            lastMeta: this.state.lastMeta || null,
+            lastSkillDraft: this.state.lastSkillDraft || null,
         };
     }
 

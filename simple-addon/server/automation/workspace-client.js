@@ -247,6 +247,19 @@ const listSkills = () => {
     return req('GET', `?${q.toString()}`);
 };
 
+/**
+ * Generic list of workspace items for one kind. Returns the backend's
+ * `{ entries, count }` (or throws on non-2xx). Used by the local Markdown
+ * mirror (workspace-mirror.js) so memory can be exported to disk.
+ */
+const listWorkspaceItems = (kind) => req('GET', `?kind=${encodeURIComponent(kind)}`);
+
+/**
+ * Fetch a single workspace item with full content (list endpoints return
+ * lightweight entries without `content`). Used by the mirror.
+ */
+const getWorkspaceItem = (kind, slug) => req('GET', `/${encodeURIComponent(kind)}/${encodeURIComponent(slug)}`);
+
 // ─── Settings kind (small per-user JSON blobs, e.g. permission consents) ──
 // Source of truth for state that must follow the user across addon installs
 // and devices (the local `automation-permissions.json` file is a per-machine
@@ -317,6 +330,8 @@ module.exports = {
     upsertSkill,
     deleteSkill,
     listSkills,
+    listWorkspaceItems,
+    getWorkspaceItem,
     getSettings,
     upsertSettings,
     listGoals,

@@ -63,6 +63,8 @@ function makeFakes(overrides = {}) {
             async getContext() { return { workspaceContext: 'CTX' }; },
             async listSkills() { return { entries: [] }; },
             async upsertGoal() { return {}; },
+            async getRecentActions() { return []; },
+            async appendLog() { return {}; },
         },
         registry: {
             toolSchemasForLlm() { return [{ type: 'function', function: { name: 'toolA', description: '', parameters: {} } }]; },
@@ -452,6 +454,117 @@ function newLoop(overrides = {}) {
         assert.ok(done.some((d) => d.slug === 'g' && d.patch.status === 'done'), 'goal persisted as done');
         assert.ok(fakes.events._log.some((e) => e.type === 'agent.reply' && e.data.text === 'There are 28 files.'), 'agent.reply published');
         assert.ok(fakes.events._log.some((e) => e.type === 'goal.done' && e.data.result === 'There are 28 files.'), 'goal.done published');
+    });
+
+    // ── Meta-loop self-reflection (OpenClaw-style, META_EVERY_ACTIONS) ──
+    await asyncTest('_runMetaReflection writes a log note and publishes agent.meta', async () => {
+        const fakes = makeFakes({ llmClient: { async chat() { return { text: 'Did X well; stop doing Y.' }; } } });
+        const logs = [];
+        fakes.wsClient.getRecentActions = async () => [{ tool: 'fs_list' }, { tool: 'fs_read' }];
+        fakes.wsClient.appendLog = async (text) => { logs.push(text); return {}; };
+        const loop = new AgentLoop(fakes);
+        loop.state.currentGoal = { ...GOAL };
+        await loop._runMetaReflection();
+        assert.strictEqual(logs.length, 1, 'one log note appended');
+        assert.ok(logs[0].includes('Did X well'), 'log note contains the summary');
+        assert.ok(fakes.events._log.some((e) => e.type === 'agent.meta'), 'agent.meta published');
+        assert.strictEqual(loop.state.lastMeta, 'Did X well; stop doing Y.');
+    });
+
+    await asyncTest('_runMetaReflection no-ops on an empty action log', async () => {
+        const fakes = makeFakes();
+        let llmCalled = false;
+        fakes.llmClient = { async chat() { llmCalled = true; return { text: 'x' }; } };
+        fakes.wsClient.getRecentActions = async () => [];
+        let logged = 0;
+        fakes.wsClient.appendLog = async () => { logged++; return {}; };
+        const loop = new AgentLoop(fakes);
+        await loop._runMetaReflection();
+        assert.strictEqual(llmCalled, false, 'no LLM call without actions');
+        assert.strictEqual(logged, 0, 'nothing appended');
+    });
+
+    await asyncTest('_runMetaReflection survives an LLM failure without writing', async () => {
+        const fakes = makeFakes({ llmClient: { async chat() { throw new Error('boom'); } } });
+        fakes.wsClient.getRecentActions = async () => [{ tool: 'fs_list' }];
+        let logged = 0;
+        fakes.wsClient.appendLog = async () => { logged++; return {}; };
+        const loop = new AgentLoop(fakes);
+        await loop._runMetaReflection();
+        assert.strictEqual(logged, 0, 'no write on LLM failure');
+    });
+
+    await asyncTest('loop triggers meta reflection every META_EVERY_ACTIONS steps', async () => {
+        const logs = [];
+        const fakes = makeFakes({
+            config: { IDLE_SLEEP_MS: 1, META_EVERY_ACTIONS: 2 },
+            llmClient: {
+                async chat(opts) {
+                    if (opts?.systemPrompt?.includes('reviewing its own recent work')) return { text: 'meta summary', toolCalls: [] };
+                    return { text: 'nothing to do', toolCalls: [] };
+                },
+            },
+        });
+        fakes.wsClient.getRecentActions = async () => [{ tool: 'fs_list' }, { tool: 'fs_read' }];
+        fakes.wsClient.appendLog = async (text) => { logs.push(text); return {}; };
+        const loop = new AgentLoop(fakes);
+        const started = await loop.start({ goalSlug: 'g', skipPlanner: true, maxSteps: 3 });
+        assert.strictEqual(started.running, true);
+        await waitFor(() => loop.status().running === false, { label: 'loop to finish' });
+        assert.ok(logs.some((t) => String(t).includes('meta summary')), 'meta reflection appended mid-run');
+    });
+
+    // ── Success-run skill draft (OpenClaw-style self-authored skills) ────
+    await asyncTest('act() records successful steps with PII args stripped', async () => {
+        const { loop } = newLoop();
+        loop.state.step = 1;
+        await loop.act({
+            type: 'response', text: '',
+            toolCalls: [
+                { id: 'c1', function: { name: 'toolA', arguments: '{"a":1}' } },
+                { id: 'c2', function: { name: 'text_type', arguments: '{"text":"secret"}' } },
+            ],
+        });
+        assert.deepStrictEqual(loop.state.runSteps, [
+            { tool: 'toolA', args: { a: 1 } },
+            { tool: 'text_type', args: {} },
+        ]);
+    });
+
+    test('_buildSkillDraft returns null with fewer than 2 steps', () => {
+        const { loop } = newLoop();
+        loop.state.runSteps = [{ tool: 'toolA', args: {} }];
+        assert.strictEqual(loop._buildSkillDraft(), null);
+    });
+
+    test('_buildSkillDraft builds a consent-gated draft from 2+ steps', () => {
+        const { loop } = newLoop();
+        loop.state.runSteps = [{ tool: 'toolA', args: { a: 1 } }, { tool: 'toolB', args: {} }];
+        const draft = loop._buildSkillDraft();
+        assert.ok(draft.slug.startsWith('skill-'), 'slug is a skill slug');
+        assert.strictEqual(draft.steps.length, 2);
+        assert.strictEqual(draft.metadata.source, 'success-run');
+        assert.strictEqual(draft.metadata.draft, true);
+    });
+
+    await asyncTest('a successful run publishes agent.skill-draft and exposes lastSkillDraft', async () => {
+        const fakes = makeFakes({
+            llmClient: {
+                calls: 0,
+                async chat() {
+                    this.calls++;
+                    if (this.calls <= 2) return { text: '', toolCalls: [{ id: `c${this.calls}`, function: { name: 'toolA', arguments: '{}' } }] };
+                    return { text: 'done <<GOAL_DONE>>', toolCalls: [] };
+                },
+            },
+        });
+        const loop = new AgentLoop(fakes);
+        await loop.start({ goalSlug: 'g', skipPlanner: true });
+        await waitFor(() => loop.status().running === false, { label: 'loop finish' });
+        const s = loop.status();
+        assert.ok(s.lastSkillDraft, 'lastSkillDraft set');
+        assert.ok(s.lastSkillDraft.steps.length >= 2, 'draft has the run steps');
+        assert.ok(fakes.events._log.some((e) => e.type === 'agent.skill-draft'), 'agent.skill-draft published');
     });
 
     // ── Summary ──────────────────────────────────────────────────────────

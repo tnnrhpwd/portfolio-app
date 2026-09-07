@@ -917,3 +917,15 @@ All checklist tasks T0.1 → T8.2 are implemented, tested, and green (`test:unit
 - **Surfaces:** dashboard "💡 Proposed goals" panel (list + Accept) and chat `/agent propose`.
 - **Safety unchanged:** the kill switch gates every tick; only `safe-read`/`sandboxed-write` proposals auto-create; per-goal cooldowns prevent tight loops; unknown tool names are treated as not-auto-creatable (safe default).
 - **Tests:** `listener.test.js` now 15 cases (adds `_parseProposals`, no-LLM no-op, self-form of non-destructive goals, destructive surfacing-only, dedupe across ticks, `acceptProposal`). Full `test:unit` green; `node --check` clean; frontend `tsc --noEmit` clean; DASHCHECK clean (script exit 0, tags balanced).
+
+### 2026-09-06 — Meta-loop self-reflection (OpenClaw-style, META_EVERY_ACTIONS)
+
+- **Wired the previously declared-but-unused `META_EVERY_ACTIONS` knob.** Every N recorded actions (default 50), `_runLoop()` calls `_runMetaReflection()`: pull the recent action log (`wsClient.getRecentActions(N)`), ask the LLM for a one-paragraph self-assessment ("what it did / what's working / what to stop doing"), append it to the daily workspace log (`wsClient.appendLog('[agent meta] …')`), and publish an `agent.meta` event. `status()` exposes `lastMeta`.
+- **Best-effort by design:** an empty action log skips the LLM call; an LLM or write failure is logged and skipped; it never blocks or crashes the loop. This closes the "agent-self-reflection" gap from the OpenClaw-principles review.
+- **Tests:** `agent-loop.test.js` now 33 cases (adds `_runMetaReflection` write+publish, empty-log no-op, LLM-failure survival, and an end-to-end "triggers every META_EVERY_ACTIONS steps" case). Full `test:unit` green; `node --check` clean.
+
+### 2026-09-06 — OpenClaw follow-through: memory mirror + success-run skills
+
+- **#1 Local-first memory (mirror):** new `workspace-mirror.js` exports the cloud workspace to plain Markdown under `APPDATA/simple-addon/workspace/` (`<kind>/<slug>.md` with front matter + `README.md` index) — OpenClaw's "inspectable, grep-able, git-able" property — without changing the DynamoDB source of truth. `workspace-client.js` gained generic `listWorkspaceItems(kind)` + `getWorkspaceItem(kind,slug)`. Endpoint `POST /api/workspace/mirror`; dashboard "Export to Markdown" button. Tests: `workspace-mirror.test.js` (3 cases).
+- **#2 Self-authored skills from success:** the loop accumulates its successful tool sequence (`state.runSteps`, PII-tool args stripped to `{}`) and, on `<<GOAL_DONE>>`, builds a consent-gated skill **draft** — surfaced via `status().lastSkillDraft` + an `agent.skill-draft` event, never persisted until the user explicitly saves. Endpoint `POST /api/agent/skill-draft/save` writes a `learned/draft` skill; the dashboard "Save as skill" button appears after a successful run.
+- **Tests:** `agent-loop.test.js` now 37 cases (+4: `act()` runSteps PII-stripping, `_buildSkillDraft` under/over threshold, end-to-end `agent.skill-draft`). Full `test:unit` green; `node --check` clean; DASHCHECK clean (script exit 0, tags balanced).
