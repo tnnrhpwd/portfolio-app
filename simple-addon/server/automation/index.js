@@ -36,7 +36,7 @@ const permissions = require('./permissions');
 const wsClient = require('./workspace-client');
 
 const shell = require('./tools/shell');
-const { fsRead, fsWrite, fsList } = require('./tools/fs');
+const { fsRead, fsWrite, fsList, fsMove, fsCopy, fsDelete, fsMkdir, fsSearch } = require('./tools/fs');
 const { windowList, windowFocus, windowSnapshot, windowSetRect, processList, processKill, clipboardRead, clipboardWrite } = require('./tools/system');
 const workspaceProfiles = require('./workspace-profiles');
 const screen = require('./tools/screen');
@@ -90,6 +90,7 @@ function registerAllTools() {
     // Safe / read-only
     registry.register(fsRead);
     registry.register(fsList);
+    registry.register(fsSearch);
     registry.register(windowList);
     registry.register(processList);
     registry.register(clipboardRead);
@@ -113,6 +114,9 @@ function registerAllTools() {
 
     // Sandboxed writes
     registry.register(fsWrite);
+    registry.register(fsMove);
+    registry.register(fsCopy);
+    registry.register(fsMkdir);
     registry.register(clipboardWrite);
     registry.register(screenRelay);
 
@@ -131,6 +135,7 @@ function registerAllTools() {
 
     // Destructive
     registry.register(processKill);
+    registry.register(fsDelete);
 
     // Shell
     registry.register(shell);
@@ -445,13 +450,36 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
         }
 
         const deadline = Date.now() + timeoutMs;
+        // Live step streaming: push each executed tool to the /plans memory goal
+        // as it happens (best-effort — a failure disables streaming for the rest
+        // of the run rather than blocking or retry-spamming).
+        let pushed = 0;
+        let streamFailed = false;
+        const flushSteps = async () => {
+            if (!goalId || streamFailed || typeof wsClient.appendGoalAgentStep !== 'function') return;
+            const log = (loop.status().stepLog) || [];
+            while (pushed < log.length) {
+                const entry = log[pushed];
+                try {
+                    await wsClient.appendGoalAgentStep(goalId, entry);
+                    pushed++;
+                } catch (e) {
+                    streamFailed = true;
+                    break;
+                }
+            }
+        };
+
         while (loop.status().running) {
             if (Date.now() > deadline) {
                 loop.stop('run-timeout');
+                await flushSteps();
                 return { actionable: true, goalSlug: slug, goalId, status: 'timeout', reason: 'run-timeout', steps: loop.status().step, result: null };
             }
+            await flushSteps();
             await new Promise((r) => setTimeout(r, 500));
         }
+        await flushSteps();
 
         const s = loop.status();
         const done = s.stopReason === 'goal-done-sentinel';

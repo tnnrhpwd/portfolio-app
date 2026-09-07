@@ -51,6 +51,7 @@ function GoalDetail() {
   const [goal, setGoal] = useState(null);
   const [agent, setAgent] = useState(null);
   const [running, setRunning] = useState(false);
+  const [streaming, setStreaming] = useState(false);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [stopping, setStopping] = useState(false);
@@ -128,6 +129,29 @@ function GoalDetail() {
     const timer = setInterval(poll, 2000);
     return () => { cancelled = true; clearInterval(timer); };
   }, [user, id, running, handleAuthError]);
+
+  // Live step streaming: while an addon run is in progress (`streaming`), poll
+  // the memory goal and render steps as the desktop addon pushes them.
+  useEffect(() => {
+    if (!user?.token || !id || !streaming) return undefined;
+    let cancelled = false;
+
+    const poll = async () => {
+      try {
+        const item = await fetchMemoryItem(user.token, id);
+        if (cancelled) return;
+        const agentState = item?.data?.agent;
+        if (agentState && Array.isArray(agentState.steps)) setAgent(agentState);
+      } catch (err) {
+        if (cancelled) return;
+        if (!handleAuthError(err)) { /* transient — next tick retries */ }
+      }
+    };
+
+    poll();
+    const timer = setInterval(poll, 1500);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [user, id, streaming, handleAuthError]);
 
   // Auto-scroll the feed to the bottom as new steps arrive
   useEffect(() => {
@@ -219,9 +243,16 @@ function GoalDetail() {
     setStarting(true);
     setRunError(null);
     setRunResult(null);
+    setStreaming(true);
     try {
       const gd = goal?.data || {};
       const description = [gd.title, gd.description].filter(Boolean).join('. ');
+      // Reset the live feed so a re-enlist starts clean (history is preserved
+      // server-side); the addon appends live steps from here on.
+      try {
+        await recordGoalAgentResult(user.token, id, { status: 'running', steps: [], plan: [], summary: '', result: '' });
+      } catch { /* backend may predate the endpoint — non-fatal */ }
+      setAgent((prev) => ({ ...(prev || {}), status: 'running', steps: [] }));
       const res = await runAgentMessage(description, { token: user.token, context: context.trim() || undefined, goalId: id });
       if (res?.actionable === false) {
         toast.info('The agent judged this goal as not actionable.');
@@ -255,6 +286,7 @@ function GoalDetail() {
       }
     } finally {
       setStarting(false);
+      setStreaming(false);
     }
   };
 

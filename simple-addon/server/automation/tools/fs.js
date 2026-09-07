@@ -125,4 +125,161 @@ const fsList = {
     },
 };
 
-module.exports = { fsRead, fsWrite, fsList };
+/** Convert a simple wildcard glob (* and ?) into a RegExp (case-insensitive). */
+function _globToRegex(glob) {
+    const src = '^' + String(glob || '*')
+        .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+        .replace(/\*/g, '.*')
+        .replace(/\?/g, '.') + '$';
+    return new RegExp(src, 'i');
+}
+
+const fsMove = {
+    name: 'fs_move',
+    category: 'sandboxed-write',
+    description: 'Move (rename) a file or directory to a new path inside the sandbox. Creates parent dirs of the destination.',
+    parameters: {
+        type: 'object',
+        properties: {
+            from: { type: 'string', description: 'Absolute source path.' },
+            to: { type: 'string', description: 'Absolute destination path.' },
+        },
+        required: ['from', 'to'],
+    },
+    async run(args) {
+        const from = resolveInsideSandbox(args.from);
+        const to = resolveInsideSandbox(args.to);
+        if (path.resolve(from) === path.resolve(to)) return { from, to, moved: false, reason: 'same path' };
+        if (!fs.existsSync(from)) throw new Error(`source not found: ${from}`);
+        fs.mkdirSync(path.dirname(to), { recursive: true });
+        fs.renameSync(from, to);
+        return { from, to, moved: true };
+    },
+    async dryRun(args) {
+        try { return { wouldMove: resolveInsideSandbox(args.from), to: resolveInsideSandbox(args.to) }; }
+        catch (e) { return { blocked: e.message }; }
+    },
+};
+
+const fsCopy = {
+    name: 'fs_copy',
+    category: 'sandboxed-write',
+    description: 'Copy a file or directory (recursive) to a new path inside the sandbox. Creates parent dirs.',
+    parameters: {
+        type: 'object',
+        properties: {
+            from: { type: 'string', description: 'Absolute source path.' },
+            to: { type: 'string', description: 'Absolute destination path.' },
+        },
+        required: ['from', 'to'],
+    },
+    async run(args) {
+        const from = resolveInsideSandbox(args.from);
+        const to = resolveInsideSandbox(args.to);
+        if (path.resolve(from) === path.resolve(to)) throw new Error('same path');
+        if (!fs.existsSync(from)) throw new Error(`source not found: ${from}`);
+        fs.mkdirSync(path.dirname(to), { recursive: true });
+        fs.cpSync(from, to, { recursive: true, force: false });
+        return { from, to, copied: true };
+    },
+    async dryRun(args) {
+        try { return { wouldCopy: resolveInsideSandbox(args.from), to: resolveInsideSandbox(args.to) }; }
+        catch (e) { return { blocked: e.message }; }
+    },
+};
+
+const fsDelete = {
+    name: 'fs_delete',
+    category: 'destructive',
+    description: 'Delete a file, or a directory when recursive=true. Irreversible — requires destructive permission.',
+    parameters: {
+        type: 'object',
+        properties: {
+            path: { type: 'string', description: 'Absolute path to delete.' },
+            recursive: { type: 'boolean', description: 'Required for directories.' },
+        },
+        required: ['path'],
+    },
+    async run(args) {
+        const abs = resolveInsideSandbox(args.path);
+        const stat = fs.lstatSync(abs);
+        if (stat.isDirectory()) {
+            if (!args.recursive) throw new Error('path is a directory; set recursive=true to delete');
+            fs.rmSync(abs, { recursive: true, force: false });
+        } else {
+            fs.unlinkSync(abs);
+        }
+        return { path: abs, deleted: true, type: stat.isDirectory() ? 'dir' : 'file' };
+    },
+    async dryRun(args) {
+        try { return { wouldDelete: resolveInsideSandbox(args.path) }; }
+        catch (e) { return { blocked: e.message }; }
+    },
+};
+
+const fsMkdir = {
+    name: 'fs_mkdir',
+    category: 'sandboxed-write',
+    description: 'Create a directory (and any missing parents) inside the sandbox.',
+    parameters: {
+        type: 'object',
+        properties: {
+            path: { type: 'string', description: 'Absolute directory path to create.' },
+        },
+        required: ['path'],
+    },
+    async run(args) {
+        const abs = resolveInsideSandbox(args.path);
+        if (fs.existsSync(abs)) throw new Error(`already exists: ${abs}`);
+        fs.mkdirSync(abs, { recursive: true });
+        return { path: abs, created: true };
+    },
+    async dryRun(args) {
+        try { return { wouldCreate: resolveInsideSandbox(args.path) }; }
+        catch (e) { return { blocked: e.message }; }
+    },
+};
+
+const MAX_SEARCH_ENTRIES = 500;
+const MAX_SEARCH_DEPTH = 12;
+
+function _walk(dir, re, depth, out) {
+    if (out.hits >= MAX_SEARCH_ENTRIES || depth > MAX_SEARCH_DEPTH) return;
+    let names;
+    try { names = fs.readdirSync(dir); } catch { return; }
+    for (const n of names) {
+        if (out.hits >= MAX_SEARCH_ENTRIES) return;
+        const p = path.join(dir, n);
+        let isDir = false;
+        try { isDir = fs.statSync(p).isDirectory(); } catch { continue; }
+        if (re.test(n)) {
+            out.list.push({ path: p, type: isDir ? 'dir' : 'file' });
+            out.hits++;
+        }
+        if (isDir) _walk(p, re, depth + 1, out);
+    }
+}
+
+const fsSearch = {
+    name: 'fs_search',
+    category: 'safe-read',
+    description: 'Recursively find files/directories whose NAME matches a glob, inside an allowed root.',
+    parameters: {
+        type: 'object',
+        properties: {
+            path: { type: 'string', description: 'Absolute directory to search from.' },
+            glob: { type: 'string', description: 'Name pattern, e.g. *.pdf. Default *.' },
+        },
+        required: ['path'],
+    },
+    async run(args) {
+        const abs = resolveInsideSandbox(args.path);
+        if (!fs.statSync(abs).isDirectory()) throw new Error('not a directory');
+        const re = _globToRegex(args.glob);
+        const out = { list: [], hits: 0 };
+        _walk(abs, re, 0, out);
+        return { path: abs, count: out.list.length, truncated: out.hits >= MAX_SEARCH_ENTRIES, entries: out.list };
+    },
+};
+
+module.exports = { fsRead, fsWrite, fsList, fsMove, fsCopy, fsDelete, fsMkdir, fsSearch };

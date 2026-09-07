@@ -150,6 +150,7 @@ const {
   getGoalAgentStatus,
   stopGoalAgent,
   recordGoalAgentResult,
+  appendGoalAgentStep,
 } = require('../controllers/goalAgentController');
 
 // Pets controller (Nintendogs-style virtual pets)
@@ -507,6 +508,7 @@ router.post('/goal-agent/start', protect, llmLimiter, sanitizeInput, startGoalAg
 router.get('/goal-agent/status/:goalId', protect, workspaceReadLimiter, getGoalAgentStatus);
 router.post('/goal-agent/stop', protect, workspaceWriteLimiter, sanitizeInput, stopGoalAgent);
 router.post('/goal-agent/result', protect, workspaceWriteLimiter, sanitizeInput, recordGoalAgentResult);
+router.post('/goal-agent/step', protect, workspaceWriteLimiter, sanitizeInput, appendGoalAgentStep);
 
 // ============================================================================
 // PETS (Nintendogs-style virtual pets — per-user, stats decay in real time)

@@ -315,6 +315,25 @@ const listLessons = () => {
 const getLesson = (slug) => req('GET', `/lesson/${encodeURIComponent(slug)}`);
 const upsertLesson = (slug, body) => req('PUT', `/lesson/${encodeURIComponent(slug)}`, body);
 
+// ─── Live step streaming to the /plans memory goal ─────────────────────────
+// The agent loop pushes each executed tool to the backend so the webapp can
+// poll the memory goal live while a run is in progress. Best-effort — the
+// caller catches + logs failures and never lets a push block the loop.
+const appendGoalAgentStep = async (memoryGoalId, step) => {
+    const token = _tokenGetter();
+    if (!token) throw new Error('No auth token (sign in on the web app first)');
+    const res = await fetch(`${BACKEND_URL}/api/data/goal-agent/step`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ goalId: memoryGoalId, step }),
+    });
+    if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`goal-agent step push failed (${res.status}): ${text.slice(0, 200)}`);
+    }
+    return res.json();
+};
+
 module.exports = {
     setTokenGetter,
     getToken,
@@ -340,6 +359,7 @@ module.exports = {
     listLessons,
     getLesson,
     upsertLesson,
+    appendGoalAgentStep,
     compileNaturalViaBackend,
     editNaturalViaBackend,
     agentChat,

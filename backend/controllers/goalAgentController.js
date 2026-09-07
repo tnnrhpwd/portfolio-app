@@ -16,6 +16,32 @@ const { logger } = require('../utils/logger');
 // to clobber unrelated goal fields.
 const AGENT_STATE_KEYS = ['status', 'summary', 'result', 'steps', 'plan', 'updatedAt', 'source', 'error', 'history'];
 
+// Live-streaming guards: cap how many steps a goal's feed can accumulate and
+// how long any single step's text may be, so a runaway addon can't bloat the
+// DynamoDB item past its size limit.
+const MAX_AGENT_STEPS = 200;
+const STEP_TEXT_MAX = 1000;
+
+/**
+ * Normalize a raw stepLog entry from the desktop addon into one or more feed
+ * steps using the same { kind, text, meta, ts } shape the /plans page renders.
+ */
+function normalizeStepEntry(entry) {
+  const ts = entry.ts || new Date().toISOString();
+  const tool = String(entry.tool || 'step');
+  const args = (entry.args && typeof entry.args === 'object' && !Array.isArray(entry.args)) ? entry.args : {};
+  const steps = [{
+    kind: entry.ok === false ? 'error' : 'tool',
+    text: entry.ok === false ? `${tool} failed` : tool,
+    meta: { tool, args, ok: entry.ok !== false },
+    ts,
+  }];
+  if (entry.result) {
+    steps.push({ kind: 'tool-result', text: String(entry.result).slice(0, STEP_TEXT_MAX), meta: { tool }, ts });
+  }
+  return steps;
+}
+
 // @desc    Start an LLM agent run on a goal
 // @route   POST /api/data/goal-agent/start
 // @access  Protected
@@ -102,9 +128,10 @@ const recordGoalAgentResult = asyncHandler(async (req, res) => {
     throw new Error('Only goals can record agent results');
   }
 
-  // Keep only the known agent-state keys; never let a client overwrite the
-  // goal's title/description/status via this endpoint.
-  const next = {};
+  // Start from the existing agent state (so history/source survive an addon
+  // mirror) and overlay only the whitelisted keys; never let a client overwrite
+  // the goal's title/description/status via this endpoint.
+  const next = { ...(goal.data?.agent || {}) };
   for (const key of AGENT_STATE_KEYS) {
     if (agent[key] !== undefined) next[key] = agent[key];
   }
@@ -115,4 +142,45 @@ const recordGoalAgentResult = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, agent: next });
 });
 
-module.exports = { startGoalAgent, getGoalAgentStatus, stopGoalAgent, recordGoalAgentResult };
+// @desc    Append one live step to a goal's agent feed while a desktop addon
+//          run is in progress (the addon pushes each executed tool mid-run).
+// @route   POST /api/data/goal-agent/step
+// @access  Protected
+const appendGoalAgentStep = asyncHandler(async (req, res) => {
+  const { goalId, step } = req.body || {};
+  if (!goalId) {
+    res.status(400);
+    throw new Error('goalId is required');
+  }
+  if (!step || typeof step !== 'object' || Array.isArray(step)) {
+    res.status(400);
+    throw new Error('step object is required');
+  }
+
+  // Ownership check + must actually be a goal.
+  const goal = await getMemoryItem(req.user.id, goalId);
+  if (goal.type !== 'goal') {
+    res.status(400);
+    throw new Error('Only goals can receive agent steps');
+  }
+
+  const prev = goal.data?.agent || {};
+  const steps = Array.isArray(prev.steps) ? prev.steps.slice() : [];
+  steps.push(...normalizeStepEntry(step));
+  const capped = steps.length > MAX_AGENT_STEPS
+    ? steps.slice(steps.length - MAX_AGENT_STEPS)
+    : steps;
+
+  const agent = {
+    ...prev,
+    status: 'running',
+    steps: capped,
+    updatedAt: new Date().toISOString(),
+  };
+
+  await updateMemoryItem(req.user.id, goalId, { agent });
+
+  res.status(200).json({ success: true, stepCount: capped.length });
+});
+
+module.exports = { startGoalAgent, getGoalAgentStatus, stopGoalAgent, recordGoalAgentResult, appendGoalAgentStep, normalizeStepEntry };
