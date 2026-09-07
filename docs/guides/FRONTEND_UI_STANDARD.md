@@ -512,7 +512,7 @@ Center the answer prominently with a muted label and a large value.
 | --- | --- | --- |
 | Ethanol Calculator | `frontend/src/pages/Projects/Ethanol/` | Full template: gradient, floating circles, presets, inputs, errors, result cards, log |
 | Sonic | `frontend/src/pages/Projects/Sonic/` | Same template with live status dot, tuner meter, spectrum bars |
-| Halfway | `frontend/src/pages/Projects/Halfway/` | Template + quick-fill buttons + solar-times card |
+| Halfway | `frontend/src/pages/Projects/Halfway/` | Template + midpoint/end/start modes, tolerant 24h & 12h parsing, shareable result URLs, solar-times card (logic in `halfwayUtils.js`, unit tested) |
 | Projects hub | `frontend/src/pages/Projects/Projects/` | Card-grid variant with search + category filters (closest to the new editorial grid) |
 | Home | `frontend/src/pages/Home/Home.jsx` | Hero + typewriter + scroll-reveal sections + oversized template/feature cards (closest to section 5's Squarespace-style motion) |
 

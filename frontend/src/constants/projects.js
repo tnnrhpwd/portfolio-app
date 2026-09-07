@@ -51,7 +51,7 @@ export const PROJECTS = [
     path: "/halfway",
     art: artHalfway,
     category: "Tools",
-    description: "Find the halfway meeting point in time between sunrise and sunset for two locations.",
+    description: "Split any stretch of time exactly in two — find the midpoint between two times (even across midnight) with sunrise and sunset quick-fills.",
   },
   {
     name: "IQ Test",
