@@ -44,6 +44,7 @@ const BRANCH_OVERRIDE = process.env.GOAL_AGENT_BRANCH || ''; // '' → read GitH
 const MAX_TOOL_ROUNDS = 12;        // LLM loop iterations
 const MAX_TOTAL_TOOL_CALLS = 30;   // total tool invocations across all rounds
 const MAX_STORED_STEPS = 60;       // cap on persisted progress entries
+const MAX_HISTORY = 5;             // cap on retained past runs per goal
 const MAX_FILE_BYTES = 120 * 1024; // max size of a file the agent may write
 const MAX_READ_BYTES = 40 * 1024;  // max bytes of a file returned to the LLM
 const STEP_TEXT_MAX = 1000;        // max chars stored per step in DynamoDB
@@ -400,6 +401,25 @@ function pushStep(state, step) {
 }
 
 function emptyState(goalId, goal) {
+  const prev = goal?.data?.agent || {};
+  const history = Array.isArray(prev.history) ? prev.history : [];
+
+  // Preserve the previous run's progress so a new enlist never erases it.
+  const hadProgress = (Array.isArray(prev.steps) && prev.steps.length > 0)
+    || prev.summary || prev.result;
+  if (hadProgress && prev.status && prev.status !== 'idle') {
+    history.push({
+      status: prev.status === 'running' ? 'interrupted' : prev.status,
+      startedAt: prev.startedAt || null,
+      updatedAt: prev.updatedAt || null,
+      summary: prev.summary || '',
+      result: prev.result || '',
+      error: prev.error || null,
+      steps: prev.steps || [],
+    });
+    if (history.length > MAX_HISTORY) history.splice(0, history.length - MAX_HISTORY);
+  }
+
   return {
     status: 'running',
     startedAt: new Date().toISOString(),
@@ -409,6 +429,7 @@ function emptyState(goalId, goal) {
     summary: '',
     result: '',
     steps: [],
+    history,
     error: null,
   };
 }
@@ -605,5 +626,6 @@ module.exports = {
   isRunning,
   pickProvider,
   sanitizeRepoPath,
+  emptyState,
   TOOL_SCHEMAS,
 };

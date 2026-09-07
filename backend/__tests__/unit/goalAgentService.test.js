@@ -3,7 +3,7 @@
  * Only exercises deterministic logic (path sanitization) — no network, no LLM.
  */
 
-const { sanitizeRepoPath } = require('../../services/goalAgentService');
+const { sanitizeRepoPath, emptyState } = require('../../services/goalAgentService');
 
 describe('goalAgentService.sanitizeRepoPath', () => {
   test('allows normal repo-relative paths', () => {
@@ -32,5 +32,59 @@ describe('goalAgentService.sanitizeRepoPath', () => {
 
   test('normalizes backslashes to forward slashes', () => {
     expect(sanitizeRepoPath('src\\components\\App.jsx')).toBe('src/components/App.jsx');
+  });
+});
+
+describe('goalAgentService.emptyState (run-history preservation)', () => {
+  test('starts fresh when there is no previous agent state', () => {
+    const state = emptyState('g1', { data: { title: 'Goal' } });
+    expect(state.steps).toEqual([]);
+    expect(state.summary).toBe('');
+    expect(state.result).toBe('');
+    expect(state.history).toEqual([]);
+  });
+
+  test('preserves a completed previous run into history instead of erasing it', () => {
+    const prev = {
+      status: 'done',
+      startedAt: '2026-09-06T10:00:00.000Z',
+      updatedAt: '2026-09-06T10:05:00.000Z',
+      summary: 'Built the thing',
+      result: 'Commits: abc123',
+      steps: [{ ts: 'x', kind: 'tool', text: 'write_repo_file' }],
+      error: null,
+    };
+    const state = emptyState('g1', { data: { title: 'Goal', agent: prev } });
+    expect(state.steps).toEqual([]); // new run starts clean…
+    expect(state.history).toHaveLength(1); // …but the old run is retained
+    expect(state.history[0].status).toBe('done');
+    expect(state.history[0].summary).toBe('Built the thing');
+    expect(state.history[0].steps).toHaveLength(1);
+  });
+
+  test('labels a mid-run previous state as interrupted', () => {
+    const prev = { status: 'running', steps: [{ ts: 'x', kind: 'thought', text: 'thinking' }] };
+    const state = emptyState('g1', { data: { title: 'Goal', agent: prev } });
+    expect(state.history[0].status).toBe('interrupted');
+  });
+
+  test('does not snapshot an empty/idle previous state', () => {
+    const state = emptyState('g1', { data: { title: 'Goal', agent: { status: 'idle', steps: [] } } });
+    expect(state.history).toEqual([]);
+  });
+
+  test('caps retained history at MAX_HISTORY entries', () => {
+    let agent = { status: 'done', steps: [], summary: '' };
+    for (let i = 0; i < 8; i++) {
+      const run = emptyState('g1', { data: { title: 'Goal', agent } });
+      agent = {
+        status: 'done',
+        steps: [{ ts: 'x', kind: 'tool', text: `run ${i}` }],
+        summary: `run ${i}`,
+        history: run.history,
+      };
+    }
+    const finalState = agent;
+    expect(finalState.history.length).toBeLessThanOrEqual(5);
   });
 });

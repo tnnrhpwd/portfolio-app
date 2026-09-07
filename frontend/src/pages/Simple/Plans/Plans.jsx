@@ -11,7 +11,6 @@ import {
   updateMemoryItem,
   deleteMemoryItem,
 } from '../../../services/memoryApi.js';
-import { startGoalAgent } from '../../../services/goalAgentApi.js';
 import './Plans.css';
 
 // -- Configuration ------------------------------------------------------------
@@ -313,18 +312,13 @@ function Plans() {
     if (item.type === 'goal') navigate(`/plans/goal/${item._id}`);
   };
 
-  const handleEnlistAgent = async (item) => {
+  const handleEnlistAgent = (item) => {
     if (enlisting === item._id) return;
     setEnlisting(item._id);
-    try {
-      await startGoalAgent(user.token, item._id);
-      toast.success('Agent enlisted — working on it now!');
-      navigate(`/plans/goal/${item._id}`);
-    } catch (err) {
-      toast.error(err.message);
-    } finally {
-      setEnlisting(null);
-    }
+    // Enlistment now happens on the goal page (with scope/context), so take
+    // the user there and reset the brief spinner after navigation.
+    navigate(`/plans/goal/${item._id}`);
+    setTimeout(() => setEnlisting(null), 600);
   };
 
   // -- Render -----------------------------------------------------------------

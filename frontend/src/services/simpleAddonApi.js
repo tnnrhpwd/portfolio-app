@@ -787,17 +787,18 @@ export async function stopAgent(reason = 'user requested stop') {
  *   `{ actionable: false }` means the loop judged the message non-actionable —
  *   the caller should fall back to normal chat.
  */
-export async function runAgentMessage(description, { token, deviceId } = {}) {
+export async function runAgentMessage(description, { token, deviceId, context } = {}) {
+  const body = { description, ...(context ? { context } : {}) };
   if (_addonStatus.isConnected && _addonStatus.baseUrl) {
     const res = await addonFetch('/api/agent/run', {
       method: 'POST',
-      body: JSON.stringify({ description }),
+      body: JSON.stringify(body),
     });
     return res.json();
   }
 
   if (!token) throw new Error('Please log in to run automation remotely.');
-  const { commandId } = await queueRemoteCommand(token, { description }, deviceId, 'agent_run');
+  const { commandId } = await queueRemoteCommand(token, body, deviceId, 'agent_run');
 
   const POLL_INTERVAL = 2000;
   const MAX_POLLS = 150; // ~5 minutes

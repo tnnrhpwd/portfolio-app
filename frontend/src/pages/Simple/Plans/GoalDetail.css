@@ -233,3 +233,40 @@
   .goal-detail-actions { flex-direction: column; }
   .goal-detail-btn { width: 100%; }
 }
+
+/* Past runs (agent history) */
+.goal-detail-history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+.goal-detail-history-run {
+  background: var(--bg-1);
+  border: 1px solid var(--border-nav);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-xs) var(--spacing-sm);
+}
+.goal-detail-history-run summary {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  flex-wrap: wrap;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  user-select: none;
+}
+.goal-detail-history-status { font-weight: var(--font-weight-semibold); }
+.goal-detail-history-status.status-done { color: var(--fg-mint); }
+.goal-detail-history-status.status-failed { color: var(--fg-pink); }
+.goal-detail-history-status.status-stopped,
+.goal-detail-history-status.status-interrupted { opacity: 0.7; }
+.goal-detail-history-time { opacity: 0.7; font-weight: var(--font-weight-normal); font-size: var(--font-size-xs); }
+.goal-detail-history-count { margin-left: auto; opacity: 0.6; font-size: var(--font-size-xs); }
+.goal-detail-history-run .goal-detail-summary-text,
+.goal-detail-history-run .goal-detail-result { margin-top: var(--spacing-xs); }
+.goal-detail-history-run .goal-detail-feed {
+  margin-top: var(--spacing-xs);
+  padding-top: var(--spacing-xs);
+  border-top: 1px dashed var(--border-nav);
+}

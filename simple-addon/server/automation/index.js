@@ -411,18 +411,20 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
      * returning the final answer. Non-actionable messages short-circuit before
      * any goal is created or any tool runs.
      */
-    async function runGoalToCompletion({ description, timeoutMs = 180000 } = {}) {
+    async function runGoalToCompletion({ description, context, timeoutMs = 180000 } = {}) {
         const text = String(description || '').trim();
         if (!text) return { actionable: false, error: 'empty description' };
 
         const decision = await classifyActionable(text);
         if (!decision.actionable) return { actionable: false, source: decision.source };
 
+        const contextText = String(context || '').trim();
+        const content = contextText ? `${text}\n\nCONTEXT / SCOPE:\n${contextText}` : text;
         const slug = _slugify(text);
         try {
             await wsClient.upsertGoal(slug, {
                 name: text.slice(0, 80),
-                content: text,
+                content,
                 status: 'active',
                 priority: 70,
                 maxSteps: 60,
@@ -470,7 +472,7 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
 
     app.post('/api/agent/run', async (req, res) => {
         try {
-            const result = await runGoalToCompletion({ description: req.body?.description });
+            const result = await runGoalToCompletion({ description: req.body?.description, context: req.body?.context });
             res.json(result);
         } catch (e) {
             res.status(500).json({ actionable: true, error: e.message });

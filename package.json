@@ -22,7 +22,8 @@
     "secret:remove": "node backend/scripts/put-secret.js -Delete",
     "secret:seed": "node backend/scripts/seed-secrets.js",
     "secret:list": "node backend/scripts/list-secret.js",
-    "bootstrap": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bootstrap.ps1"
+    "bootstrap": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bootstrap.ps1",
+    "deepseek": "npx --yes @deepseek-ai/dsh web"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.14.9",

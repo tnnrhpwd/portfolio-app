@@ -69,6 +69,9 @@
     "transform": {
       "^.+\\.(js|jsx)$": "babel-jest"
     },
+    "transformIgnorePatterns": [
+      "node_modules/(?!(@aws-sdk)/)"
+    ],
     "moduleNameMapper": {
       "\\.(css|less)$": "identity-obj-proxy",
       "\\.(png|less)$": "identity-obj-proxy",

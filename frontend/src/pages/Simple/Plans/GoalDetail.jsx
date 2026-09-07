@@ -7,6 +7,7 @@ import { toast } from 'react-toastify';
 import { logout } from '../../../features/data/dataSlice.js';
 import { fetchMemoryItem } from '../../../services/memoryApi.js';
 import { startGoalAgent, getGoalAgentStatus, stopGoalAgent } from '../../../services/goalAgentApi.js';
+import { runAgentMessage } from '../../../services/simpleAddonApi';
 import './GoalDetail.css';
 
 const STATUS_LABELS = {
@@ -16,6 +17,14 @@ const STATUS_LABELS = {
 };
 
 const PRIORITY_LABELS = { low: 'Low', medium: 'Medium', high: 'High' };
+
+const RUN_STATUS_LABELS = {
+  running: 'Running',
+  done: 'Done',
+  stopped: 'Stopped',
+  failed: 'Failed',
+  interrupted: 'Interrupted',
+};
 
 const STEP_META = {
   plan:       { icon: '📋', label: 'Plan' },
@@ -45,6 +54,9 @@ function GoalDetail() {
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [stopping, setStopping] = useState(false);
+  const [context, setContext] = useState('');
+  const [runResult, setRunResult] = useState(null);
+  const [runError, setRunError] = useState(null);
   const [notFound, setNotFound] = useState(false);
   const [loadError, setLoadError] = useState(null);
 
@@ -118,13 +130,40 @@ function GoalDetail() {
   const handleStart = async () => {
     if (starting) return;
     setStarting(true);
+    setRunError(null);
+    setRunResult(null);
     try {
-      await startGoalAgent(user.token, id);
-      toast.success('Agent enlisted — working on it now!');
-      setRunning(true);
-      setAgent((prev) => ({ ...(prev || {}), status: 'running', steps: prev?.steps || [] }));
+      const gd = goal?.data || {};
+      const description = [gd.title, gd.description].filter(Boolean).join('. ');
+      const res = await runAgentMessage(description, { token: user.token, context: context.trim() || undefined });
+      if (res?.actionable === false) {
+        toast.info('The agent judged this goal as not actionable.');
+      } else if (res?.result) {
+        setRunResult(res);
+        toast.success('Agent finished.');
+      } else {
+        setRunResult(res);
+        toast.info(`Agent stopped${res?.status ? ` (${res.status})` : ''}.`);
+      }
     } catch (err) {
-      if (!handleAuthError(err)) toast.error(err.message);
+      if (handleAuthError(err)) return;
+      const msg = String(err?.message || '');
+      // Desktop relay unavailable (addon offline, backend predating `agent_run`,
+      // or a relay timeout) → fall back to the built-in server agent so the goal
+      // still gets worked on.
+      const relayUnavailable = /Invalid command type|No addon devices online|did not respond|Failed to queue command/i.test(msg);
+      if (relayUnavailable) {
+        try {
+          await startGoalAgent(user.token, id);
+          toast.info('Desktop agent not reachable — using the built-in server agent instead.');
+          setRunning(true);
+          setAgent((prev) => ({ ...(prev || {}), status: 'running', steps: prev?.steps || [] }));
+        } catch (fb) {
+          if (!handleAuthError(fb)) setRunError(fb.message);
+        }
+      } else {
+        setRunError(msg);
+      }
     } finally {
       setStarting(false);
     }
@@ -161,6 +200,7 @@ function GoalDetail() {
 
   const data = goal?.data || {};
   const steps = agent?.steps || [];
+  const history = agent?.history || [];
   const status = agent?.status || 'idle';
   const interrupted = !running && status === 'running';
 
@@ -207,6 +247,18 @@ function GoalDetail() {
                   <span className="goal-detail-badge">🤖 agent: {status}</span>
                 </div>
 
+                <label style={{ display: 'block', marginTop: 12 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>🧭 Scope / instructions for the agent (optional)</span>
+                  <textarea
+                    value={context}
+                    onChange={(e) => setContext(e.target.value)}
+                    rows={3}
+                    maxLength={2000}
+                    style={{ width: '100%', marginTop: 6, padding: 10, borderRadius: 8, border: '1px solid var(--border, #ddd)', font: 'inherit', resize: 'vertical' }}
+                    placeholder="e.g. Only touch files under ~/projects/foo, don't delete anything, and report a summary when done."
+                  />
+                </label>
+
                 <div className="goal-detail-actions">
                   {running ? (
                     <button className="goal-detail-btn goal-detail-btn--stop" onClick={handleStop} disabled={stopping}>
@@ -214,7 +266,7 @@ function GoalDetail() {
                     </button>
                   ) : (
                     <button className="goal-detail-btn goal-detail-btn--start" onClick={handleStart} disabled={starting}>
-                      {starting ? 'Enlisting…' : '🤖 Enlist agent'}
+                      {starting ? '🤖 Working…' : '🤖 Enlist agent'}
                     </button>
                   )}
                 </div>
@@ -226,6 +278,25 @@ function GoalDetail() {
                   {agent.summary && <p className="goal-detail-summary-text">{agent.summary}</p>}
                   {agent.result && (
                     <pre className="goal-detail-result">{agent.result}</pre>
+                  )}
+                </section>
+              )}
+
+              {/* Addon O-O-G-P-A run result */}
+              {runError && (
+                <section className="goal-detail-summary">
+                  <p className="goal-detail-summary-text">⚠️ {runError}</p>
+                </section>
+              )}
+              {runResult && (
+                <section className="goal-detail-summary">
+                  <p className="goal-detail-summary-text">
+                    🤖 Agent result{runResult.steps != null ? ` (${runResult.steps} step${runResult.steps === 1 ? '' : 's'})` : ''}
+                  </p>
+                  {runResult.result ? (
+                    <pre className="goal-detail-result">{runResult.result}</pre>
+                  ) : (
+                    <p className="goal-detail-summary-text">Stopped{runResult.status ? ` (${runResult.status})` : ''}.</p>
                   )}
                 </section>
               )}
@@ -264,6 +335,47 @@ function GoalDetail() {
                   })}
                 </div>
               </section>
+
+              {/* Past runs */}
+              {history.length > 0 && (
+                <section className="goal-detail-feed-section">
+                  <h2 className="goal-detail-feed-title">Past runs</h2>
+                  <div className="goal-detail-history">
+                    {history.map((run, ri) => (
+                      <details key={`${run.startedAt}-${ri}`} className="goal-detail-history-run">
+                        <summary>
+                          <span className={`goal-detail-history-status status-${run.status || 'done'}`}>
+                            ● {RUN_STATUS_LABELS[run.status] || run.status}
+                          </span>
+                          <span className="goal-detail-history-time">
+                            {timeLabel(run.startedAt)}{run.updatedAt ? ` → ${timeLabel(run.updatedAt)}` : ''}
+                          </span>
+                          <span className="goal-detail-history-count">{(run.steps?.length || 0)} steps</span>
+                        </summary>
+                        {run.summary && <p className="goal-detail-summary-text">{run.summary}</p>}
+                        {run.result && <pre className="goal-detail-result">{run.result}</pre>}
+                        {(run.steps?.length > 0) && (
+                          <div className="goal-detail-feed">
+                            {run.steps.map((step, si) => {
+                              const meta = STEP_META[step.kind] || STEP_META.tool;
+                              return (
+                                <div key={`${step.ts}-${si}`} className={`goal-detail-step step-${step.kind}`}>
+                                  <div className="goal-detail-step-head">
+                                    <span className="goal-detail-step-icon" aria-hidden="true">{meta.icon}</span>
+                                    <span className="goal-detail-step-label">{meta.label}</span>
+                                    <span className="goal-detail-step-time">{timeLabel(step.ts)}</span>
+                                  </div>
+                                  <div className="goal-detail-step-text">{step.text}</div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </details>
+                    ))}
+                  </div>
+                </section>
+              )}
             </>
           )}
         </div>
