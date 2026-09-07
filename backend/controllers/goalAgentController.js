@@ -7,7 +7,7 @@
  */
 
 const asyncHandler = require('express-async-handler');
-const { getMemoryItem, updateMemoryItem } = require('../services/memoryService');
+const { getGoalBySlug, setGoalAgent } = require('../services/workspaceGoals');
 const { runGoalAgent, stopGoalAgentRun, isRunning } = require('../services/goalAgentService');
 const { logger } = require('../utils/logger');
 
@@ -53,8 +53,12 @@ const startGoalAgent = asyncHandler(async (req, res) => {
   }
 
   // Ownership check + must actually be a goal.
-  const goal = await getMemoryItem(req.user.id, goalId);
-  if (goal.type !== 'goal') {
+  const goal = await getGoalBySlug(req.user.id, goalId);
+  if (!goal) {
+    res.status(404);
+    throw new Error('Goal not found');
+  }
+  if (goal.kind !== 'goal') {
     res.status(400);
     throw new Error('Only goals can enlist an agent');
   }
@@ -79,12 +83,16 @@ const startGoalAgent = asyncHandler(async (req, res) => {
 // @access  Protected
 const getGoalAgentStatus = asyncHandler(async (req, res) => {
   // Ownership check.
-  const goal = await getMemoryItem(req.user.id, req.params.goalId);
+  const goal = await getGoalBySlug(req.user.id, req.params.goalId);
+  if (!goal) {
+    res.status(404);
+    throw new Error('Goal not found');
+  }
 
   res.status(200).json({
     success: true,
     running: isRunning(req.params.goalId),
-    agent: goal.data?.agent || { status: 'idle', steps: [] },
+    agent: goal.agent || { status: 'idle', steps: [] },
   });
 });
 
@@ -99,7 +107,11 @@ const stopGoalAgent = asyncHandler(async (req, res) => {
   }
 
   // Ownership check.
-  await getMemoryItem(req.user.id, goalId);
+  const goal = await getGoalBySlug(req.user.id, goalId);
+  if (!goal) {
+    res.status(404);
+    throw new Error('Goal not found');
+  }
 
   const stopped = stopGoalAgentRun(goalId);
   res.status(200).json({ success: true, stopped });
@@ -122,8 +134,12 @@ const recordGoalAgentResult = asyncHandler(async (req, res) => {
   }
 
   // Ownership check + must actually be a goal.
-  const goal = await getMemoryItem(req.user.id, goalId);
-  if (goal.type !== 'goal') {
+  const goal = await getGoalBySlug(req.user.id, goalId);
+  if (!goal) {
+    res.status(404);
+    throw new Error('Goal not found');
+  }
+  if (goal.kind !== 'goal') {
     res.status(400);
     throw new Error('Only goals can record agent results');
   }
@@ -131,13 +147,13 @@ const recordGoalAgentResult = asyncHandler(async (req, res) => {
   // Start from the existing agent state (so history/source survive an addon
   // mirror) and overlay only the whitelisted keys; never let a client overwrite
   // the goal's title/description/status via this endpoint.
-  const next = { ...(goal.data?.agent || {}) };
+  const next = { ...(goal.agent || {}) };
   for (const key of AGENT_STATE_KEYS) {
     if (agent[key] !== undefined) next[key] = agent[key];
   }
   next.updatedAt = new Date().toISOString();
 
-  await updateMemoryItem(req.user.id, goalId, { agent: next });
+  await setGoalAgent(req.user.id, goalId, next);
 
   res.status(200).json({ success: true, agent: next });
 });
@@ -158,13 +174,17 @@ const appendGoalAgentStep = asyncHandler(async (req, res) => {
   }
 
   // Ownership check + must actually be a goal.
-  const goal = await getMemoryItem(req.user.id, goalId);
-  if (goal.type !== 'goal') {
+  const goal = await getGoalBySlug(req.user.id, goalId);
+  if (!goal) {
+    res.status(404);
+    throw new Error('Goal not found');
+  }
+  if (goal.kind !== 'goal') {
     res.status(400);
     throw new Error('Only goals can receive agent steps');
   }
 
-  const prev = goal.data?.agent || {};
+  const prev = goal.agent || {};
   const steps = Array.isArray(prev.steps) ? prev.steps.slice() : [];
   steps.push(...normalizeStepEntry(step));
   const capped = steps.length > MAX_AGENT_STEPS
@@ -178,7 +198,7 @@ const appendGoalAgentStep = asyncHandler(async (req, res) => {
     updatedAt: new Date().toISOString(),
   };
 
-  await updateMemoryItem(req.user.id, goalId, { agent });
+  await setGoalAgent(req.user.id, goalId, agent);
 
   res.status(200).json({ success: true, stepCount: capped.length });
 });

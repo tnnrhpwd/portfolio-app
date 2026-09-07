@@ -7,7 +7,7 @@
  * color, matching the five in-game play styles. All strings are ASCII-only so
  * they can be base64-encoded into Phaser textures at runtime.
  *
- * See docs/implementation/ASSET-LICENSES.md for provenance + the asset budget.
+ * See docs/coliseum/ASSET-LICENSES.md for provenance + the asset budget.
  */
 
 import type { Appearance, BodyZone, Gender, HairStyle, SkinTone, StyleKey } from '../core';

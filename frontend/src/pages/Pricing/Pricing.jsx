@@ -7,6 +7,10 @@ import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
 import SEO from '../../components/SEO/SEO.jsx';
 import usePurchaseGate from '../../hooks/usePurchaseGate';
+import { ADDON_DOWNLOAD_URL } from '../../hooks/simpleAddon/useAddonDetection.js';
+import perceiveImg from '../../assets/art/simple-perceive.png';
+import actImg from '../../assets/art/simple-act.png';
+import repeatImg from '../../assets/art/simple-repeat.png';
 import './Pricing.css';
 
 const FAQ_ITEMS = [
@@ -38,6 +42,50 @@ const COMPARISON = [
   { feature: 'Cloud storage', free: '100 MB', pro: '50 GB' },
   { feature: 'Live screen viewing from phone', free: '—', pro: 'Included' },
   { feature: 'Email support', free: 'Self-serve', pro: 'Included' },
+];
+
+const SIMPLE_FEATURES = [
+  {
+    img: perceiveImg,
+    title: 'Observe',
+    body: "Simple sees the window you're in, what you click, and what you type, so it understands the context of a task instead of guessing.",
+  },
+  {
+    img: actImg,
+    title: 'Execute',
+    body: 'It drives the keyboard and mouse to do the work: open apps, click, type, and run the steps you showed it.',
+  },
+  {
+    img: repeatImg,
+    title: 'The loop',
+    body: 'Record a task once and it becomes a reusable skill. Later, ask for it in plain English — “do the invoices” — and it repeats.',
+  },
+];
+
+const SIMPLE_STEPS = [
+  {
+    n: '01',
+    title: 'Download & run',
+    body: 'Get the Simple addon, a portable app for Windows. No installer required — run it and it lives in your tray.',
+  },
+  {
+    n: '02',
+    title: 'Show it once',
+    body: 'Record a short task — rename and file an invoice, save a note, or organize a folder.',
+  },
+  {
+    n: '03',
+    title: 'Say it in English',
+    body: 'Ask for the task in plain language in the chat, and Simple repeats the steps for you.',
+  },
+];
+
+const LOOP = [
+  { n: '01', icon: '👁️', title: 'Observe', body: "Reads your screen, active window, and files to see what's happening right now." },
+  { n: '02', icon: '🧭', title: 'Orient', body: 'Builds a quick situation summary — what it just did, what changed, and what matters.' },
+  { n: '03', icon: '🎯', title: 'Goal', body: "Re-checks the goal on a slower cadence and flags itself blocked when it's stuck." },
+  { n: '04', icon: '🧩', title: 'Plan', body: "Picks the next concrete step — a tool call, or a deliberate wait when nothing's worth doing." },
+  { n: '05', icon: '⚡', title: 'Execute', body: 'Drives the keyboard and mouse to do the work, then learns from the outcome.' },
 ];
 
 function Pricing() {
@@ -277,6 +325,92 @@ function Pricing() {
                 </details>
               ))}
             </div>
+          </section>
+
+          {/* What Simple does */}
+          <section className="pricing-simple" aria-label="What Simple does">
+            <div className="pricing-section-head">
+              <h2 className="pricing-simple-title">What Simple does</h2>
+              <p className="pricing-simple-lead">
+                Simple is an AI agent that runs on your PC. Show it a task once — like renaming and
+                filing invoices — and afterward saying &ldquo;do the invoices&rdquo; repeats it, and
+                learns from every run.
+              </p>
+            </div>
+            <div className="pricing-simple-grid">
+              {SIMPLE_FEATURES.map((f) => (
+                <article className="pricing-simple-tile" key={f.title}>
+                  <img className="pricing-simple-media" src={f.img} alt="" loading="lazy" />
+                  <h3 className="pricing-simple-tile-title">{f.title}</h3>
+                  <p className="pricing-simple-tile-body">{f.body}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          {/* The engine */}
+          <section className="pricing-simple" aria-label="The agent loop">
+            <div className="pricing-section-head">
+              <h2 className="pricing-simple-title">One loop, five stages</h2>
+              <p className="pricing-simple-lead">
+                Every tick, Simple runs the same closed loop. Goal re-evaluates on a slower cadence;
+                after each Execute, a critic scores the result and writes a lesson the next Plan
+                learns from.
+              </p>
+            </div>
+
+            <div className="pricing-loop" role="list" aria-label="The agent loop">
+              {LOOP.map((s, i) => (
+                <React.Fragment key={s.n}>
+                  <article className="pricing-loop-stage" role="listitem">
+                    <span className="pricing-loop-n">{s.n}</span>
+                    <span className="pricing-loop-icon" aria-hidden="true">{s.icon}</span>
+                    <h3 className="pricing-loop-title">{s.title}</h3>
+                    <p className="pricing-loop-body">{s.body}</p>
+                  </article>
+                  {i < LOOP.length - 1 && <span className="pricing-loop-arrow" aria-hidden="true">→</span>}
+                </React.Fragment>
+              ))}
+            </div>
+
+            <p className="pricing-loop-status" aria-hidden="true">
+              observe <span>·</span> orient <span>·</span> goal <span>·</span> plan <span>·</span> execute
+            </p>
+          </section>
+
+          {/* How it works */}
+          <section className="pricing-simple" aria-label="How it works">
+            <div className="pricing-section-head">
+              <h2 className="pricing-simple-title">How it works</h2>
+            </div>
+            <ol className="pricing-simple-steps">
+              {SIMPLE_STEPS.map((s) => (
+                <li className="pricing-simple-step" key={s.n}>
+                  <span className="pricing-simple-step-n">{s.n}</span>
+                  <div>
+                    <h3 className="pricing-simple-step-title">{s.title}</h3>
+                    <p className="pricing-simple-step-body">{s.body}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </section>
+
+          {/* Get started */}
+          <section className="pricing-simple pricing-simple--cta">
+            <h2 className="pricing-simple-title">Ready to try it?</h2>
+            <p className="pricing-simple-lead">
+              Download the addon, show it one task, and ask for it back in plain English. It&apos;s
+              free to start — upgrade when you need more.
+            </p>
+            <a
+              className="pricing-simple-btn"
+              href={ADDON_DOWNLOAD_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Download the addon
+            </a>
           </section>
         </main>
       </div>

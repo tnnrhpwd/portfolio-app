@@ -2,7 +2,7 @@
 
 The Coliseum rebuild is original. This file records the provenance and
 licensing of every non-code asset and of the audio layer. Nothing here is
-copied from the reference game (see `docs/implementation/COLISEUM-SPEC.md`).
+copied from the reference game (see `COLISEUM-SPEC.md`).
 
 ## Art / Visuals
 

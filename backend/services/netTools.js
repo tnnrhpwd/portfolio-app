@@ -13,7 +13,8 @@
  */
 
 const { sendEmail } = require('./emailService');
-const { createMemoryItem, getMemoryItems, getGoalsSummary } = require('./memoryService');
+const { createMemoryItem, getMemoryItems } = require('./memoryService');
+const { listGoals, upsertGoal, normalizeGoalTitle } = require('./workspaceGoals');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, PutCommand, GetCommand, DeleteCommand } = require('@aws-sdk/lib-dynamodb');
 const { logger } = require('../utils/logger');
@@ -432,22 +433,14 @@ async function executeTool(toolName, args, context) {
 }
 
 /**
- * Normalize a goal title for case-insensitive, whitespace-insensitive
- * duplicate detection.
- */
-function normalizeGoalTitle(title) {
-  return String(title || '').toLowerCase().replace(/\s+/g, ' ').trim();
-}
-
-/**
  * Load the set of normalized titles for the user's existing goals so new
  * goals can be deduplicated. Prevents the LLM from re-adding goals that are
  * already saved — e.g. when the user says "add all the goals in the chat above".
  */
 async function getExistingGoalTitles(userId) {
   try {
-    const items = await getMemoryItems(userId, 'goal');
-    return new Set(items.map(i => normalizeGoalTitle(i.data?.title)).filter(Boolean));
+    const items = await listGoals(userId);
+    return new Set(items.map(i => normalizeGoalTitle(i.name)).filter(Boolean));
   } catch (err) {
     logger.warn('[netTools] Unable to load existing goals for dedupe:', err.message);
     return new Set();
@@ -526,13 +519,16 @@ const TOOL_EXECUTORS = {
       }
     }
 
-    await createMemoryItem(context.userId, 'goal', {
-      title,
-      description,
-      priority,
-      deadline,
+    const content = [description, deadline ? `Deadline: ${deadline}` : null]
+      .filter(Boolean)
+      .join('\n\n');
+
+    await upsertGoal(context.userId, {
+      name: title,
+      content: content || title,
       status: 'active',
-      timestamp: new Date().toISOString(),
+      priority,
+      createdBy: 'user',
     });
 
     return `Goal saved: "${title}"${deadline ? ` (deadline: ${deadline})` : ''}. You can view your goals on the /plans page.`;
@@ -559,13 +555,18 @@ const TOOL_EXECUTORS = {
         skipped.push(title);
         continue;
       }
-      await createMemoryItem(context.userId, 'goal', {
-        title,
-        description: typeof g.description === 'string' ? g.description : '',
-        priority: ['low', 'medium', 'high'].includes(g.priority) ? g.priority : 'medium',
-        deadline: g.deadline || null,
+      const description = typeof g.description === 'string' ? g.description : '';
+      const deadline = g.deadline || null;
+      const content = [description, deadline ? `Deadline: ${deadline}` : null]
+        .filter(Boolean)
+        .join('\n\n');
+
+      await upsertGoal(context.userId, {
+        name: title,
+        content: content || title,
         status: 'active',
-        timestamp: new Date().toISOString(),
+        priority: ['low', 'medium', 'high'].includes(g.priority) ? g.priority : 'medium',
+        createdBy: 'user',
       });
       seenInBatch.add(key);
       saved.push(title);
@@ -601,18 +602,19 @@ const TOOL_EXECUTORS = {
 
   // ── Get goals ─────────────────────────────────────────────────────────────
   async get_my_goals(args, context) {
-    const items = await getMemoryItems(context.userId, 'goal');
-    const active = items.filter(g => g.data?.status === 'active');
+    const items = await listGoals(context.userId);
+    const active = items.filter(g => g.status === 'active');
 
     if (active.length === 0) {
       return 'You have no active goals. You can set one by telling me what you want to achieve.';
     }
 
+    const priorityLabel = (p) => (typeof p === 'number' ? (p >= 90 ? 'high' : p <= 10 ? 'low' : 'medium') : 'medium');
+
     const list = active.map((g, i) => {
-      const parts = [`${i + 1}. ${g.data.title}`];
-      if (g.data.description) parts.push(`   ${g.data.description}`);
-      if (g.data.deadline) parts.push(`   Deadline: ${g.data.deadline}`);
-      if (g.data.priority) parts.push(`   Priority: ${g.data.priority}`);
+      const parts = [`${i + 1}. ${g.name}`];
+      if (g.content && g.content !== g.name) parts.push(`   ${g.content}`);
+      if (typeof g.priority === 'number') parts.push(`   Priority: ${priorityLabel(g.priority)}`);
       return parts.join('\n');
     }).join('\n');
 

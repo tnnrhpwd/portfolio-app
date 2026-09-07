@@ -51,7 +51,7 @@ clean-slate rewrite of the game itself.
   services are dead and its startup errors are harmless — play the core loop
   offline, e.g. via Ruffle, to study behavior). Local copy:
   `C:\Users\tanne\Downloads\sands-of-the-coliseum\sandsofthecoliseum.swf`.
-- Primary gameplay spec: `docs/implementation/sands-of-the-coliseum-gameplay.md`
+- Primary gameplay spec: `sands-of-the-coliseum-gameplay.md`
   — a detailed manual of the game's systems, screens, attributes, formulas,
   skill trees, facilities, economy, and progression. Read it end-to-end; it is
   your starting specification. (It quotes verbatim in-game text — never copy
@@ -77,7 +77,7 @@ clean-slate rewrite of the game itself.
   by other projects).
 
 ## Phase 0 (first thing you do, before writing game code)
-Read `docs/implementation/sands-of-the-coliseum-gameplay.md` end-to-end, then
+Read `sands-of-the-coliseum-gameplay.md` end-to-end, then
 cross-check it against the reference SWF
 (`C:\Users\tanne\Downloads\sands-of-the-coliseum\sandsofthecoliseum.swf`, playable
 offline via Ruffle) and the reference screenshots

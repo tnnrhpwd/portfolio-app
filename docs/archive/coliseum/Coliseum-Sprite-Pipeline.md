@@ -69,7 +69,7 @@ flowchart LR
 - Auto-rig via Mixamo and retarget the five animations onto a shared armature.
 - Author collections named exactly (see **Naming convention** below).
 - Full step-by-step `.blend` authoring checklist:
-  **`docs/guides/Coliseum-Blender-Authoring.md`**.
+  **`Coliseum-Blender-Authoring.md`**.
 
 ### Phase 2 — Scripted render
 - `scripts/blender/render_fighter_layers.py` (scaffolded) renders each layer

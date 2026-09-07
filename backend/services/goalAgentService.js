@@ -10,7 +10,7 @@
  *   - propose a plan and deliver a final result for non-repo goals (budgets,
  *     research, writing, advice, …)
  *
- * Run state is persisted onto the goal's memory item under `data.agent`:
+ * Run state is persisted onto the goal's workspace item under `agent`:
  *   { status, startedAt, updatedAt, goalId, goalTitle, summary, result, steps, error }
  *
  * Only ONE run per goal at a time (in-memory registry). Progress is written
@@ -22,7 +22,7 @@ const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const { createCompletion, createBedrockChatCompletion, PROVIDERS } = require('../utils/llmProviders');
 const { BEDROCK_MODEL_ID } = require('./bedrockService');
-const { updateMemoryItem } = require('./memoryService');
+const { setGoalAgent } = require('./workspaceGoals');
 const { logger } = require('../utils/logger');
 
 // Local DynamoDB client for the bug-report tool (writes to the same "Simple"
@@ -395,13 +395,41 @@ async function executeTool(name, args, ctx) {
 
 // ── Run-state management ────────────────────────────────────────────────────
 
+/**
+ * Extract { title, description, priority, deadline, agent } from either a
+ * workspace goal ({ name, content, priority: number, agent }) or a legacy
+ * memory goal ({ data: { title, description, priority, deadline, agent } }).
+ */
+function goalFields(goal) {
+  const isWorkspace = goal && (goal.name !== undefined || goal.slug !== undefined);
+  if (!isWorkspace) {
+    const d = goal?.data || {};
+    return {
+      title: d.title || 'Untitled goal',
+      description: d.description || '',
+      priority: d.priority || null,
+      deadline: d.deadline || null,
+      agent: d.agent || null,
+    };
+  }
+  const num = typeof goal.priority === 'number' ? goal.priority : null;
+  return {
+    title: goal.name || 'Untitled goal',
+    description: goal.content || '',
+    priority: num != null ? (num >= 90 ? 'high' : num <= 10 ? 'low' : 'medium') : null,
+    deadline: null,
+    agent: goal.agent || null,
+  };
+}
+
 function pushStep(state, step) {
   state.steps.push({ ts: new Date().toISOString(), ...step });
   if (state.steps.length > MAX_STORED_STEPS) state.steps = state.steps.slice(-MAX_STORED_STEPS);
 }
 
 function emptyState(goalId, goal) {
-  const prev = goal?.data?.agent || {};
+  const fields = goalFields(goal);
+  const prev = fields.agent || {};
   const history = Array.isArray(prev.history) ? prev.history : [];
 
   // Preserve the previous run's progress so a new enlist never erases it.
@@ -425,7 +453,7 @@ function emptyState(goalId, goal) {
     startedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     goalId,
-    goalTitle: goal?.data?.title || 'Untitled goal',
+    goalTitle: fields.title,
     summary: '',
     result: '',
     steps: [],
@@ -437,7 +465,7 @@ function emptyState(goalId, goal) {
 async function persistState(userId, goalId, state) {
   state.updatedAt = new Date().toISOString();
   try {
-    await updateMemoryItem(userId, goalId, { agent: state });
+    await setGoalAgent(userId, goalId, state);
   } catch (err) {
     // Persisting progress is best-effort — never crash the run because a
     // DynamoDB write hiccuped.
@@ -498,7 +526,7 @@ function buildSystemPrompt() {
 }
 
 function buildUserPrompt(goal) {
-  const d = goal?.data || {};
+  const d = goalFields(goal);
   const parts = ['Work on this goal now:', '', `Title: ${d.title || 'Untitled'}`];
   if (d.description) parts.push(`Description: ${d.description}`);
   if (d.priority) parts.push(`Priority: ${d.priority}`);

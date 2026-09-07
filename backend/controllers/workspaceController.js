@@ -291,6 +291,7 @@ function toListEntry(item) {
         // Additive O-O-G-P-A goal fields (null/false when absent):
         maxSteps: typeof item.maxSteps === 'number' ? item.maxSteps : null,
         autoAbandon: !!item.autoAbandon,
+        agent: item.agent || null,
     };
 }
 
@@ -318,13 +319,23 @@ const listWorkspace = asyncHandler(async (req, res) => {
 
     const prefix = userPrefix(req.user.id, kind);
 
-    const { Items } = await dynamodb.send(new ScanCommand({
-        TableName: TABLE_NAME,
-        FilterExpression: 'begins_with(id, :prefix) AND attribute_not_exists(deletedAt)',
-        ExpressionAttributeValues: { ':prefix': prefix },
-    }));
+    // Scan is capped at 1MB per call and the filter is applied AFTER that read,
+    // so loop LastEvaluatedKey — otherwise items beyond the first page are
+    // silently dropped (the same bug memoryService.getMemoryItems already fixed).
+    const rows = [];
+    let lastEvaluatedKey;
+    do {
+        const result = await dynamodb.send(new ScanCommand({
+            TableName: TABLE_NAME,
+            FilterExpression: 'begins_with(id, :prefix) AND attribute_not_exists(deletedAt)',
+            ExpressionAttributeValues: { ':prefix': prefix },
+            ...(lastEvaluatedKey ? { ExclusiveStartKey: lastEvaluatedKey } : {}),
+        }));
+        if (result.Items) rows.push(...result.Items);
+        lastEvaluatedKey = result.LastEvaluatedKey;
+    } while (lastEvaluatedKey);
 
-    let entries = (Items || []).map(toListEntry);
+    let entries = rows.map(toListEntry);
 
     if (agent) entries = entries.filter(e => e.agent === agent);
     if (stage) entries = entries.filter(e => e.stage === stage);
@@ -474,6 +485,9 @@ const upsertWorkspaceItem = asyncHandler(async (req, res) => {
             ...(goalMaxSteps != null ? { maxSteps: goalMaxSteps }   : (existing?.maxSteps != null ? { maxSteps: existing.maxSteps } : {})),
             ...(goalAutoAbandon != null ? { autoAbandon: !!goalAutoAbandon } : (existing?.autoAbandon != null ? { autoAbandon: existing.autoAbandon } : {})),
             createdBy:     existing?.createdBy || goalCreatedBy || 'user',
+            // Preserve the agent run-state JSON across human edits (the goal
+            // agent writes `agent` directly via workspaceGoals.setGoalAgent).
+            ...(existing?.agent ? { agent: existing.agent } : {}),
         } : {}),
     };
 
@@ -600,12 +614,21 @@ const getWorkspaceTemplates = asyncHandler(async (req, res) => {
 // @access  Private
 const getNextGoal = asyncHandler(async (req, res) => {
     if (!req.user) unauthorized(res);
-    const { Items } = await dynamodb.send(new ScanCommand({
-        TableName: TABLE_NAME,
-        FilterExpression: 'begins_with(id, :prefix) AND attribute_not_exists(deletedAt)',
-        ExpressionAttributeValues: { ':prefix': userPrefix(req.user.id, 'goal') },
-    }));
-    const runnable = (Items || []).filter(it => GOAL_STATUS_RUNNABLE.has(it.status || 'active'));
+
+    const rows = [];
+    let lastEvaluatedKey;
+    do {
+        const result = await dynamodb.send(new ScanCommand({
+            TableName: TABLE_NAME,
+            FilterExpression: 'begins_with(id, :prefix) AND attribute_not_exists(deletedAt)',
+            ExpressionAttributeValues: { ':prefix': userPrefix(req.user.id, 'goal') },
+            ...(lastEvaluatedKey ? { ExclusiveStartKey: lastEvaluatedKey } : {}),
+        }));
+        if (result.Items) rows.push(...result.Items);
+        lastEvaluatedKey = result.LastEvaluatedKey;
+    } while (lastEvaluatedKey);
+
+    const runnable = rows.filter(it => GOAL_STATUS_RUNNABLE.has(it.status || 'active'));
     // Highest priority first; tie-break on oldest updatedAt (fairness).
     runnable.sort((a, b) => {
         const pa = typeof a.priority === 'number' ? a.priority : 50;

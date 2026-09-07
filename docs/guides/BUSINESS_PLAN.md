@@ -44,7 +44,7 @@ Pick **one** of these to focus your messaging, onboarding, and first outreach on
 ## Why someone would pay (the actual value exchange)
 
 - **Free tier** exists to let people experience "it actually works" firsthand — with a small included monthly AI-credit allowance and full local automation, so there's no cost barrier to trying the core loop.
-- **Pro tier ($15/mo)** is worth paying once someone has already felt real value from the free tier. Concretely, per the current [pricing config](/c:/Users/tanne/Documents/Github/portfolio-app/frontend/src/constants/pricing.js), Pro raises cloud storage (100 MB → 50 GB), adds live screen viewing from your phone, adds email support, and raises the included monthly AI-credit allowance — automation commands are unlimited on both tiers.
+- **Pro tier ($15/mo)** is worth paying once someone has already felt real value from the free tier. Concretely, per the current [pricing config](../../frontend/src/constants/pricing.js), Pro raises cloud storage (100 MB → 50 GB), adds live screen viewing from your phone, adds email support, and raises the included monthly AI-credit allowance — automation commands are unlimited on both tiers.
 - This is why Tier 1 of the [monetization strategies doc](./ETHICAL_MONETIZATION_STRATEGIES.md) (perfecting the free→pro funnel) matters more than inventing new revenue streams: the entire business model depends on the free experience being good enough to convince someone the paid ceiling is worth removing.
 
 ---

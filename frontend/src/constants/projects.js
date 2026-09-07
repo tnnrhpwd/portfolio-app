@@ -23,8 +23,16 @@ import artSleepAssist from '../assets/art/project-sleepassist.jpg';
 import artWordleSolver from '../assets/art/project-wordlesolver.jpg';
 import artPets from '../assets/art/project-pets.jpg';
 import artUIMapper from '../assets/art/project-uimapper.jpg';
+import artSimple from '../assets/art/simple-hero.png';
 
 export const PROJECTS = [
+  {
+    name: "Simple",
+    path: "/simple",
+    art: artSimple,
+    category: "Tools",
+    description: "An AI agent for your Windows PC — observe, orient, goal, plan, execute. Describe a task in plain English and it does the rest.",
+  },
   {
     name: "Annuities",
     path: "/annuities",

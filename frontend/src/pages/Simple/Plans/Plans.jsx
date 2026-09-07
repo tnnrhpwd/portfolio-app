@@ -11,6 +11,7 @@ import {
   updateMemoryItem,
   deleteMemoryItem,
 } from '../../../services/memoryApi.js';
+import { listWorkspace, upsertWorkspaceItem, deleteWorkspaceItem } from '../../../services/simpleAddonApi.js';
 import './Plans.css';
 
 // -- Configuration ------------------------------------------------------------
@@ -34,6 +35,9 @@ const STATUS_LABELS = {
   active: 'Active',
   completed: 'Done',
   paused: 'Paused',
+  blocked: 'Blocked',
+  done: 'Done',
+  failed: 'Failed',
 };
 
 const PRIORITY_LABELS = {
@@ -43,6 +47,56 @@ const PRIORITY_LABELS = {
 };
 
 const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
+
+// Workspace-goal status vocabulary (the canonical store's richer lifecycle).
+const GOAL_STATUS_OPTIONS = ['active', 'paused', 'blocked', 'done', 'failed'];
+const GOAL_STATUS_FILTERS = ['all', 'active', 'paused', 'blocked', 'done', 'failed'];
+
+// Workspace goals use a numeric priority (0-100); map to the UI's labels.
+function priorityFromNumber(n) {
+  if (typeof n === 'number') {
+    if (n >= 90) return 'high';
+    if (n <= 10) return 'low';
+    return 'medium';
+  }
+  return 'medium';
+}
+
+function priorityToNumber(label) {
+  if (label === 'high') return 90;
+  if (label === 'low') return 10;
+  return 50;
+}
+
+function slugifyGoalTitle(title) {
+  let slug = String(title || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 100);
+  if (!/^[a-z0-9]/.test(slug)) slug = `goal-${slug}`.slice(0, 100);
+  if (!slug) slug = `goal-${Date.now().toString(36)}`;
+  return slug;
+}
+
+/** Adapt a workspace goal entry to the memory-like item shape the UI renders. */
+function workspaceGoalToItem(entry) {
+  return {
+    _id: entry.slug,
+    type: 'goal',
+    workspace: true,
+    data: {
+      title: entry.name || 'Untitled goal',
+      description: entry.content || '',
+      status: entry.status || 'active',
+      priority: priorityFromNumber(entry.priority),
+      deadline: null,
+      agent: entry.agent || null,
+    },
+    createdAt: entry.updatedAt || null,
+    updatedAt: entry.updatedAt || null,
+  };
+}
 
 // -- Helpers ------------------------------------------------------------------
 
@@ -118,10 +172,15 @@ function Plans() {
     if (!user?.token) { setLoading(false); return; }
     setLoading(true);
     try {
-      // Fetch all memory types once and filter client-side so tab switches
-      // are instant and every tab can show its own live count badge.
-      const data = await fetchMemoryItems(user.token);
-      setItems(Array.isArray(data) ? data : []);
+      // Goals now live in the cloud workspace store (canonical); plans, actions
+      // and notes still live in the memory store. Fetch both once and merge.
+      const [memData, wsData] = await Promise.all([
+        fetchMemoryItems(user.token).catch(() => []),
+        listWorkspace(user.token, { kind: 'goal' }).catch(() => ({ entries: [] })),
+      ]);
+      const memItems = (Array.isArray(memData) ? memData : []).filter((i) => i.type !== 'goal');
+      const goalItems = (wsData?.entries || []).map(workspaceGoalToItem);
+      setItems([...goalItems, ...memItems]);
     } catch (err) {
       if (err.message?.includes('token') || err.message?.includes('authorized')) {
         dispatch(logout());
@@ -201,15 +260,20 @@ function Plans() {
     return sorted;
   }, [tabItems, search, statusFilter, priorityFilter, sortBy]);
 
-  const activeItems = filtered.filter((i) => (i.data?.status || 'active') !== 'completed');
-  const doneItems = filtered.filter((i) => i.data?.status === 'completed');
+  const isGoalTab = activeTab === 'goal';
+  const doneStatus = isGoalTab ? 'done' : 'completed';
+  const statusOptions = isGoalTab ? GOAL_STATUS_OPTIONS : STATUS_OPTIONS;
+  const statusFilters = isGoalTab ? GOAL_STATUS_FILTERS : STATUS_FILTERS;
+
+  const activeItems = filtered.filter((i) => (i.data?.status || 'active') !== doneStatus);
+  const doneItems = filtered.filter((i) => i.data?.status === doneStatus);
 
   const stats = useMemo(() => {
     const total = tabItems.length;
-    const active = tabItems.filter((i) => (i.data?.status || 'active') !== 'completed').length;
-    const done = total - active;
+    const done = tabItems.filter((i) => i.data?.status === doneStatus).length;
+    const active = total - done;
     return { total, active, done, pct: total > 0 ? Math.round((done / total) * 100) : 0 };
-  }, [tabItems]);
+  }, [tabItems, doneStatus]);
 
   const currentTab = TABS.find((t) => t.key === activeTab) || TABS[0];
   const isTaskTab = TASK_TYPES.includes(activeTab);
@@ -248,7 +312,16 @@ function Plans() {
       }
 
       const noun = currentTab.label.slice(0, -1);
-      if (editingId) {
+      if (isGoalTab) {
+        const slug = editingId || slugifyGoalTitle(newTitle.trim());
+        await upsertWorkspaceItem(user.token, 'goal', slug, {
+          name: newTitle.trim(),
+          content: newDescription.trim() || newTitle.trim(),
+          status: editingId ? newStatus : 'active',
+          priority: priorityToNumber(newPriority),
+        });
+        toast.success(`${noun} ${editingId ? 'updated' : 'created'}!`);
+      } else if (editingId) {
         await updateMemoryItem(user.token, editingId, payload);
         toast.success(`${noun} updated!`);
       } else {
@@ -272,12 +345,21 @@ function Plans() {
     if (!title || saving) return;
     setSaving(true);
     try {
-      const payload = { title };
-      if (isTaskTab) {
-        payload.priority = quickPriority;
-        payload.status = 'active';
+      if (isGoalTab) {
+        await upsertWorkspaceItem(user.token, 'goal', slugifyGoalTitle(title), {
+          name: title,
+          content: title,
+          status: 'active',
+          priority: priorityToNumber(quickPriority),
+        });
+      } else {
+        const payload = { title };
+        if (isTaskTab) {
+          payload.priority = quickPriority;
+          payload.status = 'active';
+        }
+        await createMemoryItem(user.token, activeTab, payload);
       }
-      await createMemoryItem(user.token, activeTab, payload);
       setQuickTitle('');
       toast.success(`${currentTab.label.slice(0, -1)} added!`);
       load();
@@ -290,7 +372,16 @@ function Plans() {
 
   const handleStatusChange = async (item, newStatus) => {
     try {
-      await updateMemoryItem(user.token, item._id, { status: newStatus });
+      if (item.workspace) {
+        await upsertWorkspaceItem(user.token, 'goal', item._id, {
+          name: item.data?.title || 'Untitled goal',
+          content: item.data?.description || item.data?.title || '',
+          status: newStatus,
+          priority: priorityToNumber(item.data?.priority),
+        });
+      } else {
+        await updateMemoryItem(user.token, item._id, { status: newStatus });
+      }
       setItems((prev) => prev.map((i) =>
         i._id === item._id ? { ...i, data: { ...i.data, status: newStatus } } : i
       ));
@@ -300,7 +391,11 @@ function Plans() {
   const handleDelete = async (item) => {
     if (!window.confirm(`Delete this ${item.type}?`)) return;
     try {
-      await deleteMemoryItem(user.token, item._id);
+      if (item.workspace) {
+        await deleteWorkspaceItem(user.token, 'goal', item._id, { hard: true });
+      } else {
+        await deleteMemoryItem(user.token, item._id);
+      }
       setItems((prev) => prev.filter((i) => i._id !== item._id));
       toast.success('Deleted');
     } catch (err) { toast.error(err.message); }
@@ -457,7 +552,7 @@ function Plans() {
                 {/* Status + priority filter chips */}
                 {(isTaskTab || search) && (
                   <div className="plans-chips">
-                    {isTaskTab && STATUS_FILTERS.map((s) => (
+                    {isTaskTab && statusFilters.map((s) => (
                       <button
                         key={s}
                         className={`plans-chip ${statusFilter === s ? 'active' : ''}`}
@@ -534,20 +629,22 @@ function Plans() {
                           <option key={p} value={p}>{PRIORITY_LABELS[p]} priority</option>
                         ))}
                       </select>
-                      <input
-                        className="plans-input plans-date-input"
-                        type="date"
-                        value={newDeadline}
-                        onChange={(e) => setNewDeadline(e.target.value)}
-                        aria-label="Deadline"
-                      />
+                      {!isGoalTab && (
+                        <input
+                          className="plans-input plans-date-input"
+                          type="date"
+                          value={newDeadline}
+                          onChange={(e) => setNewDeadline(e.target.value)}
+                          aria-label="Deadline"
+                        />
+                      )}
                       {editingId && (
                         <select
                           className="plans-select"
                           value={newStatus}
                           onChange={(e) => setNewStatus(e.target.value)}
                         >
-                          {STATUS_OPTIONS.map((s) => (
+                          {statusOptions.map((s) => (
                             <option key={s} value={s}>{STATUS_LABELS[s]}</option>
                           ))}
                         </select>
@@ -607,8 +704,28 @@ function Plans() {
                 </div>
               )}
 
+              {/* Goal list — one section (the card pill shows each goal's exact state) */}
+              {!loading && isGoalTab && filtered.length > 0 && (
+                <section className="plans-section">
+                  <div className="plans-items">
+                    {filtered.map((item) => (
+                      <MemoryCard
+                        key={item._id}
+                        item={item}
+                        onStatusChange={handleStatusChange}
+                        onDelete={handleDelete}
+                        onEdit={openEdit}
+                        onOpen={openGoal}
+                        onEnlist={handleEnlistAgent}
+                        enlisting={enlisting}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+
               {/* Active section */}
-              {!loading && activeItems.length > 0 && (
+              {!loading && !isGoalTab && activeItems.length > 0 && (
                 <section className="plans-section">
                   {isTaskTab && doneItems.length > 0 && (
                     <h3 className="plans-section-title">Active</h3>
@@ -631,7 +748,7 @@ function Plans() {
               )}
 
               {/* Completed section */}
-              {!loading && doneItems.length > 0 && (
+              {!loading && !isGoalTab && doneItems.length > 0 && (
                 <section className="plans-section plans-section-done">
                   <h3 className="plans-section-title">Completed</h3>
                   <div className="plans-items">
@@ -670,7 +787,7 @@ function MemoryCard({ item, onStatusChange, onDelete, onEdit, onOpen, onEnlist, 
   const { data, type, createdAt } = item;
   const isTask = TASK_TYPES.includes(type);
   const isGoal = type === 'goal';
-  const isCompleted = data?.status === 'completed';
+  const isCompleted = isGoal ? data?.status === 'done' : data?.status === 'completed';
   const overdue = isOverdue(data?.deadline, data?.status);
   const priority = PRIORITY_LABELS[data?.priority] || data?.priority;
   const agentStatus = data?.agent?.status;
@@ -682,9 +799,9 @@ function MemoryCard({ item, onStatusChange, onDelete, onEdit, onOpen, onEnlist, 
           {isTask && (
             <button
               className={`memory-card-check ${isCompleted ? 'checked' : ''}`}
-              onClick={() => onStatusChange(item, isCompleted ? 'active' : 'completed')}
-              title={isCompleted ? 'Mark active' : 'Mark completed'}
-              aria-label={isCompleted ? 'Mark active' : 'Mark completed'}
+              onClick={() => onStatusChange(item, isCompleted ? 'active' : (isGoal ? 'done' : 'completed'))}
+              title={isCompleted ? 'Mark active' : (isGoal ? 'Mark done' : 'Mark completed')}
+              aria-label={isCompleted ? 'Mark active' : (isGoal ? 'Mark done' : 'Mark completed')}
             >
               {isCompleted ? '✓' : ''}
             </button>

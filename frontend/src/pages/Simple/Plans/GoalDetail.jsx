@@ -5,18 +5,40 @@ import Header from '../../../components/Header/Header.jsx';
 import Footer from '../../../components/Footer/Footer.jsx';
 import { toast } from 'react-toastify';
 import { logout } from '../../../features/data/dataSlice.js';
-import { fetchMemoryItem, fetchMemoryItems, createMemoryItem } from '../../../services/memoryApi.js';
+import { fetchMemoryItems, createMemoryItem } from '../../../services/memoryApi.js';
 import { startGoalAgent, getGoalAgentStatus, stopGoalAgent, recordGoalAgentResult } from '../../../services/goalAgentApi.js';
-import { runAgentMessage } from '../../../services/simpleAddonApi';
+import { runAgentMessage, getWorkspaceItem } from '../../../services/simpleAddonApi';
 import './GoalDetail.css';
 
 const STATUS_LABELS = {
   active: 'Active',
   completed: 'Done',
   paused: 'Paused',
+  blocked: 'Blocked',
+  done: 'Done',
+  failed: 'Failed',
 };
 
 const PRIORITY_LABELS = { low: 'Low', medium: 'Medium', high: 'High' };
+
+/** Adapt a workspace goal entry to the memory-like shape GoalDetail renders. */
+function workspaceEntryToGoal(entry) {
+  const n = typeof entry.priority === 'number' ? entry.priority : null;
+  return {
+    _id: entry.slug,
+    type: 'goal',
+    workspace: true,
+    sourceMemoryId: entry.sourceMemoryId || null,
+    data: {
+      title: entry.name || 'Untitled goal',
+      description: entry.content || '',
+      status: entry.status || 'active',
+      priority: n != null ? (n >= 90 ? 'high' : n <= 10 ? 'low' : 'medium') : 'medium',
+      deadline: null,
+      agent: entry.agent || null,
+    },
+  };
+}
 
 const RUN_STATUS_LABELS = {
   running: 'Running',
@@ -60,6 +82,7 @@ function GoalDetail() {
   const [runError, setRunError] = useState(null);
   const [notFound, setNotFound] = useState(false);
   const [loadError, setLoadError] = useState(null);
+  const [sourceMemoryId, setSourceMemoryId] = useState(null);
 
   // Linked plans/actions (goal → plan → action lineage)
   const [linked, setLinked] = useState([]);
@@ -86,20 +109,24 @@ function GoalDetail() {
     if (!user?.token) { setLoading(false); return; }
     setLoading(true);
     try {
-      const item = await fetchMemoryItem(user.token, id);
-      setGoal(item);
-      setAgent(item.data?.agent || { status: 'idle', steps: [] });
-      setNotFound(false);
-      setLoadError(null);
+      const entry = await getWorkspaceItem(user.token, 'goal', id);
+      if (!entry) {
+        setNotFound(true);
+        setGoal(null);
+        setLoadError(null);
+        setSourceMemoryId(null);
+      } else {
+        const g = workspaceEntryToGoal(entry);
+        setGoal(g);
+        setAgent(entry.agent || { status: 'idle', steps: [] });
+        setSourceMemoryId(entry.sourceMemoryId || null);
+        setNotFound(false);
+        setLoadError(null);
+      }
     } catch (err) {
       if (handleAuthError(err)) return;
-      if (/not found/i.test(err.message || '')) {
-        setNotFound(true);
-        setLoadError(null);
-      } else {
-        setNotFound(false);
-        setLoadError(err.message || 'Failed to load this goal.');
-      }
+      setNotFound(false);
+      setLoadError(err.message || 'Failed to load this goal.');
     } finally {
       setLoading(false);
     }
@@ -138,9 +165,9 @@ function GoalDetail() {
 
     const poll = async () => {
       try {
-        const item = await fetchMemoryItem(user.token, id);
+        const entry = await getWorkspaceItem(user.token, 'goal', id);
         if (cancelled) return;
-        const agentState = item?.data?.agent;
+        const agentState = entry?.agent;
         if (agentState && Array.isArray(agentState.steps)) setAgent(agentState);
       } catch (err) {
         if (cancelled) return;
@@ -158,7 +185,8 @@ function GoalDetail() {
     if (feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight;
   }, [agent?.steps?.length]);
 
-  // Load plans/actions linked to this goal via `data.goalId`.
+  // Load plans/actions linked to this goal via `data.goalId` (the goal's slug,
+  // or the pre-migration memory id captured in sourceMemoryId).
   const loadLinked = useCallback(async () => {
     if (!user?.token || !id) return;
     setLinkedLoading(true);
@@ -167,13 +195,14 @@ function GoalDetail() {
         fetchMemoryItems(user.token, 'plan').catch(() => []),
         fetchMemoryItems(user.token, 'action').catch(() => []),
       ]);
-      setLinked([...plans, ...actions].filter((it) => it.data?.goalId === id));
+      const match = (gid) => gid === id || (sourceMemoryId && gid === sourceMemoryId);
+      setLinked([...plans, ...actions].filter((it) => match(it.data?.goalId)));
     } catch (err) {
       if (!handleAuthError(err)) { /* best-effort */ }
     } finally {
       setLinkedLoading(false);
     }
-  }, [user, id, handleAuthError]);
+  }, [user, id, sourceMemoryId, handleAuthError]);
 
   useEffect(() => { loadLinked(); }, [loadLinked]);
 
