@@ -105,12 +105,13 @@ const QUOTAS = Object.freeze({
 // ──────────────────────────────────────────────
 const FEATURES = Object.freeze({
   [PLAN_IDS.FREE]: [
-    '🌐 AI chat (included monthly cloud credits)',
-    '🖥️ Simple desktop addon — full local automation, no daily cap',
+    '🌐 AI chat — $0.50/month cloud credits',
+    '🖥️ Simple desktop addon — unlimited local automation',
     '📁 100 MB cloud storage',
   ],
   [PLAN_IDS.PRO]: [
     '✅ Everything in Free',
+    '🌐 AI chat — $10.00/month cloud credits',
     '📱 Live screen viewing from your phone',
     '💾 50 GB cloud storage',
     '✉️ Email support',
@@ -120,12 +121,13 @@ const FEATURES = Object.freeze({
 /** Plain-text feature bullets (no emoji) for emails */
 const FEATURES_PLAIN = Object.freeze({
   [PLAN_IDS.FREE]: [
-    'AI chat (included monthly cloud credits)',
-    'Simple desktop addon — full local automation, no daily cap',
+    'AI chat — $0.50/month cloud credits',
+    'Simple desktop addon — unlimited local automation',
     '100 MB cloud storage',
   ],
   [PLAN_IDS.PRO]: [
     'Everything in Free',
+    'AI chat — $10.00/month cloud credits',
     'Live screen viewing from your phone',
     '50 GB cloud storage',
     'Email support',
@@ -136,8 +138,8 @@ const FEATURES_PLAIN = Object.freeze({
 // Descriptions (used on pricing cards)
 // ──────────────────────────────────────────────
 const DESCRIPTIONS = Object.freeze({
-  [PLAN_IDS.FREE]: 'AI chat, full local automation, and 100 MB storage',
-  [PLAN_IDS.PRO]:  'More storage, live phone viewing, and email support',
+  [PLAN_IDS.FREE]: 'AI chat with included credits, unlimited local automation, and 100 MB storage',
+  [PLAN_IDS.PRO]:  'More AI credits, 50 GB storage, phone viewing, and email support',
 });
 
 // ──────────────────────────────────────────────

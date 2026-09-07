@@ -61,12 +61,13 @@ export const QUOTA_SHORT = Object.freeze({
 // ──────────────────────────────────────────────
 export const FEATURES = Object.freeze({
   [PLAN_IDS.FREE]: [
-    '🌐 AI chat (included monthly cloud credits)',
-    '🖥️ Simple desktop addon — full local automation, no daily cap',
+    '🌐 AI chat — $0.50/month cloud credits',
+    '🖥️ Simple desktop addon — unlimited local automation',
     '📁 100 MB cloud storage',
   ],
   [PLAN_IDS.PRO]: [
     '✅ Everything in Free',
+    '🌐 AI chat — $10.00/month cloud credits',
     '📱 Live screen viewing from your phone',
     '💾 50 GB cloud storage',
     '✉️ Email support',
@@ -77,8 +78,8 @@ export const FEATURES = Object.freeze({
 // Descriptions (pricing cards)
 // ──────────────────────────────────────────────
 export const DESCRIPTIONS = Object.freeze({
-  [PLAN_IDS.FREE]: 'AI chat, full local automation, and 100 MB storage',
-  [PLAN_IDS.PRO]:  'More storage, live phone viewing, and email support',
+  [PLAN_IDS.FREE]: 'AI chat with included credits, unlimited local automation, and 100 MB storage',
+  [PLAN_IDS.PRO]:  'More AI credits, 50 GB storage, phone viewing, and email support',
 });
 
 // ──────────────────────────────────────────────

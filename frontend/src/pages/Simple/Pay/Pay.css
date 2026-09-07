@@ -62,14 +62,15 @@
     border: 1px solid var(--border-nav);
     padding: var(--spacing-2xl);
     z-index: 2;
-    min-width: 320px;
-    max-width: 640px;
-    width: 90%;
+    min-width: 0;
+    max-width: 680px;
+    width: 100%;
     margin: var(--spacing-lg) auto;
     display: flex;
     flex-direction: column;
     align-items: center;
     position: relative;
+    box-sizing: border-box;
 }
 
 /* Heading Section */

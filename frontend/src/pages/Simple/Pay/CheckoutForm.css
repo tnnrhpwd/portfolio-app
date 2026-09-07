@@ -2042,3 +2042,99 @@
   }
 }
 
+/* ── 2026-09-07 checkout modernization overrides (applied last) ── */
+
+/* Plan cards: stacked grid, solid surface, hairline border */
+.plans-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: calc(var(--nav-size) * 0.3);
+}
+
+.plan-card {
+  flex: none;
+  background: var(--bg-1);
+  border: 1px solid var(--border-nav);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: calc(var(--nav-size) * 0.35);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.plan-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.plan-card.selected {
+  border-color: var(--fg-blue);
+  box-shadow: 0 0 0 1px var(--fg-blue), var(--shadow-md);
+  transform: none;
+}
+
+.plan-card.featured {
+  border-color: var(--fg-blue);
+}
+
+/* Step navigation: wrap on narrow screens */
+.step-navigation {
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.2);
+}
+
+.cancel-button,
+.back-button {
+  background: transparent;
+  color: var(--text-color);
+  border: 1px solid var(--border-nav);
+  border-radius: 999px;
+  padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.3);
+}
+
+.cancel-button:hover,
+.back-button:hover {
+  background: var(--bg-accent);
+}
+
+.next-step-button,
+.subscribe-button {
+  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+  color: var(--text-color-inv);
+  border: none;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.next-step-button:hover,
+.subscribe-button:hover {
+  background: linear-gradient(45deg, var(--fg-mint), var(--fg-blue));
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.confirmation-step {
+  background: var(--bg-1);
+  border: 1px solid var(--border-nav);
+  border-radius: var(--border-radius-lg);
+}
+
+.confirmation-item {
+  border-bottom: 1px solid var(--border-nav);
+}
+
+@media (max-width: 480px) {
+  .plan-card {
+    padding: calc(var(--nav-size) * 0.25);
+  }
+  .step-navigation {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .step-navigation .cancel-button,
+  .step-navigation .back-button,
+  .step-navigation .next-step-button,
+  .step-navigation .subscribe-button {
+    width: 100%;
+  }
+}
+

@@ -12,11 +12,15 @@ import './Pricing.css';
 const FAQ_ITEMS = [
   {
     q: 'What does Free include?',
-    a: 'AI chat with included monthly cloud credits, the full Simple desktop addon with unlimited local automation, and 100 MB of cloud storage.',
+    a: 'AI chat with a $0.50/month cloud-credit allowance, the full Simple desktop addon with unlimited local automation, and 100 MB of cloud storage.',
   },
   {
     q: 'What do I get with Pro?',
-    a: 'Everything in Free, plus 50 GB of storage, live screen viewing from your phone, and email support.',
+    a: 'Everything in Free, plus a $10.00/month AI credit allowance, 50 GB of storage, live screen viewing from your phone, and email support.',
+  },
+  {
+    q: 'How does AI usage work?',
+    a: 'AI chat runs on our servers, so it is metered against a monthly cloud-credit allowance included with your plan — $0.50/month on Free, $10.00/month on Pro. When the allowance runs out, AI requests pause until the next monthly cycle. There is no bring-your-own-key option.',
   },
   {
     q: 'Can I cancel anytime?',
@@ -73,10 +77,10 @@ function Pricing() {
         name: 'Free',
         price: '$0',
         period: 'month',
-        tagline: 'AI chat, full local automation, and 100 MB storage',
+        tagline: 'AI chat with included credits, unlimited local automation, and 100 MB storage',
         features: [
-          'AI chat (included monthly cloud credits)',
-          'Simple desktop addon — full local automation, no daily cap',
+          'AI chat — $0.50/month cloud credits',
+          'Simple desktop addon — unlimited local automation',
           '100 MB cloud storage',
         ],
         showAnnual: false,
@@ -86,9 +90,10 @@ function Pricing() {
         name: 'Pro',
         price: billingInterval === 'year' ? '$144' : '$15',
         period: billingInterval === 'year' ? 'year' : 'month',
-        tagline: 'More storage, live phone viewing, and email support',
+        tagline: 'More AI credits, 50 GB storage, phone viewing, and email support',
         features: [
           'Everything in Free',
+          'AI chat — $10.00/month cloud credits',
           'Live screen viewing from your phone',
           '50 GB cloud storage',
           'Email support',
