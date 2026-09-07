@@ -411,7 +411,7 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
      * returning the final answer. Non-actionable messages short-circuit before
      * any goal is created or any tool runs.
      */
-    async function runGoalToCompletion({ description, context, timeoutMs = 180000 } = {}) {
+    async function runGoalToCompletion({ description, context, goalId, timeoutMs = 180000 } = {}) {
         const text = String(description || '').trim();
         if (!text) return { actionable: false, error: 'empty description' };
 
@@ -429,25 +429,26 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
                 priority: 70,
                 maxSteps: 60,
                 autoAbandon: false,
+                ...(goalId ? { sourceMemoryId: String(goalId) } : {}),
             });
         } catch (e) {
-            return { actionable: true, goalSlug: slug, error: `goal create failed: ${e.message}` };
+            return { actionable: true, goalSlug: slug, goalId, error: `goal create failed: ${e.message}` };
         }
 
         let loop;
         try { loop = _getOrCreateLoop(slug); }
-        catch (e) { return { actionable: true, goalSlug: slug, error: e.message }; }
+        catch (e) { return { actionable: true, goalSlug: slug, goalId, error: e.message }; }
 
         const started = await loop.start({ goalSlug: slug });
         if (!started.running) {
-            return { actionable: true, goalSlug: slug, error: started.reason || 'no-active-goal' };
+            return { actionable: true, goalSlug: slug, goalId, error: started.reason || 'no-active-goal' };
         }
 
         const deadline = Date.now() + timeoutMs;
         while (loop.status().running) {
             if (Date.now() > deadline) {
                 loop.stop('run-timeout');
-                return { actionable: true, goalSlug: slug, status: 'timeout', reason: 'run-timeout', steps: loop.status().step, result: null };
+                return { actionable: true, goalSlug: slug, goalId, status: 'timeout', reason: 'run-timeout', steps: loop.status().step, result: null };
             }
             await new Promise((r) => setTimeout(r, 500));
         }
@@ -457,6 +458,7 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
         return {
             actionable: true,
             goalSlug: slug,
+            goalId,
             status: done ? 'done' : (s.stopReason || 'stopped'),
             result: s.finalAnswer || null,
             steps: s.step,
@@ -472,7 +474,7 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
 
     app.post('/api/agent/run', async (req, res) => {
         try {
-            const result = await runGoalToCompletion({ description: req.body?.description, context: req.body?.context });
+            const result = await runGoalToCompletion({ description: req.body?.description, context: req.body?.context, goalId: req.body?.goalId });
             res.json(result);
         } catch (e) {
             res.status(500).json({ actionable: true, error: e.message });

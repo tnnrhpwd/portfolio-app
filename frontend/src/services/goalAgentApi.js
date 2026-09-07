@@ -64,3 +64,19 @@ export async function stopGoalAgent(token, goalId) {
   if (!res.ok) throw new Error(json.message || json.error || 'Failed to stop agent');
   return json;
 }
+
+/**
+ * Record an external (desktop addon) agent result onto a goal so the webapp
+ * /plans page stays the single source of truth for progress even when the
+ * O-O-G-P-A loop ran on the local machine.
+ */
+export async function recordGoalAgentResult(token, goalId, agent) {
+  const res = await fetch(`${getApiBase()}goal-agent/result`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({ goalId, agent }),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || json.error || 'Failed to record agent result');
+  return json;
+}

@@ -287,6 +287,7 @@ function toListEntry(item) {
         status: item.status || null,
         priority: typeof item.priority === 'number' ? item.priority : null,
         parentGoalId: item.parentGoalId || null,
+        sourceMemoryId: item.sourceMemoryId || null,
         // Additive O-O-G-P-A goal fields (null/false when absent):
         maxSteps: typeof item.maxSteps === 'number' ? item.maxSteps : null,
         autoAbandon: !!item.autoAbandon,
@@ -397,6 +398,7 @@ const upsertWorkspaceItem = asyncHandler(async (req, res) => {
     const goalCreatedBy = req.body?.createdBy;
     const goalMaxSteps  = req.body?.maxSteps;
     const goalAutoAbandon = req.body?.autoAbandon;
+    const goalSourceMemory = req.body?.sourceMemoryId;
     if (kind === 'goal') {
         if (goalStatus != null && !GOAL_STATUSES.has(goalStatus)) {
             badRequest(res, `Invalid goal status. Allowed: ${[...GOAL_STATUSES].join(', ')}`);
@@ -409,6 +411,9 @@ const upsertWorkspaceItem = asyncHandler(async (req, res) => {
         }
         if (goalParent != null && typeof goalParent !== 'string') {
             badRequest(res, 'parentGoalId must be a string');
+        }
+        if (goalSourceMemory != null && (typeof goalSourceMemory !== 'string' || goalSourceMemory.length > 200)) {
+            badRequest(res, 'sourceMemoryId must be a string (max 200 chars)');
         }
         if (goalMaxSteps != null && (typeof goalMaxSteps !== 'number' || !Number.isInteger(goalMaxSteps) || goalMaxSteps < 1 || goalMaxSteps > 1000)) {
             badRequest(res, 'goal maxSteps must be an integer 1-1000');
@@ -463,6 +468,7 @@ const upsertWorkspaceItem = asyncHandler(async (req, res) => {
             status:        goalStatus    || existing?.status        || 'active',
             priority:      goalPriority  ?? existing?.priority      ?? 50,
             ...(goalParent      ? { parentGoalId: goalParent }      : (existing?.parentGoalId   ? { parentGoalId: existing.parentGoalId }   : {})),
+            ...(goalSourceMemory ? { sourceMemoryId: goalSourceMemory } : (existing?.sourceMemoryId ? { sourceMemoryId: existing.sourceMemoryId } : {})),
             ...(goalSuccess     ? { successCriteria: goalSuccess }  : (existing?.successCriteria? { successCriteria: existing.successCriteria }: {})),
             ...(goalConstraints ? { constraints: goalConstraints }  : (existing?.constraints    ? { constraints: existing.constraints }     : {})),
             ...(goalMaxSteps != null ? { maxSteps: goalMaxSteps }   : (existing?.maxSteps != null ? { maxSteps: existing.maxSteps } : {})),

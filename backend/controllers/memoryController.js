@@ -47,6 +47,12 @@ const createMemory = asyncHandler(async (req, res) => {
     throw new Error('title is required in data');
   }
 
+  // Soft lineage link to a parent goal (used by /plans to thread goal → plan → action).
+  if (data.goalId != null && typeof data.goalId !== 'string') {
+    res.status(400);
+    throw new Error('goalId must be a string');
+  }
+
   const item = await createMemoryItem(userId, type, data);
   res.status(201).json({ success: true, item });
 });
@@ -62,6 +68,11 @@ const updateMemory = asyncHandler(async (req, res) => {
   if (!updates) {
     res.status(400);
     throw new Error('data updates are required');
+  }
+
+  if (updates.goalId != null && typeof updates.goalId !== 'string') {
+    res.status(400);
+    throw new Error('goalId must be a string');
   }
 
   const item = await updateMemoryItem(userId, itemId, updates);

@@ -787,8 +787,12 @@ export async function stopAgent(reason = 'user requested stop') {
  *   `{ actionable: false }` means the loop judged the message non-actionable —
  *   the caller should fall back to normal chat.
  */
-export async function runAgentMessage(description, { token, deviceId, context } = {}) {
-  const body = { description, ...(context ? { context } : {}) };
+export async function runAgentMessage(description, { token, deviceId, context, goalId } = {}) {
+  const body = {
+    description,
+    ...(context ? { context } : {}),
+    ...(goalId ? { goalId } : {}),
+  };
   if (_addonStatus.isConnected && _addonStatus.baseUrl) {
     const res = await addonFetch('/api/agent/run', {
       method: 'POST',

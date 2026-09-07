@@ -7,9 +7,14 @@
  */
 
 const asyncHandler = require('express-async-handler');
-const { getMemoryItem } = require('../services/memoryService');
+const { getMemoryItem, updateMemoryItem } = require('../services/memoryService');
 const { runGoalAgent, stopGoalAgentRun, isRunning } = require('../services/goalAgentService');
 const { logger } = require('../utils/logger');
+
+// Whitelisted agent-state keys we accept from the mirror endpoint so a client
+// (or the desktop addon) can record run results onto a goal without being able
+// to clobber unrelated goal fields.
+const AGENT_STATE_KEYS = ['status', 'summary', 'result', 'steps', 'updatedAt', 'source', 'error', 'history'];
 
 // @desc    Start an LLM agent run on a goal
 // @route   POST /api/data/goal-agent/start
@@ -74,4 +79,40 @@ const stopGoalAgent = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, stopped });
 });
 
-module.exports = { startGoalAgent, getGoalAgentStatus, stopGoalAgent };
+// @desc    Record an external (desktop addon) agent result onto a goal so the
+//          webapp /plans page is the single source of truth for progress even
+//          when the O-O-G-P-A loop ran on the local machine.
+// @route   POST /api/data/goal-agent/result
+// @access  Protected
+const recordGoalAgentResult = asyncHandler(async (req, res) => {
+  const { goalId, agent } = req.body || {};
+  if (!goalId) {
+    res.status(400);
+    throw new Error('goalId is required');
+  }
+  if (!agent || typeof agent !== 'object' || Array.isArray(agent)) {
+    res.status(400);
+    throw new Error('agent result object is required');
+  }
+
+  // Ownership check + must actually be a goal.
+  const goal = await getMemoryItem(req.user.id, goalId);
+  if (goal.type !== 'goal') {
+    res.status(400);
+    throw new Error('Only goals can record agent results');
+  }
+
+  // Keep only the known agent-state keys; never let a client overwrite the
+  // goal's title/description/status via this endpoint.
+  const next = {};
+  for (const key of AGENT_STATE_KEYS) {
+    if (agent[key] !== undefined) next[key] = agent[key];
+  }
+  next.updatedAt = new Date().toISOString();
+
+  await updateMemoryItem(req.user.id, goalId, { agent: next });
+
+  res.status(200).json({ success: true, agent: next });
+});
+
+module.exports = { startGoalAgent, getGoalAgentStatus, stopGoalAgent, recordGoalAgentResult };

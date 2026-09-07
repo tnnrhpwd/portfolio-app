@@ -5,8 +5,8 @@ import Header from '../../../components/Header/Header.jsx';
 import Footer from '../../../components/Footer/Footer.jsx';
 import { toast } from 'react-toastify';
 import { logout } from '../../../features/data/dataSlice.js';
-import { fetchMemoryItem } from '../../../services/memoryApi.js';
-import { startGoalAgent, getGoalAgentStatus, stopGoalAgent } from '../../../services/goalAgentApi.js';
+import { fetchMemoryItem, fetchMemoryItems, createMemoryItem } from '../../../services/memoryApi.js';
+import { startGoalAgent, getGoalAgentStatus, stopGoalAgent, recordGoalAgentResult } from '../../../services/goalAgentApi.js';
 import { runAgentMessage } from '../../../services/simpleAddonApi';
 import './GoalDetail.css';
 
@@ -59,6 +59,13 @@ function GoalDetail() {
   const [runError, setRunError] = useState(null);
   const [notFound, setNotFound] = useState(false);
   const [loadError, setLoadError] = useState(null);
+
+  // Linked plans/actions (goal → plan → action lineage)
+  const [linked, setLinked] = useState([]);
+  const [linkedLoading, setLinkedLoading] = useState(false);
+  const [linkKind, setLinkKind] = useState('plan');
+  const [linkTitle, setLinkTitle] = useState('');
+  const [linkSaving, setLinkSaving] = useState(false);
 
   const feedRef = useRef(null);
   const agentRef = useRef(agent);
@@ -127,6 +134,66 @@ function GoalDetail() {
     if (feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight;
   }, [agent?.steps?.length]);
 
+  // Load plans/actions linked to this goal via `data.goalId`.
+  const loadLinked = useCallback(async () => {
+    if (!user?.token || !id) return;
+    setLinkedLoading(true);
+    try {
+      const [plans, actions] = await Promise.all([
+        fetchMemoryItems(user.token, 'plan').catch(() => []),
+        fetchMemoryItems(user.token, 'action').catch(() => []),
+      ]);
+      setLinked([...plans, ...actions].filter((it) => it.data?.goalId === id));
+    } catch (err) {
+      if (!handleAuthError(err)) { /* best-effort */ }
+    } finally {
+      setLinkedLoading(false);
+    }
+  }, [user, id, handleAuthError]);
+
+  useEffect(() => { loadLinked(); }, [loadLinked]);
+
+  // Mirror a desktop-addon run result back onto this goal so the /plans page
+  // stays the single source of truth for agent progress.
+  const mirrorAgentResult = async (res) => {
+    const steps = [];
+    if (res.result) steps.push({ kind: 'result', text: String(res.result).slice(0, 1000), ts: new Date().toISOString() });
+    if (!res.result && res.reason) steps.push({ kind: 'error', text: `Stopped: ${res.reason}`, ts: new Date().toISOString() });
+    const mappedStatus = res.status === 'done' ? 'done'
+      : (res.status === 'timeout' || res.status === 'stopped' ? 'stopped' : 'failed');
+    const agentState = {
+      status: mappedStatus,
+      summary: res.result || res.reason || '',
+      result: res.result || '',
+      steps,
+      source: 'addon',
+    };
+    try {
+      await recordGoalAgentResult(user.token, id, agentState);
+      setAgent((prev) => ({ ...(prev || {}), ...agentState, steps: [...(prev?.steps || []), ...steps] }));
+    } catch (e) {
+      // Mirroring is best-effort; never block the success toast on it.
+      if (!handleAuthError(e)) console.warn('[GoalDetail] mirror failed:', e.message);
+    }
+  };
+
+  const handleAddLink = async (e) => {
+    e.preventDefault();
+    const title = linkTitle.trim();
+    if (!title || linkSaving) return;
+    setLinkSaving(true);
+    try {
+      await createMemoryItem(user.token, linkKind, { title, goalId: id, status: 'active' });
+      setLinkTitle('');
+      toast.success(`${linkKind === 'plan' ? 'Plan' : 'Action'} added!`);
+      loadLinked();
+    } catch (err) {
+      if (!handleAuthError(err)) toast.error(err.message);
+    } finally {
+      setLinkSaving(false);
+    }
+  };
+
   const handleStart = async () => {
     if (starting) return;
     setStarting(true);
@@ -135,14 +202,16 @@ function GoalDetail() {
     try {
       const gd = goal?.data || {};
       const description = [gd.title, gd.description].filter(Boolean).join('. ');
-      const res = await runAgentMessage(description, { token: user.token, context: context.trim() || undefined });
+      const res = await runAgentMessage(description, { token: user.token, context: context.trim() || undefined, goalId: id });
       if (res?.actionable === false) {
         toast.info('The agent judged this goal as not actionable.');
       } else if (res?.result) {
         setRunResult(res);
+        await mirrorAgentResult(res);
         toast.success('Agent finished.');
       } else {
         setRunResult(res);
+        await mirrorAgentResult(res);
         toast.info(`Agent stopped${res?.status ? ` (${res.status})` : ''}.`);
       }
     } catch (err) {
@@ -376,6 +445,45 @@ function GoalDetail() {
                   </div>
                 </section>
               )}
+
+              {/* Linked plans & actions (goal → plan → action lineage) */}
+              <section className="goal-detail-feed-section">
+                <h2 className="goal-detail-feed-title">Plan &amp; actions</h2>
+                {linkedLoading ? (
+                  <p className="goal-detail-feed-empty">Loading linked items…</p>
+                ) : linked.length === 0 ? (
+                  <p className="goal-detail-feed-empty">No plans or actions linked to this goal yet. Add one below to break the goal into steps.</p>
+                ) : (
+                  <ul className="goal-detail-linked">
+                    {linked.map((it) => (
+                      <li key={it._id} className="goal-detail-linked-item">
+                        <span className={`goal-detail-linked-kind goal-detail-linked-${it.type}`}>
+                          {it.type === 'plan' ? '📋 Plan' : '⚡ Action'}
+                        </span>
+                        <span className="goal-detail-linked-title">{it.data?.title}</span>
+                        {it.data?.status && (
+                          <span className="goal-detail-linked-status">{it.data.status}</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <form className="goal-detail-link-form" onSubmit={handleAddLink}>
+                  <select value={linkKind} onChange={(e) => setLinkKind(e.target.value)} aria-label="Item type">
+                    <option value="plan">Plan</option>
+                    <option value="action">Action</option>
+                  </select>
+                  <input
+                    value={linkTitle}
+                    onChange={(e) => setLinkTitle(e.target.value)}
+                    placeholder={linkKind === 'plan' ? 'Add a plan step…' : 'Add an action…'}
+                    maxLength={200}
+                  />
+                  <button type="submit" disabled={linkSaving || !linkTitle.trim()}>
+                    {linkSaving ? 'Adding…' : 'Add'}
+                  </button>
+                </form>
+              </section>
             </>
           )}
         </div>
