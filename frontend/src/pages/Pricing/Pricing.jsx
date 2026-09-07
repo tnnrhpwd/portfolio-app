@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { getMembershipPricing, getUserStorage } from '../../features/data/dataSlice';
@@ -9,11 +9,31 @@ import SEO from '../../components/SEO/SEO.jsx';
 import usePurchaseGate from '../../hooks/usePurchaseGate';
 import './Pricing.css';
 
+const FAQ_ITEMS = [
+  {
+    q: 'What does Free include?',
+    a: 'AI chat with included monthly cloud credits, the full Simple desktop addon with unlimited local automation, and 100 MB of cloud storage.',
+  },
+  {
+    q: 'What do I get with Pro?',
+    a: 'Everything in Free, plus 50 GB of storage, live screen viewing from your phone, and email support.',
+  },
+  {
+    q: 'Can I cancel anytime?',
+    a: 'Yes. Cancelling schedules your subscription to end at the end of your current billing period — you keep Pro features until then and are not charged again.',
+  },
+  {
+    q: 'Are there hidden fees?',
+    a: 'No. The price shown is what you pay. Payments are processed securely by Stripe.',
+  },
+];
+
 function Pricing() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { user, membershipPricing, dataIsLoading, userStorage } = useSelector((state) => state.data);
   const { purchasesEnabled, message: gateMessage } = usePurchaseGate();
+  const [billingInterval, setBillingInterval] = useState('month');
 
   useEffect(() => {
     dispatch(getMembershipPricing());
@@ -27,17 +47,23 @@ function Pricing() {
     }
   }, [dispatch, user?.token]);
 
-  // Build plans from dynamic pricing or fall back to static defaults
+  // Build plans from dynamic pricing or fall back to static defaults. Honors
+  // the monthly/annual cadence when the backend exposes both prices.
   const getPlans = () => {
     if (membershipPricing?.success && membershipPricing?.data?.length > 0) {
-      return membershipPricing.data.map((product) => ({
-        id: product.id,
-        name: product.name,
-        price: product.price ? formatPrice(product.price) : '$0',
-        period: product.interval || 'month',
-        tagline: product.description || '',
-        features: product.features || [],
-      }));
+      return membershipPricing.data.map((product) => {
+        const intervals = Array.isArray(product.intervals) ? product.intervals : [];
+        const selected = intervals.find((i) => i.interval === billingInterval) || intervals[0];
+        return {
+          id: product.id,
+          name: product.name,
+          price: intervals.length ? formatPrice(selected ? selected.price : product.price) : formatPrice(product.price),
+          period: intervals.length && selected ? selected.interval : product.interval || 'month',
+          tagline: product.description || '',
+          features: product.features || [],
+          showAnnual: intervals.some((i) => i.interval === 'year'),
+        };
+      });
     }
 
     // Static fallback while API loads
@@ -53,12 +79,13 @@ function Pricing() {
           'Simple desktop addon — full local automation, no daily cap',
           '100 MB cloud storage',
         ],
+        showAnnual: false,
       },
       {
         id: 'pro',
         name: 'Pro',
-        price: '$15',
-        period: 'month',
+        price: billingInterval === 'year' ? '$144' : '$15',
+        period: billingInterval === 'year' ? 'year' : 'month',
         tagline: 'More storage, live phone viewing, and email support',
         features: [
           'Everything in Free',
@@ -66,11 +93,13 @@ function Pricing() {
           '50 GB cloud storage',
           'Email support',
         ],
+        showAnnual: true,
       },
     ];
   };
 
   const plans = getPlans();
+  const hasAnnual = plans.some((p) => p.showAnnual);
 
   const handleSelectPlan = (planId) => {
     if (planId !== 'free' && !purchasesEnabled) return; // gated — button is disabled, but guard anyway
@@ -98,15 +127,17 @@ function Pricing() {
         </div>
 
         <section className="pricing-hero">
-          <div className="pricing-title-wrap">
-            <p className="pricing-eyebrow">Membership</p>
-            <h1 className="pricing-title">Simple, Transparent Pricing</h1>
-            <p className="pricing-subtitle">Choose the plan that fits your workflow. Upgrade or downgrade anytime.</p>
-            <p className="pricing-lead">
-              Simple is an AI agent for your Windows PC: show it once how you rename and file
-              invoices, and afterward saying “do the invoices” repeats those steps.
-            </p>
-          </div>
+          <p className="pricing-eyebrow">Pricing</p>
+          <h1 className="pricing-title">Simple, transparent pricing</h1>
+          <p className="pricing-subtitle">
+            One free plan for the core experience, one paid plan for more. No hidden fees, cancel
+            anytime.
+          </p>
+          <ul className="pricing-trust" aria-label="Pricing assurances">
+            <li>🔒 Secured by Stripe</li>
+            <li>🛡️ No hidden fees</li>
+            <li>↩️ Cancel anytime</li>
+          </ul>
         </section>
 
         <main id="main" className="pricing-section">
@@ -123,29 +154,48 @@ function Pricing() {
             </div>
           )}
 
+          {hasAnnual && (
+            <div className="pricing-toggle" role="group" aria-label="Billing period">
+              <button
+                type="button"
+                className={billingInterval === 'month' ? 'active' : ''}
+                onClick={() => setBillingInterval('month')}
+              >
+                Monthly
+              </button>
+              <button
+                type="button"
+                className={billingInterval === 'year' ? 'active' : ''}
+                onClick={() => setBillingInterval('year')}
+              >
+                Yearly <span className="pricing-toggle-save">save 20%</span>
+              </button>
+            </div>
+          )}
+
           {dataIsLoading && !membershipPricing ? (
             <div className="pricing-loading">
               <div className="pricing-spinner" aria-hidden="true"></div>
-              <p>Loading plans...</p>
+              <p>Loading plans…</p>
             </div>
           ) : (
             <div className="pricing-plans">
               {plans.map((plan) => {
                 const gated = plan.id !== 'free' && !purchasesEnabled;
                 return (
-                  <div
+                  <article
                     key={plan.id}
                     className={`pricing-plan-card ${plan.id === 'pro' ? 'featured' : ''}`}
                   >
                     {plan.id === 'pro' && (
-                      <div className="pricing-plan-badge">Best Value</div>
+                      <span className="pricing-plan-badge">Most popular</span>
                     )}
-                    <div className="pricing-plan-name">{plan.name}</div>
+                    <h2 className="pricing-plan-name">{plan.name}</h2>
                     <div className="pricing-plan-price">
-                      {plan.price}
-                      <span className="period">/{plan.period}</span>
+                      <span className="pricing-plan-amount">{plan.price}</span>
+                      <span className="pricing-plan-period">/{plan.period}</span>
                     </div>
-                    <div className="pricing-plan-tagline">{plan.tagline}</div>
+                    <p className="pricing-plan-tagline">{plan.tagline}</p>
                     <ul className="pricing-plan-features">
                       {plan.features.map((feature, i) => (
                         <li key={i}>{feature}</li>
@@ -163,7 +213,12 @@ function Pricing() {
                           ? (user ? 'Current Plan' : 'Get Started Free')
                           : `Choose ${plan.name}`}
                     </button>
-                  </div>
+                    {plan.id === 'pro' && (
+                      <p className="pricing-plan-note">
+                        Billed {billingInterval === 'year' ? 'annually' : 'monthly'}. Cancel anytime.
+                      </p>
+                    )}
+                  </article>
                 );
               })}
             </div>
@@ -171,10 +226,22 @@ function Pricing() {
 
           <div className="pricing-bottom">
             <p>
-              All plans include access to the AI chat on <Link to="/net">/net</Link>.
-              Questions? Visit <Link to="/support">/support</Link>.
+              All plans include access to the AI chat on <Link to="/net">/net</Link>. Questions?{' '}
+              Visit <Link to="/support">/support</Link>.
             </p>
           </div>
+
+          <section className="pricing-faq" aria-label="Frequently asked questions">
+            <h2 className="pricing-faq-title">Common questions</h2>
+            <div className="pricing-faq-list">
+              {FAQ_ITEMS.map((item) => (
+                <details className="pricing-faq-item" key={item.q}>
+                  <summary>{item.q}</summary>
+                  <p>{item.a}</p>
+                </details>
+              ))}
+            </div>
+          </section>
         </main>
       </div>
       <Footer />

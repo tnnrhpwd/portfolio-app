@@ -36,10 +36,25 @@ function Pay() {
     <>
       <Header />
       <div className="planit-pay-bg">
+        <div className="planit-pay-floating" aria-hidden="true">
+          <div className="planit-pay-circle planit-pay-circle-1"></div>
+          <div className="planit-pay-circle planit-pay-circle-2"></div>
+          <div className="planit-pay-circle planit-pay-circle-3"></div>
+        </div>
         <div className="planit-pay-card">
           <section className="planit-pay-heading">
-            <div className="planit-pay-heading-title">Choose your plan</div>
-            <div className="planit-pay-heading-description">Unlock AI chat credits, storage, and more. Cancel anytime.</div>
+            <p className="planit-pay-eyebrow">Membership</p>
+            <h1 className="planit-pay-heading-title">Choose your plan</h1>
+            <p className="planit-pay-heading-description">
+              Pick a plan, add a payment method, and confirm — it takes under a minute.
+              You can upgrade or cancel anytime.
+            </p>
+            <ul className="planit-pay-trust" aria-label="Checkout assurances">
+              <li>🔒 Secured by Stripe</li>
+              <li>🛡️ No hidden fees</li>
+              <li>↩️ Cancel anytime</li>
+              <li>💳 Cards &amp; wallets accepted</li>
+            </ul>
           </section>
 
           <section className="planit-pay-content">

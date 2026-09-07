@@ -298,6 +298,7 @@ function Home() {
         { label: "Projects", path: "/projects" },
         { label: "Contact", path: "/support?tab=contact" },
         { label: "Support", path: "/support" },
+        { label: "Simple", path: "/simple" },
         { label: "Pricing", path: "/pricing" },
     ];
     if (user) {

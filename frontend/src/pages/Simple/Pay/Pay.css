@@ -13,7 +13,9 @@
 .planit-pay-bg {
     min-height: 100svh;
     min-height: 100vh;
-    background: var(--bg-page, #f5f6f8);
+    background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
+    background-size: 400% 400%;
+    animation: planitPayGradientShift 12s ease infinite;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -25,9 +27,36 @@
     font-family: var(--font-family-base);
 }
 
+.light-theme .planit-pay-bg { animation-duration: 15s; }
+.dark-theme .planit-pay-bg { animation-duration: 10s; }
+
+@keyframes planitPayGradientShift {
+    0% { background-position: 0% 50%; }
+    25% { background-position: 100% 50%; }
+    50% { background-position: 100% 100%; }
+    75% { background-position: 0% 100%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Decorative, non-interactive floating circles */
+.planit-pay-floating { pointer-events: none; position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+.planit-pay-circle {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--white1-transp, #f4f7fd33) 0%, transparent 70%);
+    animation: planitPayFloat 6s ease-in-out infinite;
+}
+.planit-pay-circle-1 { width: 180px; height: 180px; top: 8%; left: 6%; animation-duration: 9s; }
+.planit-pay-circle-2 { width: 120px; height: 120px; top: 55%; right: 8%; animation-duration: 11s; animation-delay: -2s; }
+.planit-pay-circle-3 { width: 220px; height: 220px; bottom: 5%; left: 55%; animation-duration: 13s; animation-delay: -4s; }
+@keyframes planitPayFloat {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-24px) rotate(180deg); }
+}
+
 /* Main Card Container */
 .planit-pay-card {
-    background: var(--bg-page);
+    background: var(--bg-1);
     border-radius: var(--border-radius-lg);
     box-shadow: var(--shadow-md, 0 2px 16px rgba(0, 0, 0, 0.08));
     border: 1px solid var(--border-nav);
@@ -51,9 +80,20 @@
     width: 100%;
 }
 
+.planit-pay-eyebrow {
+    margin: 0 0 calc(var(--nav-size) * 0.15);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-color-accent);
+    text-align: center;
+}
+
 .planit-pay-heading-title {
-    font-size: var(--font-size-large);
+    font-size: var(--font-size-heading);
     font-weight: var(--font-weight-bold);
+    letter-spacing: -0.01em;
     margin-bottom: var(--spacing-sm);
     color: var(--text-color-strong);
     line-height: var(--line-height-tight);
@@ -61,14 +101,36 @@
 }
 
 .planit-pay-heading-description {
-    font-size: var(--font-size-large);
-    color: var(--text-color-accent-dark-strong);
-    margin-bottom: var(--spacing-xl);
-    line-height: var(--line-height-base);
+    font-size: var(--font-size-base);
+    color: var(--text-color-accent);
+    margin-bottom: var(--spacing-lg);
+    line-height: var(--line-height-relaxed);
     text-align: center;
     max-width: 80%;
     margin-left: auto;
     margin-right: auto;
+}
+
+.planit-pay-trust {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: calc(var(--nav-size) * 0.2);
+    list-style: none;
+    margin: 0 0 var(--spacing-sm);
+    padding: 0;
+}
+
+.planit-pay-trust li {
+    display: inline-flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.1);
+    font-size: var(--font-size-small);
+    color: var(--text-color-accent);
+    background: var(--bg-1);
+    border: 1px solid var(--border-nav);
+    border-radius: 999px;
+    padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.28);
 }
 
 /* Content Section */

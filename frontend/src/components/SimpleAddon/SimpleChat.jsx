@@ -709,7 +709,7 @@ function SimpleChat({
         const upgradeLine = canUpgrade ? `\n\n[Upgrade Now →](/pay?plan=pro)` : `\n\n_Upgrading is temporarily paused — please check back soon._`;
         content = `**Usage Limit Reached**\n\n${errStr}\n\n---\n💡 **Upgrade your plan** to get more credits and higher limits:\n${proLine}${upgradeLine}`;
       } else if (errStr.includes('403') || errStr.toLowerCase().includes('requires a')) {
-        const viewPlansLine = canUpgrade ? '[View Plans →](/pay?plan=pro)' : '_Upgrading is temporarily paused — please check back soon._';
+        const viewPlansLine = canUpgrade ? '[View Plans →](/pricing)' : '_Upgrading is temporarily paused — please check back soon._';
         content = `**Model Access Restricted**\n\n${errStr}\n\n---\n🔒 This model requires a higher membership tier.\n\n${viewPlansLine}`;
       } else if (errStr.includes('401') || errStr.toLowerCase().includes('unauthorized')) {
         content = `**Authentication Failed (401)**\n\nYour session may have expired. Please sign in again and retry.`;
@@ -1684,7 +1684,7 @@ function SimpleChat({
                 const upgradeLine = canUpgrade ? `\n\n[Upgrade Now →](/pay?plan=pro)` : `\n\n_Upgrading is temporarily paused — please check back soon._`;
                 displayContent = `**Usage Limit Reached**\n\n${errMsg}\n\n---\n💡 **Upgrade your plan** to get more credits and higher limits:\n${proLine}${upgradeLine}`;
               } else if (statusCode === 403) {
-                const viewPlansLine = canUpgrade ? '[View Plans →](/pay?plan=pro)' : '_Upgrading is temporarily paused — please check back soon._';
+                const viewPlansLine = canUpgrade ? '[View Plans →](/pricing)' : '_Upgrading is temporarily paused — please check back soon._';
                 displayContent = `**Model Access Restricted**\n\n${errMsg}\n\n---\n🔒 This model requires a higher membership tier.\n\n${viewPlansLine}`;
               } else if (statusCode === 401 || errMsg?.includes?.('401') || errMsg?.toLowerCase?.().includes?.('unauthorized')) {
                 displayContent = `**Authentication Failed (401)**\n\nYour session may have expired. Please sign in again and retry.`;

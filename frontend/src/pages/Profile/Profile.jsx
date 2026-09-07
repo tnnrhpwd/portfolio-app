@@ -511,7 +511,7 @@ function Profile() {
                     <div className="planit-profile-section-header">
                       <div>
                         <span className="planit-profile-section-kicker">Activity</span>
-                        <h2 className="planit-profile-section-title">Usage &amp; quota</h2>
+                        <h2 className="planit-profile-section-title">Usage &amp; credits</h2>
                       </div>
                       <button
                         onClick={refreshUsageData}
@@ -528,7 +528,7 @@ function Profile() {
                         <span className="planit-profile-state-icon">⏳</span>
                         <div>
                           <strong>Refreshing usage details</strong>
-                          <p>Your latest quota activity will appear here in a moment.</p>
+                          <p>Your latest usage will appear here in a moment.</p>
                         </div>
                       </div>
                     ) : userUsageIsError ? (
@@ -640,6 +640,9 @@ function Profile() {
               <div className="planit-profile-actions-buttons">
                 <button className="planit-profile-net-button" onClick={() => navigate('/net')}>
                   🤖 Open AI Chat
+                </button>
+                <button className="planit-profile-settings-button" onClick={() => navigate('/simple')}>
+                  🧭 Learn about Simple
                 </button>
                 <button className="planit-profile-settings-button" onClick={navigateToSettings}>
                   ⚙️ Advanced Settings

@@ -168,9 +168,9 @@
   width: 100%;
   margin: 0 auto;
   padding: calc(var(--nav-size) * 0.25);
-  background-color: var(--bg-page);
+  background-color: transparent;
   border-radius: var(--border-radius);
-  box-shadow: 0 calc(var(--nav-size) * 0.05) calc(var(--nav-size) * 0.15) rgba(0, 0, 0, 0.1);
+  box-shadow: none;
 }
 
 .payment-form {
@@ -188,10 +188,10 @@
 
 .form-section,
 .confirmation-details {
-  background-color: var(--bg-page);
+  background-color: var(--bg-1);
   border-radius: var(--border-radius);
   padding: calc(var(--nav-size) * 0.2);
-  border: calc(var(--nav-size) * 0.01) solid rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border-nav);
   margin-bottom: calc(var(--nav-size) * 0.35);
 }
 
@@ -219,12 +219,12 @@
 /* Button styling */
 #add-payment-button {
   padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.2);
-  background-color: var(--bg-mint);
-  color: var(--text-color-inv, white);
+  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+  color: var(--text-color-inv);
   border: none;
   cursor: pointer;
-  transition: background-color 0.3s, transform 0.2s;
-  border-radius: var(--border-radius);
+  transition: transform 0.2s, box-shadow 0.2s;
+  border-radius: 999px;
   font-size: var(--font-size-base);
   font-weight: 600;
   display: flex;
@@ -237,8 +237,8 @@
 }
 
 #add-payment-button:hover {
-  background-color: var(--bg-nav2);
   transform: translateY(calc(var(--nav-size) * -0.025));
+  box-shadow: var(--shadow-md);
 }
 
 #add-payment-button:disabled {
@@ -251,21 +251,21 @@
 .next-step-button,
 .subscribe-button {
   padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.2);
-  background-color: var(--bg-mint);
-  color: var(--text-color);
+  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+  color: var(--text-color-inv);
   border: none;
-  border-radius: var(--border-radius);
+  border-radius: 999px;
   font-size: var(--font-size-base);
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.3s, transform 0.2s;
+  transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .add-method-button:hover,
 .next-step-button:hover,
 .subscribe-button:hover {
-  background-color: var(--bg-nav2);
   transform: translateY(calc(var(--nav-size) * -0.025));
+  box-shadow: var(--shadow-md);
 }
 
 /* Loading spinner */
