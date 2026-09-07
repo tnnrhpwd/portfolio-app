@@ -1,6 +1,6 @@
 /**
  * marketplaceScrub.js — server-side re-enforcement of the privacy/PII scrub
- * pass (docs/new/simple-agent-prompt.md §4.5, §6.1).
+ * pass (docs/implementation/simple-agent-prompt.md §4.5, §6.1).
  *
  * §4.5's Definition of Done calls out that `publishSkill` "does not
  * independently re-run scrubForPublish/summarizeCapabilities server-side —

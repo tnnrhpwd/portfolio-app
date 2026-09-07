@@ -2,7 +2,7 @@
  * generalize.js — LLM re-derivation of a compiled (literal) skill into a more
  * robust, abstracted step sequence.
  *
- * Implements docs/new/simple-agent-prompt.md §5.1 "LLM re-derivation": the
+ * Implements docs/implementation/simple-agent-prompt.md §5.1 "LLM re-derivation": the
  * priority-one fix for the compiler's biggest known weakness (literal event
  * coalescing only — see recorder/compiler.js header comment).
  *

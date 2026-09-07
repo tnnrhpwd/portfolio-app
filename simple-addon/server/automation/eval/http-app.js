@@ -1,6 +1,6 @@
 /**
  * http-app.js — lazy, in-process Express server used by the eval runner's
- * HTTP scenario mode (docs/new/simple-agent-prompt.md §5.5).
+ * HTTP scenario mode (docs/implementation/simple-agent-prompt.md §5.5).
  *
  * `automation/eval/runner.js` originally only supported "tool-registry"
  * scenarios (`steps: [{ tool, args, expect }]` executed directly against

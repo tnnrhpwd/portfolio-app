@@ -186,7 +186,7 @@ const getTelemetrySummary = ({ days, tool } = {}) => {
     return req('GET', `/telemetry/summary${qs ? '?' + qs : ''}`);
 };
 
-// ─── Marketplace (§4 of docs/new/simple-agent-prompt.md) ─────────────────
+// ─── Marketplace (§4 of docs/implementation/simple-agent-prompt.md) ─────────────────
 // These hit `{BACKEND_URL}/api/data/market/...` (routeData.js is mounted at
 // `/api/data` in server.js, same as every other backend route in this
 // file) — a SEPARATE namespace from the private per-user `${BASE}`

@@ -1,62 +1,34 @@
 # Backend Test Suite
 
-This directory contains all backend tests organized by type and purpose.
-
-## Directory Structure
-
-```
-__tests__/
-├── run-all-tests.js          # Main test runner
-├── unit/                     # Unit tests for individual components
-│   ├── bedrockService.test.js       # Bedrock Converse API unit tests
-│   ├── conversationMerge.test.js    # Conversation merge logic
-│   ├── goalAgentService.test.js     # Goal agent service
-│   └── guestLogin.test.js           # Guest login
-├── integration/             # Integration tests for system components
-│   ├── test-ocr.js         # OCR functionality integration test
-│   ├── test-referer-tracking.js    # Referer tracking system test
-│   ├── test-referer-fixes.js       # Referer tracking fixes test
-│   └── test-specific-issues.js     # Specific reported issues test
-├── helpers/                 # Test helper utilities (future)
-└── back.test.js            # Original backend test file
-```
+Backend tests run with **Jest** (config in `backend/package.json`). The canonical
+command is `npm test` (or `npx jest`) from `backend/`.
 
 ## Running Tests
 
-### Run All Tests
 ```bash
 cd backend
-node __tests__/run-all-tests.js
+npm test                 # run the whole backend suite
+npx jest path/to/test.js # run one file
 ```
 
-### Run Individual Tests
-```bash
-# Unit tests
-node __tests__/unit/bedrockService.test.js
-node __tests__/unit/conversationMerge.test.js
-node __tests__/unit/goalAgentService.test.js
-node __tests__/unit/guestLogin.test.js
+The suite is also run by CI (`.github/workflows/ci.yml` → `test-backend`).
 
-# Integration tests  
-node __tests__/integration/test-ocr.js
-node __tests__/integration/test-referer-tracking.js
-node __tests__/integration/test-referer-fixes.js
-node __tests__/integration/test-specific-issues.js
-```
+## Layout
 
-## Test Categories
+Jest's default `testMatch` picks up two groups:
 
-### Unit Tests
-- **bedrockService.test.js**: Bedrock Converse API unit tests
-- **conversationMerge.test.js**: Conversation history merge logic
-- **goalAgentService.test.js**: Goal agent provider routing
-- **guestLogin.test.js**: Guest account login
+- `__tests__/unit/*.test.js` — pure unit tests (services, controllers, helpers)
+- `__tests__/integration/*.js` — integration tests (OCR, referer tracking, specific issues)
+- `__tests__/back.test.js` — original backend smoke test
+- Co-located `*.test.js` next to source — e.g. `services/marketplaceRanking.test.js`,
+  `controllers/marketplaceController.test.js`, `utils/homeTitleRules.test.js`
 
-### Integration Tests  
-- **test-ocr.js**: Tests the complete OCR workflow with mock image data
-- **test-referer-tracking.js**: Tests referer categorization and database storage
-- **test-referer-fixes.js**: Tests specific fixes for referer tracking issues
-- **test-specific-issues.js**: Tests solutions to specific reported problems
+## Notable suites
+
+- `unit/pricingSync.test.js` — drift guard between backend and frontend pricing constants.
+- `unit/goalAgentService.test.js` / `unit/goalAgentController.test.js` — goal-agent logic.
+- `unit/bedrockService.test.js` — Bedrock Converse request/response translation.
+- `integration/test-ocr.js` — OCR workflow with mocked image data.
 
 ## Prerequisites
 

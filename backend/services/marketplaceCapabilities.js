@@ -1,7 +1,7 @@
 /**
  * marketplaceCapabilities.js — server-side re-enforcement of the
  * declared-vs-actual capability/category mismatch check
- * (docs/new/simple-agent-prompt.md §4.5, §6.2).
+ * (docs/implementation/simple-agent-prompt.md §4.5, §6.2).
  *
  * §4.5's Definition of Done calls out that the publish endpoint "does not
  * independently re-run summarizeCapabilities's declared-vs-actual category

@@ -2,6 +2,8 @@
 
 This is the working plan for Simple. Background and full rationale live in [BUSINESS_PLAN.md](./BUSINESS_PLAN.md) and [ETHICAL_MONETIZATION_STRATEGIES.md](./ETHICAL_MONETIZATION_STRATEGIES.md); this doc is what actually gets executed. It's a living checklist — check items off as they land, and add new gaps as they're found rather than letting it drift.
 
+The visitor → subscriber path is mapped separately in [SALES_FUNNEL.md](./SALES_FUNNEL.md) (Discovery → Understanding → Buying) — update it alongside any CTA/route change.
+
 **The premise:** Simple is an AI agent that perceives what a user does on their Windows PC and acts on their behalf, described in plain English. AI chat and cloud storage support that core loop. The Free tier is for trying it and seeing whether it's useful; Pro removes the cloud-usage ceiling. Growth is word of mouth, not marketing — the site describes the product plainly and lets the product do the convincing.
 
 ---

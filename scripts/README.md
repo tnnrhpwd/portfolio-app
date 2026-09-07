@@ -14,4 +14,4 @@ One-off and operational scripts that don't belong inside a specific package.
 | `dev/` | Scratch/dev experiments — not part of any workflow | manual |
 
 The env backup/restore workflow is documented in
-[`docs/guides/ENV_BACKUP_GUIDE.md`](../docs/guides/ENV_BACKUP_GUIDE.md).
+[`docs/guides/SECRETS_MANAGEMENT.md`](../docs/guides/SECRETS_MANAGEMENT.md) (Part 2).

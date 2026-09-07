@@ -1,7 +1,7 @@
 /**
  * scrub.js — Privacy / PII scrub pass for the marketplace publish flow.
  *
- * Implements docs/new/simple-agent-prompt.md §6.1: recordings capture
+ * Implements docs/implementation/simple-agent-prompt.md §6.1: recordings capture
  * screen state, keystrokes, and window titles from the author's own
  * machine, so a raw compiled/generalized skill can embed absolute user file
  * paths, secrets typed during the demo, or (if a future step type ever

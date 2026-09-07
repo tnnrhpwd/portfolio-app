@@ -1,5 +1,6 @@
 # Simple — Consumer Marketplace & Skill Generalization Plan
-> Revised agent brief (2026-07-14). Replaces simple-agent-prompt.md.
+> Focused plan for the marketplace + skill generalization work. The full platform
+> brief is [simple-agent-prompt.md](simple-agent-prompt.md).
 > **Read this first, then read the code.** Sections marked ✅ are already shipped.
 
 ---

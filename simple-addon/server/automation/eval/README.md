@@ -102,7 +102,7 @@ for routes that aren't simple tool-registry calls — e.g. `/api/skill/*`,
   `12-nl-compile.json`'s `EVAL_ALLOW_LLM` gate) so they're skipped by default
   in CI and only run when a real GitHub Models token is available.
 - Scenarios 18-20 are the three **perturbed-UI axis** regression scenarios
-  called for in `docs/new/simple-agent-prompt.md` §5.5 — all three named
+  called for in `docs/implementation/simple-agent-prompt.md` §5.5 — all three named
   axes now have offline (`http`-mode, no-LLM) coverage against
   `POST /api/skill/infer-params`:
   - `18-skill-infer-params-perturbed-position.json` — **position shift**:

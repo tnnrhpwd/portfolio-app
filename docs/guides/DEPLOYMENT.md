@@ -58,6 +58,5 @@ Secrets Manager. See [`SECRETS_MANAGEMENT.md`](SECRETS_MANAGEMENT.md).
 
 ## Related docs
 
-- [`AWS_SETUP_GUIDE.md`](AWS_SETUP_GUIDE.md) — S3/CloudFront.
-- [`ENV_BACKUP_GUIDE.md`](ENV_BACKUP_GUIDE.md) — encrypted local `.env` backup.
-- [`SECRETS_MANAGEMENT.md`](SECRETS_MANAGEMENT.md) — Secrets Manager workflow.
+- [`AWS_SETUP_GUIDE.md`](AWS_SETUP_GUIDE.md) — S3/CloudFront + static assets + AI image generation.
+- [`SECRETS_MANAGEMENT.md`](SECRETS_MANAGEMENT.md) — Secrets Manager workflow + encrypted local `.env` backup.

@@ -47,7 +47,7 @@ change can be proven non-regressive.**
 - Addon unit suite: `npm --prefix simple-addon run test:unit`
 - Single test file: `node simple-addon/server/automation/<file>.test.js`
 - Syntax check a touched file: `node --check simple-addon/server/automation/<file>.js`
-- Backend suite: `node backend/__tests__/run-all-tests.js`
+- Backend suite: `cd backend && npm test`
 
 **Guardrails (hard do-nots):**
 - Do NOT change the workspace API storage layer (DynamoDB schema) except additive goal/lesson fields.

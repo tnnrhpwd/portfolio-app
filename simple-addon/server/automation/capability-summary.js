@@ -1,7 +1,7 @@
 /**
  * capability-summary.js — "what will this skill do" pre-run summary.
  *
- * Implements docs/new/simple-agent-prompt.md §6.2: marketplace (and local)
+ * Implements docs/implementation/simple-agent-prompt.md §6.2: marketplace (and local)
  * skills must be inspectable before running. Every step already names a
  * tool call (directly, or via nl-compiler's `type` field, normalised through
  * `tools/skill.js` `_normaliseStep` — the exact same resolution the executor

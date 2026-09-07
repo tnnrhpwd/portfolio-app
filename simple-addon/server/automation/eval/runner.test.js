@@ -1,6 +1,6 @@
 /**
  * Standalone unit tests for the eval scenario runner's HTTP scenario mode
- * (docs/new/simple-agent-prompt.md §5.5) — `runner.js` + `http-app.js`.
+ * (docs/implementation/simple-agent-prompt.md §5.5) — `runner.js` + `http-app.js`.
  *
  * Exercises both the pure assertion-evaluation helpers (no server needed)
  * and a real end-to-end run of an HTTP scenario against the actual

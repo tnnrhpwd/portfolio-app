@@ -991,7 +991,7 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
     });
 
     // Generalize a compiled (literal) skill into a more robust abstracted form
-    // via LLM re-derivation (docs/new/simple-agent-prompt.md §5.1). Accepts
+    // via LLM re-derivation (docs/implementation/simple-agent-prompt.md §5.1). Accepts
     // either `sessionId` (compiles fresh, then generalizes) or an already-
     // compiled `skill` object, plus an optional `goalDescription` hint.
     // Best-effort: on LLM failure the original literal-step skill is returned
@@ -1163,7 +1163,7 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
         }
     });
 
-    // ─── Marketplace routes (§4 of docs/new/simple-agent-prompt.md) ────────
+    // ─── Marketplace routes (§4 of docs/implementation/simple-agent-prompt.md) ────────
     // Thin proxies to the shared backend's public/shared marketplace surface
     // (a SEPARATE namespace from the private per-user workspace skill store
     // above). The frontend is expected to have already run /api/skill/scrub

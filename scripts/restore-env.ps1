@@ -50,7 +50,7 @@ if (-not $identity) {
     throw ("No SSH private key found in $env:USERPROFILE\.ssh (looked for id_ed25519, id_rsa). " +
            "If this is a brand-new machine/key, it must first be added to " +
            "scripts\env-backup\recipients.txt from an already-trusted machine - " +
-           "see docs\guides\ENV_BACKUP_GUIDE.md ('Setting up a new laptop').")
+           "see docs\guides\SECRETS_MANAGEMENT.md ('Set up a new laptop').")
 }
 
 $restored = 0

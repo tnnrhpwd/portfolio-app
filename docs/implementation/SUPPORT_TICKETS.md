@@ -2,8 +2,6 @@
 
 > How the app collects, stores, and exports support requests — and where it's heading.
 
-Last updated: 2026-08-30
-
 ---
 
 ## 1. Overview
@@ -194,7 +192,7 @@ capabilities this needs:
 | Edit the repo (commit via GitHub API) | `write_repo_file` (requires a GitHub token) | ✅ shipped |
 | File / close reports | `submit_bug_report`, `propose_plan`, `deliver_result` | ✅ shipped |
 | Export tickets for an agent | `pull-support-tickets.js` | ✅ shipped |
-| Enlist an agent from the admin panel | `POST /api/data/admin/agent-fix` + `🤖 Auto-fix` button | ✅ shipped (2026-08-30) |
+| Enlist an agent from the admin panel | `POST /api/data/admin/agent-fix` + `🤖 Auto-fix` button | ✅ shipped |
 
 What remains is the **verification glue**: a verifier agent that smoke-checks a
 deploy and auto-closes the originating bug report after a successful fix.

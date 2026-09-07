@@ -13,6 +13,14 @@ See the [`/docs`](./docs) folder for detailed documentation:
 - **[Debugging](./docs/debugging/)** - Troubleshooting guides
 - **[Archive](./docs/archive/)** - Historical / superseded docs (incl. Coliseum game)
 
+## 🧪 Testing
+
+Each package has its own runner (CI runs these as separate jobs — see `.github/workflows/ci.yml`):
+
+- **Backend** (Jest): `cd backend && npm test`
+- **Frontend** (Jest): `cd frontend && npm test -- --watchAll=false --passWithNoTests`
+- **Simple addon** (plain Node runners): `cd simple-addon && npm run test:unit` (and `npm run eval` for the scenario suite)
+
 ## 🚀 Recent Improvements
 
 ### 🔒 Security Enhancements

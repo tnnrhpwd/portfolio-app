@@ -1,7 +1,7 @@
 /**
  * infer-params.js — multi-demonstration parameter inference.
  *
- * Implements docs/new/simple-agent-prompt.md §5.2 "Parameter inference":
+ * Implements docs/implementation/simple-agent-prompt.md §5.2 "Parameter inference":
  * when a user demonstrates the same or similar task more than once, diff the
  * resulting skills to detect what varies between runs (typed text, target
  * names, numeric values) and promote those varying literals into

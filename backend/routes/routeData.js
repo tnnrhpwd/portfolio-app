@@ -602,7 +602,7 @@ router.route('/csimple/workspace/:kind/:slug')
 
 // ============================================================================
 // CSIMPLE MARKETPLACE (public/shared skill marketplace — §4 of
-//                      docs/new/simple-agent-prompt.md)
+//                      docs/implementation/simple-agent-prompt.md)
 // ============================================================================
 
 // Order matters: specific routes BEFORE parameterized ones.

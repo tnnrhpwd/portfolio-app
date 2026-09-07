@@ -2,7 +2,71 @@
 
 > Goal: turn the current Simple addon + portfolio workspace API into the most capable, safest, and most personalizable Windows automation agent available. Inspired by OpenAdapt / Self-Operating Computer / Claude Computer Use, but with persistent per-user cloud memory and a friendly approval model.
 
-Last updated: 2026-06-14
+Consolidated 2026-09-07 — absorbed the former
+`AUTONOMOUS_WINDOWS_AGENT_PLAN.md`; its vision, architecture, and future-phase
+plans now live in §Vision, §Architecture, and §3 below.
+
+---
+
+## Vision
+
+Build the best Windows automation software on the planet: a multimodal, LLM-driven
+agent that reads webcam, PC audio, keyboard/mouse events, and screen images —
+synthesises them into a unified perceptual model — then acts preemptively on behalf
+of the user to complete goals stored per-user in the cloud database.
+
+---
+
+## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  INPUT LAYER (Perception)                                                   │
+│  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐            │
+│  │  Webcam    │  │  Audio/Mic │  │  Screen    │  │ Key/Mouse  │            │
+│  │  (OpenCV)  │  │  (Whisper) │  │  (WinAPI)  │  │  (hook)    │            │
+│  └─────┬──────┘  └─────┬──────┘  └─────┬──────┘  └─────┬──────┘            │
+│        │               │               │               │                   │
+│        └───────────────┴───────────────┴───────────────┘                   │
+│                                    │                                        │
+│                         ┌──────────▼───────────┐                           │
+│                         │   PERCEPTION BUS      │                           │
+│                         │  (perception-bus.js)  │                           │
+│                         └──────────┬────────────┘                           │
+└────────────────────────────────────┼────────────────────────────────────────┘
+                                     │
+┌────────────────────────────────────▼────────────────────────────────────────┐
+│  INTERPRETATION LAYER (Neural Models)                                       │
+│  ┌────────────────────┐  ┌────────────────────┐  ┌──────────────────────┐  │
+│  │ Vision Interpreter │  │  Audio Interpreter │  │ Behavioral Predictor │  │
+│  │  GPT-4o-mini       │  │  Whisper STT       │  │  Pattern matcher     │  │
+│  │  (face+scene desc) │  │  + intent extract  │  │  (action log)        │  │
+│  └─────────┬──────────┘  └────────┬───────────┘  └──────────┬───────────┘  │
+└────────────┼───────────────────────┼──────────────────────────┼─────────────┘
+             │                       │                          │
+┌────────────▼───────────────────────▼──────────────────────────▼─────────────┐
+│  SYNTHESIS LAYER (Goal-Directed Planning)                                   │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                     AGENT LOOP (ReAct → OODA)                       │   │
+│  │  Workspace Goals (DB) → Plan → Tool Calls → Reflect → Update Goals │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌───────────────────────────┐ │
+│  │  Voice Assistant │  │  NL Macro Compiler│  │  Vision-Action Predictor  │ │
+│  │  (STT→intent→TTS)│  │  (English→skill) │  │  (preemptive execution)   │ │
+│  └──────────────────┘  └──────────────────┘  └───────────────────────────┘ │
+└────────────────────────────────────┬────────────────────────────────────────┘
+                                     │
+┌────────────────────────────────────▼────────────────────────────────────────┐
+│  OUTPUT LAYER (Action Tools)                                                │
+│  shell_run · fs_write · uia_invoke · input_tap · browser_* · screen_relay  │
+│  clipboard_write · process_kill · find_and_click_visual · skill_run        │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+> Note: the loop is being upgraded from ReAct to an explicit
+> **Observe → Orient → Goal → Plan → Action** loop — see
+> [`OBSERVE-ORIENT-GOAL-PLAN-ACTION.md`](OBSERVE-ORIENT-GOAL-PLAN-ACTION.md).
 
 ---
 
@@ -107,39 +171,126 @@ Goal: continuous improvement and community.
 | Task | Location | Acceptance |
 |---|---|---|
 | Eval harness fixtures: 20+ recorded scenarios with success criteria | `simple-addon/server/automation/eval/scenarios/` | `npm run eval` reports pass rate |
-| Telemetry-driven prompt tuning: weekly aggregate "tools that fail most" → suggest prompt tweak | new `backend/services/agentTelemetry.js` + dashboard | Visible failure-cause histogram |
-| Local-model tool-use path: integrate Ollama (llama3.1 or Qwen2.5) for offline/private tasks | `simple-addon/server/llm-service.js`, `simple-addon/python-manager.js` | `model=local` flag works end-to-end with tool calls |
-| Skill marketplace: public workspace items (kind=skill, visibility=public) shareable via link | `backend/controllers/workspaceController.js` (visibility column), `frontend/src/components/SimpleAddon/SkillMarketplace.jsx` | User can import another user's published skill |
-| Long-term memory promotion: action log → distilled `memory` items on a schedule | `backend/services/workspaceContext.js`, new `backend/services/memoryDistiller.js` | Old logs roll up into a memory note weekly |
-| Cross-device handoff: a goal started on PC A can be picked up on PC B with same workspace | already DB-backed; needs lock/lease | `agent_lease` field prevents two PCs from running same goal |
 
 ---
 
-## 3. Immediate next 5 actions (pick first)
+## 3. Future capability plans
 
-If you want to move today, these are the highest-leverage starting points:
+Longer-horizon capabilities (formerly the "Phase 6–10" of the absorbed
+`AUTONOMOUS_WINDOWS_AGENT_PLAN.md`). These overlap with §1 gaps; the
+Observe→Orient→Goal→Plan→Action plan owns the current loop work.
 
-1. **Add structured telemetry endpoint + addon emitter.** Tiny change, unlocks every later phase.
-2. **`uia_snapshot` tool.** Drops vision token cost ~10x for most desktop apps. ~1 day.
-3. **Eval harness skeleton.** Even one scripted scenario gives you a regression net before changes land.
-4. **DPAPI for cloud token.** Removes the single biggest security wart.
-5. **Playwright `browser_*` tool family (read-only first: open, screenshot, eval).** Opens up the web half of the world.
+### 3.1 Audio / voice pipeline
+
+**Goal**: mic input → Whisper STT → intent → goal creation → TTS response.
+
+Files:
+- `simple-addon/scripts/voice_pipeline.py` — Python subprocess: record audio, run Whisper, detect wakeword, return transcript JSON
+- `simple-addon/server/audio-stream-manager.js` — Node.js manager: spawn/restart voice_pipeline.py, emit events (transcript-ready, wakeword, audio-level)
+- `simple-addon/server/automation/tools/audio.js` — agent tool: `audio_transcribe` (last N seconds), `audio_listen` (blocking, with timeout)
+- Updated `requirements.txt`: add `openai-whisper`, `sounddevice`, `pyttsx3`
+- Endpoints: `POST /api/voice/listen`, `POST /api/voice/speak`, `GET /api/voice/status`
+
+Voice assistant flow:
+1. Background: continuous audio level monitoring (VAD — voice activity detection)
+2. On wakeword "hey simple" OR button press → start recording
+3. Silence detection (>800ms) → send to Whisper
+4. Intent extraction → create/update goal OR answer question directly
+5. TTS response via pyttsx3
+
+### 3.2 Natural Language Macro Compiler
+
+**Goal**: "mine stone in minecraft until I press escape" → structured skill steps.
+
+Files:
+- `simple-addon/server/automation/nl-compiler.js` — LLM-based compiler
+  - Parses English instruction into typed step array
+  - Supported step types: `key_tap`, `key_hold`, `type_text`, `wait_ms`, `click_coords`, `loop_until_key`, `loop_N_times`, `condition_check`, `skill_run`, `screenshot_ocr_check`
+  - Validates output; rejects unsafe patterns
+  - Supports "until I press <key>" → `loop_until_key` terminator
+- Endpoint: `POST /api/skill/compile-natural`
+- Frontend update: NL macro textarea in `ShortcutsManager.jsx`
+
+### 3.3 Continuous perception bus
+
+**Goal**: unified event stream from all input sources, fed into agent context.
+
+Files:
+- `simple-addon/server/automation/perception-bus.js` — EventEmitter:
+  - Sources: screen (configurable interval), audio (transcript stream), eye gaze (from eye-tracking-manager IPC), UIA (foreground window changes), keyboard patterns (from action log tail)
+  - Emits `frame` events with unified snapshot `{ts, screen, audio, gaze, foregroundWindow, recentActions}`
+  - Rolling history: last 20 frames
+  - `getLatestFrame()` — agent context integration
+  - `subscribe(fn)` / `unsubscribe(fn)`
+- Updated `agent-loop.js`: inject `perceptionBus.getLatestFrame()` into system prompt
+- Endpoint: `GET /api/perception/status`, `GET /api/perception/frame`
+
+Webcam capture tool (extends eye tracker's Python process):
+- `simple-addon/server/automation/tools/webcam.js` — `webcam_capture`: capture a frame from the webcam (not eye tracker), return base64 JPEG, optionally run face/scene description via multimodal LLM
+
+### 3.4 Behavioral predictor
+
+**Goal**: observe action patterns → predict + preemptively execute safe next steps.
+
+Files:
+- `simple-addon/server/automation/predictor.js`:
+  - Reads last 50 actions from workspace action log
+  - Builds n-gram model over (tool, args_fingerprint) sequences
+  - Predicts next action with probability
+  - Safe-read actions (screen_capture, uia_snapshot, fs_read) can execute speculatively
+  - Emits `prediction` event on perception bus
+- Endpoint: `GET /api/agent/predictions`
+- Frontend: show predicted next action in Live Panel with "Run Now" / "Ignore" buttons
+
+### 3.5 Frontend integration
+
+**Goal**: expose all new capabilities in the web UI.
+
+Files:
+- `ShortcutsManager.jsx`: add NL macro textarea with "Compile" button
+- `AgentLivePanel.jsx`: add perception bus status, voice waveform, predictions panel
+- `SimpleChat.jsx`: voice input button (hold-to-talk or wakeword toggle)
+- `simpleAddonApi.js`: new helpers for voice, NL compiler, perception, predictor
 
 ---
 
-## 4. Open architectural questions
+## 4. Data Model (DynamoDB Workspace)
 
-- **Where should skill recordings live?** Local-first (in `%APPDATA%/simple-addon/recordings/`) with opt-in cloud sync vs. cloud-first via workspace API. Recommend local-first; user explicitly publishes a compiled skill.
-- **Approval UX when offline:** if push approval fails, should the agent (a) wait, (b) downgrade to dry-run, (c) abort? Make policy per-user in `permissions.js`.
-- **Tool sandbox escalation:** today `shell.js` runs as the user. For truly destructive tasks consider running tools inside a Hyper-V Sandbox / Windows Sandbox container and bridging UIA back out.
-- **Determinism vs. learning:** when a saved skill drifts, how aggressive should the LLM repair be? Recommend "repair-once then ask user".
+```
+Kind        Slug pattern              Purpose
+─────────── ──────────────────────── ──────────────────────────────────────────
+goal        <user-slug>              Active goal with priority, status, criteria
+action      log-<YYYY-MM-DD>         JSONL ring buffer (200KB) — tool audit log
+skill       <macro-slug>             Recorded or NL-compiled macro steps JSON
+memory      user_profile             Long-term user memory (injected into context)
+memory      behavioral-patterns      Predictor n-gram cache (updated daily)
+decision    <ISO-date>-<slug>        Reflection summaries from agent loop
+project     triggers                 Trigger engine config (cron/file/hotkey)
+project     voice-config             Wakeword, mic index, Whisper model size
+log         <YYYY-MM-DD>             Audit log for all workspace mutations
+```
 
 ---
 
-## 5. References & inspiration
+## 5. Safety & Privacy Controls
 
-- OpenAdapt (MLDSAI) — demonstration-based desktop automation
-- Anthropic Claude Computer Use — vision + tool-use loop
-- Microsoft UI Automation docs — `System.Windows.Automation`
-- Playwright Node API — browser tool layer
-- OS Atlas / SeeClick — UI grounding research for set-of-marks
+| Concern | Mitigation |
+|---------|-----------|
+| Continuous audio recording | Default OFF; user opt-in per session; no cloud upload |
+| Webcam capture | Default OFF; per-goal consent; frames never stored |
+| Keyboard capture | Sensitive capture consent (keyboard=false default) |
+| Shell commands | Deny-list enforced; destructive commands need approval |
+| Prediction preemptive actions | Only safe-read tools; all writes still gated by permission |
+| Data retention | Audio buffer: max 30s rolling; frames: max 20 in RAM; never persisted |
+| Kill switch | Emergency stop clears all buffers, stops all subprocesses |
+
+> For the full threat model, permissions matrix, and trust boundaries, see
+> [`AUTOMATION_SECURITY.md`](AUTOMATION_SECURITY.md).
+
+---
+
+## Related docs
+
+- [`simple-agent-prompt.md`](simple-agent-prompt.md) — the platform brief (vision, marketplace, skill generalization, monetization).
+- [`OBSERVE-ORIENT-GOAL-PLAN-ACTION.md`](OBSERVE-ORIENT-GOAL-PLAN-ACTION.md) — the current agent-loop implementation plan.
+- [`AUTOMATION_SECURITY.md`](AUTOMATION_SECURITY.md) — threat model & security notes.
