@@ -529,6 +529,11 @@ function newLoop(overrides = {}) {
             { tool: 'toolA', args: { a: 1 } },
             { tool: 'text_type', args: {} },
         ]);
+        // stepLog mirrors the executed sequence for the /plans step feed.
+        assert.strictEqual(loop.state.stepLog.length, 2, 'stepLog records each tool');
+        assert.strictEqual(loop.state.stepLog[0].tool, 'toolA');
+        assert.deepStrictEqual(loop.state.stepLog[1].args, {}, 'PII args stripped from stepLog');
+        assert.ok(Array.isArray(loop.status().stepLog), 'status() exposes stepLog');
     });
 
     test('_buildSkillDraft returns null with fewer than 2 steps', () => {

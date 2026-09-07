@@ -14,7 +14,7 @@ const { logger } = require('../utils/logger');
 // Whitelisted agent-state keys we accept from the mirror endpoint so a client
 // (or the desktop addon) can record run results onto a goal without being able
 // to clobber unrelated goal fields.
-const AGENT_STATE_KEYS = ['status', 'summary', 'result', 'steps', 'updatedAt', 'source', 'error', 'history'];
+const AGENT_STATE_KEYS = ['status', 'summary', 'result', 'steps', 'plan', 'updatedAt', 'source', 'error', 'history'];
 
 // @desc    Start an LLM agent run on a goal
 // @route   POST /api/data/goal-agent/start

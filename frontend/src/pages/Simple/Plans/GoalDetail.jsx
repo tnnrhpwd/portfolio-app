@@ -156,9 +156,28 @@ function GoalDetail() {
   // Mirror a desktop-addon run result back onto this goal so the /plans page
   // stays the single source of truth for agent progress.
   const mirrorAgentResult = async (res) => {
+    const ts = new Date().toISOString();
     const steps = [];
-    if (res.result) steps.push({ kind: 'result', text: String(res.result).slice(0, 1000), ts: new Date().toISOString() });
-    if (!res.result && res.reason) steps.push({ kind: 'error', text: `Stopped: ${res.reason}`, ts: new Date().toISOString() });
+    const plan = [];
+    // Rebuild the full step feed from the addon's executed tool sequence so the
+    // /plans page shows what the agent did, not just the final answer.
+    for (const s of res.stepLog || []) {
+      const label = String(s.tool || 'step');
+      plan.push(label);
+      steps.push({
+        kind: s.ok === false ? 'error' : 'tool',
+        text: s.ok === false ? `${label} failed` : label,
+        ts,
+        meta: { tool: s.tool, args: s.args || {}, ok: s.ok },
+      });
+      if (s.result) {
+        steps.push({ kind: 'tool-result', text: String(s.result).slice(0, 1000), ts, meta: { tool: s.tool } });
+      }
+    }
+    if (res.result) steps.push({ kind: 'result', text: String(res.result).slice(0, 1000), ts });
+    if (!res.result && res.reason && steps.length === 0) {
+      steps.push({ kind: 'error', text: `Stopped: ${res.reason}`, ts });
+    }
     const mappedStatus = res.status === 'done' ? 'done'
       : (res.status === 'timeout' || res.status === 'stopped' ? 'stopped' : 'failed');
     const agentState = {
@@ -166,6 +185,7 @@ function GoalDetail() {
       summary: res.result || res.reason || '',
       result: res.result || '',
       steps,
+      plan,
       source: 'addon',
     };
     try {
@@ -342,9 +362,14 @@ function GoalDetail() {
               </section>
 
               {/* Summary + result */}
-              {(agent?.summary || agent?.result) && (
+              {(agent?.summary || agent?.result || (agent?.plan?.length > 0)) && (
                 <section className="goal-detail-summary">
                   {agent.summary && <p className="goal-detail-summary-text">{agent.summary}</p>}
+                  {agent.plan?.length > 0 && (
+                    <ol className="goal-detail-plan">
+                      {agent.plan.map((p, i) => <li key={`${p}-${i}`}>{p}</li>)}
+                    </ol>
+                  )}
                   {agent.result && (
                     <pre className="goal-detail-result">{agent.result}</pre>
                   )}

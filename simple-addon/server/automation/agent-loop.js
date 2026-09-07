@@ -237,6 +237,7 @@ class AgentLoop {
             lastMetaStep: 0,
             lastMeta: null,
             runSteps: [],
+            stepLog: [],
             lastSkillDraft: null,
             finalAnswer: null,
             stepsSinceReeval: 0,
@@ -629,6 +630,14 @@ class AgentLoop {
             });
             this.log(`[agent] step ${this.state.step} tool=${tc.function.name} ok=${out.ok}`);
             outcomes.push({ name: tc.function.name, args: argsObj, out });
+            this.state.stepLog.push({
+                tool: tc.function.name,
+                args: PII_TOOLS.has(tc.function.name) ? {} : argsObj,
+                ok: !!out.ok,
+                result: out.ok
+                    ? (typeof out.result === 'string' ? out.result.slice(0, 300) : out.result)
+                    : String(out.error || '').slice(0, 300),
+            });
             if (out.ok) {
                 this.state.runSteps.push({ tool: tc.function.name, args: PII_TOOLS.has(tc.function.name) ? {} : argsObj });
             }
@@ -915,6 +924,7 @@ class AgentLoop {
             lastMetaStep: 0,
             lastMeta: null,
             runSteps: [],
+            stepLog: [],
             lastSkillDraft: null,
             finalAnswer: null,
             stepsSinceReeval: this.config.REEVAL_STEPS,
@@ -955,6 +965,7 @@ class AgentLoop {
             finalAnswer: this.state.finalAnswer || null,
             lastMeta: this.state.lastMeta || null,
             lastSkillDraft: this.state.lastSkillDraft || null,
+            stepLog: this.state.stepLog || [],
         };
     }
 

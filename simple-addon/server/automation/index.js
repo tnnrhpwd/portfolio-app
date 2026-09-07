@@ -462,6 +462,7 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
             status: done ? 'done' : (s.stopReason || 'stopped'),
             result: s.finalAnswer || null,
             steps: s.step,
+            stepLog: s.stepLog || [],
             reason: s.stopReason,
         };
     }
