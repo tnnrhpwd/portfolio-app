@@ -527,6 +527,7 @@ The remaining checklist — check items off as they land, add new gaps as found.
 - ⬜ **Account/transactional email plumbing** — verify purchase confirmation + forgot/reset-password loop with a real account.
 - ⬜ **Single installer** — consolidate "download, trust cert, configure" into one flow if feasible.
 - ⬜ **Pricing-page cleanup** — delete/rewrite dead `Simple.jsx`; fix `getPlanDisplayName` fallback; fix `Net.jsx` plan chips; update `subscriptionCancelledTemplate`; make `BillingDisclosure.jsx` cadence-aware.
+- ⬜ **Home + Pricing value messaging** — Home: the project catalog is currently repeated (curated carousel `FEATURED_PROJECTS`, the `WHATS_INSIDE` feature grid, and the "around the site" tiles all re-list projects) — de-duplicate so the page doesn't repeat itself, and add an above-the-fold personal CTA ("What I can do for you") that links to `/pricing`. Pricing: lead with benefit copy that explains what Simple *does* for the visitor (the outcome, not the price) before presenting the plan cards. Files: `frontend/src/pages/Home/Home.jsx`, `frontend/src/pages/Pricing/Pricing.jsx`.
 
 ---
 
