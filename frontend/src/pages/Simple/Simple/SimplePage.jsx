@@ -1,11 +1,14 @@
 import { Link } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import Header from '../../../components/Header/Header.jsx';
 import Footer from '../../../components/Footer/Footer.jsx';
 import SEO from '../../../components/SEO/SEO.jsx';
 import SimpleDashboard from './SimpleDashboard';
+import LoginGate from '../../../components/Simple/LoginGate/LoginGate.jsx';
 import './SimplePage.css';
 
 function SimplePage() {
+  const { user } = useSelector((state) => state.data);
   return (
     <>
       <SEO
@@ -37,7 +40,7 @@ function SimplePage() {
         </section>
 
         {/* Live mission control — active goals, macros, agent + mini chat */}
-        <SimpleDashboard />
+        {user ? <SimpleDashboard /> : <LoginGate redirectTo="/simple" />}
       </div>
 
       <Footer />

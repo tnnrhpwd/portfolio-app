@@ -1,9 +1,9 @@
 import React, { useEffect, useCallback, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
 import { compressData, getLLMProviders, getMembershipPricing, resetDataSlice } from '../../../features/data/dataSlice.js';
 import dataService from '../../../features/data/dataService.js';
 import SimpleChat from '../../../components/SimpleAddon/SimpleChat.jsx';
+import LoginGate from '../../../components/Simple/LoginGate/LoginGate.jsx';
 import { useAddonDetection } from '../../../hooks/simpleAddon/useAddonDetection.js';
 import { DEFAULT_CLOUD_MODEL_ID } from '../../../utils/llmProviderOptions.js';
 import './Net.css';
@@ -12,7 +12,6 @@ import Footer from '../../../components/Footer/Footer.jsx';
 
 function Net() {
   const dispatch = useDispatch();
-  const navigate = useNavigate();
   const { user, data, dataIsLoading, dataIsSuccess, dataIsError, dataMessage, operation, llmProviders, membershipPricing } = useSelector(
     (state) => state.data
   );
@@ -155,39 +154,12 @@ function Net() {
 
         <div className="net-hero-section">
           {!user ? (
-            <div className="net-login-prompt">
-              <div className="net-login-card">
-                <h2 className="net-login-title">◻ Net AI Chat</h2>
-                <p className="net-login-subtitle">Your AI-powered assistant for automation, coding, and more.</p>
-                {membershipPricing?.success && membershipPricing?.data?.length > 0 && (
-                  <div className="net-login-plans">
-                    {membershipPricing.data.map((plan) => (
-                      <div key={plan.id} className={`net-plan-chip ${plan.id === 'pro' ? 'net-plan-chip--featured' : ''}`}>
-                        <span className="net-plan-chip__name">{plan.name}</span>
-                        <span className="net-plan-chip__price">
-                          {plan.price === 0 ? 'Free' : `$${(plan.price / 100).toFixed(0)}/mo`}
-                        </span>
-                        {plan.quota?.calls && (
-                          <span className="net-plan-chip__quota">{plan.quota.calls}</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div className="net-login-actions">
-                  <button className="net-login-btn net-login-btn--primary" onClick={() => navigate('/login', { state: { redirectTo: '/net' } })}>
-                    Log In
-                  </button>
-                  <button className="net-login-btn net-login-btn--secondary" onClick={() => navigate('/register', { state: { redirectTo: '/net' } })}>
-                    Sign Up
-                  </button>
-                </div>
-                <div className="net-login-links">
-                  <a className="net-login-link" href="/pricing">View all plans →</a>
-                  <a className="net-login-link" href="/simple">Learn how Simple works →</a>
-                </div>
-              </div>
-            </div>
+            <LoginGate
+              redirectTo="/net"
+              eyebrow="Net AI Chat"
+              title="Sign in to Net AI Chat"
+              subtitle="Your AI-powered assistant for automation, coding, and more."
+            />
           ) : (
           <SimpleChat
             addonStatus={addonStatus}

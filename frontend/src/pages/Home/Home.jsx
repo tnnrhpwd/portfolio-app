@@ -9,6 +9,7 @@ import dataService from '../../features/data/dataService.js';
 import useScrollReveal from '../../hooks/useScrollReveal.js';
 import { PROJECTS } from '../../constants/projects';
 import { fetchProjectRankings } from '../../services/projectRankingsApi';
+import { ADDON_DOWNLOAD_URL } from '../../hooks/simpleAddon/useAddonDetection.js';
 
 import artHero from '../../assets/art/hero.jpg';
 import artFluid from '../../assets/art/project-fluid.jpg';
@@ -42,16 +43,15 @@ const FEATURED_PROJECTS = [
 const WHATS_INSIDE = [
   { art: artGames, title: "Games & puzzles", desc: "2048, Wordle, IQ Test, and more to pass the time.", path: "/projects?category=Games" },
   { art: artEngineering, title: "Engineering tools", desc: "Annuities, fluid, and other calculators built for engineers.", path: "/projects" },
-  { art: artNet, title: "Net AI Chat", desc: "Your AI-powered assistant for automation, coding, and more.", path: "/net" },
   { art: artSurprises, title: "Little surprises", desc: "Virtual pets, Hype, and other fun experiments.", path: "/projects?category=Fun" },
 ];
 
-// Numbered "getting started" steps.
+// Numbered "getting started" steps, focused on the Simple chat + addon.
 const STEPS = [
-  { num: "01", title: "Browse the playground", desc: "Pick a tool or game that catches your eye.", path: "/projects" },
-  { num: "02", title: "Jump right in", desc: "Most things work instantly — no account needed.", path: "/projects" },
-  { num: "03", title: "Create an account", desc: "Save progress, track goals, and unlock member tools.", path: "/register" },
-  { num: "04", title: "Say hello", desc: "Questions, ideas, or bugs? Drop a line anytime.", path: "/support?tab=contact" },
+  { num: "01", title: "Chat with Simple", desc: "Describe the task in plain English and Simple plans the steps.", path: "/net" },
+  { num: "02", title: "Download the addon", desc: "A portable Windows app — run it and it lives in your tray.", href: ADDON_DOWNLOAD_URL },
+  { num: "03", title: "Show it once", desc: "Record a short task and it becomes a reusable skill.", path: "/simple" },
+  { num: "04", title: "Ask for it back", desc: "Say it in English later and the addon repeats the steps.", path: "/pricing" },
 ];
 
 // Counts from 0 to `target` the first time the element scrolls into view, then
@@ -395,46 +395,33 @@ function Home() {
                     </div>
                 </section>
 
-                {/* ── Featured projects (horizontal carousel) ── */}
-                <section ref={templatesRef} className={`home-band home-band--tint home-projects home-reveal ${templatesVisible ? 'is-visible' : ''}`}>
-                    <div className="home-wrap">
-                        <div className="home-section-head">
-                            <p className="home-eyebrow">The playground</p>
-                            <h2 className="home-heading">Start with a tool you'll love</h2>
-                            <p className="home-lead">Pick a project, open it, and start playing — no downloads, no accounts.</p>
+                {/* ── Final CTA + getting started ── */}
+                <section ref={ctaRef} className={`home-band home-cta home-reveal ${ctaVisible ? 'is-visible' : ''}`}>
+                    <div className="home-wrap home-cta-inner">
+                        <p className="home-eyebrow home-eyebrow--inv">Simple</p>
+                        <h2 className="home-cta-title">How I can help you</h2>
+                        <p className="home-cta-sub">Describe a task in chat and the Simple addon runs it on your Windows PC — record it once, repeat it forever.</p>
+                        <div className="home-actions">
+                            <Link className="home-btn home-btn--inv" to="/net">Chat with Simple <span aria-hidden="true">→</span></Link>
+                            <a className="home-btn home-btn--ghost" href={ADDON_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer">Download the addon</a>
                         </div>
-                        <div className="home-templates-row" ref={templatesRowRef} role="list" aria-label="Featured projects">
-                            {featuredProjects.map((project) => (
-                                <Link key={project.path} to={project.path} className="home-template-card" role="listitem">
-                                    <img className="home-template-media" src={project.art} alt="" loading="lazy" aria-hidden="true" />
-                                    <span className="home-template-body">
-                                        <span className="home-template-cat">{project.category}</span>
-                                        <span className="home-template-name">
-                                            {project.name}
-                                            <span className="home-template-arrow" aria-hidden="true">→</span>
-                                        </span>
-                                        <span className="home-template-desc">{project.description}</span>
-                                    </span>
-                                </Link>
+                        <ol className="home-steps home-steps--inverse">
+                            {STEPS.map((step) => (
+                                <li className="home-step" key={step.num}>
+                                    <span className="home-step-num" aria-hidden="true">{step.num}</span>
+                                    <div className="home-step-body">
+                                        <h3 className="home-step-title">
+                                            {step.href ? (
+                                                <a href={step.href} target="_blank" rel="noopener noreferrer">{step.title} <span aria-hidden="true">→</span></a>
+                                            ) : (
+                                                <Link to={step.path}>{step.title} <span aria-hidden="true">→</span></Link>
+                                            )}
+                                        </h3>
+                                        <p className="home-step-desc">{step.desc}</p>
+                                    </div>
+                                </li>
                             ))}
-                        </div>
-                        <div className="home-carousel-nav">
-                            <button type="button" className="home-carousel-arrow" onClick={() => stepCarousel(-1)} aria-label="Previous project">←</button>
-                            <div className="home-dots" role="tablist" aria-label="Featured project pages">
-                                {featuredProjects.map((project, i) => (
-                                    <button
-                                        key={project.path}
-                                        type="button"
-                                        role="tab"
-                                        aria-selected={i === activeIndex}
-                                        aria-label={`Go to ${project.name}`}
-                                        className={`home-dot ${i === activeIndex ? 'is-active' : ''}`}
-                                        onClick={() => scrollToCard(i)}
-                                    />
-                                ))}
-                            </div>
-                            <button type="button" className="home-carousel-arrow" onClick={() => stepCarousel(1)} aria-label="Next project">→</button>
-                        </div>
+                        </ol>
                     </div>
                 </section>
                 
@@ -491,29 +478,46 @@ function Home() {
                     </div>
                 </section>
 
-                {/* ── Final CTA + getting started ── */}
-                <section ref={ctaRef} className={`home-band home-cta home-reveal ${ctaVisible ? 'is-visible' : ''}`}>
-                    <div className="home-wrap home-cta-inner">
-                        <p className="home-eyebrow home-eyebrow--inv">No credit card required</p>
-                        <h2 className="home-cta-title">Ready to explore?</h2>
-                        <p className="home-cta-sub">Jump in and start building something fun.</p>
-                        <div className="home-actions">
-                            <Link className="home-btn home-btn--inv" to="/projects">Start exploring <span aria-hidden="true">→</span></Link>
-                            <Link className="home-btn home-btn--ghost" to="/support?tab=contact">Get in touch</Link>
+                {/* ── Featured projects (horizontal carousel) ── */}
+                <section ref={templatesRef} className={`home-band home-band--tint home-projects home-reveal ${templatesVisible ? 'is-visible' : ''}`}>
+                    <div className="home-wrap">
+                        <div className="home-section-head">
+                            <p className="home-eyebrow">The playground</p>
+                            <h2 className="home-heading">Start with a tool you'll love</h2>
+                            <p className="home-lead">Pick a project, open it, and start playing — no downloads, no accounts.</p>
                         </div>
-                        <ol className="home-steps home-steps--inverse">
-                            {STEPS.map((step) => (
-                                <li className="home-step" key={step.num}>
-                                    <span className="home-step-num" aria-hidden="true">{step.num}</span>
-                                    <div className="home-step-body">
-                                        <h3 className="home-step-title">
-                                            <Link to={step.path}>{step.title} <span aria-hidden="true">→</span></Link>
-                                        </h3>
-                                        <p className="home-step-desc">{step.desc}</p>
-                                    </div>
-                                </li>
+                        <div className="home-templates-row" ref={templatesRowRef} role="list" aria-label="Featured projects">
+                            {featuredProjects.map((project) => (
+                                <Link key={project.path} to={project.path} className="home-template-card" role="listitem">
+                                    <img className="home-template-media" src={project.art} alt="" loading="lazy" aria-hidden="true" />
+                                    <span className="home-template-body">
+                                        <span className="home-template-cat">{project.category}</span>
+                                        <span className="home-template-name">
+                                            {project.name}
+                                            <span className="home-template-arrow" aria-hidden="true">→</span>
+                                        </span>
+                                        <span className="home-template-desc">{project.description}</span>
+                                    </span>
+                                </Link>
                             ))}
-                        </ol>
+                        </div>
+                        <div className="home-carousel-nav">
+                            <button type="button" className="home-carousel-arrow" onClick={() => stepCarousel(-1)} aria-label="Previous project">←</button>
+                            <div className="home-dots" role="tablist" aria-label="Featured project pages">
+                                {featuredProjects.map((project, i) => (
+                                    <button
+                                        key={project.path}
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={i === activeIndex}
+                                        aria-label={`Go to ${project.name}`}
+                                        className={`home-dot ${i === activeIndex ? 'is-active' : ''}`}
+                                        onClick={() => scrollToCard(i)}
+                                    />
+                                ))}
+                            </div>
+                            <button type="button" className="home-carousel-arrow" onClick={() => stepCarousel(1)} aria-label="Next project">→</button>
+                        </div>
                     </div>
                 </section>
 

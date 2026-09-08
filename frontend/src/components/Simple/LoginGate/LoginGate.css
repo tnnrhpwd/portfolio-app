@@ -1,0 +1,112 @@
+/* ── LoginGate — shared auth card (docs/guides/FRONTEND_UI_STANDARD.md) ── */
+
+.login-gate {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(var(--nav-size) * 0.5);
+  font-family: var(--font-family-base);
+  color: var(--text-color);
+}
+
+.login-gate-card {
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+  background: var(--bg-1);
+  border: 1px solid var(--border-nav);
+  border-radius: var(--border-radius-xl);
+  box-shadow: var(--shadow-lg);
+  padding: calc(var(--nav-size) * 0.6) calc(var(--nav-size) * 0.5);
+}
+
+.login-gate-eyebrow {
+  margin: 0 0 calc(var(--nav-size) * 0.2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-color-accent);
+}
+
+.login-gate-title {
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.02em;
+  line-height: var(--line-height-tight);
+  margin: 0 0 calc(var(--nav-size) * 0.15);
+  color: var(--text-color);
+}
+
+.login-gate-subtitle {
+  margin: 0 0 calc(var(--nav-size) * 0.3);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-relaxed);
+  color: var(--text-color-accent);
+}
+
+/* Free-tier reassurance */
+.login-gate-note {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.1);
+  margin: 0 0 calc(var(--nav-size) * 0.4);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-color);
+}
+
+.login-gate-note::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--fg-mint);
+  box-shadow: 0 0 8px var(--fg-mint);
+}
+
+/* Actions */
+.login-gate-actions {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.2);
+}
+
+.login-gate-btn {
+  font-family: inherit;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.55);
+  cursor: pointer;
+  border: 1px solid transparent;
+  width: 100%;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.login-gate-btn--primary {
+  color: var(--text-color-inv);
+  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+}
+
+.login-gate-btn--primary:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.login-gate-btn--secondary {
+  background: transparent;
+  color: var(--text-color);
+  border-color: var(--border-nav);
+}
+
+.login-gate-btn--secondary:hover {
+  background: var(--bg-accent);
+  box-shadow: none;
+}
