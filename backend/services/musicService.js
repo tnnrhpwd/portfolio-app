@@ -5,13 +5,14 @@
  * lyrics, and a style (genre/mood/tempo/instruments). Architecturally this is
  * the audio counterpart to `bedrockImageService.js`.
  *
- * Provider strategy (see docs/implementation/ai-music-generator.md):
- *   - "mock"  — a local, dependency-free WAV synthesizer. Used for local dev
- *               and when no external key is configured, so the /music page
- *               works end-to-end without spending money or holding keys.
- *   - "elevenlabs" / "suno" / "bedrock" — real providers (voice cloning +
- *               instrumental). These are seams for the next slice; the mock
- *               path is the only one fully wired today.
+ * Provider strategy — AWS-only (see docs/implementation/ai-music-generator.md):
+ *   - voice "mock" / "bedrock" (CAMB AI MARS6 on Bedrock) / "polly" (Amazon Polly).
+ *   - instrumental "local" (free, dependency-free WAV synth) / "sagemaker"
+ *     (open-weights music model hosted on SageMaker — future slice).
+ *
+ * There is no first-party Bedrock music-generation model today, so the only
+ * fully-shipped path is the local synthesizer. Voice providers are seams for
+ * the next slice; the mock path is the only one wired end-to-end.
  *
  * Songs are persisted as lightweight metadata records in the shared "Simple"
  * DynamoDB table (id = `music_<userId>_<songId>`), mirroring the
@@ -75,23 +76,38 @@ const LIMITS = Object.freeze({
   songsPerUser: 50,
 });
 
-// ─── Provider resolution ────────────────────────────────────────────────────
+// ─── Provider resolution (AWS-only) ─────────────────────────────────────────
 
-/** True when generation runs on the free local synth (dev / no keys). */
+function resolveProviders() {
+  const explicit = (process.env.MUSIC_VOICE_PROVIDER || '').toLowerCase();
+  let voice = 'mock';
+  if (explicit === 'bedrock') {
+    voice = 'bedrock'; // CAMB AI MARS6 (voice cloning) via Bedrock InvokeModel
+  } else if (explicit === 'polly') {
+    voice = 'polly';   // Amazon Polly neural TTS (first-party, no cloning)
+  } else if (explicit === 'elevenlabs') {
+    voice = 'elevenlabs'; // ElevenLabs voice clone + music generation
+  } else if (isElevenLabsConfigured()) {
+    voice = 'elevenlabs'; // auto-detect: ElevenLabs key present
+  } else if (isVoiceConfigured()) {
+    voice = 'bedrock';
+  }
+
+  const instrumental = (process.env.MUSIC_INSTRUMENTAL_PROVIDER || '').toLowerCase() === 'sagemaker'
+    ? 'sagemaker'
+    : 'local';
+
+  return { voice, instrumental };
+}
+
+/** True when generation runs on the free local synth (dev / no voice provider). */
 function isMockMode() {
-  return process.env.MUSIC_MOCK_MODE === 'true' || !process.env.ELEVENLABS_API_KEY;
+  return process.env.MUSIC_MOCK_MODE === 'true' || resolveProviders().voice === 'mock';
 }
 
 /** True when the server can attempt generation (mock always "works"). */
 function isMusicGenerationConfigured() {
-  return isMockMode() || Boolean(process.env.ELEVENLABS_API_KEY);
-}
-
-function resolveProviders() {
-  return {
-    vocal: process.env.MUSIC_VOCAL_PROVIDER || (process.env.ELEVENLABS_API_KEY ? 'elevenlabs' : 'mock'),
-    instrumental: process.env.MUSIC_INSTRUMENTAL_PROVIDER || 'mock',
-  };
+  return isMockMode() || ['bedrock', 'polly', 'elevenlabs'].includes(resolveProviders().voice);
 }
 
 // ─── Input normalization / validation ───────────────────────────────────────
@@ -132,13 +148,21 @@ function parseVoiceInput(voice) {
   }
 
   // 2) Inline data URL (used by the /music recorder in this first slice).
+  //    Recorders often produce MIME types with parameters (e.g. Chrome's
+  //    `audio/webm;codecs=opus`), so parse the data URL defensively instead of
+  //    matching the whole thing with a strict regex.
   if (voice.dataUrl) {
-    const match = /^data:(audio\/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=]+)$/.exec(String(voice.dataUrl));
-    if (!match) {
+    const str = String(voice.dataUrl);
+    const b64Idx = str.indexOf(';base64,');
+    const meta = b64Idx > -1 ? str.slice(5, b64Idx) : ''; // e.g. "audio/webm;codecs=opus"
+    const mimeType = meta.split(';')[0] || '';
+    if (b64Idx === -1 || !mimeType.startsWith('audio/')) {
       return { error: 'Voice sample must be an audio file (data URL).' };
     }
-    const mimeType = match[1];
-    const base64 = match[2];
+    const base64 = str.slice(b64Idx + ';base64,'.length);
+    if (!/^[A-Za-z0-9+/=]+$/.test(base64)) {
+      return { error: 'Voice sample must be an audio file (data URL).' };
+    }
     const bytes = Math.floor((base64.length * 3) / 4);
     if (bytes > LIMITS.voiceBytes) {
       return { error: `Voice sample is too large (max ${LIMITS.voiceBytes / 1024 / 1024} MB).` };
@@ -277,11 +301,342 @@ function wavBuffer(pcm) {
   return Buffer.concat([header, pcm]);
 }
 
+// ─── Bedrock voice (CAMB MARS6 / any Bedrock voice model) ───────────────────
+
+const VOICE_DEFAULT_REGION = 'us-east-1';
+
+function getVoiceModelId() {
+  return (process.env.AWS_BEDROCK_VOICE_MODEL_ID || '').trim();
+}
+
+function getVoiceRegion() {
+  return process.env.AWS_BEDROCK_VOICE_REGION || process.env.AWS_BEDROCK_REGION || VOICE_DEFAULT_REGION;
+}
+
+/** True when a Bedrock voice model id is configured (voice cloning path). */
+function isVoiceConfigured() {
+  return Boolean(getVoiceModelId());
+}
+
+/** Resolve the user's voice sample to raw base64 audio (inline or S3 key). */
+async function getVoiceAudioBase64(voice) {
+  if (voice.inline) return voice.inline.base64;
+  if (voice.key) {
+    const { getFileBuffer } = require('./s3Service');
+    return await getFileBuffer(voice.key);
+  }
+  return null;
+}
+
+/**
+ * Clone/synthesize the vocal via a Bedrock voice model (CAMB MARS6) using
+ * InvokeModel — the same low-level path the image adapter uses.
+ *
+ * Request body follows CAMB MARS6's text-to-audio contract:
+ *   { reference_audio: <base64>, text: <lyrics>, ... }
+ * Response is expected to carry the audio in `audio` / `audio_base64` /
+ * `output.audio`. ⚠️ These exact keys are provider-defined and NOT exposed by
+ * the Bedrock control plane — confirm them against the model card once the
+ * model is subscribed, then adjust below if needed.
+ */
+async function generateBedrockVoice({ voice, lyrics }) {
+  const modelId = getVoiceModelId();
+  if (!modelId) {
+    const err = new Error('No Bedrock voice model configured (set AWS_BEDROCK_VOICE_MODEL_ID).');
+    err.status = 503;
+    throw err;
+  }
+
+  const audioBase64 = await getVoiceAudioBase64(voice);
+  if (!audioBase64) {
+    const err = new Error('A voice sample is required to clone your voice.');
+    err.status = 400;
+    throw err;
+  }
+
+  const { BedrockRuntimeClient, InvokeModelCommand } = require('@aws-sdk/client-bedrock-runtime');
+  const { resolveBedrockCredentials, classifyBedrockError } = require('./bedrockService');
+
+  const { accessKeyId, secretAccessKey } = resolveBedrockCredentials();
+  const client = new BedrockRuntimeClient({
+    region: getVoiceRegion(),
+    credentials: { accessKeyId, secretAccessKey },
+  });
+
+  const body = {
+    reference_audio: audioBase64,
+    text: lyrics,
+  };
+
+  const command = new InvokeModelCommand({
+    modelId,
+    contentType: 'application/json',
+    accept: 'application/json',
+    body: JSON.stringify(body),
+  });
+
+  let response;
+  try {
+    response = await client.send(command);
+  } catch (error) {
+    throw classifyBedrockError(error);
+  }
+
+  const payload = JSON.parse(Buffer.from(response.body).toString('utf-8'));
+  const audio = payload.audio || payload.audio_base64 || payload.output?.audio || payload.audio_b64;
+  if (!audio) {
+    throw new Error('Bedrock voice model returned no audio.');
+  }
+  const mimeType = payload.mime_type || payload.content_type || 'audio/mpeg';
+  return { kind: 'vocal', mimeType, base64: audio };
+}
+
+// ─── Amazon Polly voice (first-party TTS — no cloning) ──────────────────────
+
+const POLLY_DEFAULT_REGION = 'us-east-1';
+const POLLY_MAX_TEXT_CHARS = 2800; // keep under Polly's ~3000-char text limit
+
+function getPollyRegion() {
+  return process.env.AWS_POLLY_REGION || process.env.AWS_REGION || POLLY_DEFAULT_REGION;
+}
+
+/**
+ * Synthesize a spoken vocal of the lyrics via Amazon Polly. Fully first-party
+ * AWS (no Marketplace subscription, no cloning of the user's voice). Returns a
+ * single "vocal" track. Marked `spoken: true` so callers can surface that it
+ * is narration, not singing.
+ */
+async function generatePollyVoice({ lyrics }) {
+  const { PollyClient, SynthesizeSpeechCommand } = require('@aws-sdk/client-polly');
+
+  const client = new PollyClient({
+    region: getPollyRegion(),
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    },
+  });
+
+  const text = (lyrics || '').slice(0, POLLY_MAX_TEXT_CHARS);
+  const command = new SynthesizeSpeechCommand({
+    Engine: process.env.AWS_POLLY_ENGINE || 'neural',
+    LanguageCode: process.env.AWS_POLLY_LANGUAGE_CODE || 'en-US',
+    OutputFormat: 'mp3',
+    Text: text,
+    TextType: 'text',
+    VoiceId: process.env.AWS_POLLY_VOICE_ID || 'Joanna',
+  });
+
+  const response = await client.send(command);
+  const stream = response.AudioStream;
+  if (!stream) throw new Error('Amazon Polly returned no audio stream.');
+
+  let buffer;
+  if (Buffer.isBuffer(stream)) {
+    buffer = stream;
+  } else if (stream instanceof Uint8Array) {
+    buffer = Buffer.from(stream);
+  } else if (typeof stream.transformToByteArray === 'function') {
+    buffer = Buffer.from(await stream.transformToByteArray());
+  } else {
+    const chunks = [];
+    for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+    buffer = Buffer.concat(chunks);
+  }
+
+  return {
+    kind: 'vocal',
+    mimeType: response.ContentType || 'audio/mpeg',
+    base64: buffer.toString('base64'),
+    spoken: true,
+  };
+}
+
+// ─── ElevenLabs (voice clone + music generation) ────────────────────────────
+
+const ELEVENLABS_BASE = 'https://api.elevenlabs.io/v1';
+const ELEVENLABS_MUSIC_MAX_PROMPT = 4000; // stay under the ~4100-char prompt cap
+
+function getElevenLabsKey() {
+  return (process.env.ELEVENLABS_API_KEY || '').trim();
+}
+
+/** True when an ElevenLabs API key is configured. */
+function isElevenLabsConfigured() {
+  return Boolean(getElevenLabsKey());
+}
+
+const ELEVENLABS_MIME_EXT = {
+  'audio/webm': 'webm',
+  'audio/mp4': 'm4a',
+  'audio/mpeg': 'mp3',
+  'audio/mp3': 'mp3',
+  'audio/wav': 'wav',
+  'audio/x-wav': 'wav',
+  'audio/ogg': 'ogg',
+};
+
+/** Best-effort parse of ElevenLabs JSON error bodies into a readable string. */
+async function elevenLabsError(res, fallback) {
+  try {
+    const text = await res.text();
+    const parsed = JSON.parse(text);
+    const detail = parsed.detail || parsed.message || parsed.error;
+    if (typeof detail === 'string') return detail;
+    if (detail && detail.message) return detail.message;
+    return `${fallback} (${res.status}): ${text.slice(0, 160)}`;
+  } catch {
+    return `${fallback} (${res.status})`;
+  }
+}
+
+/**
+ * Instant Voice Cloning — POST /v1/voices/add with the user's audio sample.
+ * Returns the new voice_id.
+ */
+async function cloneElevenLabsVoice({ voice }) {
+  const apiKey = getElevenLabsKey();
+  if (!apiKey) {
+    const err = new Error('No ElevenLabs API key configured (set ELEVENLABS_API_KEY).');
+    err.status = 503;
+    throw err;
+  }
+
+  const audioBase64 = await getVoiceAudioBase64(voice);
+  if (!audioBase64) {
+    const err = new Error('A voice sample is required to clone your voice.');
+    err.status = 400;
+    throw err;
+  }
+
+  const mimeType = voice.inline?.mimeType || 'audio/webm';
+  const ext = ELEVENLABS_MIME_EXT[mimeType] || 'webm';
+  const form = new FormData();
+  form.append('name', 'Music user voice');
+  form.append('files', new Blob([Buffer.from(audioBase64, 'base64')], { type: mimeType }), `voice.${ext}`);
+
+  const res = await fetch(`${ELEVENLABS_BASE}/voices/add`, {
+    method: 'POST',
+    headers: { 'xi-api-key': apiKey },
+    body: form,
+  });
+  if (!res.ok) {
+    const err = new Error(await elevenLabsError(res, 'ElevenLabs voice cloning failed'));
+    err.status = res.status >= 400 && res.status < 500 ? res.status : 502;
+    throw err;
+  }
+  const json = await res.json().catch(() => ({}));
+  if (!json.voice_id) throw new Error('ElevenLabs voice cloning returned no voice_id.');
+  return json.voice_id;
+}
+
+/**
+ * Text-to-speech with a cloned voice — POST /v1/text-to-speech/{voice_id}.
+ * Returns a spoken vocal track (this is the "your voice" artifact).
+ */
+async function elevenLabsTts({ voiceId, text }) {
+  const apiKey = getElevenLabsKey();
+  const res = await fetch(`${ELEVENLABS_BASE}/text-to-speech/${voiceId}`, {
+    method: 'POST',
+    headers: { 'xi-api-key': apiKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      text,
+      model_id: process.env.ELEVENLABS_TTS_MODEL_ID || 'eleven_multilingual_v2',
+      output_format: 'mp3_44100_128',
+    }),
+  });
+  if (!res.ok) {
+    const err = new Error(await elevenLabsError(res, 'ElevenLabs text-to-speech failed'));
+    err.status = res.status >= 400 && res.status < 500 ? res.status : 502;
+    throw err;
+  }
+  const buffer = Buffer.from(await res.arrayBuffer());
+  return {
+    kind: 'vocal',
+    mimeType: res.headers.get('content-type') || 'audio/mpeg',
+    base64: buffer.toString('base64'),
+    spoken: true,
+  };
+}
+
+/** Build an Eleven Music text prompt from lyrics + style (≤ prompt cap). */
+function buildElevenLabsMusicPrompt({ lyrics, style }) {
+  const styleBits = [
+    `a ${style.mood} ${style.genre} song`,
+    `at a ${style.tempo} tempo`,
+    style.instruments.length ? `featuring ${style.instruments.join(', ')}` : '',
+    style.reference ? `in the style of ${style.reference}` : '',
+  ].filter(Boolean);
+  const prompt = `${styleBits.join(', ')}. Lyrics: ${lyrics}`;
+  return prompt.slice(0, ELEVENLABS_MUSIC_MAX_PROMPT);
+}
+
+/**
+ * Eleven Music — POST /v1/music. Generates a full, produced song from the
+ * prompt (lyrics + style). The vocals are Eleven's own AI voice; your cloned
+ * voice is surfaced separately via text-to-speech (see elevenLabsTts).
+ */
+async function generateElevenLabsMusic({ lyrics, style }) {
+  const apiKey = getElevenLabsKey();
+  const body = {
+    prompt: buildElevenLabsMusicPrompt({ lyrics, style }),
+    musicLengthMs: parseInt(process.env.ELEVENLABS_MUSIC_LENGTH_MS || '30000', 10),
+    modelId: process.env.ELEVENLABS_MUSIC_MODEL_ID || 'music_v2',
+    output_format: 'auto',
+  };
+
+  const res = await fetch(`${ELEVENLABS_BASE}/music`, {
+    method: 'POST',
+    headers: { 'xi-api-key': apiKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = new Error(await elevenLabsError(res, 'ElevenLabs music generation failed'));
+    err.status = res.status >= 400 && res.status < 500 ? res.status : 502;
+    throw err;
+  }
+  const buffer = Buffer.from(await res.arrayBuffer());
+  return {
+    kind: 'master',
+    mimeType: res.headers.get('content-type') || 'audio/mpeg',
+    base64: buffer.toString('base64'),
+  };
+}
+
+/**
+ * ElevenLabs flow: clone the voice, speak the lyrics with it (best effort),
+ * and generate a produced song via Eleven Music. Returns { tracks, voiceId }.
+ */
+async function generateElevenLabsSong({ voice, lyrics, style }) {
+  if (!isElevenLabsConfigured()) {
+    const err = new Error('ElevenLabs is not configured on the server (set ELEVENLABS_API_KEY).');
+    err.status = 503;
+    throw err;
+  }
+
+  const tracks = [];
+  let voiceId = null;
+
+  // 1) Voice clone + spoken vocal — the "in your voice" artifact (best effort).
+  try {
+    voiceId = await cloneElevenLabsVoice({ voice });
+    tracks.push(await elevenLabsTts({ voiceId, text: lyrics }));
+  } catch (err) {
+    logger.warn('[music] ElevenLabs voice clone/TTS failed (continuing with music only):', err.message);
+  }
+
+  // 2) Music generation — required; this is the primary deliverable.
+  const music = await generateElevenLabsMusic({ lyrics, style });
+  tracks.unshift(music);
+
+  return { tracks, voiceId };
+}
+
 // ─── Generation ─────────────────────────────────────────────────────────────
 
 /**
  * Generate a song. Returns:
- *   { songId, title, style, provider:{vocal,instrumental}, mock, voiceCloned,
+ *   { songId, title, style, provider:{voice,instrumental}, mock, voiceCloned,
  *     durationMs, tracks:[{kind,mimeType,base64}], note? }
  * Throws an Error with `.status` set for HTTP mapping.
  */
@@ -294,10 +649,19 @@ async function generateSong({ title, lyrics, style, voice } = {}) {
 
   const providers = resolveProviders();
 
-  // Mock: synthesize a real, playable WAV locally — no external keys needed.
-  if (providers.vocal === 'mock' && providers.instrumental === 'mock') {
+  // Local instrumental backing track (used by both the mock and bedrock paths).
+  const makeInstrumental = () => {
     const { events, durationSec } = buildEvents(style);
     const wav = wavBuffer(synthPcm(events, durationSec));
+    return {
+      durationSec,
+      track: { kind: 'instrumental', mimeType: 'audio/wav', base64: wav.toString('base64') },
+    };
+  };
+
+  // Mock: synthesize a real, playable WAV locally — no external calls needed.
+  if (providers.voice === 'mock') {
+    const inst = makeInstrumental();
     return {
       songId: randomUUID(),
       title,
@@ -305,16 +669,68 @@ async function generateSong({ title, lyrics, style, voice } = {}) {
       provider: providers,
       mock: true,
       voiceCloned: false,
-      durationMs: Math.round(durationSec * 1000),
-      tracks: [{ kind: 'master', mimeType: 'audio/wav', base64: wav.toString('base64') }],
-      note: 'Demo mode: synthesized an instrumental sketch. Voice cloning ships with the external provider integration.',
+      durationMs: Math.round(inst.durationSec * 1000),
+      tracks: [inst.track],
+      note: 'Demo mode: synthesized an instrumental sketch. Voice cloning on AWS (Bedrock/CAMB) ships next.',
     };
   }
 
-  // Real providers are the next slice — fail loudly rather than silently
-  // returning something the user didn't ask for.
+  // Bedrock voice (CAMB MARS6) → cloned vocal stem + local backing track.
+  if (providers.voice === 'bedrock') {
+    const vocal = await generateBedrockVoice({ voice, lyrics });
+    const inst = makeInstrumental();
+    return {
+      songId: randomUUID(),
+      title,
+      style,
+      provider: providers,
+      mock: false,
+      voiceCloned: true,
+      durationMs: Math.round(inst.durationSec * 1000),
+      tracks: [vocal, inst.track],
+      note: 'Voice cloned via Bedrock with a local backing track. Full mixdown is a follow-up.',
+    };
+  }
+
+  // Amazon Polly → spoken vocal (first-party TTS) + local backing track.
+  if (providers.voice === 'polly') {
+    const vocal = await generatePollyVoice({ lyrics });
+    const inst = makeInstrumental();
+    return {
+      songId: randomUUID(),
+      title,
+      style,
+      provider: providers,
+      mock: false,
+      voiceCloned: false,
+      durationMs: Math.round(inst.durationSec * 1000),
+      tracks: [vocal, inst.track],
+      note: 'Vocal is Amazon Polly neural speech (not a clone of your voice) over a local backing track.',
+    };
+  }
+
+  // ElevenLabs → clone your voice + generate a produced song.
+  if (providers.voice === 'elevenlabs') {
+    const { tracks, voiceId } = await generateElevenLabsSong({ voice, lyrics, style });
+    return {
+      songId: randomUUID(),
+      title,
+      style,
+      provider: providers,
+      mock: false,
+      voiceCloned: Boolean(voiceId),
+      voiceId: voiceId || undefined,
+      tracks,
+      note: voiceId
+        ? 'Song generated by Eleven Music (AI vocals) plus your cloned voice speaking the lyrics. Eleven Music does not sing in a cloned voice yet.'
+        : 'Song generated by Eleven Music (AI vocals). Voice cloning was skipped — see server logs.',
+    };
+  }
+
+  // SageMaker instrumental is the next slice — fail loudly rather than
+  // silently returning something the user didn't ask for.
   const err = new Error(
-    `Music provider "${providers.vocal}/${providers.instrumental}" is not wired yet. Set MUSIC_MOCK_MODE=true to use the local demo synth.`
+    `Music provider "${providers.voice}/${providers.instrumental}" is not wired yet. Set MUSIC_MOCK_MODE=true to use the local demo synth.`
   );
   err.status = 501;
   throw err;
@@ -410,4 +826,20 @@ module.exports = {
   saveSong,
   listSongs,
   deleteSong,
+  // Bedrock voice (CAMB MARS6) seam
+  isVoiceConfigured,
+  getVoiceModelId,
+  getVoiceRegion,
+  generateBedrockVoice,
+  // Amazon Polly voice seam
+  getPollyRegion,
+  generatePollyVoice,
+  // ElevenLabs seam (voice clone + music)
+  getElevenLabsKey,
+  isElevenLabsConfigured,
+  cloneElevenLabsVoice,
+  elevenLabsTts,
+  buildElevenLabsMusicPrompt,
+  generateElevenLabsMusic,
+  generateElevenLabsSong,
 };

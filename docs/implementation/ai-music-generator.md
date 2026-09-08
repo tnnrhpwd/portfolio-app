@@ -12,10 +12,11 @@ is the audio counterpart to the existing AI image generator
 - 🟡 **Partially implemented** — backend seam exists, integration/UI/guardrails still open.
 - ⬜ **Planned** — not yet implemented.
 
-> Current status: **⬜ Planned** — this document is the design target. No music
-> generator code exists yet. Reuse the image-generation pattern
-> (`bedrockImageService.js` + `imageGenController.js` + `netTools.js`
-> `generate_image` tool) as the architectural template.
+> Current status: **🟡 Partially implemented.** The `/music` page, backend
+> routes/controller, validation, consent gate, credit/rate-limit wiring, and a
+> **local WAV synthesizer** (mock mode) are shipped. Voice providers are wired
+> as seams: **ElevenLabs** (voice clone + music), **Amazon Polly** (TTS), and
+> **Bedrock/CAMB MARS6** (voice cloning, Marketplace pending).
 
 ---
 
@@ -93,13 +94,14 @@ The song is produced in two cooperating stages, wrapped in one request:
 sequenceDiagram
     participant U as User
     participant A as Backend (Express)
-    participant P as Provider (ElevenLabs / Suno / Bedrock)
+    participant V as Bedrock voice (CAMB MARS6 / Polly)
+    participant I as Instrumental (local synth / SageMaker)
     participant S as S3 + CloudFront
     U->>A: POST /music/generate (sampleId, lyrics, style)
     A->>A: validate consent + credits
-    A->>P: clone voice → sung vocal stem
-    A->>P: generate instrumental (style)
-    A->>P: mixdown → master
+    A->>V: clone voice → sung vocal stem
+    A->>I: generate instrumental (style)
+    A->>A: mixdown → master
     A->>S: upload master + stems
     A->>U: { jobId, status: 'queued' }
     U->>A: poll GET /music/jobs/:jobId
@@ -112,20 +114,31 @@ sequenceDiagram
 
 ## 4. Provider strategy
 
-Pick per-environment, mirroring how `BEDROCK_IMAGE_MODEL_ID` overrides the
-default image model. **Do not hardcode one vendor** — wrap them behind
-`musicService.js` with a common interface.
+**Primary (chosen): ElevenLabs** — the only single vendor that delivers "a song
+that sounds really good *and* uses your voice." One API key, one account.
 
-| Capability | Primary option | Notes |
+| Capability | Provider | Status |
 |---|---|---|
-| Voice cloning + sung vocals | ElevenLabs (Voice Design / Sing-to-Song) | Best-in-class voice cloning; API supports song/vocal modes. |
-| Music / instrumental synthesis | Suno / Udio, or AWS Bedrock music models (when GA) | Suno/Udio need key management; Bedrock keeps everything in-AWS. |
-| Lyrics auto-generation | Existing `llmService` (Claude) | No new provider needed. |
+| Voice cloning + spoken vocal | **ElevenLabs** Instant Voice Cloning (`POST /v1/voices/add`) + TTS | ✅ wired |
+| Full song / music | **ElevenLabs Music** (`POST /v1/music`, `music_v2`) | ✅ wired |
+| Voice fallback (no clone) | **Amazon Polly** (`SynthesizeSpeech`) | ✅ wired |
+| Voice cloning (AWS-only alt) | **CAMB AI MARS6 on Bedrock** | 🟡 seam; Marketplace subscription pending |
+| Instrumental (AWS-only alt) | **Local synth (shipped)** or **Amazon SageMaker** (Stable Audio/MusicGen) | 🟡 |
 
-- **Secrets:** store keys in AWS Secrets Manager (`portfolio-app/production`),
-  same as the DeepSeek/Bedrock keys (`SECRETS_MANAGEMENT.md`).
-- **Env overrides:** `MUSIC_VOCAL_PROVIDER`, `MUSIC_INSTRUMENTAL_PROVIDER`,
-  `MUSIC_DEFAULT_MODEL`, `AWS_BEDROCK_MUSIC_REGION`.
+> ⚠️ **Eleven Music limitation:** it generates songs with Eleven's own AI
+> vocals. It does **not** sing in your cloned voice. The "your voice" artifact
+> today is your cloned voice *speaking* the lyrics (TTS). This is the honest
+> ceiling of the current API — true "singing in your cloned voice" is not yet
+> exposed.
+
+- **Credentials:** `ELEVENLABS_API_KEY` (Secrets Manager `portfolio-app/production`
+  or `backend/.env`). AWS keys stay for Polly/Bedrock fallbacks.
+- **Env overrides:** `MUSIC_VOICE_PROVIDER` (`elevenlabs` | `polly` | `bedrock` |
+  `mock`), `ELEVENLABS_MUSIC_MODEL_ID` (default `music_v2`),
+  `ELEVENLABS_MUSIC_LENGTH_MS` (default `30000`), `ELEVENLABS_TTS_MODEL_ID`,
+  `AWS_POLLY_VOICE_ID` / `AWS_POLLY_ENGINE` / `AWS_POLLY_REGION`,
+  `AWS_BEDROCK_VOICE_MODEL_ID` / `AWS_BEDROCK_VOICE_REGION`,
+  `MUSIC_INSTRUMENTAL_PROVIDER` (`local` | `sagemaker`), `MUSIC_MOCK_MODE`.
 
 ## 5. Backend surface (planned)
 

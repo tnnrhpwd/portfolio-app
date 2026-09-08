@@ -88,9 +88,7 @@ const generateSong = asyncHandler(async (req, res) => {
     const status = error.status || 502;
     res.status(status).json({
       success: false,
-      error: status === 501
-        ? error.message
-        : 'Music generation failed. Please try again.',
+      error: error.message || 'Music generation failed. Please try again.',
     });
   }
 });

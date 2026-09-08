@@ -55,6 +55,7 @@
 require('dotenv').config();
 const asyncHandler = require('express-async-handler');
 const crypto = require('crypto');
+const { logger } = require('../utils/logger');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const {
     DynamoDBDocumentClient,
@@ -331,6 +332,16 @@ const searchMarketSkills = asyncHandler(async (req, res) => {
         FilterExpression: 'begins_with(id, :prefix) AND attribute_exists(marketId) AND attribute_exists(latestVersion)',
         ExpressionAttributeValues: { ':prefix': 'csimple_market_' },
     }));
+
+    logger.debug('Marketplace browse', {
+        q: q || null,
+        sort,
+        page,
+        perPage,
+        table: TABLE_NAME,
+        rawItemCount: (Items || []).length,
+        sampleIds: (Items || []).slice(0, 8).map(it => it.id),
+    });
 
     let summaries = (Items || []).map(metaToSummary);
 
