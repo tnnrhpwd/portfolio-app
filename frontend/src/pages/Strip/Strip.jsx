@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
+import SEO from '../../components/SEO/SEO.jsx';
 import { useAddonDetection } from '../../hooks/simpleAddon/useAddonDetection.js';
 import {
   listAppAudioApps,
@@ -130,22 +131,45 @@ function Strip() {
 
   return (
     <>
+      <SEO
+        title="App Audio Recorder"
+        description="Record the audio playing on your PC and save it as an MP3, right from the browser."
+        path="/strip"
+      />
       <Header />
-      <div className="strip-page">
-        <div className="strip-card">
-          <h1 className="strip-title">App Audio Recorder</h1>
-          <p className="strip-subtitle">
-            Record the audio playing on this PC and save it as an MP3.
-          </p>
 
-          {!addonConnected ? (
+      <div className="strip">
+        <div className="strip-floating" aria-hidden="true">
+          <div className="strip-circle strip-circle-1" />
+          <div className="strip-circle strip-circle-2" />
+          <div className="strip-circle strip-circle-3" />
+        </div>
+
+        <section className="strip-section strip-hero">
+          <div className="strip-title-wrap">
+            <p className="strip-eyebrow">Desktop Recorder</p>
+            <h1 className="strip-title">App Audio Recorder</h1>
+            <p className="strip-subtitle">
+              Pick an application, hit record, and save what it plays as an MP3.
+            </p>
+          </div>
+        </section>
+
+        <main id="main" className="strip-section">
+          <div className="strip-card">
+            {!addonConnected ? (
             <div className="strip-notice">
               <p>
                 {isChecking
                   ? 'Looking for the Simple addon…'
                   : 'The Simple addon isn’t connected. Start "Simple Addon" on this PC, then try again.'}
               </p>
-              <button className="strip-btn" onClick={recheckAddon} disabled={isChecking}>
+              <button
+                className="strip-btn"
+                type="button"
+                onClick={recheckAddon}
+                disabled={isChecking}
+              >
                 Check again
               </button>
             </div>
@@ -175,6 +199,7 @@ function Strip() {
                   {!recording ? (
                     <button
                       className="strip-btn strip-btn--record"
+                      type="button"
                       onClick={handleStart}
                       disabled={busy}
                     >
@@ -183,6 +208,7 @@ function Strip() {
                   ) : (
                     <button
                       className="strip-btn strip-btn--stop"
+                      type="button"
                       onClick={handleStop}
                       disabled={busy}
                     >
@@ -192,17 +218,21 @@ function Strip() {
                 </div>
 
                 {recording && (
-                  <div className="strip-live">
+                  <div className="strip-live" role="status" aria-live="polite">
                     <span className="strip-live-dot" />
                     Recording {selectedLabel} · {formatDuration(elapsed)}
                   </div>
                 )}
               </div>
 
-              {error && <div className="strip-error">{error}</div>}
+              {error && (
+                <div className="strip-error" role="alert">
+                  {error}
+                </div>
+              )}
 
               {lastRecording && !recording && (
-                <div className="strip-result">
+                <div className="strip-result" role="status" aria-live="polite">
                   <div className="strip-result-meta">
                     <strong>{lastRecording.name}</strong>
                     <span>
@@ -211,6 +241,7 @@ function Strip() {
                   </div>
                   <button
                     className="strip-btn strip-btn--save"
+                    type="button"
                     onClick={() => downloadAppAudio(lastRecording.name)}
                   >
                     Save MP3
@@ -229,6 +260,7 @@ function Strip() {
                       <span className="strip-history-size">{formatBytes(r.size)}</span>
                       <button
                         className="strip-link"
+                        type="button"
                         onClick={() => downloadAppAudio(r.name)}
                       >
                         Save
@@ -244,7 +276,8 @@ function Strip() {
               </p>
             </>
           )}
-        </div>
+          </div>
+        </main>
       </div>
       <Footer />
     </>
