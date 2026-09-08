@@ -8,7 +8,7 @@ const multer = require('multer');
 // Middleware Imports
 // ============================================================================
 const { protect } = require('../middleware/authMiddleware');
-const { authLimiter, paymentLimiter, llmLimiter, imageGenLimiter, ocrLimiter, uploadLimiter, workspaceReadLimiter, workspaceWriteLimiter, workspaceActionLimiter, marketReadLimiter, marketPublishLimiter, marketWriteLimiter, pollsReadLimiter, pollsWriteLimiter } = require('../middleware/rateLimiter');
+const { authLimiter, paymentLimiter, llmLimiter, imageGenLimiter, ocrLimiter, uploadLimiter, musicGenLimiter, musicLimiter, workspaceReadLimiter, workspaceWriteLimiter, workspaceActionLimiter, marketReadLimiter, marketPublishLimiter, marketWriteLimiter, pollsReadLimiter, pollsWriteLimiter } = require('../middleware/rateLimiter');
 const { 
   validateRegistration, 
   validateLogin, 
@@ -181,6 +181,14 @@ const {
   getImageModels,
   generateImage,
 } = require('../controllers/imageGenController');
+
+// Music generation controller (AI song in the user's voice)
+const {
+  getMusicCatalog,
+  generateSong,
+  listSongs,
+  deleteSong,
+} = require('../controllers/musicController');
 
 // Configure multer for memory storage (or disk storage if preferred)
 const storage = multer.memoryStorage();
@@ -496,6 +504,15 @@ router.route('/memory/:id')
 // ============================================================================
 
 router.post('/image/generate', protect, imageGenLimiter, sanitizeInput, generateImage);
+
+// ============================================================================
+// MUSIC GENERATION (AI song in the user's voice)
+// ============================================================================
+
+router.get('/music/catalog', getMusicCatalog);
+router.post('/music/generate', protect, musicGenLimiter, sanitizeInput, generateSong);
+router.get('/music/songs', protect, musicLimiter, listSongs);
+router.delete('/music/songs/:id', protect, musicLimiter, deleteSong);
 
 // UI Mapper AI auto-map (vision — same metered Bedrock path as agent-vision)
 router.post('/uimapper/automap', protect, llmLimiter, sanitizeInput, autoMap);

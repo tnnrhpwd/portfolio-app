@@ -85,6 +85,7 @@ function HeaderDropper(props) {
         {user && (
           <li className="dropper-group">
             <Link className="dropper-link" to="/net" onClick={closeMenu}>Net</Link>
+            <Link className="dropper-link" to="/market" onClick={closeMenu}>Marketplace</Link>
             <Link className="dropper-link" to="/plans" onClick={closeMenu}>Plans</Link>
           </li>
         )}

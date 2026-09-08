@@ -1102,6 +1102,49 @@ export async function getSkillHotkeys() {
   return res.json();
 }
 
+// ─── Marketplace install/publish helpers (local addon side) ─────────────────
+
+/**
+ * List the user's skills via the local addon (cloud workspace kind='skill',
+ * falling back to the local on-disk cache). Each entry is `{ item, skill }`
+ * where `skill` is the full parsed skill object.
+ */
+export async function listAddonSkills() {
+  const res = await addonFetch('/api/skill');
+  return res.json();
+}
+
+/**
+ * Import a skill into the local addon's skill store (memory + on-disk, then
+ * best-effort cloud sync). Accepts a single skill object `{ slug, steps, ... }`
+ * — the exact shape the marketplace install endpoint returns as `skill`.
+ */
+export async function importSkillToAddon(skill) {
+  const res = await addonFetch('/api/skill/import', {
+    method: 'POST',
+    body: JSON.stringify(skill),
+  });
+  return res.json();
+}
+
+/** Preview the privacy scrub pass locally before publishing (what will be shared). */
+export async function previewSkillScrub(skill) {
+  const res = await addonFetch('/api/skill/scrub', {
+    method: 'POST',
+    body: JSON.stringify({ skill }),
+  });
+  return res.json();
+}
+
+/** Preview the "what will this skill do" capability summary locally before publishing. */
+export async function previewSkillCapabilities(skill) {
+  const res = await addonFetch('/api/skill/capabilities', {
+    method: 'POST',
+    body: JSON.stringify({ skill }),
+  });
+  return res.json();
+}
+
 // ─── Natural Language Macro Compiler ─────────────────────────────────────────
 
 /**

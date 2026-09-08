@@ -115,6 +115,7 @@ async function getItem(id) {
     const { Item } = await dynamodb.send(new GetCommand({
         TableName: TABLE_NAME,
         Key: { id, createdAt: MARKET_CREATED_AT },
+        ConsistentRead: true,
     }));
     return Item || null;
 }
@@ -322,6 +323,11 @@ const searchMarketSkills = asyncHandler(async (req, res) => {
 
     const { Items } = await dynamodb.send(new ScanCommand({
         TableName: TABLE_NAME,
+        // Strongly consistent read: a skill published moments ago must be
+        // visible immediately, not subject to DynamoDB's eventual consistency
+        // window (a just-published skill would otherwise vanish from the
+        // first browse refresh).
+        ConsistentRead: true,
         FilterExpression: 'begins_with(id, :prefix) AND attribute_exists(marketId) AND attribute_exists(latestVersion)',
         ExpressionAttributeValues: { ':prefix': 'csimple_market_' },
     }));
@@ -402,7 +408,8 @@ const installMarketSkill = asyncHandler(async (req, res) => {
         version,
         skill: {
             marketId, version, name: versionItem.name, slug: versionItem.slug,
-            steps: versionItem.steps, declaredCategories: versionItem.declaredCategories,
+            steps: versionItem.steps, params: versionItem.params || [],
+            declaredCategories: versionItem.declaredCategories,
             toolSchemaVersion: versionItem.toolSchemaVersion,
         },
         lowTrust: summary.lowTrust,

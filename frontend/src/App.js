@@ -31,6 +31,7 @@ const Halfway = lazy(() => import('./pages/Projects/Halfway/Halfway'));
 const Hype = lazy(() => import('./pages/Hype/Hype'));
 const IQTest = lazy(() => import('./pages/Projects/IQTest/IQTest'));
 const Muse = lazy(() => import('./pages/Muse/Muse'));
+const Music = lazy(() => import('./pages/Music/Music'));
 const PassGen = lazy(() => import('./pages/Projects/PassGen/PassGen'));
 const Pets = lazy(() => import('./pages/Pets/Pets'));
 const Projects = lazy(() => import('./pages/Projects/Projects/Projects.jsx'));
@@ -44,6 +45,7 @@ const WordleSolver = lazy(() => import('./pages/Projects/WordleSolver/WordleSolv
 const Login = lazy(() => import('./pages/Login/Login.jsx'));
 const NotFound = lazy(() => import('./pages/NotFound/NotFound.jsx'));
 const Net = lazy(() => import('./pages/Simple/Net/Net.jsx'));
+const Market = lazy(() => import('./pages/Simple/Market/Market.jsx'));
 const Pay = lazy(() => import('./pages/Simple/Pay/Pay.jsx'));
 const PaymentSuccess = lazy(() => import('./pages/Simple/Pay/PaymentSuccess.jsx'));
 const Plans = lazy(() => import('./pages/Simple/Plans/Plans.jsx'));
@@ -132,7 +134,9 @@ function App() {
               <Route path="/iq" element={<IQTest/>} />
               <Route path='/login' element={<Login />} />
               <Route path='/muse' element={<Muse />} />
+              <Route path='/music' element={<Music />} />
               <Route path='/net' element={<Net />} />
+              <Route path='/market' element={<Market />} />
               <Route path='/simple' element={<Simple />} />
               <Route path='/pay' element={<Pay />} />
               <Route path='/payment-success' element={<PaymentSuccess />} />

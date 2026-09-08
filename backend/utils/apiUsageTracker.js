@@ -39,6 +39,12 @@ const API_COSTS = {
         // Bedrock. Flat server-side price per generated image (~$0.035/img).
         perImage: 0.04,
     },
+    music: {
+        // AI music generation (voice clone + instrumental + mixdown). Flat
+        // server-side price per generated song. Mock/local generation is free
+        // and bypasses this entirely (see musicController.generateSong).
+        perSong: 0.25,
+    },
 };
 
 // Monthly credit limits (USD) for METERED, server-paid providers (currently
@@ -329,6 +335,12 @@ async function trackApiUsage(userId, apiName, usageData, model = null) {
                 const imageCount = usageData.imageCount || 1;
                 cost = imageCount * perImage;
                 usageString = `${imageCount}i`;
+                break;
+            case 'music':
+                const perSong = API_COSTS.music?.perSong || 0.25;
+                const songCount = usageData.songCount || 1;
+                cost = songCount * perSong;
+                usageString = `${songCount}s`;
                 break;
             default:
                 throw new Error(`Unknown API: ${apiName}`);
@@ -972,6 +984,10 @@ module.exports = {
     getImageGenerationCost,
     checkImageCredits,
     trackImageUsage,
+    // Music generation credit helpers
+    getMusicGenerationCost,
+    checkMusicCredits,
+    trackMusicUsage,
 };
 
 /**
@@ -1026,4 +1042,57 @@ async function checkImageCredits(userId, imageCount) {
  */
 async function trackImageUsage(userId, imageCount) {
     return trackApiUsage(userId, 'bedrock-image', { imageCount }, 'default');
+}
+
+/**
+ * Flat server-side price for a single generated song (USD).
+ */
+function getMusicGenerationCost(songCount) {
+    return (songCount || 1) * (API_COSTS.music?.perSong || 0.25);
+}
+
+/**
+ * Pre-flight credit check for music generation — read-only, deducts nothing.
+ * Mirrors checkImageCredits above.
+ */
+async function checkMusicCredits(userId, songCount = 1) {
+    const cost = getMusicGenerationCost(songCount);
+    if (userId === process.env.ADMIN_USER_ID) {
+        return { canMake: true, cost: 0, currentCredits: Infinity, isAdmin: true };
+    }
+
+    const user = await getUserDataCached(userId);
+    if (!user) return { canMake: false, reason: 'User not found', cost };
+    const userText = user.text || '';
+
+    if (isSpecialUser(userText)) {
+        return { canMake: true, cost: 0, currentCredits: Infinity, isSpecial: true };
+    }
+
+    let userRank;
+    try { userRank = await getUserRankFromStripe(userId); } catch { userRank = getUserRank(userText); }
+
+    let creditsData = parseUserCredits(userText);
+    if (needsMonthlyReset(creditsData, userRank, getMembershipLimit(userRank))) {
+        creditsData = performMonthlyReset(creditsData, userRank);
+    }
+
+    if (creditsData.availableCredits < cost) {
+        return {
+            canMake: false,
+            cost,
+            currentCredits: creditsData.availableCredits,
+            reason: `Insufficient credits. Available: $${creditsData.availableCredits.toFixed(4)}, required: $${cost.toFixed(4)}.`,
+        };
+    }
+
+    return { canMake: true, cost, currentCredits: creditsData.availableCredits };
+}
+
+/**
+ * Deduct credits for generated songs and record the usage entry
+ * (api 'music', usage `${count}s`).
+ */
+async function trackMusicUsage(userId, songCount) {
+    return trackApiUsage(userId, 'music', { songCount }, 'default');
 }

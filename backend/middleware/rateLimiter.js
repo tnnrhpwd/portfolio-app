@@ -121,6 +121,28 @@ const uploadLimiter = rateLimit({
   handler: buildRateLimitHandler('upload', 'Too many file uploads. Please wait a few minutes before trying again.'),
 });
 
+// Music generation rate limiter — per-user. Music synthesis (voice clone +
+// instrumental) is the most expensive server-paid action, so keep it tighter
+// than image generation.
+const musicGenLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 3, // 3 generations per 15 min per user
+  keyGenerator: userKeyGenerator,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: buildRateLimitHandler('music-gen', 'Too many song generation requests. Please wait a few minutes before trying again.'),
+});
+
+// Music library read/delete rate limiter — per-user.
+const musicLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 60,
+  keyGenerator: userKeyGenerator,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: buildRateLimitHandler('music', 'Too many music requests. Slow down.'),
+});
+
 // Simple workspace read endpoints (GET list/item/context/telemetry).
 // Per-user; generous since the web UI may poll the context preview.
 const workspaceReadLimiter = rateLimit({
@@ -216,6 +238,8 @@ module.exports = {
   imageGenLimiter,
   ocrLimiter,
   uploadLimiter,
+  musicGenLimiter,
+  musicLimiter,
   workspaceReadLimiter,
   workspaceWriteLimiter,
   workspaceActionLimiter,
