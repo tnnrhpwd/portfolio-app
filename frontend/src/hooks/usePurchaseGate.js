@@ -20,7 +20,7 @@ async function fetchStatus() {
 }
 
 /**
- * Reads the admin-controlled purchase gate (docs/guides/ACTION_PLAN.md —
+ * Reads the admin-controlled purchase gate (docs/implementation/simple-agent-prompt.md —
  * "Gate: hide and disable purchasing until a real readiness bar is met").
  *
  * Returns `{ purchasesEnabled, message, loading }`. Use `purchasesEnabled`

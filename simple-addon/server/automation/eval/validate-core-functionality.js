@@ -2,7 +2,7 @@
 /**
  * Live core-functionality validation script.
  *
- * Automates the 10 scenarios described in docs/guides/ACTION_PLAN.md's
+ * Automates the 10 scenarios described in docs/implementation/simple-agent-prompt.md's
  * Phase 0 readiness bar ("The 10 validation scenarios, in detail"), plus a
  * workspace-profile capture/restore regression (scenario 11). Unlike
  * server/automation/eval/scenarios/ (safe to run in CI — dry-run, mocked, or
@@ -11,7 +11,7 @@
  * real files/UI state. It is deliberately NOT part of `npm test` or the
  * default `eval` run — it's an opt-in tool for manually checking "does the
  * core perceive/act loop actually work today", run periodically (see
- * Phase 0/4 of ACTION_PLAN.md), not on every commit.
+ * §12 of simple-agent-prompt.md), not on every commit.
  *
  * Usage (from simple-addon/):
  *   node server/automation/eval/validate-core-functionality.js
@@ -33,7 +33,7 @@
  * Output: a human-readable summary to stdout, a JSON results log appended to
  * eval/live-results/<timestamp>.json, and a non-zero exit code if any
  * scenario failed (skips do not count as failures). Use the JSON log to feed
- * the "reliability tally" described in ACTION_PLAN.md's Phase 0/4.
+ * the "reliability tally" described in simple-agent-prompt.md §12.
  */
 
 'use strict';
@@ -667,7 +667,7 @@ async function scenario10() {
 // ─── Scenario 11: workspace capture → move → restore ─────────────────────
 // Exercises the two primitives the Workspace Profiles feature is built on
 // (window_snapshot to capture a layout, window_set_rect to apply one), which
-// the ACTION_PLAN explicitly notes lack an automated regression test.
+// the plan explicitly notes lack an automated regression test.
 async function scenario11() {
     await cleanDesktop();
     await exec('open_app', { name: 'notepad.exe', waitMs: 8000 });

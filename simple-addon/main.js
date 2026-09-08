@@ -1501,7 +1501,7 @@ app.on('ready', async () => {
     // Safety-critical actions kept as one-click tray items even after the
     // dashboard exists, so they still work if the dashboard window itself
     // fails to open — everything else moved to the dashboard (see Phase 6
-    // of docs/guides/ACTION_PLAN.md).
+    // of docs/implementation/simple-agent-prompt.md).
     onKillSwitch: async () => {
       try {
         const port = server?.serverPort || 3001;

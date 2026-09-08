@@ -1,7 +1,11 @@
 # Simple — Consumer Marketplace & Skill Generalization Plan
-> Focused plan for the marketplace + skill generalization work. The full platform
-> brief is [simple-agent-prompt.md](simple-agent-prompt.md).
-> **Read this first, then read the code.** Sections marked ✅ are already shipped.
+
+> ⚠️ **ARCHIVED / SUPERSEDED (2026-09-07).** This was a pre-implementation plan;
+> the marketplace + skill-generalization work it describes is **now built**. Its
+> premise ("nothing exists yet") and its specifics (deleted `GitHubModelsService`,
+> `/api/marketplace/` routes, `mkt_skill_` keys) are outdated. Current state lives
+> in the platform brief's §4 (Marketplace) and §5 (Skill generalization):
+> [`../implementation/simple-agent-prompt.md`](../implementation/simple-agent-prompt.md).
 
 ---
 

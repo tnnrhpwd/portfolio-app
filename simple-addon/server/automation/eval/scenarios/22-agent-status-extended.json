@@ -1,7 +1,7 @@
 {
   "id": "22-agent-status-extended",
   "name": "agent status — O-O-G-P-A extended fields (offline)",
-  "description": "Asserts /api/agent/status surfaces the loop's stage, loop, stallCount, lastOutcomeDelta and lastLesson fields added by the Observe→Orient→Goal→Plan→Action refactor (docs/implementation/OBSERVE-ORIENT-GOAL-PLAN-ACTION.md §7.3). Fully offline/deterministic — no LLM or network calls.",
+  "description": "Asserts /api/agent/status surfaces the loop's stage, loop, stallCount, lastOutcomeDelta and lastLesson fields added by the Observe→Orient→Goal→Plan→Action refactor (docs/implementation/simple-agent-prompt.md §11.3). Fully offline/deterministic — no LLM or network calls.",
   "http": {
     "method": "GET",
     "path": "/api/agent/status"

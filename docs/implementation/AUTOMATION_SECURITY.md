@@ -5,7 +5,7 @@ This document captures the security model for the Simple automation layer
 It is meant as a living reference for any change that touches a tool, the
 permission store, the bind host, or the audit pipeline.
 
-Last review: Phase 1 of the [Automation Roadmap](AUTOMATION_ROADMAP.md).
+Last review: Phase 1 of the [roadmap](simple-agent-prompt.md#10-roadmap--backlog).
 
 ---
 
@@ -266,4 +266,4 @@ In rough priority order:
 - [`backend/utils/secretCrypto.js`](../../backend/utils/secretCrypto.js) — backend secret format
 - [`simple-addon/server/secret-storage.js`](../../simple-addon/server/secret-storage.js) — DPAPI wrapper
 - [`backend/middleware/rateLimiter.js`](../../backend/middleware/rateLimiter.js) — workspace limiters
-- [`docs/implementation/AUTOMATION_ROADMAP.md`](AUTOMATION_ROADMAP.md) — phased plan
+- [`docs/implementation/simple-agent-prompt.md`](simple-agent-prompt.md) — roadmap & backlog (§10)

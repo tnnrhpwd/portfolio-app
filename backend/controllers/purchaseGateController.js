@@ -3,7 +3,7 @@
  * the site owner instantly pause new Pro subscriptions and caveat/hide
  * "upgrade" mentions across the app, without a deploy.
  *
- * Why this exists: see docs/guides/ACTION_PLAN.md ("Gate: hide and disable
+ * Why this exists: see docs/implementation/simple-agent-prompt.md ("Gate: hide and disable
  * purchasing until a real readiness bar is met"). Until the core Simple
  * addon loop is reliable, it should be possible to pause selling it in one
  * click rather than shipping a working checkout for a non-working product.

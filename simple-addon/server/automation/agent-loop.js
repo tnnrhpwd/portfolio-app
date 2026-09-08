@@ -43,7 +43,7 @@ const crypto = require('crypto');
 // success-run skill draft (mirrors pattern-learner.js PII_TOOLS).
 const PII_TOOLS = new Set(['text_type', 'clipboard_write', 'audio_speak']);
 
-// Future-phase tunables (docs/implementation/OBSERVE-ORIENT-GOAL-PLAN-ACTION.md
+// Future-phase tunables (docs/implementation/simple-agent-prompt.md
 // §7.4). Not yet consumed by the loop — wired in Phases 2–6. Present here so
 // the injectable `ctx.config` seam exists from the start without changing any
 // default behavior.

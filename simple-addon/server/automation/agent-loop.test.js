@@ -1,6 +1,6 @@
 /**
  * agent-loop.test.js — Phase 1 unit tests for the O-O-G-P-A stage functions
- * (docs/implementation/OBSERVE-ORIENT-GOAL-PLAN-ACTION.md §11).
+ * (docs/implementation/simple-agent-prompt.md §11).
  *
  * Asserts each named stage (`observe` / `orient` / `selectGoal` / `plan` /
  * `act` / `reflect`) returns the documented plain-object shape when driven

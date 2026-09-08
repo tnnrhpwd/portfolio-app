@@ -568,7 +568,7 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
         }
     });
     // List critic lessons (workspace kind='lesson'), optionally filtered to a
-    // goal via the sourceGoal tag (O-O-G-P-A §7.2/§7.3).
+    // goal via the sourceGoal tag (O-O-G-P-A §11.3).
     app.get('/api/agent/lessons', async (req, res) => {
         try {
             const goal = req.query.goal;
@@ -587,7 +587,7 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
             res.json({ lessons: [] });
         }
     });
-    // Mark a goal `blocked` with a reason (O-O-G-P-A §7.3/§7.5). Also stops any
+    // Mark a goal `blocked` with a reason (O-O-G-P-A §11.3). Also stops any
     // running worker for that goal so a blocked goal isn't picked back up
     // mid-run. This is the manual/human path — the loop itself blocks via
     // wsClient.upsertGoal + the goal.blocked event inside selectGoal().
