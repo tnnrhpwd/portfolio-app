@@ -1,0 +1,237 @@
+.strip-page {
+  min-height: calc(100vh - 120px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px 16px;
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(99, 102, 241, 0.18), transparent 60%),
+    var(--bg-page, #0f172a);
+}
+
+.strip-card {
+  width: 100%;
+  max-width: 560px;
+  background: var(--bg-card, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-soft, rgba(255, 255, 255, 0.08));
+  border-radius: 16px;
+  padding: 28px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+
+.strip-title {
+  margin: 0 0 6px;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-primary, #f1f5f9);
+}
+
+.strip-subtitle {
+  margin: 0 0 24px;
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.95rem;
+}
+
+.strip-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.strip-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.strip-select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-soft, rgba(255, 255, 255, 0.12));
+  background: var(--bg-input, rgba(0, 0, 0, 0.25));
+  color: var(--text-primary, #f1f5f9);
+  font-size: 0.95rem;
+}
+
+.strip-actions {
+  margin-top: 6px;
+}
+
+.strip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 18px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+  background: #4f46e5;
+  transition: filter 0.15s ease, transform 0.05s ease;
+}
+
+.strip-btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.strip-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.strip-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.strip-btn--record {
+  width: 100%;
+  background: #dc2626;
+}
+
+.strip-btn--stop {
+  width: 100%;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.strip-btn--save {
+  background: #16a34a;
+}
+
+.strip-live {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: #fca5a5;
+  padding-top: 4px;
+}
+
+.strip-live-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: strip-pulse 1s infinite;
+}
+
+@keyframes strip-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.strip-error {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(220, 38, 38, 0.15);
+  border: 1px solid rgba(220, 38, 38, 0.4);
+  color: #fecaca;
+  font-size: 0.9rem;
+}
+
+.strip-result {
+  margin-top: 20px;
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(22, 163, 74, 0.12);
+  border: 1px solid rgba(22, 163, 74, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.strip-result-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.strip-result-meta strong {
+  color: var(--text-primary, #f1f5f9);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.strip-result-meta span {
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.85rem;
+}
+
+.strip-history {
+  margin-top: 24px;
+}
+
+.strip-history-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary, #f1f5f9);
+  margin: 0 0 10px;
+}
+
+.strip-history-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-soft, rgba(255, 255, 255, 0.06));
+}
+
+.strip-history-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.85rem;
+}
+
+.strip-history-size {
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.strip-link {
+  background: none;
+  border: none;
+  color: #818cf8;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 4px 6px;
+}
+
+.strip-link:hover {
+  text-decoration: underline;
+}
+
+.strip-notice {
+  padding: 20px;
+  border-radius: 12px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #fcd34d;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.strip-notice p {
+  margin: 0;
+}
+
+.strip-note {
+  margin: 18px 0 0;
+  color: var(--text-muted, #64748b);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}

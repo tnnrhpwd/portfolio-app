@@ -36,6 +36,9 @@ pyttsx3>=2.90
 # Audio I/O codec support (required by sounddevice on some Windows configs)
 soundfile>=0.12.1
 
+# System/application audio capture (WASAPI loopback) for the app-audio recorder
+soundcard>=0.4.3
+
 # Note: The application will automatically create a virtual environment
 # in %LOCALAPPDATA%/Simple/venv and install these dependencies.
 # You don't need to install these manually.

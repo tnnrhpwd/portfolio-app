@@ -38,6 +38,7 @@ const Projects = lazy(() => import('./pages/Projects/Projects/Projects.jsx'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword/ResetPassword.jsx'));
 const SleepAssist = lazy(() => import('./pages/Projects/SleepAssist/SleepAssist'));
 const Sonic = lazy(() => import('./pages/Projects/Sonic/Sonic'));
+const Strip = lazy(() => import('./pages/Strip/Strip.jsx'));
 const TypeTest = lazy(() => import('./pages/TypeTest/TypeTest'));
 const UIMapper = lazy(() => import('./pages/UIMapper/UIMapper'));
 const Wordle = lazy(() => import('./pages/Projects/Wordle/Wordle'));
@@ -154,6 +155,7 @@ function App() {
               <Route path='/settings' element={<Settings />} />
               <Route path="/sleepassist" element={<SleepAssist/>} />
               <Route path="/sonic" element={<Sonic/>} />
+              <Route path='/strip' element={<Strip />} />
               <Route path='/support' element={<Support />} />
               <Route path='/type' element={<TypeTest/>} />
               <Route path="/uimapper" element={<UIMapper />} />

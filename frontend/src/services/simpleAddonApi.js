@@ -1319,6 +1319,74 @@ export async function calibrateEyeTracking(cameraIndex = 0) {
   return res.json();
 }
 
+// ─── App audio recording (local addon) ──────────────────────────────────────
+
+/**
+ * List running windowed applications (candidates for audio capture).
+ * @returns {Promise<{ apps: Array<{ pid: number, name: string, title: string }> }>}
+ */
+export async function listAppAudioApps() {
+  const res = await addonFetch('/api/app-audio/apps');
+  return res.json();
+}
+
+/**
+ * Current recorder status.
+ * @returns {Promise<{ recording: boolean, startedAt: number|null, app: string|null,
+ *   level: number, lastRecording: object|null }>}
+ */
+export async function getAppAudioStatus() {
+  const res = await addonFetch('/api/app-audio/status');
+  return res.json();
+}
+
+/**
+ * Begin recording loopback audio for the selected application.
+ * @param {{ appName?: string, appPid?: number }} opts
+ */
+export async function startAppAudioRecording({ appName, appPid } = {}) {
+  const res = await addonFetch('/api/app-audio/start', {
+    method: 'POST',
+    body: JSON.stringify({
+      ...(appName ? { appName } : {}),
+      ...(appPid != null ? { appPid } : {}),
+    }),
+  });
+  return res.json();
+}
+
+/** Stop recording and encode the capture to MP3. */
+export async function stopAppAudioRecording() {
+  const res = await addonFetch('/api/app-audio/stop', { method: 'POST' });
+  return res.json();
+}
+
+/**
+ * List saved MP3 recordings on the addon machine.
+ * @returns {Promise<{ recordings: Array<{ name, size, mtime }> }>}
+ */
+export async function listAppAudioRecordings() {
+  const res = await addonFetch('/api/app-audio/recordings');
+  return res.json();
+}
+
+/**
+ * Download a saved MP3 recording to the browser (Save-As).
+ * @param {string} name recording file name
+ */
+export async function downloadAppAudio(name) {
+  const res = await addonFetch(`/api/app-audio/download?name=${encodeURIComponent(name)}`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
 // ─── Behavioral Predictor ─────────────────────────────────────────────────────
 
 /**

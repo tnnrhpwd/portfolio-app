@@ -27,8 +27,10 @@ const { stepsToPS, runPowerShell } = require('./action-bridge');
 const { ADDON_TOOL_SCHEMAS, toolCallToActionPlan, executeMemoryTool, isMemoryTool, isEyeTrackingTool } = require('./addon-tools');
 const { CloudRelayService } = require('./cloud-relay');
 const { EyeTrackingManager } = require('./eye-tracking-manager');
+const { getAppAudioManager } = require('./app-audio-manager');
 
 const app = express();
+const appAudioManager = getAppAudioManager();
 const DEFAULT_PORT = 3001;
 const eyeTrackingManager = new EyeTrackingManager();
 
@@ -1692,6 +1694,53 @@ app.post('/api/eye-tracking/calibrate', async (req, res) => {
 app.get('/api/eye-tracking/cameras', async (req, res) => {
   const cameras = await eyeTrackingManager.listCameras();
   res.json({ cameras });
+});
+
+// ─── App Audio Recording API ───────────────────────────────────────────────────
+// Records application/system audio (WASAPI loopback) and saves to MP3.
+
+app.get('/api/app-audio/apps', async (req, res) => {
+  try {
+    const apps = await appAudioManager.listApps();
+    res.json({ apps });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/app-audio/status', (req, res) => {
+  res.json(appAudioManager.getStatus());
+});
+
+app.post('/api/app-audio/start', async (req, res) => {
+  const { appName, appPid } = req.body || {};
+  try {
+    const result = await appAudioManager.start({ appName, appPid });
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.post('/api/app-audio/stop', async (req, res) => {
+  try {
+    const result = await appAudioManager.stop();
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.get('/api/app-audio/recordings', (req, res) => {
+  res.json({ recordings: appAudioManager.getRecordings() });
+});
+
+app.get('/api/app-audio/download', (req, res) => {
+  const file = appAudioManager.getRecordingPath(req.query.name);
+  if (!file) {
+    return res.status(404).json({ error: 'Recording not found' });
+  }
+  res.download(file, path.basename(file));
 });
 
 // ─── Workspace File Operations API ────────────────────────────────────────────

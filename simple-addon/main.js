@@ -1598,6 +1598,12 @@ app.on('before-quit', async (e) => {
     getAudioStreamManager().shutdown();
   } catch {}
 
+  // Shutdown app-audio recorder (loopback capture subprocess)
+  try {
+    const { getAppAudioManager } = require('./server/app-audio-manager');
+    getAppAudioManager().shutdown();
+  } catch {}
+
   // Stop perception bus
   try {
     const { getPerceptionBus } = require('./server/automation/perception-bus');
