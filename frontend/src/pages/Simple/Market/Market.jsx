@@ -424,6 +424,7 @@ export default function Market() {
           source: 'marketplace',
           marketId: installResult.marketId,
           version: installResult.version,
+          lowTrust: !!installResult.lowTrust,
         },
       });
       const imported = res.imported || [];

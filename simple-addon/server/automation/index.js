@@ -67,6 +67,7 @@ const events = require('./events');
 const triggers = require('./triggers');
 const skillHotkeys = require('./skill-hotkeys');
 const runHistory = require('./run-history');
+const marketplaceGate = require('./marketplace-gate');
 
 const { createAgentLoop } = require('./agent-loop');
 const { ContinuousListener } = require('./listener');
@@ -922,20 +923,58 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
         const startedAt = Date.now();
         const firedBy = req.body && req.body._firedBy; // trigger id when fired by the trigger engine
         try {
-            const { slug, params, skill, marketplaceInstalled, confirmCapabilities, runId } = req.body || {};
+            const { slug, params, skill, marketplaceInstalled, confirmCapabilities, runId, lowTrust, dryRun } = req.body || {};
             if (!slug) return res.status(400).json({ error: 'slug is required' });
-            if (marketplaceInstalled && !confirmCapabilities) {
-                const preview = (skill && Array.isArray(skill.steps)) ? summarizeCapabilities(skill) : null;
+
+            // Resolve the skill so the marketplace gate can be enforced from the
+            // skill's own metadata (source='marketplace', lowTrust) even when a
+            // client forgets to pass the flags. The inline body skill wins, then
+            // the local cache — matching skill_run's lookup order.
+            const resolvedSkill = (skill && skill.slug === slug) ? skill : getCachedSkill(slug);
+            const isMarketplace = marketplaceInstalled === true
+                || (resolvedSkill && resolvedSkill.metadata && resolvedSkill.metadata.source === 'marketplace');
+            const isLowTrust = lowTrust === true
+                || (resolvedSkill && resolvedSkill.metadata && resolvedSkill.metadata.lowTrust === true);
+            const version = (resolvedSkill && resolvedSkill.metadata && resolvedSkill.metadata.version) || 'unknown';
+
+            // §4.3 / §10.3: a marketplace-installed skill must have its
+            // capability summary confirmed (once per version) before its first
+            // real run. Deny with a preview so the client can render the
+            // "what will this do" review instead of crashing mid-skill.
+            if (isMarketplace && !confirmCapabilities && !marketplaceGate.capabilitiesConfirmed(slug, version)) {
+                const preview = (resolvedSkill && Array.isArray(resolvedSkill.steps)) ? summarizeCapabilities(resolvedSkill) : null;
                 return res.status(403).json({
                     error: 'Capability confirmation required before first run of a marketplace-installed skill.',
                     capabilityConfirmationRequired: true,
                     preview,
+                    lowTrust: isLowTrust,
+                    dryRunFirst: isLowTrust,
                 });
             }
-            const ctx = ctxFactory({ goalSlug: null, userInitiated: true, runId: runId || undefined });
+            if (isMarketplace && confirmCapabilities) {
+                marketplaceGate.confirmCapabilities(slug, version);
+            }
+
+            // Low-trust marketplace skills default to dry-run-first: the first
+            // execution pass is simulated end-to-end so the user sees what each
+            // step will do. `dryRun: true` in the body forces a dry run
+            // explicitly (e.g. a "Run (dry-run)" button).
+            let forceDryRun = dryRun === true;
+            if (isMarketplace && isLowTrust && !marketplaceGate.dryRunCompleted(slug, version)) {
+                forceDryRun = true;
+            }
+
+            const ctx = ctxFactory({ goalSlug: null, userInitiated: true, runId: runId || undefined, forceDryRun });
             const args = { slug, params: params || {} };
             if (skill && skill.slug === slug) args.cache = skill;
             const out = await registry.executeTool('skill_run', args, ctx);
+
+            // A successful dry-run-first pass clears the low-trust gate so the
+            // next run can execute for real.
+            if (isMarketplace && isLowTrust && forceDryRun && out && !out.error) {
+                marketplaceGate.markDryRunCompleted(slug, version);
+            }
+
             const summary = out?.result || {};
             const failedStep = Array.isArray(summary.steps) ? summary.steps.find(s => s && s.error) : null;
             events.publish('skill.run', {
@@ -944,6 +983,7 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
                 stepsRun: summary.stepsRun,
                 failed: !!summary.failed,
                 outcome: summary.outcome || null,
+                dryRun: !!forceDryRun,
             });
             runHistory.append({
                 runId: runId || null,
@@ -959,7 +999,7 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
                 triggerId: firedBy ? String(firedBy) : null,
                 source: firedBy ? 'trigger' : 'manual',
             });
-            res.json(out);
+            res.json({ ...out, dryRun: !!forceDryRun });
         } catch (e) {
             runHistory.append({
                 runId: null,

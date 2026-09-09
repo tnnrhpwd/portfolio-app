@@ -87,8 +87,15 @@ async function executeTool(name, args, ctx = {}) {
         return { ok: false, error: approval.reason, mode: approval.mode, durationMs };
     }
 
+    // `ctx.forceDryRun` forces this invocation (and, via runCtx propagation,
+    // every nested step a composite tool executes) into the simulated/no-op
+    // path even when the permission gate would otherwise 'allow' it. It never
+    // weakens a hard stop: a 'deny' / kill-switch result already returned
+    // early above. Used for marketplace low-trust dry-run-first (§4.3/§10.3).
+    const forceDryRun = !!ctx.forceDryRun;
     const runCtx = {
-        dryRun: approval.mode === 'dry-run',
+        dryRun: approval.mode === 'dry-run' || forceDryRun,
+        forceDryRun,
         log: ctx.log || (() => {}),
         abortSignal: ctx.abortSignal,
         // Propagate userInitiated so composite tools (e.g. skill_run) that

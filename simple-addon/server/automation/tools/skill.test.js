@@ -189,6 +189,29 @@ asyncTest('run: all steps succeed → failed false, no repairs', async () => {
     assert.ok(out.steps.every(st => st.ok));
 });
 
+// ── skillRun.dryRun: leaf steps forced into the simulated path ──────────────
+asyncTest('dryRun: forces every leaf step into dry-run and flags summary.dryRun', async () => {
+    const seenCtx = [];
+    fakeRegistry._handler = (name, args, ctx) => { seenCtx.push(ctx); return { ok: true, result: { dryRun: true } }; };
+    const s = makeSkill('dryrun', [{ tool: 'a', args: {} }, { tool: 'b', args: {} }]);
+    const out = await skillRun.dryRun({ slug: 'dryrun', cache: s, stepDelayMs: 0 }, {});
+    assert.strictEqual(out.dryRun, true, 'summary should be flagged as dry-run');
+    assert.strictEqual(out.failed, false);
+    assert.strictEqual(out.stepsRun, 2);
+    assert.ok(seenCtx.length >= 2, 'leaf steps should re-enter the registry');
+    assert.ok(seenCtx.every(ctx => ctx && ctx.forceDryRun === true), 'leaf ctx must carry forceDryRun');
+});
+
+asyncTest('dryRun: successCriteria is not evaluated (stays indeterminate)', async () => {
+    fakeRegistry._handler = () => ({ ok: true, result: 'ok' });
+    const s = makeSkill('dryrun-crit', [{ tool: 'a', args: {} }]);
+    s.successCriteria = { type: 'clipboard_contains', text: 'secret' };
+    const out = await skillRun.dryRun({ slug: 'dryrun-crit', cache: s, stepDelayMs: 0 }, {});
+    assert.strictEqual(out.outcome.status, 'indeterminate');
+    assert.strictEqual(out.outcome.reasonCode, 'DRY_RUN');
+    assert.strictEqual(out.failed, false);
+});
+
 // ── skillRun.run: repair succeeds ───────────────────────────────────────────
 asyncTest('run: failing step repaired and retried → success', async () => {
     // `click` fails unless args.fixed is true. Repair LLM supplies fixed:true.

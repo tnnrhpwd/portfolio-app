@@ -110,6 +110,16 @@ async function agentChat({ messages, systemPrompt, tools, tool_choice, temperatu
         e.status = res.status;
         if (json?.limiter) e.limiter = json.limiter;
         if (json?.retryAfterSeconds !== undefined) e.retryAfterSeconds = json.retryAfterSeconds;
+        // §8 monetization seam: carry the 402 plan/credit shape so callers
+        // (llm-provider.js → agent loop / chat UI) can show upgrade copy.
+        if (json?.planRequired || json?.requiresUpgrade) {
+            e.planRequired = true;
+            e.requiresUpgrade = true;
+            e.membership = json.membership;
+            e.limit = json.limit;
+            e.creditsRemaining = json.creditsRemaining;
+            e.upgradeUrl = json.upgradeUrl || '/pricing';
+        }
         throw e;
     }
     return json;
@@ -133,6 +143,16 @@ async function agentVision({ prompt, imageBase64, mimeType, temperature, maxToke
         e.status = res.status;
         if (json?.limiter) e.limiter = json.limiter;
         if (json?.retryAfterSeconds !== undefined) e.retryAfterSeconds = json.retryAfterSeconds;
+        // §8 monetization seam: carry the 402 plan/credit shape so callers
+        // (vision-fusion.js et al) can show upgrade copy.
+        if (json?.planRequired || json?.requiresUpgrade) {
+            e.planRequired = true;
+            e.requiresUpgrade = true;
+            e.membership = json.membership;
+            e.limit = json.limit;
+            e.creditsRemaining = json.creditsRemaining;
+            e.upgradeUrl = json.upgradeUrl || '/pricing';
+        }
         throw e;
     }
     return json;

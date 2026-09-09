@@ -122,6 +122,23 @@
   overflow: hidden;
 }
 
+.net-market-link {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 18px 0;
+}
+.net-market-link a {
+  color: var(--text-color-accent);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+.net-market-link a:hover {
+  color: var(--fg-blue);
+}
+
 .net-hero-section::before {
   content: '';
   position: absolute;

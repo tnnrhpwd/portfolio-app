@@ -1,5 +1,6 @@
 import React, { useEffect, useCallback, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { Link } from 'react-router-dom';
 import { compressData, getLLMProviders, getMembershipPricing, resetDataSlice } from '../../../features/data/dataSlice.js';
 import dataService from '../../../features/data/dataService.js';
 import SimpleChat from '../../../components/SimpleAddon/SimpleChat.jsx';
@@ -153,6 +154,9 @@ function Net() {
         </div>
 
         <div className="net-hero-section">
+          <div className="net-market-link">
+            <Link to="/market">Browse the Simple Marketplace →</Link>
+          </div>
           {!user ? (
             <LoginGate
               redirectTo="/net"

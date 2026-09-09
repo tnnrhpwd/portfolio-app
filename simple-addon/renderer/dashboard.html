@@ -323,6 +323,7 @@
     <button id="nav-toggle" title="Navigate">☰</button>
     <span class="topbar-title">Simple Dashboard</span>
   </div>
+  <button id="topbar-marketplace" class="btn-webapp">Marketplace</button>
   <button id="topbar-webapp" class="btn-webapp">Open Web App ↗</button>
   <div id="nav-dropdown">
     <button data-tab="status">Status</button>
@@ -337,6 +338,7 @@
     <button data-tab="updates">Updates</button>
     <button data-tab="settings">Settings</button>
     <div class="nav-sep"></div>
+    <button id="nav-marketplace" class="nav-webapp">Marketplace</button>
     <button id="nav-webapp" class="nav-webapp">Open Web App ↗</button>
   </div>
 </div>
@@ -1272,8 +1274,10 @@ async function api(path, opts = {}) {
   let json = null;
   try { json = text ? JSON.parse(text) : null; } catch {}
   if (!r.ok) {
-    const err = (json && (json.error || json.message)) || text || r.statusText;
-    throw new Error(err);
+    const err = new Error((json && (json.error || json.message)) || text || r.statusText);
+    err.status = r.status;
+    err.json = json; // e.g. the 403 capability-confirmation payload from /api/skill/run
+    throw err;
   }
   return json;
 }
@@ -1312,6 +1316,12 @@ for (const btn of navDropdown.querySelectorAll('button[data-tab]')) {
 document.getElementById('topbar-webapp').addEventListener('click', () => window.simpleDashboard.openWebApp());
 document.getElementById('nav-webapp').addEventListener('click', () => {
   window.simpleDashboard.openWebApp();
+  navDropdown.classList.remove('open');
+});
+const MARKETPLACE_URL = 'https://sthopwood.com/market';
+document.getElementById('topbar-marketplace').addEventListener('click', () => window.simpleDashboard.openExternal(MARKETPLACE_URL));
+document.getElementById('nav-marketplace').addEventListener('click', () => {
+  window.simpleDashboard.openExternal(MARKETPLACE_URL);
   navDropdown.classList.remove('open');
 });
 
@@ -1925,6 +1935,12 @@ function renderRunBanner() {
   } else if (runInfo.phase === 'done') {
     textEl.textContent = `✓ "${runInfo.label}" done in ${formatDuration(runInfo.elapsedMs)} (${runInfo.stepsRun}/${runInfo.stepsTotal} steps)`;
     debugToggle.style.display = 'none';
+  } else if (runInfo.phase === 'dry-run') {
+    textEl.textContent = `◌ "${runInfo.label}" dry-run complete in ${formatDuration(runInfo.elapsedMs)} (${runInfo.stepsRun}/${runInfo.stepsTotal} steps simulated) — nothing executed. Run again to execute for real.`;
+    debugToggle.style.display = 'none';
+  } else if (runInfo.phase === 'cancelled') {
+    textEl.textContent = `— "${runInfo.label}" not run${runInfo.error ? `: ${runInfo.error}` : ''}`;
+    debugToggle.style.display = 'none';
   } else {
     textEl.textContent = runInfo.failedStep
       ? `✕ "${runInfo.label}" failed at step ${runInfo.failedStep.index + 1}/${runInfo.stepsTotal} (${runInfo.failedStep.tool}) after ${formatDuration(runInfo.elapsedMs)}: ${runInfo.failedStep.error}`
@@ -1998,6 +2014,13 @@ document.getElementById('run-console-toggle').addEventListener('click', () => {
  * reporting — no confirm() before starting and no alert() when it finishes;
  * failures surface inline with an expandable debug panel + live console
  * instead, matching the web app's macro-run UX.
+ *
+ * Marketplace-installed skills (§4.3 / §10.3) get the mandatory pre-run
+ * capability confirmation: the first attempt returns 403 with a preview, we
+ * render a "what will this do" review, and only re-run (with
+ * `confirmCapabilities`) after the user accepts. Low-trust skills run their
+ * first pass in dry-run mode (the addon forces it server-side) — surfaced
+ * here as a 'dry-run' result so the user knows nothing executed yet.
  */
 async function executeSkillRun(slug, label, cacheSkill, params) {
   stopRunConsole();
@@ -2016,23 +2039,53 @@ async function executeSkillRun(slug, label, cacheSkill, params) {
     }
   }, 100);
 
-  try {
-    const body = { slug, params: params || {}, runId };
+  const attemptRun = async (flags = {}) => {
+    const body = { slug, params: params || {}, runId, ...flags };
     if (cacheSkill && cacheSkill.slug === slug) body.skill = cacheSkill;
-    const out = await api('/api/skill/run', { method: 'POST', body: JSON.stringify(body) });
+    if (cacheSkill?.metadata?.source === 'marketplace') body.marketplaceInstalled = true;
+    return api('/api/skill/run', { method: 'POST', body: JSON.stringify(body) });
+  };
+
+  try {
+    let out = null;
+    let confirmed = false;
+    for (;;) {
+      try {
+        out = await attemptRun(confirmed ? { confirmCapabilities: true } : {});
+        break;
+      } catch (e) {
+        if (e?.status === 403 && e?.json?.capabilityConfirmationRequired) {
+          const ok = confirm(renderCapabilityConfirmText(e.json.preview || null, !!e.json.lowTrust));
+          if (!ok) {
+            clearInterval(runTimer);
+            runInfo = { label, phase: 'cancelled', startedAt, elapsedMs: Date.now() - startedAt, error: 'Capability review not confirmed.' };
+            stopRunConsole();
+            renderRunBanner();
+            refreshRunsList();
+            return;
+          }
+          confirmed = true;
+          continue; // re-attempt with confirmCapabilities
+        }
+        throw e;
+      }
+    }
+
     if (out?.error) throw new Error(out.error);
     const summary = out?.result || {};
     const steps = summary.steps || [];
     const failedStep = steps.find(s => s.error);
     const failed = !!summary.failed || !!failedStep;
+    const wasDryRun = !!out.dryRun || !!summary.dryRun;
     clearInterval(runTimer);
     runInfo = {
       label,
-      phase: failed ? 'failed' : 'done',
+      phase: failed ? 'failed' : (wasDryRun ? 'dry-run' : 'done'),
       startedAt,
       elapsedMs: Date.now() - startedAt,
       stepsTotal: summary.stepsTotal ?? steps.length,
       stepsRun: summary.stepsRun ?? steps.length,
+      dryRun: wasDryRun,
       failedStep: failedStep
         ? { index: failedStep.index, tool: failedStep.tool, error: failedStep.error, args: failedStep.args, compatibility: failedStep.compatibility, repairs: failedStep.repairs, result: failedStep.result }
         : null,
@@ -2041,8 +2094,41 @@ async function executeSkillRun(slug, label, cacheSkill, params) {
     clearInterval(runTimer);
     runInfo = { label, phase: 'failed', startedAt, elapsedMs: Date.now() - startedAt, error: e.message };
   }
+  stopRunConsole();
   renderRunBanner();
   refreshRunsList();
+}
+
+/** Plain-language "what will this do" review for the capability confirmation. */
+function renderCapabilityConfirmText(preview, lowTrust) {
+  const lines = [];
+  const summary = (preview && Array.isArray(preview.summary)) ? preview.summary : [];
+  if (summary.length) {
+    lines.push('This skill will:');
+    for (const s of summary) lines.push(`  • ${s}`);
+  } else {
+    const counts = (preview && preview.toolCounts) || {};
+    const entries = Object.entries(counts);
+    if (entries.length) {
+      lines.push('Tools this skill will run:');
+      for (const [tool, count] of entries) lines.push(`  • ${tool} ×${count}`);
+    } else {
+      lines.push('(No resolvable tool actions could be determined.)');
+    }
+  }
+  const mismatches = (preview && Array.isArray(preview.mismatches)) ? preview.mismatches : [];
+  if (mismatches.length) {
+    lines.push('');
+    lines.push('⚠ Declared/actual category mismatch:');
+    for (const m of mismatches) lines.push(`  • ${m.tool} → ${m.category}`);
+  }
+  if (lowTrust) {
+    lines.push('');
+    lines.push('This is a NEW / low-trust skill — it will run in DRY-RUN mode first (nothing actually executes). The next run executes for real.');
+  }
+  lines.push('');
+  lines.push('Run it?');
+  return lines.join('\n');
 }
 
 // ── Natural language macro compiler ──

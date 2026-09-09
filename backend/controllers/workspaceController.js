@@ -83,6 +83,60 @@ async function _callAgentLlm(messages, { temperature, maxTokens, tools, tool_cho
     };
 }
 
+// ─── §8 Monetization seam (provider-boundary gate) ───────────────────────────
+// The addon's cloud-LLM calls all proxy through agent-chat/agent-vision
+// (simple-addon/server/automation/llm-provider.js → workspace-client.js).
+// These two routes ARE the "one seam" the roadmap monetizes on: local
+// automation runs on the user's own PC and stays unlimited; only these
+// metered, server-paid Bedrock calls are gated by the per-tier monthly
+// credit limit (MEMBERSHIP_LIMITS in utils/apiUsageTracker.js).
+
+/**
+ * Enforce the per-tier monthly AI credit limit before invoking Bedrock.
+ * Returns a truthy gate result when the call may proceed, or `null` after
+ * writing a structured 402 response (caller must return immediately).
+ *
+ * `estimated` mirrors canMakeApiCall's estimatedUsage — a pre-call cost
+ * estimate only; actual usage is recorded precisely after the call via
+ * _trackAgentLlmUsage.
+ */
+async function _enforceLlmCreditGate(req, res, estimated) {
+    const { canMakeApiCall } = require('../utils/apiUsageTracker');
+    const gate = await canMakeApiCall(req.user.id, 'bedrock', estimated);
+    if (!gate.canMake) {
+        res.status(402).json({
+            ok: false,
+            error: gate.reason || 'Monthly AI usage limit reached for your plan.',
+            planRequired: true,
+            requiresUpgrade: true,
+            membership: gate.membership,
+            limit: gate.limit,
+            creditsRemaining: gate.currentCredits,
+            upgradeUrl: '/pricing',
+        });
+        return null;
+    }
+    return gate;
+}
+
+/**
+ * Record actual Bedrock usage after a successful agent-chat/agent-vision
+ * call. Best-effort: a metering write failure must never fail a response the
+ * LLM already produced successfully.
+ */
+async function _trackAgentLlmUsage(req, result) {
+    try {
+        const { trackApiUsage } = require('../utils/apiUsageTracker');
+        const usage = result?.usage || {};
+        await trackApiUsage(req.user.id, 'bedrock', {
+            inputTokens: usage.prompt_tokens || 0,
+            outputTokens: usage.completion_tokens || 0,
+        }, req.body?.model);
+    } catch (e) {
+        logger.warn('[agent-llm] usage tracking failed:', e.message);
+    }
+}
+
 // ─── Allow-lists & validation ────────────────────────────────────────────────
 
 const ALLOWED_KINDS = new Set([
@@ -1150,6 +1204,10 @@ const agentChatProxy = asyncHandler(async (req, res) => {
         ? [{ role: 'system', content: String(systemPrompt).slice(0, 8000) }, ...messages]
         : messages;
 
+    // §8: gate on the per-tier monthly AI credit limit BEFORE the Bedrock call.
+    const gate = await _enforceLlmCreditGate(req, res, { model: req.body?.model, inputTokens: 500, outputTokens: 500 });
+    if (!gate) return;
+
     let result;
     try {
         result = await _callAgentLlm(fullMessages, {
@@ -1175,6 +1233,7 @@ const agentChatProxy = asyncHandler(async (req, res) => {
         throw new Error(`Agent chat failed: ${e.message}`);
     }
 
+    await _trackAgentLlmUsage(req, result);
     res.status(200).json({ ok: true, ...result });
 });
 
@@ -1202,6 +1261,11 @@ const agentVisionProxy = asyncHandler(async (req, res) => {
         ],
     }];
 
+    // §8: gate on the per-tier monthly AI credit limit BEFORE the Bedrock call.
+    // Vision frames are token-heavy on the input side — estimate accordingly.
+    const gate = await _enforceLlmCreditGate(req, res, { model: req.body?.model, inputTokens: 2000, outputTokens: 300 });
+    if (!gate) return;
+
     let result;
     try {
         result = await _callAgentLlm(messages, {
@@ -1225,6 +1289,7 @@ const agentVisionProxy = asyncHandler(async (req, res) => {
         throw new Error(`Agent vision failed: ${e.message}`);
     }
 
+    await _trackAgentLlmUsage(req, result);
     res.status(200).json({ ok: true, text: result.text });
 });
 

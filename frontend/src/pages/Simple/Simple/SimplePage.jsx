@@ -33,9 +33,14 @@ function SimplePage() {
             <p className="simple-subtitle">
               Your agent dashboard — goals, macros, and chat in one place.
             </p>
-            <Link className="simple-btn simple-btn-outline" to="/pricing">
-              See pricing
-            </Link>
+            <div className="simple-actions">
+              <Link className="simple-btn simple-btn-outline" to="/pricing">
+                See pricing
+              </Link>
+              <Link className="simple-btn" to="/market">
+                Browse marketplace
+              </Link>
+            </div>
           </div>
         </section>
 

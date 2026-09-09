@@ -52,13 +52,14 @@ Two complementary flows, both need to exist and interoperate:
 These two flows feed each other: agent-loop runs are recordable, and recorded
 skills are describable/searchable so the agent can find and reuse them.
 
-## 4. Marketplace — 🟡 partially implemented (backend shipped; frontend + UI confirmations open)
+## 4. Marketplace — 🟡 mostly shipped (backend, /market frontend, and pre-run capability + dry-run-first enforcement done; eval scenario + live-DynamoDB pass remain)
 
 > ⚠️ **Scope note:** the marketplace is *not* "extend the existing skill
 > endpoints." Today's skill endpoints (`/api/data/csimple/workspace/skill/*`)
 > store **private, per-user** items keyed `csimple_ws_{userId}_{kind}_{slug}`.
 > The marketplace needs a **new shared/public namespace** with its own read path
 > (anyone can discover) and controlled write path (publish/fork).
+> Link to it on the addon dashboard, /net, and /simple UIs
 
 ### 4.1 Data model (new backend surface)
 
@@ -98,10 +99,9 @@ and `workspace-client.js` wrappers.
   - The pre-run capability summary (§6.2) is mandatory for any marketplace install.
 - Marketplace success metric: **skill downloads and creations** are the primary KPI; `/telemetry/summary` folds in the marketplace counters.
 
-### 4.4 Web frontend — ⬜ not started
+### 4.4 Web frontend — ✅ shipped
 
-- New route `sthopwood.com/market`, mirroring the `/net` integration pattern, linked to/from `/net`.
-- Search by natural-language description, browse by trust/downloads/recent, view the pre-run capability summary before install.
+- Route `sthopwood.com/market` (`frontend/src/pages/Simple/Market/`): NL search, sort by trust/downloads/recent, detail modal with the pre-run capability summary, install → rate → flag, publish modal with scrub review, and save-to-addon (or JSON download).
 
 ### 4.5 Marketplace implementation checklist (Definition of Done)
 
@@ -235,7 +235,7 @@ local/offline model seam (§7) the escape hatch.
 ### 6.4 Remaining safety checklist
 
 - ✅ Keyboard/sensitive-capture consent gate in the recorder pipeline.
-- 🟡 Block publish/install on explicit pre-run capability confirmation in UI (backend enforcement shipped; UI flow pending).
+- ✅ Block publish/install on explicit pre-run capability confirmation (server 403 until confirmed + addon-dashboard review UI; low-trust skills also dry-run-first).
 - 🟡 Require cloud-vision consent before any multimodal upload path (`vision-fusion.js` + `screenshot_check` gated; future paths need wiring).
 - 🟡 Add revoke/toggle UI and persist consent state (backend shipped; UI pending).
 - 🟡 Ensure every deny path surfaces a user-visible reason (consent/capability paths done; remaining audit open).
@@ -361,7 +361,7 @@ marketplace, and ship privacy scrubbing before *any* publish path.
 2. 🟡 **Privacy scrub pass** (6.1) — scrub engine + preview endpoint + consent gate shipped. ⬜ Remaining: scrub-report confirmation in pre-publish UI.
 3. 🟡 **Pre-run capability summary** (6.2) — summarizer + preview endpoint shipped. ⬜ Remaining: mandatory pre-run confirmation UX.
 4. ✅ **Marketplace backend** (4.1–4.2) — public namespace, versioning, install-gated ratings, atomic counters.
-5. 🟡 **Marketplace web frontend** (4.4) + trust ranking + dry-run-first — ranking + `lowTrust` shipped server-side; the `/market` frontend itself is ⬜ not started.
+5. ✅ **Marketplace web frontend** (4.4) + trust ranking + dry-run-first — `/market` page, ranking + `lowTrust`, and dry-run-first enforcement all shipped.
 6. 🟡 **Vision re-targeting on replay** (5.3) — backend recovery path shipped; broaden coverage + UI messaging remain.
 7. ⬜ **Monetization seam** (8) — `requiresPlan` at the LLM provider boundary.
 8. ⬜ **Onboarding/UX polish** for non-technical users.
@@ -384,8 +384,8 @@ Each milestone ships with Jest unit tests and, where it touches the loop, an
 - ✅ Marketplace public namespace + immutable version storage.
 - ✅ Install-gated ratings (server-enforced).
 - ✅ `/telemetry/summary` including marketplace counters.
-- ⬜ Mandatory pre-publish scrub confirmation UI.
-- ⬜ Mandatory pre-run capability confirmation UI for installed market skills.
+- ✅ Mandatory pre-publish scrub confirmation UI (PublishModal "what will be shared" review).
+- ✅ Mandatory pre-run capability confirmation UI for installed market skills (addon-dashboard review on first run).
 
 #### P1 — do next
 
@@ -406,8 +406,8 @@ Each milestone ships with Jest unit tests and, where it touches the loop, an
 
 - ✅ No publish path can bypass scrub + author confirmation (server re-runs privacy scrub + capability-mismatch check before persisting).
 - ⬜ No run path can bypass permissions/security guardrails (addon execution-time property).
-- 🟡 Installed marketplace skills always show capability summary before first execution (backend returns `lowTrust` + `capabilitySummary` on install; the pre-run UI confirmation is not yet built).
-- 🟡 Low-trust skills default to dry-run-first (`classifyLowTrust()` + `lowTrust` flag shipped; client-side enforcement of "dry-run first when `lowTrust: true`" is still open).
+- ✅ Installed marketplace skills always show capability summary before first execution (server 403s until confirmed once per version; addon dashboard renders the review).
+- ✅ Low-trust skills default to dry-run-first (server forces the first pass into dry-run via `marketplace-gate.js`; addon dashboard surfaces a 'dry-run' result).
 
 ### 10.4 Future capability plans
 

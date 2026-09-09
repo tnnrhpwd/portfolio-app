@@ -1070,11 +1070,19 @@ export async function saveSkill(skill) {
  *     every tool.start/tool.end SSE event for this run (and its nested steps)
  *     is tagged with the same runId — subscribe to getAgentEventsUrl() and
  *     filter on it to build a live step-by-step execution view.
+ *   @param {boolean} [opts.marketplaceInstalled] mark the run as a marketplace
+ *     install so the addon enforces the capability-confirmation gate.
+ *   @param {boolean} [opts.confirmCapabilities] confirm the capability summary
+ *     (sent on the re-run after the user reviews the 403 preview).
+ *   @param {boolean} [opts.dryRun] force a simulated/no-op pass.
  */
 export async function runSkill(slug, params = {}, inlineSkill = null, opts = {}) {
   const body = { slug, params: params || {} };
   if (inlineSkill && inlineSkill.slug === slug) body.skill = inlineSkill;
   if (opts?.runId) body.runId = opts.runId;
+  if (opts?.marketplaceInstalled) body.marketplaceInstalled = true;
+  if (opts?.confirmCapabilities) body.confirmCapabilities = true;
+  if (opts?.dryRun) body.dryRun = true;
   const res = await addonFetch('/api/skill/run', {
     method: 'POST',
     body: JSON.stringify(body),

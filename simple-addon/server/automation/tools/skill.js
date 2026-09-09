@@ -380,6 +380,9 @@ async function _attemptVisualRetarget({ step, resolvedArgs, error, ctx }) {
 }
 
 async function _evaluateSuccessCriteria(skill, summary, ctx) {
+    if (ctx && ctx.forceDryRun) {
+        return { status: 'indeterminate', success: null, reasonCode: 'DRY_RUN', detail: 'successCriteria not evaluated during dry-run' };
+    }
     const criteria = skill?.successCriteria;
     if (!criteria) {
         return { status: 'indeterminate', success: null, reasonCode: 'NO_CRITERIA', detail: 'skill has no successCriteria' };
@@ -1156,6 +1159,7 @@ const skillRun = {
             compatibility,
             steps: results,
         };
+        if (ctx.forceDryRun) summary.dryRun = true;
         const allStepsOk = !failed;
         let outcome = await _evaluateSuccessCriteria(skill, summary, ctx);
         summary.outcome = outcome;
@@ -1271,6 +1275,14 @@ const skillRun = {
             });
         } catch {}
         return summary;
+    },
+
+    // Dry-run: re-run the full loop with every leaf step forced into the
+    // simulated/no-op path, so a marketplace low-trust skill's mandatory
+    // dry-run-first pass shows exactly what each step would do before any
+    // real action executes (§4.3 / §10.3).
+    async dryRun(args, ctx) {
+        return this.run(args, { ...(ctx || {}), forceDryRun: true });
     },
 };
 
