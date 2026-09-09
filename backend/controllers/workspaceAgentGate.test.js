@@ -23,18 +23,18 @@ jest.mock('@aws-sdk/lib-dynamodb', () => ({
     ScanCommand: jest.fn(),
     UpdateCommand: jest.fn(),
 }));
-jest.mock('../../services/bedrockService', () => ({
+jest.mock('../services/bedrockService', () => ({
     createBedrockCompletion: (...args) => mockCreateBedrockCompletion(...args),
 }));
-jest.mock('../../utils/logger', () => ({
+jest.mock('../utils/logger', () => ({
     logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }));
-jest.mock('../../utils/apiUsageTracker', () => ({
+jest.mock('../utils/apiUsageTracker', () => ({
     canMakeApiCall: (...args) => mockCanMakeApiCall(...args),
     trackApiUsage: (...args) => mockTrackApiUsage(...args),
 }));
 
-const { agentChatProxy, agentVisionProxy } = require('../../controllers/workspaceController');
+const { agentChatProxy, agentVisionProxy } = require('./workspaceController');
 
 function mockReq(body = {}) {
     return { user: { id: 'user-123' }, body };

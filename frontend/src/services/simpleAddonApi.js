@@ -1153,6 +1153,15 @@ export async function previewSkillCapabilities(skill) {
   return res.json();
 }
 
+/** Preview tool-version compatibility against the local addon registry (§5.4). */
+export async function previewSkillCompatibility(skill) {
+  const res = await addonFetch('/api/skill/compatibility', {
+    method: 'POST',
+    body: JSON.stringify({ skill }),
+  });
+  return res.json();
+}
+
 // ─── Natural Language Macro Compiler ─────────────────────────────────────────
 
 /**

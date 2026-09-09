@@ -8,7 +8,7 @@ import SEO from '../../../components/SEO/SEO.jsx';
 import LoginGate from '../../../components/Simple/LoginGate/LoginGate.jsx';
 import { useAddonDetection } from '../../../hooks/simpleAddon/useAddonDetection.js';
 import useScrollReveal from '../../../hooks/useScrollReveal';
-import { importSkillToAddon } from '../../../services/simpleAddonApi.js';
+import { importSkillToAddon, previewSkillCompatibility } from '../../../services/simpleAddonApi.js';
 import {
   searchMarketSkills,
   getMarketSkill,
@@ -101,6 +101,19 @@ function SkillCard({ skill, onOpen }) {
 function SkillModal({ detail, installed, onClose, onInstall, onRate, onFlag, installing, rateBusy, flagBusy, addonConnected, saveBusy, onSaveToAddon }) {
   const [stars, setStars] = useState(0);
   const [hover, setHover] = useState(0);
+  const [compat, setCompat] = useState(null);
+
+  // §5.4: when the addon is connected and we have the installed skill, run the
+  // local tool-version compatibility analysis so the user sees degraded/
+  // unsupported steps before saving the skill to the addon.
+  useEffect(() => {
+    let cancelled = false;
+    if (!addonConnected || !installed?.skill) { setCompat(null); return; }
+    previewSkillCompatibility(installed.skill)
+      .then((res) => { if (!cancelled) setCompat(res); })
+      .catch(() => { if (!cancelled) setCompat(null); });
+    return () => { cancelled = true; };
+  }, [addonConnected, installed?.skill]);
 
   if (!detail) {
     return (
@@ -216,6 +229,32 @@ function SkillModal({ detail, installed, onClose, onInstall, onRate, onFlag, ins
                   <div className="mkt-warning mkt-warning--mismatch">
                     <strong>Declared/actual mismatch:</strong>{' '}
                     {capability.mismatches.map((m) => `${m.tool} → ${m.category}`).join(', ')}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {compat && addonConnected && (
+              <div className="mkt-capability">
+                <h4>Compatibility with your addon</h4>
+                <div className="mkt-compat-counts">
+                  <span className="mkt-cat mkt-cat--read">{compat.compatibleCount} compatible</span>
+                  {compat.degradedCount > 0 && <span className="mkt-cat mkt-cat--write">{compat.degradedCount} adjusted</span>}
+                  {compat.unsupportedCount > 0 && <span className="mkt-cat mkt-cat--system">{compat.unsupportedCount} unsupported</span>}
+                </div>
+                {(compat.degradedCount > 0 || compat.unsupportedCount > 0) && (
+                  <ul className="mkt-capability-list">
+                    {compat.findings.filter((f) => f.status !== 'compatible').slice(0, 6).map((f) => (
+                      <li key={`${f.path}-${f.originalTool}`}>
+                        <code>{f.originalTool}</code>
+                        <span>{f.status === 'degraded' ? `→ ${f.resolvedTool}` : '— not available on this addon'}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {compat.hasUnsupported && (
+                  <div className="mkt-warning mkt-warning--mismatch">
+                    <strong>Unsupported tools:</strong> some steps use tools this addon version doesn't have and will be skipped or blocked at run time.
                   </div>
                 )}
               </div>

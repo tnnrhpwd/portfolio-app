@@ -1,0 +1,26 @@
+{
+  "id": "26-marketplace-publish-http",
+  "name": "Marketplace publish — POST /api/market/skills (offline stub)",
+  "description": "Exercises the addon's marketplace publish proxy route end-to-end against a real in-process Express server (docs/implementation/simple-agent-prompt.md §4.5). The X-Simple-Eval-Stub header swaps in an in-memory marketplace client (marketplace-eval-stub.js), so this is fully offline/deterministic — no backend or network calls. Part 1 of the marketplace chain: publish mk-eval-001.",
+  "http": {
+    "method": "POST",
+    "path": "/api/market/skills",
+    "headers": { "X-Simple-Eval-Stub": "1" },
+    "body": {
+      "marketId": "mk-eval-001",
+      "name": "eval skill",
+      "version": "1.0.0",
+      "steps": [
+        { "tool": "text_type", "args": { "text": "hi" } }
+      ]
+    }
+  },
+  "expect": {
+    "status": 200,
+    "ok": true,
+    "marketId": { "equals": "mk-eval-001" },
+    "version": { "equals": "1.0.0" },
+    "slug": { "equals": "eval-skill" }
+  },
+  "tags": ["marketplace", "http", "offline", "smoke"]
+}

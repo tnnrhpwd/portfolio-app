@@ -360,6 +360,10 @@ function Home() {
                         <p className={`home-subtitle ${animationPhase >= 1 ? 'is-visible' : ''}`}>
                             Let's build a brighter tomorrow!
                         </p>
+                        <div className={`home-actions ${animationPhase >= 1 ? 'is-visible' : ''}`}>
+                            <Link className="home-btn" to="/pricing">What I can do for you <span aria-hidden="true">→</span></Link>
+                            <Link className="home-btn home-btn-text" to="/projects">Browse my work <span aria-hidden="true">→</span></Link>
+                        </div>
                     </div>
                 </section>
 

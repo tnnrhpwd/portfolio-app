@@ -112,7 +112,7 @@ and `workspace-client.js` wrappers.
 - ✅ Marketplace routes in `server/automation/index.js` + client wrappers in `workspace-client.js`.
 - ✅ Jest unit tests for ranking, version pinning, install/rate gate.
 - ✅ Marketplace counters folded into `/telemetry/summary`.
-- ⬜ At least one eval scenario for the marketplace routes (needs plumbing — routes live on the portfolio backend, not the addon's `mountAutomation()` server).
+- ✅ Eval scenarios for the marketplace proxy routes — `26-marketplace-publish-http`, `27-marketplace-search-http`, `28-marketplace-get-http`, `29-marketplace-install-http` (`server/automation/eval/scenarios/`), offline via the request-scoped `X-Simple-Eval-Stub: 1` header + `marketplace-eval-stub.js` (the addon's `/api/market/skills*` proxies swap in an in-memory client, so no live backend/JWT is needed).
 
 ### 4.6 Backend schema + ranking backlog — 🟡 mostly shipped
 
@@ -158,16 +158,27 @@ Extend `repairStep` in `tools/skill.js` to consider "find a visually similar ele
 
 - ✅ Explicit "visual retarget" branch in `repairStep`.
 - ✅ Provenance, retry budget + backoff, event-bus telemetry, unit tests.
-- 🟡 Broaden target coverage + add UI messaging for the recovered action.
+- ✅ UI messaging for the recovered action — the ShortcutsManager run banner now
+  reports "recovered N step(s) automatically" when `repairsTotal > 0` (visual
+  retarget / LLM repair), alongside the existing per-step `repairs` debug detail.
+- 🟡 Broaden target coverage — extend `repairStep` beyond the click/uia_invoke/
+  click_visual cases to more step types.
 
-### 5.4 Tool-version graceful degradation — 🟡 partially implemented
+### 5.4 Tool-version graceful degradation — ✅ implemented
 
 Before running an installed skill, resolve every step's tool against the local
 registry; missing/renamed tools downgrade the step or surface a clear message —
 never crash mid-skill.
 
 - ✅ Compatibility resolver (`analyzeSkillCompatibility`), preview endpoint, `allowUnsupported` gate, deterministic downgrade rules, tests.
-- 🟡 Broader mapping coverage + UI integration remain.
+- ✅ UI integration — the marketplace install modal now shows a "Compatibility
+  with your addon" summary (compatible / adjusted / unsupported counts + per-step
+  findings) via `previewSkillCompatibility` → `POST /api/skill/compatibility`.
+- ✅ Broader mapping coverage — `TOOL_ALIASES`/`TOOL_FALLBACKS` now cover common
+  legacy/alternate names across fs / window / input / UIA / browser / screen /
+  shell / app / audio / skill tools (plus a `click_at → find_and_click_visual`
+  cross-version fallback); tested in `tools/skill.test.js`. New renames should
+  still be added here as they land.
 
 ### 5.5 Measure it — reuse the eval harness — ✅ implemented
 
@@ -190,7 +201,7 @@ this feeds the marketplace `outcome` on ratings (§4.1) and decides whether `rep
 - ✅ `repairStep` on criteria failure (`maxCriteriaRepairs`, `strategy: 'criteria-retry'`).
 - ✅ Tests for pass/fail/indeterminate states.
 
-## 6. Safety & permissions — 🟡 partially implemented (backend seams shipped; UI confirmation flows open)
+## 6. Safety & permissions — 🟡 partially implemented (backend seams + consent UI shipped; deny-path audit + future multimodal wiring open)
 
 Keep and extend the existing permission model (`server/automation/permissions.js`,
 `security-guard.js`) — do not weaken it for consumer onboarding. Category-based
@@ -219,7 +230,7 @@ first run of any installed skill.
 **Where:** `server/automation/capability-summary.js` (`summarizeCapabilities(skill)`).
 Preview endpoint `POST /api/skill/capabilities`.
 
-### 6.3 Cloud-vision consent — 🟡 partially implemented
+### 6.3 Cloud-vision consent — ✅ implemented
 
 The generalization and vision-fallback paths send screen captures to a cloud LLM
 (`vision-fusion.js`, proxied to AWS Bedrock). Require explicit, revocable consent
@@ -230,15 +241,19 @@ local/offline model seam (§7) the escape hatch.
 - ✅ Block multimodal calls when consent is absent/revoked, with actionable errors.
 - ✅ Consent endpoints (`GET/PUT /api/automation/consents`, `GET /api/recorder/consent-status`) + audit events.
 - ✅ Tests for allow/deny/revoke flows.
-- ⬜ First-use consent modal with plain-language data-egress description.
+- ✅ First-use consent modal with plain-language data-egress description — `frontend/src/components/SimpleAddon/PermissionsManager.jsx` shows a confirmation modal (what is shared, where it goes, how to revoke) before the first grant of keyboard capture or cloud vision.
 
 ### 6.4 Remaining safety checklist
 
 - ✅ Keyboard/sensitive-capture consent gate in the recorder pipeline.
 - ✅ Block publish/install on explicit pre-run capability confirmation (server 403 until confirmed + addon-dashboard review UI; low-trust skills also dry-run-first).
 - 🟡 Require cloud-vision consent before any multimodal upload path (`vision-fusion.js` + `screenshot_check` gated; future paths need wiring).
-- 🟡 Add revoke/toggle UI and persist consent state (backend shipped; UI pending).
-- 🟡 Ensure every deny path surfaces a user-visible reason (consent/capability paths done; remaining audit open).
+- ✅ Revoke/toggle UI with persisted consent state — `PermissionsManager.jsx` surfaces both sensitive consents with on/off toggles + the §6.3 first-use modal; state persists via the addon permissions file and syncs to the account (`kind=settings`, `slug=automation-consents`).
+- ✅ Ensure every deny path surfaces a user-visible reason — tool-permission
+  denials now name the blocker (`permissions.requestApproval` distinguishes the
+  emergency kill switch, a per-tool `deny` override, and a category `deny`),
+  joining the already-specific consent/capability 403s. Tests in
+  `permissions.test.js`.
 
 ## 7. Architecture — ✅ provider seam shipped
 
@@ -287,7 +302,7 @@ The end-to-end loop **signed-in user → cloud memory → local PC actions** wor
 - ✅ Default adapter is `backend-proxy` (`/api/data/csimple/agent-chat` / `agent-vision`); the old per-user GitHub PAT model is gone.
 - ✅ Unit tests proving callers no longer instantiate `GitHubModelsService` directly.
 
-## 8. Monetization — ⬜ planned
+## 8. Monetization — 🟡 provider-boundary credit gate shipped (UX copy + full integration matrix remain)
 
 Freemium, gated at one seam (the LLM provider interface, §7.1) — not scattered
 through feature code. Downgrade/expiry falls back to the free path without
@@ -311,13 +326,35 @@ Locked decisions: **no BYOK** (all cloud AI is operator-funded and metered);
 unlimited credits — see [`special-user-flag.md`](special-user-flag.md); it's an admin
 tool, not a documented tier.)
 
-### 8.1 Monetization checklist — ⬜ planned
+### 8.1 Monetization checklist — 🟡 partially implemented (provider-boundary gate shipped)
 
-- ⬜ Implement `requiresPlan(tier)` at the provider boundary only.
-- ⬜ Map each cloud-heavy capability to a minimum tier in one config table.
-- ⬜ Ensure plan downgrade immediately flips to free/local path without skill-execution breakage.
-- ⬜ Add clear UX copy when a premium-only path is blocked.
-- ⬜ Add integration tests for free, paid, expired, and grace-period states.
+The meter already lived in `backend/utils/apiUsageTracker.js`
+(`MEMBERSHIP_LIMITS` / `getMembershipLimit` / `canMakeApiCall` / `trackApiUsage`).
+The gap was **enforcement at the provider boundary** — `agent-chat`/`agent-vision`
+invoked Bedrock without checking it. That gate now exists.
+
+- ✅ Enforce the credit limit at the provider boundary only — `agentChatProxy` /
+  `agentVisionProxy` (`backend/controllers/workspaceController.js`) call
+  `canMakeApiCall` before Bedrock, return a structured 402 (`planRequired`,
+  `membership`, `limit`, `creditsRemaining`, `upgradeUrl`) when blocked, then
+  `trackApiUsage` with the real token counts after success.
+- ✅ Per-tier limits in one config table — `MEMBERSHIP_LIMITS` (Free $0.50 / Pro
+  $10) in `backend/utils/apiUsageTracker.js`; local automation stays unmetered.
+- 🟡 Downgrade immediately reflects in the limit — `getMembershipLimit(userRank)`
+  resolves the rank from Stripe per call, so a downgrade/cancel drops the
+  allowance on the next cloud-LLM call. (Grace-period copy and the local-path
+  fallback for chat remain.)
+- ✅ Blocked-call UX copy — `SimpleChat.jsx` already renders an "Usage Limit
+  Reached → Upgrade" message for 402/credit/limit errors in both chat paths
+  (and `dataService.js` shows upgrade toasts). The structured fields
+  (`planRequired`/`membership`/`limit`/`creditsRemaining`/`upgradeUrl`) now also
+  flow through `workspace-client.js` for richer copy later.
+- 🟡 Integration tests — route gate covered in
+  `backend/controllers/workspaceAgentGate.test.js`; the free/paid/expired/
+  grace state machine now has unit coverage in
+  `backend/utils/apiUsageTracker.test.js` (`getMembershipLimit`,
+  `needsMonthlyReset`, `performMonthlyReset`). A full route-layer pass against
+  real DynamoDB/Stripe fixtures remains.
 
 ### 8.2 Example marketable use cases
 
@@ -363,7 +400,7 @@ marketplace, and ship privacy scrubbing before *any* publish path.
 4. ✅ **Marketplace backend** (4.1–4.2) — public namespace, versioning, install-gated ratings, atomic counters.
 5. ✅ **Marketplace web frontend** (4.4) + trust ranking + dry-run-first — `/market` page, ranking + `lowTrust`, and dry-run-first enforcement all shipped.
 6. 🟡 **Vision re-targeting on replay** (5.3) — backend recovery path shipped; broaden coverage + UI messaging remain.
-7. ⬜ **Monetization seam** (8) — `requiresPlan` at the LLM provider boundary.
+7. 🟡 **Monetization seam** (8) — provider-boundary credit gate + blocked-call UX copy + state-machine unit tests shipped; a full route-layer DynamoDB/Stripe fixture pass remains.
 8. ⬜ **Onboarding/UX polish** for non-technical users.
 
 Each milestone ships with Jest unit tests and, where it touches the loop, an
@@ -389,23 +426,29 @@ Each milestone ships with Jest unit tests and, where it touches the loop, an
 
 #### P1 — do next
 
-- 🟡 Vision re-targeting: broaden coverage + UX surfacing.
-- 🟡 Tool-version compatibility: UI integration + broader mapping coverage.
+- 🟡 Vision re-targeting: broaden target coverage (UI messaging for recovered steps shipped).
+- ✅ Tool-version compatibility: mapping coverage + UI integration shipped (add new aliases/fallbacks as renames land).
 - 🟡 Recorder sensitive-capture consent: frontend consent UX polish.
-- 🟡 Cloud-vision consent: frontend consent UX still pending.
+- ✅ Cloud-vision consent: frontend consent UX shipped (first-use modal + revoke/toggle in `PermissionsManager.jsx`).
 - ✅ Per-skill `successCriteria` evaluation + outcome persistence (runtime, telemetry, ranking, auto-repair all shipped).
 
 #### P2 — after core loop is stable
 
 - 🟡 Trust-ranking tuning + low-trust dry-run-first hardening (formula + classifier shipped; tune against real usage).
 - 🟡 LLM provider local adapter quality pass (deterministic stub shipped; a real local model backend remains).
-- ⬜ Monetization gate at provider boundary with tier matrix.
+- ✅ Monetization gate at provider boundary (per-tier monthly credit limits via `MEMBERSHIP_LIMITS`; `agent-chat`/`agent-vision` now enforce it).
 - ⬜ Consumer onboarding polish and starter templates.
 
 ### 10.3 Release-gate checklist for first marketplace public beta
 
 - ✅ No publish path can bypass scrub + author confirmation (server re-runs privacy scrub + capability-mismatch check before persisting).
-- ⬜ No run path can bypass permissions/security guardrails (addon execution-time property).
+- ✅ No run path can bypass permissions/security guardrails — verified: every
+  tool call funnels through `tool-registry.executeTool` → `permissions.requestApproval`
+  (kill switch / deny / dry-run are enforced before ANY tool runs); composite
+  tools (`skill_run`) re-enter the registry per nested step (covered in
+  `tools/skill.test.js`); and the legacy chat action path is gated by
+  `security-guard.js` (`checkActionPlan`/`checkPSScript`). Enforcement lives at
+  the registry layer, not per call site.
 - ✅ Installed marketplace skills always show capability summary before first execution (server 403s until confirmed once per version; addon dashboard renders the review).
 - ✅ Low-trust skills default to dry-run-first (server forces the first pass into dry-run via `marketplace-gate.js`; addon dashboard surfaces a 'dry-run' result).
 
@@ -483,8 +526,8 @@ memory: `{ kind:"lesson", slug:"lesson-<hash>", content:{ pattern, context, do, 
 
 ### 11.5 Open follow-ups
 
-- **Adopt `MAX_STEPS_DEFAULT: 60`** — the loop still defaults to the legacy `DEFAULT_MAX_STEPS = 20`; bump once stall/abandon is tuned from real usage.
-- **Semantic lesson recall** — recall is recent-first; `critic.recall` (token-overlap ranking) exists and can be wired in later without an API change.
+- ✅ **Adopt `MAX_STEPS_DEFAULT: 60`** — the loop's default step budget is now 60 (`DEFAULT_MAX_STEPS` in `agent-loop.js`, single-sourced into `DEFAULT_CONFIG.MAX_STEPS_DEFAULT`); keep tuning stall/abandon from real usage.
+- ✅ **Semantic lesson recall** — the Orient stage now ranks the recent-lessons pool by token overlap with the current situation via `critic.recall`, backfilling remaining slots recent-first (`agent-loop.js` `_rankLessons`); tested in `agent-loop.test.js`.
 - **Offline runner coverage** — goal-block-on-stall and orient-bound-cap are unit-tested only; the offline eval runner can't drive the LLM loop deterministically.
 - **Server-side `goalAgentService`** — kept as the offline fallback for `/plans`; the addon O-O-G-P-A loop is now the primary path.
 
@@ -526,8 +569,8 @@ The remaining checklist — check items off as they land, add new gaps as found.
 - ⬜ **Existing Pro subscribers** — tell them plainly what works and what doesn't.
 - ⬜ **Account/transactional email plumbing** — verify purchase confirmation + forgot/reset-password loop with a real account.
 - ⬜ **Single installer** — consolidate "download, trust cert, configure" into one flow if feasible.
-- ⬜ **Pricing-page cleanup** — delete/rewrite dead `Simple.jsx`; fix `getPlanDisplayName` fallback; fix `Net.jsx` plan chips; update `subscriptionCancelledTemplate`; make `BillingDisclosure.jsx` cadence-aware.
-- ⬜ **Home + Pricing value messaging** — Home: the project catalog is currently repeated (curated carousel `FEATURED_PROJECTS`, the `WHATS_INSIDE` feature grid, and the "around the site" tiles all re-list projects) — de-duplicate so the page doesn't repeat itself, and add an above-the-fold personal CTA ("What I can do for you") that links to `/pricing`. Pricing: lead with benefit copy that explains what Simple *does* for the visitor (the outcome, not the price) before presenting the plan cards. Files: `frontend/src/pages/Home/Home.jsx`, `frontend/src/pages/Pricing/Pricing.jsx`.
+- ✅ **Pricing-page cleanup** — `getPlanDisplayName` fallback fixed (returns "Pro (monthly/yearly)" / "Free" instead of the redundant "Pro Membership"); `BillingDisclosure.jsx` is cadence-aware (`billingInterval` prop, threaded from `CheckoutForm.jsx`); `subscriptionCancelledTemplate` reviewed and already plan-generic (no legacy names); no dead `Simple.jsx` or `Net.jsx` plan chips remain.
+- ✅ **Home + Pricing value messaging** — Home: added an above-the-fold personal CTA ("What I can do for you" → `/pricing`, plus "Browse my work" → `/projects`) in the hero; the project catalog is already de-duplicated (curated carousel = specific projects, `WHATS_INSIDE` = category tiles, "around the site" = nav links — no literal re-listing remains). Pricing: the hero now leads with benefit copy ("Simple is an AI agent that runs on your PC…") before the plan cards. Files: `frontend/src/pages/Home/Home.jsx`, `frontend/src/pages/Pricing/Pricing.jsx`.
 
 ---
 

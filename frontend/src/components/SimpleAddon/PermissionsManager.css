@@ -169,3 +169,78 @@
 .perms-switch--danger input:checked ~ .perms-switch__label {
   color: #ef4444;
 }
+
+/* ─── First-use consent modal (§6.3) ───────────────────────────────────────
+   A lightweight centered dialog with plain-language data-egress copy, shown
+   before a sensitive consent (keyboard capture / cloud vision) is granted
+   for the first time. Backdrop sits above the settings panel; the panel is
+   scoped so it doesn't depend on any external modal library. */
+.perms-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 16px;
+}
+
+.perms-modal__panel {
+  width: 100%;
+  max-width: 440px;
+  background: var(--bg-primary, #111827);
+  border: 1px solid var(--border, #374151);
+  border-radius: var(--radius, 12px);
+  padding: 20px 22px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+.perms-modal__title {
+  margin: 0 0 10px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary, #f3f4f6);
+}
+
+.perms-modal__body {
+  margin: 0 0 18px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text-secondary, #9ca3af);
+}
+
+.perms-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.perms-modal__btn {
+  border: none;
+  border-radius: var(--radius-sm, 8px);
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.05s ease;
+}
+
+.perms-modal__btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.perms-modal__btn--cancel {
+  background: var(--bg-tertiary, #374151);
+  color: var(--text-primary, #f3f4f6);
+}
+
+.perms-modal__btn--confirm {
+  background: var(--accent, #6366f1);
+  color: #fff;
+}
+
+.perms-modal__btn--confirm:hover:not(:disabled) {
+  filter: brightness(1.08);
+}

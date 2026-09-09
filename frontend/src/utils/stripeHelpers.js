@@ -44,7 +44,8 @@ export const getPlanDisplayName = (selectedPlan, membershipPricing, formatPrice,
   }
   
   if (selectedPlan === PLAN_IDS.PRO) {
-    return `${PLAN_NAMES[PLAN_IDS.PRO]} Membership`;
+    const period = billingInterval === 'year' ? 'yearly' : 'monthly';
+    return `${PLAN_NAMES[PLAN_IDS.PRO]} (${period})`;
   } else {
     return PLAN_NAMES[PLAN_IDS.FREE];
   }

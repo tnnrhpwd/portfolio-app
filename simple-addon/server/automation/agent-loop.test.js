@@ -127,6 +127,25 @@ function newLoop(overrides = {}) {
         assert.ok(sit.userTick.includes('Continue.'), `got: ${sit.userTick}`);
     });
 
+    // ── §11.5: semantic lesson recall (critic.recall wired into Orient) ────
+    await asyncTest('_rankLessons ranks relevant first and backfills recent-first', async () => {
+        const { loop } = newLoop();
+        loop.state.currentGoal = { ...GOAL, content: 'move files to the archive directory' };
+        const pool = [
+            { content: { pattern: 'calendar appointments' } },
+            { content: { pattern: 'photo editing' } },
+            { content: { pattern: 'archive directory cleanup' } }, // overlaps the goal
+            { content: { pattern: 'email filters' } },
+            { content: { pattern: 'game high scores' } },
+            { content: { pattern: 'spreadsheet formulas' } },
+        ];
+        const ranked = loop._rankLessons(pool, { wsContextString: '', perceptionContext: '' });
+        assert.strictEqual(ranked.length, 3, 'bounded to LESSON_TOPK');
+        assert.ok(String(ranked[0].content.pattern).includes('archive'), `relevant lesson should rank first, got: ${ranked[0].content.pattern}`);
+        assert.ok(String(ranked[1].content.pattern).includes('calendar'), `backfill should be recent-first, got: ${ranked[1].content.pattern}`);
+        assert.ok(String(ranked[2].content.pattern).includes('photo'), `backfill should be recent-first, got: ${ranked[2].content.pattern}`);
+    });
+
     // ── Phase 2: orient bounded + ordered ────────────────────────────────
     const BIG_ORIENT = {
         perception: { getPerceptionBus: () => ({ getLatestFrame: () => ({}) }), frameToContextString: () => 'PERCEPTION ' + 'p'.repeat(200) },

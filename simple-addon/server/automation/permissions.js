@@ -193,7 +193,20 @@ function effectiveMode(tool) {
 async function requestApproval(tool, args, opts = {}) {
     const mode = effectiveMode(tool);
     if (mode === 'allow' || mode === 'dry-run') return { ok: true, mode };
-    if (mode === 'deny') return { ok: false, mode, reason: 'Denied by permission policy' };
+    if (mode === 'deny') {
+        // §6.4: every deny path must surface a user-visible reason that names
+        // WHAT blocked it (kill switch vs a specific deny rule vs the category
+        // default) — never a generic "denied by policy" that leaves the user
+        // guessing which setting to flip.
+        const cfg = load();
+        if (cfg.globalKillSwitch) {
+            return { ok: false, mode, reason: 'Blocked by the emergency kill switch (turn it off in Settings → Permissions).' };
+        }
+        if (cfg.tools[tool.name] === 'deny') {
+            return { ok: false, mode, reason: `Denied — "${tool.name}" is set to deny in your permission policy.` };
+        }
+        return { ok: false, mode, reason: `Denied by permission policy (category "${tool.category}").` };
+    }
     // 'ask'
     if (opts.userInitiated) {
         return { ok: true, mode: 'allow', approvedBy: 'user-chat-request' };

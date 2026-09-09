@@ -551,6 +551,7 @@ export default function ShortcutsManager({ user, addonConnected }) {
         elapsedMs,
         stepsTotal: summary.stepsTotal ?? steps.length,
         stepsRun: summary.stepsRun ?? steps.length,
+        repairsTotal: summary.repairsTotal ?? 0,
         failedStep: failedStep
           ? {
             index: failedStep.index,
@@ -1055,7 +1056,12 @@ export default function ShortcutsManager({ user, addonConnected }) {
                 <><span className="short__run-spinner" aria-hidden="true" /> Running "{runInfo.slug}"… {formatDuration(runInfo.elapsedMs)}</>
               )}
               {runInfo.phase === 'done' && (
-                <>✓ "{runInfo.slug}" done in {formatDuration(runInfo.elapsedMs)} ({runInfo.stepsRun}/{runInfo.stepsTotal} steps)</>
+                <>
+                  ✓ "{runInfo.slug}" done in {formatDuration(runInfo.elapsedMs)} ({runInfo.stepsRun}/{runInfo.stepsTotal} steps)
+                  {runInfo.repairsTotal > 0 && (
+                    <span className="short__run-recovered"> · recovered {runInfo.repairsTotal} step{runInfo.repairsTotal === 1 ? '' : 's'} automatically</span>
+                  )}
+                </>
               )}
               {runInfo.phase === 'failed' && runInfo.failedStep && (
                 <>

@@ -1208,9 +1208,23 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
     // (a SEPARATE namespace from the private per-user workspace skill store
     // above). The frontend is expected to have already run /api/skill/scrub
     // + /api/skill/capabilities locally before calling publish.
+
+    // §4.5 eval seam: these routes normally talk to the shared backend via
+    // wsClient. In the offline eval harness, a scenario sends the
+    // request-scoped header `X-Simple-Eval-Stub: 1` to swap in a
+    // deterministic in-memory client (marketplace-eval-stub.js) instead —
+    // letting the eval scenario assert the proxy wiring without a live
+    // backend. Real clients never send that header.
+    function _marketClient(req) {
+        if (req.get && req.get('x-simple-eval-stub') === '1') {
+            return require('./marketplace-eval-stub');
+        }
+        return wsClient;
+    }
+
     app.post('/api/market/skills', async (req, res) => {
         try {
-            const result = await wsClient.publishMarketSkill(req.body || {});
+            const result = await _marketClient(req).publishMarketSkill(req.body || {});
             res.json(result);
         } catch (e) {
             res.status(e.status || 400).json({ error: e.message });
@@ -1219,7 +1233,7 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
     app.get('/api/market/skills', async (req, res) => {
         try {
             const { q, sort, page, perPage } = req.query || {};
-            const result = await wsClient.searchMarketSkills({ q, sort, page, perPage });
+            const result = await _marketClient(req).searchMarketSkills({ q, sort, page, perPage });
             res.json(result);
         } catch (e) {
             res.status(e.status || 400).json({ error: e.message });
@@ -1227,7 +1241,7 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
     });
     app.get('/api/market/skills/:marketId/:version?', async (req, res) => {
         try {
-            const result = await wsClient.getMarketSkill(req.params.marketId, req.params.version);
+            const result = await _marketClient(req).getMarketSkill(req.params.marketId, req.params.version);
             res.json(result);
         } catch (e) {
             res.status(e.status || 404).json({ error: e.message });
@@ -1235,7 +1249,7 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
     });
     app.post('/api/market/skills/:marketId/install', async (req, res) => {
         try {
-            const result = await wsClient.installMarketSkill(req.params.marketId, req.body?.version);
+            const result = await _marketClient(req).installMarketSkill(req.params.marketId, req.body?.version);
             res.json(result);
         } catch (e) {
             res.status(e.status || 400).json({ error: e.message });
@@ -1243,7 +1257,7 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
     });
     app.post('/api/market/skills/:marketId/rate', async (req, res) => {
         try {
-            const result = await wsClient.rateMarketSkill(req.params.marketId, req.body || {});
+            const result = await _marketClient(req).rateMarketSkill(req.params.marketId, req.body || {});
             res.json(result);
         } catch (e) {
             res.status(e.status || 400).json({ error: e.message });
@@ -1251,7 +1265,7 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
     });
     app.post('/api/market/skills/:marketId/flag', async (req, res) => {
         try {
-            const result = await wsClient.flagMarketSkill(req.params.marketId, req.body?.reason);
+            const result = await _marketClient(req).flagMarketSkill(req.params.marketId, req.body?.reason);
             res.json(result);
         } catch (e) {
             res.status(e.status || 400).json({ error: e.message });

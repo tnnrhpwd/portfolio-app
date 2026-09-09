@@ -188,7 +188,7 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
                     billingInterval={state.billingInterval}
                     onSelectInterval={state.setBillingInterval}
                   />
-                  <BillingDisclosure />
+                  <BillingDisclosure billingInterval={state.billingInterval} />
                   <div className="step-navigation">
                     <button 
                       className="cancel-button" 
@@ -288,7 +288,7 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
                     </div>
                   </div>
                   
-                  {state.selectedPlan !== 'free' && <BillingDisclosure variant="compact" />}
+                  {state.selectedPlan !== 'free' && <BillingDisclosure variant="compact" billingInterval={state.billingInterval} />}
                   
                   {state.message && (
                     <div className="payment-success">

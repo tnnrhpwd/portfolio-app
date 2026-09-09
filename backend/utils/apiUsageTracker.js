@@ -976,6 +976,7 @@ module.exports = {
     API_COSTS,
     MEMBERSHIP_LIMITS,
     // New credit system functions
+    getMembershipLimit,
     parseUserCredits,
     updateUserCredits,
     needsMonthlyReset,

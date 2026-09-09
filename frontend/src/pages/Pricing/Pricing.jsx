@@ -191,8 +191,8 @@ function Pricing() {
           <p className="pricing-eyebrow">Pricing</p>
           <h1 className="pricing-title">Simple, transparent pricing</h1>
           <p className="pricing-subtitle">
-            One free plan for the core experience, one paid plan for more. No hidden fees, cancel
-            anytime.
+            Simple is an AI agent that runs on your PC — show it a task once, and it does it again
+            forever. Start free, and upgrade only when you want more.
           </p>
           <ul className="pricing-trust" aria-label="Pricing assurances">
             <li>🔒 Secured by Stripe</li>

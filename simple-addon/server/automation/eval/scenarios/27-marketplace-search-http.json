@@ -1,0 +1,17 @@
+{
+  "id": "27-marketplace-search-http",
+  "name": "Marketplace search — GET /api/market/skills?q= (offline stub)",
+  "description": "Exercises the addon's marketplace search proxy route end-to-end (docs/implementation/simple-agent-prompt.md §4.5), offline via the X-Simple-Eval-Stub header. Part 2 of the marketplace chain — depends on 26-marketplace-publish-http having published mk-eval-001 in the same eval process (the full directory run runs scenarios in filename order).",
+  "http": {
+    "method": "GET",
+    "path": "/api/market/skills?q=eval&sort=downloads",
+    "headers": { "X-Simple-Eval-Stub": "1" }
+  },
+  "expect": {
+    "status": 200,
+    "ok": true,
+    "skills": { "minLength": 1 },
+    "total": { "type": "number" }
+  },
+  "tags": ["marketplace", "http", "offline", "smoke"]
+}

@@ -71,17 +71,91 @@ let _sharedLlm = null;
 
 // Deterministic compatibility downgrades for skills authored against older/
 // alternate tool names. These are intentionally static (no LLM required).
+// §5.4: keep this table broad so marketplace skills authored against any
+// historical/alternate naming still resolve (or degrade) instead of hard-
+// failing. Targets must be names in the live tool registry.
 const TOOL_ALIASES = Object.freeze({
+    // legacy → current renames / alternate spellings (vision + app + text)
     click_visual: 'find_and_click_visual',
     vision_click: 'find_and_click_visual',
     app_open: 'open_app',
     open_application: 'open_app',
+    launch_app: 'open_app',
+    start_app: 'open_app',
     type: 'text_type',
+    type_text: 'text_type',
+    send_keys: 'text_type',
     say_text: 'audio_speak',
+    speak: 'audio_speak',
+    say: 'audio_speak',
+    transcribe: 'audio_transcribe',
+    run_skill: 'skill_run',
+
+    // filesystem
+    list_files: 'fs_list',
+    ls: 'fs_list',
+    read_file: 'fs_read',
+    cat: 'fs_read',
+    write_file: 'fs_write',
+    save_file: 'fs_write',
+    move_file: 'fs_move',
+    rename_file: 'fs_move',
+    copy_file: 'fs_copy',
+    delete_file: 'fs_delete',
+    remove_file: 'fs_delete',
+    make_dir: 'fs_mkdir',
+    mkdir: 'fs_mkdir',
+    find_files: 'fs_search',
+    search_files: 'fs_search',
+
+    // windows / processes / clipboard
+    list_windows: 'window_list',
+    focus_window: 'window_focus',
+    move_window: 'window_set_rect',
+    resize_window: 'window_set_rect',
+    list_processes: 'process_list',
+    kill_process: 'process_kill',
+    get_clipboard: 'clipboard_read',
+    set_clipboard: 'clipboard_write',
+
+    // input / mouse
+    mouse_click: 'click_at',
+    click: 'click_at',
+    mouse_move: 'mouse_path',
+    move_mouse: 'mouse_path',
+    drag_mouse: 'mouse_drag',
+    hold_key: 'input_hold',
+    press_key: 'input_tap',
+    tap_key: 'input_tap',
+
+    // UIA
+    find_element: 'uia_find',
+    get_text: 'uia_get_text',
+    get_ui_text: 'uia_get_text',
+
+    // browser
+    open_browser: 'browser_open',
+    go_to: 'browser_goto',
+    click_browser: 'browser_click',
+
+    // screen / OCR
+    screen: 'screen_capture',
+    take_screenshot: 'screen_capture',
+    capture_screen: 'screen_capture',
+    read_screen_text: 'screen_ocr',
+    ocr_screen: 'screen_ocr',
+
+    // shell
+    run_shell: 'shell_run',
+    powershell: 'shell_run',
 });
 
+// Cross-version fallbacks: when a tool is MISSING from the local registry,
+// downgrade to an alternative that still achieves the intent (instead of
+// hard-failing). Mirrors §5.3's "click/uia failed → find visually" recovery.
 const TOOL_FALLBACKS = Object.freeze({
     uia_invoke: 'find_and_click_visual',
+    click_at: 'find_and_click_visual',
 });
 
 function cacheSkill(skill) {

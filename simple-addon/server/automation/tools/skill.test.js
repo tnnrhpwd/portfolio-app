@@ -327,6 +327,25 @@ test('analyzeSkillCompatibility: reports degraded + unsupported findings', () =>
     fakeRegistry._registered = new Set();
 });
 
+test('analyzeSkillCompatibility: legacy/alternate names resolve via the alias table (§5.4)', () => {
+    fakeRegistry._registered = new Set(['fs_list', 'text_type', 'shell_run', 'window_focus']);
+    const report = analyzeSkillCompatibility(makeSkill('aliases', [
+        { tool: 'list_files', args: { path: 'C:\\' } },
+        { tool: 'send_keys', args: { text: 'hi' } },
+        { tool: 'run_shell', args: { command: 'dir' } },
+        { tool: 'focus_window', args: { title: 'Notepad' } },
+    ]));
+    assert.strictEqual(report.degradedCount, 4);
+    assert.strictEqual(report.unsupportedCount, 0);
+    assert.ok(report.findings.every(f => f.status === 'degraded'));
+    const resolved = new Set(report.findings.map(f => f.resolvedTool));
+    assert.ok(resolved.has('fs_list'));
+    assert.ok(resolved.has('text_type'));
+    assert.ok(resolved.has('shell_run'));
+    assert.ok(resolved.has('window_focus'));
+    fakeRegistry._registered = new Set();
+});
+
 asyncTest('run: alias tool degrades deterministically and executes mapped tool', async () => {
     fakeRegistry._registered = new Set(['find_and_click_visual']);
     let called = null;

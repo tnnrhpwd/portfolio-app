@@ -483,6 +483,13 @@
   margin-top: var(--spacing-xs);
 }
 
+.mkt-compat-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.1);
+  margin: 0 0 var(--spacing-xs);
+}
+
 .mkt-hint {
   font-size: var(--font-size-small);
   color: var(--text-color-accent);

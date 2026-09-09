@@ -31,7 +31,7 @@
  * opts.llmClient for tests, or pulled from ./llm-provider otherwise).
  */
 
-const DEFAULT_MAX_STEPS = 20;
+const DEFAULT_MAX_STEPS = 60; // §11.5 follow-up: bumped from the legacy 20 to match DEFAULT_CONFIG.MAX_STEPS_DEFAULT below.
 // No default model id — the backend picks its own default (Claude Haiku 4.5
 // via Bedrock) when `modelId` isn't set. Model selection is a backend
 // concern now that all LLM calls are proxied.
@@ -56,7 +56,7 @@ const DEFAULT_CONFIG = {
     DRIFT_THRESHOLD: 0.35,        // orientation delta that forces re-eval
     IDLE_SLEEP_MS: 2500,          // sleep when plan() returns idle
     STALL_THRESHOLD: 3,           // consecutive no-progress actions → blocked
-    MAX_STEPS_DEFAULT: 60,        // default hard step budget per goal
+    MAX_STEPS_DEFAULT: DEFAULT_MAX_STEPS, // default hard step budget per goal (single source of truth — see DEFAULT_MAX_STEPS above)
     META_EVERY_ACTIONS: 50,       // meta-loop cadence in recorded actions
     SKILL_PROMOTE_MIN_REPEATS: 3, // n-gram repeats before a skill draft
 };
@@ -386,7 +386,14 @@ class AgentLoop {
         let suggestions = [];
         try { episodes = await this.memory.recallEpisodes(this.config.EPISODIC_WINDOW); }
         catch (e) { this.log('[agent] episode recall failed:', e.message); }
-        try { lessons = await this.memory.recallLessons(this.config.LESSON_TOPK); }
+        try {
+            // §11.5: fetch a larger pool (4× topK, floor 12) so semantic
+            // ranking below has candidates to choose from — then rank by token
+            // overlap with the current situation instead of taking the N most
+            // recent lessons unconditionally.
+            const pool = await this.memory.recallLessons(Math.max(this.config.LESSON_TOPK * 4, 12));
+            lessons = this._rankLessons(pool, frame);
+        }
         catch (e) { this.log('[agent] lesson recall failed:', e.message); }
         try { suggestions = await this.memory.recallSuggestions(); }
         catch (e) { this.log('[agent] suggestion recall failed:', e.message); }
@@ -448,6 +455,36 @@ class AgentLoop {
             const text = typeof c === 'string' ? c : (c?.pattern || c?.do || JSON.stringify(c));
             return `- ${String(text).slice(0, 160)}`;
         }).join('\n');
+    }
+
+    /**
+     * §11.5 semantic lesson recall — rank the recent-lessons pool by token
+     * overlap with the current situation (goal + context + perception) using
+     * critic.recall, then backfill any remaining slots with the most recent
+     * unmatched lessons. Replaces the old "most recent N, unconditionally"
+     * recall with "most relevant first, still bounded to topK".
+     */
+    _rankLessons(pool, frame) {
+        const list = Array.isArray(pool) ? pool : [];
+        const topK = this.config.LESSON_TOPK;
+        if (!list.length || list.length <= topK) return list;
+
+        const situation = [
+            this.state.currentGoal?.content || this.state.currentGoal?.slug || '',
+            frame?.wsContextString || '',
+            frame?.perceptionContext || '',
+        ].join(' ');
+
+        let ranked = [];
+        try { ranked = this.critic.recall(situation, list, topK) || []; }
+        catch (e) { this.log('[agent] lesson ranking failed:', e.message); }
+
+        if (ranked.length >= topK) return ranked.slice(0, topK);
+        // Few semantically-matching lessons: backfill with the most recent
+        // unmatched ones so the block still carries up to topK lessons.
+        const picked = new Set(ranked);
+        const backfill = list.filter((l) => !picked.has(l)).slice(0, topK - ranked.length);
+        return ranked.concat(backfill);
     }
 
     _formatSuggestions(suggestions) {

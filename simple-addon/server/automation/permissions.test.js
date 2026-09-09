@@ -78,6 +78,28 @@ asyncTest('autoApproveAll on + per-tool deny → denied', async () => {
     assert.strictEqual(r.mode, 'deny');
 });
 
+// ── §6.4: every deny path surfaces a user-visible, specific reason ────────
+asyncTest('kill-switch deny reason names the kill switch', async () => {
+    reset({ globalKillSwitch: true });
+    const r = await permissions.requestApproval(askTool, { command: 'Write-Host hi' });
+    assert.strictEqual(r.mode, 'deny');
+    assert.ok(String(r.reason).toLowerCase().includes('kill switch'), `expected kill-switch reason, got: ${r.reason}`);
+});
+
+asyncTest('per-tool deny reason names the tool', async () => {
+    reset({ tools: { evil: 'deny' } });
+    const r = await permissions.requestApproval(denyTool, {});
+    assert.strictEqual(r.mode, 'deny');
+    assert.ok(String(r.reason).toLowerCase().includes('evil'), `expected tool name in reason, got: ${r.reason}`);
+});
+
+asyncTest('category deny reason names the category', async () => {
+    reset({ categories: { shell: 'deny' } });
+    const r = await permissions.requestApproval(askTool, { command: 'Write-Host hi' });
+    assert.strictEqual(r.mode, 'deny');
+    assert.ok(String(r.reason).toLowerCase().includes('shell'), `expected category in reason, got: ${r.reason}`);
+});
+
 // ── dryRunMode wins over autoApproveAll (returns dry-run, still ok) ──────────
 asyncTest('autoApproveAll on + dryRunMode → dry-run', async () => {
     reset({ autoApproveAll: true, dryRunMode: true });

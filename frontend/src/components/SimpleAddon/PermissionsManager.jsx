@@ -35,12 +35,32 @@ function fmtWhen(ts) {
   try { return `Granted ${new Date(ts).toLocaleString()}`; } catch { return ''; }
 }
 
+/**
+ * §6.3 first-use consent copy — plain-language data-egress description shown
+ * in a modal BEFORE a sensitive consent is granted for the first time. The
+ * backend still enforces the gate (see permissions.js / the recorder 403), so
+ * this modal is UX, not the safety mechanism.
+ */
+const CONSENT_COPY = {
+  cloudVision: {
+    title: 'Send screenshots to cloud AI?',
+    body: 'Turning this on lets Simple send screenshots of your screen to a cloud AI service (AWS Bedrock) over an encrypted connection — and only when local screen understanding needs help (for example, visually locating a button or window a recorded macro couldn\'t find). Images are processed to answer a single question and are not stored or sold. You can turn this off at any time, and it takes effect immediately.',
+  },
+  keyboardCapture: {
+    title: 'Record your keystrokes?',
+    body: 'Turning this on lets the macro recorder capture the keys you press while recording, so recorded macros can replay typed text. Keystrokes are stored in your own local recordings, and anything that looks like a password or personal path is removed before you publish a macro. Turn it off at any time.',
+  },
+};
+
 export default function PermissionsManager({ addonConnected }) {
   const [perms, setPerms] = useState(null);
   const [consents, setConsents] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  // First-use consent modal: set to { field } when a consent is about to be
+  // granted for the first time, so we can show the data-egress copy first.
+  const [pendingConsent, setPendingConsent] = useState(null);
 
   const refresh = useCallback(async () => {
     if (!addonConnected) { setLoading(false); return; }
@@ -79,10 +99,28 @@ export default function PermissionsManager({ addonConnected }) {
     setPerms((p) => ({ ...(p || {}), autoApproveAll: !!cfg.autoApproveAll }));
   }), [withBusy]);
 
-  const onToggleConsent = useCallback((field, next) => withBusy(async () => {
-    const res = await setAutomationConsents({ [field]: next });
+  const onToggleConsent = useCallback((field, next) => {
+    // Revocation is immediate (no confirmation needed). First-time grant opens
+    // the consent modal (§6.3) instead of granting blindly.
+    if (!next) {
+      withBusy(async () => {
+        const res = await setAutomationConsents({ [field]: false });
+        setConsents({ dataCapture: res.dataCapture, cloudVision: res.cloudVision });
+      })();
+      return;
+    }
+    setPendingConsent({ field });
+  }, [withBusy]);
+
+  const handleConfirmConsent = useCallback(() => withBusy(async () => {
+    const field = pendingConsent?.field;
+    if (!field) return;
+    const res = await setAutomationConsents({ [field]: true });
     setConsents({ dataCapture: res.dataCapture, cloudVision: res.cloudVision });
-  }), [withBusy]);
+    setPendingConsent(null);
+  }), [pendingConsent, withBusy]);
+
+  const handleCancelConsent = useCallback(() => setPendingConsent(null), []);
 
   if (!addonConnected) {
     return (
@@ -103,6 +141,21 @@ export default function PermissionsManager({ addonConnected }) {
   return (
     <div className="perms-root">
       {error && <div className="perms-error">{error}</div>}
+
+      {pendingConsent && CONSENT_COPY[pendingConsent.field] && (
+        <div className="perms-modal" role="dialog" aria-modal="true" aria-label={CONSENT_COPY[pendingConsent.field].title}>
+          <div className="perms-modal__panel">
+            <h3 className="perms-modal__title">{CONSENT_COPY[pendingConsent.field].title}</h3>
+            <p className="perms-modal__body">{CONSENT_COPY[pendingConsent.field].body}</p>
+            <div className="perms-modal__actions">
+              <button type="button" className="perms-modal__btn perms-modal__btn--cancel" onClick={handleCancelConsent} disabled={busy}>Not now</button>
+              <button type="button" className="perms-modal__btn perms-modal__btn--confirm" onClick={handleConfirmConsent} disabled={busy}>
+                {busy ? 'Saving…' : 'Allow'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className={`perms-card ${killOn ? 'perms-card--on perms-card--danger' : ''}`}>
         <div>
