@@ -1175,7 +1175,7 @@
         </div>
         <div class="actions">
           <button id="update-check">Check for Updates</button>
-          <button id="update-install" class="primary" disabled>Restart &amp; Update Now</button>
+          <button id="update-install" class="primary">Check, Restart, &amp; Update Now</button>
         </div>
       </div>
     </div>
@@ -4078,7 +4078,9 @@ async function refreshUpdateStatus() {
     }
 
     checkBtn.disabled = false;
-    installBtn.disabled = !s.updateDownloaded;
+    // Always keep the combined check+install button clickable — it runs the
+    // check itself and only restarts when an update is actually ready.
+    installBtn.disabled = false;
     badge.className = 'badge';
     badge.textContent = '';
 
@@ -4151,11 +4153,39 @@ document.getElementById('update-check').addEventListener('click', async () => {
 });
 
 document.getElementById('update-install').addEventListener('click', async () => {
-  if (!confirm('Restart Simple Addon now to install the update?')) return;
+  const btn = document.getElementById('update-install');
+  btn.disabled = true;
   try {
-    await api('/api/update/install', { method: 'POST', body: '{}' });
+    // Step 1: check — the auto-updater downloads a newer build in the background.
+    await api('/api/update/check', { method: 'POST', body: '{}' });
+    await refreshUpdateStatus();
+
+    // Step 2: poll until ready, up-to-date, error, or we time out.
+    const deadline = Date.now() + 120000;
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 1500));
+      await refreshUpdateStatus();
+      const s = await api('/api/update/status');
+      if (s.state === 'ready' && s.updateDownloaded) {
+        if (!confirm(`Update v${s.latestVersion || '?'} is ready. Restart Simple Addon now to install it?`)) return;
+        await api('/api/update/install', { method: 'POST', body: '{}' });
+        return; // app is quitting + relaunching
+      }
+      if (s.state === 'up-to-date') {
+        alert('You are already on the latest version.');
+        return;
+      }
+      if (s.state === 'error') {
+        alert('Update check failed — see the status above.');
+        return;
+      }
+    }
+    alert('Update is still downloading. Check the Updates tab in a moment.');
   } catch (e) {
-    alert(`Install failed: ${e.message}`);
+    alert(`Update failed: ${e.message}`);
+  } finally {
+    btn.disabled = false;
+    refreshUpdateStatus();
   }
 });
 
