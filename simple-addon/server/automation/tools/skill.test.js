@@ -396,6 +396,26 @@ asyncTest('run: uia_invoke failure recovers via visual retarget before LLM amend
     fakeRegistry._registered = new Set();
 });
 
+asyncTest('run: browser_click failure recovers via visual retarget (§5.3 broaden)', async () => {
+    const llm = stubLlm('{"action":"abort","reason":"should not be needed"}');
+    let visualCalls = 0;
+    fakeRegistry._registered = new Set(['browser_click', 'find_and_click_visual']);
+    fakeRegistry._handler = (name, args) => {
+        if (name === 'browser_click') return { ok: false, error: 'element not found' };
+        if (name === 'find_and_click_visual') { visualCalls++; return { ok: true, result: { clickedAt: [20, 20] } }; }
+        if (name === 'uia_snapshot') return { ok: true, result: {} };
+        return { ok: true, result: {} };
+    };
+    const s = makeSkill('bretarget', [{ tool: 'browser_click', args: { selector: 'text=Submit' } }]);
+    const out = await skillRun.run({ slug: 'bretarget', cache: s, stepDelayMs: 0 }, { llm });
+    assert.strictEqual(out.failed, false);
+    assert.strictEqual(visualCalls, 1);
+    assert.strictEqual(llm.calls.length, 0, 'visual retarget should avoid LLM amend when it works');
+    assert.strictEqual(out.steps[0].tool, 'find_and_click_visual');
+    assert.strictEqual(out.steps[0].repairs[0].strategy, 'visual-retarget');
+    fakeRegistry._registered = new Set();
+});
+
 asyncTest('run: successCriteria tool_succeeded marks failed when criterion is unmet', async () => {
     fakeRegistry._handler = () => ({ ok: true, result: 'ok' });
     const s = makeSkill('criteria-fail', [{ tool: 'a', args: {} }]);

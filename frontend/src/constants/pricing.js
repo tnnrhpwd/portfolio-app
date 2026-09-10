@@ -111,11 +111,6 @@ export function isProTier(rank) {
   return PRO_RANKS.includes(rank);
 }
 
-/** @deprecated — kept for backward compat. Now identical to isProTier. */
-export function isSimpleTier(rank) {
-  return isProTier(rank);
-}
-
 /** True when rank is any paid tier. */
 export function isPaidTier(rank) {
   return isProTier(rank);

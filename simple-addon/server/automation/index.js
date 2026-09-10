@@ -186,7 +186,13 @@ function defaultApprovalRequester({ pendingApprovals, timeoutMs = 60_000, autoAp
                 resolve: (answer) => { clearTimeout(timer); resolve(answer); },
             });
             events.publish('approval.pending', { id, toolName, args, createdAt: Date.now() });
-            console.log(`[automation] APPROVAL NEEDED ${id} → ${toolName} ${JSON.stringify(args).slice(0, 200)}`);
+            // §13.1 #7: log only the arg KEYS, never values — tool args can
+            // contain typed text / clipboard content / paths (PII). The full
+            // args still reach the UI via the approval.pending event above.
+            const argKeys = (args && typeof args === 'object' && !Array.isArray(args))
+                ? ` {${Object.keys(args).slice(0, 8).join(', ')}}`
+                : '';
+            console.log(`[automation] APPROVAL NEEDED ${id} → ${toolName}${argKeys}`);
         });
     };
 }

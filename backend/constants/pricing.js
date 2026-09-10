@@ -163,11 +163,6 @@ function isProTier(rank) {
   return PRO_RANKS.includes(rank);
 }
 
-/** @deprecated — kept for backward compat. Now identical to isProTier. */
-function isSimpleTier(rank) {
-  return isProTier(rank);
-}
-
 /** True when `rank` is a paid tier. */
 function isPaidTier(rank) {
   return isProTier(rank);
@@ -191,6 +186,5 @@ module.exports = {
   DESCRIPTIONS,
   normalizePlanName,
   isProTier,
-  isSimpleTier,
   isPaidTier,
 };

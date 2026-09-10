@@ -9,7 +9,7 @@ const {
     streamCompletion,
 } = require('../utils/llmProviders.js');
 const { createBedrockCompletion, streamBedrockCompletion, BEDROCK_MODEL_ID } = require('./bedrockService.js');
-const { isProTier, isSimpleTier } = require('../constants/pricing.js');
+const { isProTier } = require('../constants/pricing.js');
 const { getGoalsSummary, logAction } = require('./memoryService.js');
 const { TOOL_SCHEMAS, executeTool } = require('./netTools.js');
 const { buildWorkspaceContext } = require('./workspaceContext.js');

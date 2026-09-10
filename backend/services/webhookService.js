@@ -1,12 +1,7 @@
-const { getStripe, liveStripe } = require('../utils/stripeInstance');
-const { DynamoDBDocumentClient, PutCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
-const { getUserRankFromStripe, parseUserCredits, updateUserCredits } = require('../utils/apiUsageTracker.js');
-const { PLAN_IDS, PLAN_NAMES, isSimpleTier, STRIPE_PRODUCT_IDS } = require('../constants/pricing');
-const { fetchRawUserRecord } = require('../utils/dynamoUser');
+const { liveStripe } = require('../utils/stripeInstance');
 const { logger } = require('../utils/logger');
 
 // Use the live Stripe instance for webhook processing (webhooks always come from live mode)
-// TODO: If you add test-mode webhook support, use getStripe() with appropriate context
 const stripe = liveStripe;
 
 /**
@@ -120,7 +115,7 @@ function validateCustomLimit(customLimit) {
 async function verifySimpleMembership(userId) {
     try {
         const userRank = await getUserRankFromStripe(userId);
-        return isSimpleTier(userRank);
+        return isProTier(userRank);
     } catch (error) {
         logger.error('Failed to get user rank from Stripe:', error);
         throw new Error('Unable to verify membership status');

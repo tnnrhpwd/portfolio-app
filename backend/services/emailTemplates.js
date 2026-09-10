@@ -1,7 +1,11 @@
 /**
  * Email templates for user subscription events
  */
-const { FEATURES_PLAIN, isSimpleTier, isProTier } = require('../constants/pricing');
+const { FEATURES_PLAIN, isProTier } = require('../constants/pricing');
+
+// Centralized origin for links inside emails. Mirrors passwordReset.js:
+// defaults to production, overridable via FRONTEND_URL (dev / deploy previews).
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://www.sthopwood.com';
 
 /**
  * Get plain-text feature bullets for a plan (for emails).
@@ -10,7 +14,7 @@ const { FEATURES_PLAIN, isSimpleTier, isProTier } = require('../constants/pricin
  */
 function getPlanFeatures(plan) {
   const lc = plan.toLowerCase();
-  if (isProTier(plan) || isSimpleTier(plan) || lc === 'pro' || lc === 'simple') return FEATURES_PLAIN.pro;
+  if (isProTier(plan) || lc === 'pro' || lc === 'simple') return FEATURES_PLAIN.pro;
   return FEATURES_PLAIN.free;
 }
 
@@ -335,7 +339,7 @@ const subscriptionCreatedTemplate = (data) => {
           
           <p>If you have any questions or need assistance, please don't hesitate to contact our support team.</p>
           
-          <a href="https://www.sthopwood.com/account" class="button">Manage Your Account</a>
+          <a href="${FRONTEND_URL}/account" class="button">Manage Your Account</a>
           
           <p>Best regards,<br>The ST Hopwood Team</p>
         </div>
@@ -483,7 +487,7 @@ const subscriptionUpdatedTemplate = (data) => {
           
           <p>If you have any questions about your new plan or need assistance, please contact our support team.</p>
           
-          <a href="https://www.sthopwood.com/account" class="button">Manage Your Account</a>
+          <a href="${FRONTEND_URL}/account" class="button">Manage Your Account</a>
           
           <p>Best regards,<br>The ST Hopwood Team</p>
         </div>
@@ -611,7 +615,7 @@ const subscriptionCancelledTemplate = (data) => {
           <div class="resubscribe">
             <h3>Changed Your Mind?</h3>
             <p>You can resubscribe at any time to regain access to premium features.</p>
-            <a href="https://www.sthopwood.com/pricing" class="button">View Subscription Options</a>
+            <a href="${FRONTEND_URL}/pricing" class="button">View Subscription Options</a>
           </div>
           
           <p>If you have any questions or feedback, please don't hesitate to contact our support team.</p>
@@ -639,7 +643,7 @@ We're sorry to see you go! If you have a moment, we'd appreciate it if you could
 
 Changed Your Mind?
 You can resubscribe at any time to regain access to premium features.
-Visit: https://www.sthopwood.com/pricing
+Visit: ${FRONTEND_URL}/pricing
 
 If you have any questions or feedback, please don't hesitate to contact our support team.
 
@@ -693,7 +697,7 @@ const welcomeTemplate = (data) => {
 
           <p>Questions or feedback? Just reply to this email — we read every message.</p>
 
-          <a href="https://www.sthopwood.com/net" class="button">Open AI Chat</a>
+          <a href="${FRONTEND_URL}/net" class="button">Open AI Chat</a>
 
           <p>Best regards,<br>The ST Hopwood Team</p>
         </div>
@@ -716,7 +720,7 @@ What you can do next:
 
 Questions or feedback? Just reply to this email — we read every message.
 
-Open AI Chat: https://www.sthopwood.com/net
+Open AI Chat: ${FRONTEND_URL}/net
 
 Best regards,
 The ST Hopwood Team

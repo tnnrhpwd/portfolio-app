@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import usePurchaseGate from '../../hooks/usePurchaseGate.js';
+import { getApiBase } from '../../config/api.js';
 import './StorageMeter.css';
 
 /**
@@ -18,18 +19,7 @@ function StorageMeter({ user }) {
   const fetchStorage = useCallback(async () => {
     if (!user?.token) return;
     try {
-      const devMode = process.env.NODE_ENV === 'development';
-      let apiBase;
-      if (devMode) {
-        apiBase = '/api/data/';
-      } else if (typeof window !== 'undefined') {
-        const h = window.location.hostname;
-        apiBase = (h === 'www.sthopwood.com' || h === 'sthopwood.com')
-          ? 'https://mern-plan-web-service.onrender.com/api/data/'
-          : '/api/data/';
-      } else {
-        apiBase = 'https://mern-plan-web-service.onrender.com/api/data/';
-      }
+      const apiBase = getApiBase();
       const res = await fetch(apiBase + 'storage', {
         headers: { Authorization: `Bearer ${user.token}` },
       });

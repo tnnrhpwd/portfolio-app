@@ -62,6 +62,45 @@ async function generateDefinition(word) {
 const { getUserUsageStats } = require('../utils/apiUsageTracker.js');
 const { getStripe, liveStripe: stripe } = require('../utils/stripeInstance.js');
 
+/**
+ * Shared Bedrock credit-gate + usage-tracking flow for the `getword:` and
+ * `getdef:` branches below. Checks the credit gate, runs `generate`, tracks
+ * usage, and returns a descriptor the caller either sends or ignores.
+ */
+async function runBedrockTask(req, { label, inputTokens, outputTokens, generate }) {
+    const canMakeCall = await canMakeApiCall(req.user.id, 'bedrock', {
+        model: BEDROCK_MODEL_ID,
+        inputTokens,
+        outputTokens,
+    });
+    if (!canMakeCall.canMake) {
+        logger.debug(`LLM ${label} call blocked:`, canMakeCall.reason);
+        return {
+            ok: false,
+            status: 402,
+            body: {
+                error: 'API usage limit reached',
+                reason: canMakeCall.reason,
+                currentUsage: canMakeCall.currentUsage,
+                limit: canMakeCall.limit,
+                requiresUpgrade: true
+            }
+        };
+    }
+
+    const result = await generate();
+    const usage = result.response?.usage || {};
+    const usageResult = await trackApiUsage(req.user.id, 'bedrock', {
+        inputTokens: usage.prompt_tokens || 0,
+        outputTokens: usage.completion_tokens || 0,
+    }, BEDROCK_MODEL_ID);
+    if (usageResult.success) {
+        logger.debug(`LLM ${label} usage tracked: $${usageResult.cost.toFixed(4)}, Total: $${usageResult.totalUsage.toFixed(4)}`);
+    }
+
+    return { ok: true, status: 200, result };
+}
+
 // @desc    Get Data
 // @route   GET /api/data
 // @access  Private

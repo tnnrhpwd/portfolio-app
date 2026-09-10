@@ -8,6 +8,7 @@ import { useSpeech } from '../../hooks/simpleAddon/useSpeech';
 import { useMicDevices } from '../../hooks/simpleAddon/useMicDevices';
 import { useInactivity } from '../../hooks/simpleAddon/useInactivity';
 import usePurchaseGate from '../../hooks/usePurchaseGate';
+import { getApiBase } from '../../config/api.js';
 import {
   sendChatMessage,
   confirmAction,
@@ -1046,18 +1047,7 @@ function SimpleChat({
 
       try {
         // Build the API URL (same logic as dataService)
-        const devMode = process.env.NODE_ENV === 'development';
-        let apiBase;
-        if (devMode) {
-          apiBase = '/api/data/';
-        } else if (typeof window !== 'undefined') {
-          const h = window.location.hostname;
-          apiBase = (h === 'www.sthopwood.com' || h === 'sthopwood.com')
-            ? 'https://mern-plan-web-service.onrender.com/api/data/'
-            : '/api/data/';
-        } else {
-          apiBase = 'https://mern-plan-web-service.onrender.com/api/data/';
-        }
+        const apiBase = getApiBase();
 
         const token = user?.token;
         if (!token) throw new Error('Please log in to process files.');

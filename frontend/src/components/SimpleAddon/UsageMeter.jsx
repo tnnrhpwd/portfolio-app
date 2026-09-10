@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import usePurchaseGate from '../../hooks/usePurchaseGate.js';
+import { getApiBase } from '../../config/api.js';
 import './UsageMeter.css';
 
 const TIER_COLORS = {
@@ -25,18 +26,7 @@ function UsageMeter({ user }) {
     if (!user?.token) return;
     setLoading(true);
     try {
-      const devMode = process.env.NODE_ENV === 'development';
-      let apiBase;
-      if (devMode) {
-        apiBase = '/api/data/';
-      } else if (typeof window !== 'undefined') {
-        const h = window.location.hostname;
-        apiBase = (h === 'www.sthopwood.com' || h === 'sthopwood.com')
-          ? 'https://mern-plan-web-service.onrender.com/api/data/'
-          : '/api/data/';
-      } else {
-        apiBase = 'https://mern-plan-web-service.onrender.com/api/data/';
-      }
+      const apiBase = getApiBase();
       const res = await fetch(apiBase + 'usage', {
         headers: { Authorization: `Bearer ${user.token}` },
       });

@@ -360,6 +360,12 @@ function _deriveVisualQuery(step, resolvedArgs) {
     if (step.tool === 'click_at') {
         return 'the same target that was expected at this click location';
     }
+    if (step.tool === 'browser_click') {
+        // §5.3 broaden coverage: a web element can move/change between runs, so
+        // on failure re-target it visually by its selector description.
+        const sel = String(resolvedArgs?.selector || '').trim();
+        return sel ? `click the on-screen element matching the browser selector "${sel}"` : null;
+    }
     return null;
 }
 

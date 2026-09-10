@@ -125,7 +125,7 @@ and `workspace-client.js` wrappers.
 - ✅ "Low-trust" classifier (`classifyLowTrust()`, surfaced as `lowTrust` on install).
 - 🟡 Backend contract tests for pagination/sort stability/install-rate constraints (offline tests cover these; a live-DynamoDB integration pass, `back.test.js`-style, remains).
 
-## 5. Skill generalization — 🟡 partially implemented (5.1/5.2/5.5/5.6 shipped; 5.3/5.4 partial)
+## 5. Skill generalization — ✅ implemented
 
 Fix the addon's biggest weakness: `recorder/compiler.js` only does literal event
 coalescing — it does not generalize across variation. Build in this priority order:
@@ -150,7 +150,7 @@ detect what varies and promote those into `${param.x}` placeholders (`tools/skil
 Pixel `x`/`y`, timing, `path` arrays, and image-like keys are never promoted.
 Endpoint `POST /api/skill/infer-params`. Tests in `infer-params.test.js`.
 
-### 5.3 Vision-based re-targeting — 🟡 partially implemented
+### 5.3 Vision-based re-targeting — ✅ implemented
 
 At replay time, if a `uia_invoke`/`click_at` step fails because the UI shifted,
 fall back to `find_and_click_visual` (`vision-fusion.js`) rather than hard-failing.
@@ -161,8 +161,10 @@ Extend `repairStep` in `tools/skill.js` to consider "find a visually similar ele
 - ✅ UI messaging for the recovered action — the ShortcutsManager run banner now
   reports "recovered N step(s) automatically" when `repairsTotal > 0` (visual
   retarget / LLM repair), alongside the existing per-step `repairs` debug detail.
-- 🟡 Broaden target coverage — extend `repairStep` beyond the click/uia_invoke/
-  click_visual cases to more step types.
+- ✅ Broaden target coverage — visual retarget now covers `uia_invoke`, `click_at`,
+  and `browser_click` (web elements that move/change); `_deriveVisualQuery`
+  derives a description from the step's args for any failing click-like step.
+  Tested in `tools/skill.test.js`.
 
 ### 5.4 Tool-version graceful degradation — ✅ implemented
 
@@ -399,7 +401,7 @@ marketplace, and ship privacy scrubbing before *any* publish path.
 3. 🟡 **Pre-run capability summary** (6.2) — summarizer + preview endpoint shipped. ⬜ Remaining: mandatory pre-run confirmation UX.
 4. ✅ **Marketplace backend** (4.1–4.2) — public namespace, versioning, install-gated ratings, atomic counters.
 5. ✅ **Marketplace web frontend** (4.4) + trust ranking + dry-run-first — `/market` page, ranking + `lowTrust`, and dry-run-first enforcement all shipped.
-6. 🟡 **Vision re-targeting on replay** (5.3) — backend recovery path shipped; broaden coverage + UI messaging remain.
+6. ✅ **Vision re-targeting on replay** (5.3) — recovery path + UI messaging + broadened coverage (uia_invoke / click_at / browser_click) all shipped.
 7. 🟡 **Monetization seam** (8) — provider-boundary credit gate + blocked-call UX copy + state-machine unit tests shipped; a full route-layer DynamoDB/Stripe fixture pass remains.
 8. ⬜ **Onboarding/UX polish** for non-technical users.
 
@@ -426,7 +428,7 @@ Each milestone ships with Jest unit tests and, where it touches the loop, an
 
 #### P1 — do next
 
-- 🟡 Vision re-targeting: broaden target coverage (UI messaging for recovered steps shipped).
+- ✅ Vision re-targeting: coverage broadened (uia_invoke / click_at / browser_click) + UI messaging shipped.
 - ✅ Tool-version compatibility: mapping coverage + UI integration shipped (add new aliases/fallbacks as renames land).
 - 🟡 Recorder sensitive-capture consent: frontend consent UX polish.
 - ✅ Cloud-vision consent: frontend consent UX shipped (first-use modal + revoke/toggle in `PermissionsManager.jsx`).
@@ -571,6 +573,27 @@ The remaining checklist — check items off as they land, add new gaps as found.
 - ⬜ **Single installer** — consolidate "download, trust cert, configure" into one flow if feasible.
 - ✅ **Pricing-page cleanup** — `getPlanDisplayName` fallback fixed (returns "Pro (monthly/yearly)" / "Free" instead of the redundant "Pro Membership"); `BillingDisclosure.jsx` is cadence-aware (`billingInterval` prop, threaded from `CheckoutForm.jsx`); `subscriptionCancelledTemplate` reviewed and already plan-generic (no legacy names); no dead `Simple.jsx` or `Net.jsx` plan chips remain.
 - ✅ **Home + Pricing value messaging** — Home: added an above-the-fold personal CTA ("What I can do for you" → `/pricing`, plus "Browse my work" → `/projects`) in the hero; the project catalog is already de-duplicated (curated carousel = specific projects, `WHATS_INSIDE` = category tiles, "around the site" = nav links — no literal re-listing remains). Pricing: the hero now leads with benefit copy ("Simple is an AI agent that runs on your PC…") before the plan cards. Files: `frontend/src/pages/Home/Home.jsx`, `frontend/src/pages/Pricing/Pricing.jsx`.
+
+### 13.1 New findings (repo audit, 2026-09-09)
+
+Issues surfaced while auditing the repo beyond the original plan. Ordered by
+impact; none are Simple-core blockers, but several are user-visible or DRY/security-adjacent.
+
+- ⬜ **OAuth login/linking is a stub** — `frontend/src/components/AuthCallback/AuthCallback.jsx` shows "coming soon" toasts and redirects; the GitHub/Google OAuth callback is never sent to a backend endpoint (see the `TODO` in the file). Either wire it to the backend or hide the OAuth buttons until it actually works.
+- ⬜ **AWS Textract OCR returns fabricated text** — `backend/services/ocrService.js` `processWithAWSTextract` hardcodes `"Mock OCR result from AWS Textract"` (a placeholder). Implement real Textract or drop `aws-textract` from the provider list so no path returns mock output.
+- ✅ **Centralize the backend base URL** — `SimpleChat`/`StorageMeter`/`UsageMeter` now import `getApiBase()` from `frontend/src/config/api.js` (this also fixed an inverted prod-vs-dev URL branch that pointed production at the Render origin instead of the Netlify proxy). The addon's two `BACKEND_URL = process.env.BACKEND_URL || …` lines remain env-overridable.
+- ✅ **Email templates hardcode production URLs** — `backend/services/emailTemplates.js` now defines `const FRONTEND_URL = process.env.FRONTEND_URL || 'https://www.sthopwood.com'` and uses `${FRONTEND_URL}` for all six in-email links (account ×2, pricing ×2, net ×2), matching `passwordReset.js`.
+- ✅ **Deprecated / dead code cleanup** — `backend/services/stripeHelpers.js` deleted; `isSimpleTier` removed from all six call sites (`backend/constants/pricing.js`, `frontend/src/constants/pricing.js`, `emailTemplates.js`, `webhookService.js`, `llmService.js`, `apiUsageTracker.js` — `webhookService` now uses `isProTier`). Remaining (cosmetic, no runtime effect): the commented-out Firebase JSX in `frontend/src/pages/Projects/PollBox/NewPoll.js` and the `webhookService.js` test-mode TODO.
+- ⬜ **Stale compiler v2 TODO list** — `simple-addon/server/automation/recorder/compiler.js` documents "v2 ideas (NOT implemented)" including parameter inference, which §5.2 has since shipped via `infer-params.js`. Update or retire the note.
+- ✅ **Approval prompts log full tool args to the console (PII risk)** — `simple-addon/server/automation/index.js` now logs only the arg keys (never values) on approval prompts; full args still reach the UI via the `approval.pending` event.
+- ⬜ **Duplicated LLM-metering logic in `getHashData`** — the `getword:` and `getdef:` branches of `backend/controllers/getHashData.js` are near-identical (`canMakeApiCall` → generate → `trackApiUsage` → respond). Extract a shared helper.
+- ⬜ **Silently swallowed errors in `llmService`** — `backend/services/llmService.js` has ~8 empty `catch {}` blocks. Log a warning (or rethrow where appropriate) so LLM-pipeline failures aren't invisible.
+- 🟡 **Plaintext secret fallback outside Electron** — `simple-addon/server/secret-storage.js` stores secrets in plaintext when `safeStorage` is unavailable (documented + one-shot warning; fine for CLI/Jest). Confirm the packaged addon always runs under Electron, and consider refusing to persist (instead of plaintext) in non-Electron contexts.
+- ⬜ **Hardcoded admin user ID duplicated across the codebase** — `6770a067c725cbceab958619` is hardcoded in `frontend/src/pages/Admin/adminShared.js`, `HeaderDropper.jsx`, `DeepStorage.jsx`, `Home.jsx`, `Muse.jsx`, `backend/controllers/putHashData.js`, and `testFunnelController.js` (fallback). The backend already reads `process.env.ADMIN_USER_ID` — centralize on it and derive admin-ness server-side; client-side copies are cosmetic and leak the admin account id. The `'girlfriend'` nickname gate in `Home.jsx`/`Muse.jsx`/`HeaderDropper.jsx` is the same smell.
+- ⬜ **Committed user PII in `backend/reports/support-tickets-*.json`** — a generated export committed to the repo containing ~219 real email addresses (`tnnrhpwd@gmail.com`, `dakotaprince37@gmail.com`, …) and raw bug-report text. Remove it from tracking (`.gitignore` or delete) and redact/re-generate as needed.
+- ✅ **Stray refactor script** — `frontend/src/pages/Simple/Pay/refactor-script.js` deleted.
+- ✅ **`backend/scripts/diagnose-login.js` TEMP diagnostic** — deleted.
+- ⬜ **Stale un-wired "custom credit limit" feature in `webhookService.js`** — `processCustomLimitUpdate` / `validateCustomLimit` / `verifySimpleMembership` / `saveUserCredits` reference removed identifiers (`CREDITS`, `PLAN_IDS.SIMPLE`) and would throw if invoked; `validateCustomLimit` is still called internally and the functions are still exported, but the route was removed (`routeData.js` notes "custom-limit route removed"). Dead code — remove it and its internal call site.
 
 ---
 
