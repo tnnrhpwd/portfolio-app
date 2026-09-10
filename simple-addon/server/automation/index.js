@@ -407,12 +407,13 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
             const { createLlmProvider } = require('./llm-provider');
             const res = await createLlmProvider().chat({
                 message: trimmed,
-                systemPrompt: 'Decide whether the user message is an actionable task for a Windows automation agent. Reply with exactly one word: ACT if the user wants the agent to DO something on the computer (list/count/open/create/read/write files, run apps/commands, control windows, type, click), or CHAT if it is purely conversational or informational (a question, explanation, or chitchat).',
-                temperature: 0,
-                maxLength: 8,
+                systemPrompt: 'You are the routing layer of a Windows automation assistant. If the user wants you to DO something on the computer (list/count/open/create/read/write files, run apps/commands, control windows, type, click), reply with exactly the single word ACT. Otherwise, give a short, helpful conversational reply to the user (a normal answer to their question or chitchat).',
+                temperature: 0.3,
+                maxLength: 300,
             });
-            const verdict = String(res?.text || '').trim().toUpperCase();
-            return { actionable: verdict.startsWith('ACT'), source: 'llm' };
+            const verdict = String(res?.text || '').trim();
+            if (/^ACT\b/i.test(verdict)) return { actionable: true, source: 'llm' };
+            return { actionable: false, source: 'llm', chatReply: verdict };
         } catch {
             return { actionable: actionHit, source: 'heuristic-fallback' };
         }
@@ -428,7 +429,7 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
         if (!text) return { actionable: false, error: 'empty description' };
 
         const decision = await classifyActionable(text);
-        if (!decision.actionable) return { actionable: false, source: decision.source };
+        if (!decision.actionable) return { actionable: false, source: decision.source, chatReply: decision.chatReply || null };
 
         const contextText = String(context || '').trim();
         const content = contextText ? `${text}\n\nCONTEXT / SCOPE:\n${contextText}` : text;

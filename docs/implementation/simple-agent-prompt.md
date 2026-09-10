@@ -689,4 +689,176 @@ impact; none are Simple-core blockers, but several are user-visible or DRY/secur
 
 ---
 
+## 14. Repo agent via /net chat (DeepSeek) — goal & plan
+
+Status: 🟡 in progress (2026-09-10).
+
+### 14.1 Goal
+
+Let a signed-in administrator use the **/net chatbot (DeepSeek)** to make real
+changes to this repository — end to end, without leaving the chat:
+
+1. **Investigate** — the model reads the live repo (list files, read files) to
+   find the right places to change.
+2. **Implement** — the model writes edits into the working tree on the backend
+   server (not the browser).
+3. **Stage** — changes are `git add`-ed and committed locally on the backend
+   server.
+4. **Ask** — the model *always* summarizes what it changed and asks the user
+   whether to push. It never pushes silently.
+5. **Push** — only after the user replies with an explicit confirmation does the
+   model `git push` to GitHub (using the server's `GITHUB_TOKEN` from AWS
+   Secrets Manager).
+
+The result is the "pretend you're my /net chatbot" workflow: user describes a
+change → the chat investigates, implements, and stages it on the backend → the
+chat asks "push?" → user says yes → pushed to GitHub.
+
+### 14.2 Plan (subtasks)
+
+1. ✅ **`backend/services/repoAgentService.js`** — wraps `git` (`child_process.execFile`,
+   cwd = repo root) with the `repo_*` tool schemas/executors.
+2. ✅ **Merge into `/net` tool loop** — `backend/services/netTools.js` folds the
+   repo schemas/executors into `TOOL_SCHEMAS`/`TOOL_EXECUTORS`; no new route.
+3. ✅ **Wire admin + confirmation context** — `backend/services/llmService.js`
+   tags each /net chat `toolContext` with `isAdmin`, `turnStartedAt`, and the
+   raw `userMessage` (both streaming and non-streaming paths).
+4. ✅ **Prompt the confirmation rule** — the /net system prompt teaches the model
+   the repo tools and the hard rule: *never `repo_push` in the same turn you
+   commit; ask first, wait for a confirmation reply.*
+5. ✅ **Shared module** — `backend/services/repoShared.js` is the single source of
+   truth for `REPO`, `getGitHubToken`, `isAdminContext`, `sanitizeRepoPath`, and
+   `encodePath`; both `goalAgentService.js` and `repoAgentService.js` import it.
+6. ✅ **Feature-branch isolation** — `repo_commit_changes` commits onto a
+   `net/<slug>-<ts>` branch (never `master`); `repo_push` pushes that branch and
+   returns a `github.com/…/compare/…` PR link.
+7. ✅ **Explicit proposal state** — a per-user DynamoDB proposal record
+   (`csimple_repoagent_<userId>_proposal`) stores the exact branch/sha; `repo_push`
+   pushes only that branch and clears the record (falls back to git-derived
+   checks when DynamoDB is unavailable).
+8. ✅ **Diff review** — `repo_commit_changes` returns the staged diff stat alongside
+   the file list so the user can see what changed before confirming.
+9. ✅ **Single classification call** — the addon's `classifyActionable` returns a
+   `chatReply` for non-actionable messages, and `SimpleChat.jsx` shows it directly
+   (no second LLM call for the same message).
+10. ✅ **Unit + git tests** — `repoAgentService.test.js` (pure helpers, mocked git)
+    + `repoAgentService.git.test.js` (real git against a temp repo, no GitHub).
+11. ⬜ **Live end-to-end pass** — one real signed-in admin run through /net chat
+    that stages a trivial change, asks, and pushes (requires `GITHUB_TOKEN` on
+    the server).
+
+### 14.3 Confirmation gate (safety)
+
+`repo_push` refuses to run unless **all** of these hold:
+
+- **Admin only** — `toolContext.isAdmin` is true (same `ADMIN_USER_ID` check the
+  goal agent uses). Non-admins get a "restricted" message for every `repo_*`
+  tool.
+- **User confirmed** — the current-turn message matches a short confirmation
+  pattern (`push`, `ship`, `confirm`, `proceed`, `yes`, `go ahead`, …).
+- **Commit is from a previous turn** — HEAD's commit timestamp is strictly older
+  than the turn start time, so the model can never stage-and-push in one shot,
+  even if the user typed "…and push it" in the original request.
+- **A feature branch exists** — `repo_push` only pushes the current `net/…`
+  branch (recorded in the per-user proposal), never `master` and never an
+  unrelated local commit.
+
+Because the "ask → user confirms → push" round-trip spans two turns, the model's
+own reply ("…want me to push?") becomes the user's cue; the next user message is
+what unlocks `repo_push`.
+
+### 14.4 Security constraints
+
+- Repo tools are never sent to non-admin chats (`toolsForContext()` filters
+  `repo_*` out of the schema list).
+- Paths are sanitized (`sanitizeRepoPath` — shared with `goalAgentService.js`
+  via `repoShared.js`) — no `..`, absolute paths, or `.git`.
+- File writes capped at 120 KB; reads/diffs truncated to a bounded size.
+- Every change lands on an isolated `net/…` feature branch; `repo_push` can only
+  push that branch, never the base branch.
+- The GitHub token is passed to `git` via `http.extraHeader` (in the process
+  env, never embedded in the remote URL or commit message), reusing the existing
+  `GITHUB_TOKEN` secret already seeded via `backend/scripts/seed-secrets.js`.
+
+---
+
+## 15. How /net chat messages are routed (reference)
+
+There is **no single `if`** deciding what a `/net` message does — it is a
+layered cascade across the browser, the desktop addon, and the backend. Each
+layer narrows "what is this message?" in order, and the final tie-breaker is the
+LLM's own tool-calling choice.
+
+```mermaid
+flowchart TD
+    A[Message typed on /net] --> B{Slash command?}
+    B -- /run, /goal, /agent --> C[Deterministic handler]
+    B -- no --> D[Client security pre-screen]
+    D --> E{Phrase like 'on my PC'?}
+    E -- yes --> F[Remote relay to desktop addon]
+    E -- no --> G{Addon reachable? local or remote}
+    G -- yes --> H[Addon agent loop: classifyActionable]
+    H -- actionable:true --> I[Run Windows action via addon tool registry]
+    H -- actionable:false --> J[Fall through to chat LLM]
+    G -- no --> J
+    J --> K[Chat LLM: Bedrock or DeepSeek, tool_choice auto]
+    K --> L{LLM decides}
+    L -- no tool fits --> M[Plain text reply]
+    L -- cloud tool fits --> N[save_goal / generate_image / calculate / web search]
+    L -- repo_* fits and admin --> O[Repo work: git on backend]
+```
+
+### 15.1 Layer 1 — client (`SimpleChat.jsx` `sendMessage`)
+
+Ordered checks, first match wins:
+
+1. **Slash commands** (`/run`, `/goal`, `/agent`, `/help`, `/compare`, …) — deterministic, no LLM.
+2. **Client security pre-screen** (`securityCheckMessage`) — block dangerous/blocklisted commands before any network call.
+3. **Explicit PC phrasing** (`isPcControlRequest`, e.g. "on my PC") → remote addon relay (phone → cloud → desktop).
+4. **Addon reachable?** (local `localhost:3001` or remote relay) → send the message to the addon's agent loop first (below); otherwise skip straight to the chat LLM.
+5. **Chat LLM** — routed by the `provider` setting: `portfolio` → cloud backend (`llmService.js`); otherwise a local HuggingFace model on the addon.
+
+### 15.2 Layer 2 — addon classifies "Windows action vs. chat" (`classifyActionable`)
+
+`simple-addon/server/automation/index.js` `POST /api/agent/run`:
+
+- **Heuristic first**: action verbs ("open/list/create/run/type/click/…") vs. question/chitchat words.
+- **Ambiguous middle**: ask an LLM to answer exactly `ACT` (do something on the computer) or `CHAT` (conversational/informational).
+- `actionable: true` → run the O-O-G-P-A loop with the addon's real PC tool registry (`shell_run`, `uia_invoke`, `input_tap`, `browser_*`, …) and report the final answer back.
+- `actionable: false` → **fall through** to the normal chat LLM.
+
+### 15.3 Layer 3 — cloud chat LLM decides "repo vs. cloud tool vs. reply" (`llmService.js`)
+
+The cloud path sends the message to Bedrock **or DeepSeek** (the model picker is
+orthogonal to the toolset) with `TOOL_SCHEMAS` and `tool_choice: 'auto'`. The LLM
+chooses, per turn:
+
+- **no tool call** → plain text reply;
+- a **cloud tool** (`save_goal`, `save_note`, `generate_image`, `calculate`, `web_search_suggestion`, …);
+- a **`repo_*` tool** → work on the repository via git (`repoAgentService.js`).
+
+Two guardrails shape this: `toolsForContext()` strips `repo_*` schemas for
+non-admins, and `repo_push` refuses to run unless the current message is an
+explicit confirmation from a previous turn.
+
+### 15.4 Key separation (who owns what)
+
+| Capability | Where it lives | Endpoint / mechanism | Who decides |
+|---|---|---|---|
+| Windows/PC actions (`shell_run`, `uia_invoke`, …) | Desktop addon tool registry + agent loop | `POST /api/agent/run` (addon) | addon `classifyActionable` |
+| Repo changes (`repo_*`) | Backend server (`repoAgentService.js`, git) | `/net` chat tool loop (`llmService.js`) | cloud LLM tool-call + admin gate |
+| Cloud tools (`save_goal`, `generate_image`, math, search, …) | Backend `netTools.js` | `/net` chat tool loop | cloud LLM tool-call |
+| Just reply | Any LLM | chat streaming path | no tool call |
+
+The cloud `/net` chat has **no** Windows-action tools, and the addon has **no**
+repo tools — so the two cannot be confused. "Repo or chat?" is an LLM tool-choice
+on the backend; "Windows action or chat?" is the addon's actionability classifier.
+
+> **Code is the source of truth** — this section is a snapshot of the routing
+> logic; the authoritative code lives in `SimpleChat.jsx` (`sendMessage`),
+> `simple-addon/server/automation/index.js` (`classifyActionable` +
+> `/api/agent/run`), and `backend/services/llmService.js` (the cloud tool loop).
+
+---
+
 **Companion doc:** [`AUTOMATION_SECURITY.md`](AUTOMATION_SECURITY.md) — threat model, trust boundaries, and the permissions matrix.

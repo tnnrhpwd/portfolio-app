@@ -38,7 +38,7 @@ const _ddb = DynamoDBDocumentClient.from(_ddbClient);
 
 // ── Configuration ───────────────────────────────────────────────────────────
 
-const REPO = process.env.GOAL_AGENT_REPO || 'tnnrhpwd/portfolio-app';
+const { REPO, getGitHubToken, isAdminContext, sanitizeRepoPath, encodePath } = require('./repoShared');
 const BRANCH_OVERRIDE = process.env.GOAL_AGENT_BRANCH || ''; // '' → read GitHub default branch
 
 const MAX_TOOL_ROUNDS = 12;        // LLM loop iterations
@@ -60,10 +60,6 @@ function truncate(str, n) {
   return s.length > n ? `${s.slice(0, n)}…` : s;
 }
 
-function getGitHubToken() {
-  return process.env.GITHUB_TOKEN || process.env.GH_TOKEN || null;
-}
-
 function isRunning(goalId) {
   return _runs.has(goalId);
 }
@@ -72,24 +68,6 @@ function stopGoalAgentRun(goalId) {
   const run = _runs.get(goalId);
   if (run) run.abort = true;
   return !!run;
-}
-
-/** Validate + normalize a repo-relative path. Returns null when unsafe. */
-function sanitizeRepoPath(input) {
-  if (typeof input !== 'string') return null;
-  let p = input.trim().replace(/\\/g, '/');
-  while (p.startsWith('/')) p = p.slice(1);
-  if (p.startsWith('./')) p = p.slice(2);
-  if (!p || p.length > 500) return null;
-  const segments = p.split('/');
-  if (segments.some((s) => s === '' || s === '.' || s === '..')) return null;
-  if (segments[0] === '.git') return null;
-  return p;
-}
-
-/** Encode each path segment so it is safe in a GitHub API URL. */
-function encodePath(path) {
-  return path.split('/').map(encodeURIComponent).join('/');
 }
 
 async function githubApi(method, path, body) {
@@ -247,14 +225,10 @@ const TOOL_SCHEMAS = [
 
 // ── Tool executors ──────────────────────────────────────────────────────────
 
-/**
- * Repo tools read/write the live website repository with the server's GitHub
- * token. That is an admin-only capability: an ordinary user (or a stolen user
- * JWT) must not be able to drive code into the production default branch.
- */
-function isAdminContext(ctx) {
-    return !!(ctx && ctx.user && ctx.user.id === process.env.ADMIN_USER_ID);
-}
+// Repo tools read/write the live website repository with the server's GitHub
+// token. That is an admin-only capability (isAdminContext is shared via
+// repoShared.js): an ordinary user (or a stolen user JWT) must not be able to
+// drive code into the production default branch.
 
 const TOOL_EXECUTORS = {
   async list_repo_tree(args, ctx) {

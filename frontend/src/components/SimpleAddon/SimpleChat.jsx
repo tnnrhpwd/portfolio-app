@@ -1452,7 +1452,24 @@ function SimpleChat({
             setIsGenerating(false);
             return;
           }
-          // actionable === false → fall through to normal chat below
+          // The addon judged the message non-actionable. If its classifier
+          // already produced a conversational reply, show it directly instead
+          // of making a second cloud/local LLM call for the same message.
+          if (agentResult?.chatReply) {
+            const assistantMessage = {
+              id: (Date.now() + 1).toString(),
+              role: 'assistant',
+              content: agentResult.chatReply,
+              timestamp: new Date().toISOString(),
+            };
+            setConversations(prev => prev.map(c => {
+              if (c.id !== activeConversationId) return c;
+              return { ...c, messages: [...c.messages, assistantMessage] };
+            }));
+            setIsGenerating(false);
+            return;
+          }
+          // actionable === false and no chatReply → fall through to normal chat below
         } catch (err) {
           const errorMessage = {
             id: (Date.now() + 1).toString(),

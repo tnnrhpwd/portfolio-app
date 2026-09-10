@@ -968,6 +968,18 @@ const TOOL_EXECUTORS = {
   },
 };
 
+// ─── Repo agent tools (admin-only git staging + push) ─────────────────────
+// Folded into the /net chat tool loop so the DeepSeek chatbot can make real
+// code changes on the backend server. Loaded lazily at the end of module init
+// to avoid any circular-require edge at startup.
+try {
+  const repoAgent = require('./repoAgentService');
+  TOOL_SCHEMAS.push(...repoAgent.REPO_TOOL_SCHEMAS);
+  Object.assign(TOOL_EXECUTORS, repoAgent.REPO_TOOL_EXECUTORS);
+} catch (err) {
+  logger.warn('[netTools] Failed to load repo agent tools:', err.message);
+}
+
 // ─── Exports ────────────────────────────────────────────────────────────────
 
 module.exports = {

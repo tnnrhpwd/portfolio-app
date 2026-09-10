@@ -237,6 +237,32 @@ function stripImagesFromUserInput(userInput) {
 }
 
 /**
+ * Repo tool instructions injected into the system prompt for the administrator.
+ * Teaches the model the repo_* tools and — critically — that it must never push
+ * in the same turn it commits: implement → ask → (user confirms) → push.
+ */
+function repoSystemInstructions() {
+    return [
+        'REPOSITORY EDITING (administrator only): You can modify this website\'s code repository using the repo_* tools.',
+        'To change code: repo_list_files and repo_read_file to investigate, repo_write_file to edit files in the working tree, repo_git_status and repo_git_diff to review, then repo_commit_changes to stage and commit.',
+        'CRITICAL PUSH RULE: NEVER call repo_push in the same turn you commit changes. After repo_commit_changes, reply to the user summarizing exactly what changed and ASK whether they want to push to GitHub. Only call repo_push after the user replies with an explicit confirmation (e.g. "yes, push it"). repo_push will refuse to run otherwise.',
+    ].join(' ');
+}
+
+/**
+ * The tool schema list to offer for a given chat. Repo tools are admin-only, so
+ * they are stripped from the schemas for everyone else.
+ */
+function toolsForContext(toolContext) {
+    if (!toolContext) return null;
+    if (toolContext.isAdmin) return TOOL_SCHEMAS;
+    return TOOL_SCHEMAS.filter((t) => {
+        const name = t?.function?.name || '';
+        return !name.startsWith('repo_');
+    });
+}
+
+/**
  * Build the base system prompt parts used by both callLLMApi and streamCompressionRequest.
  */
 function buildSystemPromptParts(goalsSummary) {
@@ -554,6 +580,9 @@ async function callLLMApi(provider, model, userInput, goalsSummary = null, toolC
     // Inject membership tier awareness
     if (user) injectMembershipContext(systemParts, user);
 
+    // Repo editing instructions for the administrator
+    if (toolContext?.isAdmin) systemParts.push(repoSystemInstructions());
+
 
     // Inject user context from cloud DB (memory, personality, behavior, workspace)
     if (userContext) {
@@ -580,7 +609,7 @@ async function callLLMApi(provider, model, userInput, goalsSummary = null, toolC
     const useTools = toolContext !== null;
     const llmOptions = { maxTokens: maxTokensOverride || 1000, temperature: 0.7 };
     if (useTools) {
-        llmOptions.tools = TOOL_SCHEMAS;
+        llmOptions.tools = toolsForContext(toolContext);
         llmOptions.tool_choice = 'auto';
         // Tool-call arguments can be large (e.g. save_goals with many goals);
         // give the model headroom so its JSON isn't cut off at the text budget.
@@ -876,6 +905,13 @@ async function processCompressionRequest(req, dynamodb) {
         logger.debug('[llmService] Net: chat (text form) detected — enabling tool-use');
     }
 
+    // Enrich tool context with admin status + turn metadata (repo agent).
+    if (toolContext) {
+        toolContext.isAdmin = !!(req.user && req.user.id === process.env.ADMIN_USER_ID);
+        toolContext.turnStartedAt = Date.now();
+        toolContext.userMessage = userMessageForContext || '';
+    }
+
     // Load user context (memory, personality, behavior, workspace) from cloud DB
     let userContext = null;
     try {
@@ -996,6 +1032,13 @@ async function streamCompressionRequest(req, res, dynamodb) {
         userMessageForContext = userInput;
     }
 
+    // Enrich tool context with admin status + turn metadata (repo agent).
+    if (toolContext) {
+        toolContext.isAdmin = !!(req.user && req.user.id === process.env.ADMIN_USER_ID);
+        toolContext.turnStartedAt = Date.now();
+        toolContext.userMessage = userMessageForContext || '';
+    }
+
     // Load user context (memory, personality, behavior, workspace)
     let userContext = null;
     try {
@@ -1029,6 +1072,7 @@ async function streamCompressionRequest(req, res, dynamodb) {
     // Build system prompt
     const systemParts = buildSystemPromptParts(goalsSummary);
     injectMembershipContext(systemParts, req.user);
+    if (toolContext?.isAdmin) systemParts.push(repoSystemInstructions());
     if (userContext) {
         if (userContext.personalityContext) systemParts.push(userContext.personalityContext);
         if (userContext.workspaceContext) systemParts.push(userContext.workspaceContext);
@@ -1044,7 +1088,7 @@ async function streamCompressionRequest(req, res, dynamodb) {
 
     const llmOptions = { maxTokens, temperature: 0.7 };
     if (useTools) {
-        llmOptions.tools = TOOL_SCHEMAS;
+        llmOptions.tools = toolsForContext(toolContext);
         llmOptions.tool_choice = 'auto';
         // Tool-call arguments can be large (e.g. save_goals with many goals);
         // give the model headroom so its JSON isn't cut off at the text budget.
