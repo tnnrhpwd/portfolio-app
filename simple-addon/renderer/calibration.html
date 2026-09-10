@@ -911,6 +911,11 @@ async function eStop() {
 let calIdx = 0;
 let faceDetected = false;
 let pointDone = false;
+// Index of the point we most recently reported to the backend. Progress events
+// (`calibrating`, `done`) are only honored when their `point_index` matches
+// this — otherwise a late "done" from the smooth-pursuit warm-up (or the
+// previous dot) advances us past the current dot before it ever samples.
+let currentCollectIndex = -1;
 
 function showScreen(el) {
   [sSetup, sValidate, sDone].forEach(s => s.classList.add('hidden'));
@@ -1041,7 +1046,9 @@ function runPursuitPhase() {
       calDot.style.left = `${p.xPct * 100}%`;
       calDot.style.top  = `${p.yPct * 100}%`;
       // Each pursuit waypoint becomes a tiny calibration anchor (3-6 frames each)
-      window.calibrationAPI.reportPoint(pursuitIndex++, sx, sy, { minSamples: 3, maxSamples: 6 });
+      const waypointIndex = pursuitIndex++;
+      currentCollectIndex = waypointIndex;
+      window.calibrationAPI.reportPoint(waypointIndex, sx, sy, { minSamples: 3, maxSamples: 6 });
       progBar.style.width = `${(i / path.length) * 100}%`;
       i++;
     };
@@ -1078,6 +1085,9 @@ function advancePoint() {
   }
 
   pointDone = false;
+  // Lock the expected point index immediately so any late progress from the
+  // smooth-pursuit warm-up (or the previous dot) is ignored from this instant.
+  currentCollectIndex = calIdx;
   clearPointTimers();
   currentPointStartAt = Date.now();
   currentPointSamples = 0;
@@ -1114,6 +1124,7 @@ function advancePoint() {
   currentPointCollectTimeout = setTimeout(() => {
     if (aborted || pointDone) return;
     // Send the calibration point to Python — it starts collecting immediately
+    currentCollectIndex = calIdx;
     window.calibrationAPI.reportPoint(calIdx, sx, sy);
     calDot.classList.add('collecting');
     calMsg.textContent = 'Hold steady — collecting...';
@@ -1265,7 +1276,12 @@ window.calibrationAPI.onProgress((data) => {
     // Ignore any late events that arrive after we've moved on to the
     // computing phase — otherwise the last dot's "45/20" sample counter
     // would re-overwrite the "Computing…" message and look like we're stuck.
-    if (computing) return;
+    if (computing || pursuitActive) return;
+    // Ignore progress for any point other than the one we're currently
+    // collecting. Late `done` events (e.g. the smooth-pursuit warm-up finishing
+    // after the static grid started) otherwise advance us past dots that never
+    // got a chance to collect samples.
+    if (data.point_index !== currentCollectIndex) return;
     currentPointSamples = data.samples || 0;
     currentPointTarget = data.target || currentPointTarget;
     const pct = Math.min(100, Math.round((data.samples / data.target) * 100));
