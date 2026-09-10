@@ -243,7 +243,7 @@
   }
   .rs-rec-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); animation: pulse 1s infinite; }
 
-  /* ── In-app skill/recording run status (replaces confirm()/alert() popups) ── */
+  /* ── In-app skill/recording run status (replaces confirm()/notify() popups) ── */
   .rs-run {
     margin-bottom: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; line-height: 1.5;
   }
@@ -314,6 +314,27 @@
   .approval-card .actions { display: flex; gap: 8px; }
   .flex { display: flex; gap: 10px; align-items: center; }
   label.toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+
+  /* ── In-app toast + confirm (replaces native alert()/confirm() popups) ── */
+  #app-toast {
+    position: fixed; bottom: 20px; right: 20px; max-width: 440px;
+    background: #161b22; border: 1px solid var(--border); color: #e6edf3;
+    padding: 12px 16px; border-radius: 8px; font-size: 13px; z-index: 9999;
+    box-shadow: 0 8px 24px rgba(0,0,0,.45); opacity: 0; transform: translateY(8px);
+    transition: opacity .2s ease, transform .2s ease; pointer-events: none; white-space: pre-wrap;
+  }
+  #app-toast.show { opacity: 1; transform: translateY(0); }
+  #app-confirm-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 10000;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #app-confirm-box {
+    background: #161b22; border: 1px solid var(--border); color: #e6edf3;
+    padding: 18px 20px; border-radius: 10px; max-width: 460px; width: 90%;
+    box-shadow: 0 12px 40px rgba(0,0,0,.5);
+  }
+  #app-confirm-box .msg { margin: 0 0 16px; font-size: 14px; white-space: pre-wrap; }
+  #app-confirm-box .btns { display: flex; justify-content: flex-end; gap: 10px; }
 </style>
 </head>
 <body>
@@ -1326,6 +1347,48 @@ const PORT = new URLSearchParams(location.search).get('port') || '3001';
 const BASE = `http://127.0.0.1:${PORT}`;
 let agentPollTimer = null;
 
+// ── Non-modal notifications + confirmations (replace native alert/confirm) ──
+function notify(msg) {
+  let t = document.getElementById('app-toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'app-toast';
+    document.body.appendChild(t);
+  }
+  t.textContent = String(msg);
+  t.classList.add('show');
+  clearTimeout(notify._timer);
+  notify._timer = setTimeout(() => t.classList.remove('show'), 5000);
+}
+
+function confirmDialog(msg) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.id = 'app-confirm-overlay';
+    const box = document.createElement('div');
+    box.id = 'app-confirm-box';
+    const p = document.createElement('p');
+    p.className = 'msg';
+    p.textContent = String(msg);
+    const btns = document.createElement('div');
+    btns.className = 'btns';
+    const cancel = document.createElement('button');
+    cancel.textContent = 'Cancel';
+    const ok = document.createElement('button');
+    ok.textContent = 'OK';
+    ok.className = 'primary';
+    const done = (val) => { overlay.remove(); resolve(val); };
+    cancel.onclick = () => done(false);
+    ok.onclick = () => done(true);
+    overlay.onclick = (e) => { if (e.target === overlay) done(false); };
+    btns.append(cancel, ok);
+    box.append(p, btns);
+    overlay.append(box);
+    document.body.appendChild(overlay);
+    ok.focus();
+  });
+}
+
 async function api(path, opts = {}) {
   const r = await fetch(`${BASE}${path}`, {
     headers: { 'Content-Type': 'application/json' },
@@ -1444,7 +1507,7 @@ async function installMarketplaceSkill(marketId, btn) {
     btn.textContent = '✓ Installed';
   } catch (e) {
     btn.textContent = original;
-    alert(`Install failed: ${e.message}`);
+    notify(`Install failed: ${e.message}`);
   } finally {
     btn.disabled = false;
   }
@@ -1603,10 +1666,10 @@ async function refreshAgentStatus() {
 document.getElementById('agent-toggle-start').addEventListener('click', async () => {
   try {
     const json = await api('/api/agent/start', { method: 'POST', body: '{}' });
-    if (!json.running) alert(json.reason || 'No active goal to work on.');
+    if (!json.running) notify(json.reason || 'No active goal to work on.');
     await refreshAgentStatus();
   } catch (e) {
-    alert(`Start failed: ${e.message}`);
+    notify(`Start failed: ${e.message}`);
   }
 });
 
@@ -1615,7 +1678,7 @@ document.getElementById('agent-stop').addEventListener('click', async () => {
     await api('/api/agent/stop', { method: 'POST', body: JSON.stringify({ reason: 'user requested stop (dashboard)' }) });
     await refreshAgentStatus();
   } catch (e) {
-    alert(`Stop failed: ${e.message}`);
+    notify(`Stop failed: ${e.message}`);
   }
 });
 
@@ -1623,7 +1686,7 @@ document.getElementById('agent-dry-run').addEventListener('change', async (e) =>
   try {
     await api('/api/automation/permissions', { method: 'PUT', body: JSON.stringify({ dryRunMode: e.target.checked }) });
   } catch (err) {
-    alert(`Dry-run toggle failed: ${err.message}`);
+    notify(`Dry-run toggle failed: ${err.message}`);
     e.target.checked = !e.target.checked;
   }
 });
@@ -1641,16 +1704,16 @@ document.getElementById('agent-listener').addEventListener('change', async (e) =
     e.target.checked = !!s.enabled;
   } catch (err) {
     e.target.checked = !e.target.checked;
-    alert(`Toggle listener failed: ${err.message}`);
+    notify(`Toggle listener failed: ${err.message}`);
   }
 });
 
 document.getElementById('agent-workspace-mirror').addEventListener('click', async () => {
   try {
     const out = await api('/api/workspace/mirror', { method: 'POST', body: '{}' });
-    alert(`Workspace exported to Markdown:\n${out.dir}\n\n${out.files.length} file(s), ${out.errors} error(s).`);
+    notify(`Workspace exported to Markdown:\n${out.dir}\n\n${out.files.length} file(s), ${out.errors} error(s).`);
   } catch (e) {
-    alert(`Export failed: ${e.message}`);
+    notify(`Export failed: ${e.message}`);
   }
 });
 
@@ -1658,20 +1721,20 @@ document.getElementById('agent-skill-draft-save').addEventListener('click', asyn
   if (!lastSkillDraft) return;
   try {
     const r = await api('/api/agent/skill-draft/save', { method: 'POST', body: JSON.stringify({ draft: lastSkillDraft }) });
-    if (r.ok) { alert(`Skill draft saved: ${r.name}`); document.getElementById('agent-skill-draft-row').style.display = 'none'; }
+    if (r.ok) { notify(`Skill draft saved: ${r.name}`); document.getElementById('agent-skill-draft-row').style.display = 'none'; }
   } catch (e) {
-    alert(`Save failed: ${e.message}`);
+    notify(`Save failed: ${e.message}`);
   }
 });
 
 document.getElementById('agent-kill-switch').addEventListener('click', async () => {
-  if (!confirm('Block all tool execution immediately? Re-enable it from the Permissions tab.')) return;
+  if (!(await confirmDialog('Block all tool execution immediately? Re-enable it from the Permissions tab.'))) return;
   try {
     await api('/api/automation/permissions/kill', { method: 'POST', body: '{}' });
     await refreshAgentStatus();
-    alert('Kill switch engaged. All tool execution is blocked.');
+    notify('Kill switch engaged. All tool execution is blocked.');
   } catch (e) {
-    alert(`Kill switch failed: ${e.message}`);
+    notify(`Kill switch failed: ${e.message}`);
   }
 });
 
@@ -1691,7 +1754,7 @@ document.getElementById('agent-wakeword-toggle').addEventListener('click', async
       setWakewordUi(true);
     }
   } catch (e) {
-    alert(`Wakeword toggle failed: ${e.message}`);
+    notify(`Wakeword toggle failed: ${e.message}`);
   }
 });
 
@@ -1699,14 +1762,14 @@ document.getElementById('agent-goal-from-clipboard').addEventListener('click', a
   try {
     const json = await api('/api/agent/goal-from-clipboard', { method: 'POST', body: '{}' });
     if (json.ok) {
-      alert(`Goal created: "${(json.text || '').slice(0, 80)}"\nStart the agent to work on it.`);
+      notify(`Goal created: "${(json.text || '').slice(0, 80)}"\nStart the agent to work on it.`);
       await refreshAgentStatus();
       await refreshAgentGoals();
     } else {
-      alert(json.error || 'Failed to create goal from clipboard.');
+      notify(json.error || 'Failed to create goal from clipboard.');
     }
   } catch (e) {
-    alert(`Failed: ${e.message}`);
+    notify(`Failed: ${e.message}`);
   }
 });
 
@@ -1739,7 +1802,7 @@ async function stopWorker(goalSlug) {
     await api(`/api/agent/worker/${encodeURIComponent(goalSlug)}`, { method: 'DELETE' });
     await refreshAgentStatus();
   } catch (e) {
-    alert(`Stop worker failed: ${e.message}`);
+    notify(`Stop worker failed: ${e.message}`);
   }
 }
 
@@ -1879,10 +1942,10 @@ async function runGoal(slug, name) {
       await refreshAgentStatus();
       await refreshAgentGoals();
     } else {
-      alert(json.reason || 'Could not start that goal.');
+      notify(json.reason || 'Could not start that goal.');
     }
   } catch (e) {
-    alert(`Run goal failed: ${e.message}`);
+    notify(`Run goal failed: ${e.message}`);
   }
 }
 
@@ -1891,7 +1954,7 @@ async function setGoalAutoAbandon(slug, enabled) {
     await api(`/api/agent/goal/${encodeURIComponent(slug)}/auto-abandon`, { method: 'POST', body: JSON.stringify({ enabled }) });
     await refreshAgentGoals();
   } catch (e) {
-    alert(`Toggle auto-abandon failed: ${e.message}`);
+    notify(`Toggle auto-abandon failed: ${e.message}`);
   }
 }
 
@@ -1948,9 +2011,9 @@ async function acceptProposedGoal(id) {
   try {
     const r = await api('/api/agent/proposed/accept', { method: 'POST', body: JSON.stringify({ id }) });
     if (r.ok) { await refreshAgentProposed(); await refreshAgentGoals(); }
-    else alert(r.error || 'Proposal not found.');
+    else notify(r.error || 'Proposal not found.');
   } catch (e) {
-    alert(`Accept failed: ${e.message}`);
+    notify(`Accept failed: ${e.message}`);
   }
 }
 
@@ -1987,7 +2050,7 @@ function el(tag, props = {}, ...children) {
 }
 
 // ── Skill / recording run status ──
-// Replaces the old confirm()-before / alert()-after popups with an in-app
+// Replaces the old confirm()-before / notify()-after popups with an in-app
 // banner (running → done/failed) plus a live step-by-step console fed from
 // the addon's SSE event stream, matching the web app's macro-run UX.
 let runInfo = null; // { label, phase: 'running'|'done'|'failed', startedAt, elapsedMs, stepsTotal, stepsRun, failedStep, error }
@@ -2144,7 +2207,7 @@ document.getElementById('run-console-toggle').addEventListener('click', () => {
 
 /**
  * Execute a compiled skill via /api/skill/run with in-app progress/result
- * reporting — no confirm() before starting and no alert() when it finishes;
+ * reporting — no confirm() before starting and no notify() when it finishes;
  * failures surface inline with an expandable debug panel + live console
  * instead, matching the web app's macro-run UX.
  *
@@ -2188,7 +2251,7 @@ async function executeSkillRun(slug, label, cacheSkill, params) {
         break;
       } catch (e) {
         if (e?.status === 403 && e?.json?.capabilityConfirmationRequired) {
-          const ok = confirm(renderCapabilityConfirmText(e.json.preview || null, !!e.json.lowTrust));
+          const ok = await confirmDialog(renderCapabilityConfirmText(e.json.preview || null, !!e.json.lowTrust));
           if (!ok) {
             clearInterval(runTimer);
             runInfo = { label, phase: 'cancelled', startedAt, elapsedMs: Date.now() - startedAt, error: 'Capability review not confirmed.' };
@@ -2288,7 +2351,7 @@ async function compileNl() {
     document.getElementById('nl-preview').textContent = JSON.stringify(result.steps, null, 2);
     document.getElementById('nl-result').style.display = 'block';
   } catch (e) {
-    alert(`Compile failed: ${e.message}`);
+    notify(`Compile failed: ${e.message}`);
   } finally {
     btn.disabled = false;
     btn.textContent = '⚡ Compile';
@@ -2309,14 +2372,14 @@ async function saveNlSkill() {
   };
   try {
     await api('/api/skill/save', { method: 'POST', body: JSON.stringify({ skill }) });
-    alert(`Saved skill "${name}" (${skill.steps.length} steps).`);
+    notify(`Saved skill "${name}" (${skill.steps.length} steps).`);
     document.getElementById('nl-desc').value = '';
     document.getElementById('nl-name').value = '';
     document.getElementById('nl-result').style.display = 'none';
     nlResult = null;
     await refreshSkillsList();
   } catch (e) {
-    alert(`Save failed: ${e.message}`);
+    notify(`Save failed: ${e.message}`);
   }
 }
 
@@ -2425,12 +2488,12 @@ function renderRecordingsList() {
 }
 
 async function deleteRecording(id) {
-  if (!confirm(`Delete recording "${id}"? This cannot be undone.`)) return;
+  if (!(await confirmDialog(`Delete recording "${id}"? This cannot be undone.`))) return;
   try {
     await api(`/api/recorder/${id}`, { method: 'DELETE' });
     await refreshRecordingsList();
   } catch (e) {
-    alert(`Delete failed: ${e.message}`);
+    notify(`Delete failed: ${e.message}`);
   }
 }
 
@@ -2444,7 +2507,7 @@ async function duplicateRecording(id) {
     });
     await refreshRecordingsList();
   } catch (e) {
-    alert(`Duplicate failed: ${e.message}`);
+    notify(`Duplicate failed: ${e.message}`);
   }
 }
 
@@ -2458,7 +2521,7 @@ async function renameRecording(id) {
     });
     await refreshRecordingsList();
   } catch (e) {
-    alert(`Rename failed: ${e.message}`);
+    notify(`Rename failed: ${e.message}`);
   }
 }
 
@@ -2492,7 +2555,7 @@ async function openReviewModal(sessionId) {
     });
     openSkillModal({ mode: 'review', skill, sourceLabel: `From recording "${sessionId}" · ${skill.steps.length} steps` });
   } catch (e) {
-    alert(`Edit failed: ${e.message}`);
+    notify(`Edit failed: ${e.message}`);
   }
 }
 
@@ -2546,9 +2609,9 @@ async function saveSkillModal() {
   try {
     steps = JSON.parse(document.getElementById('skill-modal-steps').value || '[]');
   } catch (e) {
-    return alert(`Steps JSON is invalid: ${e.message}`);
+    return notify(`Steps JSON is invalid: ${e.message}`);
   }
-  if (!Array.isArray(steps)) return alert('Steps must be a JSON array.');
+  if (!Array.isArray(steps)) return notify('Steps must be a JSON array.');
   const name = nameInput || slugInput || 'Untitled skill';
   const slug = slugifyName(slugInput || name);
   const skill = { ...(skillModalSource || {}), slug, name, description, steps };
@@ -2561,11 +2624,11 @@ async function saveSkillModal() {
     const note = res.persisted && !res.persisted.error
       ? `Saved as "${slug}" — synced to workspace.`
       : `Saved as "${slug}" — local only (workspace sync failed: ${res.persisted?.error || 'unknown'}).`;
-    alert(note);
+    notify(note);
     closeSkillModal();
     await refreshSkillsList();
   } catch (e) {
-    alert(`Save failed: ${e.message}`);
+    notify(`Save failed: ${e.message}`);
   }
 }
 
@@ -2591,7 +2654,7 @@ function readModalSkill() {
 
 async function showCapabilities() {
   const skill = readModalSkill();
-  if (!skill) return alert('Steps JSON is invalid — fix it before reviewing.');
+  if (!skill) return notify('Steps JSON is invalid — fix it before reviewing.');
   const box = document.getElementById('skill-modal-summary');
   box.style.display = 'block';
   box.innerHTML = '';
@@ -2630,7 +2693,7 @@ async function showCapabilities() {
 
 async function generalizeInModal() {
   const skill = readModalSkill();
-  if (!skill) return alert('Steps JSON is invalid — fix it before generalizing.');
+  if (!skill) return notify('Steps JSON is invalid — fix it before generalizing.');
   const box = document.getElementById('skill-modal-summary');
   box.style.display = 'block';
   box.innerHTML = '';
@@ -2669,7 +2732,7 @@ async function generalizeInModal() {
 
 async function editNaturalInModal() {
   const skill = readModalSkill();
-  if (!skill) return alert('Steps JSON is invalid — fix it before modifying.');
+  if (!skill) return notify('Steps JSON is invalid — fix it before modifying.');
   const box = document.getElementById('skill-modal-summary');
   box.style.display = 'block';
   box.innerHTML = '';
@@ -2824,7 +2887,7 @@ let parametrizeChoice = null;
 
 function openParametrizeModal(sourceId) {
   if (!Array.isArray(recordingsData) || recordingsData.length < 2) {
-    alert('Parametrize needs at least two recordings of the same task. Record the task twice, then try again.');
+    notify('Parametrize needs at least two recordings of the same task. Record the task twice, then try again.');
     return;
   }
   parametrizeSourceId = sourceId;
@@ -2881,7 +2944,7 @@ async function submitParametrize() {
     closeParametrizeModal();
     openSkillModal({ mode: 'review', skill, sourceLabel: label });
   } catch (e) {
-    alert(`Parametrize failed: ${e.message}`);
+    notify(`Parametrize failed: ${e.message}`);
   } finally {
     goBtn.disabled = false;
     goBtn.textContent = 'Parametrize';
@@ -2889,18 +2952,18 @@ async function submitParametrize() {
 }
 
 async function deleteSkill(slug) {
-  if (!confirm(`Delete skill "${slug}"? This is a soft delete (30-day recovery).`)) return;
+  if (!(await confirmDialog(`Delete skill "${slug}"? This is a soft delete (30-day recovery).`))) return;
   try {
     await api(`/api/skill/${encodeURIComponent(slug)}`, { method: 'DELETE' });
     await refreshSkillsList();
   } catch (e) {
-    alert(`Delete failed: ${e.message}`);
+    notify(`Delete failed: ${e.message}`);
   }
 }
 
 /** Clone a skill under a new (auto-suffixed) slug, without a hotkey. */
 async function duplicateSkill(item, skill) {
-  if (!skill) return alert('Skill content unavailable — cannot duplicate.');
+  if (!skill) return notify('Skill content unavailable — cannot duplicate.');
   try {
     const { skills } = await api('/api/skill');
     const existingSlugs = new Set((skills || []).map(s => s.item.slug));
@@ -2910,16 +2973,16 @@ async function duplicateSkill(item, skill) {
     const copy = { ...skill, slug: candidate, name: `${skill.name || item.slug} (copy)` };
     delete copy.hotkey;
     await api('/api/skill/save', { method: 'POST', body: JSON.stringify({ skill: copy }) });
-    alert(`Duplicated as "${candidate}".`);
+    notify(`Duplicated as "${candidate}".`);
     await refreshSkillsList();
   } catch (e) {
-    alert(`Duplicate failed: ${e.message}`);
+    notify(`Duplicate failed: ${e.message}`);
   }
 }
 
 /** Rename a skill in place: prompts for a new name and re-slugs it. */
 async function renameSkill(item, skill) {
-  if (!skill) return alert('Skill content unavailable — use Edit instead.');
+  if (!skill) return notify('Skill content unavailable — use Edit instead.');
   const currentName = skill.name || item.name || item.slug;
   const newName = prompt('New name for this skill:', currentName);
   if (!newName || !newName.trim() || newName.trim() === currentName) return;
@@ -2932,7 +2995,7 @@ async function renameSkill(item, skill) {
     }
     await refreshSkillsList();
   } catch (e) {
-    alert(`Rename failed: ${e.message}`);
+    notify(`Rename failed: ${e.message}`);
   }
 }
 
@@ -2942,7 +3005,7 @@ document.getElementById('rec-start').addEventListener('click', async () => {
   try {
     await api('/api/recorder/start', { method: 'POST', body: JSON.stringify({ name }) });
     await refreshRecorderStatus();
-  } catch (e) { alert(`Start failed: ${e.message}`); }
+  } catch (e) { notify(`Start failed: ${e.message}`); }
 });
 document.getElementById('rec-stop').addEventListener('click', async () => {
   try {
@@ -2950,13 +3013,13 @@ document.getElementById('rec-stop').addEventListener('click', async () => {
     document.getElementById('rec-name').value = '';
     await refreshRecorderStatus();
     await refreshRecordingsList();
-  } catch (e) { alert(`Stop failed: ${e.message}`); }
+  } catch (e) { notify(`Stop failed: ${e.message}`); }
 });
 document.getElementById('rec-marker').addEventListener('click', async () => {
   const label = prompt('Marker label:', 'checkpoint');
   if (!label) return;
   try { await api('/api/recorder/marker', { method: 'POST', body: JSON.stringify({ label }) }); }
-  catch (e) { alert(`Marker failed: ${e.message}`); }
+  catch (e) { notify(`Marker failed: ${e.message}`); }
 });
 document.getElementById('skill-modal-cancel').addEventListener('click', closeSkillModal);
 document.getElementById('skill-modal-save').addEventListener('click', saveSkillModal);
@@ -3011,12 +3074,12 @@ async function refreshRunsList() {
 }
 
 async function clearRuns() {
-  if (!confirm('Clear the local run history?')) return;
+  if (!(await confirmDialog('Clear the local run history?'))) return;
   try {
     await api('/api/skill/runs', { method: 'DELETE' });
     await refreshRunsList();
   } catch (e) {
-    alert(`Clear failed: ${e.message}`);
+    notify(`Clear failed: ${e.message}`);
   }
 }
 
@@ -3037,7 +3100,7 @@ async function exportAllSkills() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   } catch (e) {
-    alert(`Export failed: ${e.message}`);
+    notify(`Export failed: ${e.message}`);
   }
 }
 
@@ -3051,7 +3114,7 @@ function onImportFileChosen(evt) {
 async function importSkillsFromFile(file) {
   let data;
   try { data = JSON.parse(await file.text()); }
-  catch { alert('That file is not valid JSON.'); return; }
+  catch { notify('That file is not valid JSON.'); return; }
   try {
     const result = await api('/api/skill/import', { method: 'POST', body: JSON.stringify(data) });
     const imported = result.imported || [];
@@ -3060,10 +3123,10 @@ async function importSkillsFromFile(file) {
     let msg = `Imported ${imported.length} skill${imported.length === 1 ? '' : 's'}.`;
     if (skipped.length) msg += ` Skipped ${skipped.length} (${skipped.map(s => s.slug || s.reason).join(', ')}).`;
     if (syncErrors.length) msg += ` ${syncErrors.length} failed to sync to cloud (kept locally).`;
-    alert(msg);
+    notify(msg);
     await refreshSkillsList();
   } catch (e) {
-    alert(`Import failed: ${e.message}`);
+    notify(`Import failed: ${e.message}`);
   }
 }
 
@@ -3112,44 +3175,44 @@ async function restoreWorkspaceProfile(slug, name) {
     if (result.relaunchedCount) parts.push(`${result.relaunchedCount} relaunched`);
     if (result.skippedCount) parts.push(`${result.skippedCount} skipped`);
     if (result.dashboardOpened) parts.push('dashboard reopened');
-    alert(`"${name}" restored${parts.length ? ' — ' + parts.join(', ') : ''}.`);
+    notify(`"${name}" restored${parts.length ? ' — ' + parts.join(', ') : ''}.`);
   } catch (e) {
-    alert(`Restore failed: ${e.message}`);
+    notify(`Restore failed: ${e.message}`);
   }
 }
 
 async function updateWorkspaceProfile(slug, name) {
-  if (!confirm(`Re-save "${name}" with the current window arrangement? This overwrites the saved profile.`)) return;
+  if (!(await confirmDialog(`Re-save "${name}" with the current window arrangement? This overwrites the saved profile.`))) return;
   try {
     await api(`/api/workspace-profiles/${slug}/update`, { method: 'POST', body: '{}' });
     await refreshWorkspaceList();
   } catch (e) {
-    alert(`Update failed: ${e.message}`);
+    notify(`Update failed: ${e.message}`);
   }
 }
 
 async function deleteWorkspaceProfile(slug, name) {
-  if (!confirm(`Delete workspace profile "${name}"? This cannot be undone.`)) return;
+  if (!(await confirmDialog(`Delete workspace profile "${name}"? This cannot be undone.`))) return;
   try {
     await api(`/api/workspace-profiles/${slug}`, { method: 'DELETE' });
     await refreshWorkspaceList();
   } catch (e) {
-    alert(`Delete failed: ${e.message}`);
+    notify(`Delete failed: ${e.message}`);
   }
 }
 
 document.getElementById('workspace-save-new').addEventListener('click', async () => {
   const input = document.getElementById('workspace-new-name');
   const name = input.value.trim();
-  if (!name) return alert('Enter a name for this workspace profile first.');
+  if (!name) return notify('Enter a name for this workspace profile first.');
   const includeDashboard = document.getElementById('workspace-include-dashboard').checked;
   try {
     const profile = await api('/api/workspace-profiles', { method: 'POST', body: JSON.stringify({ name, includeDashboard }) });
     input.value = '';
-    alert(`"${profile.name}" saved — ${profile.windows.length} window(s) captured.`);
+    notify(`"${profile.name}" saved — ${profile.windows.length} window(s) captured.`);
     await refreshWorkspaceList();
   } catch (e) {
-    alert(`Save failed: ${e.message}`);
+    notify(`Save failed: ${e.message}`);
   }
 });
 
@@ -3266,17 +3329,17 @@ async function toggleTrigger(t) {
     await api(`/api/triggers/${encodeURIComponent(t.id)}`, { method: 'PUT', body: JSON.stringify({ enabled: !t.enabled }) });
     await refreshTriggersList();
   } catch (e) {
-    alert(`Update failed: ${e.message}`);
+    notify(`Update failed: ${e.message}`);
   }
 }
 
 async function deleteTrigger(t) {
-  if (!confirm(`Delete trigger for "${t.skillSlug || t.goalSlug}"?`)) return;
+  if (!(await confirmDialog(`Delete trigger for "${t.skillSlug || t.goalSlug}"?`))) return;
   try {
     await api(`/api/triggers/${encodeURIComponent(t.id)}`, { method: 'DELETE' });
     await refreshTriggersList();
   } catch (e) {
-    alert(`Delete failed: ${e.message}`);
+    notify(`Delete failed: ${e.message}`);
   }
 }
 
@@ -3293,18 +3356,18 @@ async function testTrigger(t) {
       body: JSON.stringify(file && file.trim() ? { file: file.trim() } : {}),
     });
     if (res.ran === 'goal') {
-      alert(res.ok ? `Goal "${res.slug}" started — watch the Agent tab.` : (res.error || 'Could not start goal.'));
+      notify(res.ok ? `Goal "${res.slug}" started — watch the Agent tab.` : (res.error || 'Could not start goal.'));
       if (res.ok) refreshAgentStatus();
     } else if (res.ran === 'skill') {
-      if (!res.ok) alert(res.error || 'Could not run the skill.');
-      else if (res.failed) alert(`Skill "${res.slug}" ran but FAILED${res.error ? `: ${res.error}` : ''}. See Recent runs.`);
-      else alert(`Skill "${res.slug}" ran OK${res.stepsRun != null ? ` (${res.stepsRun} step${res.stepsRun === 1 ? '' : 's'})` : ''}.`);
+      if (!res.ok) notify(res.error || 'Could not run the skill.');
+      else if (res.failed) notify(`Skill "${res.slug}" ran but FAILED${res.error ? `: ${res.error}` : ''}. See Recent runs.`);
+      else notify(`Skill "${res.slug}" ran OK${res.stepsRun != null ? ` (${res.stepsRun} step${res.stepsRun === 1 ? '' : 's'})` : ''}.`);
       refreshRunsList();
     } else {
-      alert(res.error || 'Test failed.');
+      notify(res.error || 'Test failed.');
     }
   } catch (e) {
-    alert(`Test failed: ${e.message}`);
+    notify(`Test failed: ${e.message}`);
   }
 }
 
@@ -3316,23 +3379,23 @@ document.getElementById('trg-add').addEventListener('click', async () => {
     const select = document.getElementById('trg-skill-select');
     const manual = document.getElementById('trg-skill-slug');
     payload.skillSlug = select.value === '__manual__' ? manual.value.trim() : select.value;
-    if (!payload.skillSlug) return alert('Choose a skill (or type a slug) first.');
+    if (!payload.skillSlug) return notify('Choose a skill (or type a slug) first.');
   } else {
     const select = document.getElementById('trg-goal-select');
     const manual = document.getElementById('trg-goal-slug');
     payload.goalSlug = select.value === '__manual__' ? manual.value.trim() : select.value;
-    if (!payload.goalSlug) return alert('Choose a goal (or type a slug) first.');
+    if (!payload.goalSlug) return notify('Choose a goal (or type a slug) first.');
   }
   if (kind === 'cron') {
     payload.cron = document.getElementById('trg-cron').value.trim();
-    if (!payload.cron) return alert('Enter a cron expression (e.g. 0 9 * * *).');
+    if (!payload.cron) return notify('Enter a cron expression (e.g. 0 9 * * *).');
   } else if (kind === 'file') {
     payload.path = document.getElementById('trg-path').value.trim();
     payload.glob = document.getElementById('trg-glob').value.trim() || '*';
-    if (!payload.path) return alert('Enter a folder path to watch.');
+    if (!payload.path) return notify('Enter a folder path to watch.');
   } else if (kind === 'hotkey') {
     payload.accelerator = document.getElementById('trg-accelerator').value.trim();
-    if (!payload.accelerator) return alert('Enter a hotkey (e.g. Ctrl+Alt+G).');
+    if (!payload.accelerator) return notify('Enter a hotkey (e.g. Ctrl+Alt+G).');
   }
   try {
     await api('/api/triggers', { method: 'POST', body: JSON.stringify(payload) });
@@ -3344,7 +3407,7 @@ document.getElementById('trg-add').addEventListener('click', async () => {
     document.getElementById('trg-skill-slug').value = '';
     await refreshTriggersList();
   } catch (e) {
-    alert(`Add failed: ${e.message}`);
+    notify(`Add failed: ${e.message}`);
   }
 });
 
@@ -3404,7 +3467,7 @@ async function setVoiceDevice(index) {
   try {
     await api('/api/voice/device', { method: 'POST', body: JSON.stringify({ index }) });
   } catch (e) {
-    alert(`Could not set device: ${e.message}`);
+    notify(`Could not set device: ${e.message}`);
   }
   await refreshVoiceStatus();
 }
@@ -3413,7 +3476,7 @@ async function setVoiceModel(size) {
   try {
     await api('/api/voice/model', { method: 'POST', body: JSON.stringify({ size }) });
   } catch (e) {
-    alert(`Could not set model: ${e.message}`);
+    notify(`Could not set model: ${e.message}`);
   }
   await refreshVoiceStatus();
 }
@@ -3442,11 +3505,11 @@ document.getElementById('voice-stop').addEventListener('click', async () => {
 document.getElementById('voice-speak').addEventListener('click', async () => {
   const input = document.getElementById('voice-speak-text');
   const text = input.value.trim();
-  if (!text) return alert('Enter something to say first.');
+  if (!text) return notify('Enter something to say first.');
   try {
     await api('/api/voice/speak', { method: 'POST', body: JSON.stringify({ text }) });
   } catch (e) {
-    alert(`Speak failed: ${e.message}`);
+    notify(`Speak failed: ${e.message}`);
   }
 });
 
@@ -3554,16 +3617,16 @@ async function refreshAgentSuggestions(force) {
 }
 
 async function acceptSuggestion(s) {
-  if (!confirm(`Create a goal from "${s.title}"? The agent can then pick it up from the Agent tab.`)) return;
+  if (!(await confirmDialog(`Create a goal from "${s.title}"? The agent can then pick it up from the Agent tab.`))) return;
   try {
     const result = await api('/api/agent/suggestions/accept', {
       method: 'POST',
       body: JSON.stringify({ id: s.id, title: s.title, description: s.description, tools: s.tools }),
     });
-    alert(`Goal "${result.name}" created. Start the agent on the Agent tab to run it.`);
+    notify(`Goal "${result.name}" created. Start the agent on the Agent tab to run it.`);
     await refreshAgentSuggestions(true);
   } catch (e) {
-    alert(`Accept failed: ${e.message}`);
+    notify(`Accept failed: ${e.message}`);
   }
 }
 
@@ -3730,7 +3793,7 @@ document.getElementById('perm-cb-kb-consent').onchange = async (e) => {
   try {
     await automationApi('PUT', '/consents', { keyboardCapture: e.target.checked });
   } catch (err) {
-    alert(`Failed to update consent: ${err.message}`);
+    notify(`Failed to update consent: ${err.message}`);
   }
   refreshPermissions();
 };
@@ -3738,22 +3801,22 @@ document.getElementById('perm-cb-cv-consent').onchange = async (e) => {
   try {
     await automationApi('PUT', '/consents', { cloudVision: e.target.checked });
   } catch (err) {
-    alert(`Failed to update consent: ${err.message}`);
+    notify(`Failed to update consent: ${err.message}`);
   }
   refreshPermissions();
 };
 document.getElementById('perm-sel-host-binding').onchange = async (e) => {
   const v = e.target.value;
-  if (v === 'lan' && !confirm('Allow ANY device on your local network to control this PC through the addon? Only enable on trusted networks.')) {
+  if (v === 'lan' && !(await confirmDialog('Allow ANY device on your local network to control this PC through the addon? Only enable on trusted networks.'))) {
     e.target.value = 'loopback';
     return;
   }
   await automationApi('PUT', '/permissions', { hostBinding: v });
-  alert('Saved. Restart the addon (tray → Quit, then relaunch) for the binding change to take effect.');
+  notify('Saved. Restart the addon (tray → Quit, then relaunch) for the binding change to take effect.');
   refreshPermissions();
 };
 document.getElementById('perm-btn-kill').onclick = async () => {
-  if (!confirm('Activate kill switch? All tool execution will be blocked.')) return;
+  if (!(await confirmDialog('Activate kill switch? All tool execution will be blocked.'))) return;
   await automationApi('POST', '/permissions/kill');
   refreshPermissions();
 };
@@ -3918,7 +3981,7 @@ document.getElementById('eye-toggle-tracking').addEventListener('change', async 
   const enabled = e.target.checked;
   const result = await window.simpleDashboard.toggleEyeTracking(enabled);
   if (!result.ok) {
-    alert(result.error || 'Failed to toggle eye tracking.');
+    notify(result.error || 'Failed to toggle eye tracking.');
     e.target.checked = !enabled;
   }
   await refreshEyeTrackingStatus();
@@ -3936,7 +3999,7 @@ document.getElementById('eye-undo-sample').addEventListener('click', async () =>
 });
 
 document.getElementById('eye-reset-adaptation').addEventListener('click', async () => {
-  if (!confirm('Reset the gaze model back to your calibrated baseline?')) return;
+  if (!(await confirmDialog('Reset the gaze model back to your calibrated baseline?'))) return;
   await window.simpleDashboard.resetEyeAdaptation();
   await refreshEyeTrackingStatus();
 });
@@ -3945,7 +4008,7 @@ document.getElementById('eye-toggle-overlay').addEventListener('change', async (
   const enabled = e.target.checked;
   const result = await window.simpleDashboard.toggleEyeOverlay(enabled);
   if (!result.ok) {
-    alert(result.error || 'Failed to toggle overlay.');
+    notify(result.error || 'Failed to toggle overlay.');
     e.target.checked = !enabled;
   }
   await refreshEyeTrackingStatus();
@@ -3967,7 +4030,7 @@ async function loadEyeSettings() {
 }
 document.getElementById('eye-toggle-dwell').addEventListener('change', async (e) => {
   const res = await window.simpleDashboard.setEyeSettings({ dwellClickEnabled: e.target.checked });
-  if (res && res.ok === false) { alert(res.error || 'Failed to save dwell setting.'); e.target.checked = !e.target.checked; }
+  if (res && res.ok === false) { notify(res.error || 'Failed to save dwell setting.'); e.target.checked = !e.target.checked; }
 });
 document.getElementById('eye-dwell-ms').addEventListener('input', (e) => {
   document.getElementById('eye-dwell-ms-label').textContent = `${e.target.value}ms`;
@@ -3977,7 +4040,7 @@ document.getElementById('eye-dwell-ms').addEventListener('change', (e) => {
 });
 document.getElementById('eye-toggle-blink').addEventListener('change', async (e) => {
   const res = await window.simpleDashboard.setEyeSettings({ blinkClickEnabled: e.target.checked });
-  if (res && res.ok === false) { alert(res.error || 'Failed to save blink-click setting.'); e.target.checked = !e.target.checked; }
+  if (res && res.ok === false) { notify(res.error || 'Failed to save blink-click setting.'); e.target.checked = !e.target.checked; }
 });
 loadEyeSettings();
 
@@ -4226,7 +4289,7 @@ for (const key of NOTIF_CATEGORIES) {
       }
       await window.simpleDashboard.setNotificationSettings(settings);
     } catch (e) {
-      alert(`Failed to save notification settings: ${e.message}`);
+      notify(`Failed to save notification settings: ${e.message}`);
       refreshNotificationSettings();
     }
   });
