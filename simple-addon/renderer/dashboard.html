@@ -4144,48 +4144,50 @@ async function refreshUpdateStatus() {
 let updatePollTimer = null;
 
 document.getElementById('update-check').addEventListener('click', async () => {
+  const nameEl = document.getElementById('update-state-name');
+  const descEl = document.getElementById('update-state-desc');
   try {
     await api('/api/update/check', { method: 'POST', body: '{}' });
     await refreshUpdateStatus();
   } catch (e) {
-    alert(`Check failed: ${e.message}`);
+    nameEl.textContent = 'Update check failed';
+    nameEl.className = 'name status-err';
+    descEl.textContent = e.message;
   }
 });
 
 document.getElementById('update-install').addEventListener('click', async () => {
   const btn = document.getElementById('update-install');
+  const nameEl = document.getElementById('update-state-name');
+  const descEl = document.getElementById('update-state-desc');
   btn.disabled = true;
   try {
     // Step 1: check — the auto-updater downloads a newer build in the background.
     await api('/api/update/check', { method: 'POST', body: '{}' });
     await refreshUpdateStatus();
 
-    // Step 2: poll until ready, up-to-date, error, or we time out.
+    // Step 2: poll until ready, up-to-date, error, or we time out. Status is
+    // shown inline (no modal dialogs).
     const deadline = Date.now() + 120000;
     while (Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, 1500));
       await refreshUpdateStatus();
       const s = await api('/api/update/status');
       if (s.state === 'ready' && s.updateDownloaded) {
-        if (!confirm(`Update v${s.latestVersion || '?'} is ready. Restart Simple Addon now to install it?`)) return;
         await api('/api/update/install', { method: 'POST', body: '{}' });
         return; // app is quitting + relaunching
       }
-      if (s.state === 'up-to-date') {
-        alert('You are already on the latest version.');
-        return;
-      }
-      if (s.state === 'error') {
-        alert('Update check failed — see the status above.');
-        return;
-      }
+      if (s.state === 'up-to-date' || s.state === 'error') return;
     }
-    alert('Update is still downloading. Check the Updates tab in a moment.');
+    nameEl.textContent = 'Still downloading…';
+    nameEl.className = 'name status-warn';
+    descEl.textContent = 'Check the Updates tab again shortly.';
   } catch (e) {
-    alert(`Update failed: ${e.message}`);
+    nameEl.textContent = 'Update failed';
+    nameEl.className = 'name status-err';
+    descEl.textContent = e.message;
   } finally {
     btn.disabled = false;
-    refreshUpdateStatus();
   }
 });
 
