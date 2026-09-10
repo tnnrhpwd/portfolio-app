@@ -90,11 +90,12 @@ EAR_BLINK_THRESHOLD = 0.21
 EAR_CONSEC_FRAMES = 2  # Minimum consecutive frames below threshold to count as blink
 
 # ── Head-pose limits for cursor hold ──────────────────────────────────────────
-# Beyond these angles the iris leaves the reliable zone of the face mesh and
-# gaze estimates become noisy — hold the cursor (emit held=true) rather than
-# let an extreme head turn fling it off-screen.
-HEAD_POSE_YAW_LIMIT = 0.5     # rad (~28.6°)
-HEAD_POSE_PITCH_LIMIT = 0.45  # rad (~25.8°)
+# Beyond these the iris leaves the reliable zone of the face mesh and gaze
+# estimates become noisy — hold the cursor (emit held=true) rather than let an
+# extreme head turn fling it off-screen. Values are dimensionless ratios of the
+# inter-ocular distance (see _estimate_head_pose); ~1.0 ≈ 45°.
+HEAD_POSE_YAW_LIMIT = 1.2
+HEAD_POSE_PITCH_LIMIT = 1.0
 
 
 def _open_camera_capture(camera_index):
@@ -311,6 +312,7 @@ class EyeTracker:
                 gm = data['gazeModel']
                 self.gaze_model = {
                     'type': 'poly2',
+                    'dim': int(len(gm.get('iris_mean', []))),
                     'coeffs_x': np.array(gm['coeffs_x'], dtype=np.float64),
                     'coeffs_y': np.array(gm['coeffs_y'], dtype=np.float64),
                     'iris_mean': np.array(gm['iris_mean'], dtype=np.float64),
@@ -318,17 +320,11 @@ class EyeTracker:
                 }
             if 'homographyMatrix' in data:
                 self.homography = np.array(data['homographyMatrix'], dtype=np.float64)
-            # Optional head-pose correction (added in v1.0.7+)
-            if 'headCorrection' in data:
-                hc = data['headCorrection']
-                try:
-                    self.head_correction = {
-                        'pose_ref': np.array(hc['pose_ref'], dtype=np.float64),
-                        'K_x':      np.array(hc['K_x'], dtype=np.float64),
-                        'K_y':      np.array(hc['K_y'], dtype=np.float64),
-                    }
-                except (KeyError, TypeError, ValueError):
-                    self.head_correction = None
+            # The legacy linear head-pose correction is obsolete: head yaw is now
+            # a first-class feature of the poly2 model. Never load it (the old
+            # files also stored solvePnP radians, which don't match the new
+            # dimensionless head-pose proxy).
+            self.head_correction = None
             # ── Cache the original calibration points as anchor data for online learning. ──
             self.original_calibration_points = []
             for pt in (data.get('points') or []):
@@ -494,17 +490,23 @@ class EyeTracker:
         l_left_y  = landmarks[LEFT_EYE_LEFT].y  * frame_height
         l_right_x = landmarks[LEFT_EYE_RIGHT].x * frame_width
         l_right_y = landmarks[LEFT_EYE_RIGHT].y * frame_height
+        l_top_y   = landmarks[LEFT_EYE_TOP].y    * frame_height
+        l_bot_y   = landmarks[LEFT_EYE_BOTTOM].y * frame_height
 
         r_left_x  = landmarks[RIGHT_EYE_LEFT].x  * frame_width
         r_left_y  = landmarks[RIGHT_EYE_LEFT].y  * frame_height
         r_right_x = landmarks[RIGHT_EYE_RIGHT].x * frame_width
         r_right_y = landmarks[RIGHT_EYE_RIGHT].y * frame_height
+        r_top_y   = landmarks[RIGHT_EYE_TOP].y    * frame_height
+        r_bot_y   = landmarks[RIGHT_EYE_BOTTOM].y * frame_height
 
         raw = {
             'l_left_x': l_left_x,  'l_left_y': l_left_y,
             'l_right_x': l_right_x, 'l_right_y': l_right_y,
+            'l_top_y': l_top_y, 'l_bot_y': l_bot_y,
             'r_left_x': r_left_x,  'r_left_y': r_left_y,
             'r_right_x': r_right_x, 'r_right_y': r_right_y,
+            'r_top_y': r_top_y, 'r_bot_y': r_bot_y,
         }
 
         # --- Lowpass-filter the head-frame anchor (eye corners) ---
@@ -516,23 +518,29 @@ class EyeTracker:
                 self._eye_anchor[k] = a * v + (1 - a) * self._eye_anchor[k]
 
         a = self._eye_anchor
-        # Per-eye center & width from the smoothed anchor
+        # Per-eye center, width & height from the smoothed anchor
         l_cx = (a['l_left_x'] + a['l_right_x']) * 0.5
         l_cy = (a['l_left_y'] + a['l_right_y']) * 0.5
         l_w  = a['l_right_x'] - a['l_left_x']
+        l_h  = max(a['l_bot_y'] - a['l_top_y'], abs(l_w) * 0.22)
         r_cx = (a['r_left_x'] + a['r_right_x']) * 0.5
         r_cy = (a['r_left_y'] + a['r_right_y']) * 0.5
         r_w  = a['r_right_x'] - a['r_left_x']
+        r_h  = max(a['r_bot_y'] - a['r_top_y'], abs(r_w) * 0.22)
 
         if abs(l_w) < 5.0 or abs(r_w) < 5.0:
             return None, None, False
 
-        # Iris offset from each eye's smoothed center, normalized by eye_width
-        # (use eye_width for BOTH axes — eye_height is too noisy/small).
+        # Iris offset from each eye's smoothed center. Horizontal is normalized
+        # by eye width (stable). Vertical is normalized by eye HEIGHT — the
+        # vertical iris displacement is small relative to eye width, which
+        # compressed the up/down gaze signal into a few pixels and amplified
+        # noise ~60x on tall screens. Eye height is ~1/3 of width, so this
+        # roughly triples the vertical signal.
         l_norm_x = (l_iris_x - l_cx) / l_w
-        l_norm_y = (l_iris_y - l_cy) / l_w
+        l_norm_y = (l_iris_y - l_cy) / l_h
         r_norm_x = (r_iris_x - r_cx) / r_w
-        r_norm_y = (r_iris_y - r_cy) / r_w
+        r_norm_y = (r_iris_y - r_cy) / r_h
 
         # Binocular combination weighted by per-eye iris visibility. A glint,
         # squint, or partially-occluded eye shouldn't drag the estimate; the
@@ -557,9 +565,12 @@ class EyeTracker:
         return gaze_x, gaze_y, True
 
     @staticmethod
-    def _poly2_features(x, y):
-        """2nd-order polynomial feature vector: [1, x, y, x*y, x^2, y^2]."""
-        return np.array([1.0, x, y, x * y, x * x, y * y], dtype=np.float64)
+    def _poly2_features(x, y, z=None):
+        """2nd-order feature vector: 6 terms for (x, y), 10 terms for (x, y, z)."""
+        if z is None:
+            return np.array([1.0, x, y, x * y, x * x, y * y], dtype=np.float64)
+        return np.array([1.0, x, y, z, x * y, x * z, y * z,
+                         x * x, y * y, z * z], dtype=np.float64)
 
     @staticmethod
     def _aggregate_point_samples(samples):
@@ -616,25 +627,36 @@ class EyeTracker:
         return iris_x, iris_y, yaw, pitch, weight
 
     def _fit_poly2_gaze_model(self, src, dst, weights):
-        """Fit weighted 2nd-order polynomial mapping iris → screen for x and y axes.
+        """Fit weighted 2nd-order polynomial mapping feature → screen.
 
-        src: (N, 2) iris coords; dst: (N, 2) screen coords; weights: (N,)
-        Returns dict or None if fitting fails.
+        src: (N, 2) iris coords, or (N, 3) iris + head-yaw coords.
+        dst: (N, 2) screen coords; weights: (N,)
+        Returns dict (with 'dim' = 2 or 3) or None if fitting fails.
         """
         n = src.shape[0]
-        if n < 6:
+        dim = int(src.shape[1])
+        if n < (9 if dim >= 3 else 6):
             return None
 
-        # Normalize iris coords for numerical stability
+        # Normalize feature coords for numerical stability
         iris_mean = src.mean(axis=0)
         iris_scale = src.std(axis=0) + 1e-6
-        nx = (src[:, 0] - iris_mean[0]) / iris_scale[0]
-        ny = (src[:, 1] - iris_mean[1]) / iris_scale[1]
+        nr = (src - iris_mean) / iris_scale
+        x = nr[:, 0]
+        y = nr[:, 1]
 
-        # Design matrix with 2nd-order features: [1, x, y, xy, x², y²]
-        X = np.stack([
-            np.ones_like(nx), nx, ny, nx * ny, nx * nx, ny * ny,
-        ], axis=1)
+        # Design matrix: 2nd-order features. A third column (head yaw) adds the
+        # coarse head-rotation signal that dominates gaze on an ultrawide screen.
+        if dim >= 3:
+            z = nr[:, 2]
+            X = np.stack([
+                np.ones_like(x), x, y, z, x * y, x * z, y * z,
+                x * x, y * y, z * z,
+            ], axis=1)
+        else:
+            X = np.stack([
+                np.ones_like(x), x, y, x * y, x * x, y * y,
+            ], axis=1)
 
         w = np.clip(weights, 0.1, 10.0)
         W = np.diag(w)
@@ -653,6 +675,7 @@ class EyeTracker:
 
         return {
             'type': 'poly2',
+            'dim': dim,
             'coeffs_x': coeffs_x,
             'coeffs_y': coeffs_y,
             'iris_mean': iris_mean,
@@ -662,10 +685,10 @@ class EyeTracker:
     def _evaluate_model_residuals(self, model, src, dst):
         """Return per-point residuals (screen-pixel distance) and summary stats."""
         preds = []
-        for ix, iy in src:
-            nx = (ix - model['iris_mean'][0]) / max(model['iris_scale'][0], 1e-6)
-            ny = (iy - model['iris_mean'][1]) / max(model['iris_scale'][1], 1e-6)
-            feats = self._poly2_features(nx, ny)
+        dim = int(model.get('dim', 2))
+        for row in src:
+            nr = (np.asarray(row, dtype=np.float64)[:dim] - model['iris_mean']) / np.maximum(model['iris_scale'], 1e-6)
+            feats = self._poly2_features(*nr)
             preds.append([feats @ model['coeffs_x'], feats @ model['coeffs_y']])
         preds = np.array(preds)
         errs = np.linalg.norm(preds - dst, axis=1)
@@ -870,9 +893,12 @@ class EyeTracker:
         movement away from the calibration pose so accuracy doesn't degrade.
         """
         if self.gaze_model is not None and self.gaze_model.get('type') == 'poly2':
-            nx = (iris_x - self.gaze_model['iris_mean'][0]) / max(self.gaze_model['iris_scale'][0], 1e-6)
-            ny = (iris_y - self.gaze_model['iris_mean'][1]) / max(self.gaze_model['iris_scale'][1], 1e-6)
-            feats = self._poly2_features(nx, ny)
+            if self.gaze_model.get('dim') == 3:
+                vals = np.array([iris_x, iris_y, yaw], dtype=np.float64)
+            else:
+                vals = np.array([iris_x, iris_y], dtype=np.float64)
+            nr = (vals - self.gaze_model['iris_mean']) / np.maximum(self.gaze_model['iris_scale'], 1e-6)
+            feats = self._poly2_features(*nr)
             screen_x = float(feats @ self.gaze_model['coeffs_x'])
             screen_y = float(feats @ self.gaze_model['coeffs_y'])
         elif self.homography is not None:
@@ -1026,51 +1052,34 @@ class EyeTracker:
         return lx, ly
 
     def _estimate_head_pose(self, landmarks, frame_width, frame_height):
-        """Estimate head yaw and pitch from 6 key face landmarks using solvePnP."""
-        # 3D model points (generic face model, centered at nose tip)
-        model_points = np.array([
-            (0.0, 0.0, 0.0),          # Nose tip
-            (0.0, -63.6, -12.5),       # Chin
-            (-43.3, 32.7, -26.0),      # Left eye left corner
-            (43.3, 32.7, -26.0),       # Right eye right corner
-            (-28.9, -28.9, -24.1),     # Left mouth corner
-            (28.9, -28.9, -24.1),      # Right mouth corner
-        ], dtype=np.float64)
+        """Robust head-pose proxy from face landmark geometry (no solvePnP).
 
-        # 2D image points from landmarks
-        image_points = np.array([
-            (landmarks[idx].x * frame_width, landmarks[idx].y * frame_height)
-            for idx in HEAD_POSE_LANDMARKS
-        ], dtype=np.float64)
+        solvePnP with the generic 6-point 3D face model + approximate camera
+        intrinsics is ill-conditioned for near-frontal yaw and returned ±π
+        garbage, which made head-pose compensation unusable on a wide monitor.
+        Instead we use the nose tip's parallax relative to the eye midpoint —
+        the nose sits ~8-10 cm in front of the eyes, so it shifts laterally /
+        vertically as the head rotates. This needs only three reliably-detected
+        landmarks (nose + the two eye centers) and is scale/distance invariant.
 
-        # Camera internals (approximate). The generic 3D face model + solvePnP
-        # is ill-conditioned for yaw on near-frontal faces; estimating the focal
-        # length from iris diameter can make the rotation estimate worse when the
-        # viewing distance doesn't match the configured value. Keep it simple.
-        focal_length = frame_width
-        center = (frame_width / 2, frame_height / 2)
-        camera_matrix = np.array([
-            [focal_length, 0, center[0]],
-            [0, focal_length, center[1]],
-            [0, 0, 1],
-        ], dtype=np.float64)
-        dist_coeffs = np.zeros((4, 1))
+        Returns (yaw, pitch) as dimensionless ratios of the inter-ocular
+        distance (≈ ±1 across the ±45° a person uses to scan a wide monitor).
+        """
+        nose_x = landmarks[1].x * frame_width
+        nose_y = landmarks[1].y * frame_height
 
-        success, rotation_vector, translation_vector = cv2.solvePnP(
-            model_points, image_points, camera_matrix, dist_coeffs,
-            flags=cv2.SOLVEPNP_ITERATIVE,
-        )
-        if not success:
-            return 0.0, 0.0
+        l_cx = (landmarks[LEFT_EYE_LEFT].x + landmarks[LEFT_EYE_RIGHT].x) * 0.5 * frame_width
+        l_cy = (landmarks[LEFT_EYE_LEFT].y + landmarks[LEFT_EYE_RIGHT].y) * 0.5 * frame_height
+        r_cx = (landmarks[RIGHT_EYE_LEFT].x + landmarks[RIGHT_EYE_RIGHT].x) * 0.5 * frame_width
+        r_cy = (landmarks[RIGHT_EYE_LEFT].y + landmarks[RIGHT_EYE_RIGHT].y) * 0.5 * frame_height
 
-        # Convert rotation vector to Euler angles
-        rotation_matrix, _ = cv2.Rodrigues(rotation_vector)
-        # Extract yaw (Y-axis) and pitch (X-axis) from rotation matrix
-        yaw = np.arctan2(rotation_matrix[2][0], rotation_matrix[2][2])
-        pitch = np.arctan2(-rotation_matrix[2][1],
-                           np.sqrt(rotation_matrix[2][0]**2 + rotation_matrix[2][2]**2))
+        eye_mid_x = (l_cx + r_cx) * 0.5
+        eye_mid_y = (l_cy + r_cy) * 0.5
+        inter_ocular = max(1.0, abs(r_cx - l_cx))
 
-        return float(yaw), float(pitch)
+        head_yaw = (nose_x - eye_mid_x) / inter_ocular
+        head_pitch = (nose_y - eye_mid_y) / inter_ocular
+        return float(head_yaw), float(head_pitch)
 
     def _handle_calibration_frame(self, iris_x, iris_y, yaw=0.0, pitch=0.0):
         """Collect iris sample for the current calibration point."""
@@ -1260,26 +1269,27 @@ class EyeTracker:
         poses = []
 
         for a in anchors:
-            src_points.append([a['ix'], a['iy']])
+            src_points.append([a['ix'], a['iy'], a.get('yaw', 0.0)])
             dst_points.append([a['sx'], a['sy']])
             weights.append(a.get('w', 1.0))
             poses.append([a.get('yaw', 0.0), a.get('pitch', 0.0)])
         for o, dw in zip(online, decayed_online_weights):
-            src_points.append([o['ix'], o['iy']])
+            src_points.append([o['ix'], o['iy'], o.get('yaw', 0.0)])
             dst_points.append([o['sx'], o['sy']])
             weights.append(dw)
             poses.append([o['yaw'], o['pitch']])
 
-        src = np.array(src_points, dtype=np.float64)
+        src = np.array(src_points, dtype=np.float64)   # (N, 3): iris_x, iris_y, head_yaw
+        src2 = src[:, :2]
         dst = np.array(dst_points, dtype=np.float64)
         w = np.array(weights, dtype=np.float64)
 
-        # Homography (always available)
-        homography, _ = cv2.findHomography(src, dst, cv2.RANSAC, 5.0)
+        # Homography (always available; iris-only)
+        homography, _ = cv2.findHomography(src2, dst, cv2.RANSAC, 5.0)
         if homography is None:
             return False
 
-        # Polynomial (robust fit, preferred when we have enough points)
+        # Polynomial (robust fit, preferred when we have enough points; iris + yaw)
         poly_model = None
         poly_residuals = None
         if len(src_points) >= 9:
@@ -1287,7 +1297,7 @@ class EyeTracker:
             if poly_model is not None:
                 poly_residuals = self._evaluate_model_residuals(poly_model, src, dst)
 
-        hom_preds = cv2.perspectiveTransform(src.reshape(-1, 1, 2), homography).reshape(-1, 2)
+        hom_preds = cv2.perspectiveTransform(src2.reshape(-1, 1, 2), homography).reshape(-1, 2)
         hom_residuals = np.linalg.norm(hom_preds - dst, axis=1)
 
         use_poly = False
@@ -1325,19 +1335,8 @@ class EyeTracker:
         self.homography = homography
         self.gaze_model = poly_model if use_poly else None
 
-        # Re-fit head correction (best-effort; tolerate failure)
-        try:
-            self.head_correction = self._gate_head_correction(
-                self._fit_head_correction(
-                    poses, dst, weights,
-                    poly_model if use_poly else None,
-                    homography, src,
-                ),
-                src, poses, dst,
-                poly_model if use_poly else None, homography,
-            )
-        except Exception:
-            pass
+        # Head yaw is a first-class poly2 feature; no separate head correction.
+        self.head_correction = None
 
         self._emit({
             "status": "model_updated",
@@ -1477,7 +1476,7 @@ class EyeTracker:
             if point.get("min_samples"):
                 weight *= 0.2
 
-            src_points.append([iris_x, iris_y])
+            src_points.append([iris_x, iris_y, yaw])
             dst_points.append(list(point["screen"]))
             weights.append(weight)
             poses.append([yaw, pitch])
@@ -1513,7 +1512,7 @@ class EyeTracker:
             if near_fresh:
                 prior_dropped_near_fresh += 1
                 continue
-            src_points.append([pp["ix"], pp["iy"]])
+            src_points.append([pp["ix"], pp["iy"], pp.get("yaw", 0.0)])
             dst_points.append([pp["sx"], pp["sy"]])
             weights.append(pp["w"] * self.prior_weight_factor)
             poses.append([pp.get("yaw", 0.0), pp.get("pitch", 0.0)])
@@ -1543,24 +1542,25 @@ class EyeTracker:
             self._emit({"error": f"Need at least 4 calibration points, got {len(src_points)}"})
             return False
 
-        src = np.array(src_points, dtype=np.float64)
+        src = np.array(src_points, dtype=np.float64)   # (N, 3): iris_x, iris_y, head_yaw
+        src2 = src[:, :2]  # iris-only, for the homography fallback
         dst = np.array(dst_points, dtype=np.float64)
         w = np.array(weights, dtype=np.float64)
 
-        # ── Homography (always computed as fallback) ──
-        homography, _ = cv2.findHomography(src, dst, cv2.RANSAC, 5.0)
+        # ── Homography (always computed as fallback; iris-only) ──
+        homography, _ = cv2.findHomography(src2, dst, cv2.RANSAC, 5.0)
         if homography is None:
             self._emit({"error": "Failed to compute homography matrix"})
             return False
         self.homography = homography
 
-        # ── Polynomial model (robust fit, preferred when ≥9 points) ──
+        # ── Polynomial model (robust fit, preferred when ≥9 points; iris + head yaw) ──
         poly_model = None
         if len(src_points) >= 9:
             poly_model, _ = self._fit_poly2_robust(src, dst, w)
 
         # ── Training residuals (diagnostics) ──
-        hom_preds = cv2.perspectiveTransform(src.reshape(-1, 1, 2), homography).reshape(-1, 2)
+        hom_preds = cv2.perspectiveTransform(src2.reshape(-1, 1, 2), homography).reshape(-1, 2)
         hom_residuals = np.linalg.norm(hom_preds - dst, axis=1)
         poly_residuals = self._evaluate_model_residuals(poly_model, src, dst) if poly_model is not None else None
 
@@ -1575,7 +1575,7 @@ class EyeTracker:
         hom_loo_mean = None
         poly_loo_mean = None
         if len(src) >= 6:
-            hom_loo = self._loo_error_homography(src, dst)
+            hom_loo = self._loo_error_homography(src2, dst)
             hom_loo_mean = float(hom_loo.mean())
             chosen_residuals = hom_loo
             if poly_model is not None:
@@ -1596,32 +1596,11 @@ class EyeTracker:
         else:
             self.gaze_model = None  # homography-only path
 
-        # ── Head-pose correction ──
-        # The poly2 model maps iris-feature → screen at the head pose used during
-        # calibration. When the head moves, the relationship breaks: the eye must
-        # rotate to maintain fixation, so iris feature shifts even though gaze
-        # didn't change. We compensate by fitting linear residuals against
-        # (Δyaw, Δpitch) from per-point head pose. If the user kept their head
-        # rock-still, pose spread will be tiny and the fit collapses to ~0
-        # (no compensation, but no harm). If they varied head pose during
-        # calibration (encouraged by the UI tip), we get real compensation.
-        # Wrapped in try/except so any numerical issue here can never block
-        # the calibration save — we just fall back to no head correction.
+        # Head pose is now a first-class feature of the poly2 model (the 3rd
+        # column), so the separate linear head-correction is redundant for the
+        # poly2 path and was too weak for the homography fallback. Disable it.
         head_correction = None
-        try:
-            head_correction = self._fit_head_correction(
-                poses, dst, weights,
-                poly_model if use_poly else None,
-                homography,
-                src,
-            )
-        except Exception as e:
-            self._emit({"warning": f"head correction fit failed (continuing without it): {e}"})
-            head_correction = None
-        head_correction = self._gate_head_correction(
-            head_correction, src, poses, dst,
-            poly_model if use_poly else None, homography)
-        self.head_correction = head_correction
+        self.head_correction = None
 
         # Attach per-point residuals to saved data
         for p, r in zip(agg_per_point, chosen_residuals):

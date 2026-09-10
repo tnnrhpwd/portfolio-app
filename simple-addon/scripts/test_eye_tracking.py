@@ -187,6 +187,20 @@ class TestEyeTrackerMath(unittest.TestCase):
         resid = t._evaluate_model_residuals(model, src, dst)
         self.assertLess(resid.mean(), 1e-6)
 
+    def test_poly2_fit_recovers_linear_mapping_3d(self):
+        import numpy as np
+        t = self._tracker()
+        rng = np.random.default_rng(11)
+        # 3 columns: iris_x, iris_y, head_yaw. Screen is linear in all three,
+        # with a large yaw coefficient (the dominant signal on an ultrawide).
+        src = rng.uniform(-200, 200, size=(20, 3))
+        dst = src[:, :2] * 2.5 + np.array([960.0, 540.0]) + src[:, 2:3] * 800.0
+        model = t._fit_poly2_gaze_model(src, dst, np.ones(20))
+        self.assertIsNotNone(model)
+        self.assertEqual(model['dim'], 3)
+        resid = t._evaluate_model_residuals(model, src, dst)
+        self.assertLess(resid.mean(), 1.0)
+
     def test_adaptive_smooth_holds_under_deadzone(self):
         t = self._tracker()
         # warm up
