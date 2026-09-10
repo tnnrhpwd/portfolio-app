@@ -100,6 +100,17 @@
       text-align: left;
       line-height: 1.5;
     }
+    .camera-note.ir-on {
+      color: #a6e3a1;
+      background: rgba(166, 227, 161, 0.10);
+      border-color: rgba(166, 227, 161, 0.35);
+      font-weight: 600;
+    }
+    .camera-note.ir-available {
+      color: #f9e2af;
+      background: rgba(249, 226, 175, 0.10);
+      border-color: rgba(249, 226, 175, 0.35);
+    }
 
     /* Escape hint */
     .escape-hint {
@@ -308,6 +319,7 @@
       <select id="cameraSelect"><option value="" disabled selected>Searching...</option></select>
     </div>
     <div id="cameraNote" class="camera-note hidden"></div>
+    <div id="irBanner" class="camera-note hidden"></div>
     <div class="setup-row">
       <label for="displaySelect">Monitor:</label>
       <select id="displaySelect"><option>Loading...</option></select>
@@ -641,6 +653,7 @@ const acceptBtn  = $('acceptBtn');
 const recalBtn   = $('recalBtn');
 const camSel     = $('cameraSelect');
 const cameraNote = $('cameraNote');
+const irBanner   = $('irBanner');
 const dispSel    = $('displaySelect');
 const ptsSel     = $('pointsSelect');
 const cameraProfileSel = $('cameraProfileSelect');
@@ -713,9 +726,12 @@ async function startCameraPreview(cameraIndex) {
     }
 
     camPreview.src = data.snapshot.image;
-    camStatus.textContent = `${data.snapshot.name} preview ready`;
+    const snap = data.snapshot;
+    const isIR = !!(snap.ir || (typeof snap.mono === 'number' && snap.mono >= 0.7) || snap.irName);
+    camStatus.textContent = `${snap.name} preview ready${isIR ? ' — IR detected' : ''}`;
     camStatus.className = 'detected';
     faceInd.classList.add('active');
+    updateIrBanner();
   } catch (e) {
     camPreview.removeAttribute('src');
     camStatus.textContent = 'Camera preview unavailable';
@@ -762,18 +778,23 @@ function stopCameraPreview() {
     if (!calibrationCameras.length) {
       camSel.innerHTML = '<option value="" disabled>No cameras found</option>';
     } else {
+      let firstIRIndex = null;
       calibrationCameras.forEach((camera, i) => {
         const o = document.createElement('option');
         o.value = camera.index;
-        o.textContent = `${camera.name || `Camera ${camera.index}`} (OpenCV ${camera.index})`;
+        const isIR = isIRCapableCamera(camera);
+        o.textContent = `${camera.name || `Camera ${camera.index}`} (OpenCV ${camera.index})${isIR ? ' — IR' : ''}`;
         camSel.appendChild(o);
+        if (isIR && firstIRIndex === null) firstIRIndex = camera.index;
       });
       startBtn.disabled = false;
       // If a prior calibration exists, also enable "Optimize Calibration"
       refreshPriorCalibrationNote();
-      // Start live camera preview
-      const firstCam = calibrationCameras[0].index;
-      startCameraPreview(firstCam);
+      // Prefer the IR camera when one is detected (Windows Hello). The user can
+      // switch back to the RGB webcam manually.
+      if (firstIRIndex !== null) camSel.value = String(firstIRIndex);
+      // Start live camera preview on the (possibly auto-selected) camera
+      startCameraPreview(parseInt(camSel.value, 10));
       // The IR profile only makes sense for IR-capable hardware (Windows
       // Hello, dedicated IR webcams). Disable it on regular RGB cameras so
       // users can't accidentally apply CLAHE / relaxed thresholds and get
@@ -840,10 +861,23 @@ function persistCameraOptions() {
 }
 function readCameraOptions() {
   const preset = CAMERA_PROFILES[cameraProfileSel.value] || CAMERA_PROFILES.auto;
-  return { ...preset };
+  const camera = selectedCamera();
+  return {
+    ...preset,
+    cameraName: camera ? camera.name : undefined,
+    cameraBackend: camera ? camera.backend : undefined,
+  };
+}
+function selectedCamera() {
+  const camIdx = parseInt(camSel.value, 10);
+  return calibrationCameras.find(c => c.index === camIdx) || null;
 }
 loadCameraOptions();
-cameraProfileSel.addEventListener('change', persistCameraOptions);
+cameraProfileSel.addEventListener('change', () => {
+  window.__userChoseProfile = true;
+  persistCameraOptions();
+  updateIrBanner();
+});
 
 // ── IR profile gating ──
 // Heuristic: a camera is treated as IR-capable when its enumerated name
@@ -870,17 +904,57 @@ function updateIrProfileAvailability() {
   if (!irOption) return;
   const camIdx = parseInt(camSel.value, 10);
   const camera = calibrationCameras.find(c => c.index === camIdx);
-  const irOk = !!(camera && isIRCapableCameraName(camera.name));
+  const irOk = isIRCapableCamera(camera);
   irOption.disabled = !irOk;
   irOption.textContent = irOk
     ? 'IR (Windows Hello)'
     : 'IR (Windows Hello) — not detected on this camera';
+  // Auto-select the IR profile when an IR camera is chosen and the user hasn't
+  // explicitly picked a different profile this session.
+  if (irOk && cameraProfileSel.value === 'auto' && !window.__userChoseProfile) {
+    cameraProfileSel.value = 'ir';
+    persistCameraOptions();
+  }
   // If the user previously selected IR but the new camera doesn't support it,
   // fall back to the safe "Auto" profile and persist the change.
   if (!irOk && cameraProfileSel.value === 'ir') {
     cameraProfileSel.value = 'auto';
     persistCameraOptions();
   }
+  updateIrBanner();
+}
+
+// IR detection: frame-content (authoritative — an IR stream is monochrome)
+// plus a name heuristic for cameras that enumerate but whose first frame we
+// couldn't classify yet.
+function isIRCapableCamera(camera) {
+  if (!camera) return false;
+  if (camera.ir === true) return true;
+  if (typeof camera.mono === 'number' && camera.mono >= 0.7) return true;
+  if (camera.irName === true) return true;
+  return isIRCapableCameraName(camera.name);
+}
+
+function updateIrBanner() {
+  const camIdx = parseInt(camSel.value, 10);
+  const camera = calibrationCameras.find(c => c.index === camIdx);
+  const irCapable = isIRCapableCamera(camera);
+  const usingIR = irCapable && cameraProfileSel.value === 'ir';
+  if (!camera) {
+    irBanner.classList.add('hidden');
+    return;
+  }
+  if (usingIR) {
+    irBanner.className = 'camera-note ir-on';
+    irBanner.textContent = '🔴 IR mode active — this calibration will use the infrared camera with CLAHE contrast boost and relaxed face detection.';
+  } else if (irCapable) {
+    irBanner.className = 'camera-note ir-available';
+    irBanner.textContent = '🔴 Infrared camera detected — set the camera profile to "IR (Windows Hello)" for best results in low light.';
+  } else {
+    irBanner.classList.add('hidden');
+    return;
+  }
+  irBanner.classList.remove('hidden');
 }
 
 ptsSel.onchange = () => {

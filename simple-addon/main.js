@@ -1329,6 +1329,13 @@ ipcMain.handle('get-camera-snapshot', async (_event, { cameraIndex }) => {
   return { error: 'No eye tracking manager' };
 });
 
+ipcMain.handle('get-camera-diagnose', async (_event, { cameraIndex }) => {
+  if (server?.eyeTrackingManager) {
+    return await server.eyeTrackingManager.diagnoseCamera(cameraIndex);
+  }
+  return { error: 'No eye tracking manager' };
+});
+
 // Stop eye tracking (used from validation screen)
 ipcMain.handle('stop-tracking', async () => {
   if (server?.eyeTrackingManager) {

@@ -33,6 +33,7 @@ import os
 import sys
 import time
 import threading
+import re
 import numpy as np
 
 try:
@@ -128,6 +129,51 @@ def _open_camera_capture(camera_index):
     return None, None
 
 
+def _classify_frame(frame):
+    """Classify a captured frame as IR/monochrome vs color.
+
+    Windows Hello IR streams arrive as 1-channel grayscale, 3-channel-but-
+    grayscale, or 16-bit sensor data. A real RGB scene has per-channel
+    differences; an IR/mono stream is (near-)identical across channels.
+    Returns a dict the UI and calibration JSON can use directly.
+    """
+    if frame is None:
+        return {"channels": 0, "dtype": None, "mono": 0.0, "ir": False}
+    info = {
+        "channels": int(frame.shape[2]) if frame.ndim == 3 else 1,
+        "dtype": str(frame.dtype),
+    }
+    arr = frame
+    if arr.dtype == np.uint16:
+        arr = (arr >> 8).astype(np.uint8)
+    if arr.ndim == 3 and arr.shape[2] >= 3:
+        b = arr[:, :, 0].astype(np.float32)
+        g = arr[:, :, 1].astype(np.float32)
+        r = arr[:, :, 2].astype(np.float32)
+        diff_bg = float(np.mean(np.abs(b - g)))
+        diff_gr = float(np.mean(np.abs(g - r)))
+        brightness = float(np.mean(r) + np.mean(g) + np.mean(b)) / 3.0 + 1.0
+        spread = (diff_bg + diff_gr) / brightness
+        mono = float(np.clip(1.0 - spread / 0.04, 0.0, 1.0))
+        info["mono"] = round(mono, 3)
+        info["ir"] = mono >= 0.7
+    else:
+        info["mono"] = 1.0
+        info["ir"] = True
+    return info
+
+
+def _is_ir_name(name):
+    """Heuristic IR detection from a device name (Windows Hello, IR, etc.)."""
+    if not name or not isinstance(name, str):
+        return False
+    n = name.lower()
+    if re.search(r"\bir\b", n):
+        return True
+    return ("infrared" in n or "windows hello" in n or "hello camera" in n
+            or "truevision ir" in n or "realsense" in n)
+
+
 def encode_preview_image(frame, max_width=480, max_height=360, quality=55):
     """Encode a frame to a compact JPEG data URL for UI previews."""
     height, width = frame.shape[:2]
@@ -149,8 +195,11 @@ class EyeTracker:
                  hires_iris=False, capture_width=0, capture_height=0,
                  fixation_velocity_threshold=120.0, fixation_min_duration=0.10,
                  fixation_dispersion=40.0, viewing_distance_mm=600.0,
-                 screen_width_mm=None, screen_height_mm=None, lead_ms=0):
+                 screen_width_mm=None, screen_height_mm=None, lead_ms=0,
+                 camera_name=None, camera_backend=None):
         self.camera_index = camera_index
+        self.camera_name = camera_name or None
+        self.camera_backend = camera_backend or None
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.calibration_file = calibration_file
@@ -1425,6 +1474,8 @@ class EyeTracker:
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
             "screenResolution": {"width": self.screen_width, "height": self.screen_height},
             "cameraIndex": self.camera_index,
+            "cameraName": self.camera_name,
+            "cameraBackend": self.camera_backend,
             "pipeline": {
                 "irMode": bool(self.ir_mode),
                 "hiresIris": bool(self.hires_iris),
@@ -1676,6 +1727,8 @@ class EyeTracker:
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
             "screenResolution": {"width": self.screen_width, "height": self.screen_height},
             "cameraIndex": self.camera_index,
+            "cameraName": self.camera_name,
+            "cameraBackend": self.camera_backend,
             "pipeline": {
                 "irMode": bool(self.ir_mode),
                 "hiresIris": bool(self.hires_iris),
@@ -1847,6 +1900,10 @@ class EyeTracker:
                 # stack back to 3 channels. This dramatically improves
                 # face-mesh detection under low ambient light.
                 if self.ir_mode:
+                    # Some Windows Hello IR sensors stream 16-bit data; shift
+                    # down to 8-bit before CLAHE (which requires uint8).
+                    if frame.dtype == np.uint16:
+                        frame = (frame >> 8).astype(np.uint8)
                     if frame.ndim == 3 and frame.shape[2] >= 3:
                         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                     elif frame.ndim == 3 and frame.shape[2] == 1:
@@ -2098,21 +2155,33 @@ def list_cameras(max_index=8):
         try:
             ret, frame = cap.read()
             # Some IR cameras need a few warm-up reads before they yield a
-            # frame, especially via MSMF.
-            if not ret:
-                for _ in range(5):
+            # frame, especially via MSMF. Windows Hello IR cams often need the
+            # MJPG fourcc to unlock a usable stream at all.
+            if not ret or frame is None:
+                try:
+                    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+                except Exception:
+                    pass
+                for _ in range(6):
                     ret, frame = cap.read()
-                    if ret:
+                    if ret and frame is not None:
                         break
-            if ret:
+            if ret and frame is not None:
                 width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 0)
                 height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
+                cls = _classify_frame(frame)
+                name = names_by_index.get(i, f"Camera {i}")
                 available.append({
                     "index": i,
-                    "name": names_by_index.get(i, f"Camera {i}"),
+                    "name": name,
                     "width": width,
                     "height": height,
                     "backend": backend_name,
+                    "ir": bool(cls["ir"]),
+                    "mono": float(cls["mono"]),
+                    "channels": int(cls["channels"]),
+                    "dtype": cls["dtype"],
+                    "irName": _is_ir_name(name),
                 })
         finally:
             try:
@@ -2123,10 +2192,15 @@ def list_cameras(max_index=8):
 
 
 def snapshot_camera(camera_index, max_width=640, max_height=360):
-    """Capture a single preview frame from the selected camera index."""
+    """Capture a single preview frame from the selected camera index.
+
+    Also classifies the frame (IR vs color) and returns backend/channel info so
+    the calibration UI can clearly show whether the selected camera will run in
+    IR mode.
+    """
     camera_meta = next((camera for camera in list_cameras(max(camera_index + 1, 8)) if camera.get("index") == camera_index), None)
 
-    cap, _backend_name = _open_camera_capture(camera_index)
+    cap, backend_name = _open_camera_capture(camera_index)
     if cap is None:
         return {"error": f"Cannot open camera {camera_index}"}
 
@@ -2140,29 +2214,127 @@ def snapshot_camera(camera_index, max_width=640, max_height=360):
             frame = candidate
             break
         time.sleep(0.08)
+    if frame is None:
+        # Windows Hello IR cams frequently need the MJPG fourcc before they
+        # produce frames under DSHOW/MSMF.
+        try:
+            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+        except Exception:
+            pass
+        for _ in range(12):
+            ret, candidate = cap.read()
+            if ret and candidate is not None:
+                frame = candidate
+                break
+            time.sleep(0.08)
     cap.release()
 
     if frame is None:
         return {"error": f"Camera {camera_index} did not return a frame"}
 
-    height, width = frame.shape[:2]
+    # 16-bit IR frames can't be JPEG-encoded directly — downshift to 8-bit.
+    preview = frame
+    if preview.dtype == np.uint16:
+        preview = (preview >> 8).astype(np.uint8)
+
+    cls = _classify_frame(frame)
+    height, width = preview.shape[:2]
     scale = min(max_width / max(width, 1), max_height / max(height, 1), 1.0)
     if scale < 1.0:
-        frame = cv2.resize(frame, (max(1, int(width * scale)), max(1, int(height * scale))))
+        preview = cv2.resize(preview, (max(1, int(width * scale)), max(1, int(height * scale))))
 
-    success, encoded = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+    success, encoded = cv2.imencode('.jpg', preview, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
     if not success:
         return {"error": f"Failed to encode preview for camera {camera_index}"}
 
     image_b64 = base64.b64encode(encoded.tobytes()).decode('ascii')
+    name = (camera_meta.get("name") if camera_meta else None) or f"Camera {camera_index}"
     return {
         "snapshot": {
             "index": camera_index,
-            "name": camera_meta.get("name", f"Camera {camera_index}") if camera_meta else f"Camera {camera_index}",
+            "name": name,
             "image": f"data:image/jpeg;base64,{image_b64}",
-            "width": int(frame.shape[1]),
-            "height": int(frame.shape[0]),
+            "width": int(width),
+            "height": int(height),
+            "backend": backend_name,
+            "ir": bool(cls["ir"]),
+            "mono": float(cls["mono"]),
+            "channels": int(cls["channels"]),
+            "dtype": cls["dtype"],
+            "irName": _is_ir_name(name),
         }
+    }
+
+
+def diagnose_camera(camera_index, max_index=8):
+    """Full diagnostics for one camera index — the debug hook for Windows Hello
+    IR cameras that fail to enumerate or return bad frames.
+
+    Tries each backend, reports whether it opens, and classifies the first frame
+    it can read (resolution, dtype, channels, IR/monochrome)."""
+    import platform
+    system = platform.system()
+    name = f"Camera {camera_index}"
+    if system == 'Windows':
+        try:
+            from pygrabber.dshow_graph import FilterGraph
+            devices = FilterGraph().get_input_devices()
+            if 0 <= camera_index < len(devices):
+                name = devices[camera_index]
+        except Exception:
+            pass
+
+    backends = ([(cv2.CAP_DSHOW, 'dshow'), (cv2.CAP_MSMF, 'msmf'), (cv2.CAP_ANY, 'any')]
+                if system == 'Windows' else [(cv2.CAP_ANY, 'any')])
+    attempts = []
+    for backend_const, backend_name in backends:
+        entry = {"backend": backend_name, "opened": False}
+        try:
+            cap = cv2.VideoCapture(camera_index, backend_const)
+        except Exception as e:
+            entry["error"] = str(e)
+            attempts.append(entry)
+            continue
+        if cap is None or not cap.isOpened():
+            entry["error"] = "did not open"
+            attempts.append(entry)
+            try:
+                if cap is not None:
+                    cap.release()
+            except Exception:
+                pass
+            continue
+        entry["opened"] = True
+        frame = None
+        for _ in range(6):
+            ret, candidate = cap.read()
+            if ret and candidate is not None:
+                frame = candidate
+                break
+            time.sleep(0.08)
+        if frame is not None:
+            cls = _classify_frame(frame)
+            entry["frame"] = {
+                "width": int(frame.shape[1]),
+                "height": int(frame.shape[0]),
+                "channels": cls["channels"],
+                "dtype": cls["dtype"],
+                "mono": cls["mono"],
+                "ir": cls["ir"],
+            }
+        else:
+            entry["error"] = "opened but returned no frame"
+        try:
+            cap.release()
+        except Exception:
+            pass
+        attempts.append(entry)
+
+    return {
+        "camera_index": camera_index,
+        "name": name,
+        "ir_name_match": _is_ir_name(name),
+        "backends": attempts,
     }
 
 
@@ -2226,7 +2398,7 @@ def main():
     parser.add_argument("--screen_height", type=int, default=1080, help="Screen height in pixels")
     parser.add_argument("--calibration_file", type=str, default=None, help="Path to calibration JSON")
     parser.add_argument("--duration", type=int, default=0, help="Duration in seconds (0 = indefinite)")
-    parser.add_argument("--mode", type=str, default="track", choices=["track", "calibrate", "test", "list_cameras", "snapshot_camera"],
+    parser.add_argument("--mode", type=str, default="track", choices=["track", "calibrate", "test", "list_cameras", "snapshot_camera", "diagnose_camera"],
                         help="Operating mode")
     parser.add_argument("--confidence_threshold", type=float, default=0.6, help="Minimum confidence to emit coordinates")
     parser.add_argument("--oe_min_cutoff", type=float, default=0.8,
@@ -2264,6 +2436,10 @@ def main():
                              "Set to the camera's native resolution (e.g. 3840) to enable hires_iris benefit.")
     parser.add_argument("--capture_height", type=int, default=0,
                         help="Requested camera capture height (0 = driver default / 720).")
+    parser.add_argument("--camera_name", type=str, default=None,
+                        help="Human-readable camera name (stamped into calibration for diagnostics).")
+    parser.add_argument("--camera_backend", type=str, default=None,
+                        help="Backend used to open the camera (stamped into calibration for diagnostics).")
     args = parser.parse_args()
 
     if args.mode == "list_cameras":
@@ -2273,6 +2449,10 @@ def main():
 
     if args.mode == "snapshot_camera":
         print(json.dumps(snapshot_camera(args.camera_index)), flush=True)
+        return
+
+    if args.mode == "diagnose_camera":
+        print(json.dumps(diagnose_camera(args.camera_index)), flush=True)
         return
 
     tracker = EyeTracker(
@@ -2287,6 +2467,8 @@ def main():
         hires_iris=args.hires_iris,
         capture_width=args.capture_width,
         capture_height=args.capture_height,
+        camera_name=args.camera_name,
+        camera_backend=args.camera_backend,
         fixation_velocity_threshold=args.fixation_velocity_threshold,
         fixation_min_duration=args.fixation_min_duration,
         fixation_dispersion=args.fixation_dispersion,

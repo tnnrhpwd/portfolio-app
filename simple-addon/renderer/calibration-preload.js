@@ -24,6 +24,8 @@ contextBridge.exposeInMainWorld('calibrationAPI', {
 
   getCameraSnapshot: (cameraIndex) => ipcRenderer.invoke('get-camera-snapshot', { cameraIndex }),
 
+  getCameraDiagnose: (cameraIndex) => ipcRenderer.invoke('get-camera-diagnose', { cameraIndex }),
+
   getDisplays: () => ipcRenderer.invoke('get-displays'),
 
   getPriorCalibration: () => ipcRenderer.invoke('get-prior-calibration'),

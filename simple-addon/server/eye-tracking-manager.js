@@ -156,6 +156,8 @@ class EyeTrackingManager extends EventEmitter {
     let hiresIris = false;
     let captureWidth = 0;
     let captureHeight = 0;
+    let cameraName = null;
+    let cameraBackend = null;
 
     // Baseline: the camera pipeline the user actually calibrated with. The
     // calibration window lets them pick a profile (auto / IR / hi-res) that
@@ -199,7 +201,9 @@ class EyeTrackingManager extends EventEmitter {
     if (options.hiresIris !== undefined) hiresIris = !!options.hiresIris;
     if (options.captureWidth) captureWidth = options.captureWidth;
     if (options.captureHeight) captureHeight = options.captureHeight;
-    return { irMode, processWidth, processHeight, hiresIris, captureWidth, captureHeight };
+    if (options.cameraName) cameraName = options.cameraName;
+    if (options.cameraBackend) cameraBackend = options.cameraBackend;
+    return { irMode, processWidth, processHeight, hiresIris, captureWidth, captureHeight, cameraName, cameraBackend };
   }
 
   /**
@@ -584,6 +588,8 @@ while ($true) {
     if (camOpts.hiresIris) args.push('--hires_iris');
     if (camOpts.captureWidth > 0) args.push('--capture_width', String(camOpts.captureWidth));
     if (camOpts.captureHeight > 0) args.push('--capture_height', String(camOpts.captureHeight));
+    if (camOpts.cameraName) args.push('--camera_name', String(camOpts.cameraName));
+    if (camOpts.cameraBackend) args.push('--camera_backend', String(camOpts.cameraBackend));
 
     // Configure dwell-to-click + double-blink click + reset live metrics.
     this.gazeClick.dwellMs = dwellMs;
@@ -885,6 +891,8 @@ while ($true) {
     if (camOpts.hiresIris) args.push('--hires_iris');
     if (camOpts.captureWidth > 0) args.push('--capture_width', String(camOpts.captureWidth));
     if (camOpts.captureHeight > 0) args.push('--capture_height', String(camOpts.captureHeight));
+    if (camOpts.cameraName) args.push('--camera_name', String(camOpts.cameraName));
+    if (camOpts.cameraBackend) args.push('--camera_backend', String(camOpts.cameraBackend));
 
     return new Promise((resolve) => {
       try {
@@ -1208,6 +1216,38 @@ while ($true) {
         proc.kill();
         resolve({ error: 'Camera preview timed out' });
       }, 10000);
+    });
+  }
+
+  /**
+   * Full per-backend diagnostics for one camera index — used to debug Windows
+   * Hello IR cameras that fail to enumerate or return bad frames.
+   */
+  async diagnoseCamera(cameraIndex) {
+    const scriptPath = path.join(resolveScriptsPath(), 'eye_tracker.py');
+    const pythonPath = this._getPythonPath();
+
+    return new Promise((resolve) => {
+      const proc = spawn(pythonPath, [scriptPath, '--mode', 'diagnose_camera', '--camera_index', String(cameraIndex)], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+      });
+
+      let output = '';
+      proc.stdout.on('data', (data) => { output += data.toString(); });
+      proc.on('exit', () => {
+        try {
+          resolve(JSON.parse(output.trim()));
+        } catch {
+          resolve({ error: 'Failed to read camera diagnostics' });
+        }
+      });
+      proc.on('error', () => resolve({ error: 'Failed to start camera diagnostics' }));
+
+      setTimeout(() => {
+        proc.kill();
+        resolve({ error: 'Camera diagnostics timed out' });
+      }, 15000);
     });
   }
 
