@@ -465,6 +465,12 @@ const closeBugReportHandler = async (req, res) => {
 // PUT: Update A customer
 const updateCustomer = asyncHandler(async (req, res) => {
     const { id, email, name } = req.body;
+    // Ownership check: the target Stripe customer must be the caller's own.
+    const ownCustomerId = extractCustomerId(req.user?.text || '');
+    if (!ownCustomerId || ownCustomerId !== id) {
+        res.status(403);
+        throw new Error('Unauthorized: you can only update your own payment customer.');
+    }
     const s = getStripe(req.user?.id);
     const customer = await s.customers.update(id, { email, name });
     res.status(200).json(customer);
@@ -473,6 +479,12 @@ const updateCustomer = asyncHandler(async (req, res) => {
 // PUT: Update a payment method
 const putPaymentMethod = asyncHandler(async (req, res) => {
     const { paymentMethodId, customerId } = req.body;
+    // Ownership check: the target customer must be the caller's own.
+    const ownCustomerId = extractCustomerId(req.user?.text || '');
+    if (!ownCustomerId || ownCustomerId !== customerId) {
+        res.status(403);
+        throw new Error('Unauthorized: you can only manage your own payment methods.');
+    }
     const s = getStripe(req.user?.id);
 
     try {

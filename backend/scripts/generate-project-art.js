@@ -65,6 +65,11 @@ const PROJECT_ART = [
       'A serene vibrant 3D render of a glowing crescent moon resting above soft fluffy clouds with a stylized circular sleep-cycle ring and tiny twinkling stars, soft blurred background of pastel blue, mint, pink and orange bokeh, calm and cozy, shallow depth of field, no text',
   },
   {
+    slug: 'sit',
+    prompt:
+      'A vibrant 3D render of a modern adjustable standing desk with a sleek monitor and an ergonomic chair beside it, a glowing circular timer dial with colored segments floating above the desk, and a small stylized person walking on the side, soft blurred background of pastel pink, mint, orange and blue bokeh lights, shallow depth of field, premium product photography, no text',
+  },
+  {
     slug: 'pets',
     prompt:
       'A vibrant 3D render of an adorable glossy cartoon kitten and puppy sitting together with big expressive eyes, surrounded by a floating pet food bowl, a ball and a heart, over a soft blurred pastel background of pink, mint, orange and blue bokeh, shallow depth of field, premium render, no text',

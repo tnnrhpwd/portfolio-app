@@ -247,8 +247,18 @@ const TOOL_SCHEMAS = [
 
 // ── Tool executors ──────────────────────────────────────────────────────────
 
+/**
+ * Repo tools read/write the live website repository with the server's GitHub
+ * token. That is an admin-only capability: an ordinary user (or a stolen user
+ * JWT) must not be able to drive code into the production default branch.
+ */
+function isAdminContext(ctx) {
+    return !!(ctx && ctx.user && ctx.user.id === process.env.ADMIN_USER_ID);
+}
+
 const TOOL_EXECUTORS = {
-  async list_repo_tree() {
+  async list_repo_tree(args, ctx) {
+    if (!isAdminContext(ctx)) return 'Error: repository access is restricted to the administrator. I will deliver a plan instead.';
     if (!getGitHubToken()) {
       return 'GitHub token not configured — I cannot inspect the repository. I will plan instead of editing code.';
     }
@@ -267,7 +277,8 @@ const TOOL_EXECUTORS = {
     ].join('\n');
   },
 
-  async read_repo_file(args) {
+  async read_repo_file(args, ctx) {
+    if (!isAdminContext(ctx)) return 'Error: repository access is restricted to the administrator. I will deliver a plan instead.';
     const path = sanitizeRepoPath(args?.path);
     if (!path) return 'Error: invalid file path.';
     if (!getGitHubToken()) return 'GitHub token not configured — cannot read the repository.';
@@ -285,7 +296,8 @@ const TOOL_EXECUTORS = {
     return `File "${path}":\n${content}`;
   },
 
-  async write_repo_file(args) {
+  async write_repo_file(args, ctx) {
+    if (!isAdminContext(ctx)) return 'Error: repository edits are restricted to the administrator. I will deliver a plan instead.';
     const path = sanitizeRepoPath(args?.path);
     if (!path) return 'Error: invalid file path.';
     if (typeof args?.content !== 'string') return 'Error: content must be a string.';

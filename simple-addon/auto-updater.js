@@ -38,6 +38,18 @@ autoUpdater.allowDowngrade = false;
 // re-upload), not on every ordinary up-to-date check.
 const STALE_VERSION_GRACE_MS = 60 * 60 * 1000; // 1 hour
 
+// Retry policy for *transient* update-check failures (see _isTransientError).
+// The classic case: a new GitHub release is created the moment CI starts
+// publishing, but latest.yml is only uploaded at the very end — so for the
+// several minutes the build is still running, `releases/latest` already points
+// at the new version while its latest.yml 404s (ERR_UPDATER_CHANNEL_FILE_NOT_FOUND).
+// These are retried with backoff and NOT surfaced to the user as errors; only
+// after the attempts below are exhausted (or on a genuinely fatal error) does
+// the status become "error".
+const TRANSIENT_RETRY_BASE_MS = 20 * 1000;      // first retry after 20s
+const TRANSIENT_RETRY_MAX_MS = 2 * 60 * 1000;   // cap each retry at 2 min
+const MAX_TRANSIENT_RETRIES = 6;                // ~8 min of retries, covers a full CI build
+
 /**
  * Read this build's own build-info.json (written by scripts/write-build-info.js
  * just before packaging — see that file for why this exists). Returns null in
@@ -62,6 +74,12 @@ class UpdateManager {
     this.downloadProgress = 0;
     this.checkInterval = null;
     this._initialCheckTimer = null;
+    this._retryTimer = null;
+    this._retryDelay = TRANSIENT_RETRY_BASE_MS;
+    this._transientFailures = 0;
+    // The last *good* state reached (up-to-date / ready), restored while a
+    // transient failure is being retried so the UI doesn't flash an error.
+    this._lastKnownStatus = 'idle';
     // Explicit state machine mirrored to the HTTP bridge (server/update-bridge.js)
     // so the web UI can distinguish "haven't checked yet" from "checked, no
     // update found" — updateAvailable/updateDownloaded alone can't tell them apart.
@@ -122,6 +140,51 @@ class UpdateManager {
   }
 
   /**
+   * Whether a check/download failure is a *transient* condition worth retrying
+   * silently (vs. a fatal config/version error that should surface).
+   */
+  _isTransientError(err) {
+    if (!err) return true;
+    const code = err.code;
+    // latest.yml not uploaded yet — the new release is still being built/published
+    if (code === 'ERR_UPDATER_CHANNEL_FILE_NOT_FOUND') return true;
+    // No published release yet (e.g. the very first release is still mid-build)
+    if (code === 'ERR_UPDATER_NO_PUBLISHED_VERSIONS') return true;
+    if (code === 'ERR_UPDATER_LATEST_VERSION_NOT_FOUND') return true;
+
+    // 5xx / 429 (rate limit) are transient; 4xx (auth/not found) are not.
+    if (typeof err.statusCode === 'number') {
+      return err.statusCode === 429 || err.statusCode >= 500;
+    }
+
+    const msg = String(err.message || err).toLowerCase();
+    return /etimedout|econnreset|econnrefused|enotfound|eai_again|enetunreach|ehostunreach|network|socket hang up|temporary|timeout|proxy/i.test(msg);
+  }
+
+  /**
+   * Schedule the next automatic re-check, doubling the delay each time up to
+   * TRANSIENT_RETRY_MAX_MS.
+   */
+  _scheduleRetry() {
+    if (this._retryTimer) clearTimeout(this._retryTimer);
+    const delay = Math.min(this._retryDelay, TRANSIENT_RETRY_MAX_MS);
+    this._retryDelay = Math.min(this._retryDelay * 2, TRANSIENT_RETRY_MAX_MS);
+    log.info(`[Updater] Retrying update check in ${Math.round(delay / 1000)}s...`);
+    this._retryTimer = setTimeout(() => {
+      this._retryTimer = null;
+      this.checkForUpdates();
+    }, delay);
+  }
+
+  /**
+   * Reset the transient-failure counters after any successful outcome.
+   */
+  _resetTransientFailures() {
+    this._transientFailures = 0;
+    this._retryDelay = TRANSIENT_RETRY_BASE_MS;
+  }
+
+  /**
    * Register autoUpdater event listeners.
    */
   _registerEvents() {
@@ -137,6 +200,7 @@ class UpdateManager {
       this.updateInfo = info;
       this.status = 'downloading';
       this.possibleStaleVersion = false; // a genuinely newer version was found
+      this._resetTransientFailures();
 
       // Silently update tray — no notification yet (download is automatic)
       this.trayManager?.setUpdateStatus('downloading', info.version, 0);
@@ -147,6 +211,8 @@ class UpdateManager {
       this.updateAvailable = false;
       this.updateInfo = null;
       this.status = 'up-to-date';
+      this._lastKnownStatus = 'up-to-date';
+      this._resetTransientFailures();
       this._checkForStaleVersion(info);
       this.trayManager?.setUpdateStatus('up-to-date');
     });
@@ -163,6 +229,8 @@ class UpdateManager {
       log.info(`[Updater] Update downloaded: Build #${build} (v${info.version})`);
       this.updateDownloaded = true;
       this.status = 'ready';
+      this._lastKnownStatus = 'ready';
+      this._resetTransientFailures();
 
       // Single, non-intrusive notification — the only one the user sees
       this.trayManager?.notify(
@@ -175,9 +243,32 @@ class UpdateManager {
     });
 
     autoUpdater.on('error', (err) => {
-      log.error('[Updater] Error:', err?.message || err);
+      const message = err?.message || String(err);
+
+      if (this._isTransientError(err)) {
+        this._transientFailures += 1;
+        log.warn(
+          `[Updater] Transient update failure (${this._transientFailures}/${MAX_TRANSIENT_RETRIES}): ${message} — ` +
+          'will retry in the background.'
+        );
+
+        // Keep showing the last good state instead of flashing an error while
+        // a new release is still uploading its assets.
+        this.status = this._lastKnownStatus;
+
+        if (this._transientFailures < MAX_TRANSIENT_RETRIES) {
+          this._scheduleRetry();
+        } else {
+          log.error(`[Updater] Giving up after ${this._transientFailures} transient failures: ${message}`);
+          this.status = 'error';
+          this.trayManager?.setUpdateStatus('error');
+        }
+        return;
+      }
+
+      log.error('[Updater] Error:', message);
       this.status = 'error';
-      // Don't bother the user with update errors — just log and show in tray menu
+      // Fatal errors surface in the tray/dashboard (transient ones are retried silently)
       this.trayManager?.setUpdateStatus('error');
     });
   }
@@ -186,8 +277,15 @@ class UpdateManager {
    * Check for updates once (download starts automatically if available).
    */
   checkForUpdates() {
+    // A manual check supersedes any pending automatic retry.
+    if (this._retryTimer) {
+      clearTimeout(this._retryTimer);
+      this._retryTimer = null;
+    }
     autoUpdater.checkForUpdates().catch((err) => {
-      log.error('[Updater] Check failed:', err?.message || err);
+      // The 'error' event above handles classification/retry — this just
+      // swallows the rejected promise so nothing escapes as unhandled.
+      log.debug('[Updater] Check failed:', err?.message || err);
     });
   }
 
@@ -214,6 +312,10 @@ class UpdateManager {
     if (this.checkInterval) {
       clearInterval(this.checkInterval);
       this.checkInterval = null;
+    }
+    if (this._retryTimer) {
+      clearTimeout(this._retryTimer);
+      this._retryTimer = null;
     }
   }
 

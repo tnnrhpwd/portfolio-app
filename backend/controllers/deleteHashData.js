@@ -16,6 +16,8 @@ const client = new DynamoDBClient({
 
 const dynamodb = DynamoDBDocumentClient.from(client);
 const { logger } = require('../utils/logger');
+const { getStripe } = require('../utils/stripeInstance.js');
+const { extractCustomerId } = require('../services/stripeService.js');
 
 // @desc    Delete data
 // @route   DELETE /api/data/:id
@@ -222,14 +224,32 @@ const deleteHashData = asyncHandler(async (req, res) => {
 // DELETE: Delete a payment method
 const deletePaymentMethod = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    await stripe.paymentMethods.detach(id);
+    const s = getStripe(req.user?.id);
+    const ownCustomerId = extractCustomerId(req.user?.text || '');
+    if (!ownCustomerId) {
+        res.status(403);
+        throw new Error('Unauthorized: no payment customer on record.');
+    }
+    const pm = await s.paymentMethods.retrieve(id);
+    if (!pm || pm.customer !== ownCustomerId) {
+        res.status(403);
+        throw new Error('Unauthorized: you can only detach your own payment methods.');
+    }
+    await s.paymentMethods.detach(id);
     res.status(200).json({ id });
 });
 
 // DETELE: Delete a customer
 const deleteCustomer = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    await stripe.customers.del(id);
+    // Ownership check: the target Stripe customer must be the caller's own.
+    const ownCustomerId = extractCustomerId(req.user?.text || '');
+    if (!ownCustomerId || ownCustomerId !== id) {
+        res.status(403);
+        throw new Error('Unauthorized: you can only delete your own payment customer.');
+    }
+    const s = getStripe(req.user?.id);
+    await s.customers.del(id);
     res.status(200).json({ id });
 });
 

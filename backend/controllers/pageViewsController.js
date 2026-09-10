@@ -63,7 +63,11 @@ function normalizePath(rawPath) {
     if (!p.startsWith('/')) p = `/${p}`;
     // Strip a trailing slash (but keep the root as '/')
     if (p.length > 1 && p.endsWith('/')) p = p.slice(0, -1);
-    return p.toLowerCase();
+    p = p.toLowerCase();
+    // Cap the path length so a malicious beacon can't store a multi-KB `text`
+    // value in DynamoDB (items have a 400KB limit and storage is billable).
+    if (p.length > 500) p = p.slice(0, 500);
+    return p;
 }
 
 /**

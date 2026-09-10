@@ -20,6 +20,7 @@ import artHalfway from '../assets/art/project-halfway.jpg';
 import artIQ from '../assets/art/project-iqtest.jpg';
 import artPassGen from '../assets/art/project-passgen.jpg';
 import artSleepAssist from '../assets/art/project-sleepassist.jpg';
+import artSit from '../assets/art/project-sit.jpg';
 import artWordleSolver from '../assets/art/project-wordlesolver.jpg';
 import artPets from '../assets/art/project-pets.jpg';
 import artUIMapper from '../assets/art/project-uimapper.jpg';
@@ -81,6 +82,13 @@ export const PROJECTS = [
     art: artSleepAssist,
     category: "Tools",
     description: "Calculate optimal sleep and wake times based on natural sleep cycles.",
+  },
+  {
+    name: "Sit",
+    path: "/sit",
+    art: artSit,
+    category: "Tools",
+    description: "A sit-stand-move desk timer — follow the 20-8-2 posture loop and get a chime when it's time to stand, sit, or move.",
   },
   {
     name: "Sonic",

@@ -178,6 +178,13 @@ which combines:
   malicious skill can still *read* files; exfiltration requires an approved
   outbound step (shell/browser). The capability summary is the user's chance
   to catch this — treat it as a real security prompt, not boilerplate.
+- Backend `/market` endpoints (investigated 2026-09-10): all JWT-`protect` +
+  per-user rate limits + `sanitizeInput` (strips all HTML). No IDOR (publish
+  author-check; install/rate/flag keyed by `req.user.id`). **FIXED**: flag-spam
+  — flags are deduped (one per user per skill) so one user can't tank a
+  competitor's trust score. OPEN: the "must run before rating" gate is
+  effectively disabled (`canRate` is called with `attemptedRun:true`), and
+  search does a full-table DynamoDB scan (DoS surface).
 
 **Shell-specific hardening:**
 - `shellAllowPatterns` — regexes that, if matched, auto-approve `shell_run`
@@ -309,6 +316,8 @@ intentional for regression testing but means:
   `Content-Security-Policy: default-src 'none'; sandbox` + `X-Content-Type-Options: nosniff`.
 - Marketplace-skill nested-tool approval — marketplace skills no longer inherit
   `userInitiated`, so their risky nested steps prompt (see §4).
+- Marketplace flag-spam — flags deduped per user per skill
+  (`marketplaceController.js`).
 
 **Still open**, in rough priority order:
 
@@ -338,10 +347,83 @@ intentional for regression testing but means:
     whose steps include `shell_run`/`browser_eval`, and show a stronger warning
     when `safe-read` steps would read files off-device. Residual
     social-engineering risk remains (the capability summary is the last gate).
+11. **Marketplace rating/ranking integrity** — enforce the run-before-rate gate
+    (currently `attemptedRun` is hardcoded `true` in `rateMarketSkill`) and
+    avoid the full-table scan on `/market/skills` search (index it or cache).
 
 ---
 
-## 10. References
+## 10. Backend web-app findings (portfolio, 2026-09-10)
+
+Beyond the automation layer: auth, data CRUD, admin, payments, guest login,
+password reset, and LLM proxy routes were reviewed.
+
+**Solid (validated):**
+- JWT: HS256, 7-day expiry, `alg` allowlist + `maxAge` in `protect`; secret from
+  env / AWS Secrets Manager (no hardcoded fallback).
+- Data CRUD is user-scoped (`Creator:<id>` / `id` ownership checks in
+  get/put/delete). Admin routes behind `requireAdmin` (`ADMIN_USER_ID` compare).
+- Workspace + csimple sync + per-user resources (pets/memory/music) are
+  user-scoped: every DynamoDB key embeds `req.user.id` (e.g.
+  `csimple_ws_${userId}_${kind}_${slug}`, `${MUSIC_PREFIX}${userId}_${songId}`),
+  and `memoryService.requireOwnership` re-checks the creator. No cross-user IDOR.
+- S3 uploads: per-user key prefix, extension/type allowlist, presigned PUT.
+- Stripe webhook verifies the signature (`constructWebhookEvent`).
+- LLM proxy routes (`agent-chat`, `agent-vision`, `compile-natural`,
+  `edit-natural`, `goal-agent/start`, `uimapper/automap`) are `protect` +
+  `llmLimiter` (cost-abuse limited).
+- Global `apiLimiter` + CSRF header check; helmet + strict CORS in production.
+
+**Fixed (2026-09-10):**
+- Stripe payment IDOR — `updateCustomer`, `putPaymentMethod`, `deleteCustomer`,
+  `deletePaymentMethod` accepted arbitrary Stripe customer/payment-method IDs
+  with no ownership check. Now verified against the caller's own `|stripeid:`
+  (and the payment method's `customer`). Also restored the missing Stripe client
+  in `deleteHashData.js` (those two endpoints were silently broken/500).
+- **Goal Agent repo tools are now admin-only** — `write_repo_file` (and the
+  read-only `list_repo_tree`/`read_repo_file`) previously ran for ANY
+  authenticated user, committing LLM-generated code directly to the production
+  default branch via the server's `GITHUB_TOKEN`. Any user (or a stolen user
+  JWT) could have deployed arbitrary code to the live site. Now gated by
+  `ctx.user.id === ADMIN_USER_ID` (`goalAgentService.js`).
+
+**Remaining (documented, not fixed — product decisions):**
+- Guest demo account (`guest@gmail.com` / `guest`) is permanently shared with a
+  known password; the login flow self-resets it to `guest` on any attempt.
+  Anyone can authenticate as guest and burn shared LLM credits / workspace data.
+- Reset tokens + bcrypt hashes live in a pipe-delimited `text` blob that is
+  scanned/served in full by several endpoints. Tokens are random 256-bit with a
+  1-hour expiry (OK), but the shared-text design is fragile.
+- Many endpoints full-table-scan the `Simple` table (DoS/performance surface).
+- `getIPLocationInfo` reads `x-forwarded-for` manually (informational only).
+- Email flows: SES sends are structured JSON (no header injection); email prefs
+  re-fetch the raw record and only mutate boolean toggles. Admin endpoints are
+  double-gated (`requireAdmin` route + `isAdmin` controller). Two notes:
+  - `getAdminPaginatedData` returns raw `text` including bcrypt password hashes
+    (admin-only raw-data browser — consider redacting the hash even for admin).
+  - `enlistAgentForBug` (admin) embeds attacker-controlled bug-report text
+    (Description/Steps/Expected/Actual) into an autonomous coding agent that
+    commits to the default branch — a prompt-injection → code-commit vector if
+    an admin enlists the agent on a maliciously crafted report. Sanitize/draft-
+    branch before enlisting.
+  - `testEmailSend` (admin) accepts an arbitrary recipient and surfaces the raw
+    SES error stack (spam/info-leak if an admin token is compromised — low).
+- Public/unauthenticated routes: auth (register/login/forgot/reset) is behind
+  `authLimiter` (500/15min/IP) with strict `express-validator` rules (password
+  must contain lower+upper+digit, 8-128). `/hype/quote` is a public Bedrock
+  call, IP-limited to 30/15min (bounded cost abuse, intentional marketing page).
+  `/analytics/pageview` is a public DynamoDB write with no feature limiter (only
+  the global `apiLimiter`); **FIXED 2026-09-10** a 500-char cap on the stored
+  path to stop storage bloat. Polls are public but IP rate-limited.
+- Frontend: the JWT is held in `localStorage` (`dataService.js`), so any XSS in
+  the SPA = full account + cloud-relay PC control. The SPA avoids
+  `dangerouslySetInnerHTML`/raw `innerHTML` in the audited paths, but this is the
+  single highest-leverage frontend risk — consider an httpOnly cookie for the
+  JWT. Error responses: `errorHandler` masks 5xx in prod, but many controllers
+  return raw `err.message` (DynamoDB/Stripe detail) directly — info disclosure,
+  low severity.
+
+## 11. References
 
 - [`simple-addon/server/automation/permissions.js`](../../simple-addon/server/automation/permissions.js) — central gate
 - [`simple-addon/server/automation/tool-registry.js`](../../simple-addon/server/automation/tool-registry.js) — dispatch + audit hook

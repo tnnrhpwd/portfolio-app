@@ -332,6 +332,7 @@ ipcMain.handle('dashboard:get-eye-tracking-status', () => {
     cameraIndex: mgr.cameraIndex ?? 0,
     onlineSamples: mgr.onlineSamples || 0,
     lastModelUpdate: mgr.lastModelUpdate || null,
+    quality: mgr.quality || null,
   };
 });
 
@@ -378,6 +379,50 @@ ipcMain.handle('dashboard:reset-eye-adaptation', () => {
   if (!server?.eyeTrackingManager) return { ok: false, error: 'Server is not ready yet.' };
   return server.eyeTrackingManager.clearOnlineSamples();
 });
+
+// ── Eye tracking settings (dwell-to-click, lead) ──
+// Persisted to settings.json under the same `eyeTracking` block the manager
+// reads at start(), so dashboard edits take effect on the next tracking run.
+function getEyeSettings() {
+  const defaults = { dwellClickEnabled: false, dwellMs: 600, dwellRadiusPx: 28, dwellCooldownMs: 900, leadMs: 0 };
+  try {
+    const p = path.join(getResourcesPath(), 'settings.json');
+    const data = fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, 'utf-8')) : {};
+    const et = (data && typeof data.eyeTracking === 'object') ? data.eyeTracking : {};
+    return {
+      dwellClickEnabled: !!et.dwellClickEnabled,
+      dwellMs: typeof et.dwellMs === 'number' ? et.dwellMs : defaults.dwellMs,
+      dwellRadiusPx: typeof et.dwellRadiusPx === 'number' ? et.dwellRadiusPx : defaults.dwellRadiusPx,
+      dwellCooldownMs: typeof et.dwellCooldownMs === 'number' ? et.dwellCooldownMs : defaults.dwellCooldownMs,
+      leadMs: typeof et.leadMs === 'number' ? et.leadMs : defaults.leadMs,
+    };
+  } catch (e) {
+    console.error('[Main] Error reading eye settings:', e.message);
+    return defaults;
+  }
+}
+
+function saveEyeSettings(settings) {
+  try {
+    const p = path.join(getResourcesPath(), 'settings.json');
+    const data = fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, 'utf-8')) : {};
+    if (!data.eyeTracking || typeof data.eyeTracking !== 'object') data.eyeTracking = {};
+    if (typeof settings?.dwellClickEnabled === 'boolean') data.eyeTracking.dwellClickEnabled = settings.dwellClickEnabled;
+    if (typeof settings?.dwellMs === 'number') data.eyeTracking.dwellMs = settings.dwellMs;
+    if (typeof settings?.dwellRadiusPx === 'number') data.eyeTracking.dwellRadiusPx = settings.dwellRadiusPx;
+    if (typeof settings?.dwellCooldownMs === 'number') data.eyeTracking.dwellCooldownMs = settings.dwellCooldownMs;
+    if (typeof settings?.leadMs === 'number') data.eyeTracking.leadMs = settings.leadMs;
+    fs.writeFileSync(p, JSON.stringify(data, null, 2), 'utf-8');
+    return { ok: true, ...getEyeSettings() };
+  } catch (e) {
+    console.error('[Main] Error saving eye settings:', e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+ipcMain.handle('dashboard:get-eye-settings', () => getEyeSettings());
+
+ipcMain.handle('dashboard:set-eye-settings', (_event, settings) => saveEyeSettings(settings));
 
 
 let RESOURCES_PATH = getResourcesPath();

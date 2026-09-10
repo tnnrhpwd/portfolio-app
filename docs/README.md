@@ -10,6 +10,7 @@ docs/
 ├── guides/                            # Setup, usage, and business guides (current)
 │   ├── FRONTEND_UI_STANDARD.md       # How every page should look/behave
 │   ├── AWS_SETUP_GUIDE.md            # AWS: S3/CloudFront setup + static assets + AI image generation
+│   ├── STATIC_ASSETS_AND_IMAGE_GENERATION.md # Static assets (S3/CloudFront) + Bedrock image generation reference
 │   ├── SECRETS_MANAGEMENT.md         # Secrets Manager + .env backup + provider keys (e.g. DeepSeek)
 │   ├── DEPLOYMENT.md                 # Netlify + Render deployment topology
 │   ├── REFERER_TRACKING_README.md    # Analytics and tracking setup
@@ -48,6 +49,7 @@ docs/
 ### Getting Started
 - [Frontend UI Standard](./guides/FRONTEND_UI_STANDARD.md) - **Read before building pages.** Theming, responsive sizing, and the canonical page template
 - [AWS Setup & Assets Guide](./guides/AWS_SETUP_GUIDE.md) - S3/CloudFront setup (Part 1), static asset management (Part 2), and AI image generation via Bedrock (Part 3)
+- [Static Assets & Image Generation](./guides/STATIC_ASSETS_AND_IMAGE_GENERATION.md) - Day-to-day S3/CloudFront asset workflow + Bedrock image generation reference
 - [Secrets Management](./guides/SECRETS_MANAGEMENT.md) - AWS Secrets Manager (Part 1) + encrypted `.env` backup (Part 2) + provider-key worked example (Part 3)
 - [Deployment Topology](./guides/DEPLOYMENT.md) - How Netlify (frontend + keep-warm) and Render (backend) fit together
 

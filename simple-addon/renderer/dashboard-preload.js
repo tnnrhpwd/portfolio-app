@@ -33,6 +33,8 @@ contextBridge.exposeInMainWorld('simpleDashboard', {
   },
   toggleEyeTracking: (enabled) => ipcRenderer.invoke('dashboard:toggle-eye-tracking', enabled),
   toggleEyeOverlay: (enabled) => ipcRenderer.invoke('dashboard:toggle-eye-overlay', enabled),
+  getEyeSettings: () => ipcRenderer.invoke('dashboard:get-eye-settings'),
+  setEyeSettings: (settings) => ipcRenderer.invoke('dashboard:set-eye-settings', settings),
   emergencyStopEyeTracking: () => ipcRenderer.invoke('dashboard:emergency-stop-eye-tracking'),
   calibrateEyeTracking: () => ipcRenderer.invoke('dashboard:calibrate-eye-tracking'),
   undoEyeSample: () => ipcRenderer.invoke('dashboard:undo-eye-sample'),

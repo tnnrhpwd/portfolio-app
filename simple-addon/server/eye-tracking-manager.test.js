@@ -68,5 +68,21 @@ check('clear online samples no-op when not running', mgr.clearOnlineSamples().su
     mgr._stdinWriter = null;
 }
 
+// ── Live quality metrics + dwell wiring ─────────────────────────────────────
+{
+    mgr._quality = null;
+    mgr.gazeClick.enabled = false;
+    mgr._ingestGaze({ x: 100, y: 100, confidence: 0.8 }, { suppressCursor: true, confidenceThreshold: 0.5 });
+    mgr._ingestGaze({ x: 101, y: 101, confidence: 0.6, blink: true }, { suppressCursor: true, confidenceThreshold: 0.5 });
+    mgr._ingestFixation({ fixation_start: { x: 100, y: 100 } });
+    const q = mgr._computeQuality();
+    check('quality frames counted', !!q && mgr._quality && mgr._quality.frames === 2);
+    check('quality mean confidence averaged', !!q && q.meanConfidence === 0.7);
+    check('quality blinks counted', !!q && q.blinks === 1);
+    check('quality fixations counted', !!q && q.fixations === 1);
+    check('dwell click disabled by default', mgr.gazeClick.enabled === false);
+    mgr._quality = null;
+}
+
 console.log(`\neye-tracking-manager.test: ${pass}/${pass + fail} PASS`);
 process.exit(fail > 0 ? 1 : 0);

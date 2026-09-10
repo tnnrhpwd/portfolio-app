@@ -47,6 +47,18 @@ except ImportError:
     print(json.dumps({"error": "mediapipe not installed. Run: pip install mediapipe"}), flush=True)
     sys.exit(1)
 
+# ── Gaze post-processing modules (pure math, camera-free) ─────────────────────
+try:
+    from fixation_detector import FixationDetector
+except Exception:
+    FixationDetector = None
+
+try:
+    from gaze_quality import px_to_deg, classify_accuracy
+except Exception:
+    px_to_deg = None
+    classify_accuracy = None
+
 
 # ── Iris Landmark Indices ────────────────────────────────────────────────────────
 # MediaPipe Face Mesh with refine_landmarks=True provides iris landmarks 468-477
@@ -126,7 +138,10 @@ class EyeTracker:
     def __init__(self, camera_index=0, screen_width=1920, screen_height=1080,
                  calibration_file=None, smoothing_alpha=0.3, confidence_threshold=0.6,
                  ir_mode=False, process_width=640, process_height=480,
-                 hires_iris=False, capture_width=0, capture_height=0):
+                 hires_iris=False, capture_width=0, capture_height=0,
+                 fixation_velocity_threshold=120.0, fixation_min_duration=0.10,
+                 fixation_dispersion=40.0, viewing_distance_mm=600.0,
+                 screen_width_mm=None, screen_height_mm=None, lead_ms=0):
         self.camera_index = camera_index
         self.screen_width = screen_width
         self.screen_height = screen_height
@@ -258,6 +273,24 @@ class EyeTracker:
         self.preview_frame_counter = 0
         self.preview_emit_every = 6
 
+        # ── Gaze post-processing: fixation detection + accuracy metadata ──
+        self.viewing_distance_mm = float(viewing_distance_mm) if viewing_distance_mm else 600.0
+        self.screen_width_mm = float(screen_width_mm) if screen_width_mm else None
+        self.screen_height_mm = float(screen_height_mm) if screen_height_mm else None
+        self.fixation_detector = None
+        if FixationDetector is not None:
+            try:
+                self.fixation_detector = FixationDetector(
+                    velocity_threshold=fixation_velocity_threshold,
+                    dispersion_radius=fixation_dispersion,
+                    min_duration=fixation_min_duration,
+                )
+            except Exception:
+                self.fixation_detector = None
+        # ── Predictive (lag-compensating) smoothing ──
+        self.lead_s = max(0.0, float(lead_ms)) / 1000.0
+        self.max_lead_px = 48.0
+
         # Load calibration if available
         if calibration_file:
             self._load_calibration(calibration_file)
@@ -332,6 +365,18 @@ class EyeTracker:
                 sys.stderr.flush()
             except Exception:
                 pass
+
+    def _emit_fixation_events(self, events):
+        """Re-shape FixationDetector events into camera-agnostic JSON lines."""
+        for ev in events:
+            typ = ev.get("type")
+            if typ == "fixation_start":
+                self._emit({"fixation_start": {"x": ev.get("x"), "y": ev.get("y"), "t": ev.get("t")}})
+            elif typ == "fixation_end":
+                self._emit({"fixation_end": {"x": ev.get("x"), "y": ev.get("y"),
+                                             "duration": ev.get("duration"),
+                                             "samples": ev.get("samples"),
+                                             "t": ev.get("t")}})
 
     def _refine_iris_hires(self, hires_gray, cx, cy, radius):
         """Sub-pixel iris centroid via intensity-weighted center of mass.
@@ -804,7 +849,7 @@ class EyeTracker:
         self.is_blinking = self.blink_counter >= EAR_CONSEC_FRAMES
         return self.is_blinking
 
-    def _adaptive_smooth(self, x, y):
+    def _adaptive_smooth(self, x, y, now=None):
         """1€ Filter smoother with sub-pixel dead-zone.
 
         Each axis is filtered independently. The cutoff frequency adapts to
@@ -814,7 +859,7 @@ class EyeTracker:
         holding the emitted cursor position unless the filtered target has
         moved more than `deadzone_px` from the last emission.
         """
-        now = time.time()
+        now = time.time() if now is None else now
         if self._oe_prev_time is None:
             self._oe_prev_time = now
             self._oe_prev_x = x
@@ -867,9 +912,24 @@ class EyeTracker:
         if dist < self.deadzone_px:
             return self._last_emit_x, self._last_emit_y
 
-        self._last_emit_x = sx
-        self._last_emit_y = sy
-        return sx, sy
+        # ── Velocity lead (lag compensation) ──
+        # The 1€ filter lags a moving target; extrapolate forward along the
+        # filtered velocity so the cursor feels glued to the eye. Clamped so a
+        # velocity spike can't fling the cursor.
+        if self.lead_s > 0.0:
+            lx = sx + dx * self.lead_s
+            ly = sy + dy * self.lead_s
+            lead_px = float(np.hypot(lx - sx, ly - sy))
+            if lead_px > self.max_lead_px and lead_px > 1e-9:
+                k = self.max_lead_px / lead_px
+                lx = sx + (lx - sx) * k
+                ly = sy + (ly - sy) * k
+        else:
+            lx, ly = sx, sy
+
+        self._last_emit_x = lx
+        self._last_emit_y = ly
+        return lx, ly
 
     def _estimate_head_pose(self, landmarks, frame_width, frame_height):
         """Estimate head yaw and pitch from 6 key face landmarks using solvePnP."""
@@ -1487,6 +1547,27 @@ class EyeTracker:
         for p, r in zip(agg_per_point, chosen_residuals):
             p["residualPx"] = float(r)
 
+        # ── Accuracy in degrees of visual angle + quality band ──
+        # Degrees are the metric the industry reports; pixel residuals alone
+        # don't transfer across displays. A "poor" band flags a likely-bad
+        # calibration so the UI can recommend re-running it.
+        accuracy_deg = None
+        quality = None
+        if px_to_deg is not None:
+            try:
+                accuracy_deg = float(px_to_deg(
+                    float(chosen_residuals.mean()),
+                    self.screen_width, self.screen_height,
+                    viewing_distance_mm=self.viewing_distance_mm,
+                    screen_width_mm=self.screen_width_mm,
+                    screen_height_mm=self.screen_height_mm,
+                ))
+                if classify_accuracy is not None:
+                    quality = classify_accuracy(accuracy_deg)
+            except Exception:
+                accuracy_deg = None
+                quality = None
+
         cal_data = {
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
             "screenResolution": {"width": self.screen_width, "height": self.screen_height},
@@ -1504,6 +1585,8 @@ class EyeTracker:
             "modelType": model_type,
             "meanResidualPx": float(chosen_residuals.mean()),
             "maxResidualPx": float(chosen_residuals.max()),
+            "accuracyDeg": accuracy_deg,
+            "quality": quality,
         }
         if use_poly and poly_model is not None:
             cal_data["gazeModel"] = {
@@ -1544,6 +1627,9 @@ class EyeTracker:
                 "model_type": model_type,
                 "mean_residual_px": float(chosen_residuals.mean()),
                 "max_residual_px": float(chosen_residuals.max()),
+                "accuracy_deg": accuracy_deg,
+                "quality": quality,
+                "recalibrate_recommended": bool(quality == "poor"),
                 "worst_point": {
                     "index": worst_point["index"],
                     "screenX": worst_point["screenX"],
@@ -1801,6 +1887,13 @@ class EyeTracker:
 
                 # ── Skip cursor movement during blinks ──
                 if is_blink:
+                    if self.fixation_detector is not None:
+                        self._emit_fixation_events(self.fixation_detector.update(
+                            time.time(),
+                            self.smoothed_x or 0,
+                            self.smoothed_y or 0,
+                            blink=True,
+                        ))
                     self._emit({
                         "x": round(self.smoothed_x) if self.smoothed_x else 0,
                         "y": round(self.smoothed_y) if self.smoothed_y else 0,
@@ -1824,6 +1917,12 @@ class EyeTracker:
                     "both_eyes": both_eyes,
                     "ear": round(ear, 3),
                 })
+
+                # ── Fixation / saccade classification (I-VT) ──
+                if self.fixation_detector is not None:
+                    self._emit_fixation_events(self.fixation_detector.update(
+                        time.time(), smooth_x, smooth_y, blink=False,
+                    ))
 
         finally:
             face_mesh.close()
@@ -2009,6 +2108,20 @@ def main():
                         help="1€ filter velocity-cutoff gain. Higher = more responsive during saccades (default 0.007).")
     parser.add_argument("--deadzone_px", type=float, default=4.0,
                         help="Dead-zone radius in screen px — cursor holds until smoothed target moves more than this (default 4).")
+    parser.add_argument("--fixation_velocity_threshold", type=float, default=120.0,
+                        help="I-VT saccade velocity threshold (px/s). Gaze faster than this is a saccade.")
+    parser.add_argument("--fixation_min_duration", type=float, default=0.10,
+                        help="Minimum fixation duration (s) before a fixation is reported.")
+    parser.add_argument("--fixation_dispersion", type=float, default=40.0,
+                        help="Maximum spatial dispersion (px) of a fixation window.")
+    parser.add_argument("--viewing_distance_mm", type=float, default=600.0,
+                        help="Assumed user→screen distance (mm) for degrees-of-angle accuracy.")
+    parser.add_argument("--screen_width_mm", type=float, default=None,
+                        help="Physical screen width (mm) for degrees-of-angle accuracy.")
+    parser.add_argument("--screen_height_mm", type=float, default=None,
+                        help="Physical screen height (mm) for degrees-of-angle accuracy.")
+    parser.add_argument("--lead_ms", type=float, default=0,
+                        help="Velocity-lead compensation (ms). 0 = off. Compensates 1€ filter lag so the cursor feels glued to the eye.")
     parser.add_argument("--ir_mode", action="store_true",
                         help="Treat the camera as a grayscale IR camera (Windows Hello / UVC IR). "
                              "Applies CLAHE contrast boost and relaxes face-mesh thresholds.")
@@ -2048,6 +2161,13 @@ def main():
         hires_iris=args.hires_iris,
         capture_width=args.capture_width,
         capture_height=args.capture_height,
+        fixation_velocity_threshold=args.fixation_velocity_threshold,
+        fixation_min_duration=args.fixation_min_duration,
+        fixation_dispersion=args.fixation_dispersion,
+        viewing_distance_mm=args.viewing_distance_mm,
+        screen_width_mm=args.screen_width_mm,
+        screen_height_mm=args.screen_height_mm,
+        lead_ms=args.lead_ms,
     )
     # Override 1€ filter + dead-zone knobs from CLI
     tracker.oe_min_cutoff = args.oe_min_cutoff

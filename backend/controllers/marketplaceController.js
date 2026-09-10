@@ -517,22 +517,32 @@ const flagMarketSkill = asyncHandler(async (req, res) => {
     if (!meta) { res.status(404); throw new Error('Marketplace skill not found'); }
 
     const nowIso = new Date().toISOString();
+    // One flag per user per skill: repeat flags update the reason/timestamp but
+    // do NOT inflate the counter, so a single user cannot spam flags to tank a
+    // competitor's ranking (flagCount feeds the trust-score penalty).
+    const flagId = `csimple_market_${marketId}_flag_${req.user.id}`;
+    const existingFlag = await getItem(flagId);
+
     await dynamodb.send(new PutCommand({
         TableName: TABLE_NAME,
         Item: {
-            id: `csimple_market_${marketId}_flag_${req.user.id}_${Date.now()}`,
+            id: flagId,
             createdAt: MARKET_CREATED_AT,
             marketId, flaggedBy: req.user.id, reason: reason || null, flaggedAt: nowIso,
         },
     }));
 
-    const { Attributes: updatedMeta } = await dynamodb.send(new UpdateCommand({
-        TableName: TABLE_NAME,
-        Key: { id: metaId(marketId), createdAt: MARKET_CREATED_AT },
-        UpdateExpression: 'ADD flagCount :one SET updatedAt = :now',
-        ExpressionAttributeValues: { ':one': 1, ':now': nowIso },
-        ReturnValues: 'ALL_NEW',
-    }));
+    let updatedMeta = meta;
+    if (!existingFlag) {
+        const { Attributes } = await dynamodb.send(new UpdateCommand({
+            TableName: TABLE_NAME,
+            Key: { id: metaId(marketId), createdAt: MARKET_CREATED_AT },
+            UpdateExpression: 'ADD flagCount :one SET updatedAt = :now',
+            ExpressionAttributeValues: { ':one': 1, ':now': nowIso },
+            ReturnValues: 'ALL_NEW',
+        }));
+        updatedMeta = Attributes;
+    }
 
     res.status(200).json({ ok: true, flagCount: updatedMeta.flagCount });
 });

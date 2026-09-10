@@ -1093,6 +1093,23 @@
       </div>
       <div class="row">
         <div>
+          <div class="name">Dwell Click</div>
+          <div class="desc">Hold your gaze on a point and it clicks for you — hands-free. Works while tracking is Enabled (the cursor already follows your gaze).</div>
+        </div>
+        <div class="actions">
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
+            <input type="checkbox" id="eye-toggle-dwell" />
+            Enabled
+          </label>
+          <label style="display:flex; align-items:center; gap:6px; font-size:12px;">
+            Dwell
+            <input type="range" id="eye-dwell-ms" min="300" max="1500" step="50" style="width:120px;">
+            <span id="eye-dwell-ms-label" style="min-width:52px;">600ms</span>
+          </label>
+        </div>
+      </div>
+      <div class="row">
+        <div>
           <div class="name">Adaptation</div>
           <div class="desc">The gaze model auto-refines from overlay usage. Undo a bad sample or reset back to your calibrated baseline.</div>
           <div class="desc" id="eye-adaptation-status" style="display:none; color:var(--muted);"></div>
@@ -3663,7 +3680,9 @@ async function refreshEyeTrackingStatus() {
     const detailEl = document.getElementById('eye-state-detail');
     if (s.state === 'running') {
       const cap = s.duration > 0 ? ` · ${s.duration}s max` : '';
-      detailEl.textContent = `Tracking for ${s.elapsed}s${cap} · camera ${s.cameraIndex}`;
+      const q = s.quality;
+      const qStr = q ? ` · ${q.fps}fps · conf ${(q.meanConfidence ?? 0).toFixed(2)} · ${q.fixations ?? 0} fixations` : '';
+      detailEl.textContent = `Tracking for ${s.elapsed}s${cap} · camera ${s.cameraIndex}${qStr}`;
       detailEl.style.display = '';
     } else {
       detailEl.style.display = 'none';
@@ -3803,6 +3822,31 @@ document.getElementById('eye-toggle-overlay').addEventListener('change', async (
   }
   await refreshEyeTrackingStatus();
 });
+
+// ── Dwell-to-click settings ──
+async function loadEyeSettings() {
+  try {
+    const s = await window.simpleDashboard.getEyeSettings();
+    const dwellToggle = document.getElementById('eye-toggle-dwell');
+    const dwellSlider = document.getElementById('eye-dwell-ms');
+    dwellToggle.checked = !!s.dwellClickEnabled;
+    dwellSlider.value = (typeof s.dwellMs === 'number' ? s.dwellMs : 600);
+    document.getElementById('eye-dwell-ms-label').textContent = `${dwellSlider.value}ms`;
+  } catch (e) {
+    console.error('Failed to load eye settings:', e);
+  }
+}
+document.getElementById('eye-toggle-dwell').addEventListener('change', async (e) => {
+  const res = await window.simpleDashboard.setEyeSettings({ dwellClickEnabled: e.target.checked });
+  if (res && res.ok === false) { alert(res.error || 'Failed to save dwell setting.'); e.target.checked = !e.target.checked; }
+});
+document.getElementById('eye-dwell-ms').addEventListener('input', (e) => {
+  document.getElementById('eye-dwell-ms-label').textContent = `${e.target.value}ms`;
+});
+document.getElementById('eye-dwell-ms').addEventListener('change', (e) => {
+  window.simpleDashboard.setEyeSettings({ dwellMs: parseInt(e.target.value, 10) || 600 });
+});
+loadEyeSettings();
 
 document.getElementById('eye-emergency-stop').addEventListener('click', async () => {
   await window.simpleDashboard.emergencyStopEyeTracking();

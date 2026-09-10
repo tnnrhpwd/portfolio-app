@@ -11,6 +11,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const readline = require('readline');
+const { GazeClick } = require('./gaze-click');
 
 // Resolve scripts path (packaged vs dev)
 function resolveScriptsPath() {
@@ -45,6 +46,9 @@ class EyeTrackingManager extends EventEmitter {
     this.onModelUpdated = null; // callback when online refit succeeds
     this._onlineSamples = 0;     // online-training samples added this session
     this._lastModelUpdate = null; // timestamp of the last successful refit
+    this.gazeClick = new GazeClick({ enabled: false });
+    this.onGazeClick = null;     // callback(payload) when a dwell click completes
+    this._quality = null;        // live tracking-quality accumulator
   }
 
   /**
@@ -130,14 +134,25 @@ using System.Runtime.InteropServices;
 public class CursorHelper {
     [DllImport("user32.dll")]
     public static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")]
+    public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, UIntPtr dwExtraInfo);
 }
 "@
 while ($true) {
     $line = [Console]::ReadLine()
     if ($line -eq 'quit') { break }
-    $parts = $line.Split(',')
-    if ($parts.Length -eq 2) {
-        [CursorHelper]::SetCursorPos([int]$parts[0], [int]$parts[1])
+    if ($line.StartsWith('click:')) {
+        $coords = $line.Substring(6).Split(',')
+        if ($coords.Length -eq 2) {
+            [CursorHelper]::SetCursorPos([int]$coords[0], [int]$coords[1])
+            [CursorHelper]::mouse_event(2, 0, 0, 0, [UIntPtr]::Zero)
+            [CursorHelper]::mouse_event(4, 0, 0, 0, [UIntPtr]::Zero)
+        }
+    } else {
+        $parts = $line.Split(',')
+        if ($parts.Length -eq 2) {
+            [CursorHelper]::SetCursorPos([int]$parts[0], [int]$parts[1])
+        }
     }
 }
 `.trim();
@@ -168,6 +183,61 @@ while ($true) {
     // Windows display with scaling enabled (125%/150%).
     const s = this._screenScaleFactor || 1;
     this.cursorProcess.stdin.write(`${Math.round(x * s)},${Math.round(y * s)}\n`);
+  }
+
+  /**
+   * Perform a left click at a screen position via the persistent PS process.
+   * Coordinates are DIPs; scaled to physical pixels like _moveCursor.
+   */
+  _click(x, y) {
+    if (!this.cursorProcess || !this.cursorProcess.stdin.writable) return;
+    const s = this._screenScaleFactor || 1;
+    this.cursorProcess.stdin.write(`click:${Math.round(x * s)},${Math.round(y * s)}\n`);
+  }
+
+  /**
+   * Accumulate live tracking-quality metrics and drive dwell-to-click.
+   */
+  _ingestGaze(data, { suppressCursor, confidenceThreshold }) {
+    if (!this._quality) {
+      this._quality = { frames: 0, confSum: 0, blinks: 0, fixations: 0, faceLost: 0, startedAt: Date.now() };
+    }
+    const q = this._quality;
+    q.frames += 1;
+    q.confSum += (typeof data.confidence === 'number' ? data.confidence : 0);
+    if (data.blink === true) q.blinks += 1;
+    if (data.held === true) q.faceLost += 1;
+
+    if (!suppressCursor && this.gazeClick && this.gazeClick.enabled) {
+      const payload = this.gazeClick.feed(data.x, data.y, Date.now(), {
+        blink: data.blink === true,
+        confidence: data.confidence,
+        confidenceThreshold,
+      });
+      if (payload) {
+        this.emit('gaze-click', payload);
+        if (this.onGazeClick) { try { this.onGazeClick(payload); } catch {} }
+        this._click(payload.x, payload.y);
+      }
+    }
+  }
+
+  _ingestFixation(data) {
+    if (!this._quality) return;
+    if (data.fixation_start) this._quality.fixations += 1;
+  }
+
+  _computeQuality() {
+    if (!this._quality) return null;
+    const q = this._quality;
+    const elapsed = Math.max(0.001, (Date.now() - q.startedAt) / 1000);
+    return {
+      fps: Math.round((q.frames / elapsed) * 10) / 10,
+      meanConfidence: q.frames > 0 ? Math.round((q.confSum / q.frames) * 1000) / 1000 : null,
+      blinks: q.blinks,
+      fixations: q.fixations,
+      faceLostFrames: q.faceLost,
+    };
   }
 
   /**
@@ -273,6 +343,15 @@ while ($true) {
     let oeMinCutoff = 0.8;
     let oeBeta = 0.007;
     let deadzonePx = 4.0;
+    let fixationVelocityThreshold = 120;
+    let fixationMinDuration = 0.10;
+    let fixationDispersion = 40;
+    let viewingDistanceMm = 600;
+    let dwellClickEnabled = false;
+    let dwellMs = 600;
+    let dwellRadiusPx = 28;
+    let dwellCooldownMs = 900;
+    let leadMs = 0;
     try {
       const settingsPath = path.join(resourcesPath, 'settings.json');
       if (fs.existsSync(settingsPath)) {
@@ -283,6 +362,15 @@ while ($true) {
           oeMinCutoff = settings.eyeTracking.oneEuroMinCutoff ?? oeMinCutoff;
           oeBeta = settings.eyeTracking.oneEuroBeta ?? oeBeta;
           deadzonePx = settings.eyeTracking.deadzonePx ?? deadzonePx;
+          fixationVelocityThreshold = settings.eyeTracking.fixationVelocityThreshold ?? fixationVelocityThreshold;
+          fixationMinDuration = settings.eyeTracking.fixationMinDuration ?? fixationMinDuration;
+          fixationDispersion = settings.eyeTracking.fixationDispersion ?? fixationDispersion;
+          viewingDistanceMm = settings.eyeTracking.viewingDistanceMm ?? viewingDistanceMm;
+          dwellClickEnabled = settings.eyeTracking.dwellClickEnabled ?? dwellClickEnabled;
+          dwellMs = settings.eyeTracking.dwellMs ?? dwellMs;
+          dwellRadiusPx = settings.eyeTracking.dwellRadiusPx ?? dwellRadiusPx;
+          dwellCooldownMs = settings.eyeTracking.dwellCooldownMs ?? dwellCooldownMs;
+          leadMs = settings.eyeTracking.leadMs ?? leadMs;
         }
       }
     } catch {}
@@ -292,6 +380,11 @@ while ($true) {
     if (typeof options.deadzonePx === 'number') deadzonePx = options.deadzonePx;
     if (typeof options.confidenceThreshold === 'number') confidence = options.confidenceThreshold;
     if (typeof options.smoothingAlpha === 'number') smoothing = options.smoothingAlpha;
+    if (typeof options.dwellMs === 'number') dwellMs = options.dwellMs;
+    if (typeof options.dwellRadiusPx === 'number') dwellRadiusPx = options.dwellRadiusPx;
+    if (typeof options.dwellCooldownMs === 'number') dwellCooldownMs = options.dwellCooldownMs;
+    if (options.dwellClickEnabled !== undefined) dwellClickEnabled = !!options.dwellClickEnabled;
+    if (typeof options.leadMs === 'number') leadMs = options.leadMs;
 
     // Camera pipeline options (IR, processing/capture resolution, hires iris)
     const camOpts = this._resolveCameraOptions(options);
@@ -312,11 +405,24 @@ while ($true) {
       '--oe_min_cutoff', String(oeMinCutoff),
       '--oe_beta', String(oeBeta),
       '--deadzone_px', String(deadzonePx),
+      '--fixation_velocity_threshold', String(fixationVelocityThreshold),
+      '--fixation_min_duration', String(fixationMinDuration),
+      '--fixation_dispersion', String(fixationDispersion),
+      '--viewing_distance_mm', String(viewingDistanceMm),
+      '--lead_ms', String(leadMs),
     ];
     if (camOpts.irMode) args.push('--ir_mode');
     if (camOpts.hiresIris) args.push('--hires_iris');
     if (camOpts.captureWidth > 0) args.push('--capture_width', String(camOpts.captureWidth));
     if (camOpts.captureHeight > 0) args.push('--capture_height', String(camOpts.captureHeight));
+
+    // Configure dwell-to-click + reset live quality metrics for this session.
+    this.gazeClick.dwellMs = dwellMs;
+    this.gazeClick.radiusPx = dwellRadiusPx;
+    this.gazeClick.cooldownMs = dwellCooldownMs;
+    this.gazeClick.enabled = !!dwellClickEnabled;
+    this.gazeClick.reset();
+    this._quality = { frames: 0, confSum: 0, blinks: 0, fixations: 0, faceLost: 0, startedAt: Date.now() };
 
     return new Promise((resolve) => {
       try {
@@ -368,6 +474,15 @@ while ($true) {
               if (!suppressCursor && !isBlink && data.confidence >= confidence) {
                 this._moveCursor(data.x, data.y);
               }
+              this._ingestGaze(data, { suppressCursor, confidenceThreshold: confidence });
+            }
+
+            // Fixation / saccade events (I-VT). Emit as a distinct event so the
+            // perception bus + dashboard can react to dwell targets without
+            // re-parsing the raw gaze stream.
+            if (data.fixation_start || data.fixation_end) {
+              this.emit('fixation', data);
+              this._ingestFixation(data);
             }
           } catch {}
         });
@@ -448,6 +563,7 @@ while ($true) {
     this.overlayMode = false;
     this.onGazeData = null;
     this.onModelUpdated = null;
+    this._quality = null;
     this._setState('idle');
     console.log('[EyeTracking] Stopped');
     return { success: true };
@@ -738,6 +854,8 @@ while ($true) {
         modelType: prior.modelType || (prior.gazeModel ? 'poly2' : 'homography'),
         meanResidualPx: typeof prior.meanResidualPx === 'number' ? prior.meanResidualPx : null,
         maxResidualPx: typeof prior.maxResidualPx === 'number' ? prior.maxResidualPx : null,
+        accuracyDeg: typeof prior.accuracyDeg === 'number' ? prior.accuracyDeg : null,
+        quality: prior.quality || null,
         pointCount: usable,
         screenResolution: prior.screenResolution || null,
       };
@@ -766,6 +884,7 @@ while ($true) {
       lastError: this.lastError,
       onlineSamples: this._onlineSamples,
       lastModelUpdate: this._lastModelUpdate,
+      quality: this._computeQuality(),
     };
   }
 
