@@ -238,9 +238,11 @@ function safePath(filename, baseDir) {
     .replace(/[/\\]/g, '')        // directory separators
     .trim();
   if (!cleaned || cleaned.length === 0 || cleaned.length > 255) return null;
-  const resolved = path.resolve(baseDir, cleaned);
-  // Ensure the resolved path is still within baseDir
-  if (!resolved.startsWith(path.resolve(baseDir))) return null;
+  const base = path.resolve(baseDir);
+  const resolved = path.resolve(base, cleaned);
+  // Boundary-aware containment check: reject sibling paths that merely share
+  // a string prefix (e.g. /base vs /base-evil).
+  if (resolved !== base && !resolved.startsWith(base + path.sep)) return null;
   return resolved;
 }
 
@@ -550,7 +552,11 @@ const avatarStorage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
-    const agentId = req.params.agentId || Date.now().toString();
+    // agentId comes straight from the `:agentId` URL segment and is spliced
+    // into the on-disk filename — sanitize it to a safe token so it can't
+    // smuggle path separators or `..` into the path (path traversal).
+    let agentId = String(req.params.agentId || '').replace(/[^A-Za-z0-9_-]/g, '');
+    if (!agentId) agentId = Date.now().toString();
     cb(null, `${agentId}${ext}`);
   },
 });
@@ -1932,6 +1938,13 @@ app.get('/api/workspace/preview/:filename', (req, res) => {
     '.pdf': 'application/pdf',
   };
   const contentType = MIME_MAP[ext] || 'text/plain';
+  // Security: these files are user-writable and are served from the SAME
+  // origin (127.0.0.1) as the privileged automation API. Without a sandbox, a
+  // stored .html/.svg/.js page could call /api/chat etc. (which executes
+  // tools) from an allowed origin. `sandbox` + nosniff disable script
+  // execution while still letting images/PDF/text preview normally.
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
   res.setHeader('Content-Type', contentType);
   res.sendFile(filePath);
 });

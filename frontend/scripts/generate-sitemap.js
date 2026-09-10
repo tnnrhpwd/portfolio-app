@@ -31,6 +31,7 @@ const ROUTES = [
   { path: '/fluid', priority: 0.6, changefreq: 'monthly' },
   { path: '/projects', priority: 0.8, changefreq: 'monthly' },
   { path: '/halfway', priority: 0.5, changefreq: 'monthly' },
+  { path: '/sit', priority: 0.6, changefreq: 'monthly' },
   { path: '/iq', priority: 0.6, changefreq: 'monthly' },
   { path: '/passgen', priority: 0.5, changefreq: 'monthly' },
   { path: '/sleepassist', priority: 0.5, changefreq: 'monthly' },

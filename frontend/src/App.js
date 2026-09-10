@@ -58,6 +58,7 @@ const Pricing = lazy(() => import('./pages/Pricing/Pricing.jsx'));
 const Profile = lazy(() => import('./pages/Profile/Profile.jsx'));
 const Register = lazy(() => import('./pages/Register/Register.jsx'));
 const Settings = lazy(() => import('./pages/Settings/Settings.jsx'));
+const Sit = lazy(() => import('./pages/Sit/Sit.jsx'));
 const Support = lazy(() => import('./pages/Support/Support.jsx'));
 const Privacy = lazy(() => import('./pages/Privacy/Privacy.jsx'));
 const Terms = lazy(() => import('./pages/Terms/Terms.jsx'));
@@ -152,6 +153,7 @@ function App() {
               <Route path='/profile' element={<Profile />} />
               <Route path='/register' element={<Register />} />
               <Route path='/reset-password' element={<ResetPassword />} />
+              <Route path='/sit' element={<Sit />} />
               <Route path='/settings' element={<Settings />} />
               <Route path="/sleepassist" element={<SleepAssist/>} />
               <Route path="/sonic" element={<Sonic/>} />

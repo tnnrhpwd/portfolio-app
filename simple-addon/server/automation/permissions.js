@@ -56,15 +56,32 @@ const DEFAULTS = {
         '^Measure-Object',
     ],
     // PowerShell command deny-list (regex strings). Always blocked, no prompt.
+    // Mirrors the strongest patterns from security-guard.js so the shell tool
+    // cannot be used to bootstrap remote code execution even when a caller
+    // bypasses the approval prompt (e.g. a cloud-relay chat command running
+    // with userInitiated=true).
     shellDenyPatterns: [
         'Remove-Item\\s+.*-Recurse',
         'Format-Volume',
         'Format-',
         'reg\\s+delete',
+        'reg\\s+add\\s+hklm',
         'shutdown\\b',
         'rd\\s+/s',
         'rmdir\\s+/s',
         'del\\s+/f',
+        'Invoke-Expression',
+        '\\biex\\b',
+        'New-Object\\s+Net\\.WebClient',
+        'DownloadString\\s*\\(',
+        'DownloadFile\\s*\\(',
+        '\\[Convert\\]::FromBase64String',
+        '-enc(?:odedcommand)?\\s+[A-Za-z0-9+/=]{20,}',
+        'Set-MpPreference\\s+.*-Disable',
+        'netsh\\s+advfirewall',
+        'Stop-Service\\s+.*(?:WinDefend|MpSvc|wscsvc|BFE|mpssvc)',
+        '\\bbcdedit\\b',
+        '\\bdiskpart\\b',
     ],
     // Filesystem write/read sandbox roots (absolute paths). Empty = home dir only.
     fsRoots: [],
@@ -124,7 +141,20 @@ function load() {
         const p = configPath();
         if (fs.existsSync(p)) {
             const raw = JSON.parse(fs.readFileSync(p, 'utf-8'));
-            _cache = { ...DEFAULTS, ...raw, categories: { ...DEFAULTS.categories, ...(raw.categories || {}) }, tools: { ...(raw.tools || {}) } };
+            // Security: always union the built-in shell deny-list with any
+            // user-configured patterns, so hardening shipped in an update can
+            // never be silently removed by an older saved permissions file.
+            const shellDenyPatterns = Array.from(new Set([
+                ...(DEFAULTS.shellDenyPatterns || []),
+                ...(raw.shellDenyPatterns || []),
+            ]));
+            _cache = {
+                ...DEFAULTS,
+                ...raw,
+                categories: { ...DEFAULTS.categories, ...(raw.categories || {}) },
+                tools: { ...(raw.tools || {}) },
+                shellDenyPatterns,
+            };
         } else {
             _cache = { ...DEFAULTS };
         }

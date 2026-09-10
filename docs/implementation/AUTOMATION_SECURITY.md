@@ -5,7 +5,11 @@ This document captures the security model for the Simple automation layer
 It is meant as a living reference for any change that touches a tool, the
 permission store, the bind host, or the audit pipeline.
 
-Last review: Phase 1 of the [roadmap](simple-agent-prompt.md#10-roadmap--backlog).
+Last review: 2026-09-10 security review — fixed symlink escape, `cmd /c`
+injection, path-boundary checks, avatar upload traversal, shell deny-list
+hardening, the preview stored-XSS bridge, and marketplace-skill nested-tool
+approval; documented the cloud-relay remote-control chain and the marketplace
+malicious-skill surface below.
 
 ---
 
@@ -22,10 +26,10 @@ Last review: Phase 1 of the [roadmap](simple-agent-prompt.md#10-roadmap--backlog
    │           │                                     │  ┌──────┐  │ │
    │           │ HTTPS                               │  │Tools │  │ │
    │           ▼                                     │  └──────┘  │ │
-   │  ┌────────────────┐    HTTPS (Render)           └─────┬──────┘ │
-   │  │ portfolio-backend │◄────── relay/audit ───────────┘        │
-   │  │  (Express, DDB) │                                          │
-   │  └────────────────┘                                           │
+   │  ┌───────────────────┐    HTTPS (Render)        └─────┬──────┘ │
+   │  │ portfolio-backend │◄────── relay/audit ────────────┘        │
+   │  │  (Express, DDB)   │                                         │
+   │  └───────────────────┘                                         │
    └────────────────────────────────────────────────────────────────┘
 ```
 
@@ -33,7 +37,7 @@ Last review: Phase 1 of the [roadmap](simple-agent-prompt.md#10-roadmap--backlog
 |---|---|---|
 | Frontend ↔ Addon | both | `fetch('http://127.0.0.1:3001/...')` — local-only by default. CORS allowlists `localhost`/`127.0.0.1`. |
 | Frontend ↔ Backend | both | JWT bearer auth, HTTPS only in prod. |
-| Addon ↔ Backend | both | JWT forwarded from the frontend via `/api/cloud/auth`; addon stores it **in memory only**. |
+| Addon ↔ Backend | both | JWT forwarded from the frontend via `/api/cloud/auth`; kept in memory AND persisted DPAPI-encrypted to `settings.json` (`data.cloudAuth.token`), restored on launch. |
 | Addon ↔ OS | tools | Mediated by the permission gate — every shell/fs/UI call must pass `requestApproval()` first. |
 | LAN device ↔ Addon | optional | Disabled by default; user must flip `hostBinding` to `lan` in the Permission Center and accept the warning. |
 
@@ -72,9 +76,9 @@ under DPAPI and in process memory only when actively used.
 
 | Secret | Lives where | Protection |
 |---|---|---|
-| User JWT (cloud relay) | Process memory only | Cleared on app exit; re-injected each session via `/api/cloud/auth`. |
+| User JWT (cloud relay) | Process memory + `settings.json` (`data.cloudAuth.token`) | DPAPI-wrapped (`dpapi:v1:`) at rest; restored on launch; cleared on 401. **Treat as the master key for the PC** (§7). |
 | Backend-issued API tokens (OpenAI, etc.) | Backend DynamoDB | AES-256-GCM via `backend/utils/secretCrypto.js`, prefix `enc:v1:`. |
-| `githubToken` (local settings) | Addon `userData/settings.json` | Wrapped via Electron `safeStorage` (Windows DPAPI), prefix `dpapi:v1:`. |
+| `githubToken` (local settings) | n/a — retired | GitHub Models support removed; `SENSITIVE_WEBAPP_KEYS` is now empty. Generic DPAPI helpers remain for future secrets. |
 | Permission config | Addon `userData/automation-permissions.json` | Plaintext — contains no secrets, only enums/patterns. |
 | Audit log (local) | Addon `userData/logs/` | Plaintext JSONL. Treat as sensitive. |
 | Audit log (cloud) | Backend workspace `action` kind | JWT-scoped; only readable by the issuing user. |
@@ -145,25 +149,54 @@ which combines:
   alongside other workspace data. They obey the same per-user JWT scoping —
   no cross-user skill visibility.
 - `skill_run` is categorized as `system` — same as `uia_invoke` and the input
-  tools it dispatches under the hood. Each underlying tool still goes through
-  the permission gate, so a skill that tries to invoke `shell_run` will still
-  prompt for approval at run time even though `skill_run` itself was allowed.
+  tools it dispatches under the hood. For skills the user recorded themselves,
+  nested steps inherit `userInitiated` and fast-track `ask` → `allow`. For
+  **marketplace** skills (third-party, unmoderated), nested steps do NOT
+  inherit `userInitiated` (FIXED 2026-09-10), so `shell_run`/`fs_write`/
+  destructive/`browser_eval` steps still prompt per step.
 - `click_at` (raw screen coordinates) is categorized as `system` and exists
   primarily for skill replay. Prefer `uia_invoke` (semantic) over `click_at`
   (positional) whenever possible — `click_at` will silently land on the wrong
   control if the UI layout shifts.
 
+**Marketplace skills — malicious-skill risk (investigated 2026-09-10):**
+- The marketplace has **no manual moderation queue**. Any authenticated user
+  can publish any skill (`POST /api/data/market/skills`); ranking/flags
+  deprioritize but never block (`backend/controllers/marketplaceController.js`).
+- Server-side `marketplaceScrub.js` only redacts PII/secrets (paths, tokens,
+  screenshots) — it does **not** validate that steps are safe.
+  `marketplaceCapabilities.js` only *discloses* declared-vs-actual category
+  mismatches; it does not block publishing.
+- The real safety floor is therefore execution-time and addon-side:
+  1. `marketplace-gate.js` — a capability summary must be confirmed once per
+     version before the first real run.
+  2. Low-trust skills (few installs / young) get a mandatory dry-run-first pass.
+  3. **FIXED 2026-09-10**: marketplace skills no longer inherit
+     `userInitiated` for nested steps, so `shell_run` / `fs_write` /
+     destructive / `browser_eval` steps prompt for approval at run time.
+- Residual: `safe-read` tools (e.g. `fs_read`) run without prompting, so a
+  malicious skill can still *read* files; exfiltration requires an approved
+  outbound step (shell/browser). The capability summary is the user's chance
+  to catch this — treat it as a real security prompt, not boilerplate.
+
 **Shell-specific hardening:**
 - `shellAllowPatterns` — regexes that, if matched, auto-approve `shell_run`
   even when category is `ask`.
-- `shellDenyPatterns` — regexes that always block (e.g. `Remove-Item.*-Recurse`,
-  `Format-`, `shutdown`).
+- `shellDenyPatterns` — regexes that always block. **FIXED 2026-09-10**: now
+  also blocks `Invoke-Expression`/`iex`, `Net.WebClient`, `DownloadString`/
+  `DownloadFile`, `[Convert]::FromBase64String`, `-enc` encoded commands,
+  `Set-MpPreference -Disable`, `netsh advfirewall`, `Stop-Service WinDefend/
+  MpSvc/…`, `reg add hklm`, `bcdedit`, `diskpart`. `load()` unions the built-in
+  list with saved config so an old permissions file cannot silently drop it.
 - Working directory is forced inside `fsRoots` (default = `$HOME`).
 
 **Filesystem sandbox:**
 - `fsRoots` is the allow-list of absolute path roots for `fs_read|write|list`.
 - Empty list ⇒ user's home directory only.
-- Symlink/junction traversal still needs verification (TODO Phase 4).
+- Symlink/junction traversal **FIXED 2026-09-10**: `resolveInsideSandbox`
+  resolves the full real path (existing targets) or the nearest existing
+  ancestor (writes) before containment, so a symlink inside the sandbox cannot
+  redirect reads/writes/deletes outside `fsRoots`.
 
 ---
 
@@ -222,10 +255,31 @@ direct LLM calls made from the backend itself.
 
 - JWT is acquired by the frontend (Auth: backend) and pushed to the addon via
   `POST http://127.0.0.1:3001/api/cloud/auth`.
-- Stored in `cloudRelay._token` — never persisted.
+- Kept in `cloudRelay._token` in memory AND persisted DPAPI-encrypted to
+  `settings.json` (`data.cloudAuth.token`) so the relay re-authenticates on
+  launch without re-opening the web app. Cleared on a 401.
 - Used for: workspace read/write, telemetry append, future MCP fan-out.
 - Rate-limited at the backend per Phase 1 limiters
   (read 120/min, write 60/min, action 180/min).
+
+### 7.1 Remote command execution (validated 2026-09-10)
+
+The relay is a **designed phone → backend → desktop RCE channel**. Validated
+chain: `POST /api/data/addon/command` (backend — JWT `protect`, scoped to
+`req.user.id`, no IDOR) → addon `cloud-relay.js` polls `/addon/pending` →
+executes `chat` / `agent_run` / `confirm`, each of which can drive tools /
+PowerShell. The addon performs no independent validation of the command, so
+the backend and the JWT are the entire boundary. **Whoever holds the user's
+JWT can run commands on the PC.**
+
+### 7.2 Approval-model caveat (OPEN)
+
+`/api/chat` executes LLM-selected automation tools with `userInitiated: true`
+("the user typed it"), which upgrades `ask` to `allow`. Remote `chat` commands
+arrive through the same endpoint, so remote chat executes tools — including
+`shell_run` — **without a local approval prompt**. The permission gate is not
+applied to remote-originated chat. Recommend marking relay-originated chat as
+non-user-initiated, or gating remote control behind an explicit consent.
 
 ---
 
@@ -241,20 +295,49 @@ intentional for regression testing but means:
 
 ---
 
-## 9. Known gaps / Phase 4 hardening backlog
+## 9. Known gaps / hardening backlog
 
-In rough priority order:
+**FIXED in the 2026-09-10 review** (previously on this list or found during it):
+- Symlink/junction containment in `fs_*` (§4).
+- Shell deny-list expansion (§4).
+- `cmd /c` injection for `.bat`/`.cmd` script args/filenames
+  (`action-service.executeScript`).
+- `safePath` / `_safePath` boundary-aware containment (`index.js`,
+  `action-service.js`).
+- Avatar upload path traversal (`/api/agents/:agentId/avatar`).
+- Stored-XSS bridge via `/api/workspace/preview/:filename` — now served with
+  `Content-Security-Policy: default-src 'none'; sandbox` + `X-Content-Type-Options: nosniff`.
+- Marketplace-skill nested-tool approval — marketplace skills no longer inherit
+  `userInitiated`, so their risky nested steps prompt (see §4).
 
-1. **Local auth header** — require `X-Simple-Token` from the paired frontend.
-2. **Args redaction** — strip patterns matching common secret shapes before
-   logging or appending to telemetry.
-3. **Symlink/junction containment** — resolve real paths in `fs_*` and reject
-   traversal that escapes `fsRoots`.
-4. **Shell timeout & resource cap** — hard ceiling on CPU/memory + max stdout.
-5. **HTTPS cert TOFU** — pin the local cert when binding to LAN, reject MITM.
-6. **Permission audit trail** — separate file for permission *changes* (who
+**Still open**, in rough priority order:
+
+1. **Local auth header** — require `X-Simple-Token` (per-install secret) from
+   the paired frontend so even loopback callers must authenticate. Also closes
+   the residual `Origin: null` / missing-Origin gap for simple requests.
+2. **Remote vs local chat approval** — don't treat cloud-relay `chat` commands
+   as `userInitiated` (§7.2), or gate remote control behind an explicit
+   consent toggle.
+3. **Args redaction** — strip secret-shaped values before logging/telemetry.
+4. **Auto-updater supply chain** — `autoDownload` + `autoInstallOnAppQuit` from
+   GitHub releases with no code-sign verification; a compromised GitHub account
+   = RCE on next quit. Sign Windows builds and enable signature checks.
+5. **Shell timeout & resource cap** — hard ceiling on CPU/memory + max stdout.
+6. **HTTPS cert TOFU** — pin the local cert when binding to LAN, reject MITM.
+7. **Permission audit trail** — separate file for permission *changes* (who
    added a deny pattern, when) signed by the user JWT.
-7. **Tamper-evident logs** — periodic hash-chain checkpoint pushed to cloud.
+8. **Tamper-evident logs** — periodic hash-chain checkpoint pushed to cloud.
+9. **`screen-relay.js` token/URL source** — it reads legacy top-level
+   `settings.json` `token`/`jwt`/`backendBaseUrl` instead of the shared
+   `workspace-client.getToken()` + `BACKEND_URL`; unify so a stray
+   `backendBaseUrl` field can't redirect uploads (potential SSRF/credential
+   leak). `/api/open-file` accepts arbitrary paths (Explorer select only —
+   low risk, not code execution).
+10. **Marketplace moderation** — publish is unmoderated and category
+    declarations are disclosure-only. Consider blocking (or flagging) publishes
+    whose steps include `shell_run`/`browser_eval`, and show a stronger warning
+    when `safe-read` steps would read files off-device. Residual
+    social-engineering risk remains (the capability summary is the last gate).
 
 ---
 

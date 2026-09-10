@@ -32,12 +32,13 @@ that can do the thing for you."
 ## 2. Target user & platform
 
 - **Audience:** general consumers (not just developers/power users) — onboarding and UI must not require technical knowledge.
+- **First wedge:** focus messaging/onboarding on **enthusiast/tinkerer** users first (fastest path to the first 100 paying users), then grow into **solo professionals** as the product gets more reliable. Don't market to "everyone."
 - **Platform:** Windows only for v1 (matches current addon's PowerShell/UIA/Win32 dependencies).
 - **Distribution:** desktop installer (NSIS, as today) + a lightweight companion web frontend (`sthopwood.com/net` integration pattern).
 
 ## 3. Core interaction model
 
-Two complementary flows, both need to exist and interoperate:
+Three complementary flows, all need to exist and interoperate:
 
 - **Demonstration → generalized skill**: user performs a task once (or a few
   times) while the recorder captures mouse, keyboard, focus, screen state (see
@@ -48,9 +49,43 @@ Two complementary flows, both need to exist and interoperate:
   (`server/automation/tool-registry.js`) plans and executes it directly, optionally
   invoking a matching skill (`findRelevantSkills`). The loop itself is the
   Observe → Orient → Goal → Plan → Action loop (Section 11).
+- **Proactive observation → one-tap suggestion**: the agent passively watches
+  everyday use, spots repeated patterns (`pattern-learner.js` + `predictor.js`),
+  and offers to automate them — "I noticed you sort your downloads every
+  morning. Want me to do that for you?" No recording, no scripting; the agent
+  just notices and asks. This watch-and-learn path is the product's biggest
+  differentiator from macro recorders (see [`BUSINESS_PLAN.md`](../guides/BUSINESS_PLAN.md)).
 
-These two flows feed each other: agent-loop runs are recordable, and recorded
-skills are describable/searchable so the agent can find and reuse them.
+These three flows feed each other: agent-loop runs are recordable, recorded
+skills are describable/searchable, and patterns the agent notices become new
+skills the user can confirm, edit, and share.
+
+### 3.1 The always-on assistant (four modes)
+
+The same agent runs in four escalating modes, each with its own consent and
+permission posture (§6). The promise is "a second set of eyes and hands on your
+machine" that only escalates as far as the user trusts it.
+
+| Mode | What it does | Guardrails | Trigger |
+|---|---|---|---|
+| **Watch** | Observes and reports — never acts. "Tell me when the printer dialog appears." | Read-only; notification only | User-set monitor |
+| **Suggest** | Spots repeated patterns and proposes one-tap automations ("I noticed you sort your downloads every morning — automate it?"). | Nothing runs without a click | `pattern-learner.js` confidence |
+| **Assist** | Runs a skill on demand (voice / NL / shortcut) with per-step permission, dry-run-first, and visual repair (§5.3). | Per-category/tool approval | User command |
+| **Autopilot** | Runs scheduled or trigger-driven automations unattended under the saved permission profile. | Explicit opt-in per skill + global kill switch | Schedule / event trigger |
+
+Design rule: a skill can never silently jump up a mode. Moving a skill from
+Suggest → Assist → Autopilot is always an explicit user action, never automatic.
+
+### 3.2 Why users choose Simple (differentiation)
+
+- **No scripting** — describe it or demonstrate it; the agent works out the steps
+  (AutoHotkey / Power Automate / Zapier require thinking like a programmer).
+- **Watches and learns** — proactive suggestions from observed behavior, not just
+  user-authored macros.
+- **Acts, doesn't just explain** — the chat is wired to the same agent that can
+  perform actions on the PC, unlike a generic ChatGPT-style tool.
+- **Local-first, cloud-assisted** — automation runs on the user's machine; cloud
+  is for sync + AI metering, not a dependency for running skills.
 
 ## 4. Marketplace — 🟡 mostly shipped (backend, /market frontend, and pre-run capability + dry-run-first enforcement done; eval scenario + live-DynamoDB pass remain)
 
@@ -384,6 +419,33 @@ single-demo recording in plain language with the payoff up front.
 19. **Back up what matters, automatically** — copies on a schedule.
 20. **Run your livestream like a one-person crew** — it switches scenes and saves clips.
 
+### 8.3 Growth & conversion levers — ⬜ planned (from [`BUSINESS_PLAN.md`](../guides/BUSINESS_PLAN.md))
+
+The biggest revenue lever is converting the existing Free → Pro funnel, not
+inventing new tiers. Ordered by effort/risk.
+
+**Tier 1 — do first (extends existing Stripe + usage-tracking code):**
+
+- ⬜ In-app usage meter for storage ("82 MB/100 MB used") so free users see the
+  ceiling before they hit it, plus a "you're at 90% of your daily limit —
+  upgrade or wait" banner instead of a hard block. **Never silently fail a request.**
+- ⬜ Annual billing discount — "$15/mo or $144/yr (2 months free)".
+- ⬜ One-time storage top-up packs (~$3 for +5 GB/month) for users who are 90%
+  happy on Free but occasionally need more — captures price-sensitive churn
+  without a full subscription. (Automation commands stay ungated: local runs
+  cost nothing.)
+
+**Tier 2 — validate demand first, then build:**
+
+- ⬜ One-time lifetime unlock of *one* Pro feature (e.g. "live phone viewing,
+  $39 once") for users who dislike recurring billing — survey current Pro users
+  first; skip if there's no signal.
+- ⬜ Scheduled automation — start with a local reminder ("time to run your
+  automation"), graduate to real background/remote execution only when paying
+  demand for the cheap version exists.
+- ⬜ "Supporter" tier ($3–5/mo patronage: badge, credits page, beta toggle) —
+  only pursue with real goodwill signals (support mail, reviews, community).
+
 ## 9. Non-goals for this phase
 
 - No cross-platform (Mac/Linux) support yet.
@@ -463,6 +525,27 @@ Longer-horizon capabilities, listed by the roadmap.
 - **Continuous perception bus** — unified event stream (`perception-bus.js`) fed into the agent context.
 - **Behavioral predictor** — n-gram model over action log; safe-read actions can execute speculatively (`predictor.js`).
 - **Frontend integration** — NL macro textarea, perception status, voice input, predictions panel across `SimpleAddon/*`.
+- **Proactive pattern detection** — surface repeated action patterns as one-tap
+  "automate this?" suggestions (the watch-and-learn path from §3); built on
+  `pattern-learner.js` + `predictor.js`.
+- **Watch-and-alert** — user sets a monitor ("tell me when X appears/changes");
+  the agent polls perception and notifies, acting only on confirmation.
+- **Scheduled & unattended automation** — run a skill on a schedule or trigger;
+  start with local reminders, graduate to background/remote execution only if
+  paid demand validates the infra cost (§8.3).
+- **Remember-and-repeat** — recall how a task was done before and offer to
+  repeat it (memory over the action log → reusable skills).
+- **Routines (skill composition)** — compose multiple skills into a sequence
+  with minimal control flow (if/then, repeat N×, wait-for X, on-error) so users
+  build multi-app workflows ("open spreadsheet → copy → paste into email")
+  without scripting; reuses `skill_run` + per-step `successCriteria`.
+- **Event-driven triggers (when → then)** — run a skill or routine automatically
+  when something happens (a window opens, a file lands in a folder, an app
+  launches, a time passes); built on the perception bus + predictor, every
+  trigger opt-in and permission-gated.
+- **Cloud continuity** — skills, settings, history, and consents sync across a
+  user's machines (the same workspace items already do this), so a reinstall or
+  new PC restores the agent in minutes.
 
 ## 11. The O-O-G-P-A loop (design reference)
 
@@ -571,64 +654,29 @@ The remaining checklist — check items off as they land, add new gaps as found.
 - ⬜ **Existing Pro subscribers** — tell them plainly what works and what doesn't.
 - ⬜ **Account/transactional email plumbing** — verify purchase confirmation + forgot/reset-password loop with a real account.
 - ⬜ **Single installer** — consolidate "download, trust cert, configure" into one flow if feasible.
-- ✅ **Pricing-page cleanup** — `getPlanDisplayName` fallback fixed (returns "Pro (monthly/yearly)" / "Free" instead of the redundant "Pro Membership"); `BillingDisclosure.jsx` is cadence-aware (`billingInterval` prop, threaded from `CheckoutForm.jsx`); `subscriptionCancelledTemplate` reviewed and already plan-generic (no legacy names); no dead `Simple.jsx` or `Net.jsx` plan chips remain.
-- ✅ **Home + Pricing value messaging** — Home: added an above-the-fold personal CTA ("What I can do for you" → `/pricing`, plus "Browse my work" → `/projects`) in the hero; the project catalog is already de-duplicated (curated carousel = specific projects, `WHATS_INSIDE` = category tiles, "around the site" = nav links — no literal re-listing remains). Pricing: the hero now leads with benefit copy ("Simple is an AI agent that runs on your PC…") before the plan cards. Files: `frontend/src/pages/Home/Home.jsx`, `frontend/src/pages/Pricing/Pricing.jsx`.
 
 ### 13.1 New findings (repo audit, 2026-09-09)
 
 Issues surfaced while auditing the repo beyond the original plan. Ordered by
 impact; none are Simple-core blockers, but several are user-visible or DRY/security-adjacent.
 
-- ✅ **OAuth login/linking is a stub** — confirmed there are no OAuth buttons wired anywhere (`AuthCallback.jsx` is an orphaned component with no route), and removed the `console.log` that printed the OAuth authorization `code`. Full OAuth wiring remains a product decision.
-- ✅ **AWS Textract OCR returns fabricated text** — `processWithAWSTextract` now calls the real AWS Textract `DetectDocumentText` API (the `@aws-sdk/client-textract` dependency was already installed) and returns the extracted LINE blocks instead of the mock string.
-- ✅ **Centralize the backend base URL** — `SimpleChat`/`StorageMeter`/`UsageMeter` now import `getApiBase()` from `frontend/src/config/api.js` (this also fixed an inverted prod-vs-dev URL branch that pointed production at the Render origin instead of the Netlify proxy). The addon's two `BACKEND_URL = process.env.BACKEND_URL || …` lines remain env-overridable.
-- ✅ **Email templates hardcode production URLs** — `backend/services/emailTemplates.js` now defines `const FRONTEND_URL = process.env.FRONTEND_URL || 'https://www.sthopwood.com'` and uses `${FRONTEND_URL}` for all six in-email links (account ×2, pricing ×2, net ×2), matching `passwordReset.js`.
-- ✅ **Deprecated / dead code cleanup** — `backend/services/stripeHelpers.js` deleted; `isSimpleTier` removed from all six call sites (`backend/constants/pricing.js`, `frontend/src/constants/pricing.js`, `emailTemplates.js`, `webhookService.js`, `llmService.js`, `apiUsageTracker.js` — `webhookService` now uses `isProTier`). Remaining (cosmetic, no runtime effect): the commented-out Firebase JSX in `frontend/src/pages/Projects/PollBox/NewPoll.js`.
-- ✅ **Stale compiler v2 TODO list** — `compiler.js`'s "v2 ideas (NOT implemented)" note now points parameter inference at `recorder/infer-params.js` (§5.2), and the `params: [] // v2` comment references the same.
-- ✅ **Approval prompts log full tool args to the console (PII risk)** — `simple-addon/server/automation/index.js` now logs only the arg keys (never values) on approval prompts; full args still reach the UI via the `approval.pending` event.
-- ✅ **Duplicated LLM-metering logic in `getHashData`** — extracted a shared `runBedrockTask(req, { label, inputTokens, outputTokens, generate })` helper in `backend/controllers/getHashData.js`; both `getword:` and `getdef:` branches now gate → generate → track → respond through it (same 402 body and usage-tracking log).
-- ✅ **Silently swallowed errors in `llmService`** — the stream path's `loadUserContextFromDB` now warns (matching the non-stream path), and the credits-field parse + action-log wrappers log at debug instead of silently swallowing. The remaining `catch {}` blocks are intentional JSON-parse/title fallbacks.
 - 🟡 **Plaintext secret fallback outside Electron** — `simple-addon/server/secret-storage.js` stores secrets in plaintext when `safeStorage` is unavailable (documented + one-shot warning; fine for CLI/Jest). Confirm the packaged addon always runs under Electron, and consider refusing to persist (instead of plaintext) in non-Electron contexts.
-- ✅ **Hardcoded admin user ID duplicated across the codebase** — backend now centralizes on `process.env.ADMIN_USER_ID` everywhere (`putHashData.js` literal replaced; `testFunnelController.js` fallback removed). Frontend de-duplicated into one shared `frontend/src/constants/admin.js` (`ADMIN_USER_ID` + `GIRLFRIEND_NICKNAME`), imported by `adminShared.js`, `HeaderDropper.jsx`, `DeepStorage.jsx`, `Home.jsx`, `Muse.jsx` — the scattered literals are gone.
 - 🟡 **Derive admin-ness server-side** — the backend now attaches an `isAdmin` flag to the register/login/guest responses (`postData.js`), and the frontend reads it via shared `isAdminUser()`/`isMuseVisitor()` helpers in `constants/admin.js` (`AdminLayout`/`HeaderDropper`/`DeepStorage`/`Home`/`Muse`). Remaining: the hardcoded ID + `'girlfriend'` gate still ship as a legacy fallback until every active session re-logs in — then the constants can be deleted.
-- ✅ **Committed user PII in `backend/reports/support-tickets-*.json`** — deleted the committed export and added `backend/reports/support-tickets-*.json` to `.gitignore` so future `pull-support-tickets` runs stay local. ⚠️ The file is still in git history — full removal needs a history rewrite (e.g. `git filter-repo`/BFG) + force-push.
-- ✅ **Stray refactor script** — `frontend/src/pages/Simple/Pay/refactor-script.js` deleted.
-- ✅ **`backend/scripts/diagnose-login.js` TEMP diagnostic** — deleted.
-- ✅ **Stale un-wired "custom credit limit" feature in `webhookService.js`** — removed `processCustomLimitUpdate` / `validateCustomLimit` / `verifySimpleMembership` / `processLimitIncrease` / `updateSubscriptionLimit` / `saveUserCredits` (all referenced removed `CREDITS`/`PLAN_IDS.SIMPLE`), their exports, and the now-unused imports; `webhookService.js` exports only `constructWebhookEvent` + `processWebhookEvent` with `liveStripe` + `logger`.
+- ⚠️ **Committed user PII still in git history** — `backend/reports/support-tickets-*.json` was deleted from the working tree and added to `.gitignore`, but the file is still in git history; full removal needs a history rewrite (e.g. `git filter-repo`/BFG) + force-push.
 
 ### 13.2 New findings (second audit pass, 2026-09-09)
 
-- ✅ **Stale third backend URL in `screen-relay.js`** — the GCP Cloud Run fallback was replaced with the Render backend (`https://mern-plan-web-service.onrender.com`), matching `workspace-client.js`/`cloud-relay.js`.
-- ✅ **Stale `openai/gpt-4o-mini` model ID in `planner.js`** — removed the hardcoded `modelId` so `planGoal` uses the provider seam's Bedrock default.
-- ✅ **Committed default test credentials in `testFunnelController.js`** — `TEST_EMAIL`/`TEST_PASSWORD` are now env-only (`TEST_FUNNEL_EMAIL`/`TEST_FUNNEL_PASSWORD`); the hardcoded `testfunnel@simple.test` / `TestFunnel2024!` fallbacks are gone.
-- ✅ **JWT tokens partially logged in `dataService.js`** — removed all three `Token preview: <first 50 chars>` console.logs.
-- ✅ **Swallowed errors outside `llmService`** — the two `testFunnelController.js` `catch (_) {}` blocks now `console.warn` the error; the `action-bridge.js` `fs.unlinkSync` catches are left as intentional best-effort cleanup.
 - 🟡 **Experimental `signal-bridge` predates the Bedrock-only decision** — marked ⚠️ DEPRECATED/UNWIRED in its header. Actual deletion (or re-implementation via the Bedrock proxy) is still a product decision.
-- ✅ **`dangerouslySetInnerHTML` on FAQ answers** — `HelpFaqTab.jsx` now renders answers via a small link-aware text renderer (only `<a href>` is parsed into React elements; everything else is plain text), so no raw HTML is ever injected.
 - 🟡 **Public guest account with a known password** — `backend/constants/guestAccount.js` hardcodes `guest@gmail.com` / `guest` for "Login as Guest" (and `createGuestUser.js` logs the password). A deliberate demo feature, but a shared account with a known credential should stay strictly read-only/rate-limited and excluded from paid/powerful paths.
 
 ### 13.3 New findings (third audit pass, 2026-09-09)
 
 - 🟡 **S3 upload file-type validation trusts the client MIME type** — `validateFile` now rejects known-dangerous extensions (.html/.svg/.exe/…) and mismatches between the file extension and the declared `contentType`. Full magic-byte/signature inspection still requires a post-upload verification step (uploads are client→S3 via pre-signed URL, so the server never sees the bytes).
-- ✅ **Production CSP permits `unsafe-eval` + `unsafe-inline`** — removed `unsafe-eval` from `netlify.toml` (no frontend code uses `eval`/`new Function`). `unsafe-inline` is retained for the Vite bootstrap script.
 - 🟡 **JWT persisted in `localStorage`** — `frontend/src/features/data/dataSlice.js` stores the auth token in localStorage, so any XSS could exfiltrate it. Combined with the loose CSP above, prefer an `httpOnly` session cookie (or at least tighten CSP).
-- ✅ **Stored secrets keyed to `JWT_SECRET` by default** — `secretCrypto.js` now warns at first use when `SECRETS_ENCRYPTION_KEY` is unset (making the JWT_SECRET fallback visible). Ops action: set a dedicated `SECRETS_ENCRYPTION_KEY` in Secrets Manager.
-- ✅ **Minor: a few `target="_blank"` links omit `rel="noopener noreferrer"`** — added `rel` to the Wordle Solver link; the remaining `_blank` links are either same-origin or already carry `rel` (browsers also default `_blank` to `noopener`).
-
-### 13.4 New findings (fourth audit pass, 2026-09-09)
-
-- ✅ **Committed `frontend/jest-out.txt`** — deleted and added `jest-out*.txt` to `.gitignore`.
-- ✅ **`npm audit` is non-blocking in CI** — removed `continue-on-error: true` from the three `npm audit --audit-level=high` steps, so high-severity vulnerabilities now fail the pipeline.
-- ✅ **Referer analytics persists full URLs + query strings** — `accessData.js` now stores the referer as origin+path only (query string stripped and no `RefererQuery` field written).
 
 ### 13.5 New findings (fifth audit pass, 2026-09-09)
 
 - 🟡 **HIGH — the addon's local HTTP API is unauthenticated and CORS-allows the production site + LAN origins** — hardened: `simple-addon/server/index.js` now rejects requests whose `Host` header isn't loopback/private (anti DNS-rebinding) and 403s non-allowlisted cross-site `Origin`s before any handler runs, so a drive-by `fetch('http://127.0.0.1:3001/...')` from an arbitrary site no longer executes. Remaining: the production site is still allowlisted, so a per-install random secret on every request (and tightening CORS to the Electron app's own origin) is still needed to close the allowlisted-origin path.
-
-### 13.6 New findings (sixth audit pass, 2026-09-09)
-
-- ✅ **Page-view analytics persist the full request URL (incl. query string)** — `accessData.js` now strips the query string (`req.originalUrl.split('?')[0]`) before persisting the `|URL:…` field, so reset/oauth tokens no longer reach the access log.
-- ✅ **`deleteHashData.js` creator check is broken for non-24-char user IDs** — now parses `Creator:` up to the next `|` via `/(?:^|\|)Creator:([^|]+)/`, so both legacy 24-char and new 32-char crypto-hex IDs match and those users can delete their own data again.
 
 ### 13.7 New findings (seventh audit pass, 2026-09-09)
 
@@ -637,7 +685,6 @@ impact; none are Simple-core blockers, but several are user-visible or DRY/secur
 
 ### 13.8 New findings (eighth audit pass, 2026-09-10)
 
-- ✅ **Visitor IP is client-spoofable via `X-Forwarded-For`** — `checkIP` now uses `req.ip` (which respects the `trust proxy` setting) instead of parsing the client-supplied leftmost XFF entry, so recorded visitor IPs can no longer be spoofed.
 - 🟡 **Unbounded per-request access-log writes** — `checkIP` appends a new `IP:…|Method:…|URL:…` DynamoDB record on essentially every request (authenticated or not), so the `Simple` table grows without bound and every API call costs an extra write. Consider sampling, a TTL/retention window, or a separate analytics table.
 
 ---

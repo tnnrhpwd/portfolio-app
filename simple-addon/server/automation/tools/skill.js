@@ -1050,6 +1050,16 @@ const skillRun = {
         const repairBackoffMs = Math.max(0, args.repairBackoffMs ?? 200);
         const maxCriteriaRepairs = Math.max(0, args.maxCriteriaRepairs ?? 1);
         const allowUnsupported = !!args.allowUnsupported;
+        // Security: skills installed from the marketplace are third-party and
+        // unmoderated. Do NOT propagate the caller's `userInitiated` flag to
+        // their nested tool steps — otherwise every step (including
+        // `shell_run`) would auto-approve and bypass the permission gate.
+        // Risky nested tools (shell / destructive / sandboxed-write) must
+        // still prompt. A forced dry-run is the exception: tools are no-ops.
+        const isMarketplaceSkill = !!(skill.metadata && skill.metadata.source === 'marketplace');
+        const stepCtx = (isMarketplaceSkill && !ctx.forceDryRun)
+            ? { ...ctx, userInitiated: false }
+            : ctx;
         const results = [];
         let failed = false;
         let repairsTotal = 0;
@@ -1094,7 +1104,7 @@ const skillRun = {
 
             // Control-flow steps (loops) are handled recursively, not via the registry.
             if (normalised._controlFlow) {
-                const cfResult = await _execControlFlow(normalised, { params, stepDelay, continueOnError, repairEnabled, maxRepairs, ctx, skill, focusCtx });
+                const cfResult = await _execControlFlow(normalised, { params, stepDelay, continueOnError, repairEnabled, maxRepairs, ctx: stepCtx, skill, focusCtx });
                 results.push({ index: i, ...cfResult });
                 if (!cfResult.ok) { failed = true; if (!continueOnError) break; }
                 continue;
@@ -1110,7 +1120,7 @@ const skillRun = {
                 continue;
             }
 
-            let attempt = await _execToolStep(normalised.tool, resolvedArgs, ctx);
+            let attempt = await _execToolStep(normalised.tool, resolvedArgs, stepCtx);
             const repairs = [];
 
             // LLM repair fallback: on failure, ask the model to amend args and retry.
@@ -1128,7 +1138,7 @@ const skillRun = {
                     step: normalised,
                     resolvedArgs: usedArgs,
                     error: attempt.error,
-                    ctx,
+                    ctx: stepCtx,
                 });
                 if (visual.attempted) {
                     repairs.push({
@@ -1152,7 +1162,7 @@ const skillRun = {
                 }
                 let decision = null;
                 try {
-                    decision = await repairStep({ skill, step: normalised, resolvedArgs: usedArgs, error: attempt.error, ctx });
+                    decision = await repairStep({ skill, step: normalised, resolvedArgs: usedArgs, error: attempt.error, ctx: stepCtx });
                 } catch { decision = null; }
 
                 if (!decision || decision.action !== 'retry') {
@@ -1177,7 +1187,7 @@ const skillRun = {
                 }
                 repairsTotal++;
                 usedArgs = decision.args;
-                const retried = await _execToolStep(normalised.tool, usedArgs, ctx);
+                const retried = await _execToolStep(normalised.tool, usedArgs, stepCtx);
                 if (retried.ok) {
                     events.publish('skill.repair.success', {
                         strategy: 'llm-amend',

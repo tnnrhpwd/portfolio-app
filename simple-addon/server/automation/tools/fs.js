@@ -23,10 +23,32 @@ function resolveInsideSandbox(p) {
     if (!p || typeof p !== 'string') throw new Error('path is required');
     const abs = path.resolve(p);
     const roots = allowedRoots();
-    let real;
-    try { real = fs.realpathSync(path.dirname(abs)); }
-    catch { real = path.dirname(abs); }
-    const realAbs = path.join(real, path.basename(abs));
+
+    // Resolve symlinks BEFORE validating containment. A symlinked file or
+    // directory inside the sandbox must not be able to redirect reads/writes/
+    // deletes to a target outside it.
+    let realAbs;
+    try {
+        if (fs.existsSync(abs)) {
+            // Target exists — resolve the WHOLE path (catches symlinked files
+            // and directories pointing outside the sandbox).
+            realAbs = fs.realpathSync(abs);
+        } else {
+            // Target doesn't exist yet (write/create): resolve the nearest
+            // existing ancestor, then re-append the missing tail so a symlinked
+            // parent directory can't redirect the write.
+            let ancestor = path.dirname(abs);
+            const missing = [];
+            while (ancestor !== path.dirname(ancestor) && !fs.existsSync(ancestor)) {
+                missing.unshift(path.basename(ancestor));
+                ancestor = path.dirname(ancestor);
+            }
+            realAbs = path.join(fs.realpathSync(ancestor), ...missing, path.basename(abs));
+        }
+    } catch (e) {
+        throw new Error(`path outside sandbox (unresolvable): ${abs}`);
+    }
+
     if (!roots.some(r => realAbs === r || realAbs.startsWith(r + path.sep))) {
         throw new Error(`path outside sandbox: ${realAbs}. Allowed roots: ${roots.join(', ')}`);
     }

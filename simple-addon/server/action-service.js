@@ -250,8 +250,11 @@ class ActionService {
     if (!filename || typeof filename !== 'string') return null;
     const cleaned = filename.replace(/\0/g, '').replace(/\.\./g, '').replace(/[/\\]/g, '').trim();
     if (!cleaned || cleaned.length > 255) return null;
-    const resolved = path.resolve(baseDir, cleaned);
-    if (!resolved.startsWith(path.resolve(baseDir))) return null;
+    const base = path.resolve(baseDir);
+    const resolved = path.resolve(base, cleaned);
+    // Boundary-aware containment check: reject sibling paths that merely share
+    // a string prefix (e.g. /base vs /base-evil).
+    if (resolved !== base && !resolved.startsWith(base + path.sep)) return null;
     return resolved;
   }
 
@@ -701,8 +704,27 @@ If user cancelled:
       return { success: false, error: `Unsupported script type: ${ext}. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}` };
     }
 
-    // Sanitize args — no shell injection
-    const safeArgs = args.map(a => String(a).slice(0, 1000));
+    // Sanitize args. spawn() passes argv directly for .py/.js/.ps1, so no shell
+    // parsing occurs there. .bat/.cmd run via `cmd /c`, which re-parses the
+    // whole command line — shell metacharacters in an argument (or filename)
+    // would be interpreted as command separators/redirections, so reject them.
+    const CMD_METACHARS = /[\r\n&|<>^%"]/;
+    const argList = Array.isArray(args) ? args : [];
+    const safeArgs = [];
+    for (const raw of argList) {
+      if (typeof raw !== 'string' && typeof raw !== 'number') continue;
+      const a = String(raw).slice(0, 1000);
+      if (a.includes('\0')) continue;
+      if ((ext === '.bat' || ext === '.cmd') && CMD_METACHARS.test(a)) {
+        return { success: false, error: `Batch argument contains a disallowed character: ${JSON.stringify(a)}` };
+      }
+      safeArgs.push(a);
+    }
+
+    // The batch filename itself is also spliced into a `cmd /c` command line.
+    if ((ext === '.bat' || ext === '.cmd') && CMD_METACHARS.test(filename)) {
+      return { success: false, error: 'Batch filename contains a disallowed character' };
+    }
 
     let command, commandArgs;
     switch (ext) {
@@ -721,6 +743,8 @@ If user cancelled:
       case '.bat':
       case '.cmd':
         command = 'cmd';
+        // Note: no manual quoting here — Node's own cmd.exe quoting applies.
+        // Injection is prevented upstream by the CMD_METACHARS rejection.
         commandArgs = ['/c', filePath, ...safeArgs];
         break;
     }
