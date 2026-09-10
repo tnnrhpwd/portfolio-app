@@ -84,7 +84,7 @@ jobs:
         run: npx electron-builder --win
 
       - name: Upload installer artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: simple-addon-installer
           path: |
