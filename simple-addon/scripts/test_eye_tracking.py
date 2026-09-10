@@ -201,6 +201,51 @@ class TestEyeTrackerMath(unittest.TestCase):
         resid = t._evaluate_model_residuals(model, src, dst)
         self.assertLess(resid.mean(), 1.0)
 
+    def test_poly2_fit_recovers_linear_mapping_4d(self):
+        import numpy as np
+        t = self._tracker()
+        rng = np.random.default_rng(12)
+        # 4 columns: iris_x, iris_y, head_yaw, head_pitch. Vertical screen
+        # position is driven primarily by head pitch (the clean signal the
+        # iris-offset normalization fails to provide on an ultrawide).
+        src = rng.uniform(-200, 200, size=(24, 4))
+        dst = np.empty((24, 2))
+        dst[:, 0] = src[:, 0] * 2.0 + src[:, 2] * 900.0 + 2560.0
+        dst[:, 1] = src[:, 3] * 1100.0 + 720.0
+        model = t._fit_poly2_gaze_model(src, dst, np.ones(24))
+        self.assertIsNotNone(model)
+        self.assertEqual(model['dim'], 4)
+        resid = t._evaluate_model_residuals(model, src, dst)
+        self.assertLess(resid.mean(), 1.0)
+
+    def test_apply_gaze_model_uses_pitch_for_4d(self):
+        import numpy as np
+        t = self._tracker()
+        rng = np.random.default_rng(7)
+        # Realistic per-column scales: iris ~±60 px, yaw ~±0.8 rad, pitch ~±0.3.
+        src = np.column_stack([
+            rng.uniform(-60, 60, 30),
+            rng.uniform(-60, 60, 30),
+            rng.uniform(-0.8, 0.8, 30),
+            rng.uniform(-0.3, 0.3, 30),
+        ])
+        dst = np.empty((30, 2))
+        dst[:, 0] = src[:, 0] * 2.0 + src[:, 2] * 2600.0 + 2560.0
+        dst[:, 1] = src[:, 1] * 2.0 + src[:, 3] * 3000.0 + 720.0
+        model = t._fit_poly2_gaze_model(src, dst, np.ones(len(src)))
+        self.assertIsNotNone(model)
+        t.gaze_model = model
+        t.screen_width = 5120
+        t.screen_height = 1440
+        # Same iris, same yaw; pitch increases -> predicted Y must increase.
+        _, y_lo = t._apply_gaze_model(0.0, 0.0, 0.0, -0.2)
+        _, y_hi = t._apply_gaze_model(0.0, 0.0, 0.0, 0.2)
+        self.assertGreater(y_hi - y_lo, 800.0)
+        # Same iris, same pitch; yaw increases -> predicted X must increase.
+        x_lo, _ = t._apply_gaze_model(0.0, 0.0, -0.4, 0.0)
+        x_hi, _ = t._apply_gaze_model(0.0, 0.0, 0.4, 0.0)
+        self.assertGreater(x_hi - x_lo, 1200.0)
+
     def test_adaptive_smooth_holds_under_deadzone(self):
         t = self._tracker()
         # warm up

@@ -567,12 +567,21 @@ class EyeTracker:
         return gaze_x, gaze_y, True
 
     @staticmethod
-    def _poly2_features(x, y, z=None):
-        """2nd-order feature vector: 6 terms for (x, y), 10 terms for (x, y, z)."""
+    def _poly2_features(x, y, z=None, w=None):
+        """2nd-order feature vector over 2-4 variables.
+
+        (x, y)        -> 6 terms
+        (x, y, z)     -> 10 terms
+        (x, y, z, w)  -> 15 terms (adds head pitch as the 4th feature).
+        """
         if z is None:
             return np.array([1.0, x, y, x * y, x * x, y * y], dtype=np.float64)
-        return np.array([1.0, x, y, z, x * y, x * z, y * z,
-                         x * x, y * y, z * z], dtype=np.float64)
+        if w is None:
+            return np.array([1.0, x, y, z, x * y, x * z, y * z,
+                             x * x, y * y, z * z], dtype=np.float64)
+        return np.array([1.0, x, y, z, w,
+                         x * y, x * z, x * w, y * z, y * w, z * w,
+                         x * x, y * y, z * z, w * w], dtype=np.float64)
 
     @staticmethod
     def _aggregate_point_samples(samples):
@@ -631,13 +640,15 @@ class EyeTracker:
     def _fit_poly2_gaze_model(self, src, dst, weights):
         """Fit weighted 2nd-order polynomial mapping feature → screen.
 
-        src: (N, 2) iris coords, or (N, 3) iris + head-yaw coords.
+        src: (N, 2) iris coords, (N, 3) iris + yaw, or (N, 4) iris + yaw + pitch.
         dst: (N, 2) screen coords; weights: (N,)
-        Returns dict (with 'dim' = 2 or 3) or None if fitting fails.
+        Returns dict (with 'dim' = 2, 3, or 4) or None if fitting fails.
         """
         n = src.shape[0]
         dim = int(src.shape[1])
-        if n < (9 if dim >= 3 else 6):
+        # A 4-variable quadratic has 15 coefficients — require more points so
+        # the fit doesn't overfit the small grid.
+        if n < (16 if dim >= 4 else (9 if dim >= 3 else 6)):
             return None
 
         # Normalize feature coords for numerical stability
@@ -647,9 +658,20 @@ class EyeTracker:
         x = nr[:, 0]
         y = nr[:, 1]
 
-        # Design matrix: 2nd-order features. A third column (head yaw) adds the
-        # coarse head-rotation signal that dominates gaze on an ultrawide screen.
-        if dim >= 3:
+        # Design matrix: 2nd-order features. The 3rd column (head yaw) adds the
+        # coarse horizontal head-rotation signal that dominates gaze on an
+        # ultrawide screen; the 4th column (head pitch) is the clean vertical
+        # signal — the iris's vertical offset is too small and noisy to resolve
+        # up/down gaze reliably, but head pitch tracks screenY monotonically.
+        if dim >= 4:
+            z = nr[:, 2]
+            w4 = nr[:, 3]
+            X = np.stack([
+                np.ones_like(x), x, y, z, w4,
+                x * y, x * z, x * w4, y * z, y * w4, z * w4,
+                x * x, y * y, z * z, w4 * w4,
+            ], axis=1)
+        elif dim >= 3:
             z = nr[:, 2]
             X = np.stack([
                 np.ones_like(x), x, y, z, x * y, x * z, y * z,
@@ -895,7 +917,10 @@ class EyeTracker:
         movement away from the calibration pose so accuracy doesn't degrade.
         """
         if self.gaze_model is not None and self.gaze_model.get('type') == 'poly2':
-            if self.gaze_model.get('dim') == 3:
+            dim = int(self.gaze_model.get('dim', 2))
+            if dim >= 4:
+                vals = np.array([iris_x, iris_y, yaw, pitch], dtype=np.float64)
+            elif dim == 3:
                 vals = np.array([iris_x, iris_y, yaw], dtype=np.float64)
             else:
                 vals = np.array([iris_x, iris_y], dtype=np.float64)
@@ -1289,17 +1314,17 @@ class EyeTracker:
         poses = []
 
         for a in anchors:
-            src_points.append([a['ix'], a['iy'], a.get('yaw', 0.0)])
+            src_points.append([a['ix'], a['iy'], a.get('yaw', 0.0), a.get('pitch', 0.0)])
             dst_points.append([a['sx'], a['sy']])
             weights.append(a.get('w', 1.0))
             poses.append([a.get('yaw', 0.0), a.get('pitch', 0.0)])
         for o, dw in zip(online, decayed_online_weights):
-            src_points.append([o['ix'], o['iy'], o.get('yaw', 0.0)])
+            src_points.append([o['ix'], o['iy'], o.get('yaw', 0.0), o.get('pitch', 0.0)])
             dst_points.append([o['sx'], o['sy']])
             weights.append(dw)
             poses.append([o['yaw'], o['pitch']])
 
-        src = np.array(src_points, dtype=np.float64)   # (N, 3): iris_x, iris_y, head_yaw
+        src = np.array(src_points, dtype=np.float64)   # (N, 4): iris_x, iris_y, head_yaw, head_pitch
         src2 = src[:, :2]
         dst = np.array(dst_points, dtype=np.float64)
         w = np.array(weights, dtype=np.float64)
@@ -1496,7 +1521,7 @@ class EyeTracker:
             if point.get("min_samples"):
                 weight *= 0.2
 
-            src_points.append([iris_x, iris_y, yaw])
+            src_points.append([iris_x, iris_y, yaw, pitch])
             dst_points.append(list(point["screen"]))
             weights.append(weight)
             poses.append([yaw, pitch])
@@ -1532,7 +1557,7 @@ class EyeTracker:
             if near_fresh:
                 prior_dropped_near_fresh += 1
                 continue
-            src_points.append([pp["ix"], pp["iy"], pp.get("yaw", 0.0)])
+            src_points.append([pp["ix"], pp["iy"], pp.get("yaw", 0.0), pp.get("pitch", 0.0)])
             dst_points.append([pp["sx"], pp["sy"]])
             weights.append(pp["w"] * self.prior_weight_factor)
             poses.append([pp.get("yaw", 0.0), pp.get("pitch", 0.0)])
@@ -1562,7 +1587,7 @@ class EyeTracker:
             self._emit({"error": f"Need at least 4 calibration points, got {len(src_points)}"})
             return False
 
-        src = np.array(src_points, dtype=np.float64)   # (N, 3): iris_x, iris_y, head_yaw
+        src = np.array(src_points, dtype=np.float64)   # (N, 4): iris_x, iris_y, head_yaw, head_pitch
         src2 = src[:, :2]  # iris-only, for the homography fallback
         dst = np.array(dst_points, dtype=np.float64)
         w = np.array(weights, dtype=np.float64)
