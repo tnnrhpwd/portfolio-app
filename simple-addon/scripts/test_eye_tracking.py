@@ -297,6 +297,35 @@ class TestEyeTrackerMath(unittest.TestCase):
         out = t._gate_head_correction(hc, src, poses, dst, None, H)
         self.assertIsNone(out)
 
+    def test_head_pose_yaw_is_symmetric(self):
+        # The head-yaw proxy must give equal magnitude for left vs right turns
+        # (it derives magnitude from inter-ocular foreshortening and only the
+        # sign from the nose), so an off-center camera can't compress one side.
+        t = self._tracker()
+
+        class L:
+            def __init__(self, x=0.5, y=0.5):
+                self.x = x
+                self.y = y
+                self.visibility = 1.0
+
+        def make(half_norm, nose_dx):
+            lm = [L() for _ in range(478)]
+            lm[33] = L(0.5 - half_norm, 0.5)
+            lm[133] = L(0.5 - half_norm, 0.5)
+            lm[362] = L(0.5 + half_norm, 0.5)
+            lm[263] = L(0.5 + half_norm, 0.5)
+            lm[1] = L(0.5 + nose_dx, 0.5)
+            return lm
+
+        # Establish the frontal reference inter-ocular distance.
+        t._estimate_head_pose(make(0.05, 0.0), 640, 480)
+        # 30° turn each way: IOD shrinks by cos(30°), nose shifts the sign.
+        yl = t._estimate_head_pose(make(0.05 * 0.866, +0.03), 640, 480)[0]
+        yr = t._estimate_head_pose(make(0.05 * 0.866, -0.03), 640, 480)[0]
+        self.assertGreater(abs(yl), 0.3)
+        self.assertAlmostEqual(yl, -yr, delta=0.05)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

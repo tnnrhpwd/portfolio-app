@@ -94,7 +94,7 @@ EAR_CONSEC_FRAMES = 2  # Minimum consecutive frames below threshold to count as 
 # estimates become noisy — hold the cursor (emit held=true) rather than let an
 # extreme head turn fling it off-screen. Values are dimensionless ratios of the
 # inter-ocular distance (see _estimate_head_pose); ~1.0 ≈ 45°.
-HEAD_POSE_YAW_LIMIT = 1.2
+HEAD_POSE_YAW_LIMIT = 0.9     # rad (~52°) — beyond this the iris is unreliable
 HEAD_POSE_PITCH_LIMIT = 1.0
 
 
@@ -221,10 +221,12 @@ class EyeTracker:
         self._last_emit_y = None
 
         # ── Head-pose throttling state ──
-        # solvePnP is the heaviest per-frame cost after MediaPipe; head pose
-        # changes slowly, so recompute every Nth frame and reuse the estimate.
+        # Head pose changes slowly, so recompute every Nth frame and reuse the
+        # estimate. The proxy is cheap (a few landmark arithmetic ops), but the
+        # throttle also keeps the per-frame cost flat for low-end machines.
         self._pose_frame_counter = 0
         self._pose_every_n = 3
+        self._iod_ref = None   # running-max inter-ocular distance (frontal reference)
 
         # ── Head pose correction state ──
         # Set during finish_calibration() / _load_calibration(). When non-None,
@@ -1052,18 +1054,22 @@ class EyeTracker:
         return lx, ly
 
     def _estimate_head_pose(self, landmarks, frame_width, frame_height):
-        """Robust head-pose proxy from face landmark geometry (no solvePnP).
+        """Robust, camera-position-invariant head-pose proxy (no solvePnP).
 
-        solvePnP with the generic 6-point 3D face model + approximate camera
-        intrinsics is ill-conditioned for near-frontal yaw and returned ±π
-        garbage, which made head-pose compensation unusable on a wide monitor.
-        Instead we use the nose tip's parallax relative to the eye midpoint —
-        the nose sits ~8-10 cm in front of the eyes, so it shifts laterally /
-        vertically as the head rotates. This needs only three reliably-detected
-        landmarks (nose + the two eye centers) and is scale/distance invariant.
+        Yaw MAGNITUDE comes from the inter-ocular distance (IOD): it shrinks by
+        cos(yaw) as the head turns, which is symmetric for left vs right turns
+        and independent of where the camera sits laterally. The SIGN comes from
+        the nose tip's parallax (the nose protrudes in front of the eyes, so it
+        shifts in the turn's direction). This combination is robust to a camera
+        mounted off-center — the earlier nose-only proxy compressed one side of
+        the yaw range, weakening gaze resolution on that half of the screen.
 
-        Returns (yaw, pitch) as dimensionless ratios of the inter-ocular
-        distance (≈ ±1 across the ±45° a person uses to scan a wide monitor).
+        The reference IOD (face most frontal to the camera) is tracked as a
+        running max, re-established every session, so the ratio is also
+        distance-invariant.
+
+        Returns (yaw, pitch): yaw in radians (0 frontal, ≈±0.8 at ±45°), pitch
+        as a dimensionless nose/eye vertical ratio.
         """
         nose_x = landmarks[1].x * frame_width
         nose_y = landmarks[1].y * frame_height
@@ -1077,7 +1083,14 @@ class EyeTracker:
         eye_mid_y = (l_cy + r_cy) * 0.5
         inter_ocular = max(1.0, abs(r_cx - l_cx))
 
-        head_yaw = (nose_x - eye_mid_x) / inter_ocular
+        # Reference IOD = largest seen (face most frontal to the camera).
+        if self._iod_ref is None or inter_ocular > self._iod_ref:
+            self._iod_ref = inter_ocular
+        iod_ratio = min(1.0, inter_ocular / max(self._iod_ref, 1.0))
+        yaw_mag = float(np.arccos(iod_ratio))
+        sign = 1.0 if (nose_x - eye_mid_x) >= 0.0 else -1.0
+        head_yaw = sign * yaw_mag
+
         head_pitch = (nose_y - eye_mid_y) / inter_ocular
         return float(head_yaw), float(head_pitch)
 
@@ -1100,15 +1113,22 @@ class EyeTracker:
         max_samples = point.get("max_samples") or self.cal_max_samples
 
         # ── Check gaze stability over the last 15 samples.
-        # IR cameras have noisier pixel data → looser threshold so stability can
-        # actually be reached instead of hitting max_samples every time.
+        # Horizontal is normalized by eye width; vertical is normalized by eye
+        # height (~3x smaller denominator), so the same physical jitter produces
+        # ~3x larger vertical feature values. Use per-axis thresholds so vertical
+        # stability is reachable without loosening the horizontal gate. IR cameras
+        # are noisier → looser thresholds so stability is actually reached instead
+        # of hitting max_samples every time.
         stable = False
         if n >= 15:
             recent = samples[-15:]
             xs = [s[0] for s in recent]
             ys = [s[1] for s in recent]
-            stability_thresh = 7.0 if self.ir_mode else 4.0
-            stable = bool(np.std(xs) < stability_thresh and np.std(ys) < stability_thresh)
+            if self.ir_mode:
+                thresh_x, thresh_y = 7.0, 21.0
+            else:
+                thresh_x, thresh_y = 4.0, 13.0
+            stable = bool(np.std(xs) < thresh_x and np.std(ys) < thresh_y)
 
         done = bool((n >= min_samples and stable) or n >= max_samples)
 
