@@ -1043,27 +1043,11 @@ class EyeTracker:
             for idx in HEAD_POSE_LANDMARKS
         ], dtype=np.float64)
 
-        # Camera internals. Estimate the focal length from the iris's apparent
-        # diameter (human iris ≈ 11.7 mm) and the configured viewing distance —
-        # more physically accurate than assuming focal == frame width. Falls back
-        # to frame_width when the iris isn't resolved or the estimate is absurd.
+        # Camera internals (approximate). The generic 3D face model + solvePnP
+        # is ill-conditioned for yaw on near-frontal faces; estimating the focal
+        # length from iris diameter can make the rotation estimate worse when the
+        # viewing distance doesn't match the configured value. Keep it simple.
         focal_length = frame_width
-        IRIS_DIAMETER_MM = 11.7
-        iris_diam_px = []
-        for left_idx, right_idx in ((471, 469), (476, 474)):
-            try:
-                a = landmarks[left_idx]
-                b = landmarks[right_idx]
-                d = float(np.hypot((a.x - b.x) * frame_width,
-                                   (a.y - b.y) * frame_height))
-                if d > 1.0:
-                    iris_diam_px.append(d)
-            except Exception:
-                continue
-        if iris_diam_px and self.viewing_distance_mm and self.viewing_distance_mm > 0:
-            est = (sum(iris_diam_px) / len(iris_diam_px)) * self.viewing_distance_mm / IRIS_DIAMETER_MM
-            if 0.5 * frame_width <= est <= 4.0 * frame_width:
-                focal_length = est
         center = (frame_width / 2, frame_height / 2)
         camera_matrix = np.array([
             [focal_length, 0, center[0]],
