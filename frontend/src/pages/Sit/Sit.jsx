@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import Footer from '../../components/Footer/Footer';
 import Header from '../../components/Header/Header';
@@ -132,10 +132,12 @@ function Sit() {
   const [running, setRunning] = useState(false);
   const [flash, setFlash] = useState(null);
   const [soundOn, setSoundOn] = useState(true);
+  const [keepAwake, setKeepAwake] = useState(true);
   const [durationError, setDurationError] = useState('');
   const [now, setNow] = useState(() => Date.now());
 
   const [revealRef, revealed] = useScrollReveal();
+  const wakeLockRef = useRef(null);
 
   const cycle = CYCLES[cycleId];
   const phases = cycle.phases;
@@ -146,6 +148,62 @@ function Sit() {
     const id = setInterval(() => setNow(Date.now()), 200);
     return () => clearInterval(id);
   }, [running]);
+
+  // ── Keep the screen awake while a phase is running ──────────────────
+  // Browsers throttle or discard background tabs, which would stall the
+  // countdown. The Screen Wake Lock API keeps the screen (and tab) active.
+  function acquireWakeLock() {
+    if (!keepAwake || !('wakeLock' in navigator)) return;
+    if (wakeLockRef.current) return; // already holding one
+    navigator.wakeLock
+      .request('screen')
+      .then(lock => {
+        wakeLockRef.current = lock;
+        lock.addEventListener('release', () => {
+          if (wakeLockRef.current === lock) wakeLockRef.current = null;
+        });
+      })
+      .catch(() => {
+        // Wake lock unsupported/denied or page hidden — the deadline-based
+        // clock still keeps the countdown accurate.
+      });
+  }
+
+  function releaseWakeLock() {
+    if (!wakeLockRef.current) return;
+    wakeLockRef.current.release().catch(() => {});
+    wakeLockRef.current = null;
+  }
+
+  useEffect(() => {
+    if (!running || !keepAwake) {
+      releaseWakeLock();
+      return undefined;
+    }
+    acquireWakeLock();
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        releaseWakeLock();
+        acquireWakeLock();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      releaseWakeLock();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [running, keepAwake]);
+
+  // Refresh the clock the instant the tab becomes visible again, so a
+  // throttled background tab never shows a stale countdown.
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') setNow(Date.now());
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
 
   const activeKey = activeIndex !== null ? phases[activeIndex] : null;
   const activeTotal = activeKey ? (parseMinutes(durations[activeKey]) || 0) * 60 : 0;
@@ -188,6 +246,7 @@ function Sit() {
     setPausedRemaining(null);
     setRunning(true);
     setFlash(null);
+    acquireWakeLock();
   }
 
   function pauseTimer() {
@@ -204,6 +263,7 @@ function Sit() {
     setEndAt(Date.now() + pausedRemaining * 1000);
     setRunning(true);
     setFlash(null);
+    acquireWakeLock();
   }
 
   function stopTimer() {
@@ -225,6 +285,7 @@ function Sit() {
     setEndAt(Date.now() + nextTotal * 1000);
     setPausedRemaining(null);
     setRunning(true);
+    acquireWakeLock();
     if (soundOn) playChime();
   }
 
@@ -564,6 +625,14 @@ function Sit() {
               />
               Play a chime when a phase ends
             </label>
+            <label className="sit-sound">
+              <input
+                type="checkbox"
+                checked={keepAwake}
+                onChange={event => setKeepAwake(event.target.checked)}
+              />
+              Keep the screen awake while the timer runs
+            </label>
           </section>
 
           {/* How it works */}
@@ -585,6 +654,10 @@ function Sit() {
               <li>
                 Pause, skip, or reset at any time. The chime is a gentle cue you
                 can turn off.
+              </li>
+              <li>
+                “Keep the screen awake” uses the Screen Wake Lock API so the
+                browser doesn’t throttle or discard the tab mid-countdown.
               </li>
             </ul>
           </section>
