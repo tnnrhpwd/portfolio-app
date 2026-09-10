@@ -100,7 +100,6 @@ async function planGoal(goal, { wsClient, llm, log = console.log, eventBus } = {
     try {
         const reply = await llm.chat({
             message: _buildPlannerPrompt(goal),
-            modelId: 'openai/gpt-4o-mini',
             systemPrompt: 'You are a planning assistant. Reply with ONLY a JSON object — no markdown, no commentary.',
             temperature: 0.2,
             maxLength: 600,

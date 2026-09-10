@@ -445,7 +445,6 @@ const subscribeCustomer = async (subscriptionData, token) => {
 const getUserSubscription = async (token) => {
     console.log('dataService.getUserSubscription called');
     console.log('Token provided:', !!token);
-    console.log('Token preview:', token ? token.substring(0, 50) + '...' : 'No token');
     
     const config = {
         headers: {
@@ -596,7 +595,6 @@ const getHomeTitle = async () => {
 // Get user API usage statistics
 const getUserUsage = async (token) => {
     console.log('Getting user API usage');
-    console.log('Token preview:', token ? token.substring(0, 50) + '...' : 'No token');
     
     const config = {
         headers: {
@@ -623,7 +621,6 @@ const getUserUsage = async (token) => {
 // Get user storage usage statistics
 const getUserStorage = async (token) => {
     console.log('Getting user storage usage');
-    console.log('Token preview:', token ? token.substring(0, 50) + '...' : 'No token');
     
     const config = {
         headers: {

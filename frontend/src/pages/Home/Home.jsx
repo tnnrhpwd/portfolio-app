@@ -8,6 +8,7 @@ import { getUserUsage } from '../../features/data/dataSlice.js';
 import dataService from '../../features/data/dataService.js';
 import useScrollReveal from '../../hooks/useScrollReveal.js';
 import { PROJECTS } from '../../constants/projects';
+import { isAdminUser, isMuseVisitor as isMuseVisitorAllowed } from '../../constants/admin';
 import { fetchProjectRankings } from '../../services/projectRankingsApi';
 import { ADDON_DOWNLOAD_URL } from '../../hooks/simpleAddon/useAddonDetection.js';
 
@@ -24,10 +25,6 @@ import artNet from '../../assets/art/project-net.jpg';
 import headshot from '../../assets/1788391647406.jpg';
 import './Home.css';
 
-// Same hardcoded admin id used to gate the /admin page — the girlfriend's
-// account nickname (case-insensitive) also unlocks the /muse link.
-const ADMIN_USER_ID = '6770a067c725cbceab958619';
-const GIRLFRIEND_NICKNAME = 'girlfriend';
 const FALLBACK_TITLE = "It's simple.";
 
 // Curated projects surfaced on the homepage (paths match the routes in App.js).
@@ -210,11 +207,8 @@ function Home() {
         };
     }, []);
 
-    const isMuseVisitor = !!user && (
-        (user._id && user._id.toString() === ADMIN_USER_ID)
-        || String(user.nickname || '').trim().toLowerCase() === GIRLFRIEND_NICKNAME
-    );
-    const isAdmin = !!user && user._id && user._id.toString() === ADMIN_USER_ID;
+    const isMuseVisitor = isMuseVisitorAllowed(user);
+    const isAdmin = isAdminUser(user);
 
     const [titleText, setTitleText] = useState(FALLBACK_TITLE);
 

@@ -1,6 +1,12 @@
 /**
  * Signal Bridge Service for Simple Webapp
  *
+ * ⚠️ DEPRECATED / UNWIRED: this standalone runner predates the Bedrock-only
+ * LLM-provider seam (§7.1) and defaults SIGNAL_MODEL to gpt-4o-mini. Only a
+ * config reader (`GET /api/signal/config` in `server/index.js`) is wired in;
+ * nothing in the main app invokes this service. Recommended: retire it (or
+ * re-implement through the Bedrock proxy) before it's ever shipped.
+ *
  * Bridges Signal messages to the webapp's /api/chat endpoint using signal-cli.
  * One Signal account acts as the "bot" — any messages it receives get forwarded
  * to the LLM, and responses are sent back via Signal.

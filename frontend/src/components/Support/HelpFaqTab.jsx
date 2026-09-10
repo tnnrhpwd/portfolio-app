@@ -1,6 +1,30 @@
 import React from 'react';
 
 /**
+ * Render FAQ answer text as plain text with safe <a> links. The FAQ data is
+ * static/developer-controlled, but this avoids `dangerouslySetInnerHTML`
+ * entirely so the component can never execute injected HTML.
+ */
+const FAQ_LINK_RE = /<a\s+href=['"]([^'"]+)['"]>(.*?)<\/a>/gi;
+
+function renderFaqAnswer(answer) {
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+  while ((match = FAQ_LINK_RE.exec(answer)) !== null) {
+    if (match.index > lastIndex) parts.push(answer.slice(lastIndex, match.index));
+    parts.push(
+      <a key={match.index} href={match[1]} rel="noopener noreferrer">
+        {match[2]}
+      </a>
+    );
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < answer.length) parts.push(answer.slice(lastIndex));
+  return parts;
+}
+
+/**
  * Help & FAQ Tab Component
  */
 const HelpFaqTab = ({ faqData, searchQuery, setSearchQuery, expandedFaq, handleFaqToggle }) => {
@@ -36,10 +60,9 @@ const HelpFaqTab = ({ faqData, searchQuery, setSearchQuery, expandedFaq, handleF
             </button>
             {expandedFaq === faq.id && (
               <div className="support-faq-answer">
-                <div 
-                  dangerouslySetInnerHTML={{ __html: faq.answer }}
-                  className="support-faq-answer-text"
-                />
+                <div className="support-faq-answer-text">
+                  {renderFaqAnswer(faq.answer)}
+                </div>
                 <span className="support-faq-category">Category: {faq.category}</span>
               </div>
             )}

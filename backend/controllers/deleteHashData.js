@@ -164,8 +164,11 @@ const deleteHashData = asyncHandler(async (req, res) => {
             throw new Error('Data not found.');
         }
 
-        // Extract the creator ID from the item's text attribute
-        const dataCreator = item.text.substring(item.text.indexOf("Creator:") + 8, item.text.indexOf("Creator:") + 8 + 24);
+        // Extract the creator ID from the item's text attribute, up to the next
+        // `|` delimiter — IDs vary in length (legacy 24-char ObjectIds vs new
+        // 32-char crypto hex IDs).
+        const creatorMatch = item.text.match(/(?:^|\|)Creator:([^|]+)/);
+        const dataCreator = creatorMatch ? creatorMatch[1].trim() : '';
 
         // Check for owner
         if (!dataCreator) {

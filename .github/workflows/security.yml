@@ -33,7 +33,6 @@ jobs:
 
       - name: Audit root dependencies
         run: npm audit --audit-level=high
-        continue-on-error: true
 
       - name: Install backend dependencies
         working-directory: ./backend
@@ -43,7 +42,6 @@ jobs:
       - name: Audit backend dependencies
         working-directory: ./backend
         run: npm audit --audit-level=high
-        continue-on-error: true
 
       - name: Install frontend dependencies
         working-directory: ./frontend
@@ -53,7 +51,6 @@ jobs:
       - name: Audit frontend dependencies
         working-directory: ./frontend
         run: npm audit --audit-level=high
-        continue-on-error: true
 
   secrets-scan:
     name: Secrets Detection

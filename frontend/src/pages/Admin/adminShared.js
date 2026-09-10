@@ -2,7 +2,7 @@
 
 // The only user ID allowed to open /admin/* pages (client-side gate).
 // The backend independently enforces ADMIN_USER_ID on every admin endpoint.
-export const ADMIN_USER_ID = "6770a067c725cbceab958619";
+export { ADMIN_USER_ID } from '../../constants/admin';
 
 export const fmt = (n) => Number(n).toLocaleString();
 export const pct = (n) => `${n}%`;

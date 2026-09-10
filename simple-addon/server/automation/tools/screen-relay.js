@@ -32,10 +32,10 @@ function _backendBaseUrl() {
         const cfgPath = path.join(os.homedir(), 'Documents', 'Simple', 'Resources', 'settings.json');
         if (fs.existsSync(cfgPath)) {
             const s = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
-            return s.backendBaseUrl || process.env.SIMPLE_BACKEND_URL || 'https://portfolio-app-d20bnyaitq-uc.a.run.app';
+            return s.backendBaseUrl || process.env.SIMPLE_BACKEND_URL || 'https://mern-plan-web-service.onrender.com';
         }
     } catch {}
-    return process.env.SIMPLE_BACKEND_URL || 'https://portfolio-app-d20bnyaitq-uc.a.run.app';
+    return process.env.SIMPLE_BACKEND_URL || 'https://mern-plan-web-service.onrender.com';
 }
 
 function _bearerToken() {

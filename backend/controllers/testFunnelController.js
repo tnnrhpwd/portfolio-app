@@ -32,8 +32,8 @@ const dynamodb = DynamoDBDocumentClient.from(awsClient);
 const TABLE = 'Simple';
 
 // ── Test user defaults ───────────────────────────────────────────────────
-const TEST_EMAIL    = process.env.TEST_FUNNEL_EMAIL    || 'testfunnel@simple.test';
-const TEST_PASSWORD = process.env.TEST_FUNNEL_PASSWORD || 'TestFunnel2024!';
+const TEST_EMAIL    = process.env.TEST_FUNNEL_EMAIL;
+const TEST_PASSWORD = process.env.TEST_FUNNEL_PASSWORD;
 const TEST_NICKNAME = 'Test Funnel User';
 
 // ── In-memory stores (survive server restarts = false, which is fine) ────
@@ -47,7 +47,7 @@ let testStripeId    = null;   // Stripe customer id
 // ── Helpers ──────────────────────────────────────────────────────────────
 
 function isAdmin(req) {
-  const adminId = process.env.ADMIN_USER_ID || '6770a067c725cbceab958619';
+  const adminId = process.env.ADMIN_USER_ID;
   return req.user && req.user.id === adminId;
 }
 
@@ -304,7 +304,9 @@ const getTestFunnelStatus = asyncHandler(async (req, res) => {
       Key: { id: testUserId },
     }));
     liveUser = Item || null;
-  } catch (_) {}
+  } catch (e) {
+    console.warn('[testFunnel] Could not fetch live user:', e.message);
+  }
 
   // Fetch Stripe state
   let stripeState = null;
@@ -332,7 +334,9 @@ const getTestFunnelStatus = asyncHandler(async (req, res) => {
           last4: pm.card?.last4,
         })),
       };
-    } catch (_) {}
+    } catch (e) {
+      console.warn('[testFunnel] Could not fetch Stripe state:', e.message);
+    }
   }
 
   res.json({

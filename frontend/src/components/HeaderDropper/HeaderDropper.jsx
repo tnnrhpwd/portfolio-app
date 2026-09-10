@@ -7,6 +7,7 @@ import React from 'react';
 import { logout } from '../../features/data/dataSlice';
 
 import './dropper.css'
+import { isAdminUser, isMuseVisitor as isMuseVisitorAllowed } from '../../constants/admin';
 
 
 function HeaderDropper(props) {
@@ -17,13 +18,10 @@ function HeaderDropper(props) {
   const toggleButtonRef = useRef(null);
   const insideComponentRef = useRef(null);
 
-  // Same hardcoded admin id used to gate the /admin page — the girlfriend's
-  // account nickname (case-insensitive) also unlocks the /muse link.
-  const isAdmin = !!user && user._id && user._id.toString() === '6770a067c725cbceab958619';
-  const isMuseVisitor = !!user && (
-    (user._id && user._id.toString() === '6770a067c725cbceab958619')
-    || String(user.nickname || '').trim().toLowerCase() === 'girlfriend'
-  );
+  // Admin + muse gating is cosmetic (the backend independently enforces
+  // ADMIN_USER_ID); the check prefers the server-provided isAdmin flag.
+  const isAdmin = isAdminUser(user);
+  const isMuseVisitor = isMuseVisitorAllowed(user);
 
   // Show a subtle pulse once on homepage load.
   useEffect(() => {

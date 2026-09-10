@@ -5,12 +5,8 @@ import Footer from '../../components/Footer/Footer';
 import SEO from '../../components/SEO/SEO.jsx';
 import NotFound from '../NotFound/NotFound';
 import useScrollReveal from '../../hooks/useScrollReveal';
+import { isMuseVisitor } from '../../constants/admin';
 import './Muse.css';
-
-// Same pattern used to gate /admin and /deepstorage — the girlfriend's
-// account nickname (case-insensitive) or the site owner's admin id.
-const ADMIN_USER_ID = '6770a067c725cbceab958619';
-const GIRLFRIEND_NICKNAME = 'girlfriend';
 
 // Every date below is the real moment it happened — kept here so the
 // "time together" counters and story timeline always stay accurate.
@@ -135,10 +131,7 @@ function formatMilestoneDate(date) {
 function Muse() {
   const { user } = useSelector((state) => state.data);
 
-  const isAuthorized = !!user && (
-    String(user._id) === ADMIN_USER_ID
-    || String(user.nickname || '').trim().toLowerCase() === GIRLFRIEND_NICKNAME
-  );
+  const isAuthorized = isMuseVisitor(user);
 
   const [now, setNow] = useState(() => new Date());
   const [reasonIndex, setReasonIndex] = useState(0);

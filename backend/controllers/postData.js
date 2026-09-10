@@ -209,6 +209,7 @@ const registerUser = asyncHandler(async (req, res) => {
             _id: params.Item.id,
             nickname,
             email,
+            isAdmin: params.Item.id === process.env.ADMIN_USER_ID,
             createdAt: creationDate, // Include the birth date
             token: generateToken(String(params.Item.id)),   //uses JWT secret
         });
@@ -325,6 +326,7 @@ const loginUser = asyncHandler(async (req, res) => {
                     _id: guestUser.id,
                     email: GUEST_EMAIL,
                     nickname: GUEST_NICKNAME,
+                    isAdmin: false,
                     stripe: 'guest_customer_id',
                     createdAt: guestUser.createdAt,
                     token: generateToken(String(guestUser.id)),
@@ -385,6 +387,7 @@ const loginUser = asyncHandler(async (req, res) => {
                 _id: user.id,
                 email: email,
                 nickname: userNickname,
+                isAdmin: user.id === process.env.ADMIN_USER_ID,
                 stripe: userStripe,
                 token: generateToken(String(user.id)),
             };

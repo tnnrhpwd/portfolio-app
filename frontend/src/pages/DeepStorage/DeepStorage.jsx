@@ -5,13 +5,11 @@ import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
 import ScrollableTable from '../../components/Admin/ScrollableTable.jsx';
 import deepStorageApi from '../../services/deepStorageApi';
+import { isAdminUser } from '../../constants/admin';
 import './DeepStorage.css';
 
-// Same hardcoded admin id used to gate the /admin pages (AdminLayout) — the
-// server independently enforces this via ADMIN_USER_ID, this is only used
-// to decide whether to render the "Regenerate" button.
-const ADMIN_USER_ID = '6770a067c725cbceab958619';
-
+// The server independently enforces ADMIN_USER_ID; this client-side check
+// only decides whether to render the "Regenerate" button.
 const HEADERS = [
   { key: 'displayName', label: 'Item' },
   { key: 'name', label: 'Item ID' },
@@ -52,7 +50,7 @@ function downloadCsv(rows, columns, filenamePrefix) {
 
 function DeepStorage() {
   const { user } = useSelector((state) => state.data);
-  const isAdmin = !!user && String(user._id) === ADMIN_USER_ID;
+  const isAdmin = isAdminUser(user);
 
   const [items, setItems] = useState([]);
   const [generatedAt, setGeneratedAt] = useState(null);

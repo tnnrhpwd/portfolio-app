@@ -4,7 +4,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import Header from "../../components/Header/Header.jsx";
 import Footer from "../../components/Footer/Footer.jsx";
 import { toast } from "react-toastify";
-import { ADMIN_USER_ID } from "./adminShared";
+import { isAdminUser } from "../../constants/admin";
 import "./Admin.css";
 
 // ── Navigation items for the admin sub-pages ──────────────────────────
@@ -35,7 +35,7 @@ function AdminLayout() {
       navigate("/login");
       return;
     }
-    if (String(user._id) !== ADMIN_USER_ID) {
+    if (!isAdminUser(user)) {
       toast.error("Only admin are allowed to use that URL.");
       navigate("/");
       return;

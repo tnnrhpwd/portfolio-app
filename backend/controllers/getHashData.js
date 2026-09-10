@@ -229,38 +229,21 @@ const getHashData = asyncHandler(async (req, res) => {
                 throw new Error('Invalid word length');
             }
 
-            // Check if user can make an LLM (Bedrock) word call
-            const canMakeCall = await canMakeApiCall(req.user.id, 'bedrock', {
-                model: BEDROCK_MODEL_ID,
+            const task = await runBedrockTask(req, {
+                label: 'Word',
                 inputTokens: 90,
                 outputTokens: 30,
+                generate: () => generateRandomWord(wordLength),
             });
-            if (!canMakeCall.canMake) {
-                logger.debug('LLM Word call blocked:', canMakeCall.reason);
-                return res.status(402).json({ 
-                    error: 'API usage limit reached', 
-                    reason: canMakeCall.reason,
-                    currentUsage: canMakeCall.currentUsage,
-                    limit: canMakeCall.limit,
-                    requiresUpgrade: true
-                });
+            if (!task.ok) {
+                return res.status(task.status).json(task.body);
             }
 
-            const { word: generatedWord, response } = await generateRandomWord(wordLength);
+            const generatedWord = task.result.word;
             if (!generatedWord) {
                 throw new Error('Failed to generate a random word from the LLM.');
             }
             randomWord = generatedWord;
-
-            // Track API usage
-            const usage = response?.usage || {};
-            const usageResult = await trackApiUsage(req.user.id, 'bedrock', {
-                inputTokens: usage.prompt_tokens || 0,
-                outputTokens: usage.completion_tokens || 0,
-            }, BEDROCK_MODEL_ID);
-            if (usageResult.success) {
-                logger.debug(`LLM Word usage tracked: $${usageResult.cost.toFixed(4)}, Total: $${usageResult.totalUsage.toFixed(4)}`);
-            }
 
             res.status(200).json({ word: randomWord }); // Return the random word
 
@@ -272,37 +255,18 @@ const getHashData = asyncHandler(async (req, res) => {
                 throw new Error('Invalid request query parameter - no word found');
             }
 
-            // Check if user can make an LLM (Bedrock) definition call
-            const canMakeCall = await canMakeApiCall(req.user.id, 'bedrock', {
-                model: BEDROCK_MODEL_ID,
+            const task = await runBedrockTask(req, {
+                label: 'Definition',
                 inputTokens: 120,
                 outputTokens: 120,
+                generate: () => generateDefinition(word),
             });
-            if (!canMakeCall.canMake) {
-                logger.debug('LLM Definition call blocked:', canMakeCall.reason);
-                return res.status(402).json({ 
-                    error: 'API usage limit reached', 
-                    reason: canMakeCall.reason,
-                    currentUsage: canMakeCall.currentUsage,
-                    limit: canMakeCall.limit,
-                    requiresUpgrade: true
-                });
+            if (!task.ok) {
+                return res.status(task.status).json(task.body);
             }
 
-            const { definition, response } = await generateDefinition(word);
-
-            // Track API usage
-            const usage = response?.usage || {};
-            const usageResult = await trackApiUsage(req.user.id, 'bedrock', {
-                inputTokens: usage.prompt_tokens || 0,
-                outputTokens: usage.completion_tokens || 0,
-            }, BEDROCK_MODEL_ID);
-            if (usageResult.success) {
-                logger.debug(`LLM Definition usage tracked: $${usageResult.cost.toFixed(4)}, Total: $${usageResult.totalUsage.toFixed(4)}`);
-            }
-
-            const finalDefinition = definition && definition.length > 0
-                ? definition
+            const finalDefinition = task.result.definition && task.result.definition.length > 0
+                ? task.result.definition
                 : 'Definition not available.';
 
             res.status(200).json({ worddef: finalDefinition }); // Return the definition

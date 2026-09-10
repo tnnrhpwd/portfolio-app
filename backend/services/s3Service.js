@@ -35,6 +35,20 @@ const validateFile = (filename, fileSize, contentType) => {
         throw new Error(`File type ${contentType} is not allowed. Allowed types: ${allowedTypes.join(', ')}`);
     }
 
+    // Defense-in-depth: the client supplies `contentType` and the S3 key keeps
+    // the original extension. Reject known-dangerous extensions and known
+    // image/pdf extensions that don't match the declared content type, so a
+    // user can't upload an .html/.svg/.exe relabeled as an allowed image.
+    const ext = (filename.split('.').pop() || '').toLowerCase();
+    const BLOCKED_EXTENSIONS = new Set(['html', 'htm', 'svg', 'js', 'mjs', 'exe', 'dll', 'bat', 'cmd', 'sh', 'php', 'asp', 'jsp', 'xml', 'xhtml']);
+    if (BLOCKED_EXTENSIONS.has(ext)) {
+        throw new Error(`File extension .${ext} is not allowed.`);
+    }
+    const typeByExt = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', pdf: 'application/pdf' };
+    if (typeByExt[ext] && typeByExt[ext] !== contentType) {
+        throw new Error(`File extension .${ext} does not match content type ${contentType}`);
+    }
+
     // Check file size
     if (fileSize > maxSize) {
         throw new Error(`File size ${fileSize} exceeds maximum allowed size of ${maxSize} bytes`);

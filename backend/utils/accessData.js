@@ -53,25 +53,17 @@ async function checkIP(req) {
         return;
     }
 
-    let ipFromHeader = req.headers['x-forwarded-for']
+    // Use req.ip (Express derives it from the rightmost trusted proxy hop,
+    // respecting `trust proxy`) instead of parsing X-Forwarded-For manually —
+    // the leftmost XFF entry is client-supplied and spoofable.
+    let ipFromHeader = req.ip
         || req.connection?.remoteAddress
         || req.socket?.remoteAddress;
-
-    // logger.debug('Original IP from headers:', ipFromHeader);
-
-    if (ipFromHeader) {
-        // Handle multiple IPs in the x-forwarded-for header
-        ipFromHeader = ipFromHeader.split(',').shift().trim();
-        // logger.debug('IP after splitting and trimming:', ipFromHeader);
-    }
 
     // Handle IPv6 localhost address
     if (ipFromHeader === '::1' || ipFromHeader === '127.0.0.1') {
         ipFromHeader = '127.0.0.1';
         // logger.debug('Localhost IP detected, setting to 127.0.0.1');
-    } else if (req.headers['x-forwarded-for']) {
-        ipFromHeader = req.headers['x-forwarded-for'].split(',')[0].trim();
-        logger.debug('Using x-forwarded-for header, IP:', ipFromHeader);
     }
     
     // Skip recording localhost IP
@@ -94,8 +86,11 @@ async function checkIP(req) {
 
         text += deviceInfo;
 
-        // Add request method, URL, and timestamp
-        const requestInfo = `|Method:${req.method}|URL:${req.originalUrl}`;
+        // Add request method, URL, and timestamp. Strip the query string so
+        // token-bearing URLs (password-reset links, OAuth callbacks) aren't
+        // persisted to the access log.
+        const requestUrl = (req.originalUrl || req.url || '').split('?')[0];
+        const requestInfo = `|Method:${req.method}|URL:${requestUrl}`;
         logger.debug('Request info:', requestInfo);
         text += requestInfo;
 
@@ -117,16 +112,13 @@ async function checkIP(req) {
                 const refererUrl = new URL(referer);
                 logger.debug('Parsed referer URL - hostname:', refererUrl.hostname, 'pathname:', refererUrl.pathname);
                 
-                const refererInfo = `|Referer:${referer}|RefererHost:${refererUrl.hostname}|RefererPath:${refererUrl.pathname}`;
+                // Strip the query string before persisting — referer query
+                // strings can carry sensitive tokens (password-reset codes,
+                // OAuth `code`, session params) from inbound links.
+                const refererSansQuery = `${refererUrl.origin}${refererUrl.pathname}`;
+                const refererInfo = `|Referer:${refererSansQuery}|RefererHost:${refererUrl.hostname}|RefererPath:${refererUrl.pathname}`;
                 logger.debug('Referer info:', refererInfo);
                 text += refererInfo;
-                
-                // Add additional referer analysis
-                if (refererUrl.search) {
-                    const refererQuery = `|RefererQuery:${refererUrl.search}`;
-                    logger.debug('Referer query params:', refererQuery);
-                    text += refererQuery;
-                }
 
                 // Categorize referer source for analytics
                 let refererCategory = 'external';

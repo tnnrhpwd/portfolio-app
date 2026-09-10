@@ -22,11 +22,12 @@
  *     window-settling time).
  *   - Strips runs of duplicate consecutive steps with the same { tool, args }.
  *
- * v2 ideas (NOT implemented here, left as TODOs):
+ * v2 ideas (not implemented in this compiler):
  *   - Replace click_at with uia_invoke when a UIA snapshot at click time
  *     contained an element under the cursor.
  *   - Detect text input runs and replace with type_text.
- *   - Parameter inference (numbers/dates that vary → ${param.x}).
+ *   - Parameter inference (numbers/dates that vary → ${param.x}) is handled by
+ *     the separate recorder/infer-params.js (see §5.2), not here.
  */
 
 function slugify(name) {
@@ -324,7 +325,7 @@ function compileRecording(recording, options = {}) {
         slug: slugify(name),
         description,
         steps,
-        params: [], // v2: parameter inference
+        params: [], // populated by recorder/infer-params.js (see §5.2)
         metadata: {
             sourceSessionId: recording.sessionId,
             recordedAt: recording.header?.ts || null,

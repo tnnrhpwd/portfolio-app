@@ -579,21 +579,66 @@ The remaining checklist — check items off as they land, add new gaps as found.
 Issues surfaced while auditing the repo beyond the original plan. Ordered by
 impact; none are Simple-core blockers, but several are user-visible or DRY/security-adjacent.
 
-- ⬜ **OAuth login/linking is a stub** — `frontend/src/components/AuthCallback/AuthCallback.jsx` shows "coming soon" toasts and redirects; the GitHub/Google OAuth callback is never sent to a backend endpoint (see the `TODO` in the file). Either wire it to the backend or hide the OAuth buttons until it actually works.
-- ⬜ **AWS Textract OCR returns fabricated text** — `backend/services/ocrService.js` `processWithAWSTextract` hardcodes `"Mock OCR result from AWS Textract"` (a placeholder). Implement real Textract or drop `aws-textract` from the provider list so no path returns mock output.
+- ✅ **OAuth login/linking is a stub** — confirmed there are no OAuth buttons wired anywhere (`AuthCallback.jsx` is an orphaned component with no route), and removed the `console.log` that printed the OAuth authorization `code`. Full OAuth wiring remains a product decision.
+- ✅ **AWS Textract OCR returns fabricated text** — `processWithAWSTextract` now calls the real AWS Textract `DetectDocumentText` API (the `@aws-sdk/client-textract` dependency was already installed) and returns the extracted LINE blocks instead of the mock string.
 - ✅ **Centralize the backend base URL** — `SimpleChat`/`StorageMeter`/`UsageMeter` now import `getApiBase()` from `frontend/src/config/api.js` (this also fixed an inverted prod-vs-dev URL branch that pointed production at the Render origin instead of the Netlify proxy). The addon's two `BACKEND_URL = process.env.BACKEND_URL || …` lines remain env-overridable.
 - ✅ **Email templates hardcode production URLs** — `backend/services/emailTemplates.js` now defines `const FRONTEND_URL = process.env.FRONTEND_URL || 'https://www.sthopwood.com'` and uses `${FRONTEND_URL}` for all six in-email links (account ×2, pricing ×2, net ×2), matching `passwordReset.js`.
-- ✅ **Deprecated / dead code cleanup** — `backend/services/stripeHelpers.js` deleted; `isSimpleTier` removed from all six call sites (`backend/constants/pricing.js`, `frontend/src/constants/pricing.js`, `emailTemplates.js`, `webhookService.js`, `llmService.js`, `apiUsageTracker.js` — `webhookService` now uses `isProTier`). Remaining (cosmetic, no runtime effect): the commented-out Firebase JSX in `frontend/src/pages/Projects/PollBox/NewPoll.js` and the `webhookService.js` test-mode TODO.
-- ⬜ **Stale compiler v2 TODO list** — `simple-addon/server/automation/recorder/compiler.js` documents "v2 ideas (NOT implemented)" including parameter inference, which §5.2 has since shipped via `infer-params.js`. Update or retire the note.
+- ✅ **Deprecated / dead code cleanup** — `backend/services/stripeHelpers.js` deleted; `isSimpleTier` removed from all six call sites (`backend/constants/pricing.js`, `frontend/src/constants/pricing.js`, `emailTemplates.js`, `webhookService.js`, `llmService.js`, `apiUsageTracker.js` — `webhookService` now uses `isProTier`). Remaining (cosmetic, no runtime effect): the commented-out Firebase JSX in `frontend/src/pages/Projects/PollBox/NewPoll.js`.
+- ✅ **Stale compiler v2 TODO list** — `compiler.js`'s "v2 ideas (NOT implemented)" note now points parameter inference at `recorder/infer-params.js` (§5.2), and the `params: [] // v2` comment references the same.
 - ✅ **Approval prompts log full tool args to the console (PII risk)** — `simple-addon/server/automation/index.js` now logs only the arg keys (never values) on approval prompts; full args still reach the UI via the `approval.pending` event.
-- ⬜ **Duplicated LLM-metering logic in `getHashData`** — the `getword:` and `getdef:` branches of `backend/controllers/getHashData.js` are near-identical (`canMakeApiCall` → generate → `trackApiUsage` → respond). Extract a shared helper.
-- ⬜ **Silently swallowed errors in `llmService`** — `backend/services/llmService.js` has ~8 empty `catch {}` blocks. Log a warning (or rethrow where appropriate) so LLM-pipeline failures aren't invisible.
+- ✅ **Duplicated LLM-metering logic in `getHashData`** — extracted a shared `runBedrockTask(req, { label, inputTokens, outputTokens, generate })` helper in `backend/controllers/getHashData.js`; both `getword:` and `getdef:` branches now gate → generate → track → respond through it (same 402 body and usage-tracking log).
+- ✅ **Silently swallowed errors in `llmService`** — the stream path's `loadUserContextFromDB` now warns (matching the non-stream path), and the credits-field parse + action-log wrappers log at debug instead of silently swallowing. The remaining `catch {}` blocks are intentional JSON-parse/title fallbacks.
 - 🟡 **Plaintext secret fallback outside Electron** — `simple-addon/server/secret-storage.js` stores secrets in plaintext when `safeStorage` is unavailable (documented + one-shot warning; fine for CLI/Jest). Confirm the packaged addon always runs under Electron, and consider refusing to persist (instead of plaintext) in non-Electron contexts.
-- ⬜ **Hardcoded admin user ID duplicated across the codebase** — `6770a067c725cbceab958619` is hardcoded in `frontend/src/pages/Admin/adminShared.js`, `HeaderDropper.jsx`, `DeepStorage.jsx`, `Home.jsx`, `Muse.jsx`, `backend/controllers/putHashData.js`, and `testFunnelController.js` (fallback). The backend already reads `process.env.ADMIN_USER_ID` — centralize on it and derive admin-ness server-side; client-side copies are cosmetic and leak the admin account id. The `'girlfriend'` nickname gate in `Home.jsx`/`Muse.jsx`/`HeaderDropper.jsx` is the same smell.
-- ⬜ **Committed user PII in `backend/reports/support-tickets-*.json`** — a generated export committed to the repo containing ~219 real email addresses (`tnnrhpwd@gmail.com`, `dakotaprince37@gmail.com`, …) and raw bug-report text. Remove it from tracking (`.gitignore` or delete) and redact/re-generate as needed.
+- ✅ **Hardcoded admin user ID duplicated across the codebase** — backend now centralizes on `process.env.ADMIN_USER_ID` everywhere (`putHashData.js` literal replaced; `testFunnelController.js` fallback removed). Frontend de-duplicated into one shared `frontend/src/constants/admin.js` (`ADMIN_USER_ID` + `GIRLFRIEND_NICKNAME`), imported by `adminShared.js`, `HeaderDropper.jsx`, `DeepStorage.jsx`, `Home.jsx`, `Muse.jsx` — the scattered literals are gone.
+- 🟡 **Derive admin-ness server-side** — the backend now attaches an `isAdmin` flag to the register/login/guest responses (`postData.js`), and the frontend reads it via shared `isAdminUser()`/`isMuseVisitor()` helpers in `constants/admin.js` (`AdminLayout`/`HeaderDropper`/`DeepStorage`/`Home`/`Muse`). Remaining: the hardcoded ID + `'girlfriend'` gate still ship as a legacy fallback until every active session re-logs in — then the constants can be deleted.
+- ✅ **Committed user PII in `backend/reports/support-tickets-*.json`** — deleted the committed export and added `backend/reports/support-tickets-*.json` to `.gitignore` so future `pull-support-tickets` runs stay local. ⚠️ The file is still in git history — full removal needs a history rewrite (e.g. `git filter-repo`/BFG) + force-push.
 - ✅ **Stray refactor script** — `frontend/src/pages/Simple/Pay/refactor-script.js` deleted.
 - ✅ **`backend/scripts/diagnose-login.js` TEMP diagnostic** — deleted.
-- ⬜ **Stale un-wired "custom credit limit" feature in `webhookService.js`** — `processCustomLimitUpdate` / `validateCustomLimit` / `verifySimpleMembership` / `saveUserCredits` reference removed identifiers (`CREDITS`, `PLAN_IDS.SIMPLE`) and would throw if invoked; `validateCustomLimit` is still called internally and the functions are still exported, but the route was removed (`routeData.js` notes "custom-limit route removed"). Dead code — remove it and its internal call site.
+- ✅ **Stale un-wired "custom credit limit" feature in `webhookService.js`** — removed `processCustomLimitUpdate` / `validateCustomLimit` / `verifySimpleMembership` / `processLimitIncrease` / `updateSubscriptionLimit` / `saveUserCredits` (all referenced removed `CREDITS`/`PLAN_IDS.SIMPLE`), their exports, and the now-unused imports; `webhookService.js` exports only `constructWebhookEvent` + `processWebhookEvent` with `liveStripe` + `logger`.
+
+### 13.2 New findings (second audit pass, 2026-09-09)
+
+- ✅ **Stale third backend URL in `screen-relay.js`** — the GCP Cloud Run fallback was replaced with the Render backend (`https://mern-plan-web-service.onrender.com`), matching `workspace-client.js`/`cloud-relay.js`.
+- ✅ **Stale `openai/gpt-4o-mini` model ID in `planner.js`** — removed the hardcoded `modelId` so `planGoal` uses the provider seam's Bedrock default.
+- ✅ **Committed default test credentials in `testFunnelController.js`** — `TEST_EMAIL`/`TEST_PASSWORD` are now env-only (`TEST_FUNNEL_EMAIL`/`TEST_FUNNEL_PASSWORD`); the hardcoded `testfunnel@simple.test` / `TestFunnel2024!` fallbacks are gone.
+- ✅ **JWT tokens partially logged in `dataService.js`** — removed all three `Token preview: <first 50 chars>` console.logs.
+- ✅ **Swallowed errors outside `llmService`** — the two `testFunnelController.js` `catch (_) {}` blocks now `console.warn` the error; the `action-bridge.js` `fs.unlinkSync` catches are left as intentional best-effort cleanup.
+- 🟡 **Experimental `signal-bridge` predates the Bedrock-only decision** — marked ⚠️ DEPRECATED/UNWIRED in its header. Actual deletion (or re-implementation via the Bedrock proxy) is still a product decision.
+- ✅ **`dangerouslySetInnerHTML` on FAQ answers** — `HelpFaqTab.jsx` now renders answers via a small link-aware text renderer (only `<a href>` is parsed into React elements; everything else is plain text), so no raw HTML is ever injected.
+- 🟡 **Public guest account with a known password** — `backend/constants/guestAccount.js` hardcodes `guest@gmail.com` / `guest` for "Login as Guest" (and `createGuestUser.js` logs the password). A deliberate demo feature, but a shared account with a known credential should stay strictly read-only/rate-limited and excluded from paid/powerful paths.
+
+### 13.3 New findings (third audit pass, 2026-09-09)
+
+- 🟡 **S3 upload file-type validation trusts the client MIME type** — `validateFile` now rejects known-dangerous extensions (.html/.svg/.exe/…) and mismatches between the file extension and the declared `contentType`. Full magic-byte/signature inspection still requires a post-upload verification step (uploads are client→S3 via pre-signed URL, so the server never sees the bytes).
+- ✅ **Production CSP permits `unsafe-eval` + `unsafe-inline`** — removed `unsafe-eval` from `netlify.toml` (no frontend code uses `eval`/`new Function`). `unsafe-inline` is retained for the Vite bootstrap script.
+- 🟡 **JWT persisted in `localStorage`** — `frontend/src/features/data/dataSlice.js` stores the auth token in localStorage, so any XSS could exfiltrate it. Combined with the loose CSP above, prefer an `httpOnly` session cookie (or at least tighten CSP).
+- ✅ **Stored secrets keyed to `JWT_SECRET` by default** — `secretCrypto.js` now warns at first use when `SECRETS_ENCRYPTION_KEY` is unset (making the JWT_SECRET fallback visible). Ops action: set a dedicated `SECRETS_ENCRYPTION_KEY` in Secrets Manager.
+- ✅ **Minor: a few `target="_blank"` links omit `rel="noopener noreferrer"`** — added `rel` to the Wordle Solver link; the remaining `_blank` links are either same-origin or already carry `rel` (browsers also default `_blank` to `noopener`).
+
+### 13.4 New findings (fourth audit pass, 2026-09-09)
+
+- ✅ **Committed `frontend/jest-out.txt`** — deleted and added `jest-out*.txt` to `.gitignore`.
+- ✅ **`npm audit` is non-blocking in CI** — removed `continue-on-error: true` from the three `npm audit --audit-level=high` steps, so high-severity vulnerabilities now fail the pipeline.
+- ✅ **Referer analytics persists full URLs + query strings** — `accessData.js` now stores the referer as origin+path only (query string stripped and no `RefererQuery` field written).
+
+### 13.5 New findings (fifth audit pass, 2026-09-09)
+
+- 🟡 **HIGH — the addon's local HTTP API is unauthenticated and CORS-allows the production site + LAN origins** — hardened: `simple-addon/server/index.js` now rejects requests whose `Host` header isn't loopback/private (anti DNS-rebinding) and 403s non-allowlisted cross-site `Origin`s before any handler runs, so a drive-by `fetch('http://127.0.0.1:3001/...')` from an arbitrary site no longer executes. Remaining: the production site is still allowlisted, so a per-install random secret on every request (and tightening CORS to the Electron app's own origin) is still needed to close the allowlisted-origin path.
+
+### 13.6 New findings (sixth audit pass, 2026-09-09)
+
+- ✅ **Page-view analytics persist the full request URL (incl. query string)** — `accessData.js` now strips the query string (`req.originalUrl.split('?')[0]`) before persisting the `|URL:…` field, so reset/oauth tokens no longer reach the access log.
+- ✅ **`deleteHashData.js` creator check is broken for non-24-char user IDs** — now parses `Creator:` up to the next `|` via `/(?:^|\|)Creator:([^|]+)/`, so both legacy 24-char and new 32-char crypto-hex IDs match and those users can delete their own data again.
+
+### 13.7 New findings (seventh audit pass, 2026-09-09)
+
+- ⬜ **Addon is distributed unsigned (no code-signing certificate)** — `simple-addon/` is built without `CSC_LINK`/`CSC_KEY`/`win.certificateSubjectName`, so (a) Windows SmartScreen flags the installer/portable exe, and (b) `electron-updater` can't verify update authenticity against a publisher certificate — update trust rests on TLS + the blockmap hash alone (a compromised GitHub repo could ship a malicious update that installs silently). Sign the build and set `publisherName` so updates are authenticated.
+- ⬜ **CI actions pinned by mutable tags + mixed versions** — `.github/workflows/` mixes `actions/checkout@v4` / `setup-node@v4` (build-addon.yml, ci.yml's `test-simple-addon`) with `@v6` (ci.yml's other jobs, security.yml). Tag-based pinning lets a compromised action repo inject code; pin all actions to full commit SHAs and use one version consistently.
+
+### 13.8 New findings (eighth audit pass, 2026-09-10)
+
+- ✅ **Visitor IP is client-spoofable via `X-Forwarded-For`** — `checkIP` now uses `req.ip` (which respects the `trust proxy` setting) instead of parsing the client-supplied leftmost XFF entry, so recorded visitor IPs can no longer be spoofed.
+- 🟡 **Unbounded per-request access-log writes** — `checkIP` appends a new `IP:…|Method:…|URL:…` DynamoDB record on essentially every request (authenticated or not), so the `Simple` table grows without bound and every API call costs an extra write. Consider sampling, a TTL/retention window, or a separate analytics table.
 
 ---
 

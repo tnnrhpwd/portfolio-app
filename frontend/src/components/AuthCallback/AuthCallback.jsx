@@ -41,7 +41,8 @@ function AuthCallback() {
 
                 const action = parsedState?.action || 'login';
                 
-                console.log(`Processing ${provider} ${action} with code:`, code);
+                // NOTE: OAuth is not wired to a backend endpoint yet — the code
+                // is intentionally not logged or used (see §13.1).
                 
                 // TODO: Make API call to backend to handle the OAuth callback
                 // For now, we'll show a success message and redirect

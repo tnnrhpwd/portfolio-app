@@ -361,7 +361,7 @@ const closeBugReportHandler = async (req, res) => {
         }
 
         // Check if user is admin or the creator of the bug report
-        const isAdmin = req.user.id === '6770a067c725cbceab958619';
+        const isAdmin = req.user.id === process.env.ADMIN_USER_ID;
         let isCreator = false;
         
         if (item.text.includes('Creator:')) {

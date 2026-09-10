@@ -23,6 +23,9 @@ const KEY_LEN = 32;
 const PREFIX = 'enc:v1:';
 
 function getMasterSecret() {
+    if (!process.env.SECRETS_ENCRYPTION_KEY) {
+        logger.warn('secretCrypto: SECRETS_ENCRYPTION_KEY not set — deriving the encryption key from JWT_SECRET. Rotating JWT_SECRET would render stored secrets undecryptable.');
+    }
     const secret = process.env.SECRETS_ENCRYPTION_KEY || process.env.JWT_SECRET;
     if (!secret || secret.length < 16) {
         throw new Error('secretCrypto: JWT_SECRET (or SECRETS_ENCRYPTION_KEY) is not configured');

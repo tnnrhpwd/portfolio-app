@@ -90,9 +90,20 @@ async function processWithAWSTextract(imageData, model = 'default') {
     try {
         logger.debug('Processing with AWS Textract, model:', model);
         
-        // Placeholder for AWS Textract implementation
+        const { TextractClient, DetectDocumentTextCommand } = require('@aws-sdk/client-textract');
+        const textract = new TextractClient({ region: process.env.AWS_REGION });
+        const command = new DetectDocumentTextCommand({
+            Document: { Bytes: Buffer.from(imageData, 'base64') },
+        });
+        const result = await textract.send(command);
+
+        const extractedText = (result.Blocks || [])
+            .filter((block) => block.BlockType === 'LINE' && block.Text)
+            .map((block) => block.Text)
+            .join('\n');
+
         return {
-            extractedText: "Mock OCR result from AWS Textract",
+            extractedText: extractedText.trim(),
             confidence: 0.88,
             provider: 'aws-textract',
             model: model

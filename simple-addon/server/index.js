@@ -658,6 +658,40 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 
+// ─── Local-server hardening (anti DNS-rebinding / drive-by writes) ──────────
+// This server controls the user's PC, so it must refuse requests that reached
+// 127.0.0.1 from a remote site. `cors()` above only gates which origins may
+// READ responses — it does NOT stop a request from being processed, and simple
+// requests (GET, or POST without a preflight) execute regardless. We reject
+// here so a drive-by `fetch('http://127.0.0.1:3001/...')` from an arbitrary
+// site, or a DNS-rebinding page, is blocked before any handler runs.
+const isLoopbackOrPrivateHost = (hostHeader) =>
+  /^(127\.0\.0\.1|localhost|\[::1\]|::1)(:\d+)?$/i.test(hostHeader || '') ||
+  /^(192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})(:\d+)?$/.test(hostHeader || '');
+
+const isAllowedOrigin = (origin) => {
+  if (!origin || origin === 'null') return true; // Electron renderer / file://
+  let host;
+  try { host = new URL(origin).hostname; } catch { return false; }
+  return host === 'localhost' || host === '127.0.0.1' || host === '::1' ||
+    host === 'sthopwood.com' || host === 'www.sthopwood.com' ||
+    /^(192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})$/.test(host);
+};
+
+app.use((req, res, next) => {
+  // 1) Host header must be loopback/private — defeats DNS rebinding.
+  if (!isLoopbackOrPrivateHost(req.headers.host)) {
+    return res.status(403).json({ error: 'Forbidden: invalid Host header' });
+  }
+  // 2) Reject cross-site origins that aren't on the allowlist. (The production
+  //    site remains allowed so the web panel keeps working — a per-install
+  //    secret on every request is the remaining hardening step for it.)
+  if (!isAllowedOrigin(req.headers.origin)) {
+    return res.status(403).json({ error: 'Forbidden: origin not allowed' });
+  }
+  next();
+});
+
 // ─── API Routes ────────────────────────────────────────────────────────────────
 
 // Health check

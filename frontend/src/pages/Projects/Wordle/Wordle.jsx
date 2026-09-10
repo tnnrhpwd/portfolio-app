@@ -862,7 +862,7 @@ function Wordle() {
                 {useCurseWords ? '⚠️ Contains explicit language. Not appropriate for all audiences.' : 'Uses explicit/adult words only'}
               </div>
               <br/>
-              <a href="/wordlesolver" target="_blank">
+              <a href="/wordlesolver" target="_blank" rel="noopener noreferrer">
                 <button id="automate-solverbut">Open Wordle Solver</button>
               </a>
               <br/>

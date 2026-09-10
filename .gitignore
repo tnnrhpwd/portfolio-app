@@ -28,6 +28,7 @@ dist/
 /coverage
 *.lcov
 .nyc_output/
+jest-out*.txt
 
 # ===========================================
 # Logs
@@ -127,3 +128,8 @@ secrets/
 *.cpuprofile
 *.heapprofile
 *.heapsnapshot
+
+# ===========================================
+# Generated Reports (may contain user PII)
+# ===========================================
+backend/reports/support-tickets-*.json

@@ -282,7 +282,9 @@ function injectMembershipContext(systemParts, user) {
             const spent = credits.totalSpent || 0;
             const limit = credits.customLimit || credits.monthlyLimit || 0;
             creditInfo = ` Credits used: $${spent.toFixed(2)}${limit ? ` of $${limit.toFixed(2)} limit` : ''}.`;
-        } catch {}
+        } catch (e) {
+            logger.debug('[llmService] Could not parse Credits field:', e.message);
+        }
     }
 
     const tierFeatures = {
@@ -1001,7 +1003,9 @@ async function streamCompressionRequest(req, res, dynamodb) {
             activeAgent,
             message: userMessageForContext,
         });
-    } catch {}
+    } catch (err) {
+        logger.warn('[llmService] Failed to load user context (stream):', err.message);
+    }
 
     // ── Build messages (same logic as callLLMApi) ─────────────────────────
     let messages;
@@ -1193,7 +1197,9 @@ async function streamCompressionRequest(req, res, dynamodb) {
         let actionSummary = userMessage || userInput;
         if (actionSummary.length > 120) actionSummary = actionSummary.substring(0, 117) + '...';
         logAction(req.user.id, `Chat: ${actionSummary}`, 'net').catch(() => {});
-    } catch {}
+    } catch (e) {
+        logger.debug('[llmService] Could not log action:', e.message);
+    }
 
     res.write('data: [DONE]\n\n');
     res.end();
