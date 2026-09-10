@@ -336,6 +336,10 @@ ipcMain.handle('dashboard:get-eye-tracking-status', () => {
   };
 });
 
+ipcMain.handle('dashboard:get-gaze-heatmap', () => {
+  return server?.eyeTrackingManager?.getGazeHeatmap?.() || null;
+});
+
 ipcMain.handle('dashboard:toggle-eye-tracking', async (_event, enabled) => {
   if (!server?.eyeTrackingManager) return { ok: false, error: 'Server is not ready yet.' };
   if (enabled) {
@@ -384,7 +388,7 @@ ipcMain.handle('dashboard:reset-eye-adaptation', () => {
 // Persisted to settings.json under the same `eyeTracking` block the manager
 // reads at start(), so dashboard edits take effect on the next tracking run.
 function getEyeSettings() {
-  const defaults = { dwellClickEnabled: false, dwellMs: 600, dwellRadiusPx: 28, dwellCooldownMs: 900, leadMs: 0 };
+  const defaults = { dwellClickEnabled: false, dwellMs: 600, dwellRadiusPx: 28, dwellCooldownMs: 900, blinkClickEnabled: false, doubleBlinkWindowMs: 800, leadMs: 0 };
   try {
     const p = path.join(getResourcesPath(), 'settings.json');
     const data = fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, 'utf-8')) : {};
@@ -394,6 +398,8 @@ function getEyeSettings() {
       dwellMs: typeof et.dwellMs === 'number' ? et.dwellMs : defaults.dwellMs,
       dwellRadiusPx: typeof et.dwellRadiusPx === 'number' ? et.dwellRadiusPx : defaults.dwellRadiusPx,
       dwellCooldownMs: typeof et.dwellCooldownMs === 'number' ? et.dwellCooldownMs : defaults.dwellCooldownMs,
+      blinkClickEnabled: !!et.blinkClickEnabled,
+      doubleBlinkWindowMs: typeof et.doubleBlinkWindowMs === 'number' ? et.doubleBlinkWindowMs : defaults.doubleBlinkWindowMs,
       leadMs: typeof et.leadMs === 'number' ? et.leadMs : defaults.leadMs,
     };
   } catch (e) {
@@ -411,6 +417,8 @@ function saveEyeSettings(settings) {
     if (typeof settings?.dwellMs === 'number') data.eyeTracking.dwellMs = settings.dwellMs;
     if (typeof settings?.dwellRadiusPx === 'number') data.eyeTracking.dwellRadiusPx = settings.dwellRadiusPx;
     if (typeof settings?.dwellCooldownMs === 'number') data.eyeTracking.dwellCooldownMs = settings.dwellCooldownMs;
+    if (typeof settings?.blinkClickEnabled === 'boolean') data.eyeTracking.blinkClickEnabled = settings.blinkClickEnabled;
+    if (typeof settings?.doubleBlinkWindowMs === 'number') data.eyeTracking.doubleBlinkWindowMs = settings.doubleBlinkWindowMs;
     if (typeof settings?.leadMs === 'number') data.eyeTracking.leadMs = settings.leadMs;
     fs.writeFileSync(p, JSON.stringify(data, null, 2), 'utf-8');
     return { ok: true, ...getEyeSettings() };
@@ -647,6 +655,21 @@ async function startExpressServer() {
         });
       } catch (e) { console.error('[EyeTracking] Failed to register Ctrl+Alt+E:', e.message); }
 
+      // Quick re-anchor: look at the center of the calibration display and hit
+      // Ctrl+Alt+R to feed a high-weight online training sample there. This
+      // pulls the gaze model back on target after camera bump / posture drift
+      // without a full recalibration.
+      try {
+        globalShortcut.register('CommandOrControl+Alt+R', () => {
+          const center = server.eyeTrackingManager.getDisplayCenter();
+          const res = server.eyeTrackingManager.addOnlineTrainingSample(center.x, center.y, 0.9);
+          console.log('[EyeTracking] Ctrl+Alt+R — re-anchor to center:', res);
+          if (res && res.success) {
+            trayManager?.notify('Eye Tracking', 'Gaze re-anchored to screen center.', 'eyeTracking');
+          }
+        });
+      } catch (e) { console.error('[EyeTracking] Failed to register Ctrl+Alt+R:', e.message); }
+
       server.eyeTrackingManager.onStateChange = (state) => {
         trayManager?.setEyeTrackingStatus(state);
         notifyDashboardStatusChanged();
@@ -813,8 +836,12 @@ function openCalibrationWindow() {
 
   calibrationWindow.on('closed', () => {
     calibrationWindow = null;
-    // Stop calibration if still running
-    if (server?.eyeTrackingManager?.state === 'calibrating') {
+    // Stop calibration or validation tracking if still running. During the
+    // post-calibration validation phase the manager is in 'running' state
+    // (validationMode=true), so stopping only on 'calibrating' would leak the
+    // gaze stream + cursor control after the window closes.
+    const st = server?.eyeTrackingManager?.state;
+    if (st === 'calibrating' || st === 'running') {
       server.eyeTrackingManager.stop();
     }
   });
@@ -1263,11 +1290,20 @@ ipcMain.on('calibration-start', async (_event, { cameraIndex, displayId, optimiz
     calibrationWindow.setFullScreen(true);
   }
 
-  // Start the Python calibration process with the chosen camera
+  // Start the Python calibration process with the chosen camera + display.
+  // Pass the display's DIP bounds + scale factor so tracking can later reuse
+  // the exact coordinate space (multi-monitor / mixed-DPI setups).
   if (server?.eyeTrackingManager) {
     server.eyeTrackingManager.startCalibration(cameraIndex, {
       optimize: !!optimize,
       ...(cameraOptions || {}),
+      display: {
+        width: chosen.size.width,
+        height: chosen.size.height,
+        scaleFactor: chosen.scaleFactor || 1,
+        x: chosen.bounds.x || 0,
+        y: chosen.bounds.y || 0,
+      },
     });
   }
 });
@@ -1401,6 +1437,11 @@ function _initPerceptionAndPrediction() {
       server.eyeTrackingManager.on('gaze', (data) => {
         if (typeof data.x === 'number' && dashboardWindow && !dashboardWindow.isDestroyed()) {
           dashboardWindow.webContents.send('dashboard:gaze', data);
+        }
+      });
+      server.eyeTrackingManager.on('fixation', (data) => {
+        if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+          dashboardWindow.webContents.send('dashboard:fixation', data);
         }
       });
     }

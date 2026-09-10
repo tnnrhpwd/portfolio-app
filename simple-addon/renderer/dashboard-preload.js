@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('simpleDashboard', {
   openWebApp: () => ipcRenderer.invoke('dashboard:open-web-app'),
   openExternal: (url) => ipcRenderer.invoke('dashboard:open-external', url),
   getEyeTrackingStatus: () => ipcRenderer.invoke('dashboard:get-eye-tracking-status'),
+  getGazeHeatmap: () => ipcRenderer.invoke('dashboard:get-gaze-heatmap'),
   getEyeCalibrationSummary: () => ipcRenderer.invoke('get-prior-calibration'),
   getEyeCameras: () => ipcRenderer.invoke('get-cameras'),
   getEyeCameraSnapshot: (cameraIndex) => ipcRenderer.invoke('get-camera-snapshot', { cameraIndex }),
@@ -30,6 +31,11 @@ contextBridge.exposeInMainWorld('simpleDashboard', {
     const listener = (_event, data) => callback(data);
     ipcRenderer.on('dashboard:gaze', listener);
     return () => ipcRenderer.removeListener('dashboard:gaze', listener);
+  },
+  onFixationData: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('dashboard:fixation', listener);
+    return () => ipcRenderer.removeListener('dashboard:fixation', listener);
   },
   toggleEyeTracking: (enabled) => ipcRenderer.invoke('dashboard:toggle-eye-tracking', enabled),
   toggleEyeOverlay: (enabled) => ipcRenderer.invoke('dashboard:toggle-eye-overlay', enabled),

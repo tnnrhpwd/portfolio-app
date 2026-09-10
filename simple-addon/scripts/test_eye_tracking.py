@@ -223,6 +223,66 @@ class TestEyeTrackerMath(unittest.TestCase):
         # no lead: filtered output lags, never exceeds the raw target
         self.assertLessEqual(out[0], 100.0 + 29 * 10.0 + 1e-6)
 
+    def test_poly2_robust_ignores_gross_outlier(self):
+        import numpy as np
+        t = self._tracker()
+        rng = np.random.default_rng(2)
+        src = rng.uniform(-200, 200, size=(15, 2))
+        dst = src * 3.0 + np.array([960.0, 540.0])
+        # low-leverage outlier: iris in normal range, but screen target is
+        # wildly wrong (the exact signature of a pursuit sample where the eye
+        # lagged behind a moving dot).
+        src = np.vstack([src, [[50.0, 50.0]]])
+        dst = np.vstack([dst, [[3000.0, 3000.0]]])
+        w = np.ones(16)
+        model, keep = t._fit_poly2_robust(src, dst, w)
+        self.assertIsNotNone(model)
+        self.assertFalse(bool(keep[-1]))  # outlier dropped
+        resid = t._evaluate_model_residuals(model, src[:-1], dst[:-1])
+        self.assertLess(resid.mean(), 15.0)
+
+    def test_loo_error_small_on_clean_linear_map(self):
+        import numpy as np
+        t = self._tracker()
+        rng = np.random.default_rng(7)
+        src = rng.uniform(-200, 200, size=(20, 2))
+        dst = src * 3.0 + np.array([960.0, 540.0])
+        w = np.ones(20)
+        hom = t._loo_error_homography(src, dst)
+        poly = t._loo_error_poly2(src, dst, w)
+        self.assertLess(hom.mean(), 50.0)
+        self.assertLess(poly.mean(), 50.0)
+
+    def test_loo_error_detects_corrupted_calibration(self):
+        import numpy as np
+        t = self._tracker()
+        rng = np.random.default_rng(5)
+        src = rng.uniform(-200, 200, size=(20, 2))
+        dst = src * 3.0 + np.array([960.0, 540.0])
+        clean = t._loo_error_homography(src, dst).mean()
+        dst_bad = dst.copy()
+        dst_bad[10:] = rng.uniform(0, 3840, size=(10, 2))  # half the points garbage
+        bad = t._loo_error_homography(src, dst_bad).mean()
+        self.assertLess(clean, 50.0)
+        self.assertGreater(bad, clean * 2.0)
+
+    def test_head_correction_gate_discards_harmful(self):
+        import numpy as np
+        import cv2
+        t = self._tracker()
+        rng = np.random.default_rng(6)
+        src = rng.uniform(-200, 200, size=(10, 2))
+        dst = src * 3.0 + np.array([960.0, 540.0])
+        H, _ = cv2.findHomography(src.reshape(-1, 1, 2), dst.reshape(-1, 1, 2), 0)
+        poses = [[0.01, 0.0]] * 10
+        # correction shifts x by +500 px at this yaw offset → actively harmful
+        hc = {'pose_ref': np.array([0.0, 0.0]),
+              'K_x': np.array([50000.0, 0.0]),
+              'K_y': np.array([0.0, 0.0]),
+              'data_driven': True}
+        out = t._gate_head_correction(hc, src, poses, dst, None, H)
+        self.assertIsNone(out)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

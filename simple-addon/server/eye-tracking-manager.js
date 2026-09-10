@@ -12,6 +12,7 @@ const fs = require('fs');
 const os = require('os');
 const readline = require('readline');
 const { GazeClick } = require('./gaze-click');
+const { BlinkGestureDetector } = require('./blink-gesture');
 
 // Resolve scripts path (packaged vs dev)
 function resolveScriptsPath() {
@@ -40,6 +41,11 @@ class EyeTrackingManager extends EventEmitter {
     this.lastError = null;
     this.onStateChange = null; // callback for tray updates
     this._stdinWriter = null;
+    this._display = null;      // {width,height,scaleFactor,x,y} DIP bounds of the calibration display
+    this._lastCursorX = null;  // dedupe physical SetCursorPos writes
+    this._lastCursorY = null;
+    this._rawTrackFrames = 0;  // downsample counter for the track-mode raw log
+    this._rawLogKind = null;   // 'calibrate' | 'track' — selects the raw-log filename
     this.onGazeData = null; // callback for live gaze coordinates
     this.validationMode = false; // when true, don't move cursor
     this.overlayMode = false; // when true, don't move cursor + accept online_train
@@ -47,8 +53,95 @@ class EyeTrackingManager extends EventEmitter {
     this._onlineSamples = 0;     // online-training samples added this session
     this._lastModelUpdate = null; // timestamp of the last successful refit
     this.gazeClick = new GazeClick({ enabled: false });
+    this.blinkGesture = new BlinkGestureDetector({ enabled: false });
     this.onGazeClick = null;     // callback(payload) when a dwell click completes
     this._quality = null;        // live tracking-quality accumulator
+    this._gazeHeatmap = null;    // {cols,rows,total,cells} gaze-density histogram
+  }
+
+  /**
+   * Raw diagnostic capture. Every JSON line the Python eye_tracker emits during
+   * calibration is appended to a single session log so a calibration can be
+   * analyzed after the fact (per-point progress, face/camera status, and the
+   * final fit summary). The file is truncated at the start of each calibration.
+   */
+  _rawLogPath() {
+    // Calibration keeps its historical filename; track mode gets its own file
+    // so the validation preview (which is also `start()`) never clobbers the
+    // calibration diagnostic the user wants to read afterward.
+    const name = this._rawLogKind === 'track' ? 'eye-tracker-track.log' : 'eye-tracker-session.log';
+    return path.join(resolveResourcesPath(), name);
+  }
+
+  _startRawSession(kind, cameraIndex, screen) {
+    try {
+      this._rawLogKind = kind;
+      const logPath = this._rawLogPath();
+      fs.mkdirSync(path.dirname(logPath), { recursive: true });
+      const header = { ts: new Date().toISOString(), kind, cameraIndex, screen, version: 1 };
+      fs.writeFileSync(logPath, '=== ' + JSON.stringify(header) + ' ===\n', 'utf-8');
+    } catch (e) {
+      console.warn('[EyeTracking] Could not start raw log:', e.message);
+    }
+  }
+
+  _appendRawLine(line) {
+    try {
+      // Strip base64 preview frames so the session log stays small/readable.
+      const s = String(line).replace(/"image"\s*:\s*"data:image\/[^"]*"/g, '"image":"[base64 preview omitted]"');
+      fs.appendFileSync(this._rawLogPath(), s + '\n', 'utf-8');
+    } catch {}
+  }
+
+  /**
+   * Multi-display support: persist the display the user calibrated on (DIP
+   * bounds + scale factor) so tracking can reuse the exact coordinate space.
+   * Gaze is emitted in display-local DIPs; SetCursorPos needs virtual-desktop
+   * physical pixels, so the (x,y) offset and scale factor must round-trip.
+   */
+  _displaySidecarPath() {
+    return path.join(resolveResourcesPath(), 'eye-display.json');
+  }
+
+  _loadDisplaySidecar() {
+    try {
+      const p = this._displaySidecarPath();
+      if (fs.existsSync(p)) {
+        const d = JSON.parse(fs.readFileSync(p, 'utf-8'));
+        if (d && typeof d.width === 'number' && typeof d.height === 'number') {
+          return {
+            width: d.width,
+            height: d.height,
+            scaleFactor: typeof d.scaleFactor === 'number' && d.scaleFactor > 0 ? d.scaleFactor : 1,
+            x: typeof d.x === 'number' ? d.x : 0,
+            y: typeof d.y === 'number' ? d.y : 0,
+          };
+        }
+      }
+    } catch {}
+    return null;
+  }
+
+  _saveDisplaySidecar(display) {
+    try {
+      fs.mkdirSync(resolveResourcesPath(), { recursive: true });
+      fs.writeFileSync(this._displaySidecarPath(), JSON.stringify(display), 'utf-8');
+    } catch (e) {
+      console.warn('[EyeTracking] Could not save display sidecar:', e.message);
+    }
+  }
+
+  /**
+   * Center of the calibration display (display-local DIPs) — used by the
+   * re-anchor hotkey so it points at the display the user actually calibrated on.
+   */
+  getDisplayCenter() {
+    const d = this._display;
+    if (d && d.width && d.height) {
+      return { x: Math.round(d.width / 2), y: Math.round(d.height / 2) };
+    }
+    const s = this._getScreenSize();
+    return { x: Math.round(s.width / 2), y: Math.round(s.height / 2) };
   }
 
   /**
@@ -177,12 +270,23 @@ while ($true) {
    */
   _moveCursor(x, y) {
     if (!this.cursorProcess || !this.cursorProcess.stdin.writable) return;
-    // The tracker emits DIP coordinates (the same space as the calibration
-    // dots); SetCursorPos needs physical pixels, so apply the display scale
-    // factor. Without this, gaze lands compressed toward the top-left on any
-    // Windows display with scaling enabled (125%/150%).
-    const s = this._screenScaleFactor || 1;
-    this.cursorProcess.stdin.write(`${Math.round(x * s)},${Math.round(y * s)}\n`);
+    // The tracker emits display-local DIP coordinates (the same space as the
+    // calibration dots); SetCursorPos needs virtual-desktop physical pixels.
+    // Map through the calibrated display's offset + scale factor so gaze
+    // lands correctly on multi-monitor and scaled (125%/150%) setups.
+    const d = this._display;
+    const s = d && d.scaleFactor ? d.scaleFactor : (this._screenScaleFactor || 1);
+    const ox = d ? (d.x || 0) : 0;
+    const oy = d ? (d.y || 0) : 0;
+    const px = Math.round((ox + x) * s);
+    const py = Math.round((oy + y) * s);
+    // The Python dead-zone already holds the cursor during fixations, so we
+    // receive the same coordinate repeatedly — skip redundant SetCursorPos
+    // round-trips (a no-op at the OS level, but not free across the pipe).
+    if (px === this._lastCursorX && py === this._lastCursorY) return;
+    this._lastCursorX = px;
+    this._lastCursorY = py;
+    this.cursorProcess.stdin.write(`${px},${py}\n`);
   }
 
   /**
@@ -191,8 +295,11 @@ while ($true) {
    */
   _click(x, y) {
     if (!this.cursorProcess || !this.cursorProcess.stdin.writable) return;
-    const s = this._screenScaleFactor || 1;
-    this.cursorProcess.stdin.write(`click:${Math.round(x * s)},${Math.round(y * s)}\n`);
+    const d = this._display;
+    const s = d && d.scaleFactor ? d.scaleFactor : (this._screenScaleFactor || 1);
+    const ox = d ? (d.x || 0) : 0;
+    const oy = d ? (d.y || 0) : 0;
+    this.cursorProcess.stdin.write(`click:${Math.round((ox + x) * s)},${Math.round((oy + y) * s)}\n`);
   }
 
   /**
@@ -207,6 +314,13 @@ while ($true) {
     q.confSum += (typeof data.confidence === 'number' ? data.confidence : 0);
     if (data.blink === true) q.blinks += 1;
     if (data.held === true) q.faceLost += 1;
+
+    // Gaze-density heatmap (blinks / held / face-loss frames excluded so the
+    // map reflects where the user actually looked, not where the cursor froze).
+    if (this._gazeHeatmap && data.blink !== true && data.held !== true
+        && typeof data.x === 'number' && typeof data.y === 'number') {
+      this._accumulateGazeHeatmap(data.x, data.y);
+    }
 
     if (!suppressCursor && this.gazeClick && this.gazeClick.enabled) {
       const payload = this.gazeClick.feed(data.x, data.y, Date.now(), {
@@ -237,6 +351,48 @@ while ($true) {
       blinks: q.blinks,
       fixations: q.fixations,
       faceLostFrames: q.faceLost,
+    };
+  }
+
+  /**
+   * Gaze-density histogram (16:9 grid) accumulated across a tracking session.
+   * Downstream UI renders it as a heatmap of where the user has been looking.
+   */
+  _newGazeHeatmap(width, height) {
+    const cols = 16;
+    const rows = 9;
+    return {
+      cols,
+      rows,
+      width: Math.max(1, width || 1920),
+      height: Math.max(1, height || 1080),
+      total: 0,
+      max: 0,
+      cells: new Array(cols * rows).fill(0),
+    };
+  }
+
+  _accumulateGazeHeatmap(x, y) {
+    const hm = this._gazeHeatmap;
+    if (!hm) return;
+    const col = Math.min(hm.cols - 1, Math.max(0, Math.floor((x / hm.width) * hm.cols)));
+    const row = Math.min(hm.rows - 1, Math.max(0, Math.floor((y / hm.height) * hm.rows)));
+    const idx = row * hm.cols + col;
+    hm.cells[idx] += 1;
+    hm.total += 1;
+    if (hm.cells[idx] > hm.max) hm.max = hm.cells[idx];
+  }
+
+  getGazeHeatmap() {
+    if (!this._gazeHeatmap) return null;
+    return {
+      cols: this._gazeHeatmap.cols,
+      rows: this._gazeHeatmap.rows,
+      width: this._gazeHeatmap.width,
+      height: this._gazeHeatmap.height,
+      total: this._gazeHeatmap.total,
+      max: this._gazeHeatmap.max,
+      cells: this._gazeHeatmap.cells,
     };
   }
 
@@ -329,16 +485,26 @@ while ($true) {
     this.cameraIndex = options.cameraIndex ?? this.resolveCalibrationCameraIndex();
     this.duration = options.duration ?? 0;
 
-    const screen = this._getScreenSize();
-    this._screenScaleFactor = this._getScreenScaleFactor();
+    // Resolve the calibrated display (multi-monitor) and reuse its DIP bounds
+    // + scale factor so tracking maps into the same coordinate space calibration
+    // measured. Falls back to the primary display when no sidecar exists.
+    const display = options.display || this._loadDisplaySidecar() || null;
+    this._display = display;
+    const screen = display
+      ? { width: display.width, height: display.height }
+      : this._getScreenSize();
+    this._screenScaleFactor = display
+      ? (display.scaleFactor || 1)
+      : this._getScreenScaleFactor();
+    this._lastCursorX = null;
+    this._lastCursorY = null;
     const scriptPath = path.join(resolveScriptsPath(), 'eye_tracker.py');
 
     if (!fs.existsSync(scriptPath)) {
       return { success: false, error: 'eye_tracker.py not found' };
     }
 
-    // Load settings for smoothing/confidence
-    let smoothing = 0.3;
+    // Load tracking settings (confidence, 1€ filter, dwell, lead).
     let confidence = 0.6;
     let oeMinCutoff = 0.8;
     let oeBeta = 0.007;
@@ -351,13 +517,14 @@ while ($true) {
     let dwellMs = 600;
     let dwellRadiusPx = 28;
     let dwellCooldownMs = 900;
+    let blinkClickEnabled = false;
+    let doubleBlinkWindowMs = 800;
     let leadMs = 0;
     try {
       const settingsPath = path.join(resourcesPath, 'settings.json');
       if (fs.existsSync(settingsPath)) {
         const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
         if (settings.eyeTracking) {
-          smoothing = settings.eyeTracking.smoothingAlpha ?? smoothing;
           confidence = settings.eyeTracking.confidenceThreshold ?? confidence;
           oeMinCutoff = settings.eyeTracking.oneEuroMinCutoff ?? oeMinCutoff;
           oeBeta = settings.eyeTracking.oneEuroBeta ?? oeBeta;
@@ -370,6 +537,8 @@ while ($true) {
           dwellMs = settings.eyeTracking.dwellMs ?? dwellMs;
           dwellRadiusPx = settings.eyeTracking.dwellRadiusPx ?? dwellRadiusPx;
           dwellCooldownMs = settings.eyeTracking.dwellCooldownMs ?? dwellCooldownMs;
+          blinkClickEnabled = settings.eyeTracking.blinkClickEnabled ?? blinkClickEnabled;
+          doubleBlinkWindowMs = settings.eyeTracking.doubleBlinkWindowMs ?? doubleBlinkWindowMs;
           leadMs = settings.eyeTracking.leadMs ?? leadMs;
         }
       }
@@ -379,11 +548,12 @@ while ($true) {
     if (typeof options.oneEuroBeta === 'number') oeBeta = options.oneEuroBeta;
     if (typeof options.deadzonePx === 'number') deadzonePx = options.deadzonePx;
     if (typeof options.confidenceThreshold === 'number') confidence = options.confidenceThreshold;
-    if (typeof options.smoothingAlpha === 'number') smoothing = options.smoothingAlpha;
     if (typeof options.dwellMs === 'number') dwellMs = options.dwellMs;
     if (typeof options.dwellRadiusPx === 'number') dwellRadiusPx = options.dwellRadiusPx;
     if (typeof options.dwellCooldownMs === 'number') dwellCooldownMs = options.dwellCooldownMs;
     if (options.dwellClickEnabled !== undefined) dwellClickEnabled = !!options.dwellClickEnabled;
+    if (options.blinkClickEnabled !== undefined) blinkClickEnabled = !!options.blinkClickEnabled;
+    if (typeof options.doubleBlinkWindowMs === 'number') doubleBlinkWindowMs = options.doubleBlinkWindowMs;
     if (typeof options.leadMs === 'number') leadMs = options.leadMs;
 
     // Camera pipeline options (IR, processing/capture resolution, hires iris)
@@ -398,7 +568,6 @@ while ($true) {
       '--calibration_file', calFile,
       '--duration', String(this.duration),
       '--mode', 'track',
-      '--smoothing', String(smoothing),
       '--confidence_threshold', String(confidence),
       '--process_width', String(camOpts.processWidth),
       '--process_height', String(camOpts.processHeight),
@@ -416,31 +585,67 @@ while ($true) {
     if (camOpts.captureWidth > 0) args.push('--capture_width', String(camOpts.captureWidth));
     if (camOpts.captureHeight > 0) args.push('--capture_height', String(camOpts.captureHeight));
 
-    // Configure dwell-to-click + reset live quality metrics for this session.
+    // Configure dwell-to-click + double-blink click + reset live metrics.
     this.gazeClick.dwellMs = dwellMs;
     this.gazeClick.radiusPx = dwellRadiusPx;
     this.gazeClick.cooldownMs = dwellCooldownMs;
     this.gazeClick.enabled = !!dwellClickEnabled;
     this.gazeClick.reset();
+    this.blinkGesture.doubleBlinkWindowMs = doubleBlinkWindowMs;
+    this.blinkGesture.enabled = !!blinkClickEnabled;
+    this.blinkGesture.reset();
     this._quality = { frames: 0, confSum: 0, blinks: 0, fixations: 0, faceLost: 0, startedAt: Date.now() };
+    this._gazeHeatmap = this._newGazeHeatmap(screen.width, screen.height);
+
+    // Track-mode raw session log (downsampled) so cursor jumps / quality can be
+    // analyzed after the fact, matching the calibration diagnostic.
+    this._startRawSession('track', this.cameraIndex, screen);
+    this._rawTrackFrames = 0;
 
     return new Promise((resolve) => {
       try {
-        this.pythonProcess = spawn(pythonPath, args, {
+        // Make sure a lingering process (e.g. a still-shutting-down calibration
+        // subprocess) can't race the new one and later clobber its handle.
+        if (this.pythonProcess) {
+          try { this.pythonProcess.kill(); } catch {}
+          this.pythonProcess = null;
+          this._stdinWriter = null;
+        }
+
+        const proc = spawn(pythonPath, args, {
           stdio: ['pipe', 'pipe', 'pipe'],
           windowsHide: true,
         });
-
-        this._stdinWriter = this.pythonProcess.stdin;
+        this.pythonProcess = proc;
+        this._stdinWriter = proc.stdin;
 
         // Start the cursor mover
         this._startCursorProcess();
 
+        // Persist online-learning refits (e.g. the Ctrl+Alt+R re-anchor) back to
+        // the calibration file so adaptation survives the session. The tracker
+        // only auto-saves after a successful refit, so this is a no-op unless
+        // online_train samples actually arrive.
+        try {
+          if (this._stdinWriter && this._stdinWriter.writable) {
+            this._stdinWriter.write(JSON.stringify({
+              cmd: 'set_online_calibration_file',
+              path: calFile,
+            }) + '\n');
+          }
+        } catch {}
+
         // Read stdout line-by-line
-        const rl = readline.createInterface({ input: this.pythonProcess.stdout });
+        const rl = readline.createInterface({ input: proc.stdout });
         rl.on('line', (line) => {
           try {
             const data = JSON.parse(line);
+
+            // Raw-log: keep status/error/fixation lines always, downsample gaze.
+            const isGaze = typeof data.x === 'number' && typeof data.y === 'number';
+            if (!isGaze || (this._rawTrackFrames++ % 30) === 0) {
+              this._appendRawLine(line);
+            }
 
             if (data.status === 'stopped' || data.status === 'duration_complete') {
               this._setState('idle');
@@ -468,13 +673,25 @@ while ($true) {
               // other subscriber) receives gaze regardless of who owns the
               // onGazeData callback (overlay/validation overwrite it directly).
               this.emit('gaze', { x: data.x, y: data.y, confidence: data.confidence, blink: data.blink });
-              // Skip cursor movement during blinks or held (grace period) low-confidence frames
+              // Skip cursor movement during blinks, face-loss grace frames,
+              // or out-of-range head pose (all emitted with held=true).
               const isBlink = data.blink === true;
+              const isHeld = data.held === true;
               const suppressCursor = this.validationMode || this.overlayMode;
-              if (!suppressCursor && !isBlink && data.confidence >= confidence) {
+              if (!suppressCursor && !isBlink && !isHeld && data.confidence >= confidence) {
                 this._moveCursor(data.x, data.y);
               }
               this._ingestGaze(data, { suppressCursor, confidenceThreshold: confidence });
+
+              // Double-blink click gesture (off unless enabled in settings).
+              if (this.blinkGesture && this.blinkGesture.enabled) {
+                const click = this.blinkGesture.feed(Date.now(), isBlink, data.x, data.y);
+                if (click && !this.validationMode && !this.overlayMode) {
+                  this.emit('blink-click', click);
+                  if (this.onGazeClick) { try { this.onGazeClick(click); } catch {} }
+                  this._click(click.x, click.y);
+                }
+              }
             }
 
             // Fixation / saccade events (I-VT). Emit as a distinct event so the
@@ -488,21 +705,26 @@ while ($true) {
         });
 
         // Handle stderr
-        this.pythonProcess.stderr.on('data', (data) => {
+        proc.stderr.on('data', (data) => {
           const msg = data.toString().trim();
           if (msg) console.error('[EyeTracking] Python stderr:', msg);
         });
 
-        this.pythonProcess.on('exit', (code) => {
+        proc.on('exit', (code) => {
           console.log(`[EyeTracking] Python process exited with code ${code}`);
+          // Only clear shared state if this is still the process we own. A
+          // stale calibration subprocess exiting late must not clobber the
+          // handle of a newer tracking/validation process.
+          if (this.pythonProcess !== proc) return;
           this.pythonProcess = null;
           this._stdinWriter = null;
           this._stopCursorProcess();
           this._setState('idle');
         });
 
-        this.pythonProcess.on('error', (err) => {
+        proc.on('error', (err) => {
           console.error('[EyeTracking] Failed to start Python process:', err.message);
+          if (this.pythonProcess !== proc) return;
           this.lastError = err.message;
           this._setState('error');
           resolve({ success: false, error: err.message });
@@ -536,18 +758,20 @@ while ($true) {
       } catch {}
     }
 
-    // Give it a moment to exit cleanly, then force kill
+    // Give it a moment to exit cleanly, then force kill. Capture the process
+    // reference so a late-spawned replacement can't be mistaken for this one.
+    const proc = this.pythonProcess;
     await new Promise((resolve) => {
       const timeout = setTimeout(() => {
-        if (this.pythonProcess) {
-          this.pythonProcess.kill();
-          this.pythonProcess = null;
+        if (proc) {
+          try { proc.kill(); } catch {}
+          if (this.pythonProcess === proc) this.pythonProcess = null;
         }
         resolve();
       }, 3000);
 
-      if (this.pythonProcess) {
-        this.pythonProcess.once('exit', () => {
+      if (proc) {
+        proc.once('exit', () => {
           clearTimeout(timeout);
           resolve();
         });
@@ -558,12 +782,14 @@ while ($true) {
     });
 
     this._stopCursorProcess();
+    this.pythonProcess = null;
     this._stdinWriter = null;
     this.validationMode = false;
     this.overlayMode = false;
     this.onGazeData = null;
     this.onModelUpdated = null;
     this._quality = null;
+    this.lastError = null;
     this._setState('idle');
     console.log('[EyeTracking] Stopped');
     return { success: true };
@@ -599,9 +825,20 @@ while ($true) {
     }
 
     this.cameraIndex = cameraIndex;
-    const screen = this._getScreenSize();
+
+    // Resolve the chosen display so the calibration measures in that display's
+    // DIP coordinate space (multi-monitor). Persist it for tracking to reuse.
+    const display = (options && options.display) || this._loadDisplaySidecar() || null;
+    this._display = display;
+    if (display) this._saveDisplaySidecar(display);
+    const screen = display
+      ? { width: display.width, height: display.height }
+      : this._getScreenSize();
+
     const scriptPath = path.join(resolveScriptsPath(), 'eye_tracker.py');
     const pythonPath = this._getPythonPath();
+
+    this._startRawSession('calibrate', cameraIndex, screen);
 
     // If optimizing an existing calibration, load the prior aggregated points.
     let priorPoints = null;
@@ -651,15 +888,23 @@ while ($true) {
 
     return new Promise((resolve) => {
       try {
-        this.pythonProcess = spawn(pythonPath, args, {
+        // Make sure a lingering process can't race the new calibration subprocess.
+        if (this.pythonProcess) {
+          try { this.pythonProcess.kill(); } catch {}
+          this.pythonProcess = null;
+          this._stdinWriter = null;
+        }
+
+        const proc = spawn(pythonPath, args, {
           stdio: ['pipe', 'pipe', 'pipe'],
           windowsHide: true,
         });
+        this.pythonProcess = proc;
+        this._stdinWriter = proc.stdin;
 
-        this._stdinWriter = this.pythonProcess.stdin;
-
-        const rl = readline.createInterface({ input: this.pythonProcess.stdout });
+        const rl = readline.createInterface({ input: proc.stdout });
         rl.on('line', (line) => {
+          this._appendRawLine(line);
           try {
             const data = JSON.parse(line);
             if (data.calibration === 'complete') {
@@ -682,12 +927,18 @@ while ($true) {
           } catch {}
         });
 
-        this.pythonProcess.stderr.on('data', (data) => {
+        proc.stderr.on('data', (data) => {
           const msg = data.toString().trim();
-          if (msg) console.error('[EyeTracking] Calibration stderr:', msg);
+          if (msg) {
+            this._appendRawLine('[stderr] ' + msg);
+            console.error('[EyeTracking] Calibration stderr:', msg);
+          }
         });
 
-        this.pythonProcess.on('exit', () => {
+        proc.on('exit', () => {
+          this._appendRawLine('=== end ===');
+          // Only clear shared state if this is still the process we own.
+          if (this.pythonProcess !== proc) return;
           this.pythonProcess = null;
           this._stdinWriter = null;
           if (this.state === 'calibrating') {
@@ -695,7 +946,8 @@ while ($true) {
           }
         });
 
-        this.pythonProcess.on('error', (err) => {
+        proc.on('error', (err) => {
+          if (this.pythonProcess !== proc) return;
           this.lastError = err.message;
           this._setState('error');
           resolve({ success: false, error: err.message });

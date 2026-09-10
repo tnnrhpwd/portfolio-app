@@ -323,7 +323,6 @@
     <button id="nav-toggle" title="Navigate">☰</button>
     <span class="topbar-title">Simple Dashboard</span>
   </div>
-  <button id="topbar-marketplace" class="btn-webapp">Marketplace</button>
   <button id="topbar-webapp" class="btn-webapp">Open Web App ↗</button>
   <div id="nav-dropdown">
     <button data-tab="status">Status</button>
@@ -338,7 +337,7 @@
     <button data-tab="updates">Updates</button>
     <button data-tab="settings">Settings</button>
     <div class="nav-sep"></div>
-    <button id="nav-marketplace" class="nav-webapp">Marketplace</button>
+    <button data-tab="marketplace">Marketplace</button>
     <button id="nav-webapp" class="nav-webapp">Open Web App ↗</button>
   </div>
 </div>
@@ -354,6 +353,7 @@
   <button class="tab-btn" data-tab="voice">Voice</button>
   <button class="tab-btn" data-tab="perception">Perception</button>
   <button class="tab-btn" data-tab="recorder">Recorder &amp; Skills</button>
+  <button class="tab-btn" data-tab="marketplace">Marketplace</button>
   <button class="tab-btn" data-tab="workspace">Workspace Profiles</button>
   <button class="tab-btn" data-tab="triggers">Triggers</button>
   <button class="tab-btn" data-tab="permissions">Permissions</button>
@@ -1044,6 +1044,7 @@
           <div class="desc">Tracks where you're looking to help drive automation. Calibrate first for accuracy.</div>
           <div class="desc" id="eye-state-detail" style="display:none;"></div>
           <div class="desc" id="eye-gaze" style="display:none; color:var(--accent);"></div>
+          <div class="desc" id="eye-fixation" style="display:none; color:var(--accent);"></div>
           <div class="desc" id="eye-last-error" style="display:none; color:var(--danger);"></div>
         </div>
         <div class="actions">
@@ -1110,6 +1111,18 @@
       </div>
       <div class="row">
         <div>
+          <div class="name">Blink Click</div>
+          <div class="desc">Blink twice quickly to click where you're looking. Experimental — off by default to avoid accidental clicks.</div>
+        </div>
+        <div class="actions">
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
+            <input type="checkbox" id="eye-toggle-blink" />
+            Enabled
+          </label>
+        </div>
+      </div>
+      <div class="row">
+        <div>
           <div class="name">Adaptation</div>
           <div class="desc">The gaze model auto-refines from overlay usage. Undo a bad sample or reset back to your calibrated baseline.</div>
           <div class="desc" id="eye-adaptation-status" style="display:none; color:var(--muted);"></div>
@@ -1126,6 +1139,14 @@
         </div>
         <div class="actions">
           <button id="eye-emergency-stop" class="danger">Emergency Stop</button>
+        </div>
+      </div>
+      <div class="row">
+        <div style="flex:1;">
+          <div class="name">Gaze Heatmap</div>
+          <div class="desc" style="color:var(--muted); font-size:12px;">Where you've been looking during the current tracking session.</div>
+          <canvas id="eye-heatmap" width="320" height="180" style="width:320px; max-width:100%; border:1px solid var(--border); border-radius:6px; margin-top:6px;"></canvas>
+          <div class="desc" id="eye-heatmap-caption" style="color:var(--muted); font-size:11px; margin-top:4px;">&nbsp;</div>
         </div>
       </div>
     </div>
@@ -1157,6 +1178,29 @@
           <button id="update-install" class="primary" disabled>Restart &amp; Update Now</button>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- ── Marketplace tab ── -->
+  <section class="tab-panel" id="panel-marketplace">
+    <div class="panel">
+      <div class="row" style="align-items:flex-start;">
+        <div>
+          <h2 style="margin:0;">Marketplace</h2>
+          <div class="desc" style="color:var(--muted); font-size:12px; max-width:640px;">
+            Browse and install community skills. If you see an auth error, sign in on the web app first.
+          </div>
+        </div>
+        <div class="actions">
+          <button id="marketplace-open" class="btn-webapp">Open full marketplace ↗</button>
+        </div>
+      </div>
+      <div class="flex" style="margin:14px 0 6px;">
+        <input type="text" id="marketplace-search" placeholder="Search skills…" style="flex:1;">
+        <button id="marketplace-search-btn" class="primary">Search</button>
+      </div>
+      <div id="marketplace-status" class="desc" style="color:var(--muted); margin-bottom:10px;">&nbsp;</div>
+      <div id="marketplace-list"></div>
     </div>
   </section>
 
@@ -1306,6 +1350,12 @@ function activateTab(tabId) {
   const sidebarBtn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
   sidebarBtn?.classList.add('active');
   document.getElementById(`panel-${tabId}`).classList.add('active');
+
+  // Lazily load the marketplace list the first time the tab is opened.
+  if (tabId === 'marketplace' && !marketplaceLoaded) {
+    marketplaceLoaded = true;
+    refreshMarketplace('');
+  }
 }
 
 for (const btn of document.querySelectorAll('.tab-btn')) {
@@ -1336,11 +1386,77 @@ document.getElementById('nav-webapp').addEventListener('click', () => {
   navDropdown.classList.remove('open');
 });
 const MARKETPLACE_URL = 'https://sthopwood.com/market';
-document.getElementById('topbar-marketplace').addEventListener('click', () => window.simpleDashboard.openExternal(MARKETPLACE_URL));
-document.getElementById('nav-marketplace').addEventListener('click', () => {
-  window.simpleDashboard.openExternal(MARKETPLACE_URL);
-  navDropdown.classList.remove('open');
+let marketplaceLoaded = false;
+
+async function refreshMarketplace(q = '') {
+  const statusEl = document.getElementById('marketplace-status');
+  const listEl = document.getElementById('marketplace-list');
+  statusEl.textContent = 'Loading…';
+  listEl.innerHTML = '';
+  try {
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    params.set('sort', 'downloads');
+    params.set('perPage', '50');
+    const data = await api(`/api/market/skills?${params.toString()}`);
+    const skills = Array.isArray(data && data.skills) ? data.skills : [];
+    statusEl.textContent = skills.length
+      ? `${skills.length} skill${skills.length === 1 ? '' : 's'}${q ? ` matching “${q}”` : ''}`
+      : '';
+    if (!skills.length) {
+      listEl.innerHTML = '<div class="desc" style="color:var(--muted)">No skills found.</div>';
+      return;
+    }
+    listEl.innerHTML = skills.map((s) => {
+      const name = escapeHtml(s.name || s.slug || s.marketId || 'Untitled skill');
+      const slug = escapeHtml(s.slug || s.marketId || '');
+      const ver = escapeHtml(s.version || '');
+      const downloads = typeof s.downloads === 'number' ? s.downloads : 0;
+      const desc = s.description ? `<div class="desc">${escapeHtml(s.description)}</div>` : '';
+      const id = escapeHtml(s.marketId || s.slug || '');
+      return `<div class="row" style="align-items:flex-start;">
+        <div>
+          <div class="name">${name} <span class="desc" style="font-weight:400;">v${ver}</span></div>
+          ${desc}
+          <div class="desc" style="color:var(--muted); font-size:11px;">${slug}${slug ? ' · ' : ''}${downloads} downloads</div>
+        </div>
+        <div class="actions">
+          <button class="marketplace-install primary" data-id="${id}">Install</button>
+        </div>
+      </div>`;
+    }).join('');
+    for (const btn of listEl.querySelectorAll('.marketplace-install')) {
+      btn.addEventListener('click', () => installMarketplaceSkill(btn.dataset.id, btn));
+    }
+  } catch (e) {
+    listEl.innerHTML = `<div class="kill-banner" style="display:block">${escapeHtml(e.message || 'Failed to load marketplace.')}</div>`;
+    statusEl.textContent = '';
+  }
+}
+
+async function installMarketplaceSkill(marketId, btn) {
+  if (!marketId) return;
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Installing…';
+  try {
+    await api(`/api/market/skills/${encodeURIComponent(marketId)}/install`, { method: 'POST', body: '{}' });
+    btn.textContent = '✓ Installed';
+  } catch (e) {
+    btn.textContent = original;
+    alert(`Install failed: ${e.message}`);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+document.getElementById('marketplace-search').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') refreshMarketplace(e.target.value.trim());
 });
+document.getElementById('marketplace-search-btn').addEventListener('click', () => {
+  refreshMarketplace(document.getElementById('marketplace-search').value.trim());
+});
+document.getElementById('marketplace-open').addEventListener('click', () => window.simpleDashboard.openExternal(MARKETPLACE_URL));
 
 // Jump straight to a tab if the window was opened with ?tab=<id> (e.g. from
 // a tray shortcut), otherwise the default Status tab (already marked active
@@ -3664,9 +3780,13 @@ refreshPermissions().catch(e => {
 setInterval(() => refreshPermissions().catch(() => {}), 4000);
 
 // ── Eye Tracking tab ──
+// Cached so the gaze handler can ignore stray events after tracking stops.
+let eyeTrackingActive = false;
+
 async function refreshEyeTrackingStatus() {
   try {
     const s = await window.simpleDashboard.getEyeTrackingStatus();
+    eyeTrackingActive = s.state === 'running';
     const nameEl = document.getElementById('eye-state-name');
     const label = s.state === 'running' ? 'Active' : s.state === 'calibrating' ? 'Calibrating...' : 'Inactive';
     nameEl.textContent = label;
@@ -3688,9 +3808,17 @@ async function refreshEyeTrackingStatus() {
       detailEl.style.display = 'none';
     }
 
-    // Hide the live gaze readout when not actively tracking.
+    // Hide the live gaze + fixation readouts when not actively tracking.
     const gazeEl = document.getElementById('eye-gaze');
-    if (gazeEl && s.state !== 'running') gazeEl.style.display = 'none';
+    if (gazeEl && s.state !== 'running') {
+      gazeEl.style.display = 'none';
+      gazeEl.textContent = '';
+    }
+    const fixationEl = document.getElementById('eye-fixation');
+    if (fixationEl && s.state !== 'running') {
+      fixationEl.style.display = 'none';
+      fixationEl.textContent = '';
+    }
 
     // Online adaptation state + Undo/Reset controls.
     const adaptStatus = document.getElementById('eye-adaptation-status');
@@ -3823,7 +3951,7 @@ document.getElementById('eye-toggle-overlay').addEventListener('change', async (
   await refreshEyeTrackingStatus();
 });
 
-// ── Dwell-to-click settings ──
+// ── Dwell-to-click + blink-click settings ──
 async function loadEyeSettings() {
   try {
     const s = await window.simpleDashboard.getEyeSettings();
@@ -3832,6 +3960,7 @@ async function loadEyeSettings() {
     dwellToggle.checked = !!s.dwellClickEnabled;
     dwellSlider.value = (typeof s.dwellMs === 'number' ? s.dwellMs : 600);
     document.getElementById('eye-dwell-ms-label').textContent = `${dwellSlider.value}ms`;
+    document.getElementById('eye-toggle-blink').checked = !!s.blinkClickEnabled;
   } catch (e) {
     console.error('Failed to load eye settings:', e);
   }
@@ -3846,6 +3975,10 @@ document.getElementById('eye-dwell-ms').addEventListener('input', (e) => {
 document.getElementById('eye-dwell-ms').addEventListener('change', (e) => {
   window.simpleDashboard.setEyeSettings({ dwellMs: parseInt(e.target.value, 10) || 600 });
 });
+document.getElementById('eye-toggle-blink').addEventListener('change', async (e) => {
+  const res = await window.simpleDashboard.setEyeSettings({ blinkClickEnabled: e.target.checked });
+  if (res && res.ok === false) { alert(res.error || 'Failed to save blink-click setting.'); e.target.checked = !e.target.checked; }
+});
 loadEyeSettings();
 
 document.getElementById('eye-emergency-stop').addEventListener('click', async () => {
@@ -3857,15 +3990,71 @@ window.simpleDashboard.onStatusChanged(() => refreshEyeTrackingStatus());
 window.simpleDashboard.onGazeData((data) => {
   const el = document.getElementById('eye-gaze');
   if (!el || !data || typeof data.x !== 'number') return;
+  // Never render gaze unless tracking is confirmed active. Stray events during
+  // shutdown (e.g. a final blink/no-face frame) must not resurrect the readout.
+  if (!eyeTrackingActive) {
+    el.style.display = 'none';
+    el.textContent = '';
+    return;
+  }
   const conf = typeof data.confidence === 'number' ? ` · confidence ${data.confidence.toFixed(2)}` : '';
   el.textContent = `Gaze (${Math.round(data.x)}, ${Math.round(data.y)})${conf}${data.blink ? ' · blinking' : ''}`;
   el.style.display = '';
 });
+window.simpleDashboard.onFixationData((data) => {
+  const el = document.getElementById('eye-fixation');
+  if (!el || !data) return;
+  if (!eyeTrackingActive) {
+    el.style.display = 'none';
+    el.textContent = '';
+    return;
+  }
+  if (data.fixation_start) {
+    const f = data.fixation_start;
+    el.textContent = `Fixation at (${Math.round(f.x)}, ${Math.round(f.y)})`;
+  } else if (data.fixation_end) {
+    const f = data.fixation_end;
+    el.textContent = `Fixation ended · ${(f.duration || 0).toFixed(2)}s · ${f.samples || 0} samples`;
+  }
+  el.style.display = '';
+});
+// ── Gaze heatmap (density of where the user has looked this session) ──
+async function refreshEyeHeatmap() {
+  const canvas = document.getElementById('eye-heatmap');
+  const caption = document.getElementById('eye-heatmap-caption');
+  if (!canvas || !caption) return;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#0a0a0f';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  try {
+    const hm = await window.simpleDashboard.getGazeHeatmap();
+    if (!hm || !Array.isArray(hm.cells) || !hm.total) {
+      caption.textContent = eyeTrackingActive ? 'No gaze data yet.' : 'Start tracking to build a heatmap.';
+      return;
+    }
+    const cw = canvas.width / hm.cols;
+    const ch = canvas.height / hm.rows;
+    for (let r = 0; r < hm.rows; r++) {
+      for (let c = 0; c < hm.cols; c++) {
+        const v = hm.cells[r * hm.cols + c] || 0;
+        if (v <= 0) continue;
+        const a = Math.min(1, 0.15 + 0.85 * (v / (hm.max || 1)));
+        ctx.fillStyle = `rgba(88,166,255,${a.toFixed(3)})`;
+        ctx.fillRect(c * cw, r * ch, cw, ch);
+      }
+    }
+    caption.textContent = `${hm.total.toLocaleString()} gaze samples · ${hm.cols}×${hm.rows}`;
+  } catch (e) {
+    caption.textContent = 'Heatmap unavailable.';
+  }
+}
 refreshEyeTrackingStatus();
 refreshEyeCalibrationSummary();
 refreshEyeCameras();
+refreshEyeHeatmap();
 setInterval(refreshEyeTrackingStatus, 5000);
 setInterval(refreshEyeCalibrationSummary, 30000); // calibration changes rarely
+setInterval(refreshEyeHeatmap, 2000);
 
 // ── Updates tab ──
 async function refreshUpdateStatus() {

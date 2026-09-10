@@ -84,5 +84,20 @@ check('clear online samples no-op when not running', mgr.clearOnlineSamples().su
     mgr._quality = null;
 }
 
+// ── Gaze heatmap ────────────────────────────────────────────────────────────
+{
+    mgr._gazeHeatmap = mgr._newGazeHeatmap(1920, 1080);
+    mgr._ingestGaze({ x: 0, y: 0, confidence: 0.8 }, { suppressCursor: true, confidenceThreshold: 0.5 });
+    mgr._ingestGaze({ x: 1919, y: 1079, confidence: 0.8 }, { suppressCursor: true, confidenceThreshold: 0.5 });
+    mgr._ingestGaze({ x: 500, y: 500, confidence: 0.5, blink: true }, { suppressCursor: true, confidenceThreshold: 0.5 });
+    mgr._ingestGaze({ x: 960, y: 540, confidence: 0.5, held: true }, { suppressCursor: true, confidenceThreshold: 0.5 });
+    const hm = mgr.getGazeHeatmap();
+    check('heatmap has 16x9 grid', !!hm && hm.cols === 16 && hm.rows === 9);
+    check('heatmap excludes blinks and held frames', !!hm && hm.total === 2);
+    check('heatmap bins to correct cells',
+        !!hm && hm.cells[0] === 1 && hm.cells[hm.cells.length - 1] === 1);
+    mgr._gazeHeatmap = null;
+}
+
 console.log(`\neye-tracking-manager.test: ${pass}/${pass + fail} PASS`);
 process.exit(fail > 0 ? 1 : 0);

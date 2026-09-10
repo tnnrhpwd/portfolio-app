@@ -89,6 +89,13 @@ HEAD_POSE_LANDMARKS = [1, 152, 33, 263, 61, 291]
 EAR_BLINK_THRESHOLD = 0.21
 EAR_CONSEC_FRAMES = 2  # Minimum consecutive frames below threshold to count as blink
 
+# ── Head-pose limits for cursor hold ──────────────────────────────────────────
+# Beyond these angles the iris leaves the reliable zone of the face mesh and
+# gaze estimates become noisy — hold the cursor (emit held=true) rather than
+# let an extreme head turn fling it off-screen.
+HEAD_POSE_YAW_LIMIT = 0.5     # rad (~28.6°)
+HEAD_POSE_PITCH_LIMIT = 0.45  # rad (~25.8°)
+
 
 def _open_camera_capture(camera_index):
     """Open a webcam, falling back through Windows backends.
@@ -136,7 +143,7 @@ def encode_preview_image(frame, max_width=480, max_height=360, quality=55):
 
 class EyeTracker:
     def __init__(self, camera_index=0, screen_width=1920, screen_height=1080,
-                 calibration_file=None, smoothing_alpha=0.3, confidence_threshold=0.6,
+                 calibration_file=None, confidence_threshold=0.6,
                  ir_mode=False, process_width=640, process_height=480,
                  hires_iris=False, capture_width=0, capture_height=0,
                  fixation_velocity_threshold=120.0, fixation_min_duration=0.10,
@@ -158,7 +165,6 @@ class EyeTracker:
         self.capture_height = int(capture_height) if capture_height else 0
         # CLAHE for IR contrast boost — reused across frames
         self._clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8)) if self.ir_mode else None
-        self.smoothing_alpha = smoothing_alpha
         self.confidence_threshold = confidence_threshold
 
         self.running = False
@@ -206,13 +212,18 @@ class EyeTracker:
         # the last emitted cursor position, hold the cursor. This eliminates
         # the last mile of visible 1-2 px jitter that survives the 1€ filter.
         self.deadzone_px = 4.0
+        # Dead-zone is a fixation anchor, not a saccade brake: when the filtered
+        # velocity exceeds this (px/s) we bypass the hold so fast eye movements
+        # aren't "sticky" at onset.
+        self.deadzone_bypass_speed = 200.0
         self._last_emit_x = None
         self._last_emit_y = None
 
-        # Legacy EMA state kept for any callers using _smooth()
-        self.prev_raw_x = None
-        self.prev_raw_y = None
-        self.prev_time = None
+        # ── Head-pose throttling state ──
+        # solvePnP is the heaviest per-frame cost after MediaPipe; head pose
+        # changes slowly, so recompute every Nth frame and reuse the estimate.
+        self._pose_frame_counter = 0
+        self._pose_every_n = 3
 
         # ── Head pose correction state ──
         # Set during finish_calibration() / _load_calibration(). When non-None,
@@ -253,11 +264,6 @@ class EyeTracker:
         self.online_outlier_k = 2.5
         self.online_outlier_floor_px = 40.0
         self.online_calibration_file = None    # if set, auto-save updated model
-
-        # Legacy dormant compensation state (kept for back-compat; not used now)
-        self.base_head_yaw = None
-        self.base_head_pitch = None
-        self.head_compensation_gain = 0.0
 
         # ── Eye-corner low-pass state (for stable normalization denominator) ──
         # The head moves slowly relative to the eyes, so we lowpass-filter the
@@ -528,9 +534,17 @@ class EyeTracker:
         r_norm_x = (r_iris_x - r_cx) / r_w
         r_norm_y = (r_iris_y - r_cy) / r_w
 
-        # Binocular average
-        norm_x = (l_norm_x + r_norm_x) * 0.5
-        norm_y = (l_norm_y + r_norm_y) * 0.5
+        # Binocular combination weighted by per-eye iris visibility. A glint,
+        # squint, or partially-occluded eye shouldn't drag the estimate; the
+        # clearer eye dominates. Visibility defaults to ~0 on some models, so
+        # clamp to a floor so unpopulated values degrade to a 50/50 average.
+        l_vis = float(getattr(landmarks[LEFT_IRIS_CENTER], 'visibility', 1.0))
+        r_vis = float(getattr(landmarks[RIGHT_IRIS_CENTER], 'visibility', 1.0))
+        l_vis = min(1.0, max(0.05, l_vis))
+        r_vis = min(1.0, max(0.05, r_vis))
+        w_sum = l_vis + r_vis
+        norm_x = (l_norm_x * l_vis + r_norm_x * r_vis) / w_sum
+        norm_y = (l_norm_y * l_vis + r_norm_y * r_vis) / w_sum
 
         # Rescale to "synthetic pixels" using inter-ocular distance, so the
         # rest of the pipeline keeps its familiar magnitudes (~80–120px sweep).
@@ -656,6 +670,93 @@ class EyeTracker:
         preds = np.array(preds)
         errs = np.linalg.norm(preds - dst, axis=1)
         return errs
+
+    def _fit_poly2_robust(self, src, dst, weights):
+        """Fit a poly2 gaze model with one-pass residual outlier rejection.
+
+        A single grossly-wrong calibration point (a blink, glint, or saccade
+        captured mid-sample) can drag a least-squares fit far off and produce
+        the "13% diagonal / 2455px max" failure mode. This fits, drops points
+        whose residual exceeds median + 3·MAD, and refits once.
+        Returns (model, keep_mask).
+        """
+        n = len(src)
+        if n < 9:
+            return self._fit_poly2_gaze_model(src, dst, weights), np.ones(n, dtype=bool)
+
+        model = self._fit_poly2_gaze_model(src, dst, weights)
+        keep = np.ones(n, dtype=bool)
+        if model is None:
+            return None, keep
+
+        resid = self._evaluate_model_residuals(model, src, dst)
+        med = float(np.median(resid))
+        mad = float(np.median(np.abs(resid - med))) + 1e-6
+        thresh = med + 3.0 * mad
+        mask = resid <= thresh
+        if mask.all() or int(mask.sum()) < 9:
+            return model, keep
+
+        model2 = self._fit_poly2_gaze_model(src[mask], dst[mask], weights[mask])
+        if model2 is None:
+            return model, keep
+        return model2, mask
+
+    def _loo_error_homography(self, src, dst):
+        """Leave-one-out generalization error (screen px) for a homography.
+
+        For each point, fit on all the others and measure the held-out error.
+        This is an honest accuracy number: unlike training residual, it can't
+        be gamed by an overfit model.
+        """
+        n = len(src)
+        errs = np.full(n, 1e9, dtype=np.float64)
+        for i in range(n):
+            mask = np.ones(n, dtype=bool)
+            mask[i] = False
+            H, _ = cv2.findHomography(src[mask], dst[mask], cv2.RANSAC, 5.0)
+            if H is None:
+                continue
+            p = cv2.perspectiveTransform(
+                np.asarray([src[i]], dtype=np.float64).reshape(-1, 1, 2), H).reshape(2)
+            errs[i] = float(np.linalg.norm(p - dst[i]))
+        return errs
+
+    def _loo_error_poly2(self, src, dst, weights):
+        """Leave-one-out generalization error (screen px) for the poly2 model."""
+        n = len(src)
+        errs = np.full(n, 1e9, dtype=np.float64)
+        for i in range(n):
+            mask = np.ones(n, dtype=bool)
+            mask[i] = False
+            model = self._fit_poly2_gaze_model(src[mask], dst[mask], weights[mask])
+            if model is None:
+                continue
+            e = self._evaluate_model_residuals(model, src[i:i + 1], dst[i:i + 1])
+            errs[i] = float(e[0])
+        return errs
+
+    def _gate_head_correction(self, head_correction, src, poses, dst, poly_model, homography):
+        """Keep a head-pose correction only if it reduces error on the data we have.
+
+        A poorly-conditioned pose fit (noisy solvePnP) can make the correction
+        actively harmful; applying it anyway is a net reliability loss. If the
+        correction doesn't strictly reduce the mean residual, discard it.
+        """
+        if head_correction is None or not head_correction.get('data_driven'):
+            return head_correction
+        try:
+            poses_arr = np.array(poses, dtype=np.float64)
+            raw_preds = self._predict_with_correction(src, poses_arr, poly_model, homography, None)
+            corr_preds = self._predict_with_correction(src, poses_arr, poly_model, homography, head_correction)
+            raw_mean = float(np.linalg.norm(raw_preds - dst, axis=1).mean())
+            corr_mean = float(np.linalg.norm(corr_preds - dst, axis=1).mean())
+            if corr_mean >= raw_mean:
+                self._emit({"warning": f"head correction discarded (no improvement: {corr_mean:.1f}px vs {raw_mean:.1f}px)"})
+                return None
+        except Exception:
+            return None
+        return head_correction
 
     def _predict_with_correction(self, src, poses, poly_model, homography, head_correction):
         """Predict screen positions for an array of (iris, pose) samples.
@@ -807,16 +908,6 @@ class EyeTracker:
     def _apply_homography(self, iris_x, iris_y, yaw=0.0, pitch=0.0):
         return self._apply_gaze_model(iris_x, iris_y, yaw, pitch)
 
-    def _smooth(self, x, y):
-        """Apply exponential moving average smoothing."""
-        if self.smoothed_x is None:
-            self.smoothed_x = x
-            self.smoothed_y = y
-        else:
-            self.smoothed_x = self.smoothing_alpha * x + (1 - self.smoothing_alpha) * self.smoothed_x
-            self.smoothed_y = self.smoothing_alpha * y + (1 - self.smoothing_alpha) * self.smoothed_y
-        return self.smoothed_x, self.smoothed_y
-
     def _compute_ear(self, landmarks, frame_width, frame_height):
         """Compute Eye Aspect Ratio (EAR) for blink detection.
         EAR = (|top - bottom|) / (|left - right|) averaged over both eyes.
@@ -909,7 +1000,10 @@ class EyeTracker:
             return sx, sy
 
         dist = np.hypot(sx - self._last_emit_x, sy - self._last_emit_y)
-        if dist < self.deadzone_px:
+        speed = float(np.hypot(dx, dy))
+        # Hold only when nearly static. During a saccade the dead-zone would
+        # otherwise swallow the first few px of a fast movement ("stickiness").
+        if dist < self.deadzone_px and speed < self.deadzone_bypass_speed:
             return self._last_emit_x, self._last_emit_y
 
         # ── Velocity lead (lag compensation) ──
@@ -949,8 +1043,27 @@ class EyeTracker:
             for idx in HEAD_POSE_LANDMARKS
         ], dtype=np.float64)
 
-        # Camera internals (approximate)
+        # Camera internals. Estimate the focal length from the iris's apparent
+        # diameter (human iris ≈ 11.7 mm) and the configured viewing distance —
+        # more physically accurate than assuming focal == frame width. Falls back
+        # to frame_width when the iris isn't resolved or the estimate is absurd.
         focal_length = frame_width
+        IRIS_DIAMETER_MM = 11.7
+        iris_diam_px = []
+        for left_idx, right_idx in ((471, 469), (476, 474)):
+            try:
+                a = landmarks[left_idx]
+                b = landmarks[right_idx]
+                d = float(np.hypot((a.x - b.x) * frame_width,
+                                   (a.y - b.y) * frame_height))
+                if d > 1.0:
+                    iris_diam_px.append(d)
+            except Exception:
+                continue
+        if iris_diam_px and self.viewing_distance_mm and self.viewing_distance_mm > 0:
+            est = (sum(iris_diam_px) / len(iris_diam_px)) * self.viewing_distance_mm / IRIS_DIAMETER_MM
+            if 0.5 * frame_width <= est <= 4.0 * frame_width:
+                focal_length = est
         center = (frame_width / 2, frame_height / 2)
         camera_matrix = np.array([
             [focal_length, 0, center[0]],
@@ -974,32 +1087,6 @@ class EyeTracker:
                            np.sqrt(rotation_matrix[2][0]**2 + rotation_matrix[2][2]**2))
 
         return float(yaw), float(pitch)
-
-    def _apply_head_compensation(self, screen_x, screen_y, yaw, pitch):
-        """Offset gaze position based on head rotation delta from baseline."""
-        if self.base_head_yaw is None:
-            # First frame: set baseline
-            self.base_head_yaw = yaw
-            self.base_head_pitch = pitch
-            return screen_x, screen_y
-
-        delta_yaw = yaw - self.base_head_yaw
-        delta_pitch = pitch - self.base_head_pitch
-
-        # Only compensate small head movements (within ~15 degrees)
-        max_angle = 0.26  # ~15 degrees in radians
-        delta_yaw = max(-max_angle, min(max_angle, delta_yaw))
-        delta_pitch = max(-max_angle, min(max_angle, delta_pitch))
-
-        # Offset: head turns right → gaze drifts left, so subtract
-        comp_x = screen_x - delta_yaw * self.head_compensation_gain
-        comp_y = screen_y + delta_pitch * self.head_compensation_gain
-
-        # Clamp
-        comp_x = max(0, min(self.screen_width - 1, comp_x))
-        comp_y = max(0, min(self.screen_height - 1, comp_y))
-
-        return comp_x, comp_y
 
     def _handle_calibration_frame(self, iris_x, iris_y, yaw=0.0, pitch=0.0):
         """Collect iris sample for the current calibration point."""
@@ -1208,11 +1295,11 @@ class EyeTracker:
         if homography is None:
             return False
 
-        # Polynomial (preferred when we have enough points)
+        # Polynomial (robust fit, preferred when we have enough points)
         poly_model = None
         poly_residuals = None
         if len(src_points) >= 9:
-            poly_model = self._fit_poly2_gaze_model(src, dst, w)
+            poly_model, _ = self._fit_poly2_robust(src, dst, w)
             if poly_model is not None:
                 poly_residuals = self._evaluate_model_residuals(poly_model, src, dst)
 
@@ -1256,10 +1343,14 @@ class EyeTracker:
 
         # Re-fit head correction (best-effort; tolerate failure)
         try:
-            self.head_correction = self._fit_head_correction(
-                poses, dst, weights,
-                poly_model if use_poly else None,
-                homography, src,
+            self.head_correction = self._gate_head_correction(
+                self._fit_head_correction(
+                    poses, dst, weights,
+                    poly_model if use_poly else None,
+                    homography, src,
+                ),
+                src, poses, dst,
+                poly_model if use_poly else None, homography,
             )
         except Exception:
             pass
@@ -1395,6 +1486,13 @@ class EyeTracker:
                 return False
             iris_x, iris_y, yaw, pitch, weight = result
 
+            # Moving-dot (smooth-pursuit prelude) points are sampled while the
+            # dot is still moving, so the eye lags the target and the
+            # iris↔screen pairing is systematically biased. Down-weight them so
+            # the static grid (which has settle time) dominates the fit.
+            if point.get("min_samples"):
+                weight *= 0.2
+
             src_points.append([iris_x, iris_y])
             dst_points.append(list(point["screen"]))
             weights.append(weight)
@@ -1472,34 +1570,42 @@ class EyeTracker:
             return False
         self.homography = homography
 
-        # ── Polynomial model (preferred when ≥9 points) ──
+        # ── Polynomial model (robust fit, preferred when ≥9 points) ──
         poly_model = None
-        poly_residuals = None
         if len(src_points) >= 9:
-            poly_model = self._fit_poly2_gaze_model(src, dst, w)
-            if poly_model is not None:
-                poly_residuals = self._evaluate_model_residuals(poly_model, src, dst)
+            poly_model, _ = self._fit_poly2_robust(src, dst, w)
 
-        # ── Homography residuals (for comparison) ──
+        # ── Training residuals (diagnostics) ──
         hom_preds = cv2.perspectiveTransform(src.reshape(-1, 1, 2), homography).reshape(-1, 2)
         hom_residuals = np.linalg.norm(hom_preds - dst, axis=1)
+        poly_residuals = self._evaluate_model_residuals(poly_model, src, dst) if poly_model is not None else None
 
-        # Choose better model by mean residual
+        # ── Model selection via leave-one-out cross-validation ──
+        # Training residual is a dishonest accuracy number: an overfit poly2
+        # can score great on its own points while extrapolating wildly. LOO
+        # (fit on all-but-one, score the held-out point) measures true
+        # generalization and naturally rejects overfit / degenerate models.
         use_poly = False
         chosen_residuals = hom_residuals
         model_type = "homography"
-        if poly_model is not None and poly_residuals is not None:
-            # Prefer polynomial if it improves mean residual by at least 15%
+        hom_loo_mean = None
+        poly_loo_mean = None
+        if len(src) >= 6:
+            hom_loo = self._loo_error_homography(src, dst)
+            hom_loo_mean = float(hom_loo.mean())
+            chosen_residuals = hom_loo
+            if poly_model is not None:
+                poly_loo = self._loo_error_poly2(src, dst, w)
+                poly_loo_mean = float(poly_loo.mean())
+                if poly_loo_mean < hom_loo_mean:
+                    use_poly = True
+                    chosen_residuals = poly_loo
+                    model_type = "poly2"
+        elif poly_model is not None and poly_residuals is not None:
             if poly_residuals.mean() < hom_residuals.mean() * 0.85:
                 use_poly = True
                 chosen_residuals = poly_residuals
                 model_type = "poly2"
-            else:
-                # Small improvement only → still prefer poly if it doesn't hurt max error significantly
-                if poly_residuals.max() <= hom_residuals.max() * 1.1 and poly_residuals.mean() < hom_residuals.mean():
-                    use_poly = True
-                    chosen_residuals = poly_residuals
-                    model_type = "poly2"
 
         if use_poly:
             self.gaze_model = poly_model
@@ -1528,20 +1634,10 @@ class EyeTracker:
         except Exception as e:
             self._emit({"warning": f"head correction fit failed (continuing without it): {e}"})
             head_correction = None
+        head_correction = self._gate_head_correction(
+            head_correction, src, poses, dst,
+            poly_model if use_poly else None, homography)
         self.head_correction = head_correction
-
-        # Re-evaluate residuals WITH head correction so the saved residuals
-        # reflect what the runtime cursor will actually do.
-        if head_correction is not None:
-            try:
-                preds = self._predict_with_correction(
-                    src, np.array(poses, dtype=np.float64),
-                    poly_model if use_poly else None,
-                    homography, head_correction,
-                )
-                chosen_residuals = np.linalg.norm(preds - dst, axis=1)
-            except Exception as e:
-                self._emit({"warning": f"head correction residual recompute failed: {e}"})
 
         # Attach per-point residuals to saved data
         for p, r in zip(agg_per_point, chosen_residuals):
@@ -1614,6 +1710,16 @@ class EyeTracker:
             iris_range_x = float(max(iris_xs) - min(iris_xs)) if iris_xs else 0.0
             iris_range_y = float(max(iris_ys) - min(iris_ys)) if iris_ys else 0.0
 
+            # A near-flat iris range means the camera isn't resolving the iris
+            # (glasses, low res, face too far). The fit will be garbage, so warn
+            # and flag it for the UI to recommend re-running / adjusting.
+            low_iris_range = bool(max(iris_range_x, iris_range_y) < 25.0)
+            if low_iris_range:
+                self._emit({
+                    "warning": (f"Very small iris range ({iris_range_x:.1f}x{iris_range_y:.1f}px) "
+                                "— camera may not resolve the iris; accuracy will be poor."),
+                })
+
             # Identify worst point so UI can suggest recalibration of that region
             worst_idx = int(np.argmax(chosen_residuals))
             worst_point = agg_per_point[worst_idx]
@@ -1623,6 +1729,7 @@ class EyeTracker:
                 "file": output_file,
                 "iris_range_x": iris_range_x,
                 "iris_range_y": iris_range_y,
+                "low_iris_range": low_iris_range,
                 "num_points": len(cal_data["points"]),
                 "model_type": model_type,
                 "mean_residual_px": float(chosen_residuals.mean()),
@@ -1636,8 +1743,8 @@ class EyeTracker:
                     "screenY": worst_point["screenY"],
                     "residualPx": float(chosen_residuals[worst_idx]),
                 },
-                "hom_mean_residual_px": float(hom_residuals.mean()),
-                "poly_mean_residual_px": float(poly_residuals.mean()) if poly_residuals is not None else None,
+                "hom_mean_residual_px": hom_loo_mean if hom_loo_mean is not None else float(hom_residuals.mean()),
+                "poly_mean_residual_px": (poly_loo_mean if poly_loo_mean is not None else (float(poly_residuals.mean()) if poly_residuals is not None else None)),
                 "head_correction": {
                     "enabled": bool(head_correction is not None and head_correction.get('data_driven')),
                     "yaw_spread_deg": float(head_correction['yaw_spread_deg']) if head_correction else 0.0,
@@ -1837,17 +1944,23 @@ class EyeTracker:
                     # Degenerate eye geometry (e.g. closed eyes / extreme angle); skip frame.
                     continue
 
-                # Head pose — used both for calibration sample tagging and
-                # for runtime correction. Cheap to compute (one solvePnP).
-                yaw, pitch = self._estimate_head_pose(landmarks, w, h)
+                # Head pose — used both for calibration sample tagging and for
+                # runtime correction. solvePnP is the heaviest per-frame cost
+                # after MediaPipe, and head pose changes slowly, so recompute
+                # every Nth frame and reuse the estimate in between.
+                self._pose_frame_counter += 1
+                if self._pose_frame_counter % self._pose_every_n == 0:
+                    yaw, pitch = self._estimate_head_pose(landmarks, w, h)
+                    self.last_yaw = yaw
+                    self.last_pitch = pitch
+                else:
+                    yaw, pitch = self.last_yaw, self.last_pitch
 
                 # Cache the most recent gaze feature for online learning. The
                 # host pairs this with an external screen target via
                 # `online_train` — see add_online_sample().
                 self.last_iris_x = iris_x
                 self.last_iris_y = iris_y
-                self.last_yaw = yaw
-                self.last_pitch = pitch
 
                 # ── Real tracking confidence (0..1) ──
                 # Blend iris-landmark visibility (when MediaPipe provides it),
@@ -1910,12 +2023,19 @@ class EyeTracker:
                 # ── Adaptive velocity-based smoothing ──
                 smooth_x, smooth_y = self._adaptive_smooth(screen_x, screen_y)
 
+                # Hold the cursor when the head is turned past the reliable
+                # zone — gaze at extreme angles is noisy and the iris is near
+                # the edge of the face-mesh field of view.
+                head_out = bool(abs(yaw) > HEAD_POSE_YAW_LIMIT
+                                or abs(pitch) > HEAD_POSE_PITCH_LIMIT)
+
                 self._emit({
                     "x": round(smooth_x),
                     "y": round(smooth_y),
                     "confidence": round(confidence, 3),
                     "both_eyes": both_eyes,
                     "ear": round(ear, 3),
+                    "held": head_out,
                 })
 
                 # ── Fixation / saccade classification (I-VT) ──
@@ -2100,7 +2220,6 @@ def main():
     parser.add_argument("--duration", type=int, default=0, help="Duration in seconds (0 = indefinite)")
     parser.add_argument("--mode", type=str, default="track", choices=["track", "calibrate", "test", "list_cameras", "snapshot_camera"],
                         help="Operating mode")
-    parser.add_argument("--smoothing", type=float, default=0.3, help="Smoothing alpha (0-1, higher = less smooth)")
     parser.add_argument("--confidence_threshold", type=float, default=0.6, help="Minimum confidence to emit coordinates")
     parser.add_argument("--oe_min_cutoff", type=float, default=0.8,
                         help="1€ filter cutoff (Hz) at zero velocity. Lower = more stable at rest (default 0.8).")
@@ -2153,7 +2272,6 @@ def main():
         screen_width=args.screen_width,
         screen_height=args.screen_height,
         calibration_file=args.calibration_file,
-        smoothing_alpha=args.smoothing,
         confidence_threshold=args.confidence_threshold,
         ir_mode=args.ir_mode,
         process_width=args.process_width,

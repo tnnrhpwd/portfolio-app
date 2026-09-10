@@ -1498,7 +1498,12 @@ recalBtn.onclick = () => {
   refreshPriorCalibrationNote();
 };
 
-closeBtn.onclick = () => window.calibrationAPI.close();
+closeBtn.onclick = () => {
+  // Stop validation tracking (live gaze preview) before closing so the tracker
+  // doesn't keep running behind the closed window.
+  cleanupValidation();
+  window.calibrationAPI.close();
+};
 </script>
 </body>
 </html>
