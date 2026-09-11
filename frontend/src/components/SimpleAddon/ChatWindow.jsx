@@ -61,7 +61,7 @@ function formatFileSize(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneration, onToggleSidebar, isOnline, agent, speech, sttEnabled, settings, pendingConfirmation, onConfirmOption, onDismissConfirmation, isConfirming, isAddonConnected, isAddonOutdated, onReportMessage, onCopyMessage }) {
+function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneration, onToggleSidebar, isOnline, agent, speech, sttEnabled, settings, pendingConfirmation, onConfirmOption, onDismissConfirmation, isConfirming, isAddonConnected, isAddonOutdated, onReportMessage, onCopyMessage, isSidebarOpen }) {
   const [input, setInput] = useState('');
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [dragActive, setDragActive] = useState(false);
@@ -187,8 +187,14 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
     <main className="chat-window">
       {/* Header */}
       <header className="chat-window__header">
-        <button className="chat-window__menu-btn" onClick={onToggleSidebar} title="Toggle sidebar">
-          Menu
+        <button
+          className="chat-window__menu-btn"
+          onClick={onToggleSidebar}
+          title="Conversations"
+          aria-label="Toggle conversations"
+          aria-expanded={!!isSidebarOpen}
+        >
+          <span aria-hidden="true">☰</span>
         </button>
         <div className="chat-window__header-info">
           <h1 className="chat-window__title">{conversation?.title || 'New Chat'}</h1>

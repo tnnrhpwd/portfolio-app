@@ -2065,6 +2065,7 @@ function SimpleChat({
           onSendMessage={sendMessage}
           onStopGeneration={stopGeneration}
           onToggleSidebar={() => setSidebarOpen(prev => !prev)}
+          isSidebarOpen={sidebarOpen}
           isOnline={isOnline}
           agent={activeAgent}
           speech={speech}

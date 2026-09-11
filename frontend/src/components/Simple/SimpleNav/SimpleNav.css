@@ -1,0 +1,146 @@
+/* SimpleNav — shared surface switcher for /net, /simple, /plans (+ goal pages).
+   Usually rendered inside the fixed site header via `<Header center={<SimpleNav compact />} />`,
+   so the compact variant is the normal case and the standalone bar is the fallback. */
+
+.snav {
+  position: relative;
+  z-index: 3;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.3) 0;
+}
+
+.snav-inner {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.2);
+  width: 100%;
+  max-width: 880px;
+  padding: calc(var(--nav-size) * 0.1);
+  background: color-mix(in srgb, var(--bg-1) 88%, transparent);
+  border: 1px solid var(--border-nav);
+  border-radius: 999px;
+  box-shadow: var(--shadow-sm);
+}
+
+.snav-brand {
+  padding-left: calc(var(--nav-size) * 0.25);
+  padding-right: calc(var(--nav-size) * 0.15);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-color-accent);
+  white-space: nowrap;
+}
+
+.snav-links {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.06);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  flex: 1;
+  min-width: 0;
+}
+
+.snav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.1);
+  padding: calc(var(--nav-size) * 0.14) calc(var(--nav-size) * 0.3);
+  border-radius: 999px;
+  color: var(--text-color);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+.snav-link:hover { background: var(--bg-accent); }
+.snav-link.is-active {
+  background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
+  color: var(--text-color-inv);
+}
+.snav-link-icon { font-size: var(--font-size-base); line-height: 1; }
+
+/* Live addon state — the same answer on every surface. */
+.snav-agent {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.12);
+  padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.28);
+  border-radius: 999px;
+  background: var(--bg-accent);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-color);
+  white-space: nowrap;
+  flex-shrink: 0;
+  max-width: 46%;
+}
+.snav-agent-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.snav-agent-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-color-accent);
+}
+.snav-agent.is-on .snav-agent-dot { background: var(--fg-mint); }
+.snav-agent.is-busy .snav-agent-dot {
+  background: var(--fg-mint);
+  animation: snavPulse 1.8s ease-out infinite;
+}
+.snav-agent.is-off .snav-agent-dot { background: var(--fg-orange); }
+
+@keyframes snavPulse {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--fg-mint) 55%, transparent); }
+  70%  { box-shadow: 0 0 0 calc(var(--nav-size) * 0.2) transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* ── Compact variant: lives inside the fixed site header band ────────────────
+   No outer padding, no card chrome — just a slim segmented control, so it adds
+   zero height to the page instead of being a second row stacked under the
+   header. */
+
+.snav--compact { padding: 0; width: auto; }
+
+.snav--compact .snav-inner {
+  width: auto;
+  padding: calc(var(--nav-size) * 0.06);
+  background: color-mix(in srgb, var(--bg-1) 80%, transparent);
+  box-shadow: none;
+}
+
+.snav--compact .snav-link {
+  padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.26);
+  font-size: var(--font-size-xs);
+}
+.snav--compact .snav-link-icon { font-size: var(--font-size-small); }
+
+.snav--compact .snav-agent {
+  padding: calc(var(--nav-size) * 0.08) calc(var(--nav-size) * 0.2);
+  max-width: 130px;
+}
+
+/* ── Narrow screens: drop the status text and the brand ──────────────────── */
+
+@media (max-width: 640px) {
+  .snav-brand { display: none; }
+  .snav-agent-text { display: none; }
+  .snav-agent { padding: calc(var(--nav-size) * 0.14); }
+  .snav-link { flex: 1; justify-content: center; }
+  .snav-links { justify-content: space-between; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .snav-agent.is-busy .snav-agent-dot { animation: none; }
+}

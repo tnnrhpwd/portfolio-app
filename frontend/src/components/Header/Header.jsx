@@ -4,7 +4,16 @@ import HeaderLogo from '../../../src/assets/Checkmark512.png';
 import { setDarkMode, setLightMode, setSystemColorMode } from '../../utils/theme.js';
 import './Header.css';
 
-function Header() {
+/**
+ * Site header. Fixed, `var(--nav-size)` tall.
+ *
+ * @param {object} [props]
+ * @param {React.ReactNode} [props.center] - Optional node rendered *inside* the
+ *   header band, horizontally centred between the logo and the menu. Product
+ *   pages use it for the Simple surface switcher, so it costs no extra height
+ *   instead of being stacked underneath and pushing the page down.
+ */
+function Header({ center }) {
   const [colTheme, setColTheme] = useState(null);
 
   useEffect(() => {
@@ -52,6 +61,7 @@ function Header() {
             <div className="planit-header-logo-format-sth"> by STHopwood</div>
           </a>
         </div>
+        {center && <div className="planit-header-center">{center}</div>}
         <HeaderDropper
           colTheme={colTheme}
           setLightMode={setLightMode}

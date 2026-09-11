@@ -21,6 +21,8 @@
 }
 
 .chat-window__menu-btn {
+  /* Mobile-only: on desktop the rail is always open, so a toggle for it would
+     be a dead control. Re-enabled at ≤768px in the media query at the bottom. */
   display: none;
   align-items: center;
   justify-content: center;
@@ -32,6 +34,7 @@
   color: var(--text-secondary);
   cursor: pointer;
   transition: background var(--transition);
+  flex-shrink: 0;
 }
 
 .chat-window__menu-btn:hover {

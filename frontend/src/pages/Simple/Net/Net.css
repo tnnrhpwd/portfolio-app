@@ -5,6 +5,10 @@
   text-align: center;
   height: 100vh;
   height: 100svh;
+  /* The surface switcher now lives inside the fixed site header, so this only
+     has to clear the header itself. */
+  padding-top: var(--nav-size);
+  box-sizing: border-box;
   background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
   background-size: 400% 400%;
   animation: gradientShift 12s ease infinite;

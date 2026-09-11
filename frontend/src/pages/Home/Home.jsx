@@ -43,12 +43,13 @@ const WHATS_INSIDE = [
   { art: artSurprises, title: "Little surprises", desc: "Virtual pets, Hype, and other fun experiments.", path: "/projects?category=Fun" },
 ];
 
-// Numbered "getting started" steps, focused on the Simple chat + addon.
-const STEPS = [
-  { num: "01", title: "Chat with Simple", desc: "Describe the task in plain English and Simple plans the steps.", path: "/net" },
-  { num: "02", title: "Download the addon", desc: "A portable Windows app — run it and it lives in your tray.", href: ADDON_DOWNLOAD_URL },
-  { num: "03", title: "Show it once", desc: "Record a short task and it becomes a reusable skill.", path: "/simple" },
-  { num: "04", title: "Ask for it back", desc: "Say it in English later and the addon repeats the steps.", path: "/pricing" },
+// The three Simple surfaces. The homepage is where visitors first meet
+// Chat / Control / Goals, so the closing CTA teaches that vocabulary and doubles
+// as navigation into all three — the same three links the header switcher shows.
+const SURFACES = [
+  { to: "/net", icon: "💬", title: "Chat", desc: "Say what you want in plain English. Simple plans the steps and asks before anything risky." },
+  { to: "/simple", icon: "🎛️", title: "Control", desc: "Watch it work on your PC live, and set how far it may go — suggest-only through autopilot." },
+  { to: "/plans", icon: "🎯", title: "Goals", desc: "Every goal keeps its plan, its actions, and the lessons it learned. Hand it back any time." },
 ];
 
 // Counts from 0 to `target` the first time the element scrolls into view, then
@@ -393,33 +394,33 @@ function Home() {
                     </div>
                 </section>
 
-                {/* ── Final CTA + getting started ── */}
+                {/* ── Final CTA: the three Simple surfaces ── */}
                 <section ref={ctaRef} className={`home-band home-cta home-reveal ${ctaVisible ? 'is-visible' : ''}`}>
                     <div className="home-wrap home-cta-inner">
                         <p className="home-eyebrow home-eyebrow--inv">Simple</p>
-                        <h2 className="home-cta-title">How I can help you</h2>
-                        <p className="home-cta-sub">Describe a task in chat and the Simple addon runs it on your Windows PC — record it once, repeat it forever.</p>
+                        <h2 className="home-cta-title">Say it, watch it, keep it</h2>
+                        <p className="home-cta-sub">Three rooms, one agent. Ask for work in chat, watch it run on your own Windows PC, and keep what it learns so the next run costs you less.</p>
                         <div className="home-actions">
-                            <Link className="home-btn home-btn--inv" to="/net">Chat with Simple <span aria-hidden="true">→</span></Link>
+                            <Link className="home-btn home-btn--inv" to="/net">Start chatting <span aria-hidden="true">→</span></Link>
                             <a className="home-btn home-btn--ghost" href={ADDON_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer">Download the addon</a>
                         </div>
-                        <ol className="home-steps home-steps--inverse">
-                            {STEPS.map((step) => (
-                                <li className="home-step" key={step.num}>
-                                    <span className="home-step-num" aria-hidden="true">{step.num}</span>
-                                    <div className="home-step-body">
-                                        <h3 className="home-step-title">
-                                            {step.href ? (
-                                                <a href={step.href} target="_blank" rel="noopener noreferrer">{step.title} <span aria-hidden="true">→</span></a>
-                                            ) : (
-                                                <Link to={step.path}>{step.title} <span aria-hidden="true">→</span></Link>
-                                            )}
+                        <ul className="home-surfaces">
+                            {SURFACES.map((surface) => (
+                                <li className="home-surface" key={surface.to}>
+                                    <Link className="home-surface-link" to={surface.to}>
+                                        <h3 className="home-surface-title">
+                                            <span className="home-surface-icon" aria-hidden="true">{surface.icon}</span>
+                                            {surface.title}
+                                            <span className="home-surface-arrow" aria-hidden="true">→</span>
                                         </h3>
-                                        <p className="home-step-desc">{step.desc}</p>
-                                    </div>
+                                        <p className="home-surface-desc">{surface.desc}</p>
+                                    </Link>
                                 </li>
                             ))}
-                        </ol>
+                        </ul>
+                        <p className="home-cta-note">
+                            Wondering what it costs? <Link to="/pricing">See pricing <span aria-hidden="true">→</span></Link>
+                        </p>
                     </div>
                 </section>
                 

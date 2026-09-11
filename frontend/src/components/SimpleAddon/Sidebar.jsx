@@ -38,6 +38,9 @@ function Sidebar({
   const [models, setModels] = useState([]);
   const [showSettings, setShowSettings] = useState(false);
   const [showLiveAgent, setShowLiveAgent] = useState(false);
+  // Conversations start minimised: the rail stays open on desktop, but the
+  // history is opt-in so the sidebar reads as "New Chat + agent status".
+  const [showConversations, setShowConversations] = useState(false);
   const [addonTest, setAddonTest] = useState({ state: 'idle', checks: [] });
   // Single-click self-update: 'idle' | 'updating' | 'error' | 'unsupported'
   const [updateNow, setUpdateNow] = useState({ state: 'idle', progress: 0, error: null });
@@ -130,24 +133,46 @@ function Sidebar({
         </button>
 
         <div className="sidebar__conversations">
-          <div className="sidebar__section-title">Conversations</div>
-          {conversations.map(conv => (
-            <div
-              key={conv.id}
-              className={`sidebar__conv ${conv.id === activeConversationId ? 'sidebar__conv--active' : ''}`}
-              onClick={() => onSelectConversation(conv.id)}
+          <button
+            className="sidebar__conversations-toggle"
+            onClick={() => setShowConversations(!showConversations)}
+            aria-expanded={showConversations}
+            aria-controls="sidebar-conversations-list"
+            title={showConversations ? 'Hide conversations' : 'Show conversations'}
+          >
+            <span
+              className={`sidebar__conversations-chevron ${showConversations ? 'sidebar__conversations-chevron--up' : ''}`}
+              aria-hidden="true"
             >
-              <span className="sidebar__conv-icon">💬</span>
-              <span className="sidebar__conv-title">{conv.title}</span>
-              <button
-                className="sidebar__conv-delete"
-                onClick={(e) => { e.stopPropagation(); onDeleteConversation(conv.id); }}
-                title="Delete conversation"
-              >
-                ×
-              </button>
+              ▾
+            </span>
+            Conversations
+            {conversations.length > 0 && (
+              <span className="sidebar__conversations-count">{conversations.length}</span>
+            )}
+          </button>
+
+          {showConversations && (
+            <div className="sidebar__conversations-list" id="sidebar-conversations-list">
+              {conversations.map(conv => (
+                <div
+                  key={conv.id}
+                  className={`sidebar__conv ${conv.id === activeConversationId ? 'sidebar__conv--active' : ''}`}
+                  onClick={() => onSelectConversation(conv.id)}
+                >
+                  <span className="sidebar__conv-icon">💬</span>
+                  <span className="sidebar__conv-title">{conv.title}</span>
+                  <button
+                    className="sidebar__conv-delete"
+                    onClick={(e) => { e.stopPropagation(); onDeleteConversation(conv.id); }}
+                    title="Delete conversation"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
 
         <div className="sidebar__footer">

@@ -8,7 +8,22 @@ import { logout } from '../../../features/data/dataSlice.js';
 import { fetchMemoryItems, createMemoryItem } from '../../../services/memoryApi.js';
 import { startGoalAgent, getGoalAgentStatus, stopGoalAgent, recordGoalAgentResult } from '../../../services/goalAgentApi.js';
 import { runAgentMessage, getWorkspaceItem } from '../../../services/simpleAddonApi';
+import SimpleNav from '../../../components/Simple/SimpleNav/SimpleNav.jsx';
 import './GoalDetail.css';
+
+/**
+ * The per-goal lifecycle shown as a rail at the top of the page. Deliberately
+ * derived from what we actually know (steps recorded, run status) rather than
+ * invented — an idle goal with no steps really is only "drafted".
+ */
+const GOAL_FLOW = ['Drafted', 'Working', 'Finished'];
+
+function goalFlowIndex(agent, running) {
+  const status = agent?.status;
+  if (status === 'done' || status === 'stopped' || status === 'failed') return 2;
+  if (running || status === 'running' || (agent?.steps?.length || 0) > 0) return 1;
+  return 0;
+}
 
 const STATUS_LABELS = {
   active: 'Active',
@@ -335,10 +350,13 @@ function GoalDetail() {
   if (!user) {
     return (
       <>
-        <Header />
+        <Header center={<SimpleNav compact />} />
         <div className="goal-detail-page">
           <div className="goal-detail-shell">
-            <button className="goal-detail-login" onClick={() => { dispatch(logout()); navigate('/login'); }}>
+            <button
+              className="goal-detail-login"
+              onClick={() => { dispatch(logout()); navigate('/login', { state: { redirectTo: `/plans/goal/${id}` } }); }}
+            >
               Log in to view this goal
             </button>
           </div>
@@ -356,12 +374,9 @@ function GoalDetail() {
 
   return (
     <>
-      <Header />
+      <Header center={<SimpleNav compact running={running} goalName={data?.title || ''} />} />
       <div className="goal-detail-page">
         <div className="goal-detail-shell">
-          <nav className="goal-detail-breadcrumb">
-            <Link to="/plans">← Back to Plans</Link>
-          </nav>
 
           {loading ? (
             <div className="goal-detail-loading">Loading goal…</div>
@@ -397,14 +412,39 @@ function GoalDetail() {
                   <span className="goal-detail-badge">🤖 agent: {status}</span>
                 </div>
 
-                <label style={{ display: 'block', marginTop: 12 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>🧭 Scope / instructions for the agent (optional)</span>
+                {/* Where this goal is in its life — Drafted → Working → Finished */}
+                <ol className="goal-detail-rail" aria-label="Goal progress">
+                  {GOAL_FLOW.map((label, i) => {
+                    const idx = goalFlowIndex(agent, running);
+                    const state = i === idx ? 'is-current' : i < idx ? 'is-done' : '';
+                    return (
+                      <li key={label} className={`goal-detail-rail-step ${state}`} aria-current={i === idx ? 'step' : undefined}>
+                        <span className="goal-detail-rail-dot" aria-hidden="true" />
+                        {label}
+                      </li>
+                    );
+                  })}
+                </ol>
+
+                {/* The goal's own text is already loaded as context on /net, so
+                    these hand off without needing to retype anything. */}
+                <div className="goal-detail-handoff">
+                  <Link className="goal-detail-handoff-link" to="/net">
+                    💬 Ask about this on /net
+                  </Link>
+                  <Link className="goal-detail-handoff-link" to="/simple">
+                    🎛️ Watch it on the control panel
+                  </Link>
+                </div>
+
+                <label className="goal-detail-field">
+                  <span className="goal-detail-field-label">🧭 Scope / instructions for the agent (optional)</span>
                   <textarea
+                    className="goal-detail-textarea"
                     value={context}
                     onChange={(e) => setContext(e.target.value)}
                     rows={3}
                     maxLength={2000}
-                    style={{ width: '100%', marginTop: 6, padding: 10, borderRadius: 8, border: '1px solid var(--border, #ddd)', font: 'inherit', resize: 'vertical' }}
                     placeholder="e.g. Only touch files under ~/projects/foo, don't delete anything, and report a summary when done."
                   />
                 </label>
@@ -419,6 +459,9 @@ function GoalDetail() {
                       {starting ? '🤖 Working…' : '🤖 Enlist agent'}
                     </button>
                   )}
+                  <Link className="goal-detail-btn goal-detail-btn--ghost" to="/plans">
+                    ← All goals
+                  </Link>
                 </div>
               </section>
 

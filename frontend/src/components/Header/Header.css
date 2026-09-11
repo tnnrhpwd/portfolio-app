@@ -9,6 +9,31 @@
   text-align: left;
   z-index: 10;
 }
+/* Centered slot inside the header band (used by the Simple surface switcher).
+   Absolutely positioned so it never widens the header or pushes the page down,
+   and pointer-events are off on the wrapper so only the control itself is
+   clickable — the rest of the band stays transparent to clicks. */
+.planit-header-center {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  height: 100%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 11;
+  pointer-events: none;
+  max-width: 58%;
+}
+.planit-header-center > * { pointer-events: auto; }
+
+/* Not enough room between the logo and the menu on phones — the hamburger
+   dropper already links every surface there. */
+@media (max-width: 820px) {
+  .planit-header-center { display: none; }
+}
+
 .planit-header-logo{
   height: var(--nav-size);
   display:inline-flex;

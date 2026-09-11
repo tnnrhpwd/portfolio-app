@@ -78,13 +78,17 @@ function HeaderDropper(props) {
           <Link className="dropper-link" to="/projects" onClick={closeMenu}>Projects</Link>
           <Link className="dropper-link" to="/about" onClick={closeMenu}>About</Link>
           <Link className="dropper-link" to="/support" onClick={closeMenu}>Support</Link>
+          <Link className="dropper-link" to="/pricing" onClick={closeMenu}>Pricing</Link>
         </li>
 
         {user && (
           <li className="dropper-group">
             <Link className="dropper-link" to="/net" onClick={closeMenu}>Net</Link>
-            <Link className="dropper-link" to="/market" onClick={closeMenu}>Marketplace</Link>
+            {/* Also the phone route into Control, where the header switcher is
+                hidden for lack of room. */}
+            <Link className="dropper-link" to="/simple" onClick={closeMenu}>Simple</Link>
             <Link className="dropper-link" to="/plans" onClick={closeMenu}>Plans</Link>
+            <Link className="dropper-link" to="/market" onClick={closeMenu}>Marketplace</Link>
           </li>
         )}
 

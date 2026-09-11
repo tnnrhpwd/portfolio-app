@@ -6,7 +6,7 @@
   background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
   background-size: 400% 400%;
   animation: plans-gradient 18s ease infinite;
-  padding: calc(var(--nav-size) * 1.3) var(--spacing-xs) var(--spacing-md);
+  padding: var(--nav-size) var(--spacing-xs) var(--spacing-md);
   color: var(--text-color);
 }
 
@@ -342,3 +342,115 @@
   font-size: var(--font-size-small);
 }
 .goal-detail-link-form button:disabled { opacity: 0.5; cursor: default; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Journey integration — makes a goal page legible as part of the Chat →
+   Control → Goals loop rather than a standalone record.
+═══════════════════════════════════════════════════════════════════════════ */
+
+/* The legacy rules hardcode #fff on the filled buttons; use the same
+   theme-aware token as the rest of the app so dark mode stays readable. */
+.goal-detail-btn--start,
+.goal-detail-btn--stop { color: var(--text-color-inv); }
+
+/* Lifecycle rail: Drafted → Working → Finished */
+.goal-detail-rail {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.2);
+  margin: calc(var(--nav-size) * 0.2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.goal-detail-rail-step {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.12);
+  padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.28);
+  border-radius: 999px;
+  background: var(--bg-accent);
+  color: var(--text-color-accent);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+.goal-detail-rail-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.goal-detail-rail-step.is-done {
+  background: color-mix(in srgb, var(--fg-blue) 16%, transparent);
+  color: var(--text-color);
+}
+.goal-detail-rail-step.is-current {
+  background: color-mix(in srgb, var(--fg-mint) 20%, transparent);
+  color: var(--text-color);
+  font-weight: var(--font-weight-bold);
+}
+.goal-detail-rail-step.is-current .goal-detail-rail-dot { background: var(--fg-mint); }
+
+/* Hand-offs into the other two surfaces */
+.goal-detail-handoff {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.16);
+  margin-top: calc(var(--nav-size) * 0.1);
+}
+.goal-detail-handoff-link {
+  padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.36);
+  border: 1px solid var(--border-nav);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--fg-blue) 8%, transparent);
+  color: var(--text-color);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+.goal-detail-handoff-link:hover {
+  transform: translateY(-1px);
+  border-color: var(--fg-blue);
+  background: var(--bg-accent);
+}
+
+/* Scope textarea (was inline-styled with a hardcoded fallback colour) */
+.goal-detail-field { display: block; margin-top: calc(var(--nav-size) * 0.22); }
+.goal-detail-field-label {
+  display: block;
+  margin-bottom: calc(var(--nav-size) * 0.12);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+}
+.goal-detail-textarea {
+  width: 100%;
+  padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.3);
+  border: 1px solid var(--border-nav);
+  border-radius: var(--border-radius);
+  background: var(--bg-page);
+  color: var(--text-color);
+  font-family: inherit;
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-base);
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+}
+.goal-detail-textarea:focus { border-color: var(--fg-blue); }
+
+/* Ghost button + row that holds the primary action */
+.goal-detail-btn--ghost {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-1);
+  border: 1px solid var(--border-nav);
+  color: var(--text-color);
+  text-decoration: none;
+}
+.goal-detail-btn--ghost:hover { border-color: var(--fg-mint); }
+
+@media (prefers-reduced-motion: reduce) {
+  .goal-detail-handoff-link { transition: none; }
+  .goal-detail-handoff-link:hover { transform: none; }
+}

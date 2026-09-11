@@ -268,6 +268,63 @@
   overflow-wrap: anywhere;
 }
 
+/* ── Advanced disclosure ────────────────────────────────────────────────────
+   The perception/profile/voice/eye panels are real plumbing, not the consumer
+   journey. They stay fully functional, just folded away so the page reads as
+   "watch and trust your agent" rather than "dev console". */
+
+.sd-advanced {
+  width: 100%;
+  margin-top: var(--spacing-xs);
+  border: 1px solid var(--border-nav);
+  border-radius: var(--border-radius-xl);
+  background: color-mix(in srgb, var(--bg-1) 70%, transparent);
+  overflow: hidden;
+}
+
+.sd-advanced-summary {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.15);
+  padding: calc(var(--nav-size) * 0.32) calc(var(--nav-size) * 0.45);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-color);
+  cursor: pointer;
+  list-style: none;
+  transition: background 0.18s ease;
+}
+.sd-advanced-summary::-webkit-details-marker { display: none; }
+.sd-advanced-summary::after {
+  content: '▾';
+  margin-left: auto;
+  color: var(--text-color-accent);
+  transition: transform 0.2s ease;
+}
+.sd-advanced[open] .sd-advanced-summary::after { transform: rotate(180deg); }
+.sd-advanced-summary:hover { background: var(--bg-accent); }
+.sd-advanced-summary:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: calc(var(--focus-outline-offset) * -1);
+}
+
+.sd-grid--advanced {
+  padding: calc(var(--nav-size) * 0.3);
+}
+
+/* Goal rows link straight to their goal page. */
+.sd-list-main--link {
+  text-decoration: none;
+  color: inherit;
+  border-radius: var(--border-radius);
+}
+.sd-list-main--link:hover .sd-list-name { color: var(--fg-blue); text-decoration: underline; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sd-advanced-summary,
+  .sd-advanced-summary::after { transition: none; }
+}
+
 /* Responsive */
 @media (max-width: 760px) {
   .sd-grid { grid-template-columns: 1fr; }

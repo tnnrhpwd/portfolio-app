@@ -607,49 +607,241 @@
     transform: translateY(-1px);
 }
 
+/* Reports Toolbar: search + sort + status chips */
+.support-reports-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.25);
+    padding: calc(var(--nav-size) * 0.3);
+    border: 1px solid var(--border-nav);
+    border-radius: var(--border-radius);
+    background: var(--bg-1);
+    margin-bottom: calc(var(--nav-size) * 0.4);
+}
+
+.support-reports-toolbar-row {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.25);
+}
+
+.support-reports-search {
+    flex: 1;
+    min-width: 0;
+    font-family: inherit;
+    font-size: var(--font-size-small);
+    padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.25);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-nav);
+    background: var(--white1-transp);
+    color: var(--text-color);
+}
+
+.support-reports-search:focus {
+    outline: none;
+    border-color: var(--fg-blue);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--fg-blue) 25%, transparent);
+}
+
+.support-reports-sort select {
+    font-family: inherit;
+    font-size: var(--font-size-small);
+    padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.25);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-nav);
+    background: var(--white1-transp);
+    color: var(--text-color);
+    cursor: pointer;
+}
+
+.support-reports-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: calc(var(--nav-size) * 0.12);
+}
+
+.support-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.1);
+    padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.25);
+    font-family: inherit;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-radius: 999px;
+    border: 1px solid var(--border-nav);
+    background: transparent;
+    color: var(--text-color-accent-dark-strong);
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.support-filter-chip:hover:not(:disabled) {
+    background: var(--bg-accent);
+    color: var(--text-color);
+    transform: none;
+    box-shadow: none;
+}
+
+.support-filter-chip.active {
+    background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+    border-color: transparent;
+    color: var(--text-color-inv);
+}
+
+/* keep the gradient on hover for the selected chip */
+.support-filter-chip.active:hover:not(:disabled) {
+    background: linear-gradient(45deg, var(--fg-mint), var(--fg-blue));
+    color: var(--text-color-inv);
+}
+
+.support-filter-count {
+    font-weight: var(--font-weight-semibold);
+    opacity: 0.85;
+}
+
+/* Results summary row */
+.support-reports-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.25);
+    margin-bottom: calc(var(--nav-size) * 0.25);
+    font-size: var(--font-size-xs);
+    color: var(--text-color-accent-dark-strong);
+}
+
+.support-reports-expand-all,
+.support-reports-show-all {
+    font-family: inherit;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--fg-blue);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.support-reports-expand-all:hover:not(:disabled),
+.support-reports-show-all:hover:not(:disabled) {
+    background: none;
+    color: var(--fg-mint);
+    transform: none;
+    box-shadow: none;
+}
+
 /* Reports List */
 .support-reports-list {
     display: flex;
     flex-direction: column;
-    gap: calc(var(--nav-size) * 0.5);
+    gap: calc(var(--nav-size) * 0.2);
 }
 
-/* Report Card */
+/* Report Card - a collapsed summary row by default */
 .support-report-card {
     background: var(--white1-transp);
     border: 1px solid var(--border-nav);
     border-radius: var(--border-radius);
-    padding: calc(var(--nav-size) * 0.6);
-    transition: all 0.3s ease;
+    overflow: hidden;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .support-report-card:hover {
     border-color: var(--fg-blue);
+}
+
+.support-report-card.is-expanded {
+    border-color: var(--fg-blue);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-/* Report Header */
-.support-report-header {
+/* Clickable summary row */
+.support-report-toggle {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: calc(var(--nav-size) * 0.4);
+    align-items: center;
     gap: calc(var(--nav-size) * 0.3);
+    width: 100%;
+    padding: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.4);
+    font-family: inherit;
+    text-align: left;
+    background: none;
+    border: none;
+    color: var(--text-color);
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+/* Higher specificity than the global "button:hover" rule in index.css, which
+   would otherwise paint the whole row with a gradient on hover. */
+.support-report-toggle:hover:not(:disabled) {
+    background: var(--bg-accent);
+    color: var(--text-color);
+    transform: none;
+    box-shadow: none;
+}
+
+.support-report-toggle:focus-visible {
+    outline: var(--focus-outline);
+    outline-offset: calc(var(--focus-outline-offset) * -1);
+}
+
+.support-report-toggle-text {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.06);
+    flex: 1;
+    min-width: 0;
 }
 
 .support-report-title {
-    margin: 0;
     font-size: var(--font-size-small);
-    font-weight: bold;
+    font-weight: 600;
     color: var(--text-color);
-    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.support-report-subline {
+    font-size: var(--font-size-xs);
+    color: var(--text-color-accent-dark-strong);
+}
+
+.support-report-preview {
+    font-size: var(--font-size-xs);
+    color: var(--text-color-accent-dark-strong);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .support-report-meta {
     display: flex;
-    flex-direction: column;
+    align-items: center;
     gap: calc(var(--nav-size) * 0.15);
-    align-items: flex-end;
+    flex-shrink: 0;
+}
+
+.support-report-chevron {
+    font-size: var(--font-size-xs);
+    color: var(--text-color-accent-dark-strong);
+    transition: transform 0.2s ease;
+}
+
+/* Pager footer */
+.support-reports-more {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.25);
+    margin-top: calc(var(--nav-size) * 0.35);
 }
 
 /* Status and Severity Badges */
@@ -710,6 +902,12 @@
     display: flex;
     flex-direction: column;
     gap: calc(var(--nav-size) * 0.4);
+}
+
+/* Expanded body sits under the summary row, inset to match the toggle */
+.support-report-card .support-report-details {
+    padding: calc(var(--nav-size) * 0.35) calc(var(--nav-size) * 0.4) calc(var(--nav-size) * 0.4);
+    border-top: 1px solid var(--border-nav);
 }
 
 .support-report-field {
@@ -966,25 +1164,45 @@
     }
 
     /* Bug Reports Mobile Styles */
-    .support-reports-list {
-        gap: calc(var(--nav-size) * 0.3);
+    .support-reports-toolbar {
+        padding: calc(var(--nav-size) * 0.2);
+        gap: calc(var(--nav-size) * 0.18);
     }
 
-    .support-report-card {
-        padding: calc(var(--nav-size) * 0.35);
-    }
-
-    .support-report-header {
+    .support-reports-toolbar-row {
         flex-direction: column;
         align-items: stretch;
-        gap: calc(var(--nav-size) * 0.2);
-        margin-bottom: calc(var(--nav-size) * 0.25);
+        gap: calc(var(--nav-size) * 0.15);
+    }
+
+    .support-reports-sort select {
+        width: 100%;
+    }
+
+    .support-reports-list {
+        gap: calc(var(--nav-size) * 0.15);
+    }
+
+    .support-report-toggle {
+        flex-direction: column;
+        align-items: stretch;
+        gap: calc(var(--nav-size) * 0.15);
+        padding: calc(var(--nav-size) * 0.25);
+    }
+
+    .support-report-title,
+    .support-report-preview {
+        white-space: normal;
+        overflow: visible;
     }
 
     .support-report-meta {
-        flex-direction: row;
-        align-items: center;
-        gap: calc(var(--nav-size) * 0.15);
+        justify-content: flex-start;
+        gap: calc(var(--nav-size) * 0.12);
+    }
+
+    .support-report-card .support-report-details {
+        padding: calc(var(--nav-size) * 0.25);
     }
 
     .support-report-details {
@@ -1212,20 +1430,25 @@
 
     /* Bug Reports Portrait */
     .support-reports-list {
-        gap: calc(var(--nav-size) * 0.2);
+        gap: calc(var(--nav-size) * 0.12);
     }
 
-    .support-report-card {
+    .support-report-toggle {
         padding: calc(var(--nav-size) * 0.2);
+        gap: calc(var(--nav-size) * 0.12);
     }
 
     .support-report-title {
         font-size: var(--font-size-small);
     }
 
-    .support-report-header {
-        gap: calc(var(--nav-size) * 0.12);
-        margin-bottom: calc(var(--nav-size) * 0.15);
+    .support-report-subline,
+    .support-report-preview {
+        font-size: var(--font-size-xs);
+    }
+
+    .support-report-card .support-report-details {
+        padding: calc(var(--nav-size) * 0.2);
     }
 
     .support-report-status,

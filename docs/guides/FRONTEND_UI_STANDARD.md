@@ -452,6 +452,22 @@ Squarespace-style feature grids: equal tiles, hairline borders, no glass.
 
 Center the answer prominently with a muted label and a large value.
 
+### Header slot (sub-navigation)
+
+`Header` accepts an optional `center` node, rendered *inside* the fixed header band
+between the logo and the menu, horizontally centred. Use it for a page's own
+sub-navigation or mode switcher:
+
+```jsx
+<Header center={<SimpleNav compact />} />
+```
+
+It is absolutely positioned and `pointer-events: none` (only the node itself is
+clickable), so it never widens the header or pushes the page down. **Prefer this to
+a second nav row** — a stacked bar costs ~57px on every page and reads as a second
+header. It hides below `820px`, so anything placed there must also be reachable from
+`HeaderDropper` on phones.
+
 ---
 
 ## 7. Page anatomy checklist
@@ -519,6 +535,19 @@ Center the answer prominently with a muted label and a large value.
 ---
 
 ## 10. Quick pre-merge checklist
+
+### Verifying an authenticated page
+
+Most pages sit behind login, so a logged-out eyeball only proves the hero renders.
+**Agents and humans should log in to the shared demo account and click through the
+real thing** — "Continue as Guest" on `/login`, or `guest@gmail.com` / `guest`
+(`backend/constants/guestAccount.js`). It already has workspace data (goals, plans,
+actions, notes), so lists, filters, and empty states can be checked for real.
+
+- It's a **shared, public** account — delete any data you create while testing.
+- Validate **light + dark** and **phone → tablet → desktop** before calling a page done.
+- Check the interactive states a screenshot hides: hover, focus, disabled, empty,
+  loading, and any confirmation dialog.
 
 1. `npm run build` (or at least the dev server) compiles cleanly.
 2. Manually toggle light/dark and eyeball text contrast, borders, and button fills.

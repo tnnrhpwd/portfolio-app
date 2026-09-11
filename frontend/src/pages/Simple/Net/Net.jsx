@@ -10,6 +10,7 @@ import { DEFAULT_CLOUD_MODEL_ID } from '../../../utils/llmProviderOptions.js';
 import './Net.css';
 import Header from '../../../components/Header/Header.jsx';
 import Footer from '../../../components/Footer/Footer.jsx';
+import SimpleNav from '../../../components/Simple/SimpleNav/SimpleNav.jsx';
 
 function Net() {
   const dispatch = useDispatch();
@@ -144,7 +145,7 @@ function Net() {
 
   return (
     <>
-      <Header />
+      <Header center={<SimpleNav compact />} />
       <div className="planit-nnet">
         {/* Floating background elements */}
         <div className="floating-shapes">
@@ -154,9 +155,6 @@ function Net() {
         </div>
 
         <div className="net-hero-section">
-          <div className="net-market-link">
-            <Link to="/market">Browse the Simple Marketplace →</Link>
-          </div>
           {!user ? (
             <LoginGate
               redirectTo="/net"
@@ -191,6 +189,7 @@ function Net() {
           )}
         </div>
       </div>
+      <Footer />
     </>
   );
 }

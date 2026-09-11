@@ -3,7 +3,7 @@
 .simple {
   color: var(--text-color);
   min-height: 100vh;
-  padding: calc(var(--nav-size) * 2) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.5);
+  padding: var(--nav-size) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.5);
   background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
   background-size: 400% 400%;
   animation: simpleGradientShift 12s ease infinite;
@@ -54,8 +54,8 @@
 /* Hero */
 .simple-hero {
   flex-direction: row;
-  gap: calc(var(--nav-size) * 0.9);
-  padding: calc(var(--nav-size) * 1.5) 0 calc(var(--nav-size) * 1.2);
+  gap: calc(var(--nav-size) * 0.6);
+  padding: calc(var(--nav-size) * 0.55) 0 calc(var(--nav-size) * 0.5);
   align-items: center;
 }
 .simple-title-wrap { flex: 1 1 55%; min-width: 0; }
@@ -70,15 +70,15 @@
 .simple-title {
   font-weight: var(--font-weight-bold);
   letter-spacing: -0.01em;
-  font-size: var(--font-size-display);
+  font-size: var(--font-size-heading);
   line-height: var(--line-height-tight);
-  margin: 0 0 calc(var(--nav-size) * 0.25);
+  margin: 0 0 calc(var(--nav-size) * 0.14);
 }
 .simple-subtitle {
   color: var(--text-color-accent);
-  font-size: var(--font-size-large);
-  line-height: var(--line-height-relaxed);
-  max-width: 640px;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  max-width: 62ch;
   margin: 0 0 calc(var(--nav-size) * 0.3);
 }
 .simple-example {
@@ -233,15 +233,109 @@
   margin: 0;
 }
 
+/* ── "How Simple works" journey band (logged-out /simple) ─────────────────
+   Teaches the Chat → Control → Goals loop before asking anyone to sign in, and
+   links straight into each surface. */
+
+.simple-journey {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 880px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: calc(var(--nav-size) * 0.5) 0 calc(var(--nav-size) * 0.4);
+}
+
+.simple-section-title {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-color-accent);
+  text-align: center;
+}
+
+.simple-journey-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: calc(var(--nav-size) * 0.25);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.simple-journey-card {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.14);
+  height: 100%;
+  padding: var(--spacing-sm);
+  background: var(--bg-1);
+  border: 1px solid var(--border-nav);
+  border-radius: var(--border-radius-xl);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.simple-journey-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.simple-journey-card.is-current {
+  border-color: var(--fg-mint);
+  background: color-mix(in srgb, var(--fg-mint) 10%, var(--bg-1));
+}
+
+.simple-journey-icon { font-size: calc(var(--nav-size) * 0.6); line-height: 1; }
+
+.simple-journey-heading {
+  margin: 0;
+  font-size: var(--font-size-large);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+}
+
+.simple-journey-body {
+  margin: 0;
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-relaxed);
+  color: var(--text-color-accent);
+}
+
+.simple-journey-link,
+.simple-journey-current {
+  margin-top: auto;
+  padding-top: calc(var(--nav-size) * 0.18);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+}
+.simple-journey-link {
+  color: var(--fg-blue);
+  text-decoration: none;
+  align-self: flex-start;
+}
+.simple-journey-link:hover { text-decoration: underline; }
+.simple-journey-current { color: var(--fg-mint); }
+
+.simple-journey-note {
+  margin: calc(var(--nav-size) * 0.2) 0 0;
+  text-align: center;
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-relaxed);
+  color: var(--text-color-accent);
+}
+
 /* Responsive */
 @media (orientation: portrait) {
   .simple-hero { flex-direction: column; text-align: center; }
   .simple-title-wrap { align-items: center; }
   .simple-actions { justify-content: center; }
   .simple-tile { text-align: center; }
+  .simple-journey-list { grid-template-columns: 1fr; }
+  .simple-journey-card { text-align: left; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .simple { animation: none; }
   .simple-circle { animation: none; }
+  .simple-journey-card:hover { transform: none; }
 }

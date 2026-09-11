@@ -43,6 +43,7 @@ import {
   calibrateEyeTracking,
 } from '../../../services/simpleAddonApi';
 import { useAddonDetection } from '../../../hooks/simpleAddon/useAddonDetection';
+import AgentModes from '../../../components/Simple/AgentModes/AgentModes.jsx';
 import './SimpleDashboard.css';
 
 /**
@@ -165,6 +166,31 @@ export default function SimpleDashboard() {
   const [eyeBusy, setEyeBusy] = useState(false);
 
   const [panelError, setPanelError] = useState(null);
+  const [modesBusy, setModesBusy] = useState(false);
+
+  /**
+   * Apply one of the four trust modes by driving the two permissions that
+   * actually back it (listener + auto-approve). Deliberately sequential so a
+   * partial failure can't leave the agent in a state the UI doesn't describe.
+   */
+  const applyMode = useCallback(async ({ continuousMode, autoApproveAll }) => {
+    setModesBusy(true);
+    setPanelError(null);
+    try {
+      if (!!autoApproveAll !== !!perms.autoApproveAll) {
+        const cfg = await setAutoApproveAll(!!autoApproveAll);
+        setPerms((p) => ({ ...p, autoApproveAll: !!cfg?.autoApproveAll }));
+      }
+      if (!!continuousMode !== !!perms.continuousMode) {
+        const s = await setAgentListener(!!continuousMode);
+        setPerms((p) => ({ ...p, continuousMode: !!s?.enabled }));
+      }
+    } catch (e) {
+      setPanelError(e.message || 'Could not change the agent mode');
+    } finally {
+      setModesBusy(false);
+    }
+  }, [perms.autoApproveAll, perms.continuousMode]);
 
   // ── Loaders ──────────────────────────────────────────────────────────────
   const loadAgent = useCallback(async () => {
@@ -571,6 +597,15 @@ export default function SimpleDashboard() {
         </div>
       )}
 
+      {/* How far may it go? The four trust modes, derived from the live
+          permission state so this can never disagree with what the addon allows. */}
+      <AgentModes
+        perms={perms}
+        connected={isConnected}
+        busy={modesBusy}
+        onChange={applyMode}
+      />
+
       <div className="sd-grid">
         {/* ── Agent ── */}
         <section className="sd-panel">
@@ -711,10 +746,10 @@ export default function SimpleDashboard() {
                   const meta = GOAL_STATUS_META[status] || { label: status, cls: '' };
                   return (
                     <li key={g.slug || g.name} className="sd-list-item">
-                      <span className="sd-list-main">
+                      <Link className="sd-list-main sd-list-main--link" to={`/plans/goal/${g.slug}`}>
                         <span className="sd-list-name">{g.name || 'Untitled goal'}</span>
                         {g.content && g.content !== g.name && <span className="sd-list-sub">{g.content}</span>}
-                      </span>
+                      </Link>
                       <span className={`sd-status-pill sd-status-pill--${meta.cls}`}>{meta.label}</span>
                     </li>
                   );
@@ -818,22 +853,6 @@ export default function SimpleDashboard() {
           </div>
         </section>
 
-        {/* ── Perception ── */}
-        <section className="sd-panel">
-          <header className="sd-panel-head">
-            <h3 className="sd-panel-title">👁️ Perception</h3>
-          </header>
-          <div className="sd-panel-body">
-            {!isConnected ? (
-              <p className="sd-hint">Connect the addon to see what it currently perceives.</p>
-            ) : perception?.context ? (
-              <p className="sd-perception">{perception.context}</p>
-            ) : (
-              <p className="sd-hint">No perception data yet — the loop records it while running.</p>
-            )}
-          </div>
-        </section>
-
         {/* ── Suggestions ── */}
         <section className="sd-panel">
           <header className="sd-panel-head">
@@ -902,6 +921,31 @@ export default function SimpleDashboard() {
             )}
           </div>
         </section>
+
+        {/* Everything below is raw plumbing for power users — kept out of the
+            consumer path but not removed, so nothing lost a control it had. */}
+        </div>
+
+        <details className="sd-advanced">
+          <summary className="sd-advanced-summary">
+            <span aria-hidden="true">⚙️</span> Advanced — sensors, layouts, voice, eye tracking
+          </summary>
+          <div className="sd-grid sd-grid--advanced">
+            {/* ── Perception ── */}
+            <section className="sd-panel">
+              <header className="sd-panel-head">
+                <h3 className="sd-panel-title">👁️ Perception</h3>
+              </header>
+              <div className="sd-panel-body">
+                {!isConnected ? (
+                  <p className="sd-hint">Connect the addon to see what it currently perceives.</p>
+                ) : perception?.context ? (
+                  <p className="sd-perception">{perception.context}</p>
+                ) : (
+                  <p className="sd-hint">No perception data yet — the loop records it while running.</p>
+                )}
+              </div>
+            </section>
 
         {/* ── Workspace Profiles ── */}
         <section className="sd-panel">
@@ -1009,7 +1053,8 @@ export default function SimpleDashboard() {
             )}
           </div>
         </section>
-      </div>
+          </div>
+        </details>
 
       {(() => {
         const done = goals.filter((g) => g.status === 'done' || g.status === 'completed').length;

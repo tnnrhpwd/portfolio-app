@@ -14,6 +14,27 @@ in [`AUTOMATION_SECURITY.md`](AUTOMATION_SECURITY.md).
 
 ---
 
+## 0. Debugging & dogfooding (for agents)
+
+**Agents working in this repo are welcome to sign in to the shared demo account and
+click through the real UI + APIs.** Use **"Continue as Guest"** on `/login`, or the
+credentials `guest@gmail.com` / `guest` (see `backend/constants/guestAccount.js`).
+
+- Prefer it over inventing throwaway accounts — it already holds workspace items
+  (goals, plans, actions, notes), so list / filter / sort / empty states are
+  exercised for real instead of only in theory.
+- It is a **shared, public** account: assume anything you write is visible to
+  everyone. Treat test data as disposable, **delete what you create when you're
+  done**, and never put real secrets, tokens, or personal data in it.
+- It is deliberately **excluded from paid/powerful paths** (§13.2) — don't rely on
+  it for credit-gated cloud LLM calls or admin-only surfaces such as the `repo_*`
+  tools (§14.3), which require a real admin session.
+- It's the account the read-only image-gen smoke test uses
+  (`docs/guides/STATIC_ASSETS_AND_IMAGE_GENERATION.md`), so leaving junk behind
+  degrades that test too.
+
+---
+
 ## 1. Vision
 
 Turn the existing `simple-addon` (currently a personal/dev-focused Electron+Node
@@ -75,6 +96,15 @@ machine" that only escalates as far as the user trusts it.
 
 Design rule: a skill can never silently jump up a mode. Moving a skill from
 Suggest → Assist → Autopilot is always an explicit user action, never automatic.
+
+**Status: ✅ surfaced in the UI.** `/simple` opens with the four-mode ladder
+(`components/Simple/AgentModes/AgentModes.jsx`). The current mode is *derived* from
+the live permission state rather than stored separately — `continuousMode` +
+`autoApproveAll` = Autopilot, `continuousMode` = Suggest, neither = Assist, and
+`globalKillSwitch` overrides everything as **Paused** — so the ladder can never
+disagree with what the addon actually permits. **Watch** is shown but not
+selectable: read-only monitoring is a per-monitor posture, not a global permission,
+and offering a toggle that enforces nothing would be dishonest.
 
 ### 3.2 Why users choose Simple (differentiation)
 
@@ -138,105 +168,9 @@ and `workspace-client.js` wrappers.
 
 - Route `sthopwood.com/market` (`frontend/src/pages/Simple/Market/`): NL search, sort by trust/downloads/recent, detail modal with the pre-run capability summary, install → rate → flag, publish modal with scrub review, and save-to-addon (or JSON download).
 
-### 4.5 Marketplace implementation checklist (Definition of Done)
+### 4.5 Marketplace implementation checklist
 
-- ✅ Public-market storage namespace (not `csimple_ws_*`) with immutable version records.
-- ✅ Server-atomic counters for `downloads`, `installs`, `creations`.
-- ✅ Publish path runs `scrubForPublish` + `summarizeCapabilities` before persistence.
-- ✅ Install-before-rate gating with server-side proof of install/run.
-- ✅ Marketplace routes in `server/automation/index.js` + client wrappers in `workspace-client.js`.
-- ✅ Jest unit tests for ranking, version pinning, install/rate gate.
-- ✅ Marketplace counters folded into `/telemetry/summary`.
-- ✅ Eval scenarios for the marketplace proxy routes — `26-marketplace-publish-http`, `27-marketplace-search-http`, `28-marketplace-get-http`, `29-marketplace-install-http` (`server/automation/eval/scenarios/`), offline via the request-scoped `X-Simple-Eval-Stub: 1` header + `marketplace-eval-stub.js` (the addon's `/api/market/skills*` proxies swap in an in-memory client, so no live backend/JWT is needed).
-
-### 4.6 Backend schema + ranking backlog — 🟡 mostly shipped
-
-- ✅ Immutable version key shape `csimple_market_${marketId}_v${version}` with write-once semantics.
-- ✅ Author-scope publish limits/rate limits.
-- ✅ Install/run attestations for the ratings gate.
-- ✅ `outcome` aggregated into ranking (`outcomeFailRate` → `computeTrustScore`).
-- ✅ Ranking weights as explicit config (`RANKING_WEIGHTS`/`LOW_TRUST_THRESHOLDS`).
-- ✅ Deterministic tie-breakers (`sortSkills()`).
-- ✅ "Low-trust" classifier (`classifyLowTrust()`, surfaced as `lowTrust` on install).
 - 🟡 Backend contract tests for pagination/sort stability/install-rate constraints (offline tests cover these; a live-DynamoDB integration pass, `back.test.js`-style, remains).
-
-## 5. Skill generalization — ✅ implemented
-
-Fix the addon's biggest weakness: `recorder/compiler.js` only does literal event
-coalescing — it does not generalize across variation. Build in this priority order:
-
-### 5.1 LLM re-derivation — ✅ implemented
-
-Given the raw recording trace + a short goal description, have an LLM rewrite the
-step sequence into a more robust/abstracted form (prefer `uia_invoke`/`click_visual`
-over raw `click_at`), similar to how `nl-compiler.js` generates steps from English.
-
-**Where:** `server/automation/recorder/generalize.js` (`generalizeSkill(skill, opts)`).
-Best-effort by design — LLM failure or schema-invalid output returns the original
-skill. Endpoint `POST /api/skill/generalize`. Tests in `generalize.test.js`.
-
-### 5.2 Parameter inference — ✅ implemented
-
-When a user demonstrates the same task multiple times, diff the recordings to
-detect what varies and promote those into `${param.x}` placeholders (`tools/skill.js`
-`substituteArgs`). Single demo is the default; multi-demo is opt-in.
-
-**Where:** `server/automation/recorder/infer-params.js` (`inferParams(skills)`).
-Pixel `x`/`y`, timing, `path` arrays, and image-like keys are never promoted.
-Endpoint `POST /api/skill/infer-params`. Tests in `infer-params.test.js`.
-
-### 5.3 Vision-based re-targeting — ✅ implemented
-
-At replay time, if a `uia_invoke`/`click_at` step fails because the UI shifted,
-fall back to `find_and_click_visual` (`vision-fusion.js`) rather than hard-failing.
-Extend `repairStep` in `tools/skill.js` to consider "find a visually similar element."
-
-- ✅ Explicit "visual retarget" branch in `repairStep`.
-- ✅ Provenance, retry budget + backoff, event-bus telemetry, unit tests.
-- ✅ UI messaging for the recovered action — the ShortcutsManager run banner now
-  reports "recovered N step(s) automatically" when `repairsTotal > 0` (visual
-  retarget / LLM repair), alongside the existing per-step `repairs` debug detail.
-- ✅ Broaden target coverage — visual retarget now covers `uia_invoke`, `click_at`,
-  and `browser_click` (web elements that move/change); `_deriveVisualQuery`
-  derives a description from the step's args for any failing click-like step.
-  Tested in `tools/skill.test.js`.
-
-### 5.4 Tool-version graceful degradation — ✅ implemented
-
-Before running an installed skill, resolve every step's tool against the local
-registry; missing/renamed tools downgrade the step or surface a clear message —
-never crash mid-skill.
-
-- ✅ Compatibility resolver (`analyzeSkillCompatibility`), preview endpoint, `allowUnsupported` gate, deterministic downgrade rules, tests.
-- ✅ UI integration — the marketplace install modal now shows a "Compatibility
-  with your addon" summary (compatible / adjusted / unsupported counts + per-step
-  findings) via `previewSkillCompatibility` → `POST /api/skill/compatibility`.
-- ✅ Broader mapping coverage — `TOOL_ALIASES`/`TOOL_FALLBACKS` now cover common
-  legacy/alternate names across fs / window / input / UIA / browser / screen /
-  shell / app / audio / skill tools (plus a `click_at → find_and_click_visual`
-  cross-version fallback); tested in `tools/skill.test.js`. New renames should
-  still be added here as they land.
-
-### 5.5 Measure it — reuse the eval harness — ✅ implemented
-
-Use the `automation/eval/scenarios/` framework: each generalization change adds
-scenarios that (a) replay a trace and (b) assert the skill still succeeds against
-a *perturbed* UI (moved window, renamed control, changed coordinates).
-
-- ✅ Eval runner supports an HTTP scenario mode (real ephemeral `mountAutomation()` server via `eval/http-app.js`).
-- ✅ One perturbed-UI scenario per axis (position-shift `18`, label-rename `19`, timing-variance `20`).
-- ✅ CI gate: `.github/workflows/ci.yml` `test-simple-addon` job runs `npm run test:unit` + `npm run eval` on every push/PR.
-
-### 5.6 Per-skill success criteria (runtime observability) — ✅ implemented
-
-Attach a checkable end-state assertion to a skill (`successCriteria`, e.g. "a window
-titled X is focused"). On replay, evaluate it to emit a definitive success/failure —
-this feeds the marketplace `outcome` on ratings (§4.1) and decides whether `repairStep` fires.
-
-- ✅ Versioned `successCriteria` schema; post-run evaluation with reason codes.
-- ✅ Outcome folded into rating + telemetry + ranking (`outcomeFailRate`).
-- ✅ `repairStep` on criteria failure (`maxCriteriaRepairs`, `strategy: 'criteria-retry'`).
-- ✅ Tests for pass/fail/indeterminate states.
 
 ## 6. Safety & permissions — 🟡 partially implemented (backend seams + consent UI shipped; deny-path audit + future multimodal wiring open)
 
@@ -247,50 +181,13 @@ approval, shell allow/deny-list, protected-path blocking, and the
 
 ### 6.1 Privacy / PII scrubbing — ✅ implemented
 
-Recordings capture screen frames, keystrokes, webcam, and mic; a raw recorded skill
-can embed passwords, personal paths, tokens, and screenshots. **Publishing must not
-leak this.**
-
-- Mandatory scrub pass before publish: strip absolute user paths, redact secret-shaped strings, drop raw screenshots, promote varying literals to `${param.x}`.
-- Reuse the PII-safe fingerprinting in `pattern-learner.js`; honor the sensitive-capture consent gate (`permissions.dataCapture.keyboard`, `confirmSensitiveCapture`).
-- Pre-publish UI must show a "what will be shared" review and require explicit confirmation.
-
-**Where:** `server/automation/recorder/scrub.js` (`scrubForPublish(skill)`); the
-report never includes the original sensitive value. Preview endpoint `POST /api/skill/scrub`.
-
 ### 6.2 Inspect-before-run capability summary — ✅ implemented
-
-Generate a human-readable summary of what a skill will do, and flag any mismatch
-between *declared* categories and what the steps *actually* invoke. Mandatory before
-first run of any installed skill.
-
-**Where:** `server/automation/capability-summary.js` (`summarizeCapabilities(skill)`).
-Preview endpoint `POST /api/skill/capabilities`.
 
 ### 6.3 Cloud-vision consent — ✅ implemented
 
-The generalization and vision-fallback paths send screen captures to a cloud LLM
-(`vision-fusion.js`, proxied to AWS Bedrock). Require explicit, revocable consent
-before any frame leaves the device, show which paths use it, and make the
-local/offline model seam (§7) the escape hatch.
-
-- ✅ Persisted consent state (`dataCapture.keyboard`, `cloudVision.granted`) with policy versioning.
-- ✅ Block multimodal calls when consent is absent/revoked, with actionable errors.
-- ✅ Consent endpoints (`GET/PUT /api/automation/consents`, `GET /api/recorder/consent-status`) + audit events.
-- ✅ Tests for allow/deny/revoke flows.
-- ✅ First-use consent modal with plain-language data-egress description — `frontend/src/components/SimpleAddon/PermissionsManager.jsx` shows a confirmation modal (what is shared, where it goes, how to revoke) before the first grant of keyboard capture or cloud vision.
-
 ### 6.4 Remaining safety checklist
 
-- ✅ Keyboard/sensitive-capture consent gate in the recorder pipeline.
-- ✅ Block publish/install on explicit pre-run capability confirmation (server 403 until confirmed + addon-dashboard review UI; low-trust skills also dry-run-first).
 - 🟡 Require cloud-vision consent before any multimodal upload path (`vision-fusion.js` + `screenshot_check` gated; future paths need wiring).
-- ✅ Revoke/toggle UI with persisted consent state — `PermissionsManager.jsx` surfaces both sensitive consents with on/off toggles + the §6.3 first-use modal; state persists via the addon permissions file and syncs to the account (`kind=settings`, `slug=automation-consents`).
-- ✅ Ensure every deny path surfaces a user-visible reason — tool-permission
-  denials now name the blocker (`permissions.requestApproval` distinguishes the
-  emergency kill switch, a per-tool `deny` override, and a category `deny`),
-  joining the already-specific consent/capability 403s. Tests in
-  `permissions.test.js`.
 
 ## 7. Architecture — ✅ provider seam shipped
 
@@ -332,12 +229,6 @@ The end-to-end loop **signed-in user → cloud memory → local PC actions** wor
 | Eval harness | `server/automation/eval/` |
 
 ### 7.1 LLM provider seam — ✅ implemented
-
-- ✅ Provider factory `server/automation/llm-provider.js` (`createLlmProvider(opts)`).
-- ✅ All LLM-calling modules route through it: `agent-loop.js`, `nl-compiler.js`, `tools/skill.js`, `vision-fusion.js`, `tools/webcam.js`.
-- ✅ `createLocalStubProvider()` (deterministic, offline, opt-in) + `withRetries()` (bounded retry, skips auth/config errors).
-- ✅ Default adapter is `backend-proxy` (`/api/data/csimple/agent-chat` / `agent-vision`); the old per-user GitHub PAT model is gone.
-- ✅ Unit tests proving callers no longer instantiate `GitHubModelsService` directly.
 
 ## 8. Monetization — 🟡 provider-boundary credit gate shipped (UX copy + full integration matrix remain)
 
@@ -465,15 +356,13 @@ marketplace, and ship privacy scrubbing before *any* publish path.
 5. ✅ **Marketplace web frontend** (4.4) + trust ranking + dry-run-first — `/market` page, ranking + `lowTrust`, and dry-run-first enforcement all shipped.
 6. ✅ **Vision re-targeting on replay** (5.3) — recovery path + UI messaging + broadened coverage (uia_invoke / click_at / browser_click) all shipped.
 7. 🟡 **Monetization seam** (8) — provider-boundary credit gate + blocked-call UX copy + state-machine unit tests shipped; a full route-layer DynamoDB/Stripe fixture pass remains.
-8. ⬜ **Onboarding/UX polish** for non-technical users.
+8. 🟡 **Onboarding/UX polish** for non-technical users — the three Simple surfaces are bound by one switcher that lives inside the site header (no extra row), `/simple` leads with the four-mode trust ladder, and `/net` opens as just the chat with the conversation rail a collapsed drawer. ⬜ Starter templates, a first-run guided demo, and the funnel gaps listed in §16.4 remain.
 
 Each milestone ships with Jest unit tests and, where it touches the loop, an
 `automation/eval/scenarios/` scenario.
 
 ### 10.1 Next implementation slices (file-targeted)
 
-1. ✅ **Marketplace persistence + routes** — `backend/controllers/marketplaceController.js`, `backend/services/marketplaceRanking.js`, `backend/routes/routeData.js`; addon proxies in `server/automation/index.js` + wrappers in `workspace-client.js`.
-2. ✅ **Telemetry plumbing for marketplace counters** — `getTelemetrySummary` + `/telemetry/summary` (now includes a `marketplace` field).
 3. **Capability/scrub UI confirmations** — frontend route(s) following the `/net` integration pattern.
 4. **Recorder consent gate** — `server/automation/permissions.js` + recorder capture pipeline.
 5. **Vision replay repair fallback** — `server/automation/tools/skill.js` (`repairStep`) + `server/automation/vision-fusion.js`.
@@ -482,39 +371,13 @@ Each milestone ships with Jest unit tests and, where it touches the loop, an
 
 #### P0 — do now
 
-- ✅ Marketplace public namespace + immutable version storage.
-- ✅ Install-gated ratings (server-enforced).
-- ✅ `/telemetry/summary` including marketplace counters.
-- ✅ Mandatory pre-publish scrub confirmation UI (PublishModal "what will be shared" review).
-- ✅ Mandatory pre-run capability confirmation UI for installed market skills (addon-dashboard review on first run).
-
-#### P1 — do next
-
-- ✅ Vision re-targeting: coverage broadened (uia_invoke / click_at / browser_click) + UI messaging shipped.
-- ✅ Tool-version compatibility: mapping coverage + UI integration shipped (add new aliases/fallbacks as renames land).
 - 🟡 Recorder sensitive-capture consent: frontend consent UX polish.
-- ✅ Cloud-vision consent: frontend consent UX shipped (first-use modal + revoke/toggle in `PermissionsManager.jsx`).
-- ✅ Per-skill `successCriteria` evaluation + outcome persistence (runtime, telemetry, ranking, auto-repair all shipped).
 
 #### P2 — after core loop is stable
 
 - 🟡 Trust-ranking tuning + low-trust dry-run-first hardening (formula + classifier shipped; tune against real usage).
 - 🟡 LLM provider local adapter quality pass (deterministic stub shipped; a real local model backend remains).
-- ✅ Monetization gate at provider boundary (per-tier monthly credit limits via `MEMBERSHIP_LIMITS`; `agent-chat`/`agent-vision` now enforce it).
 - ⬜ Consumer onboarding polish and starter templates.
-
-### 10.3 Release-gate checklist for first marketplace public beta
-
-- ✅ No publish path can bypass scrub + author confirmation (server re-runs privacy scrub + capability-mismatch check before persisting).
-- ✅ No run path can bypass permissions/security guardrails — verified: every
-  tool call funnels through `tool-registry.executeTool` → `permissions.requestApproval`
-  (kill switch / deny / dry-run are enforced before ANY tool runs); composite
-  tools (`skill_run`) re-enter the registry per nested step (covered in
-  `tools/skill.test.js`); and the legacy chat action path is gated by
-  `security-guard.js` (`checkActionPlan`/`checkPSScript`). Enforcement lives at
-  the registry layer, not per call site.
-- ✅ Installed marketplace skills always show capability summary before first execution (server 403s until confirmed once per version; addon dashboard renders the review).
-- ✅ Low-trust skills default to dry-run-first (server forces the first pass into dry-run via `marketplace-gate.js`; addon dashboard surfaces a 'dry-run' result).
 
 ### 10.4 Future capability plans
 
@@ -611,8 +474,6 @@ memory: `{ kind:"lesson", slug:"lesson-<hash>", content:{ pattern, context, do, 
 
 ### 11.5 Open follow-ups
 
-- ✅ **Adopt `MAX_STEPS_DEFAULT: 60`** — the loop's default step budget is now 60 (`DEFAULT_MAX_STEPS` in `agent-loop.js`, single-sourced into `DEFAULT_CONFIG.MAX_STEPS_DEFAULT`); keep tuning stall/abandon from real usage.
-- ✅ **Semantic lesson recall** — the Orient stage now ranks the recent-lessons pool by token overlap with the current situation via `critic.recall`, backfilling remaining slots recent-first (`agent-loop.js` `_rankLessons`); tested in `agent-loop.test.js`.
 - **Offline runner coverage** — goal-block-on-stall and orient-bound-cap are unit-tested only; the offline eval runner can't drive the LLM loop deterministically.
 - **Server-side `goalAgentService`** — kept as the offline fallback for `/plans`; the addon O-O-G-P-A loop is now the primary path.
 
@@ -716,33 +577,6 @@ chat asks "push?" → user says yes → pushed to GitHub.
 
 ### 14.2 Plan (subtasks)
 
-1. ✅ **`backend/services/repoAgentService.js`** — wraps `git` (`child_process.execFile`,
-   cwd = repo root) with the `repo_*` tool schemas/executors.
-2. ✅ **Merge into `/net` tool loop** — `backend/services/netTools.js` folds the
-   repo schemas/executors into `TOOL_SCHEMAS`/`TOOL_EXECUTORS`; no new route.
-3. ✅ **Wire admin + confirmation context** — `backend/services/llmService.js`
-   tags each /net chat `toolContext` with `isAdmin`, `turnStartedAt`, and the
-   raw `userMessage` (both streaming and non-streaming paths).
-4. ✅ **Prompt the confirmation rule** — the /net system prompt teaches the model
-   the repo tools and the hard rule: *never `repo_push` in the same turn you
-   commit; ask first, wait for a confirmation reply.*
-5. ✅ **Shared module** — `backend/services/repoShared.js` is the single source of
-   truth for `REPO`, `getGitHubToken`, `isAdminContext`, `sanitizeRepoPath`, and
-   `encodePath`; both `goalAgentService.js` and `repoAgentService.js` import it.
-6. ✅ **Feature-branch isolation** — `repo_commit_changes` commits onto a
-   `net/<slug>-<ts>` branch (never `master`); `repo_push` pushes that branch and
-   returns a `github.com/…/compare/…` PR link.
-7. ✅ **Explicit proposal state** — a per-user DynamoDB proposal record
-   (`csimple_repoagent_<userId>_proposal`) stores the exact branch/sha; `repo_push`
-   pushes only that branch and clears the record (falls back to git-derived
-   checks when DynamoDB is unavailable).
-8. ✅ **Diff review** — `repo_commit_changes` returns the staged diff stat alongside
-   the file list so the user can see what changed before confirming.
-9. ✅ **Single classification call** — the addon's `classifyActionable` returns a
-   `chatReply` for non-actionable messages, and `SimpleChat.jsx` shows it directly
-   (no second LLM call for the same message).
-10. ✅ **Unit + git tests** — `repoAgentService.test.js` (pure helpers, mocked git)
-    + `repoAgentService.git.test.js` (real git against a temp repo, no GitHub).
 11. ⬜ **Live end-to-end pass** — one real signed-in admin run through /net chat
     that stages a trivial change, asks, and pushes (requires `GITHUB_TOKEN` on
     the server).
@@ -934,6 +768,168 @@ on the backend; "Windows action or chat?" is the addon's actionability classifie
 > `backend/services/netChatContext.js`, `toolScopes.js`, `llmService.js`
 > (the cloud tool loop), `repoAgentService.js` (the push gate), and
 > `backend/middleware/netMessageGuard.js` (the server-side pre-screen).
+
+---
+
+## 16. Customer funnel — Discovery → Understanding → Pay
+
+How a cold visitor becomes a paying user, mapped from the code (audited 2026-09-11).
+The stages are deliberately narrow: **one job per page**, so each stage has a single
+job to do well.
+
+| Stage | Pages | The job of the page |
+|---|---|---|
+| **Discovery** | `/home` (+`/`), `/projects` | Establish what Simple is and route the visitor into the product or the story |
+| **Product entry** | `/simple`, `/net`, `/plans`, `/profile` | Let the visitor *use* Simple for real |
+| **Understanding** | `/pricing` | Explain what it costs and what each tier buys |
+| **Conversion** | `/pay` | Take payment |
+| **Retention** | `/profile` | Self-serve plan/usage management (the post-purchase home base) |
+
+### 16.1 The three Simple surfaces are one journey
+
+This is the part that used to be missing: `/net`, `/simple` and `/plans` are three
+rooms of one product, but nothing in the UI said so, and `/net` and `/simple` didn't
+link to each other at all. They are now bound by a shared
+`components/Simple/SimpleNav/SimpleNav.jsx` switcher — **💬 Chat → 🎛️ Control → 🎯 Goals** —
+that appears on all three surfaces plus `/plans/goal/:id`, carries the live addon
+badge (so "is my PC agent reachable?" has one answer everywhere), and marks the
+current surface with `aria-current`.
+
+It renders **inside the fixed site header** via `<Header center={<SimpleNav compact />} />`,
+so it costs zero vertical space. Do not stack it as its own row: that adds ~57px on
+every page and reads as a second header.
+
+```
+💬 Chat (/net)      say what you want, in words (or voice)
+🎛️ Control (/simple) watch it work · decide how far it may go · stop it
+🎯 Goals (/plans)    where intent lives — goals, plans, actions, notes, lessons
+```
+
+A goal is the object that flows between all three: you *describe* it on `/net`, it
+is *stored* on `/plans`, you *watch* it run on `/simple`, and `/plans/goal/:id`
+hand-off links send you back to either surface.
+The **homepage's closing CTA band teaches this vocabulary before the visitor signs
+in**: three cards — 💬 Chat → `/net`, 🎛️ Control → `/simple`, 🎯 Goals → `/plans` —
+plus one funnel exit to `/pricing`. Keep the card titles identical to the `SimpleNav`
+labels (`frontend/src/pages/Home/Home.jsx`, `SURFACES`); if they drift, the switcher
+stops being a familiar landmark and becomes a fourth thing to learn.
+### 16.2 Funnel graph (as built)
+
+```
+Home ──hero "What I can do for you"──▶ /pricing ──plan card──▶ /login?redirectTo=/pay?plan=pro ──▶ /pay ──▶ /profile
+Home ──hero "Browse my work"─────────▶ /projects ──▶ project pages            (no route back to /pricing)
+Home ──CTA band surface cards───────▶ /net · /simple · /plans ──▶ LoginGate ──▶ /login?redirectTo=… | /register?redirectTo=…
+Home ──CTA band "See pricing"───────▶ /pricing
+/net ──header switcher───────────────▶ /simple | /plans
+/simple ──header switcher────────────▶ /net | /plans
+/plans ──header switcher─────────────▶ /net | /simple
+/plans ──goal card───────────────────▶ /plans/goal/:id ──handoff──▶ /net | /simple
+/net ──UsageMeter / chat 402 copy────▶ /pay?plan=pro
+/profile ──"Upgrade Now" ×3──────────▶ /pay?plan=pro
+/pricing ──plan card─────────────────▶ /pay?plan=<id>  (free | pro)
+```
+
+### 16.3 Per-page contract
+
+| Route | Gate | Primary CTA → target |
+|---|---|---|
+| `/home` | public | hero CTAs → `/pricing`, `/projects`; closing CTA band: "Start chatting" → `/net`, three surface cards → `/net`, `/simple`, `/plans`, "See pricing" → `/pricing` |
+| `/projects` | public | project cards only — **no monetization path** |
+| `/simple` | public shell, gated dashboard | the four-mode ladder; header switcher → `/net`, `/plans` |
+| `/net` | gated (LoginGate) | the chat itself; `UsageMeter` → `/pay?plan=pro` |
+| `/plans` | soft-gated (login prompt inline) | "+ New goal"; header switcher → `/net`, `/simple` |
+| `/plans/goal/:id` | soft-gated | "Enlist agent"; hand-offs → `/net`, `/simple` |
+| `/profile` | login-gated (redirects) | storage/credit meters; "Upgrade Now" ×3 → `/pay?plan=pro` |
+| `/pricing` | public | plan cards → `/pay?plan=<free\|pro>` (via `/login` when signed out) |
+| `/pay` | login-required | plan → payment method → "Confirm & Subscribe" → `/profile` |
+
+Plan IDs are the canonical strings `free` / `pro` (`frontend/src/constants/pricing.js`);
+tier limits live backend-side in `MEMBERSHIP_LIMITS`
+(`backend/utils/apiUsageTracker.js`). `/pricing` reads plan data from
+`getMembershipPricing()` with a static fallback, and every conversion CTA is inert
+while `purchasesEnabled` is false.
+
+### 16.4 Funnel gaps (audited — status as of 2026-09-11)
+
+Fixed in this pass:
+
+- ✅ **`/net` imported `Footer` but never rendered it, and had no way to reach the
+  other surfaces.** It now renders the footer and the shared switcher.
+- ✅ **`/plans` sent logged-out users to `/login` with no `redirectTo`**, so signing
+  in dumped them on `/` instead of back on their goals. Same bug on
+  `/plans/goal/:id`. Both now pass `state.redirectTo` (`LoginGate` already did this
+  correctly on `/net` and `/simple`).
+- ✅ **`/simple` hero sent its two CTAs to `/pricing` and `/market`** — exit points
+  from a logged-in product surface, and both already reachable from the header.
+- ✅ **The four trust modes (§3.1) were unreachable from the UI.** `/simple` now
+  opens with the Watch → Suggest → Assist → Autopilot ladder, derived from the live
+  permission state so it can't disagree with what the addon actually allows.
+- ✅ **Neither `/pricing` nor `/simple` was in `HeaderDropper.jsx`** — the two
+  highest-intent pages were unreachable from the nav. Both are now listed (Pricing
+  always; Simple when signed in, where it is also the phone route into Control).
+- ✅ **`/net` opened as "conversation rail + chat" and lost a quarter of the
+  window to history whether you wanted it or not.** The **Conversations list**
+  inside the rail is now a collapsed disclosure (`showConversations`, off by
+  default) with a count badge. The rail *itself* stays open on desktop — an earlier
+  pass turned the whole rail into a drawer and that was the wrong read.
+- ✅ **Home's closing CTA taught a four-step "download the addon" flow** whose steps
+  no longer matched the product (`/simple` was labelled "Show it once" — it is
+  Control) and which never mentioned Goals at all. It is now three surface cards
+  mirroring the switcher, plus a single low-key funnel exit to `/pricing`.
+- ✅ **The surface switcher was a second row stacked under the header**, pushing
+  every page down ~57px. It now renders *inside* the header band via
+  `<Header center={…} />` and costs zero height.
+
+Still open (ordered by funnel impact):
+
+- ⬜ **`/projects` has no route to `/pricing`.** Once a visitor leaves the home hero
+  for `/projects`, the only paths to pricing are the header dropper or a direct URL.
+  Add a closing CTA band.
+- ⬜ **Purchase-gate dead end.** When `purchasesEnabled` is false the Pro card is
+  disabled ("Not available yet"), `/profile` hides every upgrade button, and
+  `UsageMeter` hides its links — while the gate notice (`Pricing.jsx:204`) contains
+  no support link. Pro-intent users are stranded at the card.
+- ⬜ **Conversion CTAs are `<button onClick={navigate}>`, not `<Link>`**
+  (`Pricing.jsx:266`, `Profile.jsx:339,423,610`) — not middle-clickable, not
+  crawlable.
+- ⬜ **`/payment-success` is an orphan route.** Nothing navigates to it; both
+  post-payment paths go to `/profile` (`useCheckoutHandlers.js:56,91`), leaving
+  `PaymentSuccess.jsx` dead code. `/pay/success` doesn't exist at all (falls to the
+  `*` NotFound route).
+- ⬜ **`/pay` renders `null` while its redirect effect runs** (`Pay.jsx:33`), giving
+  signed-out visitors a blank flash before `/login`.
+- ⬜ **Raw `<a href>` for SPA routes** — `UsageMeter.jsx:136,141`, `Footer.jsx:12–16`,
+  the `Header.jsx` logo, and the terms/privacy links in `CheckoutForm.jsx` all force
+  a full page reload.
+- ⬜ **The in-chat upgrade CTA relies on the markdown renderer.** `SimpleChat.jsx`
+  injects `[Upgrade Now →](/pay?plan=pro)` as markdown (lines 719, 1751); if
+  `[text](url)` isn't converted to an anchor, that monetization path silently
+  no-ops.
+- ⬜ **Home's three surface cards** (`/net`, `/simple`, `/plans`) send guests
+  straight into a gate — `/net` is `LoginGate`-gated and `/plans` is soft-gated,
+  while `/simple` shows the signed-out journey band. Decide whether Discovery
+  should warm guests with a signed-out preview or route them through
+  `/register?redirectTo=…` first.
+
+### 16.5 Rules for changing funnel pages
+
+1. **Every page needs one obvious next step** — and it should move the visitor
+   *forward* (Discovery → Understanding → Pay), never sideways to a page they
+   already have in the nav.
+2. **Product surfaces (`/net`, `/simple`, `/plans`) must render the surface
+   switcher**, so the three-room model stays legible from anywhere.
+3. **Deep-link login, don't drop the destination** — always pass
+   `state.redirectTo` (`LoginGate` does this; ad-hoc `navigate('/login')` does not).
+4. **Put cross-surface navigation in the header, not in a second row.** Use
+   `<Header center={<SimpleNav compact />} />`; a stacked nav bar costs ~57px on
+   every page and reads as a second header.
+5. **One clear action per page.** If a hero CTA duplicates a link already in the
+   header nav, delete the CTA — the nav is always visible.
+6. **Never hard-block without a way out.** A disabled CTA needs an adjacent link to
+   `/support` or an explanation.
+7. **Use `<Link>` for internal routes** so CTAs are middle-clickable and crawlable.
+8. Verify the funnel with the shared demo account (§0) — most of these pages are
+   behind login, so a logged-out eyeball proves almost nothing.
 
 ---
 

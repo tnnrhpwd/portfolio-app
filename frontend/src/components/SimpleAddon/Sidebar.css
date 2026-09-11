@@ -16,11 +16,17 @@
   text-align: left;
 }
 
+/* Desktop: the rail is always open, so it is NOT the thing that gets minimised.
+   The Conversations list inside it is — see `.sidebar__conversations` below.
+   At ≤768px the rail becomes an overlay drawer and `.sidebar--open` gates it. */
+
 .sidebar__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 56px 36px 16px;
+  /* Just enough to sit below the fixed site header (the page already clears it).
+     Was 56px, which left a dead band at the top of the rail. */
+  padding: calc(var(--nav-size) * 0.14) 18px 14px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -91,19 +97,79 @@
   font-weight: 300;
 }
 
+/* ── Conversations (collapsible, minimised by default) ───────────────────────
+   The rail stays open on desktop, but the history list starts collapsed so the
+   sidebar opens as "New Chat + status" rather than a wall of past chats. The
+   toggle is a full-width button so the whole header row is a hit target. */
+
+/* The section keeps `flex: 1 1 auto` even when collapsed so it still absorbs
+   the rail's spare height — that is what keeps the footer pinned to the bottom
+   exactly as it was when the list was always expanded. */
 .sidebar__conversations {
+  display: flex;
+  flex-direction: column;
   flex: 1 1 auto;
-  min-height: 80px;
-  overflow-y: auto;
+  min-height: 0;
   padding: 4px 8px;
 }
 
-.sidebar__section-title {
+.sidebar__conversations-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 0;
+  padding: 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
   font-size: 11px;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 1px;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition), color var(--transition);
+}
+
+.sidebar__conversations-toggle:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.sidebar__conversations-count {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0;
   color: var(--text-muted);
-  padding: 8px 8px 4px;
+  background: var(--bg-hover);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
+.sidebar__conversations-chevron {
+  font-size: 9px;
+  line-height: 1;
+  transition: transform var(--transition);
+}
+
+.sidebar__conversations-chevron--up {
+  transform: rotate(180deg);
+}
+
+.sidebar__conversations-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  animation: slideDown 200ms ease;
+}
+
+/* Match the rest of the rail: no motion when the user asked for none. */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar__conversations-list { animation: none; }
+  .sidebar__conversations-chevron { transition: none; }
 }
 
 .sidebar__conv {

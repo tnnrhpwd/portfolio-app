@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import Header from '../../../components/Header/Header.jsx';
 import Footer from '../../../components/Footer/Footer.jsx';
+import SEO from '../../../components/SEO/SEO.jsx';
 import { toast } from 'react-toastify';
 import { logout } from '../../../features/data/dataSlice.js';
 import {
@@ -11,127 +12,98 @@ import {
   updateMemoryItem,
   deleteMemoryItem,
 } from '../../../services/memoryApi.js';
-import { listWorkspace, upsertWorkspaceItem, deleteWorkspaceItem } from '../../../services/simpleAddonApi.js';
+import {
+  listWorkspace,
+  upsertWorkspaceItem,
+  deleteWorkspaceItem,
+  getAgentStatus,
+  getAutomationSuggestions,
+  getAutomationPermissions,
+} from '../../../services/simpleAddonApi.js';
+import { useAddonDetection } from '../../../hooks/simpleAddon/useAddonDetection';
+import useScrollReveal from '../../../hooks/useScrollReveal';
+import SimpleNav from '../../../components/Simple/SimpleNav/SimpleNav.jsx';
+import {
+  OOGPA_STAGES,
+  LOOP_LABELS,
+  AGENT_PHASE_LABELS,
+  STATUS_LABELS,
+  PRIORITY_LABELS,
+  PRIORITY_ORDER,
+  stageIndex,
+  agentPhase,
+  agentStepCount,
+  goalProgress,
+  priorityToNumber,
+  slugifyGoalTitle,
+  workspaceGoalToItem,
+  suggestionToGoalPayload,
+  timeSince,
+  isOverdue,
+  deadlineLabel,
+  groupGoals,
+  goalStats,
+  isAgentReady,
+} from './plansUtils';
 import './Plans.css';
 
-// -- Configuration ------------------------------------------------------------
+/**
+ * Plans — the user's agent mission control.
+ *
+ * The page is goals-first: every goal is a unit of intent the desktop agent can
+ * be enlisted to work on, so the goals view leads with live O-O-G-P-A state
+ * (stage, step budget, stalls, last lesson). Plans / Actions / Notes — the
+ * agent's supporting memory — move into a secondary "Library" view.
+ *
+ * Data sources:
+ *   • Goals  → cloud workspace store (canonical, needs login).
+ *   • Plans/actions/notes → memory store (still canonical there).
+ *   • Live loop state + proactive suggestions → local desktop addon
+ *     (best-effort; the page degrades to a clear hint when it's offline).
+ */
 
-const TABS = [
-  { key: 'goal',   label: 'Goals',   icon: '🎯', empty: 'No goals yet — what are you working toward?', quick: 'Add a goal…',       titlePlaceholder: 'What do you want to achieve?' },
-  { key: 'plan',   label: 'Plans',   icon: '📋', empty: 'No plans yet — break a goal into steps!',   quick: 'Add a plan…',       titlePlaceholder: 'What is your plan?' },
-  { key: 'action', label: 'Actions', icon: '⚡', empty: 'No actions logged yet — start chatting on /net!', quick: 'Log an action…', titlePlaceholder: 'Describe the action…' },
-  { key: 'note',   label: 'Notes',   icon: '📝', empty: 'No notes yet — ask your AI to save one on /net!', quick: 'Add a note…',  titlePlaceholder: 'Note title…' },
+const LIBRARY_TABS = [
+  { key: 'plan',   label: 'Plans',   icon: '📋', empty: 'No plans yet — break a goal into steps.', quick: 'Add a plan…',  titlePlaceholder: 'What is your plan?' },
+  { key: 'action', label: 'Actions', icon: '⚡', empty: 'No actions logged yet — start chatting on /net.', quick: 'Log an action…', titlePlaceholder: 'Describe the action…' },
+  { key: 'note',   label: 'Notes',   icon: '📝', empty: 'No notes yet — ask your agent to save one on /net.', quick: 'Add a note…', titlePlaceholder: 'Note title…' },
 ];
 
-// Types that carry a completion status, priority, and optional deadline.
-const TASK_TYPES = ['goal', 'plan'];
-
 const PRIORITY_OPTIONS = ['low', 'medium', 'high'];
-const STATUS_OPTIONS = ['active', 'completed', 'paused'];
-const STATUS_FILTERS = ['all', 'active', 'completed', 'paused'];
-const PRIORITY_FILTERS = ['all', 'low', 'medium', 'high'];
 
-const STATUS_LABELS = {
-  active: 'Active',
-  completed: 'Done',
-  paused: 'Paused',
-  blocked: 'Blocked',
-  done: 'Done',
-  failed: 'Failed',
-};
+const GOAL_FILTERS = [
+  { key: 'all',     label: 'All' },
+  { key: 'active',  label: 'In flight' },
+  { key: 'blocked', label: 'Needs you' },
+  { key: 'paused',  label: 'Paused' },
+  { key: 'done',    label: 'Done' },
+];
 
-const PRIORITY_LABELS = {
-  low: 'Low',
-  medium: 'Medium',
-  high: 'High',
-};
+const LIBRARY_FILTERS = [
+  { key: 'all',       label: 'All' },
+  { key: 'active',    label: 'Active' },
+  { key: 'completed', label: 'Done' },
+];
 
-const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
-
-// Workspace-goal status vocabulary (the canonical store's richer lifecycle).
+// The workspace goal vocabulary (the canonical store's richer lifecycle).
 const GOAL_STATUS_OPTIONS = ['active', 'paused', 'blocked', 'done', 'failed'];
-const GOAL_STATUS_FILTERS = ['all', 'active', 'paused', 'blocked', 'done', 'failed'];
 
-// Workspace goals use a numeric priority (0-100); map to the UI's labels.
-function priorityFromNumber(n) {
-  if (typeof n === 'number') {
-    if (n >= 90) return 'high';
-    if (n <= 10) return 'low';
-    return 'medium';
-  }
-  return 'medium';
+/** A goal/plan is finished when it can stop asking for attention. */
+function isTerminal(item) {
+  const status = item?.data?.status;
+  return status === 'done' || status === 'completed' || status === 'failed';
 }
 
-function priorityToNumber(label) {
-  if (label === 'high') return 90;
-  if (label === 'low') return 10;
-  return 50;
-}
-
-function slugifyGoalTitle(title) {
-  let slug = String(title || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 100);
-  if (!/^[a-z0-9]/.test(slug)) slug = `goal-${slug}`.slice(0, 100);
-  if (!slug) slug = `goal-${Date.now().toString(36)}`;
-  return slug;
-}
-
-/** Adapt a workspace goal entry to the memory-like item shape the UI renders. */
-function workspaceGoalToItem(entry) {
+function emptyForm() {
   return {
-    _id: entry.slug,
-    type: 'goal',
-    workspace: true,
-    data: {
-      title: entry.name || 'Untitled goal',
-      description: entry.content || '',
-      status: entry.status || 'active',
-      priority: priorityFromNumber(entry.priority),
-      deadline: null,
-      agent: entry.agent || null,
-    },
-    createdAt: entry.updatedAt || null,
-    updatedAt: entry.updatedAt || null,
+    title: '',
+    description: '',
+    priority: 'medium',
+    status: 'active',
+    deadline: '',
+    successCriteria: '',
+    maxSteps: '',
+    autoAbandon: false,
   };
-}
-
-// -- Helpers ------------------------------------------------------------------
-
-function timeSince(dateStr) {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return '';
-  const s = Math.floor((Date.now() - d.getTime()) / 1000);
-  if (s < 60) return 'just now';
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  if (s < 86400 * 7) return `${Math.floor(s / 86400)}d ago`;
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
-
-function isOverdue(deadline, status) {
-  if (!deadline || status === 'completed') return false;
-  const d = new Date(deadline);
-  if (Number.isNaN(d.getTime())) return false;
-  // Treat a bare date as end-of-day
-  if (/^\d{4}-\d{2}-\d{2}$/.test(String(deadline))) d.setHours(23, 59, 59, 999);
-  return d.getTime() < Date.now();
-}
-
-/** Human-friendly deadline copy for the card badge. */
-function deadlineLabel(deadline) {
-  if (!deadline) return '';
-  const d = new Date(deadline);
-  if (Number.isNaN(d.getTime())) return String(deadline);
-  const days = Math.round((d.getTime() - Date.now()) / 86400000);
-  if (days < 0) return 'Overdue';
-  if (days === 0) return 'Due today';
-  if (days === 1) return 'Due tomorrow';
-  if (days < 30) return `${days} days left`;
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 // -- Main component -----------------------------------------------------------
@@ -140,46 +112,60 @@ function Plans() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.data);
+  const { isConnected, addonStatus } = useAddonDetection();
 
-  const [activeTab, setActiveTab] = useState('goal');
+  // ── View state ───────────────────────────────────────────────────────────
+  const [view, setView] = useState('goals');       // 'goals' | 'library'
+  const [libraryTab, setLibraryTab] = useState('plan');
+
+  // ── Data ─────────────────────────────────────────────────────────────────
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  // ── Live addon state (best-effort) ───────────────────────────────────────
+  const [agentLive, setAgentLive] = useState(null);
+  const [perms, setPerms] = useState(null);
+  const [suggestions, setSuggestions] = useState([]);
+  const [acceptingSuggestion, setAcceptingSuggestion] = useState(null);
+
+  // ── Filters ──────────────────────────────────────────────────────────────
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('newest');
+  const [sortBy, setSortBy] = useState('smart');
 
-  // Quick-add bar state
+  // ── Quick add ────────────────────────────────────────────────────────────
   const [quickTitle, setQuickTitle] = useState('');
-  const [quickPriority, setQuickPriority] = useState('medium');
 
-  // Form state
-  const [newTitle, setNewTitle] = useState('');
-  const [newDescription, setNewDescription] = useState('');
-  const [newPriority, setNewPriority] = useState('medium');
-  const [newDeadline, setNewDeadline] = useState('');
-  const [newStatus, setNewStatus] = useState('active');
-  const [saving, setSaving] = useState(false);
+  // ── Create / edit form ───────────────────────────────────────────────────
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState(emptyForm());
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
-  // Goal-agent enlistment state (which goal is currently being enlisted)
   const [enlisting, setEnlisting] = useState(null);
 
-  // -- Data fetching ----------------------------------------------------------
+  // ── Destructive-action confirmation ──────────────────────────────────────
+  // An in-page dialog instead of `window.confirm` so the confirm button can be
+  // labelled with the real verb ("Delete goal") and styled as destructive.
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // -- Data loading ----------------------------------------------------------
 
   const load = useCallback(async () => {
     if (!user?.token) { setLoading(false); return; }
     setLoading(true);
     try {
-      // Goals now live in the cloud workspace store (canonical); plans, actions
-      // and notes still live in the memory store. Fetch both once and merge.
+      // Goals live in the cloud workspace store (canonical); plans, actions and
+      // notes still live in the memory store. Fetch both once and merge.
       const [memData, wsData] = await Promise.all([
         fetchMemoryItems(user.token).catch(() => []),
         listWorkspace(user.token, { kind: 'goal' }).catch(() => ({ entries: [] })),
       ]);
       const memItems = (Array.isArray(memData) ? memData : []).filter((i) => i.type !== 'goal');
-      const goalItems = (wsData?.entries || []).map(workspaceGoalToItem);
+      const goalItems = (wsData?.entries || []).map(workspaceGoalToItem).filter(Boolean);
       setItems([...goalItems, ...memItems]);
     } catch (err) {
       if (err.message?.includes('token') || err.message?.includes('authorized')) {
@@ -195,7 +181,40 @@ function Plans() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Reset transient UI when switching tabs
+  // Live loop state — only when the desktop addon is reachable.
+  useEffect(() => {
+    if (!isConnected) { setAgentLive(null); setPerms(null); return undefined; }
+    let cancelled = false;
+
+    const poll = async () => {
+      try {
+        const [status, permissions] = await Promise.all([
+          getAgentStatus().catch(() => null),
+          getAutomationPermissions().catch(() => null),
+        ]);
+        if (cancelled) return;
+        if (status) setAgentLive(status);
+        if (permissions) setPerms(permissions);
+      } catch { /* transient — retry on the next tick */ }
+    };
+
+    poll();
+    const timer = setInterval(poll, 5000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [isConnected]);
+
+  // Proactive suggestions (the watch-and-learn path).
+  const loadSuggestions = useCallback(async () => {
+    if (!isConnected) { setSuggestions([]); return; }
+    try {
+      const data = await getAutomationSuggestions();
+      setSuggestions(Array.isArray(data?.suggestions) ? data.suggestions : []);
+    } catch { setSuggestions([]); }
+  }, [isConnected]);
+
+  useEffect(() => { loadSuggestions(); }, [loadSuggestions]);
+
+  // Reset transient UI when the view or library tab changes.
   useEffect(() => {
     setShowForm(false);
     setEditingId(null);
@@ -203,82 +222,94 @@ function Plans() {
     setStatusFilter('all');
     setPriorityFilter('all');
     setQuickTitle('');
-    resetForm();
+    setForm(emptyForm());
+    setShowAdvanced(false);
+    setPendingDelete(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  }, [view, libraryTab]);
 
-  function resetForm() {
-    setNewTitle('');
-    setNewDescription('');
-    setNewPriority('medium');
-    setNewDeadline('');
-    setNewStatus('active');
-  }
+  // Escape closes the delete confirmation.
+  useEffect(() => {
+    if (!pendingDelete) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape' && !deleting) setPendingDelete(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [pendingDelete, deleting]);
 
-  // -- Derived data -----------------------------------------------------------
+  // -- Derived ---------------------------------------------------------------
 
-  const tabItems = useMemo(
-    () => items.filter((i) => i.type === activeTab),
-    [items, activeTab]
+  const goals = useMemo(() => items.filter((i) => i.type === 'goal'), [items]);
+  const libraryItems = useMemo(() => items.filter((i) => i.type !== 'goal'), [items]);
+
+  const stats = useMemo(() => goalStats(goals), [goals]);
+
+  const libraryTabItems = useMemo(
+    () => libraryItems.filter((i) => i.type === libraryTab),
+    [libraryItems, libraryTab],
   );
 
-  const tabCount = useCallback(
-    (key) => items.filter((i) => i.type === key).length,
-    [items]
+  const libraryTabCount = useCallback(
+    (key) => libraryItems.filter((i) => i.type === key).length,
+    [libraryItems],
   );
 
-  const filtered = useMemo(() => {
+  const currentTab = LIBRARY_TABS.find((t) => t.key === libraryTab) || LIBRARY_TABS[0];
+
+  const filteredGoals = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const list = tabItems.filter((item) => {
+    return goals.filter((item) => {
       const d = item.data || {};
-      if (statusFilter !== 'all' && (d.status || 'active') !== statusFilter) return false;
+      const status = d.status || 'active';
+      if (statusFilter !== 'all') {
+        if (statusFilter === 'done' ? !isTerminal(item) : status !== statusFilter) return false;
+      }
       if (priorityFilter !== 'all' && (d.priority || 'medium') !== priorityFilter) return false;
       if (!q) return true;
-      return (
-        (d.title || '').toLowerCase().includes(q) ||
-        (d.description || '').toLowerCase().includes(q)
-      );
+      return (d.title || '').toLowerCase().includes(q) || (d.description || '').toLowerCase().includes(q);
     });
+  }, [goals, search, statusFilter, priorityFilter]);
 
-    const sorted = [...list];
+  const goalGroups = useMemo(() => {
+    if (sortBy === 'smart') return groupGoals(filteredGoals);
+    const sorted = [...filteredGoals];
     if (sortBy === 'priority') {
-      sorted.sort((a, b) => {
-        const pa = PRIORITY_ORDER[a.data?.priority] ?? 3;
-        const pb = PRIORITY_ORDER[b.data?.priority] ?? 3;
-        return pa - pb;
-      });
-    } else if (sortBy === 'deadline') {
-      sorted.sort((a, b) => {
-        const ad = a.data?.deadline ? new Date(a.data.deadline).getTime() : NaN;
-        const bd = b.data?.deadline ? new Date(b.data.deadline).getTime() : NaN;
-        if (Number.isNaN(ad) && Number.isNaN(bd)) return 0;
-        if (Number.isNaN(ad)) return 1;
-        if (Number.isNaN(bd)) return -1;
-        return ad - bd;
-      });
+      sorted.sort((a, b) => (PRIORITY_ORDER[a.data?.priority] ?? 3) - (PRIORITY_ORDER[b.data?.priority] ?? 3));
+    } else if (sortBy === 'newest') {
+      sorted.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
     }
-    return sorted;
-  }, [tabItems, search, statusFilter, priorityFilter, sortBy]);
+    return [{ status: 'all', label: 'Goals', items: sorted }];
+  }, [filteredGoals, sortBy]);
 
-  const isGoalTab = activeTab === 'goal';
-  const doneStatus = isGoalTab ? 'done' : 'completed';
-  const statusOptions = isGoalTab ? GOAL_STATUS_OPTIONS : STATUS_OPTIONS;
-  const statusFilters = isGoalTab ? GOAL_STATUS_FILTERS : STATUS_FILTERS;
+  const filteredLibrary = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const list = libraryTabItems.filter((item) => {
+      const d = item.data || {};
+      if (statusFilter !== 'all' && (d.status || 'active') !== statusFilter) return false;
+      if (!q) return true;
+      return (d.title || '').toLowerCase().includes(q) || (d.description || '').toLowerCase().includes(q);
+    });
+    if (sortBy === 'priority') {
+      list.sort((a, b) => (PRIORITY_ORDER[a.data?.priority] ?? 3) - (PRIORITY_ORDER[b.data?.priority] ?? 3));
+    } else if (sortBy === 'newest') {
+      list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    }
+    return list;
+  }, [libraryTabItems, search, statusFilter, sortBy]);
 
-  const activeItems = filtered.filter((i) => (i.data?.status || 'active') !== doneStatus);
-  const doneItems = filtered.filter((i) => i.data?.status === doneStatus);
+  const libraryActive = filteredLibrary.filter((i) => !isTerminal(i));
+  const libraryDone = filteredLibrary.filter((i) => isTerminal(i));
 
-  const stats = useMemo(() => {
-    const total = tabItems.length;
-    const done = tabItems.filter((i) => i.data?.status === doneStatus).length;
-    const active = total - done;
-    return { total, active, done, pct: total > 0 ? Math.round((done / total) * 100) : 0 };
-  }, [tabItems, doneStatus]);
+  const activeStage = stageIndex(agentLive?.stage);
+  const runningWorkers = agentLive?.workerCount || 0;
+  const hasFilters = Boolean(search) || statusFilter !== 'all' || priorityFilter !== 'all';
+  const isGoalsView = view === 'goals';
 
-  const currentTab = TABS.find((t) => t.key === activeTab) || TABS[0];
-  const isTaskTab = TASK_TYPES.includes(activeTab);
+  // -- Form helpers ----------------------------------------------------------
 
-  // -- CRUD handlers ----------------------------------------------------------
+  function resetForm() {
+    setForm(emptyForm());
+    setShowAdvanced(false);
+  }
 
   const openCreate = () => {
     resetForm();
@@ -286,47 +317,69 @@ function Plans() {
     setShowForm(true);
   };
 
-  const openEdit = (item) => {
+  const openEditGoal = (item) => {
     const d = item.data || {};
-    setNewTitle(d.title || '');
-    setNewDescription(d.description || '');
-    setNewPriority(d.priority || 'medium');
-    setNewDeadline(d.deadline || '');
-    setNewStatus(d.status || 'active');
+    setForm({
+      ...emptyForm(),
+      title: d.title || '',
+      description: d.description || '',
+      priority: d.priority || 'medium',
+      status: d.status || 'active',
+      successCriteria: d.successCriteria || '',
+      maxSteps: d.maxSteps != null ? String(d.maxSteps) : '',
+      autoAbandon: !!d.autoAbandon,
+    });
     setEditingId(item._id);
     setShowForm(true);
+    setShowAdvanced(Boolean(d.successCriteria || d.maxSteps != null || d.autoAbandon));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const openEditLibrary = (item) => {
+    const d = item.data || {};
+    setForm({
+      ...emptyForm(),
+      title: d.title || '',
+      description: d.description || '',
+      priority: d.priority || 'medium',
+      status: d.status || 'active',
+      deadline: d.deadline || '',
+    });
+    setEditingId(item._id);
+    setShowForm(true);
+  };
+
+  // -- CRUD ------------------------------------------------------------------
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!newTitle.trim()) { toast.error('Title is required'); return; }
+    if (!form.title.trim()) { toast.error('Give it a title first'); return; }
     setSaving(true);
     try {
-      const payload = { title: newTitle.trim() };
-      if (newDescription.trim()) payload.description = newDescription.trim();
-      if (isTaskTab) {
-        payload.priority = newPriority;
-        if (newDeadline) payload.deadline = newDeadline;
-        payload.status = editingId ? newStatus : 'active';
-      }
-
-      const noun = currentTab.label.slice(0, -1);
-      if (isGoalTab) {
-        const slug = editingId || slugifyGoalTitle(newTitle.trim());
-        await upsertWorkspaceItem(user.token, 'goal', slug, {
-          name: newTitle.trim(),
-          content: newDescription.trim() || newTitle.trim(),
-          status: editingId ? newStatus : 'active',
-          priority: priorityToNumber(newPriority),
-        });
-        toast.success(`${noun} ${editingId ? 'updated' : 'created'}!`);
-      } else if (editingId) {
-        await updateMemoryItem(user.token, editingId, payload);
-        toast.success(`${noun} updated!`);
+      if (isGoalsView) {
+        const slug = editingId || slugifyGoalTitle(form.title.trim());
+        const payload = {
+          name: form.title.trim(),
+          content: form.description.trim() || form.title.trim(),
+          status: editingId ? form.status : 'active',
+          priority: priorityToNumber(form.priority),
+        };
+        if (form.successCriteria.trim()) payload.successCriteria = form.successCriteria.trim();
+        if (form.maxSteps.trim()) payload.maxSteps = Number(form.maxSteps);
+        if (form.autoAbandon) payload.autoAbandon = true;
+        await upsertWorkspaceItem(user.token, 'goal', slug, payload);
+        toast.success(editingId ? 'Goal updated!' : 'Goal created!');
       } else {
-        await createMemoryItem(user.token, activeTab, payload);
-        toast.success(`${noun} created!`);
+        const payload = { title: form.title.trim() };
+        if (form.description.trim()) payload.description = form.description.trim();
+        if (libraryTab === 'plan') {
+          payload.priority = form.priority;
+          if (form.deadline) payload.deadline = form.deadline;
+          payload.status = editingId ? form.status : 'active';
+        }
+        if (editingId) await updateMemoryItem(user.token, editingId, payload);
+        else await createMemoryItem(user.token, libraryTab, payload);
+        toast.success(`${currentTab.label.slice(0, -1)} ${editingId ? 'updated' : 'created'}!`);
       }
       resetForm();
       setShowForm(false);
@@ -345,23 +398,21 @@ function Plans() {
     if (!title || saving) return;
     setSaving(true);
     try {
-      if (isGoalTab) {
+      if (isGoalsView) {
         await upsertWorkspaceItem(user.token, 'goal', slugifyGoalTitle(title), {
           name: title,
           content: title,
           status: 'active',
-          priority: priorityToNumber(quickPriority),
+          priority: 50,
         });
+        toast.success('Goal added!');
       } else {
         const payload = { title };
-        if (isTaskTab) {
-          payload.priority = quickPriority;
-          payload.status = 'active';
-        }
-        await createMemoryItem(user.token, activeTab, payload);
+        if (libraryTab === 'plan') { payload.priority = 'medium'; payload.status = 'active'; }
+        await createMemoryItem(user.token, libraryTab, payload);
+        toast.success(`${currentTab.label.slice(0, -1)} added!`);
       }
       setQuickTitle('');
-      toast.success(`${currentTab.label.slice(0, -1)} added!`);
       load();
     } catch (err) {
       toast.error(err.message);
@@ -382,140 +433,304 @@ function Plans() {
       } else {
         await updateMemoryItem(user.token, item._id, { status: newStatus });
       }
-      setItems((prev) => prev.map((i) =>
+      setItems((prev) => prev.map((i) => (
         i._id === item._id ? { ...i, data: { ...i.data, status: newStatus } } : i
-      ));
+      )));
     } catch (err) { toast.error(err.message); }
   };
 
-  const handleDelete = async (item) => {
-    if (!window.confirm(`Delete this ${item.type}?`)) return;
+  /** Open the confirmation dialog (never delete straight from a card click). */
+  const requestDelete = (item) => setPendingDelete(item);
+
+  const confirmDelete = async () => {
+    const item = pendingDelete;
+    if (!item || deleting) return;
+    setDeleting(true);
     try {
-      if (item.workspace) {
-        await deleteWorkspaceItem(user.token, 'goal', item._id, { hard: true });
-      } else {
-        await deleteMemoryItem(user.token, item._id);
-      }
+      if (item.workspace) await deleteWorkspaceItem(user.token, 'goal', item._id, { hard: true });
+      else await deleteMemoryItem(user.token, item._id);
       setItems((prev) => prev.filter((i) => i._id !== item._id));
       toast.success('Deleted');
-    } catch (err) { toast.error(err.message); }
+      setPendingDelete(null);
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setDeleting(false);
+    }
   };
 
-  // -- Goal agent -------------------------------------------------------------
-
-  const openGoal = (item) => {
-    if (item.type === 'goal') navigate(`/plans/goal/${item._id}`);
+  const handleAcceptSuggestion = async (suggestion) => {
+    if (acceptingSuggestion) return;
+    const key = suggestion.id || suggestion.sequenceKey;
+    setAcceptingSuggestion(key);
+    try {
+      const payload = suggestionToGoalPayload(suggestion);
+      await upsertWorkspaceItem(user.token, 'goal', payload.slug, {
+        name: payload.title,
+        content: payload.content,
+        status: 'active',
+        priority: 70,
+        successCriteria: 'The task described has been completed.',
+      });
+      toast.success('Goal created — enlist the agent when you\'re ready.');
+      setSuggestions((prev) => prev.filter((s) => (s.id || s.sequenceKey) !== key));
+      load();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setAcceptingSuggestion(null);
+    }
   };
 
-  const handleEnlistAgent = (item) => {
+  const openGoal = (item) => { if (item.type === 'goal') navigate(`/plans/goal/${item._id}`); };
+
+  const handleEnlist = (item) => {
     if (enlisting === item._id) return;
     setEnlisting(item._id);
-    // Enlistment now happens on the goal page (with scope/context), so take
-    // the user there and reset the brief spinner after navigation.
+    // Enlistment happens on the goal page (with scope + context).
     navigate(`/plans/goal/${item._id}`);
     setTimeout(() => setEnlisting(null), 600);
   };
 
-  // -- Render -----------------------------------------------------------------
+  const clearFilters = () => { setSearch(''); setStatusFilter('all'); setPriorityFilter('all'); };
+
+  // -- Scroll reveal ---------------------------------------------------------
+
+  const [heroRef, heroVisible] = useScrollReveal();
+  const [agentRef, agentVisible] = useScrollReveal();
+  const [listRef, listVisible] = useScrollReveal();
+
+  // -- Render ----------------------------------------------------------------
 
   return (
     <>
-      <Header />
-      <div className="plans-page">
-        <div className="plans-shell">
-          <nav className="plans-breadcrumb">
-            <Link to="/net">← Back to /net</Link>
-            <span className="plans-breadcrumb-sep" aria-hidden="true">·</span>
-            <Link to="/simple">Learn about Simple →</Link>
-          </nav>
+      <SEO
+        title="Plans"
+        description="Mission control for your Simple agent — the goals it can work on, live progress, and the plans, actions, and notes behind them."
+        path="/plans"
+        noindex
+      />
+      <Header center={<SimpleNav compact running={Boolean(agentLive?.running)} goalName={agentLive?.currentGoal?.name || ''} />} />
 
+      <div className="plans-page">
+        <div className="plans-floating" aria-hidden="true">
+          <span className="plans-circle plans-circle-1" />
+          <span className="plans-circle plans-circle-2" />
+          <span className="plans-circle plans-circle-3" />
+        </div>
+
+        <div className="plans-shell">
           {/* Hero */}
-          <section className="plans-hero">
+          <section ref={heroRef} className={`plans-hero plans-reveal ${heroVisible ? 'is-visible' : ''}`}>
             <div className="plans-hero-copy">
-              <p className="plans-eyebrow">Simple · Workspace</p>
-              <h1 className="plans-page-title">Your Plans</h1>
-              <p className="plans-page-subtitle">
-                Goals, plans, notes, and actions — kept in sync with your account and shared as context with your AI on <strong>/net</strong>.
+              <p className="plans-eyebrow">Simple · Agent workspace</p>
+              <h1 className="plans-title">Mission control</h1>
+              <p className="plans-subtitle">
+                Goals your agent can pick up and work on — with the plans, actions
+                and lessons behind them.
               </p>
-              {!loading && user && (
-                <div className="plans-hero-stats" aria-label="Summary">
-                  <span><strong>{stats.total}</strong> total</span>
-                  {isTaskTab && (
-                    <>
-                      <span className="plans-hero-stat-dot" aria-hidden="true">·</span>
-                      <span><strong>{stats.active}</strong> active</span>
-                      <span className="plans-hero-stat-dot" aria-hidden="true">·</span>
-                      <span><strong>{stats.done}</strong> done</span>
-                    </>
-                  )}
+              {user && (
+                <div className="plans-hero-actions">
+                  <button type="button" className="plans-btn plans-btn--primary" onClick={openCreate}>
+                    + New goal
+                  </button>
                 </div>
               )}
             </div>
 
-            {user && (
-              <button className="plans-hero-cta" onClick={openCreate}>
-                + New {currentTab.label.slice(0, -1)}
-              </button>
+            {user && !loading && (
+              <dl className="plans-hero-stats" aria-label="Goal summary">
+                <div className="plans-stat">
+                  <dt>In flight</dt>
+                  <dd>{stats.active}</dd>
+                </div>
+                <div className={`plans-stat plans-stat--warn ${stats.blocked > 0 ? 'is-hot' : ''}`}>
+                  <dt>Needs you</dt>
+                  <dd>{stats.blocked}</dd>
+                </div>
+                <div className="plans-stat">
+                  <dt>Done</dt>
+                  <dd>{stats.done}</dd>
+                </div>
+                <div className="plans-stat plans-stat--total">
+                  <dt>Completion</dt>
+                  <dd>{stats.pct}%</dd>
+                </div>
+              </dl>
             )}
           </section>
 
           {!user ? (
-            <div
-              className="plans-login-prompt"
+            <button
+              type="button"
+              className="plans-login"
               onClick={() => { dispatch(logout()); navigate('/login'); }}
             >
-              Log in to manage your plans
-            </div>
+              Log in to see your goals and let the agent work on them
+            </button>
           ) : (
             <>
-              {/* Controls */}
-              <section className="plans-controls">
-                <div className="plans-tabs" role="tablist" aria-label="Memory types">
-                  {TABS.map((tab) => (
+              {/* Live agent band — the O-O-G-P-A loop */}
+              <section
+                ref={agentRef}
+                className={`plans-agent plans-reveal ${agentVisible ? 'is-visible' : ''} ${isConnected ? 'is-live' : 'is-offline'}`}
+                aria-label="Agent status"
+              >
+                <div className="plans-agent-head">
+                  <span className="plans-agent-dot" aria-hidden="true" />
+                  <div className="plans-agent-heading">
+                    <h2 className="plans-agent-title">
+                      {isConnected
+                        ? (agentLive?.running ? 'Agent is working' : 'Agent is ready')
+                        : 'Desktop agent is offline'}
+                    </h2>
+                    <p className="plans-agent-sub">
+                      {isConnected ? (
+                        agentLive?.running && agentLive.currentGoal
+                          ? <>Working on <strong>{agentLive.currentGoal.name || agentLive.currentGoal.slug}</strong>{agentLive.step ? ` · step ${agentLive.step}` : ''}</>
+                          : <>The Observe → Orient → Goal → Plan → Action loop is idle. Enlist a goal below, or talk to it on <Link to="/net">/net</Link>.</>
+                      ) : (
+                        <>Install or launch the Simple desktop app to let your agent act on this PC. Your goals still sync without it.</>
+                      )}
+                    </p>
+                  </div>
+                  {perms?.globalKillSwitch && (
+                    <span className="plans-agent-kill" title="The global kill switch is on — no tool can run.">
+                      ⛔ Kill switch on
+                    </span>
+                  )}
+                </div>
+
+                {/* Stage rail */}
+                <ol className="plans-stage-rail" aria-label="Agent loop stage">
+                  {OOGPA_STAGES.map((s, i) => {
+                    const state = activeStage < 0 ? '' : i === activeStage ? 'is-current' : i < activeStage ? 'is-done' : '';
+                    return (
+                      <li key={s.key} className={`plans-stage ${state}`} aria-current={i === activeStage ? 'step' : undefined}>
+                        <span className="plans-stage-key" aria-hidden="true">{s.short}</span>
+                        <span className="plans-stage-label">{s.label}</span>
+                      </li>
+                    );
+                  })}
+                </ol>
+
+                <div className="plans-agent-meta">
+                  <span className="plans-agent-chip">
+                    {isConnected
+                      ? `Loop: ${LOOP_LABELS[agentLive?.loop] || agentLive?.loop || 'idle'}`
+                      : 'Not connected'}
+                  </span>
+                  {isConnected && typeof agentLive?.stallCount === 'number' && agentLive.stallCount > 0 && (
+                    <span className="plans-agent-chip plans-agent-chip--warn">Stalled ×{agentLive.stallCount}</span>
+                  )}
+                  {isConnected && runningWorkers > 0 && (
+                    <span className="plans-agent-chip plans-agent-chip--accent">
+                      {runningWorkers} goal{runningWorkers === 1 ? '' : 's'} running
+                    </span>
+                  )}
+                  {isConnected && addonStatus?.version && (
+                    <span className="plans-agent-chip plans-agent-chip--muted">v{addonStatus.version}</span>
+                  )}
+                  <Link className="plans-agent-link" to="/simple">Open live controls →</Link>
+                </div>
+
+                {isConnected && agentLive?.lastLesson && (
+                  <p className="plans-agent-lesson">
+                    <span aria-hidden="true">📚</span> Last lesson: <em>{String(agentLive.lastLesson).slice(0, 180)}</em>
+                  </p>
+                )}
+              </section>
+
+              {/* Proactive suggestions — the watch-and-learn path */}
+              {isConnected && suggestions.length > 0 && (
+                <section className="plans-suggestions" aria-label="Suggested automations">
+                  <h2 className="plans-section-title">Noticed on your PC</h2>
+                  <div className="plans-suggestion-list">
+                    {suggestions.slice(0, 3).map((s) => {
+                      const key = s.id || s.sequenceKey;
+                      return (
+                        <article key={key} className="plans-suggestion">
+                          <div className="plans-suggestion-body">
+                            <p className="plans-suggestion-title">{s.title}</p>
+                            {s.description && <p className="plans-suggestion-desc">{s.description}</p>}
+                            <div className="plans-suggestion-tags">
+                              {s.value && <span className={`plans-tag plans-tag--${s.value}`}>{s.value} value</span>}
+                              {typeof s.repeatCount === 'number' && <span className="plans-tag">×{s.repeatCount}</span>}
+                              {typeof s.confidence === 'number' && (
+                                <span className="plans-tag">{Math.round(s.confidence * 100)}% sure</span>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="plans-btn plans-btn--outline plans-btn--sm"
+                            onClick={() => handleAcceptSuggestion(s)}
+                            disabled={acceptingSuggestion === key}
+                          >
+                            {acceptingSuggestion === key ? 'Creating…' : 'Automate this'}
+                          </button>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+
+              {/* View switch: Goals | Library */}
+              <div className="plans-switch" role="tablist" aria-label="Workspace view">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={isGoalsView}
+                  className={`plans-switch-btn ${isGoalsView ? 'is-active' : ''}`}
+                  onClick={() => setView('goals')}
+                >
+                  🎯 Goals <span className="plans-switch-count">{goals.length}</span>
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={!isGoalsView}
+                  className={`plans-switch-btn ${!isGoalsView ? 'is-active' : ''}`}
+                  onClick={() => setView('library')}
+                >
+                  📚 Library <span className="plans-switch-count">{libraryItems.length}</span>
+                </button>
+              </div>
+
+              {/* Library sub-tabs */}
+              {!isGoalsView && (
+                <div className="plans-tabs" role="tablist" aria-label="Library type">
+                  {LIBRARY_TABS.map((tab) => (
                     <button
                       key={tab.key}
+                      type="button"
                       role="tab"
-                      aria-selected={activeTab === tab.key}
-                      className={`plans-tab ${activeTab === tab.key ? 'active' : ''}`}
-                      onClick={() => setActiveTab(tab.key)}
+                      aria-selected={libraryTab === tab.key}
+                      className={`plans-tab ${libraryTab === tab.key ? 'is-active' : ''}`}
+                      onClick={() => setLibraryTab(tab.key)}
                     >
-                      <span className="plans-tab-icon" aria-hidden="true">{tab.icon}</span>
-                      <span className="plans-tab-label">{tab.label}</span>
-                      {!loading && (
-                        <span className="plans-tab-count">{tabCount(tab.key)}</span>
-                      )}
+                      <span aria-hidden="true">{tab.icon}</span> {tab.label}
+                      {!loading && <span className="plans-tab-count">{libraryTabCount(tab.key)}</span>}
                     </button>
                   ))}
                 </div>
+              )}
 
-                {/* Quick add */}
+              {/* Controls */}
+              <section className="plans-controls">
                 <form className="plans-quickadd" onSubmit={handleQuickAdd}>
-                  <span className="plans-quickadd-icon" aria-hidden="true">{currentTab.icon}</span>
+                  <span className="plans-quickadd-icon" aria-hidden="true">{isGoalsView ? '🎯' : currentTab.icon}</span>
                   <input
                     className="plans-quickadd-input"
                     type="text"
-                    placeholder={currentTab.quick}
+                    placeholder={isGoalsView ? 'Add a goal — what should your agent get done?' : currentTab.quick}
                     value={quickTitle}
                     onChange={(e) => setQuickTitle(e.target.value)}
                     maxLength={200}
+                    aria-label={isGoalsView ? 'New goal title' : `New ${currentTab.label.slice(0, -1)} title`}
                   />
-                  {isTaskTab && (
-                    <select
-                      className="plans-quickadd-select"
-                      value={quickPriority}
-                      onChange={(e) => setQuickPriority(e.target.value)}
-                      aria-label="Priority"
-                    >
-                      {PRIORITY_OPTIONS.map((p) => (
-                        <option key={p} value={p}>{PRIORITY_LABELS[p]}</option>
-                      ))}
-                    </select>
-                  )}
-                  <button
-                    type="submit"
-                    className="plans-quickadd-btn"
-                    disabled={saving || !quickTitle.trim()}
-                  >
+                  <button type="submit" className="plans-quickadd-btn" disabled={saving || !quickTitle.trim()}>
                     {saving ? '…' : 'Add'}
                   </button>
                 </form>
@@ -526,14 +741,13 @@ function Plans() {
                     <input
                       className="plans-search-input"
                       type="text"
-                      placeholder={`Search ${currentTab.label.toLowerCase()}…`}
+                      placeholder={isGoalsView ? 'Search goals…' : `Search ${currentTab.label.toLowerCase()}…`}
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
+                      aria-label="Search"
                     />
                     {search && (
-                      <button className="plans-search-clear" onClick={() => setSearch('')} aria-label="Clear search">
-                        ✕
-                      </button>
+                      <button type="button" className="plans-search-clear" onClick={() => setSearch('')} aria-label="Clear search">✕</button>
                     )}
                   </div>
 
@@ -543,125 +757,188 @@ function Plans() {
                     onChange={(e) => setSortBy(e.target.value)}
                     aria-label="Sort by"
                   >
-                    <option value="newest">Newest first</option>
+                    <option value="smart">{isGoalsView ? 'Smart order' : 'Default'}</option>
                     <option value="priority">Priority</option>
-                    <option value="deadline">Deadline</option>
+                    <option value="newest">Newest first</option>
                   </select>
                 </div>
 
-                {/* Status + priority filter chips */}
-                {(isTaskTab || search) && (
-                  <div className="plans-chips">
-                    {isTaskTab && statusFilters.map((s) => (
-                      <button
-                        key={s}
-                        className={`plans-chip ${statusFilter === s ? 'active' : ''}`}
-                        onClick={() => setStatusFilter(s)}
-                        aria-pressed={statusFilter === s}
-                      >
-                        {s === 'all' ? 'All' : STATUS_LABELS[s]}
-                      </button>
-                    ))}
-                    {isTaskTab && PRIORITY_FILTERS.map((p) => (
-                      <button
-                        key={p}
-                        className={`plans-chip plans-chip--priority ${priorityFilter === p ? 'active' : ''}`}
-                        onClick={() => setPriorityFilter(p)}
-                        aria-pressed={priorityFilter === p}
-                      >
-                        {p === 'all' ? 'All priorities' : PRIORITY_LABELS[p]}
-                      </button>
-                    ))}
-                    {(search || statusFilter !== 'all' || priorityFilter !== 'all') && (
-                      <button
-                        className="plans-chip plans-chip--clear"
-                        onClick={() => { setSearch(''); setStatusFilter('all'); setPriorityFilter('all'); }}
-                      >
-                        ✕ Clear filters
-                      </button>
-                    )}
-                  </div>
-                )}
+                <div className="plans-chips">
+                  {(isGoalsView ? GOAL_FILTERS : LIBRARY_FILTERS).map((f) => (
+                    <button
+                      key={f.key}
+                      type="button"
+                      className={`plans-chip ${statusFilter === f.key ? 'is-active' : ''}`}
+                      onClick={() => setStatusFilter(f.key)}
+                      aria-pressed={statusFilter === f.key}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                  {isGoalsView && PRIORITY_OPTIONS.map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      className={`plans-chip plans-chip--priority ${priorityFilter === p ? 'is-active' : ''}`}
+                      onClick={() => setPriorityFilter(priorityFilter === p ? 'all' : p)}
+                      aria-pressed={priorityFilter === p}
+                    >
+                      {PRIORITY_LABELS[p]}
+                    </button>
+                  ))}
+                  {hasFilters && (
+                    <button type="button" className="plans-chip plans-chip--clear" onClick={clearFilters}>
+                      ✕ Clear
+                    </button>
+                  )}
+                </div>
               </section>
 
-              {/* Create / Edit form */}
+              {/* Create / edit form */}
               {showForm && (
-                <form className="plans-create-form" onSubmit={handleSubmit}>
+                <form className="plans-form" onSubmit={handleSubmit}>
                   <div className="plans-form-head">
                     <h2 className="plans-form-title">
-                      {editingId ? `Edit ${currentTab.label.slice(0, -1)}` : `New ${currentTab.label.slice(0, -1)}`}
+                      {editingId ? 'Edit' : 'New'} {isGoalsView ? 'goal' : currentTab.label.slice(0, -1)}
                     </h2>
                     <button
                       type="button"
                       className="plans-form-close"
                       onClick={() => { setShowForm(false); setEditingId(null); resetForm(); }}
                       aria-label="Close form"
-                    >
-                      ✕
-                    </button>
+                    >✕</button>
                   </div>
 
-                  <input
-                    className="plans-input"
-                    type="text"
-                    placeholder={currentTab.titlePlaceholder}
-                    value={newTitle}
-                    onChange={(e) => setNewTitle(e.target.value)}
-                    autoFocus
-                    maxLength={200}
-                  />
-                  <textarea
-                    className="plans-textarea"
-                    placeholder="Description (optional)"
-                    value={newDescription}
-                    onChange={(e) => setNewDescription(e.target.value)}
-                    rows={2}
-                    maxLength={1000}
-                  />
-                  {isTaskTab && (
-                    <div className="plans-form-row">
+                  <label className="plans-field">
+                    <span className="plans-field-label">Title</span>
+                    <input
+                      className="plans-input"
+                      type="text"
+                      placeholder={isGoalsView ? 'What should the agent get done?' : currentTab.titlePlaceholder}
+                      value={form.title}
+                      onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                      autoFocus
+                      maxLength={200}
+                    />
+                  </label>
+
+                  <label className="plans-field">
+                    <span className="plans-field-label">Description <span className="plans-field-hint">optional</span></span>
+                    <textarea
+                      className="plans-textarea"
+                      placeholder={isGoalsView
+                        ? 'Detail that helps the agent plan — where it lives, what "done" looks like.'
+                        : 'Description (optional)'}
+                      value={form.description}
+                      onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                      rows={2}
+                      maxLength={1000}
+                    />
+                  </label>
+
+                  <div className="plans-form-row">
+                    <label className="plans-field">
+                      <span className="plans-field-label">Priority</span>
                       <select
                         className="plans-select"
-                        value={newPriority}
-                        onChange={(e) => setNewPriority(e.target.value)}
+                        value={form.priority}
+                        onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}
                       >
-                        {PRIORITY_OPTIONS.map((p) => (
-                          <option key={p} value={p}>{PRIORITY_LABELS[p]} priority</option>
-                        ))}
+                        {PRIORITY_OPTIONS.map((p) => <option key={p} value={p}>{PRIORITY_LABELS[p]}</option>)}
                       </select>
-                      {!isGoalTab && (
+                    </label>
+
+                    {!isGoalsView && libraryTab === 'plan' && (
+                      <label className="plans-field">
+                        <span className="plans-field-label">Deadline <span className="plans-field-hint">optional</span></span>
                         <input
-                          className="plans-input plans-date-input"
+                          className="plans-input"
                           type="date"
-                          value={newDeadline}
-                          onChange={(e) => setNewDeadline(e.target.value)}
-                          aria-label="Deadline"
+                          value={form.deadline || ''}
+                          onChange={(e) => setForm((f) => ({ ...f, deadline: e.target.value }))}
                         />
-                      )}
-                      {editingId && (
+                      </label>
+                    )}
+
+                    {editingId && (
+                      <label className="plans-field">
+                        <span className="plans-field-label">Status</span>
                         <select
                           className="plans-select"
-                          value={newStatus}
-                          onChange={(e) => setNewStatus(e.target.value)}
+                          value={form.status}
+                          onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
                         >
-                          {statusOptions.map((s) => (
+                          {(isGoalsView ? GOAL_STATUS_OPTIONS : ['active', 'completed', 'paused']).map((s) => (
                             <option key={s} value={s}>{STATUS_LABELS[s]}</option>
                           ))}
                         </select>
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Advanced agent fields (goals only) */}
+                  {isGoalsView && (
+                    <div className="plans-advanced">
+                      <button
+                        type="button"
+                        className="plans-advanced-toggle"
+                        onClick={() => setShowAdvanced((v) => !v)}
+                        aria-expanded={showAdvanced}
+                      >
+                        {showAdvanced ? '▾' : '▸'} Agent settings <span className="plans-field-hint">optional</span>
+                      </button>
+                      {showAdvanced && (
+                        <div className="plans-advanced-body">
+                          <label className="plans-field">
+                            <span className="plans-field-label">
+                              Success criteria
+                              <span className="plans-field-hint"> — how the agent knows it&apos;s finished</span>
+                            </span>
+                            <input
+                              className="plans-input"
+                              type="text"
+                              placeholder="e.g. A window titled 'Report' is focused and the file exists"
+                              value={form.successCriteria}
+                              onChange={(e) => setForm((f) => ({ ...f, successCriteria: e.target.value }))}
+                              maxLength={300}
+                            />
+                          </label>
+                          <div className="plans-form-row">
+                            <label className="plans-field">
+                              <span className="plans-field-label">Step budget</span>
+                              <input
+                                className="plans-input"
+                                type="number"
+                                min={1}
+                                max={1000}
+                                placeholder="60"
+                                value={form.maxSteps}
+                                onChange={(e) => setForm((f) => ({ ...f, maxSteps: e.target.value }))}
+                              />
+                            </label>
+                            <label className="plans-field plans-field--check">
+                              <input
+                                type="checkbox"
+                                checked={form.autoAbandon}
+                                onChange={(e) => setForm((f) => ({ ...f, autoAbandon: e.target.checked }))}
+                              />
+                              <span>Let the agent abandon this goal if it keeps stalling</span>
+                            </label>
+                          </div>
+                        </div>
                       )}
                     </div>
                   )}
+
                   <div className="plans-form-actions">
                     <button
                       type="button"
                       className="plans-btn plans-btn--ghost"
                       onClick={() => { setShowForm(false); setEditingId(null); resetForm(); }}
                       disabled={saving}
-                    >
-                      Cancel
-                    </button>
-                    <button type="submit" className="plans-btn plans-btn--primary" disabled={saving || !newTitle.trim()}>
-                      {saving ? 'Saving…' : editingId ? 'Save changes' : `Create ${currentTab.label.slice(0, -1)}`}
+                    >Cancel</button>
+                    <button type="submit" className="plans-btn plans-btn--primary" disabled={saving || !form.title.trim()}>
+                      {saving ? 'Saving…' : editingId ? 'Save changes' : `Create ${isGoalsView ? 'goal' : currentTab.label.slice(0, -1)}`}
                     </button>
                   </div>
                 </form>
@@ -680,197 +957,304 @@ function Plans() {
                 </div>
               )}
 
-              {/* Empty state */}
-              {!loading && filtered.length === 0 && (
-                <div className="plans-empty">
-                  <div className="plans-empty-icon" aria-hidden="true">{currentTab.icon}</div>
-                  <p className="plans-empty-title">
-                    {search || statusFilter !== 'all' || priorityFilter !== 'all'
-                      ? 'No matches found'
-                      : currentTab.empty}
-                  </p>
-                  {search || statusFilter !== 'all' || priorityFilter !== 'all' ? (
-                    <button
-                      className="plans-btn plans-btn--ghost"
-                      onClick={() => { setSearch(''); setStatusFilter('all'); setPriorityFilter('all'); }}
-                    >
-                      Clear filters
-                    </button>
+              {/* Goals view */}
+              {!loading && isGoalsView && (
+                <section ref={listRef} className={`plans-goals plans-reveal ${listVisible ? 'is-visible' : ''}`}>
+                  {goalGroups.length === 0 ? (
+                    <EmptyState
+                      icon="🎯"
+                      title={hasFilters ? 'No goals match those filters' : 'No goals yet — what should your agent get done?'}
+                      action={hasFilters
+                        ? <button type="button" className="plans-btn plans-btn--ghost" onClick={clearFilters}>Clear filters</button>
+                        : <button type="button" className="plans-btn plans-btn--primary" onClick={openCreate}>+ Create your first goal</button>}
+                    />
+                  ) : goalGroups.map((group) => (
+                    <div className="plans-group" key={group.status}>
+                      {goalGroups.length > 1 && (
+                        <h3 className={`plans-group-title plans-group-title--${group.status}`}>
+                          {group.label} <span className="plans-group-count">{group.items.length}</span>
+                        </h3>
+                      )}
+                      <div className="plans-goal-grid">
+                        {group.items.map((item) => (
+                          <GoalCard
+                            key={item._id}
+                            item={item}
+                            onStatusChange={handleStatusChange}
+                            onDelete={requestDelete}
+                            onEdit={openEditGoal}
+                            onOpen={openGoal}
+                            onEnlist={handleEnlist}
+                            enlisting={enlisting}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </section>
+              )}
+
+              {/* Library view */}
+              {!loading && !isGoalsView && (
+                <section className="plans-goals">
+                  {filteredLibrary.length === 0 ? (
+                    <EmptyState
+                      icon={currentTab.icon}
+                      title={hasFilters ? 'No matches found' : currentTab.empty}
+                      action={hasFilters
+                        ? <button type="button" className="plans-btn plans-btn--ghost" onClick={clearFilters}>Clear filters</button>
+                        : <button type="button" className="plans-btn plans-btn--primary" onClick={openCreate}>+ Create your first {currentTab.label.slice(0, -1).toLowerCase()}</button>}
+                    />
                   ) : (
-                    <button className="plans-btn plans-btn--primary" onClick={openCreate}>
-                      + Create your first {currentTab.label.slice(0, -1).toLowerCase()}
-                    </button>
+                    <>
+                      {libraryActive.length > 0 && (
+                        <div className="plans-group">
+                          {libraryDone.length > 0 && <h3 className="plans-group-title">Active</h3>}
+                          <div className="plans-item-list">
+                            {libraryActive.map((item) => (
+                              <LibraryCard
+                                key={item._id}
+                                item={item}
+                                onStatusChange={handleStatusChange}
+                                onDelete={requestDelete}
+                                onEdit={openEditLibrary}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {libraryDone.length > 0 && (
+                        <div className="plans-group plans-group--done">
+                          <h3 className="plans-group-title">Completed</h3>
+                          <div className="plans-item-list">
+                            {libraryDone.map((item) => (
+                              <LibraryCard
+                                key={item._id}
+                                item={item}
+                                onStatusChange={handleStatusChange}
+                                onDelete={requestDelete}
+                                onEdit={openEditLibrary}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
-                </div>
-              )}
-
-              {/* Goal list — one section (the card pill shows each goal's exact state) */}
-              {!loading && isGoalTab && filtered.length > 0 && (
-                <section className="plans-section">
-                  <div className="plans-items">
-                    {filtered.map((item) => (
-                      <MemoryCard
-                        key={item._id}
-                        item={item}
-                        onStatusChange={handleStatusChange}
-                        onDelete={handleDelete}
-                        onEdit={openEdit}
-                        onOpen={openGoal}
-                        onEnlist={handleEnlistAgent}
-                        enlisting={enlisting}
-                      />
-                    ))}
-                  </div>
                 </section>
               )}
 
-              {/* Active section */}
-              {!loading && !isGoalTab && activeItems.length > 0 && (
-                <section className="plans-section">
-                  {isTaskTab && doneItems.length > 0 && (
-                    <h3 className="plans-section-title">Active</h3>
-                  )}
-                  <div className="plans-items">
-                    {activeItems.map((item) => (
-                      <MemoryCard
-                        key={item._id}
-                        item={item}
-                        onStatusChange={handleStatusChange}
-                        onDelete={handleDelete}
-                        onEdit={openEdit}
-                        onOpen={openGoal}
-                        onEnlist={handleEnlistAgent}
-                        enlisting={enlisting}
-                      />
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {/* Completed section */}
-              {!loading && !isGoalTab && doneItems.length > 0 && (
-                <section className="plans-section plans-section-done">
-                  <h3 className="plans-section-title">Completed</h3>
-                  <div className="plans-items">
-                    {doneItems.map((item) => (
-                      <MemoryCard
-                        key={item._id}
-                        item={item}
-                        onStatusChange={handleStatusChange}
-                        onDelete={handleDelete}
-                        onEdit={openEdit}
-                        onOpen={openGoal}
-                        onEnlist={handleEnlistAgent}
-                        enlisting={enlisting}
-                      />
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {/* Info note */}
-              <div className="plans-info-note">
-                💡 Your active goals are automatically shared as context with your AI on <strong>/net</strong>. Actions and notes are logged automatically from conversations.
-              </div>
+              <p className="plans-info-note">
+                💡 Active goals are shared as context with your AI on <strong>/net</strong>, and the agent
+                writes lessons back here whenever a step fails — so it gets better at your tasks over time.
+              </p>
             </>
           )}
         </div>
       </div>
+
+      {pendingDelete && (
+        <DeleteConfirm
+          item={pendingDelete}
+          busy={deleting}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={confirmDelete}
+        />
+      )}
+
       <Footer />
     </>
   );
 }
 
-// -- Memory Card --------------------------------------------------------------
+// -- Delete confirmation ------------------------------------------------------
 
-function MemoryCard({ item, onStatusChange, onDelete, onEdit, onOpen, onEnlist, enlisting }) {
-  const { data, type, createdAt } = item;
-  const isTask = TASK_TYPES.includes(type);
-  const isGoal = type === 'goal';
-  const isCompleted = isGoal ? data?.status === 'done' : data?.status === 'completed';
-  const overdue = isOverdue(data?.deadline, data?.status);
-  const priority = PRIORITY_LABELS[data?.priority] || data?.priority;
-  const agentStatus = data?.agent?.status;
+/**
+ * In-page destructive confirmation.
+ *
+ * Replaces `window.confirm`, whose button is an unstylable native "OK". Here the
+ * confirm button carries the real verb ("Delete goal") and reads as destructive,
+ * the least-destructive action holds focus, and Escape / the scrim cancel.
+ */
+function DeleteConfirm({ item, busy, onCancel, onConfirm }) {
+  const noun = item.type === 'goal' ? 'goal' : item.type;
+  const title = item.data?.title || 'this item';
 
   return (
-    <div className={`memory-card type-${type} ${isCompleted ? 'completed' : ''} ${overdue ? 'is-overdue' : ''}`}>
-      <div className="memory-card-header">
-        <div className="memory-card-title-row">
-          {isTask && (
-            <button
-              className={`memory-card-check ${isCompleted ? 'checked' : ''}`}
-              onClick={() => onStatusChange(item, isCompleted ? 'active' : (isGoal ? 'done' : 'completed'))}
-              title={isCompleted ? 'Mark active' : (isGoal ? 'Mark done' : 'Mark completed')}
-              aria-label={isCompleted ? 'Mark active' : (isGoal ? 'Mark done' : 'Mark completed')}
-            >
-              {isCompleted ? '✓' : ''}
-            </button>
-          )}
-          {isGoal ? (
-            <button className="memory-card-title memory-card-title--link" onClick={() => onOpen(item)} title="Open goal">
-              {data?.title || 'Untitled'}
-            </button>
-          ) : (
-            <span className={`memory-card-title ${isCompleted ? 'strike' : ''}`}>
-              {data?.title || (type === 'note' ? 'Untitled note' : 'Untitled')}
-            </span>
-          )}
-        </div>
-        <div className="memory-card-actions">
-          <button className="memory-card-icon-btn" onClick={() => onEdit(item)} title="Edit" aria-label="Edit">
-            ✎
+    <div
+      className="plans-modal-overlay"
+      onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onCancel(); }}
+    >
+      <div
+        className="plans-modal"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="plans-delete-title"
+        aria-describedby="plans-delete-desc"
+      >
+        <span className="plans-modal-icon" aria-hidden="true">🗑️</span>
+        <h2 id="plans-delete-title" className="plans-modal-title">Delete this {noun}?</h2>
+        <p id="plans-delete-desc" className="plans-modal-desc">
+          <strong className="plans-modal-subject">{title}</strong> will be permanently
+          removed from your workspace. <span className="plans-modal-warn">This can&apos;t be undone.</span>
+        </p>
+        <div className="plans-modal-actions">
+          {/* Focus lands on the safe choice so a stray Enter never deletes. */}
+          <button type="button" className="plans-btn plans-btn--ghost" onClick={onCancel} disabled={busy} autoFocus>
+            Cancel
           </button>
-          <button className="memory-card-icon-btn memory-card-delete" onClick={() => onDelete(item)} title="Delete" aria-label="Delete">
-            ×
+          <button type="button" className="plans-btn plans-btn--danger" onClick={onConfirm} disabled={busy}>
+            {busy ? 'Deleting…' : `Delete ${noun}`}
           </button>
         </div>
       </div>
+    </div>
+  );
+}
 
-      {data?.description && (
-        <p className="memory-card-desc">{data.description}</p>
-      )}
+// -- Empty state --------------------------------------------------------------
 
-      <div className="memory-card-meta">
-        {isTask && data?.status && (
-          <span className={`memory-card-status status-${data.status}`}>
-            <span className="memory-card-status-dot" aria-hidden="true" />
-            {STATUS_LABELS[data.status] || data.status}
+function EmptyState({ icon, title, action }) {
+  return (
+    <div className="plans-empty">
+      <div className="plans-empty-icon" aria-hidden="true">{icon}</div>
+      <p className="plans-empty-title">{title}</p>
+      {action}
+    </div>
+  );
+}
+
+// -- Goal card ----------------------------------------------------------------
+
+function GoalCard({ item, onStatusChange, onDelete, onEdit, onOpen, onEnlist, enlisting }) {
+  const { data, updatedAt } = item;
+  const status = data?.status || 'active';
+  const done = status === 'done';
+  const failed = status === 'failed';
+  const phase = agentPhase(data?.agent);
+  const progress = goalProgress(data?.agent, data?.maxSteps);
+  const steps = agentStepCount(data?.agent);
+  const ready = isAgentReady(item);
+  const overdue = isOverdue(data?.deadline, status);
+
+  return (
+    <article className={`plans-goal-card status-${status} ${done ? 'is-done' : ''} ${overdue ? 'is-overdue' : ''}`}>
+      <header className="plans-goal-head">
+        <button
+          type="button"
+          className={`plans-goal-check ${done ? 'is-checked' : ''}`}
+          onClick={() => onStatusChange(item, done ? 'active' : 'done')}
+          title={done ? 'Mark active' : 'Mark done'}
+          aria-label={done ? 'Mark active' : 'Mark done'}
+        >
+          {done ? '✓' : ''}
+        </button>
+
+        <button type="button" className="plans-goal-title" onClick={() => onOpen(item)} title="Open goal">
+          {data?.title || 'Untitled goal'}
+        </button>
+
+        <span className={`plans-goal-status status-${status}`}>
+          <span className="plans-goal-status-dot" aria-hidden="true" />
+          {STATUS_LABELS[status] || status}
+        </span>
+
+        <div className="plans-goal-actions">
+          <button type="button" className="plans-icon-btn" onClick={() => onEdit(item)} title="Edit" aria-label="Edit goal">✎</button>
+          <button type="button" className="plans-icon-btn plans-icon-btn--danger" onClick={() => onDelete(item)} title="Delete" aria-label="Delete goal">×</button>
+        </div>
+      </header>
+
+      {data?.description && <p className="plans-goal-desc">{data.description}</p>}
+
+      {/* Agent run state */}
+      <div className="plans-goal-agent">
+        <div className="plans-goal-agent-row">
+          <span className={`plans-phase phase-${phase}`}>
+            <span className="plans-phase-dot" aria-hidden="true" />
+            {AGENT_PHASE_LABELS[phase] || phase}
           </span>
-        )}
-        {isTask && priority && (
-          <span className={`memory-card-badge priority-${data.priority}`}>
-            {priority}
-          </span>
-        )}
+          {steps > 0 && <span className="plans-goal-steps">{steps} step{steps === 1 ? '' : 's'}</span>}
+          <span className="plans-goal-time">{timeSince(updatedAt || item.createdAt)}</span>
+        </div>
+        <div className="plans-track">
+          <div className={`plans-track-fill phase-${phase}`} style={{ width: `${progress}%` }} />
+        </div>
+      </div>
+
+      <div className="plans-goal-tags">
+        {data?.priority && <span className={`plans-tag plans-tag--${data.priority}`}>{PRIORITY_LABELS[data.priority] || data.priority}</span>}
+        {data?.successCriteria && <span className="plans-tag plans-tag--outline" title={data.successCriteria}>✓ Success criteria</span>}
+        {data?.maxSteps != null && <span className="plans-tag">≤{data.maxSteps} steps</span>}
+        {data?.autoAbandon && <span className="plans-tag plans-tag--outline">auto-abandon</span>}
+        {data?.createdBy === 'agent' && <span className="plans-tag plans-tag--outline">agent-created</span>}
         {data?.deadline && (
-          <span className={`memory-card-badge deadline ${overdue ? 'overdue' : ''}`} title={data.deadline}>
-            📅 {deadlineLabel(data.deadline)}
-          </span>
+          <span className={`plans-tag ${overdue ? 'plans-tag--danger' : ''}`}>📅 {deadlineLabel(data.deadline)}</span>
         )}
-        {data?.source && (
-          <span className="memory-card-badge source">from /{data.source}</span>
-        )}
-        {agentStatus && agentStatus !== 'idle' && (
-          <span className={`memory-card-badge agent agent-${agentStatus}`}>🤖 {agentStatus}</span>
-        )}
-        <span className="memory-card-time">{timeSince(createdAt)}</span>
       </div>
 
-      {isGoal && (
-        <div className="memory-card-footer">
+      <footer className="plans-goal-foot">
+        {ready ? (
           <button
-            className="memory-card-agent-btn"
+            type="button"
+            className="plans-btn plans-btn--primary plans-btn--sm"
             onClick={() => onEnlist(item)}
             disabled={enlisting === item._id}
           >
             {enlisting === item._id ? '🤖 Enlisting…' : '🤖 Enlist agent'}
           </button>
-          <button className="memory-card-agent-link" onClick={() => onOpen(item)}>
-            View progress →
+        ) : (
+          <button type="button" className="plans-btn plans-btn--ghost plans-btn--sm" onClick={() => onOpen(item)}>
+            {failed ? 'Review what happened' : 'View summary'}
           </button>
+        )}
+        <button type="button" className="plans-goal-link" onClick={() => onOpen(item)}>
+          Progress &amp; timeline <span aria-hidden="true">→</span>
+        </button>
+      </footer>
+    </article>
+  );
+}
+
+// -- Library card (plans / actions / notes) -----------------------------------
+
+function LibraryCard({ item, onStatusChange, onDelete, onEdit }) {
+  const { data, type, createdAt } = item;
+  const isPlan = type === 'plan';
+  const done = data?.status === 'completed' || data?.status === 'done';
+  const overdue = isOverdue(data?.deadline, data?.status);
+
+  return (
+    <article className={`plans-lib-card type-${type} ${done ? 'is-done' : ''} ${overdue ? 'is-overdue' : ''}`}>
+      <div className="plans-lib-head">
+        <div className="plans-lib-title-row">
+          {isPlan && (
+            <button
+              type="button"
+              className={`plans-goal-check ${done ? 'is-checked' : ''}`}
+              onClick={() => onStatusChange(item, done ? 'active' : 'completed')}
+              aria-label={done ? 'Mark active' : 'Mark completed'}
+            >{done ? '✓' : ''}</button>
+          )}
+          <span className={`plans-lib-title ${done ? 'is-struck' : ''}`}>
+            {data?.title || (type === 'note' ? 'Untitled note' : 'Untitled')}
+          </span>
         </div>
-      )}
-    </div>
+        <div className="plans-goal-actions">
+          <button type="button" className="plans-icon-btn" onClick={() => onEdit(item)} title="Edit" aria-label="Edit">✎</button>
+          <button type="button" className="plans-icon-btn plans-icon-btn--danger" onClick={() => onDelete(item)} title="Delete" aria-label="Delete">×</button>
+        </div>
+      </div>
+
+      {data?.description && <p className="plans-goal-desc">{data.description}</p>}
+
+      <div className="plans-goal-tags">
+        {isPlan && data?.priority && <span className={`plans-tag plans-tag--${data.priority}`}>{PRIORITY_LABELS[data.priority] || data.priority}</span>}
+        {data?.deadline && <span className={`plans-tag ${overdue ? 'plans-tag--danger' : ''}`}>📅 {deadlineLabel(data.deadline)}</span>}
+        {data?.source && <span className="plans-tag plans-tag--outline">from /{data.source}</span>}
+        <span className="plans-goal-time">{timeSince(createdAt)}</span>
+      </div>
+    </article>
   );
 }
 
