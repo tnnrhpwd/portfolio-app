@@ -19,6 +19,8 @@ const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, PutCommand, GetCommand, DeleteCommand } = require('@aws-sdk/lib-dynamodb');
 const { logger } = require('../utils/logger');
 const { randomUUID } = require('crypto');
+const { canUseTool, denialReason } = require('./toolScopes');
+const { recordDeniedToolCall } = require('./routingTelemetry');
 
 // Local DynamoDB client for memory/personality/behavior tool writes.
 // (Mirrors memoryService.js so tools can run without needing the caller
@@ -423,6 +425,15 @@ async function executeTool(toolName, args, context) {
   if (!executor) {
     return `Error: Unknown tool "${toolName}". This tool is not available.`;
   }
+
+  // Capability gate (defense in depth): independent of which schemas were
+  // offered to the model, since it can hallucinate a tool name it never got.
+  if (!canUseTool(context, toolName)) {
+    const reason = denialReason(toolName);
+    recordDeniedToolCall(toolName, context, reason);
+    return `Error: ${reason}.`;
+  }
+
   try {
     const safeArgs = enforceArgLimits(args);
     return await executor(safeArgs, context);

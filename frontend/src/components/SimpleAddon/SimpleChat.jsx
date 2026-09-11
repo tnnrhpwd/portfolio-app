@@ -42,6 +42,7 @@ import { DEFAULT_CLOUD_MODEL_ID, getEffectiveCloudModelId, resolveCloudModelProv
 import './SimpleChat.css';
 import './SimpleTheme.css';
 import { checkMessage as securityCheckMessage } from '../../utils/simpleAddon/securityGuard';
+import { routeMessage, ROUTE_KINDS } from '../../utils/simpleAddon/messageRouter';
 
 const DEFAULT_MODEL = 'Qwen/Qwen2.5-0.5B-Instruct';
 const CHATS_STORAGE_KEY = 'csimple_chats';
@@ -87,12 +88,17 @@ const friendlyRemoteError = (message = '') => {
   return message;
 };
 
-// Detect explicit "control my desktop from this device" phrasing, e.g.
-// "open edge on pc", "open edge on my computer", "on the desktop". Used to
-// route a message through the remote addon relay (phone → cloud → PC) even
-// when the chat provider is otherwise the tool-less cloud LLM.
-const PC_CONTROL_RE = /\b(?:on\s+(?:my\s+|the\s+)?|(?:my|the)\s+)(?:pc|computer|desktop|windows\s+(?:pc|machine))\b/i;
-const isPcControlRequest = (text = '') => PC_CONTROL_RE.test(text);
+// Explicit "control my desktop from this device" phrasing ("open edge on pc",
+// "on my computer") and the cloud-only intent detector now live in the shared
+// router — see utils/simpleAddon/messageRouter.js. That module is the single
+// source of truth for "where does this /net message go?".
+
+// Confirmation / decline phrases for the low-confidence routing
+// disambiguation ("do you want me to run this on your PC, or just answer?").
+// The confirmation must be the WHOLE message — so a reply that merely starts
+// with "sure" ("sure, what's the weather?") is never mistaken for a go-ahead.
+const CONFIRM_ACTION_RE = /^(?:yes|yeah|yep|y|sure|ok(?:ay)?|do\s+it|go\s+ahead|run\s+it|run|proceed|please\s+do|confirm|affirmative|go)[\s.!,]*(?:please)?[\s.!,]*$/i;
+const DECLINE_ACTION_RE = /^(?:no|nope|nah|never\s?mind|just answer|don'?t|do not|skip it|cancel|answer the question)\b/i;
 
 // Avoid re-submitting a bug report for the exact same recurring error within
 // this window, even when it isn't a known config error.
@@ -328,6 +334,9 @@ function SimpleChat({
   const { isInactive, resume: resumeActivity } = useInactivity(inactivityTimeout);
   const wasInactiveRef = useRef(false);
   const sendMessageRef = useRef(null);
+  // Holds a low-confidence actionable message awaiting a yes/no confirmation
+  // from the user (see "Route the message" / needsDisambiguation below).
+  const pendingActionRef = useRef(null);
 
   // Wake word / STT setup (same as original)
   useEffect(() => {
@@ -997,6 +1006,23 @@ function SimpleChat({
     if (!text.trim() && !hasFiles) return;
     if (isGenerating) return;
 
+    // ── Resolve a pending low-confidence action ─────────────────────────────
+    // If the previous turn asked "run this on your PC, or just answer?", then:
+    //   • a short confirmation re-runs the ORIGINAL request with forceAction,
+    //   • a decline answers the original request as normal chat,
+    //   • anything else drops the pending prompt and is handled normally.
+    let forceAction = false;
+    if (pendingActionRef.current) {
+      const pendingText = pendingActionRef.current.text;
+      if (CONFIRM_ACTION_RE.test(text.trim())) {
+        forceAction = true;
+        text = pendingText;
+      } else if (DECLINE_ACTION_RE.test(text.trim())) {
+        text = pendingText;
+      }
+      pendingActionRef.current = null;
+    }
+
     // ── Image → chat (vision) ───────────────────────────────────────────────
     // A screenshot with a natural-language request ("read this", "add the goals
     // from the screenshot") is sent to the chat LLM so it can read the image
@@ -1320,10 +1346,24 @@ function SimpleChat({
 
       const provider = settings.llmProvider || 'portfolio';
 
+      // ── Route the message ───────────────────────────────────────────────
+      // The *decision* of where a message goes is a pure function; the blocks
+      // below just execute it. See utils/simpleAddon/messageRouter.js, and the
+      // unit tests in messageRouter.test.js.
+      const route = routeMessage({
+        text,
+        hasImage: !!chatImage,
+        provider,
+        isAddonConnected,
+        isRemoteAddonOnline,
+        isLoggedIn: !!user?.token,
+        phoneTargetingDesktop: !!getCustomAddonHost(),
+      });
+
       // ── Vision requires the cloud provider ─────────────────────────────
       // The local addon's HuggingFace models can't accept image input, so an
       // attached screenshot must go through Cloud (AWS Bedrock).
-      if (chatImage && provider !== 'portfolio') {
+      if (route.kind === ROUTE_KINDS.VISION_REQUIRED) {
         const errMsg = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
@@ -1344,7 +1384,7 @@ function SimpleChat({
       // DESKTOP addon to act — even when the chat provider is otherwise the
       // tool-less cloud LLM. Route it through the cloud relay when a remote
       // addon is online, and surface a clear error when no PC is reachable.
-      if (isPcControlRequest(text) && !isAddonConnected) {
+      if (route.reason === 'explicit-pc-phrasing-remote-relay' || route.reason === 'explicit-pc-phrasing-no-addon') {
         if (isRemoteAddonOnline && user?.token) {
           const cloudModel = getEffectiveCloudModelId(settings.portfolioModel, portfolioLLMProviders);
           try {
@@ -1394,8 +1434,7 @@ function SimpleChat({
       // cloud LLM has no desktop-action tools, so silently falling back to it
       // produces "I cannot open applications" responses. Surface a clear
       // error instead so the user knows what's actually wrong.
-      const phoneTargetingDesktop = !!getCustomAddonHost();
-      if (phoneTargetingDesktop && !isAddonConnected && !isRemoteAddonOnline) {
+      if (route.reason === 'qr-desktop-target-no-addon') {
         const reasons = [];
         if (!user?.token) reasons.push('Log in to your sthopwood.com account on this device.');
         reasons.push('Make sure the Simple addon is running on the target PC.');
@@ -1425,11 +1464,12 @@ function SimpleChat({
       // classifies it (heuristic, then LLM); non-actionable messages fall
       // through to normal chat below, and actionable ones report their final
       // answer back into the conversation here.
-      if (!chatImage && (isAddonConnected || isRemoteAddonOnline)) {
+      if (route.kind === ROUTE_KINDS.AGENT) {
         try {
           const agentResult = await runAgentMessage(text, {
             token: user?.token,
             deviceId: getSelectedRemoteDeviceId(),
+            forceAction,
           });
           if (agentResult?.actionable) {
             const stepNote = typeof agentResult.steps === 'number'
@@ -1444,6 +1484,26 @@ function SimpleChat({
               content,
               timestamp: new Date().toISOString(),
               agentRun: { goalSlug: agentResult.goalSlug, status: agentResult.status, steps: agentResult.steps },
+            };
+            setConversations(prev => prev.map(c => {
+              if (c.id !== activeConversationId) return c;
+              return { ...c, messages: [...c.messages, assistantMessage] };
+            }));
+            setIsGenerating(false);
+            return;
+          }
+          // Low-confidence *actionable* classification: the addon refused to
+          // run it silently and asked us to confirm. Remember the original
+          // request; a short "yes" next turn re-runs it with forceAction.
+          if (agentResult?.needsDisambiguation) {
+            pendingActionRef.current = { text };
+            const assistantMessage = {
+              id: (Date.now() + 1).toString(),
+              role: 'assistant',
+              content:
+                `${agentResult.question || "I wasn't sure if you wanted me to run this on your PC."}\n\n` +
+                "_Reply **yes** to run it on your PC, or **just answer** to treat it as a question._",
+              timestamp: new Date().toISOString(),
             };
             setConversations(prev => prev.map(c => {
               if (c.id !== activeConversationId) return c;

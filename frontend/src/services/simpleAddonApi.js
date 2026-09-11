@@ -799,15 +799,20 @@ export async function stopAgent(reason = 'user requested stop') {
  * @param {object} [opts]
  * @param {string} [opts.token] - Auth token (required for the remote relay).
  * @param {string} [opts.deviceId] - Target addon device (remote relay).
- * @returns {Promise<{actionable:boolean, goalSlug?:string, status?:string, result?:string|null, steps?:number, reason?:string}>}
+ * @param {boolean} [opts.forceAction] - Run even a low-confidence actionable
+ *   verdict (user confirmed the routing disambiguation prompt).
+ * @returns {Promise<{actionable:boolean, goalSlug?:string, status?:string, result?:string|null, steps?:number, reason?:string, confidence?:number, chatReply?:string|null, needsDisambiguation?:boolean, question?:string}>}
  *   `{ actionable: false }` means the loop judged the message non-actionable —
- *   the caller should fall back to normal chat.
+ *   the caller should fall back to normal chat. `{ needsDisambiguation: true }`
+ *   means the classification was too uncertain to act on; ask the user, then
+ *   re-call with `forceAction: true`.
  */
-export async function runAgentMessage(description, { token, deviceId, context, goalId } = {}) {
+export async function runAgentMessage(description, { token, deviceId, context, goalId, forceAction } = {}) {
   const body = {
     description,
     ...(context ? { context } : {}),
     ...(goalId ? { goalId } : {}),
+    ...(forceAction ? { forceAction: true } : {}),
   };
   if (_addonStatus.isConnected && _addonStatus.baseUrl) {
     const res = await addonFetch('/api/agent/run', {

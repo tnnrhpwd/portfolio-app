@@ -152,7 +152,40 @@ describe('repoAgentService tool admin gating', () => {
 });
 
 describe('repoAgentService.repo_push', () => {
+  // Push is now bound to an explicit, expiring proposal (branch + code), so
+  // every test installs a fake proposal store.
+  function installProposal(initial = null) {
+    let current = initial;
+    repoAgent._setProposalStoreForTests({
+      async save(userId, proposal) { current = proposal; },
+      async load() { return current; },
+      async clear() { current = null; },
+    });
+    return { get: () => current };
+  }
+
+  const freshProposal = (over = {}) => ({
+    branch: 'net/test-branch',
+    baseBranch: 'master',
+    sha: 'abc123',
+    committedAtSec: 1700000000,
+    code: 'abcd',
+    expiresAt: Date.now() + 60_000,
+    ...over,
+  });
+
+  test('reports nothing to push when there is no proposal', async () => {
+    installProposal(null);
+    const result = await repoAgent.REPO_TOOL_EXECUTORS.repo_push(
+      {},
+      { isAdmin: true, userMessage: 'yes, push it', turnStartedAt: Date.now() }
+    );
+    expect(result).toMatch(/Nothing to push/);
+    expect(execFile).not.toHaveBeenCalled();
+  });
+
   test('refuses when the user has not confirmed in this message', async () => {
+    installProposal(freshProposal());
     const result = await repoAgent.REPO_TOOL_EXECUTORS.repo_push(
       {},
       { isAdmin: true, userMessage: 'make the button bigger', turnStartedAt: Date.now() }
@@ -162,17 +195,37 @@ describe('repoAgentService.repo_push', () => {
     expect(execFile).not.toHaveBeenCalled();
   });
 
-  test('reports nothing to push when not on a feature branch', async () => {
-    mockGit({ 'rev-parse': () => ({ stdout: 'master\n' }) });
+  test('refuses a stale (expired) proposal', async () => {
+    installProposal(freshProposal({ expiresAt: Date.now() - 1 }));
     const result = await repoAgent.REPO_TOOL_EXECUTORS.repo_push(
       {},
-      { isAdmin: true, userMessage: 'yes, push it', turnStartedAt: Date.now() }
+      { isAdmin: true, userMessage: 'push abcd', turnStartedAt: Date.now() }
     );
-    expect(result).toMatch(/Nothing to push/);
-    expect(result).toMatch(/no feature branch/);
+    expect(result).toMatch(/stale/);
+    expect(execFile).not.toHaveBeenCalled();
+  });
+
+  test('refuses when the current branch does not match the proposal', async () => {
+    installProposal(freshProposal());
+    mockGit({ 'rev-parse': () => ({ stdout: 'net/other-branch\n' }) });
+    const result = await repoAgent.REPO_TOOL_EXECUTORS.repo_push(
+      {},
+      { isAdmin: true, userMessage: 'push abcd', turnStartedAt: Date.now() }
+    );
+    expect(result).toMatch(/does not match the proposed branch/);
+  });
+
+  test('refuses a vague "ok, but…" message (weak affirmatives are strict)', async () => {
+    installProposal(freshProposal());
+    const result = await repoAgent.REPO_TOOL_EXECUTORS.repo_push(
+      {},
+      { isAdmin: true, userMessage: 'ok, but also fix the tests', turnStartedAt: Date.now() }
+    );
+    expect(result).toMatch(/has not explicitly confirmed/);
   });
 
   test('refuses a same-turn commit even with a confirmation', async () => {
+    installProposal(freshProposal({ committedAtSec: Math.floor(Date.now() / 1000) }));
     mockGit({
       'rev-parse': () => ({ stdout: 'net/test-branch\n' }),
       'log': () => ({ stdout: `abc123 ${Math.floor(Date.now() / 1000)}\n` }),
@@ -185,7 +238,22 @@ describe('repoAgentService.repo_push', () => {
     expect(result).toMatch(/created during THIS conversation turn/);
   });
 
+  test('pushes when confirmed via the one-time code', async () => {
+    installProposal(freshProposal());
+    mockGit({
+      'rev-parse': () => ({ stdout: 'net/test-branch\n' }),
+      'log': () => ({ stdout: 'abc123 1700000000\n' }),
+      push: () => ({ stdout: '' }),
+    });
+    const result = await repoAgent.REPO_TOOL_EXECUTORS.repo_push(
+      {},
+      { isAdmin: true, userMessage: 'push abcd', turnStartedAt: Date.now() }
+    );
+    expect(result).toMatch(/Pushed feature branch net\/test-branch/);
+  });
+
   test('pushes the feature branch when confirmed from a previous turn', async () => {
+    installProposal(freshProposal());
     mockGit({
       'rev-parse': () => ({ stdout: 'net/test-branch\n' }),
       'log': () => ({ stdout: 'abc123 1700000000\n' }),
@@ -198,5 +266,26 @@ describe('repoAgentService.repo_push', () => {
     expect(result).toMatch(/Pushed feature branch net\/test-branch/);
     expect(result).toMatch(/compare/);
     expect(result).toContain('abc123');
+  });
+});
+
+describe('repoAgentService.isPushConfirmation (proposal-bound)', () => {
+  test('a matching one-time code confirms', () => {
+    expect(repoAgent.isPushConfirmation('push abcd', { code: 'abcd' })).toBe(true);
+    expect(repoAgent.isPushConfirmation('abcd', { code: 'abcd' })).toBe(true);
+  });
+
+  test('a wrong code does not confirm on its own', () => {
+    expect(repoAgent.isPushConfirmation('abcd', { code: '9999' })).toBe(false);
+  });
+
+  test('bare weak affirmatives are accepted, but not embedded in a sentence', () => {
+    expect(repoAgent.isPushConfirmation('yes')).toBe(true);
+    expect(repoAgent.isPushConfirmation('sure')).toBe(true);
+    expect(repoAgent.isPushConfirmation('ok, but also fix the tests')).toBe(false);
+  });
+
+  test('newConfirmCode returns a 4-hex-char token', () => {
+    expect(repoAgent.newConfirmCode()).toMatch(/^[0-9a-f]{4}$/);
   });
 });

@@ -13,6 +13,9 @@ const { isProTier } = require('../constants/pricing.js');
 const { getGoalsSummary, logAction } = require('./memoryService.js');
 const { TOOL_SCHEMAS, executeTool } = require('./netTools.js');
 const { buildWorkspaceContext } = require('./workspaceContext.js');
+const { buildToolContext } = require('./netChatContext.js');
+const { filterToolSchemas, canUseTool } = require('./toolScopes.js');
+const { buildRoutingEvent, recordRoutingEvent } = require('./routingTelemetry.js');
 
 // Constants for user context loading
 const CSIMPLE_CREATED_AT = '2000-01-01T00:00:00.000Z';
@@ -250,16 +253,20 @@ function repoSystemInstructions() {
 }
 
 /**
- * The tool schema list to offer for a given chat. Repo tools are admin-only, so
- * they are stripped from the schemas for everyone else.
+ * The tool schema list to offer for a given chat, filtered by capability
+ * (see toolScopes.js). Privileged tools like the repo_* set are hidden from
+ * contexts that lack the matching capability — and `executeTool` refuses them
+ * server-side too, so hiding here is usability, not security.
  */
 function toolsForContext(toolContext) {
-    if (!toolContext) return null;
-    if (toolContext.isAdmin) return TOOL_SCHEMAS;
-    return TOOL_SCHEMAS.filter((t) => {
-        const name = t?.function?.name || '';
-        return !name.startsWith('repo_');
-    });
+    return filterToolSchemas(TOOL_SCHEMAS, toolContext);
+}
+
+/** True when this chat context may use repository tools at all. */
+function canUseRepoTools(toolContext) {
+    return canUseTool(toolContext, 'repo_read_file')
+        || canUseTool(toolContext, 'repo_write_file')
+        || canUseTool(toolContext, 'repo_push');
 }
 
 /**
@@ -537,6 +544,63 @@ function parseToolArguments(toolCall) {
 }
 
 /**
+ * Execute a single tool call, returning its name, parsed args, and result
+ * string. Shared by the streaming and non-streaming tool loops.
+ */
+async function executeToolCall(toolCall, toolContext) {
+    const fnName = toolCall.function?.name || 'unknown';
+    const { args: fnArgs, truncated } = parseToolArguments(toolCall);
+    if (truncated) {
+        return {
+            fnName,
+            fnArgs,
+            result: `Error: the arguments for "${fnName}" were empty or cut off (invalid JSON) — this usually means the output hit the length limit. Please retry with a smaller batch (for save_goals, split into a few goals per call).`,
+        };
+    }
+    logger.debug(`🔧 Executing tool: ${fnName}`, JSON.stringify(fnArgs));
+    const result = await executeTool(fnName, fnArgs, toolContext);
+    logger.debug(`🔧 Tool result: ${result.substring(0, 200)}`);
+    return { fnName, fnArgs, result };
+}
+
+/** Max tool-call rounds per turn (prevents runaway loops). */
+const MAX_TOOL_ROUNDS = 3;
+
+/**
+ * Run the LLM tool-call loop: initial call → execute requested tools → feed the
+ * results back → repeat, bounded by `maxRounds`, until the model stops calling
+ * tools. Mutates `messages` in place (as the API requires).
+ *
+ * Returns `{ response, toolResults, rounds }`.
+ */
+async function runToolLoop({ provider, model, messages, llmOptions, toolContext, maxRounds = MAX_TOOL_ROUNDS }) {
+    let response = await makeLLMCall(provider, model, messages, llmOptions);
+    const toolResults = [];
+    let rounds = 0;
+
+    while (llmOptions?.tools && rounds < maxRounds) {
+        const choice = response?.choices?.[0];
+        if (!choice?.message?.tool_calls || choice.message.tool_calls.length === 0) {
+            break; // No tool calls — LLM is done.
+        }
+
+        rounds++;
+        logger.debug(`🔧 Tool call round ${rounds}: ${choice.message.tool_calls.length} tool(s) requested`);
+        messages.push(choice.message);
+
+        for (const toolCall of choice.message.tool_calls) {
+            const { fnName, fnArgs, result } = await executeToolCall(toolCall, toolContext);
+            toolResults.push({ tool: fnName, args: fnArgs, result });
+            messages.push({ role: 'tool', tool_call_id: toolCall.id, content: result });
+        }
+
+        response = await makeLLMCall(provider, model, messages, llmOptions);
+    }
+
+    return { response, toolResults, rounds };
+}
+
+/**
  * Call LLM API with tool-use support.
  * The LLM decides whether to reply in text, call tools, or both.
  * Handles the tool-call loop: LLM → tool calls → feed results back → final text.
@@ -580,8 +644,8 @@ async function callLLMApi(provider, model, userInput, goalsSummary = null, toolC
     // Inject membership tier awareness
     if (user) injectMembershipContext(systemParts, user);
 
-    // Repo editing instructions for the administrator
-    if (toolContext?.isAdmin) systemParts.push(repoSystemInstructions());
+    // Repo editing instructions for contexts with repo capability
+    if (canUseRepoTools(toolContext)) systemParts.push(repoSystemInstructions());
 
 
     // Inject user context from cloud DB (memory, personality, behavior, workspace)
@@ -616,57 +680,29 @@ async function callLLMApi(provider, model, userInput, goalsSummary = null, toolC
         llmOptions.maxTokens = Math.max(llmOptions.maxTokens, 4096);
     }
 
-    // Initial LLM call
-    let response = await makeLLMCall(provider, model, messages, llmOptions);
-    
-    // ─── Tool-call loop (max 3 rounds to prevent runaway) ────────────────
-    const MAX_TOOL_ROUNDS = 3;
-    let round = 0;
-    const toolResults = []; // Track executed tools for logging
-
-    while (useTools && round < MAX_TOOL_ROUNDS) {
-        const choice = response?.choices?.[0];
-        if (!choice?.message?.tool_calls || choice.message.tool_calls.length === 0) {
-            break; // No tool calls — LLM is done
-        }
-
-        round++;
-        logger.debug(`🔧 Tool call round ${round}: ${choice.message.tool_calls.length} tool(s) requested`);
-
-        // Add the assistant's tool-call message to conversation
-        messages.push(choice.message);
-
-        // Execute each tool call and collect results
-        for (const toolCall of choice.message.tool_calls) {
-            const fnName = toolCall.function?.name || 'unknown';
-            const { args: fnArgs, truncated } = parseToolArguments(toolCall);
-
-            let result;
-            if (truncated) {
-                result = `Error: the arguments for "${fnName}" were empty or cut off (invalid JSON) — this usually means the output hit the length limit. Please retry with a smaller batch (for save_goals, split into a few goals per call).`;
-            } else {
-                logger.debug(`🔧 Executing tool: ${fnName}`, JSON.stringify(fnArgs));
-                result = await executeTool(fnName, fnArgs, toolContext);
-                logger.debug(`🔧 Tool result: ${result.substring(0, 200)}`);
-            }
-
-            toolResults.push({ tool: fnName, args: fnArgs, result });
-
-            // Add tool result to conversation for the LLM to incorporate
-            messages.push({
-                role: 'tool',
-                tool_call_id: toolCall.id,
-                content: result,
-            });
-        }
-
-        // Call LLM again with tool results so it can produce a final response
-        response = await makeLLMCall(provider, model, messages, llmOptions);
-    }
+    // Initial call + bounded tool-call loop (shared with the streaming path —
+    // see runToolLoop above).
+    const { response, toolResults, rounds: round } = await runToolLoop({
+        provider, model, messages, llmOptions, toolContext,
+    });
 
     logger.debug(`🤖 ${provider.toUpperCase()} API call completed in ${Date.now() - startLLM}ms (${round} tool round(s))`);
     logger.debug('LLM response:', JSON.stringify(response));
-    
+
+    // Routing telemetry (see routingTelemetry.js) — which tools were offered
+    // vs actually used, and the admin posture, for this turn.
+    recordRoutingEvent(buildRoutingEvent({
+        layer: 'backend',
+        intent: toolResults.length ? 'tool' : 'chat',
+        source: 'llm',
+        isAdmin: !!toolContext?.isAdmin,
+        toolsOffered: Array.isArray(llmOptions.tools) ? llmOptions.tools.length : 0,
+        toolsUsed: toolResults.length,
+        modelCalls: round + 1,
+        latencyMs: Date.now() - startLLM,
+        meta: { provider, model, tools: toolResults.map(t => t.tool) },
+    }));
+
     // Attach tool execution metadata to the response for the frontend
     if (toolResults.length > 0) {
         response._toolsExecuted = toolResults.map(t => ({
@@ -869,48 +905,14 @@ async function processCompressionRequest(req, dynamodb) {
         logger.warn('[llmService] Failed to fetch goals summary:', err.message);
     }
     
-    // Build tool context for Net: chat messages (enables function calling)
-    // Only Net: chat gets tools — other compression requests remain plain text
-    let toolContext = null;
-    let behaviorFile = 'default.txt';
-    let activeAgent = null;
-    let userMessageForContext = '';
-    try {
-        const parsed = JSON.parse(userInput);
-        if (parsed.message && Array.isArray(parsed.conversationHistory)) {
-            toolContext = {
-                userId: req.user.id,
-                userEmail: req.user.email || null,
-                userName: req.user.nickname || req.user.name || null,
-            };
-            behaviorFile = parsed.behaviorFile || 'default.txt';
-            activeAgent = parsed.activeAgent || null;
-            userMessageForContext = parsed.message || '';
-            logger.debug('[llmService] Net: chat detected — enabling tool-use');
-        }
-    } catch {
-        // Not a Net: chat payload — no tools
-    }
-
-    // The web /net chat posts plain "Net:…" text (not the addon's JSON shape),
-    // so it won't match the { message, conversationHistory } branch above —
-    // enable tools for it too so image generation and other tools work there.
-    if (!toolContext && isNetChat) {
-        toolContext = {
-            userId: req.user.id,
-            userEmail: req.user.email || null,
-            userName: req.user.nickname || req.user.name || null,
-        };
-        userMessageForContext = userInput;
-        logger.debug('[llmService] Net: chat (text form) detected — enabling tool-use');
-    }
-
-    // Enrich tool context with admin status + turn metadata (repo agent).
-    if (toolContext) {
-        toolContext.isAdmin = !!(req.user && req.user.id === process.env.ADMIN_USER_ID);
-        toolContext.turnStartedAt = Date.now();
-        toolContext.userMessage = userMessageForContext || '';
-    }
+    // Build tool context for Net: chat messages (enables function calling).
+    // Only Net: chat gets tools — other compression requests remain plain text.
+    // buildToolContext() also derives the capability list (toolScopes.js) and
+    // the admin flag; the streaming path calls the same helper so the two can't
+    // drift apart.
+    const { toolContext, behaviorFile, activeAgent, userMessageForContext } =
+        buildToolContext({ req, userInput, isNetChat });
+    if (toolContext) logger.debug('[llmService] Net: chat detected — enabling tool-use');
 
     // Load user context (memory, personality, behavior, workspace) from cloud DB
     let userContext = null;
@@ -1002,42 +1004,10 @@ async function streamCompressionRequest(req, res, dynamodb) {
         goalsSummary = await getGoalsSummary(req.user.id);
     } catch {}
 
-    // Build tool context for Net: chat messages
-    let toolContext = null;
-    let behaviorFile = 'default.txt';
-    let activeAgent = null;
-    let userMessageForContext = '';
-    try {
-        const parsed = JSON.parse(userInput);
-        if (parsed.message && Array.isArray(parsed.conversationHistory)) {
-            toolContext = {
-                userId: req.user.id,
-                userEmail: req.user.email || null,
-                userName: req.user.nickname || req.user.name || null,
-            };
-            behaviorFile = parsed.behaviorFile || 'default.txt';
-            activeAgent = parsed.activeAgent || null;
-            userMessageForContext = parsed.message || '';
-        }
-    } catch {}
-
-    // Enable tools for the web /net chat's plain "Net:…" text form (see
+    // Build tool context for Net: chat messages (shared helper — see
     // processCompressionRequest for the same treatment).
-    if (!toolContext && isNetChat) {
-        toolContext = {
-            userId: req.user.id,
-            userEmail: req.user.email || null,
-            userName: req.user.nickname || req.user.name || null,
-        };
-        userMessageForContext = userInput;
-    }
-
-    // Enrich tool context with admin status + turn metadata (repo agent).
-    if (toolContext) {
-        toolContext.isAdmin = !!(req.user && req.user.id === process.env.ADMIN_USER_ID);
-        toolContext.turnStartedAt = Date.now();
-        toolContext.userMessage = userMessageForContext || '';
-    }
+    const { toolContext, behaviorFile, activeAgent, userMessageForContext } =
+        buildToolContext({ req, userInput, isNetChat });
 
     // Load user context (memory, personality, behavior, workspace)
     let userContext = null;
@@ -1072,7 +1042,7 @@ async function streamCompressionRequest(req, res, dynamodb) {
     // Build system prompt
     const systemParts = buildSystemPromptParts(goalsSummary);
     injectMembershipContext(systemParts, req.user);
-    if (toolContext?.isAdmin) systemParts.push(repoSystemInstructions());
+    if (canUseRepoTools(toolContext)) systemParts.push(repoSystemInstructions());
     if (userContext) {
         if (userContext.personalityContext) systemParts.push(userContext.personalityContext);
         if (userContext.workspaceContext) systemParts.push(userContext.workspaceContext);
@@ -1112,15 +1082,9 @@ async function streamCompressionRequest(req, res, dynamodb) {
             messages.push(choice.message);
 
             for (const toolCall of choice.message.tool_calls) {
-                const fnName = toolCall.function?.name || 'unknown';
-                const { args: fnArgs, truncated } = parseToolArguments(toolCall);
-
-                let result;
-                if (truncated) {
-                    result = `Error: the arguments for "${fnName}" were empty or cut off (invalid JSON) — this usually means the output hit the length limit. Please retry with a smaller batch (for save_goals, split into a few goals per call).`;
-                } else {
-                    result = await executeTool(fnName, fnArgs, toolContext);
-                }
+                // Same execution helper as the non-streaming loop — see
+                // executeToolCall above.
+                const { fnName, fnArgs, result } = await executeToolCall(toolCall, toolContext);
                 toolResults.push({ tool: fnName, args: fnArgs, result });
                 messages.push({ role: 'tool', tool_call_id: toolCall.id, content: result });
             }
@@ -1157,6 +1121,18 @@ async function streamCompressionRequest(req, res, dynamodb) {
             }
         }
     }
+
+    // Routing telemetry for the streaming turn (see routingTelemetry.js).
+    recordRoutingEvent(buildRoutingEvent({
+        layer: 'backend-stream',
+        intent: toolResults.length ? 'tool' : 'chat',
+        source: 'llm',
+        isAdmin: !!toolContext?.isAdmin,
+        toolsOffered: Array.isArray(llmOptions.tools) ? llmOptions.tools.length : 0,
+        toolsUsed: toolResults.length,
+        modelCalls: round + (needsStreaming ? 1 : 0),
+        meta: { provider, model, tools: toolResults.map(t => t.tool) },
+    }));
 
     if (!needsStreaming) return;
 

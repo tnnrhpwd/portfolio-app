@@ -29,6 +29,7 @@ const { execFile } = require('child_process');
 const fs = require('fs');
 const fsp = require('fs/promises');
 const path = require('path');
+const crypto = require('crypto');
 const { logger } = require('../utils/logger');
 const { REPO, getGitHubToken, isAdminContext, sanitizeRepoPath } = require('./repoShared');
 
@@ -43,13 +44,46 @@ const MAX_LIST_PATHS = 400;        // max paths returned from repo_list_files
 
 // ── Small helpers ───────────────────────────────────────────────────────────
 
-/** Short confirmation messages that unlock `repo_push`. */
-const CONFIRM_RE = /\b(push|ship|confirmed|confirm|proceed|publish|merge|go ahead|yes|yeah|yep|sure|ok|okay|approved|do it|send it|pull request)\b/i;
+/**
+ * Push confirmation is deliberately narrow (repo-audit follow-up):
+ *
+ *   - STRONG tokens ("push", "ship it", "go ahead", …) count anywhere in a
+ *     short message, because they unambiguously mean "push";
+ *   - WEAK affirmatives ("yes", "ok", "sure", …) only count when the *whole*
+ *     message is essentially just that token — so "ok, but also fix the tests"
+ *     can no longer unlock a push.
+ *
+ * Each committed change also gets a one-time confirmation CODE (stored on the
+ * proposal); replying `push <code>` is the strongest signal and is the flow the
+ * system prompt tells the model to ask for.
+ */
+const STRONG_PUSH_RE = /(?:\bpush\b|\bship(?:\s+it)?\b|\bgo\s+ahead\b|\bproceed\b|\bapproved\b|\bconfirm(?:ed)?\b)/i;
+const WEAK_AFFIRM_RE = /^(?:yes|yeah|yep|y|sure|ok(?:ay)?|do\s+it|go|please\s+do)[\s.!,]*$/i;
+const MAX_CONFIRM_LEN = 160;
 
-function isPushConfirmation(message) {
+/** Proposal lifetime — a "ready to push" record goes stale after 30 minutes. */
+const PROPOSAL_TTL_MS = 30 * 60 * 1000;
+
+/** Escape a string for safe use inside a RegExp. */
+function escapeRegExp(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Short, single-use confirmation code (e.g. "7f3a"). */
+function newConfirmCode() {
+  return crypto.randomBytes(2).toString('hex');
+}
+
+function isPushConfirmation(message, proposal = null) {
   const m = String(message || '').trim();
-  if (!m || m.length > 200) return false;
-  return CONFIRM_RE.test(m);
+  if (!m || m.length > MAX_CONFIRM_LEN) return false;
+  // An exact code match is the strongest signal and short-circuits.
+  if (proposal && proposal.code) {
+    const re = new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegExp(proposal.code)}([^\\p{L}\\p{N}]|$)`, 'iu');
+    if (re.test(m)) return true;
+  }
+  if (STRONG_PUSH_RE.test(m)) return true;
+  return WEAK_AFFIRM_RE.test(m);
 }
 
 function truncate(str, n) {
@@ -446,11 +480,17 @@ const REPO_TOOL_EXECUTORS = {
       const head = await headCommit();
       const files = stagedFiles.trim().split('\n').map((f) => `- ${f}`).join('\n');
 
+      // Record an explicit, expiring, branch-bound push proposal with a
+      // one-time confirmation code. repo_push will only push *this* branch,
+      // only before it expires, and only on a matching confirmation.
+      const code = newConfirmCode();
       await saveProposal(ctx.userId, {
         branch,
         baseBranch,
         sha: head ? head.sha : null,
         committedAtSec: head ? head.committedAtSec : 0,
+        code,
+        expiresAt: Date.now() + PROPOSAL_TTL_MS,
       });
 
       return [
@@ -462,7 +502,9 @@ const REPO_TOOL_EXECUTORS = {
         'Changes:',
         diffStat.trim() || '(no diff stat)',
         '',
-        'DO NOT push yet. Tell the user exactly what changed and ASK whether they want to push to GitHub. Wait for their explicit confirmation before calling repo_push.',
+        `DO NOT push yet. Tell the user exactly what changed and ASK whether they want to push to GitHub.`,
+        `Include this one-time confirmation code in your question so they can reply with it: ${code}`,
+        `Suggested wording: "Reply \`push ${code}\` (or just 'yes, push it') to confirm." Wait for their reply before calling repo_push.`,
       ].join('\n');
     } catch (err) {
       return `Error committing changes: ${err.message}`;
@@ -471,17 +513,39 @@ const REPO_TOOL_EXECUTORS = {
 
   async repo_push(args, ctx) {
     if (!isAdminContext(ctx)) return 'Error: repository push is restricted to the administrator.';
-    if (!isPushConfirmation(ctx?.userMessage)) {
-      return [
-        'Push NOT performed — the user has not explicitly confirmed pushing in this message.',
-        'If you have not already asked, summarize the committed changes and ask the user to confirm before pushing. Only call repo_push again once they reply with a confirmation (e.g. "yes, push it").',
-      ].join('\n');
-    }
     try {
-      const branch = await currentBranch();
-      if (!branch.startsWith('net/')) {
+      // Load the explicit push proposal FIRST and bind everything to it. This
+      // is what stops a stray "ok" from pushing an unrelated local commit.
+      const proposal = await loadProposal(ctx.userId);
+      if (!proposal || !proposal.branch) {
         return 'Nothing to push — no feature branch has been created. Commit your changes with repo_commit_changes first, then ask the user to confirm.';
       }
+      if (proposal.expiresAt && Date.now() > proposal.expiresAt) {
+        await clearProposal(ctx.userId);
+        return 'Push NOT performed — the pending change is stale (older than 30 minutes). Commit again to create a fresh confirmation code.';
+      }
+
+      // Require an explicit confirmation bound to THIS proposal (the one-time
+      // code, or a strong push phrase, or a short bare "yes").
+      if (!isPushConfirmation(ctx?.userMessage, proposal)) {
+        return [
+          'Push NOT performed — the user has not explicitly confirmed pushing in this message.',
+          proposal.code
+            ? `Ask the user to reply \`push ${proposal.code}\` (or an explicit "yes, push it"), then call repo_push again.`
+            : 'Summarize the committed changes and ask the user to confirm before pushing.',
+        ].join('\n');
+      }
+
+      const branch = await currentBranch();
+      if (!branch.startsWith('net/')) {
+        return 'Nothing to push — the repository is not on a feature branch. Commit your changes with repo_commit_changes first.';
+      }
+      // The committed branch must match the proposed branch — never push a
+      // different branch than the one the user was shown and confirmed.
+      if (branch !== proposal.branch) {
+        return `Refusing to push: the current branch (${branch}) does not match the proposed branch (${proposal.branch}). Re-run repo_commit_changes and ask again.`;
+      }
+
       const head = await headCommit();
       const turnStartSec = Math.floor((ctx?.turnStartedAt || 0) / 1000);
       if (head && turnStartSec > 0 && head.committedAtSec >= turnStartSec) {
@@ -490,8 +554,8 @@ const REPO_TOOL_EXECUTORS = {
           'Finish your reply by telling the user what is staged, and wait for their explicit confirmation in a follow-up message before calling repo_push again.',
         ].join('\n');
       }
-      const proposal = await loadProposal(ctx.userId);
-      const baseBranch = (proposal && proposal.baseBranch) || DEFAULT_BRANCH;
+
+      const baseBranch = proposal.baseBranch || DEFAULT_BRANCH;
       await pushBranch(branch);
       await clearProposal(ctx.userId);
       const compareUrl = `https://github.com/${REPO}/compare/${encodeURIComponent(baseBranch)}...${encodeURIComponent(branch)}`;
@@ -519,4 +583,7 @@ module.exports = {
   getGitHubToken,
   runGit,
   _setProposalStoreForTests,
+  // Push-confirmation policy (exported for tests + docs).
+  PROPOSAL_TTL_MS,
+  newConfirmCode,
 };

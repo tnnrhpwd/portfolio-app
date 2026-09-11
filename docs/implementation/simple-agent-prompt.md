@@ -784,54 +784,92 @@ what unlocks `repo_push`.
 
 ## 15. How /net chat messages are routed (reference)
 
-There is **no single `if`** deciding what a `/net` message does — it is a
-layered cascade across the browser, the desktop addon, and the backend. Each
-layer narrows "what is this message?" in order, and the final tie-breaker is the
-LLM's own tool-calling choice.
+Routing is a **layered cascade** across the browser, the desktop addon, and the
+backend — but each layer's decision is now an explicit, named, testable unit
+rather than an inline `if` chain. The client asks a pure function *where* a
+message should go; the addon classifies *action vs. chat*; the cloud LLM picks
+the tool. The final tie-breaker is still the LLM's own tool-calling choice.
 
 ```mermaid
 flowchart TD
     A[Message typed on /net] --> B{Slash command?}
     B -- /run, /goal, /agent --> C[Deterministic handler]
-    B -- no --> D[Client security pre-screen]
-    D --> E{Phrase like 'on my PC'?}
-    E -- yes --> F[Remote relay to desktop addon]
-    E -- no --> G{Addon reachable? local or remote}
-    G -- yes --> H[Addon agent loop: classifyActionable]
-    H -- actionable:true --> I[Run Windows action via addon tool registry]
-    H -- actionable:false --> J{Classifier returned chatReply?}
-    J -- yes --> R[Show reply directly - no second LLM call]
-    J -- no --> K[Chat LLM: Bedrock or DeepSeek, tool_choice auto]
-    G -- no --> K
+    B -- no --> D["routeMessage() - pure router<br/>messageRouter.js"]
+    D -- blocked --> X[Security pre-screen block]
+    D -- vision-required --> Y[Prompt: switch to cloud provider]
+    D -- "explicit 'on my PC'" --> E{Remote addon online?}
+    E -- yes --> F[pc-relay to desktop addon]
+    E -- no --> Z[unreachable - clear error]
+    D -- cloud-only intent --> K["Chat LLM directly<br/>(skip addon hop)"]
+    D -- addon reachable --> H["Addon agent loop<br/>classifyActionable"]
+    H -- "actionable: true" --> I[Run Windows action via addon tool registry]
+    H -- needsDisambiguation --> Q["Ask: 'run it, or just answer?'"]
+    H -- "actionable: false + chatReply" --> R["Show reply directly<br/>(no 2nd LLM call)"]
+    H -- "actionable: false, no reply" --> K
+    D -- plain chat --> K
     K --> L{LLM decides}
     L -- no tool fits --> M[Plain text reply]
     L -- cloud tool fits --> N[save_goal / generate_image / calculate / web search]
-    L -- repo_* fits and admin --> O[Repo work: git on backend]
+    L -- "repo_* + capability" --> O[Repo work: git on backend]
 ```
 
 ### 15.1 Layer 1 — client (`SimpleChat.jsx` `sendMessage`)
 
+The decision of *where* a message goes is now a single pure function,
+`routeMessage()` in `frontend/src/utils/simpleAddon/messageRouter.js`. It takes
+only the facts the client already knows and returns a typed decision:
+
+```js
+{ kind, reason, confidence, skippedAddon?, cloudOnly? }
+```
+
+`kind` is one of `slash | blocked | vision-required | pc-relay | unreachable |
+agent | chat-cloud | chat-local`. `sendMessage` just switches on it, so the
+ordering is testable without mounting the component (see
+`messageRouter.test.js`) and the declared transitions (`ROUTE_TRANSITIONS`) can
+be asserted against the implementation — which keeps the diagram above honest.
+
 Ordered checks, first match wins:
 
-1. **Slash commands** (`/run`, `/goal`, `/agent`, `/help`, `/compare`, …) — deterministic, no LLM.
-2. **Client security pre-screen** (`securityCheckMessage`) — block dangerous/blocklisted commands before any network call.
-3. **Explicit PC phrasing** (`isPcControlRequest`, e.g. "on my PC") → remote addon relay (phone → cloud → desktop).
-4. **Addon reachable?** (local `localhost:3001` or remote relay) → send the message to the addon's agent loop first (below), which either acts or answers in a single call; otherwise skip straight to the chat LLM.
-5. **Chat LLM** — routed by the `provider` setting: `portfolio` → cloud backend (`llmService.js`); otherwise a local HuggingFace model on the addon.
+1. **Slash commands** (`/run`, `/goal`, `/agent`, `/help`, `/compare`, …) — handled before the router, deterministic, no LLM.
+2. **Client security pre-screen** (blocked) — fast, offline UX block; the server re-checks (see §15.5).
+3. **Vision required** — an attached image with a non-cloud provider.
+4. **Explicit PC phrasing** (`isPcControlRequest`, e.g. "on my PC") → `pc-relay` (remote addon online) or `unreachable` (clear "can't reach your PC" error).
+5. **Scan-to-connect guard** — a `?addon=` session with no reachable addon → `unreachable`.
+6. **Cloud-only shortcut** — image generation / arithmetic / explicit web search skip the addon hop entirely (they're cloud tools the addon can't run anyway), saving a relay round-trip. Detected by `isCloudOnlyIntent()`.
+7. **Logic mode** (`agent`) — let the addon's O-O-G-P-A loop try the message first.
+8. **Plain chat** (`chat-cloud` / `chat-local`) — by the `provider` setting.
 
-### 15.2 Layer 2 — addon classifies "Windows action vs. chat" (`classifyActionable`)
+### 15.2 Layer 2 — addon classifies "Windows action vs. chat"
+
+Split into two small, unit-tested modules instead of inline regexes:
+
+- **`routing-lexicon.js`** — the single source of truth for the action/chat
+  word lists, Unicode-aware (lookarounds, not ASCII `\b`) and *weighted*
+  (an imperative opening verb scores higher than a stray noun). Returns a
+  `verdict` (`action` / `chat` / `ambiguous`) plus a `confidence`.
+- **`routing-classifier.js`** — parses the LLM's strict JSON verdict
+  (`{ actionable, confidence, reply }`), folds it with the heuristic, and caches
+  results (TTL + bounded).
 
 `simple-addon/server/automation/index.js` `POST /api/agent/run`:
 
-- **Heuristic first**: action verbs ("open/list/create/run/type/click/…") vs. question/chitchat words.
-- **Ambiguous middle**: ask an LLM — if it replies with the single word `ACT`, treat
-  it as an action; otherwise use that reply as the conversational answer.
-- `actionable: true` → run the O-O-G-P-A loop with the addon's real PC tool
-  registry (`shell_run`, `uia_invoke`, `input_tap`, `browser_*`, …) and report the
-  final answer back.
-- `actionable: false` → the classifier's reply is returned as `chatReply` and the
-  frontend shows it **directly** (one LLM call total). Only when the heuristic fast
-  path produced no `chatReply` does the message fall through to the normal chat LLM.
+- **Confident heuristic → no model call.** Only the genuinely *ambiguous*
+  middle reaches the LLM.
+- **Strict JSON verdict** replaces the old brittle single-word `ACT` sentinel
+  (which mis-routed anything starting with "Act…" and truncated real replies).
+  `reply` carries the conversational answer, so non-actionable messages still
+  need only one LLM call.
+- `actionable: true` → run the O-O-G-P-A loop with the real PC tool registry
+  (`shell_run`, `uia_invoke`, `input_tap`, `browser_*`, …).
+- **Low-confidence actionable → `needsDisambiguation`.** The addon refuses to
+  act silently; the client shows "do you want me to run this on your PC, or were
+  you asking a question?" and re-sends the original message with
+  `forceAction: true` when the user confirms (a short "yes").
+- `actionable: false` → `chatReply` (if the classifier produced one) is shown
+  directly; otherwise the message falls through to the normal chat LLM.
+- **`GET /api/agent/routing-stats`** exposes the decision counters/ring buffer
+  for debugging (see §15.5).
 
 ### 15.3 Layer 3 — cloud chat LLM decides "repo vs. cloud tool vs. reply" (`llmService.js`)
 
@@ -843,28 +881,59 @@ chooses, per turn:
 - a **cloud tool** (`save_goal`, `save_note`, `generate_image`, `calculate`, `web_search_suggestion`, …);
 - a **`repo_*` tool** → work on the repository via git (`repoAgentService.js`).
 
-Guardrails shape this: `toolsForContext()` strips `repo_*` schemas for
-non-admins; `repo_push` refuses to run unless the current message is an explicit
-confirmation from a previous turn; and changes land on a `net/…` feature branch
-that `repo_push` pushes instead of committing straight to `master` (see §14).
+Guardrails shape this:
+
+- **Capability-scoped tools** (`toolScopes.js`): every privileged tool declares
+  the capability it needs (`repo:read` / `repo:write` / `repo:push`).
+  `filterToolSchemas()` only *offers* tools the context can use, and
+  `executeTool` refuses them server-side regardless — so a hallucinated tool
+  name still can't run.
+- **Proposal-bound push** (`repoAgentService.js`): `repo_commit_changes` records
+  an expiring, branch-bound proposal with a one-time confirmation code;
+  `repo_push` only pushes *that* branch, only before it expires, and only on an
+  explicit confirmation (the code, a strong push phrase, or a bare short "yes" —
+  never a vague "ok, but…").
+- Shared plumbing — `buildToolContext()` (`netChatContext.js`) and
+  `runToolLoop()` / `executeToolCall()` — is used by both the streaming and
+  non-streaming paths so they can't drift.
 
 ### 15.4 Key separation (who owns what)
 
 | Capability | Where it lives | Endpoint / mechanism | Who decides |
 |---|---|---|---|
-| Windows/PC actions (`shell_run`, `uia_invoke`, …) | Desktop addon tool registry + agent loop | `POST /api/agent/run` (addon) | addon `classifyActionable` |
-| Repo changes (`repo_*`) | Backend server (`repoAgentService.js`, git) | `/net` chat tool loop (`llmService.js`) | cloud LLM tool-call + admin gate |
+| Where a message goes | Client | `messageRouter.js` (`routeMessage`) | pure function, unit-tested |
+| Windows/PC actions (`shell_run`, `uia_invoke`, …) | Desktop addon tool registry + agent loop | `POST /api/agent/run` (addon) | addon `classifyActionable` (+ disambiguation) |
+| Repo changes (`repo_*`) | Backend server (`repoAgentService.js`, git) | `/net` chat tool loop (`llmService.js`) | cloud LLM tool-call + capability gate |
 | Cloud tools (`save_goal`, `generate_image`, math, search, …) | Backend `netTools.js` | `/net` chat tool loop | cloud LLM tool-call |
 | Just reply | Any LLM | chat streaming path | no tool call |
 
 The cloud `/net` chat has **no** Windows-action tools, and the addon has **no**
 repo tools — so the two cannot be confused. "Repo or chat?" is an LLM tool-choice
-on the backend; "Windows action or chat?" is the addon's actionability classifier.
+on the backend; "Windows action or chat?" is the addon's actionability classifier
+(now shared with the client only as a *routing* decision, not a second lexicon).
 
-> **Code is the source of truth** — this section is a snapshot of the routing
-> logic; the authoritative code lives in `SimpleChat.jsx` (`sendMessage`),
-> `simple-addon/server/automation/index.js` (`classifyActionable` +
-> `/api/agent/run`), and `backend/services/llmService.js` (the cloud tool loop).
+### 15.5 Observability & enforcement
+
+- **Routing telemetry** — the addon (`routing-telemetry.js` +
+  `GET /api/agent/routing-stats`) and the backend (`routingTelemetry.js`) each
+  record one bounded, low-cardinality event per decision: layer, intent, source
+  (`heuristic` / `llm` / `cache` / `fallback`), confidence, tools offered/used,
+  and latency. Log + in-memory only (no per-request DynamoDB writes — see the
+  audit note in §13.8).
+- **Server-side message pre-screen** — `backend/middleware/netMessageGuard.js` is
+  the authoritative copy of the dangerous-command patterns. It runs on the
+  compress (and stream) routes and returns a 403 *before* any LLM/tool
+  processing. The browser copy is UX only and bypassable by design.
+
+> **Code is the source of truth** — this section is a snapshot. The
+> authoritative code lives in:
+> `frontend/src/utils/simpleAddon/messageRouter.js` (the router),
+> `SimpleChat.jsx` (`sendMessage`),
+> `simple-addon/server/automation/routing-lexicon.js` +
+> `routing-classifier.js` + `index.js` (`classifyActionable`, `/api/agent/run`),
+> `backend/services/netChatContext.js`, `toolScopes.js`, `llmService.js`
+> (the cloud tool loop), `repoAgentService.js` (the push gate), and
+> `backend/middleware/netMessageGuard.js` (the server-side pre-screen).
 
 ---
 

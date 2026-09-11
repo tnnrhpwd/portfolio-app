@@ -68,6 +68,9 @@ const triggers = require('./triggers');
 const skillHotkeys = require('./skill-hotkeys');
 const runHistory = require('./run-history');
 const marketplaceGate = require('./marketplace-gate');
+const { analyzeLexicon } = require('./routing-lexicon');
+const { parseClassifierVerdict, decideClassification, createVerdictCache, CLASSIFIER_SYSTEM_PROMPT, CONFIDENCE_FLOOR } = require('./routing-classifier');
+const { buildRoutingEvent, emitRoutingEvent } = require('./routing-telemetry');
 
 const { createAgentLoop } = require('./agent-loop');
 const { ContinuousListener } = require('./listener');
@@ -387,36 +390,83 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
     const _slugify = (text) => String(text || '')
         .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'goal';
 
-    const ACTION_HINT_RE = /\b(open|close|click|press|type|enter|hold|run|launch|start|stop|minimize|maximize|focus|kill|shutdown|restart|move|resize|copy|paste|scroll|drag|screenshot|list|count|show|check|create|delete|write|read|rename|organize|download|convert|save|find|search|watch|record|navigate|browse|set|change|enable|disable|install|uninstall|update|build)\b/i;
-    const CHAT_HINT_RE = /\b(what|who|where|when|why|how|explain|tell me|define|summarize|describe|compare|meaning|recommend|suggest|advice|opinion|story|joke|poem|translate|help me understand)\b/i;
+    // The action/chat lexicon now lives in routing-lexicon.js (single source of
+    // truth, Unicode-aware, weighted) and the decision logic in
+    // routing-classifier.js — see those modules and their tests.
+    const _verdictCache = createVerdictCache();
 
     /**
      * Decide whether a chat message is an actionable task for the agent loop.
-     * Cheap heuristic first (action verbs vs. questions), then an LLM verdict
-     * for the ambiguous middle. Returns { actionable, source }.
+     *
+     * 1. Cheap lexicon heuristic (routing-lexicon.js) — confident answers
+     *    short-circuit with NO model call.
+     * 2. Only the genuinely ambiguous middle asks the LLM, which must reply
+     *    with a strict JSON verdict (routing-classifier.js).
+     * 3. Repeated messages are served from a small TTL cache.
+     *
+     * Returns { actionable, confidence, source, chatReply }.
      */
     async function classifyActionable(text) {
         const trimmed = String(text || '').trim();
-        const isQuestion = /\?\s*$/.test(trimmed);
-        const actionHit = ACTION_HINT_RE.test(trimmed);
-        const chatHit = CHAT_HINT_RE.test(trimmed);
-        if (actionHit && !chatHit) return { actionable: true, source: 'heuristic' };
-        if ((chatHit || isQuestion) && !actionHit) return { actionable: false, source: 'heuristic' };
+        if (!trimmed) {
+            return { actionable: false, confidence: 1, source: 'empty', chatReply: null };
+        }
 
+        const cached = _verdictCache.get(trimmed);
+        if (cached) {
+            emitRoutingEvent(buildRoutingEvent({
+                text: trimmed,
+                intent: cached.actionable ? 'action' : 'chat',
+                source: 'cache',
+                confidence: cached.confidence,
+                layer: 'addon',
+                modelCalls: 0,
+            }));
+            return { ...cached, source: 'cache' };
+        }
+
+        const heuristic = analyzeLexicon(trimmed);
+
+        // Confident, unambiguous verdict → no model call at all.
+        if (heuristic.verdict !== 'ambiguous') {
+            const decision = {
+                actionable: heuristic.verdict === 'action',
+                confidence: heuristic.confidence,
+                source: 'heuristic',
+                chatReply: null,
+            };
+            _verdictCache.set(trimmed, decision);
+            return decision;
+        }
+
+        const startedAt = Date.now();
+        let llmVerdict = null;
         try {
             const { createLlmProvider } = require('./llm-provider');
             const res = await createLlmProvider().chat({
                 message: trimmed,
-                systemPrompt: 'You are the routing layer of a Windows automation assistant. If the user wants you to DO something on the computer (list/count/open/create/read/write files, run apps/commands, control windows, type, click), reply with exactly the single word ACT. Otherwise, give a short, helpful conversational reply to the user (a normal answer to their question or chitchat).',
-                temperature: 0.3,
-                maxLength: 300,
+                systemPrompt: CLASSIFIER_SYSTEM_PROMPT,
+                temperature: 0.2,
+                maxLength: 800,
             });
-            const verdict = String(res?.text || '').trim();
-            if (/^ACT\b/i.test(verdict)) return { actionable: true, source: 'llm' };
-            return { actionable: false, source: 'llm', chatReply: verdict };
+            llmVerdict = parseClassifierVerdict(res?.text);
         } catch {
-            return { actionable: actionHit, source: 'heuristic-fallback' };
+            llmVerdict = null;
         }
+
+        const decision = decideClassification({ heuristic, llmVerdict });
+        _verdictCache.set(trimmed, decision);
+        emitRoutingEvent(buildRoutingEvent({
+            text: trimmed,
+            intent: decision.actionable ? 'action' : 'chat',
+            source: decision.source,
+            confidence: decision.confidence,
+            layer: 'addon',
+            latencyMs: Date.now() - startedAt,
+            modelCalls: llmVerdict ? 1 : 0,
+            meta: { heuristicVerdict: heuristic.verdict, ambiguous: true },
+        }));
+        return decision;
     }
 
     /**
@@ -424,12 +474,43 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
      * returning the final answer. Non-actionable messages short-circuit before
      * any goal is created or any tool runs.
      */
-    async function runGoalToCompletion({ description, context, goalId, timeoutMs = 180000 } = {}) {
+    async function runGoalToCompletion({ description, context, goalId, timeoutMs = 180000, forceAction = false } = {}) {
         const text = String(description || '').trim();
         if (!text) return { actionable: false, error: 'empty description' };
 
         const decision = await classifyActionable(text);
-        if (!decision.actionable) return { actionable: false, source: decision.source, chatReply: decision.chatReply || null };
+
+        if (!decision.actionable) {
+            return {
+                actionable: false,
+                source: decision.source,
+                confidence: decision.confidence ?? null,
+                chatReply: decision.chatReply || null,
+            };
+        }
+
+        // Low-confidence *actionable* verdicts (only ever produced by the LLM
+        // for an ambiguous message) don't run silently — ask the user first.
+        // The frontend renders this as a one-tap "run it / just answer" choice
+        // and re-sends with `forceAction: true` when they confirm.
+        if (!forceAction && decision.source === 'llm' && (decision.confidence ?? 1) < CONFIDENCE_FLOOR) {
+            emitRoutingEvent(buildRoutingEvent({
+                text,
+                intent: 'disambiguate',
+                source: decision.source,
+                confidence: decision.confidence,
+                layer: 'addon',
+                meta: { reason: 'low-confidence-actionable' },
+            }));
+            return {
+                actionable: false,
+                needsDisambiguation: true,
+                confidence: decision.confidence,
+                source: decision.source,
+                chatReply: decision.chatReply || null,
+                question: 'Just checking — do you want me to actually do this on your PC, or were you asking a question?',
+            };
+        }
 
         const contextText = String(context || '').trim();
         const content = contextText ? `${text}\n\nCONTEXT / SCOPE:\n${contextText}` : text;
@@ -511,10 +592,26 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
 
     app.post('/api/agent/run', async (req, res) => {
         try {
-            const result = await runGoalToCompletion({ description: req.body?.description, context: req.body?.context, goalId: req.body?.goalId });
+            const result = await runGoalToCompletion({
+                description: req.body?.description,
+                context: req.body?.context,
+                goalId: req.body?.goalId,
+                forceAction: req.body?.forceAction === true,
+            });
             res.json(result);
         } catch (e) {
             res.status(500).json({ actionable: true, error: e.message });
+        }
+    });
+
+    // Routing observability: what the classifier decided and why. Read-only,
+    // local-only (the whole addon API is loopback-bound).
+    app.get('/api/agent/routing-stats', (_req, res) => {
+        try {
+            const { getRoutingStats } = require('./routing-telemetry');
+            res.json(getRoutingStats());
+        } catch (e) {
+            res.status(500).json({ error: e.message });
         }
     });
 

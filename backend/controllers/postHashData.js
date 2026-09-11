@@ -23,6 +23,7 @@ const {
     processFile: executeFileProcessing,
 } = require('../services/fileProcessingService.js');
 const { logger } = require('../utils/logger');
+const { checkPayload: checkMessageSafety } = require('../middleware/netMessageGuard.js');
 
 const {
     createOrValidateCustomer,
@@ -112,6 +113,15 @@ const compressData = asyncHandler(async (req, res) => {
         throw new Error('User not found');
     }
 
+    // Authoritative server-side message pre-screen. The browser blocks these
+    // first for a nicer UX, but a client check is bypassable — enforce here
+    // before any LLM/tool processing.
+    const safety = checkMessageSafety(req.body?.text);
+    if (safety.blocked) {
+        res.status(403);
+        throw new Error(`Blocked by security policy: ${safety.reason}`);
+    }
+
     try {
         const result = await processCompressionRequest(req, dynamodb);
         res.status(result.status).json(result.data);
@@ -138,6 +148,14 @@ const compressDataStream = asyncHandler(async (req, res) => {
     if (!req.user) {
         res.status(401);
         throw new Error('User not found');
+    }
+
+    // Authoritative server-side message pre-screen (see compressData).
+    // Must run before SSE headers are written so we can return a clean 403.
+    const safety = checkMessageSafety(req.body?.text);
+    if (safety.blocked) {
+        res.status(403).json({ error: `Blocked by security policy: ${safety.reason}` });
+        return;
     }
 
     try {
