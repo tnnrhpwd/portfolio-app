@@ -1,6 +1,12 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Spinner from '../Spinner/Spinner';
+import {
+  DEFAULT_DEEPSEEK_MODEL_ID,
+  DEEPSEEK_MODELS,
+  DEEPSEEK_PROVIDER,
+  providerLabel,
+} from '../../constants/aiModel.js';
 
 /**
  * OCR extraction controls component
@@ -78,7 +84,7 @@ const OcrExtractionSection = ({
               onChange={(e) => onLlmProviderChange(e.target.value)}
               disabled={ocrLoading}
             >
-              <option value="deepseek">DeepSeek (Default)</option>
+              <option value={DEEPSEEK_PROVIDER}>{providerLabel(DEEPSEEK_PROVIDER)} (Default)</option>
             </select>
           </div>
 
@@ -90,8 +96,11 @@ const OcrExtractionSection = ({
               onChange={(e) => onLlmModelChange(e.target.value)}
               disabled={ocrLoading}
             >
-              <option value="deepseek-chat">DeepSeek-V3 Chat (Default)</option>
-              <option value="deepseek-reasoner">DeepSeek-R1 Reasoner</option>
+              {DEEPSEEK_MODELS.map(m => (
+                <option key={m.id} value={m.id}>
+                  {m.name}{m.id === DEFAULT_DEEPSEEK_MODEL_ID ? ' (Default)' : ''}
+                </option>
+              ))}
             </select>
           </div>
         </div>

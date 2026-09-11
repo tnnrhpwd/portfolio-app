@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { openFile, getAddonBaseUrl } from '../../services/simpleAddonApi';
+import { modelDisplayName } from '../../constants/aiModel.js';
 import './MessageBubble.css';
 
 // Only render data: or http(s): avatar URLs — drop stale /api/agents/... paths
@@ -218,7 +219,7 @@ function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = 
               </span>
             )}
             {message.modelId && (
-              <span className="message__model">{message.modelId.split('/').pop()}</span>
+              <span className="message__model" title={message.modelId}>{modelDisplayName(message.modelId)}</span>
             )}
           </div>
 

@@ -1,0 +1,284 @@
+/* ProfilePictureEditor — crop/zoom modal for the user's avatar.
+   Tokens only (no hardcoded colours) so it tracks light/dark automatically. */
+
+.ppe-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-sm);
+  background: color-mix(in srgb, var(--text-color) 55%, transparent);
+  animation: ppeFadeIn 0.2s ease both;
+}
+
+.ppe-dialog {
+  width: min(480px, 100%);
+  max-height: calc(100vh - var(--spacing-md));
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: calc(var(--nav-size) * 0.5);
+  background: var(--bg-page);
+  color: var(--text-color);
+  border: 1px solid var(--border-nav);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-xl);
+  animation: ppeRise 0.25s ease both;
+}
+
+.ppe-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-xs);
+}
+
+.ppe-eyebrow {
+  margin: 0 0 calc(var(--nav-size) * 0.08);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-color-accent);
+}
+
+.ppe-title {
+  margin: 0;
+  font-size: var(--font-size-large);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  color: var(--text-color);
+}
+
+/* Icon button: the global <button> style is aggressive (gradient + 44px
+   min-height + padding), so pin every dimension explicitly. */
+.ppe-close {
+  width: calc(var(--nav-size) * 0.55);
+  height: calc(var(--nav-size) * 0.55);
+  min-width: calc(var(--nav-size) * 0.55);
+  min-height: calc(var(--nav-size) * 0.55);
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--border-nav);
+  background: var(--bg-1);
+  color: var(--text-color);
+  font-size: var(--font-size-base);
+  line-height: 1;
+  cursor: pointer;
+  transition: transform var(--speed) ease, box-shadow var(--speed) ease;
+}
+.ppe-close:hover:not(:disabled) {
+  background: var(--bg-accent);
+  transform: scale(1.05);
+}
+.ppe-close:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: var(--focus-outline-offset);
+}
+
+.ppe-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Drop / empty state ─────────────────────────────────────────────── */
+.ppe-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: calc(var(--nav-size) * 0.14);
+  padding: var(--spacing-md) var(--spacing-sm);
+  border-radius: var(--border-radius-lg);
+  background: color-mix(in srgb, var(--fg-blue) 8%, transparent);
+}
+
+.ppe-drop-icon {
+  font-size: calc(var(--nav-size) * 0.9);
+  line-height: 1;
+}
+
+.ppe-drop-title {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-color);
+}
+
+.ppe-drop-text {
+  margin: 0;
+  max-width: 34ch;
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-relaxed);
+  color: var(--text-color-accent);
+}
+
+/* ── Crop frame ─────────────────────────────────────────────────────── */
+.ppe-frame {
+  position: relative;
+  align-self: center;
+  overflow: hidden;
+  border-radius: var(--border-radius-lg);
+  background: var(--bg-accent);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.ppe-frame:active {
+  cursor: grabbing;
+}
+
+.ppe-frame-image {
+  position: absolute;
+  max-width: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Circular guide showing how the picture reads as an avatar. */
+.ppe-frame-ring {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 82%;
+  height: 82%;
+  border-radius: 50%;
+  box-shadow: 0 0 0 9999px color-mix(in srgb, var(--text-color) 45%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bg-page) 70%, transparent);
+  pointer-events: none;
+}
+
+.ppe-frame-hint {
+  margin: 0;
+  text-align: center;
+  font-size: var(--font-size-small);
+  color: var(--text-color-accent);
+}
+
+/* ── Zoom control ───────────────────────────────────────────────────── */
+.ppe-zoom {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.ppe-zoom-label {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-color-accent);
+}
+
+.ppe-zoom-range {
+  flex: 1;
+  accent-color: var(--fg-blue);
+}
+
+.ppe-zoom-value {
+  min-width: 4ch;
+  text-align: right;
+  font-size: var(--font-size-small);
+  color: var(--text-color-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Actions ────────────────────────────────────────────────────────── */
+.ppe-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.16);
+  padding-top: calc(var(--nav-size) * 0.16);
+  border-top: 1px solid var(--border-nav);
+}
+
+.ppe-actions-spacer {
+  flex: 1 1 auto;
+}
+
+.ppe-btn {
+  min-height: 0;
+  padding: calc(var(--nav-size) * 0.14) calc(var(--nav-size) * 0.4);
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: transform var(--speed) ease, box-shadow var(--speed) ease, background var(--speed) ease;
+}
+.ppe-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+.ppe-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.ppe-btn:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: var(--focus-outline-offset);
+}
+
+.ppe-btn-primary {
+  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+  color: var(--text-color-inv);
+}
+
+.ppe-btn-outline {
+  background: transparent;
+  color: var(--text-color);
+  border-color: var(--border-nav);
+}
+.ppe-btn-outline:hover:not(:disabled) {
+  background: var(--bg-accent);
+}
+
+.ppe-btn-ghost {
+  background: transparent;
+  color: var(--fg-blue);
+  padding-inline: calc(var(--nav-size) * 0.2);
+}
+.ppe-btn-ghost:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--fg-blue) 12%, transparent);
+  box-shadow: none;
+}
+
+.ppe-btn-danger {
+  background: transparent;
+  color: var(--red0);
+  border-color: color-mix(in srgb, var(--red0) 45%, transparent);
+}
+.ppe-btn-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--red0) 12%, transparent);
+}
+
+@keyframes ppeFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ppeRise {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ppe-overlay,
+  .ppe-dialog {
+    animation: none;
+  }
+  .ppe-btn:hover:not(:disabled),
+  .ppe-close:hover:not(:disabled) {
+    transform: none;
+  }
+}

@@ -43,7 +43,7 @@ function SimpleNav({ running = false, goalName = '', compact = false }) {
     ? 'PC agent offline'
     : running
       ? (goalName ? `Working on ${goalName}` : 'Agent working')
-      : `Agent ready${addonStatus?.version ? ` · v${addonStatus.version}` : ''}`;
+      : `${addonStatus?.version ? `v${addonStatus.version}` : ''}`;
 
   return (
     <nav className={`snav ${compact ? 'snav--compact' : ''}`} aria-label="Simple surfaces">

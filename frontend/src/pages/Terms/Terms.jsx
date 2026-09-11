@@ -3,6 +3,7 @@ import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
 import SEO from '../../components/SEO/SEO.jsx';
 import { PLAN_NAMES, PLAN_IDS, STORAGE_DISPLAY } from '../../constants/pricing';
+import { providerLabel, providerVendor } from '../../constants/aiModel.js';
 import useScrollReveal from '../../hooks/useScrollReveal';
 import '../legal/legal.css';
 
@@ -377,7 +378,7 @@ const Terms = () => {
                             <h3>11.2 Third-Party Services</h3>
                             <p>
                                 Our platform relies on third-party services including, but not limited to, AI model
-                                providers (Anthropic via AWS Bedrock), cloud infrastructure (AWS), and payment processing
+                                providers ({providerVendor('bedrock')} via {providerLabel('bedrock')}), cloud infrastructure (AWS), and payment processing
                                 (Stripe). We are not responsible for outages, changes, or discontinuations of these
                                 third-party services. Changes in third-party pricing may be reflected in our cost tables.
                             </p>

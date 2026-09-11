@@ -321,3 +321,15 @@ export function isAgentReady(goal) {
   const status = goal.data.status || 'active';
   return !isTerminalStatus(status) && status !== 'paused';
 }
+
+/**
+ * Whether an agent has already been enlisted on this goal — i.e. there is a run
+ * to *look at*, not just a goal to start. Any recorded run state counts, so the
+ * card can offer "View agent" (its conversation on /net) instead of "Enlist".
+ */
+export function hasBeenEnlisted(goal) {
+  const agent = goal?.data?.agent;
+  if (!agent) return false;
+  if (agent.status && agent.status !== 'idle') return true;
+  return agentStepCount(agent) > 0;
+}

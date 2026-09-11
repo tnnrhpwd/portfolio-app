@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
-import { logout, resetDataSlice, getLLMProviders, getEmailPreferences, updateEmailPreferences } from './../../features/data/dataSlice.js';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { logout, resetDataSlice, getLLMProviders, getEmailPreferences, updateEmailPreferences, updateProfile } from './../../features/data/dataSlice.js';
 import Spinner from '../../components/Spinner/Spinner.jsx';
 import { toast } from 'react-toastify';
 import {
@@ -17,7 +17,10 @@ import {
 import { getCloudSettings, saveCloudSettings, isAddonOptedIn, setAddonOptIn } from '../../services/simpleAddonApi.js';
 import { ADDON_DOWNLOAD_URL, useAddonDetection } from '../../hooks/simpleAddon/useAddonDetection';
 import AIWorkflowSettings from '../../components/SimpleAddon/AIWorkflowSettings.jsx';
-import { DEFAULT_CLOUD_MODEL_ID } from '../../utils/llmProviderOptions.js';
+import { DEFAULT_CLOUD_MODEL_ID, resolveCloudModelLabel, resolveCloudModelProvider } from '../../utils/llmProviderOptions.js';
+import { providerLabel } from '../../constants/aiModel.js';
+import ProfileAvatar from '../../components/ProfilePicture/ProfileAvatar.jsx';
+import ProfilePictureEditor from '../../components/ProfilePicture/ProfilePictureEditor.jsx';
 import './Settings.css';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
@@ -45,6 +48,7 @@ function saveAISettings(updates) {
 
 function Settings() {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useDispatch();
 
   const { user, dataIsLoading, llmProviders, emailPrefs } = useSelector((state) => state.data);
@@ -66,19 +70,11 @@ function Settings() {
       : 'Browser integration with the Simple addon turned off for this browser.');
   }, [addonOptedIn]);
 
-  const [settings, setSettings] = useState({
-    paymentMethod: '',
-    email: '',
-    phoneNumber: '',
-    address: '',
-    emailNotifications: false,
-    smsNotifications: false,
-    pushNotifications: false,
-    theme: 'light',
-    highContrast: false,
-    textToSpeech: false,
-    keyboardNavigation: true,
-  });
+  const [profileForm, setProfileForm] = useState({ nickname: '', email: '' });
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [photoEditorOpen, setPhotoEditorOpen] = useState(false);
+  const [colorMode, setColorMode] = useState('system');
+  const [activeSection, setActiveSection] = useState('');
 
   const [isResetPasswordLoading, setIsResetPasswordLoading] = useState(false);
 
@@ -137,6 +133,11 @@ function Settings() {
     };
   });
   const [fontScale, setFontScale] = useState(() => loadFontSizeScale());
+
+  // What the AI section should *state* it is using — resolved from the user's
+  // saved choice and the live `/llm-providers` response, never hardcoded.
+  const cloudModelLabel = resolveCloudModelLabel(aiSettings?.portfolioModel, llmProviders);
+  const cloudProviderLabel = providerLabel(resolveCloudModelProvider(aiSettings?.portfolioModel, llmProviders));
 
   const cloudSyncDebounce = useRef(null);
   const cloudPullDone = useRef(false);
@@ -214,24 +215,40 @@ function Settings() {
       return;
     }
 
-    setSettings({
-      paymentMethod: user.paymentMethod || '',
+    setProfileForm({
+      nickname: user.nickname || '',
       email: user.email || '',
-      phoneNumber: user.phoneNumber || '',
-      address: user.address || '',
-      emailNotifications: user.emailNotifications || false,
-      smsNotifications: user.smsNotifications || false,
-      pushNotifications: user.pushNotifications || false,
-      theme: user.theme || 'light',
-      highContrast: user.highContrast || false,
-      textToSpeech: user.textToSpeech || false,
-      keyboardNavigation: user.keyboardNavigation || false,
     });
+
+    const body = document.body;
+    if (body.classList.contains('dark-theme')) {
+      setColorMode('dark');
+    } else if (body.classList.contains('light-theme')) {
+      setColorMode('light');
+    } else {
+      setColorMode('system');
+    }
 
     return () => {
       dispatch(resetDataSlice());
     };
   }, [user, navigate, dispatch]);
+
+  // /profile links here with a section hash (e.g. "#photo"). Scroll that section
+  // into view and briefly highlight it so the jump is obvious.
+  useEffect(() => {
+    if (dataIsLoading) return undefined;
+    const hash = (location.hash || '').replace('#', '');
+    if (!hash) return undefined;
+
+    const target = document.getElementById(hash);
+    if (!target) return undefined;
+
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setActiveSection(hash);
+    const timer = setTimeout(() => setActiveSection(''), 2400);
+    return () => clearTimeout(timer);
+  }, [location.hash, dataIsLoading]);
 
   if (dataIsLoading) {
     return <Spinner />;
@@ -243,30 +260,66 @@ function Settings() {
     navigate('/');
   };
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    const nextValue = type === 'checkbox' ? checked : value;
+  const handleProfileChange = (event) => {
+    const { name, value } = event.target;
+    setProfileForm((prev) => ({ ...prev, [name]: value }));
+  };
 
-    setSettings(prevSettings => ({
-      ...prevSettings,
-      [name]: nextValue,
-    }));
+  /**
+   * Persist the profile-name / email fields. Only the fields that actually
+   * changed are sent, so a no-op save never fires a pointless request.
+   */
+  const handleProfileSave = async (event) => {
+    event.preventDefault();
 
-    if (name === 'theme') {
-      if (nextValue === 'light') {
-        setLightMode();
-      } else if (nextValue === 'dark') {
-        setDarkMode();
-      } else {
-        setSystemColorMode();
-      }
+    const nickname = profileForm.nickname.trim();
+    const email = profileForm.email.trim().toLowerCase();
+    const updates = {};
+
+    if (nickname && nickname !== (user?.nickname || '')) updates.nickname = nickname;
+    if (email && email !== (user?.email || '').toLowerCase()) updates.email = email;
+
+    if (Object.keys(updates).length === 0) {
+      toast.info('Nothing to update.', { autoClose: 2000 });
+      return;
+    }
+
+    setProfileSaving(true);
+    try {
+      await dispatch(updateProfile(updates)).unwrap();
+      toast.success('Profile updated.', { autoClose: 2500 });
+    } catch (error) {
+      toast.error(typeof error === 'string' ? error : 'Could not update your profile.', { autoClose: 4000 });
+    } finally {
+      setProfileSaving(false);
     }
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log('Settings submitted:', settings);
-    toast.info('Settings persistence coming soon.', { autoClose: 2000 });
+  const handleColorModeChange = (event) => {
+    const value = event.target.value;
+    setColorMode(value);
+
+    if (value === 'light') {
+      setLightMode();
+    } else if (value === 'dark') {
+      setDarkMode();
+    } else {
+      setSystemColorMode();
+    }
+  };
+
+  /** Save (or clear) the profile picture through the same profile endpoint. */
+  const handlePhotoSave = async (dataUrl) => {
+    setProfileSaving(true);
+    try {
+      await dispatch(updateProfile({ profilePicture: dataUrl })).unwrap();
+      toast.success(dataUrl ? 'Profile photo updated.' : 'Profile photo removed.', { autoClose: 2500 });
+      setPhotoEditorOpen(false);
+    } catch (error) {
+      toast.error(typeof error === 'string' ? error : 'Could not save your photo.', { autoClose: 4000 });
+    } finally {
+      setProfileSaving(false);
+    }
   };
 
   const handlePasswordReset = async () => {
@@ -331,87 +384,98 @@ function Settings() {
               <div className="planit-settings-hero-main">
                 <div className="planit-settings-heading-copy">
                   <span className="planit-settings-eyebrow">Workspace preferences</span>
-                  <h1 className="planit-settings-heading-title">Advanced Settings</h1>
+                  <h1 className="planit-settings-heading-title">Settings</h1>
                   <p className="planit-settings-heading-description">
-                    Personalize how the app looks, feels, and connects to AI-powered workflows.
+                    Your profile, notifications, appearance, and AI connection — all in one place.
                   </p>
                 </div>
               </div>
             </section>
 
-            <form onSubmit={handleSubmit} className="planit-settings-form">
+            <form onSubmit={handleProfileSave} className="planit-settings-form">
               <section className="planit-settings-content">
                 <div className="planit-settings-layout">
                   <div className="planit-settings-main">
-                    <div className="planit-settings-section">
+                    <div
+                      className={`planit-settings-section${activeSection === 'identity' ? ' is-highlighted' : ''}`}
+                      id="identity"
+                    >
                       <div className="planit-settings-section-header">
                         <div>
                           <span className="planit-settings-section-kicker">Account</span>
                           <h2 className="planit-settings-section-title">Account settings</h2>
                           <p className="planit-settings-section-description">
-                            Update contact details, payment preferences, and security actions for your account.
+                            Your photo, profile name, email, and password — everything about how you appear in the app.
                           </p>
+                        </div>
+                      </div>
+
+                      <div className="planit-settings-photo" id="photo">
+                        <ProfileAvatar
+                          picture={user.profilePicture}
+                          name={user.nickname}
+                          size="lg"
+                        />
+                        <div className="planit-settings-photo-copy">
+                          <span className="planit-settings-photo-title">Profile picture</span>
+                          <span className="planit-settings-hint">
+                            {user.profilePicture
+                              ? 'Shown across your account. Upload a new image to replace it.'
+                              : 'Add your own photo to replace the default checkmark.'}
+                          </span>
+                          <div className="planit-settings-photo-actions">
+                            <button
+                              type="button"
+                              className="planit-settings-outline-button"
+                              onClick={() => setPhotoEditorOpen(true)}
+                              disabled={profileSaving}
+                            >
+                              {user.profilePicture ? '🖼️ Change photo' : '⬆️ Upload photo'}
+                            </button>
+                            {user.profilePicture && (
+                              <button
+                                type="button"
+                                className="planit-settings-text-button"
+                                onClick={() => handlePhotoSave(null)}
+                                disabled={profileSaving}
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
 
                       <div className="planit-settings-grid">
                         <div className="planit-settings-item">
-                          <label className="planit-settings-label" htmlFor="planit-settings-payment-method">💳 Payment Method</label>
-                          <select
-                            id="planit-settings-payment-method"
-                            name="paymentMethod"
-                            value={settings.paymentMethod}
-                            onChange={handleChange}
+                          <label className="planit-settings-label" htmlFor="planit-settings-nickname">👤 Profile name</label>
+                          <input
+                            id="planit-settings-nickname"
+                            type="text"
+                            name="nickname"
+                            value={profileForm.nickname}
+                            onChange={handleProfileChange}
                             className="planit-settings-input"
-                          >
-                            <option value="">Select Payment Method</option>
-                            <option value="credit_card">Credit Card</option>
-                            <option value="paypal">PayPal</option>
-                            <option value="stripe">Stripe</option>
-                          </select>
-                          <span className="planit-settings-hint">Choose the payment method you prefer for future billing.</span>
+                            placeholder="Your display name"
+                            autoComplete="nickname"
+                            maxLength={40}
+                          />
+                          <span className="planit-settings-hint">This is the name shown across the app.</span>
                         </div>
 
                         <div className="planit-settings-item">
-                          <label className="planit-settings-label" htmlFor="planit-settings-email">📧 Email Address</label>
+                          <label className="planit-settings-label" htmlFor="planit-settings-email">📧 Email address</label>
                           <input
                             id="planit-settings-email"
                             type="email"
                             name="email"
-                            value={settings.email}
-                            onChange={handleChange}
+                            value={profileForm.email}
+                            onChange={handleProfileChange}
                             className="planit-settings-input"
                             placeholder="Enter email address"
+                            autoComplete="email"
                           />
                           <span className="planit-settings-hint">Used for receipts, alerts, and account recovery.</span>
-                        </div>
-
-                        <div className="planit-settings-item">
-                          <label className="planit-settings-label" htmlFor="planit-settings-phone">📱 Phone Number</label>
-                          <input
-                            id="planit-settings-phone"
-                            type="tel"
-                            name="phoneNumber"
-                            value={settings.phoneNumber}
-                            onChange={handleChange}
-                            className="planit-settings-input"
-                            placeholder="Enter phone number"
-                          />
-                          <span className="planit-settings-hint">Optional, but helpful for multi-device communication features.</span>
-                        </div>
-
-                        <div className="planit-settings-item">
-                          <label className="planit-settings-label" htmlFor="planit-settings-address">🏠 Address</label>
-                          <input
-                            id="planit-settings-address"
-                            type="text"
-                            name="address"
-                            value={settings.address}
-                            onChange={handleChange}
-                            className="planit-settings-input"
-                            placeholder="Enter address"
-                          />
-                          <span className="planit-settings-hint">Optional contact info for billing or support follow-up.</span>
                         </div>
 
                         <div className="planit-settings-item planit-settings-item-full">
@@ -423,55 +487,29 @@ function Settings() {
                             disabled={isResetPasswordLoading}
                             className="planit-settings-password-reset-button"
                           >
-                            {isResetPasswordLoading ? '📤 Sending reset email...' : '🔐 Send Password Reset Email'}
+                            {isResetPasswordLoading ? '📤 Sending reset email...' : '🔐 Send password reset email'}
                           </button>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="planit-settings-section">
-                      <div className="planit-settings-section-header">
-                        <div>
-                          <span className="planit-settings-section-kicker">Alerts</span>
-                          <h2 className="planit-settings-section-title">Notification settings</h2>
-                          <p className="planit-settings-section-description">
-                            Decide how you want to hear about account changes and activity.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="planit-settings-checkbox-grid">
-                        <label className="planit-settings-toggle-card">
-                          <div className="planit-settings-toggle-copy">
-                            <span className="planit-settings-toggle-title">📱 SMS Notifications</span>
-                            <span className="planit-settings-toggle-description">Use text messages for time-sensitive alerts.</span>
-                          </div>
-                          <input
-                            type="checkbox"
-                            name="smsNotifications"
-                            checked={settings.smsNotifications}
-                            onChange={handleChange}
-                            className="planit-settings-checkbox"
-                          />
-                        </label>
-
-                        <label className="planit-settings-toggle-card">
-                          <div className="planit-settings-toggle-copy">
-                            <span className="planit-settings-toggle-title">🔔 Push Notifications</span>
-                            <span className="planit-settings-toggle-description">Enable device alerts when supported.</span>
-                          </div>
-                          <input
-                            type="checkbox"
-                            name="pushNotifications"
-                            checked={settings.pushNotifications}
-                            onChange={handleChange}
-                            className="planit-settings-checkbox"
-                          />
-                        </label>
+                      <div className="planit-settings-save-row">
+                        <button
+                          type="submit"
+                          className="planit-settings-save-button"
+                          disabled={profileSaving}
+                        >
+                          {profileSaving ? 'Saving…' : '💾 Save changes'}
+                        </button>
+                        <span className="planit-settings-hint">
+                          Your profile name and email are saved to your account.
+                        </span>
                       </div>
                     </div>
 
-                    <div className="planit-settings-section">
+                    <div
+                      className={`planit-settings-section${activeSection === 'notifications' ? ' is-highlighted' : ''}`}
+                      id="notifications"
+                    >
                       <div className="planit-settings-section-header">
                         <div>
                           <span className="planit-settings-section-kicker">Email</span>
@@ -537,7 +575,10 @@ function Settings() {
                       </div>
                     </div>
 
-                    <div className="planit-settings-section">
+                    <div
+                      className={`planit-settings-section${activeSection === 'appearance' ? ' is-highlighted' : ''}`}
+                      id="appearance"
+                    >
                       <div className="planit-settings-section-header">
                         <div>
                           <span className="planit-settings-section-kicker">Appearance</span>
@@ -554,8 +595,8 @@ function Settings() {
                           <select
                             id="planit-settings-theme"
                             name="theme"
-                            value={settings.theme}
-                            onChange={handleChange}
+                            value={colorMode}
+                            onChange={handleColorModeChange}
                             className="planit-settings-input"
                           >
                             <option value="light">☀️ Light</option>
@@ -600,20 +641,23 @@ function Settings() {
                       </div>
                     </div>
 
-                    <div className="planit-settings-section">
+                    <div
+                      className={`planit-settings-section${activeSection === 'ai' ? ' is-highlighted' : ''}`}
+                      id="ai"
+                    >
                       <div className="planit-settings-section-header">
                         <div>
                           <span className="planit-settings-section-kicker">AI workflow</span>
                           <h2 className="planit-settings-section-title">AI &amp; Simple addon</h2>
                           <p className="planit-settings-section-description">
-                            Choose your provider, tune chat defaults, and manage AWS Bedrock access.
+                            Choose your provider, tune chat defaults, and manage {cloudProviderLabel} access.
                           </p>
                         </div>
                       </div>
 
                       <div className="planit-settings-ai-info">
                         <p className="planit-settings-ai-description">
-                          Access AI chat powered by AWS Bedrock at <strong>/net</strong>. For local AI and desktop automation, install the <strong>Simple addon</strong>.
+                          Access AI chat powered by {cloudModelLabel} at <strong>/net</strong>. For local AI and desktop automation, install the <strong>Simple addon</strong>.
                         </p>
 
                         <AIWorkflowSettings
@@ -682,62 +726,24 @@ function Settings() {
                         )}
                       </div>
                     </div>
-
-                    <div className="planit-settings-section">
-                      <div className="planit-settings-section-header">
-                        <div>
-                          <span className="planit-settings-section-kicker">Accessibility</span>
-                          <h2 className="planit-settings-section-title">Accessibility settings</h2>
-                          <p className="planit-settings-section-description">
-                            Keep the interface comfortable with readability and navigation helpers.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="planit-settings-checkbox-grid">
-                        <label className="planit-settings-toggle-card">
-                          <div className="planit-settings-toggle-copy">
-                            <span className="planit-settings-toggle-title">🌓 High Contrast</span>
-                            <span className="planit-settings-toggle-description">Boost separation between content, borders, and controls.</span>
-                          </div>
-                          <input
-                            type="checkbox"
-                            name="highContrast"
-                            checked={settings.highContrast}
-                            onChange={handleChange}
-                            className="planit-settings-checkbox"
-                          />
-                        </label>
-
-                        <label className="planit-settings-toggle-card">
-                          <div className="planit-settings-toggle-copy">
-                            <span className="planit-settings-toggle-title">⌨️ Keyboard Navigation</span>
-                            <span className="planit-settings-toggle-description">Make focus cues and keyboard-friendly navigation easier to follow.</span>
-                          </div>
-                          <input
-                            type="checkbox"
-                            name="keyboardNavigation"
-                            checked={settings.keyboardNavigation}
-                            onChange={handleChange}
-                            className="planit-settings-checkbox"
-                          />
-                        </label>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </section>
 
               <section className="planit-settings-actions">
-                <button type="submit" className="planit-settings-save-button">
-                  💾 Update Settings
-                </button>
                 <button
                   type="button"
                   className="planit-settings-profile-button"
                   onClick={() => navigate('/profile')}
                 >
                   👤 Back to Profile
+                </button>
+                <button
+                  type="button"
+                  className="planit-settings-ai-button"
+                  onClick={() => navigate('/net')}
+                >
+                  💬 Open AI Chat
                 </button>
                 <button type="button" className="planit-settings-logout-button" onClick={onLogout}>
                   🚪 Sign Out
@@ -746,6 +752,15 @@ function Settings() {
             </form>
           </div>
         </div>
+
+        <ProfilePictureEditor
+          open={photoEditorOpen}
+          onClose={() => setPhotoEditorOpen(false)}
+          onSave={handlePhotoSave}
+          currentPicture={user.profilePicture}
+          saving={profileSaving}
+        />
+
         <Footer />
       </>
     );

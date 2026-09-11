@@ -27,6 +27,7 @@ import {
   getRemoteCommandResult,
   getCustomAddonHost,
   upsertWorkspaceItem,
+  getWorkspaceItem,
   getSelectedRemoteDeviceId,
   runAgentMessage,
   startAgent,
@@ -36,21 +37,30 @@ import {
   setAgentListener,
   getAgentProposals,
 } from '../../services/simpleAddonApi';
+import { recordGoalAgentResult } from '../../services/goalAgentApi.js';
 import { createData } from '../../features/data/dataSlice';
 import { getUserIdentifier } from '../../utils/supportUtils';
 import { DEFAULT_CLOUD_MODEL_ID, getEffectiveCloudModelId, resolveCloudModelProvider } from '../../utils/llmProviderOptions.js';
+import { DEFAULT_CLOUD_PROVIDER, DEFAULT_LOCAL_MODEL_ID, providerLabel } from '../../constants/aiModel.js';
 import './SimpleChat.css';
 import './SimpleTheme.css';
 import { checkMessage as securityCheckMessage } from '../../utils/simpleAddon/securityGuard';
 import { routeMessage, ROUTE_KINDS } from '../../utils/simpleAddon/messageRouter';
+import { CHATS_STORAGE_KEY, ACTIVE_CHAT_KEY } from '../../utils/simpleAddon/chatStore';
+import {
+  ensureGoalConversation,
+  goalRefFromWorkspaceEntry,
+  goalSlugFromConversation,
+  isGoalConversation,
+  agentStateFromRun,
+  goalRunOfflineMessage,
+} from '../../utils/simpleAddon/goalChat';
 import {
   friendlyRemoteError,
   shouldAutoReportError,
 } from '../../utils/simpleAddon/autoReport';
 
-const DEFAULT_MODEL = 'Qwen/Qwen2.5-0.5B-Instruct';
-const CHATS_STORAGE_KEY = 'csimple_chats';
-const ACTIVE_CHAT_KEY = 'csimple_active_chat';
+const DEFAULT_MODEL = DEFAULT_LOCAL_MODEL_ID;
 const DEVICE_LOCAL_KEYS = ['micDeviceId', 'sttEnabled'];
 const DEVICE_SETTINGS_KEY = 'csimple_device_settings';
 
@@ -263,6 +273,20 @@ function SimpleChat({
   const conversationsRef = useRef(conversations);
   const syncInFlight = useRef(false);
   const isGeneratingRef = useRef(false);
+  // A conversation id we deliberately selected before its thread has arrived
+  // (e.g. `/net?conversation=<id>` on a fresh device) — see the reset guard below.
+  const pendingSelectionRef = useRef(null);
+  // The goal → chat hand-off (`/net?goal=<slug>[&enlist=1]`) runs once per mount.
+  const goalHandoffDoneRef = useRef(false);
+  // True for as long as the component instance is alive. Effects that do async
+  // work need this rather than a per-run `cancelled` flag: React's StrictMode
+  // mounts, unmounts and re-mounts in development, so a per-run flag would
+  // cancel the *first* run's request and the ref guard would stop the second
+  // from ever starting it — the hand-off would silently do nothing in dev.
+  const mountedRef = useRef(true);
+  // A goal kickoff currently in flight. A ref latch, not state, so the
+  // double-invoked effect can't start the same goal's run twice.
+  const goalKickoffRunningRef = useRef(false);
 
   const activeConversation = conversations.find(c => c.id === activeConversationId);
   const activeAgent = settings.agents?.find(a => a.id === settings.selectedAgentId) || settings.agents?.[0];
@@ -439,11 +463,16 @@ function SimpleChat({
 
   // If the active conversation was deleted on another device (or merged away),
   // point at the first remaining conversation instead of rendering an empty one.
+  // A pending hand-off (`?conversation=`) is exempt: its thread may still be in
+  // flight from the cloud, and resetting would silently drop the user's link.
   useEffect(() => {
     if (conversations.length === 0) return;
-    if (!conversations.some(c => c.id === activeConversationId)) {
-      setActiveConversationId(conversations[0].id);
+    if (conversations.some(c => c.id === activeConversationId)) {
+      if (pendingSelectionRef.current === activeConversationId) pendingSelectionRef.current = null;
+      return;
     }
+    if (pendingSelectionRef.current) return;
+    setActiveConversationId(conversations[0].id);
   }, [conversations, activeConversationId]);
 
   // ─── Cloud conversation sync (shared by the debounced save and the
@@ -631,6 +660,131 @@ function SimpleChat({
   useEffect(() => {
     setIsOnline(isAddonConnected || isRemoteAddonOnline || !!user);
   }, [isAddonConnected, isRemoteAddonOnline, user]);
+
+  // Lives for the whole component instance — see `mountedRef` above.
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  // ─── Goal → chat hand-off (`/net?goal=<slug>[&enlist=1]`) ─────────────────
+  // Enlisting an agent on /plans arrives here with the goal's slug. The goal
+  // gets a conversation of its own — the id is *derived* from the slug, so
+  // /plans, /net and every device compute the same thread with no pointer to
+  // keep in sync. That is what makes "enlist" land somewhere useful: the run's
+  // output collects in the thread, and the thread's history is what the next
+  // instruction is read against.
+  useEffect(() => {
+    if (goalHandoffDoneRef.current || !user?.token) return undefined;
+
+    let params;
+    try {
+      params = new URLSearchParams(window.location.search);
+    } catch {
+      return undefined; // no window/URL (shouldn't happen in the app shell)
+    }
+    const goalSlug = params.get('goal');
+    const conversationId = params.get('conversation');
+    if (!goalSlug && !conversationId) return undefined;
+    const enlist = params.get('enlist') === '1';
+    goalHandoffDoneRef.current = true;
+
+    // Strip the hand-off params so a refresh (or a share of the URL) doesn't
+    // silently re-select the thread or re-run the agent.
+    try {
+      const url = new URL(window.location.href);
+      ['goal', 'enlist', 'conversation'].forEach(k => url.searchParams.delete(k));
+      window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+    } catch { /* history unavailable — the ref guard still prevents a re-run */ }
+
+    // No per-run `cancelled` flag on purpose: StrictMode's mount → unmount →
+    // remount would set it before this fetch resolved, and the ref guard above
+    // stops the remount from retrying — the hand-off would do nothing in dev.
+    // `mountedRef` is the correct check (it is true again by the time this
+    // resolves), and the URL params are already read and stripped above.
+    (async () => {
+      if (!goalSlug) {
+        // A plain "open this conversation" hand-off. It may still be in flight
+        // from the cloud — `pendingSelectionRef` keeps the reset guard above
+        // from bouncing the user to an unrelated chat while we wait.
+        if (!mountedRef.current) return;
+        pendingSelectionRef.current = conversationId;
+        setActiveConversationId(conversationId);
+        return;
+      }
+
+      let goalEntry = null;
+      try {
+        goalEntry = await getWorkspaceItem(user.token, 'goal', goalSlug);
+      } catch { /* offline / expired token — the thread is still worth opening */ }
+      if (!mountedRef.current) return;
+
+      const goalRef = goalRefFromWorkspaceEntry(goalEntry, goalSlug);
+      const { conversations: next, conversation } = ensureGoalConversation(
+        conversationsRef.current,
+        goalRef,
+        { enlist },
+      );
+      if (!conversation) return;
+
+      conversationsRef.current = next;
+      setConversations(next);
+      setActiveConversationId(conversation.id);
+      setSidebarOpen(false);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.token]);
+
+  // ─── Kickoff: actually run an enlisted goal, inside its thread ────────────
+  // Keyed off the active conversation's own `pendingKickoff` rather than the
+  // hand-off effect above, for two reasons: `sendMessage` closes over the active
+  // conversation, so the run must happen on the render *after* the selection is
+  // applied; and a reload mid-hand-off then still starts the run instead of
+  // leaving a goal silently unenlisted.
+  const pendingKickoff = activeConversation?.pendingKickoff;
+  useEffect(() => {
+    if (!pendingKickoff || !user?.token || isGenerating) return;
+    // Latch: StrictMode invokes this effect twice on the same state, and the
+    // `setConversations` below hasn't re-rendered yet on the second pass.
+    // Cleared when the run settles so a later re-enlist still works.
+    if (goalKickoffRunningRef.current) return;
+    const conversationId = activeConversation.id;
+
+    // Clear the flag *first* so a re-render can never fire the run twice.
+    setConversations(prev => prev.map(c => (
+      c.id === conversationId
+        ? { ...c, pendingKickoff: false, updatedAt: new Date().toISOString() }
+        : c
+    )));
+
+    // No PC reachable: say so in the thread rather than letting the message
+    // fall through to the tool-less cloud model, which would answer as if it
+    // had done the work. The /plans card keeps its "Enlist" button, so the
+    // user can retry once the addon is running.
+    if (!(isAddonConnected || isRemoteAddonOnline)) {
+      const notice = {
+        id: `${Date.now()}-goal-offline`,
+        role: 'assistant',
+        content: goalRunOfflineMessage(),
+        timestamp: new Date().toISOString(),
+        isError: true,
+      };
+      setConversations(prev => prev.map(c => (
+        c.id === conversationId ? { ...c, messages: [...c.messages, notice] } : c
+      )));
+      return;
+    }
+
+    const text = typeof pendingKickoff === 'string' ? pendingKickoff.trim() : '';
+    if (!text) return;
+    goalKickoffRunningRef.current = true;
+    Promise.resolve(sendMessageRef._send?.(text))
+      .catch(() => { /* sendMessage surfaces its own errors in-thread */ })
+      .finally(() => { goalKickoffRunningRef.current = false; });
+    // `sendMessage` is re-assigned to the ref on every render, so the next
+    // render's version (with this conversation active) is the one that runs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingKickoff, activeConversation, user?.token, isGenerating, isAddonConnected, isRemoteAddonOnline]);
 
   // Handle portfolio chat response
   useEffect(() => {
@@ -950,6 +1104,21 @@ function SimpleChat({
     }
     if (!result) throw new Error('Remote addon did not respond in time.');
     return result;
+  }, [user]);
+
+  /**
+   * Write a desktop-agent run back onto the goal that started it.
+   *
+   * The /plans card reads the goal's *stored* run state, not the conversation,
+   * so a run started here must land there too — otherwise "View agent" would
+   * appear (or fail to appear) based on which surface the user happened to use.
+   * Best-effort by design: the chat already shows the run either way.
+   */
+  const mirrorGoalRun = useCallback(async (goalSlug, res) => {
+    if (!goalSlug || !user?.token) return;
+    try {
+      await recordGoalAgentResult(user.token, goalSlug, agentStateFromRun(res));
+    } catch { /* /plans keeps its previous state until the next successful mirror */ }
   }, [user]);
 
   const sendMessage = useCallback(async (text, files = []) => {
@@ -1277,7 +1446,11 @@ function SimpleChat({
     setConversations(prev => prev.map(c => {
       if (c.id !== activeConversationId) return c;
       const updatedMessages = [...c.messages, userMessage];
-      const title = c.messages.length === 0 ? text.substring(0, 40) + (text.length > 40 ? '...' : '') : c.title;
+      // A goal thread is named after its goal — the first message would only
+      // produce "🎯 Goal: …" truncated, which is strictly worse.
+      const title = (c.messages.length === 0 && !isGoalConversation(c))
+        ? text.substring(0, 40) + (text.length > 40 ? '...' : '')
+        : c.title;
       return { ...c, messages: updatedMessages, title };
     }));
 
@@ -1313,12 +1486,12 @@ function SimpleChat({
 
       // ── Vision requires the cloud provider ─────────────────────────────
       // The local addon's HuggingFace models can't accept image input, so an
-      // attached screenshot must go through Cloud (AWS Bedrock).
+      // attached screenshot must go through the cloud provider.
       if (route.kind === ROUTE_KINDS.VISION_REQUIRED) {
         const errMsg = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: "**Vision requires the cloud provider.**\n\nI can read screenshots over **Cloud (AWS Bedrock)**, but this chat is currently set to a local model. Open **Settings → Model** and switch to a cloud model, then retry.",
+          content: `**Vision requires the cloud provider.**\n\nI can read screenshots over **Cloud (${providerLabel(DEFAULT_CLOUD_PROVIDER)})**, but this chat is currently set to a local model. Open **Settings → Model** and switch to a cloud model, then retry.`,
           timestamp: new Date().toISOString(),
           isError: true,
         };
@@ -1416,11 +1589,18 @@ function SimpleChat({
       // through to normal chat below, and actionable ones report their final
       // answer back into the conversation here.
       if (route.kind === ROUTE_KINDS.AGENT) {
+        // A goal thread's runs belong to that goal: passing the slug makes the
+        // addon stream its steps onto the goal record (so /plans is live), and
+        // the mirrored result below is what the /plans card reads afterwards.
+        const goalSlug = goalSlugFromConversation(
+          conversations.find(c => c.id === activeConversationId),
+        );
         try {
           const agentResult = await runAgentMessage(text, {
             token: user?.token,
             deviceId: getSelectedRemoteDeviceId(),
             forceAction,
+            ...(goalSlug ? { goalId: goalSlug } : {}),
           });
           if (agentResult?.actionable) {
             const stepNote = typeof agentResult.steps === 'number'
@@ -1434,12 +1614,13 @@ function SimpleChat({
               role: 'assistant',
               content,
               timestamp: new Date().toISOString(),
-              agentRun: { goalSlug: agentResult.goalSlug, status: agentResult.status, steps: agentResult.steps },
+              agentRun: { goalSlug: agentResult.goalSlug || goalSlug, status: agentResult.status, steps: agentResult.steps },
             };
             setConversations(prev => prev.map(c => {
               if (c.id !== activeConversationId) return c;
               return { ...c, messages: [...c.messages, assistantMessage] };
             }));
+            if (goalSlug) mirrorGoalRun(goalSlug, agentResult);
             setIsGenerating(false);
             return;
           }
@@ -1666,6 +1847,9 @@ function SimpleChat({
               // Auto-rename the conversation with the LLM-generated title
               setConversations(prev => prev.map(c => {
                 if (c.id !== activeConversationId) return c;
+                // A goal thread is named after its goal, not after whatever the
+                // model decided to call the conversation.
+                if (isGoalConversation(c)) return c;
                 // Only auto-title if it's still the default
                 if (c.title !== 'New Chat' && !c.title.endsWith('...') && c.messages.length > 2) return c;
                 return { ...c, title };
@@ -1745,7 +1929,7 @@ function SimpleChat({
       if (!isAddonConnected && !isRemoteAddonOnline) {
         throw new Error(
           'Cannot use the local provider — the Simple addon is not running. ' +
-          'Switch to **Cloud (AWS Bedrock)** in Settings to chat without the addon, ' +
+          `Switch to **Cloud (${providerLabel(DEFAULT_CLOUD_PROVIDER)})** in Settings to chat without the addon, ` +
           'or install and start the desktop addon to run local models.'
         );
       }

@@ -132,3 +132,22 @@ export const updateEmailPreferences = createAsyncThunk(
     }
   }
 );
+
+// Update the current user's own profile (profile name, email, profile picture).
+// `updates` may contain any subset of { nickname, email, profilePicture }.
+export const updateProfile = createAsyncThunk(
+  'data/updateProfile',
+  async (updates, thunkAPI) => {
+    try {
+      const token = thunkAPI.getState().data.user.token;
+      return await dataService.updateProfile(token, updates);
+    } catch (error) {
+      const dataMessage =
+        (error.response && error.response.data && error.response.data.dataMessage) ||
+        (error.response && error.response.data && error.response.data.error) ||
+        error.dataMessage ||
+        error.toString();
+      return thunkAPI.rejectWithValue(dataMessage);
+    }
+  }
+);

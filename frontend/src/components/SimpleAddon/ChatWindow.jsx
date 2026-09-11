@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import MessageBubble from './MessageBubble';
 import ConfirmationPanel from './ConfirmationPanel';
+import { goalSlugFromConversation } from '../../utils/simpleAddon/goalChat';
 import './ChatWindow.css';
 
 // Only allow data: and https: avatar URLs — drop stale /api/agents/... paths
@@ -182,6 +184,10 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
   };
 
   const messages = conversation?.messages || [];
+  // A goal's own thread (see utils/simpleAddon/goalChat.js). The bar below is
+  // what stops the thread from reading as "just another chat": it says which
+  // goal it belongs to and gets the user back to the goal's record.
+  const goalSlug = goalSlugFromConversation(conversation);
 
   return (
     <main className="chat-window">
@@ -201,6 +207,23 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
         </div>
         <div className="chat-window__header-spacer" />
       </header>
+
+      {/* Goal link — this thread is where a /plans goal actually runs */}
+      {goalSlug && (
+        <div className="chat-window__goal-bar">
+          <span className="chat-window__goal-bar-icon" aria-hidden="true">🎯</span>
+          <span className="chat-window__goal-bar-text">
+            This thread belongs to a goal — its runs are recorded here.
+          </span>
+          <Link
+            className="chat-window__goal-bar-link"
+            to={`/plans/goal/${encodeURIComponent(goalSlug)}`}
+            title="Open this goal on /plans"
+          >
+            Open in /plans <span aria-hidden="true">→</span>
+          </Link>
+        </div>
+      )}
 
       {/* Passive hint — shows when speech was heard but no wake word */}
       {speech?.passiveHeard && !speech?.isListening && (

@@ -1,11 +1,23 @@
-﻿.planit-settings-bg {
+/* ─────────────────────────────────────────────────────────────────────────
+   Settings page
+   Same visual language as the Profile page: vibrant gradient backdrop with
+   soft, border-light translucent surfaces. All colours are theme tokens so
+   light/dark mode both read correctly; sizing scales off --nav-size.
+   ───────────────────────────────────────────────────────────────────────── */
+
+.planit-settings-bg {
+    color: var(--text-color);
     min-height: 100vh;
-    padding: calc(var(--nav-size) * 1.3) var(--spacing-xs) var(--spacing-md);
+    padding: calc(var(--nav-size) * 1.6) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.2);
     background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
     background-size: 400% 400%;
-    animation: gradientShift 12s ease infinite;
+    animation: gradientShift 14s ease infinite;
     position: relative;
-    overflow: hidden;
+    overflow-x: hidden;
+}
+
+.dark-theme .planit-settings-bg {
+    animation-duration: 11s;
 }
 
 .floating-shapes {
@@ -13,93 +25,93 @@
     inset: 0;
     pointer-events: none;
     z-index: 1;
+    overflow: hidden;
 }
 
 .floating-circle {
     position: absolute;
     border-radius: 50%;
     background: radial-gradient(circle, var(--white1-transp) 0%, transparent 70%);
-    animation: float 8s ease-in-out infinite;
+    animation: float 10s ease-in-out infinite;
 }
 
 .floating-circle-1 {
     width: calc(var(--nav-size) * 2.4);
     height: calc(var(--nav-size) * 2.4);
     top: 14%;
-    left: 8%;
+    left: 6%;
 }
 
 .floating-circle-2 {
     width: calc(var(--nav-size) * 1.8);
     height: calc(var(--nav-size) * 1.8);
     top: 56%;
-    right: 10%;
-    animation-delay: -2s;
+    right: 8%;
+    animation-delay: -3s;
 }
 
 .floating-circle-3 {
     width: calc(var(--nav-size) * 3.1);
     height: calc(var(--nav-size) * 3.1);
-    bottom: 12%;
+    bottom: 10%;
     left: 60%;
-    animation-delay: -4s;
+    animation-delay: -6s;
 }
 
 .planit-settings-shell {
     position: relative;
     z-index: 2;
+    max-width: 900px;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
+    gap: calc(var(--nav-size) * 0.4);
 }
 
+/* ── Surfaces ───────────────────────────────────────────────────────── */
 .planit-settings-hero,
 .planit-settings-section,
 .planit-settings-actions {
-    background: linear-gradient(180deg, var(--bg-1), var(--bg-page-transp));
-    border: 1px solid var(--border-nav);
-    border-radius: var(--border-radius-xl);
-    box-shadow: var(--shadow-lg);
-    backdrop-filter: blur(14px);
+    background: color-mix(in srgb, var(--bg-page) 84%, transparent);
+    border-radius: var(--border-radius-2xl);
+    box-shadow: var(--shadow-md);
 }
 
 .planit-settings-hero {
-    padding: var(--spacing-sm);
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-    animation: fadeInSection 0.7s ease both;
+    padding: calc(var(--nav-size) * 0.6);
+    animation: fadeInSection 0.6s ease both;
 }
 
 .planit-settings-hero-main {
     display: flex;
     justify-content: space-between;
-    gap: var(--spacing-xs);
     align-items: flex-start;
+    gap: var(--spacing-xs);
 }
 
 .planit-settings-heading-copy {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-xs);
-    max-width: 640px;
+    gap: calc(var(--nav-size) * 0.08);
+    max-width: 60ch;
 }
 
 .planit-settings-eyebrow,
 .planit-settings-section-kicker {
-    font-size: var(--font-size-small);
-    letter-spacing: 0.08em;
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--fg-orange);
+    color: var(--text-color-accent);
     font-weight: var(--font-weight-semibold);
 }
 
 .planit-settings-heading-title {
     margin: 0;
-    font-size: var(--font-size-large);
+    font-size: var(--font-size-heading);
+    font-weight: var(--font-weight-bold);
     line-height: var(--line-height-tight);
-    color: var(--text-color-strong);
+    color: var(--text-color);
+    letter-spacing: -0.01em;
 }
 
 .planit-settings-heading-description,
@@ -107,87 +119,52 @@
 .planit-settings-hint,
 .planit-settings-ai-description,
 .planit-settings-ai-note,
-.planit-settings-token-help,
 .planit-settings-toggle-description {
     margin: 0;
     color: var(--text-color-accent);
     line-height: var(--line-height-relaxed);
 }
 
-.planit-settings-hero-actions,
-.planit-settings-actions,
-.planit-settings-ai-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-xs);
+.planit-settings-heading-description,
+.planit-settings-section-description {
+    font-size: var(--font-size-base);
 }
 
-.planit-settings-ai-optout {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-    margin-top: var(--spacing-xs);
-    padding-top: var(--spacing-xs);
-    border-top: 1px dashed var(--border-nav);
-}
-
-.planit-settings-meta {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--spacing-xs);
-}
-
-.planit-settings-meta-item,
-.planit-settings-item,
-.planit-settings-toggle-card,
-.planit-settings-ai-actions,
-.planit-settings-token-group {
-    border: 1px solid var(--border-nav);
-    background: var(--bg-page-transp);
-    border-radius: var(--border-radius-lg);
-    box-shadow: var(--shadow-sm);
-}
-
-.planit-settings-meta-item {
-    padding: var(--spacing-xs);
-    display: flex;
-    flex-direction: column;
-    gap: calc(var(--nav-size) * 0.06);
-}
-
-.planit-settings-meta-label,
-.planit-settings-token-status,
-.planit-settings-range-value {
+.planit-settings-hint,
+.planit-settings-ai-note,
+.planit-settings-toggle-description {
     font-size: var(--font-size-small);
-    color: var(--text-color-accent);
 }
 
-.planit-settings-meta-value,
-.planit-settings-toggle-title {
-    color: var(--text-color-strong);
-    font-weight: var(--font-weight-semibold);
-}
-
+/* ── Form / sections ────────────────────────────────────────────────── */
 .planit-settings-form,
 .planit-settings-content,
 .planit-settings-main {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
+    gap: calc(var(--nav-size) * 0.4);
 }
 
 .planit-settings-layout {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: var(--spacing-sm);
+    gap: calc(var(--nav-size) * 0.4);
 }
 
 .planit-settings-section {
-    padding: var(--spacing-sm);
+    padding: calc(var(--nav-size) * 0.5);
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-xs);
-    animation: slideInUp 0.7s ease both;
+    gap: calc(var(--nav-size) * 0.32);
+    animation: slideInUp 0.6s ease both;
+    scroll-margin-top: calc(var(--nav-size) * 2);
+    transition: box-shadow var(--speed) ease, background var(--speed) ease;
+}
+
+/* Played when /profile deep-links to a specific section. */
+.planit-settings-section.is-highlighted {
+    background: color-mix(in srgb, var(--bg-page) 92%, var(--fg-blue) 8%);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--fg-blue) 55%, transparent), var(--shadow-lg);
 }
 
 .planit-settings-section-header {
@@ -197,25 +174,62 @@
 }
 
 .planit-settings-section-title {
-    margin: calc(var(--nav-size) * 0.1) 0 0;
-    font-size: var(--font-size-base);
+    margin: calc(var(--nav-size) * 0.08) 0 0;
+    font-size: var(--font-size-large);
+    font-weight: var(--font-weight-semibold);
     line-height: var(--line-height-tight);
-    color: var(--text-color-strong);
+    color: var(--text-color);
 }
 
+.planit-settings-section-description {
+    margin-top: calc(var(--nav-size) * 0.12);
+}
+
+/* ── Profile photo row ──────────────────────────────────────────────── */
+.planit-settings-photo {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.4);
+    padding: calc(var(--nav-size) * 0.35);
+    border-radius: var(--border-radius-lg);
+    background: color-mix(in srgb, var(--fg-blue) 8%, transparent);
+    scroll-margin-top: calc(var(--nav-size) * 2);
+}
+
+.planit-settings-photo-copy {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.1);
+    min-width: 0;
+}
+
+.planit-settings-photo-title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-color);
+}
+
+.planit-settings-photo-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.18);
+    margin-top: calc(var(--nav-size) * 0.08);
+}
+
+/* ── Grid + fields ──────────────────────────────────────────────────── */
 .planit-settings-grid,
 .planit-settings-checkbox-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--spacing-xs);
+    gap: calc(var(--nav-size) * 0.28);
 }
 
 .planit-settings-item {
-    padding: var(--spacing-xs);
     display: flex;
     flex-direction: column;
-    gap: calc(var(--nav-size) * 0.06);
-    min-height: calc(var(--nav-size) * 1.8);
+    gap: calc(var(--nav-size) * 0.1);
+    min-width: 0;
 }
 
 .planit-settings-item-full {
@@ -225,76 +239,186 @@
 .planit-settings-label {
     display: flex;
     align-items: center;
-    gap: calc(var(--nav-size) * 0.12);
-    font-size: var(--font-size-base);
-    font-weight: var(--font-weight-semibold);
-    color: var(--text-color-strong);
-}
-
-.planit-settings-provider-badge {
+    gap: calc(var(--nav-size) * 0.1);
     font-size: var(--font-size-small);
-    padding: calc(var(--nav-size) * 0.06) calc(var(--nav-size) * 0.14);
-    border-radius: 999px;
-    background: linear-gradient(135deg, var(--bg-orange), var(--bg-pink));
-    color: var(--text-color);
-}
-
-.planit-settings-input,
-.planit-settings-range,
-.planit-settings-password-reset-button,
-.planit-settings-token-toggle,
-.planit-settings-font-reset,
-.planit-settings-save-button,
-.planit-settings-net-button,
-.planit-settings-profile-button,
-.planit-settings-logout-button,
-.planit-settings-ai-button,
-.planit-settings-ai-link {
-    min-height: 44px;
-    border-radius: var(--border-radius);
-    transition: transform var(--speed) ease, box-shadow var(--speed) ease, border-color var(--speed) ease;
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-color-accent);
 }
 
 .planit-settings-input {
     width: 100%;
+    min-height: calc(var(--nav-size) * 0.85);
     border: 1px solid var(--border-nav);
-    background: var(--bg-page);
+    border-radius: var(--border-radius);
+    background: var(--bg-1);
     color: var(--text-color);
-    padding: var(--spacing-sm);
+    font-family: inherit;
     font-size: var(--font-size-base);
+    padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.24);
+    transition: border-color var(--speed) ease, box-shadow var(--speed) ease;
 }
 
-.planit-settings-input:hover,
-.planit-settings-token-toggle:hover,
-.planit-settings-font-reset:hover,
-.planit-settings-password-reset-button:hover,
-.planit-settings-save-button:hover,
-.planit-settings-net-button:hover,
-.planit-settings-profile-button:hover,
-.planit-settings-logout-button:hover,
-.planit-settings-ai-button:hover,
-.planit-settings-ai-link:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
+.planit-settings-input:hover {
+    box-shadow: var(--shadow-sm);
 }
 
-.planit-settings-input:focus,
-.planit-settings-range:focus,
-.planit-settings-password-reset-button:focus,
-.planit-settings-token-toggle:focus,
-.planit-settings-font-reset:focus,
-.planit-settings-save-button:focus,
-.planit-settings-net-button:focus,
-.planit-settings-profile-button:focus,
-.planit-settings-logout-button:focus,
-.planit-settings-ai-button:focus,
-.planit-settings-ai-link:focus,
-.planit-settings-toggle-card:focus-within {
+.planit-settings-input:focus {
     outline: var(--focus-outline);
     outline-offset: var(--focus-outline-offset);
     border-color: var(--fg-blue);
 }
 
+/* ── Buttons ────────────────────────────────────────────────────────── */
+.planit-settings-outline-button,
+.planit-settings-text-button,
+.planit-settings-save-button,
+.planit-settings-password-reset-button,
+.planit-settings-profile-button,
+.planit-settings-logout-button,
+.planit-settings-ai-button,
+.planit-settings-ai-link,
+.planit-settings-font-reset {
+    font-family: inherit;
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.03em;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    min-height: calc(var(--nav-size) * 0.78);
+    padding: calc(var(--nav-size) * 0.14) calc(var(--nav-size) * 0.45);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: calc(var(--nav-size) * 0.1);
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: transform var(--speed) ease, box-shadow var(--speed) ease, background var(--speed) ease, border-color var(--speed) ease;
+}
+
+.planit-settings-outline-button:hover:not(:disabled),
+.planit-settings-save-button:hover:not(:disabled),
+.planit-settings-password-reset-button:hover:not(:disabled),
+.planit-settings-profile-button:hover:not(:disabled),
+.planit-settings-logout-button:hover:not(:disabled),
+.planit-settings-ai-button:hover:not(:disabled),
+.planit-settings-ai-link:hover,
+.planit-settings-font-reset:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.planit-settings-outline-button:focus-visible,
+.planit-settings-text-button:focus-visible,
+.planit-settings-save-button:focus-visible,
+.planit-settings-password-reset-button:focus-visible,
+.planit-settings-profile-button:focus-visible,
+.planit-settings-logout-button:focus-visible,
+.planit-settings-ai-button:focus-visible,
+.planit-settings-ai-link:focus-visible,
+.planit-settings-font-reset:focus-visible,
+.planit-settings-toggle-card:focus-within {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset);
+}
+
+.planit-settings-outline-button,
+.planit-settings-profile-button,
+.planit-settings-logout-button,
+.planit-settings-font-reset {
+    background: transparent;
+    color: var(--text-color);
+    border-color: var(--border-nav);
+}
+.planit-settings-outline-button:hover:not(:disabled),
+.planit-settings-profile-button:hover:not(:disabled),
+.planit-settings-logout-button:hover:not(:disabled),
+.planit-settings-font-reset:hover:not(:disabled) {
+    background: var(--bg-accent);
+}
+
+.planit-settings-text-button {
+    background: transparent;
+    color: var(--red0);
+    border-color: transparent;
+    padding-inline: calc(var(--nav-size) * 0.2);
+    min-height: 0;
+}
+.planit-settings-text-button:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--red0) 12%, transparent);
+    transform: none;
+    box-shadow: none;
+}
+
+.planit-settings-save-button {
+    background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+    color: var(--text-color-inv);
+}
+
+.planit-settings-password-reset-button {
+    align-self: flex-start;
+    background: linear-gradient(45deg, var(--fg-orange), var(--fg-pink));
+    color: var(--text-color-inv);
+}
+
+.planit-settings-ai-button {
+    background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+    color: var(--text-color-inv);
+}
+
+.planit-settings-ai-link {
+    background: transparent;
+    color: var(--text-color);
+    border-color: var(--border-nav);
+}
+
+.planit-settings-save-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.25);
+    padding-top: calc(var(--nav-size) * 0.24);
+    border-top: 1px solid var(--border-nav);
+}
+
+/* ── Toggle cards (email preferences) ───────────────────────────────── */
+.planit-settings-toggle-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    padding: calc(var(--nav-size) * 0.3);
+    border-radius: var(--border-radius-lg);
+    background: color-mix(in srgb, var(--bg-accent) 45%, transparent);
+    cursor: pointer;
+    transition: background var(--speed) ease;
+}
+
+.planit-settings-toggle-card:hover {
+    background: color-mix(in srgb, var(--bg-accent) 70%, transparent);
+}
+
+.planit-settings-toggle-copy {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.06);
+}
+
+.planit-settings-toggle-title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-color);
+}
+
+.planit-settings-checkbox {
+    margin: 0;
+    width: calc(var(--nav-size) * 0.45);
+    height: calc(var(--nav-size) * 0.45);
+    accent-color: var(--fg-blue);
+    flex-shrink: 0;
+}
+
+/* ── Font-size control ──────────────────────────────────────────────── */
 .planit-settings-range-group {
     display: flex;
     align-items: center;
@@ -306,177 +430,82 @@
     accent-color: var(--fg-blue);
 }
 
+.planit-settings-range-value {
+    font-size: var(--font-size-small);
+    color: var(--text-color-accent);
+    font-variant-numeric: tabular-nums;
+    min-width: 4ch;
+    text-align: right;
+}
+
 .planit-settings-font-preview {
     display: flex;
     flex-direction: column;
-    gap: calc(var(--nav-size) * 0.1);
-    padding: var(--spacing-xs);
-    border: 1px dashed var(--border-nav);
+    gap: calc(var(--nav-size) * 0.14);
+    padding: calc(var(--nav-size) * 0.25);
     border-radius: var(--border-radius);
-    background: var(--bg-page);
+    background: color-mix(in srgb, var(--bg-accent) 45%, transparent);
 }
 
 .planit-settings-font-preview-text {
-    color: var(--text-color-strong);
+    color: var(--text-color);
     font-size: var(--font-size-base);
 }
 
-.planit-settings-font-reset,
-.planit-settings-token-toggle,
-.planit-settings-profile-button,
-.planit-settings-logout-button {
-    border: 1px solid var(--border-nav);
-    background: var(--bg-page);
-    color: var(--text-color);
+.planit-settings-font-reset {
+    align-self: flex-start;
+    min-height: 0;
+    padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.3);
 }
 
-.planit-settings-save-button,
-.planit-settings-password-reset-button {
-    background: linear-gradient(135deg, var(--fg-orange), var(--fg-pink));
-    color: var(--text-color-inv);
-    border: 1px solid transparent;
-}
-
-.planit-settings-net-button,
-.planit-settings-ai-button {
-    background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
-    color: var(--text-color-inv);
-    border: 1px solid transparent;
-}
-
-.planit-settings-ai-link {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: var(--spacing-sm) var(--spacing-md);
-    text-decoration: none;
-    background: linear-gradient(135deg, var(--bg-orange), var(--bg-pink));
-    color: var(--text-color);
-    border: 1px solid var(--border-nav);
-}
-
-.planit-settings-token-group {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: var(--spacing-xs);
-    padding: calc(var(--nav-size) * 0.08);
-}
-
-.planit-settings-token-group .planit-settings-input {
-    border: none;
-    box-shadow: none;
-}
-
-.planit-settings-token-group:focus-within {
-    outline: var(--focus-outline);
-    outline-offset: var(--focus-outline-offset);
-}
-
-.planit-settings-token-group:focus-within .planit-settings-input {
-    outline: none;
-}
-
-.planit-settings-token-help a {
-    color: var(--fg-blue);
-}
-
-.planit-settings-subsection-title {
-    margin: 0;
-    font-size: var(--font-size-base);
-    color: var(--text-color-strong);
-}
-
-.planit-settings-toggle-card {
-    padding: var(--spacing-xs);
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: var(--spacing-sm);
-    cursor: pointer;
-}
-
-.planit-settings-toggle-copy {
+/* ── AI section ─────────────────────────────────────────────────────── */
+.planit-settings-ai-info {
     display: flex;
     flex-direction: column;
-    gap: calc(var(--nav-size) * 0.08);
-}
-
-.planit-settings-checkbox {
-    margin: 0;
-    width: calc(var(--nav-size) * 0.45);
-    height: calc(var(--nav-size) * 0.45);
-    accent-color: var(--fg-blue);
-    flex-shrink: 0;
+    gap: calc(var(--nav-size) * 0.24);
 }
 
 .planit-settings-ai-actions {
-    padding: var(--spacing-xs);
-    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: calc(var(--nav-size) * 0.18);
 }
 
+.planit-settings-ai-optout {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.2);
+    padding-top: calc(var(--nav-size) * 0.24);
+    border-top: 1px solid var(--border-nav);
+}
+
+.planit-settings-ai-note a,
+.planit-settings-ai-description a {
+    color: var(--fg-blue);
+}
+
+.planit-settings-ai-note code {
+    font-size: var(--font-size-xs);
+    padding: 0 calc(var(--nav-size) * 0.1);
+    border-radius: var(--border-radius-sm);
+    background: var(--bg-accent);
+}
+
+/* ── Action bar ─────────────────────────────────────────────────────── */
 .planit-settings-actions {
-    padding: var(--spacing-sm);
+    padding: calc(var(--nav-size) * 0.5);
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: flex-end;
-    animation: fadeInSection 0.9s ease both;
+    gap: calc(var(--nav-size) * 0.18);
+    animation: fadeInSection 0.8s ease both;
 }
 
-@keyframes gradientShift {
-    0% { background-position: 0% 50%; }
-    25% { background-position: 100% 50%; }
-    50% { background-position: 100% 100%; }
-    75% { background-position: 0% 100%; }
-    100% { background-position: 0% 50%; }
-}
-
-@keyframes float {
-    0%, 100% {
-        transform: translateY(0) rotate(0deg);
-    }
-    50% {
-        transform: translateY(calc(var(--nav-size) * -0.35)) rotate(180deg);
-    }
-}
-
-@keyframes fadeInSection {
-    from {
-        opacity: 0;
-        transform: translateY(calc(var(--nav-size) * 0.4));
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes slideInUp {
-    from {
-        opacity: 0;
-        transform: translateY(calc(var(--nav-size) * 0.25));
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@media (orientation: landscape) {
+/* ── Responsive ─────────────────────────────────────────────────────── */
+@media (max-width: 720px) {
     .planit-settings-bg {
-        padding-top: calc(var(--nav-size) * 1.5);
-    }
-
-    .floating-circle-1 {
-        left: 4%;
-    }
-
-    .floating-circle-3 {
-        left: 72%;
-    }
-}
-
-@media (max-width: 768px) {
-    .planit-settings-bg {
-        padding: calc(var(--nav-size) * 1.1) var(--spacing-xs) var(--spacing-sm);
+        padding: calc(var(--nav-size) * 1.3) var(--spacing-xs) var(--spacing-md);
     }
 
     .floating-circle {
@@ -486,61 +515,24 @@
     .planit-settings-hero,
     .planit-settings-section,
     .planit-settings-actions {
-        padding: var(--spacing-xs);
+        padding: calc(var(--nav-size) * 0.35);
+        border-radius: var(--border-radius-xl);
     }
 
     .planit-settings-hero-main,
-    .planit-settings-layout,
-    .planit-settings-token-group,
-    .planit-settings-toggle-card {
-        grid-template-columns: 1fr;
+    .planit-settings-photo {
         flex-direction: column;
+        align-items: flex-start;
     }
 
-    .planit-settings-meta,
     .planit-settings-grid,
     .planit-settings-checkbox-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 
-    .planit-settings-hero-actions,
     .planit-settings-actions,
-    .planit-settings-ai-actions {
+    .planit-settings-actions button {
         width: 100%;
-    }
-
-    .planit-settings-hero-actions button,
-    .planit-settings-actions button,
-    .planit-settings-ai-actions button,
-    .planit-settings-ai-actions a {
-        width: 100%;
-    }
-}
-
-@media (max-width: 480px) {
-    .planit-settings-heading-title {
-        font-size: var(--font-size-large);
-    }
-
-    .planit-settings-section-title {
-        font-size: var(--font-size-base);
-    }
-
-    .planit-settings-meta-item,
-    .planit-settings-item,
-    .planit-settings-toggle-card,
-    .planit-settings-ai-actions {
-        padding: var(--spacing-xs);
-    }
-}
-
-@media (orientation: portrait) and (max-width: 480px) {
-    .planit-settings-bg {
-        padding-top: calc(var(--nav-size) * 1);
-    }
-
-    .planit-settings-shell {
-        gap: var(--spacing-xs);
     }
 }
 
@@ -552,18 +544,28 @@
     .planit-settings-actions {
         animation: none;
     }
+}
 
-    .planit-settings-input,
-    .planit-settings-range,
-    .planit-settings-password-reset-button,
-    .planit-settings-token-toggle,
-    .planit-settings-font-reset,
-    .planit-settings-save-button,
-    .planit-settings-net-button,
-    .planit-settings-profile-button,
-    .planit-settings-logout-button,
-    .planit-settings-ai-button,
-    .planit-settings-ai-link {
-        transition: none;
-    }
+/* ── Keyframes ──────────────────────────────────────────────────────── */
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    25% { background-position: 100% 50%; }
+    50% { background-position: 100% 100%; }
+    75% { background-position: 0% 100%; }
+    100% { background-position: 0% 50%; }
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(calc(var(--nav-size) * -0.35)) rotate(180deg); }
+}
+
+@keyframes fadeInSection {
+    from { opacity: 0; transform: translateY(calc(var(--nav-size) * 0.4)); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInUp {
+    from { opacity: 0; transform: translateY(calc(var(--nav-size) * 0.25)); }
+    to { opacity: 1; transform: translateY(0); }
 }

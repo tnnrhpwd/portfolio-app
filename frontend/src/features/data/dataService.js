@@ -3,6 +3,7 @@
 import axios from 'axios';  // import ability to make http request
 import { toast } from 'react-toastify'; // import toast notifications
 import { getApiBase } from '../../config/api';
+import { DEFAULT_CLOUD_MODEL_ID, DEFAULT_CLOUD_PROVIDER } from '../../constants/aiModel.js';
 
 const API_URL = getApiBase();
 
@@ -296,8 +297,8 @@ const compressData = async (dataData, token, options = {}) => {
     // Add LLM provider options to the request
     const requestData = {
         ...dataData,
-        provider: options.provider || 'bedrock',
-        model: options.model || 'us.anthropic.claude-haiku-4-5-20251001-v1:0'
+        provider: options.provider || DEFAULT_CLOUD_PROVIDER,
+        model: options.model || DEFAULT_CLOUD_MODEL_ID
     };
 
     console.log('Calling POST URL:', API_URL + 'compress');
@@ -318,8 +319,8 @@ const compressData = async (dataData, token, options = {}) => {
 const compressDataStream = async function* (dataData, token, options = {}) {
     const requestData = {
         ...dataData,
-        provider: options.provider || 'bedrock',
-        model: options.model || 'us.anthropic.claude-haiku-4-5-20251001-v1:0'
+        provider: options.provider || DEFAULT_CLOUD_PROVIDER,
+        model: options.model || DEFAULT_CLOUD_MODEL_ID
     };
 
     const response = await fetch(API_URL + 'compress/stream', {
@@ -679,6 +680,19 @@ const updateEmailPreferences = async (token, preferences) => {
     }
 };
 
+// Update the current user's own profile (profile name, email, profile picture).
+// `updates` may contain any subset of { nickname, email, profilePicture }.
+const updateProfile = async (token, updates) => {
+    const config = { headers: { Authorization: `Bearer ${token}` } };
+    try {
+        const response = await axios.put(API_URL + 'profile', updates, config);
+        return response.data;
+    } catch (error) {
+        handleTokenExpiration(error);
+        throw error;
+    }
+};
+
 // Request pre-signed upload URL for S3
 const requestUploadUrl = async (fileData, token) => {
     const config = {
@@ -924,6 +938,7 @@ const dataService = {
     getLLMProviders,
     getEmailPreferences,
     updateEmailPreferences,
+    updateProfile,
     requestUploadUrl,
     uploadFileToS3,
     confirmFileUpload,

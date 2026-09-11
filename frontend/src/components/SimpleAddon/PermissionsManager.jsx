@@ -28,6 +28,7 @@ import {
   setAutoApproveAll,
 } from '../../services/simpleAddonApi';
 import { ADDON_DOWNLOAD_URL } from '../../hooks/simpleAddon/useAddonDetection';
+import { DEFAULT_CLOUD_PROVIDER, providerLabel } from '../../constants/aiModel.js';
 import './PermissionsManager.css';
 
 function fmtWhen(ts) {
@@ -44,7 +45,7 @@ function fmtWhen(ts) {
 const CONSENT_COPY = {
   cloudVision: {
     title: 'Send screenshots to cloud AI?',
-    body: 'Turning this on lets Simple send screenshots of your screen to a cloud AI service (AWS Bedrock) over an encrypted connection — and only when local screen understanding needs help (for example, visually locating a button or window a recorded macro couldn\'t find). Images are processed to answer a single question and are not stored or sold. You can turn this off at any time, and it takes effect immediately.',
+    body: `Turning this on lets Simple send screenshots of your screen to a cloud AI service (${providerLabel(DEFAULT_CLOUD_PROVIDER)}) over an encrypted connection — and only when local screen understanding needs help (for example, visually locating a button or window a recorded macro couldn't find). Images are processed to answer a single question and are not stored or sold. You can turn this off at any time, and it takes effect immediately.`,
   },
   keyboardCapture: {
     title: 'Record your keystrokes?',

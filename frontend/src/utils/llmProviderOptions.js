@@ -10,18 +10,24 @@
  * GitHub Models → AWS Bedrock migration.
  */
 
+import {
+  DEFAULT_CLOUD_MODEL,
+  DEEPSEEK_PROVIDER,
+  modelDisplayName,
+  providerLabel,
+} from '../constants/aiModel.js';
+
 // Shown only until the real `/llm-providers` response arrives (or if the
-// fetch fails) — kept in sync with the always-on backend default in
+// fetch fails). The identity itself lives in constants/aiModel.js, which is
+// kept in sync with the always-on backend default in
 // backend/utils/llmProviders.js (PROVIDERS.bedrock).
 export const FALLBACK_CLOUD_MODEL = {
-  id: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
-  name: 'Claude Haiku 4.5',
-  provider: 'bedrock',
+  ...DEFAULT_CLOUD_MODEL,
   rate: null,
   requiredTier: null,
 };
 
-export const DEFAULT_CLOUD_MODEL_ID = FALLBACK_CLOUD_MODEL.id;
+export const DEFAULT_CLOUD_MODEL_ID = DEFAULT_CLOUD_MODEL.id;
 
 // The Simple Addon's "Cloud" mode is wired server-side to AWS Bedrock by
 // default, with DeepSeek now selectable as an additional cloud provider (see
@@ -32,13 +38,13 @@ export const DEFAULT_CLOUD_MODEL_ID = FALLBACK_CLOUD_MODEL.id;
 // cloud-model surface (Simple Addon sidebar, Advanced Settings, /settings
 // page) from showing a non-cloud model as a "cloud" option a user could
 // select.
-const CLOUD_PROVIDERS = ['bedrock', 'deepseek'];
+const CLOUD_PROVIDERS = [DEFAULT_CLOUD_MODEL.provider, DEEPSEEK_PROVIDER];
 
 /**
  * Flatten `{ providerKey: { name, models: { modelId: { name, rate, requiredTier } } } }`
  * (or the legacy array-of-models shape some callers still send) into
- * `[{ id, name, provider, rate, requiredTier }]`, restricted to the provider
- * that actually backs Cloud mode (AWS Bedrock).
+ * `[{ id, name, provider, rate, requiredTier }]`, restricted to the providers
+ * that actually back Cloud mode (see CLOUD_PROVIDERS above).
  */
 export function buildCloudModelList(portfolioLLMProviders) {
   if (!portfolioLLMProviders || typeof portfolioLLMProviders !== 'object') return [];
@@ -75,12 +81,13 @@ export function buildCloudModelList(portfolioLLMProviders) {
  * Resolve the model id that should actually be used/displayed for Cloud mode.
  *
  * Stored settings (local or synced from an older client) can carry a retired
- * model id — e.g. 'gpt-4o-mini' from before the AWS Bedrock migration. Trusting that id just because it's set previously caused GPT
- * model names to reappear in the model badge on every chat message and in
- * the sidebar's "current model" readout, even though the request was always
- * served by Bedrock. This always validates the stored id against the live
- * cloud model list (falling back to the fixed default when it doesn't
- * match), so a stale id can never resurface a decommissioned provider.
+ * model id from before the AWS Bedrock migration. Trusting that id just
+ * because it was set previously caused decommissioned model names to
+ * reappear in the model badge on every chat message and in the sidebar's
+ * "current model" readout, even though the request was always served by
+ * Bedrock. This always validates the stored id against the live cloud model
+ * list (falling back to the fixed default when it doesn't match), so a stale
+ * id can never resurface a decommissioned provider.
  */
 export function getEffectiveCloudModelId(storedModelId, portfolioLLMProviders) {
   const cloudModels = buildCloudModelList(portfolioLLMProviders);
@@ -96,4 +103,23 @@ export function getEffectiveCloudModelId(storedModelId, portfolioLLMProviders) {
 export function resolveCloudModelProvider(modelId, portfolioLLMProviders) {
   const match = buildCloudModelList(portfolioLLMProviders).find(m => m.id === modelId);
   return match?.provider || FALLBACK_CLOUD_MODEL.provider;
+}
+
+/**
+ * Human-readable name for a cloud model id: the name the backend reported
+ * for it, else the shared label map, else the bare id's tail.
+ */
+export function resolveCloudModelName(modelId, portfolioLLMProviders) {
+  const match = buildCloudModelList(portfolioLLMProviders).find(m => m.id === modelId);
+  return match?.name || modelDisplayName(modelId) || FALLBACK_CLOUD_MODEL.name;
+}
+
+/**
+ * "Name (Provider)" label for a cloud model id — e.g.
+ * "Claude Haiku 4.5 (AWS Bedrock)". Prefer this over writing a model or
+ * provider name inline wherever the UI states what it is using.
+ */
+export function resolveCloudModelLabel(modelId, portfolioLLMProviders) {
+  const provider = resolveCloudModelProvider(modelId, portfolioLLMProviders);
+  return `${resolveCloudModelName(modelId, portfolioLLMProviders)} (${providerLabel(provider)})`;
 }

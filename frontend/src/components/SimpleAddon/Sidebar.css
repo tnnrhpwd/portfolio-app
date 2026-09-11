@@ -191,6 +191,13 @@
   background: var(--accent-light);
 }
 
+/* A goal's own thread (see utils/simpleAddon/goalChat.js). It gets a left rule
+   as well as the 🎯 icon, so it is still identifiable when the icon is hidden
+   at small sizes or read out by a screen reader. */
+.sidebar__conv--goal {
+  box-shadow: inset 2px 0 0 var(--accent, var(--fg-blue));
+}
+
 .sidebar__conv-icon {
   font-size: 14px;
   flex-shrink: 0;

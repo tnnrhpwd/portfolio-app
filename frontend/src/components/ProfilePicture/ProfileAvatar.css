@@ -1,0 +1,38 @@
+/* ProfileAvatar — shared avatar frame (uploaded picture or checkmark fallback). */
+
+.profile-avatar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  padding: calc(var(--nav-size) * 0.05);
+  background: linear-gradient(135deg, var(--fg-orange), var(--fg-pink));
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.profile-avatar__img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  border-radius: 50%;
+  background: var(--bg-page);
+}
+
+.profile-avatar--sm {
+  width: calc(var(--nav-size) * 0.9);
+  height: calc(var(--nav-size) * 0.9);
+}
+
+.profile-avatar--md {
+  width: calc(var(--nav-size) * 1.4);
+  height: calc(var(--nav-size) * 1.4);
+}
+
+.profile-avatar--lg {
+  width: calc(var(--nav-size) * 2.2);
+  height: calc(var(--nav-size) * 2.2);
+}

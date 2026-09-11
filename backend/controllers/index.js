@@ -22,6 +22,7 @@ const { logger } = require('../utils/logger');
 const { getHomeTitle, getHomeTitleSettings, updateHomeTitleSettings } = require('./homeTitleController'); // Dynamic homepage title
 const { getPurchaseGateStatus, getPurchaseGateSettings, updatePurchaseGateSettings } = require('./purchaseGateController'); // Purchase gate (admin kill switch)
 const { getEmailPrefs, updateEmailPrefs } = require('./emailPrefsController'); // Email notification preferences
+const { updateProfile } = require('./profileController'); // Update own account profile (nickname/email/picture)
 
 // @desc    Get available LLM providers and models
 // @route   GET /api/data/llm-providers
@@ -87,4 +88,5 @@ module.exports = {
     getHomeTitle, getHomeTitleSettings, updateHomeTitleSettings,
     getPurchaseGateStatus, getPurchaseGateSettings, updatePurchaseGateSettings,
     getEmailPrefs, updateEmailPrefs,
+    updateProfile,
 };

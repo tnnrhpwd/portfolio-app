@@ -2,9 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { getLocalModels, testAddonConnection, runAddonSingleClickUpdate } from '../../services/simpleAddonApi';
 import { ADDON_DOWNLOAD_URL } from '../../hooks/simpleAddon/useAddonDetection';
 import { buildCloudModelList, FALLBACK_CLOUD_MODEL, getEffectiveCloudModelId } from '../../utils/llmProviderOptions.js';
+import { DEFAULT_CLOUD_PROVIDER, DEFAULT_LOCAL_PROVIDER, providerLabel } from '../../constants/aiModel.js';
 import UsageMeter from './UsageMeter';
 import StorageMeter from './StorageMeter';
 import AgentLivePanel from './AgentLivePanel';
+import { isGoalConversation, goalSlugFromConversation } from '../../utils/simpleAddon/goalChat';
 import './Sidebar.css';
 
 function Sidebar({
@@ -94,9 +96,9 @@ function Sidebar({
   );
 
   // The effective model depends on the provider. Older stored settings may
-  // still carry a retired model id (e.g. 'gpt-4o-mini') — validate against
-  // the live cloud model list instead of trusting a stored id just because
-  // it's truthy.
+  // still carry a retired model id (from before the AWS Bedrock migration) —
+  // validate against the live cloud model list instead of trusting a stored
+  // id just because it's truthy.
   const effectiveModel = isPortfolio
     ? getEffectiveCloudModelId(settings?.portfolioModel, portfolioLLMProviders)
     : selectedModel;
@@ -154,23 +156,31 @@ function Sidebar({
 
           {showConversations && (
             <div className="sidebar__conversations-list" id="sidebar-conversations-list">
-              {conversations.map(conv => (
-                <div
-                  key={conv.id}
-                  className={`sidebar__conv ${conv.id === activeConversationId ? 'sidebar__conv--active' : ''}`}
-                  onClick={() => onSelectConversation(conv.id)}
-                >
-                  <span className="sidebar__conv-icon">💬</span>
-                  <span className="sidebar__conv-title">{conv.title}</span>
-                  <button
-                    className="sidebar__conv-delete"
-                    onClick={(e) => { e.stopPropagation(); onDeleteConversation(conv.id); }}
-                    title="Delete conversation"
+              {conversations.map(conv => {
+                // A goal's thread wears the goal's own mark, so the list reads as
+                // "my chats + the goals the agent is working on", not a pile of
+                // identically-labelled conversations.
+                const goalChat = isGoalConversation(conv);
+                return (
+                  <div
+                    key={conv.id}
+                    className={`sidebar__conv ${conv.id === activeConversationId ? 'sidebar__conv--active' : ''} ${goalChat ? 'sidebar__conv--goal' : ''}`}
+                    onClick={() => onSelectConversation(conv.id)}
                   >
-                    ×
-                  </button>
-                </div>
-              ))}
+                    <span className="sidebar__conv-icon" aria-hidden="true">{goalChat ? '🎯' : '💬'}</span>
+                    <span className="sidebar__conv-title" title={goalChat ? `Goal: ${goalSlugFromConversation(conv)}` : conv.title}>
+                      {conv.title}
+                    </span>
+                    <button
+                      className="sidebar__conv-delete"
+                      onClick={(e) => { e.stopPropagation(); onDeleteConversation(conv.id); }}
+                      title="Delete conversation"
+                    >
+                      ×
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -372,8 +382,8 @@ function Sidebar({
                   value={settings?.llmProvider || 'portfolio'}
                   onChange={e => onSettingsChange({ ...settings, llmProvider: e.target.value })}
                 >
-                  <option value="portfolio">☁️ Cloud (AWS Bedrock)</option>
-                  {isAddonConnected && <option value="local">💻 Local (HuggingFace)</option>}
+                  <option value="portfolio">☁️ Cloud ({providerLabel(DEFAULT_CLOUD_PROVIDER)})</option>
+                  {isAddonConnected && <option value="local">💻 {providerLabel(DEFAULT_LOCAL_PROVIDER)}</option>}
                 </select>
               </div>
 
@@ -384,8 +394,8 @@ function Sidebar({
                   {!isPortfolio && <span style={{ fontSize: '10px', color: 'var(--accent)', marginLeft: '4px' }}>💻 Local</span>}
                 </label>
                 {isPortfolio ? (
-                  // Cloud is a single fixed model (AWS Bedrock Claude Haiku 4.5) — no
-                  // selector needed, just show what's actually being used.
+                  // Show the cloud model actually in use (resolved from the live
+                  // provider list). The full picker lives in Advanced Settings.
                   <div className="sidebar__static-value">
                     {(portfolioModels.find(m => m.id === effectiveModel)?.name) || FALLBACK_CLOUD_MODEL.name}
                   </div>

@@ -46,6 +46,7 @@ const {
   getHomeTitle, getHomeTitleSettings, updateHomeTitleSettings,
   getPurchaseGateStatus, getPurchaseGateSettings, updatePurchaseGateSettings,
   getEmailPrefs, updateEmailPrefs,
+  updateProfile,
 } = require('../controllers');
 
 // File upload controller
@@ -418,6 +419,21 @@ const fileProcessUpload = multer({
 router.post('/process-file', protect, uploadLimiter, fileProcessUpload, processFileUpload);
 
 // Protected Data CRUD (with sanitization on write operations)
+//
+// NOTE: the profile route MUST be registered before the generic `/:id` route
+// below — Express matches in declaration order, so otherwise `PUT /profile`
+// would be captured as `PUT /:id` (id="profile") and hit putHashData instead.
+// Deliberately NOT passed through `sanitizeInput`: the handler validates every
+// field itself, and sanitize-html would have to be trusted not to mangle the
+// base64 data URL that carries the picture.
+router.put('/profile', protect, updateProfile);
+
+// Email notification preferences — same ordering constraint as /profile above:
+// registered here so `PUT /email-preferences` isn't swallowed by `PUT /:id`.
+router.route('/email-preferences')
+  .get(protect, getEmailPrefs)
+  .put(protect, sanitizeInput, updateEmailPrefs);
+
 router.route('/')
   .get(protect, getHashData)
   .post(protect, sanitizeInput, upload.any(), postHashData);
@@ -448,11 +464,6 @@ router.put('/ocr-update/:id', protect, ocrLimiter, updateWithOCR);
 router.get('/subscription', protect, getUserSubscription);
 router.get('/storage', protect, getUserStorage);
 router.get('/usage', protect, getUserUsageData);
-
-// Email notification preferences (per-user opt-in/opt-out)
-router.route('/email-preferences')
-  .get(protect, getEmailPrefs)
-  .put(protect, sanitizeInput, updateEmailPrefs);
 
 // ============================================================================
 // PAYMENT & BILLING (Stripe)

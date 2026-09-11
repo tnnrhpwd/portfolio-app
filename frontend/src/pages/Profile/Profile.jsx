@@ -13,8 +13,19 @@ import {
   isProTier,
 } from '../../constants/pricing.js';
 import usePurchaseGate from '../../hooks/usePurchaseGate.js';
+import ProfileAvatar from '../../components/ProfilePicture/ProfileAvatar.jsx';
+import { providerLabel } from '../../constants/aiModel.js';
 import './Profile.css';
-import HeaderLogo from '../../../src/assets/Checkmark512.png';
+
+// Emoji + qualifier for each usage record's `api` key. The provider *name*
+// comes from the shared aiModel constants so it can't drift from the rest of
+// the UI (this list used to hardcode "AWS Bedrock"/"OpenAI" here).
+const USAGE_API_LABELS = {
+  bedrock: `☁️ ${providerLabel('bedrock')}`,
+  deepseek: `☁️ ${providerLabel('deepseek')}`,
+  openai: `🧾 ${providerLabel('openai')} (OCR)`,
+  github: `🤖 ${providerLabel('github')} (legacy)`,
+};
 
 const formatDateLabel = (value) => (
   value ? new Date(value).toLocaleDateString() : 'Unknown'
@@ -162,6 +173,15 @@ function Profile() {
     navigate('/settings');
   };
 
+  /**
+   * Jump to the matching section of /settings, which owns every "edit my
+   * account" control. The hash tells Settings which section to scroll to and
+   * briefly highlight; the profile picture lives in the "photo" section.
+   */
+  const goToSettings = (section) => {
+    navigate(`/settings#${section}`);
+  };
+
   const handleSubscriptionChange = (event) => {
     const newPlan = event.target.value;
 
@@ -203,9 +223,8 @@ function Profile() {
     ? userStorage.storageBreakdown.slice(0, 5)
     : [];
   const isRefreshingUsage = userUsageIsLoading || userStorageIsLoading;
-  const themeModeLabel = currentColorMode === 'system'
-    ? 'System'
-    : `${currentColorMode.charAt(0).toUpperCase()}${currentColorMode.slice(1)}`;
+  const planLabel = isProTier(currentPlan) ? 'Pro' : 'Free';
+  const hasCustomPicture = Boolean(user?.profilePicture);
 
   if (dataIsLoading) {
     return <Spinner />;
@@ -225,13 +244,34 @@ function Profile() {
           <div className="planit-profile-shell">
             <section className="planit-profile-hero">
               <div className="planit-profile-hero-main">
-                <div className="planit-profile-avatar">
-                  <img src={HeaderLogo} alt="Profile Avatar" className="profile-picture" />
-                </div>
+                <button
+                  type="button"
+                  className="planit-profile-avatar"
+                  onClick={() => goToSettings('photo')}
+                  aria-label={hasCustomPicture ? 'Change profile picture' : 'Upload a profile picture'}
+                  title="Change profile picture"
+                >
+                  <ProfileAvatar
+                    picture={user.profilePicture}
+                    name={user.nickname}
+                    size="lg"
+                  />
+                  <span className="planit-profile-avatar-camera" aria-hidden="true">📷</span>
+                </button>
                 <div className="planit-profile-heading-copy">
                   <span className="planit-profile-eyebrow">Account hub</span>
                   <h1 className="planit-profile-heading-title">Welcome back, {user.nickname}!</h1>
+                  <p className="planit-profile-heading-subtitle">
+                    {planLabel} plan · Member since {profileCreatedLabel}
+                  </p>
                 </div>
+                <button
+                  type="button"
+                  className="planit-profile-edit-button"
+                  onClick={() => goToSettings('identity')}
+                >
+                  ✏️ Edit profile
+                </button>
               </div>
             </section>
 
@@ -259,18 +299,42 @@ function Profile() {
                       <div>
                         <span className="planit-profile-section-kicker">Identity</span>
                         <h2 className="planit-profile-section-title">Account information</h2>
+                        <p className="planit-profile-section-hint">
+                          Tap any field to change it in Settings.
+                        </p>
                       </div>
                     </div>
 
                     <div className="planit-profile-info-grid">
-                      <div className="planit-profile-info-item">
+                      <button
+                        type="button"
+                        className="planit-profile-info-item planit-profile-info-item-editable"
+                        onClick={() => goToSettings('identity')}
+                      >
                         <span className="planit-profile-info-label">👤 Profile name</span>
                         <span className="planit-profile-info-value">{user.nickname}</span>
-                      </div>
-                      <div className="planit-profile-info-item">
+                        <span className="planit-profile-info-chevron" aria-hidden="true">→</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="planit-profile-info-item planit-profile-info-item-editable"
+                        onClick={() => goToSettings('identity')}
+                      >
                         <span className="planit-profile-info-label">📧 Email</span>
                         <span className="planit-profile-info-value">{user.email || 'Not provided'}</span>
-                      </div>
+                        <span className="planit-profile-info-chevron" aria-hidden="true">→</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="planit-profile-info-item planit-profile-info-item-editable"
+                        onClick={() => goToSettings('photo')}
+                      >
+                        <span className="planit-profile-info-label">🖼️ Profile picture</span>
+                        <span className="planit-profile-info-value">
+                          {hasCustomPicture ? 'Custom photo' : 'Default checkmark'}
+                        </span>
+                        <span className="planit-profile-info-chevron" aria-hidden="true">→</span>
+                      </button>
                       <div className="planit-profile-info-item">
                         <span className="planit-profile-info-label">📅 Account created</span>
                         <span className="planit-profile-info-value">{profileCreatedLabel}</span>
@@ -449,6 +513,13 @@ function Profile() {
                         <span className="planit-profile-section-kicker">Experience</span>
                         <h2 className="planit-profile-section-title">Preferences</h2>
                       </div>
+                      <button
+                        type="button"
+                        className="planit-profile-section-link"
+                        onClick={() => goToSettings('appearance')}
+                      >
+                        More in Settings →
+                      </button>
                     </div>
 
                     <div className="planit-profile-settings-grid">
@@ -572,10 +643,7 @@ function Profile() {
                                 <div key={index} className="usage-breakdown-item">
                                   <div className="usage-api-info">
                                     <span className="api-name">
-                                      {entry.api === 'bedrock' && '☁️ AWS Bedrock'}
-                                      {entry.api === 'openai' && '🧾 OpenAI (OCR)'}
-                                      {entry.api === 'github' && '🤖 GitHub Models (legacy)'}
-                                      {!['bedrock', 'openai', 'github'].includes(entry.api) && `🔧 ${entry.api}`}
+                                      {USAGE_API_LABELS[entry.api] || `🔧 ${providerLabel(entry.api)}`}
                                     </span>
                                     <span className="api-date">{entry.fullDate}</span>
                                   </div>
@@ -638,14 +706,14 @@ function Profile() {
                 <h2 className="planit-profile-actions-title">Keep your workspace tuned up</h2>
               </div>
               <div className="planit-profile-actions-buttons">
+                <button className="planit-profile-edit-button planit-profile-edit-button-solid" onClick={navigateToSettings}>
+                  ✏️ Edit profile
+                </button>
                 <button className="planit-profile-net-button" onClick={() => navigate('/net')}>
-                  🤖 Open AI Chat
+                  💬 Open AI Chat
                 </button>
                 <button className="planit-profile-settings-button" onClick={() => navigate('/simple')}>
-                  🧭 Learn about Simple
-                </button>
-                <button className="planit-profile-settings-button" onClick={navigateToSettings}>
-                  ⚙️ Advanced Settings
+                  🎛️ Control center
                 </button>
                 <button className="planit-profile-logout-button" onClick={onLogout}>
                   🚪 Sign Out

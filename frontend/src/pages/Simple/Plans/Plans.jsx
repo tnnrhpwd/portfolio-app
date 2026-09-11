@@ -44,6 +44,7 @@ import {
   groupGoals,
   goalStats,
   isAgentReady,
+  hasBeenEnlisted,
 } from './plansUtils';
 import './Plans.css';
 
@@ -484,13 +485,31 @@ function Plans() {
 
   const openGoal = (item) => { if (item.type === 'goal') navigate(`/plans/goal/${item._id}`); };
 
+  /**
+   * Hand a goal to the agent *through its conversation* on /net.
+   *
+   * Enlisting is deliberately not a page: the run happens in the goal's own
+   * chat thread, so the output is visible as it lands, and the thread's history
+   * is what a follow-up instruction is read against — which is what lets the
+   * user keep iterating on the same goal without re-describing it.
+   */
+  const openAgentChat = (item, enlist = false) => {
+    if (!item || item.type !== 'goal') return;
+    const params = new URLSearchParams({ goal: item._id });
+    if (enlist) params.set('enlist', '1');
+    navigate(`/net?${params.toString()}`);
+  };
+
   const handleEnlist = (item) => {
     if (enlisting === item._id) return;
     setEnlisting(item._id);
-    // Enlistment happens on the goal page (with scope + context).
-    navigate(`/plans/goal/${item._id}`);
-    setTimeout(() => setEnlisting(null), 600);
+    openAgentChat(item, true);
+    // /net takes over from here; this only clears the transient label if the
+    // navigation is blocked (e.g. a gated route bouncing back).
+    setTimeout(() => setEnlisting(null), 2000);
   };
+
+  const handleViewAgent = (item) => openAgentChat(item, false);
 
   const clearFilters = () => { setSearch(''); setStatusFilter('all'); setPriorityFilter('all'); };
 
@@ -985,6 +1004,7 @@ function Plans() {
                             onEdit={openEditGoal}
                             onOpen={openGoal}
                             onEnlist={handleEnlist}
+                            onViewAgent={handleViewAgent}
                             enlisting={enlisting}
                           />
                         ))}
@@ -1126,7 +1146,7 @@ function EmptyState({ icon, title, action }) {
 
 // -- Goal card ----------------------------------------------------------------
 
-function GoalCard({ item, onStatusChange, onDelete, onEdit, onOpen, onEnlist, enlisting }) {
+function GoalCard({ item, onStatusChange, onDelete, onEdit, onOpen, onEnlist, onViewAgent, enlisting }) {
   const { data, updatedAt } = item;
   const status = data?.status || 'active';
   const done = status === 'done';
@@ -1135,6 +1155,7 @@ function GoalCard({ item, onStatusChange, onDelete, onEdit, onOpen, onEnlist, en
   const progress = goalProgress(data?.agent, data?.maxSteps);
   const steps = agentStepCount(data?.agent);
   const ready = isAgentReady(item);
+  const enlisted = hasBeenEnlisted(item);
   const overdue = isOverdue(data?.deadline, status);
 
   return (
@@ -1194,12 +1215,25 @@ function GoalCard({ item, onStatusChange, onDelete, onEdit, onOpen, onEnlist, en
       </div>
 
       <footer className="plans-goal-foot">
-        {ready ? (
+        {enlisted ? (
+          // Once a run exists there is a conversation to read, so the card's job
+          // flips from "start this" to "go look at it" — and the chat is where
+          // the user keeps iterating on the goal.
+          <button
+            type="button"
+            className="plans-btn plans-btn--primary plans-btn--sm"
+            onClick={() => onViewAgent(item)}
+            title="Open this goal's conversation on /net"
+          >
+            👁 View agent
+          </button>
+        ) : ready ? (
           <button
             type="button"
             className="plans-btn plans-btn--primary plans-btn--sm"
             onClick={() => onEnlist(item)}
             disabled={enlisting === item._id}
+            title="Hand this goal to the agent in its own conversation on /net"
           >
             {enlisting === item._id ? '🤖 Enlisting…' : '🤖 Enlist agent'}
           </button>

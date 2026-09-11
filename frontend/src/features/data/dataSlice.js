@@ -13,7 +13,7 @@ import { createSlice } from '@reduxjs/toolkit';
 // Import thunks from categorized files
 import { register, login, logout } from './thunks/authThunks';
 import { createData, createPublicData, getData, getPublicData, getAllData, updateData, deleteData, compressData } from './thunks/dataThunks';
-import { getUserUsage, getUserStorage, getUserSubscription, getUserBugReports, closeBugReport, getEmailPreferences, updateEmailPreferences } from './thunks/userThunks';
+import { getUserUsage, getUserStorage, getUserSubscription, getUserBugReports, closeBugReport, getEmailPreferences, updateEmailPreferences, updateProfile } from './thunks/userThunks';
 import { getPaymentMethods, deletePaymentMethod, postPaymentMethod, createCustomer, subscribeCustomer } from './thunks/paymentThunks';
 import { getMembershipPricing, getLLMProviders } from './thunks/publicThunks';
 
@@ -347,6 +347,20 @@ export const dataSlice = createSlice({
       .addCase(updateEmailPreferences.fulfilled, (state, action) => {
         state.emailPrefs = action.payload?.preferences || state.emailPrefs;
       })
+      // Profile updates (profile name, email, profile picture)
+      .addCase(updateProfile.fulfilled, (state, action) => {
+        const profile = action.payload?.profile;
+        if (profile && state.user) {
+          state.user = { ...state.user, ...profile };
+          // Keep the persisted session in sync so a reload shows the new
+          // avatar/name immediately instead of the stale cached copy.
+          try {
+            localStorage.setItem('user', JSON.stringify(state.user));
+          } catch (error) {
+            console.warn('🔧 Failed to persist updated profile:', error);
+          }
+        }
+      })
       // Auth operations
       .addCase(register.pending, (state) => {
         state.dataIsLoading = true;
@@ -463,6 +477,7 @@ export {
   getUserSubscription,
   getUserBugReports,
   closeBugReport,
+  updateProfile,
   // Payment operations
   getPaymentMethods,
   deletePaymentMethod,

@@ -211,6 +211,7 @@ const registerUser = asyncHandler(async (req, res) => {
             email,
             isAdmin: params.Item.id === process.env.ADMIN_USER_ID,
             createdAt: creationDate, // Include the birth date
+            profilePicture: null, // New accounts start with the default checkmark avatar
             token: generateToken(String(params.Item.id)),   //uses JWT secret
         });
     } catch (error) {
@@ -329,6 +330,7 @@ const loginUser = asyncHandler(async (req, res) => {
                     isAdmin: false,
                     stripe: 'guest_customer_id',
                     createdAt: guestUser.createdAt,
+                    profilePicture: null,
                     token: generateToken(String(guestUser.id)),
                 });
             }
@@ -389,6 +391,9 @@ const loginUser = asyncHandler(async (req, res) => {
                 nickname: userNickname,
                 isAdmin: user.id === process.env.ADMIN_USER_ID,
                 stripe: userStripe,
+                // Base64 data URL baked on the client; null when unset. Kept out
+                // of the pipe-delimited text blob (see profileController.js).
+                profilePicture: user.profilePicture || null,
                 token: generateToken(String(user.id)),
             };
             

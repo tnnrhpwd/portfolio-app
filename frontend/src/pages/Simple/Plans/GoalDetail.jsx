@@ -7,8 +7,10 @@ import { toast } from 'react-toastify';
 import { logout } from '../../../features/data/dataSlice.js';
 import { fetchMemoryItems, createMemoryItem } from '../../../services/memoryApi.js';
 import { startGoalAgent, getGoalAgentStatus, stopGoalAgent, recordGoalAgentResult } from '../../../services/goalAgentApi.js';
-import { runAgentMessage, getWorkspaceItem } from '../../../services/simpleAddonApi';
+import { runAgentMessage, getWorkspaceItem, mergeCloudConversations, getDeletedConversationIds } from '../../../services/simpleAddonApi';
 import SimpleNav from '../../../components/Simple/SimpleNav/SimpleNav.jsx';
+import { readLocalConversations, writeLocalConversations } from '../../../utils/simpleAddon/chatStore';
+import { agentStateFromRun, appendGoalRunToConversation } from '../../../utils/simpleAddon/goalChat';
 import './GoalDetail.css';
 
 /**
@@ -51,6 +53,11 @@ function workspaceEntryToGoal(entry) {
       priority: n != null ? (n >= 90 ? 'high' : n <= 10 ? 'low' : 'medium') : 'medium',
       deadline: null,
       agent: entry.agent || null,
+      // Kept so the goal's chat thread carries the same instructions the goal
+      // was created with (see utils/simpleAddon/goalChat).
+      successCriteria: entry.successCriteria || null,
+      constraints: entry.constraints || null,
+      maxSteps: typeof entry.maxSteps === 'number' ? entry.maxSteps : null,
     },
   };
 }
@@ -221,41 +228,45 @@ function GoalDetail() {
 
   useEffect(() => { loadLinked(); }, [loadLinked]);
 
-  // Mirror a desktop-addon run result back onto this goal so the /plans page
-  // stays the single source of truth for agent progress.
-  const mirrorAgentResult = async (res) => {
-    const ts = new Date().toISOString();
-    const steps = [];
-    const plan = [];
-    // Rebuild the full step feed from the addon's executed tool sequence so the
-    // /plans page shows what the agent did, not just the final answer.
-    for (const s of res.stepLog || []) {
-      const label = String(s.tool || 'step');
-      plan.push(label);
-      steps.push({
-        kind: s.ok === false ? 'error' : 'tool',
-        text: s.ok === false ? `${label} failed` : label,
-        ts,
-        meta: { tool: s.tool, args: s.args || {}, ok: s.ok },
-      });
-      if (s.result) {
-        steps.push({ kind: 'tool-result', text: String(s.result).slice(0, 1000), ts, meta: { tool: s.tool } });
-      }
-    }
-    if (res.result) steps.push({ kind: 'result', text: String(res.result).slice(0, 1000), ts });
-    if (!res.result && res.reason && steps.length === 0) {
-      steps.push({ kind: 'error', text: `Stopped: ${res.reason}`, ts });
-    }
-    const mappedStatus = res.status === 'done' ? 'done'
-      : (res.status === 'timeout' || res.status === 'stopped' ? 'stopped' : 'failed');
-    const agentState = {
-      status: mappedStatus,
-      summary: res.result || res.reason || '',
-      result: res.result || '',
-      steps,
-      plan,
-      source: 'addon',
+  /**
+   * Leave the run in the goal's chat thread.
+   *
+   * The thread is what /plans' "View agent" opens, so it has to know about runs
+   * no matter which enlist button started them. Written locally first (instant,
+   * and works with cloud sync off), then pushed to the cloud best-effort — the
+   * local store is enough for this browser, and /net's own poll picks up the
+   * cloud copy everywhere else.
+   */
+  const recordRunInChat = async (res) => {
+    const gd = goal?.data || {};
+    const goalRef = {
+      slug: id,
+      title: gd.title,
+      description: gd.description,
+      successCriteria: gd.successCriteria,
+      constraints: gd.constraints,
+      maxSteps: gd.maxSteps,
     };
+    if (!goalRef.slug) return;
+    const { conversations, conversation } = appendGoalRunToConversation(
+      readLocalConversations(),
+      goalRef,
+      res,
+    );
+    if (!conversation) return;
+    writeLocalConversations(conversations);
+    try {
+      await mergeCloudConversations(user.token, [conversation], getDeletedConversationIds());
+    } catch { /* the local copy already has the run */ }
+  };
+
+  // Mirror a desktop-addon run result back onto this goal so the /plans page
+  // stays the single source of truth for agent progress — and into the goal's
+  // chat conversation on /net, so a run started here leaves the same trail as
+  // one started from /plans (otherwise "View agent" would mean two things).
+  const mirrorAgentResult = async (res) => {
+    const agentState = agentStateFromRun(res);
+    const steps = agentState.steps;
     try {
       await recordGoalAgentResult(user.token, id, agentState);
       setAgent((prev) => ({ ...(prev || {}), ...agentState, steps: [...(prev?.steps || []), ...steps] }));
@@ -263,6 +274,7 @@ function GoalDetail() {
       // Mirroring is best-effort; never block the success toast on it.
       if (!handleAuthError(e)) console.warn('[GoalDetail] mirror failed:', e.message);
     }
+    recordRunInChat(res);
   };
 
   const handleAddLink = async (e) => {
@@ -426,11 +438,12 @@ function GoalDetail() {
                   })}
                 </ol>
 
-                {/* The goal's own text is already loaded as context on /net, so
-                    these hand off without needing to retype anything. */}
+                {/* The goal's own thread on /net is where its runs are also
+                    recorded, so the hand-off opens *that* conversation rather
+                    than dropping the user into a random one. */}
                 <div className="goal-detail-handoff">
-                  <Link className="goal-detail-handoff-link" to="/net">
-                    💬 Ask about this on /net
+                  <Link className="goal-detail-handoff-link" to={`/net?goal=${encodeURIComponent(id)}`}>
+                    💬 Agent chat on /net
                   </Link>
                   <Link className="goal-detail-handoff-link" to="/simple">
                     🎛️ Watch it on the control panel

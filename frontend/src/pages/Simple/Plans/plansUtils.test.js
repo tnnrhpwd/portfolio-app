@@ -18,6 +18,7 @@ import {
   goalStats,
   isTerminalStatus,
   isAgentReady,
+  hasBeenEnlisted,
 } from './plansUtils';
 
 const goal = (over = {}) => ({
@@ -272,5 +273,15 @@ describe('plansUtils · terminal / agent-ready', () => {
     expect(isAgentReady(goal({ status: 'failed' }))).toBe(false);
     expect(isAgentReady(goal({ status: 'paused' }))).toBe(false);
     expect(isAgentReady(null)).toBe(false);
+  });
+
+  test('hasBeenEnlisted is true once there is a run to look at', () => {
+    expect(hasBeenEnlisted(goal({ agent: null }))).toBe(false);
+    expect(hasBeenEnlisted(goal({ agent: { status: 'idle', steps: [] } }))).toBe(false);
+    expect(hasBeenEnlisted(goal({ agent: { status: 'running', steps: [] } }))).toBe(true);
+    expect(hasBeenEnlisted(goal({ agent: { status: 'done', steps: [] } }))).toBe(true);
+    expect(hasBeenEnlisted(goal({ agent: { steps: [{ kind: 'tool' }] } }))).toBe(true);
+    expect(hasBeenEnlisted(goal({ agent: { steps: 4 } }))).toBe(true);
+    expect(hasBeenEnlisted(null)).toBe(false);
   });
 });

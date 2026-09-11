@@ -2,6 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { getData, compressData, updateData, resetDataSlice, deleteData, getLLMProviders } from '../../../features/data/dataSlice.js';
+import {
+  DEFAULT_CLOUD_MODEL_ID,
+  DEFAULT_CLOUD_PROVIDER,
+  DEFAULT_DEEPSEEK_MODEL_ID,
+  DEEPSEEK_PROVIDER,
+} from '../../../constants/aiModel.js';
 import { toast } from 'react-toastify';
 import Spinner from '../../Spinner/Spinner.jsx';
 import NNetBookView from './NNetBookView.jsx';
@@ -22,8 +28,8 @@ const NNetChatView = () => {
   const [archivedChats, setArchivedChats] = useState([]);
   const [viewingArchived, setViewingArchived] = useState(false); // New state for prior chats
   const [activeChat, setActiveChat] = useState(null);
-  const [selectedProvider, setSelectedProvider] = useState('bedrock');
-  const [selectedModel, setSelectedModel] = useState('us.anthropic.claude-haiku-4-5-20251001-v1:0');
+  const [selectedProvider, setSelectedProvider] = useState(DEFAULT_CLOUD_PROVIDER);
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_CLOUD_MODEL_ID);
 
   // Get the relevant data from the state
   const { user, data, dataIsSuccess, dataIsLoading, dataIsError, dataMessage, operation, llmProviders } = useSelector(
@@ -155,10 +161,10 @@ const NNetChatView = () => {
 
   // Update model when provider changes
   useEffect(() => {
-    if (selectedProvider === 'deepseek') {
-      setSelectedModel('deepseek-chat');
-    } else if (selectedProvider === 'bedrock') {
-      setSelectedModel('us.anthropic.claude-haiku-4-5-20251001-v1:0');
+    if (selectedProvider === DEEPSEEK_PROVIDER) {
+      setSelectedModel(DEFAULT_DEEPSEEK_MODEL_ID);
+    } else if (selectedProvider === DEFAULT_CLOUD_PROVIDER) {
+      setSelectedModel(DEFAULT_CLOUD_MODEL_ID);
     }
   }, [selectedProvider]);
 

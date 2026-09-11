@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { DEFAULT_DEEPSEEK_MODEL_ID, DEEPSEEK_PROVIDER } from '../constants/aiModel.js';
 
 /**
  * Custom hook to manage all state variables for InfoData component
@@ -13,8 +14,8 @@ export const useInfoDataState = () => {
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrMethod, setOcrMethod] = useState('tesseract');
   const [ocrModel, setOcrModel] = useState('default');
-  const [llmProvider, setLlmProvider] = useState('deepseek');
-  const [llmModel, setLlmModel] = useState('deepseek-chat');
+  const [llmProvider, setLlmProvider] = useState(DEEPSEEK_PROVIDER);
+  const [llmModel, setLlmModel] = useState(DEFAULT_DEEPSEEK_MODEL_ID);
   const [editedDataText, setEditedDataText] = useState('');
   const [showFileUpload, setShowFileUpload] = useState(false);
 

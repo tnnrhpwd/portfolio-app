@@ -1,5 +1,6 @@
 import './AIWorkflowSettings.css';
 import { buildCloudModelList, getEffectiveCloudModelId } from '../../utils/llmProviderOptions.js';
+import { DEFAULT_CLOUD_PROVIDER, DEFAULT_LOCAL_PROVIDER, providerLabel } from '../../constants/aiModel.js';
 
 /**
  * AIWorkflowSettings — the single source of truth for the AI chat preferences
@@ -12,9 +13,11 @@ import { buildCloudModelList, getEffectiveCloudModelId } from '../../utils/llmPr
  * pairing, mic device selection) are intentionally NOT part of this shared
  * component — those stay in the Net Advanced Settings modal only.
  *
- * Cloud mode is a single fixed model (AWS Bedrock Claude Haiku) with no
- * tunable parameters, so the model/temperature/max-tokens/history controls
- * are only rendered once the user switches the LLM Provider to Local.
+ * Cloud mode delegates model choice to the backend's configured cloud
+ * providers (AWS Bedrock by default, plus DeepSeek when configured), so the
+ * model picker below lists whatever the live `/llm-providers` response
+ * reports. The temperature/tokens/history controls are only rendered once
+ * the user switches the LLM Provider to Local.
  *
  * @param {object} props
  * @param {object} props.settings - Current settings object (subset of csimple_device_settings).
@@ -39,16 +42,17 @@ function AIWorkflowSettings({ settings, onChange, user, cloudSyncStatus, sttSupp
             onChange={e => update('llmProvider', e.target.value)}
             className="aiw-input"
           >
-            <option value="portfolio">☁️ Cloud (AWS Bedrock)</option>
-            <option value="local">💻 Local (HuggingFace)</option>
+            <option value="portfolio">☁️ Cloud ({providerLabel(DEFAULT_CLOUD_PROVIDER)})</option>
+            <option value="local">💻 {providerLabel(DEFAULT_LOCAL_PROVIDER)}</option>
           </select>
           <span className="aiw-hint">Switch providers depending on where you want responses generated.</span>
         </div>
 
-        {/* Cloud mode offers selectable models (AWS Bedrock Claude Haiku 4.5,
-            plus DeepSeek when configured). Local mode delegates model choice
-            to the addon, so the temperature/token/history controls below are
-            only shown once the user switches to Local. */}
+        {/* Cloud mode lists whatever cloud models the backend reports (AWS
+            Bedrock by default, plus DeepSeek when configured). Local mode
+            delegates model choice to the addon, so the temperature/token/
+            history controls below are only shown once the user switches to
+            Local. */}
         {isLocal ? (
           <div className="aiw-item">
             <label className="aiw-label" htmlFor="aiw-model">
@@ -71,7 +75,7 @@ function AIWorkflowSettings({ settings, onChange, user, cloudSyncStatus, sttSupp
             >
               {buildCloudModelList(portfolioLLMProviders).map(m => (
                 <option key={m.id} value={m.id}>
-                  {m.name} ({m.provider === 'deepseek' ? 'DeepSeek' : 'AWS Bedrock'})
+                  {m.name} ({providerLabel(m.provider)})
                 </option>
               ))}
             </select>

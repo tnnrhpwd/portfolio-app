@@ -357,6 +357,7 @@ marketplace, and ship privacy scrubbing before *any* publish path.
 6. ✅ **Vision re-targeting on replay** (5.3) — recovery path + UI messaging + broadened coverage (uia_invoke / click_at / browser_click) all shipped.
 7. 🟡 **Monetization seam** (8) — provider-boundary credit gate + blocked-call UX copy + state-machine unit tests shipped; a full route-layer DynamoDB/Stripe fixture pass remains.
 8. 🟡 **Onboarding/UX polish** for non-technical users — the three Simple surfaces are bound by one switcher that lives inside the site header (no extra row), `/simple` leads with the four-mode trust ladder, and `/net` opens as just the chat with the conversation rail a collapsed drawer. ⬜ Starter templates, a first-run guided demo, and the funnel gaps listed in §16.4 remain.
+9. ✅ **Goal ↔ chat link** (§16.1) — a goal has its own `/net` conversation (id derived from the slug), enlisting from `/plans` runs the goal *in* that thread, the card flips to **View agent** once a run exists, and runs started from either surface are mirrored onto the goal. ⬜ Seeding a legacy goal's recorded run into a still-empty thread.
 
 Each milestone ships with Jest unit tests and, where it touches the loop, an
 `automation/eval/scenarios/` scenario.
@@ -808,6 +809,30 @@ every page and reads as a second header.
 A goal is the object that flows between all three: you *describe* it on `/net`, it
 is *stored* on `/plans`, you *watch* it run on `/simple`, and `/plans/goal/:id`
 hand-off links send you back to either surface.
+
+**A goal has its own conversation.** Enlisting an agent is not a page you visit — it
+hands the goal to a chat thread, because that is where the output is legible and
+where iterating on it is natural ("now do the same for the screenshots folder").
+The thread's id is *derived* from the goal slug (`goal-<slug>`, see
+`frontend/src/utils/simpleAddon/goalChat.js`), so /plans, /net and every device
+compute the same conversation with no pointer to keep in sync — and it merges
+through the normal cloud conversation sync like any other chat. Concretely:
+
+- `/plans` **🤖 Enlist agent** → `/net?goal=<slug>&enlist=1`: the thread is created,
+  seeded with the goal's own words (title, description, success criteria,
+  constraints, step budget), and the run starts in it.
+- `/plans` **👁 View agent** (shown once the goal has a recorded run) and
+  `/plans/goal/:id`'s **💬 Agent chat on /net** hand-off → `/net?goal=<slug>`: open
+  the thread and keep iterating.
+- The run's result is mirrored onto the goal either way, so the `/plans` card, the
+  goal page's timeline and the thread never disagree about what happened; a run
+  started on the goal page is also written back into the thread.
+- Goal threads wear a 🎯 badge in the conversation rail and a goal bar in the chat
+  header (which is the route back to the goal's record). They keep the goal's
+  title — never the LLM's auto-title.
+
+Known edge: a goal whose run predates this link (or was mirrored without it) opens
+an empty thread; its run is still on `/plans/goal/:id`, and the goal bar points there.
 The **homepage's closing CTA band teaches this vocabulary before the visitor signs
 in**: three cards — 💬 Chat → `/net`, 🎛️ Control → `/simple`, 🎯 Goals → `/plans` —
 plus one funnel exit to `/pricing`. Keep the card titles identical to the `SimpleNav`
@@ -823,7 +848,10 @@ Home ──CTA band "See pricing"───────▶ /pricing
 /net ──header switcher───────────────▶ /simple | /plans
 /simple ──header switcher────────────▶ /net | /plans
 /plans ──header switcher─────────────▶ /net | /simple
-/plans ──goal card───────────────────▶ /plans/goal/:id ──handoff──▶ /net | /simple
+/plans ──goal card───────────────────▶ /plans/goal/:id ──handoff──▶ /net?goal=<slug> | /simple
+/plans ──"Enlist agent"──────────────▶ /net?goal=<slug>&enlist=1   (run starts in the goal's thread)
+/plans ──"View agent"────────────────▶ /net?goal=<slug>            (reopen the goal's thread)
+/net ──🎯 conversation───────────────▶ /plans/goal/:id             (chat goal bar)
 /net ──UsageMeter / chat 402 copy────▶ /pay?plan=pro
 /profile ──"Upgrade Now" ×3──────────▶ /pay?plan=pro
 /pricing ──plan card─────────────────▶ /pay?plan=<id>  (free | pro)

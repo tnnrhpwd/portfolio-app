@@ -26,6 +26,7 @@ import CommentsSection from '../../../components/InfoData/CommentsSection';
 // Utilities
 import { processDataArray } from '../../../utils/infoDataUtils';
 import { validateUpdate } from '../../../utils/validationUtils';
+import { DEFAULT_DEEPSEEK_MODEL_ID, DEEPSEEK_PROVIDER } from '../../../constants/aiModel.js';
 
 import './InfoData.css';
 
@@ -198,8 +199,8 @@ function InfoData() {
   const handleLlmProviderChange = (provider) => {
     setLlmProvider(provider);
     // Reset model to default when provider changes
-    if (provider === 'deepseek') {
-      setLlmModel('deepseek-chat');
+    if (provider === DEEPSEEK_PROVIDER) {
+      setLlmModel(DEFAULT_DEEPSEEK_MODEL_ID);
     }
   };
 
