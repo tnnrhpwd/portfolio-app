@@ -799,9 +799,10 @@ flowchart TD
     E -- no --> G{Addon reachable? local or remote}
     G -- yes --> H[Addon agent loop: classifyActionable]
     H -- actionable:true --> I[Run Windows action via addon tool registry]
-    H -- actionable:false --> J[Fall through to chat LLM]
-    G -- no --> J
-    J --> K[Chat LLM: Bedrock or DeepSeek, tool_choice auto]
+    H -- actionable:false --> J{Classifier returned chatReply?}
+    J -- yes --> R[Show reply directly - no second LLM call]
+    J -- no --> K[Chat LLM: Bedrock or DeepSeek, tool_choice auto]
+    G -- no --> K
     K --> L{LLM decides}
     L -- no tool fits --> M[Plain text reply]
     L -- cloud tool fits --> N[save_goal / generate_image / calculate / web search]
@@ -815,7 +816,7 @@ Ordered checks, first match wins:
 1. **Slash commands** (`/run`, `/goal`, `/agent`, `/help`, `/compare`, …) — deterministic, no LLM.
 2. **Client security pre-screen** (`securityCheckMessage`) — block dangerous/blocklisted commands before any network call.
 3. **Explicit PC phrasing** (`isPcControlRequest`, e.g. "on my PC") → remote addon relay (phone → cloud → desktop).
-4. **Addon reachable?** (local `localhost:3001` or remote relay) → send the message to the addon's agent loop first (below); otherwise skip straight to the chat LLM.
+4. **Addon reachable?** (local `localhost:3001` or remote relay) → send the message to the addon's agent loop first (below), which either acts or answers in a single call; otherwise skip straight to the chat LLM.
 5. **Chat LLM** — routed by the `provider` setting: `portfolio` → cloud backend (`llmService.js`); otherwise a local HuggingFace model on the addon.
 
 ### 15.2 Layer 2 — addon classifies "Windows action vs. chat" (`classifyActionable`)
@@ -823,9 +824,14 @@ Ordered checks, first match wins:
 `simple-addon/server/automation/index.js` `POST /api/agent/run`:
 
 - **Heuristic first**: action verbs ("open/list/create/run/type/click/…") vs. question/chitchat words.
-- **Ambiguous middle**: ask an LLM to answer exactly `ACT` (do something on the computer) or `CHAT` (conversational/informational).
-- `actionable: true` → run the O-O-G-P-A loop with the addon's real PC tool registry (`shell_run`, `uia_invoke`, `input_tap`, `browser_*`, …) and report the final answer back.
-- `actionable: false` → **fall through** to the normal chat LLM.
+- **Ambiguous middle**: ask an LLM — if it replies with the single word `ACT`, treat
+  it as an action; otherwise use that reply as the conversational answer.
+- `actionable: true` → run the O-O-G-P-A loop with the addon's real PC tool
+  registry (`shell_run`, `uia_invoke`, `input_tap`, `browser_*`, …) and report the
+  final answer back.
+- `actionable: false` → the classifier's reply is returned as `chatReply` and the
+  frontend shows it **directly** (one LLM call total). Only when the heuristic fast
+  path produced no `chatReply` does the message fall through to the normal chat LLM.
 
 ### 15.3 Layer 3 — cloud chat LLM decides "repo vs. cloud tool vs. reply" (`llmService.js`)
 
@@ -837,9 +843,10 @@ chooses, per turn:
 - a **cloud tool** (`save_goal`, `save_note`, `generate_image`, `calculate`, `web_search_suggestion`, …);
 - a **`repo_*` tool** → work on the repository via git (`repoAgentService.js`).
 
-Two guardrails shape this: `toolsForContext()` strips `repo_*` schemas for
-non-admins, and `repo_push` refuses to run unless the current message is an
-explicit confirmation from a previous turn.
+Guardrails shape this: `toolsForContext()` strips `repo_*` schemas for
+non-admins; `repo_push` refuses to run unless the current message is an explicit
+confirmation from a previous turn; and changes land on a `net/…` feature branch
+that `repo_push` pushes instead of committing straight to `master` (see §14).
 
 ### 15.4 Key separation (who owns what)
 
