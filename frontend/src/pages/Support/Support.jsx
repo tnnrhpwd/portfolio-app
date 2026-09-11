@@ -64,8 +64,9 @@ function Support() {
   // Bug reports management
   const { fetchUserBugReports, closeBugReport } = useBugReports(
     user,
-    setLoadingReports,
+    userBugReports,
     setUserBugReports,
+    setLoadingReports,
     setIsSubmitting
   );
 

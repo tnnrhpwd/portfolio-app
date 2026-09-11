@@ -54,15 +54,19 @@ async function request(path: string, init: RequestInit = {}): Promise<Response> 
 }
 
 interface CloudItem {
-  id?: string;
-  text?: string;
+  _id?: string;
+  data?: string;
 }
 
 async function fetchSaves(marker: string): Promise<CloudItem[]> {
   const res = await request(`?data=${encodeURIComponent(JSON.stringify({ text: marker }))}`);
   if (!res.ok) return [];
+  // GET /api/data returns { data: [{ data: <row text>, _id: <row id>, ... }] } —
+  // the row text is `data` and the row id is `_id`, NOT `text`/`id`. Reading the
+  // wrong fields filtered every row away (cloud saves never loaded) and made the
+  // delete in cloudSave() a no-op (every save created a duplicate row).
   const json = (await res.json()) as { data?: CloudItem[] };
-  return (json.data ?? []).filter((item) => (item.text ?? '').includes(marker));
+  return (json.data ?? []).filter((item) => (item.data ?? '').includes(marker));
 }
 
 async function fetchAllSaves(): Promise<CloudItem[]> {
@@ -77,7 +81,7 @@ export async function cloudLoad(): Promise<GameState | null> {
   try {
     const items = await fetchAllSaves();
     for (const item of items) {
-      const parsed = parseText(item.text ?? '');
+      const parsed = parseText(item.data ?? '');
       if (parsed) return parsed;
     }
     return null;
@@ -92,7 +96,7 @@ export async function cloudSave(state: GameState): Promise<boolean> {
   try {
     const items = await fetchAllSaves();
     await Promise.all(
-      items.map((item) => (item.id ? request(`${item.id}`, { method: 'DELETE' }) : Promise.resolve())),
+      items.map((item) => (item._id ? request(`${item._id}`, { method: 'DELETE' }) : Promise.resolve())),
     );
     const res = await request('', { method: 'POST', body: JSON.stringify({ text: buildText(state) }) });
     return res.ok;

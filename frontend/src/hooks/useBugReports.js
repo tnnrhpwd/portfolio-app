@@ -1,6 +1,6 @@
 import { useDispatch } from 'react-redux';
 import { toast } from 'react-toastify';
-import { getUserBugReports } from '../features/data/dataSlice';
+import { getUserBugReports, closeBugReport as closeBugReportThunk } from '../features/data/dataSlice';
 import { getUserIdentifier } from '../utils/supportUtils';
 
 /**
@@ -45,24 +45,29 @@ export const useBugReports = (user, userBugReports, setUserBugReports, setLoadin
     }
   };
 
-  const closeBugReport = async (reportId) => {
+  const closeBugReport = async (reportId, resolutionText = '') => {
+    if (!user) {
+      toast.error('Please log in to manage your bug reports.', { autoClose: 3000 });
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      setIsSubmitting(true);
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Update the local state to show the report as closed
-      setUserBugReports(prevReports => 
-        prevReports.map(report => 
-          report.id === reportId 
+      // Persist via PUT /api/data/:id (action: 'close_bug_report'). The backend
+      // allows the report's creator as well as an admin, so this works for the
+      // owner. Previously this only mutated local state behind a fake 1s
+      // delay, so the report reverted to Open on the next fetch.
+      await dispatch(closeBugReportThunk({ reportId, resolutionText })).unwrap();
+
+      setUserBugReports(prevReports =>
+        prevReports.map(report =>
+          report.id === reportId
             ? { ...report, status: 'Closed', updatedAt: new Date().toISOString() }
             : report
         )
       );
-      
+
       toast.success('Bug report marked as resolved!', { autoClose: 4000 });
-      
     } catch (error) {
       console.error('Error closing bug report:', error);
       toast.error('Failed to close bug report. Please try again.', { autoClose: 3000 });

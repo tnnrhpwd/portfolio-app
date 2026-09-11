@@ -30,6 +30,7 @@ const Game2048 = lazy(() => import('./pages/Projects/Game2048/Game2048'));
 const Halfway = lazy(() => import('./pages/Projects/Halfway/Halfway'));
 const Hype = lazy(() => import('./pages/Hype/Hype'));
 const IQTest = lazy(() => import('./pages/Projects/IQTest/IQTest'));
+const MicTest = lazy(() => import('./pages/MicTest/MicTest'));
 const Muse = lazy(() => import('./pages/Muse/Muse'));
 const Music = lazy(() => import('./pages/Music/Music'));
 const PassGen = lazy(() => import('./pages/Projects/PassGen/PassGen'));
@@ -139,6 +140,7 @@ function App() {
               <Route path='/music' element={<Music />} />
               <Route path='/net' element={<Net />} />
               <Route path='/market' element={<Market />} />
+              <Route path='/mic-test' element={<MicTest />} />
               <Route path='/simple' element={<Simple />} />
               <Route path='/pay' element={<Pay />} />
               <Route path='/payment-success' element={<PaymentSuccess />} />

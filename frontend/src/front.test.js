@@ -110,14 +110,6 @@ jest.mock('./pages/Simple/Plans/Plans.jsx', () => {
   const React = require('react');
   return () => React.createElement('div', null, 'Plans');
 });
-jest.mock('./pages/Simple/InfoData/InfoData.jsx', () => {
-  const React = require('react');
-  return () => React.createElement('div', null, 'InfoData');
-});
-jest.mock('./pages/Simple/InfoPlanner/InfoPlanner.jsx', () => {
-  const React = require('react');
-  return () => React.createElement('div', null, 'InfoPlanner');
-});
 
 // Mock Project pages (only the ones that actually exist)
 jest.mock('./pages/Projects/Annuities/Annuities', () => {

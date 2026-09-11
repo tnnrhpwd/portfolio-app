@@ -207,6 +207,12 @@ The rules are:
 4. **Backend** → Confirms upload and stores metadata in DynamoDB
 5. **Frontend** → Updates UI with file information
 
+> Upload constraints (allowed types + size caps) are served by
+> `GET /api/data/upload-config`, which reads `backend/constants/upload.js`.
+> The frontend validates against that response, so the client check and the
+> server validation can't drift. The same constants cap *inline* (base64)
+> attachments, which cost ~10x S3 in DynamoDB.
+
 #### File Display Process:
 1. **Frontend** → Requests data from backend
 2. **Backend** → Queries DynamoDB for file metadata (including S3 keys)

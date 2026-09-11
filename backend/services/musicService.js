@@ -789,11 +789,23 @@ async function listSongs(userId) {
   return songs;
 }
 
-/** Delete a single song by its full DynamoDB id. */
+/**
+ * Delete a single song by its raw song id.
+ *
+ * Accepts EITHER the raw `songId` or the full row id that `listSongs()` returns
+ * (`music_<userId>_<songId>`). Without the normalization the row id was
+ * prefixed a second time, so DeleteItem matched no key — which succeeds
+ * silently, making the UI delete look like it worked until the next reload.
+ */
 async function deleteSong(userId, songId) {
+  const ownerPrefix = `${MUSIC_PREFIX}${userId}_`;
+  const rawId = String(songId || '').startsWith(ownerPrefix)
+    ? String(songId).slice(ownerPrefix.length)
+    : songId;
+
   await _dynamodb.send(new DeleteCommand({
     TableName: TABLE_NAME,
-    Key: { id: `${MUSIC_PREFIX}${userId}_${songId}` },
+    Key: { id: `${ownerPrefix}${rawId}` },
   }));
 }
 

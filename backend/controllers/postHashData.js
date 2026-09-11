@@ -25,6 +25,22 @@ const {
 const { logger } = require('../utils/logger');
 const { checkPayload: checkMessageSafety } = require('../middleware/netMessageGuard.js');
 
+/**
+ * Pick the string the message pre-screen should scan.
+ *
+ * /net posts its chat payload as `data` — a JSON string, sometimes nested one
+ * level (`{ data: { data: '...' } }`) — NOT as `text`. The guard used to read
+ * `req.body.text`, which is undefined on the real chat path, so the
+ * authoritative dangerous-command pre-screen silently never ran.
+ */
+function safetyPayload(body) {
+    if (!body) return '';
+    if (typeof body.text === 'string') return body.text;
+    if (typeof body.data === 'string') return body.data;
+    if (body.data && typeof body.data.data === 'string') return body.data.data;
+    return '';
+}
+
 const {
     createOrValidateCustomer,
     validateOrRecoverCustomer,
@@ -116,7 +132,7 @@ const compressData = asyncHandler(async (req, res) => {
     // Authoritative server-side message pre-screen. The browser blocks these
     // first for a nicer UX, but a client check is bypassable — enforce here
     // before any LLM/tool processing.
-    const safety = checkMessageSafety(req.body?.text);
+    const safety = checkMessageSafety(safetyPayload(req.body));
     if (safety.blocked) {
         res.status(403);
         throw new Error(`Blocked by security policy: ${safety.reason}`);
@@ -152,7 +168,7 @@ const compressDataStream = asyncHandler(async (req, res) => {
 
     // Authoritative server-side message pre-screen (see compressData).
     // Must run before SSE headers are written so we can return a clean 403.
-    const safety = checkMessageSafety(req.body?.text);
+    const safety = checkMessageSafety(safetyPayload(req.body));
     if (safety.blocked) {
         res.status(403).json({ error: `Blocked by security policy: ${safety.reason}` });
         return;

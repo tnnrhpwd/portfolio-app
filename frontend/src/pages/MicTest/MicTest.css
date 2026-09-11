@@ -1,0 +1,214 @@
+/* MicTest — /mic-test diagnostic page.
+   Follows docs/guides/FRONTEND_UI_STANDARD.md: tokens only, --nav-size sizing,
+   animated gradient background, hairline borders, reduced-motion support. */
+
+.mic {
+  color: var(--text-color);
+  min-height: 100vh;
+  padding: calc(var(--nav-size) * 2) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.5);
+  background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
+  background-size: 400% 400%;
+  animation: micGradientShift 12s ease infinite;
+  position: relative;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.light-theme .mic { animation-duration: 15s; }
+.dark-theme .mic { animation-duration: 10s; }
+
+@keyframes micGradientShift {
+  0% { background-position: 0% 50%; }
+  25% { background-position: 100% 50%; }
+  50% { background-position: 100% 100%; }
+  75% { background-position: 0% 100%; }
+  100% { background-position: 0% 50%; }
+}
+
+.mic-floating { pointer-events: none; position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+.mic-circle {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--white1-transp, #f4f7fd33) 0%, transparent 70%);
+  animation: micFloat 6s ease-in-out infinite;
+}
+.mic-circle-1 { width: 180px; height: 180px; top: 8%; left: 6%; animation-duration: 9s; }
+.mic-circle-2 { width: 120px; height: 120px; top: 55%; right: 8%; animation-duration: 11s; animation-delay: -2s; }
+.mic-circle-3 { width: 220px; height: 220px; bottom: 5%; left: 55%; animation-duration: 13s; animation-delay: -4s; }
+
+@keyframes micFloat {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-24px) rotate(180deg); }
+}
+
+.mic-section {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.mic-hero { padding: calc(var(--nav-size) * 1.5) 0 calc(var(--nav-size) * 0.75); }
+.mic-title-wrap { text-align: center; max-width: 900px; margin: 0 auto; }
+
+.mic-eyebrow {
+  margin: 0 0 calc(var(--nav-size) * 0.2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-color-accent);
+}
+
+.mic-title {
+  margin: 0;
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.1;
+  color: var(--text-color);
+}
+
+.mic-subtitle {
+  margin: calc(var(--nav-size) * 0.25) auto 0;
+  max-width: 46ch;
+  font-size: var(--font-size-small);
+  color: var(--text-color-accent);
+}
+
+.mic-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.18);
+  justify-content: center;
+  margin-top: calc(var(--nav-size) * 0.4);
+}
+
+/* Secondary action = outline. Hover needs :not(:disabled) to outrank the
+   global button:hover gradient (see FRONTEND_UI_STANDARD / css gotchas). */
+.mic-btn-outline {
+  background: none;
+  border: 1px solid var(--border-nav);
+  color: var(--text-color);
+}
+.mic-btn-outline:hover:not(:disabled) {
+  background: var(--bg-accent);
+}
+
+.mic-main { gap: calc(var(--nav-size) * 0.4); padding-bottom: calc(var(--nav-size) * 0.5); }
+
+.mic-card {
+  width: 100%;
+  background: var(--bg-1);
+  border: 1px solid var(--border-nav);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: calc(var(--nav-size) * 0.45);
+}
+
+.mic-card__title {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.15);
+  margin: 0 0 calc(var(--nav-size) * 0.3);
+  font-size: var(--font-size-large);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-color);
+}
+
+.mic-count {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-color-accent);
+  border: 1px solid var(--border-nav);
+  border-radius: 999px;
+  padding: 0 calc(var(--nav-size) * 0.12);
+}
+
+.mic-card__footer { margin-top: calc(var(--nav-size) * 0.3); }
+
+/* Plain text button — must reset the global button chrome and win on hover. */
+.mic-link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  min-height: 0;
+  color: var(--fg-blue);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+.mic-link-btn:hover:not(:disabled) {
+  background: none;
+  text-decoration: underline;
+}
+
+.mic-checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: calc(var(--nav-size) * 0.18); }
+.mic-checks__item { display: flex; align-items: flex-start; gap: calc(var(--nav-size) * 0.18); }
+.mic-checks__label { display: flex; flex-direction: column; font-size: var(--font-size-small); color: var(--text-color); }
+.mic-checks__hint { font-size: var(--font-size-xs); color: var(--text-color-accent); }
+
+.mic-pill {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: calc(var(--nav-size) * 0.5);
+  padding: 0 calc(var(--nav-size) * 0.12);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  border-radius: 999px;
+  border: 1px solid var(--border-nav);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.mic-pill--ok { color: var(--fg-mint); border-color: var(--fg-mint); }
+.mic-pill--bad { color: var(--fg-orange); border-color: var(--fg-orange); }
+.mic-pill--muted { color: var(--text-color-accent); }
+
+.mic-devices { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: calc(var(--nav-size) * 0.25); }
+.mic-device__head { display: flex; align-items: baseline; justify-content: space-between; gap: calc(var(--nav-size) * 0.2); }
+.mic-device__name { font-size: var(--font-size-small); color: var(--text-color); overflow-wrap: anywhere; }
+.mic-device__status { font-size: var(--font-size-xs); color: var(--text-color-accent); white-space: nowrap; }
+
+.mic-device__meter {
+  margin-top: calc(var(--nav-size) * 0.12);
+  height: calc(var(--nav-size) * 0.18);
+  min-height: 6px;
+  border-radius: 999px;
+  background: var(--bg-accent);
+  border: 1px solid var(--border-nav);
+  overflow: hidden;
+}
+.mic-device__meter.is-failed { opacity: 0.5; }
+.mic-device__meter-fill {
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--fg-mint), var(--fg-blue), var(--fg-pink));
+  transition: width 80ms linear;
+}
+
+.mic-empty { margin: 0; font-size: var(--font-size-small); color: var(--text-color-accent); }
+
+.mic-steps { margin: 0; padding-left: calc(var(--nav-size) * 0.5); display: flex; flex-direction: column; gap: calc(var(--nav-size) * 0.15); }
+.mic-steps li { font-size: var(--font-size-small); color: var(--text-color-accent); }
+
+/* Scroll reveal */
+.mic-reveal { opacity: 0; transform: translateY(12px); transition: opacity 400ms ease, transform 400ms ease; }
+.mic-reveal.is-visible { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mic,
+  .mic-circle,
+  .mic-reveal {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
