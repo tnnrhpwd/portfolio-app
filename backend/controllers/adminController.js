@@ -12,7 +12,10 @@
 const asyncHandler = require('express-async-handler');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand, QueryCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
-const { normalizePlanName, isPaidTier, PLAN_IDS, MONTHLY_PRICES } = require('../constants/pricing');
+const { normalizePlanName, isPaidTier, PLAN_IDS, MONTHLY_PRICES, formatBytes } = require('../constants/pricing');
+const { calculateItemSize } = require('../utils/storageTracker');
+const { isS3Backed, inlineBytesOf } = require('../utils/inlineFileGuard');
+const { estimateS3StorageCost, estimateDynamoStorageCost } = require('../constants/costs');
 const { isSpecialUser, refreshUserDataCache } = require('../utils/apiUsageTracker');
 const { createMemoryItem } = require('../services/memoryService');
 const { runGoalAgent } = require('../services/goalAgentService');
@@ -284,6 +287,32 @@ const getAdminDashboard = asyncHandler(async (req, res) => {
         .slice(0, 10)
         .map(([source, count]) => ({ source, count }));
 
+    // ── Storage stats ──
+    // Uses the same per-item measure as the per-user storage meter
+    // (utils/storageTracker#calculateItemSize), so the dashboard can't
+    // disagree with what users see. S3 attachment bytes are counted separately
+    // from record (DynamoDB) bytes because they differ ~10x in price and only
+    // the DynamoDB portion is the cost problem worth watching.
+    let meteredBytes = 0;
+    let s3FileBytes = 0;
+    let inlineFileBytes = 0;
+    let fileCount = 0;
+    for (const item of allItems) {
+        meteredBytes += calculateItemSize(item);
+        for (const f of item.files || []) {
+            if (!f) continue;
+            fileCount += 1;
+            if (typeof f.size === 'number' && f.size > 0 && isS3Backed(f)) {
+                s3FileBytes += f.size;
+            } else {
+                inlineFileBytes += inlineBytesOf(f);
+            }
+        }
+    }
+    const dynamoBytes = Math.max(0, meteredBytes - s3FileBytes);
+    const s3Cost = estimateS3StorageCost(s3FileBytes);
+    const dynamoCost = estimateDynamoStorageCost(dynamoBytes);
+
     // ── Build response ──
     const dashboard = {
         overview: {
@@ -335,6 +364,23 @@ const getAdminDashboard = asyncHandler(async (req, res) => {
         reviews: {
             total:     reviews.length,
             avgRating: avgRating.toFixed(1),
+        },
+        storage: {
+            // Total that counts against each user's plan quota (records + attachments).
+            meteredBytes,
+            meteredFormatted: formatBytes(meteredBytes),
+            // Split: DynamoDB record bytes vs S3 attachment bytes.
+            dynamoBytes,
+            dynamoFormatted: formatBytes(dynamoBytes),
+            s3Bytes: s3FileBytes,
+            s3Formatted: formatBytes(s3FileBytes),
+            // Legacy base64-in-record attachments — the ~10x-per-GB kind.
+            inlineFileBytes,
+            inlineFormatted: formatBytes(inlineFileBytes),
+            fileCount,
+            estimatedMonthlyS3Cost: s3Cost.toFixed(2),
+            estimatedMonthlyDynamoCost: dynamoCost.toFixed(2),
+            estimatedMonthlyCost: (s3Cost + dynamoCost).toFixed(2),
         },
         funnel: {
             totalVisitors:      visitors.length,

@@ -53,7 +53,8 @@ const {
 const {
   requestUploadUrl,
   confirmUpload,
-  deleteUploadedFile
+  deleteUploadedFile,
+  getUploadConfig
 } = require('../controllers/fileUploadController');
 
 // Analytics controller
@@ -448,6 +449,7 @@ router.route('/:id')
 
 router.post('/upload-url', protect, uploadLimiter, requestUploadUrl);
 router.post('/upload-confirm', protect, uploadLimiter, confirmUpload);
+router.get('/upload-config', protect, getUploadConfig);
 router.delete('/file/:s3Key', protect, deleteUploadedFile);
 
 // ============================================================================

@@ -711,6 +711,20 @@ const requestUploadUrl = async (fileData, token) => {
     }
 };
 
+// Fetch upload constraints (allowed types + size caps) so the client-side
+// pre-check uses the server's real limits (backend/constants/upload.js).
+// Returns null on failure so callers can fall back to a local default.
+const getUploadConfig = async (token) => {
+    const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+    try {
+        const response = await axios.get(API_URL + 'upload-config', config);
+        return response.data;
+    } catch (error) {
+        handleTokenExpiration(error);
+        return null;
+    }
+};
+
 // Upload file directly to S3 using pre-signed URL
 const uploadFileToS3 = async (file, uploadUrl, onProgress = null) => {
     console.log('Uploading file to S3:', { name: file.name, size: file.size, type: file.type });
@@ -939,6 +953,7 @@ const dataService = {
     getEmailPreferences,
     updateEmailPreferences,
     updateProfile,
+    getUploadConfig,
     requestUploadUrl,
     uploadFileToS3,
     confirmFileUpload,

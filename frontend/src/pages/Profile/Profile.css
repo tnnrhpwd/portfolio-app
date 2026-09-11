@@ -227,10 +227,21 @@
     border-color: color-mix(in srgb, var(--text-color) 28%, transparent);
 }
 .planit-profile-edit-button:hover:not(:disabled) {
+    /* The global `button:hover:not(:disabled)` rule in index.css sets
+       `color: var(--text-color-inv)`; it has to be re-declared here or the
+       outline button's label flips to inverted-on-hover. */
     background: color-mix(in srgb, var(--text-color) 8%, transparent);
+    color: var(--text-color);
     box-shadow: none;
 }
 .planit-profile-edit-button-solid {
+    background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+    color: var(--text-color-inv);
+    border-color: transparent;
+}
+/* Declared after the plain hover rule (same specificity) so the filled variant
+   keeps its gradient and inverted label instead of collapsing to the tint. */
+.planit-profile-edit-button-solid:hover:not(:disabled) {
     background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
     color: var(--text-color-inv);
     border-color: transparent;
@@ -256,6 +267,7 @@
 .planit-profile-logout-button:hover:not(:disabled),
 .planit-profile-refresh-button:hover:not(:disabled) {
     background: var(--bg-accent);
+    color: var(--text-color);
 }
 
 .planit-profile-refresh-button[disabled] {
@@ -275,6 +287,7 @@
 }
 .planit-profile-section-link:hover:not(:disabled) {
     background: color-mix(in srgb, var(--fg-blue) 12%, transparent);
+    color: var(--fg-blue);
     transform: none;
     box-shadow: none;
 }

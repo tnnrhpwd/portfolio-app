@@ -479,7 +479,7 @@ function Profile() {
                               <span className="upgrade-icon">💾</span>
                               <div className="upgrade-text">
                                 <strong>Need more storage?</strong>
-                                <p>Pro membership includes 50 GB of storage for all your data and files.</p>
+                                <p>Pro membership includes {STORAGE_DISPLAY[PLAN_IDS.PRO]} of storage for all your data and files.</p>
                               </div>
                             </div>
                             <button

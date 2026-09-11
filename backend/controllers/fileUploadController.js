@@ -11,6 +11,12 @@ const {
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, UpdateCommand, GetCommand } = require('@aws-sdk/lib-dynamodb');
 const { logger } = require('../utils/logger');
+const { checkStorageCapacity } = require('../utils/storageTracker');
+const {
+    INLINE_FILE_LIMITS,
+    resolveAllowedFileTypes,
+    resolveMaxFileBytes,
+} = require('../constants/upload');
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -61,13 +67,40 @@ const requestUploadUrl = asyncHandler(async (req, res) => {
         throw new Error('Missing required fields: filename, contentType, and fileSize');
     }
 
+    // Enforce the plan's storage quota BEFORE the client uploads anything.
+    // This presigned-URL path is the primary upload route, so without a check
+    // here the 50 GB / 100 MB cap in constants/pricing.js would only apply to
+    // the legacy inline path. Failing at request time is also the cheapest
+    // outcome: no bytes ever reach S3 for an over-limit user.
+    //
+    // fileSize must be a positive number: a non-numeric value would otherwise
+    // skip both this quota check and the S3 size validation and still yield an
+    // upload URL.
+    const requestedBytes = Number(fileSize);
+    if (!Number.isFinite(requestedBytes) || requestedBytes <= 0) {
+        res.status(400);
+        throw new Error('fileSize must be a positive number of bytes');
+    }
+
+    const capacity = await checkStorageCapacity(req.user.id, requestedBytes);
+    if (!capacity.canStore) {
+        res.status(413).json({
+            success: false,
+            error: 'Storage limit exceeded',
+            details: capacity.reason,
+            storageLimitFormatted: capacity.storageLimitFormatted,
+            currentUsageFormatted: capacity.currentUsageFormatted,
+        });
+        return;
+    }
+
     try {
         // Generate pre-signed upload URL
         const uploadData = await generatePresignedUploadUrl(
             req.user.id,
             filename,
             contentType,
-            parseInt(fileSize),
+            requestedBytes,
             fileType
         );
 
@@ -151,9 +184,37 @@ const confirmUpload = asyncHandler(async (req, res) => {
             size: fileSize || fileMetadata.size,
             fileType: fileType || 'general',
             cloudFrontUrl: cloudFrontUrl,
+            // Alias the public URL for the render paths that look for
+            // `publicUrl` (AttachedFilesSection / DataResult). Without this,
+            // a stored S3 file falls back to base64 rendering after a reload.
+            publicUrl: cloudFrontUrl,
             uploadedAt: new Date().toISOString(),
             uploadedBy: req.user.id
         };
+
+        // Re-check the quota at confirm time: usage may have grown since the URL
+        // was issued (e.g. concurrent uploads that each passed individually).
+        // If the file would push the user over, delete the object we just
+        // received so we don't keep paying to store an orphan.
+        const confirmedBytes = Number(fileSize) || fileMetadata.size || 0;
+        if (confirmedBytes > 0) {
+            const capacity = await checkStorageCapacity(req.user.id, confirmedBytes);
+            if (!capacity.canStore) {
+                try {
+                    await deleteFile(s3Key);
+                } catch (cleanupError) {
+                    logger.warn(`Could not delete over-limit upload ${s3Key}: ${cleanupError.message}`);
+                }
+                res.status(413).json({
+                    success: false,
+                    error: 'Storage limit exceeded',
+                    details: capacity.reason,
+                    storageLimitFormatted: capacity.storageLimitFormatted,
+                    currentUsageFormatted: capacity.currentUsageFormatted,
+                });
+                return;
+            }
+        }
 
         // If dataId is provided, update existing data item
         if (dataId) {
@@ -315,8 +376,24 @@ const deleteUploadedFile = asyncHandler(async (req, res) => {
     }
 });
 
+// @desc    Upload constraints the client should validate against
+// @route   GET /api/data/upload-config
+// @access  Private
+const getUploadConfig = asyncHandler(async (req, res) => {
+    res.status(200).json({
+        success: true,
+        allowedTypes: resolveAllowedFileTypes(),
+        maxFileBytes: resolveMaxFileBytes(),
+        // Inline (base64-in-record) attachments are capped hard — anything
+        // larger must use the presigned S3 flow.
+        maxInlineFileBytes: INLINE_FILE_LIMITS.MAX_INLINE_FILE_BYTES,
+        maxInlineTotalBytes: INLINE_FILE_LIMITS.MAX_INLINE_TOTAL_BYTES,
+    });
+});
+
 module.exports = {
     requestUploadUrl,
     confirmUpload,
-    deleteUploadedFile
+    deleteUploadedFile,
+    getUploadConfig
 };

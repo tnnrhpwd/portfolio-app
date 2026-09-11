@@ -3,6 +3,7 @@ const { DynamoDBDocumentClient, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const crypto = require('crypto');
 const { logger } = require('../utils/logger');
 const { trackStorageUsage } = require('../utils/storageTracker');
+const { INLINE_FILE_LIMITS } = require('../constants/upload');
 
 // Configure AWS DynamoDB Client
 const awsClient = new DynamoDBClient({
@@ -27,15 +28,15 @@ function validateAndProcessFiles(files) {
 
     logger.debug('Processing files:', files.length);
     
-    const maxFileSize = 300 * 1024; // 300KB per file
-    const maxTotalSize = 350 * 1024; // 350KB total
+    const maxFileSize = INLINE_FILE_LIMITS.MAX_INLINE_FILE_BYTES;
+    const maxTotalSize = INLINE_FILE_LIMITS.MAX_INLINE_TOTAL_BYTES;
     
     // Validate individual file sizes
     const oversizedFiles = files.filter(file => file.size > maxFileSize);
     if (oversizedFiles.length > 0) {
         const fileNames = oversizedFiles.map(f => f.originalname).join(', ');
         logger.debug('Files rejected - too large:', fileNames);
-        const error = new Error(`Files too large: ${fileNames}. Maximum size is 300KB per file.`);
+        const error = new Error(`Files too large: ${fileNames}. Maximum size is ${Math.round(maxFileSize / 1024)}KB per file.`);
         error.statusCode = 413;
         throw error;
     }
@@ -44,7 +45,7 @@ function validateAndProcessFiles(files) {
     const totalFileSize = files.reduce((sum, file) => sum + file.size, 0);
     if (totalFileSize > maxTotalSize) {
         logger.debug('Files rejected - total size too large:', Math.round(totalFileSize/1024), 'KB');
-        const error = new Error(`Total file size (${Math.round(totalFileSize/1024)}KB) exceeds limit of 350KB.`);
+        const error = new Error(`Total file size (${Math.round(totalFileSize/1024)}KB) exceeds limit of ${Math.round(maxTotalSize / 1024)}KB.`);
         error.statusCode = 413;
         throw error;
     }
@@ -196,7 +197,8 @@ async function createDynamoDBItem(userId, textContent, actionGroupObjectContent,
         throw error;
     }
 
-    // Enforce the user's tier storage limit (100 MB Free / 50 GB Pro) before
+    // Enforce the user's tier storage limit (see STORAGE_BYTES /
+    // STORAGE_DISPLAY in constants/pricing.js) before
     // writing. The authenticated save path must honor the same limit the
     // public path (postData.js) attempts to, and which getUserStorageUsage()
     // reports in the UI. A failure in the storage *check itself* (e.g. a

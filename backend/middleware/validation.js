@@ -1,5 +1,6 @@
 const { body, validationResult } = require('express-validator');
 const rateLimit = require('express-rate-limit');
+const { MIN_CUSTOM_CREDIT_LIMIT, MAX_CUSTOM_CREDIT_LIMIT } = require('../constants/pricing');
 
 // Validation rules for user registration
 const validateRegistration = [
@@ -149,11 +150,11 @@ const validateCustomLimit = [
     .isNumeric()
     .withMessage('Custom limit must be a number')
     .custom((value) => {
-      if (value < 0.50) {
-        throw new Error('Custom limit must be at least $0.50');
+      if (value < MIN_CUSTOM_CREDIT_LIMIT) {
+        throw new Error(`Custom limit must be at least $${MIN_CUSTOM_CREDIT_LIMIT.toFixed(2)}`);
       }
-      if (value > 10000) {
-        throw new Error('Custom limit must be less than $10,000');
+      if (value > MAX_CUSTOM_CREDIT_LIMIT) {
+        throw new Error(`Custom limit must be less than $${MAX_CUSTOM_CREDIT_LIMIT.toLocaleString()}`);
       }
       return true;
     }),

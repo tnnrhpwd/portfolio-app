@@ -3,7 +3,7 @@ import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
 import SEO from '../../components/SEO/SEO.jsx';
 import useScrollReveal from '../../hooks/useScrollReveal';
-import { aiContentProcessorList, providerVendor } from '../../constants/aiModel.js';
+import { aiContentProcessorList, DEFAULT_CLOUD_PROVIDER, providerVendor } from '../../constants/aiModel.js';
 import '../legal/legal.css';
 
 const NAV_ITEMS = [
@@ -205,7 +205,7 @@ const Privacy = () => {
                                 submit &mdash; for example, generating suggestions, summarizing text, or extracting
                                 text from uploaded images and documents (OCR). To provide these features, the text or
                                 files you submit for that purpose may be sent to third-party AI providers, which may
-                                include {aiContentProcessorList()} ({providerVendor('bedrock')} Claude models), for processing.
+                                include {aiContentProcessorList()} ({providerVendor(DEFAULT_CLOUD_PROVIDER)} Claude models), for processing.
                             </p>
                             <ul>
                                 <li>Only the content necessary to complete your request is sent to these providers.</li>

@@ -187,6 +187,11 @@ function Dashboard() {
               <span className="kpi-value">{d.reviews.avgRating} ★</span>
               <span className="kpi-sub">{d.reviews.total} reviews</span>
             </div>
+            <div className="kpi-card">
+              <span className="kpi-label">Est. Storage Cost</span>
+              <span className="kpi-value">${d.storage?.estimatedMonthlyCost ?? '0.00'}</span>
+              <span className="kpi-sub">{d.storage?.meteredFormatted ?? '—'} stored</span>
+            </div>
           </div>
 
           {/* ─── Sales Funnel ─── */}
@@ -257,6 +262,61 @@ function Dashboard() {
               </div>
             </div>
           </CollapsibleSection>
+
+          {/* ─── Storage & Costs ─── */}
+          {d.storage && (
+            <CollapsibleSection title="Storage & Costs" defaultCollapsed={true}>
+              <div className="revenue-grid">
+                <div className="revenue-card">
+                  <h4>Stored Data</h4>
+                  <table className="mini-table">
+                    <thead>
+                      <tr><th>Source</th><th>Size</th><th>Est. cost/mo</th></tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="plan-name">S3 attachments</td>
+                        <td>{d.storage.s3Formatted}</td>
+                        <td>${d.storage.estimatedMonthlyS3Cost}</td>
+                      </tr>
+                      <tr>
+                        <td className="plan-name">DynamoDB records</td>
+                        <td>{d.storage.dynamoFormatted}</td>
+                        <td>${d.storage.estimatedMonthlyDynamoCost}</td>
+                      </tr>
+                      <tr className="mini-table-total">
+                        <td><strong>Total</strong></td>
+                        <td><strong>{d.storage.meteredFormatted}</strong></td>
+                        <td><strong>${d.storage.estimatedMonthlyCost}</strong></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <p className="muted">
+                    List-price estimate (us-east-1). Excludes requests, egress and CloudFront;
+                    the lifecycle rules move older S3 objects to cheaper classes, so actual S3
+                    cost is usually lower.
+                  </p>
+                </div>
+                <div className="revenue-card">
+                  <h4>Attachments</h4>
+                  <div className="recent-signups-list">
+                    <div className="signup-row">
+                      <span className="signup-name">Files stored</span>
+                      <span className="signup-date">{d.storage.fileCount}</span>
+                    </div>
+                    <div className="signup-row">
+                      <span className="signup-name">Legacy inline (base64)</span>
+                      <span className="signup-date">{d.storage.inlineFormatted}</span>
+                    </div>
+                  </div>
+                  <p className="muted">
+                    Inline attachments live in DynamoDB at ~10x S3 cost. New uploads use the
+                    presigned S3 flow.
+                  </p>
+                </div>
+              </div>
+            </CollapsibleSection>
+          )}
 
           {/* ─── Traffic Analytics ─── */}
           <CollapsibleSection title="Traffic Analytics" defaultCollapsed={true}>

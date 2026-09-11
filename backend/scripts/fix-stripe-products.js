@@ -18,11 +18,13 @@
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
-const { PLAN_TO_STRIPE_PRODUCT, PLAN_IDS } = require('../constants/pricing');
+const { PLAN_TO_STRIPE_PRODUCT, PLAN_IDS, MONTHLY_PRICES, ANNUAL_PRICES } = require('../constants/pricing');
 const { loadAllSecrets } = require('../utils/awsSecrets');
 
-const PRO_MONTHLY_CENTS = 1500; // $15.00/mo
-const PRO_ANNUAL_CENTS = 14400; // $144.00/yr
+// Amounts come from the pricing constants (dollars) → cents, so this script
+// can never disagree with the site copy or the checkout path.
+const PRO_MONTHLY_CENTS = MONTHLY_PRICES[PLAN_IDS.PRO] * 100;
+const PRO_ANNUAL_CENTS = ANNUAL_PRICES[PLAN_IDS.PRO] * 100;
 const LEGACY_PRODUCT_NAME = 'Simple Membership';
 const PRO_PRODUCT_NAME = 'Pro Membership';
 

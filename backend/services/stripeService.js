@@ -6,7 +6,7 @@ const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, PutCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
 const { sendEmail } = require('./emailService.js');
 const Data = require('../models/dataModel');
-const { STRIPE_PRODUCT_IDS, PLAN_TO_STRIPE_PRODUCT, STRIPE_PRODUCT_MAP } = require('../constants/pricing');
+const { STRIPE_PRODUCT_IDS, PLAN_TO_STRIPE_PRODUCT, STRIPE_PRODUCT_MAP, PLAN_IDS, MONTHLY_PRICES, ANNUAL_PRICES } = require('../constants/pricing');
 const { fetchRawUserRecord } = require('../utils/dynamoUser');
 
 // Shared DynamoDB client — reused across all calls to avoid creating new clients each invocation
@@ -529,7 +529,10 @@ async function getOrCreatePriceId(membershipType, customPrice = null, userId, bi
 
     // ── Test mode: find or create product & price ──
     const productName = 'Pro Membership';
-    const unitAmount = annual ? 14400 : 1500; // $15/mo or $144/yr in cents
+    // Amounts come from the pricing constants (dollars) → cents.
+    const unitAmount = annual
+        ? ANNUAL_PRICES[PLAN_IDS.PRO] * 100
+        : MONTHLY_PRICES[PLAN_IDS.PRO] * 100;
 
     // Search for existing test product by name
     const products = await s.products.list({ limit: 100, active: true });

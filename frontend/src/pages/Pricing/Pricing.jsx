@@ -3,6 +3,19 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { getMembershipPricing, getUserStorage } from '../../features/data/dataSlice';
 import { formatPrice } from '../../utils/checkoutUtils';
+import {
+  PLAN_IDS,
+  PLAN_NAMES,
+  MONTHLY_PRICES,
+  ANNUAL_PRICES,
+  AI_CREDIT_ALLOWANCE,
+  STORAGE_DISPLAY,
+  FEATURES,
+  DESCRIPTIONS,
+  COMPARISON,
+  formatUsd,
+  formatUsdCompact,
+} from '../../constants/pricing';
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
 import SEO from '../../components/SEO/SEO.jsx';
@@ -14,18 +27,26 @@ import actImg from '../../assets/art/simple-act.png';
 import repeatImg from '../../assets/art/simple-repeat.png';
 import './Pricing.css';
 
+/** Yearly-vs-monthly saving, derived so the badge can't drift from the prices. */
+const ANNUAL_SAVINGS_PERCENT = Math.round(
+  (1 - ANNUAL_PRICES[PLAN_IDS.PRO] / (MONTHLY_PRICES[PLAN_IDS.PRO] * 12)) * 100
+);
+
+const FREE_CREDITS = formatUsd(AI_CREDIT_ALLOWANCE[PLAN_IDS.FREE]);
+const PRO_CREDITS = formatUsd(AI_CREDIT_ALLOWANCE[PLAN_IDS.PRO]);
+
 const FAQ_ITEMS = [
   {
     q: 'What does Free include?',
-    a: 'AI chat with a $0.50/month cloud-credit allowance, the full Simple desktop addon with unlimited local automation, and 100 MB of cloud storage.',
+    a: `AI chat with a ${FREE_CREDITS}/month cloud-credit allowance, the full Simple desktop addon with unlimited local automation, and ${STORAGE_DISPLAY[PLAN_IDS.FREE]} of cloud storage.`,
   },
   {
     q: 'What do I get with Pro?',
-    a: 'Everything in Free, plus a $10.00/month AI credit allowance, 50 GB of storage, live screen viewing from your phone, and email support.',
+    a: `Everything in Free, plus a ${PRO_CREDITS}/month AI credit allowance, ${STORAGE_DISPLAY[PLAN_IDS.PRO]} of storage, live screen viewing from your phone, and email support.`,
   },
   {
     q: 'How does AI usage work?',
-    a: 'AI chat runs on our servers, so it is metered against a monthly cloud-credit allowance included with your plan — $0.50/month on Free, $10.00/month on Pro. When the allowance runs out, AI requests pause until the next monthly cycle. There is no bring-your-own-key option.',
+    a: `AI chat runs on our servers, so it is metered against a monthly cloud-credit allowance included with your plan — ${FREE_CREDITS}/month on Free, ${PRO_CREDITS}/month on Pro. When the allowance runs out, AI requests pause until the next monthly cycle. There is no bring-your-own-key option.`,
   },
   {
     q: 'Can I cancel anytime?',
@@ -35,14 +56,6 @@ const FAQ_ITEMS = [
     q: 'Are there hidden fees?',
     a: 'No. The price shown is what you pay. Payments are processed securely by Stripe.',
   },
-];
-
-const COMPARISON = [
-  { feature: 'AI chat (cloud credits)', free: '$0.50/month', pro: '$10.00/month' },
-  { feature: 'Local automation (Simple addon)', free: 'Unlimited', pro: 'Unlimited' },
-  { feature: 'Cloud storage', free: '100 MB', pro: '50 GB' },
-  { feature: 'Live screen viewing from phone', free: '—', pro: 'Included' },
-  { feature: 'Email support', free: 'Self-serve', pro: 'Included' },
 ];
 
 const SIMPLE_FEATURES = [
@@ -158,34 +171,25 @@ function Pricing() {
       });
     }
 
-    // Static fallback while API loads
+    // Static fallback while API loads — values come from the pricing
+    // constants so the fallback matches the live response.
     return [
       {
-        id: 'free',
-        name: 'Free',
-        price: '$0',
+        id: PLAN_IDS.FREE,
+        name: PLAN_NAMES[PLAN_IDS.FREE],
+        price: formatUsdCompact(MONTHLY_PRICES[PLAN_IDS.FREE]),
         period: 'month',
-        tagline: 'AI chat with included credits, unlimited local automation, and 100 MB storage',
-        features: [
-          'AI chat — $0.50/month cloud credits',
-          'Simple desktop addon — unlimited local automation',
-          '100 MB cloud storage',
-        ],
+        tagline: DESCRIPTIONS[PLAN_IDS.FREE],
+        features: FEATURES[PLAN_IDS.FREE],
         showAnnual: false,
       },
       {
-        id: 'pro',
-        name: 'Pro',
-        price: billingInterval === 'year' ? '$144' : '$15',
+        id: PLAN_IDS.PRO,
+        name: PLAN_NAMES[PLAN_IDS.PRO],
+        price: formatUsdCompact(billingInterval === 'year' ? ANNUAL_PRICES[PLAN_IDS.PRO] : MONTHLY_PRICES[PLAN_IDS.PRO]),
         period: billingInterval === 'year' ? 'year' : 'month',
-        tagline: 'More AI credits, 50 GB storage, phone viewing, and email support',
-        features: [
-          'Everything in Free',
-          'AI chat — $10.00/month cloud credits',
-          'Live screen viewing from your phone',
-          '50 GB cloud storage',
-          'Email support',
-        ],
+        tagline: DESCRIPTIONS[PLAN_IDS.PRO],
+        features: FEATURES[PLAN_IDS.PRO],
         showAnnual: true,
       },
     ];
@@ -266,7 +270,7 @@ function Pricing() {
                   className={billingInterval === 'year' ? 'active' : ''}
                   onClick={() => setBillingInterval('year')}
                 >
-                  Yearly <span className="pricing-toggle-save">save 20%</span>
+                  Yearly <span className="pricing-toggle-save">save {ANNUAL_SAVINGS_PERCENT}%</span>
                 </button>
               </div>
             )}

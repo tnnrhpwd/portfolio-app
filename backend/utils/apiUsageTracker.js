@@ -1,7 +1,7 @@
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand, PutCommand, GetCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
 const { getStripe, liveStripe: stripe } = require('./stripeInstance');
-const { PLAN_IDS, isProTier, STRIPE_PRODUCT_IDS, STRIPE_PRODUCT_MAP } = require('../constants/pricing');
+const { PLAN_IDS, PLAN_NAMES, AI_CREDIT_ALLOWANCE, isProTier, STRIPE_PRODUCT_IDS, STRIPE_PRODUCT_MAP } = require('../constants/pricing');
 const { redactUser } = require('./sanitizeUserText');
 const { logger } = require('./logger');
 
@@ -52,12 +52,15 @@ const API_COSTS = {
 // metered; there is no bring-your-own-key (BYOK) option.
 //
 // Sized against Bedrock's actual per-token cost (API_COSTS.bedrock: $1/$5 per
-// million input/output tokens): $0.50/mo covers roughly 500K Haiku tokens —
-// generous for typical chat usage while still bounding worst-case cost per
-// free account. Tune these to taste; they're just plain USD caps.
+// million input/output tokens): the Free allowance covers roughly 500K Haiku
+// tokens — generous for typical chat usage while still bounding worst-case
+// cost per free account.
+//
+// DERIVED from AI_CREDIT_ALLOWANCE in constants/pricing.js, so the metered
+// limit and the pricing copy can never disagree. Change it there, not here.
 const MEMBERSHIP_LIMITS = {
-    Free: 0.50,
-    Pro: 10.00,
+    [PLAN_NAMES[PLAN_IDS.FREE]]: AI_CREDIT_ALLOWANCE[PLAN_IDS.FREE],
+    [PLAN_NAMES[PLAN_IDS.PRO]]:  AI_CREDIT_ALLOWANCE[PLAN_IDS.PRO],
 };
 
 /**

@@ -18,12 +18,15 @@ const AttachedFilesSection = ({ files, onFileDelete, isOwner, dataId }) => {
       </h3>
       <div className='infodata-files-grid'>
         {files.map((file, index) => {
-          // Handle both old base64 files and new S3 files
-          const isS3File = file.s3Key && file.publicUrl;
+          // Handle old base64 files, S3 files, and both URL field names the
+          // backend has used (publicUrl on stored metadata, cloudFrontUrl on
+          // the upload-confirm response).
+          const s3Url = file.publicUrl || file.cloudFrontUrl || file.s3Url;
+          const isS3File = Boolean(file.s3Key && s3Url);
           const fileType = file.fileType || file.contentType;
           const fileName = file.fileName || file.filename;
           const fileUrl = isS3File 
-            ? file.publicUrl 
+            ? s3Url 
             : `data:${file.contentType};base64,${file.data}`;
 
           return (
@@ -73,7 +76,7 @@ const AttachedFilesSection = ({ files, onFileDelete, isOwner, dataId }) => {
               <div className='infodata-file-actions'>
                 {isS3File && (
                   <a 
-                    href={file.publicUrl} 
+                    href={s3Url} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className='infodata-file-action-btn infodata-file-view-btn'

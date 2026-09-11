@@ -89,7 +89,7 @@ function Sidebar({
   const selectedAgentId = settings?.selectedAgentId || 'default';
   const isPortfolio = settings?.llmProvider === 'portfolio';
 
-  // Build portfolio models list from providers (currently AWS Bedrock).
+  // Build portfolio models list from the live cloud providers.
   const portfolioModels = React.useMemo(
     () => buildCloudModelList(portfolioLLMProviders),
     [portfolioLLMProviders]

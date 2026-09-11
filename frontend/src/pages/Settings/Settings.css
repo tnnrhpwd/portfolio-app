@@ -335,6 +335,9 @@
 .planit-settings-logout-button:hover:not(:disabled),
 .planit-settings-font-reset:hover:not(:disabled) {
     background: var(--bg-accent);
+    /* Re-declared to beat the global `button:hover:not(:disabled)` rule in
+       index.css, which would otherwise flip these labels to inverted text. */
+    color: var(--text-color);
 }
 
 .planit-settings-text-button {
@@ -346,6 +349,7 @@
 }
 .planit-settings-text-button:hover:not(:disabled) {
     background: color-mix(in srgb, var(--red0) 12%, transparent);
+    color: var(--red0);
     transform: none;
     box-shadow: none;
 }

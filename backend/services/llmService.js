@@ -9,7 +9,7 @@ const {
     streamCompletion,
 } = require('../utils/llmProviders.js');
 const { createBedrockCompletion, streamBedrockCompletion, BEDROCK_MODEL_ID } = require('./bedrockService.js');
-const { isProTier } = require('../constants/pricing.js');
+const { isProTier, PLAN_IDS, PLAN_NAMES, MONTHLY_PRICES, STORAGE_DISPLAY, formatUsdCompact } = require('../constants/pricing.js');
 const { getGoalsSummary, logAction } = require('./memoryService.js');
 const { TOOL_SCHEMAS, executeTool } = require('./netTools.js');
 const { buildWorkspaceContext } = require('./workspaceContext.js');
@@ -320,9 +320,13 @@ function injectMembershipContext(systemParts, user) {
         }
     }
 
+    // Derived from the pricing constants so the AI's plan description can't
+    // drift from the site copy (STORAGE_DISPLAY / MONTHLY_PRICES).
+    const freeStorage = STORAGE_DISPLAY[PLAN_IDS.FREE].replace(' ', '');
+    const proStorage = STORAGE_DISPLAY[PLAN_IDS.PRO].replace(' ', '');
     const tierFeatures = {
-        Free: 'Free tier (unlimited local automation commands, 100MB storage, included monthly cloud AI credits).',
-        Pro: 'Pro tier ($15/mo — unlimited local automation commands, 50GB storage, included monthly cloud AI credits, phone-to-PC remote, email support).',
+        [PLAN_NAMES[PLAN_IDS.FREE]]: `${PLAN_NAMES[PLAN_IDS.FREE]} tier (unlimited local automation commands, ${freeStorage} storage, included monthly cloud AI credits).`,
+        [PLAN_NAMES[PLAN_IDS.PRO]]: `${PLAN_NAMES[PLAN_IDS.PRO]} tier (${formatUsdCompact(MONTHLY_PRICES[PLAN_IDS.PRO])}/mo — unlimited local automation commands, ${proStorage} storage, included monthly cloud AI credits, phone-to-PC remote, email support).`,
     };
 
     const tierDesc = tierFeatures[rank] || tierFeatures.Free;

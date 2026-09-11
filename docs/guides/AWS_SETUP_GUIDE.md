@@ -119,6 +119,27 @@ AWS_S3_REGION=us-east-1
 USE_CLOUDFRONT=true
 ```
 
+Optional cost/behaviour knobs (all have sane defaults — see `backend/services/s3Service.js`):
+
+```env
+# Browser/CloudFront cache TTL for uploaded files (keys are immutable, so a
+# long TTL is safe and cuts repeat egress).
+S3_CACHE_CONTROL=public, max-age=31536000, immutable
+
+# Applied to NEW objects only. Leave unset and let the lifecycle rules below
+# age objects to cheaper classes instead — Intelligent-Tiering charges a
+# per-object monitoring fee that is a bad trade for many small files.
+# S3_UPLOAD_STORAGE_CLASS=INTELLIGENT_TIERING
+
+# Presigned upload URL lifetime (seconds).
+S3_PRESIGNED_URL_EXPIRES=900
+
+# Lifecycle thresholds used by scripts/configure-s3-lifecycle.js.
+S3_IA_AFTER_DAYS=30
+S3_GLACIER_IR_AFTER_DAYS=90
+S3_ABORT_MULTIPART_DAYS=7
+```
+
 ### Step 4: Test the Setup
 
 #### 4.1 Test File Upload
@@ -137,6 +158,45 @@ USE_CLOUDFRONT=true
 1. Upload an image file
 2. Use the OCR extraction feature
 3. Verify it works with S3 URLs (no more connection resets!)
+
+### Step 5: Storage cost controls
+
+Storage is the one line item that grows with every upload and never shrinks on
+its own, so the bucket runs on **lifecycle rules** that age objects into cheaper
+storage classes. Transitions are free; only Intelligent-Tiering charges a
+per-object monitoring fee (poor value for many small files).
+
+| Class | us-east-1 list price | Notes |
+|---|---|---|
+| S3 Standard | ~$0.023/GB-month | New objects |
+| Standard-IA | ~$0.0125/GB-month | after 30 days, min 30-day stay |
+| Glacier Instant Retrieval | ~$0.004/GB-month | after 90 days, still millisecond access |
+
+Apply/refresh the rules (dry run by default):
+
+```bash
+# Preview what would change
+node backend/scripts/configure-s3-lifecycle.js
+
+# Show bucket size + projected storage cost per class
+node backend/scripts/configure-s3-lifecycle.js --size
+
+# Write the rules
+node backend/scripts/configure-s3-lifecycle.js --apply
+```
+
+`create-s3-bucket.js` also applies these rules automatically to a new bucket.
+The rules are:
+
+- `users/` → Standard-IA after 30 days → Glacier IR after 90 days
+- abort incomplete multipart uploads after 7 days (they accrue cost silently)
+
+> **Egress is the other cost to watch.** First 100 GB/month out to the internet
+> is free across AWS, then roughly $0.09/GB from S3 — CloudFront is cheaper
+> (and has a larger free tier), which is why the upload path sets a long
+> `Cache-Control` and why direct-from-S3 URLs are a fallback, not the plan.
+> The backend logs a startup warning if `USE_CLOUDFRONT=true` but
+> `AWS_CLOUDFRONT_DOMAIN` is missing or still the placeholder.
 
 ### The Complete Workflow (As Implemented)
 

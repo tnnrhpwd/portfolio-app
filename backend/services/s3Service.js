@@ -4,6 +4,12 @@ const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const { randomUUID } = require('crypto');
 require('dotenv').config();
 const { logger } = require('../utils/logger');
+const {
+    BLOCKED_EXTENSIONS,
+    EXTENSION_CONTENT_TYPES,
+    resolveAllowedFileTypes,
+    resolveMaxFileBytes,
+} = require('../constants/upload');
 
 // Enhanced S3 client with configuration
 const s3Client = new S3Client({
@@ -21,12 +27,38 @@ const s3Client = new S3Client({
 // Configuration from environment variables
 const USE_CLOUDFRONT = process.env.USE_CLOUDFRONT !== 'false';
 const PRESIGNED_URL_EXPIRES = parseInt(process.env.S3_PRESIGNED_URL_EXPIRES) || 900;
-const MAX_FILES_PER_UPLOAD = parseInt(process.env.MAX_FILES_PER_UPLOAD) || 5;
+
+// Objects are stored under immutable keys (timestamp + random suffix), so a
+// long browser/CloudFront TTL is safe and cuts repeat egress + origin GETs.
+const CACHE_CONTROL = process.env.S3_CACHE_CONTROL || 'public, max-age=31536000, immutable';
+
+// Optional storage class applied to NEW objects (e.g. INTELLIGENT_TIERING).
+// Left unset by default: the lifecycle rules in
+// scripts/configure-s3-lifecycle.js age objects into cheaper classes without
+// Intelligent-Tiering's per-object monitoring fee, which is a poor trade for
+// many small files.
+const UPLOAD_STORAGE_CLASS = process.env.S3_UPLOAD_STORAGE_CLASS || undefined;
+
+// Egress is the one S3 line item that can quietly grow, and CloudFront is
+// both cheaper than direct-from-S3 egress and has a generous free tier. Warn
+// once at boot if the app is configured to use CloudFront but the domain is
+// missing/placeholder, because that silently falls back to direct S3 URLs.
+const CLOUDFRONT_DOMAIN = process.env.AWS_CLOUDFRONT_DOMAIN;
+if (USE_CLOUDFRONT && (!CLOUDFRONT_DOMAIN || CLOUDFRONT_DOMAIN === 'your-cloudfront-domain.cloudfront.net')) {
+    logger.warn(
+        '[s3] USE_CLOUDFRONT is enabled but AWS_CLOUDFRONT_DOMAIN is unset or still the placeholder — ' +
+        'files will be served directly from S3 (higher egress cost). Set AWS_CLOUDFRONT_DOMAIN, ' +
+        'or set USE_CLOUDFRONT=false to silence this warning.'
+    );
+}
 
 // Validate file type and size with enhanced configuration
 const validateFile = (filename, fileSize, contentType) => {
-    const allowedTypes = (process.env.ALLOWED_FILE_TYPES || 'image/jpeg,image/png,image/gif,image/webp,application/pdf').split(',');
-    const maxSize = parseInt(process.env.MAX_FILE_SIZE) || 52428800; // 50MB default
+    // Allow-list + max size live in constants/upload.js, which is also what
+    // GET /api/data/upload-config serves to the frontend — so the client's
+    // pre-check and this server-side validation can't drift apart.
+    const allowedTypes = resolveAllowedFileTypes();
+    const maxSize = resolveMaxFileBytes();
 
     logger.debug('Validating file:', { filename, fileSize, contentType, allowedTypes, maxSize });
 
@@ -40,11 +72,10 @@ const validateFile = (filename, fileSize, contentType) => {
     // image/pdf extensions that don't match the declared content type, so a
     // user can't upload an .html/.svg/.exe relabeled as an allowed image.
     const ext = (filename.split('.').pop() || '').toLowerCase();
-    const BLOCKED_EXTENSIONS = new Set(['html', 'htm', 'svg', 'js', 'mjs', 'exe', 'dll', 'bat', 'cmd', 'sh', 'php', 'asp', 'jsp', 'xml', 'xhtml']);
-    if (BLOCKED_EXTENSIONS.has(ext)) {
+    if (BLOCKED_EXTENSIONS.includes(ext)) {
         throw new Error(`File extension .${ext} is not allowed.`);
     }
-    const typeByExt = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', pdf: 'application/pdf' };
+    const typeByExt = EXTENSION_CONTENT_TYPES;
     if (typeByExt[ext] && typeByExt[ext] !== contentType) {
         throw new Error(`File extension .${ext} does not match content type ${contentType}`);
     }
@@ -95,6 +126,8 @@ const generatePresignedUploadUrl = async (userId, filename, contentType, fileSiz
             Key: s3Key,
             ContentType: contentType,
             ContentLength: fileSize,
+            CacheControl: CACHE_CONTROL,
+            ...(UPLOAD_STORAGE_CLASS && { StorageClass: UPLOAD_STORAGE_CLASS }),
             Metadata: {
                 'uploaded-by': userId,
                 'file-type': fileType,
@@ -113,7 +146,7 @@ const generatePresignedUploadUrl = async (userId, filename, contentType, fileSiz
             s3Key: s3Key,
             bucket: process.env.AWS_S3_BUCKET,
             region: process.env.AWS_S3_REGION || process.env.AWS_REGION,
-            expiresIn: 900, // 15 minutes
+            expiresIn: PRESIGNED_URL_EXPIRES,
             contentType: contentType,
             metadata: {
                 userId,
@@ -224,6 +257,8 @@ const uploadImageBuffer = async (userId, buffer, contentType, fileType = 'genera
             Body: buffer,
             ContentType: contentType,
             ContentLength: buffer.length,
+            CacheControl: CACHE_CONTROL,
+            ...(UPLOAD_STORAGE_CLASS && { StorageClass: UPLOAD_STORAGE_CLASS }),
             Metadata: {
                 'uploaded-by': userId,
                 'file-type': fileType,

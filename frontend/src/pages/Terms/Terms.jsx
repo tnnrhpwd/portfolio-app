@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
 import SEO from '../../components/SEO/SEO.jsx';
-import { PLAN_NAMES, PLAN_IDS, STORAGE_DISPLAY } from '../../constants/pricing';
-import { providerLabel, providerVendor } from '../../constants/aiModel.js';
+import { PLAN_NAMES, PLAN_IDS, STORAGE_DISPLAY, MONTHLY_PRICES, AI_CREDIT_ALLOWANCE, formatUsd, formatUsdCompact } from '../../constants/pricing';
+import { DEFAULT_CLOUD_PROVIDER, providerLabel, providerVendor } from '../../constants/aiModel.js';
 import useScrollReveal from '../../hooks/useScrollReveal';
 import '../legal/legal.css';
 
@@ -136,7 +136,7 @@ const Terms = () => {
                                 Each plan provides different levels of access, usage limits, and features as described 
                                 below and on our pricing page. All prices are in USD.
                             </p>
-                            <h3>3.1 {PLAN_NAMES[PLAN_IDS.FREE]} Tier — $0/month</h3>
+                            <h3>3.1 {PLAN_NAMES[PLAN_IDS.FREE]} Tier — {formatUsdCompact(MONTHLY_PRICES[PLAN_IDS.FREE])}/month</h3>
                             <p>
                                 Our {PLAN_NAMES[PLAN_IDS.FREE]} tier provides limited access for evaluation and personal use:
                             </p>
@@ -150,9 +150,9 @@ const Terms = () => {
                                 allowance; usage beyond that allowance is unavailable until the next monthly cycle
                                 (see §4).
                             </p>
-                            <h3>3.2 {PLAN_NAMES[PLAN_IDS.PRO]} Membership — $15/month</h3>
+                            <h3>3.2 {PLAN_NAMES[PLAN_IDS.PRO]} Membership — {formatUsdCompact(MONTHLY_PRICES[PLAN_IDS.PRO])}/month</h3>
                             <p>
-                                The {PLAN_NAMES[PLAN_IDS.PRO]} tier is billed at <strong>$15.00 USD per month</strong> and includes:
+                                The {PLAN_NAMES[PLAN_IDS.PRO]} tier is billed at <strong>{formatUsd(MONTHLY_PRICES[PLAN_IDS.PRO])} USD per month</strong> and includes:
                             </p>
                             <ul>
                                 <li>Everything in {PLAN_NAMES[PLAN_IDS.FREE]}</li>
@@ -185,8 +185,8 @@ const Terms = () => {
                             </p>
                             <h3>4.2 Monthly Allowances</h3>
                             <p>
-                                The Free tier includes a $0.50 monthly credit allowance and the Pro tier includes a
-                                $10.00 monthly credit allowance. Usage is measured against the cost of each request;
+                                The {PLAN_NAMES[PLAN_IDS.FREE]} tier includes a {formatUsd(AI_CREDIT_ALLOWANCE[PLAN_IDS.FREE])} monthly credit allowance and the {PLAN_NAMES[PLAN_IDS.PRO]} tier includes a
+                                {formatUsd(AI_CREDIT_ALLOWANCE[PLAN_IDS.PRO])} monthly credit allowance. Usage is measured against the cost of each request;
                                 when your allowance for the current cycle is exhausted, further AI requests are
                                 paused until the next monthly cycle.
                             </p>
@@ -378,7 +378,7 @@ const Terms = () => {
                             <h3>11.2 Third-Party Services</h3>
                             <p>
                                 Our platform relies on third-party services including, but not limited to, AI model
-                                providers ({providerVendor('bedrock')} via {providerLabel('bedrock')}), cloud infrastructure (AWS), and payment processing
+                                providers ({providerVendor(DEFAULT_CLOUD_PROVIDER)} via {providerLabel(DEFAULT_CLOUD_PROVIDER)}), cloud infrastructure (AWS), and payment processing
                                 (Stripe). We are not responsible for outages, changes, or discontinuations of these
                                 third-party services. Changes in third-party pricing may be reflected in our cost tables.
                             </p>

@@ -131,7 +131,7 @@ export function modelDisplayName(modelId) {
  * Providers the Service may send AI content to, in the order they should be
  * disclosed. Single source for the privacy/terms sub-processor lists.
  */
-export const AI_CONTENT_PROCESSORS = Object.freeze(['deepseek', 'bedrock']);
+export const AI_CONTENT_PROCESSORS = Object.freeze([DEEPSEEK_PROVIDER, DEFAULT_CLOUD_PROVIDER]);
 
 /**
  * Human-readable list of the AI providers above, e.g.

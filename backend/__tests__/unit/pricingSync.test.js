@@ -39,10 +39,15 @@ const frontendPricing = loadFrontendPricing();
 const SHARED_KEYS = [
   'PLAN_IDS',
   'PLAN_NAMES',
+  'MONTHLY_PRICES',
+  'ANNUAL_PRICES',
+  'AI_CREDIT_ALLOWANCE',
+  'STORAGE_BYTES',
   'STORAGE_DISPLAY',
   'QUOTAS',
   'FEATURES',
   'DESCRIPTIONS',
+  'COMPARISON',
 ];
 
 describe('pricing constants — frontend mirror matches backend', () => {

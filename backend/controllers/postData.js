@@ -3,9 +3,7 @@ const bcrypt = require('bcryptjs')  // used to hash passwords
 require('dotenv').config();
 const { generateToken } = require('../utils/generateToken')
 const { trackStorageUsage } = require('../utils/storageTracker')
-const fs = require('fs');
-const path = require('path');
-const multer = require('multer');
+const { assertInlineFilesWithinLimits } = require('../utils/inlineFileGuard')
 const asyncHandler = require('express-async-handler');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, PutCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
@@ -24,8 +22,6 @@ const client = new DynamoDBClient({
 });
 
 const dynamodb = DynamoDBDocumentClient.from(client);
-const storage = multer.memoryStorage();// Set up multer for memory storage
-const upload = multer({ storage: storage });
 
 /**
  * Run a DynamoDB Scan with full pagination.
@@ -61,16 +57,17 @@ const postData = asyncHandler(async (req, res) => {
   }
   logger.debug('req.body.data: ', req.body.data);
 
-  let files = [];
-  if (req.files && req.files.length > 0) {
-      files = req.files.map(file => ({
-          filename: file.originalname,
-          contentType: file.mimetype,
-          data: file.buffer.toString('base64')
-      }));
-  } else if (req.body.data && req.body.data.Files) {
-      // Read from JSON body
-      files = req.body.data.Files;
+  // Attachments arrive only as JSON metadata on the record: this route has no
+  // multer middleware, so `req.files` is always empty (the branch that used to
+  // read it was dead code). File bytes belong in S3 via
+  // POST /api/data/upload-url; inline base64 is bounded here so it can't be
+  // used to park large payloads in DynamoDB (~10x S3 cost per GB).
+  const files = Array.isArray(req.body.data?.Files) ? req.body.data.Files : [];
+  try {
+      assertInlineFilesWithinLimits(files);
+  } catch (inlineError) {
+      res.status(inlineError.statusCode || 413);
+      return res.json({ error: inlineError.message });
   }
 
   const itemData = {

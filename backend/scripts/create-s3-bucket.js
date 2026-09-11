@@ -1,5 +1,6 @@
 // Create S3 Bucket for Portfolio Files
-const { S3Client, CreateBucketCommand, PutBucketCorsCommand, PutBucketPolicyCommand } = require('@aws-sdk/client-s3');
+const { S3Client, CreateBucketCommand, PutBucketCorsCommand, PutBucketPolicyCommand, PutBucketLifecycleConfigurationCommand } = require('@aws-sdk/client-s3');
+const { buildLifecycleRules } = require('./configure-s3-lifecycle');
 require('dotenv').config();
 
 async function createPortfolioBucket() {
@@ -59,8 +60,22 @@ async function createPortfolioBucket() {
         
         console.log('✅ CORS policy applied successfully!');
 
-        // Step 3: Information about bucket policy (will be set after CloudFront)
-        console.log('\n🔐 Step 3: Bucket Policy (CloudFront setup needed first)');
+        // Step 3: Lifecycle rules — age objects into cheaper storage classes
+        // so user data doesn't sit in S3 Standard (and its price) forever.
+        console.log('\n🧭 Step 3: Applying lifecycle rules (Standard → Standard-IA → Glacier IR)...');
+        try {
+            await s3Client.send(new PutBucketLifecycleConfigurationCommand({
+                Bucket: bucketName,
+                LifecycleConfiguration: { Rules: buildLifecycleRules() },
+            }));
+            console.log('✅ Lifecycle rules applied successfully!');
+        } catch (lifecycleError) {
+            console.log('⚠️  Lifecycle setup failed (bucket is still usable):', lifecycleError.message);
+            console.log('    You can retry later with: node backend/scripts/configure-s3-lifecycle.js --apply');
+        }
+
+        // Step 4: Information about bucket policy (will be set after CloudFront)
+        console.log('\n🔐 Step 4: Bucket Policy (CloudFront setup needed first)');
         console.log('⚠️  Bucket is currently private (recommended)');
         console.log('   After creating CloudFront distribution, you\'ll need to:');
         console.log('   1. Create CloudFront distribution');
@@ -71,7 +86,8 @@ async function createPortfolioBucket() {
         console.log('\n🚀 Next steps:');
         console.log('1. Create CloudFront distribution (see AWS_SETUP_GUIDE.md)');
         console.log('2. Update AWS_CLOUDFRONT_DOMAIN in your .env file');
-        console.log('3. Test file upload in your application');
+        console.log('3. Review storage costs: node backend/scripts/configure-s3-lifecycle.js --size');
+        console.log('4. Test file upload in your application');
         
     } catch (error) {
         console.log('\n❌ Bucket creation failed!');
@@ -111,6 +127,17 @@ async function createPortfolioBucket() {
                 }));
                 
                 console.log('✅ CORS policy updated successfully!');
+
+                // Keep lifecycle rules current too, in case this is an old bucket.
+                try {
+                    await s3Client.send(new PutBucketLifecycleConfigurationCommand({
+                        Bucket: bucketName,
+                        LifecycleConfiguration: { Rules: buildLifecycleRules() },
+                    }));
+                    console.log('✅ Lifecycle rules applied successfully!');
+                } catch (lifecycleError) {
+                    console.log('⚠️  Lifecycle setup failed:', lifecycleError.message);
+                }
             } catch (corsError) {
                 console.log('⚠️  CORS update failed:', corsError.message);
             }

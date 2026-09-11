@@ -318,6 +318,7 @@ function DataResult(props) {
                                             <img 
                                                 src={
                                                     currentFile.publicUrl ? currentFile.publicUrl : 
+                                                    currentFile.cloudFrontUrl ? currentFile.cloudFrontUrl :
                                                     currentFile.s3Url ? currentFile.s3Url :
                                                     `data:${currentFile.contentType};base64,${currentFile.content || currentFile.data}`
                                                 } 
@@ -343,6 +344,7 @@ function DataResult(props) {
                                                 <source 
                                                     src={
                                                         currentFile.publicUrl ? currentFile.publicUrl :
+                                                        currentFile.cloudFrontUrl ? currentFile.cloudFrontUrl :
                                                         currentFile.s3Url ? currentFile.s3Url :
                                                         `data:${currentFile.contentType};base64,${currentFile.content || currentFile.data}`
                                                     } 
