@@ -28,14 +28,14 @@ const { logSecurityEvent, logger } = require('../utils/logger');
 
 // Main controllers (from index.js)
 const {
-  deleteData, deleteHashData, deletePaymentMethod, deleteCustomer,
+  deleteHashData, deletePaymentMethod, deleteCustomer,
   getData, getUserSubscription, getUserStorage,
   getHashData, getPaymentMethods, getAllData, getMembershipPricing, getUserUsageData,
   postData, registerUser, loginUser,
   postHashData, compressData, compressDataStream, createCustomer,
   postPaymentMethod, createInvoice, subscribeCustomer,
   handleWebhook, processFileUpload,
-  putData, putHashData, updateCustomer, putPaymentMethod,
+  putHashData, updateCustomer, putPaymentMethod,
   forgotPassword, resetPassword, forgotPasswordAuthenticated,
   extractOCR, updateWithOCR,
   getLLMProviders,
@@ -306,10 +306,6 @@ router.post('/reset-password',
 router.route('/public')
   .get(getData)
   .post(validateDataCreation, handleValidationErrors, postData);
-
-router.route('/public/:id')
-  .put(protect, putData)
-  .delete(protect, deleteData);
 
 // Membership & LLM Info
 router.get('/membership-pricing', getMembershipPricing);

@@ -5,7 +5,7 @@ const { checkIP } = require('../utils/accessData.js');
 const { logger } = require('../utils/logger');
 const { createBedrockCompletion, BEDROCK_MODEL_ID } = require('../services/bedrockService');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, ScanCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, ScanCommand, PutCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
 const { fetchRawUserRecord } = require('../utils/dynamoUser');
 const { parseBugReportItem } = require('../utils/bugReportFields');
 
@@ -19,6 +19,30 @@ const client = new DynamoDBClient({
 });
 
 const dynamodb = DynamoDBDocumentClient.from(client);
+
+/**
+ * Run a DynamoDB Scan to completion.
+ *
+ * A single ScanCommand examines at most 1 MB and then hands back a
+ * `LastEvaluatedKey` for the remainder. These searches used to discard that key
+ * and read only the first page, so once the `Simple` table grew past a
+ * megabyte (it is several now) each search silently saw only part of it — saved
+ * games, chat history and bug reports would just come back empty. `postData.js`
+ * grew the same helper for the same reason.
+ *
+ * @param {Object} params - Scan params (without ExclusiveStartKey)
+ * @returns {Promise<Array>} Every matching item
+ */
+async function paginatedScan(params) {
+    const items = [];
+    let lastKey;
+    do {
+        const page = await dynamodb.send(new ScanCommand({ ...params, ExclusiveStartKey: lastKey }));
+        items.push(...(page.Items || []));
+        lastKey = page.LastEvaluatedKey;
+    } while (lastKey);
+    return items;
+}
 
 /**
  * Generate a single random English word of an exact length via Bedrock
@@ -140,7 +164,7 @@ const getHashData = asyncHandler(async (req, res) => {
             };
 
             logger.debug('DynamoDB scan params for bug reports:', JSON.stringify(params, null, 2));
-            const result = await dynamodb.send(new ScanCommand(params));
+            const result = { Items: await paginatedScan(params) };
             
             logger.debug(`Found ${result.Items.length} bug reports for user`);
             
@@ -252,14 +276,17 @@ const getHashData = asyncHandler(async (req, res) => {
                     // Use scan with filter like auth middleware does
                     const params = {
                         TableName: 'Simple',
-                        FilterExpression: "id = :searchId",
+                        // `Simple` keys on id + createdAt, but `id` alone is
+                        // enough for a Query on the partition key — exact, and
+                        // one read instead of scanning the whole table.
+                        KeyConditionExpression: 'id = :searchId',
                         ExpressionAttributeValues: {
                             ":searchId": dataSearchString
                         }
                     };
 
                     logger.debug('DynamoDB scan params:', params);
-                    const result = await dynamodb.send(new ScanCommand(params));
+                    const result = await dynamodb.send(new QueryCommand(params));
                     logger.debug('DynamoDB scan result:', JSON.stringify(result).substring(0, 100) + '...');
 
                     if (result.Items && result.Items.length > 0) {
@@ -323,37 +350,11 @@ const getHashData = asyncHandler(async (req, res) => {
 
                     logger.debug('DynamoDB scan params:', JSON.stringify(params, null, 2));
                     
-                    // First, let's also do a broader search to see if you have ANY data for this user
-                    const broadParams = {
-                        TableName: 'Simple',
-                        FilterExpression: 'contains(#text, :userId)',
-                        ExpressionAttributeValues: {
-                            ':userId': `Creator:${req.user.id}`
-                        },
-                        ExpressionAttributeNames: {
-                            '#text': 'text'
-                        }
-                    };
-                    
-                    logger.debug('Checking for ANY user data...');
-                    const broadResult = await dynamodb.send(new ScanCommand(broadParams));
-                    logger.debug('Total items for this user:', broadResult.Items ? broadResult.Items.length : 0);
-                    
-                    if (broadResult.Items && broadResult.Items.length > 0) {
-                        logger.debug('Sample user data items:');
-                        broadResult.Items.slice(0, 3).forEach((item, index) => {
-                            logger.debug(`Item ${index + 1}:`, item.text ? item.text.substring(0, 150) + '...' : 'no text');
-                        });
-                        
-                        // Check if any contain "Net:" at all
-                        const netItems = broadResult.Items.filter(item => item.text && item.text.includes('Net:'));
-                        logger.debug('Items containing "Net:":', netItems.length);
-                        if (netItems.length > 0) {
-                            logger.debug('First Net item:', netItems[0].text.substring(0, 200) + '...');
-                        }
-                    }
-                    
-                    const result = await dynamodb.send(new ScanCommand(params));
+                    // Note: the scan below is paged to the very end. There used
+                    // to be a second, wider scan here purely to log diagnostics
+                    // (sample rows, count of "Net:" items) — a whole extra
+                    // full-table scan on every search, for log lines only.
+                    const result = { Items: await paginatedScan(params) };
                     logger.debug('DynamoDB scan completed');
                     logger.debug('Items found:', result.Items ? result.Items.length : 0);
                     

@@ -18,13 +18,20 @@ const mockCheckFileExists = jest.fn();
 const mockDeleteFile = jest.fn();
 const mockGetFileMetadata = jest.fn();
 
+// The controller reaches DynamoDB through the doc-client's `send`. Routing that
+// to a module-scope mock lets the tests below assert *which* command was issued
+// and, more importantly, with what `Key` — the composite-key bug they guard
+// against was invisible to a mock that accepted any arguments.
+const mockSend = jest.fn();
+
 jest.mock('@aws-sdk/client-dynamodb', () => ({
     DynamoDBClient: jest.fn(() => ({ send: jest.fn() })),
 }));
 jest.mock('@aws-sdk/lib-dynamodb', () => ({
-    DynamoDBDocumentClient: { from: jest.fn(() => ({ send: jest.fn() })) },
-    GetCommand: jest.fn(),
-    UpdateCommand: jest.fn(),
+    DynamoDBDocumentClient: { from: jest.fn(() => ({ send: (...args) => mockSend(...args) })) },
+    GetCommand: jest.fn().mockImplementation((input) => ({ kind: 'get', input })),
+    UpdateCommand: jest.fn().mockImplementation((input) => ({ kind: 'update', input })),
+    QueryCommand: jest.fn().mockImplementation((input) => ({ kind: 'query', input })),
 }));
 jest.mock('../../utils/logger', () => ({
     logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
@@ -34,6 +41,7 @@ jest.mock('../../utils/accessData.js', () => ({
 }));
 jest.mock('../../utils/storageTracker', () => ({
     checkStorageCapacity: (...args) => mockCheckStorageCapacity(...args),
+    invalidateStorageUsage: jest.fn(),
 }));
 jest.mock('../../services/s3Service.js', () => ({
     generatePresignedUploadUrl: (...args) => mockGeneratePresignedUploadUrl(...args),
@@ -43,7 +51,7 @@ jest.mock('../../services/s3Service.js', () => ({
     getFileMetadata: (...args) => mockGetFileMetadata(...args),
 }));
 
-const { requestUploadUrl, confirmUpload, getUploadConfig } = require('../../controllers/fileUploadController');
+const { requestUploadUrl, confirmUpload, deleteUploadedFile, getUploadConfig } = require('../../controllers/fileUploadController');
 
 function mockRes() {
     const res = {};
@@ -148,6 +156,161 @@ describe('confirmUpload — storage quota re-check', () => {
 
         expect(res.status).toHaveBeenCalledWith(200);
         expect(mockDeleteFile).not.toHaveBeenCalled();
+    });
+});
+
+describe('confirmUpload — attaching to an existing record', () => {
+    const OWNED_ROW = {
+        id: 'd1',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        text: 'Creator:u1|hello',
+        files: [],
+    };
+    const body = {
+        s3Key: 'users/u1/general/x.png',
+        dataId: 'd1',
+        filename: 'x.png',
+        contentType: 'image/png',
+        fileSize: 1024,
+    };
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        mockSend.mockReset();
+        mockCheckFileExists.mockResolvedValue(true);
+        mockGenerateCloudFrontUrl.mockReturnValue('https://cdn.example.com/key');
+        mockGetFileMetadata.mockResolvedValue({ size: 1024, contentType: 'image/png' });
+        mockCheckStorageCapacity.mockResolvedValue(WITHIN_LIMIT);
+    });
+
+    test('looks the row up by partition key, then updates it with the composite key', async () => {
+        mockSend
+            .mockResolvedValueOnce({ Items: [OWNED_ROW] })
+            .mockResolvedValueOnce({ Attributes: OWNED_ROW });
+        const res = mockRes();
+
+        await confirmUpload({ user: { id: 'u1' }, body: { ...body } }, res);
+
+        const [lookup, update] = mockSend.mock.calls.map((call) => call[0]);
+        expect(lookup.kind).toBe('query');
+        expect(lookup.input.KeyConditionExpression).toBe('id = :id');
+        expect(update.kind).toBe('update');
+        // `{ id }` alone throws ValidationException against this table.
+        expect(update.input.Key).toEqual({ id: 'd1', createdAt: '2026-01-01T00:00:00.000Z' });
+        expect(res.status).toHaveBeenCalledWith(200);
+    });
+
+    test('404s when the target record does not exist', async () => {
+        mockSend.mockResolvedValueOnce({ Items: [] });
+        const res = mockRes();
+
+        await confirmUpload({ user: { id: 'u1' }, body: { ...body } }, res);
+
+        expect(res.status).toHaveBeenCalledWith(404);
+        expect(mockSend).toHaveBeenCalledTimes(1); // no write attempted
+    });
+
+    test("refuses to attach a file to another user's record", async () => {
+        mockSend.mockResolvedValueOnce({ Items: [{ ...OWNED_ROW, text: 'Creator:someone-else|hi' }] });
+        const res = mockRes();
+
+        await confirmUpload({ user: { id: 'u1' }, body: { ...body } }, res);
+
+        expect(res.status).toHaveBeenCalledWith(401);
+        expect(mockSend).toHaveBeenCalledTimes(1);
+    });
+
+    test('refuses a record with no creator tag instead of allowing it', async () => {
+        mockSend.mockResolvedValueOnce({ Items: [{ ...OWNED_ROW, text: 'no creator tag here' }] });
+        const res = mockRes();
+
+        await confirmUpload({ user: { id: 'u1' }, body: { ...body } }, res);
+
+        expect(res.status).toHaveBeenCalledWith(401);
+    });
+
+    test('recognises a 32-character crypto id (the old check sliced a fixed 24)', async () => {
+        const longId = 'a'.repeat(32);
+        mockSend
+            .mockResolvedValueOnce({ Items: [{ ...OWNED_ROW, text: `Creator:${longId}|hi` }] })
+            .mockResolvedValueOnce({ Attributes: {} });
+        const res = mockRes();
+
+        await confirmUpload({ user: { id: longId }, body: { ...body } }, res);
+
+        expect(res.status).toHaveBeenCalledWith(200);
+    });
+
+    test('a confirm with no dataId writes nothing and just hands back the file data', async () => {
+        const res = mockRes();
+
+        await confirmUpload({
+            user: { id: 'u1' },
+            body: { s3Key: 'users/u1/general/x.png', filename: 'x.png', contentType: 'image/png', fileSize: 1024 },
+        }, res);
+
+        expect(mockSend).not.toHaveBeenCalled();
+        expect(res.status).toHaveBeenCalledWith(200);
+    });
+});
+
+describe('deleteUploadedFile — detaching from an existing record', () => {
+    const OWNED_ROW = {
+        id: 'd1',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        text: 'Creator:u1|hello',
+        files: [
+            { s3Key: 'users/u1/general/x.png' },
+            { s3Key: 'users/u1/general/y.png' },
+        ],
+    };
+    const req = (dataId) => ({
+        user: { id: 'u1' },
+        params: { s3Key: 'users/u1/general/x.png' },
+        body: dataId ? { dataId } : {},
+    });
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        mockSend.mockReset();
+        mockDeleteFile.mockResolvedValue(true);
+    });
+
+    test('removes only the matching entry, keyed on id + createdAt', async () => {
+        mockSend
+            .mockResolvedValueOnce({ Items: [OWNED_ROW] })
+            .mockResolvedValueOnce({});
+        const res = mockRes();
+
+        await deleteUploadedFile(req('d1'), res);
+
+        const update = mockSend.mock.calls[1][0];
+        expect(update.kind).toBe('update');
+        expect(update.input.Key).toEqual({ id: 'd1', createdAt: '2026-01-01T00:00:00.000Z' });
+        expect(update.input.ExpressionAttributeValues[':files']).toEqual([
+            { s3Key: 'users/u1/general/y.png' },
+        ]);
+        expect(res.status).toHaveBeenCalledWith(200);
+    });
+
+    test("refuses to detach from another user's record", async () => {
+        mockSend.mockResolvedValueOnce({ Items: [{ ...OWNED_ROW, text: 'Creator:someone-else|hi' }] });
+        const res = mockRes();
+
+        await deleteUploadedFile(req('d1'), res);
+
+        expect(res.status).toHaveBeenCalledWith(401);
+        expect(mockSend).toHaveBeenCalledTimes(1); // no write
+    });
+
+    test('deletes the object but skips the DB write when no dataId is supplied', async () => {
+        const res = mockRes();
+
+        await deleteUploadedFile(req(null), res);
+
+        expect(mockDeleteFile).toHaveBeenCalledWith('users/u1/general/x.png');
+        expect(mockSend).not.toHaveBeenCalled();
+        expect(res.status).toHaveBeenCalledWith(200);
     });
 });
 

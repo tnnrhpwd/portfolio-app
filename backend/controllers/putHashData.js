@@ -1,4 +1,4 @@
-// updateData.js
+// putHashData.js
 
 const asyncHandler = require('express-async-handler');
 require('dotenv').config();
@@ -10,6 +10,7 @@ const { getStripe, liveStripe: stripe } = require('../utils/stripeInstance.js');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand, PutCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
 const { logger } = require('../utils/logger');
+const { invalidateStorageUsage } = require('../utils/storageTracker');
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -28,6 +29,12 @@ const dynamodb = DynamoDBDocumentClient.from(client);
 const putHashData = asyncHandler(async (req, res) => {
     await checkIP(req);
     logger.debug('Update Data Request:', req.body);
+
+    // An update can change how much this user stores: `text` is replaced
+    // wholesale in several of the branches below. Drop the cached usage figure
+    // up front rather than hunting every write path — the next read re-derives
+    // it, and a spurious extra scan after a no-op update is harmless.
+    invalidateStorageUsage(req.user?.id);
     logger.debug('Request body keys:', Object.keys(req.body));
     logger.debug('Request body data:', req.body.data);
     logger.debug('Request body text:', req.body.text);

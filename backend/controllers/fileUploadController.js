@@ -9,9 +9,9 @@ const {
     getFileMetadata
 } = require('../services/s3Service.js');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, UpdateCommand, GetCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, UpdateCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
 const { logger } = require('../utils/logger');
-const { checkStorageCapacity } = require('../utils/storageTracker');
+const { checkStorageCapacity, invalidateStorageUsage } = require('../utils/storageTracker');
 const {
     INLINE_FILE_LIMITS,
     resolveAllowedFileTypes,
@@ -28,6 +28,46 @@ const client = new DynamoDBClient({
 });
 
 const dynamodb = DynamoDBDocumentClient.from(client);
+
+/**
+ * Read one record by its id.
+ *
+ * `Simple`'s primary key is composite — `id` (partition) + `createdAt` (sort) —
+ * so a Get/Update keyed on `id` alone throws ValidationException. Every branch
+ * that mutates an existing record therefore has to read the sort key off the
+ * row first, and this partition-key Query is how: one read, no table scan.
+ *
+ * `Limit: 1` mirrors how the rest of the codebase treats a duplicate id (the
+ * key allows several rows to share one, each with its own `createdAt`).
+ *
+ * @param {string} id - Item id (partition key)
+ * @returns {Promise<Object|null>} The raw item, or null when absent
+ */
+async function findItemById(id) {
+    const result = await dynamodb.send(new QueryCommand({
+        TableName: 'Simple',
+        KeyConditionExpression: 'id = :id',
+        ExpressionAttributeValues: { ':id': id },
+        Limit: 1,
+    }));
+    return (result.Items && result.Items[0]) || null;
+}
+
+/**
+ * The creator id inside a record's `text` ("Creator:<id>|..."), or null.
+ *
+ * Matched up to the next `|` delimiter rather than sliced to a fixed width:
+ * ids in this table vary in length (legacy 24-char ObjectIds vs the 32-char
+ * crypto hex ids in use now), and the old fixed-width slice compared the wrong
+ * substring against the caller's id.
+ *
+ * @param {Object} item - Raw DynamoDB item
+ * @returns {string|null} Creator id, or null when the record carries no tag
+ */
+function creatorIdOf(item) {
+    const match = String(item?.text || '').match(/(?:^|\|)Creator:([^|]+)/);
+    return match ? match[1].trim() : null;
+}
 
 // @desc    Request pre-signed URL for file upload
 // @route   POST /api/data/upload-url
@@ -166,8 +206,9 @@ const confirmUpload = asyncHandler(async (req, res) => {
         // Verify file exists in S3
         const fileExists = await checkFileExists(s3Key);
         if (!fileExists) {
-            res.status(400);
-            throw new Error('File not found in S3. Upload may have failed.');
+                const missingObject = new Error('File not found in S3. Upload may have failed.');
+                missingObject.statusCode = 400;
+                throw missingObject;
         }
 
         // Get file metadata from S3
@@ -219,39 +260,32 @@ const confirmUpload = asyncHandler(async (req, res) => {
         // If dataId is provided, update existing data item
         if (dataId) {
             logger.debug(`Updating existing data item: ${dataId}`);
-            
-            // First, get the current item
-            const getParams = {
-                TableName: 'Simple',
-                Key: { id: dataId }
-            };
-            
-            const currentItem = await dynamodb.send(new GetCommand(getParams));
-            
-            if (!currentItem.Item) {
-                res.status(404);
-                throw new Error('Data item not found');
+
+            const currentItem = await findItemById(dataId);
+            if (!currentItem) {
+                const notFound = new Error('Data item not found');
+                notFound.statusCode = 404;
+                throw notFound;
             }
 
-            // Check ownership
-            if (currentItem.Item.text && currentItem.Item.text.includes('Creator:')) {
-                const dataCreator = currentItem.Item.text.substring(
-                    currentItem.Item.text.indexOf("Creator:") + 8, 
-                    currentItem.Item.text.indexOf("Creator:") + 8 + 24
-                );
-                if (dataCreator !== req.user.id) {
-                    res.status(401);
-                    throw new Error('User not authorized to update this item');
-                }
+            // Deny by default: a record carrying no creator tag is not this
+            // caller's to modify. The previous check only ran when the record
+            // happened to contain a "Creator:" tag, so an untagged record was
+            // silently updateable by anyone who guessed its id.
+            if (creatorIdOf(currentItem) !== req.user.id) {
+                const forbidden = new Error('User not authorized to update this item');
+                forbidden.statusCode = 401;
+                throw forbidden;
             }
 
-            // Update the item with new file data
-            const existingFiles = currentItem.Item.files || [];
+            const existingFiles = currentItem.files || [];
             const updatedFiles = [...existingFiles, fileData];
 
             const updateParams = {
                 TableName: 'Simple',
-                Key: { id: dataId },
+                // `Simple`'s key is composite, so the sort key read off the row
+                // above is required to address it.
+                Key: { id: dataId, createdAt: currentItem.createdAt },
                 UpdateExpression: 'SET files = :files, updatedAt = :updatedAt',
                 ExpressionAttributeValues: {
                     ':files': updatedFiles,
@@ -261,6 +295,10 @@ const confirmUpload = asyncHandler(async (req, res) => {
             };
 
             const result = await dynamodb.send(new UpdateCommand(updateParams));
+
+            // The item's `files` grew, so the cached usage figure no longer
+            // matches what the next quota check should be measured against.
+            invalidateStorageUsage(req.user.id);
             
             logger.debug(`Successfully updated data item ${dataId} with file`);
             
@@ -284,7 +322,9 @@ const confirmUpload = asyncHandler(async (req, res) => {
 
     } catch (error) {
         logger.error('Upload confirmation error:', error);
-        res.status(500).json({
+        // Honour a deliberate status (404 not found / 401 not yours / 400 no
+        // object in S3) instead of flattening every one of them into a 500.
+        res.status(error.statusCode || 500).json({
             error: `Failed to confirm upload: ${error.message}`,
             timestamp: new Date().toISOString()
         });
@@ -333,23 +373,26 @@ const deleteUploadedFile = asyncHandler(async (req, res) => {
 
         // If dataId provided, remove file reference from database
         if (dataId) {
-            // Get current item
-            const getParams = {
-                TableName: 'Simple',
-                Key: { id: dataId }
-            };
-            
-            const currentItem = await dynamodb.send(new GetCommand(getParams));
-            
-            if (currentItem.Item) {
+            const currentItem = await findItemById(dataId);
+
+            if (currentItem) {
+                // The S3-key prefix check above proves the *object* is the
+                // caller's, but says nothing about who owns the record being
+                // mutated — check that too before touching it.
+                if (creatorIdOf(currentItem) !== req.user.id) {
+                    const forbidden = new Error('User not authorized to update this item');
+                    forbidden.statusCode = 401;
+                    throw forbidden;
+                }
+
                 // Remove file from files array
-                const updatedFiles = (currentItem.Item.files || []).filter(
+                const updatedFiles = (currentItem.files || []).filter(
                     file => file.s3Key !== s3Key
                 );
 
                 const updateParams = {
                     TableName: 'Simple',
-                    Key: { id: dataId },
+                    Key: { id: dataId, createdAt: currentItem.createdAt },
                     UpdateExpression: 'SET files = :files, updatedAt = :updatedAt',
                     ExpressionAttributeValues: {
                         ':files': updatedFiles,
@@ -358,6 +401,10 @@ const deleteUploadedFile = asyncHandler(async (req, res) => {
                 };
 
                 await dynamodb.send(new UpdateCommand(updateParams));
+
+                // The item's `files` shrank — re-derive rather than report the
+                // pre-delete total for the rest of the TTL window.
+                invalidateStorageUsage(req.user.id);
                 logger.debug(`File reference removed from data item ${dataId}`);
             }
         }
@@ -369,7 +416,9 @@ const deleteUploadedFile = asyncHandler(async (req, res) => {
 
     } catch (error) {
         logger.error('File deletion error:', error);
-        res.status(500).json({
+        // Honour a deliberate status (401 not yours) rather than reporting a
+        // permission problem as a server error.
+        res.status(error.statusCode || 500).json({
             error: `Failed to delete file: ${error.message}`,
             timestamp: new Date().toISOString()
         });

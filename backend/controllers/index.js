@@ -1,6 +1,5 @@
 // controllers/index.js
 
-const { deleteData } = require('./deleteData');  // DELETE public data
 const { deleteHashData, deletePaymentMethod,
     deleteCustomer } = require('./deleteHashData'); // DELETE deleting protected data
 const { getData, getUserSubscription, getUserStorage } = require('./getData'); // GET public data
@@ -10,7 +9,6 @@ const { postData, registerUser, loginUser } = require('./postData'); // CREATE p
 const { postHashData, compressData, compressDataStream, createCustomer,
     postPaymentMethod, createInvoice, subscribeCustomer,
     handleWebhook, setCustomLimit, processFileUpload } = require('./postHashData'); // CREATE protected data
-const { putData } = require('./putData'); // UPDATE public data
 const { putHashData, updateCustomer, putPaymentMethod } = require('./putHashData'); // UPDATE protected data
 const { forgotPassword, resetPassword, forgotPasswordAuthenticated } = require('../utils/passwordReset'); // Password reset functionality
 const { extractOCR, updateWithOCR } = require('./ocrController'); // OCR functionality
@@ -68,7 +66,6 @@ const getStripeConfig = (req, res) => {
 };
 
 module.exports = {
-    deleteData,
     deleteHashData, deletePaymentMethod, deleteCustomer,
     getData, getUserSubscription, getUserStorage,
     getHashData, getPaymentMethods, getAllData, getMembershipPricing, getUserUsageData,
@@ -76,7 +73,6 @@ module.exports = {
     postHashData, compressData, compressDataStream, createCustomer,
     postPaymentMethod, createInvoice, subscribeCustomer,
     handleWebhook, setCustomLimit, processFileUpload,
-    putData,
     putHashData, updateCustomer, putPaymentMethod,
     forgotPassword, resetPassword, forgotPasswordAuthenticated,
     extractOCR, updateWithOCR,

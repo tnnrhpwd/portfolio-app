@@ -1,9 +1,10 @@
-// deleteData.js
+// deleteHashData.js
 
 const asyncHandler = require('express-async-handler');
 const { checkIP } = require('../utils/accessData.js');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, ScanCommand, GetCommand, DeleteCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, GetCommand, DeleteCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
+const { invalidateStorageUsage } = require('../utils/storageTracker');
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -26,71 +27,6 @@ const deleteHashData = asyncHandler(async (req, res) => {
     const routeParamId = req.params.id;
     logger.debug(`[DELETEHASH] Attempting to delete item with id from route: ${routeParamId}`);
 
-    // --- Minimal GetItem Test ---
-    try {
-        logger.debug(`[DELETEHASH_TEST] Performing minimal getItem test for id: ${routeParamId}`);
-
-        // Scan the table to find the item with the given id
-        const scanParams = {
-            TableName: 'Simple',
-            FilterExpression: 'id = :id',
-            ExpressionAttributeValues: {
-                ':id': routeParamId
-            }
-        };
-
-        let createdAtValue;
-        try {
-            const scanResult = await dynamodb.send(new ScanCommand(scanParams));
-            if (scanResult.Items && scanResult.Items.length > 0) {
-                createdAtValue = scanResult.Items[0].createdAt;
-            } else {
-                logger.debug(`[DELETEHASH_TEST] Minimal GetItem Test: Item with id ${routeParamId} not found during scan.`);
-                // If item not found, set createdAtValue to null or a default value
-                createdAtValue = null;
-            }
-        } catch (scanError) {
-            logger.error(`[DELETEHASH_TEST] Minimal GetItem Test: Scan operation failed for id: ${routeParamId}`, scanError);
-            res.status(500).json({
-                error: `Minimal GetItem Test: Scan operation failed: ${scanError.message}`,
-                code: scanError.code,
-                details: "The scan operation failed. Verify DynamoDB table name ('Simple'), region, and that the primary key is solely 'id' (String) with no sort key. Also check IAM permissions.",
-                awsRequestId: scanError.requestId
-            });
-            return;
-        }
-
-        const testGetParams = {
-            TableName: 'Simple',
-            Key: {
-                id: routeParamId,
-                createdAt: createdAtValue // Use the createdAt value from the scan
-            }
-        };
-
-        logger.debug('[DELETEHASH_TEST] Minimal GetItem Test Params:', JSON.stringify(testGetParams, null, 2));
-        const testItemResult = await dynamodb.send(new GetCommand(testGetParams));
-        logger.debug('[DELETEHASH_TEST] Minimal GetItem Test Result:', JSON.stringify(testItemResult, null, 2));
-
-        if (!testItemResult.Item) {
-            logger.debug(`[DELETEHASH_TEST] Minimal GetItem Test: Item with id ${routeParamId} not found.`);
-        } else {
-            logger.debug(`[DELETEHASH_TEST] Minimal GetItem Test: Successfully fetched item with id ${routeParamId}.`);
-        }
-    } catch (minGetError) {
-        logger.error(`[DELETEHASH_TEST] Minimal GetItem Test FAILED for id: ${routeParamId}`, minGetError);
-        // If this minimal test fails with ValidationException, the issue is very fundamental.
-        // Double-check Table Name, Region, and that 'id' (String) is the *only* part of the primary key.
-        res.status(500).json({
-            error: `Minimal GetItem Test FAILED: ${minGetError.message}`,
-            code: minGetError.code,
-            details: "This basic GetItem operation failed. Verify DynamoDB table name ('Simple'), region, and that the primary key is solely 'id' (String) with no sort key. Also check IAM permissions.",
-            awsRequestId: minGetError.requestId
-        });
-        return;
-    }
-    // --- End of Minimal GetItem Test ---
-
     try {
         await checkIP(req);
         // const id = req.params.id; // Already defined as routeParamId
@@ -108,31 +44,32 @@ const deleteHashData = asyncHandler(async (req, res) => {
         let item; // Declare item here
         let createdAtValue;
 
-        // Scan the table to find the item with the given id
-        const scanParams = {
-            TableName: 'Simple',
-            FilterExpression: 'id = :id',
-            ExpressionAttributeValues: {
-                ':id': routeParamId
-            }
-        };
-
+        // Look the item up by its partition key. The previous `Scan` with an
+        // `id` filter only ever examined the table's first 1 MB (the same trap
+        // postData.js' paginatedScan() exists for), so any record past that
+        // boundary answered "Data not found." and could not be deleted at all.
+        // `Query` addresses the partition key directly: exact, and O(1) instead
+        // of scanning the whole table on every delete.
         try {
-            const scanResult = await dynamodb.send(new ScanCommand(scanParams));
-            if (scanResult.Items && scanResult.Items.length > 0) {
-                item = scanResult.Items[0];
-                createdAtValue = scanResult.Items[0].createdAt;
+            const queryResult = await dynamodb.send(new QueryCommand({
+                TableName: 'Simple',
+                KeyConditionExpression: 'id = :id',
+                ExpressionAttributeValues: { ':id': routeParamId }
+            }));
+            if (queryResult.Items && queryResult.Items.length > 0) {
+                item = queryResult.Items[0];
+                createdAtValue = queryResult.Items[0].createdAt;
             } else {
                 logger.debug(`[DELETEHASH] Item with id ${routeParamId} not found during scan.`);
                 res.status(400);
                 throw new Error('Data not found.');
             }
         } catch (scanError) {
-            logger.error(`[DELETEHASH] Scan operation failed for id: ${routeParamId}`, scanError);
+            logger.error(`[DELETEHASH] Item lookup failed for id: ${routeParamId}`, scanError);
             res.status(500).json({
-                error: `Scan operation failed: ${scanError.message}`,
+                error: `Item lookup failed: ${scanError.message}`,
                 code: scanError.code,
-                details: "The scan operation failed. Verify DynamoDB table name ('Simple'), region, and that the primary key is solely 'id' (String) with no sort key. Also check IAM permissions.",
+                details: "The partition-key Query failed. Verify DynamoDB table name ('Simple'), region, and IAM permissions.",
                 awsRequestId: scanError.requestId
             });
             return;
@@ -140,9 +77,12 @@ const deleteHashData = asyncHandler(async (req, res) => {
 
         const getParams = {
             TableName: 'Simple',
+            // `Simple` uses a composite key: `id` (partition) + `createdAt`
+            // (sort). The sort value has to be read back off the row itself,
+            // which is why it was fetched above before addressing the item.
             Key: {
-                id: routeParamId, // This assumes 'id' (String) is the Partition Key
-                createdAt: createdAtValue // Need to grab the createdAt value to delete
+                id: routeParamId,
+                createdAt: createdAtValue
             }
         };
         // logger.debug('Attempting to get item with params:', JSON.stringify(getParams, null, 2)); // Logged by minimal test
@@ -185,18 +125,21 @@ const deleteHashData = asyncHandler(async (req, res) => {
         }
 
         // Delete the item from DynamoDB
-        // CRITICAL: Ensure this Key definition also matches your DynamoDB 'Simple' table's primary key schema.
         const deleteParams = {
             TableName: 'Simple',
             Key: {
-                id: routeParamId, // This assumes 'id' (String) is the Partition Key
-                createdAt: item ? item.createdAt : null //Need to grab the createdAt value to delete
+                id: routeParamId,
+                createdAt: item ? item.createdAt : null
             }
         };
         logger.debug('Attempting to delete item with params:', JSON.stringify(deleteParams, null, 2)); // Diagnostic log
 
         try {
             await dynamodb.send(new DeleteCommand(deleteParams));
+
+            // The deleted item counted toward this user's storage, so the
+            // cached figure has to be re-derived on the next read.
+            invalidateStorageUsage(req.user.id);
             res.status(200).json({ id: routeParamId });
         } catch (deleteError) {
             logger.error('Error deleting data:', deleteError);

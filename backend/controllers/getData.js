@@ -21,6 +21,30 @@ const client = new DynamoDBClient({
 
 const dynamodb = DynamoDBDocumentClient.from(client);
 
+/**
+ * Run a DynamoDB Scan to completion.
+ *
+ * A single ScanCommand examines at most 1 MB and then hands back a
+ * `LastEvaluatedKey` for the rest, which is easy to drop on the floor. This
+ * matters here because public listings (the 2048 leaderboard, shared items)
+ * read through this endpoint: once the table passed a megabyte a one-page scan
+ * would start losing entries with no error and no visible symptom. See the same
+ * helper in `postData.js` and `getHashData.js`.
+ *
+ * @param {Object} params - Scan params (without ExclusiveStartKey)
+ * @returns {Promise<Array>} Every matching item
+ */
+async function paginatedScan(params) {
+    const items = [];
+    let lastKey;
+    do {
+        const page = await dynamodb.send(new ScanCommand({ ...params, ExclusiveStartKey: lastKey }));
+        items.push(...(page.Items || []));
+        lastKey = page.LastEvaluatedKey;
+    } while (lastKey);
+    return items;
+}
+
 // @desc    Get Public Data
 // @route   GET /api/publicdata
 // @access  Public
@@ -65,11 +89,11 @@ const getData = asyncHandler(async (req, res) => {
             }
         };
 
-        const result = await dynamodb.send(new ScanCommand(params));
+        const items = await paginatedScan(params);
 
         // Convert to expected frontend format
-        const responseData = result.Items && result.Items.length > 0 
-            ? result.Items.map(item => ({
+        const responseData = items.length > 0
+            ? items.map(item => ({
                 data: item.text, // Return the text content as the data field
                 ActionGroup: item.ActionGroup,
                 files: item.files,
