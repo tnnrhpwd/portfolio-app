@@ -41,17 +41,14 @@ code {
   --light-blue0: #009dff;
   --dark-blue0: #101B22;
   --dark-blue0-grey: #0c141a;
-  --dark-blue1: #1a2b36;
   --white0: #F4F7FD;
   --white0-transp: rgb(244, 247, 253, 0.9);
   --white1-transp: rgb(244, 247, 253, 0.2);
   --white2-transp: rgba(246, 246, 246, 0.5);
-  --white3-transp: rgba(246, 246, 246, 0.8);
   --white1: #faf7fb;
   --grey0: #e0e2e8;
   --grey1: #bbbdc2;
   --grey2: #8e8f93;
-  --grey2-accessible: #6b6b6f;
   --grey3: #5d5d60;
   --grey3-accessible: #4a4a4d;
   --grey3-transp: rgb(93, 93, 96, 0.15);
@@ -78,7 +75,6 @@ code {
   --green2: #056b32;
   --green3: #033519;
   --red0: #dc0000;
-  --red1: #b78c8c;
   --red2: #962525;
   --red3: #5d0d0d;
   --border: 1px solid rgb(53, 53, 53);
@@ -161,7 +157,6 @@ code {
   --bg-nav2: var(--grey0);
   --bg-page: var(--white0);
   --bg-page-transp: var(--white0-transp);
-  --bg-plan: var(--white1);
   --text-color: var(--dark-blue0);
   --text-color-strong: var(--text-color-strong);
   --text-color-accent: var(--text-color-accent-strong);
@@ -173,9 +168,6 @@ code {
   --border-plan: var(--grey5-transp);
   --bg-nav-dropper: var(--grey1);
   --bg-themebutton-land: var(--bg-accent);
-  --bg-planpreview: var(--grey1);
-  --color-favorite: var(--text-color);
-  --color-unfavorite: var(--text-color);
 }
 .dark-theme{
   --bg:var(--grey6);
@@ -200,7 +192,6 @@ code {
   --bg-nav2: var(--dark-blue0-grey);
   --bg-page: var(--grey5);
   --bg-page-transp: var(--grey5-transp);
-  --bg-plan: var(--grey3-transp);
   --text-color: var(--white0);
   --text-color-inv: var(--dark-blue0);
   --bg-accent: rgb(58, 58, 61);
@@ -208,9 +199,6 @@ code {
   --border-plan: var(--grey3-transp);
   --bg-nav-dropper: var(--grey4);
   --bg-themebutton-land: var(--green3);
-  --bg-planpreview: var(--grey4);
-  --color-favorite: var(--text-color);
-  --color-unfavorite: var(--text-color);
 }
 ul{
   list-style: none;

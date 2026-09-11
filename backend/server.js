@@ -165,6 +165,28 @@ async function start() {
   // Silently handle common browser requests that aren't real API routes
   app.get('/favicon.ico', (req, res) => res.status(204).end());
 
+  // Client error telemetry. The React ErrorBoundary POSTs caught render errors
+  // here (components/ErrorBoundary/ErrorBoundary.jsx). Without this route the
+  // request 404'd, so every caught render error was silently dropped. Public by
+  // necessity (a crash can happen before/without login); the global /api/
+  // limiter bounds abuse, and the payload is clipped so a stack can't flood
+  // the log. Only the fields we expect are read — never the raw body.
+  const clip = (value, max) => (typeof value === 'string' ? value.slice(0, max) : undefined);
+  app.post('/api/log-error', (req, res) => {
+    const body = req.body || {};
+    logger.error('[client-error]', {
+      message: clip(body.message, 500),
+      stack: clip(body.stack, 4000),
+      componentStack: clip(body.componentStack, 4000),
+      timestamp: clip(body.timestamp, 40),
+      userAgent: clip(body.userAgent, 300),
+      url: clip(body.url, 500),
+      userId: clip(String(body.userId ?? ''), 100),
+      ip: req.ip,
+    });
+    res.status(204).end();
+  });
+
   // Handle 404 for undefined routes
   app.use((req, res) => {
     logger.warn(`404 - Route not found: ${req.originalUrl}`, {

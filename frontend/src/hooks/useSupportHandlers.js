@@ -92,7 +92,13 @@ export const useSupportHandlers = (user, formData, setFormData, setIsSubmitting,
         text: `Contact:${formData.contactSubject}|Type:${formData.contactType}|Priority:${formData.contactPriority}|Name:${formData.contactName}|Email:${formData.contactEmail}|Message:${formData.contactMessage}|Timestamp:${new Date().toISOString()}`
       };
 
-      await dispatch(createData(contactData)).unwrap();
+      // The Contact tab is visible to signed-out visitors too (the form collects
+      // its own name/email), but createData is a PROTECTED thunk — for an
+      // anonymous visitor it threw on the missing token, so the form always
+      // failed with "Failed to send message". Use the public create path, the
+      // same one reviews already use. Contact messages carry no `Public:true`
+      // flag, so the public GET filter (getData.js) never returns them.
+      await dispatch(createPublicData(contactData)).unwrap();
       
       toast.success('Message sent successfully! We\'ll get back to you soon.', { autoClose: 4000 });
       

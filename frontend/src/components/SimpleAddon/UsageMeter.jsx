@@ -57,8 +57,6 @@ function UsageMeter({ user }) {
   const credits = usage?.availableCredits || 0;
   const percentUsed = usage?.percentUsed || 0;
   const clampedPercent = Math.min(100, Math.max(0, percentUsed));
-  const dailyUsed = usage?.dailyCommandsUsed ?? null;
-  const dailyLimit = usage?.dailyCommandLimit ?? null;
 
   // Auto-expand for Free tier on first load
   const isCollapsed = collapsed === null ? tier !== 'Free' : collapsed;
@@ -89,11 +87,9 @@ function UsageMeter({ user }) {
           {tier}
         </span>
         <span className="usage-meter__summary">
-          {dailyLimit != null && dailyUsed != null
-            ? `${dailyUsed}/${dailyLimit} cmds`
-            : limit > 0
-              ? `$${credits.toFixed(2)} / $${limit.toFixed(2)}`
-              : 'No credits'}
+          {limit > 0
+            ? `$${credits.toFixed(2)} / $${limit.toFixed(2)}`
+            : 'No credits'}
         </span>
         <span className={`usage-meter__chevron ${isCollapsed ? '' : 'usage-meter__chevron--open'}`}>›</span>
       </button>
@@ -126,12 +122,6 @@ function UsageMeter({ user }) {
             )}
           </div>
           <div className="usage-meter__hint">Only charges for portfolio-hosted models</div>
-          {dailyLimit != null && dailyUsed != null && (
-            <div className="usage-meter__stat">
-              <span className="usage-meter__stat-label">Daily commands</span>
-              <span className="usage-meter__stat-value">{dailyUsed} / {dailyLimit}</span>
-            </div>
-          )}
           {tier === 'Free' && purchasesEnabled && (
             <a className="usage-meter__upgrade" href="/pay?plan=pro">
               Upgrade for more credits →

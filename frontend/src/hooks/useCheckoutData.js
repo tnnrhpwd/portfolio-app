@@ -18,8 +18,12 @@ export const useCheckoutData = (setStripeBlocked) => {
         await dispatch(getPaymentMethods()).unwrap();
       } catch (error) {
         console.error('Failed to fetch payment methods:', error);
-        if (error?.message?.includes('blocked') || 
-            error?.message?.includes('Stripe') ||
+        // The thunk rejects with a STRING (rejectWithValue(message)), so
+        // `error.message` is undefined and this never fired — the
+        // "Stripe blocked" UI was unreachable. Normalize both shapes.
+        const message = typeof error === 'string' ? error : (error?.message || '');
+        if (message.includes('blocked') ||
+            message.includes('Stripe') ||
             error?.status === 0) {
           setStripeBlocked(true);
         }

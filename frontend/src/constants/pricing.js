@@ -140,7 +140,7 @@ export const COMPARISON = Object.freeze([
 ]);
 
 // ──────────────────────────────────────────────
-// Plan badge mapping (DataResult display)
+// Plan badge mapping (plan badges shown in the UI)
 // ──────────────────────────────────────────────
 export const PLAN_BADGE = Object.freeze({
   Simple:  'Gold',

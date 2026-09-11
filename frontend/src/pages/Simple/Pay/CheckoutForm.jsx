@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
+import { useSelector } from 'react-redux';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
 import { formatPrice } from '../../../utils/checkoutUtils';
@@ -59,7 +60,10 @@ const CheckoutContent = ({ paymentType, initialPlan }) => {
   // Custom hooks for state management, data fetching, and event handlers
   const state = useCheckoutState(initialPlan);
   const { paymentMethods, membershipPricing } = useCheckoutData(state.setStripeBlocked);
-  const { userEmail } = useStripeSetup();
+  // Read the email from the store rather than calling useStripeSetup() again:
+  // CheckoutForm already calls it, and each extra mount POSTed /pay-methods,
+  // creating a second setup intent on a cold sessionStorage cache.
+  const userEmail = useSelector((s) => s.data.user?.email || '');
   
   const handlers = useCheckoutHandlers({
     stripe,

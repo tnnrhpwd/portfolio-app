@@ -48,7 +48,7 @@ export const DEFAULT_LOCAL_PROVIDER = 'local';
 export const DEFAULT_LOCAL_MODEL_ID = 'Qwen/Qwen2.5-0.5B-Instruct';
 
 // ──────────────────────────────────────────────
-// DeepSeek (used by OCR text structuring / InfoData)
+// DeepSeek (an additional selectable cloud provider)
 // ──────────────────────────────────────────────
 export const DEEPSEEK_PROVIDER = 'deepseek';
 export const DEEPSEEK_CHAT_MODEL_ID = 'deepseek-chat';
