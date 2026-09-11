@@ -3,6 +3,7 @@ import Spinner from '../Spinner/Spinner';
 import {
   REPORTS_PAGE_SIZE,
   REPORT_SORT_OPTIONS,
+  describeRelatedReports,
   filterReports,
   formatReportTimestamp,
   getReportStatusCounts,
@@ -17,12 +18,16 @@ import {
  * (title + status + severity + date) that expand on demand, with a search box,
  * status chips, sorting and a "Show more" pager to bound the page height.
  */
+/** True when a report field has something worth rendering. */
+const hasText = (value) => String(value ?? '').trim().length > 0;
+
 const MyReportsTab = ({ userBugReports, loadingReports, isSubmitting, closeBugReport, setActiveTab }) => {
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
   const [expandedIds, setExpandedIds] = useState(() => new Set());
   const [visibleCount, setVisibleCount] = useState(REPORTS_PAGE_SIZE);
+  const [pendingFocusId, setPendingFocusId] = useState(null);
 
   const reports = useMemo(
     () => (Array.isArray(userBugReports) ? userBugReports : []),
@@ -35,6 +40,18 @@ const MyReportsTab = ({ userBugReports, loadingReports, isSubmitting, closeBugRe
     () => filterReports(reports, { query, status: statusFilter, sort: sortBy }),
     [reports, query, statusFilter, sortBy]
   );
+
+  // Resolve each report's linked ids into { id, title, inList } once per list so
+  // the detail view can label the links and know which ones are reachable.
+  const relatedByReport = useMemo(() => {
+    const map = {};
+    for (const report of reports) {
+      if (Array.isArray(report?.relatedReports) && report.relatedReports.length > 0) {
+        map[report.id] = describeRelatedReports(report.relatedReports, reports);
+      }
+    }
+    return map;
+  }, [reports]);
 
   // Reset paging whenever the result set changes so the user is never stranded
   // past the end of a shorter list.
@@ -61,6 +78,37 @@ const MyReportsTab = ({ userBugReports, loadingReports, isSubmitting, closeBugRe
     setExpandedIds(expand ? new Set(visibleReports.map((report) => report.id)) : new Set());
   };
 
+  /**
+   * Reveal a report that another report links to: expand it, make sure it is
+   * actually rendered (it may be paged out or hidden by the active filter) and
+   * scroll it into view. This is what keeps linked reports connected in the UI.
+   */
+  const focusReport = (reportId) => {
+    if (!reports.some((report) => report.id === reportId)) return;
+
+    const index = filteredReports.findIndex((report) => report.id === reportId);
+    if (index === -1) {
+      // Hidden by the current search/status filter — clear them so it is visible.
+      setQuery('');
+      setStatusFilter('all');
+      setVisibleCount(Math.max(REPORTS_PAGE_SIZE, reports.length));
+    } else if (index >= visibleCount) {
+      setVisibleCount(index + 1);
+    }
+
+    setExpandedIds((prev) => new Set(prev).add(reportId));
+    setPendingFocusId(reportId);
+  };
+
+  // Scroll once the target is in the DOM (after the state updates above render).
+  useEffect(() => {
+    if (!pendingFocusId) return;
+    const element = document.getElementById(`support-report-${pendingFocusId}`);
+    if (!element) return;
+    element.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    setPendingFocusId(null);
+  }, [pendingFocusId, visibleCount, filteredReports, expandedIds]);
+
   const renderReportBody = (report) => (
     <div className="support-report-details" id={`support-report-body-${report.id}`}>
       <div className="support-report-field">
@@ -68,21 +116,29 @@ const MyReportsTab = ({ userBugReports, loadingReports, isSubmitting, closeBugRe
         <p>{report.description}</p>
       </div>
 
-      <div className="support-report-field">
-        <strong>Steps to Reproduce:</strong>
-        <p>{report.steps}</p>
-      </div>
+      {hasText(report.steps) && (
+        <div className="support-report-field">
+          <strong>Steps to Reproduce:</strong>
+          <p>{report.steps}</p>
+        </div>
+      )}
 
-      <div className="support-report-row">
-        <div className="support-report-field">
-          <strong>Expected Result:</strong>
-          <p>{report.expected}</p>
+      {(hasText(report.expected) || hasText(report.actual)) && (
+        <div className="support-report-row">
+          {hasText(report.expected) && (
+            <div className="support-report-field">
+              <strong>Expected Result:</strong>
+              <p>{report.expected}</p>
+            </div>
+          )}
+          {hasText(report.actual) && (
+            <div className="support-report-field">
+              <strong>Actual Result:</strong>
+              <p>{report.actual}</p>
+            </div>
+          )}
         </div>
-        <div className="support-report-field">
-          <strong>Actual Result:</strong>
-          <p>{report.actual}</p>
-        </div>
-      </div>
+      )}
 
       {report.status === 'Closed' && report.resolution && (
         <div className="support-resolution-section">
@@ -99,11 +155,48 @@ const MyReportsTab = ({ userBugReports, loadingReports, isSubmitting, closeBugRe
         </div>
       )}
 
-      <div className="support-report-system-info">
-        <strong>System Information:</strong>
-        <p><strong>Browser:</strong> {report.browser}</p>
-        <p><strong>Device:</strong> {report.device}</p>
-      </div>
+      {report.idea && (
+        <div className="support-report-idea">
+          <strong>💡 Improvement idea:</strong>
+          <p>{report.idea}</p>
+        </div>
+      )}
+
+      {relatedByReport[report.id]?.length > 0 && (
+        <div className="support-report-related">
+          <strong>🔗 Related reports:</strong>
+          <ul className="support-report-related-list">
+            {relatedByReport[report.id].map((link) => (
+              <li key={link.id}>
+                {link.inList ? (
+                  <button
+                    type="button"
+                    className="support-report-related-link"
+                    aria-label={`Go to related report: ${link.title}`}
+                    onClick={() => focusReport(link.id)}
+                  >
+                    {link.title}
+                  </button>
+                ) : (
+                  <span className="support-report-related-missing">{link.title}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {(hasText(report.browser) || hasText(report.device)) && (
+        <div className="support-report-system-info">
+          <strong>System Information:</strong>
+          {hasText(report.browser) && (
+            <p><strong>Browser:</strong> {report.browser}</p>
+          )}
+          {hasText(report.device) && (
+            <p><strong>Device:</strong> {report.device}</p>
+          )}
+        </div>
+      )}
 
       <div className="support-report-timestamps">
         <p><strong>Submitted:</strong> {formatReportTimestamp(report.createdAt)}</p>
@@ -235,6 +328,7 @@ const MyReportsTab = ({ userBugReports, loadingReports, isSubmitting, closeBugRe
                   return (
                     <div
                       key={report.id}
+                      id={`support-report-${report.id}`}
                       className={`support-report-card ${isExpanded ? 'is-expanded' : 'is-collapsed'}`}
                     >
                       <button
@@ -248,6 +342,9 @@ const MyReportsTab = ({ userBugReports, loadingReports, isSubmitting, closeBugRe
                           <span className="support-report-title">{report.title}</span>
                           <span className="support-report-subline">
                             {formatReportTimestamp(report.createdAt)}
+                            {report.idea && ' · 💡 idea'}
+                            {relatedByReport[report.id]?.length > 0 &&
+                              ` · 🔗 ${relatedByReport[report.id].length} related`}
                           </span>
                           {!isExpanded && report.description && (
                             <span className="support-report-preview">

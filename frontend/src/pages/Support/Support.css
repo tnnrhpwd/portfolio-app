@@ -392,6 +392,115 @@
     margin-top: calc(var(--nav-size) * 0.1);
 }
 
+/* Related improvement ideas (bug report form) */
+.support-related-fieldset {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.3);
+    margin: 0;
+    padding: calc(var(--nav-size) * 0.35);
+    border: 1px solid var(--border-nav);
+    border-radius: var(--border-radius);
+    background: var(--bg-1);
+}
+
+.support-related-fieldset legend {
+    padding: 0 calc(var(--nav-size) * 0.15);
+    font-size: var(--font-size-small);
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.support-form-hint {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    color: var(--text-color-accent);
+    line-height: 1.5;
+}
+
+.support-related-filter {
+    margin-bottom: calc(var(--nav-size) * 0.15);
+    width: 100%;
+    font-family: inherit;
+    font-size: var(--font-size-xs);
+    padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.25);
+    border: 1px solid var(--border-nav);
+    border-radius: calc(var(--border-radius) * 0.75);
+    background: var(--white1-transp);
+    color: var(--text-color);
+    box-sizing: border-box;
+}
+
+.support-related-filter:focus {
+    outline: none;
+    border-color: var(--fg-blue);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--fg-blue) 25%, transparent);
+}
+
+.support-related-list {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.1);
+    max-height: calc(var(--nav-size) * 4);
+    overflow-y: auto;
+    padding: calc(var(--nav-size) * 0.15);
+    border: 1px solid var(--border-nav);
+    border-radius: calc(var(--border-radius) * 0.75);
+    background: var(--white1-transp);
+}
+
+.support-related-item {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.15);
+    padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.15);
+    border-radius: calc(var(--border-radius) * 0.75);
+    cursor: pointer;
+    font-weight: 400;
+    transition: background 0.2s ease;
+}
+
+.support-related-item:hover {
+    background: var(--bg-accent);
+}
+
+.support-related-item input[type="checkbox"] {
+    /* index.css gives every input a 44px min-height and 2px border — undo that
+       so these read as normal checkboxes. */
+    flex-shrink: 0;
+    width: calc(var(--nav-size) * 0.28);
+    height: calc(var(--nav-size) * 0.28);
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    border: 1px solid var(--border-nav);
+    accent-color: var(--fg-blue);
+    cursor: pointer;
+}
+
+.support-related-item-text {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: calc(var(--nav-size) * 0.2);
+    min-width: 0;
+    flex: 1;
+}
+
+.support-related-item-title {
+    font-size: var(--font-size-xs);
+    color: var(--text-color);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.support-related-item-meta {
+    font-size: var(--font-size-xs);
+    color: var(--text-color-accent);
+    flex-shrink: 0;
+}
+
 /* Rating Component */
 .support-rating-container {
     display: flex;
@@ -832,6 +941,63 @@
     font-size: var(--font-size-xs);
     color: var(--text-color-accent-dark-strong);
     transition: transform 0.2s ease;
+}
+
+/* Attached improvement idea + linked reports (expanded report body) */
+.support-report-idea,
+.support-report-related {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.1);
+}
+
+.support-report-idea p {
+    margin: 0;
+    font-size: var(--font-size-small);
+    line-height: var(--line-height-relaxed);
+    color: var(--text-color);
+    background: var(--bg);
+    padding: calc(var(--nav-size) * 0.2);
+    border-radius: calc(var(--border-radius) * 0.5);
+    border: 1px solid var(--border-nav);
+    border-left: 3px solid var(--fg-orange);
+}
+
+.support-report-related-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.08);
+}
+
+.support-report-related-link {
+    font-family: inherit;
+    font-size: var(--font-size-small);
+    font-weight: 500;
+    text-align: left;
+    padding: 0;
+    min-height: 0;
+    background: none;
+    border: none;
+    color: var(--fg-blue);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+}
+
+.support-report-related-link:hover:not(:disabled) {
+    background: none;
+    color: var(--fg-mint);
+    transform: none;
+    box-shadow: none;
+}
+
+.support-report-related-missing {
+    font-size: var(--font-size-small);
+    color: var(--text-color-accent-dark-strong);
+    font-style: italic;
 }
 
 /* Pager footer */

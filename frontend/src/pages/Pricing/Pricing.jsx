@@ -6,6 +6,7 @@ import { formatPrice } from '../../utils/checkoutUtils';
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
 import SEO from '../../components/SEO/SEO.jsx';
+import useScrollReveal from '../../hooks/useScrollReveal';
 import usePurchaseGate from '../../hooks/usePurchaseGate';
 import { ADDON_DOWNLOAD_URL } from '../../hooks/simpleAddon/useAddonDetection.js';
 import perceiveImg from '../../assets/art/simple-perceive.png';
@@ -80,13 +81,44 @@ const SIMPLE_STEPS = [
   },
 ];
 
+// The engine, as a text rail. Deliberately NOT a row of icon cards — see
+// FRONTEND_UI_STANDARD §5 ("Imagery over emoji"): a stage tile gets a real media
+// block or nothing, never an emoji glyph standing in for one.
 const LOOP = [
-  { n: '01', icon: '👁️', title: 'Observe', body: "Reads your screen, active window, and files to see what's happening right now." },
-  { n: '02', icon: '🧭', title: 'Orient', body: 'Builds a quick situation summary — what it just did, what changed, and what matters.' },
-  { n: '03', icon: '🎯', title: 'Goal', body: "Re-checks the goal on a slower cadence and flags itself blocked when it's stuck." },
-  { n: '04', icon: '🧩', title: 'Plan', body: "Picks the next concrete step — a tool call, or a deliberate wait when nothing's worth doing." },
-  { n: '05', icon: '⚡', title: 'Execute', body: 'Drives the keyboard and mouse to do the work, then learns from the outcome.' },
+  { n: '01', title: 'Observe', body: "Reads your screen, active window, and files to see what's happening right now." },
+  { n: '02', title: 'Orient', body: 'Builds a quick situation summary — what it just did, what changed, and what matters.' },
+  { n: '03', title: 'Goal', body: "Re-checks the goal on a slower cadence and flags itself blocked when it's stuck." },
+  { n: '04', title: 'Plan', body: "Picks the next concrete step — a tool call, or a deliberate wait when nothing's worth doing." },
+  { n: '05', title: 'Execute', body: 'Drives the keyboard and mouse to do the work, then learns from the outcome.' },
 ];
+
+/**
+ * One full-bleed band. Flat colour blocks — not bordered cards — are what give
+ * the page its rhythm, the same device Home uses. Only the hero and the closing
+ * CTA carry the animated gradient, so it reads as a bookend rather than as
+ * page-wide wallpaper (which is what made this page feel muddy).
+ */
+function Band({ variant = 'surface', className = '', children }) {
+  const [ref, visible] = useScrollReveal();
+  return (
+    <section
+      ref={ref}
+      className={`pricing-band pricing-band--${variant} pricing-reveal ${visible ? 'is-visible' : ''} ${className}`.trim()}
+    >
+      <div className="pricing-wrap">{children}</div>
+    </section>
+  );
+}
+
+function SectionHead({ eyebrow, title, lead }) {
+  return (
+    <header className="pricing-head">
+      {eyebrow && <p className="pricing-eyebrow">{eyebrow}</p>}
+      <h2 className="pricing-h2">{title}</h2>
+      {lead && <p className="pricing-lead">{lead}</p>}
+    </header>
+  );
+}
 
 function Pricing() {
   const navigate = useNavigate();
@@ -181,112 +213,123 @@ function Pricing() {
       />
       <Header />
       <div className="pricing">
-        <div className="pricing-floating" aria-hidden="true">
-          <div className="pricing-circle pricing-circle-1"></div>
-          <div className="pricing-circle pricing-circle-2"></div>
-          <div className="pricing-circle pricing-circle-3"></div>
-        </div>
+        {/* ── Hero: the signature animated gradient (bookended by the CTA band) ── */}
+        <section className="pricing-band pricing-hero">
+          <div className="pricing-floating" aria-hidden="true">
+            <div className="pricing-circle pricing-circle-1"></div>
+            <div className="pricing-circle pricing-circle-2"></div>
+            <div className="pricing-circle pricing-circle-3"></div>
+          </div>
 
-        <section className="pricing-hero">
-          <p className="pricing-eyebrow">Pricing</p>
-          <h1 className="pricing-title">Simple, transparent pricing</h1>
-          <p className="pricing-subtitle">
-            Simple is an AI agent that runs on your PC — show it a task once, and it does it again
-            forever. Start free, and upgrade only when you want more.
-          </p>
-          <ul className="pricing-trust" aria-label="Pricing assurances">
-            <li>🔒 Secured by Stripe</li>
-            <li>🛡️ No hidden fees</li>
-            <li>↩️ Cancel anytime</li>
-          </ul>
+          <div className="pricing-wrap pricing-hero-inner">
+            <p className="pricing-eyebrow">Pricing</p>
+            <h1 className="pricing-title">Simple, transparent pricing</h1>
+            <p className="pricing-subtitle">
+              Simple is an AI agent that runs on your PC — show it a task once, and it does it again
+              forever. Start free, and upgrade only when you want more.
+            </p>
+            <ul className="pricing-trust" aria-label="Pricing assurances">
+              <li>🔒 Secured by Stripe</li>
+              <li>🛡️ No hidden fees</li>
+              <li>↩️ Cancel anytime</li>
+            </ul>
+          </div>
         </section>
 
-        <main id="main" className="pricing-section">
-          {!purchasesEnabled && (
-            <div className="pricing-gate-notice" role="status">
-              {gateMessage || 'Upgrading is temporarily paused. Please check back soon.'}
-            </div>
-          )}
+        <main id="main" className="pricing-main">
+          {/* ── Plans: the page's one job, so it sits directly under the hero ── */}
+          <Band variant="surface" className="pricing-band--plans">
+            {!purchasesEnabled && (
+              <div className="pricing-gate-notice" role="status">
+                {gateMessage || 'Upgrading is temporarily paused. Please check back soon.'}
+              </div>
+            )}
 
-          {user?.token && userStorage && typeof userStorage === 'object' && userStorage.totalStorageFormatted && (
-            <div className="pricing-usage-notice" role="status">
-              Your current storage use: <strong>{userStorage.totalStorageFormatted}</strong> of{' '}
-              <strong>{userStorage.storageLimitFormatted}</strong> on your plan.
-            </div>
-          )}
+            {user?.token && userStorage && typeof userStorage === 'object' && userStorage.totalStorageFormatted && (
+              <div className="pricing-usage-notice" role="status">
+                Your current storage use: <strong>{userStorage.totalStorageFormatted}</strong> of{' '}
+                <strong>{userStorage.storageLimitFormatted}</strong> on your plan.
+              </div>
+            )}
 
-          {hasAnnual && (
-            <div className="pricing-toggle" role="group" aria-label="Billing period">
-              <button
-                type="button"
-                className={billingInterval === 'month' ? 'active' : ''}
-                onClick={() => setBillingInterval('month')}
-              >
-                Monthly
-              </button>
-              <button
-                type="button"
-                className={billingInterval === 'year' ? 'active' : ''}
-                onClick={() => setBillingInterval('year')}
-              >
-                Yearly <span className="pricing-toggle-save">save 20%</span>
-              </button>
-            </div>
-          )}
+            {hasAnnual && (
+              <div className="pricing-toggle" role="group" aria-label="Billing period">
+                <button
+                  type="button"
+                  className={billingInterval === 'month' ? 'active' : ''}
+                  onClick={() => setBillingInterval('month')}
+                >
+                  Monthly
+                </button>
+                <button
+                  type="button"
+                  className={billingInterval === 'year' ? 'active' : ''}
+                  onClick={() => setBillingInterval('year')}
+                >
+                  Yearly <span className="pricing-toggle-save">save 20%</span>
+                </button>
+              </div>
+            )}
 
-          {dataIsLoading && !membershipPricing ? (
-            <div className="pricing-loading">
-              <div className="pricing-spinner" aria-hidden="true"></div>
-              <p>Loading plans…</p>
-            </div>
-          ) : (
-            <div className="pricing-plans">
-              {plans.map((plan) => {
-                const gated = plan.id !== 'free' && !purchasesEnabled;
-                return (
-                  <article
-                    key={plan.id}
-                    className={`pricing-plan-card ${plan.id === 'pro' ? 'featured' : ''}`}
-                  >
-                    {plan.id === 'pro' && (
-                      <span className="pricing-plan-badge">Most popular</span>
-                    )}
-                    <h2 className="pricing-plan-name">{plan.name}</h2>
-                    <div className="pricing-plan-price">
-                      <span className="pricing-plan-amount">{plan.price}</span>
-                      <span className="pricing-plan-period">/{plan.period}</span>
-                    </div>
-                    <p className="pricing-plan-tagline">{plan.tagline}</p>
-                    <ul className="pricing-plan-features">
-                      {plan.features.map((feature, i) => (
-                        <li key={i}>{feature}</li>
-                      ))}
-                    </ul>
-                    <button
-                      className={`pricing-plan-cta ${plan.id === 'pro' ? 'primary' : 'secondary'}`}
-                      onClick={() => handleSelectPlan(plan.id)}
-                      disabled={gated}
-                      title={gated ? (gateMessage || 'Upgrading is temporarily paused') : undefined}
+            {dataIsLoading && !membershipPricing ? (
+              <div className="pricing-loading">
+                <div className="pricing-spinner" aria-hidden="true"></div>
+                <p>Loading plans…</p>
+              </div>
+            ) : (
+              <div className="pricing-plans">
+                {plans.map((plan) => {
+                  const gated = plan.id !== 'free' && !purchasesEnabled;
+                  return (
+                    <article
+                      key={plan.id}
+                      className={`pricing-plan-card ${plan.id === 'pro' ? 'featured' : ''}`}
                     >
-                      {gated
-                        ? 'Not available yet'
-                        : plan.id === 'free'
-                          ? (user ? 'Current Plan' : 'Get Started Free')
-                          : `Choose ${plan.name}`}
-                    </button>
-                    {plan.id === 'pro' && (
-                      <p className="pricing-plan-note">
-                        Billed {billingInterval === 'year' ? 'annually' : 'monthly'}. Cancel anytime.
-                      </p>
-                    )}
-                  </article>
-                );
-              })}
-            </div>
-          )}
+                      {plan.id === 'pro' && (
+                        <span className="pricing-plan-badge">Most popular</span>
+                      )}
+                      <h2 className="pricing-plan-name">{plan.name}</h2>
+                      <div className="pricing-plan-price">
+                        <span className="pricing-plan-amount">{plan.price}</span>
+                        <span className="pricing-plan-period">/{plan.period}</span>
+                      </div>
+                      <p className="pricing-plan-tagline">{plan.tagline}</p>
+                      <ul className="pricing-plan-features">
+                        {plan.features.map((feature, i) => (
+                          <li key={i}>{feature}</li>
+                        ))}
+                      </ul>
+                      <button
+                        className={`pricing-plan-cta ${plan.id === 'pro' ? 'primary' : 'secondary'}`}
+                        onClick={() => handleSelectPlan(plan.id)}
+                        disabled={gated}
+                        title={gated ? (gateMessage || 'Upgrading is temporarily paused') : undefined}
+                      >
+                        {gated
+                          ? 'Not available yet'
+                          : plan.id === 'free'
+                            ? (user ? 'Current Plan' : 'Get Started Free')
+                            : `Choose ${plan.name}`}
+                      </button>
+                      {plan.id === 'pro' && (
+                        <p className="pricing-plan-note">
+                          Billed {billingInterval === 'year' ? 'annually' : 'monthly'}. Cancel anytime.
+                        </p>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </Band>
 
-          <section className="pricing-compare" aria-label="Plan comparison">
-            <h2 className="pricing-compare-title">What&apos;s included</h2>
+          {/* ── Comparison ── */}
+          <Band variant="tint">
+            <SectionHead
+              eyebrow="Compare"
+              title="What's included"
+              lead="Both plans include the full desktop addon. The difference is cloud AI credits, storage, and support."
+            />
             <div className="pricing-compare-table">
               <div className="pricing-compare-row pricing-compare-head">
                 <span>Feature</span>
@@ -301,22 +344,66 @@ function Pricing() {
                 </div>
               ))}
             </div>
-            <p className="pricing-compare-note">
+            <p className="pricing-note">
               AI chat runs on our servers and is metered against a monthly cloud-credit allowance —
               when it runs out, AI requests pause until the next monthly cycle. Local automation runs
               on your PC and is unlimited on every plan.
             </p>
-          </section>
+          </Band>
 
-          <div className="pricing-bottom">
-            <p>
-              All plans include access to the AI chat on <Link to="/net">/net</Link>. Questions?{' '}
-              Visit <Link to="/support">/support</Link>.
-            </p>
-          </div>
+          {/* ── What Simple does ── */}
+          <Band variant="surface">
+            <SectionHead
+              eyebrow="The agent"
+              title="What Simple does"
+              lead="Simple is an AI agent that runs on your PC. Show it a task once — like renaming and filing invoices — and afterward saying “do the invoices” repeats it, and learns from every run."
+            />
+            <div className="pricing-whats">
+              {SIMPLE_FEATURES.map((f) => (
+                <article className="pricing-whats-tile" key={f.title}>
+                  <img className="pricing-whats-media" src={f.img} alt="" loading="lazy" />
+                  <h3 className="pricing-whats-title">{f.title}</h3>
+                  <p className="pricing-whats-body">{f.body}</p>
+                </article>
+              ))}
+            </div>
+          </Band>
 
-          <section className="pricing-faq" aria-label="Frequently asked questions">
-            <h2 className="pricing-faq-title">Common questions</h2>
+          {/* ── The engine ── */}
+          <Band variant="tint">
+            <SectionHead
+              eyebrow="Under the hood"
+              title="One loop, five stages"
+              lead="Every tick, Simple runs the same closed loop. Goal re-evaluates on a slower cadence; after each Execute, a critic scores the result and writes a lesson the next Plan learns from."
+            />
+            <ol className="pricing-loop" aria-label="The agent loop">
+              {LOOP.map((stage) => (
+                <li className="pricing-loop-stage" key={stage.n}>
+                  <span className="pricing-loop-n">{stage.n}</span>
+                  <h3 className="pricing-loop-title">{stage.title}</h3>
+                  <p className="pricing-loop-body">{stage.body}</p>
+                </li>
+              ))}
+            </ol>
+          </Band>
+
+          {/* ── How it works ── */}
+          <Band variant="surface">
+            <SectionHead eyebrow="Getting started" title="How it works" />
+            <ol className="pricing-steps">
+              {SIMPLE_STEPS.map((s) => (
+                <li className="pricing-step" key={s.n}>
+                  <span className="pricing-step-n" aria-hidden="true">{s.n}</span>
+                  <h3 className="pricing-step-title">{s.title}</h3>
+                  <p className="pricing-step-body">{s.body}</p>
+                </li>
+              ))}
+            </ol>
+          </Band>
+
+          {/* ── FAQ ── */}
+          <Band variant="tint">
+            <SectionHead eyebrow="Questions" title="Common questions" />
             <div className="pricing-faq-list">
               {FAQ_ITEMS.map((item) => (
                 <details className="pricing-faq-item" key={item.q}>
@@ -325,94 +412,41 @@ function Pricing() {
                 </details>
               ))}
             </div>
-          </section>
-
-          {/* What Simple does */}
-          <section className="pricing-simple" aria-label="What Simple does">
-            <div className="pricing-section-head">
-              <h2 className="pricing-simple-title">What Simple does</h2>
-              <p className="pricing-simple-lead">
-                Simple is an AI agent that runs on your PC. Show it a task once — like renaming and
-                filing invoices — and afterward saying &ldquo;do the invoices&rdquo; repeats it, and
-                learns from every run.
-              </p>
-            </div>
-            <div className="pricing-simple-grid">
-              {SIMPLE_FEATURES.map((f) => (
-                <article className="pricing-simple-tile" key={f.title}>
-                  <img className="pricing-simple-media" src={f.img} alt="" loading="lazy" />
-                  <h3 className="pricing-simple-tile-title">{f.title}</h3>
-                  <p className="pricing-simple-tile-body">{f.body}</p>
-                </article>
-              ))}
-            </div>
-          </section>
-
-          {/* The engine */}
-          <section className="pricing-simple" aria-label="The agent loop">
-            <div className="pricing-section-head">
-              <h2 className="pricing-simple-title">One loop, five stages</h2>
-              <p className="pricing-simple-lead">
-                Every tick, Simple runs the same closed loop. Goal re-evaluates on a slower cadence;
-                after each Execute, a critic scores the result and writes a lesson the next Plan
-                learns from.
-              </p>
-            </div>
-
-            <div className="pricing-loop" role="list" aria-label="The agent loop">
-              {LOOP.map((s, i) => (
-                <React.Fragment key={s.n}>
-                  <article className="pricing-loop-stage" role="listitem">
-                    <span className="pricing-loop-n">{s.n}</span>
-                    <span className="pricing-loop-icon" aria-hidden="true">{s.icon}</span>
-                    <h3 className="pricing-loop-title">{s.title}</h3>
-                    <p className="pricing-loop-body">{s.body}</p>
-                  </article>
-                  {i < LOOP.length - 1 && <span className="pricing-loop-arrow" aria-hidden="true">→</span>}
-                </React.Fragment>
-              ))}
-            </div>
-
-            <p className="pricing-loop-status" aria-hidden="true">
-              observe <span>·</span> orient <span>·</span> goal <span>·</span> plan <span>·</span> execute
+            <p className="pricing-note">
+              Still unsure? Ask on <Link to="/net">the chat</Link> or visit{' '}
+              <Link to="/support">support</Link>.
             </p>
-          </section>
+          </Band>
+        </main>
 
-          {/* How it works */}
-          <section className="pricing-simple" aria-label="How it works">
-            <div className="pricing-section-head">
-              <h2 className="pricing-simple-title">How it works</h2>
-            </div>
-            <ol className="pricing-simple-steps">
-              {SIMPLE_STEPS.map((s) => (
-                <li className="pricing-simple-step" key={s.n}>
-                  <span className="pricing-simple-step-n">{s.n}</span>
-                  <div>
-                    <h3 className="pricing-simple-step-title">{s.title}</h3>
-                    <p className="pricing-simple-step-body">{s.body}</p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </section>
-
-          {/* Get started */}
-          <section className="pricing-simple pricing-simple--cta">
-            <h2 className="pricing-simple-title">Ready to try it?</h2>
-            <p className="pricing-simple-lead">
+        {/* ── Closing CTA: the vibrant band that bookends the hero ── */}
+        <section className="pricing-band pricing-cta">
+          <div className="pricing-wrap pricing-cta-inner">
+            <p className="pricing-eyebrow pricing-eyebrow--inv">Get started</p>
+            <h2 className="pricing-cta-title">Ready to try it?</h2>
+            <p className="pricing-cta-sub">
               Download the addon, show it one task, and ask for it back in plain English. It&apos;s
               free to start — upgrade when you need more.
             </p>
-            <a
-              className="pricing-simple-btn"
-              href={ADDON_DOWNLOAD_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Download the addon
-            </a>
-          </section>
-        </main>
+            <div className="pricing-cta-actions">
+              <button
+                type="button"
+                className="pricing-btn pricing-btn--inv"
+                onClick={() => handleSelectPlan('free')}
+              >
+                Get started free <span aria-hidden="true">→</span>
+              </button>
+              <a
+                className="pricing-btn pricing-btn--ghost"
+                href={ADDON_DOWNLOAD_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Download the addon
+              </a>
+            </div>
+          </div>
+        </section>
       </div>
       <Footer />
     </>

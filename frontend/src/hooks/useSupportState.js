@@ -28,7 +28,11 @@ export const useSupportState = (initialTab = 'help') => {
     bugActual: '',
     bugSeverity: 'medium',
     bugBrowser: '',
-    bugDevice: ''
+    bugDevice: '',
+    // Optional: an improvement idea attached to the report, plus ids of other
+    // reports it is linked to (see utils/supportUtils buildBugReportText).
+    bugIdea: '',
+    bugRelatedReports: []
   });
   
   const [isSubmitting, setIsSubmitting] = useState(false);

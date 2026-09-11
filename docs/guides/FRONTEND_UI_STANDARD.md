@@ -316,6 +316,31 @@ arrays, so imagery can be swapped without touching markup. Image rules:
 - `border-radius: var(--border-radius-2xl)` on the media itself (rounded image, not a bordered card).
 - `loading="lazy"` and `alt=""` when decorative.
 
+**Agents: you can generate new artwork.** This repo has a working AWS Bedrock
+text-to-image pipeline, so "I need a better image here" is a thing you can just do —
+you are not limited to the artwork already in `assets/art/`. The full recipe (API,
+auth, both asset paths, the region gotcha) is in
+[`STATIC_ASSETS_AND_IMAGE_GENERATION.md`](./STATIC_ASSETS_AND_IMAGE_GENERATION.md);
+the short version for repo assets:
+
+```bash
+# No server, no JWT needed — reads credentials from backend/.env directly.
+node backend/scripts/generate-project-art.js          # all project cards
+node backend/scripts/generate-project-art.js pets     # or just these slugs
+```
+
+Rules that keep generated art consistent with the existing set:
+
+- The generator returns **PNG**; `frontend/src/assets/art/` is all **`.jpg`**. Convert
+  (`sharp`, quality ~90, `mozjpeg`) and delete the PNG before checking in.
+- Prompt for a **glossy 3D render / product mockup**, shallow depth of field, blurred
+  bokeh in the site palette (**mint/cyan, hot pink, orange, blue**).
+- End every prompt with **`no text`** — Stability garbles words, and the existing art is
+  text-free (or a single clean glyph).
+- Generate at **3:2** (closest supported landscape ratio) so a 4:3 card crop loses little.
+- Artwork is imported at the top of the page component and passed through the data arrays,
+  so imagery can be swapped without touching markup — keep that indirection.
+
 ### Horizontal carousel with pagination dots
 
 Featured collections scroll horizontally (snap points) and show a dot per page — the active dot

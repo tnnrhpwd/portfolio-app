@@ -7,6 +7,7 @@ const { createBedrockCompletion, BEDROCK_MODEL_ID } = require('../services/bedro
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const { fetchRawUserRecord } = require('../utils/dynamoUser');
+const { parseBugReportItem } = require('../utils/bugReportFields');
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -144,39 +145,7 @@ const getHashData = asyncHandler(async (req, res) => {
             logger.debug(`Found ${result.Items.length} bug reports for user`);
             
             // Process the results to extract bug report information
-            const processedReports = result.Items.map(item => {
-                const text = item.text || '';
-                const bugData = {};
-                
-                // Parse the pipe-delimited data
-                const parts = text.split('|');
-                parts.forEach(part => {
-                    const [key, ...valueParts] = part.split(':');
-                    if (key && valueParts.length > 0) {
-                        bugData[key.toLowerCase()] = valueParts.join(':');
-                    }
-                });
-                
-                return {
-                    id: item.id,
-                    title: bugData.bug || 'Untitled Bug Report',
-                    severity: bugData.severity || 'medium',
-                    description: bugData.description || '',
-                    steps: bugData.steps || '',
-                    expected: bugData.expected || '',
-                    actual: bugData.actual || '',
-                    browser: bugData.browser || '',
-                    device: bugData.device || '',
-                    status: bugData.status || 'Open',
-                    creator: bugData.creator || '',
-                    resolution: bugData.resolution || '',
-                    resolvedBy: bugData.resolvedby || '',
-                    resolvedAt: bugData.resolvedat || '',
-                    timestamp: bugData.timestamp || item.createdAt,
-                    createdAt: item.createdAt,
-                    updatedAt: item.updatedAt
-                };
-            });
+            const processedReports = result.Items.map(parseBugReportItem);
             
             logger.debug('Processed bug reports:', processedReports.length);
             return res.status(200).json({ data: processedReports });

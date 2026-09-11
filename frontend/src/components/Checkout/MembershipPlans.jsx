@@ -89,7 +89,9 @@ const MembershipPlans = ({
                 ))}
               </ul>
               <div className={`plan-selector ${selectedPlan === plan.id ? 'selected' : ''}`}>
-                {selectedPlan === plan.id && <span className="checkmark">\u2713</span>}
+                {/* NB: must be a real glyph or a JS expression — a bare `\u2713` in JSX
+                    text is literal characters, so it rendered as the text "\u2713". */}
+                {selectedPlan === plan.id && <span className="checkmark" aria-hidden="true">{'\u2713'}</span>}
               </div>
             </div>
           );

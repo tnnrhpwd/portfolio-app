@@ -73,6 +73,7 @@ function Support() {
   const {
     handleInputChange,
     handleStarClick,
+    handleRelatedReportToggle,
     handleReviewSubmit,
     handleContactSubmit,
     handleBugReportSubmit,
@@ -108,6 +109,19 @@ function Support() {
   const handleReportsTabClick = () => {
     setActiveTab('reports');
     fetchUserBugReports();
+    setTimeout(() => {
+      scrollToContent();
+    }, 100);
+  };
+
+  // The bug form lets the reporter link reports they have already filed, so its
+  // list is loaded when the tab opens. The endpoint requires auth, so this only
+  // runs for logged-in users.
+  const handleBugTabClick = () => {
+    setActiveTab('bug');
+    if (user) {
+      fetchUserBugReports();
+    }
     setTimeout(() => {
       scrollToContent();
     }, 100);
@@ -164,7 +178,7 @@ function Support() {
             )}
             <button
               className={`support-tab ${activeTab === 'bug' ? 'active' : ''}`}
-              onClick={() => handleTabClick('bug')}
+              onClick={handleBugTabClick}
             >
               🐛 Report Bug
             </button>
@@ -208,7 +222,9 @@ function Support() {
                 formData={formData}
                 handleInputChange={handleInputChange}
                 handleBugReportSubmit={handleBugReportSubmit}
+                handleRelatedReportToggle={handleRelatedReportToggle}
                 isSubmitting={isSubmitting}
+                userReports={userBugReports}
               />
             )}
 

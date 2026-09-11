@@ -132,4 +132,7 @@ secrets/
 # ===========================================
 # Generated Reports (may contain user PII)
 # ===========================================
-backend/reports/support-tickets-*.json
+# Any ticket export dropped here by pull-support-tickets.js — match every
+# filename, not just the default, so a custom --out name can't leak user
+# emails into this public repo.
+backend/reports/*.json

@@ -36,11 +36,6 @@ function Pay() {
     <>
       <Header />
       <div className="planit-pay-bg">
-        <div className="planit-pay-floating" aria-hidden="true">
-          <div className="planit-pay-circle planit-pay-circle-1"></div>
-          <div className="planit-pay-circle planit-pay-circle-2"></div>
-          <div className="planit-pay-circle planit-pay-circle-3"></div>
-        </div>
         <div className="planit-pay-card">
           <section className="planit-pay-heading">
             <p className="planit-pay-eyebrow">Membership</p>

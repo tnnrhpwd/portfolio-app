@@ -40,6 +40,13 @@ is why the export treats contact messages and `/net` tickets as perpetually open
    known, user-actionable errors (payload-too-large, auth/PAT, rate-limit,
    addon-not-running), so they don't flood the report list.
 
+   The policy lives in `frontend/src/utils/simpleAddon/autoReport.js`
+   (`shouldAutoReportError`) with unit tests in `autoReport.test.js`: an error is
+   filed only when it is **not** a known user-actionable failure **and** the same
+   error hasn't already been reported from this device in the last 24 hours.
+   Adding a new user-actionable error message therefore means adding a pattern
+   there — otherwise it will start filing high-severity reports again.
+
 ### 2.2 Support tickets (`/net` tool)
 
 The `/net` AI chat tool (`backend/services/netTools.js`) exposes a
@@ -128,8 +135,31 @@ node backend/scripts/pull-support-tickets.js --stdout
 Every record keeps its **`rawText`** field so no detail is lost to parsing. A parsed
 bug report exposes: `id`, `type`, `title`, `severity`, `description`, `steps`,
 `expected`, `actual`, `browser`, `device`, `status`, `isOpen`, `creator`,
-`creatorIds`, `resolution`, `resolvedBy`, `resolvedAt`, `reportedAt`, `createdAt`,
-`updatedAt`, `rawText`.
+`creatorIds`, `resolution`, `resolvedBy`, `resolvedAt`, `idea`, `relatedReports`,
+`reportedAt`, `createdAt`, `updatedAt`, `rawText`.
+
+### 4.5 Optional fields added by the UI
+
+Two optional fields let a reporter connect a bug to an improvement idea. Both are
+appended at the end of the record **only when they have a value**, so records
+written before the feature existed parse exactly as they always did:
+
+| Field | Meaning | Written by |
+|---|---|---|
+| `Idea:<text>` | A free-text improvement idea attached to the report | Bug Report form → *Related improvement ideas* |
+| `RelatedReports:<id>,<id>` | Ids of other reports the report is linked to (comma-separated, max 5 — the same list convention as `Agrees:`/`Disagrees:`) | Bug Report form → *Link related reports* picker |
+
+Rules when working with them:
+
+- A field value may contain `:` but **never `|`** — `Ideas` are sanitised on write
+  (`stripFieldSeparators`) because a pipe would split the record into extra
+  fields. See `frontend/src/utils/supportUtils.js`.
+- All serverside parsers are key-based and order-independent, so unknown fields are
+  ignored rather than breaking older readers (`backend/utils/bugReportFields.js`,
+  `backend/controllers/adminController.js`).
+- In Support → My Reports, an attached idea renders as an “Improvement idea” block
+  and each linked report renders as a link that expands and scrolls to that report.
+
 
 ---
 
@@ -151,6 +181,8 @@ the app:
 | Area | Files |
 |---|---|
 | Export script | `backend/scripts/pull-support-tickets.js` |
+| Resolve script | `backend/scripts/resolve-support-tickets.js` |
+| Bug report field parsing | `backend/utils/bugReportFields.js` |
 | npm entry point | `backend/package.json` → `"pull-support-tickets"` |
 | Bug report creation (goal agent) | `backend/services/goalAgentService.js` (`submit_bug_report`) |
 | Support ticket creation (`/net`) | `backend/services/netTools.js` (`submit_support_ticket`) |

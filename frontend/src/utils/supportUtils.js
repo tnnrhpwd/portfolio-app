@@ -160,6 +160,112 @@ export const truncateText = (text, max = 160) => {
   return `${clean.slice(0, max).trimEnd()}...`;
 };
 
+/* ===================================================================
+ * Bug reports: linked improvement ideas
+ *
+ * A report can carry two extra optional fields, appended only when they have
+ * a value so older records and the existing parsers are unaffected:
+ *
+ *   Idea:<free text>              the improvement idea attached to the report
+ *   RelatedReports:<id>,<id>      other reports this one is connected to
+ *
+ * The id list mirrors the existing `Agrees:`/`Disagrees:` comma-separated
+ * convention on these pipe-delimited records.
+ * ================================================================ */
+
+/** How many other reports a single report may link to. */
+export const MAX_RELATED_REPORTS = 5;
+
+/**
+ * Remove pipe characters. A `|` inside a value would be read as a field
+ * separator and split the record into bogus fields, so the attached idea text
+ * is sanitised before it is written.
+ */
+export const stripFieldSeparators = (value = '') =>
+  String(value ?? '').replace(/\|/g, '/').trim();
+
+/** Serialize linked report ids into the comma-separated field value. */
+export const serializeRelatedReportIds = (ids = []) => {
+  const list = Array.isArray(ids) ? ids : [];
+  const unique = [];
+  for (const raw of list) {
+    const id = String(raw ?? '').trim();
+    if (id && !unique.includes(id)) unique.push(id);
+    if (unique.length >= MAX_RELATED_REPORTS) break;
+  }
+  return unique.join(',');
+};
+
+/** Parse the comma-separated field value back into an array of ids. */
+export const parseRelatedReportIds = (value = '') =>
+  String(value ?? '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean);
+
+/**
+ * Build the pipe-delimited text for a bug report.
+ *
+ * Existing fields are written exactly as before (raw values, newlines and all)
+ * so live records keep their current shape; `Idea`/`RelatedReports` are only
+ * appended when the reporter actually supplied them.
+ */
+export const buildBugReportText = ({
+  creatorPrefix = '',
+  title = '',
+  severity = 'medium',
+  description = '',
+  steps = '',
+  expected = '',
+  actual = '',
+  browser = '',
+  device = '',
+  creator = '',
+  idea = '',
+  relatedReports = [],
+} = {}) => {
+  const fields = [
+    `${creatorPrefix}Bug:${title}`,
+    `Severity:${severity}`,
+    `Description:${description}`,
+    `Steps:${steps}`,
+    `Expected:${expected}`,
+    `Actual:${actual}`,
+    `Browser:${browser}`,
+    `Device:${device}`,
+  ];
+
+  const ideaText = stripFieldSeparators(idea);
+  if (ideaText) fields.push(`Idea:${ideaText}`);
+
+  const linked = serializeRelatedReportIds(relatedReports);
+  if (linked) fields.push(`RelatedReports:${linked}`);
+
+  fields.push(`Creator:${creator}`, 'Status:Open', `Timestamp:${new Date().toISOString()}`);
+
+  return fields.join('|');
+};
+
+/**
+ * Resolve linked ids against the reports the user can see, so the detail view
+ * can show a title and whether the link is reachable from the current list.
+ * @param {string[]} ids
+ * @param {Array} reports
+ * @returns {Array<{ id: string, title: string, inList: boolean }>}
+ */
+export const describeRelatedReports = (ids = [], reports = []) => {
+  const list = Array.isArray(reports) ? reports : [];
+  const idList = Array.isArray(ids) ? ids : parseRelatedReportIds(ids);
+  return idList.map((id) => {
+    const match = list.find((report) => report?.id === id);
+    return {
+      id,
+      title: match?.title || 'Report no longer in your list',
+      inList: Boolean(match),
+    };
+  });
+};
+
 /**
  * Scroll to support content section
  */

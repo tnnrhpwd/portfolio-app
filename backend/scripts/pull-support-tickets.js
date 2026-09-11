@@ -136,6 +136,13 @@ function parseBug(item) {
     resolution: parseField(text, 'Resolution'),
     resolvedBy: parseField(text, 'ResolvedBy'),
     resolvedAt: parseField(text, 'ResolvedAt'),
+    // Optional: an improvement idea attached to the report and the ids of other
+    // reports it was linked to (see utils/bugReportFields.js).
+    idea: parseField(text, 'Idea'),
+    relatedReports: (parseField(text, 'RelatedReports') || '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean),
     reportedAt: parseField(text, 'Timestamp') || item.createdAt,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,

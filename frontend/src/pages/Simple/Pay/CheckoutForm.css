@@ -980,7 +980,10 @@
 }
 
 .plan-selector.selected span {
-  font-size: var(--font-size-small);
+  /* Must fit inside the circle: calc(var(--nav-size) * 0.3) ≈ 14px. At the
+     generic `--font-size-small` the glyph overflowed its own radio button. */
+  font-size: calc(var(--nav-size) * 0.19);
+  line-height: 1;
 }
 
 /* Enhanced payment methods list */

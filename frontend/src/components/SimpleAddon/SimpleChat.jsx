@@ -43,6 +43,10 @@ import './SimpleChat.css';
 import './SimpleTheme.css';
 import { checkMessage as securityCheckMessage } from '../../utils/simpleAddon/securityGuard';
 import { routeMessage, ROUTE_KINDS } from '../../utils/simpleAddon/messageRouter';
+import {
+  friendlyRemoteError,
+  shouldAutoReportError,
+} from '../../utils/simpleAddon/autoReport';
 
 const DEFAULT_MODEL = 'Qwen/Qwen2.5-0.5B-Instruct';
 const CHATS_STORAGE_KEY = 'csimple_chats';
@@ -52,41 +56,8 @@ const DEVICE_SETTINGS_KEY = 'csimple_device_settings';
 
 // Known, user-actionable errors that already show clear remediation steps in
 // the chat itself (config/auth, rate/usage limits, offline addon, unparsable
-// file instruction, stale addon builds). These are not application bugs, so
-// they must not be auto-reported — doing so previously flooded the bug
-// tracker with duplicate reports for things like a rate limit or an offline
-// addon.
-const KNOWN_CONFIG_ERROR_PATTERNS = [
-  /not configured/i,
-  /addon is not running/i,
-  /can't reach your pc/i,
-  /remote addon/i,
-  /remote confirmation/i,
-  /addon is out of date/i,
-  /no access to model/i,
-  /model access restricted/i,
-  /authentication failed \(401\)/i,
-  /rate limit/i,
-  /usage limit/i,
-  /could not find model/i,
-  /request body too large/i,
-  /\(413\)/,
-  /couldn't understand that instruction/i,
-  /unknown command type/i,
-  /please log in/i,
-];
-
-const isUserConfigError = (message = '') =>
-  KNOWN_CONFIG_ERROR_PATTERNS.some(pattern => pattern.test(message));
-
-// Map a raw relay error to a clearer, user-actionable message instead of
-// leaking it verbatim into the chat (and into the auto bug-report queue).
-const friendlyRemoteError = (message = '') => {
-  if (/unknown command type/i.test(message)) {
-    return 'Your desktop addon is out of date and can\'t run this request. Please update the Simple addon on your PC, then retry.';
-  }
-  return message;
-};
+// file instruction, stale addon builds) are filtered out of the auto bug-report
+// queue by the shared policy module — see utils/simpleAddon/autoReport.js.
 
 // Explicit "control my desktop from this device" phrasing ("open edge on pc",
 // "on my computer") and the cloud-only intent detector now live in the shared
@@ -99,26 +70,6 @@ const friendlyRemoteError = (message = '') => {
 // with "sure" ("sure, what's the weather?") is never mistaken for a go-ahead.
 const CONFIRM_ACTION_RE = /^(?:yes|yeah|yep|y|sure|ok(?:ay)?|do\s+it|go\s+ahead|run\s+it|run|proceed|please\s+do|confirm|affirmative|go)[\s.!,]*(?:please)?[\s.!,]*$/i;
 const DECLINE_ACTION_RE = /^(?:no|nope|nah|never\s?mind|just answer|don'?t|do not|skip it|cancel|answer the question)\b/i;
-
-// Avoid re-submitting a bug report for the exact same recurring error within
-// this window, even when it isn't a known config error.
-const BUG_REPORT_DEDUPE_WINDOW_MS = 24 * 60 * 60 * 1000;
-const BUG_REPORT_DEDUPE_KEY = 'csimple_last_auto_bug_report';
-
-const shouldSkipDuplicateBugReport = (content) => {
-  const signature = (content || '').slice(0, 200);
-  try {
-    const stored = JSON.parse(localStorage.getItem(BUG_REPORT_DEDUPE_KEY) || '{}');
-    const now = Date.now();
-    if (stored.signature === signature && now - stored.timestamp < BUG_REPORT_DEDUPE_WINDOW_MS) {
-      return true;
-    }
-    localStorage.setItem(BUG_REPORT_DEDUPE_KEY, JSON.stringify({ signature, timestamp: now }));
-  } catch {
-    // localStorage unavailable — fall back to reporting (better a rare dupe than losing reports)
-  }
-  return false;
-};
 
 // Image-editing verbs that should keep routing to the server-side file
 // processor instead of the chat LLM. Anything else (read/extract/goals/…)
@@ -1962,9 +1913,11 @@ function SimpleChat({
     if (lastMsg && lastMsg.isError && lastMsg.id !== lastReportedRef.current) {
       lastReportedRef.current = lastMsg.id;
 
-      // Skip known user-actionable config/auth errors and duplicate reports
-      // of the same recurring error — see constants above for rationale.
-      if (isUserConfigError(lastMsg.content) || shouldSkipDuplicateBugReport(lastMsg.content)) {
+      // One gate decides whether an error is reportable at all: user-actionable
+      // failures are never application bugs, and a recurring failure is only
+      // reported once per device per dedupe window. See
+      // utils/simpleAddon/autoReport.js for the policy and its tests.
+      if (!shouldAutoReportError(lastMsg.content)) {
         return;
       }
 

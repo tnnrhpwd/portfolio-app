@@ -1,7 +1,11 @@
 import { useDispatch } from 'react-redux';
 import { toast } from 'react-toastify';
 import { createData, createPublicData } from '../features/data/dataSlice';
-import { getUserIdentifier } from '../utils/supportUtils';
+import {
+  MAX_RELATED_REPORTS,
+  buildBugReportText,
+  getUserIdentifier,
+} from '../utils/supportUtils';
 
 /**
  * Custom hook to handle form submissions
@@ -28,6 +32,25 @@ export const useSupportHandlers = (user, formData, setFormData, setIsSubmitting,
       ...prev,
       reviewRating: rating
     }));
+  };
+
+  // Link / unlink another report on the bug report form. Kept here (rather than
+  // reading e.target.value) because the control is a checkbox list.
+  const handleRelatedReportToggle = (reportId) => {
+    setFormData(prev => {
+      const current = Array.isArray(prev.bugRelatedReports) ? prev.bugRelatedReports : [];
+      const isLinked = current.includes(reportId);
+      if (!isLinked && current.length >= MAX_RELATED_REPORTS) {
+        toast.info(`You can link up to ${MAX_RELATED_REPORTS} reports.`, { autoClose: 3000 });
+        return prev;
+      }
+      return {
+        ...prev,
+        bugRelatedReports: isLinked
+          ? current.filter(id => id !== reportId)
+          : [...current, reportId],
+      };
+    });
   };
 
   const handleReviewSubmit = async (e) => {
@@ -102,7 +125,20 @@ export const useSupportHandlers = (user, formData, setFormData, setIsSubmitting,
       // still allowing anonymous (logged-out) submissions.
       const creatorPrefix = user?._id ? `Creator:${user._id}|` : '';
       const bugData = {
-        text: `${creatorPrefix}Bug:${formData.bugTitle}|Severity:${formData.bugSeverity}|Description:${formData.bugDescription}|Steps:${formData.bugSteps}|Expected:${formData.bugExpected}|Actual:${formData.bugActual}|Browser:${formData.bugBrowser}|Device:${formData.bugDevice}|Creator:${userId}|Status:Open|Timestamp:${new Date().toISOString()}`
+        text: buildBugReportText({
+          creatorPrefix,
+          title: formData.bugTitle,
+          severity: formData.bugSeverity,
+          description: formData.bugDescription,
+          steps: formData.bugSteps,
+          expected: formData.bugExpected,
+          actual: formData.bugActual,
+          browser: formData.bugBrowser,
+          device: formData.bugDevice,
+          creator: userId,
+          idea: formData.bugIdea,
+          relatedReports: formData.bugRelatedReports,
+        })
       };
 
       await dispatch(createPublicData(bugData)).unwrap();
@@ -117,11 +153,14 @@ export const useSupportHandlers = (user, formData, setFormData, setIsSubmitting,
         bugSteps: '',
         bugExpected: '',
         bugActual: '',
-        bugSeverity: 'medium'
+        bugSeverity: 'medium',
+        bugIdea: '',
+        bugRelatedReports: []
       }));
 
-      // Refresh bug reports if user is on reports tab
-      if (activeTab === 'reports') {
+      // Refresh bug reports if user is on reports tab (or the bug form, which
+      // lists their reports so the new one can be linked to them)
+      if (activeTab === 'reports' || activeTab === 'bug') {
         fetchUserBugReports();
       }
       
@@ -136,6 +175,7 @@ export const useSupportHandlers = (user, formData, setFormData, setIsSubmitting,
   return {
     handleInputChange,
     handleStarClick,
+    handleRelatedReportToggle,
     handleReviewSubmit,
     handleContactSubmit,
     handleBugReportSubmit,

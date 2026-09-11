@@ -157,3 +157,107 @@ describe('MyReportsTab - long list layout', () => {
     expect(closeBugReport).toHaveBeenCalledWith('report-25');
   });
 });
+
+describe('MyReportsTab - linked improvement ideas', () => {
+  const linkedReports = [
+    { ...buildReports(1)[0], id: 'old', title: 'Original report', createdAt: '2026-01-01T10:00:00.000Z' },
+    {
+      ...buildReports(1)[0],
+      id: 'new',
+      title: 'Follow-up report',
+      createdAt: '2026-02-01T10:00:00.000Z',
+      idea: 'Add a progress bar while the export runs',
+      relatedReports: ['old'],
+    },
+  ];
+
+  it('shows an indicator on the collapsed row', () => {
+    renderTab({ userBugReports: linkedReports });
+    const row = screen.getByRole('button', { name: /Follow-up report/ });
+    expect(within(row).getByText(/💡 idea/)).toBeInTheDocument();
+    expect(within(row).getByText(/🔗 1 related/)).toBeInTheDocument();
+  });
+
+  it('renders the attached idea and a link to the related report', async () => {
+    const user = userEvent.setup();
+    renderTab({ userBugReports: linkedReports });
+
+    expect(screen.queryByText(/Add a progress bar/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Follow-up report/ }));
+
+    expect(screen.getByText('Add a progress bar while the export runs')).toBeInTheDocument();
+    expect(screen.getByText('💡 Improvement idea:')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Go to related report: Original report' })
+    ).toBeInTheDocument();
+  });
+
+  it('expands and reveals the linked report when the link is clicked', async () => {
+    const user = userEvent.setup();
+    renderTab({ userBugReports: linkedReports });
+
+    await user.click(screen.getByRole('button', { name: /Follow-up report/ }));
+    const originalRow = screen.getByRole('button', { name: /^Original report / });
+    expect(originalRow).toHaveAttribute('aria-expanded', 'false');
+
+    await user.click(screen.getByRole('button', { name: 'Go to related report: Original report' }));
+
+    expect(screen.getByRole('button', { name: /^Original report / })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    );
+    // the linked report's own body is now rendered
+    const card = document.getElementById('support-report-old');
+    expect(within(card).getByText('Steps to Reproduce:')).toBeInTheDocument();
+  });
+
+  it('reveals a linked report that is on a later page', async () => {
+    const user = userEvent.setup();
+    // newest-first: 'new' is first, 'old' sits past the first page
+    const many = buildReports(REPORTS_PAGE_SIZE + 2).map((report, index) => ({
+      ...report,
+      createdAt: new Date(2026, 0, 1 + index).toISOString(),
+    }));
+    const oldest = many[0];
+    many.push({
+      ...buildReports(1)[0],
+      id: 'newest',
+      title: 'Newest report',
+      createdAt: new Date(2026, 5, 1).toISOString(),
+      relatedReports: [oldest.id],
+    });
+
+    renderTab({ userBugReports: many });
+    expect(
+      screen.queryByRole('button', { name: new RegExp(`^${oldest.title} `) })
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Newest report/ }));
+    await user.click(
+      screen.getByRole('button', { name: `Go to related report: ${oldest.title}` })
+    );
+
+    const revealed = screen.getByRole('button', { name: new RegExp(`^${oldest.title} `) });
+    expect(revealed).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('labels a link whose report is no longer in the list', async () => {
+    const user = userEvent.setup();
+    renderTab({
+      userBugReports: [
+        {
+          ...buildReports(1)[0],
+          id: 'only',
+          title: 'Solo report',
+          relatedReports: ['gone'],
+        },
+      ],
+    });
+
+    await user.click(screen.getByRole('button', { name: /Solo report/ }));
+
+    expect(screen.getByText('Report no longer in your list')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Report no longer in your list' })).not.toBeInTheDocument();
+  });
+});
