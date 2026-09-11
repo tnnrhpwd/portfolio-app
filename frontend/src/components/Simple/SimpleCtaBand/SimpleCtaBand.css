@@ -1,0 +1,226 @@
+/* ── SimpleCtaBand ────────────────────────────────────────────────────────────
+   The closing "use the product" band, shared by /home and /projects.
+
+   The band's ink is --text-color-inv — white in light mode, deep navy in dark
+   mode — so the fill must be DEEP in light mode and BRIGHT in dark mode for that
+   ink to stay legible. The dark-theme tokens already are; in light mode the mint
+   end is darkened toward the ink so white clears WCAG AA (white on the raw
+   --fg-mint teal was only ~2.2:1). Everything on the band derives from that one
+   token, which is why it survives a theme flip with no hardcoded colors.
+
+   Geometry mirrors the page bands it bookends (`.home-band` / `.projects-band`):
+   full-bleed, flat, centered, with the same vertical rhythm. */
+
+.simple-cta {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: calc(var(--nav-size) * 1.6) calc(var(--nav-size) * 0.3);
+  color: var(--text-color-inv);
+  text-align: center;
+  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+}
+.light-theme .simple-cta {
+  background: linear-gradient(
+    45deg,
+    var(--fg-blue),
+    color-mix(in srgb, var(--fg-mint) 45%, var(--dark-blue0))
+  );
+}
+.simple-cta-wrap { width: 100%; max-width: 1000px; }
+
+.simple-cta-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.12);
+  margin: 0 0 calc(var(--nav-size) * 0.3);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-color-inv);
+  opacity: 0.9;
+}
+.simple-cta-title {
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin: 0 0 calc(var(--nav-size) * 0.2);
+  color: var(--text-color-inv);
+}
+.simple-cta-sub {
+  color: var(--text-color-inv);
+  opacity: 0.9;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-relaxed);
+  margin: 0 auto calc(var(--nav-size) * 0.5);
+  max-width: 480px;
+}
+
+.simple-cta-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.4);
+}
+
+/* ── Buttons: uppercase letter-spaced pills ──
+   Both variants derive from --text-color-inv. The old absolute --white0 made the
+   ghost button white-on-bright-cyan (unreadable) and left the primary as a flat
+   white slab on the dark-theme band. */
+.simple-cta-btn {
+  font-family: inherit;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.55);
+  cursor: pointer;
+  border: 1px solid transparent;
+  color: var(--text-color-inv);
+  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.12);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.simple-cta-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.simple-cta-btn:focus-visible {
+  outline: 3px solid var(--text-color-inv);
+  outline-offset: 3px;
+}
+.simple-cta-btn--inv {
+  background: var(--text-color-inv);
+  color: var(--text-color);
+}
+.simple-cta-btn--ghost {
+  background: transparent;
+  color: var(--text-color-inv);
+  border-color: color-mix(in srgb, var(--text-color-inv) 55%, transparent);
+}
+.simple-cta-btn--ghost:hover {
+  background: color-mix(in srgb, var(--text-color-inv) 16%, transparent);
+  border-color: var(--text-color-inv);
+  box-shadow: none;
+}
+
+/* ── The three surfaces ──
+   The card surface, border and secondary text are all built from
+   --text-color-inv so the same rules work in both themes. Explicit tracks
+   (rather than auto-fit) so exactly-three cards never spill into a fourth
+   column on wide screens. */
+.simple-cta-surfaces {
+  list-style: none;
+  margin: calc(var(--nav-size) * 0.7) 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: calc(var(--nav-size) * 0.22);
+  text-align: left;
+}
+.simple-cta-surface { display: flex; min-width: 0; }
+.simple-cta-surface-link {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.12);
+  width: 100%;
+  min-width: 0;
+  padding: calc(var(--nav-size) * 0.32);
+  border: 1px solid color-mix(in srgb, var(--text-color-inv) 30%, transparent);
+  border-radius: var(--border-radius-lg);
+  background: color-mix(in srgb, var(--text-color-inv) 12%, transparent);
+  color: var(--text-color-inv);
+  text-decoration: none;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+.simple-cta-surface-link:hover {
+  background: color-mix(in srgb, var(--text-color-inv) 20%, transparent);
+  border-color: color-mix(in srgb, var(--text-color-inv) 55%, transparent);
+  transform: translateY(-2px);
+}
+.simple-cta-surface-link:focus-visible {
+  outline: 3px solid var(--text-color-inv);
+  outline-offset: 2px;
+}
+.simple-cta-surface-title {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.14);
+  min-width: 0;
+  font-size: var(--font-size-large);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.2;
+  margin: 0;
+}
+.simple-cta-surface-icon { font-size: var(--font-size-large); line-height: 1; }
+.simple-cta-surface-arrow { margin-left: auto; transition: transform 0.2s ease; }
+.simple-cta-surface-link:hover .simple-cta-surface-arrow { transform: translateX(4px); }
+.simple-cta-surface-desc {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-base);
+  color: color-mix(in srgb, var(--text-color-inv) 84%, transparent);
+  margin: 0;
+}
+
+/* ── Funnel note: the price, kept deliberately small and last ── */
+.simple-cta-note {
+  margin: calc(var(--nav-size) * 0.45) 0 0;
+  font-size: var(--font-size-small);
+  color: color-mix(in srgb, var(--text-color-inv) 84%, transparent);
+}
+.simple-cta-note a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-color-inv);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.simple-cta-note a:focus-visible {
+  outline: 3px solid var(--text-color-inv);
+  outline-offset: 2px;
+}
+.simple-cta-note a span { transition: transform 0.2s ease; }
+.simple-cta-note a:hover span { transform: translateX(4px); }
+
+/* ── Staggered entrance (driven by useScrollReveal's is-visible) ── */
+.simple-cta-surface,
+.simple-cta-note {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.simple-cta.is-visible .simple-cta-surface,
+.simple-cta.is-visible .simple-cta-note {
+  opacity: 1;
+  transform: translateY(0);
+}
+.simple-cta.is-visible .simple-cta-surface:nth-child(1) { transition-delay: 0.05s; }
+.simple-cta.is-visible .simple-cta-surface:nth-child(2) { transition-delay: 0.15s; }
+.simple-cta.is-visible .simple-cta-surface:nth-child(3) { transition-delay: 0.25s; }
+.simple-cta.is-visible .simple-cta-note { transition-delay: 0.35s; }
+
+/* ── Responsive: 3-up, then 2-up, then 1-up ── */
+@media (max-width: 760px) {
+  .simple-cta-surfaces { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .simple-cta-surfaces { grid-template-columns: 1fr; }
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .simple-cta-surface,
+  .simple-cta-note {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}

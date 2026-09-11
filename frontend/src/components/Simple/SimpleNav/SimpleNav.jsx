@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAddonDetection } from '../../../hooks/simpleAddon/useAddonDetection';
+import { SIMPLE_SURFACES } from '../../../constants/simpleSurfaces';
 import './SimpleNav.css';
 
 /**
@@ -33,11 +34,9 @@ function SimpleNav({ running = false, goalName = '', compact = false }) {
   // `/plans/goal/<slug>` should light up the Goals tab.
   const isActive = (to) => pathname === to || pathname.startsWith(`${to}/`);
 
-  const links = [
-    { to: '/net',    icon: '💬', label: 'Chat' },
-    { to: '/simple', icon: '🎛️', label: 'Control' },
-    { to: '/plans',  icon: '🎯', label: 'Goals' },
-  ];
+  // The three rooms, from the shared list — the same words the closing CTA band
+  // shows, so the switcher stays a landmark rather than a fourth thing to learn.
+  const links = SIMPLE_SURFACES;
 
   const statusLabel = !isConnected
     ? 'PC agent offline'

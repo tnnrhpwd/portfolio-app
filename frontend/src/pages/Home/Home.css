@@ -110,7 +110,6 @@
   text-transform: uppercase;
   color: var(--text-color-accent);
 }
-.home-eyebrow--inv { color: var(--text-color-inv); opacity: 0.9; }
 .home-eyebrow-dot {
   width: 8px;
   height: 8px;
@@ -210,26 +209,6 @@
 .home-btn-text:hover { transform: none; box-shadow: none; }
 .home-btn-text span { transition: transform 0.2s ease; }
 .home-btn-text:hover span { transform: translateX(4px); }
-
-/* CTA buttons — used only on the gradient band, whose ink is --text-color-inv
-   (white in light mode, deep navy in dark mode). Deriving BOTH from that one
-   token keeps them legible in either theme. The old absolute --white0 made the
-   ghost button white-on-bright-cyan (unreadable) and left the primary as a flat
-   white slab on the dark-theme band. */
-.home-btn--inv {
-  background: var(--text-color-inv);
-  color: var(--text-color);
-}
-.home-btn--ghost {
-  background: transparent;
-  color: var(--text-color-inv);
-  border-color: color-mix(in srgb, var(--text-color-inv) 55%, transparent);
-}
-.home-btn--ghost:hover {
-  background: color-mix(in srgb, var(--text-color-inv) 16%, transparent);
-  border-color: var(--text-color-inv);
-  box-shadow: none;
-}
 
 /* ── Section headings ── */
 .home-section-head {
@@ -411,150 +390,11 @@
 .home-feature-link span { transition: transform 0.2s ease; }
 .home-feature-row:hover .home-feature-link span { transform: translateX(4px); }
 
-/* ── The three Simple surfaces (replaces the old numbered steps) ──
-   Mirrors the header's Chat / Control / Goals switcher so the model a visitor
-   learns here is the one they meet again on every product page. */
-/* Three surfaces: 3-up on desktop, 2-up on tablets, 1-up on phones. Explicit
-   tracks (rather than auto-fit) so exactly-three cards never spill into a
-   fourth column on wide screens. */
-.home-surfaces {
-  list-style: none;
-  margin: calc(var(--nav-size) * 0.7) 0 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: calc(var(--nav-size) * 0.22);
-  text-align: left;
-}
-@media (max-width: 760px) {
-  .home-surfaces { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 520px) {
-  .home-surfaces { grid-template-columns: 1fr; }
-}
-.home-surface { display: flex; min-width: 0; }
-
-/* The band's ink is --text-color-inv (white on the deep light-theme gradient,
-   deep navy on the bright dark-theme gradient), so the card surface, border and
-   secondary text are all built from that ONE token. Hardcoding white here (as
-   this block used to) breaks dark mode, where the band is bright cyan. */
-.home-surface-link {
-  display: flex;
-  flex-direction: column;
-  gap: calc(var(--nav-size) * 0.12);
-  width: 100%;
-  min-width: 0;
-  padding: calc(var(--nav-size) * 0.32);
-  border: 1px solid color-mix(in srgb, var(--text-color-inv) 30%, transparent);
-  border-radius: var(--border-radius-lg);
-  background: color-mix(in srgb, var(--text-color-inv) 12%, transparent);
-  color: var(--text-color-inv);
-  text-decoration: none;
-  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
-}
-.home-surface-link:hover {
-  background: color-mix(in srgb, var(--text-color-inv) 20%, transparent);
-  border-color: color-mix(in srgb, var(--text-color-inv) 55%, transparent);
-  transform: translateY(-2px);
-}
-.home-surface-link:focus-visible {
-  outline: 3px solid var(--text-color-inv);
-  outline-offset: 2px;
-}
-.home-surface-title {
-  display: flex;
-  align-items: center;
-  gap: calc(var(--nav-size) * 0.14);
-  min-width: 0;
-  font-size: var(--font-size-large);
-  font-weight: var(--font-weight-semibold);
-  line-height: 1.2;
-  margin: 0;
-}
-.home-surface-icon { font-size: var(--font-size-large); line-height: 1; }
-.home-surface-arrow { margin-left: auto; transition: transform 0.2s ease; }
-.home-surface-link:hover .home-surface-arrow { transform: translateX(4px); }
-.home-surface-desc {
-  font-size: var(--font-size-small);
-  line-height: var(--line-height-base);
-  color: color-mix(in srgb, var(--text-color-inv) 84%, transparent);
-  margin: 0;
-}
-
-/* Funnel next-step: Discovery -> Understanding (/pricing). */
-.home-cta-note {
-  margin: calc(var(--nav-size) * 0.45) 0 0;
-  font-size: var(--font-size-small);
-  color: color-mix(in srgb, var(--text-color-inv) 84%, transparent);
-}
-.home-cta-note a {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--text-color-inv);
-  font-weight: var(--font-weight-semibold);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-.home-cta-note a:focus-visible {
-  outline: 3px solid var(--text-color-inv);
-  outline-offset: 2px;
-}
-.home-cta-note a span { transition: transform 0.2s ease; }
-.home-cta-note a:hover span { transform: translateX(4px); }
-
-/* Staggered entrance for the surface cards */
-.home-cta .home-surface,
-.home-cta .home-cta-note {
-  opacity: 0;
-  transform: translateY(14px);
-  transition: opacity 0.5s ease, transform 0.5s ease;
-}
-.home-cta.is-visible .home-surface,
-.home-cta.is-visible .home-cta-note {
-  opacity: 1;
-  transform: translateY(0);
-}
-.home-cta.is-visible .home-surface:nth-child(1) { transition-delay: 0.05s; }
-.home-cta.is-visible .home-surface:nth-child(2) { transition-delay: 0.15s; }
-.home-cta.is-visible .home-surface:nth-child(3) { transition-delay: 0.25s; }
-.home-cta.is-visible .home-cta-note { transition-delay: 0.35s; }
-
-/* ── Final CTA: vibrant gradient band ──
-   The band's ink is --text-color-inv, which is white in light mode and deep
-   navy in dark mode — so the gradient must be DEEP in light mode and BRIGHT in
-   dark mode for that ink to stay legible. The dark-theme tokens already are;
-   in light mode the mint end is darkened toward the ink so white clears WCAG AA
-   (white on the raw --fg-mint teal was only ~2.2:1). */
-.home-cta {
-  color: var(--text-color-inv);
-  text-align: center;
-  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
-}
-.light-theme .home-cta {
-  background: linear-gradient(
-    45deg,
-    var(--fg-blue),
-    color-mix(in srgb, var(--fg-mint) 45%, var(--dark-blue0))
-  );
-}
-.home-cta-inner { max-width: 1000px; }
-.home-cta-title {
-  font-size: var(--font-size-heading);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-  margin: 0 0 calc(var(--nav-size) * 0.2);
-  color: var(--text-color-inv);
-}
-.home-cta-sub {
-  color: var(--text-color-inv);
-  opacity: 0.9;
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-relaxed);
-  margin: 0 auto calc(var(--nav-size) * 0.5);
-  max-width: 480px;
-}
+/* The closing "use the product" band (Chat / Control / Goals + the addon
+   download + the price note) is its own component, shared with /projects:
+   see components/Simple/SimpleCtaBand/SimpleCtaBand.css. It used to live here
+   as `.home-cta*` / `.home-surface*`, which is how /projects ended up needing a
+   copy of it. */
 
 /* ── Around the site ── */
 .home-links-grid {
@@ -858,9 +698,7 @@
   .home-subtitle,
   .home-kicker,
   .home-actions,
-  .home-stat,
-  .home-cta .home-surface,
-  .home-cta .home-cta-note {
+  .home-stat {
     opacity: 1;
     transform: none;
     transition: none;

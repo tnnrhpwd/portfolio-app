@@ -833,18 +833,28 @@ through the normal cloud conversation sync like any other chat. Concretely:
 
 Known edge: a goal whose run predates this link (or was mirrored without it) opens
 an empty thread; its run is still on `/plans/goal/:id`, and the goal bar points there.
-The **homepage's closing CTA band teaches this vocabulary before the visitor signs
-in**: three cards — 💬 Chat → `/net`, 🎛️ Control → `/simple`, 🎯 Goals → `/plans` —
-plus one funnel exit to `/pricing`. Keep the card titles identical to the `SimpleNav`
-labels (`frontend/src/pages/Home/Home.jsx`, `SURFACES`); if they drift, the switcher
-stops being a familiar landmark and becomes a fourth thing to learn.
+
+The **closing CTA band teaches this vocabulary before the visitor signs in**, and it
+is now *one component* shared by every Discovery page
+(`frontend/src/components/Simple/SimpleCtaBand/`): three cards — 💬 Chat → `/net`,
+🎛️ Control → `/simple`, 🎯 Goals → `/plans` — plus the addon download and a single
+quiet price note. The card titles come from
+`frontend/src/constants/simpleSurfaces.js`, which `SimpleNav` reads too, so the
+switcher's words and the band's words cannot drift apart into a fourth thing to
+learn. See §16.6 for the CTA policy this band exists to enforce.
+
 ### 16.2 Funnel graph (as built)
 
 ```
-Home ──hero "What I can do for you"──▶ /pricing ──plan card──▶ /login?redirectTo=/pay?plan=pro ──▶ /pay ──▶ /profile
-Home ──hero "Browse my work"─────────▶ /projects ──▶ project pages            (no route back to /pricing)
-Home ──CTA band surface cards───────▶ /net · /simple · /plans ──▶ LoginGate ──▶ /login?redirectTo=… | /register?redirectTo=…
-Home ──CTA band "See pricing"───────▶ /pricing
+Home ──hero "See it work"────────────▶ /simple     (explains the loop signed-out, then LoginGate)
+Home ──hero "Browse my work"─────────▶ /projects ──▶ project pages
+
+Home ──closing CTA band ─┐
+/projects ──same band ───┴───────────▶ SimpleCtaBand — product first, price last (§16.6)
+        ├── "Start chatting" ────────▶ /net
+        ├── "Download the addon" ────▶ GitHub release (ADDON_DOWNLOAD_URL)
+        ├── Chat / Control / Goals ──▶ /net · /simple · /plans ──▶ LoginGate ──▶ /login?redirectTo=… | /register?redirectTo=…
+        └── note "See pricing" ──────▶ /pricing ──plan card──▶ /login?redirectTo=/pay?plan=pro ──▶ /pay ──▶ /profile
 /net ──header switcher───────────────▶ /simple | /plans
 /simple ──header switcher────────────▶ /net | /plans
 /plans ──header switcher─────────────▶ /net | /simple
@@ -861,8 +871,8 @@ Home ──CTA band "See pricing"───────▶ /pricing
 
 | Route | Gate | Primary CTA → target |
 |---|---|---|
-| `/home` | public | hero CTAs → `/pricing`, `/projects`; closing CTA band: "Start chatting" → `/net`, three surface cards → `/net`, `/simple`, `/plans`, "See pricing" → `/pricing` |
-| `/projects` | public | project cards only — **no monetization path** |
+| `/home` | public | hero CTAs → `/simple` ("See it work"), `/projects`; closing `SimpleCtaBand` → `/net` ("Start chatting"), the addon download, three surface cards → `/net`, `/simple`, `/plans`, one quiet "Free to start… See pricing" note |
+| `/projects` | public | project cards; the **same** `SimpleCtaBand` as `/home` |
 | `/simple` | public shell, gated dashboard | the four-mode ladder; header switcher → `/net`, `/plans` |
 | `/net` | gated (LoginGate) | the chat itself; `UsageMeter` → `/pay?plan=pro` |
 | `/plans` | soft-gated (login prompt inline) | "+ New goal"; header switcher → `/net`, `/simple` |
@@ -903,16 +913,26 @@ Fixed in this pass:
 - ✅ **Home's closing CTA taught a four-step "download the addon" flow** whose steps
   no longer matched the product (`/simple` was labelled "Show it once" — it is
   Control) and which never mentioned Goals at all. It is now three surface cards
-  mirroring the switcher, plus a single low-key funnel exit to `/pricing`.
+  mirroring the switcher, plus a single low-key funnel exit to `/pricing`. It is
+  also now the shared `SimpleCtaBand` component rather than Home-local markup, so
+  `/projects` renders the same band instead of a lookalike.
 - ✅ **The surface switcher was a second row stacked under the header**, pushing
   every page down ~57px. It now renders *inside* the header band via
   `<Header center={…} />` and costs zero height.
+- ✅ **`/projects` was a dead end, and the CTA added for it sold the price.** A
+  visitor who left the home hero for the catalog had no onward path except the
+  header dropper, and the band first added here led with "See what it costs". It
+  now ends on the shared `SimpleCtaBand` — product first (Chat, Control, Goals +
+  the addon download), price as one quiet line — so the catalogue hands the
+  visitor into the product rather than into a bill. See §16.6.
+- ✅ **Every Discovery CTA led with the price.** Home's hero primary was "What I
+  can do for you" → `/pricing`, which asked for money before the visitor had seen
+  anything work. It is now "See it work" → `/simple`, the surface that explains
+  the whole loop while staying readable signed-out. `/pricing` is still one click
+  away — the header lists it, and the closing band's note points at it.
 
 Still open (ordered by funnel impact):
 
-- ⬜ **`/projects` has no route to `/pricing`.** Once a visitor leaves the home hero
-  for `/projects`, the only paths to pricing are the header dropper or a direct URL.
-  Add a closing CTA band.
 - ⬜ **Purchase-gate dead end.** When `purchasesEnabled` is false the Pro card is
   disabled ("Not available yet"), `/profile` hides every upgrade button, and
   `UsageMeter` hides its links — while the gate notice (`Pricing.jsx:204`) contains
@@ -941,23 +961,63 @@ Still open (ordered by funnel impact):
 
 ### 16.5 Rules for changing funnel pages
 
-1. **Every page needs one obvious next step** — and it should move the visitor
+1. **Service first, price as an afterthought.** A Discovery CTA's job is to get the
+   visitor *using* Simple — the payment happens afterwards, once they like it. Lead
+   with the product (Chat, Control, Goals, the addon download) and keep "what does
+   it cost?" as one low-key line beneath it. Never open a Discovery page's CTA with
+   a price. §16.6 spells out the policy and where price-led CTAs are still right.
+2. **Every page needs one obvious next step** — and it should move the visitor
    *forward* (Discovery → Understanding → Pay), never sideways to a page they
    already have in the nav.
-2. **Product surfaces (`/net`, `/simple`, `/plans`) must render the surface
+3. **Product surfaces (`/net`, `/simple`, `/plans`) must render the surface
    switcher**, so the three-room model stays legible from anywhere.
-3. **Deep-link login, don't drop the destination** — always pass
+4. **Deep-link login, don't drop the destination** — always pass
    `state.redirectTo` (`LoginGate` does this; ad-hoc `navigate('/login')` does not).
-4. **Put cross-surface navigation in the header, not in a second row.** Use
+5. **Put cross-surface navigation in the header, not in a second row.** Use
    `<Header center={<SimpleNav compact />} />`; a stacked nav bar costs ~57px on
    every page and reads as a second header.
-5. **One clear action per page.** If a hero CTA duplicates a link already in the
+6. **One clear action per page.** If a hero CTA duplicates a link already in the
    header nav, delete the CTA — the nav is always visible.
-6. **Never hard-block without a way out.** A disabled CTA needs an adjacent link to
+7. **Never hard-block without a way out.** A disabled CTA needs an adjacent link to
    `/support` or an explanation.
-7. **Use `<Link>` for internal routes** so CTAs are middle-clickable and crawlable.
-8. Verify the funnel with the shared demo account (§0) — most of these pages are
+8. **Use `<Link>` for internal routes** so CTAs are middle-clickable and crawlable.
+9. Verify the funnel with the shared demo account (§0) — most of these pages are
    behind login, so a logged-out eyeball proves almost nothing.
+
+### 16.6 CTA policy — service first, price second
+
+**People pay once they like the product, so a CTA's job is to get them using it.**
+Every Discovery surface (`/`, `/projects`) therefore ends on the same
+`SimpleCtaBand`: the three surface cards, "Start chatting", "Download the addon",
+and — last, small, one line — "Free to start. Wondering what it costs? See pricing".
+
+What follows from that:
+
+- **The band is one component** (`frontend/src/components/Simple/SimpleCtaBand/`),
+  used by every Discovery page, so a page cannot quietly grow its own price-first
+  variant. Don't restyle it per page — a local override is how two bands drift apart.
+- **The three card titles come from `constants/simpleSurfaces.js`**, which
+  `SimpleNav` also reads: one list, so the words can't drift.
+- **No price-led call to action.** "See what it costs", "What I can do for you" and
+  friends are not verbs for a page the visitor hasn't tried yet.
+- **Free-to-start belongs in the copy.** The note says it plainly, so nobody has to
+  reach the pricing page to discover there is nothing to pay up front.
+- **The policy is enforced by a test**
+  (`components/Simple/SimpleCtaBand/SimpleCtaBand.test.jsx`): the price link must be
+  the band's last element and the action row must contain no pricing link at all.
+
+**Where price-led CTAs are still correct** — this is not a ban on selling:
+
+| Surface | Why the price belongs there |
+|---|---|
+| `/pricing` plan cards → `/pay` | The visitor came for the price on purpose |
+| `/profile` "Upgrade Now" ×3 | They are already a user, managing their own plan |
+| Chat 402 → `[Upgrade Now →]` | The allowance just ran out mid-task — that *is* the moment |
+| Purchase-gate notices | Gate copy: informational, not a pitch |
+
+The line is **intent**: a visitor who came looking for the price, or who is already
+using the product, gets sold to. A visitor who has not tried it gets handed the
+product.
 
 ---
 

@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import Footer from '../../../components/Footer/Footer';
 import Header from '../../../components/Header/Header';
 import SEO from '../../../components/SEO/SEO.jsx';
+import SimpleCtaBand from '../../../components/Simple/SimpleCtaBand/SimpleCtaBand.jsx';
 import useScrollReveal from '../../../hooks/useScrollReveal.js';
 import { fetchProjectRankings } from '../../../services/projectRankingsApi';
 import './Projects.css';
@@ -210,6 +211,13 @@ function Projects() {
             </a> */}
           </div>
         </section>
+
+        {/* ── Closing CTA: use the product, not "buy it" ──
+             The catalogue's job is Discovery, so the band it ends on leads with
+             the three surfaces (Chat / Control / Goals) and the addon download —
+             the visitor pays once they have used the thing, so price is one quiet
+             line underneath. See docs/implementation/agent.md §16.5 rule 1. ── */}
+        <SimpleCtaBand />
 
         <Footer />
       </div>

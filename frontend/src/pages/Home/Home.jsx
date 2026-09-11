@@ -10,7 +10,7 @@ import useScrollReveal from '../../hooks/useScrollReveal.js';
 import { PROJECTS } from '../../constants/projects';
 import { isAdminUser, isMuseVisitor as isMuseVisitorAllowed } from '../../constants/admin';
 import { fetchProjectRankings } from '../../services/projectRankingsApi';
-import { ADDON_DOWNLOAD_URL } from '../../hooks/simpleAddon/useAddonDetection.js';
+import SimpleCtaBand from '../../components/Simple/SimpleCtaBand/SimpleCtaBand.jsx';
 
 import artHero from '../../assets/art/hero.jpg';
 import artFluid from '../../assets/art/project-fluid.jpg';
@@ -43,14 +43,9 @@ const WHATS_INSIDE = [
   { art: artSurprises, title: "Little surprises", desc: "Virtual pets, Hype, and other fun experiments.", path: "/projects?category=Fun" },
 ];
 
-// The three Simple surfaces. The homepage is where visitors first meet
-// Chat / Control / Goals, so the closing CTA teaches that vocabulary and doubles
-// as navigation into all three — the same three links the header switcher shows.
-const SURFACES = [
-  { to: "/net", icon: "💬", title: "Chat", desc: "Say what you want in plain English. Simple plans the steps and asks before anything risky." },
-  { to: "/simple", icon: "🎛️", title: "Control", desc: "Watch it work on your PC live, and set how far it may go — suggest-only through autopilot." },
-  { to: "/plans", icon: "🎯", title: "Goals", desc: "Every goal keeps its plan, its actions, and the lessons it learned. Hand it back any time." },
-];
+// The three Simple surfaces (Chat / Control / Goals) and the closing CTA band
+// live in `SimpleCtaBand` so /home and /projects cannot drift apart — the card
+// titles there are the same three words the header switcher shows.
 
 // Counts from 0 to `target` the first time the element scrolls into view, then
 // stops. Respects prefers-reduced-motion by jumping straight to the target.
@@ -128,7 +123,6 @@ function Home() {
     const [templatesRef, templatesVisible] = useScrollReveal();
     const [featuresRef, featuresVisible] = useScrollReveal();
     const [linksRef, linksVisible] = useScrollReveal();
-    const [ctaRef, ctaVisible] = useScrollReveal();
     // const [openSourceRef, openSourceVisible] = useScrollReveal(); // open-source band temporarily removed
 
     // Horizontal carousel pagination (Squarespace-style dots + arrows).
@@ -356,7 +350,11 @@ function Home() {
                             Let's build a brighter tomorrow!
                         </p>
                         <div className={`home-actions ${animationPhase >= 1 ? 'is-visible' : ''}`}>
-                            <Link className="home-btn" to="/pricing">What I can do for you <span aria-hidden="true">→</span></Link>
+                            {/* Product first: "what I can do for you" used to send the
+                                visitor to /pricing before they had seen anything work.
+                                /simple explains the whole loop and stays readable
+                                signed-out, so it is the honest first step. */}
+                            <Link className="home-btn" to="/simple">See it work <span aria-hidden="true">→</span></Link>
                             <Link className="home-btn home-btn-text" to="/projects">Browse my work <span aria-hidden="true">→</span></Link>
                         </div>
                     </div>
@@ -394,35 +392,8 @@ function Home() {
                     </div>
                 </section>
 
-                {/* ── Final CTA: the three Simple surfaces ── */}
-                <section ref={ctaRef} className={`home-band home-cta home-reveal ${ctaVisible ? 'is-visible' : ''}`}>
-                    <div className="home-wrap home-cta-inner">
-                        <p className="home-eyebrow home-eyebrow--inv">Simple</p>
-                        <h2 className="home-cta-title">Say it, watch it, keep it</h2>
-                        <p className="home-cta-sub">Three rooms, one agent. Ask for work in chat, watch it run on your own Windows PC, and keep what it learns so the next run costs you less.</p>
-                        <div className="home-actions">
-                            <Link className="home-btn home-btn--inv" to="/net">Start chatting <span aria-hidden="true">→</span></Link>
-                            <a className="home-btn home-btn--ghost" href={ADDON_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer">Download the addon</a>
-                        </div>
-                        <ul className="home-surfaces">
-                            {SURFACES.map((surface) => (
-                                <li className="home-surface" key={surface.to}>
-                                    <Link className="home-surface-link" to={surface.to}>
-                                        <h3 className="home-surface-title">
-                                            <span className="home-surface-icon" aria-hidden="true">{surface.icon}</span>
-                                            {surface.title}
-                                            <span className="home-surface-arrow" aria-hidden="true">→</span>
-                                        </h3>
-                                        <p className="home-surface-desc">{surface.desc}</p>
-                                    </Link>
-                                </li>
-                            ))}
-                        </ul>
-                        <p className="home-cta-note">
-                            Wondering what it costs? <Link to="/pricing">See pricing <span aria-hidden="true">→</span></Link>
-                        </p>
-                    </div>
-                </section>
+                {/* ── Final CTA: use the product (Chat / Control / Goals) ── */}
+                <SimpleCtaBand />
                 
                 {/* Open-source band temporarily removed — repo is no longer public.
                 <section ref={openSourceRef} className={`home-band home-band--surface home-open-source home-reveal ${openSourceVisible ? 'is-visible' : ''}`}>

@@ -279,6 +279,12 @@
 }
 .projects-meta-link:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
 
+/* The page's closing CTA is the shared `SimpleCtaBand` component (Chat /
+   Control / Goals + the addon download + the price note), styled in
+   components/Simple/SimpleCtaBand/SimpleCtaBand.css. It is deliberately NOT
+   restyled here — the same band has to read identically on /home and /projects,
+   and a local override is exactly how those two drift apart. */
+
 /* Footer spans the full page width */
 .projects .footer-space { width: 100%; }
 

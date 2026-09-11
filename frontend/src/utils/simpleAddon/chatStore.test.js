@@ -1,8 +1,13 @@
 /**
  * The module only touches `localStorage` at call time, so a minimal in-memory
- * stub keeps this suite in the same (node) environment as the rest of the
- * `utils/simpleAddon` tests — no jsdom needed, and the "storage unavailable"
- * path is testable by deleting the stub.
+ * stub lets us drive every path deterministically — including the "storage
+ * unavailable / blocked" one, which is just a stub that throws.
+ *
+ * The stub MUST be installed with `Object.defineProperty`, not plain assignment:
+ * under jest-environment-jsdom (the root `package.json` config) `localStorage`
+ * is already an accessor on the global, so `global.localStorage = stub` is
+ * silently ignored and the tests silently share jsdom's real, per-file store —
+ * which leaks writes between tests.
  */
 const makeStorage = () => {
   const map = new Map();
@@ -14,9 +19,17 @@ const makeStorage = () => {
   };
 };
 
+const stubStorage = (storage) => {
+  Object.defineProperty(global, 'localStorage', {
+    value: storage,
+    configurable: true,
+    writable: true,
+  });
+};
+
 import { CHATS_STORAGE_KEY, readLocalConversations, writeLocalConversations } from './chatStore';
 
-beforeEach(() => { global.localStorage = makeStorage(); });
+beforeEach(() => { stubStorage(makeStorage()); });
 afterAll(() => { delete global.localStorage; });
 
 describe('chatStore', () => {
@@ -49,10 +62,10 @@ describe('chatStore', () => {
   });
 
   test('storage that throws degrades to no local copy', () => {
-    global.localStorage = {
+    stubStorage({
       getItem: () => { throw new Error('blocked'); },
       setItem: () => { throw new Error('blocked'); },
-    };
+    });
     expect(readLocalConversations()).toEqual([]);
     expect(writeLocalConversations([{ id: '1', messages: [] }])).toBe(false);
   });
