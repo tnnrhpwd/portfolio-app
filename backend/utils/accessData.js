@@ -2,8 +2,9 @@ require('dotenv').config();
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const useragent = require('useragent');
-const ipinfo = require('ipinfo');
 const { logger } = require('./logger');
+const { getGeoForIp } = require('./geoLookup');
+const { expiresAtSeconds, TTL_ATTRIBUTE } = require('./analyticsRetention');
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -201,51 +202,47 @@ async function checkIP(req) {
         logger.debug('Platform info:', platformInfo);
         text += platformInfo;
 
-        // Get geolocation information
+        // Get geolocation information.
+        //
+        // This is served from geoLookup's per-IP cache: checkIP runs on
+        // essentially every non-localhost request and its caller awaits it
+        // before responding, so a direct ipinfo call here would put a
+        // third-party HTTP round-trip on every request's critical path (and
+        // let a slow/hung ipinfo stall the response). geoLookup also never
+        // throws — a failed lookup is simply "no geo".
         logger.debug('Fetching geolocation information for IP:', ipFromHeader);
-        try {
-            const geoInfo = await new Promise((resolve, reject) => {
-                ipinfo(ipFromHeader, (err, cLoc) => {
-                    if (err) {
-                        logger.error('Error getting IP info:', err);
-                        reject(err);
-                    }
-                    logger.debug('Geolocation data received:', cLoc);
-                    resolve(cLoc);
-                });
-            });
+        const geoInfo = await getGeoForIp(ipFromHeader);
 
-            if (geoInfo) {
-                const locationInfo = `|City:${geoInfo.city}|Region:${geoInfo.region}|Country:${geoInfo.country}`;
-                logger.debug('Location info:', locationInfo);
-                text += locationInfo;
+        if (geoInfo) {
+            const locationInfo = `|City:${geoInfo.city}|Region:${geoInfo.region}|Country:${geoInfo.country}`;
+            logger.debug('Location info:', locationInfo);
+            text += locationInfo;
 
-                // Capture real coordinates for the admin visitor map.
-                // ipinfo returns `loc` as a "lat,lng" string (e.g. "37.3860,-122.0838").
-                const locParts = geoInfo.loc && String(geoInfo.loc).includes(',')
-                    ? String(geoInfo.loc).split(',').map((s) => s.trim())
-                    : null;
-                if (locParts && locParts.length === 2) {
-                    const lat = parseFloat(locParts[0]);
-                    const lon = parseFloat(locParts[1]);
-                    if (!Number.isNaN(lat) && !Number.isNaN(lon)) {
-                        text += `|Lat:${lat}|Lon:${lon}`;
-                    }
-                }
-            } else {
-                logger.debug('No geolocation data available');
+            // Capture real coordinates for the admin visitor map, when ipinfo
+            // supplied them (`loc` is a "lat,lng" string).
+            if (typeof geoInfo.lat === 'number' && typeof geoInfo.lon === 'number') {
+                text += `|Lat:${geoInfo.lat}|Lon:${geoInfo.lon}`;
             }
-        } catch (geoError) {
-            logger.error('Failed to get geolocation data:', geoError);
+        } else {
+            logger.debug('No geolocation data available');
         }
+
+        const now = new Date().toISOString();
 
         const params = {
             TableName: 'Simple', 
             Item: {
                 id: require('crypto').randomBytes(16).toString("hex"),
                 text: text,
-                updatedAt: new Date().toISOString(),
-                createdAt: new Date().toISOString()
+                updatedAt: now,
+                createdAt: now,
+                // Retention. Access logs are written per request (an authorised
+                // or anonymous hit each costs a row), so they carry a DynamoDB
+                // TTL. Requires table TTL enabled on this attribute — see
+                // scripts/configure-analytics-ttl.js. Durable rows (users,
+                // workspace items) don't carry the attribute and are never
+                // expired by it.
+                [TTL_ATTRIBUTE]: expiresAtSeconds(now),
             },
             ConditionExpression: 'attribute_not_exists(id)'
         };

@@ -15,6 +15,7 @@ const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, PutCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
 const crypto = require('crypto');
 const { logger } = require('../utils/logger');
+const { expiresAtSeconds, TTL_ATTRIBUTE } = require('../utils/analyticsRetention');
 
 // ── DynamoDB client (matches accessData.js / adminController.js pattern) ──
 const client = new DynamoDBClient({
@@ -133,6 +134,12 @@ const recordPageView = asyncHandler(async (req, res) => {
                 text: `${PAGEVIEW_PREFIX}${path}`,
                 updatedAt: now,
                 createdAt: now,
+                // One row per route change is the highest-volume writer in the
+                // table, so it carries a TTL. Requires table TTL on the same
+                // attribute as the access log
+                // (scripts/configure-analytics-ttl.js); rows without the
+                // attribute are never expired, so durable items are unaffected.
+                [TTL_ATTRIBUTE]: expiresAtSeconds(now),
             },
             ConditionExpression: 'attribute_not_exists(id)',
         }));
