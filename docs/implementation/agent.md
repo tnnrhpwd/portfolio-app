@@ -556,7 +556,24 @@ impact; none are Simple-core blockers, but several are user-visible or DRY/secur
 ### 13.7 New findings (seventh audit pass, 2026-09-09)
 
 - ⬜ **Addon is distributed unsigned (no code-signing certificate)** — `simple-addon/` is built without `CSC_LINK`/`CSC_KEY`/`win.certificateSubjectName`, so (a) Windows SmartScreen flags the installer/portable exe, and (b) `electron-updater` can't verify update authenticity against a publisher certificate — update trust rests on TLS + the blockmap hash alone (a compromised GitHub repo could ship a malicious update that installs silently). Sign the build and set `publisherName` so updates are authenticated.
-- ⬜ **CI actions pinned by mutable tags + mixed versions** — `.github/workflows/` mixes `actions/checkout@v4` / `setup-node@v4` (build-addon.yml, ci.yml's `test-simple-addon`) with `@v6` (ci.yml's other jobs, security.yml). Tag-based pinning lets a compromised action repo inject code; pin all actions to full commit SHAs and use one version consistently.
+- ✅ **CI actions pinned by mutable tags** — *fixed for immutability (2026-09-12).* All
+  21 `uses:` references across the three workflows are pinned to full 40-character commit
+  SHAs (version kept in a trailing comment), each verified against its repo's real
+  tag→commit mapping with `git ls-remote`. Two traps worth knowing for next time:
+  `github/codeql-action@v4` is an **annotated** tag, so the pin must be the *dereferenced*
+  commit (`b96794f0…`, i.e. `refs/tags/v4^{}`) — pinning the tag object's own SHA fails
+  the job; and `trufflesecurity/trufflehog@main` was a **moving branch**, now frozen to
+  the commit `main` pointed at on 2026-09-12 (latest release: v3.97.4). Pins won't rot
+  silently: `dependabot.yml` already carries a weekly `github-actions` ecosystem.
+  ⬜ **Still open: the mixed versions.** `actions/checkout` and `actions/setup-node` are
+  `@v4` in the two *Windows* jobs (`build-addon.yml`, `ci.yml`'s `test-simple-addon`) and
+  `@v6` in every other job. Each was pinned to the version it already used rather than
+  bumped: a major bump inside the addon **release** pipeline is a behaviour change that
+  can't be exercised locally, so it wants a deliberate, watched change.
+- ⬜ **CI can't be run locally** — the workflow changes above were validated by parsing
+  each file as YAML and asserting every `uses:` resolves to a pinned SHA (plus the
+  `ls-remote` mapping check), not by executing the pipelines. Worth one watched run
+  before relying on it.
 
 ### 13.8 New findings (eighth audit pass, 2026-09-10)
 
@@ -635,6 +652,44 @@ impact; none are Simple-core blockers, but several are user-visible or DRY/secur
   `testFunnelController`'s `GetCommand({ Key: { id: testUserId } })` (~line 304, also
   missing the sort key — it is inside a try/catch, so the funnel status endpoint just
   always reports "no live user"). Everything under `backend/scripts/` is unaudited.
+
+### 13.10 New findings (tenth audit pass, 2026-09-12)
+
+First pass over `backend/scripts/` — the one area §13.9 left unaudited. The
+mutating scripts turned out to be mostly well-behaved (dry-run by default, and
+`Key: { id, createdAt }` on every delete/update); two things were not.
+
+- ✅ **`migrate-images-to-s3.js` defaulted to writing.** Its dry run was a
+  hand-edited constant that shipped as `const DRY_RUN = false`, so
+  `node backend/scripts/migrate-images-to-s3.js` uploaded inline base64 images to
+  S3 and rewrote the DynamoDB `files` arrays on live data — no flag, no prompt, no
+  dry-run pass, unlike every sibling script. It is now `--apply`-gated, and the dry
+  run reports "Images that WOULD be migrated" separately instead of incrementing
+  the `imagesMigrated` counter (a dry run could be read as "N images migrated").
+  Verified by running it: the migration is already complete — 6 items with files,
+  **0 images pending**. Tests: `__tests__/unit/migrateImagesDryRun.test.js`
+  (pins "no arguments issues no writes").
+- ✅ **`.gitignore` protected the wrong directory.** The rule was
+  `backend/storage/migration-backups/*`, but `backup-dynamodb.js` writes next to
+  itself — `path.join(__dirname, 'migration-backups')`, i.e.
+  `backend/scripts/migration-backups/` — which nothing ignored, so its export of
+  user records (text + file metadata) was committable. (`merge-duplicate-users.js`
+  is fine: it writes under `backend/logs/`, already ignored.) Added the missing
+  rule; `git check-ignore` now matches. Note the *existing* tracked dump at
+  `backend/storage/migration-backups/dynamodb-backup-2025-10-12T*Z.json` — 2 items,
+  no `Password:` (so no credential leak), but a data export that should not be in
+  the repo; untracking it is a call for the repo owner, and it stays in history
+  either way (see §13.1).
+- ✅ **`migrate-images-to-s3.js` could not run at all.** It built its clients at
+  module load from `process.env`, but `backend/.env` holds only the access keys, so
+  it died with the SDK's opaque "Region is missing" (and `S3 Bucket: undefined`)
+  before doing anything. It now bootstraps through `loadAllSecrets()` — the same
+  path `server.js` and the other scripts use — and, when config is still missing,
+  fails with the names of the missing variables instead of the SDK's message.
+- ⚠️ **Other scripts may share that missing bootstrap.** `migrate-images-to-s3.js`
+  was found by running it; the rest of `backend/scripts/` was read, not executed, so
+  any of them that builds AWS clients at module load has the same latent failure.
+  Worth a run-through before the next time one of them is needed.
 
 ---
 

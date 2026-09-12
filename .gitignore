@@ -112,6 +112,11 @@ backend/uploads/*
 backend/storage/migration-backups/*
 !backend/storage/migration-backups/.gitkeep
 
+# backup-dynamodb.js writes next to itself (backend/scripts/migration-backups/),
+# not under backend/storage/ — the rule above did not cover that path, so its
+# export of user records (text + file metadata) was committable to this repo.
+backend/scripts/migration-backups/*
+
 # ===========================================
 # Secrets & Credentials (NEVER COMMIT)
 # ===========================================

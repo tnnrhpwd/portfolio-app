@@ -74,6 +74,11 @@ const PROJECT_ART = [
     prompt:
       'A vibrant 3D render of an adorable glossy cartoon kitten and puppy sitting together with big expressive eyes, surrounded by a floating pet food bowl, a ball and a heart, over a soft blurred pastel background of pink, mint, orange and blue bokeh, shallow depth of field, premium render, no text',
   },
+  {
+    slug: 'fit',
+    prompt:
+      'A vibrant 3D render of two glossy smooth matte-black dumbbells and a matching kettlebell arranged as a clean still life on a reflective surface, completely plain unmarked weights with no lettering or logos, a soft glowing cyan heartbeat line and a curving progress chart floating behind them, over a blurred pastel background of mint, cyan, hot pink and orange bokeh lights, shallow depth of field, premium product photography, no text, no writing, no numbers, no markings',
+  },
 ];
 
 async function generateOne(entry) {

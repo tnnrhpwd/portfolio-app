@@ -9,6 +9,7 @@
  */
 
 import artFluid from '../assets/art/project-fluid.jpg';
+import artFit from '../assets/art/project-fit.jpg';
 import art2048 from '../assets/art/project-2048.jpg';
 import artSonic from '../assets/art/project-sonic.jpg';
 import artWordle from '../assets/art/project-wordle.jpg';
@@ -47,6 +48,13 @@ export const PROJECTS = [
     art: artFluid,
     category: "Tools",
     description: "A falling-sand powder playground — pour sand, water, oil, fire and more, then watch them tumble, flow and react.",
+  },
+  {
+    name: "Fit",
+    path: "/fit",
+    art: artFit,
+    category: "Tools",
+    description: "Generate a Push / Pull / Legs training week with cardio and core built in, then log every set and track volume, streaks, and personal records.",
   },
   {
     name: "2048",

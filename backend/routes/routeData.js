@@ -178,6 +178,11 @@ const {
   generateHypeQuote,
 } = require('../controllers/hypeController');
 
+// Fit coach controller (signed-in — LLM training advice for /fit)
+const {
+  askFitCoach,
+} = require('../controllers/fitCoachController');
+
 // Image generation controller (AWS Bedrock — Stability / Gemini)
 const {
   getImageModels,
@@ -546,6 +551,12 @@ router.post('/pets/adopt', protect, workspaceWriteLimiter, sanitizeInput, adopt)
 router.get('/pets/:petId', protect, workspaceReadLimiter, getPetOne);
 router.post('/pets/:petId/action', protect, workspaceActionLimiter, sanitizeInput, doAction);
 router.delete('/pets/:petId', protect, workspaceWriteLimiter, removePet);
+
+// ── Fit ─────────────────────────────────────────────────────────────────────
+// Training advice from the athlete's own logged sessions, runs, and pain
+// reports. Signed in only: server-paid Bedrock, metered at the provider
+// boundary in the controller (see docs/implementation/agent.md §8.1).
+router.post('/fit/coach', protect, llmLimiter, sanitizeInput, askFitCoach);
 
 // ============================================================================
 // CSIMPLE SETTINGS SYNC

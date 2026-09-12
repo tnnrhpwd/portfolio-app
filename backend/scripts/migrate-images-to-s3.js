@@ -1,5 +1,12 @@
 // DynamoDB to S3 Migration Script
 // This script migrates existing base64 images from DynamoDB to S3 and updates records
+//
+// DRY RUN by default, like every other script in this directory:
+//   node backend/scripts/migrate-images-to-s3.js            # dry run (safe)
+//   node backend/scripts/migrate-images-to-s3.js --apply    # upload + rewrite rows
+//
+// The dry run still reads the table (one paginated scan) but uploads nothing and
+// writes nothing, so it is safe to run against production to see what is pending.
 
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
@@ -7,30 +14,55 @@ const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { randomUUID } = require('crypto');
 require('dotenv').config();
 
-// Initialize AWS clients
-const dynamoClient = new DynamoDBClient({
-    region: process.env.AWS_REGION,
-    credentials: {
+const { loadAllSecrets } = require('../utils/awsSecrets');
+
+// Clients and bucket name are built in initAws(), not at module load: backend/.env
+// only holds the access keys (no AWS_REGION, no bucket), so a module-load client
+// was constructed with `region: undefined` and the script died with the opaque
+// SDK error "Region is missing" before it could do anything. initAws() hydrates
+// from Secrets Manager first — the same bootstrap server.js and the sibling
+// scripts (configure-s3-lifecycle, configure-analytics-ttl) use.
+let dynamodb = null;
+let s3Client = null;
+let BUCKET_NAME = null;
+
+async function initAws() {
+    await loadAllSecrets();
+
+    const region = process.env.AWS_S3_REGION || process.env.AWS_REGION;
+    const credentials = {
         accessKeyId: process.env.AWS_ACCESS_KEY_ID,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    };
+
+    BUCKET_NAME = process.env.AWS_S3_BUCKET;
+
+    const missing = [];
+    if (!region) missing.push('AWS_REGION (or AWS_S3_REGION)');
+    if (!BUCKET_NAME) missing.push('AWS_S3_BUCKET');
+    if (missing.length) {
+        throw new Error(
+            `Missing AWS config: ${missing.join(', ')}. Put them in backend/.env, `
+            + 'or make sure loadAllSecrets() can read portfolio-app/production.'
+        );
     }
-});
 
-const dynamodb = DynamoDBDocumentClient.from(dynamoClient);
+    dynamodb = DynamoDBDocumentClient.from(new DynamoDBClient({ region, credentials }));
+    s3Client = new S3Client({ region, credentials });
 
-const s3Client = new S3Client({
-    region: process.env.AWS_S3_REGION || process.env.AWS_REGION,
-    credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    }
-});
+    return { region, bucket: BUCKET_NAME };
+}
 
-// Configuration
-const BUCKET_NAME = process.env.AWS_S3_BUCKET;
 const TABLE_NAME = 'Simple';
 const BATCH_SIZE = 10; // Process in small batches to avoid overwhelming services
-const DRY_RUN = false; // Set to false to actually perform migration
+
+// Dry run unless explicitly told otherwise, matching every other script in this
+// directory (configure-s3-lifecycle, archive-legacy-goals, migrate-goals-…).
+// This used to be a hand-edited constant that shipped as `false`, so running the
+// script with no arguments uploaded to S3 and rewrote the DynamoDB `files` arrays
+// on live data with no flag, no prompt and no dry-run pass first.
+const APPLY = process.argv.includes('--apply');
+const DRY_RUN = !APPLY;
 
 // Helper function to generate S3 key
 const generateS3Key = (userId, originalFilename, fileType = 'migrated') => {
@@ -87,6 +119,9 @@ const extractUserId = (text) => {
 
 // Main migration function
 async function migrateImagesToS3() {
+    // Hydrate config from Secrets Manager before anything reads it.
+    await initAws();
+
     console.log('🚀 Starting DynamoDB to S3 Image Migration...\n');
     console.log(`📊 Configuration:`);
     console.log(`   S3 Bucket: ${BUCKET_NAME}`);
@@ -99,6 +134,7 @@ async function migrateImagesToS3() {
         itemsWithFiles: 0,
         imagesFound: 0,
         imagesMigrated: 0,
+        imagesWouldMigrate: 0,
         errors: 0,
         skipped: 0
     };
@@ -147,12 +183,17 @@ async function migrateImagesToS3() {
         console.log(`🗂️  Items with files: ${migrationStats.itemsWithFiles}`);
         console.log(`🖼️  Images found: ${migrationStats.imagesFound}`);
         console.log(`☁️  Images migrated: ${migrationStats.imagesMigrated}`);
+        if (DRY_RUN) {
+            // Reported separately so a dry run can never be read as "N images were
+            // migrated" — the old code incremented imagesMigrated in this branch.
+            console.log(`☁️  Images that WOULD be migrated: ${migrationStats.imagesWouldMigrate}`);
+        }
         console.log(`⏭️  Items skipped: ${migrationStats.skipped}`);
         console.log(`❌ Errors: ${migrationStats.errors}`);
         
         if (DRY_RUN) {
-            console.log('\n⚠️  This was a DRY RUN - no changes were made');
-            console.log('   Set DRY_RUN = false to perform actual migration');
+            console.log('\n⚠️  DRY RUN — nothing was uploaded and nothing was written.');
+            console.log('   Re-run with --apply to perform the migration for real.');
         }
 
     } catch (error) {
@@ -229,7 +270,7 @@ async function processBatch(items, stats) {
                     } else {
                         console.log(`   📋 Would migrate: ${file.filename} → S3`);
                         migratedFiles.push(file); // Keep original in dry run
-                        stats.imagesMigrated++;
+                        stats.imagesWouldMigrate++;
                     }
                 } else if (file.s3Key) {
                     console.log(`   ⏭️  Skipping already migrated file: ${file.s3Key}`);

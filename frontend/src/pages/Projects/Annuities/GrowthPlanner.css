@@ -1,0 +1,161 @@
+/* ── Growth planner ──────────────────────────────────────────────────────────
+   Planner-only blocks. The shared primitives it uses — bands, band headings,
+   buttons, fields, pills, figures — live in Annuities.css. There are no cards
+   here: groups are separated by whitespace and hairline rules.              */
+
+.annuities-planner-groups {
+  display: flex;
+  flex-direction: column;
+}
+
+.annuities-planner-group {
+  padding: calc(var(--nav-size) * 0.38) 0;
+  border-top: 1px solid var(--border-nav);
+}
+
+.annuities-planner-group:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.annuities-planner-group:last-child {
+  padding-bottom: 0;
+}
+
+.annuities-planner-group-title {
+  margin: 0 0 calc(var(--nav-size) * 0.3);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-color-accent);
+}
+
+.annuities-planner-figure {
+  margin-bottom: calc(var(--nav-size) * 0.55);
+}
+
+/* ── Metrics: borderless tiles that lift on hover ───────────────────────── */
+
+.annuities-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: calc(var(--nav-size) * 0.28);
+  margin-bottom: calc(var(--nav-size) * 0.55);
+}
+
+.annuities-metric {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.06);
+  padding: calc(var(--nav-size) * 0.28) calc(var(--nav-size) * 0.3);
+  border-radius: var(--border-radius-lg);
+  background: color-mix(in srgb, var(--fg-blue) 7%, transparent);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+}
+
+.annuities-metric:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: var(--shadow-md);
+  background: color-mix(in srgb, var(--fg-blue) 12%, transparent);
+}
+
+.annuities-metric-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-color-accent);
+}
+
+.annuities-metric-value {
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  color: var(--text-color);
+}
+
+.annuities-metric-hint {
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-relaxed);
+  color: var(--text-color-accent);
+}
+
+.annuities-metric.is-positive .annuities-metric-value { color: var(--fg-mint); }
+.annuities-metric.is-negative .annuities-metric-value { color: var(--fg-orange); }
+
+/* ── Schedule table: hairlines only, no box ─────────────────────────────── */
+
+.annuities-table-scroll {
+  max-height: calc(var(--nav-size) * 7.5);
+  overflow: auto;
+}
+
+.annuities-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.annuities-table th,
+.annuities-table td {
+  padding: calc(var(--nav-size) * 0.14) calc(var(--nav-size) * 0.18);
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border-nav);
+}
+
+.annuities-table th:first-child,
+.annuities-table td:first-child { padding-left: 0; }
+.annuities-table th:last-child,
+.annuities-table td:last-child { padding-right: 0; }
+
+.annuities-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-page);
+  border-bottom-color: transparent;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-color-accent);
+}
+
+.annuities-table tbody th {
+  text-align: left;
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-color);
+}
+
+.annuities-table tbody tr {
+  transition: background 0.2s ease;
+}
+
+.annuities-table tbody tr:hover {
+  background: color-mix(in srgb, var(--fg-blue) 7%, transparent);
+}
+
+.annuities-table .is-positive { color: var(--fg-mint); }
+.annuities-table .is-negative { color: var(--fg-orange); }
+.annuities-table .is-strong { font-weight: var(--font-weight-semibold); }
+.annuities-table .is-muted { color: var(--text-color-accent); }
+
+@media (orientation: portrait) {
+  .annuities-table-scroll { max-height: calc(var(--nav-size) * 9); }
+  .annuities-metrics { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .annuities-metric,
+  .annuities-table tbody tr {
+    transition: none;
+  }
+
+  .annuities-metric:hover {
+    transform: none;
+  }
+}

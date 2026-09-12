@@ -1,0 +1,66 @@
+/* ── Annuity chart ───────────────────────────────────────────────────────────
+   Borderless: the canvas sits directly on the band, separated from the content
+   above it by a hairline rule.                                                   */
+
+.annuities-chart {
+  margin: calc(var(--nav-size) * 0.7) 0 0;
+  padding-top: calc(var(--nav-size) * 0.5);
+  border-top: 1px solid var(--border-nav);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.25);
+}
+
+.annuities-chart-heading {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.08);
+}
+
+.annuities-chart-title {
+  margin: 0;
+  font-size: var(--font-size-large);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.015em;
+  color: var(--text-color);
+}
+
+.annuities-chart-description {
+  margin: 0;
+  max-width: 680px;
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-relaxed);
+  color: var(--text-color-accent);
+}
+
+.annuities-chart-canvas {
+  position: relative;
+  width: 100%;
+  height: calc(var(--nav-size) * 7);
+  min-height: 260px;
+}
+
+.annuities-chart-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: calc(var(--nav-size) * 0.5);
+  border-radius: var(--border-radius-lg);
+  background: color-mix(in srgb, var(--fg-blue) 7%, transparent);
+  color: var(--text-color-accent);
+  font-size: var(--font-size-small);
+  font-style: italic;
+}
+
+.annuities-chart-footnote {
+  margin: 0;
+  max-width: 780px;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-relaxed);
+  color: var(--text-color-accent);
+}
+
+@media (orientation: portrait) {
+  .annuities-chart-canvas { height: calc(var(--nav-size) * 4.5); }
+}
