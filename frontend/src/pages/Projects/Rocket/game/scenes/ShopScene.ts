@@ -7,10 +7,7 @@ import type { UpgradeKey } from '../core/types';
 import { advanceWave, currentWorld, finishRun, getSave, isMaxed, priceOf, purchase } from '../session';
 import { addPanel, addSpaceBackdrop } from '../ui/backdrop';
 import { addText, createButton } from '../ui/button';
-import { PALETTE, TEXT, VIEW_WIDTH } from '../ui/theme';
-
-const COLS = 4;
-const CELL = { w: 284, h: 158, gapX: 18, gapY: 18 };
+import { PALETTE, TEXT, VIEW_WIDTH, isPortrait } from '../ui/theme';
 
 /**
  * The between-waves shop.
@@ -23,17 +20,40 @@ export class ShopScene extends Phaser.Scene {
   private coinText!: Phaser.GameObjects.Text;
   private grid: Phaser.GameObjects.Container | null = null;
 
+  /**
+   * Grid shape for the active design box: 4×2 side by side in landscape, 2×4
+   * stacked in portrait, where four 284-wide cells cannot fit in 720.
+   */
+  private cell = { cols: 4, w: 284, h: 158, gapX: 18, gapY: 18, startY: 196 };
+
   constructor() {
     super('Shop');
+  }
+
+  private get w(): number {
+    return VIEW_WIDTH;
+  }
+
+  private get cx(): number {
+    return VIEW_WIDTH / 2;
+  }
+
+  private get portrait(): boolean {
+    return isPortrait();
   }
 
   create(): void {
     const world = currentWorld();
     this.grid = null;
 
+    const portrait = this.portrait;
+    this.cell = portrait
+      ? { cols: 2, w: 326, h: 158, gapX: 18, gapY: 18, startY: 240 }
+      : { cols: 4, w: 284, h: 158, gapX: 18, gapY: 18, startY: 196 };
+
     addSpaceBackdrop(this, 5150);
 
-    addText(this, VIEW_WIDTH / 2, 52, 'WAVE CLEAR', {
+    addText(this, this.cx, portrait ? 78 : 52, 'WAVE CLEAR', {
       size: 40,
       bold: true,
       color: TEXT.primary,
@@ -41,19 +61,19 @@ export class ShopScene extends Phaser.Scene {
     });
     addText(
       this,
-      VIEW_WIDTH / 2,
-      92,
+      this.cx,
+      portrait ? 120 : 92,
       world ? `Wave ${world.wave} survived — hull ${world.player.hull}/${world.player.maxHull}` : '',
       { size: 17, color: TEXT.muted, origin: [0.5, 0.5] },
     );
-    this.coinText = addText(this, VIEW_WIDTH / 2, 124, '', {
+    this.coinText = addText(this, this.cx, portrait ? 158 : 124, '', {
       size: 24,
       bold: true,
       color: TEXT.gold,
       origin: [0.5, 0.5],
     });
 
-    addText(this, VIEW_WIDTH / 2, 160, 'SPEND YOUR COINS — upgrades are permanent', {
+    addText(this, this.cx, portrait ? 194 : 160, 'SPEND YOUR COINS — upgrades are permanent', {
       size: 14,
       color: TEXT.dim,
       origin: [0.5, 0.5],
@@ -63,8 +83,8 @@ export class ShopScene extends Phaser.Scene {
 
     createButton(
       this,
-      VIEW_WIDTH / 2 - 130,
-      636,
+      portrait ? this.cx : this.cx - 130,
+      portrait ? 1050 : 636,
       'NEXT WAVE ▶',
       () => {
         sfx.uiClick();
@@ -72,13 +92,19 @@ export class ShopScene extends Phaser.Scene {
         announce('Next wave starting');
         this.scene.start('Play');
       },
-      { width: 240, height: 58, fontSize: 20, fill: PALETTE.accent, textColor: '#04121c' },
+      {
+        width: portrait ? 300 : 240,
+        height: 58,
+        fontSize: 20,
+        fill: PALETTE.accent,
+        textColor: '#04121c',
+      },
     );
 
     createButton(
       this,
-      VIEW_WIDTH / 2 + 130,
-      636,
+      portrait ? this.cx : this.cx + 130,
+      portrait ? 1130 : 636,
       'END RUN',
       () => {
         // Ending here still records the run — the score and wave reached are real.
@@ -86,7 +112,13 @@ export class ShopScene extends Phaser.Scene {
         sfx.uiClick();
         this.scene.start('Menu');
       },
-      { width: 240, height: 58, fontSize: 20, outline: true, textColor: TEXT.muted },
+      {
+        width: portrait ? 300 : 240,
+        height: 54,
+        fontSize: 20,
+        outline: true,
+        textColor: TEXT.muted,
+      },
     );
 
     announce('Shop open. Buy upgrades with your coins, then start the next wave.');
@@ -98,17 +130,17 @@ export class ShopScene extends Phaser.Scene {
     const save = getSave();
     this.coinText.setText(`COINS  ${save.coins.toLocaleString('en-US')}`);
 
-    const totalWidth = COLS * CELL.w + (COLS - 1) * CELL.gapX;
-    const startX = (VIEW_WIDTH - totalWidth) / 2;
-    const startY = 196;
+    const { cols, w, h, gapX, gapY, startY } = this.cell;
+    const totalWidth = cols * w + (cols - 1) * gapX;
+    const startX = (this.w - totalWidth) / 2;
 
     const objects: Phaser.GameObjects.GameObject[] = [];
 
     UPGRADE_ORDER.forEach((key, index) => {
-      const col = index % COLS;
-      const row = Math.floor(index / COLS);
-      const x = startX + col * (CELL.w + CELL.gapX) + CELL.w / 2;
-      const y = startY + row * (CELL.h + CELL.gapY) + CELL.h / 2;
+      const col = index % cols;
+      const row = Math.floor(index / cols);
+      const x = startX + col * (w + gapX) + w / 2;
+      const y = startY + row * (h + gapY) + h / 2;
       this.buildCell(key, x, y, objects);
     });
 
@@ -128,15 +160,17 @@ export class ShopScene extends Phaser.Scene {
     const price = priceOf(key);
     const affordable = !maxed && save.coins >= price;
 
-    objects.push(addPanel(this, x, y, CELL.w, CELL.h, 0.86));
+    const { w: cellW, h: cellH } = this.cell;
 
-    const icon = this.add.image(x - CELL.w / 2 + 40, y - 40, this.tex(def.sprite));
+    objects.push(addPanel(this, x, y, cellW, cellH, 0.86));
+
+    const icon = this.add.image(x - cellW / 2 + 40, y - 40, this.tex(def.sprite));
     const size = Math.max(icon.width, icon.height) || 1;
     icon.setScale(46 / size);
     objects.push(icon);
 
     objects.push(
-      addText(this, x - CELL.w / 2 + 76, y - 62, def.name.toUpperCase(), {
+      addText(this, x - cellW / 2 + 76, y - 62, def.name.toUpperCase(), {
         size: 17,
         bold: true,
         color: TEXT.primary,
@@ -146,16 +180,16 @@ export class ShopScene extends Phaser.Scene {
     // Level pips: filled = owned, hollow = still buyable.
     for (let i = 0; i < def.maxLevel; i++) {
       const pip = this.add
-        .rectangle(x - CELL.w / 2 + 80 + i * 16, y - 40, 11, 11, i < level ? PALETTE.accent : PALETTE.panel)
+        .rectangle(x - cellW / 2 + 80 + i * 16, y - 40, 11, 11, i < level ? PALETTE.accent : PALETTE.panel)
         .setStrokeStyle(1, PALETTE.panelEdge);
       objects.push(pip);
     }
 
     objects.push(
-      addText(this, x - CELL.w / 2 + 20, y - 16, def.blurb, {
+      addText(this, x - cellW / 2 + 20, y - 16, def.blurb, {
         size: 12,
         color: TEXT.muted,
-        wrap: CELL.w - 40,
+        wrap: cellW - 40,
       }),
     );
 
@@ -163,11 +197,11 @@ export class ShopScene extends Phaser.Scene {
     const button = createButton(
       this,
       x,
-      y + CELL.h / 2 - 28,
+      y + cellH / 2 - 28,
       label,
       () => this.buy(key),
       {
-        width: CELL.w - 40,
+        width: cellW - 40,
         height: 34,
         fontSize: 15,
         fill: affordable ? PALETTE.panelHover : PALETTE.panel,

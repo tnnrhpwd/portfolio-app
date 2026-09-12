@@ -163,11 +163,35 @@ export function currentBoss(world: World): Enemy | undefined {
   return world.enemies.find((e) => e.boss);
 }
 
+/**
+ * Fit a live world to a new arena shape.
+ *
+ * The game is destroyed and recreated when the device rotates, and the run
+ * continues into the new box (720×1280 instead of 1280×720, say). Everything
+ * already in flight has to come with it: a wave that was mid-spawn in a wide
+ * arena would otherwise leave enemies parked off the right edge of a narrow one,
+ * where they can neither be shot nor shoot back — and the wave could not finish.
+ *
+ * Enemy `anchorX` moves too, because the weave/strafe patterns steer back
+ * toward it.
+ */
 export function resizeWorld(world: World, width: number, height: number): void {
   world.width = width;
   world.height = height;
+
   world.player.x = clamp(world.player.x, world.player.radius, width - world.player.radius);
   world.player.y = clamp(world.player.y, world.player.radius, height - world.player.radius);
+
+  for (const enemy of world.enemies) {
+    enemy.x = clamp(enemy.x, enemy.radius, width - enemy.radius);
+    enemy.anchorX = clamp(enemy.anchorX, enemy.radius, width - enemy.radius);
+  }
+  for (const bullet of world.bullets) {
+    bullet.x = clamp(bullet.x, -bullet.radius, width + bullet.radius);
+  }
+  for (const pickup of world.pickups) {
+    pickup.x = clamp(pickup.x, pickup.radius, width - pickup.radius);
+  }
 }
 
 // ---------------------------------------------------------------------------

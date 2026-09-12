@@ -473,6 +473,36 @@ describe('determinism and resizing', () => {
     expect(world.player.y).toBeLessThanOrEqual(600 - world.player.radius);
   });
 
+  it('brings everything in flight inside the new arena shape', () => {
+    // Rotating the device does not clear the wave: the run continues in the
+    // other box, so nothing may be left stranded outside the new bounds where it
+    // could neither be shot nor shoot back — and the wave could never finish.
+    const world = emptyWorld();
+    spawnEnemyAt(world, 'asteroid', 1100, 300, 'drift');
+    spawnPickupAt(world, 'coin', 1000, 200);
+    world.bullets.push({
+      id: 9999,
+      x: 1200,
+      y: 100,
+      vx: 0,
+      vy: -1,
+      radius: 6,
+      damage: 1,
+      from: 'player',
+      sprite: 'power-bolt-blue',
+      ttlMs: 1000,
+    });
+
+    resizeWorld(world, 720, 1280);
+
+    const enemy = world.enemies[0];
+    const pickup = world.pickups[0];
+    expect(enemy.x).toBeLessThanOrEqual(720 - enemy.radius);
+    expect(enemy.anchorX).toBeLessThanOrEqual(720 - enemy.radius);
+    expect(pickup.x).toBeLessThanOrEqual(720 - pickup.radius);
+    expect(world.bullets[0].x).toBeLessThanOrEqual(720 + world.bullets[0].radius);
+  });
+
   it('ignores a zero or negative frame time', () => {
     const world = emptyWorld();
     const before = world.timeMs;

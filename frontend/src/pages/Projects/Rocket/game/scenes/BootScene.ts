@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { ensureRuntimeTextures, missingSprites, queueGameSprites } from '../assets';
+import { currentWorld } from '../session';
 import { addText } from '../ui/button';
 import { PALETTE, TEXT, VIEW_HEIGHT, VIEW_WIDTH } from '../ui/theme';
 
@@ -61,6 +62,12 @@ export class BootScene extends Phaser.Scene {
       );
     }
 
-    this.scene.start('Menu');
+    // The game is destroyed and recreated when the device rotates, so a run can
+    // already be in progress before the menu has ever been shown. Put the player
+    // back on the screen they were on instead of stranding them in the menu.
+    const run = currentWorld();
+    if (run?.status === 'running') this.scene.start('Play');
+    else if (run?.status === 'wave-clear') this.scene.start('Shop');
+    else this.scene.start('Menu');
   }
 }

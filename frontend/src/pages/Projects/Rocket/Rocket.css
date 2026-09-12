@@ -1,9 +1,13 @@
 /* Rocket — page shell.
  *
  * The page follows the site theme (tokens only); the canvas inside stays deep
- * space, because a shooter is read against darkness. The frame is locked to
- * 16:9 so Phaser's FIT mode has nothing to letterbox — the only bars are the
- * ones the page paints around it.
+ * space, because a shooter is read against darkness.
+ *
+ * The frame is one of exactly TWO fixed shapes — landscape 16:9 or portrait 9:16
+ * — chosen by the same media query the game uses to pick its design box
+ * (`game/ui/theme.ts`), so the shape the page paints and the box the canvas
+ * draws can never disagree. Nothing reflows: Phaser's FIT mode has nothing to
+ * letterbox beyond the bars the page paints around the frame.
  */
 
 .rocket-page {
@@ -26,16 +30,28 @@
 }
 
 .rocket-frame {
-  /* 16:9, but never taller than the space between header and footer. Widening
-     past that would push the letterboxing back into the canvas. */
-  width: min(100%, calc((100vh - var(--nav-size) - 96px) * 16 / 9));
-  aspect-ratio: 16 / 9;
+  /* Never wider/taller than the space between header and footer, or the
+     letterboxing comes back inside the canvas. `--rocket-aspect` is swapped by
+     the media query below. */
+  --rocket-aspect: 16 / 9;
+  --rocket-gutter: 96px;
+  width: min(100%, calc((100vh - var(--nav-size) - var(--rocket-gutter)) * 16 / 9));
+  aspect-ratio: var(--rocket-aspect);
   position: relative;
   border-radius: var(--border-radius-lg);
   overflow: hidden;
   background: #05070f;
   box-shadow: var(--shadow-lg, 0 12px 40px rgb(0 0 0 / 45%));
   border: 1px solid var(--border-nav);
+}
+
+@media (orientation: portrait) {
+  .rocket-frame {
+    --rocket-aspect: 9 / 16;
+    /* A phone can't spare 96px of vertical padding the way a desktop can. */
+    --rocket-gutter: 56px;
+    width: min(100%, calc((100vh - var(--nav-size) - var(--rocket-gutter)) * 9 / 16));
+  }
 }
 
 .rocket-game {
@@ -63,12 +79,14 @@
   gap: 8px;
   width: 100%;
   height: 100%;
+  padding: 16px;
   border: 0;
   border-radius: 0;
   cursor: pointer;
   color: #e8f0ff;
   background: radial-gradient(circle at 50% 40%, #16233d 0%, #05070f 70%);
   font-family: Arial, sans-serif;
+  text-align: center;
   transition: background 0.2s ease;
 }
 
@@ -102,6 +120,8 @@
 
 .rocket-play-hint {
   font-size: clamp(11px, 1.4vw, 14px);
+  line-height: 1.5;
+  max-width: 32ch;
   color: #8ea3c8;
 }
 

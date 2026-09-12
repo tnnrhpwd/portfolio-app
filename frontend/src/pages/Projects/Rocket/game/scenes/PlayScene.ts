@@ -9,15 +9,15 @@ import { STAR_SPRITES, THRUSTER } from '../core/tables';
 import type { RunInput, World, WorldEvent } from '../core/types';
 import {
   bankCoins,
-  currentWorld,
   finishRun,
+  fitRunToView,
   getSave,
   startRun,
   type RunSummary,
 } from '../session';
 import { loadSettings, updateSettings } from '../settings';
 import { addText, createButton, createIconButton } from '../ui/button';
-import { PALETTE, TEXT, VIEW_HEIGHT, VIEW_WIDTH } from '../ui/theme';
+import { PALETTE, TEXT, VIEW_HEIGHT, VIEW_WIDTH, isPortrait } from '../ui/theme';
 
 /** Target on-screen sizes (px), so a sprite of any source size reads the same. */
 const SIZE = {
@@ -69,8 +69,8 @@ export class PlayScene extends Phaser.Scene {
   private hudWave!: Phaser.GameObjects.Text;
   private hullIcons: Phaser.GameObjects.Image[] = [];
   private shieldIcons: Phaser.GameObjects.Image[] = [];
-  private hullSlot = { x: 26, y: VIEW_HEIGHT - 34 };
-  private shieldSlot = { x: 26, y: VIEW_HEIGHT - 70 };
+  private hullSlot = { x: 26, y: 0 };
+  private shieldSlot = { x: 26, y: 0 };
   private waveBar!: Phaser.GameObjects.Rectangle;
   private bossBarBg: Phaser.GameObjects.Rectangle | null = null;
   private bossBarFill: Phaser.GameObjects.Rectangle | null = null;
@@ -86,7 +86,9 @@ export class PlayScene extends Phaser.Scene {
 
   create(): void {
     this.resetState();
-    this.world = currentWorld() ?? startRun();
+    // A run survives the game being recreated (the device rotated), so it may
+    // still be shaped for the other box: fit it before anything reads it.
+    this.world = fitRunToView() ?? startRun();
 
     this.buildBackground();
     this.buildPlayer();
@@ -116,6 +118,9 @@ export class PlayScene extends Phaser.Scene {
     // Coming back from the shop resumes the same run, so only a *new* run ends.
     this.ending = 'none';
     this.endTimerMs = 0;
+    // Anchored to the bottom of whichever box this game was built for.
+    this.hullSlot = { x: 26, y: VIEW_HEIGHT - 34 };
+    this.shieldSlot = { x: 26, y: VIEW_HEIGHT - 70 };
   }
 
   // ── Construction ─────────────────────────────────────────────────────────
@@ -223,7 +228,7 @@ export class PlayScene extends Phaser.Scene {
     });
     mute.container.setDepth(20);
 
-    this.banner = addText(this, VIEW_WIDTH / 2, 200, '', {
+    this.banner = addText(this, VIEW_WIDTH / 2, VIEW_HEIGHT * 0.28, '', {
       size: 46,
       bold: true,
       color: TEXT.accent,
@@ -250,13 +255,19 @@ export class PlayScene extends Phaser.Scene {
     // native listener also cannot miss a tap that begins and ends inside one
     // frame.
     window.addEventListener('keydown', this.onKeyDown);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      window.removeEventListener('keydown', this.onKeyDown);
-    });
+    // SHUTDOWN covers leaving for another scene; DESTROY covers the whole game
+    // being torn down (the shell does that when the device rotates). Without the
+    // second one the listener outlives the game and Escape later calls into a
+    // dead scene, which throws on its null display list.
+    const release = (): void => window.removeEventListener('keydown', this.onKeyDown);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, release);
+    this.events.once(Phaser.Scenes.Events.DESTROY, release);
   }
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     if (event.key !== 'Escape' && event.key !== 'p' && event.key !== 'P') return;
+    // A scene can be mid-teardown while its DOM listener is still attached.
+    if (!this.scene.isActive()) return;
     // Don't let the pause card cover the wave-clear/death transition.
     if (this.ending !== 'none') return;
     event.preventDefault();
@@ -690,7 +701,15 @@ export class PlayScene extends Phaser.Scene {
       cx,
       cy - 10,
       'ARROWS / W A S D — move\nDRAG anywhere — the ship follows your finger or cursor\nGUNS — automatic, always firing\nESC or P — pause\n\nA shield absorbs one hit and regenerates after a few quiet seconds. Coins are banked as you collect them, so dying never costs you progress.',
-      { size: 18, color: TEXT.muted, align: 'center', origin: [0.5, 0.5] },
+      {
+        // The long lines are what make this overlay layout-sensitive: a 720-wide
+        // portrait box cannot hold them unwrapped.
+        size: isPortrait() ? 16 : 18,
+        color: TEXT.muted,
+        align: 'center',
+        origin: [0.5, 0.5],
+        wrap: Math.min(880, VIEW_WIDTH - 80),
+      },
     );
     const back = createButton(this, cx, cy + 140, 'BACK', () => {
       this.pauseOverlay?.destroy();

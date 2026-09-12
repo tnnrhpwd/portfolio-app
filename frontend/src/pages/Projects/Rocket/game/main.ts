@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { disposeAudio, initAudio } from './audio/sfx';
 import { createGameConfig } from './config';
+import { detectLayoutMode, setLayoutMode } from './ui/theme';
 
 export interface GameHandle {
   game: Phaser.Game;
@@ -16,6 +17,10 @@ export interface GameHandle {
  * navigating away doesn't leak a running context.
  */
 export function createGame(parent: HTMLElement): GameHandle {
+  // The design box is chosen once, here, before Phaser exists. Every scene reads
+  // it while laying out, so it must not change while a game instance is alive.
+  setLayoutMode(detectLayoutMode());
+
   const game = new Phaser.Game(createGameConfig(parent));
 
   const unlock = (): void => initAudio();

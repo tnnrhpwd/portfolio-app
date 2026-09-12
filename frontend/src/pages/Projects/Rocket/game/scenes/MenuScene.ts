@@ -9,7 +9,7 @@ import { buyShip, getSave, selectShip, wipeProgress } from '../session';
 import { loadSettings, updateSettings } from '../settings';
 import { addPanel, addSpaceBackdrop } from '../ui/backdrop';
 import { addText, createButton, createIconButton, type GameButton } from '../ui/button';
-import { PALETTE, TEXT, VIEW_HEIGHT, VIEW_WIDTH } from '../ui/theme';
+import { PALETTE, TEXT, VIEW_HEIGHT, VIEW_WIDTH, isPortrait } from '../ui/theme';
 
 const fmt = (value: number): string => value.toLocaleString('en-US');
 
@@ -34,6 +34,30 @@ export class MenuScene extends Phaser.Scene {
     super('Menu');
   }
 
+  // ── Layout ───────────────────────────────────────────────────────────────
+  // Two fixed boxes («ui/theme.ts»), so every position here is a plain
+  // ternary between the landscape and portrait arrangement. Nothing reflows.
+
+  private get w(): number {
+    return VIEW_WIDTH;
+  }
+
+  private get h(): number {
+    return VIEW_HEIGHT;
+  }
+
+  private get cx(): number {
+    return VIEW_WIDTH / 2;
+  }
+
+  private get cy(): number {
+    return VIEW_HEIGHT / 2;
+  }
+
+  private get portrait(): boolean {
+    return isPortrait();
+  }
+
   create(): void {
     this.overlay = null;
     const save = getSave();
@@ -44,25 +68,29 @@ export class MenuScene extends Phaser.Scene {
 
     // Footer scrim. The backdrop is bright in patches, so the control row gets a
     // band of its own rather than dim text fighting a nebula. Created before the
-    // text so the text paints over it.
-    this.add.rectangle(VIEW_WIDTH / 2, VIEW_HEIGHT - 32, VIEW_WIDTH, 64, PALETTE.bg, 0.62);
+    // text so the text paints over it. In portrait the hint gets its own line —
+    // three items do not fit across a 720-wide box without colliding.
+    const footerH = this.portrait ? 112 : 64;
+    this.add.rectangle(this.cx, this.h - footerH / 2, this.w, footerH, PALETTE.bg, 0.62);
 
-    addText(this, VIEW_WIDTH / 2, 74, 'ROCKET', {
-      size: 64,
+    addText(this, this.cx, this.portrait ? 96 : 74, 'ROCKET', {
+      size: this.portrait ? 68 : 64,
       bold: true,
       color: TEXT.primary,
       origin: [0.5, 0.5],
     });
-    addText(this, VIEW_WIDTH / 2, 124, 'Dodge the debris. Bank the coins. Buy a better ship.', {
-      size: 19,
+    addText(this, this.cx, this.portrait ? 148 : 124, 'Dodge the debris. Bank the coins. Buy a better ship.', {
+      size: this.portrait ? 17 : 19,
       color: TEXT.muted,
       origin: [0.5, 0.5],
+      wrap: this.w - 60,
+      align: 'center',
     });
 
     addText(
       this,
-      VIEW_WIDTH / 2,
-      168,
+      this.cx,
+      this.portrait ? 196 : 168,
       `BEST ${fmt(save.bestScore)}   ·   WAVE ${fmt(save.bestWave)}   ·   RUNS ${fmt(save.runs)}`,
       { size: 17, color: TEXT.accent, origin: [0.5, 0.5] },
     );
@@ -71,39 +99,53 @@ export class MenuScene extends Phaser.Scene {
 
     createButton(
       this,
-      VIEW_WIDTH / 2,
-      528,
+      this.cx,
+      this.portrait ? 930 : 528,
       'PLAY',
       () => {
         sfx.uiClick();
         announce('Starting a run');
         this.scene.start('Play');
       },
-      { width: 320, height: 62, fontSize: 26, fill: PALETTE.accent, textColor: '#04121c' },
+      {
+        width: this.portrait ? 360 : 320,
+        height: this.portrait ? 68 : 62,
+        fontSize: 26,
+        fill: PALETTE.accent,
+        textColor: '#04121c',
+      },
     );
 
     createButton(
       this,
-      VIEW_WIDTH / 2,
-      598,
+      this.cx,
+      this.portrait ? 1014 : 598,
       'HOW TO PLAY',
       () => {
         sfx.uiClick();
         this.showHowTo();
       },
-      { width: 260, height: 46, fontSize: 18, outline: true },
+      { width: this.portrait ? 280 : 260, height: 48, fontSize: 18, outline: true },
     );
 
     addText(
       this,
-      VIEW_WIDTH / 2,
-      VIEW_HEIGHT - 32,
+      this.cx,
+      this.portrait ? this.h - 84 : this.h - 32,
       'Move with arrows / WASD or by dragging — guns fire themselves.',
-      { size: 15, color: TEXT.muted, origin: [0.5, 0.5] },
+      {
+        size: 15,
+        color: TEXT.muted,
+        origin: [0.5, 0.5],
+        wrap: this.portrait ? this.w - 40 : this.w - 300,
+        align: 'center',
+      },
     );
 
+    const controlY = this.portrait ? this.h - 34 : this.h - 32;
+
     const settings = loadSettings();
-    const mute = createIconButton(this, 44, VIEW_HEIGHT - 32, settings.muted ? '🔇' : '🔊', () => {
+    const mute = createIconButton(this, 44, controlY, settings.muted ? '🔇' : '🔊', () => {
       const next = updateSettings({ muted: !loadSettings().muted });
       setMuted(next.muted);
       mute.setLabel(next.muted ? '🔇' : '🔊');
@@ -113,13 +155,13 @@ export class MenuScene extends Phaser.Scene {
     createButton(
       this,
       126,
-      VIEW_HEIGHT - 32,
+      controlY,
       'RESET',
       () => this.showResetConfirm(),
       { width: 96, height: 34, fontSize: 14, outline: true, textColor: TEXT.muted },
     );
 
-    addText(this, VIEW_WIDTH - 24, VIEW_HEIGHT - 32, 'Sprites: original SVG-free PNG set', {
+    addText(this, this.w - 24, controlY, 'Sprites: original SVG-free PNG set', {
       size: 13,
       color: TEXT.muted,
       origin: [1, 0.5],
@@ -137,29 +179,58 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private buildShipPanel(): void {
-    addPanel(this, VIEW_WIDTH / 2, 320, 860, 214);
+    // Landscape puts the ship beside its stats; portrait stacks the ship above
+    // them, because a 860-wide panel has nowhere to go in a 720-wide box.
+    const portrait = this.portrait;
 
-    this.shipImage = this.add.image(410, 322, this.tex(SHIPS[SHIP_ORDER[0]].sprite)).setScale(0.82);
+    addPanel(this, this.cx, portrait ? 470 : 320, portrait ? this.w - 60 : 860, portrait ? 350 : 214);
 
-    createButton(this, 250, 320, '◀', () => this.cycleShip(-1), { width: 58, height: 58, fontSize: 24 });
-    createButton(this, 1030, 320, '▶', () => this.cycleShip(1), { width: 58, height: 58, fontSize: 24 });
+    this.shipImage = this.add
+      .image(portrait ? this.cx : 410, portrait ? 420 : 322, this.tex(SHIPS[SHIP_ORDER[0]].sprite))
+      .setScale(portrait ? 0.55 : 0.82);
 
-    this.shipName = addText(this, 560, 262, '', { size: 30, bold: true, color: TEXT.primary });
-    this.shipStats = addText(this, 560, 304, '', { size: 17, color: TEXT.accent });
-    this.shipBlurb = addText(this, 560, 334, '', {
-      size: 16,
-      color: TEXT.muted,
-      wrap: 420,
+    const arrowY = portrait ? 420 : 320;
+    const arrowSize = portrait ? 56 : 58;
+    createButton(this, portrait ? 58 : 250, arrowY, '◀', () => this.cycleShip(-1), {
+      width: arrowSize,
+      height: arrowSize,
+      fontSize: 24,
+    });
+    createButton(this, portrait ? this.w - 58 : 1030, arrowY, '▶', () => this.cycleShip(1), {
+      width: arrowSize,
+      height: arrowSize,
+      fontSize: 24,
     });
 
-    this.bankText = addText(this, VIEW_WIDTH / 2, 442, '', {
+    const textX = portrait ? this.cx : 560;
+    const origin: [number, number] = portrait ? [0.5, 0] : [0, 0];
+    this.shipName = addText(this, textX, portrait ? 552 : 262, '', {
+      size: 30,
+      bold: true,
+      color: TEXT.primary,
+      origin,
+    });
+    this.shipStats = addText(this, textX, portrait ? 590 : 304, '', {
+      size: 17,
+      color: TEXT.accent,
+      origin,
+    });
+    this.shipBlurb = addText(this, textX, portrait ? 622 : 334, '', {
+      size: 16,
+      color: TEXT.muted,
+      wrap: portrait ? this.w - 140 : 420,
+      align: portrait ? 'center' : 'left',
+      origin,
+    });
+
+    this.bankText = addText(this, this.cx, portrait ? 700 : 442, '', {
       size: 18,
       color: TEXT.gold,
       origin: [0.5, 0.5],
     });
 
-    this.shipAction = createButton(this, VIEW_WIDTH / 2, 480, '', () => this.shipActionClick(), {
-      width: 240,
+    this.shipAction = createButton(this, this.cx, portrait ? 750 : 480, '', () => this.shipActionClick(), {
+      width: portrait ? 300 : 240,
       height: 44,
       fontSize: 18,
     });
@@ -241,12 +312,18 @@ export class MenuScene extends Phaser.Scene {
 
   private showHowTo(): void {
     this.closeOverlay();
-    const cx = VIEW_WIDTH / 2;
-    const cy = VIEW_HEIGHT / 2;
+    const cx = this.cx;
+    const cy = this.cy;
+    const portrait = this.portrait;
+    const panelW = portrait ? this.w - 40 : 720;
+    const panelH = portrait ? 660 : 470;
+    const rowGap = portrait ? 66 : 62;
+    const topRow = portrait ? cy - 200 : cy - 138;
+    const bodyWrap = portrait ? panelW - 230 : 480;
 
-    const shade = this.add.rectangle(cx, cy, VIEW_WIDTH, VIEW_HEIGHT, PALETTE.bg, 0.9);
+    const shade = this.add.rectangle(cx, cy, this.w, this.h, PALETTE.bg, 0.9);
     shade.setInteractive(); // swallow clicks on the arena behind
-    const panel = addPanel(this, cx, cy, 720, 470, 0.96);
+    const panel = addPanel(this, cx, cy, panelW, panelH, 0.96);
 
     const lines: Array<[string, string]> = [
       ['MOVE', 'Arrow keys or W A S D. On a phone, drag anywhere — the ship follows your thumb.'],
@@ -259,7 +336,7 @@ export class MenuScene extends Phaser.Scene {
 
     const objects: Phaser.GameObjects.GameObject[] = [shade, panel];
     objects.push(
-      addText(this, cx, cy - 190, 'HOW TO PLAY', {
+      addText(this, cx, cy - panelH / 2 + 52, 'HOW TO PLAY', {
         size: 26,
         bold: true,
         color: TEXT.primary,
@@ -267,34 +344,41 @@ export class MenuScene extends Phaser.Scene {
       }),
     );
 
-    let y = cy - 138;
+    let y = topRow;
     for (const [heading, body] of lines) {
       objects.push(addText(this, cx - 300, y, heading, { size: 16, bold: true, color: TEXT.accent }));
       objects.push(
-        addText(this, cx - 190, y - 2, body, { size: 15, color: TEXT.muted, wrap: 480 }),
+        addText(this, cx - 190, y - 2, body, { size: 15, color: TEXT.muted, wrap: bodyWrap }),
       );
-      y += 62;
+      y += rowGap;
     }
 
-    const close = createButton(this, cx, cy + 190, 'GOT IT', () => this.closeOverlay(), {
-      width: 180,
-      height: 46,
-      fontSize: 18,
-      fill: PALETTE.accent,
-      textColor: '#04121c',
-    });
+    const close = createButton(
+      this,
+      cx,
+      portrait ? cy + 280 : cy + 190,
+      'GOT IT',
+      () => this.closeOverlay(),
+      {
+        width: 180,
+        height: 46,
+        fontSize: 18,
+        fill: PALETTE.accent,
+        textColor: '#04121c',
+      },
+    );
 
     this.overlay = this.add.container(0, 0, [...objects, close.container]).setDepth(50);
   }
 
   private showResetConfirm(): void {
     this.closeOverlay();
-    const cx = VIEW_WIDTH / 2;
-    const cy = VIEW_HEIGHT / 2;
+    const cx = this.cx;
+    const cy = this.cy;
 
-    const shade = this.add.rectangle(cx, cy, VIEW_WIDTH, VIEW_HEIGHT, PALETTE.bg, 0.9);
+    const shade = this.add.rectangle(cx, cy, this.w, this.h, PALETTE.bg, 0.9);
     shade.setInteractive();
-    const panel = addPanel(this, cx, cy, 560, 240, 0.96);
+    const panel = addPanel(this, cx, cy, this.portrait ? 620 : 560, this.portrait ? 300 : 240, 0.96);
 
     const title = addText(this, cx, cy - 68, 'RESET PROGRESS?', {
       size: 24,

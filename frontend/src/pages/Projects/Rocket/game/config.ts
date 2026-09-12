@@ -19,10 +19,11 @@ export function createGameConfig(parent: HTMLElement): Phaser.Types.Core.GameCon
        *
        * A shooter's difficulty is a function of how much room you have to
        * dodge: with RESIZE, a wider window would silently make the game easier
-       * and a phone in portrait would make it cramped. Fitting a fixed
-       * 1280×720 arena letterboxes the remainder instead, so the game plays
-       * identically everywhere — and every scene can lay out in absolute
-       * coordinates with no reflow logic.
+       * and a phone in portrait would make it cramped. Instead there are exactly
+       * two fixed arenas — 1280×720 and 720×1280 — chosen once at boot from the
+       * device orientation (`ui/theme.ts`), and FIT letterboxes the remainder.
+       * So the game plays identically everywhere, and every scene lays out in
+       * absolute coordinates with no reflow logic at all.
        */
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,

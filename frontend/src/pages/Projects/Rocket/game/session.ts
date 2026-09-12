@@ -10,10 +10,11 @@
  * collected, so `save.coins` is always spendable in the shop.
  */
 
-import { applyUpgrades, createWorld, startWave } from './core/engine';
+import { applyUpgrades, createWorld, resizeWorld, startWave } from './core/engine';
 import { buyUpgrade, nextCost, UPGRADES } from './core/upgrades';
 import type { ShipKey, UpgradeKey, World } from './core/types';
 import { loadSave, persistSave, recordRun, resetSave, unlockShip, type SaveData } from './save';
+import { VIEW_HEIGHT, VIEW_WIDTH } from './ui/theme';
 
 export interface RunSummary {
   score: number;
@@ -56,8 +57,10 @@ export function startRun(seed = Math.floor(Math.random() * 0xffffff)): World {
   const s = getSession();
   s.seed = seed;
   s.world = createWorld({
-    width: 1280,
-    height: 720,
+    // The arena is the shape of the active design box: speeds scale with the
+    // height and spawn lanes with the width, so portrait is not a different game.
+    width: VIEW_WIDTH,
+    height: VIEW_HEIGHT,
     ship: s.save.ship,
     levels: s.save.levels,
     seed,
@@ -67,6 +70,24 @@ export function startRun(seed = Math.floor(Math.random() * 0xffffff)): World {
 
 export function currentWorld(): World | null {
   return getSession().world;
+}
+
+/**
+ * The run to carry into the current design box, or `null` when there is nothing
+ * to resume.
+ *
+ * The game is destroyed and recreated when the device rotates, and this is what
+ * puts the player back into the same arena afterwards. A finished run is not
+ * resumable — rotating on the menu must not resurrect the run the player just
+ * quit — so `null` sends the caller to a fresh run instead.
+ */
+export function fitRunToView(): World | null {
+  const world = getSession().world;
+  if (!world || world.status === 'dead') return null;
+  if (world.width !== VIEW_WIDTH || world.height !== VIEW_HEIGHT) {
+    resizeWorld(world, VIEW_WIDTH, VIEW_HEIGHT);
+  }
+  return world;
 }
 
 /** Advance the live run to the next wave (used when leaving the shop). */
@@ -146,6 +167,13 @@ export function finishRun(): RunSummary {
   };
 
   commit(recordRun(s.save, { score: summary.score, wave: summary.wave, kills: summary.kills }));
+
+  // End the world as well. The game is rebuilt when the device rotates and boot
+  // resumes a live run, so anything still marked 'running' comes back to life —
+  // including a run the player deliberately quit. `dead` is the engine's "this
+  // attempt is over" status, and it is what makes `fitRunToView` refuse it.
+  if (world) world.status = 'dead';
+
   return summary;
 }
 

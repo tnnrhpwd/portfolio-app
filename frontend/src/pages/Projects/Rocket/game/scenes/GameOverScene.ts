@@ -4,7 +4,7 @@ import { sfx } from '../audio/sfx';
 import { startRun, getSave, type RunSummary } from '../session';
 import { addPanel, addSpaceBackdrop } from '../ui/backdrop';
 import { addText, createButton } from '../ui/button';
-import { PALETTE, TEXT, VIEW_WIDTH } from '../ui/theme';
+import { PALETTE, TEXT, VIEW_WIDTH, isPortrait } from '../ui/theme';
 
 /**
  * End of a run.
@@ -35,9 +35,19 @@ export class GameOverScene extends Phaser.Scene {
     const save = getSave();
     const isBest = this.registry.get('rocket.wasBest') === true;
 
+    // Landscape is a short, wide card; portrait is a tall one, so the panel grows
+    // and the rows breathe rather than leaving a band of empty space.
+    const portrait = isPortrait();
+    const cx = VIEW_WIDTH / 2;
+    const titleY = portrait ? 190 : 92;
+    const panelY = portrait ? 510 : 300;
+    const panelH = portrait ? 320 : 220;
+    const rowTop = panelY - panelH / 2 + (portrait ? 40 : 32);
+    const rowGap = portrait ? 44 : 34;
+
     addSpaceBackdrop(this, 9090, { alpha: 0.35 });
 
-    addText(this, VIEW_WIDTH / 2, 92, 'RUN OVER', {
+    addText(this, cx, titleY, 'RUN OVER', {
       size: 54,
       bold: true,
       color: TEXT.danger,
@@ -45,7 +55,7 @@ export class GameOverScene extends Phaser.Scene {
     });
 
     if (isBest) {
-      addText(this, VIEW_WIDTH / 2, 140, '★ NEW BEST SCORE ★', {
+      addText(this, cx, titleY + 48, '★ NEW BEST SCORE ★', {
         size: 20,
         bold: true,
         color: TEXT.gold,
@@ -53,7 +63,7 @@ export class GameOverScene extends Phaser.Scene {
       });
     }
 
-    addPanel(this, VIEW_WIDTH / 2, 300, 620, 220);
+    addPanel(this, cx, panelY, 620, panelH);
 
     const rows: Array<[string, string]> = [
       ['SCORE', this.summary.score.toLocaleString('en-US')],
@@ -64,58 +74,72 @@ export class GameOverScene extends Phaser.Scene {
       ['TIME SURVIVED', formatDuration(this.summary.msAlive)],
     ];
 
-    const left = VIEW_WIDTH / 2 - 270;
-    let y = 222;
+    const left = cx - 270;
+    let y = rowTop;
     for (const [label, value] of rows) {
       addText(this, left, y, label, { size: 17, color: TEXT.muted });
-      addText(this, VIEW_WIDTH / 2 + 270, y, value, {
+      addText(this, cx + 270, y, value, {
         size: 20,
         bold: true,
         color: TEXT.primary,
         origin: [1, 0],
       });
-      y += 34;
+      y += rowGap;
     }
 
     addText(
       this,
-      VIEW_WIDTH / 2,
-      438,
+      cx,
+      portrait ? 730 : 438,
       `Banked: ${save.coins.toLocaleString('en-US')} coins  ·  best ${save.bestScore.toLocaleString('en-US')}`,
       { size: 17, color: TEXT.gold, origin: [0.5, 0.5] },
     );
 
     createButton(
       this,
-      VIEW_WIDTH / 2,
-      512,
+      cx,
+      portrait ? 860 : 512,
       'PLAY AGAIN',
       () => {
         sfx.uiClick();
         startRun();
         this.scene.start('Play');
       },
-      { width: 280, height: 60, fontSize: 22, fill: PALETTE.accent, textColor: '#04121c' },
+      {
+        width: portrait ? 300 : 280,
+        height: 60,
+        fontSize: 22,
+        fill: PALETTE.accent,
+        textColor: '#04121c',
+      },
     );
 
     createButton(
       this,
-      VIEW_WIDTH / 2,
-      582,
+      cx,
+      portrait ? 942 : 582,
       'BACK TO MENU',
       () => {
         sfx.uiClick();
         this.scene.start('Menu');
       },
-      { width: 240, height: 50, fontSize: 18, outline: true },
+      { width: portrait ? 300 : 240, height: 50, fontSize: 18, outline: true },
     );
 
+    // Portrait keeps this tucked under the buttons: pinned to the bottom of a
+    // 1280-tall box it lands on the brightest part of the backdrop.
     addText(
       this,
-      VIEW_WIDTH / 2,
-      648,
+      cx,
+      portrait ? 1030 : 648,
       'Coins are saved the moment you pick them up — they are already yours.',
-      { size: 14, color: TEXT.dim, origin: [0.5, 0.5] },
+      {
+        size: 14,
+        color: portrait ? TEXT.muted : TEXT.dim,
+        origin: [0.5, 0.5],
+        wrap: VIEW_WIDTH - 60,
+        align: 'center',
+      },
     );
 
     announce(
