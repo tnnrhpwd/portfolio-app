@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { openFile, getAddonBaseUrl } from '../../services/simpleAddonApi';
 import { modelDisplayName } from '../../constants/aiModel.js';
@@ -15,6 +16,7 @@ function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = 
   const hasAction = !isUser && message.action;
   const hasOperations = !isUser && message.operations?.length > 0;
   const hasFileDownload = !isUser && message.fileDownload;
+  const hasActions = !isUser && message.actions?.length > 0;
   const hasAttachedFile = isUser && message.attachedFile;
   const hasAttachedImage = isUser && message.attachedImage;
   const msgDate = new Date(message.timestamp);
@@ -185,6 +187,14 @@ function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = 
                           </a>
                         );
                       }
+                      // Our own routes stay IN the app. The old blanket
+                      // `target="_blank"` threw the chat's "Upgrade Now →" into a
+                      // second browser tab and reloaded the whole SPA, which is a
+                      // bad way to arrive at a checkout page.
+                      const isInternalRoute = href && href.startsWith('/') && !href.startsWith('//');
+                      if (isInternalRoute) {
+                        return <Link to={href}>{children}</Link>;
+                      }
                       return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>;
                     },
                   }}
@@ -200,6 +210,19 @@ function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = 
               </div>
             ) : (
               <p className="message__text">{message.content}</p>
+            )}
+            {/* Structured CTAs. These are deliberately NOT markdown links: with
+                the "markdown" chat setting off, a `[Upgrade Now](/pay…)` in the
+                message body renders as literal brackets and the money path
+                silently does nothing. An action row renders in every mode. */}
+            {hasActions && (
+              <div className="message__actions">
+                {message.actions.map((action, i) => (
+                  <Link key={i} className="message__action-link" to={action.to}>
+                    {action.label} <span aria-hidden="true">→</span>
+                  </Link>
+                ))}
+              </div>
             )}
           </div>
 

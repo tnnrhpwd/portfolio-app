@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { getMembershipPricing, getUserStorage } from '../../features/data/dataSlice';
 import { formatPrice } from '../../utils/checkoutUtils';
@@ -19,6 +19,7 @@ import {
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
 import SEO from '../../components/SEO/SEO.jsx';
+import PurchaseGateNotice from '../../components/PurchaseGateNotice/PurchaseGateNotice.jsx';
 import useScrollReveal from '../../hooks/useScrollReveal';
 import usePurchaseGate from '../../hooks/usePurchaseGate';
 import { ADDON_DOWNLOAD_URL } from '../../hooks/simpleAddon/useAddonDetection.js';
@@ -134,7 +135,6 @@ function SectionHead({ eyebrow, title, lead }) {
 }
 
 function Pricing() {
-  const navigate = useNavigate();
   const dispatch = useDispatch();
   const { user, membershipPricing, dataIsLoading, userStorage } = useSelector((state) => state.data);
   const { purchasesEnabled, message: gateMessage } = usePurchaseGate();
@@ -198,15 +198,15 @@ function Pricing() {
   const plans = getPlans();
   const hasAnnual = plans.some((p) => p.showAnnual);
 
-  const handleSelectPlan = (planId) => {
-    if (planId !== 'free' && !purchasesEnabled) return; // gated — button is disabled, but guard anyway
-    if (!user) {
-      // Redirect to login, then they'll be sent to /pay after login
-      navigate('/login', { state: { redirectTo: `/pay?plan=${planId}` } });
-    } else {
-      navigate(`/pay?plan=${planId}`);
-    }
-  };
+  // Every conversion CTA points at the same destination the old click handler
+  // built, expressed as a real URL (+ the login redirectTo) so it can be a
+  // <Link>: middle-clickable, crawlable, and working with JS disabled.
+  // §16.5 rule 3 (never drop the destination on a login bounce) + rule 7.
+  const planCtaProps = (planId) => (
+    user
+      ? { to: `/pay?plan=${planId}` }
+      : { to: '/login', state: { redirectTo: `/pay?plan=${planId}` } }
+  );
 
   return (
     <>
@@ -243,11 +243,7 @@ function Pricing() {
         <main id="main" className="pricing-main">
           {/* ── Plans: the page's one job, so it sits directly under the hero ── */}
           <Band variant="surface" className="pricing-band--plans">
-            {!purchasesEnabled && (
-              <div className="pricing-gate-notice" role="status">
-                {gateMessage || 'Upgrading is temporarily paused. Please check back soon.'}
-              </div>
-            )}
+            {!purchasesEnabled && <PurchaseGateNotice message={gateMessage} />}
 
             {user?.token && userStorage && typeof userStorage === 'object' && userStorage.totalStorageFormatted && (
               <div className="pricing-usage-notice" role="status">
@@ -303,18 +299,28 @@ function Pricing() {
                           <li key={i}>{feature}</li>
                         ))}
                       </ul>
-                      <button
-                        className={`pricing-plan-cta ${plan.id === 'pro' ? 'primary' : 'secondary'}`}
-                        onClick={() => handleSelectPlan(plan.id)}
-                        disabled={gated}
-                        title={gated ? (gateMessage || 'Upgrading is temporarily paused') : undefined}
-                      >
-                        {gated
-                          ? 'Not available yet'
-                          : plan.id === 'free'
+                      {/* A gated plan can only be a disabled button — there is
+                          nowhere to go. An available one is a real <Link>, so
+                          the conversion path works without JS and can be opened
+                          in a new tab. */}
+                      {gated ? (
+                        <button
+                          className={`pricing-plan-cta ${plan.id === 'pro' ? 'primary' : 'secondary'}`}
+                          disabled
+                          title={gateMessage || 'Upgrading is temporarily paused'}
+                        >
+                          Not available yet
+                        </button>
+                      ) : (
+                        <Link
+                          className={`pricing-plan-cta ${plan.id === 'pro' ? 'primary' : 'secondary'}`}
+                          {...planCtaProps(plan.id)}
+                        >
+                          {plan.id === 'free'
                             ? (user ? 'Current Plan' : 'Get Started Free')
                             : `Choose ${plan.name}`}
-                      </button>
+                        </Link>
+                      )}
                       {plan.id === 'pro' && (
                         <p className="pricing-plan-note">
                           Billed {billingInterval === 'year' ? 'annually' : 'monthly'}. Cancel anytime.
@@ -433,13 +439,9 @@ function Pricing() {
               free to start — upgrade when you need more.
             </p>
             <div className="pricing-cta-actions">
-              <button
-                type="button"
-                className="pricing-btn pricing-btn--inv"
-                onClick={() => handleSelectPlan('free')}
-              >
+              <Link className="pricing-btn pricing-btn--inv" {...planCtaProps('free')}>
                 Get started free <span aria-hidden="true">→</span>
-              </button>
+              </Link>
               <a
                 className="pricing-btn pricing-btn--ghost"
                 href={ADDON_DOWNLOAD_URL}

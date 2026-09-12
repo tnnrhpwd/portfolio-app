@@ -1,0 +1,59 @@
+/* ── PurchaseGateNotice ───────────────────────────────────────────────────────
+   The "upgrading is paused" banner. It has to read as informative, not as an
+   error: the visitor has done nothing wrong, we just aren't selling yet. So it
+   borrows Home's eyebrow treatment (a soft orange wash + hairline border) rather
+   than a red/error palette, and it always carries a link out.
+
+   Tokens only — the wash is mixed from --fg-orange so it tracks both themes. */
+
+.gate-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.35);
+  width: 100%;
+  max-width: 700px;
+  margin-inline: auto;
+  padding: calc(var(--nav-size) * 0.25) calc(var(--nav-size) * 0.4);
+  background: color-mix(in srgb, var(--fg-orange) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--fg-orange) 40%, transparent);
+  border-radius: var(--border-radius);
+  color: var(--text-color);
+  text-align: center;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+}
+
+.gate-notice__text { min-width: 0; }
+
+.gate-notice__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--fg-blue);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+.gate-notice__link span { transition: transform 0.2s ease; }
+.gate-notice__link:hover span { transform: translateX(4px); }
+.gate-notice__link:focus-visible {
+  outline: var(--focus-outline, 3px solid var(--fg-blue));
+  outline-offset: var(--focus-outline-offset, 2px);
+}
+
+/* ── Compact: sits inside an existing warning box, so it drops the chrome and
+   stops competing with the box it is in. ── */
+.gate-notice--compact {
+  max-width: none;
+  margin-inline: 0;
+  justify-content: flex-start;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  text-align: left;
+  font-size: var(--font-size-small);
+}

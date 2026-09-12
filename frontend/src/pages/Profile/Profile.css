@@ -256,6 +256,9 @@
 .upgrade-button {
     background: linear-gradient(45deg, var(--fg-orange), var(--fg-pink));
     color: var(--text-color-inv);
+    /* Rendered as a <Link> so it is middle-clickable and works without JS —
+       kill the anchor's default underline so it still reads as a pill button. */
+    text-decoration: none;
 }
 
 .planit-profile-logout-button,

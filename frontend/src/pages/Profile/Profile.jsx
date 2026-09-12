@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { logout, resetDataSlice, getUserSubscription, getUserUsage, getUserStorage } from './../../features/data/dataSlice.js';
 import Spinner from '../../components/Spinner/Spinner.jsx';
 import Header from '../../components/Header/Header.jsx';
@@ -13,6 +13,7 @@ import {
   isProTier,
 } from '../../constants/pricing.js';
 import usePurchaseGate from '../../hooks/usePurchaseGate.js';
+import PurchaseGateNotice from '../../components/PurchaseGateNotice/PurchaseGateNotice.jsx';
 import ProfileAvatar from '../../components/ProfilePicture/ProfileAvatar.jsx';
 import { providerLabel } from '../../constants/aiModel.js';
 import './Profile.css';
@@ -397,13 +398,18 @@ function Profile() {
                             <div className="warning-content">
                               <strong>Storage limit exceeded</strong>
                               <p>You&apos;ve exceeded your storage limit. Delete items or upgrade to keep saving new data.</p>
-                              {!isProTier(userStorage.membership) && purchasesEnabled && (
-                                <button
-                                  className="upgrade-button"
-                                  onClick={() => navigate('/pay?plan=pro')}
-                                >
-                                  Upgrade to Pro
-                                </button>
+                              {/* This one is a hard block — they cannot save new
+                                  data. Hiding the button when purchases are
+                                  paused would leave them with nothing to click
+                                  and nobody to ask. §16.5 rule 6. */}
+                              {!isProTier(userStorage.membership) && (
+                                purchasesEnabled ? (
+                                  <Link className="upgrade-button" to="/pay?plan=pro">
+                                    Upgrade to Pro
+                                  </Link>
+                                ) : (
+                                  <PurchaseGateNotice message={gateMessage} compact />
+                                )
                               )}
                             </div>
                           </div>
@@ -473,7 +479,7 @@ function Profile() {
                           </div>
                         )}
 
-                        {!isProTier(userStorage.membership) && userStorage.storageUsagePercent > 50 && purchasesEnabled && (
+                        {!isProTier(userStorage.membership) && userStorage.storageUsagePercent > 50 && (
                           <div className="planit-profile-upgrade-prompt">
                             <div className="upgrade-message">
                               <span className="upgrade-icon">💾</span>
@@ -482,12 +488,15 @@ function Profile() {
                                 <p>Pro membership includes {STORAGE_DISPLAY[PLAN_IDS.PRO]} of storage for all your data and files.</p>
                               </div>
                             </div>
-                            <button
-                              className="upgrade-button"
-                              onClick={() => navigate('/pay?plan=pro')}
-                            >
-                              Upgrade Now
-                            </button>
+                            {/* The offer stays legible while the gate is on —
+                                only the way to act on it changes. */}
+                            {purchasesEnabled ? (
+                              <Link className="upgrade-button" to="/pay?plan=pro">
+                                Upgrade Now
+                              </Link>
+                            ) : (
+                              <PurchaseGateNotice message={gateMessage} compact />
+                            )}
                           </div>
                         )}
                       </div>
@@ -552,9 +561,7 @@ function Profile() {
                     </div>
 
                     {!purchasesEnabled && (
-                      <span className="planit-profile-setting-hint">
-                        {gateMessage || 'Upgrading is temporarily paused. Please check back soon.'}
-                      </span>
+                      <PurchaseGateNotice message={gateMessage} compact />
                     )}
 
                     {subscriptionDetails ? (
@@ -664,7 +671,7 @@ function Profile() {
                           </div>
                         )}
 
-                        {userUsage.membership === 'Free' && purchasesEnabled && (
+                        {userUsage.membership === 'Free' && (
                           <div className="planit-profile-upgrade-prompt">
                             <div className="upgrade-message">
                               <span className="upgrade-icon">🚀</span>
@@ -673,12 +680,13 @@ function Profile() {
                                   <p>{STORAGE_DISPLAY[PLAN_IDS.PRO]} storage + live phone viewing + email support.</p>
                               </div>
                             </div>
-                            <button
-                              className="upgrade-button"
-                              onClick={() => navigate('/pay?plan=pro')}
-                            >
-                              Upgrade Now
-                            </button>
+                            {purchasesEnabled ? (
+                              <Link className="upgrade-button" to="/pay?plan=pro">
+                                Upgrade Now
+                              </Link>
+                            ) : (
+                              <PurchaseGateNotice message={gateMessage} compact />
+                            )}
                           </div>
                         )}
                       </div>

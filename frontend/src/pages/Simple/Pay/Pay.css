@@ -46,9 +46,41 @@
     box-sizing: border-box;
 }
 
-/* Heading Section */
-.planit-pay-heading {
+/* Sign-in redirect placeholder.
+   /pay redirects a signed-out visitor to /login from an effect, so between first
+   paint and that redirect this card is all there is. Rendering `null` instead
+   showed a blank page; this says what is happening. */
+.planit-pay-redirect {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: calc(var(--nav-size) * 0.2);
+    min-height: calc(var(--nav-size) * 2.4);
+    font-size: var(--font-size-base);
+    color: var(--text-color-accent);
     text-align: center;
+}
+
+.planit-pay-redirect-spinner {
+    width: calc(var(--nav-size) * 0.3);
+    height: calc(var(--nav-size) * 0.3);
+    flex-shrink: 0;
+    border: 2px solid color-mix(in srgb, var(--text-color) 20%, transparent);
+    border-top-color: var(--fg-blue);
+    border-radius: 50%;
+    animation: planitPaySpin 0.8s linear infinite;
+}
+
+@keyframes planitPaySpin {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .planit-pay-redirect-spinner { animation: none; }
+}
+
+/* Heading Section */
+.planit-pay-heading {    text-align: center;
     color: var(--text-color);
     margin-bottom: calc(var(--nav-size) * 0.6);
     width: 100%;

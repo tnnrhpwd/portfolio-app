@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import usePurchaseGate from '../../hooks/usePurchaseGate.js';
+import PurchaseGateNotice from '../PurchaseGateNotice/PurchaseGateNotice.jsx';
 import { getApiBase } from '../../config/api.js';
 import './UsageMeter.css';
 
@@ -20,7 +22,7 @@ function UsageMeter({ user }) {
   const [usage, setUsage] = useState(null);
   const [loading, setLoading] = useState(false);
   const [collapsed, setCollapsed] = useState(null); // null = auto-decide after first fetch
-  const { purchasesEnabled } = usePurchaseGate();
+  const { purchasesEnabled, message: gateMessage } = usePurchaseGate();
 
   const fetchUsage = useCallback(async () => {
     if (!user?.token) return;
@@ -122,15 +124,26 @@ function UsageMeter({ user }) {
             )}
           </div>
           <div className="usage-meter__hint">Only charges for portfolio-hosted models</div>
-          {tier === 'Free' && purchasesEnabled && (
-            <a className="usage-meter__upgrade" href="/pay?plan=pro">
-              Upgrade for more credits →
-            </a>
+          {/* A <Link>, not a raw <a href> — the old one forced a full page
+              reload out of the chat. And when the purchase gate is on the
+              meter keeps its way out instead of silently dropping the link. */}
+          {tier === 'Free' && (
+            purchasesEnabled ? (
+              <Link className="usage-meter__upgrade" to="/pay?plan=pro">
+                Upgrade for more credits →
+              </Link>
+            ) : (
+              <PurchaseGateNotice message={gateMessage} compact />
+            )
           )}
-          {clampedPercent > 80 && tier !== 'Free' && purchasesEnabled && (
-            <a className="usage-meter__upgrade" href="/pay?plan=pro">
-              Running low — upgrade →
-            </a>
+          {clampedPercent > 80 && tier !== 'Free' && (
+            purchasesEnabled ? (
+              <Link className="usage-meter__upgrade" to="/pay?plan=pro">
+                Running low — upgrade →
+              </Link>
+            ) : (
+              <PurchaseGateNotice message={gateMessage} compact />
+            )
           )}
         </div>
       )}

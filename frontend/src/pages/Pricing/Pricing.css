@@ -154,17 +154,6 @@
 }
 
 /* Notices */
-.pricing-gate-notice {
-  width: 100%;
-  max-width: 700px;
-  padding: calc(var(--nav-size) * 0.25) calc(var(--nav-size) * 0.4);
-  background: color-mix(in srgb, var(--fg-orange) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--fg-orange) 40%, transparent);
-  border-radius: var(--border-radius);
-  color: var(--text-color);
-  text-align: center;
-  font-size: var(--font-size-base);
-}
 .pricing-usage-notice {
   width: 100%;
   max-width: 700px;
@@ -289,6 +278,13 @@
   cursor: pointer;
   width: 100%;
   margin-top: calc(var(--nav-size) * 0.2);
+  /* The available plan is a <Link>, the gated one a disabled <button> — they
+     have to render identically, so the anchor's default underline goes. */
+  text-decoration: none;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 .pricing-plan-cta.primary {

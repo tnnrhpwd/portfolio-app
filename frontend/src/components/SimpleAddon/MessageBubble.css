@@ -402,6 +402,47 @@
   box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
 }
 
+/* ── Structured CTAs (e.g. "Upgrade Now" on a 402) ──
+   Rendered from `message.actions`, never from the message's markdown, so the
+   money path survives the markdown setting being off. Styled like the download
+   button above — this bubble's own palette, not the site tokens. Anchors, so
+   the global <button> rules (min-height: 44px, gradient) don't apply; the
+   underline is the only thing that needs turning off. */
+.message__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.message__action-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  border-radius: 999px;
+  background: var(--accent, #6366f1);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.message__action-link:hover {
+  background: var(--accent-hover, #4f46e5);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+}
+
+.message__action-link:focus-visible {
+  outline: 2px solid var(--accent, #6366f1);
+  outline-offset: 2px;
+}
+
+.message__action-link span { transition: transform 0.15s ease; }
+.message__action-link:hover span { transform: translateX(3px); }
+
 .message__download-icon {
   font-size: 15px;
 }

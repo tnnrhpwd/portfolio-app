@@ -30,7 +30,24 @@ function Pay() {
     }
   }, [dataIsError, dataMessage, dispatch, navigate]);
 
-  if (!user) return null;
+  // NOT `return null` here: the redirect above runs in an effect, so a
+  // signed-out visitor used to get a blank flash of empty page before /login
+  // (the same gap the funnel audit logged). Say what is happening instead.
+  if (!user) {
+    return (
+      <>
+        <Header />
+        <div className="planit-pay-bg">
+          <div className="planit-pay-card">
+            <div className="planit-pay-redirect" role="status">
+              <span className="planit-pay-redirect-spinner" aria-hidden="true" />
+              Taking you to sign in…
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>

@@ -8,6 +8,7 @@ import { useSpeech } from '../../hooks/simpleAddon/useSpeech';
 import { useMicDevices } from '../../hooks/simpleAddon/useMicDevices';
 import { useInactivity } from '../../hooks/simpleAddon/useInactivity';
 import usePurchaseGate from '../../hooks/usePurchaseGate';
+import { GATE_SUPPORT_PATH } from '../PurchaseGateNotice/PurchaseGateNotice.jsx';
 import { getApiBase } from '../../config/api.js';
 import {
   sendChatMessage,
@@ -815,17 +816,25 @@ function SimpleChat({
   useEffect(() => {
     if (portfolioChatError && !portfolioChatLoading) {
       let content;
+      let actions = [];
       const errStr = String(portfolioChatError);
       if (errStr.includes('402') || errStr.toLowerCase().includes('credit') || errStr.toLowerCase().includes('limit')) {
         const proPlan = membershipPricing?.find?.(p => p.id === 'pro');
         const proPrice = proPlan ? `$${(proPlan.price / 100).toFixed(0)}/mo` : '';
         const proQuota = proPlan?.quota?.calls || '';
         const proLine = proPlan ? `- **Pro** (${proPrice})${proQuota ? ` — ${proQuota}` : ''}` : '- **Pro** — more credits and higher limits';
-        const upgradeLine = canUpgrade ? `\n\n[Upgrade Now →](/pay?plan=pro)` : `\n\n_Upgrading is temporarily paused — please check back soon._`;
-        content = `**Usage Limit Reached**\n\n${errStr}\n\n---\n💡 **Upgrade your plan** to get more credits and higher limits:\n${proLine}${upgradeLine}`;
+        content = `**Usage Limit Reached**\n\n${errStr}\n\n---\n💡 **Upgrade your plan** to get more credits and higher limits:\n${proLine}`;
+        // The CTA is a structured `actions` entry, NOT `[Upgrade Now](/pay…)` in
+        // the body — with the chat's markdown setting off that rendered as
+        // literal brackets and the upgrade path silently did nothing (§16.4).
+        actions = canUpgrade
+          ? [{ label: 'Upgrade Now', to: '/pay?plan=pro' }]
+          : [{ label: 'Ask us about Pro', to: GATE_SUPPORT_PATH }];
       } else if (errStr.includes('403') || errStr.toLowerCase().includes('requires a')) {
-        const viewPlansLine = canUpgrade ? '[View Plans →](/pricing)' : '_Upgrading is temporarily paused — please check back soon._';
-        content = `**Model Access Restricted**\n\n${errStr}\n\n---\n🔒 This model requires a higher membership tier.\n\n${viewPlansLine}`;
+        content = `**Model Access Restricted**\n\n${errStr}\n\n---\n🔒 This model requires a higher membership tier.`;
+        actions = canUpgrade
+          ? [{ label: 'View Plans', to: '/pricing' }]
+          : [{ label: 'Ask us about Pro', to: GATE_SUPPORT_PATH }];
       } else if (errStr.includes('401') || errStr.toLowerCase().includes('unauthorized')) {
         content = `**Authentication Failed (401)**\n\nYour session may have expired. Please sign in again and retry.`;
       } else {
@@ -836,6 +845,7 @@ function SimpleChat({
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content,
+        actions,
         timestamp: new Date().toISOString(),
         isError: true,
       };
@@ -1878,16 +1888,21 @@ function SimpleChat({
             },
             onError: (errMsg, statusCode) => {
               let displayContent;
+              let actions = [];
               if (statusCode === 402) {
                 const proPlan = membershipPricing?.find?.(p => p.id === 'pro');
                 const proPrice = proPlan ? `$${(proPlan.price / 100).toFixed(0)}/mo` : '';
                 const proQuota = proPlan?.quota?.calls || '';
                 const proLine = proPlan ? `- **Pro** (${proPrice})${proQuota ? ` — ${proQuota}` : ''}` : '- **Pro** — more credits and higher limits';
-                const upgradeLine = canUpgrade ? `\n\n[Upgrade Now →](/pay?plan=pro)` : `\n\n_Upgrading is temporarily paused — please check back soon._`;
-                displayContent = `**Usage Limit Reached**\n\n${errMsg}\n\n---\n💡 **Upgrade your plan** to get more credits and higher limits:\n${proLine}${upgradeLine}`;
+                displayContent = `**Usage Limit Reached**\n\n${errMsg}\n\n---\n💡 **Upgrade your plan** to get more credits and higher limits:\n${proLine}`;
+                actions = canUpgrade
+                  ? [{ label: 'Upgrade Now', to: '/pay?plan=pro' }]
+                  : [{ label: 'Ask us about Pro', to: GATE_SUPPORT_PATH }];
               } else if (statusCode === 403) {
-                const viewPlansLine = canUpgrade ? '[View Plans →](/pricing)' : '_Upgrading is temporarily paused — please check back soon._';
-                displayContent = `**Model Access Restricted**\n\n${errMsg}\n\n---\n🔒 This model requires a higher membership tier.\n\n${viewPlansLine}`;
+                displayContent = `**Model Access Restricted**\n\n${errMsg}\n\n---\n🔒 This model requires a higher membership tier.`;
+                actions = canUpgrade
+                  ? [{ label: 'View Plans', to: '/pricing' }]
+                  : [{ label: 'Ask us about Pro', to: GATE_SUPPORT_PATH }];
               } else if (statusCode === 401 || errMsg?.includes?.('401') || errMsg?.toLowerCase?.().includes?.('unauthorized')) {
                 displayContent = `**Authentication Failed (401)**\n\nYour session may have expired. Please sign in again and retry.`;
               } else {
@@ -1899,7 +1914,7 @@ function SimpleChat({
                   ...c,
                   messages: c.messages.map(m =>
                     m.id === streamingMsgId
-                      ? { ...m, content: displayContent, isError: true, isStreaming: false }
+                      ? { ...m, content: displayContent, actions, isError: true, isStreaming: false }
                       : m
                   ),
                 };

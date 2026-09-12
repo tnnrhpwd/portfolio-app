@@ -20,11 +20,16 @@ async function fetchStatus() {
 }
 
 /**
- * Reads the admin-controlled purchase gate (docs/implementation/simple-agent-prompt.md —
+ * Reads the admin-controlled purchase gate (docs/implementation/agent.md —
  * "Gate: hide and disable purchasing until a real readiness bar is met").
  *
  * Returns `{ purchasesEnabled, message, loading }`. Use `purchasesEnabled`
  * to hide/disable upgrade CTAs, and `message` for the caveat to show instead.
+ *
+ * **Hiding is not enough.** Render `components/PurchaseGateNotice` wherever a
+ * paid CTA is hidden or disabled, so the surface still explains the pause and
+ * still offers a way to ask (agent.md §16.5 rule 6).
+ *
  * Defaults to `purchasesEnabled: true` while loading so nothing flashes
  * hidden-then-shown for the common case.
  */

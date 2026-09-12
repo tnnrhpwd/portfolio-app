@@ -862,7 +862,7 @@ Home ──closing CTA band ─┐
 /plans ──"Enlist agent"──────────────▶ /net?goal=<slug>&enlist=1   (run starts in the goal's thread)
 /plans ──"View agent"────────────────▶ /net?goal=<slug>            (reopen the goal's thread)
 /net ──🎯 conversation───────────────▶ /plans/goal/:id             (chat goal bar)
-/net ──UsageMeter / chat 402 copy────▶ /pay?plan=pro
+/net ──UsageMeter / chat 402 actions──▶ /pay?plan=pro        (gated: /support?tab=contact)
 /profile ──"Upgrade Now" ×3──────────▶ /pay?plan=pro
 /pricing ──plan card─────────────────▶ /pay?plan=<id>  (free | pro)
 ```
@@ -930,29 +930,46 @@ Fixed in this pass:
   anything work. It is now "See it work" → `/simple`, the surface that explains
   the whole loop while staying readable signed-out. `/pricing` is still one click
   away — the header lists it, and the closing band's note points at it.
+- ✅ **The purchase-gate dead end.** With `purchasesEnabled` false the Pro card was
+  a disabled "Not available yet", `/profile` *hid* every upgrade control, and
+  `UsageMeter` dropped its links — while the `/pricing` gate notice offered no way
+  to ask about any of it. A Free user over their storage limit was hard-blocked
+  with nothing to click and nobody to contact. All of it now routes through one
+  `components/PurchaseGateNotice/` (admin's message + a `/support?tab=contact`
+  link): the pricing notice, the storage-limit warning, both `/profile` upgrade
+  prompts, the plan-select hint, and the usage meter's gated state. §16.5 rule 6.
+- ✅ **Conversion CTAs were `<button onClick={navigate}>`, not links.** The
+  `/pricing` plan cards and closing CTA, and the three `/profile` "Upgrade Now"
+  buttons, are `<Link>`s now — middle-clickable, crawlable, and still carrying
+  `state.redirectTo` for the signed-out case (§16.5 rule 3). The gated Pro card
+  stays a disabled `<button>`, because there is genuinely nowhere to go.
+- ✅ **The in-chat upgrade CTA depended on the markdown renderer.** `SimpleChat`
+  built `[Upgrade Now →](/pay?plan=pro)` into the message *body*, and
+  `MessageBubble` fell back to `<p>{content}</p>` when the chat's markdown
+  setting was off — so the literal brackets "`[Upgrade Now →](/pay?plan=pro)`"
+  appeared and **the money path silently did nothing**. The CTA is now a
+  structured `message.actions` entry rendered as `<Link>`s in *every* mode. The
+  markdown `a` renderer was also routing every link through
+  `target="_blank"`, which threw the upgrade into a second browser tab and
+  reloaded the SPA; internal hrefs are `<Link>`s now, external ones keep the new
+  tab. With the gate on, the action becomes "Ask us about Pro" rather than the
+  dead `_Upgrading is temporarily paused_` italics. Pinned by
+  `components/SimpleAddon/MessageBubble.test.jsx`.
+- ✅ **`/pay` rendered `null` while its redirect effect ran** (`Pay.jsx`), so a
+  signed-out visitor saw a blank page flash before `/login`. It now renders the
+  card shell with a spinner and "Taking you to sign in…".
 
 Still open (ordered by funnel impact):
 
-- ⬜ **Purchase-gate dead end.** When `purchasesEnabled` is false the Pro card is
-  disabled ("Not available yet"), `/profile` hides every upgrade button, and
-  `UsageMeter` hides its links — while the gate notice (`Pricing.jsx:204`) contains
-  no support link. Pro-intent users are stranded at the card.
-- ⬜ **Conversion CTAs are `<button onClick={navigate}>`, not `<Link>`**
-  (`Pricing.jsx:266`, `Profile.jsx:339,423,610`) — not middle-clickable, not
-  crawlable.
 - ⬜ **`/payment-success` is an orphan route.** Nothing navigates to it; both
   post-payment paths go to `/profile` (`useCheckoutHandlers.js:56,91`), leaving
   `PaymentSuccess.jsx` dead code. `/pay/success` doesn't exist at all (falls to the
-  `*` NotFound route).
-- ⬜ **`/pay` renders `null` while its redirect effect runs** (`Pay.jsx:33`), giving
-  signed-out visitors a blank flash before `/login`.
-- ⬜ **Raw `<a href>` for SPA routes** — `UsageMeter.jsx:136,141`, `Footer.jsx:12–16`,
-  the `Header.jsx` logo, and the terms/privacy links in `CheckoutForm.jsx` all force
-  a full page reload.
-- ⬜ **The in-chat upgrade CTA relies on the markdown renderer.** `SimpleChat.jsx`
-  injects `[Upgrade Now →](/pay?plan=pro)` as markdown (lines 719, 1751); if
-  `[text](url)` isn't converted to an anchor, that monetization path silently
-  no-ops.
+  `*` NotFound route). **Needs a product decision**: land post-checkout there, or
+  delete the component.
+- ⬜ **Raw `<a href>` for SPA routes** — `Footer.jsx:12–16`, the `Header.jsx` logo,
+  and the terms/privacy links in `CheckoutForm.jsx` all force a full page reload.
+  (`UsageMeter.jsx` and the chat's markdown renderer are fixed; the rest are the
+  same one-line `<Link>` swap.)
 - ⬜ **Home's three surface cards** (`/net`, `/simple`, `/plans`) send guests
   straight into a gate — `/net` is `LoginGate`-gated and `/plans` is soft-gated,
   while `/simple` shows the signed-out journey band. Decide whether Discovery
@@ -1012,8 +1029,8 @@ What follows from that:
 |---|---|
 | `/pricing` plan cards → `/pay` | The visitor came for the price on purpose |
 | `/profile` "Upgrade Now" ×3 | They are already a user, managing their own plan |
-| Chat 402 → `[Upgrade Now →]` | The allowance just ran out mid-task — that *is* the moment |
-| Purchase-gate notices | Gate copy: informational, not a pitch |
+| Chat 402 → the message's `actions` row | The allowance just ran out mid-task — that *is* the moment. It is a structured action, deliberately **not** a markdown link, so it survives the markdown setting being off |
+| `PurchaseGateNotice` (gate copy) | Informational, not a pitch — and it always carries the support link, so a gated CTA is never a dead end |
 
 The line is **intent**: a visitor who came looking for the price, or who is already
 using the product, gets sold to. A visitor who has not tried it gets handed the
