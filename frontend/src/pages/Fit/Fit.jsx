@@ -5,8 +5,6 @@ import { Link } from 'react-router-dom';
 import Footer from '../../components/Footer/Footer';
 import Header from '../../components/Header/Header';
 import SEO from '../../components/SEO/SEO.jsx';
-import artFit from '../../assets/art/project-fit.jpg';
-import useScrollReveal from '../../hooks/useScrollReveal';
 import { askFitCoach } from '../../services/fitApi';
 
 import {
@@ -158,20 +156,22 @@ function StatTile({ label, value, note }) {
 // ── Section chrome ───────────────────────────────────────────────────────
 // The single list of sections, so the nav chips, the numbering, and the
 // "expand all" control cannot drift apart from what is on the page.
-// `tone` alternates down the page so each section reads as its own band (see
-// docs/guides/FRONTEND_UI_STANDARD.md §5). No two neighbours share a tone.
+// A service page is a grid of panels, each a plane of its own color, and
+// **neighbouring panels differ in tone** — that is what does the grouping (§5).
+// Closed panels tile two-up; one that is expanded takes a line of its own (see
+// `Fit.css` §shell), so what a panel is *for* never has to be declared here.
 const SECTIONS = [
-  { id: 'setup', label: 'Setup', tone: 'tint', title: '1 · Your week, your rules' },
-  // Weights are part of the recommendation, so a guest gets this card too: the
+  { id: 'setup', label: 'Setup', hue: 'mint', title: '1 · Your week, your rules' },
+  // Weights are part of the recommendation, so a guest gets this panel too: the
   // numbers are worked out in the tab and are never written to storage.
-  { id: 'body', label: 'Body & weights', tone: 'surface', title: '2 · Your body & starting weights' },
-  { id: 'week', label: 'The week', tone: 'tint', title: '3 · Your week' },
-  { id: 'log', label: 'Log a session', tone: 'surface', title: '4 · Log a session' },
-  { id: 'running', label: 'Running', tone: 'wash', title: '5 · Running', signedIn: true },
-  { id: 'progress', label: 'Progress', tone: 'surface', title: '6 · Progress', signedIn: true },
-  { id: 'history', label: 'History', tone: 'tint', title: '7 · History', signedIn: true },
-  { id: 'coach', label: 'Coach', tone: 'wash', title: '8 · Ask the coach' },
-  { id: 'notes', label: 'How it’s built', tone: 'surface', title: '9 · How this plan is built' },
+  { id: 'body', label: 'Body & weights', hue: 'blue', title: '2 · Your body & starting weights' },
+  { id: 'week', label: 'The week', hue: 'mint', title: '3 · Your week' },
+  { id: 'log', label: 'Log a session', hue: 'blue', title: '4 · Log a session' },
+  { id: 'running', label: 'Running', hue: 'orange', title: '5 · Running', signedIn: true },
+  { id: 'progress', label: 'Progress', hue: 'mint', title: '6 · Progress', signedIn: true },
+  { id: 'history', label: 'History', hue: 'blue', title: '7 · History', signedIn: true },
+  { id: 'coach', label: 'Coach', hue: 'pink', title: '8 · Ask the coach' },
+  { id: 'notes', label: 'How it’s built', hue: 'orange', title: '9 · How this plan is built' },
 ];
 
 const SECTION_TITLES = SECTIONS.reduce((acc, section) => {
@@ -179,68 +179,55 @@ const SECTION_TITLES = SECTIONS.reduce((acc, section) => {
   return acc;
 }, {});
 
-const SECTION_TONES = SECTIONS.reduce((acc, section) => {
-  acc[section.id] = section.tone;
+const SECTION_HUES = SECTIONS.reduce((acc, section) => {
+  acc[section.id] = section.hue;
   return acc;
 }, {});
 
 /**
- * One collapsible band.
+ * One collapsible panel.
  *
  * A disclosure — heading + `aria-expanded` toggle + body — rather than a
  * `<details>` or a hand-rolled accordion: it keeps a real `<h2>` in the
  * document outline, works with a keyboard and a screen reader without extra
- * code, and lets the page control which sections start open. Closed sections
- * render nothing at all, which is the whole point of the exercise.
+ * code, and lets the page control which panels start open. Closed panels render
+ * nothing at all, which is the whole point of the exercise on a tool this size.
  *
- * The section *is* the band: full-bleed tone, one scroll reveal for the whole
- * band (never one per card inside it), and an inner `fit-wrap` that holds the
- * reading measure. The collapsed head keeps the one-line summary so a closed
- * band still says what is in it — which is what makes collapsing usable.
+ * The panel head *is* the toggle, and its background is a stronger wash of the
+ * panel's own hue, so the head and the body read as one plane of color rather
+ * than as a box with a lid.
  */
-function Section({ id, title, summary, tone = 'surface', open, onToggle, children, className = '' }) {
-  const [revealRef, revealed] = useScrollReveal();
+function Section({ id, title, summary, hue = 'blue', open, onToggle, children, className = '' }) {
   const headingId = `fit-section-${id}-heading`;
   const bodyId = `fit-section-${id}-body`;
   return (
     <section
-      ref={revealRef}
-      className={[
-        'fit-band',
-        'fit-section',
-        `fit-band--${tone}`,
-        'fit-reveal',
-        revealed ? 'is-visible' : '',
-        open ? 'is-open' : '',
-        className,
-      ]
+      className={['fit-panel', `fit-panel--${hue}`, open ? 'is-open' : '', className]
         .filter(Boolean)
         .join(' ')}
       id={`fit-section-${id}`}
       aria-labelledby={headingId}
     >
-      <div className="fit-wrap">
-        <h2 className="fit-section-heading">
-          <button
-            type="button"
-            className="fit-section-toggle"
-            aria-expanded={open}
-            aria-controls={bodyId}
-            onClick={() => onToggle(id, !open)}
-          >
-            <span className="fit-section-title" id={headingId}>
-              {title}
-            </span>
-            <span className="fit-section-chevron" aria-hidden="true" />
-            {summary && <span className="fit-section-summary">{summary}</span>}
-          </button>
-        </h2>
-        {open && (
-          <div className="fit-section-body" id={bodyId}>
-            {children}
-          </div>
-        )}
-      </div>
+      <h2 className="fit-panel-head">
+        <button
+          type="button"
+          className="fit-section-toggle"
+          aria-expanded={open}
+          aria-controls={bodyId}
+          onClick={() => onToggle(id, !open)}
+        >
+          <span className="fit-section-title" id={headingId}>
+            {title}
+          </span>
+          <span className="fit-section-chevron" aria-hidden="true" />
+          {summary && <span className="fit-section-summary">{summary}</span>}
+        </button>
+      </h2>
+      {open && (
+        <div className="fit-section-body" id={bodyId}>
+          {children}
+        </div>
+      )}
     </section>
   );
 }
@@ -346,17 +333,16 @@ function Fit() {
   // an empty slate, so it stays empty until they build a new week.
   const autoGenerate = useRef(true);
 
-  // Which sections are expanded. Only the parts you are actually using start
-  // open — the page is nine sections long and nobody reads it top to bottom.
-  // Setup starts closed even on a first visit: a week is built from sensible
-  // defaults straight away, and the section header already says what those
-  // defaults assume, so the form is a click away instead of a screenful.
+  // Which panels are expanded. Only what you came for starts open: the week,
+  // plus the body inputs when there is no body weight on file yet, because
+  // without one there is no number on the bar anywhere. Setup is a screenful of
+  // controls and its head already states what the week assumes, so it stays a
+  // click away — the week's own "no number on the bar yet" nudge is the route
+  // into both.
   const [open, setOpen] = useState(() => {
     const initial = loadFitState();
     return {
       setup: false,
-      // A signed-in athlete with no body weight on file is nudged straight into
-      // this card; a guest stays on the week and is offered the same link inline.
       body: isUser && !initial.profile.bodyWeight,
       week: true,
       log: false,
@@ -379,6 +365,16 @@ function Fit() {
   useEffect(() => {
     if (isUser) saveFitState(state);
   }, [state, isUser]);
+
+  // The status line is a flash message, not a fixture: it lives in the sticky
+  // toolbar so it is visible wherever you are working, and it clears itself so
+  // it does not eat the toolbar for the rest of the session. 7s is longer than
+  // any test in the suite can run, so nothing observable depends on the timer.
+  useEffect(() => {
+    if (!status) return undefined;
+    const timer = window.setTimeout(() => setStatus(''), 7000);
+    return () => window.clearTimeout(timer);
+  }, [status]);
 
   const loadContext = useMemo(
     () => buildLoadContext({ profile, checkIns: isUser ? state.checkIns : [], units }),
@@ -795,110 +791,117 @@ function Fit() {
       />
       <Header />
 
-      <div className="fit">
-        {/* ── Hero: the signature gradient, over a scrimmed cut of the artwork ── */}
-        <section className="fit-hero">
-          <img className="fit-hero-media" src={artFit} alt="" />
-          <div className="fit-floating" aria-hidden="true">
-            <div className="fit-circle fit-circle-1" />
-            <div className="fit-circle fit-circle-2" />
-            <div className="fit-circle fit-circle-3" />
-          </div>
-          <div className="fit-title-wrap">
-            <p className="fit-eyebrow">Training planner</p>
-            <h1 className="fit-title">Fit</h1>
-            <p className="fit-subtitle">
-              A Push / Pull / Legs week built around the equipment you actually have, with a starting weight on every
-              bar and a timer for every hold. Sign in and it tracks what you lift, what you run, and what hurts.
+      <div className="fit-page">
+        <main id="main" className="fit-shell">
+          {/* ── Toolbar: the name, the live state, the primary action ─────
+              This is the page's whole hero. A service page has no pitch to
+              make, so there is no gradient, no artwork and no circling
+              decoration — just the numbers you came to look at (§5.7). */}
+          <header className="fit-toolbar">
+            <h1 className="fit-toolbar-title">Fit</h1>
+            <p className="fit-toolbar-status">
+              {isUser
+                ? `Tracking on${user?.nickname ? ` as ${user.nickname}` : ''}`
+                : 'Guest — nothing is saved'}
             </p>
             {plan && (
-              <ul className="fit-hero-facts">
-                <li>
-                  <span className="fit-hero-fact-value">{plan.days.length}</span>
-                  <span className="fit-hero-fact-label">days planned</span>
-                </li>
-                <li>
-                  <span className="fit-hero-fact-value">{weeklyTarget}</span>
-                  <span className="fit-hero-fact-label">sessions a week</span>
-                </li>
-                <li>
-                  <span className="fit-hero-fact-value">{plan.runMinutes > 0 ? plan.runMinutes : '–'}</span>
-                  <span className="fit-hero-fact-label">minutes running</span>
-                </li>
-              </ul>
+              <span className="fit-toolbar-readout">
+                <span className="fit-chip-stat">
+                  This week{' '}
+                  <strong>
+                    {weeklyProgress.done}/{weeklyTarget}
+                  </strong>
+                </span>
+                <span className="fit-chip-stat">
+                  Next <strong>{nextDay ? nextDay.name : '—'}</strong>
+                </span>
+                {streak > 1 && (
+                  <span className="fit-chip-stat">
+                    <strong>{streak}</strong> weeks on target
+                  </span>
+                )}
+                <span className="fit-chip-stat">
+                  <strong>{plan.days.length}</strong> days
+                </span>
+                {plan.runMinutes > 0 && (
+                  <span className="fit-chip-stat">
+                    <strong>{plan.runMinutes}</strong> min running
+                  </span>
+                )}
+              </span>
             )}
-            <div className="fit-actions fit-actions--hero">
-              <button type="button" className="fit-btn" onClick={() => goTo('setup')}>
-                {plan ? 'Change my week' : 'Build my week'}
-              </button>
-              <button type="button" className="fit-btn fit-btn-outline" onClick={() => goTo('log')}>
+            <div className="fit-toolbar-actions">
+              <button type="button" className="fit-btn fit-btn--sm" onClick={() => goTo('log')}>
                 {nextDay ? `Log ${nextDay.name}` : 'Log a session'}
               </button>
-              <button type="button" className="fit-btn fit-btn-outline fit-btn--sm" onClick={() => goTo('week')}>
-                See the week
-              </button>
-            </div>
-            <p className="fit-mode" data-mode={isUser ? 'user' : 'guest'}>
-              {isUser ? (
-                <>
-                  Tracking on{user?.nickname ? ` as ${user.nickname}` : ''} — sessions, runs, check-ins, and coaching are
-                  saved to your account.
-                </>
-              ) : (
-                <>
-                  You are browsing as a guest: everything below works and <strong>nothing is saved</strong>.{' '}
-                  <Link to="/login" state={{ redirectTo: '/fit' }}>
-                    Sign in
-                  </Link>{' '}
-                  to track your training and get coaching on it.
-                </>
-              )}
-            </p>
-          </div>
-        </section>
-
-        <main id="main" className="fit-main">
-          {/* ── Section index ─────────────────────────────────────── */}
-          <nav className="fit-nav" aria-label="Page sections">
-            <div className="fit-wrap fit-nav-inner">
-              {visibleSections.map((section) => (
-                <button
-                  key={section.id}
-                  type="button"
-                  className={`fit-nav-chip${open[section.id] ? ' is-open' : ''}`}
-                  aria-expanded={open[section.id]}
-                  onClick={() => goTo(section.id)}
-                >
-                  {section.label}
-                </button>
-              ))}
               <button
                 type="button"
-                className="fit-nav-action"
-                onClick={() => setAllSections(!allOpen)}
+                className="fit-btn fit-btn-outline fit-btn--sm"
+                onClick={() => goTo('setup')}
               >
-                {allOpen ? 'Collapse all' : 'Expand all'}
+                {plan ? 'Change my week' : 'Build my week'}
               </button>
             </div>
+            {/* Action feedback lives in the toolbar, not between two panels: it
+                is the only place that stays on screen while you work, and a
+                full-width row in the middle of the grid would leave a hole. */}
+            {status && (
+              <p className="fit-status" role="status">
+                {status}
+              </p>
+            )}
+          </header>
+
+          {/* ── Panel index ───────────────────────────────────────── */}
+          <nav className="fit-index" aria-label="Page sections">
+            {visibleSections.map((section) => (
+              <button
+                key={section.id}
+                type="button"
+                className={`fit-index-chip${open[section.id] ? ' is-open' : ''}`}
+                aria-expanded={open[section.id]}
+                onClick={() => goTo(section.id)}
+              >
+                {section.label}
+              </button>
+            ))}
+            <button type="button" className="fit-index-action" onClick={() => setAllSections(!allOpen)}>
+              {allOpen ? 'Collapse all' : 'Expand all'}
+            </button>
           </nav>
+
+          <p className="fit-mode" data-mode={isUser ? 'user' : 'guest'}>
+            {isUser ? (
+              <>
+                Sessions, runs, check-ins, and coaching are saved to your account.
+              </>
+            ) : (
+              <>
+                You are browsing as a guest: everything below works and <strong>nothing is saved</strong>.{' '}
+                <Link to="/login" state={{ redirectTo: '/fit' }}>
+                  Sign in
+                </Link>{' '}
+                to track your training and get coaching on it.
+              </>
+            )}
+          </p>
 
           {/* ── 1 · Profile ───────────────────────────────────────── */}
           <Section
             id="setup"
-            tone={SECTION_TONES.setup}
+            hue={SECTION_HUES.setup}
             title={SECTION_TITLES.setup}
             summary={setupSummary}
             open={open.setup}
             onToggle={toggleSection}
           >
             <p className="fit-lead">
-              Tick every place you can train — the split is always Push / Pull / Legs, and Fit will put the gym days
-              where the heavy kit is and bring the rest home.
+              Tick every place you can train — Fit puts the heavy days where the kit is.
             </p>
 
             <fieldset className="fit-fieldset">
               <legend className="fit-label">Where can you train?</legend>
-              <div className="fit-equipment fit-stagger">
+              <div className="fit-equipment">
                 {EQUIPMENT_OPTIONS.map((option) => {
                   const checked = (form.equipment || []).includes(option.id);
                   return (
@@ -1040,16 +1043,10 @@ function Fit() {
             </div>
           </Section>
 
-          {status && (
-            <p className="fit-status" role="status">
-              {status}
-            </p>
-          )}
-
           {/* ── 2 · Body & starting weights ─────────────────────── */}
           <Section
             id="body"
-            tone={SECTION_TONES.body}
+            hue={SECTION_HUES.body}
             title={SECTION_TITLES.body}
             summary={bodySummary}
             open={open.body}
@@ -1057,8 +1054,7 @@ function Fit() {
           >
             <div className="fit-card-head">
               <p className="fit-lead fit-lead--tight">
-                These are what turn &ldquo;4 × 6–8&rdquo; into an actual number on the bar. Every prescribed weight
-                updates the moment you change one of these.
+                These turn &ldquo;4 × 6–8&rdquo; into a number on the bar, and update every set below as you type.
               </p>
               <div className="fit-segmented" role="group" aria-label="Weight unit">
                 {UNITS.map((option) => (
@@ -1189,7 +1185,7 @@ function Fit() {
           {plan && (
             <Section
               id="week"
-              tone={SECTION_TONES.week}
+              hue={SECTION_HUES.week}
               title={SECTION_TITLES.week}
               summary={weekSummary}
               open={open.week}
@@ -1213,7 +1209,7 @@ function Fit() {
                 </p>
               )}
 
-              <div className="fit-daytabs fit-stagger" role="group" aria-label="Choose a day">
+              <div className="fit-daytabs" role="group" aria-label="Choose a day">
                 {plan.days.map((day) => {
                   const runs = dayRunItems(day);
                   const where = runs.length > 0 ? 'outdoors' : day.location === 'home' ? 'at home' : 'at the gym';
@@ -1258,7 +1254,7 @@ function Fit() {
           {/* ── 4 · Log sheet ─────────────────────────────────────── */}
           <Section
             id="log"
-            tone={SECTION_TONES.log}
+            hue={SECTION_HUES.log}
             title={SECTION_TITLES.log}
             summary={logSummary}
             open={open.log}
@@ -1477,7 +1473,7 @@ function Fit() {
           {isUser && (
             <Section
               id="running"
-              tone={SECTION_TONES.running}
+              hue={SECTION_HUES.running}
               title={SECTION_TITLES.running}
               summary={runningSummary}
               open={open.running}
@@ -1592,7 +1588,7 @@ function Fit() {
           {isUser && (
             <Section
               id="progress"
-              tone={SECTION_TONES.progress}
+              hue={SECTION_HUES.progress}
               title={SECTION_TITLES.progress}
               summary={progressSummary}
               open={open.progress}
@@ -1604,7 +1600,7 @@ function Fit() {
                 <span className="fit-figure-label">{units} lifted, all time</span>
               </p>
 
-              <div className="fit-stats fit-stagger">
+              <div className="fit-stats">
                 <StatTile
                   label="sessions this week"
                   value={`${weeklyProgress.done}/${weeklyProgress.target}`}
@@ -1622,7 +1618,7 @@ function Fit() {
               </div>
 
               <h3 className="fit-subheading">What your data says</h3>
-              <ul className="fit-readout fit-stagger">
+              <ul className="fit-readout">
                 {readout.map((item) => (
                   <li key={item.label}>
                     <span className="fit-readout-label">{item.label}</span>
@@ -1693,7 +1689,7 @@ function Fit() {
           {isUser && history.length > 0 && (
             <Section
               id="history"
-              tone={SECTION_TONES.history}
+              hue={SECTION_HUES.history}
               title={SECTION_TITLES.history}
               summary={historySummary}
               open={open.history}
@@ -1752,7 +1748,7 @@ function Fit() {
           {/* ── 8 · Coach ─────────────────────────────────────────── */}
           <Section
             id="coach"
-            tone={SECTION_TONES.coach}
+            hue={SECTION_HUES.coach}
             title={SECTION_TITLES.coach}
             summary={coachSummary}
             open={open.coach}
@@ -1946,13 +1942,13 @@ function Fit() {
           {plan && (
             <Section
               id="notes"
-              tone={SECTION_TONES.notes}
+              hue={SECTION_HUES.notes}
               title={SECTION_TITLES.notes}
               summary={notesSummary}
               open={open.notes}
               onToggle={toggleSection}
             >
-              <ul className="fit-notes-list fit-stagger">
+              <ul className="fit-notes-list">
                 {plan.notes.map((note) => (
                   <li key={note}>{note}</li>
                 ))}
@@ -2004,15 +2000,9 @@ function Fit() {
               )}
             </div>
           )}
-        </main>
-
-        {/* The closing bookend: the same gradient as the hero, corners-only, so
-            the copy stays on the theme text color. */}
-        <section className="fit-band fit-band--corners fit-closing">
-          <div className="fit-wrap fit-closing-inner">
-            <p className="fit-closing-lead">
-              Push, pull, legs — with a number on the bar, a timer on every hold, and a coach that reads your log.
-            </p>
+          {/* The page ends on its last panel — no closing pitch (§5.7). The
+              source link and the storage line are the only footer left. */}
+          <footer className="fit-foot">
             <a
               className="fit-source-link"
               href="https://github.com/tnnrhpwd/portfolio-app/tree/master/frontend/src/pages/Fit"
@@ -2026,8 +2016,8 @@ function Fit() {
                 ? 'Your training data is stored against your account. Logging runs and check-ins is what makes the coaching specific to you.'
                 : 'Guest mode stores nothing — no account, no cookie, no history. Sign in whenever you want Fit to remember.'}
             </p>
-          </div>
-        </section>
+          </footer>
+        </main>
       </div>
 
       <Footer />

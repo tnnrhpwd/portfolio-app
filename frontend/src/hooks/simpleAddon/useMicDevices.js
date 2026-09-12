@@ -1,36 +1,66 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { queryPermissionState, MICROPHONE } from '../../utils/browserPermissions';
 
 /**
  * Hook to enumerate audio input devices and provide live volume metering.
  *
  * Usage:
  *   const { devices, volumes, startMetering, stopMetering, isMetering } = useMicDevices();
+ *   const mic = useMicDevices({ allowPrompt: sttEnabled });
  *
  * `devices`  — Array of { deviceId, label } for each audio input
  * `volumes`  — Map of deviceId → number (0–100) representing current volume level
  * `startMetering()` — Opens all mics and starts live volume monitoring
  * `stopMetering()`  — Closes all mic streams and stops monitoring
  * `isMetering`       — Whether metering is currently active
+ * `permissionState`  — 'granted' | 'denied' | 'prompt' | 'unsupported'
+ * `requestAccess()`  — Explicitly ask for the mic (opens the browser popup), then
+ *                      re-enumerate so real device labels appear.
+ *
+ * Popups: enumerating devices does NOT prompt on its own. Browsers hide device
+ * labels until the mic is granted, so labels are unlocked ONLY when the browser
+ * already granted access (quiet) or the caller passed `allowPrompt` (the user
+ * opted into voice, or pressed a mic control). Otherwise the list still works
+ * with generic "Microphone N" labels and no popup ever appears.
  */
-export function useMicDevices() {
+export function useMicDevices({ allowPrompt = false } = {}) {
   const [devices, setDevices] = useState([]);
   const [volumes, setVolumes] = useState({});
   const [isMetering, setIsMetering] = useState(false);
+  const [permissionState, setPermissionState] = useState('unsupported');
 
   // Refs for cleanup
   const meterStreamsRef = useRef([]);     // { deviceId, stream, audioCtx, analyser, interval }[]
   const volumesRef = useRef({});
+  // Latest allowPrompt, so the devicechange handler sees the current choice
+  // without the mount effect re-subscribing on every change.
+  const allowPromptRef = useRef(allowPrompt);
+  useEffect(() => { allowPromptRef.current = allowPrompt; }, [allowPrompt]);
 
   // ─── Enumerate devices ─────────────────────────────────────────────────
-  const enumerateDevices = useCallback(async () => {
+  const enumerateDevices = useCallback(async (opts = {}) => {
+    const mayPrompt = opts.allowPrompt ?? allowPromptRef.current;
     try {
-      // We need at least one getUserMedia call to get labels (browsers hide labels until permission)
-      try {
-        const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        tempStream.getTracks().forEach(t => t.stop());
-        console.log('[MicDevices] Got mic permission for label access');
-      } catch (e) {
-        console.warn('[MicDevices] Mic permission denied — labels may be hidden:', e.message);
+      if (!navigator.mediaDevices?.enumerateDevices) return [];
+
+      // Browsers hide device labels until the mic is granted. Unlock them with
+      // a throwaway getUserMedia call ONLY when that call cannot popup: the
+      // browser already granted access, or the caller explicitly allows a
+      // prompt. A 'prompt' state with allowPrompt=false skips it entirely —
+      // that is what keeps a plain visit to /net popup-free.
+      const state = await queryPermissionState(MICROPHONE);
+      setPermissionState(state);
+
+      if (navigator.mediaDevices.getUserMedia && (state === 'granted' || mayPrompt)) {
+        try {
+          const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          tempStream.getTracks().forEach(t => t.stop());
+          setPermissionState('granted');
+          console.log('[MicDevices] Got mic permission for label access');
+        } catch (e) {
+          setPermissionState('denied');
+          console.warn('[MicDevices] Mic permission denied — labels may be hidden:', e.message);
+        }
       }
 
       const allDevices = await navigator.mediaDevices.enumerateDevices();
@@ -50,13 +80,29 @@ export function useMicDevices() {
     }
   }, []);
 
-  // Enumerate on mount
+  // Enumerate on mount (and again if the opt-in flips, so labels can load).
   useEffect(() => {
-    enumerateDevices();
+    enumerateDevices({ allowPrompt });
     // Re-enumerate if devices change (plug/unplug)
     const handler = () => enumerateDevices();
     navigator.mediaDevices?.addEventListener('devicechange', handler);
     return () => navigator.mediaDevices?.removeEventListener('devicechange', handler);
+  }, [enumerateDevices, allowPrompt]);
+
+  // ─── Explicit request (only after a deliberate user action) ─────────────
+  const requestAccess = useCallback(async () => {
+    if (!navigator.mediaDevices?.getUserMedia) return false;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(t => t.stop());
+      setPermissionState('granted');
+      await enumerateDevices({ allowPrompt: true });
+      return true;
+    } catch (e) {
+      console.warn('[MicDevices] requestAccess failed:', e.message);
+      setPermissionState('denied');
+      return false;
+    }
   }, [enumerateDevices]);
 
   // ─── Open a single mic and start metering ───────────────────────────────
@@ -158,6 +204,8 @@ export function useMicDevices() {
     setVolumes(newVolumes);
     setIsMetering(true);
     console.log('[MicDevices] Metering started. Active streams:', newStreams.length, '/', devList.length);
+    // A prompted grant just unlocked real device labels — refresh the list.
+    if (newStreams.length > 0) enumerateDevices({ allowPrompt: true });
   }, [devices, enumerateDevices]);
 
   // ─── Stop metering ─────────────────────────────────────────────────────
@@ -185,5 +233,7 @@ export function useMicDevices() {
     stopMetering: stopMeteringInternal,
     isMetering,
     enumerateDevices,
+    permissionState,
+    requestAccess,
   };
 }

@@ -15,6 +15,7 @@ import {
   FONT_SCALE_DEFAULT,
 } from '../../utils/theme.js';
 import { getCloudSettings, saveCloudSettings, isAddonOptedIn, setAddonOptIn } from '../../services/simpleAddonApi.js';
+import { GEOLOCATION, isPermissionEnabled, setPermissionEnabled } from '../../utils/browserPermissions.js';
 import { ADDON_DOWNLOAD_URL, useAddonDetection } from '../../hooks/simpleAddon/useAddonDetection';
 import AIWorkflowSettings from '../../components/SimpleAddon/AIWorkflowSettings.jsx';
 import { DEFAULT_CLOUD_MODEL_ID, resolveCloudModelLabel, resolveCloudModelProvider } from '../../utils/llmProviderOptions.js';
@@ -134,6 +135,11 @@ function Settings() {
   });
   const [fontScale, setFontScale] = useState(() => loadFontSizeScale());
 
+  // Device-local browser-permission opt-in (see utils/browserPermissions.js).
+  // The microphone choice is the existing `sttEnabled` setting; location gets
+  // its own flag because Halfway is the only page that uses it.
+  const [locationEnabled, setLocationEnabled] = useState(() => isPermissionEnabled(GEOLOCATION));
+
   // What the AI section should *state* it is using — resolved from the user's
   // saved choice and the live `/llm-providers` response, never hardcoded.
   const cloudModelLabel = resolveCloudModelLabel(aiSettings?.portfolioModel, llmProviders);
@@ -208,6 +214,26 @@ function Settings() {
     });
     pushAISettingToCloud({ [key]: value });
   }, [pushAISettingToCloud]);
+
+  // Microphone opt-in = the shared Speech Recognition setting, so enabling it
+  // here lets the browser ask for mic access on /net (and disabling it stops the
+  // ask entirely). Location is its own device-local flag.
+  const handleMicToggle = useCallback((e) => {
+    const next = e.target.checked;
+    updateAISetting('sttEnabled', next);
+    toast.success(next
+      ? 'Microphone on — the browser may now ask for mic access on /net.'
+      : 'Microphone off — voice input is disabled and the mic will not be requested.');
+  }, [updateAISetting]);
+
+  const handleLocationToggle = useCallback(() => {
+    const next = !locationEnabled;
+    setPermissionEnabled(GEOLOCATION, next);
+    setLocationEnabled(next);
+    toast.success(next
+      ? 'Location on — Halfway may ask your browser for it.'
+      : 'Location off — pages will not ask your browser for location.');
+  }, [locationEnabled]);
 
   useEffect(() => {
     if (!user) {
@@ -724,6 +750,53 @@ function Settings() {
                             </button>
                           </div>
                         )}
+                      </div>
+                    </div>
+
+                    <div
+                      className={`planit-settings-section${activeSection === 'privacy' ? ' is-highlighted' : ''}`}
+                      id="privacy"
+                    >
+                      <div className="planit-settings-section-header">
+                        <div>
+                          <span className="planit-settings-section-kicker">Privacy</span>
+                          <h2 className="planit-settings-section-title">Privacy &amp; permissions</h2>
+                          <p className="planit-settings-section-description">
+                            Control when a page may ask your browser for the microphone or your location. If a switch is off, nothing asks — no popups.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="planit-settings-checkbox-grid">
+                        <label className="planit-settings-toggle-card">
+                          <div className="planit-settings-toggle-copy">
+                            <span className="planit-settings-toggle-title">🎤 Microphone</span>
+                            <span className="planit-settings-toggle-description">
+                              Voice input and wake-word listening on <strong>/net</strong>. Turning this on allows the browser to ask for mic access; off means it never asks (the mic button still works if you press it).
+                            </span>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={aiSettings.sttEnabled ?? false}
+                            onChange={handleMicToggle}
+                            className="planit-settings-checkbox"
+                          />
+                        </label>
+
+                        <label className="planit-settings-toggle-card">
+                          <div className="planit-settings-toggle-copy">
+                            <span className="planit-settings-toggle-title">📍 Location</span>
+                            <span className="planit-settings-toggle-description">
+                              Sunrise &amp; sunset on the Halfway tool. Off means that page waits for you to press <strong>Use my location</strong> before it asks the browser.
+                            </span>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={locationEnabled}
+                            onChange={handleLocationToggle}
+                            className="planit-settings-checkbox"
+                          />
+                        </label>
                       </div>
                     </div>
                   </div>

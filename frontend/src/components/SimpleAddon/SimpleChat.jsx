@@ -302,7 +302,10 @@ function SimpleChat({
     micDeviceId: settings.micDeviceId || '',
   });
 
-  const micDevices = useMicDevices();
+  // Device enumeration is popup-free unless `sttEnabled` is on: without the
+  // user's voice opt-in the hook lists generic "Microphone N" labels and never
+  // opens the browser's permission prompt on a plain visit to /net.
+  const micDevices = useMicDevices({ allowPrompt: settings.sttEnabled ?? false });
   // Shorter inactivity timeout when mic is active (saves resources),
   // longer timeout when mic is off (tab is lightweight, don't nag).
   const sttActive = settings.sttEnabled ?? false;

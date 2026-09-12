@@ -236,7 +236,9 @@ function AIWorkflowSettings({ settings, onChange, user, cloudSyncStatus, sttSupp
           <div className="aiw-toggle-copy">
             <span className="aiw-toggle-title">🎤 Speech Recognition</span>
             <span className="aiw-toggle-description">
-              {sttSupported ? 'Enable voice commands and wake-word listening.' : 'Not supported in this browser.'}
+              {sttSupported
+                ? 'Enable voice commands and wake-word listening. Turning this on lets the browser ask for microphone access.'
+                : 'Not supported in this browser.'}
             </span>
           </div>
           <input

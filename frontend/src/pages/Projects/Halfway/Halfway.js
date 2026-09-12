@@ -7,6 +7,12 @@ import SEO from '../../../components/SEO/SEO.jsx';
 
 import './Halfway.css';
 import {
+  GEOLOCATION,
+  isPermissionEnabled,
+  queryPermissionState,
+  setPermissionEnabled,
+} from '../../../utils/browserPermissions.js';
+import {
   MINUTES_PER_DAY,
   formatDuration,
   minutesTo12h,
@@ -171,7 +177,7 @@ function Halfway() {
 
   // ── Location & solar times ─────────────────────────────────────────
   const [coords, setCoords] = useState(null); // { lat, lng, source: 'device' | 'manual' }
-  const [geoStatus, setGeoStatus] = useState('loading'); // loading | ready | denied | unavailable | unsupported
+  const [geoStatus, setGeoStatus] = useState('idle'); // idle | loading | ready | denied | unavailable | unsupported
   const [showManual, setShowManual] = useState(false);
   const [manualLat, setManualLat] = useState('');
   const [manualLng, setManualLng] = useState('');
@@ -195,25 +201,48 @@ function Halfway() {
           source: 'device',
         });
         setGeoStatus('ready');
+        // Clicking through a prompted grant counts as the opt-in for next time.
+        setPermissionEnabled(GEOLOCATION, true);
       },
       error => {
         if (requestId !== requestCounter.current) return;
-        setGeoStatus(error && error.code === 1 ? 'denied' : 'unavailable');
+        const denied = error && error.code === 1;
+        // A denied prompt forgets the opt-in so we do not keep nagging.
+        if (denied) setPermissionEnabled(GEOLOCATION, false);
+        setGeoStatus(denied ? 'denied' : 'unavailable');
       },
       { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 }
     );
   };
 
-  // Use a previously entered manual location on first paint; otherwise ask for
-  // the device location (a granted permission returns instantly on later visits).
+  // Never prompt on mount. A saved location (manual or from an earlier grant)
+  // is used straight away; otherwise we only pull the device location when the
+  // browser will be quiet about it (already granted) or the user opted in via
+  // Settings — everyone else gets the explicit "Use my location" button.
   useEffect(() => {
+    let cancelled = false;
     const saved = loadSavedCoords();
-    if (saved && saved.source === 'manual') {
+    if (saved) {
       setCoords(saved);
       setGeoStatus('ready');
-      return;
+      return undefined;
     }
-    requestDeviceLocation();
+    if (!('geolocation' in navigator)) {
+      setGeoStatus('unsupported');
+      return undefined;
+    }
+    (async () => {
+      const state = await queryPermissionState(GEOLOCATION);
+      if (cancelled) return;
+      if (state === 'granted' || isPermissionEnabled(GEOLOCATION)) {
+        requestDeviceLocation();
+      } else if (state === 'denied') {
+        setGeoStatus('denied');
+      } else {
+        setGeoStatus('idle'); // 'prompt' — stay quiet and wait for the button
+      }
+    })();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -253,14 +282,16 @@ function Halfway() {
     geoStatus === 'loading'
       ? 'Finding your location…'
       : geoStatus === 'denied'
-        ? 'Location access was denied, so sunrise and sunset are unavailable.'
+        ? 'Location access was denied, so sunrise and sunset are unavailable. You can still enter coordinates manually.'
         : geoStatus === 'unavailable'
           ? 'Your location could not be determined.'
           : geoStatus === 'unsupported'
             ? 'This browser does not support geolocation.'
-            : coords && !solar
-              ? 'No sunrise/sunset data is available for that location today.'
-              : '';
+            : geoStatus === 'idle'
+              ? 'Use your location for sunrise and sunset — or enter coordinates manually. Nothing is requested until you choose.'
+              : coords && !solar
+                ? 'No sunrise/sunset data is available for that location today.'
+                : '';
 
   function openManualEditor() {
     setManualLat(coords ? String(coords.lat) : '');
