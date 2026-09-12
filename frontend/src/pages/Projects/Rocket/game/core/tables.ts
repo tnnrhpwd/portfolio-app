@@ -7,7 +7,9 @@
  * rather than an invisible green box at a tense moment.
  */
 
+import { SHIPS } from './ships';
 import type { EffectKind, EnemyDef, EnemyKind, PickupDef, PickupKind } from './types';
+import { UPGRADES } from './upgrades';
 
 export const ENEMY_DEFS: Record<EnemyKind, EnemyDef> = {
   /** Tiny fast shrapnel. Introduced in wave 1 so the player can learn to move. */
@@ -232,5 +234,11 @@ export function requiredSprites(): string[] {
   Object.values(THRUSTER).forEach((s) => names.add(s));
   BACKGROUNDS.forEach((s) => names.add(s));
   STAR_SPRITES.forEach((s) => names.add(s));
+  // Playable ships are chosen from the menu rather than spawned, so they are
+  // easy to forget here — and a ship that was never loaded shows up as an
+  // opaque green box on the very first screen.
+  Object.values(SHIPS).forEach((def) => names.add(def.sprite));
+  // Shop icons are the same trap: only ever drawn on the between-wave screen.
+  Object.values(UPGRADES).forEach((def) => names.add(def.sprite));
   return [...names].sort();
 }

@@ -22,6 +22,7 @@ const AdminPageRankings = lazy(() => import('./pages/Admin/PageRankings'));
 const Annuities = lazy(() => import('./pages/Projects/Annuities/Annuities'));
 const Chess = lazy(() => import('./pages/Chess/Chess'));
 const Coliseum = lazy(() => import('./pages/Projects/Coliseum/Coliseum'));
+const Rocket = lazy(() => import('./pages/Projects/Rocket/Rocket'));
 const DeepStorage = lazy(() => import('./pages/DeepStorage/DeepStorage'));
 const Ethanol = lazy(() => import('./pages/Projects/Ethanol/Ethanol'));
 const Fit = lazy(() => import('./pages/Fit/Fit'));
@@ -132,6 +133,8 @@ function App() {
               <Route path="/2048" element={<Game2048/>} />
               <Route path="/coliseum" element={<Coliseum/>} />
               <Route path="/Coliseum" element={<Coliseum/>} />
+              <Route path="/rocket" element={<Rocket/>} />
+              <Route path="/Rocket" element={<Rocket/>} />
               <Route path="/chess" element={<Chess/>} />
               <Route path="/halfway" element={<Halfway/>} />
               <Route path='/hype' element={<Hype />} />

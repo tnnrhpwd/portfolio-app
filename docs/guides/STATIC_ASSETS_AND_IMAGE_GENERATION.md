@@ -902,10 +902,20 @@ to the UI, and Part 1's S3/CloudFront path for large or rarely-changing sheets.
    frames fail "short + desaturated + sparse" and are erased. Check the QA sheet
    for missing animation frames before assuming the art is complete.
 8. **`frontend/public/` ships.** Never let a review artefact land there.
-9. **Windows shell flakiness** in this workspace: `node`/`npx` intermittently
-   vanish from `PATH` and a leading `&` can be rejected. Reliable forms:
-   `$env:Path += ';C:\Program Files\nodejs'; node <script>` or
-   `& 'C:\Program Files\nodejs\node.exe' '<abs script>'`.
+9. **Extracting a sprite is only half the job — it also has to be *loaded*.**
+   The game fetches exactly what `requiredSprites()` returns
+   (`frontend/src/pages/Projects/Rocket/game/core/tables.ts`) and nothing else, so
+   a sprite that is drawn but missing from that list is silently never requested
+   and Phaser renders its own green "missing texture" box. The trap is that the
+   affected screen is never the one being worked on: ships appear on the menu and
+   shop icons between waves. Add the name to the relevant table (enemies, pickups,
+   effects, bullets, thrusters, backgrounds, stars, `SHIPS`, `UPGRADES`) rather
+   than sprinkling the literal into a scene, and let
+   `game/core/sprites.test.ts` catch the rest.
+10. **Windows shell flakiness** in this workspace: `node`/`npx` intermittently
+    vanish from `PATH` and a leading `&` can be rejected. Reliable forms:
+    `$env:Path += ';C:\Program Files\nodejs'; node <script>` or
+    `& 'C:\Program Files\nodejs\node.exe' '<abs script>'`.
 
 ---
 

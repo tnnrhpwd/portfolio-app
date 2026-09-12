@@ -15,18 +15,12 @@
  */
 
 import { TUNING, waveClearBonus } from './constants';
-import { createRng, nextChance, nextFloat, nextInt, nextPick, nextRange } from './rng';
+import { createRng, nextChance, nextPick, nextRange } from './rng';
 import { resolveShip } from './ships';
 import { EFFECT_FRAMES, ENEMY_BULLETS, ENEMY_DEFS, PICKUP_DEFS, PLAYER_BULLETS } from './tables';
 import { deriveStats } from './upgrades';
 import type { DerivedStats, UpgradeLevels, ShipKey } from './types';
-import {
-  enemyHpFor,
-  enemySpeedFor,
-  generateWave,
-  isBossWave,
-  type WavePlan,
-} from './waves';
+import { enemyHpFor, enemySpeedFor, generateWave, type WavePlan } from './waves';
 import type {
   Bullet,
   Effect,
@@ -218,29 +212,34 @@ function barrelLayout(barrels: number): Array<{ ox: number; drift: number }> {
   return [{ ox: 0, drift: 0 }];
 }
 
-function spawnEnemy(world: World, kind: EnemyKind, pattern: EnemyPattern, side: string): void {
+/**
+ * Spawn one enemy at an explicit position.
+ *
+ * Exported because spawning is a first-class operation, not an implementation
+ * detail of the wave scheduler: the wave path picks a lane for you, tests place
+ * one exactly where they need it, and a future "boss arrives" cutscene can drop
+ * one anywhere.
+ */
+export function spawnEnemyAt(
+  world: World,
+  kind: EnemyKind,
+  x: number,
+  y: number,
+  pattern: EnemyPattern = 'drift',
+): Enemy {
   const def = ENEMY_DEFS[kind];
-  const speed = enemySpeedFor(kind, world.wave) * world.height;
-
-  const anchorX =
-    side === 'left'
-      ? world.width * 0.2
-      : side === 'right'
-        ? world.width * 0.8
-        : side === 'center'
-          ? world.width * 0.5
-          : nextRange(world.rng, world.width * 0.12, world.width * 0.88);
+  const hp = enemyHpFor(kind, world.wave);
 
   const enemy: Enemy = {
     id: world.nextId++,
     kind,
-    x: anchorX,
-    y: -def.radius - nextRange(world.rng, 10, 60),
+    x,
+    y,
     vx: 0,
-    vy: speed,
+    vy: enemySpeedFor(kind, world.wave) * world.height,
     radius: def.radius,
-    hull: enemyHpFor(kind, world.wave),
-    maxHull: enemyHpFor(kind, world.wave),
+    hull: hp,
+    maxHull: hp,
     score: def.score,
     coins: def.coins,
     fireMs: def.fireMs,
@@ -248,22 +247,65 @@ function spawnEnemy(world: World, kind: EnemyKind, pattern: EnemyPattern, side: 
     cooldownMs: def.fireMs > 0 ? def.fireMs * nextRange(world.rng, 0.45, 1.0) : 0,
     pattern,
     age: 0,
-    anchorX,
-    anchorY: world.height * nextRange(world.rng, 0.13, 0.26),
+    anchorX: x,
+    anchorY: y,
     sprite: nextPick(world.rng, def.sprites),
     shotDamage: Math.max(1, def.shotDamage),
     boss: kind === 'boss',
   };
 
-  if (kind === 'boss') {
-    enemy.x = world.width / 2;
-    enemy.y = -enemy.radius;
-    enemy.anchorY = world.height * 0.2;
-  }
-
   world.enemies.push(enemy);
+  return enemy;
 }
 
+/** Pick a lane for a scheduled spawn, then hand off to `spawnEnemyAt`. */
+function spawnEnemy(world: World, kind: EnemyKind, pattern: EnemyPattern, side: string): void {
+  const def = ENEMY_DEFS[kind];
+
+  const x =
+    kind === 'boss'
+      ? world.width / 2
+      : side === 'left'
+        ? world.width * 0.2
+        : side === 'right'
+          ? world.width * 0.8
+          : side === 'center'
+            ? world.width * 0.5
+            : nextRange(world.rng, world.width * 0.12, world.width * 0.88);
+
+  const y = kind === 'boss' ? -def.radius : -def.radius - nextRange(world.rng, 10, 60);
+  const enemy = spawnEnemyAt(world, kind, x, y, pattern);
+
+  // Drifting types hover around the lane they entered on; a boss settles high up.
+  if (kind === 'boss') enemy.anchorY = world.height * 0.2;
+  else if (pattern === 'hover') enemy.anchorY = world.height * nextRange(world.rng, 0.13, 0.26);
+}
+
+/** Spawn one pickup at an explicit position (see `spawnEnemyAt`). */
+export function spawnPickupAt(
+  world: World,
+  kind: PickupKind,
+  x: number,
+  y: number,
+  valueOverride?: number,
+): Pickup {
+  const def = PICKUP_DEFS[kind];
+  const pickup: Pickup = {
+    id: world.nextId++,
+    kind,
+    x,
+    y,
+    vx: 0,
+    vy: TUNING.pickupFallSpeed * world.height,
+    radius: def.radius,
+    value: valueOverride ?? def.value,
+    sprite: nextPick(world.rng, def.sprites),
+  };
+  world.pickups.push(pickup);
+  return pickup;
+}
+
+/** Drops loot with a little sideways scatter so a cluster doesn't stack up. */
 function spawnPickup(
   world: World,
   kind: PickupKind,
@@ -271,19 +313,8 @@ function spawnPickup(
   y: number,
   valueOverride?: number,
 ): void {
-  const def = PICKUP_DEFS[kind];
-  const drift = nextRange(world.rng, -0.05, 0.05) * world.width;
-  world.pickups.push({
-    id: world.nextId++,
-    kind,
-    x,
-    y,
-    vx: drift,
-    vy: TUNING.pickupFallSpeed * world.height,
-    radius: def.radius,
-    value: valueOverride ?? def.value,
-    sprite: nextPick(world.rng, def.sprites),
-  });
+  const pickup = spawnPickupAt(world, kind, x, y, valueOverride);
+  pickup.vx = nextRange(world.rng, -0.05, 0.05) * world.width;
 }
 
 function spawnBullet(
@@ -409,7 +440,6 @@ function updateEnemies(world: World, dt: number, events: WorldEvent[]): void {
   const kept: Enemy[] = [];
 
   for (const e of world.enemies) {
-    const def = ENEMY_DEFS[e.kind];
     const speed = enemySpeedFor(e.kind, world.wave) * world.height;
     e.age += dt;
 
@@ -732,8 +762,5 @@ function checkWaveEnd(world: World, dt: number, events: WorldEvent[]): void {
   world.score += bonus.score;
   world.coins += bonus.coins;
   world.status = 'wave-clear';
-  events.push({ type: 'wave-clear', wave: world.wave });
+  events.push({ type: 'wave-clear', wave: world.wave, coins: bonus.coins });
 }
-
-/** True when the wave is a boss wave (re-exported for the renderer's HUD). */
-export { isBossWave };

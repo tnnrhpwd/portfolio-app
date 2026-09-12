@@ -236,7 +236,7 @@ export type WorldEvent =
   | { type: 'player-hit'; hull: number }
   | { type: 'player-shielded' }
   | { type: 'pickup'; kind: PickupKind; value: number }
-  | { type: 'wave-clear'; wave: number }
+  | { type: 'wave-clear'; wave: number; coins: number }
   | { type: 'died' };
 
 export interface RunStats {

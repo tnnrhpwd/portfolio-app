@@ -24,6 +24,7 @@ import artSleepAssist from '../assets/art/project-sleepassist.jpg';
 import artSit from '../assets/art/project-sit.jpg';
 import artWordleSolver from '../assets/art/project-wordlesolver.jpg';
 import artPets from '../assets/art/project-pets.jpg';
+import artRocket from '../assets/art/project-rocket.jpg';
 import artUIMapper from '../assets/art/project-uimapper.jpg';
 import artSimple from '../assets/art/simple-hero.png';
 
@@ -62,6 +63,13 @@ export const PROJECTS = [
     art: art2048,
     category: "Games",
     description: "Play a custom 2048 tile-merging game with swipe, drag, or keyboard controls, saved progress, and a public leaderboard.",
+  },
+  {
+    name: "Rocket",
+    path: "/rocket",
+    art: artRocket,
+    category: "Games",
+    description: "A vertical space shooter — dodge the debris, blast the wrecks, and spend the coins you collect on permanent ship upgrades.",
   },
   {
     name: "Halfway",
