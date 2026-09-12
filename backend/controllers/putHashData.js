@@ -8,7 +8,7 @@ const { sendEmail } = require('../services/emailService.js');
 const { shouldSendEmail } = require('../services/emailPreferences');
 const { getStripe, liveStripe: stripe } = require('../utils/stripeInstance.js');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, ScanCommand, PutCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, ScanCommand, PutCommand, UpdateCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
 const { logger } = require('../utils/logger');
 const { invalidateStorageUsage } = require('../utils/storageTracker');
 
@@ -430,13 +430,17 @@ const closeBugReportHandler = async (req, res) => {
             } else if (creatorId) {
                 // An admin resolved it — look up the reporter's account.
                 try {
-                    const scanResult = await dynamodb.send(new ScanCommand({
+                    // By partition key, not a filtered Scan: DynamoDB applies a
+                    // filter only within the scanned page, so the reporter's
+                    // record was silently missed whenever it sat past the first
+                    // page — leaving the resolution email with no recipient.
+                    const { Items } = await dynamodb.send(new QueryCommand({
                         TableName: 'Simple',
-                        FilterExpression: 'id = :id AND contains(#text, :emailMarker)',
-                        ExpressionAttributeNames: { '#text': 'text' },
-                        ExpressionAttributeValues: { ':id': creatorId, ':emailMarker': 'Email:' },
+                        KeyConditionExpression: 'id = :id',
+                        ExpressionAttributeValues: { ':id': creatorId },
+                        Limit: 1,
                     }));
-                    reporterText = (scanResult.Items || [])[0]?.text || null;
+                    reporterText = (Items || [])[0]?.text || null;
                     reporterEmail = reporterText?.match(/Email:([^|]*)/)?.[1]?.trim() || null;
                 } catch (lookupErr) {
                     logger.warn('Failed to look up bug reporter for email:', lookupErr.message);

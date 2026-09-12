@@ -56,12 +56,12 @@ require('dotenv').config();
 const asyncHandler = require('express-async-handler');
 const crypto = require('crypto');
 const { logger } = require('../utils/logger');
+const { paginatedScan } = require('../utils/paginatedScan');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const {
     DynamoDBDocumentClient,
     GetCommand,
     PutCommand,
-    ScanCommand,
     UpdateCommand,
 } = require('@aws-sdk/lib-dynamodb');
 const {
@@ -322,7 +322,7 @@ const searchMarketSkills = asyncHandler(async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const perPage = Math.min(50, Math.max(1, parseInt(req.query.perPage, 10) || 20));
 
-    const { Items } = await dynamodb.send(new ScanCommand({
+    const items = await paginatedScan({
         TableName: TABLE_NAME,
         // Strongly consistent read: a skill published moments ago must be
         // visible immediately, not subject to DynamoDB's eventual consistency
@@ -331,7 +331,7 @@ const searchMarketSkills = asyncHandler(async (req, res) => {
         ConsistentRead: true,
         FilterExpression: 'begins_with(id, :prefix) AND attribute_exists(marketId) AND attribute_exists(latestVersion)',
         ExpressionAttributeValues: { ':prefix': 'csimple_market_' },
-    }));
+    });
 
     logger.debug('Marketplace browse', {
         q: q || null,
@@ -339,11 +339,11 @@ const searchMarketSkills = asyncHandler(async (req, res) => {
         page,
         perPage,
         table: TABLE_NAME,
-        rawItemCount: (Items || []).length,
-        sampleIds: (Items || []).slice(0, 8).map(it => it.id),
+        rawItemCount: items.length,
+        sampleIds: items.slice(0, 8).map(it => it.id),
     });
 
-    let summaries = (Items || []).map(metaToSummary);
+    let summaries = items.map(metaToSummary);
 
     if (q) {
         const needle = String(q).toLowerCase();
@@ -556,12 +556,12 @@ const flagMarketSkill = asyncHandler(async (req, res) => {
 //          the `csimple_market_*` namespace.
 async function getAuthorMarketplaceTotals(authorUserId) {
     if (!authorUserId) return { downloads: 0, installs: 0, creations: 0, skillCount: 0 };
-    const { Items } = await dynamodb.send(new ScanCommand({
+    const items = await paginatedScan({
         TableName: TABLE_NAME,
         FilterExpression: 'begins_with(id, :prefix) AND attribute_exists(marketId) AND attribute_exists(latestVersion)',
         ExpressionAttributeValues: { ':prefix': 'csimple_market_' },
-    }));
-    const authored = (Items || []).filter(it => it.authorUserId === authorUserId);
+    });
+    const authored = items.filter(it => it.authorUserId === authorUserId);
     return authored.reduce((acc, it) => {
         acc.downloads += it.downloads || 0;
         acc.installs += it.installs || 0;

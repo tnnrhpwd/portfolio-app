@@ -12,8 +12,8 @@ const {
   PutCommand,
   GetCommand,
   DeleteCommand,
-  ScanCommand,
 } = require('@aws-sdk/lib-dynamodb');
+const { paginatedScan } = require('../utils/paginatedScan');
 
 // Use test Stripe keys for the funnel tester — keeps live keys untouched
 const testStripeKey = process.env.TEST_STRIPE_KEY || process.env.STRIPE_KEY;
@@ -53,14 +53,16 @@ function isAdmin(req) {
 
 /** Scan for a user record by email in the pipe-delimited text field */
 async function findUserByEmail(email) {
-  const { Items } = await dynamodb.send(new ScanCommand({
+  // Paginated: the filter is applied per scanned page, so a test user whose row
+  // sits past the first page was reported as not existing at all.
+  const items = await paginatedScan({
     TableName: TABLE,
     FilterExpression: 'contains(#t, :emailTag)',
     ExpressionAttributeNames: { '#t': 'text' },
     ExpressionAttributeValues: { ':emailTag': `Email:${email}` },
-  }));
+  });
   // Return the first item that also has Password: (i.e. is a user record)
-  return (Items || []).find(i => i.text && i.text.includes('Password:')) || null;
+  return items.find(i => i.text && i.text.includes('Password:')) || null;
 }
 
 /** Parse a value from the pipe-delimited text */

@@ -46,20 +46,11 @@ const EMAIL_RE = /^[^\s@|]{1,100}@[^\s@|]+\.[^\s@|]{2,}$/;
 const NICKNAME_RE = /^[a-zA-Z0-9 _.-]{2,40}$/;
 
 /**
- * Run a DynamoDB Scan with full pagination (same helper as postData.js).
+ * Run a DynamoDB Scan with full pagination (utils/paginatedScan.js).
  * A single ScanCommand only covers up to 1MB, silently skipping rows beyond
  * that boundary — unacceptable for a duplicate check.
  */
-async function paginatedScan(params) {
-    const items = [];
-    let lastKey;
-    do {
-        const result = await dynamodb.send(new ScanCommand({ ...params, ExclusiveStartKey: lastKey }));
-        items.push(...(result.Items || []));
-        lastKey = result.LastEvaluatedKey;
-    } while (lastKey);
-    return items;
-}
+const { paginatedScan } = require('../utils/paginatedScan');
 
 /**
  * Resolve the *raw* user item (password hash intact).

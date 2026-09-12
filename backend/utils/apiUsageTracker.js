@@ -1,5 +1,5 @@
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, ScanCommand, PutCommand, GetCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, PutCommand, GetCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
 const { getStripe, liveStripe: stripe } = require('./stripeInstance');
 const { PLAN_IDS, PLAN_NAMES, AI_CREDIT_ALLOWANCE, isProTier, STRIPE_PRODUCT_IDS, STRIPE_PRODUCT_MAP } = require('../constants/pricing');
 const { redactUser } = require('./sanitizeUserText');
@@ -615,20 +615,32 @@ async function getUserDataCached(userId) {
         return cached.data;
     }
 
-    const scanParams = {
+    // Read the user by partition key rather than scanning the table with
+    // `id = :userId` as a FilterExpression. The old form was wrong twice over:
+    //
+    //   1. Correctness — DynamoDB applies a FilterExpression only within the
+    //      scanned page (≤1 MB), so a user whose row sits past that boundary
+    //      read back as "no record". On this particular path that means a
+    //      paying user can look like a brand-new one to the credit gate.
+    //   2. Cost — a whole-table scan (and a read of every item's bytes) to fetch
+    //      a single row.
+    //
+    // A Query on the partition key is a single indexed read and works whether or
+    // not the item carries a sort key — the same lesson documented on
+    // getRawUserRecord below.
+    const result = await dynamodb.send(new QueryCommand({
         TableName: 'Simple',
-        FilterExpression: "id = :userId",
-        ExpressionAttributeValues: {
-            ":userId": userId
-        }
-    };
+        KeyConditionExpression: 'id = :userId',
+        ExpressionAttributeValues: { ':userId': String(userId) },
+        Limit: 1,
+    }));
 
-    const scanResult = await dynamodb.send(new ScanCommand(scanParams));
-    if (!scanResult.Items || scanResult.Items.length === 0) {
+    const item = (result.Items && result.Items[0]) || null;
+    if (!item) {
         return null;
     }
 
-    const userData = redactUser(scanResult.Items[0]);
+    const userData = redactUser(item);
     userDataCache.set(cacheKey, { data: userData, timestamp: Date.now() });
     return userData;
 }

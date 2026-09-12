@@ -24,26 +24,14 @@ const client = new DynamoDBClient({
 const dynamodb = DynamoDBDocumentClient.from(client);
 
 /**
- * Run a DynamoDB Scan with full pagination.
+ * Run a DynamoDB Scan with full pagination (utils/paginatedScan.js).
  *
- * A single ScanCommand only examines up to 1MB of data and stops with a
- * LastEvaluatedKey — any rows beyond that boundary are silently skipped. The
- * `Simple` table holds thousands of records (many with base64 file blobs), so
- * an unpaginated scan routinely misses records, which made login/register
- * return "Could not find that user" / miss duplicates for users whose row
- * happened to fall past the 1MB cutoff. This helper loops until the table is
- * fully scanned.
+ * A single ScanCommand only examines up to 1MB and stops with a
+ * LastEvaluatedKey — any rows beyond that boundary are silently skipped, which
+ * made login/register return "Could not find that user" / miss duplicates for
+ * users whose row happened to fall past the 1MB cutoff.
  */
-async function paginatedScan(params) {
-    const items = [];
-    let lastKey;
-    do {
-        const result = await dynamodb.send(new ScanCommand({ ...params, ExclusiveStartKey: lastKey }));
-        items.push(...(result.Items || []));
-        lastKey = result.LastEvaluatedKey;
-    } while (lastKey);
-    return items;
-}
+const { paginatedScan } = require('../utils/paginatedScan');
 
 
 // @desc    post data

@@ -21,28 +21,14 @@ const client = new DynamoDBClient({
 const dynamodb = DynamoDBDocumentClient.from(client);
 
 /**
- * Run a DynamoDB Scan to completion.
+ * Run a DynamoDB Scan to completion (utils/paginatedScan.js).
  *
- * A single ScanCommand examines at most 1 MB and then hands back a
- * `LastEvaluatedKey` for the remainder. These searches used to discard that key
- * and read only the first page, so once the `Simple` table grew past a
- * megabyte (it is several now) each search silently saw only part of it — saved
- * games, chat history and bug reports would just come back empty. `postData.js`
- * grew the same helper for the same reason.
- *
- * @param {Object} params - Scan params (without ExclusiveStartKey)
- * @returns {Promise<Array>} Every matching item
+ * These searches used to discard the LastEvaluatedKey and read only the first
+ * page, so once the `Simple` table grew past a megabyte (it is several now) each
+ * search silently saw only part of it — saved games, chat history and bug
+ * reports would just come back empty.
  */
-async function paginatedScan(params) {
-    const items = [];
-    let lastKey;
-    do {
-        const page = await dynamodb.send(new ScanCommand({ ...params, ExclusiveStartKey: lastKey }));
-        items.push(...(page.Items || []));
-        lastKey = page.LastEvaluatedKey;
-    } while (lastKey);
-    return items;
-}
+const { paginatedScan } = require('../utils/paginatedScan');
 
 /**
  * Generate a single random English word of an exact length via Bedrock

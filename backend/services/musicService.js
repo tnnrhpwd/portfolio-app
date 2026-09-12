@@ -768,13 +768,15 @@ async function saveSong(userId, song) {
 
 /** List a user's songs (newest first via updatedAt sort in the caller). */
 async function listSongs(userId) {
-  const result = await _dynamodb.send(new ScanCommand({
+  // Paginated: a FilterExpression only matches within the scanned page, so this
+  // list would silently omit a user's older tracks once the table passed 1 MB.
+  const items = await paginatedScan({
     TableName: TABLE_NAME,
     FilterExpression: 'begins_with(id, :prefix)',
     ExpressionAttributeValues: { ':prefix': `${MUSIC_PREFIX}${userId}_` },
-  }));
+  }, { client: _dynamodb });
 
-  const songs = (result.Items || [])
+  const songs = items
     .map((item) => {
       try {
         const parsed = JSON.parse((item.text || '').split('|Music|')[1] || '{}');

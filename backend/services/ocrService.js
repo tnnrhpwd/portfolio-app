@@ -1,7 +1,7 @@
 // ocrService.js - OCR processing business logic
 
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, ScanCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, QueryCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const { 
     initializeLLMClients, 
     createCompletion, 
@@ -263,31 +263,32 @@ async function processOCR(imageData, method, model) {
  * @returns {Object} Updated item
  */
 async function updateItemWithOCR(itemId, userId, ocrText) {
-    const scanParams = {
+    // Read the item by partition key. This used to filter on `id = :itemId`
+    // inside a Scan, which applies the filter only within the ≤1 MB scanned
+    // page — so a perfectly valid item whose row sat past that boundary threw
+    // "Data item not found".
+    const { Items } = await dynamodb.send(new QueryCommand({
         TableName: 'Simple',
-        FilterExpression: 'id = :itemId',
-        ExpressionAttributeValues: {
-            ':itemId': itemId
-        }
-    };
+        KeyConditionExpression: 'id = :itemId',
+        ExpressionAttributeValues: { ':itemId': itemId },
+        Limit: 1,
+    }));
 
-    const scanResult = await dynamodb.send(new ScanCommand(scanParams));
-    
-    if (!scanResult.Items || scanResult.Items.length === 0) {
+    if (!Items || Items.length === 0) {
         throw new Error('Data item not found');
     }
 
-    const item = scanResult.Items[0];
-    
-    // Check ownership
-    if (item.text && item.text.includes('Creator:')) {
-        const dataCreator = item.text.substring(
-            item.text.indexOf("Creator:") + 8, 
-            item.text.indexOf("Creator:") + 32
-        );
-        if (dataCreator !== userId) {
-            throw new Error('User not authorized to update this item');
-        }
+    const item = Items[0];
+
+    // Ownership, deny by default: a record carrying no creator tag is not this
+    // caller's to modify (the old check simply skipped when the tag was
+    // absent). The id is matched up to the next `|` rather than sliced to a
+    // fixed width — the old 24-char slice compared the wrong substring against
+    // the 32-char hex ids in use, so it rejected the record's actual owner.
+    // Same reasoning as fileUploadController.creatorIdOf.
+    const creator = String(item.text || '').match(/(?:^|\|)Creator:([^|]+)/);
+    if (!creator || creator[1].trim() !== userId) {
+        throw new Error('User not authorized to update this item');
     }
 
     let updatedText = item.text;

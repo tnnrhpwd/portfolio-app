@@ -15,22 +15,12 @@ const dynamodb = DynamoDBDocumentClient.from(client);
 const { logger } = require('./logger');
 
 /**
- * Run a DynamoDB Scan with full pagination.
+ * Run a DynamoDB Scan with full pagination (utils/paginatedScan.js).
  *
- * A single ScanCommand examines at most 1MB and stops with a LastEvaluatedKey,
- * silently skipping rows beyond that boundary. The `Simple` table is well over
- * that limit, so an unpaginated email scan can miss the user's row entirely.
+ * An unpaginated email scan can miss the user's row entirely, which would make
+ * "forgot password" silently do nothing for that account.
  */
-async function paginatedScan(params) {
-    const items = [];
-    let lastKey;
-    do {
-        const result = await dynamodb.send(new ScanCommand({ ...params, ExclusiveStartKey: lastKey }));
-        items.push(...(result.Items || []));
-        lastKey = result.LastEvaluatedKey;
-    } while (lastKey);
-    return items;
-}
+const { paginatedScan } = require('./paginatedScan');
 
 /**
  * Fetch the user's *unredacted* DynamoDB record by primary key.

@@ -18,7 +18,7 @@
  * push us over, we drop it and emit a "[…truncated]" marker.
  */
 
-const { GetCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
+const { GetCommand } = require('@aws-sdk/lib-dynamodb');
 
 const TABLE_NAME = 'Simple';
 const CSIMPLE_CREATED_AT = '2000-01-01T00:00:00.000Z';
@@ -51,12 +51,13 @@ async function fetchOne(dynamodb, userId, kind, slug) {
 
 async function fetchAllOfKind(dynamodb, userId, kind) {
     try {
-        const { Items } = await dynamodb.send(new ScanCommand({
+        // Paginated: the filter is applied per scanned page, so one page would
+        // quietly drop workspace items (goals/notes/lessons) beyond it.
+        return await paginatedScan({
             TableName: TABLE_NAME,
             FilterExpression: 'begins_with(id, :prefix) AND attribute_not_exists(deletedAt)',
             ExpressionAttributeValues: { ':prefix': userPrefix(userId, kind) },
-        }));
-        return Items || [];
+        }, { client: dynamodb });
     } catch {
         return [];
     }

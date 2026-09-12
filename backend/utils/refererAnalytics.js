@@ -4,7 +4,8 @@
  */
 
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, ScanCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient } = require('@aws-sdk/lib-dynamodb');
+const { paginatedScan } = require('./paginatedScan');
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -64,8 +65,9 @@ async function getRefererStats(daysSince = 30) {
             }
         };
 
-        const result = await dynamodb.send(new ScanCommand(params));
-        const logs = result.Items || [];
+        // Paginated: a date filter is applied per scanned page, so this
+        // dashboard would quietly under-report once the table passed 1 MB.
+        const logs = await paginatedScan(params);
 
         // Parse all referer data
         const refererData = logs.map(log => {
@@ -178,8 +180,7 @@ async function getRefererDataByDateRange(startDate, endDate) {
             }
         };
 
-        const result = await dynamodb.send(new ScanCommand(params));
-        const logs = result.Items || [];
+        const logs = await paginatedScan(params);
 
         return logs.map(log => ({
             ...parseRefererFromLog(log.text),

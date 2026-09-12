@@ -3,7 +3,8 @@ const crypto = require('crypto');
 // Default stripe instance for backward compat; per-request calls use getStripe(userId)
 const stripe = liveStripe;
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, PutCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, PutCommand } = require('@aws-sdk/lib-dynamodb');
+const { paginatedScan } = require('../utils/paginatedScan');
 const { sendEmail } = require('./emailService.js');
 const Data = require('../models/dataModel');
 const { STRIPE_PRODUCT_IDS, PLAN_TO_STRIPE_PRODUCT, STRIPE_PRODUCT_MAP, PLAN_IDS, MONTHLY_PRICES, ANNUAL_PRICES } = require('../constants/pricing');
@@ -276,14 +277,18 @@ async function updateUserRank(customerId, rank) {
         // Use the shared DynamoDB client instead of creating a new one each call
         // Note: This is still a full-table scan filtered by stripeid.
         // TODO: Add a GSI on the stripeid field for O(1) lookups.
-        const scanResult = await _dynamodb.send(new ScanCommand({
+        //
+        // Paginated, because a single page silently misses the customer whose
+        // row sits past it — and the caller then reports "no profile found",
+        // so a paying subscriber's plan/rank never updates after a Stripe event.
+        const items = await paginatedScan({
             TableName: 'Simple',
             FilterExpression: 'contains(#txt, :stripeid)',
             ExpressionAttributeNames: { '#txt': 'text' },
             ExpressionAttributeValues: { ':stripeid': `stripeid:${customerId}` }
-        }));
+        }, { client: _dynamodb });
 
-        if (!scanResult.Items || scanResult.Items.length === 0) {
+        if (!items || items.length === 0) {
             logger.error(`No user profile data found for customer ID: ${customerId}`);
             return false;
         }

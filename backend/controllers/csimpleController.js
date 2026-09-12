@@ -12,8 +12,9 @@ require('dotenv').config();
 const asyncHandler = require('express-async-handler');
 const zlib = require('zlib');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, GetCommand, PutCommand, DeleteCommand, ScanCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, GetCommand, PutCommand, DeleteCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
 const { encryptString, decryptString } = require('../utils/secretCrypto');
+const { paginatedScan } = require('../utils/paginatedScan');
 const { logger } = require('../utils/logger');
 
 // Configure AWS DynamoDB Client
@@ -552,14 +553,14 @@ const getSimpleBehaviors = asyncHandler(async (req, res) => {
   const prefix = `csimple_behavior_${req.user.id}_`;
 
   try {
-    const { Items } = await dynamodb.send(new ScanCommand({
+    const items = await paginatedScan({
       TableName: TABLE_NAME,
       FilterExpression: 'begins_with(id, :prefix)',
       ExpressionAttributeValues: { ':prefix': prefix },
       ProjectionExpression: 'id, updatedAt, createdAt',
-    }));
+    });
 
-    const behaviors = (Items || []).map(item => {
+    const behaviors = items.map(item => {
       const name = item.id.replace(prefix, '');
       return {
         name,
@@ -713,13 +714,13 @@ const getSimpleMemoryFiles = asyncHandler(async (req, res) => {
 
   const prefix = `csimple_memory_${req.user.id}_`;
   try {
-    const { Items } = await dynamodb.send(new ScanCommand({
+    const items = await paginatedScan({
       TableName: TABLE_NAME,
       FilterExpression: 'begins_with(id, :prefix)',
       ExpressionAttributeValues: { ':prefix': prefix },
       ProjectionExpression: 'id, updatedAt, createdAt',
-    }));
-    const files = (Items || []).map(item => ({
+    });
+    const files = items.map(item => ({
       name: item.id.replace(prefix, ''),
       updatedAt: item.updatedAt || item.createdAt,
     }));
@@ -828,13 +829,13 @@ const getSimplePersonalityFiles = asyncHandler(async (req, res) => {
 
   const prefix = `csimple_personality_${req.user.id}_`;
   try {
-    const { Items } = await dynamodb.send(new ScanCommand({
+    const items = await paginatedScan({
       TableName: TABLE_NAME,
       FilterExpression: 'begins_with(id, :prefix)',
       ExpressionAttributeValues: { ':prefix': prefix },
       ProjectionExpression: 'id, updatedAt, createdAt',
-    }));
-    const files = (Items || []).map(item => ({
+    });
+    const files = items.map(item => ({
       name: item.id.replace(prefix, ''),
       updatedAt: item.updatedAt || item.createdAt,
     }));
@@ -925,11 +926,11 @@ const getSimpleUserContext = asyncHandler(async (req, res) => {
   try {
     // ── Load memory files ──
     const memPrefix = `csimple_memory_${userId}_`;
-    const { Items: memItems } = await dynamodb.send(new ScanCommand({
+    const memItems = await paginatedScan({
       TableName: TABLE_NAME,
       FilterExpression: 'begins_with(id, :prefix)',
       ExpressionAttributeValues: { ':prefix': memPrefix },
-    }));
+    });
 
     let memoryContext = '';
     if (memItems && memItems.length > 0) {
@@ -965,11 +966,11 @@ const getSimpleUserContext = asyncHandler(async (req, res) => {
 
     // ── Load personality files ──
     const persPrefix = `csimple_personality_${userId}_`;
-    const { Items: persItems } = await dynamodb.send(new ScanCommand({
+    const persItems = await paginatedScan({
       TableName: TABLE_NAME,
       FilterExpression: 'begins_with(id, :prefix)',
       ExpressionAttributeValues: { ':prefix': persPrefix },
-    }));
+    });
 
     let personalityContext = '';
     if (persItems && persItems.length > 0) {

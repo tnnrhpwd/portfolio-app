@@ -22,28 +22,13 @@ const client = new DynamoDBClient({
 const dynamodb = DynamoDBDocumentClient.from(client);
 
 /**
- * Run a DynamoDB Scan to completion.
+ * Run a DynamoDB Scan to completion (utils/paginatedScan.js).
  *
- * A single ScanCommand examines at most 1 MB and then hands back a
- * `LastEvaluatedKey` for the rest, which is easy to drop on the floor. This
- * matters here because public listings (the 2048 leaderboard, shared items)
- * read through this endpoint: once the table passed a megabyte a one-page scan
- * would start losing entries with no error and no visible symptom. See the same
- * helper in `postData.js` and `getHashData.js`.
- *
- * @param {Object} params - Scan params (without ExclusiveStartKey)
- * @returns {Promise<Array>} Every matching item
+ * This matters here because public listings (the 2048 leaderboard, shared
+ * items) read through this endpoint: once the table passed a megabyte a
+ * one-page scan started losing entries with no error and no visible symptom.
  */
-async function paginatedScan(params) {
-    const items = [];
-    let lastKey;
-    do {
-        const page = await dynamodb.send(new ScanCommand({ ...params, ExclusiveStartKey: lastKey }));
-        items.push(...(page.Items || []));
-        lastKey = page.LastEvaluatedKey;
-    } while (lastKey);
-    return items;
-}
+const { paginatedScan } = require('../utils/paginatedScan');
 
 // @desc    Get Public Data
 // @route   GET /api/publicdata

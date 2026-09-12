@@ -533,7 +533,20 @@ impact; none are Simple-core blockers, but several are user-visible or DRY/secur
 
 ### 13.3 New findings (third audit pass, 2026-09-09)
 
-- 🟡 **S3 upload file-type validation trusts the client MIME type** — `validateFile` now rejects known-dangerous extensions (.html/.svg/.exe/…) and mismatches between the file extension and the declared `contentType`. Full magic-byte/signature inspection still requires a post-upload verification step (uploads are client→S3 via pre-signed URL, so the server never sees the bytes).
+- 🟡 **S3 upload file-type validation trusts the client MIME type** — *post-upload
+  content check added (2026-09-12).* `validateFile` rejects known-dangerous
+  extensions (.html/.svg/.exe/…) and extension/content-type mismatches, but those
+  only constrain what the client *claims* — the bytes travel client → S3 via the
+  presigned URL, so the server never sees them. `confirmUpload` now reads the
+  object's leading 512 bytes (a Range GET) and refuses content that contradicts
+  its extension, deleting the object so a rejected upload is neither recorded nor
+  billed. See `utils/fileSignature.js` + `__tests__/unit/uploadSignatureGate.test.js`.
+  Two deliberate properties: the rule is **contradiction-only** (content that can't
+  be identified is accepted, because failing a real user's file is worse than the
+  marginal gain) and it **fails open** on an S3 read error, with
+  `UPLOAD_SIGNATURE_CHECK=false` as the operator kill-switch. ⬜ Remaining: content
+  with no known signature is still accepted, so this narrows the gap rather than
+  closing it — closing it needs real scanning (AV/content-inspection service).
 - 🟡 **JWT persisted in `localStorage`** — `frontend/src/features/data/dataSlice.js` stores the auth token in localStorage, so any XSS could exfiltrate it. Combined with the loose CSP above, prefer an `httpOnly` session cookie (or at least tighten CSP).
 
 ### 13.5 New findings (fifth audit pass, 2026-09-09)
@@ -547,7 +560,81 @@ impact; none are Simple-core blockers, but several are user-visible or DRY/secur
 
 ### 13.8 New findings (eighth audit pass, 2026-09-10)
 
-- 🟡 **Unbounded per-request access-log writes** — `checkIP` appends a new `IP:…|Method:…|URL:…` DynamoDB record on essentially every request (authenticated or not), so the `Simple` table grows without bound and every API call costs an extra write. Consider sampling, a TTL/retention window, or a separate analytics table.
+- 🟡 **Unbounded per-request access-log writes** — *addressed for growth (2026-09-12).*
+  Both per-request writers (`checkIP` in `utils/accessData.js` and `recordPageView` in
+  `controllers/pageViewsController.js`) now stamp an `expiresAt` DynamoDB **TTL**,
+  derived from `ANALYTICS_RETENTION_DAYS` (default 90) in the new
+  `utils/analyticsRetention.js`. TTL only deletes items that *carry* the attribute, so
+  durable rows (users, workspace items, goals, tickets) are never expired by it.
+  **Remaining: the attribute is inert until table TTL is turned on once** —
+  `node backend/scripts/configure-analytics-ttl.js` (dry run by default, `--apply` to
+  change it). The per-request *write* cost itself is unchanged; sampling or a separate
+  analytics table would address that, at the cost of changing what the dashboard counts.
+- ✅ **`checkIP` put a third-party HTTP call on every request's critical path**
+  (found 2026-09-12 while fixing the above) — it called `ipinfo` directly, and its
+  callers `await` it *before* responding, so each request paid an ipinfo round-trip and
+  a slow/hung ipinfo could stall the response. It now goes through
+  `utils/geoLookup.getGeoForIp`, which caches per IP (1 h, 5 min for a miss) and bounds
+  every lookup with a timeout. That helper also had a latent bug: `logger` was declared
+  *inside* `cleanupCache`, so its `catch` threw `ReferenceError` instead of resolving
+  `null` on any lookup failure — fixed, with regression tests. `extractIp` now also
+  takes `req.ip` (trust-proxy aware) over the spoofable leftmost `X-Forwarded-For`.
+
+### 13.9 New findings (ninth audit pass, 2026-09-12)
+
+- ✅ **The 1 MB scan-truncation family was not actually finished** — the repo had fixed
+  the worst offenders (storage tracking, search, delete) but five *list* endpoints in
+  `controllers/csimpleController.js` still ran a single `ScanCommand` with a
+  `begins_with(id, :prefix)` FilterExpression. A filter is applied only **within** the
+  scanned page, so once the table passed 1 MB those endpoints returned *some* of a
+  user's files — or none — with no error. That includes `getSimpleUserContext`, which
+  is what the LLM is handed as the user's memory (the assistant would quietly
+  "forget"), plus the memory / personality / behavior lists behind the addon's file
+  browsers. The same unpaginated read sat in `llmService.loadUserContextFromDB`
+  (chat memory), `workspaceContext.fetchAllOfKind` (agent context), and
+  `marketplaceController` (browse + author KPI totals).
+  All of it now goes through **one** importable helper, `utils/paginatedScan.js`,
+  which also replaces the six copy-pasted private copies of it (`getData`,
+  `getHashData`, `postData`, `profileController`, `passwordReset` — each had its own
+  paragraph explaining the same mistake, which is how a seventh copy got written).
+  The helper is bounded by `SCAN_MAX_PAGES` (default 200) and **warns** when it stops
+  early: a partial result must never look like a complete one.
+  Tests: `paginatedScan.test.js`, `csimpleListPagination.test.js` (asserts items from
+  the *second* page are returned). Not verified against live DynamoDB.
+- ✅ **`getUserDataCached` fetched one user with a full-table Scan** (found in the same
+  pass) — `FilterExpression: "id = :userId"` filters on the partition key *after*
+  scanning a page, so a user whose row sat past the first page read back as **"no
+  record"**. That call decides a user's plan and credit allowance, so the failure mode
+  is a paying subscriber being metered as a brand-new free account; it also billed a
+  whole-table scan to fetch one row. Now a partition-key `QueryCommand`, matching the
+  `getRawUserRecord` precedent. Tests: `__tests__/unit/userDataLookup.test.js`.
+- ✅ **The rest of the single-page scans** (same pass) — `musicService.listSongs`,
+  `stripeService.updateUserRank` (a Stripe event whose customer row sat past page 1
+  never updated that subscriber's rank), `refererAnalytics` ×2 (the dashboard
+  under-reported), and `testFunnelController.findUserByEmail` now use
+  `utils/paginatedScan`. `putHashData`'s bug-reporter lookup was an **id-filtered
+  Scan** and is now a partition-key Query — the resolution email had no recipient when
+  the reporter's row sat past page 1.
+- ✅ **`ocrService.updateItemWithOCR` rejected the record's real owner** (found in the
+  same pass). The ownership check sliced the creator id to a fixed 24 characters
+  (`substring(i + 8, i + 32)`) and compared *that* to the caller's id; ids in this
+  table are 32-char crypto hex, so the comparison always failed and the actual owner
+  was told "User not authorized to update this item". It also skipped the check
+  entirely when a record carried no `Creator:` tag, so an untagged record was writable
+  by anyone who knew its id. It now reads by partition key, matches the id up to the
+  next `|` (`/(?:^|\|)Creator:([^|]+)/`) and **denies by default**, mirroring
+  `fileUploadController.creatorIdOf`. Tests: `__tests__/unit/ocrItemUpdate.test.js`.
+- ⚠️ **Do NOT query `userEmail-index` for email lookups** — the table carries a GSI on
+  `userEmail`, but nothing in the codebase ever *writes* that attribute: every email
+  read parses it out of the pipe-delimited `text` field. The index is therefore empty,
+  and "optimising" the login / password-reset email scans onto it would break sign-in
+  for every user. Populate + backfill the attribute first if that's ever wanted.
+- ⬜ **Still outstanding** (verified, not yet fixed): `utils/guestUserManager.js` (dev
+  script — single-page lookup, and its delete uses `Key: { id }` alone, which throws
+  against the composite key), `utils/createGuestUser.js` (near-duplicate of it), and
+  `testFunnelController`'s `GetCommand({ Key: { id: testUserId } })` (~line 304, also
+  missing the sort key — it is inside a try/catch, so the funnel status endpoint just
+  always reports "no live user"). Everything under `backend/scripts/` is unaudited.
 
 ---
 

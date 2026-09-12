@@ -1,4 +1,4 @@
-const { DynamoDBDocumentClient, PutCommand, UpdateCommand, GetCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, PutCommand, UpdateCommand, GetCommand } = require('@aws-sdk/lib-dynamodb');
 const crypto = require('crypto');
 const {
     checkApiUsage,
@@ -21,6 +21,7 @@ const { buildRoutingEvent, recordRoutingEvent } = require('./routingTelemetry.js
 const CSIMPLE_CREATED_AT = '2000-01-01T00:00:00.000Z';
 const MAX_CONTEXT_BYTES = 16 * 1024;
 const { logger } = require('../utils/logger');
+const { paginatedScan } = require('../utils/paginatedScan');
 const MAX_SINGLE_FILE = 32 * 1024;
 const CTX_PRIORITY_PATTERNS = [/^user/i, /profile/i, /preference/i, /identity/i, /name/i];
 
@@ -32,12 +33,15 @@ async function loadUserContextFromDB(dynamodb, userId, behaviorFile = 'default.t
     const TABLE_NAME = 'Simple';
 
     // ── Load memory files ──
+    // Paginated: these scans carry a FilterExpression, and a filter is applied
+    // only within the scanned page — so a single-page scan silently returns
+    // "no memory" for a user whose files sit past the page boundary.
     const memPrefix = `csimple_memory_${userId}_`;
-    const { Items: memItems } = await dynamodb.send(new ScanCommand({
+    const memItems = await paginatedScan({
         TableName: TABLE_NAME,
         FilterExpression: 'begins_with(id, :prefix)',
         ExpressionAttributeValues: { ':prefix': memPrefix },
-    }));
+    }, { client: dynamodb });
 
     let memoryContext = '';
     if (memItems && memItems.length > 0) {
@@ -72,11 +76,11 @@ async function loadUserContextFromDB(dynamodb, userId, behaviorFile = 'default.t
 
     // ── Load personality files ──
     const persPrefix = `csimple_personality_${userId}_`;
-    const { Items: persItems } = await dynamodb.send(new ScanCommand({
+    const persItems = await paginatedScan({
         TableName: TABLE_NAME,
         FilterExpression: 'begins_with(id, :prefix)',
         ExpressionAttributeValues: { ':prefix': persPrefix },
-    }));
+    }, { client: dynamodb });
 
     let personalityContext = '';
     if (persItems && persItems.length > 0) {
