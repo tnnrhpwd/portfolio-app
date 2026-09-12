@@ -22,6 +22,25 @@ Every page should be **"very very very good UI"** — meaning:
 6. **Consistent anatomy** — every page follows the same structural template (section 4).
 7. **Accessible** — semantic markup, visible focus states, `aria-*` where useful, and `prefers-reduced-motion` support.
 
+### Two kinds of page — know which one you're building
+
+Every rule below serves one of two jobs, and mixing them up is the most common way a page
+ends up wrong. Decide first, then read §5.7 if you're building the second kind.
+
+| | **Discovery page** | **Service page** |
+| --- | --- | --- |
+| Examples | `/`, `/projects`, project pages, `/pricing` | `/simple`, `/plans`, `/net`, `/profile` |
+| Job | Convince a stranger the product is worth trying | *Do the job* for someone who already showed up |
+| Hero | Marketing: eyebrow → big `<h1>` → subtitle → CTAs | A **sticky toolbar**: name + live state + primary action |
+| Copy | Persuasive; explains the product | Labels only; a hint under a control at most |
+| Layout | Full-bleed bands, one idea each | **No bands** — one flat surface, a dense panel grid |
+| Ends on | A CTA band (`SimpleCtaBand`) | The last panel — no pitch, nothing to scroll past |
+| Depth | Generous — scrolling is the point | Dense — the tool is above the fold, always |
+
+**Discovery pages sell. Service pages serve.** A service page that opens with a paragraph
+about itself has spent attention on the wrong thing, and every extra screen is a tool the
+user has to hunt for. Read §5.7 before building one — the rules invert.
+
 ---
 
 ## 2. How theming works
@@ -42,7 +61,8 @@ All colors come from CSS custom properties defined in `frontend/src/index.css`.
   colors; `--bg-orange`, `--bg-pink`, `--bg-blue`, and `--bg-mint` are the four gradient corners.
   Use them together for gradients and highlights — that's the look.
 - Use `--bg-page` for the base page background (it sits behind the animated gradient).
-- Use `--border-nav` for every hairline border: cards, inputs, dividers. Hairlines, not heavy strokes.
+- **Prefer a tone change to a border** — colors beside colors, not lines (§5). `--border-nav` is the
+  fallback for a neutral edge that can't be expressed as color, never the default treatment.
 - Build the text hierarchy from `--text-color` (primary), `--text-color-accent` (muted/secondary),
   and `--text-color-inv` (text on filled/gradient buttons).
 - Buttons: the primary action uses a vibrant gradient fill; the secondary action is an outline
@@ -92,7 +112,7 @@ That is fine on a CTA band built from `--fg-blue`/`--fg-mint` (bright in both th
 | `--bg-page` | Base page background (behind the gradient) |
 | `--bg-1` | Card/input surface |
 | `--bg-accent` | Subtle accent surfaces (tags, table headers) |
-| `--border-nav` | Hairline borders: cards, inputs, dividers |
+| `--border-nav` | Neutral hairline — the **fallback**; prefer a tone change (§5) |
 | `--fg-blue`, `--fg-mint`, `--fg-orange`, `--fg-pink` | Accent colors for gradients, links, focus, highlights |
 | `--bg-orange`, `--bg-pink`, `--bg-blue`, `--bg-mint` | The four corners of the animated gradient |
 | `--grey3-transp`, `--white1-transp` | Soft shadows / translucent overlays |
@@ -375,9 +395,40 @@ compact controls only:
 that calls `useScrollReveal` and renders `{children}` into the wrap. `RevealBand.jsx` in
 `frontend/src/pages/Projects/Annuities/` is the reference (tones: `surface | tint | wash | cta`).
 
-**Borders are for controls only.** Inputs, selects, pills and buttons keep a hairline; containers,
-readouts, tiles and tables do not. Separate them with whitespace, a `border-top: 1px solid
-var(--border-nav)` rule, or a tone change — never with a box.
+### Color beside color, not borders
+
+**We don't draw lines — we put colors next to each other.** A border is one way of saying "these two
+things are different"; a change of tone says the same thing and looks like a designed page instead of
+a spreadsheet. Squarespace's calm comes from planes of color meeting edge-to-edge, and that is the
+house style here.
+
+- **Containers get a fill, never an outline.** A panel, tile, table or readout is `--bg-1` or a wash
+  of an accent — `color-mix(in srgb, var(--fg-blue) 7%, var(--bg-1))` — not a box with a 1px edge.
+- **Give neighbouring blocks different tones.** Two adjacent panels in the same color read as one
+  panel that failed to load; step the hue so the grid reads as blocks of color. Deriving a block's
+  head and footer from *its own* hue keeps the block one family:
+  ```css
+  .foo-panel { --foo-hue: var(--fg-blue); background: color-mix(in srgb, var(--foo-hue) 7%, var(--bg-1)); }
+  .foo-panel:nth-child(3n + 2) { --foo-hue: var(--fg-mint); }
+  .foo-panel:nth-child(3n + 3) { --foo-hue: var(--fg-pink); }
+  .foo-panel-head { background: color-mix(in srgb, var(--foo-hue) 13%, transparent); }
+  ```
+- **Hover deepens the tone** — don't answer a hover with a ring *and* a shadow *and* a border. Pick
+  one, or use none: color and motion are already doing the work.
+- **Separate rows with alternating tints**, not a hairline under every row:
+  `.foo-row:nth-child(odd) { background: color-mix(in srgb, var(--foo-hue) 6%, transparent); }`
+- **Where a boundary is genuinely functional, make it a color too.** An input sitting on a tinted
+  panel gets a solid `--bg-1` fill and at most an edge mixed from its own accent
+  (`1px solid color-mix(in srgb, var(--fg-blue) 30%, transparent)`) — not `--border-nav` grey. A
+  disabled control gets a muted fill, not a dashed outline.
+- **Focus rings are not borders.** They are accessibility and they stay (§10 rule 4).
+- **Don't mix idioms.** A page either composes planes of color or draws boxes; half and half reads
+  as an accident.
+
+**Borders are the fallback, not the default.** `--border-nav` exists for the rare edge that has to be
+neutral (a browser-default-looking divider, a table rule on a page of dense data) — reach for a tone
+first, and for one of the color-mix edges above second. Service pages are no exception: their panels
+are color planes too (§5.7).
 
 ### Opening a band: eyebrow → heading → lead
 
@@ -611,6 +662,132 @@ setValue(Math.round(target * eased));
 
 ---
 
+## 5.7 Service pages — a workspace, not a story
+
+A **service page** (`/simple`, `/plans`, `/net`, `/profile`) is a tool someone already opened
+on purpose. It shares the palette, the tokens and the typography — but **not the band
+stack**. Bands exist to sell an idea; a workspace has no idea to sell, it has tasks to
+finish. A Discovery page earns its scroll; a service page costs the user time, and every
+extra screen is a control they have to hunt for.
+
+**The goal is utility: fewer screens, fewer words, the work visible immediately — and it
+still has to look good.** Think a well-made instrument, not a poster.
+
+### No bands
+
+- **One flat page surface.** `--bg-page` for the whole page; the panels do the grouping.
+  A full-bleed color change would carve one workspace into "sections" that aren't there.
+- **No animated gradient background behind data** — it fights the numbers — and **no
+  floating circles** (§5's decoration belongs to a marketing hero).
+- **Keep one small piece of brand**: an accent-gradient hairline on the toolbar, or a single
+  gradient-filled primary action. That is enough to place the page in the family.
+- The page root only clears the fixed header: `padding-top: calc(var(--nav-size) * 1.15)`.
+
+### The hero collapses into a toolbar
+
+Everything §4's hero would carry becomes one **sticky row** — the only thing that stays put
+while the user works:
+
+```jsx
+<header className="foo-bar">
+  <h1 className="foo-bar-title">Control</h1>
+  <span className="foo-bar-status">● Addon online · v1.2.3</span>
+  <ul className="foo-bar-readout">
+    <li>Loop <strong>idle</strong></li>
+    <li>Stage <strong>—</strong></li>
+    <li>Step <strong>0</strong></li>
+  </ul>
+  <div className="foo-bar-actions">
+    <button type="button">↻ Refresh</button>
+    <button type="button" className="foo-btn">▶ Start loop</button>
+  </div>
+</header>
+```
+
+```css
+.foo-bar {
+  position: sticky;
+  top: var(--nav-size);            /* just under the site header — no gap, no drift */
+  z-index: 5;                      /* below the header's 10, above the panels */
+  display: flex; align-items: center; gap: calc(var(--nav-size) * 0.25);
+  flex-wrap: wrap;
+  padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.3);
+  background: var(--bg-page);      /* opaque — NO backdrop-filter (see §8) */
+  border-bottom: 1px solid var(--border-nav);
+}
+.foo-bar-title { margin: 0; font-size: var(--font-size-heading); font-weight: var(--font-weight-bold); }
+.foo-bar-actions { margin-left: auto; display: flex; gap: calc(var(--nav-size) * 0.18); }
+```
+
+- **The `<h1>` is the room's name**, two words at most, at `--font-size-heading` or smaller.
+  No eyebrow (the header switcher already says where you are), no subtitle, no lead.
+- **Live state goes in the toolbar, not in a hero paragraph** — connection, stage, step,
+  goals running, kill-switch state. That readout *is* the page's headline.
+- **The primary action lives there too**, so it is reachable from anywhere on the page:
+  `+ New goal`, `▶ Start loop`, `● Record`.
+
+### Layout: a dense panel grid
+
+- **A multi-column grid of panels** is the layout —
+  `grid-template-columns: repeat(auto-fit, minmax(300px, 1fr))` gives 3 columns on a
+  desktop, 2 on a tablet, 1 on a phone with no media queries.
+- **Group into rows, not sections.** Panels that share a subject belong in the same grid
+  row (its own 2- or 3-column grid block). Order by how often the user touches it:
+  what you watch → what you run → what you keep → what it learned → settings.
+  The panels' own titles are the only headings needed.
+- **Fold the rest away.** Power-user plumbing goes in a `<details>`, so the first screen is
+  the job and not the config.
+- **Rows are short.** Row text at `--font-size-small`, panel labels at `--font-size-xs`
+  uppercase, tighter line-height, one line per item wherever possible. A readout of four
+  chips on one row beats a 2×2 stat grid.
+
+### Copy: labels, not sentences
+
+| Instead of | Write |
+| --- | --- |
+| "Watch it work on your PC live, and set how far it may go…" | `Control` |
+| A paragraph explaining the page | (nothing — the panels explain themselves) |
+| A lead paragraph above a panel | A `--font-size-small` hint **under** the control, only if it's ambiguous |
+| "Free to start — no credit card required." | (delete — the user is already signed in) |
+| "Get started" | The verb of the actual tool: `+ New goal`, `▶ Start loop`, `● Record` |
+
+Prefer `title` / `aria-label` for an explanation over on-page prose, and keep empty states
+to one short line plus the action that fixes them.
+
+### Rules that change for service pages
+
+- **Panels are planes of color, not cards.** No border, no outline: give each panel a fill (a wash of
+  an accent over `--bg-1`) and let its head and footer be stronger washes of that same hue, so a dense
+  grid resolves into blocks of color rather than a spreadsheet. Neighbouring panels should differ in
+  tone — that *is* the grouping. §5 has the recipe.
+- **Skip the panel shadow too.** A flat plane of color on a flat page needs no elevation to read as a
+  block; keep the shadow for things that genuinely float (modals, dropdowns, toasts).
+- **No scroll reveals, no stagger.** Reveals delay content on a page whose whole point is
+  "help me now"; Squarespace's fade-and-rise belongs to a page you're being sold on. Motion
+  here is reserved for **state changing** — a status dot, a progress bar, a button that
+  becomes Stop.
+- Everything else stands: tokens for every color, `calc(var(--nav-size) * N)` for sizing,
+  visible focus rings, and a `prefers-reduced-motion` reset.
+
+### Verifying one
+
+Signed-out is not the service page — it's a gate — so **log in before judging one**. Use the shared
+demo account: **"Continue as Guest"** on `/login`, or `guest@gmail.com` / `guest`
+(`backend/constants/guestAccount.js`, §10). It already holds workspace data (goals, plans, actions,
+notes), so lists, filters and empty states are exercised for real instead of only in theory — and it is
+**shared and public**, so delete anything you create while testing.
+
+Then ask: *is the primary tool above the fold at 1366×768, and reachable without scrolling? Is there a
+sentence on screen that could be a label? Is there a line on screen that could be a tone change?*
+
+### Reference
+
+`/simple` (`pages/Simple/Simple/`) and `/plans` (`pages/Simple/Plans/`) are the two service
+pages built to this section. Each owns its page shell; there is deliberately **no shared band
+component** for them, because there are no bands to share.
+
+---
+
 ## 6. Standard component recipes
 
 ### Buttons
@@ -785,6 +962,9 @@ header. It hides below `820px`, so anything placed there must also be reachable 
 - [ ] `prefers-reduced-motion` disables entrance/background animation.
 - [ ] Keyboard: every interactive element is focusable; focus is visible.
 - [ ] **Only compact controls carry a border** — no container, readout, tile or table does (§5).
+- [ ] **Nothing is separated by a line that could be separated by a tone** — colors beside colors, no
+      outlines, no per-row hairlines (§5).
+- [ ] **Adjacent blocks differ in tone**, and each block's head/footer derive from its own hue (§5).
 - [ ] **Hover and focus survive `index.css`** — page `:hover` rules repeat `:not(:disabled)` (§6).
 - [ ] **Canvas-based visuals re-resolve their colors** when the theme changes, and were read after
       mount (§2).
@@ -796,6 +976,11 @@ header. It hides below `820px`, so anything placed there must also be reachable 
       `prefers-reduced-motion` (§5).
 - [ ] **Carousel arrows and dots are labelled `<button>`s**, step by pixels rather than index, and zero
       the global `min-height` (§5).
+- [ ] **Service page? No bands, no gradient background behind data, no circles, no scroll reveals.**
+      One flat surface, a sticky toolbar carrying the name + live state + primary action, and a dense
+      panel grid (§5.7).
+- [ ] **Service page? The primary tool is above the fold at 1366×768** and reachable without scrolling,
+      and nothing on screen is a sentence that could be a label (§5.7).
 
 ---
 
@@ -816,6 +1001,11 @@ header. It hides below `820px`, so anything placed there must also be reachable 
 - Give cards a combined lift + scale + shadow + accent-border hover response (section 5) — a single `transform` alone feels flat.
 - Read theme colors for canvas/WebGL from `document.body` **after mount**, and key the canvas on a theme version so it rebuilds (section 2).
 - Disable every animation and transition in the `prefers-reduced-motion` block, including any new `:not(:disabled)` hover selectors you add.
+- Ask which kind of page you're building before styling anything: a Discovery page sells, a service page
+  serves (§1, §5.7).
+- Separate with color: alternating tints, a stronger wash on a head or footer, a hue per block (§5).
+- Debug authenticated pages with the shared guest account — "Continue as Guest" on `/login`, or
+  `guest@gmail.com` / `guest` (§10) — and delete whatever you create in it.
 
 ### ❌ Don't
 
@@ -831,6 +1021,12 @@ header. It hides below `820px`, so anything placed there must also be reachable 
 - Don't write a page `:hover` rule without `:not(:disabled)` — the global `button:hover:not(:disabled)` is more specific and will repaint your control with the site gradient (section 6).
 - Don't resolve CSS variables for a canvas during the first render — they are all empty strings until the theme class lands on `<body>` (section 2).
 - Don't put band copy on a `--bg-*` gradient corner in `--text-color-inv`; that token is dark in dark mode (section 2).
+- Don't open a service page with a subtitle describing the page, don't decorate it with bands or
+  circles, and don't make the user scroll to reach the tool — it is already open in front of them (§5.7).
+- Don't add a scroll reveal or a stagger to a service page: content that fades in is content that
+  arrives late on a page whose whole point is "help me now". Motion there means *state changed* (§5.7).
+- Don't reach for a border to separate two things — a tone change does the same job and looks
+  deliberate (§5). Don't stack a fill, a border and a shadow on one block either.
 
 ---
 
@@ -849,6 +1045,8 @@ header. It hides below `820px`, so anything placed there must also be reachable 
 | Projects hub | `frontend/src/pages/Projects/Projects/` | Card-grid variant with search + category filters (closest to the new editorial grid) |
 | Home | `frontend/src/pages/Home/Home.jsx` | Gradient hero + typewriter headline + counted stats + paginated carousel. **The source for §5's motion recipes** — typing, counting and the carousel are all documented from here |
 | Annuities | `frontend/src/pages/Projects/Annuities/` | **Built entirely to this standard** — full-bleed bands via a local `RevealBand`, borderless surfaces, staggered reveals, and a theme-aware canvas chart (`useChartTheme.js`) |
+| Control (`/simple`) | `frontend/src/pages/Simple/Simple/` | **Service page (§5.7)** — sticky toolbar + dense panel grid on one flat surface, no bands |
+| Goals (`/plans`) | `frontend/src/pages/Simple/Plans/` | **Service page (§5.7)** — same shape: live state in the toolbar, panels grouped into grid rows |
 
 The earlier entries predate the editorial structure; **Annuities is the markup reference for it.** When
 in doubt about how a band, a staggered reveal, a borderless readout or a themed canvas should be built,

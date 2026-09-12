@@ -1,82 +1,63 @@
-/* AgentModes — the four-level trust ladder (Watch / Suggest / Assist / Autopilot). */
+/* AgentModes — the four-level trust ladder (Watch / Suggest / Assist / Autopilot).
+   Rendered INSIDE a panel on /simple, so it brings no card chrome of its own:
+   a compact 2×2 cluster of rungs and nothing else. The extra sentence each mode
+   needs lives in a tooltip (see AgentModes.jsx) rather than on the page. §5.7 */
 
 .modes {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-sm);
-  background: var(--bg-1);
-  border: 1px solid var(--border-nav);
-  border-radius: var(--border-radius-2xl);
-  box-shadow: var(--shadow-md);
-}
-
-.modes-head { min-width: 0; }
-
-.modes-title {
-  margin: 0 0 calc(var(--nav-size) * 0.1);
-  font-size: var(--font-size-heading);
-  font-weight: var(--font-weight-bold);
-  line-height: var(--line-height-tight);
-}
-
-.modes-sub {
-  margin: 0;
-  max-width: 62ch;
-  font-size: var(--font-size-small);
-  line-height: var(--line-height-relaxed);
-  color: var(--text-color-accent);
+  gap: calc(var(--nav-size) * 0.2);
+  min-width: 0;
 }
 
 .modes-paused {
   margin: 0;
-  padding: calc(var(--nav-size) * 0.24) calc(var(--nav-size) * 0.35);
+  padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.25);
   border-radius: var(--border-radius);
   background: color-mix(in srgb, var(--fg-pink) 14%, transparent);
   color: var(--text-color);
   font-size: var(--font-size-small);
 }
 
+/* Two columns: four rungs read as a 2×2 cluster inside a panel column, and
+   stack to one on a phone. */
 .modes-ladder {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: calc(var(--nav-size) * 0.2);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: calc(var(--nav-size) * 0.15);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+/* Each rung is a plane of color: the active one is a strong mint wash, the
+   others are a light blue wash. No border, no outline (§5). */
 .modes-card {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--nav-size) * 0.12);
+  gap: calc(var(--nav-size) * 0.1);
   height: 100%;
-  padding: calc(var(--nav-size) * 0.3);
-  background: color-mix(in srgb, var(--bg-page) 55%, transparent);
-  border: 1px solid var(--border-nav);
-  border-radius: var(--border-radius-lg);
-  transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease;
+  padding: calc(var(--nav-size) * 0.2);
+  background: color-mix(in srgb, var(--fg-blue) 9%, transparent);
+  border-radius: var(--border-radius);
+  transition: background 0.18s ease;
 }
+.modes-card:hover { background: color-mix(in srgb, var(--fg-blue) 14%, transparent); }
 .modes-card.is-current {
-  border-color: var(--fg-mint);
-  background: color-mix(in srgb, var(--fg-mint) 12%, transparent);
+  background: color-mix(in srgb, var(--fg-mint) 24%, transparent);
 }
-.modes-card.is-elevated:not(.is-current) { border-color: color-mix(in srgb, var(--fg-orange) 45%, var(--border-nav)); }
+.modes-card.is-elevated:not(.is-current) { background: color-mix(in srgb, var(--fg-orange) 12%, transparent); }
 
 .modes-card-head {
   display: flex;
   align-items: center;
-  gap: calc(var(--nav-size) * 0.12);
-  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.1);
 }
-.modes-icon { font-size: var(--font-size-large); line-height: 1; }
-.modes-label {
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-bold);
-}
+.modes-icon { font-size: var(--font-size-small); line-height: 1; }
+.modes-label { font-size: var(--font-size-small); font-weight: var(--font-weight-bold); }
 .modes-here {
   margin-left: auto;
-  padding: 0 calc(var(--nav-size) * 0.16);
+  padding: 0 calc(var(--nav-size) * 0.12);
   border-radius: 999px;
   background: var(--fg-mint);
   color: var(--text-color-inv);
@@ -87,25 +68,21 @@
 
 .modes-blurb {
   margin: 0;
-  font-size: var(--font-size-small);
-  font-weight: var(--font-weight-semibold);
-  line-height: var(--line-height-base);
-}
-.modes-detail {
-  margin: 0;
   font-size: var(--font-size-xs);
   line-height: var(--line-height-base);
   color: var(--text-color-accent);
 }
 
-/* Push the action to the bottom so every card lines up. */
+/* Push the action to the bottom so every rung lines up. */
 .modes-btn,
 .modes-state { margin-top: auto; }
 
 .modes-btn {
   width: 100%;
-  padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.3);
-  border: 1px solid var(--border-nav);
+  /* undo the global 44px button min-height — this is a compact control (§6) */
+  min-height: 0;
+  padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.2);
+  border: 1px solid transparent;
   border-radius: 999px;
   background: var(--bg-1);
   color: var(--text-color);
@@ -113,54 +90,46 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+  transition: background 0.18s ease;
 }
 .modes-btn:hover:not(:disabled) {
-  background: var(--bg-accent);
-  border-color: var(--fg-mint);
-  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--fg-mint) 26%, var(--bg-1));
 }
 .modes-btn:disabled { opacity: 0.5; cursor: default; }
-.modes-btn--elevated { border-color: color-mix(in srgb, var(--fg-orange) 55%, transparent); }
-.modes-btn-warn { margin-left: calc(var(--nav-size) * 0.1); color: var(--fg-orange); }
+.modes-btn--elevated { background: color-mix(in srgb, var(--fg-orange) 14%, var(--bg-1)); }
+.modes-btn-warn { color: var(--fg-orange); }
 
 .modes-state {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: calc(var(--nav-size) * 0.14) calc(var(--nav-size) * 0.3);
+  padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.2);
   border-radius: 999px;
-  background: var(--bg-accent);
+  background: color-mix(in srgb, var(--text-color) 10%, transparent);
   color: var(--text-color-accent);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  text-align: center;
 }
 .modes-card.is-current .modes-state {
-  background: color-mix(in srgb, var(--fg-mint) 20%, transparent);
-  color: var(--text-color);
+  background: var(--fg-mint);
+  color: var(--text-color-inv);
 }
 
 .modes-note {
   margin: 0;
-  padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.3);
+  padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.22);
   border-radius: var(--border-radius);
   background: color-mix(in srgb, var(--fg-orange) 12%, transparent);
-  font-size: var(--font-size-small);
+  font-size: var(--font-size-xs);
   line-height: var(--line-height-base);
 }
 
-/* Column count follows available width, not device orientation — a tall desktop
-   window is still wide enough for four rungs, and a short laptop window is not. */
-@media (max-width: 1080px) {
-  .modes-ladder { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 560px) {
+/* Column count follows available width, not device orientation. */
+@media (max-width: 420px) {
   .modes-ladder { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .modes-card,
   .modes-btn { transition: none; }
-  .modes-btn:hover:not(:disabled) { transform: none; }
 }

@@ -47,18 +47,26 @@ import AgentModes from '../../../components/Simple/AgentModes/AgentModes.jsx';
 import './SimpleDashboard.css';
 
 /**
- * SimpleDashboard — the live mission-control half of /simple.
+ * SimpleDashboard — the live half of /simple.
  *
- * Composes the existing addon + workspace APIs into four compact panels so
- * /simple is a working utility (not an ad page):
- *   1. Agent      — loop status (stage/step/stall) + Start/Stop.
- *   2. Control    — a mini chat that runs an instruction through the loop.
- *   3. Goals      — active + follow-up goals from the cloud workspace.
- *   4. Macros     — saved skills with one-click Run.
+ * This is a **service page**, and service pages are workspaces, not stories
+ * (FRONTEND_UI_STANDARD.md §5.7): one flat surface, a sticky toolbar carrying
+ * the room's name + live state + the primary action, then a dense grid of
+ * panels ordered by how often you touch them. No bands, no gradient behind the
+ * data, no scroll reveals — scrolling is the cost we're minimising.
  *
- * Goals/macros live in the cloud workspace (need login). Agent status and
- * macro runs need the local Simple addon running. Everything degrades to a
- * clear hint instead of erroring.
+ *   row 1  how far it may go (the mode ladder + kill switch) · the live loop
+ *   row 2  run an instruction · record a task
+ *   row 3  goals · macros
+ *   row 4  proposed goals · lessons · suggestions
+ *   then   advanced plumbing (folded away) and a two-link hand-off
+ *
+ * Permissions are not duplicated: the mode ladder sets listener/auto-approve
+ * (it *is* those two), so they only reappear as raw switches under Advanced.
+ * The kill switch stays its own control because it overrides every mode.
+ *
+ * Goals/macros live in the cloud workspace (need login). Agent status and macro
+ * runs need the local Simple addon. Everything degrades to a clear hint.
  */
 
 const GOAL_STATUS_META = {
@@ -561,24 +569,45 @@ export default function SimpleDashboard() {
   // ── Derived ──────────────────────────────────────────────────────────────
   const activeGoals = goals.filter((g) => (g.status || 'active') === 'active');
   const followUpGoals = goals.filter((g) => g.status === 'paused');
+  const completedGoals = goals.filter((g) => g.status === 'done' || g.status === 'completed').length;
   const isRunning = !!agent?.running;
 
   return (
     <div className="sd">
-      <div className="sd-toolbar">
+      {/* ── The toolbar — this page's "hero", collapsed onto one sticky row ──
+          Name, live state, primary actions. §5.7 */}
+      <header className="sd-bar">
+        <h1 className="sd-bar-title">Control</h1>
+
         <span className="sd-status">
           <span className={`sd-status-dot ${isConnected ? 'is-on' : ''}`} aria-hidden="true" />
           {isConnected
             ? `Addon online${addonStatus?.version ? ` · v${addonStatus.version}` : ''}`
             : 'Addon not connected'}
         </span>
-        <div className="sd-toolbar-actions">
+
+        {isConnected && (
+          <span className="sd-readout">
+            <span className="sd-chip">Loop <strong>{agent?.loop || 'idle'}</strong></span>
+            <span className="sd-chip">Stage <strong>{agent?.stage || '—'}</strong></span>
+            <span className="sd-chip">Step <strong>{agent?.step ?? '—'}</strong></span>
+            {isRunning && <span className="sd-chip sd-chip--run">Running</span>}
+            {perms.globalKillSwitch && <span className="sd-chip sd-chip--danger">⛔ Stopped</span>}
+          </span>
+        )}
+
+        <div className="sd-bar-actions">
           <button className="sd-btn sd-btn--muted" onClick={refreshAll}>↻ Refresh</button>
           {!isConnected && (
             <button className="sd-btn sd-btn--muted" onClick={recheckAddon}>Re-check addon</button>
           )}
+          {isConnected && (
+            isRunning
+              ? <button className="sd-btn sd-btn--danger" onClick={onStop} disabled={agentBusy}>■ Stop</button>
+              : <button className="sd-btn" onClick={onStart} disabled={agentBusy}>▶ Start loop</button>
+          )}
         </div>
-      </div>
+      </header>
 
       {panelError && (
         <div className="sd-banner sd-banner--err" onClick={() => setPanelError(null)}>
@@ -589,7 +618,7 @@ export default function SimpleDashboard() {
       {showInstallPrompt && (
         <div className="sd-banner sd-banner--cta">
           <span>
-            The dashboard controls need the <strong>Simple addon</strong> running on this PC.
+            The live controls need the <strong>Simple addon</strong> running on this PC.
           </span>
           <a className="sd-btn" href="https://github.com/tnnrhpwd/portfolio-app/releases/latest/download/Simple-Addon-portable.exe" target="_blank" rel="noopener noreferrer">
             Download the addon
@@ -597,48 +626,64 @@ export default function SimpleDashboard() {
         </div>
       )}
 
-      {/* How far may it go? The four trust modes, derived from the live
-          permission state so this can never disagree with what the addon allows. */}
-      <AgentModes
-        perms={perms}
-        connected={isConnected}
-        busy={modesBusy}
-        onChange={applyMode}
-      />
-
+      {/* ── Row 1: how far it may go · the live loop ───────────────────────── */}
       <div className="sd-grid">
-        {/* ── Agent ── */}
+        {/* Permissions — the one trust control. The ladder sets exactly the
+            state the raw switches do, so this is the only place it's offered. */}
         <section className="sd-panel">
           <header className="sd-panel-head">
-            <h3 className="sd-panel-title">🤖 Agent</h3>
-            <span className={`sd-badge ${isRunning ? 'sd-badge--run' : ''}`}>
-              {isRunning ? 'Running' : 'Idle'}
-            </span>
+            <h2 className="sd-panel-title">🛡️ How much may it do on its own?</h2>
           </header>
           <div className="sd-panel-body">
-            {!isConnected ? (
-              <p className="sd-hint">Connect the addon to run and watch the loop live.</p>
-            ) : isRunning ? (
-              <dl className="sd-stats">
-                <div><dt>Stage</dt><dd>{agent?.stage || '—'}</dd></div>
-                <div><dt>Loop</dt><dd>{agent?.loop || '—'}</dd></div>
-                <div><dt>Step</dt><dd>{agent?.step ?? '—'}</dd></div>
-                <div><dt>Stalls</dt><dd>{agent?.stallCount ?? 0}</dd></div>
-                {agent?.lastLesson && <div className="sd-stat-wide"><dt>Last lesson</dt><dd>{agent.lastLesson}</dd></div>}
-              </dl>
-            ) : (
-              <p className="sd-hint">The loop is idle. Start it to work the next active goal.</p>
-            )}
+            <AgentModes
+              perms={perms}
+              connected={isConnected}
+              busy={modesBusy}
+              onChange={applyMode}
+            />
+          </div>
+          <footer className="sd-panel-actions">
+            {/* Not a mode — it overrides every mode, so it stays its own switch. */}
+            <Toggle
+              label="Kill switch — stop everything now"
+              checked={perms.globalKillSwitch}
+              onChange={onToggleKill}
+              disabled={!isConnected || modesBusy}
+              danger
+            />
+          </footer>
+        </section>
 
-            {isConnected && (
-              <div className="sd-toggles">
-                <Toggle label="Listener" checked={perms.continuousMode} onChange={() => onToggleListener(!perms.continuousMode)} />
-                <Toggle label="Auto-approve" checked={perms.autoApproveAll} onChange={() => onToggleAutoApprove(!perms.autoApproveAll)} />
-                <Toggle label="Kill switch" checked={perms.globalKillSwitch} onChange={onToggleKill} danger />
-              </div>
-            )}
+        {/* ── The loop ── */}
+        <section className="sd-panel">
+          <header className="sd-panel-head">
+            <h2 className="sd-panel-title">🤖 The loop</h2>
+              <span className={`sd-badge ${isRunning ? 'sd-badge--run' : ''}`}>
+                {isRunning ? 'Running' : 'Idle'}
+              </span>
+            </header>
+            <div className="sd-panel-body">
+              {!isConnected ? (
+                <p className="sd-hint">Connect the addon to run and watch the loop live.</p>
+              ) : (
+                <>
+                  <dl className="sd-stats">
+                    <div><dt>Stalls</dt><dd>{agent?.stallCount ?? 0}</dd></div>
+                    <div><dt>Step budget</dt><dd>{agent?.maxSteps ?? '—'}</dd></div>
+                    {agent?.lastLesson && (
+                      <div className="sd-stat-wide"><dt>Last lesson</dt><dd>{agent.lastLesson}</dd></div>
+                    )}
+                  </dl>
+                  {!isRunning && (
+                    <p className="sd-hint">
+                      Idle. Start it to work the next active goal, or hand it a single
+                      instruction on the right.
+                    </p>
+                  )}
+                </>
+              )}
 
-            {isConnected && approvals.length > 0 && (
+              {isConnected && approvals.length > 0 && (
               <div className="sd-approvals">
                 {approvals.map((a) => (
                   <div key={a.id} className="sd-approval">
@@ -664,10 +709,10 @@ export default function SimpleDashboard() {
           </footer>
         </section>
 
-        {/* ── Mini control ── */}
+        {/* ── One-off instruction ── */}
         <section className="sd-panel">
           <header className="sd-panel-head">
-            <h3 className="sd-panel-title">🎛️ Control</h3>
+            <h2 className="sd-panel-title">🎛️ One-off instruction</h2>
           </header>
           <div className="sd-panel-body sd-panel-body--chat">
             {!isConnected ? (
@@ -677,7 +722,7 @@ export default function SimpleDashboard() {
               </p>
             ) : (
               <>
-                <label className="sd-label" htmlFor="sd-instruction">Run an instruction through the loop</label>
+                <label className="sd-label" htmlFor="sd-instruction">What should it do?</label>
                 <div className="sd-chat-row">
                   <input
                     id="sd-instruction"
@@ -722,14 +767,17 @@ export default function SimpleDashboard() {
             )}
           </div>
           <footer className="sd-panel-actions">
-            <span className="sd-hint">Runs the Observe → Orient → Goal → Plan → Execute loop.</span>
+            <span className="sd-hint">Runs Observe → Orient → Goal → Plan → Action.</span>
           </footer>
         </section>
+      </div>
 
+      {/* ── Row 2: what you're working on ─────────────────────────────────── */}
+      <div className="sd-grid">
         {/* ── Goals ── */}
         <section className="sd-panel">
           <header className="sd-panel-head">
-            <h3 className="sd-panel-title">🎯 Goals</h3>
+            <h2 className="sd-panel-title">🎯 Goals</h2>
             <span className="sd-badge">{activeGoals.length} active</span>
           </header>
           <div className="sd-panel-body sd-panel-body--list">
@@ -765,7 +813,7 @@ export default function SimpleDashboard() {
         {/* ── Macros ── */}
         <section className="sd-panel">
           <header className="sd-panel-head">
-            <h3 className="sd-panel-title">⚡ Macros</h3>
+            <h2 className="sd-panel-title">⚡ Macros</h2>
             <span className="sd-badge">{macros.length}</span>
           </header>
           <div className="sd-panel-body sd-panel-body--list">
@@ -796,11 +844,14 @@ export default function SimpleDashboard() {
             <Link className="sd-btn sd-btn--muted" to="/settings">Manage macros →</Link>
           </footer>
         </section>
+      </div>
 
+      {/* ── Row 3: what it noticed — the watch-and-learn half ─────────────── */}
+      <div className="sd-grid sd-grid--three">
         {/* ── Proposed goals ── */}
         <section className="sd-panel">
           <header className="sd-panel-head">
-            <h3 className="sd-panel-title">💡 Proposed goals</h3>
+            <h2 className="sd-panel-title">💡 Proposed goals</h2>
             <span className="sd-badge">{proposals.length}</span>
           </header>
           <div className="sd-panel-body sd-panel-body--list">
@@ -833,7 +884,7 @@ export default function SimpleDashboard() {
         {/* ── Lessons ── */}
         <section className="sd-panel">
           <header className="sd-panel-head">
-            <h3 className="sd-panel-title">📚 Lessons</h3>
+            <h2 className="sd-panel-title">📚 Lessons</h2>
             <span className="sd-badge">{lessons.length}</span>
           </header>
           <div className="sd-panel-body sd-panel-body--list">
@@ -856,7 +907,7 @@ export default function SimpleDashboard() {
         {/* ── Suggestions ── */}
         <section className="sd-panel">
           <header className="sd-panel-head">
-            <h3 className="sd-panel-title">🧠 Suggestions</h3>
+            <h2 className="sd-panel-title">🧠 Suggestions</h2>
             <span className="sd-badge">{suggestions.length}</span>
           </header>
           <div className="sd-panel-body sd-panel-body--list">
@@ -878,11 +929,14 @@ export default function SimpleDashboard() {
             )}
           </div>
         </section>
+      </div>
 
+      {/* ── Row 4: record a task, and the raw plumbing, folded away ────────── */}
+      <div className="sd-grid">
         {/* ── Recorder ── */}
         <section className="sd-panel">
           <header className="sd-panel-head">
-            <h3 className="sd-panel-title">⏺ Recorder</h3>
+            <h2 className="sd-panel-title">⏺ Record a task</h2>
             <span className={`sd-badge ${recorder?.active ? 'sd-badge--run' : ''}`}>
               {recorder?.active ? 'Recording' : 'Idle'}
             </span>
@@ -924,14 +978,45 @@ export default function SimpleDashboard() {
 
         {/* Everything below is raw plumbing for power users — kept out of the
             consumer path but not removed, so nothing lost a control it had. */}
+      </div>
+
+      {/* ── Advanced — raw plumbing, folded so the first screen is the job ───
+          The raw permission switches live here rather than beside the mode
+          ladder: the ladder already sets exactly those two, and two controls
+          for one state is how a UI starts disagreeing with itself. */}
+      <details className="sd-advanced">
+        <summary className="sd-advanced-summary">
+          <span aria-hidden="true">⚙️</span> Advanced — raw switches, sensors, layouts, voice, eye tracking
+        </summary>
+
+        <div className="sd-panel sd-panel--raw">
+          <header className="sd-panel-head">
+            <h2 className="sd-panel-title">🔧 Raw permission switches</h2>
+          </header>
+          <div className="sd-panel-body">
+            <div className="sd-toggles">
+              <Toggle
+                label="Listener"
+                checked={perms.continuousMode}
+                onChange={() => onToggleListener(!perms.continuousMode)}
+                disabled={!isConnected}
+              />
+              <Toggle
+                label="Auto-approve"
+                checked={perms.autoApproveAll}
+                onChange={() => onToggleAutoApprove(!perms.autoApproveAll)}
+                disabled={!isConnected}
+              />
+            </div>
+            <p className="sd-hint">
+              The same state the mode ladder sets — Suggest is Listener on its own,
+              Autopilot is Listener + Auto-approve.
+            </p>
+          </div>
         </div>
 
-        <details className="sd-advanced">
-          <summary className="sd-advanced-summary">
-            <span aria-hidden="true">⚙️</span> Advanced — sensors, layouts, voice, eye tracking
-          </summary>
-          <div className="sd-grid sd-grid--advanced">
-            {/* ── Perception ── */}
+        <div className="sd-grid sd-grid--advanced">
+          {/* ── Perception ── */}
             <section className="sd-panel">
               <header className="sd-panel-head">
                 <h3 className="sd-panel-title">👁️ Perception</h3>
@@ -1054,14 +1139,21 @@ export default function SimpleDashboard() {
           </div>
         </section>
           </div>
-        </details>
+      </details>
 
-      {(() => {
-        const done = goals.filter((g) => g.status === 'done' || g.status === 'completed').length;
-        return done > 0 ? (
-          <p className="sd-footnote">{done} goal{done === 1 ? '' : 's'} completed.</p>
-        ) : null;
-      })()}
+      {/* ── Where next — a two-link hand-off, not a pitch (§5.7) ──────────── */}
+      <div className="sd-next">
+        <p className="sd-next-copy">
+          {isConnected
+            ? 'The agent is on this PC and ready.'
+            : 'Your goals and macros still sync without the desktop app — install it to let the agent act on this PC.'}
+          {completedGoals > 0 && ` ${completedGoals} goal${completedGoals === 1 ? '' : 's'} completed so far.`}
+        </p>
+        <div className="sd-next-actions">
+          <Link className="sd-btn sd-btn--muted" to="/net">💬 Chat with it</Link>
+          <Link className="sd-btn sd-btn--muted" to="/plans">🎯 Review goals</Link>
+        </div>
+      </div>
     </div>
   );
 }

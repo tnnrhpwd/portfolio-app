@@ -1,88 +1,171 @@
-/* ── SimpleDashboard — mission-control panels for /simple ── */
+/* ── SimpleDashboard — the dense Control workspace ──────────────────────────
+   A service page (FRONTEND_UI_STANDARD.md §5.7): one flat surface, a sticky
+   toolbar carrying name + live state + primary action, then a dense panel grid
+   ordered by how often you touch it. No bands, no gradient behind the data, no
+   scroll reveals — scrolling is the cost we're minimising. */
 
 .sd {
+  /* Status colors come from the shared tokens, theme-aware: --green2 is legible
+     on a light surface and --green1 on a dark one (the Projects/Fluid pattern).
+     Each pill's background derives from its own text color via currentColor. */
+  --sd-ok: var(--green2);
+  --sd-warn: var(--fg-orange);
+  --sd-bad: var(--red0);
+
   position: relative;
-  z-index: 2;
-  width: 100%;
-  max-width: 1100px;
   display: flex;
   flex-direction: column;
-  gap: calc(var(--nav-size) * 0.4);
+  gap: calc(var(--nav-size) * 0.25);
+  min-width: 0;
 }
+.dark-theme .sd { --sd-ok: var(--green1); }
 
-.sd-toolbar {
+/* ── Sticky toolbar — the page's "hero", collapsed onto one row ───────────── */
+
+.sd-bar {
+  position: sticky;
+  top: var(--nav-size);            /* just under the fixed site header */
+  z-index: 5;                      /* below the header's 10, above the panels */
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: calc(var(--nav-size) * 0.3);
   flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.25);
+  padding: calc(var(--nav-size) * 0.18) 0;
+  background: var(--bg-page);      /* opaque — no glassmorphism (§8) */
 }
+/* The one piece of brand on the page: an accent rule under the toolbar. */
+.sd-bar::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: -1px; height: 2px;
+  background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint) 42%, transparent 72%);
+  pointer-events: none;
+}
+
+.sd-bar-title {
+  margin: 0;
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+
 .sd-status {
   display: inline-flex;
   align-items: center;
-  gap: calc(var(--nav-size) * 0.15);
+  gap: calc(var(--nav-size) * 0.12);
   font-size: var(--font-size-small);
   color: var(--text-color-accent);
 }
 .sd-status-dot {
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: var(--text-color-accent);
   opacity: 0.4;
 }
-.sd-status-dot.is-on { background: #22c55e; opacity: 1; box-shadow: 0 0 8px #22c55e88; }
-.sd-toolbar-actions { display: flex; gap: calc(var(--nav-size) * 0.15); }
+.sd-status-dot.is-on { background: var(--sd-ok); opacity: 1; box-shadow: 0 0 8px color-mix(in srgb, var(--sd-ok) 55%, transparent); }
+
+/* One row of live state, never a 2×2 stat grid. */
+.sd-readout { display: flex; flex-wrap: wrap; gap: calc(var(--nav-size) * 0.1); }
+.sd-chip {
+  font-size: var(--font-size-xs);
+  line-height: 1.6;
+  color: var(--text-color-accent);
+  background: color-mix(in srgb, var(--fg-blue) 8%, transparent);
+  border-radius: 999px;
+  padding: 1px 9px;
+  white-space: nowrap;
+}
+.sd-chip strong { color: var(--text-color); font-weight: var(--font-weight-semibold); }
+.sd-chip--run { color: var(--sd-ok); background: color-mix(in srgb, currentColor 16%, transparent); }
+.sd-chip--danger { color: var(--sd-bad); background: color-mix(in srgb, currentColor 16%, transparent); }
+
+.sd-bar-actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: calc(var(--nav-size) * 0.12); }
 
 .sd-banner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: calc(var(--nav-size) * 0.3);
+  gap: calc(var(--nav-size) * 0.25);
   flex-wrap: wrap;
-  padding: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.4);
-  border-radius: var(--border-radius-lg);
+  padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.28);
+  border-radius: var(--border-radius);
   font-size: var(--font-size-small);
-  line-height: var(--line-height-relaxed);
+  line-height: var(--line-height-base);
 }
-.sd-banner--err { background: color-mix(in srgb, var(--bg-danger, #ef4444) 12%, var(--bg-1)); border: 1px solid color-mix(in srgb, #ef4444 40%, transparent); cursor: pointer; }
-.sd-banner--cta { background: color-mix(in srgb, var(--fg-blue) 12%, var(--bg-1)); border: 1px solid color-mix(in srgb, var(--fg-blue) 35%, transparent); }
+/* Errors and CTAs are color planes too — no outline, just a stronger wash. */
+.sd-banner--err { background: color-mix(in srgb, var(--sd-bad) 14%, var(--bg-1)); color: var(--sd-bad); cursor: pointer; }
+.sd-banner--cta { background: color-mix(in srgb, var(--fg-blue) 13%, var(--bg-1)); }
 
+/* A row of panels. auto-fit gives 3 columns on a desktop, 2 on a tablet and 1
+   on a phone with no media query. */
 .sd-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: calc(var(--nav-size) * 0.35);
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: calc(var(--nav-size) * 0.25);
+  align-items: start;
 }
+.sd-grid--three { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 
+/* Panels are PLANES OF COLOR, not cards: no border, no outline, no hairline, no
+   shadow. Each panel picks a hue and its head/footer are stronger washes of
+   that same hue, so the block stays one color family; neighbouring panels pick
+   different hues, and that difference IS the grouping. §5 "color beside
+   color". */
 .sd-panel {
+  --sd-hue: var(--fg-blue);
   display: flex;
   flex-direction: column;
-  background: var(--bg-1);
-  border: 1px solid var(--border-nav);
+  min-width: 0;
+  background: color-mix(in srgb, var(--sd-hue) 7%, var(--bg-1));
   border-radius: var(--border-radius-lg);
-  box-shadow: var(--shadow-sm);
   overflow: hidden;
+  transition: background 0.15s ease;
 }
+.sd-panel:nth-child(3n + 2) { --sd-hue: var(--fg-mint); }
+.sd-panel:nth-child(3n + 3) { --sd-hue: var(--fg-pink); }
+.sd-panel:hover { background: color-mix(in srgb, var(--sd-hue) 12%, var(--bg-1)); }
+/* A wash over a dark surface reads muddy, so dark mode gets a stronger dose to
+   keep each panel recognisably its own color. */
+.dark-theme .sd-panel { background: color-mix(in srgb, var(--sd-hue) 14%, var(--bg-1)); }
+.dark-theme .sd-panel:hover { background: color-mix(in srgb, var(--sd-hue) 19%, var(--bg-1)); }
+
 .sd-panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: calc(var(--nav-size) * 0.2);
-  padding: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.35);
-  border-bottom: 1px solid var(--border-nav);
+  gap: calc(var(--nav-size) * 0.15);
+  padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.28);
+  background: color-mix(in srgb, var(--sd-hue) 12%, transparent);
 }
-.sd-panel-title { margin: 0; font-size: var(--font-size-base); font-weight: var(--font-weight-semibold); }
-.sd-panel-body { padding: calc(var(--nav-size) * 0.35); flex: 1 1 auto; }
-.sd-panel-body--list { padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.35); }
-.sd-panel-body--chat { display: flex; flex-direction: column; gap: calc(var(--nav-size) * 0.2); }
+.sd-panel-title { margin: 0; font-size: var(--font-size-small); font-weight: var(--font-weight-semibold); }
+.sd-panel-body { padding: calc(var(--nav-size) * 0.25) calc(var(--nav-size) * 0.28); flex: 1 1 auto; }
+.sd-panel-body--list { padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.28); }
+.sd-panel-body--chat { display: flex; flex-direction: column; gap: calc(var(--nav-size) * 0.18); }
+/* A panel that happens to be full width shouldn't stretch its inputs across the
+   screen — an input three times the length of its label reads as broken. */
+.sd-panel-body--chat .sd-chat-row { max-width: 640px; }
 .sd-panel-actions {
   display: flex;
   align-items: center;
-  gap: calc(var(--nav-size) * 0.2);
+  gap: calc(var(--nav-size) * 0.15);
   flex-wrap: wrap;
-  padding: calc(var(--nav-size) * 0.25) calc(var(--nav-size) * 0.35);
-  border-top: 1px solid var(--border-nav);
+  padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.28);
+  background: color-mix(in srgb, var(--sd-hue) 6%, transparent);
 }
+
+/* The hand-off at the foot of the page: two links, one line. Not a CTA band. */
+.sd-next {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--nav-size) * 0.25);
+  flex-wrap: wrap;
+  margin-top: calc(var(--nav-size) * 0.1);
+}
+.sd-next-copy { margin: 0; font-size: var(--font-size-small); color: var(--text-color-accent); }
+.sd-next-actions { display: flex; flex-wrap: wrap; gap: calc(var(--nav-size) * 0.12); }
 
 .sd-badge {
   font-size: var(--font-size-xs);
@@ -93,10 +176,13 @@
   border-radius: 999px;
   padding: 2px 10px;
 }
-.sd-badge--run { color: #16a34a; background: color-mix(in srgb, #22c55e 15%, transparent); }
+.sd-badge--run { color: var(--sd-ok); background: color-mix(in srgb, currentColor 16%, transparent); }
 
-.sd-hint { margin: 0; font-size: var(--font-size-small); line-height: var(--line-height-relaxed); color: var(--text-color-accent); }
+.sd-hint { margin: 0; font-size: var(--font-size-small); line-height: var(--line-height-base); color: var(--text-color-accent); }
 .sd-hint a { color: var(--fg-blue); }
+/* Muted text has to survive sitting on a tinted panel, so inside one it leans on
+   the page's own text color rather than the grey accent. */
+.sd-panel .sd-hint { color: color-mix(in srgb, var(--text-color) 78%, transparent); }
 
 .sd-stats { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: calc(var(--nav-size) * 0.2); }
 .sd-stats > div { margin: 0; }
@@ -106,51 +192,54 @@
 
 .sd-label { font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-color-accent); }
 .sd-chat-row { display: flex; gap: calc(var(--nav-size) * 0.15); }
+/* An input is a plane of color sitting on the panel's plane: a solid --bg-1 fill
+   and an edge mixed from the panel's own hue — never a grey hairline (§5). */
 .sd-input {
   flex: 1 1 auto;
   min-width: 0;
   font-family: inherit;
   font-size: var(--font-size-base);
   color: var(--text-color);
-  background: var(--bg-2, var(--bg-1));
-  border: 1px solid var(--border-nav);
-  border-radius: var(--border-radius-md);
-  padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.3);
+  background: var(--bg-1);
+  border: 1px solid color-mix(in srgb, var(--sd-hue) 28%, transparent);
+  border-radius: var(--border-radius);
+  padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.24);
 }
 .sd-input:focus { outline: none; border-color: var(--fg-blue); }
 .sd-chat-result {
   margin: 0;
   font-size: var(--font-size-small);
-  line-height: var(--line-height-relaxed);
-  background: color-mix(in srgb, var(--fg-mint) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--fg-mint) 30%, transparent);
-  border-radius: var(--border-radius-md);
-  padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.3);
+  line-height: var(--line-height-base);
+  background: color-mix(in srgb, var(--fg-mint) 14%, transparent);
+  border-radius: var(--border-radius);
+  padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.24);
 }
-.sd-chat-result--muted { background: var(--bg-accent); border-color: var(--border-nav); }
-.sd-chat-error { margin: 0; font-size: var(--font-size-small); color: var(--bg-danger, #ef4444); }
+.sd-chat-result--muted { background: var(--bg-accent); }
+.sd-chat-error { margin: 0; font-size: var(--font-size-small); color: var(--sd-bad); }
 
+/* Rows are separated by alternating tints, not by a hairline under each one. */
 .sd-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .sd-list-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: calc(var(--nav-size) * 0.2);
-  padding: calc(var(--nav-size) * 0.18) 0;
-  border-bottom: 1px solid var(--border-nav);
+  padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.2);
+  border-radius: var(--border-radius);
 }
-.sd-list-item:last-child { border-bottom: none; }
+.sd-list-item:nth-child(odd) { background: color-mix(in srgb, var(--sd-hue) 7%, transparent); }
 .sd-list-main { display: flex; flex-direction: column; min-width: 0; }
 .sd-list-name { font-size: var(--font-size-small); font-weight: var(--font-weight-semibold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sd-list-sub { font-size: var(--font-size-xs); color: var(--text-color-accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sd-list-actions { flex-shrink: 0; display: inline-flex; gap: calc(var(--nav-size) * 0.12); }
 
+/* Status colors are tokens + currentColor, so one rule covers both themes. */
 .sd-status-pill { flex-shrink: 0; font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); border-radius: 999px; padding: 2px 9px; }
-.sd-status-pill--active { color: #16a34a; background: color-mix(in srgb, #22c55e 15%, transparent); }
-.sd-status-pill--paused { color: #b45309; background: color-mix(in srgb, #f59e0b 15%, transparent); }
-.sd-status-pill--blocked { color: #c2410c; background: color-mix(in srgb, #f97316 15%, transparent); }
+.sd-status-pill--active { color: var(--sd-ok); background: color-mix(in srgb, currentColor 15%, transparent); }
+.sd-status-pill--paused { color: var(--sd-warn); background: color-mix(in srgb, currentColor 15%, transparent); }
+.sd-status-pill--blocked { color: var(--sd-warn); background: color-mix(in srgb, currentColor 15%, transparent); }
 .sd-status-pill--done { color: var(--text-color-accent); background: var(--bg-accent); }
-.sd-status-pill--failed { color: #dc2626; background: color-mix(in srgb, #ef4444 15%, transparent); }
+.sd-status-pill--failed { color: var(--sd-bad); background: color-mix(in srgb, currentColor 15%, transparent); }
 
 .sd-btn {
   font-family: inherit;
@@ -171,16 +260,16 @@
 }
 .sd-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); color: var(--text-color-inv); }
 .sd-btn:disabled { opacity: 0.5; cursor: default; transform: none; box-shadow: none; }
+/* A secondary button is a plane of --bg-1 so it stands off the panel's color
+   rather than blending into it. */
 .sd-btn--muted {
-  background: transparent;
+  background: var(--bg-1);
   color: var(--text-color);
-  border-color: var(--border-nav);
+  border-color: transparent;
 }
-.sd-btn--muted:hover { background: var(--bg-accent); box-shadow: none; color: var(--text-color); }
-.sd-btn--danger { background: linear-gradient(45deg, #ef4444, #f97316); }
+.sd-btn--muted:hover { background: color-mix(in srgb, var(--sd-hue, var(--fg-blue)) 20%, var(--bg-1)); box-shadow: none; color: var(--text-color); }
+.sd-btn--danger { background: linear-gradient(45deg, var(--sd-bad), var(--sd-warn)); }
 .sd-btn--sm { padding: calc(var(--nav-size) * 0.08) calc(var(--nav-size) * 0.28); font-size: var(--font-size-xs); }
-
-.sd-footnote { margin: 0; text-align: center; font-size: var(--font-size-xs); color: var(--text-color-accent); }
 
 /* Toggles */
 .sd-toggles {
@@ -197,12 +286,12 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--text-color-accent);
-  background: var(--bg-accent);
-  border: 1px solid var(--border-nav);
+  background: color-mix(in srgb, var(--text-color) 8%, transparent);
+  border: 1px solid transparent;
   border-radius: 999px;
   padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.28);
   cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+  transition: color 0.15s ease, background-color 0.15s ease;
 }
 .sd-toggle-dot {
   width: 8px;
@@ -212,15 +301,17 @@
   opacity: 0.35;
 }
 .sd-toggle.is-on {
-  color: #16a34a;
-  border-color: color-mix(in srgb, #22c55e 45%, transparent);
-  background: color-mix(in srgb, #22c55e 14%, transparent);
+  color: var(--sd-ok);
+  background: color-mix(in srgb, currentColor 16%, transparent);
 }
 .sd-toggle.is-on .sd-toggle-dot { opacity: 1; }
+.sd-toggle--danger {
+  background: color-mix(in srgb, var(--sd-bad) 16%, transparent);
+  color: var(--text-color);
+}
 .sd-toggle--danger.is-on {
-  color: #dc2626;
-  border-color: color-mix(in srgb, #ef4444 45%, transparent);
-  background: color-mix(in srgb, #ef4444 14%, transparent);
+  color: var(--sd-bad);
+  background: color-mix(in srgb, currentColor 18%, transparent);
 }
 
 /* Pending approvals */
@@ -235,35 +326,34 @@
   align-items: center;
   justify-content: space-between;
   gap: calc(var(--nav-size) * 0.2);
-  background: color-mix(in srgb, var(--fg-orange) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--fg-orange) 40%, transparent);
+  background: color-mix(in srgb, var(--fg-orange) 16%, transparent);
   border-radius: var(--border-radius);
-  padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.28);
+  padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.24);
 }
 .sd-approval-name { font-size: var(--font-size-small); font-weight: var(--font-weight-semibold); }
 .sd-approval-actions { display: flex; gap: calc(var(--nav-size) * 0.12); }
 
-/* NL macro compiler */
+/* NL macro compiler — separated from the instruction above by a hue step, not a
+   line (§5 "color beside color"). */
 .sd-nl {
   display: flex;
   flex-direction: column;
   gap: calc(var(--nav-size) * 0.15);
-  margin-top: calc(var(--nav-size) * 0.25);
-  padding-top: calc(var(--nav-size) * 0.25);
-  border-top: 1px solid var(--border-nav);
+  margin: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * -0.28) 0;
+  padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.28) 0;
+  background: color-mix(in srgb, var(--sd-hue) 6%, transparent);
 }
 
 /* Perception readout */
 .sd-perception {
   margin: 0;
   font-size: var(--font-size-small);
-  line-height: var(--line-height-relaxed);
+  line-height: var(--line-height-base);
   color: var(--text-color);
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  background: color-mix(in srgb, var(--bg-1) 55%, transparent);
-  border: 1px solid var(--border-nav);
+  background: color-mix(in srgb, var(--text-color) 8%, transparent);
   border-radius: var(--border-radius);
-  padding: calc(var(--nav-size) * 0.25);
+  padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.24);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -275,10 +365,9 @@
 
 .sd-advanced {
   width: 100%;
-  margin-top: var(--spacing-xs);
-  border: 1px solid var(--border-nav);
-  border-radius: var(--border-radius-xl);
-  background: color-mix(in srgb, var(--bg-1) 70%, transparent);
+  margin-top: calc(var(--nav-size) * 0.1);
+  border-radius: var(--border-radius-lg);
+  background: color-mix(in srgb, var(--text-color) 6%, var(--bg-1));
   overflow: hidden;
 }
 
@@ -286,7 +375,7 @@
   display: flex;
   align-items: center;
   gap: calc(var(--nav-size) * 0.15);
-  padding: calc(var(--nav-size) * 0.32) calc(var(--nav-size) * 0.45);
+  padding: calc(var(--nav-size) * 0.28) calc(var(--nav-size) * 0.4);
   font-size: var(--font-size-small);
   font-weight: var(--font-weight-semibold);
   color: var(--text-color);
@@ -302,14 +391,14 @@
   transition: transform 0.2s ease;
 }
 .sd-advanced[open] .sd-advanced-summary::after { transform: rotate(180deg); }
-.sd-advanced-summary:hover { background: var(--bg-accent); }
+.sd-advanced-summary:hover { background: color-mix(in srgb, var(--text-color) 6%, transparent); }
 .sd-advanced-summary:focus-visible {
   outline: var(--focus-outline);
   outline-offset: calc(var(--focus-outline-offset) * -1);
 }
 
 .sd-grid--advanced {
-  padding: calc(var(--nav-size) * 0.3);
+  padding: calc(var(--nav-size) * 0.28);
 }
 
 /* Goal rows link straight to their goal page. */
@@ -325,8 +414,13 @@
   .sd-advanced-summary::after { transition: none; }
 }
 
-/* Responsive */
+/* Responsive — key off WIDTH, not orientation: a tall desktop window is still
+   wide. A sticky toolbar that wraps to three rows would eat the screen, so it
+   only sticks where there's room for it. */
+@media (max-width: 900px) {
+  .sd-bar { position: static; }
+}
 @media (max-width: 760px) {
-  .sd-grid { grid-template-columns: 1fr; }
-  .sd-toolbar { flex-direction: column; align-items: flex-start; }
+  .sd-grid,
+  .sd-grid--three { grid-template-columns: 1fr; }
 }

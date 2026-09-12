@@ -16,9 +16,12 @@ import './SimplePage.css';
  *   /simple Control — watch it work, decide how far it may go   ← this page
  *   /plans  Goals   — the durable record of your intent
  *
- * The surface switcher lives in the header (zero extra height); the logged-out
- * view explains the whole loop before asking anyone to sign in, because /simple
- * is a landing target from Home and a bare sign-in wall was losing the visit.
+ * **This is a service page, not a landing page** — FRONTEND_UI_STANDARD.md §5.7.
+ * Service pages are workspaces, not stories: one flat surface, no bands, no
+ * gradient behind the data, and nothing to scroll past to reach the tool.
+ * Signed in, `SimpleDashboard` owns the whole workspace (it holds the addon
+ * state); signed out, this is a gate — the one case that gets a little
+ * explanation, because there is nothing else on the page yet.
  */
 
 const JOURNEY = [
@@ -57,55 +60,46 @@ function SimplePage() {
       />
       <Header center={<SimpleNav compact />} />
 
-      <div className="simple">
-        <div className="simple-floating" aria-hidden="true">
-          <div className="simple-circle simple-circle-1" />
-          <div className="simple-circle simple-circle-2" />
-          <div className="simple-circle simple-circle-3" />
-        </div>
-
-        {/* Hero */}
-        <section className="simple-hero">
-          <div className="simple-title-wrap">
-            <p className="simple-eyebrow">Simple · Control</p>
-            <h1 className="simple-title">Your agent, live</h1>
-            <p className="simple-subtitle">
-              See what it&apos;s doing, decide how far it can go, and stop it any time.
-            </p>
-          </div>
-        </section>
-
+      <div className="simple-surface">
         {user ? (
           <SimpleDashboard />
         ) : (
-          <>
-            {/* The whole loop, explained before asking anyone to sign in. */}
-            <section className="simple-journey" aria-labelledby="simple-journey-title">
-              <h2 id="simple-journey-title" className="simple-section-title">How Simple works</h2>
-              <ol className="simple-journey-list">
-                {JOURNEY.map((step) => (
-                  <li key={step.title} className={`simple-journey-card ${step.current ? 'is-current' : ''}`}>
-                    <span className="simple-journey-icon" aria-hidden="true">{step.icon}</span>
-                    <h3 className="simple-journey-heading">{step.title}</h3>
-                    <p className="simple-journey-body">{step.body}</p>
-                    {step.current ? (
-                      <span className="simple-journey-current" aria-current="step">{step.cta}</span>
-                    ) : (
-                      <Link className="simple-journey-link" to={step.to}>
-                        {step.cta} <span aria-hidden="true">→</span>
-                      </Link>
-                    )}
-                  </li>
-                ))}
-              </ol>
-              <p className="simple-journey-note">
-                Free to start — no credit card required. Simple runs on your own PC; the
-                cloud only keeps your goals and settings in sync.
+          <div className="simple-intro">
+            {/* The one place this page explains itself: there is no tool on
+                screen yet, so the visitor gets the name plus one line about why
+                the controls need the desktop app. */}
+            <header className="simple-intro-bar">
+              <h1 className="simple-intro-title">Control</h1>
+              <p className="simple-intro-note">
+                Watch the agent work on this PC, decide how far it may go, and stop it any
+                time. The live controls need the desktop app running.
               </p>
-            </section>
+            </header>
+
+            {/* Three tiles, not a story: what the loop is, and the way into the
+                other two rooms. */}
+            <ol className="simple-journey-list">
+              {JOURNEY.map((step) => (
+                <li
+                  key={step.title}
+                  className={`simple-journey-card ${step.current ? 'is-current' : ''}`}
+                >
+                  <span className="simple-journey-icon" aria-hidden="true">{step.icon}</span>
+                  <h2 className="simple-journey-heading">{step.title}</h2>
+                  <p className="simple-journey-body">{step.body}</p>
+                  {step.current ? (
+                    <span className="simple-journey-current" aria-current="step">{step.cta}</span>
+                  ) : (
+                    <Link className="simple-journey-link" to={step.to}>
+                      {step.cta} <span aria-hidden="true">→</span>
+                    </Link>
+                  )}
+                </li>
+              ))}
+            </ol>
 
             <LoginGate redirectTo="/simple" />
-          </>
+          </div>
         )}
       </div>
 

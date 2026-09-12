@@ -74,15 +74,7 @@ function AgentModes({ perms = {}, connected = false, busy = false, onChange }) {
   const paused = mode === 'paused';
 
   return (
-    <section className="modes" aria-labelledby="modes-title">
-      <div className="modes-head">
-        <h2 id="modes-title" className="modes-title">How much should Simple do on its own?</h2>
-        <p className="modes-sub">
-          It only ever escalates as far as you allow. Moving up a level is always
-          your choice — never automatic.
-        </p>
-      </div>
-
+    <section className="modes" aria-label="How much may the agent do on its own?">
       {paused && (
         <p className="modes-paused" role="status">
           ⛔ <strong>Kill switch is on.</strong> Nothing can run until you turn it off.
@@ -97,14 +89,17 @@ function AgentModes({ perms = {}, connected = false, busy = false, onChange }) {
             <li key={m.key}>
               <div
                 className={`modes-card ${isCurrent ? 'is-current' : ''} ${m.elevated ? 'is-elevated' : ''}`}
+                /* The longer explanation is a tooltip, not a second line to read
+                   on a page whose job is to get out of the way (§5.7). */
+                title={m.detail}
               >
                 <div className="modes-card-head">
                   <span className="modes-icon" aria-hidden="true">{m.icon}</span>
                   <span className="modes-label">{m.label}</span>
-                  {isCurrent && <span className="modes-here" aria-hidden="true">You’re here</span>}
+                  {isCurrent && <span className="modes-here">Here</span>}
                 </div>
+
                 <p className="modes-blurb">{m.blurb}</p>
-                <p className="modes-detail">{m.detail}</p>
 
                 {canSelect ? (
                   <button
@@ -112,16 +107,16 @@ function AgentModes({ perms = {}, connected = false, busy = false, onChange }) {
                     className={`modes-btn ${m.elevated ? 'modes-btn--elevated' : ''}`}
                     onClick={() => onChange?.(m.set)}
                     disabled={busy}
+                    aria-label={`Switch to ${m.label}`}
                   >
-                    Switch to {m.label}
-                    {m.elevated && <span className="modes-btn-warn" aria-hidden="true">▲</span>}
+                    Switch{m.elevated && <span className="modes-btn-warn" aria-hidden="true"> ▲</span>}
                   </button>
                 ) : (
                   <span className="modes-state" role="radio" aria-checked={isCurrent} aria-disabled={!m.selectable}>
                     {isCurrent
                       ? 'Active'
                       : m.selectable
-                        ? (connected ? 'Available' : 'Needs the PC agent')
+                        ? (connected ? 'Available' : 'Needs agent')
                         : 'Read-only'}
                   </span>
                 )}
@@ -133,7 +128,7 @@ function AgentModes({ perms = {}, connected = false, busy = false, onChange }) {
 
       {perms.autoApproveAll && !paused && (
         <p className="modes-note" role="status">
-          ⚠️ Auto-approve is on, so steps that would normally ask you will run without asking.
+          ⚠️ Auto-approve is on — steps that would normally ask you will run without asking.
         </p>
       )}
     </section>

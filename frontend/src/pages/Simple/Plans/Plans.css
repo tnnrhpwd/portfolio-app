@@ -1,197 +1,134 @@
 /* ===========================================================================
-   Plans — agent mission control
+   Plans — the goals workspace
    ---------------------------------------------------------------------------
-   Follows docs/guides/FRONTEND_UI_STANDARD.md: the animated four-colour
-   gradient is the signature page background, bands/cards sit on top with
-   hairline borders + soft shadows (no glassmorphism), everything scales off
-   --nav-size, and all colour comes from theme tokens so light/dark both work.
+   A SERVICE PAGE (FRONTEND_UI_STANDARD.md §5.7): one flat surface, a sticky
+   toolbar carrying the name + live state + primary action, then a dense grid of
+   panels ordered by how often you touch them. No bands, no animated background
+   behind the data, no scroll reveals.
+
+   Nothing here is separated by a border: panels are PLANES OF COLOR, each with
+   its own hue, and neighbouring planes differ in tone (§5 "color beside
+   color").
    =========================================================================== */
 
 .plans-page {
   position: relative;
   min-height: 100vh;
   min-height: 100svh;
-  overflow-x: hidden;
-  /* Clear the fixed header only — the surface switcher now lives inside it. */
-  padding: var(--nav-size) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.5);
+  /* NO `overflow-x: hidden` here: it makes this element a scroll container, and
+     a `position: sticky` toolbar inside one offsets itself instead of sticking.
+     Nothing overflows now that the decorative circles are gone. */
+  padding: calc(var(--nav-size) * 1.15) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.2);
   color: var(--text-color);
-  background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
-  background-size: 400% 400%;
-  animation: plansGradientShift 18s ease infinite;
+  background: var(--bg-page);
 }
 
-.light-theme .plans-page { animation-duration: 20s; }
-.dark-theme .plans-page { animation-duration: 14s; }
-
-@keyframes plansGradientShift {
-  0%   { background-position:   0%  50%; }
-  25%  { background-position: 100%  50%; }
-  50%  { background-position: 100% 100%; }
-  75%  { background-position:   0% 100%; }
-  100% { background-position:   0%  50%; }
-}
-
-/* Decorative, non-interactive floating circles */
-.plans-floating {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-.plans-circle {
-  position: absolute;
-  border-radius: 50%;
-  background: radial-gradient(circle, var(--white1-transp) 0%, transparent 70%);
-  animation: plansFloat 10s ease-in-out infinite;
-}
-.plans-circle-1 { width: calc(var(--nav-size) * 2.4); height: calc(var(--nav-size) * 2.4); top: 8%;  left: 5%;  animation-duration: 9s; }
-.plans-circle-2 { width: calc(var(--nav-size) * 1.7); height: calc(var(--nav-size) * 1.7); top: 52%; right: 7%; animation-duration: 12s; animation-delay: -3s; }
-.plans-circle-3 { width: calc(var(--nav-size) * 3.1); height: calc(var(--nav-size) * 3.1); bottom: 6%; left: 52%; animation-duration: 14s; animation-delay: -6s; }
-
-@keyframes plansFloat {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50%      { transform: translateY(-22px) rotate(180deg); }
-}
-
-/* ── Shell ─────────────────────────────────────────────────────────────────── */
+/* ── Shell: one grid, panels as its items ────────────────────────────────────
+   auto-fit gives 3 columns on a desktop, 2 on a tablet and 1 on a phone with no
+   media query; the rows that are really "full width" (toolbar, the loop, the
+   lists, the note) span all of them. */
 
 .plans-shell {
   position: relative;
   z-index: 2;
-  display: flex;
-  flex-direction: column;
-  gap: calc(var(--nav-size) * 0.45);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: calc(var(--nav-size) * 0.25);
+  align-items: start;
   width: 100%;
-  max-width: 880px;
+  max-width: 1180px;
   margin: 0 auto;
+  /* Default hue for a panel; each panel class claims its own (below). */
+  --plans-hue: var(--fg-blue);
 }
 
-/* Scroll reveal (once per mount) */
-.plans-reveal {
-  opacity: 0;
-  transform: translateY(26px);
-  transition: opacity 0.7s ease, transform 0.7s ease;
-}
-.plans-reveal.is-visible {
-  opacity: 1;
-  transform: translateY(0);
-}
+.plans-bar,
+.plans-login,
+.plans-agent,
+.plans-goals,
+.plans-form,
+.plans-skeleton-list,
+.plans-info-note { grid-column: 1 / -1; }
 
-/* ── Hero ─────────────────────────────────────────────────────────────────── */
+/* ── Toolbar — the page's "hero", collapsed onto one sticky row ───────────── */
 
-.plans-hero {
+.plans-bar {
+  position: sticky;
+  top: var(--nav-size);            /* just under the fixed site header */
+  z-index: 5;                      /* below the header's 10, above the panels */
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--spacing-xs);
+  align-items: center;
   flex-wrap: wrap;
-  padding: calc(var(--nav-size) * 0.45) calc(var(--nav-size) * 0.5);
-  background: var(--bg-1);
-  border: 1px solid var(--border-nav);
-  border-radius: var(--border-radius-2xl);
-  box-shadow: var(--shadow-md);
+  gap: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.25);
+  padding: calc(var(--nav-size) * 0.18) 0;
+  background: var(--bg-page);      /* opaque — no glassmorphism (§8) */
 }
-.plans-hero-copy { min-width: 0; flex: 1 1 340px; }
-
-.plans-eyebrow {
-  margin: 0 0 calc(var(--nav-size) * 0.1);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-color-accent);
+/* The one piece of brand on the page: an accent rule under the toolbar. */
+.plans-bar::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: 0; height: 2px;
+  background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint) 42%, transparent 72%);
+  pointer-events: none;
 }
 
-.plans-title {
-  margin: 0 0 calc(var(--nav-size) * 0.12);
+.plans-bar-title {
+  margin: 0;
   font-size: var(--font-size-heading);
   font-weight: var(--font-weight-bold);
-  line-height: var(--line-height-tight);
   letter-spacing: -0.01em;
+  line-height: 1;
 }
 
-.plans-subtitle {
-  max-width: 62ch;
-  margin: 0 0 var(--spacing-xs);
-  font-size: var(--font-size-small);
-  line-height: var(--line-height-base);
-  color: var(--text-color-accent);
-}
+.plans-bar-status { font-size: var(--font-size-small); color: var(--text-color-accent); }
+.plans-bar-readout,
+.plans-bar-stats { display: flex; flex-wrap: wrap; gap: calc(var(--nav-size) * 0.1); }
+.plans-bar-actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: calc(var(--nav-size) * 0.12); }
 
-.plans-hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: calc(var(--nav-size) * 0.22);
-  margin-top: var(--spacing-xs);
-}
-
-/* Stats */
-.plans-hero-stats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(calc(var(--nav-size) * 1.5), 1fr));
-  gap: calc(var(--nav-size) * 0.2);
-  margin: 0;
-  flex: 0 1 auto;
-}
-.plans-stat {
-  padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.3);
-  background: color-mix(in srgb, var(--fg-blue) 7%, transparent);
-  border: 1px solid var(--border-nav);
-  border-radius: var(--border-radius-lg);
-  text-align: center;
-}
-.plans-stat dt {
-  margin: 0;
+/* One row of live state and counts, never a 2×2 stat grid. */
+.plans-chip {
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  line-height: 1.6;
   color: var(--text-color-accent);
+  background: color-mix(in srgb, var(--fg-blue) 8%, transparent);
+  border-radius: 999px;
+  padding: 1px 9px;
+  white-space: nowrap;
 }
-.plans-stat dd {
-  margin: calc(var(--nav-size) * 0.06) 0 0;
-  font-size: var(--font-size-large);
-  font-weight: var(--font-weight-bold);
-  color: var(--fg-blue);
-  line-height: 1.1;
-}
-.plans-stat--warn.is-hot { background: color-mix(in srgb, var(--fg-pink) 12%, transparent); }
-.plans-stat--warn.is-hot dd { color: var(--fg-pink); }
-.plans-stat--total dd { color: var(--fg-mint); }
+.plans-chip strong { color: var(--text-color); font-weight: var(--font-weight-semibold); }
+.plans-chip--accent { color: var(--green2); background: color-mix(in srgb, currentColor 16%, transparent); }
+.plans-chip--danger { color: var(--red0); background: color-mix(in srgb, currentColor 16%, transparent); }
+.dark-theme .plans-chip--accent { color: var(--green1); }
 
-/* Logged-out prompt */
+/* Logged-out prompt — a plane of color, not a boxed card. */
 .plans-login {
   width: 100%;
-  padding: var(--spacing-sm);
-  background: var(--bg-1);
-  border: 1px solid var(--border-nav);
-  border-radius: var(--border-radius-xl);
-  box-shadow: var(--shadow-sm);
+  padding: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.4);
+  background: color-mix(in srgb, var(--fg-blue) 12%, var(--bg-1));
+  border: 1px solid transparent;
+  border-radius: var(--border-radius-lg);
   color: var(--text-color);
   font-family: inherit;
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: background 0.2s ease;
 }
-.plans-login:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.plans-login:hover { background: color-mix(in srgb, var(--fg-blue) 18%, var(--bg-1)); box-shadow: none; }
 
-/* ── Live agent band (O-O-G-P-A) ──────────────────────────────────────────── */
+/* ── Live loop panel (O-O-G-P-A) ──────────────────────────────────────────── */
 
 .plans-agent {
+  --plans-hue: var(--fg-mint);
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-sm);
-  background: color-mix(in srgb, var(--bg-1) 88%, transparent);
-  border: 1px solid var(--border-nav);
-  border-left: 4px solid var(--text-color-accent);
-  border-radius: var(--border-radius-xl);
-  box-shadow: var(--shadow-sm);
+  gap: calc(var(--nav-size) * 0.2);
+  padding: calc(var(--nav-size) * 0.28);
+  background: color-mix(in srgb, var(--plans-hue) 8%, var(--bg-1));
+  border-radius: var(--border-radius-lg);
 }
-.plans-agent.is-live    { border-left-color: var(--fg-mint); }
-.plans-agent.is-offline { border-left-color: var(--fg-orange); }
+.dark-theme .plans-agent { background: color-mix(in srgb, var(--plans-hue) 15%, var(--bg-1)); }
+.plans-agent.is-offline { --plans-hue: var(--fg-orange); }
 
 .plans-agent-head {
   display: flex;
@@ -259,7 +196,7 @@
   align-items: center;
   gap: calc(var(--nav-size) * 0.06);
   padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.08);
-  border: 1px solid var(--border-nav);
+  background: color-mix(in srgb, var(--text-color) 8%, transparent);
   border-radius: var(--border-radius);
   background: color-mix(in srgb, var(--bg-page) 55%, transparent);
   text-align: center;
@@ -288,9 +225,7 @@
 }
 .plans-stage.is-done .plans-stage-label { color: var(--text-color); }
 .plans-stage.is-current {
-  border-color: var(--fg-mint);
-  background: color-mix(in srgb, var(--fg-mint) 14%, transparent);
-  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--fg-mint) 22%, transparent);
 }
 .plans-stage.is-current .plans-stage-key { background: var(--fg-mint); color: var(--text-color-inv); }
 .plans-stage.is-current .plans-stage-label { color: var(--text-color); font-weight: var(--font-weight-bold); }
@@ -311,7 +246,7 @@
 }
 .plans-agent-chip--warn   { background: color-mix(in srgb, var(--fg-orange) 18%, transparent); color: var(--fg-orange); }
 .plans-agent-chip--accent { background: color-mix(in srgb, var(--fg-mint) 18%, transparent); color: var(--fg-mint); }
-.plans-agent-chip--muted  { background: transparent; border: 1px solid var(--border-nav); color: var(--text-color-accent); }
+.plans-agent-chip--muted  { background: color-mix(in srgb, var(--text-color) 10%, transparent); color: var(--text-color-accent); }
 .plans-agent-link {
   margin-left: auto;
   font-size: var(--font-size-small);
@@ -333,7 +268,16 @@
 
 /* ── Suggestions ──────────────────────────────────────────────────────────── */
 
-.plans-suggestions { display: flex; flex-direction: column; gap: var(--spacing-xs); }
+.plans-suggestions {
+  --plans-hue: var(--fg-pink);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.2);
+  padding: calc(var(--nav-size) * 0.28);
+  background: color-mix(in srgb, var(--plans-hue) 8%, var(--bg-1));
+  border-radius: var(--border-radius-lg);
+}
+.dark-theme .plans-suggestions { background: color-mix(in srgb, var(--plans-hue) 15%, var(--bg-1)); }
 
 .plans-section-title {
   margin: 0;
@@ -352,11 +296,9 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  padding: calc(var(--nav-size) * 0.35) calc(var(--nav-size) * 0.45);
-  background: color-mix(in srgb, var(--fg-mint) 10%, var(--bg-1));
-  border: 1px solid var(--border-nav);
-  border-radius: var(--border-radius-xl);
-  box-shadow: var(--shadow-sm);
+  padding: calc(var(--nav-size) * 0.28) calc(var(--nav-size) * 0.32);
+  background: color-mix(in srgb, var(--fg-mint) 14%, transparent);
+  border-radius: var(--border-radius-lg);
   flex-wrap: wrap;
 }
 .plans-suggestion-body { flex: 1 1 240px; min-width: 0; }
@@ -374,12 +316,11 @@
 .plans-switch {
   display: inline-flex;
   align-self: flex-start;
+  justify-self: start;             /* as a grid item, don't stretch to the track */
   padding: calc(var(--nav-size) * 0.08);
   gap: calc(var(--nav-size) * 0.08);
-  background: var(--bg-1);
-  border: 1px solid var(--border-nav);
+  background: color-mix(in srgb, var(--text-color) 9%, transparent);
   border-radius: 999px;
-  box-shadow: var(--shadow-sm);
 }
 .plans-switch-btn {
   display: inline-flex;
@@ -418,20 +359,19 @@
   align-items: center;
   gap: calc(var(--nav-size) * 0.12);
   padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.36);
-  background: var(--bg-1);
-  border: 1px solid var(--border-nav);
+  background: color-mix(in srgb, var(--text-color) 9%, transparent);
+  border: 1px solid transparent;
   border-radius: 999px;
   color: var(--text-color);
   font-family: inherit;
   font-size: var(--font-size-small);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: border-color 0.2s ease, transform 0.2s ease;
+  transition: background 0.2s ease;
 }
-.plans-tab:hover { border-color: var(--fg-mint); transform: translateY(-1px); }
+.plans-tab:hover { background: color-mix(in srgb, var(--text-color) 14%, transparent); }
 .plans-tab.is-active {
   background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
-  border-color: transparent;
   color: var(--text-color-inv);
 }
 .plans-tab-count {
@@ -448,17 +388,27 @@
 
 /* ── Controls ─────────────────────────────────────────────────────────────── */
 
-.plans-controls { display: flex; flex-direction: column; gap: var(--spacing-xs); }
+.plans-controls {
+  --plans-hue: var(--fg-blue);
+  /* Takes the rest of its row: the switch sits left, the filters fill out. */
+  grid-column: span 2;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.2);
+  padding: calc(var(--nav-size) * 0.28);
+  background: color-mix(in srgb, var(--plans-hue) 8%, var(--bg-1));
+  border-radius: var(--border-radius-lg);
+}
+.dark-theme .plans-controls { background: color-mix(in srgb, var(--plans-hue) 15%, var(--bg-1)); }
 
 .plans-quickadd {
   display: flex;
   align-items: center;
   gap: calc(var(--nav-size) * 0.18);
-  padding: calc(var(--nav-size) * 0.14) calc(var(--nav-size) * 0.3);
+  padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.28);
   background: var(--bg-1);
-  border: 1px solid var(--border-nav);
+  border: 1px solid color-mix(in srgb, var(--plans-hue) 28%, transparent);
   border-radius: 999px;
-  box-shadow: var(--shadow-sm);
   transition: border-color 0.2s ease;
 }
 .plans-quickadd:focus-within { border-color: var(--fg-blue); }
@@ -498,9 +448,9 @@
   display: flex;
   align-items: center;
   gap: calc(var(--nav-size) * 0.16);
-  padding: 0 calc(var(--nav-size) * 0.3);
+  padding: 0 calc(var(--nav-size) * 0.28);
   background: var(--bg-1);
-  border: 1px solid var(--border-nav);
+  border: 1px solid color-mix(in srgb, var(--plans-hue) 28%, transparent);
   border-radius: 999px;
   transition: border-color 0.2s ease;
 }
@@ -531,9 +481,9 @@
 .plans-search-clear:hover { color: var(--text-color); }
 
 .plans-filter-select {
-  padding: calc(var(--nav-size) * 0.24) calc(var(--nav-size) * 0.3);
+  padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.28);
   background: var(--bg-1);
-  border: 1px solid var(--border-nav);
+  border: 1px solid color-mix(in srgb, var(--plans-hue) 28%, transparent);
   border-radius: 999px;
   color: var(--text-color);
   font-family: inherit;
@@ -546,25 +496,24 @@
 .plans-chips { display: flex; flex-wrap: wrap; gap: calc(var(--nav-size) * 0.12); }
 .plans-chip {
   padding: calc(var(--nav-size) * 0.14) calc(var(--nav-size) * 0.34);
-  background: var(--bg-1);
-  border: 1px solid var(--border-nav);
+  background: color-mix(in srgb, var(--text-color) 9%, transparent);
+  border: 1px solid transparent;
   border-radius: 999px;
   color: var(--text-color);
   font-family: inherit;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: border-color 0.18s ease, transform 0.18s ease, background 0.18s ease;
+  transition: background 0.18s ease;
 }
-.plans-chip:hover { border-color: var(--fg-mint); transform: translateY(-1px); }
+.plans-chip:hover { background: color-mix(in srgb, var(--text-color) 15%, transparent); }
 .plans-chip.is-active {
   background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
-  border-color: transparent;
   color: var(--text-color-inv);
 }
 .plans-chip--priority.is-active { background: linear-gradient(135deg, var(--fg-orange), var(--fg-pink)); }
-.plans-chip--clear { border-style: dashed; color: var(--text-color-accent); }
-.plans-chip--clear:hover { border-color: var(--fg-pink); color: var(--fg-pink); }
+.plans-chip--clear { background: transparent; color: var(--text-color-accent); text-decoration: underline; }
+.plans-chip--clear:hover { background: transparent; color: var(--fg-pink); }
 
 /* ── Buttons ──────────────────────────────────────────────────────────────── */
 
@@ -594,18 +543,16 @@
 .plans-btn--primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--shadow-md); }
 
 .plans-btn--outline {
-  background: transparent;
-  border-color: var(--border-nav);
+  background: color-mix(in srgb, var(--text-color) 9%, transparent);
   color: var(--text-color);
 }
-.plans-btn--outline:hover:not(:disabled) { background: var(--bg-accent); transform: translateY(-1px); }
+.plans-btn--outline:hover:not(:disabled) { background: color-mix(in srgb, var(--text-color) 15%, transparent); }
 
 .plans-btn--ghost {
   background: var(--bg-1);
-  border-color: var(--border-nav);
   color: var(--text-color);
 }
-.plans-btn--ghost:hover:not(:disabled) { border-color: var(--fg-mint); }
+.plans-btn--ghost:hover:not(:disabled) { background: color-mix(in srgb, var(--plans-hue, var(--fg-blue)) 22%, var(--bg-1)); }
 
 .plans-btn--sm { padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.4); }
 
@@ -763,7 +710,7 @@
 }
 .plans-field--check input { width: auto; accent-color: var(--fg-mint); }
 
-.plans-advanced { border-top: 1px dashed var(--border-nav); padding-top: calc(var(--nav-size) * 0.25); }
+.plans-advanced { border-top: 1px solid color-mix(in srgb, var(--text-color) 14%, transparent); padding-top: calc(var(--nav-size) * 0.25); }
 .plans-advanced-toggle {
   border: none;
   background: none;
@@ -815,19 +762,18 @@
 .plans-empty {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: calc(var(--nav-size) * 0.28);
-  padding: var(--spacing-md) var(--spacing-sm);
-  background: color-mix(in srgb, var(--bg-1) 80%, transparent);
-  border: 2px dashed var(--border-nav);
-  border-radius: var(--border-radius-xl);
-  text-align: center;
+  align-items: flex-start;
+  gap: calc(var(--nav-size) * 0.2);
+  padding: calc(var(--nav-size) * 0.4) calc(var(--nav-size) * 0.35);
+  background: color-mix(in srgb, var(--text-color) 6%, transparent);
+  border-radius: var(--border-radius-lg);
+  text-align: left;
 }
-.plans-empty-icon { font-size: calc(var(--nav-size) * 0.8); opacity: 0.8; }
+.plans-empty-icon { font-size: calc(var(--nav-size) * 0.5); line-height: 1; opacity: 0.9; }
 .plans-empty-title {
   margin: 0;
   max-width: 46ch;
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-small);
   line-height: var(--line-height-base);
   color: var(--text-color-accent);
 }
@@ -860,30 +806,33 @@
   font-size: var(--font-size-xs);
 }
 
-.plans-goal-grid { display: grid; grid-template-columns: 1fr; gap: calc(var(--nav-size) * 0.25); }
+/* auto-FILL (not auto-fit): empty tracks are kept, so a single goal stays one
+   card wide instead of stretching the whole row. */
+.plans-goal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: calc(var(--nav-size) * 0.25); }
 .plans-item-list { display: flex; flex-direction: column; gap: calc(var(--nav-size) * 0.22); }
 
 /* ── Goal card ────────────────────────────────────────────────────────────── */
 
+/* A goal is a plane of color whose hue IS its status — active mint, blocked
+   pink, paused orange. No border, no left rail, no shadow. */
 .plans-goal-card {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--nav-size) * 0.26);
-  padding: var(--spacing-sm);
-  background: var(--bg-1);
-  border: 1px solid var(--border-nav);
-  border-left: 4px solid var(--fg-blue);
+  gap: calc(var(--nav-size) * 0.24);
+  padding: calc(var(--nav-size) * 0.3);
+  background: color-mix(in srgb, var(--plans-hue) 8%, var(--bg-1));
   border-radius: var(--border-radius-lg);
-  box-shadow: var(--shadow-sm);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  transition: background 0.2s ease;
 }
-.plans-goal-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-left-color: var(--fg-mint); }
-.plans-goal-card.status-active  { border-left-color: var(--fg-mint); }
-.plans-goal-card.status-blocked { border-left-color: var(--fg-pink); }
-.plans-goal-card.status-paused  { border-left-color: var(--fg-orange); }
-.plans-goal-card.status-failed  { border-left-color: var(--red0); }
-.plans-goal-card.status-done    { border-left-color: var(--fg-blue); opacity: 0.85; }
-.plans-goal-card.is-overdue     { border-color: color-mix(in srgb, var(--fg-pink) 45%, transparent); }
+.dark-theme .plans-goal-card { background: color-mix(in srgb, var(--plans-hue) 15%, var(--bg-1)); }
+.plans-goal-card:hover { background: color-mix(in srgb, var(--plans-hue) 13%, var(--bg-1)); }
+.dark-theme .plans-goal-card:hover { background: color-mix(in srgb, var(--plans-hue) 20%, var(--bg-1)); }
+.plans-goal-card.status-active  { --plans-hue: var(--fg-mint); }
+.plans-goal-card.status-blocked { --plans-hue: var(--fg-pink); }
+.plans-goal-card.status-paused  { --plans-hue: var(--fg-orange); }
+.plans-goal-card.status-failed  { --plans-hue: var(--red0); }
+.plans-goal-card.status-done    { --plans-hue: var(--fg-blue); opacity: 0.85; }
+.plans-goal-card.is-overdue     { --plans-hue: var(--fg-pink); }
 
 .plans-goal-head {
   display: flex;
@@ -903,17 +852,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid var(--border-nav);
-  border-radius: 50%;
+  border: none;
+  /* A colored ring, not a grey border — a control still needs an edge, and the
+     rule is to make that edge a color (§5). */
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--fg-mint) 55%, transparent);
   background: transparent;
   color: var(--fg-mint);
   font-size: calc(var(--nav-size) * 0.24);
   font-weight: var(--font-weight-bold);
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 }
-.plans-goal-check:hover { border-color: var(--fg-mint); background: color-mix(in srgb, var(--fg-mint) 12%, transparent); }
-.plans-goal-check.is-checked { background: var(--fg-mint); border-color: var(--fg-mint); color: var(--text-color-inv); }
+.plans-goal-check:hover { background: color-mix(in srgb, var(--fg-mint) 24%, transparent); }
+.plans-goal-check.is-checked { background: var(--fg-mint); box-shadow: none; color: var(--text-color-inv); }
 
 .plans-goal-title {
   flex: 1;
@@ -1047,21 +998,22 @@
   font-weight: var(--font-weight-semibold);
   white-space: nowrap;
 }
-.plans-tag--outline { background: transparent; border: 1px solid var(--border-nav); color: var(--text-color-accent); }
+.plans-tag--outline { background: color-mix(in srgb, var(--text-color) 11%, transparent); color: var(--text-color-accent); }
 .plans-tag--danger  { background: color-mix(in srgb, var(--fg-pink) 16%, transparent); color: var(--fg-pink); }
 .plans-tag--high    { background: color-mix(in srgb, var(--fg-pink) 16%, transparent);   color: var(--fg-pink); }
 .plans-tag--medium  { background: color-mix(in srgb, var(--fg-blue) 16%, transparent);   color: var(--fg-blue); }
 .plans-tag--low     { background: color-mix(in srgb, var(--fg-mint) 16%, transparent);   color: var(--fg-mint); }
 
-/* Goal footer */
+/* Goal footer — separated by a stronger wash of the card's own hue, bled to the
+   card edges, instead of a dashed rule. */
 .plans-goal-foot {
   display: flex;
   align-items: center;
   gap: calc(var(--nav-size) * 0.28);
   flex-wrap: wrap;
-  margin-top: auto;
-  padding-top: calc(var(--nav-size) * 0.26);
-  border-top: 1px dashed var(--border-nav);
+  margin: auto calc(var(--nav-size) * -0.3) calc(var(--nav-size) * -0.3);
+  padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.3);
+  background: color-mix(in srgb, var(--plans-hue) 11%, transparent);
 }
 .plans-goal-link {
   border: none;
@@ -1081,20 +1033,18 @@
   display: flex;
   flex-direction: column;
   gap: calc(var(--nav-size) * 0.2);
-  padding: var(--spacing-sm);
-  background: var(--bg-1);
-  border: 1px solid var(--border-nav);
-  border-left: 4px solid var(--fg-blue);
+  padding: calc(var(--nav-size) * 0.28);
+  background: color-mix(in srgb, var(--plans-hue) 8%, var(--bg-1));
   border-radius: var(--border-radius-lg);
-  box-shadow: var(--shadow-sm);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: background 0.2s ease;
 }
-.plans-lib-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
-.plans-lib-card.type-plan   { border-left-color: var(--fg-mint); }
-.plans-lib-card.type-action { border-left-color: var(--fg-pink); }
-.plans-lib-card.type-note   { border-left-color: var(--fg-orange); }
+.dark-theme .plans-lib-card { background: color-mix(in srgb, var(--plans-hue) 15%, var(--bg-1)); }
+.plans-lib-card:hover { background: color-mix(in srgb, var(--plans-hue) 13%, var(--bg-1)); }
+.plans-lib-card.type-plan   { --plans-hue: var(--fg-mint); }
+.plans-lib-card.type-action { --plans-hue: var(--fg-pink); }
+.plans-lib-card.type-note   { --plans-hue: var(--fg-orange); }
 .plans-lib-card.is-done { opacity: 0.75; }
-.plans-lib-card.is-overdue { border-color: color-mix(in srgb, var(--fg-pink) 45%, transparent); }
+.plans-lib-card.is-overdue { --plans-hue: var(--fg-pink); }
 
 .plans-lib-head { display: flex; align-items: flex-start; gap: calc(var(--nav-size) * 0.18); }
 .plans-lib-title-row { display: flex; align-items: center; gap: calc(var(--nav-size) * 0.18); flex: 1; min-width: 0; }
@@ -1110,26 +1060,25 @@
 
 .plans-info-note {
   margin: 0;
-  padding: calc(var(--nav-size) * 0.35) calc(var(--nav-size) * 0.5);
-  background: color-mix(in srgb, var(--fg-blue) 9%, transparent);
-  border-radius: var(--border-radius-lg);
+  padding: calc(var(--nav-size) * 0.26) calc(var(--nav-size) * 0.3);
+  background: color-mix(in srgb, var(--text-color) 7%, transparent);
+  border-radius: var(--border-radius);
   font-size: var(--font-size-small);
-  line-height: var(--line-height-relaxed);
-  color: var(--text-color);
-  text-align: center;
+  line-height: var(--line-height-base);
+  color: var(--text-color-accent);
 }
 
 /* ── Responsive ───────────────────────────────────────────────────────────── */
 
-@media (min-width: 760px) {
-  .plans-goal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* A sticky toolbar that wraps to three rows would eat the screen, so it only
+   sticks where there is room for it. */
+@media (max-width: 900px) {
+  .plans-bar { position: static; }
 }
 
 @media (orientation: portrait) and (max-width: 720px) {
-  .plans-hero { flex-direction: column; align-items: stretch; }
-  .plans-hero-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .plans-hero-actions { flex-direction: column; }
-  .plans-hero-actions .plans-btn { width: 100%; }
+  .plans-bar-actions { width: 100%; }
+  .plans-bar-actions .plans-btn { width: 100%; }
   .plans-agent-link { margin-left: 0; }
   .plans-stage-label { display: none; }
   .plans-stage { padding: calc(var(--nav-size) * 0.14) calc(var(--nav-size) * 0.05); }
@@ -1148,9 +1097,6 @@
 /* ── Reduced motion ───────────────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
-  .plans-page { animation: none; }
-  .plans-circle { animation: none; }
-  .plans-reveal { opacity: 1; transform: none; transition: none; }
   .plans-skeleton { animation: none; }
   .plans-form { animation: none; }
   .plans-modal-overlay,

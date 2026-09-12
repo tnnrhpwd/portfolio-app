@@ -21,7 +21,6 @@ import {
   getAutomationPermissions,
 } from '../../../services/simpleAddonApi.js';
 import { useAddonDetection } from '../../../hooks/simpleAddon/useAddonDetection';
-import useScrollReveal from '../../../hooks/useScrollReveal';
 import SimpleNav from '../../../components/Simple/SimpleNav/SimpleNav.jsx';
 import {
   OOGPA_STAGES,
@@ -513,12 +512,6 @@ function Plans() {
 
   const clearFilters = () => { setSearch(''); setStatusFilter('all'); setPriorityFilter('all'); };
 
-  // -- Scroll reveal ---------------------------------------------------------
-
-  const [heroRef, heroVisible] = useScrollReveal();
-  const [agentRef, agentVisible] = useScrollReveal();
-  const [listRef, listVisible] = useScrollReveal();
-
   // -- Render ----------------------------------------------------------------
 
   return (
@@ -532,52 +525,47 @@ function Plans() {
       <Header center={<SimpleNav compact running={Boolean(agentLive?.running)} goalName={agentLive?.currentGoal?.name || ''} />} />
 
       <div className="plans-page">
-        <div className="plans-floating" aria-hidden="true">
-          <span className="plans-circle plans-circle-1" />
-          <span className="plans-circle plans-circle-2" />
-          <span className="plans-circle plans-circle-3" />
-        </div>
-
         <div className="plans-shell">
-          {/* Hero */}
-          <section ref={heroRef} className={`plans-hero plans-reveal ${heroVisible ? 'is-visible' : ''}`}>
-            <div className="plans-hero-copy">
-              <p className="plans-eyebrow">Simple · Agent workspace</p>
-              <h1 className="plans-title">Mission control</h1>
-              <p className="plans-subtitle">
-                Goals your agent can pick up and work on — with the plans, actions
-                and lessons behind them.
-              </p>
-              {user && (
-                <div className="plans-hero-actions">
-                  <button type="button" className="plans-btn plans-btn--primary" onClick={openCreate}>
-                    + New goal
-                  </button>
-                </div>
-              )}
-            </div>
+          {/* Toolbar — the page's "hero", collapsed onto one sticky row. Name,
+              live state, primary action: a service page leads with the tool, not
+              with a description of itself (FRONTEND_UI_STANDARD.md §5.7). */}
+          <header className="plans-bar">
+            <h1 className="plans-bar-title">Goals</h1>
+
+            {isConnected ? (
+              <span className="plans-bar-readout">
+                <span className="plans-chip">Loop <strong>{LOOP_LABELS[agentLive?.loop] || agentLive?.loop || 'idle'}</strong></span>
+                <span className="plans-chip">Stage <strong>{agentLive?.stage || '—'}</strong></span>
+                {runningWorkers > 0 && (
+                  <span className="plans-chip plans-chip--accent">{runningWorkers} running</span>
+                )}
+                {perms?.globalKillSwitch && (
+                  <span className="plans-chip plans-chip--danger">⛔ Stopped</span>
+                )}
+              </span>
+            ) : (
+              <span className="plans-bar-status">Desktop agent offline</span>
+            )}
 
             {user && !loading && (
-              <dl className="plans-hero-stats" aria-label="Goal summary">
-                <div className="plans-stat">
-                  <dt>In flight</dt>
-                  <dd>{stats.active}</dd>
-                </div>
-                <div className={`plans-stat plans-stat--warn ${stats.blocked > 0 ? 'is-hot' : ''}`}>
-                  <dt>Needs you</dt>
-                  <dd>{stats.blocked}</dd>
-                </div>
-                <div className="plans-stat">
-                  <dt>Done</dt>
-                  <dd>{stats.done}</dd>
-                </div>
-                <div className="plans-stat plans-stat--total">
-                  <dt>Completion</dt>
-                  <dd>{stats.pct}%</dd>
-                </div>
-              </dl>
+              <span className="plans-bar-stats" aria-label="Goal summary">
+                <span className="plans-chip">In flight <strong>{stats.active}</strong></span>
+                <span className={`plans-chip ${stats.blocked > 0 ? 'plans-chip--danger' : ''}`}>
+                  Needs you <strong>{stats.blocked}</strong>
+                </span>
+                <span className="plans-chip">Done <strong>{stats.done}</strong></span>
+                <span className="plans-chip">{stats.pct}% complete</span>
+              </span>
             )}
-          </section>
+
+            {user && (
+              <div className="plans-bar-actions">
+                <button type="button" className="plans-btn plans-btn--primary" onClick={openCreate}>
+                  + New goal
+                </button>
+              </div>
+            )}
+          </header>
 
           {!user ? (
             <button
@@ -589,10 +577,10 @@ function Plans() {
             </button>
           ) : (
             <>
-              {/* Live agent band — the O-O-G-P-A loop */}
+              {/* The live loop. A panel, not a band: what the agent is doing
+                  right now, on the same plane as everything else. */}
               <section
-                ref={agentRef}
-                className={`plans-agent plans-reveal ${agentVisible ? 'is-visible' : ''} ${isConnected ? 'is-live' : 'is-offline'}`}
+                className={`plans-agent ${isConnected ? 'is-live' : 'is-offline'}`}
                 aria-label="Agent status"
               >
                 <div className="plans-agent-head">
@@ -607,7 +595,7 @@ function Plans() {
                       {isConnected ? (
                         agentLive?.running && agentLive.currentGoal
                           ? <>Working on <strong>{agentLive.currentGoal.name || agentLive.currentGoal.slug}</strong>{agentLive.step ? ` · step ${agentLive.step}` : ''}</>
-                          : <>The Observe → Orient → Goal → Plan → Action loop is idle. Enlist a goal below, or talk to it on <Link to="/net">/net</Link>.</>
+                          : <>Idle — enlist a goal below, or talk to it on <Link to="/net">/net</Link>.</>
                       ) : (
                         <>Install or launch the Simple desktop app to let your agent act on this PC. Your goals still sync without it.</>
                       )}
@@ -978,7 +966,7 @@ function Plans() {
 
               {/* Goals view */}
               {!loading && isGoalsView && (
-                <section ref={listRef} className={`plans-goals plans-reveal ${listVisible ? 'is-visible' : ''}`}>
+                <section className="plans-goals">
                   {goalGroups.length === 0 ? (
                     <EmptyState
                       icon="🎯"

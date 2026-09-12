@@ -1,263 +1,61 @@
-/* ── Simple — vibrant editorial (docs/guides/FRONTEND_UI_STANDARD.md) ── */
+/* ── Simple · Control — page shell (FRONTEND_UI_STANDARD.md §5.7) ──────────
+   A service page: one flat surface, no bands, no gradient behind the data.
+   The dashboard owns its own toolbar and panel grid; this file is the surface
+   it sits on plus the signed-out gate. */
 
-.simple {
-  color: var(--text-color);
+.simple-surface {
+  display: flex;
+  justify-content: center;
   min-height: 100vh;
-  padding: var(--nav-size) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.5);
-  background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
-  background-size: 400% 400%;
-  animation: simpleGradientShift 12s ease infinite;
-  position: relative;
-  overflow-x: hidden;
+  padding: calc(var(--nav-size) * 1.15) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.2);
+  background: var(--bg-page);
+  color: var(--text-color);
+}
+/* Every child of the surface is the page container (the dashboard or the
+   gate), so neither has to know how wide the page is allowed to be. */
+.simple-surface > * { width: 100%; max-width: 1180px; }
+
+/* ── Signed-out gate ──────────────────────────────────────────────────────
+   The only state of this page that explains itself: there is no tool on
+   screen yet, so the visitor gets the name, one line, and the loop. */
+
+.simple-intro {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  gap: calc(var(--nav-size) * 0.45);
+  max-width: 900px !important;   /* narrower than the workspace: this is a read */
 }
 
-.light-theme .simple { animation-duration: 15s; }
-.dark-theme .simple { animation-duration: 10s; }
-
-@keyframes simpleGradientShift {
-  0% { background-position: 0% 50%; }
-  25% { background-position: 100% 50%; }
-  50% { background-position: 100% 100%; }
-  75% { background-position: 0% 100%; }
-  100% { background-position: 0% 50%; }
-}
-
-.simple-floating { pointer-events: none; position: absolute; inset: 0; z-index: 0; overflow: hidden; }
-.simple-circle {
+.simple-intro-bar { position: relative; padding-bottom: calc(var(--nav-size) * 0.28); }
+/* The one piece of brand: an accent rule under the title row. */
+.simple-intro-bar::after {
+  content: '';
   position: absolute;
-  border-radius: 50%;
-  background: radial-gradient(circle, var(--white1-transp, #f4f7fd33) 0%, transparent 70%);
-  animation: simpleFloat 6s ease-in-out infinite;
+  left: 0; right: 55%; bottom: -1px; height: 2px;
+  background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint));
+  border-radius: 2px;
 }
-.simple-circle-1 { width: 180px; height: 180px; top: 8%; left: 6%; animation-duration: 9s; }
-.simple-circle-2 { width: 120px; height: 120px; top: 55%; right: 8%; animation-duration: 11s; animation-delay: -2s; }
-.simple-circle-3 { width: 220px; height: 220px; bottom: 5%; left: 55%; animation-duration: 13s; animation-delay: -4s; }
-@keyframes simpleFloat {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-24px) rotate(180deg); }
-}
-
-.simple-hero,
-.simple-band {
-  position: relative;
-  z-index: 2;
-  width: 100%;
-  max-width: 980px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-/* Hero */
-.simple-hero {
-  flex-direction: row;
-  gap: calc(var(--nav-size) * 0.6);
-  padding: calc(var(--nav-size) * 0.55) 0 calc(var(--nav-size) * 0.5);
-  align-items: center;
-}
-.simple-title-wrap { flex: 1 1 55%; min-width: 0; }
-.simple-eyebrow {
-  margin: 0 0 calc(var(--nav-size) * 0.2);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-color-accent);
-}
-.simple-title {
+.simple-intro-title {
+  margin: 0 0 calc(var(--nav-size) * 0.12);
+  font-size: var(--font-size-heading);
   font-weight: var(--font-weight-bold);
   letter-spacing: -0.01em;
-  font-size: var(--font-size-heading);
-  line-height: var(--line-height-tight);
-  margin: 0 0 calc(var(--nav-size) * 0.14);
 }
-.simple-subtitle {
-  color: var(--text-color-accent);
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-base);
+.simple-intro-note {
+  margin: 0;
   max-width: 62ch;
-  margin: 0 0 calc(var(--nav-size) * 0.3);
-}
-.simple-example {
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-relaxed);
-  margin: 0 0 calc(var(--nav-size) * 0.5);
-}
-.simple-hero-media {
-  flex: 1 1 45%;
-  width: 100%;
-  max-width: 440px;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
-  border-radius: var(--border-radius-2xl);
-  box-shadow: var(--shadow-md);
-}
-
-.simple-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: calc(var(--nav-size) * 0.25);
-}
-
-/* Buttons */
-.simple-btn {
-  font-family: inherit;
-  font-weight: var(--font-weight-semibold);
-  font-size: var(--font-size-base);
-  letter-spacing: 0.02em;
-  border-radius: 999px;
-  padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.55);
-  cursor: pointer;
-  border: 1px solid transparent;
-  color: var(--text-color-inv);
-  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
-  text-decoration: none;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.simple-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); color: var(--text-color-inv); }
-.simple-btn-outline {
-  background: transparent;
-  color: var(--text-color);
-  border-color: var(--border-nav);
-}
-.simple-btn-outline:hover { background: var(--bg-accent); box-shadow: none; color: var(--text-color); }
-.simple-btn--invert {
-  color: var(--fg-blue);
-  background: var(--bg-1);
-}
-.simple-btn--invert:hover { color: var(--fg-blue); }
-
-/* Bands */
-.simple-band {
-  padding: calc(var(--nav-size) * 1.6) 0;
-  gap: calc(var(--nav-size) * 0.6);
-  text-align: center;
-}
-.simple-section-head { display: flex; flex-direction: column; align-items: center; gap: calc(var(--nav-size) * 0.1); }
-.simple-heading {
-  font-size: var(--font-size-heading);
-  font-weight: var(--font-weight-semibold);
-  margin: 0;
-}
-.simple-band--cta {
-  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
-  color: var(--text-color-inv);
-  border-radius: var(--border-radius-xl);
-  padding: calc(var(--nav-size) * 1.6) calc(var(--nav-size) * 0.6);
-}
-.simple-band--cta .simple-heading { color: var(--text-color-inv); }
-.simple-cta-copy {
-  max-width: 640px;
-  font-size: var(--font-size-large);
-  line-height: var(--line-height-relaxed);
-  margin: 0;
-}
-.simple-band--cta .simple-cta-copy { color: var(--text-color-inv); }
-
-/* Feature tiles */
-.simple-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: calc(var(--nav-size) * 0.35);
-  width: 100%;
-}
-.simple-tile {
-  background: var(--bg-1);
-  border: 1px solid var(--border-nav);
-  border-radius: var(--border-radius-lg);
-  box-shadow: var(--shadow-sm);
-  padding: calc(var(--nav-size) * 0.4);
-  text-align: left;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.simple-tile:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
-.simple-tile-media {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
-  border-radius: var(--border-radius-2xl);
-  margin-bottom: calc(var(--nav-size) * 0.3);
-}
-.simple-tile-title {
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-semibold);
-  margin: 0 0 calc(var(--nav-size) * 0.15);
-}
-.simple-tile-body {
   font-size: var(--font-size-small);
   line-height: var(--line-height-relaxed);
   color: var(--text-color-accent);
-  margin: 0;
 }
 
-/* Steps */
-.simple-steps {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: calc(var(--nav-size) * 0.35);
-  width: 100%;
-  max-width: 720px;
-  text-align: left;
-}
-.simple-step {
-  display: flex;
-  align-items: flex-start;
-  gap: calc(var(--nav-size) * 0.35);
-  background: color-mix(in srgb, var(--bg-1) 55%, transparent);
-  border: 1px solid var(--border-nav);
-  border-radius: var(--border-radius-lg);
-  padding: calc(var(--nav-size) * 0.35);
-}
-.simple-step-n {
-  flex-shrink: 0;
-  font-size: var(--font-size-heading);
-  font-weight: var(--font-weight-bold);
-  color: var(--fg-blue);
-  line-height: 1;
-}
-.simple-step-title {
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-semibold);
-  margin: 0 0 calc(var(--nav-size) * 0.1);
-}
-.simple-step-body {
-  font-size: var(--font-size-small);
-  line-height: var(--line-height-relaxed);
-  color: var(--text-color-accent);
-  margin: 0;
-}
+/* The shared gate is built for a full-page centered state; here it is the last
+   block of a short column, so it must not grow and push itself away from the
+   tiles above it. */
+.simple-intro .login-gate { flex: 0 0 auto; padding: 0; }
 
-/* ── "How Simple works" journey band (logged-out /simple) ─────────────────
-   Teaches the Chat → Control → Goals loop before asking anyone to sign in, and
-   links straight into each surface. */
-
-.simple-journey {
-  position: relative;
-  z-index: 2;
-  width: 100%;
-  max-width: 880px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-  padding: calc(var(--nav-size) * 0.5) 0 calc(var(--nav-size) * 0.4);
-}
-
-.simple-section-title {
-  margin: 0;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-color-accent);
-  text-align: center;
-}
-
+/* The three rooms, as borderless tiles on a band. Grouping comes from
+   whitespace and tone, not from a box — borders are for controls only (§5). */
 .simple-journey-list {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -272,24 +70,19 @@
   flex-direction: column;
   gap: calc(var(--nav-size) * 0.14);
   height: 100%;
-  padding: var(--spacing-sm);
-  background: var(--bg-1);
-  border: 1px solid var(--border-nav);
+  padding: calc(var(--nav-size) * 0.3);
   border-radius: var(--border-radius-xl);
-  box-shadow: var(--shadow-sm);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  background: color-mix(in srgb, var(--fg-blue) 7%, transparent);
+  transition: background 0.2s ease, transform 0.2s ease;
 }
-.simple-journey-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
-.simple-journey-card.is-current {
-  border-color: var(--fg-mint);
-  background: color-mix(in srgb, var(--fg-mint) 10%, var(--bg-1));
-}
+.simple-journey-card:hover { background: color-mix(in srgb, var(--fg-blue) 12%, transparent); transform: translateY(-2px); }
+.simple-journey-card.is-current { background: color-mix(in srgb, var(--fg-mint) 16%, transparent); }
 
-.simple-journey-icon { font-size: calc(var(--nav-size) * 0.6); line-height: 1; }
+.simple-journey-icon { font-size: calc(var(--nav-size) * 0.5); line-height: 1; }
 
 .simple-journey-heading {
   margin: 0;
-  font-size: var(--font-size-large);
+  font-size: var(--font-size-base);
   font-weight: var(--font-weight-bold);
   line-height: var(--line-height-tight);
 }
@@ -308,34 +101,19 @@
   font-size: var(--font-size-small);
   font-weight: var(--font-weight-semibold);
 }
-.simple-journey-link {
-  color: var(--fg-blue);
-  text-decoration: none;
-  align-self: flex-start;
-}
+.simple-journey-link { color: var(--fg-blue); text-decoration: none; align-self: flex-start; }
 .simple-journey-link:hover { text-decoration: underline; }
-.simple-journey-current { color: var(--fg-mint); }
+.simple-journey-current { color: var(--text-color-accent); }
 
-.simple-journey-note {
-  margin: calc(var(--nav-size) * 0.2) 0 0;
-  text-align: center;
-  font-size: var(--font-size-small);
-  line-height: var(--line-height-relaxed);
-  color: var(--text-color-accent);
-}
-
-/* Responsive */
-@media (orientation: portrait) {
-  .simple-hero { flex-direction: column; text-align: center; }
-  .simple-title-wrap { align-items: center; }
-  .simple-actions { justify-content: center; }
-  .simple-tile { text-align: center; }
+/* No scroll reveal and no stagger here: service-page content is present the
+   moment it paints, so nothing arrives late (FRONTEND_UI_STANDARD.md §5.7). */
+/* Responsive: key off WIDTH, not orientation — a tall desktop window is still
+   wide. */
+@media (max-width: 860px) {
   .simple-journey-list { grid-template-columns: 1fr; }
-  .simple-journey-card { text-align: left; }
+  .simple-intro { max-width: 100% !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .simple { animation: none; }
-  .simple-circle { animation: none; }
   .simple-journey-card:hover { transform: none; }
 }
